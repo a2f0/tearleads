@@ -21,7 +21,10 @@ const DRIVER_LICENSE_ATTACHMENT_COPY = {
 };
 
 export function DriverLicense() {
-  const { blobStore, isAuthenticated, online } = useTearleadsRuntime();
+  const { auth, infra, state } = useTearleadsRuntime();
+  const { isAuthenticated } = auth;
+  const { blobStore } = infra;
+  const { online } = state;
   const {
     attachments,
     attachmentStatusBySlotId,

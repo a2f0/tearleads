@@ -68,7 +68,18 @@ import {
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
-type TestRuntime = ExplorerRuntime & { close: () => void; execSql: ExecSql };
+type TestRuntime = ExplorerRuntime & { close: () => void };
+type ExplorerRuntimePatch = Partial<ExplorerRuntime> & {
+  cacheReferencedPrincipalPolicies?: ExplorerRuntime["util"]["cacheReferencedPrincipalPolicies"];
+  dbStatus?: ExplorerRuntime["infra"]["dbStatus"];
+  encapsulationKeyPair?: ExplorerRuntime["crypto"]["encapsulationKeyPair"];
+  isAuthenticated?: ExplorerRuntime["auth"]["isAuthenticated"];
+  online?: ExplorerRuntime["state"]["online"];
+  organizationId?: ExplorerRuntime["auth"]["organizationId"];
+  signingFingerprint?: ExplorerRuntime["crypto"]["signingFingerprint"];
+  signingKeyPair?: ExplorerRuntime["crypto"]["signingKeyPair"];
+  userId?: ExplorerRuntime["auth"]["userId"];
+};
 type ListedContainer = ContainerSummary;
 type TestContainerRecord = Parameters<
   typeof defaultExplorerPersistence.saveContainer
@@ -687,8 +698,10 @@ function createExplorerContainerApiHarness(
 async function createExplorerMetadataFixture(input: {
   containerId: string;
   documentId: string;
-  encapsulationKeyPair: NonNullable<TestRuntime["encapsulationKeyPair"]>;
-  execSql: TestRuntime["execSql"];
+  encapsulationKeyPair: NonNullable<
+    TestRuntime["crypto"]["encapsulationKeyPair"]
+  >;
+  execSql: TestRuntime["infra"]["execSql"];
   organizationId?: string;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }) {
@@ -809,17 +822,60 @@ async function createSqlRuntime(): Promise<TestRuntime> {
   return {
     ...runtime,
     close: runtimeBase.close,
-    execSql: runtimeBase.execSql,
   };
 }
 
 function runtimeWithPatch(
   runtime: TestRuntime,
-  patch: Partial<ExplorerRuntime>,
+  patch: ExplorerRuntimePatch,
 ): TestRuntime {
+  const {
+    cacheReferencedPrincipalPolicies,
+    dbStatus,
+    encapsulationKeyPair,
+    isAuthenticated,
+    online,
+    organizationId,
+    signingFingerprint,
+    signingKeyPair,
+    userId,
+    ...groupedPatch
+  } = patch;
+
   return {
     ...runtime,
-    ...patch,
+    ...groupedPatch,
+    auth: {
+      ...runtime.auth,
+      ...groupedPatch.auth,
+      ...(isAuthenticated === undefined ? {} : { isAuthenticated }),
+      ...(organizationId === undefined ? {} : { organizationId }),
+      ...(userId === undefined ? {} : { userId }),
+    },
+    crypto: {
+      ...runtime.crypto,
+      ...groupedPatch.crypto,
+      ...(encapsulationKeyPair === undefined ? {} : { encapsulationKeyPair }),
+      ...(signingFingerprint === undefined ? {} : { signingFingerprint }),
+      ...(signingKeyPair === undefined ? {} : { signingKeyPair }),
+    },
+    infra: {
+      ...runtime.infra,
+      ...groupedPatch.infra,
+      ...(dbStatus === undefined ? {} : { dbStatus }),
+    },
+    state: {
+      ...runtime.state,
+      ...groupedPatch.state,
+      ...(online === undefined ? {} : { online }),
+    },
+    util: {
+      ...runtime.util,
+      ...groupedPatch.util,
+      ...(cacheReferencedPrincipalPolicies === undefined
+        ? {}
+        : { cacheReferencedPrincipalPolicies }),
+    },
   };
 }
 
@@ -827,9 +883,9 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
   const runtime = await createSqlRuntime();
 
   try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -953,9 +1009,9 @@ test("explorer store deletes remote leaf containers through the API", async () =
       online: true,
     });
 
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -963,7 +1019,7 @@ test("explorer store deletes remote leaf containers through the API", async () =
       name: "/",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "remote-child",
       organizationId: "org-1",
       parentId: "root-container",
@@ -987,7 +1043,7 @@ test("explorer store deletes remote leaf containers through the API", async () =
       store.getSnapshot().nodes.some((node) => node.id === "remote-child"),
     ).toBe(false);
 
-    const remainingContainers = await loadContainers(runtime.execSql);
+    const remainingContainers = await loadContainers(runtime.infra.execSql);
     expect(remainingContainers.map((container) => container.id)).toEqual([
       "root-container",
     ]);
@@ -1009,9 +1065,9 @@ test("explorer store keeps remote containers local when API delete fails", async
       online: true,
     });
 
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -1019,7 +1075,7 @@ test("explorer store keeps remote containers local when API delete fails", async
       name: "/",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "remote-child",
       organizationId: "org-1",
       parentId: "root-container",
@@ -1072,9 +1128,9 @@ test("explorer store removes local remote containers when API delete returns 404
       online: true,
     });
 
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -1082,7 +1138,7 @@ test("explorer store removes local remote containers when API delete returns 404
       name: "/",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "remote-child",
       organizationId: "org-1",
       parentId: "root-container",
@@ -1106,7 +1162,7 @@ test("explorer store removes local remote containers when API delete returns 404
       store.getSnapshot().nodes.some((node) => node.id === "remote-child"),
     ).toBe(false);
 
-    const remainingContainers = await loadContainers(runtime.execSql);
+    const remainingContainers = await loadContainers(runtime.infra.execSql);
     expect(remainingContainers.map((container) => container.id)).toEqual([
       "root-container",
     ]);
@@ -1237,7 +1293,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
   });
 
   try {
-    await defaultExplorerPersistence.ensureSchema(runtime.execSql);
+    await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
 
     const state: ExplorerSyncState = {
       containersById: new Map(),
@@ -1263,7 +1319,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
           saveOptions,
         ) => {
           await defaultExplorerPersistence.saveContainer(
-            runtime.execSql,
+            runtime.infra.execSql,
             containerState.container,
             containerState.record,
             saveOptions,
@@ -1323,7 +1379,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
     expect(snapshotUpdateCount).toBe(1);
     expect(state.containersById.size).toBe(2);
     expect(cachedPrincipalBatches).toEqual([2]);
-    await expect(loadContainers(runtime.execSql)).resolves.toEqual(
+    await expect(loadContainers(runtime.infra.execSql)).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "container-a",
@@ -1355,7 +1411,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
   });
 
   try {
-    await defaultExplorerPersistence.ensureSchema(runtime.execSql);
+    await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
 
     const state: ExplorerSyncState = {
       containersById: new Map(),
@@ -1381,7 +1437,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
           saveOptions,
         ) => {
           await defaultExplorerPersistence.saveContainer(
-            runtime.execSql,
+            runtime.infra.execSql,
             containerState.container,
             containerState.record,
             saveOptions,
@@ -1583,14 +1639,14 @@ test("explorer store creates authenticated child containers through the API befo
     userId: "user-1",
   });
   try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
     const { initialUpdate: rootInitialUpdate } =
       await createInitializedContainerMetadataDocument("root-container", {
         icon: null,
         name: "/",
       });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -1599,7 +1655,7 @@ test("explorer store creates authenticated child containers through the API befo
       icon: null,
     });
     await saveDocumentRecord(
-      runtime.execSql,
+      runtime.infra.execSql,
       {
         appKind: "container-metadata",
         localId: "root-container",
@@ -1649,7 +1705,7 @@ test("explorer store creates authenticated child containers through the API befo
       },
     ]);
 
-    const persistedContainers = await loadContainers(runtime.execSql);
+    const persistedContainers = await loadContainers(runtime.infra.execSql);
     const persistedChild = persistedContainers.find(
       (container) => container.id === childNode.id,
     );
@@ -1662,7 +1718,7 @@ test("explorer store creates authenticated child containers through the API befo
     expect(childNode.organizationId).toBe("org-1");
     expect(childNode.parentId).toBe("root-container");
     await waitForCondition(async () => {
-      const pendingRows = await runtime.execSql(
+      const pendingRows = await runtime.infra.execSql(
         `
  SELECT COUNT(*) AS count
  FROM document_pending_updates
@@ -1707,9 +1763,9 @@ test("explorer store queues authenticated child create when parent has no remote
   });
 
   try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -1737,7 +1793,7 @@ test("explorer store queues authenticated child create when parent has no remote
 
     const pendingIntents =
       await defaultExplorerPersistence.listPendingCreateIntents(
-        runtime.execSql,
+        runtime.infra.execSql,
       );
     expect(pendingIntents).toEqual([
       expect.objectContaining({
@@ -1747,7 +1803,7 @@ test("explorer store queues authenticated child create when parent has no remote
       }),
     ]);
 
-    const pendingUpdateRows = await runtime.execSql(
+    const pendingUpdateRows = await runtime.infra.execSql(
       `
  SELECT COUNT(*) AS count
  FROM document_pending_updates
@@ -1777,14 +1833,14 @@ test("explorer sync creates queued local containers parent before child", async 
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
     const { initialUpdate: rootInitialUpdate } =
       await createInitializedContainerMetadataDocument("root-container", {
         icon: null,
         name: "/",
       });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -1793,7 +1849,7 @@ test("explorer sync creates queued local containers parent before child", async 
       icon: null,
     });
     await saveDocumentRecord(
-      runtime.execSql,
+      runtime.infra.execSql,
       {
         appKind: "container-metadata",
         localId: "root-container",
@@ -1928,11 +1984,11 @@ test("explorer sync creates queued local containers parent before child", async 
     ]);
     expect(
       await defaultExplorerPersistence.listPendingCreateIntents(
-        runtime.execSql,
+        runtime.infra.execSql,
       ),
     ).toEqual([]);
 
-    const persistedContainers = await loadContainers(runtime.execSql);
+    const persistedContainers = await loadContainers(runtime.infra.execSql);
     expect(
       persistedContainers.find((container) => container.id === parentNode.id)
         ?.metadataDocumentId,
@@ -2225,7 +2281,7 @@ test("explorer store moves an authenticated child container through the API and 
     ]);
     expect(movedNode.parentId).toBe("parent-b");
 
-    const persistedContainers = await loadContainers(runtime.execSql);
+    const persistedContainers = await loadContainers(runtime.infra.execSql);
     expect(
       persistedContainers.find(
         (container) => container.id === "child-container",
@@ -2293,9 +2349,9 @@ test("explorer store shares an authenticated container without reseeding metadat
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -2303,7 +2359,7 @@ test("explorer store shares an authenticated container without reseeding metadat
       name: "/",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "child-container",
       organizationId: "org-1",
       parentId: "root-container",
@@ -2319,7 +2375,7 @@ test("explorer store shares an authenticated container without reseeding metadat
       },
     );
     await saveDocumentRecord(
-      runtime.execSql,
+      runtime.infra.execSql,
       {
         appKind: "container-metadata",
         localId: "child-container",
@@ -2356,7 +2412,7 @@ test("explorer store shares an authenticated container without reseeding metadat
     expect(shared).toBe(true);
 
     await waitForCondition(async () => {
-      const rows = await runtime.execSql(
+      const rows = await runtime.infra.execSql(
         `
  SELECT
  content_key_bundle,
@@ -2415,7 +2471,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     containerId: "child-container",
     documentId: "metadata-document-1",
     encapsulationKeyPair: localKeyPair,
-    execSql: runtime.execSql,
+    execSql: runtime.infra.execSql,
     syncCalls,
   });
 
@@ -2435,9 +2491,9 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
   });
 
   try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
-    await saveContainer(runtime.execSql, {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -2445,7 +2501,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       name: "/",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "child-container",
       organizationId: "org-1",
       parentId: "root-container",
@@ -2461,7 +2517,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       },
     );
     await saveDocumentRecord(
-      runtime.execSql,
+      runtime.infra.execSql,
       {
         appKind: "container-metadata",
         localId: "child-container",
@@ -2495,7 +2551,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
     await createdStore.renameContainer("child-container", "Docs updated");
 
     await waitForCondition(async () => {
-      const pendingRows = await runtime.execSql(
+      const pendingRows = await runtime.infra.execSql(
         `
  SELECT COUNT(*) AS count
  FROM document_pending_updates
@@ -2514,7 +2570,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       );
     }, "Follow-up metadata sync did not complete.");
 
-    const documentRows = await runtime.execSql(
+    const documentRows = await runtime.infra.execSql(
       `
  SELECT
  last_commit_lsn,
@@ -2671,7 +2727,7 @@ test("explorer store refreshes remote containers on demand after initialization"
     ).toBe(true);
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane(null),
       ),
     ).resolves.toEqual({
@@ -2728,7 +2784,7 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
       },
     );
     await saveContainer(
-      runtime.execSql,
+      runtime.infra.execSql,
       {
         id: input.id,
         icon: null,
@@ -2746,7 +2802,7 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
       },
     );
     await saveDocumentRecord(
-      runtime.execSql,
+      runtime.infra.execSql,
       {
         appKind: "container-metadata",
         localId: input.id,
@@ -2811,8 +2867,8 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
   });
 
   try {
-    await ensureContainerTables(runtime.execSql);
-    await ensureDocumentTables(runtime.execSql);
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
     await saveStaleRemoteContainer({
       id: "shared-root-container",
       metadataAccessStateHash: "shared-root-access-state-hash-1",
@@ -2868,7 +2924,7 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
       refreshedNodes.find((node) => node.id === "shared-child-container-b")
         ?.syncState,
     ).toEqual(createContainerDocumentObjectSyncState({}));
-    await expect(loadContainers(runtime.execSql)).resolves.toEqual(
+    await expect(loadContainers(runtime.infra.execSql)).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "shared-root-container",
@@ -2928,10 +2984,10 @@ test("explorer hydration reconciles a restored local-only root into the authenti
     organizationId: "org-remote",
   });
 
-  await ensureContainerTables(runtime.execSql);
-  await ensureDocumentTables(runtime.execSql);
+  await ensureContainerTables(runtime.infra.execSql);
+  await ensureDocumentTables(runtime.infra.execSql);
   const localRoot = await defaultExplorerPersistence.saveContainer(
-    runtime.execSql,
+    runtime.infra.execSql,
     {
       id: "local-root",
       icon: null,
@@ -2943,7 +2999,7 @@ test("explorer hydration reconciles a restored local-only root into the authenti
     null,
   );
   await defaultExplorerPersistence.saveContainer(
-    runtime.execSql,
+    runtime.infra.execSql,
     {
       id: "local-child",
       icon: null,
@@ -2970,9 +3026,13 @@ test("explorer hydration reconciles a restored local-only root into the authenti
     text: "Local note",
     title: "Local note",
   };
-  await defaultDocumentsPersistence.saveDocument(runtime.execSql, localNote, {
-    updatedAt: "2026-05-05T00:00:00.000Z",
-  });
+  await defaultDocumentsPersistence.saveDocument(
+    runtime.infra.execSql,
+    localNote,
+    {
+      updatedAt: "2026-05-05T00:00:00.000Z",
+    },
+  );
 
   let store: ReturnType<typeof createExplorerStore> | null = null;
   try {
@@ -2997,7 +3057,7 @@ test("explorer hydration reconciles a restored local-only root into the authenti
 
     const pendingIntents =
       await defaultExplorerPersistence.listPendingCreateIntents(
-        runtime.execSql,
+        runtime.infra.execSql,
       );
     expect(pendingIntents).toEqual([
       expect.objectContaining({
@@ -3006,7 +3066,10 @@ test("explorer hydration reconciles a restored local-only root into the authenti
       }),
     ]);
     await expect(
-      defaultDocumentsPersistence.loadDocument(runtime.execSql, "local-note"),
+      defaultDocumentsPersistence.loadDocument(
+        runtime.infra.execSql,
+        "local-note",
+      ),
     ).resolves.toMatchObject({
       containerId: "remote-root",
       documentId: null,
@@ -3208,13 +3271,13 @@ test("explorer sync retries failed parent lane batches without advancing their w
 
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane("parent-a"),
       ),
     ).resolves.toBeNull();
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane("parent-b"),
       ),
     ).resolves.toBeNull();
@@ -3232,7 +3295,7 @@ test("explorer sync retries failed parent lane batches without advancing their w
 
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane("parent-a"),
       ),
     ).resolves.toEqual({
@@ -3241,7 +3304,7 @@ test("explorer sync retries failed parent lane batches without advancing their w
     });
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane("parent-b"),
       ),
     ).resolves.toEqual({
@@ -3309,11 +3372,11 @@ test("explorer sync applies container tombstones before advancing the parent wat
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {
-    await defaultExplorerPersistence.ensureSchema(runtime.execSql);
-    await defaultDocumentsPersistence.ensureSchema(runtime.execSql);
-    await initializeExplorerDocumentLinksSchema(runtime.execSql);
+    await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
+    await defaultDocumentsPersistence.ensureSchema(runtime.infra.execSql);
+    await initializeExplorerDocumentLinksSchema(runtime.infra.execSql);
 
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "root-container",
       organizationId: "org-1",
       parentId: null,
@@ -3321,7 +3384,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       name: "/",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "child-container",
       organizationId: "org-1",
       parentId: "root-container",
@@ -3329,7 +3392,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       name: "Child",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "archive-container",
       organizationId: "org-1",
       parentId: "root-container",
@@ -3337,7 +3400,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       name: "Archive",
       icon: null,
     });
-    await saveContainer(runtime.execSql, {
+    await saveContainer(runtime.infra.execSql, {
       id: "grandchild-container",
       organizationId: "org-1",
       parentId: "child-container",
@@ -3346,7 +3409,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       icon: null,
     });
     await defaultDocumentsPersistence.saveDocument(
-      runtime.execSql,
+      runtime.infra.execSql,
       {
         accessEpoch: 1,
         accessStateHash: "document-access-state-hash-1",
@@ -3359,12 +3422,13 @@ test("explorer sync applies container tombstones before advancing the parent wat
       },
       { updatedAt: "2026-05-05T00:00:00.000Z" },
     );
-    await replaceExplorerDocumentLinks(runtime.execSql, "remote-document", [
-      "archive-container",
-      "child-container",
-    ]);
+    await replaceExplorerDocumentLinks(
+      runtime.infra.execSql,
+      "remote-document",
+      ["archive-container", "child-container"],
+    );
     await saveExplorerContainerSyncWatermark(
-      runtime.execSql,
+      runtime.infra.execSql,
       createExplorerContainerParentSyncLane("child-container"),
       {
         id: "previous-child-lane",
@@ -3372,7 +3436,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       },
     );
     await saveExplorerContainerSyncWatermark(
-      runtime.execSql,
+      runtime.infra.execSql,
       createExplorerContainerContentsSyncLane("child-container"),
       {
         id: "previous-document-lane",
@@ -3380,7 +3444,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
       },
     );
     await saveExplorerContainerSyncWatermark(
-      runtime.execSql,
+      runtime.infra.execSql,
       createExplorerContainerParentSyncLane("grandchild-container"),
       {
         id: "previous-grandchild-lane",
@@ -3421,7 +3485,7 @@ test("explorer sync applies container tombstones before advancing the parent wat
     ).toBe(false);
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane("root-container"),
       ),
     ).resolves.toEqual({
@@ -3430,31 +3494,31 @@ test("explorer sync applies container tombstones before advancing the parent wat
     });
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane("child-container"),
       ),
     ).resolves.toBeNull();
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerContentsSyncLane("child-container"),
       ),
     ).resolves.toBeNull();
     await expect(
       loadExplorerContainerSyncWatermark(
-        runtime.execSql,
+        runtime.infra.execSql,
         createExplorerContainerParentSyncLane("grandchild-container"),
       ),
     ).resolves.toBeNull();
     await expect(
       listExplorerDocumentLinkedContainerIds(
-        runtime.execSql,
+        runtime.infra.execSql,
         "remote-document",
       ),
     ).resolves.toEqual(["archive-container"]);
 
     const repairedDocument = await defaultDocumentsPersistence.loadDocument(
-      runtime.execSql,
+      runtime.infra.execSql,
       "local-document",
     );
     expect(repairedDocument?.containerId).toBe("archive-container");

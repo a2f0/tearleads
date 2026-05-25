@@ -11,7 +11,7 @@ import {
 } from "../../../stores/explorer/documentSummaryUtils";
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
-  dbStatus: RuntimeSnapshot["dbStatus"];
+  dbStatus: RuntimeSnapshot["infra"]["dbStatus"];
   documentReadModel: ContainerDocumentReadModel;
   documentLinkProjectionVersion: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;

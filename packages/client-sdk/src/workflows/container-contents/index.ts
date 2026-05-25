@@ -80,7 +80,14 @@ export {
 } from "./projectionKeys";
 export {
   type ContainerContentsWorkflowRuntime,
+  type ContainerContentsWorkflowRuntimeAuth,
+  type ContainerContentsWorkflowRuntimeCrypto,
+  type ContainerContentsWorkflowRuntimeGroups,
+  type ContainerContentsWorkflowRuntimeInfra,
   type ContainerContentsWorkflowRuntimeInput,
+  type ContainerContentsWorkflowRuntimeInputGroups,
+  type ContainerContentsWorkflowRuntimeState,
+  type ContainerContentsWorkflowRuntimeUtil,
   createContainerContentsDocumentsRuntime,
   createContainerContentsWorkflowRuntime,
 } from "./runtime";

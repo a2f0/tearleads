@@ -174,7 +174,7 @@ export function useExplorerPanelState(params: {
       contextMenuState.handleSidebarDocumentContextMenu,
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
-    online: appData.online,
+    online: appData.state.online,
     ready: explorer.ready,
     selectedId: selection.selectedId,
     selectDocumentProjection,
@@ -204,7 +204,7 @@ export function useExplorerPanelState(params: {
     appData: explorerDocumentsAppData,
     documentReadModel,
     labels: explorerDroppedFileImportLabels,
-    logError: appData.logError,
+    logError: appData.util.logError,
     mergeDocumentSummary,
   });
   return {

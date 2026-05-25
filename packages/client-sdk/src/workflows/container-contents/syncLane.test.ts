@@ -34,9 +34,15 @@ test("registerContainerContentsSyncLane registers the container contents lane fo
 
 test("didRegainContainerContentsSyncPrerequisites detects restored sync inputs", () => {
   const runtime = {
-    encapsulationKeyPair: null,
-    isAuthenticated: false,
-    online: false,
+    auth: {
+      isAuthenticated: false,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+    },
+    state: {
+      online: false,
+    },
   };
 
   expect(didRegainContainerContentsSyncPrerequisites(runtime, runtime)).toBe(
@@ -45,19 +51,25 @@ test("didRegainContainerContentsSyncPrerequisites detects restored sync inputs",
   expect(
     didRegainContainerContentsSyncPrerequisites(runtime, {
       ...runtime,
-      online: true,
+      state: {
+        online: true,
+      },
     }),
   ).toBe(true);
   expect(
     didRegainContainerContentsSyncPrerequisites(runtime, {
       ...runtime,
-      isAuthenticated: true,
+      auth: {
+        isAuthenticated: true,
+      },
     }),
   ).toBe(true);
   expect(
     didRegainContainerContentsSyncPrerequisites(runtime, {
       ...runtime,
-      encapsulationKeyPair: {},
+      crypto: {
+        encapsulationKeyPair: {},
+      },
     }),
   ).toBe(true);
 });

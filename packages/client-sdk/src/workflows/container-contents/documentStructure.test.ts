@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import type { DocumentSummary } from "../../data/documentSummary";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { createDomainScope } from "../../data/domainScope";
 import {
   activateDocumentLinkState,
   canMutateDocumentLink,
@@ -10,15 +12,35 @@ import {
 
 function createRuntime(logs: string[] = []): DocumentStructuralMutationRuntime {
   return {
-    execSql: async () => [],
     apiClient: {} as DocumentStructuralMutationRuntime["apiClient"],
-    dbStatus: "ready",
-    encapsulationKeyPair: null,
-    isAuthenticated: true,
-    log: (message) => {
-      logs.push(message);
+    auth: {
+      isAuthenticated: true,
+      organizationId: null,
+      userId: null,
     },
-    online: true,
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: null as never,
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: async () => [],
+    },
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => undefined,
+      log: (message) => {
+        logs.push(message);
+      },
+    },
     resolveProjectionUserKey: async () => null,
   };
 }
@@ -38,23 +60,23 @@ test("canMutateDocumentLink checks local mutation prerequisites", () => {
   expect(canMutateDocumentLink(createRuntime())).toBe(true);
   expect(
     canMutateDocumentLink({
-      dbStatus: "loading",
-      isAuthenticated: true,
-      online: true,
+      auth: { isAuthenticated: true },
+      infra: { dbStatus: "loading" },
+      state: { online: true },
     }),
   ).toBe(false);
   expect(
     canMutateDocumentLink({
-      dbStatus: "ready",
-      isAuthenticated: false,
-      online: true,
+      auth: { isAuthenticated: false },
+      infra: { dbStatus: "ready" },
+      state: { online: true },
     }),
   ).toBe(false);
   expect(
     canMutateDocumentLink({
-      dbStatus: "ready",
-      isAuthenticated: true,
-      online: false,
+      auth: { isAuthenticated: true },
+      infra: { dbStatus: "ready" },
+      state: { online: false },
     }),
   ).toBe(false);
 });

@@ -1,13 +1,16 @@
 import type { ContainerDocumentLinksRuntime } from "@tearleads/client-sdk";
 import { useMemo } from "react";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  type RuntimeSnapshot,
+  useTearleads,
+} from "../../providers/sdk/TearleadsProvider";
 
 export interface ExplorerDocumentsRuntimeAppDataInput {
-  dbStatus: string;
-  domainScope: object;
-  events: ReadonlyArray<unknown>;
-  isAuthenticated: boolean;
-  online: boolean;
+  auth: RuntimeSnapshot["auth"];
+  crypto: RuntimeSnapshot["crypto"];
+  infra: RuntimeSnapshot["infra"];
+  state: RuntimeSnapshot["state"];
+  util: RuntimeSnapshot["util"];
 }
 
 export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
@@ -24,6 +27,13 @@ export function useExplorerDocumentsRuntimeAppData(
 
   return useMemo(
     () => containerContents.documentLinksRuntime(),
-    [appData, containerContents],
+    [
+      appData.auth,
+      appData.crypto,
+      appData.infra,
+      appData.state,
+      appData.util,
+      containerContents,
+    ],
   );
 }

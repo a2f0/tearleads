@@ -72,11 +72,15 @@ interface StoredDocumentsState {
 type DocumentsRuntimeInput = Parameters<
   typeof createDocumentsWorkflowRuntime
 >[0];
-type DocumentsTestRuntime = DocumentsRuntime &
-  Pick<
-    DocumentsRuntimeInput,
-    "apiClient" | "blobStore" | "cacheReferencedPrincipalPolicies" | "execSql"
-  >;
+type DocumentsTestRuntime = DocumentsRuntime;
+type DocumentsRuntimeInputOverrides = {
+  apiClient?: DocumentsRuntimeInput["apiClient"];
+  auth?: Partial<DocumentsRuntimeInput["auth"]>;
+  crypto?: Partial<DocumentsRuntimeInput["crypto"]>;
+  infra?: Partial<DocumentsRuntimeInput["infra"]>;
+  state?: Partial<DocumentsRuntimeInput["state"]>;
+  util?: Partial<DocumentsRuntimeInput["util"]>;
+};
 
 interface ContentRecordFields {
   ciphertext?: unknown;
@@ -135,67 +139,82 @@ function createUnavailableDocumentsApiClient(
   });
 }
 
+function createDocumentsRuntimeInput(
+  overrides: DocumentsRuntimeInputOverrides = {},
+): DocumentsRuntimeInput {
+  return {
+    apiClient:
+      overrides.apiClient ??
+      createUnavailableDocumentsApiClient("root-container"),
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+      ...overrides.auth,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+      ...overrides.crypto,
+    },
+    infra: {
+      blobStore: createMemoryBlobStore(),
+      dbStatus: "ready",
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      execSql: async () => [],
+      ...overrides.infra,
+    },
+    state: {
+      containerId: "root-container",
+      domainScope: createDomainScope(),
+      events: [],
+      online: false,
+      ...overrides.state,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => {},
+      log: () => {},
+      ...overrides.util,
+    },
+  };
+}
+
 function createDocumentsTestRuntime(
   input: DocumentsRuntimeInput,
 ): DocumentsTestRuntime {
-  const runtimeInput = {
-    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-    ...input,
-  };
-
-  return {
-    ...createDocumentsWorkflowRuntime(runtimeInput),
-    apiClient: runtimeInput.apiClient,
-    blobStore: runtimeInput.blobStore,
-    cacheReferencedPrincipalPolicies:
-      runtimeInput.cacheReferencedPrincipalPolicies,
-    execSql: runtimeInput.execSql,
-  };
+  return createDocumentsWorkflowRuntime(input);
 }
 
 function cloneDocumentsTestRuntime(
   runtime: DocumentsTestRuntime,
-  overrides: Partial<DocumentsRuntimeInput>,
+  overrides: DocumentsRuntimeInputOverrides,
 ): DocumentsTestRuntime {
-  return createDocumentsTestRuntime({
-    apiClient: overrides.apiClient ?? runtime.apiClient,
-    blobStore: overrides.blobStore ?? runtime.blobStore,
-    cacheReferencedPrincipalPolicies:
-      overrides.cacheReferencedPrincipalPolicies ??
-      runtime.cacheReferencedPrincipalPolicies,
-    containerId:
-      (Object.hasOwn(overrides, "containerId")
-        ? overrides.containerId
-        : runtime.containerId) ?? null,
-    dbStatus: overrides.dbStatus ?? runtime.dbStatus,
-    documentProjectors:
-      overrides.documentProjectors ?? runtime.documentProjectors,
-    domainScope: overrides.domainScope ?? runtime.domainScope,
-    encapsulationKeyPair: Object.hasOwn(overrides, "encapsulationKeyPair")
-      ? overrides.encapsulationKeyPair
-      : runtime.encapsulationKeyPair,
-    events: overrides.events ?? runtime.events,
-    execSql: overrides.execSql ?? runtime.execSql,
-    isAuthenticated: overrides.isAuthenticated ?? runtime.isAuthenticated,
-    log: overrides.log ?? runtime.log,
-    online: overrides.online ?? runtime.online,
-    organizationId:
-      (Object.hasOwn(overrides, "organizationId")
-        ? overrides.organizationId
-        : runtime.organizationId) ?? null,
-    signingFingerprint:
-      (Object.hasOwn(overrides, "signingFingerprint")
-        ? overrides.signingFingerprint
-        : runtime.signingFingerprint) ?? null,
-    signingKeyPair:
-      (Object.hasOwn(overrides, "signingKeyPair")
-        ? overrides.signingKeyPair
-        : runtime.signingKeyPair) ?? null,
-    userId:
-      (Object.hasOwn(overrides, "userId")
-        ? overrides.userId
-        : runtime.userId) ?? null,
-  });
+  return createDocumentsTestRuntime(
+    createDocumentsRuntimeInput({
+      apiClient: overrides.apiClient ?? runtime.apiClient,
+      auth: {
+        ...runtime.auth,
+        ...overrides.auth,
+      },
+      crypto: {
+        ...runtime.crypto,
+        ...overrides.crypto,
+      },
+      infra: {
+        ...runtime.infra,
+        ...overrides.infra,
+      },
+      state: {
+        ...runtime.state,
+        ...overrides.state,
+      },
+      util: {
+        ...runtime.util,
+        ...overrides.util,
+      },
+    }),
+  );
 }
 
 async function createPersistedDocumentSnapshot(text: string): Promise<string> {
@@ -393,8 +412,29 @@ interface DocumentRuntimePatch {
   apiClient: DocumentsRuntimeInput["apiClient"];
   organizationId: string;
   signingFingerprint: string;
-  signingKeyPair: NonNullable<DocumentsRuntimeInput["signingKeyPair"]>;
+  signingKeyPair: NonNullable<
+    DocumentsRuntimeInput["crypto"]["signingKeyPair"]
+  >;
   userId: string;
+}
+
+function documentProjectionRuntimeFromPatch(
+  patch: DocumentRuntimePatch,
+  encapsulationKeyPair: NonNullable<
+    DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
+  >,
+) {
+  return {
+    apiClient: patch.apiClient,
+    auth: {
+      userId: patch.userId,
+    },
+    crypto: {
+      encapsulationKeyPair,
+      signingFingerprint: patch.signingFingerprint,
+      signingKeyPair: patch.signingKeyPair,
+    },
+  };
 }
 
 async function createDocumentRuntimePatch(input: {
@@ -404,7 +444,7 @@ async function createDocumentRuntimePatch(input: {
   }>;
   containerId?: string;
   encapsulationKeyPair: NonNullable<
-    DocumentsRuntimeInput["encapsulationKeyPair"]
+    DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
   >;
   onBindBlobAttachment?: (
     blobId: string,
@@ -844,25 +884,19 @@ function createDocumentsPersistence(): DocumentsPersistence & {
 }
 
 function createRuntime(containerId = "root-container"): DocumentsTestRuntime {
-  return createDocumentsTestRuntime({
-    apiClient: createUnavailableDocumentsApiClient(containerId),
-    blobStore: createMemoryBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => {},
-    containerId,
-    dbStatus: "ready",
-    domainScope: createDomainScope(),
-    encapsulationKeyPair: null,
-    events: [],
-    execSql: async () => [],
-    isAuthenticated: false,
-    log: () => {},
-    online: false,
-  });
+  return createDocumentsTestRuntime(
+    createDocumentsRuntimeInput({
+      apiClient: createUnavailableDocumentsApiClient(containerId),
+      state: {
+        containerId,
+      },
+    }),
+  );
 }
 
 async function createSyncRuntimeInput(
   encapsulationKeyPair: NonNullable<
-    DocumentsRuntimeInput["encapsulationKeyPair"]
+    DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
   >,
   containerId = "root-container",
   options: {
@@ -894,27 +928,38 @@ async function createSyncRuntimeInput(
   });
   return {
     apiClient: patch.apiClient,
-    blobStore: createMemoryBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => {},
-    containerId,
-    dbStatus: "ready",
-    domainScope: createDomainScope(),
-    encapsulationKeyPair,
-    events: [],
-    execSql: async () => [],
-    isAuthenticated: true,
-    log: () => {},
-    online: true,
-    organizationId: patch.organizationId,
-    signingFingerprint: patch.signingFingerprint,
-    signingKeyPair: patch.signingKeyPair,
-    userId: patch.userId,
+    auth: {
+      isAuthenticated: true,
+      organizationId: patch.organizationId,
+      userId: patch.userId,
+    },
+    crypto: {
+      encapsulationKeyPair,
+      signingFingerprint: patch.signingFingerprint,
+      signingKeyPair: patch.signingKeyPair,
+    },
+    infra: {
+      blobStore: createMemoryBlobStore(),
+      dbStatus: "ready",
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      execSql: async () => [],
+    },
+    state: {
+      containerId,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => {},
+      log: () => {},
+    },
   };
 }
 
 async function createSyncRuntime(
   encapsulationKeyPair: NonNullable<
-    DocumentsRuntimeInput["encapsulationKeyPair"]
+    DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
   >,
   containerId = "root-container",
   options: {
@@ -937,24 +982,21 @@ async function createSyncRuntime(
 
 function createOfflineAttachmentRuntime(
   encapsulationKeyPair: NonNullable<
-    DocumentsRuntimeInput["encapsulationKeyPair"]
+    DocumentsRuntimeInput["crypto"]["encapsulationKeyPair"]
   >,
   containerId = "root-container",
 ): DocumentsTestRuntime {
-  return createDocumentsTestRuntime({
-    apiClient: createUnavailableDocumentsApiClient(containerId),
-    blobStore: createMemoryBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => {},
-    containerId,
-    dbStatus: "ready",
-    domainScope: createDomainScope(),
-    encapsulationKeyPair,
-    events: [],
-    execSql: async () => [],
-    isAuthenticated: false,
-    log: () => {},
-    online: false,
-  });
+  return createDocumentsTestRuntime(
+    createDocumentsRuntimeInput({
+      apiClient: createUnavailableDocumentsApiClient(containerId),
+      crypto: {
+        encapsulationKeyPair,
+      },
+      state: {
+        containerId,
+      },
+    }),
+  );
 }
 
 async function waitForStoredDocumentText(
@@ -963,7 +1005,7 @@ async function waitForStoredDocumentText(
   text: string,
 ) {
   await waitForCondition(async () => {
-    const rows = await runtime.execSql(
+    const rows = await runtime.infra.execSql(
       `
  SELECT text
  FROM document_projection
@@ -990,7 +1032,10 @@ async function createSqlRuntime(): Promise<
     ...createDocumentsTestRuntime({
       ...runtimeInputBase,
       apiClient: createUnavailableDocumentsApiClient(),
-      containerId: "root-container",
+      state: {
+        ...runtimeInputBase.state,
+        containerId: "root-container",
+      },
     }),
     close,
   };
@@ -1004,18 +1049,24 @@ test("primeDocumentStore reuses a synced remote note across different local ids"
   });
   const runtime = cloneDocumentsTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
-    encapsulationKeyPair,
-    isAuthenticated: true,
-    online: true,
-    organizationId: patch.organizationId,
-    signingFingerprint: patch.signingFingerprint,
-    signingKeyPair: patch.signingKeyPair,
-    userId: patch.userId,
+    auth: {
+      isAuthenticated: true,
+      organizationId: patch.organizationId,
+      userId: patch.userId,
+    },
+    crypto: {
+      encapsulationKeyPair,
+      signingFingerprint: patch.signingFingerprint,
+      signingKeyPair: patch.signingKeyPair,
+    },
+    state: {
+      online: true,
+    },
   });
 
   try {
     const firstStore = primeDocumentStore(
-      runtime.domainScope,
+      runtime.state.domainScope,
       "note-1",
       runtime,
     );
@@ -1036,7 +1087,7 @@ test("primeDocumentStore reuses a synced remote note across different local ids"
     }
 
     const secondStore = primeDocumentStore(
-      runtime.domainScope,
+      runtime.state.domainScope,
       "default",
       runtime,
       remoteDocumentId,
@@ -1061,23 +1112,29 @@ test("primeDocumentStore collapses live duplicate document facades after remote 
   });
   const runtime = cloneDocumentsTestRuntime(runtimeBase, {
     apiClient: patch.apiClient,
-    encapsulationKeyPair,
-    isAuthenticated: true,
-    online: true,
-    organizationId: patch.organizationId,
-    signingFingerprint: patch.signingFingerprint,
-    signingKeyPair: patch.signingKeyPair,
-    userId: patch.userId,
+    auth: {
+      isAuthenticated: true,
+      organizationId: patch.organizationId,
+      userId: patch.userId,
+    },
+    crypto: {
+      encapsulationKeyPair,
+      signingFingerprint: patch.signingFingerprint,
+      signingKeyPair: patch.signingKeyPair,
+    },
+    state: {
+      online: true,
+    },
   });
 
   try {
     const firstStore = primeDocumentStore(
-      runtime.domainScope,
+      runtime.state.domainScope,
       "note-1",
       runtime,
     );
     const secondStore = primeDocumentStore(
-      runtime.domainScope,
+      runtime.state.domainScope,
       "default",
       runtime,
       "shared-remote-note",
@@ -1130,13 +1187,13 @@ test("domain-scoped persisted document subscriptions fan out to multiple listene
   const firstListenerDocuments: DocumentSummary[] = [];
   const secondListenerDocuments: DocumentSummary[] = [];
   const unsubscribeFirst = subscribeToPersistedDocuments(
-    runtime.domainScope,
+    runtime.state.domainScope,
     (document) => {
       firstListenerDocuments.push(document);
     },
   );
   const unsubscribeSecond = subscribeToPersistedDocuments(
-    runtime.domainScope,
+    runtime.state.domainScope,
     (document) => {
       secondListenerDocuments.push(document);
     },
@@ -1173,7 +1230,9 @@ test("document store re-registers sync lane when runtime domain scope changes", 
   const persistence = createDocumentsPersistence();
   const firstRuntime = createRuntime();
   const secondRuntime = cloneDocumentsTestRuntime(firstRuntime, {
-    domainScope: createDomainScope(),
+    state: {
+      domainScope: createDomainScope(),
+    },
   });
   const store = createDocumentStore(
     "domain-scope-note",
@@ -1191,7 +1250,7 @@ test("document store re-registers sync lane when runtime domain scope changes", 
 
   let oldDomainSyncRequested = false;
   let nextDomainSyncRequested = false;
-  getOrCreateDomainSyncCoordinator(firstRuntime.domainScope).registerLane(
+  getOrCreateDomainSyncCoordinator(firstRuntime.state.domainScope).registerLane(
     "documents:domain-scope-note",
     {
       run: async () => {
@@ -1199,14 +1258,13 @@ test("document store re-registers sync lane when runtime domain scope changes", 
       },
     },
   );
-  getOrCreateDomainSyncCoordinator(secondRuntime.domainScope).registerLane(
-    "documents:domain-scope-note",
-    {
-      run: async () => {
-        nextDomainSyncRequested = true;
-      },
+  getOrCreateDomainSyncCoordinator(
+    secondRuntime.state.domainScope,
+  ).registerLane("documents:domain-scope-note", {
+    run: async () => {
+      nextDomainSyncRequested = true;
     },
-  );
+  });
 
   store.requestSync();
 
@@ -1320,7 +1378,7 @@ test("document store clears document state when access epoch changes", async () 
   const persistence = createDocumentsPersistence();
   const runtime = createRuntime();
 
-  await persistence.saveDocument(runtime.execSql, {
+  await persistence.saveDocument(runtime.infra.execSql, {
     accessEpoch: 1,
     accessStateHash: "access-state-hash-1",
     containerId: "container-a",
@@ -1378,7 +1436,9 @@ test("document store attaches files locally without authentication or network", 
     "offline-container",
   );
   const offlineRuntime = cloneDocumentsTestRuntime(runtime, {
-    blobStore,
+    infra: {
+      blobStore,
+    },
   });
   const store = createDocumentStore(
     "offline-attachment-note",
@@ -1444,14 +1504,10 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       syncCalls,
     },
   );
-  const runtime = createDocumentsTestRuntime({
-    ...runtimeInput,
-    containerId: runtimeInput.containerId ?? null,
-    organizationId: runtimeInput.organizationId ?? null,
-    signingFingerprint: runtimeInput.signingFingerprint ?? null,
-    signingKeyPair: runtimeInput.signingKeyPair ?? null,
-    userId: runtimeInput.userId ?? null,
-    log: (message) => logs.push(message),
+  const runtime = cloneDocumentsTestRuntime(runtimeInput, {
+    util: {
+      log: (message) => logs.push(message),
+    },
   });
   const store = createDocumentStore("attachment-upload", runtime, persistence);
   store.updateRuntime(runtime);
@@ -1517,7 +1573,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     encryptedBytes,
     expectedBindingId: bindingId,
     expectedBlobId: blobId,
-    execSql: runtime.execSql,
+    execSql: runtime.infra.execSql,
     resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
     writerProjection,
@@ -1531,7 +1587,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       encryptedBytes,
       expectedBindingId: "wrong-binding-id",
       expectedBlobId: blobId,
-      execSql: runtime.execSql,
+      execSql: runtime.infra.execSql,
       resolveProjectionUserKey,
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection,
@@ -1549,7 +1605,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       }),
       expectedBindingId: bindingId,
       expectedBlobId: blobId,
-      execSql: runtime.execSql,
+      execSql: runtime.infra.execSql,
       resolveProjectionUserKey,
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection,
@@ -1578,7 +1634,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       }),
       expectedBindingId: bindingId,
       expectedBlobId: blobId,
-      execSql: runtime.execSql,
+      execSql: runtime.infra.execSql,
       resolveProjectionUserKey,
       targetSecretKey: encapsulationKeyPair.secretKey,
       writerProjection,
@@ -1612,8 +1668,9 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
     signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
     signerUserId: runtimePatch.userId,
   };
-  const resolveProjectionUserKey =
-    createDocumentProjectionUserKeyResolver(runtimePatch);
+  const resolveProjectionUserKey = createDocumentProjectionUserKeyResolver(
+    documentProjectionRuntimeFromPatch(runtimePatch, encapsulationKeyPair),
+  );
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
@@ -1675,8 +1732,9 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
     signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
     signerUserId: runtimePatch.userId,
   };
-  const resolveProjectionUserKey =
-    createDocumentProjectionUserKeyResolver(runtimePatch);
+  const resolveProjectionUserKey = createDocumentProjectionUserKeyResolver(
+    documentProjectionRuntimeFromPatch(runtimePatch, encapsulationKeyPair),
+  );
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
@@ -1717,8 +1775,9 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
     signerPrivateKey: runtimePatch.signingKeyPair.signingPrivateKey,
     signerUserId: runtimePatch.userId,
   };
-  const resolveProjectionUserKey =
-    createDocumentProjectionUserKeyResolver(runtimePatch);
+  const resolveProjectionUserKey = createDocumentProjectionUserKeyResolver(
+    documentProjectionRuntimeFromPatch(runtimePatch, encapsulationKeyPair),
+  );
   const created = await createRemoteDocument({
     apiClient: runtimePatch.apiClient,
     author,
@@ -1853,7 +1912,7 @@ test("document store preserves a replacement queued during attachment upload", a
     throw new Error("Expected a local attachment after replacement upload.");
   }
 
-  const storedBytes = await runtime.blobStore.readBytes(
+  const storedBytes = await runtime.infra.blobStore.readBytes(
     localAttachment.storageKey,
   );
   expect(attachmentBinds).toHaveLength(2);
@@ -1982,7 +2041,7 @@ test("large note edits remain a single pending update row before sync", async ()
     store.setText(largeText);
 
     await waitForCondition(async () => {
-      const pendingRows = await runtime.execSql(
+      const pendingRows = await runtime.infra.execSql(
         `
  SELECT
  id,
@@ -1996,7 +2055,7 @@ test("large note edits remain a single pending update row before sync", async ()
         },
       );
 
-      const projectionRows = await runtime.execSql(
+      const projectionRows = await runtime.infra.execSql(
         `
  SELECT length(text) AS text_length
  FROM document_projection
@@ -2018,7 +2077,7 @@ test("large note edits remain a single pending update row before sync", async ()
       );
     }, "Large note edit was not persisted as a single pending update.");
 
-    const pendingRows = await runtime.execSql(
+    const pendingRows = await runtime.infra.execSql(
       `
  SELECT
  id,

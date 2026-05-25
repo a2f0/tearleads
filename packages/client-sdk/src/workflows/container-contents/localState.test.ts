@@ -21,7 +21,7 @@ import { loadLocalContainerStates } from "./localState";
 import { syncedContainerDocumentObjectSyncState } from "./syncState";
 
 const execSql: ExecSql = async () => [];
-const runtime = { execSql };
+const runtime = { infra: { execSql } };
 
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]
@@ -268,7 +268,7 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
     "containerContents-local-state-replay-synced-metadata",
   );
   try {
-    const runtime = { execSql };
+    const runtime = { infra: { execSql } };
     const syncedAt = "2026-05-01T00:00:00.000Z";
 
     await defaultContainerContentsPersistence.ensureSchema(execSql);

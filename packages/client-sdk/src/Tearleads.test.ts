@@ -85,6 +85,59 @@ describe("Tearleads", () => {
     expect(sdk.userKeys.fetch).toBeFunction();
   });
 
+  test("exposes grouped runtime input", () => {
+    const sqlClient = createNoopSqlClient();
+    const sdk = new Tearleads({
+      database: { client: sqlClient, id: "client-db", status: "ready" },
+      logger: quietLogger,
+      online: false,
+    });
+    sdk.session.setContext({
+      containerId: "container-1",
+      isAuthenticated: true,
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+
+    const input = sdk.runtime.input();
+
+    expect(input.auth).toEqual({
+      isAuthenticated: true,
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+    expect("apiClient" in input).toBe(false);
+    expect("userId" in input).toBe(false);
+    expect("execSql" in input).toBe(false);
+    expect("containerId" in input).toBe(false);
+  });
+
+  test("keeps unrelated runtime input groups referentially stable", () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    const initial = sdk.runtime.input();
+
+    sdk.session.setContext({
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+    const afterAuthChange = sdk.runtime.input();
+
+    expect(afterAuthChange.auth).not.toBe(initial.auth);
+    expect(afterAuthChange.crypto).toBe(initial.crypto);
+    expect(afterAuthChange.infra).toBe(initial.infra);
+    expect(afterAuthChange.state).toBe(initial.state);
+    expect(afterAuthChange.util).toBe(initial.util);
+
+    sdk.events.push({ type: "document.updated" });
+    const afterStateChange = sdk.runtime.input();
+
+    expect(afterStateChange.auth).toBe(afterAuthChange.auth);
+    expect(afterStateChange.crypto).toBe(afterAuthChange.crypto);
+    expect(afterStateChange.infra).toBe(afterAuthChange.infra);
+    expect(afterStateChange.state).not.toBe(afterAuthChange.state);
+    expect(afterStateChange.util).toBe(afterAuthChange.util);
+  });
+
   test("accepts document projector definitions in constructor options", () => {
     const definitions: ReadonlyArray<DocumentProjectorDefinition> = [
       {
@@ -100,7 +153,7 @@ describe("Tearleads", () => {
     expect(
       sdk.runtime
         .input()
-        .documentProjectors.getStoredDocumentTypeLabel("claim"),
+        .infra.documentProjectors.getStoredDocumentTypeLabel("claim"),
     ).toBe("claim");
   });
 
@@ -349,10 +402,10 @@ describe("Tearleads", () => {
       { containerId: "container-1" },
     );
 
-    expect(documents.containerId).toBe("container-1");
-    expect(documents.dbStatus).toBe("ready");
-    expect(documents.isAuthenticated).toBe(true);
-    expect(documents.online).toBe(true);
+    expect(documents.state.containerId).toBe("container-1");
+    expect(documents.infra.dbStatus).toBe("ready");
+    expect(documents.auth.isAuthenticated).toBe(true);
+    expect(documents.state.online).toBe(true);
     expect(resolveDocumentCreateAuthor(documents)).not.toBeNull();
     expect(sdk.documents.store().getSnapshot).toBeFunction();
     expect(
@@ -360,10 +413,11 @@ describe("Tearleads", () => {
     ).toBeFunction();
     expect(unsubscribeDocuments).toBeFunction();
     unsubscribeDocuments();
-    expect(containerContents.userId).toBe("user-1");
+    expect(containerContents.auth.userId).toBe("user-1");
     const documentLinksRuntime = sdk.containerContents.documentLinksRuntime();
     expect(
-      documentLinksRuntime.createDocumentRuntime("container-2").containerId,
+      documentLinksRuntime.createDocumentRuntime("container-2").state
+        .containerId,
     ).toBe("container-2");
     expect(documentLinksRuntime.resolveProjectionUserKey).toBeFunction();
     expect(documentLinksRuntime.canMutateDocumentLinks).toBe(true);
@@ -564,7 +618,7 @@ describe("Tearleads", () => {
     unsubscribeRuntime();
     sdk.session.logout();
 
-    expect(sdk.runtime.input().containerId).toBe("container-1");
+    expect(sdk.runtime.input().state.containerId).toBe("container-1");
     expect(sessionSnapshots).toEqual([
       {
         authToken: null,
@@ -588,8 +642,8 @@ describe("Tearleads", () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const input = sdk.runtime.input();
 
-    expect(input.dbStatus).toBe("idle");
-    await expect(input.execSql("select 1")).rejects.toThrow(
+    expect(input.infra.dbStatus).toBe("idle");
+    await expect(input.infra.execSql("select 1")).rejects.toThrow(
       "Database client is unavailable.",
     );
   });
@@ -620,7 +674,7 @@ describe("Tearleads", () => {
 
     sdk.database.clear("terminated");
 
-    await input.cacheReferencedPrincipalPolicies([
+    await input.util.cacheReferencedPrincipalPolicies([
       {
         keyEpoch: 1,
         keyFingerprint: "key-fingerprint",
@@ -648,13 +702,13 @@ describe("Tearleads", () => {
     const databaseScope = sdk.domainScope;
 
     expect(databaseScope).not.toBe(initialScope);
-    expect(sdk.runtime.input().domainScope).toBe(databaseScope);
+    expect(sdk.runtime.input().state.domainScope).toBe(databaseScope);
 
     await sdk.identity.generate();
     const identityScope = sdk.domainScope;
 
     expect(identityScope).not.toBe(databaseScope);
-    expect(sdk.runtime.input().domainScope).toBe(identityScope);
+    expect(sdk.runtime.input().state.domainScope).toBe(identityScope);
   });
 
   test("session registers the current identity through the internal api client", async () => {

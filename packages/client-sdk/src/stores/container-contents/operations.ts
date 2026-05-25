@@ -63,7 +63,7 @@ export async function createChildContainer(
 ) {
   const trimmedName = name.trim();
   if (
-    state.runtime.dbStatus !== "ready" ||
+    state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
     !trimmedName
   ) {
@@ -77,8 +77,8 @@ export async function createChildContainer(
 
   const created = await createChildContainerState({
     createRemote:
-      state.runtime.isAuthenticated &&
-      Boolean(state.runtime.encapsulationKeyPair),
+      state.runtime.auth.isAuthenticated &&
+      Boolean(state.runtime.crypto.encapsulationKeyPair),
     name: trimmedName,
     parentState,
     persistence: state.persistence,
@@ -97,7 +97,7 @@ export async function createChildContainer(
   if (created.shouldRequestSync) {
     syncAgent.scheduleSync();
   }
-  state.runtime.log(
+  state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: created container "${trimmedName}"`,
   );
   return toContainerNode(created.containerState);
@@ -107,7 +107,7 @@ export async function deleteContainer(
   state: ContainerContentsStoreState,
   containerId: string,
 ) {
-  if (state.runtime.dbStatus !== "ready" || !state.snapshot.ready) {
+  if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
     return null;
   }
 
@@ -124,7 +124,7 @@ export async function deleteContainer(
 
   const isRemoteContainer = Boolean(existingState.record.documentId);
   if (isRemoteContainer) {
-    if (!state.runtime.isAuthenticated || !state.runtime.online) {
+    if (!state.runtime.auth.isAuthenticated || !state.runtime.state.online) {
       return null;
     }
   }
@@ -141,7 +141,7 @@ export async function deleteContainer(
 
   state.containersById.delete(existingState.container.id);
   updateContainerContentsSnapshot(state);
-  state.runtime.log(
+  state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: deleted container "${existingState.container.name}"`,
   );
   return deletedNode;
@@ -155,7 +155,7 @@ export async function renameContainer(
 ) {
   const trimmedName = name.trim();
   if (
-    state.runtime.dbStatus !== "ready" ||
+    state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
     !trimmedName
   ) {
@@ -185,7 +185,7 @@ export async function renameContainer(
   existingState.record = renamed.record;
   updateContainerContentsSnapshot(state);
   syncAgent.scheduleSync();
-  state.runtime.log(
+  state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: renamed container to "${trimmedName}"`,
   );
   return toContainerNode(existingState);
@@ -198,10 +198,10 @@ export async function shareContainerWithUser(
   userId: string,
 ) {
   if (
-    state.runtime.dbStatus !== "ready" ||
+    state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
-    !state.runtime.isAuthenticated ||
-    !state.runtime.online
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online
   ) {
     return null;
   }
@@ -233,9 +233,9 @@ export async function shareContainerWithUser(
   existingState.record = shared.record;
   updateContainerContentsSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
-  requestDomainDocumentSync(state.runtime.domainScope);
+  requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
-  state.runtime.log(
+  state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with ${userId}`,
   );
   return toContainerNode(existingState);
@@ -249,10 +249,10 @@ export async function shareContainerWithGroup(
   accessLevel: ContainerContentsShareAccessLevel,
 ) {
   if (
-    state.runtime.dbStatus !== "ready" ||
+    state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
-    !state.runtime.isAuthenticated ||
-    !state.runtime.online
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online
   ) {
     return null;
   }
@@ -284,9 +284,9 @@ export async function shareContainerWithGroup(
   existingState.record = shared.record;
   updateContainerContentsSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
-  requestDomainDocumentSync(state.runtime.domainScope);
+  requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
-  state.runtime.log(
+  state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with group ${groupId}`,
   );
   return toContainerNode(existingState);
@@ -299,10 +299,10 @@ export async function moveContainer(
   parentId: string,
 ) {
   if (
-    state.runtime.dbStatus !== "ready" ||
+    state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
-    !state.runtime.isAuthenticated ||
-    !state.runtime.online
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online
   ) {
     return null;
   }
@@ -332,9 +332,9 @@ export async function moveContainer(
 
   await syncAgent.ingestRemoteContainer(moved);
   await syncAgent.requestRemoteHydration();
-  requestDomainDocumentSync(state.runtime.domainScope);
+  requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
-  state.runtime.log(
+  state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: moved container ${containerId} under ${parentId}`,
   );
   const latestState = state.containersById.get(containerId) ?? existingState;

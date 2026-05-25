@@ -15,7 +15,7 @@ import {
 } from "./metadata";
 
 const execSql: ExecSql = async () => [];
-const runtime = { execSql };
+const runtime = { infra: { execSql } };
 
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]

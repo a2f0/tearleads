@@ -21,7 +21,17 @@ interface StoredDocumentsState {
 
 type MutableDocumentsState = StoredDocumentsState;
 type RuntimeInput = Parameters<typeof createDocumentsWorkflowRuntime>[0];
-type FixtureBlobBytes = Parameters<RuntimeInput["blobStore"]["writeBytes"]>[1];
+type RuntimeInputOverrides = {
+  apiClient?: RuntimeInput["apiClient"];
+  auth?: Partial<RuntimeInput["auth"]>;
+  crypto?: Partial<RuntimeInput["crypto"]>;
+  infra?: Partial<RuntimeInput["infra"]>;
+  state?: Partial<RuntimeInput["state"]>;
+  util?: Partial<RuntimeInput["util"]>;
+};
+type FixtureBlobBytes = Parameters<
+  RuntimeInput["infra"]["blobStore"]["writeBytes"]
+>[1];
 
 function documentSummaryFromRecord(record: DocumentRecord): DocumentSummary {
   return {
@@ -35,7 +45,7 @@ function documentSummaryFromRecord(record: DocumentRecord): DocumentSummary {
   };
 }
 
-function createFixtureBlobStore(): RuntimeInput["blobStore"] {
+function createFixtureBlobStore(): RuntimeInput["infra"]["blobStore"] {
   const blobs = new Map<string, FixtureBlobBytes>();
 
   return {
@@ -293,22 +303,40 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
 }
 
 export function createDocumentStoreRuntime(
-  overrides: Partial<RuntimeInput> = {},
+  overrides: RuntimeInputOverrides = {},
 ): DocumentsRuntime {
   return createDocumentsWorkflowRuntime({
-    apiClient: createMockApiClient(),
-    blobStore: createFixtureBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => {},
-    containerId: "root-container",
-    dbStatus: "ready",
-    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-    domainScope: createDomainScope(),
-    encapsulationKeyPair: null,
-    events: [],
-    execSql: async () => [],
-    isAuthenticated: false,
-    log: () => {},
-    online: false,
-    ...overrides,
+    apiClient: overrides.apiClient ?? createMockApiClient(),
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+      ...overrides.auth,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+      ...overrides.crypto,
+    },
+    infra: {
+      blobStore: createFixtureBlobStore(),
+      dbStatus: "ready",
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      execSql: async () => [],
+      ...overrides.infra,
+    },
+    state: {
+      containerId: "root-container",
+      domainScope: createDomainScope(),
+      events: [],
+      online: false,
+      ...overrides.state,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => {},
+      log: () => {},
+      ...overrides.util,
+    },
   });
 }

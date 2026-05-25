@@ -45,10 +45,16 @@ test("createDocumentWriterPublicKeyResolver uses the local signing key when allo
           return null;
         },
       },
-      log: () => {},
-      signingFingerprint,
-      signingKeyPair: { signingPublicKey },
-      userId: "user-1",
+      auth: {
+        userId: "user-1",
+      },
+      crypto: {
+        signingFingerprint,
+        signingKeyPair: { signingPublicKey },
+      },
+      util: {
+        log: () => {},
+      },
     },
     writerKeyLabel: "writer key",
   });
@@ -85,10 +91,16 @@ test("createDocumentWriterPublicKeyResolver caches remote writer keys", async ()
           };
         },
       },
-      log: () => {},
-      signingFingerprint,
-      signingKeyPair: { signingPublicKey },
-      userId: "user-1",
+      auth: {
+        userId: "user-1",
+      },
+      crypto: {
+        signingFingerprint,
+        signingKeyPair: { signingPublicKey },
+      },
+      util: {
+        log: () => {},
+      },
     },
     writerKeyLabel: "metadata writer key",
   });
@@ -131,7 +143,11 @@ test("createDocumentWriterPublicKeyResolver logs mismatched remote writer keys",
           signingPublicKey: bytesToBase64(responsePublicKey),
         }),
       },
-      log: (message) => logs.push(message),
+      auth: {},
+      crypto: {},
+      util: {
+        log: (message) => logs.push(message),
+      },
     },
     writerKeyLabel: "writer key",
   });

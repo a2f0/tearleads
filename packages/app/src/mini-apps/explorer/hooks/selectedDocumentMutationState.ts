@@ -3,7 +3,7 @@ import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { MoveTargetOption } from "../targetOptions";
 
 export function getSelectedDocumentMutationState(params: {
-  appData: Pick<RuntimeSnapshot, "dbStatus" | "isAuthenticated" | "online">;
+  appData: Pick<RuntimeSnapshot, "auth" | "infra" | "state">;
   selectedDocument: DocumentSummary | undefined;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
@@ -17,9 +17,11 @@ export function getSelectedDocumentMutationState(params: {
     selectedDocumentMoveTargetOptions,
   } = params;
   const canActivateSelectedDocument =
-    appData.dbStatus === "ready" && !!selectedDocument?.documentId;
+    appData.infra.dbStatus === "ready" && !!selectedDocument?.documentId;
   const canMutateSelectedDocument =
-    canActivateSelectedDocument && appData.isAuthenticated && appData.online;
+    canActivateSelectedDocument &&
+    appData.auth.isAuthenticated &&
+    appData.state.online;
 
   return {
     canActivateSelectedDocument,

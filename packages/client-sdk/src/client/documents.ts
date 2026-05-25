@@ -90,13 +90,13 @@ class DocumentsService implements Documents {
 
   async deleteLocalDocument(localId: string): Promise<boolean> {
     const runtime = this.runtime();
-    if (runtime.dbStatus !== "ready") {
+    if (runtime.infra.dbStatus !== "ready") {
       return false;
     }
 
     await deletePersistedDocument({
-      documentProjectors: runtime.documentProjectors,
-      execSql: runtime.execSql,
+      documentProjectors: runtime.infra.documentProjectors,
+      execSql: runtime.infra.execSql,
       localId,
       persistence: defaultDocumentsPersistence,
     });
@@ -107,13 +107,13 @@ class DocumentsService implements Documents {
     input: ListLocalDocumentSummariesInput = {},
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
     const runtime = this.dependencies.runtime.workflowInput();
-    if (runtime.dbStatus !== "ready") {
+    if (runtime.infra.dbStatus !== "ready") {
       return null;
     }
 
-    await this.ensureSchema(runtime.execSql);
+    await this.ensureSchema(runtime.infra.execSql);
     const summaries = await defaultDocumentsPersistence.listDocuments(
-      runtime.execSql,
+      runtime.infra.execSql,
     );
     if (!input.documentKind) {
       return summaries;
@@ -138,7 +138,7 @@ class DocumentsService implements Documents {
     } = input;
     const runtime = runtimeOverride ?? this.runtime(containerId);
     return primeDocumentStore(
-      runtime.domainScope,
+      runtime.state.domainScope,
       localId,
       runtime,
       documentId,
@@ -167,7 +167,7 @@ class DocumentsService implements Documents {
     } = input;
     const runtime = runtimeOverride ?? this.runtime(containerId);
     return getOrCreateDocumentStore(
-      runtime.domainScope,
+      runtime.state.domainScope,
       localId,
       runtime,
       documentId,
@@ -181,7 +181,8 @@ class DocumentsService implements Documents {
     options: SubscribeToLocalSummariesOptions = {},
   ): () => void {
     return subscribeToPersistedDocuments(
-      this.dependencies.runtime.workflowInput(options.containerId).domainScope,
+      this.dependencies.runtime.workflowInput(options.containerId).state
+        .domainScope,
       listener,
     );
   }

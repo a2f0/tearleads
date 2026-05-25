@@ -115,7 +115,7 @@ export async function loadLocalContainerStates(input: {
   runtime: LocalContainerStateRuntime;
 }): Promise<ReadonlyArray<ContainerState>> {
   const { persistence, runtime } = input;
-  const execSql = runtime.execSql;
+  const execSql = runtime.infra.execSql;
   await persistence.ensureSchema(execSql);
   const storedContainers = await persistence.loadContainers(execSql);
 

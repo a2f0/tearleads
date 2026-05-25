@@ -1,9 +1,15 @@
 import type { DomainScope } from "../domainScope";
 
 interface SyncRuntimeStatus {
-  encapsulationKeyPair: unknown;
-  isAuthenticated: boolean;
-  online: boolean;
+  crypto: {
+    encapsulationKeyPair: unknown;
+  };
+  auth: {
+    isAuthenticated: boolean;
+  };
+  state: {
+    online: boolean;
+  };
 }
 
 export interface SyncLane {
@@ -182,10 +188,11 @@ export function didRegainSyncPrerequisites<TRuntime extends SyncRuntimeStatus>(
   nextRuntime: TRuntime,
 ): boolean {
   return (
-    (!previousRuntime.online && nextRuntime.online) ||
-    (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) ||
-    (!previousRuntime.encapsulationKeyPair &&
-      !!nextRuntime.encapsulationKeyPair)
+    (!previousRuntime.state.online && nextRuntime.state.online) ||
+    (!previousRuntime.auth.isAuthenticated &&
+      nextRuntime.auth.isAuthenticated) ||
+    (!previousRuntime.crypto.encapsulationKeyPair &&
+      !!nextRuntime.crypto.encapsulationKeyPair)
   );
 }
 

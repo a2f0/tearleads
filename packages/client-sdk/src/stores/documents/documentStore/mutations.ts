@@ -38,7 +38,7 @@ export function setDocumentText(
         structuredFields: state.snapshot.structuredFields,
         text: value,
       },
-      state.runtime.documentProjectors,
+      state.runtime.infra.documentProjectors,
     ).title,
     syncing: state.snapshot.syncing,
   });
@@ -91,7 +91,7 @@ export function setDocumentStructuredFields(
       structuredFields: nextStructuredFields,
       text: state.snapshot.text,
     },
-    state.runtime.documentProjectors,
+    state.runtime.infra.documentProjectors,
   );
 
   setDocumentSnapshot(state, {
@@ -121,7 +121,7 @@ export function setDocumentStructuredFields(
         state.doc,
         kind,
         patch,
-        state.runtime.documentProjectors,
+        state.runtime.infra.documentProjectors,
       );
       const update = exportUpdatesSince(state.doc, previousVersion);
       if (update.byteLength === 0) {

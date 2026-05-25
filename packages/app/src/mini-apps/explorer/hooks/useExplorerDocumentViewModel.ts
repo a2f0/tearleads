@@ -14,7 +14,7 @@ import {
 } from "./useExplorerSelection";
 
 export function useExplorerDocumentViewModel(params: {
-  appData: Pick<RuntimeSnapshot, "containerId" | "dbStatus" | "domainScope">;
+  appData: Pick<RuntimeSnapshot, "infra" | "state">;
   documentReadModel: ContainerDocumentReadModel;
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;
@@ -43,14 +43,14 @@ export function useExplorerDocumentViewModel(params: {
     mergeDocumentSummaries,
     mergeDocumentSummary,
   } = useExplorerDocumentSummaryState(
-    appData.dbStatus,
-    appData.domainScope,
-    appData.containerId,
+    appData.infra.dbStatus,
+    appData.state.domainScope,
+    appData.state.containerId,
     documentReadModel,
   );
   const { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument } =
     useDocumentLinkedContainerIdsByDocumentId({
-      dbStatus: appData.dbStatus,
+      dbStatus: appData.infra.dbStatus,
       documentReadModel,
       documentLinkProjectionVersion,
       documentSummaries,

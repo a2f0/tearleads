@@ -19,7 +19,7 @@ export async function deleteContainerState(input: {
       return false;
     }
   }
-  const execSql = input.runtime.execSql;
+  const execSql = input.runtime.infra.execSql;
 
   await input.persistence.deleteContainer(
     execSql,

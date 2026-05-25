@@ -1,14 +1,12 @@
 import type { ContainerContents, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import {
   type ExplorerDocumentsRuntimeAppDataInput,
   isDestroyedDatabaseWorkerError,
   useExplorerDocumentsRuntimeAppData,
 } from "./documentRuntime";
 
-type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput &
-  Pick<RuntimeSnapshot, "events">;
+type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput;
 
 type DiscoveryPromise = Promise<ReadonlyArray<DocumentSummary> | null>;
 
@@ -65,7 +63,8 @@ export function useDiscoveredDocumentsSync(params: {
     onDocumentLinksChanged,
     primeDiscoveredDocuments,
   } = params;
-  const { isAuthenticated, online } = appData;
+  const { isAuthenticated } = appData.auth;
+  const { online } = appData.state;
   const appliedDiscoveryPromisesRef = useRef(new WeakSet<DiscoveryPromise>());
   const primeDiscoveredDocumentsRef = useRef(primeDiscoveredDocuments);
 
@@ -112,9 +111,9 @@ export function useDiscoveredDocumentsSync(params: {
 
   useContainerDiscoveryEffects({
     activeContainerId,
-    dbStatus: appData.dbStatus,
+    dbStatus: appData.infra.dbStatus,
     discoverDocumentsForContainer,
-    events: appData.events,
+    events: appData.state.events,
     hasUndiscoveredDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
@@ -126,15 +125,15 @@ export function useDiscoveredDocumentsSync(params: {
 
 function useContainerDiscoveryEffects(params: {
   activeContainerId: string | null;
-  dbStatus: ExplorerDiscoveryAppData["dbStatus"];
+  dbStatus: ExplorerDiscoveryAppData["infra"]["dbStatus"];
   discoverDocumentsForContainer: (
     containerId: string,
   ) => (() => void) | undefined;
-  events: ExplorerDiscoveryAppData["events"];
+  events: ExplorerDiscoveryAppData["state"]["events"];
   hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
-  isAuthenticated: ExplorerDiscoveryAppData["isAuthenticated"];
+  isAuthenticated: ExplorerDiscoveryAppData["auth"]["isAuthenticated"];
   knownDocumentIds: ReadonlySet<string>;
-  online: ExplorerDiscoveryAppData["online"];
+  online: ExplorerDiscoveryAppData["state"]["online"];
 }) {
   const {
     activeContainerId,

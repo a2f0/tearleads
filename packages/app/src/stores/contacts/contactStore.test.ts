@@ -28,9 +28,18 @@ async function createContactsRuntime(): Promise<
   const documents = createDocumentsWorkflowRuntime({
     ...runtimeInputBase,
     apiClient: createMockApiClient(),
-    containerId: null,
-    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-    userId: "self-user",
+    auth: {
+      ...runtimeInputBase.auth,
+      userId: "self-user",
+    },
+    infra: {
+      ...runtimeInputBase.infra,
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+    },
+    state: {
+      ...runtimeInputBase.state,
+      containerId: null,
+    },
   });
 
   return {
@@ -38,17 +47,16 @@ async function createContactsRuntime(): Promise<
     deleteLocalDocument: async (localId) => {
       await deletePersistedDocument({
         documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        execSql: runtimeInputBase.execSql,
+        execSql: runtimeInputBase.infra.execSql,
         localId,
         persistence: defaultDocumentsPersistence,
       });
       return true;
     },
     documents,
-    execSql: runtimeInputBase.execSql,
     primeDocumentStore: (input) =>
       primeDocumentStore(
-        documents.domainScope,
+        documents.state.domainScope,
         input.localId,
         documents,
         input.documentId ?? null,
@@ -106,7 +114,7 @@ test("contacts store persists contacts as documents with app-owned projections",
       "Contacts did not appear in the store snapshot.",
     );
 
-    const { db } = getSQLitePersistenceRuntime(runtime.execSql);
+    const { db } = getSQLitePersistenceRuntime(runtime.documents.infra.execSql);
     const contactProjections = await db
       .select({
         encapsulationPublicKey: contactProjection.encapsulationPublicKey,
@@ -134,7 +142,7 @@ test("contacts store persists contacts as documents with app-owned projections",
     });
 
     const documentProjections = await defaultDocumentsPersistence.listDocuments(
-      runtime.execSql,
+      runtime.documents.infra.execSql,
     );
     expect(
       documentProjections

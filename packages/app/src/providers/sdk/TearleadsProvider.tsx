@@ -16,9 +16,15 @@ import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
 const SdkContext = createContext<Tearleads | null>(null);
 
-export type RuntimeSnapshot = ReturnType<Tearleads["runtime"]["input"]> & {
-  authToken: string | null;
-  dbId: string | null;
+type TearleadsRuntimeInput = ReturnType<Tearleads["runtime"]["input"]>;
+
+export type RuntimeSnapshot = Omit<TearleadsRuntimeInput, "auth" | "infra"> & {
+  readonly auth: TearleadsRuntimeInput["auth"] & {
+    readonly authToken: string | null;
+  };
+  readonly infra: TearleadsRuntimeInput["infra"] & {
+    readonly dbId: string | null;
+  };
 };
 
 const RuntimeContext = createContext<RuntimeSnapshot | null>(null);
@@ -131,18 +137,27 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     () => tearleads.runtime.input(),
     [runtimeVersion, tearleads],
   );
+  const runtimeAuth = useMemo(
+    () => ({
+      ...runtimeInput.auth,
+      authToken: tearleads.session.authToken,
+    }),
+    [runtimeInput.auth, tearleads.session.authToken],
+  );
+  const runtimeInfra = useMemo(
+    () => ({
+      ...runtimeInput.infra,
+      dbId: tearleads.database.id,
+    }),
+    [runtimeInput.infra, tearleads.database.id],
+  );
   const runtimeSnapshot = useMemo<RuntimeSnapshot>(
     () => ({
       ...runtimeInput,
-      authToken: tearleads.session.authToken,
-      dbId: tearleads.database.id,
+      auth: runtimeAuth,
+      infra: runtimeInfra,
     }),
-    [
-      runtimeInput,
-      tearleads.session.authToken,
-      tearleads.database.id,
-      tearleads,
-    ],
+    [runtimeInput, runtimeAuth, runtimeInfra],
   );
 
   useBrowserNetworkBinding(tearleads);

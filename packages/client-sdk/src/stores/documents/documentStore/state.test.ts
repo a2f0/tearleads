@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { BlobStore } from "../../../data/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -24,15 +25,32 @@ function createTestBlobStore(): BlobStore {
 function createTestRuntime() {
   return createDocumentsWorkflowRuntime({
     apiClient: {} as DocumentsWorkflowRuntimeInput["apiClient"],
-    blobStore: createTestBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => undefined,
-    dbStatus: "ready",
-    domainScope: createDomainScope(),
-    events: [],
-    execSql: (async () => []) as ExecSql,
-    isAuthenticated: false,
-    log: () => undefined,
-    online: false,
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: createTestBlobStore(),
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: (async () => []) as ExecSql,
+    },
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: false,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => undefined,
+      log: () => undefined,
+    },
   });
 }
 

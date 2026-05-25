@@ -21,7 +21,7 @@ import type {
   RemoteContainer as HydratedRemoteContainer,
   RemoteContainerHydrationHost,
 } from "../remoteHydration";
-import type { ContainerContentsWorkflowSqlRuntime } from "../runtime";
+import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
 export type ContainerWorkflowApi = Parameters<
   typeof createRemoteContainer
@@ -47,29 +47,11 @@ export type ContainerWorkflowApi = Parameters<
   };
 
 export interface ContainerWorkflowRuntime
-  extends ContainerContentsWorkflowSqlRuntime {
+  extends Pick<
+    ContainerContentsWorkflowRuntime,
+    "auth" | "crypto" | "infra" | "state" | "util"
+  > {
   readonly apiClient: ContainerWorkflowApi;
-  readonly encapsulationKeyPair?:
-    | {
-        publicKey: Uint8Array;
-        secretKey: Uint8Array;
-      }
-    | null
-    | undefined;
-  readonly cacheReferencedPrincipalPolicies: (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-  ) => Promise<void>;
-  readonly log: (message: string) => void;
-  readonly organizationId?: string | null;
-  readonly signingFingerprint?: string | null;
-  readonly signingKeyPair?:
-    | {
-        signingPrivateKey: Uint8Array;
-        signingPublicKey: Uint8Array;
-      }
-    | null
-    | undefined;
-  readonly userId?: string | null;
 }
 
 export interface CreatedRemoteContainerState {

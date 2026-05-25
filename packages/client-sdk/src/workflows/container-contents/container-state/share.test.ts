@@ -10,6 +10,7 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
+import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { createDomainScope } from "../../../data/domainScope";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
@@ -121,19 +122,34 @@ test("shareContainerState treats an existing matching user grant as an idempoten
           return null;
         },
       }),
-      blobStore: createMemoryBlobStore(),
-      cacheReferencedPrincipalPolicies: async (references) => {
-        cachedPrincipalReferences.push([...(references ?? [])]);
+      auth: {
+        isAuthenticated: true,
+        organizationId: author.organizationId,
+        userId: author.signerUserId,
       },
-      dbStatus: "ready",
-      domainScope: createDomainScope(),
-      events: [],
-      execSql,
-      isAuthenticated: true,
-      log: (message) => logs.push(message),
-      online: true,
-      organizationId: author.organizationId,
-      userId: author.signerUserId,
+      crypto: {
+        encapsulationKeyPair: null,
+        signingFingerprint: null,
+        signingKeyPair: null,
+      },
+      infra: {
+        blobStore: createMemoryBlobStore(),
+        dbStatus: "ready",
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+      },
+      state: {
+        containerId: null,
+        domainScope: createDomainScope(),
+        events: [],
+        online: true,
+      },
+      util: {
+        cacheReferencedPrincipalPolicies: async (references) => {
+          cachedPrincipalReferences.push([...(references ?? [])]);
+        },
+        log: (message) => logs.push(message),
+      },
     });
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const { doc, initialUpdate } =
@@ -231,17 +247,32 @@ test("shareContainerState reuses the idempotency projection for a new user share
         },
         getEncapsulationKey: async () => null,
       }),
-      blobStore: createMemoryBlobStore(),
-      cacheReferencedPrincipalPolicies: async () => undefined,
-      dbStatus: "ready",
-      domainScope: createDomainScope(),
-      events: [],
-      execSql,
-      isAuthenticated: true,
-      log: () => undefined,
-      online: true,
-      organizationId: author.organizationId,
-      userId: author.signerUserId,
+      auth: {
+        isAuthenticated: true,
+        organizationId: author.organizationId,
+        userId: author.signerUserId,
+      },
+      crypto: {
+        encapsulationKeyPair: null,
+        signingFingerprint: null,
+        signingKeyPair: null,
+      },
+      infra: {
+        blobStore: createMemoryBlobStore(),
+        dbStatus: "ready",
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+      },
+      state: {
+        containerId: null,
+        domainScope: createDomainScope(),
+        events: [],
+        online: true,
+      },
+      util: {
+        cacheReferencedPrincipalPolicies: async () => undefined,
+        log: () => undefined,
+      },
     });
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     const { doc, initialUpdate } =

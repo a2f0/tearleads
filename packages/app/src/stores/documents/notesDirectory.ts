@@ -41,6 +41,25 @@ function mergeNoteSummary(
   return Array.from(notesById.values()).sort(compareNoteSummaries);
 }
 
+function resolveSelectedNoteId(
+  currentNoteId: string | null,
+  nextNotes: ReadonlyArray<DocumentSummary>,
+  explicitNoteId: string | null,
+): string {
+  if (explicitNoteId) {
+    return explicitNoteId;
+  }
+  if (
+    currentNoteId &&
+    (currentNoteId === DEFAULT_DOCUMENT_ID ||
+      nextNotes.some((note) => note.id === currentNoteId))
+  ) {
+    return currentNoteId;
+  }
+
+  return nextNotes[0]?.id ?? DEFAULT_DOCUMENT_ID;
+}
+
 export function usePersistedNotesDirectory(explicitNoteId: string | null) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
@@ -59,7 +78,7 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
   }, [explicitNoteId]);
 
   useEffect(() => {
-    if (appData.dbStatus !== "ready") {
+    if (appData.infra.dbStatus !== "ready") {
       setNotes([]);
       setReady(false);
       if (!explicitNoteIdRef.current) {
@@ -84,23 +103,15 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
         setNotes(nextNotes);
         setReady(true);
         setSelectedNoteId((currentNoteId) => {
-          const latestExplicitNoteId = explicitNoteIdRef.current;
-          if (latestExplicitNoteId) {
-            return latestExplicitNoteId;
-          }
-          if (
-            currentNoteId &&
-            (currentNoteId === DEFAULT_DOCUMENT_ID ||
-              nextNotes.some((note) => note.id === currentNoteId))
-          ) {
-            return currentNoteId;
-          }
-
-          return nextNotes[0]?.id ?? DEFAULT_DOCUMENT_ID;
+          return resolveSelectedNoteId(
+            currentNoteId,
+            nextNotes,
+            explicitNoteIdRef.current,
+          );
         });
       } catch (error) {
         if (!cancelled) {
-          appData.logError("Notes: failed to load notes.", error);
+          appData.util.logError("Notes: failed to load notes.", error);
           setReady(true);
         }
       }
@@ -109,7 +120,12 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [appData.dbStatus, appData.domainScope, appData.logError, tearleads]);
+  }, [
+    appData.infra.dbStatus,
+    appData.state.domainScope,
+    appData.util.logError,
+    tearleads,
+  ]);
 
   useEffect(() => {
     return tearleads.documents.subscribeToLocalSummaries(
@@ -121,15 +137,15 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
         setNotes((currentNotes) => mergeNoteSummary(currentNotes, document));
         setSelectedNoteId((currentNoteId) => currentNoteId ?? document.id);
       },
-      { containerId: appData.containerId },
+      { containerId: appData.state.containerId },
     );
-  }, [appData.containerId, appData.domainScope, tearleads]);
+  }, [appData.state.containerId, appData.state.domainScope, tearleads]);
 
   const createNote = useCallback(() => {
     const noteId = crypto.randomUUID();
     const nextNote: DocumentSummary = {
       id: noteId,
-      containerId: appData.containerId,
+      containerId: appData.state.containerId,
       documentKind: DEFAULT_DOCUMENT_KIND,
       documentId: null,
       title: getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND),
@@ -138,7 +154,7 @@ export function usePersistedNotesDirectory(explicitNoteId: string | null) {
 
     setNotes((currentNotes) => mergeNoteSummary(currentNotes, nextNote));
     setSelectedNoteId(noteId);
-  }, [appData.containerId]);
+  }, [appData.state.containerId]);
 
   return {
     createNote,

@@ -9,9 +9,15 @@ import {
 export type DocumentSyncLane = SyncLane;
 
 interface DocumentSyncPrerequisiteRuntime {
-  readonly encapsulationKeyPair: unknown;
-  readonly isAuthenticated: boolean;
-  readonly online: boolean;
+  readonly auth: {
+    readonly isAuthenticated: boolean;
+  };
+  readonly crypto: {
+    readonly encapsulationKeyPair: unknown;
+  };
+  readonly state: {
+    readonly online: boolean;
+  };
 }
 
 export function registerDocumentSyncLane(input: {

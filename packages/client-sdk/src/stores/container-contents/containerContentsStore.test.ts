@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { BlobStore } from "../../data/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -21,15 +22,32 @@ function createTestRuntime(input: {
     apiClient: {} as Parameters<
       typeof createContainerContentsWorkflowRuntime
     >[0]["apiClient"],
-    blobStore: {} as BlobStore,
-    cacheReferencedPrincipalPolicies: async () => {},
-    dbStatus: "ready",
-    domainScope: input.domainScope,
-    events: [],
-    execSql,
-    isAuthenticated: false,
-    log: input.log,
-    online: false,
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {} as BlobStore,
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    state: {
+      containerId: null,
+      domainScope: input.domainScope,
+      events: [],
+      online: false,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => {},
+      log: input.log,
+    },
   });
 }
 

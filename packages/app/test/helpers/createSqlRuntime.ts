@@ -1,57 +1,54 @@
 import type { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk";
 import {
-  type BlobStore,
   createDomainScope,
   createMemoryBlobStore,
+  defaultDocumentProjectorRegistry,
 } from "@tearleads/client-sdk";
 import { createTestExecSql } from "@tearleads/test-utils";
 
 type DocumentsWorkflowRuntimeInput = Parameters<
   typeof createDocumentsWorkflowRuntime
 >[0];
-type SharedSqlRuntimeBase = Omit<
-  DocumentsWorkflowRuntimeInput,
-  | "apiClient"
-  | "blobStore"
-  | "containerId"
-  | "dbStatus"
-  | "encapsulationKeyPair"
-  | "events"
-  | "organizationId"
-  | "signingFingerprint"
-  | "signingKeyPair"
-  | "userId"
-> & {
-  blobStore: BlobStore;
-  dbStatus: "ready";
-  encapsulationKeyPair: null;
-  events: [];
-  organizationId: null;
-  signingFingerprint: null;
-  signingKeyPair: null;
-  userId: null;
+type SharedSqlRuntimeBase = Omit<DocumentsWorkflowRuntimeInput, "apiClient"> & {
+  readonly close: () => void;
 };
 
 export async function createSqlRuntimeBase(
   key: string,
-): Promise<SharedSqlRuntimeBase & { close: () => void }> {
+): Promise<SharedSqlRuntimeBase> {
   const { close, execSql } = await createTestExecSql(key);
+  const blobStore = createMemoryBlobStore();
+  const cacheReferencedPrincipalPolicies = async () => {};
+  const domainScope = createDomainScope();
+  const log = () => {};
 
   return {
-    blobStore: createMemoryBlobStore(),
-    cacheReferencedPrincipalPolicies: async () => {},
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    },
     close,
-    dbStatus: "ready",
-    domainScope: createDomainScope(),
-    encapsulationKeyPair: null,
-    events: [],
-    execSql,
-    isAuthenticated: false,
-    log: () => {},
-    online: false,
-    organizationId: null,
-    signingFingerprint: null,
-    signingKeyPair: null,
-    userId: null,
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore,
+      dbStatus: "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+    },
+    state: {
+      containerId: null,
+      domainScope,
+      events: [],
+      online: false,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies,
+      log,
+    },
   };
 }

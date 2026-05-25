@@ -77,13 +77,13 @@ async function persistPendingAttachments(
         continue;
       }
 
-      await state.runtime.blobStore.writeBytes(
+      await state.runtime.infra.blobStore.writeBytes(
         pendingAttachment.storageKey,
         sourceFile.bytes,
       );
       await savePendingDocumentAttachment({
         attachment: pendingAttachment,
-        execSql: state.runtime.execSql,
+        execSql: state.runtime.infra.execSql,
         persistence: state.persistence,
       });
       await saveLocalAttachmentRecord(
@@ -117,7 +117,7 @@ async function rollbackPendingAttachmentPersistence(
   const cleanupResults = await Promise.allSettled([
     ...pendingAttachments.map((attachment) =>
       deletePendingDocumentAttachment({
-        execSql: state.runtime.execSql,
+        execSql: state.runtime.infra.execSql,
         localId: state.localId,
         persistence: state.persistence,
         slotId: attachment.slotId,
@@ -126,7 +126,7 @@ async function rollbackPendingAttachmentPersistence(
     ),
     ...localAttachments.map((attachment) =>
       deleteLocalDocumentAttachment({
-        execSql: state.runtime.execSql,
+        execSql: state.runtime.infra.execSql,
         localId: state.localId,
         persistence: state.persistence,
         slotId: attachment.slotId,
@@ -134,22 +134,22 @@ async function rollbackPendingAttachmentPersistence(
       }),
     ),
     ...pendingAttachments.map((attachment) =>
-      state.runtime.blobStore.deleteBytes(attachment.storageKey),
+      state.runtime.infra.blobStore.deleteBytes(attachment.storageKey),
     ),
   ]);
   const failedCleanupCount = cleanupResults.filter(
     (result) => result.status === "rejected",
   ).length;
   if (failedCleanupCount > 0) {
-    state.runtime.log(
+    state.runtime.util.log(
       `Documents: failed to roll back ${failedCleanupCount} staged attachment operation${failedCleanupCount === 1 ? "" : "s"}.`,
     );
   }
 }
 
 function logAttachedFiles(state: DocumentStoreState, count: number) {
-  state.runtime.log(
-    state.runtime.online && state.runtime.isAuthenticated
+  state.runtime.util.log(
+    state.runtime.state.online && state.runtime.auth.isAuthenticated
       ? `Attached ${count} file${count === 1 ? "" : "s"} to document ${state.localId}.`
       : `Stored ${count} attachment${count === 1 ? "" : "s"} locally for document ${state.localId}.`,
   );
@@ -160,10 +160,12 @@ async function persistAttachedFiles(
   files: ReadonlyArray<DocumentAttachmentUpload>,
 ) {
   const currentDoc = state.doc;
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
+  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
 
   if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
-    state.runtime.log("Documents: attachments require a local key package.");
+    state.runtime.util.log(
+      "Documents: attachments require a local key package.",
+    );
     return;
   }
 
@@ -192,10 +194,10 @@ async function persistSlotAttachmentFile(
   file: DocumentAttachmentUpload,
 ) {
   const currentDoc = state.doc;
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
+  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
 
   if (!currentDoc || !canAttachFiles(state) || !encapsulationKeyPair) {
-    state.runtime.log(
+    state.runtime.util.log(
       "Documents: slot attachments require a local key package.",
     );
     return;
@@ -215,7 +217,7 @@ async function persistSlotAttachmentFile(
   }
 
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
-  await state.runtime.blobStore.writeBytes(storageKey, file.bytes);
+  await state.runtime.infra.blobStore.writeBytes(storageKey, file.bytes);
   await saveLocalAttachmentRecord(state, {
     blobId: null,
     byteLength: replacementAttachment.byteLength,
@@ -226,7 +228,7 @@ async function persistSlotAttachmentFile(
   });
   await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
   await persistDocument(state, currentDoc);
-  state.runtime.log(`Queued attachment ${file.name} for slot ${slotId}.`);
+  state.runtime.util.log(`Queued attachment ${file.name} for slot ${slotId}.`);
   requestDocumentStoreSync(state);
 }
 

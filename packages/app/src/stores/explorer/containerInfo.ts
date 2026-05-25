@@ -6,7 +6,7 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 
 export function useExplorerContainerInfoLoader(input: {
-  readonly appData: Pick<RuntimeSnapshot, "isAuthenticated" | "online">;
+  readonly appData: Pick<RuntimeSnapshot, "auth" | "state">;
   readonly nodes: ReadonlyArray<ContainerNode>;
 }): (containerId: string) => Promise<ContainerInfo> {
   const { appData, nodes } = input;
@@ -23,9 +23,11 @@ export function useExplorerContainerInfoLoader(input: {
         containerId,
         parentId: node?.parentId ?? null,
         remoteInfoMode:
-          appData.isAuthenticated && appData.online ? "if-synced" : "never",
+          appData.auth.isAuthenticated && appData.state.online
+            ? "if-synced"
+            : "never",
       });
     },
-    [appData.isAuthenticated, appData.online, containerContents, nodesById],
+    [appData.auth, appData.state, containerContents, nodesById],
   );
 }

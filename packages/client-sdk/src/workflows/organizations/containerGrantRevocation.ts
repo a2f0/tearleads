@@ -36,10 +36,14 @@ export async function revokeOrganizationContainerGrant(input: {
   };
 }): Promise<ContainerMutationResponse> {
   const author = resolveDocumentCreateAuthor({
-    organizationId: input.organizationId,
-    signingFingerprint: input.signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-    userId: input.signerUserId,
+    auth: {
+      organizationId: input.organizationId,
+      userId: input.signerUserId,
+    },
+    crypto: {
+      signingFingerprint: input.signingFingerprint,
+      signingKeyPair: input.signingKeyPair,
+    },
   });
   if (!author) {
     throw new Error("Org Manager signing context is unavailable");

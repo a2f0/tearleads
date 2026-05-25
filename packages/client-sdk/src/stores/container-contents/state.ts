@@ -142,17 +142,20 @@ export function updateContainerContentsStoreRuntime(
   }
   state.runtime = nextRuntime;
 
-  if (nextRuntime.dbStatus !== "ready") {
+  if (nextRuntime.infra.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
       resetContainerContentsStore(state);
     }
-    state.lastEventCount = nextRuntime.events.length;
+    state.lastEventCount = nextRuntime.state.events.length;
     return;
   }
 
-  if (!previousRuntime.isAuthenticated && nextRuntime.isAuthenticated) {
+  if (
+    !previousRuntime.auth.isAuthenticated &&
+    nextRuntime.auth.isAuthenticated
+  ) {
     resetContainerContentsStore(state);
-    state.lastEventCount = nextRuntime.events.length;
+    state.lastEventCount = nextRuntime.state.events.length;
   }
 
   syncAgent.ensureInitialized();

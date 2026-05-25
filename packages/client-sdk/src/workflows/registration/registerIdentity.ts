@@ -291,10 +291,14 @@ export async function registerIdentity(
     signingKeyPair: input.signingKeyPair,
   });
   const author = resolveDocumentCreateAuthor({
-    organizationId,
-    signingFingerprint,
-    signingKeyPair: input.signingKeyPair,
-    userId: newUserId,
+    auth: {
+      organizationId,
+      userId: newUserId,
+    },
+    crypto: {
+      signingFingerprint,
+      signingKeyPair: input.signingKeyPair,
+    },
   });
   if (!author) {
     throw new Error(

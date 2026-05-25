@@ -1,61 +1,87 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import type { BlobStore } from "../../data/blobContracts";
 import {
-  type DocumentProjectorRegistry,
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
-import type { DomainScope } from "../../data/domainScope";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type {
+  WorkflowRuntimeAuthInput,
+  WorkflowRuntimeCryptoInput,
+  WorkflowRuntimeInfraInput,
+  WorkflowRuntimeStateInput,
+  WorkflowRuntimeUtilInput,
+} from "../runtimeInput";
 
 type DocumentsWorkflowApi = Pick<ApiClient, keyof ApiClient>;
+type DocumentsWorkflowRuntimeUtilInput = Omit<
+  WorkflowRuntimeUtilInput,
+  "logError"
+>;
 
-export interface DocumentsWorkflowRuntimeInput {
-  readonly apiClient: DocumentsWorkflowApi;
-  readonly blobStore: BlobStore;
-  readonly cacheReferencedPrincipalPolicies: (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-  ) => Promise<void>;
-  readonly containerId?: string | null | undefined;
+export interface DocumentsWorkflowRuntimeAuth
+  extends WorkflowRuntimeAuthInput {}
+
+export interface DocumentsWorkflowRuntimeCrypto
+  extends WorkflowRuntimeCryptoInput {}
+
+export interface DocumentsWorkflowRuntimeInfra
+  extends Omit<WorkflowRuntimeInfraInput, "dbStatus"> {
   readonly dbStatus: string;
-  readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
-  readonly domainScope: DomainScope;
-  readonly encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
-  readonly events: ReadonlyArray<unknown>;
-  readonly execSql: ExecSql;
-  readonly isAuthenticated: boolean;
-  readonly log: (message: string) => void;
-  readonly online: boolean;
-  readonly organizationId?: string | null | undefined;
-  readonly signingFingerprint?: string | null | undefined;
-  readonly signingKeyPair?: SigningKeyPair | null | undefined;
-  readonly userId?: string | null | undefined;
+}
+
+interface DocumentsWorkflowRuntimeInputInfra
+  extends Omit<DocumentsWorkflowRuntimeInfra, "documentProjectors"> {
+  readonly documentProjectors: DocumentProjectorRegistryInput;
+}
+
+export interface DocumentsWorkflowRuntimeState
+  extends WorkflowRuntimeStateInput {}
+
+export interface DocumentsWorkflowRuntimeUtil
+  extends DocumentsWorkflowRuntimeUtilInput {}
+
+export interface DocumentsWorkflowRuntimeGroups {
+  readonly auth: DocumentsWorkflowRuntimeAuth;
+  readonly crypto: DocumentsWorkflowRuntimeCrypto;
+  readonly infra: DocumentsWorkflowRuntimeInfra;
+  readonly state: DocumentsWorkflowRuntimeState;
+  readonly util: DocumentsWorkflowRuntimeUtil;
+}
+
+export interface DocumentsWorkflowRuntimeInputGroups {
+  readonly auth: DocumentsWorkflowRuntimeAuth;
+  readonly crypto: DocumentsWorkflowRuntimeCrypto;
+  readonly infra: DocumentsWorkflowRuntimeInputInfra;
+  readonly state: DocumentsWorkflowRuntimeState;
+  readonly util: DocumentsWorkflowRuntimeUtil;
+}
+
+export interface DocumentsWorkflowRuntimeInput
+  extends DocumentsWorkflowRuntimeInputGroups {
+  readonly apiClient: DocumentsWorkflowApi;
 }
 
 export interface DocumentsWorkflowRuntime
-  extends Omit<DocumentsWorkflowRuntimeInput, "documentProjectors"> {
-  readonly documentProjectors: DocumentProjectorRegistry;
-  readonly encapsulationKeyPair: EncapsulationKeyPair | null;
-  readonly organizationId: string | null;
-  readonly signingFingerprint: string | null;
-  readonly signingKeyPair: SigningKeyPair | null;
-  readonly userId: string | null;
+  extends DocumentsWorkflowRuntimeGroups {
+  readonly apiClient: DocumentsWorkflowApi;
 }
 
 export function createDocumentsWorkflowRuntime(
   input: DocumentsWorkflowRuntimeInput,
 ): DocumentsWorkflowRuntime {
+  const documentProjectors = resolveDocumentProjectorRegistry(
+    input.infra.documentProjectors,
+  );
+  const infra = {
+    ...input.infra,
+    documentProjectors,
+  };
+
   return {
-    ...input,
-    documentProjectors: resolveDocumentProjectorRegistry(
-      input.documentProjectors,
-    ),
-    encapsulationKeyPair: input.encapsulationKeyPair ?? null,
-    organizationId: input.organizationId ?? null,
-    signingFingerprint: input.signingFingerprint ?? null,
-    signingKeyPair: input.signingKeyPair ?? null,
-    userId: input.userId ?? null,
+    apiClient: input.apiClient,
+    auth: input.auth,
+    crypto: input.crypto,
+    infra,
+    state: input.state,
+    util: input.util,
   };
 }

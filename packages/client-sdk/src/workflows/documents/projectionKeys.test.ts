@@ -13,6 +13,19 @@ function createRuntime(
     apiClient: {
       getEncapsulationKey: async () => null,
     },
+    auth: {
+      userId: null,
+      ...patch.auth,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+      ...patch.crypto,
+    },
+    util: {
+      ...patch.util,
+    },
     ...patch,
   };
 }
@@ -30,14 +43,18 @@ test("createDocumentProjectionUserKeyResolver resolves the local user key", asyn
           return null;
         },
       },
-      encapsulationKeyPair: {
-        publicKey: encapsulationPublicKey,
+      auth: {
+        userId: "user-1",
       },
-      signingFingerprint,
-      signingKeyPair: {
-        signingPublicKey,
+      crypto: {
+        encapsulationKeyPair: {
+          publicKey: encapsulationPublicKey,
+        },
+        signingFingerprint,
+        signingKeyPair: {
+          signingPublicKey,
+        },
       },
-      userId: "user-1",
     }),
   );
 
@@ -63,29 +80,41 @@ test("didDocumentProjectionKeyRuntimeChange tracks resolver dependencies", () =>
   };
   const runtime = createRuntime({
     apiClient,
-    encapsulationKeyPair,
-    signingFingerprint: "fingerprint-1",
-    signingKeyPair,
-    userId: "user-1",
+    auth: {
+      userId: "user-1",
+    },
+    crypto: {
+      encapsulationKeyPair,
+      signingFingerprint: "fingerprint-1",
+      signingKeyPair,
+    },
   });
 
   expect(didDocumentProjectionKeyRuntimeChange(runtime, runtime)).toBe(false);
   expect(
     didDocumentProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      userId: "user-2",
+      auth: {
+        ...runtime.auth,
+        userId: "user-2",
+      },
     }),
   ).toBe(true);
   expect(
     didDocumentProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      signingFingerprint: "fingerprint-2",
+      crypto: {
+        ...runtime.crypto,
+        signingFingerprint: "fingerprint-2",
+      },
     }),
   ).toBe(true);
   expect(
     didDocumentProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      log: () => {},
+      util: {
+        log: () => {},
+      },
     }),
   ).toBe(false);
 });

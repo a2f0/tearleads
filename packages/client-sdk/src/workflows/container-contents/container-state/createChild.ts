@@ -152,7 +152,7 @@ export async function createChildContainerState(input: {
     !containerState.record.documentId && containerState.container.parentId
       ? { parentContainerId: containerState.container.parentId }
       : undefined;
-  const execSql = runtime.execSql;
+  const execSql = runtime.infra.execSql;
 
   containerState.container = await persistence.saveContainer(
     execSql,
