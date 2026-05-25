@@ -1,50 +1,46 @@
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import {
   activateDocumentLinkState,
-  canMutateDocumentLink,
-  type DocumentStructuralMutationHost,
   linkDocumentLinkState,
-  type MergeDocumentSummary,
   moveDocumentLinkState,
-  type SetLinkedContainerIdsForDocument,
   unlinkDocumentLinkState,
 } from "@tearleads/client-sdk/workflows/container-contents";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
-import {
-  createExplorerDocumentsRuntime,
-  type ExplorerDocumentsRuntimeAppData,
-} from "./documentRuntime";
+import type { ExplorerDocumentsRuntimeAppData } from "./documentRuntime";
 
-type ExplorerDocumentsRuntime = ReturnType<
-  typeof createExplorerDocumentsRuntime
->;
-
-export type MergeExplorerDocumentSummary = MergeDocumentSummary;
+export type MergeExplorerDocumentSummary = (
+  nextDocument: DocumentSummary,
+) => void;
+export type SetLinkedContainerIdsForDocument = (
+  documentId: string,
+  linkedContainerIds: ReadonlyArray<string>,
+) => void;
 
 function createExplorerDocumentLinkHost(
   appData: ExplorerDocumentsRuntimeAppData,
   mergeDocumentSummary: MergeExplorerDocumentSummary,
-): DocumentStructuralMutationHost<ExplorerDocumentsRuntime> {
+) {
   return {
-    createDocumentRuntime: (containerId) =>
-      createExplorerDocumentsRuntime(appData, containerId),
+    createDocumentRuntime: appData.createDocumentRuntime,
     mergeDocumentSummary,
-    primeDocumentStore: ({ containerId, documentId, localId }) =>
+    primeDocumentStore: (input: {
+      containerId: string;
+      documentId: string;
+      localId: string;
+    }) =>
       primeDocumentStore(
         appData.domainScope,
-        localId,
-        createExplorerDocumentsRuntime(appData, containerId),
-        documentId,
+        input.localId,
+        appData.createDocumentRuntime(input.containerId),
+        input.documentId,
       ),
   };
 }
 
-export type { SetLinkedContainerIdsForDocument };
-
 export function canMutateSelectedDocument(
   appData: ExplorerDocumentsRuntimeAppData,
 ) {
-  return canMutateDocumentLink(appData);
+  return appData.canMutateDocumentLinks;
 }
 
 export function moveExplorerNote(params: {

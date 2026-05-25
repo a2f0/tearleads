@@ -16,7 +16,6 @@ import type {
   SqlRow,
   SqlRowMode,
 } from "./sqlite";
-import { createContainerContentsDocumentsRuntime } from "./workflows/container-contents";
 import {
   defaultDocumentsPersistence,
   resolveDocumentCreateAuthor,
@@ -332,10 +331,12 @@ describe("Tearleads", () => {
     expect(documents.online).toBe(true);
     expect(resolveDocumentCreateAuthor(documents)).not.toBeNull();
     expect(containerContents.userId).toBe("user-1");
+    const documentLinksRuntime = sdk.containerContents.documentLinksRuntime();
     expect(
-      createContainerContentsDocumentsRuntime(containerContents, "container-2")
-        .containerId,
+      documentLinksRuntime.createDocumentRuntime("container-2").containerId,
     ).toBe("container-2");
+    expect(documentLinksRuntime.resolveProjectionUserKey).toBeFunction();
+    expect(documentLinksRuntime.canMutateDocumentLinks).toBe(true);
   });
 
   test("lists local document summaries through the documents service", async () => {

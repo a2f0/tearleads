@@ -6,15 +6,12 @@ import {
 import { useCallback } from "react";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
-import {
-  createExplorerDocumentsRuntime,
-  type ExplorerDocumentsRuntimeAppData,
-} from "./documentRuntime";
+import type { ExplorerDocumentsRuntimeAppData } from "./documentRuntime";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
 const EXPLORER_DROPPED_FILE_MAX_BYTES = 5 * 1024 * 1024;
 type ExplorerDroppedFileImportRuntime = ReturnType<
-  typeof createExplorerDocumentsRuntime
+  ExplorerDocumentsRuntimeAppData["createDocumentRuntime"]
 >;
 
 interface ExplorerDroppedFileDocumentStore {
@@ -224,7 +221,7 @@ export function useExplorerDroppedFileImport(params: {
       importExplorerDroppedFiles<ExplorerDroppedFileImportRuntime>({
         containerId,
         createDocumentRuntime: (targetContainerId) =>
-          createExplorerDocumentsRuntime(appData, targetContainerId),
+          appData.createDocumentRuntime(targetContainerId),
         createDocumentStore: ({ initialText, localId, runtime }) =>
           primeDocumentStore(
             appData.domainScope,

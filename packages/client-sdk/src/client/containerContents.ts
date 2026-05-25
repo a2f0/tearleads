@@ -17,10 +17,17 @@ import {
   type ContainerDocumentReadModel,
   createContainerDocumentReadModelFromRuntime,
 } from "../workflows/container-contents/documentReadModel";
+import { canMutateDocumentLink } from "../workflows/container-contents/documentStructure";
+import {
+  type ContainerContentsProjectionUserKeyResolver,
+  createContainerContentsDocumentProjectionUserKeyResolver,
+} from "../workflows/container-contents/projectionKeys";
 import {
   type ContainerContentsWorkflowRuntime,
+  createContainerContentsDocumentsRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
+import type { DocumentsWorkflowRuntime } from "../workflows/documents";
 import type {
   TearleadsInternalRuntime,
   TearleadsInternalWorkflowRuntimeInput,
@@ -70,6 +77,16 @@ export interface TearleadsDocumentInfoInput {
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
 }
 
+export interface TearleadsContainerDocumentLinksRuntime
+  extends ContainerContentsWorkflowRuntime {
+  readonly dbStatus: ContainerContentsWorkflowRuntime["dbStatus"];
+  readonly isAuthenticated: ContainerContentsWorkflowRuntime["isAuthenticated"];
+  readonly online: ContainerContentsWorkflowRuntime["online"];
+  readonly canMutateDocumentLinks: boolean;
+  createDocumentRuntime(containerId: string): DocumentsWorkflowRuntime;
+  readonly resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
+}
+
 /**
  * High-level container-content service for document discovery and diagnostics.
  *
@@ -87,6 +104,17 @@ export interface TearleadsContainerContents {
    * active SQLite executor. Recreate it when the SDK runtime version changes.
    */
   documentReadModel(): ContainerDocumentReadModel;
+
+  /**
+   * Create the default runtime bundle for advanced document-link workflows.
+   *
+   * The returned object includes the current container-contents runtime,
+   * the document projection-key resolver, mutation readiness, and a
+   * container-bound document runtime factory. Product stores can pass this
+   * bundle to lower-level document-link helpers without rebuilding SDK runtime
+   * plumbing themselves.
+   */
+  documentLinksRuntime(): TearleadsContainerDocumentLinksRuntime;
 
   /**
    * Discover remote documents linked to one container.
@@ -160,6 +188,19 @@ class TearleadsContainerContentsService implements TearleadsContainerContents {
 
   documentReadModel(): ContainerDocumentReadModel {
     return createContainerDocumentReadModelFromRuntime(this.runtime());
+  }
+
+  documentLinksRuntime(): TearleadsContainerDocumentLinksRuntime {
+    const runtime = this.runtime();
+
+    return {
+      ...runtime,
+      canMutateDocumentLinks: canMutateDocumentLink(runtime),
+      createDocumentRuntime: (containerId) =>
+        createContainerContentsDocumentsRuntime(runtime, containerId),
+      resolveProjectionUserKey:
+        createContainerContentsDocumentProjectionUserKeyResolver(runtime),
+    };
   }
 
   discoverDocuments(

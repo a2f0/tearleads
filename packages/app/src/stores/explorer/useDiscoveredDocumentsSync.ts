@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { TearleadsRuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
-  createExplorerDocumentsRuntime,
   type ExplorerDocumentsRuntimeAppDataInput,
   isDestroyedDatabaseWorkerError,
   useExplorerDocumentsRuntimeAppData,
@@ -204,10 +203,7 @@ export function usePrimeDiscoveredDocuments(params: {
         const documentStore = primeDocumentStore(
           runtimeAppData.domainScope,
           documentSummary.id,
-          createExplorerDocumentsRuntime(
-            runtimeAppData,
-            documentSummary.containerId,
-          ),
+          runtimeAppData.createDocumentRuntime(documentSummary.containerId),
           documentSummary.documentId,
         );
         documentStore.requestSync();

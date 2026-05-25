@@ -48,6 +48,8 @@ const localNotes = await tearleads.documents.listLocalSummaries({
 });
 const containerDocumentReadModel =
   tearleads.containerContents.documentReadModel();
+const containerDocumentLinksRuntime =
+  tearleads.containerContents.documentLinksRuntime();
 ```
 
 The instance intentionally groups client capabilities by responsibility:
@@ -62,7 +64,7 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | local document summaries and document workflow runtime composition |
-| `tearleads.containerContents` | container contents read models, discovery, diagnostics, and workflow runtime composition |
+| `tearleads.containerContents` | container contents read models, document-link runtimes, discovery, diagnostics, and workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product read models and recipient UIs |
 

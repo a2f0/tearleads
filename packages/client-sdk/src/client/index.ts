@@ -2,6 +2,7 @@ export { createDomainScope, type DomainScope } from "../data/domainScope";
 export { TearleadsBlobs } from "./blobs";
 export type {
   TearleadsContainerContents,
+  TearleadsContainerDocumentLinksRuntime,
   TearleadsContainerInfoInput,
   TearleadsDocumentInfoInput,
 } from "./containerContents";
