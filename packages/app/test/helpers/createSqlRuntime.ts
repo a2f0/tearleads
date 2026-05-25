@@ -1,9 +1,9 @@
+import type { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk";
 import {
   type BlobStore,
+  createDomainScope,
   createMemoryBlobStore,
-} from "@tearleads/client-sdk/workflows/blobs";
-import type { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents";
-import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
+} from "@tearleads/client-sdk";
 import { createTestExecSql } from "@tearleads/test-utils";
 
 type DocumentsWorkflowRuntimeInput = Parameters<

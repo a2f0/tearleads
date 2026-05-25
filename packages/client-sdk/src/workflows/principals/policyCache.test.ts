@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type CacheReferencedPrincipalPoliciesOptions,
   cacheReferencedPrincipalPolicies,
-} from "@tearleads/client-sdk/workflows/principals";
+} from "@tearleads/client-sdk";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,

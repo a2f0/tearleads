@@ -1,14 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
-import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
-import {
-  buildRootContainerCreatePlan,
-  rootContainerWriterProjectionFromCreatePlan,
-} from "@tearleads/client-sdk/workflows/containers";
-import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk/workflows/documents";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
-} from "@tearleads/client-sdk/workflows/organizations";
+  buildMaterializedDocumentCreatePlan,
+  buildRootContainerCreatePlan,
+  rootContainerWriterProjectionFromCreatePlan,
+} from "@tearleads/client-sdk";
+import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
 import {
   authChallengeSigningBytes,
   buildPrincipalStateSigningInput,

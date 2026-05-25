@@ -3,7 +3,7 @@ import {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,
   createRemoteContainer,
-} from "@tearleads/client-sdk/workflows/containers";
+} from "@tearleads/client-sdk";
 import {
   CONTAINER_KEK_MATERIAL_ID_PREFIX,
   computeContainerKekMaterialId,

@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { uploadDocumentAttachment } from "@tearleads/client-sdk/workflows/blobs";
 import {
   buildMaterializedDocumentCreatePlan,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
-} from "@tearleads/client-sdk/workflows/documents";
+  uploadDocumentAttachment,
+} from "@tearleads/client-sdk";
 import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   buildPrincipalStateSigningInput,

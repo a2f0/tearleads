@@ -45,36 +45,35 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 ## Import Surface
 
 `data/` is an internal SDK layer, not an application integration API. The SDK
-root is reserved for the high-level `Tearleads` client facade and top-level
-service types. Neutral document contracts and pure document helpers belong
-behind `@tearleads/client-sdk/documents`; SQLite worker runtime and executor
+root owns the high-level `Tearleads` client facade, top-level service types,
+and migration-phase compatibility exports for public store and workflow facade
+symbols. Neutral document contracts and pure document helpers belong behind
+`@tearleads/client-sdk/documents` and are also exposed from the root during the
+entrypoint consolidation migration. SQLite worker runtime and executor
 contracts belong behind `@tearleads/client-sdk/sqlite`. Host application code
-should import operations from store or workflow facades, create worker-backed
-SQLite runtimes through the SQLite facade, or compose them through the
-`Tearleads` instance.
+should prefer the `Tearleads` instance and otherwise import public store or
+workflow facade symbols from `@tearleads/client-sdk`.
 Cross-package callers should not import `@tearleads/client-sdk/data/*`
 subpaths; promote the needed contract through the document facade, the SQLite
-facade, the root client facade, or an explicit workflow facade instead.
+facade, or the SDK root facade instead.
 
 Package subpath exports are explicit and should stop at the facade boundary.
 Adding a new cross-package import from `stores/` or `workflows/` should usually
-mean adding or widening a domain facade export, such as
-`@tearleads/client-sdk/workflows/documents`, rather than exporting a nested
-implementation file. Low-level `data/` modules should stay package-internal
-unless there is a deliberate decision to promote a new public SDK contract.
+mean adding or widening a domain facade export from `@tearleads/client-sdk`,
+rather than exporting a nested implementation file. Low-level `data/` modules
+should stay package-internal unless there is a deliberate decision to promote a
+new public SDK contract.
 
-Use facade subpaths directly, such as `@tearleads/client-sdk/documents`,
-`@tearleads/client-sdk/sqlite`,
-`@tearleads/client-sdk/workflows/documents`, and
-`@tearleads/client-sdk/stores/documents`, or
-`@tearleads/client-sdk/stores/container-contents`, instead of importing
-their implementation modules or nested workflow/store implementation files.
+Use public package entry points such as `@tearleads/client-sdk`,
+`@tearleads/client-sdk/documents`, and `@tearleads/client-sdk/sqlite` instead
+of importing implementation modules or nested workflow/store implementation
+files.
 Shared sync coordination helpers that cross host test/runtime boundaries belong
-behind `@tearleads/client-sdk/workflows/sync`.
+behind `@tearleads/client-sdk`.
 
-Do not re-export store or workflow facades directly from the SDK root. Keeping
-domain operations behind the high-level `Tearleads` client or explicit facade
-subpaths preserves clear entry points without making `data/` importable.
+Do not expose `data/*` internals from the SDK root. Keeping domain operations
+behind the high-level `Tearleads` client or explicit root facade exports
+preserves clear entry points without making `data/` importable.
 
 Avoid `index.ts`, `types.ts`, and other one-line re-export shims inside data
 domains when they only shorten import paths. Keep a facade only when it marks a

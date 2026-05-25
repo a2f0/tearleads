@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { revokeRemoteContainer } from "@tearleads/client-sdk/workflows/containers";
+import { revokeRemoteContainer } from "@tearleads/client-sdk";
 import {
   type AccessEvent,
   type ContainerKeyEpoch,

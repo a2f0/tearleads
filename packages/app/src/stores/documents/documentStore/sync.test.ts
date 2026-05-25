@@ -1,35 +1,28 @@
 import { expect, test } from "bun:test";
-import type {
-  BlobBytes,
-  DocumentSummary,
-} from "@tearleads/client-sdk/documents";
-import {
-  createDocumentStore,
-  type DocumentsRuntime,
-  primeDocumentStore,
-  subscribeToPersistedDocuments,
-} from "@tearleads/client-sdk/stores/documents";
-import {
-  createMemoryBlobStore,
-  decryptDocumentAttachmentBlob,
-  uploadDocumentAttachment,
-} from "@tearleads/client-sdk/workflows/blobs";
+import * as clientSdk from "@tearleads/client-sdk";
 import {
   createDocumentProjectionUserKeyResolver,
+  createDocumentStore,
   createDocumentsWorkflowRuntime,
+  createDomainScope,
+  createMemoryBlobStore,
   createRemoteDocument,
-  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentsPersistence,
+  type DocumentsRuntime,
+  getOrCreateDomainSyncCoordinator,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-} from "@tearleads/client-sdk/workflows/documents";
-import {
-  createDomainScope,
-  getOrCreateDomainSyncCoordinator,
-} from "@tearleads/client-sdk/workflows/sync";
+  primeDocumentStore,
+  subscribeToPersistedDocuments,
+  uploadDocumentAttachment,
+} from "@tearleads/client-sdk";
+import type {
+  BlobBytes,
+  DocumentSummary,
+} from "@tearleads/client-sdk/documents";
 import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,
@@ -68,6 +61,8 @@ import {
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
+
+const { decryptDocumentAttachmentBlob, DOCUMENTS_APP_KIND } = clientSdk;
 
 interface StoredDocumentsState {
   document: DocumentRecord | null;

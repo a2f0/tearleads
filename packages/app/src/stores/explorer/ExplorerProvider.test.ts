@@ -1,35 +1,31 @@
 import { expect, test } from "bun:test";
-import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
+  buildMaterializedDocumentCreatePlan,
   type ContainerState,
-  createContainerContentsStore as createExplorerStore,
-  createContainerContentsStoreState as createExplorerStoreState,
-  createContainerContentsStoreSyncAgent as createExplorerSyncAgent,
-  type ContainerContentsStoreSyncState as ExplorerSyncState,
-  subscribeToContainerContentsStore as subscribeToExplorerStore,
-  updateContainerContentsSnapshot as updateExplorerSnapshot,
-} from "@tearleads/client-sdk/stores/container-contents";
-import {
   createContainerDocumentObjectSyncState,
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerContentsProjectionUserKeyResolver as createExplorerProjectionUserKeyResolver,
+  createContainerContentsStore as createExplorerStore,
+  createContainerContentsStoreState as createExplorerStoreState,
+  createContainerContentsStoreSyncAgent as createExplorerSyncAgent,
   createContainerContentsWorkflowRuntime as createExplorerWorkflowRuntime,
   createInitializedContainerMetadataDocument,
+  defaultDocumentsPersistence,
   defaultContainerContentsPersistence as defaultExplorerPersistence,
+  type ContainerContentsStoreSyncState as ExplorerSyncState,
   initializeDocumentLinksSchema as initializeExplorerDocumentLinksSchema,
   listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
   loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
-  replaceDocumentLinks as replaceExplorerDocumentLinks,
-  saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
-} from "@tearleads/client-sdk/workflows/container-contents";
-import {
-  buildMaterializedDocumentCreatePlan,
-  defaultDocumentsPersistence,
   persistedDocumentCreateStateFromResponse,
+  replaceDocumentLinks as replaceExplorerDocumentLinks,
   type DocumentRecord as StoredDocumentRecord,
-} from "@tearleads/client-sdk/workflows/documents";
+  saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
+  subscribeToContainerContentsStore as subscribeToExplorerStore,
+  updateContainerContentsSnapshot as updateExplorerSnapshot,
+} from "@tearleads/client-sdk";
+import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
+import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
   type ContainerKekRecipientTarget,
   computeAccessEventHash,

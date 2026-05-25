@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
-} from "@tearleads/client-sdk/workflows/containers";
+} from "@tearleads/client-sdk";
 import {
   type AccessEvent,
   type ContainerGrantAccessEventBody,

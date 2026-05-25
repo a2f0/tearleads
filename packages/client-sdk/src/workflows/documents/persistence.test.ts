@@ -6,7 +6,7 @@ import {
   type PendingAttachmentRecord,
   persistDocumentState,
   savePendingDocumentAttachment,
-} from "@tearleads/client-sdk/workflows/documents";
+} from "@tearleads/client-sdk";
 import { createDocument } from "@tearleads/loro";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";

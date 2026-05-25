@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { moveRemoteContainer } from "@tearleads/client-sdk/workflows/containers";
+import { moveRemoteContainer } from "@tearleads/client-sdk";
 import {
   createAuthor,
   createParentProjection,
