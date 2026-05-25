@@ -216,7 +216,7 @@ function useActivateLinkedDocumentAction(params: {
 
   return useCallback(
     async (noteId: string, targetContainerId: string) => {
-      if (appData.dbStatus !== "ready") {
+      if (appData.infra.dbStatus !== "ready") {
         return null;
       }
 

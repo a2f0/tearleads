@@ -13,6 +13,13 @@ import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
 } from "../documents";
+import type {
+  WorkflowRuntimeAuthInput,
+  WorkflowRuntimeCryptoInput,
+  WorkflowRuntimeInfraInput,
+  WorkflowRuntimeStateInput,
+  WorkflowRuntimeUtilInput,
+} from "../runtimeInput";
 
 type DocumentsWorkflowRuntimeInput = Parameters<
   typeof createDocumentsWorkflowRuntime
@@ -20,8 +27,68 @@ type DocumentsWorkflowRuntimeInput = Parameters<
 
 type ContainerContentsWorkflowApi = ApiClient &
   DocumentsWorkflowRuntimeInput["apiClient"];
+type ContainerContentsWorkflowRuntimeAuthInput = Omit<
+  WorkflowRuntimeAuthInput,
+  "organizationId" | "userId"
+> & {
+  readonly organizationId?: string | null | undefined;
+  readonly userId?: string | null | undefined;
+};
+type ContainerContentsWorkflowRuntimeCryptoInput =
+  Partial<WorkflowRuntimeCryptoInput>;
+type ContainerContentsWorkflowRuntimeInfraInput = Omit<
+  WorkflowRuntimeInfraInput,
+  "dbStatus" | "documentProjectors"
+> & {
+  readonly dbStatus: string;
+  readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
+};
+type ContainerContentsWorkflowRuntimeStateInput = Omit<
+  WorkflowRuntimeStateInput,
+  "containerId"
+> & {
+  readonly containerId?: string | null | undefined;
+};
+type ContainerContentsWorkflowRuntimeUtilInput = Omit<
+  WorkflowRuntimeUtilInput,
+  "logError"
+>;
 
-export interface ContainerContentsWorkflowRuntimeInput {
+export interface ContainerContentsWorkflowRuntimeAuth
+  extends WorkflowRuntimeAuthInput {}
+
+export interface ContainerContentsWorkflowRuntimeCrypto
+  extends WorkflowRuntimeCryptoInput {}
+
+export interface ContainerContentsWorkflowRuntimeInfra
+  extends Omit<WorkflowRuntimeInfraInput, "dbStatus"> {
+  readonly dbStatus: string;
+}
+
+export interface ContainerContentsWorkflowRuntimeState
+  extends WorkflowRuntimeStateInput {}
+
+export interface ContainerContentsWorkflowRuntimeUtil
+  extends ContainerContentsWorkflowRuntimeUtilInput {}
+
+export interface ContainerContentsWorkflowRuntimeGroups {
+  readonly auth: ContainerContentsWorkflowRuntimeAuth;
+  readonly crypto: ContainerContentsWorkflowRuntimeCrypto;
+  readonly infra: ContainerContentsWorkflowRuntimeInfra;
+  readonly state: ContainerContentsWorkflowRuntimeState;
+  readonly util: ContainerContentsWorkflowRuntimeUtil;
+}
+
+export interface ContainerContentsWorkflowRuntimeInputGroups {
+  readonly auth?: ContainerContentsWorkflowRuntimeAuthInput | undefined;
+  readonly crypto?: ContainerContentsWorkflowRuntimeCryptoInput | undefined;
+  readonly infra?: ContainerContentsWorkflowRuntimeInfraInput | undefined;
+  readonly state?: ContainerContentsWorkflowRuntimeStateInput | undefined;
+  readonly util?: ContainerContentsWorkflowRuntimeUtilInput | undefined;
+}
+
+export interface ContainerContentsWorkflowRuntimeInput
+  extends ContainerContentsWorkflowRuntimeInputGroups {
   readonly apiClient: ContainerContentsWorkflowApi;
   readonly blobStore: BlobStore;
   readonly cacheReferencedPrincipalPolicies: (
@@ -47,15 +114,21 @@ export interface ContainerContentsWorkflowSqlRuntime {
 }
 
 export interface ContainerContentsWorkflowRuntime
-  extends ContainerContentsWorkflowSqlRuntime,
+  extends ContainerContentsWorkflowRuntimeGroups,
+    ContainerContentsWorkflowSqlRuntime,
     Omit<
       ContainerContentsWorkflowRuntimeInput,
+      | "auth"
+      | "crypto"
       | "documentProjectors"
       | "encapsulationKeyPair"
       | "execSql"
+      | "infra"
       | "organizationId"
       | "signingFingerprint"
       | "signingKeyPair"
+      | "state"
+      | "util"
       | "userId"
     > {
   readonly documentProjectors: DocumentProjectorRegistry;
@@ -72,22 +145,27 @@ function documentsRuntimeInput(
 ): DocumentsWorkflowRuntimeInput {
   return {
     apiClient: runtime.apiClient,
+    auth: runtime.auth,
     blobStore: runtime.blobStore,
     cacheReferencedPrincipalPolicies: runtime.cacheReferencedPrincipalPolicies,
     containerId,
+    crypto: runtime.crypto,
     dbStatus: runtime.dbStatus,
     documentProjectors: runtime.documentProjectors,
     domainScope: runtime.domainScope,
     encapsulationKeyPair: runtime.encapsulationKeyPair ?? null,
     events: runtime.events,
     execSql: runtime.execSql,
+    infra: runtime.infra,
     isAuthenticated: runtime.isAuthenticated,
     log: runtime.log,
     online: runtime.online,
     organizationId: runtime.organizationId ?? null,
     signingFingerprint: runtime.signingFingerprint ?? null,
     signingKeyPair: runtime.signingKeyPair ?? null,
+    state: { ...runtime.state, containerId },
     userId: runtime.userId ?? null,
+    util: runtime.util,
   };
 }
 
@@ -103,24 +181,62 @@ export function createContainerContentsDocumentsRuntime(
 export function createContainerContentsWorkflowRuntime(
   input: ContainerContentsWorkflowRuntimeInput,
 ): ContainerContentsWorkflowRuntime {
+  const documentProjectors = resolveDocumentProjectorRegistry(
+    input.infra?.documentProjectors ?? input.documentProjectors,
+  );
+  const auth = {
+    isAuthenticated: input.auth?.isAuthenticated ?? input.isAuthenticated,
+    organizationId: input.auth?.organizationId ?? input.organizationId ?? null,
+    userId: input.auth?.userId ?? input.userId ?? null,
+  };
+  const crypto = {
+    encapsulationKeyPair:
+      input.crypto?.encapsulationKeyPair ?? input.encapsulationKeyPair ?? null,
+    signingFingerprint:
+      input.crypto?.signingFingerprint ?? input.signingFingerprint ?? null,
+    signingKeyPair:
+      input.crypto?.signingKeyPair ?? input.signingKeyPair ?? null,
+  };
+  const infra = {
+    blobStore: input.infra?.blobStore ?? input.blobStore,
+    dbStatus: input.infra?.dbStatus ?? input.dbStatus,
+    documentProjectors,
+    execSql: input.infra?.execSql ?? input.execSql,
+  };
+  const state = {
+    containerId: input.state?.containerId ?? null,
+    domainScope: input.state?.domainScope ?? input.domainScope,
+    events: input.state?.events ?? input.events,
+    online: input.state?.online ?? input.online,
+  };
+  const util = {
+    cacheReferencedPrincipalPolicies:
+      input.util?.cacheReferencedPrincipalPolicies ??
+      input.cacheReferencedPrincipalPolicies,
+    log: input.util?.log ?? input.log,
+  };
+
   return {
     apiClient: input.apiClient,
-    blobStore: input.blobStore,
-    cacheReferencedPrincipalPolicies: input.cacheReferencedPrincipalPolicies,
-    dbStatus: input.dbStatus,
-    documentProjectors: resolveDocumentProjectorRegistry(
-      input.documentProjectors,
-    ),
-    domainScope: input.domainScope,
-    encapsulationKeyPair: input.encapsulationKeyPair ?? null,
-    events: input.events,
-    execSql: input.execSql,
-    isAuthenticated: input.isAuthenticated,
-    log: input.log,
-    online: input.online,
-    organizationId: input.organizationId ?? null,
-    signingFingerprint: input.signingFingerprint ?? null,
-    signingKeyPair: input.signingKeyPair ?? null,
-    userId: input.userId ?? null,
+    auth,
+    blobStore: infra.blobStore,
+    cacheReferencedPrincipalPolicies: util.cacheReferencedPrincipalPolicies,
+    crypto,
+    dbStatus: infra.dbStatus,
+    documentProjectors,
+    domainScope: state.domainScope,
+    encapsulationKeyPair: crypto.encapsulationKeyPair,
+    events: state.events,
+    execSql: infra.execSql,
+    infra,
+    isAuthenticated: auth.isAuthenticated,
+    log: util.log,
+    online: state.online,
+    organizationId: auth.organizationId,
+    signingFingerprint: crypto.signingFingerprint,
+    signingKeyPair: crypto.signingKeyPair,
+    state,
+    userId: auth.userId,
+    util,
   };
 }

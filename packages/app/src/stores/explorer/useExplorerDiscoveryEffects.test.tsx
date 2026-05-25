@@ -56,22 +56,34 @@ test("container document discovery reuses an in-flight run for repeated effect t
   let listContainerDocumentsCallCount = 0;
   let documentLinksChangedCallCount = 0;
   const baseAppData = {
-    blobStore: {},
-    cacheReferencedPrincipalPolicies: async () => undefined,
-    dbStatus: "ready",
-    domainScope: createDomainScope(),
-    encapsulationKeyPair: null,
-    events: [],
-    execSql: async () => {
-      throw new Error("execSql should not be used by this test.");
+    auth: {
+      isAuthenticated: true,
+      organizationId: null,
+      userId: null,
     },
-    isAuthenticated: true,
-    log: () => undefined,
-    online: true,
-    organizationId: null,
-    signingFingerprint: null,
-    signingKeyPair: null,
-    userId: null,
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {},
+      dbStatus: "ready",
+      execSql: async () => {
+        throw new Error("execSql should not be used by this test.");
+      },
+    },
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => undefined,
+      log: () => undefined,
+      logError: () => undefined,
+    },
   } as unknown as UseDiscoveredDocumentsSyncParams["appData"];
   const mergeDocumentSummaries = (
     _nextDocuments: ReadonlyArray<DocumentSummary>,
@@ -90,19 +102,19 @@ test("container document discovery reuses an in-flight run for repeated effect t
       id: "event-1",
       type: "document_update_created",
     },
-  ] as UseDiscoveredDocumentsSyncParams["appData"]["events"];
+  ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
 
   const view = renderHook(
     ({
       events,
     }: {
-      events: UseDiscoveredDocumentsSyncParams["appData"]["events"];
+      events: UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
     }) =>
       useDiscoveredDocumentsSync({
         activeContainerId: "container-1",
         appData: {
           ...baseAppData,
-          events,
+          state: { ...baseAppData.state, events },
         },
         discoverDocuments,
         hasUndiscoveredDocumentUpdates: () => events.length > 0,
@@ -118,7 +130,8 @@ test("container document discovery reuses an in-flight run for repeated effect t
       }),
     {
       initialProps: {
-        events: [] as UseDiscoveredDocumentsSyncParams["appData"]["events"],
+        events:
+          [] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
       },
       wrapper: StrictMode,
     },
@@ -147,22 +160,34 @@ test("container document discovery starts a new run when discovery dependencies 
   let secondListContainerDocumentsCallCount = 0;
   let documentLinksChangedCallCount = 0;
   const baseAppData = {
-    blobStore: {},
-    cacheReferencedPrincipalPolicies: async () => undefined,
-    dbStatus: "ready",
-    domainScope: createDomainScope(),
-    encapsulationKeyPair: null,
-    events: [],
-    execSql: async () => {
-      throw new Error("execSql should not be used by this test.");
+    auth: {
+      isAuthenticated: true,
+      organizationId: null,
+      userId: null,
     },
-    isAuthenticated: true,
-    log: () => undefined,
-    online: true,
-    organizationId: null,
-    signingFingerprint: null,
-    signingKeyPair: null,
-    userId: null,
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {},
+      dbStatus: "ready",
+      execSql: async () => {
+        throw new Error("execSql should not be used by this test.");
+      },
+    },
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => undefined,
+      log: () => undefined,
+      logError: () => undefined,
+    },
   } as unknown as UseDiscoveredDocumentsSyncParams["appData"];
   const mergeDocumentSummaries = (
     _nextDocuments: ReadonlyArray<DocumentSummary>,

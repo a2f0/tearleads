@@ -6,7 +6,7 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 
 export function useExplorerDocumentInfoLoader(input: {
-  readonly appData: Pick<RuntimeSnapshot, "isAuthenticated" | "online">;
+  readonly appData: Pick<RuntimeSnapshot, "auth" | "state">;
 }): (localId: string) => Promise<DocumentInfo> {
   const { appData } = input;
   const { containerContents } = useTearleads();
@@ -16,8 +16,10 @@ export function useExplorerDocumentInfoLoader(input: {
       containerContents.loadDocumentInfo({
         localId,
         remoteInfoMode:
-          appData.isAuthenticated && appData.online ? "if-synced" : "never",
+          appData.auth.isAuthenticated && appData.state.online
+            ? "if-synced"
+            : "never",
       }),
-    [appData.isAuthenticated, appData.online, containerContents],
+    [appData.auth, appData.state, containerContents],
   );
 }

@@ -3,8 +3,8 @@ import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 
 interface ExplorerDocumentReadModelRuntimeState {
-  dbStatus: string;
-  domainScope: object;
+  infra: { readonly dbStatus: string };
+  state: { readonly domainScope: object };
 }
 
 export function useExplorerDocumentReadModel(
@@ -14,6 +14,6 @@ export function useExplorerDocumentReadModel(
 
   return useMemo(
     () => containerContents.documentReadModel(),
-    [appData.dbStatus, appData.domainScope, containerContents],
+    [appData.infra.dbStatus, appData.state.domainScope, containerContents],
   );
 }

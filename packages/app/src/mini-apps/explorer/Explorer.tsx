@@ -61,7 +61,7 @@ export function Explorer() {
         loadContainerInfo={model.loadContainerInfo}
         loadDocumentInfo={model.loadDocumentInfo}
         nodes={model.explorer.nodes}
-        online={appData.online}
+        online={appData.state.online}
         onBackToSelectionRoute={model.routeState.showSelectionRoute}
         onOpenGrantGroup={openGrantGroupInOrgManager}
         openInlineDocument={model.openInlineDocument}

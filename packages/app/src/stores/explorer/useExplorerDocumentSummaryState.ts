@@ -11,9 +11,9 @@ import {
 } from "./documentSummaryUtils";
 
 export function useExplorerDocumentSummaryState(
-  dbStatus: RuntimeSnapshot["dbStatus"],
-  domainScope: RuntimeSnapshot["domainScope"],
-  containerId: RuntimeSnapshot["containerId"],
+  dbStatus: RuntimeSnapshot["infra"]["dbStatus"],
+  domainScope: RuntimeSnapshot["state"]["domainScope"],
+  containerId: RuntimeSnapshot["state"]["containerId"],
   documentReadModel: ContainerDocumentReadModel,
 ) {
   const tearleads = useTearleads();

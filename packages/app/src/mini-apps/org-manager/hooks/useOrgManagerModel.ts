@@ -98,7 +98,7 @@ export function useOrgManagerModel() {
   } | null>(null);
   const selectedUserIdRef = useRef<string | null>(null);
   const canLoadAuthenticatedOrgData = Boolean(
-    appData.organizationId && appData.isAuthenticated,
+    appData.auth.organizationId && appData.auth.isAuthenticated,
   );
   useMiniAppMessage(
     "org-manager",
@@ -120,7 +120,7 @@ export function useOrgManagerModel() {
   const canMutateSelectedGroup = canCurrentUserMutateSelectedGroup({
     directory,
     members,
-    userId: appData.userId,
+    userId: appData.auth.userId,
   });
   const selectedRosterUser = useMemo(
     () =>
@@ -132,7 +132,7 @@ export function useOrgManagerModel() {
   const canUpdateSelectedRosterEntry = Boolean(
     selectedRosterUser &&
       (directory?.currentUser.isOrgAdmin ||
-        selectedRosterUser.userId === appData.userId),
+        selectedRosterUser.userId === appData.auth.userId),
   );
   const selectedRosterProfileDocumentId =
     selectedRosterUser?.profileDocumentId ?? null;
@@ -183,7 +183,7 @@ export function useOrgManagerModel() {
     async (
       options: Pick<DirectoryRefreshOptions, "skipNextGroupDetailsEffect"> = {},
     ): Promise<DirectoryRefreshResult> => {
-      if (!appData.organizationId || !appData.isAuthenticated) {
+      if (!appData.auth.organizationId || !appData.auth.isAuthenticated) {
         resetDirectoryState();
         return { didLoad: false, groupId: null };
       }
@@ -214,8 +214,8 @@ export function useOrgManagerModel() {
       return { didLoad: true, groupId: nextSelectedGroupId };
     },
     [
-      appData.isAuthenticated,
-      appData.organizationId,
+      appData.auth.isAuthenticated,
+      appData.auth.organizationId,
       orgManagerActions,
       resetDirectoryState,
       selectGroup,
@@ -249,7 +249,11 @@ export function useOrgManagerModel() {
       options: GroupDetailsRefreshOptions = {},
     ) => {
       const shouldClearError = options.clearError ?? true;
-      if (!appData.organizationId || !groupId || !appData.isAuthenticated) {
+      if (
+        !appData.auth.organizationId ||
+        !groupId ||
+        !appData.auth.isAuthenticated
+      ) {
         setMembers(null);
         setGroupContainers(null);
         setGroupPolicyHistory(null);
@@ -293,7 +297,11 @@ export function useOrgManagerModel() {
         setUnknownError(setError, nextError);
       }
     },
-    [appData.isAuthenticated, appData.organizationId, orgManagerActions],
+    [
+      appData.auth.isAuthenticated,
+      appData.auth.organizationId,
+      orgManagerActions,
+    ],
   );
 
   const refreshGrants = useCallback(
@@ -516,11 +524,11 @@ export function useOrgManagerModel() {
 
   const createGroup = useCallback(async () => {
     if (
-      !appData.organizationId ||
-      !appData.userId ||
-      !appData.signingFingerprint ||
-      !appData.signingKeyPair ||
-      !appData.encapsulationKeyPair ||
+      !appData.auth.organizationId ||
+      !appData.auth.userId ||
+      !appData.crypto.signingFingerprint ||
+      !appData.crypto.signingKeyPair ||
+      !appData.crypto.encapsulationKeyPair ||
       groupNameDraft.trim().length === 0
     ) {
       return;
@@ -538,11 +546,11 @@ export function useOrgManagerModel() {
       setMutating(false);
     }
   }, [
-    appData.encapsulationKeyPair,
-    appData.organizationId,
-    appData.signingFingerprint,
-    appData.signingKeyPair,
-    appData.userId,
+    appData.auth.organizationId,
+    appData.auth.userId,
+    appData.crypto.encapsulationKeyPair,
+    appData.crypto.signingFingerprint,
+    appData.crypto.signingKeyPair,
     groupNameDraft,
     openGroupRoute,
     orgManagerActions,
@@ -559,10 +567,10 @@ export function useOrgManagerModel() {
       !members ||
       targetUserId.length === 0 ||
       !selectedGroupId ||
-      !appData.userId ||
-      !appData.signingFingerprint ||
-      !appData.signingKeyPair ||
-      !appData.encapsulationKeyPair
+      !appData.auth.userId ||
+      !appData.crypto.signingFingerprint ||
+      !appData.crypto.signingKeyPair ||
+      !appData.crypto.encapsulationKeyPair
     ) {
       return;
     }
@@ -603,10 +611,10 @@ export function useOrgManagerModel() {
     }
   }, [
     addUserId,
-    appData.encapsulationKeyPair,
-    appData.signingFingerprint,
-    appData.signingKeyPair,
-    appData.userId,
+    appData.auth.userId,
+    appData.crypto.encapsulationKeyPair,
+    appData.crypto.signingFingerprint,
+    appData.crypto.signingKeyPair,
     directory,
     members,
     orgManagerActions,
@@ -621,9 +629,9 @@ export function useOrgManagerModel() {
     async (removedUserId: string) => {
       if (
         !selectedGroupId ||
-        !appData.userId ||
-        !appData.signingFingerprint ||
-        !appData.signingKeyPair ||
+        !appData.auth.userId ||
+        !appData.crypto.signingFingerprint ||
+        !appData.crypto.signingKeyPair ||
         !directory
       ) {
         return;
@@ -654,9 +662,9 @@ export function useOrgManagerModel() {
       }
     },
     [
-      appData.signingFingerprint,
-      appData.signingKeyPair,
-      appData.userId,
+      appData.auth.userId,
+      appData.crypto.signingFingerprint,
+      appData.crypto.signingKeyPair,
       directory,
       members,
       orgManagerActions,
@@ -736,7 +744,9 @@ export function useOrgManagerModel() {
   );
 
   useOrgManagerSidebarPanel({
-    enabled: Boolean(appData.organizationId && appData.isAuthenticated),
+    enabled: Boolean(
+      appData.auth.organizationId && appData.auth.isAuthenticated,
+    ),
     setView,
     view,
   });
@@ -760,14 +770,14 @@ export function useOrgManagerModel() {
     groupNameDraft,
     groupPolicyHistory,
     groups,
-    isAuthenticated: appData.isAuthenticated,
+    isAuthenticated: appData.auth.isAuthenticated,
     loading,
     loadingUserDetail,
     members,
     memberUserIds,
     mutating,
     openGroupRoute,
-    organizationId: appData.organizationId,
+    organizationId: appData.auth.organizationId,
     organizationPolicyHistory,
     profileDocumentIdDraft,
     profileDocumentIdDraftChanged,
@@ -784,7 +794,7 @@ export function useOrgManagerModel() {
     setProfileDocumentIdDraft,
     updateSelectedRosterProfileDocument,
     userDetail,
-    userId: appData.userId,
+    userId: appData.auth.userId,
     view,
   };
 }

@@ -85,6 +85,63 @@ describe("Tearleads", () => {
     expect(sdk.userKeys.fetch).toBeFunction();
   });
 
+  test("exposes grouped runtime input with flat compatibility aliases", () => {
+    const sqlClient = createNoopSqlClient();
+    const sdk = new Tearleads({
+      database: { client: sqlClient, id: "client-db", status: "ready" },
+      logger: quietLogger,
+      online: false,
+    });
+    sdk.session.setContext({
+      containerId: "container-1",
+      isAuthenticated: true,
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+
+    const input = sdk.runtime.input();
+
+    expect(input.auth).toEqual({
+      isAuthenticated: true,
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+    expect(input.auth.userId).toBe(input.userId);
+    expect(input.crypto.signingKeyPair).toBe(input.signingKeyPair);
+    expect(input.infra.execSql).toBe(input.execSql);
+    expect(input.state.containerId).toBe(input.containerId);
+    expect(input.state.online).toBe(input.online);
+    expect(input.util.log).toBe(input.log);
+    expect(input.util.logError).toBe(input.logError);
+    expect("apiClient" in input).toBe(false);
+  });
+
+  test("keeps unrelated runtime input groups referentially stable", () => {
+    const sdk = new Tearleads({ logger: quietLogger });
+    const initial = sdk.runtime.input();
+
+    sdk.session.setContext({
+      organizationId: "organization-1",
+      userId: "user-1",
+    });
+    const afterAuthChange = sdk.runtime.input();
+
+    expect(afterAuthChange.auth).not.toBe(initial.auth);
+    expect(afterAuthChange.crypto).toBe(initial.crypto);
+    expect(afterAuthChange.infra).toBe(initial.infra);
+    expect(afterAuthChange.state).toBe(initial.state);
+    expect(afterAuthChange.util).toBe(initial.util);
+
+    sdk.events.push({ type: "document.updated" });
+    const afterStateChange = sdk.runtime.input();
+
+    expect(afterStateChange.auth).toBe(afterAuthChange.auth);
+    expect(afterStateChange.crypto).toBe(afterAuthChange.crypto);
+    expect(afterStateChange.infra).toBe(afterAuthChange.infra);
+    expect(afterStateChange.state).not.toBe(afterAuthChange.state);
+    expect(afterStateChange.util).toBe(afterAuthChange.util);
+  });
+
   test("accepts document projector definitions in constructor options", () => {
     const definitions: ReadonlyArray<DocumentProjectorDefinition> = [
       {

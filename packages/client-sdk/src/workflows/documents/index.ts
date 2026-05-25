@@ -45,7 +45,14 @@ export {
 export {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
+  type DocumentsWorkflowRuntimeAuth,
+  type DocumentsWorkflowRuntimeCrypto,
+  type DocumentsWorkflowRuntimeGroups,
+  type DocumentsWorkflowRuntimeInfra,
   type DocumentsWorkflowRuntimeInput,
+  type DocumentsWorkflowRuntimeInputGroups,
+  type DocumentsWorkflowRuntimeState,
+  type DocumentsWorkflowRuntimeUtil,
 } from "./runtime";
 export {
   hasDocumentUpdateEvent,

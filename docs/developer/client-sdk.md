@@ -84,6 +84,20 @@ bundle themselves. This host-facing runtime input intentionally does not expose
 the raw API client; SDK namespaces and workflow facades own HTTP transport
 access.
 
+Runtime input snapshots are grouped by capability:
+
+| Group | Fields |
+| --- | --- |
+| `auth` | `userId`, `organizationId`, `isAuthenticated` |
+| `crypto` | `signingKeyPair`, `signingFingerprint`, `encapsulationKeyPair` |
+| `infra` | `dbStatus`, `execSql`, `blobStore`, `documentProjectors` |
+| `state` | `containerId`, `domainScope`, `events`, `online` |
+| `util` | `log`, `logError`, `cacheReferencedPrincipalPolicies` |
+
+Prefer the grouped fields for new host and workflow integration code so a
+consumer's dependency boundary is visible. The top-level fields remain
+compatibility aliases for existing callers during the runtime input migration.
+
 ## Workflow Facade Taxonomy
 
 SDK workflow facades expose client platform capabilities. Product UI, route
