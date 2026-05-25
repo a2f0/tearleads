@@ -887,7 +887,7 @@ function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
 function isPaneRuntimeProviderBypassImport(specifier: string): boolean {
   return (
     specifier.startsWith("../../providers/") &&
-    specifier !== "../../providers/AppRuntimeProvider"
+    !specifier.startsWith("../../providers/AppRuntimeProvider")
   );
 }
 

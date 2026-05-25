@@ -7,7 +7,7 @@ context.
 
 `AppRuntimeProvider.tsx` owns the required runtime provider order for a pane.
 Presentation code should use that aggregate provider instead of rebuilding the
-host/log/SDK/identity/database/session provider stack.
+individual runtime provider stack.
 
 Domain stores and feature-level context adapters live under `../stores/`.
 Component-local providers may stay under `components/` when they only support a
