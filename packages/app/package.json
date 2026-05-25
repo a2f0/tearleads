@@ -23,7 +23,6 @@
   "devDependencies": {
     "@happy-dom/global-registrator": "catalog:testing",
     "@testing-library/react": "catalog:testing",
-    "@tearleads/api-client": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:",

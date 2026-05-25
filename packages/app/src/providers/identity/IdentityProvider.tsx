@@ -7,9 +7,9 @@ import {
   useContext,
   useMemo,
   useRef,
-  useSyncExternalStore,
 } from "react";
 import { useTearleads } from "../sdk/TearleadsProvider";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 
 interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
@@ -27,11 +27,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
-  const snapshot = useSyncExternalStore(
-    tearleads.identity.subscribe,
-    () => tearleads.identity.snapshot,
-    () => tearleads.identity.snapshot,
-  );
+  const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
 
   const generateKey = useCallback(() => {
     if (generationInFlight.current) {

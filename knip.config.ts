@@ -66,7 +66,7 @@ export default {
         "src/workflows/registration/index.ts",
         "src/workflows/sync/index.ts",
       ],
-      project: ["src/**/*.ts"],
+      project: ["src/**/*.ts", "test/**/*.ts"],
     },
     "packages/crypto": {
       entry: ["src/**/*.test.ts"],

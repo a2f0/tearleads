@@ -6,12 +6,12 @@ import {
   useContext,
   useEffect,
   useRef,
-  useSyncExternalStore,
 } from "react";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 
 interface CryptoSessionContextValue {
   userId: string | null;
@@ -121,11 +121,7 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
 function useSdkBackedCryptoSessionState(
   tearleads: ReturnType<typeof useTearleads>,
 ) {
-  const snapshot = useSyncExternalStore(
-    tearleads.session.subscribe,
-    () => tearleads.session.snapshot,
-    () => tearleads.session.snapshot,
-  );
+  const snapshot = useTearleadsStoreSnapshot(tearleads.session);
   const setUserId = useCallback(
     (value: string | null) => {
       tearleads.session.setUserId(value);

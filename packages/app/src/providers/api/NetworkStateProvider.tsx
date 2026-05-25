@@ -1,5 +1,6 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import { useTearleads } from "../sdk/TearleadsProvider";
+import { useTearleadsExternalValue } from "../sdk/useTearleadsSubscription";
 
 interface NetworkStateContextValue {
   online: boolean;
@@ -7,9 +8,8 @@ interface NetworkStateContextValue {
 
 export function useNetworkState(): NetworkStateContextValue {
   const tearleads = useTearleads();
-  const online = useSyncExternalStore(
-    tearleads.network.subscribe,
-    () => tearleads.network.online,
+  const online = useTearleadsExternalValue(
+    (listener) => tearleads.network.subscribe(listener),
     () => tearleads.network.online,
   );
 
