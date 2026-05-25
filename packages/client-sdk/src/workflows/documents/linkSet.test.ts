@@ -4,12 +4,12 @@ import {
   computeDocumentContentKeyTargetHash,
   generateKemSeedAndKeyPair,
 } from "@tearleads/crypto";
+import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import {
   type DocumentLinkSetMutationRequest,
   isDocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   createAuthor,
   createLinkSetResponseFromRequest,

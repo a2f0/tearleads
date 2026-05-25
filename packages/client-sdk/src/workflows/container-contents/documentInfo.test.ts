@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadDocumentInfo } from "./documentInfo";
 

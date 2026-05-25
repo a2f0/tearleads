@@ -40,7 +40,11 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
-import { createLargeText } from "@tearleads/test-utils";
+import {
+  createContainerWriterProjectionFixture,
+  createLargeText,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   BlobAttachmentBindRequest,
@@ -56,8 +60,6 @@ import type {
   DocumentWriterProjectionResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
-import { createContainerWriterProjectionFixture } from "../../../../test/helpers/createContainerWriterProjectionFixture";
-import { createMockApiClient } from "../../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../../test/helpers/createSqlRuntime";
 import {
   assertAccessEvent,

@@ -10,8 +10,8 @@ import {
   type PendingUpdateRecord,
 } from "@tearleads/client-sdk/workflows/documents";
 import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
-import { createMockApiClient } from "./createMockApiClient";
 
 interface StoredDocumentsState {
   document: DocumentRecord | null;

@@ -28,6 +28,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
@@ -41,7 +42,6 @@ import {
   createUserContainerWrap,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
-import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
 import type { BlobBytes } from "../../blobContracts";
 import {
   ensurePrincipalPolicyTables,

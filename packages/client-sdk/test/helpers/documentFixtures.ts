@@ -15,6 +15,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type {
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
@@ -34,7 +35,6 @@ import type {
 } from "../../src/data/documents/shared/types";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
 import type { buildDocumentSyncPlan } from "../../src/workflows/documents/sync";
-import { createContainerWriterProjectionFixture } from "./createContainerWriterProjectionFixture";
 
 interface DeepNonCanonicalRecord {
   next?: DeepNonCanonicalRecord;

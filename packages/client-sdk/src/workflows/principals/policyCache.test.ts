@@ -12,12 +12,12 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,

@@ -6,7 +6,7 @@ import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
 } from "@tearleads/client-sdk/workflows/documents";
-import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
+import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
