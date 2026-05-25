@@ -46,21 +46,20 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 
 `data/` is an internal SDK layer, not an application integration API. The SDK
 root owns the high-level `Tearleads` client facade, top-level service types,
-and migration-phase compatibility exports for public document, store, and
-workflow facade symbols. SQLite worker runtime and executor contracts belong
-behind `@tearleads/client-sdk/sqlite`. Host application code should prefer the
-`Tearleads` instance and otherwise import public document, store, or workflow
-facade symbols from `@tearleads/client-sdk`.
+and public document, store, and workflow facade symbols. SQLite worker runtime
+and executor contracts belong behind `@tearleads/client-sdk/sqlite`. Host
+application code should prefer the `Tearleads` instance and otherwise import
+public document, store, or workflow facade symbols from `@tearleads/client-sdk`.
 Cross-package callers should not import `@tearleads/client-sdk/data/*`
 subpaths; promote the needed contract through the SDK root facade or the SQLite
 facade instead.
 
-Package subpath exports are explicit and should stop at the facade boundary.
-Adding a new cross-package import from `stores/` or `workflows/` should usually
-mean adding or widening a domain facade export from `@tearleads/client-sdk`,
-rather than exporting a nested implementation file. Low-level `data/` modules
-should stay package-internal unless there is a deliberate decision to promote a
-new public SDK contract.
+Package exports are explicit and should stop at the root SDK and SQLite
+runtime boundaries. Adding a new cross-package API should usually mean adding
+or widening a domain facade export from `@tearleads/client-sdk`, rather than
+exporting a nested implementation file. Low-level `data/` modules should stay
+package-internal unless there is a deliberate decision to promote a new public
+SDK contract.
 
 Use public package entry points such as `@tearleads/client-sdk` and
 `@tearleads/client-sdk/sqlite` instead of importing implementation modules or
@@ -107,17 +106,17 @@ cleanup should be incremental and behavior-preserving.
   contracts should also stay behind stores or providers. Presentation should
   use neutral data contracts instead of importing document/container
   shared-helper internals directly.
-- Production host stores, providers, and identity runtime should consume domain
-  workflow facades rather than importing `data/persistence/`, `data/sqlite/`,
+- Production host stores, providers, and identity runtime should consume the
+  SDK root facade rather than importing `data/persistence/`, `data/sqlite/`,
   `data/blobs/` directly. The host application's data provider is the executor
   construction boundary. Tests may still use low-level
   persistence stores for fixtures and characterization checks.
 - Production presentation files should not accept, pass, or import raw `ExecSql`
   values. Bind the executor inside stores/providers and expose domain-shaped
   actions or read models instead.
-- Host tests and host test helpers should also consume the SDK root or
-  workflow/store facades rather than `data/` internals. Low-level persistence
-  characterization belongs in `packages/client-sdk` tests, not host tests.
+- Host tests and host test helpers should also consume the SDK root rather than
+  `data/` internals. Low-level persistence characterization belongs in
+  `packages/client-sdk` tests, not host tests.
 
 `bun run lint:architecture` enforces the current high-confidence subset of
 these rules for `packages/client-sdk/src`, `packages/app/src`, and
