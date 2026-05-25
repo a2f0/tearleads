@@ -116,9 +116,7 @@ function PaneInner({ className }: { className: string }) {
           definition.createComponent(),
           {
             appId,
-            ...(definition.initialShowSidebar === undefined
-              ? {}
-              : { initialShowSidebar: definition.initialShowSidebar }),
+            initialShowSidebar: definition.initialShowSidebar,
           },
         );
       }

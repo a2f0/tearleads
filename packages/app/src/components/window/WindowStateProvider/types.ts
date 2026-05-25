@@ -5,7 +5,7 @@ export type WindowMoveDirection = "forward" | "backward";
 export interface WindowEntry {
   appId?: string;
   id: string;
-  initialShowSidebar?: boolean;
+  initialShowSidebar?: boolean | undefined;
   title: string;
   initialX: number;
   initialY: number;
@@ -16,7 +16,7 @@ export interface WindowEntry {
 
 export interface WindowCreateOptions {
   appId?: string;
-  initialShowSidebar?: boolean;
+  initialShowSidebar?: boolean | undefined;
 }
 
 export interface WindowStateData {

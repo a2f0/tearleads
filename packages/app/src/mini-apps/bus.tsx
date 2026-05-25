@@ -23,7 +23,7 @@ export type MiniAppId =
 
 export interface MiniAppDefinition {
   createComponent: () => ComponentType;
-  initialShowSidebar?: boolean;
+  initialShowSidebar?: boolean | undefined;
   title: string;
 }
 
@@ -176,9 +176,7 @@ export function MiniAppBusProvider({
           definition.createComponent(),
           {
             appId,
-            ...(definition.initialShowSidebar === undefined
-              ? {}
-              : { initialShowSidebar: definition.initialShowSidebar }),
+            initialShowSidebar: definition.initialShowSidebar,
           },
         );
       }

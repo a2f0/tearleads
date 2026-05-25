@@ -13,9 +13,7 @@ export function createWindowEntry(
   return {
     id,
     ...(options.appId ? { appId: options.appId } : {}),
-    ...(options.initialShowSidebar === undefined
-      ? {}
-      : { initialShowSidebar: options.initialShowSidebar }),
+    initialShowSidebar: options.initialShowSidebar,
     title,
     initialX: x,
     initialY: y,
