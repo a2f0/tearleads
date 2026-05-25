@@ -1,14 +1,14 @@
-export interface TearleadsEventsSnapshot {
+export interface EventsSnapshot {
   connected: boolean;
   events: ReadonlyArray<unknown>;
 }
 
-export type TearleadsEventsListener = () => void;
+export type EventsListener = () => void;
 
-export class TearleadsEvents {
+export class Events {
   private connectedValue = false;
-  private readonly listeners = new Set<TearleadsEventsListener>();
-  private snapshotValue: TearleadsEventsSnapshot;
+  private readonly listeners = new Set<EventsListener>();
+  private snapshotValue: EventsSnapshot;
 
   constructor(events: ReadonlyArray<unknown> = []) {
     this.snapshotValue = { connected: this.connectedValue, events };
@@ -22,7 +22,7 @@ export class TearleadsEvents {
     return this.snapshotValue.events;
   }
 
-  get snapshot(): TearleadsEventsSnapshot {
+  get snapshot(): EventsSnapshot {
     return this.snapshotValue;
   }
 
@@ -51,7 +51,7 @@ export class TearleadsEvents {
     this.updateSnapshot(events);
   }
 
-  subscribe = (listener: TearleadsEventsListener): (() => void) => {
+  subscribe = (listener: EventsListener): (() => void) => {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);

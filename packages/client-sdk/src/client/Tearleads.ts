@@ -5,56 +5,50 @@ import {
   defaultDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
-import { TearleadsBlobs } from "./blobs";
+import { Blobs } from "./blobs";
 import {
-  createTearleadsContainerContents,
-  type TearleadsContainerContents,
+  type ContainerContents,
+  createContainerContents,
 } from "./containerContents";
-import { TearleadsDatabase, type TearleadsDatabaseOptions } from "./database";
-import { createTearleadsDocuments, type TearleadsDocuments } from "./documents";
-import { TearleadsEvents } from "./events";
+import { Database, type DatabaseOptions } from "./database";
+import { createDocuments, type Documents } from "./documents";
+import { Events } from "./events";
 import {
-  createTearleadsIdentity,
-  type TearleadsIdentity,
-  type TearleadsIdentityOptions,
+  createIdentity,
+  type Identity,
+  type IdentityOptions,
 } from "./identity";
-import { logErrorToConsole, type TearleadsLogger } from "./logger";
-import { TearleadsNetwork } from "./network";
-import {
-  createTearleadsOrganizations,
-  type TearleadsOrganizations,
-} from "./organizations";
-import { createTearleadsSession, type TearleadsSession } from "./session";
-import { createTearleadsUserKeys, type TearleadsUserKeys } from "./userKeys";
-import {
-  createTearleadsRuntime,
-  type TearleadsRuntime,
-} from "./workflowRuntime";
+import { type Logger, logErrorToConsole } from "./logger";
+import { Network } from "./network";
+import { createOrganizations, type Organizations } from "./organizations";
+import { createSession, type Session } from "./session";
+import { createUserKeys, type UserKeys } from "./userKeys";
+import { createRuntime, type Runtime } from "./workflowRuntime";
 
-export interface TearleadsOptions {
+export interface ClientOptions {
   apiBaseUrl?: string | undefined;
   apiClient?: ApiClient | undefined;
   blobStore?: BlobStore | undefined;
-  database?: TearleadsDatabaseOptions | undefined;
+  database?: DatabaseOptions | undefined;
   documentProjectors?: DocumentProjectorRegistry | undefined;
   events?: ReadonlyArray<unknown> | undefined;
-  identity?: TearleadsIdentityOptions | undefined;
-  logger?: TearleadsLogger | undefined;
+  identity?: IdentityOptions | undefined;
+  logger?: Logger | undefined;
   online?: boolean | undefined;
 }
 
 export class Tearleads {
-  readonly blobs: TearleadsBlobs;
-  readonly database: TearleadsDatabase;
-  readonly documents: TearleadsDocuments;
-  readonly events: TearleadsEvents;
-  readonly containerContents: TearleadsContainerContents;
-  readonly identity: TearleadsIdentity;
-  readonly network: TearleadsNetwork;
-  readonly organizations: TearleadsOrganizations;
-  readonly runtime: TearleadsRuntime;
-  readonly session: TearleadsSession;
-  readonly userKeys: TearleadsUserKeys;
+  readonly blobs: Blobs;
+  readonly database: Database;
+  readonly documents: Documents;
+  readonly events: Events;
+  readonly containerContents: ContainerContents;
+  readonly identity: Identity;
+  readonly network: Network;
+  readonly organizations: Organizations;
+  readonly runtime: Runtime;
+  readonly session: Session;
+  readonly userKeys: UserKeys;
 
   private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
@@ -66,31 +60,31 @@ export class Tearleads {
   ) => void;
   private readonly logHandler: (message: string) => void;
 
-  constructor(options: TearleadsOptions = {}) {
+  constructor(options: ClientOptions = {}) {
     this.apiClient =
       options.apiClient ?? new ApiClient(options.apiBaseUrl ?? "");
-    this.blobs = new TearleadsBlobs(options.blobStore);
-    this.database = new TearleadsDatabase(options.database);
+    this.blobs = new Blobs(options.blobStore);
+    this.database = new Database(options.database);
     this.documentProjectors =
       options.documentProjectors ?? defaultDocumentProjectorRegistry;
-    this.events = new TearleadsEvents(options.events);
+    this.events = new Events(options.events);
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;
-    this.network = new TearleadsNetwork(options.online);
-    this.identity = createTearleadsIdentity(
+    this.network = new Network(options.online);
+    this.identity = createIdentity(
       options.identity,
       (signingFingerprint) =>
         this.blobs.updateIdentityNamespace(signingFingerprint),
       this.log,
     );
-    this.session = createTearleadsSession({
+    this.session = createSession({
       api: this.apiClient,
       database: this.database,
       identity: this.identity,
       log: this.log,
       logError: this.logError,
     });
-    const runtime = createTearleadsRuntime({
+    const runtime = createRuntime({
       api: this.apiClient,
       blobs: this.blobs,
       database: this.database,
@@ -104,13 +98,13 @@ export class Tearleads {
       session: this.session,
     });
     this.runtime = runtime.publicRuntime;
-    this.documents = createTearleadsDocuments({
+    this.documents = createDocuments({
       getDefaultContainerId: () => this.session.containerId,
       runtime,
     });
-    this.containerContents = createTearleadsContainerContents(runtime);
-    this.organizations = createTearleadsOrganizations(runtime);
-    this.userKeys = createTearleadsUserKeys({
+    this.containerContents = createContainerContents(runtime);
+    this.organizations = createOrganizations(runtime);
+    this.userKeys = createUserKeys({
       apiClient: this.apiClient,
       log: this.log,
     });

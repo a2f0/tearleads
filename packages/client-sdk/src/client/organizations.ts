@@ -9,85 +9,68 @@ import {
   loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
-  type OrganizationContainerGrant,
-  type OrganizationContainerGrants,
-  type OrganizationDataUsage,
-  type OrganizationDirectory,
-  type OrganizationDirectoryAndGroups,
-  type OrganizationDirectoryUser,
-  type OrganizationGroupContainer,
-  type OrganizationGroupContainers,
-  type OrganizationGroupDetails,
-  type OrganizationGroupMember,
-  type OrganizationGroupMembers,
-  type OrganizationGroupPolicyHistory,
-  type OrganizationGroupSummary,
-  type OrganizationPolicyHistory,
-  type OrganizationUserDetail,
   type OrganizationUserRecipient,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
   updateOrganizationRosterEntry,
 } from "../workflows/organizations";
 import type {
-  TearleadsInternalRuntime,
-  TearleadsInternalWorkflowRuntimeInput,
+  InternalRuntime,
+  InternalWorkflowRuntimeInput,
 } from "./workflowRuntime";
 
-interface TearleadsOrganizationSigningContext {
+export type {
+  OrganizationContainerGrant,
+  OrganizationContainerGrants,
+  OrganizationDataUsage,
+  OrganizationDirectory,
+  OrganizationDirectoryAndGroups,
+  OrganizationDirectoryUser,
+  OrganizationGroupContainer,
+  OrganizationGroupContainers,
+  OrganizationGroupDetails,
+  OrganizationGroupMember,
+  OrganizationGroupMembers,
+  OrganizationGroupPolicyHistory,
+  OrganizationGroupSummary,
+  OrganizationPolicyHistory,
+  OrganizationUserDetail,
+  OrganizationUserRecipient,
+} from "../workflows/organizations";
+
+interface OrganizationSigningContext {
   organizationId: string;
   signerUserId: string;
   signingFingerprint: string;
-  signingKeyPair: NonNullable<
-    TearleadsInternalWorkflowRuntimeInput["signingKeyPair"]
-  >;
+  signingKeyPair: NonNullable<InternalWorkflowRuntimeInput["signingKeyPair"]>;
 }
 
-export interface TearleadsOrganizationGrantRef {
+export interface OrganizationGrantRef {
   containerId: string;
   subjectId: string;
   subjectType: ContainerGrantSubjectType;
 }
 
-export interface TearleadsOrganizationGroupUserMutationInput {
+export interface OrganizationGroupUserMutationInput {
   canAdministerOrganization: boolean;
   groupId: string;
 }
 
-export interface TearleadsAddOrganizationGroupUserInput
-  extends TearleadsOrganizationGroupUserMutationInput {
+export interface AddOrganizationGroupUserInput
+  extends OrganizationGroupUserMutationInput {
   currentUsers: ReadonlyArray<OrganizationUserRecipient>;
   targetUser: OrganizationUserRecipient;
 }
 
-export interface TearleadsRemoveOrganizationGroupUserInput
-  extends TearleadsOrganizationGroupUserMutationInput {
+export interface RemoveOrganizationGroupUserInput
+  extends OrganizationGroupUserMutationInput {
   remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
   removedUserId: string;
 }
 
-export type TearleadsOrganizationContainerGrant = OrganizationContainerGrant;
-export type TearleadsOrganizationContainerGrants = OrganizationContainerGrants;
-export type TearleadsOrganizationDataUsage = OrganizationDataUsage;
-export type TearleadsOrganizationDirectory = OrganizationDirectory;
-export type TearleadsOrganizationDirectoryAndGroups =
-  OrganizationDirectoryAndGroups;
-export type TearleadsOrganizationDirectoryUser = OrganizationDirectoryUser;
-export type TearleadsOrganizationGroupContainer = OrganizationGroupContainer;
-export type TearleadsOrganizationGroupContainers = OrganizationGroupContainers;
-export type TearleadsOrganizationGroupDetails = OrganizationGroupDetails;
-export type TearleadsOrganizationGroupMember = OrganizationGroupMember;
-export type TearleadsOrganizationGroupMembers = OrganizationGroupMembers;
-export type TearleadsOrganizationGroupPolicyHistory =
-  OrganizationGroupPolicyHistory;
-export type TearleadsOrganizationGroupSummary = OrganizationGroupSummary;
-export type TearleadsOrganizationPolicyHistory = OrganizationPolicyHistory;
-export type TearleadsOrganizationUserDetail = OrganizationUserDetail;
-export type TearleadsOrganizationUserRecipient = OrganizationUserRecipient;
-
-export interface TearleadsOrganizations {
+export interface Organizations {
   addUserToGroup: (
-    input: TearleadsAddOrganizationGroupUserInput,
+    input: AddOrganizationGroupUserInput,
   ) => ReturnType<typeof addOrganizationGroupUser>;
   createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
   importUserById: (
@@ -110,16 +93,16 @@ export interface TearleadsOrganizations {
     profileDocumentId: string | null,
   ) => ReturnType<typeof updateOrganizationRosterEntry>;
   removeUserFromGroup: (
-    input: TearleadsRemoveOrganizationGroupUserInput,
+    input: RemoveOrganizationGroupUserInput,
   ) => ReturnType<typeof removeOrganizationGroupUser>;
   revokeGrant: (
-    grant: TearleadsOrganizationGrantRef,
+    grant: OrganizationGrantRef,
   ) => ReturnType<typeof revokeOrganizationContainerGrant>;
 }
 
 function requireSigningContext(
-  runtime: TearleadsInternalWorkflowRuntimeInput,
-): TearleadsOrganizationSigningContext {
+  runtime: InternalWorkflowRuntimeInput,
+): OrganizationSigningContext {
   if (
     !runtime.organizationId ||
     !runtime.userId ||
@@ -138,8 +121,8 @@ function requireSigningContext(
 }
 
 function requireEncapsulationKeyPair(
-  runtime: TearleadsInternalWorkflowRuntimeInput,
-): NonNullable<TearleadsInternalWorkflowRuntimeInput["encapsulationKeyPair"]> {
+  runtime: InternalWorkflowRuntimeInput,
+): NonNullable<InternalWorkflowRuntimeInput["encapsulationKeyPair"]> {
   if (!runtime.encapsulationKeyPair) {
     throw new Error("Organization encryption context is unavailable");
   }
@@ -148,23 +131,21 @@ function requireEncapsulationKeyPair(
 }
 
 function authenticatedOrganizationId(
-  runtime: TearleadsInternalWorkflowRuntimeInput,
+  runtime: InternalWorkflowRuntimeInput,
 ): string | null {
   return runtime.organizationId && runtime.isAuthenticated
     ? runtime.organizationId
     : null;
 }
 
-export function createTearleadsOrganizations(
-  runtime: TearleadsInternalRuntime,
-): TearleadsOrganizations {
-  return new TearleadsOrganizationsService(runtime);
+export function createOrganizations(runtime: InternalRuntime): Organizations {
+  return new OrganizationsService(runtime);
 }
 
-class TearleadsOrganizationsService implements TearleadsOrganizations {
-  constructor(private readonly runtimeService: TearleadsInternalRuntime) {}
+class OrganizationsService implements Organizations {
+  constructor(private readonly runtimeService: InternalRuntime) {}
 
-  addUserToGroup(input: TearleadsAddOrganizationGroupUserInput) {
+  addUserToGroup(input: AddOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const currentUserSecretKey = requireEncapsulationKeyPair(runtime).secretKey;
@@ -305,7 +286,7 @@ class TearleadsOrganizationsService implements TearleadsOrganizations {
     });
   }
 
-  removeUserFromGroup(input: TearleadsRemoveOrganizationGroupUserInput) {
+  removeUserFromGroup(input: RemoveOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
 
@@ -320,7 +301,7 @@ class TearleadsOrganizationsService implements TearleadsOrganizations {
     });
   }
 
-  revokeGrant(grant: TearleadsOrganizationGrantRef) {
+  revokeGrant(grant: OrganizationGrantRef) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const encapsulationKeyPair = requireEncapsulationKeyPair(runtime);

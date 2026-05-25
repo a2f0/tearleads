@@ -1,4 +1,4 @@
-export type TearleadsNetworkListener = (online: boolean) => void;
+export type NetworkListener = (online: boolean) => void;
 
 function defaultOnline(): boolean {
   return typeof navigator === "object" && typeof navigator.onLine === "boolean"
@@ -6,8 +6,8 @@ function defaultOnline(): boolean {
     : true;
 }
 
-export class TearleadsNetwork {
-  private readonly listeners = new Set<TearleadsNetworkListener>();
+export class Network {
+  private readonly listeners = new Set<NetworkListener>();
   private onlineValue: boolean;
 
   constructor(online: boolean = defaultOnline()) {
@@ -33,7 +33,7 @@ export class TearleadsNetwork {
     }
   }
 
-  subscribe = (listener: TearleadsNetworkListener): (() => void) => {
+  subscribe = (listener: NetworkListener): (() => void) => {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);

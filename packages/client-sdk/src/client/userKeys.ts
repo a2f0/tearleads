@@ -2,21 +2,21 @@ import type { ApiClient } from "@tearleads/api-client";
 import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 
-export interface TearleadsUserKey {
+export interface UserKey {
   encapsulationPublicKey: string;
   signingKeyFingerprint: string;
   signingPublicKey: string;
   userId: string;
 }
 
-export interface TearleadsUserKeys {
-  fetch(userId: string): Promise<TearleadsUserKey | null>;
+export interface UserKeys {
+  fetch(userId: string): Promise<UserKey | null>;
 }
 
-export function createTearleadsUserKeys(input: {
+export function createUserKeys(input: {
   apiClient: ApiClient;
   log: (message: string) => void;
-}): TearleadsUserKeys {
+}): UserKeys {
   return {
     async fetch(userId) {
       input.log(`Loading user key for userId: ${userId}`);
