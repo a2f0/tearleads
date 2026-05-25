@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:client-sdk": "bun run --cwd ../client-sdk build",
     "e2e": "playwright test",
     "test:e2e": "bun run e2e",
+    "predev": "bun run build:client-sdk",
     "dev": "bun --hot src/servers/devServer.ts",
+    "prebuild": "bun run build:client-sdk",
     "build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='production' --env='BUN_PUBLIC_*'",
+    "prestart": "bun run build:client-sdk",
     "start": "bun src/servers/devServer.ts"
   },
   "dependencies": {
