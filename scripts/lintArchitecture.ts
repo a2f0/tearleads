@@ -19,6 +19,7 @@ const appPresentationEntryPoints = [
 const appDocumentProjectionSourcePaths = new Set([
   "packages/app/src/document-types/projectors.ts",
 ]);
+const appMiniAppBusSourcePath = "packages/app/src/mini-apps/bus.tsx";
 const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
@@ -859,6 +860,16 @@ function isUnsupportedClientSdkRootReExport(specifier: string): boolean {
   );
 }
 
+function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
+  return (
+    specifier.startsWith("@tearleads/") ||
+    /^\.\.\/(?:providers|stores|document-types)(?:\/|$)/.test(specifier) ||
+    /^\.\/(?:contacts|explorer|identity-manager|notes|org-manager)(?:\/|$)/.test(
+      specifier,
+    )
+  );
+}
+
 async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {
   const result = await cruise(
     architectureEntryPoints,
@@ -894,6 +905,14 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "App test helpers belong under packages/app/test and must not be imported by production src files.",
     name: "app-production-source-does-not-import-test-helpers",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: [appMiniAppBusSourcePath],
+    listFiles: listExactSourceFile,
+    matches: isAppMiniAppBusBoundaryImport,
+    message:
+      "Mini-app bus should stay SDK-independent app window/message infrastructure; pass SDK-backed data, providers, stores, and concrete mini-app definitions in from callers.",
+    name: "app-mini-app-bus-stays-sdk-independent",
   }),
   createModuleSpecifierCheck({
     entryPoints: appProductionSourceEntryPoints,
