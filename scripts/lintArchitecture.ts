@@ -83,6 +83,20 @@ const clientSdkSupportedPackageExports = {
     types: "./dist/workflows/sync/index.d.ts",
   },
 } as const;
+const clientSdkRootAllowedReExports = new Set([
+  "./client",
+  "./documents",
+  "./stores/container-contents",
+  "./stores/documents",
+  "./workflows/blobs",
+  "./workflows/container-contents",
+  "./workflows/containers",
+  "./workflows/documents",
+  "./workflows/organizations",
+  "./workflows/principals",
+  "./workflows/registration",
+  "./workflows/sync",
+]);
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
@@ -876,8 +890,10 @@ function isClientSdkStoreImport(specifier: string): boolean {
   );
 }
 
-function isClientSdkRootFacadeReExport(specifier: string): boolean {
-  return /^\.\/(?:stores|workflows)(?:\/|$)/.test(specifier);
+function isUnsupportedClientSdkRootReExport(specifier: string): boolean {
+  return (
+    specifier.startsWith(".") && !clientSdkRootAllowedReExports.has(specifier)
+  );
 }
 
 async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {
@@ -1009,10 +1025,10 @@ const architectureChecks: ArchitectureCheck[] = [
   createModuleSpecifierCheck({
     entryPoints: [clientSdkRootIndexPath],
     listFiles: listExactSourceFile,
-    matches: isClientSdkRootFacadeReExport,
+    matches: isUnsupportedClientSdkRootReExport,
     message:
-      "Client SDK root exports should stay focused on neutral contracts; workflow and store APIs belong behind explicit facade subpaths.",
-    name: "client-sdk-root-exports-neutral-contracts",
+      "Client SDK root compatibility exports should only aggregate documented client, document, workflow, and store facades during the entrypoint migration.",
+    name: "client-sdk-root-exports-only-documented-facades",
   }),
   createSourceTextCheck({
     entryPoints: [clientSdkClientFacadeIndexPath],
