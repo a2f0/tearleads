@@ -1,5 +1,6 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import { useTearleads } from "../sdk/TearleadsProvider";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 
 interface ServerEvent {
   id: string;
@@ -14,11 +15,7 @@ interface EventsContextValue {
 
 export function useEvents(): EventsContextValue {
   const tearleads = useTearleads();
-  const snapshot = useSyncExternalStore(
-    tearleads.events.subscribe,
-    () => tearleads.events.snapshot,
-    () => tearleads.events.snapshot,
-  );
+  const snapshot = useTearleadsStoreSnapshot(tearleads.events);
 
   return useMemo(
     () => ({

@@ -71,7 +71,8 @@
         "packages/api/test/**/*.ts",
         "packages/client-sdk/test/helpers/**/*.ts",
         "packages/app/test/helpers/**/*.ts",
-        "packages/app/test/helpers/**/*.tsx"
+        "packages/app/test/helpers/**/*.tsx",
+        "packages/test-utils/src/**/*.ts"
       ],
       "linter": {
         "rules": {

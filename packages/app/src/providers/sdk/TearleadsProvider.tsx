@@ -8,11 +8,11 @@ import {
   useEffect,
   useMemo,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
+import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
 const TearleadsContext = createContext<Tearleads | null>(null);
 
@@ -127,9 +127,8 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
         logger: { log, logError },
       }),
   );
-  const runtimeVersion = useSyncExternalStore(
+  const runtimeVersion = useTearleadsExternalValue(
     tearleads.runtime.subscribe,
-    () => tearleads.runtime.version,
     () => tearleads.runtime.version,
   );
   const runtimeInput = useMemo(

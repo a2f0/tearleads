@@ -15,12 +15,12 @@ import {
   useContext,
   useEffect,
   useRef,
-  useSyncExternalStore,
 } from "react";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 
 type SQLiteRuntimeStatus = TearleadsDatabaseStatus;
 
@@ -189,11 +189,7 @@ function useManagedSQLiteRuntime(
   log: (message: string) => void,
   tearleads: Tearleads,
 ): DatabaseContextValue {
-  const snapshot = useSyncExternalStore(
-    tearleads.database.subscribe,
-    () => tearleads.database.snapshot,
-    () => tearleads.database.snapshot,
-  );
+  const snapshot = useTearleadsStoreSnapshot(tearleads.database);
   const runtimeRef = useRef<SQLiteRuntime | null>(null);
   const bootingRef = useRef(false);
   const currentDbNameRef = useRef<string | null>(null);

@@ -68,7 +68,6 @@
       },
       "devDependencies": {
         "@happy-dom/global-registrator": "catalog:testing",
-        "@tearleads/api-client": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@testing-library/react": "catalog:testing",
@@ -134,6 +133,7 @@
         "drizzle-orm": "0.45.1",
       },
       "devDependencies": {
+        "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
@@ -189,6 +189,13 @@
     "packages/test-utils": {
       "name": "@tearleads/test-utils",
       "version": "0.1.0",
+      "dependencies": {
+        "@tearleads/api-client": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/encoding": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
+        "@tearleads/validators": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "catalog:",
       },

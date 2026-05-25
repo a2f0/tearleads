@@ -79,6 +79,7 @@
     "drizzle-orm": "0.45.1"
   },
   "devDependencies": {
+    "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:"
   }
 }
