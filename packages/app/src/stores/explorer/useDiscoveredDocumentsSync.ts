@@ -1,14 +1,12 @@
 import type { ContainerContents, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import {
   type ExplorerDocumentsRuntimeAppDataInput,
   isDestroyedDatabaseWorkerError,
   useExplorerDocumentsRuntimeAppData,
 } from "./documentRuntime";
 
-type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput &
-  Pick<RuntimeSnapshot, "state">;
+type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput;
 
 type DiscoveryPromise = Promise<ReadonlyArray<DocumentSummary> | null>;
 
