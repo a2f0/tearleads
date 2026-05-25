@@ -177,6 +177,9 @@ into SDK SQLite vocabulary:
 | `SQLiteRuntime` | The `{ id, client, destroy() }` lifecycle contract returned by both runtime factories |
 | `SQLiteWorkerClient` | The worker client contract accepted by `database.client` through `ExecSqlClientLike` |
 | `CreateModuleSQLiteRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
+| `getSQLitePersistenceRuntime(execSql)` | Building typed Drizzle queries against the active SDK SQLite executor |
+| `defineSqlTableSchema(table)` | Rendering app-owned Drizzle SQLite table definitions for `ensureSqlTables` |
+| `ExecSql`, `SqlTableSchema`, `ensureSqlTables`, `runSerializedSqlMutation` | Explicit executor, schema, and mutation helpers for host-owned persistence edges |
 
 Host runtime code should use these aliases instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
