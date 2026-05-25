@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { TearleadsUserKey } from "@tearleads/client-sdk";
-import { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents";
+import {
+  createDocumentsWorkflowRuntime,
+  defaultDocumentsPersistence,
+  deletePersistedDocument,
+} from "@tearleads/client-sdk/workflows/documents";
 import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
@@ -54,6 +58,15 @@ async function createContactsRuntime(): Promise<
   const { close, ...runtimeInputBase } = runtimeBase;
   return {
     close,
+    deleteLocalDocument: async (localId) => {
+      await deletePersistedDocument({
+        documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+        execSql: runtimeInputBase.execSql,
+        localId,
+        persistence: defaultDocumentsPersistence,
+      });
+      return true;
+    },
     documents: createDocumentsWorkflowRuntime({
       ...runtimeInputBase,
       apiClient: createMockApiClient(),

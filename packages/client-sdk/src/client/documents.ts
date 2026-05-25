@@ -6,6 +6,7 @@ import {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
+  deletePersistedDocument,
 } from "../workflows/documents";
 import type { TearleadsInternalRuntime } from "./workflowRuntime";
 
@@ -14,6 +15,7 @@ export interface TearleadsListLocalDocumentSummariesInput {
 }
 
 export interface TearleadsDocuments {
+  deleteLocalDocument(localId: string): Promise<boolean>;
   listLocalSummaries(
     input?: TearleadsListLocalDocumentSummariesInput | undefined,
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
@@ -38,6 +40,21 @@ class TearleadsDocumentsService implements TearleadsDocuments {
   >();
 
   constructor(private readonly dependencies: TearleadsDocumentsDependencies) {}
+
+  async deleteLocalDocument(localId: string): Promise<boolean> {
+    const runtime = this.runtime();
+    if (runtime.dbStatus !== "ready") {
+      return false;
+    }
+
+    await deletePersistedDocument({
+      documentProjectors: runtime.documentProjectors,
+      execSql: runtime.execSql,
+      localId,
+      persistence: defaultDocumentsPersistence,
+    });
+    return true;
+  }
 
   async listLocalSummaries(
     input: TearleadsListLocalDocumentSummariesInput = {},

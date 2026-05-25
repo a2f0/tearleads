@@ -24,6 +24,8 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const runtime = useMemo<ContactsRuntime>(
     () => ({
+      deleteLocalDocument: (localId) =>
+        tearleads.documents.deleteLocalDocument(localId),
       documents: tearleads.documents.runtime(),
       execSql: appData.execSql,
     }),

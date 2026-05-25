@@ -1,1 +1,1 @@
-export type { ContainerNode } from "@tearleads/client-sdk/stores/container-contents";
+export type { TearleadsContainerNode as ContainerNode } from "@tearleads/client-sdk";

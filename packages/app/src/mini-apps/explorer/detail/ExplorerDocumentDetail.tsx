@@ -4,7 +4,6 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
-import { createContainerDocumentObjectSyncState } from "@tearleads/client-sdk/workflows/container-contents";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppActions,
@@ -19,6 +18,7 @@ import type {
   ExplorerDocumentReadModel,
   ExplorerObjectSyncState,
 } from "../../../stores/explorer/documentReadModel";
+import { createExplorerObjectSyncState } from "../../../stores/explorer/documentReadModel";
 import type { ContainerNode } from "../../../stores/explorer/types";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import {
@@ -398,7 +398,7 @@ function useSelectedDocumentSyncState(params: {
   const { documentListRevision, documentReadModel, selectedDocument } = params;
   const fallbackSyncState = useMemo(
     () =>
-      createContainerDocumentObjectSyncState({
+      createExplorerObjectSyncState({
         localOnly: selectedDocument.documentId === null,
       }),
     [selectedDocument.documentId],

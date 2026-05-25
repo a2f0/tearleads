@@ -1,11 +1,11 @@
-import type { DocumentInfo } from "@tearleads/client-sdk/workflows/container-contents";
+import type { TearleadsDocumentInfo } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import {
   type TearleadsRuntimeSnapshot,
   useTearleads,
 } from "../../providers/sdk/TearleadsProvider";
 
-export type ExplorerDocumentInfo = DocumentInfo;
+export type ExplorerDocumentInfo = TearleadsDocumentInfo;
 
 export function useExplorerDocumentInfoLoader(input: {
   readonly appData: Pick<

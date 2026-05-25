@@ -1,18 +1,13 @@
-import {
-  DEFAULT_DOCUMENT_KIND,
-  type DocumentSummary,
-  type StoredDocumentKind,
+import type {
+  DocumentSummary,
+  StoredDocumentKind,
 } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
-import { primeDocumentStore } from "../documents/DocumentsProvider";
 import type { ExplorerDocumentReadModel } from "./documentReadModel";
 import type { ExplorerDocumentsRuntimeAppData } from "./documentRuntime";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
 const EXPLORER_DROPPED_FILE_MAX_BYTES = 5 * 1024 * 1024;
-type ExplorerDroppedFileImportRuntime = ReturnType<
-  ExplorerDocumentsRuntimeAppData["createDocumentRuntime"]
->;
 
 interface ExplorerDroppedFileDocumentStore {
   ensureInitialized: () => Promise<boolean>;
@@ -36,17 +31,16 @@ export interface ExplorerDroppedFileImportResult
   importedDocuments: ReadonlyArray<DocumentSummary>;
 }
 
-interface ExplorerDroppedFileImportStoreInput<TRuntime> {
+interface ExplorerDroppedFileImportStoreInput {
+  containerId: string;
   initialText: string;
   localId: string;
-  runtime: TRuntime;
 }
 
-interface ExplorerDroppedFileImportInput<TRuntime> {
+interface ExplorerDroppedFileImportInput {
   containerId: string;
-  createDocumentRuntime: (containerId: string) => TRuntime;
   createDocumentStore: (
-    input: ExplorerDroppedFileImportStoreInput<TRuntime>,
+    input: ExplorerDroppedFileImportStoreInput,
   ) => ExplorerDroppedFileDocumentStore;
   createLocalId: () => string;
   files: ReadonlyArray<File>;
@@ -103,22 +97,21 @@ function assertExplorerDroppedFileCanBeImported(
   }
 }
 
-async function importExplorerDroppedFile<TRuntime>(input: {
+async function importExplorerDroppedFile(input: {
   containerId: string;
-  createDocumentStore: ExplorerDroppedFileImportInput<TRuntime>["createDocumentStore"];
+  createDocumentStore: ExplorerDroppedFileImportInput["createDocumentStore"];
   createLocalId: () => string;
   file: File;
   labels: ExplorerDroppedFileImportLabels;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
-  runtime: TRuntime;
 }): Promise<DocumentSummary> {
   assertExplorerDroppedFileCanBeImported(input.file, input.labels);
   const localId = input.createLocalId();
   const text = await input.file.text();
   const store = input.createDocumentStore({
+    containerId: input.containerId,
     initialText: text,
     localId,
-    runtime: input.runtime,
   });
   const initialized = await store.ensureInitialized();
   if (!initialized) {
@@ -138,17 +131,16 @@ async function importExplorerDroppedFile<TRuntime>(input: {
 }
 
 function emitProgress(
-  input: Pick<ExplorerDroppedFileImportInput<unknown>, "onProgress">,
+  input: Pick<ExplorerDroppedFileImportInput, "onProgress">,
   progress: ExplorerDroppedFileImportProgress,
 ) {
   input.onProgress?.({ ...progress });
 }
 
-export async function importExplorerDroppedFiles<TRuntime>(
-  input: ExplorerDroppedFileImportInput<TRuntime>,
+export async function importExplorerDroppedFiles(
+  input: ExplorerDroppedFileImportInput,
 ): Promise<ExplorerDroppedFileImportResult> {
   const files = Array.from(input.files);
-  const runtime = input.createDocumentRuntime(input.containerId);
   const importedDocuments: DocumentSummary[] = [];
   const progress: ExplorerDroppedFileImportProgress = {
     completedCount: 0,
@@ -176,7 +168,6 @@ export async function importExplorerDroppedFiles<TRuntime>(
           file,
           labels: input.labels,
           loadDocumentSummary: input.loadDocumentSummary,
-          runtime,
         }),
       ),
     );
@@ -218,19 +209,18 @@ export function useExplorerDroppedFileImport(params: {
 
   return useCallback(
     (containerId, files, onProgress) =>
-      importExplorerDroppedFiles<ExplorerDroppedFileImportRuntime>({
+      importExplorerDroppedFiles({
         containerId,
-        createDocumentRuntime: (targetContainerId) =>
-          appData.createDocumentRuntime(targetContainerId),
-        createDocumentStore: ({ initialText, localId, runtime }) =>
-          primeDocumentStore(
-            appData.domainScope,
-            localId,
-            runtime,
-            null,
+        createDocumentStore: ({
+          containerId: targetContainerId,
+          initialText,
+          localId,
+        }) =>
+          appData.primeDocumentStore({
+            containerId: targetContainerId,
             initialText,
-            DEFAULT_DOCUMENT_KIND,
-          ),
+            localId,
+          }),
         createLocalId: () => crypto.randomUUID(),
         files,
         labels,

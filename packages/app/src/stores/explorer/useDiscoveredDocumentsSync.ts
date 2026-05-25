@@ -1,9 +1,7 @@
 import type { TearleadsContainerContents } from "@tearleads/client-sdk";
 import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import { hasUndiscoveredDocumentUpdateEvent } from "@tearleads/client-sdk/workflows/container-contents";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { TearleadsRuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
-import { primeDocumentStore } from "../documents/DocumentsProvider";
 import {
   type ExplorerDocumentsRuntimeAppDataInput,
   isDestroyedDatabaseWorkerError,
@@ -48,6 +46,7 @@ export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   appData: ExplorerDiscoveryAppData;
   discoverDocuments: TearleadsContainerContents["discoverDocuments"];
+  hasUndiscoveredDocumentUpdates: TearleadsContainerContents["hasUndiscoveredDocumentUpdates"];
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
@@ -61,6 +60,7 @@ export function useDiscoveredDocumentsSync(params: {
     activeContainerId,
     appData,
     discoverDocuments,
+    hasUndiscoveredDocumentUpdates,
     knownDocumentIds,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
@@ -116,6 +116,7 @@ export function useDiscoveredDocumentsSync(params: {
     dbStatus: appData.dbStatus,
     discoverDocumentsForContainer,
     events: appData.events,
+    hasUndiscoveredDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
     online,
@@ -131,6 +132,7 @@ function useContainerDiscoveryEffects(params: {
     containerId: string,
   ) => (() => void) | undefined;
   events: ExplorerDiscoveryAppData["events"];
+  hasUndiscoveredDocumentUpdates: TearleadsContainerContents["hasUndiscoveredDocumentUpdates"];
   isAuthenticated: ExplorerDiscoveryAppData["isAuthenticated"];
   knownDocumentIds: ReadonlySet<string>;
   online: ExplorerDiscoveryAppData["online"];
@@ -140,6 +142,7 @@ function useContainerDiscoveryEffects(params: {
     dbStatus,
     discoverDocumentsForContainer,
     events,
+    hasUndiscoveredDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
     online,
@@ -170,7 +173,7 @@ function useContainerDiscoveryEffects(params: {
       dbStatus !== "ready" ||
       !online ||
       !isAuthenticated ||
-      !hasUndiscoveredDocumentUpdateEvent(events, knownDocumentIds)
+      !hasUndiscoveredDocumentUpdates(knownDocumentIds)
     ) {
       return;
     }
@@ -181,6 +184,7 @@ function useContainerDiscoveryEffects(params: {
     dbStatus,
     discoverDocumentsForContainer,
     events,
+    hasUndiscoveredDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
     online,
@@ -200,13 +204,13 @@ export function usePrimeDiscoveredDocuments(params: {
           continue;
         }
 
-        const documentStore = primeDocumentStore(
-          runtimeAppData.domainScope,
-          documentSummary.id,
-          runtimeAppData.createDocumentRuntime(documentSummary.containerId),
-          documentSummary.documentId,
-        );
-        documentStore.requestSync();
+        runtimeAppData
+          .primeDocumentStore({
+            containerId: documentSummary.containerId,
+            documentId: documentSummary.documentId,
+            localId: documentSummary.id,
+          })
+          .requestSync();
       }
     },
     [runtimeAppData],

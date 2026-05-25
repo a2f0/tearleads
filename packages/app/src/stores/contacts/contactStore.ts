@@ -6,10 +6,6 @@ import {
   getOrCreateDocumentStore,
 } from "@tearleads/client-sdk/stores/documents";
 import {
-  defaultDocumentsPersistence,
-  deletePersistedDocument,
-} from "@tearleads/client-sdk/workflows/documents";
-import {
   type ContactEntry,
   type ContactEntryPatch,
   contactEntryToStructuredFieldPatch,
@@ -24,6 +20,7 @@ export interface ContactsSnapshot {
 }
 
 export interface ContactsRuntime {
+  deleteLocalDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
   execSql: ExecSql;
 }
@@ -455,12 +452,7 @@ async function removeContactFromRuntime(
       const trackedStore = state.contactDocumentStoresById.get(contactId);
       trackedStore?.unsubscribe();
       state.contactDocumentStoresById.delete(contactId);
-      await deletePersistedDocument({
-        documentProjectors: state.runtime.documents.documentProjectors,
-        execSql: state.runtime.documents.execSql,
-        localId: contactId,
-        persistence: defaultDocumentsPersistence,
-      });
+      await state.runtime.deleteLocalDocument(contactId);
       removeContactEntry(state, contactId);
     })
     .catch((error: unknown) => {
