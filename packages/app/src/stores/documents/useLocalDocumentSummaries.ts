@@ -3,7 +3,7 @@ import {
   type DocumentSummary,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -44,25 +44,20 @@ function orderDocumentSummaries(
 function mergeLocalDocumentSummary(
   currentDocumentSummaries: ReadonlyArray<DocumentSummary>,
   nextDocumentSummary: DocumentSummary,
-  input: Pick<UseLocalDocumentSummariesInput, "documentKind" | "sortSummaries">,
+  documentKind: StoredDocumentKind | undefined,
 ): ReadonlyArray<DocumentSummary> {
-  if (!documentSummaryMatchesKind(nextDocumentSummary, input.documentKind)) {
+  if (!documentSummaryMatchesKind(nextDocumentSummary, documentKind)) {
     return currentDocumentSummaries;
   }
 
   const existingDocumentIndex = currentDocumentSummaries.findIndex(
     (documentSummary) => documentSummary.id === nextDocumentSummary.id,
   );
-  const nextDocumentSummaries =
-    existingDocumentIndex < 0
-      ? [...currentDocumentSummaries, nextDocumentSummary]
-      : currentDocumentSummaries.map((documentSummary, index) =>
-          index === existingDocumentIndex
-            ? nextDocumentSummary
-            : documentSummary,
-        );
-
-  return orderDocumentSummaries(nextDocumentSummaries, input.sortSummaries);
+  return existingDocumentIndex < 0
+    ? [...currentDocumentSummaries, nextDocumentSummary]
+    : currentDocumentSummaries.map((documentSummary, index) =>
+        index === existingDocumentIndex ? nextDocumentSummary : documentSummary,
+      );
 }
 
 export function useLocalDocumentSummaries({
@@ -88,14 +83,11 @@ export function useLocalDocumentSummaries({
         mergeLocalDocumentSummary(
           currentDocumentSummaries,
           nextDocumentSummary,
-          {
-            documentKind,
-            sortSummaries,
-          },
+          documentKind,
         ),
       );
     },
-    [documentKind, sortSummaries],
+    [documentKind],
   );
 
   useEffect(() => {
@@ -112,16 +104,12 @@ export function useLocalDocumentSummaries({
           (await tearleads.documents.listLocalSummaries(
             documentKind === undefined ? {} : { documentKind },
           )) ?? [];
-        const nextSummaries = orderDocumentSummaries(
-          persistedSummaries,
-          sortSummaries,
-        );
 
         if (cancelled) {
           return;
         }
 
-        setSummaries(nextSummaries);
+        setSummaries(persistedSummaries);
         setReady(true);
       } catch (error) {
         if (!cancelled) {
@@ -140,7 +128,6 @@ export function useLocalDocumentSummaries({
     appData.util.logError,
     documentKind,
     loadErrorMessage,
-    sortSummaries,
     tearleads,
   ]);
 
@@ -155,9 +142,14 @@ export function useLocalDocumentSummaries({
     tearleads,
   ]);
 
+  const sortedSummaries = useMemo(
+    () => orderDocumentSummaries(summaries, sortSummaries),
+    [summaries, sortSummaries],
+  );
+
   return {
     mergeSummary,
     ready,
-    summaries,
+    summaries: sortedSummaries,
   };
 }
