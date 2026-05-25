@@ -964,7 +964,7 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appTestHelperEntryPoints,
     matches: isClientSdkDataImport,
     message:
-      "App test helpers should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+      "App test helpers should import client SDK contracts from @tearleads/client-sdk or document and SQLite facades instead of @tearleads/client-sdk/data/* internals.",
     name: "app-test-helpers-use-sdk-root-or-facades",
   }),
   createModuleSpecifierCheck({
@@ -979,7 +979,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkDataImport,
     message:
-      "App tests should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
+      "App tests should import client SDK contracts from @tearleads/client-sdk or document and SQLite facades instead of @tearleads/client-sdk/data/* internals.",
     name: "app-tests-use-sdk-root-or-facades",
   }),
   createModuleSpecifierCheck({

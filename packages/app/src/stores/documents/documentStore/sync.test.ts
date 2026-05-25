@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import * as clientSdk from "@tearleads/client-sdk";
 import {
   createDocumentProjectionUserKeyResolver,
   createDocumentStore,
@@ -6,11 +7,9 @@ import {
   createDomainScope,
   createMemoryBlobStore,
   createRemoteDocument,
-  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentsPersistence,
   type DocumentsRuntime,
-  decryptDocumentAttachmentBlob,
   getOrCreateDomainSyncCoordinator,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
@@ -62,6 +61,8 @@ import {
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
+
+const { decryptDocumentAttachmentBlob, DOCUMENTS_APP_KIND } = clientSdk;
 
 interface StoredDocumentsState {
   document: DocumentRecord | null;
