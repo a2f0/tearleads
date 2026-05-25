@@ -40,11 +40,7 @@ const clientSdkSupportedPackageExports = {
     types: "./dist/sqlite.d.ts",
   },
 } as const;
-const clientSdkRootAllowedReExports = new Set([
-  "./client",
-  "./documents",
-  "./stores/container-contents",
-  "./stores/documents",
+const clientSdkRootWorkflowFacadeReExports = [
   "./workflows/blobs",
   "./workflows/container-contents",
   "./workflows/containers",
@@ -53,6 +49,13 @@ const clientSdkRootAllowedReExports = new Set([
   "./workflows/principals",
   "./workflows/registration",
   "./workflows/sync",
+] as const;
+const clientSdkRootAllowedReExports = new Set([
+  "./client",
+  "./documents",
+  "./stores/container-contents",
+  "./stores/documents",
+  ...clientSdkRootWorkflowFacadeReExports,
 ]);
 const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 const testFilePattern = /\.test\.[tj]sx?$/;
@@ -650,11 +653,9 @@ function expectedClientSdkPublicApiEntryPoints(): string[] {
 }
 
 function expectedClientSdkWorkflowFacadeNames(): string[] {
-  return [...clientSdkRootAllowedReExports].flatMap((exportPath) => {
-    const workflowExport = /^\.\/workflows\/([^/]+)$/.exec(exportPath);
-
-    return workflowExport?.[1] ? [workflowExport[1]] : [];
-  });
+  return clientSdkRootWorkflowFacadeReExports.map((exportPath) =>
+    exportPath.slice("./workflows/".length),
+  );
 }
 
 function escapeRegExpLiteral(value: string): string {
@@ -807,14 +808,6 @@ async function findClientSdkDataPackageExports(): Promise<string[]> {
 
   return Object.keys(packageJson.exports ?? {}).filter(
     (exportPath) => exportPath === "./data" || exportPath.startsWith("./data/"),
-  );
-}
-
-async function findClientSdkDeepFacadePackageExports(): Promise<string[]> {
-  const packageJson = await readClientSdkPackageJson();
-
-  return Object.keys(packageJson.exports ?? {}).filter((exportPath) =>
-    /^\.\/(?:stores|workflows)\/[^/]+\/.+/.test(exportPath),
   );
 }
 
@@ -1051,13 +1044,6 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "Client SDK data internals should stay package-internal; promote public contracts through the root entry point instead.",
     name: "client-sdk-does-not-export-data-internals",
-  }),
-  createListCheck({
-    findItems: findClientSdkDeepFacadePackageExports,
-    formatItem: (exportPath) => `${clientSdkPackageJsonPath}: ${exportPath}`,
-    message:
-      "Client SDK package exports should stay at the documented root and SQLite entry points instead of exposing implementation files.",
-    name: "client-sdk-exports-only-root-and-facades",
   }),
   createModuleSpecifierCheck({
     entryPoints: [clientSdkRootIndexPath],
