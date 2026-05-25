@@ -19,7 +19,7 @@ export interface ContainerContentsProjectionKeyRuntime {
     readonly signingFingerprint?: ProjectionKeyRuntime["signingFingerprint"];
     readonly signingKeyPair?: ProjectionKeyRuntime["signingKeyPair"];
   };
-  readonly util: {
+  readonly util?: {
     readonly log?: ProjectionKeyRuntime["log"];
   };
 }
@@ -39,7 +39,7 @@ function containerContentsProjectionRuntime(
     userId: runtime.auth.userId ?? null,
   };
 
-  return runtime.util.log
+  return runtime.util?.log
     ? { ...projectionRuntime, log: runtime.util.log }
     : projectionRuntime;
 }
