@@ -26,7 +26,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   );
   const store = useMemo(
     () => tearleads.containerContents.store({ logLabel: "Explorer" }),
-    [runtime.domainScope, tearleads],
+    [runtime.state.domainScope, tearleads],
   );
 
   useEffect(() => {

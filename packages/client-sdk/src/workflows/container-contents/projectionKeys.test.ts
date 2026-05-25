@@ -15,6 +15,19 @@ function createRuntime(
     apiClient: {
       getEncapsulationKey: async () => null,
     },
+    auth: {
+      userId: null,
+      ...patch.auth,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+      ...patch.crypto,
+    },
+    util: {
+      ...patch.util,
+    },
     ...patch,
   };
 }
@@ -32,14 +45,18 @@ test("createContainerContentsProjectionUserKeyResolver resolves the local user k
           return null;
         },
       },
-      encapsulationKeyPair: {
-        publicKey: encapsulationPublicKey,
+      crypto: {
+        encapsulationKeyPair: {
+          publicKey: encapsulationPublicKey,
+        },
+        signingFingerprint,
+        signingKeyPair: {
+          signingPublicKey,
+        },
       },
-      signingFingerprint,
-      signingKeyPair: {
-        signingPublicKey,
+      auth: {
+        userId: "user-1",
       },
-      userId: "user-1",
     }),
   );
 
@@ -65,7 +82,9 @@ test("createContainerContentsDocumentProjectionUserKeyResolver logs document res
           userId,
         }),
       },
-      log: (message) => logs.push(message),
+      util: {
+        log: (message) => logs.push(message),
+      },
     }),
   );
 
@@ -87,10 +106,14 @@ test("didContainerContentsProjectionKeyRuntimeChange tracks resolver dependencie
   };
   const runtime = createRuntime({
     apiClient,
-    encapsulationKeyPair,
-    signingFingerprint: "fingerprint-1",
-    signingKeyPair,
-    userId: "user-1",
+    auth: {
+      userId: "user-1",
+    },
+    crypto: {
+      encapsulationKeyPair,
+      signingFingerprint: "fingerprint-1",
+      signingKeyPair,
+    },
   });
 
   expect(didContainerContentsProjectionKeyRuntimeChange(runtime, runtime)).toBe(
@@ -99,19 +122,27 @@ test("didContainerContentsProjectionKeyRuntimeChange tracks resolver dependencie
   expect(
     didContainerContentsProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      userId: "user-2",
+      auth: {
+        ...runtime.auth,
+        userId: "user-2",
+      },
     }),
   ).toBe(true);
   expect(
     didContainerContentsProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      signingFingerprint: "fingerprint-2",
+      crypto: {
+        ...runtime.crypto,
+        signingFingerprint: "fingerprint-2",
+      },
     }),
   ).toBe(true);
   expect(
     didContainerContentsProjectionKeyRuntimeChange(runtime, {
       ...runtime,
-      log: () => {},
+      util: {
+        log: () => {},
+      },
     }),
   ).toBe(false);
 });

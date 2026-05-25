@@ -13,7 +13,7 @@ import type {
   WorkflowRuntimeUtilInput,
 } from "../workflows/runtimeInput";
 import type { Blobs } from "./blobs";
-import type { Database, DatabaseStatus } from "./database";
+import type { Database } from "./database";
 import type { Events } from "./events";
 import type { Identity } from "./identity";
 import type { Network } from "./network";
@@ -28,27 +28,7 @@ export type {
   WorkflowRuntimeUtilInput,
 } from "../workflows/runtimeInput";
 
-export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {
-  readonly blobStore: WorkflowRuntimeInfraInput["blobStore"];
-  readonly cacheReferencedPrincipalPolicies: (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-  ) => Promise<void>;
-  readonly containerId: string | null;
-  readonly dbStatus: DatabaseStatus;
-  readonly documentProjectors: WorkflowRuntimeInfraInput["documentProjectors"];
-  readonly domainScope: WorkflowRuntimeStateInput["domainScope"];
-  readonly encapsulationKeyPair: WorkflowRuntimeCryptoInput["encapsulationKeyPair"];
-  readonly events: ReadonlyArray<unknown>;
-  readonly execSql: ExecSql;
-  readonly isAuthenticated: boolean;
-  readonly log: (message: string) => void;
-  readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly online: boolean;
-  readonly organizationId: string | null;
-  readonly signingFingerprint: string | null;
-  readonly signingKeyPair: WorkflowRuntimeCryptoInput["signingKeyPair"];
-  readonly userId: string | null;
-}
+export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {}
 
 export type RuntimeListener = () => void;
 
@@ -234,26 +214,9 @@ function createInternalWorkflowRuntimeInput(
   return {
     apiClient,
     auth,
-    blobStore: infra.blobStore,
-    cacheReferencedPrincipalPolicies: util.cacheReferencedPrincipalPolicies,
-    containerId: state.containerId,
     crypto,
-    dbStatus: infra.dbStatus,
-    documentProjectors: infra.documentProjectors,
-    domainScope: state.domainScope,
-    encapsulationKeyPair: crypto.encapsulationKeyPair,
-    events: state.events,
-    execSql: infra.execSql,
     infra,
-    isAuthenticated: auth.isAuthenticated,
-    log: util.log,
-    logError: util.logError,
-    online: state.online,
-    organizationId: auth.organizationId,
-    signingFingerprint: crypto.signingFingerprint,
-    signingKeyPair: crypto.signingKeyPair,
     state,
-    userId: auth.userId,
     util,
   };
 }

@@ -35,8 +35,12 @@ test("document store attaches files locally without authentication or network", 
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const blobStore = createMemoryBlobStore();
   const runtime = createDocumentStoreRuntime({
-    blobStore,
-    encapsulationKeyPair,
+    crypto: {
+      encapsulationKeyPair,
+    },
+    infra: {
+      blobStore,
+    },
   });
   const store = createDocumentStore(
     "offline-attachment-document",
@@ -87,8 +91,12 @@ test("document store rolls back staged attachment rows and bytes when local atta
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const { blobStore, storageKeys } = createTrackedMemoryBlobStore();
   const runtime = createDocumentStoreRuntime({
-    blobStore,
-    encapsulationKeyPair,
+    crypto: {
+      encapsulationKeyPair,
+    },
+    infra: {
+      blobStore,
+    },
   });
   let attemptedLocalSave = false;
   const persistence = {

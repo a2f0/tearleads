@@ -42,7 +42,9 @@ interface OrganizationSigningContext {
   organizationId: string;
   signerUserId: string;
   signingFingerprint: string;
-  signingKeyPair: NonNullable<InternalWorkflowRuntimeInput["signingKeyPair"]>;
+  signingKeyPair: NonNullable<
+    InternalWorkflowRuntimeInput["crypto"]["signingKeyPair"]
+  >;
 }
 
 export interface OrganizationGrantRef {
@@ -104,37 +106,37 @@ function requireSigningContext(
   runtime: InternalWorkflowRuntimeInput,
 ): OrganizationSigningContext {
   if (
-    !runtime.organizationId ||
-    !runtime.userId ||
-    !runtime.signingFingerprint ||
-    !runtime.signingKeyPair
+    !runtime.auth.organizationId ||
+    !runtime.auth.userId ||
+    !runtime.crypto.signingFingerprint ||
+    !runtime.crypto.signingKeyPair
   ) {
     throw new Error("Organization signing context is unavailable");
   }
 
   return {
-    organizationId: runtime.organizationId,
-    signerUserId: runtime.userId,
-    signingFingerprint: runtime.signingFingerprint,
-    signingKeyPair: runtime.signingKeyPair,
+    organizationId: runtime.auth.organizationId,
+    signerUserId: runtime.auth.userId,
+    signingFingerprint: runtime.crypto.signingFingerprint,
+    signingKeyPair: runtime.crypto.signingKeyPair,
   };
 }
 
 function requireEncapsulationKeyPair(
   runtime: InternalWorkflowRuntimeInput,
-): NonNullable<InternalWorkflowRuntimeInput["encapsulationKeyPair"]> {
-  if (!runtime.encapsulationKeyPair) {
+): NonNullable<InternalWorkflowRuntimeInput["crypto"]["encapsulationKeyPair"]> {
+  if (!runtime.crypto.encapsulationKeyPair) {
     throw new Error("Organization encryption context is unavailable");
   }
 
-  return runtime.encapsulationKeyPair;
+  return runtime.crypto.encapsulationKeyPair;
 }
 
 function authenticatedOrganizationId(
   runtime: InternalWorkflowRuntimeInput,
 ): string | null {
-  return runtime.organizationId && runtime.isAuthenticated
-    ? runtime.organizationId
+  return runtime.auth.organizationId && runtime.auth.isAuthenticated
+    ? runtime.auth.organizationId
     : null;
 }
 
@@ -155,7 +157,7 @@ class OrganizationsService implements Organizations {
       canAdministerOrganization: input.canAdministerOrganization,
       currentUserSecretKey,
       currentUsers: input.currentUsers,
-      execSql: runtime.execSql,
+      execSql: runtime.infra.execSql,
       groupId: input.groupId,
       targetUser: input.targetUser,
       ...signingContext,
@@ -170,7 +172,7 @@ class OrganizationsService implements Organizations {
     return createOrganizationGroup({
       apiClient: runtime.apiClient,
       creatorEncapsulationKeyPair,
-      execSql: runtime.execSql,
+      execSql: runtime.infra.execSql,
       name,
       ...signingContext,
     });
@@ -223,7 +225,8 @@ class OrganizationsService implements Organizations {
 
     return loadOrganizationGroupDetails({
       apiClient: runtime.apiClient,
-      execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
+      execSql:
+        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
       groupId,
       organizationId,
     });
@@ -238,7 +241,8 @@ class OrganizationsService implements Organizations {
 
     return loadOrganizationContainerGrants({
       apiClient: runtime.apiClient,
-      execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
+      execSql:
+        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
       organizationId,
     });
   }
@@ -265,7 +269,8 @@ class OrganizationsService implements Organizations {
 
     return loadOrganizationUserDetail({
       apiClient: runtime.apiClient,
-      execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
+      execSql:
+        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
       organizationId,
       userId,
     });
@@ -293,7 +298,7 @@ class OrganizationsService implements Organizations {
     return removeOrganizationGroupUser({
       apiClient: runtime.apiClient,
       canAdministerOrganization: input.canAdministerOrganization,
-      execSql: runtime.execSql,
+      execSql: runtime.infra.execSql,
       groupId: input.groupId,
       remainingUsers: input.remainingUsers,
       removedUserId: input.removedUserId,
@@ -305,7 +310,7 @@ class OrganizationsService implements Organizations {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const encapsulationKeyPair = requireEncapsulationKeyPair(runtime);
-    if (runtime.dbStatus !== "ready") {
+    if (runtime.infra.dbStatus !== "ready") {
       throw new Error("Organization local database is unavailable");
     }
 
@@ -313,7 +318,7 @@ class OrganizationsService implements Organizations {
       apiClient: runtime.apiClient,
       containerId: grant.containerId,
       encapsulationKeyPair,
-      execSql: runtime.execSql,
+      execSql: runtime.infra.execSql,
       revokedSubject: {
         subjectId: grant.subjectId,
         subjectType: grant.subjectType,

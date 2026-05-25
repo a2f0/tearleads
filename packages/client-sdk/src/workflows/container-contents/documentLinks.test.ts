@@ -11,6 +11,7 @@ import {
   createLinkSetResponseFromRequest,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import {
@@ -79,7 +80,6 @@ test("relinkRemoteContainerDocument persists linked container projections after 
       operation: "link",
       resolveProjectionUserKey,
       runtime: {
-        execSql,
         apiClient: {
           getContainerWriterProjection: async (containerId) =>
             containerId === siblingProjection.containerId
@@ -97,12 +97,35 @@ test("relinkRemoteContainerDocument persists linked container projections after 
             throw new Error("Unexpected unlink call");
           },
         },
-        encapsulationKeyPair: { secretKey: keyPair.secretKey },
-        log: () => undefined,
-        organizationId: author.organizationId,
-        signingFingerprint: author.signerKeyFingerprint,
-        signingKeyPair: { signingPrivateKey: author.signerPrivateKey },
-        userId: author.signerUserId,
+        auth: {
+          isAuthenticated: true,
+          organizationId: author.organizationId,
+          userId: author.signerUserId,
+        },
+        crypto: {
+          encapsulationKeyPair: keyPair,
+          signingFingerprint: author.signerKeyFingerprint,
+          signingKeyPair: {
+            signingPrivateKey: author.signerPrivateKey,
+            signingPublicKey,
+          },
+        },
+        infra: {
+          blobStore: null as never,
+          dbStatus: "ready",
+          documentProjectors: defaultDocumentProjectorRegistry,
+          execSql,
+        },
+        state: {
+          containerId: null,
+          domainScope: null as never,
+          events: [],
+          online: true,
+        },
+        util: {
+          cacheReferencedPrincipalPolicies: async () => undefined,
+          log: () => undefined,
+        },
       },
       targetContainerId: siblingProjection.containerId,
     });
@@ -188,7 +211,6 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
       noteId: "containerContents-note-1",
       resolveProjectionUserKey,
       runtime: {
-        execSql,
         apiClient: {
           getContainerWriterProjection: async (containerId) => {
             if (containerId === rootProjection.containerId) {
@@ -251,12 +273,35 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
             return response;
           },
         },
-        encapsulationKeyPair: { secretKey: keyPair.secretKey },
-        log: () => undefined,
-        organizationId: author.organizationId,
-        signingFingerprint: author.signerKeyFingerprint,
-        signingKeyPair: { signingPrivateKey: author.signerPrivateKey },
-        userId: author.signerUserId,
+        auth: {
+          isAuthenticated: true,
+          organizationId: author.organizationId,
+          userId: author.signerUserId,
+        },
+        crypto: {
+          encapsulationKeyPair: keyPair,
+          signingFingerprint: author.signerKeyFingerprint,
+          signingKeyPair: {
+            signingPrivateKey: author.signerPrivateKey,
+            signingPublicKey,
+          },
+        },
+        infra: {
+          blobStore: null as never,
+          dbStatus: "ready",
+          documentProjectors: defaultDocumentProjectorRegistry,
+          execSql,
+        },
+        state: {
+          containerId: null,
+          domainScope: null as never,
+          events: [],
+          online: true,
+        },
+        util: {
+          cacheReferencedPrincipalPolicies: async () => undefined,
+          log: () => undefined,
+        },
       },
       targetContainerId: siblingProjection.containerId,
     });

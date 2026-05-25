@@ -85,7 +85,7 @@ describe("Tearleads", () => {
     expect(sdk.userKeys.fetch).toBeFunction();
   });
 
-  test("exposes grouped runtime input with flat compatibility aliases", () => {
+  test("exposes grouped runtime input", () => {
     const sqlClient = createNoopSqlClient();
     const sdk = new Tearleads({
       database: { client: sqlClient, id: "client-db", status: "ready" },
@@ -106,14 +106,10 @@ describe("Tearleads", () => {
       organizationId: "organization-1",
       userId: "user-1",
     });
-    expect(input.auth.userId).toBe(input.userId);
-    expect(input.crypto.signingKeyPair).toBe(input.signingKeyPair);
-    expect(input.infra.execSql).toBe(input.execSql);
-    expect(input.state.containerId).toBe(input.containerId);
-    expect(input.state.online).toBe(input.online);
-    expect(input.util.log).toBe(input.log);
-    expect(input.util.logError).toBe(input.logError);
     expect("apiClient" in input).toBe(false);
+    expect("userId" in input).toBe(false);
+    expect("execSql" in input).toBe(false);
+    expect("containerId" in input).toBe(false);
   });
 
   test("keeps unrelated runtime input groups referentially stable", () => {
@@ -157,7 +153,7 @@ describe("Tearleads", () => {
     expect(
       sdk.runtime
         .input()
-        .documentProjectors.getStoredDocumentTypeLabel("claim"),
+        .infra.documentProjectors.getStoredDocumentTypeLabel("claim"),
     ).toBe("claim");
   });
 
@@ -406,10 +402,10 @@ describe("Tearleads", () => {
       { containerId: "container-1" },
     );
 
-    expect(documents.containerId).toBe("container-1");
-    expect(documents.dbStatus).toBe("ready");
-    expect(documents.isAuthenticated).toBe(true);
-    expect(documents.online).toBe(true);
+    expect(documents.state.containerId).toBe("container-1");
+    expect(documents.infra.dbStatus).toBe("ready");
+    expect(documents.auth.isAuthenticated).toBe(true);
+    expect(documents.state.online).toBe(true);
     expect(resolveDocumentCreateAuthor(documents)).not.toBeNull();
     expect(sdk.documents.store().getSnapshot).toBeFunction();
     expect(
@@ -417,10 +413,11 @@ describe("Tearleads", () => {
     ).toBeFunction();
     expect(unsubscribeDocuments).toBeFunction();
     unsubscribeDocuments();
-    expect(containerContents.userId).toBe("user-1");
+    expect(containerContents.auth.userId).toBe("user-1");
     const documentLinksRuntime = sdk.containerContents.documentLinksRuntime();
     expect(
-      documentLinksRuntime.createDocumentRuntime("container-2").containerId,
+      documentLinksRuntime.createDocumentRuntime("container-2").state
+        .containerId,
     ).toBe("container-2");
     expect(documentLinksRuntime.resolveProjectionUserKey).toBeFunction();
     expect(documentLinksRuntime.canMutateDocumentLinks).toBe(true);
@@ -621,7 +618,7 @@ describe("Tearleads", () => {
     unsubscribeRuntime();
     sdk.session.logout();
 
-    expect(sdk.runtime.input().containerId).toBe("container-1");
+    expect(sdk.runtime.input().state.containerId).toBe("container-1");
     expect(sessionSnapshots).toEqual([
       {
         authToken: null,
@@ -645,8 +642,8 @@ describe("Tearleads", () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const input = sdk.runtime.input();
 
-    expect(input.dbStatus).toBe("idle");
-    await expect(input.execSql("select 1")).rejects.toThrow(
+    expect(input.infra.dbStatus).toBe("idle");
+    await expect(input.infra.execSql("select 1")).rejects.toThrow(
       "Database client is unavailable.",
     );
   });
@@ -677,7 +674,7 @@ describe("Tearleads", () => {
 
     sdk.database.clear("terminated");
 
-    await input.cacheReferencedPrincipalPolicies([
+    await input.util.cacheReferencedPrincipalPolicies([
       {
         keyEpoch: 1,
         keyFingerprint: "key-fingerprint",
@@ -705,13 +702,13 @@ describe("Tearleads", () => {
     const databaseScope = sdk.domainScope;
 
     expect(databaseScope).not.toBe(initialScope);
-    expect(sdk.runtime.input().domainScope).toBe(databaseScope);
+    expect(sdk.runtime.input().state.domainScope).toBe(databaseScope);
 
     await sdk.identity.generate();
     const identityScope = sdk.domainScope;
 
     expect(identityScope).not.toBe(databaseScope);
-    expect(sdk.runtime.input().domainScope).toBe(identityScope);
+    expect(sdk.runtime.input().state.domainScope).toBe(identityScope);
   });
 
   test("session registers the current identity through the internal api client", async () => {

@@ -5,23 +5,42 @@ import {
 
 export type ContainerContentsProjectionUserKeyResolver =
   ProjectionUserKeyResolver;
-export type ContainerContentsProjectionKeyRuntime = Parameters<
+type ProjectionKeyRuntime = Parameters<
+  typeof createProjectionUserKeyResolver
+>[0];
+
+export interface ContainerContentsProjectionKeyRuntime {
+  readonly apiClient: ProjectionKeyRuntime["apiClient"];
+  readonly auth: {
+    readonly userId?: string | null | undefined;
+  };
+  readonly crypto: {
+    readonly encapsulationKeyPair?: ProjectionKeyRuntime["encapsulationKeyPair"];
+    readonly signingFingerprint?: ProjectionKeyRuntime["signingFingerprint"];
+    readonly signingKeyPair?: ProjectionKeyRuntime["signingKeyPair"];
+  };
+  readonly util: {
+    readonly log?: ProjectionKeyRuntime["log"];
+  };
+}
+
+type ContainerContentsProjectionRuntime = Parameters<
   typeof createProjectionUserKeyResolver
 >[0];
 
 function containerContentsProjectionRuntime(
   runtime: ContainerContentsProjectionKeyRuntime,
-): ContainerContentsProjectionKeyRuntime {
-  const projectionRuntime: ContainerContentsProjectionKeyRuntime = {
+): ContainerContentsProjectionRuntime {
+  const projectionRuntime: ContainerContentsProjectionRuntime = {
     apiClient: runtime.apiClient,
-    encapsulationKeyPair: runtime.encapsulationKeyPair ?? null,
-    signingFingerprint: runtime.signingFingerprint ?? null,
-    signingKeyPair: runtime.signingKeyPair ?? null,
-    userId: runtime.userId ?? null,
+    encapsulationKeyPair: runtime.crypto.encapsulationKeyPair ?? null,
+    signingFingerprint: runtime.crypto.signingFingerprint ?? null,
+    signingKeyPair: runtime.crypto.signingKeyPair ?? null,
+    userId: runtime.auth.userId ?? null,
   };
 
-  return runtime.log
-    ? { ...projectionRuntime, log: runtime.log }
+  return runtime.util.log
+    ? { ...projectionRuntime, log: runtime.util.log }
     : projectionRuntime;
 }
 
@@ -49,9 +68,12 @@ export function didContainerContentsProjectionKeyRuntimeChange(
 ): boolean {
   return (
     previousRuntime.apiClient !== nextRuntime.apiClient ||
-    previousRuntime.encapsulationKeyPair !== nextRuntime.encapsulationKeyPair ||
-    previousRuntime.signingFingerprint !== nextRuntime.signingFingerprint ||
-    previousRuntime.signingKeyPair !== nextRuntime.signingKeyPair ||
-    previousRuntime.userId !== nextRuntime.userId
+    previousRuntime.crypto.encapsulationKeyPair !==
+      nextRuntime.crypto.encapsulationKeyPair ||
+    previousRuntime.crypto.signingFingerprint !==
+      nextRuntime.crypto.signingFingerprint ||
+    previousRuntime.crypto.signingKeyPair !==
+      nextRuntime.crypto.signingKeyPair ||
+    previousRuntime.auth.userId !== nextRuntime.auth.userId
   );
 }

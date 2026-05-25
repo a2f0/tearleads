@@ -44,13 +44,13 @@ async function initializeDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
 ) {
-  if (state.runtime.dbStatus !== "ready") {
+  if (state.runtime.infra.dbStatus !== "ready") {
     return;
   }
 
   const nextDoc = await createStoredDocument();
   const persistedState = await loadPersistedDocumentStoreState({
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     localId: state.localId,
     persistence: state.persistence,
   });
@@ -74,19 +74,19 @@ async function initializeDocumentStore(
     initializeStoredDocumentKind(
       nextDoc,
       state.initialDocumentKind,
-      state.runtime.documentProjectors,
+      state.runtime.infra.documentProjectors,
     );
     if (state.initialText.length > 0) {
       nextDoc.getText("text").update(state.initialText);
     }
     const initialDocumentState = readStoredDocumentState(
       nextDoc,
-      state.runtime.documentProjectors,
+      state.runtime.infra.documentProjectors,
     );
 
     const created: DocumentRecord = {
       id: state.localId,
-      containerId: state.runtime.containerId ?? null,
+      containerId: state.runtime.state.containerId ?? null,
       documentId: state.initialDocumentId,
       documentKind: initialDocumentState.documentKind,
       text: initialDocumentState.text,
@@ -122,7 +122,7 @@ export function ensureDocumentStoreInitialized(
   if (
     state.initialized ||
     state.initializePromise ||
-    state.runtime.dbStatus !== "ready"
+    state.runtime.infra.dbStatus !== "ready"
   ) {
     return;
   }
@@ -230,7 +230,7 @@ export async function relinkDocumentStore(
           structuredFields: {},
           text: nextRecord.text,
         },
-        state.runtime.documentProjectors,
+        state.runtime.infra.documentProjectors,
       ).title,
     updatedAt,
   };

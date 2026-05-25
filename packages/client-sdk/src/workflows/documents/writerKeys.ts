@@ -9,15 +9,21 @@ interface DocumentWriterPublicKeyRuntime {
       userId: string,
     ): Promise<EncapsulationKeyResponse | null>;
   };
-  log: (message: string) => void;
-  signingFingerprint?: string | null | undefined;
-  signingKeyPair?:
-    | {
-        signingPublicKey: Uint8Array;
-      }
-    | null
-    | undefined;
-  userId?: string | null | undefined;
+  auth: {
+    userId?: string | null | undefined;
+  };
+  crypto: {
+    signingFingerprint?: string | null | undefined;
+    signingKeyPair?:
+      | {
+          signingPublicKey: Uint8Array;
+        }
+      | null
+      | undefined;
+  };
+  util: {
+    log: (message: string) => void;
+  };
 }
 
 export function createDocumentWriterPublicKeyResolver(input: {
@@ -36,10 +42,13 @@ export function createDocumentWriterPublicKeyResolver(input: {
     const localSigningPublicKey =
       input.includeLocalSigningKey === false
         ? undefined
-        : input.runtime.signingKeyPair?.signingPublicKey;
-    if (header.writerUserId === input.runtime.userId && localSigningPublicKey) {
+        : input.runtime.crypto.signingKeyPair?.signingPublicKey;
+    if (
+      header.writerUserId === input.runtime.auth.userId &&
+      localSigningPublicKey
+    ) {
       const localFingerprint =
-        input.runtime.signingFingerprint ??
+        input.runtime.crypto.signingFingerprint ??
         (await toFingerprint(localSigningPublicKey));
       return localFingerprint === authorFingerprint
         ? localSigningPublicKey
@@ -84,7 +93,7 @@ async function resolveRemoteWriterPublicKey(input: {
       signingKeyFingerprint !== response.signingKeyFingerprint ||
       signingKeyFingerprint !== input.authorFingerprint
     ) {
-      input.runtime.log(
+      input.runtime.util.log(
         `${input.logPrefix}: skipped ${input.writerKeyLabel} for ${input.writerUserId} because the signing fingerprint does not match the public key.`,
       );
       return null;
@@ -92,7 +101,7 @@ async function resolveRemoteWriterPublicKey(input: {
 
     return signingPublicKey;
   } catch {
-    input.runtime.log(
+    input.runtime.util.log(
       `${input.logPrefix}: skipped ${input.writerKeyLabel} for ${input.writerUserId} because it could not be loaded.`,
     );
     return null;

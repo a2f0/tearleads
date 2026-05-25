@@ -162,9 +162,6 @@ export interface ActivateContainerDocumentLinkInput
 
 export interface ContainerDocumentLinksRuntime
   extends ContainerContentsWorkflowRuntime {
-  readonly dbStatus: ContainerContentsWorkflowRuntime["dbStatus"];
-  readonly isAuthenticated: ContainerContentsWorkflowRuntime["isAuthenticated"];
-  readonly online: ContainerContentsWorkflowRuntime["online"];
   activateDocumentContainer(
     input: ActivateContainerDocumentLinkInput,
   ): Promise<DocumentSummary | null>;
@@ -321,7 +318,7 @@ class ContainerContentsService implements ContainerContents {
   ): ContainerContentsStore {
     const runtime = this.runtime();
     const store = getOrCreateContainerContentsStore(
-      runtime.domainScope,
+      runtime.state.domainScope,
       runtime,
       options,
     );
@@ -340,7 +337,7 @@ class ContainerContentsService implements ContainerContents {
       input: PrimeContainerDocumentStoreInput,
     ) =>
       primeDocumentStore(
-        runtime.domainScope,
+        runtime.state.domainScope,
         input.localId,
         createDocumentRuntime(input.containerId),
         input.documentId ?? null,
@@ -420,7 +417,7 @@ class ContainerContentsService implements ContainerContents {
       ...createContainerDocumentDiscoveryPersistence(runtime),
       apiClient: runtime.apiClient,
       cacheReferencedPrincipalPolicies:
-        runtime.cacheReferencedPrincipalPolicies,
+        runtime.util.cacheReferencedPrincipalPolicies,
       containerId,
     });
   }
@@ -429,7 +426,7 @@ class ContainerContentsService implements ContainerContents {
     knownDocumentIds: ReadonlySet<string>,
   ): boolean {
     return hasUndiscoveredDocumentUpdateEvent(
-      this.runtimeService.workflowInput().events,
+      this.runtimeService.workflowInput().state.events,
       knownDocumentIds,
     );
   }
@@ -439,8 +436,9 @@ class ContainerContentsService implements ContainerContents {
     return loadContainerInfo({
       ...input,
       apiClient: runtime.apiClient,
-      execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
-      organizationId: runtime.organizationId,
+      execSql:
+        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
+      organizationId: runtime.auth.organizationId,
       parentId: input.parentId ?? null,
     });
   }
@@ -450,7 +448,8 @@ class ContainerContentsService implements ContainerContents {
     return loadDocumentInfo({
       ...input,
       apiClient: runtime.apiClient,
-      execSql: runtime.dbStatus === "ready" ? runtime.execSql : null,
+      execSql:
+        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
     });
   }
 
@@ -466,7 +465,7 @@ class ContainerContentsService implements ContainerContents {
       ...createContainerDocumentDiscoveryPersistence(runtime),
       apiClient: runtime.apiClient,
       cacheReferencedPrincipalPolicies:
-        runtime.cacheReferencedPrincipalPolicies,
+        runtime.util.cacheReferencedPrincipalPolicies,
     });
   }
 
@@ -480,7 +479,7 @@ class ContainerContentsService implements ContainerContents {
 function createContainerContentsDiscoveryRuntime(
   input: InternalWorkflowRuntimeInput,
 ): ContainerContentsWorkflowRuntime | null {
-  if (input.dbStatus !== "ready") {
+  if (input.infra.dbStatus !== "ready") {
     return null;
   }
 

@@ -44,28 +44,40 @@ test("registerDocumentSyncLane registers a document lane by local id", async () 
 
 test("didRegainDocumentSyncPrerequisites detects restored sync inputs", () => {
   const runtime = {
-    encapsulationKeyPair: null,
-    isAuthenticated: false,
-    online: false,
+    auth: {
+      isAuthenticated: false,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+    },
+    state: {
+      online: false,
+    },
   };
 
   expect(didRegainDocumentSyncPrerequisites(runtime, runtime)).toBe(false);
   expect(
     didRegainDocumentSyncPrerequisites(runtime, {
       ...runtime,
-      online: true,
+      state: {
+        online: true,
+      },
     }),
   ).toBe(true);
   expect(
     didRegainDocumentSyncPrerequisites(runtime, {
       ...runtime,
-      isAuthenticated: true,
+      auth: {
+        isAuthenticated: true,
+      },
     }),
   ).toBe(true);
   expect(
     didRegainDocumentSyncPrerequisites(runtime, {
       ...runtime,
-      encapsulationKeyPair: {},
+      crypto: {
+        encapsulationKeyPair: {},
+      },
     }),
   ).toBe(true);
 });

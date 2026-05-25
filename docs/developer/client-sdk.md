@@ -94,9 +94,9 @@ Runtime input snapshots are grouped by capability:
 | `state` | `containerId`, `domainScope`, `events`, `online` |
 | `util` | `log`, `logError`, `cacheReferencedPrincipalPolicies` |
 
-Prefer the grouped fields for new host and workflow integration code so a
-consumer's dependency boundary is visible. The top-level fields remain
-compatibility aliases for existing callers during the runtime input migration.
+Host and workflow integration code should use these grouped fields so a
+consumer's dependency boundary is visible. Runtime snapshots expose grouped
+capabilities only.
 
 ## Workflow Facade Taxonomy
 

@@ -94,7 +94,9 @@ function ContactDocumentFieldsForm({
 }
 
 export function ContactDocument() {
-  const { isAuthenticated, online } = useTearleadsRuntime();
+  const { auth, state } = useTearleadsRuntime();
+  const { isAuthenticated } = auth;
+  const { online } = state;
   const { ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
   const fields = useMemo(

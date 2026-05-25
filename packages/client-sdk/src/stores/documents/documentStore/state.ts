@@ -29,7 +29,7 @@ import type {
 
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
-  DocumentsRuntime["encapsulationKeyPair"]
+  DocumentsRuntime["crypto"]["encapsulationKeyPair"]
 >;
 export type DocumentAttachmentBinding = NonNullable<
   Awaited<ReturnType<DocumentsRuntime["apiClient"]["listDocumentAttachments"]>>
@@ -243,7 +243,8 @@ export function resetDocumentStore(state: DocumentStoreState) {
 
 export function canAttachFiles(state: DocumentStoreState): boolean {
   return (
-    state.runtime.dbStatus === "ready" && !!state.runtime.encapsulationKeyPair
+    state.runtime.infra.dbStatus === "ready" &&
+    !!state.runtime.crypto.encapsulationKeyPair
   );
 }
 
@@ -297,7 +298,7 @@ export function setReadySnapshot(
   const attachments = getSnapshotAttachments(state, currentDoc);
   const documentState = readStoredDocumentState(
     currentDoc,
-    state.runtime.documentProjectors,
+    state.runtime.infra.documentProjectors,
   );
   const text = textOverride ?? documentState.text;
 
@@ -321,7 +322,7 @@ export function setReadySnapshot(
               structuredFields: documentState.structuredFields,
               text,
             },
-            state.runtime.documentProjectors,
+            state.runtime.infra.documentProjectors,
           ).title,
     syncing,
   });

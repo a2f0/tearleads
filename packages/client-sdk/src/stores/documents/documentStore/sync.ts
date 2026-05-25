@@ -43,8 +43,8 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  if (!state.runtime.containerId) {
-    state.runtime.log(
+  if (!state.runtime.state.containerId) {
+    state.runtime.util.log(
       "Documents: cannot create a remote document without a container.",
     );
     return nextRecord;
@@ -52,7 +52,7 @@ async function ensureRemoteDocument(
 
   const author = resolveDocumentCreateAuthor(state.runtime);
   if (!author) {
-    state.runtime.log(
+    state.runtime.util.log(
       "Documents: skipped remote create because the writer context is unavailable.",
     );
     return nextRecord;
@@ -61,8 +61,8 @@ async function ensureRemoteDocument(
   const created = await createRemoteDocument({
     apiClient: state.runtime.apiClient,
     author,
-    containerId: state.runtime.containerId,
-    execSql: state.runtime.execSql,
+    containerId: state.runtime.state.containerId,
+    execSql: state.runtime.infra.execSql,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -70,7 +70,7 @@ async function ensureRemoteDocument(
     return nextRecord;
   }
 
-  state.runtime.log(`Created document: ${created.documentId}`);
+  state.runtime.util.log(`Created document: ${created.documentId}`);
 
   return (
     await persistDocument(state, currentDoc, {
@@ -83,9 +83,9 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
   return (
     state.doc !== null &&
     state.snapshot.ready &&
-    state.runtime.online &&
-    state.runtime.isAuthenticated &&
-    state.runtime.encapsulationKeyPair !== null &&
+    state.runtime.state.online &&
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
   );
 }
@@ -201,11 +201,11 @@ async function syncPendingAttachmentUpload(input: {
   state: DocumentStoreState;
 }): Promise<boolean> {
   const { pendingAttachment, state } = input;
-  const bytes = await state.runtime.blobStore.readBytes(
+  const bytes = await state.runtime.infra.blobStore.readBytes(
     pendingAttachment.storageKey,
   );
   if (!bytes) {
-    state.runtime.log(
+    state.runtime.util.log(
       `Documents: pending attachment ${pendingAttachment.slotId} is missing local bytes.`,
     );
     return false;
@@ -213,7 +213,7 @@ async function syncPendingAttachmentUpload(input: {
 
   const author = resolveDocumentCreateAuthor(state.runtime);
   if (!author) {
-    state.runtime.log(
+    state.runtime.util.log(
       "Documents: skipped attachment upload because the writer context is unavailable.",
     );
     return false;
@@ -224,7 +224,7 @@ async function syncPendingAttachmentUpload(input: {
     author,
     bytes,
     documentId: input.remoteDocumentId,
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
@@ -254,7 +254,7 @@ async function syncPendingAttachmentUpload(input: {
     blobId: uploaded.blobId,
     slotId: pendingAttachment.slotId,
   });
-  state.runtime.log(
+  state.runtime.util.log(
     `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
   );
   return true;
@@ -283,7 +283,7 @@ async function requestRemoteDocumentSync(input: {
 
   const author = resolveDocumentCreateAuthor(state.runtime);
   if (!author) {
-    state.runtime.log(unavailableWriterLogMessage);
+    state.runtime.util.log(unavailableWriterLogMessage);
     return null;
   }
 
@@ -291,7 +291,7 @@ async function requestRemoteDocumentSync(input: {
     apiClient: state.runtime.apiClient,
     author,
     documentId: currentRecord.documentId,
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
@@ -435,7 +435,7 @@ async function refreshRemoteDocumentBeforePendingAttachmentMutation(
 
 async function runDocumentSyncPass(state: DocumentStoreState) {
   const currentDoc = state.doc;
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
+  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   let nextRecord = state.record;
 
   if (!currentDoc || !nextRecord || !encapsulationKeyPair) {
@@ -511,12 +511,12 @@ export function handleDocumentRemoteEvents(
   scheduleSync: () => void,
 ) {
   if (!state.record?.documentId) {
-    state.lastEventCount = state.runtime.events.length;
+    state.lastEventCount = state.runtime.state.events.length;
     return;
   }
 
-  const nextEvents = state.runtime.events.slice(state.lastEventCount);
-  state.lastEventCount = state.runtime.events.length;
+  const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
+  state.lastEventCount = state.runtime.state.events.length;
 
   if (hasDocumentUpdateEvent(nextEvents, state.record?.documentId)) {
     scheduleSync();
@@ -527,7 +527,7 @@ export function registerDocumentStoreSyncLane(
   state: DocumentStoreState,
 ): DocumentSyncLane {
   return registerDocumentSyncLane({
-    domainScope: state.runtime.domainScope,
+    domainScope: state.runtime.state.domainScope,
     localId: state.localId,
     run: () => runScheduledSyncLoop(state),
   });

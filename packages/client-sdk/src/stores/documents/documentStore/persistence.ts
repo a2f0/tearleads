@@ -64,11 +64,11 @@ export async function saveDocumentRecord(
   const previousDocumentId = state.record?.documentId ?? null;
   const persistedDocumentState = await persistDocumentState({
     acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
-    containerId: state.runtime.containerId,
+    containerId: state.runtime.state.containerId,
     currentDoc,
     currentRecord: state.record,
-    documentProjectors: state.runtime.documentProjectors,
-    execSql: state.runtime.execSql,
+    documentProjectors: state.runtime.infra.documentProjectors,
+    execSql: state.runtime.infra.execSql,
     localId: state.localId,
     patch,
     persistence: state.persistence,
@@ -77,17 +77,17 @@ export async function saveDocumentRecord(
   state.record = persistedDocumentState.record;
   if (previousDocumentId !== nextRecord.documentId) {
     state.effects.registerDocumentIdentity(
-      state.runtime.domainScope,
+      state.runtime.state.domainScope,
       nextRecord.id,
       nextRecord.documentId,
     );
   }
   state.effects.emitPersistedDocument(
-    state.runtime.domainScope,
+    state.runtime.state.domainScope,
     documentSummaryFromRecord(
       nextRecord,
       updatedAt,
-      state.runtime.documentProjectors,
+      state.runtime.infra.documentProjectors,
     ),
   );
   return {
@@ -121,7 +121,7 @@ export async function listPendingUpdates(
   state: DocumentStoreState,
 ): Promise<PendingUpdateRecord[]> {
   return listPendingDocumentUpdates({
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     localId: state.localId,
     persistence: state.persistence,
   });
@@ -133,7 +133,7 @@ export async function enqueuePendingUpdate(
   sourceVersionVector?: string | null,
 ) {
   await enqueuePendingDocumentUpdate({
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     localId: state.localId,
     persistence: state.persistence,
     ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
@@ -147,7 +147,7 @@ export async function deletePendingAttachment(
   storageKey: string,
 ) {
   await deletePendingDocumentAttachment({
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     localId: state.localId,
     persistence: state.persistence,
     slotId,
@@ -174,7 +174,7 @@ async function saveLocalAttachmentRecords(
 
   await saveLocalDocumentAttachments({
     attachments,
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     persistence: state.persistence,
   });
 
@@ -212,11 +212,11 @@ export async function hydrateAttachmentBlobs(
   currentDoc: DocumentState,
   currentRecord: DocumentRecord | null,
 ) {
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
+  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   if (
     !encapsulationKeyPair ||
-    !state.runtime.isAuthenticated ||
-    !state.runtime.online ||
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online ||
     !currentRecord?.documentId
   ) {
     return;
@@ -234,8 +234,8 @@ export async function hydrateAttachmentBlobs(
     apiClient: state.runtime.apiClient,
     attachments: attachmentsMissingLocalBytes,
     documentId: currentRecord.documentId,
-    execSql: state.runtime.execSql,
-    log: state.runtime.log,
+    execSql: state.runtime.infra.execSql,
+    log: state.runtime.util.log,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
   });
@@ -245,7 +245,7 @@ export async function hydrateAttachmentBlobs(
 
   const localAttachmentRecords: LocalAttachmentRecord[] = [];
   for (const hydratedBlob of hydratedBlobs) {
-    await state.runtime.blobStore.writeBytes(
+    await state.runtime.infra.blobStore.writeBytes(
       hydratedBlob.storageKey,
       hydratedBlob.bytes,
     );
@@ -292,7 +292,7 @@ export async function queuePendingAttachmentUpload(
   };
   await savePendingDocumentAttachment({
     attachment: pendingAttachment,
-    execSql: state.runtime.execSql,
+    execSql: state.runtime.infra.execSql,
     persistence: state.persistence,
   });
   upsertPendingAttachments(state, [pendingAttachment]);

@@ -998,7 +998,7 @@ export function listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
 }): ReturnType<typeof listDocumentRuntimeTargetsForContainerSubtree> {
   return listDocumentRuntimeTargetsForContainerSubtree({
     ...input,
-    execSql: runtime.execSql,
+    execSql: runtime.infra.execSql,
   });
 }
 
@@ -1178,5 +1178,5 @@ function createContainerDocumentReadModel(
 export function createContainerDocumentReadModelFromRuntime(
   runtime: ContainerDocumentReadModelRuntime,
 ): ContainerDocumentReadModel {
-  return createContainerDocumentReadModel(runtime.execSql);
+  return createContainerDocumentReadModel(runtime.infra.execSql);
 }

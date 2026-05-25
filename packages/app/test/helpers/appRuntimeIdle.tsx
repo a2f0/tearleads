@@ -100,7 +100,9 @@ async function waitForAppTestRuntimeFinalDrain(input: {
 }
 
 export function AppTestRuntimeScopeProbe() {
-  const { domainScope } = useTearleadsRuntime();
+  const {
+    state: { domainScope },
+  } = useTearleadsRuntime();
 
   useEffect(() => {
     activeDomainScopeMountCounts.set(

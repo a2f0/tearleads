@@ -6,7 +6,7 @@ import {
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../documents";
-import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
+import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type ContainerDocumentLinkApi = Parameters<
   typeof relinkRemoteDocument
@@ -18,19 +18,11 @@ type RemoteDocumentPersistedState =
   RelinkRemoteDocumentResult["persistedState"];
 
 interface ContainerDocumentLinkRuntime
-  extends ContainerContentsWorkflowSqlRuntime {
+  extends Pick<
+    ContainerContentsWorkflowRuntime,
+    "auth" | "crypto" | "infra" | "state" | "util"
+  > {
   apiClient: ContainerDocumentLinkApi;
-  encapsulationKeyPair?: { secretKey: Uint8Array } | null | undefined;
-  log: (message: string) => void;
-  organizationId?: string | null;
-  signingFingerprint?: string | null;
-  signingKeyPair?:
-    | {
-        signingPrivateKey: Uint8Array;
-      }
-    | null
-    | undefined;
-  userId?: string | null;
 }
 
 type MoveRemoteContainerDocumentStatus = "complete" | "partial";
@@ -121,10 +113,10 @@ export async function relinkRemoteContainerDocument(input: {
     targetContainerId,
   } = input;
   const author = resolveDocumentCreateAuthor(runtime);
-  const targetSecretKey = runtime.encapsulationKeyPair?.secretKey;
-  const execSql = runtime.execSql;
+  const targetSecretKey = runtime.crypto.encapsulationKeyPair?.secretKey;
+  const execSql = runtime.infra.execSql;
   if (!author || !targetSecretKey) {
-    runtime.log(
+    runtime.util.log(
       "Container contents: document mutation skipped because the local key context is unavailable",
     );
     return null;
@@ -142,7 +134,7 @@ export async function relinkRemoteContainerDocument(input: {
       targetSecretKey,
     });
     if (!result) {
-      runtime.log(
+      runtime.util.log(
         `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}`,
       );
       return null;
@@ -156,7 +148,7 @@ export async function relinkRemoteContainerDocument(input: {
 
     return result;
   } catch (error) {
-    runtime.log(
+    runtime.util.log(
       `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return null;
@@ -224,7 +216,7 @@ export async function moveRemoteContainerDocument(input: {
     targetContainerId: currentContainerId,
   });
   if (!unlinkedDocument) {
-    runtime.log(
+    runtime.util.log(
       `Container contents: note ${noteId} was linked to ${targetContainerId} but failed to unlink from ${currentContainerId}`,
     );
     return containerDocumentMoveResult({

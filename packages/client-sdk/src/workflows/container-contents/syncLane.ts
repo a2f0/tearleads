@@ -9,9 +9,15 @@ import {
 export type ContainerContentsSyncLane = SyncLane;
 
 interface ContainerContentsSyncPrerequisiteRuntime {
-  readonly encapsulationKeyPair: unknown;
-  readonly isAuthenticated: boolean;
-  readonly online: boolean;
+  readonly auth: {
+    readonly isAuthenticated: boolean;
+  };
+  readonly crypto: {
+    readonly encapsulationKeyPair: unknown;
+  };
+  readonly state: {
+    readonly online: boolean;
+  };
 }
 
 export function registerContainerContentsSyncLane(input: {

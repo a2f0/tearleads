@@ -32,7 +32,6 @@ export interface ContactsSnapshot {
 export interface ContactsRuntime {
   deleteLocalDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
-  execSql: ExecSql;
   primeDocumentStore: (input: PrimeDocumentStoreInput) => DocumentStore;
 }
 
@@ -279,11 +278,13 @@ function resetContactsStore(state: ContactsStoreState): void {
 async function initializeContactsStore(
   state: ContactsStoreState,
 ): Promise<void> {
-  if (state.runtime.documents.dbStatus !== "ready") {
+  if (state.runtime.documents.infra.dbStatus !== "ready") {
     return;
   }
 
-  const entries = await loadProjectedContacts(state.runtime.execSql);
+  const entries = await loadProjectedContacts(
+    state.runtime.documents.infra.execSql,
+  );
   state.entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   setContactsSnapshot(state, {
     entries: sortEntries([...state.entriesById.values()]),
@@ -300,7 +301,7 @@ function ensureContactsInitialized(state: ContactsStoreState): void {
   if (
     state.initialized ||
     state.initializePromise ||
-    state.runtime.documents.dbStatus !== "ready"
+    state.runtime.documents.infra.dbStatus !== "ready"
   ) {
     return;
   }
@@ -361,7 +362,7 @@ async function createContactFromRuntime(
   patch: ContactEntryPatch,
 ): Promise<string | null> {
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.dbStatus !== "ready") {
+  if (state.runtime.documents.infra.dbStatus !== "ready") {
     return null;
   }
 
@@ -382,7 +383,7 @@ async function updateContactFromRuntime(
   patch: ContactEntryPatch,
 ): Promise<void> {
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.dbStatus !== "ready") {
+  if (state.runtime.documents.infra.dbStatus !== "ready") {
     return;
   }
 
@@ -405,7 +406,7 @@ async function importKeyFromRuntime(
   }
 
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.dbStatus !== "ready") {
+  if (state.runtime.documents.infra.dbStatus !== "ready") {
     return null;
   }
 
@@ -419,7 +420,7 @@ async function importKeyFromRuntime(
     .then(() =>
       writeContactPatch(state, contactId, {
         encapsulationPublicKey: userKey.encapsulationPublicKey,
-        isSelf: userKey.userId === state.runtime.documents.userId,
+        isSelf: userKey.userId === state.runtime.documents.auth.userId,
         userId: userKey.userId,
       }),
     )
@@ -438,7 +439,7 @@ async function removeContactFromRuntime(
   contactId: string,
 ): Promise<void> {
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.dbStatus !== "ready") {
+  if (state.runtime.documents.infra.dbStatus !== "ready") {
     return;
   }
 
@@ -493,7 +494,7 @@ export function createContactsStore(
         trackedStore.store.updateRuntime(runtime.documents);
       }
 
-      if (runtime.documents.dbStatus !== "ready") {
+      if (runtime.documents.infra.dbStatus !== "ready") {
         if (state.snapshot.ready || state.initialized) {
           resetContactsStore(state);
         }

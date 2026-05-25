@@ -89,7 +89,7 @@ function createContainerContentsStoreDocumentPrimeHost(
       runtime,
     }): ContainerDocumentPrimeStore =>
       primeDocumentStore(
-        state.runtime.domainScope,
+        state.runtime.state.domainScope,
         localId,
         runtime,
         documentId,
@@ -135,8 +135,8 @@ function requestRemoteHydration(input: {
 
       if (
         state.snapshot.ready &&
-        state.runtime.isAuthenticated &&
-        state.runtime.online
+        state.runtime.auth.isAuthenticated &&
+        state.runtime.state.online
       ) {
         scheduleSync();
       }
@@ -151,7 +151,7 @@ async function initializeContainerContentsStore(input: {
   state: ContainerContentsStoreSyncState;
 }) {
   const { host, scheduleSync, state } = input;
-  if (state.runtime.dbStatus !== "ready") {
+  if (state.runtime.infra.dbStatus !== "ready") {
     return;
   }
 
@@ -168,17 +168,17 @@ async function initializeContainerContentsStore(input: {
   state.initializePromise = null;
   host.updateSnapshot();
 
-  state.runtime.log(
+  state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: loaded ${state.containersById.size} container(s)`,
   );
 
-  if (state.runtime.isAuthenticated && state.runtime.online) {
+  if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
     await hydrateRemoteContainers({ host, state });
   }
 
   if (
     state.containersById.size > 0 ||
-    (state.runtime.isAuthenticated && state.runtime.online)
+    (state.runtime.auth.isAuthenticated && state.runtime.state.online)
   ) {
     scheduleSync();
   }
@@ -193,7 +193,7 @@ function ensureContainerContentsStoreInitialized(input: {
   if (
     state.initialized ||
     state.initializePromise ||
-    state.runtime.dbStatus !== "ready"
+    state.runtime.infra.dbStatus !== "ready"
   ) {
     return;
   }
@@ -218,7 +218,7 @@ async function syncSingleContainerMetadata(input: {
   state: ContainerContentsStoreSyncState;
   containerState: ContainerState;
   encapsulationKeyPair: NonNullable<
-    ContainerContentsStoreRuntime["encapsulationKeyPair"]
+    ContainerContentsStoreRuntime["crypto"]["encapsulationKeyPair"]
   >;
 }) {
   const { containerState, encapsulationKeyPair, host, state } = input;
@@ -247,12 +247,12 @@ async function runContainerContentsStoreSyncIteration(input: {
   state: ContainerContentsStoreSyncState;
 }) {
   const { host, state } = input;
-  const encapsulationKeyPair = state.runtime.encapsulationKeyPair;
+  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   if (
-    state.runtime.dbStatus !== "ready" ||
+    state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
-    !state.runtime.online ||
-    !state.runtime.isAuthenticated ||
+    !state.runtime.state.online ||
+    !state.runtime.auth.isAuthenticated ||
     !encapsulationKeyPair
   ) {
     return;
@@ -283,7 +283,7 @@ export function createContainerContentsStoreSyncAgent(input: {
   const { host, state } = input;
 
   state.syncLane = registerContainerContentsSyncLane({
-    domainScope: state.runtime.domainScope,
+    domainScope: state.runtime.state.domainScope,
     run: () => runContainerContentsStoreSyncIteration({ host, state }),
   });
   const scheduleSync = () => requestContainerContentsStoreSync(state);
@@ -299,8 +299,8 @@ export function createContainerContentsStoreSyncAgent(input: {
     ensureInitialized: () =>
       ensureContainerContentsStoreInitialized({ host, scheduleSync, state }),
     handleRemoteEvents: () => {
-      const nextEvents = state.runtime.events.slice(state.lastEventCount);
-      state.lastEventCount = state.runtime.events.length;
+      const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
+      state.lastEventCount = state.runtime.state.events.length;
 
       if (
         hasContainerMetadataDocumentUpdateEvent(
@@ -316,10 +316,10 @@ export function createContainerContentsStoreSyncAgent(input: {
       primeDocumentsForSharedSubtree(state, rootContainerId),
     refresh: () => {
       if (
-        state.runtime.dbStatus !== "ready" ||
+        state.runtime.infra.dbStatus !== "ready" ||
         !state.initialized ||
-        !state.runtime.isAuthenticated ||
-        !state.runtime.online
+        !state.runtime.auth.isAuthenticated ||
+        !state.runtime.state.online
       ) {
         return Promise.resolve(false);
       }

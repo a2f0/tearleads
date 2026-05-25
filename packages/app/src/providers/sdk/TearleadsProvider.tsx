@@ -22,8 +22,6 @@ export type RuntimeSnapshot = Omit<TearleadsRuntimeInput, "auth" | "infra"> & {
   readonly auth: TearleadsRuntimeInput["auth"] & {
     readonly authToken: string | null;
   };
-  readonly authToken: string | null;
-  readonly dbId: string | null;
   readonly infra: TearleadsRuntimeInput["infra"] & {
     readonly dbId: string | null;
   };
@@ -157,8 +155,6 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     () => ({
       ...runtimeInput,
       auth: runtimeAuth,
-      authToken: runtimeAuth.authToken,
-      dbId: runtimeInfra.dbId,
       infra: runtimeInfra,
     }),
     [runtimeInput, runtimeAuth, runtimeInfra],

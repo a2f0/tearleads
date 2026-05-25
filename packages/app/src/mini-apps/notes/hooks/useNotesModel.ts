@@ -6,7 +6,10 @@ import { useAttachmentDropzone } from "../attachments/useAttachmentDropzone";
 import { createNotesFileHandlers } from "./useNotesFileHandlers";
 
 export function useNotesModel() {
-  const { blobStore, isAuthenticated, online } = useTearleadsRuntime();
+  const { auth, infra, state } = useTearleadsRuntime();
+  const { isAuthenticated } = auth;
+  const { blobStore } = infra;
+  const { online } = state;
   const {
     attachments,
     attachmentStatusBySlotId,

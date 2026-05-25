@@ -4,7 +4,6 @@ import type {
   ContainerSummary,
   ContainerSyncTombstone,
   ListContainersResponse,
-  ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
@@ -21,7 +20,7 @@ import {
   saveContainerSyncWatermark,
 } from "./containerPersistence";
 import type { ContainerMetadataPatch } from "./metadata";
-import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
+import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
 type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
 type ContainerChildIndex = Map<string, Set<string>>;
@@ -64,16 +63,11 @@ interface RemoteContainerHydrationApi {
 }
 
 interface RemoteContainerHydrationRuntime
-  extends ContainerContentsWorkflowSqlRuntime {
+  extends Pick<
+    ContainerContentsWorkflowRuntime,
+    "auth" | "crypto" | "infra" | "state" | "util"
+  > {
   apiClient: RemoteContainerHydrationApi;
-  cacheReferencedPrincipalPolicies: (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
-  ) => Promise<void>;
-  dbStatus: string;
-  isAuthenticated: boolean;
-  log: (message: string) => void;
-  online: boolean;
-  organizationId?: string | null | undefined;
 }
 
 interface RemoteContainerHydrationState {
@@ -169,7 +163,7 @@ async function listRemoteContainerIdsWithPendingMetadataUpdates(input: {
     return new Set();
   }
 
-  const execSql = input.state.runtime.execSql;
+  const execSql = input.state.runtime.infra.execSql;
   return new Set(
     await input.state.persistence.listContainerIdsWithPendingUpdates(
       execSql,
@@ -275,8 +269,9 @@ function canUseRemoteRootAsLocalRootReconciliationTarget(input: {
   const { remoteRootState, state } = input;
   return (
     remoteRootState.container.parentId === null &&
-    (!state.runtime.organizationId ||
-      remoteRootState.container.organizationId === state.runtime.organizationId)
+    (!state.runtime.auth.organizationId ||
+      remoteRootState.container.organizationId ===
+        state.runtime.auth.organizationId)
   );
 }
 
@@ -397,7 +392,7 @@ async function reconcileLocalOnlyRootContainer(input: {
   state: RemoteContainerHydrationState;
 }): Promise<void> {
   const { childIdsByParentId, localRootState, remoteRootState, state } = input;
-  const execSql = state.runtime.execSql;
+  const execSql = state.runtime.infra.execSql;
   const updatedAt = new Date().toISOString();
   const { descendantReparents, descendants } =
     buildLocalRootDescendantReparents({
@@ -431,7 +426,7 @@ async function reconcileLocalOnlyRootContainer(input: {
     childIdsByParentId.delete(localRootState.container.id);
   }
   state.containersById.delete(localRootState.container.id);
-  state.runtime.log(
+  state.runtime.util.log(
     `Container contents: reconciled local root ${localRootState.container.id} into remote root ${remoteRootState.container.id}`,
   );
 }
@@ -535,7 +530,7 @@ async function insertRemoteContainerState(input: {
   const { childIdsByParentId, remoteContainer, state } = input;
   const doc = await createContainerMetadataDocument(remoteContainer.id);
   const initialSnapshot = bytesToBase64(exportAllUpdates(doc));
-  const execSql = state.runtime.execSql;
+  const execSql = state.runtime.infra.execSql;
   const containerState: ContainerState = {
     container: applyRemoteContainerTimestamps(
       {
@@ -623,7 +618,7 @@ async function cacheQueuedRemoteContainerPrincipals(input: {
   state: RemoteContainerHydrationState;
 }) {
   const { queuedRemoteContainers, state } = input;
-  await state.runtime.cacheReferencedPrincipalPolicies(
+  await state.runtime.util.cacheReferencedPrincipalPolicies(
     queuedRemoteContainers.flatMap(
       (queuedRemoteContainer) =>
         queuedRemoteContainer.metadataReferencedPrincipals ?? [],
@@ -781,7 +776,7 @@ async function applyRemoteContainerPage(input: {
   } = input;
   let hydratedCount = 0;
 
-  await state.runtime.cacheReferencedPrincipalPolicies(
+  await state.runtime.util.cacheReferencedPrincipalPolicies(
     items.flatMap(
       (remoteContainer) => remoteContainer.metadataReferencedPrincipals ?? [],
     ),
@@ -935,7 +930,7 @@ async function applyContainerTombstones(input: {
     tombstones,
   });
   const tombstoneUpdatedAt = getLatestContainerTombstoneUpdatedAt(tombstones);
-  const execSql = state.runtime.execSql;
+  const execSql = state.runtime.infra.execSql;
 
   await state.persistence.deleteContainers(
     execSql,
@@ -960,7 +955,7 @@ async function advanceContainerParentWatermark(input: {
 }): Promise<boolean> {
   const { response, state, syncLane } = input;
   if (response.nextWatermark) {
-    const execSql = state.runtime.execSql;
+    const execSql = state.runtime.infra.execSql;
     await saveContainerSyncWatermark(execSql, syncLane, response.nextWatermark);
   }
 
@@ -971,9 +966,9 @@ function canHydrateRemoteContainers(
   state: RemoteContainerHydrationState,
 ): boolean {
   return (
-    state.runtime.isAuthenticated &&
-    state.runtime.online &&
-    state.runtime.dbStatus === "ready"
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.state.online &&
+    state.runtime.infra.dbStatus === "ready"
   );
 }
 
@@ -983,7 +978,7 @@ async function fetchContainerParentLanePage(input: {
 }): Promise<FetchedContainerParentLanePage | null> {
   const { lane, state } = input;
   const syncLane = createContainerParentSyncLane(lane.parentId);
-  const execSql = state.runtime.execSql;
+  const execSql = state.runtime.infra.execSql;
   const watermark =
     lane.watermark === undefined
       ? await loadContainerSyncWatermark(execSql, syncLane)
@@ -1237,7 +1232,7 @@ export async function hydrateRemoteContainers(input: {
 
   if (changedCount > 0) {
     host.updateSnapshot();
-    state.runtime.log(
+    state.runtime.util.log(
       `Container contents: applied ${changedCount} remote container change(s)`,
     );
   }

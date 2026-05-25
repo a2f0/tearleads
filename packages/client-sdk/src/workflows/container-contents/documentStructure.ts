@@ -23,9 +23,6 @@ export type SetLinkedContainerIdsForDocument = (
 
 export type DocumentStructuralMutationRuntime =
   DocumentStructuralMutationRemoteRuntime & {
-    dbStatus: string;
-    isAuthenticated: boolean;
-    online: boolean;
     resolveProjectionUserKey: DocumentStructuralMutationResolver;
   };
 
@@ -62,14 +59,18 @@ interface DocumentStructuralMutationInput<TRuntime> {
   runtime: DocumentStructuralMutationRuntime;
 }
 
-export function canMutateDocumentLink(
-  runtime: Pick<
-    DocumentStructuralMutationRuntime,
-    "dbStatus" | "isAuthenticated" | "online"
-  >,
-): boolean {
+export function canMutateDocumentLink(runtime: {
+  readonly auth: Pick<
+    DocumentStructuralMutationRuntime["auth"],
+    "isAuthenticated"
+  >;
+  readonly infra: Pick<DocumentStructuralMutationRuntime["infra"], "dbStatus">;
+  readonly state: Pick<DocumentStructuralMutationRuntime["state"], "online">;
+}): boolean {
   return (
-    runtime.dbStatus === "ready" && runtime.isAuthenticated && runtime.online
+    runtime.infra.dbStatus === "ready" &&
+    runtime.auth.isAuthenticated &&
+    runtime.state.online
   );
 }
 
@@ -88,7 +89,7 @@ async function primeDocumentStoreForStructuralMutation<TRuntime>({
     localId: note.id,
   });
   if (!(await documentStore.ensureInitialized())) {
-    runtime.log(
+    runtime.util.log(
       `Container contents: note ${note.id} is not ready to mutate locally`,
     );
     return null;
@@ -136,7 +137,7 @@ async function relinkContainerDocumentLocally<TRuntime>(params: {
     queueBaselineAfterRelink,
   });
   if (!relinkedNote) {
-    runtime.log(
+    runtime.util.log(
       `Container contents: note ${note.id} could not be relinked after a structural mutation`,
     );
     return null;
@@ -228,11 +229,11 @@ export async function moveDocumentLinkState<TRuntime>(params: {
 
   expandNode(nextContainerId);
   if (movedDocument.status === "partial") {
-    runtime.log(
+    runtime.util.log(
       `Container contents: partially moved note ${movedNote.id}; linked to ${nextContainerId} but still linked to ${note.containerId}`,
     );
   } else {
-    runtime.log(
+    runtime.util.log(
       `Container contents: moved note ${movedNote.id} to ${nextContainerId}`,
     );
   }
@@ -296,7 +297,7 @@ export async function linkDocumentLinkState<TRuntime>(params: {
     return null;
   }
 
-  runtime.log(
+  runtime.util.log(
     `Container contents: linked note ${linkedNote.id} to ${targetContainerId}`,
   );
   return linkedNote;
@@ -349,7 +350,7 @@ export async function unlinkDocumentLinkState<TRuntime>(params: {
     note.containerId,
   );
   if (!nextContainerId) {
-    runtime.log(
+    runtime.util.log(
       `Container contents: note ${note.id} has no remaining linked containers after unlink`,
     );
     return null;
@@ -370,7 +371,7 @@ export async function unlinkDocumentLinkState<TRuntime>(params: {
     return null;
   }
 
-  runtime.log(
+  runtime.util.log(
     `Container contents: unlinked note ${unlinkedNote.id} from ${removedContainerId}`,
   );
   return unlinkedNote;
@@ -413,7 +414,7 @@ export async function activateDocumentLinkState<TRuntime>(params: {
     return null;
   }
 
-  runtime.log(
+  runtime.util.log(
     `Container contents: switched active note ${relinkedNote.id} to ${targetContainerId}`,
   );
   return relinkedNote;

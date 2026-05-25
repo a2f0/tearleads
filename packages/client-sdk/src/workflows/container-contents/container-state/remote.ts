@@ -32,10 +32,10 @@ async function createRemoteContainerWithMetadataDocument(input: {
 }): Promise<CreatedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = input.runtime.execSql;
-  const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  const execSql = input.runtime.infra.execSql;
+  const parentSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!author || !parentSecretKey) {
-    input.runtime.log(
+    input.runtime.util.log(
       "Container contents: skipped container create because the writer context is unavailable.",
     );
     return null;
@@ -119,10 +119,10 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
 }): Promise<CreatedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = input.runtime.execSql;
-  const parentSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  const execSql = input.runtime.infra.execSql;
+  const parentSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!author || !parentSecretKey) {
-    input.runtime.log(
+    input.runtime.util.log(
       "Container contents: skipped container create because the writer context is unavailable.",
     );
     return null;
@@ -190,10 +190,10 @@ export async function shareRemoteContainer(input: {
 }): Promise<SharedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = input.runtime.execSql;
-  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  const execSql = input.runtime.infra.execSql;
+  const targetSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
-    input.runtime.log(
+    input.runtime.util.log(
       "Container contents: skipped container share because the writer context is unavailable.",
     );
     return null;
@@ -249,10 +249,10 @@ export async function shareRemoteContainerWithGroup(input: {
 }): Promise<SharedRemoteContainerState | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = input.runtime.execSql;
-  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  const execSql = input.runtime.infra.execSql;
+  const targetSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
-    input.runtime.log(
+    input.runtime.util.log(
       "Container contents: skipped container group share because the writer context is unavailable.",
     );
     return null;
@@ -296,10 +296,10 @@ export async function moveRemoteContainer(input: {
 }): Promise<RemoteContainer | null> {
   const author = resolveDocumentCreateAuthor(input.runtime);
   const { apiClient } = input.runtime;
-  const execSql = input.runtime.execSql;
-  const targetSecretKey = input.runtime.encapsulationKeyPair?.secretKey;
+  const execSql = input.runtime.infra.execSql;
+  const targetSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
   if (!author || !targetSecretKey) {
-    input.runtime.log(
+    input.runtime.util.log(
       "Container contents: skipped container move because the writer context is unavailable.",
     );
     return null;

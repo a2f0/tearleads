@@ -5,10 +5,7 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import {
   type ContactsRuntime,
@@ -20,21 +17,19 @@ import type { ContactsContextValue } from "./types";
 const ContactsContext = createContext<ContactsStore | null>(null);
 
 export function ContactsProvider({ children }: PropsWithChildren) {
-  const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const runtime = useMemo<ContactsRuntime>(
     () => ({
       deleteLocalDocument: (localId) =>
         tearleads.documents.deleteLocalDocument(localId),
       documents: tearleads.documents.runtime(null),
-      execSql: appData.execSql,
       primeDocumentStore: (input) => tearleads.documents.primeStore(input),
     }),
-    [appData, tearleads],
+    [tearleads],
   );
   const store = useMemo(
     () =>
-      getOrCreateContactsStore(runtime.documents.domainScope, runtime, {
+      getOrCreateContactsStore(runtime.documents.state.domainScope, runtime, {
         fetchUserKey: (userId) => tearleads.userKeys.fetch(userId),
         logError: tearleads.logError,
       }),

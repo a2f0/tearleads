@@ -26,7 +26,10 @@ import {
   syncRemoteDocument,
 } from "../documents";
 import { enqueuePendingContainerUpdate } from "./containerPersistence";
-import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
+import type {
+  ContainerContentsWorkflowRuntime,
+  ContainerContentsWorkflowSqlRuntime,
+} from "./runtime";
 
 type ContainerMetadataSyncApi = Parameters<
   typeof syncRemoteDocument
@@ -36,19 +39,11 @@ type ContainerMetadataSyncApi = Parameters<
   >[0]["runtime"]["apiClient"];
 
 interface ContainerMetadataSyncRuntime
-  extends ContainerContentsWorkflowSqlRuntime {
+  extends Pick<
+    ContainerContentsWorkflowRuntime,
+    "auth" | "crypto" | "infra" | "state" | "util"
+  > {
   apiClient: ContainerMetadataSyncApi;
-  log: (message: string) => void;
-  organizationId?: string | null;
-  signingFingerprint?: string | null;
-  signingKeyPair?:
-    | {
-        signingPrivateKey: Uint8Array;
-        signingPublicKey: Uint8Array;
-      }
-    | null
-    | undefined;
-  userId?: string | null;
 }
 
 type ContainerMetadataPersistenceRuntime = ContainerContentsWorkflowSqlRuntime;
@@ -287,7 +282,7 @@ export async function persistContainerMetadataStateFromRuntime({
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
 }): ReturnType<typeof persistContainerMetadataState> {
-  const execSql = runtime.execSql;
+  const execSql = runtime.infra.execSql;
   return persistContainerMetadataState({
     ...input,
     execSql,
@@ -337,7 +332,7 @@ export async function renameContainerMetadataStateFromRuntime({
   persistence: ContainerContentsPersistence;
   runtime: ContainerMetadataPersistenceRuntime;
 }): ReturnType<typeof renameContainerMetadataState> {
-  const execSql = runtime.execSql;
+  const execSql = runtime.infra.execSql;
   return renameContainerMetadataState({
     ...input,
     execSql,
@@ -364,7 +359,7 @@ async function syncRemoteContainerMetadata(input: {
     runtime,
     targetSecretKey,
   } = input;
-  const execSql = runtime.execSql;
+  const execSql = runtime.infra.execSql;
 
   if (!documentId) {
     return null;
@@ -372,7 +367,7 @@ async function syncRemoteContainerMetadata(input: {
 
   const author = resolveDocumentCreateAuthor(runtime);
   if (!author) {
-    runtime.log(
+    runtime.util.log(
       "Container contents: skipped metadata sync because the writer context is unavailable.",
     );
     return null;
@@ -396,7 +391,7 @@ async function syncRemoteContainerMetadata(input: {
     targetSecretKey,
   }).catch((error: unknown) => {
     if (isStaleContainerMetadataSecurityStateError(error)) {
-      runtime.log(
+      runtime.util.log(
         `Container contents: deferred metadata sync for ${containerId} because its content-key targets are stale.`,
       );
       return null;
@@ -432,7 +427,7 @@ export async function syncContainerMetadataState(input: {
   if (!documentId) {
     return null;
   }
-  const execSql = runtime.execSql;
+  const execSql = runtime.infra.execSql;
 
   const pendingUpdates = await persistence.listPendingUpdates(
     execSql,

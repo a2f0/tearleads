@@ -61,7 +61,7 @@ function updateDocumentStoreRuntime(
 ) {
   const previousRuntime = state.runtime;
   const domainScopeChanged =
-    previousRuntime.domainScope !== nextRuntime.domainScope;
+    previousRuntime.state.domainScope !== nextRuntime.state.domainScope;
   if (didDocumentProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
     state.resolveProjectionUserKey =
       createDocumentProjectionUserKeyResolver(nextRuntime);
@@ -71,11 +71,11 @@ function updateDocumentStoreRuntime(
     state.syncLane = registerDocumentStoreSyncLane(state);
   }
 
-  if (nextRuntime.dbStatus !== "ready") {
+  if (nextRuntime.infra.dbStatus !== "ready") {
     if (state.snapshot.ready || state.initialized || state.initializePromise) {
       resetDocumentStore(state);
     }
-    state.lastEventCount = nextRuntime.events.length;
+    state.lastEventCount = nextRuntime.state.events.length;
     return;
   }
 

@@ -88,7 +88,7 @@ async function persistSharedContainerState(input: {
   runtime: ContainerWorkflowRuntime;
   shared: SharedRemoteContainerState;
 }): Promise<SharedContainerState> {
-  await input.runtime.cacheReferencedPrincipalPolicies(
+  await input.runtime.util.cacheReferencedPrincipalPolicies(
     input.shared.referencedPrincipalHeads,
   );
   input.containerState.container = {
@@ -126,7 +126,7 @@ async function persistDuplicateContainerShare(input: {
   persistence: ContainerContentsPersistence;
   runtime: ContainerWorkflowRuntime;
 }): Promise<SharedContainerState> {
-  await input.runtime.cacheReferencedPrincipalPolicies([
+  await input.runtime.util.cacheReferencedPrincipalPolicies([
     ...input.grant.referencedPrincipalHeads,
   ]);
   input.containerState.container = {
@@ -193,7 +193,7 @@ export async function shareContainerState(input: {
     return null;
   }
   if (shareContext.matchingGrant) {
-    input.runtime.log(
+    input.runtime.util.log(
       `Container contents: skipped duplicate share for container ${input.containerState.container.id} with user ${input.recipientUserId}`,
     );
     return persistDuplicateContainerShare({
@@ -244,7 +244,7 @@ export async function shareContainerStateWithGroup(input: {
     return null;
   }
   if (shareContext.matchingGrant) {
-    input.runtime.log(
+    input.runtime.util.log(
       `Container contents: skipped duplicate share for container ${input.containerState.container.id} with group ${input.recipientGroupId}`,
     );
     return persistDuplicateContainerShare({

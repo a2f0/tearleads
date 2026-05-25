@@ -30,7 +30,7 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
   if (!remoteMetadataDocumentId || !remoteMetadataAccessStateHash) {
     return;
   }
-  const execSql = state.runtime.execSql;
+  const execSql = state.runtime.infra.execSql;
 
   await state.persistence.markCreateIntentSynced(execSql, {
     containerId: intent.containerId,
@@ -80,7 +80,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     createdAt: created.createdAt,
     updatedAt: created.updatedAt,
   };
-  const execSql = state.runtime.execSql;
+  const execSql = state.runtime.infra.execSql;
 
   await state.persistence.markCreateIntentSynced(execSql, {
     containerId: containerState.container.id,
@@ -98,7 +98,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   const parentState = state.containersById.get(intent.parentContainerId);
 
   if (!containerState || !parentState) {
-    const execSql = state.runtime.execSql;
+    const execSql = state.runtime.infra.execSql;
     await state.persistence.recordCreateIntentError(
       execSql,
       intent.containerId,
@@ -128,7 +128,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   });
 
   if (!created) {
-    const execSql = state.runtime.execSql;
+    const execSql = state.runtime.infra.execSql;
     await state.persistence.recordCreateIntentError(
       execSql,
       intent.containerId,
@@ -143,7 +143,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     host,
     state,
   });
-  state.runtime.log(
+  state.runtime.util.log(
     `Container contents: synced local container create ${containerState.container.id}`,
   );
   return "created";
@@ -154,7 +154,7 @@ export async function syncPendingContainerCreateIntents(input: {
   state: ContainerCreateIntentSyncState;
 }): Promise<number> {
   const { host, state } = input;
-  const execSql = state.runtime.execSql;
+  const execSql = state.runtime.infra.execSql;
   const pendingIntents =
     await state.persistence.listPendingCreateIntents(execSql);
   const remainingContainerIds = new Set(

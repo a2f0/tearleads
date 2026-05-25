@@ -78,14 +78,14 @@ export function DocumentsProvider({
   useEffect(() => {
     store.requestSync();
   }, [
-    runtime.encapsulationKeyPair,
-    runtime.isAuthenticated,
-    runtime.online,
-    runtime.organizationId,
-    runtime.signingFingerprint,
-    runtime.signingKeyPair,
+    runtime.auth.isAuthenticated,
+    runtime.auth.organizationId,
+    runtime.auth.userId,
+    runtime.crypto.encapsulationKeyPair,
+    runtime.crypto.signingFingerprint,
+    runtime.crypto.signingKeyPair,
+    runtime.state.online,
     store,
-    runtime.userId,
   ]);
 
   return (
