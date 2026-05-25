@@ -20,6 +20,8 @@ const appDocumentProjectionSourcePaths = new Set([
   "packages/app/src/document-types/projectors.ts",
 ]);
 const appMiniAppBusSourcePath = "packages/app/src/mini-apps/bus.tsx";
+const appPaneProviderSourcePath =
+  "packages/app/src/components/pane/PaneProvider.tsx";
 const appTearleadsSubscriptionHelperPath =
   "packages/app/src/providers/sdk/useTearleadsSubscription.ts";
 const appProductionSourceEntryPoints = ["packages/app/src"];
@@ -882,6 +884,13 @@ function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
   );
 }
 
+function isPaneRuntimeProviderBypassImport(specifier: string): boolean {
+  return (
+    specifier.startsWith("../../providers/") &&
+    specifier !== "../../providers/AppRuntimeProvider"
+  );
+}
+
 async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {
   const result = await cruise(
     architectureEntryPoints,
@@ -933,6 +942,14 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "Mini-app bus should stay SDK-independent app window/message infrastructure; pass SDK-backed data, providers, stores, and concrete mini-app definitions in from callers.",
     name: "app-mini-app-bus-stays-sdk-independent",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: [appPaneProviderSourcePath],
+    listFiles: listExactSourceFile,
+    matches: isPaneRuntimeProviderBypassImport,
+    message:
+      "PaneProvider should delegate runtime provider ordering to providers/AppRuntimeProvider instead of importing individual app runtime providers.",
+    name: "app-pane-provider-uses-runtime-provider-aggregate",
   }),
   createModuleSpecifierCheck({
     entryPoints: appProductionSourceEntryPoints,

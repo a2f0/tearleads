@@ -1,11 +1,6 @@
 import type { PropsWithChildren } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
-import { CryptoSessionProvider } from "../../providers/crypto/CryptoSessionProvider";
-import { DatabaseProvider } from "../../providers/db/DatabaseProvider";
-import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
-import { IdentityProvider } from "../../providers/identity/IdentityProvider";
-import { LogProvider } from "../../providers/logging/LogProvider";
-import { TearleadsProvider } from "../../providers/sdk/TearleadsProvider";
+import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 
 interface PaneProviderProps extends PropsWithChildren {
   hostConfig: AppHostConfig;
@@ -13,16 +8,6 @@ interface PaneProviderProps extends PropsWithChildren {
 
 export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
   return (
-    <AppHostConfigProvider value={hostConfig}>
-      <LogProvider>
-        <TearleadsProvider>
-          <IdentityProvider>
-            <DatabaseProvider>
-              <CryptoSessionProvider>{children}</CryptoSessionProvider>
-            </DatabaseProvider>
-          </IdentityProvider>
-        </TearleadsProvider>
-      </LogProvider>
-    </AppHostConfigProvider>
+    <AppRuntimeProvider hostConfig={hostConfig}>{children}</AppRuntimeProvider>
   );
 }
