@@ -215,60 +215,38 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, top-level SDK service types, and migration-phase compatibility exports for public document, store, and workflow facade symbols |
-| `@tearleads/client-sdk/documents` | neutral document/blob contracts and document projector helpers |
+| `@tearleads/client-sdk` | `Tearleads`, top-level SDK service types, document contracts, store facades, and workflow facade symbols that remain public |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
-| `@tearleads/client-sdk/stores/container-contents` | React-free container tree store facade |
-| `@tearleads/client-sdk/stores/documents` | React-free document store facade |
-| `@tearleads/client-sdk/workflows/blobs` | blob upload, hydration, and local blob stores |
-| `@tearleads/client-sdk/workflows/containers` | container mutation planning and remote container operations |
-| `@tearleads/client-sdk/workflows/documents` | document creation, sync, persistence, and projection-key helpers |
-| `@tearleads/client-sdk/workflows/container-contents` | container contents read models, document-link helpers, diagnostics, and sync-state helpers |
-| `@tearleads/client-sdk/workflows/organizations` | organization administration read models and principal-policy helpers |
-| `@tearleads/client-sdk/workflows/principals` | principal policy cache helpers |
-| `@tearleads/client-sdk/workflows/registration` | local registration/root bootstrap helpers |
-| `@tearleads/client-sdk/workflows/sync` | shared sync coordinator helpers |
 
 Each package export maps `types` to an emitted `.d.ts` file and `default` to an
 emitted ESM JavaScript file under `dist`. Keep the export map exact; adding a
-new public subpath should mean adding a documented root, store, or workflow
-facade entry point and including it in the SDK build entry list.
+new public subpath is a package API expansion and needs an explicit migration
+plan, documentation, and architecture-lint coverage.
 
 Do not import `@tearleads/client-sdk/data/*` from host code. Promote a contract
-through the root or a workflow/store facade when it is meant to become public.
+through the root entry point when it is meant to become public.
 
 ## Entrypoint Consolidation Migration
 
-The long-term package API target is a smaller public import surface:
+Issue #750 reduced the public package import surface to the root SDK entry
+point plus the SQLite runtime facade:
 
 | Entry point | Target use |
 | --- | --- |
 | `@tearleads/client-sdk` | SDK instance, public service types, document contracts, store facades, and workflow facade symbols that remain public |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime and executor contracts |
-| `@tearleads/client-sdk/testing` | SDK-specific test helpers, if package-level test helpers are needed after the shared `@tearleads/test-utils` move |
 
-Track the migration in issue #750. Do not remove the existing document, store,
-or workflow subpath exports in the same change that introduces root-level
-imports. The staged order is:
+The deprecated document, store, and workflow subpaths are no longer package
+exports. New host-code imports should use the root entry point for document
+contracts, store facades, and workflow facade symbols. Keep
+`@tearleads/client-sdk/sqlite` separate because it is the SQLite runtime
+adapter boundary.
 
-New host-code imports should use the root entry point for document contracts;
-the `@tearleads/client-sdk/documents` subpath remains exported only for the
-staged compatibility window.
-
-1. Keep the current export map intact and expose root compatibility exports for
-   public document, store, and workflow facade symbols.
-2. Move production app code to SDK instance methods first. When no instance
-   method exists, import the public facade symbol from `@tearleads/client-sdk`
-   instead of a `workflows/*` or `stores/*` subpath.
-3. Move tests and test helpers to root compatibility exports or a dedicated
-   testing facade when the symbol is test-only.
-4. Once consumers no longer import the deprecated subpaths, remove those
-   package export-map entries and tighten `lint:architecture` to enforce the
-   reduced public API.
-
-During the migration, the root entry point may aggregate documented public
-facades. This does not make `data/*` internals public, and it should not be used
-to expose deep workflow or store implementation files.
+The root entry point aggregates documented public facades. This does not make
+`data/*` internals public, and it should not be used to expose deep workflow or
+store implementation files. If package-level test helpers become necessary,
+add a dedicated `@tearleads/client-sdk/testing` entry point with the same
+explicit documentation and lint treatment as any other package API addition.
 
 When a lower-level workflow facade name conflicts with an existing root service
 type, keep the existing root meaning stable and add an explicit migration alias.
@@ -299,12 +277,12 @@ dry-run against the built `dist` contents.
   build-output package exports until a release decision is made.
 - Local `@tearleads/*` package dependencies stay on `workspace:*` ranges while
   the SDK remains private inside the monorepo.
-- The package export map matches the documented root, store, and workflow
-  facades exactly, points at `dist` JavaScript/declaration files, and keeps the
-  public API entry-point table in sync with it.
-- `data/*` package exports and deep workflow/store implementation exports are
-  rejected.
+- The package export map matches the documented root and SQLite entry points
+  exactly, points at `dist` JavaScript/declaration files, and keeps the public
+  API entry-point table in sync with it.
+- `data/*`, document, store, workflow, and deep implementation package exports
+  are rejected.
 - Production app code uses SDK root service surfaces instead of importing SDK
-  workflow or store package facades directly.
+  document, workflow, or store package facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
   `packages/app`; SDK source should use platform workflow names.

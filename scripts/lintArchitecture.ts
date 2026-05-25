@@ -35,53 +35,9 @@ const clientSdkSupportedPackageExports = {
     default: "./dist/index.js",
     types: "./dist/index.d.ts",
   },
-  "./documents": {
-    default: "./dist/documents.js",
-    types: "./dist/documents.d.ts",
-  },
   "./sqlite": {
     default: "./dist/sqlite.js",
     types: "./dist/sqlite.d.ts",
-  },
-  "./stores/container-contents": {
-    default: "./dist/stores/container-contents/index.js",
-    types: "./dist/stores/container-contents/index.d.ts",
-  },
-  "./stores/documents": {
-    default: "./dist/stores/documents/index.js",
-    types: "./dist/stores/documents/index.d.ts",
-  },
-  "./workflows/blobs": {
-    default: "./dist/workflows/blobs/index.js",
-    types: "./dist/workflows/blobs/index.d.ts",
-  },
-  "./workflows/containers": {
-    default: "./dist/workflows/containers/index.js",
-    types: "./dist/workflows/containers/index.d.ts",
-  },
-  "./workflows/documents": {
-    default: "./dist/workflows/documents/index.js",
-    types: "./dist/workflows/documents/index.d.ts",
-  },
-  "./workflows/container-contents": {
-    default: "./dist/workflows/container-contents/index.js",
-    types: "./dist/workflows/container-contents/index.d.ts",
-  },
-  "./workflows/organizations": {
-    default: "./dist/workflows/organizations/index.js",
-    types: "./dist/workflows/organizations/index.d.ts",
-  },
-  "./workflows/principals": {
-    default: "./dist/workflows/principals/index.js",
-    types: "./dist/workflows/principals/index.d.ts",
-  },
-  "./workflows/registration": {
-    default: "./dist/workflows/registration/index.js",
-    types: "./dist/workflows/registration/index.d.ts",
-  },
-  "./workflows/sync": {
-    default: "./dist/workflows/sync/index.js",
-    types: "./dist/workflows/sync/index.d.ts",
   },
 } as const;
 const clientSdkRootAllowedReExports = new Set([
@@ -694,7 +650,7 @@ function expectedClientSdkPublicApiEntryPoints(): string[] {
 }
 
 function expectedClientSdkWorkflowFacadeNames(): string[] {
-  return Object.keys(clientSdkSupportedPackageExports).flatMap((exportPath) => {
+  return [...clientSdkRootAllowedReExports].flatMap((exportPath) => {
     const workflowExport = /^\.\/workflows\/([^/]+)$/.exec(exportPath);
 
     return workflowExport?.[1] ? [workflowExport[1]] : [];
@@ -985,14 +941,14 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appTestHelperEntryPoints,
     matches: isClientSdkDocumentsImport,
     message:
-      "App test helpers should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "App test helpers should import public document contracts from @tearleads/client-sdk.",
     name: "app-test-helpers-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: appTestHelperEntryPoints,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "App test helpers should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "App test helpers should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "app-test-helpers-use-sdk-root-for-workflow-and-store-facades",
   }),
   createModuleSpecifierCheck({
@@ -1008,7 +964,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkDocumentsImport,
     message:
-      "App tests should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "App tests should import public document contracts from @tearleads/client-sdk.",
     name: "app-tests-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
@@ -1016,7 +972,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "App tests should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "App tests should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "app-tests-use-sdk-root-for-workflow-and-store-facades",
   }),
   createModuleSpecifierCheck({
@@ -1024,7 +980,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkDocumentsImport,
     message:
-      "Client SDK tests should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "Client SDK tests should import public document contracts from @tearleads/client-sdk.",
     name: "client-sdk-tests-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
@@ -1032,21 +988,21 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "Client SDK tests should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "Client SDK tests should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "client-sdk-tests-use-sdk-root-for-workflow-and-store-facades",
   }),
   createModuleSpecifierCheck({
     entryPoints: clientSdkTestHelperEntryPoints,
     matches: isClientSdkDocumentsImport,
     message:
-      "Client SDK test helpers should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "Client SDK test helpers should import public document contracts from @tearleads/client-sdk.",
     name: "client-sdk-test-helpers-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: clientSdkTestHelperEntryPoints,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
-      "Client SDK test helpers should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+      "Client SDK test helpers should import public store and workflow facade symbols from @tearleads/client-sdk.",
     name: "client-sdk-test-helpers-use-sdk-root-for-workflow-and-store-facades",
   }),
   createListCheck({
@@ -1070,7 +1026,7 @@ const architectureChecks: ArchitectureCheck[] = [
     formatItem: (violation) =>
       `${clientSdkPackageJsonPath}: ${violation.exportPath} ${violation.detail}`,
     message:
-      "Client SDK package exports should exactly match the documented root, document, workflow, and store facade entry points with explicit dist types and default targets.",
+      "Client SDK package exports should exactly match the documented root and SQLite entry points with explicit dist types and default targets.",
     name: "client-sdk-package-exports-match-supported-entry-points",
   }),
   createListCheck({
@@ -1093,14 +1049,14 @@ const architectureChecks: ArchitectureCheck[] = [
     findItems: findClientSdkDataPackageExports,
     formatItem: (exportPath) => `${clientSdkPackageJsonPath}: ${exportPath}`,
     message:
-      "Client SDK data internals should stay package-internal; promote contracts through the root or explicit workflow/store facades instead.",
+      "Client SDK data internals should stay package-internal; promote public contracts through the root entry point instead.",
     name: "client-sdk-does-not-export-data-internals",
   }),
   createListCheck({
     findItems: findClientSdkDeepFacadePackageExports,
     formatItem: (exportPath) => `${clientSdkPackageJsonPath}: ${exportPath}`,
     message:
-      "Client SDK package exports should stay at the root or workflow/store facade level instead of exposing implementation files.",
+      "Client SDK package exports should stay at the documented root and SQLite entry points instead of exposing implementation files.",
     name: "client-sdk-exports-only-root-and-facades",
   }),
   createModuleSpecifierCheck({
@@ -1108,7 +1064,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listExactSourceFile,
     matches: isUnsupportedClientSdkRootReExport,
     message:
-      "Client SDK root compatibility exports should only aggregate documented client, document, workflow, and store facades during the entrypoint migration.",
+      "Client SDK root exports should only aggregate documented client, document, workflow, and store facades.",
     name: "client-sdk-root-exports-only-documented-facades",
   }),
   createSourceTextCheck({

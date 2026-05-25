@@ -10,7 +10,7 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "./index";
 
-test("root entrypoint exposes migration compatibility facade symbols", () => {
+test("root entrypoint exposes public facade symbols", () => {
   const upload: DocumentAttachmentUpload = {
     bytes: new Uint8Array([1]),
     mimeType: null,

@@ -15,53 +15,9 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./documents": {
-      "types": "./dist/documents.d.ts",
-      "default": "./dist/documents.js"
-    },
     "./sqlite": {
       "types": "./dist/sqlite.d.ts",
       "default": "./dist/sqlite.js"
-    },
-    "./stores/container-contents": {
-      "types": "./dist/stores/container-contents/index.d.ts",
-      "default": "./dist/stores/container-contents/index.js"
-    },
-    "./stores/documents": {
-      "types": "./dist/stores/documents/index.d.ts",
-      "default": "./dist/stores/documents/index.js"
-    },
-    "./workflows/blobs": {
-      "types": "./dist/workflows/blobs/index.d.ts",
-      "default": "./dist/workflows/blobs/index.js"
-    },
-    "./workflows/containers": {
-      "types": "./dist/workflows/containers/index.d.ts",
-      "default": "./dist/workflows/containers/index.js"
-    },
-    "./workflows/documents": {
-      "types": "./dist/workflows/documents/index.d.ts",
-      "default": "./dist/workflows/documents/index.js"
-    },
-    "./workflows/container-contents": {
-      "types": "./dist/workflows/container-contents/index.d.ts",
-      "default": "./dist/workflows/container-contents/index.js"
-    },
-    "./workflows/organizations": {
-      "types": "./dist/workflows/organizations/index.d.ts",
-      "default": "./dist/workflows/organizations/index.js"
-    },
-    "./workflows/principals": {
-      "types": "./dist/workflows/principals/index.d.ts",
-      "default": "./dist/workflows/principals/index.js"
-    },
-    "./workflows/registration": {
-      "types": "./dist/workflows/registration/index.d.ts",
-      "default": "./dist/workflows/registration/index.js"
-    },
-    "./workflows/sync": {
-      "types": "./dist/workflows/sync/index.d.ts",
-      "default": "./dist/workflows/sync/index.js"
     }
   },
   "scripts": {

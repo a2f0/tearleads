@@ -23,6 +23,5 @@ For example, the SDK exports `workflows/organizations`, while the app can keep
 `OrgManager` provider, route, and screen names in `packages/app`.
 
 `bun run lint:architecture` guards this taxonomy by rejecting product window
-vocabulary in SDK TypeScript source and by keeping package exports at documented
-workflow/store facade boundaries. It also checks that this table lists every
-exported workflow facade exactly once.
+vocabulary in SDK TypeScript source and by checking that this table lists every
+workflow facade aggregated by the root SDK entry point exactly once.
