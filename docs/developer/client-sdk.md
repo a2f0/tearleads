@@ -119,6 +119,11 @@ const tearleads = new Tearleads({
 });
 ```
 
+`documentProjectors` may be either a prebuilt `DocumentProjectorRegistry` or a
+readonly array of `DocumentProjectorDefinition` values. Prefer passing
+definitions when integrating an app-owned document type list; the SDK will
+normalize and cache the registry internally.
+
 Use `apiBaseUrl` for the SDK-managed HTTP transport, or pass an existing
 `apiClient` for host integration and tests. The raw API client is internal SDK
 wiring, not a public instance namespace for host code.

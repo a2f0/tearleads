@@ -111,6 +111,10 @@ export interface DocumentProjectorRegistry {
   ) => Promise<void>;
 }
 
+export type DocumentProjectorRegistryInput =
+  | DocumentProjectorRegistry
+  | ReadonlyArray<DocumentProjectorDefinition>;
+
 const DOCUMENT_METADATA_MAP_KEY = "metadata";
 const DOCUMENT_FIELDS_MAP_KEY = "fields";
 const DOCUMENT_KIND_KEY = "kind";
@@ -327,18 +331,65 @@ export function createDocumentProjectorRegistry(
 export const defaultDocumentProjectorRegistry =
   createDocumentProjectorRegistry();
 
+const documentProjectorRegistryCache = new WeakMap<
+  ReadonlyArray<DocumentProjectorDefinition>,
+  DocumentProjectorRegistry
+>();
+
+function isDocumentProjectorRegistry(
+  input: DocumentProjectorRegistryInput,
+): input is DocumentProjectorRegistry {
+  return (
+    "getClientProjectionTables" in input &&
+    typeof input.getClientProjectionTables === "function"
+  );
+}
+
+export function resolveDocumentProjectorRegistry(
+  input: DocumentProjectorRegistryInput | null | undefined,
+): DocumentProjectorRegistry {
+  if (input == null) {
+    return defaultDocumentProjectorRegistry;
+  }
+
+  if (isDocumentProjectorRegistry(input)) {
+    return input;
+  }
+
+  const cached = documentProjectorRegistryCache.get(input);
+  if (cached) {
+    return cached;
+  }
+
+  const registry = createDocumentProjectorRegistry(input);
+  documentProjectorRegistryCache.set(input, registry);
+  return registry;
+}
+
+export function getDocumentClientProjectionTables(
+  registry:
+    | DocumentProjectorRegistryInput
+    | undefined = defaultDocumentProjectorRegistry,
+): ReadonlyArray<SqlTableSchema> {
+  return resolveDocumentProjectorRegistry(registry).getClientProjectionTables();
+}
+
 export function getUntitledDocumentTitle(
   kind: StoredDocumentKind,
-  registry: DocumentProjectorRegistry = defaultDocumentProjectorRegistry,
+  registry: DocumentProjectorRegistryInput = defaultDocumentProjectorRegistry,
 ): string {
-  return registry.getUntitledDocumentTitle(kind);
+  return resolveDocumentProjectorRegistry(registry).getUntitledDocumentTitle(
+    kind,
+  );
 }
 
 export function getStoredDocumentTypeLabel(
   kind: StoredDocumentKind,
-  registry: DocumentProjectorRegistry = defaultDocumentProjectorRegistry,
+  registry: DocumentProjectorRegistryInput = defaultDocumentProjectorRegistry,
 ): string {
-  return registry.getStoredDocumentTypeLabel(kind);
+  return resolveDocumentProjectorRegistry(registry).getStoredDocumentTypeLabel(
+    kind,
+  );
 }
 
 export function deriveStoredDocumentTitle(text: string): string {
@@ -347,22 +398,25 @@ export function deriveStoredDocumentTitle(text: string): string {
 
 export function projectStoredDocumentState(
   input: DocumentProjectorInput,
-  registry: DocumentProjectorRegistry = defaultDocumentProjectorRegistry,
+  registry: DocumentProjectorRegistryInput = defaultDocumentProjectorRegistry,
 ): StoredDocumentState {
-  return registry.projectStoredDocumentState(input);
+  return resolveDocumentProjectorRegistry(registry).projectStoredDocumentState(
+    input,
+  );
 }
 
 export function readStoredDocumentState(
   doc: StructuredDocumentShape,
-  registry: DocumentProjectorRegistry = defaultDocumentProjectorRegistry,
+  registry: DocumentProjectorRegistryInput = defaultDocumentProjectorRegistry,
 ): StoredDocumentState {
+  const resolvedRegistry = resolveDocumentProjectorRegistry(registry);
   const documentKind = readDocumentKind(doc);
   const text = getDocumentText(doc);
   const structuredFields = isStructuredDocumentKind(documentKind)
     ? readStructuredFields(doc)
     : {};
 
-  return registry.projectStoredDocumentState({
+  return resolvedRegistry.projectStoredDocumentState({
     documentKind,
     structuredFields,
     text,
@@ -372,18 +426,24 @@ export function readStoredDocumentState(
 export function initializeStoredDocumentKind(
   doc: StructuredDocumentShape,
   kind: StoredDocumentKind,
-  registry: DocumentProjectorRegistry = defaultDocumentProjectorRegistry,
+  registry: DocumentProjectorRegistryInput = defaultDocumentProjectorRegistry,
 ): void {
-  registry.initializeStoredDocumentKind(doc, kind);
+  resolveDocumentProjectorRegistry(registry).initializeStoredDocumentKind(
+    doc,
+    kind,
+  );
 }
 
 export function writeStoredDocumentFields(
   doc: StructuredDocumentShape,
   kind: Exclude<StoredDocumentKind, "note">,
   patch: Readonly<Record<string, string | number | undefined>>,
-  registry: DocumentProjectorRegistry = defaultDocumentProjectorRegistry,
+  registry: DocumentProjectorRegistryInput = defaultDocumentProjectorRegistry,
 ): void {
-  registry.initializeStoredDocumentKind(doc, kind);
+  resolveDocumentProjectorRegistry(registry).initializeStoredDocumentKind(
+    doc,
+    kind,
+  );
   const fields = getFieldsMap(doc);
 
   for (const [key, value] of Object.entries(patch)) {

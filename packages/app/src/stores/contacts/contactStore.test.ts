@@ -9,7 +9,7 @@ import {
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 type SqlRuntimeBase = Awaited<ReturnType<typeof createSqlRuntimeBase>>;
@@ -61,7 +61,7 @@ async function createContactsRuntime(): Promise<
     ...runtimeInputBase,
     apiClient: createMockApiClient(),
     containerId: null,
-    documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
     userId: "self-user",
   });
 
@@ -69,7 +69,7 @@ async function createContactsRuntime(): Promise<
     close,
     deleteLocalDocument: async (localId) => {
       await deletePersistedDocument({
-        documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
         execSql: runtimeInputBase.execSql,
         localId,
         persistence: defaultDocumentsPersistence,

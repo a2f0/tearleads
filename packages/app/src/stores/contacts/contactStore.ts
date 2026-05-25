@@ -5,6 +5,7 @@ import type {
   PrimeDocumentStoreInput,
   UserKey,
 } from "@tearleads/client-sdk";
+import { getDocumentClientProjectionTables } from "@tearleads/client-sdk";
 import { type ExecSql, ensureSqlTables } from "@tearleads/client-sdk/sqlite";
 import {
   type ContactEntry,
@@ -13,7 +14,7 @@ import {
   contactFieldsToEntry,
   readContactFields,
 } from "../../document-types/contact/contactDocumentModel";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 
 export interface ContactsSnapshot {
   entries: ReadonlyArray<ContactEntry>;
@@ -186,7 +187,7 @@ function removeContactEntry(
 async function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(
     execSql,
-    APP_DOCUMENT_PROJECTOR_REGISTRY.getClientProjectionTables(),
+    getDocumentClientProjectionTables(APP_DOCUMENT_PROJECTOR_DEFINITIONS),
   );
 }
 

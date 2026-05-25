@@ -8,6 +8,7 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createResponseFromRequest } from "../test/helpers/documentFixtures";
 import { type Logger, Tearleads } from "./client";
+import type { DocumentProjectorDefinition } from "./documents";
 import type {
   ExecSql,
   ExecSqlClientLike,
@@ -82,6 +83,25 @@ describe("Tearleads", () => {
     expect("workflowInput" in sdk.runtime).toBe(false);
     expect(sdk.session.isAuthenticated).toBe(false);
     expect(sdk.userKeys.fetch).toBeFunction();
+  });
+
+  test("accepts document projector definitions in constructor options", () => {
+    const definitions: ReadonlyArray<DocumentProjectorDefinition> = [
+      {
+        kind: "claim",
+        label: "claim",
+      },
+    ];
+    const sdk = new Tearleads({
+      documentProjectors: definitions,
+      logger: quietLogger,
+    });
+
+    expect(
+      sdk.runtime
+        .input()
+        .documentProjectors.getStoredDocumentTypeLabel("claim"),
+    ).toBe("claim");
   });
 
   test("notifies database subscribers with stable snapshots", () => {

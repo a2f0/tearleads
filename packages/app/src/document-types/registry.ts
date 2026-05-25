@@ -1,13 +1,13 @@
-import {
-  DEFAULT_DOCUMENT_KIND,
-  type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
-import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./projectors";
+import {
+  APP_DEFAULT_DOCUMENT_KIND,
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+} from "./projectors";
 import type { DocumentTypeAppProps } from "./types";
 
 interface DocumentTypeDefinition {
@@ -20,7 +20,7 @@ const documentTypeAppsByKind = new Map<
   StoredDocumentKind,
   ComponentType<DocumentTypeAppProps>
 >([
-  [DEFAULT_DOCUMENT_KIND, NoteDocumentApp],
+  [APP_DEFAULT_DOCUMENT_KIND, NoteDocumentApp],
   ["contact", ContactDocumentApp],
   ["drivers_license", DriverLicenseDocumentApp],
   ["credit_card", CreditCardDocumentApp],

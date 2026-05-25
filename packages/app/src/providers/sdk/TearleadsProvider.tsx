@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
@@ -119,7 +119,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     () =>
       new Tearleads({
         apiBaseUrl: hostConfig.apiBaseUrl,
-        documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
         logger: { log, logError },
       }),
   );

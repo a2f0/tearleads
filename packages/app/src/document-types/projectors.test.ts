@@ -14,7 +14,7 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import {
-  APP_DOCUMENT_PROJECTOR_REGISTRY,
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   readContactFieldsFromRecord,
   readCreditCardFieldsFromRecord,
   readDriverLicenseFieldsFromRecord,
@@ -24,11 +24,15 @@ function initializeStoredDocumentKind(
   doc: StructuredDocumentShape,
   kind: StoredDocumentKind,
 ): void {
-  initializeStoredDocumentKindBase(doc, kind, APP_DOCUMENT_PROJECTOR_REGISTRY);
+  initializeStoredDocumentKindBase(
+    doc,
+    kind,
+    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  );
 }
 
 function readStoredDocumentState(doc: StructuredDocumentShape) {
-  return readStoredDocumentStateBase(doc, APP_DOCUMENT_PROJECTOR_REGISTRY);
+  return readStoredDocumentStateBase(doc, APP_DOCUMENT_PROJECTOR_DEFINITIONS);
 }
 
 function writeStoredDocumentFields(
@@ -40,7 +44,7 @@ function writeStoredDocumentFields(
     doc,
     kind,
     patch,
-    APP_DOCUMENT_PROJECTOR_REGISTRY,
+    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   );
 }
 

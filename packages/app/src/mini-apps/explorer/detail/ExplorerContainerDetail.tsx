@@ -34,7 +34,7 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
 } from "../../../components/shared/MiniAppTable";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
@@ -151,7 +151,7 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
 
   return getStoredDocumentTypeLabel(
     row.documentKind,
-    APP_DOCUMENT_PROJECTOR_REGISTRY,
+    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   );
 }
 
