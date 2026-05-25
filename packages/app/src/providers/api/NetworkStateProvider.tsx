@@ -9,7 +9,7 @@ interface NetworkStateContextValue {
 export function useNetworkState(): NetworkStateContextValue {
   const tearleads = useTearleads();
   const online = useTearleadsExternalValue(
-    (listener) => tearleads.network.subscribe(listener),
+    tearleads.network.subscribe,
     () => tearleads.network.online,
   );
 
