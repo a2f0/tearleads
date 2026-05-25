@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   buildMaterializedDocumentCreatePlan,
   buildMaterializedDocumentLinkSetMutationPlan,
-} from "@tearleads/client-sdk/workflows/documents";
+} from "@tearleads/client-sdk";
 import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,

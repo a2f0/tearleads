@@ -23,6 +23,7 @@ const appProductionSourceEntryPoints = ["packages/app/src"];
 const appTestSourceEntryPoints = ["packages/app/src"];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
 const clientSdkSourceEntryPoints = ["packages/client-sdk/src"];
+const clientSdkTestHelperEntryPoints = ["packages/client-sdk/test/helpers"];
 const clientSdkPublicApiDocsPath = "docs/developer/client-sdk.md";
 const clientSdkClientFacadeIndexPath =
   "packages/client-sdk/src/client/index.ts";
@@ -890,6 +891,12 @@ function isClientSdkStoreImport(specifier: string): boolean {
   );
 }
 
+function isClientSdkStoreOrWorkflowImport(specifier: string): boolean {
+  return (
+    isClientSdkStoreImport(specifier) || isClientSdkWorkflowImport(specifier)
+  );
+}
+
 function isUnsupportedClientSdkRootReExport(specifier: string): boolean {
   return (
     specifier.startsWith(".") && !clientSdkRootAllowedReExports.has(specifier)
@@ -961,12 +968,42 @@ const architectureChecks: ArchitectureCheck[] = [
     name: "app-test-helpers-use-sdk-root-or-facades",
   }),
   createModuleSpecifierCheck({
+    entryPoints: appTestHelperEntryPoints,
+    matches: isClientSdkStoreOrWorkflowImport,
+    message:
+      "App test helpers should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "app-test-helpers-use-sdk-root-for-workflow-and-store-facades",
+  }),
+  createModuleSpecifierCheck({
     entryPoints: appTestSourceEntryPoints,
     listFiles: listTestSourceFiles,
     matches: isClientSdkDataImport,
     message:
       "App tests should import client SDK contracts from @tearleads/client-sdk or document/workflow/store facades instead of @tearleads/client-sdk/data/* internals.",
     name: "app-tests-use-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appTestSourceEntryPoints,
+    listFiles: listTestSourceFiles,
+    matches: isClientSdkStoreOrWorkflowImport,
+    message:
+      "App tests should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "app-tests-use-sdk-root-for-workflow-and-store-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: clientSdkSourceEntryPoints,
+    listFiles: listTestSourceFiles,
+    matches: isClientSdkStoreOrWorkflowImport,
+    message:
+      "Client SDK tests should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "client-sdk-tests-use-sdk-root-for-workflow-and-store-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: clientSdkTestHelperEntryPoints,
+    matches: isClientSdkStoreOrWorkflowImport,
+    message:
+      "Client SDK test helpers should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "client-sdk-test-helpers-use-sdk-root-for-workflow-and-store-facades",
   }),
   createListCheck({
     findItems: findClientSdkPackageStatusViolations,

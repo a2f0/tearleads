@@ -3,7 +3,7 @@ import {
   decryptDocumentAttachmentBlob,
   hydrateDocumentAttachmentBlobs,
   uploadDocumentAttachment,
-} from "@tearleads/client-sdk/workflows/blobs";
+} from "@tearleads/client-sdk";
 import {
   type AccessEvent,
   computeBlobAccessManifestHash,

@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import type { UserKey } from "@tearleads/client-sdk";
-import { primeDocumentStore } from "@tearleads/client-sdk/stores/documents";
 import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
   deletePersistedDocument,
-} from "@tearleads/client-sdk/workflows/documents";
+  primeDocumentStore,
+} from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";

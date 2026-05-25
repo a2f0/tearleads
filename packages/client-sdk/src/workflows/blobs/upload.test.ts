@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { uploadDocumentAttachment } from "@tearleads/client-sdk/workflows/blobs";
+import { uploadDocumentAttachment } from "@tearleads/client-sdk";
 import {
   type AccessEvent,
   BLOB_CONTENT_KEY_WRAP_SUITE,

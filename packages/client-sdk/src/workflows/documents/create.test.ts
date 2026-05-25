@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { unwrapDocumentContentKeyTarget } from "@tearleads/client-sdk/workflows/documents";
+import { unwrapDocumentContentKeyTarget } from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,

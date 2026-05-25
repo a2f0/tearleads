@@ -190,7 +190,7 @@ export interface ContainerDocumentLinksRuntime
  * referenced-principal policy cache, local document read model, link
  * projection, tombstone handling, and sync watermarks. Consumers that need a
  * custom persistence protocol can call the lower-level workflows directly from
- * `@tearleads/client-sdk/workflows/container-contents`.
+ * `@tearleads/client-sdk`.
  */
 export interface ContainerContents {
   /**

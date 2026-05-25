@@ -1,15 +1,15 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
-import type { DocumentsRuntime } from "@tearleads/client-sdk/stores/documents";
+import type { DocumentsRuntime } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
+  createDomainScope,
   type DocumentRecord,
   type DocumentsPersistence,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-} from "@tearleads/client-sdk/workflows/documents";
-import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
+} from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
 

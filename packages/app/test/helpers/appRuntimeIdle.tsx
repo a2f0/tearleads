@@ -2,7 +2,7 @@ import {
   type DomainScope,
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
-} from "@tearleads/client-sdk/workflows/sync";
+} from "@tearleads/client-sdk";
 import { useEffect } from "react";
 import { useTearleadsRuntime } from "../../src/providers/sdk/TearleadsProvider";
 import { getProxiedApiNetworkActivitySnapshot } from "./mswServer";
