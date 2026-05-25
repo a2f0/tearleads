@@ -5,7 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { createTestExecSql } from "../test/helpers/createTestExecSql";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { createResponseFromRequest } from "../test/helpers/documentFixtures";
 import { type Logger, Tearleads } from "./client";
 import type {

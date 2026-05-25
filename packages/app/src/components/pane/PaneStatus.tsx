@@ -1,8 +1,8 @@
 import { isUserEvent } from "@tearleads/validators/event";
-import { useNetworkState } from "../../providers/api/NetworkStateProvider";
+import { useNetworkState } from "../../providers/api/useNetworkState";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
-import { useEvents } from "../../providers/events/EventsProvider";
+import { useEvents } from "../../providers/events/useEvents";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { usePeerUserId } from "./DualPaneProvider";
 

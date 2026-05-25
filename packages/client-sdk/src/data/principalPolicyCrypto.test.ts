@@ -10,8 +10,8 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createTestExecSql } from "../../test/helpers/createTestExecSql";
 import { decryptBlobEnvelope, serializeBlobEnvelope } from "./blobEnvelope";
 import {
   ensurePrincipalPolicyTables,

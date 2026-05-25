@@ -4,6 +4,7 @@ import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   generateKemSeedAndKeyPair,
 } from "@tearleads/crypto";
+import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import {
   type DocumentCreateRequest,
   isDocumentCreateRequest,
@@ -14,7 +15,6 @@ import {
   substituteFirstProjectionUserWrapMaterial,
   tamperFirstProjectionEventSignature,
 } from "../../../test/helpers/containerFixtures";
-import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   createAuthor,
   createResponseFromRequest,

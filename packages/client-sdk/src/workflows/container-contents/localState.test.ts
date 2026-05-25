@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,

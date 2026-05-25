@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantsResponse,
@@ -8,7 +9,6 @@ import type {
   OrganizationUserDetailResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import {
   ensureContainerTables,
   saveContainer,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   containerContentsSyncLane,
   containerParentSyncLane,

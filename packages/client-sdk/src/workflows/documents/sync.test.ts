@@ -11,6 +11,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import {
   type DocumentSyncRequest,
   isDocumentSyncRequest,
@@ -21,7 +22,6 @@ import {
   createParentProjectionUserKeyResolver,
   substituteFirstProjectionUserWrapMaterial,
 } from "../../../test/helpers/containerFixtures";
-import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
 import {
   createAuthor,
   createDeepNonCanonicalRecord,

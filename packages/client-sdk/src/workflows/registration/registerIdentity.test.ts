@@ -5,13 +5,13 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";

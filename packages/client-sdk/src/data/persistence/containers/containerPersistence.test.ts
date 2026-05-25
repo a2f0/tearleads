@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "../../../../test/helpers/createTestExecSql";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../container-contents/containerContentsPersistence";
 import {
   loadContainerDisplayNamesByIds,

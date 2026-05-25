@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "../../../test/helpers/createTestExecSql";
+import { createTestExecSql } from "@tearleads/test-utils";
 import { loadContainers } from "../../data/persistence/containers/containerPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { bootstrapRootContainer } from "./bootstrapRootContainer";

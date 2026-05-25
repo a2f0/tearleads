@@ -4,7 +4,7 @@ import {
 } from "@tearleads/client-sdk/workflows/blobs";
 import type { createDocumentsWorkflowRuntime } from "@tearleads/client-sdk/workflows/documents";
 import { createDomainScope } from "@tearleads/client-sdk/workflows/sync";
-import { createTestExecSql } from "./createTestExecSql";
+import { createTestExecSql } from "@tearleads/test-utils";
 
 type DocumentsWorkflowRuntimeInput = Parameters<
   typeof createDocumentsWorkflowRuntime

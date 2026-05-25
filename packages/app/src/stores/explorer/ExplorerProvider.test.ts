@@ -41,6 +41,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createContainerWriterProjectionFixture,
+  createMockApiClient,
+} from "@tearleads/test-utils";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
@@ -59,8 +63,6 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
-import { createContainerWriterProjectionFixture } from "../../../test/helpers/createContainerWriterProjectionFixture";
-import { createMockApiClient } from "../../../test/helpers/createMockApiClient";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import {
   assertAccessEvent,
