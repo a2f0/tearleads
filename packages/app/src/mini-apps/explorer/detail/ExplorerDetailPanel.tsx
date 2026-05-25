@@ -4,11 +4,9 @@ import type {
   ContainerNode,
   ContainerShareAccessLevel,
   DocumentInfo,
-} from "@tearleads/client-sdk";
-import type {
   DocumentSummary,
   StoredDocumentKind,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { MiniAppWindowPosition } from "../../bus";

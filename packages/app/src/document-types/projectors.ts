@@ -6,7 +6,7 @@ import {
   type DocumentProjectorDefinition,
   readStringDocumentField,
   type ValidatedDocumentFields,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import type { SqlTableSchema } from "@tearleads/client-sdk/sqlite";
 
 export interface DriverLicenseDocumentFields {

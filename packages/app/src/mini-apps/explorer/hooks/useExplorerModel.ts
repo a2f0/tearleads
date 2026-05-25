@@ -1,5 +1,7 @@
-import type { ContainerDocumentReadModel } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import type {
+  ContainerDocumentReadModel,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import { type ReactNode, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";

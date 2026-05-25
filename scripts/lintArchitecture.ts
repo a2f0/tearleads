@@ -877,6 +877,13 @@ function isClientSdkDataImport(specifier: string): boolean {
   );
 }
 
+function isClientSdkDocumentsImport(specifier: string): boolean {
+  return (
+    specifier === "@tearleads/client-sdk/documents" ||
+    specifier.startsWith("@tearleads/client-sdk/documents/")
+  );
+}
+
 function isClientSdkWorkflowImport(specifier: string): boolean {
   return (
     specifier === "@tearleads/client-sdk/workflows" ||
@@ -943,14 +950,21 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appProductionSourceEntryPoints,
     matches: isClientSdkDataImport,
     message:
-      "App production code should import client SDK contracts from @tearleads/client-sdk or document and SQLite facades instead of @tearleads/client-sdk/data/* internals.",
+      "App production code should import client SDK contracts from @tearleads/client-sdk or @tearleads/client-sdk/sqlite instead of @tearleads/client-sdk/data/* internals.",
     name: "app-production-uses-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appProductionSourceEntryPoints,
+    matches: isClientSdkDocumentsImport,
+    message:
+      "App production code should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "app-production-uses-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: appProductionSourceEntryPoints,
     matches: isClientSdkWorkflowImport,
     message:
-      "App production code should use SDK root services, document contracts, SQLite contracts, or store facades instead of importing SDK workflow facades directly.",
+      "App production code should use SDK root services, root document contracts, SQLite contracts, or app providers instead of importing SDK workflow facades directly.",
     name: "app-production-does-not-import-sdk-workflows-directly",
   }),
   createModuleSpecifierCheck({
@@ -964,8 +978,15 @@ const architectureChecks: ArchitectureCheck[] = [
     entryPoints: appTestHelperEntryPoints,
     matches: isClientSdkDataImport,
     message:
-      "App test helpers should import client SDK contracts from @tearleads/client-sdk or document and SQLite facades instead of @tearleads/client-sdk/data/* internals.",
+      "App test helpers should import client SDK contracts from @tearleads/client-sdk or @tearleads/client-sdk/sqlite instead of @tearleads/client-sdk/data/* internals.",
     name: "app-test-helpers-use-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appTestHelperEntryPoints,
+    matches: isClientSdkDocumentsImport,
+    message:
+      "App test helpers should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "app-test-helpers-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: appTestHelperEntryPoints,
@@ -979,8 +1000,16 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listTestSourceFiles,
     matches: isClientSdkDataImport,
     message:
-      "App tests should import client SDK contracts from @tearleads/client-sdk or document and SQLite facades instead of @tearleads/client-sdk/data/* internals.",
+      "App tests should import client SDK contracts from @tearleads/client-sdk or @tearleads/client-sdk/sqlite instead of @tearleads/client-sdk/data/* internals.",
     name: "app-tests-use-sdk-root-or-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appTestSourceEntryPoints,
+    listFiles: listTestSourceFiles,
+    matches: isClientSdkDocumentsImport,
+    message:
+      "App tests should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "app-tests-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: appTestSourceEntryPoints,
@@ -993,10 +1022,25 @@ const architectureChecks: ArchitectureCheck[] = [
   createModuleSpecifierCheck({
     entryPoints: clientSdkSourceEntryPoints,
     listFiles: listTestSourceFiles,
+    matches: isClientSdkDocumentsImport,
+    message:
+      "Client SDK tests should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "client-sdk-tests-use-sdk-root-for-document-facade",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: clientSdkSourceEntryPoints,
+    listFiles: listTestSourceFiles,
     matches: isClientSdkStoreOrWorkflowImport,
     message:
       "Client SDK tests should import public store and workflow compatibility exports from @tearleads/client-sdk during the entrypoint consolidation migration.",
     name: "client-sdk-tests-use-sdk-root-for-workflow-and-store-facades",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: clientSdkTestHelperEntryPoints,
+    matches: isClientSdkDocumentsImport,
+    message:
+      "Client SDK test helpers should import public document contracts from @tearleads/client-sdk during the entrypoint consolidation migration.",
+    name: "client-sdk-test-helpers-use-sdk-root-for-document-facade",
   }),
   createModuleSpecifierCheck({
     entryPoints: clientSdkTestHelperEntryPoints,

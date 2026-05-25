@@ -3,7 +3,7 @@ import {
   addDocumentAttachments,
   ensureDocumentAttachmentStructure,
   getDocumentAttachments,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import {
   createDocument,
   encodeVersionVector,

@@ -2,7 +2,7 @@ import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getUntitledDocumentTitle,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import {
   MiniAppSidebar,

@@ -1,8 +1,8 @@
-import type { DocumentAttachmentStatus } from "@tearleads/client-sdk";
 import type {
   BlobBytes,
   DocumentAttachment,
-} from "@tearleads/client-sdk/documents";
+  DocumentAttachmentStatus,
+} from "@tearleads/client-sdk";
 
 export interface DocumentAttachmentSlot {
   description: string;

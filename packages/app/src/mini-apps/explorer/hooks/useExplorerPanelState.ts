@@ -3,8 +3,8 @@ import type {
   ContainerInfo,
   ContainerNode,
   DocumentInfo,
+  DocumentSummary,
 } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";

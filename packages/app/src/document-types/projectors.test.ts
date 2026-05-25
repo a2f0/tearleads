@@ -6,7 +6,7 @@ import {
   type StoredDocumentKind,
   type StructuredDocumentShape,
   writeStoredDocumentFields as writeStoredDocumentFieldsBase,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import {
   createDocument,
   encodeVersionVector,

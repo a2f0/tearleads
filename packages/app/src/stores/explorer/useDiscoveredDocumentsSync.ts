@@ -1,5 +1,4 @@
-import type { ContainerContents } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import type { ContainerContents, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import {

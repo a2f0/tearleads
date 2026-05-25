@@ -1,8 +1,8 @@
 import type {
   ContainerDocumentReadModel,
   ContainerNode,
+  DocumentSummary,
 } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { getKnownDocumentIds } from "../../../stores/explorer/documentSummaryUtils";

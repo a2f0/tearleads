@@ -1,4 +1,4 @@
-import type { DocumentsRuntime } from "@tearleads/client-sdk";
+import type { DocumentSummary, DocumentsRuntime } from "@tearleads/client-sdk";
 import {
   createDocumentsWorkflowRuntime,
   createDomainScope,
@@ -9,7 +9,6 @@ import {
   type PendingUpdateInsert,
   type PendingUpdateRecord,
 } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
 

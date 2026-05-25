@@ -46,16 +46,14 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 
 `data/` is an internal SDK layer, not an application integration API. The SDK
 root owns the high-level `Tearleads` client facade, top-level service types,
-and migration-phase compatibility exports for public store and workflow facade
-symbols. Neutral document contracts and pure document helpers belong behind
-`@tearleads/client-sdk/documents` and are also exposed from the root during the
-entrypoint consolidation migration. SQLite worker runtime and executor
-contracts belong behind `@tearleads/client-sdk/sqlite`. Host application code
-should prefer the `Tearleads` instance and otherwise import public store or
-workflow facade symbols from `@tearleads/client-sdk`.
+and migration-phase compatibility exports for public document, store, and
+workflow facade symbols. SQLite worker runtime and executor contracts belong
+behind `@tearleads/client-sdk/sqlite`. Host application code should prefer the
+`Tearleads` instance and otherwise import public document, store, or workflow
+facade symbols from `@tearleads/client-sdk`.
 Cross-package callers should not import `@tearleads/client-sdk/data/*`
-subpaths; promote the needed contract through the document facade, the SQLite
-facade, or the SDK root facade instead.
+subpaths; promote the needed contract through the SDK root facade or the SQLite
+facade instead.
 
 Package subpath exports are explicit and should stop at the facade boundary.
 Adding a new cross-package import from `stores/` or `workflows/` should usually
@@ -64,10 +62,9 @@ rather than exporting a nested implementation file. Low-level `data/` modules
 should stay package-internal unless there is a deliberate decision to promote a
 new public SDK contract.
 
-Use public package entry points such as `@tearleads/client-sdk`,
-`@tearleads/client-sdk/documents`, and `@tearleads/client-sdk/sqlite` instead
-of importing implementation modules or nested workflow/store implementation
-files.
+Use public package entry points such as `@tearleads/client-sdk` and
+`@tearleads/client-sdk/sqlite` instead of importing implementation modules or
+nested workflow/store implementation files.
 Shared sync coordination helpers that cross host test/runtime boundaries belong
 behind `@tearleads/client-sdk`.
 

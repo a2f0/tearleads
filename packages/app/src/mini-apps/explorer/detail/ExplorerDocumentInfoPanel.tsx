@@ -2,7 +2,7 @@ import type { ContainerNode, DocumentInfo } from "@tearleads/client-sdk";
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppActions,

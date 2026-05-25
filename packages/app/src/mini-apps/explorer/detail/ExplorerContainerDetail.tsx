@@ -9,7 +9,7 @@ import type {
 import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import {
   type DragEvent,
   useCallback,

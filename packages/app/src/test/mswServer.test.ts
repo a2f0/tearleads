@@ -4,9 +4,9 @@ import {
   buildInitialMemberGroupPolicyRequest,
   buildMaterializedDocumentCreatePlan,
   buildRootContainerCreatePlan,
+  createDocumentSignerDeviceId,
   rootContainerWriterProjectionFromCreatePlan,
 } from "@tearleads/client-sdk";
-import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
 import {
   authChallengeSigningBytes,
   buildPrincipalStateSigningInput,

@@ -1,8 +1,8 @@
 import type {
   ContainerDocumentLinksRuntime,
   ContainerNode,
+  DocumentSummary,
 } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback, useMemo } from "react";
 import {
   createExplorerTargetLookups,
