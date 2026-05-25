@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:client-sdk": "bun run --cwd ../client-sdk build",
+    "prepare:client-sdk": "test -f ../client-sdk/dist/index.js && test -f ../client-sdk/dist/sqlite.js || bun run build:client-sdk",
     "e2e": "playwright test",
     "test:e2e": "bun run e2e",
-    "dev": "bun --hot src/servers/devServer.ts",
-    "build": "bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='production' --env='BUN_PUBLIC_*'",
-    "start": "bun src/servers/devServer.ts"
+    "dev": "bun run prepare:client-sdk && bun --hot src/servers/devServer.ts",
+    "build": "bun run build:client-sdk && bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='production' --env='BUN_PUBLIC_*'",
+    "start": "bun run prepare:client-sdk && bun src/servers/devServer.ts"
   },
   "dependencies": {
     "@tearleads/sqlite-worker": "workspace:*",
