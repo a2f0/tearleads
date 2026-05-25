@@ -5,7 +5,11 @@ import type {
   SetStateAction,
 } from "react";
 import { useCallback, useMemo } from "react";
-import type { WindowEntry, WindowStateActions } from "./types";
+import type {
+  WindowCreateOptions,
+  WindowEntry,
+  WindowStateActions,
+} from "./types";
 import {
   bringWindowToFront,
   createWindowEntry,
@@ -37,7 +41,7 @@ export function useWindowStateActions({
       x: number,
       y: number,
       component?: ComponentType,
-      options: { appId?: string } = {},
+      options: WindowCreateOptions = {},
     ) => {
       const id = String(++counter.current);
       setWindows((previousWindows) => {

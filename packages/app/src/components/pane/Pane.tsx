@@ -29,7 +29,7 @@ import { PaneStatus } from "./PaneStatus";
 const BOOT_PANE_LOG_MESSAGE =
   "Generate a key pair from the pane menu to boot this pane.";
 
-const MINI_APPS = {
+const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   contacts: {
     createComponent: () => ContactsApp,
     title: "Contacts",
@@ -40,6 +40,7 @@ const MINI_APPS = {
   },
   "identity-manager": {
     createComponent: () => IdentityManagerApp,
+    initialShowSidebar: false,
     title: "Identity Manager",
   },
   notes: {
@@ -50,7 +51,7 @@ const MINI_APPS = {
     createComponent: () => OrgManagerApp,
     title: "Org Manager",
   },
-} satisfies Readonly<Record<MiniAppId, MiniAppDefinition>>;
+};
 
 const PANE_MINI_APP_MENU_ITEMS = [
   { appId: "notes", label: "Open Notes" },
@@ -113,7 +114,12 @@ function PaneInner({ className }: { className: string }) {
           contextMenu.x,
           contextMenu.y,
           definition.createComponent(),
-          { appId },
+          {
+            appId,
+            ...(definition.initialShowSidebar === undefined
+              ? {}
+              : { initialShowSidebar: definition.initialShowSidebar }),
+          },
         );
       }
       setContextMenu(null);

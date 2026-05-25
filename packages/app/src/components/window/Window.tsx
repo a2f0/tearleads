@@ -295,7 +295,9 @@ function useWindowActions(
 ) {
   const [maximized, setMaximized] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(
+    entry.initialShowSidebar ?? true,
+  );
   const handleClose = useCallback(() => close(entry.id), [close, entry.id]);
   const handleMinimize = useCallback(
     () => minimize(entry.id),

@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { WindowEntry } from "../types";
+import type { WindowCreateOptions, WindowEntry } from "../types";
 
 export function createWindowEntry(
   id: string,
@@ -8,11 +8,14 @@ export function createWindowEntry(
   y: number,
   zIndex: number,
   component?: ComponentType,
-  options: { appId?: string } = {},
+  options: WindowCreateOptions = {},
 ): WindowEntry {
   return {
     id,
     ...(options.appId ? { appId: options.appId } : {}),
+    ...(options.initialShowSidebar === undefined
+      ? {}
+      : { initialShowSidebar: options.initialShowSidebar }),
     title,
     initialX: x,
     initialY: y,

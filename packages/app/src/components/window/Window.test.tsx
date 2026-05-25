@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { Window } from "./Window";
 import { useWindowRefreshMenuItem } from "./WindowMenuContext";
+import { useWindowSidebar } from "./WindowSidebarContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
 afterEach(() => cleanup());
@@ -69,6 +70,39 @@ function WindowMultiRefreshHarness({
 
     create("Multi Refreshable", 0, 0, MultiRefreshableWindow);
   }, [create, onFirstRefresh, onSecondRefresh]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
+function RegisteredSidebarContent() {
+  const { setSidebar } = useWindowSidebar();
+
+  useEffect(() => {
+    setSidebar(<div>Registered Sidebar</div>);
+    return () => setSidebar(null);
+  }, [setSidebar]);
+
+  return <div>Main Content</div>;
+}
+
+function WindowSidebarDefaultHarness({
+  initialShowSidebar,
+}: {
+  initialShowSidebar: boolean;
+}) {
+  const { windows, create } = useWindowState();
+
+  useEffect(() => {
+    create("Sidebar Defaults", 0, 0, RegisteredSidebarContent, {
+      initialShowSidebar,
+    });
+  }, [create, initialShowSidebar]);
 
   return (
     <div>
@@ -243,4 +277,30 @@ test("equal-priority refresh actions prefer the first registered item", async ()
 
   expect(firstRefreshCount).toBe(1);
   expect(secondRefreshCount).toBe(0);
+});
+
+test("window can start with the sidebar hidden", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowSidebarDefaultHarness initialShowSidebar={false} />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("Main Content")).toBeTruthy();
+  });
+
+  expect(view.queryByText("Registered Sidebar")).toBeNull();
+
+  fireEvent.click(view.getByText("View"));
+
+  await waitFor(() => {
+    expect(view.getByText("Show Sidebar")).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("Show Sidebar"));
+
+  await waitFor(() => {
+    expect(view.getByText("Registered Sidebar")).toBeTruthy();
+  });
 });

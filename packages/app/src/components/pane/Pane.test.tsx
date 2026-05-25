@@ -335,6 +335,7 @@ test("identity manager opens from the pane and lists active sessions", async () 
     expect(view.getByText("Current")).toBeTruthy();
     expect(view.getByText("Backup Key Package")).toBeTruthy();
   });
+  expect(view.container.querySelector(".window-sidebar-layout")).toBeNull();
 
   view.unmount();
 });
