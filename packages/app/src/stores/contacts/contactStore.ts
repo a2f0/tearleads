@@ -6,7 +6,12 @@ import type {
   UserKey,
 } from "@tearleads/client-sdk";
 import { getDocumentClientProjectionTables } from "@tearleads/client-sdk";
-import { type ExecSql, ensureSqlTables } from "@tearleads/client-sdk/sqlite";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  getSQLitePersistenceRuntime,
+} from "@tearleads/client-sdk/sqlite";
+import { sql } from "drizzle-orm";
 import {
   type ContactEntry,
   type ContactEntryPatch,
@@ -14,7 +19,10 @@ import {
   contactFieldsToEntry,
   readContactFields,
 } from "../../document-types/contact/contactDocumentModel";
-import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
+import {
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  contactProjection,
+} from "../../document-types/projectors";
 
 export interface ContactsSnapshot {
   entries: ReadonlyArray<ContactEntry>;
@@ -61,28 +69,10 @@ interface ContactsStoreState {
   writeChain: Promise<void>;
 }
 
-interface ContactProjectionRow {
-  encapsulation_public_key: unknown;
-  first_name: unknown;
-  is_self: unknown;
-  last_name: unknown;
-  local_id: unknown;
-  user_id: unknown;
-}
-
 const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
 
-function readString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function readNullableString(value: unknown): string | null {
-  const text = readString(value);
-  return text.length > 0 ? text : null;
-}
-
-function readBoolean(value: unknown): boolean {
-  return Number(value ?? 0) === 1;
+function normalizeProjectionNullableText(value: string | null): string | null {
+  return value && value.length > 0 ? value : null;
 }
 
 function compareContactText(left: string, right: string): number {
@@ -195,29 +185,33 @@ async function loadProjectedContacts(
   execSql: ExecSql,
 ): Promise<ContactEntry[]> {
   await ensureContactProjectionSchema(execSql);
-  const rows = (await execSql(`
-    SELECT
-      local_id,
-      first_name,
-      last_name,
-      user_id,
-      encapsulation_public_key,
-      is_self
-    FROM contact_projection
-    ORDER BY
-      last_name COLLATE NOCASE,
-      first_name COLLATE NOCASE,
-      user_id COLLATE NOCASE,
-      local_id COLLATE NOCASE
-  `)) as unknown as ContactProjectionRow[];
+  const { db } = getSQLitePersistenceRuntime(execSql);
+  const rows = await db
+    .select({
+      encapsulationPublicKey: contactProjection.encapsulationPublicKey,
+      firstName: contactProjection.firstName,
+      isSelf: contactProjection.isSelf,
+      lastName: contactProjection.lastName,
+      localId: contactProjection.localId,
+      userId: contactProjection.userId,
+    })
+    .from(contactProjection)
+    .orderBy(
+      sql`${contactProjection.lastName} COLLATE NOCASE`,
+      sql`${contactProjection.firstName} COLLATE NOCASE`,
+      sql`${contactProjection.userId} COLLATE NOCASE`,
+      sql`${contactProjection.localId} COLLATE NOCASE`,
+    );
 
   return rows.map((row) => ({
-    encapsulationPublicKey: readNullableString(row.encapsulation_public_key),
-    firstName: readString(row.first_name),
-    id: readString(row.local_id),
-    isSelf: readBoolean(row.is_self),
-    lastName: readString(row.last_name),
-    userId: readNullableString(row.user_id),
+    encapsulationPublicKey: normalizeProjectionNullableText(
+      row.encapsulationPublicKey,
+    ),
+    firstName: row.firstName,
+    id: row.localId,
+    isSelf: row.isSelf === 1,
+    lastName: row.lastName,
+    userId: normalizeProjectionNullableText(row.userId),
   }));
 }
 

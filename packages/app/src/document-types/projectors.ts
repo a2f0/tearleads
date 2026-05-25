@@ -6,7 +6,18 @@ import {
   type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
-import type { SqlTableSchema } from "@tearleads/client-sdk/sqlite";
+import {
+  defineSqlTableSchema,
+  getSQLitePersistenceRuntime,
+} from "@tearleads/client-sdk/sqlite";
+import { eq, sql } from "drizzle-orm";
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export interface DriverLicenseDocumentFields {
   expirationDate: string;
@@ -36,56 +47,71 @@ const DRIVER_LICENSE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const CREDIT_CARD_EXPIRATION_PATTERN = /^\d{4}-\d{2}$/u;
 export const APP_DEFAULT_DOCUMENT_KIND = "note" satisfies StoredDocumentKind;
 
-const DRIVER_LICENSE_PROJECTION_TABLE: SqlTableSchema = {
-  name: "driver_license_projection",
-  createSql: `CREATE TABLE IF NOT EXISTS "driver_license_projection" (
-  "local_id" TEXT PRIMARY KEY,
-  "document_id" TEXT,
-  "container_id" TEXT,
-  "license_id" TEXT NOT NULL DEFAULT '',
-  "expiration_date" TEXT NOT NULL DEFAULT '',
-  "updated_at" TEXT NOT NULL
-)`,
-  indexes: [
-    `CREATE INDEX IF NOT EXISTS "driver_license_projection_expiration_idx" ON "driver_license_projection" ("expiration_date")`,
+const driverLicenseProjection = sqliteTable(
+  "driver_license_projection",
+  {
+    localId: text("local_id").primaryKey(),
+    documentId: text("document_id"),
+    containerId: text("container_id"),
+    licenseId: text("license_id").notNull().default(""),
+    expirationDate: text("expiration_date").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("driver_license_projection_expiration_idx").on(table.expirationDate),
   ],
-};
+);
 
-const CREDIT_CARD_PROJECTION_TABLE: SqlTableSchema = {
-  name: "credit_card_projection",
-  createSql: `CREATE TABLE IF NOT EXISTS "credit_card_projection" (
-  "local_id" TEXT PRIMARY KEY,
-  "document_id" TEXT,
-  "container_id" TEXT,
-  "card_last4" TEXT,
-  "expiration_date" TEXT NOT NULL DEFAULT '',
-  "name_on_card" TEXT NOT NULL DEFAULT '',
-  "updated_at" TEXT NOT NULL
-)`,
-  indexes: [
-    `CREATE INDEX IF NOT EXISTS "credit_card_projection_expiration_idx" ON "credit_card_projection" ("expiration_date")`,
+const creditCardProjection = sqliteTable(
+  "credit_card_projection",
+  {
+    localId: text("local_id").primaryKey(),
+    documentId: text("document_id"),
+    containerId: text("container_id"),
+    cardLast4: text("card_last4"),
+    expirationDate: text("expiration_date").notNull().default(""),
+    nameOnCard: text("name_on_card").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("credit_card_projection_expiration_idx").on(table.expirationDate),
   ],
-};
+);
 
-const CONTACT_PROJECTION_TABLE: SqlTableSchema = {
-  name: "contact_projection",
-  createSql: `CREATE TABLE IF NOT EXISTS "contact_projection" (
-  "local_id" TEXT PRIMARY KEY,
-  "document_id" TEXT,
-  "container_id" TEXT,
-  "first_name" TEXT NOT NULL DEFAULT '',
-  "last_name" TEXT NOT NULL DEFAULT '',
-  "user_id" TEXT,
-  "encapsulation_public_key" TEXT,
-  "is_self" INTEGER NOT NULL DEFAULT 0,
-  "updated_at" TEXT NOT NULL
-)`,
-  indexes: [
-    `CREATE UNIQUE INDEX IF NOT EXISTS "contact_projection_self_idx" ON "contact_projection" ("is_self") WHERE "is_self" = 1`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS "contact_projection_user_idx" ON "contact_projection" ("user_id") WHERE "user_id" IS NOT NULL`,
-    `CREATE INDEX IF NOT EXISTS "contact_projection_name_idx" ON "contact_projection" ("last_name" COLLATE NOCASE, "first_name" COLLATE NOCASE, "user_id" COLLATE NOCASE, "local_id" COLLATE NOCASE)`,
+export const contactProjection = sqliteTable(
+  "contact_projection",
+  {
+    localId: text("local_id").primaryKey(),
+    documentId: text("document_id"),
+    containerId: text("container_id"),
+    firstName: text("first_name").notNull().default(""),
+    lastName: text("last_name").notNull().default(""),
+    userId: text("user_id"),
+    encapsulationPublicKey: text("encapsulation_public_key"),
+    isSelf: integer("is_self").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("contact_projection_self_idx")
+      .on(table.isSelf)
+      .where(sql`${table.isSelf} = 1`),
+    uniqueIndex("contact_projection_user_idx")
+      .on(table.userId)
+      .where(sql`${table.userId} IS NOT NULL`),
+    index("contact_projection_name_idx").on(
+      sql`${table.lastName} COLLATE NOCASE`,
+      sql`${table.firstName} COLLATE NOCASE`,
+      sql`${table.userId} COLLATE NOCASE`,
+      sql`${table.localId} COLLATE NOCASE`,
+    ),
   ],
-};
+);
+
+const DRIVER_LICENSE_PROJECTION_TABLE = defineSqlTableSchema(
+  driverLicenseProjection,
+);
+const CREDIT_CARD_PROJECTION_TABLE = defineSqlTableSchema(creditCardProjection);
+const CONTACT_PROJECTION_TABLE = defineSqlTableSchema(contactProjection);
 
 function isLeapYear(year: number): boolean {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
@@ -189,55 +215,40 @@ function isTruthyStructuredField(value: string): boolean {
   return normalized === "1" || normalized === "true";
 }
 
-async function deleteFromProjectionTable(input: {
-  localId: string;
-  tableName: string;
-  execSql: Parameters<
-    NonNullable<DocumentClientProjectionDefinition["delete"]>
-  >[0]["execSql"];
-}): Promise<void> {
-  await input.execSql(`DELETE FROM "${input.tableName}" WHERE "local_id" = ?`, [
-    input.localId,
-  ]);
-}
-
 const driverLicenseClientProjection: DocumentClientProjectionDefinition = {
   tables: [DRIVER_LICENSE_PROJECTION_TABLE],
   async save(input) {
     const fields = readDriverLicenseFieldsFromRecord(
       input.structuredFields,
     ).fields;
-    await input.execSql(
-      `INSERT INTO "driver_license_projection" (
-        "local_id",
-        "document_id",
-        "container_id",
-        "license_id",
-        "expiration_date",
-        "updated_at"
-      ) VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT("local_id") DO UPDATE SET
-        "document_id" = excluded."document_id",
-        "container_id" = excluded."container_id",
-        "license_id" = excluded."license_id",
-        "expiration_date" = excluded."expiration_date",
-        "updated_at" = excluded."updated_at"`,
-      [
-        input.localId,
-        input.documentId,
-        input.containerId,
-        fields.licenseId,
-        fields.expirationDate,
-        input.updatedAt,
-      ],
-    );
-  },
-  delete: (input) =>
-    deleteFromProjectionTable({
-      execSql: input.execSql,
+    const row = {
       localId: input.localId,
-      tableName: DRIVER_LICENSE_PROJECTION_TABLE.name,
-    }),
+      documentId: input.documentId,
+      containerId: input.containerId,
+      licenseId: fields.licenseId,
+      expirationDate: fields.expirationDate,
+      updatedAt: input.updatedAt,
+    };
+
+    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
+      await db
+        .insert(driverLicenseProjection)
+        .values(row)
+        .onConflictDoUpdate({
+          target: driverLicenseProjection.localId,
+          set: row,
+        })
+        .run();
+    });
+  },
+  async delete(input) {
+    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
+      await db
+        .delete(driverLicenseProjection)
+        .where(eq(driverLicenseProjection.localId, input.localId))
+        .run();
+    });
+  },
 };
 
 const creditCardClientProjection: DocumentClientProjectionDefinition = {
@@ -247,86 +258,72 @@ const creditCardClientProjection: DocumentClientProjectionDefinition = {
       input.structuredFields,
     ).fields;
     const digits = fields.cardNumber.replaceAll(/\D/gu, "");
-    await input.execSql(
-      `INSERT INTO "credit_card_projection" (
-        "local_id",
-        "document_id",
-        "container_id",
-        "card_last4",
-        "expiration_date",
-        "name_on_card",
-        "updated_at"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT("local_id") DO UPDATE SET
-        "document_id" = excluded."document_id",
-        "container_id" = excluded."container_id",
-        "card_last4" = excluded."card_last4",
-        "expiration_date" = excluded."expiration_date",
-        "name_on_card" = excluded."name_on_card",
-        "updated_at" = excluded."updated_at"`,
-      [
-        input.localId,
-        input.documentId,
-        input.containerId,
-        digits.length >= 4 ? digits.slice(-4) : null,
-        fields.expirationDate,
-        fields.nameOnCard,
-        input.updatedAt,
-      ],
-    );
-  },
-  delete: (input) =>
-    deleteFromProjectionTable({
-      execSql: input.execSql,
+    const row = {
       localId: input.localId,
-      tableName: CREDIT_CARD_PROJECTION_TABLE.name,
-    }),
+      documentId: input.documentId,
+      containerId: input.containerId,
+      cardLast4: digits.length >= 4 ? digits.slice(-4) : null,
+      expirationDate: fields.expirationDate,
+      nameOnCard: fields.nameOnCard,
+      updatedAt: input.updatedAt,
+    };
+
+    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
+      await db
+        .insert(creditCardProjection)
+        .values(row)
+        .onConflictDoUpdate({
+          target: creditCardProjection.localId,
+          set: row,
+        })
+        .run();
+    });
+  },
+  async delete(input) {
+    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
+      await db
+        .delete(creditCardProjection)
+        .where(eq(creditCardProjection.localId, input.localId))
+        .run();
+    });
+  },
 };
 
 const contactClientProjection: DocumentClientProjectionDefinition = {
   tables: [CONTACT_PROJECTION_TABLE],
   async save(input) {
     const fields = readContactFieldsFromRecord(input.structuredFields).fields;
-    await input.execSql(
-      `INSERT INTO "contact_projection" (
-        "local_id",
-        "document_id",
-        "container_id",
-        "first_name",
-        "last_name",
-        "user_id",
-        "encapsulation_public_key",
-        "is_self",
-        "updated_at"
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT("local_id") DO UPDATE SET
-        "document_id" = excluded."document_id",
-        "container_id" = excluded."container_id",
-        "first_name" = excluded."first_name",
-        "last_name" = excluded."last_name",
-        "user_id" = excluded."user_id",
-        "encapsulation_public_key" = excluded."encapsulation_public_key",
-        "is_self" = excluded."is_self",
-        "updated_at" = excluded."updated_at"`,
-      [
-        input.localId,
-        input.documentId,
-        input.containerId,
-        fields.firstName,
-        fields.lastName,
-        nullableField(fields.userId),
-        nullableField(fields.encapsulationPublicKey),
-        isTruthyStructuredField(fields.isSelf) ? 1 : 0,
-        input.updatedAt,
-      ],
-    );
-  },
-  delete: (input) =>
-    deleteFromProjectionTable({
-      execSql: input.execSql,
+    const row = {
       localId: input.localId,
-      tableName: CONTACT_PROJECTION_TABLE.name,
-    }),
+      documentId: input.documentId,
+      containerId: input.containerId,
+      firstName: fields.firstName,
+      lastName: fields.lastName,
+      userId: nullableField(fields.userId),
+      encapsulationPublicKey: nullableField(fields.encapsulationPublicKey),
+      isSelf: isTruthyStructuredField(fields.isSelf) ? 1 : 0,
+      updatedAt: input.updatedAt,
+    };
+
+    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
+      await db
+        .insert(contactProjection)
+        .values(row)
+        .onConflictDoUpdate({
+          target: contactProjection.localId,
+          set: row,
+        })
+        .run();
+    });
+  },
+  async delete(input) {
+    await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
+      await db
+        .delete(contactProjection)
+        .where(eq(contactProjection.localId, input.localId))
+        .run();
+    });
+  },
 };
 
 export function readDriverLicenseFieldsFromRecord(

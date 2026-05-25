@@ -8,7 +8,14 @@ export {
   type ModuleWorkerLike as SQLiteModuleWorkerLike,
 } from "@tearleads/sqlite-worker/runtime";
 export {
+  type ClientSQLiteDatabase as SQLiteDatabase,
+  type ClientSQLitePersistenceRuntime as SQLitePersistenceRuntime,
+  type ClientSQLiteTransaction as SQLiteTransaction,
+  getClientSQLitePersistenceRuntime as getSQLitePersistenceRuntime,
+} from "./data/sqlite/sqlitePersistenceRuntime";
+export {
   createExecSql,
+  defineSqlTableSchema,
   type ExecSql,
   type ExecSqlClientLike,
   ensureSqlTables,

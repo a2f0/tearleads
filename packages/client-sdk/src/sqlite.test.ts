@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { createModuleSQLiteRuntime } from "./sqlite";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  createModuleSQLiteRuntime,
+  defineSqlTableSchema,
+  type ExecSql,
+  getSQLitePersistenceRuntime,
+} from "./sqlite";
 
 type WorkerMessage = {
   id: number;
@@ -56,4 +62,17 @@ test("SQLite facade exposes the module worker runtime factory", async () => {
   await expect(pendingPing).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
+});
+
+test("SQLite facade exposes typed persistence DSL helpers", () => {
+  const exampleProjection = sqliteTable("example_projection", {
+    count: integer("count").notNull().default(0),
+    id: text("id").primaryKey(),
+  });
+  const execSql: ExecSql = async () => [];
+
+  expect(defineSqlTableSchema(exampleProjection)).toMatchObject({
+    name: "example_projection",
+  });
+  expect(getSQLitePersistenceRuntime(execSql).execSql).toBe(execSql);
 });

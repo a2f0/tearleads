@@ -6,49 +6,17 @@ import {
   deletePersistedDocument,
   primeDocumentStore,
 } from "@tearleads/client-sdk";
+import { getSQLitePersistenceRuntime } from "@tearleads/client-sdk/sqlite";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
+import {
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  contactProjection,
+} from "../../document-types/projectors";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 type SqlRuntimeBase = Awaited<ReturnType<typeof createSqlRuntimeBase>>;
-
-interface ContactProjectionRow {
-  encapsulation_public_key: unknown;
-  first_name: unknown;
-  last_name: unknown;
-  local_id: unknown;
-  user_id: unknown;
-}
-
-interface DocumentProjectionRow {
-  document_kind: unknown;
-  local_id: unknown;
-  title: unknown;
-}
-
-function readString(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function readContactProjectionRows(rows: ContactProjectionRow[]) {
-  return rows.map((row) => ({
-    encapsulationPublicKey: readString(row.encapsulation_public_key),
-    firstName: readString(row.first_name),
-    id: readString(row.local_id),
-    lastName: readString(row.last_name),
-    userId: readString(row.user_id),
-  }));
-}
-
-function readDocumentProjectionRows(rows: DocumentProjectionRow[]) {
-  return rows.map((row) => ({
-    documentKind: readString(row.document_kind),
-    id: readString(row.local_id),
-    title: readString(row.title),
-  }));
-}
 
 async function createContactsRuntime(): Promise<
   ContactsRuntime & { close: () => void }
@@ -138,15 +106,20 @@ test("contacts store persists contacts as documents with app-owned projections",
       "Contacts did not appear in the store snapshot.",
     );
 
-    const contactRows = (await runtime.execSql(`
-      SELECT local_id, first_name, last_name, user_id, encapsulation_public_key
-      FROM contact_projection
-      ORDER BY local_id
-    `)) as unknown as ContactProjectionRow[];
-    const contactProjections = readContactProjectionRows(contactRows);
-    expect(contactRows).toHaveLength(2);
+    const { db } = getSQLitePersistenceRuntime(runtime.execSql);
+    const contactProjections = await db
+      .select({
+        encapsulationPublicKey: contactProjection.encapsulationPublicKey,
+        firstName: contactProjection.firstName,
+        id: contactProjection.localId,
+        lastName: contactProjection.lastName,
+        userId: contactProjection.userId,
+      })
+      .from(contactProjection)
+      .orderBy(contactProjection.localId);
+    expect(contactProjections).toHaveLength(2);
     expect(contactProjections).toContainEqual({
-      encapsulationPublicKey: "",
+      encapsulationPublicKey: null,
       firstName: "Ada",
       id: createdContactId,
       lastName: "Lovelace",
@@ -160,12 +133,18 @@ test("contacts store persists contacts as documents with app-owned projections",
       userId: peerKey.userId,
     });
 
-    const documentRows = (await runtime.execSql(`
-      SELECT local_id, document_kind, title
-      FROM document_projection
-      ORDER BY local_id
-    `)) as unknown as DocumentProjectionRow[];
-    expect(readDocumentProjectionRows(documentRows)).toEqual([
+    const documentProjections = await defaultDocumentsPersistence.listDocuments(
+      runtime.execSql,
+    );
+    expect(
+      documentProjections
+        .map((row) => ({
+          documentKind: row.documentKind,
+          id: row.id,
+          title: row.title,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+    ).toEqual([
       {
         documentKind: "contact",
         id: createdContactId,
