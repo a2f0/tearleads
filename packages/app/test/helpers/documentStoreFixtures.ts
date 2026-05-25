@@ -10,7 +10,7 @@ import {
   type PendingUpdateRecord,
 } from "@tearleads/client-sdk";
 import { createMockApiClient } from "@tearleads/test-utils";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../src/document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 
 interface StoredDocumentsState {
   document: DocumentRecord | null;
@@ -301,7 +301,7 @@ export function createDocumentStoreRuntime(
     cacheReferencedPrincipalPolicies: async () => {},
     containerId: "root-container",
     dbStatus: "ready",
-    documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
     domainScope: createDomainScope(),
     encapsulationKeyPair: null,
     events: [],

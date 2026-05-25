@@ -2,7 +2,8 @@ import { ApiClient } from "@tearleads/api-client";
 import type { BlobStore } from "../data/blobContracts";
 import {
   type DocumentProjectorRegistry,
-  defaultDocumentProjectorRegistry,
+  type DocumentProjectorRegistryInput,
+  resolveDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
 import { Blobs } from "./blobs";
@@ -30,7 +31,7 @@ export interface ClientOptions {
   apiClient?: ApiClient | undefined;
   blobStore?: BlobStore | undefined;
   database?: DatabaseOptions | undefined;
-  documentProjectors?: DocumentProjectorRegistry | undefined;
+  documentProjectors?: DocumentProjectorRegistryInput | undefined;
   events?: ReadonlyArray<unknown> | undefined;
   identity?: IdentityOptions | undefined;
   logger?: Logger | undefined;
@@ -65,8 +66,9 @@ export class Tearleads {
       options.apiClient ?? new ApiClient(options.apiBaseUrl ?? "");
     this.blobs = new Blobs(options.blobStore);
     this.database = new Database(options.database);
-    this.documentProjectors =
-      options.documentProjectors ?? defaultDocumentProjectorRegistry;
+    this.documentProjectors = resolveDocumentProjectorRegistry(
+      options.documentProjectors,
+    );
     this.events = new Events(options.events);
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;

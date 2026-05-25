@@ -18,7 +18,7 @@ import {
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import {
@@ -501,7 +501,7 @@ export function ExplorerDocumentDetail(params: {
               containerName: selectedDocumentContainer?.name ?? null,
               documentTypeLabel: getStoredDocumentTypeLabel(
                 selectedDocumentKind,
-                APP_DOCUMENT_PROJECTOR_REGISTRY,
+                APP_DOCUMENT_PROJECTOR_DEFINITIONS,
               ),
             })}
           </span>

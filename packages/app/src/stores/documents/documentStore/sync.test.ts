@@ -57,7 +57,7 @@ import {
   assertWriteHeader,
 } from "../../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 
 const { decryptDocumentAttachmentBlob, DOCUMENTS_APP_KIND } = clientSdk;
 
@@ -139,7 +139,7 @@ function createDocumentsTestRuntime(
   input: DocumentsRuntimeInput,
 ): DocumentsTestRuntime {
   const runtimeInput = {
-    documentProjectors: APP_DOCUMENT_PROJECTOR_REGISTRY,
+    documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
     ...input,
   };
 

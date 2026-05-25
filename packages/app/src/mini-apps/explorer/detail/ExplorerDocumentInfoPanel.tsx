@@ -10,7 +10,7 @@ import {
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
-import { APP_DOCUMENT_PROJECTOR_REGISTRY } from "../../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
@@ -50,7 +50,10 @@ function unknownErrorMessage(error: unknown): string {
 
 function getDocumentTypeLabel(documentKind: StoredDocumentKind | null): string {
   return documentKind
-    ? getStoredDocumentTypeLabel(documentKind, APP_DOCUMENT_PROJECTOR_REGISTRY)
+    ? getStoredDocumentTypeLabel(
+        documentKind,
+        APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      )
     : "-";
 }
 

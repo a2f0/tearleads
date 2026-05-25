@@ -7,6 +7,7 @@ import {
   createMemoryBlobStore,
   DEFAULT_DOCUMENT_KIND,
   type DocumentAttachmentUpload,
+  getDocumentClientProjectionTables,
   syncedContainerDocumentObjectSyncState,
 } from "./index";
 
@@ -29,6 +30,7 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(readModelLink.containerIds).toEqual(["container-1"]);
   expect(DEFAULT_DOCUMENT_KIND).toBe("note");
   expect(createDocumentProjectorRegistry).toBeFunction();
+  expect(getDocumentClientProjectionTables).toBeFunction();
   expect(createMemoryBlobStore).toBeFunction();
   expect(syncState.status).toBe("pending");
   expect(syncedContainerDocumentObjectSyncState.status).toBe("synced");

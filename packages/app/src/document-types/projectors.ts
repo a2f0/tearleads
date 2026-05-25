@@ -1,10 +1,9 @@
 import {
-  createDocumentProjectorRegistry,
-  DEFAULT_DOCUMENT_KIND,
   type DocumentClientProjectionDefinition,
   type DocumentFieldValidationIssue,
   type DocumentProjectorDefinition,
   readStringDocumentField,
+  type StoredDocumentKind,
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
 import type { SqlTableSchema } from "@tearleads/client-sdk/sqlite";
@@ -35,6 +34,7 @@ interface AppDocumentProjectorDefinition extends DocumentProjectorDefinition {
 
 const DRIVER_LICENSE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 const CREDIT_CARD_EXPIRATION_PATTERN = /^\d{4}-\d{2}$/u;
+export const APP_DEFAULT_DOCUMENT_KIND = "note" satisfies StoredDocumentKind;
 
 const DRIVER_LICENSE_PROJECTION_TABLE: SqlTableSchema = {
   name: "driver_license_projection",
@@ -403,7 +403,7 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
   [
     {
       createLabel: "New Note",
-      kind: DEFAULT_DOCUMENT_KIND,
+      kind: APP_DEFAULT_DOCUMENT_KIND,
       label: "note",
       project: ({ text }) => ({
         fieldValidationIssues: [],
@@ -458,7 +458,3 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
       untitledTitle: "Untitled credit card",
     },
   ];
-
-export const APP_DOCUMENT_PROJECTOR_REGISTRY = createDocumentProjectorRegistry(
-  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-);

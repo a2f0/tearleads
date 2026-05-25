@@ -7,7 +7,9 @@ import {
 } from "../../data/documents/documentConstants";
 import {
   type DocumentProjectorRegistry,
+  type DocumentProjectorRegistryInput,
   readStoredDocumentState,
+  resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
 import type {
   DocumentsPersistence,
@@ -232,20 +234,16 @@ export async function persistDocumentState(input: {
   containerId?: string | null | undefined;
   currentDoc: DocumentContentState;
   currentRecord: StoredDocumentRecord | null;
-  documentProjectors: DocumentProjectorRegistry;
+  documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
   localId: string;
   patch?: Partial<StoredDocumentRecord> | undefined;
   persistence: DocumentsPersistence;
 }): Promise<PersistedDocumentState> {
-  const {
-    currentDoc,
-    currentRecord,
-    documentProjectors,
-    execSql,
-    localId,
-    persistence,
-  } = input;
+  const { currentDoc, currentRecord, execSql, localId, persistence } = input;
+  const documentProjectors = resolveDocumentProjectorRegistry(
+    input.documentProjectors,
+  );
   const patch = input.patch ?? {};
   const acceptedPendingUpdateIds = input.acceptedPendingUpdateIds ?? [];
   const { documentState, record } = buildStoredDocumentRecord({
@@ -302,22 +300,25 @@ export async function loadPersistedDocumentStoreState(input: {
 }
 
 export async function deletePersistedDocument(input: {
-  documentProjectors: DocumentProjectorRegistry;
+  documentProjectors: DocumentProjectorRegistryInput;
   execSql: ExecSql;
   localId: string;
   persistence: DocumentsPersistence;
 }): Promise<void> {
+  const documentProjectors = resolveDocumentProjectorRegistry(
+    input.documentProjectors,
+  );
   await input.persistence.ensureSchema(input.execSql);
   const existing = await input.persistence.loadDocument(
     input.execSql,
     input.localId,
   );
   await ensureDocumentClientProjectionTables({
-    documentProjectors: input.documentProjectors,
+    documentProjectors,
     execSql: input.execSql,
   });
   await input.persistence.deleteDocument(input.execSql, input.localId);
-  await input.documentProjectors.deleteStoredDocumentClientProjection({
+  await documentProjectors.deleteStoredDocumentClientProjection({
     documentKind: existing?.documentKind ?? DEFAULT_DOCUMENT_KIND,
     execSql: input.execSql,
     localId: input.localId,

@@ -4,7 +4,8 @@ import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/res
 import type { BlobStore } from "../../data/blobContracts";
 import {
   type DocumentProjectorRegistry,
-  defaultDocumentProjectorRegistry,
+  type DocumentProjectorRegistryInput,
+  resolveDocumentProjectorRegistry,
 } from "../../data/documents/documentKinds";
 import type { DomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -19,7 +20,7 @@ export interface DocumentsWorkflowRuntimeInput {
   ) => Promise<void>;
   readonly containerId?: string | null | undefined;
   readonly dbStatus: string;
-  readonly documentProjectors?: DocumentProjectorRegistry | undefined;
+  readonly documentProjectors?: DocumentProjectorRegistryInput | undefined;
   readonly domainScope: DomainScope;
   readonly encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
   readonly events: ReadonlyArray<unknown>;
@@ -48,8 +49,9 @@ export function createDocumentsWorkflowRuntime(
 ): DocumentsWorkflowRuntime {
   return {
     ...input,
-    documentProjectors:
-      input.documentProjectors ?? defaultDocumentProjectorRegistry,
+    documentProjectors: resolveDocumentProjectorRegistry(
+      input.documentProjectors,
+    ),
     encapsulationKeyPair: input.encapsulationKeyPair ?? null,
     organizationId: input.organizationId ?? null,
     signingFingerprint: input.signingFingerprint ?? null,
