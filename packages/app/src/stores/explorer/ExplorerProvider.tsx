@@ -48,15 +48,18 @@ export function useExplorer(): ContainerContentsContextValue {
 
   const snapshot = useTearleadsExternalStoreSnapshot(store);
 
-  return {
-    createChild: store.createChild,
-    deleteContainer: store.deleteContainer,
-    moveContainer: store.moveContainer,
-    refresh: store.refresh,
-    renameContainer: store.renameContainer,
-    shareWithGroup: store.shareWithGroup,
-    shareWithUser: store.shareWithUser,
-    nodes: snapshot.nodes,
-    ready: snapshot.ready,
-  };
+  return useMemo(
+    () => ({
+      createChild: store.createChild,
+      deleteContainer: store.deleteContainer,
+      moveContainer: store.moveContainer,
+      refresh: store.refresh,
+      renameContainer: store.renameContainer,
+      shareWithGroup: store.shareWithGroup,
+      shareWithUser: store.shareWithUser,
+      nodes: snapshot.nodes,
+      ready: snapshot.ready,
+    }),
+    [snapshot, store],
+  );
 }
