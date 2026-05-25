@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
 function createTextFile(name: string, text: string): File {

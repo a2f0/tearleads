@@ -1,13 +1,11 @@
 import {
   DEFAULT_DOCUMENT_ID,
+  DEFAULT_DOCUMENT_KIND,
   type DocumentContextValue,
   type DocumentStore,
   type DocumentsRuntime,
-} from "@tearleads/client-sdk";
-import {
-  DEFAULT_DOCUMENT_KIND,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,

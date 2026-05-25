@@ -1,5 +1,4 @@
-import type { ContainerNode } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

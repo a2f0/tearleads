@@ -1,5 +1,7 @@
-import type { DocumentAttachmentUpload } from "@tearleads/client-sdk";
-import type { BlobBytes } from "@tearleads/client-sdk/documents";
+import type {
+  BlobBytes,
+  DocumentAttachmentUpload,
+} from "@tearleads/client-sdk";
 import type { NotesAttachFiles } from "../types";
 
 async function readAttachmentUpload(

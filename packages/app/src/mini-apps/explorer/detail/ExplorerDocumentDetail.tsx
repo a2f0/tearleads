@@ -3,13 +3,13 @@ import type {
   ContainerDocumentReadModel,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { createContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
+  createContainerDocumentObjectSyncState,
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppActions,

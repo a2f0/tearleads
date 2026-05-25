@@ -11,8 +11,7 @@ SDK setup.
 Create one SDK instance for the active client environment:
 
 ```ts
-import { Tearleads } from "@tearleads/client-sdk";
-import { DEFAULT_DOCUMENT_KIND } from "@tearleads/client-sdk/documents";
+import { DEFAULT_DOCUMENT_KIND, Tearleads } from "@tearleads/client-sdk";
 import {
   createModuleSQLiteRuntime,
   type SQLiteRuntime,
@@ -251,6 +250,10 @@ The long-term package API target is a smaller public import surface:
 Track the migration in issue #750. Do not remove the existing document, store,
 or workflow subpath exports in the same change that introduces root-level
 imports. The staged order is:
+
+New host-code imports should use the root entry point for document contracts;
+the `@tearleads/client-sdk/documents` subpath remains exported only for the
+staged compatibility window.
 
 1. Keep the current export map intact and expose root compatibility exports for
    public document, store, and workflow facade symbols.

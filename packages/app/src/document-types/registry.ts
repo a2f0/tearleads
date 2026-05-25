@@ -1,7 +1,7 @@
 import {
   DEFAULT_DOCUMENT_KIND,
   type StoredDocumentKind,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";

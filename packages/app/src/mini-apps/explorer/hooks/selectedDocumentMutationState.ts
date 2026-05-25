@@ -1,4 +1,4 @@
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { MoveTargetOption } from "../targetOptions";
 

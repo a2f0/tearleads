@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { BlobBytes, DocumentSummary } from "@tearleads/client-sdk";
 import * as clientSdk from "@tearleads/client-sdk";
 import {
   createDocumentProjectionUserKeyResolver,
@@ -19,10 +20,6 @@ import {
   subscribeToPersistedDocuments,
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
-import type {
-  BlobBytes,
-  DocumentSummary,
-} from "@tearleads/client-sdk/documents";
 import {
   computeAccessEventHash,
   computeBlobAccessManifestHash,

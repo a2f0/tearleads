@@ -1,5 +1,7 @@
-import type { DocumentAttachmentStatus } from "@tearleads/client-sdk";
-import type { DocumentAttachment } from "@tearleads/client-sdk/documents";
+import type {
+  DocumentAttachment,
+  DocumentAttachmentStatus,
+} from "@tearleads/client-sdk";
 import type { DragEvent } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import { formatByteLength } from "../../../utils/formatByteLength";

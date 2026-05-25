@@ -1,9 +1,9 @@
 import type {
   ContainerDocumentLinksRuntime,
+  DocumentSummary,
   MergeDocumentSummary,
   SetLinkedContainerIdsForDocument,
 } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
 import { useCallback } from "react";
 import {
   activateExplorerLinkedNote,

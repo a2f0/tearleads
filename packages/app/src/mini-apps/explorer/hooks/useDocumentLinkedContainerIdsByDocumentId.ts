@@ -1,5 +1,7 @@
-import type { ContainerDocumentReadModel } from "@tearleads/client-sdk";
-import type { DocumentSummary } from "@tearleads/client-sdk/documents";
+import type {
+  ContainerDocumentReadModel,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";

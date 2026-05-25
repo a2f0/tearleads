@@ -3,6 +3,7 @@ import {
   buildMaterializedDocumentCreatePlan,
   type ContainerState,
   createContainerDocumentObjectSyncState,
+  createDocumentSignerDeviceId,
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
   createContainerContentsProjectionUserKeyResolver as createExplorerProjectionUserKeyResolver,
@@ -24,7 +25,6 @@ import {
   subscribeToContainerContentsStore as subscribeToExplorerStore,
   updateContainerContentsSnapshot as updateExplorerSnapshot,
 } from "@tearleads/client-sdk";
-import { createDocumentSignerDeviceId } from "@tearleads/client-sdk/documents";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
   type ContainerKekRecipientTarget,

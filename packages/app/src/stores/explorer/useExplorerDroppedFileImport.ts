@@ -1,11 +1,9 @@
 import type {
   ContainerDocumentLinksRuntime,
   ContainerDocumentReadModel,
-} from "@tearleads/client-sdk";
-import type {
   DocumentSummary,
   StoredDocumentKind,
-} from "@tearleads/client-sdk/documents";
+} from "@tearleads/client-sdk";
 import { useCallback } from "react";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
