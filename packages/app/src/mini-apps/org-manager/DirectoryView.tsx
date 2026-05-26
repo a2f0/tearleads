@@ -7,14 +7,11 @@ import type {
 import type { KeyboardEvent } from "react";
 import {
   MiniAppButton,
-  MiniAppField,
   MiniAppHeader,
   MiniAppHeaderCopy,
-  MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-  MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRow,
@@ -39,12 +36,7 @@ const DIRECTORY_TABLE_COLUMNS = [
   {
     id: "user",
     header: ORG_MANAGER_LABELS.user,
-    width: "32%",
-  },
-  {
-    id: "profile-document",
-    header: ORG_MANAGER_LABELS.profileDocument,
-    width: "32%",
+    width: "48%",
   },
   {
     id: "status",
@@ -131,11 +123,6 @@ function DirectoryTable({
                   {user.isSelf
                     ? ORG_MANAGER_LABELS.self
                     : compactFingerprint(user.userId)}
-                </MiniAppTableText>
-              </MiniAppTableCell>
-              <MiniAppTableCell>
-                <MiniAppTableText title={user.profileDocumentId ?? undefined}>
-                  {getNullableIdentifierLabel(user.profileDocumentId)}
                 </MiniAppTableText>
               </MiniAppTableCell>
               <MiniAppTableCell>
@@ -232,11 +219,6 @@ function UserRosterMetadata({
         value={compactFingerprint(user.signingKeyFingerprint)}
       />
       <RosterMetadataRow
-        label={ORG_MANAGER_LABELS.profileDocument}
-        title={user.profileDocumentId ?? undefined}
-        value={getNullableIdentifierLabel(user.profileDocumentId)}
-      />
-      <RosterMetadataRow
         label={ORG_MANAGER_LABELS.joined}
         title={user.joinedAt}
         value={formatMiniAppDate(user.joinedAt)}
@@ -255,79 +237,24 @@ function UserRosterMetadata({
   );
 }
 
-function RosterProfileEditor({
-  canUpdateRosterEntry,
-  mutating,
-  profileDocumentIdDraft,
-  profileDocumentIdDraftChanged,
-  setProfileDocumentIdDraft,
-  updateRosterProfileDocument,
-}: {
-  canUpdateRosterEntry: boolean;
-  mutating: boolean;
-  profileDocumentIdDraft: string;
-  profileDocumentIdDraftChanged: boolean;
-  setProfileDocumentIdDraft: (profileDocumentId: string) => void;
-  updateRosterProfileDocument: () => void;
-}) {
-  if (!canUpdateRosterEntry) {
-    return null;
-  }
-
-  return (
-    <MiniAppToolbar className="org-manager-form-toolbar" wrap>
-      <MiniAppField className="org-manager-roster-profile-field">
-        <span>{ORG_MANAGER_LABELS.profileDocumentId}</span>
-        <MiniAppInput
-          aria-label={ORG_MANAGER_LABELS.profileDocumentId}
-          disabled={mutating}
-          onChange={(event) => setProfileDocumentIdDraft(event.target.value)}
-          placeholder={ORG_MANAGER_LABELS.profileDocumentId}
-          value={profileDocumentIdDraft}
-        />
-      </MiniAppField>
-      <MiniAppButton
-        disabled={mutating || !profileDocumentIdDraftChanged}
-        onClick={updateRosterProfileDocument}
-      >
-        {ORG_MANAGER_LABELS.save}
-      </MiniAppButton>
-      <MiniAppButton
-        disabled={mutating || profileDocumentIdDraft.trim().length === 0}
-        onClick={() => setProfileDocumentIdDraft("")}
-      >
-        {ORG_MANAGER_LABELS.clear}
-      </MiniAppButton>
-    </MiniAppToolbar>
-  );
-}
-
 function UserDetailView({
-  canUpdateRosterEntry,
   canRevokeGrants,
   detail,
   loading,
-  mutating,
+  onDismiss,
   openGroupRoute,
-  profileDocumentIdDraft,
-  profileDocumentIdDraftChanged,
   revokeGrant,
   selectedUserId,
-  setProfileDocumentIdDraft,
-  updateRosterProfileDocument,
+  mutating,
 }: {
-  canUpdateRosterEntry: boolean;
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail | null;
   loading: boolean;
+  onDismiss: () => void;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
-  profileDocumentIdDraft: string;
-  profileDocumentIdDraftChanged: boolean;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
-  setProfileDocumentIdDraft: (profileDocumentId: string) => void;
-  updateRosterProfileDocument: () => void;
 }) {
   if (!selectedUserId) {
     return (
@@ -339,11 +266,25 @@ function UserDetailView({
 
   if (!detail) {
     return (
-      <MiniAppStatus className="org-manager-hint">
-        {loading
-          ? ORG_MANAGER_LABELS.loadingUserDetail
-          : ORG_MANAGER_LABELS.userDetailUnavailable}
-      </MiniAppStatus>
+      <>
+        <MiniAppHeader className="org-manager-detail-header">
+          <MiniAppHeaderCopy>
+            <strong>
+              {loading
+                ? ORG_MANAGER_LABELS.loadingUserDetail
+                : ORG_MANAGER_LABELS.userDetailUnavailable}
+            </strong>
+          </MiniAppHeaderCopy>
+          <MiniAppButton onClick={onDismiss} variant="ghost">
+            {ORG_MANAGER_LABELS.back}
+          </MiniAppButton>
+        </MiniAppHeader>
+        <MiniAppStatus className="org-manager-hint">
+          {loading
+            ? ORG_MANAGER_LABELS.loadingUserDetail
+            : ORG_MANAGER_LABELS.userDetailUnavailable}
+        </MiniAppStatus>
+      </>
     );
   }
 
@@ -365,19 +306,14 @@ function UserDetailView({
             ? ORG_MANAGER_LABELS.disabled
             : formatMiniAppDate(detail.user.joinedAt)}
         </span>
+        <MiniAppButton onClick={onDismiss} variant="ghost">
+          {ORG_MANAGER_LABELS.back}
+        </MiniAppButton>
       </MiniAppHeader>
       <MiniAppSection>
         <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.directory}
         </MiniAppSectionHeading>
-        <RosterProfileEditor
-          canUpdateRosterEntry={canUpdateRosterEntry}
-          mutating={mutating}
-          profileDocumentIdDraft={profileDocumentIdDraft}
-          profileDocumentIdDraftChanged={profileDocumentIdDraftChanged}
-          setProfileDocumentIdDraft={setProfileDocumentIdDraft}
-          updateRosterProfileDocument={updateRosterProfileDocument}
-        />
         <UserRosterMetadata user={detail.user} />
       </MiniAppSection>
       <MiniAppSection>
@@ -433,7 +369,6 @@ function UserDetailView({
 }
 
 export function DirectoryView({
-  canUpdateRosterEntry,
   canRevokeGrants,
   detail,
   directory,
@@ -441,15 +376,10 @@ export function DirectoryView({
   loadingUserDetail,
   mutating,
   openGroupRoute,
-  profileDocumentIdDraft,
-  profileDocumentIdDraftChanged,
   revokeGrant,
   selectedUserId,
   selectUser,
-  setProfileDocumentIdDraft,
-  updateRosterProfileDocument,
 }: {
-  canUpdateRosterEntry: boolean;
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail | null;
   directory: OrganizationDirectory | null;
@@ -457,20 +387,16 @@ export function DirectoryView({
   loadingUserDetail: boolean;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
-  profileDocumentIdDraft: string;
-  profileDocumentIdDraftChanged: boolean;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
-  selectUser: (userId: string) => void;
-  setProfileDocumentIdDraft: (profileDocumentId: string) => void;
-  updateRosterProfileDocument: () => void;
+  selectUser: (userId: string | null) => void;
 }) {
   if (!directory) {
     return <DirectoryTable directory={directory} loading={loading} />;
   }
 
-  return (
-    <div className="org-manager-groups">
+  if (!selectedUserId) {
+    return (
       <section className="org-manager-panel">
         <DirectoryTable
           directory={directory}
@@ -479,22 +405,21 @@ export function DirectoryView({
           selectUser={selectUser}
         />
       </section>
-      <section className="org-manager-panel org-manager-panel--detail">
-        <UserDetailView
-          canUpdateRosterEntry={canUpdateRosterEntry}
-          canRevokeGrants={canRevokeGrants}
-          detail={detail}
-          loading={loadingUserDetail}
-          mutating={mutating}
-          openGroupRoute={openGroupRoute}
-          profileDocumentIdDraft={profileDocumentIdDraft}
-          profileDocumentIdDraftChanged={profileDocumentIdDraftChanged}
-          revokeGrant={revokeGrant}
-          selectedUserId={selectedUserId}
-          setProfileDocumentIdDraft={setProfileDocumentIdDraft}
-          updateRosterProfileDocument={updateRosterProfileDocument}
-        />
-      </section>
-    </div>
+    );
+  }
+
+  return (
+    <section className="org-manager-panel">
+      <UserDetailView
+        canRevokeGrants={canRevokeGrants}
+        detail={detail}
+        loading={loadingUserDetail}
+        mutating={mutating}
+        onDismiss={() => selectUser(null)}
+        openGroupRoute={openGroupRoute}
+        revokeGrant={revokeGrant}
+        selectedUserId={selectedUserId}
+      />
+    </section>
   );
 }

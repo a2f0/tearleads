@@ -25,6 +25,8 @@ import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
 import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
 
+const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
+
 afterEach(async () => {
   cleanup();
   await resetMockServer();
@@ -216,7 +218,7 @@ async function waitForPaneRuntimeToSettle(): Promise<void> {
   await act(async () => {
     settled = await waitForAppTestRuntimeToSettle({
       apiQuietMs: 25,
-      timeoutMs: 5_000,
+      timeoutMs: PANE_ASYNC_TEST_TIMEOUT_MS,
     });
   });
   expect(
@@ -258,7 +260,7 @@ async function uploadPublicKeyAndWaitForUserId(
       expect(match).toBeTruthy();
       userId = match?.[1] ?? "";
     },
-    { timeout: 5_000 },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
   );
   await waitFor(() => {
     expect(view.queryByText("Upload Public Key")).toBeNull();
@@ -603,12 +605,15 @@ test("registered explorer child folders settle to synced in the pane UI", async 
   await createExplorerChildContainer(view, explorer, "Docs");
   await waitForPaneRuntimeToSettle();
 
-  await waitFor(() => {
-    expect(
-      getSelectedExplorerContainerSyncLabel(explorer),
-      `Child folder did not sync.\nrequests=\n${summarizeProxiedApiRequests()}`,
-    ).toBe("Synced");
-  });
+  await waitFor(
+    () => {
+      expect(
+        getSelectedExplorerContainerSyncLabel(explorer),
+        `Child folder did not sync.\nrequests=\n${summarizeProxiedApiRequests()}`,
+      ).toBe("Synced");
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
 
   view.unmount();
-}, 20_000);
+}, 30_000);

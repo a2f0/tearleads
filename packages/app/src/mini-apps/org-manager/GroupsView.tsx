@@ -267,114 +267,114 @@ export function GroupsView({
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
-  selectGroup: (groupId: string) => void;
+  selectGroup: (groupId: string | null) => void;
   setAddUserId: (userId: string) => void;
   setGroupNameDraft: (groupName: string) => void;
   userId: string | null;
 }) {
-  return (
-    <div className="org-manager-groups">
-      <section className="org-manager-panel">
-        <MiniAppToolbar className="org-manager-form-toolbar">
-          <MiniAppInput
-            disabled={!canCreateGroup || mutating}
-            onChange={(event) => setGroupNameDraft(event.target.value)}
-            placeholder={ORG_MANAGER_LABELS.groupName}
-            value={groupNameDraft}
-          />
-          <MiniAppButton
-            disabled={
-              !canCreateGroup || mutating || groupNameDraft.trim().length === 0
-            }
-            onClick={createGroup}
-          >
-            {ORG_MANAGER_LABELS.create}
-          </MiniAppButton>
-        </MiniAppToolbar>
-        <GroupList
-          groups={groups}
-          selectedGroupId={selectedGroupId}
-          setSelectedGroupId={selectGroup}
+  const groupListSection = (
+    <section className="org-manager-panel">
+      <MiniAppToolbar className="org-manager-form-toolbar">
+        <MiniAppInput
+          disabled={!canCreateGroup || mutating}
+          onChange={(event) => setGroupNameDraft(event.target.value)}
+          placeholder={ORG_MANAGER_LABELS.groupName}
+          value={groupNameDraft}
         />
-      </section>
-      <section className="org-manager-panel org-manager-panel--detail">
-        {selectedGroup ? (
-          <>
-            <MiniAppHeader className="org-manager-detail-header">
-              <MiniAppHeaderCopy>
-                <strong>{selectedGroup.name}</strong>
-                <span title={selectedGroup.groupId}>
-                  {compactFingerprint(selectedGroup.groupId)}
-                </span>
-              </MiniAppHeaderCopy>
-              <span>
-                {selectedGroup.currentState
-                  ? getOrgManagerEpochLabel(selectedGroup.currentState.keyEpoch)
-                  : ORG_MANAGER_LABELS.noPolicy}
-              </span>
-            </MiniAppHeader>
-            <MiniAppToolbar className="org-manager-form-toolbar">
-              <MiniAppInput
-                aria-label={ORG_MANAGER_LABELS.userId}
-                disabled={!canMutateSelectedGroup || mutating}
-                list={addUserListId}
-                onChange={(event) => setAddUserId(event.target.value)}
-                placeholder={ORG_MANAGER_LABELS.userId}
-                value={addUserId}
-              />
-              <datalist id={addUserListId}>
-                {addableUsers.map((user) => (
-                  <option key={user.userId} value={user.userId}>
-                    {user.isSelf
-                      ? ORG_MANAGER_LABELS.self
-                      : compactFingerprint(user.userId)}
-                  </option>
-                ))}
-              </datalist>
-              <MiniAppButton
-                disabled={
-                  !canMutateSelectedGroup ||
-                  mutating ||
-                  !members ||
-                  addUserId.trim().length === 0 ||
-                  memberUserIds.has(addUserId.trim())
-                }
-                onClick={addUser}
-              >
-                {ORG_MANAGER_LABELS.add}
-              </MiniAppButton>
-            </MiniAppToolbar>
-            <MiniAppSection>
-              <MiniAppSectionHeading>
-                {ORG_MANAGER_LABELS.members}
-              </MiniAppSectionHeading>
-              <GroupMembers
-                canMutateGroup={canMutateSelectedGroup}
-                members={members?.members ?? []}
-                mutating={mutating}
-                removeMember={removeMember}
-                userId={userId}
-              />
-            </MiniAppSection>
-            <PolicyHistorySection
-              directory={directory}
-              groups={groups}
-              heading={ORG_MANAGER_LABELS.policyHistory}
-              history={groupPolicyHistory}
-            />
-            <MiniAppSection>
-              <MiniAppSectionHeading>
-                {ORG_MANAGER_LABELS.directContainerLinks}
-              </MiniAppSectionHeading>
-              <GroupContainers containers={groupContainers?.containers ?? []} />
-            </MiniAppSection>
-          </>
-        ) : (
-          <MiniAppStatus className="org-manager-hint">
-            {ORG_MANAGER_LABELS.selectGroup}
-          </MiniAppStatus>
-        )}
-      </section>
-    </div>
+        <MiniAppButton
+          disabled={
+            !canCreateGroup || mutating || groupNameDraft.trim().length === 0
+          }
+          onClick={createGroup}
+        >
+          {ORG_MANAGER_LABELS.create}
+        </MiniAppButton>
+      </MiniAppToolbar>
+      <GroupList
+        groups={groups}
+        selectedGroupId={selectedGroupId}
+        setSelectedGroupId={selectGroup}
+      />
+    </section>
+  );
+
+  if (!selectedGroup) {
+    return groupListSection;
+  }
+
+  return (
+    <section className="org-manager-panel">
+      <MiniAppHeader className="org-manager-detail-header">
+        <MiniAppHeaderCopy>
+          <strong>{selectedGroup.name}</strong>
+          <span title={selectedGroup.groupId}>
+            {compactFingerprint(selectedGroup.groupId)}
+          </span>
+        </MiniAppHeaderCopy>
+        <span>
+          {selectedGroup.currentState
+            ? getOrgManagerEpochLabel(selectedGroup.currentState.keyEpoch)
+            : ORG_MANAGER_LABELS.noPolicy}
+        </span>
+        <MiniAppButton onClick={() => selectGroup(null)} variant="ghost">
+          {ORG_MANAGER_LABELS.back}
+        </MiniAppButton>
+      </MiniAppHeader>
+      <MiniAppToolbar className="org-manager-form-toolbar">
+        <MiniAppInput
+          aria-label={ORG_MANAGER_LABELS.userId}
+          disabled={!canMutateSelectedGroup || mutating}
+          list={addUserListId}
+          onChange={(event) => setAddUserId(event.target.value)}
+          placeholder={ORG_MANAGER_LABELS.userId}
+          value={addUserId}
+        />
+        <datalist id={addUserListId}>
+          {addableUsers.map((user) => (
+            <option key={user.userId} value={user.userId}>
+              {user.isSelf
+                ? ORG_MANAGER_LABELS.self
+                : compactFingerprint(user.userId)}
+            </option>
+          ))}
+        </datalist>
+        <MiniAppButton
+          disabled={
+            !canMutateSelectedGroup ||
+            mutating ||
+            !members ||
+            addUserId.trim().length === 0 ||
+            memberUserIds.has(addUserId.trim())
+          }
+          onClick={addUser}
+        >
+          {ORG_MANAGER_LABELS.add}
+        </MiniAppButton>
+      </MiniAppToolbar>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
+          {ORG_MANAGER_LABELS.members}
+        </MiniAppSectionHeading>
+        <GroupMembers
+          canMutateGroup={canMutateSelectedGroup}
+          members={members?.members ?? []}
+          mutating={mutating}
+          removeMember={removeMember}
+          userId={userId}
+        />
+      </MiniAppSection>
+      <PolicyHistorySection
+        directory={directory}
+        groups={groups}
+        heading={ORG_MANAGER_LABELS.policyHistory}
+        history={groupPolicyHistory}
+      />
+      <MiniAppSection>
+        <MiniAppSectionHeading>
+          {ORG_MANAGER_LABELS.directContainerLinks}
+        </MiniAppSectionHeading>
+        <GroupContainers containers={groupContainers?.containers ?? []} />
+      </MiniAppSection>
+    </section>
   );
 }

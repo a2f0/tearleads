@@ -42,44 +42,67 @@ const detail: OrganizationUserDetail = {
   user: rosterUser,
 };
 
-test("org manager roster view exposes roster metadata and profile binding", () => {
-  const drafts: string[] = [];
+test("org manager roster view exposes roster metadata and dismisses detail", () => {
+  const selections: Array<string | null> = [];
 
   const view = render(
     <DirectoryView
       canRevokeGrants={false}
-      canUpdateRosterEntry
       detail={detail}
       directory={directory}
       loading={false}
       loadingUserDetail={false}
       mutating={false}
       openGroupRoute={() => undefined}
-      profileDocumentIdDraft={rosterUser.profileDocumentId ?? ""}
-      profileDocumentIdDraftChanged={false}
       revokeGrant={() => undefined}
       selectedUserId={rosterUser.userId}
-      selectUser={() => undefined}
-      setProfileDocumentIdDraft={(profileDocumentId) => {
-        drafts.push(profileDocumentId);
+      selectUser={(userId) => {
+        selections.push(userId);
       }}
-      updateRosterProfileDocument={() => undefined}
+    />,
+  );
+
+  expect(
+    view.queryByRole("table", { name: ORG_MANAGER_LABELS.directory }),
+  ).toBeNull();
+  expect(view.getByText(ORG_MANAGER_LABELS.disabled)).toBeTruthy();
+  expect(view.getByText(ORG_MANAGER_LABELS.disabledAt)).toBeTruthy();
+  expect(view.getByText(ORG_MANAGER_LABELS.disabledBy)).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
+  expect(selections).toEqual([null]);
+});
+
+test("org manager roster view hides user detail until a user is selected", () => {
+  const selections: Array<string | null> = [];
+
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      detail={null}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedUserId={null}
+      selectUser={(userId) => {
+        selections.push(userId);
+      }}
     />,
   );
 
   expect(
     view.getByRole("table", { name: ORG_MANAGER_LABELS.directory }),
   ).toBeTruthy();
-  expect(view.getAllByText(ORG_MANAGER_LABELS.disabled).length).toBe(2);
-  expect(view.getAllByText(ORG_MANAGER_LABELS.profileDocument).length).toBe(2);
-  expect(view.getByText(ORG_MANAGER_LABELS.disabledAt)).toBeTruthy();
-  expect(view.getByText(ORG_MANAGER_LABELS.disabledBy)).toBeTruthy();
+  expect(view.container.querySelector(".org-manager-panel--detail")).toBeNull();
+  expect(view.queryByText(ORG_MANAGER_LABELS.disabledAt)).toBeNull();
 
-  const profileDocumentInput = view.getByLabelText(
-    ORG_MANAGER_LABELS.profileDocumentId,
-  ) as HTMLInputElement;
-  expect(profileDocumentInput.value).toBe(rosterUser.profileDocumentId ?? "");
-
-  fireEvent.change(profileDocumentInput, { target: { value: "" } });
-  expect(drafts).toEqual([""]);
+  fireEvent.click(view.getByText(compactRosterUserId()));
+  expect(selections).toEqual([rosterUser.userId]);
 });
+
+function compactRosterUserId(): string {
+  return `${rosterUser.userId.slice(0, 10)}...${rosterUser.userId.slice(-6)}`;
+}

@@ -17,11 +17,11 @@ test("org manager route preserves a valid selected group", () => {
   ).toEqual({ selectedGroupId: "members", view: "grants" });
 });
 
-test("org manager route falls back to the first available group", () => {
-  expect(resolveOrgManagerSelectedGroupId(null, groups)).toBe("admins");
-  expect(resolveOrgManagerSelectedGroupId("missing", groups)).toBe("admins");
+test("org manager route keeps group selection empty until a group is selected", () => {
+  expect(resolveOrgManagerSelectedGroupId(null, groups)).toBeNull();
+  expect(resolveOrgManagerSelectedGroupId("missing", groups)).toBeNull();
   expect(resolveOrgManagerRoute(DEFAULT_ORG_MANAGER_ROUTE, groups)).toEqual({
-    selectedGroupId: "admins",
+    selectedGroupId: null,
     view: "directory",
   });
 });

@@ -21,7 +21,11 @@ import {
   useContext,
   useMemo,
 } from "react";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
+import { createRosterProfileDocument } from "./profileDocuments";
 
 interface OrgManagerContextValue {
   addUserToGroup: (
@@ -31,6 +35,9 @@ interface OrgManagerContextValue {
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   createGroup: (name: string) => Promise<OrganizationGroupSummary>;
+  ensureRosterProfileDocument: (
+    user: OrganizationDirectoryUser,
+  ) => Promise<OrganizationDirectoryUser | null>;
   importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -60,7 +67,8 @@ const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps the React context wiring for SDK organization actions in one place.
 export function OrgManagerProvider({ children }: PropsWithChildren) {
-  const { organizations } = useTearleads();
+  const { documents, organizations } = useTearleads();
+  const runtime = useTearleadsRuntime();
 
   const createGroup = useCallback(
     (name: string) => organizations.createGroup(name),
@@ -158,10 +166,44 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [organizations],
   );
 
+  const ensureRosterProfileDocument = useCallback(
+    async (user: OrganizationDirectoryUser) => {
+      if (user.profileDocumentId) {
+        return user;
+      }
+      if (
+        !runtime.auth.organizationId ||
+        !runtime.auth.isAuthenticated ||
+        !runtime.state.containerId
+      ) {
+        return null;
+      }
+
+      const profileDocumentId = await createRosterProfileDocument({
+        documents,
+        organizationId: runtime.auth.organizationId,
+        user,
+      });
+      if (!profileDocumentId) {
+        return null;
+      }
+
+      return organizations.updateRosterEntry(user.userId, profileDocumentId);
+    },
+    [
+      documents,
+      organizations,
+      runtime.auth.isAuthenticated,
+      runtime.auth.organizationId,
+      runtime.state.containerId,
+    ],
+  );
+
   const value = useMemo(
     () => ({
       addUserToGroup,
       createGroup,
+      ensureRosterProfileDocument,
       importUserById,
       loadDataUsage,
       loadDirectoryAndGroups,
@@ -176,6 +218,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [
       addUserToGroup,
       createGroup,
+      ensureRosterProfileDocument,
       importUserById,
       loadDataUsage,
       loadDirectoryAndGroups,
