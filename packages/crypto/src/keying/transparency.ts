@@ -1,6 +1,6 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "../fingerprint";
-import { isPlainObject } from "../plainObject";
 import { sign } from "../signing/sign";
 import { verify } from "../signing/verify";
 import { computeKeyingDomainHash, encodeDomainPayload } from "./canonical";
@@ -39,9 +39,17 @@ import type {
   VerifySignedTransparencyTreeHeadInput,
   VerifyTransparencyProofInput,
 } from "./types";
+import {
+  makeVerifiedTransparencyProof,
+  makeVerifiedTransparencyTreeHead,
+} from "./types";
+
+interface TransparencyLeafCandidate extends Record<string, unknown> {
+  readonly leafKind?: unknown;
+}
 
 function normalizeIdentityTransparencyLeaf(
-  value: IdentityStateTransparencyLeaf,
+  value: unknown,
 ): IdentityStateTransparencyLeaf {
   const record = assertExactKeys(
     value,
@@ -74,7 +82,7 @@ function normalizeIdentityTransparencyLeaf(
 }
 
 function normalizePrincipalPolicyTransparencyLeaf(
-  value: PrincipalPolicyTransparencyLeaf,
+  value: unknown,
 ): PrincipalPolicyTransparencyLeaf {
   const record = assertExactKeys(
     value,
@@ -134,7 +142,7 @@ function normalizePrincipalPolicyTransparencyLeaf(
 }
 
 function normalizeAccessManifestTransparencyLeaf(
-  value: AccessManifestTransparencyLeaf,
+  value: unknown,
 ): AccessManifestTransparencyLeaf {
   const record = assertExactKeys(
     value,
@@ -187,27 +195,22 @@ function normalizeAccessManifestTransparencyLeaf(
   };
 }
 
-function normalizeTransparencyLeaf(value: TransparencyLeaf): TransparencyLeaf {
+function normalizeTransparencyLeaf(value: unknown): TransparencyLeaf {
   if (!isPlainObject(value)) {
     throwVerification("invalid_shape", "transparency leaf must be an object");
   }
+  const record: TransparencyLeafCandidate = value;
 
-  if (value.leafKind === "identity_state_head") {
-    return normalizeIdentityTransparencyLeaf(
-      value as IdentityStateTransparencyLeaf,
-    );
+  if (record.leafKind === "identity_state_head") {
+    return normalizeIdentityTransparencyLeaf(value);
   }
 
-  if (value.leafKind === "principal_policy_head") {
-    return normalizePrincipalPolicyTransparencyLeaf(
-      value as PrincipalPolicyTransparencyLeaf,
-    );
+  if (record.leafKind === "principal_policy_head") {
+    return normalizePrincipalPolicyTransparencyLeaf(value);
   }
 
-  if (value.leafKind === "access_manifest_head") {
-    return normalizeAccessManifestTransparencyLeaf(
-      value as AccessManifestTransparencyLeaf,
-    );
+  if (record.leafKind === "access_manifest_head") {
+    return normalizeAccessManifestTransparencyLeaf(value);
   }
 
   throwVerification(
@@ -315,7 +318,12 @@ export async function computeTransparencyMerkleRoot(
   }
 
   if (normalizedLeafHashes.length === 1) {
-    return normalizedLeafHashes[0] as string;
+    const onlyHash = normalizedLeafHashes.at(0);
+    if (onlyHash === undefined) {
+      throwVerification("invalid_shape", "transparency leaf hashes is empty");
+    }
+
+    return onlyHash;
   }
 
   const splitIndex = largestPowerOfTwoLessThan(normalizedLeafHashes.length);
@@ -464,7 +472,7 @@ export async function createTransparencyConsistencyProof(
 }
 
 function normalizeUnsignedTransparencyTreeHead(
-  value: UnsignedTransparencyTreeHead,
+  value: unknown,
 ): UnsignedTransparencyTreeHead {
   const record = assertExactKeys(
     value,
@@ -498,7 +506,7 @@ function normalizeUnsignedTransparencyTreeHead(
 }
 
 function normalizeSignedTransparencyTreeHead(
-  value: SignedTransparencyTreeHead,
+  value: unknown,
 ): SignedTransparencyTreeHead {
   const record = assertExactKeys(
     value,
@@ -520,7 +528,7 @@ function normalizeSignedTransparencyTreeHead(
     rootHash: record.rootHash,
     signedAt: record.signedAt,
     logKeyFingerprint: record.logKeyFingerprint,
-  } as UnsignedTransparencyTreeHead);
+  });
 
   return {
     ...unsignedHead,
@@ -620,15 +628,15 @@ export async function verifySignedTransparencyTreeHead({
       );
     }
 
-    return {
+    return makeVerifiedTransparencyTreeHead({
       treeHead: normalizedTreeHead,
       checkpoint: transparencyTreeCheckpointFromHead(normalizedTreeHead),
-    } as VerifiedTransparencyTreeHead;
+    });
   });
 }
 
 function normalizeTransparencyInclusionProof(
-  value: TransparencyInclusionProof,
+  value: unknown,
 ): TransparencyInclusionProof {
   const record = assertExactKeys(
     value,
@@ -656,7 +664,7 @@ function normalizeTransparencyInclusionProof(
 }
 
 function normalizeTransparencyConsistencyProof(
-  value: TransparencyConsistencyProof,
+  value: unknown,
 ): TransparencyConsistencyProof {
   const record = assertExactKeys(
     value,
@@ -1110,7 +1118,7 @@ export async function verifyTransparencyProof({
       });
     }
 
-    return {
+    return makeVerifiedTransparencyProof({
       leaf: normalizedLeaf,
       leafHash,
       treeHead: verifiedTreeHead.value,
@@ -1118,6 +1126,6 @@ export async function verifyTransparencyProof({
       ...(normalizedConsistencyProof
         ? { consistencyProof: normalizedConsistencyProof }
         : {}),
-    } as VerifiedTransparencyProof;
+    });
   });
 }

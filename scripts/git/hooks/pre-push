@@ -34,6 +34,9 @@ bun tsc --build
 echo "Running biome check..."
 bun run biome check --error-on-warnings
 
+echo "Checking crypto type assertions..."
+bun run lint:crypto-assertions
+
 echo "Running knip..."
 bun run knip
 

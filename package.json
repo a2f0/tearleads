@@ -23,6 +23,7 @@
   },
   "scripts": {
     "lint:architecture": "bun scripts/lintArchitecture.ts",
+    "lint:crypto-assertions": "bun scripts/lintCryptoAssertions.ts",
     "lint:commit-msg": "sh -lc 'NPX=$(command -v npx); \"$NPX\" --yes --package @commitlint/cli --package @commitlint/config-conventional commitlint --config commitlint.config.mts --edit \"$1\"' --",
     "lint:files": "ls-lint",
     "test:bun": "bun run --filter='@tearleads/client-sdk' build && bun run --filter='*' --sequential test",

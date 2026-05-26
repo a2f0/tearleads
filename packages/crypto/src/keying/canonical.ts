@@ -1,5 +1,5 @@
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { toFingerprint } from "../fingerprint";
-import { isPlainObject } from "../plainObject";
 import { compareCanonicalStrings, throwVerification } from "./shared";
 import type {
   DocumentContentRecordMetadataInput,
@@ -77,20 +77,26 @@ function stringifyNormalizedCanonicalJson(value: KeyingCanonicalJson): string {
     return `[${value.map((item) => stringifyNormalizedCanonicalJson(item)).join(",")}]`;
   }
 
-  const normalizedObject = value as {
-    readonly [key: string]: KeyingCanonicalJson;
-  };
+  if (!isCanonicalJsonObject(value)) {
+    throwVerification("invalid_shape", "payload must be canonical JSON");
+  }
 
-  return `{${Object.keys(normalizedObject)
+  return `{${Object.keys(value)
     .sort(compareCanonicalStrings)
     .map((key) => {
-      const item = normalizedObject[key];
+      const item = value[key];
       if (item === undefined) {
         throwVerification("invalid_shape", `payload.${key} is undefined`);
       }
       return `${JSON.stringify(key)}:${stringifyNormalizedCanonicalJson(item)}`;
     })
     .join(",")}}`;
+}
+
+function isCanonicalJsonObject(
+  value: KeyingCanonicalJson,
+): value is { readonly [key: string]: KeyingCanonicalJson } {
+  return isPlainObject(value);
 }
 
 function stringifyCanonicalJson(value: KeyingCanonicalJson): string {

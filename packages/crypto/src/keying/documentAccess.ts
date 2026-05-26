@@ -1,4 +1,4 @@
-import { isPlainObject } from "../plainObject";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   computeAccessManifestHash,
   verifyAccessManifest,
@@ -55,9 +55,15 @@ import type {
   VerifyDocumentLinkSetManifestInput,
   WriteHeader,
 } from "./types";
+import {
+  makeVerifiedAttachmentBinding,
+  makeVerifiedAttachmentDetach,
+  makeVerifiedContainerParentEdge,
+  makeVerifiedDocumentLinkSetManifest,
+} from "./types";
 
 function normalizeDocumentLinkSetStructural(
-  value: DocumentLinkSetStructural,
+  value: unknown,
 ): DocumentLinkSetStructural {
   const record = assertExactKeys(
     value,
@@ -84,7 +90,7 @@ function normalizeDocumentLinkSetStructural(
 }
 
 function normalizeDocumentLinkSetManifestState(
-  value: DocumentLinkSetManifestState,
+  value: unknown,
 ): DocumentLinkSetManifestState {
   const record = assertExactKeys(
     value,
@@ -101,7 +107,7 @@ function normalizeDocumentLinkSetManifestState(
   );
   const structural = normalizeDocumentLinkSetStructural({
     linkedContainerIds: record.linkedContainerIds,
-  } as DocumentLinkSetStructural);
+  });
 
   return {
     version: readVersion(record, "document link-set manifest state"),
@@ -537,7 +543,7 @@ export async function verifyAttachmentBindingEvent({
       principalPolicies,
     });
 
-    return {
+    return makeVerifiedAttachmentBinding({
       bindingId: body.bindingId,
       blobId: body.blobId,
       documentId: body.documentId,
@@ -545,7 +551,7 @@ export async function verifyAttachmentBindingEvent({
       documentManifestHash: body.documentManifestHash,
       event,
       body,
-    } as VerifiedAttachmentBinding;
+    });
   });
 }
 
@@ -586,7 +592,7 @@ export async function verifyAttachmentDetachEvent({
       principalPolicies,
     });
 
-    return {
+    return makeVerifiedAttachmentDetach({
       bindingId: body.bindingId,
       blobId: body.blobId,
       documentId: body.documentId,
@@ -594,7 +600,7 @@ export async function verifyAttachmentDetachEvent({
       documentManifestHash: body.documentManifestHash,
       event,
       body,
-    } as VerifiedAttachmentDetach;
+    });
   });
 }
 
@@ -1081,13 +1087,13 @@ export async function verifyDocumentLinkSetManifest({
       throw verifiedManifest.error;
     }
 
-    return {
+    return makeVerifiedDocumentLinkSetManifest({
       manifest: verifiedManifest.value.manifest,
       manifestHash: verifiedManifest.value.manifestHash,
       event,
       state,
       checkpoint: verifiedManifest.value.checkpoint,
-    } as VerifiedDocumentLinkSetManifest;
+    });
   });
 }
 
@@ -1131,12 +1137,14 @@ export function verifyContainerParentEdge({
       );
     }
 
-    return ok({
-      childContainerId: child.state.containerId,
-      childManifestHash: child.manifestHash,
-      parentContainerId: child.state.parentContainerId,
-      parentManifestHash: child.state.parentManifestHash,
-    } as VerifiedContainerParentEdge);
+    return ok(
+      makeVerifiedContainerParentEdge({
+        childContainerId: child.state.containerId,
+        childManifestHash: child.manifestHash,
+        parentContainerId: child.state.parentContainerId,
+        parentManifestHash: child.state.parentManifestHash,
+      }),
+    );
   } catch (error) {
     return toVerificationResult(error);
   }

@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { ML_KEM1024_CIPHERTEXT_BYTES } from "./encapsulation/generateKeyPair";
 import type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "./symmetric";
@@ -23,15 +24,17 @@ export interface SerializedBlobEnvelopeHeader {
   recipients: SerializedBlobRecipientEntry[];
 }
 
-type SerializedBlobRecipientRecord = Partial<
-  Record<keyof SerializedBlobRecipientEntry, unknown>
-> &
-  Record<string, unknown>;
+interface SerializedBlobRecipientCandidate extends Record<string, unknown> {
+  readonly kemCipherText?: unknown;
+  readonly keyFingerprint?: unknown;
+  readonly wrappedKey?: unknown;
+}
 
-type SerializedBlobEnvelopeHeaderRecord = Partial<
-  Record<keyof SerializedBlobEnvelopeHeader, unknown>
-> &
-  Record<string, unknown>;
+interface SerializedBlobEnvelopeHeaderCandidate
+  extends Record<string, unknown> {
+  readonly iv?: unknown;
+  readonly recipients?: unknown;
+}
 
 function hasExactKeys(
   value: Record<string, unknown>,
@@ -48,14 +51,16 @@ function hasExactKeys(
 function isSerializedBlobRecipientEntry(
   value: unknown,
 ): value is SerializedBlobRecipientEntry {
-  const record =
-    typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as SerializedBlobRecipientRecord)
-      : null;
+  if (
+    !isPlainObject(value) ||
+    !hasExactKeys(value, SERIALIZED_BLOB_RECIPIENT_KEYS)
+  ) {
+    return false;
+  }
+
+  const record: SerializedBlobRecipientCandidate = value;
 
   return (
-    record !== null &&
-    hasExactKeys(record, SERIALIZED_BLOB_RECIPIENT_KEYS) &&
     typeof record.keyFingerprint === "string" &&
     /^[0-9a-f]{64}$/.test(record.keyFingerprint) &&
     typeof record.kemCipherText === "string" &&
@@ -63,30 +68,38 @@ function isSerializedBlobRecipientEntry(
   );
 }
 
+function isSerializedBlobRecipientEntryArray(
+  value: unknown,
+): value is SerializedBlobRecipientEntry[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(isSerializedBlobRecipientEntry)
+  );
+}
+
 function isSerializedBlobEnvelopeHeader(
   value: unknown,
 ): value is SerializedBlobEnvelopeHeader {
-  const record =
-    typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as SerializedBlobEnvelopeHeaderRecord)
-      : null;
   if (
-    record === null ||
-    !hasExactKeys(record, SERIALIZED_BLOB_HEADER_KEYS) ||
-    typeof record.iv !== "string" ||
-    !Array.isArray(record.recipients) ||
-    record.recipients.length === 0 ||
-    !record.recipients.every((recipient) =>
-      isSerializedBlobRecipientEntry(recipient),
-    )
+    !isPlainObject(value) ||
+    !hasExactKeys(value, SERIALIZED_BLOB_HEADER_KEYS)
   ) {
     return false;
   }
 
-  const recipients = record.recipients as SerializedBlobRecipientEntry[];
+  const record: SerializedBlobEnvelopeHeaderCandidate = value;
+
+  if (
+    typeof record.iv !== "string" ||
+    !isSerializedBlobRecipientEntryArray(record.recipients)
+  ) {
+    return false;
+  }
+
   return (
-    new Set(recipients.map((recipient) => recipient.keyFingerprint)).size ===
-    recipients.length
+    new Set(record.recipients.map((recipient) => recipient.keyFingerprint))
+      .size === record.recipients.length
   );
 }
 

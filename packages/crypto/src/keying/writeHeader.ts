@@ -29,10 +29,9 @@ import type {
   VerifyWriteHeaderInput,
   WriteHeader,
 } from "./types";
+import { makeVerifiedWriteHeader } from "./types";
 
-function normalizeUnsignedWriteHeader(
-  value: UnsignedWriteHeader,
-): UnsignedWriteHeader {
+function normalizeUnsignedWriteHeader(value: unknown): UnsignedWriteHeader {
   const record = assertExactKeys(
     value,
     [
@@ -95,7 +94,7 @@ function normalizeUnsignedWriteHeader(
   };
 }
 
-function normalizeWriteHeader(value: WriteHeader): WriteHeader {
+function normalizeWriteHeader(value: unknown): WriteHeader {
   const record = assertExactKeys(
     value,
     [
@@ -136,7 +135,7 @@ function normalizeWriteHeader(value: WriteHeader): WriteHeader {
     writerDeviceId: record.writerDeviceId,
     writerKeyFingerprint: record.writerKeyFingerprint,
     signedAt: record.signedAt,
-  } as UnsignedWriteHeader);
+  });
 
   return {
     ...unsignedHeader,
@@ -167,7 +166,7 @@ function contentRecordNonceDomainFromHeader(
 }
 
 function normalizeContentRecordNonceDomain(
-  value: ContentRecordNonceDomain,
+  value: unknown,
 ): ContentRecordNonceDomain {
   const record = assertExactKeys(
     value,
@@ -513,11 +512,11 @@ export async function verifyWriteHeader({
       );
     }
 
-    return {
+    return makeVerifiedWriteHeader({
       header: normalizedHeader,
       headerHash: await computeWriteHeaderHash(normalizedHeader),
       nonceDomain,
       nonceDomainHash: normalizedHeader.nonceDomainHash,
-    } as VerifiedWriteHeader;
+    });
   });
 }
