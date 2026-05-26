@@ -52,6 +52,7 @@ export function useExplorer(): ContainerContentsContextValue {
     () => ({
       createChild: store.createChild,
       deleteContainer: store.deleteContainer,
+      ensureBuiltinContainer: store.ensureBuiltinContainer,
       moveContainer: store.moveContainer,
       refresh: store.refresh,
       renameContainer: store.renameContainer,

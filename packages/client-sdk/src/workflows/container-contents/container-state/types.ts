@@ -1,3 +1,4 @@
+import type { ContainerBuiltinKind } from "@tearleads/validators/containerBuiltin";
 import type {
   EncapsulationKeyResponse,
   ReferencedPrincipalStateResponse,
@@ -56,6 +57,7 @@ export interface ContainerWorkflowRuntime
 
 export interface CreatedRemoteContainerState {
   accessManifestHash: string;
+  builtinKind?: ContainerBuiltinKind | null;
   containerId: string;
   createdAt: string;
   metadataDocumentId: string;

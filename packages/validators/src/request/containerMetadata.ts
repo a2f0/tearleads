@@ -1,3 +1,5 @@
+import type { ContainerBuiltinKind } from "../containerBuiltin";
+import { isNullableContainerBuiltinKind } from "../containerBuiltin";
 import { isPlainObject } from "../isPlainObject";
 import {
   type ContainerMutationRequest,
@@ -9,6 +11,7 @@ import {
 } from "./document";
 
 export interface ContainerCreateWithMetadataDocumentRequest {
+  builtinKind?: ContainerBuiltinKind | null;
   container: ContainerMutationRequest;
   metadataDocument: DocumentCreateRequest;
 }
@@ -22,9 +25,14 @@ export function isContainerCreateWithMetadataDocumentRequest(
   const metadataDocument = isPlainObject(value)
     ? Reflect.get(value, "metadataDocument")
     : undefined;
+  const builtinKind = isPlainObject(value)
+    ? Reflect.get(value, "builtinKind")
+    : undefined;
 
   return (
     isPlainObject(value) &&
+    (builtinKind === undefined ||
+      isNullableContainerBuiltinKind(builtinKind)) &&
     isContainerMutationRequest(container) &&
     isDocumentCreateRequest(metadataDocument)
   );

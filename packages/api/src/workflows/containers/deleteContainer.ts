@@ -26,6 +26,7 @@ export class DeleteContainerError extends Error {
 }
 
 interface StoredContainerRow {
+  readonly builtinKind: string | null;
   readonly depth: number;
   readonly id: string;
   readonly organizationId: string;
@@ -44,6 +45,7 @@ async function loadContainerForDelete(input: {
 }): Promise<StoredContainerRow> {
   const [container] = await input.executor
     .select({
+      builtinKind: containers.builtinKind,
       depth: containers.depth,
       id: containers.id,
       organizationId: containers.organizationId,
@@ -58,6 +60,9 @@ async function loadContainerForDelete(input: {
   }
   if (container.parentId === null) {
     throw new DeleteContainerError("Root container cannot be deleted", 400);
+  }
+  if (container.builtinKind !== null) {
+    throw new DeleteContainerError("System container cannot be deleted", 400);
   }
 
   return container;

@@ -1,3 +1,4 @@
+import type { ContainerBuiltinKind } from "@tearleads/validators/containerBuiltin";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type {
@@ -13,6 +14,7 @@ export interface ContainerContentsStoreOptions {
 }
 
 export interface ContainerNode {
+  builtinKind?: ContainerBuiltinKind | null;
   createdAt?: string | null;
   id: string;
   organizationId: string;
@@ -29,6 +31,10 @@ export interface ContainerContentsContextValue {
     name: string,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
+  ensureBuiltinContainer: (
+    builtinKind: ContainerBuiltinKind,
+    name: string,
+  ) => Promise<ContainerNode | null>;
   moveContainer: (
     containerId: string,
     parentId: string,
@@ -59,6 +65,10 @@ export interface ContainerContentsStore {
     name: string,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
+  ensureBuiltinContainer: (
+    builtinKind: ContainerBuiltinKind,
+    name: string,
+  ) => Promise<ContainerNode | null>;
   moveContainer: (
     containerId: string,
     parentId: string,

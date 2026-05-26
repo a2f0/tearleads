@@ -1,3 +1,4 @@
+import { isContainerBuiltinKind } from "@tearleads/validators/containerBuiltin";
 import type {
   ContainerSummary,
   ContainerSyncTombstone,
@@ -30,6 +31,7 @@ import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface AccessibleContainerRow {
   createdAt: string;
+  builtinKind: string | null;
   depth: number;
   id: string;
   metadataAccessEpoch?: number;
@@ -197,6 +199,7 @@ async function listAccessibleContainersForUser(input: {
     target_parent_path as (
       select
         c.id,
+        c.builtin_kind,
         c.organization_id,
         c.parent_id,
         c.depth,
@@ -217,6 +220,7 @@ async function listAccessibleContainersForUser(input: {
       union all
       select
         parent.id,
+        parent.builtin_kind,
         parent.organization_id,
         parent.parent_id,
         parent.depth,
@@ -253,6 +257,7 @@ async function listAccessibleContainersForUser(input: {
     parent_lane_candidate_containers as (
       select
         c.id,
+        c.builtin_kind,
         c.organization_id,
         c.parent_id,
         c.depth,
@@ -272,6 +277,7 @@ async function listAccessibleContainersForUser(input: {
     directly_granted_containers as (
       select distinct on (c.id)
         c.id,
+        c.builtin_kind,
         c.organization_id,
         c.parent_id,
         c.depth,
@@ -328,6 +334,7 @@ async function listAccessibleContainersForUser(input: {
     )
     select
       accessible.id::text as "id",
+      accessible.builtin_kind::text as "builtinKind",
       (accessible.state->>'metadataDocumentId')::text as "metadataDocumentId",
       accessible.organization_id::text as "organizationId",
       accessible.parent_id::text as "parentId",
@@ -521,7 +528,12 @@ async function resolveVisibleContainerSummaries(input: {
       throw new Error("Readable container access batch omitted a candidate");
     }
 
+    const builtinKind = isContainerBuiltinKind(containerRow.builtinKind)
+      ? containerRow.builtinKind
+      : null;
+
     visibleContainers.push({
+      ...(builtinKind ? { builtinKind } : {}),
       createdAt: containerRow.createdAt,
       depth: containerRow.depth,
       id: containerRow.id,

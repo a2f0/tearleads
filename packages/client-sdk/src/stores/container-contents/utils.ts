@@ -16,6 +16,7 @@ function hasPendingContainerTimestamp(container: ContainerRecord): boolean {
 
 export function toContainerNode(containerState: ContainerState): ContainerNode {
   const { container, record } = containerState;
+  const builtinKind = container.builtinKind ?? null;
   const node: ContainerNode = {
     id: container.id,
     kind: "container",
@@ -30,6 +31,10 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
       pendingUpdateCount: hasPendingContainerTimestamp(container) ? 1 : 0,
     }),
   };
+
+  if (builtinKind) {
+    node.builtinKind = builtinKind;
+  }
 
   if (container.createdAt) {
     node.createdAt = container.createdAt;

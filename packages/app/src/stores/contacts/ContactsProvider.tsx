@@ -1,3 +1,4 @@
+import { CONTACTS_CONTAINER_BUILTIN_KIND } from "@tearleads/validators/containerBuiltin";
 import {
   createContext,
   type PropsWithChildren,
@@ -5,7 +6,10 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import {
   type ContactsRuntime,
@@ -15,17 +19,42 @@ import {
 import type { ContactsContextValue } from "./types";
 
 const ContactsContext = createContext<ContactsStore | null>(null);
+const CONTACTS_CONTAINER_NAME = "Contacts";
 
 export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
+  const appData = useTearleadsRuntime();
+  const containerContentsRuntime = useMemo(
+    () => tearleads.containerContents.runtime(),
+    [appData, tearleads],
+  );
+  const containerContentsStore = useMemo(
+    () => tearleads.containerContents.store({ logLabel: "Contacts" }),
+    [containerContentsRuntime.state.domainScope, tearleads],
+  );
+  const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
+    containerContentsStore,
+  );
+  const contactsContainerId = useMemo(() => {
+    return (
+      containerContentsSnapshot.nodes.find(
+        (node) => node.builtinKind === CONTACTS_CONTAINER_BUILTIN_KIND,
+      )?.id ?? null
+    );
+  }, [containerContentsSnapshot.nodes]);
+  const documentsRuntime = useMemo(
+    () => tearleads.documents.runtime(contactsContainerId),
+    [appData, contactsContainerId, tearleads],
+  );
   const runtime = useMemo<ContactsRuntime>(
     () => ({
       deleteLocalDocument: (localId) =>
         tearleads.documents.deleteLocalDocument(localId),
-      documents: tearleads.documents.runtime(null),
-      primeDocumentStore: (input) => tearleads.documents.primeStore(input),
+      documents: documentsRuntime,
+      primeDocumentStore: (input) =>
+        tearleads.documents.primeStore(input, documentsRuntime),
     }),
-    [tearleads],
+    [documentsRuntime, tearleads],
   );
   const store = useMemo(
     () =>
@@ -35,6 +64,25 @@ export function ContactsProvider({ children }: PropsWithChildren) {
       }),
     [runtime, tearleads],
   );
+
+  useEffect(() => {
+    containerContentsStore.updateRuntime(containerContentsRuntime);
+  }, [containerContentsRuntime, containerContentsStore]);
+
+  useEffect(() => {
+    if (!containerContentsSnapshot.ready || contactsContainerId !== null) {
+      return;
+    }
+
+    void containerContentsStore.ensureBuiltinContainer(
+      CONTACTS_CONTAINER_BUILTIN_KIND,
+      CONTACTS_CONTAINER_NAME,
+    );
+  }, [
+    contactsContainerId,
+    containerContentsSnapshot.ready,
+    containerContentsStore,
+  ]);
 
   useEffect(() => {
     store.updateRuntime(runtime);

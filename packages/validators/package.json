@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./containerBuiltin": "./src/containerBuiltin.ts",
     "./isPlainObject": "./src/isPlainObject.ts",
     "./util": "./src/util/index.ts",
     "./event": "./src/event/index.ts",

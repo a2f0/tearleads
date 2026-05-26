@@ -1,4 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { ContainerBuiltinKind } from "@tearleads/validators/containerBuiltin";
 import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
@@ -16,6 +17,7 @@ import type {
 
 async function buildRemoteContainerContentsChildContainerState(input: {
   childId: string;
+  builtinKind?: ContainerBuiltinKind | null | undefined;
   doc: ContainerMetadataDocumentState;
   initialRecord: DocumentRecord;
   parentState: ContainerState;
@@ -25,6 +27,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
 }): Promise<ContainerState | null> {
   const {
     childId,
+    builtinKind,
     doc,
     initialRecord,
     parentState,
@@ -33,6 +36,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
     trimmedName,
   } = input;
   const created = await createRemoteContainer({
+    builtinKind,
     containerId: childId,
     parentContainerId: parentState.container.id,
     resolveProjectionUserKey,
@@ -49,6 +53,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
       organizationId: created.organizationId,
       parentId: created.parentId,
       metadataDocumentId: created.metadataDocumentId,
+      builtinKind: created.builtinKind ?? builtinKind ?? null,
       name: trimmedName,
       icon: null,
       createdAt: created.createdAt,
@@ -68,12 +73,14 @@ async function buildRemoteContainerContentsChildContainerState(input: {
 
 function buildLocalContainerContentsChildContainerState(input: {
   childId: string;
+  builtinKind?: ContainerBuiltinKind | null | undefined;
   doc: ContainerMetadataDocumentState;
   initialRecord: DocumentRecord;
   parentState: ContainerState;
   trimmedName: string;
 }): ContainerState {
-  const { childId, doc, initialRecord, parentState, trimmedName } = input;
+  const { builtinKind, childId, doc, initialRecord, parentState, trimmedName } =
+    input;
 
   return {
     container: {
@@ -81,6 +88,7 @@ function buildLocalContainerContentsChildContainerState(input: {
       organizationId: parentState.container.organizationId,
       parentId: parentState.container.id,
       metadataDocumentId: null,
+      builtinKind: builtinKind ?? null,
       name: trimmedName,
       icon: null,
     },
@@ -90,6 +98,7 @@ function buildLocalContainerContentsChildContainerState(input: {
 }
 
 export async function createChildContainerState(input: {
+  builtinKind?: ContainerBuiltinKind | null | undefined;
   createRemote: boolean;
   name: string;
   parentState: ContainerState;
@@ -99,6 +108,7 @@ export async function createChildContainerState(input: {
 }): Promise<CreatedChildContainerState | null> {
   const {
     createRemote,
+    builtinKind,
     name,
     parentState,
     persistence,
@@ -131,6 +141,7 @@ export async function createChildContainerState(input: {
   const remoteChildState = createRemote
     ? await buildRemoteContainerContentsChildContainerState({
         childId,
+        builtinKind,
         doc,
         initialRecord,
         parentState,
@@ -143,6 +154,7 @@ export async function createChildContainerState(input: {
     remoteChildState ??
     buildLocalContainerContentsChildContainerState({
       childId,
+      builtinKind,
       doc,
       initialRecord,
       parentState,

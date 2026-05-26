@@ -167,6 +167,7 @@ export const principalPolicies = sqliteTable(
  * - `parentId`: Parent container id, or `null` for a root container.
  * - `metadataDocumentId`: Server document id for the container metadata
  *   document when known.
+ * - `builtinKind`: Optional app-owned built-in kind such as `contacts`.
  * - `localCreatedAt`: Timestamp for when this client first created or stored
  *   the container.
  * - `localUpdatedAt`: Timestamp for the latest local structural change.
@@ -183,6 +184,7 @@ export const containers = sqliteTable(
     organizationId: text("organization_id").notNull(),
     parentId: text("parent_id"),
     metadataDocumentId: text("metadata_document_id"),
+    builtinKind: text("builtin_kind"),
     localCreatedAt: text("local_created_at").notNull(),
     localUpdatedAt: text("local_updated_at").notNull(),
     serverCreatedAt: text("server_created_at"),

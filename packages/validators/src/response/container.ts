@@ -1,3 +1,5 @@
+import type { ContainerBuiltinKind } from "../containerBuiltin";
+import { isNullableContainerBuiltinKind } from "../containerBuiltin";
 import { isPlainObject } from "../isPlainObject";
 import {
   type AccessManifestBundleWireResponse,
@@ -29,6 +31,7 @@ export interface ContainerKekResponse {
 }
 
 export interface ContainerMutationResponse {
+  builtinKind?: ContainerBuiltinKind | null;
   containerId: string;
   createdAt: string;
   organizationId: string;
@@ -56,6 +59,7 @@ export interface ContainerWriterProjectionResponse {
 }
 
 export interface ContainerSummary {
+  builtinKind?: ContainerBuiltinKind | null;
   createdAt: string;
   depth: number;
   id: string;
@@ -90,9 +94,14 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
   const metadataAccessStateHash = isPlainObject(value)
     ? Reflect.get(value, "metadataAccessStateHash")
     : undefined;
+  const builtinKind = isPlainObject(value)
+    ? Reflect.get(value, "builtinKind")
+    : undefined;
 
   return (
     isPlainObject(value) &&
+    (builtinKind === undefined ||
+      isNullableContainerBuiltinKind(builtinKind)) &&
     hasStringProperty(value, "createdAt") &&
     hasNumberProperty(value, "depth") &&
     Number.isInteger(value.depth) &&

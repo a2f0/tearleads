@@ -13,6 +13,7 @@ import {
   type UnsignedAccessEvent,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { CONTACTS_CONTAINER_BUILTIN_KIND } from "@tearleads/validators/containerBuiltin";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
@@ -237,6 +238,7 @@ test("GET /containers lists inherited children in the requested parent lane", as
   const childContainerId = crypto.randomUUID();
   const childMetadataDocumentId = crypto.randomUUID();
   await db.insert(containers).values({
+    builtinKind: CONTACTS_CONTAINER_BUILTIN_KIND,
     depth: 1,
     id: childContainerId,
     organizationId: rootContainer.organizationId,
@@ -279,6 +281,7 @@ test("GET /containers lists inherited children in the requested parent lane", as
       items: [
         expect.objectContaining({
           depth: 1,
+          builtinKind: CONTACTS_CONTAINER_BUILTIN_KIND,
           id: childContainerId,
           metadataDocumentId: childMetadataDocumentId,
           parentId: owner.rootContainerId,

@@ -2455,6 +2455,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "builtin_kind": {
+          "name": "builtin_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "depth": {
           "name": "depth",
           "type": "integer",
@@ -2490,6 +2496,28 @@
           ],
           "isUnique": true,
           "where": "\"containers\".\"parent_id\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "containers_org_builtin_kind_idx": {
+          "name": "containers_org_builtin_kind_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "builtin_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"containers\".\"builtin_kind\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

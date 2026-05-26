@@ -38,6 +38,7 @@ export type ContainerMetadataDocumentState = Awaited<
 export type RemoteContainer = Pick<
   ContainerSummary,
   | "createdAt"
+  | "builtinKind"
   | "id"
   | "metadataAccessEpoch"
   | "metadataAccessStateHash"
@@ -493,6 +494,7 @@ async function updateExistingRemoteContainerState(input: {
       accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
       metadataDocumentId: remoteContainer.metadataDocumentId,
+      builtinKind: remoteContainer.builtinKind ?? null,
       organizationId: remoteContainer.organizationId,
       parentId: remoteContainer.parentId,
     },
@@ -538,6 +540,7 @@ async function insertRemoteContainerState(input: {
         organizationId: remoteContainer.organizationId,
         parentId: remoteContainer.parentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
+        builtinKind: remoteContainer.builtinKind ?? null,
         name: getDefaultContainerName(remoteContainer.parentId),
         icon: null,
       },

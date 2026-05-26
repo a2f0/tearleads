@@ -171,6 +171,9 @@ export const organizationRosterEntries = pgTable(
  *   containers must stay within the same organization.
  * - `parentId`: Parent container id, or `null` for the organization's root
  *   container.
+ * - `builtinKind`: Optional built-in container kind, such as the root-owned
+ *   contacts container. Built-in containers are app-owned and cannot be
+ *   removed through the public container delete API.
  * - `depth`: Materialized distance from the root container. Roots are `0`.
  * - `createdAt`: Server-side insertion timestamp.
  * - `updatedAt`: Server-side sync timestamp bumped when the container,
@@ -179,6 +182,8 @@ export const organizationRosterEntries = pgTable(
  * Indexes:
  * - `organizationId where parentId is null` is unique so an organization has
  *   one root container.
+ * - `organizationId, builtinKind where builtinKind is not null` keeps each
+ *   built-in kind unique per organization.
  * - `parentId` supports direct child lookups and move validation.
  * - `(parentId, updatedAt, id)` supports parent-container sync lanes.
  * - `(organizationId, depth, updatedAt, id)` keeps depth indexed for tree
@@ -190,6 +195,7 @@ export const containers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     organizationId: uuid("organization_id").notNull(),
     parentId: uuid("parent_id"),
+    builtinKind: text("builtin_kind"),
     depth: integer("depth").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -198,6 +204,9 @@ export const containers = pgTable(
     uniqueIndex("containers_org_root_idx")
       .on(table.organizationId)
       .where(sql`${table.parentId} is null`),
+    uniqueIndex("containers_org_builtin_kind_idx")
+      .on(table.organizationId, table.builtinKind)
+      .where(sql`${table.builtinKind} is not null`),
     index("containers_parent_id_idx").on(table.parentId),
     index("containers_parent_updated_idx").on(
       table.parentId,
