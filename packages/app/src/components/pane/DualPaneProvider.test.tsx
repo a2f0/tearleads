@@ -541,13 +541,7 @@ async function createGroupAndAddPeer(
     fireEvent.click(createButton);
   });
 
-  const groupButton = await within(pane).findByRole("button", {
-    name: new RegExp(groupName, "u"),
-  });
-  await interact(() => {
-    fireEvent.click(groupButton);
-  });
-
+  await within(pane).findByText(groupName);
   const userIdInput = await within(pane).findByLabelText("User ID");
   invariant(
     userIdInput instanceof HTMLInputElement,
@@ -610,9 +604,8 @@ async function createOrganizationGroup(pane: HTMLElement, groupName: string) {
     fireEvent.click(createButton);
   });
 
-  await within(pane).findByRole("button", {
-    name: new RegExp(groupName, "u"),
-  });
+  await within(pane).findByText(groupName);
+  await within(pane).findByLabelText("User ID");
 }
 
 async function openExplorerContainerInfo(pane: HTMLElement, name: string) {
