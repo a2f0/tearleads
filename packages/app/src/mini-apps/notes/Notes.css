@@ -23,7 +23,7 @@
 }
 
 .notes-dropzone--disabled {
-  opacity: var(--mini-app-subtle-opacity);
+  opacity: var(--mini-app-disabled-opacity);
 }
 
 .notes-dropzone-empty {
