@@ -9,6 +9,7 @@ import {
   type ExecSql,
   type ExecSqlClientLike,
   runSerializedSqlMutation,
+  type SqlArrayRow,
   type SqlRowValue,
 } from "./sqlSchema";
 
@@ -51,13 +52,27 @@ function toSqlRowValue(value: unknown): SqlRowValue {
 function createRemoteCallback(getExecSql: () => ExecSql): RemoteCallback {
   type RemoteResult = Awaited<ReturnType<RemoteCallback>>;
 
+  function getRemoteResult(rows: readonly SqlArrayRow[]): RemoteResult {
+    const row = rows[0];
+    if (row !== undefined) {
+      return { rows: row } satisfies RemoteResult;
+    }
+
+    // Drizzle's RemoteCallback type requires rows, but sqlite-proxy's get()
+    // mapper treats an undefined rows value as "no row found".
+    return Object.defineProperty({ rows: [] } satisfies RemoteResult, "rows", {
+      enumerable: true,
+      value: undefined,
+    });
+  }
+
   return async (sql, params, method) => {
     const rows = await getExecSql()(sql, params.map(toSqlRowValue), {
       rowMode: "array",
     });
 
     if (method === "get") {
-      return { rows: rows[0] ?? [] } satisfies RemoteResult;
+      return getRemoteResult(rows);
     }
 
     return { rows } satisfies RemoteResult;

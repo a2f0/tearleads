@@ -99,6 +99,28 @@ test("client SQLite persistence runtime maps Drizzle select rows from array mode
   }
 });
 
+test("client SQLite persistence runtime returns undefined for missing Drizzle get rows", async () => {
+  const { close, runtime } = await createTestRuntime(
+    "client-sqlite-persistence-runtime-test",
+  );
+
+  try {
+    await ensureDocumentTables(runtime.execSql);
+
+    const row = await runtime.db
+      .select({
+        localId: documents.localId,
+      })
+      .from(documents)
+      .where(eq(documents.localId, "missing-document"))
+      .get();
+
+    expect(row).toBeUndefined();
+  } finally {
+    close();
+  }
+});
+
 test("client SQLite persistence runtime reuses its Drizzle database for serialized mutations", async () => {
   const runtime = createClientSQLitePersistenceRuntime({
     exec: async () => ({ rows: [] }),
