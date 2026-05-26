@@ -14,6 +14,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppHeader,
+  MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
@@ -486,8 +488,8 @@ export function ExplorerDocumentDetail(params: {
       key={params.selectedDocument.id}
       variant="framed"
     >
-      <div className="explorer-detail-header">
-        <div className="explorer-detail-copy">
+      <MiniAppHeader>
+        <MiniAppHeaderCopy>
           <div className="explorer-detail-title-row">
             <strong>{params.selectedDocument.title}</strong>
             <ExplorerSyncStateBadge
@@ -505,7 +507,7 @@ export function ExplorerDocumentDetail(params: {
               ),
             })}
           </span>
-        </div>
+        </MiniAppHeaderCopy>
         <ExplorerDocumentDetailActions
           canLinkSelectedDocument={params.canLinkSelectedDocument}
           canMoveSelectedDocument={params.canMoveSelectedDocument}
@@ -515,7 +517,7 @@ export function ExplorerDocumentDetail(params: {
           selectedDocument={params.selectedDocument}
           setSelectedId={params.setSelectedId}
         />
-      </div>
+      </MiniAppHeader>
       {params.refreshError ? (
         <MiniAppStatus as="span" tone="error">
           {params.refreshError}

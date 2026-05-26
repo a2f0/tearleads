@@ -10,6 +10,8 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   MiniAppButton,
+  MiniAppHeader,
+  MiniAppHeaderCopy,
   MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
@@ -298,19 +300,19 @@ export function GroupsView({
       <section className="org-manager-panel org-manager-panel--detail">
         {selectedGroup ? (
           <>
-            <div className="org-manager-detail-header">
-              <div>
+            <MiniAppHeader className="org-manager-detail-header">
+              <MiniAppHeaderCopy>
                 <strong>{selectedGroup.name}</strong>
                 <span title={selectedGroup.groupId}>
                   {compactFingerprint(selectedGroup.groupId)}
                 </span>
-              </div>
+              </MiniAppHeaderCopy>
               <span>
                 {selectedGroup.currentState
                   ? getOrgManagerEpochLabel(selectedGroup.currentState.keyEpoch)
                   : ORG_MANAGER_LABELS.noPolicy}
               </span>
-            </div>
+            </MiniAppHeader>
             <MiniAppToolbar className="org-manager-form-toolbar">
               <MiniAppInput
                 aria-label={ORG_MANAGER_LABELS.userId}

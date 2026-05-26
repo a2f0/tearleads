@@ -1,12 +1,12 @@
 .mini-app-row {
-  --mini-app-row-block-padding: calc(var(--padding) / 2);
-  --mini-app-row-inline-padding: calc(var(--padding) / 2);
+  --mini-app-row-block-padding: var(--mini-app-space-sm);
+  --mini-app-row-inline-padding: var(--mini-app-space-sm);
 
   display: flex;
   align-items: center;
-  gap: calc(var(--padding) / 2);
+  gap: var(--mini-app-space-sm);
   min-width: 0;
-  min-height: 2rem;
+  min-height: var(--mini-app-control-min-height);
   box-sizing: border-box;
   padding: var(--mini-app-row-block-padding) var(--mini-app-row-inline-padding);
   border: 1px solid transparent;
@@ -18,7 +18,7 @@
 }
 
 .mini-app-row--compact {
-  --mini-app-row-block-padding: calc(var(--padding) / 3);
+  --mini-app-row-block-padding: var(--mini-app-row-compact-padding-block);
 
   min-height: 1.75rem;
 }
@@ -37,7 +37,7 @@
   border-color: transparent;
   background: transparent;
   font-weight: 700;
-  opacity: 0.72;
+  opacity: var(--mini-app-heading-opacity);
 }
 
 .mini-app-row--button {
@@ -54,13 +54,13 @@
 }
 
 .mini-app-row--button:disabled {
-  opacity: 0.5;
+  opacity: var(--mini-app-disabled-opacity);
   cursor: default;
 }
 
 .mini-app-row-stack {
   display: inline-grid;
-  gap: 0.15rem;
+  gap: var(--mini-app-space-2xs);
   min-width: 0;
 }
 
@@ -81,5 +81,5 @@
 
 .mini-app-row-text--muted {
   font-size: var(--font-size-sm);
-  opacity: 0.75;
+  opacity: var(--mini-app-muted-opacity);
 }

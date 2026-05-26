@@ -7,9 +7,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppHeader,
+  MiniAppHeaderCopy,
+  MiniAppInfoSection,
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
+import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
@@ -138,9 +142,10 @@ function ExplorerDocumentInfoLocalSection(params: {
     : "-";
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.documentInfoLocalDetailsHeading}</h3>
-      <table className="explorer-info-table">
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.documentInfoLocalDetailsHeading}
+    >
+      <MiniAppInfoTable>
         <tbody>
           <DocumentInfoRow
             label={EXPLORER_LABELS.documentInfoIdRow}
@@ -201,8 +206,8 @@ function ExplorerDocumentInfoLocalSection(params: {
             {pendingChanges}
           </DocumentInfoRow>
         </tbody>
-      </table>
-    </section>
+      </MiniAppInfoTable>
+    </MiniAppInfoSection>
   );
 }
 
@@ -212,19 +217,21 @@ function ExplorerDocumentInfoRemoteSecuritySection(params: {
   const remoteInfo = params.documentInfo.remoteInfo;
   if (!remoteInfo) {
     return (
-      <section className="explorer-info-section">
-        <h3>{EXPLORER_LABELS.documentInfoRemoteSecurityHeading}</h3>
+      <MiniAppInfoSection
+        heading={EXPLORER_LABELS.documentInfoRemoteSecurityHeading}
+      >
         <MiniAppStatus>
           {EXPLORER_LABELS.documentInfoNoRemoteInfo}
         </MiniAppStatus>
-      </section>
+      </MiniAppInfoSection>
     );
   }
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.documentInfoRemoteSecurityHeading}</h3>
-      <table className="explorer-info-table">
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.documentInfoRemoteSecurityHeading}
+    >
+      <MiniAppInfoTable>
         <tbody>
           <DocumentInfoRow
             label={EXPLORER_LABELS.documentInfoCurrentManifestHashRow}
@@ -285,8 +292,8 @@ function ExplorerDocumentInfoRemoteSecuritySection(params: {
             })}
           </DocumentInfoRow>
         </tbody>
-      </table>
-    </section>
+      </MiniAppInfoTable>
+    </MiniAppInfoSection>
   );
 }
 
@@ -298,14 +305,15 @@ function ExplorerDocumentInfoAuthorizingContainersSection(params: {
   const rows = remoteInfo?.authorizingContainerPaths ?? [];
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.documentInfoAuthorizingContainersHeading}</h3>
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.documentInfoAuthorizingContainersHeading}
+    >
       {rows.length === 0 ? (
         <MiniAppStatus>
           {EXPLORER_LABELS.documentInfoNoAuthorizingContainers}
         </MiniAppStatus>
       ) : (
-        <table className="explorer-info-table">
+        <MiniAppInfoTable>
           <thead>
             <tr>
               <th>{EXPLORER_LABELS.documentInfoContainerColumn}</th>
@@ -336,9 +344,9 @@ function ExplorerDocumentInfoAuthorizingContainersSection(params: {
               </tr>
             ))}
           </tbody>
-        </table>
+        </MiniAppInfoTable>
       )}
-    </section>
+    </MiniAppInfoSection>
   );
 }
 
@@ -350,14 +358,15 @@ function ExplorerDocumentInfoAttachmentsSection(params: {
   const hasRows = attachments.length > 0 || remoteBindings.length > 0;
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.documentInfoAttachmentsHeading}</h3>
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.documentInfoAttachmentsHeading}
+    >
       {!hasRows ? (
         <MiniAppStatus>
           {EXPLORER_LABELS.documentInfoNoAttachments}
         </MiniAppStatus>
       ) : (
-        <table className="explorer-info-table">
+        <MiniAppInfoTable>
           <thead>
             <tr>
               <th>{EXPLORER_LABELS.documentInfoAttachmentKindColumn}</th>
@@ -409,9 +418,9 @@ function ExplorerDocumentInfoAttachmentsSection(params: {
               </tr>
             ))}
           </tbody>
-        </table>
+        </MiniAppInfoTable>
       )}
-    </section>
+    </MiniAppInfoSection>
   );
 }
 
@@ -443,17 +452,17 @@ export function ExplorerDocumentInfoPanel(params: Props) {
       scroll
       variant="framed"
     >
-      <div className="explorer-detail-header">
-        <div className="explorer-detail-copy">
+      <MiniAppHeader>
+        <MiniAppHeaderCopy>
           <strong>{EXPLORER_LABELS.documentInfoTitle}</strong>
           <span>{title}</span>
-        </div>
+        </MiniAppHeaderCopy>
         <MiniAppActions>
           <MiniAppButton onClick={onBackToDocument}>
             {EXPLORER_LABELS.documentInfoBackAction}
           </MiniAppButton>
         </MiniAppActions>
-      </div>
+      </MiniAppHeader>
       <div className="explorer-info">
         <ExplorerDocumentInfoLocalSection
           containerName={containerName}

@@ -20,4 +20,24 @@ textarea {
   --font-size-sm: 0.9em;
   --padding: 1rem;
   --footer-gap: 0.5rem;
+  --mini-app-space-2xs: 0.15rem;
+  --mini-app-space-xs: calc(var(--padding) / 4);
+  --mini-app-space-sm: calc(var(--padding) / 2);
+  --mini-app-space-md: var(--padding);
+  --mini-app-border: 1px solid currentColor;
+  --mini-app-control-min-height: 2rem;
+  --mini-app-control-padding-block: var(--mini-app-space-sm);
+  --mini-app-control-padding-inline: var(--mini-app-space-md);
+  --mini-app-panel-padding: calc(var(--padding) / 1.5);
+  --mini-app-info-table-cell-padding: calc(var(--padding) / 3);
+  --mini-app-row-compact-padding-block: calc(var(--padding) / 3);
+  --mini-app-list-gap: 1px;
+  --mini-app-code-font-size: 0.75rem;
+  --mini-app-disabled-opacity: 0.5;
+  --mini-app-faint-opacity: 0.55;
+  --mini-app-icon-opacity: 0.6;
+  --mini-app-muted-opacity: 0.75;
+  --mini-app-subtle-opacity: 0.8;
+  --mini-app-heading-opacity: 0.72;
+  --mini-app-overlay-background: rgb(0 0 0 / 35%);
 }

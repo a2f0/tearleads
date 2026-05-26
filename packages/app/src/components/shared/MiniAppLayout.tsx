@@ -4,6 +4,7 @@ import type {
   HTMLAttributes,
   InputHTMLAttributes,
   LabelHTMLAttributes,
+  ReactNode,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
@@ -95,6 +96,24 @@ export function MiniAppActions({
   );
 }
 
+export function MiniAppHeader({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...props} className={classNames("mini-app-header", className)} />
+  );
+}
+
+export function MiniAppHeaderCopy({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...props} className={classNames("mini-app-header-copy", className)} />
+  );
+}
+
 export function MiniAppPanel({
   className,
   scroll = false,
@@ -157,6 +176,37 @@ export function MiniAppSectionHeading({
       {...props}
       className={classNames("mini-app-section-heading", className)}
     />
+  );
+}
+
+export function MiniAppInfoHeading({
+  className,
+  ...props
+}: HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h3
+      {...props}
+      className={classNames("mini-app-info-section-heading", className)}
+    />
+  );
+}
+
+export function MiniAppInfoSection({
+  children,
+  className,
+  heading,
+  ...props
+}: HTMLAttributes<HTMLElement> & {
+  heading?: ReactNode | undefined;
+}) {
+  return (
+    <section
+      {...props}
+      className={classNames("mini-app-info-section", className)}
+    >
+      {heading ? <MiniAppInfoHeading>{heading}</MiniAppInfoHeading> : null}
+      {children}
+    </section>
   );
 }
 

@@ -37,6 +37,10 @@ type MiniAppTableRowProps = HTMLAttributes<HTMLTableRowElement> & {
   selected?: boolean | undefined;
 };
 
+type MiniAppInfoTableRowProps = HTMLAttributes<HTMLTableRowElement> & {
+  interactive?: boolean | undefined;
+};
+
 export const MiniAppTableFrame = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement>
@@ -86,6 +90,41 @@ export const MiniAppTable = forwardRef<HTMLTableElement, MiniAppTableProps>(
     );
   },
 );
+
+export const MiniAppInfoTable = forwardRef<
+  HTMLTableElement,
+  TableHTMLAttributes<HTMLTableElement>
+>(function MiniAppInfoTable({ children, className, ...props }, ref) {
+  return (
+    <table
+      {...props}
+      className={classNames("mini-app-info-table", className)}
+      ref={ref}
+    >
+      {children}
+    </table>
+  );
+});
+
+export const MiniAppInfoTableRow = forwardRef<
+  HTMLTableRowElement,
+  MiniAppInfoTableRowProps
+>(function MiniAppInfoTableRow(
+  { className, interactive = false, ...props },
+  ref,
+) {
+  return (
+    <tr
+      {...props}
+      className={classNames(
+        "mini-app-info-table-row",
+        interactive && "mini-app-info-table-row--interactive",
+        className,
+      )}
+      ref={ref}
+    />
+  );
+});
 
 export const MiniAppTableRow = forwardRef<
   HTMLTableRowElement,

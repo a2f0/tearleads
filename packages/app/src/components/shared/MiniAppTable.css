@@ -1,7 +1,7 @@
 .mini-app-table-frame {
   min-height: 0;
   overflow: auto;
-  border: 1px solid currentColor;
+  border: var(--mini-app-border);
   color: var(--color-dark);
 }
 
@@ -15,8 +15,8 @@
 .mini-app-table-cell {
   box-sizing: border-box;
   min-width: 0;
-  padding: calc(var(--padding) / 2);
-  border-bottom: 1px solid currentColor;
+  padding: var(--mini-app-space-sm);
+  border-bottom: var(--mini-app-border);
   font-size: var(--font-size-sm);
   text-align: left;
   vertical-align: middle;
@@ -24,7 +24,7 @@
 
 .mini-app-table th {
   font-weight: 700;
-  opacity: 0.72;
+  opacity: var(--mini-app-heading-opacity);
 }
 
 .mini-app-table tbody .mini-app-table-row:last-child .mini-app-table-cell {
@@ -43,7 +43,7 @@
 }
 
 .mini-app-table-empty {
-  opacity: 0.8;
+  opacity: var(--mini-app-subtle-opacity);
 }
 
 .mini-app-table-text {
@@ -58,7 +58,7 @@
 }
 
 .mini-app-table-text--muted {
-  opacity: 0.75;
+  opacity: var(--mini-app-muted-opacity);
 }
 
 .mini-app-table-action {
@@ -83,6 +83,39 @@
 }
 
 .mini-app-table-action:disabled {
-  opacity: 0.5;
+  opacity: var(--mini-app-disabled-opacity);
   cursor: default;
+}
+
+.mini-app-info-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.mini-app-info-table th,
+.mini-app-info-table td {
+  padding: var(--mini-app-info-table-cell-padding);
+  border: var(--mini-app-border);
+  text-align: left;
+  word-break: break-word;
+}
+
+.mini-app-info-table th {
+  font-weight: 600;
+}
+
+.mini-app-info-table code {
+  font-size: var(--mini-app-code-font-size);
+  word-break: break-all;
+}
+
+.mini-app-info-table-row--interactive {
+  cursor: pointer;
+}
+
+.mini-app-info-table-row--interactive:hover td,
+.mini-app-info-table-row--interactive:focus td {
+  background: var(--color-dark);
+  color: var(--color-light);
 }
