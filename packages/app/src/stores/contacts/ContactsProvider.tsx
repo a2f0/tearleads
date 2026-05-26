@@ -74,14 +74,22 @@ export function ContactsProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    void containerContentsStore.ensureBuiltinContainer(
-      CONTACTS_CONTAINER_BUILTIN_KIND,
-      CONTACTS_CONTAINER_NAME,
-    );
+    void containerContentsStore
+      .ensureBuiltinContainer(
+        CONTACTS_CONTAINER_BUILTIN_KIND,
+        CONTACTS_CONTAINER_NAME,
+      )
+      .catch((error) => {
+        tearleads.logError(
+          "Failed to ensure built-in contacts container",
+          error,
+        );
+      });
   }, [
     contactsContainerId,
     containerContentsSnapshot.ready,
     containerContentsStore,
+    tearleads,
   ]);
 
   useEffect(() => {

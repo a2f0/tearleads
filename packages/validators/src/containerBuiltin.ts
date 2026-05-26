@@ -9,7 +9,7 @@ export type ContainerBuiltinKind = (typeof CONTAINER_BUILTIN_KINDS)[number];
 export function isContainerBuiltinKind(
   value: unknown,
 ): value is ContainerBuiltinKind {
-  return value === CONTACTS_CONTAINER_BUILTIN_KIND;
+  return (CONTAINER_BUILTIN_KINDS as readonly unknown[]).includes(value);
 }
 
 export function isNullableContainerBuiltinKind(
