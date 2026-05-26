@@ -8,6 +8,8 @@ import type { KeyboardEvent } from "react";
 import {
   MiniAppButton,
   MiniAppField,
+  MiniAppHeader,
+  MiniAppHeaderCopy,
   MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
@@ -347,8 +349,8 @@ function UserDetailView({
 
   return (
     <>
-      <div className="org-manager-detail-header">
-        <div>
+      <MiniAppHeader className="org-manager-detail-header">
+        <MiniAppHeaderCopy>
           <strong title={detail.user.userId}>
             {detail.user.isSelf
               ? ORG_MANAGER_LABELS.self
@@ -357,13 +359,13 @@ function UserDetailView({
           <span title={detail.user.signingKeyFingerprint}>
             {compactFingerprint(detail.user.signingKeyFingerprint)}
           </span>
-        </div>
+        </MiniAppHeaderCopy>
         <span title={detail.user.joinedAt}>
           {detail.user.status === "disabled"
             ? ORG_MANAGER_LABELS.disabled
             : formatMiniAppDate(detail.user.joinedAt)}
         </span>
-      </div>
+      </MiniAppHeader>
       <MiniAppSection>
         <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.directory}

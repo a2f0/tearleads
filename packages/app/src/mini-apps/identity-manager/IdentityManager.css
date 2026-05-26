@@ -6,33 +6,21 @@
 .identity-manager-main {
   display: flex;
   flex-direction: column;
-  gap: var(--padding);
+  gap: var(--mini-app-space-md);
   min-height: 0;
-}
-
-.identity-manager-section-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--padding);
-}
-
-.identity-manager-section-heading h2 {
-  margin: 0;
-  font-size: 1rem;
 }
 
 .identity-manager-details {
   display: grid;
   grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
-  gap: calc(var(--padding) / 2) var(--padding);
+  gap: var(--mini-app-space-sm) var(--mini-app-space-md);
   margin: 0;
   min-width: 0;
   font-size: var(--font-size-sm);
 }
 
 .identity-manager-details dt {
-  opacity: 0.75;
+  opacity: var(--mini-app-muted-opacity);
 }
 
 .identity-manager-details dd {

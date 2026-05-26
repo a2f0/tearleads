@@ -7,9 +7,17 @@ import {
   MiniAppActions,
   MiniAppButton,
   MiniAppField,
+  MiniAppHeader,
+  MiniAppHeaderCopy,
+  MiniAppInfoHeading,
+  MiniAppInfoSection,
   MiniAppSelect,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
+import {
+  MiniAppInfoTable,
+  MiniAppInfoTableRow,
+} from "../../../components/shared/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { MiniAppWindowPosition } from "../../bus";
 import {
@@ -133,7 +141,7 @@ function ExplorerContainerInfoSyncCursorList(params: {
   const { containerInfo } = params;
 
   return (
-    <table className="explorer-info-table">
+    <MiniAppInfoTable>
       <thead>
         <tr>
           <th>{EXPLORER_LABELS.containerInfoLaneColumn}</th>
@@ -163,7 +171,7 @@ function ExplorerContainerInfoSyncCursorList(params: {
                   </code>
                 </>
               ) : (
-                <MiniAppStatus as="span" className="explorer-info-muted">
+                <MiniAppStatus as="span">
                   {EXPLORER_LABELS.containerInfoNoLocalCursor}
                 </MiniAppStatus>
               )}
@@ -174,7 +182,7 @@ function ExplorerContainerInfoSyncCursorList(params: {
           </tr>
         ))}
       </tbody>
-    </table>
+    </MiniAppInfoTable>
   );
 }
 
@@ -191,7 +199,7 @@ function ExplorerContainerInfoGrantList(params: {
   }
 
   return (
-    <table className="explorer-info-table">
+    <MiniAppInfoTable>
       <thead>
         <tr>
           <th>{EXPLORER_LABELS.containerInfoPrincipalColumn}</th>
@@ -218,12 +226,8 @@ function ExplorerContainerInfoGrantList(params: {
           };
 
           return (
-            <tr
-              className={
-                isGroupGrant
-                  ? "explorer-info-grant-row--interactive"
-                  : undefined
-              }
+            <MiniAppInfoTableRow
+              interactive={isGroupGrant}
               key={`${grant.sourceContainerId}:${grant.subjectType}:${grant.subjectId}`}
               onClick={
                 isGroupGrant
@@ -246,11 +250,11 @@ function ExplorerContainerInfoGrantList(params: {
               <td title={grant.sourceContainerId}>
                 {grantSourceLabel(grant, containerNamesById)}
               </td>
-            </tr>
+            </MiniAppInfoTableRow>
           );
         })}
       </tbody>
-    </table>
+    </MiniAppInfoTable>
   );
 }
 
@@ -265,9 +269,8 @@ function ExplorerContainerInfoSecuritySection(params: {
   }
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.containerInfoSecurityHeading}</h3>
-      <table className="explorer-info-table">
+    <MiniAppInfoSection heading={EXPLORER_LABELS.containerInfoSecurityHeading}>
+      <MiniAppInfoTable>
         <tbody>
           <tr>
             <th>{EXPLORER_LABELS.containerInfoSecurityManifestHashRow}</th>
@@ -309,9 +312,11 @@ function ExplorerContainerInfoSecuritySection(params: {
             </td>
           </tr>
         </tbody>
-      </table>
-      <h3>{EXPLORER_LABELS.containerInfoPathHeading}</h3>
-      <table className="explorer-info-table">
+      </MiniAppInfoTable>
+      <MiniAppInfoHeading>
+        {EXPLORER_LABELS.containerInfoPathHeading}
+      </MiniAppInfoHeading>
+      <MiniAppInfoTable>
         <thead>
           <tr>
             <th>{EXPLORER_LABELS.containerInfoPathColumn}</th>
@@ -353,8 +358,8 @@ function ExplorerContainerInfoSecuritySection(params: {
             </tr>
           ))}
         </tbody>
-      </table>
-    </section>
+      </MiniAppInfoTable>
+    </MiniAppInfoSection>
   );
 }
 
@@ -365,7 +370,7 @@ function ExplorerContainerInfoLocalDetails(params: {
   const { containerId, containerInfo } = params;
 
   return (
-    <table className="explorer-info-table">
+    <MiniAppInfoTable>
       <tbody>
         <tr>
           <th>{EXPLORER_LABELS.containerInfoIdRow}</th>
@@ -392,7 +397,7 @@ function ExplorerContainerInfoLocalDetails(params: {
           </>
         ) : null}
       </tbody>
-    </table>
+    </MiniAppInfoTable>
   );
 }
 
@@ -403,13 +408,14 @@ function ExplorerContainerInfoLocalSection(params: {
   const { containerId, containerInfo } = params;
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.containerInfoLocalDetailsHeading}</h3>
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.containerInfoLocalDetailsHeading}
+    >
       <ExplorerContainerInfoLocalDetails
         containerId={containerId}
         containerInfo={containerInfo}
       />
-    </section>
+    </MiniAppInfoSection>
   );
 }
 
@@ -436,8 +442,9 @@ function ExplorerContainerInfoGroupShareSection(params: {
   );
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.containerInfoShareToGroupHeading}</h3>
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.containerInfoShareToGroupHeading}
+    >
       <MiniAppField>
         <span>{EXPLORER_LABELS.containerInfoGroupField}</span>
         <MiniAppSelect
@@ -486,7 +493,7 @@ function ExplorerContainerInfoGroupShareSection(params: {
           </option>
         </MiniAppSelect>
       </MiniAppField>
-    </section>
+    </MiniAppInfoSection>
   );
 }
 
@@ -497,8 +504,9 @@ function ExplorerContainerInfoPeerShareSection(params: {
   const { isSubmitting, onShareWithPeer } = params;
 
   return (
-    <section className="explorer-info-section">
-      <h3>{EXPLORER_LABELS.containerInfoShareToPeerHeading}</h3>
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.containerInfoShareToPeerHeading}
+    >
       <MiniAppButton
         className="explorer-info-inline-action"
         disabled={isSubmitting}
@@ -506,7 +514,7 @@ function ExplorerContainerInfoPeerShareSection(params: {
       >
         {EXPLORER_LABELS.containerInfoShareToPeerAction}
       </MiniAppButton>
-    </section>
+    </MiniAppInfoSection>
   );
 }
 
@@ -527,22 +535,24 @@ function ExplorerContainerInfoRemoteSections(params: {
 
   return (
     <>
-      <section className="explorer-info-section">
-        <h3>{EXPLORER_LABELS.containerInfoPrincipalGrantsHeading}</h3>
+      <MiniAppInfoSection
+        heading={EXPLORER_LABELS.containerInfoPrincipalGrantsHeading}
+      >
         <ExplorerContainerInfoGrantList
           containerNamesById={params.containerNamesById}
           containerInfo={remoteInfo}
           onOpenGrantGroup={params.onOpenGrantGroup}
         />
-      </section>
+      </MiniAppInfoSection>
       <ExplorerContainerInfoSecuritySection
         containerNamesById={params.containerNamesById}
         remoteInfo={remoteInfo}
       />
-      <section className="explorer-info-section">
-        <h3>{EXPLORER_LABELS.containerInfoSyncCursorsHeading}</h3>
+      <MiniAppInfoSection
+        heading={EXPLORER_LABELS.containerInfoSyncCursorsHeading}
+      >
         <ExplorerContainerInfoSyncCursorList containerInfo={remoteInfo} />
-      </section>
+      </MiniAppInfoSection>
       <ExplorerContainerInfoGroupShareSection {...params} />
       {peerUserId ? (
         <ExplorerContainerInfoPeerShareSection {...params} />
@@ -619,17 +629,17 @@ export function ExplorerContainerInfoHeader(params: {
   const { containerId, containerName, isSubmitting, onBackToContainer } =
     params;
   return (
-    <div className="explorer-detail-header">
-      <div className="explorer-detail-copy">
+    <MiniAppHeader>
+      <MiniAppHeaderCopy>
         <strong>{EXPLORER_LABELS.containerInfoTitle}</strong>
         <span>{containerName ?? compactPrincipalId(containerId)}</span>
-      </div>
+      </MiniAppHeaderCopy>
       <MiniAppActions>
         <MiniAppButton disabled={isSubmitting} onClick={onBackToContainer}>
           {EXPLORER_LABELS.backToContainerAction}
         </MiniAppButton>
       </MiniAppActions>
-    </div>
+    </MiniAppHeader>
   );
 }
 

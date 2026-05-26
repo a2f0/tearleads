@@ -22,6 +22,8 @@ import { classNames } from "../../../components/shared/classNames";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppHeader,
+  MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
@@ -525,8 +527,8 @@ function ExplorerContainerDetailHeader(params: {
   const { online, openInlineDocument, selectedNode } = params;
 
   return (
-    <div className="explorer-detail-header">
-      <div className="explorer-detail-copy">
+    <MiniAppHeader>
+      <MiniAppHeaderCopy>
         <div className="explorer-detail-title-row">
           <strong>{selectedNode.name}</strong>
           <ExplorerSyncStateBadge
@@ -536,7 +538,7 @@ function ExplorerContainerDetailHeader(params: {
           />
         </div>
         <span>{EXPLORER_LABELS.folderType}</span>
-      </div>
+      </MiniAppHeaderCopy>
       <MiniAppActions>
         {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
           <MiniAppButton
@@ -549,7 +551,7 @@ function ExplorerContainerDetailHeader(params: {
           </MiniAppButton>
         ))}
       </MiniAppActions>
-    </div>
+    </MiniAppHeader>
   );
 }
 

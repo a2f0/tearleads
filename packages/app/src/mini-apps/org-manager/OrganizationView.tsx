@@ -3,6 +3,10 @@ import type {
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
 } from "@tearleads/client-sdk";
+import {
+  MiniAppHeader,
+  MiniAppHeaderCopy,
+} from "../../components/shared/MiniAppLayout";
 import { compactFingerprint } from "./display";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { PolicyHistorySection } from "./PolicyHistory";
@@ -20,14 +24,14 @@ export function OrganizationView({
 }) {
   return (
     <div>
-      <div className="org-manager-detail-header">
-        <div>
+      <MiniAppHeader className="org-manager-detail-header">
+        <MiniAppHeaderCopy>
           <strong>{ORG_MANAGER_LABELS.organization}</strong>
           <span title={organizationId}>
             {compactFingerprint(organizationId)}
           </span>
-        </div>
-      </div>
+        </MiniAppHeaderCopy>
+      </MiniAppHeader>
       <PolicyHistorySection
         directory={directory}
         groups={groups}

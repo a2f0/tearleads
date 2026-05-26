@@ -1,9 +1,9 @@
 .notes-sidebar-empty {
-  padding: calc(var(--padding) / 2);
+  padding: var(--mini-app-space-sm);
 }
 
 .notes-toolbar {
-  padding: 0.75rem var(--padding) 0.5rem;
+  padding: var(--mini-app-space-sm) var(--mini-app-space-md);
 }
 
 .notes-file-input {
@@ -11,8 +11,8 @@
 }
 
 .notes-dropzone {
-  margin: 0 var(--padding);
-  padding: 0.85rem 1rem;
+  margin: 0 var(--mini-app-space-md);
+  padding: var(--mini-app-space-md);
   border: 1px dashed currentColor;
   background: transparent;
 }
@@ -23,12 +23,12 @@
 }
 
 .notes-dropzone--disabled {
-  opacity: 0.6;
+  opacity: var(--mini-app-subtle-opacity);
 }
 
 .notes-dropzone-empty {
   font-size: var(--font-size-sm);
-  opacity: 0.75;
+  opacity: var(--mini-app-muted-opacity);
 }
 
 .notes-attachments {
@@ -37,7 +37,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--mini-app-space-sm);
 }
 
 .notes-attachment {
@@ -47,13 +47,13 @@
 .notes-attachment-main {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: var(--mini-app-space-sm);
 }
 
 .notes-attachment-meta {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--mini-app-space-md);
 }
 
 .notes-attachment-status {
@@ -61,9 +61,9 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid currentColor;
+  gap: var(--mini-app-space-sm);
+  padding: var(--mini-app-space-sm) var(--mini-app-panel-padding);
+  border: var(--mini-app-border);
   font-size: var(--font-size-sm);
 }
 
@@ -80,7 +80,7 @@
 }
 
 .notes-attachment-size {
-  opacity: 0.65;
+  opacity: var(--mini-app-muted-opacity);
   white-space: nowrap;
 }
 
@@ -89,13 +89,13 @@
   max-width: min(28rem, 100%);
   max-height: 18rem;
   object-fit: contain;
-  border: 1px solid currentColor;
+  border: var(--mini-app-border);
   background: transparent;
 }
 
 .notes-editor {
   flex: 1;
-  padding: var(--padding);
+  padding: var(--mini-app-space-md);
   border: none;
   outline: none;
   resize: none;

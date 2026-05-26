@@ -6,19 +6,19 @@
 }
 
 .org-manager-error {
-  margin-bottom: calc(var(--padding) / 2);
-  padding: calc(var(--padding) / 2);
-  border: 1px solid currentColor;
+  margin-bottom: var(--mini-app-space-sm);
+  padding: var(--mini-app-space-sm);
+  border: var(--mini-app-border);
 }
 
 .org-manager-hint {
-  padding: calc(var(--padding) / 2);
+  padding: var(--mini-app-space-sm);
 }
 
 .org-manager-groups {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
-  gap: var(--padding);
+  gap: var(--mini-app-space-md);
   min-height: 0;
 }
 
@@ -27,7 +27,7 @@
 }
 
 .org-manager-form-toolbar {
-  margin-bottom: calc(var(--padding) / 2);
+  margin-bottom: var(--mini-app-space-sm);
 }
 
 .org-manager-group-list,
@@ -35,7 +35,7 @@
 .org-manager-roster-metadata,
 .org-manager-policy-history {
   display: grid;
-  gap: 1px;
+  gap: var(--mini-app-list-gap);
 }
 
 .org-manager-group-button {
@@ -56,36 +56,18 @@
 }
 
 .org-manager-panel--detail {
-  border-left: 1px solid currentColor;
-  padding-left: var(--padding);
+  border-left: var(--mini-app-border);
+  padding-left: var(--mini-app-space-md);
 }
 
 .org-manager-detail-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--padding);
-  margin-bottom: calc(var(--padding) / 2);
+  margin-bottom: var(--mini-app-space-sm);
 }
 
-.org-manager-detail-header div {
-  display: grid;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.org-manager-detail-header strong,
-.org-manager-detail-header span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.org-manager-detail-header span,
+.org-manager-detail-header > span,
 .org-manager-member-row .mini-app-row-text {
   font-size: var(--font-size-sm);
-  opacity: 0.75;
+  opacity: var(--mini-app-muted-opacity);
 }
 
 .org-manager-usage-row {
@@ -131,7 +113,7 @@
 }
 
 .org-manager-member-row .mini-app-button {
-  padding: 0 calc(var(--padding) / 1.5);
+  padding: 0 var(--mini-app-panel-padding);
 }
 
 .org-manager-roster-profile-field {
@@ -140,7 +122,7 @@
 
 .org-manager-grant-revoke-button {
   width: 100%;
-  padding: 0 calc(var(--padding) / 2);
+  padding: 0 var(--mini-app-space-sm);
 }
 
 .org-manager-policy-history-row {
@@ -152,13 +134,13 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: calc(var(--padding) / 2);
+  gap: var(--mini-app-space-sm);
   min-width: 0;
 }
 
 .org-manager-policy-change-list {
   display: grid;
-  gap: 1px;
+  gap: var(--mini-app-list-gap);
   min-width: 0;
 }
 
@@ -166,7 +148,7 @@
   display: grid;
   grid-template-columns: minmax(5.75rem, max-content) minmax(0, 1fr) max-content;
   align-items: baseline;
-  gap: calc(var(--padding) / 2);
+  gap: var(--mini-app-space-sm);
   min-width: 0;
   padding: 0.2rem 0;
 }
@@ -189,14 +171,14 @@
 .org-manager-policy-change-principal {
   display: flex;
   align-items: baseline;
-  gap: calc(var(--padding) / 3);
+  gap: var(--mini-app-info-table-cell-padding);
   min-width: 0;
 }
 
 .org-manager-policy-change-principal-type,
 .org-manager-policy-change-role,
 .org-manager-policy-history-epoch {
-  opacity: 0.75;
+  opacity: var(--mini-app-muted-opacity);
 }
 
 .org-manager-policy-change-principal-name {
@@ -210,9 +192,9 @@
 
   .org-manager-panel--detail {
     border-left: 0;
-    border-top: 1px solid currentColor;
+    border-top: var(--mini-app-border);
     padding-left: 0;
-    padding-top: var(--padding);
+    padding-top: var(--mini-app-space-md);
   }
 
   .org-manager-directory-joined-column {
@@ -225,7 +207,7 @@
 
   .org-manager-policy-change {
     grid-template-columns: 1fr;
-    gap: 0.1rem;
+    gap: var(--mini-app-space-2xs);
   }
 
   .org-manager-policy-change-principal {

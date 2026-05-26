@@ -397,7 +397,7 @@ function IdentitySection({
 }) {
   return (
     <MiniAppSection>
-      <MiniAppSectionHeading className="identity-manager-section-heading">
+      <MiniAppSectionHeading>
         <h2>Identity</h2>
         <MiniAppStatus as="span">{identityState}</MiniAppStatus>
       </MiniAppSectionHeading>
@@ -512,7 +512,7 @@ function SessionsSection({
 }) {
   return (
     <MiniAppSection className="identity-manager-sessions">
-      <MiniAppSectionHeading className="identity-manager-section-heading">
+      <MiniAppSectionHeading>
         <h2>Active Sessions</h2>
         {canManageSessions && (
           <MiniAppButton
