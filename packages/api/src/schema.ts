@@ -171,6 +171,9 @@ export const organizationRosterEntries = pgTable(
  *   containers must stay within the same organization.
  * - `parentId`: Parent container id, or `null` for the organization's root
  *   container.
+ * - `systemSlot`: Optional opaque app-owned system slot. System containers
+ *   are rooted under the organization root and cannot be removed through the
+ *   public container delete API.
  * - `depth`: Materialized distance from the root container. Roots are `0`.
  * - `createdAt`: Server-side insertion timestamp.
  * - `updatedAt`: Server-side sync timestamp bumped when the container,
@@ -179,6 +182,8 @@ export const organizationRosterEntries = pgTable(
  * Indexes:
  * - `organizationId where parentId is null` is unique so an organization has
  *   one root container.
+ * - `organizationId, systemSlot where systemSlot is not null` keeps each
+ *   system slot unique per organization.
  * - `parentId` supports direct child lookups and move validation.
  * - `(parentId, updatedAt, id)` supports parent-container sync lanes.
  * - `(organizationId, depth, updatedAt, id)` keeps depth indexed for tree
@@ -190,6 +195,7 @@ export const containers = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     organizationId: uuid("organization_id").notNull(),
     parentId: uuid("parent_id"),
+    systemSlot: text("system_slot"),
     depth: integer("depth").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -198,6 +204,9 @@ export const containers = pgTable(
     uniqueIndex("containers_org_root_idx")
       .on(table.organizationId)
       .where(sql`${table.parentId} is null`),
+    uniqueIndex("containers_org_system_slot_idx")
+      .on(table.organizationId, table.systemSlot)
+      .where(sql`${table.systemSlot} is not null`),
     index("containers_parent_id_idx").on(table.parentId),
     index("containers_parent_updated_idx").on(
       table.parentId,

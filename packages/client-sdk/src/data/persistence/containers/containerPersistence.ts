@@ -1,3 +1,7 @@
+import {
+  type ContainerSystemSlot,
+  isContainerSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import {
   containerProjection,
@@ -16,6 +20,7 @@ export interface ContainerRecord {
   organizationId: string;
   parentId: string | null;
   metadataDocumentId: string | null;
+  systemSlot?: ContainerSystemSlot | null;
   name: string;
   icon: string | null;
   localCreatedAt?: string | null;
@@ -43,6 +48,7 @@ interface SelectedContainerRecord {
   organizationId: string;
   parentId: string | null;
   metadataDocumentId: string | null;
+  systemSlot: string | null;
   name: string;
   icon: string | null;
   localCreatedAt: string;
@@ -87,11 +93,16 @@ function applyContainerTimestampDefaults(
 function mapSelectedContainerRecord(
   row: SelectedContainerRecord,
 ): ContainerRecord {
+  const systemSlot = isContainerSystemSlot(row.systemSlot)
+    ? row.systemSlot
+    : null;
+
   return toDisplayContainerRecord({
     id: String(row.id ?? ""),
     organizationId: row.organizationId,
     parentId: row.parentId,
     metadataDocumentId: row.metadataDocumentId,
+    systemSlot,
     name: row.name,
     icon: row.icon && row.icon.length > 0 ? row.icon : null,
     localCreatedAt: row.localCreatedAt,
@@ -113,6 +124,7 @@ export async function saveContainerRows(input: {
     organizationId: nextRecord.organizationId,
     parentId: nextRecord.parentId,
     metadataDocumentId: nextRecord.metadataDocumentId,
+    systemSlot: nextRecord.systemSlot ?? null,
     localCreatedAt: nextRecord.localCreatedAt,
     localUpdatedAt,
     serverCreatedAt: nextRecord.serverCreatedAt,
@@ -127,6 +139,7 @@ export async function saveContainerRows(input: {
         organizationId: containerRow.organizationId,
         parentId: containerRow.parentId,
         metadataDocumentId: containerRow.metadataDocumentId,
+        systemSlot: containerRow.systemSlot,
         localUpdatedAt: containerRow.localUpdatedAt,
         serverCreatedAt:
           record.serverCreatedAt === undefined
@@ -172,6 +185,7 @@ export async function loadContainers(
       organizationId: containers.organizationId,
       parentId: containers.parentId,
       metadataDocumentId: containers.metadataDocumentId,
+      systemSlot: containers.systemSlot,
       name,
       icon: containerProjection.icon,
       localCreatedAt: containers.localCreatedAt,

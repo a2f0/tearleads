@@ -1,3 +1,4 @@
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createChildContainerState } from "../../workflows/container-contents/container-state/createChild";
 import { deleteContainerState } from "../../workflows/container-contents/container-state/delete";
 import { moveRemoteContainer } from "../../workflows/container-contents/container-state/remote";
@@ -103,6 +104,93 @@ export async function createChildContainer(
   return toContainerNode(created.containerState);
 }
 
+function findSystemContainerState(
+  state: ContainerContentsStoreState,
+  systemSlot: ContainerSystemSlot,
+): ContainerState | null {
+  for (const containerState of state.containersById.values()) {
+    if ((containerState.container.systemSlot ?? null) === systemSlot) {
+      return containerState;
+    }
+  }
+
+  return null;
+}
+
+function findRootContainerState(
+  state: ContainerContentsStoreState,
+): ContainerState | null {
+  for (const containerState of state.containersById.values()) {
+    if (containerState.container.parentId === null) {
+      return containerState;
+    }
+  }
+
+  return null;
+}
+
+export async function ensureSystemContainer(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  systemSlot: ContainerSystemSlot,
+  name: string,
+) {
+  const trimmedName = name.trim();
+  if (
+    state.runtime.infra.dbStatus !== "ready" ||
+    !state.snapshot.ready ||
+    !trimmedName
+  ) {
+    return null;
+  }
+
+  const existing = findSystemContainerState(state, systemSlot);
+  if (existing) {
+    return toContainerNode(existing);
+  }
+
+  if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
+    await syncAgent.requestRemoteHydration();
+    const hydrated = findSystemContainerState(state, systemSlot);
+    if (hydrated) {
+      return toContainerNode(hydrated);
+    }
+  }
+
+  const rootState = findRootContainerState(state);
+  if (!rootState) {
+    return null;
+  }
+
+  const created = await createChildContainerState({
+    systemSlot,
+    createRemote:
+      state.runtime.auth.isAuthenticated &&
+      Boolean(state.runtime.crypto.encapsulationKeyPair),
+    name: trimmedName,
+    parentState: rootState,
+    persistence: state.persistence,
+    resolveProjectionUserKey: state.resolveProjectionUserKey,
+    runtime: state.runtime,
+  });
+  if (!created) {
+    return null;
+  }
+
+  state.containersById.set(
+    created.containerState.container.id,
+    created.containerState,
+  );
+  updateContainerContentsSnapshot(state);
+  if (created.shouldRequestSync) {
+    syncAgent.scheduleSync();
+  }
+  state.runtime.util.log(
+    `${getContainerContentsStoreLogLabel(state)}: ensured system container "${systemSlot}"`,
+  );
+  return toContainerNode(created.containerState);
+}
+
 export async function deleteContainer(
   state: ContainerContentsStoreState,
   containerId: string,
@@ -115,6 +203,7 @@ export async function deleteContainer(
   if (
     !existingState ||
     existingState.container.parentId === null ||
+    (existingState.container.systemSlot ?? null) !== null ||
     Array.from(state.containersById.values()).some(
       (containerState) => containerState.container.parentId === containerId,
     )
@@ -313,6 +402,7 @@ export async function moveContainer(
     !existingState ||
     !targetParentState ||
     existingState.container.parentId === null ||
+    (existingState.container.systemSlot ?? null) !== null ||
     isContainerInSubtree(state.containersById, parentId, containerId) ||
     typeof existingState.record.accessStateHash !== "string" ||
     existingState.record.accessStateHash.length === 0

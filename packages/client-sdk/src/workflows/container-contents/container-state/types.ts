@@ -1,3 +1,4 @@
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   EncapsulationKeyResponse,
   ReferencedPrincipalStateResponse,
@@ -56,6 +57,7 @@ export interface ContainerWorkflowRuntime
 
 export interface CreatedRemoteContainerState {
   accessManifestHash: string;
+  systemSlot?: ContainerSystemSlot | null;
   containerId: string;
   createdAt: string;
   metadataDocumentId: string;

@@ -87,6 +87,7 @@ function createContainerContentsPersistence(input: {
     async recordCreateIntentError() {},
     async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
+    async reconcileLocalSystemContainer() {},
     async saveContainer(receivedExecSql, container, record) {
       input.savedContainers?.push({
         container,

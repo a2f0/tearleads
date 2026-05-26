@@ -11,7 +11,7 @@ import {
   ensureSqlTables,
   getSQLitePersistenceRuntime,
 } from "@tearleads/client-sdk/sqlite";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   type ContactEntry,
   type ContactEntryPatch,
@@ -173,6 +173,11 @@ function removeContactEntry(
   scheduleContactsSnapshotFlush(state);
 }
 
+function hasContactsContainerRuntime(state: ContactsStoreState): boolean {
+  const containerId = state.runtime.documents.state.containerId;
+  return typeof containerId === "string" && containerId.length > 0;
+}
+
 async function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(
     execSql,
@@ -182,6 +187,7 @@ async function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
 
 async function loadProjectedContacts(
   execSql: ExecSql,
+  containerId: string,
 ): Promise<ContactEntry[]> {
   await ensureContactProjectionSchema(execSql);
   const { db } = getSQLitePersistenceRuntime(execSql);
@@ -195,6 +201,7 @@ async function loadProjectedContacts(
       userId: contactProjection.userId,
     })
     .from(contactProjection)
+    .where(eq(contactProjection.containerId, containerId))
     .orderBy(
       sql`${contactProjection.lastName} COLLATE NOCASE`,
       sql`${contactProjection.firstName} COLLATE NOCASE`,
@@ -240,7 +247,7 @@ function ensureContactDocumentStore(
   }
 
   const store = state.runtime.primeDocumentStore({
-    containerId: null,
+    containerId: state.runtime.documents.state.containerId,
     documentId: null,
     initialDocumentKind: "contact",
     initialText: "",
@@ -281,9 +288,14 @@ async function initializeContactsStore(
   if (state.runtime.documents.infra.dbStatus !== "ready") {
     return;
   }
+  const containerId = state.runtime.documents.state.containerId;
+  if (!containerId) {
+    return;
+  }
 
   const entries = await loadProjectedContacts(
     state.runtime.documents.infra.execSql,
+    containerId,
   );
   state.entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   setContactsSnapshot(state, {
@@ -301,7 +313,8 @@ function ensureContactsInitialized(state: ContactsStoreState): void {
   if (
     state.initialized ||
     state.initializePromise ||
-    state.runtime.documents.infra.dbStatus !== "ready"
+    state.runtime.documents.infra.dbStatus !== "ready" ||
+    !hasContactsContainerRuntime(state)
   ) {
     return;
   }
@@ -362,7 +375,10 @@ async function createContactFromRuntime(
   patch: ContactEntryPatch,
 ): Promise<string | null> {
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.infra.dbStatus !== "ready") {
+  if (
+    state.runtime.documents.infra.dbStatus !== "ready" ||
+    !hasContactsContainerRuntime(state)
+  ) {
     return null;
   }
 
@@ -383,7 +399,10 @@ async function updateContactFromRuntime(
   patch: ContactEntryPatch,
 ): Promise<void> {
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.infra.dbStatus !== "ready") {
+  if (
+    state.runtime.documents.infra.dbStatus !== "ready" ||
+    !hasContactsContainerRuntime(state)
+  ) {
     return;
   }
 
@@ -406,7 +425,10 @@ async function importKeyFromRuntime(
   }
 
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.infra.dbStatus !== "ready") {
+  if (
+    state.runtime.documents.infra.dbStatus !== "ready" ||
+    !hasContactsContainerRuntime(state)
+  ) {
     return null;
   }
 
@@ -439,7 +461,10 @@ async function removeContactFromRuntime(
   contactId: string,
 ): Promise<void> {
   await waitForContactsInitialization(state);
-  if (state.runtime.documents.infra.dbStatus !== "ready") {
+  if (
+    state.runtime.documents.infra.dbStatus !== "ready" ||
+    !hasContactsContainerRuntime(state)
+  ) {
     return;
   }
 
@@ -489,12 +514,20 @@ export function createContactsStore(
     updateContact: (contactId, patch) =>
       updateContactFromRuntime(state, contactId, patch),
     updateRuntime(runtime) {
+      const previousContainerId = state.runtime.documents.state.containerId;
+      const nextContainerId = runtime.documents.state.containerId;
       state.runtime = runtime;
+      if (previousContainerId !== nextContainerId) {
+        resetContactsStore(state);
+      }
       for (const trackedStore of state.contactDocumentStoresById.values()) {
         trackedStore.store.updateRuntime(runtime.documents);
       }
 
-      if (runtime.documents.infra.dbStatus !== "ready") {
+      if (
+        runtime.documents.infra.dbStatus !== "ready" ||
+        !hasContactsContainerRuntime(state)
+      ) {
         if (state.snapshot.ready || state.initialized) {
           resetContactsStore(state);
         }

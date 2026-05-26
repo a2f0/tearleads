@@ -38,6 +38,7 @@ export type ContainerMetadataDocumentState = Awaited<
 export type RemoteContainer = Pick<
   ContainerSummary,
   | "createdAt"
+  | "systemSlot"
   | "id"
   | "metadataAccessEpoch"
   | "metadataAccessStateHash"
@@ -464,6 +465,142 @@ async function reconcileLocalOnlyRootContainers(input: {
   return localRootStates.length;
 }
 
+function isLocalOnlySystemContainerState(input: {
+  containerState: ContainerState;
+  remoteSystemState: ContainerState;
+}): boolean {
+  const localSystemSlot = input.containerState.container.systemSlot ?? null;
+  const remoteSystemSlot = input.remoteSystemState.container.systemSlot ?? null;
+
+  return (
+    remoteSystemSlot !== null &&
+    localSystemSlot === remoteSystemSlot &&
+    input.containerState.container.id !==
+      input.remoteSystemState.container.id &&
+    !hasRemoteContainerMetadataState(input.containerState)
+  );
+}
+
+function findLocalOnlySystemContainerStates(input: {
+  remoteSystemState: ContainerState;
+  state: RemoteContainerHydrationState;
+}): ContainerState[] {
+  const { remoteSystemState, state } = input;
+  if ((remoteSystemState.container.systemSlot ?? null) === null) {
+    return [];
+  }
+
+  return Array.from(state.containersById.values()).filter((containerState) =>
+    isLocalOnlySystemContainerState({
+      containerState,
+      remoteSystemState,
+    }),
+  );
+}
+
+function applyLocalSystemContainerChildReparents(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  localSystemState: ContainerState;
+  remoteSystemState: ContainerState;
+  state: RemoteContainerHydrationState;
+  updatedAt: string;
+}): void {
+  const { childIdsByParentId, localSystemState, remoteSystemState, state } =
+    input;
+  const localContainerId = localSystemState.container.id;
+  const childContainerIds = childIdsByParentId
+    ? Array.from(childIdsByParentId.get(localContainerId) ?? [])
+    : Array.from(state.containersById.values()).flatMap((containerState) =>
+        containerState.container.parentId === localContainerId
+          ? [containerState.container.id]
+          : [],
+      );
+
+  for (const childContainerId of childContainerIds) {
+    const childState = state.containersById.get(childContainerId);
+    if (!childState) {
+      continue;
+    }
+
+    const previousParentId = childState.container.parentId;
+    childState.container = {
+      ...childState.container,
+      organizationId: remoteSystemState.container.organizationId,
+      parentId: remoteSystemState.container.id,
+      localUpdatedAt: input.updatedAt,
+      updatedAt: childState.container.serverUpdatedAt ?? input.updatedAt,
+    };
+    moveIndexedContainerChild(
+      childIdsByParentId,
+      childState.container.id,
+      previousParentId,
+      remoteSystemState.container.id,
+    );
+  }
+}
+
+async function reconcileLocalOnlySystemContainer(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  localSystemState: ContainerState;
+  remoteSystemState: ContainerState;
+  state: RemoteContainerHydrationState;
+}): Promise<void> {
+  const { childIdsByParentId, localSystemState, remoteSystemState, state } =
+    input;
+  const updatedAt = new Date().toISOString();
+  const execSql = state.runtime.infra.execSql;
+
+  await state.persistence.reconcileLocalSystemContainer(execSql, {
+    localContainerId: localSystemState.container.id,
+    remoteContainerId: remoteSystemState.container.id,
+    remoteOrganizationId: remoteSystemState.container.organizationId,
+    updatedAt,
+  });
+  applyLocalSystemContainerChildReparents({
+    childIdsByParentId,
+    localSystemState,
+    remoteSystemState,
+    state,
+    updatedAt,
+  });
+
+  if (childIdsByParentId) {
+    removeIndexedContainerChild(
+      childIdsByParentId,
+      localSystemState.container.id,
+      localSystemState.container.parentId,
+    );
+    childIdsByParentId.delete(localSystemState.container.id);
+  }
+  state.containersById.delete(localSystemState.container.id);
+  state.runtime.util.log(
+    `Container contents: reconciled local system container ${localSystemState.container.id} into remote system container ${remoteSystemState.container.id}`,
+  );
+}
+
+async function reconcileLocalOnlySystemContainers(input: {
+  childIdsByParentId?: ContainerChildIndex | undefined;
+  remoteSystemState: ContainerState;
+  state: RemoteContainerHydrationState;
+}): Promise<number> {
+  const { childIdsByParentId, remoteSystemState, state } = input;
+  const localSystemStates = findLocalOnlySystemContainerStates({
+    remoteSystemState,
+    state,
+  });
+
+  for (const localSystemState of localSystemStates) {
+    await reconcileLocalOnlySystemContainer({
+      childIdsByParentId,
+      localSystemState,
+      remoteSystemState,
+      state,
+    });
+  }
+
+  return localSystemStates.length;
+}
+
 async function updateExistingRemoteContainerState(input: {
   childIdsByParentId?: ContainerChildIndex | undefined;
   containerIdsWithPendingMetadataUpdates: ReadonlySet<string>;
@@ -493,6 +630,7 @@ async function updateExistingRemoteContainerState(input: {
       accessStateHash: remoteContainer.metadataAccessStateHash,
       documentId: remoteContainer.metadataDocumentId,
       metadataDocumentId: remoteContainer.metadataDocumentId,
+      systemSlot: remoteContainer.systemSlot ?? null,
       organizationId: remoteContainer.organizationId,
       parentId: remoteContainer.parentId,
     },
@@ -538,6 +676,7 @@ async function insertRemoteContainerState(input: {
         organizationId: remoteContainer.organizationId,
         parentId: remoteContainer.parentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,
+        systemSlot: remoteContainer.systemSlot ?? null,
         name: getDefaultContainerName(remoteContainer.parentId),
         icon: null,
       },
@@ -589,8 +728,8 @@ async function upsertRemoteContainerState(input: {
   const existingState = input.state.containersById.get(
     input.remoteContainer.id,
   );
-  return existingState
-    ? updateExistingRemoteContainerState({
+  const remoteState = existingState
+    ? await updateExistingRemoteContainerState({
         childIdsByParentId: input.childIdsByParentId,
         containerIdsWithPendingMetadataUpdates:
           input.containerIdsWithPendingMetadataUpdates,
@@ -599,11 +738,17 @@ async function upsertRemoteContainerState(input: {
         remoteContainer: input.remoteContainer,
         state: input.state,
       })
-    : insertRemoteContainerState({
+    : await insertRemoteContainerState({
         childIdsByParentId: input.childIdsByParentId,
         remoteContainer: input.remoteContainer,
         state: input.state,
       });
+  await reconcileLocalOnlySystemContainers({
+    childIdsByParentId: input.childIdsByParentId,
+    remoteSystemState: remoteState,
+    state: input.state,
+  });
+  return remoteState;
 }
 
 function isCurrentQueuedRemoteContainer(

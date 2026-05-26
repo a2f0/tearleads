@@ -97,6 +97,7 @@ export interface ContainerMetadataPatch {
   icon: string | null;
   lastCommitLsn: string | null;
   metadataDocumentId: string | null;
+  systemSlot: ContainerRecord["systemSlot"];
   loroSnapshot: string;
   name: string;
   organizationId: string;
@@ -124,6 +125,22 @@ type NullableContainerMetadataDocumentField =
 type SaveContainerOptions = Parameters<
   ContainerContentsPersistence["saveContainer"]
 >[3];
+
+function resolveContainerSystemSlot(
+  patch: Partial<ContainerMetadataPatch>,
+  container: ContainerRecord,
+): NonNullable<ContainerRecord["systemSlot"]> | null {
+  return patch.systemSlot ?? container.systemSlot ?? null;
+}
+
+function resolveMetadataDocumentId(
+  patch: Partial<ContainerMetadataPatch>,
+  container: ContainerRecord,
+): ContainerRecord["metadataDocumentId"] {
+  return (
+    patch.metadataDocumentId ?? patch.documentId ?? container.metadataDocumentId
+  );
+}
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : "";
@@ -215,10 +232,11 @@ async function persistContainerMetadataState(input: {
     organizationId:
       patch.organizationId ?? metadataState.container.organizationId,
     parentId: patch.parentId ?? metadataState.container.parentId,
-    metadataDocumentId:
-      patch.metadataDocumentId ??
-      patch.documentId ??
-      metadataState.container.metadataDocumentId,
+    metadataDocumentId: resolveMetadataDocumentId(
+      patch,
+      metadataState.container,
+    ),
+    systemSlot: resolveContainerSystemSlot(patch, metadataState.container),
     name: patch.name ?? metadata.name,
     icon: patch.icon ?? metadata.icon,
   };

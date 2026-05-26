@@ -17,6 +17,7 @@ import {
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 type SqlRuntimeBase = Awaited<ReturnType<typeof createSqlRuntimeBase>>;
+const CONTACTS_CONTAINER_ID = "builtin-contacts-container";
 
 async function createContactsRuntime(): Promise<
   ContactsRuntime & { close: () => void }
@@ -38,7 +39,7 @@ async function createContactsRuntime(): Promise<
     },
     state: {
       ...runtimeInputBase.state,
-      containerId: null,
+      containerId: CONTACTS_CONTAINER_ID,
     },
   });
 
@@ -117,6 +118,8 @@ test("contacts store persists contacts as documents with app-owned projections",
     const { db } = getSQLitePersistenceRuntime(runtime.documents.infra.execSql);
     const contactProjections = await db
       .select({
+        containerId: contactProjection.containerId,
+        documentId: contactProjection.documentId,
         encapsulationPublicKey: contactProjection.encapsulationPublicKey,
         firstName: contactProjection.firstName,
         id: contactProjection.localId,
@@ -127,6 +130,8 @@ test("contacts store persists contacts as documents with app-owned projections",
       .orderBy(contactProjection.localId);
     expect(contactProjections).toHaveLength(2);
     expect(contactProjections).toContainEqual({
+      containerId: CONTACTS_CONTAINER_ID,
+      documentId: null,
       encapsulationPublicKey: null,
       firstName: "Ada",
       id: createdContactId,
@@ -134,6 +139,8 @@ test("contacts store persists contacts as documents with app-owned projections",
       userId: "ada-user",
     });
     expect(contactProjections).toContainEqual({
+      containerId: CONTACTS_CONTAINER_ID,
+      documentId: null,
       encapsulationPublicKey: peerKey.encapsulationPublicKey,
       firstName: "",
       id: peerKey.userId,
@@ -148,17 +155,20 @@ test("contacts store persists contacts as documents with app-owned projections",
       documentProjections
         .map((row) => ({
           documentKind: row.documentKind,
+          containerId: row.containerId,
           id: row.id,
           title: row.title,
         }))
         .sort((left, right) => left.id.localeCompare(right.id)),
     ).toEqual([
       {
+        containerId: CONTACTS_CONTAINER_ID,
         documentKind: "contact",
         id: createdContactId,
         title: "Ada Lovelace",
       },
       {
+        containerId: CONTACTS_CONTAINER_ID,
         documentKind: "contact",
         id: peerKey.userId,
         title: peerKey.userId,

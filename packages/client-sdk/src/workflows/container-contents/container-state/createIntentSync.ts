@@ -62,6 +62,8 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
       accessStateHash: created.accessManifestHash,
       lastCommitLsn: null,
       metadataDocumentId: created.metadataDocumentId,
+      systemSlot:
+        created.systemSlot ?? containerState.container.systemSlot ?? null,
       organizationId: created.organizationId,
       parentId: created.parentId,
       ...created.persistedMetadataState,
@@ -73,6 +75,8 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   containerState.container = {
     ...containerState.container,
     metadataDocumentId: created.metadataDocumentId,
+    systemSlot:
+      created.systemSlot ?? containerState.container.systemSlot ?? null,
     organizationId: created.organizationId,
     parentId: created.parentId,
     serverCreatedAt: created.createdAt,
@@ -121,6 +125,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
   }
 
   const created = await createRemoteContainer({
+    systemSlot: containerState.container.systemSlot,
     containerId: containerState.container.id,
     parentContainerId: parentState.container.id,
     resolveProjectionUserKey: state.resolveProjectionUserKey,

@@ -27,6 +27,8 @@ import {
 } from "../../schema";
 
 const SIGNED_AT = "2026-05-05T00:00:00.000Z";
+const TEST_CONTACTS_SYSTEM_SLOT =
+  "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 async function signContainerEvent(input: {
   body: ContainerCreateAccessEventBody;
@@ -237,6 +239,7 @@ test("GET /containers lists inherited children in the requested parent lane", as
   const childContainerId = crypto.randomUUID();
   const childMetadataDocumentId = crypto.randomUUID();
   await db.insert(containers).values({
+    systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
     depth: 1,
     id: childContainerId,
     organizationId: rootContainer.organizationId,
@@ -279,6 +282,7 @@ test("GET /containers lists inherited children in the requested parent lane", as
       items: [
         expect.objectContaining({
           depth: 1,
+          systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
           id: childContainerId,
           metadataDocumentId: childMetadataDocumentId,
           parentId: owner.rootContainerId,

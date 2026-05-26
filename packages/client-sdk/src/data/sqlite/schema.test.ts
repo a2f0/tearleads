@@ -254,6 +254,12 @@ test("client sqlite schema creates tables and indexes", async () => {
       pk: 0,
       type: "TEXT",
     });
+    expect(readRecordValue(containers, "system_slot")).toEqual({
+      defaultValue: null,
+      notNull: 0,
+      pk: 0,
+      type: "TEXT",
+    });
   } finally {
     close();
   }

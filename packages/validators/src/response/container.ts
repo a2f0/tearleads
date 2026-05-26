@@ -1,3 +1,5 @@
+import type { ContainerSystemSlot } from "../containerSystemSlot";
+import { isNullableContainerSystemSlot } from "../containerSystemSlot";
 import { isPlainObject } from "../isPlainObject";
 import {
   type AccessManifestBundleWireResponse,
@@ -29,6 +31,7 @@ export interface ContainerKekResponse {
 }
 
 export interface ContainerMutationResponse {
+  systemSlot?: ContainerSystemSlot | null;
   containerId: string;
   createdAt: string;
   organizationId: string;
@@ -56,6 +59,7 @@ export interface ContainerWriterProjectionResponse {
 }
 
 export interface ContainerSummary {
+  systemSlot?: ContainerSystemSlot | null;
   createdAt: string;
   depth: number;
   id: string;
@@ -90,9 +94,13 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
   const metadataAccessStateHash = isPlainObject(value)
     ? Reflect.get(value, "metadataAccessStateHash")
     : undefined;
+  const systemSlot = isPlainObject(value)
+    ? Reflect.get(value, "systemSlot")
+    : undefined;
 
   return (
     isPlainObject(value) &&
+    (systemSlot === undefined || isNullableContainerSystemSlot(systemSlot)) &&
     hasStringProperty(value, "createdAt") &&
     hasNumberProperty(value, "depth") &&
     Number.isInteger(value.depth) &&

@@ -100,6 +100,9 @@ interface DownstreamContentKeyRowCounts {
   readonly documentContentKeyTargets: number;
 }
 
+const TEST_CONTACTS_SYSTEM_SLOT =
+  "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
 interface SeededDownstreamContentKeyRows {
   readonly blobId: string;
   readonly documentId: string;
@@ -1463,6 +1466,7 @@ test("POST /containers/with-metadata-document creates container and metadata doc
   const response = await postJson({
     path: "/containers/with-metadata-document",
     request: {
+      systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
       container: containerRequest,
       metadataDocument: metadataDocumentRequest,
     },
@@ -1476,6 +1480,7 @@ test("POST /containers/with-metadata-document creates container and metadata doc
     throw new Error("expected composite container metadata response");
   }
   expect(body.container.containerId).toBe(containerId);
+  expect(body.container.systemSlot).toBe(TEST_CONTACTS_SYSTEM_SLOT);
   expect(body.metadataDocument.id).toBe(
     (containerRequest.body as { readonly metadataDocumentId: string })
       .metadataDocumentId,
@@ -1492,6 +1497,18 @@ test("POST /containers/with-metadata-document creates container and metadata doc
   expect(metadataBinding).toEqual({
     containerId,
     documentId: body.metadataDocument.id,
+  });
+  const [containerRow] = await db
+    .select({
+      systemSlot: containers.systemSlot,
+      parentId: containers.parentId,
+    })
+    .from(containers)
+    .where(eq(containers.id, containerId))
+    .limit(1);
+  expect(containerRow).toEqual({
+    systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
+    parentId: owner.rootContainerId,
   });
 
   const [documentLink] = await db
@@ -3305,7 +3322,7 @@ test("DELETE /containers/:containerId removes a leaf and emits deleted tombstone
   ]);
 });
 
-test("DELETE /containers/:containerId rejects roots, child-bearing containers, and non-admin users", async () => {
+test("DELETE /containers/:containerId rejects system roots, child-bearing containers, and non-admin users", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -3343,11 +3360,33 @@ test("DELETE /containers/:containerId rejects roots, child-bearing containers, a
     }),
   );
 
-  const rootDelete = await deleteContainerForUser({
+  const rootContainerDelete = await deleteContainerForUser({
     containerId: root.kekState.containerId,
     token: owner.token,
   });
-  expect(rootDelete.status).toBe(400);
+  expect(rootContainerDelete.status).toBe(400);
+  await expect(rootContainerDelete.json()).resolves.toEqual({
+    error: "Root container cannot be deleted",
+  });
+
+  const builtinContacts = await createChild({
+    parent: root.bundle,
+    parentContainerPath: [root.bundle],
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+  await db
+    .update(containers)
+    .set({ systemSlot: TEST_CONTACTS_SYSTEM_SLOT })
+    .where(eq(containers.id, builtinContacts.containerId));
+  const builtinContactsDelete = await deleteContainerForUser({
+    containerId: builtinContacts.containerId,
+    token: owner.token,
+  });
+  expect(builtinContactsDelete.status).toBe(400);
+  await expect(builtinContactsDelete.json()).resolves.toEqual({
+    error: "System container cannot be deleted",
+  });
 
   const parentDelete = await deleteContainerForUser({
     containerId: parent.containerId,
