@@ -35,18 +35,18 @@ function readContainerMetadataDocumentId(
   return metadataDocumentId;
 }
 
-async function applyContainerBuiltinKind(
+async function applyContainerSystemSlot(
   db: DatabaseTransaction,
   input: {
     readonly container: ContainerCreateWithMetadataDocumentResponse["container"];
-    readonly kind: NonNullable<
-      ContainerCreateWithMetadataDocumentRequest["builtinKind"]
+    readonly slot: NonNullable<
+      ContainerCreateWithMetadataDocumentRequest["systemSlot"]
     >;
   },
 ): Promise<ContainerCreateWithMetadataDocumentResponse["container"]> {
   if (input.container.parentId === null) {
     throw new ContainerMutationError(
-      "Built-in container parent must be the root container",
+      "System container parent must be the root container",
       400,
     );
   }
@@ -62,13 +62,13 @@ async function applyContainerBuiltinKind(
     .limit(1);
   if (!parent || parent.parentId !== null) {
     throw new ContainerMutationError(
-      "Built-in container parent must be the root container",
+      "System container parent must be the root container",
       400,
     );
   }
   if (parent.organizationId !== input.container.organizationId) {
     throw new ContainerMutationError(
-      "Built-in container organization mismatch",
+      "System container organization mismatch",
       409,
     );
   }
@@ -79,26 +79,26 @@ async function applyContainerBuiltinKind(
     .where(
       and(
         eq(containers.organizationId, input.container.organizationId),
-        eq(containers.builtinKind, input.kind),
+        eq(containers.systemSlot, input.slot),
       ),
     )
     .limit(1);
   if (existing && existing.id !== input.container.containerId) {
-    throw new ContainerMutationError("Built-in container already exists", 409);
+    throw new ContainerMutationError("System container already exists", 409);
   }
 
   const [updated] = await db
     .update(containers)
-    .set({ builtinKind: input.kind })
+    .set({ systemSlot: input.slot })
     .where(eq(containers.id, input.container.containerId))
-    .returning({ builtinKind: containers.builtinKind });
+    .returning({ systemSlot: containers.systemSlot });
   if (!updated) {
     throw new ContainerMutationError("Container not found", 404);
   }
 
   return {
     ...input.container,
-    builtinKind: input.kind,
+    systemSlot: input.slot,
   };
 }
 
@@ -129,11 +129,11 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
         );
       }
 
-      const builtinKind = input.request.builtinKind ?? null;
-      const nextContainer = builtinKind
-        ? await applyContainerBuiltinKind(tx, {
+      const systemSlot = input.request.systemSlot ?? null;
+      const nextContainer = systemSlot
+        ? await applyContainerSystemSlot(tx, {
             container,
-            kind: builtinKind,
+            slot: systemSlot,
           })
         : container;
 

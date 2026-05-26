@@ -1,5 +1,5 @@
-import type { ContainerBuiltinKind } from "../containerBuiltin";
-import { isNullableContainerBuiltinKind } from "../containerBuiltin";
+import type { ContainerSystemSlot } from "../containerSystemSlot";
+import { isNullableContainerSystemSlot } from "../containerSystemSlot";
 import { isPlainObject } from "../isPlainObject";
 import {
   type ContainerMutationRequest,
@@ -11,7 +11,7 @@ import {
 } from "./document";
 
 export interface ContainerCreateWithMetadataDocumentRequest {
-  builtinKind?: ContainerBuiltinKind | null;
+  systemSlot?: ContainerSystemSlot | null;
   container: ContainerMutationRequest;
   metadataDocument: DocumentCreateRequest;
 }
@@ -25,14 +25,13 @@ export function isContainerCreateWithMetadataDocumentRequest(
   const metadataDocument = isPlainObject(value)
     ? Reflect.get(value, "metadataDocument")
     : undefined;
-  const builtinKind = isPlainObject(value)
-    ? Reflect.get(value, "builtinKind")
+  const systemSlot = isPlainObject(value)
+    ? Reflect.get(value, "systemSlot")
     : undefined;
 
   return (
     isPlainObject(value) &&
-    (builtinKind === undefined ||
-      isNullableContainerBuiltinKind(builtinKind)) &&
+    (systemSlot === undefined || isNullableContainerSystemSlot(systemSlot)) &&
     isContainerMutationRequest(container) &&
     isDocumentCreateRequest(metadataDocument)
   );

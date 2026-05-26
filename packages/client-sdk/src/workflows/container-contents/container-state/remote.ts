@@ -1,5 +1,5 @@
 import { base64ToBytes } from "@tearleads/encoding";
-import type { ContainerBuiltinKind } from "@tearleads/validators/containerBuiltin";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
@@ -26,7 +26,7 @@ import type {
 } from "./types";
 
 async function createRemoteContainerWithMetadataDocument(input: {
-  builtinKind?: ContainerBuiltinKind | null | undefined;
+  systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -79,7 +79,7 @@ async function createRemoteContainerWithMetadataDocument(input: {
     trustedLocalProjection: true,
   });
   const response = await apiClient.createContainerWithMetadataDocument({
-    builtinKind: input.builtinKind ?? null,
+    systemSlot: input.systemSlot ?? null,
     container: containerPlan.plan.request,
     metadataDocument: metadataDocumentPlan.plan.request,
   });
@@ -101,7 +101,7 @@ async function createRemoteContainerWithMetadataDocument(input: {
 
   return {
     accessManifestHash: response.container.manifestHead.manifestHash,
-    builtinKind: response.container.builtinKind ?? input.builtinKind ?? null,
+    systemSlot: response.container.systemSlot ?? input.systemSlot ?? null,
     containerId: response.container.containerId,
     createdAt: response.container.createdAt,
     metadataDocumentId,
@@ -116,7 +116,7 @@ async function createRemoteContainerWithMetadataDocument(input: {
 }
 
 async function createRemoteContainerWithSeparateMetadataDocument(input: {
-  builtinKind?: ContainerBuiltinKind | null | undefined;
+  systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -162,7 +162,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
 
   return {
     accessManifestHash: createdContainer.response.manifestHead.manifestHash,
-    builtinKind: input.builtinKind ?? null,
+    systemSlot: input.systemSlot ?? null,
     containerId: createdContainer.containerId,
     createdAt: createdContainer.response.createdAt,
     metadataDocumentId: createdMetadataDocument.documentId,
@@ -174,7 +174,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
 }
 
 export async function createRemoteContainer(input: {
-  builtinKind?: ContainerBuiltinKind | null | undefined;
+  systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -183,7 +183,7 @@ export async function createRemoteContainer(input: {
   if (input.runtime.apiClient.createContainerWithMetadataDocument) {
     return createRemoteContainerWithMetadataDocument(input);
   }
-  if (input.builtinKind) {
+  if (input.systemSlot) {
     return null;
   }
 

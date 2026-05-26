@@ -1,10 +1,14 @@
-import { CONTACTS_CONTAINER_BUILTIN_KIND } from "@tearleads/validators/containerBuiltin";
+import {
+  type ContainerSystemSlotDefinition,
+  deriveContainerSystemSlot,
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
   useContext,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 import {
   useTearleads,
@@ -20,6 +24,86 @@ import type { ContactsContextValue } from "./types";
 
 const ContactsContext = createContext<ContactsStore | null>(null);
 const CONTACTS_CONTAINER_NAME = "Contacts";
+const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
+  {
+    namespace: "tearleads.contacts",
+    projectorId: "contact",
+    slotId: "contacts",
+    version: 1,
+  };
+
+interface ContactsContainerEnsurer {
+  ensureSystemContainer: (systemSlot: string, name: string) => Promise<unknown>;
+}
+
+function useContactsSystemSlot(input: {
+  logError: (message: string | Error, cause?: unknown) => void;
+  signingPrivateKey: Uint8Array | null;
+}): string | null {
+  const [contactsSystemSlot, setContactsSystemSlot] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!input.signingPrivateKey) {
+      setContactsSystemSlot(null);
+      return;
+    }
+
+    let cancelled = false;
+    void deriveContainerSystemSlot({
+      definition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
+      secretKey: input.signingPrivateKey,
+    })
+      .then((systemSlot) => {
+        if (!cancelled) {
+          setContactsSystemSlot(systemSlot);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setContactsSystemSlot(null);
+          input.logError("Failed to derive contacts system slot", error);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [input.logError, input.signingPrivateKey]);
+
+  return contactsSystemSlot;
+}
+
+function useEnsureContactsContainer(input: {
+  contactsContainerId: string | null;
+  contactsSystemSlot: string | null;
+  containerContentsReady: boolean;
+  containerContentsStore: ContactsContainerEnsurer;
+  logError: (message: string | Error, cause?: unknown) => void;
+}): void {
+  useEffect(() => {
+    if (
+      !input.contactsSystemSlot ||
+      !input.containerContentsReady ||
+      input.contactsContainerId !== null
+    ) {
+      return;
+    }
+
+    void input.containerContentsStore
+      .ensureSystemContainer(input.contactsSystemSlot, CONTACTS_CONTAINER_NAME)
+      .catch((error) => {
+        input.logError("Failed to ensure system contacts container", error);
+      });
+  }, [
+    input.contactsContainerId,
+    input.contactsSystemSlot,
+    input.containerContentsReady,
+    input.containerContentsStore,
+    input.logError,
+  ]);
+}
 
 export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
@@ -35,13 +119,22 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
+  const contactsSystemSlot = useContactsSystemSlot({
+    logError: tearleads.logError,
+    signingPrivateKey:
+      containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ?? null,
+  });
   const contactsContainerId = useMemo(() => {
+    if (!contactsSystemSlot) {
+      return null;
+    }
+
     return (
       containerContentsSnapshot.nodes.find(
-        (node) => node.builtinKind === CONTACTS_CONTAINER_BUILTIN_KIND,
+        (node) => node.systemSlot === contactsSystemSlot,
       )?.id ?? null
     );
-  }, [containerContentsSnapshot.nodes]);
+  }, [contactsSystemSlot, containerContentsSnapshot.nodes]);
   const documentsRuntime = useMemo(
     () => tearleads.documents.runtime(contactsContainerId),
     [appData, contactsContainerId, tearleads],
@@ -69,28 +162,13 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     containerContentsStore.updateRuntime(containerContentsRuntime);
   }, [containerContentsRuntime, containerContentsStore]);
 
-  useEffect(() => {
-    if (!containerContentsSnapshot.ready || contactsContainerId !== null) {
-      return;
-    }
-
-    void containerContentsStore
-      .ensureBuiltinContainer(
-        CONTACTS_CONTAINER_BUILTIN_KIND,
-        CONTACTS_CONTAINER_NAME,
-      )
-      .catch((error) => {
-        tearleads.logError(
-          "Failed to ensure built-in contacts container",
-          error,
-        );
-      });
-  }, [
+  useEnsureContactsContainer({
     contactsContainerId,
-    containerContentsSnapshot.ready,
+    contactsSystemSlot,
+    containerContentsReady: containerContentsSnapshot.ready,
     containerContentsStore,
-    tearleads,
-  ]);
+    logError: tearleads.logError,
+  });
 
   useEffect(() => {
     store.updateRuntime(runtime);

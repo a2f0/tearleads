@@ -34,7 +34,7 @@ export interface StoredContainerRow {
   readonly createdAt: Date;
   readonly depth: number;
   readonly id: string;
-  readonly builtinKind: string | null;
+  readonly systemSlot: string | null;
   readonly organizationId: string;
   readonly parentId: string | null;
   readonly updatedAt: Date;

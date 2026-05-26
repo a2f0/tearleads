@@ -99,3 +99,7 @@ export {
   createContainerDocumentObjectSyncState,
   syncedContainerDocumentObjectSyncState,
 } from "./syncState";
+export {
+  type ContainerSystemSlotDefinition,
+  deriveContainerSystemSlot,
+} from "./systemSlot";

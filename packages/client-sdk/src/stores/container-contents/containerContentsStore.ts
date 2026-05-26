@@ -6,7 +6,7 @@ import {
 import {
   createChildContainer,
   deleteContainer,
-  ensureBuiltinContainer,
+  ensureSystemContainer,
   moveContainer,
   persistContainerState,
   renameContainer,
@@ -93,11 +93,11 @@ function createContainerContentsStoreEntry(
           .then(() => deleteContainer(state, containerId));
         return state.writeChain.then((deletedNode) => deletedNode !== null);
       },
-      ensureBuiltinContainer: (builtinKind, name) => {
+      ensureSystemContainer: (systemSlot, name) => {
         state.writeChain = state.writeChain
           .catch(() => null)
           .then(() =>
-            ensureBuiltinContainer(state, syncAgent, builtinKind, name),
+            ensureSystemContainer(state, syncAgent, systemSlot, name),
           );
         return state.writeChain;
       },

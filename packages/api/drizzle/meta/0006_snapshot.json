@@ -2455,8 +2455,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "builtin_kind": {
-          "name": "builtin_kind",
+        "system_slot": {
+          "name": "system_slot",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2500,8 +2500,8 @@
           "method": "btree",
           "with": {}
         },
-        "containers_org_builtin_kind_idx": {
-          "name": "containers_org_builtin_kind_idx",
+        "containers_org_system_slot_idx": {
+          "name": "containers_org_system_slot_idx",
           "columns": [
             {
               "expression": "organization_id",
@@ -2510,14 +2510,14 @@
               "nulls": "last"
             },
             {
-              "expression": "builtin_kind",
+              "expression": "system_slot",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": true,
-          "where": "\"containers\".\"builtin_kind\" is not null",
+          "where": "\"containers\".\"system_slot\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

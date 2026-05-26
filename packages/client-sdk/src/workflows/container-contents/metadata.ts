@@ -97,7 +97,7 @@ export interface ContainerMetadataPatch {
   icon: string | null;
   lastCommitLsn: string | null;
   metadataDocumentId: string | null;
-  builtinKind: ContainerRecord["builtinKind"];
+  systemSlot: ContainerRecord["systemSlot"];
   loroSnapshot: string;
   name: string;
   organizationId: string;
@@ -126,11 +126,11 @@ type SaveContainerOptions = Parameters<
   ContainerContentsPersistence["saveContainer"]
 >[3];
 
-function resolveContainerBuiltinKind(
+function resolveContainerSystemSlot(
   patch: Partial<ContainerMetadataPatch>,
   container: ContainerRecord,
-): NonNullable<ContainerRecord["builtinKind"]> | null {
-  return patch.builtinKind ?? container.builtinKind ?? null;
+): NonNullable<ContainerRecord["systemSlot"]> | null {
+  return patch.systemSlot ?? container.systemSlot ?? null;
 }
 
 function resolveMetadataDocumentId(
@@ -236,7 +236,7 @@ async function persistContainerMetadataState(input: {
       patch,
       metadataState.container,
     ),
-    builtinKind: resolveContainerBuiltinKind(patch, metadataState.container),
+    systemSlot: resolveContainerSystemSlot(patch, metadataState.container),
     name: patch.name ?? metadata.name,
     icon: patch.icon ?? metadata.icon,
   };

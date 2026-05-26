@@ -1,4 +1,4 @@
-import type { ContainerBuiltinKind } from "@tearleads/validators/containerBuiltin";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createChildContainerState } from "../../workflows/container-contents/container-state/createChild";
 import { deleteContainerState } from "../../workflows/container-contents/container-state/delete";
 import { moveRemoteContainer } from "../../workflows/container-contents/container-state/remote";
@@ -104,12 +104,12 @@ export async function createChildContainer(
   return toContainerNode(created.containerState);
 }
 
-function findBuiltinContainerState(
+function findSystemContainerState(
   state: ContainerContentsStoreState,
-  builtinKind: ContainerBuiltinKind,
+  systemSlot: ContainerSystemSlot,
 ): ContainerState | null {
   for (const containerState of state.containersById.values()) {
-    if ((containerState.container.builtinKind ?? null) === builtinKind) {
+    if ((containerState.container.systemSlot ?? null) === systemSlot) {
       return containerState;
     }
   }
@@ -129,10 +129,10 @@ function findRootContainerState(
   return null;
 }
 
-export async function ensureBuiltinContainer(
+export async function ensureSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
-  builtinKind: ContainerBuiltinKind,
+  systemSlot: ContainerSystemSlot,
   name: string,
 ) {
   const trimmedName = name.trim();
@@ -144,14 +144,14 @@ export async function ensureBuiltinContainer(
     return null;
   }
 
-  const existing = findBuiltinContainerState(state, builtinKind);
+  const existing = findSystemContainerState(state, systemSlot);
   if (existing) {
     return toContainerNode(existing);
   }
 
   if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
     await syncAgent.requestRemoteHydration();
-    const hydrated = findBuiltinContainerState(state, builtinKind);
+    const hydrated = findSystemContainerState(state, systemSlot);
     if (hydrated) {
       return toContainerNode(hydrated);
     }
@@ -163,7 +163,7 @@ export async function ensureBuiltinContainer(
   }
 
   const created = await createChildContainerState({
-    builtinKind,
+    systemSlot,
     createRemote:
       state.runtime.auth.isAuthenticated &&
       Boolean(state.runtime.crypto.encapsulationKeyPair),
@@ -186,7 +186,7 @@ export async function ensureBuiltinContainer(
     syncAgent.scheduleSync();
   }
   state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: ensured built-in container "${builtinKind}"`,
+    `${getContainerContentsStoreLogLabel(state)}: ensured system container "${systemSlot}"`,
   );
   return toContainerNode(created.containerState);
 }
@@ -203,7 +203,7 @@ export async function deleteContainer(
   if (
     !existingState ||
     existingState.container.parentId === null ||
-    (existingState.container.builtinKind ?? null) !== null ||
+    (existingState.container.systemSlot ?? null) !== null ||
     Array.from(state.containersById.values()).some(
       (containerState) => containerState.container.parentId === containerId,
     )
@@ -402,7 +402,7 @@ export async function moveContainer(
     !existingState ||
     !targetParentState ||
     existingState.container.parentId === null ||
-    (existingState.container.builtinKind ?? null) !== null ||
+    (existingState.container.systemSlot ?? null) !== null ||
     isContainerInSubtree(state.containersById, parentId, containerId) ||
     typeof existingState.record.accessStateHash !== "string" ||
     existingState.record.accessStateHash.length === 0

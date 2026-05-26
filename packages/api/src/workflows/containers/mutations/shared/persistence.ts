@@ -3,7 +3,7 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
-import { isContainerBuiltinKind } from "@tearleads/validators/containerBuiltin";
+import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
@@ -51,7 +51,7 @@ async function loadContainerRow(
   const [row] = await executor
     .select({
       createdAt: containers.createdAt,
-      builtinKind: containers.builtinKind,
+      systemSlot: containers.systemSlot,
       depth: containers.depth,
       id: containers.id,
       organizationId: containers.organizationId,
@@ -137,7 +137,7 @@ async function persistCreatedContainerStructure(
     .onConflictDoNothing({ target: containers.id })
     .returning({
       createdAt: containers.createdAt,
-      builtinKind: containers.builtinKind,
+      systemSlot: containers.systemSlot,
       depth: containers.depth,
       id: containers.id,
       organizationId: containers.organizationId,
@@ -153,7 +153,7 @@ async function persistCreatedContainerStructure(
 
   return {
     createdAt: inserted.createdAt,
-    builtinKind: inserted.builtinKind,
+    systemSlot: inserted.systemSlot,
     depth: inserted.depth,
     id: inserted.id,
     organizationId: inserted.organizationId,
@@ -173,7 +173,7 @@ async function touchContainerStructure(
     .where(eq(containers.id, containerId))
     .returning({
       createdAt: containers.createdAt,
-      builtinKind: containers.builtinKind,
+      systemSlot: containers.systemSlot,
       depth: containers.depth,
       id: containers.id,
       organizationId: containers.organizationId,
@@ -214,7 +214,7 @@ async function persistContainerStructure(
   if (!container.parentId) {
     throw new ContainerMutationError("Root container cannot be moved", 400);
   }
-  if (container.builtinKind !== null) {
+  if (container.systemSlot !== null) {
     throw new ContainerMutationError("System container cannot be moved", 400);
   }
 
@@ -546,12 +546,12 @@ export async function persistVerifiedMutation(
     ),
   );
 
-  const builtinKind = isContainerBuiltinKind(container.builtinKind)
-    ? container.builtinKind
+  const systemSlot = isContainerSystemSlot(container.systemSlot)
+    ? container.systemSlot
     : null;
 
   return {
-    ...(builtinKind ? { builtinKind } : {}),
+    ...(systemSlot ? { systemSlot } : {}),
     containerId: manifest.state.containerId,
     createdAt: container.createdAt.toISOString(),
     organizationId: manifest.state.organizationId,

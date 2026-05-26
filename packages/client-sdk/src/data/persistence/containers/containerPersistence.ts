@@ -1,7 +1,7 @@
 import {
-  type ContainerBuiltinKind,
-  isContainerBuiltinKind,
-} from "@tearleads/validators/containerBuiltin";
+  type ContainerSystemSlot,
+  isContainerSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
 import { asc, eq, inArray, sql } from "drizzle-orm";
 import {
   containerProjection,
@@ -20,7 +20,7 @@ export interface ContainerRecord {
   organizationId: string;
   parentId: string | null;
   metadataDocumentId: string | null;
-  builtinKind?: ContainerBuiltinKind | null;
+  systemSlot?: ContainerSystemSlot | null;
   name: string;
   icon: string | null;
   localCreatedAt?: string | null;
@@ -48,7 +48,7 @@ interface SelectedContainerRecord {
   organizationId: string;
   parentId: string | null;
   metadataDocumentId: string | null;
-  builtinKind: string | null;
+  systemSlot: string | null;
   name: string;
   icon: string | null;
   localCreatedAt: string;
@@ -93,8 +93,8 @@ function applyContainerTimestampDefaults(
 function mapSelectedContainerRecord(
   row: SelectedContainerRecord,
 ): ContainerRecord {
-  const builtinKind = isContainerBuiltinKind(row.builtinKind)
-    ? row.builtinKind
+  const systemSlot = isContainerSystemSlot(row.systemSlot)
+    ? row.systemSlot
     : null;
 
   return toDisplayContainerRecord({
@@ -102,7 +102,7 @@ function mapSelectedContainerRecord(
     organizationId: row.organizationId,
     parentId: row.parentId,
     metadataDocumentId: row.metadataDocumentId,
-    builtinKind,
+    systemSlot,
     name: row.name,
     icon: row.icon && row.icon.length > 0 ? row.icon : null,
     localCreatedAt: row.localCreatedAt,
@@ -124,7 +124,7 @@ export async function saveContainerRows(input: {
     organizationId: nextRecord.organizationId,
     parentId: nextRecord.parentId,
     metadataDocumentId: nextRecord.metadataDocumentId,
-    builtinKind: nextRecord.builtinKind ?? null,
+    systemSlot: nextRecord.systemSlot ?? null,
     localCreatedAt: nextRecord.localCreatedAt,
     localUpdatedAt,
     serverCreatedAt: nextRecord.serverCreatedAt,
@@ -139,7 +139,7 @@ export async function saveContainerRows(input: {
         organizationId: containerRow.organizationId,
         parentId: containerRow.parentId,
         metadataDocumentId: containerRow.metadataDocumentId,
-        builtinKind: containerRow.builtinKind,
+        systemSlot: containerRow.systemSlot,
         localUpdatedAt: containerRow.localUpdatedAt,
         serverCreatedAt:
           record.serverCreatedAt === undefined
@@ -185,7 +185,7 @@ export async function loadContainers(
       organizationId: containers.organizationId,
       parentId: containers.parentId,
       metadataDocumentId: containers.metadataDocumentId,
-      builtinKind: containers.builtinKind,
+      systemSlot: containers.systemSlot,
       name,
       icon: containerProjection.icon,
       localCreatedAt: containers.localCreatedAt,

@@ -36,7 +36,6 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { CONTACTS_CONTAINER_BUILTIN_KIND } from "@tearleads/validators/containerBuiltin";
 import type {
   ContainerManifestBundle,
   ContainerMutationRequest,
@@ -100,6 +99,9 @@ interface DownstreamContentKeyRowCounts {
   readonly documentContentKeyEpochs: number;
   readonly documentContentKeyTargets: number;
 }
+
+const TEST_CONTACTS_SYSTEM_SLOT =
+  "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 interface SeededDownstreamContentKeyRows {
   readonly blobId: string;
@@ -1464,7 +1466,7 @@ test("POST /containers/with-metadata-document creates container and metadata doc
   const response = await postJson({
     path: "/containers/with-metadata-document",
     request: {
-      builtinKind: CONTACTS_CONTAINER_BUILTIN_KIND,
+      systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
       container: containerRequest,
       metadataDocument: metadataDocumentRequest,
     },
@@ -1478,7 +1480,7 @@ test("POST /containers/with-metadata-document creates container and metadata doc
     throw new Error("expected composite container metadata response");
   }
   expect(body.container.containerId).toBe(containerId);
-  expect(body.container.builtinKind).toBe(CONTACTS_CONTAINER_BUILTIN_KIND);
+  expect(body.container.systemSlot).toBe(TEST_CONTACTS_SYSTEM_SLOT);
   expect(body.metadataDocument.id).toBe(
     (containerRequest.body as { readonly metadataDocumentId: string })
       .metadataDocumentId,
@@ -1498,14 +1500,14 @@ test("POST /containers/with-metadata-document creates container and metadata doc
   });
   const [containerRow] = await db
     .select({
-      builtinKind: containers.builtinKind,
+      systemSlot: containers.systemSlot,
       parentId: containers.parentId,
     })
     .from(containers)
     .where(eq(containers.id, containerId))
     .limit(1);
   expect(containerRow).toEqual({
-    builtinKind: CONTACTS_CONTAINER_BUILTIN_KIND,
+    systemSlot: TEST_CONTACTS_SYSTEM_SLOT,
     parentId: owner.rootContainerId,
   });
 
@@ -3375,7 +3377,7 @@ test("DELETE /containers/:containerId rejects system roots, child-bearing contai
   });
   await db
     .update(containers)
-    .set({ builtinKind: CONTACTS_CONTAINER_BUILTIN_KIND })
+    .set({ systemSlot: TEST_CONTACTS_SYSTEM_SLOT })
     .where(eq(containers.id, builtinContacts.containerId));
   const builtinContactsDelete = await deleteContainerForUser({
     containerId: builtinContacts.containerId,

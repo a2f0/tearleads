@@ -1,11 +1,14 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../container-contents/containerContentsPersistence";
+import { sqlDocumentsPersistence } from "../documents/documentsPersistence";
 import {
   loadContainerDisplayNamesByIds,
   loadContainers,
 } from "./containerPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
+
+const TEST_SYSTEM_SLOT = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 test("containerContents container saves display server timestamps separately from local timestamps", async () => {
   const { close, execSql } = await createTestExecSql(
@@ -148,6 +151,144 @@ test("containerContents document reassignment folds duplicate links into the tar
         "document-1",
       ),
     ).resolves.toEqual(["remote-root"]);
+  } finally {
+    close();
+  }
+});
+
+test("containerContents system container reconciliation adopts local rows into the remote container", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-system-reconciliation-test",
+  );
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        id: "remote-system",
+        organizationId: "remote-org",
+        parentId: "remote-root",
+        metadataDocumentId: "remote-system",
+        systemSlot: TEST_SYSTEM_SLOT,
+        name: "Remote system",
+        icon: null,
+      },
+      null,
+    );
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        id: "local-system",
+        organizationId: "local-org",
+        parentId: "local-root",
+        metadataDocumentId: null,
+        systemSlot: TEST_SYSTEM_SLOT,
+        name: "Local system",
+        icon: null,
+      },
+      null,
+      {
+        createIntent: { parentContainerId: "local-root" },
+      },
+    );
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        id: "local-child",
+        organizationId: "local-org",
+        parentId: "local-system",
+        metadataDocumentId: null,
+        name: "Local child",
+        icon: null,
+      },
+      null,
+      {
+        createIntent: { parentContainerId: "local-system" },
+      },
+    );
+    await sqlContainerContentsPersistence.enqueuePendingUpdate(execSql, {
+      containerId: "local-system",
+      partialEndVersionVector: "local-system-end",
+      partialStartVersionVector: "local-system-start",
+      updateData: "local-system-update",
+    });
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 1,
+      accessStateHash: null,
+      containerId: "local-system",
+      contentKeyBundle: null,
+      documentId: "document-1",
+      documentKekTargets: null,
+      documentKind: "note",
+      documentManifestBundle: null,
+      id: "document-local-1",
+      lastCommitLsn: null,
+      loroSnapshot: "",
+      text: "Hello",
+      title: "Hello",
+    });
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      execSql,
+      "document-1",
+      ["local-system", "remote-system"],
+    );
+
+    await sqlContainerContentsPersistence.reconcileLocalSystemContainer(
+      execSql,
+      {
+        localContainerId: "local-system",
+        remoteContainerId: "remote-system",
+        remoteOrganizationId: "remote-org",
+        updatedAt: "2026-05-21T00:00:00.000Z",
+      },
+    );
+
+    const loadedContainers = await loadContainers(execSql);
+    expect(
+      loadedContainers.some((container) => container.id === "local-system"),
+    ).toBe(false);
+    expect(loadedContainers).toContainEqual(
+      expect.objectContaining({
+        id: "remote-system",
+        systemSlot: TEST_SYSTEM_SLOT,
+      }),
+    );
+    expect(loadedContainers).toContainEqual(
+      expect.objectContaining({
+        id: "local-child",
+        organizationId: "remote-org",
+        parentId: "remote-system",
+      }),
+    );
+    await expect(
+      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+        execSql,
+        "document-1",
+      ),
+    ).resolves.toEqual(["remote-system"]);
+    await expect(
+      sqlDocumentsPersistence.loadDocument(execSql, "document-local-1"),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        containerId: "remote-system",
+      }),
+    );
+    await expect(
+      sqlContainerContentsPersistence.listPendingUpdates(
+        execSql,
+        "local-system",
+      ),
+    ).resolves.toEqual([]);
+    await expect(
+      sqlContainerContentsPersistence.listPendingCreateIntents(execSql),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        containerId: "local-child",
+        parentContainerId: "remote-system",
+      }),
+    ]);
   } finally {
     close();
   }
