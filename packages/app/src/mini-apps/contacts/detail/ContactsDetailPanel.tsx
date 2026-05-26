@@ -59,6 +59,11 @@ function ContactsSelectionState({
   return (
     <MiniAppPanel key={selectedEntry.id} variant="framed">
       <ContactTextField
+        label="Nickname"
+        value={selectedEntry.nickname}
+        onCommit={(nickname) => updateContact(selectedEntry.id, { nickname })}
+      />
+      <ContactTextField
         label="First name"
         value={selectedEntry.firstName}
         onCommit={(firstName) => updateContact(selectedEntry.id, { firstName })}
@@ -96,6 +101,7 @@ export function ContactsDetailPanel(params: {
   createDraftContact: () => Promise<void>;
   draftFirstName: string;
   draftLastName: string;
+  draftNickname: string;
   draftUserId: string;
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
@@ -104,6 +110,7 @@ export function ContactsDetailPanel(params: {
   selectedContactId: string | null;
   setDraftFirstName: (firstName: string) => void;
   setDraftLastName: (lastName: string) => void;
+  setDraftNickname: (nickname: string) => void;
   setDraftUserId: (userId: string) => void;
   updateContact: UpdateContact;
 }) {
@@ -113,6 +120,7 @@ export function ContactsDetailPanel(params: {
     createDraftContact,
     draftFirstName,
     draftLastName,
+    draftNickname,
     draftUserId,
     entries,
     importDraftContact,
@@ -121,6 +129,7 @@ export function ContactsDetailPanel(params: {
     selectedContactId,
     setDraftFirstName,
     setDraftLastName,
+    setDraftNickname,
     setDraftUserId,
     updateContact,
   } = params;
@@ -128,6 +137,12 @@ export function ContactsDetailPanel(params: {
   return (
     <>
       <MiniAppToolbar>
+        <MiniAppInput
+          aria-label="Nickname"
+          value={draftNickname}
+          onChange={(event) => setDraftNickname(event.target.value)}
+          placeholder="Nickname"
+        />
         <MiniAppInput
           aria-label="First name"
           value={draftFirstName}

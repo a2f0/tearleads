@@ -8,6 +8,7 @@ import {
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
 import type { ContactEntries } from "./types";
 
 // Extract the time_low field (first 32 bits) from a UUID string.
@@ -16,7 +17,7 @@ function timeLow(uuid: string): string {
 }
 
 function getSidebarContactLabel(entry: ContactEntries[number]): string {
-  const name = `${entry.firstName} ${entry.lastName}`.trim();
+  const name = getContactDisplayName(entry);
   const label =
     name.length > 0
       ? name

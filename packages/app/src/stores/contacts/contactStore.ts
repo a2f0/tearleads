@@ -11,7 +11,7 @@ import {
   ensureSqlTables,
   getSQLitePersistenceRuntime,
 } from "@tearleads/client-sdk/sqlite";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   type ContactEntry,
   type ContactEntryPatch,
@@ -85,9 +85,19 @@ function compareNullableContactText(
   return compareContactText(left ?? "", right ?? "");
 }
 
+function getContactSortName(entry: ContactEntry): string {
+  const nickname = entry.nickname.trim();
+  if (nickname.length > 0) {
+    return nickname;
+  }
+
+  return `${entry.lastName.trim()} ${entry.firstName.trim()}`.trim();
+}
+
 function sortEntries(entries: ReadonlyArray<ContactEntry>): ContactEntry[] {
   return [...entries].sort((left, right) => {
     return (
+      compareContactText(getContactSortName(left), getContactSortName(right)) ||
       compareContactText(left.lastName, right.lastName) ||
       compareContactText(left.firstName, right.firstName) ||
       compareNullableContactText(left.userId, right.userId) ||
@@ -101,6 +111,7 @@ function sameContactEntry(left: ContactEntry, right: ContactEntry): boolean {
     left.id === right.id &&
     left.firstName === right.firstName &&
     left.lastName === right.lastName &&
+    left.nickname === right.nickname &&
     left.userId === right.userId &&
     left.encapsulationPublicKey === right.encapsulationPublicKey &&
     left.isSelf === right.isSelf
@@ -198,16 +209,11 @@ async function loadProjectedContacts(
       isSelf: contactProjection.isSelf,
       lastName: contactProjection.lastName,
       localId: contactProjection.localId,
+      nickname: contactProjection.nickname,
       userId: contactProjection.userId,
     })
     .from(contactProjection)
-    .where(eq(contactProjection.containerId, containerId))
-    .orderBy(
-      sql`${contactProjection.lastName} COLLATE NOCASE`,
-      sql`${contactProjection.firstName} COLLATE NOCASE`,
-      sql`${contactProjection.userId} COLLATE NOCASE`,
-      sql`${contactProjection.localId} COLLATE NOCASE`,
-    );
+    .where(eq(contactProjection.containerId, containerId));
 
   return rows.map((row) => ({
     encapsulationPublicKey: normalizeProjectionNullableText(
@@ -217,6 +223,7 @@ async function loadProjectedContacts(
     id: row.localId,
     isSelf: row.isSelf === 1,
     lastName: row.lastName,
+    nickname: row.nickname,
     userId: normalizeProjectionNullableText(row.userId),
   }));
 }
@@ -437,12 +444,14 @@ async function importKeyFromRuntime(
     userKey.userId,
   );
   const contactId = existingContact?.id ?? userKey.userId;
+  const isSelf = userKey.userId === state.runtime.documents.auth.userId;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(() =>
       writeContactPatch(state, contactId, {
         encapsulationPublicKey: userKey.encapsulationPublicKey,
-        isSelf: userKey.userId === state.runtime.documents.auth.userId,
+        isSelf,
+        ...(isSelf && !existingContact ? { nickname: "You" } : {}),
         userId: userKey.userId,
       }),
     )

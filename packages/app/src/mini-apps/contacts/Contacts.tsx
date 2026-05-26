@@ -18,6 +18,7 @@ export function Contacts() {
         createDraftContact={model.createDraftContact}
         draftFirstName={model.draftFirstName}
         draftLastName={model.draftLastName}
+        draftNickname={model.draftNickname}
         draftUserId={model.draftUserId}
         entries={model.entries}
         importDraftContact={model.importDraftContact}
@@ -26,6 +27,7 @@ export function Contacts() {
         selectedContactId={model.selectedContactId}
         setDraftFirstName={model.setDraftFirstName}
         setDraftLastName={model.setDraftLastName}
+        setDraftNickname={model.setDraftNickname}
         setDraftUserId={model.setDraftUserId}
         updateContact={(contactId, patch) => {
           void model.updateContact(contactId, patch);
