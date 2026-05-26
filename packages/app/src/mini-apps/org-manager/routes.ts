@@ -30,7 +30,7 @@ export function resolveOrgManagerSelectedGroupId(
     return selectedGroupId;
   }
 
-  return groups[0]?.groupId ?? null;
+  return null;
 }
 
 export function resolveOrgManagerRoute(

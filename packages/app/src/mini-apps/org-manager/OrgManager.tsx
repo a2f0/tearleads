@@ -25,7 +25,6 @@ function OrgManagerContent({
   if (model.view === "directory") {
     return (
       <DirectoryView
-        canUpdateRosterEntry={model.canUpdateSelectedRosterEntry}
         canRevokeGrants={model.canRevokeGrants}
         detail={model.userDetail}
         directory={model.directory}
@@ -33,13 +32,9 @@ function OrgManagerContent({
         loadingUserDetail={model.loadingUserDetail}
         mutating={model.mutating}
         openGroupRoute={model.openGroupRoute}
-        profileDocumentIdDraft={model.profileDocumentIdDraft}
-        profileDocumentIdDraftChanged={model.profileDocumentIdDraftChanged}
         revokeGrant={model.revokeGrant}
         selectedUserId={model.selectedUserId}
         selectUser={model.selectUser}
-        setProfileDocumentIdDraft={model.setProfileDocumentIdDraft}
-        updateRosterProfileDocument={model.updateSelectedRosterProfileDocument}
       />
     );
   }

@@ -44,7 +44,10 @@ import {
   setLoadingIfManaged,
   setUnknownError,
 } from "../refresh";
-import { resolveOrgManagerSelectedGroupId } from "../routes";
+import {
+  type OrgManagerView,
+  resolveOrgManagerSelectedGroupId,
+} from "../routes";
 import { useOrgManagerRoute } from "./useOrgManagerRoute";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
@@ -88,7 +91,6 @@ export function useOrgManagerModel() {
   );
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [addUserId, setAddUserId] = useState("");
-  const [profileDocumentIdDraft, setProfileDocumentIdDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
   const [mutating, setMutating] = useState(false);
@@ -96,6 +98,7 @@ export function useOrgManagerModel() {
   const skippedGroupDetailsEffectRef = useRef<{
     groupId: string | null;
   } | null>(null);
+  const profileDocumentCreationKeysRef = useRef<Set<string>>(new Set());
   const selectedUserIdRef = useRef<string | null>(null);
   const canLoadAuthenticatedOrgData = Boolean(
     appData.auth.organizationId && appData.auth.isAuthenticated,
@@ -134,10 +137,6 @@ export function useOrgManagerModel() {
       (directory?.currentUser.isOrgAdmin ||
         selectedRosterUser.userId === appData.auth.userId),
   );
-  const selectedRosterProfileDocumentId =
-    selectedRosterUser?.profileDocumentId ?? null;
-  const profileDocumentIdDraftChanged =
-    (profileDocumentIdDraft.trim() || null) !== selectedRosterProfileDocumentId;
 
   const memberUserIds = useMemo(
     () =>
@@ -163,8 +162,20 @@ export function useOrgManagerModel() {
     selectedUserIdRef.current = userId;
     setSelectedUserIdState(userId);
     setUserDetail(null);
-    setProfileDocumentIdDraft("");
   }, []);
+
+  const setOrgManagerView = useCallback(
+    (nextView: OrgManagerView) => {
+      if (nextView === "directory") {
+        selectUser(null);
+      }
+      if (nextView === "groups") {
+        selectGroup(null);
+      }
+      setView(nextView);
+    },
+    [selectGroup, selectUser, setView],
+  );
 
   const resetDirectoryState = useCallback(() => {
     setDirectory(null);
@@ -492,10 +503,6 @@ export function useOrgManagerModel() {
   }, [directory, selectedUserId, selectUser]);
 
   useEffect(() => {
-    setProfileDocumentIdDraft(selectedRosterUser?.profileDocumentId ?? "");
-  }, [selectedRosterUser?.profileDocumentId, selectedRosterUser?.userId]);
-
-  useEffect(() => {
     void refreshSelectedUserDetail(selectedUserId);
   }, [refreshSelectedUserDetail, selectedUserId]);
 
@@ -521,6 +528,60 @@ export function useOrgManagerModel() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (
+      !selectedRosterUser ||
+      selectedRosterUser.profileDocumentId ||
+      !canLoadAuthenticatedOrgData ||
+      !canUpdateSelectedRosterEntry ||
+      !appData.auth.organizationId
+    ) {
+      return;
+    }
+
+    const profileDocumentCreationKey = `${appData.auth.organizationId}:${selectedRosterUser.userId}`;
+    if (
+      profileDocumentCreationKeysRef.current.has(profileDocumentCreationKey)
+    ) {
+      return;
+    }
+
+    profileDocumentCreationKeysRef.current.add(profileDocumentCreationKey);
+    setMutating(true);
+    setError(null);
+
+    void orgManagerActions
+      .ensureRosterProfileDocument(selectedRosterUser)
+      .then((updatedUser) => {
+        if (!updatedUser) {
+          if (selectedUserIdRef.current === selectedRosterUser.userId) {
+            setError(ORG_MANAGER_LABELS.failedCreateProfileDocument);
+          }
+          return;
+        }
+
+        updateRosterUserState(updatedUser);
+      })
+      .catch((nextError: unknown) => {
+        if (selectedUserIdRef.current === selectedRosterUser.userId) {
+          setUnknownError(setError, nextError);
+        }
+      })
+      .finally(() => {
+        profileDocumentCreationKeysRef.current.delete(
+          profileDocumentCreationKey,
+        );
+        setMutating(false);
+      });
+  }, [
+    appData.auth.organizationId,
+    canLoadAuthenticatedOrgData,
+    canUpdateSelectedRosterEntry,
+    orgManagerActions,
+    selectedRosterUser,
+    updateRosterUserState,
+  ]);
 
   const createGroup = useCallback(async () => {
     if (
@@ -675,46 +736,6 @@ export function useOrgManagerModel() {
     ],
   );
 
-  const updateSelectedRosterProfileDocument = useCallback(async () => {
-    const targetUserId = selectedUserIdRef.current;
-    const nextProfileDocumentId = profileDocumentIdDraft.trim() || null;
-    if (
-      !targetUserId ||
-      !canLoadAuthenticatedOrgData ||
-      !canUpdateSelectedRosterEntry ||
-      nextProfileDocumentId === selectedRosterProfileDocumentId
-    ) {
-      return;
-    }
-
-    setMutating(true);
-    setError(null);
-    try {
-      const updatedUser = await orgManagerActions.updateRosterEntry(
-        targetUserId,
-        nextProfileDocumentId,
-      );
-      if (!updatedUser) {
-        setError(ORG_MANAGER_LABELS.failedUpdateRosterEntry);
-        return;
-      }
-
-      updateRosterUserState(updatedUser);
-      setProfileDocumentIdDraft(updatedUser.profileDocumentId ?? "");
-    } catch (nextError) {
-      setUnknownError(setError, nextError);
-    } finally {
-      setMutating(false);
-    }
-  }, [
-    canLoadAuthenticatedOrgData,
-    canUpdateSelectedRosterEntry,
-    orgManagerActions,
-    profileDocumentIdDraft,
-    selectedRosterProfileDocumentId,
-    updateRosterUserState,
-  ]);
-
   const revokeGrant = useCallback(
     async (grant: OrganizationContainerGrant) => {
       if (grant.isBuiltin) {
@@ -747,7 +768,7 @@ export function useOrgManagerModel() {
     enabled: Boolean(
       appData.auth.organizationId && appData.auth.isAuthenticated,
     ),
-    setView,
+    setView: setOrgManagerView,
     view,
   });
 
@@ -779,8 +800,6 @@ export function useOrgManagerModel() {
     openGroupRoute,
     organizationId: appData.auth.organizationId,
     organizationPolicyHistory,
-    profileDocumentIdDraft,
-    profileDocumentIdDraftChanged,
     refreshOrgManager,
     removeMember,
     revokeGrant,
@@ -791,8 +810,6 @@ export function useOrgManagerModel() {
     selectUser,
     setAddUserId,
     setGroupNameDraft,
-    setProfileDocumentIdDraft,
-    updateSelectedRosterProfileDocument,
     userDetail,
     userId: appData.auth.userId,
     view,

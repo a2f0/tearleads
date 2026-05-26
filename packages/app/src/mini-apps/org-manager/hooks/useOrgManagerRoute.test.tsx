@@ -8,7 +8,7 @@ test("org manager route view changes preserve selected group", () => {
   const view = renderHook(() => useOrgManagerRoute({ groups }));
 
   expect(view.result.current.route).toEqual({
-    selectedGroupId: "admins",
+    selectedGroupId: null,
     view: "directory",
   });
 
