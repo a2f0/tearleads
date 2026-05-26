@@ -93,6 +93,7 @@ test("contacts store persists contacts as documents with app-owned projections",
     const createdContactId = await store.createContact({
       firstName: "Ada",
       lastName: "Lovelace",
+      nickname: "Countess",
       userId: "ada-user",
     });
     const importedContactId = await store.importKey(peerKey.userId);
@@ -124,6 +125,7 @@ test("contacts store persists contacts as documents with app-owned projections",
         firstName: contactProjection.firstName,
         id: contactProjection.localId,
         lastName: contactProjection.lastName,
+        nickname: contactProjection.nickname,
         userId: contactProjection.userId,
       })
       .from(contactProjection)
@@ -136,6 +138,7 @@ test("contacts store persists contacts as documents with app-owned projections",
       firstName: "Ada",
       id: createdContactId,
       lastName: "Lovelace",
+      nickname: "Countess",
       userId: "ada-user",
     });
     expect(contactProjections).toContainEqual({
@@ -145,6 +148,7 @@ test("contacts store persists contacts as documents with app-owned projections",
       firstName: "",
       id: peerKey.userId,
       lastName: "",
+      nickname: "",
       userId: peerKey.userId,
     });
 
@@ -165,7 +169,7 @@ test("contacts store persists contacts as documents with app-owned projections",
         containerId: CONTACTS_CONTAINER_ID,
         documentKind: "contact",
         id: createdContactId,
-        title: "Ada Lovelace",
+        title: "Countess",
       },
       {
         containerId: CONTACTS_CONTAINER_ID,
@@ -174,6 +178,121 @@ test("contacts store persists contacts as documents with app-owned projections",
         title: peerKey.userId,
       },
     ]);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("contacts store seeds self imports with a You nickname", async () => {
+  const runtime = await createContactsRuntime();
+  const selfKey: UserKey = {
+    encapsulationPublicKey: "self-encapsulation-public-key",
+    signingKeyFingerprint: "self-signing-fingerprint",
+    signingPublicKey: "self-signing-public-key",
+    userId: "self-user",
+  };
+  const store = createContactsStore(runtime, {
+    fetchUserKey: async (userId) =>
+      userId === selfKey.userId ? selfKey : null,
+    logError: (message, cause) => {
+      throw new Error(String(message), { cause });
+    },
+  });
+
+  try {
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts store did not initialize.",
+    );
+
+    const contactId = await store.importKey(selfKey.userId);
+    expect(contactId).toBe(selfKey.userId);
+
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .entries.some((entry) => entry.id === selfKey.userId),
+      "Self contact did not appear in the store snapshot.",
+    );
+
+    expect(store.getSnapshot().entries).toContainEqual({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      firstName: "",
+      id: selfKey.userId,
+      isSelf: true,
+      lastName: "",
+      nickname: "You",
+      userId: selfKey.userId,
+    });
+
+    const documentProjections = await defaultDocumentsPersistence.listDocuments(
+      runtime.documents.infra.execSql,
+    );
+    expect(documentProjections).toContainEqual(
+      expect.objectContaining({
+        id: selfKey.userId,
+        title: "You",
+      }),
+    );
+  } finally {
+    runtime.close();
+  }
+});
+
+test("contacts store does not reseed a You nickname for existing self contacts", async () => {
+  const runtime = await createContactsRuntime();
+  const selfKey: UserKey = {
+    encapsulationPublicKey: "self-encapsulation-public-key",
+    signingKeyFingerprint: "self-signing-fingerprint",
+    signingPublicKey: "self-signing-public-key",
+    userId: "self-user",
+  };
+  const store = createContactsStore(runtime, {
+    fetchUserKey: async (userId) =>
+      userId === selfKey.userId ? selfKey : null,
+    logError: (message, cause) => {
+      throw new Error(String(message), { cause });
+    },
+  });
+
+  try {
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts store did not initialize.",
+    );
+
+    const existingContactId = await store.createContact({
+      firstName: "Local",
+      lastName: "User",
+      nickname: "",
+      userId: selfKey.userId,
+    });
+    expect(existingContactId).not.toBeNull();
+
+    const importedContactId = await store.importKey(selfKey.userId);
+    expect(importedContactId).toBe(existingContactId);
+
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .entries.some(
+            (entry) =>
+              entry.id === existingContactId &&
+              entry.isSelf &&
+              entry.encapsulationPublicKey === selfKey.encapsulationPublicKey,
+          ),
+      "Existing self contact was not updated from key import.",
+    );
+
+    expect(
+      store
+        .getSnapshot()
+        .entries.find((entry) => entry.id === existingContactId)?.nickname,
+    ).toBe("");
   } finally {
     runtime.close();
   }
@@ -196,7 +315,11 @@ test("contacts store keeps live snapshots in projection order", async () => {
     );
 
     await store.createContact({ firstName: "Alice", lastName: "Zephyr" });
-    await store.createContact({ firstName: "Carol", lastName: "Yellow" });
+    await store.createContact({
+      firstName: "Carol",
+      lastName: "Yellow",
+      nickname: "Ace",
+    });
     await store.createContact({ firstName: "Bob", lastName: "Yellow" });
 
     await waitForCondition(
@@ -207,8 +330,10 @@ test("contacts store keeps live snapshots in projection order", async () => {
     expect(
       store
         .getSnapshot()
-        .entries.map((entry) => `${entry.firstName} ${entry.lastName}`),
-    ).toEqual(["Bob Yellow", "Carol Yellow", "Alice Zephyr"]);
+        .entries.map(
+          (entry) => entry.nickname || `${entry.firstName} ${entry.lastName}`,
+        ),
+    ).toEqual(["Ace", "Bob Yellow", "Alice Zephyr"]);
   } finally {
     runtime.close();
   }

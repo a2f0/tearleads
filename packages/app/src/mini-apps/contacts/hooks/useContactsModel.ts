@@ -1,5 +1,7 @@
 import {
+  type Dispatch,
   type ReactNode,
+  type SetStateAction,
   useCallback,
   useEffect,
   useRef,
@@ -22,16 +24,33 @@ interface ContactsModel {
   createDraftContact: () => Promise<void>;
   draftFirstName: string;
   draftLastName: string;
+  draftNickname: string;
   draftUserId: string;
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
   ready: boolean;
   selectedContactId: string | null;
-  setDraftFirstName: (firstName: string) => void;
-  setDraftLastName: (lastName: string) => void;
-  setDraftUserId: (userId: string) => void;
+  setDraftFirstName: Dispatch<SetStateAction<string>>;
+  setDraftLastName: Dispatch<SetStateAction<string>>;
+  setDraftNickname: Dispatch<SetStateAction<string>>;
+  setDraftUserId: Dispatch<SetStateAction<string>>;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
+}
+
+interface ContactDraftModel {
+  canCreate: boolean;
+  canImport: boolean;
+  createDraftContact: () => Promise<void>;
+  draftFirstName: string;
+  draftLastName: string;
+  draftNickname: string;
+  draftUserId: string;
+  importDraftContact: () => Promise<void>;
+  setDraftFirstName: Dispatch<SetStateAction<string>>;
+  setDraftLastName: Dispatch<SetStateAction<string>>;
+  setDraftNickname: Dispatch<SetStateAction<string>>;
+  setDraftUserId: Dispatch<SetStateAction<string>>;
 }
 
 function useAutoImportSelfContact(input: {
@@ -95,6 +114,73 @@ function usePeerUserIdDraft(
   }, [peerUserId, setDraftUserId]);
 }
 
+function useContactDrafts(input: {
+  createContact: ReturnType<typeof useContacts>["createContact"];
+  importKey: ReturnType<typeof useContacts>["importKey"];
+  isAuthenticated: boolean;
+  ready: boolean;
+  setSelectedContactId: (contactId: string) => void;
+}): ContactDraftModel {
+  const {
+    createContact,
+    importKey,
+    isAuthenticated,
+    ready,
+    setSelectedContactId,
+  } = input;
+  const [draftFirstName, setDraftFirstName] = useState("");
+  const [draftLastName, setDraftLastName] = useState("");
+  const [draftNickname, setDraftNickname] = useState("");
+  const [draftUserId, setDraftUserId] = useState("");
+  const canCreate =
+    ready &&
+    (draftNickname.trim().length > 0 ||
+      draftFirstName.trim().length > 0 ||
+      draftLastName.trim().length > 0);
+  const canImport = ready && isAuthenticated && draftUserId.trim().length > 0;
+  const createDraftContact = useCallback(async () => {
+    const contactId = await createContact({
+      firstName: draftFirstName,
+      lastName: draftLastName,
+      nickname: draftNickname,
+    });
+    if (contactId) {
+      setSelectedContactId(contactId);
+      setDraftFirstName("");
+      setDraftLastName("");
+      setDraftNickname("");
+    }
+  }, [
+    createContact,
+    draftFirstName,
+    draftLastName,
+    draftNickname,
+    setSelectedContactId,
+  ]);
+  const importDraftContact = useCallback(async () => {
+    const contactId = await importKey(draftUserId.trim());
+    if (contactId) {
+      setSelectedContactId(contactId);
+      setDraftUserId("");
+    }
+  }, [draftUserId, importKey, setSelectedContactId]);
+
+  return {
+    canCreate,
+    canImport,
+    createDraftContact,
+    draftFirstName,
+    draftLastName,
+    draftNickname,
+    draftUserId,
+    importDraftContact,
+    setDraftFirstName,
+    setDraftLastName,
+    setDraftNickname,
+    setDraftUserId,
+  };
+}
+
 export function useContactsModel(
   setSidebar: (sidebar: ReactNode) => void,
   peerUserId: string | null,
@@ -109,12 +195,16 @@ export function useContactsModel(
   } = useContacts();
   const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
   const { logError } = useLog();
-  const [draftFirstName, setDraftFirstName] = useState("");
-  const [draftLastName, setDraftLastName] = useState("");
-  const [draftUserId, setDraftUserId] = useState("");
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     null,
   );
+  const drafts = useContactDrafts({
+    createContact,
+    importKey,
+    isAuthenticated,
+    ready,
+    setSelectedContactId,
+  });
 
   const contextMenuState = useContactsContextMenu({
     entries,
@@ -132,7 +222,7 @@ export function useContactsModel(
     sessionUserId,
     setSelectedContactId,
   });
-  usePeerUserIdDraft(peerUserId, setDraftUserId);
+  usePeerUserIdDraft(peerUserId, drafts.setDraftUserId);
 
   useContactsSidebarPanel({
     entries,
@@ -143,45 +233,24 @@ export function useContactsModel(
     setSidebar,
   });
 
-  const canCreate =
-    ready &&
-    (draftFirstName.trim().length > 0 || draftLastName.trim().length > 0);
-  const canImport = ready && isAuthenticated && draftUserId.trim().length > 0;
-  const createDraftContact = useCallback(async () => {
-    const contactId = await createContact({
-      firstName: draftFirstName,
-      lastName: draftLastName,
-    });
-    if (contactId) {
-      setSelectedContactId(contactId);
-      setDraftFirstName("");
-      setDraftLastName("");
-    }
-  }, [createContact, draftFirstName, draftLastName]);
-  const importDraftContact = useCallback(async () => {
-    const contactId = await importKey(draftUserId.trim());
-    if (contactId) {
-      setSelectedContactId(contactId);
-      setDraftUserId("");
-    }
-  }, [draftUserId, importKey]);
-
   return {
-    canCreate,
-    canImport,
+    canCreate: drafts.canCreate,
+    canImport: drafts.canImport,
     contextMenuState,
-    createDraftContact,
-    draftFirstName,
-    draftLastName,
-    draftUserId,
+    createDraftContact: drafts.createDraftContact,
+    draftFirstName: drafts.draftFirstName,
+    draftLastName: drafts.draftLastName,
+    draftNickname: drafts.draftNickname,
+    draftUserId: drafts.draftUserId,
     entries,
-    importDraftContact,
+    importDraftContact: drafts.importDraftContact,
     isAuthenticated,
     ready,
     selectedContactId,
-    setDraftFirstName,
-    setDraftLastName,
-    setDraftUserId,
+    setDraftFirstName: drafts.setDraftFirstName,
+    setDraftLastName: drafts.setDraftLastName,
+    setDraftNickname: drafts.setDraftNickname,
+    setDraftUserId: drafts.setDraftUserId,
     updateContact,
   };
 }

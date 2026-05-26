@@ -138,6 +138,7 @@ test("contact fields are stored as a structured document", async () => {
     firstName: "Ada",
     isSelf: "1",
     lastName: "Lovelace",
+    nickname: "Countess",
     userId: "user-1",
   });
 
@@ -147,13 +148,14 @@ test("contact fields are stored as a structured document", async () => {
       firstName: "Ada",
       isSelf: "1",
       lastName: "Lovelace",
+      nickname: "Countess",
       userId: "user-1",
     },
     issues: [],
   });
   expect(readStoredDocumentState(doc)).toMatchObject({
     documentKind: "contact",
-    title: "Ada Lovelace",
+    title: "Countess",
   });
 });
 

@@ -18,6 +18,7 @@ const entries: ContactEntry[] = [
     id: "ada",
     firstName: "Ada",
     lastName: "Lovelace",
+    nickname: "Countess",
     userId: null,
     encapsulationPublicKey: null,
     isSelf: false,
@@ -26,6 +27,7 @@ const entries: ContactEntry[] = [
     id: "grace",
     firstName: "Grace",
     lastName: "Hopper",
+    nickname: "",
     userId: null,
     encapsulationPublicKey: null,
     isSelf: false,
@@ -34,6 +36,7 @@ const entries: ContactEntry[] = [
     id: "imported-user",
     firstName: "",
     lastName: "",
+    nickname: "",
     userId: "550e8400-e29b-41d4-a716-446655440000",
     encapsulationPublicKey: "public-key",
     isSelf: false,
@@ -96,6 +99,16 @@ test("contacts sidebar shortens user ids when a contact has no name", async () =
   expect(
     await view.findByRole("button", {
       name: "550e8400",
+    }),
+  ).toBeTruthy();
+});
+
+test("contacts sidebar uses nickname before first and last name", async () => {
+  const view = render(<ContactsSidebarHarness />);
+
+  expect(
+    await view.findByRole("button", {
+      name: "Countess",
     }),
   ).toBeTruthy();
 });

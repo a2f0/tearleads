@@ -9,6 +9,7 @@ export interface ContactEntry {
   id: string;
   isSelf: boolean;
   lastName: string;
+  nickname: string;
   userId: string | null;
 }
 
@@ -17,7 +18,17 @@ export interface ContactEntryPatch {
   firstName?: string | undefined;
   isSelf?: boolean | undefined;
   lastName?: string | undefined;
+  nickname?: string | undefined;
   userId?: string | null | undefined;
+}
+
+export function getContactDisplayName(entry: ContactEntry): string {
+  const nickname = entry.nickname.trim();
+  if (nickname.length > 0) {
+    return nickname;
+  }
+
+  return `${entry.firstName} ${entry.lastName}`.trim();
 }
 
 function normalizeOptionalString(value: string | null | undefined): string {
@@ -45,6 +56,7 @@ export function contactFieldsToEntry(
     id,
     isSelf: readSelfField(fields.isSelf),
     lastName: fields.lastName.trim(),
+    nickname: fields.nickname.trim(),
     userId: userId.length > 0 ? userId : null,
   };
 }
@@ -66,6 +78,9 @@ export function contactEntryToStructuredFieldPatch(
     ...(patch.lastName === undefined
       ? {}
       : { lastName: patch.lastName.trim() }),
+    ...(patch.nickname === undefined
+      ? {}
+      : { nickname: patch.nickname.trim() }),
     ...(patch.userId === undefined
       ? {}
       : { userId: normalizeOptionalString(patch.userId) || undefined }),

@@ -36,6 +36,7 @@ export interface ContactDocumentFields {
   firstName: string;
   isSelf: string;
   lastName: string;
+  nickname: string;
   userId: string;
 }
 
@@ -86,6 +87,7 @@ export const contactProjection = sqliteTable(
     containerId: text("container_id"),
     firstName: text("first_name").notNull().default(""),
     lastName: text("last_name").notNull().default(""),
+    nickname: text("nickname").notNull().default(""),
     userId: text("user_id"),
     encapsulationPublicKey: text("encapsulation_public_key"),
     isSelf: integer("is_self").notNull().default(0),
@@ -98,12 +100,7 @@ export const contactProjection = sqliteTable(
     uniqueIndex("contact_projection_user_idx")
       .on(table.userId)
       .where(sql`${table.userId} IS NOT NULL`),
-    index("contact_projection_name_idx").on(
-      sql`${table.lastName} COLLATE NOCASE`,
-      sql`${table.firstName} COLLATE NOCASE`,
-      sql`${table.userId} COLLATE NOCASE`,
-      sql`${table.localId} COLLATE NOCASE`,
-    ),
+    index("contact_projection_container_idx").on(table.containerId),
   ],
 );
 
@@ -197,6 +194,11 @@ function deriveDriverLicenseTitle(fields: DriverLicenseDocumentFields): string {
 }
 
 function deriveContactTitle(fields: ContactDocumentFields): string {
+  const nickname = fields.nickname.trim();
+  if (nickname.length > 0) {
+    return nickname;
+  }
+
   const fullName = `${fields.firstName} ${fields.lastName}`.trim();
   if (fullName.length > 0) {
     return fullName;
@@ -299,6 +301,7 @@ const contactClientProjection: DocumentClientProjectionDefinition = {
       containerId: input.containerId,
       firstName: fields.firstName,
       lastName: fields.lastName,
+      nickname: fields.nickname,
       userId: nullableField(fields.userId),
       encapsulationPublicKey: nullableField(fields.encapsulationPublicKey),
       isSelf: isTruthyStructuredField(fields.isSelf) ? 1 : 0,
@@ -390,6 +393,7 @@ export function readContactFieldsFromRecord(
       firstName: readStringDocumentField(source, "firstName", issues),
       isSelf: readStringDocumentField(source, "isSelf", issues),
       lastName: readStringDocumentField(source, "lastName", issues),
+      nickname: readStringDocumentField(source, "nickname", issues),
       userId: readStringDocumentField(source, "userId", issues),
     },
     issues,

@@ -19,6 +19,7 @@ interface ContactDocumentFieldsFormProps {
     encapsulationPublicKey: string;
     firstName: string;
     lastName: string;
+    nickname: string;
     userId: string;
   };
   ready: boolean;
@@ -33,6 +34,18 @@ function ContactDocumentFieldsForm({
 }: ContactDocumentFieldsFormProps) {
   return (
     <StructuredDocumentFields>
+      <StructuredDocumentField inputId={inputIds.nickname} label="Nickname">
+        <input
+          id={inputIds.nickname}
+          aria-label="Contact nickname"
+          value={fields.nickname}
+          onChange={(event) =>
+            setStructuredFields("contact", { nickname: event.target.value })
+          }
+          placeholder={ready ? "Ada" : "Loading..."}
+          disabled={!ready}
+        />
+      </StructuredDocumentField>
       <StructuredDocumentField inputId={inputIds.firstName} label="First Name">
         <input
           id={inputIds.firstName}
@@ -106,6 +119,7 @@ export function ContactDocument() {
   const inputIds = {
     firstName: useId(),
     lastName: useId(),
+    nickname: useId(),
     userId: useId(),
     encapsulationPublicKey: useId(),
   };
