@@ -16,24 +16,43 @@ function waitForRemoteDocumentId(
   }
 
   return new Promise((resolve) => {
+    let completed = false;
     let unsubscribe: (() => void) | null = null;
-    const timeout = setTimeout(() => {
-      unsubscribe?.();
-      resolve(null);
+    let shouldUnsubscribeAfterSubscribe = false;
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const finish = (documentId: string | null) => {
+      if (completed) {
+        return;
+      }
+
+      completed = true;
+      clearTimeout(timeout);
+      if (unsubscribe) {
+        unsubscribe();
+      } else {
+        shouldUnsubscribeAfterSubscribe = true;
+      }
+      resolve(documentId);
+    };
+
+    timeout = setTimeout(() => {
+      finish(null);
     }, timeoutMs);
 
     unsubscribe = store.subscribe(() => {
       const documentId = store.getSnapshot().documentId;
-      if (!documentId) {
-        return;
+      if (documentId) {
+        finish(documentId);
       }
-
-      clearTimeout(timeout);
-      unsubscribe?.();
-      resolve(documentId);
     });
 
-    store.requestSync();
+    if (shouldUnsubscribeAfterSubscribe) {
+      unsubscribe();
+    }
+    if (!completed) {
+      store.requestSync();
+    }
   });
 }
 

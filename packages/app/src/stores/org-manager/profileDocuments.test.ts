@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
-import type { OrganizationDirectoryUser } from "@tearleads/client-sdk";
+import type {
+  DocumentStore,
+  Documents,
+  OrganizationDirectoryUser,
+} from "@tearleads/client-sdk";
 import {
+  createRosterProfileDocument,
   getRosterProfileDocumentLocalId,
   getRosterProfileDocumentPatch,
 } from "./profileDocuments";
@@ -35,4 +40,38 @@ test("roster profile documents seed contact identity fields", () => {
     isSelf: "1",
     userId: user.userId,
   });
+});
+
+test("roster profile document sync wait handles synchronous subscriptions", async () => {
+  let documentId: string | null = null;
+  let requestSyncCalls = 0;
+  let unsubscribeCalls = 0;
+  const store = {
+    ensureInitialized: () => Promise.resolve(true),
+    getSnapshot: () => ({ documentId }),
+    requestSync: () => {
+      requestSyncCalls += 1;
+    },
+    setStructuredFields: () => Promise.resolve(),
+    subscribe: (listener: () => void) => {
+      documentId = "profile-document-1";
+      listener();
+      return () => {
+        unsubscribeCalls += 1;
+      };
+    },
+  } as unknown as DocumentStore;
+  const documents = {
+    store: () => store,
+  } as unknown as Documents;
+
+  const createdDocumentId = await createRosterProfileDocument({
+    documents,
+    organizationId: "organization-1",
+    user,
+  });
+
+  expect(createdDocumentId).toBe("profile-document-1");
+  expect(unsubscribeCalls).toBe(1);
+  expect(requestSyncCalls).toBe(1);
 });

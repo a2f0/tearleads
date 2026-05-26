@@ -572,7 +572,9 @@ export function useOrgManagerModel() {
         profileDocumentCreationKeysRef.current.delete(
           profileDocumentCreationKey,
         );
-        setMutating(false);
+        if (profileDocumentCreationKeysRef.current.size === 0) {
+          setMutating(false);
+        }
       });
   }, [
     appData.auth.organizationId,
