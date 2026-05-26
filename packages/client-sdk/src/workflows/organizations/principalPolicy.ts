@@ -3,10 +3,8 @@ import {
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
   normalizePrincipalProjectionMembers,
-  type PrincipalPolicyBundle,
   type PrincipalPolicyCheckpoint,
   type PrincipalPolicySignerPublicKey,
-  type PrincipalProjectionMember,
   type SigningKeyPair,
   signPrincipalState,
   toFingerprint,
@@ -257,7 +255,7 @@ async function verifyGroupPolicy(input: {
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
 }): Promise<void> {
   const verified = await verifyPrincipalPolicyBundle({
-    bundle: input.currentPolicy as PrincipalPolicyBundle,
+    bundle: input.currentPolicy,
     ...(input.externalAdminSignerUserIds
       ? { externalAdminSignerUserIds: input.externalAdminSignerUserIds }
       : {}),
@@ -365,9 +363,7 @@ async function signedGroupStateRequest(input: {
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
 }): Promise<PutPrincipalStateRequest> {
-  const projection = normalizePrincipalProjectionMembers(
-    input.projection as PrincipalProjectionMember[],
-  );
+  const projection = normalizePrincipalProjectionMembers(input.projection);
   const payloadCiphertext = payloadCiphertextForProjection(projection);
   const state = await signPrincipalState(
     await buildPrincipalStateSigningInput({

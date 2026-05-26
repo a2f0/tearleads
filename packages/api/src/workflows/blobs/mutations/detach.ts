@@ -1,8 +1,8 @@
-import type { KeyingCanonicalJson } from "@tearleads/crypto";
 import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
 import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import type { ApiDatabase } from "../../../adapters/postgres";
+import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
 import {
@@ -48,7 +48,10 @@ export async function runDetachBlobAttachmentWorkflow(
       ]);
       const verifiedDetach = await verifyAttachmentDetachEvent({
         authorizingContainerPaths: proof.authorizingContainerPaths,
-        body: input.request.body as KeyingCanonicalJson,
+        body: readKeyingCanonicalJson(
+          input.request.body,
+          "Blob attachment detach body",
+        ),
         documentManifest: proof.documentManifest,
         event,
         expectedBindingId: activeBinding.id,

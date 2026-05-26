@@ -116,7 +116,8 @@ export function downloadKeyPackageFile(input: {
 
 export function parseKeyPackageFileText(text: string): unknown {
   try {
-    return JSON.parse(text) as unknown;
+    const parsed: unknown = JSON.parse(text);
+    return parsed;
   } catch (error) {
     throw new Error("Key package backup must be valid JSON.", {
       cause: error,

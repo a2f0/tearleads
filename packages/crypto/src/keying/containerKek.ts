@@ -47,11 +47,14 @@ import type {
   VerifiedPrincipalPolicy,
   VerifyContainerKekStateInput,
 } from "./types";
-import { CONTAINER_KEK_MATERIAL_ID_PREFIX } from "./types";
+import {
+  CONTAINER_KEK_MATERIAL_ID_PREFIX,
+  makeVerifiedBlobKekTargets,
+  makeVerifiedContainerKekState,
+  makeVerifiedDocumentKekTargets,
+} from "./types";
 
-function normalizeContainerKeyEpoch(
-  value: ContainerKeyEpoch,
-): ContainerKeyEpoch {
+function normalizeContainerKeyEpoch(value: unknown): ContainerKeyEpoch {
   const record = assertExactKeys(
     value,
     [
@@ -93,7 +96,7 @@ function normalizeContainerKeyEpoch(
   };
 }
 
-function normalizeContainerKeyWrap(value: ContainerKeyWrap): ContainerKeyWrap {
+function normalizeContainerKeyWrap(value: unknown): ContainerKeyWrap {
   const record = assertExactKeys(
     value,
     [
@@ -141,7 +144,7 @@ function normalizeContainerKeyWrap(value: ContainerKeyWrap): ContainerKeyWrap {
 }
 
 function normalizeContainerUserRecipientKey(
-  value: ContainerUserRecipientKey,
+  value: unknown,
 ): ContainerUserRecipientKey {
   const record = assertExactKeys(
     value,
@@ -673,7 +676,7 @@ async function buildVerifiedContainerKekState(input: {
     wraps: input.normalizedWraps,
   };
 
-  return state as typeof state & VerifiedContainerKekState;
+  return makeVerifiedContainerKekState(state);
 }
 
 export async function verifyContainerKekState({
@@ -744,7 +747,7 @@ export async function verifyContainerKekState({
 }
 
 function normalizeContainerKekRecipientTarget(
-  value: ContainerKekRecipientTarget,
+  value: unknown,
 ): ContainerKekRecipientTarget {
   const record = assertExactKeys(
     value,
@@ -787,7 +790,7 @@ function containerKekRecipientTargetKey(
 }
 
 function normalizeContainerKekTarget(
-  value: ContainerKekTarget,
+  value: unknown,
   label: string,
 ): ContainerKekTarget {
   const record = assertExactKeys(
@@ -817,9 +820,7 @@ function containerKekTargetKey(target: ContainerKekTarget): string {
   return `${target.containerId}:${target.containerKeyEpochId}`;
 }
 
-function normalizeBlobContentKeyTarget(
-  value: BlobContentKeyTarget,
-): BlobContentKeyTarget {
+function normalizeBlobContentKeyTarget(value: unknown): BlobContentKeyTarget {
   const record = assertExactKeys(
     value,
     [
@@ -1016,7 +1017,7 @@ async function buildVerifiedDocumentKekTargets(input: {
     ),
   };
 
-  return targets as typeof targets & VerifiedDocumentKekTargets;
+  return makeVerifiedDocumentKekTargets(targets);
 }
 
 export async function deriveDocumentKekTargets({
@@ -1098,9 +1099,8 @@ function normalizeActiveAttachmentBindings(input: {
     compareCanonicalStrings(left.bindingId, right.bindingId),
   );
 
-  for (let index = 0; index < normalizedBindings.length; index += 1) {
-    const binding = normalizedBindings[index] as VerifiedAttachmentBinding;
-
+  let previousBindingId: string | null = null;
+  for (const binding of normalizedBindings) {
     if (binding.blobId !== input.blobId) {
       throwVerification(
         "object_mismatch",
@@ -1138,16 +1138,13 @@ function normalizeActiveAttachmentBindings(input: {
       );
     }
 
-    if (
-      index > 0 &&
-      (normalizedBindings[index - 1] as VerifiedAttachmentBinding).bindingId ===
-        binding.bindingId
-    ) {
+    if (previousBindingId === binding.bindingId) {
       throwVerification(
         "duplicate_entry",
         "blob KEK target derivation contains a duplicate attachment binding",
       );
     }
+    previousBindingId = binding.bindingId;
   }
 
   return normalizedBindings;
@@ -1267,7 +1264,7 @@ async function buildVerifiedBlobKekTargets(input: {
     blobAccessManifestHash,
   };
 
-  return targets as typeof targets & VerifiedBlobKekTargets;
+  return makeVerifiedBlobKekTargets(targets);
 }
 
 export async function deriveBlobKekTargets({
@@ -1360,9 +1357,7 @@ function normalizeHashStringArray(
   return values;
 }
 
-function normalizeBlobAccessManifest(
-  value: BlobAccessManifest,
-): BlobAccessManifest {
+function normalizeBlobAccessManifest(value: unknown): BlobAccessManifest {
   const record = assertExactKeys(
     value,
     [

@@ -98,6 +98,13 @@ async function loadBlobBytesResponse(
       response,
     });
   }
+  if (responseBlobId === null || sha256 === null) {
+    return reportMalformedBlobBytesResponse(request, {
+      message: `Invalid response shape for ${path}: missing response metadata`,
+      path,
+      response,
+    });
+  }
 
   const byteLength = byteLengthHeader.byteLength;
   if (byteLength === null) {
@@ -117,11 +124,11 @@ async function loadBlobBytesResponse(
   }
 
   return {
-    blobId: responseBlobId as string,
+    blobId: responseBlobId,
     byteLength,
     encryptedBytes: response.body,
     response,
-    sha256: sha256 as string,
+    sha256,
   };
 }
 

@@ -1,4 +1,3 @@
-import type { KeyingCanonicalJson } from "@tearleads/crypto";
 import {
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
@@ -13,6 +12,7 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "../../../adapters/postgres";
+import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
 import {
@@ -140,7 +140,10 @@ async function bindBlobAttachmentTransaction(
   });
   const verifiedBinding = await verifyAttachmentBindingEvent({
     authorizingContainerPaths: proof.authorizingContainerPaths,
-    body: input.request.body as KeyingCanonicalJson,
+    body: readKeyingCanonicalJson(
+      input.request.body,
+      "Blob attachment bind body",
+    ),
     documentManifest: proof.documentManifest,
     event,
     expectedBindingId: bindBody.bindingId,

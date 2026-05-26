@@ -23,6 +23,7 @@ import type {
   VerifiedPrincipalPolicy,
   VerifyPrincipalPolicyBundleInput,
 } from "./types";
+import { makeVerifiedPrincipalPolicy } from "./types";
 
 function principalProjectionMemberKey(
   member: PrincipalProjectionMember,
@@ -683,7 +684,7 @@ export async function verifyPrincipalPolicyBundle({
       localCheckpoint,
     });
 
-    return {
+    return makeVerifiedPrincipalPolicy({
       principalType: currentEntry.state.principalType,
       principalId: currentEntry.state.principalId,
       version: currentEntry.state.version,
@@ -698,6 +699,6 @@ export async function verifyPrincipalPolicyBundle({
         version: currentEntry.state.version,
         stateHash: currentEntry.state.stateHash,
       },
-    } as unknown as VerifiedPrincipalPolicy;
+    });
   });
 }

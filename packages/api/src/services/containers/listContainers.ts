@@ -105,14 +105,16 @@ function readDateIso(value: unknown, label: string): string {
 }
 
 function readRequiredNumber(value: unknown, label: string): number {
-  if (!Number.isInteger(value)) {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
     throw new Error(`${label} is not an integer`);
   }
-  return value as number;
+  return value;
 }
 
 function readOptionalNumber(value: unknown): number | undefined {
-  return Number.isInteger(value) ? (value as number) : undefined;
+  return typeof value === "number" && Number.isInteger(value)
+    ? value
+    : undefined;
 }
 
 function readOptionalString(value: unknown): string | undefined {

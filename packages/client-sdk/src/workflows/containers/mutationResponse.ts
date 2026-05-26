@@ -37,7 +37,9 @@ export function referencedPrincipalHeadsFromContainerMutationResponse(input: {
     if (
       (principalType !== "group" && principalType !== "organization") ||
       typeof principalId !== "string" ||
+      typeof version !== "number" ||
       !Number.isInteger(version) ||
+      typeof keyEpoch !== "number" ||
       !Number.isInteger(keyEpoch) ||
       typeof stateHash !== "string" ||
       typeof keyFingerprint !== "string"
@@ -49,8 +51,8 @@ export function referencedPrincipalHeadsFromContainerMutationResponse(input: {
       {
         principalType,
         principalId,
-        version: version as number,
-        keyEpoch: keyEpoch as number,
+        version,
+        keyEpoch,
         stateHash,
         keyFingerprint,
       },

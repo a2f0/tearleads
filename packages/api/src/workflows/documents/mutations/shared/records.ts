@@ -8,14 +8,19 @@ import type {
   ContentObjectKind,
   ContentRecordEncryptionSuite,
   DocumentLinkSetManifestState,
-  KeyingCanonicalJson,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   WriteHeader,
 } from "@tearleads/crypto";
-import { CONTENT_RECORD_ENCRYPTION_SUITE } from "@tearleads/crypto";
+import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
+  makeVerifiedAccessEvent,
+  makeVerifiedContainerAccessManifest,
+  makeVerifiedDocumentKekTargets,
+  makeVerifiedDocumentLinkSetManifest,
+} from "@tearleads/crypto";
 import type {
   DocumentContentKeyBundleRequest,
   DocumentContentKeyTargetEnvelope,
@@ -36,6 +41,7 @@ import {
   projectionVerifiedAccessEventRecord,
   readProjectionAccessEvent,
   readProjectionAccessManifest,
+  readProjectionCanonicalJson,
   readProjectionNullableString,
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
@@ -48,7 +54,6 @@ import {
   readProjectionVersion,
 } from "../../../../keyingProjectionRecords";
 import { DocumentMutationError, documentShapeError } from "../errors";
-import type { UnbrandedVerified } from "../types";
 
 function isContainerAccessLevel(value: unknown): value is ContainerAccessLevel {
   return value === "admin" || value === "read" || value === "write";
@@ -275,7 +280,7 @@ export function readVerifiedContainerManifest(
     label,
     documentShapeError,
   );
-  const verified: UnbrandedVerified<VerifiedContainerAccessManifest> = {
+  return makeVerifiedContainerAccessManifest({
     event: readProjectionVerifiedAccessEvent(
       readProjectionValue(record, "event"),
       `${label}.event`,
@@ -291,9 +296,7 @@ export function readVerifiedContainerManifest(
       manifest,
       manifestHash,
     }),
-  };
-
-  return verified as VerifiedContainerAccessManifest;
+  });
 }
 
 export function readVerifiedDocumentManifest(
@@ -321,7 +324,7 @@ export function readVerifiedDocumentManifest(
     label,
     documentShapeError,
   );
-  const verified: UnbrandedVerified<VerifiedDocumentLinkSetManifest> = {
+  return makeVerifiedDocumentLinkSetManifest({
     event,
     manifest,
     manifestHash,
@@ -330,9 +333,7 @@ export function readVerifiedDocumentManifest(
       manifest,
       manifestHash,
     }),
-  };
-
-  return verified as VerifiedDocumentLinkSetManifest;
+  });
 }
 
 function readDocumentManifestEvent(
@@ -345,13 +346,11 @@ function readDocumentManifestEvent(
     return readProjectionVerifiedAccessEvent(value, label, documentShapeError);
   }
 
-  const verified: UnbrandedVerified<VerifiedAccessEvent> = {
+  return makeVerifiedAccessEvent({
     event: readProjectionAccessEvent(value, label, documentShapeError),
     body: {},
     eventHash: state.eventHash,
-  };
-
-  return verified as VerifiedAccessEvent;
+  });
 }
 
 export function documentManifestBundleRecord(
@@ -368,16 +367,14 @@ export function documentManifestBundleRecord(
 export function verifiedDocumentKekTargetsFromResolved(
   targets: Awaited<ReturnType<typeof resolveCurrentDocumentKekTargets>>,
 ): VerifiedDocumentKekTargets {
-  const verified: UnbrandedVerified<VerifiedDocumentKekTargets> = {
+  return makeVerifiedDocumentKekTargets({
     documentId: targets.documentId,
     linkSetManifestHash: targets.linkSetManifestHash,
     linkedContainerManifestHashes: [...targets.linkedContainerManifestHashes],
     linkedContainerKeyEpochIds: [...targets.linkedContainerKeyEpochIds],
     targets: targets.targets.map((target) => ({ ...target })),
     documentKeyTargetHash: targets.documentKeyTargetHash,
-  };
-
-  return verified as VerifiedDocumentKekTargets;
+  });
 }
 
 function readWriteHeaderString(
@@ -467,11 +464,11 @@ function toStoredTargetEnvelope(
     containerKeyEpochId: target.containerKeyEpochId,
     containerKeyEpoch: target.containerKeyEpoch,
     wrappedKey: target.wrappedKey,
-    wrappingMetadata: readProjectionRecord(
+    wrappingMetadata: readProjectionCanonicalJson(
       target.wrappingMetadata,
       "Document content-key target wrapping metadata",
       documentShapeError,
-    ) as KeyingCanonicalJson,
+    ),
   };
 }
 

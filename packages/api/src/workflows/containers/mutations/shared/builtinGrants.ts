@@ -1,8 +1,6 @@
 import type {
   ContainerDirectGrant,
-  ContainerGrantAccessEventBody,
   ContainerGrantSubjectType,
-  ContainerRevokeAccessEventBody,
   KeyingCanonicalJson,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -35,10 +33,10 @@ function isContainerMutationSubject(
     return false;
   }
 
-  const subject = value as Partial<ContainerMutationSubject>;
+  const subjectId = Reflect.get(value, "subjectId");
+  const subjectType = Reflect.get(value, "subjectType");
   return (
-    typeof subject.subjectId === "string" &&
-    isContainerGrantSubjectType(subject.subjectType)
+    typeof subjectId === "string" && isContainerGrantSubjectType(subjectType)
   );
 }
 
@@ -52,7 +50,7 @@ function readMutationSubject(
   }
 
   if (manifest.event.event.eventType === "container.grant") {
-    const { grant } = body as Partial<ContainerGrantAccessEventBody>;
+    const grant = Reflect.get(body, "grant");
     if (!isContainerMutationSubject(grant)) {
       return null;
     }
@@ -61,14 +59,13 @@ function readMutationSubject(
   }
 
   if (manifest.event.event.eventType === "container.revoke") {
-    const revokeBody = body as Partial<ContainerRevokeAccessEventBody>;
-    if (!isContainerMutationSubject(revokeBody)) {
+    if (!isContainerMutationSubject(body)) {
       return null;
     }
 
     return {
-      subjectId: revokeBody.subjectId,
-      subjectType: revokeBody.subjectType,
+      subjectId: body.subjectId,
+      subjectType: body.subjectType,
     };
   }
 

@@ -462,21 +462,48 @@ export type KeyingVerificationResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: KeyingVerificationError };
 
-declare const verifiedIdentityStateBrand: unique symbol;
-declare const verifiedPrincipalPolicyBrand: unique symbol;
-declare const verifiedAccessEventBrand: unique symbol;
-declare const verifiedAccessManifestBrand: unique symbol;
-declare const verifiedContainerAccessManifestBrand: unique symbol;
-declare const verifiedDocumentLinkSetManifestBrand: unique symbol;
-declare const verifiedDocumentKekTargetsBrand: unique symbol;
-declare const verifiedAttachmentBindingBrand: unique symbol;
-declare const verifiedAttachmentDetachBrand: unique symbol;
-declare const verifiedBlobKekTargetsBrand: unique symbol;
-declare const verifiedContainerParentEdgeBrand: unique symbol;
-declare const verifiedContainerKekStateBrand: unique symbol;
-declare const verifiedWriteHeaderBrand: unique symbol;
-declare const verifiedTransparencyTreeHeadBrand: unique symbol;
-declare const verifiedTransparencyProofBrand: unique symbol;
+const verifiedBrandValue = true;
+const verifiedIdentityStateBrand: unique symbol = Symbol(
+  "verifiedIdentityState",
+);
+const verifiedPrincipalPolicyBrand: unique symbol = Symbol(
+  "verifiedPrincipalPolicy",
+);
+const verifiedAccessEventBrand: unique symbol = Symbol("verifiedAccessEvent");
+const verifiedAccessManifestBrand: unique symbol = Symbol(
+  "verifiedAccessManifest",
+);
+const verifiedContainerAccessManifestBrand: unique symbol = Symbol(
+  "verifiedContainerAccessManifest",
+);
+const verifiedDocumentLinkSetManifestBrand: unique symbol = Symbol(
+  "verifiedDocumentLinkSetManifest",
+);
+const verifiedDocumentKekTargetsBrand: unique symbol = Symbol(
+  "verifiedDocumentKekTargets",
+);
+const verifiedAttachmentBindingBrand: unique symbol = Symbol(
+  "verifiedAttachmentBinding",
+);
+const verifiedAttachmentDetachBrand: unique symbol = Symbol(
+  "verifiedAttachmentDetach",
+);
+const verifiedBlobKekTargetsBrand: unique symbol = Symbol(
+  "verifiedBlobKekTargets",
+);
+const verifiedContainerParentEdgeBrand: unique symbol = Symbol(
+  "verifiedContainerParentEdge",
+);
+const verifiedContainerKekStateBrand: unique symbol = Symbol(
+  "verifiedContainerKekState",
+);
+const verifiedWriteHeaderBrand: unique symbol = Symbol("verifiedWriteHeader");
+const verifiedTransparencyTreeHeadBrand: unique symbol = Symbol(
+  "verifiedTransparencyTreeHead",
+);
+const verifiedTransparencyProofBrand: unique symbol = Symbol(
+  "verifiedTransparencyProof",
+);
 
 export interface VerifiedIdentityState {
   readonly identityId: string;
@@ -626,6 +653,156 @@ export interface VerifiedTransparencyProof {
   readonly inclusionProof: TransparencyInclusionProof;
   readonly consistencyProof?: TransparencyConsistencyProof;
   readonly [verifiedTransparencyProofBrand]: true;
+}
+
+export function makeVerifiedIdentityState(
+  value: Omit<VerifiedIdentityState, typeof verifiedIdentityStateBrand>,
+): VerifiedIdentityState {
+  return {
+    ...value,
+    [verifiedIdentityStateBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedPrincipalPolicy(
+  value: Omit<VerifiedPrincipalPolicy, typeof verifiedPrincipalPolicyBrand>,
+): VerifiedPrincipalPolicy {
+  return {
+    ...value,
+    [verifiedPrincipalPolicyBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedAccessEvent(
+  value: Omit<VerifiedAccessEvent, typeof verifiedAccessEventBrand>,
+): VerifiedAccessEvent {
+  return {
+    ...value,
+    [verifiedAccessEventBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedAccessManifest(
+  value: Omit<VerifiedAccessManifest, typeof verifiedAccessManifestBrand>,
+): VerifiedAccessManifest {
+  return {
+    ...value,
+    [verifiedAccessManifestBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedContainerAccessManifest(
+  value: Omit<
+    VerifiedContainerAccessManifest,
+    typeof verifiedContainerAccessManifestBrand
+  >,
+): VerifiedContainerAccessManifest {
+  return {
+    ...value,
+    [verifiedContainerAccessManifestBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedDocumentLinkSetManifest(
+  value: Omit<
+    VerifiedDocumentLinkSetManifest,
+    typeof verifiedDocumentLinkSetManifestBrand
+  >,
+): VerifiedDocumentLinkSetManifest {
+  return {
+    ...value,
+    [verifiedDocumentLinkSetManifestBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedDocumentKekTargets(
+  value: Omit<
+    VerifiedDocumentKekTargets,
+    typeof verifiedDocumentKekTargetsBrand
+  >,
+): VerifiedDocumentKekTargets {
+  return {
+    ...value,
+    [verifiedDocumentKekTargetsBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedAttachmentBinding(
+  value: Omit<VerifiedAttachmentBinding, typeof verifiedAttachmentBindingBrand>,
+): VerifiedAttachmentBinding {
+  return {
+    ...value,
+    [verifiedAttachmentBindingBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedAttachmentDetach(
+  value: Omit<VerifiedAttachmentDetach, typeof verifiedAttachmentDetachBrand>,
+): VerifiedAttachmentDetach {
+  return {
+    ...value,
+    [verifiedAttachmentDetachBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedBlobKekTargets(
+  value: Omit<VerifiedBlobKekTargets, typeof verifiedBlobKekTargetsBrand>,
+): VerifiedBlobKekTargets {
+  return {
+    ...value,
+    [verifiedBlobKekTargetsBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedContainerParentEdge(
+  value: Omit<
+    VerifiedContainerParentEdge,
+    typeof verifiedContainerParentEdgeBrand
+  >,
+): VerifiedContainerParentEdge {
+  return {
+    ...value,
+    [verifiedContainerParentEdgeBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedContainerKekState(
+  value: Omit<VerifiedContainerKekState, typeof verifiedContainerKekStateBrand>,
+): VerifiedContainerKekState {
+  return {
+    ...value,
+    [verifiedContainerKekStateBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedWriteHeader(
+  value: Omit<VerifiedWriteHeader, typeof verifiedWriteHeaderBrand>,
+): VerifiedWriteHeader {
+  return {
+    ...value,
+    [verifiedWriteHeaderBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedTransparencyTreeHead(
+  value: Omit<
+    VerifiedTransparencyTreeHead,
+    typeof verifiedTransparencyTreeHeadBrand
+  >,
+): VerifiedTransparencyTreeHead {
+  return {
+    ...value,
+    [verifiedTransparencyTreeHeadBrand]: verifiedBrandValue,
+  };
+}
+
+export function makeVerifiedTransparencyProof(
+  value: Omit<VerifiedTransparencyProof, typeof verifiedTransparencyProofBrand>,
+): VerifiedTransparencyProof {
+  return {
+    ...value,
+    [verifiedTransparencyProofBrand]: verifiedBrandValue,
+  };
 }
 
 interface ExpectedObject {

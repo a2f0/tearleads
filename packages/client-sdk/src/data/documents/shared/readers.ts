@@ -345,10 +345,11 @@ export function readRecordNullableString(
 }
 
 export function asWebCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  if (!(bytes.buffer instanceof ArrayBuffer)) {
+  const buffer = bytes.buffer;
+  if (!(buffer instanceof ArrayBuffer)) {
     throw new Error("Document byte material must be ArrayBuffer-backed");
   }
-  return bytes as Uint8Array<ArrayBuffer>;
+  return new Uint8Array(buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 export function assertOnlyRecordKeys(

@@ -18,10 +18,9 @@ import type {
   VerifiedIdentityState,
   VerifyIdentityStateCheckpointInput,
 } from "./types";
+import { makeVerifiedIdentityState } from "./types";
 
-export function normalizeIdentityStateHead(
-  value: IdentityStateHead,
-): IdentityStateHead {
+export function normalizeIdentityStateHead(value: unknown): IdentityStateHead {
   const record = assertExactKeys(
     value,
     ["identityId", "previousStateHash", "stateHash", "version"],
@@ -41,7 +40,7 @@ export function normalizeIdentityStateHead(
 }
 
 function normalizeIdentityStateCheckpoint(
-  value: IdentityStateCheckpoint,
+  value: unknown,
 ): IdentityStateCheckpoint {
   const record = assertExactKeys(
     value,
@@ -156,18 +155,18 @@ export async function verifyIdentityStateCheckpoint({
       checkpointPredecessors,
     });
 
-    return {
+    return makeVerifiedIdentityState({
       identityId: normalizedHead.identityId,
       version: normalizedHead.version,
       stateHash: normalizedHead.stateHash,
       head: normalizedHead,
       checkpoint: identityStateCheckpointFromHead(normalizedHead),
-    } as VerifiedIdentityState;
+    });
   });
 }
 
 function normalizeAccessManifestCheckpoint(
-  value: AccessManifestCheckpoint,
+  value: unknown,
 ): AccessManifestCheckpoint {
   const record = assertExactKeys(
     value,

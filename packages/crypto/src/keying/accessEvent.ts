@@ -42,10 +42,9 @@ import type {
   VerifyAccessEventInput,
   VerifyAccessManifestInput,
 } from "./types";
+import { makeVerifiedAccessEvent, makeVerifiedAccessManifest } from "./types";
 
-function normalizeUnsignedAccessEvent(
-  value: UnsignedAccessEvent,
-): UnsignedAccessEvent {
+function normalizeUnsignedAccessEvent(value: unknown): UnsignedAccessEvent {
   const record = assertExactKeys(
     value,
     [
@@ -107,7 +106,7 @@ function normalizeUnsignedAccessEvent(
   };
 }
 
-function normalizeAccessEvent(value: AccessEvent): AccessEvent {
+function normalizeAccessEvent(value: unknown): AccessEvent {
   const record = assertExactKeys(
     value,
     [
@@ -142,7 +141,7 @@ function normalizeAccessEvent(value: AccessEvent): AccessEvent {
     signerDeviceId: record.signerDeviceId,
     signerKeyFingerprint: record.signerKeyFingerprint,
     signedAt: record.signedAt,
-  } as UnsignedAccessEvent);
+  });
 
   return {
     ...unsignedEvent,
@@ -262,16 +261,16 @@ export async function verifySignedAccessEvent({
       );
     }
 
-    return {
+    return makeVerifiedAccessEvent({
       event: normalizedEvent,
       body: normalizedBody,
       eventHash: await computeAccessEventHash(normalizedEvent),
-    } as VerifiedAccessEvent;
+    });
   });
 }
 
 export function normalizeReferencedPrincipalHead(
-  value: ReferencedPrincipalHead,
+  value: unknown,
 ): ReferencedPrincipalHead {
   const record = assertExactKeys(
     value,
@@ -318,7 +317,7 @@ export function referencedPrincipalKey(
 }
 
 export function normalizeReferencedPrincipalHeads(
-  values: readonly ReferencedPrincipalHead[],
+  values: readonly unknown[],
 ): ReferencedPrincipalHead[] {
   const normalizedValues = values
     .map(normalizeReferencedPrincipalHead)
@@ -329,24 +328,22 @@ export function normalizeReferencedPrincipalHeads(
       ),
     );
 
-  for (let index = 1; index < normalizedValues.length; index += 1) {
-    if (
-      referencedPrincipalKey(
-        normalizedValues[index - 1] as ReferencedPrincipalHead,
-      ) ===
-      referencedPrincipalKey(normalizedValues[index] as ReferencedPrincipalHead)
-    ) {
+  let previousKey: string | null = null;
+  for (const principalHead of normalizedValues) {
+    const principalKey = referencedPrincipalKey(principalHead);
+    if (previousKey === principalKey) {
       throwVerification(
         "duplicate_entry",
         "access manifest referencedPrincipalHeads contains a duplicate",
       );
     }
+    previousKey = principalKey;
   }
 
   return normalizedValues;
 }
 
-function normalizeAccessManifest(value: AccessManifest): AccessManifest {
+function normalizeAccessManifest(value: unknown): AccessManifest {
   const record = assertExactKeys(
     value,
     [
@@ -388,7 +385,7 @@ function normalizeAccessManifest(value: AccessManifest): AccessManifest {
     structuralHash: readHashString(record, "structuralHash", "access manifest"),
     grantRoot: readHashString(record, "grantRoot", "access manifest"),
     referencedPrincipalHeads: normalizeReferencedPrincipalHeads(
-      referencedPrincipalHeads as ReferencedPrincipalHead[],
+      referencedPrincipalHeads,
     ),
     keyTargetHash: readHashString(record, "keyTargetHash", "access manifest"),
   };
@@ -487,11 +484,11 @@ export async function verifyAccessManifest({
       checkpointPredecessors,
     });
 
-    return {
+    return makeVerifiedAccessManifest({
       manifest: normalizedManifest,
       manifestHash,
       event,
       checkpoint,
-    } as VerifiedAccessManifest;
+    });
   });
 }

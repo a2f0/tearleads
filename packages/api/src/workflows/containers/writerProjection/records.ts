@@ -1,5 +1,6 @@
 import type {
   AccessManifest,
+  AccessManifestCheckpoint,
   ContainerAccessLevel,
   ContainerAccessManifestState,
   ContainerDirectGrant,
@@ -12,6 +13,7 @@ import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerKekResponse,
@@ -229,11 +231,24 @@ export function toManifestBundleResponse(input: {
   };
 }
 
+function accessManifestCheckpoint(input: {
+  readonly manifest: AccessManifest;
+  readonly manifestHash: string;
+}): AccessManifestCheckpoint {
+  return {
+    objectKind: input.manifest.objectKind,
+    objectId: input.manifest.objectId,
+    organizationId: input.manifest.organizationId,
+    epoch: input.manifest.epoch,
+    manifestHash: input.manifestHash,
+  };
+}
+
 export function toVerifiedContainerManifest(
   bundle: AccessManifestBundleWireResponse,
 ): VerifiedContainerAccessManifest {
   const manifest = readAccessManifest(bundle.manifest, "Container manifest");
-  return {
+  return makeVerifiedContainerAccessManifest({
     event: readVerifiedAccessEvent(
       bundle.event,
       "Container access event bundle",
@@ -241,7 +256,11 @@ export function toVerifiedContainerManifest(
     manifest,
     manifestHash: bundle.manifestHash,
     state: readContainerAccessState(bundle),
-  } as VerifiedContainerAccessManifest;
+    checkpoint: accessManifestCheckpoint({
+      manifest,
+      manifestHash: bundle.manifestHash,
+    }),
+  });
 }
 
 function readContainerAccessState(

@@ -1,4 +1,4 @@
-import { isPlainObject } from "../plainObject";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   type AccessEventType,
   type AccessObjectKind,
@@ -457,8 +457,8 @@ export function readHashArray(value: unknown, label: string): string[] {
 }
 
 export function normalizeSortedUniqueArray<T>(
-  values: readonly T[],
-  normalize: (value: T) => T,
+  values: readonly unknown[],
+  normalize: (value: unknown) => T,
   key: (value: T) => string,
   label: string,
 ): T[] {
@@ -466,13 +466,13 @@ export function normalizeSortedUniqueArray<T>(
     .map(normalize)
     .sort((left, right) => compareCanonicalStrings(key(left), key(right)));
 
-  for (let index = 1; index < normalizedValues.length; index += 1) {
-    if (
-      key(normalizedValues[index - 1] as T) ===
-      key(normalizedValues[index] as T)
-    ) {
+  let previousKey: string | null = null;
+  for (const normalizedValue of normalizedValues) {
+    const normalizedKey = key(normalizedValue);
+    if (previousKey === normalizedKey) {
       throwVerification("duplicate_entry", `${label} contains a duplicate`);
     }
+    previousKey = normalizedKey;
   }
 
   return normalizedValues;

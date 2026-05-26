@@ -5,6 +5,7 @@ import type {
   PrincipalProjectionMember,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   readProjectionNullableString,
@@ -14,7 +15,6 @@ import {
   readProjectionValue,
 } from "../../../../keyingProjectionRecords";
 import { mutationShapeError } from "../errors";
-import type { UnbrandedVerified } from "../types";
 
 function readNonNegativeInteger(
   record: Record<string, unknown>,
@@ -196,7 +196,7 @@ function readVerifiedPrincipalPolicy(
     readProjectionValue(record, "state"),
     `${label}.state`,
   );
-  const policy: UnbrandedVerified<VerifiedPrincipalPolicy> = {
+  const policy = makeVerifiedPrincipalPolicy({
     principalType,
     principalId: readProjectionString(
       record,
@@ -231,7 +231,7 @@ function readVerifiedPrincipalPolicy(
       readProjectionValue(record, "checkpoint"),
       `${label}.checkpoint`,
     ),
-  };
+  });
 
   if (
     !principalPolicyCommonFieldsMatch(policy, policy.state) ||
@@ -241,7 +241,7 @@ function readVerifiedPrincipalPolicy(
     throw mutationShapeError(`${label} domains are inconsistent`);
   }
 
-  return policy as VerifiedPrincipalPolicy;
+  return policy;
 }
 
 export function principalPoliciesFromRequest(

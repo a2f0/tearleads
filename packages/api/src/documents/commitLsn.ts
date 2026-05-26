@@ -7,8 +7,11 @@ export async function readCurrentCommitLsn(
   const result = await executor.execute(
     sql`select pg_current_wal_lsn()::text as "commitLsn"`,
   );
-  const rows = result.rows as Array<{ commitLsn?: unknown }>;
-  const commitLsn = rows[0]?.commitLsn;
+  const row = result.rows[0];
+  const commitLsn =
+    typeof row === "object" && row !== null
+      ? Reflect.get(row, "commitLsn")
+      : undefined;
 
   if (typeof commitLsn !== "string" || commitLsn.length === 0) {
     throw new Error("Failed to read current commit LSN.");

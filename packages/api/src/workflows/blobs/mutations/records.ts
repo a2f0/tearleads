@@ -8,7 +8,10 @@ import type {
   VerifiedBlobKekTargets,
   WriteHeader,
 } from "@tearleads/crypto";
-import { CONTENT_RECORD_ENCRYPTION_SUITE } from "@tearleads/crypto";
+import {
+  CONTENT_RECORD_ENCRYPTION_SUITE,
+  makeVerifiedBlobKekTargets,
+} from "@tearleads/crypto";
 import type {
   BlobContentKeyBundleRequest,
   BlobContentKeyTargetEnvelopeRequest,
@@ -24,6 +27,7 @@ import type {
 import type { resolveCurrentBlobKekTargets } from "../../../access/read/blobKekTargets";
 import {
   readProjectionAccessEvent,
+  readProjectionCanonicalJson,
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
   readProjectionRecord,
@@ -36,10 +40,6 @@ import { BlobMutationError } from "./types";
 export type ResolvedBlobKekTargets = Awaited<
   ReturnType<typeof resolveCurrentBlobKekTargets>
 >;
-
-type UnbrandedVerified<T> = {
-  readonly [K in keyof T as K extends symbol ? never : K]: T[K];
-};
 
 function blobShapeError(message: string): BlobMutationError {
   return new BlobMutationError(message, 400);
@@ -60,7 +60,7 @@ function readStringClaim(value: unknown, key: string, label: string): string {
     throw new BlobMutationError(`${label}.${key} is required`, 400);
   }
 
-  const claim = (value as Record<string, unknown>)[key];
+  const claim = Reflect.get(value, key);
   if (typeof claim !== "string" || claim.length === 0) {
     throw new BlobMutationError(`${label}.${key} is required`, 400);
   }
@@ -77,7 +77,7 @@ function readNullableStringClaim(
     throw new BlobMutationError(`${label}.${key} is required`, 400);
   }
 
-  const claim = (value as Record<string, unknown>)[key];
+  const claim = Reflect.get(value, key);
   if (claim === null) {
     return null;
   }
@@ -188,7 +188,7 @@ export function readWriteHeader(value: unknown, label: string): WriteHeader {
 export function verifiedBlobKekTargetsFromResolved(
   targets: ResolvedBlobKekTargets,
 ): VerifiedBlobKekTargets {
-  const verified: UnbrandedVerified<VerifiedBlobKekTargets> = {
+  return makeVerifiedBlobKekTargets({
     blobId: targets.blobId,
     organizationId: targets.organizationId,
     activeBindingIds: [...targets.activeBindingIds],
@@ -198,20 +198,14 @@ export function verifiedBlobKekTargetsFromResolved(
     targets: targets.targets.map((target) => ({ ...target })),
     blobKeyTargetHash: targets.blobKeyTargetHash,
     blobAccessManifestHash: targets.blobAccessManifestHash,
-  };
-
-  return verified as VerifiedBlobKekTargets;
+  });
 }
 
 function readContentKeyWrappingMetadata(
   value: unknown,
   label: string,
 ): KeyingCanonicalJson {
-  return readProjectionRecord(
-    value,
-    label,
-    blobShapeError,
-  ) as KeyingCanonicalJson;
+  return readProjectionCanonicalJson(value, label, blobShapeError);
 }
 
 function contentKeyWrappingMetadataRecord(

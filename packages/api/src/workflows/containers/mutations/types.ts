@@ -42,13 +42,6 @@ export interface StoredContainerRow {
 export type VerifiedContainerAccessState =
   VerifiedContainerAccessManifest["state"];
 
-// Verified crypto brands are compile-time only. Request/projection JSON can only
-// rehydrate public fields; callers still run the corresponding verifier or
-// current-head check before trusting these values.
-export type UnbrandedVerified<T> = {
-  readonly [K in keyof T as K extends symbol ? never : K]: T[K];
-};
-
 export type CurrentAccessManifestHead = Awaited<
   ReturnType<typeof getCurrentAccessManifestHead>
 >;

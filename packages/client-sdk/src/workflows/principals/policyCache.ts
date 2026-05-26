@@ -1,7 +1,4 @@
-import {
-  type PrincipalPolicyBundle,
-  verifyPrincipalPolicyBundle,
-} from "@tearleads/crypto";
+import { verifyPrincipalPolicyBundle } from "@tearleads/crypto";
 import type {
   EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
@@ -193,7 +190,7 @@ async function validatePrincipalPolicyBundle(
   }
 
   const verified = await verifyPrincipalPolicyBundle({
-    bundle: bundle as PrincipalPolicyBundle,
+    bundle,
     expectedReference: reference,
     localCheckpoint: principalPolicyCheckpoint(cachedBundle),
     signerPublicKeys: signerPublicKeys.signerPublicKeys,

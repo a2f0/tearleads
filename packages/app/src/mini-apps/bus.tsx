@@ -59,6 +59,13 @@ interface MiniAppBusMessages {
   latestMessage: MiniAppMessageEnvelope | null;
 }
 
+function isMiniAppMessageFor<AppId extends MiniAppId>(
+  message: MiniAppMessage,
+  appId: AppId,
+): message is Extract<MiniAppMessage, { appId: AppId }> {
+  return message.appId === appId;
+}
+
 const DEFAULT_MINI_APP_POSITION = {
   x: 200,
   y: 160,
@@ -99,15 +106,13 @@ export function useMiniAppMessage<AppId extends MiniAppId>(
     if (
       !latestMessage ||
       latestMessage.sequence <= handledSequenceRef.current ||
-      latestMessage.message.appId !== appId
+      !isMiniAppMessageFor(latestMessage.message, appId)
     ) {
       return;
     }
 
     handledSequenceRef.current = latestMessage.sequence;
-    onMessage(
-      latestMessage.message as Extract<MiniAppMessage, { appId: AppId }>,
-    );
+    onMessage(latestMessage.message);
     acknowledgeMiniAppMessage(latestMessage.sequence);
   }, [acknowledgeMiniAppMessage, appId, latestMessage, onMessage]);
 }

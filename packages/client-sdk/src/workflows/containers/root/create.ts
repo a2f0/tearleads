@@ -36,7 +36,6 @@ import type {
   MaterializedContainerCreatePlan,
 } from "../../../data/containers/shared/types";
 import {
-  readCanonicalJson,
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
@@ -67,7 +66,7 @@ async function principalPolicyRecordFromInitialGroupPolicy(
 ): Promise<Record<string, unknown>> {
   const head = await principalHeadFromInitialGroupPolicy(input);
 
-  return readCanonicalJson(
+  return readCanonicalRecord(
     {
       principalType: head.principalType,
       principalId: head.principalId,
@@ -87,7 +86,7 @@ async function principalPolicyRecordFromInitialGroupPolicy(
       },
     },
     "Initial managed principal policy",
-  ) as Record<string, unknown>;
+  );
 }
 
 function buildRootContainerCreateBody(input: {

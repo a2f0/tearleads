@@ -1,5 +1,4 @@
 import type {
-  KeyingCanonicalJson,
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
@@ -29,7 +28,10 @@ import {
   readProjectionAccessManifest,
 } from "../../../../keyingProjectionRecords";
 import { users } from "../../../../schema";
-import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
+import {
+  canonicalJsonEquals,
+  readKeyingCanonicalJson,
+} from "../../../../utils/canonicalJson";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
 import { DocumentMutationError, documentShapeError } from "../errors";
 import type { DocumentWriteAuthorizationProof } from "../types";
@@ -99,7 +101,7 @@ export async function verifyDocumentEvent(input: {
   }
 
   const verifiedEvent = await verifySignedAccessEvent({
-    body: input.body as KeyingCanonicalJson,
+    body: readKeyingCanonicalJson(input.body, "Document access event body"),
     event,
     signerPublicKey: await loadSignerPublicKey(input.executor, input),
   });

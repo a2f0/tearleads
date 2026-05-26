@@ -12,6 +12,16 @@ interface MiniAppRowStyleProps {
   variant?: MiniAppRowVariant | undefined;
 }
 
+type MiniAppRowProps =
+  | (HTMLAttributes<HTMLDivElement> &
+      MiniAppRowStyleProps & {
+        as?: "div";
+      })
+  | (HTMLAttributes<HTMLLIElement> &
+      MiniAppRowStyleProps & {
+        as: "li";
+      });
+
 function getMiniAppRowClassName({
   className,
   density = "normal",
@@ -34,18 +44,37 @@ function getMiniAppRowClassName({
   );
 }
 
-export function MiniAppRow({
-  as = "div",
-  className,
-  density,
-  header,
-  selected,
-  variant,
-  ...props
-}: HTMLAttributes<HTMLDivElement> &
-  MiniAppRowStyleProps & {
-    as?: "div" | "li";
-  }) {
+export function MiniAppRow(props: MiniAppRowProps) {
+  if (props.as === "li") {
+    const {
+      as: _as,
+      className,
+      density,
+      header,
+      selected,
+      variant,
+      ...liProps
+    } = props;
+    const rowClassName = getMiniAppRowClassName({
+      className,
+      density,
+      header,
+      selected,
+      variant,
+    });
+
+    return <li {...liProps} className={rowClassName} />;
+  }
+
+  const {
+    as: _as,
+    className,
+    density,
+    header,
+    selected,
+    variant,
+    ...divProps
+  } = props;
   const rowClassName = getMiniAppRowClassName({
     className,
     density,
@@ -54,16 +83,7 @@ export function MiniAppRow({
     variant,
   });
 
-  if (as === "li") {
-    return (
-      <li
-        {...(props as HTMLAttributes<HTMLLIElement>)}
-        className={rowClassName}
-      />
-    );
-  }
-
-  return <div {...props} className={rowClassName} />;
+  return <div {...divProps} className={rowClassName} />;
 }
 
 export function MiniAppRowButton({

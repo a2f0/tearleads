@@ -1,4 +1,4 @@
-import { isPlainObject } from "../plainObject";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   computeAccessManifestHash,
   normalizeReferencedPrincipalHead,
@@ -44,6 +44,7 @@ import type {
   VerifiedPrincipalPolicy,
   VerifyContainerAccessManifestInput,
 } from "./types";
+import { makeVerifiedContainerAccessManifest } from "./types";
 
 export function containerAccessLevelRank(
   accessLevel: ContainerAccessLevel,
@@ -73,9 +74,7 @@ function mergeContainerAccessLevel(
   return current;
 }
 
-function normalizeContainerDirectGrant(
-  value: ContainerDirectGrant,
-): ContainerDirectGrant {
+function normalizeContainerDirectGrant(value: unknown): ContainerDirectGrant {
   const record = assertExactKeys(
     value,
     ["accessLevel", "subjectId", "subjectType"],
@@ -100,7 +99,7 @@ function containerDirectGrantKey(grant: ContainerDirectGrant): string {
 }
 
 function normalizeContainerDirectGrants(
-  values: readonly ContainerDirectGrant[],
+  values: readonly unknown[],
 ): ContainerDirectGrant[] {
   return normalizeSortedUniqueArray(
     values,
@@ -111,7 +110,7 @@ function normalizeContainerDirectGrants(
 }
 
 function normalizeContainerAccessStructural(
-  value: ContainerAccessStructural,
+  value: unknown,
 ): ContainerAccessStructural {
   const record = assertExactKeys(
     value,
@@ -143,7 +142,7 @@ function normalizeContainerAccessStructural(
 }
 
 function normalizeContainerAccessMetadata(
-  value: ContainerAccessMetadata,
+  value: unknown,
 ): ContainerAccessMetadata {
   const record = assertExactKeys(
     value,
@@ -161,7 +160,7 @@ function normalizeContainerAccessMetadata(
 }
 
 function normalizeContainerAccessStructuralState(
-  value: ContainerAccessStructural & ContainerAccessMetadata,
+  value: unknown,
 ): ContainerAccessStructural & ContainerAccessMetadata {
   const record = assertExactKeys(
     value,
@@ -173,15 +172,15 @@ function normalizeContainerAccessStructuralState(
     ...normalizeContainerAccessStructural({
       parentContainerId: record.parentContainerId,
       parentManifestHash: record.parentManifestHash,
-    } as ContainerAccessStructural),
+    }),
     ...normalizeContainerAccessMetadata({
       metadataDocumentId: record.metadataDocumentId,
-    } as ContainerAccessMetadata),
+    }),
   };
 }
 
 function normalizeContainerAccessKeyState(
-  value: ContainerAccessKeyState,
+  value: unknown,
 ): ContainerAccessKeyState {
   const record = assertExactKeys(
     value,
@@ -264,11 +263,9 @@ function normalizeContainerAccessGrantState(input: {
     );
   }
 
-  const directGrants = normalizeContainerDirectGrants(
-    input.directGrants as ContainerDirectGrant[],
-  );
+  const directGrants = normalizeContainerDirectGrants(input.directGrants);
   const referencedPrincipalHeads = normalizeReferencedPrincipalHeads(
-    input.referencedPrincipalHeads as ReferencedPrincipalHead[],
+    input.referencedPrincipalHeads,
   );
 
   assertReferencedPrincipalHeadsMatchDirectGrants({
@@ -303,13 +300,13 @@ function normalizeContainerAccessManifestState(
   const structural = normalizeContainerAccessStructural({
     parentContainerId: record.parentContainerId,
     parentManifestHash: record.parentManifestHash,
-  } as ContainerAccessStructural);
+  });
   const keyState = normalizeContainerAccessKeyState({
     containerKeyEpochId: record.containerKeyEpochId,
-  } as ContainerAccessKeyState);
+  });
   const metadata = normalizeContainerAccessMetadata({
     metadataDocumentId: record.metadataDocumentId,
-  } as ContainerAccessMetadata);
+  });
   const grants = normalizeContainerAccessGrantState({
     directGrants: record.directGrants,
     referencedPrincipalHeads: record.referencedPrincipalHeads,
@@ -451,18 +448,16 @@ function normalizeContainerCreateAccessEventBody(
   const structural = normalizeContainerAccessStructural({
     parentContainerId: record.parentContainerId,
     parentManifestHash: record.parentManifestHash,
-  } as ContainerAccessStructural);
+  });
   const keyState = normalizeContainerAccessKeyState({
     containerKeyEpochId: record.containerKeyEpochId,
-  } as ContainerAccessKeyState);
+  });
   const metadata = normalizeContainerAccessMetadata({
     metadataDocumentId: record.metadataDocumentId,
-  } as ContainerAccessMetadata);
-  const normalizedDirectGrants = normalizeContainerDirectGrants(
-    directGrants as ContainerDirectGrant[],
-  );
+  });
+  const normalizedDirectGrants = normalizeContainerDirectGrants(directGrants);
   const normalizedReferencedPrincipalHeads = normalizeReferencedPrincipalHeads(
-    referencedPrincipalHeads as ReferencedPrincipalHead[],
+    referencedPrincipalHeads,
   );
 
   assertReferencedPrincipalHeadsMatchDirectGrants({
@@ -488,15 +483,11 @@ function normalizeContainerGrantAccessEventBody(
     ["containerKeyEpochId", "eventType", "grant", "referencedPrincipalHead"],
     "container.grant event body",
   );
-  const grant = normalizeContainerDirectGrant(
-    record.grant as ContainerDirectGrant,
-  );
+  const grant = normalizeContainerDirectGrant(record.grant);
   const referencedPrincipalHead =
     record.referencedPrincipalHead === null
       ? null
-      : normalizeReferencedPrincipalHead(
-          record.referencedPrincipalHead as ReferencedPrincipalHead,
-        );
+      : normalizeReferencedPrincipalHead(record.referencedPrincipalHead);
   const managedGrantKey = managedGrantReferenceKey(grant);
 
   if (managedGrantKey === null && referencedPrincipalHead !== null) {
@@ -521,7 +512,7 @@ function normalizeContainerGrantAccessEventBody(
     eventType: "container.grant",
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
-    } as ContainerAccessKeyState),
+    }),
     grant,
     referencedPrincipalHead,
   };
@@ -540,7 +531,7 @@ function normalizeContainerRevokeAccessEventBody(
     eventType: "container.revoke",
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
-    } as ContainerAccessKeyState),
+    }),
     subjectId: readString(record, "subjectId", "container.revoke event body"),
     subjectType: normalizeContainerGrantSubjectType(
       record.subjectType,
@@ -587,10 +578,10 @@ function normalizeContainerMoveAccessEventBody(
     ...normalizeContainerAccessStructural({
       parentContainerId: record.parentContainerId,
       parentManifestHash: record.parentManifestHash,
-    } as ContainerAccessStructural),
+    }),
     ...normalizeContainerAccessKeyState({
       containerKeyEpochId: record.containerKeyEpochId,
-    } as ContainerAccessKeyState),
+    }),
   };
 }
 
@@ -1277,12 +1268,12 @@ export async function verifyContainerAccessManifest({
       throw verifiedManifest.error;
     }
 
-    return {
+    return makeVerifiedContainerAccessManifest({
       manifest: verifiedManifest.value.manifest,
       manifestHash: verifiedManifest.value.manifestHash,
       event,
       state,
       checkpoint: verifiedManifest.value.checkpoint,
-    } as VerifiedContainerAccessManifest;
+    });
   });
 }
