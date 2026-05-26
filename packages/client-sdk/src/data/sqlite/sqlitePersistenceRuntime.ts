@@ -57,10 +57,10 @@ function createRemoteCallback(getExecSql: () => ExecSql): RemoteCallback {
     });
 
     if (method === "get") {
-      return { rows: rows[0] } as RemoteResult;
+      return { rows: rows[0] ?? [] } satisfies RemoteResult;
     }
 
-    return { rows } as RemoteResult;
+    return { rows } satisfies RemoteResult;
   };
 }
 

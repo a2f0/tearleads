@@ -682,7 +682,14 @@ function isRetryableDocumentSyncConflict(
 async function submitDocumentSync(input: {
   apiClient: DocumentSyncApi;
   plan: DocumentSyncPlan;
-}) {
+}): Promise<
+  | {
+      readonly ok: true;
+      readonly response: DocumentSyncResponse;
+    }
+  | DocumentSyncSubmitFailure
+  | null
+> {
   if (input.apiClient.syncDocumentResult) {
     const result = await input.apiClient.syncDocumentResult(
       input.plan.documentId,

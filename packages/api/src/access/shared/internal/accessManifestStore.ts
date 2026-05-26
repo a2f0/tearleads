@@ -9,6 +9,8 @@ import type {
   VerifiedAccessEvent,
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
+import { makeVerifiedAccessEvent } from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import type {
   ApiDatabase,
@@ -24,7 +26,10 @@ import {
   accessManifestPrincipalHeadProjection,
   accessManifests,
 } from "../../../schema";
-import { canonicalJsonEquals } from "../../../utils/canonicalJson";
+import {
+  canonicalJsonEquals,
+  readKeyingCanonicalJson,
+} from "../../../utils/canonicalJson";
 
 /**
  * access projection tables are derived cache only.
@@ -205,12 +210,87 @@ function referencedPrincipalHeadsCanonicalJson(
   }));
 }
 
-function readJsonArray<T>(value: unknown, label: string): T[] {
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+function isManagedPrincipalKind(
+  value: unknown,
+): value is ReferencedPrincipalHead["principalType"] {
+  return value === "group" || value === "organization";
+}
+
+function isReferencedPrincipalHead(
+  value: unknown,
+): value is ReferencedPrincipalHead {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return (
+    isManagedPrincipalKind(Reflect.get(value, "principalType")) &&
+    typeof Reflect.get(value, "principalId") === "string" &&
+    typeof Reflect.get(value, "version") === "number" &&
+    typeof Reflect.get(value, "keyEpoch") === "number" &&
+    typeof Reflect.get(value, "stateHash") === "string" &&
+    typeof Reflect.get(value, "keyFingerprint") === "string"
+  );
+}
+
+type ContainerDirectGrant =
+  ContainerAccessManifestState["directGrants"][number];
+
+function isContainerAccessLevel(
+  value: unknown,
+): value is ContainerDirectGrant["accessLevel"] {
+  return value === "admin" || value === "read" || value === "write";
+}
+
+function isContainerGrantSubjectType(
+  value: unknown,
+): value is ContainerDirectGrant["subjectType"] {
+  return value === "group" || value === "organization" || value === "user";
+}
+
+function isContainerDirectGrant(value: unknown): value is ContainerDirectGrant {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+
+  return (
+    isContainerAccessLevel(Reflect.get(value, "accessLevel")) &&
+    typeof Reflect.get(value, "subjectId") === "string" &&
+    isContainerGrantSubjectType(Reflect.get(value, "subjectType"))
+  );
+}
+
+function readAccessVersion(value: number, label: string): 1 {
+  if (value !== 1) {
+    throw new Error(`${label} version is invalid`);
+  }
+
+  return 1;
+}
+
+function readJsonArray<T>(
+  value: unknown,
+  label: string,
+  isItem: (value: unknown) => value is T,
+): T[] {
   if (!Array.isArray(value)) {
     throw new Error(`${label} is not an array`);
   }
 
-  return value as T[];
+  const items: T[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const item = value[index];
+    if (!isItem(item)) {
+      throw new Error(`${label}[${index}] is invalid`);
+    }
+    items.push(item);
+  }
+
+  return items;
 }
 
 function toStoredAccessManifestHead(
@@ -376,7 +456,7 @@ async function ensureStoredAccessManifestMatches(
     ) ||
     storedManifest.keyTargetHash !== manifest.keyTargetHash ||
     !canonicalJsonEquals(
-      storedManifest.state as KeyingCanonicalJson,
+      storedManifest.state,
       accessManifestState(verifiedManifest),
     )
   ) {
@@ -387,9 +467,9 @@ async function ensureStoredAccessManifestMatches(
 function toStoredAccessEvent(
   row: typeof accessEvents.$inferSelect,
 ): VerifiedAccessEvent {
-  return {
+  return makeVerifiedAccessEvent({
     event: {
-      version: row.version as 1,
+      version: readAccessVersion(row.version, "stored access event"),
       eventId: row.eventId,
       eventType: row.eventType,
       objectKind: row.objectKind,
@@ -399,6 +479,7 @@ function toStoredAccessEvent(
       dependencyManifestHashes: readJsonArray<string>(
         row.dependencyManifestHashes,
         "access event dependency hashes",
+        isString,
       ),
       bodyHash: row.bodyHash,
       signerUserId: row.signerUserId,
@@ -407,16 +488,16 @@ function toStoredAccessEvent(
       signedAt: row.signedAt.toISOString(),
       signature: row.signature,
     },
-    body: row.body as KeyingCanonicalJson,
+    body: readKeyingCanonicalJson(row.body, "stored access event body"),
     eventHash: row.eventHash,
-  } as VerifiedAccessEvent;
+  });
 }
 
 function toStoredAccessManifest(
   row: typeof accessManifests.$inferSelect,
 ): AccessManifest {
   return {
-    version: row.version as 1,
+    version: readAccessVersion(row.version, "stored access manifest"),
     objectKind: row.objectKind,
     objectId: row.objectId,
     organizationId: row.organizationId,
@@ -428,6 +509,7 @@ function toStoredAccessManifest(
     referencedPrincipalHeads: readJsonArray<ReferencedPrincipalHead>(
       row.referencedPrincipalHeads,
       "access manifest referenced principal heads",
+      isReferencedPrincipalHead,
     ),
     keyTargetHash: row.keyTargetHash,
   };
@@ -487,7 +569,10 @@ export async function getAccessManifestBundle(
     event: toStoredAccessEvent(event),
     manifest: toStoredAccessManifest(manifest),
     manifestHash: manifest.manifestHash,
-    state: manifest.state as KeyingCanonicalJson,
+    state: readKeyingCanonicalJson(
+      manifest.state,
+      "stored access manifest state",
+    ),
   };
 }
 
@@ -529,7 +614,10 @@ export async function getAccessManifestBundles(
       event: toStoredAccessEvent(event),
       manifest: toStoredAccessManifest(manifest),
       manifestHash: manifest.manifestHash,
-      state: manifest.state as KeyingCanonicalJson,
+      state: readKeyingCanonicalJson(
+        manifest.state,
+        "stored access manifest state",
+      ),
     });
   }
 
@@ -547,6 +635,7 @@ async function regenerateAccessEventDependencyProjection(
   const dependencyHashes = readJsonArray<string>(
     event.dependencyManifestHashes,
     "access event dependency projection source",
+    isString,
   );
 
   if (dependencyHashes.length === 0) {
@@ -580,6 +669,7 @@ async function regenerateAccessManifestPrincipalProjection(
   const referencedPrincipalHeads = readJsonArray<ReferencedPrincipalHead>(
     manifest.referencedPrincipalHeads,
     "access manifest principal projection source",
+    isReferencedPrincipalHead,
   );
 
   if (referencedPrincipalHeads.length === 0) {
@@ -628,7 +718,11 @@ async function regenerateAccessManifestContainerGrantProjection(
   }
   const directGrants = readJsonArray<
     ContainerAccessManifestState["directGrants"][number]
-  >(directGrantValue, "access manifest container grant projection source");
+  >(
+    directGrantValue,
+    "access manifest container grant projection source",
+    isContainerDirectGrant,
+  );
 
   if (directGrants.length === 0) {
     return;

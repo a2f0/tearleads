@@ -9,8 +9,6 @@ import {
   computeContainerKeyEpochHash,
   type DocumentLinkAccessEventBody,
   type DocumentUnlinkAccessEventBody,
-  type KeyingCanonicalJson,
-  type PrincipalPolicyBundle,
   type PrincipalPolicySignerPublicKey,
   type ReferencedPrincipalHead,
   serializeKeyingCanonicalJson,
@@ -242,7 +240,7 @@ async function verifyReferencedPrincipalPolicy(input: {
     resolveUserKey: input.resolveUserKey,
   });
   const verified = await verifyPrincipalPolicyBundle({
-    bundle: bundle as PrincipalPolicyBundle,
+    bundle,
     expectedReference: input.reference,
     localCheckpoint: null,
     signerPublicKeys,
@@ -737,7 +735,7 @@ async function verifyContainerManifestBundle(input: {
 
   assertCanonicalEqual({
     actual: input.bundle.state,
-    expected: verified.value.state as unknown as KeyingCanonicalJson,
+    expected: readCanonicalJson(verified.value.state, `${input.label} state`),
     label: `${input.label} state`,
   });
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
@@ -1332,7 +1330,7 @@ async function verifyDocumentManifestBundle(input: {
 
   assertCanonicalEqual({
     actual: input.bundle.state,
-    expected: verified.value.state as unknown as KeyingCanonicalJson,
+    expected: readCanonicalJson(verified.value.state, `${input.label} state`),
     label: `${input.label} state`,
   });
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);

@@ -20,14 +20,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-interface ContainerManifestStateProjection {
-  readonly containerId?: unknown;
-  readonly containerKeyEpochId?: unknown;
-  readonly parentContainerId?: unknown;
-  readonly previousManifestHash?: unknown;
-  readonly version?: unknown;
-}
-
 function readNullableString(value: unknown): string | null {
   if (value === null) {
     return null;
@@ -46,12 +38,13 @@ function readContainerManifestTarget(input: {
     );
   }
 
-  const state = input.state as ContainerManifestStateProjection;
-  if (state.version !== 1 || state.containerId !== input.containerId) {
+  const version = Reflect.get(input.state, "version");
+  const stateContainerId = Reflect.get(input.state, "containerId");
+  if (version !== 1 || stateContainerId !== input.containerId) {
     throw new ContainerKekTargetError("Container manifest state mismatch", 409);
   }
 
-  const containerKeyEpochId = state.containerKeyEpochId;
+  const containerKeyEpochId = Reflect.get(input.state, "containerKeyEpochId");
   if (typeof containerKeyEpochId !== "string" || !containerKeyEpochId) {
     throw new ContainerKekTargetError(
       "Container manifest has no current KEK epoch",
@@ -59,8 +52,9 @@ function readContainerManifestTarget(input: {
     );
   }
 
-  const parentContainerId = readNullableString(state.parentContainerId);
-  if (parentContainerId === null && state.parentContainerId !== null) {
+  const parentContainerValue = Reflect.get(input.state, "parentContainerId");
+  const parentContainerId = readNullableString(parentContainerValue);
+  if (parentContainerId === null && parentContainerValue !== null) {
     throw new ContainerKekTargetError(
       "Container manifest parent is invalid",
       409,
@@ -273,10 +267,20 @@ function assertBindingHistoryRowCurrent(input: {
     );
   }
 
-  const state = input.row.state as ContainerManifestStateProjection;
-  const previousManifestHash = readNullableString(state.previousManifestHash);
+  if (!isRecord(input.row.state)) {
+    throw new ContainerKekTargetError(
+      "Container manifest state is invalid",
+      409,
+    );
+  }
+
+  const previousManifestValue = Reflect.get(
+    input.row.state,
+    "previousManifestHash",
+  );
+  const previousManifestHash = readNullableString(previousManifestValue);
   if (
-    (previousManifestHash === null && state.previousManifestHash !== null) ||
+    (previousManifestHash === null && previousManifestValue !== null) ||
     previousManifestHash !== input.row.previousManifestHash
   ) {
     throw new ContainerKekTargetError(

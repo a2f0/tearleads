@@ -1,8 +1,4 @@
-import type {
-  AccessEventType,
-  KeyingCanonicalJson,
-  VerifiedAccessEvent,
-} from "@tearleads/crypto";
+import type { AccessEventType, VerifiedAccessEvent } from "@tearleads/crypto";
 import { verifySignedAccessEvent } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
@@ -10,6 +6,7 @@ import { eq } from "drizzle-orm";
 import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
 import { users } from "../../../../schema";
+import { readKeyingCanonicalJson } from "../../../../utils/canonicalJson";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { MutateContainerInput } from "../types";
 
@@ -65,7 +62,10 @@ export async function verifyMutationEvent(
   }
 
   const verifiedEvent = await verifySignedAccessEvent({
-    body: input.request.body as KeyingCanonicalJson,
+    body: readKeyingCanonicalJson(
+      input.request.body,
+      "Container mutation event body",
+    ),
     event,
     signerPublicKey: await loadSignerPublicKey(executor, input),
   });

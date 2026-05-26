@@ -47,6 +47,15 @@ function isUuidString(value: string): boolean {
   return new RegExp(UUID_PATTERN).test(value);
 }
 
+function readStringProperty(value: unknown, key: string): string | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const item = Reflect.get(value, key);
+  return typeof item === "string" ? item : null;
+}
+
 function createRequestValidator<T>(isRequest: (value: unknown) => value is T) {
   return (value: unknown, c: JsonValidationContext): T | Response => {
     if (!isRequest(value)) {
@@ -79,17 +88,11 @@ function validatePartRouteParams(
   value: unknown,
   c: JsonValidationContext,
 ): MultipartBlobPartParams | Response {
-  const { partNumber, stageId } = value as {
-    partNumber?: string;
-    stageId?: string;
-  };
+  const partNumber = readStringProperty(value, "partNumber");
+  const stageId = readStringProperty(value, "stageId");
   const parsedPartNumber =
-    typeof partNumber === "string" ? parsePositiveInteger(partNumber) : null;
-  if (
-    typeof stageId !== "string" ||
-    !isUuidString(stageId) ||
-    parsedPartNumber === null
-  ) {
+    partNumber !== null ? parsePositiveInteger(partNumber) : null;
+  if (stageId === null || !isUuidString(stageId) || parsedPartNumber === null) {
     return c.json({ error: "Invalid request" }, 400);
   }
 
@@ -136,8 +139,8 @@ function registerStatusRoute(
     "/blobs/stages/multipart/:stageId",
     requireAuth,
     validator("param", (value, c) => {
-      const { stageId } = value as { stageId?: string };
-      if (typeof stageId !== "string" || !isUuidString(stageId)) {
+      const stageId = readStringProperty(value, "stageId");
+      if (stageId === null || !isUuidString(stageId)) {
         return c.json({ error: "Invalid request" }, 400);
       }
 
@@ -264,8 +267,8 @@ function registerCompleteRoute(
     "/blobs/stages/multipart/:stageId/complete",
     requireAuth,
     validator("param", (value, c) => {
-      const { stageId } = value as { stageId?: string };
-      if (typeof stageId !== "string" || !isUuidString(stageId)) {
+      const stageId = readStringProperty(value, "stageId");
+      if (stageId === null || !isUuidString(stageId)) {
         return c.json({ error: "Invalid request" }, 400);
       }
 

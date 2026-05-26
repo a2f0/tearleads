@@ -117,5 +117,5 @@ export async function decryptDocumentAttachmentBlob({
     throw new Error("Blob decrypted byte length mismatch");
   }
 
-  return decrypted as BlobBytes;
+  return asWebCryptoBytes(decrypted);
 }

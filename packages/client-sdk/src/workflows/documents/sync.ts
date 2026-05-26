@@ -728,18 +728,13 @@ export async function syncRemoteDocument(input: {
       return null;
     }
     if (!submitted.ok) {
-      if (
-        attempt < maxAttempts &&
-        isRetryableDocumentSyncConflict(submitted as DocumentSyncSubmitFailure)
-      ) {
+      if (attempt < maxAttempts && isRetryableDocumentSyncConflict(submitted)) {
         continue;
       }
       if (
         attempt < maxAttempts &&
         pendingUpdates.length > 0 &&
-        isRecoverableDocumentUpdateIdConflict(
-          submitted as DocumentSyncSubmitFailure,
-        )
+        isRecoverableDocumentUpdateIdConflict(submitted)
       ) {
         recoveryPendingUpdatesById = new Map(
           pendingUpdates.map((update) => [update.id, update]),
@@ -748,7 +743,7 @@ export async function syncRemoteDocument(input: {
         continue;
       }
 
-      (submitted as DocumentSyncSubmitFailure).report();
+      submitted.report();
       return null;
     }
 

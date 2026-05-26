@@ -12,7 +12,6 @@ import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   type ManagedPrincipalKind,
-  type PrincipalPolicyBundle,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
   verifyPrincipalPolicyBundle,
@@ -415,7 +414,7 @@ async function loadVerifiedSharePrincipalPolicy(input: {
   }
 
   const verified = await verifyPrincipalPolicyBundle({
-    bundle: bundle as PrincipalPolicyBundle,
+    bundle,
     expectedReference: principalPolicyReferenceFromBundle(bundle),
     localCheckpoint: principalPolicyCheckpoint(cachedBundle),
     signerPublicKeys: signerPublicKeys.signerPublicKeys,

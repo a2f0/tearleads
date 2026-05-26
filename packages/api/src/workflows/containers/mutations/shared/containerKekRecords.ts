@@ -5,6 +5,7 @@ import type {
   ContainerUserRecipientKey,
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
+import { makeVerifiedContainerKekState } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   readProjectionNullableString,
@@ -14,7 +15,6 @@ import {
   readProjectionValue,
 } from "../../../../keyingProjectionRecords";
 import { mutationShapeError } from "../errors";
-import type { UnbrandedVerified } from "../types";
 
 function isKekRecipientKind(
   value: unknown,
@@ -260,7 +260,7 @@ export function readVerifiedContainerKekState(
 ): VerifiedContainerKekState {
   const record = readProjectionPlainRecord(value, label, mutationShapeError);
 
-  const verified: UnbrandedVerified<VerifiedContainerKekState> = {
+  return makeVerifiedContainerKekState({
     containerId: readProjectionString(
       record,
       "containerId",
@@ -315,7 +315,5 @@ export function readVerifiedContainerKekState(
       readProjectionValue(record, "wraps"),
       `${label}.wraps`,
     ),
-  };
-
-  return verified as VerifiedContainerKekState;
+  });
 }

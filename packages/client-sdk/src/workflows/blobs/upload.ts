@@ -70,9 +70,9 @@ interface MultipartPartUploadTask {
   readonly partNumber: number;
 }
 
-function requireMultipartBlobAttachmentApi(
+function assertMultipartBlobAttachmentApi(
   apiClient: BlobAttachmentApi,
-): MultipartBlobAttachmentApi {
+): asserts apiClient is MultipartBlobAttachmentApi {
   if (
     typeof apiClient.completeMultipartBlobStage !== "function" ||
     typeof apiClient.getMultipartBlobStage !== "function" ||
@@ -81,8 +81,13 @@ function requireMultipartBlobAttachmentApi(
   ) {
     throw new Error("Multipart blob upload API is unavailable");
   }
+}
 
-  return apiClient as MultipartBlobAttachmentApi;
+function requireMultipartBlobAttachmentApi(
+  apiClient: BlobAttachmentApi,
+): MultipartBlobAttachmentApi {
+  assertMultipartBlobAttachmentApi(apiClient);
+  return apiClient;
 }
 
 function splitEncryptedBytesIntoParts(

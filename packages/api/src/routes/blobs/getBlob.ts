@@ -25,12 +25,21 @@ function isUuidString(value: string): boolean {
   return new RegExp(UUID_PATTERN).test(value);
 }
 
+function readStringProperty(value: unknown, key: string): string | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const item = Reflect.get(value, key);
+  return typeof item === "string" ? item : null;
+}
+
 export function createGetBlobRoute({ requireAuth, runtime }: GetBlobRouteDeps) {
   const getBlobRoute = new Hono();
   const validateBlobId = validator("param", (value, c) => {
-    const { blobId } = value as { blobId?: string };
+    const blobId = readStringProperty(value, "blobId");
 
-    if (typeof blobId !== "string" || !isUuidString(blobId)) {
+    if (blobId === null || !isUuidString(blobId)) {
       return c.json({ error: "Invalid request" }, 400);
     }
 

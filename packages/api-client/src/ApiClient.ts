@@ -94,17 +94,14 @@ import type {
 } from "./types";
 
 function bindPrototypeMethods(instance: object, prototype: object): void {
-  const instanceRecord = instance as Record<string, unknown>;
-  const prototypeRecord = prototype as Record<string, unknown>;
-
-  for (const propertyName of Object.getOwnPropertyNames(prototypeRecord)) {
+  for (const propertyName of Object.getOwnPropertyNames(prototype)) {
     if (propertyName === "constructor") {
       continue;
     }
 
-    const property = prototypeRecord[propertyName];
+    const property = Reflect.get(prototype, propertyName);
     if (typeof property === "function") {
-      instanceRecord[propertyName] = property.bind(instance);
+      Reflect.set(instance, propertyName, property.bind(instance));
     }
   }
 }

@@ -1,5 +1,4 @@
 import { Readable } from "node:stream";
-import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -35,6 +34,29 @@ const MAX_S3_PART_NUMBER = 10_000;
 
 function byteLength(value: string): number {
   return Buffer.byteLength(value, "utf8");
+}
+
+async function* readBlobObjectStream(
+  stream: BlobObjectReadStream,
+): AsyncGenerator<Uint8Array> {
+  const reader = stream.getReader();
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) {
+        return;
+      }
+      yield chunk.value;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function nodeReadableFromBlobObjectStream(
+  stream: BlobObjectReadStream,
+): Readable {
+  return Readable.from(readBlobObjectStream(stream));
 }
 
 function sha256HexToBase64(value: string): string {
@@ -475,9 +497,7 @@ function createUploadPart({
             sha256: await sha256Hex(input.body.bytes),
           }
         : {
-            body: Readable.fromWeb(
-              input.body.stream as unknown as NodeReadableStream<Uint8Array>,
-            ),
+            body: nodeReadableFromBlobObjectStream(input.body.stream),
             byteLength: input.body.byteLength,
             sha256: input.body.sha256,
           };

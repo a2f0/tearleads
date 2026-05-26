@@ -31,6 +31,7 @@ import {
   organizations,
   users,
 } from "../../schema";
+import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 import { ContainerMutationError } from "../containers/mutations/errors";
 import { assertPrincipalPoliciesCurrent } from "../containers/mutations/shared/principalPolicies";
 import { principalPoliciesFromRequest } from "../containers/mutations/shared/principalPolicyRecords";
@@ -700,9 +701,10 @@ async function storeInitialRootContainer(
 
   const event = requireRootVerification(
     await verifySignedAccessEvent({
-      body: request.body as Parameters<
-        typeof verifySignedAccessEvent
-      >[0]["body"],
+      body: readKeyingCanonicalJson(
+        request.body,
+        "Initial root container event body",
+      ),
       event: readProjectionAccessEvent(
         request.event,
         "Initial root container event",

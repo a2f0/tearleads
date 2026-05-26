@@ -6,8 +6,10 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
+import { makeVerifiedAccessEvent } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
+import { isKeyingCanonicalJson } from "./utils/canonicalJson";
 
 type ProjectionErrorFactory = (message: string) => Error;
 
@@ -94,6 +96,18 @@ export function readProjectionStringArray(
     throw error(`${label} is invalid`);
   }
   return [...value];
+}
+
+export function readProjectionCanonicalJson(
+  value: unknown,
+  label: string,
+  error: ProjectionErrorFactory,
+): KeyingCanonicalJson {
+  if (!isKeyingCanonicalJson(value)) {
+    throw error(`${label} is invalid`);
+  }
+
+  return value;
 }
 
 export function readProjectionVersion(
@@ -228,16 +242,17 @@ export function readProjectionVerifiedAccessEvent(
     `${label}.event`,
     error,
   );
-  const body = readProjectionValue(record, "body");
-  if (body === undefined) {
-    throw error(`${label}.body is invalid`);
-  }
+  const body = readProjectionCanonicalJson(
+    readProjectionValue(record, "body"),
+    `${label}.body`,
+    error,
+  );
 
-  return {
+  return makeVerifiedAccessEvent({
     event,
-    body: body as KeyingCanonicalJson,
+    body,
     eventHash: readProjectionString(record, "eventHash", label, error),
-  } as VerifiedAccessEvent;
+  });
 }
 
 function projectionReferencedPrincipalHeadRecord(

@@ -8,6 +8,7 @@ import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type { ContainerManifestBundle } from "@tearleads/validators/request";
 import {
   readProjectionAccessManifest,
@@ -21,7 +22,6 @@ import {
   readProjectionVersion,
 } from "../../../../keyingProjectionRecords";
 import { mutationShapeError } from "../errors";
-import type { UnbrandedVerified } from "../types";
 
 function isContainerAccessLevel(value: unknown): value is ContainerAccessLevel {
   return value === "admin" || value === "read" || value === "write";
@@ -204,7 +204,7 @@ export function readVerifiedContainerManifest(
     mutationShapeError,
   );
 
-  const verified: UnbrandedVerified<VerifiedContainerAccessManifest> = {
+  return makeVerifiedContainerAccessManifest({
     event: readProjectionVerifiedAccessEvent(
       bundle.event,
       `${label}.event`,
@@ -217,7 +217,5 @@ export function readVerifiedContainerManifest(
       manifest,
       manifestHash: bundle.manifestHash,
     }),
-  };
-
-  return verified as VerifiedContainerAccessManifest;
+  });
 }

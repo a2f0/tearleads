@@ -1,7 +1,5 @@
 import type { AccessEventType } from "@tearleads/crypto";
 import {
-  type ContainerCreateWithMetadataDocumentRequest,
-  type ContainerMutationRequest,
   isContainerCreateWithMetadataDocumentRequest,
   isContainerMutationRequest,
 } from "@tearleads/validators/request";
@@ -91,11 +89,12 @@ function addContainerMutationRoute({
       const session = c.get("session");
 
       try {
+        const request = c.req.valid("json");
         return c.json<ContainerMutationResponse>(
           await mutateContainer(runtime, {
             expectedEventType,
             fingerprint: session.fingerprint,
-            request: c.req.valid("json") as ContainerMutationRequest,
+            request,
             userId: session.userId,
             ...(getExpectedContainerId
               ? { expectedContainerId: getExpectedContainerId(c) }
@@ -128,12 +127,11 @@ export function createContainerMutationsRoute({
       const session = c.get("session");
 
       try {
+        const request = c.req.valid("json");
         return c.json<ContainerCreateWithMetadataDocumentResponse>(
           await createContainerWithMetadataDocument(runtime, {
             fingerprint: session.fingerprint,
-            request: c.req.valid(
-              "json",
-            ) as ContainerCreateWithMetadataDocumentRequest,
+            request,
             userId: session.userId,
           }),
         );

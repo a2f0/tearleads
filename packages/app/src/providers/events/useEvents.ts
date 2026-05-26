@@ -13,6 +13,16 @@ interface EventsContextValue {
   events: ReadonlyArray<ServerEvent>;
 }
 
+function isServerEvent(value: unknown): value is ServerEvent {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const id = Reflect.get(value, "id");
+  const type = Reflect.get(value, "type");
+  return typeof id === "string" && typeof type === "string";
+}
+
 export function useEvents(): EventsContextValue {
   const tearleads = useTearleads();
   const snapshot = useTearleadsStoreSnapshot(tearleads.events);
@@ -20,7 +30,7 @@ export function useEvents(): EventsContextValue {
   return useMemo(
     () => ({
       connected: snapshot.connected,
-      events: snapshot.events as ReadonlyArray<ServerEvent>,
+      events: snapshot.events.filter(isServerEvent),
     }),
     [snapshot],
   );

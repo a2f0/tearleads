@@ -52,6 +52,12 @@ const CONTAINER_INFO_SUBJECT_TYPE_LABELS = {
 
 const GRANT_GROUP_ROUTE_WINDOW_POSITION_OFFSET = 16;
 
+function isContainerShareAccessLevel(
+  value: string,
+): value is ContainerShareAccessLevel {
+  return value === "admin" || value === "read" || value === "write";
+}
+
 function compactPrincipalId(value: string): string {
   if (value.length <= 18) {
     return value;
@@ -477,9 +483,10 @@ function ExplorerContainerInfoGroupShareSection(params: {
           value={draftShareAccessLevel}
           onChange={(event) => {
             setPanelError(null);
-            setDraftShareAccessLevel(
-              event.target.value as ContainerShareAccessLevel,
-            );
+            const accessLevel = event.target.value;
+            if (isContainerShareAccessLevel(accessLevel)) {
+              setDraftShareAccessLevel(accessLevel);
+            }
           }}
         >
           <option value="read">

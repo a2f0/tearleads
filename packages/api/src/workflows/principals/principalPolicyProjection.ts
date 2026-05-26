@@ -1,11 +1,13 @@
 import type {
-  PrincipalPolicySignedState,
   PrincipalProjectionMember,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import { computePrincipalProjectionRoot } from "@tearleads/crypto";
+import {
+  computePrincipalProjectionRoot,
+  makeVerifiedPrincipalPolicy,
+} from "@tearleads/crypto";
 import {
   getCurrentPrincipalStates,
   listPrincipalStateHistory,
@@ -121,7 +123,7 @@ async function principalPolicyFromStored(input: {
       });
 
       return {
-        state: entry.state as PrincipalPolicySignedState,
+        state: entry.state,
         projection,
       };
     }),
@@ -132,7 +134,7 @@ async function principalPolicyFromStored(input: {
     throw new PrincipalPolicyProjectionError("Principal policy state is stale");
   }
 
-  return {
+  return makeVerifiedPrincipalPolicy({
     principalType: currentEntry.state.principalType,
     principalId: currentEntry.state.principalId,
     version: currentEntry.state.version,
@@ -147,7 +149,7 @@ async function principalPolicyFromStored(input: {
       version: currentEntry.state.version,
       stateHash: currentEntry.state.stateHash,
     },
-  } as unknown as VerifiedPrincipalPolicy;
+  });
 }
 
 export async function loadPrincipalPoliciesForContainerPaths(

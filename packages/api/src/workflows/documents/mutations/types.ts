@@ -52,7 +52,3 @@ export interface DocumentWriteAuthorizationProof {
   readonly documentManifest: VerifiedDocumentLinkSetManifest;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }
-
-export type UnbrandedVerified<T> = {
-  readonly [K in keyof T as K extends symbol ? never : K]: T[K];
-};

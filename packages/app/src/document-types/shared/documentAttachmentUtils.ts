@@ -40,7 +40,7 @@ export async function readDocumentAttachmentUpload(
   file: File,
 ): Promise<DocumentAttachmentUpload> {
   return {
-    bytes: new Uint8Array(await file.arrayBuffer()) as BlobBytes,
+    bytes: new Uint8Array(await file.arrayBuffer()),
     mimeType: file.type.length > 0 ? file.type : null,
     name: file.name,
   };
