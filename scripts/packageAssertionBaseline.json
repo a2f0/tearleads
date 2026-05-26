@@ -1,0 +1,359 @@
+{
+  "assertions": [
+    {
+      "count": 1,
+      "filePath": "packages/api-client/src/ApiClient.ts",
+      "fingerprint": "a8b8b1bd73fc9b411f902c4e987c599a63e46114e6f9b349ab4d73728988b69b"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api-client/src/ApiClient.ts",
+      "fingerprint": "e7f74af22eaf529b6d8da416d337abc0429ec5201db576e5c1664199bdcfb9c1"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api-client/src/routes/blobs/get.ts",
+      "fingerprint": "aff6b374e13e124209d72d6c5999659cb9f831b991d8a995e4b9586d383136e9"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api-client/src/routes/blobs/get.ts",
+      "fingerprint": "c145f5fdea7b71829e13404f825e5ce6439a3e7074381c9955cded5d4b87fde4"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/access/shared/internal/accessManifestStore.ts",
+      "fingerprint": "3fc89aae41d17d59388c0023dbedd4dfbe60dd50291888add00a026852761e11"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/access/shared/internal/accessManifestStore.ts",
+      "fingerprint": "467ee723724b4e134cd8886512dedbcc9c01cdbd4440ee272b834dbe1f2d2d69"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/access/shared/internal/accessManifestStore.ts",
+      "fingerprint": "7fa2aadb2d45694b485e330a06f580d7c359290c1c48a96d612a7d8bb11dae54"
+    },
+    {
+      "count": 2,
+      "filePath": "packages/api/src/access/shared/internal/accessManifestStore.ts",
+      "fingerprint": "85f8870b96b40e9ad25b8f7da15a630900b1bec7cae871c82a42b04329ae803c"
+    },
+    {
+      "count": 2,
+      "filePath": "packages/api/src/access/shared/internal/accessManifestStore.ts",
+      "fingerprint": "976a3f6df91e9dd5b66773ab792307e5f9c893d4af4c576cf12b6ca3977f2dc7"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/access/shared/internal/accessManifestStore.ts",
+      "fingerprint": "c910865871db50f2436aa4bbb16f9df86c2aa9c085066cb393e0c13b087eda81"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/access/shared/internal/containerKekTargets.ts",
+      "fingerprint": "0f1d3ad3f757317a427d816317de7808c89f892994c40d572a2b919a26779cb2"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/access/shared/internal/containerKekTargets.ts",
+      "fingerprint": "681a3eed30618eb7e722b0a319f1777b39be3ab3cdffc4508f94d06737928145"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/adapters/s3BlobObjectStore.ts",
+      "fingerprint": "817815e9abe1e3d80c6a51c6424a67c915be6812974430ce319e0cae0c3decde"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/adapters/s3BlobObjectStore.ts",
+      "fingerprint": "9aada37d41f8605a985093b4f1071830540d95be69a731c769450819a1ebc1f1"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/documents/commitLsn.ts",
+      "fingerprint": "03bc8781ea35a2765649cfebfb2110e5996be9e8f1aa5fd36b8e5c0ed5ec71e5"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/keyingProjectionRecords.ts",
+      "fingerprint": "9db124213fcbd03d31782f8f3b148968146c3444de3fe32b43504cd1d663480e"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/keyingProjectionRecords.ts",
+      "fingerprint": "a4922fbb12a78840bb1201c58dab421298b41f20c5cfd47cf72f751516ad2a3b"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/routes/blobs/getBlob.ts",
+      "fingerprint": "4bad742aa064663cb2e6d1d794ee9046bbfba5dca2c7a93984e8083491c2da69"
+    },
+    {
+      "count": 2,
+      "filePath": "packages/api/src/routes/blobs/multipartStage.ts",
+      "fingerprint": "0355a15fcbe0e62ce5b356e46cb8b785ee28052b5b08d081352e06db4299c1ca"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/routes/blobs/multipartStage.ts",
+      "fingerprint": "19477278247dc9e60e848ddb8657d38e91eafd187b2c5aef116a2788460721dc"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/routes/containers/mutations.ts",
+      "fingerprint": "416fc40aa643d8cadff4190d658e13981eba9fa9708016dd34324fb92d62499b"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/routes/containers/mutations.ts",
+      "fingerprint": "b11dead6942c8abd6895a8344bc1c423b2c14e0ad80460d7bc247d8655f35055"
+    },
+    {
+      "count": 2,
+      "filePath": "packages/api/src/services/containers/listContainers.ts",
+      "fingerprint": "09e4d0a7ad1bf7bc790389915cb012776c807437eb9da93adbdc674ff43f19a4"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/utils/canonicalJson.ts",
+      "fingerprint": "03697d09c6b209c1e5be8c188f95bf9fa3e4767b717b28d82268bbe6785116d6"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/utils/canonicalJson.ts",
+      "fingerprint": "749e9f9799f5e256e3cf5a76758d1baf8cac38b7a0cb50846e52ed4641d59731"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/auth/registration.ts",
+      "fingerprint": "e43a82fe6dfee101ceaf21b514c74fc0fab3be68a8eb2574b96bec0abb5249a5"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/blobs/mutations/bind.ts",
+      "fingerprint": "52bfe3c0b2d99d0811d0f3bc58d6d7b6b06090c369c4dfa173f7cf49736d7d17"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/blobs/mutations/detach.ts",
+      "fingerprint": "52bfe3c0b2d99d0811d0f3bc58d6d7b6b06090c369c4dfa173f7cf49736d7d17"
+    },
+    {
+      "count": 2,
+      "filePath": "packages/api/src/workflows/blobs/mutations/records.ts",
+      "fingerprint": "0943f6fe9453d42f3dcbbb533c208f4bab0d643abdb8944f5e929d7960d41985"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/blobs/mutations/records.ts",
+      "fingerprint": "9673be5d920f16787d247a440d78125f095c92d714d5006392681069db4feb29"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/blobs/mutations/records.ts",
+      "fingerprint": "b502bfe3cbbcf822efe53c2f24b6432de7e888cc02bddd3fb0dd4f5def40bc09"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/mutations/shared/accessManifestRecords.ts",
+      "fingerprint": "a1f10df3a1eb4fa5f6209b69c51d1a507d9bca61d9ea7b87fd491bb338cc6d70"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/mutations/shared/builtinGrants.ts",
+      "fingerprint": "0f5f5b68dd1f5f7f1cc7cf81a009df64321fd67378ed24b094fdfbaebfc1a3d8"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/mutations/shared/builtinGrants.ts",
+      "fingerprint": "1d640e862a9289c0fc0bf289dfdc809215d2160b3534af225f98c938155df3d8"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/mutations/shared/builtinGrants.ts",
+      "fingerprint": "acea0679f3f5919aba173a64562ebea68ad2bb77f0e7634c1ca0dba705a924e9"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/mutations/shared/containerKekRecords.ts",
+      "fingerprint": "f155739ea6a7f91fbcd8f8702be1ad12220eb615022ddbcda98954f616765afa"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/mutations/shared/events.ts",
+      "fingerprint": "52bfe3c0b2d99d0811d0f3bc58d6d7b6b06090c369c4dfa173f7cf49736d7d17"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/mutations/shared/principalPolicyRecords.ts",
+      "fingerprint": "d33e758c2f569ee519d30dbc6d52a5e2859c69bba7876f646b29af3bd40f2d6c"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/containers/writerProjection/records.ts",
+      "fingerprint": "a6653f7d1d3aa2ea69587f42a0fca69ce246bfa8f5eb712d8a6ca250cc214bf6"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/documents/mutations/shared/records.ts",
+      "fingerprint": "29addb18e0060f5e61cec5475d7df0e76de884600ac6c2bd8207ad2af8cde27c"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/documents/mutations/shared/records.ts",
+      "fingerprint": "2c211a0b1b363d0580274f7c9b8d40569043196727ee914355e019a87f45119d"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/documents/mutations/shared/records.ts",
+      "fingerprint": "388a5baf3dec36da1a67689c546b2609397a940a8c308e71ebb269f27000acba"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/documents/mutations/shared/records.ts",
+      "fingerprint": "7bc6a46b3481de71ec101c7646c8a295312c432e3d3be39b3b92514ad07a4b9f"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/documents/mutations/shared/records.ts",
+      "fingerprint": "a1f10df3a1eb4fa5f6209b69c51d1a507d9bca61d9ea7b87fd491bb338cc6d70"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/documents/mutations/shared/verification.ts",
+      "fingerprint": "93a170a650ce71f1e72c25f3676d095d6980eb4355ee2487147f144e35e58821"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/principals/principalPolicyProjection.ts",
+      "fingerprint": "0dbc6bb4edd74d023960bb449f3db940aab5123e2159e450446f7519ab6771c3"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/principals/principalPolicyProjection.ts",
+      "fingerprint": "184f6a013b0734c82a066b73e0af93cd4bbda25b9caee0edf78405641350f7fe"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/api/src/workflows/principals/principalPolicyProjection.ts",
+      "fingerprint": "4937d5a4488d3f1aeb81d29899a9ddc4fa10215807eb440a2f9f11be863f0c28"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/app/src/components/shared/MiniAppRow.tsx",
+      "fingerprint": "4629fda213fb35e489e77e0af6a90f1e4ec7f3f880ad8c94babedbaa363df7e5"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/app/src/document-types/shared/documentAttachmentUtils.ts",
+      "fingerprint": "d40157002c9d60c8bd4e7895129cd629958189c735ff38b35e3c71d36e678f9d"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/app/src/identity/keyPackageBackup.ts",
+      "fingerprint": "799c0cda0f995475622ebaabcaf43ee6c931725dbe441978856bd8ab07f231ef"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/app/src/mini-apps/bus.tsx",
+      "fingerprint": "d65b8d8eb48d74c9ca5cb7b04abf6fe9598d22d71d86b9995846536d3dde6c7e"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/app/src/mini-apps/explorer/detail/ExplorerContainerInfoSections.tsx",
+      "fingerprint": "317266e9627636fb537f6697a5ae53552acb385a0069afe1725e9f4e8679c797"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/app/src/mini-apps/notes/hooks/useNotesFileHandlers.ts",
+      "fingerprint": "d40157002c9d60c8bd4e7895129cd629958189c735ff38b35e3c71d36e678f9d"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/app/src/providers/events/useEvents.ts",
+      "fingerprint": "0e484f385331f9ffa488bdefda695677f3eeefa7481eb7d048303738f7bf6933"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/data/documents/shared/readers.ts",
+      "fingerprint": "762315752805e76b7ed9c29391c29c9c2202c0941e58d57a84273944cda11585"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/data/keyingProjectionVerification.ts",
+      "fingerprint": "3057b93c1f70b39d3a52694686b6b610a3fd8704005c0b8d2c70919b643d7004"
+    },
+    {
+      "count": 2,
+      "filePath": "packages/client-sdk/src/data/keyingProjectionVerification.ts",
+      "fingerprint": "3e92051e782f5f2d0b59f5e70b34f1f9286db8402dec29857743fa9c70f5ff84"
+    },
+    {
+      "count": 2,
+      "filePath": "packages/client-sdk/src/data/keyingProjectionVerification.ts",
+      "fingerprint": "546905ffcef32e866e6c13ada86fa26defa3c6566803acb727f4b280995d26ba"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/data/sqlite/sqlitePersistenceRuntime.ts",
+      "fingerprint": "198f606c0a0b55b41a08c6419a0e250193d24941e524efcddf88ded59114ffc1"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/data/sqlite/sqlitePersistenceRuntime.ts",
+      "fingerprint": "9217ca0e134508c0cececd1a866fe815e2c6667e29305129a13206b18bf6ee8c"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/blobs/decrypt.ts",
+      "fingerprint": "95a3e2cb17fe3a8527abec53e61636395aa7b35bc630a244cee2f1561f951a87"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/blobs/upload.ts",
+      "fingerprint": "1651d18abe5926f23d57547c20ff4cd5885e6491b0070ab67eab3bd12388c79f"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/containers/child/share.ts",
+      "fingerprint": "3057b93c1f70b39d3a52694686b6b610a3fd8704005c0b8d2c70919b643d7004"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/containers/mutationResponse.ts",
+      "fingerprint": "34526afa70fd9b6c3fec9c8062f11f2dad49df78b50f3bc62479427035987a6e"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/containers/mutationResponse.ts",
+      "fingerprint": "650a701b520483a6a09c533952644b149f14b2a9df509ddf0d02202e769bd773"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/containers/root/create.ts",
+      "fingerprint": "7e30666dc07ed51e92c705a20e5edb252c1850018a67266b153fd3925f51847f"
+    },
+    {
+      "count": 3,
+      "filePath": "packages/client-sdk/src/workflows/documents/sync.ts",
+      "fingerprint": "47db354fcf3a42cd9208080d0adcb8fff47b9c130300635638b65a07e15601fc"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/organizations/principalPolicy.ts",
+      "fingerprint": "30456f3c7bdc5bb3327f065942a0c5d328b6a9e04e5b2e875dba5290d62adc06"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/organizations/principalPolicy.ts",
+      "fingerprint": "9ab4f9d25878767d8b20580307886a90190b077eb2b42629974a8d376ed687e4"
+    },
+    {
+      "count": 1,
+      "filePath": "packages/client-sdk/src/workflows/principals/policyCache.ts",
+      "fingerprint": "3057b93c1f70b39d3a52694686b6b610a3fd8704005c0b8d2c70919b643d7004"
+    }
+  ]
+}
