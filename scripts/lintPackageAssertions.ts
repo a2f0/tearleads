@@ -1,30 +1,17 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import * as ts from "typescript";
 
 const packageRoot = "packages";
-const baselinePath = "scripts/packageAssertionBaseline.json";
 const skippedPackageNames = new Set(["test-utils"]);
 const skippedPathParts = new Set(["test", "tests"]);
 
 interface Violation {
   readonly column: number;
   readonly filePath: string;
-  readonly fingerprint: string;
   readonly line: number;
   readonly text: string;
-}
-
-interface BaselineEntry {
-  readonly count: number;
-  readonly filePath: string;
-  readonly fingerprint: string;
-}
-
-interface BaselineFile {
-  readonly assertions: readonly BaselineEntry[];
 }
 
 function toPosixPath(filePath: string): string {
@@ -93,10 +80,6 @@ function isConstAssertion(
   return node.type.getText(sourceFile) === "const";
 }
 
-function assertionFingerprint(text: string): string {
-  return createHash("sha256").update(text).digest("hex");
-}
-
 function collectViolations(
   filePath: string,
   sourceText: string,
@@ -116,7 +99,6 @@ function collectViolations(
       );
       violations.push({
         column: character + 1,
-        fingerprint: assertionFingerprint(node.getText(sourceFile)),
         filePath,
         line: line + 1,
         text: node.getText(sourceFile),
@@ -129,7 +111,6 @@ function collectViolations(
       );
       violations.push({
         column: character + 1,
-        fingerprint: assertionFingerprint(node.getText(sourceFile)),
         filePath,
         line: line + 1,
         text: node.getText(sourceFile),
@@ -141,82 +122,6 @@ function collectViolations(
 
   visit(sourceFile);
   return violations;
-}
-
-function baselineKey(input: {
-  readonly filePath: string;
-  readonly fingerprint: string;
-}): string {
-  return `${input.filePath}\0${input.fingerprint}`;
-}
-
-function countViolations(
-  violations: readonly Violation[],
-): Map<string, BaselineEntry> {
-  const entriesByKey = new Map<string, BaselineEntry>();
-
-  for (const violation of violations) {
-    const filePath = relativePosixPath(process.cwd(), violation.filePath);
-    const key = baselineKey({ filePath, fingerprint: violation.fingerprint });
-    const existingEntry = entriesByKey.get(key);
-    entriesByKey.set(key, {
-      count: (existingEntry?.count ?? 0) + 1,
-      filePath,
-      fingerprint: violation.fingerprint,
-    });
-  }
-
-  return entriesByKey;
-}
-
-async function readBaseline(): Promise<Map<string, number>> {
-  if (!existsSync(baselinePath)) {
-    return new Map();
-  }
-
-  const baseline = JSON.parse(
-    await readFile(baselinePath, "utf8"),
-  ) as BaselineFile;
-  return new Map(
-    baseline.assertions.map((entry) => [
-      baselineKey({
-        filePath: toPosixPath(entry.filePath),
-        fingerprint: entry.fingerprint,
-      }),
-      entry.count,
-    ]),
-  );
-}
-
-async function writeBaseline(violations: readonly Violation[]): Promise<void> {
-  const assertions = [...countViolations(violations).values()].sort(
-    (left, right) =>
-      left.filePath.localeCompare(right.filePath) ||
-      left.fingerprint.localeCompare(right.fingerprint),
-  );
-  const baseline: BaselineFile = { assertions };
-  await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
-}
-
-function findUnbaselinedViolations(input: {
-  readonly baseline: ReadonlyMap<string, number>;
-  readonly violations: readonly Violation[];
-}): Violation[] {
-  const seenCounts = new Map<string, number>();
-  const unbaselinedViolations: Violation[] = [];
-
-  for (const violation of input.violations) {
-    const filePath = relativePosixPath(process.cwd(), violation.filePath);
-    const key = baselineKey({ filePath, fingerprint: violation.fingerprint });
-    const seenCount = (seenCounts.get(key) ?? 0) + 1;
-    seenCounts.set(key, seenCount);
-
-    if (seenCount > (input.baseline.get(key) ?? 0)) {
-      unbaselinedViolations.push(violation);
-    }
-  }
-
-  return unbaselinedViolations;
 }
 
 const sourceRoots = await listPackageSourceRoots();
@@ -233,25 +138,14 @@ const violations = (
   )
 ).flat();
 
-if (process.argv.includes("--write-baseline")) {
-  await writeBaseline(violations);
-  process.exit(0);
-}
-
-const baseline = await readBaseline();
-const unbaselinedViolations = findUnbaselinedViolations({
-  baseline,
-  violations,
-});
-
-if (unbaselinedViolations.length > 0) {
+if (violations.length > 0) {
   console.error(
-    "error package-no-type-assertions: production package sources must not add TypeScript type assertions.",
+    "error package-no-type-assertions: production package sources must not contain TypeScript type assertions.",
   );
-  for (const violation of unbaselinedViolations) {
+  for (const violation of violations) {
     const relativePath = relativePosixPath(process.cwd(), violation.filePath);
     console.error(
-      `  ${relativePath}:${violation.line}:${violation.column} ${violation.fingerprint} ${violation.text}`,
+      `  ${relativePath}:${violation.line}:${violation.column} ${violation.text}`,
     );
   }
   process.exit(1);
