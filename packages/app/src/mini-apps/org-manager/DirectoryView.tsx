@@ -409,27 +409,17 @@ export function DirectoryView({
   }
 
   return (
-    <div className="org-manager-groups">
-      <section className="org-manager-panel">
-        <DirectoryTable
-          directory={directory}
-          loading={loading}
-          selectedUserId={selectedUserId}
-          selectUser={selectUser}
-        />
-      </section>
-      <section className="org-manager-panel org-manager-panel--detail">
-        <UserDetailView
-          canRevokeGrants={canRevokeGrants}
-          detail={detail}
-          loading={loadingUserDetail}
-          mutating={mutating}
-          onDismiss={() => selectUser(null)}
-          openGroupRoute={openGroupRoute}
-          revokeGrant={revokeGrant}
-          selectedUserId={selectedUserId}
-        />
-      </section>
-    </div>
+    <section className="org-manager-panel">
+      <UserDetailView
+        canRevokeGrants={canRevokeGrants}
+        detail={detail}
+        loading={loadingUserDetail}
+        mutating={mutating}
+        onDismiss={() => selectUser(null)}
+        openGroupRoute={openGroupRoute}
+        revokeGrant={revokeGrant}
+        selectedUserId={selectedUserId}
+      />
+    </section>
   );
 }

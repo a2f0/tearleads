@@ -63,9 +63,9 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
   );
 
   expect(
-    view.getByRole("table", { name: ORG_MANAGER_LABELS.directory }),
-  ).toBeTruthy();
-  expect(view.getAllByText(ORG_MANAGER_LABELS.disabled).length).toBe(2);
+    view.queryByRole("table", { name: ORG_MANAGER_LABELS.directory }),
+  ).toBeNull();
+  expect(view.getByText(ORG_MANAGER_LABELS.disabled)).toBeTruthy();
   expect(view.getByText(ORG_MANAGER_LABELS.disabledAt)).toBeTruthy();
   expect(view.getByText(ORG_MANAGER_LABELS.disabledBy)).toBeTruthy();
 

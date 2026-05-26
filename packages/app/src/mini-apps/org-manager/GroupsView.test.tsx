@@ -77,6 +77,7 @@ test("org manager groups view can dismiss group detail", () => {
   });
 
   expect(view.getByText(ORG_MANAGER_LABELS.members)).toBeTruthy();
+  expect(view.queryByPlaceholderText(ORG_MANAGER_LABELS.groupName)).toBeNull();
 
   fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
   expect(selections).toEqual([null]);
