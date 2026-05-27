@@ -8,7 +8,7 @@ import type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
-import type { FormEvent, KeyboardEvent } from "react";
+import { type FormEvent, type KeyboardEvent, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -170,6 +170,7 @@ function CreateGroupDialog({
   canCreateGroup,
   closeCreateGroupDialog,
   createGroup,
+  error,
   groupNameDraft,
   isOpen,
   mutating,
@@ -178,11 +179,14 @@ function CreateGroupDialog({
   canCreateGroup: boolean;
   closeCreateGroupDialog: () => void;
   createGroup: () => void;
+  error: string | null;
   groupNameDraft: string;
   isOpen: boolean;
   mutating: boolean;
   setGroupNameDraft: (groupName: string) => void;
 }) {
+  const inputId = useId();
+
   if (!isOpen) {
     return null;
   }
@@ -207,9 +211,15 @@ function CreateGroupDialog({
           <h2 id="org-manager-new-group-title">
             {ORG_MANAGER_LABELS.newGroupAction}
           </h2>
+          {error && (
+            <MiniAppStatus className="org-manager-error" tone="error">
+              {error}
+            </MiniAppStatus>
+          )}
           <MiniAppField>
-            <span>{ORG_MANAGER_LABELS.groupName}</span>
+            <label htmlFor={inputId}>{ORG_MANAGER_LABELS.groupName}</label>
             <MiniAppInput
+              id={inputId}
               aria-label={ORG_MANAGER_LABELS.groupName}
               autoFocus
               disabled={!canCreateGroup || mutating}
@@ -360,6 +370,7 @@ export function GroupsView({
   closeCreateGroupDialog,
   createGroup,
   directory,
+  error,
   groupContainers,
   groupNameDraft,
   groupPolicyHistory,
@@ -385,6 +396,7 @@ export function GroupsView({
   closeCreateGroupDialog: () => void;
   createGroup: () => void;
   directory: OrganizationDirectory | null;
+  error?: string | null | undefined;
   groupContainers: OrganizationGroupContainers | null;
   groupNameDraft: string;
   groupPolicyHistory: OrganizationGroupPolicyHistory | null;
@@ -406,6 +418,7 @@ export function GroupsView({
       canCreateGroup={canCreateGroup}
       closeCreateGroupDialog={closeCreateGroupDialog}
       createGroup={createGroup}
+      error={error ?? null}
       groupNameDraft={groupNameDraft}
       isOpen={isCreateGroupDialogOpen}
       mutating={mutating}

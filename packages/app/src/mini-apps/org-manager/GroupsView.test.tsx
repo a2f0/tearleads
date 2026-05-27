@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { GroupsView } from "./GroupsView";
 import { ORG_MANAGER_LABELS } from "./labels";
 
@@ -23,6 +23,7 @@ function renderGroupsView(input: {
   canCreateGroup?: boolean | undefined;
   closeCreateGroupDialog?: (() => void) | undefined;
   createGroup?: (() => void) | undefined;
+  error?: string | null | undefined;
   groupNameDraft?: string | undefined;
   isCreateGroupDialogOpen?: boolean | undefined;
   selectedGroup: OrganizationGroupSummary | null;
@@ -45,6 +46,7 @@ function renderGroupsView(input: {
       groupNameDraft={input.groupNameDraft ?? ""}
       groupPolicyHistory={null}
       groups={[group]}
+      error={input.error ?? null}
       isCreateGroupDialogOpen={input.isCreateGroupDialogOpen ?? false}
       members={null}
       memberUserIds={new Set<string>()}
@@ -122,4 +124,21 @@ test("org manager groups view submits the new group dialog", () => {
 
   expect(drafts).toEqual(["Operators East"]);
   expect(createCount).toBe(1);
+});
+
+test("org manager groups view shows creation errors inside the dialog", () => {
+  const view = renderGroupsView({
+    canCreateGroup: true,
+    error: "Failed to create group.",
+    groupNameDraft: "Operators",
+    isCreateGroupDialogOpen: true,
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+  const dialog = view.getByRole("dialog", {
+    name: ORG_MANAGER_LABELS.newGroupAction,
+  });
+
+  expect(view.getByLabelText(ORG_MANAGER_LABELS.groupName)).toBeTruthy();
+  expect(within(dialog).getByText("Failed to create group.")).toBeTruthy();
 });

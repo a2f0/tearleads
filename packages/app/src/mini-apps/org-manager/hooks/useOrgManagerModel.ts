@@ -176,6 +176,7 @@ export function useOrgManagerModel() {
       return;
     }
 
+    setError(null);
     setGroupNameDraft("");
     setIsCreateGroupDialogOpen(false);
   }, [mutating]);

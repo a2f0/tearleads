@@ -87,6 +87,7 @@ function OrgManagerContent({
       groupNameDraft={model.groupNameDraft}
       groupPolicyHistory={model.groupPolicyHistory}
       groups={model.groups}
+      error={model.error}
       isCreateGroupDialogOpen={model.isCreateGroupDialogOpen}
       members={model.members}
       memberUserIds={model.memberUserIds}
