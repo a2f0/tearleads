@@ -45,9 +45,9 @@ export function Explorer() {
   const activeContainerId = model.selection.activeContainerId;
   const openStructuredDocumentGrid = useCallback(() => {
     if (activeContainerId) {
-      model.routeState.selectExplorerItem(activeContainerId);
+      model.routeState.openNewStructuredDocumentRoute(activeContainerId);
     }
-  }, [activeContainerId, model.routeState.selectExplorerItem]);
+  }, [activeContainerId, model.routeState.openNewStructuredDocumentRoute]);
   useWindowFileMenuItem({
     disabled: !model.explorer.ready || activeContainerId === null,
     id: "explorer-new-structured-document",

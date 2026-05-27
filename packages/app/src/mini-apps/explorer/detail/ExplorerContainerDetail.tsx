@@ -6,10 +6,7 @@ import type {
   ContainerItemSortKey,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import {
-  getStoredDocumentTypeLabel,
-  type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import {
   type DragEvent,
   useCallback,
@@ -20,12 +17,9 @@ import {
 } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
-  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
-  MiniAppSection,
-  MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import {
@@ -38,7 +32,6 @@ import {
   MiniAppTableRow,
 } from "../../../components/shared/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
-import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
@@ -539,49 +532,10 @@ function ExplorerContainerDetailHeader(params: {
   );
 }
 
-function ExplorerDocumentTypeGrid(params: {
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
-  selectedNode: ContainerNode;
-}) {
-  const { openInlineDocument, selectedNode } = params;
-
-  return (
-    <MiniAppSection
-      aria-label="New structured document"
-      className="explorer-document-type-section"
-    >
-      <MiniAppSectionHeading>New Structured Document</MiniAppSectionHeading>
-      <div className="explorer-document-type-grid">
-        {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
-          <MiniAppButton
-            block
-            className="explorer-document-type-button"
-            key={definition.kind}
-            onClick={() => {
-              openInlineDocument(selectedNode.id, definition.kind);
-            }}
-          >
-            {definition.createLabel}
-          </MiniAppButton>
-        ))}
-      </div>
-    </MiniAppSection>
-  );
-}
-
 export function ExplorerContainerDetail(params: {
   documentListRevision: number;
   documentReadModel: ContainerDocumentReadModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
   online: boolean;
   refreshError: string | null;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
@@ -592,7 +546,6 @@ export function ExplorerContainerDetail(params: {
     documentListRevision,
     documentReadModel,
     importDroppedFiles,
-    openInlineDocument,
     online,
     refreshError,
     selectDocumentProjection,
@@ -637,10 +590,6 @@ export function ExplorerContainerDetail(params: {
     >
       <ExplorerContainerDetailHeader
         online={online}
-        selectedNode={selectedNode}
-      />
-      <ExplorerDocumentTypeGrid
-        openInlineDocument={openInlineDocument}
         selectedNode={selectedNode}
       />
       {refreshError ? (

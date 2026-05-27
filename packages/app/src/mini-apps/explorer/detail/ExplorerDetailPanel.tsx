@@ -15,6 +15,7 @@ import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 import { ExplorerDocumentDetail } from "./ExplorerDocumentDetail";
 import { ExplorerDocumentInfoPanel } from "./ExplorerDocumentInfoPanel";
+import { ExplorerNewStructuredDocumentPanel } from "./ExplorerNewStructuredDocumentPanel";
 
 function ExplorerEmptyDetail(params: {
   nodes: ReadonlyArray<ContainerNode>;
@@ -33,7 +34,43 @@ function ExplorerEmptyDetail(params: {
   );
 }
 
-export function ExplorerDetailPanel(params: {
+type ExplorerNewStructuredDocumentRouteState = Extract<
+  ExplorerRoute,
+  { view: "new-structured-document" }
+>;
+
+function ExplorerNewStructuredDocumentRoutePanel(params: {
+  nodes: ReadonlyArray<ContainerNode>;
+  onBackToSelectionRoute: () => void;
+  openInlineDocument: (
+    containerId: string,
+    documentKind: StoredDocumentKind,
+    localId?: string,
+  ) => void;
+  ready: boolean;
+  route: ExplorerNewStructuredDocumentRouteState;
+}) {
+  const { nodes, onBackToSelectionRoute, openInlineDocument, ready, route } =
+    params;
+  const creationNode = nodes.find((node) => node.id === route.containerId);
+
+  if (!creationNode) {
+    return <ExplorerEmptyDetail nodes={nodes} ready={ready} />;
+  }
+
+  return (
+    <ExplorerNewStructuredDocumentPanel
+      onBackToContainer={onBackToSelectionRoute}
+      onCreateDocument={(documentKind) => {
+        onBackToSelectionRoute();
+        openInlineDocument(route.containerId, documentKind);
+      }}
+      selectedNode={creationNode}
+    />
+  );
+}
+
+interface ExplorerDetailPanelProps {
   activateLinkedContainer: (
     noteId: string,
     targetContainerId: string,
@@ -78,9 +115,25 @@ export function ExplorerDetailPanel(params: {
     noteId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
-}) {
-  const { route, selectedDocument, selectedNode } = params;
+}
 
+function renderExplorerNewStructuredDocumentRoute(
+  params: ExplorerDetailPanelProps,
+  route: ExplorerNewStructuredDocumentRouteState,
+) {
+  return (
+    <ExplorerNewStructuredDocumentRoutePanel
+      nodes={params.nodes}
+      onBackToSelectionRoute={params.onBackToSelectionRoute}
+      openInlineDocument={params.openInlineDocument}
+      ready={params.ready}
+      route={route}
+    />
+  );
+}
+
+export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
+  const { route, selectedDocument, selectedNode } = params;
   if (route.view === "container-info") {
     const infoNode = params.nodes.find((node) => node.id === route.containerId);
     const containerNamesById = new Map(
@@ -114,6 +167,10 @@ export function ExplorerDetailPanel(params: {
     );
   }
 
+  if (route.view === "new-structured-document") {
+    return renderExplorerNewStructuredDocumentRoute(params, route);
+  }
+
   if (selectedDocument) {
     return (
       <ExplorerDocumentDetail
@@ -145,7 +202,6 @@ export function ExplorerDetailPanel(params: {
         documentReadModel={params.documentReadModel}
         importDroppedFiles={params.importDroppedFiles}
         online={params.online}
-        openInlineDocument={params.openInlineDocument}
         refreshError={params.refreshError}
         selectedNode={selectedNode}
         selectDocumentProjection={params.selectDocumentProjection}

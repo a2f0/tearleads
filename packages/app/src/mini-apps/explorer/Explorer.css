@@ -28,6 +28,11 @@
   overflow: auto;
 }
 
+.explorer-detail--new-structured-document {
+  flex: 1;
+  min-height: 0;
+}
+
 .explorer-detail-title-row {
   display: flex;
   align-items: center;
