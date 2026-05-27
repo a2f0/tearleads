@@ -65,14 +65,14 @@ function RosterProfileTextField({
   );
 }
 
-function getMissingProfileIdentityPatch(
+export function getMissingProfileIdentityPatch(
   user: OrganizationDirectoryUser,
   structuredFields: Readonly<Record<string, string>>,
 ): Record<string, string | undefined> | null {
   const expectedPatch = getRosterProfileDocumentPatch(user);
   const missingPatch = Object.fromEntries(
     Object.entries(expectedPatch).filter(
-      ([key, value]) => structuredFields[key] !== value,
+      ([key]) => structuredFields[key] === undefined,
     ),
   );
 
