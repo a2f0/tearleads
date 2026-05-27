@@ -205,6 +205,10 @@
     display: none;
   }
 
+  .org-manager-group-created-column {
+    display: none;
+  }
+
   .org-manager-policy-change {
     grid-template-columns: 1fr;
     gap: var(--mini-app-space-2xs);

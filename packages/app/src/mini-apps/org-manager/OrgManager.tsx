@@ -2,7 +2,10 @@ import {
   MiniAppRoot,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
-import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
+import {
+  useWindowFileMenuItem,
+  useWindowRefreshMenuItem,
+} from "../../components/window/WindowMenuContext";
 import { DataUsageView } from "./DataUsageView";
 import { DirectoryView } from "./DirectoryView";
 import { GrantsView } from "./GrantsView";
@@ -77,12 +80,14 @@ function OrgManagerContent({
       addableUsers={model.addableUsers}
       canCreateGroup={model.canCreateGroup}
       canMutateSelectedGroup={model.canMutateSelectedGroup}
+      closeCreateGroupDialog={model.closeCreateGroupDialog}
       createGroup={model.createGroup}
       directory={model.directory}
       groupContainers={model.groupContainers}
       groupNameDraft={model.groupNameDraft}
       groupPolicyHistory={model.groupPolicyHistory}
       groups={model.groups}
+      isCreateGroupDialogOpen={model.isCreateGroupDialogOpen}
       members={model.members}
       memberUserIds={model.memberUserIds}
       mutating={model.mutating}
@@ -101,6 +106,17 @@ export function OrgManager() {
   const model = useOrgManagerModel();
   const organizationId = model.organizationId;
 
+  useWindowFileMenuItem(
+    model.canLoadAuthenticatedOrgData
+      ? {
+          disabled: !model.canCreateGroup || model.loading || model.mutating,
+          id: "org-manager-new-group",
+          label: ORG_MANAGER_LABELS.newGroupAction,
+          onClick: model.openCreateGroupDialog,
+          priority: 100,
+        }
+      : null,
+  );
   useWindowRefreshMenuItem(
     model.canLoadAuthenticatedOrgData
       ? {
