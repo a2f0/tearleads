@@ -1,12 +1,12 @@
 .mini-app-row {
-  --mini-app-row-block-padding: var(--mini-app-space-sm);
+  --mini-app-row-block-padding: var(--mini-app-space-2xs);
   --mini-app-row-inline-padding: var(--mini-app-space-sm);
 
   display: flex;
   align-items: center;
   gap: var(--mini-app-space-sm);
   min-width: 0;
-  min-height: var(--mini-app-control-min-height);
+  min-height: 1.55rem;
   box-sizing: border-box;
   padding: var(--mini-app-row-block-padding) var(--mini-app-row-inline-padding);
   border: 1px solid transparent;
@@ -18,12 +18,14 @@
 }
 
 .mini-app-row--compact {
-  --mini-app-row-block-padding: var(--mini-app-row-compact-padding-block);
+  --mini-app-row-block-padding: 0;
 
-  min-height: 1.75rem;
+  min-height: 1.45rem;
 }
 
 .mini-app-row--roomy {
+  --mini-app-row-block-padding: var(--mini-app-space-sm);
+
   min-height: 2.625rem;
 }
 

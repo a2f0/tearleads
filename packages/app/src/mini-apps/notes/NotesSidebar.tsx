@@ -35,7 +35,7 @@ function NotesSidebar({
   selectedNoteId,
 }: NotesSidebarProps) {
   return (
-    <MiniAppSidebar spacious>
+    <MiniAppSidebar>
       <MiniAppSidebarList>
         {!ready ? (
           <MiniAppStatus className="notes-sidebar-empty">
