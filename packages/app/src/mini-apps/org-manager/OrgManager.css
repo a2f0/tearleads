@@ -120,11 +120,6 @@
   flex: 1 1 16rem;
 }
 
-.org-manager-grant-revoke-button {
-  width: 100%;
-  padding: 0 var(--mini-app-space-sm);
-}
-
 .org-manager-policy-history-row {
   align-items: flex-start;
   justify-content: stretch;
