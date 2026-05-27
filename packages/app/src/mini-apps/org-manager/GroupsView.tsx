@@ -142,7 +142,7 @@ function GroupTable({
               tabIndex={0}
             >
               <MiniAppTableCell>
-                <MiniAppTableText title={group.name}>
+                <MiniAppTableText title={group.groupId}>
                   {group.name}
                 </MiniAppTableText>
               </MiniAppTableCell>

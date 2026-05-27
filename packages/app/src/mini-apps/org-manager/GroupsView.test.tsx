@@ -75,7 +75,7 @@ test("org manager groups view hides group detail until a group is selected", () 
   expect(
     view.getByRole("table", { name: ORG_MANAGER_LABELS.groups }),
   ).toBeTruthy();
-  expect(view.getByText(group.name)).toBeTruthy();
+  expect(view.getByText(group.name).getAttribute("title")).toBe(group.groupId);
   expect(view.queryByText(compactFingerprint(group.groupId))).toBeNull();
   expect(view.getByText(ORG_MANAGER_LABELS.builtIn)).toBeTruthy();
   expect(view.container.querySelector(".org-manager-panel--detail")).toBeNull();
