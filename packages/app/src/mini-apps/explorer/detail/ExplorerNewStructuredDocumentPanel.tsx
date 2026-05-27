@@ -9,6 +9,7 @@ import {
   MiniAppSectionHeading,
 } from "../../../components/shared/MiniAppLayout";
 import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
+import { EXPLORER_LABELS } from "../labels";
 
 interface Props {
   onBackToContainer: () => void;
@@ -28,20 +29,22 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>
-          <strong>New Structured Document</strong>
+          <strong>{EXPLORER_LABELS.newStructuredDocumentAction}</strong>
           <span>{selectedNode.name}</span>
         </MiniAppHeaderCopy>
         <MiniAppActions>
           <MiniAppButton onClick={onBackToContainer}>
-            Back to Container
+            {EXPLORER_LABELS.backToContainerAction}
           </MiniAppButton>
         </MiniAppActions>
       </MiniAppHeader>
       <MiniAppSection
-        aria-label="New structured document"
+        aria-label={EXPLORER_LABELS.newStructuredDocumentRouteLabel}
         className="explorer-document-type-section"
       >
-        <MiniAppSectionHeading>Document Type</MiniAppSectionHeading>
+        <MiniAppSectionHeading>
+          {EXPLORER_LABELS.newStructuredDocumentDocumentTypeHeading}
+        </MiniAppSectionHeading>
         <div className="explorer-document-type-grid">
           {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
             <MiniAppButton

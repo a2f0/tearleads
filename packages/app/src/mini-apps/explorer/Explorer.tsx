@@ -12,6 +12,7 @@ import { type MiniAppWindowPosition, useMiniAppBusActions } from "../bus";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";
+import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
 import "./Explorer.css";
 
@@ -49,9 +50,9 @@ export function Explorer() {
     }
   }, [activeContainerId, model.routeState.openNewStructuredDocumentRoute]);
   useWindowFileMenuItem({
-    disabled: !model.explorer.ready || activeContainerId === null,
+    disabled: !model.explorer.ready || !activeContainerId,
     id: "explorer-new-structured-document",
-    label: "New Structured Document",
+    label: EXPLORER_LABELS.newStructuredDocumentAction,
     onClick: openStructuredDocumentGrid,
     priority: 100,
   });
