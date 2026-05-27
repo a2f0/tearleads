@@ -1,5 +1,6 @@
 import { isOrganizationUserDetailResponse } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function getOrganizationUserDetail(
   request: RequestFn,
@@ -7,7 +8,7 @@ export function getOrganizationUserDetail(
   userId: string,
 ) {
   return request(
-    `/organizations/${organizationId}/users/${userId}/detail`,
+    `/organizations/${pathSegment(organizationId)}/users/${pathSegment(userId)}/detail`,
     isOrganizationUserDetailResponse,
     "GET",
   );

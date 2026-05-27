@@ -1,6 +1,7 @@
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import { isCreateOrganizationGroupResponse } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function createOrganizationGroup(
   request: RequestFn,
@@ -8,7 +9,7 @@ export function createOrganizationGroup(
   input: CreateOrganizationGroupRequest,
 ) {
   return request(
-    `/organizations/${organizationId}/groups`,
+    `/organizations/${pathSegment(organizationId)}/groups`,
     isCreateOrganizationGroupResponse,
     "POST",
     JSON.stringify(input),

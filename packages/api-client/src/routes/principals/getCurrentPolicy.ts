@@ -1,5 +1,6 @@
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function getCurrentPrincipalPolicy(
   request: RequestFn,
@@ -7,7 +8,7 @@ export function getCurrentPrincipalPolicy(
   principalId: string,
 ) {
   return request(
-    `/principals/${principalType}/${principalId}/policy`,
+    `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/policy`,
     isPrincipalPolicyBundleResponse,
     "GET",
   );

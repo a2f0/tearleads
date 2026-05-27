@@ -4,6 +4,7 @@ import {
   type SyncWatermark,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 import { appendOptionalWatermark, appendQuery } from "./queryParams";
 
 export interface ListContainerDocumentsOptions {
@@ -23,7 +24,7 @@ export function listContainerDocuments(
   }
 
   return request<ListContainerDocumentsResponse>(
-    appendQuery(`/containers/${containerId}/documents`, params),
+    appendQuery(`/containers/${pathSegment(containerId)}/documents`, params),
     isListContainerDocumentsResponse,
     "GET",
   );

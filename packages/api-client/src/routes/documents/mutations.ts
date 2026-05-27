@@ -9,6 +9,7 @@ import {
   isDocumentSyncResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function createDocument(
   request: RequestFn,
@@ -28,7 +29,7 @@ export function linkDocument(
   input: DocumentLinkSetMutationRequest,
 ) {
   return request(
-    `/documents/${documentId}/link`,
+    `/documents/${pathSegment(documentId)}/link`,
     isDocumentLinkSetMutationResponse,
     "POST",
     JSON.stringify(input),
@@ -41,7 +42,7 @@ export function unlinkDocument(
   input: DocumentLinkSetMutationRequest,
 ) {
   return request(
-    `/documents/${documentId}/unlink`,
+    `/documents/${pathSegment(documentId)}/unlink`,
     isDocumentLinkSetMutationResponse,
     "POST",
     JSON.stringify(input),
@@ -54,7 +55,7 @@ export function syncDocument(
   input: DocumentSyncRequest,
 ) {
   return request(
-    `/documents/${documentId}/sync`,
+    `/documents/${pathSegment(documentId)}/sync`,
     isDocumentSyncResponse,
     "POST",
     JSON.stringify(input),

@@ -10,6 +10,7 @@ import {
   isUploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 const BLOB_PART_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Part-Byte-Length";
 const BLOB_PART_SHA256_HEADER = "X-Tearleads-Blob-Part-Sha256";
@@ -36,7 +37,7 @@ export function initiateMultipartBlobStage(
 
 export function getMultipartBlobStage(request: RequestFn, stageId: string) {
   return request(
-    `/blobs/stages/multipart/${stageId}`,
+    `/blobs/stages/multipart/${pathSegment(stageId)}`,
     isMultipartBlobStageStatusResponse,
     "GET",
   );
@@ -49,7 +50,7 @@ export function uploadMultipartBlobPart(
   input: UploadMultipartBlobPartRequest,
 ) {
   return request(
-    `/blobs/stages/multipart/${stageId}/parts/${partNumber}`,
+    `/blobs/stages/multipart/${pathSegment(stageId)}/parts/${pathSegment(partNumber)}`,
     isUploadMultipartBlobPartResponse,
     "PUT",
     JSON.stringify(input),
@@ -63,7 +64,7 @@ export function uploadMultipartBlobPartBytes(
   input: UploadMultipartBlobPartBytesRequest,
 ) {
   return request(
-    `/blobs/stages/multipart/${stageId}/parts/${partNumber}/bytes`,
+    `/blobs/stages/multipart/${pathSegment(stageId)}/parts/${pathSegment(partNumber)}/bytes`,
     isUploadMultipartBlobPartResponse,
     "PUT",
     input.encryptedBytes,
@@ -84,7 +85,7 @@ export function completeMultipartBlobStage(
   input: CompleteMultipartBlobStageRequest,
 ) {
   return request(
-    `/blobs/stages/multipart/${stageId}/complete`,
+    `/blobs/stages/multipart/${pathSegment(stageId)}/complete`,
     isCompleteMultipartBlobStageResponse,
     "POST",
     JSON.stringify(input),

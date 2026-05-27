@@ -7,6 +7,7 @@ import {
   isBlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function bindBlobAttachment(
   request: RequestFn,
@@ -14,7 +15,7 @@ export function bindBlobAttachment(
   input: BlobAttachmentBindRequest,
 ) {
   return request(
-    `/blobs/${blobId}/attachment-bindings`,
+    `/blobs/${pathSegment(blobId)}/attachment-bindings`,
     isBlobAttachmentBindResponse,
     "POST",
     JSON.stringify(input),
@@ -28,7 +29,7 @@ export function detachBlobAttachment(
   input: BlobAttachmentDetachRequest,
 ) {
   return request(
-    `/blobs/${blobId}/attachment-bindings/${bindingId}/detach`,
+    `/blobs/${pathSegment(blobId)}/attachment-bindings/${pathSegment(bindingId)}/detach`,
     isBlobAttachmentDetachResponse,
     "POST",
     JSON.stringify(input),

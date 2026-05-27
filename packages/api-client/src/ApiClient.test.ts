@@ -326,7 +326,7 @@ function createOrganizationGroupRequest(): CreateOrganizationGroupRequest {
   };
 }
 
-test("includes authorization header after authentication", async () => {
+test("normalizes base URL and includes authorization headers", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
     http.get(`${apiBaseUrl}/`, async ({ request }) => {
@@ -335,7 +335,7 @@ test("includes authorization header after authentication", async () => {
     }),
   );
 
-  const client = new ApiClient(apiBaseUrl);
+  const client = new ApiClient(`${apiBaseUrl}/`);
   client.setAuthToken("abc");
 
   await client.getHealth();
@@ -346,7 +346,8 @@ test("includes authorization header after authentication", async () => {
     throw new Error("expected getHealth HTTP call");
   }
   expect(call.authorization).toBe("Bearer abc");
-  expect(call.contentType).toBe("application/json");
+  expect(call.contentType).toBeNull();
+  expect(call.url).toBe(`${apiBaseUrl}/`);
 });
 
 test("allows public methods to be called after destructuring", async () => {
@@ -370,7 +371,40 @@ test("allows public methods to be called after destructuring", async () => {
     throw new Error("expected destructured getHealth HTTP call");
   }
   expect(call.authorization).toBe("Bearer abc");
-  expect(call.contentType).toBe("application/json");
+  expect(call.contentType).toBeNull();
+});
+
+test("escapes dynamic route path segments", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/auth/encapsulation-key/:userId`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json({
+          encapsulationPublicKey: "encapsulation-key",
+          signingKeyFingerprint: "a".repeat(64),
+          signingPublicKey: "signing-key",
+          userId: "user/id with space",
+        });
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  await expect(
+    client.getEncapsulationKey("user/id with space"),
+  ).resolves.toEqual({
+    encapsulationPublicKey: "encapsulation-key",
+    signingKeyFingerprint: "a".repeat(64),
+    signingPublicKey: "signing-key",
+    userId: "user/id with space",
+  });
+
+  expect(calls[0]?.url).toBe(
+    `${apiBaseUrl}/auth/encapsulation-key/user%2Fid%20with%20space`,
+  );
 });
 
 test("uses auth session management routes", async () => {
@@ -549,32 +583,38 @@ test("posts signed container mutations to the route namespace", async () => {
   expect(
     calls.map((call) => ({
       body: call.body,
+      contentType: call.contentType,
       input: call.url,
       method: call.method,
     })),
   ).toEqual([
     {
       body: JSON.stringify(mutation),
+      contentType: "application/json",
       input: `${apiBaseUrl}/containers`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
+      contentType: "application/json",
       input: `${apiBaseUrl}/containers/container-1/share`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
+      contentType: "application/json",
       input: `${apiBaseUrl}/containers/container-1/revoke`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
+      contentType: "application/json",
       input: `${apiBaseUrl}/containers/container-1/rekey`,
       method: "POST",
     },
     {
       body: JSON.stringify(mutation),
+      contentType: "application/json",
       input: `${apiBaseUrl}/containers/container-1/move`,
       method: "POST",
     },

@@ -7,6 +7,7 @@ import {
   isPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function putPrincipalState(
   request: RequestFn,
@@ -15,7 +16,7 @@ export function putPrincipalState(
   input: PutPrincipalStateRequest,
 ) {
   return request(
-    `/principals/${principalType}/${principalId}/state`,
+    `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/state`,
     isPrincipalStateResponse,
     "PUT",
     JSON.stringify(input),
@@ -29,7 +30,7 @@ export function putPrincipalMemberEnvelopes(
   input: PutPrincipalMemberEnvelopesRequest,
 ) {
   return request(
-    `/principals/${principalType}/${principalId}/member-envelopes`,
+    `/principals/${pathSegment(principalType)}/${pathSegment(principalId)}/member-envelopes`,
     isCurrentPrincipalMemberEnvelopesResponse,
     "PUT",
     JSON.stringify(input),
