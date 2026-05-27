@@ -12,6 +12,7 @@ import {
   containerDocumentSyncTombstones,
   containers,
   documents,
+  organizationRosterEntries,
 } from "../../schema";
 
 async function getContainerOrganizationId(containerId: string) {
@@ -90,6 +91,38 @@ test("GET /containers/:containerId/documents lists current manifest-linked docum
       id: createdDocument.id,
       updatedAt: expect.any(String),
     },
+    tombstones: [],
+  });
+});
+
+test("GET /containers/:containerId/documents hides roster profile documents", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const profileDocument = await createCurrentDocumentProjection({
+    containerIds: [owner.rootContainerId],
+    createdByFingerprint: await toFingerprint(owner.signing.signingPublicKey),
+    epoch: 1,
+    manifestHash: `document-manifest:${crypto.randomUUID()}`,
+    organizationId: await getContainerOrganizationId(owner.rootContainerId),
+  });
+
+  await db
+    .update(organizationRosterEntries)
+    .set({ profileDocumentId: profileDocument.id })
+    .where(eq(organizationRosterEntries.userId, owner.userId));
+
+  const response = await listContainerDocumentsForUser({
+    containerId: owner.rootContainerId,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({
+    hasMore: false,
+    items: [],
+    nextWatermark: null,
     tombstones: [],
   });
 });
