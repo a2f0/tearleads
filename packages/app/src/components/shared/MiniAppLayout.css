@@ -28,10 +28,6 @@
   padding: var(--mini-app-space-sm);
 }
 
-.mini-app-sidebar--spacious {
-  gap: var(--mini-app-space-sm);
-}
-
 .mini-app-sidebar-list {
   display: flex;
   flex-direction: column;

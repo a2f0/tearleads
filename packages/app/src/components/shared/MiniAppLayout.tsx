@@ -39,20 +39,10 @@ export function MiniAppRoot({
 
 export function MiniAppSidebar({
   className,
-  spacious = false,
   ...props
-}: HTMLAttributes<HTMLDivElement> & {
-  spacious?: boolean | undefined;
-}) {
+}: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      {...props}
-      className={classNames(
-        "mini-app-sidebar",
-        spacious && "mini-app-sidebar--spacious",
-        className,
-      )}
-    />
+    <div {...props} className={classNames("mini-app-sidebar", className)} />
   );
 }
 

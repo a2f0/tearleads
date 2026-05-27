@@ -124,7 +124,7 @@
 .explorer-sidebar-row {
   display: flex;
   align-items: center;
-  gap: var(--mini-app-space-xs);
+  gap: var(--mini-app-space-2xs);
   padding-left: var(--mini-app-space-sm);
 }
 
@@ -195,7 +195,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1rem;
+  width: 0.65rem;
   height: 1rem;
   flex-shrink: 0;
 }
@@ -214,6 +214,8 @@
 
 .explorer-node-icon {
   opacity: var(--mini-app-icon-opacity);
+  font-size: 0.65rem;
+  line-height: 1;
   transition: transform 120ms ease;
 }
 

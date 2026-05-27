@@ -30,7 +30,6 @@ textarea {
   --mini-app-control-padding-inline: var(--mini-app-space-md);
   --mini-app-panel-padding: calc(var(--padding) / 1.5);
   --mini-app-info-table-cell-padding: calc(var(--padding) / 3);
-  --mini-app-row-compact-padding-block: calc(var(--padding) / 3);
   --mini-app-list-gap: 1px;
   --mini-app-code-font-size: 0.75rem;
   --mini-app-disabled-opacity: 0.5;
