@@ -162,6 +162,7 @@ export async function runCreateOrganizationGroupWorkflow(
       return toGroupSummary({
         createdAt: insertedGroup.createdAt,
         groupId: insertedGroup.groupId,
+        isBuiltin: false,
         name: insertedGroup.name,
         organizationId,
         state: storedState,

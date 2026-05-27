@@ -44,6 +44,7 @@ const groups: ListOrganizationGroupsResponse = {
       organizationId,
       name: "Operators",
       createdAt: "2026-05-16T12:00:00.000Z",
+      isBuiltin: false,
       currentState: null,
     },
   ],

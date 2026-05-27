@@ -83,6 +83,7 @@ export async function listOrganizationGroupSummariesInTransaction(input: {
 }): Promise<OrganizationGroupSummariesResult> {
   const [organization] = await input.executor
     .select({
+      adminGroupId: organizations.adminGroupId,
       memberGroupId: organizations.memberGroupId,
     })
     .from(organizations)
@@ -125,6 +126,9 @@ export async function listOrganizationGroupSummariesInTransaction(input: {
         toGroupSummary({
           createdAt: group.createdAt,
           groupId: group.groupId,
+          isBuiltin:
+            group.groupId === organization.adminGroupId ||
+            group.groupId === organization.memberGroupId,
           name: group.name,
           organizationId: group.organizationId,
           state: currentStates.get(group.groupId),

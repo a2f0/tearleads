@@ -420,6 +420,7 @@ test("organization manager responses", () => {
           organizationId: "org-1",
           name: "Operators",
           createdAt: new Date().toISOString(),
+          isBuiltin: false,
           currentState: {
             stateHash: "state-hash",
             version: 1,
@@ -574,6 +575,7 @@ test("organization manager responses", () => {
           organizationId: "org-1",
           name: "Operators",
           createdAt: new Date().toISOString(),
+          isBuiltin: false,
           currentState: null,
         },
       ],

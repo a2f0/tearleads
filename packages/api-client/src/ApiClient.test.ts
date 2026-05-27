@@ -1159,6 +1159,7 @@ test("uses organization manager and principal policy route namespaces", async ()
               organizationId: "org-1",
               name: "Operators",
               createdAt: "2026-05-12T12:00:00.000Z",
+              isBuiltin: false,
               currentState: null,
             },
           ],
@@ -1227,6 +1228,7 @@ test("uses organization manager and principal policy route namespaces", async ()
           organizationId: "org-1",
           name: "Operators",
           createdAt: "2026-05-12T12:00:00.000Z",
+          isBuiltin: false,
           currentState: {
             stateHash: "state-hash",
             version: 1,

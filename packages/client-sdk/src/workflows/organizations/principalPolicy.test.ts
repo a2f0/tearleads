@@ -151,6 +151,7 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
           organizationId: nextOrganizationId,
           name: request.name,
           createdAt: "2026-05-12T12:00:00.000Z",
+          isBuiltin: false,
           currentState: {
             stateHash: createdPolicyBundle.currentState.stateHash,
             version: createdPolicyBundle.currentState.version,
