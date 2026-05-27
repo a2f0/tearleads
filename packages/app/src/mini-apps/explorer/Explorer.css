@@ -108,6 +108,7 @@
 .explorer-sidebar-item {
   flex: 1;
   min-width: 0;
+  gap: var(--mini-app-space-xs);
 }
 
 .explorer-sidebar-item--note {
@@ -150,8 +151,10 @@
 }
 
 .explorer-sync-badge--reserved {
+  flex: 0 1 4rem;
   justify-content: center;
-  inline-size: 5rem;
+  inline-size: 4rem;
+  min-inline-size: 2.75rem;
   max-width: none;
 }
 
