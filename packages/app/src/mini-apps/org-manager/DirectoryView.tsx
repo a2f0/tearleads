@@ -4,7 +4,7 @@ import type {
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import {
   MiniAppButton,
   MiniAppHeader,
@@ -50,6 +50,11 @@ const DIRECTORY_TABLE_COLUMNS = [
     width: "8rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
+
+type RenderRosterProfileEditor = (input: {
+  canEdit: boolean;
+  user: OrganizationUserDetail["user"];
+}) => ReactNode;
 
 function formatNullableDate(value: string | null): string {
   return value ? formatMiniAppDate(value) : ORG_MANAGER_LABELS.none;
@@ -238,21 +243,25 @@ function UserRosterMetadata({
 }
 
 function UserDetailView({
+  canEditRosterProfile,
   canRevokeGrants,
   detail,
   loading,
   onDismiss,
   openGroupRoute,
+  renderRosterProfileEditor,
   revokeGrant,
   selectedUserId,
   mutating,
 }: {
+  canEditRosterProfile: boolean;
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail | null;
   loading: boolean;
   onDismiss: () => void;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
+  renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
 }) {
@@ -316,6 +325,17 @@ function UserDetailView({
         </MiniAppSectionHeading>
         <UserRosterMetadata user={detail.user} />
       </MiniAppSection>
+      {renderRosterProfileEditor && (
+        <MiniAppSection>
+          <MiniAppSectionHeading>
+            {ORG_MANAGER_LABELS.profileDocument}
+          </MiniAppSectionHeading>
+          {renderRosterProfileEditor({
+            canEdit: canEditRosterProfile,
+            user: detail.user,
+          })}
+        </MiniAppSection>
+      )}
       <MiniAppSection>
         <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.groups}
@@ -369,6 +389,7 @@ function UserDetailView({
 }
 
 export function DirectoryView({
+  canUpdateSelectedRosterEntry = false,
   canRevokeGrants,
   detail,
   directory,
@@ -376,10 +397,12 @@ export function DirectoryView({
   loadingUserDetail,
   mutating,
   openGroupRoute,
+  renderRosterProfileEditor,
   revokeGrant,
   selectedUserId,
   selectUser,
 }: {
+  canUpdateSelectedRosterEntry?: boolean | undefined;
   canRevokeGrants: boolean;
   detail: OrganizationUserDetail | null;
   directory: OrganizationDirectory | null;
@@ -387,6 +410,7 @@ export function DirectoryView({
   loadingUserDetail: boolean;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
+  renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
@@ -411,12 +435,14 @@ export function DirectoryView({
   return (
     <section className="org-manager-panel">
       <UserDetailView
+        canEditRosterProfile={canUpdateSelectedRosterEntry}
         canRevokeGrants={canRevokeGrants}
         detail={detail}
         loading={loadingUserDetail}
         mutating={mutating}
         onDismiss={() => selectUser(null)}
         openGroupRoute={openGroupRoute}
+        renderRosterProfileEditor={renderRosterProfileEditor}
         revokeGrant={revokeGrant}
         selectedUserId={selectedUserId}
       />

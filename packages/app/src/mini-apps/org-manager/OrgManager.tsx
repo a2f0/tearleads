@@ -1,3 +1,5 @@
+import type { OrganizationUserDetail } from "@tearleads/client-sdk";
+import { useMemo } from "react";
 import {
   MiniAppRoot,
   MiniAppStatus,
@@ -16,7 +18,24 @@ import {
 } from "./hooks/useOrgManagerModel";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { OrganizationView } from "./OrganizationView";
+import { RosterProfileEditor } from "./RosterProfileEditor";
 import "./OrgManager.css";
+
+function renderRosterProfileEditor(organizationId: string) {
+  return ({
+    canEdit,
+    user,
+  }: {
+    canEdit: boolean;
+    user: OrganizationUserDetail["user"];
+  }) => (
+    <RosterProfileEditor
+      canEdit={canEdit}
+      organizationId={organizationId}
+      user={user}
+    />
+  );
+}
 
 function OrgManagerContent({
   model,
@@ -25,9 +44,15 @@ function OrgManagerContent({
   model: OrgManagerModel;
   organizationId: string;
 }) {
+  const renderProfileEditor = useMemo(
+    () => renderRosterProfileEditor(organizationId),
+    [organizationId],
+  );
+
   if (model.view === "directory") {
     return (
       <DirectoryView
+        canUpdateSelectedRosterEntry={model.canUpdateSelectedRosterEntry}
         canRevokeGrants={model.canRevokeGrants}
         detail={model.userDetail}
         directory={model.directory}
@@ -35,6 +60,7 @@ function OrgManagerContent({
         loadingUserDetail={model.loadingUserDetail}
         mutating={model.mutating}
         openGroupRoute={model.openGroupRoute}
+        renderRosterProfileEditor={renderProfileEditor}
         revokeGrant={model.revokeGrant}
         selectedUserId={model.selectedUserId}
         selectUser={model.selectUser}
