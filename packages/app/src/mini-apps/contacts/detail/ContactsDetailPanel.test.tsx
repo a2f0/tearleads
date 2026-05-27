@@ -63,6 +63,27 @@ test("contacts new-contact route submits the contact draft", () => {
   expect(createCount).toBe(1);
 });
 
+test("contacts new-contact back action does not submit the draft form", () => {
+  let backCount = 0;
+  let createCount = 0;
+  const view = renderContactsDetailPanel({
+    canCreate: true,
+    createDraftContact: async () => {
+      createCount += 1;
+    },
+    draftNickname: "Ada",
+    onBackToSelectionRoute: () => {
+      backCount += 1;
+    },
+    route: "new-contact",
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Back to Contacts" }));
+
+  expect(backCount).toBe(1);
+  expect(createCount).toBe(0);
+});
+
 test("contacts import-contact route keeps import auth feedback scoped to import", () => {
   const view = renderContactsDetailPanel({
     isAuthenticated: false,
@@ -77,4 +98,25 @@ test("contacts import-contact route keeps import auth feedback scoped to import"
     (view.getByRole("button", { name: "Import" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
+});
+
+test("contacts import-contact back action does not submit the import form", () => {
+  let backCount = 0;
+  let importCount = 0;
+  const view = renderContactsDetailPanel({
+    canImport: true,
+    draftUserId: "peer-user-1",
+    importDraftContact: async () => {
+      importCount += 1;
+    },
+    onBackToSelectionRoute: () => {
+      backCount += 1;
+    },
+    route: "import-contact",
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Back to Contacts" }));
+
+  expect(backCount).toBe(1);
+  expect(importCount).toBe(0);
 });

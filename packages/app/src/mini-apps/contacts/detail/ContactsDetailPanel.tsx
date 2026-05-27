@@ -136,7 +136,7 @@ function ContactsNewContactPanel(params: {
           <strong>{CONTACTS_LABELS.newContactAction}</strong>
         </MiniAppHeaderCopy>
         <MiniAppActions>
-          <MiniAppButton onClick={onBackToSelectionRoute}>
+          <MiniAppButton type="button" onClick={onBackToSelectionRoute}>
             {CONTACTS_LABELS.backToContactsAction}
           </MiniAppButton>
         </MiniAppActions>
@@ -204,7 +204,7 @@ function ContactsImportContactPanel(params: {
           <strong>{CONTACTS_LABELS.importContactAction}</strong>
         </MiniAppHeaderCopy>
         <MiniAppActions>
-          <MiniAppButton onClick={onBackToSelectionRoute}>
+          <MiniAppButton type="button" onClick={onBackToSelectionRoute}>
             {CONTACTS_LABELS.backToContactsAction}
           </MiniAppButton>
         </MiniAppActions>
