@@ -20,11 +20,12 @@ import {
 } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
-  MiniAppActions,
   MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
+  MiniAppSection,
+  MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import {
@@ -517,14 +518,9 @@ function ExplorerContainerItemTable(params: {
 
 function ExplorerContainerDetailHeader(params: {
   online: boolean;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
   selectedNode: ContainerNode;
 }) {
-  const { online, openInlineDocument, selectedNode } = params;
+  const { online, selectedNode } = params;
 
   return (
     <MiniAppHeader>
@@ -539,9 +535,31 @@ function ExplorerContainerDetailHeader(params: {
         </div>
         <span>{EXPLORER_LABELS.folderType}</span>
       </MiniAppHeaderCopy>
-      <MiniAppActions>
+    </MiniAppHeader>
+  );
+}
+
+function ExplorerDocumentTypeGrid(params: {
+  openInlineDocument: (
+    containerId: string,
+    documentKind: StoredDocumentKind,
+    localId?: string,
+  ) => void;
+  selectedNode: ContainerNode;
+}) {
+  const { openInlineDocument, selectedNode } = params;
+
+  return (
+    <MiniAppSection
+      aria-label="New structured document"
+      className="explorer-document-type-section"
+    >
+      <MiniAppSectionHeading>New Structured Document</MiniAppSectionHeading>
+      <div className="explorer-document-type-grid">
         {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
           <MiniAppButton
+            block
+            className="explorer-document-type-button"
             key={definition.kind}
             onClick={() => {
               openInlineDocument(selectedNode.id, definition.kind);
@@ -550,8 +568,8 @@ function ExplorerContainerDetailHeader(params: {
             {definition.createLabel}
           </MiniAppButton>
         ))}
-      </MiniAppActions>
-    </MiniAppHeader>
+      </div>
+    </MiniAppSection>
   );
 }
 
@@ -619,6 +637,9 @@ export function ExplorerContainerDetail(params: {
     >
       <ExplorerContainerDetailHeader
         online={online}
+        selectedNode={selectedNode}
+      />
+      <ExplorerDocumentTypeGrid
         openInlineDocument={openInlineDocument}
         selectedNode={selectedNode}
       />

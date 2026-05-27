@@ -492,6 +492,38 @@ test("contacts windows in the same pane share live contact document state", asyn
   view.unmount();
 });
 
+test("explorer exposes structured document creation from the file menu", async () => {
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+
+  const explorer = await openExplorer(view);
+
+  fireEvent.click(within(explorer).getByText("File"));
+
+  await waitFor(() => {
+    expect(
+      within(explorer).getByRole("menuitem", {
+        name: "New Structured Document",
+      }),
+    ).toBeTruthy();
+  });
+
+  fireEvent.click(
+    within(explorer).getByRole("menuitem", {
+      name: "New Structured Document",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(
+      within(explorer).getByRole("button", { name: "New Note" }),
+    ).toBeTruthy();
+  });
+
+  view.unmount();
+});
+
 test("explorer windows in the same pane share newly created notes without refresh", async () => {
   const view = renderPane();
 

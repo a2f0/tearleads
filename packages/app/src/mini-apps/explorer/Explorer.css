@@ -44,6 +44,24 @@
   flex: 1;
 }
 
+.explorer-document-type-section {
+  flex: 0 0 auto;
+}
+
+.explorer-document-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--mini-app-space-sm);
+}
+
+.explorer-document-type-button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 3rem;
+  text-align: left;
+}
+
 .explorer-item-table-wrap--drop-active {
   box-shadow: inset 0 0 0 2px currentColor;
 }

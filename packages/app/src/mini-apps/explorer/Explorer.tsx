@@ -1,7 +1,10 @@
 import { useCallback } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
-import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
+import {
+  useWindowFileMenuItem,
+  useWindowRefreshMenuItem,
+} from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
@@ -39,6 +42,19 @@ export function Explorer() {
   const peerUserId = usePeerUserId();
   const model = useExplorerModel(appData, explorer, setSidebar, peerUserId);
   const openGrantGroupInOrgManager = useOpenGrantGroupInOrgManager();
+  const activeContainerId = model.selection.activeContainerId;
+  const openStructuredDocumentGrid = useCallback(() => {
+    if (activeContainerId) {
+      model.routeState.selectExplorerItem(activeContainerId);
+    }
+  }, [activeContainerId, model.routeState.selectExplorerItem]);
+  useWindowFileMenuItem({
+    disabled: !model.explorer.ready || activeContainerId === null,
+    id: "explorer-new-structured-document",
+    label: "New Structured Document",
+    onClick: openStructuredDocumentGrid,
+    priority: 100,
+  });
   useWindowRefreshMenuItem({
     disabled: !model.explorer.ready || model.isRefreshing,
     onRefresh: model.handleRefresh,
