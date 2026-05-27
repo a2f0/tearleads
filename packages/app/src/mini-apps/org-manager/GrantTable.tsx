@@ -121,20 +121,23 @@ export function GrantTable({
                 </MiniAppTableText>
               </MiniAppTableCell>
               <MiniAppTableCell>
-                <MiniAppButton
-                  block
-                  className="org-manager-grant-revoke-button"
-                  disabled={!canRevokeGrant || mutating}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    revokeGrant(grant);
-                  }}
-                  type="button"
-                >
-                  {grant.isBuiltin
-                    ? ORG_MANAGER_LABELS.builtIn
-                    : ORG_MANAGER_LABELS.revoke}
-                </MiniAppButton>
+                {grant.isBuiltin ? (
+                  <MiniAppTableText>
+                    {ORG_MANAGER_LABELS.builtIn}
+                  </MiniAppTableText>
+                ) : (
+                  <MiniAppButton
+                    block
+                    disabled={!canRevokeGrant || mutating}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      revokeGrant(grant);
+                    }}
+                    type="button"
+                  >
+                    {ORG_MANAGER_LABELS.revoke}
+                  </MiniAppButton>
+                )}
               </MiniAppTableCell>
             </MiniAppTableRow>
           );

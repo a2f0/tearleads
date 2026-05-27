@@ -145,9 +145,6 @@ function GroupTable({
                 <MiniAppTableText title={group.groupId}>
                   {group.name}
                 </MiniAppTableText>
-                <MiniAppTableText muted title={group.groupId}>
-                  {compactFingerprint(group.groupId)}
-                </MiniAppTableText>
               </MiniAppTableCell>
               <MiniAppTableCell>
                 <MiniAppTableText>

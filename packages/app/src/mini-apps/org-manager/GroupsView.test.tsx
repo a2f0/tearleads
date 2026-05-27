@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { compactFingerprint } from "./display";
 import { GroupsView } from "./GroupsView";
 import { ORG_MANAGER_LABELS } from "./labels";
 
@@ -74,7 +75,8 @@ test("org manager groups view hides group detail until a group is selected", () 
   expect(
     view.getByRole("table", { name: ORG_MANAGER_LABELS.groups }),
   ).toBeTruthy();
-  expect(view.getByText(group.name)).toBeTruthy();
+  expect(view.getByText(group.name).getAttribute("title")).toBe(group.groupId);
+  expect(view.queryByText(compactFingerprint(group.groupId))).toBeNull();
   expect(view.getByText(ORG_MANAGER_LABELS.builtIn)).toBeTruthy();
   expect(view.container.querySelector(".org-manager-panel--detail")).toBeNull();
   expect(view.queryByLabelText(ORG_MANAGER_LABELS.userId)).toBeNull();
