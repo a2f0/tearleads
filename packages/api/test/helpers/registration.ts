@@ -49,6 +49,7 @@ interface RegistrationBootstrapInput {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
+  rosterProfileDocumentId?: string | undefined;
   rootContainerId: string;
   signingPrivateKey: Uint8Array;
   signingPublicKey: Uint8Array;
@@ -56,6 +57,7 @@ interface RegistrationBootstrapInput {
 }
 
 interface RegistrationBootstrap {
+  initialRosterProfileDocument?: DocumentCreateRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: DocumentCreateRequest;
   rootMetadataDocumentId: string;
@@ -786,8 +788,22 @@ export async function createRegistrationBootstrap(
     signingPrivateKey: input.signingPrivateKey,
     userId: input.userId,
   });
+  const initialRosterProfileDocument = input.rosterProfileDocumentId
+    ? await createRootMetadataDocumentRequest({
+        containerKey: rootContainer.containerKey,
+        containerProjection:
+          rootContainerProjectionFromArtifacts(rootContainer),
+        organizationId: input.organizationId,
+        rootMetadataDocumentId: input.rosterProfileDocumentId,
+        signerDeviceId,
+        signerKeyFingerprint,
+        signingPrivateKey: input.signingPrivateKey,
+        userId: input.userId,
+      })
+    : undefined;
 
   return {
+    ...(initialRosterProfileDocument ? { initialRosterProfileDocument } : {}),
     initialRootContainer: rootContainer.request,
     initialRootMetadataDocument,
     rootMetadataDocumentId,

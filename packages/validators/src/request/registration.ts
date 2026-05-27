@@ -47,6 +47,7 @@ export interface RegistrationRequest {
   };
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: DocumentCreateRequest;
+  initialRosterProfileDocument?: DocumentCreateRequest | undefined;
 }
 
 export function isRegistrationRequest(
@@ -57,6 +58,9 @@ export function isRegistrationRequest(
     : undefined;
   const initialRootMetadataDocument = isPlainObject(value)
     ? Reflect.get(value, "initialRootMetadataDocument")
+    : undefined;
+  const initialRosterProfileDocument = isPlainObject(value)
+    ? Reflect.get(value, "initialRosterProfileDocument")
     : undefined;
 
   return (
@@ -94,6 +98,8 @@ export function isRegistrationRequest(
       isPrincipalMemberEnvelopeRequest,
     ) &&
     isContainerMutationRequest(initialRootContainer) &&
-    isDocumentCreateRequest(initialRootMetadataDocument)
+    isDocumentCreateRequest(initialRootMetadataDocument) &&
+    (initialRosterProfileDocument === undefined ||
+      isDocumentCreateRequest(initialRosterProfileDocument))
   );
 }

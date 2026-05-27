@@ -45,6 +45,7 @@ export interface RegistrationApi {
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
     initialRootMetadataDocument: DocumentCreateRequest,
+    initialRosterProfileDocument?: DocumentCreateRequest | undefined,
   ): Promise<RegistrationResponse | null>;
 }
 
@@ -59,6 +60,12 @@ interface RegistrationPrincipalPolicies {
 
 type InitialRootMetadataDocument = Awaited<
   ReturnType<typeof buildMaterializedDocumentCreatePlan>
+>;
+type InitialRootContainerCreatePlan = Awaited<
+  ReturnType<typeof buildRootContainerCreatePlan>
+>;
+type InitialRootContainerProjection = ReturnType<
+  typeof rootContainerWriterProjectionFromCreatePlan
 >;
 
 export interface RegisterIdentityInput {
@@ -273,6 +280,28 @@ async function createRegistrationPrincipalPolicies(input: {
   };
 }
 
+async function buildInitialRosterProfileDocumentRequest(input: {
+  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  rootContainer: InitialRootContainerCreatePlan;
+  rootContainerProjection: InitialRootContainerProjection;
+  targetSecretKey: Uint8Array;
+}): Promise<DocumentCreateRequest> {
+  const rosterProfileDocument = await buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection: input.rootContainerProjection,
+    knownContainerKeks: new Map([
+      [
+        input.rootContainer.plan.containerKeyEpochId,
+        input.rootContainer.containerKey,
+      ],
+    ]),
+    targetSecretKey: input.targetSecretKey,
+    trustedLocalProjection: true,
+  });
+
+  return rosterProfileDocument.plan.request;
+}
+
 export async function registerIdentity(
   input: RegisterIdentityInput,
 ): Promise<RegistrationResponse | null> {
@@ -313,11 +342,12 @@ export async function registerIdentity(
     metadataDocumentId: bootstrap.metadataDocumentId,
     recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
   });
+  const rootContainerProjection = rootContainerWriterProjectionFromCreatePlan(
+    rootContainer.plan,
+  );
   const rootMetadataDocument = await buildMaterializedDocumentCreatePlan({
     author,
-    containerProjection: rootContainerWriterProjectionFromCreatePlan(
-      rootContainer.plan,
-    ),
+    containerProjection: rootContainerProjection,
     documentId: bootstrap.metadataDocumentId,
     knownContainerKeks: new Map([
       [rootContainer.plan.containerKeyEpochId, rootContainer.containerKey],
@@ -325,6 +355,13 @@ export async function registerIdentity(
     targetSecretKey: input.encapsulationKeyPair.secretKey,
     trustedLocalProjection: true,
   });
+  const rosterProfileDocumentRequest =
+    await buildInitialRosterProfileDocumentRequest({
+      author,
+      rootContainer,
+      rootContainerProjection,
+      targetSecretKey: input.encapsulationKeyPair.secretKey,
+    });
 
   const response = await input.apiClient.registerUser(
     newUserId,
@@ -337,6 +374,7 @@ export async function registerIdentity(
     initialOrganizationPolicy,
     rootContainer.plan.request,
     rootMetadataDocument.plan.request,
+    rosterProfileDocumentRequest,
   );
   if (!response) {
     return null;

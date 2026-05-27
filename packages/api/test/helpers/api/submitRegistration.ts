@@ -101,6 +101,9 @@ export async function createRegistrationRequestBody(
   signingPublicKey: Uint8Array,
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
+  options: {
+    includeRosterProfileDocument?: boolean | undefined;
+  } = {},
 ): Promise<RegistrationRequest> {
   const userId = crypto.randomUUID();
   const organizationId = crypto.randomUUID();
@@ -122,6 +125,9 @@ export async function createRegistrationRequestBody(
     adminGroup: initialAdminGroup,
     encapsulationPublicKey,
     organizationId,
+    ...(options.includeRosterProfileDocument
+      ? { rosterProfileDocumentId: crypto.randomUUID() }
+      : {}),
     rootContainerId,
     signingPrivateKey,
     signingPublicKey,
@@ -145,5 +151,11 @@ export async function createRegistrationRequestBody(
     }),
     initialRootContainer: rootBootstrap.initialRootContainer,
     initialRootMetadataDocument: rootBootstrap.initialRootMetadataDocument,
+    ...(rootBootstrap.initialRosterProfileDocument
+      ? {
+          initialRosterProfileDocument:
+            rootBootstrap.initialRosterProfileDocument,
+        }
+      : {}),
   };
 }

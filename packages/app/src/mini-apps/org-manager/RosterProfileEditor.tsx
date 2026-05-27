@@ -10,7 +10,10 @@ import {
   DocumentsProvider,
   useDocument,
 } from "../../stores/documents/DocumentsProvider";
-import { getRosterProfileDocumentLocalId } from "../../stores/org-manager/profileDocuments";
+import {
+  getRosterProfileDocumentLocalId,
+  getRosterProfileDocumentPatch,
+} from "../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "./labels";
 
 function useSyncedFieldValue(value: string | null | undefined) {
@@ -62,7 +65,27 @@ function RosterProfileTextField({
   );
 }
 
-function RosterProfileDocumentFields({ canEdit }: { canEdit: boolean }) {
+function getMissingProfileIdentityPatch(
+  user: OrganizationDirectoryUser,
+  structuredFields: Readonly<Record<string, string>>,
+): Record<string, string | undefined> | null {
+  const expectedPatch = getRosterProfileDocumentPatch(user);
+  const missingPatch = Object.fromEntries(
+    Object.entries(expectedPatch).filter(
+      ([key, value]) => structuredFields[key] !== value,
+    ),
+  );
+
+  return Object.keys(missingPatch).length > 0 ? missingPatch : null;
+}
+
+function RosterProfileDocumentFields({
+  canEdit,
+  user,
+}: {
+  canEdit: boolean;
+  user: OrganizationDirectoryUser;
+}) {
   const { ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
   const fields = useMemo(
@@ -70,6 +93,22 @@ function RosterProfileDocumentFields({ canEdit }: { canEdit: boolean }) {
     [structuredFields],
   );
   const disabled = !canEdit || !ready;
+
+  useEffect(() => {
+    if (!canEdit || !ready) {
+      return;
+    }
+
+    const identityPatch = getMissingProfileIdentityPatch(
+      user,
+      structuredFields,
+    );
+    if (!identityPatch) {
+      return;
+    }
+
+    void setStructuredFields("contact", identityPatch);
+  }, [canEdit, ready, setStructuredFields, structuredFields, user]);
 
   return (
     <div className="org-manager-roster-profile">
@@ -141,7 +180,7 @@ export function RosterProfileEditor({
         userId: user.userId,
       })}
     >
-      <RosterProfileDocumentFields canEdit={canEdit} />
+      <RosterProfileDocumentFields canEdit={canEdit} user={user} />
     </DocumentsProvider>
   );
 }

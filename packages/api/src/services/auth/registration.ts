@@ -68,6 +68,12 @@ export async function registerUser(
     rootMetadataAccessEpoch: result.rootMetadataAccessEpoch,
     rootMetadataAccessStateHash: result.rootMetadataAccessStateHash,
     rootMetadataDocument: result.rootMetadataDocument,
+    ...(result.rosterProfileDocument
+      ? {
+          rosterProfileDocument: result.rosterProfileDocument,
+          rosterProfileDocumentId: result.rosterProfileDocument.id,
+        }
+      : {}),
     challenge: challengeHex,
   };
 }

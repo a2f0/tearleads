@@ -8,7 +8,11 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { RegistrationRequest } from "@tearleads/validators/request";
+import type {
+  DocumentCreateRequest,
+  RegistrationRequest,
+} from "@tearleads/validators/request";
+import { and, eq } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
@@ -28,6 +32,7 @@ import {
   containerMetadataDocuments,
   containers,
   groups,
+  organizationRosterEntries,
   organizations,
   users,
 } from "../../schema";
@@ -796,13 +801,17 @@ async function createInitialBuiltinGrants(
   });
 }
 
-function readInitialRootMetadataDocumentId(input: RegistrationRequest): string {
-  const event = input.initialRootMetadataDocument.event;
+function readDocumentCreateRequestId(request: DocumentCreateRequest): string {
+  const event = request.event;
   const documentId = Reflect.get(event, "objectId");
 
   return typeof documentId === "string" && documentId.length > 0
     ? documentId
     : "";
+}
+
+function readInitialRootMetadataDocumentId(input: RegistrationRequest): string {
+  return readDocumentCreateRequestId(input.initialRootMetadataDocument);
 }
 
 async function createInitialRootMetadataDocument(
@@ -838,6 +847,61 @@ async function createInitialRootMetadataDocument(
     containerId: input.rootContainerId,
     documentId: created.id,
   });
+
+  return created;
+}
+
+async function createInitialRosterProfileDocument(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  fingerprint: string,
+) {
+  if (!input.initialRosterProfileDocument) {
+    return null;
+  }
+
+  const requestDocumentId = readDocumentCreateRequestId(
+    input.initialRosterProfileDocument,
+  );
+  if (!requestDocumentId) {
+    throw new RegistrationError(
+      "Initial roster profile document id is unavailable",
+      400,
+    );
+  }
+
+  const created = await createDocumentWithExecutor({
+    executor: tx,
+    fingerprint,
+    request: input.initialRosterProfileDocument,
+    userId: input.userId,
+  });
+  if (created.id !== requestDocumentId) {
+    throw new RegistrationError(
+      "Initial roster profile response does not match request",
+      400,
+    );
+  }
+
+  const [rosterEntry] = await tx
+    .update(organizationRosterEntries)
+    .set({
+      profileDocumentId: created.id,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, input.organizationId),
+        eq(organizationRosterEntries.userId, input.userId),
+      ),
+    )
+    .returning({
+      profileDocumentId: organizationRosterEntries.profileDocumentId,
+    });
+
+  if (!rosterEntry) {
+    throw new RegistrationError("Initial roster entry not found", 500);
+  }
 
   return created;
 }
@@ -892,6 +956,11 @@ async function runRegistrationTransaction(
       fingerprint,
       rootMetadata,
     );
+    const rosterProfileDocument = await createInitialRosterProfileDocument(
+      tx,
+      input,
+      fingerprint,
+    );
 
     return {
       userId: user.id,
@@ -901,6 +970,7 @@ async function runRegistrationTransaction(
       rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
       rootMetadataDocumentId: rootMetadata.metadataDocumentId,
       rootMetadataDocument,
+      rosterProfileDocument,
     };
   });
 }

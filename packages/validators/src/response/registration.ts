@@ -17,6 +17,8 @@ export interface RegistrationResponse {
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
   rootMetadataDocument: DocumentCreateResponse;
+  rosterProfileDocument?: DocumentCreateResponse | undefined;
+  rosterProfileDocumentId?: string | undefined;
   challenge: string;
 }
 
@@ -33,6 +35,10 @@ export function isRegistrationResponse(
     hasStringProperty(value, "rootMetadataAccessStateHash") &&
     value.rootMetadataAccessStateHash.length > 0 &&
     isDocumentCreateResponse(Reflect.get(value, "rootMetadataDocument")) &&
+    (Reflect.get(value, "rosterProfileDocument") === undefined ||
+      isDocumentCreateResponse(Reflect.get(value, "rosterProfileDocument"))) &&
+    (Reflect.get(value, "rosterProfileDocumentId") === undefined ||
+      hasStringProperty(value, "rosterProfileDocumentId")) &&
     hasStringProperty(value, "challenge") &&
     isAuthChallengeHexString(value.challenge)
   );
