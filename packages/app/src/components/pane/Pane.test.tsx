@@ -460,6 +460,24 @@ test("contacts windows in the same pane share live contact document state", asyn
   const firstContactsApp = contactsApps[0];
 
   invariant(firstContactsApp, "first contacts app not found");
+  const firstContactsWindow = firstContactsApp.closest(".window");
+  invariant(
+    firstContactsWindow instanceof HTMLDivElement,
+    "first contacts window not found",
+  );
+
+  expect(
+    within(firstContactsApp).queryByLabelText("Contact user ID"),
+  ).toBeNull();
+
+  fireEvent.click(within(firstContactsWindow).getByText("File"));
+  await waitFor(() => {
+    expect(within(firstContactsWindow).getByText("New Contact")).toBeTruthy();
+    expect(
+      within(firstContactsWindow).getByText("Import Contact"),
+    ).toBeTruthy();
+  });
+  fireEvent.click(within(firstContactsWindow).getByText("Import Contact"));
 
   const firstInput = within(firstContactsApp).getByLabelText("Contact user ID");
   invariant(firstInput, "contact input not found");

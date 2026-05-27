@@ -15,6 +15,7 @@ import {
   type ContactsContextMenuModel,
   useContactsContextMenu,
 } from "../context-menu/ContactsContextMenu";
+import type { ContactsRoute } from "../routes";
 import type { ContactEntries } from "../types";
 
 interface ContactsModel {
@@ -29,12 +30,16 @@ interface ContactsModel {
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
+  openImportContactRoute: () => void;
+  openNewContactRoute: () => void;
   ready: boolean;
+  route: ContactsRoute;
   selectedContactId: string | null;
   setDraftFirstName: Dispatch<SetStateAction<string>>;
   setDraftLastName: Dispatch<SetStateAction<string>>;
   setDraftNickname: Dispatch<SetStateAction<string>>;
   setDraftUserId: Dispatch<SetStateAction<string>>;
+  showSelectionRoute: () => void;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
 }
 
@@ -51,6 +56,23 @@ interface ContactDraftModel {
   setDraftLastName: Dispatch<SetStateAction<string>>;
   setDraftNickname: Dispatch<SetStateAction<string>>;
   setDraftUserId: Dispatch<SetStateAction<string>>;
+}
+
+function useContactsRouteState() {
+  const [route, setRoute] = useState<ContactsRoute>("selection");
+  const showSelectionRoute = useCallback(() => setRoute("selection"), []);
+  const openNewContactRoute = useCallback(() => setRoute("new-contact"), []);
+  const openImportContactRoute = useCallback(
+    () => setRoute("import-contact"),
+    [],
+  );
+
+  return {
+    openImportContactRoute,
+    openNewContactRoute,
+    route,
+    showSelectionRoute,
+  };
 }
 
 function useAutoImportSelfContact(input: {
@@ -139,6 +161,10 @@ function useContactDrafts(input: {
       draftLastName.trim().length > 0);
   const canImport = ready && isAuthenticated && draftUserId.trim().length > 0;
   const createDraftContact = useCallback(async () => {
+    if (!canCreate) {
+      return;
+    }
+
     const contactId = await createContact({
       firstName: draftFirstName,
       lastName: draftLastName,
@@ -151,6 +177,7 @@ function useContactDrafts(input: {
       setDraftNickname("");
     }
   }, [
+    canCreate,
     createContact,
     draftFirstName,
     draftLastName,
@@ -158,12 +185,16 @@ function useContactDrafts(input: {
     setSelectedContactId,
   ]);
   const importDraftContact = useCallback(async () => {
+    if (!canImport) {
+      return;
+    }
+
     const contactId = await importKey(draftUserId.trim());
     if (contactId) {
       setSelectedContactId(contactId);
       setDraftUserId("");
     }
-  }, [draftUserId, importKey, setSelectedContactId]);
+  }, [canImport, draftUserId, importKey, setSelectedContactId]);
 
   return {
     canCreate,
@@ -198,19 +229,34 @@ export function useContactsModel(
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     null,
   );
+  const routeState = useContactsRouteState();
+  const selectContact = useCallback(
+    (contactId: string) => {
+      setSelectedContactId(contactId);
+      routeState.showSelectionRoute();
+    },
+    [routeState.showSelectionRoute],
+  );
+  const setSelectedContactRouteAware = useCallback(
+    (contactId: string | null) => {
+      setSelectedContactId(contactId);
+      routeState.showSelectionRoute();
+    },
+    [routeState.showSelectionRoute],
+  );
   const drafts = useContactDrafts({
     createContact,
     importKey,
     isAuthenticated,
     ready,
-    setSelectedContactId,
+    setSelectedContactId: selectContact,
   });
 
   const contextMenuState = useContactsContextMenu({
     entries,
     removeContact,
     selectedContactId,
-    setSelectedContactId,
+    setSelectedContactId: setSelectedContactRouteAware,
   });
 
   useAutoImportSelfContact({
@@ -229,7 +275,7 @@ export function useContactsModel(
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
     ready,
     selectedContactId,
-    setSelectedContactId,
+    setSelectedContactId: selectContact,
     setSidebar,
   });
 
@@ -245,12 +291,16 @@ export function useContactsModel(
     entries,
     importDraftContact: drafts.importDraftContact,
     isAuthenticated,
+    openImportContactRoute: routeState.openImportContactRoute,
+    openNewContactRoute: routeState.openNewContactRoute,
     ready,
+    route: routeState.route,
     selectedContactId,
     setDraftFirstName: drafts.setDraftFirstName,
     setDraftLastName: drafts.setDraftLastName,
     setDraftNickname: drafts.setDraftNickname,
     setDraftUserId: drafts.setDraftUserId,
+    showSelectionRoute: routeState.showSelectionRoute,
     updateContact,
   };
 }
