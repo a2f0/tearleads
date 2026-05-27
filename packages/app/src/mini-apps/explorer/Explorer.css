@@ -181,6 +181,17 @@
   max-width: none;
 }
 
+.explorer-sidebar-item > .explorer-sync-badge {
+  max-width: 2.5rem;
+  padding: 0 var(--mini-app-space-2xs);
+}
+
+.explorer-sidebar-item > .explorer-sync-badge--reserved {
+  flex-basis: auto;
+  width: auto;
+  min-width: 0;
+}
+
 .explorer-sync-badge--placeholder {
   visibility: hidden;
 }

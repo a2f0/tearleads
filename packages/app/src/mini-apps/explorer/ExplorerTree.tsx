@@ -99,12 +99,14 @@ function ExplorerSidebarItemLabel(params: {
   online: boolean;
   syncState: ContainerNode["syncState"];
 }) {
+  const showStatusBadge = params.syncState.status !== "synced";
+
   return (
     <>
       <MiniAppRowText>{params.children}</MiniAppRowText>
       <ExplorerSyncStateBadge
         online={params.online}
-        reserveSpace
+        reserveSpace={showStatusBadge}
         syncState={params.syncState}
       />
     </>
