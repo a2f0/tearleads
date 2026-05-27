@@ -90,6 +90,7 @@ export function useOrgManagerModel() {
     null,
   );
   const [groupNameDraft, setGroupNameDraft] = useState("");
+  const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
   const [addUserId, setAddUserId] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
@@ -158,6 +159,28 @@ export function useOrgManagerModel() {
   );
   const canRevokeGrants = directory?.currentUser.isOrgAdmin ?? false;
 
+  const openCreateGroupDialog = useCallback(() => {
+    if (!canCreateGroup) {
+      return;
+    }
+
+    setError(null);
+    setGroupNameDraft("");
+    selectGroup(null);
+    setView("groups");
+    setIsCreateGroupDialogOpen(true);
+  }, [canCreateGroup, selectGroup, setView]);
+
+  const closeCreateGroupDialog = useCallback(() => {
+    if (mutating) {
+      return;
+    }
+
+    setError(null);
+    setGroupNameDraft("");
+    setIsCreateGroupDialogOpen(false);
+  }, [mutating]);
+
   const selectUser = useCallback((userId: string | null) => {
     selectedUserIdRef.current = userId;
     setSelectedUserIdState(userId);
@@ -186,6 +209,7 @@ export function useOrgManagerModel() {
     setOrganizationPolicyHistory(null);
     setGrants(null);
     setDataUsage(null);
+    setIsCreateGroupDialogOpen(false);
     selectUser(null);
     selectGroup(null);
   }, [selectGroup, selectUser]);
@@ -599,8 +623,11 @@ export function useOrgManagerModel() {
     setMutating(true);
     setError(null);
     try {
-      const createdGroup = await orgManagerActions.createGroup(groupNameDraft);
+      const createdGroup = await orgManagerActions.createGroup(
+        groupNameDraft.trim(),
+      );
       setGroupNameDraft("");
+      setIsCreateGroupDialogOpen(false);
       await refreshDirectoryAndGroups();
       openGroupRoute(createdGroup.groupId);
     } catch (nextError) {
@@ -784,6 +811,7 @@ export function useOrgManagerModel() {
     canMutateSelectedGroup,
     canRevokeGrants,
     canUpdateSelectedRosterEntry,
+    closeCreateGroupDialog,
     createGroup,
     dataUsage,
     directory,
@@ -793,6 +821,7 @@ export function useOrgManagerModel() {
     groupNameDraft,
     groupPolicyHistory,
     groups,
+    isCreateGroupDialogOpen,
     isAuthenticated: appData.auth.isAuthenticated,
     loading,
     loadingUserDetail,
@@ -800,6 +829,7 @@ export function useOrgManagerModel() {
     memberUserIds,
     mutating,
     openGroupRoute,
+    openCreateGroupDialog,
     organizationId: appData.auth.organizationId,
     organizationPolicyHistory,
     refreshOrgManager,

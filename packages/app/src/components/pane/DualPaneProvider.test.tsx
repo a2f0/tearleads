@@ -488,9 +488,7 @@ async function addPeerToAdminsGroup(pane: HTMLElement, peerUserId: string) {
     fireEvent.click(groupsButton);
   });
 
-  const adminsButton = await within(pane).findByRole("button", {
-    name: /Admins/u,
-  });
+  const adminsButton = await within(pane).findByText("Admins");
   await interact(() => {
     fireEvent.click(adminsButton);
   });
@@ -530,17 +528,25 @@ async function createGroupAndAddPeer(
 ) {
   await openOrgManager(pane);
 
-  const groupsButton = within(pane).getByRole("button", { name: "Groups" });
+  const fileMenu = within(pane).getByRole("menuitem", { name: "File" });
   await interact(() => {
-    fireEvent.click(groupsButton);
+    fireEvent.click(fileMenu);
   });
-
-  const groupNameInput = await within(pane).findByPlaceholderText("Group name");
+  const newGroupItem = await within(pane).findByRole("menuitem", {
+    name: "New Group",
+  });
+  await interact(() => {
+    fireEvent.click(newGroupItem);
+  });
+  const dialog = await within(pane).findByRole("dialog", {
+    name: "New Group",
+  });
+  const groupNameInput = within(dialog).getByLabelText("Group name");
   invariant(
     groupNameInput instanceof HTMLInputElement,
     "Expected group name input.",
   );
-  const createButton = within(pane).getByRole("button", { name: "Create" });
+  const createButton = within(dialog).getByRole("button", { name: "Create" });
   invariant(
     createButton instanceof HTMLButtonElement,
     "Expected create group button.",
@@ -593,17 +599,25 @@ async function createGroupAndAddPeer(
 async function createOrganizationGroup(pane: HTMLElement, groupName: string) {
   await openOrgManager(pane);
 
-  const groupsButton = within(pane).getByRole("button", { name: "Groups" });
+  const fileMenu = within(pane).getByRole("menuitem", { name: "File" });
   await interact(() => {
-    fireEvent.click(groupsButton);
+    fireEvent.click(fileMenu);
   });
-
-  const groupNameInput = await within(pane).findByPlaceholderText("Group name");
+  const newGroupItem = await within(pane).findByRole("menuitem", {
+    name: "New Group",
+  });
+  await interact(() => {
+    fireEvent.click(newGroupItem);
+  });
+  const dialog = await within(pane).findByRole("dialog", {
+    name: "New Group",
+  });
+  const groupNameInput = within(dialog).getByLabelText("Group name");
   invariant(
     groupNameInput instanceof HTMLInputElement,
     "Expected group name input.",
   );
-  const createButton = within(pane).getByRole("button", { name: "Create" });
+  const createButton = within(dialog).getByRole("button", { name: "Create" });
   invariant(
     createButton instanceof HTMLButtonElement,
     "Expected create group button.",
