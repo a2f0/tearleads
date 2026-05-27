@@ -23,6 +23,24 @@ function SidebarRegistration({
   return null;
 }
 
+function SidebarRegistrationRecorder({
+  calls,
+  label,
+}: {
+  calls: string[];
+  label: string;
+}) {
+  const sidebar = useMemo(() => <span>{label}</span>, [label]);
+  useRegisteredWindowSidebar({
+    setSidebar: (node) => {
+      calls.push(node === null ? "clear" : "set");
+    },
+    sidebar,
+  });
+
+  return null;
+}
+
 function SidebarOutput() {
   const { sidebar } = useWindowSidebar();
   return <div>{sidebar}</div>;
@@ -80,5 +98,24 @@ test("disabled window sidebar registration does not clear another active sidebar
   await waitFor(() => {
     expect(view.getByText("Active sidebar")).toBeTruthy();
     expect(view.queryByText("Disabled sidebar")).toBeNull();
+  });
+});
+
+test("registered window sidebar updates without clearing between values", async () => {
+  const calls: string[] = [];
+  const view = render(
+    <SidebarRegistrationRecorder calls={calls} label="First sidebar" />,
+  );
+
+  await waitFor(() => {
+    expect(calls).toEqual(["set"]);
+  });
+
+  view.rerender(
+    <SidebarRegistrationRecorder calls={calls} label="Updated sidebar" />,
+  );
+
+  await waitFor(() => {
+    expect(calls).toEqual(["set", "set"]);
   });
 });
