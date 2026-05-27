@@ -126,9 +126,7 @@ export async function listOrganizationGroupSummariesInTransaction(input: {
         toGroupSummary({
           createdAt: group.createdAt,
           groupId: group.groupId,
-          isBuiltin:
-            group.groupId === organization.adminGroupId ||
-            group.groupId === organization.memberGroupId,
+          isBuiltin: group.groupId === organization.adminGroupId,
           name: group.name,
           organizationId: group.organizationId,
           state: currentStates.get(group.groupId),
