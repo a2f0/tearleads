@@ -73,11 +73,31 @@ async function openExplorer(view: ReturnType<typeof renderPane>) {
 
   await waitFor(() => {
     expect(
-      within(readyExplorerWindow).getByRole("button", { name: "New Note" }),
+      within(readyExplorerWindow).getByRole("table", { name: "Items in /" }),
     ).toBeTruthy();
   });
 
   return readyExplorerWindow;
+}
+
+async function openExplorerNewStructuredDocumentRoute(
+  explorerWindow: HTMLElement,
+) {
+  fireEvent.click(within(explorerWindow).getByText("File"));
+
+  const newStructuredDocumentItem = await within(explorerWindow).findByRole(
+    "menuitem",
+    {
+      name: "New Structured Document",
+    },
+  );
+  fireEvent.click(newStructuredDocumentItem);
+
+  await waitFor(() => {
+    expect(
+      within(explorerWindow).getByRole("button", { name: "New Note" }),
+    ).toBeTruthy();
+  });
 }
 
 async function openNotes(view: ReturnType<typeof renderPane>) {
@@ -492,6 +512,35 @@ test("contacts windows in the same pane share live contact document state", asyn
   view.unmount();
 });
 
+test("explorer exposes structured document creation from the file menu", async () => {
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+
+  const explorer = await openExplorer(view);
+
+  expect(
+    within(explorer).queryByRole("button", { name: "New Note" }),
+  ).toBeNull();
+
+  await openExplorerNewStructuredDocumentRoute(explorer);
+
+  fireEvent.click(
+    within(explorer).getByRole("button", { name: "Back to Container" }),
+  );
+
+  await waitFor(() => {
+    expect(
+      within(explorer).getByRole("table", { name: "Items in /" }),
+    ).toBeTruthy();
+  });
+  expect(
+    within(explorer).queryByRole("button", { name: "New Note" }),
+  ).toBeNull();
+
+  view.unmount();
+});
+
 test("explorer windows in the same pane share newly created notes without refresh", async () => {
   const view = renderPane();
 
@@ -504,6 +553,7 @@ test("explorer windows in the same pane share newly created notes without refres
     expect(listExplorerNoteItems(secondExplorer)).toHaveLength(0);
   });
 
+  await openExplorerNewStructuredDocumentRoute(firstExplorer);
   fireEvent.click(
     within(firstExplorer).getByRole("button", { name: "New Note" }),
   );
@@ -550,6 +600,7 @@ test("notes app lists notes created from explorer", async () => {
 
   const explorer = await openExplorer(view);
 
+  await openExplorerNewStructuredDocumentRoute(explorer);
   fireEvent.click(within(explorer).getByRole("button", { name: "New Note" }));
 
   const editor = await within(explorer).findByRole("textbox", {

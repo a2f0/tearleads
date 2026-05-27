@@ -2,6 +2,7 @@ import type { ContainerNode } from "@tearleads/client-sdk";
 
 export type ExplorerRoute =
   | { view: "selection" }
+  | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-info"; containerId: string; localId: string };
 

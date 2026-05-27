@@ -6,10 +6,7 @@ import type {
   ContainerItemSortKey,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import {
-  getStoredDocumentTypeLabel,
-  type StoredDocumentKind,
-} from "@tearleads/client-sdk";
+import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import {
   type DragEvent,
   useCallback,
@@ -20,8 +17,6 @@ import {
 } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
-  MiniAppActions,
-  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
@@ -37,7 +32,6 @@ import {
   MiniAppTableRow,
 } from "../../../components/shared/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
-import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
@@ -517,14 +511,9 @@ function ExplorerContainerItemTable(params: {
 
 function ExplorerContainerDetailHeader(params: {
   online: boolean;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
   selectedNode: ContainerNode;
 }) {
-  const { online, openInlineDocument, selectedNode } = params;
+  const { online, selectedNode } = params;
 
   return (
     <MiniAppHeader>
@@ -539,18 +528,6 @@ function ExplorerContainerDetailHeader(params: {
         </div>
         <span>{EXPLORER_LABELS.folderType}</span>
       </MiniAppHeaderCopy>
-      <MiniAppActions>
-        {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
-          <MiniAppButton
-            key={definition.kind}
-            onClick={() => {
-              openInlineDocument(selectedNode.id, definition.kind);
-            }}
-          >
-            {definition.createLabel}
-          </MiniAppButton>
-        ))}
-      </MiniAppActions>
     </MiniAppHeader>
   );
 }
@@ -559,11 +536,6 @@ export function ExplorerContainerDetail(params: {
   documentListRevision: number;
   documentReadModel: ContainerDocumentReadModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
   online: boolean;
   refreshError: string | null;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
@@ -574,7 +546,6 @@ export function ExplorerContainerDetail(params: {
     documentListRevision,
     documentReadModel,
     importDroppedFiles,
-    openInlineDocument,
     online,
     refreshError,
     selectDocumentProjection,
@@ -619,7 +590,6 @@ export function ExplorerContainerDetail(params: {
     >
       <ExplorerContainerDetailHeader
         online={online}
-        openInlineDocument={openInlineDocument}
         selectedNode={selectedNode}
       />
       {refreshError ? (

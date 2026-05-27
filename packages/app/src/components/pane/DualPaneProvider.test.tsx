@@ -159,6 +159,10 @@ function getPaneRoot(
   return pane;
 }
 
+function queryExplorerItemTable(root: HTMLElement): HTMLElement | null {
+  return within(root).queryByRole("table", { name: /^Items in /u });
+}
+
 async function openExplorer(pane: HTMLElement) {
   await interact(() => {
     fireEvent.contextMenu(pane, {
@@ -173,6 +177,21 @@ async function openExplorer(pane: HTMLElement) {
     fireEvent.click(openExplorerButton);
   });
 
+  await waitFor(() => {
+    expect(queryExplorerItemTable(pane)).toBeTruthy();
+  });
+}
+
+async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
+  await interact(() => {
+    fireEvent.click(within(pane).getByRole("menuitem", { name: "File" }));
+  });
+  const newStructuredDocumentItem = await within(pane).findByRole("menuitem", {
+    name: "New Structured Document",
+  });
+  await interact(() => {
+    fireEvent.click(newStructuredDocumentItem);
+  });
   await waitFor(() => {
     expect(within(pane).getByRole("button", { name: "New Note" })).toBeTruthy();
   });
@@ -277,6 +296,7 @@ async function createNoteWithAttachment(pane: HTMLElement) {
       ),
     ).toBe(true);
   });
+  await openExplorerNewStructuredDocumentRoute(pane);
   const newNoteButton = await within(pane).findByRole("button", {
     name: "New Note",
   });
@@ -328,7 +348,7 @@ async function createNoteWithAttachment(pane: HTMLElement) {
     fireEvent.click(backButton);
   });
   await waitFor(() => {
-    expect(within(pane).getByRole("button", { name: "New Note" })).toBeTruthy();
+    expect(queryExplorerItemTable(pane)).toBeTruthy();
   });
 }
 
@@ -455,7 +475,7 @@ async function shareContainerWithGroup(
     fireEvent.click(backButton);
   });
   await waitForCondition(
-    () => Boolean(within(pane).queryByRole("button", { name: "New Note" })),
+    () => Boolean(queryExplorerItemTable(pane)),
     `Container group share route did not return to the container.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
 }

@@ -12,6 +12,7 @@ import "./Window.css";
 import { WindowBody } from "./WindowBody";
 import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
 import {
+  useWindowFileMenuItems,
   useWindowViewMenuItems,
   WindowMenuProvider,
 } from "./WindowMenuContext";
@@ -291,6 +292,7 @@ function useWindowActions(
   minimize: (id: string) => void,
   moveBackward: (id: string) => void,
   moveForward: (id: string) => void,
+  fileMenuItems: WindowMenuItem[],
   viewMenuItems: WindowMenuItem[],
 ) {
   const [maximized, setMaximized] = useState(false);
@@ -329,7 +331,10 @@ function useWindowActions(
     () => [
       {
         label: "File",
-        items: [{ id: "close", label: "Close", onClick: handleClose }],
+        items: [
+          ...fileMenuItems,
+          { id: "close", label: "Close", onClick: handleClose },
+        ],
       },
       {
         label: "View",
@@ -350,6 +355,7 @@ function useWindowActions(
     ],
     [
       handleClose,
+      fileMenuItems,
       showSidebar,
       showStatusBar,
       toggleSidebar,
@@ -439,6 +445,7 @@ function WindowInnerContent({
 }: WindowInnerProps) {
   const { title, minimized, zIndex, component: Component } = entry;
   const windowRef = useRef<HTMLDivElement>(null);
+  const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
   const {
     handleClose,
@@ -457,6 +464,7 @@ function WindowInnerContent({
     minimize,
     moveBackward,
     moveForward,
+    fileMenuItems,
     viewMenuItems,
   );
   const { handleMouseDown, handleResizeMouseDown, position, size } =

@@ -10,6 +10,7 @@ export interface ExplorerRouteState {
   route: ExplorerRoute;
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openNewStructuredDocumentRoute: (containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
   showSelectionRoute: () => void;
 }
@@ -54,9 +55,18 @@ export function useExplorerRoute(params: {
     [],
   );
 
+  const openNewStructuredDocumentRoute = useCallback(
+    (containerId: string) => {
+      setSelectedId(containerId);
+      setRoute({ view: "new-structured-document", containerId });
+    },
+    [setSelectedId],
+  );
+
   return {
     openContainerInfoRoute,
     openDocumentInfoRoute,
+    openNewStructuredDocumentRoute,
     route,
     selectExplorerItem,
     showSelectionRoute,

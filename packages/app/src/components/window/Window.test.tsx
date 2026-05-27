@@ -2,7 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { Window } from "./Window";
-import { useWindowRefreshMenuItem } from "./WindowMenuContext";
+import {
+  useWindowFileMenuItem,
+  useWindowRefreshMenuItem,
+} from "./WindowMenuContext";
 import { useWindowSidebar } from "./WindowSidebarContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
@@ -36,6 +39,31 @@ function WindowRefreshHarness({ onRefresh }: { onRefresh: () => void }) {
 
     create("Refreshable", 0, 0, RefreshableWindow);
   }, [create, onRefresh]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
+function WindowFileMenuHarness({ onCreate }: { onCreate: () => void }) {
+  const { windows, create } = useWindowState();
+
+  useEffect(() => {
+    function FileMenuWindow() {
+      useWindowFileMenuItem({
+        id: "test-new-structured-document",
+        label: "New Structured Document",
+        onClick: onCreate,
+      });
+      return <div>File menu content</div>;
+    }
+
+    create("File Menu", 0, 0, FileMenuWindow);
+  }, [create, onCreate]);
 
   return (
     <div>
@@ -243,6 +271,33 @@ test("registered refresh action appears in the view menu", async () => {
   fireEvent.click(view.getByText("Refresh"));
 
   expect(refreshCount).toBe(1);
+});
+
+test("registered file action appears in the file menu", async () => {
+  let createCount = 0;
+  const view = render(
+    <WindowStateProvider>
+      <WindowFileMenuHarness
+        onCreate={() => {
+          createCount += 1;
+        }}
+      />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("File menu content")).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("File"));
+
+  await waitFor(() => {
+    expect(view.getByText("New Structured Document")).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByText("New Structured Document"));
+
+  expect(createCount).toBe(1);
 });
 
 test("equal-priority refresh actions prefer the first registered item", async () => {
