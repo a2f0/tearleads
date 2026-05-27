@@ -18,7 +18,6 @@ import { NOTES_LABELS } from "./labels";
 import type { NotesSetSidebar } from "./types";
 
 interface NotesSidebarProps {
-  createNote: () => void;
   notes: ReadonlyArray<DocumentSummary>;
   ready: boolean;
   selectNote: (noteId: string) => void;
@@ -30,7 +29,6 @@ function getNoteTitle(note: DocumentSummary): string {
 }
 
 function NotesSidebar({
-  createNote,
   notes,
   ready,
   selectNote,
@@ -38,9 +36,6 @@ function NotesSidebar({
 }: NotesSidebarProps) {
   return (
     <MiniAppSidebar spacious>
-      <MiniAppRowButton disabled={!ready} onClick={createNote} variant="framed">
-        <MiniAppRowText>{NOTES_LABELS.sidebarNewNote}</MiniAppRowText>
-      </MiniAppRowButton>
       <MiniAppSidebarList>
         {!ready ? (
           <MiniAppStatus className="notes-sidebar-empty">
@@ -71,19 +66,17 @@ export function useNotesSidebarPanel(
     setSidebar: NotesSetSidebar;
   },
 ) {
-  const { createNote, notes, ready, selectNote, selectedNoteId, setSidebar } =
-    params;
+  const { notes, ready, selectNote, selectedNoteId, setSidebar } = params;
   const sidebar = useMemo(
     () => (
       <NotesSidebar
-        createNote={createNote}
         notes={notes}
         ready={ready}
         selectNote={selectNote}
         selectedNoteId={selectedNoteId}
       />
     ),
-    [createNote, notes, ready, selectNote, selectedNoteId],
+    [notes, ready, selectNote, selectedNoteId],
   );
 
   useRegisteredWindowSidebar({ setSidebar, sidebar });
