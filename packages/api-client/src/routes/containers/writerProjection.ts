@@ -1,12 +1,13 @@
 import { isContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function getContainerWriterProjection(
   request: RequestFn,
   containerId: string,
 ) {
   return request(
-    `/containers/${containerId}/writer-projection`,
+    `/containers/${pathSegment(containerId)}/writer-projection`,
     isContainerWriterProjectionResponse,
     "GET",
   );

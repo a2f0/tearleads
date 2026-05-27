@@ -4,13 +4,14 @@ import {
   isOrganizationGroupMembersResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function listOrganizationGroups(
   request: RequestFn,
   organizationId: string,
 ) {
   return request(
-    `/organizations/${organizationId}/groups`,
+    `/organizations/${pathSegment(organizationId)}/groups`,
     isListOrganizationGroupsResponse,
     "GET",
   );
@@ -22,7 +23,7 @@ export function listOrganizationGroupMembers(
   groupId: string,
 ) {
   return request(
-    `/organizations/${organizationId}/groups/${groupId}/members`,
+    `/organizations/${pathSegment(organizationId)}/groups/${pathSegment(groupId)}/members`,
     isOrganizationGroupMembersResponse,
     "GET",
   );
@@ -34,7 +35,7 @@ export function listOrganizationGroupContainers(
   groupId: string,
 ) {
   return request(
-    `/organizations/${organizationId}/groups/${groupId}/containers`,
+    `/organizations/${pathSegment(organizationId)}/groups/${pathSegment(groupId)}/containers`,
     isOrganizationGroupContainersResponse,
     "GET",
   );

@@ -1,6 +1,7 @@
 import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
 import { isOrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 export function updateOrganizationRosterEntry(
   request: RequestFn,
@@ -9,7 +10,7 @@ export function updateOrganizationRosterEntry(
   input: UpdateOrganizationRosterEntryRequest,
 ) {
   return request(
-    `/organizations/${organizationId}/roster/${userId}`,
+    `/organizations/${pathSegment(organizationId)}/roster/${pathSegment(userId)}`,
     isOrganizationDirectoryUserResponse,
     "PUT",
     JSON.stringify(input),

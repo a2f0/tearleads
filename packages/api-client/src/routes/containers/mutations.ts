@@ -8,6 +8,7 @@ import {
   isContainerMutationResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 function postContainerMutation(
   request: RequestFn,
@@ -48,7 +49,7 @@ export function shareContainer(
 ) {
   return postContainerMutation(
     request,
-    `/containers/${containerId}/share`,
+    `/containers/${pathSegment(containerId)}/share`,
     input,
   );
 }
@@ -60,7 +61,7 @@ export function revokeContainer(
 ) {
   return postContainerMutation(
     request,
-    `/containers/${containerId}/revoke`,
+    `/containers/${pathSegment(containerId)}/revoke`,
     input,
   );
 }
@@ -72,7 +73,7 @@ export function rekeyContainer(
 ) {
   return postContainerMutation(
     request,
-    `/containers/${containerId}/rekey`,
+    `/containers/${pathSegment(containerId)}/rekey`,
     input,
   );
 }
@@ -84,14 +85,14 @@ export function moveContainer(
 ) {
   return postContainerMutation(
     request,
-    `/containers/${containerId}/move`,
+    `/containers/${pathSegment(containerId)}/move`,
     input,
   );
 }
 
 export function deleteContainer(request: RequestFn, containerId: string) {
   return request(
-    `/containers/${containerId}`,
+    `/containers/${pathSegment(containerId)}`,
     isContainerDeleteResponse,
     "DELETE",
   );

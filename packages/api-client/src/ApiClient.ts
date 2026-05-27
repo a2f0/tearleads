@@ -75,6 +75,7 @@ import {
   listOrganizationGroups,
   updateOrganizationRosterEntry,
 } from "./routes/organizations";
+import { pathSegment } from "./routes/path";
 import {
   getCurrentPrincipalPolicy,
   putPrincipalMemberEnvelopes,
@@ -106,15 +107,36 @@ function bindPrototypeMethods(instance: object, prototype: object): void {
   }
 }
 
+function normalizeApiBaseUrl(baseUrl: string | null | undefined): string {
+  const trimmed = (baseUrl ?? "").trim();
+  if (trimmed === "" || trimmed === "/") {
+    return "";
+  }
+
+  return trimmed.replace(/\/+$/u, "");
+}
+
+function hasHeader(
+  headers: Record<string, string> | undefined,
+  name: string,
+): boolean {
+  const normalizedName = name.toLowerCase();
+  return Object.keys(headers ?? {}).some(
+    (headerName) => headerName.toLowerCase() === normalizedName,
+  );
+}
+
 export class ApiClient {
   private authToken: string | null = null;
+  private readonly baseUrl: string;
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
 
-  constructor(private readonly baseUrl: string) {
+  constructor(baseUrl?: string | null) {
+    this.baseUrl = normalizeApiBaseUrl(baseUrl);
     bindPrototypeMethods(this, ApiClient.prototype);
     this.request = this.makeRequest;
     this.responseRequest = Object.assign(this.makeResponseRequest, {
@@ -142,10 +164,16 @@ export class ApiClient {
     return this.authToken;
   }
 
-  private buildHeaders(): Record<string, string> {
+  private buildHeaders(
+    body: RequestBody | undefined,
+    headers: Record<string, string> | undefined,
+  ): Record<string, string> {
     return {
-      "Content-Type": "application/json",
       ...(this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {}),
+      ...(typeof body === "string" && !hasHeader(headers, "Content-Type")
+        ? { "Content-Type": "application/json" }
+        : {}),
+      ...headers,
     };
   }
 
@@ -285,10 +313,7 @@ export class ApiClient {
     const reportErrors = options.reportErrors ?? true;
     const init: RequestInit & { duplex?: "half" } = {
       method,
-      headers: {
-        ...this.buildHeaders(),
-        ...options.headers,
-      },
+      headers: this.buildHeaders(body, options.headers),
     };
     if (body !== undefined) {
       init.body = body;
@@ -528,7 +553,7 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<ContainerDeleteResponse>> {
     return this.makeRequestResult(
-      `/containers/${containerId}`,
+      `/containers/${pathSegment(containerId)}`,
       isContainerDeleteResponse,
       "DELETE",
       undefined,
@@ -569,7 +594,7 @@ export class ApiClient {
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentSyncResponse>> {
     return this.makeRequestResult(
-      `/documents/${documentId}/sync`,
+      `/documents/${pathSegment(documentId)}/sync`,
       isDocumentSyncResponse,
       "POST",
       JSON.stringify(input),

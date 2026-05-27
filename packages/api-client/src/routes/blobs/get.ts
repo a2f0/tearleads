@@ -1,5 +1,6 @@
 import type { BlobResponse } from "@tearleads/validators/response";
 import type { ResponseRequestFn } from "../../types";
+import { pathSegment } from "../path";
 
 const BLOB_BYTES_BLOB_ID_HEADER = "x-tearleads-blob-id";
 const BLOB_BYTES_BYTE_LENGTH_HEADER = "x-tearleads-blob-byte-length";
@@ -74,7 +75,7 @@ async function loadBlobBytesResponse(
   request: ResponseRequestFn,
   blobId: string,
 ): Promise<LoadedBlobBytesResponse | null> {
-  const path = `/blobs/${blobId}/bytes`;
+  const path = `/blobs/${pathSegment(blobId)}/bytes`;
   const result = await request(path, BLOB_BYTES_PATH_METHOD);
   if (!result.ok) {
     return null;
@@ -149,7 +150,7 @@ export async function getBlob(
   request: ResponseRequestFn,
   blobId: string,
 ): Promise<BlobResponse | null> {
-  const path = `/blobs/${blobId}/bytes`;
+  const path = `/blobs/${pathSegment(blobId)}/bytes`;
   const loaded = await loadBlobBytesResponse(request, blobId);
   if (!loaded) {
     return null;
