@@ -47,10 +47,7 @@ export function useRegisteredWindowSidebar({
   sidebar: ReactNode;
 }) {
   const setSidebarRef = useRef(setSidebar);
-
-  useEffect(() => {
-    setSidebarRef.current = setSidebar;
-  }, [setSidebar]);
+  setSidebarRef.current = setSidebar;
 
   useEffect(() => {
     if (!enabled) {

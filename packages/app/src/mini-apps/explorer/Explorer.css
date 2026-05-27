@@ -153,8 +153,8 @@
 .explorer-sync-badge--reserved {
   flex: 0 1 4rem;
   justify-content: center;
-  inline-size: 4rem;
-  min-inline-size: 2.75rem;
+  width: 4rem;
+  min-width: 2.75rem;
   max-width: none;
 }
 
