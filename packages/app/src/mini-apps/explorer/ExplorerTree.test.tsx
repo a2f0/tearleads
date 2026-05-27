@@ -77,10 +77,15 @@ function createDocumentReadModel(
 }
 
 function ExplorerSidebarHarness(params: {
+  documentListRevision?: number;
   documentReadModel: ContainerDocumentReadModel;
   onDocumentContextMenu?: (localId: string, containerId: string) => void;
 }) {
-  const { documentReadModel, onDocumentContextMenu } = params;
+  const {
+    documentListRevision = 0,
+    documentReadModel,
+    onDocumentContextMenu,
+  } = params;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebar, setSidebar] = useState<ReactNode>(null);
   const collapsedIds = useMemo(() => new Set<string>(), []);
@@ -110,7 +115,7 @@ function ExplorerSidebarHarness(params: {
     activeContainerId: "root-container",
     collapsedIds,
     documentLinkProjectionVersion: 0,
-    documentListRevision: 0,
+    documentListRevision,
     documentReadModel,
     handleSidebarContextMenu,
     handleSidebarDocumentContextMenu,
@@ -245,4 +250,77 @@ test("explorer sidebar can retry a failed initial document window", async () => 
     ]);
   });
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
+});
+
+test("explorer sidebar keeps existing documents visible during document list refreshes", async () => {
+  const rows = createSidebarRows(1);
+  const calls: Array<{ limit: number; offset: number }> = [];
+  let resolveRefresh:
+    | ((
+        value: Awaited<
+          ReturnType<
+            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
+          >
+        >,
+      ) => void)
+    | undefined;
+  const documentReadModel = {
+    ...createDocumentReadModel(rows, calls),
+    listContainerDocumentSidebarWindow: async ({ limit, offset }) => {
+      calls.push({ limit, offset });
+      if (calls.length === 1) {
+        return {
+          rows: rows.slice(offset, offset + limit),
+          totalCount: rows.length,
+        };
+      }
+
+      return new Promise((resolve) => {
+        resolveRefresh = resolve;
+      });
+    },
+  } satisfies ContainerDocumentReadModel;
+  const view = render(
+    <ExplorerSidebarHarness
+      documentListRevision={0}
+      documentReadModel={documentReadModel}
+    />,
+  );
+
+  expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
+
+  view.rerender(
+    <ExplorerSidebarHarness
+      documentListRevision={1}
+      documentReadModel={documentReadModel}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(calls).toEqual([
+      { limit: 50, offset: 0 },
+      { limit: 50, offset: 0 },
+    ]);
+  });
+  expect(view.getByRole("button", { name: "Document 1" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Loading..." })).toBeTruthy();
+
+  await act(async () => {
+    resolveRefresh?.({
+      rows,
+      totalCount: rows.length,
+    });
+  });
+});
+
+test("explorer sidebar reserves sync badge space for synced rows", async () => {
+  const documentReadModel = createDocumentReadModel(createSidebarRows(1), []);
+  const view = render(
+    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+  );
+
+  expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
+  expect(
+    view.container.querySelectorAll(".explorer-sync-badge--placeholder").length,
+  ).toBeGreaterThan(0);
 });

@@ -126,6 +126,7 @@
   min-height: 1.2rem;
   padding: 0 var(--mini-app-info-table-cell-padding);
   border: var(--mini-app-border);
+  box-sizing: border-box;
   font-size: 0.72rem;
   line-height: 1;
   opacity: var(--mini-app-subtle-opacity);
@@ -146,6 +147,16 @@
 
 .explorer-sync-badge--synced {
   opacity: var(--mini-app-faint-opacity);
+}
+
+.explorer-sync-badge--reserved {
+  justify-content: center;
+  inline-size: 5rem;
+  max-width: none;
+}
+
+.explorer-sync-badge--placeholder {
+  visibility: hidden;
 }
 
 .explorer-node-toggle,

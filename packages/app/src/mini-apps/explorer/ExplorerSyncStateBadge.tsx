@@ -60,21 +60,40 @@ function getExplorerSyncStateTitle(
 
 export function ExplorerSyncStateBadge(params: {
   online: boolean;
+  reserveSpace?: boolean | undefined;
   showSynced?: boolean | undefined;
   syncState: ContainerDocumentObjectSyncState;
 }) {
-  const { online, showSynced = false, syncState } = params;
+  const {
+    online,
+    reserveSpace = false,
+    showSynced = false,
+    syncState,
+  } = params;
+  const label = getExplorerSyncStateLabel(syncState);
+  const badgeClassName = `explorer-sync-badge explorer-sync-badge--${syncState.status}${
+    reserveSpace ? " explorer-sync-badge--reserved" : ""
+  }`;
   if (!showSynced && syncState.status === "synced") {
+    if (reserveSpace) {
+      return (
+        <span
+          aria-hidden="true"
+          className={`${badgeClassName} explorer-sync-badge--placeholder`}
+          data-label={label}
+        />
+      );
+    }
+
     return null;
   }
 
-  const label = getExplorerSyncStateLabel(syncState);
   const title = getExplorerSyncStateTitle(syncState, online);
 
   return (
     <span
       aria-label={title}
-      className={`explorer-sync-badge explorer-sync-badge--${syncState.status}`}
+      className={badgeClassName}
       data-label={label}
       role="img"
       title={title}

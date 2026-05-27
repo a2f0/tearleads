@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -45,12 +46,25 @@ export function useRegisteredWindowSidebar({
   setSidebar: (node: ReactNode) => void;
   sidebar: ReactNode;
 }) {
+  const setSidebarRef = useRef(setSidebar);
+
+  useEffect(() => {
+    setSidebarRef.current = setSidebar;
+  }, [setSidebar]);
+
   useEffect(() => {
     if (!enabled) {
       return;
     }
 
     setSidebar(sidebar);
-    return () => setSidebar(null);
   }, [enabled, setSidebar, sidebar]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    return () => setSidebarRef.current(null);
+  }, [enabled]);
 }

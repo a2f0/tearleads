@@ -104,6 +104,7 @@ function ExplorerSidebarItemLabel(params: {
       <MiniAppRowText>{params.children}</MiniAppRowText>
       <ExplorerSyncStateBadge
         online={params.online}
+        reserveSpace
         syncState={params.syncState}
       />
     </>
@@ -424,7 +425,26 @@ function useExplorerSidebarDocumentWindows(params: {
     setDocumentWindowsByContainerId((currentWindows) =>
       currentWindows.size === 0 ? currentWindows : new Map(),
     );
-  }, [documentLinkProjectionVersion, documentListRevision, documentReadModel]);
+  }, [documentReadModel]);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    loadGenerationRef.current += 1;
+    pendingWindowLoadKeysRef.current.clear();
+    for (const containerId of expandedContainerIds) {
+      loadDocumentWindow(containerId, 0);
+    }
+  }, [
+    documentLinkProjectionVersion,
+    documentListRevision,
+    expandedContainerIds,
+    expandedContainerIdsKey,
+    loadDocumentWindow,
+    ready,
+  ]);
 
   useEffect(() => {
     if (!ready) {
