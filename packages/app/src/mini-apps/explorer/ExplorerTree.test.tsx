@@ -4,7 +4,10 @@ import type {
   ContainerDocumentSidebarRow,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import {
+  createContainerDocumentObjectSyncState,
+  syncedContainerDocumentObjectSyncState,
+} from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -350,7 +353,7 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
   expect(calls).toEqual([{ limit: 50, offset: 0 }]);
 });
 
-test("explorer sidebar reserves sync badge space for synced rows", async () => {
+test("explorer sidebar does not reserve hidden sync badge space for synced rows", async () => {
   const documentReadModel = createDocumentReadModel(createSidebarRows(1), []);
   const view = render(
     <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
@@ -359,5 +362,25 @@ test("explorer sidebar reserves sync badge space for synced rows", async () => {
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
   expect(
     view.container.querySelectorAll(".explorer-sync-badge--placeholder").length,
-  ).toBeGreaterThan(0);
+  ).toBe(0);
+});
+
+test("explorer sidebar keeps visible sync badges for unsynced rows", async () => {
+  const rows = createSidebarRows(1).map((row) => ({
+    ...row,
+    syncState: createContainerDocumentObjectSyncState({ localOnly: true }),
+  }));
+  const documentReadModel = createDocumentReadModel(rows, []);
+  const view = render(
+    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.container.querySelector<HTMLButtonElement>(
+        '[data-document-local-id="document-1"]',
+      ),
+    ).toBeTruthy();
+  });
+  expect(view.getByRole("img", { name: "Local" })).toBeTruthy();
 });

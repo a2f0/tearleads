@@ -104,7 +104,6 @@ function ExplorerSidebarItemLabel(params: {
       <MiniAppRowText>{params.children}</MiniAppRowText>
       <ExplorerSyncStateBadge
         online={params.online}
-        reserveSpace
         syncState={params.syncState}
       />
     </>

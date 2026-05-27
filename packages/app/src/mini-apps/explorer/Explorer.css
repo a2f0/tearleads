@@ -181,6 +181,11 @@
   max-width: none;
 }
 
+.explorer-sidebar-item .explorer-sync-badge {
+  max-width: 2.5rem;
+  padding: 0 var(--mini-app-space-2xs);
+}
+
 .explorer-sync-badge--placeholder {
   visibility: hidden;
 }
