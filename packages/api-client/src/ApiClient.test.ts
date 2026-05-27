@@ -350,6 +350,11 @@ test("normalizes base URL and includes authorization headers", async () => {
   expect(call.url).toBe(`${apiBaseUrl}/`);
 });
 
+test("accepts missing base URL inputs", () => {
+  expect(new ApiClient().getAuthToken()).toBeNull();
+  expect(new ApiClient(null).getAuthToken()).toBeNull();
+});
+
 test("allows public methods to be called after destructuring", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(

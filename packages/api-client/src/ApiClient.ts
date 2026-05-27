@@ -107,8 +107,8 @@ function bindPrototypeMethods(instance: object, prototype: object): void {
   }
 }
 
-function normalizeApiBaseUrl(baseUrl: string): string {
-  const trimmed = baseUrl.trim();
+function normalizeApiBaseUrl(baseUrl: string | null | undefined): string {
+  const trimmed = (baseUrl ?? "").trim();
   if (trimmed === "" || trimmed === "/") {
     return "";
   }
@@ -135,7 +135,7 @@ export class ApiClient {
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl?: string | null) {
     this.baseUrl = normalizeApiBaseUrl(baseUrl);
     bindPrototypeMethods(this, ApiClient.prototype);
     this.request = this.makeRequest;
