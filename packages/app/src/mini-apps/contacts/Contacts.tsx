@@ -1,14 +1,30 @@
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
+import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
 import { ContactsDetailPanel } from "./detail/ContactsDetailPanel";
 import { useContactsModel } from "./hooks/useContactsModel";
+import { CONTACTS_LABELS } from "./labels";
 
 export function Contacts() {
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
   const model = useContactsModel(setSidebar, peerUserId);
+  useWindowFileMenuItem({
+    disabled: !model.ready,
+    id: "contacts-new-contact",
+    label: CONTACTS_LABELS.newContactAction,
+    onClick: model.openNewContactRoute,
+    priority: 100,
+  });
+  useWindowFileMenuItem({
+    disabled: !model.ready,
+    id: "contacts-import-contact",
+    label: CONTACTS_LABELS.importContactAction,
+    onClick: model.openImportContactRoute,
+    priority: 90,
+  });
 
   return (
     <MiniAppRoot className="contacts">
@@ -23,7 +39,9 @@ export function Contacts() {
         entries={model.entries}
         importDraftContact={model.importDraftContact}
         isAuthenticated={model.isAuthenticated}
+        onBackToSelectionRoute={model.showSelectionRoute}
         ready={model.ready}
+        route={model.route}
         selectedContactId={model.selectedContactId}
         setDraftFirstName={model.setDraftFirstName}
         setDraftLastName={model.setDraftLastName}

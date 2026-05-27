@@ -15,6 +15,7 @@ import {
   type ContactsContextMenuModel,
   useContactsContextMenu,
 } from "../context-menu/ContactsContextMenu";
+import type { ContactsRoute } from "../routes";
 import type { ContactEntries } from "../types";
 
 interface ContactsModel {
@@ -29,12 +30,16 @@ interface ContactsModel {
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
+  openImportContactRoute: () => void;
+  openNewContactRoute: () => void;
   ready: boolean;
+  route: ContactsRoute;
   selectedContactId: string | null;
   setDraftFirstName: Dispatch<SetStateAction<string>>;
   setDraftLastName: Dispatch<SetStateAction<string>>;
   setDraftNickname: Dispatch<SetStateAction<string>>;
   setDraftUserId: Dispatch<SetStateAction<string>>;
+  showSelectionRoute: () => void;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
 }
 
@@ -51,6 +56,52 @@ interface ContactDraftModel {
   setDraftLastName: Dispatch<SetStateAction<string>>;
   setDraftNickname: Dispatch<SetStateAction<string>>;
   setDraftUserId: Dispatch<SetStateAction<string>>;
+}
+
+function useContactsRouteState() {
+  const [route, setRoute] = useState<ContactsRoute>("selection");
+  const showSelectionRoute = useCallback(() => setRoute("selection"), []);
+  const openNewContactRoute = useCallback(() => setRoute("new-contact"), []);
+  const openImportContactRoute = useCallback(
+    () => setRoute("import-contact"),
+    [],
+  );
+
+  return {
+    openImportContactRoute,
+    openNewContactRoute,
+    route,
+    showSelectionRoute,
+  };
+}
+
+function useContactsSelectionState(
+  routeState: ReturnType<typeof useContactsRouteState>,
+) {
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(
+    null,
+  );
+  const selectContact = useCallback(
+    (contactId: string) => {
+      setSelectedContactId(contactId);
+      routeState.showSelectionRoute();
+    },
+    [routeState.showSelectionRoute],
+  );
+  const setSelectedContactRouteAware = useCallback(
+    (contactId: string | null) => {
+      setSelectedContactId(contactId);
+      routeState.showSelectionRoute();
+    },
+    [routeState.showSelectionRoute],
+  );
+
+  return {
+    selectContact,
+    selectedContactId,
+    setSelectedContactId,
+    setSelectedContactRouteAware,
+  };
 }
 
 function useAutoImportSelfContact(input: {
@@ -104,20 +155,23 @@ function useAutoImportSelfContact(input: {
 }
 
 function usePeerUserIdDraft(
+  openImportContactRoute: () => void,
   peerUserId: string | null,
   setDraftUserId: (setter: (currentId: string) => string) => void,
 ) {
   useEffect(() => {
     if (peerUserId) {
+      openImportContactRoute();
       setDraftUserId((currentId) => (currentId ? currentId : peerUserId));
     }
-  }, [peerUserId, setDraftUserId]);
+  }, [openImportContactRoute, peerUserId, setDraftUserId]);
 }
 
 function useContactDrafts(input: {
   createContact: ReturnType<typeof useContacts>["createContact"];
   importKey: ReturnType<typeof useContacts>["importKey"];
   isAuthenticated: boolean;
+  logError: ReturnType<typeof useLog>["logError"];
   ready: boolean;
   setSelectedContactId: (contactId: string) => void;
 }): ContactDraftModel {
@@ -125,6 +179,7 @@ function useContactDrafts(input: {
     createContact,
     importKey,
     isAuthenticated,
+    logError,
     ready,
     setSelectedContactId,
   } = input;
@@ -132,38 +187,70 @@ function useContactDrafts(input: {
   const [draftLastName, setDraftLastName] = useState("");
   const [draftNickname, setDraftNickname] = useState("");
   const [draftUserId, setDraftUserId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const canCreate =
+    !isSubmitting &&
     ready &&
     (draftNickname.trim().length > 0 ||
       draftFirstName.trim().length > 0 ||
       draftLastName.trim().length > 0);
-  const canImport = ready && isAuthenticated && draftUserId.trim().length > 0;
+  const canImport =
+    !isSubmitting && ready && isAuthenticated && draftUserId.trim().length > 0;
   const createDraftContact = useCallback(async () => {
-    const contactId = await createContact({
-      firstName: draftFirstName,
-      lastName: draftLastName,
-      nickname: draftNickname,
-    });
-    if (contactId) {
-      setSelectedContactId(contactId);
-      setDraftFirstName("");
-      setDraftLastName("");
-      setDraftNickname("");
+    if (!canCreate || isSubmittingRef.current) {
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const contactId = await createContact({
+        firstName: draftFirstName,
+        lastName: draftLastName,
+        nickname: draftNickname,
+      });
+      if (contactId) {
+        setSelectedContactId(contactId);
+        setDraftFirstName("");
+        setDraftLastName("");
+        setDraftNickname("");
+      }
+    } catch (error: unknown) {
+      logError("Contacts: failed to create contact.", error);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   }, [
+    canCreate,
     createContact,
     draftFirstName,
     draftLastName,
     draftNickname,
+    logError,
     setSelectedContactId,
   ]);
   const importDraftContact = useCallback(async () => {
-    const contactId = await importKey(draftUserId.trim());
-    if (contactId) {
-      setSelectedContactId(contactId);
-      setDraftUserId("");
+    if (!canImport || isSubmittingRef.current) {
+      return;
     }
-  }, [draftUserId, importKey, setSelectedContactId]);
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const contactId = await importKey(draftUserId.trim());
+      if (contactId) {
+        setSelectedContactId(contactId);
+        setDraftUserId("");
+      }
+    } catch (error: unknown) {
+      logError("Contacts: failed to import contact.", error);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  }, [canImport, draftUserId, importKey, logError, setSelectedContactId]);
 
   return {
     canCreate,
@@ -195,22 +282,22 @@ export function useContactsModel(
   } = useContacts();
   const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
   const { logError } = useLog();
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(
-    null,
-  );
+  const routeState = useContactsRouteState();
+  const selectionState = useContactsSelectionState(routeState);
   const drafts = useContactDrafts({
     createContact,
     importKey,
     isAuthenticated,
+    logError,
     ready,
-    setSelectedContactId,
+    setSelectedContactId: selectionState.selectContact,
   });
 
   const contextMenuState = useContactsContextMenu({
     entries,
     removeContact,
-    selectedContactId,
-    setSelectedContactId,
+    selectedContactId: selectionState.selectedContactId,
+    setSelectedContactId: selectionState.setSelectedContactRouteAware,
   });
 
   useAutoImportSelfContact({
@@ -220,16 +307,20 @@ export function useContactsModel(
     logError,
     ready,
     sessionUserId,
-    setSelectedContactId,
+    setSelectedContactId: selectionState.setSelectedContactId,
   });
-  usePeerUserIdDraft(peerUserId, drafts.setDraftUserId);
+  usePeerUserIdDraft(
+    routeState.openImportContactRoute,
+    peerUserId,
+    drafts.setDraftUserId,
+  );
 
   useContactsSidebarPanel({
     entries,
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
     ready,
-    selectedContactId,
-    setSelectedContactId,
+    selectedContactId: selectionState.selectedContactId,
+    setSelectedContactId: selectionState.selectContact,
     setSidebar,
   });
 
@@ -245,12 +336,16 @@ export function useContactsModel(
     entries,
     importDraftContact: drafts.importDraftContact,
     isAuthenticated,
+    openImportContactRoute: routeState.openImportContactRoute,
+    openNewContactRoute: routeState.openNewContactRoute,
     ready,
-    selectedContactId,
+    route: routeState.route,
+    selectedContactId: selectionState.selectedContactId,
     setDraftFirstName: drafts.setDraftFirstName,
     setDraftLastName: drafts.setDraftLastName,
     setDraftNickname: drafts.setDraftNickname,
     setDraftUserId: drafts.setDraftUserId,
+    showSelectionRoute: routeState.showSelectionRoute,
     updateContact,
   };
 }
