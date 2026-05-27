@@ -77,18 +77,23 @@ function createDocumentReadModel(
 }
 
 function ExplorerSidebarHarness(params: {
+  collapsedIds?: ReadonlySet<string>;
   documentListRevision?: number;
   documentReadModel: ContainerDocumentReadModel;
   onDocumentContextMenu?: (localId: string, containerId: string) => void;
 }) {
   const {
+    collapsedIds: collapsedIdsParam,
     documentListRevision = 0,
     documentReadModel,
     onDocumentContextMenu,
   } = params;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebar, setSidebar] = useState<ReactNode>(null);
-  const collapsedIds = useMemo(() => new Set<string>(), []);
+  const collapsedIds = useMemo(
+    () => collapsedIdsParam ?? new Set<string>(),
+    [collapsedIdsParam],
+  );
   const handleSidebarContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => event.preventDefault(),
     [],
@@ -311,6 +316,38 @@ test("explorer sidebar keeps existing documents visible during document list ref
       totalCount: rows.length,
     });
   });
+});
+
+test("explorer sidebar does not refresh loaded documents on collapsed state changes", async () => {
+  const calls: Array<{ limit: number; offset: number }> = [];
+  const documentReadModel = createDocumentReadModel(
+    createSidebarRows(1),
+    calls,
+  );
+  const view = render(
+    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+  );
+
+  expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
+  expect(calls).toEqual([{ limit: 50, offset: 0 }]);
+
+  view.rerender(
+    <ExplorerSidebarHarness
+      collapsedIds={new Set(["root-container"])}
+      documentReadModel={documentReadModel}
+    />,
+  );
+  expect(view.queryByRole("button", { name: "Document 1" })).toBeNull();
+
+  view.rerender(
+    <ExplorerSidebarHarness
+      collapsedIds={new Set()}
+      documentReadModel={documentReadModel}
+    />,
+  );
+
+  expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
+  expect(calls).toEqual([{ limit: 50, offset: 0 }]);
 });
 
 test("explorer sidebar reserves sync badge space for synced rows", async () => {

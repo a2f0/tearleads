@@ -343,6 +343,8 @@ function useExplorerSidebarDocumentWindows(params: {
     [collapsedIds, collapsedIdsKey, treeEntries],
   );
   const expandedContainerIdsKey = expandedContainerIds.join("\u0000");
+  const expandedContainerIdsRef = useRef(expandedContainerIds);
+  expandedContainerIdsRef.current = expandedContainerIds;
   const validContainerIdsKey = useMemo(
     () => nodes.map((node) => node.id).join("\u0000"),
     [nodes],
@@ -434,14 +436,12 @@ function useExplorerSidebarDocumentWindows(params: {
 
     loadGenerationRef.current += 1;
     pendingWindowLoadKeysRef.current.clear();
-    for (const containerId of expandedContainerIds) {
+    for (const containerId of expandedContainerIdsRef.current) {
       loadDocumentWindow(containerId, 0);
     }
   }, [
     documentLinkProjectionVersion,
     documentListRevision,
-    expandedContainerIds,
-    expandedContainerIdsKey,
     loadDocumentWindow,
     ready,
   ]);
