@@ -91,6 +91,17 @@
   align-items: flex-start;
 }
 
+.org-manager-roster-profile {
+  display: grid;
+  gap: var(--mini-app-space-sm);
+}
+
+.org-manager-roster-profile-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mini-app-space-sm);
+}
+
 .org-manager-member-row .mini-app-row-stack,
 .org-manager-roster-row .mini-app-row-stack,
 .org-manager-policy-history-row .mini-app-row-stack {
@@ -118,6 +129,10 @@
 
 .org-manager-roster-profile-field {
   flex: 1 1 16rem;
+}
+
+.org-manager-roster-profile-field .mini-app-input {
+  width: 100%;
 }
 
 .org-manager-policy-history-row {

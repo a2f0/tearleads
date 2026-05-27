@@ -73,6 +73,34 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
   expect(selections).toEqual([null]);
 });
 
+test("org manager roster view can render an editable encrypted profile editor", () => {
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      canUpdateSelectedRosterEntry
+      detail={detail}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openGroupRoute={() => undefined}
+      renderRosterProfileEditor={({ canEdit, user }) => (
+        <span>
+          {user.profileDocumentId}:{canEdit ? "editable" : "readonly"}
+        </span>
+      )}
+      revokeGrant={() => undefined}
+      selectedUserId={rosterUser.userId}
+      selectUser={() => undefined}
+    />,
+  );
+
+  expect(view.getByText(ORG_MANAGER_LABELS.profileDocument)).toBeTruthy();
+  expect(
+    view.getByText(`${rosterUser.profileDocumentId}:editable`),
+  ).toBeTruthy();
+});
+
 test("org manager roster view hides user detail until a user is selected", () => {
   const selections: Array<string | null> = [];
 
