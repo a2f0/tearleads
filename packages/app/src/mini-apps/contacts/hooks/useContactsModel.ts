@@ -187,17 +187,23 @@ function useContactDrafts(input: {
   const [draftLastName, setDraftLastName] = useState("");
   const [draftNickname, setDraftNickname] = useState("");
   const [draftUserId, setDraftUserId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const canCreate =
+    !isSubmitting &&
     ready &&
     (draftNickname.trim().length > 0 ||
       draftFirstName.trim().length > 0 ||
       draftLastName.trim().length > 0);
-  const canImport = ready && isAuthenticated && draftUserId.trim().length > 0;
+  const canImport =
+    !isSubmitting && ready && isAuthenticated && draftUserId.trim().length > 0;
   const createDraftContact = useCallback(async () => {
-    if (!canCreate) {
+    if (!canCreate || isSubmittingRef.current) {
       return;
     }
 
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const contactId = await createContact({
         firstName: draftFirstName,
@@ -212,6 +218,9 @@ function useContactDrafts(input: {
       }
     } catch (error: unknown) {
       logError("Contacts: failed to create contact.", error);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   }, [
     canCreate,
@@ -223,10 +232,12 @@ function useContactDrafts(input: {
     setSelectedContactId,
   ]);
   const importDraftContact = useCallback(async () => {
-    if (!canImport) {
+    if (!canImport || isSubmittingRef.current) {
       return;
     }
 
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const contactId = await importKey(draftUserId.trim());
       if (contactId) {
@@ -235,6 +246,9 @@ function useContactDrafts(input: {
       }
     } catch (error: unknown) {
       logError("Contacts: failed to import contact.", error);
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   }, [canImport, draftUserId, importKey, logError, setSelectedContactId]);
 

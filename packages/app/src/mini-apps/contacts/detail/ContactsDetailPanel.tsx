@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -16,6 +17,16 @@ import type { ContactEntries, ContactEntryPatch } from "../types";
 
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
 
+function useSyncedFieldValue(value: string) {
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  return [localValue, setLocalValue] as const;
+}
+
 function ContactTextField(params: {
   label: string;
   value: string;
@@ -23,14 +34,38 @@ function ContactTextField(params: {
   placeholder?: string;
 }) {
   const { label, onCommit, placeholder, value } = params;
+  const [localValue, setLocalValue] = useSyncedFieldValue(value);
 
   return (
     <MiniAppField>
       <span>{label}</span>
       <MiniAppInput
-        defaultValue={value}
+        value={localValue}
         placeholder={placeholder}
-        onBlur={(event) => onCommit(event.currentTarget.value)}
+        onChange={(event) => setLocalValue(event.target.value)}
+        onBlur={() => onCommit(localValue)}
+      />
+    </MiniAppField>
+  );
+}
+
+function ContactTextareaField(params: {
+  label: string;
+  value: string;
+  onCommit: (value: string) => void;
+  placeholder?: string;
+}) {
+  const { label, onCommit, placeholder, value } = params;
+  const [localValue, setLocalValue] = useSyncedFieldValue(value);
+
+  return (
+    <MiniAppField>
+      <span>{label}</span>
+      <MiniAppTextarea
+        value={localValue}
+        placeholder={placeholder}
+        onChange={(event) => setLocalValue(event.target.value)}
+        onBlur={() => onCommit(localValue)}
       />
     </MiniAppField>
   );
@@ -84,18 +119,14 @@ function ContactsSelectionState({
         placeholder={CONTACTS_LABELS.optionalPlaceholder}
         onCommit={(userId) => updateContact(selectedEntry.id, { userId })}
       />
-      <MiniAppField>
-        <span>{CONTACTS_LABELS.publicKeyField}</span>
-        <MiniAppTextarea
-          defaultValue={selectedEntry.encapsulationPublicKey ?? ""}
-          placeholder={CONTACTS_LABELS.optionalPlaceholder}
-          onBlur={(event) =>
-            updateContact(selectedEntry.id, {
-              encapsulationPublicKey: event.currentTarget.value,
-            })
-          }
-        />
-      </MiniAppField>
+      <ContactTextareaField
+        label={CONTACTS_LABELS.publicKeyField}
+        value={selectedEntry.encapsulationPublicKey ?? ""}
+        placeholder={CONTACTS_LABELS.optionalPlaceholder}
+        onCommit={(encapsulationPublicKey) =>
+          updateContact(selectedEntry.id, { encapsulationPublicKey })
+        }
+      />
     </MiniAppPanel>
   );
 }

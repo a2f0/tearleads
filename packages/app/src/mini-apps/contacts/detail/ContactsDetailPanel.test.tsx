@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import type { ContactEntry } from "../../../document-types/contact/contactDocumentModel";
 import type { ContactsRoute } from "../routes";
 import { ContactsDetailPanel } from "./ContactsDetailPanel";
 
@@ -7,34 +8,52 @@ afterEach(() => {
   cleanup();
 });
 
+const contactEntry: ContactEntry = {
+  encapsulationPublicKey: "public-key",
+  firstName: "Ada",
+  id: "ada",
+  isSelf: false,
+  lastName: "Lovelace",
+  nickname: "Countess",
+  userId: "ada-user",
+};
+
+function createContactsDetailPanelProps(
+  props: Partial<Parameters<typeof ContactsDetailPanel>[0]> & {
+    route?: ContactsRoute | undefined;
+  } = {},
+): Parameters<typeof ContactsDetailPanel>[0] {
+  return {
+    canCreate: false,
+    canImport: false,
+    createDraftContact: async () => undefined,
+    draftFirstName: "",
+    draftLastName: "",
+    draftNickname: "",
+    draftUserId: "",
+    entries: [],
+    importDraftContact: async () => undefined,
+    isAuthenticated: true,
+    onBackToSelectionRoute: () => undefined,
+    ready: true,
+    route: "selection",
+    selectedContactId: null,
+    setDraftFirstName: () => undefined,
+    setDraftLastName: () => undefined,
+    setDraftNickname: () => undefined,
+    setDraftUserId: () => undefined,
+    updateContact: () => undefined,
+    ...props,
+  };
+}
+
 function renderContactsDetailPanel(
   props: Partial<Parameters<typeof ContactsDetailPanel>[0]> & {
     route?: ContactsRoute | undefined;
   } = {},
 ) {
   return render(
-    <ContactsDetailPanel
-      canCreate={false}
-      canImport={false}
-      createDraftContact={async () => undefined}
-      draftFirstName=""
-      draftLastName=""
-      draftNickname=""
-      draftUserId=""
-      entries={[]}
-      importDraftContact={async () => undefined}
-      isAuthenticated
-      onBackToSelectionRoute={() => undefined}
-      ready
-      route="selection"
-      selectedContactId={null}
-      setDraftFirstName={() => undefined}
-      setDraftLastName={() => undefined}
-      setDraftNickname={() => undefined}
-      setDraftUserId={() => undefined}
-      updateContact={() => undefined}
-      {...props}
-    />,
+    <ContactsDetailPanel {...createContactsDetailPanelProps(props)} />,
   );
 }
 
@@ -61,6 +80,30 @@ test("contacts new-contact route submits the contact draft", () => {
   fireEvent.click(view.getByRole("button", { name: "Create" }));
 
   expect(createCount).toBe(1);
+});
+
+test("contacts selected detail fields update when contact entries change", () => {
+  const view = renderContactsDetailPanel({
+    entries: [contactEntry],
+    selectedContactId: contactEntry.id,
+  });
+
+  expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(
+    "Countess",
+  );
+
+  view.rerender(
+    <ContactsDetailPanel
+      {...createContactsDetailPanelProps({
+        entries: [{ ...contactEntry, nickname: "Ada" }],
+        selectedContactId: contactEntry.id,
+      })}
+    />,
+  );
+
+  expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(
+    "Ada",
+  );
 });
 
 test("contacts new-contact back action does not submit the draft form", () => {
