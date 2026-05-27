@@ -1,4 +1,5 @@
 import type {
+  ContainerNode,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
@@ -10,6 +11,10 @@ import type {
   OrganizationUserDetail,
   OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
+import {
+  deriveOrganizationRosterProfileContainerSystemSlot,
+  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+} from "@tearleads/client-sdk";
 import type {
   ContainerMutationResponse,
   PrincipalPolicyBundleResponse,
@@ -19,12 +24,14 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { createRosterProfileDocument } from "./profileDocuments";
 
 interface OrgManagerContextValue {
@@ -67,8 +74,24 @@ const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps the React context wiring for SDK organization actions in one place.
 export function OrgManagerProvider({ children }: PropsWithChildren) {
-  const { documents, organizations } = useTearleads();
+  const tearleads = useTearleads();
+  const { documents, organizations } = tearleads;
   const runtime = useTearleadsRuntime();
+  const containerContentsRuntime = useMemo(
+    () => tearleads.containerContents.runtime(),
+    [runtime, tearleads],
+  );
+  const containerContentsStore = useMemo(
+    () => tearleads.containerContents.store({ logLabel: "Org Manager" }),
+    [containerContentsRuntime.state.domainScope, tearleads],
+  );
+  const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
+    containerContentsStore,
+  );
+
+  useEffect(() => {
+    containerContentsStore.updateRuntime(containerContentsRuntime);
+  }, [containerContentsRuntime, containerContentsStore]);
 
   const createGroup = useCallback(
     (name: string) => organizations.createGroup(name),
@@ -171,15 +194,29 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       if (user.profileDocumentId) {
         return user;
       }
-      if (
-        !runtime.auth.organizationId ||
-        !runtime.auth.isAuthenticated ||
-        !runtime.state.containerId
-      ) {
+      if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+        return null;
+      }
+
+      const systemSlot =
+        await deriveOrganizationRosterProfileContainerSystemSlot({
+          organizationId: runtime.auth.organizationId,
+        });
+      const existingContainer = containerContentsSnapshot.nodes.find(
+        (node) => node.systemSlot === systemSlot,
+      );
+      const ensuredContainer =
+        existingContainer ??
+        ((await containerContentsStore.ensureSystemContainer(
+          systemSlot,
+          ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+        )) as ContainerNode | null);
+      if (!ensuredContainer?.id) {
         return null;
       }
 
       const profileDocumentId = await createRosterProfileDocument({
+        containerId: ensuredContainer.id,
         documents,
         organizationId: runtime.auth.organizationId,
         user,
@@ -191,11 +228,12 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       return organizations.updateRosterEntry(user.userId, profileDocumentId);
     },
     [
+      containerContentsSnapshot.nodes,
+      containerContentsStore,
       documents,
       organizations,
       runtime.auth.isAuthenticated,
       runtime.auth.organizationId,
-      runtime.state.containerId,
     ],
   );
 

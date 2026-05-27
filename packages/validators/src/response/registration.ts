@@ -5,6 +5,10 @@ import {
   isAuthChallengeHexString,
 } from "../util";
 import {
+  type ContainerCreateWithMetadataDocumentResponse,
+  isContainerCreateWithMetadataDocumentResponse,
+} from "./containerMetadata";
+import {
   type DocumentCreateResponse,
   isDocumentCreateResponse,
 } from "./documentMutation";
@@ -17,6 +21,10 @@ export interface RegistrationResponse {
   rootMetadataAccessEpoch: number;
   rootMetadataAccessStateHash: string;
   rootMetadataDocument: DocumentCreateResponse;
+  rosterProfileContainer?:
+    | ContainerCreateWithMetadataDocumentResponse
+    | undefined;
+  rosterProfileContainerId?: string | undefined;
   rosterProfileDocument?: DocumentCreateResponse | undefined;
   rosterProfileDocumentId?: string | undefined;
   challenge: string;
@@ -35,6 +43,12 @@ export function isRegistrationResponse(
     hasStringProperty(value, "rootMetadataAccessStateHash") &&
     value.rootMetadataAccessStateHash.length > 0 &&
     isDocumentCreateResponse(Reflect.get(value, "rootMetadataDocument")) &&
+    (Reflect.get(value, "rosterProfileContainer") === undefined ||
+      isContainerCreateWithMetadataDocumentResponse(
+        Reflect.get(value, "rosterProfileContainer"),
+      )) &&
+    (Reflect.get(value, "rosterProfileContainerId") === undefined ||
+      hasStringProperty(value, "rosterProfileContainerId")) &&
     (Reflect.get(value, "rosterProfileDocument") === undefined ||
       isDocumentCreateResponse(Reflect.get(value, "rosterProfileDocument"))) &&
     (Reflect.get(value, "rosterProfileDocumentId") === undefined ||

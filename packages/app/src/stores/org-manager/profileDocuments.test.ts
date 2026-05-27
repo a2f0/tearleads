@@ -62,10 +62,14 @@ test("roster profile document sync wait handles synchronous subscriptions", asyn
     },
   } as unknown as DocumentStore;
   const documents = {
-    store: () => store,
+    store: (input: { containerId?: string | null | undefined }) => {
+      expect(input.containerId).toBe("roster-profile-container-1");
+      return store;
+    },
   } as unknown as Documents;
 
   const createdDocumentId = await createRosterProfileDocument({
+    containerId: "roster-profile-container-1",
     documents,
     organizationId: "organization-1",
     user,

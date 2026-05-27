@@ -12,6 +12,7 @@ import type {
   DocumentCreateRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
+import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
@@ -37,6 +38,11 @@ import {
   users,
 } from "../../schema";
 import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
+import { createContainer } from "../containers/mutations/createContainer";
+import {
+  applyContainerSystemSlot,
+  readContainerMetadataDocumentId,
+} from "../containers/mutations/createContainerWithMetadataDocument";
 import { ContainerMutationError } from "../containers/mutations/errors";
 import { assertPrincipalPoliciesCurrent } from "../containers/mutations/shared/principalPolicies";
 import { principalPoliciesFromRequest } from "../containers/mutations/shared/principalPolicyRecords";
@@ -851,10 +857,72 @@ async function createInitialRootMetadataDocument(
   return created;
 }
 
+async function createInitialRosterProfileContainer(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  fingerprint: string,
+): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
+  if (!input.initialRosterProfileContainer) {
+    return null;
+  }
+  if (!input.initialRosterProfileDocument) {
+    throw new RegistrationError(
+      "Initial roster profile container requires a profile document",
+      400,
+    );
+  }
+
+  const container = await createContainer({
+    executor: tx,
+    fingerprint,
+    request: input.initialRosterProfileContainer.container,
+    userId: input.userId,
+  });
+  const metadataDocumentId = readContainerMetadataDocumentId(container);
+
+  const metadataDocument = await createDocumentWithExecutor({
+    executor: tx,
+    fingerprint,
+    request: input.initialRosterProfileContainer.metadataDocument,
+    userId: input.userId,
+  });
+  if (metadataDocument.id !== metadataDocumentId) {
+    throw new RegistrationError(
+      "Initial roster profile container metadata document mismatch",
+      400,
+    );
+  }
+
+  const systemSlot = input.initialRosterProfileContainer.systemSlot ?? null;
+  const nextContainer = systemSlot
+    ? await applyContainerSystemSlot(tx, {
+        container,
+        slot: systemSlot,
+      })
+    : container;
+
+  return { container: nextContainer, metadataDocument };
+}
+
+function readDocumentLinkedContainerIds(
+  document: Awaited<ReturnType<typeof createDocumentWithExecutor>>,
+): string[] {
+  const state = document.accessManifest.state;
+  const linkedContainerIds = Reflect.get(state, "linkedContainerIds");
+  return Array.isArray(linkedContainerIds)
+    ? linkedContainerIds.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [];
+}
+
 async function createInitialRosterProfileDocument(
   tx: DatabaseTransaction,
   input: RegistrationRequest,
   fingerprint: string,
+  profileContainer:
+    | ContainerCreateWithMetadataDocumentResponse["container"]
+    | null,
 ) {
   if (!input.initialRosterProfileDocument) {
     return null;
@@ -881,6 +949,18 @@ async function createInitialRosterProfileDocument(
       "Initial roster profile response does not match request",
       400,
     );
+  }
+  if (profileContainer) {
+    const linkedContainerIds = readDocumentLinkedContainerIds(created);
+    if (
+      linkedContainerIds.length !== 1 ||
+      linkedContainerIds[0] !== profileContainer.containerId
+    ) {
+      throw new RegistrationError(
+        "Initial roster profile document does not match roster profile container",
+        400,
+      );
+    }
   }
 
   const [rosterEntry] = await tx
@@ -956,10 +1036,16 @@ async function runRegistrationTransaction(
       fingerprint,
       rootMetadata,
     );
+    const rosterProfileContainer = await createInitialRosterProfileContainer(
+      tx,
+      input,
+      fingerprint,
+    );
     const rosterProfileDocument = await createInitialRosterProfileDocument(
       tx,
       input,
       fingerprint,
+      rosterProfileContainer?.container ?? null,
     );
 
     return {
@@ -970,6 +1056,7 @@ async function runRegistrationTransaction(
       rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
       rootMetadataDocumentId: rootMetadata.metadataDocumentId,
       rootMetadataDocument,
+      rosterProfileContainer,
       rosterProfileDocument,
     };
   });
