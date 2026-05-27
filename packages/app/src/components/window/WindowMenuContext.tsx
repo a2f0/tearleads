@@ -279,7 +279,6 @@ export function useWindowFileMenuItem(
     const registrationId = registrationIdRef.current;
 
     if (!enabled) {
-      unregisterFileMenuItem(registrationId);
       return;
     }
 
