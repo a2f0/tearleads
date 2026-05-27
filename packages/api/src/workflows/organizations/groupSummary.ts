@@ -3,6 +3,7 @@ import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/res
 export function toGroupSummary(input: {
   createdAt: Date;
   groupId: string;
+  isBuiltin: boolean;
   name: string;
   organizationId: string;
   state:
@@ -20,6 +21,7 @@ export function toGroupSummary(input: {
     organizationId: input.organizationId,
     name: input.name,
     createdAt: input.createdAt.toISOString(),
+    isBuiltin: input.isBuiltin,
     currentState: input.state
       ? {
           stateHash: input.state.stateHash,

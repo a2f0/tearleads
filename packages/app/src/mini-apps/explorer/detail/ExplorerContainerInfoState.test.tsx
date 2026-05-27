@@ -37,6 +37,7 @@ function createGroup(input: {
         }
       : null,
     groupId: input.groupId,
+    isBuiltin: input.name === "Admins",
     name: input.name,
     organizationId: "org-1",
   };

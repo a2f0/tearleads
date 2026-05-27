@@ -84,6 +84,11 @@ const GROUP_TABLE_COLUMNS = [
     width: "8rem",
   },
   {
+    id: "status",
+    header: ORG_MANAGER_LABELS.status,
+    width: "7rem",
+  },
+  {
     className: "org-manager-group-created-column",
     id: "created",
     header: ORG_MANAGER_LABELS.created,
@@ -152,6 +157,13 @@ function GroupTable({
                       )
                     : ORG_MANAGER_LABELS.uninitialized}
                 </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                {group.isBuiltin ? (
+                  <MiniAppTableText>
+                    {ORG_MANAGER_LABELS.builtIn}
+                  </MiniAppTableText>
+                ) : null}
               </MiniAppTableCell>
               <MiniAppTableCell className="org-manager-group-created-column">
                 <MiniAppTableText title={group.createdAt}>

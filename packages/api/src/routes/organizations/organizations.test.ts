@@ -483,6 +483,7 @@ test("org manager routes list the bootstrap Admins group", async () => {
     organization.memberGroupId,
   );
   expect(listBody.groups.map((group) => group.name)).toEqual(["Admins"]);
+  expect(listBody.groups[0]?.isBuiltin).toBe(true);
   expect(listBody.groups[0]?.currentState?.memberCount).toBe(1);
 });
 
@@ -814,6 +815,7 @@ test("org manager routes create and list groups with members", async () => {
   );
   expect(createBody.groupId).toBe(groupId);
   expect(createBody.name).toBe("Operators");
+  expect(createBody.isBuiltin).toBe(false);
   expect(createBody.currentState?.memberCount).toBe(1);
 
   const listResponse = await routeApp.request(

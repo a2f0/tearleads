@@ -15,6 +15,7 @@ const group: OrganizationGroupSummary = {
     version: 3,
   },
   groupId: "550e8400-e29b-41d4-a716-446655440010",
+  isBuiltin: true,
   name: "Admins",
   organizationId: "organization-1",
 };
@@ -74,6 +75,7 @@ test("org manager groups view hides group detail until a group is selected", () 
     view.getByRole("table", { name: ORG_MANAGER_LABELS.groups }),
   ).toBeTruthy();
   expect(view.getByText(group.name)).toBeTruthy();
+  expect(view.getByText(ORG_MANAGER_LABELS.builtIn)).toBeTruthy();
   expect(view.container.querySelector(".org-manager-panel--detail")).toBeNull();
   expect(view.queryByLabelText(ORG_MANAGER_LABELS.userId)).toBeNull();
   expect(view.queryByLabelText(ORG_MANAGER_LABELS.groupName)).toBeNull();

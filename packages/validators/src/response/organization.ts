@@ -46,6 +46,7 @@ export interface OrganizationGroupSummaryResponse {
   organizationId: string;
   name: string;
   createdAt: string;
+  isBuiltin: boolean;
   currentState: OrganizationGroupCurrentStateResponse | null;
 }
 
@@ -242,6 +243,7 @@ export function isOrganizationGroupSummaryResponse(
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "name") &&
     hasStringProperty(value, "createdAt") &&
+    hasBooleanProperty(value, "isBuiltin") &&
     (currentState === null ||
       isOrganizationGroupCurrentStateResponse(currentState))
   );

@@ -64,6 +64,7 @@ test("loadContainerInfo reads direct grants, organization groups, and local sync
                 organizationId,
                 name: "Operators",
                 createdAt: "2026-05-12T12:00:00.000Z",
+                isBuiltin: false,
                 currentState: {
                   stateHash: "a".repeat(64),
                   version: 1,
