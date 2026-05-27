@@ -10,6 +10,8 @@ import { useNotesDirectory } from "./useNotesDirectory";
 
 interface NotesAppModel {
   activeSelection: ActiveNoteSelection | null;
+  createNote: () => void;
+  ready: boolean;
 }
 
 export function useNotesAppModel(
@@ -26,7 +28,6 @@ export function useNotesAppModel(
   });
 
   useNotesSidebarPanel({
-    createNote,
     notes,
     ready,
     selectNote,
@@ -34,5 +35,5 @@ export function useNotesAppModel(
     setSidebar,
   });
 
-  return { activeSelection };
+  return { activeSelection, createNote, ready };
 }

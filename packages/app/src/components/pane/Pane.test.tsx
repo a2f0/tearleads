@@ -659,6 +659,44 @@ test("notes app lists notes created from explorer", async () => {
   view.unmount();
 });
 
+test("notes app exposes note creation from the file menu", async () => {
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+
+  const notesWindow = await openNotes(view);
+
+  expect(
+    within(notesWindow).queryByRole("button", { name: "New Note" }),
+  ).toBeNull();
+
+  fireEvent.click(within(notesWindow).getByText("File"));
+  const newNoteItem = await within(notesWindow).findByRole("menuitem", {
+    name: "New Note",
+  });
+  fireEvent.click(newNoteItem);
+
+  const editor = await within(notesWindow).findByRole("textbox", {
+    name: /Notes editor/,
+  });
+  invariant(editor instanceof HTMLTextAreaElement, "notes editor not found");
+
+  fireEvent.change(editor, {
+    target: { value: "file menu note" },
+  });
+
+  await waitFor(() => {
+    expect(editor.value).toBe("file menu note");
+    expect(
+      within(notesWindow).getByRole("button", {
+        name: "file menu note",
+      }),
+    ).toBeTruthy();
+  });
+
+  view.unmount();
+});
+
 test("registered explorer child folders settle to synced in the pane UI", async () => {
   useTestApiAppHandlers();
   const view = renderPane();
