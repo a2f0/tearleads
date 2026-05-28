@@ -58,9 +58,15 @@ function toTargetFields(
 export function sortTargetEnvelopes(
   targets: readonly DocumentContentKeyTargetEnvelope[],
 ): DocumentContentKeyTargetEnvelope[] {
-  return [...targets].sort((left, right) =>
-    left.containerId.localeCompare(right.containerId),
-  );
+  return [...targets].sort((left, right) => {
+    if (left.containerId < right.containerId) {
+      return -1;
+    }
+    if (left.containerId > right.containerId) {
+      return 1;
+    }
+    return 0;
+  });
 }
 
 function targetFieldsEqual(
