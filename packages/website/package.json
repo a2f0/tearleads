@@ -1,0 +1,21 @@
+{
+  "name": "website",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/react": "5.0.6",
+    "astro": "6.4.0",
+    "react": "catalog:react",
+    "react-dom": "catalog:react"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:react",
+    "@types/react-dom": "catalog:react"
+  }
+}
