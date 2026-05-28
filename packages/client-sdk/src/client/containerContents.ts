@@ -67,6 +67,9 @@ export type {
   BlobInfoDocumentReference,
   BlobInfoInput,
   BlobInfoList,
+  BlobInfoSort,
+  BlobInfoSortDirection,
+  BlobInfoSortKey,
 } from "../workflows/container-contents/blobInfo";
 export type {
   ContainerInfo,

@@ -2,10 +2,13 @@ import type {
   BlobInfo,
   BlobInfoInput,
   BlobInfoList,
+  BlobInfoSort,
+  BlobInfoSortDirection,
+  BlobInfoSortKey,
   BlobStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -84,13 +87,78 @@ function getBlobChangedAt(blob: BlobInfo): string | null {
   return blob.updatedAt ?? blob.createdAt;
 }
 
+function getBlobSortAria(
+  sort: BlobInfoSort,
+  key: BlobInfoSortKey,
+): MiniAppTableColumn["ariaSort"] {
+  if (sort.key !== key) {
+    return "none";
+  }
+
+  return sort.direction === "asc" ? "ascending" : "descending";
+}
+
+export function getNextBlobInfoSort(
+  currentSort: BlobInfoSort,
+  key: BlobInfoSortKey,
+): BlobInfoSort {
+  if (currentSort.key === key) {
+    return {
+      direction: currentSort.direction === "asc" ? "desc" : "asc",
+      key,
+    };
+  }
+
+  return {
+    direction: key === "mimeType" ? "asc" : "desc",
+    key,
+  };
+}
+
+function BlobSortableTableHeader(params: {
+  activeDirection: BlobInfoSortDirection | null;
+  label: string;
+  onClick: () => void;
+}) {
+  const { activeDirection, label, onClick } = params;
+
+  return (
+    <button
+      type="button"
+      className="explorer-table-sort-button"
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      <span aria-hidden="true" className="explorer-table-sort-indicator">
+        {activeDirection === "asc"
+          ? "^"
+          : activeDirection === "desc"
+            ? "v"
+            : ""}
+      </span>
+    </button>
+  );
+}
+
 function getContainerNameById(
   nodes: ReadonlyArray<ContainerNode>,
 ): ReadonlyMap<string, string> {
   return new Map(nodes.map((node) => [node.id, node.name]));
 }
 
-function getBlobInfoColumns(): ReadonlyArray<MiniAppTableColumn> {
+function getBlobInfoColumns(params: {
+  onSort: (key: BlobInfoSortKey) => void;
+  sort: BlobInfoSort;
+}): ReadonlyArray<MiniAppTableColumn> {
+  const { onSort, sort } = params;
+  const sortableHeader = (key: BlobInfoSortKey, label: string) => (
+    <BlobSortableTableHeader
+      activeDirection={sort.key === key ? sort.direction : null}
+      label={label}
+      onClick={() => onSort(key)}
+    />
+  );
+
   return [
     {
       header: EXPLORER_LABELS.blobBrowserBlobColumn,
@@ -98,7 +166,11 @@ function getBlobInfoColumns(): ReadonlyArray<MiniAppTableColumn> {
       width: "34%",
     },
     {
-      header: EXPLORER_LABELS.blobBrowserMimeTypeColumn,
+      ariaSort: getBlobSortAria(sort, "mimeType"),
+      header: sortableHeader(
+        "mimeType",
+        EXPLORER_LABELS.blobBrowserMimeTypeColumn,
+      ),
       id: "mime",
       width: "11rem",
     },
@@ -113,7 +185,11 @@ function getBlobInfoColumns(): ReadonlyArray<MiniAppTableColumn> {
       width: "8rem",
     },
     {
-      header: EXPLORER_LABELS.blobBrowserUpdatedColumn,
+      ariaSort: getBlobSortAria(sort, "updated"),
+      header: sortableHeader(
+        "updated",
+        EXPLORER_LABELS.blobBrowserUpdatedColumn,
+      ),
       id: "updated",
       width: "11rem",
     },
@@ -153,8 +229,9 @@ function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
 function useBlobInfoList(params: {
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   query: string;
+  sort: BlobInfoSort;
 }) {
-  const { loadBlobInfo, query } = params;
+  const { loadBlobInfo, query, sort } = params;
   const [state, setState] = useState<BlobInfoListState>({
     error: null,
     isLoading: false,
@@ -169,6 +246,7 @@ function useBlobInfoList(params: {
     void loadBlobInfo({
       limit: BLOB_BROWSER_LIMIT,
       query,
+      sort,
     })
       .then((result) => {
         if (!cancelled) {
@@ -194,7 +272,7 @@ function useBlobInfoList(params: {
     return () => {
       cancelled = true;
     };
-  }, [loadBlobInfo, query]);
+  }, [loadBlobInfo, query, sort]);
 
   return state;
 }
@@ -377,10 +455,15 @@ function BlobInfoTable(params: {
   error: string | null;
   isLoading: boolean;
   onSelectBlob: (blob: BlobInfo) => void;
+  onSort: (key: BlobInfoSortKey) => void;
   rows: ReadonlyArray<BlobInfo>;
+  sort: BlobInfoSort;
   totalCount: number;
 }) {
-  const columns = useMemo(() => getBlobInfoColumns(), []);
+  const columns = useMemo(
+    () => getBlobInfoColumns({ onSort: params.onSort, sort: params.sort }),
+    [params.onSort, params.sort],
+  );
 
   return (
     <MiniAppTableFrame className="explorer-blob-browser-table-wrap">
@@ -699,10 +782,15 @@ export function ExplorerBlobBrowserPanel(params: {
   const [query, setQuery] = useState(() => getBlobRouteQuery(params.route));
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [activeBlobKey, setActiveBlobKey] = useState<string | null>(null);
+  const [sort, setSort] = useState<BlobInfoSort>({
+    direction: "desc",
+    key: "updated",
+  });
   const routeQuery = getBlobRouteQuery(params.route);
   const blobInfo = useBlobInfoList({
     loadBlobInfo: params.loadBlobInfo,
     query: debouncedQuery,
+    sort,
   });
   const activeBlob = getSelectedBlob({
     activeBlobKey,
@@ -713,6 +801,9 @@ export function ExplorerBlobBrowserPanel(params: {
     () => getContainerNameById(params.nodes),
     [params.nodes],
   );
+  const handleSort = useCallback((key: BlobInfoSortKey) => {
+    setSort((currentSort) => getNextBlobInfoSort(currentSort, key));
+  }, []);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -766,7 +857,9 @@ export function ExplorerBlobBrowserPanel(params: {
           error={blobInfo.error}
           isLoading={blobInfo.isLoading}
           onSelectBlob={(blob) => setActiveBlobKey(blob.key)}
+          onSort={handleSort}
           rows={blobInfo.rows}
+          sort={sort}
           totalCount={blobInfo.totalCount}
         />
         <BlobDetail

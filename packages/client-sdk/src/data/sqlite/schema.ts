@@ -303,6 +303,7 @@ export const documentProjection = sqliteTable(
  * Indexes:
  * - `(localId, slotId)` is the primary key and keeps one pending blob per
  *   document attachment slot.
+ * - `mimeType` supports blob-browser MIME grouping and sorting.
  */
 export const documentPendingAttachments = sqliteTable(
   "document_pending_attachments",
@@ -315,7 +316,10 @@ export const documentPendingAttachments = sqliteTable(
     byteLength: integer("byte_length").notNull(),
     createdAt: text("created_at").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.localId, table.slotId] })],
+  (table) => [
+    primaryKey({ columns: [table.localId, table.slotId] }),
+    index("document_pending_attachments_mime_type_idx").on(table.mimeType),
+  ],
 );
 
 /**
@@ -337,6 +341,7 @@ export const documentPendingAttachments = sqliteTable(
  * Indexes:
  * - `(localId, slotId)` is the primary key and keeps one projected blob per
  *   document attachment slot.
+ * - `mimeType` supports blob-browser MIME grouping and sorting.
  */
 export const documentAttachmentBlobProjection = sqliteTable(
   "document_attachment_blob_projection",
@@ -349,7 +354,12 @@ export const documentAttachmentBlobProjection = sqliteTable(
     byteLength: integer("byte_length").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.localId, table.slotId] })],
+  (table) => [
+    primaryKey({ columns: [table.localId, table.slotId] }),
+    index("document_attachment_blob_projection_mime_type_idx").on(
+      table.mimeType,
+    ),
+  ],
 );
 
 /**

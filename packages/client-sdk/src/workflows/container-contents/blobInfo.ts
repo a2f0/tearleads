@@ -3,6 +3,13 @@ import { sqlDocumentsPersistence } from "../../data/persistence/documents/docume
 import type { ExecSql, SqlRow } from "../../data/sqlite/sqlSchema";
 
 export type BlobInfoAttachmentKind = "local" | "pending";
+export type BlobInfoSortDirection = "asc" | "desc";
+export type BlobInfoSortKey = "mimeType" | "updated";
+
+export interface BlobInfoSort {
+  readonly direction: BlobInfoSortDirection;
+  readonly key: BlobInfoSortKey;
+}
 
 export interface BlobInfoDocumentReference {
   readonly attachmentKind: BlobInfoAttachmentKind;
@@ -44,10 +51,15 @@ export interface BlobInfoInput {
   readonly limit?: number | undefined;
   readonly offset?: number | undefined;
   readonly query?: string | undefined;
+  readonly sort?: BlobInfoSort | undefined;
 }
 
 const DEFAULT_BLOB_INFO_LIMIT = 200;
 const MAX_BLOB_INFO_LIMIT = 1000;
+const DEFAULT_BLOB_INFO_SORT: BlobInfoSort = {
+  direction: "desc",
+  key: "updated",
+};
 
 function normalizeBlobInfoWindowValue(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) {
@@ -67,6 +79,21 @@ function normalizeBlobInfoLimit(value: number | undefined): number {
 
 function normalizeBlobInfoQuery(value: string | undefined): string {
   return value?.trim().toLocaleLowerCase() ?? "";
+}
+
+function normalizeBlobInfoSort(value: BlobInfoSort | undefined): BlobInfoSort {
+  if (!value) {
+    return DEFAULT_BLOB_INFO_SORT;
+  }
+
+  if (
+    (value.direction !== "asc" && value.direction !== "desc") ||
+    (value.key !== "mimeType" && value.key !== "updated")
+  ) {
+    return DEFAULT_BLOB_INFO_SORT;
+  }
+
+  return value;
 }
 
 function getBlobInfoKey(
@@ -156,6 +183,18 @@ function getReferenceChangedAt(
   return reference.updatedAt ?? reference.createdAt;
 }
 
+function getBlobInfoReferenceOrderBy(sort: BlobInfoSort): string {
+  const direction = sort.direction === "desc" ? "DESC" : "ASC";
+  const tieBreakers =
+    "changed_at_sort DESC, blob_key_sort ASC, attachment_kind ASC, local_id ASC, slot_id ASC";
+
+  if (sort.key === "mimeType") {
+    return `mime_type ${direction}, ${tieBreakers}`;
+  }
+
+  return `changed_at_sort ${direction}, blob_key_sort ASC, attachment_kind ASC, local_id ASC, slot_id ASC`;
+}
+
 function compareBlobInfoReference(
   left: BlobInfoDocumentReference,
   right: BlobInfoDocumentReference,
@@ -167,6 +206,21 @@ function compareBlobInfoReference(
     left.localId.localeCompare(right.localId) ||
     left.slotId.localeCompare(right.slotId)
   );
+}
+
+function chooseBlobInfoMimeType(
+  left: string | null,
+  right: string | null,
+): string | null {
+  if (left === null) {
+    return right;
+  }
+
+  if (right === null) {
+    return left;
+  }
+
+  return left.localeCompare(right) <= 0 ? left : right;
 }
 
 function mergeReferenceIntoBlobInfo(
@@ -208,21 +262,13 @@ function mergeReferenceIntoBlobInfo(
     createdAt: createdAt ?? null,
     documentCount: documentIds.size,
     key: current.key,
-    mimeType: current.mimeType ?? reference.mimeType,
+    mimeType: chooseBlobInfoMimeType(current.mimeType, reference.mimeType),
     name: current.name ?? reference.name,
     referenceCount: references.length,
     references,
     storageKey: current.storageKey,
     updatedAt: updatedAt ?? null,
   };
-}
-
-function compareBlobInfo(left: BlobInfo, right: BlobInfo): number {
-  return (
-    (getReferenceChangedAt(right) ?? "").localeCompare(
-      getReferenceChangedAt(left) ?? "",
-    ) || left.key.localeCompare(right.key)
-  );
 }
 
 function groupBlobInfoReferences(
@@ -238,7 +284,7 @@ function groupBlobInfoReferences(
     );
   }
 
-  return Array.from(blobsByKey.values()).sort(compareBlobInfo);
+  return Array.from(blobsByKey.values());
 }
 
 function filterBlobInfoRows(
@@ -256,8 +302,56 @@ function filterBlobInfoRows(
   );
 }
 
+function compareNullableText(
+  left: string | null,
+  right: string | null,
+  direction: BlobInfoSortDirection,
+): number {
+  if (left === right) {
+    return 0;
+  }
+
+  if (!left) {
+    return 1;
+  }
+
+  if (!right) {
+    return -1;
+  }
+
+  const comparison = left.localeCompare(right);
+  return direction === "asc" ? comparison : -comparison;
+}
+
+function compareBlobInfoBySort(
+  left: BlobInfo,
+  right: BlobInfo,
+  sort: BlobInfoSort,
+): number {
+  const comparison =
+    sort.key === "mimeType"
+      ? compareNullableText(left.mimeType, right.mimeType, sort.direction)
+      : compareNullableText(
+          getReferenceChangedAt(left),
+          getReferenceChangedAt(right),
+          sort.direction,
+        );
+
+  return comparison || left.key.localeCompare(right.key);
+}
+
+function sortBlobInfoRows(
+  rows: ReadonlyArray<BlobInfo>,
+  sort: BlobInfoSort,
+): BlobInfo[] {
+  return [...rows].sort((left, right) =>
+    compareBlobInfoBySort(left, right, sort),
+  );
+}
+
 async function loadBlobInfoReferences(
   execSql: ExecSql,
+  sort: BlobInfoSort,
 ): Promise<BlobInfoDocumentReference[]> {
   await sqlDocumentsPersistence.ensureSchema(execSql);
 
@@ -273,6 +367,8 @@ async function loadBlobInfoReferences(
       pending.name AS name,
       pending.created_at AS created_at,
       NULL AS updated_at,
+      pending.created_at AS changed_at_sort,
+      pending.storage_key AS blob_key_sort,
       document.document_id AS document_id,
       document.container_id AS container_id,
       document.document_kind AS document_kind,
@@ -292,6 +388,8 @@ async function loadBlobInfoReferences(
       NULL AS name,
       NULL AS created_at,
       local.updated_at AS updated_at,
+      local.updated_at AS changed_at_sort,
+      COALESCE(local.blob_id, local.storage_key) AS blob_key_sort,
       document.document_id AS document_id,
       document.container_id AS container_id,
       document.document_kind AS document_kind,
@@ -299,6 +397,7 @@ async function loadBlobInfoReferences(
     FROM document_attachment_blob_projection local
     LEFT JOIN document_projection document
       ON document.local_id = local.local_id
+    ORDER BY ${getBlobInfoReferenceOrderBy(sort)}
   `);
 
   return rows.map(mapBlobInfoReferenceRow);
@@ -309,6 +408,7 @@ export async function listBlobInfo(input: {
   readonly limit?: number | undefined;
   readonly offset?: number | undefined;
   readonly query?: string | undefined;
+  readonly sort?: BlobInfoSort | undefined;
 }): Promise<BlobInfoList> {
   if (!input.execSql) {
     return { rows: [], totalCount: 0 };
@@ -317,10 +417,11 @@ export async function listBlobInfo(input: {
   const query = normalizeBlobInfoQuery(input.query);
   const limit = normalizeBlobInfoLimit(input.limit);
   const offset = normalizeBlobInfoWindowValue(input.offset);
-  const allReferences = await loadBlobInfoReferences(input.execSql);
-  const rows = filterBlobInfoRows(
-    groupBlobInfoReferences(allReferences),
-    query,
+  const sort = normalizeBlobInfoSort(input.sort);
+  const allReferences = await loadBlobInfoReferences(input.execSql, sort);
+  const rows = sortBlobInfoRows(
+    filterBlobInfoRows(groupBlobInfoReferences(allReferences), query),
+    sort,
   );
 
   return {

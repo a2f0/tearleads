@@ -110,6 +110,8 @@ test("client sqlite schema creates tables and indexes", async () => {
     );
     expect(indexNames).toEqual([
       "container_create_intents_status_created_idx",
+      "document_attachment_blob_projection_mime_type_idx",
+      "document_pending_attachments_mime_type_idx",
       "document_pending_updates_scope_created_idx",
       "documents_app_document_idx",
     ]);
@@ -175,6 +177,46 @@ test("client sqlite schema creates tables and indexes", async () => {
         "document_pending_updates_scope_created_idx",
       ),
     ).toEqual(["app_kind", "local_id", "created_at"]);
+
+    const pendingAttachmentIndexes = await readIndexList(
+      execSql,
+      "document_pending_attachments",
+    );
+    expect(
+      readRecordValue(
+        pendingAttachmentIndexes,
+        "document_pending_attachments_mime_type_idx",
+      ),
+    ).toEqual({
+      partial: 0,
+      unique: 0,
+    });
+    expect(
+      await readIndexColumns(
+        execSql,
+        "document_pending_attachments_mime_type_idx",
+      ),
+    ).toEqual(["mime_type"]);
+
+    const localAttachmentIndexes = await readIndexList(
+      execSql,
+      "document_attachment_blob_projection",
+    );
+    expect(
+      readRecordValue(
+        localAttachmentIndexes,
+        "document_attachment_blob_projection_mime_type_idx",
+      ),
+    ).toEqual({
+      partial: 0,
+      unique: 0,
+    });
+    expect(
+      await readIndexColumns(
+        execSql,
+        "document_attachment_blob_projection_mime_type_idx",
+      ),
+    ).toEqual(["mime_type"]);
 
     const containerSyncWatermarks = await readTableColumns(
       execSql,
