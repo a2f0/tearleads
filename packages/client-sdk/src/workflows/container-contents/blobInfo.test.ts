@@ -295,6 +295,19 @@ test("listBlobInfo sorts grouped rows by MIME type", async () => {
       "application/pdf",
       null,
     ]);
+
+    const windowed = await listBlobInfo({
+      execSql,
+      limit: 2,
+      offset: 1,
+      sort: { direction: "asc", key: "mimeType" },
+    });
+
+    expect(windowed.totalCount).toBe(4);
+    expect(windowed.rows.map((row) => row.mimeType)).toEqual([
+      "image/png",
+      "text/plain",
+    ]);
   } finally {
     close();
   }

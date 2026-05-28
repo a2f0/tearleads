@@ -158,256 +158,249 @@ function mapBlobInfoReferenceRow(row: SqlRow): BlobInfoDocumentReference {
   };
 }
 
-function blobInfoReferenceSearchText(
-  reference: BlobInfoDocumentReference,
-): string {
-  return [
-    reference.blobId,
-    reference.storageKey,
-    reference.mimeType,
-    reference.name,
-    reference.localId,
-    reference.documentId,
-    reference.documentTitle,
-    reference.containerId,
-    reference.slotId,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join("\u0000")
-    .toLocaleLowerCase();
-}
-
-function getReferenceChangedAt(
-  reference: Pick<BlobInfoDocumentReference, "createdAt" | "updatedAt">,
-): string | null {
-  return reference.updatedAt ?? reference.createdAt;
-}
-
-function getBlobInfoReferenceOrderBy(sort: BlobInfoSort): string {
-  const direction = sort.direction === "desc" ? "DESC" : "ASC";
-  const tieBreakers =
-    "changed_at_sort DESC, blob_key_sort ASC, attachment_kind ASC, local_id ASC, slot_id ASC";
-
-  if (sort.key === "mimeType") {
-    return `mime_type ${direction}, ${tieBreakers}`;
-  }
-
-  return `changed_at_sort ${direction}, blob_key_sort ASC, attachment_kind ASC, local_id ASC, slot_id ASC`;
-}
-
-function compareBlobInfoReference(
-  left: BlobInfoDocumentReference,
-  right: BlobInfoDocumentReference,
-): number {
-  return (
-    (getReferenceChangedAt(right) ?? "").localeCompare(
-      getReferenceChangedAt(left) ?? "",
-    ) ||
-    left.localId.localeCompare(right.localId) ||
-    left.slotId.localeCompare(right.slotId)
-  );
-}
-
-function chooseBlobInfoMimeType(
-  left: string | null,
-  right: string | null,
-): string | null {
-  if (left === null) {
-    return right;
-  }
-
-  if (right === null) {
-    return left;
-  }
-
-  return left.localeCompare(right) <= 0 ? left : right;
-}
-
-function mergeReferenceIntoBlobInfo(
-  current: BlobInfo | undefined,
-  reference: BlobInfoDocumentReference,
-): BlobInfo {
-  if (!current) {
-    return {
-      blobId: reference.blobId,
-      byteLength: reference.byteLength,
-      createdAt: reference.createdAt,
-      documentCount: 1,
-      key: getBlobInfoKey(reference),
-      mimeType: reference.mimeType,
-      name: reference.name,
-      referenceCount: 1,
-      references: [reference],
-      storageKey: reference.storageKey,
-      updatedAt: reference.updatedAt,
-    };
-  }
-
-  const references = [...current.references, reference].sort(
-    compareBlobInfoReference,
-  );
-  const documentIds = new Set(references.map((item) => item.localId));
-  const updatedAt = [current.updatedAt, reference.updatedAt]
-    .filter((value): value is string => Boolean(value))
-    .sort()
-    .at(-1);
-  const createdAt = [current.createdAt, reference.createdAt]
-    .filter((value): value is string => Boolean(value))
-    .sort()
-    .at(0);
-
+function mapBlobInfoRow(row: SqlRow): Omit<BlobInfo, "references"> {
   return {
-    blobId: current.blobId ?? reference.blobId,
-    byteLength: Math.max(current.byteLength, reference.byteLength),
-    createdAt: createdAt ?? null,
-    documentCount: documentIds.size,
-    key: current.key,
-    mimeType: chooseBlobInfoMimeType(current.mimeType, reference.mimeType),
-    name: current.name ?? reference.name,
-    referenceCount: references.length,
-    references,
-    storageKey: current.storageKey,
-    updatedAt: updatedAt ?? null,
+    blobId: readNullableString(row, "blob_id"),
+    byteLength: readRequiredNumber(row, "byte_length"),
+    createdAt: readNullableString(row, "created_at"),
+    documentCount: readRequiredNumber(row, "document_count"),
+    key: readRequiredString(row, "blob_key"),
+    mimeType: readNullableString(row, "mime_type"),
+    name: readNullableString(row, "name"),
+    referenceCount: readRequiredNumber(row, "reference_count"),
+    storageKey: readRequiredString(row, "storage_key"),
+    updatedAt: readNullableString(row, "updated_at"),
   };
 }
 
-function groupBlobInfoReferences(
-  references: ReadonlyArray<BlobInfoDocumentReference>,
-): BlobInfo[] {
-  const blobsByKey = new Map<string, BlobInfo>();
+function renderBlobInfoGroupedOrderBy(sort: BlobInfoSort): string {
+  const direction = sort.direction === "desc" ? "DESC" : "ASC";
 
-  for (const reference of references) {
-    const key = getBlobInfoKey(reference);
-    blobsByKey.set(
-      key,
-      mergeReferenceIntoBlobInfo(blobsByKey.get(key), reference),
-    );
+  if (sort.key === "mimeType") {
+    return [
+      "mime_type IS NULL ASC",
+      `mime_type COLLATE NOCASE ${direction}`,
+      "changed_at_sort DESC",
+      "blob_key ASC",
+    ].join(", ");
   }
 
-  return Array.from(blobsByKey.values());
+  return [
+    "changed_at_sort IS NULL ASC",
+    `changed_at_sort ${direction}`,
+    "blob_key ASC",
+  ].join(", ");
 }
 
-function filterBlobInfoRows(
-  rows: ReadonlyArray<BlobInfo>,
-  query: string,
-): BlobInfo[] {
-  if (!query) {
-    return [...rows];
-  }
+function blobInfoReferencesCte(): string {
+  return `
+    WITH blob_info_references AS (
+      SELECT
+        'pending' AS attachment_kind,
+        pending.local_id AS local_id,
+        pending.slot_id AS slot_id,
+        NULL AS blob_id,
+        pending.storage_key AS storage_key,
+        pending.mime_type AS mime_type,
+        pending.byte_length AS byte_length,
+        pending.name AS name,
+        pending.created_at AS created_at,
+        NULL AS updated_at,
+        pending.created_at AS changed_at_sort,
+        'storage:' || pending.storage_key AS blob_key,
+        LOWER(
+          COALESCE(pending.storage_key, '')
+          || CHAR(0) || COALESCE(pending.mime_type, '')
+          || CHAR(0) || COALESCE(pending.name, '')
+          || CHAR(0) || COALESCE(pending.local_id, '')
+          || CHAR(0) || COALESCE(document.document_id, '')
+          || CHAR(0) || COALESCE(document.title, '')
+          || CHAR(0) || COALESCE(document.container_id, '')
+          || CHAR(0) || COALESCE(pending.slot_id, '')
+        ) AS search_text,
+        document.document_id AS document_id,
+        document.container_id AS container_id,
+        document.document_kind AS document_kind,
+        document.title AS document_title
+      FROM document_pending_attachments pending
+      LEFT JOIN document_projection document
+        ON document.local_id = pending.local_id
+      UNION ALL
+      SELECT
+        'local' AS attachment_kind,
+        local.local_id AS local_id,
+        local.slot_id AS slot_id,
+        local.blob_id AS blob_id,
+        local.storage_key AS storage_key,
+        local.mime_type AS mime_type,
+        local.byte_length AS byte_length,
+        NULL AS name,
+        NULL AS created_at,
+        local.updated_at AS updated_at,
+        local.updated_at AS changed_at_sort,
+        CASE
+          WHEN local.blob_id IS NOT NULL AND local.blob_id <> ''
+            THEN 'blob:' || local.blob_id
+          ELSE 'storage:' || local.storage_key
+        END AS blob_key,
+        LOWER(
+          COALESCE(local.blob_id, '')
+          || CHAR(0) || COALESCE(local.storage_key, '')
+          || CHAR(0) || COALESCE(local.mime_type, '')
+          || CHAR(0) || COALESCE(local.local_id, '')
+          || CHAR(0) || COALESCE(document.document_id, '')
+          || CHAR(0) || COALESCE(document.title, '')
+          || CHAR(0) || COALESCE(document.container_id, '')
+          || CHAR(0) || COALESCE(local.slot_id, '')
+        ) AS search_text,
+        document.document_id AS document_id,
+        document.container_id AS container_id,
+        document.document_kind AS document_kind,
+        document.title AS document_title
+      FROM document_attachment_blob_projection local
+      LEFT JOIN document_projection document
+        ON document.local_id = local.local_id
+    )`;
+}
 
-  return rows.filter((blob) =>
-    blob.references.some((reference) =>
-      blobInfoReferenceSearchText(reference).includes(query),
+function groupedBlobInfoCte(): string {
+  return `
+    ${blobInfoReferencesCte()},
+    matching_blob_keys AS (
+      SELECT DISTINCT blob_key
+      FROM blob_info_references
+      WHERE ? = '' OR INSTR(search_text, ?) > 0
     ),
+    grouped_blob_info AS (
+      SELECT
+        refs.blob_key AS blob_key,
+        MIN(NULLIF(refs.blob_id, '')) AS blob_id,
+        MAX(refs.byte_length) AS byte_length,
+        MIN(NULLIF(refs.created_at, '')) AS created_at,
+        MAX(NULLIF(refs.updated_at, '')) AS updated_at,
+        COALESCE(
+          MAX(NULLIF(refs.updated_at, '')),
+          MIN(NULLIF(refs.created_at, ''))
+        ) AS changed_at_sort,
+        COUNT(DISTINCT refs.local_id) AS document_count,
+        MIN(NULLIF(refs.mime_type, '')) AS mime_type,
+        MIN(NULLIF(refs.name, '')) AS name,
+        COUNT(*) AS reference_count,
+        MIN(refs.storage_key) AS storage_key
+      FROM blob_info_references refs
+      INNER JOIN matching_blob_keys matching
+        ON matching.blob_key = refs.blob_key
+      GROUP BY refs.blob_key
+    )`;
+}
+
+async function countBlobInfoRows(input: {
+  readonly execSql: ExecSql;
+  readonly query: string;
+}): Promise<number> {
+  const rows = await input.execSql(
+    `
+      ${groupedBlobInfoCte()}
+      SELECT COUNT(*) AS total_count
+      FROM grouped_blob_info
+    `,
+    [input.query, input.query],
   );
+
+  return readRequiredNumber(rows[0] ?? {}, "total_count");
 }
 
-function compareNullableText(
-  left: string | null,
-  right: string | null,
-  direction: BlobInfoSortDirection,
-): number {
-  if (left === right) {
-    return 0;
-  }
-
-  const leftEmpty = !left;
-  const rightEmpty = !right;
-
-  if (leftEmpty && rightEmpty) {
-    return 0;
-  }
-
-  if (leftEmpty) {
-    return 1;
-  }
-
-  if (rightEmpty) {
-    return -1;
-  }
-
-  const comparison = left.localeCompare(right);
-  return direction === "asc" ? comparison : -comparison;
-}
-
-function compareBlobInfoBySort(
-  left: BlobInfo,
-  right: BlobInfo,
-  sort: BlobInfoSort,
-): number {
-  const comparison =
-    sort.key === "mimeType"
-      ? compareNullableText(left.mimeType, right.mimeType, sort.direction)
-      : compareNullableText(
-          getReferenceChangedAt(left),
-          getReferenceChangedAt(right),
-          sort.direction,
-        );
-
-  return comparison || left.key.localeCompare(right.key);
-}
-
-function sortBlobInfoRows(
-  rows: ReadonlyArray<BlobInfo>,
-  sort: BlobInfoSort,
-): BlobInfo[] {
-  return [...rows].sort((left, right) =>
-    compareBlobInfoBySort(left, right, sort),
+async function listBlobInfoRows(input: {
+  readonly execSql: ExecSql;
+  readonly limit: number;
+  readonly offset: number;
+  readonly query: string;
+  readonly sort: BlobInfoSort;
+}): Promise<Array<Omit<BlobInfo, "references">>> {
+  const rows = await input.execSql(
+    `
+      ${groupedBlobInfoCte()}
+      SELECT
+        blob_key,
+        blob_id,
+        byte_length,
+        created_at,
+        updated_at,
+        document_count,
+        mime_type,
+        name,
+        reference_count,
+        storage_key
+      FROM grouped_blob_info
+      ORDER BY ${renderBlobInfoGroupedOrderBy(input.sort)}
+      LIMIT ? OFFSET ?
+    `,
+    [input.query, input.query, input.limit, input.offset],
   );
+
+  return rows.map(mapBlobInfoRow);
 }
 
-async function loadBlobInfoReferences(
-  execSql: ExecSql,
-  sort: BlobInfoSort,
-): Promise<BlobInfoDocumentReference[]> {
-  await sqlDocumentsPersistence.ensureSchema(execSql);
+function blobInfoReferenceKeyPlaceholders(keys: ReadonlyArray<string>): string {
+  return keys.map(() => "?").join(", ");
+}
 
-  const rows = await execSql(`
+async function listBlobInfoReferencesForKeys(input: {
+  readonly execSql: ExecSql;
+  readonly keys: ReadonlyArray<string>;
+}): Promise<BlobInfoDocumentReference[]> {
+  if (input.keys.length === 0) {
+    return [];
+  }
+
+  const rows = await input.execSql(
+    `
+      ${blobInfoReferencesCte()}
     SELECT
-      'pending' AS attachment_kind,
-      pending.local_id AS local_id,
-      pending.slot_id AS slot_id,
-      NULL AS blob_id,
-      pending.storage_key AS storage_key,
-      pending.mime_type AS mime_type,
-      pending.byte_length AS byte_length,
-      pending.name AS name,
-      pending.created_at AS created_at,
-      NULL AS updated_at,
-      pending.created_at AS changed_at_sort,
-      pending.storage_key AS blob_key_sort,
-      document.document_id AS document_id,
-      document.container_id AS container_id,
-      document.document_kind AS document_kind,
-      document.title AS document_title
-    FROM document_pending_attachments pending
-    LEFT JOIN document_projection document
-      ON document.local_id = pending.local_id
-    UNION ALL
-    SELECT
-      'local' AS attachment_kind,
-      local.local_id AS local_id,
-      local.slot_id AS slot_id,
-      local.blob_id AS blob_id,
-      local.storage_key AS storage_key,
-      local.mime_type AS mime_type,
-      local.byte_length AS byte_length,
-      NULL AS name,
-      NULL AS created_at,
-      local.updated_at AS updated_at,
-      local.updated_at AS changed_at_sort,
-      COALESCE(local.blob_id, local.storage_key) AS blob_key_sort,
-      document.document_id AS document_id,
-      document.container_id AS container_id,
-      document.document_kind AS document_kind,
-      document.title AS document_title
-    FROM document_attachment_blob_projection local
-    LEFT JOIN document_projection document
-      ON document.local_id = local.local_id
-    ORDER BY ${getBlobInfoReferenceOrderBy(sort)}
-  `);
+        attachment_kind,
+        local_id,
+        slot_id,
+        blob_id,
+        storage_key,
+        mime_type,
+        byte_length,
+        name,
+        created_at,
+        updated_at,
+        document_id,
+        container_id,
+        document_kind,
+        document_title
+      FROM blob_info_references
+      WHERE blob_key IN (${blobInfoReferenceKeyPlaceholders(input.keys)})
+      ORDER BY blob_key ASC, changed_at_sort DESC, local_id ASC, slot_id ASC
+    `,
+    [...input.keys],
+  );
 
   return rows.map(mapBlobInfoReferenceRow);
+}
+
+function attachBlobInfoReferences(input: {
+  readonly references: ReadonlyArray<BlobInfoDocumentReference>;
+  readonly rows: ReadonlyArray<Omit<BlobInfo, "references">>;
+}): BlobInfo[] {
+  const referencesByBlobKey = new Map<string, BlobInfoDocumentReference[]>();
+
+  for (const reference of input.references) {
+    const key = getBlobInfoKey(reference);
+    const references = referencesByBlobKey.get(key);
+    if (references) {
+      references.push(reference);
+    } else {
+      referencesByBlobKey.set(key, [reference]);
+    }
+  }
+
+  return input.rows.map((row) => ({
+    ...row,
+    references: referencesByBlobKey.get(row.key) ?? [],
+  }));
 }
 
 export async function listBlobInfo(input: {
@@ -425,14 +418,30 @@ export async function listBlobInfo(input: {
   const limit = normalizeBlobInfoLimit(input.limit);
   const offset = normalizeBlobInfoWindowValue(input.offset);
   const sort = normalizeBlobInfoSort(input.sort);
-  const allReferences = await loadBlobInfoReferences(input.execSql, sort);
-  const rows = sortBlobInfoRows(
-    filterBlobInfoRows(groupBlobInfoReferences(allReferences), query),
+  await sqlDocumentsPersistence.ensureSchema(input.execSql);
+
+  const totalCount = await countBlobInfoRows({
+    execSql: input.execSql,
+    query,
+  });
+  if (limit === 0 || offset >= totalCount) {
+    return { rows: [], totalCount };
+  }
+
+  const groupedRows = await listBlobInfoRows({
+    execSql: input.execSql,
+    limit,
+    offset,
+    query,
     sort,
-  );
+  });
+  const references = await listBlobInfoReferencesForKeys({
+    execSql: input.execSql,
+    keys: groupedRows.map((row) => row.key),
+  });
 
   return {
-    rows: limit === 0 ? [] : rows.slice(offset, offset + limit),
-    totalCount: rows.length,
+    rows: attachBlobInfoReferences({ references, rows: groupedRows }),
+    totalCount,
   };
 }
