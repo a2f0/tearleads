@@ -27,7 +27,7 @@
   padding: 0;
 }
 
-.workspace-button--active {
+.workspace-button.workspace-button--active {
   background: var(--color-light);
   color: var(--color-dark);
 }
