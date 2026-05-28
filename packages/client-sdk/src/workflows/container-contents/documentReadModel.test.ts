@@ -19,6 +19,7 @@ async function saveTestContainer(input: {
   id: string;
   name: string;
   parentId: string | null;
+  systemSlot?: string | null;
   timestamp: string;
 }) {
   await defaultContainerContentsPersistence.saveContainer(
@@ -30,6 +31,7 @@ async function saveTestContainer(input: {
       name: input.name,
       organizationId: "org-1",
       parentId: input.parentId,
+      systemSlot: input.systemSlot ?? null,
     },
     null,
     { localUpdatedAt: input.timestamp },
@@ -106,6 +108,14 @@ test("listContainerItemWindow pages and sorts container rows from SQLite", async
       name: "Archive",
       parentId: "root-container",
       timestamp: "2026-05-02T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "roster-profile-container",
+      name: "Roster Profiles",
+      parentId: "root-container",
+      systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      timestamp: "2026-05-05T00:00:00.000Z",
     });
     await saveTestDocument({
       containerId: "root-container",
