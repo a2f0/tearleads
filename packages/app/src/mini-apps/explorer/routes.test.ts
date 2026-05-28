@@ -39,3 +39,16 @@ test("explorer document-info route is unavailable when its container is gone", (
     ),
   ).toBe(false);
 });
+
+test("explorer blob-browser route does not require a selected container", () => {
+  expect(
+    isExplorerRouteAvailable(
+      {
+        blobId: "blob-1",
+        storageKey: null,
+        view: "blob-browser",
+      },
+      [],
+    ),
+  ).toBe(true);
+});

@@ -2,6 +2,7 @@ import type { ContainerNode } from "@tearleads/client-sdk";
 
 export type ExplorerRoute =
   | { view: "selection" }
+  | { view: "blob-browser"; blobId: string | null; storageKey: string | null }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-info"; containerId: string; localId: string };
@@ -13,6 +14,10 @@ export function isExplorerRouteAvailable(
   nodes: ReadonlyArray<ContainerNode>,
 ): boolean {
   if (route.view === "selection") {
+    return true;
+  }
+
+  if (route.view === "blob-browser") {
     return true;
   }
 

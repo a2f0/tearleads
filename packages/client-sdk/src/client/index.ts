@@ -2,6 +2,11 @@ export { createDomainScope, type DomainScope } from "../data/domainScope";
 export { Blobs } from "./blobs";
 export type {
   ActivateContainerDocumentLinkInput,
+  BlobInfo,
+  BlobInfoAttachmentKind,
+  BlobInfoDocumentReference,
+  BlobInfoInput,
+  BlobInfoList,
   ContainerContents,
   ContainerContentsContextValue,
   ContainerContentsStore,

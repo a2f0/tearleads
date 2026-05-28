@@ -8,6 +8,10 @@ import {
 
 export interface ExplorerRouteState {
   route: ExplorerRoute;
+  openBlobBrowserRoute: (input?: {
+    blobId?: string | null | undefined;
+    storageKey?: string | null | undefined;
+  }) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
@@ -40,6 +44,22 @@ export function useExplorerRoute(params: {
     [setSelectedId],
   );
 
+  const openBlobBrowserRoute = useCallback(
+    (
+      input: {
+        blobId?: string | null | undefined;
+        storageKey?: string | null | undefined;
+      } = {},
+    ) => {
+      setRoute({
+        blobId: input.blobId ?? null,
+        storageKey: input.storageKey ?? null,
+        view: "blob-browser",
+      });
+    },
+    [],
+  );
+
   const openContainerInfoRoute = useCallback(
     (containerId: string) => {
       setSelectedId(containerId);
@@ -64,6 +84,7 @@ export function useExplorerRoute(params: {
   );
 
   return {
+    openBlobBrowserRoute,
     openContainerInfoRoute,
     openDocumentInfoRoute,
     openNewStructuredDocumentRoute,

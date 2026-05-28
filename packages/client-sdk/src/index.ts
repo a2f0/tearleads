@@ -1,6 +1,11 @@
 export type {
   ActivateContainerDocumentLinkInput,
   AddOrganizationGroupUserInput,
+  BlobInfo,
+  BlobInfoAttachmentKind,
+  BlobInfoDocumentReference,
+  BlobInfoInput,
+  BlobInfoList,
   ContainerContents,
   ContainerContentsContextValue,
   ContainerContentsStore,
@@ -182,6 +187,11 @@ export {
   uploadDocumentAttachment,
 } from "./workflows/blobs";
 export type {
+  BlobInfo as ContainerContentsBlobInfo,
+  BlobInfoAttachmentKind as ContainerContentsBlobInfoAttachmentKind,
+  BlobInfoDocumentReference as ContainerContentsBlobInfoDocumentReference,
+  BlobInfoInput as ContainerContentsBlobInfoInput,
+  BlobInfoList as ContainerContentsBlobInfoList,
   ContainerContentsProjectionUserKeyResolver,
   ContainerContentsWorkflowRuntime,
   ContainerContentsWorkflowRuntimeAuth,
@@ -230,6 +240,7 @@ export {
   hasUndiscoveredDocumentUpdateEvent,
   initializeDocumentLinksSchema,
   linkDocumentLinkState,
+  listBlobInfo,
   listDocumentLinkedContainerIds,
   loadContainerInfo,
   loadContainerSyncWatermark,

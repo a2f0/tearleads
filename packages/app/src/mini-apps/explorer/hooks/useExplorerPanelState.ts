@@ -1,4 +1,6 @@
 import type {
+  BlobInfoInput,
+  BlobInfoList,
   ContainerDocumentReadModel,
   ContainerInfo,
   ContainerNode,
@@ -8,6 +10,7 @@ import type {
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
 import { useExplorerDocumentInfoLoader } from "../../../stores/explorer/documentInfo";
 import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
@@ -74,6 +77,7 @@ export interface ExplorerPanelState {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   contextMenuState: ExplorerContextMenuModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
+  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   modalState: ExplorerDocumentModalState;
@@ -129,6 +133,7 @@ export function useExplorerPanelState(params: {
     appData,
     nodes: explorer.nodes,
   });
+  const loadBlobInfo = useExplorerBlobInfoLoader({ appData });
   const loadDocumentInfo = useExplorerDocumentInfoLoader({ appData });
   const routeState = useExplorerRoute({
     nodes: explorer.nodes,
@@ -211,6 +216,7 @@ export function useExplorerPanelState(params: {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
     contextMenuState,
     importDroppedFiles,
+    loadBlobInfo,
     loadContainerInfo,
     loadDocumentInfo,
     modalState,

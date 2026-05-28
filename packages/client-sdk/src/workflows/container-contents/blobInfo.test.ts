@@ -1,0 +1,217 @@
+import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { listBlobInfo } from "./blobInfo";
+
+async function saveBlobInfoTestDocument(input: {
+  execSql: Parameters<typeof sqlDocumentsPersistence.saveDocument>[0];
+  id: string;
+  title: string;
+  documentId: string | null;
+}) {
+  await sqlDocumentsPersistence.saveDocument(input.execSql, {
+    accessEpoch: 1,
+    accessStateHash: null,
+    containerId: "container-1",
+    documentId: input.documentId,
+    documentKind: "note",
+    id: input.id,
+    lastCommitLsn: null,
+    loroSnapshot: "",
+    text: input.title,
+    title: input.title,
+  });
+}
+
+test("listBlobInfo groups local attachments by blob id and links documents", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-blob-info-group-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveBlobInfoTestDocument({
+      documentId: "document-1",
+      execSql,
+      id: "local-document-1",
+      title: "First",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: "document-2",
+      execSql,
+      id: "local-document-2",
+      title: "Second",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-shared",
+      byteLength: 12,
+      localId: "local-document-1",
+      mimeType: "image/png",
+      slotId: "front",
+      storageKey: "storage-front",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-shared",
+      byteLength: 12,
+      localId: "local-document-2",
+      mimeType: "image/png",
+      slotId: "copy",
+      storageKey: "storage-copy",
+    });
+
+    const info = await listBlobInfo({
+      execSql,
+      query: "blob-shared",
+    });
+
+    expect(info.totalCount).toBe(1);
+    expect(info.rows[0]).toMatchObject({
+      blobId: "blob-shared",
+      byteLength: 12,
+      documentCount: 2,
+      mimeType: "image/png",
+      referenceCount: 2,
+    });
+    expect(
+      info.rows[0]?.references
+        .map((reference) => ({
+          documentTitle: reference.documentTitle,
+          localId: reference.localId,
+          slotId: reference.slotId,
+        }))
+        .sort((left, right) => left.localId.localeCompare(right.localId)),
+    ).toEqual([
+      {
+        documentTitle: "First",
+        localId: "local-document-1",
+        slotId: "front",
+      },
+      {
+        documentTitle: "Second",
+        localId: "local-document-2",
+        slotId: "copy",
+      },
+    ]);
+  } finally {
+    close();
+  }
+});
+
+test("listBlobInfo keeps every reference when search matches one reference", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-blob-info-filter-group-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveBlobInfoTestDocument({
+      documentId: "document-1",
+      execSql,
+      id: "local-document-1",
+      title: "Receipt",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: "document-2",
+      execSql,
+      id: "local-document-2",
+      title: "Invoice",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-shared",
+      byteLength: 12,
+      localId: "local-document-1",
+      mimeType: "image/png",
+      slotId: "front",
+      storageKey: "storage-front",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-shared",
+      byteLength: 12,
+      localId: "local-document-2",
+      mimeType: "image/png",
+      slotId: "copy",
+      storageKey: "storage-copy",
+    });
+
+    const info = await listBlobInfo({
+      execSql,
+      query: "invoice",
+    });
+
+    expect(info.totalCount).toBe(1);
+    expect(info.rows[0]).toMatchObject({
+      blobId: "blob-shared",
+      documentCount: 2,
+      referenceCount: 2,
+    });
+    expect(
+      info.rows[0]?.references.map((reference) => reference.documentTitle),
+    ).toContain("Receipt");
+    expect(
+      info.rows[0]?.references.map((reference) => reference.documentTitle),
+    ).toContain("Invoice");
+  } finally {
+    close();
+  }
+});
+
+test("listBlobInfo includes pending storage-key blobs", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-blob-info-pending-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveBlobInfoTestDocument({
+      documentId: null,
+      execSql,
+      id: "local-document-1",
+      title: "Draft",
+    });
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      byteLength: 34,
+      localId: "local-document-1",
+      mimeType: "text/plain",
+      name: "draft.txt",
+      slotId: "attachment",
+      storageKey: "pending-storage-key",
+    });
+
+    const info = await listBlobInfo({
+      execSql,
+      query: "draft.txt",
+    });
+
+    expect(info).toMatchObject({
+      totalCount: 1,
+      rows: [
+        {
+          blobId: null,
+          byteLength: 34,
+          documentCount: 1,
+          key: "storage:pending-storage-key",
+          mimeType: "text/plain",
+          name: "draft.txt",
+          referenceCount: 1,
+          storageKey: "pending-storage-key",
+        },
+      ],
+    });
+    expect(info.rows[0]?.references[0]).toMatchObject({
+      attachmentKind: "pending",
+      blobId: null,
+      documentTitle: "Draft",
+      localId: "local-document-1",
+      storageKey: "pending-storage-key",
+    });
+  } finally {
+    close();
+  }
+});
+
+test("listBlobInfo returns an empty window without SQLite", async () => {
+  await expect(listBlobInfo({ execSql: null })).resolves.toEqual({
+    rows: [],
+    totalCount: 0,
+  });
+});

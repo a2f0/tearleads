@@ -32,6 +32,7 @@ interface ExplorerModel {
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
+  loadBlobInfo: ExplorerPanelState["loadBlobInfo"];
   isRefreshing: boolean;
   loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
   loadDocumentInfo: ExplorerPanelState["loadDocumentInfo"];
@@ -90,6 +91,7 @@ export function useExplorerModel(
     activateLinkedContainer,
     contextMenuState,
     importDroppedFiles,
+    loadBlobInfo,
     loadContainerInfo,
     loadDocumentInfo,
     modalState,
@@ -134,6 +136,7 @@ export function useExplorerModel(
     explorer,
     handleRefresh,
     importDroppedFiles,
+    loadBlobInfo,
     isRefreshing,
     loadContainerInfo,
     loadDocumentInfo,

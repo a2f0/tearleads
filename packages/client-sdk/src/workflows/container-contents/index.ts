@@ -6,6 +6,14 @@ export {
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 export {
+  type BlobInfo,
+  type BlobInfoAttachmentKind,
+  type BlobInfoDocumentReference,
+  type BlobInfoInput,
+  type BlobInfoList,
+  listBlobInfo,
+} from "./blobInfo";
+export {
   type ContainerInfo,
   type ContainerInfoGrant,
   type ContainerInfoGrantRow,
