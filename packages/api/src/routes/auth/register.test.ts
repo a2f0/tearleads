@@ -20,6 +20,7 @@ import {
   containers,
   documentContentKeyEpochs,
   groups,
+  organizationRosterEntries,
   organizations,
   users,
 } from "../../schema";
@@ -400,4 +401,88 @@ test("POST /auth/register provisions root metadata", async () => {
     .where(eq(documentContentKeyEpochs.documentId, body.rootMetadataDocumentId))
     .limit(1);
   expect(contentKeyEpoch?.contentKeyEpoch).toBe(1);
+});
+
+test("POST /auth/register binds an optional roster profile document", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const body = await createRegistrationRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+    { includeRosterProfileDocument: true },
+  );
+  const rosterProfileDocumentId = body.initialRosterProfileDocument
+    ? Reflect.get(body.initialRosterProfileDocument.event, "objectId")
+    : undefined;
+  const rosterProfileContainer = body.initialRosterProfileContainer;
+  const rosterProfileContainerId = rosterProfileContainer
+    ? Reflect.get(rosterProfileContainer.container.event, "objectId")
+    : undefined;
+  invariant(
+    typeof rosterProfileDocumentId === "string",
+    "expected roster profile document id",
+  );
+  invariant(
+    typeof rosterProfileContainerId === "string",
+    "expected roster profile container id",
+  );
+  invariant(
+    rosterProfileContainer,
+    "expected roster profile container request",
+  );
+
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  expect(response.status).toBe(200);
+  const responseBody = await response.json();
+  expect(responseBody.rosterProfileContainerId).toBe(rosterProfileContainerId);
+  expect(responseBody.rosterProfileContainer.container.containerId).toBe(
+    rosterProfileContainerId,
+  );
+  expect(responseBody.rosterProfileContainer.container.systemSlot).toBe(
+    rosterProfileContainer.systemSlot,
+  );
+  expect(responseBody.rosterProfileContainer.metadataDocument.id).toBe(
+    rosterProfileContainerId,
+  );
+  expect(responseBody.rosterProfileDocumentId).toBe(rosterProfileDocumentId);
+  expect(responseBody.rosterProfileDocument.id).toBe(rosterProfileDocumentId);
+
+  const [rosterEntry] = await db
+    .select({ profileDocumentId: organizationRosterEntries.profileDocumentId })
+    .from(organizationRosterEntries)
+    .where(eq(organizationRosterEntries.userId, responseBody.userId))
+    .limit(1);
+
+  expect(rosterEntry?.profileDocumentId).toBe(rosterProfileDocumentId);
+});
+
+test("POST /auth/register rejects an initial roster profile document without its container", async () => {
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const body = await createRegistrationRequestBody(
+    signingPublicKey,
+    signingPrivateKey,
+    publicKey,
+    { includeRosterProfileDocument: true },
+  );
+  const requestBody = { ...body };
+  delete requestBody.initialRosterProfileContainer;
+
+  const response = await routeApp.request("/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(requestBody),
+  });
+
+  expect(response.status).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Initial roster profile document requires a profile container",
+  });
 });

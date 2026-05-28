@@ -381,6 +381,8 @@ export class ApiClient {
     initialOrganizationPolicy: Parameters<typeof postRegistration>[8],
     initialRootContainer: Parameters<typeof postRegistration>[9],
     initialRootMetadataDocument: Parameters<typeof postRegistration>[10],
+    initialRosterProfileContainer?: Parameters<typeof postRegistration>[11],
+    initialRosterProfileDocument?: Parameters<typeof postRegistration>[12],
   ) {
     return postRegistration(
       this.request,
@@ -394,6 +396,8 @@ export class ApiClient {
       initialOrganizationPolicy,
       initialRootContainer,
       initialRootMetadataDocument,
+      initialRosterProfileContainer,
+      initialRosterProfileDocument,
     );
   }
 

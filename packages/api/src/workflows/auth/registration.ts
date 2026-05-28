@@ -8,7 +8,12 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { RegistrationRequest } from "@tearleads/validators/request";
+import type {
+  DocumentCreateRequest,
+  RegistrationRequest,
+} from "@tearleads/validators/request";
+import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
+import { and, eq } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
@@ -28,10 +33,16 @@ import {
   containerMetadataDocuments,
   containers,
   groups,
+  organizationRosterEntries,
   organizations,
   users,
 } from "../../schema";
 import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
+import { createContainer } from "../containers/mutations/createContainer";
+import {
+  applyContainerSystemSlot,
+  readContainerMetadataDocumentId,
+} from "../containers/mutations/createContainerWithMetadataDocument";
 import { ContainerMutationError } from "../containers/mutations/errors";
 import { assertPrincipalPoliciesCurrent } from "../containers/mutations/shared/principalPolicies";
 import { principalPoliciesFromRequest } from "../containers/mutations/shared/principalPolicyRecords";
@@ -796,13 +807,17 @@ async function createInitialBuiltinGrants(
   });
 }
 
-function readInitialRootMetadataDocumentId(input: RegistrationRequest): string {
-  const event = input.initialRootMetadataDocument.event;
+function readDocumentCreateRequestId(request: DocumentCreateRequest): string {
+  const event = request.event;
   const documentId = Reflect.get(event, "objectId");
 
   return typeof documentId === "string" && documentId.length > 0
     ? documentId
     : "";
+}
+
+function readInitialRootMetadataDocumentId(input: RegistrationRequest): string {
+  return readDocumentCreateRequestId(input.initialRootMetadataDocument);
 }
 
 async function createInitialRootMetadataDocument(
@@ -838,6 +853,143 @@ async function createInitialRootMetadataDocument(
     containerId: input.rootContainerId,
     documentId: created.id,
   });
+
+  return created;
+}
+
+async function createInitialRosterProfileContainer(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  fingerprint: string,
+): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
+  if (!input.initialRosterProfileContainer) {
+    return null;
+  }
+  if (!input.initialRosterProfileDocument) {
+    throw new RegistrationError(
+      "Initial roster profile container requires a profile document",
+      400,
+    );
+  }
+
+  const container = await createContainer({
+    executor: tx,
+    fingerprint,
+    request: input.initialRosterProfileContainer.container,
+    userId: input.userId,
+  });
+  const metadataDocumentId = readContainerMetadataDocumentId(container);
+
+  const metadataDocument = await createDocumentWithExecutor({
+    executor: tx,
+    fingerprint,
+    request: input.initialRosterProfileContainer.metadataDocument,
+    userId: input.userId,
+  });
+  if (metadataDocument.id !== metadataDocumentId) {
+    throw new RegistrationError(
+      "Initial roster profile container metadata document mismatch",
+      400,
+    );
+  }
+
+  const systemSlot = input.initialRosterProfileContainer.systemSlot ?? null;
+  const nextContainer = systemSlot
+    ? await applyContainerSystemSlot(tx, {
+        container,
+        slot: systemSlot,
+      })
+    : container;
+
+  return { container: nextContainer, metadataDocument };
+}
+
+function readDocumentLinkedContainerIds(
+  document: Awaited<ReturnType<typeof createDocumentWithExecutor>>,
+): string[] {
+  const state = document.accessManifest?.state;
+  if (!state || typeof state !== "object") {
+    return [];
+  }
+
+  const linkedContainerIds = Reflect.get(state, "linkedContainerIds");
+  return Array.isArray(linkedContainerIds)
+    ? linkedContainerIds.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [];
+}
+
+async function createInitialRosterProfileDocument(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  fingerprint: string,
+  profileContainer:
+    | ContainerCreateWithMetadataDocumentResponse["container"]
+    | null,
+) {
+  if (!input.initialRosterProfileDocument) {
+    return null;
+  }
+  if (!profileContainer) {
+    throw new RegistrationError(
+      "Initial roster profile document requires a profile container",
+      400,
+    );
+  }
+
+  const requestDocumentId = readDocumentCreateRequestId(
+    input.initialRosterProfileDocument,
+  );
+  if (!requestDocumentId) {
+    throw new RegistrationError(
+      "Initial roster profile document id is unavailable",
+      400,
+    );
+  }
+
+  const created = await createDocumentWithExecutor({
+    executor: tx,
+    fingerprint,
+    request: input.initialRosterProfileDocument,
+    userId: input.userId,
+  });
+  if (created.id !== requestDocumentId) {
+    throw new RegistrationError(
+      "Initial roster profile response does not match request",
+      400,
+    );
+  }
+  const linkedContainerIds = readDocumentLinkedContainerIds(created);
+  if (
+    linkedContainerIds.length !== 1 ||
+    linkedContainerIds[0] !== profileContainer.containerId
+  ) {
+    throw new RegistrationError(
+      "Initial roster profile document does not match roster profile container",
+      400,
+    );
+  }
+
+  const [rosterEntry] = await tx
+    .update(organizationRosterEntries)
+    .set({
+      profileDocumentId: created.id,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(organizationRosterEntries.organizationId, input.organizationId),
+        eq(organizationRosterEntries.userId, input.userId),
+      ),
+    )
+    .returning({
+      profileDocumentId: organizationRosterEntries.profileDocumentId,
+    });
+
+  if (!rosterEntry) {
+    throw new RegistrationError("Initial roster entry not found", 500);
+  }
 
   return created;
 }
@@ -892,6 +1044,17 @@ async function runRegistrationTransaction(
       fingerprint,
       rootMetadata,
     );
+    const rosterProfileContainer = await createInitialRosterProfileContainer(
+      tx,
+      input,
+      fingerprint,
+    );
+    const rosterProfileDocument = await createInitialRosterProfileDocument(
+      tx,
+      input,
+      fingerprint,
+      rosterProfileContainer?.container ?? null,
+    );
 
     return {
       userId: user.id,
@@ -901,6 +1064,8 @@ async function runRegistrationTransaction(
       rootMetadataAccessStateHash: rootMetadata.metadataAccessStateHash,
       rootMetadataDocumentId: rootMetadata.metadataDocumentId,
       rootMetadataDocument,
+      rosterProfileContainer,
+      rosterProfileDocument,
     };
   });
 }

@@ -64,7 +64,10 @@ export function getRosterProfileDocumentLocalId(input: {
 }
 
 export function getRosterProfileDocumentPatch(
-  user: OrganizationDirectoryUser,
+  user: Pick<
+    OrganizationDirectoryUser,
+    "encapsulationPublicKey" | "isSelf" | "userId"
+  >,
 ): Record<string, string | undefined> {
   return {
     encapsulationPublicKey: user.encapsulationPublicKey,
@@ -74,11 +77,13 @@ export function getRosterProfileDocumentPatch(
 }
 
 export async function createRosterProfileDocument(input: {
+  containerId: string;
   documents: Documents;
   organizationId: string;
   user: OrganizationDirectoryUser;
 }): Promise<string | null> {
   const store = input.documents.store({
+    containerId: input.containerId,
     initialDocumentKind: "contact",
     localId: getRosterProfileDocumentLocalId({
       organizationId: input.organizationId,

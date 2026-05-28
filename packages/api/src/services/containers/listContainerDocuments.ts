@@ -11,6 +11,7 @@ import {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
   documents,
+  organizationRosterEntries,
 } from "../../schema";
 import {
   collectReferencedPrincipalsFromContainerAccess,
@@ -100,9 +101,14 @@ async function loadCurrentContainerDocumentRows(input: {
       containerMetadataDocuments,
       eq(containerMetadataDocuments.documentId, documents.id),
     )
+    .leftJoin(
+      organizationRosterEntries,
+      eq(organizationRosterEntries.profileDocumentId, documents.id),
+    )
     .where(sql`
       ${accessManifestHeads.objectKind} = ${"document"}
       and ${containerMetadataDocuments.documentId} is null
+      and ${organizationRosterEntries.profileDocumentId} is null
       ${watermarkPredicate(
         sql`${documents.updatedAt}`,
         sql`${accessManifestHeads.objectId}::text`,

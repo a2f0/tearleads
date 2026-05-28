@@ -37,6 +37,7 @@ export interface DocumentContextValue {
   fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
   requestSync: () => void;
+  relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   setStructuredFields: (

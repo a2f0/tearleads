@@ -37,6 +37,7 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
@@ -49,6 +50,7 @@ interface RegistrationBootstrapInput {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
+  rosterProfileDocumentId?: string | undefined;
   rootContainerId: string;
   signingPrivateKey: Uint8Array;
   signingPublicKey: Uint8Array;
@@ -56,6 +58,10 @@ interface RegistrationBootstrapInput {
 }
 
 interface RegistrationBootstrap {
+  initialRosterProfileContainer?:
+    | ContainerCreateWithMetadataDocumentRequest
+    | undefined;
+  initialRosterProfileDocument?: DocumentCreateRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: DocumentCreateRequest;
   rootMetadataDocumentId: string;
@@ -92,6 +98,24 @@ interface RootContainerCreateArtifacts {
   request: ContainerMutationRequest;
   state: ContainerAccessManifestState;
   userRecipientKeys: ContainerUserRecipientKey[];
+  wraps: ContainerKeyWrap[];
+}
+
+interface ChildContainerCreateArtifacts {
+  body: ContainerCreateAccessEventBody;
+  containerKey: Uint8Array;
+  containerKeyEpochId: string;
+  event: AccessEvent;
+  eventHash: string;
+  keyEpoch: ContainerKeyEpoch;
+  keyEpochHash: string;
+  keyTargetHash: string;
+  manifest: AccessManifest;
+  manifestHash: string;
+  metadataDocumentId: string;
+  recipientTargets: ContainerKekRecipientTarget[];
+  request: ContainerMutationRequest;
+  state: ContainerAccessManifestState;
   wraps: ContainerKeyWrap[];
 }
 
@@ -167,6 +191,30 @@ function toWireRecords(
 
 function createSignerDeviceId(signingFingerprint: string): string {
   return `signing-key:${signingFingerprint}`;
+}
+
+function toBase64Url(bytes: Uint8Array): string {
+  return bytesToBase64(bytes)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function deriveRosterProfileContainerSystemSlot(input: {
+  organizationId: string;
+}): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(
+      JSON.stringify({
+        namespace: "tearleads.organization-roster-profiles",
+        organizationId: input.organizationId,
+        version: 1,
+      }),
+    ),
+  );
+
+  return `sys_v1_${toBase64Url(new Uint8Array(digest))}`;
 }
 
 function groupProjectionMember(userId: string) {
@@ -674,6 +722,185 @@ async function createRootContainerArtifacts(input: {
   };
 }
 
+async function createChildContainerArtifacts(input: {
+  metadataDocumentId: string;
+  parent: RootContainerCreateArtifacts;
+  parentProjection: ContainerWriterProjectionResponse;
+  signerDeviceId: string;
+  signerKeyFingerprint: string;
+  signingPrivateKey: Uint8Array;
+  userId: string;
+}): Promise<ChildContainerCreateArtifacts> {
+  const parentKek = input.parentProjection.containerKeks.at(-1);
+  if (!parentKek) {
+    throw new Error("Missing parent container KEK for child fixture");
+  }
+
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const containerKeyEpochId = crypto.randomUUID();
+  const containerId = input.metadataDocumentId;
+  const body: ContainerCreateAccessEventBody = {
+    eventType: "container.create",
+    parentContainerId: input.parent.state.containerId,
+    parentManifestHash: input.parent.manifestHash,
+    metadataDocumentId: input.metadataDocumentId,
+    containerKeyEpochId,
+    directGrants: [],
+    referencedPrincipalHeads: [],
+  };
+  const { event, eventHash } = await signRegistrationEvent({
+    body,
+    dependencyManifestHashes: input.parentProjection.path.map(
+      (bundle) => bundle.manifestHash,
+    ),
+    eventType: "container.create",
+    objectKind: "container",
+    objectId: containerId,
+    organizationId: input.parent.state.organizationId,
+    previousManifestHash: null,
+    signerDeviceId: input.signerDeviceId,
+    signerKeyFingerprint: input.signerKeyFingerprint,
+    signerPrivateKey: input.signingPrivateKey,
+    signerUserId: input.userId,
+  });
+  const state: ContainerAccessManifestState = {
+    version: 1,
+    containerId,
+    organizationId: input.parent.state.organizationId,
+    epoch: 1,
+    previousManifestHash: null,
+    eventHash,
+    parentContainerId: input.parent.state.containerId,
+    parentManifestHash: input.parent.manifestHash,
+    metadataDocumentId: input.metadataDocumentId,
+    containerKeyEpochId,
+    directGrants: body.directGrants,
+    referencedPrincipalHeads: body.referencedPrincipalHeads,
+  };
+  const manifest = await deriveContainerAccessManifest(state);
+  const manifestHash = await computeAccessManifestHash(manifest);
+  const keyEpoch: ContainerKeyEpoch = {
+    id: containerKeyEpochId,
+    containerId,
+    keyEpoch: 1,
+    accessManifestHash: manifestHash,
+    parentContainerKeyEpochId: parentKek.containerKeyEpochId,
+    createdByEventHash: eventHash,
+    createdByManifestHash: manifestHash,
+  };
+  const recipientTargets: ContainerKekRecipientTarget[] = [
+    {
+      recipientKind: "container",
+      recipientId: parentKek.containerId,
+      recipientKeyEpochId: parentKek.containerKeyEpochId,
+      recipientKeyFingerprint: parentKek.keyEpochHash,
+    },
+  ];
+  const keyTargetHash =
+    await computeContainerKekRecipientTargetHash(recipientTargets);
+  const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
+  const wrappedContainerKey = await encryptWithDek(
+    containerKey,
+    input.parent.containerKey,
+  );
+  const wraps: ContainerKeyWrap[] = [
+    {
+      containerKeyEpochId,
+      recipientKind: "container",
+      recipientId: parentKek.containerId,
+      recipientKeyEpochId: parentKek.containerKeyEpochId,
+      recipientKeyFingerprint: parentKek.keyEpochHash,
+      kemCipherText: bytesToBase64(wrappedContainerKey.iv),
+      wrappedKey: bytesToBase64(wrappedContainerKey.ciphertext),
+      wrapManifestHash: manifestHash,
+    },
+  ];
+
+  return {
+    body,
+    containerKey,
+    containerKeyEpochId,
+    event,
+    eventHash,
+    keyEpoch,
+    keyEpochHash,
+    keyTargetHash,
+    manifest,
+    manifestHash,
+    metadataDocumentId: input.metadataDocumentId,
+    recipientTargets,
+    request: {
+      event: toWireRecord(event, "child container request event"),
+      body: toWireRecord(body, "child container request body"),
+      expectedManifestHash: manifestHash,
+      manifest: toWireRecord(manifest, "child container request manifest"),
+      previousManifest: null,
+      parentContainerPath: input.parentProjection.path,
+      principalPolicies: input.parent.principalPolicies,
+      keyEpoch: toWireRecord(keyEpoch, "child container request key epoch"),
+      wraps: toWireRecords(wraps, "child container request wraps"),
+      parentKekState: toWireRecord(parentKek, "child container parent KEK"),
+      userRecipientKeys: [],
+    },
+    state,
+    wraps,
+  };
+}
+
+function childContainerProjectionFromArtifacts(input: {
+  child: ChildContainerCreateArtifacts;
+  parentProjection: ContainerWriterProjectionResponse;
+}): ContainerWriterProjectionResponse {
+  const parentKek = input.parentProjection.containerKeks.at(-1);
+  if (!parentKek) {
+    throw new Error(
+      "Missing parent container KEK for child projection fixture",
+    );
+  }
+
+  return {
+    containerId: input.child.state.containerId,
+    organizationId: input.child.state.organizationId,
+    path: [
+      ...input.parentProjection.path,
+      {
+        event: {
+          event: toWireRecord(input.child.event, "child container event"),
+          body: toWireRecord(input.child.body, "child container event body"),
+          eventHash: input.child.eventHash,
+        },
+        manifest: toWireRecord(
+          input.child.manifest,
+          "child container manifest",
+        ),
+        manifestHash: input.child.manifestHash,
+        state: toWireRecord(input.child.state, "child container state"),
+      },
+    ],
+    containerKeks: [
+      ...input.parentProjection.containerKeks,
+      {
+        containerId: input.child.state.containerId,
+        accessManifestHash: input.child.manifestHash,
+        containerKeyEpochId: input.child.containerKeyEpochId,
+        containerKeyEpoch: input.child.keyEpoch.keyEpoch,
+        keyEpoch: toWireRecord(
+          input.child.keyEpoch,
+          "child container key epoch",
+        ),
+        keyEpochHash: input.child.keyEpochHash,
+        keyTargetHash: input.child.keyTargetHash,
+        parentContainerKeyEpochId: parentKek.containerKeyEpochId,
+        recipientTargets: toWireRecords(
+          input.child.recipientTargets,
+          "child container recipient targets",
+        ),
+        wraps: toWireRecords(input.child.wraps, "child container wraps"),
+      },
+    ],
+  };
+}
+
 async function createRootMetadataDocumentRequest(input: {
   containerKey: Uint8Array;
   containerProjection: ContainerWriterProjectionResponse;
@@ -786,8 +1013,63 @@ export async function createRegistrationBootstrap(
     signingPrivateKey: input.signingPrivateKey,
     userId: input.userId,
   });
+  const rootContainerProjection =
+    rootContainerProjectionFromArtifacts(rootContainer);
+  const rosterProfileContainer = input.rosterProfileDocumentId
+    ? await createChildContainerArtifacts({
+        metadataDocumentId: crypto.randomUUID(),
+        parent: rootContainer,
+        parentProjection: rootContainerProjection,
+        signerDeviceId,
+        signerKeyFingerprint,
+        signingPrivateKey: input.signingPrivateKey,
+        userId: input.userId,
+      })
+    : undefined;
+  const rosterProfileContainerProjection = rosterProfileContainer
+    ? childContainerProjectionFromArtifacts({
+        child: rosterProfileContainer,
+        parentProjection: rootContainerProjection,
+      })
+    : undefined;
+  const initialRosterProfileContainer =
+    rosterProfileContainer && rosterProfileContainerProjection
+      ? {
+          systemSlot: await deriveRosterProfileContainerSystemSlot({
+            organizationId: input.organizationId,
+          }),
+          container: rosterProfileContainer.request,
+          metadataDocument: await createRootMetadataDocumentRequest({
+            containerKey: rosterProfileContainer.containerKey,
+            containerProjection: rosterProfileContainerProjection,
+            organizationId: input.organizationId,
+            rootMetadataDocumentId: rosterProfileContainer.metadataDocumentId,
+            signerDeviceId,
+            signerKeyFingerprint,
+            signingPrivateKey: input.signingPrivateKey,
+            userId: input.userId,
+          }),
+        }
+      : undefined;
+  const initialRosterProfileDocument =
+    input.rosterProfileDocumentId &&
+    rosterProfileContainer &&
+    rosterProfileContainerProjection
+      ? await createRootMetadataDocumentRequest({
+          containerKey: rosterProfileContainer.containerKey,
+          containerProjection: rosterProfileContainerProjection,
+          organizationId: input.organizationId,
+          rootMetadataDocumentId: input.rosterProfileDocumentId,
+          signerDeviceId,
+          signerKeyFingerprint,
+          signingPrivateKey: input.signingPrivateKey,
+          userId: input.userId,
+        })
+      : undefined;
 
   return {
+    ...(initialRosterProfileContainer ? { initialRosterProfileContainer } : {}),
+    ...(initialRosterProfileDocument ? { initialRosterProfileDocument } : {}),
     initialRootContainer: rootContainer.request,
     initialRootMetadataDocument,
     rootMetadataDocumentId,

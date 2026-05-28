@@ -1,4 +1,5 @@
 import type {
+  ContainerNode,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
@@ -10,6 +11,10 @@ import type {
   OrganizationUserDetail,
   OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
+import {
+  deriveOrganizationRosterProfileContainerSystemSlot,
+  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+} from "@tearleads/client-sdk";
 import type {
   ContainerMutationResponse,
   PrincipalPolicyBundleResponse,
@@ -19,6 +24,7 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from "react";
 import {
@@ -38,6 +44,7 @@ interface OrgManagerContextValue {
   ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
   ) => Promise<OrganizationDirectoryUser | null>;
+  ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -67,8 +74,21 @@ const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The provider keeps the React context wiring for SDK organization actions in one place.
 export function OrgManagerProvider({ children }: PropsWithChildren) {
-  const { documents, organizations } = useTearleads();
+  const tearleads = useTearleads();
+  const { documents, organizations } = tearleads;
   const runtime = useTearleadsRuntime();
+  const containerContentsRuntime = useMemo(
+    () => tearleads.containerContents.runtime(),
+    [runtime, tearleads],
+  );
+  const containerContentsStore = useMemo(
+    () => tearleads.containerContents.store({ logLabel: "Org Manager" }),
+    [containerContentsRuntime.state.domainScope, tearleads],
+  );
+
+  useEffect(() => {
+    containerContentsStore.updateRuntime(containerContentsRuntime);
+  }, [containerContentsRuntime, containerContentsStore]);
 
   const createGroup = useCallback(
     (name: string) => organizations.createGroup(name),
@@ -166,20 +186,49 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [organizations],
   );
 
+  const ensureRosterProfileContainer = useCallback(async () => {
+    if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+      return null;
+    }
+
+    const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot(
+      {
+        organizationId: runtime.auth.organizationId,
+      },
+    );
+    const existingContainer = containerContentsStore
+      .getSnapshot()
+      .nodes.find((node) => node.systemSlot === systemSlot);
+
+    return (
+      existingContainer ??
+      containerContentsStore.ensureSystemContainer(
+        systemSlot,
+        ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+      )
+    );
+  }, [
+    containerContentsStore,
+    runtime.auth.isAuthenticated,
+    runtime.auth.organizationId,
+  ]);
+
   const ensureRosterProfileDocument = useCallback(
     async (user: OrganizationDirectoryUser) => {
       if (user.profileDocumentId) {
         return user;
       }
-      if (
-        !runtime.auth.organizationId ||
-        !runtime.auth.isAuthenticated ||
-        !runtime.state.containerId
-      ) {
+      if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+        return null;
+      }
+
+      const ensuredContainer = await ensureRosterProfileContainer();
+      if (!ensuredContainer?.id) {
         return null;
       }
 
       const profileDocumentId = await createRosterProfileDocument({
+        containerId: ensuredContainer.id,
         documents,
         organizationId: runtime.auth.organizationId,
         user,
@@ -192,10 +241,10 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     },
     [
       documents,
+      ensureRosterProfileContainer,
       organizations,
       runtime.auth.isAuthenticated,
       runtime.auth.organizationId,
-      runtime.state.containerId,
     ],
   );
 
@@ -203,6 +252,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     () => ({
       addUserToGroup,
       createGroup,
+      ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
       loadDataUsage,
@@ -218,6 +268,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [
       addUserToGroup,
       createGroup,
+      ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
       loadDataUsage,

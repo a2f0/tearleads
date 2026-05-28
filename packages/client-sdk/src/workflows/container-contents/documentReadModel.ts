@@ -298,6 +298,7 @@ function getContainerContentsContainerItemsBaseSql(): string {
       LEFT JOIN pending_container_create_intents create_intent
         ON create_intent.container_id = c.id
       WHERE c.parent_id = ?
+        AND c.system_slot IS NULL
 
       UNION ALL
 

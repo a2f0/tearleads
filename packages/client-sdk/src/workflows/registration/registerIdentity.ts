@@ -3,13 +3,17 @@ import {
   computePrincipalStateHash,
   type EncapsulationKeyPair,
   generateKemSeedAndKeyPair,
+  makeVerifiedPrincipalPolicy,
   type SigningKeyPair,
   signPrincipalState,
   toFingerprint,
+  type VerifiedPrincipalPolicy,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   RegistrationRequest,
@@ -18,8 +22,13 @@ import type {
   PrincipalPolicyBundleResponse,
   RegistrationResponse,
 } from "@tearleads/validators/response";
+import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import {
+  buildContainerCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
+} from "../containers/child/create";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
@@ -30,6 +39,10 @@ import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
 } from "../organizations/principalPolicy";
+import {
+  deriveOrganizationRosterProfileContainerSystemSlot,
+  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+} from "../organizations/rosterProfileContainer";
 import { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
 import { createInitialRootMetadataBootstrap } from "./rootMetadataBootstrap";
 
@@ -45,6 +58,10 @@ export interface RegistrationApi {
     initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
     initialRootContainer: RegistrationRequest["initialRootContainer"],
     initialRootMetadataDocument: DocumentCreateRequest,
+    initialRosterProfileContainer?:
+      | ContainerCreateWithMetadataDocumentRequest
+      | undefined,
+    initialRosterProfileDocument?: DocumentCreateRequest | undefined,
   ): Promise<RegistrationResponse | null>;
 }
 
@@ -60,6 +77,28 @@ interface RegistrationPrincipalPolicies {
 type InitialRootMetadataDocument = Awaited<
   ReturnType<typeof buildMaterializedDocumentCreatePlan>
 >;
+type InitialRootContainerCreatePlan = Awaited<
+  ReturnType<typeof buildRootContainerCreatePlan>
+>;
+type InitialRootContainerProjection = ReturnType<
+  typeof rootContainerWriterProjectionFromCreatePlan
+>;
+type InitialRosterProfileContainerCreatePlan = {
+  containerKey: Uint8Array;
+  plan: Awaited<ReturnType<typeof buildContainerCreatePlan>>;
+};
+
+interface InitialRosterProfileBootstrap {
+  containerId: string;
+  containerMetadataDocument: Awaited<
+    ReturnType<typeof buildMaterializedDocumentCreatePlan>
+  >;
+  containerMetadataInitialUpdate: Uint8Array;
+  containerPlan: InitialRosterProfileContainerCreatePlan;
+  containerRequest: ContainerCreateWithMetadataDocumentRequest;
+  profileDocumentRequest: DocumentCreateRequest;
+  systemSlot: ContainerSystemSlot;
+}
 
 export interface RegisterIdentityInput {
   apiClient: RegistrationApi;
@@ -178,6 +217,28 @@ export async function principalPolicyBundleFromInitialGroupRequest(
   };
 }
 
+async function verifiedPrincipalPolicyFromInitialGroupRequest(
+  input: CreateOrganizationGroupRequest,
+): Promise<VerifiedPrincipalPolicy> {
+  const bundle = await principalPolicyBundleFromInitialGroupRequest(input);
+
+  return makeVerifiedPrincipalPolicy({
+    principalType: "group",
+    principalId: input.groupId,
+    version: bundle.currentState.version,
+    keyEpoch: bundle.currentState.keyEpoch,
+    stateHash: bundle.currentState.stateHash,
+    state: bundle.currentState,
+    projection: bundle.currentProjection,
+    checkpoint: {
+      principalType: "group",
+      principalId: input.groupId,
+      version: bundle.currentState.version,
+      stateHash: bundle.currentState.stateHash,
+    },
+  });
+}
+
 async function persistLocalRegistrationState(input: {
   bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
   containerId: string;
@@ -189,6 +250,7 @@ async function persistLocalRegistrationState(input: {
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   response: RegistrationResponse;
   rootMetadataDocument: InitialRootMetadataDocument;
+  rosterProfileBootstrap: InitialRosterProfileBootstrap;
 }): Promise<void> {
   if (!input.dbClient) {
     return;
@@ -215,6 +277,35 @@ async function persistLocalRegistrationState(input: {
         input.rootMetadataDocument.plan,
         input.response.rootMetadataDocument,
       ),
+      ...(input.response.rosterProfileContainer
+        ? {
+            rosterProfileContainer: {
+              accessEpoch:
+                input.response.rosterProfileContainer.container.manifestHead
+                  .epoch,
+              accessStateHash:
+                input.response.rosterProfileContainer.container.manifestHead
+                  .manifestHash,
+              containerId: input.rosterProfileBootstrap.containerId,
+              createdAt:
+                input.response.rosterProfileContainer.container.createdAt,
+              metadataDocumentId:
+                input.response.rosterProfileContainer.metadataDocument.id,
+              metadataInitialUpdate:
+                input.rosterProfileBootstrap.containerMetadataInitialUpdate,
+              metadataSnapshot: bytesToBase64(
+                input.rosterProfileBootstrap.containerMetadataInitialUpdate,
+              ),
+              metadataState: persistedDocumentCreateStateFromResponse(
+                input.rosterProfileBootstrap.containerMetadataDocument.plan,
+                input.response.rosterProfileContainer.metadataDocument,
+              ),
+              systemSlot: input.rosterProfileBootstrap.systemSlot,
+              updatedAt:
+                input.response.rosterProfileContainer.container.updatedAt,
+            },
+          }
+        : {}),
       userId: input.response.userId,
     });
     input.log?.("Local identity and root container persisted");
@@ -273,6 +364,101 @@ async function createRegistrationPrincipalPolicies(input: {
   };
 }
 
+async function buildInitialRosterProfileBootstrap(input: {
+  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  initialAdminGroup: CreateOrganizationGroupRequest;
+  rootContainer: InitialRootContainerCreatePlan;
+  rootContainerProjection: InitialRootContainerProjection;
+  targetSecretKey: Uint8Array;
+}): Promise<InitialRosterProfileBootstrap> {
+  const containerId = crypto.randomUUID();
+  const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot({
+    organizationId: input.author.organizationId,
+  });
+  const { initialUpdate } = await createInitializedContainerMetadataDocument(
+    containerId,
+    {
+      icon: null,
+      name: ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+    },
+  );
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const containerPlan: InitialRosterProfileContainerCreatePlan = {
+    containerKey,
+    plan: await buildContainerCreatePlan({
+      author: input.author,
+      containerId,
+      containerKey,
+      metadataDocumentId: containerId,
+      parentKekMaterial: input.rootContainer.containerKey,
+      parentProjection: input.rootContainerProjection,
+      principalPolicies: [
+        await verifiedPrincipalPolicyFromInitialGroupRequest(
+          input.initialAdminGroup,
+        ),
+      ],
+    }),
+  };
+  const containerProjection = childContainerWriterProjectionFromCreatePlan({
+    materializedPlan: containerPlan,
+    parentProjection: input.rootContainerProjection,
+  });
+  const knownContainerKeks = new Map([
+    [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
+  ]);
+  const containerMetadataDocument = await buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection,
+    documentId: containerPlan.plan.metadataDocumentId,
+    knownContainerKeks,
+    targetSecretKey: input.targetSecretKey,
+    trustedLocalProjection: true,
+  });
+  const rosterProfileDocument = await buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection,
+    knownContainerKeks,
+    targetSecretKey: input.targetSecretKey,
+    trustedLocalProjection: true,
+  });
+
+  return {
+    containerId,
+    containerMetadataDocument,
+    containerMetadataInitialUpdate: initialUpdate,
+    containerPlan,
+    containerRequest: {
+      systemSlot,
+      container: containerPlan.plan.request,
+      metadataDocument: containerMetadataDocument.plan.request,
+    },
+    profileDocumentRequest: rosterProfileDocument.plan.request,
+    systemSlot,
+  };
+}
+
+function buildInitialRootMetadataDocument(input: {
+  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
+  rootContainer: InitialRootContainerCreatePlan;
+  rootContainerProjection: InitialRootContainerProjection;
+  targetSecretKey: Uint8Array;
+}): Promise<InitialRootMetadataDocument> {
+  return buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection: input.rootContainerProjection,
+    documentId: input.bootstrap.metadataDocumentId,
+    knownContainerKeks: new Map([
+      [
+        input.rootContainer.plan.containerKeyEpochId,
+        input.rootContainer.containerKey,
+      ],
+    ]),
+    targetSecretKey: input.targetSecretKey,
+    trustedLocalProjection: true,
+  });
+}
+
 export async function registerIdentity(
   input: RegisterIdentityInput,
 ): Promise<RegistrationResponse | null> {
@@ -313,17 +499,22 @@ export async function registerIdentity(
     metadataDocumentId: bootstrap.metadataDocumentId,
     recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
   });
-  const rootMetadataDocument = await buildMaterializedDocumentCreatePlan({
+  const rootContainerProjection = rootContainerWriterProjectionFromCreatePlan(
+    rootContainer.plan,
+  );
+  const rootMetadataDocument = await buildInitialRootMetadataDocument({
     author,
-    containerProjection: rootContainerWriterProjectionFromCreatePlan(
-      rootContainer.plan,
-    ),
-    documentId: bootstrap.metadataDocumentId,
-    knownContainerKeks: new Map([
-      [rootContainer.plan.containerKeyEpochId, rootContainer.containerKey],
-    ]),
+    bootstrap,
+    rootContainer,
+    rootContainerProjection,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
-    trustedLocalProjection: true,
+  });
+  const rosterProfileBootstrap = await buildInitialRosterProfileBootstrap({
+    author,
+    initialAdminGroup,
+    rootContainer,
+    rootContainerProjection,
+    targetSecretKey: input.encapsulationKeyPair.secretKey,
   });
 
   const response = await input.apiClient.registerUser(
@@ -337,6 +528,8 @@ export async function registerIdentity(
     initialOrganizationPolicy,
     rootContainer.plan.request,
     rootMetadataDocument.plan.request,
+    rosterProfileBootstrap.containerRequest,
+    rosterProfileBootstrap.profileDocumentRequest,
   );
   if (!response) {
     return null;
@@ -354,6 +547,7 @@ export async function registerIdentity(
     logError: input.logError,
     response,
     rootMetadataDocument,
+    rosterProfileBootstrap,
   });
 
   return response;

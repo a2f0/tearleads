@@ -1,4 +1,5 @@
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   DocumentCreateRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
@@ -17,6 +18,10 @@ export function postRegistration(
   initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
   initialRootContainer: RegistrationRequest["initialRootContainer"],
   initialRootMetadataDocument: DocumentCreateRequest,
+  initialRosterProfileContainer?:
+    | ContainerCreateWithMetadataDocumentRequest
+    | undefined,
+  initialRosterProfileDocument?: DocumentCreateRequest | undefined,
 ) {
   return request(
     "/auth/register",
@@ -33,6 +38,8 @@ export function postRegistration(
       initialOrganizationPolicy,
       initialRootContainer,
       initialRootMetadataDocument,
+      initialRosterProfileContainer,
+      initialRosterProfileDocument,
     }),
   );
 }

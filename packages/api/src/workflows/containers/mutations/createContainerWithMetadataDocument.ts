@@ -15,7 +15,7 @@ export interface CreateContainerWithMetadataDocumentInput {
   readonly userId: string;
 }
 
-function readContainerMetadataDocumentId(
+export function readContainerMetadataDocumentId(
   response: ContainerCreateWithMetadataDocumentResponse["container"],
 ): string {
   const metadataDocumentId = Reflect.get(
@@ -35,7 +35,7 @@ function readContainerMetadataDocumentId(
   return metadataDocumentId;
 }
 
-async function applyContainerSystemSlot(
+export async function applyContainerSystemSlot(
   db: DatabaseTransaction,
   input: {
     readonly container: ContainerCreateWithMetadataDocumentResponse["container"];

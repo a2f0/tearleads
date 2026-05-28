@@ -7,11 +7,13 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
+import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
@@ -32,6 +34,8 @@ interface CapturedRegistrationRequest {
   initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"];
   initialRootContainer: RegistrationRequest["initialRootContainer"];
   initialRootMetadataDocument: DocumentCreateRequest;
+  initialRosterProfileContainer: ContainerCreateWithMetadataDocumentRequest;
+  initialRosterProfileDocument: DocumentCreateRequest;
 }
 
 function createClient(execSql: ExecSql): ExecSqlClientLike {
@@ -117,7 +121,17 @@ test("registerIdentity submits the registration request and persists the local b
       initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
       initialRootContainer: RegistrationRequest["initialRootContainer"],
       initialRootMetadataDocument: DocumentCreateRequest,
+      initialRosterProfileContainer?:
+        | ContainerCreateWithMetadataDocumentRequest
+        | undefined,
+      initialRosterProfileDocument?: DocumentCreateRequest | undefined,
     ): Promise<RegistrationResponse> => {
+      if (!initialRosterProfileContainer) {
+        throw new Error("Expected initial roster profile container request");
+      }
+      if (!initialRosterProfileDocument) {
+        throw new Error("Expected initial roster profile document request");
+      }
       captured = {
         userId,
         organizationId,
@@ -129,9 +143,23 @@ test("registerIdentity submits the registration request and persists the local b
         initialOrganizationPolicy,
         initialRootContainer,
         initialRootMetadataDocument,
+        initialRosterProfileContainer,
+        initialRosterProfileDocument,
       };
       const rootMetadataDocument = await createResponseFromRequest(
         initialRootMetadataDocument,
+      );
+      const rosterProfileMetadataDocument = await createResponseFromRequest(
+        initialRosterProfileContainer.metadataDocument,
+      );
+      const rosterProfileContainerResponse =
+        await createMutationResponseFromRequest(
+          initialRosterProfileContainer.container,
+        );
+      rosterProfileContainerResponse.systemSlot =
+        initialRosterProfileContainer.systemSlot ?? null;
+      const rosterProfileDocument = await createResponseFromRequest(
+        initialRosterProfileDocument,
       );
 
       return {
@@ -143,6 +171,13 @@ test("registerIdentity submits the registration request and persists the local b
         rootMetadataAccessStateHash:
           rootMetadataDocument.accessManifest.manifestHash,
         rootMetadataDocument,
+        rosterProfileContainer: {
+          container: rosterProfileContainerResponse,
+          metadataDocument: rosterProfileMetadataDocument,
+        },
+        rosterProfileContainerId: rosterProfileContainerResponse.containerId,
+        rosterProfileDocument,
+        rosterProfileDocumentId: rosterProfileDocument.id,
         challenge: "a".repeat(64),
       };
     },
@@ -181,6 +216,25 @@ test("registerIdentity submits the registration request and persists the local b
         role: "admin",
       },
     ]);
+    expect(
+      Reflect.get(request.initialRosterProfileDocument.event, "objectId"),
+    ).not.toBe(
+      Reflect.get(request.initialRootMetadataDocument.event, "objectId"),
+    );
+    expect(request.initialRosterProfileContainer.systemSlot).toMatch(
+      /^sys_v1_[A-Za-z0-9_-]{43}$/,
+    );
+    expect(
+      Reflect.get(
+        request.initialRosterProfileDocument.body as Record<string, unknown>,
+        "containerId",
+      ),
+    ).toBe(
+      Reflect.get(
+        request.initialRosterProfileContainer.container.event,
+        "objectId",
+      ),
+    );
 
     const adminPolicy = await loadPrincipalPolicyBundle(
       execSql,
@@ -211,8 +265,14 @@ test("registerIdentity submits the registration request and persists the local b
 
     const containers =
       await sqlContainerContentsPersistence.loadContainers(execSql);
-    expect(containers).toHaveLength(1);
-    expect(containers[0]?.container).toEqual(
+    expect(containers).toHaveLength(2);
+    const rootContainerState = containers.find(
+      ({ container }) => container.id === containerId,
+    );
+    const rosterProfileContainerState = containers.find(
+      ({ container }) => container.id !== containerId,
+    );
+    expect(rootContainerState?.container).toEqual(
       expect.objectContaining({
         id: containerId,
         organizationId: request.organizationId,
@@ -221,11 +281,21 @@ test("registerIdentity submits the registration request and persists the local b
         name: "/",
       }),
     );
-    expect(containers[0]?.record).toEqual(
+    expect(rootContainerState?.record).toEqual(
       expect.objectContaining({
         documentId: response?.rootMetadataDocumentId,
         accessEpoch: response?.rootMetadataAccessEpoch,
         accessStateHash: response?.rootMetadataAccessStateHash,
+      }),
+    );
+    expect(rosterProfileContainerState?.container).toEqual(
+      expect.objectContaining({
+        metadataDocumentId:
+          response?.rosterProfileContainer?.metadataDocument.id,
+        name: "Roster Profiles",
+        organizationId: request.organizationId,
+        parentId: containerId,
+        systemSlot: request.initialRosterProfileContainer.systemSlot,
       }),
     );
 
@@ -259,6 +329,10 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
       _initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"],
       _initialRootContainer: RegistrationRequest["initialRootContainer"],
       initialRootMetadataDocument: DocumentCreateRequest,
+      _initialRosterProfileContainer?:
+        | ContainerCreateWithMetadataDocumentRequest
+        | undefined,
+      _initialRosterProfileDocument?: DocumentCreateRequest | undefined,
     ): Promise<RegistrationResponse> => {
       registrationSubmitted = true;
       const rootMetadataDocument = await createResponseFromRequest(

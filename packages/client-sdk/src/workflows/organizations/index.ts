@@ -38,3 +38,7 @@ export {
   type OrganizationUserDetail,
   updateOrganizationRosterEntry,
 } from "./readModel";
+export {
+  deriveOrganizationRosterProfileContainerSystemSlot,
+  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+} from "./rosterProfileContainer";

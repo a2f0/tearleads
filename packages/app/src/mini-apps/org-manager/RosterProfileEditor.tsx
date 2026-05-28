@@ -1,4 +1,7 @@
-import type { OrganizationDirectoryUser } from "@tearleads/client-sdk";
+import type {
+  DocumentStoreRelinkInput,
+  OrganizationDirectoryUser,
+} from "@tearleads/client-sdk";
 import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
@@ -10,7 +13,11 @@ import {
   DocumentsProvider,
   useDocument,
 } from "../../stores/documents/DocumentsProvider";
-import { getRosterProfileDocumentLocalId } from "../../stores/org-manager/profileDocuments";
+import { useOrgManagerActions } from "../../stores/org-manager/OrgManagerProvider";
+import {
+  getRosterProfileDocumentLocalId,
+  getRosterProfileDocumentPatch,
+} from "../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "./labels";
 
 function useSyncedFieldValue(value: string | null | undefined) {
@@ -62,14 +69,186 @@ function RosterProfileTextField({
   );
 }
 
-function RosterProfileDocumentFields({ canEdit }: { canEdit: boolean }) {
-  const { ready, setStructuredFields, structuredFields, syncing } =
-    useDocument();
+export function getMissingProfileIdentityPatch(
+  user: OrganizationDirectoryUser,
+  structuredFields: Readonly<Record<string, string>>,
+): Record<string, string | undefined> | null {
+  return getMissingProfileIdentityPatchFromExpectedPatch(
+    getRosterProfileDocumentPatch(user),
+    structuredFields,
+  );
+}
+
+function getMissingProfileIdentityPatchFromExpectedPatch(
+  expectedPatch: Record<string, string | undefined>,
+  structuredFields: Readonly<Record<string, string>>,
+): Record<string, string | undefined> | null {
+  const missingPatch = Object.fromEntries(
+    Object.entries(expectedPatch).filter(
+      ([key]) => structuredFields[key] === undefined,
+    ),
+  );
+
+  return Object.keys(missingPatch).length > 0 ? missingPatch : null;
+}
+
+export function getRosterProfileDocumentRelinkInput(input: {
+  localId: string;
+  profileContainerId: string;
+  profileDocumentId: string;
+}): DocumentStoreRelinkInput {
+  return {
+    accessEpoch: 1,
+    containerId: input.profileContainerId,
+    documentId: input.profileDocumentId,
+    localId: input.localId,
+  };
+}
+
+function useRosterProfileDocumentLinkState({
+  documentId,
+  localId,
+  profileContainerId,
+  ready,
+  relink,
+  userProfileDocumentId,
+}: {
+  documentId: string | null;
+  localId: string;
+  profileContainerId: string;
+  ready: boolean;
+  relink: ReturnType<typeof useDocument>["relink"];
+  userProfileDocumentId: string | null;
+}): boolean {
+  const [profileLinkReady, setProfileLinkReady] = useState(false);
+
+  useEffect(() => {
+    setProfileLinkReady(false);
+    if (!ready || !documentId || documentId !== userProfileDocumentId) {
+      return;
+    }
+
+    let cancelled = false;
+    void relink(
+      getRosterProfileDocumentRelinkInput({
+        localId,
+        profileContainerId,
+        profileDocumentId: documentId,
+      }),
+    )
+      .then((result) => {
+        if (!cancelled && result !== null) {
+          setProfileLinkReady(true);
+        }
+      })
+      .catch(() => null);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    documentId,
+    localId,
+    profileContainerId,
+    ready,
+    relink,
+    userProfileDocumentId,
+  ]);
+
+  return profileLinkReady;
+}
+
+function useRosterProfileIdentitySeed({
+  canEdit,
+  profileLinkReady,
+  ready,
+  setStructuredFields,
+  structuredFields,
+  user,
+}: {
+  canEdit: boolean;
+  profileLinkReady: boolean;
+  ready: boolean;
+  setStructuredFields: ReturnType<typeof useDocument>["setStructuredFields"];
+  structuredFields: Readonly<Record<string, string>>;
+  user: OrganizationDirectoryUser;
+}): void {
+  const { encapsulationPublicKey, isSelf, userId } = user;
+  const expectedPatch = useMemo(
+    () =>
+      getRosterProfileDocumentPatch({
+        encapsulationPublicKey,
+        isSelf,
+        userId,
+      }),
+    [encapsulationPublicKey, isSelf, userId],
+  );
+
+  useEffect(() => {
+    if (!canEdit || !ready || !profileLinkReady) {
+      return;
+    }
+
+    const identityPatch = getMissingProfileIdentityPatchFromExpectedPatch(
+      expectedPatch,
+      structuredFields,
+    );
+    if (!identityPatch) {
+      return;
+    }
+
+    void setStructuredFields("contact", identityPatch);
+  }, [
+    canEdit,
+    profileLinkReady,
+    ready,
+    setStructuredFields,
+    structuredFields,
+    expectedPatch,
+  ]);
+}
+
+function RosterProfileDocumentFields({
+  canEdit,
+  localId,
+  profileContainerId,
+  user,
+}: {
+  canEdit: boolean;
+  localId: string;
+  profileContainerId: string;
+  user: OrganizationDirectoryUser;
+}) {
+  const {
+    documentId,
+    ready,
+    relink,
+    setStructuredFields,
+    structuredFields,
+    syncing,
+  } = useDocument();
   const fields = useMemo(
     () => readContactFields(structuredFields),
     [structuredFields],
   );
-  const disabled = !canEdit || !ready;
+  const profileLinkReady = useRosterProfileDocumentLinkState({
+    documentId,
+    localId,
+    profileContainerId,
+    ready,
+    relink,
+    userProfileDocumentId: user.profileDocumentId,
+  });
+  const disabled = !canEdit || !ready || !profileLinkReady;
+
+  useRosterProfileIdentitySeed({
+    canEdit,
+    profileLinkReady,
+    ready,
+    setStructuredFields,
+    structuredFields,
+    user,
+  });
 
   return (
     <div className="org-manager-roster-profile">
@@ -99,7 +278,7 @@ function RosterProfileDocumentFields({ canEdit }: { canEdit: boolean }) {
           }}
         />
       </div>
-      {!ready && (
+      {(!ready || !profileLinkReady) && (
         <MiniAppStatus>
           {ORG_MANAGER_LABELS.loadingProfileDocument}
         </MiniAppStatus>
@@ -122,6 +301,50 @@ export function RosterProfileEditor({
   organizationId: string;
   user: OrganizationDirectoryUser;
 }) {
+  const { ensureRosterProfileContainer } = useOrgManagerActions();
+  const [profileContainerId, setProfileContainerId] = useState<string | null>(
+    null,
+  );
+  const [profileContainerUnavailable, setProfileContainerUnavailable] =
+    useState(false);
+  const localId = getRosterProfileDocumentLocalId({
+    organizationId,
+    userId: user.userId,
+  });
+
+  useEffect(() => {
+    if (!user.profileDocumentId) {
+      setProfileContainerId(null);
+      setProfileContainerUnavailable(false);
+      return;
+    }
+
+    let cancelled = false;
+    setProfileContainerId(null);
+    setProfileContainerUnavailable(false);
+    void ensureRosterProfileContainer()
+      .then((container) => {
+        if (cancelled) {
+          return;
+        }
+        if (container?.id) {
+          setProfileContainerId(container.id);
+          return;
+        }
+
+        setProfileContainerUnavailable(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProfileContainerUnavailable(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ensureRosterProfileContainer, user.profileDocumentId]);
+
   if (!user.profileDocumentId) {
     return (
       <MiniAppStatus>
@@ -132,16 +355,29 @@ export function RosterProfileEditor({
     );
   }
 
+  if (!profileContainerId) {
+    return (
+      <MiniAppStatus>
+        {profileContainerUnavailable
+          ? ORG_MANAGER_LABELS.profileDocumentUnavailable
+          : ORG_MANAGER_LABELS.loadingProfileDocument}
+      </MiniAppStatus>
+    );
+  }
+
   return (
     <DocumentsProvider
+      containerId={profileContainerId}
       documentId={user.profileDocumentId}
       initialDocumentKind="contact"
-      localId={getRosterProfileDocumentLocalId({
-        organizationId,
-        userId: user.userId,
-      })}
+      localId={localId}
     >
-      <RosterProfileDocumentFields canEdit={canEdit} />
+      <RosterProfileDocumentFields
+        canEdit={canEdit}
+        localId={localId}
+        profileContainerId={profileContainerId}
+        user={user}
+      />
     </DocumentsProvider>
   );
 }

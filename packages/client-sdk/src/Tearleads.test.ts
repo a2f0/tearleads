@@ -729,6 +729,8 @@ describe("Tearleads", () => {
       _initialOrganizationPolicy,
       _initialRootContainer,
       initialRootMetadataDocument,
+      _initialRosterProfileContainer,
+      _initialRosterProfileDocument,
     ) => {
       registerUserCalls += 1;
       const rootMetadataDocument = await createResponseFromRequest(
