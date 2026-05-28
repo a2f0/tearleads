@@ -55,7 +55,7 @@ export interface BlobInfoInput {
 }
 
 const DEFAULT_BLOB_INFO_LIMIT = 200;
-const MAX_BLOB_INFO_LIMIT = 1000;
+const MAX_BLOB_INFO_LIMIT = 999;
 const DEFAULT_BLOB_INFO_SORT: BlobInfoSort = {
   direction: "desc",
   key: "updated",
