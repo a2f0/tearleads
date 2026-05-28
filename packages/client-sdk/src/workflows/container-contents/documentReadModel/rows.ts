@@ -11,12 +11,15 @@ export function compareContainerContentsDocumentSummaries(
   left: DocumentSummary,
   right: DocumentSummary,
 ): number {
-  const updatedAtComparison = right.updatedAt.localeCompare(left.updatedAt);
-  if (updatedAtComparison !== 0) {
-    return updatedAtComparison;
+  if (right.updatedAt !== left.updatedAt) {
+    return right.updatedAt > left.updatedAt ? 1 : -1;
   }
 
-  return right.id.localeCompare(left.id);
+  if (right.id !== left.id) {
+    return right.id > left.id ? 1 : -1;
+  }
+
+  return 0;
 }
 
 function parseContainerContentsContainerItemDocumentKind(
@@ -67,8 +70,7 @@ function hasPendingLocalTimestamp(
 
   return (
     localUpdatedAt !== null &&
-    (serverUpdatedAt === null ||
-      localUpdatedAt.localeCompare(serverUpdatedAt) > 0)
+    (serverUpdatedAt === null || localUpdatedAt > serverUpdatedAt)
   );
 }
 
