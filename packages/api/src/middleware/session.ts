@@ -18,6 +18,7 @@ const SESSION_TTL_SECONDS = 86400;
 const SESSION_ID_PREFIX = "session-id:";
 const SESSION_PREFIX = "session:";
 const USER_SESSIONS_PREFIX = "user-sessions:";
+const SESSION_ACTIVITY_UPDATE_INTERVAL_MS = 60000;
 const MAX_SESSION_IP_ADDRESSES = 64;
 
 type SessionStoreAddSetMember = (key: string, member: string) => Promise<void>;
@@ -163,6 +164,19 @@ function withSessionActivity(
   };
 }
 
+function shouldUpdateSessionActivity(
+  session: SessionData,
+  ipAddress: string | null,
+  now: number,
+): boolean {
+  return (
+    now - session.lastActiveAt >= SESSION_ACTIVITY_UPDATE_INTERVAL_MS ||
+    (ipAddress !== null &&
+      (session.lastActiveIp !== ipAddress ||
+        !session.ipAddresses.includes(ipAddress)))
+  );
+}
+
 function parseSessionData(raw: string): SessionData | null {
   let parsed: unknown;
   try {
@@ -240,13 +254,24 @@ export function createRequireAuth(
         return c.json({ error: "Invalid session data" }, 401);
       }
 
-      const session = withSessionActivity(
+      const ipAddress = readRequestIpAddress(c);
+      const now = Date.now();
+      const shouldUpdateActivity = shouldUpdateSessionActivity(
         parsed,
-        readRequestIpAddress(c),
-        Date.now(),
+        ipAddress,
+        now,
       );
+      const session = shouldUpdateActivity
+        ? withSessionActivity(parsed, ipAddress, now)
+        : parsed;
 
-      await setSessionKeepTtl(sessionKey(token), JSON.stringify(session));
+      if (shouldUpdateActivity) {
+        try {
+          await setSessionKeepTtl(sessionKey(token), JSON.stringify(session));
+        } catch (error) {
+          console.error("Failed to update session activity metadata:", error);
+        }
+      }
 
       c.set("session", session);
       c.set("sessionToken", token);
