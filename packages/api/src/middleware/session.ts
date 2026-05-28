@@ -11,6 +11,7 @@ import {
   srem,
   sscanMembers,
 } from "../adapters/redis";
+import type { RouteRequestBindings } from "../requestContext";
 import type { SessionCreateInput, SessionData } from "../validators/session";
 import { isSessionData } from "../validators/session";
 
@@ -137,12 +138,18 @@ function forwardedHeaderIpAddress(
   return null;
 }
 
+function directClientIpAddress(c: Context): string | null {
+  const bindings = c.env as RouteRequestBindings | undefined;
+  return normalizeRequestIpAddress(bindings?.directClientIp);
+}
+
 export function readRequestIpAddress(c: Context): string | null {
   return (
     normalizeRequestIpAddress(c.req.header("cf-connecting-ip")) ??
     normalizeRequestIpAddress(c.req.header("x-real-ip")) ??
     firstHeaderIpAddress(c.req.header("x-forwarded-for")) ??
-    forwardedHeaderIpAddress(c.req.header("forwarded"))
+    forwardedHeaderIpAddress(c.req.header("forwarded")) ??
+    directClientIpAddress(c)
   );
 }
 
