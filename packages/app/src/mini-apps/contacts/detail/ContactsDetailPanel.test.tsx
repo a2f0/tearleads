@@ -88,6 +88,8 @@ test("contacts selected detail fields update when contact entries change", () =>
     selectedContactId: contactEntry.id,
   });
 
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+
   expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(
     "Countess",
   );
@@ -104,6 +106,23 @@ test("contacts selected detail fields update when contact entries change", () =>
   expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(
     "Ada",
   );
+});
+
+test("contacts selected detail opens read-only before entering edit mode", () => {
+  const view = renderContactsDetailPanel({
+    entries: [contactEntry],
+    selectedContactId: contactEntry.id,
+  });
+
+  expect(view.getByText("Countess")).toBeTruthy();
+  expect(view.queryByLabelText("Nickname")).toBeNull();
+
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+
+  expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(
+    "Countess",
+  );
+  expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
 });
 
 test("contacts new-contact back action does not submit the draft form", () => {

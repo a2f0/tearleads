@@ -21,6 +21,8 @@ export const ORG_MANAGER_LABELS = {
   disabled: "Disabled",
   disabledAt: "Disabled at",
   disabledBy: "Disabled by",
+  done: "Done",
+  edit: "Edit",
   failedLoadDirectoryGroups: "Failed to load organization roster or groups.",
   failedLoadDataUsage: "Failed to load organization data usage.",
   failedLoadGrants: "Failed to load organization grants.",

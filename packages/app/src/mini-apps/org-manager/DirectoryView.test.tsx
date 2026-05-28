@@ -68,6 +68,11 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
   expect(view.getByText(ORG_MANAGER_LABELS.disabled)).toBeTruthy();
   expect(view.getByText(ORG_MANAGER_LABELS.disabledAt)).toBeTruthy();
   expect(view.getByText(ORG_MANAGER_LABELS.disabledBy)).toBeTruthy();
+  expect(
+    view.container.querySelector(
+      ".org-manager-roster-row.mini-app-row--framed",
+    ),
+  ).toBeNull();
 
   fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
   expect(selections).toEqual([null]);
@@ -84,9 +89,9 @@ test("org manager roster view can render an editable encrypted profile editor", 
       loadingUserDetail={false}
       mutating={false}
       openGroupRoute={() => undefined}
-      renderRosterProfileEditor={({ canEdit, user }) => (
+      renderRosterProfileEditor={({ isEditing, user }) => (
         <span>
-          {user.profileDocumentId}:{canEdit ? "editable" : "readonly"}
+          {user.profileDocumentId}:{isEditing ? "editable" : "readonly"}
         </span>
       )}
       revokeGrant={() => undefined}
@@ -95,7 +100,14 @@ test("org manager roster view can render an editable encrypted profile editor", 
     />,
   );
 
-  expect(view.getByText(ORG_MANAGER_LABELS.profileDocument)).toBeTruthy();
+  expect(view.queryByText(ORG_MANAGER_LABELS.profileDocument)).toBeNull();
+  expect(view.queryByText(ORG_MANAGER_LABELS.directory)).toBeNull();
+  expect(
+    view.getByText(`${rosterUser.profileDocumentId}:readonly`),
+  ).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.edit }));
+
   expect(
     view.getByText(`${rosterUser.profileDocumentId}:editable`),
   ).toBeTruthy();

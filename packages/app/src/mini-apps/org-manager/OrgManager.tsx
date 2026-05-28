@@ -24,13 +24,16 @@ import "./OrgManager.css";
 function renderRosterProfileEditor(organizationId: string) {
   return ({
     canEdit,
+    isEditing,
     user,
   }: {
     canEdit: boolean;
+    isEditing: boolean;
     user: OrganizationUserDetail["user"];
   }) => (
     <RosterProfileEditor
       canEdit={canEdit}
+      isEditing={isEditing}
       organizationId={organizationId}
       user={user}
     />

@@ -64,10 +64,14 @@
   margin-bottom: var(--mini-app-space-sm);
 }
 
-.org-manager-detail-header > span,
+.org-manager-detail-status,
 .org-manager-member-row .mini-app-row-text {
   font-size: var(--font-size-sm);
   opacity: var(--mini-app-muted-opacity);
+}
+
+.org-manager-detail-actions {
+  align-items: center;
 }
 
 .org-manager-usage-row {
@@ -96,10 +100,19 @@
   gap: var(--mini-app-space-sm);
 }
 
+.org-manager-roster-detail {
+  gap: var(--mini-app-list-gap);
+}
+
 .org-manager-roster-profile-fields {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mini-app-space-sm);
+}
+
+.org-manager-roster-profile-read-fields {
+  display: grid;
+  gap: var(--mini-app-list-gap);
 }
 
 .org-manager-member-row .mini-app-row-stack,

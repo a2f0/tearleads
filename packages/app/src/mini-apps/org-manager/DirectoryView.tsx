@@ -4,8 +4,9 @@ import type {
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import type { KeyboardEvent, ReactNode } from "react";
+import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
 import {
+  MiniAppActions,
   MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -53,6 +54,7 @@ const DIRECTORY_TABLE_COLUMNS = [
 
 type RenderRosterProfileEditor = (input: {
   canEdit: boolean;
+  isEditing: boolean;
   user: OrganizationUserDetail["user"];
 }) => ReactNode;
 
@@ -196,11 +198,7 @@ function RosterMetadataRow({
   value: string;
 }) {
   return (
-    <MiniAppRow
-      className="org-manager-roster-row"
-      density="roomy"
-      variant="framed"
-    >
+    <MiniAppRow className="org-manager-roster-row" density="roomy">
       <MiniAppRowStack>
         <strong>{label}</strong>
         <MiniAppRowText muted title={title}>
@@ -265,6 +263,16 @@ function UserDetailView({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
 }) {
+  const [editingRosterProfileUserId, setEditingRosterProfileUserId] = useState<
+    string | null
+  >(null);
+  const isRosterProfileEditing =
+    canEditRosterProfile && editingRosterProfileUserId === selectedUserId;
+
+  useEffect(() => {
+    setEditingRosterProfileUserId(null);
+  }, [selectedUserId]);
+
   if (!selectedUserId) {
     return (
       <MiniAppStatus className="org-manager-hint">
@@ -310,32 +318,43 @@ function UserDetailView({
             {compactFingerprint(detail.user.signingKeyFingerprint)}
           </span>
         </MiniAppHeaderCopy>
-        <span title={detail.user.joinedAt}>
-          {detail.user.status === "disabled"
-            ? ORG_MANAGER_LABELS.disabled
-            : formatMiniAppDate(detail.user.joinedAt)}
-        </span>
-        <MiniAppButton onClick={onDismiss} variant="ghost">
-          {ORG_MANAGER_LABELS.back}
-        </MiniAppButton>
+        <MiniAppActions className="org-manager-detail-actions">
+          <span
+            className="org-manager-detail-status"
+            title={detail.user.joinedAt}
+          >
+            {detail.user.status === "disabled"
+              ? ORG_MANAGER_LABELS.disabled
+              : formatMiniAppDate(detail.user.joinedAt)}
+          </span>
+          {renderRosterProfileEditor && canEditRosterProfile && (
+            <MiniAppButton
+              onClick={() =>
+                setEditingRosterProfileUserId(
+                  isRosterProfileEditing ? null : selectedUserId,
+                )
+              }
+            >
+              {isRosterProfileEditing
+                ? ORG_MANAGER_LABELS.done
+                : ORG_MANAGER_LABELS.edit}
+            </MiniAppButton>
+          )}
+          <MiniAppButton onClick={onDismiss} variant="ghost">
+            {ORG_MANAGER_LABELS.back}
+          </MiniAppButton>
+        </MiniAppActions>
       </MiniAppHeader>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.directory}
-        </MiniAppSectionHeading>
+      <MiniAppSection className="org-manager-roster-detail">
+        {renderRosterProfileEditor
+          ? renderRosterProfileEditor({
+              canEdit: canEditRosterProfile,
+              isEditing: isRosterProfileEditing,
+              user: detail.user,
+            })
+          : null}
         <UserRosterMetadata user={detail.user} />
       </MiniAppSection>
-      {renderRosterProfileEditor && (
-        <MiniAppSection>
-          <MiniAppSectionHeading>
-            {ORG_MANAGER_LABELS.profileDocument}
-          </MiniAppSectionHeading>
-          {renderRosterProfileEditor({
-            canEdit: canEditRosterProfile,
-            user: detail.user,
-          })}
-        </MiniAppSection>
-      )}
       <MiniAppSection>
         <MiniAppSectionHeading>
           {ORG_MANAGER_LABELS.groups}
