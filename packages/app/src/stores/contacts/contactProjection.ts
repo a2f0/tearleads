@@ -11,15 +11,27 @@ import {
   contactProjection,
 } from "../../document-types/projectors";
 
+const contactProjectionSchemaPromises = new WeakMap<ExecSql, Promise<void>>();
+
 function normalizeProjectionNullableText(value: string | null): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-async function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
-  await ensureSqlTables(
+function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
+  const existingPromise = contactProjectionSchemaPromises.get(execSql);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const promise = ensureSqlTables(
     execSql,
     getDocumentClientProjectionTables(APP_DOCUMENT_PROJECTOR_DEFINITIONS),
-  );
+  ).catch((error: unknown) => {
+    contactProjectionSchemaPromises.delete(execSql);
+    throw error;
+  });
+  contactProjectionSchemaPromises.set(execSql, promise);
+  return promise;
 }
 
 export async function loadProjectedContacts(

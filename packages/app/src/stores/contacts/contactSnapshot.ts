@@ -1,7 +1,9 @@
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
 
+const contactCollator = new Intl.Collator(undefined, { sensitivity: "base" });
+
 function compareContactText(left: string, right: string): number {
-  return left.localeCompare(right, undefined, { sensitivity: "base" });
+  return contactCollator.compare(left, right);
 }
 
 function compareNullableContactText(
