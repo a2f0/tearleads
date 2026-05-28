@@ -15,3 +15,19 @@
     "footer footer" auto
     / 1fr 1fr;
 }
+
+.workspace-switcher {
+  display: flex;
+  gap: var(--footer-gap);
+}
+
+.workspace-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+.workspace-button--active {
+  background: var(--color-light);
+  color: var(--color-dark);
+}

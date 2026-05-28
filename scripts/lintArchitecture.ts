@@ -10,6 +10,8 @@ const architectureEntryPoints = [
   "packages/api/src",
   "packages/app/src",
   "packages/client-sdk/src",
+  "packages/ui/src",
+  "packages/website/src",
 ];
 const appPresentationEntryPoints = [
   "packages/app/src/components",

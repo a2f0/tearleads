@@ -49,6 +49,7 @@
     "packages/sqlite-instance",
     "packages/sqlite-worker",
     "packages/test-utils",
+    "packages/ui",
     "packages/validators",
     "packages/website"
   ],

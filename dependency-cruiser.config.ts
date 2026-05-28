@@ -8,6 +8,8 @@ const sourceRoot = {
   api: "^packages/api/src/",
   app: "^packages/app/src/",
   clientSdk: "^packages/client-sdk/src/",
+  ui: "^packages/ui/src/",
+  website: "^packages/website/src/",
 } as const;
 
 const appLayer = {
@@ -142,6 +144,7 @@ const standardRules = [
         "(^|/)tsconfig\\.json$",
         "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
         "^packages/app/src/test/",
+        "^packages/website/src/",
       ],
     },
     to: {},
@@ -460,12 +463,51 @@ const clientSdkRules = [
   },
 ] satisfies ForbiddenRules;
 
+const uiRules = [
+  {
+    name: "ui-does-not-depend-on-app-or-website",
+    severity: "error",
+    comment:
+      "Shared UI must stay product-shell neutral and must not import deployment target implementation code.",
+    from: {
+      path: sourceRoot.ui,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [sourceRoot.app, sourceRoot.website],
+    },
+  },
+] satisfies ForbiddenRules;
+
+const websiteRules = [
+  {
+    name: "website-does-not-depend-on-app",
+    severity: "error",
+    comment:
+      "The website may share UI through @tearleads/ui, but it must not import the application implementation package.",
+    from: {
+      path: sourceRoot.website,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: sourceRoot.app,
+    },
+  },
+] satisfies ForbiddenRules;
+
 const dependencyCruiserConfig = {
-  forbidden: [...standardRules, ...apiRules, ...appRules, ...clientSdkRules],
+  forbidden: [
+    ...standardRules,
+    ...apiRules,
+    ...appRules,
+    ...clientSdkRules,
+    ...uiRules,
+    ...websiteRules,
+  ],
   options: {
     // Bun workspace subpath exports are checked separately in lintArchitecture.
     // Keep dependency-cruiser focused on source files whose paths it can resolve.
-    includeOnly: "^packages/(api|app|client-sdk)/src/",
+    includeOnly: "^packages/(api|app|client-sdk|ui|website)/src/",
     tsPreCompilationDeps: "specify",
   },
 } satisfies IConfiguration;

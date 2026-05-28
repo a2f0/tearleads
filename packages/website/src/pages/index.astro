@@ -1,4 +1,5 @@
 ---
+import { TearleadsFrame } from "@tearleads/ui";
 import { StaticStatus } from "../components/StaticStatus";
 import "../styles/global.css";
 
@@ -21,16 +22,18 @@ const statusItems = [
     <title>Tearleads</title>
   </head>
   <body>
-    <main class="page-shell">
-      <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">Website workspace</p>
-        <h1 id="page-title">Tearleads</h1>
-        <p class="lede">
-          A static-first site package is ready for product pages, docs, and
-          public-facing content.
-        </p>
-        <StaticStatus items={statusItems} />
-      </section>
-    </main>
+    <TearleadsFrame brandHref="/" footerEnd="Static HTML">
+      <main class="website-main">
+        <section class="intro" aria-labelledby="page-title">
+          <p class="eyebrow">Website workspace</p>
+          <h1 id="page-title">Tearleads</h1>
+          <p class="lede">
+            A static-first site package is ready for product pages, docs, and
+            public-facing content.
+          </p>
+          <StaticStatus items={statusItems} />
+        </section>
+      </main>
+    </TearleadsFrame>
   </body>
 </html>
