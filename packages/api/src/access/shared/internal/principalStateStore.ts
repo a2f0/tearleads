@@ -1,14 +1,6 @@
 import {
-  computePrincipalProjectionRoot,
   computePrincipalStateHash,
-  computePrincipalStatePayloadCiphertextHash,
-  getPrincipalPolicyTransitionMismatchReason,
   type ManagedRecipientPrincipalType,
-  normalizePrincipalProjectionMembers,
-  type PrincipalProjectionMember,
-  type PrincipalProjectionRole,
-  type PrincipalStateMemberType,
-  type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
   verifySignedPrincipalState,
 } from "@tearleads/crypto";
@@ -27,178 +19,45 @@ import {
   users,
 } from "../../../schema";
 import { uniqueSortedStrings } from "../../../utils/array";
+import {
+  normalizePrincipalStateWriteInput,
+  type PrincipalStateBundleInput,
+  type PrincipalStateExternalSignerAuthorizationInput,
+  type PrincipalStateReference,
+  principalEpochKeySelect,
+  principalProjectionMemberSelect,
+  principalStatePayloadSelect,
+  principalStateProjectionKey,
+  principalStateReferenceKey,
+  principalStateSelect,
+  projectionMemberKey,
+  type StoredPrincipalEpochKey,
+  type StoredPrincipalProjectionMember,
+  type StoredPrincipalState,
+  type StoredPrincipalStateChainEntry,
+  type StoredPrincipalStatePayload,
+  toStoredPrincipalState,
+  toStoredProjectionMember,
+} from "./principalStateRecords";
+import {
+  projectionIncludesAdminUser,
+  validatePrincipalPolicyTransition,
+  validatePrincipalStateArtifacts,
+} from "./principalStateValidation";
 
-export interface StoredPrincipalState extends SignedPrincipalState {
-  stateHash: string;
-  createdAt: Date;
-}
-
-interface StoredPrincipalStatePayload {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  stateHash: string;
-  cipherSuite: PrincipalStatePayloadCipherSuite;
-  ciphertext: string;
-  ciphertextHash: string;
-  createdAt: Date;
-}
-
-export interface StoredPrincipalProjectionMember {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  stateHash: string;
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
-  role: PrincipalProjectionRole;
-  createdAt: Date;
-}
-
-interface StoredPrincipalStateChainEntry {
-  state: StoredPrincipalState;
-  projection: StoredPrincipalProjectionMember[];
-}
-
-interface StoredPrincipalEpochKey {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  epoch: number;
-  introducedByStateHash: string;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  createdAt: Date;
-}
-
-export interface PrincipalStatePayloadInput {
-  cipherSuite: PrincipalStatePayloadCipherSuite;
-  ciphertext: string;
-  ciphertextHash: string;
-}
-
-export interface PrincipalStateBundleInput {
-  state: SignedPrincipalState;
-  encryptedPayload: PrincipalStatePayloadInput;
-  projection: PrincipalProjectionMember[];
-}
-
-export interface PrincipalStateExternalSignerAuthorizationInput {
-  currentState: StoredPrincipalState;
-  normalizedInput: PrincipalStateBundleInput;
-  previousProjection: StoredPrincipalProjectionMember[];
-  signerUserId: string;
-}
+export type {
+  PrincipalStateBundleInput,
+  PrincipalStateExternalSignerAuthorizationInput,
+  PrincipalStateReference,
+  StoredPrincipalProjectionMember,
+  StoredPrincipalState,
+} from "./principalStateRecords";
+export { principalStateReferenceKey } from "./principalStateRecords";
 
 interface StoreVerifiedPrincipalStateOptions {
   authorizeExternalAdminSigner?: (
     input: PrincipalStateExternalSignerAuthorizationInput,
   ) => Promise<boolean>;
-}
-
-function toStoredPrincipalState(row: {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  version: number;
-  prevStateHash: string | null;
-  keyEpoch: number;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  membershipMode: "projection";
-  membershipRoot: string;
-  projectionRoot: string;
-  payloadCiphertextHash: string;
-  memberCount: number;
-  signedAt: Date;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-  signature: string;
-  stateHash: string;
-  createdAt: Date;
-}): StoredPrincipalState {
-  return {
-    principalType: row.principalType,
-    principalId: row.principalId,
-    version: row.version,
-    prevStateHash: row.prevStateHash,
-    keyEpoch: row.keyEpoch,
-    encapsulationPublicKey: row.encapsulationPublicKey,
-    keyFingerprint: row.keyFingerprint,
-    membershipMode: row.membershipMode,
-    membershipRoot: row.membershipRoot,
-    projectionRoot: row.projectionRoot,
-    payloadCiphertextHash: row.payloadCiphertextHash,
-    memberCount: row.memberCount,
-    signedAt: row.signedAt.toISOString(),
-    signerUserId: row.signerUserId,
-    signerUserKeyFingerprint: row.signerUserKeyFingerprint,
-    signature: row.signature,
-    stateHash: row.stateHash,
-    createdAt: row.createdAt,
-  };
-}
-
-function toStoredProjectionMember(row: {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  stateHash: string;
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
-  role: PrincipalProjectionRole;
-  createdAt: Date;
-}): StoredPrincipalProjectionMember {
-  return {
-    principalType: row.principalType,
-    principalId: row.principalId,
-    stateHash: row.stateHash,
-    memberPrincipalType: row.memberPrincipalType,
-    memberPrincipalId: row.memberPrincipalId,
-    role: row.role,
-    createdAt: row.createdAt,
-  };
-}
-
-function stripSignedPrincipalStateArtifacts(
-  state: SignedPrincipalState,
-): SignedPrincipalState {
-  return {
-    principalType: state.principalType,
-    principalId: state.principalId,
-    version: state.version,
-    prevStateHash: state.prevStateHash,
-    keyEpoch: state.keyEpoch,
-    encapsulationPublicKey: state.encapsulationPublicKey,
-    keyFingerprint: state.keyFingerprint,
-    membershipMode: state.membershipMode,
-    membershipRoot: state.membershipRoot,
-    projectionRoot: state.projectionRoot,
-    payloadCiphertextHash: state.payloadCiphertextHash,
-    memberCount: state.memberCount,
-    signedAt: state.signedAt,
-    signerUserId: state.signerUserId,
-    signerUserKeyFingerprint: state.signerUserKeyFingerprint,
-    signature: state.signature,
-  };
-}
-
-function normalizePrincipalStateWriteInput(
-  input: PrincipalStateBundleInput,
-): PrincipalStateBundleInput {
-  return {
-    state: stripSignedPrincipalStateArtifacts(input.state),
-    encryptedPayload: {
-      cipherSuite: input.encryptedPayload.cipherSuite,
-      ciphertext: input.encryptedPayload.ciphertext,
-      ciphertextHash: input.encryptedPayload.ciphertextHash,
-    },
-    projection: normalizePrincipalProjectionMembers(input.projection),
-  };
-}
-
-function projectionMemberKey(
-  member: Pick<
-    StoredPrincipalProjectionMember | PrincipalProjectionMember,
-    "memberPrincipalType" | "memberPrincipalId" | "role"
-  >,
-): string {
-  return `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`;
 }
 
 async function getPrincipalStateByVersion(
@@ -208,26 +67,7 @@ async function getPrincipalStateByVersion(
   executor: DatabaseSession,
 ): Promise<StoredPrincipalState | null> {
   const [row] = await executor
-    .select({
-      principalType: principalStates.principalType,
-      principalId: principalStates.principalId,
-      version: principalStates.version,
-      prevStateHash: principalStates.prevStateHash,
-      keyEpoch: principalStates.keyEpoch,
-      encapsulationPublicKey: principalStates.encapsulationPublicKey,
-      keyFingerprint: principalStates.keyFingerprint,
-      membershipMode: principalStates.membershipMode,
-      membershipRoot: principalStates.membershipRoot,
-      projectionRoot: principalStates.projectionRoot,
-      payloadCiphertextHash: principalStates.payloadCiphertextHash,
-      memberCount: principalStates.memberCount,
-      signedAt: principalStates.signedAt,
-      signerUserId: principalStates.signerUserId,
-      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
-      signature: principalStates.signature,
-      stateHash: principalStates.stateHash,
-      createdAt: principalStates.createdAt,
-    })
+    .select(principalStateSelect)
     .from(principalStates)
     .where(
       and(
@@ -252,15 +92,7 @@ async function getPrincipalEpochKeyByEpoch(
   executor: DatabaseSession,
 ): Promise<StoredPrincipalEpochKey | null> {
   const [row] = await executor
-    .select({
-      principalType: principalEpochKeys.principalType,
-      principalId: principalEpochKeys.principalId,
-      epoch: principalEpochKeys.epoch,
-      introducedByStateHash: principalEpochKeys.introducedByStateHash,
-      encapsulationPublicKey: principalEpochKeys.encapsulationPublicKey,
-      keyFingerprint: principalEpochKeys.keyFingerprint,
-      createdAt: principalEpochKeys.createdAt,
-    })
+    .select(principalEpochKeySelect)
     .from(principalEpochKeys)
     .where(
       and(
@@ -281,15 +113,7 @@ async function getPrincipalStatePayloadForState(
   executor: DatabaseSession,
 ): Promise<StoredPrincipalStatePayload | null> {
   const [row] = await executor
-    .select({
-      principalType: principalStatePayloads.principalType,
-      principalId: principalStatePayloads.principalId,
-      stateHash: principalStatePayloads.stateHash,
-      cipherSuite: principalStatePayloads.cipherSuite,
-      ciphertext: principalStatePayloads.ciphertext,
-      ciphertextHash: principalStatePayloads.ciphertextHash,
-      createdAt: principalStatePayloads.createdAt,
-    })
+    .select(principalStatePayloadSelect)
     .from(principalStatePayloads)
     .where(
       and(
@@ -310,15 +134,7 @@ async function listProjectionMembersForState(
   executor: DatabaseSession,
 ): Promise<StoredPrincipalProjectionMember[]> {
   const rows = await executor
-    .select({
-      principalType: principalMembershipProjection.principalType,
-      principalId: principalMembershipProjection.principalId,
-      stateHash: principalMembershipProjection.stateHash,
-      memberPrincipalType: principalMembershipProjection.memberPrincipalType,
-      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
-      role: principalMembershipProjection.role,
-      createdAt: principalMembershipProjection.createdAt,
-    })
+    .select(principalProjectionMemberSelect)
     .from(principalMembershipProjection)
     .where(
       and(
@@ -333,30 +149,6 @@ async function listProjectionMembersForState(
     );
 
   return rows.map(toStoredProjectionMember);
-}
-
-function principalStateProjectionKey(input: {
-  readonly principalId: string;
-  readonly stateHash: string;
-}): string {
-  return `${input.principalId}:${input.stateHash}`;
-}
-
-export interface PrincipalStateReference {
-  readonly principalType: ManagedRecipientPrincipalType;
-  readonly principalId: string;
-  readonly version: number;
-  readonly keyEpoch: number;
-  readonly stateHash: string;
-  readonly keyFingerprint: string;
-}
-
-export function principalStateReferenceKey(input: {
-  readonly principalType: ManagedRecipientPrincipalType;
-  readonly principalId: string;
-  readonly stateHash: string;
-}): string {
-  return `${input.principalType}:${input.principalId}:${input.stateHash}`;
 }
 
 export async function getPrincipalStatesForReferences(
@@ -396,26 +188,7 @@ export async function getPrincipalStatesForReferences(
     }
 
     const rows = await executor
-      .select({
-        principalType: principalStates.principalType,
-        principalId: principalStates.principalId,
-        version: principalStates.version,
-        prevStateHash: principalStates.prevStateHash,
-        keyEpoch: principalStates.keyEpoch,
-        encapsulationPublicKey: principalStates.encapsulationPublicKey,
-        keyFingerprint: principalStates.keyFingerprint,
-        membershipMode: principalStates.membershipMode,
-        membershipRoot: principalStates.membershipRoot,
-        projectionRoot: principalStates.projectionRoot,
-        payloadCiphertextHash: principalStates.payloadCiphertextHash,
-        memberCount: principalStates.memberCount,
-        signedAt: principalStates.signedAt,
-        signerUserId: principalStates.signerUserId,
-        signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
-        signature: principalStates.signature,
-        stateHash: principalStates.stateHash,
-        createdAt: principalStates.createdAt,
-      })
+      .select(principalStateSelect)
       .from(principalStates)
       .where(
         and(
@@ -463,15 +236,7 @@ export async function listPrincipalProjectionMembersForStates(
   }
 
   const rows = await executor
-    .select({
-      principalType: principalMembershipProjection.principalType,
-      principalId: principalMembershipProjection.principalId,
-      stateHash: principalMembershipProjection.stateHash,
-      memberPrincipalType: principalMembershipProjection.memberPrincipalType,
-      memberPrincipalId: principalMembershipProjection.memberPrincipalId,
-      role: principalMembershipProjection.role,
-      createdAt: principalMembershipProjection.createdAt,
-    })
+    .select(principalProjectionMemberSelect)
     .from(principalMembershipProjection)
     .where(
       and(
@@ -524,23 +289,6 @@ async function loadPrincipalStateSigner(
     signingPublicKey: base64ToBytes(signer.signingPublicKey),
     userId: signer.id,
   };
-}
-
-function projectionIncludesAdminUser(
-  projection: ReadonlyArray<
-    Pick<
-      StoredPrincipalProjectionMember | PrincipalProjectionMember,
-      "memberPrincipalType" | "memberPrincipalId" | "role"
-    >
-  >,
-  userId: string,
-): boolean {
-  return projection.some(
-    (member) =>
-      member.memberPrincipalType === "user" &&
-      member.memberPrincipalId === userId &&
-      member.role === "admin",
-  );
 }
 
 async function validatePrincipalStateChain(
@@ -623,63 +371,6 @@ async function validatePrincipalStateSignerAuthorization(input: {
   }
 
   return previousProjection;
-}
-
-function validatePrincipalPolicyTransition(input: {
-  currentState: SignedPrincipalState;
-  currentProjection: readonly PrincipalProjectionMember[];
-  previousProjection: readonly StoredPrincipalProjectionMember[] | null;
-  previousState: StoredPrincipalState | null;
-}): void {
-  if (!input.previousState || !input.previousProjection) {
-    return;
-  }
-
-  const mismatchReason = getPrincipalPolicyTransitionMismatchReason({
-    current: {
-      state: input.currentState,
-      projection: input.currentProjection,
-    },
-    previous: {
-      state: input.previousState,
-      projection: input.previousProjection,
-    },
-  });
-
-  if (mismatchReason) {
-    throw new Error(mismatchReason);
-  }
-}
-
-async function validatePrincipalStateArtifacts(
-  input: PrincipalStateBundleInput,
-): Promise<void> {
-  const computedProjectionRoot = await computePrincipalProjectionRoot(
-    input.projection,
-  );
-  if (computedProjectionRoot !== input.state.projectionRoot) {
-    throw new Error("Principal state projectionRoot does not match projection");
-  }
-
-  const computedPayloadCiphertextHash =
-    await computePrincipalStatePayloadCiphertextHash(
-      input.encryptedPayload.ciphertext,
-    );
-  if (computedPayloadCiphertextHash !== input.encryptedPayload.ciphertextHash) {
-    throw new Error(
-      "Principal state payload ciphertext hash does not match ciphertext",
-    );
-  }
-
-  if (computedPayloadCiphertextHash !== input.state.payloadCiphertextHash) {
-    throw new Error(
-      "Principal state payloadCiphertextHash does not match encrypted payload",
-    );
-  }
-
-  if (input.projection.length !== input.state.memberCount) {
-    throw new Error("Principal state memberCount does not match projection");
-  }
 }
 
 async function insertPrincipalStateRow(input: {
@@ -1007,26 +698,7 @@ export async function getCurrentPrincipalState(
   executor: DatabaseSession,
 ): Promise<StoredPrincipalState | null> {
   const [row] = await executor
-    .select({
-      principalType: principalStates.principalType,
-      principalId: principalStates.principalId,
-      version: principalStates.version,
-      prevStateHash: principalStates.prevStateHash,
-      keyEpoch: principalStates.keyEpoch,
-      encapsulationPublicKey: principalStates.encapsulationPublicKey,
-      keyFingerprint: principalStates.keyFingerprint,
-      membershipMode: principalStates.membershipMode,
-      membershipRoot: principalStates.membershipRoot,
-      projectionRoot: principalStates.projectionRoot,
-      payloadCiphertextHash: principalStates.payloadCiphertextHash,
-      memberCount: principalStates.memberCount,
-      signedAt: principalStates.signedAt,
-      signerUserId: principalStates.signerUserId,
-      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
-      signature: principalStates.signature,
-      stateHash: principalStates.stateHash,
-      createdAt: principalStates.createdAt,
-    })
+    .select(principalStateSelect)
     .from(principalStates)
     .where(
       and(
@@ -1056,26 +728,7 @@ export async function getCurrentPrincipalStates(
   }
 
   const rows = await executor
-    .select({
-      principalType: principalStates.principalType,
-      principalId: principalStates.principalId,
-      version: principalStates.version,
-      prevStateHash: principalStates.prevStateHash,
-      keyEpoch: principalStates.keyEpoch,
-      encapsulationPublicKey: principalStates.encapsulationPublicKey,
-      keyFingerprint: principalStates.keyFingerprint,
-      membershipMode: principalStates.membershipMode,
-      membershipRoot: principalStates.membershipRoot,
-      projectionRoot: principalStates.projectionRoot,
-      payloadCiphertextHash: principalStates.payloadCiphertextHash,
-      memberCount: principalStates.memberCount,
-      signedAt: principalStates.signedAt,
-      signerUserId: principalStates.signerUserId,
-      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
-      signature: principalStates.signature,
-      stateHash: principalStates.stateHash,
-      createdAt: principalStates.createdAt,
-    })
+    .select(principalStateSelect)
     .from(principalStates)
     .where(
       and(
@@ -1107,26 +760,7 @@ export async function listPrincipalStateHistory(
   executor: DatabaseSession,
 ): Promise<StoredPrincipalStateChainEntry[]> {
   const rows = await executor
-    .select({
-      principalType: principalStates.principalType,
-      principalId: principalStates.principalId,
-      version: principalStates.version,
-      prevStateHash: principalStates.prevStateHash,
-      keyEpoch: principalStates.keyEpoch,
-      encapsulationPublicKey: principalStates.encapsulationPublicKey,
-      keyFingerprint: principalStates.keyFingerprint,
-      membershipMode: principalStates.membershipMode,
-      membershipRoot: principalStates.membershipRoot,
-      projectionRoot: principalStates.projectionRoot,
-      payloadCiphertextHash: principalStates.payloadCiphertextHash,
-      memberCount: principalStates.memberCount,
-      signedAt: principalStates.signedAt,
-      signerUserId: principalStates.signerUserId,
-      signerUserKeyFingerprint: principalStates.signerUserKeyFingerprint,
-      signature: principalStates.signature,
-      stateHash: principalStates.stateHash,
-      createdAt: principalStates.createdAt,
-    })
+    .select(principalStateSelect)
     .from(principalStates)
     .where(
       and(
@@ -1206,15 +840,7 @@ export async function getCurrentPrincipalEpochKey(
   executor: DatabaseSession,
 ): Promise<StoredPrincipalEpochKey | null> {
   const [row] = await executor
-    .select({
-      principalType: principalEpochKeys.principalType,
-      principalId: principalEpochKeys.principalId,
-      epoch: principalEpochKeys.epoch,
-      introducedByStateHash: principalEpochKeys.introducedByStateHash,
-      encapsulationPublicKey: principalEpochKeys.encapsulationPublicKey,
-      keyFingerprint: principalEpochKeys.keyFingerprint,
-      createdAt: principalEpochKeys.createdAt,
-    })
+    .select(principalEpochKeySelect)
     .from(principalEpochKeys)
     .where(
       and(
@@ -1240,15 +866,7 @@ export async function getCurrentPrincipalEpochKeys(
   }
 
   const rows = await executor
-    .select({
-      principalType: principalEpochKeys.principalType,
-      principalId: principalEpochKeys.principalId,
-      epoch: principalEpochKeys.epoch,
-      introducedByStateHash: principalEpochKeys.introducedByStateHash,
-      encapsulationPublicKey: principalEpochKeys.encapsulationPublicKey,
-      keyFingerprint: principalEpochKeys.keyFingerprint,
-      createdAt: principalEpochKeys.createdAt,
-    })
+    .select(principalEpochKeySelect)
     .from(principalEpochKeys)
     .where(
       and(
