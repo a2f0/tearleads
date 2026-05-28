@@ -209,6 +209,110 @@ test("listBlobInfo includes pending storage-key blobs", async () => {
   }
 });
 
+test("listBlobInfo sorts grouped rows by MIME type", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-blob-info-mime-sort-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveBlobInfoTestDocument({
+      documentId: "document-1",
+      execSql,
+      id: "local-document-1",
+      title: "Image",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: "document-2",
+      execSql,
+      id: "local-document-2",
+      title: "Text",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: "document-3",
+      execSql,
+      id: "local-document-3",
+      title: "Unknown",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: null,
+      execSql,
+      id: "local-document-4",
+      title: "Pending",
+    });
+
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-image",
+      byteLength: 12,
+      localId: "local-document-1",
+      mimeType: "image/png",
+      slotId: "front",
+      storageKey: "storage-image",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-text",
+      byteLength: 24,
+      localId: "local-document-2",
+      mimeType: "text/plain",
+      slotId: "copy",
+      storageKey: "storage-text",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-unknown",
+      byteLength: 36,
+      localId: "local-document-3",
+      mimeType: null,
+      slotId: "raw",
+      storageKey: "storage-unknown",
+    });
+    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
+      byteLength: 48,
+      localId: "local-document-4",
+      mimeType: "application/pdf",
+      name: "pending.pdf",
+      slotId: "pending",
+      storageKey: "storage-pending",
+    });
+
+    const ascending = await listBlobInfo({
+      execSql,
+      sort: { direction: "asc", key: "mimeType" },
+    });
+    const descending = await listBlobInfo({
+      execSql,
+      sort: { direction: "desc", key: "mimeType" },
+    });
+
+    expect(ascending.rows.map((row) => row.mimeType)).toEqual([
+      "application/pdf",
+      "image/png",
+      "text/plain",
+      null,
+    ]);
+    expect(descending.rows.map((row) => row.mimeType)).toEqual([
+      "text/plain",
+      "image/png",
+      "application/pdf",
+      null,
+    ]);
+
+    const windowed = await listBlobInfo({
+      execSql,
+      limit: 2,
+      offset: 1,
+      sort: { direction: "asc", key: "mimeType" },
+    });
+
+    expect(windowed.totalCount).toBe(4);
+    expect(windowed.rows.map((row) => row.mimeType)).toEqual([
+      "image/png",
+      "text/plain",
+    ]);
+  } finally {
+    close();
+  }
+});
+
 test("listBlobInfo returns an empty window without SQLite", async () => {
   await expect(listBlobInfo({ execSql: null })).resolves.toEqual({
     rows: [],

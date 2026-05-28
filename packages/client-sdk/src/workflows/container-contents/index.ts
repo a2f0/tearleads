@@ -11,6 +11,9 @@ export {
   type BlobInfoDocumentReference,
   type BlobInfoInput,
   type BlobInfoList,
+  type BlobInfoSort,
+  type BlobInfoSortDirection,
+  type BlobInfoSortKey,
   listBlobInfo,
 } from "./blobInfo";
 export {
