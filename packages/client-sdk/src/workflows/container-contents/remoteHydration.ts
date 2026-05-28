@@ -1,102 +1,50 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import type {
-  ContainerSummary,
   ContainerSyncTombstone,
   ListContainersResponse,
-  SyncWatermark,
 } from "@tearleads/validators/response";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
 } from "../../data/containers/containerMetadataDocument";
 import {
-  type ContainerContentsPersistence,
-  type ContainerDocumentRecord,
   type ContainerRecord,
   createContainerParentSyncLane,
-  type LocalRootDescendantReparentInput,
   loadContainerSyncWatermark,
   saveContainerSyncWatermark,
 } from "./containerPersistence";
-import type { ContainerMetadataPatch } from "./metadata";
-import type { ContainerContentsWorkflowRuntime } from "./runtime";
+import {
+  addIndexedContainerChild,
+  createContainerChildIndex,
+  moveIndexedContainerChild,
+  removeIndexedContainerChild,
+} from "./remoteHydration/childIndex";
+import {
+  reconcileLocalOnlyRootContainers,
+  reconcileLocalOnlySystemContainers,
+} from "./remoteHydration/reconciliation";
+import type {
+  ContainerChildIndex,
+  ContainerParentHydrationLane,
+  ContainerState,
+  FetchedContainerParentLanePage,
+  ListedRemoteContainerPageItem,
+  QueueContainerParentLane,
+  RemoteContainer,
+  RemoteContainerHydrationHost,
+  RemoteContainerHydrationState,
+  RemoteContainerIngestQueue,
+  SaveContainerOptions,
+} from "./remoteHydration/types";
 
-type ListedRemoteContainerPageItem = ListContainersResponse["items"][number];
-type ContainerChildIndex = Map<string, Set<string>>;
-type QueueContainerParentLane = (parentId: string | null) => void;
-type RemoteContainerIngestQueue = Map<string, RemoteContainer>;
-type SaveContainerOptions = Parameters<
-  ContainerContentsPersistence["saveContainer"]
->[3];
+export type {
+  ContainerState,
+  RemoteContainer,
+  RemoteContainerHydrationHost,
+} from "./remoteHydration/types";
 
 const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
-
-export type ContainerMetadataDocumentState = Awaited<
-  ReturnType<typeof createContainerMetadataDocument>
->;
-export type RemoteContainer = Pick<
-  ContainerSummary,
-  | "createdAt"
-  | "systemSlot"
-  | "id"
-  | "metadataAccessEpoch"
-  | "metadataAccessStateHash"
-  | "metadataDocumentId"
-  | "metadataReferencedPrincipals"
-  | "organizationId"
-  | "parentId"
-  | "updatedAt"
->;
-
-export interface ContainerState {
-  container: ContainerRecord;
-  doc: ContainerMetadataDocumentState;
-  record: ContainerDocumentRecord;
-}
-
-interface RemoteContainerHydrationApi {
-  listContainers(options?: {
-    limit?: number;
-    parentId?: string | null;
-    watermark?: SyncWatermark | null;
-  }): Promise<ListContainersResponse | null>;
-}
-
-interface RemoteContainerHydrationRuntime
-  extends Pick<
-    ContainerContentsWorkflowRuntime,
-    "auth" | "crypto" | "infra" | "state" | "util"
-  > {
-  apiClient: RemoteContainerHydrationApi;
-}
-
-interface RemoteContainerHydrationState {
-  containersById: Map<string, ContainerState>;
-  persistence: ContainerContentsPersistence;
-  runtime: RemoteContainerHydrationRuntime;
-}
-
-export interface RemoteContainerHydrationHost {
-  persistContainerState: (
-    containerState: ContainerState,
-    patch?: Partial<ContainerMetadataPatch>,
-    updateView?: boolean,
-    saveOptions?: SaveContainerOptions,
-  ) => Promise<ContainerDocumentRecord>;
-  updateSnapshot: () => void;
-}
-
-interface ContainerParentHydrationLane {
-  parentId: string | null;
-  watermark?: ListContainersResponse["nextWatermark"];
-}
-
-interface FetchedContainerParentLanePage {
-  lane: ContainerParentHydrationLane;
-  response: ListContainersResponse;
-  syncLane: ReturnType<typeof createContainerParentSyncLane>;
-}
 
 function applyRemoteContainerTimestamps(
   container: ContainerRecord,
@@ -171,434 +119,6 @@ async function listRemoteContainerIdsWithPendingMetadataUpdates(input: {
       containerIds,
     ),
   );
-}
-
-function addIndexedContainerChild(
-  childIdsByParentId: ContainerChildIndex,
-  containerId: string,
-  parentId: string | null,
-) {
-  if (parentId === null) {
-    return;
-  }
-
-  const childIds = childIdsByParentId.get(parentId) ?? new Set<string>();
-  childIds.add(containerId);
-  childIdsByParentId.set(parentId, childIds);
-}
-
-function removeIndexedContainerChild(
-  childIdsByParentId: ContainerChildIndex,
-  containerId: string,
-  parentId: string | null,
-) {
-  if (parentId === null) {
-    return;
-  }
-
-  const childIds = childIdsByParentId.get(parentId);
-  if (!childIds) {
-    return;
-  }
-
-  childIds.delete(containerId);
-  if (childIds.size === 0) {
-    childIdsByParentId.delete(parentId);
-  }
-}
-
-function moveIndexedContainerChild(
-  childIdsByParentId: ContainerChildIndex | undefined,
-  containerId: string,
-  previousParentId: string | null,
-  nextParentId: string | null,
-) {
-  if (!childIdsByParentId || previousParentId === nextParentId) {
-    return;
-  }
-
-  removeIndexedContainerChild(
-    childIdsByParentId,
-    containerId,
-    previousParentId,
-  );
-  addIndexedContainerChild(childIdsByParentId, containerId, nextParentId);
-}
-
-function createContainerChildIndex(
-  containersById: ReadonlyMap<string, ContainerState>,
-): ContainerChildIndex {
-  const childIdsByParentId: ContainerChildIndex = new Map();
-
-  for (const [containerId, containerState] of containersById) {
-    addIndexedContainerChild(
-      childIdsByParentId,
-      containerId,
-      containerState.container.parentId,
-    );
-  }
-
-  return childIdsByParentId;
-}
-
-function hasRemoteContainerMetadataState(
-  containerState: ContainerState,
-): boolean {
-  return (
-    typeof containerState.record.documentId === "string" &&
-    containerState.record.documentId.length > 0 &&
-    typeof containerState.record.accessStateHash === "string" &&
-    containerState.record.accessStateHash.length > 0 &&
-    typeof containerState.container.metadataDocumentId === "string" &&
-    containerState.container.metadataDocumentId.length > 0
-  );
-}
-
-function isLocalOnlyRootContainerState(
-  containerState: ContainerState,
-): boolean {
-  return (
-    containerState.container.parentId === null &&
-    !hasRemoteContainerMetadataState(containerState)
-  );
-}
-
-function canUseRemoteRootAsLocalRootReconciliationTarget(input: {
-  remoteRootState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): boolean {
-  const { remoteRootState, state } = input;
-  return (
-    remoteRootState.container.parentId === null &&
-    (!state.runtime.auth.organizationId ||
-      remoteRootState.container.organizationId ===
-        state.runtime.auth.organizationId)
-  );
-}
-
-function collectContainerSubtreeStates(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  containersById: ReadonlyMap<string, ContainerState>;
-  rootContainerId: string;
-}): ContainerState[] {
-  const { childIdsByParentId, containersById, rootContainerId } = input;
-  const subtreeStates: ContainerState[] = [];
-  const pendingContainerIds = [rootContainerId];
-  const visitedContainerIds = new Set<string>();
-  const index = childIdsByParentId ?? createContainerChildIndex(containersById);
-
-  while (pendingContainerIds.length > 0) {
-    const containerId = pendingContainerIds.pop();
-    if (!containerId || visitedContainerIds.has(containerId)) {
-      continue;
-    }
-    visitedContainerIds.add(containerId);
-
-    const childIds = index.get(containerId);
-    if (!childIds) {
-      continue;
-    }
-
-    for (const childId of childIds) {
-      const childState = containersById.get(childId);
-      if (!childState) {
-        continue;
-      }
-
-      subtreeStates.push(childState);
-      pendingContainerIds.push(childId);
-    }
-  }
-
-  return subtreeStates;
-}
-
-function buildLocalRootDescendantReparents(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  localRootState: ContainerState;
-  remoteRootState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): {
-  descendantReparents: LocalRootDescendantReparentInput[];
-  descendants: ContainerState[];
-} {
-  const { childIdsByParentId, localRootState, remoteRootState, state } = input;
-  const descendants = collectContainerSubtreeStates({
-    childIdsByParentId,
-    containersById: state.containersById,
-    rootContainerId: localRootState.container.id,
-  });
-  const descendantReparents = descendants.map((descendant) => {
-    const previousParentId = descendant.container.parentId;
-    const parentContainerId =
-      previousParentId === localRootState.container.id
-        ? remoteRootState.container.id
-        : previousParentId;
-
-    return {
-      containerId: descendant.container.id,
-      parentContainerId,
-      updateCreateIntent: !descendant.record.documentId && !!parentContainerId,
-    };
-  });
-
-  return { descendantReparents, descendants };
-}
-
-function applyLocalRootDescendantReparents(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  descendantReparents: ReadonlyArray<LocalRootDescendantReparentInput>;
-  descendants: ReadonlyArray<ContainerState>;
-  remoteRootState: ContainerState;
-  updatedAt: string;
-}): void {
-  const {
-    childIdsByParentId,
-    descendantReparents,
-    descendants,
-    remoteRootState,
-    updatedAt,
-  } = input;
-  const reparentByContainerId = new Map(
-    descendantReparents.map((reparent) => [reparent.containerId, reparent]),
-  );
-
-  for (const descendant of descendants) {
-    const previousParentId = descendant.container.parentId;
-    const reparent = reparentByContainerId.get(descendant.container.id);
-    if (!reparent) {
-      continue;
-    }
-
-    descendant.container = {
-      ...descendant.container,
-      organizationId: remoteRootState.container.organizationId,
-      parentId: reparent.parentContainerId,
-      localUpdatedAt: updatedAt,
-      updatedAt: descendant.container.serverUpdatedAt ?? updatedAt,
-    };
-    moveIndexedContainerChild(
-      childIdsByParentId,
-      descendant.container.id,
-      previousParentId,
-      reparent.parentContainerId,
-    );
-  }
-}
-
-async function reconcileLocalOnlyRootContainer(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  localRootState: ContainerState;
-  remoteRootState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): Promise<void> {
-  const { childIdsByParentId, localRootState, remoteRootState, state } = input;
-  const execSql = state.runtime.infra.execSql;
-  const updatedAt = new Date().toISOString();
-  const { descendantReparents, descendants } =
-    buildLocalRootDescendantReparents({
-      childIdsByParentId,
-      localRootState,
-      remoteRootState,
-      state,
-    });
-
-  await state.persistence.reconcileLocalRootContainer(execSql, {
-    descendantReparents,
-    localRootContainerId: localRootState.container.id,
-    remoteOrganizationId: remoteRootState.container.organizationId,
-    remoteRootContainerId: remoteRootState.container.id,
-    updatedAt,
-  });
-  applyLocalRootDescendantReparents({
-    childIdsByParentId,
-    descendantReparents,
-    descendants,
-    remoteRootState,
-    updatedAt,
-  });
-
-  if (childIdsByParentId) {
-    removeIndexedContainerChild(
-      childIdsByParentId,
-      localRootState.container.id,
-      localRootState.container.parentId,
-    );
-    childIdsByParentId.delete(localRootState.container.id);
-  }
-  state.containersById.delete(localRootState.container.id);
-  state.runtime.util.log(
-    `Container contents: reconciled local root ${localRootState.container.id} into remote root ${remoteRootState.container.id}`,
-  );
-}
-
-async function reconcileLocalOnlyRootContainers(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  remoteRootState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): Promise<number> {
-  const { childIdsByParentId, remoteRootState, state } = input;
-  if (
-    !canUseRemoteRootAsLocalRootReconciliationTarget({
-      remoteRootState,
-      state,
-    })
-  ) {
-    return 0;
-  }
-
-  const localRootStates = Array.from(state.containersById.values()).filter(
-    (containerState) =>
-      containerState.container.id !== remoteRootState.container.id &&
-      isLocalOnlyRootContainerState(containerState),
-  );
-
-  for (const localRootState of localRootStates) {
-    await reconcileLocalOnlyRootContainer({
-      childIdsByParentId,
-      localRootState,
-      remoteRootState,
-      state,
-    });
-  }
-
-  return localRootStates.length;
-}
-
-function isLocalOnlySystemContainerState(input: {
-  containerState: ContainerState;
-  remoteSystemState: ContainerState;
-}): boolean {
-  const localSystemSlot = input.containerState.container.systemSlot ?? null;
-  const remoteSystemSlot = input.remoteSystemState.container.systemSlot ?? null;
-
-  return (
-    remoteSystemSlot !== null &&
-    localSystemSlot === remoteSystemSlot &&
-    input.containerState.container.id !==
-      input.remoteSystemState.container.id &&
-    !hasRemoteContainerMetadataState(input.containerState)
-  );
-}
-
-function findLocalOnlySystemContainerStates(input: {
-  remoteSystemState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): ContainerState[] {
-  const { remoteSystemState, state } = input;
-  if ((remoteSystemState.container.systemSlot ?? null) === null) {
-    return [];
-  }
-
-  return Array.from(state.containersById.values()).filter((containerState) =>
-    isLocalOnlySystemContainerState({
-      containerState,
-      remoteSystemState,
-    }),
-  );
-}
-
-function applyLocalSystemContainerChildReparents(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  localSystemState: ContainerState;
-  remoteSystemState: ContainerState;
-  state: RemoteContainerHydrationState;
-  updatedAt: string;
-}): void {
-  const { childIdsByParentId, localSystemState, remoteSystemState, state } =
-    input;
-  const localContainerId = localSystemState.container.id;
-  const childContainerIds = childIdsByParentId
-    ? Array.from(childIdsByParentId.get(localContainerId) ?? [])
-    : Array.from(state.containersById.values()).flatMap((containerState) =>
-        containerState.container.parentId === localContainerId
-          ? [containerState.container.id]
-          : [],
-      );
-
-  for (const childContainerId of childContainerIds) {
-    const childState = state.containersById.get(childContainerId);
-    if (!childState) {
-      continue;
-    }
-
-    const previousParentId = childState.container.parentId;
-    childState.container = {
-      ...childState.container,
-      organizationId: remoteSystemState.container.organizationId,
-      parentId: remoteSystemState.container.id,
-      localUpdatedAt: input.updatedAt,
-      updatedAt: childState.container.serverUpdatedAt ?? input.updatedAt,
-    };
-    moveIndexedContainerChild(
-      childIdsByParentId,
-      childState.container.id,
-      previousParentId,
-      remoteSystemState.container.id,
-    );
-  }
-}
-
-async function reconcileLocalOnlySystemContainer(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  localSystemState: ContainerState;
-  remoteSystemState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): Promise<void> {
-  const { childIdsByParentId, localSystemState, remoteSystemState, state } =
-    input;
-  const updatedAt = new Date().toISOString();
-  const execSql = state.runtime.infra.execSql;
-
-  await state.persistence.reconcileLocalSystemContainer(execSql, {
-    localContainerId: localSystemState.container.id,
-    remoteContainerId: remoteSystemState.container.id,
-    remoteOrganizationId: remoteSystemState.container.organizationId,
-    updatedAt,
-  });
-  applyLocalSystemContainerChildReparents({
-    childIdsByParentId,
-    localSystemState,
-    remoteSystemState,
-    state,
-    updatedAt,
-  });
-
-  if (childIdsByParentId) {
-    removeIndexedContainerChild(
-      childIdsByParentId,
-      localSystemState.container.id,
-      localSystemState.container.parentId,
-    );
-    childIdsByParentId.delete(localSystemState.container.id);
-  }
-  state.containersById.delete(localSystemState.container.id);
-  state.runtime.util.log(
-    `Container contents: reconciled local system container ${localSystemState.container.id} into remote system container ${remoteSystemState.container.id}`,
-  );
-}
-
-async function reconcileLocalOnlySystemContainers(input: {
-  childIdsByParentId?: ContainerChildIndex | undefined;
-  remoteSystemState: ContainerState;
-  state: RemoteContainerHydrationState;
-}): Promise<number> {
-  const { childIdsByParentId, remoteSystemState, state } = input;
-  const localSystemStates = findLocalOnlySystemContainerStates({
-    remoteSystemState,
-    state,
-  });
-
-  for (const localSystemState of localSystemStates) {
-    await reconcileLocalOnlySystemContainer({
-      childIdsByParentId,
-      localSystemState,
-      remoteSystemState,
-      state,
-    });
-  }
-
-  return localSystemStates.length;
 }
 
 async function updateExistingRemoteContainerState(input: {
