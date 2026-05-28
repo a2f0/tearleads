@@ -241,16 +241,18 @@ function groupBlobInfoReferences(
   return Array.from(blobsByKey.values()).sort(compareBlobInfo);
 }
 
-function filterBlobInfoReferences(
-  references: ReadonlyArray<BlobInfoDocumentReference>,
+function filterBlobInfoRows(
+  rows: ReadonlyArray<BlobInfo>,
   query: string,
-): BlobInfoDocumentReference[] {
+): BlobInfo[] {
   if (!query) {
-    return [...references];
+    return [...rows];
   }
 
-  return references.filter((reference) =>
-    blobInfoReferenceSearchText(reference).includes(query),
+  return rows.filter((blob) =>
+    blob.references.some((reference) =>
+      blobInfoReferenceSearchText(reference).includes(query),
+    ),
   );
 }
 
@@ -315,11 +317,11 @@ export async function listBlobInfo(input: {
   const query = normalizeBlobInfoQuery(input.query);
   const limit = normalizeBlobInfoLimit(input.limit);
   const offset = normalizeBlobInfoWindowValue(input.offset);
-  const references = filterBlobInfoReferences(
-    await loadBlobInfoReferences(input.execSql),
+  const allReferences = await loadBlobInfoReferences(input.execSql);
+  const rows = filterBlobInfoRows(
+    groupBlobInfoReferences(allReferences),
     query,
   );
-  const rows = groupBlobInfoReferences(references);
 
   return {
     rows: limit === 0 ? [] : rows.slice(offset, offset + limit),

@@ -597,7 +597,9 @@ function BlobReferencesSection(params: {
             const canOpenDocument = Boolean(reference.containerId);
 
             return (
-              <MiniAppTableRow key={`${reference.localId}:${reference.slotId}`}>
+              <MiniAppTableRow
+                key={`${reference.attachmentKind}:${reference.localId}:${reference.slotId}`}
+              >
                 <MiniAppTableCell title={reference.localId}>
                   {reference.documentTitle ?? compactId(reference.localId)}
                 </MiniAppTableCell>
@@ -695,11 +697,12 @@ export function ExplorerBlobBrowserPanel(params: {
   selectDocumentProjection: (noteId: string, containerId: string) => void;
 }) {
   const [query, setQuery] = useState(() => getBlobRouteQuery(params.route));
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [activeBlobKey, setActiveBlobKey] = useState<string | null>(null);
   const routeQuery = getBlobRouteQuery(params.route);
   const blobInfo = useBlobInfoList({
     loadBlobInfo: params.loadBlobInfo,
-    query,
+    query: debouncedQuery,
   });
   const activeBlob = getSelectedBlob({
     activeBlobKey,
@@ -712,8 +715,17 @@ export function ExplorerBlobBrowserPanel(params: {
   );
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 200);
+
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  useEffect(() => {
     setActiveBlobKey(null);
     setQuery(routeQuery);
+    setDebouncedQuery(routeQuery);
   }, [routeQuery]);
 
   return (

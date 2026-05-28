@@ -97,6 +97,64 @@ test("listBlobInfo groups local attachments by blob id and links documents", asy
   }
 });
 
+test("listBlobInfo keeps every reference when search matches one reference", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-blob-info-filter-group-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveBlobInfoTestDocument({
+      documentId: "document-1",
+      execSql,
+      id: "local-document-1",
+      title: "Receipt",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: "document-2",
+      execSql,
+      id: "local-document-2",
+      title: "Invoice",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-shared",
+      byteLength: 12,
+      localId: "local-document-1",
+      mimeType: "image/png",
+      slotId: "front",
+      storageKey: "storage-front",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-shared",
+      byteLength: 12,
+      localId: "local-document-2",
+      mimeType: "image/png",
+      slotId: "copy",
+      storageKey: "storage-copy",
+    });
+
+    const info = await listBlobInfo({
+      execSql,
+      query: "invoice",
+    });
+
+    expect(info.totalCount).toBe(1);
+    expect(info.rows[0]).toMatchObject({
+      blobId: "blob-shared",
+      documentCount: 2,
+      referenceCount: 2,
+    });
+    expect(
+      info.rows[0]?.references.map((reference) => reference.documentTitle),
+    ).toContain("Receipt");
+    expect(
+      info.rows[0]?.references.map((reference) => reference.documentTitle),
+    ).toContain("Invoice");
+  } finally {
+    close();
+  }
+});
+
 test("listBlobInfo includes pending storage-key blobs", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-blob-info-pending-test",
