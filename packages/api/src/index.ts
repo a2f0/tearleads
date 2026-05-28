@@ -11,8 +11,12 @@ export function createRouteRequestBindings(
   req: Request,
   server: Pick<ApiServer, "requestIP">,
 ): RouteRequestBindings {
-  const address = server.requestIP(req)?.address;
-  return address ? { directClientIp: address } : {};
+  try {
+    const address = server.requestIP(req)?.address;
+    return address ? { directClientIp: address } : {};
+  } catch {
+    return {};
+  }
 }
 
 const server = {

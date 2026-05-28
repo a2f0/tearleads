@@ -26,3 +26,16 @@ test("createRouteRequestBindings omits direct client IP when unavailable", () =>
 
   expect(bindings).toEqual({});
 });
+
+test("createRouteRequestBindings omits direct client IP when Bun cannot resolve it", () => {
+  const bindings = createRouteRequestBindings(
+    new Request("http://localhost:3001/auth/verify"),
+    {
+      requestIP() {
+        throw new Error("request is not attached to a socket");
+      },
+    },
+  );
+
+  expect(bindings).toEqual({});
+});
