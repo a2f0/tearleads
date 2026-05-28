@@ -119,7 +119,7 @@ const standardRules = [
   },
   {
     name: "no-duplicate-dep-types",
-    severity: "warn",
+    severity: "error",
     comment:
       "A package should not be declared through multiple dependency sections.",
     from: {},
@@ -130,7 +130,7 @@ const standardRules = [
   },
   {
     name: "no-orphans",
-    severity: "warn",
+    severity: "error",
     comment:
       "A source module with no imports and no importers is usually dead or misplaced.",
     from: {
