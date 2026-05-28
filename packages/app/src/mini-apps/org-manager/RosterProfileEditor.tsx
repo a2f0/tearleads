@@ -73,7 +73,16 @@ export function getMissingProfileIdentityPatch(
   user: OrganizationDirectoryUser,
   structuredFields: Readonly<Record<string, string>>,
 ): Record<string, string | undefined> | null {
-  const expectedPatch = getRosterProfileDocumentPatch(user);
+  return getMissingProfileIdentityPatchFromExpectedPatch(
+    getRosterProfileDocumentPatch(user),
+    structuredFields,
+  );
+}
+
+function getMissingProfileIdentityPatchFromExpectedPatch(
+  expectedPatch: Record<string, string | undefined>,
+  structuredFields: Readonly<Record<string, string>>,
+): Record<string, string | undefined> | null {
   const missingPatch = Object.fromEntries(
     Object.entries(expectedPatch).filter(
       ([key]) => structuredFields[key] === undefined,
@@ -127,12 +136,12 @@ function useRosterProfileDocumentLinkState({
         profileDocumentId: documentId,
       }),
     )
-      .catch(() => null)
-      .finally(() => {
-        if (!cancelled) {
+      .then((result) => {
+        if (!cancelled && result !== null) {
           setProfileLinkReady(true);
         }
-      });
+      })
+      .catch(() => null);
 
     return () => {
       cancelled = true;
@@ -164,13 +173,24 @@ function useRosterProfileIdentitySeed({
   structuredFields: Readonly<Record<string, string>>;
   user: OrganizationDirectoryUser;
 }): void {
+  const { encapsulationPublicKey, isSelf, userId } = user;
+  const expectedPatch = useMemo(
+    () =>
+      getRosterProfileDocumentPatch({
+        encapsulationPublicKey,
+        isSelf,
+        userId,
+      }),
+    [encapsulationPublicKey, isSelf, userId],
+  );
+
   useEffect(() => {
     if (!canEdit || !ready || !profileLinkReady) {
       return;
     }
 
-    const identityPatch = getMissingProfileIdentityPatch(
-      user,
+    const identityPatch = getMissingProfileIdentityPatchFromExpectedPatch(
+      expectedPatch,
       structuredFields,
     );
     if (!identityPatch) {
@@ -184,7 +204,7 @@ function useRosterProfileIdentitySeed({
     ready,
     setStructuredFields,
     structuredFields,
-    user,
+    expectedPatch,
   ]);
 }
 
@@ -285,6 +305,8 @@ export function RosterProfileEditor({
   const [profileContainerId, setProfileContainerId] = useState<string | null>(
     null,
   );
+  const [profileContainerUnavailable, setProfileContainerUnavailable] =
+    useState(false);
   const localId = getRosterProfileDocumentLocalId({
     organizationId,
     userId: user.userId,
@@ -293,16 +315,30 @@ export function RosterProfileEditor({
   useEffect(() => {
     if (!user.profileDocumentId) {
       setProfileContainerId(null);
+      setProfileContainerUnavailable(false);
       return;
     }
 
     let cancelled = false;
     setProfileContainerId(null);
-    void ensureRosterProfileContainer().then((container) => {
-      if (!cancelled) {
-        setProfileContainerId(container?.id ?? null);
-      }
-    });
+    setProfileContainerUnavailable(false);
+    void ensureRosterProfileContainer()
+      .then((container) => {
+        if (cancelled) {
+          return;
+        }
+        if (container?.id) {
+          setProfileContainerId(container.id);
+          return;
+        }
+
+        setProfileContainerUnavailable(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProfileContainerUnavailable(true);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -321,7 +357,11 @@ export function RosterProfileEditor({
 
   if (!profileContainerId) {
     return (
-      <MiniAppStatus>{ORG_MANAGER_LABELS.loadingProfileDocument}</MiniAppStatus>
+      <MiniAppStatus>
+        {profileContainerUnavailable
+          ? ORG_MANAGER_LABELS.profileDocumentUnavailable
+          : ORG_MANAGER_LABELS.loadingProfileDocument}
+      </MiniAppStatus>
     );
   }
 

@@ -111,6 +111,7 @@ async function persistRosterProfileContainerBootstrap(
     return;
   }
 
+  const metadataState = rosterProfileContainer.metadataState ?? null;
   const rosterProfileRecord: DocumentRecord = {
     accessEpoch: rosterProfileContainer.accessEpoch,
     accessStateHash: rosterProfileContainer.accessStateHash,
@@ -118,12 +119,9 @@ async function persistRosterProfileContainerBootstrap(
     id: rosterProfileContainer.containerId,
     lastCommitLsn: null,
     loroSnapshot: rosterProfileContainer.metadataSnapshot,
-    contentKeyBundle:
-      rosterProfileContainer.metadataState.contentKeyBundle ?? null,
-    documentKekTargets:
-      rosterProfileContainer.metadataState.documentKekTargets ?? null,
-    documentManifestBundle:
-      rosterProfileContainer.metadataState.documentManifestBundle ?? null,
+    contentKeyBundle: metadataState?.contentKeyBundle ?? null,
+    documentKekTargets: metadataState?.documentKekTargets ?? null,
+    documentManifestBundle: metadataState?.documentManifestBundle ?? null,
   };
   await sqlContainerContentsPersistence.saveContainer(
     execSql,

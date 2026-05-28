@@ -64,7 +64,10 @@ export function getRosterProfileDocumentLocalId(input: {
 }
 
 export function getRosterProfileDocumentPatch(
-  user: OrganizationDirectoryUser,
+  user: Pick<
+    OrganizationDirectoryUser,
+    "encapsulationPublicKey" | "isSelf" | "userId"
+  >,
 ): Record<string, string | undefined> {
   return {
     encapsulationPublicKey: user.encapsulationPublicKey,

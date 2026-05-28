@@ -907,7 +907,11 @@ async function createInitialRosterProfileContainer(
 function readDocumentLinkedContainerIds(
   document: Awaited<ReturnType<typeof createDocumentWithExecutor>>,
 ): string[] {
-  const state = document.accessManifest.state;
+  const state = document.accessManifest?.state;
+  if (!state || typeof state !== "object") {
+    return [];
+  }
+
   const linkedContainerIds = Reflect.get(state, "linkedContainerIds");
   return Array.isArray(linkedContainerIds)
     ? linkedContainerIds.filter(
