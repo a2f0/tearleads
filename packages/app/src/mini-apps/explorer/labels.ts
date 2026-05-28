@@ -2,6 +2,42 @@ import { formatByteLength } from "../../utils/formatByteLength";
 
 export const EXPLORER_LABELS = {
   backToContainerAction: "Back to Container",
+  blobBrowserAction: "Blob Browser",
+  blobBrowserBackAction: "Back to Explorer",
+  blobBrowserBlobColumn: "Blob",
+  blobBrowserByteLengthRow: "Size",
+  blobBrowserCopiedState: "copied",
+  blobBrowserDocumentColumn: "Document",
+  blobBrowserDocumentCountOne: "document",
+  blobBrowserDocumentCountOther: "documents",
+  blobBrowserDocumentInfoAction: "Info",
+  blobBrowserEmpty: "No blobs.",
+  blobBrowserIdRow: "Blob ID",
+  blobBrowserLoading: "Loading...",
+  blobBrowserLocalBytesMissing: "Local bytes are unavailable.",
+  blobBrowserMetadataHeading: "Blob Metadata",
+  blobBrowserMimeTypeColumn: "MIME",
+  blobBrowserMimeTypeRow: "MIME Type",
+  blobBrowserNoPreview: "No inline preview for this blob.",
+  blobBrowserNoSelection: "Select a blob.",
+  blobBrowserOpenBlobAction: "Open",
+  blobBrowserOpenDocumentAction: "Open",
+  blobBrowserPreviewHeading: "Preview",
+  blobBrowserReferenceColumn: "References",
+  blobBrowserReferenceCountOne: "reference",
+  blobBrowserReferenceCountOther: "references",
+  blobBrowserReferencesHeading: "Document Links",
+  blobBrowserSearchPlaceholder:
+    "Search blobs, storage keys, documents, or slots",
+  blobBrowserSizeColumn: "Size",
+  blobBrowserSlotColumn: "Slot",
+  blobBrowserStateColumn: "State",
+  blobBrowserStorageKeyColumn: "Storage",
+  blobBrowserStorageKeyRow: "Storage Key",
+  blobBrowserTextTruncated: "Preview truncated.",
+  blobBrowserTitle: "Blob Browser",
+  blobBrowserUpdatedColumn: "Updated",
+  blobBrowserUpdatedRow: "Updated",
   containerInfoChooseGroupError: "Choose a group.",
   containerInfoCreatedRow: "Created",
   containerInfoCursorColumn: "Cursor",
@@ -207,6 +243,24 @@ export function getExplorerSyncPendingBlobCountLabel(
   });
 
   return byteLength > 0 ? `${label} (${formatByteLength(byteLength)})` : label;
+}
+
+export function getExplorerBlobBrowserDocumentCountLabel(
+  value: number,
+): string {
+  return formatExplorerCountLabel(value, {
+    one: EXPLORER_LABELS.blobBrowserDocumentCountOne,
+    other: EXPLORER_LABELS.blobBrowserDocumentCountOther,
+  });
+}
+
+export function getExplorerBlobBrowserReferenceCountLabel(
+  value: number,
+): string {
+  return formatExplorerCountLabel(value, {
+    one: EXPLORER_LABELS.blobBrowserReferenceCountOne,
+    other: EXPLORER_LABELS.blobBrowserReferenceCountOther,
+  });
 }
 
 export function getExplorerContainerInfoManifestHistoryLabel(

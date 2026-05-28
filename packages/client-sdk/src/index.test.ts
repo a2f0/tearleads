@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  type BlobInfoInput,
   type ContainerDocumentObjectSyncState,
   type ContainerDocumentReadModelLinkInput,
   createContainerDocumentObjectSyncState,
@@ -25,8 +26,10 @@ test("root entrypoint exposes public facade symbols", () => {
     containerIds: ["container-1"],
     documentId: "document-1",
   };
+  const blobInfoInput: BlobInfoInput = { query: "blob-1" };
 
   expect(upload.bytes).toBeInstanceOf(Uint8Array);
+  expect(blobInfoInput.query).toBe("blob-1");
   expect(readModelLink.containerIds).toEqual(["container-1"]);
   expect(DEFAULT_DOCUMENT_KIND).toBe("note");
   expect(createDocumentProjectorRegistry).toBeFunction();

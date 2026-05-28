@@ -36,6 +36,10 @@ interface Props {
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToDocument: () => void;
+  openBlobBrowserRoute: (input?: {
+    blobId?: string | null | undefined;
+    storageKey?: string | null | undefined;
+  }) => void;
 }
 
 function compactId(value: string | null | undefined): string {
@@ -352,6 +356,7 @@ function ExplorerDocumentInfoAuthorizingContainersSection(params: {
 
 function ExplorerDocumentInfoAttachmentsSection(params: {
   documentInfo: DocumentInfo;
+  openBlobBrowserRoute: Props["openBlobBrowserRoute"];
 }) {
   const { attachments, remoteInfo } = params.documentInfo;
   const remoteBindings = remoteInfo?.activeAttachmentBindings ?? [];
@@ -393,7 +398,18 @@ function ExplorerDocumentInfoAttachmentsSection(params: {
                     {compactId(attachment.slotId)}
                   </td>
                   <td title={attachment.blobId ?? undefined}>
-                    {compactId(attachment.blobId)}
+                    <MiniAppButton
+                      disabled={!attachment.blobId && !attachment.storageKey}
+                      variant="ghost"
+                      onClick={() => {
+                        params.openBlobBrowserRoute({
+                          blobId: attachment.blobId,
+                          storageKey: attachment.storageKey,
+                        });
+                      }}
+                    >
+                      {compactId(attachment.blobId ?? attachment.storageKey)}
+                    </MiniAppButton>
                   </td>
                   <td title={attachment.storageKey}>
                     {attachment.name ?? attachment.mimeType ?? "-"}
@@ -409,7 +425,16 @@ function ExplorerDocumentInfoAttachmentsSection(params: {
               <tr key={`remote:${binding.bindingId}`}>
                 <td>{getExplorerDocumentInfoAttachmentKindLabel("remote")}</td>
                 <td title={binding.slotId}>{compactId(binding.slotId)}</td>
-                <td title={binding.blobId}>{compactId(binding.blobId)}</td>
+                <td title={binding.blobId}>
+                  <MiniAppButton
+                    variant="ghost"
+                    onClick={() => {
+                      params.openBlobBrowserRoute({ blobId: binding.blobId });
+                    }}
+                  >
+                    {compactId(binding.blobId)}
+                  </MiniAppButton>
+                </td>
                 <td title={binding.bindingId}>
                   {compactId(binding.bindingId)}
                 </td>
@@ -432,6 +457,7 @@ export function ExplorerDocumentInfoPanel(params: Props) {
     localId,
     nodes,
     onBackToDocument,
+    openBlobBrowserRoute,
   } = params;
   const { documentInfo, documentInfoError, isLoadingDocumentInfo } =
     useExplorerDocumentInfo({ loadDocumentInfo, localId });
@@ -486,6 +512,7 @@ export function ExplorerDocumentInfoPanel(params: Props) {
             />
             <ExplorerDocumentInfoAttachmentsSection
               documentInfo={documentInfo}
+              openBlobBrowserRoute={openBlobBrowserRoute}
             />
           </>
         ) : null}

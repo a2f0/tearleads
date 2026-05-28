@@ -1,4 +1,7 @@
 import type {
+  BlobInfoInput,
+  BlobInfoList,
+  BlobStore,
   ContainerDocumentReadModel,
   ContainerInfo,
   ContainerNode,
@@ -11,6 +14,7 @@ import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { MiniAppWindowPosition } from "../../bus";
 import type { ExplorerRoute } from "../routes";
+import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 import { ExplorerDocumentDetail } from "./ExplorerDocumentDetail";
@@ -75,6 +79,7 @@ interface ExplorerDetailPanelProps {
     noteId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  blobStore: BlobStore;
   canActivateSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
@@ -83,6 +88,7 @@ interface ExplorerDetailPanelProps {
   documentReadModel: ContainerDocumentReadModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
   linkedContainerIds: ReadonlyArray<string>;
+  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -94,6 +100,10 @@ interface ExplorerDetailPanelProps {
     documentKind: StoredDocumentKind,
     localId?: string,
   ) => void;
+  openBlobBrowserRoute: (input?: {
+    blobId?: string | null | undefined;
+    storageKey?: string | null | undefined;
+  }) => void;
   openLinkDocumentModal: (noteId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openMoveDocumentModal: (noteId: string) => void;
@@ -132,8 +142,23 @@ function renderExplorerNewStructuredDocumentRoute(
   );
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Route rendering stays explicit so each Explorer state is easy to follow.
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   const { route, selectedDocument, selectedNode } = params;
+  if (route.view === "blob-browser") {
+    return (
+      <ExplorerBlobBrowserPanel
+        blobStore={params.blobStore}
+        loadBlobInfo={params.loadBlobInfo}
+        nodes={params.nodes}
+        onBackToSelectionRoute={params.onBackToSelectionRoute}
+        openDocumentInfoRoute={params.openDocumentInfoRoute}
+        route={route}
+        selectDocumentProjection={params.selectDocumentProjection}
+      />
+    );
+  }
+
   if (route.view === "container-info") {
     const infoNode = params.nodes.find((node) => node.id === route.containerId);
     const containerNamesById = new Map(
@@ -163,6 +188,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         localId={route.localId}
         nodes={params.nodes}
         onBackToDocument={params.onBackToSelectionRoute}
+        openBlobBrowserRoute={params.openBlobBrowserRoute}
       />
     );
   }

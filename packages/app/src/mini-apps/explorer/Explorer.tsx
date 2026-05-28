@@ -49,12 +49,22 @@ export function Explorer() {
       model.routeState.openNewStructuredDocumentRoute(activeContainerId);
     }
   }, [activeContainerId, model.routeState.openNewStructuredDocumentRoute]);
+  const openBlobBrowser = useCallback(() => {
+    model.routeState.openBlobBrowserRoute();
+  }, [model.routeState.openBlobBrowserRoute]);
   useWindowFileMenuItem({
     disabled: !model.explorer.ready || !activeContainerId,
     id: "explorer-new-structured-document",
     label: EXPLORER_LABELS.newStructuredDocumentAction,
     onClick: openStructuredDocumentGrid,
     priority: 100,
+  });
+  useWindowFileMenuItem({
+    disabled: !model.explorer.ready,
+    id: "explorer-blob-browser",
+    label: EXPLORER_LABELS.blobBrowserAction,
+    onClick: openBlobBrowser,
+    priority: 110,
   });
   useWindowRefreshMenuItem({
     disabled: !model.explorer.ready || model.isRefreshing,
@@ -67,6 +77,7 @@ export function Explorer() {
     <MiniAppRoot className="explorer">
       <ExplorerDetailPanel
         activateLinkedContainer={model.activateLinkedContainer}
+        blobStore={appData.infra.blobStore}
         canActivateSelectedDocument={model.canActivateSelectedDocument}
         canLinkSelectedDocument={model.canLinkSelectedDocument}
         canMoveSelectedDocument={model.canMoveSelectedDocument}
@@ -75,6 +86,7 @@ export function Explorer() {
         documentReadModel={model.documentReadModel}
         importDroppedFiles={model.importDroppedFiles}
         linkedContainerIds={model.linkedContainerIds}
+        loadBlobInfo={model.loadBlobInfo}
         loadContainerInfo={model.loadContainerInfo}
         loadDocumentInfo={model.loadDocumentInfo}
         nodes={model.explorer.nodes}
@@ -82,6 +94,7 @@ export function Explorer() {
         onBackToSelectionRoute={model.routeState.showSelectionRoute}
         onOpenGrantGroup={openGrantGroupInOrgManager}
         openInlineDocument={model.openInlineDocument}
+        openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
         openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}

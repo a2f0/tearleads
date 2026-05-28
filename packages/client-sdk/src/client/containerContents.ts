@@ -7,6 +7,11 @@ import {
 } from "../stores/container-contents";
 import { type DocumentStore, primeDocumentStore } from "../stores/documents";
 import {
+  type BlobInfoInput,
+  type BlobInfoList,
+  listBlobInfo,
+} from "../workflows/container-contents/blobInfo";
+import {
   type ContainerInfo,
   type ContainerInfoRemoteMode,
   loadContainerInfo,
@@ -56,6 +61,13 @@ export type {
   ContainerContentsStoreOptions,
   ContainerNode,
 } from "../stores/container-contents";
+export type {
+  BlobInfo,
+  BlobInfoAttachmentKind,
+  BlobInfoDocumentReference,
+  BlobInfoInput,
+  BlobInfoList,
+} from "../workflows/container-contents/blobInfo";
 export type {
   ContainerInfo,
   ContainerShareAccessLevel,
@@ -256,6 +268,15 @@ export interface ContainerContents {
   loadDocumentInfo(input: DocumentInfoInput): Promise<DocumentInfo>;
 
   /**
+   * List local blob projections and pending attachment bytes grouped by blob.
+   *
+   * This is a reverse lookup read model: callers can search by server blob id,
+   * local storage key, document id/title, attachment slot, or MIME metadata and
+   * then traverse matching blobs back to their owning local documents.
+   */
+  listBlobInfo(input?: BlobInfoInput | undefined): Promise<BlobInfoList>;
+
+  /**
    * Load diagnostic information for one container.
    *
    * Local details include synced timestamps. Remote details are loaded from the
@@ -448,6 +469,15 @@ class ContainerContentsService implements ContainerContents {
     return loadDocumentInfo({
       ...input,
       apiClient: runtime.apiClient,
+      execSql:
+        runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
+    });
+  }
+
+  listBlobInfo(input: BlobInfoInput = {}): Promise<BlobInfoList> {
+    const runtime = this.runtimeService.workflowInput();
+    return listBlobInfo({
+      ...input,
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
     });

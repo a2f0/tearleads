@@ -28,6 +28,11 @@
   overflow: auto;
 }
 
+.explorer-detail--blob-browser {
+  flex: 1;
+  min-height: 0;
+}
+
 .explorer-detail--new-structured-document {
   flex: 1;
   min-height: 0;
@@ -279,4 +284,74 @@
 
 .explorer-info-inline-action {
   align-self: flex-start;
+}
+
+.explorer-blob-browser-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
+  gap: var(--mini-app-space-md);
+  flex: 1;
+  min-height: 0;
+}
+
+.explorer-blob-browser-table-wrap,
+.explorer-blob-browser-detail {
+  min-height: 0;
+  overflow: auto;
+}
+
+.explorer-blob-browser-detail {
+  gap: var(--mini-app-space-md);
+  padding-left: var(--mini-app-space-md);
+  border-left: var(--mini-app-border);
+}
+
+.explorer-blob-browser-preview-actions {
+  justify-content: flex-start;
+}
+
+.explorer-blob-preview-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  max-height: 24rem;
+  overflow: auto;
+  padding: var(--mini-app-space-sm);
+  border: var(--mini-app-border);
+}
+
+.explorer-blob-preview-image {
+  max-width: 100%;
+  max-height: 22rem;
+}
+
+.explorer-blob-preview-text {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.explorer-blob-reference-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mini-app-space-xs);
+}
+
+@media (max-width: 760px) {
+  .explorer-blob-browser-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .explorer-blob-browser-detail {
+    padding-top: var(--mini-app-space-md);
+    padding-left: 0;
+    border-top: var(--mini-app-border);
+    border-left: 0;
+  }
 }
