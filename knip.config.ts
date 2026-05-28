@@ -84,6 +84,10 @@ export default {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/website": {
+      entry: ["src/pages/**/*.astro"],
+      project: ["src/**/*.{astro,ts,tsx}"],
+    },
     "packages/sqlite-instance": {
       entry: [],
       project: ["src/**/*.ts"],

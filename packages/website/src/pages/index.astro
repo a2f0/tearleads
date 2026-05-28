@@ -1,0 +1,36 @@
+---
+import { StaticStatus } from "../components/StaticStatus";
+import "../styles/global.css";
+
+const statusItems = [
+  { label: "Framework", value: "Astro + React" },
+  { label: "Output", value: "Static HTML" },
+  { label: "Dev port", value: "4322" },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Tearleads website workspace, built as a fast static site."
+    />
+    <title>Tearleads</title>
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Website workspace</p>
+        <h1 id="page-title">Tearleads</h1>
+        <p class="lede">
+          A static-first site package is ready for product pages, docs, and
+          public-facing content.
+        </p>
+        <StaticStatus items={statusItems} />
+      </section>
+    </main>
+  </body>
+</html>

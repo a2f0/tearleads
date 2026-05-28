@@ -9,6 +9,7 @@ dist/
 build/
 tsconfig.tsbuildinfo
 .turbo/
+.astro/
 playwright-report/
 # Created by Playwright
 test-results/

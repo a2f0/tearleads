@@ -13,6 +13,7 @@
     { "path": "packages/loro" },
     { "path": "packages/sqlite-worker" },
     { "path": "packages/sqlite-instance" },
-    { "path": "packages/validators" }
+    { "path": "packages/validators" },
+    { "path": "packages/website" }
   ]
 }
