@@ -8,7 +8,6 @@ import {
   type KeyboardEvent,
   type ReactNode,
   useCallback,
-  useEffect,
   useState,
 } from "react";
 import {
@@ -275,15 +274,7 @@ function UserDetailView({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
 }) {
-  const [editingRosterProfileUserId, setEditingRosterProfileUserId] = useState<
-    string | null
-  >(null);
-  const isRosterProfileEditing =
-    canEditRosterProfile && editingRosterProfileUserId === selectedUserId;
-
-  useEffect(() => {
-    setEditingRosterProfileUserId(null);
-  }, [selectedUserId]);
+  const [isRosterProfileEditing, setIsRosterProfileEditing] = useState(false);
 
   if (!selectedUserId) {
     return (
@@ -340,8 +331,8 @@ function UserDetailView({
           {renderRosterProfileEditor && canEditRosterProfile && (
             <MiniAppButton
               onClick={() =>
-                setEditingRosterProfileUserId(
-                  isRosterProfileEditing ? null : selectedUserId,
+                setIsRosterProfileEditing(
+                  (currentIsEditing) => !currentIsEditing,
                 )
               }
             >
@@ -453,7 +444,8 @@ export function DirectoryView({
       const trimmedDisplayName = displayName?.trim() ?? "";
 
       setProfileDisplayNamesByUserId((current) => {
-        if (current.get(userId) === trimmedDisplayName) {
+        const existing = current.get(userId) ?? "";
+        if (existing === trimmedDisplayName) {
           return current;
         }
 
@@ -502,6 +494,7 @@ export function DirectoryView({
         canEditRosterProfile={canUpdateSelectedRosterEntry}
         canRevokeGrants={canRevokeGrants}
         detail={detail}
+        key={selectedUserId}
         loading={loadingUserDetail}
         mutating={mutating}
         onDismiss={() => selectUser(null)}
