@@ -230,9 +230,9 @@ Signed container mutation routes are:
 - `POST /containers/:containerId/rekey`
 - `POST /containers/:containerId/move`
 
-Most signed mutations use `ContainerMutationRequest`. The metadata-document
-create route wraps a `ContainerMutationRequest` with the initial metadata
-`DocumentCreateRequest`.
+Most signed mutations use `ContainerMutationRequest`. The container with
+metadata document create route wraps a `ContainerMutationRequest` with the
+initial metadata `DocumentCreateRequest`.
 
 Each signed mutation request carries:
 

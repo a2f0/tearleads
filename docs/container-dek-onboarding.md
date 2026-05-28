@@ -97,7 +97,7 @@ The response includes `userId`, `organizationId`, `rootContainerId`,
 
 1. Set `userId`, `organizationId`, and `rootContainerId` in session state.
 2. Persist the root container, roster-profile container, root metadata document
- state, roster profile metadata state, and initial principal policy bundles to
+ state, roster-profile metadata state, and initial principal policy bundles to
  local SQLite.
 3. Authenticate using the challenge.
 
