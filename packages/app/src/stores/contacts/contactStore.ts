@@ -5,13 +5,6 @@ import type {
   PrimeDocumentStoreInput,
   UserKey,
 } from "@tearleads/client-sdk";
-import { getDocumentClientProjectionTables } from "@tearleads/client-sdk";
-import {
-  type ExecSql,
-  ensureSqlTables,
-  getSQLitePersistenceRuntime,
-} from "@tearleads/client-sdk/sqlite";
-import { eq } from "drizzle-orm";
 import {
   type ContactEntry,
   type ContactEntryPatch,
@@ -19,10 +12,8 @@ import {
   contactFieldsToEntry,
   readContactFields,
 } from "../../document-types/contact/contactDocumentModel";
-import {
-  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-  contactProjection,
-} from "../../document-types/projectors";
+import { loadProjectedContacts } from "./contactProjection";
+import { sameContactEntry, sortContactEntries } from "./contactSnapshot";
 
 export interface ContactsSnapshot {
   entries: ReadonlyArray<ContactEntry>;
@@ -70,54 +61,6 @@ interface ContactsStoreState {
 
 const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
 
-function normalizeProjectionNullableText(value: string | null): string | null {
-  return value && value.length > 0 ? value : null;
-}
-
-function compareContactText(left: string, right: string): number {
-  return left.localeCompare(right, undefined, { sensitivity: "base" });
-}
-
-function compareNullableContactText(
-  left: string | null,
-  right: string | null,
-): number {
-  return compareContactText(left ?? "", right ?? "");
-}
-
-function getContactSortName(entry: ContactEntry): string {
-  const nickname = entry.nickname.trim();
-  if (nickname.length > 0) {
-    return nickname;
-  }
-
-  return `${entry.lastName.trim()} ${entry.firstName.trim()}`.trim();
-}
-
-function sortEntries(entries: ReadonlyArray<ContactEntry>): ContactEntry[] {
-  return [...entries].sort((left, right) => {
-    return (
-      compareContactText(getContactSortName(left), getContactSortName(right)) ||
-      compareContactText(left.lastName, right.lastName) ||
-      compareContactText(left.firstName, right.firstName) ||
-      compareNullableContactText(left.userId, right.userId) ||
-      compareContactText(left.id, right.id)
-    );
-  });
-}
-
-function sameContactEntry(left: ContactEntry, right: ContactEntry): boolean {
-  return (
-    left.id === right.id &&
-    left.firstName === right.firstName &&
-    left.lastName === right.lastName &&
-    left.nickname === right.nickname &&
-    left.userId === right.userId &&
-    left.encapsulationPublicKey === right.encapsulationPublicKey &&
-    left.isSelf === right.isSelf
-  );
-}
-
 function setContactsSnapshot(
   state: ContactsStoreState,
   next: ContactsSnapshot,
@@ -142,7 +85,7 @@ function setContactsSnapshot(
 function flushContactsSnapshot(state: ContactsStoreState): void {
   state.pendingSnapshotFlush = false;
   setContactsSnapshot(state, {
-    entries: sortEntries([...state.entriesById.values()]),
+    entries: sortContactEntries([...state.entriesById.values()]),
     ready: true,
   });
 }
@@ -187,45 +130,6 @@ function removeContactEntry(
 function hasContactsContainerRuntime(state: ContactsStoreState): boolean {
   const containerId = state.runtime.documents.state.containerId;
   return typeof containerId === "string" && containerId.length > 0;
-}
-
-async function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
-  await ensureSqlTables(
-    execSql,
-    getDocumentClientProjectionTables(APP_DOCUMENT_PROJECTOR_DEFINITIONS),
-  );
-}
-
-async function loadProjectedContacts(
-  execSql: ExecSql,
-  containerId: string,
-): Promise<ContactEntry[]> {
-  await ensureContactProjectionSchema(execSql);
-  const { db } = getSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select({
-      encapsulationPublicKey: contactProjection.encapsulationPublicKey,
-      firstName: contactProjection.firstName,
-      isSelf: contactProjection.isSelf,
-      lastName: contactProjection.lastName,
-      localId: contactProjection.localId,
-      nickname: contactProjection.nickname,
-      userId: contactProjection.userId,
-    })
-    .from(contactProjection)
-    .where(eq(contactProjection.containerId, containerId));
-
-  return rows.map((row) => ({
-    encapsulationPublicKey: normalizeProjectionNullableText(
-      row.encapsulationPublicKey,
-    ),
-    firstName: row.firstName,
-    id: row.localId,
-    isSelf: row.isSelf === 1,
-    lastName: row.lastName,
-    nickname: row.nickname,
-    userId: normalizeProjectionNullableText(row.userId),
-  }));
 }
 
 function contactEntryFromDocumentStore(
@@ -306,7 +210,7 @@ async function initializeContactsStore(
   );
   state.entriesById = new Map(entries.map((entry) => [entry.id, entry]));
   setContactsSnapshot(state, {
-    entries: sortEntries([...state.entriesById.values()]),
+    entries: sortContactEntries([...state.entriesById.values()]),
     ready: true,
   });
   for (const entry of entries) {
