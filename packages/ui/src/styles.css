@@ -13,7 +13,8 @@
   --tearleads-header-text: var(--color-light);
   --tearleads-footer-background: var(--color-dark);
   --tearleads-footer-text: var(--color-light);
-  font-family: monospace;
+  --tearleads-font-family: monospace;
+  font-family: var(--tearleads-font-family);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }

@@ -35,6 +35,10 @@ export interface TearleadsFooterProps {
 }
 
 export function TearleadsFooter({ end, start }: TearleadsFooterProps) {
+  if (!start && !end) {
+    return null;
+  }
+
   return (
     <footer className="tearleads-footer">
       {start && <div className="tearleads-footer-start">{start}</div>}
