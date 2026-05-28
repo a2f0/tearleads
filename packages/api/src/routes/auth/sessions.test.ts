@@ -13,6 +13,7 @@ import {
   submitRegistration,
   submitVerify,
 } from "../../../test/helpers/api";
+import type { RouteRequestBindings } from "../../requestContext";
 import { routeApp } from "../../routeApp";
 
 interface RegisteredTestUser {
@@ -41,6 +42,7 @@ async function registerTestUser(): Promise<RegisteredTestUser> {
 async function authenticate(
   user: RegisteredTestUser,
   headers?: HeadersInit,
+  bindings?: RouteRequestBindings,
 ): Promise<string> {
   const challengeRes = await requestChallenge(user.fingerprint);
   const { challenge } = await challengeRes.json();
@@ -53,7 +55,12 @@ async function authenticate(
     }),
     user.signingPrivateKey,
   );
-  const res = await submitVerify(user.fingerprint, signature, headers);
+  const res = await submitVerify(
+    user.fingerprint,
+    signature,
+    headers,
+    bindings,
+  );
   const body = await res.json();
   invariant(typeof body.token === "string", "expected token string");
   return body.token;
@@ -134,6 +141,23 @@ test("records IP activity for active sessions", async () => {
   expect(new Date(session.lastActiveAt).getTime()).toBeGreaterThanOrEqual(
     new Date(session.createdAt).getTime(),
   );
+});
+
+test("records direct client IP activity for new sessions", async () => {
+  const user = await registerTestUser();
+  const token = await authenticate(user, undefined, {
+    directClientIp: "127.0.0.1",
+  });
+
+  const res = await listSessions(token);
+
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as ListSessionsResponse;
+  const session = body.sessions.find((candidate) => candidate.isCurrent);
+  invariant(session, "expected current session");
+
+  expect(session.ipAddresses).toEqual(["127.0.0.1"]);
+  expect(session.lastActiveIp).toBe("127.0.0.1");
 });
 
 test("destroys another session owned by the current user", async () => {
