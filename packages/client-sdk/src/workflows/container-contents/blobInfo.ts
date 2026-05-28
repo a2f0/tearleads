@@ -311,11 +311,18 @@ function compareNullableText(
     return 0;
   }
 
-  if (!left) {
+  const leftEmpty = !left;
+  const rightEmpty = !right;
+
+  if (leftEmpty && rightEmpty) {
+    return 0;
+  }
+
+  if (leftEmpty) {
     return 1;
   }
 
-  if (!right) {
+  if (rightEmpty) {
     return -1;
   }
 
