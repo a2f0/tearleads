@@ -42,21 +42,31 @@ Write surfaces:
 
 | Capability | Route | Validator |
 | --- | --- | --- |
+| Request auth challenge | `POST /auth/challenge` | `ChallengeRequest` |
+| Verify auth challenge | `POST /auth/verify` | `VerifyRequest` |
 | Register identity and bootstrap root state | `POST /auth/register` | `RegistrationRequest` |
+| Destroy current session | `POST /auth/logout` | n/a |
+| Destroy a user session | `DELETE /auth/sessions/:sessionId` | n/a |
 | Store principal policy state | `PUT /principals/:principalType/:principalId/state` | `PutPrincipalStateRequest` |
 | Store principal member envelopes | `PUT /principals/:principalType/:principalId/member-envelopes` | `PutPrincipalMemberEnvelopesRequest` |
 | Create organization group | `POST /organizations/:organizationId/groups` | `CreateOrganizationGroupRequest` |
 | Bind encrypted roster profile document | `PUT /organizations/:organizationId/roster/:userId` | `UpdateOrganizationRosterEntryRequest` |
+| Create container with metadata document | `POST /containers/with-metadata-document` | `ContainerCreateWithMetadataDocumentRequest` |
 | Create container | `POST /containers` | `ContainerMutationRequest` |
 | Share container | `POST /containers/:containerId/share` | `ContainerMutationRequest` |
 | Revoke container grant | `POST /containers/:containerId/revoke` | `ContainerMutationRequest` |
 | Rekey container | `POST /containers/:containerId/rekey` | `ContainerMutationRequest` |
 | Move container | `POST /containers/:containerId/move` | `ContainerMutationRequest` |
+| Delete container | `DELETE /containers/:containerId` | n/a |
 | Create document | `POST /documents` | `DocumentCreateRequest` |
 | Link document to container | `POST /documents/:documentId/link` | `DocumentLinkSetMutationRequest` |
 | Unlink document from container | `POST /documents/:documentId/unlink` | `DocumentLinkSetMutationRequest` |
 | Sync encrypted Loro updates | `POST /documents/:documentId/sync` | `DocumentSyncRequest` |
 | Stage encrypted blob bytes | `POST /blobs/stage` | `StageBlobRequest` |
+| Initiate multipart blob stage | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
+| Upload multipart blob part as JSON | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber` | `UploadMultipartBlobPartRequest` |
+| Upload multipart blob part as bytes | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | headers plus octet stream |
+| Complete multipart blob stage | `POST /blobs/stages/multipart/:stageId/complete` | `CompleteMultipartBlobStageRequest` |
 | Bind or replace blob attachment | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
 | Detach blob attachment | `POST /blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobAttachmentDetachRequest` |
 
@@ -64,17 +74,25 @@ Read surfaces:
 
 | Capability | Route |
 | --- | --- |
+| Health check | `GET /` |
+| List auth sessions | `GET /auth/sessions` |
+| Get user key material | `GET /auth/encapsulation-key/:userId` |
 | List containers | `GET /containers` |
 | List container documents | `GET /containers/:containerId/documents` |
 | Get container writer projection | `GET /containers/:containerId/writer-projection` |
 | Get document writer projection | `GET /documents/:documentId/writer-projection` |
 | List active document attachments | `GET /documents/:documentId/attachments` |
-| Get committed blob bytes | `GET /blobs/:blobId` |
+| Get committed blob JSON | `GET /blobs/:blobId` |
+| Get committed blob bytes | `GET /blobs/:blobId/bytes` |
+| Get multipart blob stage status | `GET /blobs/stages/multipart/:stageId` |
 | Get principal policy bundle | `GET /principals/:principalType/:principalId/policy` |
 | List organization directory | `GET /organizations/:organizationId/directory` |
+| List organization container grants | `GET /organizations/:organizationId/grants` |
+| Get organization data usage | `GET /organizations/:organizationId/data-usage` |
 | List organization groups | `GET /organizations/:organizationId/groups` |
 | List organization group members | `GET /organizations/:organizationId/groups/:groupId/members` |
-| Get user key material | `GET /auth/encapsulation-key/:userId` |
+| List organization group containers | `GET /organizations/:organizationId/groups/:groupId/containers` |
+| Get organization user detail | `GET /organizations/:organizationId/users/:userId/detail` |
 
 The document sync request names signed fields:
 `contentKeyEpoch`, `expectedLinkSetManifestHash`, `expectedTargetHash`,
@@ -82,7 +100,8 @@ optional `contentKeyBundle`, optional `containerRekeys`, optional
 `documentManifest`, optional `authorizingContainerPaths`, `localVersionVector`,
 optional `minLsn`, and `outgoingUpdates[]` with per-update `writeHeader`.
 Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, `contentKeyBundle`,
-`documentKekTargets`, `missingUpdateEpochs`, and encrypted `updates[]`.
+optional `contentKeyBundles`, `documentKekTargets`, `missingUpdateEpochs`, and
+encrypted `updates[]`.
 
 ## Code Layers
 
@@ -134,6 +153,7 @@ Examples:
 - `packages/api/src/services/blobs/**`
 - `packages/api/src/services/containers/**`
 - `packages/api/src/services/documents/**`
+- `packages/api/src/services/organizations/**`
 - `packages/api/src/services/principals/**`
 - `packages/api/src/services/runtime.ts`
 
@@ -171,6 +191,8 @@ Examples:
 - `packages/api/src/adapters/postgres.ts`
 - `packages/api/src/adapters/redis.ts`
 - `packages/api/src/adapters/redisPubSub.ts`
+- `packages/api/src/adapters/blobObjectStore.ts`
+- `packages/api/src/adapters/s3BlobObjectStore.ts`
 - session token creation
 
 This layer exposes capabilities, not use-case policy.
@@ -183,6 +205,7 @@ The service runtime boundary is `ApiServiceRuntime` in
 It injects the infrastructure required by application services:
 
 - database access
+- blob object storage
 - key-value storage
 - event publishing
 - session token issuance
@@ -203,20 +226,23 @@ Rule:
 The service layer covers these route-backed capabilities:
 
 - auth challenge, verify, register, and encapsulation-key lookup
-- blob staging and blob reads
-- container creation, listing, sharing, movement, and document listing
+- blob staging, multipart staging, blob reads, raw blob byte reads, attachment
+  binding, and detach mutations
+- container creation, metadata-document creation, listing, sharing, movement,
+  deletion, and document listing
 - container metadata document creation for auth registration and container
  creation
 - document creation, sync storage, and writer projection
 - document attachment listing
-- blob staging, attachment binding, and detach mutations
 - document link and unlink mutations
 - principal policy read and write operations
-- org-manager roster, directory, and group operations backed by roster rows and
-  reserved `Admins` / `Members` group policy reachability
+- org-manager roster, directory, group, grant, data-usage, and user-detail
+  operations backed by roster rows and reserved `Admins` / `Members` group
+  policy reachability
 
-The `logout` route remains route-local. It composes `requireAuth` and
-`destroySession` directly and does not orchestrate application-service logic.
+The session routes remain route-local. `logout` composes `requireAuth` and
+`destroySession` directly, and `/auth/sessions` delegates to injected session
+listing/destruction dependencies rather than application-service logic.
 
 Container list and container document listing pass their injected runtime
 executor through the access helpers they call, so in-process callers use the
@@ -226,27 +252,30 @@ Auth challenge and verify services return service-level success results and
 typed service errors. Their routes own the HTTP status and response-body
 mapping.
 
-Container metadata document creation is handled by `insertContainerMetadataBinding`
-in `packages/api/src/workflows/containers/mutations/shared/persistence.ts`.
-Auth registration and container creation call it from workflow code without
-importing from `routes/**`.
+Container metadata document creation is handled by the container mutation
+workflow and persisted through helpers in
+`packages/api/src/workflows/containers/mutations/shared/persistence.ts`. Auth
+registration and `POST /containers/with-metadata-document` call that workflow
+code without importing from `routes/**`.
 
 API route tests, API integration helpers, and in-process API integration tests
 call `routeApp` directly instead of importing the server entrypoint.
 
-Blob staging is implemented as a blob service. The `/blobs/stage` route
-validates request shape and maps service errors to HTTP responses, while the
-service owns digest/byte-length validation and staged-row creation.
+Blob staging is implemented as blob services. The `/blobs/stage` and
+`/blobs/stages/multipart` routes validate request shape and map service errors
+to HTTP responses, while the services own digest/byte-length validation,
+staged-row creation, object-store multipart state, part upload, and completion.
 
 Document attachment listing is implemented as a document service. The
 `/documents/:documentId/attachments` route maps service errors to HTTP
 responses, while the service owns document-read authorization and active
 attachment binding lookup through the injected runtime database.
 
-Blob reads are implemented as a blob service. The `/blobs/:blobId` route
-maps service errors to HTTP responses, while the service owns blob-read
-authorization, committed blob lookup, current key-target projection,
-and digest recalculation through the injected runtime database.
+Blob reads are implemented as a blob service. The `/blobs/:blobId` JSON route
+and `/blobs/:blobId/bytes` octet-stream route map service errors to HTTP
+responses, while the service owns blob-read authorization, committed blob
+lookup, current key-target projection, object-store reads, and digest
+recalculation through the injected runtime database.
 
 Document creation and sync writes are implemented by signed mutation
 services. The document route validates request shape and maps service

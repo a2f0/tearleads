@@ -22,7 +22,8 @@ After registration, every user has:
 - a root container for that organization
 - a signed root container manifest and container KEK wrap
 - an initialized root metadata document with content-key targets
-- a local "me" contact and persisted root container in SQLite
+- a reserved roster-profile container, optional encrypted profile document, and
+  persisted local container metadata in SQLite
 
 The server never sees plaintext container KEKs or document/blob content keys.
 
@@ -58,11 +59,13 @@ This avoids a circular foreign key between organizations and containers.
  organization policy is cryptographic principal state, not the org-manager
  product role source.
 5. Create the initial root metadata Loro update locally.
-6. Build and sign the root container create request, including the initial
+6. Create the initial roster-profile container metadata and profile document
+ material.
+7. Build and sign the root container create request, including the initial
  container KEK epoch and wrap for the registering user.
-7. Build and sign the root metadata document create request, wrapping its
+8. Build and sign the root metadata document create request, wrapping its
  content key to the root container KEK target.
-8. Send all material in a single `POST /auth/register`.
+9. Send all material in a single `POST /auth/register`.
 
 ### Server Side (atomic transaction)
 
@@ -79,6 +82,8 @@ transaction:
 6. Verify and store the root container manifest and KEK state.
 7. Verify and store the root metadata document manifest, content-key
  targets, and initial encrypted update.
+8. Verify and store the optional roster-profile container, its metadata
+ document, and the initial profile document.
 
 If the user's fingerprint already exists, the transaction rolls back and the
 endpoint returns 409.
@@ -87,10 +92,13 @@ endpoint returns 409.
 
 The response includes `userId`, `organizationId`, `rootContainerId`,
 `rootMetadataDocumentId`, `rootMetadataAccessEpoch`,
-`rootMetadataAccessStateHash`, and `challenge`.
+`rootMetadataAccessStateHash`, optional roster-profile bootstrap responses, and
+`challenge`.
 
 1. Set `userId`, `organizationId`, and `rootContainerId` in session state.
-2. Persist the root container and root metadata document state to local SQLite.
+2. Persist the root container, roster-profile container, root metadata document
+ state, roster profile metadata state, and initial principal policy bundles to
+ local SQLite.
 3. Authenticate using the challenge.
 
 The root metadata content key is recovered through the document content-key
@@ -151,6 +159,8 @@ interface RegistrationRequest {
  initialOrganizationPolicy: InitialOrganizationPolicyRequest;
  initialRootContainer: ContainerMutationRequest;
  initialRootMetadataDocument: DocumentCreateRequest;
+ initialRosterProfileContainer?: ContainerCreateWithMetadataDocumentRequest;
+ initialRosterProfileDocument?: DocumentCreateRequest;
 }
 ```
 
@@ -171,6 +181,10 @@ interface RegistrationResponse {
  rootMetadataAccessEpoch: number;
  rootMetadataAccessStateHash: string;
  rootMetadataDocument: DocumentCreateResponse;
+ rosterProfileContainer?: ContainerCreateWithMetadataDocumentResponse;
+ rosterProfileContainerId?: string;
+ rosterProfileDocument?: DocumentCreateResponse;
+ rosterProfileDocumentId?: string;
  challenge: string;
 }
 ```
@@ -184,10 +198,16 @@ CREATE TABLE IF NOT EXISTS containers (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  organization_id UUID NOT NULL,
  parent_id UUID,
+ system_slot TEXT,
  depth INTEGER NOT NULL DEFAULT 0,
  created_at TIMESTAMP NOT NULL DEFAULT now(),
  updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX containers_org_root_idx
+ ON containers (organization_id) WHERE parent_id IS NULL;
+CREATE UNIQUE INDEX containers_org_system_slot_idx
+ ON containers (organization_id, system_slot) WHERE system_slot IS NOT NULL;
 ```
 
 ### Server: `users.default_organization_id`
@@ -238,9 +258,17 @@ CREATE TABLE containers (
  organization_id TEXT NOT NULL,
  parent_id TEXT,
  metadata_document_id TEXT,
- updated_at TEXT NOT NULL
+ system_slot TEXT,
+ local_created_at TEXT NOT NULL,
+ local_updated_at TEXT NOT NULL,
+ server_created_at TEXT,
+ server_updated_at TEXT
 );
 ```
+
+Container display fields live in the sibling `container_projection` table.
+Container metadata document state is stored in the shared `documents` table
+under the container-metadata app kind.
 
 ### Product Contact Projection
 
@@ -251,6 +279,7 @@ CREATE TABLE contact_projection (
  container_id TEXT,
  first_name TEXT NOT NULL DEFAULT '',
  last_name TEXT NOT NULL DEFAULT '',
+ nickname TEXT NOT NULL DEFAULT '',
  user_id TEXT,
  encapsulation_public_key TEXT,
  is_self INTEGER NOT NULL DEFAULT 0,
@@ -259,6 +288,10 @@ CREATE TABLE contact_projection (
 
 CREATE UNIQUE INDEX contact_projection_self_idx
  ON contact_projection (is_self) WHERE is_self = 1;
+CREATE UNIQUE INDEX contact_projection_user_idx
+ ON contact_projection (user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX contact_projection_container_idx
+ ON contact_projection (container_id);
 ```
 
 Contacts are product document types. The product contact projection is a local
@@ -278,14 +311,14 @@ The roster row is product lifecycle state only.
 3. The API synchronizes active roster rows from `Members` reachability.
 4. Container grants update signed container access manifests when the user or
  group also needs object access.
+5. Additive container access can add container KEK wraps for the new principal
+ without rewriting descendant document/blob content-key targets.
+6. Document/blob writes continue to target current container KEK epochs.
 
 Disabling a user removes access through signed group/grant mutations and leaves
 the roster entry with `status = disabled`. Encrypted org-specific profile fields
 such as first name, last name, email, and title belong in a Loro document named
 by `profile_document_id`, not in server-visible roster columns.
-4. Additive container access can add container KEK wraps for the new principal
- without rewriting descendant document/blob content-key targets.
-5. Document/blob writes continue to target current container KEK epochs.
 
 Subtractive access changes create new container KEK epochs for future writes.
 They do not claim retroactive secrecy for ciphertext and keys already

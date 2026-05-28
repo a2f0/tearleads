@@ -27,12 +27,12 @@ historical attachment log, tombstone store, audit manifest, or recovery index.
 
 ## Product Semantics
 
-The system guarantees live note state and live attachment availability, not
+The system guarantees live document state and live attachment availability, not
 durable attachment history.
 
 Consequences:
 
-- current note attachments remain downloadable while active bindings reference
+- current document attachments remain downloadable while active bindings reference
  their blobs
 - replacing or detaching an attachment can make the old blob bytes unavailable
  from the server once no active binding references them

@@ -152,15 +152,17 @@ Registration is a bootstrap protocol, not only an account create call.
 - the initial signed organization policy state and direct member envelope
 - the signed root container create request
 - the signed root metadata document create request
+- optional initial roster-profile container and profile document create requests
 
 The API validates the user key fingerprints, creates the user, organization,
 reserved groups, root container, initial principal policies, root container KEK
-state, and root metadata document in one transaction, then returns a login
-challenge. The initial `Admins` policy must project the registering user as the
-sole admin. The initial `Members` policy must project the registering user as
-admin and the `Admins` group as a member. The initial organization policy must
-target the new organization, be version `1`, use key epoch `1`, be signed by
-the registering user, and project only the registering user as admin.
+state, root metadata document, and optional encrypted roster-profile bootstrap
+material in one transaction, then returns a login challenge. The initial
+`Admins` policy must project the registering user as the sole admin. The
+initial `Members` policy must project the registering user as admin and the
+`Admins` group as a member. The initial organization policy must target the new
+organization, be version `1`, use key epoch `1`, be signed by the registering
+user, and project only the registering user as admin.
 
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the
@@ -175,7 +177,9 @@ Authentication uses challenge signing:
  signing-key fingerprint.
 2. `POST /auth/verify` verifies the signature over the challenge and issues a
  session token.
-3. Authenticated mutation routes require the session user and fingerprint to
+3. `GET /auth/sessions`, `DELETE /auth/sessions/:sessionId`, and
+ `POST /auth/logout` manage authenticated session tokens.
+4. Authenticated mutation routes require the session user and fingerprint to
  match the signer fields embedded in signed access events or write headers.
 
 The session authenticates the transport caller. Signed access events, signed
@@ -217,15 +221,20 @@ required member envelope material is unavailable.
 
 ## Container Access And KEK Protocol
 
-Container mutations use `ContainerMutationRequest`:
+Signed container mutation routes are:
 
 - `POST /containers`
+- `POST /containers/with-metadata-document`
 - `POST /containers/:containerId/share`
 - `POST /containers/:containerId/revoke`
 - `POST /containers/:containerId/rekey`
 - `POST /containers/:containerId/move`
 
-Each request carries:
+Most signed mutations use `ContainerMutationRequest`. The metadata-document
+create route wraps a `ContainerMutationRequest` with the initial metadata
+`DocumentCreateRequest`.
+
+Each signed mutation request carries:
 
 - signed event and event body
 - expected manifest hash and derived manifest state
@@ -246,6 +255,10 @@ Document and blob writes may carry signed `container.rekey` requests inline in
 `containerRekeys[]`. The API applies those rekeys inside the same transaction
 before resolving document/blob targets. If the enclosing write fails, the rekey
 rolls back with it.
+
+`DELETE /containers/:containerId` is an authenticated admin-only structural
+operation for empty non-system leaf containers. It is not a signed access-event
+mutation and writes sync tombstones for discovery.
 
 ## Document Link And Sync Protocol
 
@@ -312,12 +325,23 @@ client-supplied frontier.
 Blob bytes are staged before attachment binding:
 
 - `POST /blobs/stage`
+- `POST /blobs/stages/multipart`
+- `GET /blobs/stages/multipart/:stageId`
+- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber`
+- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
+- `POST /blobs/stages/multipart/:stageId/complete`
 
 `StageBlobRequest` contains `encryptedBytes`, `byteLength`, and `sha256`. The
 API recomputes the encoded byte length and SHA-256 digest, stores the stage
 under the authenticated user, and returns `stageId` plus `expiresAt`. Staged
 bytes are not readable as committed blobs and are promoted only by a successful
 attachment bind.
+
+Multipart staging uses the same ownership, expiry, byte-length, and SHA-256
+rules, but stores object-store multipart metadata in `blob_stages` until all
+parts are uploaded and completed. A completed multipart stage is promoted by
+the same attachment bind path as a single-request stage; incomplete multipart
+stages fail closed during bind.
 
 ## Attachment Bind, Replace, Detach, And Slots
 
@@ -383,13 +407,16 @@ Blob reads use:
 
 - `GET /documents/:documentId/attachments`
 - `GET /blobs/:blobId`
+- `GET /blobs/:blobId/bytes`
 
 Attachment listing requires document read access through a linked container
 path and returns active `{ bindingId, blobId, slotId }` rows. Blob reads require
-read access through at least one active binding's document. The API returns
-committed encrypted bytes and digest metadata; the app uses the blob
-content-key bundle embedded in the encrypted record plus verified access
-material to unwrap and decrypt.
+read access through at least one active binding's document. The JSON blob route
+returns committed encrypted bytes as a string plus digest metadata. The
+`/bytes` route streams committed encrypted bytes as
+`application/octet-stream` and exposes blob id, byte length, and SHA-256 digest
+headers. The app uses the blob content-key bundle embedded in the encrypted
+record plus verified access material to unwrap and decrypt.
 
 ## Failure Semantics
 
