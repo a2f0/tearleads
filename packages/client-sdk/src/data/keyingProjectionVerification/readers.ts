@@ -53,7 +53,7 @@ export function readRecordValue(
   key: string,
   label: string,
 ): unknown {
-  if (!Reflect.has(record, key)) {
+  if (!Object.hasOwn(record, key)) {
     throw new Error(`${label}.${key} is missing`);
   }
   return record[key];
