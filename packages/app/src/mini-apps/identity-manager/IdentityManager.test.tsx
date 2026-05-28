@@ -3,7 +3,7 @@ import type { Tearleads, UserSession } from "@tearleads/client-sdk";
 import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { act, cleanup, render, waitFor, within } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
+import { type PropsWithChildren, useEffect } from "react";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
@@ -28,6 +28,15 @@ class TestWebSocket extends EventTarget {
   close() {}
 }
 
+const TEST_HOST_CONFIG = new AppHostConfig(
+  "http://api.example.test",
+  "ws://events.example.test",
+  () =>
+    createModuleSQLiteRuntime({
+      workerConstructor: MockWorker,
+    }),
+);
+
 function TearleadsProbe({
   onReady,
 }: {
@@ -35,7 +44,10 @@ function TearleadsProbe({
 }) {
   const tearleads = useTearleads();
 
-  onReady(tearleads);
+  useEffect(() => {
+    onReady(tearleads);
+  }, [onReady, tearleads]);
+
   return null;
 }
 
@@ -44,18 +56,7 @@ function IdentityManagerTestRuntime({
   onTearleadsReady,
 }: PropsWithChildren<{ onTearleadsReady: (tearleads: Tearleads) => void }>) {
   return (
-    <AppRuntimeProvider
-      hostConfig={
-        new AppHostConfig(
-          "http://api.example.test",
-          "ws://events.example.test",
-          () =>
-            createModuleSQLiteRuntime({
-              workerConstructor: MockWorker,
-            }),
-        )
-      }
-    >
+    <AppRuntimeProvider hostConfig={TEST_HOST_CONFIG}>
       <TearleadsProbe onReady={onTearleadsReady} />
       {children}
     </AppRuntimeProvider>
@@ -80,11 +81,15 @@ test("active sessions render last IP and session IP history", async () => {
       />,
     );
 
-    if (!tearleadsRef.current) {
+    await waitFor(() => {
+      expect(tearleadsRef.current).toBeTruthy();
+    });
+
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
       throw new Error("Expected Tearleads SDK to be available after render.");
     }
 
-    const tearleads = tearleadsRef.current;
     const originalListSessions = tearleads.session.listSessions;
     try {
       tearleads.session.listSessions = async () => [ACTIVE_SESSION];
