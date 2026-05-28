@@ -53,15 +53,14 @@ function collectContainerSubtreeStates(input: {
   const { childIdsByParentId, containersById, rootContainerId } = input;
   const subtreeStates: ContainerState[] = [];
   const pendingContainerIds = [rootContainerId];
-  const visitedContainerIds = new Set<string>();
+  const enqueuedContainerIds = new Set<string>([rootContainerId]);
   const index = childIdsByParentId ?? createContainerChildIndex(containersById);
 
   while (pendingContainerIds.length > 0) {
     const containerId = pendingContainerIds.pop();
-    if (!containerId || visitedContainerIds.has(containerId)) {
+    if (!containerId) {
       continue;
     }
-    visitedContainerIds.add(containerId);
 
     const childIds = index.get(containerId);
     if (!childIds) {
@@ -69,11 +68,15 @@ function collectContainerSubtreeStates(input: {
     }
 
     for (const childId of childIds) {
+      if (enqueuedContainerIds.has(childId)) {
+        continue;
+      }
       const childState = containersById.get(childId);
       if (!childState) {
         continue;
       }
 
+      enqueuedContainerIds.add(childId);
       subtreeStates.push(childState);
       pendingContainerIds.push(childId);
     }
