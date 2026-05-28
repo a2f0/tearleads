@@ -11,6 +11,11 @@ import {
   MiniAppStatus,
   MiniAppTextarea,
 } from "../../../components/shared/MiniAppLayout";
+import {
+  MiniAppRow,
+  MiniAppRowStack,
+  MiniAppRowText,
+} from "../../../components/shared/MiniAppRow";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import type { ContactEntries, ContactEntryPatch } from "../types";
@@ -43,7 +48,11 @@ function ContactTextField(params: {
         value={localValue}
         placeholder={placeholder}
         onChange={(event) => setLocalValue(event.target.value)}
-        onBlur={() => onCommit(localValue)}
+        onBlur={() => {
+          if (localValue !== value) {
+            onCommit(localValue);
+          }
+        }}
       />
     </MiniAppField>
   );
@@ -65,9 +74,36 @@ function ContactTextareaField(params: {
         value={localValue}
         placeholder={placeholder}
         onChange={(event) => setLocalValue(event.target.value)}
-        onBlur={() => onCommit(localValue)}
+        onBlur={() => {
+          if (localValue !== value) {
+            onCommit(localValue);
+          }
+        }}
       />
     </MiniAppField>
+  );
+}
+
+function getContactReadValue(value: string | null | undefined): string {
+  const normalizedValue = value?.trim() ?? "";
+  return normalizedValue.length > 0 ? normalizedValue : CONTACTS_LABELS.none;
+}
+
+function ContactReadField(params: {
+  label: string;
+  title?: string | null | undefined;
+  value: string | null | undefined;
+}) {
+  const { label, title, value } = params;
+  return (
+    <MiniAppRow density="roomy">
+      <MiniAppRowStack>
+        <strong>{label}</strong>
+        <MiniAppRowText muted title={title ?? undefined}>
+          {getContactReadValue(value)}
+        </MiniAppRowText>
+      </MiniAppRowStack>
+    </MiniAppRow>
   );
 }
 
@@ -83,6 +119,12 @@ function ContactsSelectionState({
   updateContact: UpdateContact;
 }) {
   const selectedEntry = entries.find((entry) => entry.id === selectedContactId);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const isEditing = editingContactId === selectedEntry?.id;
+
+  useEffect(() => {
+    setEditingContactId(null);
+  }, [selectedEntry?.id]);
 
   if (!selectedEntry) {
     return (
@@ -98,35 +140,79 @@ function ContactsSelectionState({
 
   return (
     <MiniAppPanel key={selectedEntry.id} variant="framed">
-      <ContactTextField
-        label={CONTACTS_LABELS.nicknameField}
-        value={selectedEntry.nickname}
-        onCommit={(nickname) => updateContact(selectedEntry.id, { nickname })}
-      />
-      <ContactTextField
-        label={CONTACTS_LABELS.firstNameField}
-        value={selectedEntry.firstName}
-        onCommit={(firstName) => updateContact(selectedEntry.id, { firstName })}
-      />
-      <ContactTextField
-        label={CONTACTS_LABELS.lastNameField}
-        value={selectedEntry.lastName}
-        onCommit={(lastName) => updateContact(selectedEntry.id, { lastName })}
-      />
-      <ContactTextField
-        label={CONTACTS_LABELS.userIdField}
-        value={selectedEntry.userId ?? ""}
-        placeholder={CONTACTS_LABELS.optionalPlaceholder}
-        onCommit={(userId) => updateContact(selectedEntry.id, { userId })}
-      />
-      <ContactTextareaField
-        label={CONTACTS_LABELS.publicKeyField}
-        value={selectedEntry.encapsulationPublicKey ?? ""}
-        placeholder={CONTACTS_LABELS.optionalPlaceholder}
-        onCommit={(encapsulationPublicKey) =>
-          updateContact(selectedEntry.id, { encapsulationPublicKey })
-        }
-      />
+      <MiniAppActions>
+        <MiniAppButton
+          onClick={() =>
+            setEditingContactId(isEditing ? null : selectedEntry.id)
+          }
+        >
+          {isEditing ? CONTACTS_LABELS.doneAction : CONTACTS_LABELS.editAction}
+        </MiniAppButton>
+      </MiniAppActions>
+      {isEditing ? (
+        <>
+          <ContactTextField
+            label={CONTACTS_LABELS.nicknameField}
+            value={selectedEntry.nickname}
+            onCommit={(nickname) =>
+              updateContact(selectedEntry.id, { nickname })
+            }
+          />
+          <ContactTextField
+            label={CONTACTS_LABELS.firstNameField}
+            value={selectedEntry.firstName}
+            onCommit={(firstName) =>
+              updateContact(selectedEntry.id, { firstName })
+            }
+          />
+          <ContactTextField
+            label={CONTACTS_LABELS.lastNameField}
+            value={selectedEntry.lastName}
+            onCommit={(lastName) =>
+              updateContact(selectedEntry.id, { lastName })
+            }
+          />
+          <ContactTextField
+            label={CONTACTS_LABELS.userIdField}
+            value={selectedEntry.userId ?? ""}
+            placeholder={CONTACTS_LABELS.optionalPlaceholder}
+            onCommit={(userId) => updateContact(selectedEntry.id, { userId })}
+          />
+          <ContactTextareaField
+            label={CONTACTS_LABELS.publicKeyField}
+            value={selectedEntry.encapsulationPublicKey ?? ""}
+            placeholder={CONTACTS_LABELS.optionalPlaceholder}
+            onCommit={(encapsulationPublicKey) =>
+              updateContact(selectedEntry.id, { encapsulationPublicKey })
+            }
+          />
+        </>
+      ) : (
+        <>
+          <ContactReadField
+            label={CONTACTS_LABELS.nicknameField}
+            value={selectedEntry.nickname}
+          />
+          <ContactReadField
+            label={CONTACTS_LABELS.firstNameField}
+            value={selectedEntry.firstName}
+          />
+          <ContactReadField
+            label={CONTACTS_LABELS.lastNameField}
+            value={selectedEntry.lastName}
+          />
+          <ContactReadField
+            label={CONTACTS_LABELS.userIdField}
+            title={selectedEntry.userId}
+            value={selectedEntry.userId}
+          />
+          <ContactReadField
+            label={CONTACTS_LABELS.publicKeyField}
+            title={selectedEntry.encapsulationPublicKey}
+            value={selectedEntry.encapsulationPublicKey}
+          />
+        </>
+      )}
     </MiniAppPanel>
   );
 }

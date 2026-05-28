@@ -348,14 +348,12 @@ async function importKeyFromRuntime(
     userKey.userId,
   );
   const contactId = existingContact?.id ?? userKey.userId;
-  const isSelf = userKey.userId === state.runtime.documents.auth.userId;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(() =>
       writeContactPatch(state, contactId, {
         encapsulationPublicKey: userKey.encapsulationPublicKey,
-        isSelf,
-        ...(isSelf && !existingContact ? { nickname: "You" } : {}),
+        isSelf: userKey.userId === state.runtime.documents.auth.userId,
         userId: userKey.userId,
       }),
     )

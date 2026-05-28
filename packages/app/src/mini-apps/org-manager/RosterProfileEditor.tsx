@@ -8,6 +8,11 @@ import {
   MiniAppInput,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
+import {
+  MiniAppRow,
+  MiniAppRowStack,
+  MiniAppRowText,
+} from "../../components/shared/MiniAppRow";
 import { readContactFields } from "../../document-types/contact/contactDocumentModel";
 import {
   DocumentsProvider,
@@ -66,6 +71,45 @@ function RosterProfileTextField({
         onKeyDown={blurOnEnter}
       />
     </MiniAppField>
+  );
+}
+
+function getRosterProfileReadValue(value: string | null | undefined): string {
+  const normalizedValue = value?.trim() ?? "";
+  return normalizedValue.length > 0 ? normalizedValue : ORG_MANAGER_LABELS.none;
+}
+
+export function getRosterProfileDisplayName(fields: {
+  firstName: string;
+  lastName: string;
+  nickname: string;
+}): string | null {
+  const nickname = fields.nickname.trim();
+  if (nickname.length > 0) {
+    return nickname;
+  }
+
+  const fullName =
+    `${fields.firstName.trim()} ${fields.lastName.trim()}`.trim();
+  return fullName.length > 0 ? fullName : null;
+}
+
+function RosterProfileReadField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
+  return (
+    <MiniAppRow className="org-manager-roster-row" density="roomy">
+      <MiniAppRowStack>
+        <strong>{label}</strong>
+        <MiniAppRowText muted title={value ?? undefined}>
+          {getRosterProfileReadValue(value)}
+        </MiniAppRowText>
+      </MiniAppRowStack>
+    </MiniAppRow>
   );
 }
 
@@ -210,12 +254,16 @@ function useRosterProfileIdentitySeed({
 
 function RosterProfileDocumentFields({
   canEdit,
+  isEditing,
   localId,
+  onDisplayNameChange,
   profileContainerId,
   user,
 }: {
   canEdit: boolean;
+  isEditing: boolean;
   localId: string;
+  onDisplayNameChange?: ((displayName: string | null) => void) | undefined;
   profileContainerId: string;
   user: OrganizationDirectoryUser;
 }) {
@@ -239,7 +287,16 @@ function RosterProfileDocumentFields({
     relink,
     userProfileDocumentId: user.profileDocumentId,
   });
-  const disabled = !canEdit || !ready || !profileLinkReady;
+  const canEditFields = canEdit && isEditing;
+  const disabled = !canEditFields || !ready || !profileLinkReady;
+
+  useEffect(() => {
+    if (!ready || !profileLinkReady) {
+      return;
+    }
+
+    onDisplayNameChange?.(getRosterProfileDisplayName(fields));
+  }, [fields, onDisplayNameChange, profileLinkReady, ready]);
 
   useRosterProfileIdentitySeed({
     canEdit,
@@ -252,36 +309,52 @@ function RosterProfileDocumentFields({
 
   return (
     <div className="org-manager-roster-profile">
-      <div className="org-manager-roster-profile-fields">
-        <RosterProfileTextField
-          disabled={disabled}
-          label={ORG_MANAGER_LABELS.nickname}
-          value={fields.nickname}
-          onCommit={(nickname) => {
-            void setStructuredFields("contact", { nickname });
-          }}
-        />
-        <RosterProfileTextField
-          disabled={disabled}
-          label={ORG_MANAGER_LABELS.firstName}
-          value={fields.firstName}
-          onCommit={(firstName) => {
-            void setStructuredFields("contact", { firstName });
-          }}
-        />
-        <RosterProfileTextField
-          disabled={disabled}
-          label={ORG_MANAGER_LABELS.lastName}
-          value={fields.lastName}
-          onCommit={(lastName) => {
-            void setStructuredFields("contact", { lastName });
-          }}
-        />
-      </div>
-      {(!ready || !profileLinkReady) && (
+      {!ready || !profileLinkReady ? (
         <MiniAppStatus>
           {ORG_MANAGER_LABELS.loadingProfileDocument}
         </MiniAppStatus>
+      ) : canEditFields ? (
+        <div className="org-manager-roster-profile-fields">
+          <RosterProfileTextField
+            disabled={disabled}
+            label={ORG_MANAGER_LABELS.nickname}
+            value={fields.nickname}
+            onCommit={(nickname) => {
+              void setStructuredFields("contact", { nickname });
+            }}
+          />
+          <RosterProfileTextField
+            disabled={disabled}
+            label={ORG_MANAGER_LABELS.firstName}
+            value={fields.firstName}
+            onCommit={(firstName) => {
+              void setStructuredFields("contact", { firstName });
+            }}
+          />
+          <RosterProfileTextField
+            disabled={disabled}
+            label={ORG_MANAGER_LABELS.lastName}
+            value={fields.lastName}
+            onCommit={(lastName) => {
+              void setStructuredFields("contact", { lastName });
+            }}
+          />
+        </div>
+      ) : (
+        <div className="org-manager-roster-profile-read-fields">
+          <RosterProfileReadField
+            label={ORG_MANAGER_LABELS.nickname}
+            value={fields.nickname}
+          />
+          <RosterProfileReadField
+            label={ORG_MANAGER_LABELS.firstName}
+            value={fields.firstName}
+          />
+          <RosterProfileReadField
+            label={ORG_MANAGER_LABELS.lastName}
+            value={fields.lastName}
+          />
+        </div>
       )}
       {ready && syncing && (
         <MiniAppStatus>
@@ -294,10 +367,14 @@ function RosterProfileDocumentFields({
 
 export function RosterProfileEditor({
   canEdit,
+  isEditing = false,
+  onDisplayNameChange,
   organizationId,
   user,
 }: {
   canEdit: boolean;
+  isEditing?: boolean | undefined;
+  onDisplayNameChange?: ((displayName: string | null) => void) | undefined;
   organizationId: string;
   user: OrganizationDirectoryUser;
 }) {
@@ -374,7 +451,9 @@ export function RosterProfileEditor({
     >
       <RosterProfileDocumentFields
         canEdit={canEdit}
+        isEditing={isEditing}
         localId={localId}
+        onDisplayNameChange={onDisplayNameChange}
         profileContainerId={profileContainerId}
         user={user}
       />

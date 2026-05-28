@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { OrganizationDirectoryUser } from "@tearleads/client-sdk";
 import {
   getMissingProfileIdentityPatch,
+  getRosterProfileDisplayName,
   getRosterProfileDocumentRelinkInput,
 } from "./RosterProfileEditor";
 
@@ -51,4 +52,30 @@ test("roster profile editor relinks cached profile records to the profile contai
     documentId: "profile-document",
     localId: "org-profile:org-1:user-1",
   });
+});
+
+test("roster profile display names prefer nickname before full name", () => {
+  expect(
+    getRosterProfileDisplayName({
+      firstName: "Ada",
+      lastName: "Lovelace",
+      nickname: "Countess",
+    }),
+  ).toBe("Countess");
+
+  expect(
+    getRosterProfileDisplayName({
+      firstName: "Ada",
+      lastName: "Lovelace",
+      nickname: "",
+    }),
+  ).toBe("Ada Lovelace");
+
+  expect(
+    getRosterProfileDisplayName({
+      firstName: "",
+      lastName: "",
+      nickname: "",
+    }),
+  ).toBeNull();
 });
