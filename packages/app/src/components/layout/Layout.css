@@ -1,4 +1,4 @@
-.layout {
+.tearleads-frame.layout {
   display: grid;
   grid-template:
     "header header" auto
@@ -8,7 +8,7 @@
   height: 100vh;
 }
 
-.layout--split {
+.tearleads-frame.layout--split {
   grid-template:
     "header header" auto
     "left   right" 1fr
