@@ -240,12 +240,7 @@ export function normalizePrincipalStateWriteInput(
   };
 }
 
-export function projectionMemberKey(
-  member: Pick<
-    StoredPrincipalProjectionMember | PrincipalProjectionMember,
-    "memberPrincipalType" | "memberPrincipalId" | "role"
-  >,
-): string {
+export function projectionMemberKey(member: PrincipalProjectionMember): string {
   return `${member.memberPrincipalType}:${member.memberPrincipalId}:${member.role}`;
 }
 

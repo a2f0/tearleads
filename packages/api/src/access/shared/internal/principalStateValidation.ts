@@ -12,12 +12,7 @@ import type {
 } from "./principalStateRecords";
 
 export function projectionIncludesAdminUser(
-  projection: ReadonlyArray<
-    Pick<
-      StoredPrincipalProjectionMember | PrincipalProjectionMember,
-      "memberPrincipalType" | "memberPrincipalId" | "role"
-    >
-  >,
+  projection: ReadonlyArray<PrincipalProjectionMember>,
   userId: string,
 ): boolean {
   return projection.some(
