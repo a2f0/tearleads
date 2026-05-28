@@ -153,6 +153,10 @@ Blob bind writes submit:
 - blob content-key bundle
 - optional staged blob write header
 
+Blob stages can be created in one JSON request or through the multipart staging
+routes. The bind path treats both as temporary encrypted uploads owned by the
+authenticated user and promotes only a completed, unexpired stage.
+
 ## Read Surfaces
 
 Read/list routes use the same signed manifest state:
@@ -167,6 +171,10 @@ Read/list routes use the same signed manifest state:
   - requires read access through at least one linked container path
 - `GET /blobs/:blobId`
   - requires read access through at least one active binding's document
+  - returns committed encrypted blob metadata and string-encoded bytes
+- `GET /blobs/:blobId/bytes`
+  - requires read access through at least one active binding's document
+  - streams committed encrypted blob bytes with digest headers
 
 ## Audit Boundary
 

@@ -52,8 +52,8 @@ The access and policy handshake has these layers:
 
 1. User registration stores the user's signing key, encapsulation key, personal
  organization, reserved `Admins` group, reserved `Members` group, root
- container, root metadata state, and initial signed principal policies inside
- one registration transaction.
+ container, root metadata state, optional roster-profile bootstrap material,
+ and initial signed principal policies inside one registration transaction.
 2. The initial `Admins` policy must project the registering user as the sole
  admin. The initial `Members` policy must project the registering user as
  admin and the `Admins` group as a member. The initial organization policy must

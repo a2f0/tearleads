@@ -60,7 +60,8 @@ Document write routes:
  `writeHeader`
  - response shape: `DocumentSyncResponse`
  - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
- `contentKeyBundle`, `documentId`, `documentKekTargets`,
+ `contentKeyBundle`, optional `contentKeyBundles`, `documentId`,
+ `documentKekTargets`,
  `missingUpdateEpochs[]` (`prior_epoch` / `current_epoch`), and encrypted
  `updates[]`
  - each returned update includes its stored `accessEpoch`, visible causal
@@ -71,6 +72,14 @@ Attachment write routes:
 - `POST /blobs/stage`
  - stores temporary encrypted blob bytes
  - request shape: `StageBlobRequest`
+- multipart stage routes
+ - `POST /blobs/stages/multipart`
+ - `GET /blobs/stages/multipart/:stageId`
+ - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber`
+ - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
+ - `POST /blobs/stages/multipart/:stageId/complete`
+ - store and complete large temporary encrypted blob uploads before a bind
+   promotes the stage
 - `POST /blobs/:blobId/attachment-bindings`
  - binds or same-slot replaces a blob attachment through signed
  `attachment.bind`
@@ -85,6 +94,7 @@ Attachment write routes:
 Access write routes are the signed `/containers` mutation family:
 
 - `POST /containers`
+- `POST /containers/with-metadata-document`
 - `POST /containers/:containerId/share`
 - `POST /containers/:containerId/revoke`
 - `POST /containers/:containerId/rekey`
@@ -147,8 +157,9 @@ Behavior:
 - committed blob encrypted records carry content-key bundle material that the
  API can persist when the blob recipient set matches active access
 - committed attachments update blob content-key targets for additive access
- growth, and `GET /blobs/:blobId` returns committed encrypted bytes plus
- digest metadata without creating a new blob row
+ growth, and `GET /blobs/:blobId` plus `GET /blobs/:blobId/bytes` return
+ committed encrypted bytes or byte streams plus digest metadata without
+ creating a new blob row
 - access-sensitive create and structural mutation routes are signed routes:
  - `POST /documents`
  - `POST /documents/:documentId/link`
@@ -259,7 +270,7 @@ This plane owns:
 - blob staging
 - attachment bind / replace
 - attachment detach
-- attachment-to-note indexing
+- attachment-to-document indexing
 - any server-visible attachment binding identity required for commit and GC
 
 The Loro document may still reference attachment IDs for editor semantics, but
@@ -268,16 +279,16 @@ updates.
 
 Objects:
 
-- `blob_object`
- - immutable encrypted blob bytes in object storage
-- `blob_stage`
- - temporary staged upload owned by one actor and expiring automatically
-- `note_attachment`
- - logical attachment record keyed to a note
-- `attachment_binding`
- - server-visible binding from attachment record to blob object; this model keeps
- detached bindings only as transient replacement metadata and prunes them
- with unreachable blobs
+- `blobs`
+ - committed encrypted blob payload rows, backed by inline legacy bytes or an
+ object-store storage key
+- `blob_stages`
+ - temporary staged uploads owned by one actor and expiring automatically;
+ multipart stages store object-store upload metadata until completion
+- `attachment_bindings`
+ - server-visible bindings from document slots to blob objects; detached
+ bindings are transient replacement metadata and are pruned with unreachable
+ blobs
 
 For the attachment/blob retention decision, see
 [attachment-retention.md](./attachment-retention.md). Historical attachment
@@ -298,13 +309,21 @@ changes and wrapped-key bundle changes for the blob object.
 Logical operations:
 
 - `POST /blobs/stage`
+- `POST /blobs/stages/multipart`
+- `GET /blobs/stages/multipart/:stageId`
+- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber`
+- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
+- `POST /blobs/stages/multipart/:stageId/complete`
 - `POST /blobs/:blobId/attachment-bindings`
 - `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 
 Implementation objects:
 
+- `blobs`
+ - committed encrypted blob rows and object-store keys
 - `blob_stages`
- - temporary encrypted upload bytes keyed by `stageId`
+ - temporary encrypted upload bytes or multipart upload metadata keyed by
+ `stageId`
 - `attachment_bindings`
  - document-visible attachment state keyed by opaque `slotId`
  - `detached_at IS NULL` means the binding is currently active
@@ -341,7 +360,7 @@ attachment binding mutations:
 2. `POST /blobs/:blobId/attachment-bindings`
 3. `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 4. `POST /documents/:documentId/sync` for the encrypted Loro update that
- makes the attachment visible in note content
+ makes the attachment visible in document content
 
 For an existing remote document, clients may probe
 `POST /documents/:documentId/sync` with no outgoing updates before
@@ -408,7 +427,7 @@ Reason:
 
 The clean split is:
 
-- Loro sync transports encrypted note document updates.
+- Loro sync transports encrypted document updates.
 - Attachment sync transports visible document-to-blob reference metadata.
 
 The note editor may store attachment IDs inside Loro content, for example to
