@@ -62,6 +62,7 @@
         "@tearleads/crypto": "workspace:*",
         "@tearleads/encoding": "workspace:*",
         "@tearleads/loro": "workspace:*",
+        "@tearleads/ui": "workspace:*",
         "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
         "react": "catalog:react",
@@ -201,6 +202,16 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/ui": {
+      "name": "@tearleads/ui",
+      "version": "0.1.0",
+      "dependencies": {
+        "react": "catalog:react",
+      },
+      "devDependencies": {
+        "@types/react": "catalog:react",
+      },
+    },
     "packages/validators": {
       "name": "@tearleads/validators",
       "version": "0.1.0",
@@ -213,6 +224,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@astrojs/react": "5.0.6",
+        "@tearleads/ui": "workspace:*",
         "astro": "6.4.0",
         "react": "catalog:react",
         "react-dom": "catalog:react",
@@ -794,6 +806,8 @@
     "@tearleads/sqlite-worker": ["@tearleads/sqlite-worker@workspace:packages/sqlite-worker"],
 
     "@tearleads/test-utils": ["@tearleads/test-utils@workspace:packages/test-utils"],
+
+    "@tearleads/ui": ["@tearleads/ui@workspace:packages/ui"],
 
     "@tearleads/validators": ["@tearleads/validators@workspace:packages/validators"],
 

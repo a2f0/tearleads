@@ -80,6 +80,9 @@ export default {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/ui": {
+      project: ["src/**/*.{ts,tsx}"],
+    },
     "packages/validators": {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],

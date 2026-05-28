@@ -1,4 +1,4 @@
-.layout {
+.tearleads-frame.layout {
   display: grid;
   grid-template:
     "header header" auto
@@ -8,10 +8,26 @@
   height: 100vh;
 }
 
-.layout--split {
+.tearleads-frame.layout--split {
   grid-template:
     "header header" auto
     "left   right" 1fr
     "footer footer" auto
     / 1fr 1fr;
+}
+
+.workspace-switcher {
+  display: flex;
+  gap: var(--footer-gap);
+}
+
+.workspace-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+.workspace-button--active {
+  background: var(--color-light);
+  color: var(--color-dark);
 }

@@ -16,6 +16,7 @@
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",
+    "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.1",
     "react": "catalog:react",

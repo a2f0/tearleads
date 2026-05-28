@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@astrojs/react": "5.0.6",
+    "@tearleads/ui": "workspace:*",
     "astro": "6.4.0",
     "react": "catalog:react",
     "react-dom": "catalog:react"
