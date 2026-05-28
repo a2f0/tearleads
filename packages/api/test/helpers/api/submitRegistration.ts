@@ -151,6 +151,12 @@ export async function createRegistrationRequestBody(
     }),
     initialRootContainer: rootBootstrap.initialRootContainer,
     initialRootMetadataDocument: rootBootstrap.initialRootMetadataDocument,
+    ...(rootBootstrap.initialRosterProfileContainer
+      ? {
+          initialRosterProfileContainer:
+            rootBootstrap.initialRosterProfileContainer,
+        }
+      : {}),
     ...(rootBootstrap.initialRosterProfileDocument
       ? {
           initialRosterProfileDocument:

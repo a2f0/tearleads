@@ -927,6 +927,12 @@ async function createInitialRosterProfileDocument(
   if (!input.initialRosterProfileDocument) {
     return null;
   }
+  if (!profileContainer) {
+    throw new RegistrationError(
+      "Initial roster profile document requires a profile container",
+      400,
+    );
+  }
 
   const requestDocumentId = readDocumentCreateRequestId(
     input.initialRosterProfileDocument,
@@ -950,17 +956,15 @@ async function createInitialRosterProfileDocument(
       400,
     );
   }
-  if (profileContainer) {
-    const linkedContainerIds = readDocumentLinkedContainerIds(created);
-    if (
-      linkedContainerIds.length !== 1 ||
-      linkedContainerIds[0] !== profileContainer.containerId
-    ) {
-      throw new RegistrationError(
-        "Initial roster profile document does not match roster profile container",
-        400,
-      );
-    }
+  const linkedContainerIds = readDocumentLinkedContainerIds(created);
+  if (
+    linkedContainerIds.length !== 1 ||
+    linkedContainerIds[0] !== profileContainer.containerId
+  ) {
+    throw new RegistrationError(
+      "Initial roster profile document does not match roster profile container",
+      400,
+    );
   }
 
   const [rosterEntry] = await tx

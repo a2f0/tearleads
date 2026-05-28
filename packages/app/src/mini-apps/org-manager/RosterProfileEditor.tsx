@@ -96,7 +96,14 @@ export function getRosterProfileDocumentRelinkInput(input: {
   };
 }
 
-function useRosterProfileDocumentLinkState(input: {
+function useRosterProfileDocumentLinkState({
+  documentId,
+  localId,
+  profileContainerId,
+  ready,
+  relink,
+  userProfileDocumentId,
+}: {
   documentId: string | null;
   localId: string;
   profileContainerId: string;
@@ -108,23 +115,18 @@ function useRosterProfileDocumentLinkState(input: {
 
   useEffect(() => {
     setProfileLinkReady(false);
-    if (
-      !input.ready ||
-      !input.documentId ||
-      input.documentId !== input.userProfileDocumentId
-    ) {
+    if (!ready || !documentId || documentId !== userProfileDocumentId) {
       return;
     }
 
     let cancelled = false;
-    void input
-      .relink(
-        getRosterProfileDocumentRelinkInput({
-          localId: input.localId,
-          profileContainerId: input.profileContainerId,
-          profileDocumentId: input.documentId,
-        }),
-      )
+    void relink(
+      getRosterProfileDocumentRelinkInput({
+        localId,
+        profileContainerId,
+        profileDocumentId: documentId,
+      }),
+    )
       .catch(() => null)
       .finally(() => {
         if (!cancelled) {
@@ -135,12 +137,26 @@ function useRosterProfileDocumentLinkState(input: {
     return () => {
       cancelled = true;
     };
-  }, [input]);
+  }, [
+    documentId,
+    localId,
+    profileContainerId,
+    ready,
+    relink,
+    userProfileDocumentId,
+  ]);
 
   return profileLinkReady;
 }
 
-function useRosterProfileIdentitySeed(input: {
+function useRosterProfileIdentitySeed({
+  canEdit,
+  profileLinkReady,
+  ready,
+  setStructuredFields,
+  structuredFields,
+  user,
+}: {
   canEdit: boolean;
   profileLinkReady: boolean;
   ready: boolean;
@@ -149,20 +165,27 @@ function useRosterProfileIdentitySeed(input: {
   user: OrganizationDirectoryUser;
 }): void {
   useEffect(() => {
-    if (!input.canEdit || !input.ready || !input.profileLinkReady) {
+    if (!canEdit || !ready || !profileLinkReady) {
       return;
     }
 
     const identityPatch = getMissingProfileIdentityPatch(
-      input.user,
-      input.structuredFields,
+      user,
+      structuredFields,
     );
     if (!identityPatch) {
       return;
     }
 
-    void input.setStructuredFields("contact", identityPatch);
-  }, [input]);
+    void setStructuredFields("contact", identityPatch);
+  }, [
+    canEdit,
+    profileLinkReady,
+    ready,
+    setStructuredFields,
+    structuredFields,
+    user,
+  ]);
 }
 
 function RosterProfileDocumentFields({
@@ -188,48 +211,24 @@ function RosterProfileDocumentFields({
     () => readContactFields(structuredFields),
     [structuredFields],
   );
-  const profileLinkReady = useRosterProfileDocumentLinkState(
-    useMemo(
-      () => ({
-        documentId,
-        localId,
-        profileContainerId,
-        ready,
-        relink,
-        userProfileDocumentId: user.profileDocumentId,
-      }),
-      [
-        documentId,
-        localId,
-        profileContainerId,
-        ready,
-        relink,
-        user.profileDocumentId,
-      ],
-    ),
-  );
+  const profileLinkReady = useRosterProfileDocumentLinkState({
+    documentId,
+    localId,
+    profileContainerId,
+    ready,
+    relink,
+    userProfileDocumentId: user.profileDocumentId,
+  });
   const disabled = !canEdit || !ready || !profileLinkReady;
 
-  useRosterProfileIdentitySeed(
-    useMemo(
-      () => ({
-        canEdit,
-        profileLinkReady,
-        ready,
-        setStructuredFields,
-        structuredFields,
-        user,
-      }),
-      [
-        canEdit,
-        profileLinkReady,
-        ready,
-        setStructuredFields,
-        structuredFields,
-        user,
-      ],
-    ),
-  );
+  useRosterProfileIdentitySeed({
+    canEdit,
+    profileLinkReady,
+    ready,
+    setStructuredFields,
+    structuredFields,
+    user,
+  });
 
   return (
     <div className="org-manager-roster-profile">
