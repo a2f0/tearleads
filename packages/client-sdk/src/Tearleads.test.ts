@@ -899,7 +899,10 @@ describe("Tearleads", () => {
           {
             createdAt: "2026-05-22T10:00:00.000Z",
             id: "a".repeat(64),
+            ipAddresses: ["198.51.100.10"],
             isCurrent: true,
+            lastActiveAt: "2026-05-22T10:05:00.000Z",
+            lastActiveIp: "198.51.100.10",
             signingKeyFingerprint: "b".repeat(64),
           },
         ],
@@ -911,7 +914,10 @@ describe("Tearleads", () => {
       {
         createdAt: "2026-05-22T10:00:00.000Z",
         id: "a".repeat(64),
+        ipAddresses: ["198.51.100.10"],
         isCurrent: true,
+        lastActiveAt: "2026-05-22T10:05:00.000Z",
+        lastActiveIp: "198.51.100.10",
         signingKeyFingerprint: "b".repeat(64),
       },
     ]);

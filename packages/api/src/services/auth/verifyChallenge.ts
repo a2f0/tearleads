@@ -10,6 +10,7 @@ import type { ApiServiceRuntime } from "../runtime";
 
 interface VerifyChallengeInput {
   fingerprint: string;
+  ipAddress?: string | null | undefined;
   signature: number[];
 }
 
@@ -82,6 +83,7 @@ export async function verifyChallenge(
     userId: user.id,
     fingerprint: input.fingerprint,
     createdAt: Date.now(),
+    ipAddress: input.ipAddress,
   });
 
   return {

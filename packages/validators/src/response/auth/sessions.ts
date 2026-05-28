@@ -2,13 +2,17 @@ import { isPlainObject } from "../../isPlainObject";
 import {
   hasArrayProperty,
   hasBooleanProperty,
+  hasNullableStringProperty,
   hasStringProperty,
 } from "../../util";
 
 export interface UserSessionResponse {
   id: string;
   createdAt: string;
+  ipAddresses: string[];
   isCurrent: boolean;
+  lastActiveAt: string;
+  lastActiveIp: string | null;
   signingKeyFingerprint: string;
 }
 
@@ -28,7 +32,14 @@ export function isUserSessionResponse(
     hasStringProperty(value, "id") &&
     /^[0-9a-f]{64}$/.test(value.id) &&
     hasStringProperty(value, "createdAt") &&
+    hasArrayProperty(value, "ipAddresses") &&
+    value.ipAddresses.every(
+      (ipAddress) => typeof ipAddress === "string" && ipAddress.length > 0,
+    ) &&
     hasBooleanProperty(value, "isCurrent") &&
+    hasStringProperty(value, "lastActiveAt") &&
+    hasNullableStringProperty(value, "lastActiveIp") &&
+    (value.lastActiveIp === null || value.lastActiveIp.length > 0) &&
     hasStringProperty(value, "signingKeyFingerprint")
   );
 }

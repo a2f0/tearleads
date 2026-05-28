@@ -104,14 +104,19 @@ test("session responses", () => {
   const session = {
     id: "a".repeat(64),
     createdAt: new Date().toISOString(),
+    ipAddresses: ["198.51.100.10"],
     isCurrent: true,
+    lastActiveAt: new Date().toISOString(),
+    lastActiveIp: "198.51.100.10",
     signingKeyFingerprint: "signing-fingerprint",
   };
 
   expect(isUserSessionResponse(session)).toBe(true);
   expect(isListSessionsResponse({ sessions: [session] })).toBe(true);
   expect(isUserSessionResponse({ ...session, id: "not-hex" })).toBe(false);
+  expect(isUserSessionResponse({ ...session, ipAddresses: [123] })).toBe(false);
   expect(isUserSessionResponse({ ...session, isCurrent: "yes" })).toBe(false);
+  expect(isUserSessionResponse({ ...session, lastActiveIp: 123 })).toBe(false);
   expect(
     isListSessionsResponse({ sessions: [{ ...session, id: "bad" }] }),
   ).toBe(false);

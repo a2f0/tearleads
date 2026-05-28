@@ -425,7 +425,10 @@ test("uses auth session management routes", async () => {
             {
               id: sessionId,
               createdAt: "2026-05-22T12:00:00.000Z",
+              ipAddresses: ["198.51.100.10"],
               isCurrent: true,
+              lastActiveAt: "2026-05-22T12:05:00.000Z",
+              lastActiveIp: "198.51.100.10",
               signingKeyFingerprint: "signing-fingerprint",
             },
           ],
@@ -444,7 +447,10 @@ test("uses auth session management routes", async () => {
       {
         id: sessionId,
         createdAt: "2026-05-22T12:00:00.000Z",
+        ipAddresses: ["198.51.100.10"],
         isCurrent: true,
+        lastActiveAt: "2026-05-22T12:05:00.000Z",
+        lastActiveIp: "198.51.100.10",
         signingKeyFingerprint: "signing-fingerprint",
       },
     ],

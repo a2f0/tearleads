@@ -38,3 +38,7 @@
 .identity-manager-session-table {
   min-height: 8rem;
 }
+
+.identity-manager-session-table .mini-app-table {
+  min-width: 62rem;
+}
