@@ -18,14 +18,13 @@ function timeLow(uuid: string): string {
 
 function getSidebarContactLabel(entry: ContactEntries[number]): string {
   const name = getContactDisplayName(entry);
-  const label =
-    name.length > 0
-      ? name
+  return name.length > 0
+    ? name
+    : entry.isSelf
+      ? "You"
       : entry.userId
         ? timeLow(entry.userId)
         : "Untitled contact";
-
-  return entry.isSelf ? `${label} (me)` : label;
 }
 
 function ContactsSidebarEntries({

@@ -183,7 +183,7 @@ test("contacts store persists contacts as documents with app-owned projections",
   }
 });
 
-test("contacts store seeds self imports with a You nickname", async () => {
+test("contacts store imports self keys without a synthetic nickname", async () => {
   const runtime = await createContactsRuntime();
   const selfKey: UserKey = {
     encapsulationPublicKey: "self-encapsulation-public-key",
@@ -223,7 +223,7 @@ test("contacts store seeds self imports with a You nickname", async () => {
       id: selfKey.userId,
       isSelf: true,
       lastName: "",
-      nickname: "You",
+      nickname: "",
       userId: selfKey.userId,
     });
 
@@ -233,7 +233,7 @@ test("contacts store seeds self imports with a You nickname", async () => {
     expect(documentProjections).toContainEqual(
       expect.objectContaining({
         id: selfKey.userId,
-        title: "You",
+        title: selfKey.userId,
       }),
     );
   } finally {

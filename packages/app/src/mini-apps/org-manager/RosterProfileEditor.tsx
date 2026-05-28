@@ -79,6 +79,21 @@ function getRosterProfileReadValue(value: string | null | undefined): string {
   return normalizedValue.length > 0 ? normalizedValue : ORG_MANAGER_LABELS.none;
 }
 
+export function getRosterProfileDisplayName(fields: {
+  firstName: string;
+  lastName: string;
+  nickname: string;
+}): string | null {
+  const nickname = fields.nickname.trim();
+  if (nickname.length > 0) {
+    return nickname;
+  }
+
+  const fullName =
+    `${fields.firstName.trim()} ${fields.lastName.trim()}`.trim();
+  return fullName.length > 0 ? fullName : null;
+}
+
 function RosterProfileReadField({
   label,
   value,
@@ -241,12 +256,14 @@ function RosterProfileDocumentFields({
   canEdit,
   isEditing,
   localId,
+  onDisplayNameChange,
   profileContainerId,
   user,
 }: {
   canEdit: boolean;
   isEditing: boolean;
   localId: string;
+  onDisplayNameChange?: ((displayName: string | null) => void) | undefined;
   profileContainerId: string;
   user: OrganizationDirectoryUser;
 }) {
@@ -272,6 +289,14 @@ function RosterProfileDocumentFields({
   });
   const canEditFields = canEdit && isEditing;
   const disabled = !canEditFields || !ready || !profileLinkReady;
+
+  useEffect(() => {
+    if (!ready || !profileLinkReady) {
+      return;
+    }
+
+    onDisplayNameChange?.(getRosterProfileDisplayName(fields));
+  }, [fields, onDisplayNameChange, profileLinkReady, ready]);
 
   useRosterProfileIdentitySeed({
     canEdit,
@@ -343,11 +368,13 @@ function RosterProfileDocumentFields({
 export function RosterProfileEditor({
   canEdit,
   isEditing = false,
+  onDisplayNameChange,
   organizationId,
   user,
 }: {
   canEdit: boolean;
   isEditing?: boolean | undefined;
+  onDisplayNameChange?: ((displayName: string | null) => void) | undefined;
   organizationId: string;
   user: OrganizationDirectoryUser;
 }) {
@@ -426,6 +453,7 @@ export function RosterProfileEditor({
         canEdit={canEdit}
         isEditing={isEditing}
         localId={localId}
+        onDisplayNameChange={onDisplayNameChange}
         profileContainerId={profileContainerId}
         user={user}
       />

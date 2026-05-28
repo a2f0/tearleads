@@ -4,7 +4,13 @@ import type {
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { type KeyboardEvent, type ReactNode, useEffect, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -55,6 +61,7 @@ const DIRECTORY_TABLE_COLUMNS = [
 type RenderRosterProfileEditor = (input: {
   canEdit: boolean;
   isEditing: boolean;
+  onDisplayNameChange: (displayName: string | null) => void;
   user: OrganizationUserDetail["user"];
 }) => ReactNode;
 
@@ -69,11 +76,13 @@ function getNullableIdentifierLabel(value: string | null): string {
 function DirectoryTable({
   directory,
   loading,
+  profileDisplayNamesByUserId,
   selectedUserId,
   selectUser,
 }: {
   directory: OrganizationDirectory | null;
   loading: boolean;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   selectedUserId?: string | null;
   selectUser?: ((userId: string) => void) | undefined;
 }) {
@@ -127,9 +136,8 @@ function DirectoryTable({
             >
               <MiniAppTableCell>
                 <MiniAppTableText title={user.userId}>
-                  {user.isSelf
-                    ? ORG_MANAGER_LABELS.self
-                    : compactFingerprint(user.userId)}
+                  {profileDisplayNamesByUserId?.get(user.userId) ??
+                    compactFingerprint(user.userId)}
                 </MiniAppTableText>
               </MiniAppTableCell>
               <MiniAppTableCell>
@@ -246,7 +254,9 @@ function UserDetailView({
   detail,
   loading,
   onDismiss,
+  onRosterProfileDisplayNameChange,
   openGroupRoute,
+  profileDisplayName,
   renderRosterProfileEditor,
   revokeGrant,
   selectedUserId,
@@ -257,8 +267,10 @@ function UserDetailView({
   detail: OrganizationUserDetail | null;
   loading: boolean;
   onDismiss: () => void;
+  onRosterProfileDisplayNameChange: (displayName: string | null) => void;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
+  profileDisplayName?: string | undefined;
   renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
@@ -310,9 +322,7 @@ function UserDetailView({
       <MiniAppHeader className="org-manager-detail-header">
         <MiniAppHeaderCopy>
           <strong title={detail.user.userId}>
-            {detail.user.isSelf
-              ? ORG_MANAGER_LABELS.self
-              : compactFingerprint(detail.user.userId)}
+            {profileDisplayName ?? compactFingerprint(detail.user.userId)}
           </strong>
           <span title={detail.user.signingKeyFingerprint}>
             {compactFingerprint(detail.user.signingKeyFingerprint)}
@@ -350,6 +360,7 @@ function UserDetailView({
           ? renderRosterProfileEditor({
               canEdit: canEditRosterProfile,
               isEditing: isRosterProfileEditing,
+              onDisplayNameChange: onRosterProfileDisplayNameChange,
               user: detail.user,
             })
           : null}
@@ -434,6 +445,39 @@ export function DirectoryView({
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
 }) {
+  const [profileDisplayNamesByUserId, setProfileDisplayNamesByUserId] =
+    useState<ReadonlyMap<string, string>>(new Map());
+
+  const setProfileDisplayName = useCallback(
+    (userId: string, displayName: string | null) => {
+      const trimmedDisplayName = displayName?.trim() ?? "";
+
+      setProfileDisplayNamesByUserId((current) => {
+        if (current.get(userId) === trimmedDisplayName) {
+          return current;
+        }
+
+        const next = new Map(current);
+        if (trimmedDisplayName.length > 0) {
+          next.set(userId, trimmedDisplayName);
+        } else {
+          next.delete(userId);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setSelectedProfileDisplayName = useCallback(
+    (displayName: string | null) => {
+      if (selectedUserId) {
+        setProfileDisplayName(selectedUserId, displayName);
+      }
+    },
+    [selectedUserId, setProfileDisplayName],
+  );
+
   if (!directory) {
     return <DirectoryTable directory={directory} loading={loading} />;
   }
@@ -444,6 +488,7 @@ export function DirectoryView({
         <DirectoryTable
           directory={directory}
           loading={loading}
+          profileDisplayNamesByUserId={profileDisplayNamesByUserId}
           selectedUserId={selectedUserId}
           selectUser={selectUser}
         />
@@ -460,7 +505,13 @@ export function DirectoryView({
         loading={loadingUserDetail}
         mutating={mutating}
         onDismiss={() => selectUser(null)}
+        onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
         openGroupRoute={openGroupRoute}
+        profileDisplayName={
+          selectedUserId
+            ? profileDisplayNamesByUserId.get(selectedUserId)
+            : undefined
+        }
         renderRosterProfileEditor={renderRosterProfileEditor}
         revokeGrant={revokeGrant}
         selectedUserId={selectedUserId}

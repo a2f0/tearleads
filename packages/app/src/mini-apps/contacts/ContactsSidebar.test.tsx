@@ -41,6 +41,24 @@ const entries: ContactEntry[] = [
     encapsulationPublicKey: "public-key",
     isSelf: false,
   },
+  {
+    id: "self-nickname",
+    firstName: "Local",
+    lastName: "Admin",
+    nickname: "Boss",
+    userId: "self-user-nickname",
+    encapsulationPublicKey: "self-public-key",
+    isSelf: true,
+  },
+  {
+    id: "self-full-name",
+    firstName: "Local",
+    lastName: "User",
+    nickname: "",
+    userId: "self-user-full-name",
+    encapsulationPublicKey: "self-public-key",
+    isSelf: true,
+  },
 ];
 
 function ContactsSidebarHarness() {
@@ -111,4 +129,13 @@ test("contacts sidebar uses nickname before first and last name", async () => {
       name: "Countess",
     }),
   ).toBeTruthy();
+});
+
+test("contacts sidebar does not append self labels to contact names", async () => {
+  const view = render(<ContactsSidebarHarness />);
+
+  expect(await view.findByRole("button", { name: "Boss" })).toBeTruthy();
+  expect(await view.findByRole("button", { name: "Local User" })).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Boss (me)" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Local User (me)" })).toBeNull();
 });
