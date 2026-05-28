@@ -2,6 +2,7 @@ import { isVerifyRequest } from "@tearleads/validators/request";
 import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
+import { readRequestIpAddress } from "../../middleware/session";
 import {
   VerifyChallengeError,
   verifyChallenge,
@@ -21,7 +22,10 @@ export function createVerifyRoute(runtime: ApiServiceRuntime) {
     }),
     async (c) => {
       try {
-        const result = await verifyChallenge(runtime, c.req.valid("json"));
+        const result = await verifyChallenge(runtime, {
+          ...c.req.valid("json"),
+          ipAddress: readRequestIpAddress(c),
+        });
 
         return c.json<VerifyResponse>({
           authenticated: true,

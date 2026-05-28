@@ -38,7 +38,10 @@ async function registerTestUser(): Promise<RegisteredTestUser> {
   };
 }
 
-async function authenticate(user: RegisteredTestUser): Promise<string> {
+async function authenticate(
+  user: RegisteredTestUser,
+  headers?: HeadersInit,
+): Promise<string> {
   const challengeRes = await requestChallenge(user.fingerprint);
   const { challenge } = await challengeRes.json();
   invariant(typeof challenge === "string", "expected challenge string");
@@ -50,15 +53,21 @@ async function authenticate(user: RegisteredTestUser): Promise<string> {
     }),
     user.signingPrivateKey,
   );
-  const res = await submitVerify(user.fingerprint, signature);
+  const res = await submitVerify(user.fingerprint, signature, headers);
   const body = await res.json();
   invariant(typeof body.token === "string", "expected token string");
   return body.token;
 }
 
-async function listSessions(token: string): Promise<Response> {
+async function listSessions(
+  token: string,
+  headers?: HeadersInit,
+): Promise<Response> {
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set("Authorization", `Bearer ${token}`);
+
   return routeApp.request("/auth/sessions", {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: requestHeaders,
   });
 }
 
@@ -92,9 +101,39 @@ test("lists active sessions for the current user without exposing bearer tokens"
   expect(body.sessions.filter((session) => session.isCurrent)).toHaveLength(1);
   expect(
     body.sessions.every(
+      (session) =>
+        typeof session.lastActiveAt === "string" &&
+        Array.isArray(session.ipAddresses) &&
+        "lastActiveIp" in session,
+    ),
+  ).toBe(true);
+  expect(
+    body.sessions.every(
       (session) => session.signingKeyFingerprint === user.fingerprint,
     ),
   ).toBe(true);
+});
+
+test("records IP activity for active sessions", async () => {
+  const user = await registerTestUser();
+  const token = await authenticate(user, {
+    "x-forwarded-for": "198.51.100.10",
+  });
+
+  const res = await listSessions(token, {
+    "x-forwarded-for": "203.0.113.9, 10.0.0.1",
+  });
+
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as ListSessionsResponse;
+  const session = body.sessions.find((candidate) => candidate.isCurrent);
+  invariant(session, "expected current session");
+
+  expect(session.ipAddresses).toEqual(["198.51.100.10", "203.0.113.9"]);
+  expect(session.lastActiveIp).toBe("203.0.113.9");
+  expect(new Date(session.lastActiveAt).getTime()).toBeGreaterThanOrEqual(
+    new Date(session.createdAt).getTime(),
+  );
 });
 
 test("destroys another session owned by the current user", async () => {

@@ -23,7 +23,10 @@ function toSessionResponse(session: UserSessionSummary): UserSessionResponse {
   return {
     id: session.id,
     createdAt: new Date(session.createdAt).toISOString(),
+    ipAddresses: session.ipAddresses,
     isCurrent: session.isCurrent,
+    lastActiveAt: new Date(session.lastActiveAt).toISOString(),
+    lastActiveIp: session.lastActiveIp,
     signingKeyFingerprint: session.fingerprint,
   };
 }

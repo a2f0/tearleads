@@ -12,6 +12,9 @@ function createAuthenticatedTestApp(userId: string) {
         createdAt: Date.now(),
         fingerprint: "test-fingerprint",
         id: "test-session",
+        ipAddresses: [],
+        lastActiveAt: Date.now(),
+        lastActiveIp: null,
         userId,
       });
       return next();

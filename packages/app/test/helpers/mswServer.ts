@@ -59,6 +59,7 @@ interface TestApiKeyValueStore {
   getdel: (key: string) => Promise<string | null>;
   sadd: (key: string, member: string) => Promise<void>;
   set: (key: string, value: string, ttlSeconds?: number) => Promise<void>;
+  setKeepTtl: (key: string, value: string) => Promise<void>;
   srem: (key: string, member: string) => Promise<void>;
   sscanMembers: (key: string) => AsyncIterable<string[]>;
 }
@@ -409,7 +410,10 @@ const server = setupServer(
         {
           createdAt: "2026-05-22T10:00:00.000Z",
           id: randomHex(32),
+          ipAddresses: ["198.51.100.10"],
           isCurrent: true,
+          lastActiveAt: "2026-05-22T10:05:00.000Z",
+          lastActiveIp: "198.51.100.10",
           signingKeyFingerprint: randomHex(32),
         },
       ],
@@ -575,6 +579,19 @@ function createInMemoryKeyValueStore(): TestApiKeyValueStore {
         value,
       });
     },
+    setKeepTtl: async (key: string, value: string) => {
+      if (getNonExpired(key) === null) {
+        return;
+      }
+      const entry = strings.get(key);
+      if (!entry) {
+        return;
+      }
+      strings.set(key, {
+        expiresAt: entry.expiresAt,
+        value,
+      });
+    },
     srem: async (key: string, member: string) => {
       const members = getNonExpiredSet(key);
       members?.delete(member);
@@ -674,7 +691,10 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
       ),
       publish: (event: Record<string, unknown>) =>
         eventPublisher.publish(event),
-      requireAuth: createRequireAuth(keyValueStore.get),
+      requireAuth: createRequireAuth(
+        keyValueStore.get,
+        keyValueStore.setKeepTtl,
+      ),
       runtime,
     });
 

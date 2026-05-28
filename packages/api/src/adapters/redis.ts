@@ -58,6 +58,14 @@ export async function set(
   }
 }
 
+export async function setKeepTtl(key: string, value: string): Promise<void> {
+  const activeClient = await ensureClient();
+  await activeClient.set(key, value, {
+    condition: "XX",
+    expiration: "KEEPTTL",
+  });
+}
+
 export async function getdel(key: string): Promise<string | null> {
   const activeClient = await ensureClient();
   return activeClient.getDel(key);

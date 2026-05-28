@@ -35,6 +35,9 @@ const CURRENT_SESSION_MUTATION_ID = "current-session";
 
 const SESSION_TABLE_COLUMNS = [
   { header: "Status", id: "status", width: "6.5rem" },
+  { header: "Last Active", id: "last-active", width: "10rem" },
+  { header: "Last IP", id: "last-ip", width: "9rem" },
+  { header: "IPs", id: "ip-addresses", width: "7rem" },
   { header: "Created", id: "created", width: "10rem" },
   { header: "Signing Key", id: "signing-key" },
   { header: "Session ID", id: "session-id" },
@@ -84,6 +87,22 @@ function getIdentityState({
 
 function getSessionMutationLabel(session: UserSession): string {
   return session.isCurrent ? "Log Out" : "Revoke";
+}
+
+function formatSessionIpAddresses(ipAddresses: ReadonlyArray<string>): string {
+  if (ipAddresses.length === 0) {
+    return "None";
+  }
+  const [firstIpAddress] = ipAddresses;
+  if (ipAddresses.length === 1) {
+    return compactIdentifier(firstIpAddress);
+  }
+
+  return `${compactIdentifier(firstIpAddress)}, +${ipAddresses.length - 1}`;
+}
+
+function sessionIpAddressesTitle(ipAddresses: ReadonlyArray<string>): string {
+  return ipAddresses.length === 0 ? "No recorded IPs" : ipAddresses.join(", ");
 }
 
 type CryptoSessionContextValue = ReturnType<typeof useCryptoSession>;
@@ -435,6 +454,21 @@ function SessionTableRow({
       <MiniAppTableCell>
         <MiniAppTableText>
           {session.isCurrent ? "Current" : "Active"}
+        </MiniAppTableText>
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        <MiniAppTableText truncate={false}>
+          {formatMiniAppDateTime(session.lastActiveAt)}
+        </MiniAppTableText>
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        <MiniAppTableText title={session.lastActiveIp ?? "No recorded IP"}>
+          {session.lastActiveIp ?? "None"}
+        </MiniAppTableText>
+      </MiniAppTableCell>
+      <MiniAppTableCell>
+        <MiniAppTableText title={sessionIpAddressesTitle(session.ipAddresses)}>
+          {formatSessionIpAddresses(session.ipAddresses)}
         </MiniAppTableText>
       </MiniAppTableCell>
       <MiniAppTableCell>

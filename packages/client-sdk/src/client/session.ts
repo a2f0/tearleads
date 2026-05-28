@@ -42,7 +42,10 @@ export interface SessionRegistrationResult {
 export interface UserSession {
   readonly createdAt: string;
   readonly id: string;
+  readonly ipAddresses: string[];
   readonly isCurrent: boolean;
+  readonly lastActiveAt: string;
+  readonly lastActiveIp: string | null;
   readonly signingKeyFingerprint: string;
 }
 
@@ -132,10 +135,21 @@ class SessionService implements Session {
     }
 
     return response.sessions.map(
-      ({ createdAt, id, isCurrent, signingKeyFingerprint }) => ({
+      ({
         createdAt,
         id,
+        ipAddresses,
         isCurrent,
+        lastActiveAt,
+        lastActiveIp,
+        signingKeyFingerprint,
+      }) => ({
+        createdAt,
+        id,
+        ipAddresses,
+        isCurrent,
+        lastActiveAt,
+        lastActiveIp,
         signingKeyFingerprint,
       }),
     );

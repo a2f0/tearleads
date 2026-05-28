@@ -7,6 +7,7 @@ import {
   get,
   sadd,
   set,
+  setKeepTtl,
   srem,
   sscanMembers,
 } from "../adapters/redis";
@@ -17,6 +18,7 @@ const SESSION_TTL_SECONDS = 86400;
 const SESSION_ID_PREFIX = "session-id:";
 const SESSION_PREFIX = "session:";
 const USER_SESSIONS_PREFIX = "user-sessions:";
+const MAX_SESSION_IP_ADDRESSES = 64;
 
 type SessionStoreAddSetMember = (key: string, member: string) => Promise<void>;
 type SessionStoreDelete = (key: string) => Promise<void>;
@@ -32,6 +34,7 @@ type SessionStoreSet = (
   value: string,
   ttlSeconds?: number,
 ) => Promise<void>;
+type SessionStoreSetKeepTtl = (key: string, value: string) => Promise<void>;
 
 export interface SessionEnv {
   Variables: {
@@ -44,7 +47,10 @@ export interface UserSessionSummary {
   id: string;
   fingerprint: string;
   createdAt: number;
+  ipAddresses: string[];
   isCurrent: boolean;
+  lastActiveAt: number;
+  lastActiveIp: string | null;
 }
 
 function sessionKey(token: string): string {
@@ -67,6 +73,94 @@ function extractToken(c: Context): string | null {
     return null;
   }
   return header.slice(7);
+}
+
+function normalizeRequestIpAddress(
+  value: string | null | undefined,
+): string | null {
+  let normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.startsWith('"') && normalized.endsWith('"')) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+  if (normalized.startsWith("[") && normalized.includes("]")) {
+    normalized = normalized.slice(1, normalized.indexOf("]"));
+  }
+  if (/^\d{1,3}(?:\.\d{1,3}){3}:\d+$/u.test(normalized)) {
+    normalized = normalized.slice(0, normalized.lastIndexOf(":"));
+  }
+
+  if (normalized.length === 0 || normalized.length > 128) {
+    return null;
+  }
+  if (normalized.toLowerCase() === "unknown") {
+    return null;
+  }
+
+  return normalized;
+}
+
+function firstHeaderIpAddress(value: string | null | undefined): string | null {
+  for (const candidate of value?.split(",") ?? []) {
+    const ipAddress = normalizeRequestIpAddress(candidate);
+    if (ipAddress) {
+      return ipAddress;
+    }
+  }
+
+  return null;
+}
+
+function forwardedHeaderIpAddress(
+  value: string | null | undefined,
+): string | null {
+  for (const entry of value?.split(",") ?? []) {
+    const forPart = entry
+      .split(";")
+      .find((part) => part.trim().toLowerCase().startsWith("for="));
+    if (!forPart) {
+      continue;
+    }
+
+    const ipAddress = normalizeRequestIpAddress(
+      forPart.slice(forPart.indexOf("=") + 1),
+    );
+    if (ipAddress) {
+      return ipAddress;
+    }
+  }
+
+  return null;
+}
+
+export function readRequestIpAddress(c: Context): string | null {
+  return (
+    normalizeRequestIpAddress(c.req.header("cf-connecting-ip")) ??
+    normalizeRequestIpAddress(c.req.header("x-real-ip")) ??
+    firstHeaderIpAddress(c.req.header("x-forwarded-for")) ??
+    forwardedHeaderIpAddress(c.req.header("forwarded"))
+  );
+}
+
+function withSessionActivity(
+  session: SessionData,
+  ipAddress: string | null,
+  lastActiveAt: number,
+): SessionData {
+  const nextIpAddresses =
+    ipAddress && !session.ipAddresses.includes(ipAddress)
+      ? [...session.ipAddresses, ipAddress].slice(-MAX_SESSION_IP_ADDRESSES)
+      : session.ipAddresses;
+
+  return {
+    ...session,
+    ipAddresses: nextIpAddresses,
+    lastActiveAt,
+    lastActiveIp: ipAddress ?? session.lastActiveIp,
+  };
 }
 
 function parseSessionData(raw: string): SessionData | null {
@@ -122,7 +216,10 @@ export function createDestroySession(
 
 export const destroySession = createDestroySession(get, del, srem);
 
-export function createRequireAuth(getSession: SessionStoreGet) {
+export function createRequireAuth(
+  getSession: SessionStoreGet,
+  setSessionKeepTtl: SessionStoreSetKeepTtl,
+) {
   return createMiddleware<SessionEnv>(
     async (c: Context<SessionEnv>, next: Next) => {
       const token = extractToken(c);
@@ -143,7 +240,15 @@ export function createRequireAuth(getSession: SessionStoreGet) {
         return c.json({ error: "Invalid session data" }, 401);
       }
 
-      c.set("session", parsed);
+      const session = withSessionActivity(
+        parsed,
+        readRequestIpAddress(c),
+        Date.now(),
+      );
+
+      await setSessionKeepTtl(sessionKey(token), JSON.stringify(session));
+
+      c.set("session", session);
       c.set("sessionToken", token);
 
       return next();
@@ -151,7 +256,7 @@ export function createRequireAuth(getSession: SessionStoreGet) {
   );
 }
 
-export const requireAuth = createRequireAuth(get);
+export const requireAuth = createRequireAuth(get, setKeepTtl);
 
 export function createListUserSessions(
   getSession: SessionStoreGet,
@@ -195,7 +300,10 @@ export function createListUserSessions(
               id: data.id,
               fingerprint: data.fingerprint,
               createdAt: data.createdAt,
+              ipAddresses: data.ipAddresses,
               isCurrent: token === input.currentToken,
+              lastActiveAt: data.lastActiveAt,
+              lastActiveIp: data.lastActiveIp,
             };
           },
         ),
@@ -207,7 +315,9 @@ export function createListUserSessions(
       );
     }
 
-    return summaries.sort((a, b) => b.createdAt - a.createdAt);
+    return summaries.sort(
+      (a, b) => b.lastActiveAt - a.lastActiveAt || b.createdAt - a.createdAt,
+    );
   };
 }
 
@@ -265,9 +375,15 @@ export function createSessionTokenIssuer(
 ) {
   return async (data: SessionCreateInput): Promise<string> => {
     const token = bytesToHex(generateChallenge(32));
+    const ipAddress = normalizeRequestIpAddress(data.ipAddress);
     const session: SessionData = {
-      ...data,
+      createdAt: data.createdAt,
+      fingerprint: data.fingerprint,
       id: bytesToHex(generateChallenge(32)),
+      ipAddresses: ipAddress ? [ipAddress] : [],
+      lastActiveAt: data.createdAt,
+      lastActiveIp: ipAddress,
+      userId: data.userId,
     };
 
     await setSession(
