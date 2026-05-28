@@ -17,6 +17,12 @@ import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearle
 
 const ExplorerContext = createContext<ContainerContentsStore | null>(null);
 
+export function getVisibleExplorerNodes(
+  nodes: ContainerContentsContextValue["nodes"],
+): ContainerContentsContextValue["nodes"] {
+  return nodes.filter((node) => !node.systemSlot);
+}
+
 export function ExplorerProvider({ children }: PropsWithChildren) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
@@ -58,7 +64,7 @@ export function useExplorer(): ContainerContentsContextValue {
       renameContainer: store.renameContainer,
       shareWithGroup: store.shareWithGroup,
       shareWithUser: store.shareWithUser,
-      nodes: snapshot.nodes,
+      nodes: getVisibleExplorerNodes(snapshot.nodes),
       ready: snapshot.ready,
     }),
     [snapshot, store],

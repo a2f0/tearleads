@@ -23,6 +23,7 @@ import {
   type DocumentRecord as StoredDocumentRecord,
   saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
   subscribeToContainerContentsStore as subscribeToExplorerStore,
+  syncedContainerDocumentObjectSyncState,
   updateContainerContentsSnapshot as updateExplorerSnapshot,
 } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
@@ -66,6 +67,7 @@ import {
   assertWriteHeader,
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { getVisibleExplorerNodes } from "./ExplorerProvider";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
@@ -91,6 +93,34 @@ type TestSaveContainerOptions = Parameters<
   typeof defaultExplorerPersistence.saveContainer
 >[3];
 const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
+
+test("explorer hides app-owned system containers", () => {
+  expect(
+    getVisibleExplorerNodes([
+      {
+        id: "root-container",
+        kind: "container",
+        name: "/",
+        organizationId: "org-1",
+        parentId: null,
+        syncState: syncedContainerDocumentObjectSyncState,
+      },
+      {
+        id: "roster-profile-container",
+        kind: "container",
+        name: "Roster Profiles",
+        organizationId: "org-1",
+        parentId: "root-container",
+        syncState: syncedContainerDocumentObjectSyncState,
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]),
+  ).toEqual([
+    expect.objectContaining({
+      id: "root-container",
+    }),
+  ]);
+});
 
 function listedContainer(
   overrides: Omit<ContainerSummary, "createdAt" | "depth" | "updatedAt"> &

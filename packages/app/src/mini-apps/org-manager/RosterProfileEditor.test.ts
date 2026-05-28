@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import type { OrganizationDirectoryUser } from "@tearleads/client-sdk";
-import { getMissingProfileIdentityPatch } from "./RosterProfileEditor";
+import {
+  getMissingProfileIdentityPatch,
+  getRosterProfileDocumentRelinkInput,
+} from "./RosterProfileEditor";
 
 const user: OrganizationDirectoryUser = {
   createdAt: "2026-05-20T12:00:00.000Z",
@@ -33,4 +36,19 @@ test("roster profile editor leaves existing identity fields unchanged", () => {
       userId: "edited-user-id",
     }),
   ).toBeNull();
+});
+
+test("roster profile editor relinks cached profile records to the profile container", () => {
+  expect(
+    getRosterProfileDocumentRelinkInput({
+      localId: "org-profile:org-1:user-1",
+      profileContainerId: "roster-profile-container",
+      profileDocumentId: "profile-document",
+    }),
+  ).toEqual({
+    accessEpoch: 1,
+    containerId: "roster-profile-container",
+    documentId: "profile-document",
+    localId: "org-profile:org-1:user-1",
+  });
 });

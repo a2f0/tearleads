@@ -115,6 +115,7 @@ export function useDocument(): DocumentContextValue {
       fieldValidationIssues: snapshot.fieldValidationIssues,
       ready: snapshot.ready,
       requestSync: store.requestSync,
+      relink: store.relink,
       setAttachment: store.setAttachment,
       replaceAttachment: store.replaceAttachment,
       setStructuredFields: store.setStructuredFields,

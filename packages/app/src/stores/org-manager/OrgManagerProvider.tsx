@@ -31,7 +31,6 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
-import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { createRosterProfileDocument } from "./profileDocuments";
 
 interface OrgManagerContextValue {
@@ -45,6 +44,7 @@ interface OrgManagerContextValue {
   ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
   ) => Promise<OrganizationDirectoryUser | null>;
+  ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
   loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -84,9 +84,6 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const containerContentsStore = useMemo(
     () => tearleads.containerContents.store({ logLabel: "Org Manager" }),
     [containerContentsRuntime.state.domainScope, tearleads],
-  );
-  const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
-    containerContentsStore,
   );
 
   useEffect(() => {
@@ -189,6 +186,33 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [organizations],
   );
 
+  const ensureRosterProfileContainer = useCallback(async () => {
+    if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+      return null;
+    }
+
+    const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot(
+      {
+        organizationId: runtime.auth.organizationId,
+      },
+    );
+    const existingContainer = containerContentsStore
+      .getSnapshot()
+      .nodes.find((node) => node.systemSlot === systemSlot);
+
+    return (
+      existingContainer ??
+      containerContentsStore.ensureSystemContainer(
+        systemSlot,
+        ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+      )
+    );
+  }, [
+    containerContentsStore,
+    runtime.auth.isAuthenticated,
+    runtime.auth.organizationId,
+  ]);
+
   const ensureRosterProfileDocument = useCallback(
     async (user: OrganizationDirectoryUser) => {
       if (user.profileDocumentId) {
@@ -198,19 +222,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         return null;
       }
 
-      const systemSlot =
-        await deriveOrganizationRosterProfileContainerSystemSlot({
-          organizationId: runtime.auth.organizationId,
-        });
-      const existingContainer = containerContentsSnapshot.nodes.find(
-        (node) => node.systemSlot === systemSlot,
-      );
-      const ensuredContainer =
-        existingContainer ??
-        ((await containerContentsStore.ensureSystemContainer(
-          systemSlot,
-          ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
-        )) as ContainerNode | null);
+      const ensuredContainer = await ensureRosterProfileContainer();
       if (!ensuredContainer?.id) {
         return null;
       }
@@ -228,9 +240,8 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       return organizations.updateRosterEntry(user.userId, profileDocumentId);
     },
     [
-      containerContentsSnapshot.nodes,
-      containerContentsStore,
       documents,
+      ensureRosterProfileContainer,
       organizations,
       runtime.auth.isAuthenticated,
       runtime.auth.organizationId,
@@ -241,6 +252,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     () => ({
       addUserToGroup,
       createGroup,
+      ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
       loadDataUsage,
@@ -256,6 +268,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [
       addUserToGroup,
       createGroup,
+      ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
       loadDataUsage,
