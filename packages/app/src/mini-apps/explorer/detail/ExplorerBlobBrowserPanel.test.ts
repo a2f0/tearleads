@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { getNextBlobInfoSort } from "./ExplorerBlobBrowserPanel";
+import {
+  getBlobInfoWindowRange,
+  getNextBlobInfoSort,
+} from "./ExplorerBlobBrowserPanel";
 
 test("blob info sort toggles the active column and initializes MIME ascending", () => {
   expect(
@@ -21,5 +24,24 @@ test("blob info sort toggles the active column and initializes MIME ascending", 
   ).toEqual({
     direction: "desc",
     key: "updated",
+  });
+});
+
+test("blob info window range follows row height with overscan", () => {
+  expect(getBlobInfoWindowRange({ scrollTop: 0, viewportHeight: 0 })).toEqual({
+    limit: 24,
+    offset: 0,
+  });
+  expect(
+    getBlobInfoWindowRange({ scrollTop: 720, viewportHeight: 360 }),
+  ).toEqual({
+    limit: 26,
+    offset: 12,
+  });
+  expect(
+    getBlobInfoWindowRange({ scrollTop: Number.NaN, viewportHeight: -1 }),
+  ).toEqual({
+    limit: 24,
+    offset: 0,
   });
 });

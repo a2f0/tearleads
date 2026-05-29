@@ -40,7 +40,9 @@ import {
 } from "../labels";
 import type { ExplorerRoute } from "../routes";
 
-const BLOB_BROWSER_LIMIT = 200;
+const BLOB_BROWSER_ROW_HEIGHT = 36;
+const BLOB_BROWSER_OVERSCAN_ROWS = 8;
+const BLOB_BROWSER_MIN_WINDOW_ROWS = 24;
 const BLOB_TEXT_PREVIEW_LIMIT = 64 * 1024;
 
 type BlobBrowserRoute = Extract<ExplorerRoute, { view: "blob-browser" }>;
@@ -61,6 +63,7 @@ type BlobPreviewState =
 interface BlobInfoListState {
   error: string | null;
   isLoading: boolean;
+  offset: number;
   rows: ReadonlyArray<BlobInfo>;
   totalCount: number;
 }
@@ -85,6 +88,30 @@ function getBlobRouteQuery(route: BlobBrowserRoute): string {
 
 function getBlobChangedAt(blob: BlobInfo): string | null {
   return blob.updatedAt ?? blob.createdAt;
+}
+
+export function getBlobInfoWindowRange(params: {
+  scrollTop: number;
+  viewportHeight: number;
+}): { limit: number; offset: number } {
+  const scrollTop = Number.isFinite(params.scrollTop)
+    ? Math.max(0, params.scrollTop)
+    : 0;
+  const viewportHeight = Number.isFinite(params.viewportHeight)
+    ? Math.max(0, params.viewportHeight)
+    : 0;
+  const visibleRows = Math.ceil(viewportHeight / BLOB_BROWSER_ROW_HEIGHT);
+  const offset = Math.max(
+    0,
+    Math.floor(scrollTop / BLOB_BROWSER_ROW_HEIGHT) -
+      BLOB_BROWSER_OVERSCAN_ROWS,
+  );
+  const limit = Math.max(
+    BLOB_BROWSER_MIN_WINDOW_ROWS,
+    visibleRows + BLOB_BROWSER_OVERSCAN_ROWS * 2,
+  );
+
+  return { limit, offset };
 }
 
 function getBlobSortAria(
@@ -226,15 +253,96 @@ function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
   ];
 }
 
+function useBlobInfoViewport() {
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const frameRef = useCallback((nextFrame: HTMLDivElement | null) => {
+    setFrame(nextFrame);
+  }, []);
+
+  useEffect(() => {
+    if (!frame) {
+      return;
+    }
+
+    const handleScroll = () => {
+      setScrollTop(frame.scrollTop);
+    };
+
+    handleScroll();
+    frame.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      frame.removeEventListener("scroll", handleScroll);
+    };
+  }, [frame]);
+
+  useEffect(() => {
+    if (!frame) {
+      return;
+    }
+
+    setViewportHeight(frame.clientHeight);
+    if (typeof ResizeObserver !== "function") {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const [entry] = entries;
+      if (entry) {
+        setViewportHeight(entry.contentRect.height);
+      }
+    });
+    resizeObserver.observe(frame);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [frame]);
+
+  return { frame, frameRef, scrollTop, setScrollTop, viewportHeight };
+}
+
+function useBlobInfoWindowRange(params: { resetKey: string }) {
+  const { resetKey } = params;
+  const { frame, frameRef, scrollTop, setScrollTop, viewportHeight } =
+    useBlobInfoViewport();
+  const [activeResetKey, setActiveResetKey] = useState(resetKey);
+  const shouldReset = activeResetKey !== resetKey;
+
+  useEffect(() => {
+    if (!shouldReset) {
+      return;
+    }
+
+    setActiveResetKey(resetKey);
+    setScrollTop(0);
+    if (frame) {
+      frame.scrollTop = 0;
+    }
+  }, [frame, resetKey, setScrollTop, shouldReset]);
+
+  return {
+    ...getBlobInfoWindowRange({
+      scrollTop: shouldReset ? 0 : scrollTop,
+      viewportHeight,
+    }),
+    frameRef,
+  };
+}
+
 function useBlobInfoList(params: {
+  limit: number;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  offset: number;
   query: string;
   sort: BlobInfoSort;
 }) {
-  const { loadBlobInfo, query, sort } = params;
+  const { limit, loadBlobInfo, offset, query, sort } = params;
   const [state, setState] = useState<BlobInfoListState>({
     error: null,
     isLoading: false,
+    offset: 0,
     rows: [],
     totalCount: 0,
   });
@@ -244,7 +352,8 @@ function useBlobInfoList(params: {
     setState((current) => ({ ...current, error: null, isLoading: true }));
 
     void loadBlobInfo({
-      limit: BLOB_BROWSER_LIMIT,
+      limit,
+      offset,
       query,
       sort,
     })
@@ -253,6 +362,7 @@ function useBlobInfoList(params: {
           setState({
             error: null,
             isLoading: false,
+            offset,
             rows: result.rows,
             totalCount: result.totalCount,
           });
@@ -263,6 +373,7 @@ function useBlobInfoList(params: {
           setState({
             error: unknownErrorMessage(error),
             isLoading: false,
+            offset,
             rows: [],
             totalCount: 0,
           });
@@ -272,7 +383,7 @@ function useBlobInfoList(params: {
     return () => {
       cancelled = true;
     };
-  }, [loadBlobInfo, query, sort]);
+  }, [limit, loadBlobInfo, offset, query, sort]);
 
   return state;
 }
@@ -432,15 +543,15 @@ function matchesRouteTarget(blob: BlobInfo, route: BlobBrowserRoute): boolean {
 }
 
 function getSelectedBlob(params: {
-  activeBlobKey: string | null;
+  activeBlob: BlobInfo | null;
   route: BlobBrowserRoute;
   rows: ReadonlyArray<BlobInfo>;
 }): BlobInfo | null {
-  const activeBlob = params.activeBlobKey
-    ? params.rows.find((blob) => blob.key === params.activeBlobKey)
-    : null;
-  if (activeBlob) {
-    return activeBlob;
+  if (params.activeBlob) {
+    return (
+      params.rows.find((blob) => blob.key === params.activeBlob?.key) ??
+      params.activeBlob
+    );
   }
 
   return (
@@ -453,9 +564,11 @@ function getSelectedBlob(params: {
 function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
   error: string | null;
+  frameRef: (frame: HTMLDivElement | null) => void;
   isLoading: boolean;
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
+  rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
   sort: BlobInfoSort;
   totalCount: number;
@@ -464,13 +577,30 @@ function BlobInfoTable(params: {
     () => getBlobInfoColumns({ onSort: params.onSort, sort: params.sort }),
     [params.onSort, params.sort],
   );
+  const topPadding = params.rowOffset * BLOB_BROWSER_ROW_HEIGHT;
+  const bottomPadding =
+    Math.max(0, params.totalCount - params.rowOffset - params.rows.length) *
+    BLOB_BROWSER_ROW_HEIGHT;
 
   return (
-    <MiniAppTableFrame className="explorer-blob-browser-table-wrap">
+    <MiniAppTableFrame
+      className="explorer-blob-browser-table-wrap"
+      ref={params.frameRef}
+    >
       <MiniAppTable
         aria-label={EXPLORER_LABELS.blobBrowserTitle}
         columns={columns}
       >
+        {topPadding > 0 ? (
+          <MiniAppTableEmptyRow
+            aria-hidden="true"
+            className="explorer-virtual-spacer-row"
+            colSpan={columns.length}
+            style={{ height: topPadding }}
+          >
+            {""}
+          </MiniAppTableEmptyRow>
+        ) : null}
         {params.rows.length > 0 ? (
           params.rows.map((blob) => (
             <MiniAppTableRow
@@ -512,6 +642,16 @@ function BlobInfoTable(params: {
             {EXPLORER_LABELS.blobBrowserEmpty}
           </MiniAppTableEmptyRow>
         )}
+        {bottomPadding > 0 ? (
+          <MiniAppTableEmptyRow
+            aria-hidden="true"
+            className="explorer-virtual-spacer-row"
+            colSpan={columns.length}
+            style={{ height: bottomPadding }}
+          >
+            {""}
+          </MiniAppTableEmptyRow>
+        ) : null}
       </MiniAppTable>
       {params.totalCount > params.rows.length ? (
         <MiniAppStatus as="span">
@@ -781,27 +921,36 @@ export function ExplorerBlobBrowserPanel(params: {
 }) {
   const [query, setQuery] = useState(() => getBlobRouteQuery(params.route));
   const [debouncedQuery, setDebouncedQuery] = useState(query);
-  const [activeBlobKey, setActiveBlobKey] = useState<string | null>(null);
+  const [activeBlob, setActiveBlob] = useState<BlobInfo | null>(null);
   const [sort, setSort] = useState<BlobInfoSort>({
     direction: "desc",
     key: "updated",
   });
   const routeQuery = getBlobRouteQuery(params.route);
+  const resetKey = `${debouncedQuery}\u0000${sort.key}\u0000${sort.direction}`;
+  const { frameRef, limit, offset } = useBlobInfoWindowRange({ resetKey });
   const blobInfo = useBlobInfoList({
+    limit,
     loadBlobInfo: params.loadBlobInfo,
+    offset,
     query: debouncedQuery,
     sort,
   });
-  const activeBlob = getSelectedBlob({
-    activeBlobKey,
+  const isWindowPending = blobInfo.offset !== offset;
+  const isResettingWindow = isWindowPending && offset === 0;
+  const rows = isResettingWindow ? [] : blobInfo.rows;
+  const rowOffset = isResettingWindow ? 0 : blobInfo.offset;
+  const selectedBlob = getSelectedBlob({
+    activeBlob,
     route: params.route,
-    rows: blobInfo.rows,
+    rows,
   });
   const containerNamesById = useMemo(
     () => getContainerNameById(params.nodes),
     [params.nodes],
   );
   const handleSort = useCallback((key: BlobInfoSortKey) => {
+    setActiveBlob(null);
     setSort((currentSort) => getNextBlobInfoSort(currentSort, key));
   }, []);
 
@@ -814,7 +963,7 @@ export function ExplorerBlobBrowserPanel(params: {
   }, [query]);
 
   useEffect(() => {
-    setActiveBlobKey(null);
+    setActiveBlob(null);
     setQuery(routeQuery);
     setDebouncedQuery(routeQuery);
   }, [routeQuery]);
@@ -829,8 +978,8 @@ export function ExplorerBlobBrowserPanel(params: {
         <MiniAppHeaderCopy>
           <strong>{EXPLORER_LABELS.blobBrowserTitle}</strong>
           <span>
-            {activeBlob
-              ? compactId(activeBlob.blobId ?? activeBlob.storageKey)
+            {selectedBlob
+              ? compactId(selectedBlob.blobId ?? selectedBlob.storageKey)
               : EXPLORER_LABELS.blobBrowserNoSelection}
           </span>
         </MiniAppHeaderCopy>
@@ -844,7 +993,7 @@ export function ExplorerBlobBrowserPanel(params: {
         <MiniAppInput
           aria-label={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
           onChange={(event) => {
-            setActiveBlobKey(null);
+            setActiveBlob(null);
             setQuery(event.currentTarget.value);
           }}
           placeholder={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
@@ -853,17 +1002,19 @@ export function ExplorerBlobBrowserPanel(params: {
       </MiniAppToolbar>
       <div className="explorer-blob-browser-grid">
         <BlobInfoTable
-          activeBlob={activeBlob}
+          activeBlob={selectedBlob}
           error={blobInfo.error}
-          isLoading={blobInfo.isLoading}
-          onSelectBlob={(blob) => setActiveBlobKey(blob.key)}
+          frameRef={frameRef}
+          isLoading={blobInfo.isLoading || isWindowPending}
+          onSelectBlob={setActiveBlob}
           onSort={handleSort}
-          rows={blobInfo.rows}
+          rowOffset={rowOffset}
+          rows={rows}
           sort={sort}
           totalCount={blobInfo.totalCount}
         />
         <BlobDetail
-          blob={activeBlob}
+          blob={selectedBlob}
           blobStore={params.blobStore}
           containerNamesById={containerNamesById}
           openDocumentInfoRoute={params.openDocumentInfoRoute}
