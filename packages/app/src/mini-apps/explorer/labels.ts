@@ -166,7 +166,7 @@ export const EXPLORER_LABELS = {
   documentInfoUpdatedRow: "Updated",
   documentLinkAction: "Link",
   documentMoveAction: "Move",
-  fileDropHint: "Drop files to import notes.",
+  fileDropHint: "Drop files to import documents.",
   fileImportFailedStatus: "Some files could not be imported.",
   fileImportGenericFailure: "Failed to import files.",
   fileImportStoreNotReady: "Document store was not ready.",
@@ -481,7 +481,7 @@ export function getExplorerFileImportingStatus(input: {
 export function getExplorerFileImportCompletedStatus(
   importedCount: number,
 ): string {
-  return `Imported ${importedCount} ${importedCount === 1 ? "note" : "notes"}.`;
+  return `Imported ${importedCount} ${importedCount === 1 ? "file" : "files"}.`;
 }
 
 export function getExplorerFileImportPartialStatus(input: {

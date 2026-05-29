@@ -1,43 +1,130 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  DocumentAttachmentUpload,
+  DocumentSummary,
+  StoredDocumentKind,
+} from "@tearleads/client-sdk";
 import { importExplorerDroppedFiles } from "./useExplorerDroppedFileImport";
 
-function createTextFile(name: string, text: string): File {
-  return {
-    name,
-    size: text.length,
-    text: async () => text,
-  } as unknown as File;
+const TEXT_ENCODER = new TextEncoder();
+
+interface CreatedImportStore {
+  attachments: DocumentAttachmentUpload[];
+  containerId: string;
+  initialDocumentKind: StoredDocumentKind;
+  initialText: string;
+  localId: string;
+  structuredFieldKind: StoredDocumentKind | null;
+  structuredFields: Record<string, string | undefined>;
+  syncRequests: number;
 }
 
-function createFailingFile(name: string, error: Error): File {
-  return {
-    name,
-    size: 1,
-    text: async () => {
+function createFile(
+  name: string,
+  content: BlobPart,
+  options: FilePropertyBag = {},
+): File {
+  return new File([content], name, {
+    lastModified: Date.UTC(2026, 4, 29, 12, 0, 0),
+    ...options,
+  });
+}
+
+function createFailingTextFile(name: string, error: Error): File {
+  const file = createFile(name, "x", { type: "text/plain" });
+  Object.defineProperty(file, "text", {
+    value: async () => {
       throw error;
     },
-  } as unknown as File;
+  });
+
+  return file;
 }
 
-function createOversizedFile(name: string): File {
-  return {
-    name,
-    size: 6 * 1024 * 1024,
-    text: async () => {
+function createOversizedFile(input: {
+  name: string;
+  size: number;
+  type: string;
+}): File {
+  const file = createFile(input.name, "", { type: input.type });
+  Object.defineProperty(file, "arrayBuffer", {
+    value: async () => {
       throw new Error("Oversized files should not be read.");
     },
-  } as unknown as File;
+  });
+  Object.defineProperty(file, "size", { value: input.size });
+  Object.defineProperty(file, "text", {
+    value: async () => {
+      throw new Error("Oversized files should not be read.");
+    },
+  });
+
+  return file;
 }
 
-function createSummary(localId: string, containerId: string): DocumentSummary {
+function createSummary(
+  localId: string,
+  containerId: string,
+  documentKind: StoredDocumentKind = "note",
+): DocumentSummary {
   return {
     id: localId,
     containerId,
     documentId: null,
-    documentKind: "note",
+    documentKind,
     title: `Persisted ${localId}`,
     updatedAt: "2026-05-18T12:00:00.000Z",
+  };
+}
+
+function createImportStoreFactory(createdStores: CreatedImportStore[]) {
+  return ({
+    containerId,
+    initialDocumentKind,
+    initialText,
+    localId,
+  }: {
+    containerId: string;
+    initialDocumentKind: StoredDocumentKind;
+    initialText: string;
+    localId: string;
+  }) => {
+    const createdStore: CreatedImportStore = {
+      attachments: [],
+      containerId,
+      initialDocumentKind,
+      initialText,
+      localId,
+      structuredFieldKind: null,
+      structuredFields: {},
+      syncRequests: 0,
+    };
+    createdStores.push(createdStore);
+
+    return {
+      attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => {
+        createdStore.attachments.push(...files);
+      },
+      ensureInitialized: async () => true,
+      getSnapshot: () => {
+        const { fileName } = createdStore.structuredFields;
+        return {
+          documentId: null,
+          documentKind: createdStore.initialDocumentKind,
+          title: fileName ?? createdStore.initialText ?? "Untitled",
+        };
+      },
+      requestSync: () => {
+        createdStore.syncRequests += 1;
+      },
+      setStructuredFields: async (
+        kind: Exclude<StoredDocumentKind, "note">,
+        patch: Readonly<Record<string, string | undefined>>,
+      ) => {
+        createdStore.structuredFieldKind = kind;
+        createdStore.structuredFields = { ...patch };
+      },
+    };
   };
 }
 
@@ -50,12 +137,7 @@ const testImportLabels = {
 };
 
 test("dropped file import initializes notes and merges persisted summaries", async () => {
-  const createdStores: Array<{
-    containerId: string;
-    initialText: string;
-    localId: string;
-    syncRequests: number;
-  }> = [];
+  const createdStores: CreatedImportStore[] = [];
   const merged: DocumentSummary[] = [];
   const progress: Array<{
     completedCount: number;
@@ -67,27 +149,7 @@ test("dropped file import initializes notes and merges persisted summaries", asy
 
   const result = await importExplorerDroppedFiles({
     containerId: "folder-1",
-    createDocumentStore: ({ containerId, initialText, localId }) => {
-      const createdStore = {
-        containerId,
-        initialText,
-        localId,
-        syncRequests: 0,
-      };
-      createdStores.push(createdStore);
-
-      return {
-        ensureInitialized: async () => true,
-        getSnapshot: () => ({
-          documentId: null,
-          documentKind: "note" as const,
-          title: initialText,
-        }),
-        requestSync: () => {
-          createdStore.syncRequests += 1;
-        },
-      };
-    },
+    createDocumentStore: createImportStoreFactory(createdStores),
     createLocalId: () => {
       const nextLocalId = localIds.shift();
       if (!nextLocalId) {
@@ -96,7 +158,10 @@ test("dropped file import initializes notes and merges persisted summaries", asy
 
       return nextLocalId;
     },
-    files: [createTextFile("a.txt", "Alpha"), createTextFile("b.txt", "Beta")],
+    files: [
+      createFile("a.txt", "Alpha", { type: "text/plain" }),
+      createFile("contacts.csv", "Beta", { type: "text/csv" }),
+    ],
     labels: testImportLabels,
     loadDocumentSummary: async (localId) => createSummary(localId, "folder-1"),
     mergeDocumentSummary: (summary) => {
@@ -117,17 +182,33 @@ test("dropped file import initializes notes and merges persisted summaries", asy
     "Persisted local-a",
     "Persisted local-b",
   ]);
-  expect(createdStores).toEqual([
+  expect(
+    createdStores.map((store) => ({
+      attachments: store.attachments.length,
+      containerId: store.containerId,
+      initialDocumentKind: store.initialDocumentKind,
+      initialText: store.initialText,
+      localId: store.localId,
+      structuredFieldKind: store.structuredFieldKind,
+      syncRequests: store.syncRequests,
+    })),
+  ).toEqual([
     {
+      attachments: 0,
       containerId: "folder-1",
+      initialDocumentKind: "note",
       initialText: "Alpha",
       localId: "local-a",
+      structuredFieldKind: null,
       syncRequests: 1,
     },
     {
+      attachments: 0,
       containerId: "folder-1",
+      initialDocumentKind: "note",
       initialText: "Beta",
       localId: "local-b",
+      structuredFieldKind: null,
       syncRequests: 1,
     },
   ]);
@@ -145,26 +226,114 @@ test("dropped file import initializes notes and merges persisted summaries", asy
   });
 });
 
-test("dropped file import keeps going when one file fails", async () => {
-  const errors: string[] = [];
-  const merged: DocumentSummary[] = [];
+test("dropped file import creates file document types with original attachments", async () => {
+  const createdStores: CreatedImportStore[] = [];
   let nextLocalId = 0;
 
   const result = await importExplorerDroppedFiles({
     containerId: "folder-1",
-    createDocumentStore: ({ initialText }) => ({
-      ensureInitialized: async () => true,
-      getSnapshot: () => ({
-        documentId: null,
-        documentKind: "note" as const,
-        title: initialText,
-      }),
-      requestSync: () => undefined,
-    }),
+    createDocumentStore: createImportStoreFactory(createdStores),
     createLocalId: () => `local-${++nextLocalId}`,
     files: [
-      createTextFile("ok.txt", "Imported"),
-      createFailingFile("bad.txt", new Error("read failed")),
+      createFile("dl_front.jpeg", TEXT_ENCODER.encode("jpeg"), {
+        type: "image/jpeg",
+      }),
+      createFile("Skiff_Whitepaper_2023.pdf", TEXT_ENCODER.encode("pdf"), {
+        type: "application/pdf",
+      }),
+      createFile("sample.mp3", TEXT_ENCODER.encode("mp3"), {
+        type: "audio/mpeg",
+      }),
+      createFile("archive.bin", TEXT_ENCODER.encode("bin"), {
+        type: "application/octet-stream",
+      }),
+    ],
+    labels: testImportLabels,
+    loadDocumentSummary: async () => null,
+    mergeDocumentSummary: () => undefined,
+  });
+
+  expect(result.importedCount).toBe(4);
+  expect(result.failedCount).toBe(0);
+  expect(
+    result.importedDocuments.map((document) => document.documentKind),
+  ).toEqual(["image", "pdf", "audio", "generic_file"]);
+  const createdStoresByKind = [...createdStores].sort((left, right) =>
+    left.initialDocumentKind.localeCompare(right.initialDocumentKind),
+  );
+  expect(
+    createdStoresByKind.map((store) => {
+      const { fileName } = store.structuredFields;
+      return {
+        attachmentName: store.attachments[0]?.name,
+        attachmentType: store.attachments[0]?.mimeType,
+        initialDocumentKind: store.initialDocumentKind,
+        initialText: store.initialText,
+        structuredFieldKind: store.structuredFieldKind,
+        title: fileName,
+      };
+    }),
+  ).toEqual([
+    {
+      attachmentName: "sample.mp3",
+      attachmentType: "audio/mpeg",
+      initialDocumentKind: "audio",
+      initialText: "",
+      structuredFieldKind: "audio",
+      title: "sample.mp3",
+    },
+    {
+      attachmentName: "archive.bin",
+      attachmentType: "application/octet-stream",
+      initialDocumentKind: "generic_file",
+      initialText: "",
+      structuredFieldKind: "generic_file",
+      title: "archive.bin",
+    },
+    {
+      attachmentName: "dl_front.jpeg",
+      attachmentType: "image/jpeg",
+      initialDocumentKind: "image",
+      initialText: "",
+      structuredFieldKind: "image",
+      title: "dl_front.jpeg",
+    },
+    {
+      attachmentName: "Skiff_Whitepaper_2023.pdf",
+      attachmentType: "application/pdf",
+      initialDocumentKind: "pdf",
+      initialText: "",
+      structuredFieldKind: "pdf",
+      title: "Skiff_Whitepaper_2023.pdf",
+    },
+  ]);
+  expect(
+    createdStoresByKind.map((store) =>
+      Array.from(store.attachments[0]?.bytes ?? []).map((byte) =>
+        String.fromCharCode(byte),
+      ),
+    ),
+  ).toEqual([
+    ["m", "p", "3"],
+    ["b", "i", "n"],
+    ["j", "p", "e", "g"],
+    ["p", "d", "f"],
+  ]);
+});
+
+test("dropped file import keeps going when one file fails", async () => {
+  const errors: string[] = [];
+  const merged: DocumentSummary[] = [];
+  const createdStores: CreatedImportStore[] = [];
+  let nextLocalId = 0;
+
+  const result = await importExplorerDroppedFiles({
+    containerId: "folder-1",
+    createDocumentStore: createImportStoreFactory(createdStores),
+    createLocalId: () => `local-${++nextLocalId}`,
+    files: [
+      createFile("ok.txt", "Imported", { type: "text/plain" }),
+      createFailingTextFile("bad.txt", new Error("read failed")),
     ],
     labels: testImportLabels,
     loadDocumentSummary: async (localId) => createSummary(localId, "folder-1"),
@@ -179,10 +348,11 @@ test("dropped file import keeps going when one file fails", async () => {
   expect(result.importedCount).toBe(1);
   expect(result.failedCount).toBe(1);
   expect(merged.map((document) => document.id)).toEqual(["local-1"]);
+  expect(createdStores).toHaveLength(1);
   expect(errors).toEqual(["Explorer: failed to import bad.txt."]);
 });
 
-test("dropped file import rejects oversized files before reading text", async () => {
+test("dropped file import applies the text size limit before reading text", async () => {
   const errors: string[] = [];
   let localIdCount = 0;
   let storeCount = 0;
@@ -194,7 +364,13 @@ test("dropped file import rejects oversized files before reading text", async ()
       throw new Error("Oversized files should not create stores.");
     },
     createLocalId: () => `local-${++localIdCount}`,
-    files: [createOversizedFile("large.txt")],
+    files: [
+      createOversizedFile({
+        name: "large.txt",
+        size: 6 * 1024 * 1024,
+        type: "text/plain",
+      }),
+    ],
     labels: testImportLabels,
     loadDocumentSummary: async (localId) => createSummary(localId, "folder-1"),
     logError: (message, cause) => {
@@ -211,5 +387,45 @@ test("dropped file import rejects oversized files before reading text", async ()
   expect(storeCount).toBe(0);
   expect(errors).toEqual([
     "Explorer: failed to import large.txt. large.txt is larger than 5.0 MB.",
+  ]);
+});
+
+test("dropped file import uses a larger size limit for binary attachments", async () => {
+  const createdStores: CreatedImportStore[] = [];
+  const errors: string[] = [];
+  let nextLocalId = 0;
+
+  const result = await importExplorerDroppedFiles({
+    containerId: "folder-1",
+    createDocumentStore: createImportStoreFactory(createdStores),
+    createLocalId: () => `local-${++nextLocalId}`,
+    files: [
+      createFile("sample.mp3", new Uint8Array(6 * 1024 * 1024), {
+        type: "audio/mpeg",
+      }),
+      createOversizedFile({
+        name: "huge.mp3",
+        size: 51 * 1024 * 1024,
+        type: "audio/mpeg",
+      }),
+    ],
+    labels: testImportLabels,
+    loadDocumentSummary: async () => null,
+    logError: (message, cause) => {
+      errors.push(
+        `${message} ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    },
+    mergeDocumentSummary: () => undefined,
+  });
+
+  expect(result.importedCount).toBe(1);
+  expect(result.failedCount).toBe(1);
+  expect(createdStores[0]?.initialDocumentKind).toBe("audio");
+  expect(createdStores[0]?.attachments[0]?.bytes.byteLength).toBe(
+    6 * 1024 * 1024,
+  );
+  expect(errors).toEqual([
+    "Explorer: failed to import huge.mp3. huge.mp3 is larger than 50.0 MB.",
   ]);
 });

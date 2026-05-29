@@ -1,9 +1,13 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
+import { AudioDocumentApp } from "./audio/AudioDocumentApp";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
+import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
+import { ImageDocumentApp } from "./image/ImageDocumentApp";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
+import { PdfDocumentApp } from "./pdf/PdfDocumentApp";
 import {
   APP_DEFAULT_DOCUMENT_KIND,
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
@@ -24,6 +28,10 @@ const documentTypeAppsByKind = new Map<
   ["contact", ContactDocumentApp],
   ["drivers_license", DriverLicenseDocumentApp],
   ["credit_card", CreditCardDocumentApp],
+  ["image", ImageDocumentApp],
+  ["audio", AudioDocumentApp],
+  ["pdf", PdfDocumentApp],
+  ["generic_file", GenericFileDocumentApp],
 ]);
 
 export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =

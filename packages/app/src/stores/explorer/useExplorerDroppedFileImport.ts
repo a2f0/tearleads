@@ -1,15 +1,17 @@
 import type {
   ContainerDocumentLinksRuntime,
   ContainerDocumentReadModel,
+  DocumentAttachmentUpload,
   DocumentSummary,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import { useCallback } from "react";
+import { getDocumentFileImporter } from "../../document-types/importers";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
-const EXPLORER_DROPPED_FILE_MAX_BYTES = 5 * 1024 * 1024;
 
 interface ExplorerDroppedFileDocumentStore {
+  attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => {
     documentId: string | null;
@@ -17,6 +19,10 @@ interface ExplorerDroppedFileDocumentStore {
     title: string;
   };
   requestSync: () => void;
+  setStructuredFields: (
+    kind: Exclude<StoredDocumentKind, "note">,
+    patch: Readonly<Record<string, string | undefined>>,
+  ) => Promise<void>;
 }
 
 export interface ExplorerDroppedFileImportProgress {
@@ -33,6 +39,7 @@ export interface ExplorerDroppedFileImportResult
 
 interface ExplorerDroppedFileImportStoreInput {
   containerId: string;
+  initialDocumentKind: StoredDocumentKind;
   initialText: string;
   localId: string;
 }
@@ -86,12 +93,13 @@ function buildFallbackImportedDocumentSummary(input: {
 function assertExplorerDroppedFileCanBeImported(
   file: File,
   labels: ExplorerDroppedFileImportLabels,
+  maxByteLength: number,
 ): void {
-  if (file.size > EXPLORER_DROPPED_FILE_MAX_BYTES) {
+  if (file.size > maxByteLength) {
     throw new Error(
       labels.getFileTooLargeError({
         fileName: file.name,
-        maxByteLength: EXPLORER_DROPPED_FILE_MAX_BYTES,
+        maxByteLength,
       }),
     );
   }
@@ -105,12 +113,18 @@ async function importExplorerDroppedFile(input: {
   labels: ExplorerDroppedFileImportLabels;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
 }): Promise<DocumentSummary> {
-  assertExplorerDroppedFileCanBeImported(input.file, input.labels);
+  const importer = getDocumentFileImporter(input.file);
+  assertExplorerDroppedFileCanBeImported(
+    input.file,
+    input.labels,
+    importer.maxByteLength,
+  );
   const localId = input.createLocalId();
-  const text = await input.file.text();
+  const importedFile = await importer.importFile(input.file);
   const store = input.createDocumentStore({
     containerId: input.containerId,
-    initialText: text,
+    initialDocumentKind: importedFile.documentKind,
+    initialText: importedFile.initialText,
     localId,
   });
   const initialized = await store.ensureInitialized();
@@ -118,6 +132,18 @@ async function importExplorerDroppedFile(input: {
     throw new Error(input.labels.fileImportStoreNotReady);
   }
 
+  if (
+    importedFile.documentKind !== "note" &&
+    Object.keys(importedFile.structuredFields).length > 0
+  ) {
+    await store.setStructuredFields(
+      importedFile.documentKind,
+      importedFile.structuredFields,
+    );
+  }
+  if (importedFile.attachment) {
+    store.attachFiles([importedFile.attachment]);
+  }
   store.requestSync();
 
   return (
@@ -213,11 +239,13 @@ export function useExplorerDroppedFileImport(params: {
         containerId,
         createDocumentStore: ({
           containerId: targetContainerId,
+          initialDocumentKind,
           initialText,
           localId,
         }) =>
           appData.primeDocumentStore({
             containerId: targetContainerId,
+            initialDocumentKind,
             initialText,
             localId,
           }),
