@@ -20,12 +20,19 @@ import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import {
+  getMiniAppVirtualWindowRange,
+  MINI_APP_VIRTUAL_DEFAULT_MIN_WINDOW_ROWS,
+  MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+  MiniAppVirtualBlockSpacer,
+  useMiniAppVirtualWindow,
+} from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ExplorerSyncStateBadge } from "./ExplorerSyncStateBadge";
 
-const EXPLORER_SIDEBAR_ROW_HEIGHT = 28;
-const EXPLORER_SIDEBAR_OVERSCAN_ROWS = 8;
-const EXPLORER_SIDEBAR_MIN_WINDOW_ROWS = 24;
+const EXPLORER_SIDEBAR_ROW_HEIGHT = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT;
+const EXPLORER_SIDEBAR_MIN_WINDOW_ROWS =
+  MINI_APP_VIRTUAL_DEFAULT_MIN_WINDOW_ROWS;
 
 export interface ExplorerTreeEntry {
   children: ExplorerTreeEntry[];
@@ -286,24 +293,10 @@ export function getExplorerSidebarWindowRange(params: {
   scrollTop: number;
   viewportHeight: number;
 }): { limit: number; offset: number } {
-  const scrollTop = Number.isFinite(params.scrollTop)
-    ? Math.max(0, params.scrollTop)
-    : 0;
-  const viewportHeight = Number.isFinite(params.viewportHeight)
-    ? Math.max(0, params.viewportHeight)
-    : 0;
-  const visibleRows = Math.ceil(viewportHeight / EXPLORER_SIDEBAR_ROW_HEIGHT);
-  const offset = Math.max(
-    0,
-    Math.floor(scrollTop / EXPLORER_SIDEBAR_ROW_HEIGHT) -
-      EXPLORER_SIDEBAR_OVERSCAN_ROWS,
-  );
-  const limit = Math.max(
-    EXPLORER_SIDEBAR_MIN_WINDOW_ROWS,
-    visibleRows + EXPLORER_SIDEBAR_OVERSCAN_ROWS * 2,
-  );
-
-  return { limit, offset };
+  return getMiniAppVirtualWindowRange({
+    ...params,
+    rowHeight: EXPLORER_SIDEBAR_ROW_HEIGHT,
+  });
 }
 
 type ExplorerSidebarSection =
@@ -573,53 +566,6 @@ function getExplorerSidebarDocumentWindowRequests(params: {
     });
 }
 
-function useExplorerSidebarViewport() {
-  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const frameRef = useCallback((nextFrame: HTMLDivElement | null) => {
-    setFrame(nextFrame);
-  }, []);
-
-  useEffect(() => {
-    if (!frame) {
-      return;
-    }
-
-    const handleScroll = () => {
-      setScrollTop(frame.scrollTop);
-    };
-
-    handleScroll();
-    frame.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      frame.removeEventListener("scroll", handleScroll);
-    };
-  }, [frame]);
-
-  useEffect(() => {
-    if (!frame || typeof ResizeObserver === "undefined") {
-      setViewportHeight(frame?.clientHeight ?? 0);
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const [entry] = entries;
-      if (entry) {
-        setViewportHeight(entry.contentRect.height);
-      }
-    });
-    resizeObserver.observe(frame);
-    setViewportHeight(frame.clientHeight);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [frame]);
-
-  return { frameRef, scrollTop, viewportHeight };
-}
-
 function ExplorerSidebarVirtualRowView(
   props: ExplorerSidebarRowProps & {
     row: ExplorerSidebarVirtualRow;
@@ -685,21 +631,13 @@ function ExplorerSidebarVirtualTree(
   return (
     <div className="explorer-sidebar-virtual-space">
       {topPadding > 0 ? (
-        <div
-          aria-hidden="true"
-          className="explorer-sidebar-virtual-spacer"
-          style={{ height: topPadding }}
-        />
+        <MiniAppVirtualBlockSpacer height={topPadding} />
       ) : null}
       {props.rows.map((row) => (
         <ExplorerSidebarVirtualRowView {...props} key={row.key} row={row} />
       ))}
       {bottomPadding > 0 ? (
-        <div
-          aria-hidden="true"
-          className="explorer-sidebar-virtual-spacer"
-          style={{ height: bottomPadding }}
-        />
+        <MiniAppVirtualBlockSpacer height={bottomPadding} />
       ) : null}
     </div>
   );
@@ -939,11 +877,13 @@ function useExplorerSidebarVisibleRows(params: {
     () => getExplorerTreeIdSetKey(collapsedIds),
     [collapsedIds],
   );
-  const { frameRef, scrollTop, viewportHeight } = useExplorerSidebarViewport();
-  const sidebarRange = useMemo(
-    () => getExplorerSidebarWindowRange({ scrollTop, viewportHeight }),
-    [scrollTop, viewportHeight],
-  );
+  const {
+    frameRef,
+    limit: sidebarLimit,
+    offset: sidebarRangeOffset,
+  } = useMiniAppVirtualWindow({
+    rowHeight: EXPLORER_SIDEBAR_ROW_HEIGHT,
+  });
   const sidebarSections = useMemo(
     () =>
       buildExplorerSidebarSections({
@@ -958,18 +898,18 @@ function useExplorerSidebarVisibleRows(params: {
     [sidebarSections],
   );
   const offset = Math.min(
-    sidebarRange.offset,
-    Math.max(0, totalRows - sidebarRange.limit),
+    sidebarRangeOffset,
+    Math.max(0, totalRows - sidebarLimit),
   );
   const rows = useMemo(
     () =>
       getExplorerSidebarRowsInRange({
         collapsedIds,
-        limit: sidebarRange.limit,
+        limit: sidebarLimit,
         offset,
         sections: sidebarSections,
       }),
-    [collapsedIdsKey, offset, sidebarRange.limit, sidebarSections],
+    [collapsedIdsKey, offset, sidebarLimit, sidebarSections],
   );
 
   return { frameRef, offset, rows, totalRows };

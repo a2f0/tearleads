@@ -37,6 +37,16 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
+import {
+  getMiniAppVirtualFrameStyle,
+  MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
+  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+  MiniAppVirtualList,
+  MiniAppVirtualListFrame,
+  MiniAppVirtualListRow,
+  MiniAppVirtualTableSpacerRow,
+  useMiniAppVirtualRows,
+} from "../../components/shared/MiniAppVirtual";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import {
   compactFingerprint,
@@ -105,6 +115,11 @@ function GroupTable({
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
 }) {
+  const virtualGroups = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rows: groups,
+  });
+
   if (groups.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">
@@ -114,12 +129,20 @@ function GroupTable({
   }
 
   return (
-    <MiniAppTableFrame>
+    <MiniAppTableFrame
+      className="mini-app-table-frame--virtual org-manager-virtual-table"
+      ref={virtualGroups.frameRef}
+      style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
+    >
       <MiniAppTable
         aria-label={ORG_MANAGER_LABELS.groups}
         columns={GROUP_TABLE_COLUMNS}
       >
-        {groups.map((group) => {
+        <MiniAppVirtualTableSpacerRow
+          colSpan={GROUP_TABLE_COLUMNS.length}
+          height={virtualGroups.topPadding}
+        />
+        {virtualGroups.rows.map((group) => {
           const isSelected = selectedGroupId === group.groupId;
           const openGroupDetail = () => setSelectedGroupId(group.groupId);
           const handleGroupRowKeyDown = (
@@ -170,6 +193,10 @@ function GroupTable({
             </MiniAppTableRow>
           );
         })}
+        <MiniAppVirtualTableSpacerRow
+          colSpan={GROUP_TABLE_COLUMNS.length}
+          height={virtualGroups.bottomPadding}
+        />
       </MiniAppTable>
     </MiniAppTableFrame>
   );
@@ -270,6 +297,11 @@ function GroupMembers({
   removeMember: (userId: string) => void;
   userId: string | null;
 }) {
+  const virtualMembers = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
+    rows: members,
+  });
+
   if (members.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">
@@ -284,45 +316,55 @@ function GroupMembers({
   ).length;
 
   return (
-    <div className="org-manager-member-list">
-      {members.map((member) => {
-        const isLastAdmin = member.role === "admin" && adminCount <= 1;
-        const canRemove =
-          canMutateGroup &&
-          member.memberPrincipalType === "user" &&
-          member.memberPrincipalId !== userId &&
-          !isLastAdmin;
+    <MiniAppVirtualListFrame
+      className="org-manager-virtual-list"
+      ref={virtualMembers.frameRef}
+      rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
+    >
+      <MiniAppVirtualList
+        bottomPadding={virtualMembers.bottomPadding}
+        topPadding={virtualMembers.topPadding}
+      >
+        {virtualMembers.rows.map((member) => {
+          const isLastAdmin = member.role === "admin" && adminCount <= 1;
+          const canRemove =
+            canMutateGroup &&
+            member.memberPrincipalType === "user" &&
+            member.memberPrincipalId !== userId &&
+            !isLastAdmin;
 
-        return (
-          <MiniAppRow
-            className="org-manager-member-row"
-            density="roomy"
-            key={member.memberPrincipalId}
-            variant="framed"
-          >
-            <MiniAppRowStack>
-              <strong title={member.memberPrincipalId}>
-                {member.userId
-                  ? compactFingerprint(member.userId)
-                  : (member.groupName ??
-                    compactFingerprint(member.memberPrincipalId))}
-              </strong>
-              <MiniAppRowText muted>
-                {getOrgManagerPolicyRoleLabel(member.role)}
-              </MiniAppRowText>
-            </MiniAppRowStack>
-            {member.memberPrincipalType === "user" && (
-              <MiniAppButton
-                disabled={!canRemove || mutating}
-                onClick={() => removeMember(member.memberPrincipalId)}
+          return (
+            <MiniAppVirtualListRow key={member.memberPrincipalId}>
+              <MiniAppRow
+                className="org-manager-member-row"
+                density="roomy"
+                variant="framed"
               >
-                {ORG_MANAGER_LABELS.remove}
-              </MiniAppButton>
-            )}
-          </MiniAppRow>
-        );
-      })}
-    </div>
+                <MiniAppRowStack>
+                  <strong title={member.memberPrincipalId}>
+                    {member.userId
+                      ? compactFingerprint(member.userId)
+                      : (member.groupName ??
+                        compactFingerprint(member.memberPrincipalId))}
+                  </strong>
+                  <MiniAppRowText muted>
+                    {getOrgManagerPolicyRoleLabel(member.role)}
+                  </MiniAppRowText>
+                </MiniAppRowStack>
+                {member.memberPrincipalType === "user" && (
+                  <MiniAppButton
+                    disabled={!canRemove || mutating}
+                    onClick={() => removeMember(member.memberPrincipalId)}
+                  >
+                    {ORG_MANAGER_LABELS.remove}
+                  </MiniAppButton>
+                )}
+              </MiniAppRow>
+            </MiniAppVirtualListRow>
+          );
+        })}
+      </MiniAppVirtualList>
+    </MiniAppVirtualListFrame>
   );
 }
 
@@ -331,6 +373,11 @@ function GroupContainers({
 }: {
   containers: ReadonlyArray<OrganizationGroupContainer>;
 }) {
+  const virtualContainers = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rows: containers,
+  });
+
   if (containers.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">
@@ -340,12 +387,20 @@ function GroupContainers({
   }
 
   return (
-    <MiniAppTableFrame>
+    <MiniAppTableFrame
+      className="mini-app-table-frame--virtual org-manager-virtual-table"
+      ref={virtualContainers.frameRef}
+      style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
+    >
       <MiniAppTable
         aria-label={ORG_MANAGER_LABELS.directContainerLinks}
         columns={GROUP_CONTAINER_TABLE_COLUMNS}
       >
-        {containers.map((container) => (
+        <MiniAppVirtualTableSpacerRow
+          colSpan={GROUP_CONTAINER_TABLE_COLUMNS.length}
+          height={virtualContainers.topPadding}
+        />
+        {virtualContainers.rows.map((container) => (
           <MiniAppTableRow key={container.containerId}>
             <MiniAppTableCell>
               <MiniAppTableText title={getContainerDisplayTitle(container)}>
@@ -364,6 +419,10 @@ function GroupContainers({
             </MiniAppTableCell>
           </MiniAppTableRow>
         ))}
+        <MiniAppVirtualTableSpacerRow
+          colSpan={GROUP_CONTAINER_TABLE_COLUMNS.length}
+          height={virtualContainers.bottomPadding}
+        />
       </MiniAppTable>
     </MiniAppTableFrame>
   );

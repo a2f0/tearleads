@@ -26,12 +26,15 @@
   min-width: 0;
 }
 
+.org-manager-virtual-table,
+.org-manager-virtual-list {
+  max-height: min(28rem, 70vh);
+}
+
 .org-manager-form-toolbar {
   margin-bottom: var(--mini-app-space-sm);
 }
 
-.org-manager-group-list,
-.org-manager-member-list,
 .org-manager-roster-metadata,
 .org-manager-policy-history {
   display: grid;

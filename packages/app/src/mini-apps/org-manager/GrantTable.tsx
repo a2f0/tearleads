@@ -12,6 +12,12 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
+import {
+  getMiniAppVirtualFrameStyle,
+  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+  MiniAppVirtualTableSpacerRow,
+  useMiniAppVirtualRows,
+} from "../../components/shared/MiniAppVirtual";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import {
   getAccessLabel,
@@ -68,6 +74,11 @@ export function GrantTable({
   openGroupRoute: (groupId: string) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
+  const virtualGrants = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rows: grants,
+  });
+
   if (grants.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">{emptyLabel}</MiniAppStatus>
@@ -75,9 +86,17 @@ export function GrantTable({
   }
 
   return (
-    <MiniAppTableFrame>
+    <MiniAppTableFrame
+      className="mini-app-table-frame--virtual org-manager-virtual-table"
+      ref={virtualGrants.frameRef}
+      style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
+    >
       <MiniAppTable aria-label={label} columns={GRANT_TABLE_COLUMNS}>
-        {grants.map((grant) => {
+        <MiniAppVirtualTableSpacerRow
+          colSpan={GRANT_TABLE_COLUMNS.length}
+          height={virtualGrants.topPadding}
+        />
+        {virtualGrants.rows.map((grant) => {
           const isGroupGrant = grant.subjectType === "group";
           const canRevokeGrant = canRevokeGrants && !grant.isBuiltin;
           const openGrantGroupRoute = () => {
@@ -142,6 +161,10 @@ export function GrantTable({
             </MiniAppTableRow>
           );
         })}
+        <MiniAppVirtualTableSpacerRow
+          colSpan={GRANT_TABLE_COLUMNS.length}
+          height={virtualGrants.bottomPadding}
+        />
       </MiniAppTable>
     </MiniAppTableFrame>
   );

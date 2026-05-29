@@ -37,6 +37,7 @@
 
 .identity-manager-session-table {
   min-height: 8rem;
+  max-height: min(28rem, 70vh);
 }
 
 .identity-manager-session-table .mini-app-table {

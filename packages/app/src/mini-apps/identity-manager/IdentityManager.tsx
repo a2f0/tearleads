@@ -18,6 +18,12 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
+import {
+  getMiniAppVirtualFrameStyle,
+  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+  MiniAppVirtualTableSpacerRow,
+  useMiniAppVirtualRows,
+} from "../../components/shared/MiniAppVirtual";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import {
   useBackupKeyPackageAction,
@@ -499,17 +505,23 @@ function SessionTableRow({
 }
 
 function SessionTableBody({
+  bottomPadding,
   handleEndSession,
   loadingSessions,
   mutatingSessionId,
+  sessionCount,
   sessions,
+  topPadding,
 }: {
+  bottomPadding: number;
   handleEndSession: (session: UserSession) => Promise<void>;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
+  sessionCount: number;
   sessions: ReadonlyArray<UserSession>;
+  topPadding: number;
 }) {
-  if (sessions.length === 0) {
+  if (sessionCount === 0) {
     return (
       <MiniAppTableEmptyRow colSpan={SESSION_TABLE_COLUMNS.length}>
         {loadingSessions ? "Loading sessions..." : "No active sessions."}
@@ -517,14 +529,26 @@ function SessionTableBody({
     );
   }
 
-  return sessions.map((session) => (
-    <SessionTableRow
-      handleEndSession={handleEndSession}
-      key={session.id}
-      mutatingSessionId={mutatingSessionId}
-      session={session}
-    />
-  ));
+  return (
+    <>
+      <MiniAppVirtualTableSpacerRow
+        colSpan={SESSION_TABLE_COLUMNS.length}
+        height={topPadding}
+      />
+      {sessions.map((session) => (
+        <SessionTableRow
+          handleEndSession={handleEndSession}
+          key={session.id}
+          mutatingSessionId={mutatingSessionId}
+          session={session}
+        />
+      ))}
+      <MiniAppVirtualTableSpacerRow
+        colSpan={SESSION_TABLE_COLUMNS.length}
+        height={bottomPadding}
+      />
+    </>
+  );
 }
 
 function SessionsSection({
@@ -544,6 +568,11 @@ function SessionsSection({
   sessionError: string | null;
   sessions: ReadonlyArray<UserSession>;
 }) {
+  const virtualSessions = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rows: sessions,
+  });
+
   return (
     <MiniAppSection className="identity-manager-sessions">
       <MiniAppSectionHeading>
@@ -564,13 +593,20 @@ function SessionsSection({
       {!canManageSessions ? (
         <MiniAppStatus>Authenticate to manage sessions.</MiniAppStatus>
       ) : (
-        <MiniAppTableFrame className="identity-manager-session-table">
+        <MiniAppTableFrame
+          className="identity-manager-session-table mini-app-table-frame--virtual"
+          ref={virtualSessions.frameRef}
+          style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
+        >
           <MiniAppTable columns={SESSION_TABLE_COLUMNS}>
             <SessionTableBody
+              bottomPadding={virtualSessions.bottomPadding}
               handleEndSession={handleEndSession}
               loadingSessions={loadingSessions}
               mutatingSessionId={mutatingSessionId}
-              sessions={sessions}
+              sessionCount={sessions.length}
+              sessions={virtualSessions.rows}
+              topPadding={virtualSessions.topPadding}
             />
           </MiniAppTable>
         </MiniAppTableFrame>
