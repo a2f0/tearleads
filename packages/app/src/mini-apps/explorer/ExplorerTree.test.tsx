@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import type {
   ContainerDocumentReadModel,
   ContainerDocumentSidebarRow,
@@ -22,13 +22,27 @@ import {
   useMemo,
   useState,
 } from "react";
-import { buildExplorerTree, useExplorerSidebarPanel } from "./ExplorerTree";
+import {
+  buildExplorerTree,
+  getExplorerSidebarWindowRange,
+  useExplorerSidebarPanel,
+} from "./ExplorerTree";
+
+const resizeObserverGlobal = globalThis as unknown as {
+  ResizeObserver?: unknown;
+};
+const originalResizeObserver = resizeObserverGlobal.ResizeObserver;
+
+beforeEach(() => {
+  resizeObserverGlobal.ResizeObserver = undefined;
+});
 
 afterEach(() => {
   cleanup();
+  resizeObserverGlobal.ResizeObserver = originalResizeObserver;
 });
 
-const nodes: ContainerNode[] = [
+const defaultNodes: ContainerNode[] = [
   {
     id: "root-container",
     kind: "container",
@@ -39,14 +53,23 @@ const nodes: ContainerNode[] = [
   },
 ];
 
-function createSidebarRows(count: number): ContainerDocumentSidebarRow[] {
+type SidebarWindowCall = {
+  containerId: string;
+  limit: number;
+  offset: number;
+};
+
+function createSidebarRows(
+  count: number,
+  containerId = "root-container",
+): ContainerDocumentSidebarRow[] {
   return Array.from({ length: count }, (_, index) => {
     const rowNumber = index + 1;
     return {
-      containerId: "root-container",
-      documentId: `remote-document-${rowNumber}`,
+      containerId,
+      documentId: `remote-${containerId}-document-${rowNumber}`,
       documentKind: "note",
-      localId: `document-${rowNumber}`,
+      localId: `${containerId}-document-${rowNumber}`,
       syncState: syncedContainerDocumentObjectSyncState,
       title: `Document ${rowNumber}`,
       updatedAt: `2026-05-17T00:${String(index).padStart(2, "0")}:00.000Z`,
@@ -55,13 +78,21 @@ function createSidebarRows(count: number): ContainerDocumentSidebarRow[] {
 }
 
 function createDocumentReadModel(
-  rows: ReadonlyArray<ContainerDocumentSidebarRow>,
-  calls: Array<{ limit: number; offset: number }>,
+  rowsByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<ContainerDocumentSidebarRow>
+  >,
+  calls: SidebarWindowCall[],
 ): ContainerDocumentReadModel {
   return {
     applyContainerDocumentTombstones: async () => [],
-    listContainerDocumentSidebarWindow: async ({ limit, offset }) => {
-      calls.push({ limit, offset });
+    listContainerDocumentSidebarWindow: async ({
+      containerId,
+      limit,
+      offset,
+    }) => {
+      calls.push({ containerId, limit, offset });
+      const rows = rowsByContainerId.get(containerId) ?? [];
       return {
         rows: rows.slice(offset, offset + limit),
         totalCount: rows.length,
@@ -79,16 +110,24 @@ function createDocumentReadModel(
   };
 }
 
+function createRowsByContainerId(
+  rows: ReadonlyArray<ContainerDocumentSidebarRow>,
+): ReadonlyMap<string, ReadonlyArray<ContainerDocumentSidebarRow>> {
+  return new Map([["root-container", rows]]);
+}
+
 function ExplorerSidebarHarness(params: {
   collapsedIds?: ReadonlySet<string>;
   documentListRevision?: number;
   documentReadModel: ContainerDocumentReadModel;
+  nodes?: ReadonlyArray<ContainerNode>;
   onDocumentContextMenu?: (localId: string, containerId: string) => void;
 }) {
   const {
     collapsedIds: collapsedIdsParam,
     documentListRevision = 0,
     documentReadModel,
+    nodes = defaultNodes,
     onDocumentContextMenu,
   } = params;
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -112,12 +151,11 @@ function ExplorerSidebarHarness(params: {
     },
     [onDocumentContextMenu],
   );
-  const selectDocumentProjection = useCallback(
-    (localId: string) => setSelectedId(localId),
-    [],
-  );
+  const selectDocumentProjection = useCallback((localId: string) => {
+    setSelectedId(localId);
+  }, []);
   const toggleCollapsed = useCallback(() => undefined, []);
-  const treeEntries = useMemo(() => buildExplorerTree(nodes), []);
+  const treeEntries = useMemo(() => buildExplorerTree(nodes), [nodes]);
 
   useExplorerSidebarPanel({
     activeContainerId: "root-container",
@@ -141,10 +179,10 @@ function ExplorerSidebarHarness(params: {
   return <div>{sidebar}</div>;
 }
 
-test("explorer sidebar requests and renders only a bounded document window", async () => {
-  const calls: Array<{ limit: number; offset: number }> = [];
+test("explorer sidebar requests new document windows as the sidebar scrolls", async () => {
+  const calls: SidebarWindowCall[] = [];
   const documentReadModel = createDocumentReadModel(
-    createSidebarRows(55),
+    createRowsByContainerId(createSidebarRows(80)),
     calls,
   );
   const view = render(
@@ -152,24 +190,203 @@ test("explorer sidebar requests and renders only a bounded document window", asy
   );
 
   await waitFor(() => {
-    expect(calls).toEqual([{ limit: 50, offset: 0 }]);
+    expect(calls).toContainEqual({
+      containerId: "root-container",
+      limit: 24,
+      offset: 0,
+    });
   });
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
-  expect(view.queryByRole("button", { name: "Document 51" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Document 25" })).toBeNull();
 
-  fireEvent.click(view.getByRole("button", { name: "Load 5 more" }));
+  const sidebarViewport = view.container.querySelector<HTMLDivElement>(
+    ".explorer-sidebar-viewport",
+  );
+  expect(sidebarViewport).toBeTruthy();
+  if (!sidebarViewport) {
+    throw new Error("Explorer sidebar viewport was not rendered.");
+  }
+
+  sidebarViewport.scrollTop = 840;
+  fireEvent.scroll(sidebarViewport);
 
   await waitFor(() => {
-    expect(calls).toEqual([
-      { limit: 50, offset: 0 },
-      { limit: 50, offset: 50 },
-    ]);
+    expect(calls).toContainEqual({
+      containerId: "root-container",
+      limit: 24,
+      offset: 21,
+    });
   });
-  expect(await view.findByRole("button", { name: "Document 51" })).toBeTruthy();
+  expect(await view.findByRole("button", { name: "Document 22" })).toBeTruthy();
+});
+
+test("explorer sidebar window range follows row height with overscan", () => {
+  expect(
+    getExplorerSidebarWindowRange({ scrollTop: -100, viewportHeight: 0 }),
+  ).toEqual({ limit: 24, offset: 0 });
+  expect(
+    getExplorerSidebarWindowRange({ scrollTop: 840, viewportHeight: 280 }),
+  ).toEqual({ limit: 26, offset: 22 });
+});
+
+test("explorer sidebar scroll requests windows for each folder independently", async () => {
+  const childNodes: ContainerNode[] = [
+    ...defaultNodes,
+    {
+      id: "child-container",
+      kind: "container",
+      name: "Child",
+      organizationId: "org-1",
+      parentId: "root-container",
+      syncState: syncedContainerDocumentObjectSyncState,
+    },
+  ];
+  const calls: SidebarWindowCall[] = [];
+  const documentReadModel = createDocumentReadModel(
+    new Map([
+      ["child-container", createSidebarRows(80, "child-container")],
+      ["root-container", createSidebarRows(5)],
+    ]),
+    calls,
+  );
+  const view = render(
+    <ExplorerSidebarHarness
+      documentReadModel={documentReadModel}
+      nodes={childNodes}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(calls).toContainEqual({
+      containerId: "child-container",
+      limit: 24,
+      offset: 0,
+    });
+  });
+
+  const sidebarViewport = view.container.querySelector<HTMLDivElement>(
+    ".explorer-sidebar-viewport",
+  );
+  expect(sidebarViewport).toBeTruthy();
+  if (!sidebarViewport) {
+    throw new Error("Explorer sidebar viewport was not rendered.");
+  }
+
+  sidebarViewport.scrollTop = 840;
+  fireEvent.scroll(sidebarViewport);
+
+  await waitFor(() => {
+    expect(calls).toContainEqual({
+      containerId: "child-container",
+      limit: 24,
+      offset: 20,
+    });
+  });
+  expect(
+    calls.some(
+      (call) => call.containerId === "root-container" && call.offset === 20,
+    ),
+  ).toBe(false);
+});
+
+test("explorer sidebar ignores stale document windows during fast scrolling", async () => {
+  const rows = createSidebarRows(90);
+  const calls: SidebarWindowCall[] = [];
+  let resolveFirstScroll:
+    | ((
+        value: Awaited<
+          ReturnType<
+            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
+          >
+        >,
+      ) => void)
+    | undefined;
+  let resolveSecondScroll:
+    | ((
+        value: Awaited<
+          ReturnType<
+            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
+          >
+        >,
+      ) => void)
+    | undefined;
+  const documentReadModel = {
+    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+    listContainerDocumentSidebarWindow: async ({
+      containerId,
+      limit,
+      offset,
+    }) => {
+      calls.push({ containerId, limit, offset });
+      if (offset === 21) {
+        return new Promise((resolve) => {
+          resolveFirstScroll = resolve;
+        });
+      }
+      if (offset === 41) {
+        return new Promise((resolve) => {
+          resolveSecondScroll = resolve;
+        });
+      }
+
+      return {
+        rows: rows.slice(offset, offset + limit),
+        totalCount: rows.length,
+      };
+    },
+  } satisfies ContainerDocumentReadModel;
+  const view = render(
+    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+  );
+
+  expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
+  const sidebarViewport = view.container.querySelector<HTMLDivElement>(
+    ".explorer-sidebar-viewport",
+  );
+  expect(sidebarViewport).toBeTruthy();
+  if (!sidebarViewport) {
+    throw new Error("Explorer sidebar viewport was not rendered.");
+  }
+
+  sidebarViewport.scrollTop = 840;
+  fireEvent.scroll(sidebarViewport);
+  await waitFor(() => {
+    expect(calls).toContainEqual({
+      containerId: "root-container",
+      limit: 24,
+      offset: 21,
+    });
+  });
+
+  sidebarViewport.scrollTop = 1400;
+  fireEvent.scroll(sidebarViewport);
+  await waitFor(() => {
+    expect(calls).toContainEqual({
+      containerId: "root-container",
+      limit: 24,
+      offset: 41,
+    });
+  });
+
+  await act(async () => {
+    resolveSecondScroll?.({
+      rows: rows.slice(41, 65),
+      totalCount: rows.length,
+    });
+  });
+  expect(await view.findByRole("button", { name: "Document 60" })).toBeTruthy();
+
+  await act(async () => {
+    resolveFirstScroll?.({
+      rows: rows.slice(21, 45),
+      totalCount: rows.length,
+    });
+  });
+  expect(view.getByRole("button", { name: "Document 60" })).toBeTruthy();
 });
 
 test("explorer sidebar shows loading feedback during the first document window request", async () => {
-  const calls: Array<{ limit: number; offset: number }> = [];
+  const calls: SidebarWindowCall[] = [];
   const rows = createSidebarRows(1);
   let resolveWindow:
     | ((
@@ -181,9 +398,13 @@ test("explorer sidebar shows loading feedback during the first document window r
       ) => void)
     | undefined;
   const documentReadModel = {
-    ...createDocumentReadModel(rows, calls),
-    listContainerDocumentSidebarWindow: async ({ limit, offset }) => {
-      calls.push({ limit, offset });
+    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+    listContainerDocumentSidebarWindow: async ({
+      containerId,
+      limit,
+      offset,
+    }) => {
+      calls.push({ containerId, limit, offset });
       return new Promise((resolve) => {
         resolveWindow = resolve;
       });
@@ -195,7 +416,11 @@ test("explorer sidebar shows loading feedback during the first document window r
 
   const loadingButton = await view.findByRole("button", { name: "Loading..." });
   expect((loadingButton as HTMLButtonElement).disabled).toBe(true);
-  expect(calls).toEqual([{ limit: 50, offset: 0 }]);
+  expect(calls).toContainEqual({
+    containerId: "root-container",
+    limit: 24,
+    offset: 0,
+  });
 
   await act(async () => {
     resolveWindow?.({
@@ -209,7 +434,10 @@ test("explorer sidebar shows loading feedback during the first document window r
 
 test("explorer sidebar forwards document context-menu events with document and container ids", async () => {
   const calls: Array<{ containerId: string; localId: string }> = [];
-  const documentReadModel = createDocumentReadModel(createSidebarRows(1), []);
+  const documentReadModel = createDocumentReadModel(
+    createRowsByContainerId(createSidebarRows(1)),
+    [],
+  );
   const view = render(
     <ExplorerSidebarHarness
       documentReadModel={documentReadModel}
@@ -224,18 +452,22 @@ test("explorer sidebar forwards document context-menu events with document and c
   );
 
   expect(calls).toEqual([
-    { containerId: "root-container", localId: "document-1" },
+    { containerId: "root-container", localId: "root-container-document-1" },
   ]);
 });
 
 test("explorer sidebar can retry a failed initial document window", async () => {
-  const calls: Array<{ limit: number; offset: number }> = [];
+  const calls: SidebarWindowCall[] = [];
   const rows = createSidebarRows(1);
   const documentReadModel = {
-    ...createDocumentReadModel(rows, calls),
-    listContainerDocumentSidebarWindow: async ({ limit, offset }) => {
-      calls.push({ limit, offset });
-      if (calls.length === 1) {
+    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+    listContainerDocumentSidebarWindow: async ({
+      containerId,
+      limit,
+      offset,
+    }) => {
+      calls.push({ containerId, limit, offset });
+      if (calls.length <= 2) {
         throw new Error("window failed");
       }
 
@@ -252,17 +484,22 @@ test("explorer sidebar can retry a failed initial document window", async () => 
   fireEvent.click(await view.findByRole("button", { name: "Retry" }));
 
   await waitFor(() => {
-    expect(calls).toEqual([
-      { limit: 50, offset: 0 },
-      { limit: 50, offset: 0 },
-    ]);
+    expect(calls).toContainEqual({
+      containerId: "root-container",
+      limit: 24,
+      offset: 0,
+    });
   });
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
 });
 
 test("explorer sidebar keeps existing documents visible during document list refreshes", async () => {
   const rows = createSidebarRows(1);
-  const calls: Array<{ limit: number; offset: number }> = [];
+  const refreshedRows = rows.map((row) => ({
+    ...row,
+    title: "Renamed Document",
+  }));
+  const calls: SidebarWindowCall[] = [];
   let resolveRefresh:
     | ((
         value: Awaited<
@@ -273,10 +510,14 @@ test("explorer sidebar keeps existing documents visible during document list ref
       ) => void)
     | undefined;
   const documentReadModel = {
-    ...createDocumentReadModel(rows, calls),
-    listContainerDocumentSidebarWindow: async ({ limit, offset }) => {
-      calls.push({ limit, offset });
-      if (calls.length === 1) {
+    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+    listContainerDocumentSidebarWindow: async ({
+      containerId,
+      limit,
+      offset,
+    }) => {
+      calls.push({ containerId, limit, offset });
+      if (calls.length <= 2) {
         return {
           rows: rows.slice(offset, offset + limit),
           totalCount: rows.length,
@@ -305,26 +546,25 @@ test("explorer sidebar keeps existing documents visible during document list ref
   );
 
   await waitFor(() => {
-    expect(calls).toEqual([
-      { limit: 50, offset: 0 },
-      { limit: 50, offset: 0 },
-    ]);
+    expect(calls.length).toBeGreaterThanOrEqual(3);
   });
   expect(view.getByRole("button", { name: "Document 1" })).toBeTruthy();
-  expect(view.getByRole("button", { name: "Loading..." })).toBeTruthy();
 
   await act(async () => {
     resolveRefresh?.({
-      rows,
+      rows: refreshedRows,
       totalCount: rows.length,
     });
   });
+  expect(
+    await view.findByRole("button", { name: "Renamed Document" }),
+  ).toBeTruthy();
 });
 
 test("explorer sidebar does not refresh loaded documents on collapsed state changes", async () => {
-  const calls: Array<{ limit: number; offset: number }> = [];
+  const calls: SidebarWindowCall[] = [];
   const documentReadModel = createDocumentReadModel(
-    createSidebarRows(1),
+    createRowsByContainerId(createSidebarRows(1)),
     calls,
   );
   const view = render(
@@ -332,7 +572,10 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
   );
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
-  expect(calls).toEqual([{ limit: 50, offset: 0 }]);
+  expect(calls).toEqual([
+    { containerId: "root-container", limit: 0, offset: 0 },
+    { containerId: "root-container", limit: 24, offset: 0 },
+  ]);
 
   view.rerender(
     <ExplorerSidebarHarness
@@ -350,11 +593,17 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
   );
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
-  expect(calls).toEqual([{ limit: 50, offset: 0 }]);
+  expect(calls).toEqual([
+    { containerId: "root-container", limit: 0, offset: 0 },
+    { containerId: "root-container", limit: 24, offset: 0 },
+  ]);
 });
 
 test("explorer sidebar does not reserve hidden sync badge space for synced rows", async () => {
-  const documentReadModel = createDocumentReadModel(createSidebarRows(1), []);
+  const documentReadModel = createDocumentReadModel(
+    createRowsByContainerId(createSidebarRows(1)),
+    [],
+  );
   const view = render(
     <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
   );
@@ -370,7 +619,10 @@ test("explorer sidebar keeps visible sync badges for unsynced rows", async () =>
     ...row,
     syncState: createContainerDocumentObjectSyncState({ localOnly: true }),
   }));
-  const documentReadModel = createDocumentReadModel(rows, []);
+  const documentReadModel = createDocumentReadModel(
+    createRowsByContainerId(rows),
+    [],
+  );
   const view = render(
     <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
   );
@@ -378,7 +630,7 @@ test("explorer sidebar keeps visible sync badges for unsynced rows", async () =>
   await waitFor(() => {
     expect(
       view.container.querySelector<HTMLButtonElement>(
-        '[data-document-local-id="document-1"]',
+        '[data-document-local-id="root-container-document-1"]',
       ),
     ).toBeTruthy();
   });
