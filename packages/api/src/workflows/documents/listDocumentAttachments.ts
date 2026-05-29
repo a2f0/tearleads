@@ -21,12 +21,43 @@ interface ListDocumentAttachmentsWorkflowInput {
   userId: string;
 }
 
+type CurrentBlobContentKeyBundle = Awaited<
+  ReturnType<typeof getLatestCurrentBlobContentKeyBundle>
+>;
+
+interface BlobContentKeyBundleEntry {
+  readonly blobId: string;
+  readonly contentKeyBundle: CurrentBlobContentKeyBundle;
+}
+
 export class ListDocumentAttachmentsError extends Error {
   constructor(
     message: string,
     readonly status: 400 | 403 | 404 | 409,
   ) {
     super(message);
+  }
+}
+
+async function loadCurrentBlobContentKeyBundleEntry(
+  blobId: string,
+  executor: DatabaseSession,
+): Promise<BlobContentKeyBundleEntry> {
+  try {
+    const currentTargets = await resolveCurrentBlobKekTargets(blobId, executor);
+    const contentKeyBundle = await getLatestCurrentBlobContentKeyBundle(
+      { blobId, currentTargets },
+      executor,
+    );
+    return { blobId, contentKeyBundle };
+  } catch (error) {
+    if (
+      error instanceof BlobKekTargetError ||
+      error instanceof BlobContentKeyBundleError
+    ) {
+      throw new ListDocumentAttachmentsError(error.message, error.status);
+    }
+    throw error;
   }
 }
 
@@ -61,32 +92,17 @@ export async function runListDocumentAttachmentsWorkflow(
       ),
     );
 
+  const contentKeyBundleEntries = await Promise.all(
+    [...new Set(rows.map((row) => row.blobId))]
+      .sort()
+      .map((blobId) => loadCurrentBlobContentKeyBundleEntry(blobId, executor)),
+  );
   const contentKeyBundleByBlobId = new Map<
     string,
-    Awaited<ReturnType<typeof getLatestCurrentBlobContentKeyBundle>>
+    CurrentBlobContentKeyBundle
   >();
-  for (const blobId of [...new Set(rows.map((row) => row.blobId))].sort()) {
-    try {
-      const currentTargets = await resolveCurrentBlobKekTargets(
-        blobId,
-        executor,
-      );
-      contentKeyBundleByBlobId.set(
-        blobId,
-        await getLatestCurrentBlobContentKeyBundle(
-          { blobId, currentTargets },
-          executor,
-        ),
-      );
-    } catch (error) {
-      if (
-        error instanceof BlobKekTargetError ||
-        error instanceof BlobContentKeyBundleError
-      ) {
-        throw new ListDocumentAttachmentsError(error.message, error.status);
-      }
-      throw error;
-    }
+  for (const entry of contentKeyBundleEntries) {
+    contentKeyBundleByBlobId.set(entry.blobId, entry.contentKeyBundle);
   }
 
   return rows.map((row) => {
