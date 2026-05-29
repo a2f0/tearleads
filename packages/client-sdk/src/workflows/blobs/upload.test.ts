@@ -31,6 +31,7 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
       readonly targets: readonly { readonly wrappingMetadata: unknown }[];
     };
   }[] = [];
+  let stagedEncryptedRecord: Record<string, unknown> | null = null;
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
@@ -88,10 +89,16 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
         return response;
       },
       getDocumentWriterProjection: async () => writerProjection,
-      stageBlob: async () => ({
-        stageId: "stage-blob-suite",
-        expiresAt: "2026-04-27T01:00:00.000Z",
-      }),
+      stageBlob: async (request) => {
+        stagedEncryptedRecord = JSON.parse(request.encryptedBytes) as Record<
+          string,
+          unknown
+        >;
+        return {
+          stageId: "stage-blob-suite",
+          expiresAt: "2026-04-27T01:00:00.000Z",
+        };
+      },
     },
     author,
     bindingId,
@@ -106,6 +113,11 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
   });
 
   expect(uploaded?.blobId).toBe(blobId);
+  if (!stagedEncryptedRecord) {
+    throw new Error("Expected staged encrypted blob record.");
+  }
+  expect(stagedEncryptedRecord).not.toHaveProperty("contentKeyBundle");
+  expect(stagedEncryptedRecord).not.toHaveProperty("targetHash");
   expect(submittedResponses[0]?.contentKeyBundle.targets).toEqual([
     expect.objectContaining({
       wrappingMetadata: expect.objectContaining({
@@ -256,6 +268,14 @@ test("uploadDocumentAttachment can stage encrypted bytes with multipart uploads"
 
   expect(uploaded?.blobId).toBe(blobId);
   expect(uploaded?.request.stagedBlob?.stageId).toBe("stage-multipart-upload");
+  const multipartEncryptedRecord = JSON.parse(
+    uploadedParts
+      .toSorted((left, right) => left.partNumber - right.partNumber)
+      .map((part) => part.encryptedBytes)
+      .join(""),
+  ) as Record<string, unknown>;
+  expect(multipartEncryptedRecord).not.toHaveProperty("contentKeyBundle");
+  expect(multipartEncryptedRecord).not.toHaveProperty("targetHash");
   expect(uploadedParts.length).toBeGreaterThan(2);
   expect(maxActiveUploads).toBe(2);
   expect(completedParts).toEqual(

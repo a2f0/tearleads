@@ -18,6 +18,7 @@ import {
   isInitiateMultipartBlobStageResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
+  isListDocumentAttachmentsResponse,
   isListOrganizationGroupsResponse,
   isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
@@ -243,6 +244,37 @@ test("isBlobAttachmentBindResponse", () => {
     }),
   ).toBe(false);
   expect(isBlobAttachmentBindResponse(null)).toBe(false);
+});
+
+test("isListDocumentAttachmentsResponse", () => {
+  const validAttachment = {
+    bindingId: "550e8400-e29b-41d4-a716-446655440002",
+    blobId: "550e8400-e29b-41d4-a716-446655440001",
+    contentKeyBundle: createBlobContentKeyBundleResponse(),
+    slotId: "slot-a",
+  };
+  const validResponse = [validAttachment];
+
+  expect(isListDocumentAttachmentsResponse(validResponse)).toBe(true);
+  expect(
+    isListDocumentAttachmentsResponse([
+      {
+        ...validAttachment,
+        contentKeyBundle: createBlobContentKeyBundleResponse({
+          contentKeyEpoch: 0,
+        }),
+      },
+    ]),
+  ).toBe(false);
+  expect(
+    isListDocumentAttachmentsResponse([
+      {
+        ...validAttachment,
+        contentKeyBundle: undefined,
+      },
+    ]),
+  ).toBe(false);
+  expect(isListDocumentAttachmentsResponse(null)).toBe(false);
 });
 
 test("isBlobAttachmentDetachResponse", () => {

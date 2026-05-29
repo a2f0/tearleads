@@ -252,6 +252,7 @@ async function syncPendingAttachmentUpload(input: {
   input.activeBindingBySlotId.set(pendingAttachment.slotId, {
     bindingId: uploaded.bindingId,
     blobId: uploaded.blobId,
+    contentKeyBundle: uploaded.response.contentKeyBundle,
     slotId: pendingAttachment.slotId,
   });
   state.runtime.util.log(

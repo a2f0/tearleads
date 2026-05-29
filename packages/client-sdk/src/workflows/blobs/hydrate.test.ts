@@ -186,6 +186,7 @@ test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment by
         {
           bindingId: fixture.bindingId,
           blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
           slotId: fixture.attachment.slotId,
         },
       ],
@@ -201,6 +202,7 @@ test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment by
   expect(hydratedBlob?.binding).toEqual({
     bindingId: fixture.bindingId,
     blobId: fixture.blobId,
+    contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
     slotId: fixture.attachment.slotId,
   });
   expect(hydratedBlob?.storageKey).toBe(`blob-${fixture.blobId}`);
@@ -225,6 +227,7 @@ test("decryptDocumentAttachmentBlob rejects bad writer projection signatures", a
 
   await expect(
     decryptDocumentAttachmentBlob({
+      contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
       encryptedBytes: fixture.stagedBlob.encryptedBytes,
       expectedBindingId: fixture.bindingId,
       expectedBlobId: fixture.blobId,
@@ -259,11 +262,13 @@ test("hydrateDocumentAttachmentBlobs reuses one writer projection for matched at
         {
           bindingId: fixture.bindingId,
           blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
           slotId: fixture.attachment.slotId,
         },
         {
           bindingId: fixture.bindingId,
           blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
           slotId: secondAttachment.slotId,
         },
       ],
@@ -300,6 +305,7 @@ test("hydrateDocumentAttachmentBlobs skips blobs with a digest mismatch", async 
         {
           bindingId: fixture.bindingId,
           blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
           slotId: fixture.attachment.slotId,
         },
       ],
@@ -337,6 +343,7 @@ test("hydrateDocumentAttachmentBlobs skips blobs with a byte length mismatch", a
         {
           bindingId: fixture.bindingId,
           blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
           slotId: fixture.attachment.slotId,
         },
       ],

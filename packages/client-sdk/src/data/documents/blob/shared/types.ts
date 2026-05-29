@@ -10,6 +10,7 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
+  BlobContentKeyBundleResponse,
   CompleteMultipartBlobStageResponse,
   DocumentWriterProjectionResponse,
   InitiateMultipartBlobStageResponse,
@@ -35,7 +36,6 @@ export const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
   "blobId",
   "byteLength",
   "ciphertext",
-  "contentKeyBundle",
   "contentKeyEpoch",
   "contentRecordId",
   "encryptionSuite",
@@ -43,7 +43,6 @@ export const BLOB_ENCRYPTED_BYTES_KEYS = new Set([
   "iv",
   "metadataHash",
   "nonceDomainHash",
-  "targetHash",
   "version",
 ]);
 export const TEXT_ENCODER = new TextEncoder();
@@ -92,13 +91,11 @@ export interface BlobEncryptedBytesRecord {
   blobId: string;
   byteLength: number;
   ciphertext: Uint8Array;
-  contentKeyBundle: BlobContentKeyBundleRequest;
   contentKeyEpoch: number;
   contentRecordId: string;
   iv: Uint8Array;
   metadataHash: string;
   nonceDomainHash: string;
-  targetHash: string;
 }
 
 export interface BlobEncryptedBytes {
@@ -165,6 +162,7 @@ export interface UploadDocumentAttachmentResult {
 }
 
 export interface DecryptDocumentAttachmentBlobInput {
+  contentKeyBundle: BlobContentKeyBundleResponse;
   encryptedBytes: string;
   expectedBindingId: string;
   expectedBlobId: string;

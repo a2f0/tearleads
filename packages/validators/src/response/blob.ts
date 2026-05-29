@@ -1,6 +1,7 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
+  hasObjectProperty,
   hasPositiveIntegerProperty,
   hasStringProperty,
   isRecordArray,
@@ -48,6 +49,7 @@ export interface CompleteMultipartBlobStageResponse {
 export interface BlobAttachmentSummary {
   bindingId: string;
   blobId: string;
+  contentKeyBundle: BlobContentKeyBundleResponse;
   slotId: string;
 }
 
@@ -186,6 +188,8 @@ function isBlobAttachmentSummary(
     isPlainObject(value) &&
     hasStringProperty(value, "bindingId") &&
     hasStringProperty(value, "blobId") &&
+    hasObjectProperty(value, "contentKeyBundle") &&
+    isBlobContentKeyBundleResponse(value.contentKeyBundle) &&
     hasStringProperty(value, "slotId")
   );
 }

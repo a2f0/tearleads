@@ -6,7 +6,10 @@ import {
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  BlobContentKeyBundleResponse,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { readCanonicalRecordPaths } from "../../../keyingCanonicalJson";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { unwrapContainerKekPath } from "../../shared/projection";
@@ -142,6 +145,7 @@ export function authorizingContainerPathRecords(
 
 export async function unwrapBlobContentKey(
   input: {
+    contentKeyBundle: BlobContentKeyBundleResponse;
     documentId: string;
     encrypted: BlobEncryptedBytesRecord;
     execSql?: ExecSql | undefined;
@@ -157,7 +161,7 @@ export async function unwrapBlobContentKey(
     ...projectionVerificationOptions(input),
   });
   let contentKey: Uint8Array | null = null;
-  const attachmentTargets = input.encrypted.contentKeyBundle.targets.filter(
+  const attachmentTargets = input.contentKeyBundle.targets.filter(
     (envelope) =>
       envelope.bindingId === input.expectedBindingId &&
       envelope.documentId === input.documentId,

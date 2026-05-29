@@ -44,6 +44,7 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
+  BlobContentKeyBundleResponse,
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentSyncResponse,
@@ -472,6 +473,7 @@ async function createDocumentRuntimePatch(input: {
   const attachments: Array<{
     bindingId: string;
     blobId: string;
+    contentKeyBundle: BlobContentKeyBundleResponse;
     slotId: string;
   }> = [];
   const stagedBlobs = new Map<string, StageBlobRequest>();
@@ -518,6 +520,7 @@ async function createDocumentRuntimePatch(input: {
         attachments.push({
           bindingId: response.bindingId,
           blobId: response.blobId,
+          contentKeyBundle: response.contentKeyBundle,
           slotId: response.slotId,
         });
         if (stagedBlob) {
@@ -1569,7 +1572,16 @@ test("document store uploads attachment bytes with signed bindings", async () =>
   const bindingId = String(
     Reflect.get(attachmentBinds[0]?.request.body ?? {}, "bindingId"),
   );
+  const requestContentKeyBundle = attachmentBinds[0]?.request.contentKeyBundle;
+  if (!requestContentKeyBundle) {
+    throw new Error("Expected attachment content-key bundle.");
+  }
+  const contentKeyBundle = {
+    blobId,
+    ...requestContentKeyBundle,
+  };
   const decryptedBytes = await decryptDocumentAttachmentBlob({
+    contentKeyBundle,
     encryptedBytes,
     expectedBindingId: bindingId,
     expectedBlobId: blobId,
@@ -1584,6 +1596,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
 
   await expect(
     decryptDocumentAttachmentBlob({
+      contentKeyBundle,
       encryptedBytes,
       expectedBindingId: "wrong-binding-id",
       expectedBlobId: blobId,
@@ -1594,11 +1607,13 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     }),
   ).rejects.toThrow("missing attachment target");
 
-  const tamperedEncryptedBytes = JSON.parse(encryptedBytes) as {
-    contentKeyBundle: { targets: Record<string, unknown>[] };
-  };
+  const tamperedEncryptedBytes = JSON.parse(encryptedBytes) as Record<
+    string,
+    unknown
+  >;
   await expect(
     decryptDocumentAttachmentBlob({
+      contentKeyBundle,
       encryptedBytes: JSON.stringify({
         ...tamperedEncryptedBytes,
         version: 2,
@@ -1612,26 +1627,24 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     }),
   ).rejects.toThrow("Blob encrypted bytes version 2 is invalid; expected 1");
 
-  const [firstTarget, ...remainingTargets] =
-    tamperedEncryptedBytes.contentKeyBundle.targets;
+  const [firstTarget, ...remainingTargets] = contentKeyBundle.targets;
   if (!firstTarget) {
     throw new Error("Expected uploaded blob content-key target.");
   }
+  const tamperedContentKeyBundle = {
+    ...contentKeyBundle,
+    targets: [
+      {
+        ...firstTarget,
+        containerKeyEpochId: "tampered-container-key-epoch",
+      },
+      ...remainingTargets,
+    ],
+  };
   await expect(
     decryptDocumentAttachmentBlob({
-      encryptedBytes: JSON.stringify({
-        ...tamperedEncryptedBytes,
-        contentKeyBundle: {
-          ...tamperedEncryptedBytes.contentKeyBundle,
-          targets: [
-            {
-              ...firstTarget,
-              containerKeyEpochId: "tampered-container-key-epoch",
-            },
-            ...remainingTargets,
-          ],
-        },
-      }),
+      contentKeyBundle: tamperedContentKeyBundle,
+      encryptedBytes,
       expectedBindingId: bindingId,
       expectedBlobId: blobId,
       execSql: runtime.infra.execSql,

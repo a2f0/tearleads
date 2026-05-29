@@ -21,6 +21,7 @@ import { asWebCryptoBytes } from "../../data/documents/shared/readers";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 
 export async function decryptDocumentAttachmentBlob({
+  contentKeyBundle,
   encryptedBytes,
   expectedBindingId,
   expectedBlobId,
@@ -41,12 +42,12 @@ export async function decryptDocumentAttachmentBlob({
     throw new Error("Blob encrypted bytes blob id mismatch");
   }
   if (
-    encrypted.contentKeyEpoch !== encrypted.contentKeyBundle.contentKeyEpoch ||
-    encrypted.targetHash !== encrypted.contentKeyBundle.targetHash
+    encrypted.contentKeyEpoch !== contentKeyBundle.contentKeyEpoch ||
+    contentKeyBundle.blobId !== expectedBlobId
   ) {
     throw new Error("Blob encrypted bytes content-key bundle mismatch");
   }
-  await assertBlobContentKeyBundleTargetHash(encrypted.contentKeyBundle);
+  await assertBlobContentKeyBundleTargetHash(contentKeyBundle);
 
   await assertDocumentWriterProjectionConsistent(writerProjection, {
     execSql,
@@ -70,13 +71,13 @@ export async function decryptDocumentAttachmentBlob({
     blobId: expectedBlobId,
     byteLength: encrypted.byteLength,
     contentKeyEpoch: encrypted.contentKeyEpoch,
-    targetHash: encrypted.targetHash,
   });
   if (encrypted.metadataHash !== expectedMetadataHash) {
     throw new Error("Blob encrypted bytes metadata hash mismatch");
   }
 
   const contentKey = await unwrapBlobContentKey({
+    contentKeyBundle,
     documentId,
     encrypted,
     execSql,
