@@ -269,13 +269,17 @@ staged-row creation, object-store multipart state, part upload, and completion.
 Document attachment listing is implemented as a document service. The
 `/documents/:documentId/attachments` route maps service errors to HTTP
 responses, while the service owns document-read authorization and active
-attachment binding lookup through the injected runtime database.
+attachment binding lookup through the injected runtime database. It also loads
+the latest blob content-key bundle for each active blob from key-package
+storage, so callers do not rely on encrypted blob bytes to carry key material.
 
 Blob reads are implemented as a blob service. The `/blobs/:blobId` JSON route
 and `/blobs/:blobId/bytes` octet-stream route map service errors to HTTP
 responses, while the service owns blob-read authorization, committed blob
-lookup, current key-target projection, object-store reads, and digest
-recalculation through the injected runtime database.
+lookup, object-store reads, and digest recalculation through the injected
+runtime database. Blob read responses return only committed encrypted bytes and
+digest metadata; blob key bundles are returned by attachment listing and bind
+responses.
 
 Document creation and sync writes are implemented by signed mutation
 services. The document route validates request shape and maps service

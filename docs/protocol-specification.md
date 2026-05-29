@@ -332,10 +332,11 @@ Blob bytes are staged before attachment binding:
 - `POST /blobs/stages/multipart/:stageId/complete`
 
 `StageBlobRequest` contains `encryptedBytes`, `byteLength`, and `sha256`. The
-API recomputes the encoded byte length and SHA-256 digest, stores the stage
-under the authenticated user, and returns `stageId` plus `expiresAt`. Staged
-bytes are not readable as committed blobs and are promoted only by a successful
-attachment bind.
+encrypted bytes are only the blob payload record; they do not contain the blob
+content-key bundle or current target hash. The API recomputes the encoded byte
+length and SHA-256 digest, stores the stage under the authenticated user, and
+returns `stageId` plus `expiresAt`. Staged bytes are not readable as committed
+blobs and are promoted only by a successful attachment bind.
 
 Multipart staging uses the same ownership, expiry, byte-length, and SHA-256
 rules, but stores object-store multipart metadata in `blob_stages` until all
@@ -410,13 +411,15 @@ Blob reads use:
 - `GET /blobs/:blobId/bytes`
 
 Attachment listing requires document read access through a linked container
-path and returns active `{ bindingId, blobId, slotId }` rows. Blob reads require
-read access through at least one active binding's document. The JSON blob route
-returns committed encrypted bytes as a string plus digest metadata. The
-`/bytes` route streams committed encrypted bytes as
-`application/octet-stream` and exposes blob id, byte length, and SHA-256 digest
-headers. The app uses the blob content-key bundle embedded in the encrypted
-record plus verified access material to unwrap and decrypt.
+path and returns active `{ bindingId, blobId, slotId, contentKeyBundle }`
+rows. The content-key bundle is loaded from the blob key-package tables, not
+from the encrypted blob bytes. Blob reads require read access through at least
+one active binding's document. The JSON blob route returns committed encrypted
+bytes as a string plus digest metadata. The `/bytes` route streams committed
+encrypted bytes as `application/octet-stream` and exposes blob id, byte length,
+and SHA-256 digest headers. The app combines the attachment listing's blob
+content-key bundle with verified document/container access material to unwrap
+the blob content key and decrypt the committed bytes.
 
 ## Failure Semantics
 

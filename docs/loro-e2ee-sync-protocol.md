@@ -154,12 +154,13 @@ Behavior:
  rows, and container KEK sharing is materialized in `container_key_wraps`
 - `POST /auth/register` and signed `/containers` mutations seed initial
  metadata document bundles atomically
-- committed blob encrypted records carry content-key bundle material that the
- API can persist when the blob recipient set matches active access
+- committed blob encrypted records carry payload metadata only; blob
+ content-key bundles are stored in `blob_content_key_epochs` and
+ `blob_content_key_targets`
 - committed attachments update blob content-key targets for additive access
- growth, and `GET /blobs/:blobId` plus `GET /blobs/:blobId/bytes` return
- committed encrypted bytes or byte streams plus digest metadata without
- creating a new blob row
+ growth or same-epoch rewraps, and `GET /blobs/:blobId` plus
+ `GET /blobs/:blobId/bytes` return committed encrypted bytes or byte streams
+ plus digest metadata without creating a new blob row
 - access-sensitive create and structural mutation routes are signed routes:
  - `POST /documents`
  - `POST /documents/:documentId/link`
@@ -367,6 +368,11 @@ For an existing remote document, clients may probe
 committing a pending local attachment draft. That probe refreshes the current
 signed document manifest, content-key bundle, and target state before the
 attachment mutation.
+
+Attachment listing returns the blob content-key bundle for each active
+binding. Blob reads return only encrypted bytes and digest metadata, so clients
+use the listing or bind response bundle plus verified document/container access
+material to unwrap the blob content key.
 
 The blob binding route validates:
 

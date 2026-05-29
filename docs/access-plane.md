@@ -126,6 +126,12 @@ Blob bytes are stored separately from signed attachment state. A blob is
 readable when at least one active attachment binding points to a readable
 document.
 
+Blob encrypted bytes are also stored separately from blob content-key bundles.
+The encrypted payload record commits to the blob id, content-key epoch,
+content-record id, metadata hash, nonce-domain hash, IV, suite, and ciphertext.
+The key package lives in blob content-key epoch/target rows and is returned by
+attachment listing or bind responses for authorized document readers.
+
 Attachment bind and detach mutations store signed access events and update the
 live `attachment_bindings` projection. Detached bindings are transient live
 metadata; durable attachment history belongs to the document audit layer.
