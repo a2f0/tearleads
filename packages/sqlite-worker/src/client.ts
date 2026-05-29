@@ -40,14 +40,9 @@ function rejectPendingRequests(
 }
 
 type PendingRequest = {
-  resolve: (value: DatabaseWorkerClientResult) => void;
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
 };
-
-type DatabaseWorkerClientResult =
-  | DatabaseWorkerPingResult
-  | DatabaseWorkerReady
-  | DatabaseWorkerExecResult;
 
 export interface WorkerLike {
   postMessage(message: unknown): void;
