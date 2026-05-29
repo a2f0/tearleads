@@ -79,8 +79,53 @@ test("local keyring deduplicates concurrent session creation for one scope", asy
     keyring.getOrCreateSession(scope),
   ]);
 
+  expect(secondSession).toBe(firstSession);
   expect(secondSession.sqliteKey).toBe(firstSession.sqliteKey);
   expect(secondSession.blobStoreKey).toEqual(firstSession.blobStoreKey);
+});
+
+test("local keyring reuses resolved sessions until they are deleted", async () => {
+  const keyring = createLocalKeyring({
+    keystore: createMemoryWrappingKeyKeystore(),
+    manifestStore: createMemoryLocalKeyringManifestStore(),
+  });
+
+  const firstSession = await keyring.getOrCreateSession(scope);
+  const secondSession = await keyring.getOrCreateSession(scope);
+  expect(secondSession).toBe(firstSession);
+
+  await keyring.deleteSession(scope);
+  const recreatedSession = await keyring.getOrCreateSession(scope);
+
+  expect(recreatedSession).not.toBe(firstSession);
+  expect(recreatedSession.sqliteKey).not.toBe(firstSession.sqliteKey);
+});
+
+test("local keyring sessions can dispose sensitive in-memory buffers", async () => {
+  const keyring = createLocalKeyring({
+    keystore: createMemoryWrappingKeyKeystore(),
+    manifestStore: createMemoryLocalKeyringManifestStore(),
+  });
+  const session = await keyring.getOrCreateSession(scope);
+  const blobStoreKey = session.blobStoreKey.slice();
+  const identityPersistenceKey = session.identityPersistenceKey.slice();
+
+  session.dispose();
+
+  expect(Array.from(session.blobStoreKey)).toEqual(
+    new Array(session.blobStoreKey.byteLength).fill(0),
+  );
+  expect(Array.from(session.identityPersistenceKey)).toEqual(
+    new Array(session.identityPersistenceKey.byteLength).fill(0),
+  );
+  await expect(session.deriveKey("custom-purpose")).rejects.toThrow("disposed");
+
+  const reopenedSession = await keyring.getOrCreateSession(scope);
+  expect(reopenedSession).not.toBe(session);
+  expect(reopenedSession.blobStoreKey).toEqual(blobStoreKey);
+  expect(reopenedSession.identityPersistenceKey).toEqual(
+    identityPersistenceKey,
+  );
 });
 
 test("local keyring manifest serializes and parses its wrapped root key", async () => {

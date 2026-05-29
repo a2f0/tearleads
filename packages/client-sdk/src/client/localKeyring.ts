@@ -88,6 +88,7 @@ export interface LocalKeyringSession {
   readonly scope: NormalizedLocalKeyringScope;
   readonly sqliteKey: string;
   deriveKey(purpose: LocalKeyPurpose): Promise<Uint8Array<ArrayBuffer>>;
+  dispose(): void;
 }
 
 export interface LocalKeyring {
@@ -108,10 +109,6 @@ const AES_GCM_IV_BYTES = 12;
 const MEMORY_WRAPPING_ALGORITHM = "aes-256-gcm";
 
 function asArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  if (bytes.buffer instanceof ArrayBuffer) {
-    return bytes as Uint8Array<ArrayBuffer>;
-  }
-
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   return copy;
@@ -313,16 +310,18 @@ export function serializeLocalKeyringManifest(
   return JSON.stringify(manifest);
 }
 
-function readObject(value: unknown, label: string): Record<string, unknown> {
+type ParsedObject = ReadonlyMap<string, unknown>;
+
+function readObject(value: unknown, label: string): ParsedObject {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${label} must be an object.`);
   }
 
-  return value as Record<string, unknown>;
+  return new Map(Object.entries(value));
 }
 
-function readString(value: Record<string, unknown>, key: string): string {
-  const field = value[key];
+function readString(value: ParsedObject, key: string): string {
+  const field = value.get(key);
   if (typeof field !== "string" || field.length === 0) {
     throw new Error(`${key} must be a non-empty string.`);
   }
@@ -330,11 +329,31 @@ function readString(value: Record<string, unknown>, key: string): string {
   return field;
 }
 
+function readExactString<const ExpectedValue extends string>(
+  value: ParsedObject,
+  key: string,
+  expectedValue: ExpectedValue,
+): ExpectedValue {
+  const field = readString(value, key);
+  if (field !== expectedValue) {
+    throw new Error(`${key} must be ${expectedValue}.`);
+  }
+
+  return expectedValue;
+}
+
+function readLocalKeyPurpose(
+  value: ParsedObject,
+  key: string,
+): LocalKeyPurpose {
+  return readString(value, key);
+}
+
 function readOptionalString(
-  value: Record<string, unknown>,
+  value: ParsedObject,
   key: string,
 ): string | undefined {
-  const field = value[key];
+  const field = value.get(key);
   if (field === undefined) {
     return undefined;
   }
@@ -345,11 +364,8 @@ function readOptionalString(
   return field;
 }
 
-function readNullableString(
-  value: Record<string, unknown>,
-  key: string,
-): string | null {
-  const field = value[key];
+function readNullableString(value: ParsedObject, key: string): string | null {
+  const field = value.get(key);
   if (field === null) {
     return null;
   }
@@ -360,8 +376,8 @@ function readNullableString(
   return field;
 }
 
-function readVersion1(value: Record<string, unknown>): 1 {
-  if (Reflect.get(value, "version") !== 1) {
+function readVersion1(value: ParsedObject): 1 {
+  if (value.get("version") !== 1) {
     throw new Error("version must be 1.");
   }
 
@@ -380,8 +396,8 @@ function readLocalKeyringScope(value: unknown): NormalizedLocalKeyringScope {
 function readLocalSecretContext(value: unknown): LocalSecretContext {
   const context = readObject(value, "context");
   return localSecretContext(
-    readLocalKeyringScope(Reflect.get(context, "scope")),
-    readString(context, "purpose") as LocalKeyPurpose,
+    readLocalKeyringScope(context.get("scope")),
+    readLocalKeyPurpose(context, "purpose"),
   );
 }
 
@@ -392,8 +408,8 @@ function readWrappedLocalSecretEnvelope(
   const parsed = {
     algorithm: readString(envelope, "algorithm"),
     ciphertext: readString(envelope, "ciphertext"),
-    context: readLocalSecretContext(Reflect.get(envelope, "context")),
-    format: readString(envelope, "format") as WrappedLocalSecretFormat,
+    context: readLocalSecretContext(envelope.get("context")),
+    format: readExactString(envelope, "format", WRAPPED_LOCAL_SECRET_FORMAT),
     iv: readOptionalString(envelope, "iv"),
     keyId: readString(envelope, "keyId"),
     provider: readString(envelope, "provider"),
@@ -407,16 +423,16 @@ function readWrappedLocalSecretEnvelope(
 export function parseLocalKeyringManifest(
   value: unknown,
 ): LocalKeyringManifest {
-  const parsedValue =
-    typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+  const parsedValue: unknown =
+    typeof value === "string" ? JSON.parse(value) : value;
   const manifest = readObject(parsedValue, "manifest");
   const parsed = {
     createdAt: readString(manifest, "createdAt"),
-    format: readString(manifest, "format") as LocalKeyringManifestFormat,
+    format: readExactString(manifest, "format", LOCAL_KEYRING_MANIFEST_FORMAT),
     rootKeyEnvelope: readWrappedLocalSecretEnvelope(
-      Reflect.get(manifest, "rootKeyEnvelope"),
+      manifest.get("rootKeyEnvelope"),
     ),
-    scope: readLocalKeyringScope(Reflect.get(manifest, "scope")),
+    scope: readLocalKeyringScope(manifest.get("scope")),
     updatedAt: readString(manifest, "updatedAt"),
     version: readVersion1(manifest),
   } satisfies LocalKeyringManifest;
@@ -565,6 +581,8 @@ class LocalKeyringSessionImpl implements LocalKeyringSession {
   readonly scope: NormalizedLocalKeyringScope;
   readonly sqliteKey: string;
 
+  private disposed = false;
+
   private constructor(
     readonly manifest: LocalKeyringManifest,
     private readonly rootKey: Uint8Array<ArrayBuffer>,
@@ -604,20 +622,46 @@ class LocalKeyringSessionImpl implements LocalKeyringSession {
         }),
       ]);
 
+    const sqliteKey = bytesToBase64(sqliteKeyMaterial);
+    sqliteKeyMaterial.fill(0);
+
     return new LocalKeyringSessionImpl(input.manifest, rootKey, {
       blobStoreKey,
       identityPersistenceKey,
-      sqliteKey: bytesToBase64(sqliteKeyMaterial),
+      sqliteKey,
     });
   }
 
-  deriveKey(purpose: LocalKeyPurpose): Promise<Uint8Array<ArrayBuffer>> {
+  async deriveKey(purpose: LocalKeyPurpose): Promise<Uint8Array<ArrayBuffer>> {
+    if (this.disposed) {
+      throw new Error("Local keyring session has been disposed.");
+    }
+
     return deriveLocalSecretKey({
       purpose,
       rootKey: this.rootKey,
       scope: this.scope,
     });
   }
+
+  dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+
+    this.rootKey.fill(0);
+    this.blobStoreKey.fill(0);
+    this.identityPersistenceKey.fill(0);
+    this.disposed = true;
+  }
+
+  isDisposed(): boolean {
+    return this.disposed;
+  }
+}
+
+function isDisposedLocalKeyringSession(session: LocalKeyringSession): boolean {
+  return session instanceof LocalKeyringSessionImpl && session.isDisposed();
 }
 
 type LocalKeyringServiceOptions = Omit<LocalKeyringOptions, "now"> & {
@@ -633,6 +677,11 @@ class LocalKeyringService implements LocalKeyring {
   constructor(private readonly options: LocalKeyringServiceOptions) {}
 
   async deleteSession(scope: LocalKeyringScope): Promise<void> {
+    const scopeKey = localKeyringScopeKey(scope);
+    const currentOperation = this.sessionOperationsByScopeKey.get(scopeKey);
+    this.sessionOperationsByScopeKey.delete(scopeKey);
+    const currentSession = await currentOperation?.catch(() => null);
+    currentSession?.dispose();
     await this.options.manifestStore.deleteManifest(scope);
     await this.options.keystore.deleteWrappingKey(scope);
   }
@@ -643,17 +692,26 @@ class LocalKeyringService implements LocalKeyring {
     const scopeKey = localKeyringScopeKey(scope);
     const currentOperation = this.sessionOperationsByScopeKey.get(scopeKey);
     if (currentOperation) {
-      return currentOperation;
+      const session = await currentOperation;
+      if (!isDisposedLocalKeyringSession(session)) {
+        return session;
+      }
+
+      if (this.sessionOperationsByScopeKey.get(scopeKey) === currentOperation) {
+        this.sessionOperationsByScopeKey.delete(scopeKey);
+      }
+      return this.getOrCreateSession(scope);
     }
 
     const operation = this.loadOrCreateSession(scope);
     this.sessionOperationsByScopeKey.set(scopeKey, operation);
     try {
       return await operation;
-    } finally {
+    } catch (error) {
       if (this.sessionOperationsByScopeKey.get(scopeKey) === operation) {
         this.sessionOperationsByScopeKey.delete(scopeKey);
       }
+      throw error;
     }
   }
 
