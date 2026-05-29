@@ -22,7 +22,7 @@ type MiniAppTableProps = TableHTMLAttributes<HTMLTableElement> & {
   columns: ReadonlyArray<MiniAppTableColumn>;
 };
 
-type MiniAppTableEmptyRowProps = HTMLAttributes<HTMLTableRowElement> & {
+export type MiniAppTableEmptyRowProps = HTMLAttributes<HTMLTableRowElement> & {
   children: ReactNode;
   colSpan: number;
 };

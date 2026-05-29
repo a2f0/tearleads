@@ -30,6 +30,13 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
 } from "../../../components/shared/MiniAppTable";
+import {
+  getMiniAppVirtualFrameStyle,
+  getMiniAppVirtualWindowRange,
+  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+  MiniAppVirtualTableSpacerRow,
+  useMiniAppVirtualWindow,
+} from "../../../components/shared/MiniAppVirtual";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
@@ -40,9 +47,7 @@ import {
 } from "../labels";
 import type { ExplorerRoute } from "../routes";
 
-const BLOB_BROWSER_ROW_HEIGHT = 36;
-const BLOB_BROWSER_OVERSCAN_ROWS = 8;
-const BLOB_BROWSER_MIN_WINDOW_ROWS = 24;
+const BLOB_BROWSER_ROW_HEIGHT = MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
 const BLOB_TEXT_PREVIEW_LIMIT = 64 * 1024;
 
 type BlobBrowserRoute = Extract<ExplorerRoute, { view: "blob-browser" }>;
@@ -94,24 +99,10 @@ export function getBlobInfoWindowRange(params: {
   scrollTop: number;
   viewportHeight: number;
 }): { limit: number; offset: number } {
-  const scrollTop = Number.isFinite(params.scrollTop)
-    ? Math.max(0, params.scrollTop)
-    : 0;
-  const viewportHeight = Number.isFinite(params.viewportHeight)
-    ? Math.max(0, params.viewportHeight)
-    : 0;
-  const visibleRows = Math.ceil(viewportHeight / BLOB_BROWSER_ROW_HEIGHT);
-  const offset = Math.max(
-    0,
-    Math.floor(scrollTop / BLOB_BROWSER_ROW_HEIGHT) -
-      BLOB_BROWSER_OVERSCAN_ROWS,
-  );
-  const limit = Math.max(
-    BLOB_BROWSER_MIN_WINDOW_ROWS,
-    visibleRows + BLOB_BROWSER_OVERSCAN_ROWS * 2,
-  );
-
-  return { limit, offset };
+  return getMiniAppVirtualWindowRange({
+    ...params,
+    rowHeight: BLOB_BROWSER_ROW_HEIGHT,
+  });
 }
 
 function getBlobSortAria(
@@ -251,84 +242,6 @@ function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
       width: "8rem",
     },
   ];
-}
-
-function useBlobInfoViewport() {
-  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const frameRef = useCallback((nextFrame: HTMLDivElement | null) => {
-    setFrame(nextFrame);
-  }, []);
-
-  useEffect(() => {
-    if (!frame) {
-      return;
-    }
-
-    const handleScroll = () => {
-      setScrollTop(frame.scrollTop);
-    };
-
-    handleScroll();
-    frame.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      frame.removeEventListener("scroll", handleScroll);
-    };
-  }, [frame]);
-
-  useEffect(() => {
-    if (!frame) {
-      return;
-    }
-
-    setViewportHeight(frame.clientHeight);
-    if (typeof ResizeObserver !== "function") {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const [entry] = entries;
-      if (entry) {
-        setViewportHeight(entry.contentRect.height);
-      }
-    });
-    resizeObserver.observe(frame);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [frame]);
-
-  return { frame, frameRef, scrollTop, setScrollTop, viewportHeight };
-}
-
-function useBlobInfoWindowRange(params: { resetKey: string }) {
-  const { resetKey } = params;
-  const { frame, frameRef, scrollTop, setScrollTop, viewportHeight } =
-    useBlobInfoViewport();
-  const [activeResetKey, setActiveResetKey] = useState(resetKey);
-  const shouldReset = activeResetKey !== resetKey;
-
-  useEffect(() => {
-    if (!shouldReset) {
-      return;
-    }
-
-    setActiveResetKey(resetKey);
-    setScrollTop(0);
-    if (frame) {
-      frame.scrollTop = 0;
-    }
-  }, [frame, resetKey, setScrollTop, shouldReset]);
-
-  return {
-    ...getBlobInfoWindowRange({
-      scrollTop: shouldReset ? 0 : scrollTop,
-      viewportHeight,
-    }),
-    frameRef,
-  };
 }
 
 function useBlobInfoList(params: {
@@ -584,22 +497,19 @@ function BlobInfoTable(params: {
 
   return (
     <MiniAppTableFrame
-      className="explorer-blob-browser-table-wrap"
+      className="explorer-blob-browser-table-wrap mini-app-table-frame--virtual"
       ref={params.frameRef}
+      style={getMiniAppVirtualFrameStyle(BLOB_BROWSER_ROW_HEIGHT)}
     >
       <MiniAppTable
         aria-label={EXPLORER_LABELS.blobBrowserTitle}
         columns={columns}
       >
         {topPadding > 0 ? (
-          <MiniAppTableEmptyRow
-            aria-hidden="true"
-            className="explorer-virtual-spacer-row"
+          <MiniAppVirtualTableSpacerRow
             colSpan={columns.length}
-            style={{ height: topPadding }}
-          >
-            {""}
-          </MiniAppTableEmptyRow>
+            height={topPadding}
+          />
         ) : null}
         {params.rows.length > 0 ? (
           params.rows.map((blob) => (
@@ -643,14 +553,10 @@ function BlobInfoTable(params: {
           </MiniAppTableEmptyRow>
         )}
         {bottomPadding > 0 ? (
-          <MiniAppTableEmptyRow
-            aria-hidden="true"
-            className="explorer-virtual-spacer-row"
+          <MiniAppVirtualTableSpacerRow
             colSpan={columns.length}
-            style={{ height: bottomPadding }}
-          >
-            {""}
-          </MiniAppTableEmptyRow>
+            height={bottomPadding}
+          />
         ) : null}
       </MiniAppTable>
       {params.totalCount > params.rows.length ? (
@@ -928,7 +834,10 @@ export function ExplorerBlobBrowserPanel(params: {
   });
   const routeQuery = getBlobRouteQuery(params.route);
   const resetKey = `${debouncedQuery}\u0000${sort.key}\u0000${sort.direction}`;
-  const { frameRef, limit, offset } = useBlobInfoWindowRange({ resetKey });
+  const { frameRef, limit, offset } = useMiniAppVirtualWindow({
+    resetKey,
+    rowHeight: BLOB_BROWSER_ROW_HEIGHT,
+  });
   const blobInfo = useBlobInfoList({
     limit,
     loadBlobInfo: params.loadBlobInfo,

@@ -1,0 +1,49 @@
+.mini-app-sidebar--virtual {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mini-app-virtual-list-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.mini-app-virtual-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.mini-app-virtual-list-row {
+  flex: 0 0 var(--mini-app-virtual-row-height);
+  height: var(--mini-app-virtual-row-height);
+  min-height: 0;
+}
+
+.mini-app-virtual-list-row > .mini-app-row {
+  height: 100%;
+  min-height: 0;
+}
+
+.mini-app-virtual-block-spacer {
+  flex: 0 0 auto;
+}
+
+.mini-app-table-frame--virtual .mini-app-table-row {
+  height: var(--mini-app-virtual-row-height);
+}
+
+.mini-app-table-frame--virtual .mini-app-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-light);
+}
+
+.mini-app-virtual-table-spacer-row,
+.mini-app-virtual-table-spacer-row .mini-app-table-cell {
+  padding: 0;
+  border-bottom: none;
+}

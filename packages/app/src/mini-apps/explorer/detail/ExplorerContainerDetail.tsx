@@ -12,7 +12,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { classNames } from "../../../components/shared/classNames";
@@ -31,6 +30,12 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
 } from "../../../components/shared/MiniAppTable";
+import {
+  getMiniAppVirtualFrameStyle,
+  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+  MiniAppVirtualTableSpacerRow,
+  useMiniAppVirtualWindow,
+} from "../../../components/shared/MiniAppVirtual";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
@@ -38,9 +43,7 @@ import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 
-const EXPLORER_VIRTUAL_ROW_HEIGHT = 36;
-const EXPLORER_VIRTUAL_OVERSCAN_ROWS = 8;
-const EXPLORER_VIRTUAL_MIN_WINDOW_ROWS = 24;
+const EXPLORER_VIRTUAL_ROW_HEIGHT = MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
 
 function getSortAria(
   sort: ContainerItemSort,
@@ -155,81 +158,6 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
   return row.itemKind === "container"
     ? `container:${row.id}`
     : `document:${row.localId}:${row.containerId}`;
-}
-
-function useExplorerContainerItemViewport(frameRef: {
-  current: HTMLDivElement | null;
-}) {
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(0);
-
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame) {
-      return;
-    }
-
-    const handleScroll = () => {
-      setScrollTop(frame.scrollTop);
-    };
-
-    handleScroll();
-    frame.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      frame.removeEventListener("scroll", handleScroll);
-    };
-  }, [frameRef]);
-
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame) {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const [entry] = entries;
-      if (entry) {
-        setViewportHeight(entry.contentRect.height);
-      }
-    });
-    resizeObserver.observe(frame);
-    setViewportHeight(frame.clientHeight);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [frameRef]);
-
-  return { scrollTop, setScrollTop, viewportHeight };
-}
-
-function useExplorerContainerItemRange(params: {
-  frameRef: { current: HTMLDivElement | null };
-  resetKey: string;
-}) {
-  const { frameRef, resetKey } = params;
-  const { scrollTop, setScrollTop, viewportHeight } =
-    useExplorerContainerItemViewport(frameRef);
-
-  useEffect(() => {
-    setScrollTop(0);
-    if (frameRef.current) {
-      frameRef.current.scrollTop = 0;
-    }
-  }, [frameRef, resetKey, setScrollTop]);
-
-  const visibleRows = Math.ceil(viewportHeight / EXPLORER_VIRTUAL_ROW_HEIGHT);
-  const offset = Math.max(
-    0,
-    Math.floor(scrollTop / EXPLORER_VIRTUAL_ROW_HEIGHT) -
-      EXPLORER_VIRTUAL_OVERSCAN_ROWS,
-  );
-  const limit = Math.max(
-    EXPLORER_VIRTUAL_MIN_WINDOW_ROWS,
-    visibleRows + EXPLORER_VIRTUAL_OVERSCAN_ROWS * 2,
-  );
-
-  return { limit, offset };
 }
 
 function useExplorerContainerItemWindow(params: {
@@ -398,7 +326,7 @@ function ExplorerContainerItemTableRow(params: {
 function ExplorerContainerItemTable(params: {
   dragActive: boolean;
   error: string | null;
-  frameRef: { current: HTMLDivElement | null };
+  frameRef: (frame: HTMLDivElement | null) => void;
   handleDragEnter: (event: DragEvent<HTMLElement>) => void;
   handleDragLeave: (event: DragEvent<HTMLElement>) => void;
   handleDragOver: (event: DragEvent<HTMLElement>) => void;
@@ -449,6 +377,7 @@ function ExplorerContainerItemTable(params: {
       aria-busy={isImporting}
       className={classNames(
         "explorer-item-table-wrap",
+        "mini-app-table-frame--virtual",
         dragActive && "explorer-item-table-wrap--drop-active",
       )}
       onDragEnter={handleDragEnter}
@@ -456,20 +385,17 @@ function ExplorerContainerItemTable(params: {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       ref={frameRef}
+      style={getMiniAppVirtualFrameStyle(EXPLORER_VIRTUAL_ROW_HEIGHT)}
     >
       <MiniAppTable
         aria-label={getExplorerItemTableLabel(selectedNode.name)}
         columns={columns}
       >
         {topPadding > 0 ? (
-          <MiniAppTableEmptyRow
-            aria-hidden="true"
-            className="explorer-virtual-spacer-row"
+          <MiniAppVirtualTableSpacerRow
             colSpan={columns.length}
-            style={{ height: topPadding }}
-          >
-            {""}
-          </MiniAppTableEmptyRow>
+            height={topPadding}
+          />
         ) : null}
         {rows.length > 0 ? (
           rows.map((row) => (
@@ -495,14 +421,10 @@ function ExplorerContainerItemTable(params: {
           </MiniAppTableEmptyRow>
         ) : null}
         {bottomPadding > 0 ? (
-          <MiniAppTableEmptyRow
-            aria-hidden="true"
-            className="explorer-virtual-spacer-row"
+          <MiniAppVirtualTableSpacerRow
             colSpan={columns.length}
-            style={{ height: bottomPadding }}
-          >
-            {""}
-          </MiniAppTableEmptyRow>
+            height={bottomPadding}
+          />
         ) : null}
       </MiniAppTable>
     </MiniAppTableFrame>
@@ -556,11 +478,10 @@ export function ExplorerContainerDetail(params: {
     direction: "asc",
     key: "name",
   });
-  const frameRef = useRef<HTMLDivElement | null>(null);
   const resetKey = `${selectedNode.id}:${sort.key}:${sort.direction}`;
-  const { limit, offset } = useExplorerContainerItemRange({
-    frameRef,
+  const { frameRef, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
+    rowHeight: EXPLORER_VIRTUAL_ROW_HEIGHT,
   });
   const itemWindow = useExplorerContainerItemWindow({
     documentReadModel,

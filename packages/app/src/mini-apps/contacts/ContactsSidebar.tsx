@@ -7,6 +7,13 @@ import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import {
+  MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+  MiniAppVirtualList,
+  MiniAppVirtualListFrame,
+  MiniAppVirtualListRow,
+  useMiniAppVirtualRows,
+} from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
 import type { ContactEntries } from "./types";
@@ -43,6 +50,11 @@ function ContactsSidebarEntries({
   selectedContactId: string | null;
   setSelectedContactId: (contactId: string) => void;
 }) {
+  const virtualEntries = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+    rows: entries,
+  });
+
   if (!ready) {
     return <MiniAppStatus>Loading...</MiniAppStatus>;
   }
@@ -70,19 +82,28 @@ function ContactsSidebarEntries({
   }
 
   return (
-    <>
-      {entries.map((entry) => (
-        <MiniAppRowButton
-          key={entry.id}
-          onClick={() => setSelectedContactId(entry.id)}
-          onMouseDown={(event) => handlePrimaryMouseDown(event, entry.id)}
-          onContextMenu={(event) => handleContextMenu(event, entry.id)}
-          selected={selectedContactId === entry.id}
-        >
-          <MiniAppRowText>{getSidebarContactLabel(entry)}</MiniAppRowText>
-        </MiniAppRowButton>
-      ))}
-    </>
+    <MiniAppVirtualListFrame
+      ref={virtualEntries.frameRef}
+      rowHeight={MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT}
+    >
+      <MiniAppVirtualList
+        bottomPadding={virtualEntries.bottomPadding}
+        topPadding={virtualEntries.topPadding}
+      >
+        {virtualEntries.rows.map((entry) => (
+          <MiniAppVirtualListRow key={entry.id}>
+            <MiniAppRowButton
+              onClick={() => setSelectedContactId(entry.id)}
+              onMouseDown={(event) => handlePrimaryMouseDown(event, entry.id)}
+              onContextMenu={(event) => handleContextMenu(event, entry.id)}
+              selected={selectedContactId === entry.id}
+            >
+              <MiniAppRowText>{getSidebarContactLabel(entry)}</MiniAppRowText>
+            </MiniAppRowButton>
+          </MiniAppVirtualListRow>
+        ))}
+      </MiniAppVirtualList>
+    </MiniAppVirtualListFrame>
   );
 }
 
@@ -108,7 +129,7 @@ export function useContactsSidebarPanel(params: {
 
   const sidebar = useMemo(
     () => (
-      <MiniAppSidebar>
+      <MiniAppSidebar className="mini-app-sidebar--virtual">
         <ContactsSidebarEntries
           entries={entries}
           handleContextMenu={handleContextMenu}

@@ -33,6 +33,16 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../components/shared/MiniAppTable";
+import {
+  getMiniAppVirtualFrameStyle,
+  MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
+  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+  MiniAppVirtualList,
+  MiniAppVirtualListFrame,
+  MiniAppVirtualListRow,
+  MiniAppVirtualTableSpacerRow,
+  useMiniAppVirtualRows,
+} from "../../components/shared/MiniAppVirtual";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "./display";
 import { GrantTable } from "./GrantTable";
@@ -85,6 +95,12 @@ function DirectoryTable({
   selectedUserId?: string | null;
   selectUser?: ((userId: string) => void) | undefined;
 }) {
+  const users = directory?.users ?? [];
+  const virtualUsers = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rows: users,
+  });
+
   if (!directory) {
     return (
       <MiniAppStatus className="org-manager-hint">
@@ -95,7 +111,7 @@ function DirectoryTable({
     );
   }
 
-  if (directory.users.length === 0) {
+  if (users.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">
         {ORG_MANAGER_LABELS.noDirectUsers}
@@ -104,12 +120,20 @@ function DirectoryTable({
   }
 
   return (
-    <MiniAppTableFrame>
+    <MiniAppTableFrame
+      className="mini-app-table-frame--virtual org-manager-virtual-table"
+      ref={virtualUsers.frameRef}
+      style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
+    >
       <MiniAppTable
         aria-label={ORG_MANAGER_LABELS.directory}
         columns={DIRECTORY_TABLE_COLUMNS}
       >
-        {directory.users.map((user) => {
+        <MiniAppVirtualTableSpacerRow
+          colSpan={DIRECTORY_TABLE_COLUMNS.length}
+          height={virtualUsers.topPadding}
+        />
+        {virtualUsers.rows.map((user) => {
           const isSelected = selectedUserId === user.userId;
           const openUserDetail = () => {
             selectUser?.(user.userId);
@@ -154,6 +178,10 @@ function DirectoryTable({
             </MiniAppTableRow>
           );
         })}
+        <MiniAppVirtualTableSpacerRow
+          colSpan={DIRECTORY_TABLE_COLUMNS.length}
+          height={virtualUsers.bottomPadding}
+        />
       </MiniAppTable>
     </MiniAppTableFrame>
   );
@@ -166,6 +194,11 @@ function UserGroups({
   groups: ReadonlyArray<OrganizationGroupSummary>;
   openGroupRoute: (groupId: string) => void;
 }) {
+  const virtualGroups = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
+    rows: groups,
+  });
+
   if (groups.length === 0) {
     return (
       <MiniAppStatus className="org-manager-hint">
@@ -175,23 +208,33 @@ function UserGroups({
   }
 
   return (
-    <div className="org-manager-group-list">
-      {groups.map((group) => (
-        <MiniAppRowButton
-          className="org-manager-group-button"
-          density="roomy"
-          key={group.groupId}
-          onClick={() => openGroupRoute(group.groupId)}
-        >
-          <MiniAppRowStack>
-            <strong>{group.name}</strong>
-            <MiniAppRowText muted title={group.groupId}>
-              {compactFingerprint(group.groupId)}
-            </MiniAppRowText>
-          </MiniAppRowStack>
-        </MiniAppRowButton>
-      ))}
-    </div>
+    <MiniAppVirtualListFrame
+      className="org-manager-virtual-list"
+      ref={virtualGroups.frameRef}
+      rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
+    >
+      <MiniAppVirtualList
+        bottomPadding={virtualGroups.bottomPadding}
+        topPadding={virtualGroups.topPadding}
+      >
+        {virtualGroups.rows.map((group) => (
+          <MiniAppVirtualListRow key={group.groupId}>
+            <MiniAppRowButton
+              className="org-manager-group-button"
+              density="roomy"
+              onClick={() => openGroupRoute(group.groupId)}
+            >
+              <MiniAppRowStack>
+                <strong>{group.name}</strong>
+                <MiniAppRowText muted title={group.groupId}>
+                  {compactFingerprint(group.groupId)}
+                </MiniAppRowText>
+              </MiniAppRowStack>
+            </MiniAppRowButton>
+          </MiniAppVirtualListRow>
+        ))}
+      </MiniAppVirtualList>
+    </MiniAppVirtualListFrame>
   );
 }
 

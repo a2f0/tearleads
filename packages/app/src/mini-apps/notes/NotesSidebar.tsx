@@ -6,13 +6,19 @@ import {
 import { useMemo } from "react";
 import {
   MiniAppSidebar,
-  MiniAppSidebarList,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import {
+  MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+  MiniAppVirtualList,
+  MiniAppVirtualListFrame,
+  MiniAppVirtualListRow,
+  useMiniAppVirtualRows,
+} from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { NOTES_LABELS } from "./labels";
 import type { NotesSetSidebar } from "./types";
@@ -34,29 +40,43 @@ function NotesSidebar({
   selectNote,
   selectedNoteId,
 }: NotesSidebarProps) {
+  const virtualNotes = useMiniAppVirtualRows({
+    rowHeight: MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+    rows: notes,
+  });
+
   return (
-    <MiniAppSidebar>
-      <MiniAppSidebarList>
-        {!ready ? (
-          <MiniAppStatus className="notes-sidebar-empty">
-            {NOTES_LABELS.sidebarLoading}
-          </MiniAppStatus>
-        ) : notes.length === 0 ? (
-          <MiniAppStatus className="notes-sidebar-empty">
-            {NOTES_LABELS.sidebarEmpty}
-          </MiniAppStatus>
-        ) : (
-          notes.map((note) => (
-            <MiniAppRowButton
-              key={note.id}
-              onClick={() => selectNote(note.id)}
-              selected={selectedNoteId === note.id}
-            >
-              <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
-            </MiniAppRowButton>
-          ))
-        )}
-      </MiniAppSidebarList>
+    <MiniAppSidebar className="mini-app-sidebar--virtual">
+      {!ready ? (
+        <MiniAppStatus className="notes-sidebar-empty">
+          {NOTES_LABELS.sidebarLoading}
+        </MiniAppStatus>
+      ) : notes.length === 0 ? (
+        <MiniAppStatus className="notes-sidebar-empty">
+          {NOTES_LABELS.sidebarEmpty}
+        </MiniAppStatus>
+      ) : (
+        <MiniAppVirtualListFrame
+          ref={virtualNotes.frameRef}
+          rowHeight={MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT}
+        >
+          <MiniAppVirtualList
+            bottomPadding={virtualNotes.bottomPadding}
+            topPadding={virtualNotes.topPadding}
+          >
+            {virtualNotes.rows.map((note) => (
+              <MiniAppVirtualListRow key={note.id}>
+                <MiniAppRowButton
+                  onClick={() => selectNote(note.id)}
+                  selected={selectedNoteId === note.id}
+                >
+                  <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
+                </MiniAppRowButton>
+              </MiniAppVirtualListRow>
+            ))}
+          </MiniAppVirtualList>
+        </MiniAppVirtualListFrame>
+      )}
     </MiniAppSidebar>
   );
 }

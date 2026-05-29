@@ -46,18 +46,6 @@ export function MiniAppSidebar({
   );
 }
 
-export function MiniAppSidebarList({
-  className,
-  ...props
-}: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      {...props}
-      className={classNames("mini-app-sidebar-list", className)}
-    />
-  );
-}
-
 export function MiniAppToolbar({
   className,
   wrap = false,
