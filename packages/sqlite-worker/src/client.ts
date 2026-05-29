@@ -1,13 +1,18 @@
-import type { WorkerMethod, WorkerRequestMap, WorkerResponse } from "./types";
+import type {
+  DatabaseWorkerExecOptions,
+  DatabaseWorkerExecResult,
+  DatabaseWorkerInitOptions,
+  DatabaseWorkerPingResult,
+  DatabaseWorkerReady,
+  WorkerMethod,
+  WorkerRequestMap,
+  WorkerResponse,
+} from "./types";
 
 export interface DatabaseWorkerClient {
-  ping(): Promise<WorkerRequestMap["ping"]["result"]>;
-  init(
-    options: WorkerRequestMap["init"]["params"],
-  ): Promise<WorkerRequestMap["init"]["result"]>;
-  exec(
-    options: WorkerRequestMap["exec"]["params"],
-  ): Promise<WorkerRequestMap["exec"]["result"]>;
+  ping(): Promise<DatabaseWorkerPingResult>;
+  init(options: DatabaseWorkerInitOptions): Promise<DatabaseWorkerReady>;
+  exec(options: DatabaseWorkerExecOptions): Promise<DatabaseWorkerExecResult>;
   destroy(): void;
 }
 
@@ -35,9 +40,14 @@ function rejectPendingRequests(
 }
 
 type PendingRequest = {
-  resolve: (value: WorkerRequestMap[WorkerMethod]["result"]) => void;
+  resolve: (value: DatabaseWorkerClientResult) => void;
   reject: (error: Error) => void;
 };
+
+type DatabaseWorkerClientResult =
+  | DatabaseWorkerPingResult
+  | DatabaseWorkerReady
+  | DatabaseWorkerExecResult;
 
 export interface WorkerLike {
   postMessage(message: unknown): void;
