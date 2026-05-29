@@ -5,11 +5,9 @@ import {
   getSQLitePersistenceRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import { eq } from "drizzle-orm";
+import { contactProjection } from "../../document-projectors/contactClientProjection";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
-import {
-  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-  contactProjection,
-} from "../../document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 
 const contactProjectionSchemaPromises = new WeakMap<ExecSql, Promise<void>>();
 

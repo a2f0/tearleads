@@ -1,7 +1,7 @@
 import {
   type ContactDocumentFields,
   readContactFieldsFromRecord,
-} from "../projectors";
+} from "./contactDocumentDefinition";
 
 export interface ContactEntry {
   encapsulationPublicKey: string | null;
