@@ -1,13 +1,18 @@
-import type { WorkerMethod, WorkerRequestMap, WorkerResponse } from "./types";
+import type {
+  DatabaseWorkerExecOptions,
+  DatabaseWorkerExecResult,
+  DatabaseWorkerInitOptions,
+  DatabaseWorkerPingResult,
+  DatabaseWorkerReady,
+  WorkerMethod,
+  WorkerRequestMap,
+  WorkerResponse,
+} from "./types";
 
 export interface DatabaseWorkerClient {
-  ping(): Promise<WorkerRequestMap["ping"]["result"]>;
-  init(
-    options: WorkerRequestMap["init"]["params"],
-  ): Promise<WorkerRequestMap["init"]["result"]>;
-  exec(
-    options: WorkerRequestMap["exec"]["params"],
-  ): Promise<WorkerRequestMap["exec"]["result"]>;
+  ping(): Promise<DatabaseWorkerPingResult>;
+  init(options: DatabaseWorkerInitOptions): Promise<DatabaseWorkerReady>;
+  exec(options: DatabaseWorkerExecOptions): Promise<DatabaseWorkerExecResult>;
   destroy(): void;
 }
 
@@ -83,10 +88,22 @@ export function createDatabaseWorkerClient(
   worker.addEventListener("message", handleMessage);
   worker.addEventListener("error", handleError);
 
-  function request<K extends WorkerMethod>(
-    method: K,
-    params: WorkerRequestMap[K]["params"],
-  ): Promise<WorkerRequestMap[K]["result"]> {
+  function request(
+    method: "ping",
+    params: undefined,
+  ): Promise<DatabaseWorkerPingResult>;
+  function request(
+    method: "init",
+    params: DatabaseWorkerInitOptions,
+  ): Promise<DatabaseWorkerReady>;
+  function request(
+    method: "exec",
+    params: DatabaseWorkerExecOptions,
+  ): Promise<DatabaseWorkerExecResult>;
+  function request(
+    method: WorkerMethod,
+    params: WorkerRequestMap[WorkerMethod]["params"],
+  ): Promise<WorkerRequestMap[WorkerMethod]["result"]> {
     if (isDestroyed) {
       return Promise.reject(
         new Error("Database worker client has been destroyed."),

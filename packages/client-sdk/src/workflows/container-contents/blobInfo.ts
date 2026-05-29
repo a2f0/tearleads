@@ -188,9 +188,7 @@ function mapBlobInfoReferenceRow(
     containerId: readNullableString(row.containerId),
     createdAt: readNullableString(row.createdAt),
     documentId: readNullableString(row.documentId),
-    documentKind: readNullableString(
-      row.documentKind,
-    ) as StoredDocumentKind | null,
+    documentKind: readNullableString(row.documentKind),
     documentTitle: readNullableString(row.documentTitle),
     localId: readRequiredString(row.localId, "local_id"),
     mimeType: readNullableString(row.mimeType),

@@ -35,6 +35,11 @@ export interface DatabaseWorkerReady {
   ok: true;
 }
 
+export interface DatabaseWorkerPingResult {
+  ok: true;
+  message: "pong";
+}
+
 export interface DatabaseWorkerError {
   ok: false;
   message: string;
@@ -45,7 +50,7 @@ export type DatabaseWorkerResult<T> = T | DatabaseWorkerError;
 export interface WorkerRequestMap {
   ping: {
     params: undefined;
-    result: { ok: true; message: "pong" };
+    result: DatabaseWorkerPingResult;
   };
   init: {
     params: DatabaseWorkerInitOptions;
