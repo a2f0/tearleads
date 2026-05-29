@@ -8,6 +8,7 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createResponseFromRequest } from "../test/helpers/documentFixtures";
 import { type Logger, Tearleads } from "./client";
+import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import type { DocumentProjectorDefinition } from "./documents";
 import type {
   ExecSql,
@@ -274,6 +275,41 @@ describe("Tearleads", () => {
     sdk.identity.destroy();
 
     expect(sdk.identity.signingFingerprint).toBeNull();
+    expect(sdk.blobs.store).toBe(ephemeralStore);
+  });
+
+  test("uses a blob store factory for identity namespaces", async () => {
+    const namespaces: string[] = [];
+    const stores = [createMemoryBlobStore()];
+    const sdk = new Tearleads({
+      blobStoreFactory: (namespace) => {
+        namespaces.push(namespace);
+        const store = stores[namespaces.length - 1];
+        if (!store) {
+          throw new Error("Unexpected blob store factory call.");
+        }
+
+        return store;
+      },
+      logger: quietLogger,
+    });
+    const ephemeralStore = sdk.blobs.store;
+
+    const snapshot = await sdk.identity.generate();
+    if (!snapshot.signingFingerprint) {
+      throw new Error("Expected generated signing fingerprint.");
+    }
+    const identityStore = stores[0];
+    if (!identityStore) {
+      throw new Error("Expected identity blob store.");
+    }
+
+    expect(namespaces).toEqual([snapshot.signingFingerprint]);
+    expect(sdk.blobs.store).toBe(identityStore);
+    expect(sdk.blobs.store).not.toBe(ephemeralStore);
+
+    sdk.identity.destroy();
+
     expect(sdk.blobs.store).toBe(ephemeralStore);
   });
 

@@ -96,6 +96,7 @@ export type {
   WorkflowRuntimeUtilInput,
 } from "./client";
 export {
+  type BlobStoreFactory,
   Blobs,
   type ClientOptions,
   createContainerDocumentObjectSyncState,
@@ -182,12 +183,21 @@ export {
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "./stores/documents";
+export type {
+  EncryptedBlobStoreCipher,
+  EncryptedBlobStoreKey,
+  EncryptedBlobStoreOptions,
+  WrapEncryptedBlobStoreOptions,
+} from "./workflows/blobs";
 export {
   createBlobStore,
+  createEncryptedBlobStore,
+  createEncryptedOpfsBlobStore,
   createMemoryBlobStore,
   decryptDocumentAttachmentBlob,
   hydrateDocumentAttachmentBlobs,
   uploadDocumentAttachment,
+  wrapEncryptedBlobStore,
 } from "./workflows/blobs";
 export type {
   BlobInfo as ContainerContentsBlobInfo,

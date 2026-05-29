@@ -6,7 +6,7 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
-import { Blobs } from "./blobs";
+import { type BlobStoreFactory, Blobs } from "./blobs";
 import {
   type ContainerContents,
   createContainerContents,
@@ -30,6 +30,7 @@ export interface ClientOptions {
   apiBaseUrl?: string | undefined;
   apiClient?: ApiClient | undefined;
   blobStore?: BlobStore | undefined;
+  blobStoreFactory?: BlobStoreFactory | undefined;
   database?: DatabaseOptions | undefined;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   events?: ReadonlyArray<unknown> | undefined;
@@ -64,7 +65,7 @@ export class Tearleads {
   constructor(options: ClientOptions = {}) {
     this.apiClient =
       options.apiClient ?? new ApiClient(options.apiBaseUrl ?? "");
-    this.blobs = new Blobs(options.blobStore);
+    this.blobs = new Blobs(options.blobStore, options.blobStoreFactory);
     this.database = new Database(options.database);
     this.documentProjectors = resolveDocumentProjectorRegistry(
       options.documentProjectors,

@@ -5,6 +5,8 @@ import {
   type ContainerDocumentReadModelLinkInput,
   createContainerDocumentObjectSyncState,
   createDocumentProjectorRegistry,
+  createEncryptedBlobStore,
+  createEncryptedOpfsBlobStore,
   createMemoryBlobStore,
   DEFAULT_DOCUMENT_KIND,
   type DocumentAttachmentUpload,
@@ -33,6 +35,8 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(readModelLink.containerIds).toEqual(["container-1"]);
   expect(DEFAULT_DOCUMENT_KIND).toBe("note");
   expect(createDocumentProjectorRegistry).toBeFunction();
+  expect(createEncryptedBlobStore).toBeFunction();
+  expect(createEncryptedOpfsBlobStore).toBeFunction();
   expect(getDocumentClientProjectionTables).toBeFunction();
   expect(createMemoryBlobStore).toBeFunction();
   expect(syncState.status).toBe("pending");

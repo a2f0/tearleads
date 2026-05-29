@@ -1,4 +1,8 @@
-import { Tearleads } from "@tearleads/client-sdk";
+import {
+  type BlobStoreFactory,
+  createEncryptedBlobStore,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { hasStringProperty } from "@tearleads/validators/util";
 import {
@@ -15,6 +19,14 @@ import { useLog } from "../logging/LogProvider";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
 const SdkContext = createContext<Tearleads | null>(null);
+const DEVELOPMENT_LOCAL_STORAGE_KEY = "development-key";
+const DEVELOPMENT_HOSTNAMES = new Set([
+  "",
+  "0.0.0.0",
+  "127.0.0.1",
+  "::1",
+  "localhost",
+]);
 
 type TearleadsRuntimeInput = ReturnType<Tearleads["runtime"]["input"]>;
 
@@ -34,6 +46,27 @@ function isServerEvent(value: unknown): value is {
   [key: string]: unknown;
 } {
   return isPlainObject(value) && hasStringProperty(value, "type");
+}
+
+function allowDevelopmentBlobStoreFallback(): boolean {
+  if (typeof location !== "object") {
+    return false;
+  }
+
+  return DEVELOPMENT_HOSTNAMES.has(location.hostname);
+}
+
+function createDevelopmentBlobStoreFactory(): BlobStoreFactory {
+  if (!allowDevelopmentBlobStoreFallback()) {
+    throw new Error(
+      "AppHostConfig.createBlobStore is required outside local development.",
+    );
+  }
+
+  return (namespace) =>
+    createEncryptedBlobStore(namespace, {
+      key: DEVELOPMENT_LOCAL_STORAGE_KEY,
+    });
 }
 
 let nextEventId = 0;
@@ -125,6 +158,8 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     () =>
       new Tearleads({
         apiBaseUrl: hostConfig.apiBaseUrl,
+        blobStoreFactory:
+          hostConfig.createBlobStore ?? createDevelopmentBlobStoreFactory(),
         documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
         logger: { log, logError },
       }),

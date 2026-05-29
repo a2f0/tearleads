@@ -2,12 +2,19 @@ import type { BlobStore } from "../data/blobContracts";
 import { createBlobStore } from "../data/blobs/createBlobStore";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 
+export type BlobStoreFactory = (namespace: string) => BlobStore;
+
 export class Blobs {
   private readonly ephemeralStore = createMemoryBlobStore();
   private identityScoped = false;
+  private readonly createIdentityStore: BlobStoreFactory;
   private storeValue: BlobStore;
 
-  constructor(store?: BlobStore | undefined) {
+  constructor(
+    store?: BlobStore | undefined,
+    createIdentityStore: BlobStoreFactory = createBlobStore,
+  ) {
+    this.createIdentityStore = createIdentityStore;
     this.storeValue = store ?? this.ephemeralStore;
   }
 
@@ -27,7 +34,7 @@ export class Blobs {
 
   useIdentityNamespace(signingFingerprint: string): void {
     this.identityScoped = true;
-    this.storeValue = createBlobStore(signingFingerprint);
+    this.storeValue = this.createIdentityStore(signingFingerprint);
   }
 
   updateIdentityNamespace(signingFingerprint: string | null): void {
