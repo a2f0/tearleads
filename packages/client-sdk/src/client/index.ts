@@ -74,6 +74,37 @@ export {
   IDENTITY_KEY_PACKAGE_FORMAT,
   type IdentityKeyPackage,
 } from "./identityKeyPackage";
+export type {
+  LocalKeyPurpose,
+  LocalKeyring,
+  LocalKeyringManifest,
+  LocalKeyringManifestFormat,
+  LocalKeyringManifestStore,
+  LocalKeyringOptions,
+  LocalKeyringScope,
+  LocalKeyringSession,
+  LocalSecretContext,
+  NormalizedLocalKeyringScope,
+  UnwrapLocalSecretInput,
+  WrapLocalSecretInput,
+  WrappedLocalSecretEnvelope,
+  WrappedLocalSecretFormat,
+  WrappingKeyHandle,
+  WrappingKeyKeystore,
+} from "./localKeyring";
+export {
+  createLocalKeyring,
+  createMemoryLocalKeyringManifestStore,
+  createMemoryWrappingKeyKeystore,
+  decodeLocalKeyringSqliteKey,
+  encodeLocalKeyringSqliteKey,
+  LOCAL_KEYRING_MANIFEST_FORMAT,
+  localKeyringScopeKey,
+  normalizeLocalKeyringScope,
+  parseLocalKeyringManifest,
+  serializeLocalKeyringManifest,
+  WRAPPED_LOCAL_SECRET_FORMAT,
+} from "./localKeyring";
 export type { Logger } from "./logger";
 export {
   Network,

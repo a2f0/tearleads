@@ -7,7 +7,10 @@ import {
   createDocumentProjectorRegistry,
   createEncryptedBlobStore,
   createEncryptedOpfsBlobStore,
+  createLocalKeyring,
   createMemoryBlobStore,
+  createMemoryLocalKeyringManifestStore,
+  createMemoryWrappingKeyKeystore,
   DEFAULT_DOCUMENT_KIND,
   type DocumentAttachmentUpload,
   getDocumentClientProjectionTables,
@@ -37,6 +40,9 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(createDocumentProjectorRegistry).toBeFunction();
   expect(createEncryptedBlobStore).toBeFunction();
   expect(createEncryptedOpfsBlobStore).toBeFunction();
+  expect(createLocalKeyring).toBeFunction();
+  expect(createMemoryLocalKeyringManifestStore).toBeFunction();
+  expect(createMemoryWrappingKeyKeystore).toBeFunction();
   expect(getDocumentClientProjectionTables).toBeFunction();
   expect(createMemoryBlobStore).toBeFunction();
   expect(syncState.status).toBe("pending");
