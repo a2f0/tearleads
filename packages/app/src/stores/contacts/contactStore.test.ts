@@ -10,10 +10,8 @@ import { getSQLitePersistenceRuntime } from "@tearleads/client-sdk/sqlite";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import {
-  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-  contactProjection,
-} from "../../document-types/projectors";
+import { contactProjection } from "../../document-projectors/contactClientProjection";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 type SqlRuntimeBase = Awaited<ReturnType<typeof createSqlRuntimeBase>>;

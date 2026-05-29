@@ -1,11 +1,11 @@
 import {
-  type DriverLicenseDocumentFields,
-  readDriverLicenseFieldsFromRecord,
-} from "../projectors";
-import {
   createFrontAndBackImageSlots,
   type DocumentAttachmentSlot,
 } from "../shared/documentAttachmentUtils";
+import {
+  type DriverLicenseDocumentFields,
+  readDriverLicenseFieldsFromRecord,
+} from "./driverLicenseDocumentDefinition";
 
 const DRIVER_LICENSE_FRONT_IMAGE_SLOT_ID = "driver-license-front-image";
 const DRIVER_LICENSE_BACK_IMAGE_SLOT_ID = "driver-license-back-image";

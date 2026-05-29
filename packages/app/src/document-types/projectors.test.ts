@@ -13,12 +13,10 @@ import {
   exportUpdatesSince,
   importUpdates,
 } from "@tearleads/loro";
-import {
-  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-  readContactFieldsFromRecord,
-  readCreditCardFieldsFromRecord,
-  readDriverLicenseFieldsFromRecord,
-} from "./projectors";
+import { readContactFieldsFromRecord } from "./contact/contactDocumentDefinition";
+import { readCreditCardFieldsFromRecord } from "./credit-card/creditCardDocumentDefinition";
+import { readDriverLicenseFieldsFromRecord } from "./drivers-license/driverLicenseDocumentDefinition";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./projectors";
 
 function initializeStoredDocumentKind(
   doc: StructuredDocumentShape,
