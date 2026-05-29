@@ -11,21 +11,28 @@ SDK setup.
 Create one SDK instance for the active client environment:
 
 ```ts
-import { DEFAULT_DOCUMENT_KIND, Tearleads } from "@tearleads/client-sdk";
+import {
+  createEncryptedBlobStore,
+  DEFAULT_DOCUMENT_KIND,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import {
   createModuleSQLiteRuntime,
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 
 const sqliteRuntime: SQLiteRuntime = createModuleSQLiteRuntime();
+const localStorageKey = "development-key"; // For development only. Do not use in production.
 await sqliteRuntime.client.init({
   dbName: "/app-identity.db",
   cipher: "chacha20",
-  key: "development-key", // For development only. Do not use in production.
+  key: localStorageKey,
 });
 
 const tearleads = new Tearleads({
   apiBaseUrl: "http://localhost:3000",
+  blobStoreFactory: (namespace) =>
+    createEncryptedBlobStore(namespace, { key: localStorageKey }),
   database: {
     client: sqliteRuntime.client,
     id: sqliteRuntime.id,
@@ -124,6 +131,7 @@ const tearleads = new Tearleads({
   apiBaseUrl,
   apiClient,
   blobStore,
+  blobStoreFactory,
   database,
   documentProjectors,
   events,
@@ -216,7 +224,24 @@ await tearleads.identity.setKeyPairs({
 When an identity fingerprint is available, the default blob store switches from
 an ephemeral memory store to the identity-scoped store returned by
 `createBlobStore(signingFingerprint)`. Hosts that need a custom blob backend can
-pass `blobStore` or call `tearleads.blobs.setStore(store)`.
+pass a fixed `blobStore`, pass `blobStoreFactory` for identity-scoped stores, or
+call `tearleads.blobs.setStore(store)`.
+
+For browser and Electron hosts, prefer an encrypted local blob store factory:
+
+```ts
+new Tearleads({
+  blobStoreFactory: (namespace) =>
+    createEncryptedBlobStore(namespace, { key: localStorageKey }),
+});
+```
+
+`createEncryptedBlobStore(namespace, options)` stores local attachment bytes in
+OPFS when available and falls back to encrypted memory storage otherwise. The
+OPFS-specific `createEncryptedOpfsBlobStore(namespace, options)` throws when
+OPFS is unavailable. The encrypted store currently supports `aes-256-gcm`.
+String keys are derived with PBKDF2-SHA256; hosts may also pass a 32-byte raw
+AES key or an AES-GCM `CryptoKey`.
 
 Session state is explicit. Registration flows should call
 `tearleads.session.registerIdentity()`, which submits the current identity,

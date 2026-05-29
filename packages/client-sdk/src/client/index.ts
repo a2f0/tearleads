@@ -1,5 +1,5 @@
 export { createDomainScope, type DomainScope } from "../data/domainScope";
-export { Blobs } from "./blobs";
+export { type BlobStoreFactory, Blobs } from "./blobs";
 export type {
   ActivateContainerDocumentLinkInput,
   BlobInfo,
