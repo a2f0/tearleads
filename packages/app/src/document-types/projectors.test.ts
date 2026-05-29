@@ -157,6 +157,71 @@ test("contact fields are stored as a structured document", async () => {
   });
 });
 
+test("file document fields derive titles from imported file metadata", async () => {
+  const image = await createDocument("image-file-document");
+  const audio = await createDocument("audio-file-document");
+  const pdf = await createDocument("pdf-file-document");
+  const genericFile = await createDocument("generic-file-document");
+
+  initializeStoredDocumentKind(image, "image");
+  writeStoredDocumentFields(image, "image", {
+    byteLength: "1024",
+    fileName: "dl_front.jpeg",
+    height: "768",
+    mimeType: "image/jpeg",
+    sourceLastModified: "2026-05-29T12:00:00.000Z",
+    width: "1024",
+  });
+  initializeStoredDocumentKind(audio, "audio");
+  writeStoredDocumentFields(audio, "audio", {
+    byteLength: "4096",
+    durationMs: "",
+    fileName: "sample.mp3",
+    mimeType: "audio/mpeg",
+    sourceLastModified: "",
+  });
+  initializeStoredDocumentKind(pdf, "pdf");
+  writeStoredDocumentFields(pdf, "pdf", {
+    byteLength: "2048",
+    fileName: "Skiff_Whitepaper_2023.pdf",
+    mimeType: "application/pdf",
+    pageCount: "",
+    sourceLastModified: "",
+  });
+  initializeStoredDocumentKind(genericFile, "generic_file");
+  writeStoredDocumentFields(genericFile, "generic_file", {
+    byteLength: "512",
+    fileName: "archive.bin",
+    mimeType: "application/octet-stream",
+    sourceLastModified: "",
+  });
+
+  expect(readStoredDocumentState(image)).toMatchObject({
+    documentKind: "image",
+    structuredFields: {
+      byteLength: "1024",
+      fileName: "dl_front.jpeg",
+      height: "768",
+      mimeType: "image/jpeg",
+      sourceLastModified: "2026-05-29T12:00:00.000Z",
+      width: "1024",
+    },
+    title: "dl_front.jpeg",
+  });
+  expect(readStoredDocumentState(audio)).toMatchObject({
+    documentKind: "audio",
+    title: "sample.mp3",
+  });
+  expect(readStoredDocumentState(pdf)).toMatchObject({
+    documentKind: "pdf",
+    title: "Skiff_Whitepaper_2023.pdf",
+  });
+  expect(readStoredDocumentState(genericFile)).toMatchObject({
+    documentKind: "generic_file",
+    title: "archive.bin",
+  });
+});
+
 test("JSON-shaped note text does not determine document kind", async () => {
   const jsonShapedText = JSON.stringify({
     cardNumber: "4111 1111 1111 1234",
