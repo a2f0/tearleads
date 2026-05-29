@@ -107,7 +107,12 @@ export function createDatabaseWorkerClient(
     const message = { id, method, params };
 
     return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
+      pending.set(id, {
+        resolve: (value) => {
+          resolve(value as WorkerRequestMap[K]["result"]);
+        },
+        reject,
+      });
 
       try {
         worker.postMessage(message);
