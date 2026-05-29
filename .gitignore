@@ -1,6 +1,10 @@
 # MacOS
 .DS_Store
 
+# Local private files
+.secrets/
+.test_files/
+
 target/
 
 # Bun / JS / TS
