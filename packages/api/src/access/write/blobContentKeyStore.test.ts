@@ -18,6 +18,7 @@ import {
 } from "../../schema";
 import {
   type BlobContentKeyTargetEnvelope,
+  getLatestCurrentBlobContentKeyBundle,
   listBlobContentWriteHeaders,
 } from "../read/blobContentKeyStore";
 import { resolveCurrentBlobKekTargets } from "../read/blobKekTargets";
@@ -467,6 +468,16 @@ test("storeBlobContentKeyBundle rewrites key packages without replacing blob byt
   });
   const rekeyedTargets = await resolveCurrentBlobKekTargets(blobId, db);
   const rekeyedEnvelopes = targetEnvelopes(rekeyedTargets, "rekeyed");
+  const staleBundle = await getLatestCurrentBlobContentKeyBundle(
+    {
+      blobId,
+      currentTargets: rekeyedTargets,
+    },
+    db,
+  );
+  expect(staleBundle?.targetHash).toBe(shrunkTargets.blobKeyTargetHash);
+  expect(staleBundle?.targets).toEqual(initialEnvelopes);
+
   const rekeyed = await storeBlobContentKeyBundle(
     {
       blobId,

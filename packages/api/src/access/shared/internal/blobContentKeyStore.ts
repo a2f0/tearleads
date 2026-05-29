@@ -386,10 +386,7 @@ export async function getLatestCurrentBlobContentKeyBundle(
       return refreshedBundle;
     }
 
-    throw new BlobContentKeyBundleError(
-      "Blob content-key bundle is stale",
-      409,
-    );
+    return bundle;
   }
   assertTargetsMatchCurrent({
     currentTargets: input.currentTargets,
