@@ -231,22 +231,13 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       changedAtSort: sql<string>`${documentPendingAttachments.createdAt}`.as(
         "changed_at_sort",
       ),
-      containerId: sql<string | null>`${documentProjection.containerId}`.as(
-        "container_id",
-      ),
+      containerId: documentProjection.containerId,
       createdAt: sql<string | null>`${documentPendingAttachments.createdAt}`.as(
         "created_at",
       ),
-      documentId: sql<string | null>`${documentProjection.documentId}`.as(
-        "document_id",
-      ),
-      documentKind:
-        sql<StoredDocumentKind | null>`${documentProjection.documentKind}`.as(
-          "document_kind",
-        ),
-      documentTitle: sql<string | null>`${documentProjection.title}`.as(
-        "document_title",
-      ),
+      documentId: documentProjection.documentId,
+      documentKind: documentProjection.documentKind,
+      documentTitle: documentProjection.title,
       localId: documentPendingAttachments.localId,
       mimeType: documentPendingAttachments.mimeType,
       name: sql<string | null>`${documentPendingAttachments.name}`.as("name"),
@@ -289,20 +280,11 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
         sql<string>`${documentAttachmentBlobProjection.updatedAt}`.as(
           "changed_at_sort",
         ),
-      containerId: sql<string | null>`${documentProjection.containerId}`.as(
-        "container_id",
-      ),
+      containerId: documentProjection.containerId,
       createdAt: sql<string | null>`NULL`.as("created_at"),
-      documentId: sql<string | null>`${documentProjection.documentId}`.as(
-        "document_id",
-      ),
-      documentKind:
-        sql<StoredDocumentKind | null>`${documentProjection.documentKind}`.as(
-          "document_kind",
-        ),
-      documentTitle: sql<string | null>`${documentProjection.title}`.as(
-        "document_title",
-      ),
+      documentId: documentProjection.documentId,
+      documentKind: documentProjection.documentKind,
+      documentTitle: documentProjection.title,
       localId: documentAttachmentBlobProjection.localId,
       mimeType: documentAttachmentBlobProjection.mimeType,
       name: sql<string | null>`NULL`.as("name"),
