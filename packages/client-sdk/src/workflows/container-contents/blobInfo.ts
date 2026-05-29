@@ -345,6 +345,50 @@ function createGroupedBlobInfoCtes(input: {
   readonly query: string;
 }) {
   const blobInfoReferences = createBlobInfoReferencesCte(input.db);
+  const groupedBlobInfoSelection = {
+    blobId: sql<
+      string | null
+    >`MIN(NULLIF(${blobInfoReferences.blobId}, ''))`.as("blob_id"),
+    blobKey: blobInfoReferences.blobKey,
+    byteLength: sql<number>`MAX(${blobInfoReferences.byteLength})`.as(
+      "byte_length",
+    ),
+    changedAtSort: sql<string | null>`COALESCE(
+      MAX(NULLIF(${blobInfoReferences.updatedAt}, '')),
+      MIN(NULLIF(${blobInfoReferences.createdAt}, ''))
+    )`.as("changed_at_sort"),
+    createdAt: sql<
+      string | null
+    >`MIN(NULLIF(${blobInfoReferences.createdAt}, ''))`.as("created_at"),
+    documentCount: countDistinct(blobInfoReferences.localId).as(
+      "document_count",
+    ),
+    mimeType: sql<
+      string | null
+    >`MIN(NULLIF(${blobInfoReferences.mimeType}, ''))`.as("mime_type"),
+    name: sql<string | null>`MIN(NULLIF(${blobInfoReferences.name}, ''))`.as(
+      "name",
+    ),
+    referenceCount: count().as("reference_count"),
+    storageKey: sql<string>`MIN(${blobInfoReferences.storageKey})`.as(
+      "storage_key",
+    ),
+    updatedAt: sql<
+      string | null
+    >`MAX(NULLIF(${blobInfoReferences.updatedAt}, ''))`.as("updated_at"),
+  };
+
+  if (input.query === "") {
+    const groupedBlobInfo = input.db.$with("grouped_blob_info").as(
+      input.db
+        .select(groupedBlobInfoSelection)
+        .from(blobInfoReferences)
+        .groupBy(({ blobKey }) => blobKey),
+    );
+
+    return { blobInfoReferences, groupedBlobInfo, matchingBlobKeys: null };
+  }
+
   const matchingBlobKeys = input.db.$with("matching_blob_keys").as(
     input.db
       .selectDistinct({
@@ -354,48 +398,15 @@ function createGroupedBlobInfoCtes(input: {
       })
       .from(blobInfoReferences)
       .where(
-        input.query === ""
-          ? undefined
-          : gt(
-              sql<number>`INSTR(${blobInfoReferences.searchText}, ${input.query})`,
-              0,
-            ),
+        gt(
+          sql<number>`INSTR(${blobInfoReferences.searchText}, ${input.query})`,
+          0,
+        ),
       ),
   );
   const groupedBlobInfo = input.db.$with("grouped_blob_info").as(
     input.db
-      .select({
-        blobId: sql<
-          string | null
-        >`MIN(NULLIF(${blobInfoReferences.blobId}, ''))`.as("blob_id"),
-        blobKey: blobInfoReferences.blobKey,
-        byteLength: sql<number>`MAX(${blobInfoReferences.byteLength})`.as(
-          "byte_length",
-        ),
-        changedAtSort: sql<string | null>`COALESCE(
-          MAX(NULLIF(${blobInfoReferences.updatedAt}, '')),
-          MIN(NULLIF(${blobInfoReferences.createdAt}, ''))
-        )`.as("changed_at_sort"),
-        createdAt: sql<
-          string | null
-        >`MIN(NULLIF(${blobInfoReferences.createdAt}, ''))`.as("created_at"),
-        documentCount: countDistinct(blobInfoReferences.localId).as(
-          "document_count",
-        ),
-        mimeType: sql<
-          string | null
-        >`MIN(NULLIF(${blobInfoReferences.mimeType}, ''))`.as("mime_type"),
-        name: sql<
-          string | null
-        >`MIN(NULLIF(${blobInfoReferences.name}, ''))`.as("name"),
-        referenceCount: count().as("reference_count"),
-        storageKey: sql<string>`MIN(${blobInfoReferences.storageKey})`.as(
-          "storage_key",
-        ),
-        updatedAt: sql<
-          string | null
-        >`MAX(NULLIF(${blobInfoReferences.updatedAt}, ''))`.as("updated_at"),
-      })
+      .select(groupedBlobInfoSelection)
       .from(blobInfoReferences)
       .innerJoin(
         matchingBlobKeys,
@@ -413,10 +424,16 @@ async function countBlobInfoRows(input: {
 }): Promise<number> {
   const { blobInfoReferences, groupedBlobInfo, matchingBlobKeys } =
     createGroupedBlobInfoCtes(input);
-  const rows = await input.db
-    .with(blobInfoReferences, matchingBlobKeys, groupedBlobInfo)
-    .select({ totalCount: count().as("total_count") })
-    .from(groupedBlobInfo);
+  const rows =
+    matchingBlobKeys === null
+      ? await input.db
+          .with(blobInfoReferences, groupedBlobInfo)
+          .select({ totalCount: count().as("total_count") })
+          .from(groupedBlobInfo)
+      : await input.db
+          .with(blobInfoReferences, matchingBlobKeys, groupedBlobInfo)
+          .select({ totalCount: count().as("total_count") })
+          .from(groupedBlobInfo);
 
   return readRequiredNumber(rows[0]?.totalCount, "total_count");
 }
@@ -449,24 +466,34 @@ async function listBlobInfoRows(input: {
           changedAtSortDirection,
           asc(groupedBlobInfo.blobKey),
         ];
-  const rows = await input.db
-    .with(blobInfoReferences, matchingBlobKeys, groupedBlobInfo)
-    .select({
-      blobId: groupedBlobInfo.blobId,
-      blobKey: groupedBlobInfo.blobKey,
-      byteLength: groupedBlobInfo.byteLength,
-      createdAt: groupedBlobInfo.createdAt,
-      documentCount: groupedBlobInfo.documentCount,
-      mimeType: groupedBlobInfo.mimeType,
-      name: groupedBlobInfo.name,
-      referenceCount: groupedBlobInfo.referenceCount,
-      storageKey: groupedBlobInfo.storageKey,
-      updatedAt: groupedBlobInfo.updatedAt,
-    })
-    .from(groupedBlobInfo)
-    .orderBy(...orderBy)
-    .limit(input.limit)
-    .offset(input.offset);
+  const selection = {
+    blobId: groupedBlobInfo.blobId,
+    blobKey: groupedBlobInfo.blobKey,
+    byteLength: groupedBlobInfo.byteLength,
+    createdAt: groupedBlobInfo.createdAt,
+    documentCount: groupedBlobInfo.documentCount,
+    mimeType: groupedBlobInfo.mimeType,
+    name: groupedBlobInfo.name,
+    referenceCount: groupedBlobInfo.referenceCount,
+    storageKey: groupedBlobInfo.storageKey,
+    updatedAt: groupedBlobInfo.updatedAt,
+  };
+  const rows =
+    matchingBlobKeys === null
+      ? await input.db
+          .with(blobInfoReferences, groupedBlobInfo)
+          .select(selection)
+          .from(groupedBlobInfo)
+          .orderBy(...orderBy)
+          .limit(input.limit)
+          .offset(input.offset)
+      : await input.db
+          .with(blobInfoReferences, matchingBlobKeys, groupedBlobInfo)
+          .select(selection)
+          .from(groupedBlobInfo)
+          .orderBy(...orderBy)
+          .limit(input.limit)
+          .offset(input.offset);
 
   return rows.map(mapBlobInfoRow);
 }
