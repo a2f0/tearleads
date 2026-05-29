@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobInfo, BlobInfoInput, BlobStore } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
 const resizeObserverGlobal = globalThis as unknown as {
@@ -97,6 +103,70 @@ test("blob browser requests a new blob window when the table scrolls", async () 
       sort: { direction: "desc", key: "updated" },
     });
   });
+});
+
+test("blob browser keeps current rows visible while the next scroll window loads", async () => {
+  resizeObserverGlobal.ResizeObserver = undefined;
+  const rows = createBlobRows(80);
+  const calls: BlobInfoInput[] = [];
+  let resolveScrolledWindow:
+    | ((value: { rows: BlobInfo[]; totalCount: number }) => void)
+    | undefined;
+  const loadBlobInfo = async (
+    input: BlobInfoInput = {},
+  ): Promise<{ rows: BlobInfo[]; totalCount: number }> => {
+    calls.push(input);
+    const limit = input.limit ?? 24;
+    const offset = input.offset ?? 0;
+    if (calls.length === 1) {
+      return {
+        rows: rows.slice(offset, offset + limit),
+        totalCount: rows.length,
+      };
+    }
+
+    return new Promise((resolve) => {
+      resolveScrolledWindow = resolve;
+    });
+  };
+  const view = render(
+    <ExplorerBlobBrowserPanel
+      blobStore={createBlobStore()}
+      loadBlobInfo={loadBlobInfo}
+      nodes={[]}
+      onBackToSelectionRoute={() => undefined}
+      openDocumentInfoRoute={() => undefined}
+      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      selectDocumentProjection={() => undefined}
+    />,
+  );
+
+  expect(await view.findByRole("button", { name: "blob-1" })).toBeTruthy();
+
+  const frame = view.container.querySelector<HTMLDivElement>(
+    ".explorer-blob-browser-table-wrap",
+  );
+  expect(frame).toBeTruthy();
+  if (!frame) {
+    throw new Error("Blob browser table frame was not rendered.");
+  }
+
+  frame.scrollTop = 720;
+  fireEvent.scroll(frame);
+
+  await waitFor(() => {
+    expect(calls.at(-1)?.offset).toBe(12);
+  });
+  expect(view.getByRole("button", { name: "blob-1" })).toBeTruthy();
+
+  await act(async () => {
+    resolveScrolledWindow?.({
+      rows: rows.slice(12, 36),
+      totalCount: rows.length,
+    });
+  });
+
+  expect(await view.findByRole("button", { name: "blob-13" })).toBeTruthy();
 });
 
 test("blob browser resets the blob window when sorting changes", async () => {

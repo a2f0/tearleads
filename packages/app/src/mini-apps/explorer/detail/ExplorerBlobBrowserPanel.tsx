@@ -8,7 +8,7 @@ import type {
   BlobStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -253,12 +253,15 @@ function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
   ];
 }
 
-function useBlobInfoViewport(frameRef: { current: HTMLDivElement | null }) {
+function useBlobInfoViewport() {
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const frameRef = useCallback((nextFrame: HTMLDivElement | null) => {
+    setFrame(nextFrame);
+  }, []);
 
   useEffect(() => {
-    const frame = frameRef.current;
     if (!frame) {
       return;
     }
@@ -272,10 +275,9 @@ function useBlobInfoViewport(frameRef: { current: HTMLDivElement | null }) {
     return () => {
       frame.removeEventListener("scroll", handleScroll);
     };
-  }, [frameRef]);
+  }, [frame]);
 
   useEffect(() => {
-    const frame = frameRef.current;
     if (!frame) {
       return;
     }
@@ -296,18 +298,15 @@ function useBlobInfoViewport(frameRef: { current: HTMLDivElement | null }) {
     return () => {
       resizeObserver.disconnect();
     };
-  }, [frameRef]);
+  }, [frame]);
 
-  return { scrollTop, setScrollTop, viewportHeight };
+  return { frame, frameRef, scrollTop, setScrollTop, viewportHeight };
 }
 
-function useBlobInfoWindowRange(params: {
-  frameRef: { current: HTMLDivElement | null };
-  resetKey: string;
-}) {
-  const { frameRef, resetKey } = params;
-  const { scrollTop, setScrollTop, viewportHeight } =
-    useBlobInfoViewport(frameRef);
+function useBlobInfoWindowRange(params: { resetKey: string }) {
+  const { resetKey } = params;
+  const { frame, frameRef, scrollTop, setScrollTop, viewportHeight } =
+    useBlobInfoViewport();
   const [activeResetKey, setActiveResetKey] = useState(resetKey);
   const shouldReset = activeResetKey !== resetKey;
 
@@ -318,15 +317,18 @@ function useBlobInfoWindowRange(params: {
 
     setActiveResetKey(resetKey);
     setScrollTop(0);
-    if (frameRef.current) {
-      frameRef.current.scrollTop = 0;
+    if (frame) {
+      frame.scrollTop = 0;
     }
-  }, [frameRef, resetKey, setScrollTop, shouldReset]);
+  }, [frame, resetKey, setScrollTop, shouldReset]);
 
-  return getBlobInfoWindowRange({
-    scrollTop: shouldReset ? 0 : scrollTop,
-    viewportHeight,
-  });
+  return {
+    ...getBlobInfoWindowRange({
+      scrollTop: shouldReset ? 0 : scrollTop,
+      viewportHeight,
+    }),
+    frameRef,
+  };
 }
 
 function useBlobInfoList(params: {
@@ -562,7 +564,7 @@ function getSelectedBlob(params: {
 function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
   error: string | null;
-  frameRef: { current: HTMLDivElement | null };
+  frameRef: (frame: HTMLDivElement | null) => void;
   isLoading: boolean;
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
@@ -924,10 +926,9 @@ export function ExplorerBlobBrowserPanel(params: {
     direction: "desc",
     key: "updated",
   });
-  const frameRef = useRef<HTMLDivElement | null>(null);
   const routeQuery = getBlobRouteQuery(params.route);
   const resetKey = `${debouncedQuery}\u0000${sort.key}\u0000${sort.direction}`;
-  const { limit, offset } = useBlobInfoWindowRange({ frameRef, resetKey });
+  const { frameRef, limit, offset } = useBlobInfoWindowRange({ resetKey });
   const blobInfo = useBlobInfoList({
     limit,
     loadBlobInfo: params.loadBlobInfo,
@@ -935,9 +936,9 @@ export function ExplorerBlobBrowserPanel(params: {
     query: debouncedQuery,
     sort,
   });
-  const isShowingRequestedWindow = blobInfo.offset === offset;
-  const rows = isShowingRequestedWindow ? blobInfo.rows : [];
-  const rowOffset = isShowingRequestedWindow ? blobInfo.offset : offset;
+  const isResettingWindow = blobInfo.offset !== offset && offset === 0;
+  const rows = isResettingWindow ? [] : blobInfo.rows;
+  const rowOffset = isResettingWindow ? 0 : blobInfo.offset;
   const selectedBlob = getSelectedBlob({
     activeBlob,
     route: params.route,
