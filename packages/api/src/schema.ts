@@ -1492,20 +1492,20 @@ export const documentContentWriteHeaders = pgTable(
  *
  * A blob content-key bundle says which symmetric content key protects a blob
  * and which current attachment/container KEK targets can unwrap it. Blobs are
- * immutable in this model, so the store currently accepts only content key
- * epoch `1`; if targets shrink, callers replace the blob instead of rotating
- * its content key in place.
+ * immutable in this model. Permission and KEK changes refresh the key-package
+ * targets for the existing payload epoch; callers only replace the blob when the
+ * encrypted bytes themselves change.
  *
  * Columns:
  * - `id`: Surrogate database primary key. Target rows reference this id.
  *   Domain identity is `(blobId, contentKeyEpoch)`.
  * - `blobId`: Blob whose encrypted content key this bundle describes.
- * - `contentKeyEpoch`: Blob content-key epoch. Currently must be `1`.
+ * - `contentKeyEpoch`: Blob content-key epoch used by the encrypted payload.
  * - `targetHash`: Hash of the normalized target rows in
  *   `blobContentKeyTargets`.
  * - `createdAt`: Server-side insertion timestamp for the epoch row.
- * - `updatedAt`: Server-side timestamp for target-hash refreshes, such as
- *   additive attachment target growth.
+ * - `updatedAt`: Server-side timestamp for key-package refreshes, such as
+ *   attachment target growth, target shrink, or container KEK rewrap.
  *
  * Indexes:
  * - `(blobId, contentKeyEpoch)` is unique because a blob can have one accepted

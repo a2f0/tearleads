@@ -4,10 +4,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
-import type {
-  BlobContentKeyBundleRequest,
-  BlobContentKeyTargetEnvelopeRequest,
-} from "@tearleads/validators/request";
+import type { BlobContentKeyTargetEnvelopeRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   assertOnlyRecordKeys,
@@ -94,56 +91,6 @@ export function normalizeDocumentTarget(
   };
 }
 
-function readContentKeyBundle(value: unknown): BlobContentKeyBundleRequest {
-  if (!isPlainRecord(value)) {
-    throw new Error("Blob content-key bundle must be an object");
-  }
-  const targets = Reflect.get(value, "targets");
-  if (!Array.isArray(targets) || !targets.every(isPlainRecord)) {
-    throw new Error("Blob content-key bundle targets are invalid");
-  }
-
-  return {
-    contentKeyEpoch: readRecordNumber(
-      value,
-      "contentKeyEpoch",
-      "Blob content-key bundle",
-    ),
-    targetHash: readRecordString(
-      value,
-      "targetHash",
-      "Blob content-key bundle",
-    ),
-    targets: targets.map((target) => {
-      const wrappingMetadata = Reflect.get(target, "wrappingMetadata");
-      return {
-        bindingId: readRecordString(target, "bindingId", "Blob target"),
-        documentId: readRecordString(target, "documentId", "Blob target"),
-        containerId: readRecordString(target, "containerId", "Blob target"),
-        containerManifestHash: readRecordString(
-          target,
-          "containerManifestHash",
-          "Blob target",
-        ),
-        containerKeyEpochId: readRecordString(
-          target,
-          "containerKeyEpochId",
-          "Blob target",
-        ),
-        containerKeyEpoch: readRecordNumber(
-          target,
-          "containerKeyEpoch",
-          "Blob target",
-        ),
-        wrappedKey: readRecordString(target, "wrappedKey", "Blob target"),
-        wrappingMetadata: isPlainRecord(wrappingMetadata)
-          ? wrappingMetadata
-          : {},
-      };
-    }),
-  };
-}
-
 export function parseBlobEncryptedBytes(
   encryptedBytes: string,
 ): BlobEncryptedBytesRecord {
@@ -191,9 +138,6 @@ export function parseBlobEncryptedBytes(
     ciphertext: base64ToBytes(
       readRecordString(value, "ciphertext", "Blob encrypted bytes"),
     ),
-    contentKeyBundle: readContentKeyBundle(
-      Reflect.get(value, "contentKeyBundle"),
-    ),
     contentKeyEpoch: readRecordNumber(
       value,
       "contentKeyEpoch",
@@ -215,7 +159,6 @@ export function parseBlobEncryptedBytes(
       "nonceDomainHash",
       "Blob encrypted bytes",
     ),
-    targetHash: readRecordString(value, "targetHash", "Blob encrypted bytes"),
   };
 }
 

@@ -6,8 +6,14 @@ import {
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
+import { resolveCurrentBlobKekTargets } from "../../access/read/blobKekTargets";
 import { db } from "../../adapters/postgres";
-import { attachmentBindings, blobs } from "../../schema";
+import {
+  attachmentBindings,
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
+  blobs,
+} from "../../schema";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,
@@ -21,8 +27,15 @@ async function createReadableDocument(input: {
   return createCurrentDocumentProjection({
     containerIds: [input.containerId],
     createdByFingerprint: input.createdByFingerprint,
+    manifestHash: randomHash(),
     organizationId: input.organizationId,
   });
+}
+
+function randomHash(): string {
+  return [...crypto.getRandomValues(new Uint8Array(32))]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function createBlob() {
@@ -41,6 +54,40 @@ async function createBlob() {
   }
 
   return blob;
+}
+
+async function createBlobContentKeyBundle(input: { blobId: string }) {
+  const currentTargets = await resolveCurrentBlobKekTargets(input.blobId, db);
+  const [epoch] = await db
+    .insert(blobContentKeyEpochs)
+    .values({
+      blobId: input.blobId,
+      contentKeyEpoch: 1,
+      targetHash: currentTargets.blobKeyTargetHash,
+    })
+    .returning({ id: blobContentKeyEpochs.id });
+  if (!epoch) {
+    throw new Error("Failed to create service test blob content-key epoch");
+  }
+
+  const targets = currentTargets.targets.map((target) => ({
+    ...target,
+    wrappedKey: `wrapped-key:${target.bindingId}:${target.containerId}`,
+    wrappingMetadata: { suite: "test-wrap" },
+  }));
+  await db.insert(blobContentKeyTargets).values(
+    targets.map((target) => ({
+      blobContentKeyEpochId: epoch.id,
+      ...target,
+    })),
+  );
+
+  return {
+    blobId: input.blobId,
+    contentKeyEpoch: 1,
+    targetHash: currentTargets.blobKeyTargetHash,
+    targets,
+  };
 }
 
 async function expectListDocumentAttachmentsError(
@@ -68,20 +115,27 @@ test("listDocumentAttachments returns active attachment bindings for readable do
   const [activeBinding] = await db
     .insert(attachmentBindings)
     .values({
+      attachmentEventHash: `attachment-event:${activeBlob.id}`,
       blobId: activeBlob.id,
       documentId: document.id,
+      documentManifestHash: document.manifestHash,
       slotId: "active-slot",
     })
     .returning({ id: attachmentBindings.id });
   await db.insert(attachmentBindings).values({
+    attachmentEventHash: `attachment-event:${detachedBlob.id}`,
     blobId: detachedBlob.id,
     detachedAt: new Date(),
     documentId: document.id,
+    documentManifestHash: document.manifestHash,
     slotId: "detached-slot",
   });
   if (!activeBinding) {
     throw new Error("Failed to create service test attachment binding");
   }
+  const contentKeyBundle = await createBlobContentKeyBundle({
+    blobId: activeBlob.id,
+  });
 
   const recording = createRecordingDb();
 
@@ -97,6 +151,7 @@ test("listDocumentAttachments returns active attachment bindings for readable do
     {
       bindingId: activeBinding.id,
       blobId: activeBlob.id,
+      contentKeyBundle,
       slotId: "active-slot",
     },
   ]);

@@ -16,16 +16,22 @@ import {
   blobContentKeyTargets,
   blobContentWriteHeaders,
 } from "../../../schema";
-import { compareStrings } from "../../../utils/array";
-import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import {
   assertBlobKekTargetsCurrent,
   BlobKekTargetError,
   type resolveCurrentBlobKekTargets,
 } from "./blobKekTargets";
+import {
+  assertContentKeyWrappedMaterialPresent,
+  assertNoDuplicateContentKeyTargets,
+  contentKeyTargetEnvelopeEqual,
+  contentKeyTargetEnvelopeMaterialEqual,
+  expectedContentKeyTargetMap,
+  sortContentKeyTargetEnvelopes,
+} from "./contentKeyTargetPolicy";
 import { targetEnvelopeBundlesEqual } from "./targetEnvelopeBundles";
 
-type CurrentBlobKekTargets = Awaited<
+export type CurrentBlobKekTargets = Awaited<
   ReturnType<typeof resolveCurrentBlobKekTargets>
 >;
 
@@ -34,7 +40,7 @@ export interface BlobContentKeyTargetEnvelope extends BlobContentKeyTarget {
   readonly wrappingMetadata: KeyingCanonicalJson;
 }
 
-interface StoredBlobContentKeyBundle {
+export interface StoredBlobContentKeyBundle {
   readonly blobId: string;
   readonly contentKeyEpoch: number;
   readonly targetHash: string;
@@ -88,9 +94,7 @@ function toTargetFields(
 function sortTargetEnvelopes(
   targets: readonly BlobContentKeyTargetEnvelope[],
 ): BlobContentKeyTargetEnvelope[] {
-  return [...targets].sort((left, right) =>
-    compareStrings(targetKey(left), targetKey(right)),
-  );
+  return sortContentKeyTargetEnvelopes(targets, targetKey);
 }
 
 function targetFieldsEqual(
@@ -107,22 +111,42 @@ function targetFieldsEqual(
   );
 }
 
+function targetKeyMaterialEqual(
+  left: BlobContentKeyTarget,
+  right: BlobContentKeyTarget,
+): boolean {
+  return (
+    left.bindingId === right.bindingId &&
+    left.documentId === right.documentId &&
+    left.containerId === right.containerId &&
+    left.containerKeyEpochId === right.containerKeyEpochId &&
+    left.containerKeyEpoch === right.containerKeyEpoch
+  );
+}
+
 function targetEnvelopeEqual(
   left: BlobContentKeyTargetEnvelope,
   right: BlobContentKeyTargetEnvelope,
 ): boolean {
-  return (
-    targetFieldsEqual(left, right) &&
-    left.wrappedKey === right.wrappedKey &&
-    canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
+  return contentKeyTargetEnvelopeEqual(left, right, targetFieldsEqual);
+}
+
+function targetEnvelopeMaterialEqual(
+  left: BlobContentKeyTargetEnvelope,
+  right: BlobContentKeyTargetEnvelope,
+): boolean {
+  return contentKeyTargetEnvelopeMaterialEqual(
+    left,
+    right,
+    targetKeyMaterialEqual,
   );
 }
 
-function ensureContentKeyEpoch(contentKeyEpoch: number): void {
-  if (contentKeyEpoch !== 1) {
+function ensurePositiveContentKeyEpoch(contentKeyEpoch: number): void {
+  if (!Number.isInteger(contentKeyEpoch) || contentKeyEpoch <= 0) {
     throw new BlobContentKeyBundleError(
-      "Blob content key epoch must be 1; replace the blob after target shrink",
-      409,
+      "Blob content key epoch must be a positive integer",
+      400,
     );
   }
 }
@@ -130,47 +154,34 @@ function ensureContentKeyEpoch(contentKeyEpoch: number): void {
 function assertNoDuplicateTargets(
   targets: readonly BlobContentKeyTargetEnvelope[],
 ): void {
-  const targetKeys = targets.map(targetKey);
-  if (new Set(targetKeys).size !== targetKeys.length) {
-    throw new BlobContentKeyBundleError(
-      "Blob content-key targets contain duplicates",
-      409,
-    );
-  }
+  assertNoDuplicateContentKeyTargets(
+    targets,
+    targetKey,
+    () =>
+      new BlobContentKeyBundleError(
+        "Blob content-key targets contain duplicates",
+        409,
+      ),
+  );
 }
 
 function assertWrappedMaterialPresent(
   targets: readonly BlobContentKeyTargetEnvelope[],
 ): void {
-  for (const target of targets) {
-    if (target.wrappedKey.length === 0) {
-      throw new BlobContentKeyBundleError(
+  assertContentKeyWrappedMaterialPresent(
+    targets,
+    () =>
+      new BlobContentKeyBundleError(
         "Blob content-key target is missing wrapped key material",
         400,
-      );
-    }
-  }
+      ),
+  );
 }
 
 function expectedTargetMap(
   targets: readonly BlobContentKeyTarget[],
 ): Map<string, BlobContentKeyTarget> {
-  return new Map(targets.map((target) => [targetKey(target), target]));
-}
-
-function currentTargetsContainPreviousBundle(input: {
-  readonly currentTargets: readonly BlobContentKeyTarget[];
-  readonly previousTargets: readonly BlobContentKeyTargetEnvelope[];
-}): boolean {
-  const currentTargetByKey = expectedTargetMap(input.currentTargets);
-
-  return input.previousTargets.every((previousTarget) => {
-    const currentTarget = currentTargetByKey.get(targetKey(previousTarget));
-    return (
-      currentTarget !== undefined &&
-      targetFieldsEqual(previousTarget, currentTarget)
-    );
-  });
+  return expectedContentKeyTargetMap(targets, targetKey);
 }
 
 function assertTargetsMatchCurrent(input: {
@@ -315,6 +326,76 @@ async function getLatestBlobContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
+function refreshedBundleForCurrentTargets(input: {
+  readonly bundle: StoredBlobContentKeyBundle;
+  readonly currentTargets: CurrentBlobKekTargets;
+}): StoredBlobContentKeyBundle | null {
+  const previousEnvelopeByTargetKey = new Map(
+    input.bundle.targets.map((target) => [targetKey(target), target]),
+  );
+
+  const targets: BlobContentKeyTargetEnvelope[] = [];
+  for (const currentTarget of input.currentTargets.targets) {
+    const previousEnvelope = previousEnvelopeByTargetKey.get(
+      targetKey(currentTarget),
+    );
+
+    if (
+      !previousEnvelope ||
+      !targetKeyMaterialEqual(previousEnvelope, currentTarget)
+    ) {
+      return null;
+    }
+
+    targets.push({
+      ...currentTarget,
+      wrappedKey: previousEnvelope.wrappedKey,
+      wrappingMetadata: previousEnvelope.wrappingMetadata,
+    });
+  }
+
+  return {
+    ...input.bundle,
+    targetHash: input.currentTargets.blobKeyTargetHash,
+    targets: sortTargetEnvelopes(targets),
+  };
+}
+
+export async function getLatestCurrentBlobContentKeyBundle(
+  input: {
+    readonly blobId: string;
+    readonly currentTargets: CurrentBlobKekTargets;
+  },
+  executor: DatabaseSession,
+): Promise<StoredBlobContentKeyBundle | null> {
+  const bundle = await getLatestBlobContentKeyBundle(input.blobId, executor);
+  if (!bundle) {
+    return null;
+  }
+
+  if (bundle.targetHash !== input.currentTargets.blobKeyTargetHash) {
+    const refreshedBundle = refreshedBundleForCurrentTargets({
+      bundle,
+      currentTargets: input.currentTargets,
+    });
+    if (refreshedBundle) {
+      assertTargetsMatchCurrent({
+        currentTargets: input.currentTargets,
+        targets: refreshedBundle.targets,
+      });
+      return refreshedBundle;
+    }
+
+    return bundle;
+  }
+  assertTargetsMatchCurrent({
+    currentTargets: input.currentTargets,
+    targets: bundle.targets,
+  });
+
+  return bundle;
+}
+
 async function insertBlobContentKeyTargets(input: {
   readonly blobContentKeyEpochId: string;
   readonly executor: DatabaseSession;
@@ -407,21 +488,22 @@ async function createBlobContentKeyBundle(
   return storedBundle;
 }
 
-async function addBlobContentKeyTargetsToExistingBundle(input: {
+async function replaceBlobContentKeyTargetsForExistingBundle(input: {
   readonly existingBundle: StoredBlobContentKeyBundle;
   readonly nextBundle: StoreBlobContentKeyBundleInput;
   readonly executor: DatabaseSession;
 }): Promise<StoredBlobContentKeyBundle> {
-  const existingByTargetKey = new Map(
-    input.existingBundle.targets.map((target) => [targetKey(target), target]),
-  );
   const nextByTargetKey = new Map(
     input.nextBundle.targets.map((target) => [targetKey(target), target]),
   );
 
   for (const target of input.existingBundle.targets) {
     const nextTarget = nextByTargetKey.get(targetKey(target));
-    if (!nextTarget || !targetEnvelopeEqual(target, nextTarget)) {
+    if (
+      nextTarget &&
+      targetKeyMaterialEqual(target, nextTarget) &&
+      !targetEnvelopeMaterialEqual(target, nextTarget)
+    ) {
       throw new BlobContentKeyBundleError(
         "Blob content-key bundle conflict",
         409,
@@ -429,9 +511,6 @@ async function addBlobContentKeyTargetsToExistingBundle(input: {
     }
   }
 
-  const newTargets = input.nextBundle.targets.filter(
-    (target) => !existingByTargetKey.has(targetKey(target)),
-  );
   const epochRow = await loadBlobContentKeyEpochRow(
     input.nextBundle.blobId,
     input.nextBundle.contentKeyEpoch,
@@ -451,10 +530,13 @@ async function addBlobContentKeyTargetsToExistingBundle(input: {
       updatedAt: new Date(),
     })
     .where(eq(blobContentKeyEpochs.id, epochRow.id));
+  await input.executor
+    .delete(blobContentKeyTargets)
+    .where(eq(blobContentKeyTargets.blobContentKeyEpochId, epochRow.id));
   await insertBlobContentKeyTargets({
     blobContentKeyEpochId: epochRow.id,
     executor: input.executor,
-    targets: newTargets,
+    targets: input.nextBundle.targets,
   });
 
   const updatedRow = await loadBlobContentKeyEpochRow(
@@ -476,7 +558,7 @@ async function validateCurrentTargetsForBundle(
   input: StoreBlobContentKeyBundleInput,
   executor: DatabaseSession,
 ): Promise<CurrentBlobKekTargets> {
-  ensureContentKeyEpoch(input.contentKeyEpoch);
+  ensurePositiveContentKeyEpoch(input.contentKeyEpoch);
   await assertTargetHashMatches(input);
   let currentTargets: CurrentBlobKekTargets;
   try {
@@ -497,13 +579,16 @@ async function validateCurrentTargetsForBundle(
   return currentTargets;
 }
 
-function assertContentKeyBundleCanBeStored(input: {
+function assertContentKeyEpochCanBeStored(input: {
+  readonly contentKeyEpoch: number;
   readonly latestBundle: StoredBlobContentKeyBundle | null;
-  readonly latestTargetsStillCurrent: boolean;
 }): void {
-  if (input.latestBundle && !input.latestTargetsStillCurrent) {
+  if (
+    input.latestBundle &&
+    input.contentKeyEpoch !== input.latestBundle.contentKeyEpoch
+  ) {
     throw new BlobContentKeyBundleError(
-      "Blob content-key targets shrank; replace the blob",
+      "Blob content key epoch cannot change without replacing blob bytes",
       409,
     );
   }
@@ -557,16 +642,9 @@ export async function storeBlobContentKeyBundleInTransaction(
     executor,
   );
 
-  const latestTargetsStillCurrent =
-    !latestBundle ||
-    currentTargetsContainPreviousBundle({
-      currentTargets: currentTargets.targets,
-      previousTargets: latestBundle.targets,
-    });
-
-  assertContentKeyBundleCanBeStored({
+  assertContentKeyEpochCanBeStored({
+    contentKeyEpoch: input.contentKeyEpoch,
     latestBundle,
-    latestTargetsStillCurrent,
   });
 
   const existingBundle = await getBlobContentKeyBundle(
@@ -609,7 +687,7 @@ export async function storeBlobContentKeyBundleInTransaction(
   }
 
   return withCurrentTargets(
-    await addBlobContentKeyTargetsToExistingBundle({
+    await replaceBlobContentKeyTargetsForExistingBundle({
       existingBundle,
       nextBundle: input,
       executor,
@@ -635,7 +713,7 @@ export async function storeBlobContentWriteHeader(
       409,
     );
   }
-  ensureContentKeyEpoch(input.header.contentKeyEpoch);
+  ensurePositiveContentKeyEpoch(input.header.contentKeyEpoch);
 
   const [inserted] = await executor
     .insert(blobContentWriteHeaders)

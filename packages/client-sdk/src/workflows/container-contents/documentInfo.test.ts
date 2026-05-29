@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  BlobContentKeyBundleResponse,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadDocumentInfo } from "./documentInfo";
 
@@ -99,6 +102,26 @@ function createDocumentWriterProjection(): DocumentWriterProjectionResponse {
   };
 }
 
+function createBlobContentKeyBundle(): BlobContentKeyBundleResponse {
+  return {
+    blobId: "blob-1",
+    contentKeyEpoch: 1,
+    targetHash: "blob-key-target-hash",
+    targets: [
+      {
+        bindingId: "binding-1",
+        documentId: "document-1",
+        containerId: "container-1",
+        containerManifestHash: "container-manifest-hash",
+        containerKeyEpochId: "container-key-epoch-1",
+        containerKeyEpoch: 1,
+        wrappedKey: "wrapped-blob-key",
+        wrappingMetadata: {},
+      },
+    ],
+  };
+}
+
 test("loadDocumentInfo reads local runtime, attachment, blob, and remote security summaries", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-document-info-test",
@@ -159,6 +182,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
             {
               bindingId: "binding-1",
               blobId: "blob-1",
+              contentKeyBundle: createBlobContentKeyBundle(),
               slotId: "slot-local",
             },
           ];

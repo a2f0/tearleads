@@ -245,7 +245,7 @@ export function toStoredContentKeyBundleInput(
   };
 }
 
-function toContentKeyBundleResponse(input: {
+export function toContentKeyBundleResponse(input: {
   readonly blobId: string;
   readonly contentKeyEpoch: number;
   readonly targetHash: string;

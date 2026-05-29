@@ -9,7 +9,6 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
 import type { BlobBytes } from "../../../blobContracts";
-import { readCanonicalJson } from "../../../keyingCanonicalJson";
 import { asWebCryptoBytes } from "../../shared/readers";
 import type { BlobEncryptedBytes } from "./types";
 import {
@@ -25,7 +24,6 @@ export async function blobContentMetadataHash(input: {
   blobId: string;
   byteLength: number;
   contentKeyEpoch: number;
-  targetHash: string;
 }): Promise<string> {
   return toFingerprint(
     TEXT_ENCODER.encode(
@@ -37,7 +35,6 @@ export async function blobContentMetadataHash(input: {
           blobId: input.blobId,
           byteLength: input.byteLength,
           contentKeyEpoch: input.contentKeyEpoch,
-          targetHash: input.targetHash,
         },
       }),
     ),
@@ -147,7 +144,7 @@ export async function encryptBlobBytes(input: {
   organizationId: string;
 }): Promise<BlobEncryptedBytes> {
   const contentRecordId = input.blobId;
-  const { contentKeyEpoch, targetHash } = input.contentKeyBundle;
+  const { contentKeyEpoch } = input.contentKeyBundle;
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
     version: 1,
     organizationId: input.organizationId,
@@ -161,7 +158,6 @@ export async function encryptBlobBytes(input: {
     blobId: input.blobId,
     byteLength: input.bytes.byteLength,
     contentKeyEpoch,
-    targetHash,
   });
   const contentKeyMaterial = await importBlobContentKeyMaterial(
     input.contentKey,
@@ -203,11 +199,6 @@ export async function encryptBlobBytes(input: {
     contentRecordId,
     nonceDomainHash,
     metadataHash,
-    targetHash,
-    contentKeyBundle: readCanonicalJson(
-      input.contentKeyBundle,
-      "Blob encrypted bytes content-key bundle",
-    ),
     iv: bytesToBase64(iv),
     ciphertext: bytesToBase64(ciphertext),
   });

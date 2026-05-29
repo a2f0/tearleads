@@ -18,6 +18,7 @@ import {
 } from "../../schema";
 import {
   type BlobContentKeyTargetEnvelope,
+  getLatestCurrentBlobContentKeyBundle,
   listBlobContentWriteHeaders,
 } from "../read/blobContentKeyStore";
 import { resolveCurrentBlobKekTargets } from "../read/blobKekTargets";
@@ -35,29 +36,37 @@ async function hashOf(label: string): Promise<string> {
 
 async function ensureContainerHead(input: {
   readonly containerId: string;
+  readonly epoch?: number;
+  readonly keyEpoch?: number;
+  readonly keyEpochId?: string;
   readonly organizationId: string;
 }) {
-  const manifestHash = await hashOf(`${input.containerId}:manifest`);
-  const eventHash = await hashOf(`${input.containerId}:event`);
-  const containerKeyEpochId = `${input.containerId}:key-epoch-1`;
+  const epoch = input.epoch ?? 1;
+  const keyEpoch = input.keyEpoch ?? epoch;
+  const label =
+    epoch === 1 ? input.containerId : `${input.containerId}:epoch-${epoch}`;
+  const manifestHash = await hashOf(`${label}:manifest`);
+  const eventHash = await hashOf(`${label}:event`);
+  const containerKeyEpochId =
+    input.keyEpochId ?? `${input.containerId}:key-epoch-${keyEpoch}`;
   await db
     .insert(accessEvents)
     .values({
       version: 1,
-      eventId: `${input.containerId}:event-id`,
+      eventId: `${label}:event-id`,
       eventType: "container.create",
       objectKind: "container",
       objectId: input.containerId,
       organizationId: input.organizationId,
       previousManifestHash: null,
       dependencyManifestHashes: [],
-      bodyHash: await hashOf(`${input.containerId}:body`),
+      bodyHash: await hashOf(`${label}:body`),
       body: {},
       eventHash,
       signerUserId: crypto.randomUUID(),
       signerDeviceId: "device-1",
-      signerKeyFingerprint: await hashOf(`${input.containerId}:signer`),
-      signature: `${input.containerId}:signature`,
+      signerKeyFingerprint: await hashOf(`${label}:signer`),
+      signature: `${label}:signature`,
       signedAt: new Date(0),
     })
     .onConflictDoNothing({ target: accessEvents.eventHash });
@@ -68,19 +77,19 @@ async function ensureContainerHead(input: {
       objectKind: "container",
       objectId: input.containerId,
       organizationId: input.organizationId,
-      epoch: 1,
+      epoch,
       previousManifestHash: null,
       eventHash,
-      structuralHash: await hashOf(`${input.containerId}:structural`),
-      grantRoot: await hashOf(`${input.containerId}:grant-root`),
+      structuralHash: await hashOf(`${label}:structural`),
+      grantRoot: await hashOf(`${label}:grant-root`),
       referencedPrincipalHeads: [],
-      keyTargetHash: await hashOf(`${input.containerId}:key-target`),
+      keyTargetHash: await hashOf(`${label}:key-target`),
       manifestHash,
       state: {
         version: 1,
         containerId: input.containerId,
         organizationId: input.organizationId,
-        epoch: 1,
+        epoch,
         previousManifestHash: null,
         eventHash,
         parentContainerId: null,
@@ -98,18 +107,24 @@ async function ensureContainerHead(input: {
       objectKind: "container",
       objectId: input.containerId,
       organizationId: input.organizationId,
-      epoch: 1,
+      epoch,
       manifestHash,
     })
-    .onConflictDoNothing({
+    .onConflictDoUpdate({
       target: [accessManifestHeads.objectKind, accessManifestHeads.objectId],
+      set: {
+        epoch,
+        manifestHash,
+        organizationId: input.organizationId,
+        updatedAt: new Date(),
+      },
     });
   await db
     .insert(containerKeyEpochs)
     .values({
       id: containerKeyEpochId,
       containerId: input.containerId,
-      keyEpoch: 1,
+      keyEpoch,
       accessManifestHash: manifestHash,
       parentContainerKeyEpochId: null,
       createdByEventHash: eventHash,
@@ -352,23 +367,25 @@ test("resolveCurrentBlobKekTargets uses the container manifest key epoch", async
   ]);
 });
 
-test("storeBlobContentKeyBundle allows additive growth but rejects shrink", async () => {
+test("storeBlobContentKeyBundle rewrites key packages without replacing blob bytes", async () => {
   const organizationId = crypto.randomUUID();
   const blobId = crypto.randomUUID();
   const firstDocumentId = crypto.randomUUID();
   const secondDocumentId = crypto.randomUUID();
   const firstBindingId = crypto.randomUUID();
   const secondBindingId = crypto.randomUUID();
+  const firstContainerId = crypto.randomUUID();
+  const secondContainerId = crypto.randomUUID();
   const firstManifestHash = await setDocumentHead({
     documentId: firstDocumentId,
     epoch: 1,
-    linkedContainerIds: [crypto.randomUUID()],
+    linkedContainerIds: [firstContainerId],
     organizationId,
   });
   const secondManifestHash = await setDocumentHead({
     documentId: secondDocumentId,
     epoch: 1,
-    linkedContainerIds: [crypto.randomUUID()],
+    linkedContainerIds: [secondContainerId],
     organizationId,
   });
   await attachBlob({
@@ -431,19 +448,61 @@ test("storeBlobContentKeyBundle allows additive growth but rejects shrink", asyn
     .set({ detachedAt: new Date() })
     .where(eq(attachmentBindings.id, secondBindingId));
   const shrunkTargets = await resolveCurrentBlobKekTargets(blobId, db);
+  const shrunk = await storeBlobContentKeyBundle(
+    {
+      blobId,
+      contentKeyEpoch: 1,
+      targetHash: shrunkTargets.blobKeyTargetHash,
+      targets: initialEnvelopes,
+    },
+    db,
+  );
+  expect(shrunk.contentKeyEpoch).toBe(1);
+  expect(shrunk.targets).toEqual(initialEnvelopes);
+
+  await ensureContainerHead({
+    containerId: firstContainerId,
+    epoch: 2,
+    keyEpoch: 2,
+    organizationId,
+  });
+  const rekeyedTargets = await resolveCurrentBlobKekTargets(blobId, db);
+  const rekeyedEnvelopes = targetEnvelopes(rekeyedTargets, "rekeyed");
+  const staleBundle = await getLatestCurrentBlobContentKeyBundle(
+    {
+      blobId,
+      currentTargets: rekeyedTargets,
+    },
+    db,
+  );
+  expect(staleBundle?.targetHash).toBe(shrunkTargets.blobKeyTargetHash);
+  expect(staleBundle?.targets).toEqual(initialEnvelopes);
+
+  const rekeyed = await storeBlobContentKeyBundle(
+    {
+      blobId,
+      contentKeyEpoch: 1,
+      targetHash: rekeyedTargets.blobKeyTargetHash,
+      targets: rekeyedEnvelopes,
+    },
+    db,
+  );
+  expect(rekeyed.contentKeyEpoch).toBe(1);
+  expect(rekeyed.targets).toEqual(rekeyedEnvelopes);
+
   await expect(
     storeBlobContentKeyBundle(
       {
         blobId,
-        contentKeyEpoch: 1,
-        targetHash: shrunkTargets.blobKeyTargetHash,
-        targets: targetEnvelopes(shrunkTargets, "shrunk"),
+        contentKeyEpoch: 2,
+        targetHash: rekeyedTargets.blobKeyTargetHash,
+        targets: targetEnvelopes(rekeyedTargets, "replacement-epoch"),
       },
       db,
     ),
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError(
-      "Blob content-key targets shrank; replace the blob",
+      "Blob content key epoch cannot change without replacing blob bytes",
       409,
     ),
   );
@@ -519,23 +578,6 @@ test("storeBlobContentWriteHeader stores canonical headers by record id", async 
   ).rejects.toMatchObject(
     new BlobContentKeyBundleError("Blob write header does not match blob", 409),
   );
-  await expect(
-    storeBlobContentWriteHeader(
-      {
-        blobId,
-        header: { ...header, contentKeyEpoch: 2 },
-        headerHash: await hashOf("blob-write-header-unsupported-epoch"),
-        recordId: crypto.randomUUID(),
-      },
-      db,
-    ),
-  ).rejects.toMatchObject(
-    new BlobContentKeyBundleError(
-      "Blob content key epoch must be 1; replace the blob after target shrink",
-      409,
-    ),
-  );
-
   const secondRecordId = crypto.randomUUID();
   const secondHeader = await createBlobWriteHeader({
     blobId,

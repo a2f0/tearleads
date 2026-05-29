@@ -126,6 +126,7 @@ async function decryptLoadedDocumentAttachmentBlob(
   },
 ): Promise<HydratedDocumentAttachmentBlob> {
   const bytes = await decryptDocumentAttachmentBlob({
+    contentKeyBundle: input.loaded.binding.contentKeyBundle,
     encryptedBytes: input.loaded.encryptedBytes,
     expectedBindingId: input.loaded.binding.bindingId,
     expectedBlobId: input.loaded.binding.blobId,

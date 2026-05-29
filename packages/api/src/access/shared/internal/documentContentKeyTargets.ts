@@ -4,7 +4,15 @@ import {
   type KeyingCanonicalJson,
   KeyingVerificationError,
 } from "@tearleads/crypto";
-import { canonicalJsonEquals } from "../../../utils/canonicalJson";
+import {
+  assertContentKeyWrappedMaterialPresent,
+  assertNoDuplicateContentKeyTargets,
+  contentKeyTargetEnvelopeEqual,
+  contentKeyTargetEnvelopeMaterialEqual,
+  contentKeyTargetsContainPreviousBundle,
+  expectedContentKeyTargetMap,
+  sortContentKeyTargetEnvelopes,
+} from "./contentKeyTargetPolicy";
 import type { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
 
 export type CurrentDocumentKekTargets = Awaited<
@@ -58,15 +66,7 @@ function toTargetFields(
 export function sortTargetEnvelopes(
   targets: readonly DocumentContentKeyTargetEnvelope[],
 ): DocumentContentKeyTargetEnvelope[] {
-  return [...targets].sort((left, right) => {
-    if (left.containerId < right.containerId) {
-      return -1;
-    }
-    if (left.containerId > right.containerId) {
-      return 1;
-    }
-    return 0;
-  });
+  return sortContentKeyTargetEnvelopes(targets, targetKey);
 }
 
 function targetFieldsEqual(
@@ -96,21 +96,17 @@ export function targetEnvelopeEqual(
   left: DocumentContentKeyTargetEnvelope,
   right: DocumentContentKeyTargetEnvelope,
 ): boolean {
-  return (
-    targetFieldsEqual(left, right) &&
-    left.wrappedKey === right.wrappedKey &&
-    canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
-  );
+  return contentKeyTargetEnvelopeEqual(left, right, targetFieldsEqual);
 }
 
 export function targetEnvelopeMaterialEqual(
   left: DocumentContentKeyTargetEnvelope,
   right: DocumentContentKeyTargetEnvelope,
 ): boolean {
-  return (
-    targetKeyMaterialEqual(left, right) &&
-    left.wrappedKey === right.wrappedKey &&
-    canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
+  return contentKeyTargetEnvelopeMaterialEqual(
+    left,
+    right,
+    targetKeyMaterialEqual,
   );
 }
 
@@ -126,48 +122,45 @@ export function ensurePositiveContentKeyEpoch(contentKeyEpoch: number): void {
 function assertNoDuplicateTargetContainers(
   targets: readonly DocumentContentKeyTargetEnvelope[],
 ): void {
-  const targetContainerIds = targets.map((target) => target.containerId);
-  if (new Set(targetContainerIds).size !== targetContainerIds.length) {
-    throw new DocumentContentKeyBundleError(
-      "Document content-key targets contain duplicate containers",
-      409,
-    );
-  }
+  assertNoDuplicateContentKeyTargets(
+    targets,
+    targetKey,
+    () =>
+      new DocumentContentKeyBundleError(
+        "Document content-key targets contain duplicate containers",
+        409,
+      ),
+  );
 }
 
 function assertWrappedMaterialPresent(
   targets: readonly DocumentContentKeyTargetEnvelope[],
 ): void {
-  for (const target of targets) {
-    if (target.wrappedKey.length === 0) {
-      throw new DocumentContentKeyBundleError(
+  assertContentKeyWrappedMaterialPresent(
+    targets,
+    () =>
+      new DocumentContentKeyBundleError(
         "Document content-key target is missing wrapped key material",
         400,
-      );
-    }
-  }
+      ),
+  );
 }
 
 function expectedTargetMap(
   targets: readonly DocumentContentKeyTarget[],
 ): Map<string, DocumentContentKeyTarget> {
-  return new Map(targets.map((target) => [targetKey(target), target]));
+  return expectedContentKeyTargetMap(targets, targetKey);
 }
 
 export function currentTargetsContainPreviousBundle(input: {
   readonly currentTargets: readonly DocumentContentKeyTarget[];
   readonly previousTargets: readonly DocumentContentKeyTargetEnvelope[];
 }): boolean {
-  const currentTargetByContainerId = expectedTargetMap(input.currentTargets);
-
-  return input.previousTargets.every((previousTarget) => {
-    const currentTarget = currentTargetByContainerId.get(
-      previousTarget.containerId,
-    );
-    return (
-      currentTarget !== undefined &&
-      targetKeyMaterialEqual(previousTarget, currentTarget)
-    );
+  return contentKeyTargetsContainPreviousBundle({
+    currentTargets: input.currentTargets,
+    previousTargets: input.previousTargets,
+    targetKey,
+    targetFieldsEqual: targetKeyMaterialEqual,
   });
 }
 
