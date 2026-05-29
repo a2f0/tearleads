@@ -4,7 +4,6 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import {
-  Fragment,
   type MouseEvent,
   type ReactNode,
   useCallback,
@@ -24,7 +23,9 @@ import {
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ExplorerSyncStateBadge } from "./ExplorerSyncStateBadge";
 
-const EXPLORER_SIDEBAR_DOCUMENT_PAGE_SIZE = 50;
+const EXPLORER_SIDEBAR_ROW_HEIGHT = 28;
+const EXPLORER_SIDEBAR_OVERSCAN_ROWS = 8;
+const EXPLORER_SIDEBAR_MIN_WINDOW_ROWS = 24;
 
 export interface ExplorerTreeEntry {
   children: ExplorerTreeEntry[];
@@ -65,16 +66,21 @@ export function buildExplorerTree(
   return roots;
 }
 
-interface ExplorerTreeEntriesProps {
+interface ExplorerSidebarDocumentWindowState {
+  error: string | null;
+  isLoading: boolean;
+  offset: number;
+  rows: ReadonlyArray<ContainerDocumentSidebarRow>;
+  totalCount: number | null;
+}
+
+interface ExplorerSidebarRowProps {
   activeContainerId: string | null;
-  collapsedIds: ReadonlySet<string>;
   depth: number;
   documentWindowsByContainerId: ReadonlyMap<
     string,
     ExplorerSidebarDocumentWindowState
   >;
-  entries: ReadonlyArray<ExplorerTreeEntry>;
-  onLoadMoreDocuments: (containerId: string) => void;
   onContextMenu: (event: MouseEvent<HTMLButtonElement>, id: string) => void;
   onDocumentContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
@@ -83,15 +89,10 @@ interface ExplorerTreeEntriesProps {
   ) => void;
   onSelectContainer: (id: string) => void;
   onSelectDocument: (documentId: string, containerId: string) => void;
+  onRetryDocumentWindow: (containerId: string, offset: number) => void;
   onToggleCollapsed: (id: string) => void;
   online: boolean;
   selectedId: string | null;
-}
-
-function ExplorerTreeEntries(props: ExplorerTreeEntriesProps): ReactNode {
-  return props.entries.map((entry) => (
-    <ExplorerTreeEntryNode key={entry.node.id} {...props} entry={entry} />
-  ));
 }
 
 function ExplorerSidebarItemLabel(params: {
@@ -110,52 +111,98 @@ function ExplorerSidebarItemLabel(params: {
   );
 }
 
-function ExplorerTreeDocumentRows(
-  props: Omit<ExplorerTreeEntriesProps, "entries"> & {
-    depth: number;
-    rows: ReadonlyArray<ContainerDocumentSidebarRow>;
+function getExplorerSidebarRowStyle(depth: number): {
+  paddingLeft: string;
+} {
+  return {
+    paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth}))`,
+  };
+}
+
+function ExplorerTreeDocumentRow(
+  props: Omit<
+    ExplorerSidebarRowProps,
+    "onContextMenu" | "onToggleCollapsed"
+  > & {
+    row: ContainerDocumentSidebarRow;
   },
 ) {
-  return props.rows.map(({ containerId, localId, syncState, title }) => (
+  const { row } = props;
+
+  return (
     <div
       className="explorer-sidebar-row"
-      key={`${localId}:${containerId}`}
-      style={{
-        paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${props.depth}))`,
-      }}
+      style={getExplorerSidebarRowStyle(props.depth)}
     >
       <span className="explorer-node-spacer" aria-hidden="true" />
       <MiniAppRowButton
-        data-document-local-id={localId}
+        data-document-local-id={row.localId}
         className="explorer-sidebar-item explorer-sidebar-item--note"
-        onClick={() => props.onSelectDocument(localId, containerId)}
+        onClick={() => props.onSelectDocument(row.localId, row.containerId)}
         onContextMenu={(event) =>
-          props.onDocumentContextMenu(event, localId, containerId)
+          props.onDocumentContextMenu(event, row.localId, row.containerId)
         }
         selected={
-          props.selectedId === localId &&
-          props.activeContainerId === containerId
+          props.selectedId === row.localId &&
+          props.activeContainerId === row.containerId
         }
       >
-        <ExplorerSidebarItemLabel online={props.online} syncState={syncState}>
-          {title}
+        <ExplorerSidebarItemLabel
+          online={props.online}
+          syncState={row.syncState}
+        >
+          {row.title}
         </ExplorerSidebarItemLabel>
       </MiniAppRowButton>
     </div>
-  ));
+  );
 }
 
-function ExplorerTreeEntryNode(
-  props: Omit<ExplorerTreeEntriesProps, "entries"> & {
-    entry: ExplorerTreeEntry;
+function ExplorerTreeDocumentPlaceholderRow(
+  props: Pick<ExplorerSidebarRowProps, "depth" | "onRetryDocumentWindow"> & {
+    containerId: string;
+    error: string | null;
+    isLoading: boolean;
+    offset: number;
   },
 ) {
   const {
-    collapsedIds,
+    containerId,
     depth,
-    documentWindowsByContainerId,
+    error,
+    isLoading,
+    offset,
+    onRetryDocumentWindow,
+  } = props;
+  const label = error ? "Retry" : "Loading...";
+
+  return (
+    <div
+      className="explorer-sidebar-row"
+      style={getExplorerSidebarRowStyle(depth)}
+    >
+      <span className="explorer-node-spacer" aria-hidden="true" />
+      <MiniAppRowButton
+        className="explorer-sidebar-item explorer-sidebar-item--more"
+        disabled={!error || isLoading}
+        onClick={() => onRetryDocumentWindow(containerId, offset)}
+      >
+        <MiniAppRowText>{label}</MiniAppRowText>
+      </MiniAppRowButton>
+    </div>
+  );
+}
+
+function ExplorerTreeContainerRow(
+  props: Omit<ExplorerSidebarRowProps, "onDocumentContextMenu"> & {
+    entry: ExplorerTreeEntry;
+    isCollapsed: boolean;
+  },
+) {
+  const {
+    depth,
     entry,
-    onLoadMoreDocuments,
+    isCollapsed,
     onContextMenu,
     onSelectContainer,
     onToggleCollapsed,
@@ -163,118 +210,45 @@ function ExplorerTreeEntryNode(
     selectedId,
   } = props;
   const hasChildren = entry.children.length > 0;
-  const isCollapsed = collapsedIds.has(entry.node.id);
   const isSelected = selectedId === entry.node.id;
-
-  return (
-    <Fragment>
-      <div
-        className="explorer-sidebar-row"
-        style={{
-          paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth}))`,
-        }}
-      >
-        {hasChildren ? (
-          <button
-            type="button"
-            className="explorer-node-toggle"
-            aria-label={isCollapsed ? "Expand container" : "Collapse container"}
-            aria-expanded={!isCollapsed}
-            onClick={() => onToggleCollapsed(entry.node.id)}
-          >
-            <span
-              className={
-                "explorer-node-icon" +
-                (!isCollapsed ? " explorer-node-icon--expanded" : "")
-              }
-            >
-              {"\u25B6"}
-            </span>
-          </button>
-        ) : (
-          <span className="explorer-node-spacer" aria-hidden="true" />
-        )}
-        <MiniAppRowButton
-          className="explorer-sidebar-item"
-          onClick={() => onSelectContainer(entry.node.id)}
-          onContextMenu={(event) => onContextMenu(event, entry.node.id)}
-          selected={isSelected}
-        >
-          <ExplorerSidebarItemLabel
-            online={online}
-            syncState={entry.node.syncState}
-          >
-            {entry.node.name}
-          </ExplorerSidebarItemLabel>
-        </MiniAppRowButton>
-      </div>
-      {!isCollapsed && (
-        <ExplorerTreeEntries
-          {...props}
-          depth={depth + 1}
-          entries={entry.children}
-        />
-      )}
-      {!isCollapsed ? (
-        <ExplorerTreeDocumentRows
-          {...props}
-          depth={depth + 1}
-          rows={documentWindowsByContainerId.get(entry.node.id)?.rows ?? []}
-        />
-      ) : null}
-      {!isCollapsed ? (
-        <ExplorerTreeEntryDocumentMoreRow
-          depth={depth + 1}
-          onLoadMore={() => onLoadMoreDocuments(entry.node.id)}
-          state={documentWindowsByContainerId.get(entry.node.id)}
-        />
-      ) : null}
-    </Fragment>
-  );
-}
-
-interface ExplorerSidebarDocumentWindowState {
-  error: string | null;
-  isLoading: boolean;
-  rows: ReadonlyArray<ContainerDocumentSidebarRow>;
-  totalCount: number;
-}
-
-function ExplorerTreeEntryDocumentMoreRow(params: {
-  depth: number;
-  onLoadMore: () => void;
-  state: ExplorerSidebarDocumentWindowState | undefined;
-}) {
-  const { depth, onLoadMore, state } = params;
-  if (!state) {
-    return null;
-  }
-
-  const remainingCount = Math.max(0, state.totalCount - state.rows.length);
-  if (!state.isLoading && !state.error && remainingCount === 0) {
-    return null;
-  }
-
-  const label = state.error
-    ? "Retry"
-    : state.isLoading
-      ? "Loading..."
-      : `Load ${Math.min(remainingCount, EXPLORER_SIDEBAR_DOCUMENT_PAGE_SIZE)} more`;
 
   return (
     <div
       className="explorer-sidebar-row"
-      style={{
-        paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth}))`,
-      }}
+      style={getExplorerSidebarRowStyle(depth)}
     >
-      <span className="explorer-node-spacer" aria-hidden="true" />
+      {hasChildren ? (
+        <button
+          type="button"
+          className="explorer-node-toggle"
+          aria-label={isCollapsed ? "Expand container" : "Collapse container"}
+          aria-expanded={!isCollapsed}
+          onClick={() => onToggleCollapsed(entry.node.id)}
+        >
+          <span
+            className={
+              "explorer-node-icon" +
+              (!isCollapsed ? " explorer-node-icon--expanded" : "")
+            }
+          >
+            {"\u25B6"}
+          </span>
+        </button>
+      ) : (
+        <span className="explorer-node-spacer" aria-hidden="true" />
+      )}
       <MiniAppRowButton
-        className="explorer-sidebar-item explorer-sidebar-item--more"
-        disabled={state.isLoading}
-        onClick={onLoadMore}
+        className="explorer-sidebar-item"
+        onClick={() => onSelectContainer(entry.node.id)}
+        onContextMenu={(event) => onContextMenu(event, entry.node.id)}
+        selected={isSelected}
       >
-        <MiniAppRowText>{label}</MiniAppRowText>
+        <ExplorerSidebarItemLabel
+          online={online}
+          syncState={entry.node.syncState}
+        >
+          {entry.node.name}
+        </ExplorerSidebarItemLabel>
       </MiniAppRowButton>
     </div>
   );
@@ -308,6 +282,429 @@ function getExplorerTreeIdSetKey(ids: ReadonlySet<string>): string {
   return Array.from(ids).sort().join("\u0000");
 }
 
+export function getExplorerSidebarWindowRange(params: {
+  scrollTop: number;
+  viewportHeight: number;
+}): { limit: number; offset: number } {
+  const scrollTop = Number.isFinite(params.scrollTop)
+    ? Math.max(0, params.scrollTop)
+    : 0;
+  const viewportHeight = Number.isFinite(params.viewportHeight)
+    ? Math.max(0, params.viewportHeight)
+    : 0;
+  const visibleRows = Math.ceil(viewportHeight / EXPLORER_SIDEBAR_ROW_HEIGHT);
+  const offset = Math.max(
+    0,
+    Math.floor(scrollTop / EXPLORER_SIDEBAR_ROW_HEIGHT) -
+      EXPLORER_SIDEBAR_OVERSCAN_ROWS,
+  );
+  const limit = Math.max(
+    EXPLORER_SIDEBAR_MIN_WINDOW_ROWS,
+    visibleRows + EXPLORER_SIDEBAR_OVERSCAN_ROWS * 2,
+  );
+
+  return { limit, offset };
+}
+
+type ExplorerSidebarSection =
+  | {
+      depth: number;
+      entry: ExplorerTreeEntry;
+      kind: "container";
+      rowCount: 1;
+    }
+  | {
+      containerId: string;
+      depth: number;
+      kind: "documents";
+      rowCount: number;
+      state: ExplorerSidebarDocumentWindowState;
+    }
+  | {
+      containerId: string;
+      depth: number;
+      error: string | null;
+      isLoading: boolean;
+      kind: "document-status";
+      rowCount: 1;
+    };
+
+type ExplorerSidebarVirtualRow =
+  | {
+      depth: number;
+      entry: ExplorerTreeEntry;
+      isCollapsed: boolean;
+      key: string;
+      kind: "container";
+    }
+  | {
+      containerId: string;
+      depth: number;
+      documentIndex: number;
+      key: string;
+      kind: "document";
+      state: ExplorerSidebarDocumentWindowState;
+    }
+  | {
+      containerId: string;
+      depth: number;
+      error: string | null;
+      isLoading: boolean;
+      key: string;
+      kind: "document-status";
+    };
+
+function buildExplorerSidebarSections(params: {
+  collapsedIds: ReadonlySet<string>;
+  documentWindowsByContainerId: ReadonlyMap<
+    string,
+    ExplorerSidebarDocumentWindowState
+  >;
+  entries: ReadonlyArray<ExplorerTreeEntry>;
+}): ReadonlyArray<ExplorerSidebarSection> {
+  const { collapsedIds, documentWindowsByContainerId, entries } = params;
+  const sections: ExplorerSidebarSection[] = [];
+
+  function visit(entry: ExplorerTreeEntry, depth: number) {
+    sections.push({
+      depth,
+      entry,
+      kind: "container",
+      rowCount: 1,
+    });
+
+    if (collapsedIds.has(entry.node.id)) {
+      return;
+    }
+
+    for (const child of entry.children) {
+      visit(child, depth + 1);
+    }
+
+    const state = documentWindowsByContainerId.get(entry.node.id);
+    if (state?.totalCount !== null && state?.totalCount !== undefined) {
+      if (state.totalCount > 0) {
+        sections.push({
+          containerId: entry.node.id,
+          depth: depth + 1,
+          kind: "documents",
+          rowCount: state.totalCount,
+          state,
+        });
+      }
+      return;
+    }
+
+    sections.push({
+      containerId: entry.node.id,
+      depth: depth + 1,
+      error: state?.error ?? null,
+      isLoading: state?.isLoading ?? true,
+      kind: "document-status",
+      rowCount: 1,
+    });
+  }
+
+  for (const entry of entries) {
+    visit(entry, 0);
+  }
+
+  return sections;
+}
+
+function countExplorerSidebarRows(
+  sections: ReadonlyArray<ExplorerSidebarSection>,
+): number {
+  return sections.reduce((count, section) => count + section.rowCount, 0);
+}
+
+function getExplorerSidebarRowsInRange(params: {
+  collapsedIds: ReadonlySet<string>;
+  limit: number;
+  offset: number;
+  sections: ReadonlyArray<ExplorerSidebarSection>;
+}): ReadonlyArray<ExplorerSidebarVirtualRow> {
+  const { collapsedIds, limit, offset, sections } = params;
+  const rows: ExplorerSidebarVirtualRow[] = [];
+  const endOffset = offset + limit;
+  let cursor = 0;
+
+  for (const section of sections) {
+    const sectionStart = cursor;
+    const sectionEnd = sectionStart + section.rowCount;
+    cursor = sectionEnd;
+
+    if (sectionEnd <= offset) {
+      continue;
+    }
+
+    if (sectionStart >= endOffset) {
+      break;
+    }
+
+    const startInSection = Math.max(0, offset - sectionStart);
+    const endInSection = Math.min(section.rowCount, endOffset - sectionStart);
+
+    if (section.kind === "container") {
+      rows.push({
+        depth: section.depth,
+        entry: section.entry,
+        isCollapsed: collapsedIds.has(section.entry.node.id),
+        key: `container:${section.entry.node.id}`,
+        kind: "container",
+      });
+      continue;
+    }
+
+    if (section.kind === "document-status") {
+      rows.push({
+        containerId: section.containerId,
+        depth: section.depth,
+        error: section.error,
+        isLoading: section.isLoading,
+        key: `document-status:${section.containerId}`,
+        kind: "document-status",
+      });
+      continue;
+    }
+
+    for (
+      let documentIndex = startInSection;
+      documentIndex < endInSection;
+      documentIndex += 1
+    ) {
+      rows.push({
+        containerId: section.containerId,
+        depth: section.depth,
+        documentIndex,
+        key: `document:${section.containerId}:${documentIndex}`,
+        kind: "document",
+        state: section.state,
+      });
+    }
+  }
+
+  return rows;
+}
+
+function getLoadedExplorerSidebarDocumentRow(
+  row: Extract<ExplorerSidebarVirtualRow, { kind: "document" }>,
+): ContainerDocumentSidebarRow | null {
+  const rowOffset = row.documentIndex - row.state.offset;
+  return rowOffset >= 0 && rowOffset < row.state.rows.length
+    ? (row.state.rows[rowOffset] ?? null)
+    : null;
+}
+
+function getExplorerSidebarDocumentWindowRequests(params: {
+  documentWindowsByContainerId: ReadonlyMap<
+    string,
+    ExplorerSidebarDocumentWindowState
+  >;
+  rows: ReadonlyArray<ExplorerSidebarVirtualRow>;
+}): ReadonlyArray<{ containerId: string; limit: number; offset: number }> {
+  const requestsByContainerId = new Map<
+    string,
+    {
+      hasMissingRows: boolean;
+      maxIndex: number;
+      minIndex: number;
+      shouldRequest: boolean;
+    }
+  >();
+
+  for (const row of params.rows) {
+    if (row.kind === "document-status") {
+      if (!row.error) {
+        requestsByContainerId.set(row.containerId, {
+          hasMissingRows: true,
+          maxIndex: EXPLORER_SIDEBAR_MIN_WINDOW_ROWS - 1,
+          minIndex: 0,
+          shouldRequest: true,
+        });
+      }
+      continue;
+    }
+
+    if (row.kind !== "document") {
+      continue;
+    }
+
+    if (row.state.error) {
+      continue;
+    }
+
+    const range = requestsByContainerId.get(row.containerId);
+    const hasLoadedRow = Boolean(getLoadedExplorerSidebarDocumentRow(row));
+    if (!range) {
+      requestsByContainerId.set(row.containerId, {
+        hasMissingRows: !hasLoadedRow,
+        maxIndex: row.documentIndex,
+        minIndex: row.documentIndex,
+        shouldRequest: false,
+      });
+      continue;
+    }
+
+    range.hasMissingRows ||= !hasLoadedRow;
+    range.minIndex = Math.min(range.minIndex, row.documentIndex);
+    range.maxIndex = Math.max(range.maxIndex, row.documentIndex);
+  }
+
+  return Array.from(requestsByContainerId.entries())
+    .filter(([, range]) => range.shouldRequest || range.hasMissingRows)
+    .map(([containerId, range]) => {
+      const state = params.documentWindowsByContainerId.get(containerId);
+      const offset = Math.max(0, range.minIndex);
+      const requestedLimit = Math.max(
+        EXPLORER_SIDEBAR_MIN_WINDOW_ROWS,
+        range.maxIndex - offset + 1,
+      );
+      const limit =
+        state?.totalCount === null || state?.totalCount === undefined
+          ? requestedLimit
+          : Math.min(requestedLimit, Math.max(0, state.totalCount - offset));
+
+      return {
+        containerId,
+        limit,
+        offset,
+      };
+    });
+}
+
+function useExplorerSidebarViewport() {
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const frameRef = useCallback((nextFrame: HTMLDivElement | null) => {
+    setFrame(nextFrame);
+  }, []);
+
+  useEffect(() => {
+    if (!frame) {
+      return;
+    }
+
+    const handleScroll = () => {
+      setScrollTop(frame.scrollTop);
+    };
+
+    handleScroll();
+    frame.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      frame.removeEventListener("scroll", handleScroll);
+    };
+  }, [frame]);
+
+  useEffect(() => {
+    if (!frame || typeof ResizeObserver === "undefined") {
+      setViewportHeight(frame?.clientHeight ?? 0);
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const [entry] = entries;
+      if (entry) {
+        setViewportHeight(entry.contentRect.height);
+      }
+    });
+    resizeObserver.observe(frame);
+    setViewportHeight(frame.clientHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [frame]);
+
+  return { frameRef, scrollTop, viewportHeight };
+}
+
+function ExplorerSidebarVirtualRowView(
+  props: ExplorerSidebarRowProps & {
+    row: ExplorerSidebarVirtualRow;
+  },
+) {
+  const { row } = props;
+
+  if (row.kind === "container") {
+    return (
+      <ExplorerTreeContainerRow
+        {...props}
+        depth={row.depth}
+        entry={row.entry}
+        isCollapsed={row.isCollapsed}
+      />
+    );
+  }
+
+  if (row.kind === "document-status") {
+    return (
+      <ExplorerTreeDocumentPlaceholderRow
+        containerId={row.containerId}
+        depth={row.depth}
+        error={row.error}
+        isLoading={row.isLoading}
+        offset={0}
+        onRetryDocumentWindow={props.onRetryDocumentWindow}
+      />
+    );
+  }
+
+  const documentRow = getLoadedExplorerSidebarDocumentRow(row);
+  if (documentRow) {
+    return (
+      <ExplorerTreeDocumentRow {...props} depth={row.depth} row={documentRow} />
+    );
+  }
+
+  return (
+    <ExplorerTreeDocumentPlaceholderRow
+      containerId={row.containerId}
+      depth={row.depth}
+      error={row.state.error}
+      isLoading={row.state.isLoading}
+      offset={row.documentIndex}
+      onRetryDocumentWindow={props.onRetryDocumentWindow}
+    />
+  );
+}
+
+function ExplorerSidebarVirtualTree(
+  props: ExplorerSidebarRowProps & {
+    offset: number;
+    rows: ReadonlyArray<ExplorerSidebarVirtualRow>;
+    totalRows: number;
+  },
+) {
+  const topPadding = props.offset * EXPLORER_SIDEBAR_ROW_HEIGHT;
+  const bottomPadding =
+    Math.max(0, props.totalRows - props.offset - props.rows.length) *
+    EXPLORER_SIDEBAR_ROW_HEIGHT;
+
+  return (
+    <div className="explorer-sidebar-virtual-space">
+      {topPadding > 0 ? (
+        <div
+          aria-hidden="true"
+          className="explorer-sidebar-virtual-spacer"
+          style={{ height: topPadding }}
+        />
+      ) : null}
+      {props.rows.map((row) => (
+        <ExplorerSidebarVirtualRowView {...props} key={row.key} row={row} />
+      ))}
+      {bottomPadding > 0 ? (
+        <div
+          aria-hidden="true"
+          className="explorer-sidebar-virtual-spacer"
+          style={{ height: bottomPadding }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The sidebar window hook owns paging, reload, and pruning state for a single UI surface.
 function useExplorerSidebarDocumentWindows(params: {
   collapsedIds: ReadonlySet<string>;
@@ -328,11 +725,14 @@ function useExplorerSidebarDocumentWindows(params: {
     treeEntries,
   } = params;
   const loadGenerationRef = useRef(0);
+  const latestWindowLoadKeyByContainerIdRef = useRef(new Map<string, string>());
   const pendingWindowLoadKeysRef = useRef(new Set<string>());
   const [documentWindowsByContainerId, setDocumentWindowsByContainerId] =
     useState<ReadonlyMap<string, ExplorerSidebarDocumentWindowState>>(
       () => new Map(),
     );
+  const documentWindowsByContainerIdRef = useRef(documentWindowsByContainerId);
+  documentWindowsByContainerIdRef.current = documentWindowsByContainerId;
   const collapsedIdsKey = useMemo(
     () => getExplorerTreeIdSetKey(collapsedIds),
     [collapsedIds],
@@ -349,23 +749,27 @@ function useExplorerSidebarDocumentWindows(params: {
     [nodes],
   );
 
-  const loadDocumentWindow = useCallback(
-    (containerId: string, offset: number) => {
+  const requestDocumentWindow = useCallback(
+    (containerId: string, offset: number, limit: number) => {
       const generation = loadGenerationRef.current;
-      const loadKey = `${generation}\u0000${containerId}\u0000${offset}`;
+      const loadKey = `${generation}\u0000${containerId}\u0000${offset}\u0000${limit}`;
       if (pendingWindowLoadKeysRef.current.has(loadKey)) {
         return;
       }
 
       pendingWindowLoadKeysRef.current.add(loadKey);
+      if (limit > 0) {
+        latestWindowLoadKeyByContainerIdRef.current.set(containerId, loadKey);
+      }
       setDocumentWindowsByContainerId((currentWindows) => {
         const currentWindow = currentWindows.get(containerId);
         const nextWindows = new Map(currentWindows);
         nextWindows.set(containerId, {
           error: null,
           isLoading: true,
+          offset: currentWindow?.offset ?? offset,
           rows: currentWindow?.rows ?? [],
-          totalCount: currentWindow?.totalCount ?? 0,
+          totalCount: currentWindow?.totalCount ?? null,
         });
         return nextWindows;
       });
@@ -373,7 +777,7 @@ function useExplorerSidebarDocumentWindows(params: {
       void documentReadModel
         .listContainerDocumentSidebarWindow({
           containerId,
-          limit: EXPLORER_SIDEBAR_DOCUMENT_PAGE_SIZE,
+          limit,
           offset,
         })
         .then((documentWindow) => {
@@ -381,18 +785,23 @@ function useExplorerSidebarDocumentWindows(params: {
           if (loadGenerationRef.current !== generation) {
             return;
           }
+          if (
+            limit > 0 &&
+            latestWindowLoadKeyByContainerIdRef.current.get(containerId) !==
+              loadKey
+          ) {
+            return;
+          }
 
           setDocumentWindowsByContainerId((currentWindows) => {
             const currentWindow = currentWindows.get(containerId);
-            const nextRows =
-              offset === 0
-                ? documentWindow.rows
-                : [...(currentWindow?.rows ?? []), ...documentWindow.rows];
             const nextWindows = new Map(currentWindows);
             nextWindows.set(containerId, {
               error: null,
               isLoading: false,
-              rows: nextRows,
+              offset: limit === 0 ? (currentWindow?.offset ?? 0) : offset,
+              rows:
+                limit === 0 ? (currentWindow?.rows ?? []) : documentWindow.rows,
               totalCount: documentWindow.totalCount,
             });
             return nextWindows;
@@ -403,15 +812,28 @@ function useExplorerSidebarDocumentWindows(params: {
           if (loadGenerationRef.current !== generation) {
             return;
           }
+          if (
+            limit > 0 &&
+            latestWindowLoadKeyByContainerIdRef.current.get(containerId) !==
+              loadKey
+          ) {
+            return;
+          }
 
           setDocumentWindowsByContainerId((currentWindows) => {
             const currentWindow = currentWindows.get(containerId);
+            const message =
+              error instanceof Error ? error.message : String(error);
             const nextWindows = new Map(currentWindows);
             nextWindows.set(containerId, {
-              error: error instanceof Error ? error.message : String(error),
+              error:
+                limit === 0 && currentWindow?.totalCount != null
+                  ? (currentWindow?.error ?? null)
+                  : message,
               isLoading: false,
+              offset: currentWindow?.offset ?? offset,
               rows: currentWindow?.rows ?? [],
-              totalCount: currentWindow?.totalCount ?? 0,
+              totalCount: currentWindow?.totalCount ?? null,
             });
             return nextWindows;
           });
@@ -422,6 +844,7 @@ function useExplorerSidebarDocumentWindows(params: {
 
   useEffect(() => {
     loadGenerationRef.current += 1;
+    latestWindowLoadKeyByContainerIdRef.current.clear();
     pendingWindowLoadKeysRef.current.clear();
     setDocumentWindowsByContainerId((currentWindows) =>
       currentWindows.size === 0 ? currentWindows : new Map(),
@@ -434,20 +857,28 @@ function useExplorerSidebarDocumentWindows(params: {
     }
 
     loadGenerationRef.current += 1;
+    latestWindowLoadKeyByContainerIdRef.current.clear();
     pendingWindowLoadKeysRef.current.clear();
     for (const containerId of expandedContainerIdsRef.current) {
-      loadDocumentWindow(containerId, 0);
+      const currentWindow =
+        documentWindowsByContainerIdRef.current.get(containerId);
+      requestDocumentWindow(
+        containerId,
+        currentWindow?.offset ?? 0,
+        currentWindow?.rows.length ?? 0,
+      );
     }
   }, [
     documentLinkProjectionVersion,
     documentListRevision,
-    loadDocumentWindow,
+    requestDocumentWindow,
     ready,
   ]);
 
   useEffect(() => {
     if (!ready) {
       loadGenerationRef.current += 1;
+      latestWindowLoadKeyByContainerIdRef.current.clear();
       pendingWindowLoadKeysRef.current.clear();
       setDocumentWindowsByContainerId((currentWindows) =>
         currentWindows.size === 0 ? currentWindows : new Map(),
@@ -478,45 +909,166 @@ function useExplorerSidebarDocumentWindows(params: {
 
     for (const containerId of expandedContainerIds) {
       if (!documentWindowsByContainerId.has(containerId)) {
-        loadDocumentWindow(containerId, 0);
+        requestDocumentWindow(containerId, 0, 0);
       }
     }
   }, [
     documentWindowsByContainerId,
     expandedContainerIds,
     expandedContainerIdsKey,
-    loadDocumentWindow,
+    requestDocumentWindow,
     ready,
   ]);
 
-  const loadMoreDocuments = useCallback(
-    (containerId: string) => {
-      const currentWindow = documentWindowsByContainerId.get(containerId);
-      if (!currentWindow || currentWindow.isLoading) {
-        return;
-      }
-
-      if (currentWindow.error) {
-        loadDocumentWindow(containerId, currentWindow.rows.length);
-        return;
-      }
-
-      if (currentWindow.rows.length >= currentWindow.totalCount) {
-        return;
-      }
-
-      loadDocumentWindow(containerId, currentWindow.rows.length);
-    },
-    [documentWindowsByContainerId, loadDocumentWindow],
-  );
-
   return {
     documentWindowsByContainerId,
-    loadMoreDocuments,
+    requestDocumentWindow,
   };
 }
 
-export function useExplorerSidebarPanel(params: {
+function useExplorerSidebarVisibleRows(params: {
+  collapsedIds: ReadonlySet<string>;
+  documentWindowsByContainerId: ReadonlyMap<
+    string,
+    ExplorerSidebarDocumentWindowState
+  >;
+  treeEntries: ReadonlyArray<ExplorerTreeEntry>;
+}) {
+  const { collapsedIds, documentWindowsByContainerId, treeEntries } = params;
+  const collapsedIdsKey = useMemo(
+    () => getExplorerTreeIdSetKey(collapsedIds),
+    [collapsedIds],
+  );
+  const { frameRef, scrollTop, viewportHeight } = useExplorerSidebarViewport();
+  const sidebarRange = useMemo(
+    () => getExplorerSidebarWindowRange({ scrollTop, viewportHeight }),
+    [scrollTop, viewportHeight],
+  );
+  const sidebarSections = useMemo(
+    () =>
+      buildExplorerSidebarSections({
+        collapsedIds,
+        documentWindowsByContainerId,
+        entries: treeEntries,
+      }),
+    [collapsedIdsKey, documentWindowsByContainerId, treeEntries],
+  );
+  const totalRows = useMemo(
+    () => countExplorerSidebarRows(sidebarSections),
+    [sidebarSections],
+  );
+  const offset = Math.min(
+    sidebarRange.offset,
+    Math.max(0, totalRows - sidebarRange.limit),
+  );
+  const rows = useMemo(
+    () =>
+      getExplorerSidebarRowsInRange({
+        collapsedIds,
+        limit: sidebarRange.limit,
+        offset,
+        sections: sidebarSections,
+      }),
+    [collapsedIdsKey, offset, sidebarRange.limit, sidebarSections],
+  );
+
+  return { frameRef, offset, rows, totalRows };
+}
+
+function useExplorerSidebarDocumentWindowLoader(params: {
+  documentWindowsByContainerId: ReadonlyMap<
+    string,
+    ExplorerSidebarDocumentWindowState
+  >;
+  ready: boolean;
+  requestDocumentWindow: (
+    containerId: string,
+    offset: number,
+    limit: number,
+  ) => void;
+  rows: ReadonlyArray<ExplorerSidebarVirtualRow>;
+}) {
+  const { documentWindowsByContainerId, ready, requestDocumentWindow, rows } =
+    params;
+  const sidebarDocumentWindowRequests = useMemo(
+    () =>
+      getExplorerSidebarDocumentWindowRequests({
+        documentWindowsByContainerId,
+        rows,
+      }),
+    [documentWindowsByContainerId, rows],
+  );
+  const retryDocumentWindow = useCallback(
+    (containerId: string, offset: number) => {
+      requestDocumentWindow(
+        containerId,
+        offset,
+        EXPLORER_SIDEBAR_MIN_WINDOW_ROWS,
+      );
+    },
+    [requestDocumentWindow],
+  );
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    for (const request of sidebarDocumentWindowRequests) {
+      if (request.limit > 0) {
+        requestDocumentWindow(
+          request.containerId,
+          request.offset,
+          request.limit,
+        );
+      }
+    }
+  }, [ready, requestDocumentWindow, sidebarDocumentWindowRequests]);
+
+  return retryDocumentWindow;
+}
+
+interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
+  frameRef: (nextFrame: HTMLDivElement | null) => void;
+  nodesLength: number;
+  offset: number;
+  ready: boolean;
+  rows: ReadonlyArray<ExplorerSidebarVirtualRow>;
+  totalRows: number;
+}
+
+function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
+  return (
+    <MiniAppSidebar className="explorer-sidebar explorer-sidebar--virtual">
+      <div className="explorer-sidebar-viewport" ref={props.frameRef}>
+        {!props.ready ? (
+          <MiniAppStatus>Loading...</MiniAppStatus>
+        ) : props.nodesLength === 0 ? (
+          <MiniAppStatus>No containers.</MiniAppStatus>
+        ) : (
+          <ExplorerSidebarVirtualTree
+            activeContainerId={props.activeContainerId}
+            depth={0}
+            documentWindowsByContainerId={props.documentWindowsByContainerId}
+            offset={props.offset}
+            onContextMenu={props.onContextMenu}
+            onDocumentContextMenu={props.onDocumentContextMenu}
+            onRetryDocumentWindow={props.onRetryDocumentWindow}
+            onSelectContainer={props.onSelectContainer}
+            onSelectDocument={props.onSelectDocument}
+            onToggleCollapsed={props.onToggleCollapsed}
+            online={props.online}
+            rows={props.rows}
+            selectedId={props.selectedId}
+            totalRows={props.totalRows}
+          />
+        )}
+      </div>
+    </MiniAppSidebar>
+  );
+}
+
+interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
   documentLinkProjectionVersion: number;
@@ -540,84 +1092,93 @@ export function useExplorerSidebarPanel(params: {
   online: boolean;
   toggleCollapsed: (nodeId: string) => void;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
-}) {
-  const {
-    activeContainerId,
-    collapsedIds,
-    documentLinkProjectionVersion,
-    documentListRevision,
-    documentReadModel,
-    handleSidebarContextMenu,
-    handleSidebarDocumentContextMenu,
-    nodes,
-    ready,
-    selectedId,
-    selectDocumentProjection,
-    setSelectedId,
-    setSidebar,
-    online,
-    toggleCollapsed,
-    treeEntries,
-  } = params;
-  const { documentWindowsByContainerId, loadMoreDocuments } =
-    useExplorerSidebarDocumentWindows({
-      collapsedIds,
-      documentLinkProjectionVersion,
-      documentListRevision,
-      documentReadModel,
-      nodes,
-      ready,
-      treeEntries,
-    });
-  const collapsedIdsKey = useMemo(
-    () => getExplorerTreeIdSetKey(collapsedIds),
-    [collapsedIds],
-  );
+}
 
+interface ExplorerSidebarProps extends ExplorerSidebarPanelParams {
+  documentWindowsByContainerId: ReadonlyMap<
+    string,
+    ExplorerSidebarDocumentWindowState
+  >;
+  requestDocumentWindow: (
+    containerId: string,
+    offset: number,
+    limit: number,
+  ) => void;
+}
+
+function ExplorerSidebar(props: ExplorerSidebarProps) {
+  const {
+    frameRef,
+    offset: sidebarOffset,
+    rows: visibleSidebarRows,
+    totalRows: totalSidebarRows,
+  } = useExplorerSidebarVisibleRows({
+    collapsedIds: props.collapsedIds,
+    documentWindowsByContainerId: props.documentWindowsByContainerId,
+    treeEntries: props.treeEntries,
+  });
+  const retryDocumentWindow = useExplorerSidebarDocumentWindowLoader({
+    documentWindowsByContainerId: props.documentWindowsByContainerId,
+    ready: props.ready,
+    requestDocumentWindow: props.requestDocumentWindow,
+    rows: visibleSidebarRows,
+  });
+
+  return (
+    <ExplorerSidebarContent
+      activeContainerId={props.activeContainerId}
+      depth={0}
+      documentWindowsByContainerId={props.documentWindowsByContainerId}
+      frameRef={frameRef}
+      nodesLength={props.nodes.length}
+      offset={sidebarOffset}
+      onContextMenu={props.handleSidebarContextMenu}
+      onDocumentContextMenu={props.handleSidebarDocumentContextMenu}
+      onRetryDocumentWindow={retryDocumentWindow}
+      onSelectContainer={props.setSelectedId}
+      onSelectDocument={props.selectDocumentProjection}
+      onToggleCollapsed={props.toggleCollapsed}
+      online={props.online}
+      ready={props.ready}
+      rows={visibleSidebarRows}
+      selectedId={props.selectedId}
+      totalRows={totalSidebarRows}
+    />
+  );
+}
+
+export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
+  const { documentWindowsByContainerId, requestDocumentWindow } =
+    useExplorerSidebarDocumentWindows(params);
   const sidebar = useMemo(
     () => (
-      <MiniAppSidebar>
-        {!ready ? (
-          <MiniAppStatus>Loading...</MiniAppStatus>
-        ) : nodes.length === 0 ? (
-          <MiniAppStatus>No containers.</MiniAppStatus>
-        ) : (
-          <ExplorerTreeEntries
-            activeContainerId={activeContainerId}
-            collapsedIds={collapsedIds}
-            depth={0}
-            documentWindowsByContainerId={documentWindowsByContainerId}
-            entries={treeEntries}
-            onContextMenu={handleSidebarContextMenu}
-            onDocumentContextMenu={handleSidebarDocumentContextMenu}
-            onLoadMoreDocuments={loadMoreDocuments}
-            onSelectContainer={setSelectedId}
-            onSelectDocument={selectDocumentProjection}
-            onToggleCollapsed={toggleCollapsed}
-            online={online}
-            selectedId={selectedId}
-          />
-        )}
-      </MiniAppSidebar>
+      <ExplorerSidebar
+        {...params}
+        documentWindowsByContainerId={documentWindowsByContainerId}
+        requestDocumentWindow={requestDocumentWindow}
+      />
     ),
     [
-      activeContainerId,
-      collapsedIds,
-      collapsedIdsKey,
+      params.activeContainerId,
+      params.collapsedIds,
+      params.documentLinkProjectionVersion,
+      params.documentListRevision,
+      params.documentReadModel,
+      params.handleSidebarContextMenu,
+      params.handleSidebarDocumentContextMenu,
+      params.nodes,
+      params.online,
+      params.ready,
+      params.selectedId,
+      params.selectDocumentProjection,
+      params.setSelectedId,
+      params.setSidebar,
+      params.toggleCollapsed,
+      params.treeEntries,
       documentWindowsByContainerId,
-      handleSidebarContextMenu,
-      handleSidebarDocumentContextMenu,
-      nodes.length,
-      loadMoreDocuments,
-      online,
-      ready,
-      selectedId,
-      selectDocumentProjection,
-      setSelectedId,
-      toggleCollapsed,
-      treeEntries,
+      requestDocumentWindow,
     ],
   );
 
-  useRegisteredWindowSidebar({ setSidebar, sidebar });
+  useRegisteredWindowSidebar({ setSidebar: params.setSidebar, sidebar });
 }

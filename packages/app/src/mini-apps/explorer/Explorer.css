@@ -127,10 +127,39 @@
 }
 
 .explorer-sidebar-row {
+  height: var(--explorer-sidebar-row-height, 28px);
   display: flex;
   align-items: center;
+  flex: 0 0 var(--explorer-sidebar-row-height, 28px);
   gap: var(--mini-app-space-2xs);
   padding-left: var(--mini-app-space-sm);
+}
+
+.explorer-sidebar--virtual {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.explorer-sidebar-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.explorer-sidebar-virtual-space {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.explorer-sidebar-virtual-spacer {
+  flex: 0 0 auto;
+}
+
+.explorer-sidebar-row > .mini-app-row {
+  height: 100%;
+  min-height: 0;
 }
 
 .explorer-sidebar-item {
