@@ -11,7 +11,6 @@ import {
   srem,
   sscanMembers,
 } from "../adapters/redis";
-import type { RouteRequestBindings } from "../requestContext";
 import type { SessionCreateInput, SessionData } from "../validators/session";
 import { isSessionData } from "../validators/session";
 
@@ -138,9 +137,25 @@ function forwardedHeaderIpAddress(
   return null;
 }
 
+function hasDirectClientIpBinding(
+  value: unknown,
+): value is { readonly directClientIp?: string | null | undefined } {
+  if (!value || typeof value !== "object" || !("directClientIp" in value)) {
+    return false;
+  }
+
+  const directClientIp = value.directClientIp;
+  return (
+    directClientIp === undefined ||
+    directClientIp === null ||
+    typeof directClientIp === "string"
+  );
+}
+
 function directClientIpAddress(c: Context): string | null {
-  const bindings = c.env as RouteRequestBindings | undefined;
-  return normalizeRequestIpAddress(bindings?.directClientIp);
+  return hasDirectClientIpBinding(c.env)
+    ? normalizeRequestIpAddress(c.env.directClientIp)
+    : null;
 }
 
 export function readRequestIpAddress(c: Context): string | null {

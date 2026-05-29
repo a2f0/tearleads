@@ -40,7 +40,7 @@ function rejectPendingRequests(
 }
 
 type PendingRequest = {
-  resolve: (value: unknown) => void;
+  resolve: (value: WorkerRequestMap[WorkerMethod]["result"]) => void;
   reject: (error: Error) => void;
 };
 
@@ -88,10 +88,22 @@ export function createDatabaseWorkerClient(
   worker.addEventListener("message", handleMessage);
   worker.addEventListener("error", handleError);
 
-  function request<K extends WorkerMethod>(
-    method: K,
-    params: WorkerRequestMap[K]["params"],
-  ): Promise<WorkerRequestMap[K]["result"]> {
+  function request(
+    method: "ping",
+    params: undefined,
+  ): Promise<DatabaseWorkerPingResult>;
+  function request(
+    method: "init",
+    params: DatabaseWorkerInitOptions,
+  ): Promise<DatabaseWorkerReady>;
+  function request(
+    method: "exec",
+    params: DatabaseWorkerExecOptions,
+  ): Promise<DatabaseWorkerExecResult>;
+  function request(
+    method: WorkerMethod,
+    params: WorkerRequestMap[WorkerMethod]["params"],
+  ): Promise<WorkerRequestMap[WorkerMethod]["result"]> {
     if (isDestroyed) {
       return Promise.reject(
         new Error("Database worker client has been destroyed."),
@@ -102,12 +114,7 @@ export function createDatabaseWorkerClient(
     const message = { id, method, params };
 
     return new Promise((resolve, reject) => {
-      pending.set(id, {
-        resolve: (value) => {
-          resolve(value as WorkerRequestMap[K]["result"]);
-        },
-        reject,
-      });
+      pending.set(id, { resolve, reject });
 
       try {
         worker.postMessage(message);
