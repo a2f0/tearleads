@@ -154,8 +154,8 @@ Behavior:
  rows, and container KEK sharing is materialized in `container_key_wraps`
 - `POST /auth/register` and signed `/containers` mutations seed initial
  metadata document bundles atomically
-- committed blob encrypted records carry payload metadata only; blob
- content-key bundles are stored in `blob_content_key_epochs` and
+- committed blob encrypted records carry the encrypted payload and its metadata
+ only; blob content-key bundles are stored in `blob_content_key_epochs` and
  `blob_content_key_targets`
 - committed attachments update blob content-key targets for additive access
  growth or same-epoch rewraps, and `GET /blobs/:blobId` plus

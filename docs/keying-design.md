@@ -569,9 +569,10 @@ Clients and the API reject blob writes or attachment commits that omit targets
 for other active bindings.
 
 Blob encrypted bytes and blob key packages are separate records. The encrypted
-blob record carries payload metadata only: blob id, byte length, content-key
-epoch, content record id, nonce-domain hash, metadata hash, IV, suite, and
-ciphertext. The blob content-key bundle lives in `blob_content_key_epochs` and
+blob record carries the encrypted payload and its metadata: blob id, byte
+length, content-key epoch, content record id, nonce-domain hash, metadata hash,
+IV, suite, and ciphertext. The blob content-key bundle lives in
+`blob_content_key_epochs` and
 `blob_content_key_targets`, and attachment listing/bind responses return that
 bundle alongside server-visible binding metadata.
 
