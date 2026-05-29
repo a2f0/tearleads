@@ -936,7 +936,8 @@ export function ExplorerBlobBrowserPanel(params: {
     query: debouncedQuery,
     sort,
   });
-  const isResettingWindow = blobInfo.offset !== offset && offset === 0;
+  const isWindowPending = blobInfo.offset !== offset;
+  const isResettingWindow = isWindowPending && offset === 0;
   const rows = isResettingWindow ? [] : blobInfo.rows;
   const rowOffset = isResettingWindow ? 0 : blobInfo.offset;
   const selectedBlob = getSelectedBlob({
@@ -1004,7 +1005,7 @@ export function ExplorerBlobBrowserPanel(params: {
           activeBlob={selectedBlob}
           error={blobInfo.error}
           frameRef={frameRef}
-          isLoading={blobInfo.isLoading}
+          isLoading={blobInfo.isLoading || isWindowPending}
           onSelectBlob={setActiveBlob}
           onSort={handleSort}
           rowOffset={rowOffset}

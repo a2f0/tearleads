@@ -173,12 +173,21 @@ test("blob browser resets the blob window when sorting changes", async () => {
   resizeObserverGlobal.ResizeObserver = undefined;
   const rows = createBlobRows(80);
   const calls: BlobInfoInput[] = [];
+  let resolveSortedWindow:
+    | ((value: { rows: BlobInfo[]; totalCount: number }) => void)
+    | undefined;
   const loadBlobInfo = async (
     input: BlobInfoInput = {},
   ): Promise<{ rows: BlobInfo[]; totalCount: number }> => {
     calls.push(input);
     const limit = input.limit ?? 24;
     const offset = input.offset ?? 0;
+    if (input.sort?.key === "mimeType") {
+      return new Promise((resolve) => {
+        resolveSortedWindow = resolve;
+      });
+    }
+
     return {
       rows: rows.slice(offset, offset + limit),
       totalCount: rows.length,
@@ -225,5 +234,13 @@ test("blob browser resets the blob window when sorting changes", async () => {
         sort: { direction: "asc", key: "mimeType" },
       },
     ]);
+  });
+  expect(view.queryByText("No blobs.")).toBeNull();
+
+  await act(async () => {
+    resolveSortedWindow?.({
+      rows: rows.slice(0, 24),
+      totalCount: rows.length,
+    });
   });
 });
