@@ -105,7 +105,7 @@ function useMiniAppVirtualViewport<TFrame extends HTMLElement>() {
     const resizeObserver = new ResizeObserver((entries) => {
       const [entry] = entries;
       if (entry) {
-        setViewportHeight(entry.contentRect.height);
+        setViewportHeight(entry.target.clientHeight);
       }
     });
     resizeObserver.observe(frame);
