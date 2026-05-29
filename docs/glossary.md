@@ -108,6 +108,30 @@ Related docs:
 - [access-plane.md](./access-plane.md#blobs)
 - [protocol-specification.md](./protocol-specification.md#blob-read-protocol)
 
+## Blob Content-Key Bundle
+
+The wrapped blob content key plus the derived container KEK target envelopes
+for the blob's active attachment bindings. The bundle is persisted in blob
+content-key epoch and target rows, returned by attachment listing or bind
+responses, and is not embedded in committed blob encrypted bytes.
+
+Related docs:
+
+- [keying-design.md](./keying-design.md#blob-content-keys)
+- [protocol-specification.md](./protocol-specification.md#blob-read-protocol)
+
+## Local Keyring
+
+The SDK helper that wraps one account-root secret with a host-provided wrapping
+key keystore, persists a manifest through a host-provided manifest store, and
+derives local SQLite, blob-store, identity-persistence, or custom-purpose keys
+from that root.
+
+Related docs:
+
+- [developer/client-sdk.md](./developer/client-sdk.md#local-keyring)
+- [security-guarantees.md](./security-guarantees.md#local-at-rest-key-wrapping)
+
 ## Blob Stage
 
 A temporary holding record for encrypted blob bytes before an attachment bind

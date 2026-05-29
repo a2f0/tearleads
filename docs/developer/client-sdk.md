@@ -13,6 +13,9 @@ Create one SDK instance for the active client environment:
 ```ts
 import {
   createEncryptedBlobStore,
+  createLocalKeyring,
+  createMemoryLocalKeyringManifestStore,
+  createMemoryWrappingKeyKeystore,
   DEFAULT_DOCUMENT_KIND,
   Tearleads,
 } from "@tearleads/client-sdk";
@@ -22,17 +25,25 @@ import {
 } from "@tearleads/client-sdk/sqlite";
 
 const sqliteRuntime: SQLiteRuntime = createModuleSQLiteRuntime();
-const localStorageKey = "development-key"; // For development only. Do not use in production.
+const localKeyring = createLocalKeyring({
+  // Development only. Production hosts should provide a platform keystore and
+  // persisted manifest store.
+  keystore: createMemoryWrappingKeyKeystore(),
+  manifestStore: createMemoryLocalKeyringManifestStore(),
+});
+const localKeys = await localKeyring.getOrCreateSession({
+  namespace: "development",
+});
 await sqliteRuntime.client.init({
   dbName: "/app-identity.db",
   cipher: "chacha20",
-  key: localStorageKey,
+  key: localKeys.sqliteKey,
 });
 
 const tearleads = new Tearleads({
   apiBaseUrl: "http://localhost:3000",
   blobStoreFactory: (namespace) =>
-    createEncryptedBlobStore(namespace, { key: localStorageKey }),
+    createEncryptedBlobStore(namespace, { key: localKeys.blobStoreKey }),
   database: {
     client: sqliteRuntime.client,
     id: sqliteRuntime.id,
@@ -232,9 +243,12 @@ For browser and Electron hosts, prefer an encrypted local blob store factory:
 ```ts
 new Tearleads({
   blobStoreFactory: (namespace) =>
-    createEncryptedBlobStore(namespace, { key: localStorageKey }),
+    createEncryptedBlobStore(namespace, { key: localKeys.blobStoreKey }),
 });
 ```
+
+The example uses a `LocalKeyringSession`-derived key; hosts can also pass any
+supported key type directly.
 
 `createEncryptedBlobStore(namespace, options)` stores local attachment bytes in
 OPFS when available and falls back to encrypted memory storage otherwise. The
@@ -242,6 +256,56 @@ OPFS-specific `createEncryptedOpfsBlobStore(namespace, options)` throws when
 OPFS is unavailable. The encrypted store currently supports `aes-256-gcm`.
 String keys are derived with PBKDF2-SHA256; hosts may also pass a 32-byte raw
 AES key or an AES-GCM `CryptoKey`.
+
+## Local Keyring
+
+The SDK exports a local keyring helper for host-controlled at-rest secret
+management:
+
+```ts
+import { createLocalKeyring } from "@tearleads/client-sdk";
+
+const keyring = createLocalKeyring({
+  keystore: platformWrappingKeyKeystore,
+  manifestStore: persistedManifestStore,
+});
+
+const session = await keyring.getOrCreateSession({
+  namespace: "tearleads",
+  accountId: userId,
+  signingFingerprint,
+});
+```
+
+`WrappingKeyKeystore` is the platform boundary. Browser, Electron, iOS, and
+Android hosts should implement it with their available keychain or secure
+storage primitive. The SDK stores only a manifest containing a wrapped
+account-root secret; the unwrapped account root is used with HKDF to derive:
+
+- `session.sqliteKey` for SQLCipher/SQLite initialization
+- `session.blobStoreKey` for encrypted local blob storage
+- `session.identityPersistenceKey` for persisted identity-key material
+- additional 32-byte keys through `session.deriveKey(purpose)`
+
+The manifest is explicit JSON with format
+`tearleads.local-keyring.manifest`. Hosts persist it through
+`LocalKeyringManifestStore`, and can serialize or parse it with
+`serializeLocalKeyringManifest(...)` and `parseLocalKeyringManifest(...)`.
+The wrapped root envelope uses format `tearleads.wrapped-local-secret` and
+binds the wrapping context to the normalized scope plus key purpose.
+
+Scopes are intentionally part of derivation and wrapping associated data:
+`namespace` is required, while `accountId` and `signingFingerprint` are optional
+isolation fields. `localKeyringScopeKey(scope)` provides the canonical storage
+key when a manifest store needs a stable index.
+
+`createMemoryWrappingKeyKeystore()` and
+`createMemoryLocalKeyringManifestStore()` are process-local helpers for tests
+and development wiring. They are not a durable or platform-secure keychain.
+Call `session.dispose()` when a host is done with a local keyring session; it
+zeroes the in-memory root and derived byte keys owned by that session.
+`keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
+handle for the scope.
 
 Session state is explicit. Registration flows should call
 `tearleads.session.registerIdentity()`, which submits the current identity,
@@ -262,7 +326,7 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, top-level SDK service types, document contracts, store facades, and workflow facade symbols that remain public |
+| `@tearleads/client-sdk` | `Tearleads`, top-level SDK service types, local keyring helpers, document contracts, store facades, and workflow facade symbols that remain public |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
 
 Each package export maps `types` to an emitted `.d.ts` file and `default` to an
@@ -280,7 +344,7 @@ point plus the SQLite runtime facade:
 
 | Entry point | Target use |
 | --- | --- |
-| `@tearleads/client-sdk` | SDK instance, public service types, document contracts, store facades, and workflow facade symbols that remain public |
+| `@tearleads/client-sdk` | SDK instance, public service types, local keyring helpers, document contracts, store facades, and workflow facade symbols that remain public |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime and executor contracts |
 
 The deprecated document, store, and workflow subpaths are no longer package

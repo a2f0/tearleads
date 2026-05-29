@@ -568,9 +568,30 @@ The blob content key is wrapped to the union of those container KEK targets.
 Clients and the API reject blob writes or attachment commits that omit targets
 for other active bindings.
 
-Immutable blob bytes should keep one content key. If access shrink means future
-use should not depend on the old blob key, the correct operation is blob
-replacement or content re-encryption, not silent rewrap.
+Blob encrypted bytes and blob key packages are separate records. The encrypted
+blob record carries the encrypted payload and its metadata: blob id, byte
+length, content-key epoch, content record id, nonce-domain hash, metadata hash,
+IV, suite, and ciphertext. The blob content-key bundle lives in
+`blob_content_key_epochs` and
+`blob_content_key_targets`, and attachment listing/bind responses return that
+bundle alongside server-visible binding metadata.
+
+That separation lets key packages change without restaging immutable blob
+bytes. If active bindings grow, the same blob content key can be wrapped to the
+expanded target set. If a container KEK rotates for an otherwise unchanged
+active binding set, the blob content key can be rewrapped to the new current
+container KEK targets. The latest stored bundle remains useful source material
+when a retained authorized client can still unwrap one of its targets and
+repair stale blob key packages.
+
+Immutable blob bytes should keep one content-key epoch. A same-epoch rewrap is
+metadata maintenance; changing the blob content-key epoch requires replacing or
+re-encrypting the blob bytes so the encrypted record and write header remain
+bound to the key epoch that can decrypt them.
+
+If access shrink means future use should not depend on the old blob key, the
+correct operation is blob replacement or content re-encryption, not silent
+content-key epoch rotation.
 
 ## Local-First Create Intents
 

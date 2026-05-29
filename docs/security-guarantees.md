@@ -219,6 +219,26 @@ When clients use verified principal policy bundles, a forged group or
 organization policy state should fail closed before the client unwraps a
 principal-addressed object envelope.
 
+### Local At-Rest Key Wrapping
+
+The SDK local keyring is a host-facing at-rest key management layer. It stores
+a manifest containing a wrapped account-root secret and derives local SQLite,
+blob-store, identity-persistence, and custom-purpose keys from that root. The
+manifest is not itself a keychain; confidentiality depends on the host
+`WrappingKeyKeystore` implementation, such as a browser, desktop, iOS, or
+Android secure-storage primitive.
+
+The wrapped account-root envelope binds its purpose and normalized scope as
+authenticated context. A manifest for one namespace, account id, or signing
+fingerprint should not unwrap under another scope. The memory keystore and
+manifest store exported by the SDK are test/development helpers only and do
+not provide durable platform protection.
+
+This local keyring protects local database and blob-store keys at rest on the
+client device. It does not change server-side access authorization, signed
+manifest verification, content-key bundle validation, or remote ciphertext
+confidentiality.
+
 ## Boundaries
 
 ### No Universal Compromised-Server Detection
