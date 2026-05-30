@@ -10,7 +10,7 @@ import "./PaneFooter.css";
 export function PaneFooter() {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { windows } = useWindowStateData();
-  const { restore } = useWindowActions();
+  const { bringToFront, restore } = useWindowActions();
   const minimizedWindows = useMemo(
     () => windows.filter((w) => w.minimized),
     [windows],
@@ -33,7 +33,10 @@ export function PaneFooter() {
             key={w.id}
             type="button"
             className="pane-footer-window"
-            onClick={() => restore(w.id)}
+            onClick={() => {
+              bringToFront(w.id);
+              restore(w.id);
+            }}
           >
             {w.title}
           </button>
