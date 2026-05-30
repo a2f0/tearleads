@@ -157,13 +157,22 @@ function DocumentAttachmentBlobPicker(params: {
   const { blobPicker, canAttach, onClose, slot } = params;
   const { loadBlobInfo, onSelectedBlob } = blobPicker;
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [selectingBlobKey, setSelectingBlobKey] = useState<string | null>(null);
-  const state = useDocumentAttachmentBlobPickerList(loadBlobInfo, query);
+  const state = useDocumentAttachmentBlobPickerList(
+    loadBlobInfo,
+    debouncedQuery,
+  );
   const imageRows = useMemo(
     () => state.rows.filter(isImageDocumentAttachmentBlob),
     [state.rows],
   );
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   async function handleSelectBlob(blob: BlobInfo) {
     setSelectingBlobKey(blob.key);

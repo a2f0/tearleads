@@ -59,7 +59,7 @@ export function getDocumentAttachmentBlobName(
 ): string {
   return (
     blob.name ??
-    blob.references.find((reference) => reference.name)?.name ??
+    blob.references?.find((reference) => reference.name)?.name ??
     blob.blobId ??
     blob.storageKey
   );

@@ -42,7 +42,7 @@ function DriverLicenseFields(params: {
         <input
           id={inputIds.licenseId}
           aria-label="Driver's license ID number"
-          value={fields.licenseId}
+          value={fields.licenseId ?? ""}
           onChange={(event) => onChange({ licenseId: event.target.value })}
           placeholder={ready ? "DL-1234567" : "Loading..."}
           disabled={!ready}
@@ -56,7 +56,7 @@ function DriverLicenseFields(params: {
           id={inputIds.expirationDate}
           aria-label="Driver's license expiration date"
           type="date"
-          value={fields.expirationDate}
+          value={fields.expirationDate ?? ""}
           onChange={(event) => onChange({ expirationDate: event.target.value })}
           disabled={!ready}
         />
