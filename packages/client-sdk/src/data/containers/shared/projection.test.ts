@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import {
+  buildMaterializedContainerCreatePlan,
   buildMaterializedDocumentCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
+  moveRemoteContainer,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
   uploadDocumentAttachment,
@@ -37,6 +40,7 @@ import type {
 import {
   createContainerManifestFixture,
   createContainerRevokeManifestFixture,
+  createMutationResponseFromRequest,
   createParentProjection,
   createParentProjectionUserKeyResolver,
   createUserContainerWrap,
@@ -47,6 +51,161 @@ import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
 } from "../../persistence/principalPolicyPersistence";
+
+type ProjectionBundle = ContainerWriterProjectionResponse["path"][number];
+type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
+type RemoteMovePlan = NonNullable<
+  Awaited<ReturnType<typeof moveRemoteContainer>>
+>["plan"];
+
+function movePlanManifestBundle(plan: RemoteMovePlan): ProjectionBundle {
+  return {
+    event: {
+      event: plan.event as unknown as Record<string, unknown>,
+      body: plan.body as unknown,
+      eventHash: plan.eventHash,
+    },
+    manifest: plan.manifest as unknown as Record<string, unknown>,
+    manifestHash: plan.manifestHash,
+    state: plan.state as unknown as Record<string, unknown>,
+  };
+}
+
+async function movePlanKek(input: {
+  destinationParentProjection: ContainerWriterProjectionResponse;
+  manifestHistory: readonly ProjectionBundle[];
+  plan: RemoteMovePlan;
+}): Promise<ProjectionKek> {
+  const destinationParentKek =
+    input.destinationParentProjection.containerKeks.at(-1);
+  if (!destinationParentKek) {
+    throw new Error("Expected destination parent KEK");
+  }
+
+  const recipientTargets: ContainerKekRecipientTarget[] = [
+    {
+      recipientKind: "container",
+      recipientId: destinationParentKek.containerId,
+      recipientKeyEpochId: destinationParentKek.containerKeyEpochId,
+      recipientKeyFingerprint: destinationParentKek.keyEpochHash,
+    },
+  ];
+
+  return {
+    containerId: input.plan.containerId,
+    accessManifestHash: input.plan.manifestHash,
+    containerKeyEpochId: input.plan.containerKeyEpochId,
+    containerKeyEpoch: input.plan.keyEpoch.keyEpoch,
+    keyEpoch: input.plan.keyEpoch as unknown as Record<string, unknown>,
+    keyEpochHash: await computeContainerKeyEpochHash(input.plan.keyEpoch),
+    keyTargetHash:
+      await computeContainerKekRecipientTargetHash(recipientTargets),
+    parentContainerKeyEpochId: input.plan.keyEpoch.parentContainerKeyEpochId,
+    containerManifestHistory: [...input.manifestHistory],
+    recipientTargets: recipientTargets as unknown as Record<string, unknown>[],
+    wraps: input.plan.wraps as unknown as Record<string, unknown>[],
+  };
+}
+
+async function createChildContainerProjection(input: {
+  containerId: string;
+  parent: Awaited<ReturnType<typeof createParentProjection>>;
+  parentProjection: ContainerWriterProjectionResponse;
+}): Promise<{
+  bundle: ProjectionBundle;
+  containerKey: Uint8Array;
+  projection: ContainerWriterProjectionResponse;
+}> {
+  const materializedPlan = await buildMaterializedContainerCreatePlan({
+    author: input.parent.author,
+    containerId: input.containerId,
+    eventId: `${input.containerId}-event-1`,
+    metadataDocumentId: `${input.containerId}-metadata-document`,
+    parentProjection: input.parentProjection,
+    parentSecretKey: input.parent.secretKey,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(
+      input.parent,
+    ),
+    signedAt: SIGNED_AT,
+  });
+  const projection = childContainerWriterProjectionFromCreatePlan({
+    materializedPlan,
+    parentProjection: input.parentProjection,
+  });
+  const bundle = projection.path.at(-1);
+  if (!bundle) {
+    throw new Error("Expected created child projection bundle");
+  }
+
+  return {
+    bundle,
+    containerKey: materializedPlan.containerKey,
+    projection,
+  };
+}
+
+async function moveContainerProjection(input: {
+  containerId: string;
+  destinationParentProjection: ContainerWriterProjectionResponse;
+  eventId: string;
+  manifestHistory: readonly ProjectionBundle[];
+  parent: Awaited<ReturnType<typeof createParentProjection>>;
+  sourceProjection: ContainerWriterProjectionResponse;
+}): Promise<{
+  bundle: ProjectionBundle;
+  containerKey: Uint8Array;
+  projection: ContainerWriterProjectionResponse;
+}> {
+  const moved = await moveRemoteContainer({
+    apiClient: {
+      getContainerWriterProjection: async (containerId) => {
+        if (containerId === input.sourceProjection.containerId) {
+          return input.sourceProjection;
+        }
+        if (containerId === input.destinationParentProjection.containerId) {
+          return input.destinationParentProjection;
+        }
+
+        return null;
+      },
+      moveContainer: async (_containerId, request) =>
+        createMutationResponseFromRequest(request),
+    },
+    author: input.parent.author,
+    containerId: input.containerId,
+    destinationParentContainerId: input.destinationParentProjection.containerId,
+    eventId: input.eventId,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(
+      input.parent,
+    ),
+    signedAt: SIGNED_AT,
+    targetSecretKey: input.parent.secretKey,
+  });
+  if (!moved) {
+    throw new Error("Expected remote container move result");
+  }
+
+  const bundle = movePlanManifestBundle(moved.plan);
+  const projection: ContainerWriterProjectionResponse = {
+    containerId: moved.plan.containerId,
+    organizationId: moved.plan.state.organizationId,
+    path: [...input.destinationParentProjection.path, bundle],
+    containerKeks: [
+      ...input.destinationParentProjection.containerKeks,
+      await movePlanKek({
+        destinationParentProjection: input.destinationParentProjection,
+        manifestHistory: input.manifestHistory,
+        plan: moved.plan,
+      }),
+    ],
+  };
+
+  return {
+    bundle,
+    containerKey: moved.containerKey,
+    projection,
+  };
+}
 
 async function createGroupPrincipalPolicyBundle(input: {
   memberRecipientPublicKeys: Array<{
@@ -239,6 +398,76 @@ test("unwrapContainerKekPath rejects substituted material for committed KEK ids"
       secretKey: parent.secretKey,
     }),
   ).rejects.toThrow("KEK material does not match committed epoch id");
+});
+
+test("unwrapContainerKekPath verifies move-back-to-root projections with historical parent proofs", async () => {
+  const parent = await createParentProjection();
+  const parentA = await createChildContainerProjection({
+    containerId: "projection-parent-a",
+    parent,
+    parentProjection: parent.projection,
+  });
+  const movedChild = await createChildContainerProjection({
+    containerId: "projection-moved-child",
+    parent,
+    parentProjection: parent.projection,
+  });
+  const movedUnderParentA = await moveContainerProjection({
+    containerId: movedChild.projection.containerId,
+    destinationParentProjection: parentA.projection,
+    eventId: "projection-moved-child-under-parent-a",
+    manifestHistory: [movedChild.bundle],
+    parent,
+    sourceProjection: movedChild.projection,
+  });
+  const movedBackToRoot = await moveContainerProjection({
+    containerId: movedChild.projection.containerId,
+    destinationParentProjection: parent.projection,
+    eventId: "projection-moved-child-back-to-root",
+    manifestHistory: [
+      movedUnderParentA.bundle,
+      movedChild.bundle,
+      parentA.bundle,
+    ],
+    parent,
+    sourceProjection: movedUnderParentA.projection,
+  });
+
+  const missingHistoricalParentProjection = structuredClone(
+    movedBackToRoot.projection,
+  );
+  const movedBackKek = missingHistoricalParentProjection.containerKeks.at(-1);
+  if (!movedBackKek) {
+    throw new Error("Expected moved-back KEK");
+  }
+  movedBackKek.containerManifestHistory = [
+    movedUnderParentA.bundle,
+    movedChild.bundle,
+  ];
+  await expect(
+    unwrapContainerKekPath({
+      projection: missingHistoricalParentProjection,
+      resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+      secretKey: parent.secretKey,
+    }),
+  ).rejects.toThrow(
+    "Container writer projection path[1] previous manifest manifest verification failed",
+  );
+
+  const unwrappedKeks = await unwrapContainerKekPath({
+    projection: movedBackToRoot.projection,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    secretKey: parent.secretKey,
+  });
+  const movedBackKekId =
+    movedBackToRoot.projection.containerKeks.at(-1)?.containerKeyEpochId;
+  if (!movedBackKekId) {
+    throw new Error("Expected moved-back container KEK id");
+  }
+
+  expect(Array.from(unwrappedKeks.get(movedBackKekId) ?? [])).toEqual(
+    Array.from(movedChild.containerKey),
+  );
 });
 
 test("unwrapContainerKekPath rejects revoked users after KEK epoch rotation", async () => {

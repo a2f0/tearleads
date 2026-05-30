@@ -9,7 +9,6 @@ import {
   assertNoDuplicateContentKeyTargets,
   contentKeyTargetEnvelopeEqual,
   contentKeyTargetEnvelopeMaterialEqual,
-  contentKeyTargetsContainPreviousBundle,
   expectedContentKeyTargetMap,
   sortContentKeyTargetEnvelopes,
 } from "./contentKeyTargetPolicy";
@@ -150,18 +149,6 @@ function expectedTargetMap(
   targets: readonly DocumentContentKeyTarget[],
 ): Map<string, DocumentContentKeyTarget> {
   return expectedContentKeyTargetMap(targets, targetKey);
-}
-
-export function currentTargetsContainPreviousBundle(input: {
-  readonly currentTargets: readonly DocumentContentKeyTarget[];
-  readonly previousTargets: readonly DocumentContentKeyTargetEnvelope[];
-}): boolean {
-  return contentKeyTargetsContainPreviousBundle({
-    currentTargets: input.currentTargets,
-    previousTargets: input.previousTargets,
-    targetKey,
-    targetFieldsEqual: targetKeyMaterialEqual,
-  });
 }
 
 export function assertTargetsMatchCurrent(input: {

@@ -94,8 +94,14 @@ async function loadContainerKekManifestHistory(input: {
     );
     const verifiedManifest = toVerifiedContainerManifest(bundle);
     bundles.push(bundle);
-    verified.push(verifiedManifest);
+    if (
+      verifiedManifest.state.containerId ===
+      input.currentManifest.state.containerId
+    ) {
+      verified.push(verifiedManifest);
+    }
     enqueue(verifiedManifest.manifest.previousManifestHash);
+    enqueue(verifiedManifest.state.parentManifestHash);
   }
 
   return { bundles, verified };
