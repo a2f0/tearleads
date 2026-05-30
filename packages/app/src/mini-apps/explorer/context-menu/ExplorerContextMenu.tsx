@@ -1,5 +1,5 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
-import { type MouseEvent, useCallback, useMemo, useRef } from "react";
+import { type MouseEvent, useCallback, useMemo, useRef, useState } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import {
@@ -171,7 +171,7 @@ interface ExplorerContainerContextMenuProps {
   closeContextMenu: () => void;
   contextMenu: ExplorerContainerContextMenuState;
   contextMenuNode: ContainerNode | undefined;
-  importDroppedFiles: ImportExplorerDroppedFiles;
+  triggerUpload: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
   openContainerInfoRoute: (containerId: string) => void;
@@ -187,7 +187,7 @@ function ExplorerContainerContextMenu(
     canMoveContextMenuNode,
     closeContextMenu,
     contextMenu,
-    importDroppedFiles,
+    triggerUpload,
     openCreateChildModal,
     openDeleteModal,
     openContainerInfoRoute,
@@ -195,76 +195,58 @@ function ExplorerContainerContextMenu(
     openRenameModal,
   } = params;
   const containerId = contextMenu.id.containerId;
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <>
-      <Menu
-        position={contextMenu.position}
-        onClose={closeContextMenu}
-        direction="down"
-      >
-        <MenuItem
-          label="Create Child"
-          onClick={() => {
-            closeContextMenu();
-            openCreateChildModal(containerId);
-          }}
-        />
-        <MenuItem
-          label="Upload"
-          onClick={() => {
-            fileInputRef.current?.click();
-          }}
-        />
-        <MenuItem
-          label="Rename"
-          onClick={() => {
-            closeContextMenu();
-            openRenameModal(containerId);
-          }}
-        />
-        <MenuItem
-          label="Move"
-          disabled={!canMoveContextMenuNode}
-          onClick={() => {
-            closeContextMenu();
-            openMoveModal(containerId);
-          }}
-        />
-        <MenuItem
-          label="Get Info"
-          onClick={() => {
-            closeContextMenu();
-            openContainerInfoRoute(containerId);
-          }}
-        />
-        <MenuItem
-          label="Delete"
-          disabled={!canDeleteContextMenuNode}
-          onClick={() => {
-            closeContextMenu();
-            openDeleteModal(containerId);
-          }}
-        />
-      </Menu>
-      <input
-        ref={fileInputRef}
-        className="explorer-file-input"
-        type="file"
-        multiple
-        onChange={(event) => {
-          const files = Array.from(event.target.files ?? []);
-          if (files.length > 0) {
-            importDroppedFiles(containerId, files);
-          }
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
+    <Menu
+      position={contextMenu.position}
+      onClose={closeContextMenu}
+      direction="down"
+    >
+      <MenuItem
+        label="Create Child"
+        onClick={() => {
           closeContextMenu();
+          openCreateChildModal(containerId);
         }}
       />
-    </>
+      <MenuItem
+        label="Upload"
+        onClick={() => {
+          closeContextMenu();
+          triggerUpload(containerId);
+        }}
+      />
+      <MenuItem
+        label="Rename"
+        onClick={() => {
+          closeContextMenu();
+          openRenameModal(containerId);
+        }}
+      />
+      <MenuItem
+        label="Move"
+        disabled={!canMoveContextMenuNode}
+        onClick={() => {
+          closeContextMenu();
+          openMoveModal(containerId);
+        }}
+      />
+      <MenuItem
+        label="Get Info"
+        onClick={() => {
+          closeContextMenu();
+          openContainerInfoRoute(containerId);
+        }}
+      />
+      <MenuItem
+        label="Delete"
+        disabled={!canDeleteContextMenuNode}
+        onClick={() => {
+          closeContextMenu();
+          openDeleteModal(containerId);
+        }}
+      />
+    </Menu>
   );
 }
 
@@ -287,27 +269,62 @@ export function ExplorerContextMenuLayer(params: {
   openRenameModal: (containerId: string) => void;
   selectContainer: (containerId: string) => void;
 }) {
-  if (!params.contextMenu) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadContainerId, setUploadContainerId] = useState<string | null>(
+    null,
+  );
+
+  const triggerUpload = useCallback((containerId: string) => {
+    setUploadContainerId(containerId);
+    fileInputRef.current?.click();
+  }, []);
+
+  const menuElement = useMemo(() => {
+    if (!params.contextMenu) {
+      return null;
+    }
+
+    if (isExplorerDocumentContextMenu(params.contextMenu)) {
+      return (
+        <ExplorerDocumentContextMenu
+          {...params}
+          contextMenu={params.contextMenu}
+        />
+      );
+    }
+
+    if (isExplorerContainerContextMenu(params.contextMenu)) {
+      return (
+        <ExplorerContainerContextMenu
+          {...params}
+          contextMenu={params.contextMenu}
+          triggerUpload={triggerUpload}
+        />
+      );
+    }
+
     return null;
-  }
+  }, [params, triggerUpload]);
 
-  if (isExplorerDocumentContextMenu(params.contextMenu)) {
-    return (
-      <ExplorerDocumentContextMenu
-        {...params}
-        contextMenu={params.contextMenu}
+  return (
+    <>
+      {menuElement}
+      <input
+        ref={fileInputRef}
+        className="explorer-file-input"
+        style={{ display: "none" }}
+        type="file"
+        multiple
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          if (files.length > 0 && uploadContainerId) {
+            params.importDroppedFiles(uploadContainerId, files);
+          }
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
+        }}
       />
-    );
-  }
-
-  if (isExplorerContainerContextMenu(params.contextMenu)) {
-    return (
-      <ExplorerContainerContextMenu
-        {...params}
-        contextMenu={params.contextMenu}
-      />
-    );
-  }
-
-  return null;
+    </>
+  );
 }
