@@ -1,12 +1,12 @@
-import type { ContainerNode, StoredDocumentKind } from "@tearleads/client-sdk";
-import { type MouseEvent, useCallback, useMemo } from "react";
+import type { ContainerNode } from "@tearleads/client-sdk";
+import { type MouseEvent, useCallback, useMemo, useRef } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import {
   type ContextMenuState,
   useContextMenuState,
 } from "../../../components/shared/useContextMenuState";
-import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
+import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { EXPLORER_LABELS } from "../labels";
 import { getMoveTargetOptions } from "../targetOptions";
 
@@ -171,13 +171,9 @@ interface ExplorerContainerContextMenuProps {
   closeContextMenu: () => void;
   contextMenu: ExplorerContainerContextMenuState;
   contextMenuNode: ContainerNode | undefined;
+  importDroppedFiles: ImportExplorerDroppedFiles;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
@@ -191,72 +187,84 @@ function ExplorerContainerContextMenu(
     canMoveContextMenuNode,
     closeContextMenu,
     contextMenu,
-    contextMenuNode,
+    importDroppedFiles,
     openCreateChildModal,
     openDeleteModal,
-    openInlineDocument,
     openContainerInfoRoute,
     openMoveModal,
     openRenameModal,
   } = params;
   const containerId = contextMenu.id.containerId;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <Menu
-      position={contextMenu.position}
-      onClose={closeContextMenu}
-      direction="down"
-    >
-      <MenuItem
-        label="Create Child"
-        onClick={() => {
-          closeContextMenu();
-          openCreateChildModal(containerId);
-        }}
-      />
-      {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
+    <>
+      <Menu
+        position={contextMenu.position}
+        onClose={closeContextMenu}
+        direction="down"
+      >
         <MenuItem
-          key={definition.kind}
-          label={definition.createLabel}
+          label="Create Child"
           onClick={() => {
-            if (contextMenuNode) {
-              openInlineDocument(contextMenuNode.id, definition.kind);
-            }
             closeContextMenu();
+            openCreateChildModal(containerId);
           }}
         />
-      ))}
-      <MenuItem
-        label="Rename"
-        onClick={() => {
+        <MenuItem
+          label="Upload"
+          onClick={() => {
+            fileInputRef.current?.click();
+          }}
+        />
+        <MenuItem
+          label="Rename"
+          onClick={() => {
+            closeContextMenu();
+            openRenameModal(containerId);
+          }}
+        />
+        <MenuItem
+          label="Move"
+          disabled={!canMoveContextMenuNode}
+          onClick={() => {
+            closeContextMenu();
+            openMoveModal(containerId);
+          }}
+        />
+        <MenuItem
+          label="Get Info"
+          onClick={() => {
+            closeContextMenu();
+            openContainerInfoRoute(containerId);
+          }}
+        />
+        <MenuItem
+          label="Delete"
+          disabled={!canDeleteContextMenuNode}
+          onClick={() => {
+            closeContextMenu();
+            openDeleteModal(containerId);
+          }}
+        />
+      </Menu>
+      <input
+        ref={fileInputRef}
+        className="explorer-file-input"
+        type="file"
+        multiple
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          if (files.length > 0) {
+            importDroppedFiles(containerId, files);
+          }
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
           closeContextMenu();
-          openRenameModal(containerId);
         }}
       />
-      <MenuItem
-        label="Move"
-        disabled={!canMoveContextMenuNode}
-        onClick={() => {
-          closeContextMenu();
-          openMoveModal(containerId);
-        }}
-      />
-      <MenuItem
-        label="Get Info"
-        onClick={() => {
-          closeContextMenu();
-          openContainerInfoRoute(containerId);
-        }}
-      />
-      <MenuItem
-        label="Delete"
-        disabled={!canDeleteContextMenuNode}
-        onClick={() => {
-          closeContextMenu();
-          openDeleteModal(containerId);
-        }}
-      />
-    </Menu>
+    </>
   );
 }
 
@@ -268,14 +276,10 @@ export function ExplorerContextMenuLayer(params: {
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
   contextMenuNode: ContainerNode | undefined;
+  importDroppedFiles: ImportExplorerDroppedFiles;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  openInlineDocument: (
-    containerId: string,
-    documentKind: StoredDocumentKind,
-    localId?: string,
-  ) => void;
   openLinkDocumentModal: (localId: string) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
