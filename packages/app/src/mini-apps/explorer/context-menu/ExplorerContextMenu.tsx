@@ -1,5 +1,11 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
-import { type MouseEvent, useCallback, useMemo, useRef, useState } from "react";
+import {
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
 import {
@@ -93,7 +99,6 @@ export function useExplorerContextMenu(
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
     closeContextMenu,
     contextMenu,
-    contextMenuNode,
     handleSidebarDocumentContextMenu,
     handleSidebarContextMenu,
   };
@@ -170,7 +175,6 @@ interface ExplorerContainerContextMenuProps {
   canMoveContextMenuNode: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContainerContextMenuState;
-  contextMenuNode: ContainerNode | undefined;
   triggerUpload: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
@@ -257,7 +261,6 @@ export function ExplorerContextMenuLayer(params: {
   canMoveSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
-  contextMenuNode: ContainerNode | undefined;
   importDroppedFiles: ImportExplorerDroppedFiles;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;
@@ -270,31 +273,24 @@ export function ExplorerContextMenuLayer(params: {
   selectContainer: (containerId: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadContainerId, setUploadContainerId] = useState<string | null>(
-    null,
-  );
+  const uploadContainerIdRef = useRef<string | null>(null);
 
   const triggerUpload = useCallback((containerId: string) => {
-    setUploadContainerId(containerId);
+    uploadContainerIdRef.current = containerId;
     fileInputRef.current?.click();
   }, []);
 
-  const menuElement = useMemo(() => {
-    if (!params.contextMenu) {
-      return null;
-    }
-
+  let menuElement: ReactNode = null;
+  if (params.contextMenu) {
     if (isExplorerDocumentContextMenu(params.contextMenu)) {
-      return (
+      menuElement = (
         <ExplorerDocumentContextMenu
           {...params}
           contextMenu={params.contextMenu}
         />
       );
-    }
-
-    if (isExplorerContainerContextMenu(params.contextMenu)) {
-      return (
+    } else if (isExplorerContainerContextMenu(params.contextMenu)) {
+      menuElement = (
         <ExplorerContainerContextMenu
           {...params}
           contextMenu={params.contextMenu}
@@ -302,9 +298,7 @@ export function ExplorerContextMenuLayer(params: {
         />
       );
     }
-
-    return null;
-  }, [params, triggerUpload]);
+  }
 
   return (
     <>
@@ -317,12 +311,14 @@ export function ExplorerContextMenuLayer(params: {
         multiple
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
+          const uploadContainerId = uploadContainerIdRef.current;
           if (files.length > 0 && uploadContainerId) {
-            params.importDroppedFiles(uploadContainerId, files);
+            void params.importDroppedFiles(uploadContainerId, files);
           }
           if (fileInputRef.current) {
             fileInputRef.current.value = "";
           }
+          uploadContainerIdRef.current = null;
         }}
       />
     </>

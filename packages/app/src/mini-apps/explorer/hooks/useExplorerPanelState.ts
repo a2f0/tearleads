@@ -3,7 +3,6 @@ import type {
   BlobInfoList,
   ContainerDocumentReadModel,
   ContainerInfo,
-  ContainerNode,
   DocumentInfo,
   DocumentSummary,
 } from "@tearleads/client-sdk";
@@ -55,7 +54,6 @@ interface ExplorerContextMenuModel {
   canMoveContextMenuNode: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
-  contextMenuNode: ContainerNode | undefined;
   handleSidebarDocumentContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
     localId: string,

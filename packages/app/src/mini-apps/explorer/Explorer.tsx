@@ -119,7 +119,6 @@ export function Explorer() {
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
-        contextMenuNode={model.contextMenuState.contextMenuNode}
         importDroppedFiles={model.importDroppedFiles}
         openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
         openContainerInfoRoute={model.routeState.openContainerInfoRoute}
