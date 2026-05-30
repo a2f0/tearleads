@@ -1,5 +1,7 @@
 import type {
   BlobBytes,
+  BlobInfo,
+  BlobStore,
   DocumentAttachment,
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
@@ -43,6 +45,43 @@ export async function readDocumentAttachmentUpload(
     bytes: new Uint8Array(await file.arrayBuffer()),
     mimeType: file.type.length > 0 ? file.type : null,
     name: file.name,
+  };
+}
+
+export function isImageDocumentAttachmentBlob(
+  blob: Pick<BlobInfo, "mimeType">,
+) {
+  return blob.mimeType?.startsWith("image/") === true;
+}
+
+export function getDocumentAttachmentBlobName(
+  blob: Pick<BlobInfo, "blobId" | "name" | "references" | "storageKey">,
+): string {
+  return (
+    blob.name ??
+    blob.references?.find((reference) => reference.name)?.name ??
+    blob.blobId ??
+    blob.storageKey
+  );
+}
+
+export async function readBlobDocumentAttachmentUpload(params: {
+  blob: BlobInfo;
+  blobStore: BlobStore;
+}): Promise<DocumentAttachmentUpload> {
+  const { blob, blobStore } = params;
+  const bytes = await blobStore.readBytes(blob.storageKey);
+
+  if (!bytes) {
+    throw new Error(
+      `Blob ${blob.blobId ?? blob.storageKey} has no local bytes.`,
+    );
+  }
+
+  return {
+    bytes,
+    mimeType: blob.mimeType,
+    name: getDocumentAttachmentBlobName(blob),
   };
 }
 
