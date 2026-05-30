@@ -596,6 +596,24 @@ async function collectContainerUserRecipientKeys(input: {
   return userRecipientKeys;
 }
 
+function containerKekManifestHistory(input: {
+  readonly history: readonly VerifiedContainerAccessManifest[];
+  readonly verifiedManifest: VerifiedContainerAccessManifest;
+}): VerifiedContainerAccessManifest[] {
+  const historyByHash = new Map<string, VerifiedContainerAccessManifest>();
+
+  for (const manifest of input.history) {
+    if (
+      manifest.state.containerId === input.verifiedManifest.state.containerId &&
+      manifest.manifestHash !== input.verifiedManifest.manifestHash
+    ) {
+      historyByHash.set(manifest.manifestHash, manifest);
+    }
+  }
+
+  return [...historyByHash.values()];
+}
+
 async function verifyContainerKekProjection(input: {
   readonly execSql?: ExecSql | undefined;
   readonly kek: ContainerWriterProjectionResponse["containerKeks"][number];
@@ -621,11 +639,15 @@ async function verifyContainerKekProjection(input: {
     containerManifest: input.verifiedManifest,
     resolveUserKey: input.resolveUserKey,
   });
+  const verifiedKekManifestHistory = containerKekManifestHistory({
+    history: input.verifiedManifestHistory,
+    verifiedManifest: input.verifiedManifest,
+  });
   const principalPolicies = await collectReferencedPrincipalPolicies({
     execSql: input.execSql,
     principalPolicyCache: input.principalPolicyCache,
     references: [
-      ...input.verifiedManifestHistory.flatMap(
+      ...verifiedKekManifestHistory.flatMap(
         (manifest) => manifest.state.referencedPrincipalHeads,
       ),
       ...input.verifiedManifest.state.referencedPrincipalHeads,
@@ -634,7 +656,7 @@ async function verifyContainerKekProjection(input: {
   });
   const verified = await verifyContainerKekState({
     containerManifest: input.verifiedManifest,
-    containerManifestHistory: input.verifiedManifestHistory,
+    containerManifestHistory: verifiedKekManifestHistory,
     keyEpoch,
     parentKekState: input.parentKekState,
     principalPolicies,

@@ -278,6 +278,16 @@ async function loadPrincipalPoliciesForContainerPath(
   return uniquePrincipalPolicies(principalPolicies);
 }
 
+async function loadPrincipalPoliciesForContainerPaths(
+  paths: readonly (readonly ContainerManifestBundle[])[],
+): Promise<VerifiedPrincipalPolicy[]> {
+  const principalPolicySets = await Promise.all(
+    paths.map((path) => loadPrincipalPoliciesForContainerPath(path)),
+  );
+
+  return uniquePrincipalPolicies(principalPolicySets.flat());
+}
+
 async function userRecipientKey(
   user: TestUser,
 ): Promise<ContainerUserRecipientKey> {
@@ -520,6 +530,119 @@ async function createChildContainer(input: {
   const created = await response.json();
   expect(isContainerMutationResponse(created)).toBe(true);
   return created as ContainerMutationResponse;
+}
+
+async function buildContainerMoveRequest(input: {
+  readonly destinationParent: ContainerManifestBundle;
+  readonly destinationParentKekState: VerifiedContainerKekState;
+  readonly destinationParentPath: readonly ContainerManifestBundle[];
+  readonly previous: ContainerManifestBundle;
+  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly previousKekState: VerifiedContainerKekState;
+  readonly signer: TestUser;
+}): Promise<ContainerMutationRequest> {
+  const previous = asVerifiedContainerManifest(input.previous);
+  const destinationParent = asVerifiedContainerManifest(
+    input.destinationParent,
+  );
+  const principalPolicies = await loadPrincipalPoliciesForContainerPaths([
+    input.previousContainerPath,
+    input.destinationParentPath,
+  ]);
+  const containerKeyEpochId = crypto.randomUUID();
+  const body: ContainerAccessEventBody = {
+    eventType: "container.move",
+    parentContainerId: destinationParent.state.containerId,
+    parentManifestHash: input.destinationParent.manifestHash,
+    containerKeyEpochId,
+  };
+  const event = await createSignedAccessEvent({
+    body,
+    dependencyManifestHashes: [
+      ...new Set(
+        [...input.previousContainerPath, ...input.destinationParentPath].map(
+          (manifest) => manifest.manifestHash,
+        ),
+      ),
+    ],
+    objectId: previous.state.containerId,
+    objectKind: "container",
+    organizationId: previous.state.organizationId,
+    previousManifestHash: input.previous.manifestHash,
+    signer: input.signer,
+  });
+  const bundle = await createContainerManifestBundle(
+    {
+      ...previous.state,
+      epoch: previous.state.epoch + 1,
+      previousManifestHash: input.previous.manifestHash,
+      eventHash: event.eventHash,
+      parentContainerId: destinationParent.state.containerId,
+      parentManifestHash: input.destinationParent.manifestHash,
+      containerKeyEpochId,
+    },
+    event,
+  );
+  const keyEpoch = createContainerKeyEpoch({
+    containerKeyEpochId,
+    keyEpoch: input.previousKekState.containerKeyEpoch + 1,
+    manifest: bundle,
+    parentKekState: input.destinationParentKekState,
+  });
+  const wrap = createContainerKeyWrap({
+    containerKeyEpochId,
+    parentKekState: input.destinationParentKekState,
+    wrapManifestHash: bundle.manifestHash,
+  });
+
+  return {
+    event: event.event as unknown as Record<string, unknown>,
+    body: body as unknown,
+    expectedManifestHash: bundle.manifestHash,
+    manifest: bundle.manifest,
+    previousManifest: input.previous,
+    previousContainerPath: [...input.previousContainerPath],
+    destinationParentContainerPath: [...input.destinationParentPath],
+    principalPolicies: principalPolicies as unknown as Record<
+      string,
+      unknown
+    >[],
+    keyEpoch: keyEpoch as unknown as Record<string, unknown>,
+    wraps: [wrap as unknown as Record<string, unknown>],
+    parentKekState: input.destinationParentKekState as unknown as Record<
+      string,
+      unknown
+    >,
+    userRecipientKeys: [],
+  };
+}
+
+async function moveContainer(input: {
+  readonly destinationParent: ContainerManifestBundle;
+  readonly destinationParentKekState: VerifiedContainerKekState;
+  readonly destinationParentPath: readonly ContainerManifestBundle[];
+  readonly previous: ContainerManifestBundle;
+  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly previousKekState: VerifiedContainerKekState;
+  readonly signer: TestUser;
+}): Promise<ContainerMutationResponse> {
+  const previous = asVerifiedContainerManifest(input.previous);
+  const response = await routeApp.request(
+    `/containers/${previous.state.containerId}/move`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${input.signer.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(await buildContainerMoveRequest(input)),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const moved = await response.json();
+  expect(isContainerMutationResponse(moved)).toBe(true);
+  return moved as ContainerMutationResponse;
 }
 
 async function createDocumentRequest(input: {
@@ -1198,6 +1321,77 @@ test("GET /containers/:containerId/writer-projection verifies inherited parent K
   expect(body.containerKeks[1].parentContainerKeyEpochId).toBe(
     root.kekState.containerKeyEpochId,
   );
+});
+
+test("GET /containers/:containerId/writer-projection includes historical parent proofs after moving back to root", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const parentA = await createChildContainer({ parent: root, signer: owner });
+  const movedChild = await createChildContainer({
+    parent: root,
+    signer: owner,
+  });
+  const parentABundle = accessManifestFromContainerResponse(parentA);
+  const parentAKek = kekStateFromContainerResponse(parentA);
+  const movedChildCreateBundle =
+    accessManifestFromContainerResponse(movedChild);
+  const movedUnderParentA = await moveContainer({
+    destinationParent: parentABundle,
+    destinationParentKekState: parentAKek,
+    destinationParentPath: [root.bundle, parentABundle],
+    previous: movedChildCreateBundle,
+    previousContainerPath: [root.bundle, movedChildCreateBundle],
+    previousKekState: kekStateFromContainerResponse(movedChild),
+    signer: owner,
+  });
+  const movedUnderParentABundle =
+    accessManifestFromContainerResponse(movedUnderParentA);
+  const movedBackToRoot = await moveContainer({
+    destinationParent: root.bundle,
+    destinationParentKekState: root.kekState,
+    destinationParentPath: [root.bundle],
+    previous: movedUnderParentABundle,
+    previousContainerPath: [
+      root.bundle,
+      parentABundle,
+      movedUnderParentABundle,
+    ],
+    previousKekState: kekStateFromContainerResponse(movedUnderParentA),
+    signer: owner,
+  });
+
+  const response = await routeApp.request(
+    `/containers/${movedChild.containerId}/writer-projection`,
+    {
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+      },
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(isContainerWriterProjectionResponse(body)).toBe(true);
+  expect(
+    body.path.map((entry: { manifestHash: string }) => entry.manifestHash),
+  ).toEqual([
+    root.bundle.manifestHash,
+    accessManifestFromContainerResponse(movedBackToRoot).manifestHash,
+  ]);
+
+  const movedChildHistoryHashes =
+    body.containerKeks[1]?.containerManifestHistory?.map(
+      (entry: { manifestHash: string }) => entry.manifestHash,
+    ) ?? [];
+  expect(movedChildHistoryHashes).toContain(
+    movedUnderParentABundle.manifestHash,
+  );
+  expect(movedChildHistoryHashes).toContain(
+    movedChildCreateBundle.manifestHash,
+  );
+  expect(movedChildHistoryHashes).toContain(parentABundle.manifestHash);
 });
 
 test("GET /containers/:containerId/writer-projection rejects users without write access", async () => {
