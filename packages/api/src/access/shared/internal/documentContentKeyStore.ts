@@ -1,5 +1,5 @@
 import type { WriteHeader } from "@tearleads/crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type {
   ApiDatabase,
   DatabaseSession,
@@ -141,72 +141,163 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function readContainerKeyEpochIdFromState(state: unknown): string | null {
-  if (!isRecord(state)) {
-    return null;
-  }
-
-  const containerKeyEpochId = Reflect.get(state, "containerKeyEpochId");
-  return typeof containerKeyEpochId === "string" &&
-    containerKeyEpochId.length > 0
-    ? containerKeyEpochId
-    : null;
-}
-
 interface ContainerManifestMoveLineageStep {
+  readonly containerId: string;
   readonly containerKeyEpochId: string;
+  readonly cycleDetected: boolean;
   readonly eventType: string;
+  readonly manifestHash: string;
   readonly previousManifestHash: string | null;
 }
 
-async function loadContainerManifestMoveLineageStep(
-  input: {
-    readonly containerId: string;
-    readonly manifestHash: string;
-  },
-  executor: DatabaseSession,
-): Promise<ContainerManifestMoveLineageStep | null> {
-  const [row] = await executor
-    .select({
-      state: accessManifests.state,
-      eventType: accessEvents.eventType,
-      objectId: accessManifests.objectId,
-      objectKind: accessManifests.objectKind,
-      previousManifestHash: accessManifests.previousManifestHash,
-    })
-    .from(accessManifests)
-    .innerJoin(
-      accessEvents,
-      eq(accessEvents.eventHash, accessManifests.eventHash),
-    )
-    .where(eq(accessManifests.manifestHash, input.manifestHash))
-    .limit(1);
+type ContainerManifestMoveLineageRowCandidate = Partial<
+  Record<keyof ContainerManifestMoveLineageStep, unknown>
+>;
 
-  if (
-    !row ||
-    row.objectKind !== "container" ||
-    row.objectId !== input.containerId
-  ) {
-    return null;
+type ContainerManifestMoveLineageTarget = Pick<
+  DocumentContentKeyTargetEnvelope,
+  "containerId" | "containerManifestHash"
+>;
+
+function isContainerManifestMoveLineageRow(
+  row: unknown,
+): row is ContainerManifestMoveLineageStep {
+  if (!isRecord(row)) {
+    return false;
   }
 
-  const containerKeyEpochId = readContainerKeyEpochIdFromState(row.state);
-  if (!containerKeyEpochId) {
-    return null;
-  }
+  const candidate = row as ContainerManifestMoveLineageRowCandidate;
+  const previousManifestHash = candidate.previousManifestHash;
 
-  return {
-    containerKeyEpochId,
-    eventType: row.eventType,
-    previousManifestHash: row.previousManifestHash,
-  };
+  return (
+    typeof candidate.containerId === "string" &&
+    typeof candidate.containerKeyEpochId === "string" &&
+    typeof candidate.cycleDetected === "boolean" &&
+    typeof candidate.eventType === "string" &&
+    typeof candidate.manifestHash === "string" &&
+    (typeof previousManifestHash === "string" || previousManifestHash === null)
+  );
 }
 
-async function targetCanCarryContentKeyEnvelopeForward(input: {
+async function loadContainerManifestMoveLineages(
+  targets: readonly ContainerManifestMoveLineageTarget[],
+  executor: DatabaseSession,
+): Promise<Map<string, ContainerManifestMoveLineageStep[]>> {
+  const seedTargets = [
+    ...new Map(targets.map((target) => [target.containerId, target])).values(),
+  ].sort((left, right) => left.containerId.localeCompare(right.containerId));
+  if (seedTargets.length === 0) {
+    return new Map();
+  }
+
+  const result = await executor.execute(sql`
+    with recursive move_lineage as (
+      select
+        seed_targets.container_id,
+        m.manifest_hash,
+        m.previous_manifest_hash,
+        m.state->>'containerKeyEpochId' as container_key_epoch_id,
+        e.event_type,
+        array[m.manifest_hash] as visited_hashes,
+        false as cycle_detected,
+        0 as depth
+      from (values ${sql.join(
+        seedTargets.map(
+          (target) =>
+            sql`(${target.containerId}, ${target.containerManifestHash})`,
+        ),
+        sql`, `,
+      )}) as seed_targets(container_id, manifest_hash)
+      inner join ${accessManifests} m
+        on m.manifest_hash = seed_targets.manifest_hash
+        and m.object_kind = 'container'
+        and m.object_id = seed_targets.container_id::uuid
+      inner join ${accessEvents} e on e.event_hash = m.event_hash
+      where m.state->>'containerKeyEpochId' is not null
+      union all
+      select
+        ml.container_id,
+        previous_manifest.manifest_hash,
+        previous_manifest.previous_manifest_hash,
+        previous_manifest.state->>'containerKeyEpochId',
+        previous_event.event_type,
+        ml.visited_hashes || previous_manifest.manifest_hash,
+        previous_manifest.manifest_hash = any(ml.visited_hashes),
+        ml.depth + 1
+      from move_lineage ml
+      inner join ${accessManifests} previous_manifest
+        on previous_manifest.manifest_hash = ml.previous_manifest_hash
+        and previous_manifest.object_kind = 'container'
+        and previous_manifest.object_id = ml.container_id::uuid
+      inner join ${accessEvents} previous_event
+        on previous_event.event_hash = previous_manifest.event_hash
+      where not ml.cycle_detected
+        and ml.previous_manifest_hash is not null
+        and ml.depth < 100
+        and previous_manifest.state->>'containerKeyEpochId' is not null
+    )
+    select
+      container_id as "containerId",
+      container_key_epoch_id as "containerKeyEpochId",
+      cycle_detected as "cycleDetected",
+      event_type as "eventType",
+      manifest_hash as "manifestHash",
+      previous_manifest_hash as "previousManifestHash"
+    from move_lineage
+    order by container_id asc, depth asc
+  `);
+  const lineages = new Map<string, ContainerManifestMoveLineageStep[]>();
+
+  for (const row of result.rows) {
+    if (!isContainerManifestMoveLineageRow(row)) {
+      continue;
+    }
+
+    const lineage = lineages.get(row.containerId) ?? [];
+    lineage.push(row);
+    lineages.set(row.containerId, lineage);
+  }
+
+  return lineages;
+}
+
+function isExpectedLineageStep(input: {
   readonly currentTarget: CurrentDocumentKekTargets["targets"][number];
-  readonly executor: DatabaseSession;
+  readonly expectedManifestHash: string;
+  readonly step: ContainerManifestMoveLineageStep;
+}): boolean {
+  return (
+    !input.step.cycleDetected &&
+    input.step.containerId === input.currentTarget.containerId &&
+    input.step.manifestHash === input.expectedManifestHash
+  );
+}
+
+function canAdvanceLineageStep(input: {
+  readonly currentStep: ContainerManifestMoveLineageStep;
+  readonly previousStep: ContainerManifestMoveLineageStep;
+}): boolean {
+  if (!input.currentStep.previousManifestHash) {
+    return false;
+  }
+  if (
+    input.previousStep.manifestHash !== input.currentStep.previousManifestHash
+  ) {
+    return false;
+  }
+
+  return (
+    input.previousStep.containerKeyEpochId ===
+      input.currentStep.containerKeyEpochId ||
+    input.currentStep.eventType === "container.move"
+  );
+}
+
+function targetCanCarryContentKeyEnvelopeForward(input: {
+  readonly currentTarget: CurrentDocumentKekTargets["targets"][number];
+  readonly lineage: readonly ContainerManifestMoveLineageStep[];
   readonly previousEnvelope: DocumentContentKeyTargetEnvelope;
-}): Promise<boolean> {
+}): boolean {
   if (targetKeyMaterialEqual(input.previousEnvelope, input.currentTarget)) {
     return true;
   }
@@ -221,55 +312,41 @@ async function targetCanCarryContentKeyEnvelopeForward(input: {
   let manifestHash = input.currentTarget.containerManifestHash;
   let containerKeyEpochId = input.currentTarget.containerKeyEpochId;
   const visitedManifestHashes = new Set<string>();
-  let currentStep: ContainerManifestMoveLineageStep | null | undefined;
 
-  for (let depth = 0; depth < 100; depth += 1) {
+  for (const [index, currentStep] of input.lineage.entries()) {
     if (visitedManifestHashes.has(manifestHash)) {
       return false;
     }
     visitedManifestHashes.add(manifestHash);
 
+    if (
+      !isExpectedLineageStep({
+        currentTarget: input.currentTarget,
+        expectedManifestHash: manifestHash,
+        step: currentStep,
+      })
+    ) {
+      return false;
+    }
+
     if (manifestHash === input.previousEnvelope.containerManifestHash) {
       return containerKeyEpochId === input.previousEnvelope.containerKeyEpochId;
     }
 
-    currentStep ??= await loadContainerManifestMoveLineageStep(
-      {
-        containerId: input.currentTarget.containerId,
-        manifestHash,
-      },
-      input.executor,
-    );
-    if (
-      !currentStep ||
-      currentStep.containerKeyEpochId !== containerKeyEpochId
-    ) {
-      return false;
-    }
-    if (!currentStep.previousManifestHash) {
+    if (currentStep.containerKeyEpochId !== containerKeyEpochId) {
       return false;
     }
 
-    const previousStep = await loadContainerManifestMoveLineageStep(
-      {
-        containerId: input.currentTarget.containerId,
-        manifestHash: currentStep.previousManifestHash,
-      },
-      input.executor,
-    );
-    if (!previousStep) {
-      return false;
-    }
+    const previousStep = input.lineage[index + 1];
     if (
-      previousStep.containerKeyEpochId !== currentStep.containerKeyEpochId &&
-      currentStep.eventType !== "container.move"
+      !previousStep ||
+      !canAdvanceLineageStep({ currentStep, previousStep })
     ) {
       return false;
     }
 
-    manifestHash = currentStep.previousManifestHash;
+    manifestHash = previousStep.manifestHash;
     containerKeyEpochId = previousStep.containerKeyEpochId;
-    currentStep = previousStep;
   }
 
   return false;
@@ -290,6 +367,10 @@ async function refreshedBundleForCurrentTargets(input: {
     return null;
   }
 
+  const lineageByContainerId = await loadContainerManifestMoveLineages(
+    input.currentTargets.targets,
+    input.executor,
+  );
   const targets: DocumentContentKeyTargetEnvelope[] = [];
   for (const currentTarget of input.currentTargets.targets) {
     const previousEnvelope = previousEnvelopeByContainerId.get(
@@ -298,11 +379,11 @@ async function refreshedBundleForCurrentTargets(input: {
 
     if (
       !previousEnvelope ||
-      !(await targetCanCarryContentKeyEnvelopeForward({
+      !targetCanCarryContentKeyEnvelopeForward({
         currentTarget,
-        executor: input.executor,
+        lineage: lineageByContainerId.get(currentTarget.containerId) ?? [],
         previousEnvelope,
-      }))
+      })
     ) {
       return null;
     }
@@ -333,6 +414,10 @@ async function currentTargetsCanCarryPreviousBundle(input: {
   const currentTargetByContainerId = new Map(
     input.currentTargets.targets.map((target) => [target.containerId, target]),
   );
+  const lineageByContainerId = await loadContainerManifestMoveLineages(
+    input.currentTargets.targets,
+    input.executor,
+  );
 
   for (const previousEnvelope of previousEnvelopeByContainerId.values()) {
     const currentTarget = currentTargetByContainerId.get(
@@ -341,11 +426,11 @@ async function currentTargetsCanCarryPreviousBundle(input: {
 
     if (
       !currentTarget ||
-      !(await targetCanCarryContentKeyEnvelopeForward({
+      !targetCanCarryContentKeyEnvelopeForward({
         currentTarget,
-        executor: input.executor,
+        lineage: lineageByContainerId.get(currentTarget.containerId) ?? [],
         previousEnvelope,
-      }))
+      })
     ) {
       return false;
     }
@@ -429,6 +514,33 @@ async function insertDocumentContentKeyTargets(input: {
     });
 }
 
+async function updateDocumentContentKeyTargets(input: {
+  readonly documentContentKeyEpochId: string;
+  readonly executor: DatabaseSession;
+  readonly targets: readonly DocumentContentKeyTargetEnvelope[];
+}): Promise<void> {
+  for (const target of input.targets) {
+    await input.executor
+      .update(documentContentKeyTargets)
+      .set({
+        containerManifestHash: target.containerManifestHash,
+        containerKeyEpochId: target.containerKeyEpochId,
+        containerKeyEpoch: target.containerKeyEpoch,
+        wrappedKey: target.wrappedKey,
+        wrappingMetadata: target.wrappingMetadata,
+      })
+      .where(
+        and(
+          eq(
+            documentContentKeyTargets.documentContentKeyEpochId,
+            input.documentContentKeyEpochId,
+          ),
+          eq(documentContentKeyTargets.containerId, target.containerId),
+        ),
+      );
+  }
+}
+
 async function createDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
   executor: DatabaseSession,
@@ -499,16 +611,20 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
   const nextByContainerId = new Map(
     input.nextBundle.targets.map((target) => [target.containerId, target]),
   );
+  const lineageByContainerId = await loadContainerManifestMoveLineages(
+    input.nextBundle.targets,
+    input.executor,
+  );
 
   for (const target of input.existingBundle.targets) {
     const nextTarget = nextByContainerId.get(target.containerId);
     if (
       !nextTarget ||
-      !(await targetCanCarryContentKeyEnvelopeForward({
+      !targetCanCarryContentKeyEnvelopeForward({
         currentTarget: nextTarget,
-        executor: input.executor,
+        lineage: lineageByContainerId.get(nextTarget.containerId) ?? [],
         previousEnvelope: target,
-      })) ||
+      }) ||
       (targetKeyMaterialEqual(target, nextTarget) &&
         !targetEnvelopeMaterialEqual(target, nextTarget))
     ) {
@@ -551,23 +667,11 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
     executor: input.executor,
     targets: newTargets,
   });
-  for (const target of refreshedTargets) {
-    await input.executor
-      .update(documentContentKeyTargets)
-      .set({
-        containerManifestHash: target.containerManifestHash,
-        containerKeyEpochId: target.containerKeyEpochId,
-        containerKeyEpoch: target.containerKeyEpoch,
-        wrappedKey: target.wrappedKey,
-        wrappingMetadata: target.wrappingMetadata,
-      })
-      .where(
-        and(
-          eq(documentContentKeyTargets.documentContentKeyEpochId, epochRow.id),
-          eq(documentContentKeyTargets.containerId, target.containerId),
-        ),
-      );
-  }
+  await updateDocumentContentKeyTargets({
+    documentContentKeyEpochId: epochRow.id,
+    executor: input.executor,
+    targets: refreshedTargets,
+  });
 
   const updatedRow = await loadDocumentContentKeyEpochRow(
     input.nextBundle.documentId,
