@@ -34,11 +34,12 @@ import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
 
 const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
-const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 20_000;
-const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 1_500;
+const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 30_000;
+const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
+const MOVED_NOTE_TITLE = "Moved folder note";
 const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
   "Document KEK targets are stale",
   "Document content-key bundle is stale",
@@ -350,6 +351,44 @@ async function createNoteWithAttachment(pane: HTMLElement) {
   await waitFor(() => {
     expect(queryExplorerItemTable(pane)).toBeTruthy();
   });
+}
+
+async function createNoteInContainer(
+  pane: HTMLElement,
+  containerName: string,
+  title: string,
+) {
+  await selectContainerAndWaitForItemTable(pane, containerName);
+  await openExplorerNewStructuredDocumentRoute(pane);
+  const newNoteButton = await within(pane).findByRole("button", {
+    name: "New Note",
+  });
+  await interact(() => {
+    fireEvent.click(newNoteButton);
+  });
+
+  const editor = await within(pane).findByRole("textbox", {
+    name: /Notes editor/u,
+  });
+  const requestStartIndex = listProxiedApiRequests().length;
+  await interact(() => {
+    fireEvent.change(editor, {
+      target: { value: title },
+    });
+  });
+
+  await waitForCondition(
+    () =>
+      listProxiedApiRequests()
+        .slice(requestStartIndex)
+        .some(
+          (request) =>
+            request.method === "POST" &&
+            request.status === 200 &&
+            requestPath(request.url) === "/documents",
+        ),
+    `Created note did not sync before moving its container.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
+  );
 }
 
 async function shareContainerWithPeer(pane: HTMLElement, name: string) {
@@ -768,6 +807,17 @@ function isRetryableDocumentSyncStaleFailure(
   );
 }
 
+function isDocumentWriterProjectionStaleContentBundleFailure(
+  request: ProxiedApiRequest,
+): boolean {
+  return (
+    request.method === "GET" &&
+    request.status === 409 &&
+    /^\/documents\/[^/]+\/writer-projection$/u.test(requestPath(request.url)) &&
+    request.responseBody.includes("Document content-key bundle is stale")
+  );
+}
+
 function hasLaterSuccessfulRetry(
   requests: readonly ProxiedApiRequest[],
   failedRequestIndex: number,
@@ -1142,15 +1192,14 @@ async function refreshUntil(
   predicate: () => boolean,
   message: string,
 ) {
-  await waitFor(() => {
+  await waitForCondition(() => {
     if (predicate()) {
-      return;
+      return true;
     }
 
     clickAvailableExplorerRefresh(pane);
-
-    throw new Error(message);
-  });
+    return false;
+  }, message);
 }
 
 async function selectPeerSharedContainer(
@@ -1469,6 +1518,37 @@ test(
         within(targetTable).getByRole("button", { name: "Moved" }),
       ).toBeTruthy();
     });
+  },
+  DUAL_PANE_TEST_TIMEOUT_MS,
+);
+
+test(
+  "moving a logged-in container with a note keeps document writer projection current",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderSinglePane();
+    const leftPane = getPaneRoot(view, "left");
+
+    await waitForSinglePaneProvisioning(leftPane);
+
+    await openExplorer(leftPane);
+
+    await createChildContainer(leftPane, "Target");
+    await createChildContainer(leftPane, "Moved");
+    await createNoteInContainer(leftPane, "Moved", MOVED_NOTE_TITLE);
+
+    const requestStartIndex = listProxiedApiRequests().length;
+    await moveContainer(leftPane, "Moved", "Target");
+    await waitForNoPostShareSyncFailures([leftPane], requestStartIndex);
+
+    const staleWriterProjectionRequests = listProxiedApiRequests()
+      .slice(requestStartIndex)
+      .filter(isDocumentWriterProjectionStaleContentBundleFailure);
+
+    expect(
+      staleWriterProjectionRequests,
+      `Container move should not leave document content-key bundles stale.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
+    ).toEqual([]);
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
 );

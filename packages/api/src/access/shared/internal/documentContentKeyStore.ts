@@ -6,6 +6,8 @@ import type {
   DatabaseTransaction,
 } from "../../../adapters/postgres";
 import {
+  accessEvents,
+  accessManifests,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -14,7 +16,6 @@ import {
   assertTargetHashMatches,
   assertTargetsMatchCurrent,
   type CurrentDocumentKekTargets,
-  currentTargetsContainPreviousBundle,
   DocumentContentKeyBundleError,
   type DocumentContentKeyTargetEnvelope,
   ensurePositiveContentKeyEpoch,
@@ -136,10 +137,149 @@ async function getLatestDocumentContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
-function refreshedBundleForCurrentTargets(input: {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readContainerKeyEpochIdFromState(state: unknown): string | null {
+  if (!isRecord(state)) {
+    return null;
+  }
+
+  const containerKeyEpochId = Reflect.get(state, "containerKeyEpochId");
+  return typeof containerKeyEpochId === "string" &&
+    containerKeyEpochId.length > 0
+    ? containerKeyEpochId
+    : null;
+}
+
+interface ContainerManifestMoveLineageStep {
+  readonly containerKeyEpochId: string;
+  readonly eventType: string;
+  readonly previousManifestHash: string | null;
+}
+
+async function loadContainerManifestMoveLineageStep(
+  input: {
+    readonly containerId: string;
+    readonly manifestHash: string;
+  },
+  executor: DatabaseSession,
+): Promise<ContainerManifestMoveLineageStep | null> {
+  const [row] = await executor
+    .select({
+      state: accessManifests.state,
+      eventType: accessEvents.eventType,
+      objectId: accessManifests.objectId,
+      objectKind: accessManifests.objectKind,
+      previousManifestHash: accessManifests.previousManifestHash,
+    })
+    .from(accessManifests)
+    .innerJoin(
+      accessEvents,
+      eq(accessEvents.eventHash, accessManifests.eventHash),
+    )
+    .where(eq(accessManifests.manifestHash, input.manifestHash))
+    .limit(1);
+
+  if (
+    !row ||
+    row.objectKind !== "container" ||
+    row.objectId !== input.containerId
+  ) {
+    return null;
+  }
+
+  const containerKeyEpochId = readContainerKeyEpochIdFromState(row.state);
+  if (!containerKeyEpochId) {
+    return null;
+  }
+
+  return {
+    containerKeyEpochId,
+    eventType: row.eventType,
+    previousManifestHash: row.previousManifestHash,
+  };
+}
+
+async function targetCanCarryContentKeyEnvelopeForward(input: {
+  readonly currentTarget: CurrentDocumentKekTargets["targets"][number];
+  readonly executor: DatabaseSession;
+  readonly previousEnvelope: DocumentContentKeyTargetEnvelope;
+}): Promise<boolean> {
+  if (targetKeyMaterialEqual(input.previousEnvelope, input.currentTarget)) {
+    return true;
+  }
+  if (
+    input.previousEnvelope.containerId !== input.currentTarget.containerId ||
+    input.currentTarget.containerKeyEpoch <=
+      input.previousEnvelope.containerKeyEpoch
+  ) {
+    return false;
+  }
+
+  let manifestHash = input.currentTarget.containerManifestHash;
+  let containerKeyEpochId = input.currentTarget.containerKeyEpochId;
+  const visitedManifestHashes = new Set<string>();
+  let currentStep: ContainerManifestMoveLineageStep | null | undefined;
+
+  for (let depth = 0; depth < 100; depth += 1) {
+    if (visitedManifestHashes.has(manifestHash)) {
+      return false;
+    }
+    visitedManifestHashes.add(manifestHash);
+
+    if (manifestHash === input.previousEnvelope.containerManifestHash) {
+      return containerKeyEpochId === input.previousEnvelope.containerKeyEpochId;
+    }
+
+    currentStep ??= await loadContainerManifestMoveLineageStep(
+      {
+        containerId: input.currentTarget.containerId,
+        manifestHash,
+      },
+      input.executor,
+    );
+    if (
+      !currentStep ||
+      currentStep.containerKeyEpochId !== containerKeyEpochId
+    ) {
+      return false;
+    }
+    if (!currentStep.previousManifestHash) {
+      return false;
+    }
+
+    const previousStep = await loadContainerManifestMoveLineageStep(
+      {
+        containerId: input.currentTarget.containerId,
+        manifestHash: currentStep.previousManifestHash,
+      },
+      input.executor,
+    );
+    if (!previousStep) {
+      return false;
+    }
+    if (
+      previousStep.containerKeyEpochId !== currentStep.containerKeyEpochId &&
+      currentStep.eventType !== "container.move"
+    ) {
+      return false;
+    }
+
+    manifestHash = currentStep.previousManifestHash;
+    containerKeyEpochId = previousStep.containerKeyEpochId;
+    currentStep = previousStep;
+  }
+
+  return false;
+}
+
+async function refreshedBundleForCurrentTargets(input: {
   readonly bundle: StoredDocumentContentKeyBundle;
   readonly currentTargets: CurrentDocumentKekTargets;
-}): StoredDocumentContentKeyBundle | null {
+  readonly executor: DatabaseSession;
+}): Promise<StoredDocumentContentKeyBundle | null> {
   const previousEnvelopeByContainerId = new Map(
     input.bundle.targets.map((target) => [target.containerId, target]),
   );
@@ -158,7 +298,11 @@ function refreshedBundleForCurrentTargets(input: {
 
     if (
       !previousEnvelope ||
-      !targetKeyMaterialEqual(previousEnvelope, currentTarget)
+      !(await targetCanCarryContentKeyEnvelopeForward({
+        currentTarget,
+        executor: input.executor,
+        previousEnvelope,
+      }))
     ) {
       return null;
     }
@@ -176,6 +320,38 @@ function refreshedBundleForCurrentTargets(input: {
     targetHash: input.currentTargets.documentKeyTargetHash,
     targets: sortTargetEnvelopes(targets),
   };
+}
+
+async function currentTargetsCanCarryPreviousBundle(input: {
+  readonly bundle: StoredDocumentContentKeyBundle;
+  readonly currentTargets: CurrentDocumentKekTargets;
+  readonly executor: DatabaseSession;
+}): Promise<boolean> {
+  const previousEnvelopeByContainerId = new Map(
+    input.bundle.targets.map((target) => [target.containerId, target]),
+  );
+  const currentTargetByContainerId = new Map(
+    input.currentTargets.targets.map((target) => [target.containerId, target]),
+  );
+
+  for (const previousEnvelope of previousEnvelopeByContainerId.values()) {
+    const currentTarget = currentTargetByContainerId.get(
+      previousEnvelope.containerId,
+    );
+
+    if (
+      !currentTarget ||
+      !(await targetCanCarryContentKeyEnvelopeForward({
+        currentTarget,
+        executor: input.executor,
+        previousEnvelope,
+      }))
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export async function getLatestCurrentDocumentContentKeyBundle(
@@ -197,9 +373,10 @@ export async function getLatestCurrentDocumentContentKeyBundle(
     bundle.linkSetManifestHash !== input.currentTargets.linkSetManifestHash ||
     bundle.targetHash !== input.currentTargets.documentKeyTargetHash
   ) {
-    const refreshedBundle = refreshedBundleForCurrentTargets({
+    const refreshedBundle = await refreshedBundleForCurrentTargets({
       bundle,
       currentTargets: input.currentTargets,
+      executor,
     });
     if (refreshedBundle) {
       assertTargetsMatchCurrent({
@@ -325,7 +502,16 @@ async function addDocumentContentKeyTargetsToExistingBundle(input: {
 
   for (const target of input.existingBundle.targets) {
     const nextTarget = nextByContainerId.get(target.containerId);
-    if (!nextTarget || !targetEnvelopeMaterialEqual(target, nextTarget)) {
+    if (
+      !nextTarget ||
+      !(await targetCanCarryContentKeyEnvelopeForward({
+        currentTarget: nextTarget,
+        executor: input.executor,
+        previousEnvelope: target,
+      })) ||
+      (targetKeyMaterialEqual(target, nextTarget) &&
+        !targetEnvelopeMaterialEqual(target, nextTarget))
+    ) {
       throw new DocumentContentKeyBundleError(
         "Document content-key bundle conflict",
         409,
@@ -512,10 +698,11 @@ export async function storeDocumentContentKeyBundleInTransaction(
 
   const latestTargetsStillCurrent =
     !latestBundle ||
-    currentTargetsContainPreviousBundle({
-      currentTargets: currentTargets.targets,
-      previousTargets: latestBundle.targets,
-    });
+    (await currentTargetsCanCarryPreviousBundle({
+      bundle: latestBundle,
+      currentTargets,
+      executor,
+    }));
 
   assertContentKeyEpochCanBeStored({
     contentKeyEpoch: input.contentKeyEpoch,
@@ -629,9 +816,10 @@ export async function requireAndRefreshCurrentDocumentContentKeyBundle(input: {
     bundle.linkSetManifestHash !== input.expectedLinkSetManifestHash ||
     bundle.targetHash !== input.expectedTargetHash
   ) {
-    const refreshedBundle = refreshedBundleForCurrentTargets({
+    const refreshedBundle = await refreshedBundleForCurrentTargets({
       bundle,
       currentTargets,
+      executor,
     });
     if (!refreshedBundle) {
       throw new DocumentContentKeyBundleError(

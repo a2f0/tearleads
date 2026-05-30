@@ -89,26 +89,47 @@ async function createVerifiedEvent(input: {
 async function createVerifiedContainerManifest(input: {
   readonly containerKeyEpochId?: string;
   readonly containerId: string;
+  readonly eventType?: Extract<
+    AccessEventType,
+    "container.grant" | "container.move" | "container.rekey"
+  >;
   readonly epoch?: number;
   readonly organizationId: string;
+  readonly parentContainerId?: string | null;
+  readonly parentManifestHash?: string | null;
   readonly previousManifestHash?: string | null;
   readonly salt: string;
 }): Promise<VerifiedContainerAccessManifest> {
   const containerKeyEpochId =
     input.containerKeyEpochId ?? `${input.containerId}:key-epoch-1`;
+  const eventType = input.eventType ?? "container.grant";
+  const body =
+    eventType === "container.move"
+      ? {
+          containerKeyEpochId,
+          eventType,
+          parentContainerId: input.parentContainerId,
+          parentManifestHash: input.parentManifestHash,
+        }
+      : eventType === "container.rekey"
+        ? {
+            containerKeyEpochId,
+            eventType,
+          }
+        : {
+            containerKeyEpochId,
+            eventType,
+            grant: {
+              accessLevel: "read",
+              subjectId: crypto.randomUUID(),
+              subjectType: "user",
+            },
+            referencedPrincipalHead: null,
+            salt: input.salt,
+          };
   const event = await createVerifiedEvent({
-    body: {
-      containerKeyEpochId,
-      eventType: "container.grant",
-      grant: {
-        accessLevel: "read",
-        subjectId: crypto.randomUUID(),
-        subjectType: "user",
-      },
-      referencedPrincipalHead: null,
-      salt: input.salt,
-    },
-    eventType: "container.grant",
+    body,
+    eventType,
     objectKind: "container",
     objectId: input.containerId,
     organizationId: input.organizationId,
@@ -148,8 +169,8 @@ async function createVerifiedContainerManifest(input: {
       epoch: input.epoch ?? 1,
       previousManifestHash: input.previousManifestHash ?? null,
       eventHash: event.eventHash,
-      parentContainerId: null,
-      parentManifestHash: null,
+      parentContainerId: input.parentContainerId ?? null,
+      parentManifestHash: input.parentManifestHash ?? null,
       metadataDocumentId: `${input.containerId}:metadata`,
       containerKeyEpochId,
       directGrants: [],
@@ -209,8 +230,10 @@ async function createVerifiedDocumentLinkSetManifest(input: {
 
 async function insertContainerKeyEpoch(input: {
   readonly containerId: string;
+  readonly keyEpoch?: number;
   readonly keyEpochId: string;
   readonly manifestHash: string;
+  readonly parentContainerKeyEpochId?: string | null;
 }) {
   const [manifest] = await db
     .select({ eventHash: accessManifests.eventHash })
@@ -225,9 +248,9 @@ async function insertContainerKeyEpoch(input: {
   await db.insert(containerKeyEpochs).values({
     id: input.keyEpochId,
     containerId: input.containerId,
-    keyEpoch: 1,
+    keyEpoch: input.keyEpoch ?? 1,
     accessManifestHash: input.manifestHash,
-    parentContainerKeyEpochId: null,
+    parentContainerKeyEpochId: input.parentContainerKeyEpochId ?? null,
     createdByEventHash: manifest.eventHash,
     createdByManifestHash: input.manifestHash,
   });
@@ -545,6 +568,194 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
 
   expect(stored.contentKeyEpoch).toBe(1);
   expect(stored.targets).toEqual(refreshedEnvelopes);
+});
+
+test("storeDocumentContentKeyBundle carries a content key across container move targets", async () => {
+  const setup = await setupDocumentTargets(1);
+  const initialTargets = await resolveCurrentDocumentKekTargets(
+    setup.documentId,
+    db,
+  );
+  const initialEnvelopes = targetEnvelopes(initialTargets);
+  await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: initialTargets.linkSetManifestHash,
+      targetHash: initialTargets.documentKeyTargetHash,
+      targets: initialEnvelopes,
+    },
+    db,
+  );
+
+  const movedKeyEpochId = `${setup.firstContainerId}:key-epoch-2`;
+  const movedContainer = await createVerifiedContainerManifest({
+    containerId: setup.firstContainerId,
+    containerKeyEpochId: movedKeyEpochId,
+    eventType: "container.move",
+    epoch: 2,
+    organizationId: setup.organizationId,
+    parentContainerId: setup.secondContainerId,
+    parentManifestHash: setup.secondContainer.manifestHash,
+    previousManifestHash: setup.firstContainer.manifestHash,
+    salt: "first-move",
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: movedContainer }, db);
+  await insertContainerKeyEpoch({
+    containerId: setup.firstContainerId,
+    keyEpoch: 2,
+    keyEpochId: movedKeyEpochId,
+    manifestHash: movedContainer.manifestHash,
+    parentContainerKeyEpochId: `${setup.secondContainerId}:key-epoch-1`,
+  });
+
+  const movedTargets = await resolveCurrentDocumentKekTargets(
+    setup.documentId,
+    db,
+  );
+  const movedEnvelopes = movedTargets.targets.map((target) => {
+    const existing = initialEnvelopes.find(
+      (envelope) => envelope.containerId === target.containerId,
+    );
+    if (!existing) {
+      throw new Error("Expected existing target envelope");
+    }
+    return {
+      ...target,
+      wrappedKey: existing.wrappedKey,
+      wrappingMetadata: existing.wrappingMetadata,
+    };
+  });
+
+  await expect(
+    getLatestCurrentDocumentContentKeyBundle(
+      {
+        currentTargets: movedTargets,
+        documentId: setup.documentId,
+      },
+      db,
+    ),
+  ).resolves.toMatchObject({
+    linkSetManifestHash: movedTargets.linkSetManifestHash,
+    targetHash: movedTargets.documentKeyTargetHash,
+    targets: movedEnvelopes,
+  });
+
+  const refreshedBundle =
+    await requireAndRefreshCurrentDocumentContentKeyBundle({
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      expectedLinkSetManifestHash: movedTargets.linkSetManifestHash,
+      expectedTargetHash: movedTargets.documentKeyTargetHash,
+      executor: db,
+    });
+
+  expect(refreshedBundle.contentKeyEpoch).toBe(1);
+  expect(refreshedBundle.targets).toEqual(movedEnvelopes);
+
+  const stored = await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: movedTargets.linkSetManifestHash,
+      targetHash: movedTargets.documentKeyTargetHash,
+      targets: movedEnvelopes,
+    },
+    db,
+  );
+
+  expect(stored.contentKeyEpoch).toBe(1);
+  expect(stored.targets).toEqual(movedEnvelopes);
+});
+
+test("storeDocumentContentKeyBundle requires a new content key epoch after container rekey", async () => {
+  const setup = await setupDocumentTargets(1);
+  const initialTargets = await resolveCurrentDocumentKekTargets(
+    setup.documentId,
+    db,
+  );
+  await storeDocumentContentKeyBundle(
+    {
+      documentId: setup.documentId,
+      contentKeyEpoch: 1,
+      linkSetManifestHash: initialTargets.linkSetManifestHash,
+      targetHash: initialTargets.documentKeyTargetHash,
+      targets: targetEnvelopes(initialTargets),
+    },
+    db,
+  );
+
+  const rekeyedKeyEpochId = `${setup.firstContainerId}:key-epoch-2`;
+  const rekeyedContainer = await createVerifiedContainerManifest({
+    containerId: setup.firstContainerId,
+    containerKeyEpochId: rekeyedKeyEpochId,
+    eventType: "container.rekey",
+    epoch: 2,
+    organizationId: setup.organizationId,
+    previousManifestHash: setup.firstContainer.manifestHash,
+    salt: "first-rekey",
+  });
+  await storeVerifiedAccessManifest({ verifiedManifest: rekeyedContainer }, db);
+  await insertContainerKeyEpoch({
+    containerId: setup.firstContainerId,
+    keyEpoch: 2,
+    keyEpochId: rekeyedKeyEpochId,
+    manifestHash: rekeyedContainer.manifestHash,
+  });
+  const rekeyedTargets = await resolveCurrentDocumentKekTargets(
+    setup.documentId,
+    db,
+  );
+
+  await expect(
+    getLatestCurrentDocumentContentKeyBundle(
+      {
+        currentTargets: rekeyedTargets,
+        documentId: setup.documentId,
+      },
+      db,
+    ),
+  ).rejects.toMatchObject(
+    new DocumentContentKeyBundleError(
+      "Document content-key bundle is stale",
+      409,
+    ),
+  );
+
+  await expect(
+    storeDocumentContentKeyBundle(
+      {
+        documentId: setup.documentId,
+        contentKeyEpoch: 1,
+        linkSetManifestHash: rekeyedTargets.linkSetManifestHash,
+        targetHash: rekeyedTargets.documentKeyTargetHash,
+        targets: targetEnvelopes(rekeyedTargets, "rekeyed"),
+      },
+      db,
+    ),
+  ).rejects.toMatchObject(
+    new DocumentContentKeyBundleError(
+      "Document content key epoch must rotate after target shrink",
+      409,
+    ),
+  );
+
+  const rotatedEnvelopes = targetEnvelopes(rekeyedTargets, "rotated");
+  await expect(
+    storeDocumentContentKeyBundle(
+      {
+        documentId: setup.documentId,
+        contentKeyEpoch: 2,
+        linkSetManifestHash: rekeyedTargets.linkSetManifestHash,
+        targetHash: rekeyedTargets.documentKeyTargetHash,
+        targets: rotatedEnvelopes,
+      },
+      db,
+    ),
+  ).resolves.toMatchObject({
+    contentKeyEpoch: 2,
+    targets: rotatedEnvelopes,
+  });
 });
 
 test("storeDocumentContentKeyBundle requires a new content key epoch after target shrink", async () => {

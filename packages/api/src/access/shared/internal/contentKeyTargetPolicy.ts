@@ -71,31 +71,3 @@ export function expectedContentKeyTargetMap<T>(
 ): Map<string, T> {
   return new Map(targets.map((target) => [targetKey(target), target]));
 }
-
-export function contentKeyTargetsContainPreviousBundle<
-  TCurrent,
-  TPrevious,
->(input: {
-  readonly currentTargets: readonly TCurrent[];
-  readonly previousTargets: readonly TPrevious[];
-  readonly targetKey: (target: TCurrent | TPrevious) => string;
-  readonly targetFieldsEqual: (
-    previousTarget: TPrevious,
-    currentTarget: TCurrent,
-  ) => boolean;
-}): boolean {
-  const currentTargetByKey = expectedContentKeyTargetMap(
-    input.currentTargets,
-    input.targetKey,
-  );
-
-  return input.previousTargets.every((previousTarget) => {
-    const currentTarget = currentTargetByKey.get(
-      input.targetKey(previousTarget),
-    );
-    return (
-      currentTarget !== undefined &&
-      input.targetFieldsEqual(previousTarget, currentTarget)
-    );
-  });
-}

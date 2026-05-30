@@ -493,15 +493,16 @@ async function resolveContainerManifestVerificationParentPath(input: {
   const { parentContainerId, parentManifestHash } =
     readContainerManifestParentReference(input.bundle, input.label);
   if (parentContainerId === null || parentManifestHash === null) {
-    return input.parentPath;
+    return [];
   }
 
-  const currentParent = input.parentPath.at(-1);
-  if (
-    currentParent?.state.containerId === parentContainerId &&
-    currentParent.manifestHash === parentManifestHash
-  ) {
-    return input.parentPath;
+  const parentPathIndex = input.parentPath.findIndex(
+    (manifest) =>
+      manifest.state.containerId === parentContainerId &&
+      manifest.manifestHash === parentManifestHash,
+  );
+  if (parentPathIndex >= 0) {
+    return input.parentPath.slice(0, parentPathIndex + 1);
   }
 
   const parentBundle = input.bundlesByHash.get(parentManifestHash);
@@ -514,7 +515,6 @@ async function resolveContainerManifestVerificationParentPath(input: {
       ...input,
       bundle: parentBundle,
       label: `${input.label} parent manifest`,
-      parentPath: input.parentPath.slice(0, -1),
     },
   );
   const verifiedParent = await verifyContainerManifestBundle({
