@@ -312,13 +312,16 @@ export function ExplorerContextMenuLayer(params: {
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
           const uploadContainerId = uploadContainerIdRef.current;
-          if (files.length > 0 && uploadContainerId) {
-            void params.importDroppedFiles(uploadContainerId, files);
+          try {
+            if (files.length > 0 && uploadContainerId) {
+              void params.importDroppedFiles(uploadContainerId, files);
+            }
+          } finally {
+            if (fileInputRef.current) {
+              fileInputRef.current.value = "";
+            }
+            uploadContainerIdRef.current = null;
           }
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-          uploadContainerIdRef.current = null;
         }}
       />
     </>

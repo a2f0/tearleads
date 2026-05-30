@@ -85,11 +85,9 @@ test("container upload uses the target captured before opening the file picker",
   if (!fileInput) {
     return;
   }
-  fileInput.click = () => {
-    fireEvent.change(fileInput, { target: { files: uploadedFiles } });
-  };
 
   fireEvent.click(view.getByRole("button", { name: "Upload" }));
+  fireEvent.change(fileInput, { target: { files: uploadedFiles } });
 
   await waitFor(() => {
     expect(imports).toHaveLength(1);
