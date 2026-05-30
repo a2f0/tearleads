@@ -387,12 +387,7 @@ export async function moveContainer(
   containerId: string,
   parentId: string,
 ) {
-  if (
-    state.runtime.infra.dbStatus !== "ready" ||
-    !state.snapshot.ready ||
-    !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online
-  ) {
+  if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
     return null;
   }
 
@@ -403,7 +398,30 @@ export async function moveContainer(
     !targetParentState ||
     existingState.container.parentId === null ||
     (existingState.container.systemSlot ?? null) !== null ||
-    isContainerInSubtree(state.containersById, parentId, containerId) ||
+    isContainerInSubtree(state.containersById, parentId, containerId)
+  ) {
+    return null;
+  }
+
+  if (existingState.container.parentId === parentId) {
+    return toContainerNode(existingState);
+  }
+
+  const isRemoteContainer = Boolean(existingState.record.documentId);
+  if (!isRemoteContainer) {
+    await persistContainerState(state, existingState, { parentId }, true, {
+      createIntent: { parentContainerId: parentId },
+    });
+    syncAgent.scheduleSync();
+    state.runtime.util.log(
+      `${getContainerContentsStoreLogLabel(state)}: moved container ${containerId} under ${parentId}`,
+    );
+    return toContainerNode(existingState);
+  }
+
+  if (
+    !state.runtime.auth.isAuthenticated ||
+    !state.runtime.state.online ||
     typeof existingState.record.accessStateHash !== "string" ||
     existingState.record.accessStateHash.length === 0
   ) {

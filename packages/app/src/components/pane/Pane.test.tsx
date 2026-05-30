@@ -192,6 +192,44 @@ async function createExplorerChildContainer(
   });
 }
 
+async function moveExplorerContainer(
+  view: ReturnType<typeof renderPane>,
+  explorerWindow: HTMLElement,
+  name: string,
+  destinationName: string,
+) {
+  fireEvent.contextMenu(getExplorerContainerItem(explorerWindow, name), {
+    clientX: 210,
+    clientY: 210,
+  });
+  fireEvent.click(view.getByRole("button", { name: "Move" }));
+
+  const dialog = view.getByRole("dialog");
+  const destinationSelect = within(dialog).getByLabelText(
+    "Destination container",
+  );
+  invariant(
+    destinationSelect instanceof HTMLSelectElement,
+    "Expected destination container select.",
+  );
+  const destinationOption = Array.from(destinationSelect.options).find(
+    (option) => option.textContent?.startsWith(`${destinationName} (`),
+  );
+  invariant(
+    destinationOption,
+    `Expected destination option for "${destinationName}".`,
+  );
+
+  fireEvent.change(destinationSelect, {
+    target: { value: destinationOption.value },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
+
+  await waitFor(() => {
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+}
+
 function getSelectedExplorerContainerSyncLabel(
   explorerWindow: HTMLElement,
 ): string | null {
@@ -558,6 +596,35 @@ test("explorer exposes structured document creation from the file menu", async (
 
   view.unmount();
 });
+
+test(
+  "device-first explorer can move a local child container under a sibling",
+  async () => {
+    const view = renderPane();
+
+    await generateIdentityAndWaitForDb(view);
+
+    const explorer = await openExplorer(view);
+
+    await createExplorerChildContainer(view, explorer, "test1");
+    await createExplorerChildContainer(view, explorer, "test2");
+    await moveExplorerContainer(view, explorer, "test1", "test2");
+
+    fireEvent.click(getExplorerContainerItem(explorer, "test2"));
+
+    await waitFor(() => {
+      expect(
+        within(explorer).getByRole("table", { name: "Items in test2" }),
+      ).toBeTruthy();
+      expect(
+        within(explorer).getByRole("button", { name: "test1" }),
+      ).toBeTruthy();
+    });
+
+    view.unmount();
+  },
+  PANE_ASYNC_TEST_TIMEOUT_MS,
+);
 
 test("explorer windows in the same pane share newly created notes without refresh", async () => {
   const view = renderPane();
