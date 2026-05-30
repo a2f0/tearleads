@@ -1,5 +1,9 @@
-import { useId, useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import type { BlobInfoInput } from "@tearleads/client-sdk";
+import { useCallback, useId, useMemo } from "react";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -8,7 +12,10 @@ import {
   StructuredDocumentFields,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
-import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
+import {
+  useDocumentAttachmentSelection,
+  useDocumentBlobAttachmentSelection,
+} from "../shared/useDocumentAttachmentSelection";
 import {
   CREDIT_CARD_ATTACHMENT_SLOTS,
   type CreditCardDocumentFields,
@@ -101,6 +108,7 @@ const CREDIT_CARD_ATTACHMENT_COPY = {
 
 export function CreditCard() {
   const { auth, infra, state } = useTearleadsRuntime();
+  const { containerContents } = useTearleads();
   const { isAuthenticated } = auth;
   const { blobStore } = infra;
   const { online } = state;
@@ -134,6 +142,16 @@ export function CreditCard() {
     errorMessage: "Failed to handle credit card attachment selection",
     setAttachment,
   });
+  const handleSelectedBlobAttachment = useDocumentBlobAttachmentSelection({
+    blobStore,
+    errorMessage: "Failed to handle credit card blob attachment selection",
+    setAttachment,
+  });
+  const loadBlobInfo = useCallback(
+    (query?: BlobInfoInput | undefined) =>
+      containerContents.listBlobInfo(query),
+    [containerContents],
+  );
 
   return (
     <StructuredDocument
@@ -142,6 +160,10 @@ export function CreditCard() {
         <DocumentAttachmentSlots
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
+          blobPicker={{
+            loadBlobInfo,
+            onSelectedBlob: handleSelectedBlobAttachment,
+          }}
           canAttach={canAttach}
           imageUrlBySlotId={imageUrlBySlotId}
           onSelectedAttachment={handleSelectedAttachment}
