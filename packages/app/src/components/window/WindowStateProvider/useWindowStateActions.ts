@@ -76,9 +76,10 @@ export function useWindowStateActions({
 
   const restore = useCallback(
     (id: string) => {
-      setWindows((previousWindows) =>
-        updateWindowFlag(previousWindows, id, { minimized: false }),
-      );
+      setWindows((previousWindows) => {
+        const frontWindows = bringWindowToFront(previousWindows, id);
+        return updateWindowFlag(frontWindows, id, { minimized: false });
+      });
     },
     [setWindows],
   );
