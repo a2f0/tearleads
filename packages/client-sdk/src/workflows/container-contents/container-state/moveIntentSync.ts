@@ -173,31 +173,41 @@ async function trySyncPendingContainerMoveIntent(
     return "blocked";
   }
 
-  const moved = await moveRemoteContainer({
-    containerId: intent.containerId,
-    parentContainerId: intent.parentContainerId,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
-  if (!moved) {
+  try {
+    const moved = await moveRemoteContainer({
+      containerId: intent.containerId,
+      parentContainerId: intent.parentContainerId,
+      resolveProjectionUserKey: state.resolveProjectionUserKey,
+      runtime: state.runtime,
+    });
+    if (!moved) {
+      await recordPendingMoveIntentError({
+        containerId: intent.containerId,
+        message: "Remote container move was rejected or unavailable",
+        state,
+      });
+      return "failed";
+    }
+
+    await persistAcceptedMoveIntent({
+      host,
+      intent,
+      moved,
+      state,
+    });
+    state.runtime.util.log(
+      `Container contents: synced queued container move ${intent.containerId}`,
+    );
+    return "moved";
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     await recordPendingMoveIntentError({
       containerId: intent.containerId,
-      message: "Remote container move was rejected or unavailable",
+      message: `Failed to sync container move: ${message}`,
       state,
     });
     return "failed";
   }
-
-  await persistAcceptedMoveIntent({
-    host,
-    intent,
-    moved,
-    state,
-  });
-  state.runtime.util.log(
-    `Container contents: synced queued container move ${intent.containerId}`,
-  );
-  return "moved";
 }
 
 export async function syncPendingContainerMoveIntents(input: {

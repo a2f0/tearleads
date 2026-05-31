@@ -423,8 +423,8 @@ export async function moveContainer(
   const canMoveRemoteContainerNow =
     state.runtime.auth.isAuthenticated &&
     state.runtime.state.online &&
-    Boolean(targetParentState.record.documentId) &&
-    typeof existingState.record.accessStateHash === "string" &&
+    Boolean(targetParentState.record?.documentId) &&
+    typeof existingState.record?.accessStateHash === "string" &&
     existingState.record.accessStateHash.length > 0;
   if (!canMoveRemoteContainerNow) {
     await persistContainerState(state, existingState, { parentId }, true, {

@@ -33,6 +33,7 @@ export interface SyncLaneConfig {
 
 interface SyncLaneState {
   config: SyncLaneConfig;
+  key: string;
   registrationIndex: number;
   requested: boolean;
   running: boolean;
@@ -97,6 +98,10 @@ async function runSyncLane(state: SyncLaneState): Promise<void> {
   }
 }
 
+function reportUnexpectedSyncLaneError(state: SyncLaneState, error: unknown) {
+  console.error(`Failed to run sync lane ${state.key}:`, error);
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -152,6 +157,9 @@ async function runRequestedSyncLanes(
     lane.running = true;
     try {
       await runSyncLane(lane);
+    } catch (error: unknown) {
+      lane.requested = false;
+      reportUnexpectedSyncLaneError(lane, error);
     } finally {
       lane.running = false;
     }
@@ -235,6 +243,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
 
       const nextLane: SyncLaneState = {
         config,
+        key,
         registrationIndex: coordinatorState.nextRegistrationIndex,
         requested: false,
         running: false,
