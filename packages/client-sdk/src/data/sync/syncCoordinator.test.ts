@@ -105,6 +105,76 @@ test("waitForDomainSyncCoordinatorToSettle reports timeout while work remains", 
   ).toBe(true);
 });
 
+test("structural lanes run before queued document lanes", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const calls: string[] = [];
+
+  const documentLane = coordinator.registerLane("document", {
+    phase: "document",
+    run: async () => {
+      calls.push("document");
+    },
+  });
+  const structuralLane = coordinator.registerLane("structural", {
+    phase: "structural",
+    run: async () => {
+      calls.push("structural");
+    },
+  });
+
+  documentLane.requestSync();
+  structuralLane.requestSync();
+
+  expect(
+    await waitForDomainSyncCoordinatorToSettle(domainScope, {
+      intervalMs: 1,
+      quietMs: 0,
+      timeoutMs: 100,
+    }),
+  ).toBe(true);
+  expect(calls).toEqual(["structural", "document"]);
+});
+
+test("structural follow-up requests drain before document lanes", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const calls: string[] = [];
+  let structuralRunCount = 0;
+  let requestStructuralSync: () => void = () => {};
+
+  const structuralLane = coordinator.registerLane("structural", {
+    phase: "structural",
+    run: async () => {
+      structuralRunCount += 1;
+      calls.push(`structural-${structuralRunCount}`);
+
+      if (structuralRunCount === 1) {
+        requestStructuralSync();
+      }
+    },
+  });
+  requestStructuralSync = structuralLane.requestSync;
+  const documentLane = coordinator.registerLane("document", {
+    phase: "document",
+    run: async () => {
+      calls.push("document");
+    },
+  });
+
+  structuralLane.requestSync();
+  documentLane.requestSync();
+
+  expect(
+    await waitForDomainSyncCoordinatorToSettle(domainScope, {
+      intervalMs: 1,
+      quietMs: 0,
+      timeoutMs: 100,
+    }),
+  ).toBe(true);
+  expect(calls).toEqual(["structural-1", "structural-2", "document"]);
+});
+
 test("isDestroyedDatabaseClientError detects wrapped teardown messages", () => {
   expect(
     isDestroyedDatabaseClientError(

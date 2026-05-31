@@ -14,14 +14,21 @@ callers trigger that callback through `requestSync()`.
 
 Current production lanes include:
 
-- `documents:${localId}` lanes registered by document stores.
-- `container-contents` lane registered by the explorer/container contents
-  store.
+- `container-contents`, a `structural` lane registered by the
+  explorer/container contents store.
+- `documents:${localId}`, `document` lanes registered by document stores.
 
 The coordinator guarantees that a single lane does not run concurrently with
 itself. If `requestSync()` is called while that lane is already running, the
 request is coalesced into one follow-up pass after the current pass finishes.
-Different lane keys are independent and may run at the same time.
+The coordinator also serializes lanes for a domain scope and drains them by
+phase. All queued `structural` work runs before queued `document` work. This
+keeps container creates, moves, and container metadata sync ahead of document
+creation, Loro update sync, and attachment blob binding.
+
+The pump is non-preemptive: a lane pass that has already started is allowed to
+finish. New higher-priority requests are selected before the next lower-priority
+lane pass starts.
 
 ## Reads, Writes, Documents, And Blobs
 
@@ -42,8 +49,8 @@ blob envelopes, and attachment persistence live elsewhere under `data/blobs`,
 writes blob bytes directly.
 
 Container contents also uses lanes for domain-specific sync work. Container
-contents sync creates pending remote containers and syncs container metadata
-documents.
+contents sync creates pending remote containers, applies pending container move
+intents, and syncs container metadata documents before document lanes drain.
 
 ## What Belongs Here
 

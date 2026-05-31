@@ -27,6 +27,7 @@ export function registerContainerContentsSyncLane(input: {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(
     "container-contents",
     {
+      phase: "structural",
       run: input.run,
       shouldIgnoreError: isDestroyedContainerContentsSyncRuntimeError,
     },

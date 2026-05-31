@@ -31,6 +31,7 @@ export function registerDocumentSyncLane(input: {
       onUnexpectedError: (error) => {
         console.error(`Failed to sync document ${input.localId}:`, error);
       },
+      phase: "document",
       run: input.run,
       shouldIgnoreError: isDestroyedDocumentSyncRuntimeError,
     },
