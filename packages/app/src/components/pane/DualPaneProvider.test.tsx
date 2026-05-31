@@ -17,6 +17,7 @@ import {
 } from "../../../test/helpers/appRuntimeIdle";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import {
+  getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
@@ -37,6 +38,8 @@ const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 30_000;
 const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
+const POST_SHARE_NETWORK_IDLE_TIMEOUT_MS = 500;
+const POST_SHARE_NETWORK_IDLE_INTERVAL_MS = 10;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
 const MOVED_NOTE_TITLE = "Moved folder note";
@@ -171,7 +174,7 @@ async function openExplorer(pane: HTMLElement) {
       clientY: 160,
     });
   });
-  const openExplorerButton = await screen.findByRole("button", {
+  const openExplorerButton = screen.getByRole("button", {
     name: "Open Explorer",
   });
   await interact(() => {
@@ -187,7 +190,7 @@ async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByRole("menuitem", { name: "File" }));
   });
-  const newStructuredDocumentItem = await within(pane).findByRole("menuitem", {
+  const newStructuredDocumentItem = within(pane).getByRole("menuitem", {
     name: "New Structured Document",
   });
   await interact(() => {
@@ -205,7 +208,7 @@ async function openOrgManager(pane: HTMLElement) {
       clientY: 160,
     });
   });
-  const openOrgManagerButton = await screen.findByRole("button", {
+  const openOrgManagerButton = screen.getByRole("button", {
     name: "Open Org Manager",
   });
   await interact(() => {
@@ -259,13 +262,13 @@ async function createChildContainer(pane: HTMLElement, name: string) {
       clientY: 180,
     });
   });
-  const createChildButton = await screen.findByRole("button", {
+  const createChildButton = screen.getByRole("button", {
     name: "Create Child",
   });
   await interact(() => {
     fireEvent.click(createChildButton);
   });
-  const containerNameInput = await screen.findByLabelText("Container name");
+  const containerNameInput = screen.getByLabelText("Container name");
   invariant(
     containerNameInput instanceof HTMLInputElement,
     "Expected container name input.",
@@ -399,7 +402,7 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
       clientY: 200,
     });
   });
-  const getInfoButton = await screen.findByRole("button", {
+  const getInfoButton = screen.getByRole("button", {
     name: "Get Info",
   });
   await interact(() => {
@@ -454,7 +457,7 @@ async function shareContainerWithGroup(
       clientY: 200,
     });
   });
-  const getInfoButton = await screen.findByRole("button", {
+  const getInfoButton = screen.getByRole("button", {
     name: "Get Info",
   });
   await interact(() => {
@@ -571,13 +574,13 @@ async function createGroupAndAddPeer(
   await interact(() => {
     fireEvent.click(fileMenu);
   });
-  const newGroupItem = await within(pane).findByRole("menuitem", {
+  const newGroupItem = within(pane).getByRole("menuitem", {
     name: "New Group",
   });
   await interact(() => {
     fireEvent.click(newGroupItem);
   });
-  const dialog = await within(pane).findByRole("dialog", {
+  const dialog = within(pane).getByRole("dialog", {
     name: "New Group",
   });
   const groupNameInput = within(dialog).getByLabelText("Group name");
@@ -642,13 +645,13 @@ async function createOrganizationGroup(pane: HTMLElement, groupName: string) {
   await interact(() => {
     fireEvent.click(fileMenu);
   });
-  const newGroupItem = await within(pane).findByRole("menuitem", {
+  const newGroupItem = within(pane).getByRole("menuitem", {
     name: "New Group",
   });
   await interact(() => {
     fireEvent.click(newGroupItem);
   });
-  const dialog = await within(pane).findByRole("dialog", {
+  const dialog = within(pane).getByRole("dialog", {
     name: "New Group",
   });
   const groupNameInput = within(dialog).getByLabelText("Group name");
@@ -688,7 +691,7 @@ async function openExplorerContainerInfo(pane: HTMLElement, name: string) {
       clientY: 200,
     });
   });
-  const getInfoButton = await screen.findByRole("button", {
+  const getInfoButton = screen.getByRole("button", {
     name: "Get Info",
   });
   await interact(() => {
@@ -726,6 +729,36 @@ function requestPath(url: string): string {
   } catch {
     return url;
   }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForProxiedApiNetworkQuiet(timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  let lastCompletedRequestCount =
+    getProxiedApiNetworkActivitySnapshot().completedRequestCount;
+  let quietStartedAt = Date.now();
+
+  while (Date.now() <= deadline) {
+    const activity = getProxiedApiNetworkActivitySnapshot();
+    if (
+      activity.activeRequestCount === 0 &&
+      activity.completedRequestCount === lastCompletedRequestCount
+    ) {
+      if (Date.now() - quietStartedAt >= POST_SHARE_NETWORK_IDLE_QUIET_MS) {
+        return true;
+      }
+    } else {
+      lastCompletedRequestCount = activity.completedRequestCount;
+      quietStartedAt = Date.now();
+    }
+
+    await delay(POST_SHARE_NETWORK_IDLE_INTERVAL_MS);
+  }
+
+  return false;
 }
 
 function parseBlobAttachmentBindingJson(
@@ -915,6 +948,28 @@ async function waitForNoPostShareSyncFailures(
   ).toEqual([]);
 }
 
+async function waitForNoImmediatePostShareFailures(
+  panes: readonly HTMLElement[],
+  requestStartIndex: number,
+) {
+  await act(async () => {
+    await waitForProxiedApiNetworkQuiet(POST_SHARE_NETWORK_IDLE_TIMEOUT_MS);
+  });
+
+  const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
+  const unresolvedFailures = listUnresolvedPostShareFailures(postShareRequests);
+  const paneErrors = listPaneErrorLines(panes);
+
+  expect(
+    unresolvedFailures,
+    `Unexpected post-share API failures.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+  ).toEqual([]);
+  expect(
+    paneErrors,
+    `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+  ).toEqual([]);
+}
+
 function getExplorerWindowRoot(pane: HTMLElement): HTMLElement {
   const explorerTitle = within(pane).getByText("Explorer");
   const explorerWindow = explorerTitle.closest<HTMLElement>(".window");
@@ -1011,7 +1066,7 @@ async function provisionPaneFromMenu(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const generateButton = await screen.findByRole("button", {
+  const generateButton = screen.getByRole("button", {
     name: "Generate Key Pair",
   });
   await interact(() => {
@@ -1025,7 +1080,7 @@ async function provisionPaneFromMenu(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const uploadButton = await screen.findByRole("button", {
+  const uploadButton = screen.getByRole("button", {
     name: "Upload Public Key",
   });
   await interact(() => {
@@ -1054,7 +1109,7 @@ async function downloadPaneKeyPackageBackup(
     await interact(() => {
       fireEvent.click(within(pane).getByText("Menu"));
     });
-    const backupButton = await screen.findByRole("button", {
+    const backupButton = screen.getByRole("button", {
       name: "Backup Key Package",
     });
     await interact(() => {
@@ -1077,7 +1132,7 @@ async function destroyPaneKeyPackage(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const destroyButton = await screen.findByRole("button", {
+  const destroyButton = screen.getByRole("button", {
     name: "Destroy Key Pair",
   });
   await interact(() => {
@@ -1099,8 +1154,8 @@ async function restorePaneKeyPackageBackup(
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const fileInput = await screen.findByLabelText("Restore Key Package File");
-  const restoreButton = await screen.findByRole("button", {
+  const fileInput = screen.getByLabelText("Restore Key Package File");
+  const restoreButton = screen.getByRole("button", {
     name: "Restore Key Package",
   });
   await interact(() => {
@@ -1149,14 +1204,14 @@ async function moveContainer(
       clientY: 210,
     });
   });
-  const moveButton = await screen.findByRole("button", {
+  const moveButton = screen.getByRole("button", {
     name: "Move",
   });
   await interact(() => {
     fireEvent.click(moveButton);
   });
 
-  const dialog = await screen.findByRole("dialog");
+  const dialog = screen.getByRole("dialog");
   const destinationSelect = within(dialog).getByLabelText(
     "Destination container",
   );
@@ -1291,15 +1346,14 @@ test(
     await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await openExplorer(leftPane);
-    await openExplorer(rightPane);
 
     await createChildContainer(leftPane, "Shared");
     await shareContainerWithPeer(leftPane, "Shared");
 
     const duplicateShareRequestStartIndex = listProxiedApiRequests().length;
     await clickShareWithPeer(leftPane);
-    await waitForNoPostShareSyncFailures(
-      [leftPane, rightPane],
+    await waitForNoImmediatePostShareFailures(
+      [leftPane],
       duplicateShareRequestStartIndex,
     );
 

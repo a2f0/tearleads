@@ -81,6 +81,7 @@ export function createProjectionUserKeyResolver(
   logPrefix: string,
 ): ProjectionUserKeyResolver {
   const cache = new Map<string, Promise<ProjectionUserKey | null>>();
+  let ownUserKey: Promise<ProjectionUserKey | null> | null = null;
 
   return async (userId) => {
     if (
@@ -88,21 +89,28 @@ export function createProjectionUserKeyResolver(
       runtime.signingKeyPair &&
       runtime.encapsulationKeyPair
     ) {
-      const signingFingerprint = await toFingerprint(
-        runtime.signingKeyPair.signingPublicKey,
-      );
-      if (
-        runtime.signingFingerprint &&
-        runtime.signingFingerprint !== signingFingerprint
-      ) {
-        return null;
+      if (!ownUserKey) {
+        const { encapsulationKeyPair, signingKeyPair } = runtime;
+        ownUserKey = (async () => {
+          const signingFingerprint = await toFingerprint(
+            signingKeyPair.signingPublicKey,
+          );
+          if (
+            runtime.signingFingerprint &&
+            runtime.signingFingerprint !== signingFingerprint
+          ) {
+            return null;
+          }
+
+          return {
+            encapsulationPublicKey: encapsulationKeyPair.publicKey,
+            signingPublicKey: signingKeyPair.signingPublicKey,
+            userId,
+          };
+        })();
       }
 
-      return {
-        encapsulationPublicKey: runtime.encapsulationKeyPair.publicKey,
-        signingPublicKey: runtime.signingKeyPair.signingPublicKey,
-        userId,
-      };
+      return ownUserKey;
     }
 
     let cached = cache.get(userId);
