@@ -289,6 +289,60 @@ test("explorer sidebar scroll requests windows for each folder independently", a
   ).toBe(false);
 });
 
+test("explorer sidebar renders Phosphor folder icons for containers", async () => {
+  const childNodes: ContainerNode[] = [
+    ...defaultNodes,
+    {
+      id: "child-container",
+      icon: "folder",
+      kind: "container",
+      name: "Child",
+      organizationId: "org-1",
+      parentId: "root-container",
+      syncState: syncedContainerDocumentObjectSyncState,
+    },
+  ];
+  const documentReadModel = createDocumentReadModel(
+    new Map([
+      ["child-container", []],
+      ["root-container", []],
+    ]),
+    [],
+  );
+  const view = render(
+    <ExplorerSidebarHarness
+      documentReadModel={documentReadModel}
+      nodes={childNodes}
+    />,
+  );
+
+  const rootButton = await view.findByRole("button", { name: "Root" });
+  const rootIcon = rootButton.querySelector(".explorer-folder-icon");
+  expect(rootIcon?.getAttribute("data-icon")).toBe("folder-open");
+
+  const childButton = await view.findByRole("button", { name: "Child" });
+  const childIcon = childButton.querySelector(".explorer-folder-icon");
+  expect(childIcon?.getAttribute("data-container-icon")).toBe("folder");
+  expect(childIcon?.getAttribute("data-icon")).toBe("folder");
+
+  view.unmount();
+
+  const collapsedView = render(
+    <ExplorerSidebarHarness
+      collapsedIds={new Set(["root-container"])}
+      documentReadModel={documentReadModel}
+      nodes={childNodes}
+    />,
+  );
+  const collapsedRootButton = await collapsedView.findByRole("button", {
+    name: "Root",
+  });
+  const collapsedRootIcon = collapsedRootButton.querySelector(
+    ".explorer-folder-icon",
+  );
+  expect(collapsedRootIcon?.getAttribute("data-icon")).toBe("folder");
+});
+
 test("explorer sidebar ignores stale document windows during fast scrolling", async () => {
   const rows = createSidebarRows(90);
   const calls: SidebarWindowCall[] = [];

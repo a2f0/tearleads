@@ -164,6 +164,11 @@
   gap: var(--mini-app-space-xs);
 }
 
+.explorer-folder-icon {
+  flex: 0 0 auto;
+  opacity: var(--mini-app-icon-opacity);
+}
+
 .explorer-sidebar-item--note {
   font-style: italic;
 }

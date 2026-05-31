@@ -1,3 +1,5 @@
+import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
+import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
 import type {
   ContainerDocumentReadModel,
   ContainerDocumentSidebarRow,
@@ -126,6 +128,19 @@ function getExplorerSidebarRowStyle(depth: number): {
   };
 }
 
+function getExplorerFolderIcon(params: {
+  icon: string | null | undefined;
+  isOpen: boolean;
+}) {
+  const iconName = params.isOpen ? "folder-open" : "folder";
+
+  return {
+    Component: params.isOpen ? FolderOpenIcon : FolderIcon,
+    containerIcon: params.icon?.trim() || "folder",
+    name: iconName,
+  };
+}
+
 function ExplorerTreeDocumentRow(
   props: Omit<
     ExplorerSidebarRowProps,
@@ -218,6 +233,14 @@ function ExplorerTreeContainerRow(
   } = props;
   const hasChildren = entry.children.length > 0;
   const isSelected = selectedId === entry.node.id;
+  const isOpen =
+    !isCollapsed &&
+    (isSelected || props.activeContainerId === entry.node.id || hasChildren);
+  const folderIcon = getExplorerFolderIcon({
+    icon: entry.node.icon,
+    isOpen,
+  });
+  const FolderGlyph = folderIcon.Component;
 
   return (
     <div
@@ -250,6 +273,15 @@ function ExplorerTreeContainerRow(
         onContextMenu={(event) => onContextMenu(event, entry.node.id)}
         selected={isSelected}
       >
+        <FolderGlyph
+          aria-hidden="true"
+          className="explorer-folder-icon"
+          data-container-icon={folderIcon.containerIcon}
+          data-icon={folderIcon.name}
+          focusable="false"
+          size={16}
+          weight="regular"
+        />
         <ExplorerSidebarItemLabel
           online={online}
           syncState={entry.node.syncState}
@@ -634,7 +666,7 @@ function ExplorerSidebarVirtualTree(
         <MiniAppVirtualBlockSpacer height={topPadding} />
       ) : null}
       {props.rows.map((row) => (
-        <ExplorerSidebarVirtualRowView {...props} key={row.key} row={row} />
+        <ExplorerSidebarVirtualRowView key={row.key} {...props} row={row} />
       ))}
       {bottomPadding > 0 ? (
         <MiniAppVirtualBlockSpacer height={bottomPadding} />
