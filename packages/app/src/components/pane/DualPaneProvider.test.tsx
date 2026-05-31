@@ -804,14 +804,19 @@ function normalizeRequestPath(path: string): string {
 }
 
 function shortRequestPathIds(path: string): string {
-  return path
+  const queryStartIndex = path.indexOf("?");
+  const pathname =
+    queryStartIndex === -1 ? path : path.slice(0, queryStartIndex);
+  const query = queryStartIndex === -1 ? "" : path.slice(queryStartIndex);
+
+  return `${pathname
     .split("/")
     .map((segment) =>
       segment.length >= 16 && /^[0-9a-f-]+$/iu.test(segment)
         ? segment.slice(0, 8)
         : segment,
     )
-    .join("/");
+    .join("/")}${query}`;
 }
 
 function proxiedApiRequestVolumeKey(request: ProxiedApiRequest): string {
