@@ -20,6 +20,10 @@ adjacent planes:
 2. attachment plane: blob stage plus atomic attachment-binding metadata
 3. access plane: permissions, key-target envelopes, and key epochs
 
+For the client-side order that drains container structure, document creation,
+blob attachment work, and Loro update sync, see
+[client-sync-ordering.md](./client-sync-ordering.md).
+
 The server must remain plaintext-blind for document content.
 
 ## Protocol Shape

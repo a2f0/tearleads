@@ -19,6 +19,7 @@ Related background documents:
 - [glossary.md](./glossary.md)
 - [api-architecture.md](./api-architecture.md)
 - [access-plane.md](./access-plane.md)
+- [client-sync-ordering.md](./client-sync-ordering.md)
 - [keying-design.md](./keying-design.md)
 - [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md)
 - [security-guarantees.md](./security-guarantees.md)

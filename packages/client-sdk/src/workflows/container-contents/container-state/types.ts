@@ -16,6 +16,7 @@ import type { createRemoteDocument } from "../../documents";
 import type {
   ContainerContentsPersistence,
   ContainerCreateIntentRecord,
+  ContainerMoveIntentRecord,
 } from "../containerPersistence";
 import type {
   ContainerState,
@@ -115,4 +116,22 @@ export interface ContainerCreateIntentSyncInput {
   host: ContainerCreateIntentSyncHost;
   intent: ContainerCreateIntentRecord;
   state: ContainerCreateIntentSyncState;
+}
+
+export interface ContainerMoveIntentSyncState {
+  containersById: ReadonlyMap<string, ContainerState>;
+  persistence: ContainerContentsPersistence;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  runtime: ContainerWorkflowRuntime;
+}
+
+export type ContainerMoveIntentSyncHost = Pick<
+  RemoteContainerHydrationHost,
+  "persistContainerState" | "updateSnapshot"
+>;
+
+export interface ContainerMoveIntentSyncInput {
+  host: ContainerMoveIntentSyncHost;
+  intent: ContainerMoveIntentRecord;
+  state: ContainerMoveIntentSyncState;
 }

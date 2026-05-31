@@ -416,6 +416,54 @@ export const containerCreateIntents = sqliteTable(
 );
 
 /**
+ * Offline move queue for synced containers.
+ *
+ * A user can move a container whose server identity is already known while the
+ * API or writer context is unavailable. This table stores only the desired
+ * final parent and replay diagnostics; the signed move request is rebuilt from
+ * current writer projections when sync resumes.
+ *
+ * Columns:
+ * - `id`: Client-generated intent id.
+ * - `containerId`: Synced container moved optimistically in the local tree.
+ * - `parentContainerId`: Desired final parent container id.
+ * - `previousParentContainerId`: Parent observed when the move was queued.
+ * - `intentType`: Intent discriminator, currently `container.move`.
+ * - `syncStatus`: Current sync state, currently `pending` or `blocked`.
+ * - `lastError`: Last sync error message for retry/debug display.
+ * - `lastAttemptedAt`: Timestamp of the last replay attempt.
+ * - `createdAt`: Intent creation timestamp used for FIFO sync.
+ * - `updatedAt`: Local timestamp for the latest target/status/error change.
+ *
+ * Indexes:
+ * - `id` is the primary key.
+ * - `containerId` is unique so same-container moves coalesce to one intent.
+ * - `(syncStatus, createdAt)` supports listing pending intents in queue order.
+ */
+export const containerMoveIntents = sqliteTable(
+  "container_move_intents",
+  {
+    id: text("id"),
+    containerId: text("container_id").notNull().unique(),
+    parentContainerId: text("parent_container_id").notNull(),
+    previousParentContainerId: text("previous_parent_container_id"),
+    intentType: text("intent_type").notNull(),
+    syncStatus: text("sync_status").notNull(),
+    lastError: text("last_error"),
+    lastAttemptedAt: text("last_attempted_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.id] }),
+    index("container_move_intents_status_created_idx").on(
+      table.syncStatus,
+      table.createdAt,
+    ),
+  ],
+);
+
+/**
  * Per-lane sync cursors for container data.
  *
  * Container sync is split into lanes, such as a parent-container child lane or
@@ -474,6 +522,10 @@ export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerCreateIntents),
 ];
 
+export const containerMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(containerMoveIntents),
+];
+
 export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerSyncWatermarks),
 ];
@@ -485,6 +537,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentContainerProjectionTables,
   ...documentProjectionTables,
   ...containerCreateIntentTables,
+  ...containerMoveIntentTables,
   ...containerSyncWatermarkTables,
 ];
 
@@ -499,5 +552,6 @@ export const clientSQLiteSchema = {
   documentPendingAttachments,
   documentAttachmentBlobProjection,
   containerCreateIntents,
+  containerMoveIntents,
   containerSyncWatermarks,
 };

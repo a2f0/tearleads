@@ -410,6 +410,13 @@ export {
   principalPolicyBundleFromInitialGroupRequest,
   registerIdentity,
 } from "./workflows/registration";
+export type {
+  DomainSyncCoordinator,
+  SyncIdleOptions,
+  SyncLane,
+  SyncLaneConfig,
+  SyncLanePhase,
+} from "./workflows/sync";
 export {
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
