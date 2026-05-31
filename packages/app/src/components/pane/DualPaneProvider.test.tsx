@@ -56,6 +56,29 @@ interface BlobAttachmentBindingJson {
   blobId?: unknown;
 }
 
+interface ProxiedApiRequestBudget {
+  byRequest?: Readonly<Record<string, number>>;
+  total: number;
+}
+
+const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+  total: 140,
+  byRequest: {
+    "GET /documents/:documentId/writer-projection": 30,
+    "POST /documents/:documentId/sync": 30,
+    "GET /containers/:containerId/documents": 30,
+    "GET /containers": 24,
+    "GET /auth/encapsulation-key/:userId": 12,
+    "GET /containers/:containerId/writer-projection": 12,
+    "GET /organizations/:organizationId/groups": 9,
+  },
+};
+
+const requestProfileEnv = process.env as {
+  DUAL_PANE_REQUEST_PROFILE?: string;
+  DUAL_PANE_REQUEST_PROFILE_DETAIL?: string;
+};
+
 afterEach(async () => {
   cleanup();
   await resetMockServer();
@@ -728,6 +751,178 @@ function requestPath(url: string): string {
     return new URL(url).pathname;
   } catch {
     return url;
+  }
+}
+
+function requestPathAndQuery(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    return `${parsedUrl.pathname}${parsedUrl.search}`;
+  } catch {
+    return url;
+  }
+}
+
+function normalizeRequestPath(path: string): string {
+  return path
+    .replace(
+      /^\/auth\/encapsulation-key\/[^/]+$/u,
+      "/auth/encapsulation-key/:userId",
+    )
+    .replace(
+      /^\/organizations\/[^/]+\/groups$/u,
+      "/organizations/:organizationId/groups",
+    )
+    .replace(
+      /^\/principals\/group\/[^/]+\/policy$/u,
+      "/principals/group/:groupId/policy",
+    )
+    .replace(
+      /^\/containers\/[^/]+\/documents$/u,
+      "/containers/:containerId/documents",
+    )
+    .replace(
+      /^\/containers\/[^/]+\/writer-projection$/u,
+      "/containers/:containerId/writer-projection",
+    )
+    .replace(/^\/containers\/[^/]+\/share$/u, "/containers/:containerId/share")
+    .replace(/^\/containers\/[^/]+\/move$/u, "/containers/:containerId/move")
+    .replace(
+      /^\/documents\/[^/]+\/writer-projection$/u,
+      "/documents/:documentId/writer-projection",
+    )
+    .replace(/^\/documents\/[^/]+\/sync$/u, "/documents/:documentId/sync")
+    .replace(
+      /^\/documents\/[^/]+\/attachments$/u,
+      "/documents/:documentId/attachments",
+    )
+    .replace(
+      /^\/blobs\/[^/]+\/attachment-bindings$/u,
+      "/blobs/:blobId/attachment-bindings",
+    )
+    .replace(/^\/blobs\/[^/]+\/bytes$/u, "/blobs/:blobId/bytes");
+}
+
+function shortRequestPathIds(path: string): string {
+  return path
+    .split("/")
+    .map((segment) =>
+      segment.length >= 16 && /^[0-9a-f-]+$/iu.test(segment)
+        ? segment.slice(0, 8)
+        : segment,
+    )
+    .join("/");
+}
+
+function proxiedApiRequestVolumeKey(request: ProxiedApiRequest): string {
+  return `${request.method} ${normalizeRequestPath(requestPath(request.url))}`;
+}
+
+function countProxiedApiRequestVolume(
+  requests: readonly ProxiedApiRequest[],
+): Map<string, { count: number; statuses: Map<number, number> }> {
+  const countsByRequest = new Map<
+    string,
+    { count: number; statuses: Map<number, number> }
+  >();
+
+  for (const request of requests) {
+    const key = proxiedApiRequestVolumeKey(request);
+    const entry = countsByRequest.get(key) ?? { count: 0, statuses: new Map() };
+    entry.count += 1;
+    entry.statuses.set(
+      request.status,
+      (entry.statuses.get(request.status) ?? 0) + 1,
+    );
+    countsByRequest.set(key, entry);
+  }
+
+  return countsByRequest;
+}
+
+function summarizeProxiedApiRequestVolume(
+  requests: readonly ProxiedApiRequest[],
+): string {
+  return [...countProxiedApiRequestVolume(requests).entries()]
+    .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]))
+    .map(([key, entry]) => {
+      const statuses = [...entry.statuses.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([status, count]) => `${status}:${count}`)
+        .join(",");
+      return `${entry.count.toString().padStart(3, " ")} ${key} statuses=${statuses}`;
+    })
+    .join("\n");
+}
+
+function summarizeRepeatedProxiedApiRequestPaths(
+  requests: readonly ProxiedApiRequest[],
+): string {
+  const countsByPath = new Map<string, number>();
+  for (const request of requests) {
+    const key = `${request.method} ${shortRequestPathIds(requestPathAndQuery(request.url))}`;
+    countsByPath.set(key, (countsByPath.get(key) ?? 0) + 1);
+  }
+
+  const repeatedPaths = [...countsByPath.entries()]
+    .filter(([, count]) => count > 1)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  if (repeatedPaths.length === 0) {
+    return "(no repeated exact paths)";
+  }
+
+  return repeatedPaths
+    .map(([key, count]) => `${count.toString().padStart(3, " ")} ${key}`)
+    .join("\n");
+}
+
+function profileProxiedApiRequests(
+  label: string,
+  requestStartIndex: number,
+  requestEndIndex = listProxiedApiRequests().length,
+) {
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE !== "1") {
+    return;
+  }
+
+  const requests = listProxiedApiRequests().slice(
+    requestStartIndex,
+    requestEndIndex,
+  );
+  console.info(
+    `[dual-pane-request-profile] ${label} total=${requests.length}\n${summarizeProxiedApiRequestVolume(requests)}`,
+  );
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE_DETAIL === "1") {
+    console.info(
+      `[dual-pane-request-profile-detail] ${label} repeated-paths\n${summarizeRepeatedProxiedApiRequestPaths(requests)}`,
+    );
+  }
+}
+
+function expectProxiedApiRequestBudget(
+  label: string,
+  requests: readonly ProxiedApiRequest[],
+  budget: ProxiedApiRequestBudget,
+) {
+  const requestVolumeSummary = summarizeProxiedApiRequestVolume(requests);
+  const repeatedPathSummary = summarizeRepeatedProxiedApiRequestPaths(requests);
+  const failureSummary = `request volume=\n${requestVolumeSummary}\nrepeated paths=\n${repeatedPathSummary}`;
+
+  expect(
+    requests.length,
+    `${label} exceeded proxied API request budget ${budget.total}.\n${failureSummary}`,
+  ).toBeLessThanOrEqual(budget.total);
+
+  const countsByRequest = countProxiedApiRequestVolume(requests);
+  for (const [requestKey, requestBudget] of Object.entries(
+    budget.byRequest ?? {},
+  )) {
+    const actualCount = countsByRequest.get(requestKey)?.count ?? 0;
+    expect(
+      actualCount,
+      `${label} exceeded proxied API request budget for ${requestKey}: ${actualCount} > ${requestBudget}.\n${failureSummary}`,
+    ).toBeLessThanOrEqual(requestBudget);
   }
 }
 
@@ -1510,29 +1705,57 @@ test(
   "dual panes can share an owner-granted root container after an empty folder and note attachment",
   async () => {
     useTestApiAppHandlers();
+    const testRequestStartIndex = listProxiedApiRequests().length;
+    let requestPhaseStartIndex = testRequestStartIndex;
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
+    profileProxiedApiRequests("provisioning", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
 
     await openExplorer(leftPane);
+    profileProxiedApiRequests("open left explorer", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     await openExplorer(rightPane);
+    profileProxiedApiRequests("open right explorer", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
 
     await createChildContainer(leftPane, "Empty");
+    profileProxiedApiRequests("create empty folder", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     await createNoteWithAttachment(leftPane);
+    profileProxiedApiRequests(
+      "create note with attachment",
+      requestPhaseStartIndex,
+    );
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     const postShareRequestStartIndex = listProxiedApiRequests().length;
     await shareContainerWithPeer(leftPane, "/");
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postShareRequestStartIndex,
     );
+    profileProxiedApiRequests(
+      "share root + post-share settle",
+      requestPhaseStartIndex,
+    );
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     const postRefreshRequestStartIndex = listProxiedApiRequests().length;
     await clickExplorerRefresh(rightPane);
     await waitForSharedNoteVisible(rightPane);
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postRefreshRequestStartIndex,
+    );
+    profileProxiedApiRequests(
+      "right refresh + shared note settle",
+      requestPhaseStartIndex,
     );
 
     const shareRequest = listProxiedApiRequests()
@@ -1542,6 +1765,12 @@ test(
       )
       .at(-1);
     expect(shareRequest?.status).toBe(200);
+    profileProxiedApiRequests("test total", testRequestStartIndex);
+    expectProxiedApiRequestBudget(
+      "owner-granted root attachment share",
+      listProxiedApiRequests().slice(testRequestStartIndex),
+      OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET,
+    );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
