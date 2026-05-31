@@ -12,6 +12,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 export type {
   ContainerContentsPersistence,
   ContainerCreateIntentRecord,
+  ContainerMoveIntentRecord,
   LocalRootDescendantReparentInput,
   StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";

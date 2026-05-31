@@ -408,6 +408,7 @@ export async function moveContainer(
   }
 
   const isRemoteContainer = Boolean(existingState.record.documentId);
+  const previousParentId = existingState.container.parentId;
   if (!isRemoteContainer) {
     await persistContainerState(state, existingState, { parentId }, true, {
       createIntent: { parentContainerId: parentId },
@@ -419,13 +420,24 @@ export async function moveContainer(
     return toContainerNode(existingState);
   }
 
-  if (
-    !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online ||
-    typeof existingState.record.accessStateHash !== "string" ||
-    existingState.record.accessStateHash.length === 0
-  ) {
-    return null;
+  const canMoveRemoteContainerNow =
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.state.online &&
+    Boolean(targetParentState.record.documentId) &&
+    typeof existingState.record.accessStateHash === "string" &&
+    existingState.record.accessStateHash.length > 0;
+  if (!canMoveRemoteContainerNow) {
+    await persistContainerState(state, existingState, { parentId }, true, {
+      moveIntent: {
+        parentContainerId: parentId,
+        previousParentContainerId: previousParentId,
+      },
+    });
+    syncAgent.scheduleSync();
+    state.runtime.util.log(
+      `${getContainerContentsStoreLogLabel(state)}: queued container move ${containerId} under ${parentId}`,
+    );
+    return toContainerNode(existingState);
   }
 
   const moved = await moveRemoteContainer({

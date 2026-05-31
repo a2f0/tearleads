@@ -12,6 +12,8 @@ import {
 import {
   containerCreateIntents,
   containerCreateIntentTables,
+  containerMoveIntents,
+  containerMoveIntentTables,
   containerProjection,
   containerSyncWatermarks,
   containers,
@@ -47,8 +49,10 @@ import {
 
 const CONTAINER_METADATA_APP_KIND = "container-metadata";
 const CONTAINER_CREATE_INTENT_TYPE = "container.create";
+const CONTAINER_MOVE_INTENT_TYPE = "container.move";
 
 export type ContainerCreateIntentSyncStatus = "pending" | "synced";
+export type ContainerMoveIntentSyncStatus = "pending" | "blocked";
 
 export interface ContainerCreateIntentRecord {
   id: string;
@@ -64,9 +68,28 @@ export interface ContainerCreateIntentRecord {
   updatedAt: string;
 }
 
+export interface ContainerMoveIntentRecord {
+  id: string;
+  containerId: string;
+  parentContainerId: string;
+  previousParentContainerId: string | null;
+  intentType: typeof CONTAINER_MOVE_INTENT_TYPE;
+  syncStatus: ContainerMoveIntentSyncStatus;
+  lastError: string | null;
+  lastAttemptedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ContainerCreateIntentInput {
   id?: string;
   parentContainerId: string;
+}
+
+export interface ContainerMoveIntentInput {
+  id?: string;
+  parentContainerId: string;
+  previousParentContainerId?: string | null | undefined;
 }
 
 export interface LocalRootDescendantReparentInput {
@@ -103,6 +126,9 @@ export interface ContainerContentsPersistence {
   listPendingCreateIntents: (
     execSql: ExecSql,
   ) => Promise<ContainerCreateIntentRecord[]>;
+  listPendingMoveIntents: (
+    execSql: ExecSql,
+  ) => Promise<ContainerMoveIntentRecord[]>;
   listContainerIdsWithPendingUpdates: (
     execSql: ExecSql,
     containerIds: ReadonlyArray<string>,
@@ -115,6 +141,14 @@ export interface ContainerContentsPersistence {
     execSql: ExecSql,
     containerId: string,
     message: string,
+  ) => Promise<void>;
+  recordMoveIntentError: (
+    execSql: ExecSql,
+    input: {
+      blocked?: boolean | undefined;
+      containerId: string;
+      message: string;
+    },
   ) => Promise<void>;
   reassignContainerDocuments: (
     execSql: ExecSql,
@@ -153,6 +187,7 @@ export interface ContainerContentsPersistence {
     options?: {
       createIntent?: ContainerCreateIntentInput;
       localUpdatedAt?: string;
+      moveIntent?: ContainerMoveIntentInput | undefined;
       serverTimestamps?:
         | {
             createdAt?: string | null;
@@ -176,6 +211,10 @@ export interface ContainerContentsPersistence {
       remoteMetadataAccessStateHash: string;
       remoteMetadataDocumentId: string;
     },
+  ) => Promise<void>;
+  markMoveIntentSynced: (
+    execSql: ExecSql,
+    containerId: string,
   ) => Promise<void>;
 }
 
@@ -206,6 +245,12 @@ function parseCreateIntentSyncStatus(
   return value === "synced" ? "synced" : "pending";
 }
 
+function parseMoveIntentSyncStatus(
+  value: unknown,
+): ContainerMoveIntentSyncStatus {
+  return value === "blocked" ? "blocked" : "pending";
+}
+
 interface SelectedContainerCreateIntentRecord {
   id: string | null;
   containerId: string;
@@ -215,6 +260,18 @@ interface SelectedContainerCreateIntentRecord {
   remoteMetadataDocumentId: string | null;
   remoteMetadataAccessStateHash: string | null;
   lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface SelectedContainerMoveIntentRecord {
+  id: string | null;
+  containerId: string;
+  parentContainerId: string;
+  previousParentContainerId: string | null;
+  syncStatus: string;
+  lastError: string | null;
+  lastAttemptedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -232,6 +289,23 @@ function mapContainerCreateIntentRecord(
     remoteMetadataDocumentId: row.remoteMetadataDocumentId,
     remoteMetadataAccessStateHash: row.remoteMetadataAccessStateHash,
     lastError: row.lastError,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function mapContainerMoveIntentRecord(
+  row: SelectedContainerMoveIntentRecord,
+): ContainerMoveIntentRecord {
+  return {
+    id: String(row.id ?? ""),
+    containerId: row.containerId,
+    parentContainerId: row.parentContainerId,
+    previousParentContainerId: row.previousParentContainerId,
+    intentType: CONTAINER_MOVE_INTENT_TYPE,
+    syncStatus: parseMoveIntentSyncStatus(row.syncStatus),
+    lastError: row.lastError,
+    lastAttemptedAt: row.lastAttemptedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -271,6 +345,7 @@ async function saveContainerMetadataRecord(input: {
 async function saveContainerContentsContainerRows(input: {
   container: ContainerRecord;
   createIntent?: ContainerCreateIntentInput | undefined;
+  moveIntent?: ContainerMoveIntentInput | undefined;
   record: DocumentRecord | null;
   tx: ClientSQLiteTransaction;
   localUpdatedAt: string;
@@ -284,6 +359,7 @@ async function saveContainerContentsContainerRows(input: {
   const {
     container,
     createIntent,
+    moveIntent,
     localUpdatedAt,
     record,
     serverTimestamps,
@@ -328,6 +404,15 @@ async function saveContainerContentsContainerRows(input: {
     });
   }
 
+  if (moveIntent) {
+    await saveContainerMoveIntent({
+      containerId: container.id,
+      moveIntent,
+      tx,
+      updatedAt: localUpdatedAt,
+    });
+  }
+
   return savedContainer;
 }
 
@@ -362,6 +447,41 @@ async function saveContainerCreateIntent(input: {
         remoteContainerId: null,
         remoteMetadataDocumentId: null,
         remoteMetadataAccessStateHash: null,
+        lastError: null,
+        updatedAt,
+      },
+    })
+    .run();
+}
+
+async function saveContainerMoveIntent(input: {
+  tx: ClientSQLiteTransaction;
+  containerId: string;
+  moveIntent: ContainerMoveIntentInput;
+  updatedAt: string;
+}) {
+  const { containerId, moveIntent, tx, updatedAt } = input;
+  await tx
+    .insert(containerMoveIntents)
+    .values({
+      id: moveIntent.id ?? crypto.randomUUID(),
+      containerId,
+      parentContainerId: moveIntent.parentContainerId,
+      previousParentContainerId: moveIntent.previousParentContainerId ?? null,
+      intentType: CONTAINER_MOVE_INTENT_TYPE,
+      syncStatus: "pending",
+      lastError: null,
+      lastAttemptedAt: null,
+      createdAt: updatedAt,
+      updatedAt,
+    })
+    .onConflictDoUpdate({
+      target: containerMoveIntents.containerId,
+      set: {
+        parentContainerId: moveIntent.parentContainerId,
+        previousParentContainerId: sql`coalesce(${containerMoveIntents.previousParentContainerId}, ${moveIntent.previousParentContainerId ?? null})`,
+        intentType: CONTAINER_MOVE_INTENT_TYPE,
+        syncStatus: "pending",
         lastError: null,
         updatedAt,
       },
@@ -562,6 +682,18 @@ async function updateReparentedDescendantContainers(input: {
         updatedAt,
       });
     }
+
+    if (reparent.parentContainerId) {
+      await tx
+        .update(containerMoveIntents)
+        .set({
+          parentContainerId: reparent.parentContainerId,
+          syncStatus: "pending",
+          updatedAt,
+        })
+        .where(eq(containerMoveIntents.containerId, reparent.containerId))
+        .run();
+    }
   }
 }
 
@@ -611,6 +743,15 @@ async function reparentLocalContainerChildren(input: {
     })
     .where(eq(containerCreateIntents.parentContainerId, fromContainerId))
     .run();
+  await tx
+    .update(containerMoveIntents)
+    .set({
+      parentContainerId: toContainerId,
+      syncStatus: "pending",
+      updatedAt,
+    })
+    .where(eq(containerMoveIntents.parentContainerId, fromContainerId))
+    .run();
 }
 
 async function deleteLocalContainerRows(input: {
@@ -628,6 +769,10 @@ async function deleteLocalContainerRows(input: {
   await tx
     .delete(containerCreateIntents)
     .where(eq(containerCreateIntents.containerId, containerId))
+    .run();
+  await tx
+    .delete(containerMoveIntents)
+    .where(eq(containerMoveIntents.containerId, containerId))
     .run();
   await tx
     .delete(containerProjection)
@@ -695,6 +840,10 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         .delete(containerCreateIntents)
         .where(inArray(containerCreateIntents.containerId, uniqueContainerIds))
         .run();
+      await db
+        .delete(containerMoveIntents)
+        .where(inArray(containerMoveIntents.containerId, uniqueContainerIds))
+        .run();
       await deleteContainerRecords(lockedExecSql, uniqueContainerIds);
       await db
         .delete(documents)
@@ -733,6 +882,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       await ensureContainerTables(lockedExecSql);
       await ensureDocumentTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
+      await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
       await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
       await ensureSqlTables(lockedExecSql, documentProjectionTables);
       await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
@@ -781,6 +931,32 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
 
     return rows.map((row) => mapContainerCreateIntentRecord(row));
   },
+  async listPendingMoveIntents(execSql) {
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const rows = await db
+      .select({
+        id: containerMoveIntents.id,
+        containerId: containerMoveIntents.containerId,
+        parentContainerId: containerMoveIntents.parentContainerId,
+        previousParentContainerId:
+          containerMoveIntents.previousParentContainerId,
+        syncStatus: containerMoveIntents.syncStatus,
+        lastError: containerMoveIntents.lastError,
+        lastAttemptedAt: containerMoveIntents.lastAttemptedAt,
+        createdAt: containerMoveIntents.createdAt,
+        updatedAt: containerMoveIntents.updatedAt,
+      })
+      .from(containerMoveIntents)
+      .where(
+        and(
+          eq(containerMoveIntents.syncStatus, "pending"),
+          eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+        ),
+      )
+      .orderBy(asc(containerMoveIntents.createdAt));
+
+    return rows.map((row) => mapContainerMoveIntentRecord(row));
+  },
   async listContainerIdsWithPendingUpdates(execSql, containerIds) {
     const uniqueContainerIds = Array.from(new Set(containerIds));
     if (uniqueContainerIds.length === 0) {
@@ -814,6 +990,27 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
             eq(containerCreateIntents.containerId, containerId),
             eq(containerCreateIntents.syncStatus, "pending"),
             eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          ),
+        )
+        .run();
+    });
+  },
+  async recordMoveIntentError(execSql, input) {
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+      const updatedAt = new Date().toISOString();
+      await db
+        .update(containerMoveIntents)
+        .set({
+          lastAttemptedAt: updatedAt,
+          lastError: input.message,
+          syncStatus: input.blocked ? "blocked" : "pending",
+          updatedAt,
+        })
+        .where(
+          and(
+            eq(containerMoveIntents.containerId, input.containerId),
+            eq(containerMoveIntents.syncStatus, "pending"),
+            eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
           ),
         )
         .run();
@@ -857,6 +1054,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
       await ensureSqlTables(lockedExecSql, [
         ...containerCreateIntentTables,
+        ...containerMoveIntentTables,
         ...documentContainerProjectionTables,
         ...documentProjectionTables,
       ]);
@@ -900,6 +1098,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
       await ensureSqlTables(lockedExecSql, [
         ...containerCreateIntentTables,
+        ...containerMoveIntentTables,
         ...documentContainerProjectionTables,
         ...documentProjectionTables,
       ]);
@@ -960,6 +1159,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
           saveContainerContentsContainerRows({
             container,
             createIntent: options?.createIntent,
+            moveIntent: options?.moveIntent,
             record,
             serverTimestamps: options?.serverTimestamps,
             tx,
@@ -1037,6 +1237,19 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
           and(
             eq(containerCreateIntents.containerId, input.containerId),
             eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          ),
+        )
+        .run();
+    });
+  },
+  async markMoveIntentSynced(execSql, containerId) {
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+      await db
+        .delete(containerMoveIntents)
+        .where(
+          and(
+            eq(containerMoveIntents.containerId, containerId),
+            eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
           ),
         )
         .run();

@@ -74,6 +74,9 @@ function createContainerContentsPersistence(input: {
     async listPendingCreateIntents() {
       return [];
     },
+    async listPendingMoveIntents() {
+      return [];
+    },
     async listContainerIdsWithPendingUpdates() {
       return [];
     },
@@ -84,7 +87,9 @@ function createContainerContentsPersistence(input: {
       return [];
     },
     async markCreateIntentSynced() {},
+    async markMoveIntentSynced() {},
     async recordCreateIntentError() {},
+    async recordMoveIntentError() {},
     async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},

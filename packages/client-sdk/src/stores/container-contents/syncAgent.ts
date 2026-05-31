@@ -1,4 +1,5 @@
 import { syncPendingContainerCreateIntents } from "../../workflows/container-contents/container-state/createIntentSync";
+import { syncPendingContainerMoveIntents } from "../../workflows/container-contents/container-state/moveIntentSync";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
   type ContainerDocumentPrimeHost,
@@ -27,7 +28,7 @@ import {
   isDestroyedContainerContentsSyncRuntimeError,
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
-import { primeDocumentStore } from "../documents";
+import { primeDocumentStore, requestDomainDocumentSync } from "../documents";
 
 export type { ContainerState };
 
@@ -264,6 +265,16 @@ async function runContainerContentsStoreSyncIteration(input: {
   });
   if (createdContainerCount > 0) {
     host.updateSnapshot();
+  }
+
+  const movedContainerCount = await syncPendingContainerMoveIntents({
+    host,
+    state,
+  });
+  if (movedContainerCount > 0) {
+    host.updateSnapshot();
+    requestDomainDocumentSync(state.runtime.state.domainScope);
+    requestContainerContentsStoreSync(state);
   }
 
   for (const containerState of Array.from(state.containersById.values())) {

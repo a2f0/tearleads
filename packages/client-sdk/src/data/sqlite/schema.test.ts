@@ -110,6 +110,7 @@ test("client sqlite schema creates tables and indexes", async () => {
     );
     expect(indexNames).toEqual([
       "container_create_intents_status_created_idx",
+      "container_move_intents_status_created_idx",
       "document_attachment_blob_projection_mime_type_idx",
       "document_pending_attachments_mime_type_idx",
       "document_pending_updates_scope_created_idx",
@@ -266,6 +267,26 @@ test("client sqlite schema creates tables and indexes", async () => {
       await readIndexColumns(
         execSql,
         "container_create_intents_status_created_idx",
+      ),
+    ).toEqual(["sync_status", "created_at"]);
+
+    const moveIntentIndexes = await readIndexList(
+      execSql,
+      "container_move_intents",
+    );
+    expect(
+      readRecordValue(
+        moveIntentIndexes,
+        "container_move_intents_status_created_idx",
+      ),
+    ).toEqual({
+      partial: 0,
+      unique: 0,
+    });
+    expect(
+      await readIndexColumns(
+        execSql,
+        "container_move_intents_status_created_idx",
       ),
     ).toEqual(["sync_status", "created_at"]);
 

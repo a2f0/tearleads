@@ -70,6 +70,9 @@ function createContainerContentsPersistence(input: {
     async listPendingCreateIntents() {
       return [];
     },
+    async listPendingMoveIntents() {
+      return [];
+    },
     async listContainerIdsWithPendingUpdates() {
       return [];
     },
@@ -77,6 +80,7 @@ function createContainerContentsPersistence(input: {
       return [];
     },
     async recordCreateIntentError() {},
+    async recordMoveIntentError() {},
     async reassignContainerDocuments() {},
     async reconcileLocalRootContainer() {},
     async reconcileLocalSystemContainer() {},
@@ -99,6 +103,7 @@ function createContainerContentsPersistence(input: {
       return container;
     },
     async markCreateIntentSynced() {},
+    async markMoveIntentSynced() {},
   };
 }
 
