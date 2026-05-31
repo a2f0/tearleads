@@ -12,6 +12,7 @@
     "test": "bun test src --max-concurrency=1"
   },
   "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",

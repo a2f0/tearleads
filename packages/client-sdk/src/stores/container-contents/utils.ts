@@ -36,6 +36,10 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     node.systemSlot = systemSlot;
   }
 
+  if (container.icon) {
+    node.icon = container.icon;
+  }
+
   if (container.createdAt) {
     node.createdAt = container.createdAt;
   }

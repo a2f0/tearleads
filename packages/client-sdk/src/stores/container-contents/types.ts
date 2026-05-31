@@ -17,6 +17,7 @@ export interface ContainerNode {
   systemSlot?: ContainerSystemSlot | null;
   createdAt?: string | null;
   id: string;
+  icon?: string | null;
   organizationId: string;
   name: string;
   parentId: string | null;
