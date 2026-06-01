@@ -187,9 +187,12 @@ async function createExplorerChildContainer(
   fireEvent.change(containerNameInput, { target: { value: name } });
   fireEvent.click(view.getByRole("button", { name: "Create" }));
 
-  await waitFor(() => {
-    expect(getExplorerContainerItem(explorerWindow, name)).toBeTruthy();
-  });
+  await waitFor(
+    () => {
+      expect(getExplorerContainerItem(explorerWindow, name)).toBeTruthy();
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
 }
 
 async function moveExplorerContainer(

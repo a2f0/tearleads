@@ -36,6 +36,19 @@ interface JsonValidationContext {
 type DocumentRouteContext = Context<SessionEnv>;
 type DocumentLinkSetEventType = "document.link" | "document.unlink";
 
+function listDocumentKekTargetContainerIds(
+  documentKekTargets: DocumentSyncResponse["documentKekTargets"],
+): string[] {
+  return documentKekTargets.targets.flatMap((target) => {
+    if (typeof target !== "object" || target === null) {
+      return [];
+    }
+
+    const containerId = Reflect.get(target, "containerId");
+    return typeof containerId === "string" ? [containerId] : [];
+  });
+}
+
 function validateDocumentCreateRequest(
   value: unknown,
   c: JsonValidationContext,
@@ -142,6 +155,9 @@ async function respondWithDocumentSync(
     if (result.acceptedOutgoingUpdateIds.length > 0) {
       await input.publish({
         type: "document_update_created",
+        containerIds: listDocumentKekTargetContainerIds(
+          result.documentKekTargets,
+        ),
         documentId,
         updateIds: result.acceptedOutgoingUpdateIds,
       });

@@ -1,9 +1,17 @@
 import { afterEach, expect, test } from "bun:test";
-import type { ContainerContents, DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerContents,
+  DocumentStore,
+  DocumentSummary,
+  PrimeContainerDocumentStoreInput,
+} from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
-import { useDiscoveredDocumentsSync } from "./useDiscoveredDocumentsSync";
+import {
+  primeDiscoveredDocumentStores,
+  useDiscoveredDocumentsSync,
+} from "./useDiscoveredDocumentsSync";
 import { useExplorerRefreshAction } from "./useExplorerRefreshAction";
 
 type UseDiscoveredDocumentsSyncParams = Parameters<
@@ -718,6 +726,169 @@ test("container document discovery evaluates each event frontier once per active
     await Promise.resolve();
   });
   expect(discoverDocumentsCallCount).toBe(3);
+});
+
+test("container document discovery ignores update events scoped to other containers", async () => {
+  let discoverDocumentsCallCount = 0;
+  const baseAppData = createReadyExplorerDiscoveryAppData();
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
+    async () => {
+      discoverDocumentsCallCount += 1;
+      return [];
+    };
+
+  const view = renderHook(
+    ({
+      events,
+    }: {
+      events: UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+    }) =>
+      useDiscoveredDocumentsSync({
+        activeContainerId: "active-container",
+        appData: {
+          ...baseAppData,
+          state: { ...baseAppData.state, events },
+        },
+        discoverDocuments,
+        hasUndiscoveredDocumentUpdates: () => true,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries: () => undefined,
+        onDocumentLinksChanged: () => undefined,
+        primeDiscoveredDocuments: () => undefined,
+      }),
+    {
+      initialProps: {
+        events:
+          [] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+      },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(1);
+  });
+
+  view.rerender({
+    events: [
+      {
+        containerIds: ["other-container"],
+        documentId: "unknown-document",
+        id: "event-1",
+        type: "document_update_created",
+      },
+    ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(discoverDocumentsCallCount).toBe(1);
+});
+
+test("container document discovery follows update events scoped to the active container", async () => {
+  let discoverDocumentsCallCount = 0;
+  const baseAppData = createReadyExplorerDiscoveryAppData();
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
+    async () => {
+      discoverDocumentsCallCount += 1;
+      return [];
+    };
+
+  const view = renderHook(
+    ({
+      events,
+    }: {
+      events: UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+    }) =>
+      useDiscoveredDocumentsSync({
+        activeContainerId: "active-container",
+        appData: {
+          ...baseAppData,
+          state: { ...baseAppData.state, events },
+        },
+        discoverDocuments,
+        hasUndiscoveredDocumentUpdates: () => true,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries: () => undefined,
+        onDocumentLinksChanged: () => undefined,
+        primeDiscoveredDocuments: () => undefined,
+      }),
+    {
+      initialProps: {
+        events:
+          [] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+      },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(1);
+  });
+
+  view.rerender({
+    events: [
+      {
+        containerIds: ["active-container"],
+        documentId: "unknown-document",
+        id: "event-1",
+        type: "document_update_created",
+      },
+    ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+  });
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(2);
+  });
+});
+
+test("primeDiscoveredDocumentStores primes discovered identities without forcing sync", () => {
+  const primedStores: PrimeContainerDocumentStoreInput[] = [];
+  let requestSyncCallCount = 0;
+
+  primeDiscoveredDocumentStores({
+    discoveredDocumentSummaries: [
+      createDocumentSummary("document-1"),
+      {
+        ...createDocumentSummary("document-without-container"),
+        containerId: null,
+      },
+      {
+        ...createDocumentSummary("document-without-remote-id"),
+        documentId: null,
+      },
+    ],
+    runtimeAppData: {
+      primeDocumentStore: (input) => {
+        primedStores.push(input);
+        return {
+          attachFiles: () => undefined,
+          ensureInitialized: async () => true,
+          getSnapshot: () => ({ ready: true }),
+          relink: async () => null,
+          replaceAttachment: () => undefined,
+          requestSync: () => {
+            requestSyncCallCount += 1;
+          },
+          setAttachment: () => undefined,
+          setStructuredFields: async () => undefined,
+          setText: async () => undefined,
+          subscribe: () => () => undefined,
+          updateRuntime: () => undefined,
+        } as unknown as DocumentStore;
+      },
+    },
+  });
+
+  expect(primedStores).toEqual([
+    {
+      containerId: "container-1",
+      documentId: "document-1-remote",
+      localId: "document-1",
+    },
+  ]);
+  expect(requestSyncCallCount).toBe(0);
 });
 
 test("manual explorer refresh reuses an in-flight refresh", async () => {
