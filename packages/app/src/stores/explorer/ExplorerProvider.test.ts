@@ -100,7 +100,57 @@ type TestSaveContainerOptions = Parameters<
 >[3];
 const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 
-test("explorer shows app-owned system containers", () => {
+test("explorer only shows user-facing system containers", () => {
+  const contactsSystemSlot =
+    "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const trashSystemSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
+  const rosterSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  expect(
+    getVisibleExplorerNodes(
+      [
+        {
+          id: "root-container",
+          kind: "container",
+          name: "/",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+        {
+          id: "contacts-container",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: contactsSystemSlot,
+        },
+        {
+          id: "trash-container",
+          kind: "container",
+          name: "Trash",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: trashSystemSlot,
+        },
+        {
+          id: "roster-profile-container",
+          kind: "container",
+          name: "Roster Profiles",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: rosterSystemSlot,
+        },
+      ],
+      new Set([contactsSystemSlot, trashSystemSlot]),
+    ).map((node) => node.id),
+  ).toEqual(["root-container", "contacts-container", "trash-container"]);
+});
+
+test("explorer hides system containers before visible slots resolve", () => {
   expect(
     getVisibleExplorerNodes([
       {
@@ -112,23 +162,16 @@ test("explorer shows app-owned system containers", () => {
         syncState: syncedContainerDocumentObjectSyncState,
       },
       {
-        id: "roster-profile-container",
+        id: "contacts-container",
         kind: "container",
-        name: "Roster Profiles",
+        name: "Contacts",
         organizationId: "org-1",
         parentId: "root-container",
         syncState: syncedContainerDocumentObjectSyncState,
-        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        systemSlot: "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       },
-    ]),
-  ).toEqual([
-    expect.objectContaining({
-      id: "root-container",
-    }),
-    expect.objectContaining({
-      id: "roster-profile-container",
-    }),
-  ]);
+    ]).map((node) => node.id),
+  ).toEqual(["root-container"]);
 });
 
 test("explorer node helpers tolerate nullish node snapshots", () => {

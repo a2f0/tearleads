@@ -35,6 +35,7 @@ interface ExplorerContextModel {
   logError: (message: string | Error, cause?: unknown) => void;
   store: ContainerContentsStore;
   trashSystemSlot: ContainerSystemSlot | null;
+  visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
 interface ExplorerContextValue extends ContainerContentsContextValue {
@@ -47,8 +48,12 @@ const ExplorerContext = createContext<ExplorerContextModel | null>(null);
 
 export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
+  visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
 ): ContainerContentsContextValue["nodes"] {
-  return nodes ?? [];
+  return (nodes ?? []).filter((node) => {
+    const systemSlot = node.systemSlot ?? null;
+    return !systemSlot || visibleSystemSlots?.has(systemSlot) === true;
+  });
 }
 
 function findExplorerSystemNode(
@@ -214,14 +219,22 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
       )?.systemSlot ?? null,
     [systemContainers],
   );
+  const visibleSystemSlots = useMemo(
+    () =>
+      new Set(
+        systemContainers.map((systemContainer) => systemContainer.systemSlot),
+      ),
+    [systemContainers],
+  );
   const snapshot = useTearleadsExternalStoreSnapshot(store);
   const contextValue = useMemo(
     () => ({
       logError: tearleads.logError,
       store,
       trashSystemSlot,
+      visibleSystemSlots,
     }),
-    [store, tearleads.logError, trashSystemSlot],
+    [store, tearleads.logError, trashSystemSlot, visibleSystemSlots],
   );
 
   useEffect(() => {
@@ -250,7 +263,7 @@ export function useExplorer(): ExplorerContextValue {
     throw new Error("useExplorer must be used within an ExplorerProvider.");
   }
 
-  const { logError, store, trashSystemSlot } = context;
+  const { logError, store, trashSystemSlot, visibleSystemSlots } = context;
   const snapshot = useTearleadsExternalStoreSnapshot(store);
   const ensureTrashContainer = useCallback(async () => {
     if (!trashSystemSlot) {
@@ -294,13 +307,19 @@ export function useExplorer(): ExplorerContextValue {
       renameContainer: store.renameContainer,
       shareWithGroup: store.shareWithGroup,
       shareWithUser: store.shareWithUser,
-      nodes: getVisibleExplorerNodes(snapshot.nodes),
+      nodes: getVisibleExplorerNodes(snapshot.nodes, visibleSystemSlots),
       ready: snapshot.ready,
       trashContainerId: getExplorerTrashDeleteTargetId(
         snapshot.nodes,
         trashSystemSlot,
       ),
     }),
-    [ensureTrashContainer, snapshot, store, trashSystemSlot],
+    [
+      ensureTrashContainer,
+      snapshot,
+      store,
+      trashSystemSlot,
+      visibleSystemSlots,
+    ],
   );
 }
