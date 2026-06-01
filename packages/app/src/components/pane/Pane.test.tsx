@@ -601,6 +601,30 @@ test("explorer exposes structured document creation from the file menu", async (
 });
 
 test(
+  "registered explorer shows user system containers",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderPane();
+
+    await generateIdentityAndWaitForDb(view);
+    await uploadPublicKeyAndWaitForUserId(view);
+
+    const explorer = await openExplorer(view);
+
+    await waitFor(
+      () => {
+        expect(getExplorerContainerItem(explorer, "Contacts")).toBeTruthy();
+        expect(getExplorerContainerItem(explorer, "Trash")).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    view.unmount();
+  },
+  PANE_ASYNC_TEST_TIMEOUT_MS,
+);
+
+test(
   "device-first explorer can move a local child container under a sibling",
   async () => {
     const view = renderPane();

@@ -12,6 +12,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -30,6 +31,10 @@ interface ExplorerSystemContainer {
   name: string;
   systemSlot: ContainerSystemSlot;
 }
+
+const USER_SYSTEM_CONTAINER_NAMES = new Set(
+  USER_SYSTEM_CONTAINER_DEFINITIONS.map((definition) => definition.name),
+);
 
 interface ExplorerContextModel {
   logError: (message: string | Error, cause?: unknown) => void;
@@ -50,9 +55,20 @@ export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
 ): ContainerContentsContextValue["nodes"] {
+  const hasResolvedVisibleSystemSlots =
+    visibleSystemSlots !== undefined && visibleSystemSlots.size > 0;
+
   return (nodes ?? []).filter((node) => {
     const systemSlot = node.systemSlot ?? null;
-    return !systemSlot || visibleSystemSlots?.has(systemSlot) === true;
+    if (!systemSlot) {
+      return true;
+    }
+
+    if (hasResolvedVisibleSystemSlots) {
+      return visibleSystemSlots.has(systemSlot);
+    }
+
+    return USER_SYSTEM_CONTAINER_NAMES.has(node.name);
   });
 }
 
@@ -148,6 +164,8 @@ function useEnsureExplorerSystemContainers(input: {
   shouldProvisionSystemContainers: boolean;
   systemContainers: ReadonlyArray<ExplorerSystemContainer>;
 }): void {
+  const inFlightSystemSlotsRef = useRef(new Set<ContainerSystemSlot>());
+
   useEffect(() => {
     if (
       !input.containerContentsReady ||
@@ -164,28 +182,44 @@ function useEnsureExplorerSystemContainers(input: {
       }),
     );
     const missingSystemContainers = input.systemContainers.filter(
-      (systemContainer) => !existingSystemSlots.has(systemContainer.systemSlot),
+      (systemContainer) =>
+        !existingSystemSlots.has(systemContainer.systemSlot) &&
+        !inFlightSystemSlotsRef.current.has(systemContainer.systemSlot),
     );
     if (missingSystemContainers.length === 0) {
       return;
     }
 
     let cancelled = false;
-    for (const systemContainer of missingSystemContainers) {
-      void input.containerContentsStore
-        .ensureSystemContainer(systemContainer.systemSlot, systemContainer.name)
-        .catch((error) => {
-          if (!cancelled) {
-            input.logError(
-              `Failed to provision explorer ${systemContainer.name} system container`,
-              error,
-            );
-          }
-        });
-    }
+    const provisionMissingSystemContainers = () => {
+      for (const systemContainer of missingSystemContainers) {
+        inFlightSystemSlotsRef.current.add(systemContainer.systemSlot);
+        void input.containerContentsStore
+          .ensureSystemContainer(
+            systemContainer.systemSlot,
+            systemContainer.name,
+          )
+          .catch((error) => {
+            if (!cancelled) {
+              input.logError(
+                `Failed to provision explorer ${systemContainer.name} system container`,
+                error,
+              );
+            }
+          })
+          .finally(() => {
+            inFlightSystemSlotsRef.current.delete(systemContainer.systemSlot);
+          });
+      }
+    };
+    const provisionTimer = window.setTimeout(
+      provisionMissingSystemContainers,
+      100,
+    );
 
     return () => {
       cancelled = true;
+      window.clearTimeout(provisionTimer);
     };
   }, [
     input.containerContentsReady,
@@ -195,6 +229,30 @@ function useEnsureExplorerSystemContainers(input: {
     input.shouldProvisionSystemContainers,
     input.systemContainers,
   ]);
+}
+
+export function canProvisionExplorerSystemContainers(input: {
+  isAuthenticated: boolean;
+  nodes: ReadonlyArray<ContainerNode> | null | undefined;
+  organizationId: string | null;
+  rootContainerId: string | null;
+}): boolean {
+  if (!input.isAuthenticated) {
+    return true;
+  }
+
+  if (!input.organizationId || !input.rootContainerId) {
+    return false;
+  }
+
+  return (
+    input.nodes?.some(
+      (node) =>
+        node.id === input.rootContainerId &&
+        node.parentId === null &&
+        node.organizationId === input.organizationId,
+    ) ?? false
+  );
 }
 
 export function ExplorerProvider({ children }: PropsWithChildren) {
@@ -227,6 +285,21 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     [systemContainers],
   );
   const snapshot = useTearleadsExternalStoreSnapshot(store);
+  const shouldProvisionSystemContainers = useMemo(
+    () =>
+      canProvisionExplorerSystemContainers({
+        isAuthenticated: runtime.auth.isAuthenticated,
+        nodes: snapshot.nodes,
+        organizationId: runtime.auth.organizationId,
+        rootContainerId: runtime.state.containerId,
+      }),
+    [
+      runtime.auth.isAuthenticated,
+      runtime.auth.organizationId,
+      runtime.state.containerId,
+      snapshot.nodes,
+    ],
+  );
   const contextValue = useMemo(
     () => ({
       logError: tearleads.logError,
@@ -246,7 +319,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     containerContentsStore: store,
     logError: tearleads.logError,
     nodes: snapshot.nodes,
-    shouldProvisionSystemContainers: !runtime.auth.isAuthenticated,
+    shouldProvisionSystemContainers,
     systemContainers,
   });
 
