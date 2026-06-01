@@ -99,12 +99,14 @@ function useLatestValueRef<T>(value: T): RefObject<T> {
 function useResetDiscoveryTrackingOnDomainScope(params: {
   domainScope: ExplorerDiscoveryAppData["state"]["domainScope"];
   domainScopeRef: RefObject<ExplorerDiscoveryAppData["state"]["domainScope"]>;
+  locallyCheckedContainerDocumentIdsRef: RefObject<Set<string>>;
   locallyCheckedDocumentUpdateIdsRef: RefObject<Set<string>>;
   locallyDiscoveredDocumentIdsRef: RefObject<Set<string>>;
 }) {
   const {
     domainScope,
     domainScopeRef,
+    locallyCheckedContainerDocumentIdsRef,
     locallyCheckedDocumentUpdateIdsRef,
     locallyDiscoveredDocumentIdsRef,
   } = params;
@@ -114,6 +116,7 @@ function useResetDiscoveryTrackingOnDomainScope(params: {
   }
 
   domainScopeRef.current = domainScope;
+  locallyCheckedContainerDocumentIdsRef.current = new Set();
   locallyCheckedDocumentUpdateIdsRef.current = new Set();
   locallyDiscoveredDocumentIdsRef.current = new Set();
 }
@@ -151,54 +154,32 @@ function applyDiscoveredDocumentSummaries(input: {
   primeDiscoveredDocumentsRef.current(discoveredDocumentSummaries);
 }
 
-export function useDiscoveredDocumentsSync(params: {
-  activeContainerId: string | null;
-  appData: ExplorerDiscoveryAppData;
-  discoverDocuments: ContainerContents["discoverDocuments"];
-  hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
-  knownDocumentIds: ReadonlySet<string>;
-  mergeDocumentSummaries: (
-    nextDocuments: ReadonlyArray<DocumentSummary>,
-  ) => void;
-  onDocumentLinksChanged: () => void;
-  primeDiscoveredDocuments: (
-    discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
-  ) => void;
+function useDiscoverDocumentsForContainerCallback(input: {
+  appliedDiscoveryPromisesRef: RefObject<WeakSet<DiscoveryPromise>>;
+  getDiscoveryPromise: (containerId: string) => DiscoveryPromise;
+  locallyCheckedContainerDocumentIdsRef: RefObject<Set<string>>;
+  locallyCheckedDocumentUpdateIdsRef: RefObject<Set<string>>;
+  locallyDiscoveredDocumentIdsRef: RefObject<Set<string>>;
+  mergeDocumentSummariesRef: RefObject<
+    (nextDocuments: ReadonlyArray<DocumentSummary>) => void
+  >;
+  onDocumentLinksChangedRef: RefObject<() => void>;
+  primeDiscoveredDocumentsRef: RefObject<
+    (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => void
+  >;
 }) {
   const {
-    activeContainerId,
-    appData,
-    discoverDocuments,
-    hasUndiscoveredDocumentUpdates,
-    knownDocumentIds,
-    mergeDocumentSummaries,
-    onDocumentLinksChanged,
-    primeDiscoveredDocuments,
-  } = params;
-  const { isAuthenticated } = appData.auth;
-  const { online } = appData.state;
-  const appliedDiscoveryPromisesRef = useRef(new WeakSet<DiscoveryPromise>());
-  const domainScopeRef = useRef(appData.state.domainScope);
-  const locallyCheckedDocumentUpdateIdsRef = useRef(new Set<string>());
-  const locallyDiscoveredDocumentIdsRef = useRef(new Set<string>());
-  const mergeDocumentSummariesRef = useLatestValueRef(mergeDocumentSummaries);
-  const onDocumentLinksChangedRef = useLatestValueRef(onDocumentLinksChanged);
-  const primeDiscoveredDocumentsRef = useLatestValueRef(
-    primeDiscoveredDocuments,
-  );
-
-  useResetDiscoveryTrackingOnDomainScope({
-    domainScope: appData.state.domainScope,
-    domainScopeRef,
+    appliedDiscoveryPromisesRef,
+    getDiscoveryPromise,
+    locallyCheckedContainerDocumentIdsRef,
     locallyCheckedDocumentUpdateIdsRef,
     locallyDiscoveredDocumentIdsRef,
-  });
+    mergeDocumentSummariesRef,
+    onDocumentLinksChangedRef,
+    primeDiscoveredDocumentsRef,
+  } = input;
 
-  const getDiscoveryPromise = useContainerDiscoveryPromiseFactory({
-    discoverDocuments,
-  });
-
-  const discoverDocumentsForContainer = useCallback(
+  return useCallback(
     (
       containerId: string,
       checkedDocumentUpdateIds: ReadonlyArray<string> = [],
@@ -209,6 +190,7 @@ export function useDiscoveredDocumentsSync(params: {
       void discoveryPromise
         .then((discoveredDocumentSummaries) => {
           if (!cancelled && discoveredDocumentSummaries) {
+            locallyCheckedContainerDocumentIdsRef.current.add(containerId);
             for (const documentId of checkedDocumentUpdateIds) {
               locallyCheckedDocumentUpdateIdsRef.current.add(documentId);
             }
@@ -241,8 +223,79 @@ export function useDiscoveredDocumentsSync(params: {
         cancelled = true;
       };
     },
-    [getDiscoveryPromise],
+    [
+      appliedDiscoveryPromisesRef,
+      getDiscoveryPromise,
+      locallyCheckedContainerDocumentIdsRef,
+      locallyCheckedDocumentUpdateIdsRef,
+      locallyDiscoveredDocumentIdsRef,
+      mergeDocumentSummariesRef,
+      onDocumentLinksChangedRef,
+      primeDiscoveredDocumentsRef,
+    ],
   );
+}
+
+export function useDiscoveredDocumentsSync(params: {
+  activeContainerId: string | null;
+  appData: ExplorerDiscoveryAppData;
+  discoverDocuments: ContainerContents["discoverDocuments"];
+  hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
+  knownDocumentIds: ReadonlySet<string>;
+  mergeDocumentSummaries: (
+    nextDocuments: ReadonlyArray<DocumentSummary>,
+  ) => void;
+  onDocumentLinksChanged: () => void;
+  primeDiscoveredDocuments: (
+    discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
+  ) => void;
+}) {
+  const {
+    activeContainerId,
+    appData,
+    discoverDocuments,
+    hasUndiscoveredDocumentUpdates,
+    knownDocumentIds,
+    mergeDocumentSummaries,
+    onDocumentLinksChanged,
+    primeDiscoveredDocuments,
+  } = params;
+  const { isAuthenticated } = appData.auth;
+  const { online } = appData.state;
+  const appliedDiscoveryPromisesRef = useRef(new WeakSet<DiscoveryPromise>());
+  const domainScopeRef = useRef(appData.state.domainScope);
+  const locallyCheckedContainerDocumentIdsRef = useRef(new Set<string>());
+  const locallyCheckedDocumentUpdateIdsRef = useRef(new Set<string>());
+  const locallyDiscoveredDocumentIdsRef = useRef(new Set<string>());
+  const mergeDocumentSummariesRef = useLatestValueRef(mergeDocumentSummaries);
+  const onDocumentLinksChangedRef = useLatestValueRef(onDocumentLinksChanged);
+  const primeDiscoveredDocumentsRef = useLatestValueRef(
+    primeDiscoveredDocuments,
+  );
+
+  useResetDiscoveryTrackingOnDomainScope({
+    domainScope: appData.state.domainScope,
+    domainScopeRef,
+    locallyCheckedContainerDocumentIdsRef,
+    locallyCheckedDocumentUpdateIdsRef,
+    locallyDiscoveredDocumentIdsRef,
+  });
+
+  const getDiscoveryPromise = useContainerDiscoveryPromiseFactory({
+    discoverDocuments,
+  });
+
+  const discoverDocumentsForContainer =
+    useDiscoverDocumentsForContainerCallback({
+      appliedDiscoveryPromisesRef,
+      getDiscoveryPromise,
+      locallyCheckedContainerDocumentIdsRef,
+      locallyCheckedDocumentUpdateIdsRef,
+      locallyDiscoveredDocumentIdsRef,
+      mergeDocumentSummariesRef,
+      onDocumentLinksChangedRef,
+      primeDiscoveredDocumentsRef,
+    });
 
   useContainerDiscoveryEffects({
     activeContainerId,
@@ -253,6 +306,7 @@ export function useDiscoveredDocumentsSync(params: {
     hasUndiscoveredDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
+    locallyCheckedContainerDocumentIdsRef,
     locallyCheckedDocumentUpdateIdsRef,
     locallyDiscoveredDocumentIdsRef,
     online,
@@ -398,6 +452,7 @@ function useContainerDiscoveryEffects(params: {
   hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
   isAuthenticated: ExplorerDiscoveryAppData["auth"]["isAuthenticated"];
   knownDocumentIds: ReadonlySet<string>;
+  locallyCheckedContainerDocumentIdsRef: RefObject<Set<string>>;
   locallyCheckedDocumentUpdateIdsRef: RefObject<Set<string>>;
   locallyDiscoveredDocumentIdsRef: RefObject<Set<string>>;
   online: ExplorerDiscoveryAppData["state"]["online"];
@@ -411,6 +466,7 @@ function useContainerDiscoveryEffects(params: {
     hasUndiscoveredDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
+    locallyCheckedContainerDocumentIdsRef,
     locallyCheckedDocumentUpdateIdsRef,
     locallyDiscoveredDocumentIdsRef,
     online,
@@ -442,12 +498,17 @@ function useContainerDiscoveryEffects(params: {
       return;
     }
 
+    if (locallyCheckedContainerDocumentIdsRef.current.has(activeContainerId)) {
+      return;
+    }
+
     return discoverDocumentsForContainer(activeContainerId);
   }, [
     activeContainerId,
     dbStatus,
     discoverDocumentsForContainer,
     isAuthenticated,
+    locallyCheckedContainerDocumentIdsRef,
     online,
   ]);
 
