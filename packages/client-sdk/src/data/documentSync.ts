@@ -4,7 +4,9 @@ import type { PendingUpdateFields } from "./sqlite/documentPersistence";
 
 interface DocumentUpdateCreatedEvent {
   type: "document_update_created";
+  containerIds?: string[];
   documentId: string;
+  updateIds?: string[];
 }
 
 export function createPendingUpdateFields(
@@ -29,12 +31,29 @@ export function createPendingUpdateFields(
 export function isDocumentUpdateCreatedEvent(
   event: unknown,
 ): event is DocumentUpdateCreatedEvent {
+  if (typeof event !== "object" || event === null) {
+    return false;
+  }
+
+  const candidate = event as {
+    readonly containerIds?: unknown;
+    readonly documentId?: unknown;
+    readonly type?: unknown;
+    readonly updateIds?: unknown;
+  };
+  const containerIds = candidate.containerIds;
+  const updateIds = candidate.updateIds;
+
   return (
-    typeof event === "object" &&
-    event !== null &&
-    "type" in event &&
-    event.type === "document_update_created" &&
-    "documentId" in event &&
-    typeof event.documentId === "string"
+    candidate.type === "document_update_created" &&
+    typeof candidate.documentId === "string" &&
+    (containerIds === undefined ||
+      (Array.isArray(containerIds) &&
+        containerIds.every(
+          (containerId) => typeof containerId === "string",
+        ))) &&
+    (updateIds === undefined ||
+      (Array.isArray(updateIds) &&
+        updateIds.every((updateId) => typeof updateId === "string")))
   );
 }

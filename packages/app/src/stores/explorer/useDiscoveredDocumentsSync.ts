@@ -1,4 +1,8 @@
-import type { ContainerContents, DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerContents,
+  ContainerDocumentLinksRuntime,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   type ExplorerDocumentsRuntimeAppDataInput,
@@ -33,6 +37,39 @@ function getDocumentUpdateCreatedEventDocumentId(
   }
 
   return null;
+}
+
+function isDocumentUpdateCreatedEventRelevantToContainer(
+  event: unknown,
+  containerId: string,
+): boolean {
+  if (
+    typeof event !== "object" ||
+    event === null ||
+    !("type" in event) ||
+    event.type !== "document_update_created"
+  ) {
+    return false;
+  }
+
+  const containerIds = Reflect.get(event, "containerIds");
+  if (containerIds === undefined) {
+    return true;
+  }
+
+  return (
+    Array.isArray(containerIds) &&
+    containerIds.some((eventContainerId) => eventContainerId === containerId)
+  );
+}
+
+function getDocumentUpdateEventsRelevantToContainer(
+  events: ReadonlyArray<unknown>,
+  containerId: string,
+): ReadonlyArray<unknown> {
+  return events.filter((event) =>
+    isDocumentUpdateCreatedEventRelevantToContainer(event, containerId),
+  );
 }
 
 function getUndiscoveredDocumentUpdateIds(
@@ -415,14 +452,21 @@ function useDiscoverDocumentsForUpdateEvents(params: {
     }
 
     const knownDocumentIdsForDiscovery = getKnownDocumentIdsForDiscovery();
-    if (!hasUndiscoveredDocumentUpdates(knownDocumentIdsForDiscovery)) {
+    const relevantEvents = getDocumentUpdateEventsRelevantToContainer(
+      events,
+      activeContainerId,
+    );
+    const uncheckedDocumentUpdateIds = getUndiscoveredDocumentUpdateIds(
+      relevantEvents,
+      knownDocumentIdsForDiscovery,
+    );
+    if (
+      uncheckedDocumentUpdateIds.length === 0 ||
+      !hasUndiscoveredDocumentUpdates(knownDocumentIdsForDiscovery)
+    ) {
       return;
     }
 
-    const uncheckedDocumentUpdateIds = getUndiscoveredDocumentUpdateIds(
-      events,
-      knownDocumentIdsForDiscovery,
-    );
     return discoverDocumentsForContainer(
       activeContainerId,
       uncheckedDocumentUpdateIds,
@@ -553,23 +597,30 @@ export function usePrimeDiscoveredDocuments(params: {
 
   const primeDiscoveredDocuments = useCallback(
     (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => {
-      for (const documentSummary of discoveredDocumentSummaries) {
-        if (!documentSummary.containerId) {
-          continue;
-        }
-
-        const store = runtimeAppData.primeDocumentStore({
-          containerId: documentSummary.containerId,
-          documentId: documentSummary.documentId,
-          localId: documentSummary.id,
-        });
-        if (store.getSnapshot?.().ready ?? true) {
-          store.requestSync();
-        }
-      }
+      primeDiscoveredDocumentStores({
+        discoveredDocumentSummaries,
+        runtimeAppData,
+      });
     },
     [runtimeAppData],
   );
 
   return { primeDiscoveredDocuments };
+}
+
+export function primeDiscoveredDocumentStores(input: {
+  discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>;
+  runtimeAppData: Pick<ContainerDocumentLinksRuntime, "primeDocumentStore">;
+}) {
+  for (const documentSummary of input.discoveredDocumentSummaries) {
+    if (!documentSummary.containerId || !documentSummary.documentId) {
+      continue;
+    }
+
+    input.runtimeAppData.primeDocumentStore({
+      containerId: documentSummary.containerId,
+      documentId: documentSummary.documentId,
+      localId: documentSummary.id,
+    });
+  }
 }
