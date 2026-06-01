@@ -69,6 +69,8 @@ function updateDocumentStoreRuntime(
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
     state.syncLane = registerDocumentStoreSyncLane(state);
+    state.locallyAcceptedUpdateIds = new Set();
+    state.remoteUpdatePending = false;
   }
 
   if (nextRuntime.infra.dbStatus !== "ready") {

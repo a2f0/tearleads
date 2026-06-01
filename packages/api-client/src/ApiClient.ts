@@ -16,6 +16,8 @@ import type {
   UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
 import {
+  type BlobAttachmentBindResponse,
+  type BlobAttachmentDetachResponse,
   type ContainerDeleteResponse,
   type ContainerWriterProjectionResponse,
   type DocumentSyncResponse,
@@ -25,6 +27,7 @@ import {
   isDocumentSyncResponse,
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
+  type ListDocumentAttachmentsResponse,
   type ListOrganizationGroupsResponse,
   type SyncWatermark,
 } from "@tearleads/validators/response";
@@ -179,6 +182,10 @@ export class ApiClient {
     string,
     Promise<DocumentWriterProjectionResponse | null>
   >();
+  private readonly documentAttachmentListRequestsByDocumentId = new Map<
+    string,
+    Promise<ListDocumentAttachmentsResponse | null>
+  >();
   private readonly encapsulationKeyRequestsByUserId = new Map<
     string,
     Promise<EncapsulationKeyResponse | null>
@@ -253,6 +260,7 @@ export class ApiClient {
   private clearAuthScopedCaches(): void {
     this.containerDocumentListRequestsByKey.clear();
     this.containerListRequestsByKey.clear();
+    this.documentAttachmentListRequestsByDocumentId.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.encapsulationKeyRequestsByUserId.clear();
@@ -262,6 +270,74 @@ export class ApiClient {
   private clearWriterProjectionCaches(): void {
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
+  }
+
+  private updateCachedDocumentAttachmentList(
+    documentId: string,
+    update: (
+      attachments: ListDocumentAttachmentsResponse,
+    ) => ListDocumentAttachmentsResponse,
+  ): void {
+    const cached =
+      this.documentAttachmentListRequestsByDocumentId.get(documentId);
+    if (!cached) {
+      return;
+    }
+
+    let next: Promise<ListDocumentAttachmentsResponse | null>;
+    next = cached
+      .then((attachments) => {
+        if (!attachments) {
+          if (
+            this.documentAttachmentListRequestsByDocumentId.get(documentId) ===
+            next
+          ) {
+            this.documentAttachmentListRequestsByDocumentId.delete(documentId);
+          }
+          return attachments;
+        }
+
+        return update(attachments);
+      })
+      .catch((error: unknown) => {
+        if (
+          this.documentAttachmentListRequestsByDocumentId.get(documentId) ===
+          next
+        ) {
+          this.documentAttachmentListRequestsByDocumentId.delete(documentId);
+        }
+        throw error;
+      });
+    this.documentAttachmentListRequestsByDocumentId.set(documentId, next);
+  }
+
+  private cacheBlobAttachmentBindResponse(
+    response: BlobAttachmentBindResponse,
+  ): void {
+    this.updateCachedDocumentAttachmentList(
+      response.documentId,
+      (attachments) => [
+        ...attachments.filter((binding) => binding.slotId !== response.slotId),
+        {
+          bindingId: response.bindingId,
+          blobId: response.blobId,
+          contentKeyBundle: response.contentKeyBundle,
+          slotId: response.slotId,
+        },
+      ],
+    );
+  }
+
+  private cacheBlobAttachmentDetachResponse(
+    response: BlobAttachmentDetachResponse,
+  ): void {
+    this.updateCachedDocumentAttachmentList(
+      response.documentId,
+      (attachments) =>
+        attachments.filter(
+          (binding) => binding.bindingId !== response.bindingId,
+        ),
+    );
   }
 
   private async clearDocumentWriterProjectionCacheIfSyncChanged(
@@ -812,6 +888,9 @@ export class ApiClient {
     return syncDocument(this.request, documentId, input)
       .then(async (response) => {
         if (response) {
+          if (response.updates.length > 0) {
+            this.documentAttachmentListRequestsByDocumentId.delete(documentId);
+          }
           await this.clearDocumentWriterProjectionCacheIfSyncChanged(
             documentId,
             response,
@@ -855,6 +934,9 @@ export class ApiClient {
       options,
     );
     if (result.ok) {
+      if (result.data.updates.length > 0) {
+        this.documentAttachmentListRequestsByDocumentId.delete(documentId);
+      }
       await this.clearDocumentWriterProjectionCacheIfSyncChanged(
         documentId,
         result.data,
@@ -919,7 +1001,19 @@ export class ApiClient {
   }
 
   bindBlobAttachment(blobId: string, input: BlobAttachmentBindRequest) {
-    return bindBlobAttachment(this.request, blobId, input);
+    return bindBlobAttachment(this.request, blobId, input)
+      .then((response) => {
+        if (response) {
+          this.cacheBlobAttachmentBindResponse(response);
+        } else {
+          this.documentAttachmentListRequestsByDocumentId.clear();
+        }
+        return response;
+      })
+      .catch((error: unknown) => {
+        this.documentAttachmentListRequestsByDocumentId.clear();
+        throw error;
+      });
   }
 
   detachBlobAttachment(
@@ -927,10 +1021,26 @@ export class ApiClient {
     bindingId: string,
     input: BlobAttachmentDetachRequest,
   ) {
-    return detachBlobAttachment(this.request, blobId, bindingId, input);
+    return detachBlobAttachment(this.request, blobId, bindingId, input)
+      .then((response) => {
+        if (response) {
+          this.cacheBlobAttachmentDetachResponse(response);
+        } else {
+          this.documentAttachmentListRequestsByDocumentId.clear();
+        }
+        return response;
+      })
+      .catch((error: unknown) => {
+        this.documentAttachmentListRequestsByDocumentId.clear();
+        throw error;
+      });
   }
 
   listDocumentAttachments(documentId: string) {
-    return listDocumentAttachments(this.request, documentId);
+    return this.cachedRequest(
+      this.documentAttachmentListRequestsByDocumentId,
+      documentId,
+      () => listDocumentAttachments(this.request, documentId),
+    );
   }
 }

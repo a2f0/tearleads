@@ -72,12 +72,14 @@ export interface DocumentStoreState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
+  locallyAcceptedUpdateIds: Set<string>;
   localId: string;
   listeners: Set<() => void>;
   pendingAttachments: PendingAttachmentRecord[];
   persistence: DocumentsPersistence;
   record: DocumentRecord | null;
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
+  remoteUpdatePending: boolean;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
   syncLane: DocumentSyncLane | null;
@@ -147,6 +149,7 @@ export function createDocumentStoreState(
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
+    locallyAcceptedUpdateIds: new Set(),
     localId,
     listeners: new Set(),
     pendingAttachments: [],
@@ -154,6 +157,7 @@ export function createDocumentStoreState(
     record: null,
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
+    remoteUpdatePending: false,
     runtime: initialRuntime,
     snapshot: {
       attachments: [],
@@ -222,6 +226,8 @@ export function resetDocumentStore(state: DocumentStoreState) {
   state.record = null;
   state.pendingAttachments = [];
   state.attachmentStorageKeyBySlotId = {};
+  state.locallyAcceptedUpdateIds = new Set();
+  state.remoteUpdatePending = false;
   state.initialized = false;
   state.initializePromise = null;
   state.writeChain = Promise.resolve();
