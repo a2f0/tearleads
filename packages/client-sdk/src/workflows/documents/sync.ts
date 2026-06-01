@@ -16,6 +16,11 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import {
+  isAccessManifestBundleWireResponse,
+  isDocumentContentKeyBundleResponse,
+  isDocumentKekTargetsResponse,
+} from "@tearleads/validators/response";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import {
   decryptDocumentSyncUpdatesByEpoch,
@@ -497,13 +502,15 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
 function parsePersistedDocumentSyncRecord<T>(
   value: string | null | undefined,
   label: string,
+  isRecord: (value: unknown) => value is T,
 ): T | null {
   if (!value) {
     return null;
   }
 
   try {
-    return readCanonicalRecord(JSON.parse(value), label) as T;
+    const record = readCanonicalRecord(JSON.parse(value), label);
+    return isRecord(record) ? record : null;
   } catch {
     return null;
   }
@@ -521,18 +528,21 @@ function parsePersistedDocumentSyncState(
     return null;
   }
 
-  const contentKeyBundle = parsePersistedDocumentSyncRecord<
-    DocumentCreateResponse["contentKeyBundle"]
-  >(
+  const contentKeyBundle = parsePersistedDocumentSyncRecord(
     persistedState.contentKeyBundle,
     "Persisted document sync content-key bundle",
+    isDocumentContentKeyBundleResponse,
   );
-  const documentKekTargets = parsePersistedDocumentSyncRecord<
-    DocumentSyncResponse["documentKekTargets"]
-  >(persistedState.documentKekTargets, "Persisted document sync KEK targets");
-  const documentManifest = parsePersistedDocumentSyncRecord<
-    DocumentCreateResponse["accessManifest"]
-  >(persistedState.documentManifestBundle, "Persisted document sync manifest");
+  const documentKekTargets = parsePersistedDocumentSyncRecord(
+    persistedState.documentKekTargets,
+    "Persisted document sync KEK targets",
+    isDocumentKekTargetsResponse,
+  );
+  const documentManifest = parsePersistedDocumentSyncRecord(
+    persistedState.documentManifestBundle,
+    "Persisted document sync manifest",
+    isAccessManifestBundleWireResponse,
+  );
 
   if (!contentKeyBundle || !documentKekTargets || !documentManifest) {
     return null;

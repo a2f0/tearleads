@@ -117,7 +117,7 @@ function isDocumentContentKeyTargetEnvelopeResponse(
   );
 }
 
-function isDocumentKekTargetsResponse(
+export function isDocumentKekTargetsResponse(
   value: unknown,
 ): value is DocumentKekTargetsResponse {
   return (
@@ -137,7 +137,7 @@ function isDocumentKekTargetsResponse(
   );
 }
 
-function isDocumentContentKeyBundleResponse(
+export function isDocumentContentKeyBundleResponse(
   value: unknown,
 ): value is DocumentContentKeyBundleResponse {
   return (

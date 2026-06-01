@@ -150,31 +150,41 @@ interface ContainerManifestMoveLineageStep {
   readonly previousManifestHash: string | null;
 }
 
-type ContainerManifestMoveLineageRowCandidate = Partial<
-  Record<keyof ContainerManifestMoveLineageStep, unknown>
->;
+interface ContainerManifestMoveLineageRowCandidate {
+  readonly containerId?: unknown;
+  readonly containerKeyEpochId?: unknown;
+  readonly cycleDetected?: unknown;
+  readonly eventType?: unknown;
+  readonly manifestHash?: unknown;
+  readonly previousManifestHash?: unknown;
+}
 
 type ContainerManifestMoveLineageTarget = Pick<
   DocumentContentKeyTargetEnvelope,
   "containerId" | "containerManifestHash"
 >;
 
+function isContainerManifestMoveLineageRowCandidate(
+  row: unknown,
+): row is ContainerManifestMoveLineageRowCandidate {
+  return isRecord(row);
+}
+
 function isContainerManifestMoveLineageRow(
   row: unknown,
 ): row is ContainerManifestMoveLineageStep {
-  if (!isRecord(row)) {
+  if (!isContainerManifestMoveLineageRowCandidate(row)) {
     return false;
   }
 
-  const candidate = row as ContainerManifestMoveLineageRowCandidate;
-  const previousManifestHash = candidate.previousManifestHash;
+  const previousManifestHash = row.previousManifestHash;
 
   return (
-    typeof candidate.containerId === "string" &&
-    typeof candidate.containerKeyEpochId === "string" &&
-    typeof candidate.cycleDetected === "boolean" &&
-    typeof candidate.eventType === "string" &&
-    typeof candidate.manifestHash === "string" &&
+    typeof row.containerId === "string" &&
+    typeof row.containerKeyEpochId === "string" &&
+    typeof row.cycleDetected === "boolean" &&
+    typeof row.eventType === "string" &&
+    typeof row.manifestHash === "string" &&
     (typeof previousManifestHash === "string" || previousManifestHash === null)
   );
 }

@@ -1,4 +1,5 @@
 import type { AccessEventType } from "@tearleads/crypto";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   type ContainerCreateWithMetadataDocumentRequest,
   type ContainerMutationRequest,
@@ -45,13 +46,19 @@ interface AddContainerMutationRouteInput extends ContainerMutationsRouteDeps {
 
 interface ContainerMutationBodyCandidate {
   readonly eventType?: unknown;
-  readonly parentContainerId?: unknown;
-  readonly signerKeyFingerprint?: unknown;
-  readonly state?: unknown;
 }
 
-function isRecord(value: unknown): value is ContainerMutationBodyCandidate {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function isContainerMutationBodyCandidate(
+  value: unknown,
+): value is ContainerMutationBodyCandidate {
+  return isPlainObject(value);
+}
+
+function readRecordValue(
+  record: Record<string, unknown>,
+  key: string,
+): unknown {
+  return record[key];
 }
 
 function readNullableString(value: unknown): string | null | undefined {
@@ -66,41 +73,66 @@ function readNonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function isAccessEventType(value: unknown): value is AccessEventType {
+  return (
+    value === "attachment.bind" ||
+    value === "attachment.detach" ||
+    value === "container.create" ||
+    value === "container.grant" ||
+    value === "container.move" ||
+    value === "container.rekey" ||
+    value === "container.revoke" ||
+    value === "document.link" ||
+    value === "document.unlink"
+  );
+}
+
 function readContainerMutationBodyEventType(
   request: ContainerMutationRequest,
 ): AccessEventType | null {
-  if (!isRecord(request.body)) {
+  if (!isContainerMutationBodyCandidate(request.body)) {
     return null;
   }
 
   const eventType = request.body.eventType;
-  return typeof eventType === "string" ? (eventType as AccessEventType) : null;
+  return isAccessEventType(eventType) ? eventType : null;
+}
+
+function readSignerKeyFingerprintFromEvent(event: unknown): string | undefined {
+  if (!isPlainObject(event)) {
+    return undefined;
+  }
+
+  return readNonEmptyString(readRecordValue(event, "signerKeyFingerprint"));
+}
+
+function readPreviousParentIdFromManifest(
+  previousManifest: unknown,
+): string | null | undefined {
+  if (!isPlainObject(previousManifest)) {
+    return undefined;
+  }
+
+  const previousState = readRecordValue(previousManifest, "state");
+  if (!isPlainObject(previousState)) {
+    return undefined;
+  }
+
+  return readNullableString(
+    readRecordValue(previousState, "parentContainerId"),
+  );
 }
 
 function readContainerMutationSignerKeyFingerprint(
   request: ContainerMutationRequest,
 ): string | undefined {
-  if (!isRecord(request.event)) {
-    return undefined;
-  }
-
-  const event = request.event as ContainerMutationBodyCandidate;
-  return readNonEmptyString(event.signerKeyFingerprint);
+  return readSignerKeyFingerprintFromEvent(request.event);
 }
 
 function readContainerMutationPreviousParentId(
   request: ContainerMutationRequest,
 ): string | null | undefined {
-  if (
-    !isRecord(request.previousManifest) ||
-    !isRecord(request.previousManifest.state)
-  ) {
-    return undefined;
-  }
-
-  const previousState = request.previousManifest
-    .state as ContainerMutationBodyCandidate;
-  return readNullableString(previousState.parentContainerId);
+  return readPreviousParentIdFromManifest(request.previousManifest);
 }
 
 async function publishContainerMutationCreated(input: {
