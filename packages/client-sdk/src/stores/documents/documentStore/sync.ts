@@ -114,18 +114,30 @@ async function syncPendingAttachments(
   }
   const remoteDocumentId = currentRecord.documentId;
 
-  const remoteBindings =
-    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
-  if (!remoteBindings) {
-    return { completed: false, nextRecord: currentRecord };
-  }
-
-  const activeBindingBySlotId = new Map(
-    remoteBindings.map((binding) => [binding.slotId, binding]),
-  );
+  const activeBindingBySlotId = new Map<string, DocumentAttachmentBinding>();
+  let fetchedRemoteBindings = false;
   const completedSlotIds = new Set<string>();
 
   for (const pendingAttachment of [...state.pendingAttachments]) {
+    if (
+      !fetchedRemoteBindings &&
+      !isNewPendingAttachmentSlot(state, pendingAttachment)
+    ) {
+      const remoteBindings =
+        await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
+      if (!remoteBindings) {
+        return {
+          completed: completedSlotIds.size > 0,
+          nextRecord: currentRecord,
+        };
+      }
+
+      fetchedRemoteBindings = true;
+      for (const binding of remoteBindings) {
+        activeBindingBySlotId.set(binding.slotId, binding);
+      }
+    }
+
     const uploaded = await syncPendingAttachmentUpload({
       activeBindingBySlotId,
       encapsulationKeyPair,
@@ -153,6 +165,17 @@ async function syncPendingAttachments(
   setReadySnapshot(state, currentDoc, state.snapshot.syncing);
 
   return { completed: true, nextRecord: currentRecord };
+}
+
+function isNewPendingAttachmentSlot(
+  state: DocumentStoreState,
+  pendingAttachment: PendingAttachmentRecord,
+): boolean {
+  // Fresh slots use a deterministic key; replacements append a UUID.
+  return (
+    pendingAttachment.storageKey ===
+    `${state.localId}-${pendingAttachment.slotId}`
+  );
 }
 
 async function ensureDocumentRecordForSync(
@@ -489,63 +512,12 @@ async function syncDocumentState(
   return finalizeDocumentSync(state, currentDoc, nextRemoteRecord, syncAttempt);
 }
 
-async function refreshRemoteDocumentBeforePendingAttachmentMutation(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<PendingMutationSyncResult> {
-  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
-    return { completed: false, nextRecord };
-  }
-
-  const syncAttempt = await requestRemoteDocumentSync({
-    state,
-    currentDoc,
-    currentRecord: nextRecord,
-    encapsulationKeyPair,
-    pendingUpdates: [],
-    unavailableWriterLogMessage:
-      "Documents: skipped sync probe because the writer context is unavailable.",
-  });
-  if (!syncAttempt) {
-    return { completed: false, nextRecord };
-  }
-
-  const refreshedRecord = await finalizeDocumentSync(
-    state,
-    currentDoc,
-    nextRecord,
-    syncAttempt,
-  );
-
-  return {
-    // A probe can advance commitLsn without delivering document changes. Keep
-    // the current pass going so pending attachment uploads are not starved.
-    completed: syncAttempt.synced.decryptedUpdates.length > 0,
-    nextRecord: refreshedRecord,
-  };
-}
-
 async function runDocumentSyncPass(state: DocumentStoreState) {
   const currentDoc = state.doc;
   const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
   let nextRecord = state.record;
 
   if (!currentDoc || !nextRecord || !encapsulationKeyPair) {
-    return;
-  }
-
-  const refreshedResult =
-    await refreshRemoteDocumentBeforePendingAttachmentMutation(
-      state,
-      currentDoc,
-      nextRecord,
-      encapsulationKeyPair,
-    );
-  nextRecord = refreshedResult.nextRecord;
-  if (refreshedResult.completed) {
-    requestDocumentStoreSync(state);
     return;
   }
 

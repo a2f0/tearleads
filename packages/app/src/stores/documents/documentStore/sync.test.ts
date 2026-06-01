@@ -458,6 +458,7 @@ async function createDocumentRuntimePatch(input: {
     response: DocumentWriterProjectionResponse,
   ) => DocumentWriterProjectionResponse;
   commitLsnForSyncCount?: (syncCount: number) => string;
+  listDocumentAttachmentsCalls?: string[];
   onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<DocumentRuntimePatch> {
@@ -584,7 +585,10 @@ async function createDocumentRuntimePatch(input: {
         );
       },
       listContainers: async () => createListedContainers(containerId),
-      listDocumentAttachments: async () => attachments,
+      listDocumentAttachments: async (documentId) => {
+        input.listDocumentAttachmentsCalls?.push(documentId);
+        return attachments;
+      },
       stageBlob: async (request) => {
         stageCount += 1;
         const stageId = `stage-${stageCount}`;
@@ -915,6 +919,7 @@ async function createSyncRuntimeInput(
       request: BlobAttachmentBindRequest,
     ) => Promise<void> | void;
     onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
+    listDocumentAttachmentsCalls?: string[];
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): Promise<DocumentsRuntimeInput> {
@@ -932,6 +937,9 @@ async function createSyncRuntimeInput(
       : {}),
     ...(options.onSyncDocumentRequest
       ? { onSyncDocumentRequest: options.onSyncDocumentRequest }
+      : {}),
+    ...(options.listDocumentAttachmentsCalls
+      ? { listDocumentAttachmentsCalls: options.listDocumentAttachmentsCalls }
       : {}),
     ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
   });
@@ -982,6 +990,7 @@ async function createSyncRuntime(
       request: BlobAttachmentBindRequest,
     ) => Promise<void> | void;
     onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
+    listDocumentAttachmentsCalls?: string[];
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): Promise<DocumentsTestRuntime> {
@@ -1864,6 +1873,7 @@ test("document store preserves a replacement queued during attachment upload", a
     blobId: string;
     request: BlobAttachmentBindRequest;
   }> = [];
+  const listDocumentAttachmentsCalls: string[] = [];
   let replacementQueued = false;
   let store: ReturnType<typeof createDocumentStore>;
   const runtime = await createSyncRuntime(
@@ -1871,6 +1881,7 @@ test("document store preserves a replacement queued during attachment upload", a
     "shared-container",
     {
       attachmentBinds,
+      listDocumentAttachmentsCalls,
       onBindBlobAttachment: async () => {
         if (replacementQueued) {
           return;
@@ -1936,6 +1947,7 @@ test("document store preserves a replacement queued during attachment upload", a
     localAttachment.storageKey,
   );
   expect(attachmentBinds).toHaveLength(2);
+  expect(listDocumentAttachmentsCalls).toHaveLength(1);
   expect(persistence.getState().pendingAttachments).toHaveLength(0);
   expect(store.getSnapshot().attachments[0]?.name).toBe("replacement.png");
   expect(new TextDecoder().decode(storedBytes ?? new Uint8Array())).toBe(
@@ -2129,7 +2141,7 @@ test("large note edits remain a single pending update row before sync", async ()
   }
 });
 
-test("document store does not restart attachment sync for commit-lsn-only probes", async () => {
+test("document store uploads attachments without a pre-upload document sync probe", async () => {
   const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const attachmentBinds: Array<{
@@ -2140,12 +2152,14 @@ test("document store does not restart attachment sync for commit-lsn-only probes
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
+  const listDocumentAttachmentsCalls: string[] = [];
   const runtime = await createSyncRuntime(
     encapsulationKeyPair,
     "shared-container",
     {
       attachmentBinds,
       commitLsnForSyncCount: (syncCount) => `0/${syncCount}0`,
+      listDocumentAttachmentsCalls,
       syncCalls,
     },
   );
@@ -2179,13 +2193,19 @@ test("document store does not restart attachment sync for commit-lsn-only probes
     () =>
       attachmentBinds.length === 1 &&
       persistence.getState().pendingAttachments.length === 0,
-    "Attachment upload was starved by commit-lsn-only sync probes.",
+    "Attachment upload did not complete without a pre-upload document sync probe.",
     2_000,
     10,
   );
 
-  expect(syncCalls.some((call) => call.outgoingUpdateCount === 0)).toBe(true);
+  expect(syncCalls).toEqual([
+    {
+      minLsn: null,
+      outgoingUpdateCount: 1,
+    },
+  ]);
   expect(attachmentBinds).toHaveLength(1);
+  expect(listDocumentAttachmentsCalls).toEqual([]);
 });
 
 test("document store persists commitLsn and reuses it as minLsn on the next sync", async () => {
