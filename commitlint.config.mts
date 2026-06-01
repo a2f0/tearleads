@@ -11,5 +11,6 @@ export default {
       "always",
       Array.from(new Set([...conventionalTypes, "cleanup"])),
     ],
+    "header-max-length": [2, "always", 50],
   },
 };
