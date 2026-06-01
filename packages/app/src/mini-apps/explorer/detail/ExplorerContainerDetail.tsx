@@ -161,21 +161,23 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
 }
 
 function useExplorerContainerItemWindow(params: {
+  containerListRevision: unknown;
+  documentListRevision: number;
   documentReadModel: ContainerDocumentReadModel;
   enabled: boolean;
   limit: number;
   offset: number;
-  reloadKey: unknown;
   selectedNode: ContainerNode;
   sort: ContainerItemSort;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }) {
   const {
+    containerListRevision,
+    documentListRevision,
     documentReadModel,
     enabled,
     limit,
     offset,
-    reloadKey,
     selectedNode,
     sort,
     visibleSystemSlots,
@@ -250,11 +252,12 @@ function useExplorerContainerItemWindow(params: {
       cancelled = true;
     };
   }, [
+    containerListRevision,
+    documentListRevision,
     documentReadModel,
     enabled,
     limit,
     offset,
-    reloadKey,
     selectedNode.id,
     sort,
     visibleSystemSlots,
@@ -491,16 +494,13 @@ export function ExplorerContainerDetail(params: {
     resetKey,
     rowHeight: EXPLORER_VIRTUAL_ROW_HEIGHT,
   });
-  const itemWindowReloadKey = useMemo(
-    () => [containerListRevision, documentListRevision] as const,
-    [containerListRevision, documentListRevision],
-  );
   const itemWindow = useExplorerContainerItemWindow({
+    containerListRevision,
+    documentListRevision,
     documentReadModel,
     enabled: true,
     limit,
     offset,
-    reloadKey: itemWindowReloadKey,
     selectedNode,
     sort,
     visibleSystemSlots,
