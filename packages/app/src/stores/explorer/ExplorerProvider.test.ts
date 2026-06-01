@@ -1328,11 +1328,13 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
 
     const state: ExplorerSyncState = {
       containersById: new Map(),
+      containerParentIdsNeedingHydration: new Set(),
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
       metadataDocumentIdsNeedingSync: new Set(),
       persistence: defaultExplorerPersistence,
+      recentContainerMutationHydrationAt: null,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
         createExplorerProjectionUserKeyResolver(runtime),
@@ -1447,11 +1449,13 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
 
     const state: ExplorerSyncState = {
       containersById: new Map(),
+      containerParentIdsNeedingHydration: new Set(),
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
       metadataDocumentIdsNeedingSync: new Set(),
       persistence: defaultExplorerPersistence,
+      recentContainerMutationHydrationAt: null,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
         createExplorerProjectionUserKeyResolver(runtime),
@@ -1600,11 +1604,13 @@ test("explorer sync skips pending metadata updates for containers without docume
           },
         ],
       ]),
+      containerParentIdsNeedingHydration: new Set(),
       initializePromise: null,
       initialized: true,
       lastEventCount: 0,
       metadataDocumentIdsNeedingSync: new Set(),
       persistence,
+      recentContainerMutationHydrationAt: null,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
         createExplorerProjectionUserKeyResolver(runtime),

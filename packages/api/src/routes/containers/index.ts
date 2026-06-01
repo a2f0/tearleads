@@ -8,21 +8,32 @@ import { createContainerMutationsRoute } from "./mutations";
 import { createContainerWriterProjectionRoute } from "./writerProjection";
 
 interface ContainersRouterDeps {
+  readonly publish: (event: Record<string, unknown>) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }
 
 export function createContainersRouter({
+  publish,
   requireAuth,
   runtime,
 }: ContainersRouterDeps) {
   const containersRouter = new Hono();
-  const routeDeps = { requireAuth, runtime };
+  const routeDeps = { publish, requireAuth, runtime };
 
-  containersRouter.route("/", createListContainerDocumentsRoute(routeDeps));
-  containersRouter.route("/", createListContainersRoute(routeDeps));
+  containersRouter.route(
+    "/",
+    createListContainerDocumentsRoute({ requireAuth, runtime }),
+  );
+  containersRouter.route(
+    "/",
+    createListContainersRoute({ requireAuth, runtime }),
+  );
   containersRouter.route("/", createContainerMutationsRoute(routeDeps));
-  containersRouter.route("/", createContainerWriterProjectionRoute(routeDeps));
+  containersRouter.route(
+    "/",
+    createContainerWriterProjectionRoute({ requireAuth, runtime }),
+  );
 
   return containersRouter;
 }

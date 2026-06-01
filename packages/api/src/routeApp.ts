@@ -39,6 +39,7 @@ export function createRouteApp(overrides: RouteAppOverrides) {
   routeApp.route(
     "/",
     createContainersRouter({
+      publish: resolvedPublish,
       requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),

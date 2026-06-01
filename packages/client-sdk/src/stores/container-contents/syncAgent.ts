@@ -1,5 +1,6 @@
 import { syncPendingContainerCreateIntents } from "../../workflows/container-contents/container-state/createIntentSync";
 import { syncPendingContainerMoveIntents } from "../../workflows/container-contents/container-state/moveIntentSync";
+import { listContainerParentIdsForEventHydration } from "../../workflows/container-contents/containerEvents";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
   type ContainerDocumentPrimeHost,
@@ -41,6 +42,8 @@ export interface ContainerContentsStoreSyncState {
   lastEventCount: number;
   logLabel?: string | undefined;
   metadataDocumentIdsNeedingSync: Set<string>;
+  containerParentIdsNeedingHydration: Set<string | null>;
+  recentContainerMutationHydrationAt: number | null;
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
@@ -66,6 +69,8 @@ type ContainerContentsStoreSyncHost = RemoteContainerHydrationHost;
 type ContainerContentsStorePrimeDocumentRuntime = ReturnType<
   typeof createContainerContentsDocumentsRuntime
 >;
+
+const RECENT_CONTAINER_MUTATION_HYDRATION_MS = 10_000;
 
 function getContainerContentsStoreLogLabel(
   state: ContainerContentsStoreSyncState,
@@ -120,11 +125,20 @@ function requestRemoteHydration(input: {
   if (state.remoteHydrationPromise) {
     return state.remoteHydrationPromise;
   }
+  const parentIds =
+    state.containerParentIdsNeedingHydration.size === 0
+      ? undefined
+      : Array.from(state.containerParentIdsNeedingHydration);
+  state.containerParentIdsNeedingHydration.clear();
 
   state.remoteHydrationPromise = hydrateRemoteContainers({
     host,
+    parentIds,
     state,
   })
+    .then(() => {
+      state.recentContainerMutationHydrationAt = parentIds ? Date.now() : null;
+    })
     .catch((error: unknown) => {
       if (isDestroyedContainerContentsSyncRuntimeError(error)) {
         return;
@@ -145,6 +159,16 @@ function requestRemoteHydration(input: {
     });
 
   return state.remoteHydrationPromise;
+}
+
+function hasRecentContainerMutationHydration(
+  state: ContainerContentsStoreSyncState,
+): boolean {
+  return (
+    state.recentContainerMutationHydrationAt !== null &&
+    Date.now() - state.recentContainerMutationHydrationAt <=
+      RECENT_CONTAINER_MUTATION_HYDRATION_MS
+  );
 }
 
 async function initializeContainerContentsStore(input: {
@@ -323,6 +347,21 @@ export function createContainerContentsStoreSyncAgent(input: {
     handleRemoteEvents: () => {
       const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
       state.lastEventCount = state.runtime.state.events.length;
+      let addedContainerParentHydrationLane = false;
+      for (const parentId of listContainerParentIdsForEventHydration(
+        nextEvents,
+        {
+          ignoredSignerKeyFingerprint: state.runtime.crypto.signingFingerprint,
+        },
+      )) {
+        if (!state.containerParentIdsNeedingHydration.has(parentId)) {
+          addedContainerParentHydrationLane = true;
+        }
+        state.containerParentIdsNeedingHydration.add(parentId);
+      }
+      if (addedContainerParentHydrationLane) {
+        void requestHydration();
+      }
       const metadataDocumentIds = listContainerMetadataDocumentUpdateIds(
         nextEvents,
         state.containersById.values(),
@@ -348,7 +387,18 @@ export function createContainerContentsStoreSyncAgent(input: {
         return Promise.resolve(false);
       }
 
-      return requestHydration().then(() => true);
+      if (
+        state.containerParentIdsNeedingHydration.size === 0 &&
+        hasRecentContainerMutationHydration(state)
+      ) {
+        state.recentContainerMutationHydrationAt = null;
+        return Promise.resolve(true);
+      }
+
+      return requestHydration().then(() => {
+        state.recentContainerMutationHydrationAt = null;
+        return true;
+      });
     },
     requestRemoteHydration: requestHydration,
     scheduleRemoteHydration: () => {
