@@ -630,6 +630,7 @@ test("primeDocumentsForContainerSubtree primes matching document stores", async 
         primeDocumentStore: (input) => {
           primedStores.push(input);
           return {
+            getSnapshot: () => ({ ready: true }),
             requestSync: () => {
               syncRequests.push(input.localId);
             },
@@ -666,6 +667,57 @@ test("primeDocumentsForContainerSubtree primes matching document stores", async 
       "remote-document-1",
       "remote-document-2",
     ]);
+  } finally {
+    close();
+  }
+});
+
+test("primeDocumentsForContainerSubtree lets initializing document stores schedule their own sync", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-subtree-prime-initializing",
+  );
+  try {
+    const runtime = { infra: { execSql } };
+    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    await readModel.upsertDiscoveredDocuments([
+      {
+        accessEpoch: 1,
+        accessStateHash: "access-state-hash-1",
+        containerId: "shared-root",
+        createdAt: "2026-05-09T00:00:00.000Z",
+        documentId: "remote-document-1",
+        linkedContainerIds: ["shared-root"],
+      },
+    ]);
+
+    const syncRequests: string[] = [];
+    const primedCount = await primeDocumentsForContainerSubtree({
+      containersById: new Map([
+        [
+          "shared-root",
+          {
+            container: {
+              id: "shared-root",
+              parentId: null,
+            },
+          },
+        ],
+      ]),
+      host: {
+        createDocumentRuntime: (containerId) => ({ containerId }),
+        primeDocumentStore: (input) => ({
+          getSnapshot: () => ({ ready: false }),
+          requestSync: () => {
+            syncRequests.push(input.localId);
+          },
+        }),
+      },
+      rootContainerId: "shared-root",
+      runtime,
+    });
+
+    expect(primedCount).toBe(1);
+    expect(syncRequests).toEqual([]);
   } finally {
     close();
   }

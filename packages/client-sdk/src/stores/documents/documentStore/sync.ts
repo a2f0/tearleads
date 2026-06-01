@@ -296,6 +296,7 @@ async function requestRemoteDocumentSync(input: {
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
     pendingUpdates,
+    persistedState: currentRecord,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
       logPrefix: "Documents",

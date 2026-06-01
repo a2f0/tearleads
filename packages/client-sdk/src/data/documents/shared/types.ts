@@ -295,7 +295,7 @@ export interface SyncRemoteDocumentResult {
   plan: DocumentSyncPlan;
   response: DocumentSyncResponse;
   settledPendingUpdateIds: readonly string[];
-  writerProjection: DocumentWriterProjectionResponse;
+  writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 
 export interface DocumentSyncSubmitFailure {
