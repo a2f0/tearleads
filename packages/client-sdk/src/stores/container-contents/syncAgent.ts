@@ -8,7 +8,7 @@ import {
 } from "../../workflows/container-contents/documentReadModel";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import {
-  hasContainerMetadataDocumentUpdateEvent,
+  listContainerMetadataDocumentUpdateIds,
   syncContainerMetadataState,
 } from "../../workflows/container-contents/metadata";
 import type { ContainerContentsProjectionUserKeyResolver } from "../../workflows/container-contents/projectionKeys";
@@ -40,6 +40,7 @@ export interface ContainerContentsStoreSyncState {
   initialized: boolean;
   lastEventCount: number;
   logLabel?: string | undefined;
+  metadataDocumentIdsNeedingSync: Set<string>;
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
@@ -223,7 +224,11 @@ async function syncSingleContainerMetadata(input: {
   >;
 }) {
   const { containerState, encapsulationKeyPair, host, state } = input;
+  const metadataDocumentId = containerState.record.documentId;
   const synced = await syncContainerMetadataState({
+    forceReadSync:
+      typeof metadataDocumentId === "string" &&
+      state.metadataDocumentIdsNeedingSync.has(metadataDocumentId),
     metadataState: containerState,
     persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
@@ -234,6 +239,12 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
+  if (typeof metadataDocumentId === "string") {
+    state.metadataDocumentIdsNeedingSync.delete(metadataDocumentId);
+  }
+  if (typeof synced.record.documentId === "string") {
+    state.metadataDocumentIdsNeedingSync.delete(synced.record.documentId);
+  }
   containerState.container = synced.container;
   containerState.record = synced.record;
   host.updateSnapshot();
@@ -312,13 +323,15 @@ export function createContainerContentsStoreSyncAgent(input: {
     handleRemoteEvents: () => {
       const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
       state.lastEventCount = state.runtime.state.events.length;
+      const metadataDocumentIds = listContainerMetadataDocumentUpdateIds(
+        nextEvents,
+        state.containersById.values(),
+      );
+      for (const metadataDocumentId of metadataDocumentIds) {
+        state.metadataDocumentIdsNeedingSync.add(metadataDocumentId);
+      }
 
-      if (
-        hasContainerMetadataDocumentUpdateEvent(
-          nextEvents,
-          state.containersById.values(),
-        )
-      ) {
+      if (metadataDocumentIds.length > 0) {
         scheduleSync();
       }
     },

@@ -262,6 +262,121 @@ test("container document discovery starts a new run when discovery dependencies 
   });
 });
 
+test("container document discovery suppresses update events for locally discovered ids", async () => {
+  const discoveredDocuments = createDeferred<ReadonlyArray<DocumentSummary>>();
+  let discoverDocumentsCallCount = 0;
+  let documentLinksChangedCallCount = 0;
+  const discoveredDocument = createDocumentSummary("document-1");
+  const baseAppData = {
+    auth: {
+      isAuthenticated: true,
+      organizationId: null,
+      userId: null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {},
+      dbStatus: "ready",
+      execSql: async () => {
+        throw new Error("execSql should not be used by this test.");
+      },
+    },
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => undefined,
+      log: () => undefined,
+      logError: () => undefined,
+    },
+  } as unknown as UseDiscoveredDocumentsSyncParams["appData"];
+  let currentEvents =
+    [] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
+    async () => {
+      discoverDocumentsCallCount += 1;
+      return discoveredDocuments.promise;
+    };
+  const hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"] =
+    (knownDocumentIds) =>
+      currentEvents.some(
+        (event) =>
+          typeof event === "object" &&
+          event !== null &&
+          "documentId" in event &&
+          typeof event.documentId === "string" &&
+          !knownDocumentIds.has(event.documentId),
+      );
+  const mergeDocumentSummaries = () => undefined;
+  const onDocumentLinksChanged = () => {
+    documentLinksChangedCallCount += 1;
+  };
+  const primeDiscoveredDocuments = () => undefined;
+
+  const view = renderHook(
+    ({
+      events,
+    }: {
+      events: UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+    }) => {
+      currentEvents = events;
+      return useDiscoveredDocumentsSync({
+        activeContainerId: "container-1",
+        appData: {
+          ...baseAppData,
+          state: { ...baseAppData.state, events },
+        },
+        discoverDocuments,
+        hasUndiscoveredDocumentUpdates,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries,
+        onDocumentLinksChanged,
+        primeDiscoveredDocuments,
+      });
+    },
+    {
+      initialProps: {
+        events:
+          [] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+      },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(1);
+  });
+  discoveredDocuments.resolve([discoveredDocument]);
+  await act(async () => {
+    await discoveredDocuments.promise;
+  });
+  await waitFor(() => {
+    expect(documentLinksChangedCallCount).toBe(1);
+  });
+
+  view.rerender({
+    events: [
+      {
+        documentId: discoveredDocument.documentId,
+        id: "event-1",
+        type: "document_update_created",
+      },
+    ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+  });
+
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(discoverDocumentsCallCount).toBe(1);
+});
+
 test("manual explorer refresh reuses an in-flight refresh", async () => {
   const refreshed = createDeferred<boolean>();
   let documentLinksChangedCallCount = 0;

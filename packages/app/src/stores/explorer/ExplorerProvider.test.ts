@@ -938,6 +938,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
           createdAt: expect.any(String),
           id: "root-container",
           kind: "container",
+          metadataDocumentId: null,
           name: "/",
           organizationId: "org-1",
           parentId: null,
@@ -1330,6 +1331,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
+      metadataDocumentIdsNeedingSync: new Set(),
       persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
@@ -1448,6 +1450,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
+      metadataDocumentIdsNeedingSync: new Set(),
       persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
@@ -1600,6 +1603,7 @@ test("explorer sync skips pending metadata updates for containers without docume
       initializePromise: null,
       initialized: true,
       lastEventCount: 0,
+      metadataDocumentIdsNeedingSync: new Set(),
       persistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:

@@ -17,6 +17,7 @@ import {
   loadContainerInfo,
 } from "../workflows/container-contents/containerInfo";
 import {
+  discoverAllContainerDocuments,
   discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
   refreshAllContainerDocumentsFromApi,
@@ -492,6 +493,21 @@ class ContainerContentsService implements ContainerContents {
     );
     if (!runtime) {
       return Promise.resolve(null);
+    }
+
+    const snapshot = this.store().getSnapshot();
+    const snapshotContainerIds = snapshot.ready
+      ? snapshot.nodes.map((node) => node.id)
+      : [];
+    if (snapshotContainerIds.length > 0) {
+      return discoverAllContainerDocuments({
+        ...createContainerDocumentDiscoveryPersistence(runtime),
+        cacheReferencedPrincipalPolicies:
+          runtime.util.cacheReferencedPrincipalPolicies,
+        containerIds: snapshotContainerIds,
+        listContainerDocuments: (containerId, options) =>
+          runtime.apiClient.listContainerDocuments(containerId, options),
+      });
     }
 
     return refreshAllContainerDocumentsFromApi({
