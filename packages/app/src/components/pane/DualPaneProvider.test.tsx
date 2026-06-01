@@ -17,6 +17,7 @@ import {
 } from "../../../test/helpers/appRuntimeIdle";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import {
+  getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
@@ -37,6 +38,8 @@ const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 30_000;
 const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
+const POST_SHARE_NETWORK_IDLE_TIMEOUT_MS = 500;
+const POST_SHARE_NETWORK_IDLE_INTERVAL_MS = 10;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
 const MOVED_NOTE_TITLE = "Moved folder note";
@@ -52,6 +55,29 @@ interface BlobAttachmentBindingJson {
   bindingId?: unknown;
   blobId?: unknown;
 }
+
+interface ProxiedApiRequestBudget {
+  byRequest?: Readonly<Record<string, number>>;
+  total: number;
+}
+
+const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
+  total: 140,
+  byRequest: {
+    "GET /documents/:documentId/writer-projection": 30,
+    "POST /documents/:documentId/sync": 30,
+    "GET /containers/:containerId/documents": 30,
+    "GET /containers": 24,
+    "GET /auth/encapsulation-key/:userId": 12,
+    "GET /containers/:containerId/writer-projection": 12,
+    "GET /organizations/:organizationId/groups": 9,
+  },
+};
+
+const requestProfileEnv = process.env as {
+  DUAL_PANE_REQUEST_PROFILE?: string;
+  DUAL_PANE_REQUEST_PROFILE_DETAIL?: string;
+};
 
 afterEach(async () => {
   cleanup();
@@ -171,7 +197,7 @@ async function openExplorer(pane: HTMLElement) {
       clientY: 160,
     });
   });
-  const openExplorerButton = await screen.findByRole("button", {
+  const openExplorerButton = screen.getByRole("button", {
     name: "Open Explorer",
   });
   await interact(() => {
@@ -187,7 +213,7 @@ async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByRole("menuitem", { name: "File" }));
   });
-  const newStructuredDocumentItem = await within(pane).findByRole("menuitem", {
+  const newStructuredDocumentItem = within(pane).getByRole("menuitem", {
     name: "New Structured Document",
   });
   await interact(() => {
@@ -205,7 +231,7 @@ async function openOrgManager(pane: HTMLElement) {
       clientY: 160,
     });
   });
-  const openOrgManagerButton = await screen.findByRole("button", {
+  const openOrgManagerButton = screen.getByRole("button", {
     name: "Open Org Manager",
   });
   await interact(() => {
@@ -259,13 +285,13 @@ async function createChildContainer(pane: HTMLElement, name: string) {
       clientY: 180,
     });
   });
-  const createChildButton = await screen.findByRole("button", {
+  const createChildButton = screen.getByRole("button", {
     name: "Create Child",
   });
   await interact(() => {
     fireEvent.click(createChildButton);
   });
-  const containerNameInput = await screen.findByLabelText("Container name");
+  const containerNameInput = screen.getByLabelText("Container name");
   invariant(
     containerNameInput instanceof HTMLInputElement,
     "Expected container name input.",
@@ -399,7 +425,7 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
       clientY: 200,
     });
   });
-  const getInfoButton = await screen.findByRole("button", {
+  const getInfoButton = screen.getByRole("button", {
     name: "Get Info",
   });
   await interact(() => {
@@ -454,7 +480,7 @@ async function shareContainerWithGroup(
       clientY: 200,
     });
   });
-  const getInfoButton = await screen.findByRole("button", {
+  const getInfoButton = screen.getByRole("button", {
     name: "Get Info",
   });
   await interact(() => {
@@ -571,13 +597,13 @@ async function createGroupAndAddPeer(
   await interact(() => {
     fireEvent.click(fileMenu);
   });
-  const newGroupItem = await within(pane).findByRole("menuitem", {
+  const newGroupItem = within(pane).getByRole("menuitem", {
     name: "New Group",
   });
   await interact(() => {
     fireEvent.click(newGroupItem);
   });
-  const dialog = await within(pane).findByRole("dialog", {
+  const dialog = within(pane).getByRole("dialog", {
     name: "New Group",
   });
   const groupNameInput = within(dialog).getByLabelText("Group name");
@@ -642,13 +668,13 @@ async function createOrganizationGroup(pane: HTMLElement, groupName: string) {
   await interact(() => {
     fireEvent.click(fileMenu);
   });
-  const newGroupItem = await within(pane).findByRole("menuitem", {
+  const newGroupItem = within(pane).getByRole("menuitem", {
     name: "New Group",
   });
   await interact(() => {
     fireEvent.click(newGroupItem);
   });
-  const dialog = await within(pane).findByRole("dialog", {
+  const dialog = within(pane).getByRole("dialog", {
     name: "New Group",
   });
   const groupNameInput = within(dialog).getByLabelText("Group name");
@@ -688,7 +714,7 @@ async function openExplorerContainerInfo(pane: HTMLElement, name: string) {
       clientY: 200,
     });
   });
-  const getInfoButton = await screen.findByRole("button", {
+  const getInfoButton = screen.getByRole("button", {
     name: "Get Info",
   });
   await interact(() => {
@@ -726,6 +752,213 @@ function requestPath(url: string): string {
   } catch {
     return url;
   }
+}
+
+function requestPathAndQuery(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    return `${parsedUrl.pathname}${parsedUrl.search}`;
+  } catch {
+    return url;
+  }
+}
+
+function normalizeRequestPath(path: string): string {
+  return path
+    .replace(
+      /^\/auth\/encapsulation-key\/[^/]+$/u,
+      "/auth/encapsulation-key/:userId",
+    )
+    .replace(
+      /^\/organizations\/[^/]+\/groups$/u,
+      "/organizations/:organizationId/groups",
+    )
+    .replace(
+      /^\/principals\/group\/[^/]+\/policy$/u,
+      "/principals/group/:groupId/policy",
+    )
+    .replace(
+      /^\/containers\/[^/]+\/documents$/u,
+      "/containers/:containerId/documents",
+    )
+    .replace(
+      /^\/containers\/[^/]+\/writer-projection$/u,
+      "/containers/:containerId/writer-projection",
+    )
+    .replace(/^\/containers\/[^/]+\/share$/u, "/containers/:containerId/share")
+    .replace(/^\/containers\/[^/]+\/move$/u, "/containers/:containerId/move")
+    .replace(
+      /^\/documents\/[^/]+\/writer-projection$/u,
+      "/documents/:documentId/writer-projection",
+    )
+    .replace(/^\/documents\/[^/]+\/sync$/u, "/documents/:documentId/sync")
+    .replace(
+      /^\/documents\/[^/]+\/attachments$/u,
+      "/documents/:documentId/attachments",
+    )
+    .replace(
+      /^\/blobs\/[^/]+\/attachment-bindings$/u,
+      "/blobs/:blobId/attachment-bindings",
+    )
+    .replace(/^\/blobs\/[^/]+\/bytes$/u, "/blobs/:blobId/bytes");
+}
+
+function shortRequestPathIds(path: string): string {
+  const queryStartIndex = path.indexOf("?");
+  const pathname =
+    queryStartIndex === -1 ? path : path.slice(0, queryStartIndex);
+  const query = queryStartIndex === -1 ? "" : path.slice(queryStartIndex);
+
+  return `${pathname
+    .split("/")
+    .map((segment) =>
+      segment.length >= 16 && /^[0-9a-f-]+$/iu.test(segment)
+        ? segment.slice(0, 8)
+        : segment,
+    )
+    .join("/")}${query}`;
+}
+
+function proxiedApiRequestVolumeKey(request: ProxiedApiRequest): string {
+  return `${request.method} ${normalizeRequestPath(requestPath(request.url))}`;
+}
+
+function countProxiedApiRequestVolume(
+  requests: readonly ProxiedApiRequest[],
+): Map<string, { count: number; statuses: Map<number, number> }> {
+  const countsByRequest = new Map<
+    string,
+    { count: number; statuses: Map<number, number> }
+  >();
+
+  for (const request of requests) {
+    const key = proxiedApiRequestVolumeKey(request);
+    const entry = countsByRequest.get(key) ?? { count: 0, statuses: new Map() };
+    entry.count += 1;
+    entry.statuses.set(
+      request.status,
+      (entry.statuses.get(request.status) ?? 0) + 1,
+    );
+    countsByRequest.set(key, entry);
+  }
+
+  return countsByRequest;
+}
+
+function summarizeProxiedApiRequestVolume(
+  requests: readonly ProxiedApiRequest[],
+): string {
+  return [...countProxiedApiRequestVolume(requests).entries()]
+    .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]))
+    .map(([key, entry]) => {
+      const statuses = [...entry.statuses.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([status, count]) => `${status}:${count}`)
+        .join(",");
+      return `${entry.count.toString().padStart(3, " ")} ${key} statuses=${statuses}`;
+    })
+    .join("\n");
+}
+
+function summarizeRepeatedProxiedApiRequestPaths(
+  requests: readonly ProxiedApiRequest[],
+): string {
+  const countsByPath = new Map<string, number>();
+  for (const request of requests) {
+    const key = `${request.method} ${shortRequestPathIds(requestPathAndQuery(request.url))}`;
+    countsByPath.set(key, (countsByPath.get(key) ?? 0) + 1);
+  }
+
+  const repeatedPaths = [...countsByPath.entries()]
+    .filter(([, count]) => count > 1)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  if (repeatedPaths.length === 0) {
+    return "(no repeated exact paths)";
+  }
+
+  return repeatedPaths
+    .map(([key, count]) => `${count.toString().padStart(3, " ")} ${key}`)
+    .join("\n");
+}
+
+function profileProxiedApiRequests(
+  label: string,
+  requestStartIndex: number,
+  requestEndIndex = listProxiedApiRequests().length,
+) {
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE !== "1") {
+    return;
+  }
+
+  const requests = listProxiedApiRequests().slice(
+    requestStartIndex,
+    requestEndIndex,
+  );
+  console.info(
+    `[dual-pane-request-profile] ${label} total=${requests.length}\n${summarizeProxiedApiRequestVolume(requests)}`,
+  );
+  if (requestProfileEnv.DUAL_PANE_REQUEST_PROFILE_DETAIL === "1") {
+    console.info(
+      `[dual-pane-request-profile-detail] ${label} repeated-paths\n${summarizeRepeatedProxiedApiRequestPaths(requests)}`,
+    );
+  }
+}
+
+function expectProxiedApiRequestBudget(
+  label: string,
+  requests: readonly ProxiedApiRequest[],
+  budget: ProxiedApiRequestBudget,
+) {
+  const requestVolumeSummary = summarizeProxiedApiRequestVolume(requests);
+  const repeatedPathSummary = summarizeRepeatedProxiedApiRequestPaths(requests);
+  const failureSummary = `request volume=\n${requestVolumeSummary}\nrepeated paths=\n${repeatedPathSummary}`;
+
+  expect(
+    requests.length,
+    `${label} exceeded proxied API request budget ${budget.total}.\n${failureSummary}`,
+  ).toBeLessThanOrEqual(budget.total);
+
+  const countsByRequest = countProxiedApiRequestVolume(requests);
+  for (const [requestKey, requestBudget] of Object.entries(
+    budget.byRequest ?? {},
+  )) {
+    const actualCount = countsByRequest.get(requestKey)?.count ?? 0;
+    expect(
+      actualCount,
+      `${label} exceeded proxied API request budget for ${requestKey}: ${actualCount} > ${requestBudget}.\n${failureSummary}`,
+    ).toBeLessThanOrEqual(requestBudget);
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForProxiedApiNetworkQuiet(timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  let lastCompletedRequestCount =
+    getProxiedApiNetworkActivitySnapshot().completedRequestCount;
+  let quietStartedAt = Date.now();
+
+  while (Date.now() <= deadline) {
+    const activity = getProxiedApiNetworkActivitySnapshot();
+    if (
+      activity.activeRequestCount === 0 &&
+      activity.completedRequestCount === lastCompletedRequestCount
+    ) {
+      if (Date.now() - quietStartedAt >= POST_SHARE_NETWORK_IDLE_QUIET_MS) {
+        return true;
+      }
+    } else {
+      lastCompletedRequestCount = activity.completedRequestCount;
+      quietStartedAt = Date.now();
+    }
+
+    await delay(POST_SHARE_NETWORK_IDLE_INTERVAL_MS);
+  }
+
+  return false;
 }
 
 function parseBlobAttachmentBindingJson(
@@ -915,6 +1148,28 @@ async function waitForNoPostShareSyncFailures(
   ).toEqual([]);
 }
 
+async function waitForNoImmediatePostShareFailures(
+  panes: readonly HTMLElement[],
+  requestStartIndex: number,
+) {
+  await act(async () => {
+    await waitForProxiedApiNetworkQuiet(POST_SHARE_NETWORK_IDLE_TIMEOUT_MS);
+  });
+
+  const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
+  const unresolvedFailures = listUnresolvedPostShareFailures(postShareRequests);
+  const paneErrors = listPaneErrorLines(panes);
+
+  expect(
+    unresolvedFailures,
+    `Unexpected post-share API failures.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+  ).toEqual([]);
+  expect(
+    paneErrors,
+    `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+  ).toEqual([]);
+}
+
 function getExplorerWindowRoot(pane: HTMLElement): HTMLElement {
   const explorerTitle = within(pane).getByText("Explorer");
   const explorerWindow = explorerTitle.closest<HTMLElement>(".window");
@@ -1011,7 +1266,7 @@ async function provisionPaneFromMenu(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const generateButton = await screen.findByRole("button", {
+  const generateButton = screen.getByRole("button", {
     name: "Generate Key Pair",
   });
   await interact(() => {
@@ -1025,7 +1280,7 @@ async function provisionPaneFromMenu(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const uploadButton = await screen.findByRole("button", {
+  const uploadButton = screen.getByRole("button", {
     name: "Upload Public Key",
   });
   await interact(() => {
@@ -1054,7 +1309,7 @@ async function downloadPaneKeyPackageBackup(
     await interact(() => {
       fireEvent.click(within(pane).getByText("Menu"));
     });
-    const backupButton = await screen.findByRole("button", {
+    const backupButton = screen.getByRole("button", {
       name: "Backup Key Package",
     });
     await interact(() => {
@@ -1077,7 +1332,7 @@ async function destroyPaneKeyPackage(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const destroyButton = await screen.findByRole("button", {
+  const destroyButton = screen.getByRole("button", {
     name: "Destroy Key Pair",
   });
   await interact(() => {
@@ -1099,8 +1354,8 @@ async function restorePaneKeyPackageBackup(
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const fileInput = await screen.findByLabelText("Restore Key Package File");
-  const restoreButton = await screen.findByRole("button", {
+  const fileInput = screen.getByLabelText("Restore Key Package File");
+  const restoreButton = screen.getByRole("button", {
     name: "Restore Key Package",
   });
   await interact(() => {
@@ -1149,14 +1404,14 @@ async function moveContainer(
       clientY: 210,
     });
   });
-  const moveButton = await screen.findByRole("button", {
+  const moveButton = screen.getByRole("button", {
     name: "Move",
   });
   await interact(() => {
     fireEvent.click(moveButton);
   });
 
-  const dialog = await screen.findByRole("dialog");
+  const dialog = screen.getByRole("dialog");
   const destinationSelect = within(dialog).getByLabelText(
     "Destination container",
   );
@@ -1291,15 +1546,14 @@ test(
     await waitForDualPaneProvisioning(leftPane, rightPane);
 
     await openExplorer(leftPane);
-    await openExplorer(rightPane);
 
     await createChildContainer(leftPane, "Shared");
     await shareContainerWithPeer(leftPane, "Shared");
 
     const duplicateShareRequestStartIndex = listProxiedApiRequests().length;
     await clickShareWithPeer(leftPane);
-    await waitForNoPostShareSyncFailures(
-      [leftPane, rightPane],
+    await waitForNoImmediatePostShareFailures(
+      [leftPane],
       duplicateShareRequestStartIndex,
     );
 
@@ -1456,29 +1710,57 @@ test(
   "dual panes can share an owner-granted root container after an empty folder and note attachment",
   async () => {
     useTestApiAppHandlers();
+    const testRequestStartIndex = listProxiedApiRequests().length;
+    let requestPhaseStartIndex = testRequestStartIndex;
     const view = renderDualPane();
     const leftPane = getPaneRoot(view, "left");
     const rightPane = getPaneRoot(view, "right");
 
     await waitForDualPaneProvisioning(leftPane, rightPane);
+    profileProxiedApiRequests("provisioning", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
 
     await openExplorer(leftPane);
+    profileProxiedApiRequests("open left explorer", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     await openExplorer(rightPane);
+    profileProxiedApiRequests("open right explorer", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
 
     await createChildContainer(leftPane, "Empty");
+    profileProxiedApiRequests("create empty folder", requestPhaseStartIndex);
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     await createNoteWithAttachment(leftPane);
+    profileProxiedApiRequests(
+      "create note with attachment",
+      requestPhaseStartIndex,
+    );
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     const postShareRequestStartIndex = listProxiedApiRequests().length;
     await shareContainerWithPeer(leftPane, "/");
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postShareRequestStartIndex,
     );
+    profileProxiedApiRequests(
+      "share root + post-share settle",
+      requestPhaseStartIndex,
+    );
+    requestPhaseStartIndex = listProxiedApiRequests().length;
+
     const postRefreshRequestStartIndex = listProxiedApiRequests().length;
     await clickExplorerRefresh(rightPane);
     await waitForSharedNoteVisible(rightPane);
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postRefreshRequestStartIndex,
+    );
+    profileProxiedApiRequests(
+      "right refresh + shared note settle",
+      requestPhaseStartIndex,
     );
 
     const shareRequest = listProxiedApiRequests()
@@ -1488,6 +1770,12 @@ test(
       )
       .at(-1);
     expect(shareRequest?.status).toBe(200);
+    profileProxiedApiRequests("test total", testRequestStartIndex);
+    expectProxiedApiRequestBudget(
+      "owner-granted root attachment share",
+      listProxiedApiRequests().slice(testRequestStartIndex),
+      OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET,
+    );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

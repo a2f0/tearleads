@@ -81,6 +81,11 @@ export function createProjectionUserKeyResolver(
   logPrefix: string,
 ): ProjectionUserKeyResolver {
   const cache = new Map<string, Promise<ProjectionUserKey | null>>();
+  let ownUserKey: Promise<ProjectionUserKey | null> | null = null;
+  let ownUserKeyUserId: string | null = null;
+  let ownUserKeySigningFingerprint: string | null | undefined;
+  let ownUserKeySigningKeyPair: ProjectionUserKeyRuntime["signingKeyPair"];
+  let ownUserKeyEncapsulationKeyPair: ProjectionUserKeyRuntime["encapsulationKeyPair"];
 
   return async (userId) => {
     if (
@@ -88,21 +93,39 @@ export function createProjectionUserKeyResolver(
       runtime.signingKeyPair &&
       runtime.encapsulationKeyPair
     ) {
-      const signingFingerprint = await toFingerprint(
-        runtime.signingKeyPair.signingPublicKey,
-      );
       if (
-        runtime.signingFingerprint &&
-        runtime.signingFingerprint !== signingFingerprint
+        !ownUserKey ||
+        ownUserKeyUserId !== userId ||
+        ownUserKeySigningFingerprint !== runtime.signingFingerprint ||
+        ownUserKeySigningKeyPair !== runtime.signingKeyPair ||
+        ownUserKeyEncapsulationKeyPair !== runtime.encapsulationKeyPair
       ) {
-        return null;
+        const { encapsulationKeyPair, signingKeyPair } = runtime;
+        ownUserKey = null;
+        ownUserKeyUserId = userId;
+        ownUserKeySigningFingerprint = runtime.signingFingerprint;
+        ownUserKeySigningKeyPair = signingKeyPair;
+        ownUserKeyEncapsulationKeyPair = encapsulationKeyPair;
+        ownUserKey = (async () => {
+          const signingFingerprint = await toFingerprint(
+            signingKeyPair.signingPublicKey,
+          );
+          if (
+            runtime.signingFingerprint &&
+            runtime.signingFingerprint !== signingFingerprint
+          ) {
+            return null;
+          }
+
+          return {
+            encapsulationPublicKey: encapsulationKeyPair.publicKey,
+            signingPublicKey: signingKeyPair.signingPublicKey,
+            userId,
+          };
+        })();
       }
 
-      return {
-        encapsulationPublicKey: runtime.encapsulationKeyPair.publicKey,
-        signingPublicKey: runtime.signingKeyPair.signingPublicKey,
-        userId,
-      };
+      return ownUserKey;
     }
 
     let cached = cache.get(userId);

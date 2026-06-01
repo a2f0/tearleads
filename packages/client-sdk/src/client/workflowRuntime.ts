@@ -1,5 +1,8 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type {
+  EncapsulationKeyResponse,
+  ReferencedPrincipalStateResponse,
+} from "@tearleads/validators/response";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
 import type { DomainScope } from "../data/domainScope";
 import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
@@ -225,6 +228,26 @@ function createCacheReferencedPrincipalPolicies(
   dependencies: WorkflowRuntimeDependencies,
   execSql: ExecSql,
 ): WorkflowRuntimeUtilInput["cacheReferencedPrincipalPolicies"] {
+  const encapsulationKeyRequestsByUserId = new Map<
+    string,
+    Promise<EncapsulationKeyResponse | null>
+  >();
+  const getEncapsulationKey = (userId: string) => {
+    const cached = encapsulationKeyRequestsByUserId.get(userId);
+    if (cached) {
+      return cached;
+    }
+
+    const request = dependencies.api
+      .getEncapsulationKey(userId)
+      .catch((error: unknown) => {
+        encapsulationKeyRequestsByUserId.delete(userId);
+        throw error;
+      });
+    encapsulationKeyRequestsByUserId.set(userId, request);
+    return request;
+  };
+
   return (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) =>
@@ -232,8 +255,7 @@ function createCacheReferencedPrincipalPolicies(
       execSql,
       getCurrentPrincipalPolicy: (principalType, principalId) =>
         dependencies.api.getCurrentPrincipalPolicy(principalType, principalId),
-      getEncapsulationKey: (userId) =>
-        dependencies.api.getEncapsulationKey(userId),
+      getEncapsulationKey,
       log: dependencies.log,
       references,
     });
