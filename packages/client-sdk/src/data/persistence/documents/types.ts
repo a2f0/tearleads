@@ -45,7 +45,7 @@ export interface RelinkPersistedDocumentInput {
   accessEpoch: number;
   accessStateHash?: string | null;
   containerId: string;
-  documentId: string;
+  documentId: string | null;
   localId: string;
 }
 

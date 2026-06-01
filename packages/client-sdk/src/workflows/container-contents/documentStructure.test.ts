@@ -5,9 +5,11 @@ import { createDomainScope } from "../../data/domainScope";
 import {
   activateDocumentLinkState,
   canMutateDocumentLink,
+  canMutateLocalDocumentLink,
   type DocumentStructuralMutationHost,
   type DocumentStructuralMutationRelinkInput,
   type DocumentStructuralMutationRuntime,
+  moveDocumentLinkState,
 } from "./documentStructure";
 
 function createRuntime(logs: string[] = []): DocumentStructuralMutationRuntime {
@@ -79,6 +81,105 @@ test("canMutateDocumentLink checks local mutation prerequisites", () => {
       state: { online: false },
     }),
   ).toBe(false);
+});
+
+test("canMutateLocalDocumentLink only requires local storage readiness", () => {
+  expect(canMutateLocalDocumentLink({ infra: { dbStatus: "ready" } })).toBe(
+    true,
+  );
+  expect(canMutateLocalDocumentLink({ infra: { dbStatus: "loading" } })).toBe(
+    false,
+  );
+});
+
+test("moveDocumentLinkState relinks local-only documents without remote mutation", async () => {
+  const logs: string[] = [];
+  const expandedNodes: string[] = [];
+  const mergedDocuments: DocumentSummary[] = [];
+  const relinkInputs: DocumentStructuralMutationRelinkInput[] = [];
+  const requestedSyncs: string[] = [];
+  const updatedRuntimes: string[] = [];
+  const primeInputs: Parameters<
+    DocumentStructuralMutationHost<string>["primeDocumentStore"]
+  >[0][] = [];
+  const host: DocumentStructuralMutationHost<string> = {
+    createDocumentRuntime: (containerId) => `runtime:${containerId}`,
+    mergeDocumentSummary: (document) => {
+      mergedDocuments.push(document);
+    },
+    primeDocumentStore: (input) => {
+      primeInputs.push(input);
+      return {
+        ensureInitialized: async () => true,
+        relink: async (relinkInput) => {
+          relinkInputs.push(relinkInput);
+          return {
+            id: relinkInput.localId,
+            containerId: relinkInput.containerId,
+            documentId: relinkInput.documentId,
+            title: "Relinked local note",
+            updatedAt: "2026-05-09T00:00:01.000Z",
+          };
+        },
+        requestSync: () => {
+          requestedSyncs.push("sync");
+        },
+        updateRuntime: (runtime) => {
+          updatedRuntimes.push(runtime);
+        },
+      };
+    },
+  };
+
+  const moved = await moveDocumentLinkState({
+    expandNode: (nodeId) => {
+      expandedNodes.push(nodeId);
+    },
+    host,
+    note: createNote({ documentId: null }),
+    runtime: createRuntime(logs),
+    setLinkedContainerIdsForDocument: () => {
+      throw new Error("Local moves should not update remote link projections.");
+    },
+    targetContainerId: "trash-container",
+  });
+  if (!moved.note) {
+    throw new Error("Expected local move to return the relinked note.");
+  }
+
+  expect(moved).toEqual({
+    linksChanged: false,
+    note: {
+      id: "note-1",
+      containerId: "trash-container",
+      documentId: null,
+      title: "Relinked local note",
+      updatedAt: "2026-05-09T00:00:01.000Z",
+    },
+  });
+  expect(primeInputs).toEqual([
+    {
+      containerId: "container-1",
+      documentId: null,
+      localId: "note-1",
+    },
+  ]);
+  expect(relinkInputs).toEqual([
+    {
+      accessEpoch: 1,
+      containerId: "trash-container",
+      documentId: null,
+      localId: "note-1",
+      queueBaselineAfterRelink: undefined,
+    },
+  ]);
+  expect(mergedDocuments).toEqual([moved.note]);
+  expect(updatedRuntimes).toEqual(["runtime:trash-container"]);
+  expect(requestedSyncs).toEqual(["sync"]);
+  expect(expandedNodes).toEqual(["trash-container"]);
+  expect(logs).toEqual([
+    "Container contents: moved local note note-1 to trash-container",
+  ]);
 });
 
 test("activateDocumentLinkState relinks the local document without requesting remote sync", async () => {

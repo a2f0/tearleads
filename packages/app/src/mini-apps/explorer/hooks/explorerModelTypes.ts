@@ -1,11 +1,13 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 
 export interface ExplorerModelExplorer {
+  canResolveTrashContainer: boolean;
   createChild: (
     parentId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
+  ensureTrashContainer: () => Promise<ContainerNode | null>;
   moveContainer: (
     containerId: string,
     parentId: string,
@@ -23,6 +25,7 @@ export interface ExplorerModelExplorer {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
+  trashContainerId: string | null;
 }
 
 export type ExplorerDocumentMutationAction = (

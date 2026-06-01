@@ -11,6 +11,12 @@ export function canMutateSelectedDocument(
   return appData.canMutateDocumentLinks;
 }
 
+export function canMutateLocalSelectedDocument(
+  appData: ContainerDocumentLinksRuntime,
+) {
+  return appData.canMutateLocalDocumentLinks;
+}
+
 export function moveExplorerNote(params: {
   appData: ContainerDocumentLinksRuntime;
   expandNode: (nodeId: string) => void;

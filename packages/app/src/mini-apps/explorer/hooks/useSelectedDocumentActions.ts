@@ -7,6 +7,7 @@ import type {
 import { useCallback } from "react";
 import {
   activateExplorerLinkedNote,
+  canMutateLocalSelectedDocument,
   canMutateSelectedDocument,
   linkExplorerNote,
   moveExplorerNote,
@@ -50,16 +51,19 @@ function useMoveDocumentAction(params: {
 
   return useCallback(
     async (noteId: string, targetContainerId: string) => {
-      if (!canMutateSelectedDocument(appData)) {
-        return null;
-      }
-
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
         noteId,
       });
       if (!existingDocument) {
+        return null;
+      }
+      const canMoveDocument =
+        existingDocument.documentId === null
+          ? canMutateLocalSelectedDocument(appData)
+          : canMutateSelectedDocument(appData);
+      if (!canMoveDocument) {
         return null;
       }
 

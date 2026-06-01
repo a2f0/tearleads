@@ -164,6 +164,7 @@ export const EXPLORER_LABELS = {
   documentInfoUpdateCountOne: "update",
   documentInfoUpdateCountOther: "updates",
   documentInfoUpdatedRow: "Updated",
+  documentDeleteAction: "Delete",
   documentLinkAction: "Link",
   documentMoveAction: "Move",
   fileDropHint: "Drop files to import documents.",

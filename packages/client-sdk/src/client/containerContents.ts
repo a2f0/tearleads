@@ -35,6 +35,7 @@ import {
 import {
   activateDocumentLinkState,
   canMutateDocumentLink,
+  canMutateLocalDocumentLink,
   type DocumentStructuralMutationHost,
   linkDocumentLinkState,
   moveDocumentLinkState,
@@ -183,6 +184,7 @@ export interface ContainerDocumentLinksRuntime
     input: ActivateContainerDocumentLinkInput,
   ): Promise<DocumentSummary | null>;
   readonly canMutateDocumentLinks: boolean;
+  readonly canMutateLocalDocumentLinks: boolean;
   createDocumentRuntime(containerId: string): DocumentsWorkflowRuntime;
   linkDocumentToContainer(
     input: LinkContainerDocumentLinkInput,
@@ -402,6 +404,7 @@ class ContainerContentsService implements ContainerContents {
           targetContainerId: input.targetContainerId,
         }),
       canMutateDocumentLinks: canMutateDocumentLink(runtime),
+      canMutateLocalDocumentLinks: canMutateLocalDocumentLink(runtime),
       createDocumentRuntime,
       linkDocumentToContainer: (input) =>
         linkDocumentLinkState({

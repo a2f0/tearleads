@@ -266,6 +266,7 @@ export type {
 export {
   activateDocumentLinkState,
   canMutateDocumentLink,
+  canMutateLocalDocumentLink,
   createContainerContentsDocumentProjectionUserKeyResolver,
   createContainerContentsDocumentsRuntime,
   createContainerContentsProjectionUserKeyResolver,
@@ -289,6 +290,7 @@ export {
   loadContainerSyncWatermark,
   loadDocumentInfo,
   moveDocumentLinkState,
+  moveLocalDocumentLinkState,
   persistContainerMetadataStateFromRuntime,
   readContainerMetadataValue,
   refreshAllContainerDocumentsFromApi,

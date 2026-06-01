@@ -5,7 +5,7 @@ function didPersistedDocumentSecurityContextChange(
   existingDocument: StoredDocumentRecord | null | undefined,
   input: {
     accessEpoch: number;
-    documentId: string;
+    documentId: string | null;
   },
 ): boolean {
   return (
@@ -19,7 +19,7 @@ export function resolvePersistedDocumentRuntimeState(
   existingDocument: StoredDocumentRecord | null | undefined,
   input: {
     accessEpoch: number;
-    documentId: string;
+    documentId: string | null;
   },
 ): Pick<
   StoredDocumentRecord,
@@ -55,7 +55,7 @@ export function resolvePersistedAccessStateHash(
   input: {
     accessEpoch: number;
     accessStateHash?: string | null | undefined;
-    documentId: string;
+    documentId: string | null;
   },
 ): string | null {
   if (input.accessStateHash !== undefined) {

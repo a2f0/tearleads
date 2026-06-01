@@ -105,10 +105,12 @@ export function useExplorerContextMenu(
 }
 
 interface ExplorerDocumentContextMenuProps {
+  canDeleteSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerDocumentContextMenuState;
+  deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openLinkDocumentModal: (localId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
@@ -117,10 +119,12 @@ interface ExplorerDocumentContextMenuProps {
 
 function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
   const {
+    canDeleteSelectedDocument,
     canLinkSelectedDocument,
     canMoveSelectedDocument,
     closeContextMenu,
     contextMenu,
+    deleteDocument,
     openDocumentInfoRoute,
     openLinkDocumentModal,
     openMoveDocumentModal,
@@ -157,6 +161,17 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         onClick={() => {
           closeContextMenu();
           openMoveDocumentModal(contextMenu.id.localId);
+        }}
+      />
+      <MenuItem
+        label={EXPLORER_LABELS.documentDeleteAction}
+        disabled={!canDeleteSelectedDocument}
+        onClick={() => {
+          closeContextMenu();
+          void deleteDocument(
+            contextMenu.id.localId,
+            contextMenu.id.containerId,
+          );
         }}
       />
       <MenuItem
@@ -255,12 +270,14 @@ function ExplorerContainerContextMenu(
 }
 
 export function ExplorerContextMenuLayer(params: {
+  canDeleteSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canMoveSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
+  deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   importDroppedFiles: ImportExplorerDroppedFiles;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;

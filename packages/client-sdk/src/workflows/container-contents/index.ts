@@ -69,10 +69,12 @@ export {
 export {
   activateDocumentLinkState,
   canMutateDocumentLink,
+  canMutateLocalDocumentLink,
   type DocumentStructuralMutationHost,
   linkDocumentLinkState,
   type MergeDocumentSummary,
   moveDocumentLinkState,
+  moveLocalDocumentLinkState,
   type SetLinkedContainerIdsForDocument,
   unlinkDocumentLinkState,
 } from "./documentStructure";

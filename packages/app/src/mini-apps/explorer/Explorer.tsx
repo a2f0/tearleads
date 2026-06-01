@@ -111,6 +111,7 @@ export function Explorer() {
         unlinkDocument={model.unlinkDocument}
       />
       <ExplorerContextMenuLayer
+        canDeleteSelectedDocument={model.canDeleteSelectedDocument}
         canLinkSelectedDocument={model.canLinkSelectedDocument}
         canDeleteContextMenuNode={
           model.contextMenuState.canDeleteContextMenuNode
@@ -119,6 +120,7 @@ export function Explorer() {
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
+        deleteDocument={model.deleteDocument}
         importDroppedFiles={model.importDroppedFiles}
         openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
         openContainerInfoRoute={model.routeState.openContainerInfoRoute}
