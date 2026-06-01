@@ -197,6 +197,82 @@ test("listContainerItemWindow pages and sorts container rows from SQLite", async
   }
 });
 
+test("listContainerItemWindow includes allowlisted system container rows", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-visible-system-container-items",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = { infra: { execSql } };
+    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const contactsSystemSlot =
+      "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const trashSystemSlot =
+      "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
+    const rosterSystemSlot =
+      "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    await saveTestContainer({
+      execSql,
+      id: "root-container",
+      name: "Root",
+      parentId: null,
+      timestamp: "2026-05-01T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "archive-container",
+      name: "Archive",
+      parentId: "root-container",
+      timestamp: "2026-05-02T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "contacts-container",
+      name: "Contacts",
+      parentId: "root-container",
+      systemSlot: contactsSystemSlot,
+      timestamp: "2026-05-03T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "trash-container",
+      name: "Trash",
+      parentId: "root-container",
+      systemSlot: trashSystemSlot,
+      timestamp: "2026-05-04T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "roster-profile-container",
+      name: "Roster Profiles",
+      parentId: "root-container",
+      systemSlot: rosterSystemSlot,
+      timestamp: "2026-05-05T00:00:00.000Z",
+    });
+
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "root-container",
+        limit: 10,
+        offset: 0,
+        sort: { direction: "asc", key: "name" },
+        visibleSystemSlots: [contactsSystemSlot, trashSystemSlot],
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 3,
+      rows: [
+        { id: "archive-container", itemKind: "container", name: "Archive" },
+        { id: "contacts-container", itemKind: "container", name: "Contacts" },
+        { id: "trash-container", itemKind: "container", name: "Trash" },
+      ],
+    });
+  } finally {
+    close();
+  }
+});
+
 test("listContainerItemWindow includes documents linked to the selected container", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-linked-container-item-window",

@@ -1,3 +1,4 @@
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import type {
   DiscoveredDocumentInput,
@@ -79,6 +80,7 @@ export interface ContainerDocumentReadModel {
     limit: number;
     offset: number;
     sort: ContainerItemSort;
+    visibleSystemSlots?: ReadonlyArray<ContainerSystemSlot> | undefined;
   }): Promise<ContainerItemWindow>;
   loadDocumentSyncState(
     localId: string,
@@ -188,6 +190,7 @@ async function listContainerItemWindow(
     limit: number;
     offset: number;
     sort: ContainerItemSort;
+    visibleSystemSlots?: ReadonlyArray<ContainerSystemSlot> | undefined;
   },
 ): Promise<ContainerItemWindow> {
   await ensureContainerTables(execSql);
@@ -196,8 +199,18 @@ async function listContainerItemWindow(
 
   const limit = getContainerItemWindowLimit(input.limit);
   const offset = clampContainerItemWindowValue(input.offset);
-  const bind = [input.containerId, input.containerId, input.containerId];
-  const baseSql = getContainerContentsContainerItemsBaseSql();
+  const visibleSystemSlots = Array.from(
+    new Set(input.visibleSystemSlots ?? []),
+  );
+  const bind = [
+    input.containerId,
+    ...visibleSystemSlots,
+    input.containerId,
+    input.containerId,
+  ];
+  const baseSql = getContainerContentsContainerItemsBaseSql(
+    visibleSystemSlots.length,
+  );
   const countRows = await execSql(
     `SELECT COUNT(*) AS total_count FROM (${baseSql})`,
     bind,

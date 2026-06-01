@@ -82,7 +82,24 @@ export function getContainerContentsDocumentPendingStateCtes(): string {
   `;
 }
 
-export function getContainerContentsContainerItemsBaseSql(): string {
+function getContainerContentsContainerSystemSlotFilter(
+  visibleSystemSlotCount: number,
+): string {
+  if (visibleSystemSlotCount <= 0) {
+    return "c.system_slot IS NULL";
+  }
+
+  const visibleSystemSlotBindMarkers = Array.from(
+    { length: visibleSystemSlotCount },
+    () => "?",
+  ).join(", ");
+
+  return `(c.system_slot IS NULL OR c.system_slot IN (${visibleSystemSlotBindMarkers}))`;
+}
+
+export function getContainerContentsContainerItemsBaseSql(
+  visibleSystemSlotCount = 0,
+): string {
   return `
     WITH ${getContainerContentsDocumentPendingStateCtes()},
     container_metadata_pending_update_counts AS (
@@ -131,7 +148,7 @@ export function getContainerContentsContainerItemsBaseSql(): string {
       LEFT JOIN pending_container_create_intents create_intent
         ON create_intent.container_id = c.id
       WHERE c.parent_id = ?
-        AND c.system_slot IS NULL
+        AND ${getContainerContentsContainerSystemSlotFilter(visibleSystemSlotCount)}
 
       UNION ALL
 

@@ -47,6 +47,7 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
   canResolveTrashContainer: boolean;
   ensureTrashContainer: () => Promise<ContainerNode | null>;
   trashContainerId: string | null;
+  visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
@@ -386,6 +387,7 @@ export function useExplorer(): ExplorerContextValue {
         snapshot.nodes,
         trashSystemSlot,
       ),
+      visibleSystemSlots,
     }),
     [
       ensureTrashContainer,

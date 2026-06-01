@@ -168,6 +168,7 @@ function useExplorerContainerItemWindow(params: {
   reloadKey: unknown;
   selectedNode: ContainerNode;
   sort: ContainerItemSort;
+  visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }) {
   const {
     documentReadModel,
@@ -177,6 +178,7 @@ function useExplorerContainerItemWindow(params: {
     reloadKey,
     selectedNode,
     sort,
+    visibleSystemSlots,
   } = params;
   const [state, setState] = useState<{
     error: string | null;
@@ -217,6 +219,7 @@ function useExplorerContainerItemWindow(params: {
         limit,
         offset,
         sort,
+        visibleSystemSlots: Array.from(visibleSystemSlots),
       })
       .then((window) => {
         if (cancelled) {
@@ -254,6 +257,7 @@ function useExplorerContainerItemWindow(params: {
     reloadKey,
     selectedNode.id,
     sort,
+    visibleSystemSlots,
   ]);
 
   return state;
@@ -455,6 +459,7 @@ function ExplorerContainerDetailHeader(params: {
 }
 
 export function ExplorerContainerDetail(params: {
+  containerListRevision: unknown;
   documentListRevision: number;
   documentReadModel: ContainerDocumentReadModel;
   importDroppedFiles: ImportExplorerDroppedFiles;
@@ -463,8 +468,10 @@ export function ExplorerContainerDetail(params: {
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedNode: ContainerNode;
   setSelectedId: (id: string | null) => void;
+  visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }) {
   const {
+    containerListRevision,
     documentListRevision,
     documentReadModel,
     importDroppedFiles,
@@ -473,6 +480,7 @@ export function ExplorerContainerDetail(params: {
     selectDocumentProjection,
     selectedNode,
     setSelectedId,
+    visibleSystemSlots,
   } = params;
   const [sort, setSort] = useState<ContainerItemSort>({
     direction: "asc",
@@ -483,14 +491,19 @@ export function ExplorerContainerDetail(params: {
     resetKey,
     rowHeight: EXPLORER_VIRTUAL_ROW_HEIGHT,
   });
+  const itemWindowReloadKey = useMemo(
+    () => [containerListRevision, documentListRevision] as const,
+    [containerListRevision, documentListRevision],
+  );
   const itemWindow = useExplorerContainerItemWindow({
     documentReadModel,
     enabled: true,
     limit,
     offset,
-    reloadKey: documentListRevision,
+    reloadKey: itemWindowReloadKey,
     selectedNode,
     sort,
+    visibleSystemSlots,
   });
   const isShowingRequestedWindow = itemWindow.offset === offset;
   const rows = isShowingRequestedWindow ? itemWindow.rows : [];

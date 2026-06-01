@@ -615,6 +615,15 @@ test(
       () => {
         expect(getExplorerContainerItem(explorer, "Contacts")).toBeTruthy();
         expect(getExplorerContainerItem(explorer, "Trash")).toBeTruthy();
+        const rootItemsTable = within(explorer).getByRole("table", {
+          name: "Items in /",
+        });
+        expect(
+          within(rootItemsTable).getByRole("button", { name: "Contacts" }),
+        ).toBeTruthy();
+        expect(
+          within(rootItemsTable).getByRole("button", { name: "Trash" }),
+        ).toBeTruthy();
       },
       { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );

@@ -125,6 +125,7 @@ interface ExplorerDetailPanelProps {
     noteId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
 function renderExplorerNewStructuredDocumentRoute(
@@ -224,6 +225,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   if (selectedNode) {
     return (
       <ExplorerContainerDetail
+        containerListRevision={params.nodes}
         documentListRevision={params.documentListRevision}
         documentReadModel={params.documentReadModel}
         importDroppedFiles={params.importDroppedFiles}
@@ -232,6 +234,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         selectedNode={selectedNode}
         selectDocumentProjection={params.selectDocumentProjection}
         setSelectedId={params.setSelectedId}
+        visibleSystemSlots={params.visibleSystemSlots}
       />
     );
   }
