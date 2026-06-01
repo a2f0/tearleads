@@ -442,6 +442,12 @@ const server = setupServer(
   http.post("http://localhost:3001/documents", () => {
     return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
   }),
+  http.get(
+    "http://localhost:3001/documents/:documentId/writer-projection",
+    () => {
+      return HttpResponse.json({ error: "Not Found" }, { status: 404 });
+    },
+  ),
   http.get<{ userId: string }>(
     "http://localhost:3001/auth/encapsulation-key/:userId",
     async ({ params }) => {
@@ -452,7 +458,7 @@ const server = setupServer(
   ),
 );
 
-server.listen();
+server.listen({ onUnhandledRequest: "error" });
 
 interface ClosableConnection {
   close: (code?: number, reason?: string) => void;
