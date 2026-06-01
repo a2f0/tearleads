@@ -141,6 +141,7 @@ export interface CreateRemoteDocumentResult {
   persistedState: PersistedDocumentCreateState;
   plan: DocumentCreatePlan;
   response: DocumentCreateResponse;
+  writerProjection: DocumentWriterProjectionResponse;
 }
 
 export type DocumentLinkSetMutationOperation = "link" | "unlink";

@@ -70,6 +70,7 @@ async function ensureRemoteDocument(
   }
 
   state.runtime.util.log(`Created document: ${created.documentId}`);
+  state.writerProjection = created.writerProjection;
 
   return (
     await persistDocument(state, currentDoc, {
@@ -241,7 +242,11 @@ async function syncPendingAttachmentUpload(input: {
     return false;
   }
 
-  const uploaded = await uploadDocumentAttachment({
+  const writerProjection =
+    state.writerProjection?.documentId === input.remoteDocumentId
+      ? state.writerProjection
+      : null;
+  let uploaded = await uploadDocumentAttachment({
     apiClient: state.runtime.apiClient,
     author,
     bytes,
@@ -253,7 +258,24 @@ async function syncPendingAttachmentUpload(input: {
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+    writerProjection: writerProjection ?? undefined,
   });
+  if (!uploaded && writerProjection) {
+    state.writerProjection = null;
+    uploaded = await uploadDocumentAttachment({
+      apiClient: state.runtime.apiClient,
+      author,
+      bytes,
+      documentId: input.remoteDocumentId,
+      execSql: state.runtime.infra.execSql,
+      expectedBindingId:
+        input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
+        null,
+      resolveProjectionUserKey: state.resolveProjectionUserKey,
+      slotId: pendingAttachment.slotId,
+      targetSecretKey: input.encapsulationKeyPair.secretKey,
+    });
+  }
   if (!uploaded) {
     return false;
   }
@@ -326,6 +348,10 @@ async function requestRemoteDocumentSync(input: {
       writerKeyLabel: "writer key",
     }),
     targetSecretKey: encapsulationKeyPair.secretKey,
+    writerProjection:
+      state.writerProjection?.documentId === currentRecord.documentId
+        ? state.writerProjection
+        : undefined,
   });
   if (!synced) {
     return null;
@@ -433,6 +459,26 @@ async function applyIncomingSyncedUpdates(
   setReadySnapshot(state, currentDoc, true);
 }
 
+function documentWriterProjectionMatchesSyncResponse(
+  writerProjection: NonNullable<
+    DocumentSyncAttempt["synced"]["writerProjection"]
+  >,
+  synced: DocumentSyncAttempt["synced"],
+): boolean {
+  return (
+    writerProjection.contentKeyBundle.contentKeyEpoch ===
+      synced.response.contentKeyBundle.contentKeyEpoch &&
+    writerProjection.contentKeyBundle.linkSetManifestHash ===
+      synced.response.contentKeyBundle.linkSetManifestHash &&
+    writerProjection.contentKeyBundle.targetHash ===
+      synced.response.contentKeyBundle.targetHash &&
+    writerProjection.documentKekTargets.linkSetManifestHash ===
+      synced.response.documentKekTargets.linkSetManifestHash &&
+    writerProjection.documentKekTargets.documentKeyTargetHash ===
+      synced.response.documentKekTargets.documentKeyTargetHash
+  );
+}
+
 async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -445,6 +491,11 @@ async function finalizeDocumentSync(
   for (const updateId of synced.response.acceptedOutgoingUpdateIds) {
     state.locallyAcceptedUpdateIds.add(updateId);
   }
+  state.writerProjection =
+    synced.writerProjection &&
+    documentWriterProjectionMatchesSyncResponse(synced.writerProjection, synced)
+      ? synced.writerProjection
+      : null;
 
   const { record: nextRecord } = await persistDocument(
     state,

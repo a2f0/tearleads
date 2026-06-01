@@ -458,6 +458,7 @@ async function createDocumentRuntimePatch(input: {
     response: DocumentWriterProjectionResponse,
   ) => DocumentWriterProjectionResponse;
   commitLsnForSyncCount?: (syncCount: number) => string;
+  documentWriterProjectionCalls?: string[];
   listDocumentAttachmentsCalls?: string[];
   onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
@@ -569,7 +570,8 @@ async function createDocumentRuntimePatch(input: {
             }
           : null,
       getContainerWriterProjection: () => getProjection(),
-      getDocumentWriterProjection: async () => {
+      getDocumentWriterProjection: async (documentId) => {
+        input.documentWriterProjectionCalls?.push(documentId);
         if (!storedDocument) {
           return null;
         }
@@ -914,6 +916,7 @@ async function createSyncRuntimeInput(
       request: BlobAttachmentBindRequest;
     }>;
     commitLsnForSyncCount?: (syncCount: number) => string;
+    documentWriterProjectionCalls?: string[];
     onBindBlobAttachment?: (
       blobId: string,
       request: BlobAttachmentBindRequest,
@@ -931,6 +934,9 @@ async function createSyncRuntimeInput(
       : {}),
     ...(options.commitLsnForSyncCount
       ? { commitLsnForSyncCount: options.commitLsnForSyncCount }
+      : {}),
+    ...(options.documentWriterProjectionCalls
+      ? { documentWriterProjectionCalls: options.documentWriterProjectionCalls }
       : {}),
     ...(options.onBindBlobAttachment
       ? { onBindBlobAttachment: options.onBindBlobAttachment }
@@ -985,6 +991,7 @@ async function createSyncRuntime(
       request: BlobAttachmentBindRequest;
     }>;
     commitLsnForSyncCount?: (syncCount: number) => string;
+    documentWriterProjectionCalls?: string[];
     onBindBlobAttachment?: (
       blobId: string,
       request: BlobAttachmentBindRequest,
@@ -2152,6 +2159,7 @@ test("document store uploads attachments without a pre-upload document sync prob
     minLsn: string | null;
     outgoingUpdateCount: number;
   }> = [];
+  const documentWriterProjectionCalls: string[] = [];
   const listDocumentAttachmentsCalls: string[] = [];
   const runtime = await createSyncRuntime(
     encapsulationKeyPair,
@@ -2159,6 +2167,7 @@ test("document store uploads attachments without a pre-upload document sync prob
     {
       attachmentBinds,
       commitLsnForSyncCount: (syncCount) => `0/${syncCount}0`,
+      documentWriterProjectionCalls,
       listDocumentAttachmentsCalls,
       syncCalls,
     },
@@ -2205,6 +2214,7 @@ test("document store uploads attachments without a pre-upload document sync prob
     },
   ]);
   expect(attachmentBinds).toHaveLength(1);
+  expect(documentWriterProjectionCalls).toEqual([]);
   expect(listDocumentAttachmentsCalls).toEqual([]);
 });
 

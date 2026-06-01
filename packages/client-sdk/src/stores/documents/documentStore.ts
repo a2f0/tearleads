@@ -62,15 +62,21 @@ function updateDocumentStoreRuntime(
   const previousRuntime = state.runtime;
   const domainScopeChanged =
     previousRuntime.state.domainScope !== nextRuntime.state.domainScope;
-  if (didDocumentProjectionKeyRuntimeChange(previousRuntime, nextRuntime)) {
+  const projectionKeyRuntimeChanged = didDocumentProjectionKeyRuntimeChange(
+    previousRuntime,
+    nextRuntime,
+  );
+  if (projectionKeyRuntimeChanged) {
     state.resolveProjectionUserKey =
       createDocumentProjectionUserKeyResolver(nextRuntime);
+    state.writerProjection = null;
   }
   state.runtime = nextRuntime;
   if (domainScopeChanged) {
     state.syncLane = registerDocumentStoreSyncLane(state);
     state.locallyAcceptedUpdateIds = new Set();
     state.remoteUpdatePending = false;
+    state.writerProjection = null;
   }
 
   if (nextRuntime.infra.dbStatus !== "ready") {
