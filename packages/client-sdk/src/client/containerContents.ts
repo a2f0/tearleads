@@ -1,6 +1,7 @@
 import type { DocumentSummary } from "../data/documentSummary";
 import type { StoredDocumentKind } from "../data/documents/documentKinds";
 import {
+  type ContainerContentsSnapshot,
   type ContainerContentsStore,
   type ContainerContentsStoreOptions,
   getOrCreateContainerContentsStore,
@@ -335,6 +336,25 @@ function createDocumentLinkHost(
   };
 }
 
+type DocumentRefreshContainerSnapshot = Pick<
+  ContainerContentsSnapshot,
+  "ready"
+> & {
+  nodes?: ContainerContentsSnapshot["nodes"] | null;
+};
+
+export function listUserContainerIdsForDocumentRefresh(
+  snapshot: DocumentRefreshContainerSnapshot,
+): string[] | null {
+  if (!snapshot.ready) {
+    return null;
+  }
+
+  return (snapshot.nodes ?? []).flatMap((node) =>
+    node.systemSlot ? [] : [node.id],
+  );
+}
+
 class ContainerContentsService implements ContainerContents {
   constructor(private readonly runtimeService: InternalRuntime) {}
 
@@ -504,10 +524,23 @@ class ContainerContentsService implements ContainerContents {
     }
 
     const snapshot = this.store().getSnapshot();
-    const snapshotContainerIds = snapshot.ready
-      ? snapshot.nodes.map((node) => node.id)
-      : [];
-    if (snapshotContainerIds.length > 0) {
+    const snapshotContainerIds =
+      listUserContainerIdsForDocumentRefresh(snapshot);
+    if (snapshotContainerIds) {
+      if (
+        snapshotContainerIds.length === 0 &&
+        (snapshot.nodes ?? []).length > 0
+      ) {
+        return Promise.resolve([]);
+      }
+      if (snapshotContainerIds.length === 0) {
+        return refreshAllContainerDocumentsFromApi({
+          ...createContainerDocumentDiscoveryPersistence(runtime),
+          apiClient: runtime.apiClient,
+          cacheReferencedPrincipalPolicies:
+            runtime.util.cacheReferencedPrincipalPolicies,
+        });
+      }
       return discoverAllContainerDocuments({
         ...createContainerDocumentDiscoveryPersistence(runtime),
         cacheReferencedPrincipalPolicies:

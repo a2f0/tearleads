@@ -353,6 +353,49 @@ test("container document discovery ignores callback identity churn", async () =>
   expect(discoverDocumentsCallCount).toBe(1);
 });
 
+test("container document discovery skips a previously checked active container", async () => {
+  let discoverDocumentsCallCount = 0;
+  const baseAppData = createReadyExplorerDiscoveryAppData();
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
+    async () => {
+      discoverDocumentsCallCount += 1;
+      return [];
+    };
+
+  const view = renderHook(
+    ({ online }: { online: boolean }) =>
+      useDiscoveredDocumentsSync({
+        activeContainerId: "container-1",
+        appData: {
+          ...baseAppData,
+          state: { ...baseAppData.state, online },
+        },
+        discoverDocuments,
+        hasUndiscoveredDocumentUpdates: () => false,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries: () => undefined,
+        onDocumentLinksChanged: () => undefined,
+        primeDiscoveredDocuments: () => undefined,
+      }),
+    {
+      initialProps: { online: true },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(1);
+  });
+
+  view.rerender({ online: false });
+  view.rerender({ online: true });
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(discoverDocumentsCallCount).toBe(1);
+});
+
 test("container document discovery initializes the event frontier on active container changes", async () => {
   let discoverDocumentsCallCount = 0;
   let hasUndiscoveredDocumentUpdatesCallCount = 0;
