@@ -299,6 +299,7 @@ async function syncPendingAttachmentUpload(input: {
     contentKeyBundle: uploaded.response.contentKeyBundle,
     slotId: pendingAttachment.slotId,
   });
+  state.writerProjection = uploaded.writerProjection;
   state.runtime.util.log(
     `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
   );
@@ -479,6 +480,21 @@ function documentWriterProjectionMatchesSyncResponse(
   );
 }
 
+function resolveSyncedDocumentWriterProjection(
+  state: DocumentStoreState,
+  synced: DocumentSyncAttempt["synced"],
+) {
+  const writerProjection =
+    synced.writerProjection ??
+    (state.writerProjection?.documentId === synced.plan.documentId
+      ? state.writerProjection
+      : null);
+  return writerProjection &&
+    documentWriterProjectionMatchesSyncResponse(writerProjection, synced)
+    ? writerProjection
+    : null;
+}
+
 async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -491,11 +507,7 @@ async function finalizeDocumentSync(
   for (const updateId of synced.response.acceptedOutgoingUpdateIds) {
     state.locallyAcceptedUpdateIds.add(updateId);
   }
-  state.writerProjection =
-    synced.writerProjection &&
-    documentWriterProjectionMatchesSyncResponse(synced.writerProjection, synced)
-      ? synced.writerProjection
-      : null;
+  state.writerProjection = resolveSyncedDocumentWriterProjection(state, synced);
 
   const { record: nextRecord } = await persistDocument(
     state,

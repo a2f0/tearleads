@@ -8,6 +8,7 @@ import {
   enqueuePendingContainerUpdate,
 } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
+import { loadContainerWriterProjectionForState } from "./projectionCache";
 import { createRemoteContainer } from "./remote";
 import type {
   ContainerMetadataDocumentState,
@@ -35,10 +36,19 @@ async function buildRemoteContainerContentsChildContainerState(input: {
     runtime,
     trimmedName,
   } = input;
+  const parentProjection = await loadContainerWriterProjectionForState({
+    containerState: parentState,
+    runtime,
+  });
+  if (!parentProjection) {
+    return null;
+  }
+
   const created = await createRemoteContainer({
     systemSlot,
     containerId: childId,
     parentContainerId: parentState.container.id,
+    parentProjection,
     resolveProjectionUserKey,
     runtime,
   });

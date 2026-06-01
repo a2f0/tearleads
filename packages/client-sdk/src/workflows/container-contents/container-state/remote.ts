@@ -1,6 +1,9 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerMutationResponse,
+  ContainerWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
   buildMaterializedContainerCreatePlan,
@@ -29,6 +32,7 @@ async function createRemoteContainerWithMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
   parentContainerId: string;
+  parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<CreatedRemoteContainerState | null> {
@@ -47,9 +51,9 @@ async function createRemoteContainerWithMetadataDocument(input: {
     return null;
   }
 
-  const parentProjection = await apiClient.getContainerWriterProjection(
-    input.parentContainerId,
-  );
+  const parentProjection =
+    input.parentProjection ??
+    (await apiClient.getContainerWriterProjection(input.parentContainerId));
   if (!parentProjection) {
     return null;
   }
@@ -119,6 +123,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
   parentContainerId: string;
+  parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<CreatedRemoteContainerState | null> {
@@ -140,6 +145,7 @@ async function createRemoteContainerWithSeparateMetadataDocument(input: {
     execSql,
     metadataDocumentId: input.containerId,
     parentContainerId: input.parentContainerId,
+    parentProjection: input.parentProjection,
     parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
@@ -177,6 +183,7 @@ export async function createRemoteContainer(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
   parentContainerId: string;
+  parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<CreatedRemoteContainerState | null> {
@@ -190,10 +197,32 @@ export async function createRemoteContainer(input: {
   return createRemoteContainerWithSeparateMetadataDocument(input);
 }
 
+function containerWriterProjectionFromMutationResponse(input: {
+  previousProjection: ContainerWriterProjectionResponse;
+  response: ContainerMutationResponse;
+}): ContainerWriterProjectionResponse {
+  if (input.response.containerId !== input.previousProjection.containerId) {
+    throw new Error("Container mutation response projection mismatch");
+  }
+
+  return {
+    containerId: input.response.containerId,
+    organizationId: input.response.organizationId,
+    path: [
+      ...input.previousProjection.path.slice(0, -1),
+      input.response.accessManifest,
+    ],
+    containerKeks: [
+      ...input.previousProjection.containerKeks.slice(0, -1),
+      input.response.containerKek,
+    ],
+  };
+}
+
 export async function shareRemoteContainer(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
-  previousProjection?: ContainerWriterProjectionResponse | undefined;
+  previousProjection: ContainerWriterProjectionResponse;
   recipientUserId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
@@ -246,13 +275,17 @@ export async function shareRemoteContainer(input: {
         response: shared.response,
       }),
     updatedAt: shared.response.updatedAt,
+    writerProjection: containerWriterProjectionFromMutationResponse({
+      previousProjection: input.previousProjection,
+      response: shared.response,
+    }),
   };
 }
 
 export async function shareRemoteContainerWithGroup(input: {
   accessLevel: "read" | "write" | "admin";
   containerId: string;
-  previousProjection?: ContainerWriterProjectionResponse | undefined;
+  previousProjection: ContainerWriterProjectionResponse;
   recipientGroupId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
@@ -295,6 +328,10 @@ export async function shareRemoteContainerWithGroup(input: {
         response: shared.response,
       }),
     updatedAt: shared.response.updatedAt,
+    writerProjection: containerWriterProjectionFromMutationResponse({
+      previousProjection: input.previousProjection,
+      response: shared.response,
+    }),
   };
 }
 

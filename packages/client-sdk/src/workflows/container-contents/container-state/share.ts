@@ -11,6 +11,7 @@ import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
 import { persistContainerMetadataStateFromRuntime } from "../metadata";
 import type { ContainerState } from "../remoteHydration";
+import { loadContainerWriterProjectionForState } from "./projectionCache";
 import { shareRemoteContainer, shareRemoteContainerWithGroup } from "./remote";
 import type {
   ContainerWorkflowRuntime,
@@ -45,14 +46,15 @@ function readOptionalProjectionString(
 
 async function loadRemoteContainerShareContext(input: {
   accessLevel: ContainerShareAccessLevel;
-  containerId: string;
+  containerState: ContainerState;
   runtime: ContainerWorkflowRuntime;
   subjectId: string;
   subjectType: ContainerShareSubjectType;
 }): Promise<RemoteContainerShareContext | null> {
-  const projection = await input.runtime.apiClient.getContainerWriterProjection(
-    input.containerId,
-  );
+  const projection = await loadContainerWriterProjectionForState({
+    containerState: input.containerState,
+    runtime: input.runtime,
+  });
   if (!projection) {
     return null;
   }
@@ -113,6 +115,8 @@ async function persistSharedContainerState(input: {
     persistence: input.persistence,
     runtime: input.runtime,
   });
+  input.containerState.containerWriterProjection =
+    input.shared.writerProjection;
 
   return {
     container: persisted.container,
@@ -124,6 +128,7 @@ async function persistDuplicateContainerShare(input: {
   containerState: ContainerState;
   grant: MatchingRemoteContainerGrant;
   persistence: ContainerContentsPersistence;
+  projection: ContainerWriterProjectionResponse;
   runtime: ContainerWorkflowRuntime;
 }): Promise<SharedContainerState> {
   await input.runtime.util.cacheReferencedPrincipalPolicies([
@@ -167,6 +172,7 @@ async function persistDuplicateContainerShare(input: {
     persistence: input.persistence,
     runtime: input.runtime,
   });
+  input.containerState.containerWriterProjection = input.projection;
 
   return {
     container: persisted.container,
@@ -184,7 +190,7 @@ export async function shareContainerState(input: {
 }): Promise<SharedContainerState | null> {
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
-    containerId: input.containerState.container.id,
+    containerState: input.containerState,
     runtime: input.runtime,
     subjectId: input.recipientUserId,
     subjectType: "user",
@@ -200,6 +206,7 @@ export async function shareContainerState(input: {
       containerState: input.containerState,
       grant: shareContext.matchingGrant,
       persistence: input.persistence,
+      projection: shareContext.projection,
       runtime: input.runtime,
     });
   }
@@ -235,7 +242,7 @@ export async function shareContainerStateWithGroup(input: {
 }): Promise<SharedContainerState | null> {
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
-    containerId: input.containerState.container.id,
+    containerState: input.containerState,
     runtime: input.runtime,
     subjectId: input.recipientGroupId,
     subjectType: "group",
@@ -251,6 +258,7 @@ export async function shareContainerStateWithGroup(input: {
       containerState: input.containerState,
       grant: shareContext.matchingGrant,
       persistence: input.persistence,
+      projection: shareContext.projection,
       runtime: input.runtime,
     });
   }

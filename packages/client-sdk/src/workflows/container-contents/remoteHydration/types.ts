@@ -1,5 +1,7 @@
 import type {
   ContainerSummary,
+  ContainerWriterProjectionResponse,
+  DocumentWriterProjectionResponse,
   ListContainersResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
@@ -40,8 +42,16 @@ export type RemoteContainer = Pick<
 >;
 
 export interface ContainerState {
+  containerWriterProjection?:
+    | ContainerWriterProjectionResponse
+    | null
+    | undefined;
   container: ContainerRecord;
   doc: ContainerMetadataDocumentState;
+  metadataWriterProjection?:
+    | DocumentWriterProjectionResponse
+    | null
+    | undefined;
   record: ContainerDocumentRecord;
 }
 

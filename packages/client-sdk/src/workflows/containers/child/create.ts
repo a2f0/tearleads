@@ -329,6 +329,7 @@ export async function createRemoteContainer(input: {
   execSql?: ExecSql | undefined;
   metadataDocumentId?: string | undefined;
   parentContainerId: string;
+  parentProjection?: ContainerWriterProjectionResponse | undefined;
   parentSecretKey: Uint8Array;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
@@ -337,9 +338,11 @@ export async function createRemoteContainer(input: {
     input.resolveProjectionUserKey,
     "Remote container create",
   );
-  const parentProjection = await input.apiClient.getContainerWriterProjection(
-    input.parentContainerId,
-  );
+  const parentProjection =
+    input.parentProjection ??
+    (await input.apiClient.getContainerWriterProjection(
+      input.parentContainerId,
+    ));
   if (!parentProjection) {
     return null;
   }

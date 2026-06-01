@@ -314,6 +314,7 @@ function shouldLoadRemoteContainerInfo(input: {
 export async function loadContainerInfo(input: {
   apiClient: ContainerInfoApi;
   containerId: string;
+  containerProjection?: ContainerWriterProjectionResponse | null | undefined;
   execSql?: ExecSql | null;
   organizationId: string | null;
   parentId?: string | null;
@@ -342,7 +343,9 @@ export async function loadContainerInfo(input: {
   }
 
   const [projection, groupsResponse, syncCursors] = await Promise.all([
-    input.apiClient.getContainerWriterProjection(input.containerId),
+    input.containerProjection
+      ? Promise.resolve(input.containerProjection)
+      : input.apiClient.getContainerWriterProjection(input.containerId),
     input.organizationId
       ? input.apiClient.listOrganizationGroups(input.organizationId)
       : Promise.resolve(null),

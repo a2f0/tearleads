@@ -1,5 +1,6 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
+  ContainerWriterProjectionResponse,
   EncapsulationKeyResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -81,6 +82,7 @@ export interface SharedRemoteContainerState {
   metadataDocumentId: string;
   referencedPrincipalHeads: ReferencedPrincipalStateResponse[];
   updatedAt: string;
+  writerProjection: ContainerWriterProjectionResponse;
 }
 
 export interface SharedContainerState {
