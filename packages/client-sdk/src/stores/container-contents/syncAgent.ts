@@ -37,6 +37,7 @@ export type ContainerContentsStoreRuntime = ContainerContentsWorkflowRuntime;
 
 export interface ContainerContentsStoreSyncState {
   containersById: Map<string, ContainerState>;
+  documentStoresNeedPriming: boolean;
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
@@ -114,6 +115,23 @@ async function primeDocumentsForSharedSubtree(
     rootContainerId,
     runtime: state.runtime,
   });
+}
+
+async function primeDocumentsForSharedRoots(
+  state: ContainerContentsStoreSyncState,
+) {
+  const rootContainerIds = Array.from(state.containersById.values()).flatMap(
+    (containerState) =>
+      containerState.container.parentId === null
+        ? [containerState.container.id]
+        : [],
+  );
+
+  await Promise.all(
+    rootContainerIds.map((rootContainerId) =>
+      primeDocumentsForSharedSubtree(state, rootContainerId),
+    ),
+  );
 }
 
 function requestRemoteHydration(input: {
@@ -299,6 +317,7 @@ async function runContainerContentsStoreSyncIteration(input: {
     state,
   });
   if (createdContainerCount > 0) {
+    state.documentStoresNeedPriming = true;
     host.updateSnapshot();
   }
 
@@ -307,6 +326,7 @@ async function runContainerContentsStoreSyncIteration(input: {
     state,
   });
   if (movedContainerCount > 0) {
+    state.documentStoresNeedPriming = true;
     host.updateSnapshot();
     requestDomainDocumentSync(state.runtime.state.domainScope);
     requestContainerContentsStoreSync(state);
@@ -319,6 +339,11 @@ async function runContainerContentsStoreSyncIteration(input: {
       host,
       state,
     });
+  }
+
+  if (state.documentStoresNeedPriming) {
+    await primeDocumentsForSharedRoots(state);
+    state.documentStoresNeedPriming = false;
   }
 }
 
