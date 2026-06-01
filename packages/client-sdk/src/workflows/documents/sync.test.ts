@@ -48,6 +48,17 @@ interface ContentRecordFields {
   nonceDomainHash?: unknown;
 }
 
+function persistedStateFromWriterProjection(
+  writerProjection: DocumentWriterProjectionResponse,
+) {
+  return {
+    documentId: writerProjection.documentId,
+    contentKeyBundle: JSON.stringify(writerProjection.contentKeyBundle),
+    documentKekTargets: JSON.stringify(writerProjection.documentKekTargets),
+    documentManifestBundle: JSON.stringify(writerProjection.documentManifest),
+  };
+}
+
 test("hasDocumentUpdateEvent detects matching document update events", () => {
   expect(
     hasDocumentUpdateEvent(
@@ -657,6 +668,201 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
   expect(
     new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
   ).toBe("materialized update");
+});
+
+test("syncRemoteDocument uses persisted state for clean read-only sync probes", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const submittedRequests: DocumentSyncRequest[] = [];
+  let projectionRequestCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async (documentId) => {
+        if (documentId === writerProjection.documentId) {
+          projectionRequestCount += 1;
+        }
+        return writerProjection;
+      },
+      syncDocument: async (documentId, request) => {
+        submittedRequests.push(request);
+        const plan = await buildDocumentSyncPlan({
+          author,
+          contentKeyBundle: writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: writerProjection.documentKekTargets,
+          documentManifest: writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return createSyncResponse({
+          ...plan,
+          documentId,
+          request,
+        });
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    localVersionVector: null,
+    pendingUpdates: [],
+    persistedState: persistedStateFromWriterProjection(writerProjection),
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+  });
+
+  expect(projectionRequestCount).toBe(0);
+  expect(submittedRequests).toHaveLength(1);
+  expect(submittedRequests[0]?.outgoingUpdates).toEqual([]);
+  expect(synced?.decryptedUpdates).toEqual([]);
+  expect(synced?.settledPendingUpdateIds).toEqual([]);
+  expect(synced?.writerProjection).toBeUndefined();
+});
+
+test("syncRemoteDocument uses one projection fetch to process persisted read-only response updates", async () => {
+  const {
+    author,
+    resolveProjectionUserKey,
+    secretKey,
+    signingPublicKey,
+    writerProjection,
+  } = await createMaterializedSyncFixture();
+  const remoteMaterialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: secretKey,
+    writerProjection,
+  });
+  const remoteResponse = await createSyncResponse(remoteMaterialized.plan);
+  const remoteUpdate = remoteResponse.updates[0];
+  if (!remoteUpdate) {
+    throw new Error("Expected remote update fixture");
+  }
+
+  const submittedRequests: DocumentSyncRequest[] = [];
+  let projectionRequestCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async (documentId) => {
+        if (documentId !== writerProjection.documentId) {
+          return null;
+        }
+
+        projectionRequestCount += 1;
+        return writerProjection;
+      },
+      syncDocument: async (documentId, request) => {
+        submittedRequests.push(request);
+        const readOnlyPlan = await buildDocumentSyncPlan({
+          author,
+          contentKeyBundle: writerProjection.contentKeyBundle,
+          documentId,
+          documentKekTargets: writerProjection.documentKekTargets,
+          documentManifest: writerProjection.documentManifest,
+          localVersionVector: null,
+        });
+        return createSyncResponse(
+          {
+            ...readOnlyPlan,
+            documentId,
+            request,
+          },
+          {
+            acceptedOutgoingUpdateIds: [],
+            missingUpdateEpochs: ["current_epoch"],
+            updates: [remoteUpdate],
+          },
+        );
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    localVersionVector: null,
+    pendingUpdates: [],
+    persistedState: persistedStateFromWriterProjection(writerProjection),
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+    writerPublicKeysByFingerprint: new Map([
+      [author.signerKeyFingerprint, signingPublicKey],
+    ]),
+  });
+
+  expect(projectionRequestCount).toBe(1);
+  expect(submittedRequests).toHaveLength(1);
+  expect(
+    new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),
+  ).toBe("materialized update");
+});
+
+test("syncRemoteDocument falls back to writer projection when persisted read-only state is stale", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const submittedRequests: DocumentSyncRequest[] = [];
+  const reportedErrors: string[] = [];
+  let projectionRequestCount = 0;
+
+  const synced = await syncRemoteDocument({
+    apiClient: {
+      getDocumentWriterProjection: async (documentId) => {
+        if (documentId !== writerProjection.documentId) {
+          return null;
+        }
+
+        projectionRequestCount += 1;
+        return writerProjection;
+      },
+      syncDocument: async () => {
+        throw new Error("Expected syncDocumentResult to handle sync retries");
+      },
+      syncDocumentResult: async (documentId, request) => {
+        submittedRequests.push(request);
+
+        if (submittedRequests.length === 1) {
+          const message = "Document content-key bundle is stale";
+          return {
+            message,
+            ok: false,
+            report: () => {
+              reportedErrors.push(message);
+            },
+            status: 409,
+          };
+        }
+
+        const materialized = await buildMaterializedDocumentSyncPlan({
+          author,
+          localVersionVector: null,
+          pendingUpdates: [],
+          resolveProjectionUserKey,
+          targetSecretKey: secretKey,
+          writerProjection,
+        });
+        return {
+          data: await createSyncResponse({
+            ...materialized.plan,
+            documentId,
+            request,
+          }),
+          ok: true,
+        };
+      },
+    },
+    author,
+    documentId: writerProjection.documentId,
+    localVersionVector: null,
+    pendingUpdates: [],
+    persistedState: persistedStateFromWriterProjection(writerProjection),
+    resolveProjectionUserKey,
+    targetSecretKey: secretKey,
+  });
+
+  expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
+  expect(projectionRequestCount).toBe(1);
+  expect(submittedRequests).toHaveLength(2);
+  expect(reportedErrors).toEqual([]);
 });
 
 test("syncRemoteDocument decrypts returned updates with historical content-key bundles", async () => {

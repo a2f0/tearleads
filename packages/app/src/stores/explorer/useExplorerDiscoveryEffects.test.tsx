@@ -651,6 +651,30 @@ test("container document discovery evaluates each event frontier once per active
   await waitFor(() => {
     expect(discoverDocumentsCallCount).toBe(3);
   });
+
+  view.rerender({
+    events: [
+      {
+        documentId: "unknown-document-1",
+        id: "event-1",
+        type: "document_update_created",
+      },
+      {
+        documentId: "unknown-document-2",
+        id: "event-2",
+        type: "document_update_created",
+      },
+      {
+        documentId: "unknown-document-1",
+        id: "event-3",
+        type: "document_update_created",
+      },
+    ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(discoverDocumentsCallCount).toBe(3);
 });
 
 test("manual explorer refresh reuses an in-flight refresh", async () => {

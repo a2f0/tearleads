@@ -393,6 +393,7 @@ async function syncRemoteContainerMetadata(input: {
   lastCommitLsn?: string | null | undefined;
   localVersionVector: string | null;
   pendingUpdates: readonly PendingUpdateRecord[];
+  persistedState?: DocumentRecord | null | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
@@ -403,6 +404,7 @@ async function syncRemoteContainerMetadata(input: {
     lastCommitLsn,
     localVersionVector,
     pendingUpdates,
+    persistedState,
     resolveProjectionUserKey,
     runtime,
     targetSecretKey,
@@ -429,6 +431,7 @@ async function syncRemoteContainerMetadata(input: {
     localVersionVector,
     minLsn: lastCommitLsn ?? undefined,
     pendingUpdates,
+    persistedState,
     resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
       includeLocalSigningKey: false,
@@ -496,6 +499,7 @@ export async function syncContainerMetadataState(input: {
     lastCommitLsn: metadataState.record.lastCommitLsn,
     localVersionVector: encodeVersionVector(metadataState.doc),
     pendingUpdates,
+    persistedState: metadataState.record,
     resolveProjectionUserKey,
     runtime,
     targetSecretKey,

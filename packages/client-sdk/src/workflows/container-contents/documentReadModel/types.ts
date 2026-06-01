@@ -70,6 +70,7 @@ export type ContainerDocumentReadModelRuntime =
   ContainerContentsWorkflowSqlRuntime;
 
 export interface ContainerDocumentPrimeStore {
+  getSnapshot?: () => { ready: boolean };
   requestSync: () => void;
 }
 

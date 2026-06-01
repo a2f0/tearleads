@@ -497,13 +497,14 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
       runtimesByContainerId.set(target.runtimeContainerId, runtime);
     }
 
-    input.host
-      .primeDocumentStore({
-        documentId: target.documentId,
-        localId: target.localId,
-        runtime,
-      })
-      .requestSync();
+    const store = input.host.primeDocumentStore({
+      documentId: target.documentId,
+      localId: target.localId,
+      runtime,
+    });
+    if (store.getSnapshot?.().ready ?? true) {
+      store.requestSync();
+    }
   }
 
   return targets.length;

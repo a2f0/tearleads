@@ -52,6 +52,7 @@ import type {
   DocumentSyncSubmitFailure,
   DocumentWriterPublicKeyResolver,
   MaterializedDocumentSyncPlan,
+  PersistedDocumentSyncState,
   ProjectionVerificationOptions,
   SyncRemoteDocumentResult,
 } from "../../data/documents/shared/types";
@@ -430,6 +431,200 @@ async function syncRemoteDocumentResultFromResponse(input: {
   };
 }
 
+function parsePersistedDocumentSyncRecord<T>(
+  value: string | null | undefined,
+  label: string,
+): T | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return readCanonicalRecord(JSON.parse(value), label) as T;
+  } catch {
+    return null;
+  }
+}
+
+function parsePersistedDocumentSyncState(
+  persistedState: PersistedDocumentSyncState | null | undefined,
+  documentId: string,
+): {
+  contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
+  documentKekTargets: DocumentSyncResponse["documentKekTargets"];
+  documentManifest: DocumentCreateResponse["accessManifest"];
+} | null {
+  if (persistedState?.documentId !== documentId) {
+    return null;
+  }
+
+  const contentKeyBundle = parsePersistedDocumentSyncRecord<
+    DocumentCreateResponse["contentKeyBundle"]
+  >(
+    persistedState.contentKeyBundle,
+    "Persisted document sync content-key bundle",
+  );
+  const documentKekTargets = parsePersistedDocumentSyncRecord<
+    DocumentSyncResponse["documentKekTargets"]
+  >(persistedState.documentKekTargets, "Persisted document sync KEK targets");
+  const documentManifest = parsePersistedDocumentSyncRecord<
+    DocumentCreateResponse["accessManifest"]
+  >(persistedState.documentManifestBundle, "Persisted document sync manifest");
+
+  if (!contentKeyBundle || !documentKekTargets || !documentManifest) {
+    return null;
+  }
+
+  return {
+    contentKeyBundle,
+    documentKekTargets,
+    documentManifest,
+  };
+}
+
+async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
+  author: DocumentCreateAuthor;
+  documentId: string;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  persistedState?: PersistedDocumentSyncState | null | undefined;
+  signedAt?: string | undefined;
+}): Promise<DocumentSyncPlan | null> {
+  const persisted = parsePersistedDocumentSyncState(
+    input.persistedState,
+    input.documentId,
+  );
+  if (!persisted) {
+    return null;
+  }
+
+  return buildDocumentSyncPlan({
+    author: input.author,
+    contentKeyBundle: persisted.contentKeyBundle,
+    documentId: input.documentId,
+    documentKekTargets: persisted.documentKekTargets,
+    documentManifest: persisted.documentManifest,
+    localVersionVector: input.localVersionVector,
+    minLsn: input.minLsn,
+    outgoingUpdates: [],
+    signedAt: input.signedAt,
+  });
+}
+
+type PersistedReadOnlyDocumentSyncResult =
+  | {
+      kind: "completed";
+      result: SyncRemoteDocumentResult | null;
+    }
+  | {
+      kind: "retry_with_projection";
+    }
+  | {
+      kind: "skipped";
+    };
+
+async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
+  apiClient: DocumentSyncApi;
+  author: DocumentCreateAuthor;
+  documentId: string;
+  execSql?: ExecSql | undefined;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  persistedState?: PersistedDocumentSyncState | null | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}): Promise<PersistedReadOnlyDocumentSyncResult> {
+  let plan: DocumentSyncPlan | null;
+  try {
+    plan = await buildReadOnlyDocumentSyncPlanFromPersistedState(input);
+  } catch {
+    plan = null;
+  }
+  if (!plan) {
+    return { kind: "skipped" };
+  }
+
+  const submitted = await submitDocumentSync({
+    apiClient: input.apiClient,
+    plan,
+  });
+  if (!submitted) {
+    return { kind: "completed", result: null };
+  }
+  if (!submitted.ok) {
+    if (isRetryableDocumentSyncConflict(submitted)) {
+      return { kind: "retry_with_projection" };
+    }
+
+    submitted.report();
+    return { kind: "completed", result: null };
+  }
+
+  if (submitted.response.updates.length > 0) {
+    const writerProjection = await input.apiClient.getDocumentWriterProjection(
+      input.documentId,
+    );
+    if (!writerProjection) {
+      return { kind: "completed", result: null };
+    }
+
+    try {
+      const materializedPlan = await buildMaterializedDocumentSyncPlan({
+        author: input.author,
+        execSql: input.execSql,
+        localVersionVector: input.localVersionVector,
+        minLsn: input.minLsn,
+        pendingUpdates: [],
+        resolveProjectionUserKey: input.resolveProjectionUserKey,
+        signedAt: input.signedAt,
+        targetSecretKey: input.targetSecretKey,
+        writerProjection,
+      });
+
+      return {
+        kind: "completed",
+        result: await syncRemoteDocumentResultFromResponse({
+          execSql: input.execSql,
+          materializedPlan,
+          recoveryPendingUpdatesById: new Map(),
+          resolveProjectionUserKey: input.resolveProjectionUserKey,
+          resolveWriterPublicKey: input.resolveWriterPublicKey,
+          response: submitted.response,
+          targetSecretKey: input.targetSecretKey,
+          writerProjection,
+          writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+        }),
+      };
+    } catch {
+      return { kind: "retry_with_projection" };
+    }
+  }
+
+  try {
+    const persistedState = await persistedDocumentSyncStateFromResponse(
+      plan,
+      submitted.response,
+    );
+
+    return {
+      kind: "completed",
+      result: {
+        contentKey: new Uint8Array(),
+        decryptedUpdates: [],
+        persistedState,
+        plan,
+        response: submitted.response,
+        settledPendingUpdateIds: [],
+      },
+    };
+  } catch {
+    return { kind: "retry_with_projection" };
+  }
+}
+
 function manifestBundleForSyncRequest(
   bundle: DocumentCreateResponse["accessManifest"],
 ): NonNullable<DocumentSyncRequest["documentManifest"]> {
@@ -685,6 +880,7 @@ export async function syncRemoteDocument(input: {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+  persistedState?: PersistedDocumentSyncState | null | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
@@ -700,6 +896,26 @@ export async function syncRemoteDocument(input: {
   const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
   let pendingUpdates = input.pendingUpdates ?? [];
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
+
+  if (pendingUpdates.length === 0) {
+    const persistedSync = await syncReadOnlyRemoteDocumentFromPersistedState({
+      apiClient: input.apiClient,
+      author: input.author,
+      documentId: input.documentId,
+      execSql: input.execSql,
+      localVersionVector: input.localVersionVector,
+      minLsn: input.minLsn,
+      persistedState: input.persistedState,
+      resolveProjectionUserKey,
+      resolveWriterPublicKey: input.resolveWriterPublicKey,
+      signedAt: input.signedAt,
+      targetSecretKey: input.targetSecretKey,
+      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+    });
+    if (persistedSync.kind === "completed") {
+      return persistedSync.result;
+    }
+  }
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const writerProjection = await input.apiClient.getDocumentWriterProjection(

@@ -322,7 +322,6 @@ export async function shareContainerWithUser(
   existingState.record = shared.record;
   updateContainerContentsSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
-  requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with ${userId}`,
@@ -373,7 +372,6 @@ export async function shareContainerWithGroup(
   existingState.record = shared.record;
   updateContainerContentsSnapshot(state);
   await syncAgent.primeDocumentsForSharedSubtree(containerId);
-  requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: shared container ${containerId} with group ${groupId}`,
