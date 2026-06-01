@@ -458,6 +458,7 @@ async function createDocumentRuntimePatch(input: {
     response: DocumentWriterProjectionResponse,
   ) => DocumentWriterProjectionResponse;
   commitLsnForSyncCount?: (syncCount: number) => string;
+  onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
   syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
 }): Promise<DocumentRuntimePatch> {
   const containerId = input.containerId ?? "root-container";
@@ -597,6 +598,7 @@ async function createDocumentRuntimePatch(input: {
         if (!storedDocument) {
           return null;
         }
+        input.onSyncDocumentRequest?.(request);
         input.syncCalls?.push({
           minLsn: request.minLsn ?? null,
           outgoingUpdateCount: request.outgoingUpdates.length,
@@ -912,6 +914,7 @@ async function createSyncRuntimeInput(
       blobId: string,
       request: BlobAttachmentBindRequest,
     ) => Promise<void> | void;
+    onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): Promise<DocumentsRuntimeInput> {
@@ -926,6 +929,9 @@ async function createSyncRuntimeInput(
       : {}),
     ...(options.onBindBlobAttachment
       ? { onBindBlobAttachment: options.onBindBlobAttachment }
+      : {}),
+    ...(options.onSyncDocumentRequest
+      ? { onSyncDocumentRequest: options.onSyncDocumentRequest }
       : {}),
     ...(options.syncCalls ? { syncCalls: options.syncCalls } : {}),
   });
@@ -975,6 +981,7 @@ async function createSyncRuntime(
       blobId: string,
       request: BlobAttachmentBindRequest,
     ) => Promise<void> | void;
+    onSyncDocumentRequest?: (request: DocumentSyncRequest) => void;
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): Promise<DocumentsTestRuntime> {
@@ -2233,4 +2240,149 @@ test("document store persists commitLsn and reuses it as minLsn on the next sync
       outgoingUpdateCount: 1,
     },
   ]);
+});
+
+test("document store skips clean read-only syncs until a remote update event arrives", async () => {
+  const persistence = createDocumentsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const syncDocumentCalls: Array<{
+    minLsn: string | null;
+    outgoingUpdateCount: number;
+  }> = [];
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "root-container",
+    {
+      syncCalls: syncDocumentCalls,
+    },
+  );
+  const store = createDocumentStore("clean-sync", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Clean sync store did not become ready.",
+  );
+
+  store.setText("hello");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().document?.lastCommitLsn === "0/10" &&
+      !store.getSnapshot().syncing,
+    "Initial clean-sync document write did not settle.",
+  );
+
+  store.requestSync();
+  await getOrCreateDomainSyncCoordinator(runtime.state.domainScope).waitForIdle(
+    {
+      quietMs: 20,
+      timeoutMs: 1_000,
+    },
+  );
+
+  expect(syncDocumentCalls).toHaveLength(1);
+
+  const remoteDocumentId = store.getSnapshot().documentId;
+  expect(remoteDocumentId).toBeString();
+  store.updateRuntime(
+    cloneDocumentsTestRuntime(runtime, {
+      state: {
+        events: [
+          {
+            documentId: remoteDocumentId,
+            id: "event-1",
+            type: "document_update_created",
+          },
+        ],
+      },
+    }),
+  );
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 2 &&
+      persistence.getState().document?.lastCommitLsn === "0/20" &&
+      !store.getSnapshot().syncing,
+    "Remote update event did not trigger a read-only document sync.",
+  );
+
+  expect(syncDocumentCalls).toEqual([
+    {
+      minLsn: null,
+      outgoingUpdateCount: 1,
+    },
+    {
+      minLsn: "0/10",
+      outgoingUpdateCount: 0,
+    },
+  ]);
+});
+
+test("document store ignores update events for locally accepted writes", async () => {
+  const persistence = createDocumentsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const acceptedUpdateIdsBySync: string[][] = [];
+  const syncDocumentCalls: Array<{
+    minLsn: string | null;
+    outgoingUpdateCount: number;
+  }> = [];
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "root-container",
+    {
+      onSyncDocumentRequest: (request) => {
+        acceptedUpdateIdsBySync.push(
+          request.outgoingUpdates.map((update) => update.id),
+        );
+      },
+      syncCalls: syncDocumentCalls,
+    },
+  );
+  const store = createDocumentStore("local-event-sync", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Local event sync store did not become ready.",
+  );
+
+  store.setText("hello");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 1 &&
+      acceptedUpdateIdsBySync[0]?.length === 1 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      !store.getSnapshot().syncing,
+    "Initial local-event document write did not settle.",
+  );
+
+  const remoteDocumentId = store.getSnapshot().documentId;
+  expect(remoteDocumentId).toBeString();
+  store.updateRuntime(
+    cloneDocumentsTestRuntime(runtime, {
+      state: {
+        events: [
+          {
+            documentId: remoteDocumentId,
+            id: "event-1",
+            type: "document_update_created",
+            updateIds: acceptedUpdateIdsBySync[0],
+          },
+        ],
+      },
+    }),
+  );
+
+  await getOrCreateDomainSyncCoordinator(runtime.state.domainScope).waitForIdle(
+    {
+      quietMs: 20,
+      timeoutMs: 1_000,
+    },
+  );
+
+  expect(syncDocumentCalls).toHaveLength(1);
 });

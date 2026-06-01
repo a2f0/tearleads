@@ -5,7 +5,6 @@ import {
   createRemoteDocument,
   type DocumentRecord,
   type DocumentSyncLane,
-  hasDocumentUpdateEvent,
   isDestroyedDocumentSyncRuntimeError,
   type PendingAttachmentRecord,
   type PendingUpdateRecord,
@@ -315,6 +314,85 @@ async function requestRemoteDocumentSync(input: {
   };
 }
 
+function hasPersistedRemoteDocumentSyncState(record: DocumentRecord): boolean {
+  return (
+    record.lastCommitLsn !== null &&
+    record.contentKeyBundle !== null &&
+    record.documentKekTargets !== null &&
+    record.documentManifestBundle !== null
+  );
+}
+
+function shouldSkipCleanScheduledDocumentSync(input: {
+  currentRecord: DocumentRecord;
+  pendingUpdates: readonly PendingUpdateRecord[];
+  state: DocumentStoreState;
+}): boolean {
+  return (
+    input.pendingUpdates.length === 0 &&
+    input.state.pendingAttachments.length === 0 &&
+    !input.state.remoteUpdatePending &&
+    hasPersistedRemoteDocumentSyncState(input.currentRecord)
+  );
+}
+
+function getDocumentUpdateEventDetails(
+  event: unknown,
+): { documentId: string; updateIds: readonly string[] | null } | null {
+  if (
+    typeof event !== "object" ||
+    event === null ||
+    !("type" in event) ||
+    event.type !== "document_update_created" ||
+    !("documentId" in event) ||
+    typeof event.documentId !== "string"
+  ) {
+    return null;
+  }
+
+  const updateIds =
+    "updateIds" in event &&
+    Array.isArray(event.updateIds) &&
+    event.updateIds.every((updateId) => typeof updateId === "string")
+      ? event.updateIds
+      : null;
+
+  return {
+    documentId: event.documentId,
+    updateIds,
+  };
+}
+
+export function hasRemoteDocumentUpdateEvent(
+  state: DocumentStoreState,
+  events: ReadonlyArray<unknown>,
+): boolean {
+  let remoteUpdateFound = false;
+
+  for (const event of events) {
+    const updateEvent = getDocumentUpdateEventDetails(event);
+    if (!updateEvent || updateEvent.documentId !== state.record?.documentId) {
+      continue;
+    }
+
+    if (updateEvent.updateIds && updateEvent.updateIds.length > 0) {
+      for (const updateId of updateEvent.updateIds) {
+        if (!state.locallyAcceptedUpdateIds.has(updateId)) {
+          remoteUpdateFound = true;
+          continue;
+        }
+
+        state.locallyAcceptedUpdateIds.delete(updateId);
+      }
+      continue;
+    }
+
+    remoteUpdateFound = true;
+  }
+
+  return remoteUpdateFound;
+}
+
 async function applyIncomingSyncedUpdates(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -341,6 +419,9 @@ async function finalizeDocumentSync(
   const { synced } = syncAttempt;
 
   await applyIncomingSyncedUpdates(state, currentDoc, syncAttempt);
+  for (const updateId of synced.response.acceptedOutgoingUpdateIds) {
+    state.locallyAcceptedUpdateIds.add(updateId);
+  }
 
   const { record: nextRecord } = await persistDocument(
     state,
@@ -354,6 +435,7 @@ async function finalizeDocumentSync(
       acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     },
   );
+  state.remoteUpdatePending = false;
 
   if (syncAttempt.outgoingUpdateCount > synced.settledPendingUpdateIds.length) {
     requestDocumentStoreSync(state);
@@ -379,6 +461,16 @@ async function syncDocumentState(
   );
   if (!nextRemoteRecord?.documentId) {
     return nextRecord;
+  }
+
+  if (
+    shouldSkipCleanScheduledDocumentSync({
+      currentRecord: nextRemoteRecord,
+      pendingUpdates,
+      state,
+    })
+  ) {
+    return nextRemoteRecord;
   }
 
   const syncAttempt = await requestRemoteDocumentSync({
@@ -520,7 +612,8 @@ export function handleDocumentRemoteEvents(
   const nextEvents = state.runtime.state.events.slice(state.lastEventCount);
   state.lastEventCount = state.runtime.state.events.length;
 
-  if (hasDocumentUpdateEvent(nextEvents, state.record?.documentId)) {
+  if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
+    state.remoteUpdatePending = true;
     scheduleSync();
   }
 }

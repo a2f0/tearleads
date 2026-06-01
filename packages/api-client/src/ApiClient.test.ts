@@ -1,5 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
 import type {
+  BlobAttachmentBindRequest,
+  BlobAttachmentDetachRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
@@ -281,6 +283,87 @@ function createDocumentSyncResponse() {
     documentKekTargets: mutationResponse.documentKekTargets,
     missingUpdateEpochs: [],
     updates: [],
+  };
+}
+
+function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
+  return {
+    authorizingContainerPaths: [],
+    body: {},
+    contentKeyBundle: {
+      contentKeyEpoch: 1,
+      targetHash: "blob-target-hash",
+      targets: [
+        {
+          bindingId: "binding-1",
+          containerId: "container-1",
+          containerKeyEpoch: 1,
+          containerKeyEpochId: "container-key-epoch-id",
+          containerManifestHash: "container-manifest-hash",
+          documentId: "document-1",
+          wrappedKey: "wrapped-key",
+          wrappingMetadata: {},
+        },
+      ],
+    },
+    documentManifest: {
+      event: {},
+      manifest: {},
+      manifestHash: "blob-manifest-hash",
+      state: {},
+    },
+    event: {},
+  };
+}
+
+function createBlobAttachmentDetachRequest(): BlobAttachmentDetachRequest {
+  return {
+    authorizingContainerPaths: [],
+    body: {},
+    documentManifest: {
+      event: {},
+      manifest: {},
+      manifestHash: "blob-manifest-hash",
+      state: {},
+    },
+    event: {},
+  };
+}
+
+function createBlobAttachmentBindResponse() {
+  return {
+    bindingId: "binding-1",
+    blobId: "blob-1",
+    blobKekTargets: {
+      activeBindingIds: ["binding-1"],
+      blobAccessManifestHash: "blob-manifest-hash",
+      blobId: "blob-1",
+      blobKeyTargetHash: "blob-target-hash",
+      documentManifestHashes: ["blob-manifest-hash"],
+      linkedContainerKeyEpochIds: ["container-key-epoch-id"],
+      linkedContainerManifestHashes: ["container-manifest-hash"],
+      organizationId: "organization-1",
+      targets: [],
+    },
+    contentKeyBundle: {
+      blobId: "blob-1",
+      contentKeyEpoch: 1,
+      targetHash: "blob-target-hash",
+      targets: [
+        {
+          bindingId: "binding-1",
+          containerId: "container-1",
+          containerKeyEpoch: 1,
+          containerKeyEpochId: "container-key-epoch-id",
+          containerManifestHash: "container-manifest-hash",
+          documentId: "document-1",
+          wrappedKey: "wrapped-key",
+          wrappingMetadata: {},
+        },
+      ],
+    },
+    documentId: "document-1",
+    slotId: "slot-a",
   };
 }
 
@@ -1088,6 +1171,94 @@ test("keeps document writer projections across matching syncs and clears on sync
       body: null,
       input: `${apiBaseUrl}/documents/document-1/writer-projection`,
       method: "GET",
+    },
+  ]);
+});
+
+test("updates cached document attachment lists after attachment mutations", async () => {
+  const calls: CapturedHttpCall[] = [];
+  const attachmentBinding = createBlobAttachmentBindResponse();
+  server.use(
+    http.get(
+      `${apiBaseUrl}/documents/:documentId/attachments`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json([]);
+      },
+    ),
+    http.post(
+      `${apiBaseUrl}/blobs/:blobId/attachment-bindings`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json(attachmentBinding);
+      },
+    ),
+    http.post(
+      `${apiBaseUrl}/blobs/:blobId/attachment-bindings/:bindingId/detach`,
+      async ({ params, request }) => {
+        calls.push(await captureHttpCall(request));
+        const { bindingId, blobId } = params;
+        return HttpResponse.json({
+          bindingId: String(bindingId),
+          blobId: String(blobId),
+          documentId: "document-1",
+          slotId: "slot-a",
+        });
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  await expect(client.listDocumentAttachments("document-1")).resolves.toEqual(
+    [],
+  );
+  await expect(client.listDocumentAttachments("document-1")).resolves.toEqual(
+    [],
+  );
+  await expect(
+    client.bindBlobAttachment("blob-1", createBlobAttachmentBindRequest()),
+  ).resolves.toEqual(attachmentBinding);
+  await expect(client.listDocumentAttachments("document-1")).resolves.toEqual([
+    {
+      bindingId: "binding-1",
+      blobId: "blob-1",
+      contentKeyBundle: attachmentBinding.contentKeyBundle,
+      slotId: "slot-a",
+    },
+  ]);
+  await expect(
+    client.detachBlobAttachment(
+      "blob-1",
+      "binding-1",
+      createBlobAttachmentDetachRequest(),
+    ),
+  ).resolves.not.toBeNull();
+  await expect(client.listDocumentAttachments("document-1")).resolves.toEqual(
+    [],
+  );
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: null,
+      input: `${apiBaseUrl}/documents/document-1/attachments`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(createBlobAttachmentBindRequest()),
+      input: `${apiBaseUrl}/blobs/blob-1/attachment-bindings`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(createBlobAttachmentDetachRequest()),
+      input: `${apiBaseUrl}/blobs/blob-1/attachment-bindings/binding-1/detach`,
+      method: "POST",
     },
   ]);
 });
