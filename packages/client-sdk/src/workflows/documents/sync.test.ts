@@ -626,8 +626,9 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
   const submittedRequests: DocumentSyncRequest[] = [];
   const synced = await syncRemoteDocument({
     apiClient: {
-      getDocumentWriterProjection: async (documentId) =>
-        documentId === writerProjection.documentId ? writerProjection : null,
+      getDocumentWriterProjection: async () => {
+        throw new Error("Unexpected writer projection fetch");
+      },
       syncDocument: async (documentId, request) => {
         submittedRequests.push(request);
         const materialized = await buildMaterializedDocumentSyncPlan({
@@ -652,6 +653,7 @@ test("syncRemoteDocument submits a signed sync request and persists the verified
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,
+    writerProjection,
     writerPublicKeysByFingerprint: new Map([
       [author.signerKeyFingerprint, signingPublicKey],
     ]),

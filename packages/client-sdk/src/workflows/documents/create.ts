@@ -1,4 +1,7 @@
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerWriterProjectionResponse,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
 import { wrapDocumentContentKeyForCreate } from "../../data/documents/shared/projection";
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
@@ -104,6 +107,13 @@ export async function createRemoteDocument(input: {
     materializedPlan.plan,
     response,
   );
+  const writerProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [containerProjection],
+    contentKeyBundle: response.contentKeyBundle,
+    documentId: response.id,
+    documentKekTargets: response.documentKekTargets,
+    documentManifest: response.accessManifest,
+  };
 
   return {
     contentKey: materializedPlan.contentKey,
@@ -111,5 +121,6 @@ export async function createRemoteDocument(input: {
     persistedState,
     plan: materializedPlan.plan,
     response,
+    writerProjection,
   };
 }

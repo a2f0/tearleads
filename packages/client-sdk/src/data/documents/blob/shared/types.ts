@@ -138,6 +138,7 @@ export interface UploadDocumentAttachmentInput {
   signedAt?: string | undefined;
   slotId: string;
   targetSecretKey: Uint8Array;
+  writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 
 export interface MultipartBlobUploadOptions {

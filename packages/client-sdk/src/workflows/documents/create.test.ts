@@ -120,6 +120,13 @@ test("createRemoteDocument submits the materialized request and persists the ver
     documentKekTargets: JSON.stringify(created.response.documentKekTargets),
     documentManifestBundle: JSON.stringify(created.response.accessManifest),
   });
+  expect(created.writerProjection).toEqual({
+    authorizingContainerPaths: [projection],
+    contentKeyBundle: created.response.contentKeyBundle,
+    documentId: "document-remote",
+    documentKekTargets: created.response.documentKekTargets,
+    documentManifest: created.response.accessManifest,
+  });
 });
 
 test("createRemoteDocument rejects substituted KEK material before submitting", async () => {

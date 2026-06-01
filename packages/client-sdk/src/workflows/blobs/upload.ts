@@ -298,11 +298,12 @@ async function buildBlobAttachmentMaterial(
     documentId: string;
     execSql?: ExecSql | undefined;
     targetSecretKey: Uint8Array;
+    writerProjection?: UploadDocumentAttachmentInput["writerProjection"];
   } & ProjectionVerificationOptions,
 ): Promise<BlobAttachmentMaterial | null> {
-  const writerProjection = await input.apiClient.getDocumentWriterProjection(
-    input.documentId,
-  );
+  const writerProjection =
+    input.writerProjection ??
+    (await input.apiClient.getDocumentWriterProjection(input.documentId));
   if (!writerProjection) {
     return null;
   }
@@ -628,6 +629,7 @@ export async function uploadDocumentAttachment({
   signedAt = new Date().toISOString(),
   slotId,
   targetSecretKey,
+  writerProjection,
 }: UploadDocumentAttachmentInput): Promise<UploadDocumentAttachmentResult | null> {
   if (contentKey.byteLength !== 32) {
     throw new Error("Blob content key must be 32 bytes");
@@ -647,6 +649,7 @@ export async function uploadDocumentAttachment({
       "Document attachment upload",
     ),
     targetSecretKey,
+    writerProjection,
   });
   if (!material) {
     return null;

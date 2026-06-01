@@ -1,4 +1,5 @@
 import type { createDocument } from "@tearleads/loro";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
@@ -84,6 +85,7 @@ export interface DocumentStoreState {
   snapshot: DocumentSnapshot;
   syncLane: DocumentSyncLane | null;
   writeChain: Promise<void>;
+  writerProjection: DocumentWriterProjectionResponse | null;
 }
 
 function shallowEqualRecord<Value>(
@@ -175,6 +177,7 @@ export function createDocumentStoreState(
     },
     syncLane: null,
     writeChain: Promise.resolve(),
+    writerProjection: null,
   };
 }
 
@@ -228,6 +231,7 @@ export function resetDocumentStore(state: DocumentStoreState) {
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
   state.remoteUpdatePending = false;
+  state.writerProjection = null;
   state.initialized = false;
   state.initializePromise = null;
   state.writeChain = Promise.resolve();

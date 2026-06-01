@@ -325,6 +325,30 @@ function isRecoverableDocumentUpdateIdConflict(
   );
 }
 
+function canRetryDocumentSyncConflict(input: {
+  attempt: number;
+  failure: DocumentSyncSubmitFailure;
+  maxAttempts: number;
+}): boolean {
+  return (
+    input.attempt < input.maxAttempts &&
+    isRetryableDocumentSyncConflict(input.failure)
+  );
+}
+
+function canRecoverDocumentUpdateIdConflict(input: {
+  attempt: number;
+  failure: DocumentSyncSubmitFailure;
+  maxAttempts: number;
+  pendingUpdateCount: number;
+}): boolean {
+  return (
+    input.attempt < input.maxAttempts &&
+    input.pendingUpdateCount > 0 &&
+    isRecoverableDocumentUpdateIdConflict(input.failure)
+  );
+}
+
 function settledPendingUpdateIdsFromSync(input: {
   decryptedUpdates: readonly {
     id: string;
@@ -801,6 +825,58 @@ function assertUniqueDocumentOutgoingUpdates(
   }
 }
 
+async function resolveDocumentSyncWriterProjection(input: {
+  apiClient: DocumentSyncApi;
+  documentId: string;
+  reusableWriterProjection: DocumentWriterProjectionResponse | null;
+}): Promise<DocumentWriterProjectionResponse | null> {
+  return (
+    input.reusableWriterProjection ??
+    (await input.apiClient.getDocumentWriterProjection(input.documentId))
+  );
+}
+
+interface SyncRemoteDocumentInput {
+  apiClient: DocumentSyncApi;
+  author: DocumentCreateAuthor;
+  documentId: string;
+  execSql?: ExecSql | undefined;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
+  persistedState?: PersistedDocumentSyncState | null | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  writerProjection?: DocumentWriterProjectionResponse | undefined;
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}
+
+async function tryPersistedReadOnlyDocumentSync(
+  input: SyncRemoteDocumentInput,
+  resolveProjectionUserKey: ProjectionUserKeyResolver,
+): Promise<PersistedReadOnlyDocumentSyncResult | null> {
+  if ((input.pendingUpdates ?? []).length > 0) {
+    return null;
+  }
+
+  return syncReadOnlyRemoteDocumentFromPersistedState({
+    apiClient: input.apiClient,
+    author: input.author,
+    documentId: input.documentId,
+    execSql: input.execSql,
+    localVersionVector: input.localVersionVector,
+    minLsn: input.minLsn,
+    persistedState: input.persistedState,
+    resolveProjectionUserKey,
+    resolveWriterPublicKey: input.resolveWriterPublicKey,
+    signedAt: input.signedAt,
+    targetSecretKey: input.targetSecretKey,
+    writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+  });
+}
+
 export async function buildDocumentSyncPlan(
   input: BuildDocumentSyncPlanInput,
 ): Promise<DocumentSyncPlan> {
@@ -872,21 +948,9 @@ export async function buildDocumentSyncPlan(
   };
 }
 
-export async function syncRemoteDocument(input: {
-  apiClient: DocumentSyncApi;
-  author: DocumentCreateAuthor;
-  documentId: string;
-  execSql?: ExecSql | undefined;
-  localVersionVector: string | null;
-  minLsn?: string | undefined;
-  pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
-  persistedState?: PersistedDocumentSyncState | null | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
-  signedAt?: string | undefined;
-  targetSecretKey: Uint8Array;
-  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
-}): Promise<SyncRemoteDocumentResult | null> {
+export async function syncRemoteDocument(
+  input: SyncRemoteDocumentInput,
+): Promise<SyncRemoteDocumentResult | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote document sync",
@@ -896,31 +960,23 @@ export async function syncRemoteDocument(input: {
   const maxAttempts = input.apiClient.syncDocumentResult ? 3 : 1;
   let pendingUpdates = input.pendingUpdates ?? [];
   let recoveryPendingUpdatesById = new Map<string, PendingUpdateRecord>();
+  let reusableWriterProjection = input.writerProjection ?? null;
 
-  if (pendingUpdates.length === 0) {
-    const persistedSync = await syncReadOnlyRemoteDocumentFromPersistedState({
-      apiClient: input.apiClient,
-      author: input.author,
-      documentId: input.documentId,
-      execSql: input.execSql,
-      localVersionVector: input.localVersionVector,
-      minLsn: input.minLsn,
-      persistedState: input.persistedState,
-      resolveProjectionUserKey,
-      resolveWriterPublicKey: input.resolveWriterPublicKey,
-      signedAt: input.signedAt,
-      targetSecretKey: input.targetSecretKey,
-      writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
-    });
-    if (persistedSync.kind === "completed") {
-      return persistedSync.result;
-    }
+  const persistedSync = await tryPersistedReadOnlyDocumentSync(
+    input,
+    resolveProjectionUserKey,
+  );
+  if (persistedSync?.kind === "completed") {
+    return persistedSync.result;
   }
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const writerProjection = await input.apiClient.getDocumentWriterProjection(
-      input.documentId,
-    );
+    const writerProjection = await resolveDocumentSyncWriterProjection({
+      apiClient: input.apiClient,
+      documentId: input.documentId,
+      reusableWriterProjection,
+    });
+    reusableWriterProjection = null;
     if (!writerProjection) {
       return null;
     }
@@ -944,13 +1000,22 @@ export async function syncRemoteDocument(input: {
       return null;
     }
     if (!submitted.ok) {
-      if (attempt < maxAttempts && isRetryableDocumentSyncConflict(submitted)) {
+      if (
+        canRetryDocumentSyncConflict({
+          attempt,
+          failure: submitted,
+          maxAttempts,
+        })
+      ) {
         continue;
       }
       if (
-        attempt < maxAttempts &&
-        pendingUpdates.length > 0 &&
-        isRecoverableDocumentUpdateIdConflict(submitted)
+        canRecoverDocumentUpdateIdConflict({
+          attempt,
+          failure: submitted,
+          maxAttempts,
+          pendingUpdateCount: pendingUpdates.length,
+        })
       ) {
         recoveryPendingUpdatesById = new Map(
           pendingUpdates.map((update) => [update.id, update]),
