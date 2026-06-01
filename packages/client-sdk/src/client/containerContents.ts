@@ -450,9 +450,17 @@ class ContainerContentsService implements ContainerContents {
   hasUndiscoveredDocumentUpdates(
     knownDocumentIds: ReadonlySet<string>,
   ): boolean {
+    const allKnownDocumentIds = new Set(knownDocumentIds);
+    const snapshot = this.store().getSnapshot();
+    for (const node of snapshot.nodes ?? []) {
+      if (node.metadataDocumentId) {
+        allKnownDocumentIds.add(node.metadataDocumentId);
+      }
+    }
+
     return hasUndiscoveredDocumentUpdateEvent(
       this.runtimeService.workflowInput().state.events,
-      knownDocumentIds,
+      allKnownDocumentIds,
     );
   }
 
