@@ -46,6 +46,39 @@ function createDocumentSummary(id: string): DocumentSummary {
   };
 }
 
+function createReadyExplorerDiscoveryAppData(): UseDiscoveredDocumentsSyncParams["appData"] {
+  return {
+    auth: {
+      isAuthenticated: true,
+      organizationId: null,
+      userId: null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {},
+      dbStatus: "ready",
+      execSql: async () => {
+        throw new Error("execSql should not be used by this test.");
+      },
+    },
+    state: {
+      containerId: null,
+      domainScope: createDomainScope(),
+      events: [],
+      online: true,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => undefined,
+      log: () => undefined,
+      logError: () => undefined,
+    },
+  } as unknown as UseDiscoveredDocumentsSyncParams["appData"];
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -262,6 +295,148 @@ test("container document discovery starts a new run when discovery dependencies 
   });
 });
 
+test("container document discovery ignores callback identity churn", async () => {
+  const discoveredDocuments = createDeferred<ReadonlyArray<DocumentSummary>>();
+  const appliedCallbacks: string[] = [];
+  let discoverDocumentsCallCount = 0;
+  const baseAppData = createReadyExplorerDiscoveryAppData();
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
+    async () => {
+      discoverDocumentsCallCount += 1;
+      return discoveredDocuments.promise;
+    };
+
+  const view = renderHook(
+    ({ callbackVersion }: { callbackVersion: string }) =>
+      useDiscoveredDocumentsSync({
+        activeContainerId: "container-1",
+        appData: baseAppData,
+        discoverDocuments,
+        hasUndiscoveredDocumentUpdates: () => false,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries: () => {
+          appliedCallbacks.push(`merge:${callbackVersion}`);
+        },
+        onDocumentLinksChanged: () => {
+          appliedCallbacks.push(`links:${callbackVersion}`);
+        },
+        primeDiscoveredDocuments: () => {
+          appliedCallbacks.push(`prime:${callbackVersion}`);
+        },
+      }),
+    {
+      initialProps: { callbackVersion: "first" },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(1);
+  });
+
+  view.rerender({ callbackVersion: "second" });
+  view.rerender({ callbackVersion: "third" });
+  expect(discoverDocumentsCallCount).toBe(1);
+
+  discoveredDocuments.resolve([createDocumentSummary("document-1")]);
+  await act(async () => {
+    await discoveredDocuments.promise;
+  });
+
+  await waitFor(() => {
+    expect(appliedCallbacks).toEqual([
+      "merge:third",
+      "links:third",
+      "prime:third",
+    ]);
+  });
+  expect(discoverDocumentsCallCount).toBe(1);
+});
+
+test("container document discovery initializes the event frontier on active container changes", async () => {
+  let discoverDocumentsCallCount = 0;
+  let hasUndiscoveredDocumentUpdatesCallCount = 0;
+  const baseAppData = createReadyExplorerDiscoveryAppData();
+  const existingEvents = [
+    {
+      documentId: "unknown-document-1",
+      id: "event-1",
+      type: "document_update_created",
+    },
+  ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+  const nextEvents = [
+    ...existingEvents,
+    {
+      documentId: "unknown-document-2",
+      id: "event-2",
+      type: "document_update_created",
+    },
+  ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
+    async () => {
+      discoverDocumentsCallCount += 1;
+      return [];
+    };
+  const hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"] =
+    () => {
+      hasUndiscoveredDocumentUpdatesCallCount += 1;
+      return true;
+    };
+
+  const view = renderHook(
+    ({
+      activeContainerId,
+      events,
+    }: {
+      activeContainerId: string;
+      events: UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+    }) =>
+      useDiscoveredDocumentsSync({
+        activeContainerId,
+        appData: {
+          ...baseAppData,
+          state: { ...baseAppData.state, events },
+        },
+        discoverDocuments,
+        hasUndiscoveredDocumentUpdates,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries: () => undefined,
+        onDocumentLinksChanged: () => undefined,
+        primeDiscoveredDocuments: () => undefined,
+      }),
+    {
+      initialProps: {
+        activeContainerId: "container-1",
+        events: existingEvents,
+      },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(1);
+  });
+  expect(hasUndiscoveredDocumentUpdatesCallCount).toBe(0);
+
+  view.rerender({
+    activeContainerId: "container-2",
+    events: existingEvents,
+  });
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(2);
+  });
+  expect(hasUndiscoveredDocumentUpdatesCallCount).toBe(0);
+
+  view.rerender({
+    activeContainerId: "container-2",
+    events: nextEvents,
+  });
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(3);
+  });
+  expect(hasUndiscoveredDocumentUpdatesCallCount).toBe(1);
+});
+
 test("container document discovery suppresses update events for locally discovered ids", async () => {
   const discoveredDocuments = createDeferred<ReadonlyArray<DocumentSummary>>();
   let discoverDocumentsCallCount = 0;
@@ -375,6 +550,107 @@ test("container document discovery suppresses update events for locally discover
     await Promise.resolve();
   });
   expect(discoverDocumentsCallCount).toBe(1);
+});
+
+test("container document discovery evaluates each event frontier once per active container", async () => {
+  let discoverDocumentsCallCount = 0;
+  let currentEvents =
+    [] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+  const baseAppData = createReadyExplorerDiscoveryAppData();
+  const discoverDocuments: ContainerContents["discoverDocuments"] =
+    async () => {
+      discoverDocumentsCallCount += 1;
+      return [];
+    };
+  const hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"] =
+    (knownDocumentIds) =>
+      currentEvents.some(
+        (event) =>
+          typeof event === "object" &&
+          event !== null &&
+          "documentId" in event &&
+          typeof event.documentId === "string" &&
+          !knownDocumentIds.has(event.documentId),
+      );
+
+  const view = renderHook(
+    ({
+      events,
+    }: {
+      events: UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"];
+    }) => {
+      currentEvents = events;
+      return useDiscoveredDocumentsSync({
+        activeContainerId: "container-1",
+        appData: {
+          ...baseAppData,
+          state: { ...baseAppData.state, events },
+        },
+        discoverDocuments,
+        hasUndiscoveredDocumentUpdates,
+        knownDocumentIds: new Set(),
+        mergeDocumentSummaries: () => undefined,
+        onDocumentLinksChanged: () => undefined,
+        primeDiscoveredDocuments: () => undefined,
+      });
+    },
+    {
+      initialProps: {
+        events:
+          [] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+      },
+      wrapper: StrictMode,
+    },
+  );
+
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(1);
+  });
+
+  view.rerender({
+    events: [
+      {
+        documentId: "unknown-document-1",
+        id: "event-1",
+        type: "document_update_created",
+      },
+    ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+  });
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(2);
+  });
+
+  view.rerender({
+    events: [
+      {
+        documentId: "unknown-document-1",
+        id: "event-1",
+        type: "document_update_created",
+      },
+    ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(discoverDocumentsCallCount).toBe(2);
+
+  view.rerender({
+    events: [
+      {
+        documentId: "unknown-document-1",
+        id: "event-1",
+        type: "document_update_created",
+      },
+      {
+        documentId: "unknown-document-2",
+        id: "event-2",
+        type: "document_update_created",
+      },
+    ] as UseDiscoveredDocumentsSyncParams["appData"]["state"]["events"],
+  });
+  await waitFor(() => {
+    expect(discoverDocumentsCallCount).toBe(3);
+  });
 });
 
 test("manual explorer refresh reuses an in-flight refresh", async () => {

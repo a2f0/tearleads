@@ -76,7 +76,17 @@ export function useDiscoveredDocumentsSync(params: {
   const appliedDiscoveryPromisesRef = useRef(new WeakSet<DiscoveryPromise>());
   const domainScopeRef = useRef(appData.state.domainScope);
   const locallyDiscoveredDocumentIdsRef = useRef(new Set<string>());
+  const mergeDocumentSummariesRef = useRef(mergeDocumentSummaries);
+  const onDocumentLinksChangedRef = useRef(onDocumentLinksChanged);
   const primeDiscoveredDocumentsRef = useRef(primeDiscoveredDocuments);
+
+  useEffect(() => {
+    mergeDocumentSummariesRef.current = mergeDocumentSummaries;
+  }, [mergeDocumentSummaries]);
+
+  useEffect(() => {
+    onDocumentLinksChangedRef.current = onDocumentLinksChanged;
+  }, [onDocumentLinksChanged]);
 
   useEffect(() => {
     primeDiscoveredDocumentsRef.current = primeDiscoveredDocuments;
@@ -115,13 +125,14 @@ export function useDiscoveredDocumentsSync(params: {
             discoveredDocumentSummaries,
           );
           if (discoveredRemoteIds.length > 0) {
-            locallyDiscoveredDocumentIdsRef.current = new Set([
-              ...locallyDiscoveredDocumentIdsRef.current,
-              ...discoveredRemoteIds,
-            ]);
+            const locallyDiscoveredDocumentIds =
+              locallyDiscoveredDocumentIdsRef.current;
+            for (const id of discoveredRemoteIds) {
+              locallyDiscoveredDocumentIds.add(id);
+            }
           }
-          mergeDocumentSummaries(discoveredDocumentSummaries);
-          onDocumentLinksChanged();
+          mergeDocumentSummariesRef.current(discoveredDocumentSummaries);
+          onDocumentLinksChangedRef.current();
           primeDiscoveredDocumentsRef.current(discoveredDocumentSummaries);
         })
         .catch((error: unknown) => {
@@ -134,13 +145,14 @@ export function useDiscoveredDocumentsSync(params: {
         cancelled = true;
       };
     },
-    [getDiscoveryPromise, mergeDocumentSummaries, onDocumentLinksChanged],
+    [getDiscoveryPromise],
   );
 
   useContainerDiscoveryEffects({
     activeContainerId,
     dbStatus: appData.infra.dbStatus,
     discoverDocumentsForContainer,
+    domainScope: appData.state.domainScope,
     events: appData.state.events,
     hasUndiscoveredDocumentUpdates,
     isAuthenticated,
@@ -158,6 +170,7 @@ function useContainerDiscoveryEffects(params: {
   discoverDocumentsForContainer: (
     containerId: string,
   ) => (() => void) | undefined;
+  domainScope: ExplorerDiscoveryAppData["state"]["domainScope"];
   events: ExplorerDiscoveryAppData["state"]["events"];
   hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
   isAuthenticated: ExplorerDiscoveryAppData["auth"]["isAuthenticated"];
@@ -169,6 +182,7 @@ function useContainerDiscoveryEffects(params: {
     activeContainerId,
     dbStatus,
     discoverDocumentsForContainer,
+    domainScope,
     events,
     hasUndiscoveredDocumentUpdates,
     isAuthenticated,
@@ -176,6 +190,19 @@ function useContainerDiscoveryEffects(params: {
     locallyDiscoveredDocumentIdsRef,
     online,
   } = params;
+  const lastCheckedEventCountByContainerIdRef = useRef(
+    new Map<string, number>(),
+  );
+  const eventCountDomainScopeRef = useRef(domainScope);
+
+  useEffect(() => {
+    if (eventCountDomainScopeRef.current === domainScope) {
+      return;
+    }
+
+    eventCountDomainScopeRef.current = domainScope;
+    lastCheckedEventCountByContainerIdRef.current = new Map();
+  }, [domainScope]);
 
   const getKnownDocumentIdsForDiscovery = useCallback(() => {
     const locallyDiscoveredDocumentIds =
@@ -215,9 +242,22 @@ function useContainerDiscoveryEffects(params: {
       !activeContainerId ||
       dbStatus !== "ready" ||
       !online ||
-      !isAuthenticated ||
-      !hasUndiscoveredDocumentUpdates(getKnownDocumentIdsForDiscovery())
+      !isAuthenticated
     ) {
+      return;
+    }
+
+    if (
+      !shouldEvaluateContainerEventFrontier(
+        lastCheckedEventCountByContainerIdRef.current,
+        activeContainerId,
+        events.length,
+      )
+    ) {
+      return;
+    }
+
+    if (!hasUndiscoveredDocumentUpdates(getKnownDocumentIdsForDiscovery())) {
       return;
     }
 
@@ -232,6 +272,26 @@ function useContainerDiscoveryEffects(params: {
     isAuthenticated,
     online,
   ]);
+}
+
+function shouldEvaluateContainerEventFrontier(
+  lastCheckedEventCountByContainerId: Map<string, number>,
+  containerId: string,
+  eventCount: number,
+): boolean {
+  const lastCheckedEventCount =
+    lastCheckedEventCountByContainerId.get(containerId);
+  if (lastCheckedEventCount === undefined) {
+    lastCheckedEventCountByContainerId.set(containerId, eventCount);
+    return false;
+  }
+
+  if (eventCount <= lastCheckedEventCount) {
+    return false;
+  }
+
+  lastCheckedEventCountByContainerId.set(containerId, eventCount);
+  return true;
 }
 
 export function usePrimeDiscoveredDocuments(params: {

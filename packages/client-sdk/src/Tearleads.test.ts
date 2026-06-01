@@ -467,6 +467,34 @@ describe("Tearleads", () => {
     ).toBe(false);
   });
 
+  test("container document discovery ignores known container metadata document updates", () => {
+    const sdk = new Tearleads({
+      events: [
+        {
+          documentId: "metadata-document-1",
+          type: "document_update_created",
+        },
+        {
+          documentId: "user-document-1",
+          type: "document_update_created",
+        },
+      ],
+    });
+    const snapshot = sdk.containerContents.store().getSnapshot() as unknown as {
+      nodes: Array<{ metadataDocumentId: string }>;
+    };
+    snapshot.nodes = [{ metadataDocumentId: "metadata-document-1" }];
+
+    expect(
+      sdk.containerContents.hasUndiscoveredDocumentUpdates(
+        new Set(["user-document-1"]),
+      ),
+    ).toBe(false);
+    expect(
+      sdk.containerContents.hasUndiscoveredDocumentUpdates(new Set()),
+    ).toBe(true);
+  });
+
   test("lists local document summaries through the documents service", async () => {
     const { close, execSql } = await createTestExecSql(
       "tearleads-documents-list-summaries-test",
