@@ -67,27 +67,36 @@ export function hasContainerMetadataDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
   metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
 ): boolean {
+  return (
+    listContainerMetadataDocumentUpdateIds(events, metadataStates).length > 0
+  );
+}
+
+export function listContainerMetadataDocumentUpdateIds(
+  events: ReadonlyArray<unknown>,
+  metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
+): string[] {
+  const metadataDocumentIds = new Set<string>();
+  for (const metadataState of metadataStates) {
+    if (typeof metadataState.record.documentId === "string") {
+      metadataDocumentIds.add(metadataState.record.documentId);
+    }
+  }
+  if (metadataDocumentIds.size === 0) {
+    return [];
+  }
+
   const eventDocumentIds = new Set<string>();
   for (const event of events) {
-    if (isDocumentUpdateCreatedEvent(event)) {
+    if (
+      isDocumentUpdateCreatedEvent(event) &&
+      metadataDocumentIds.has(event.documentId)
+    ) {
       eventDocumentIds.add(event.documentId);
     }
   }
 
-  if (eventDocumentIds.size === 0) {
-    return false;
-  }
-
-  for (const metadataState of metadataStates) {
-    if (
-      typeof metadataState.record.documentId === "string" &&
-      eventDocumentIds.has(metadataState.record.documentId)
-    ) {
-      return true;
-    }
-  }
-
-  return false;
+  return Array.from(eventDocumentIds);
 }
 
 export interface ContainerMetadataPatch {
@@ -199,6 +208,27 @@ function createReadOnlyMetadataSyncSaveOptions(): SaveContainerOptions {
     localUpdatedAt: syncTimestamp,
     serverTimestamps: { updatedAt: syncTimestamp },
   };
+}
+
+function hasCurrentContainerMetadataReadState(
+  record: Pick<
+    DocumentRecord,
+    | "contentKeyBundle"
+    | "documentKekTargets"
+    | "documentManifestBundle"
+    | "lastCommitLsn"
+  >,
+): boolean {
+  return (
+    typeof record.lastCommitLsn === "string" &&
+    record.lastCommitLsn.length > 0 &&
+    typeof record.contentKeyBundle === "string" &&
+    record.contentKeyBundle.length > 0 &&
+    typeof record.documentKekTargets === "string" &&
+    record.documentKekTargets.length > 0 &&
+    typeof record.documentManifestBundle === "string" &&
+    record.documentManifestBundle.length > 0
+  );
 }
 
 async function persistContainerMetadataState(input: {
@@ -428,6 +458,7 @@ async function syncRemoteContainerMetadata(input: {
 }
 
 export async function syncContainerMetadataState(input: {
+  forceReadSync?: boolean | undefined;
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -451,6 +482,14 @@ export async function syncContainerMetadataState(input: {
     execSql,
     metadataState.container.id,
   );
+  if (
+    pendingUpdates.length === 0 &&
+    !input.forceReadSync &&
+    hasCurrentContainerMetadataReadState(metadataState.record)
+  ) {
+    return null;
+  }
+
   const syncAttempt = await syncRemoteContainerMetadata({
     containerId: metadataState.container.id,
     documentId,

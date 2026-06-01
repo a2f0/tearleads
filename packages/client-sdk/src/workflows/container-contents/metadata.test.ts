@@ -10,8 +10,10 @@ import type { DocumentRecord as ContainerDocumentRecord } from "../../data/sqlit
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   hasContainerMetadataDocumentUpdateEvent,
+  listContainerMetadataDocumentUpdateIds,
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
+  syncContainerMetadataState,
 } from "./metadata";
 
 const execSql: ExecSql = async () => [];
@@ -195,6 +197,18 @@ test("hasContainerMetadataDocumentUpdateEvent detects known metadata document up
   };
 
   expect(
+    listContainerMetadataDocumentUpdateIds(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-1",
+          type: "document_update_created",
+        },
+      ],
+      [metadataState],
+    ),
+  ).toEqual(["metadata-document-1"]);
+  expect(
     hasContainerMetadataDocumentUpdateEvent(
       [
         {
@@ -230,6 +244,73 @@ test("hasContainerMetadataDocumentUpdateEvent detects known metadata document up
       [metadataState],
     ),
   ).toBe(false);
+});
+
+test("syncContainerMetadataState skips clean metadata with current read state", async () => {
+  let listPendingUpdateCalls = 0;
+  let writerProjectionCalls = 0;
+  const container = createContainerRecord({
+    id: "container-3",
+    metadataDocumentId: "metadata-document-3",
+    parentId: null,
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  const record = createDocumentRecord({
+    contentKeyBundle: "content-key-bundle",
+    documentId: "metadata-document-3",
+    documentKekTargets: "document-kek-targets",
+    documentManifestBundle: "document-manifest-bundle",
+    id: container.id,
+    lastCommitLsn: "0/1",
+  });
+  const persistence = createContainerContentsPersistence({});
+
+  const synced = await syncContainerMetadataState({
+    metadataState: { container, doc, record },
+    persistence: {
+      ...persistence,
+      async listPendingUpdates() {
+        listPendingUpdateCalls += 1;
+        return [];
+      },
+    },
+    resolveProjectionUserKey: async () => {
+      throw new Error("resolveProjectionUserKey should not be called.");
+    },
+    runtime: {
+      apiClient: {
+        getDocumentWriterProjection: async () => {
+          writerProjectionCalls += 1;
+          throw new Error("metadata writer projection should not be loaded.");
+        },
+      },
+      auth: {
+        deviceId: "device-1",
+        organizationId: "org-1",
+        userId: "user-1",
+      },
+      crypto: {
+        encapsulationKeyPair: null,
+        signingKeyPair: null,
+        signingFingerprint: null,
+      },
+      infra: { execSql },
+      state: {
+        containerId: null,
+        domainScope: {},
+        events: [],
+        online: true,
+      },
+      util: {
+        log: () => undefined,
+      },
+    } as never,
+    targetSecretKey: new Uint8Array(),
+  });
+
+  expect(synced).toBeNull();
+  expect(listPendingUpdateCalls).toBe(1);
+  expect(writerProjectionCalls).toBe(0);
 });
 
 test("hasContainerMetadataDocumentUpdateEvent ignores containers without metadata document ids", () => {

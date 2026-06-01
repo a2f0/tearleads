@@ -55,10 +55,15 @@ export function useExplorerDocumentViewModel(params: {
       documentLinkProjectionVersion,
       documentSummaries,
     });
-  const knownDocumentIds = useMemo(
-    () => getKnownDocumentIds(documentSummaries),
-    [documentSummaries],
-  );
+  const knownDocumentIds = useMemo(() => {
+    const ids = new Set(getKnownDocumentIds(documentSummaries));
+    for (const node of nodes) {
+      if (node.metadataDocumentId) {
+        ids.add(node.metadataDocumentId);
+      }
+    }
+    return ids;
+  }, [documentSummaries, nodes]);
   const selection = useExplorerSelection(nodes, documentSummaries);
 
   return {

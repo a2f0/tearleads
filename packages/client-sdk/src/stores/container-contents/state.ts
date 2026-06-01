@@ -43,6 +43,7 @@ function areSnapshotNodesEqual(
       leftNode.createdAt === rightNode.createdAt &&
       leftNode.id === rightNode.id &&
       leftNode.kind === rightNode.kind &&
+      leftNode.metadataDocumentId === rightNode.metadataDocumentId &&
       leftNode.name === rightNode.name &&
       leftNode.organizationId === rightNode.organizationId &&
       leftNode.parentId === rightNode.parentId &&
@@ -64,6 +65,7 @@ export function createContainerContentsStoreState(
     lastEventCount: 0,
     listeners: new Set(),
     logLabel,
+    metadataDocumentIdsNeedingSync: new Set(),
     persistence,
     remoteHydrationPromise: null,
     resolveProjectionUserKey:
@@ -112,6 +114,7 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.containersById = new Map();
   state.initialized = false;
   state.initializePromise = null;
+  state.metadataDocumentIdsNeedingSync = new Set();
   state.remoteHydrationPromise = null;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setContainerContentsSnapshot(state, {

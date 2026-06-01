@@ -23,7 +23,10 @@ import {
   type EncapsulationKeyResponse,
   isContainerDeleteResponse,
   isDocumentSyncResponse,
+  type ListContainerDocumentsResponse,
+  type ListContainersResponse,
   type ListOrganizationGroupsResponse,
+  type SyncWatermark,
 } from "@tearleads/validators/response";
 import {
   authenticate,
@@ -130,9 +133,44 @@ function hasHeader(
   );
 }
 
+function syncWatermarkRequestKey(
+  watermark: SyncWatermark | null | undefined,
+): string {
+  return watermark ? `${watermark.updatedAt}\u0000${watermark.id}` : "";
+}
+
+function listContainersRequestKey(options: ListContainersOptions = {}): string {
+  const { watermark, ...rest } = options;
+  return JSON.stringify({
+    ...rest,
+    parentId: rest.parentId === undefined ? "__undefined__" : rest.parentId,
+    watermark: syncWatermarkRequestKey(watermark),
+  });
+}
+
+function listContainerDocumentsRequestKey(
+  containerId: string,
+  options: ListContainerDocumentsOptions = {},
+): string {
+  const { watermark, ...rest } = options;
+  return JSON.stringify({
+    containerId,
+    ...rest,
+    watermark: syncWatermarkRequestKey(watermark),
+  });
+}
+
 export class ApiClient {
   private authToken: string | null = null;
   private readonly baseUrl: string;
+  private readonly containerDocumentListRequestsByKey = new Map<
+    string,
+    Promise<ListContainerDocumentsResponse | null>
+  >();
+  private readonly containerListRequestsByKey = new Map<
+    string,
+    Promise<ListContainersResponse | null>
+  >();
   private readonly containerWriterProjectionRequestsByContainerId = new Map<
     string,
     Promise<ContainerWriterProjectionResponse | null>
@@ -192,7 +230,29 @@ export class ApiClient {
     return pending;
   }
 
+  private dedupedRequest<T>(
+    cache: Map<string, Promise<T | null>>,
+    cacheKey: string,
+    request: () => Promise<T | null>,
+  ): Promise<T | null> {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    let pending: Promise<T | null>;
+    pending = request().finally(() => {
+      if (cache.get(cacheKey) === pending) {
+        cache.delete(cacheKey);
+      }
+    });
+    cache.set(cacheKey, pending);
+    return pending;
+  }
+
   private clearAuthScopedCaches(): void {
+    this.containerDocumentListRequestsByKey.clear();
+    this.containerListRequestsByKey.clear();
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.encapsulationKeyRequestsByUserId.clear();
@@ -722,14 +782,22 @@ export class ApiClient {
   }
 
   listContainers(options?: ListContainersOptions) {
-    return listContainers(this.request, options);
+    return this.dedupedRequest(
+      this.containerListRequestsByKey,
+      listContainersRequestKey(options),
+      () => listContainers(this.request, options),
+    );
   }
 
   listContainerDocuments(
     containerId: string,
     options?: ListContainerDocumentsOptions,
   ) {
-    return listContainerDocuments(this.request, containerId, options);
+    return this.dedupedRequest(
+      this.containerDocumentListRequestsByKey,
+      listContainerDocumentsRequestKey(containerId, options),
+      () => listContainerDocuments(this.request, containerId, options),
+    );
   }
 
   unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {

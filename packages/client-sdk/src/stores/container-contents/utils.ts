@@ -20,6 +20,7 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
   const node: ContainerNode = {
     id: container.id,
     kind: "container",
+    metadataDocumentId: container.metadataDocumentId ?? record.documentId,
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,
