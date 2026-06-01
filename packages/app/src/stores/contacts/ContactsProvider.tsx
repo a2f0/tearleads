@@ -1,7 +1,5 @@
-import {
-  type ContainerSystemSlotDefinition,
-  deriveContainerSystemSlot,
-} from "@tearleads/client-sdk";
+import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   createContext,
   type PropsWithChildren,
@@ -16,6 +14,10 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import {
+  CONTACTS_CONTAINER_NAME,
+  CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
+} from "../systemContainers";
+import {
   type ContactsRuntime,
   type ContactsStore,
   getOrCreateContactsStore,
@@ -23,26 +25,20 @@ import {
 import type { ContactsContextValue } from "./types";
 
 const ContactsContext = createContext<ContactsStore | null>(null);
-const CONTACTS_CONTAINER_NAME = "Contacts";
-const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
-  {
-    namespace: "tearleads.contacts",
-    projectorId: "contact",
-    slotId: "contacts",
-    version: 1,
-  };
 
 interface ContactsContainerEnsurer {
-  ensureSystemContainer: (systemSlot: string, name: string) => Promise<unknown>;
+  ensureSystemContainer: (
+    systemSlot: ContainerSystemSlot,
+    name: string,
+  ) => Promise<unknown>;
 }
 
 function useContactsSystemSlot(input: {
   logError: (message: string | Error, cause?: unknown) => void;
   signingPrivateKey: Uint8Array | null;
-}): string | null {
-  const [contactsSystemSlot, setContactsSystemSlot] = useState<string | null>(
-    null,
-  );
+}): ContainerSystemSlot | null {
+  const [contactsSystemSlot, setContactsSystemSlot] =
+    useState<ContainerSystemSlot | null>(null);
 
   useEffect(() => {
     if (!input.signingPrivateKey) {
@@ -77,7 +73,7 @@ function useContactsSystemSlot(input: {
 
 function useEnsureContactsContainer(input: {
   contactsContainerId: string | null;
-  contactsSystemSlot: string | null;
+  contactsSystemSlot: ContainerSystemSlot | null;
   containerContentsReady: boolean;
   containerContentsStore: ContactsContainerEnsurer;
   logError: (message: string | Error, cause?: unknown) => void;

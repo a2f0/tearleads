@@ -2,7 +2,6 @@ import type {
   ContainerContentsContextValue,
   ContainerContentsStore,
   ContainerNode,
-  ContainerSystemSlotDefinition,
 } from "@tearleads/client-sdk";
 import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
@@ -20,6 +19,17 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import {
+  EXPLORER_TRASH_CONTAINER_NAME,
+  USER_SYSTEM_CONTAINER_DEFINITIONS,
+  type UserSystemContainerKind,
+} from "../systemContainers";
+
+interface ExplorerSystemContainer {
+  kind: UserSystemContainerKind;
+  name: string;
+  systemSlot: ContainerSystemSlot;
+}
 
 interface ExplorerContextModel {
   logError: (message: string | Error, cause?: unknown) => void;
@@ -33,21 +43,12 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
   trashContainerId: string | null;
 }
 
-const EXPLORER_TRASH_CONTAINER_NAME = "Trash";
-const EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
-  {
-    namespace: "tearleads.explorer",
-    projectorId: "explorer",
-    slotId: "trash",
-    version: 1,
-  };
-
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
 
 export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
 ): ContainerContentsContextValue["nodes"] {
-  return (nodes ?? []).filter((node) => !node.systemSlot);
+  return nodes ?? [];
 }
 
 function findExplorerSystemNode(
@@ -61,11 +62,18 @@ function findExplorerSystemNode(
   return nodes.find((node) => node.systemSlot === systemSlot) ?? null;
 }
 
+export function getExplorerSystemContainerId(
+  nodes: ReadonlyArray<ContainerNode> | null | undefined,
+  systemSlot: ContainerSystemSlot | null,
+): string | null {
+  return findExplorerSystemNode(nodes, systemSlot)?.id ?? null;
+}
+
 export function getExplorerTrashContainerId(
   nodes: ReadonlyArray<ContainerNode> | null | undefined,
   trashSystemSlot: ContainerSystemSlot | null,
 ): string | null {
-  return findExplorerSystemNode(nodes, trashSystemSlot)?.id ?? null;
+  return getExplorerSystemContainerId(nodes, trashSystemSlot);
 }
 
 function getExplorerTrashDeleteTargetId(
@@ -81,33 +89,41 @@ function canResolveExplorerTrashContainer(
   return trashSystemSlot !== null;
 }
 
-function useExplorerTrashSystemSlot(input: {
+function useExplorerSystemContainerSlots(input: {
   logError: (message: string | Error, cause?: unknown) => void;
   signingPrivateKey: Uint8Array | null;
-}): ContainerSystemSlot | null {
-  const [trashSystemSlot, setTrashSystemSlot] =
-    useState<ContainerSystemSlot | null>(null);
+}): ReadonlyArray<ExplorerSystemContainer> {
+  const [systemContainers, setSystemContainers] = useState<
+    ReadonlyArray<ExplorerSystemContainer>
+  >([]);
 
   useEffect(() => {
     if (!input.signingPrivateKey) {
-      setTrashSystemSlot(null);
+      setSystemContainers([]);
       return;
     }
 
+    const signingPrivateKey = input.signingPrivateKey;
     let cancelled = false;
-    void deriveContainerSystemSlot({
-      definition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,
-      secretKey: input.signingPrivateKey,
-    })
-      .then((systemSlot) => {
+    void Promise.all(
+      USER_SYSTEM_CONTAINER_DEFINITIONS.map(async (definition) => ({
+        kind: definition.kind,
+        name: definition.name,
+        systemSlot: await deriveContainerSystemSlot({
+          definition: definition.slotDefinition,
+          secretKey: signingPrivateKey,
+        }),
+      })),
+    )
+      .then((nextSystemContainers) => {
         if (!cancelled) {
-          setTrashSystemSlot(systemSlot);
+          setSystemContainers(nextSystemContainers);
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setTrashSystemSlot(null);
-          input.logError("Failed to derive explorer trash system slot", error);
+          setSystemContainers([]);
+          input.logError("Failed to derive explorer system slots", error);
         }
       });
 
@@ -116,38 +132,52 @@ function useExplorerTrashSystemSlot(input: {
     };
   }, [input.logError, input.signingPrivateKey]);
 
-  return trashSystemSlot;
+  return systemContainers;
 }
 
-function useEnsureExplorerTrashContainer(input: {
+function useEnsureExplorerSystemContainers(input: {
   containerContentsReady: boolean;
   containerContentsStore: Pick<ContainerContentsStore, "ensureSystemContainer">;
   logError: (message: string | Error, cause?: unknown) => void;
-  shouldProvisionTrashContainer: boolean;
-  trashContainerId: string | null;
-  trashSystemSlot: ContainerSystemSlot | null;
+  nodes: ReadonlyArray<ContainerNode>;
+  shouldProvisionSystemContainers: boolean;
+  systemContainers: ReadonlyArray<ExplorerSystemContainer>;
 }): void {
   useEffect(() => {
     if (
       !input.containerContentsReady ||
-      !input.shouldProvisionTrashContainer ||
-      !input.trashSystemSlot ||
-      input.trashContainerId
+      !input.shouldProvisionSystemContainers ||
+      input.systemContainers.length === 0
     ) {
       return;
     }
 
+    const existingSystemSlots = new Set(
+      input.nodes.flatMap((node) => {
+        const systemSlot = node.systemSlot ?? null;
+        return systemSlot ? [systemSlot] : [];
+      }),
+    );
+    const missingSystemContainers = input.systemContainers.filter(
+      (systemContainer) => !existingSystemSlots.has(systemContainer.systemSlot),
+    );
+    if (missingSystemContainers.length === 0) {
+      return;
+    }
+
     let cancelled = false;
-    void input.containerContentsStore
-      .ensureSystemContainer(
-        input.trashSystemSlot,
-        EXPLORER_TRASH_CONTAINER_NAME,
-      )
-      .catch((error) => {
-        if (!cancelled) {
-          input.logError("Failed to provision explorer trash container", error);
-        }
-      });
+    for (const systemContainer of missingSystemContainers) {
+      void input.containerContentsStore
+        .ensureSystemContainer(systemContainer.systemSlot, systemContainer.name)
+        .catch((error) => {
+          if (!cancelled) {
+            input.logError(
+              `Failed to provision explorer ${systemContainer.name} system container`,
+              error,
+            );
+          }
+        });
+    }
 
     return () => {
       cancelled = true;
@@ -156,9 +186,9 @@ function useEnsureExplorerTrashContainer(input: {
     input.containerContentsReady,
     input.containerContentsStore,
     input.logError,
-    input.shouldProvisionTrashContainer,
-    input.trashContainerId,
-    input.trashSystemSlot,
+    input.nodes,
+    input.shouldProvisionSystemContainers,
+    input.systemContainers,
   ]);
 }
 
@@ -173,17 +203,24 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     () => tearleads.containerContents.store({ logLabel: "Explorer" }),
     [runtime.state.domainScope, tearleads],
   );
-  const trashSystemSlot = useExplorerTrashSystemSlot({
+  const systemContainers = useExplorerSystemContainerSlots({
     logError: tearleads.logError,
     signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
   });
-  const snapshot = useTearleadsExternalStoreSnapshot(store);
-  const trashContainerId = useMemo(
-    () => getExplorerTrashContainerId(snapshot.nodes, trashSystemSlot),
-    [snapshot.nodes, trashSystemSlot],
+  const trashSystemSlot = useMemo(
+    () =>
+      systemContainers.find(
+        (systemContainer) => systemContainer.kind === "trash",
+      )?.systemSlot ?? null,
+    [systemContainers],
   );
+  const snapshot = useTearleadsExternalStoreSnapshot(store);
   const contextValue = useMemo(
-    () => ({ logError: tearleads.logError, store, trashSystemSlot }),
+    () => ({
+      logError: tearleads.logError,
+      store,
+      trashSystemSlot,
+    }),
     [store, tearleads.logError, trashSystemSlot],
   );
 
@@ -191,13 +228,13 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     store.updateRuntime(runtime);
   }, [store, runtime]);
 
-  useEnsureExplorerTrashContainer({
+  useEnsureExplorerSystemContainers({
     containerContentsReady: snapshot.ready,
     containerContentsStore: store,
     logError: tearleads.logError,
-    shouldProvisionTrashContainer: !runtime.auth.isAuthenticated,
-    trashContainerId,
-    trashSystemSlot,
+    nodes: snapshot.nodes,
+    shouldProvisionSystemContainers: !runtime.auth.isAuthenticated,
+    systemContainers,
   });
 
   return (

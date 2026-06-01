@@ -70,6 +70,7 @@ import {
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import {
+  getExplorerSystemContainerId,
   getExplorerTrashContainerId,
   getVisibleExplorerNodes,
 } from "./ExplorerProvider";
@@ -99,7 +100,7 @@ type TestSaveContainerOptions = Parameters<
 >[3];
 const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 
-test("explorer hides app-owned system containers", () => {
+test("explorer shows app-owned system containers", () => {
   expect(
     getVisibleExplorerNodes([
       {
@@ -124,6 +125,9 @@ test("explorer hides app-owned system containers", () => {
     expect.objectContaining({
       id: "root-container",
     }),
+    expect.objectContaining({
+      id: "roster-profile-container",
+    }),
   ]);
 });
 
@@ -132,11 +136,45 @@ test("explorer node helpers tolerate nullish node snapshots", () => {
 
   expect(getVisibleExplorerNodes(null)).toEqual([]);
   expect(getVisibleExplorerNodes(undefined)).toEqual([]);
+  expect(getExplorerSystemContainerId(null, trashSystemSlot)).toBeNull();
+  expect(getExplorerSystemContainerId(undefined, trashSystemSlot)).toBeNull();
   expect(getExplorerTrashContainerId(null, trashSystemSlot)).toBeNull();
   expect(getExplorerTrashContainerId(undefined, trashSystemSlot)).toBeNull();
 });
 
-test("explorer resolves the trash system container from hidden nodes", () => {
+test("explorer resolves system containers by slot", () => {
+  const contactsSystemSlot =
+    "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  expect(
+    getExplorerSystemContainerId(
+      [
+        {
+          id: "contacts-container",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: contactsSystemSlot,
+        },
+        {
+          id: "trash-container",
+          kind: "container",
+          name: "Trash",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: trashSystemSlot,
+        },
+      ],
+      contactsSystemSlot,
+    ),
+  ).toBe("contacts-container");
+});
+
+test("explorer resolves the trash system container from system nodes", () => {
   const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   expect(
