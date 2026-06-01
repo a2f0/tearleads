@@ -1,5 +1,6 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { getUpdateVersionVectors } from "@tearleads/loro";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { PendingUpdateFields } from "./sqlite/documentPersistence";
 
 interface DocumentUpdateCreatedEvent {
@@ -7,6 +8,19 @@ interface DocumentUpdateCreatedEvent {
   containerIds?: string[];
   documentId: string;
   updateIds?: string[];
+}
+
+interface DocumentUpdateCreatedEventCandidate {
+  readonly containerIds?: unknown;
+  readonly documentId?: unknown;
+  readonly type?: unknown;
+  readonly updateIds?: unknown;
+}
+
+function isDocumentUpdateCreatedEventCandidate(
+  event: unknown,
+): event is DocumentUpdateCreatedEventCandidate {
+  return isPlainObject(event);
 }
 
 export function createPendingUpdateFields(
@@ -31,22 +45,16 @@ export function createPendingUpdateFields(
 export function isDocumentUpdateCreatedEvent(
   event: unknown,
 ): event is DocumentUpdateCreatedEvent {
-  if (typeof event !== "object" || event === null) {
+  if (!isDocumentUpdateCreatedEventCandidate(event)) {
     return false;
   }
 
-  const candidate = event as {
-    readonly containerIds?: unknown;
-    readonly documentId?: unknown;
-    readonly type?: unknown;
-    readonly updateIds?: unknown;
-  };
-  const containerIds = candidate.containerIds;
-  const updateIds = candidate.updateIds;
+  const containerIds = event.containerIds;
+  const updateIds = event.updateIds;
 
   return (
-    candidate.type === "document_update_created" &&
-    typeof candidate.documentId === "string" &&
+    event.type === "document_update_created" &&
+    typeof event.documentId === "string" &&
     (containerIds === undefined ||
       (Array.isArray(containerIds) &&
         containerIds.every(

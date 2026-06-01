@@ -1,4 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { BlobBytes, BlobStore } from "../blobContracts";
 import { createMemoryBlobStore } from "./memoryBlobStore";
 import { createOpfsBlobStore, isOpfsBlobStoreSupported } from "./opfsBlobStore";
@@ -60,11 +61,11 @@ function asBlobBytes(bytes: Uint8Array): BlobBytes {
 }
 
 function readRecord(value: unknown, label: string): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isPlainObject(value)) {
     throw new Error(`${label} must be an object.`);
   }
 
-  return value as Record<string, unknown>;
+  return value;
 }
 
 function readString(

@@ -1,4 +1,7 @@
-export type { AccessManifestBundleWireResponse } from "../util";
+export {
+  type AccessManifestBundleWireResponse,
+  isAccessManifestBundleWireResponse,
+} from "../util";
 export {
   type ChallengeErrorResponse,
   type ChallengeResponse,
@@ -71,7 +74,9 @@ export {
   type DocumentLinkSetMutationResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
+  isDocumentContentKeyBundleResponse,
   isDocumentCreateResponse,
+  isDocumentKekTargetsResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
