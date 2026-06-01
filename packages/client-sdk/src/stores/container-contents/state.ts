@@ -61,6 +61,7 @@ export function createContainerContentsStoreState(
   return {
     containersById: new Map(),
     containerParentIdsNeedingHydration: new Set(),
+    documentStoresNeedPriming: true,
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
@@ -115,6 +116,7 @@ export function updateContainerContentsSnapshot(
 function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.containersById = new Map();
   state.containerParentIdsNeedingHydration = new Set();
+  state.documentStoresNeedPriming = true;
   state.initialized = false;
   state.initializePromise = null;
   state.metadataDocumentIdsNeedingSync = new Set();
@@ -163,6 +165,11 @@ export function updateContainerContentsStoreRuntime(
   ) {
     resetContainerContentsStore(state);
     state.lastEventCount = nextRuntime.state.events.length;
+  } else if (
+    state.snapshot.ready &&
+    didRegainContainerContentsSyncPrerequisites(previousRuntime, nextRuntime)
+  ) {
+    state.documentStoresNeedPriming = true;
   }
 
   syncAgent.ensureInitialized();

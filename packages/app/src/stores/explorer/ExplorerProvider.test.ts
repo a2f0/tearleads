@@ -6,6 +6,7 @@ import {
   createDocumentSignerDeviceId,
   createContainerContentsSyncLane as createExplorerContainerContentsSyncLane,
   createContainerParentSyncLane as createExplorerContainerParentSyncLane,
+  createContainerContentsDocumentsRuntime as createExplorerDocumentsRuntime,
   createContainerContentsProjectionUserKeyResolver as createExplorerProjectionUserKeyResolver,
   createContainerContentsStore as createExplorerStore,
   createContainerContentsStoreState as createExplorerStoreState,
@@ -19,6 +20,7 @@ import {
   listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
   loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
   persistedDocumentCreateStateFromResponse,
+  primeDocumentStore,
   replaceDocumentLinks as replaceExplorerDocumentLinks,
   type DocumentRecord as StoredDocumentRecord,
   saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
@@ -1329,6 +1331,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
     const state: ExplorerSyncState = {
       containersById: new Map(),
       containerParentIdsNeedingHydration: new Set(),
+      documentStoresNeedPriming: false,
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
@@ -1450,6 +1453,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
     const state: ExplorerSyncState = {
       containersById: new Map(),
       containerParentIdsNeedingHydration: new Set(),
+      documentStoresNeedPriming: false,
       initializePromise: null,
       initialized: false,
       lastEventCount: 0,
@@ -1605,6 +1609,7 @@ test("explorer sync skips pending metadata updates for containers without docume
         ],
       ]),
       containerParentIdsNeedingHydration: new Set(),
+      documentStoresNeedPriming: false,
       initializePromise: null,
       initialized: true,
       lastEventCount: 0,
@@ -1858,6 +1863,129 @@ test("explorer store queues authenticated child create when parent has no remote
     expect(Number(readSqlRowValue(pendingUpdateRows[0] ?? {}, "count"))).toBe(
       1,
     );
+  } finally {
+    if (store) {
+      store.updateRuntime(
+        runtimeWithPatch(runtime, { dbStatus: "terminated" }),
+      );
+    }
+    runtime.close();
+  }
+});
+
+test("explorer sync primes local document stores after login", async () => {
+  let runtime = await createSqlRuntime();
+  const localKeyPair = generateKemSeedAndKeyPair();
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+  const rootProjection = await createExplorerMetadataContainerProjection({
+    containerId: "root-container",
+    encapsulationPublicKey: localKeyPair.publicKey,
+    organizationId: "org-1",
+    signerKeyFingerprint: signingFingerprint,
+    signerPrivateKey: signingKeyPair.signingPrivateKey,
+    userId: "user-1",
+  });
+  const harness = createExplorerContainerApiHarness([rootProjection]);
+  let store: ReturnType<typeof createExplorerStore> | null = null;
+
+  try {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: "root-metadata-document",
+      name: "/",
+      icon: null,
+    });
+
+    const offlineRuntime = runtimeWithPatch(runtime, {
+      isAuthenticated: false,
+      online: false,
+    });
+    const importedDocumentStore = primeDocumentStore(
+      offlineRuntime.state.domainScope,
+      "uploaded-text-note",
+      createExplorerDocumentsRuntime(offlineRuntime, "root-container"),
+      null,
+      "Uploaded text",
+    );
+    await importedDocumentStore.ensureInitialized();
+
+    store = createExplorerStore(offlineRuntime);
+    store.updateRuntime(offlineRuntime);
+
+    await waitForCondition(
+      () => store?.getSnapshot().ready === true,
+      "Offline explorer store did not become ready.",
+    );
+    expect(importedDocumentStore.getSnapshot().documentId).toBeNull();
+
+    runtime = runtimeWithPatch(runtime, {
+      apiClient: createMockApiClient({
+        ...runtime.apiClient,
+        ...harness.apiClient,
+        getEncapsulationKey: async (requestedUserId: string) => ({
+          encapsulationPublicKey: bytesToBase64(localKeyPair.publicKey),
+          signingKeyFingerprint: signingFingerprint,
+          signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+          userId: requestedUserId,
+        }),
+        listContainers: async (options = {}) =>
+          options.parentId === null || options.parentId === undefined
+            ? listContainersResponse([
+                listedContainer({
+                  id: "root-container",
+                  metadataAccessEpoch: 1,
+                  metadataAccessStateHash: "root-access-state-hash-1",
+                  metadataDocumentId: "root-metadata-document",
+                  organizationId: "org-1",
+                  parentId: null,
+                }),
+              ])
+            : listContainersResponse(),
+      }),
+      encapsulationKeyPair: localKeyPair,
+      isAuthenticated: true,
+      online: true,
+      organizationId: "org-1",
+      signingFingerprint,
+      signingKeyPair,
+      userId: "user-1",
+    });
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () =>
+        importedDocumentStore.getSnapshot().documentId !== null &&
+        !importedDocumentStore.getSnapshot().syncing,
+      "Imported local document did not sync after Explorer login.",
+    );
+
+    const documentId = importedDocumentStore.getSnapshot().documentId;
+    const persistedDocument = await defaultDocumentsPersistence.loadDocument(
+      runtime.infra.execSql,
+      "uploaded-text-note",
+    );
+    expect(documentId).toBeString();
+    expect(persistedDocument?.documentId).toBe(documentId);
+    expect(harness.documentCreateCalls).toEqual([
+      expect.objectContaining({
+        containerId: "root-container",
+        documentId,
+      }),
+    ]);
+    expect(harness.documentSyncCalls).toEqual([
+      expect.objectContaining({
+        documentId,
+        outgoingUpdateCount: 1,
+      }),
+    ]);
   } finally {
     if (store) {
       store.updateRuntime(
