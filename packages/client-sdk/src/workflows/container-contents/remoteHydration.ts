@@ -400,7 +400,10 @@ export function createRemoteContainerIngestor(input: {
   };
 }
 
-function createContainerParentHydrationQueue(containerIds: Iterable<string>): {
+function createContainerParentHydrationQueue(input: {
+  containerIds: Iterable<string>;
+  parentIds?: Iterable<string | null> | undefined;
+}): {
   lanes: ContainerParentHydrationLane[];
   queueParentLane: QueueContainerParentLane;
 } {
@@ -416,9 +419,15 @@ function createContainerParentHydrationQueue(containerIds: Iterable<string>): {
     lanes.push({ parentId });
   };
 
-  queueParentLane(null);
-  for (const containerId of containerIds) {
-    queueParentLane(containerId);
+  if (input.parentIds) {
+    for (const parentId of input.parentIds) {
+      queueParentLane(parentId);
+    }
+  } else {
+    queueParentLane(null);
+    for (const containerId of input.containerIds) {
+      queueParentLane(containerId);
+    }
   }
 
   return { lanes, queueParentLane };
@@ -875,6 +884,7 @@ async function hydrateContainerParentLanes(input: {
 
 export async function hydrateRemoteContainers(input: {
   host: RemoteContainerHydrationHost;
+  parentIds?: ReadonlyArray<string | null> | undefined;
   state: RemoteContainerHydrationState;
 }): Promise<void> {
   const { host, state } = input;
@@ -884,9 +894,10 @@ export async function hydrateRemoteContainers(input: {
 
   const seenContainerIds = new Set<string>();
   const childIdsByParentId = createContainerChildIndex(state.containersById);
-  const { lanes, queueParentLane } = createContainerParentHydrationQueue(
-    state.containersById.keys(),
-  );
+  const { lanes, queueParentLane } = createContainerParentHydrationQueue({
+    containerIds: state.containersById.keys(),
+    parentIds: input.parentIds,
+  });
   const { changedCount } = await hydrateContainerParentLanes({
     childIdsByParentId,
     host,

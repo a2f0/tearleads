@@ -60,6 +60,7 @@ export function createContainerContentsStoreState(
 ): ContainerContentsStoreState {
   return {
     containersById: new Map(),
+    containerParentIdsNeedingHydration: new Set(),
     initializePromise: null,
     initialized: false,
     lastEventCount: 0,
@@ -67,6 +68,7 @@ export function createContainerContentsStoreState(
     logLabel,
     metadataDocumentIdsNeedingSync: new Set(),
     persistence,
+    recentContainerMutationHydrationAt: null,
     remoteHydrationPromise: null,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
@@ -112,9 +114,11 @@ export function updateContainerContentsSnapshot(
 
 function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.containersById = new Map();
+  state.containerParentIdsNeedingHydration = new Set();
   state.initialized = false;
   state.initializePromise = null;
   state.metadataDocumentIdsNeedingSync = new Set();
+  state.recentContainerMutationHydrationAt = null;
   state.remoteHydrationPromise = null;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setContainerContentsSnapshot(state, {
