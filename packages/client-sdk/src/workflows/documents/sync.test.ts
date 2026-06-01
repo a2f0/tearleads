@@ -720,7 +720,7 @@ test("syncRemoteDocument uses persisted state for clean read-only sync probes", 
   expect(synced?.writerProjection).toBeUndefined();
 });
 
-test("syncRemoteDocument uses one projection fetch to process persisted read-only response updates", async () => {
+test("syncRemoteDocument reuses a writer projection to process persisted read-only response updates", async () => {
   const {
     author,
     resolveProjectionUserKey,
@@ -787,12 +787,13 @@ test("syncRemoteDocument uses one projection fetch to process persisted read-onl
     persistedState: persistedStateFromWriterProjection(writerProjection),
     resolveProjectionUserKey,
     targetSecretKey: secretKey,
+    writerProjection,
     writerPublicKeysByFingerprint: new Map([
       [author.signerKeyFingerprint, signingPublicKey],
     ]),
   });
 
-  expect(projectionRequestCount).toBe(1);
+  expect(projectionRequestCount).toBe(0);
   expect(submittedRequests).toHaveLength(1);
   expect(
     new TextDecoder().decode(synced?.decryptedUpdates[0]?.updateData),

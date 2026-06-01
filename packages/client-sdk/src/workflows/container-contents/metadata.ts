@@ -5,6 +5,7 @@ import {
   exportUpdatesSince,
   importUpdates,
 } from "@tearleads/loro";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   type ContainerMetadataDocument,
   getDefaultContainerName,
@@ -60,6 +61,10 @@ interface ContainerMetadataSyncAttempt {
 interface ContainerMetadataState {
   container: ContainerRecord;
   doc: ContainerMetadataDocument;
+  metadataWriterProjection?:
+    | DocumentWriterProjectionResponse
+    | null
+    | undefined;
   record: DocumentRecord;
 }
 
@@ -397,6 +402,7 @@ async function syncRemoteContainerMetadata(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
   targetSecretKey: Uint8Array;
+  writerProjection?: DocumentWriterProjectionResponse | undefined;
 }): Promise<ContainerMetadataSyncAttempt | null> {
   const {
     containerId,
@@ -408,6 +414,7 @@ async function syncRemoteContainerMetadata(input: {
     resolveProjectionUserKey,
     runtime,
     targetSecretKey,
+    writerProjection,
   } = input;
   const execSql = runtime.infra.execSql;
 
@@ -440,6 +447,7 @@ async function syncRemoteContainerMetadata(input: {
       writerKeyLabel: "metadata writer key",
     }),
     targetSecretKey,
+    writerProjection,
   }).catch((error: unknown) => {
     if (isStaleContainerMetadataSecurityStateError(error)) {
       runtime.util.log(
@@ -458,6 +466,43 @@ async function syncRemoteContainerMetadata(input: {
     outgoingUpdateCount: pendingUpdates.length,
     synced,
   };
+}
+
+function documentWriterProjectionMatchesMetadataSyncResponse(
+  writerProjection: DocumentWriterProjectionResponse,
+  synced: ContainerMetadataSyncAttempt["synced"],
+): boolean {
+  return (
+    writerProjection.contentKeyBundle.contentKeyEpoch ===
+      synced.response.contentKeyBundle.contentKeyEpoch &&
+    writerProjection.contentKeyBundle.linkSetManifestHash ===
+      synced.response.contentKeyBundle.linkSetManifestHash &&
+    writerProjection.contentKeyBundle.targetHash ===
+      synced.response.contentKeyBundle.targetHash &&
+    writerProjection.documentKekTargets.linkSetManifestHash ===
+      synced.response.documentKekTargets.linkSetManifestHash &&
+    writerProjection.documentKekTargets.documentKeyTargetHash ===
+      synced.response.documentKekTargets.documentKeyTargetHash
+  );
+}
+
+function resolveSyncedContainerMetadataWriterProjection(
+  metadataState: ContainerMetadataState,
+  synced: ContainerMetadataSyncAttempt["synced"],
+): DocumentWriterProjectionResponse | null {
+  const writerProjection =
+    synced.writerProjection ??
+    (metadataState.metadataWriterProjection?.documentId ===
+    synced.plan.documentId
+      ? metadataState.metadataWriterProjection
+      : null);
+  return writerProjection &&
+    documentWriterProjectionMatchesMetadataSyncResponse(
+      writerProjection,
+      synced,
+    )
+    ? writerProjection
+    : null;
 }
 
 export async function syncContainerMetadataState(input: {
@@ -503,12 +548,18 @@ export async function syncContainerMetadataState(input: {
     resolveProjectionUserKey,
     runtime,
     targetSecretKey,
+    writerProjection:
+      metadataState.metadataWriterProjection?.documentId === documentId
+        ? metadataState.metadataWriterProjection
+        : undefined,
   });
   if (!syncAttempt) {
     return null;
   }
 
   const { outgoingUpdateCount, synced } = syncAttempt;
+  metadataState.metadataWriterProjection =
+    resolveSyncedContainerMetadataWriterProjection(metadataState, synced);
   if (synced.decryptedUpdates.length > 0) {
     importUpdates(
       metadataState.doc,

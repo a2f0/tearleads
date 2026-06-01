@@ -160,6 +160,7 @@ export interface UploadDocumentAttachmentResult {
   byteLength: number;
   writeHeader: WriteHeader;
   writeHeaderHash: string;
+  writerProjection: DocumentWriterProjectionResponse;
 }
 
 export interface DecryptDocumentAttachmentBlobInput {

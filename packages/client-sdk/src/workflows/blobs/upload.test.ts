@@ -113,6 +113,7 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
   });
 
   expect(uploaded?.blobId).toBe(blobId);
+  expect(uploaded?.writerProjection).toBe(writerProjection);
   if (!stagedEncryptedRecord) {
     throw new Error("Expected staged encrypted blob record.");
   }

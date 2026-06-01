@@ -1,4 +1,5 @@
 import type { DomainScope } from "../../data/domainScope";
+import { getCachedContainerWriterProjection } from "../../workflows/container-contents/container-state/projectionCache";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
@@ -53,29 +54,44 @@ function applyContainerContentsStoreOptions(
   }
 }
 
+function getCachedContainerWriterProjectionForStore(
+  state: ContainerContentsStoreState,
+  containerId: string,
+) {
+  const containerState = state.containersById.get(containerId);
+  return containerState
+    ? getCachedContainerWriterProjection(containerState)
+    : null;
+}
+
+function createContainerContentsStoreSyncHost(
+  state: ContainerContentsStoreState,
+): Parameters<typeof createContainerContentsStoreSyncAgent>[0]["host"] {
+  return {
+    persistContainerState: (containerState, patch, updateView, saveOptions) =>
+      persistContainerState(
+        state,
+        containerState,
+        patch,
+        updateView,
+        saveOptions,
+      ),
+    updateSnapshot: () => updateContainerContentsSnapshot(state),
+  };
+}
+
 function createContainerContentsStoreEntry(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence = defaultContainerContentsPersistence,
   options: ContainerContentsStoreOptions = {},
 ): ContainerContentsStoreEntry {
-  const initialPersistence = options.persistence ?? persistence;
   const state = createContainerContentsStoreState(
     initialRuntime,
-    initialPersistence,
+    options.persistence ?? persistence,
     options.logLabel,
   );
   const syncAgent = createContainerContentsStoreSyncAgent({
-    host: {
-      persistContainerState: (containerState, patch, updateView, saveOptions) =>
-        persistContainerState(
-          state,
-          containerState,
-          patch,
-          updateView,
-          saveOptions,
-        ),
-      updateSnapshot: () => updateContainerContentsSnapshot(state),
-    },
+    host: createContainerContentsStoreSyncHost(state),
     state,
   });
 
@@ -136,6 +152,8 @@ function createContainerContentsStoreEntry(
           );
         return state.writeChain.then((sharedNode) => sharedNode !== null);
       },
+      getCachedContainerWriterProjection: (containerId) =>
+        getCachedContainerWriterProjectionForStore(state, containerId),
       getSnapshot: () => state.snapshot,
       subscribe: (listener) =>
         subscribeToContainerContentsStore(state, listener),

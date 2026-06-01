@@ -676,6 +676,7 @@ export async function uploadDocumentAttachment({
   return {
     blobId,
     bindingId,
+    writerProjection: material.writerProjection,
     ...result,
   };
 }

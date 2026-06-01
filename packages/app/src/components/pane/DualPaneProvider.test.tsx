@@ -65,11 +65,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   total: 58,
   byRequest: {
     "GET /documents/:documentId/writer-projection": 11,
-    "POST /documents/:documentId/sync": 12,
+    "POST /documents/:documentId/sync": 13,
     "GET /containers/:containerId/documents": 6,
     "GET /containers": 12,
     "GET /auth/encapsulation-key/:userId": 4,
-    "GET /containers/:containerId/writer-projection": 4,
+    "GET /containers/:containerId/writer-projection": 1,
     "GET /documents/:documentId/attachments": 1,
     "GET /organizations/:organizationId/groups": 3,
   },

@@ -455,6 +455,45 @@ async function syncRemoteDocumentResultFromResponse(input: {
   };
 }
 
+async function completeReadOnlyRemoteDocumentSyncWithProjection(input: {
+  author: DocumentCreateAuthor;
+  documentId: string;
+  execSql?: ExecSql | undefined;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  response: DocumentSyncResponse;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  writerProjection: DocumentWriterProjectionResponse;
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}): Promise<SyncRemoteDocumentResult> {
+  const materializedPlan = await buildMaterializedDocumentSyncPlan({
+    author: input.author,
+    execSql: input.execSql,
+    localVersionVector: input.localVersionVector,
+    minLsn: input.minLsn,
+    pendingUpdates: [],
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    signedAt: input.signedAt,
+    targetSecretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
+  });
+
+  return syncRemoteDocumentResultFromResponse({
+    execSql: input.execSql,
+    materializedPlan,
+    recoveryPendingUpdatesById: new Map(),
+    resolveProjectionUserKey: input.resolveProjectionUserKey,
+    resolveWriterPublicKey: input.resolveWriterPublicKey,
+    response: input.response,
+    targetSecretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
+    writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
+  });
+}
+
 function parsePersistedDocumentSyncRecord<T>(
   value: string | null | undefined,
   label: string,
@@ -547,6 +586,75 @@ type PersistedReadOnlyDocumentSyncResult =
       kind: "skipped";
     };
 
+interface ReadOnlyDocumentSyncCompletionInput {
+  apiClient: DocumentSyncApi;
+  author: DocumentCreateAuthor;
+  documentId: string;
+  execSql?: ExecSql | undefined;
+  localVersionVector: string | null;
+  minLsn?: string | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
+  response: DocumentSyncResponse;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+  writerProjection?: DocumentWriterProjectionResponse | undefined;
+  writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
+}
+
+async function tryCompleteReadOnlyRemoteDocumentSyncWithProjection(input: {
+  completion: ReadOnlyDocumentSyncCompletionInput;
+  writerProjection: DocumentWriterProjectionResponse;
+}): Promise<SyncRemoteDocumentResult | null> {
+  try {
+    return await completeReadOnlyRemoteDocumentSyncWithProjection({
+      ...input.completion,
+      writerProjection: input.writerProjection,
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function completeReadOnlyRemoteDocumentSyncWithUpdates(
+  input: ReadOnlyDocumentSyncCompletionInput,
+): Promise<PersistedReadOnlyDocumentSyncResult> {
+  const reusableWriterProjection =
+    input.writerProjection?.documentId === input.documentId
+      ? input.writerProjection
+      : null;
+  const writerProjection =
+    reusableWriterProjection ??
+    (await input.apiClient.getDocumentWriterProjection(input.documentId));
+  if (!writerProjection) {
+    return { kind: "completed", result: null };
+  }
+
+  const result = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection({
+    completion: input,
+    writerProjection,
+  });
+  if (result || !reusableWriterProjection) {
+    return { kind: "completed", result };
+  }
+
+  const freshWriterProjection =
+    await input.apiClient.getDocumentWriterProjection(input.documentId);
+  if (!freshWriterProjection) {
+    return { kind: "completed", result: null };
+  }
+
+  const freshResult = await tryCompleteReadOnlyRemoteDocumentSyncWithProjection(
+    {
+      completion: input,
+      writerProjection: freshWriterProjection,
+    },
+  );
+  return freshResult
+    ? { kind: "completed", result: freshResult }
+    : { kind: "retry_with_projection" };
+}
+
 async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   apiClient: DocumentSyncApi;
   author: DocumentCreateAuthor;
@@ -559,6 +667,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
   signedAt?: string | undefined;
   targetSecretKey: Uint8Array;
+  writerProjection?: DocumentWriterProjectionResponse | undefined;
   writerPublicKeysByFingerprint?: ReadonlyMap<string, Uint8Array> | undefined;
 }): Promise<PersistedReadOnlyDocumentSyncResult> {
   let plan: DocumentSyncPlan | null;
@@ -588,43 +697,10 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   }
 
   if (submitted.response.updates.length > 0) {
-    const writerProjection = await input.apiClient.getDocumentWriterProjection(
-      input.documentId,
-    );
-    if (!writerProjection) {
-      return { kind: "completed", result: null };
-    }
-
-    try {
-      const materializedPlan = await buildMaterializedDocumentSyncPlan({
-        author: input.author,
-        execSql: input.execSql,
-        localVersionVector: input.localVersionVector,
-        minLsn: input.minLsn,
-        pendingUpdates: [],
-        resolveProjectionUserKey: input.resolveProjectionUserKey,
-        signedAt: input.signedAt,
-        targetSecretKey: input.targetSecretKey,
-        writerProjection,
-      });
-
-      return {
-        kind: "completed",
-        result: await syncRemoteDocumentResultFromResponse({
-          execSql: input.execSql,
-          materializedPlan,
-          recoveryPendingUpdatesById: new Map(),
-          resolveProjectionUserKey: input.resolveProjectionUserKey,
-          resolveWriterPublicKey: input.resolveWriterPublicKey,
-          response: submitted.response,
-          targetSecretKey: input.targetSecretKey,
-          writerProjection,
-          writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
-        }),
-      };
-    } catch {
-      return { kind: "retry_with_projection" };
-    }
+    return completeReadOnlyRemoteDocumentSyncWithUpdates({
+      ...input,
+      response: submitted.response,
+    });
   }
 
   try {
@@ -873,6 +949,7 @@ async function tryPersistedReadOnlyDocumentSync(
     resolveWriterPublicKey: input.resolveWriterPublicKey,
     signedAt: input.signedAt,
     targetSecretKey: input.targetSecretKey,
+    writerProjection: input.writerProjection,
     writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
   });
 }

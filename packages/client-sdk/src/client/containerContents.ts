@@ -486,9 +486,12 @@ class ContainerContentsService implements ContainerContents {
 
   loadInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
     const runtime = this.runtimeService.workflowInput();
+    const cachedContainerProjection =
+      this.store().getCachedContainerWriterProjection(input.containerId);
     return loadContainerInfo({
       ...input,
       apiClient: runtime.apiClient,
+      containerProjection: cachedContainerProjection,
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
       organizationId: runtime.auth.organizationId,

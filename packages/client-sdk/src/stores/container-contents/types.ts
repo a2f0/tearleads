@@ -1,4 +1,5 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type {
@@ -86,6 +87,9 @@ export interface ContainerContentsStore {
     accessLevel: ContainerContentsShareAccessLevel,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
+  getCachedContainerWriterProjection: (
+    containerId: string,
+  ) => ContainerWriterProjectionResponse | null;
   getSnapshot: () => ContainerContentsSnapshot;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;

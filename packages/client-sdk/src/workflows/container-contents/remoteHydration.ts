@@ -143,6 +143,7 @@ async function updateExistingRemoteContainerState(input: {
     existingState.container,
     remoteContainer,
   );
+  existingState.containerWriterProjection = null;
   existingState.record = await host.persistContainerState(
     existingState,
     {
