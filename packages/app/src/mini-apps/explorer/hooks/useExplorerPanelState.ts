@@ -74,6 +74,7 @@ const explorerDroppedFileImportLabels: ExplorerDroppedFileImportLabels = {
 export interface ExplorerPanelState {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   contextMenuState: ExplorerContextMenuModel;
+  deleteDocument: ExplorerDocumentMutationAction;
   importDroppedFiles: ImportExplorerDroppedFiles;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
@@ -210,9 +211,43 @@ export function useExplorerPanelState(params: {
     logError: appData.util.logError,
     mergeDocumentSummary,
   });
+  const deleteDocument = useCallback(
+    async (noteId: string, currentContainerId: string) => {
+      try {
+        const trashContainerId =
+          explorer.trashContainerId ??
+          (await explorer.ensureTrashContainer())?.id;
+        if (!trashContainerId || trashContainerId === currentContainerId) {
+          return null;
+        }
+
+        const deletedDocument = await selectedNoteStructuralState.moveDocument(
+          noteId,
+          trashContainerId,
+        );
+        if (deletedDocument) {
+          routeState.selectExplorerItem(currentContainerId);
+        }
+
+        return deletedDocument;
+      } catch (error) {
+        appData.util.logError("Failed to delete explorer document", error);
+        return null;
+      }
+    },
+    [
+      appData.util.logError,
+      explorer.ensureTrashContainer,
+      explorer.trashContainerId,
+      routeState.selectExplorerItem,
+      selectedNoteStructuralState.moveDocument,
+    ],
+  );
+
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
     contextMenuState,
+    deleteDocument,
     importDroppedFiles,
     loadBlobInfo,
     loadContainerInfo,

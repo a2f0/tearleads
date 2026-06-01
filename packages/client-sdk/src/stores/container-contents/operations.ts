@@ -120,6 +120,14 @@ function findSystemContainerState(
 function findRootContainerState(
   state: ContainerContentsStoreState,
 ): ContainerState | null {
+  const defaultContainerId = state.runtime.state.containerId;
+  if (defaultContainerId) {
+    const defaultRootState = state.containersById.get(defaultContainerId);
+    if (defaultRootState?.container.parentId === null) {
+      return defaultRootState;
+    }
+  }
+
   for (const containerState of state.containersById.values()) {
     if (containerState.container.parentId === null) {
       return containerState;

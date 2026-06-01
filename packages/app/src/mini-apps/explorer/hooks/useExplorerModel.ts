@@ -23,10 +23,12 @@ import type { ExplorerSelectionState } from "./useExplorerSelection";
 interface ExplorerModel {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   canActivateSelectedDocument: boolean;
+  canDeleteSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
+  deleteDocument: ExplorerPanelState["deleteDocument"];
   documentListRevision: number;
   documentReadModel: ContainerDocumentReadModel;
   explorer: ExplorerModelExplorer;
@@ -90,6 +92,7 @@ export function useExplorerModel(
   const {
     activateLinkedContainer,
     contextMenuState,
+    deleteDocument,
     importDroppedFiles,
     loadBlobInfo,
     loadContainerInfo,
@@ -121,16 +124,19 @@ export function useExplorerModel(
   });
   const selectedDocumentMutationState = getSelectedDocumentMutationState({
     appData,
+    canResolveTrashContainer: explorer.canResolveTrashContainer,
     selectedDocument: selection.selectedDocument,
     selectedDocumentLinkTargetOptions,
     selectedDocumentLinkedContainerIds,
     selectedDocumentMoveTargetOptions,
+    trashContainerId: explorer.trashContainerId,
   });
 
   return {
     activateLinkedContainer,
     ...selectedDocumentMutationState,
     contextMenuState,
+    deleteDocument,
     documentListRevision,
     documentReadModel,
     explorer,

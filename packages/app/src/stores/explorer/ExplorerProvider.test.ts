@@ -69,7 +69,10 @@ import {
   assertWriteHeader,
 } from "../../../test/helpers/keyingAssertions";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { getVisibleExplorerNodes } from "./ExplorerProvider";
+import {
+  getExplorerTrashContainerId,
+  getVisibleExplorerNodes,
+} from "./ExplorerProvider";
 
 type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
 type TestRuntime = ExplorerRuntime & { close: () => void };
@@ -122,6 +125,67 @@ test("explorer hides app-owned system containers", () => {
       id: "root-container",
     }),
   ]);
+});
+
+test("explorer node helpers tolerate nullish node snapshots", () => {
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  expect(getVisibleExplorerNodes(null)).toEqual([]);
+  expect(getVisibleExplorerNodes(undefined)).toEqual([]);
+  expect(getExplorerTrashContainerId(null, trashSystemSlot)).toBeNull();
+  expect(getExplorerTrashContainerId(undefined, trashSystemSlot)).toBeNull();
+});
+
+test("explorer resolves the trash system container from hidden nodes", () => {
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  expect(
+    getExplorerTrashContainerId(
+      [
+        {
+          id: "root-container",
+          kind: "container",
+          name: "/",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+        {
+          id: "trash-container",
+          kind: "container",
+          name: "Trash",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: trashSystemSlot,
+        },
+      ],
+      trashSystemSlot,
+    ),
+  ).toBe("trash-container");
+});
+
+test("explorer resolves local-only trash containers", () => {
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  expect(
+    getExplorerTrashContainerId(
+      [
+        {
+          id: "trash-container",
+          kind: "container",
+          name: "Trash",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: createContainerDocumentObjectSyncState({
+            localOnly: true,
+          }),
+          systemSlot: trashSystemSlot,
+        },
+      ],
+      trashSystemSlot,
+    ),
+  ).toBe("trash-container");
 });
 
 function listedContainer(

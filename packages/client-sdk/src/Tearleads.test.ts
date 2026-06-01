@@ -457,6 +457,7 @@ describe("Tearleads", () => {
     ).toBe("container-2");
     expect(documentLinksRuntime.resolveProjectionUserKey).toBeFunction();
     expect(documentLinksRuntime.canMutateDocumentLinks).toBe(true);
+    expect(documentLinksRuntime.canMutateLocalDocumentLinks).toBe(true);
     expect(documentLinksRuntime.primeDocumentStore).toBeFunction();
     expect(documentLinksRuntime.moveDocumentToContainer).toBeFunction();
     expect(documentLinksRuntime.linkDocumentToContainer).toBeFunction();

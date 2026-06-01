@@ -1,4 +1,5 @@
 import type { DocumentSummary } from "../../data/documentSummary";
+import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import type { RelinkPersistedDocumentInput } from "../documents";
 import {
   linkRemoteContainerDocument,
@@ -48,7 +49,7 @@ export interface DocumentStructuralMutationHost<TRuntime> {
   mergeDocumentSummary: MergeDocumentSummary;
   primeDocumentStore: (input: {
     containerId: string;
-    documentId: string;
+    documentId: string | null;
     localId: string;
   }) => DocumentStructuralMutationLocalStore<TRuntime>;
 }
@@ -56,6 +57,7 @@ export interface DocumentStructuralMutationHost<TRuntime> {
 interface DocumentStructuralMutationInput<TRuntime> {
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
+  requireDocumentId: boolean;
   runtime: DocumentStructuralMutationRuntime;
 }
 
@@ -74,12 +76,19 @@ export function canMutateDocumentLink(runtime: {
   );
 }
 
+export function canMutateLocalDocumentLink(runtime: {
+  readonly infra: Pick<DocumentStructuralMutationRuntime["infra"], "dbStatus">;
+}): boolean {
+  return runtime.infra.dbStatus === "ready";
+}
+
 async function primeDocumentStoreForStructuralMutation<TRuntime>({
   host,
   note,
+  requireDocumentId,
   runtime,
 }: DocumentStructuralMutationInput<TRuntime>) {
-  if (!note.containerId || !note.documentId) {
+  if (!note.containerId || (requireDocumentId && !note.documentId)) {
     return null;
   }
 
@@ -122,17 +131,12 @@ async function relinkContainerDocumentLocally<TRuntime>(params: {
     runtime,
     targetContainerId,
   } = params;
-  const documentId = note.documentId;
-  if (!documentId) {
-    return null;
-  }
-
   const relinkedNote = await currentDocumentStore.relink({
     accessEpoch,
     ...(accessStateHash === undefined ? {} : { accessStateHash }),
     containerId: targetContainerId,
     ...remoteState,
-    documentId,
+    documentId: note.documentId,
     localId: note.id,
     queueBaselineAfterRelink,
   });
@@ -165,6 +169,48 @@ function relinkDocumentAfterStructuralMutation<TRuntime>(
   });
 }
 
+export async function moveLocalDocumentLinkState<TRuntime>(params: {
+  expandNode: (nodeId: string) => void;
+  host: DocumentStructuralMutationHost<TRuntime>;
+  note: DocumentSummary;
+  runtime: DocumentStructuralMutationRuntime;
+  targetContainerId: string;
+}): Promise<DocumentSummary | null> {
+  const { expandNode, host, note, runtime, targetContainerId } = params;
+  if (!note.containerId || note.containerId === targetContainerId) {
+    return null;
+  }
+
+  const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
+    host,
+    note,
+    requireDocumentId: false,
+    runtime,
+  });
+  if (!currentDocumentStore) {
+    return null;
+  }
+
+  const movedNote = await relinkContainerDocumentLocally({
+    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
+    currentDocumentStore,
+    host,
+    note,
+    requestSync: true,
+    runtime,
+    targetContainerId,
+  });
+  if (!movedNote) {
+    return null;
+  }
+
+  expandNode(targetContainerId);
+  runtime.util.log(
+    `Container contents: moved local note ${movedNote.id} to ${targetContainerId}`,
+  );
+  return movedNote;
+}
+
 export async function moveDocumentLinkState<TRuntime>(params: {
   expandNode: (nodeId: string) => void;
   host: DocumentStructuralMutationHost<TRuntime>;
@@ -181,17 +227,26 @@ export async function moveDocumentLinkState<TRuntime>(params: {
     setLinkedContainerIdsForDocument,
     targetContainerId,
   } = params;
-  if (
-    !note.documentId ||
-    !note.containerId ||
-    note.containerId === targetContainerId
-  ) {
+  if (!note.containerId || note.containerId === targetContainerId) {
     return { linksChanged: false, note: null };
+  }
+  if (!note.documentId) {
+    return {
+      linksChanged: false,
+      note: await moveLocalDocumentLinkState({
+        expandNode,
+        host,
+        note,
+        runtime,
+        targetContainerId,
+      }),
+    };
   }
 
   const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
     host,
     note,
+    requireDocumentId: true,
     runtime,
   });
   if (!currentDocumentStore) {
@@ -261,6 +316,7 @@ export async function linkDocumentLinkState<TRuntime>(params: {
   const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
     host,
     note,
+    requireDocumentId: true,
     runtime,
   });
   if (!currentDocumentStore) {
@@ -324,6 +380,7 @@ export async function unlinkDocumentLinkState<TRuntime>(params: {
   const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
     host,
     note,
+    requireDocumentId: true,
     runtime,
   });
   if (!currentDocumentStore) {
@@ -395,6 +452,7 @@ export async function activateDocumentLinkState<TRuntime>(params: {
   const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
     host,
     note,
+    requireDocumentId: true,
     runtime,
   });
   if (!currentDocumentStore) {

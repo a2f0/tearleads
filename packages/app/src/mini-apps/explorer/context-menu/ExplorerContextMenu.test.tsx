@@ -23,22 +23,29 @@ const rootNode: ContainerNode = {
 };
 
 function ExplorerContextMenuLayerHarness(params: {
+  canDeleteSelectedDocument?: boolean;
+  contextMenu?: ExplorerContextMenuState | null;
+  deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   importDroppedFiles: ImportExplorerDroppedFiles;
 }) {
   const [contextMenu, setContextMenu] =
-    useState<ExplorerContextMenuState | null>({
-      id: { kind: "container", containerId: rootNode.id },
-      position: { x: 12, y: 34 },
-    });
+    useState<ExplorerContextMenuState | null>(
+      params.contextMenu ?? {
+        id: { kind: "container", containerId: rootNode.id },
+        position: { x: 12, y: 34 },
+      },
+    );
 
   return (
     <ExplorerContextMenuLayer
       canDeleteContextMenuNode={false}
+      canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
       canLinkSelectedDocument={false}
       canMoveContextMenuNode={false}
       canMoveSelectedDocument={false}
       closeContextMenu={() => setContextMenu(null)}
       contextMenu={contextMenu}
+      deleteDocument={params.deleteDocument ?? (async () => null)}
       importDroppedFiles={params.importDroppedFiles}
       openContainerInfoRoute={() => {}}
       openCreateChildModal={() => {}}
@@ -95,4 +102,42 @@ test("container upload uses the target captured before opening the file picker",
   expect(imports[0]?.containerId).toBe(rootNode.id);
   expect(imports[0]?.files).toEqual(uploadedFiles);
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
+});
+
+test("document context menu deletes the selected document", async () => {
+  const deletes: Array<{ containerId: string; localId: string }> = [];
+  const importDroppedFiles: ImportExplorerDroppedFiles = async () => ({
+    completedCount: 0,
+    failedCount: 0,
+    importedCount: 0,
+    importedDocuments: [],
+    totalCount: 0,
+  });
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      canDeleteSelectedDocument
+      contextMenu={{
+        id: {
+          kind: "document",
+          containerId: rootNode.id,
+          localId: "document-1",
+        },
+        position: { x: 12, y: 34 },
+      }}
+      deleteDocument={async (localId, containerId) => {
+        deletes.push({ containerId, localId });
+        return null;
+      }}
+      importDroppedFiles={importDroppedFiles}
+    />,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "Delete" }));
+
+  await waitFor(() => {
+    expect(deletes).toEqual([
+      { containerId: rootNode.id, localId: "document-1" },
+    ]);
+  });
+  expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
 });
