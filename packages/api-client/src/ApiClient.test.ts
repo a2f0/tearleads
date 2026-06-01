@@ -58,6 +58,16 @@ function textStream(value: string): ReadableStream<Uint8Array> {
   });
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
 function createContainerMutationRequest(): ContainerMutationRequest {
   return {
     event: { eventType: "container.create" },
@@ -117,6 +127,17 @@ function createContainerDeleteResponse() {
   return {
     containerId: "container-1",
     deletedAt: "2026-05-06T18:00:00.000Z",
+  };
+}
+
+function createContainerWriterProjectionResponse() {
+  const mutationResponse = createContainerMutationResponse();
+
+  return {
+    containerId: mutationResponse.containerId,
+    organizationId: mutationResponse.organizationId,
+    path: [mutationResponse.accessManifest],
+    containerKeks: [mutationResponse.containerKek],
   };
 }
 
@@ -263,6 +284,18 @@ function createDocumentSyncResponse() {
   };
 }
 
+function createDocumentWriterProjectionResponse() {
+  const mutationResponse = createDocumentLinkSetMutationResponse();
+
+  return {
+    documentId: mutationResponse.id,
+    documentManifest: mutationResponse.accessManifest,
+    documentKekTargets: mutationResponse.documentKekTargets,
+    contentKeyBundle: mutationResponse.contentKeyBundle,
+    authorizingContainerPaths: [createContainerWriterProjectionResponse()],
+  };
+}
+
 function createPrincipalStateRequest(): PutPrincipalStateRequest {
   return {
     state: {
@@ -326,6 +359,26 @@ function createOrganizationGroupRequest(): CreateOrganizationGroupRequest {
   };
 }
 
+function createEncapsulationKeyResponse(userId: string) {
+  return {
+    encapsulationPublicKey: "encapsulation-key",
+    signingKeyFingerprint: "a".repeat(64),
+    signingPublicKey: "signing-key",
+    userId,
+  };
+}
+
+function createOrganizationGroupSummary(organizationId: string) {
+  return {
+    groupId: "group-1",
+    organizationId,
+    name: "Operators",
+    createdAt: "2026-05-12T12:00:00.000Z",
+    isBuiltin: false,
+    currentState: null,
+  };
+}
+
 test("normalizes base URL and includes authorization headers", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
@@ -386,12 +439,9 @@ test("escapes dynamic route path segments", async () => {
       `${apiBaseUrl}/auth/encapsulation-key/:userId`,
       async ({ request }) => {
         calls.push(await captureHttpCall(request));
-        return HttpResponse.json({
-          encapsulationPublicKey: "encapsulation-key",
-          signingKeyFingerprint: "a".repeat(64),
-          signingPublicKey: "signing-key",
-          userId: "user/id with space",
-        });
+        return HttpResponse.json(
+          createEncapsulationKeyResponse("user/id with space"),
+        );
       },
     ),
   );
@@ -410,6 +460,54 @@ test("escapes dynamic route path segments", async () => {
   expect(calls[0]?.url).toBe(
     `${apiBaseUrl}/auth/encapsulation-key/user%2Fid%20with%20space`,
   );
+});
+
+test("caches encapsulation key requests until auth changes", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/auth/encapsulation-key/:userId`,
+      async ({ params, request }) => {
+        calls.push(await captureHttpCall(request));
+        const { userId } = params as { userId: string };
+        return HttpResponse.json(createEncapsulationKeyResponse(userId));
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  client.setAuthToken("token-1");
+
+  const [first, second] = await Promise.all([
+    client.getEncapsulationKey("user-1"),
+    client.getEncapsulationKey("user-1"),
+  ]);
+  const third = await client.getEncapsulationKey("user-1");
+  client.setAuthToken("token-2");
+  const fourth = await client.getEncapsulationKey("user-1");
+
+  expect(first).toEqual(createEncapsulationKeyResponse("user-1"));
+  expect(second).toEqual(first);
+  expect(third).toEqual(first);
+  expect(fourth).toEqual(first);
+  expect(
+    calls.map((call) => ({
+      authorization: call.authorization,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      authorization: "Bearer token-1",
+      input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
+      method: "GET",
+    },
+    {
+      authorization: "Bearer token-2",
+      input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
+      method: "GET",
+    },
+  ]);
 });
 
 test("uses auth session management routes", async () => {
@@ -804,6 +902,260 @@ test("posts signed document create and sync mutations to the route namespace", a
   ]);
 });
 
+test("caches writer projection requests and invalidates on mutations", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/containers/:containerId/writer-projection`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json(createContainerWriterProjectionResponse());
+      },
+    ),
+    http.get(
+      `${apiBaseUrl}/documents/:documentId/writer-projection`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json(createDocumentWriterProjectionResponse());
+      },
+    ),
+    http.post(
+      `${apiBaseUrl}/containers/:containerId/share`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json(createContainerMutationResponse());
+      },
+    ),
+    http.post(
+      `${apiBaseUrl}/documents/:documentId/link`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json(createDocumentLinkSetMutationResponse());
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  await expect(
+    client.getContainerWriterProjection("container-1"),
+  ).resolves.toEqual(createContainerWriterProjectionResponse());
+  await expect(
+    client.getContainerWriterProjection("container-1"),
+  ).resolves.toEqual(createContainerWriterProjectionResponse());
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+
+  await expect(
+    client.shareContainer("container-1", createContainerMutationRequest()),
+  ).resolves.not.toBeNull();
+  await expect(
+    client.getContainerWriterProjection("container-1"),
+  ).resolves.toEqual(createContainerWriterProjectionResponse());
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+
+  await expect(
+    client.linkDocument("document-1", createDocumentLinkSetMutationRequest()),
+  ).resolves.not.toBeNull();
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: null,
+      input: `${apiBaseUrl}/containers/container-1/writer-projection`,
+      method: "GET",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/documents/document-1/writer-projection`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(createContainerMutationRequest()),
+      input: `${apiBaseUrl}/containers/container-1/share`,
+      method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/containers/container-1/writer-projection`,
+      method: "GET",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/documents/document-1/writer-projection`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(createDocumentLinkSetMutationRequest()),
+      input: `${apiBaseUrl}/documents/document-1/link`,
+      method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/documents/document-1/writer-projection`,
+      method: "GET",
+    },
+  ]);
+});
+
+test("keeps document writer projections across matching syncs and clears on sync failure", async () => {
+  const calls: CapturedHttpCall[] = [];
+  let failSync = false;
+  server.use(
+    http.get(
+      `${apiBaseUrl}/documents/:documentId/writer-projection`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json(createDocumentWriterProjectionResponse());
+      },
+    ),
+    http.post(
+      `${apiBaseUrl}/documents/:documentId/sync`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        if (failSync) {
+          return HttpResponse.json(
+            { error: "Document KEK targets are stale" },
+            { status: 409, statusText: "Conflict" },
+          );
+        }
+        return HttpResponse.json(createDocumentSyncResponse());
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+  await expect(
+    client.syncDocumentResult("document-1", createDocumentSyncRequest(), {
+      reportErrors: false,
+    }),
+  ).resolves.toMatchObject({ ok: true });
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+
+  failSync = true;
+  await expect(
+    client.syncDocumentResult("document-1", createDocumentSyncRequest(), {
+      reportErrors: false,
+    }),
+  ).resolves.toMatchObject({ ok: false, status: 409 });
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: null,
+      input: `${apiBaseUrl}/documents/document-1/writer-projection`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(createDocumentSyncRequest()),
+      input: `${apiBaseUrl}/documents/document-1/sync`,
+      method: "POST",
+    },
+    {
+      body: JSON.stringify(createDocumentSyncRequest()),
+      input: `${apiBaseUrl}/documents/document-1/sync`,
+      method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/documents/document-1/writer-projection`,
+      method: "GET",
+    },
+  ]);
+});
+
+test("keeps writer projection requests started during failed syncs", async () => {
+  const calls: CapturedHttpCall[] = [];
+  const syncStarted = createDeferred<void>();
+  const finishSync = createDeferred<void>();
+  server.use(
+    http.get(
+      `${apiBaseUrl}/documents/:documentId/writer-projection`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        return HttpResponse.json(createDocumentWriterProjectionResponse());
+      },
+    ),
+    http.post(
+      `${apiBaseUrl}/documents/:documentId/sync`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+        syncStarted.resolve();
+        await finishSync.promise;
+        return HttpResponse.json(
+          { error: "Document KEK targets are stale" },
+          { status: 409, statusText: "Conflict" },
+        );
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const syncResult = client.syncDocumentResult(
+    "document-1",
+    createDocumentSyncRequest(),
+    { reportErrors: false },
+  );
+  await syncStarted.promise;
+
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+
+  finishSync.resolve();
+  await expect(syncResult).resolves.toMatchObject({ ok: false, status: 409 });
+  await expect(
+    client.getDocumentWriterProjection("document-1"),
+  ).resolves.toEqual(createDocumentWriterProjectionResponse());
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: JSON.stringify(createDocumentSyncRequest()),
+      input: `${apiBaseUrl}/documents/document-1/sync`,
+      method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/documents/document-1/writer-projection`,
+      method: "GET",
+    },
+  ]);
+});
+
 test("uses blob multipart stage route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
@@ -1058,6 +1410,79 @@ test("groups alternative blob byte length headers in malformed responses", async
   await expect(client.getBlob("blob-1")).resolves.toBeNull();
   expect(errors).toEqual([
     "Invalid response shape for /blobs/blob-1/bytes: missing x-tearleads-blob-id, (x-tearleads-blob-byte-length or content-length), x-tearleads-blob-sha256",
+  ]);
+});
+
+test("caches organization group lists and invalidates on group changes", async () => {
+  const calls: CapturedHttpCall[] = [];
+  const groupCreateStarted = createDeferred<void>();
+  const finishGroupCreate = createDeferred<void>();
+  server.use(
+    http.get(
+      `${apiBaseUrl}/organizations/:organizationId/groups`,
+      async ({ params, request }) => {
+        calls.push(await captureHttpCall(request));
+        const { organizationId } = params as { organizationId: string };
+        return HttpResponse.json({
+          organizationId,
+          groups: [createOrganizationGroupSummary(organizationId)],
+        });
+      },
+    ),
+    http.post(
+      `${apiBaseUrl}/organizations/:organizationId/groups`,
+      async ({ params, request }) => {
+        calls.push(await captureHttpCall(request));
+        groupCreateStarted.resolve();
+        await finishGroupCreate.promise;
+        const { organizationId } = params as { organizationId: string };
+        return HttpResponse.json(
+          createOrganizationGroupSummary(organizationId),
+        );
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const first = await client.listOrganizationGroups("org-1");
+  const second = await client.listOrganizationGroups("org-1");
+  expect(second).toEqual(first);
+
+  const createdGroup = client.createOrganizationGroup(
+    "org-1",
+    createOrganizationGroupRequest(),
+  );
+  await groupCreateStarted.promise;
+  const duringGroupCreate = await client.listOrganizationGroups("org-1");
+  expect(duringGroupCreate).toEqual(first);
+
+  finishGroupCreate.resolve();
+  await expect(createdGroup).resolves.not.toBeNull();
+  const third = await client.listOrganizationGroups("org-1");
+  expect(third).toEqual(first);
+
+  expect(
+    calls.map((call) => ({
+      body: call.body,
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/groups`,
+      method: "GET",
+    },
+    {
+      body: JSON.stringify(createOrganizationGroupRequest()),
+      input: `${apiBaseUrl}/organizations/org-1/groups`,
+      method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/groups`,
+      method: "GET",
+    },
   ]);
 });
 

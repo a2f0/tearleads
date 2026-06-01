@@ -17,9 +17,13 @@ import type {
 } from "@tearleads/validators/request";
 import {
   type ContainerDeleteResponse,
+  type ContainerWriterProjectionResponse,
   type DocumentSyncResponse,
+  type DocumentWriterProjectionResponse,
+  type EncapsulationKeyResponse,
   isContainerDeleteResponse,
   isDocumentSyncResponse,
+  type ListOrganizationGroupsResponse,
 } from "@tearleads/validators/response";
 import {
   authenticate,
@@ -129,6 +133,22 @@ function hasHeader(
 export class ApiClient {
   private authToken: string | null = null;
   private readonly baseUrl: string;
+  private readonly containerWriterProjectionRequestsByContainerId = new Map<
+    string,
+    Promise<ContainerWriterProjectionResponse | null>
+  >();
+  private readonly documentWriterProjectionRequestsByDocumentId = new Map<
+    string,
+    Promise<DocumentWriterProjectionResponse | null>
+  >();
+  private readonly encapsulationKeyRequestsByUserId = new Map<
+    string,
+    Promise<EncapsulationKeyResponse | null>
+  >();
+  private readonly organizationGroupRequestsByOrganizationId = new Map<
+    string,
+    Promise<ListOrganizationGroupsResponse | null>
+  >();
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
   private onError: ((message: string) => void) | null = null;
@@ -144,6 +164,81 @@ export class ApiClient {
     });
   }
 
+  private cachedRequest<T>(
+    cache: Map<string, Promise<T | null>>,
+    cacheKey: string,
+    request: () => Promise<T | null>,
+  ): Promise<T | null> {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    let pending: Promise<T | null>;
+    pending = request()
+      .then((response) => {
+        if (!response && cache.get(cacheKey) === pending) {
+          cache.delete(cacheKey);
+        }
+        return response;
+      })
+      .catch((error: unknown) => {
+        if (cache.get(cacheKey) === pending) {
+          cache.delete(cacheKey);
+        }
+        throw error;
+      });
+    cache.set(cacheKey, pending);
+    return pending;
+  }
+
+  private clearAuthScopedCaches(): void {
+    this.containerWriterProjectionRequestsByContainerId.clear();
+    this.documentWriterProjectionRequestsByDocumentId.clear();
+    this.encapsulationKeyRequestsByUserId.clear();
+    this.organizationGroupRequestsByOrganizationId.clear();
+  }
+
+  private clearWriterProjectionCaches(): void {
+    this.containerWriterProjectionRequestsByContainerId.clear();
+    this.documentWriterProjectionRequestsByDocumentId.clear();
+  }
+
+  private async clearDocumentWriterProjectionCacheIfSyncChanged(
+    documentId: string,
+    response: DocumentSyncResponse,
+  ): Promise<void> {
+    const cached =
+      this.documentWriterProjectionRequestsByDocumentId.get(documentId);
+    if (!cached) {
+      return;
+    }
+
+    const writerProjection = await cached.catch(() => null);
+    if (
+      this.documentWriterProjectionRequestsByDocumentId.get(documentId) !==
+        cached ||
+      !writerProjection
+    ) {
+      return;
+    }
+
+    if (
+      writerProjection.contentKeyBundle?.contentKeyEpoch !==
+        response.contentKeyBundle?.contentKeyEpoch ||
+      writerProjection.contentKeyBundle?.linkSetManifestHash !==
+        response.contentKeyBundle?.linkSetManifestHash ||
+      writerProjection.contentKeyBundle?.targetHash !==
+        response.contentKeyBundle?.targetHash ||
+      writerProjection.documentKekTargets?.linkSetManifestHash !==
+        response.documentKekTargets?.linkSetManifestHash ||
+      writerProjection.documentKekTargets?.documentKeyTargetHash !==
+        response.documentKekTargets?.documentKeyTargetHash
+    ) {
+      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    }
+  }
+
   setOnError(handler: ((message: string) => void) | null): void {
     this.onError = handler;
   }
@@ -157,6 +252,9 @@ export class ApiClient {
   }
 
   setAuthToken(token: string | null): void {
+    if (this.authToken !== token) {
+      this.clearAuthScopedCaches();
+    }
     this.authToken = token;
   }
 
@@ -419,7 +517,11 @@ export class ApiClient {
   }
 
   getEncapsulationKey(userId: string) {
-    return getEncapsulationKey(this.request, userId);
+    return this.cachedRequest(
+      this.encapsulationKeyRequestsByUserId,
+      userId,
+      () => getEncapsulationKey(this.request, userId),
+    );
   }
 
   listSessions() {
@@ -446,7 +548,17 @@ export class ApiClient {
     principalId: string,
     input: PutPrincipalStateRequest,
   ) {
-    return putPrincipalState(this.request, principalType, principalId, input);
+    return putPrincipalState(
+      this.request,
+      principalType,
+      principalId,
+      input,
+    ).finally(() => {
+      if (principalType === "group") {
+        this.organizationGroupRequestsByOrganizationId.clear();
+        this.clearWriterProjectionCaches();
+      }
+    });
   }
 
   putPrincipalMemberEnvelopes(
@@ -459,7 +571,12 @@ export class ApiClient {
       principalType,
       principalId,
       input,
-    );
+    ).finally(() => {
+      if (principalType === "group") {
+        this.organizationGroupRequestsByOrganizationId.clear();
+        this.clearWriterProjectionCaches();
+      }
+    });
   }
 
   listOrganizationDirectory(organizationId: string) {
@@ -467,7 +584,11 @@ export class ApiClient {
   }
 
   listOrganizationGroups(organizationId: string) {
-    return listOrganizationGroups(this.request, organizationId);
+    return this.cachedRequest(
+      this.organizationGroupRequestsByOrganizationId,
+      organizationId,
+      () => listOrganizationGroups(this.request, organizationId),
+    );
   }
 
   listOrganizationContainerGrants(organizationId: string) {
@@ -499,7 +620,12 @@ export class ApiClient {
     organizationId: string,
     input: CreateOrganizationGroupRequest,
   ) {
-    return createOrganizationGroup(this.request, organizationId, input);
+    return createOrganizationGroup(this.request, organizationId, input).finally(
+      () => {
+        this.organizationGroupRequestsByOrganizationId.delete(organizationId);
+        this.clearWriterProjectionCaches();
+      },
+    );
   }
 
   listOrganizationGroupMembers(organizationId: string, groupId: string) {
@@ -519,7 +645,11 @@ export class ApiClient {
   }
 
   getContainerWriterProjection(containerId: string) {
-    return getContainerWriterProjection(this.request, containerId);
+    return this.cachedRequest(
+      this.containerWriterProjectionRequestsByContainerId,
+      containerId,
+      () => getContainerWriterProjection(this.request, containerId),
+    );
   }
 
   createContainer(input: ContainerMutationRequest) {
@@ -533,23 +663,33 @@ export class ApiClient {
   }
 
   shareContainer(containerId: string, input: ContainerMutationRequest) {
-    return shareContainer(this.request, containerId, input);
+    return shareContainer(this.request, containerId, input).finally(() => {
+      this.clearWriterProjectionCaches();
+    });
   }
 
   revokeContainer(containerId: string, input: ContainerMutationRequest) {
-    return revokeContainer(this.request, containerId, input);
+    return revokeContainer(this.request, containerId, input).finally(() => {
+      this.clearWriterProjectionCaches();
+    });
   }
 
   rekeyContainer(containerId: string, input: ContainerMutationRequest) {
-    return rekeyContainer(this.request, containerId, input);
+    return rekeyContainer(this.request, containerId, input).finally(() => {
+      this.clearWriterProjectionCaches();
+    });
   }
 
   moveContainer(containerId: string, input: ContainerMutationRequest) {
-    return moveContainer(this.request, containerId, input);
+    return moveContainer(this.request, containerId, input).finally(() => {
+      this.clearWriterProjectionCaches();
+    });
   }
 
   deleteContainer(containerId: string) {
-    return deleteContainer(this.request, containerId);
+    return deleteContainer(this.request, containerId).finally(() => {
+      this.clearWriterProjectionCaches();
+    });
   }
 
   deleteContainerResult(
@@ -562,15 +702,23 @@ export class ApiClient {
       "DELETE",
       undefined,
       options,
-    );
+    ).finally(() => {
+      this.clearWriterProjectionCaches();
+    });
   }
 
   getDocumentWriterProjection(documentId: string) {
-    return getDocumentWriterProjection(this.request, documentId);
+    return this.cachedRequest(
+      this.documentWriterProjectionRequestsByDocumentId,
+      documentId,
+      () => getDocumentWriterProjection(this.request, documentId),
+    );
   }
 
   linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
-    return linkDocument(this.request, documentId, input);
+    return linkDocument(this.request, documentId, input).finally(() => {
+      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    });
   }
 
   listContainers(options?: ListContainersOptions) {
@@ -585,25 +733,73 @@ export class ApiClient {
   }
 
   unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
-    return unlinkDocument(this.request, documentId, input);
+    return unlinkDocument(this.request, documentId, input).finally(() => {
+      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    });
   }
 
   syncDocument(documentId: string, input: DocumentSyncRequest) {
-    return syncDocument(this.request, documentId, input);
+    const cachedBefore =
+      this.documentWriterProjectionRequestsByDocumentId.get(documentId);
+    return syncDocument(this.request, documentId, input)
+      .then(async (response) => {
+        if (response) {
+          await this.clearDocumentWriterProjectionCacheIfSyncChanged(
+            documentId,
+            response,
+          );
+        } else {
+          if (
+            this.documentWriterProjectionRequestsByDocumentId.get(
+              documentId,
+            ) === cachedBefore
+          ) {
+            this.documentWriterProjectionRequestsByDocumentId.delete(
+              documentId,
+            );
+          }
+        }
+        return response;
+      })
+      .catch((error: unknown) => {
+        if (
+          this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
+          cachedBefore
+        ) {
+          this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+        }
+        throw error;
+      });
   }
 
-  syncDocumentResult(
+  async syncDocumentResult(
     documentId: string,
     input: DocumentSyncRequest,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentSyncResponse>> {
-    return this.makeRequestResult(
+    const cachedBefore =
+      this.documentWriterProjectionRequestsByDocumentId.get(documentId);
+    const result = await this.makeRequestResult(
       `/documents/${pathSegment(documentId)}/sync`,
       isDocumentSyncResponse,
       "POST",
       JSON.stringify(input),
       options,
     );
+    if (result.ok) {
+      await this.clearDocumentWriterProjectionCacheIfSyncChanged(
+        documentId,
+        result.data,
+      );
+    } else {
+      if (
+        this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
+        cachedBefore
+      ) {
+        this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      }
+    }
+    return result;
   }
 
   stageBlob(input: StageBlobRequest) {
