@@ -26,6 +26,7 @@ export interface ExplorerModelExplorer {
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
   trashContainerId: string | null;
+  visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
 export type ExplorerDocumentMutationAction = (

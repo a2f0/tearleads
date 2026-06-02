@@ -109,6 +109,7 @@ export function Explorer() {
         shareWithGroup={model.explorer.shareWithGroup}
         shareWithUser={model.explorer.shareWithUser}
         unlinkDocument={model.unlinkDocument}
+        visibleSystemSlots={model.explorer.visibleSystemSlots}
       />
       <ExplorerContextMenuLayer
         canDeleteSelectedDocument={model.canDeleteSelectedDocument}
