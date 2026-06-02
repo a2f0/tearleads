@@ -104,54 +104,32 @@ function useContactsSelectionState(
   };
 }
 
-function useAutoImportSelfContact(input: {
+function useSelectInitialSelfContact(input: {
   entries: ContactEntries;
-  importKey: ReturnType<typeof useContacts>["importKey"];
-  isAuthenticated: boolean;
-  logError: ReturnType<typeof useLog>["logError"];
   ready: boolean;
-  sessionUserId: string | null;
-  setSelectedContactId: (setter: (currentId: string | null) => string) => void;
+  selectedContactId: string | null;
+  setSelectedContactId: (contactId: string) => void;
 }) {
-  const {
-    entries,
-    importKey,
-    isAuthenticated,
-    logError,
-    ready,
-    sessionUserId,
-    setSelectedContactId,
-  } = input;
-  const selfImportedRef = useRef(false);
+  const { entries, ready, selectedContactId, setSelectedContactId } = input;
+  const selectedInitialSelfRef = useRef(false);
 
   useEffect(() => {
     if (
-      ready &&
-      isAuthenticated &&
-      sessionUserId &&
-      !selfImportedRef.current &&
-      !entries.some((entry) => entry.isSelf || entry.userId === sessionUserId)
+      !ready ||
+      selectedInitialSelfRef.current ||
+      selectedContactId !== null
     ) {
-      selfImportedRef.current = true;
-      void importKey(sessionUserId)
-        .then((contactId) => {
-          if (contactId) {
-            setSelectedContactId((currentId) => currentId ?? contactId);
-          }
-        })
-        .catch((error: unknown) => {
-          logError("Contacts: failed to auto-import self key.", error);
-        });
+      return;
     }
-  }, [
-    entries,
-    importKey,
-    isAuthenticated,
-    logError,
-    ready,
-    sessionUserId,
-    setSelectedContactId,
-  ]);
+
+    const selfEntry = entries.find((entry) => entry.isSelf);
+    if (!selfEntry) {
+      return;
+    }
+
+    selectedInitialSelfRef.current = true;
+    setSelectedContactId(selfEntry.id);
+  }, [entries, ready, selectedContactId, setSelectedContactId]);
 }
 
 function usePeerUserIdDraft(
@@ -280,7 +258,7 @@ export function useContactsModel(
     removeContact,
     updateContact,
   } = useContacts();
-  const { isAuthenticated, userId: sessionUserId } = useCryptoSession();
+  const { isAuthenticated } = useCryptoSession();
   const { logError } = useLog();
   const routeState = useContactsRouteState();
   const selectionState = useContactsSelectionState(routeState);
@@ -300,13 +278,10 @@ export function useContactsModel(
     setSelectedContactId: selectionState.setSelectedContactRouteAware,
   });
 
-  useAutoImportSelfContact({
+  useSelectInitialSelfContact({
     entries,
-    importKey,
-    isAuthenticated,
-    logError,
     ready,
-    sessionUserId,
+    selectedContactId: selectionState.selectedContactId,
     setSelectedContactId: selectionState.setSelectedContactId,
   });
   usePeerUserIdDraft(

@@ -21,6 +21,7 @@ import type {
 import type {
   ContainerContentsShareAccessLevel,
   ContainerContentsStoreState,
+  EnsureSystemContainerOptions,
 } from "./types";
 import { isContainerInSubtree, toContainerNode } from "./utils";
 
@@ -137,11 +138,22 @@ function findRootContainerState(
   return null;
 }
 
+function hasAdvancedManagedPrincipalReference(
+  containerState: ContainerState,
+): boolean {
+  return (
+    containerState.metadataReferencedPrincipals?.some(
+      (principal) => principal.version > 1,
+    ) ?? false
+  );
+}
+
 export async function ensureSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
   systemSlot: ContainerSystemSlot,
   name: string,
+  options: EnsureSystemContainerOptions = {},
 ) {
   const trimmedName = name.trim();
   if (
@@ -167,6 +179,15 @@ export async function ensureSystemContainer(
 
   const rootState = findRootContainerState(state);
   if (!rootState) {
+    return null;
+  }
+  if (
+    options.skipAdvancedManagedRoot &&
+    hasAdvancedManagedPrincipalReference(rootState)
+  ) {
+    state.runtime.util.log(
+      `${getContainerContentsStoreLogLabel(state)}: skipped background system container "${systemSlot}" because the root has advanced managed-principal references`,
+    );
     return null;
   }
 

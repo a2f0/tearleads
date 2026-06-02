@@ -28,6 +28,7 @@ export interface ContactsRuntime {
 
 export interface ContactsStore {
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;
+  ensureSelfContact: (userId: string) => Promise<string | null>;
   getSnapshot: () => ContactsSnapshot;
   importKey: (userId: string) => Promise<string | null>;
   removeContact: (contactId: string) => Promise<void>;
@@ -38,6 +39,7 @@ export interface ContactsStore {
 
 interface ContactsStoreDependencies {
   fetchUserKey: (userId: string) => Promise<UserKey | null>;
+  getLocalUserKey?: ((userId: string) => Promise<UserKey | null>) | undefined;
   logError: (message: string | Error, cause?: unknown) => void;
 }
 
@@ -260,6 +262,33 @@ function findContactByUserId(
   return null;
 }
 
+function findSelfContact(
+  entriesById: ReadonlyMap<string, ContactEntry>,
+  userId: string,
+): ContactEntry | null {
+  let selfContact: ContactEntry | null = null;
+  for (const entry of entriesById.values()) {
+    if (entry.userId === userId) {
+      return entry;
+    }
+    if (entry.isSelf && !selfContact) {
+      selfContact = entry;
+    }
+  }
+
+  return selfContact;
+}
+
+async function getUserKeyForSelfContact(
+  state: ContactsStoreState,
+  userId: string,
+): Promise<UserKey | null> {
+  return (
+    (await state.dependencies.getLocalUserKey?.(userId)) ??
+    (await state.dependencies.fetchUserKey(userId))
+  );
+}
+
 async function writeContactPatch(
   state: ContactsStoreState,
   contactId: string,
@@ -299,6 +328,52 @@ async function createContactFromRuntime(
     .then(() => writeContactPatch(state, contactId, patch))
     .catch((error: unknown) => {
       state.dependencies.logError("Contacts: failed to create contact.", error);
+    });
+  await state.writeChain;
+  return contactId;
+}
+
+async function ensureSelfContactFromRuntime(
+  state: ContactsStoreState,
+  userId: string,
+): Promise<string | null> {
+  await waitForContactsInitialization(state);
+  if (
+    state.runtime.documents.infra.dbStatus !== "ready" ||
+    !hasContactsContainerRuntime(state)
+  ) {
+    return null;
+  }
+
+  const userKey = await getUserKeyForSelfContact(state, userId);
+  if (!userKey) {
+    return null;
+  }
+
+  const existingContact = findSelfContact(state.entriesById, userKey.userId);
+  if (
+    existingContact?.isSelf &&
+    existingContact.userId === userKey.userId &&
+    existingContact.encapsulationPublicKey === userKey.encapsulationPublicKey
+  ) {
+    return existingContact.id;
+  }
+
+  const contactId = existingContact?.id ?? userKey.userId;
+  state.writeChain = state.writeChain
+    .catch(() => undefined)
+    .then(() =>
+      writeContactPatch(state, contactId, {
+        encapsulationPublicKey: userKey.encapsulationPublicKey,
+        isSelf: true,
+        userId: userKey.userId,
+      }),
+    )
+    .catch((error: unknown) => {
+      state.dependencies.logError(
+        "Contacts: failed to ensure self contact.",
+        error,
+      );
     });
   await state.writeChain;
   return contactId;
@@ -413,6 +488,7 @@ export function createContactsStore(
 
   return {
     createContact: (patch) => createContactFromRuntime(state, patch),
+    ensureSelfContact: (userId) => ensureSelfContactFromRuntime(state, userId),
     getSnapshot: () => state.snapshot,
     importKey: (userId) => importKeyFromRuntime(state, userId),
     removeContact: (contactId) => removeContactFromRuntime(state, contactId),

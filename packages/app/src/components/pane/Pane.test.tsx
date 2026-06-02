@@ -26,6 +26,7 @@ import { Pane } from "./Pane";
 import { PaneProvider } from "./PaneProvider";
 
 const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
+const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
 
 afterEach(async () => {
   cleanup();
@@ -607,7 +608,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await uploadPublicKeyAndWaitForUserId(view);
+    const userId = await uploadPublicKeyAndWaitForUserId(view);
 
     const explorer = await openExplorer(view);
 
@@ -628,9 +629,23 @@ test(
       { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
 
+    fireEvent.click(getExplorerContainerItem(explorer, "Contacts"));
+    await waitFor(
+      () => {
+        const contactsItemsTable = within(explorer).getByRole("table", {
+          name: "Items in Contacts",
+        });
+        expect(
+          within(contactsItemsTable).getByRole("button", { name: userId }),
+        ).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+    await waitForPaneRuntimeToSettle();
+
     view.unmount();
   },
-  PANE_ASYNC_TEST_TIMEOUT_MS,
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
 
 test(

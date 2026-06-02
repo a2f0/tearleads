@@ -7,6 +7,7 @@ import {
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import { useEnsureContactsSelfContactForContainer } from "../../stores/contacts/useContactsStoreForContainer";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { type MiniAppWindowPosition, useMiniAppBusActions } from "../bus";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
@@ -44,6 +45,11 @@ export function Explorer() {
   const model = useExplorerModel(appData, explorer, setSidebar, peerUserId);
   const openGrantGroupInOrgManager = useOpenGrantGroupInOrgManager();
   const activeContainerId = model.selection.activeContainerId;
+  const selectedContactsContainerId =
+    model.selection.selectedNode?.systemSlot === explorer.contactsSystemSlot
+      ? model.selection.selectedNode.id
+      : null;
+  useEnsureContactsSelfContactForContainer(selectedContactsContainerId);
   const openStructuredDocumentGrid = useCallback(() => {
     if (activeContainerId) {
       model.routeState.openNewStructuredDocumentRoute(activeContainerId);

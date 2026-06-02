@@ -3,6 +3,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
   ListContainersResponse,
+  ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
 import type { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
@@ -45,6 +46,9 @@ export interface ContainerState {
   containerWriterProjection?:
     | ContainerWriterProjectionResponse
     | null
+    | undefined;
+  metadataReferencedPrincipals?:
+    | readonly ReferencedPrincipalStateResponse[]
     | undefined;
   container: ContainerRecord;
   doc: ContainerMetadataDocumentState;

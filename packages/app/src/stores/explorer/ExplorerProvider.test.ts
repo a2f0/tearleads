@@ -2030,6 +2030,87 @@ test("explorer store creates authenticated child containers through the API befo
   }
 });
 
+test("explorer store can skip background system container creation after managed root policy advances", async () => {
+  let runtime = await createSqlRuntime();
+  const systemSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  let listContainersCalls = 0;
+  let writerProjectionCalls = 0;
+  let systemContainerCreateCalls = 0;
+
+  runtime = runtimeWithPatch(runtime, {
+    apiClient: createMockApiClient({
+      ...runtime.apiClient,
+      createContainerWithMetadataDocument: async () => {
+        systemContainerCreateCalls += 1;
+        return null;
+      },
+      getContainerWriterProjection: async () => {
+        writerProjectionCalls += 1;
+        return null;
+      },
+      listContainers: async () => {
+        listContainersCalls += 1;
+        return listContainersResponse([
+          listedContainer({
+            id: "root-container",
+            metadataAccessEpoch: 1,
+            metadataAccessStateHash: "root-access-state",
+            metadataDocumentId: "root-metadata-document",
+            metadataReferencedPrincipals: [
+              {
+                keyEpoch: 1,
+                keyFingerprint: "group-key",
+                principalId: "admins-group",
+                principalType: "group",
+                stateHash: "advanced-state",
+                version: 2,
+              },
+            ],
+            organizationId: "org-1",
+            parentId: null,
+          }),
+        ]);
+      },
+    }),
+    isAuthenticated: true,
+    online: true,
+    organizationId: "org-1",
+    state: { ...runtime.state, containerId: "root-container" },
+    userId: "user-1",
+  });
+
+  try {
+    await ensureContainerTables(runtime.infra.execSql);
+    await ensureDocumentTables(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
+      id: "root-container",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: null,
+      name: "/",
+      icon: null,
+    });
+
+    const store = createExplorerStore(runtime);
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+
+    await expect(
+      store.ensureSystemContainer(systemSlot, "Contacts", {
+        skipAdvancedManagedRoot: true,
+      }),
+    ).resolves.toBeNull();
+    expect(listContainersCalls).toBeGreaterThan(0);
+    expect(writerProjectionCalls).toBe(0);
+    expect(systemContainerCreateCalls).toBe(0);
+  } finally {
+    runtime.close();
+  }
+});
+
 test("explorer store queues authenticated child create when parent has no remote access state", async () => {
   let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();

@@ -2,6 +2,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 
 export interface ExplorerModelExplorer {
   canResolveTrashContainer: boolean;
+  contactsSystemSlot: NonNullable<ContainerNode["systemSlot"]> | null;
   createChild: (
     parentId: string,
     name: string,

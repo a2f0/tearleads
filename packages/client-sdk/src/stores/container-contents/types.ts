@@ -37,6 +37,7 @@ export interface ContainerContentsContextValue {
   ensureSystemContainer: (
     systemSlot: ContainerSystemSlot,
     name: string,
+    options?: EnsureSystemContainerOptions | undefined,
   ) => Promise<ContainerNode | null>;
   moveContainer: (
     containerId: string,
@@ -71,6 +72,7 @@ export interface ContainerContentsStore {
   ensureSystemContainer: (
     systemSlot: ContainerSystemSlot,
     name: string,
+    options?: EnsureSystemContainerOptions | undefined,
   ) => Promise<ContainerNode | null>;
   moveContainer: (
     containerId: string,
@@ -93,6 +95,10 @@ export interface ContainerContentsStore {
   getSnapshot: () => ContainerContentsSnapshot;
   subscribe: (listener: () => void) => () => void;
   updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;
+}
+
+export interface EnsureSystemContainerOptions {
+  skipAdvancedManagedRoot?: boolean | undefined;
 }
 
 export interface ContainerContentsStoreState

@@ -17,12 +17,9 @@ import {
   CONTACTS_CONTAINER_NAME,
   CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
 } from "../systemContainers";
-import {
-  type ContactsRuntime,
-  type ContactsStore,
-  getOrCreateContactsStore,
-} from "./contactStore";
+import type { ContactsStore } from "./contactStore";
 import type { ContactsContextValue } from "./types";
+import { useContactsStoreForContainer } from "./useContactsStoreForContainer";
 
 const ContactsContext = createContext<ContactsStore | null>(null);
 
@@ -131,28 +128,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
       )?.id ?? null
     );
   }, [contactsSystemSlot, containerContentsSnapshot.nodes]);
-  const documentsRuntime = useMemo(
-    () => tearleads.documents.runtime(contactsContainerId),
-    [appData, contactsContainerId, tearleads],
-  );
-  const runtime = useMemo<ContactsRuntime>(
-    () => ({
-      deleteLocalDocument: (localId) =>
-        tearleads.documents.deleteLocalDocument(localId),
-      documents: documentsRuntime,
-      primeDocumentStore: (input) =>
-        tearleads.documents.primeStore(input, documentsRuntime),
-    }),
-    [documentsRuntime, tearleads],
-  );
-  const store = useMemo(
-    () =>
-      getOrCreateContactsStore(runtime.documents.state.domainScope, runtime, {
-        fetchUserKey: (userId) => tearleads.userKeys.fetch(userId),
-        logError: tearleads.logError,
-      }),
-    [runtime, tearleads],
-  );
+  const store = useContactsStoreForContainer(contactsContainerId);
 
   useEffect(() => {
     containerContentsStore.updateRuntime(containerContentsRuntime);
@@ -165,10 +141,6 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     containerContentsStore,
     logError: tearleads.logError,
   });
-
-  useEffect(() => {
-    store.updateRuntime(runtime);
-  }, [store, runtime]);
 
   return (
     <ContactsContext.Provider value={store}>
