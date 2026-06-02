@@ -109,11 +109,11 @@ function createContainerContentsStoreEntry(
           .then(() => deleteContainer(state, containerId));
         return state.writeChain.then((deletedNode) => deletedNode !== null);
       },
-      ensureSystemContainer: (systemSlot, name) => {
+      ensureSystemContainer: (systemSlot, name, options) => {
         state.writeChain = state.writeChain
           .catch(() => null)
           .then(() =>
-            ensureSystemContainer(state, syncAgent, systemSlot, name),
+            ensureSystemContainer(state, syncAgent, systemSlot, name, options),
           );
         return state.writeChain;
       },

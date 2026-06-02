@@ -62,9 +62,9 @@ interface ProxiedApiRequestBudget {
 }
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 75,
+  total: 76,
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 13,
+    "GET /documents/:documentId/writer-projection": 14,
     "POST /documents/:documentId/sync": 15,
     "GET /containers/:containerId/documents": 5,
     "GET /containers": 22,
@@ -1689,6 +1689,7 @@ test(
     });
 
     await openExplorer(leftPane);
+    const postShareRequestStartIndex = listProxiedApiRequests().length;
     await shareContainerWithGroup(leftPane, "/", groupName, "read");
     await openExplorerContainerInfo(leftPane, "/");
     const grantRow = await findExplorerInfoGrantRow(
@@ -1704,6 +1705,10 @@ test(
     await waitFor(() => {
       expect(within(leftPane).getByLabelText("User ID")).toBeTruthy();
     });
+    await waitForNoPostShareSyncFailures(
+      [leftPane],
+      postShareRequestStartIndex,
+    );
   },
   DUAL_PANE_TEST_TIMEOUT_MS,
 );
@@ -1840,5 +1845,5 @@ test(
       `Container move should not leave document content-key bundles stale.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
     ).toEqual([]);
   },
-  DUAL_PANE_TEST_TIMEOUT_MS,
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

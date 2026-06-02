@@ -37,6 +37,7 @@ const USER_SYSTEM_CONTAINER_NAMES = new Set(
 );
 
 interface ExplorerContextModel {
+  contactsSystemSlot: ContainerSystemSlot | null;
   logError: (message: string | Error, cause?: unknown) => void;
   store: ContainerContentsStore;
   trashSystemSlot: ContainerSystemSlot | null;
@@ -45,6 +46,7 @@ interface ExplorerContextModel {
 
 interface ExplorerContextValue extends ContainerContentsContextValue {
   canResolveTrashContainer: boolean;
+  contactsSystemSlot: ContainerSystemSlot | null;
   ensureTrashContainer: () => Promise<ContainerNode | null>;
   trashContainerId: string | null;
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
@@ -109,6 +111,16 @@ function canResolveExplorerTrashContainer(
   trashSystemSlot: ContainerSystemSlot | null,
 ): boolean {
   return trashSystemSlot !== null;
+}
+
+function findExplorerSystemContainerSlot(
+  systemContainers: ReadonlyArray<ExplorerSystemContainer>,
+  kind: UserSystemContainerKind,
+): ContainerSystemSlot | null {
+  return (
+    systemContainers.find((systemContainer) => systemContainer.kind === kind)
+      ?.systemSlot ?? null
+  );
 }
 
 function useExplorerSystemContainerSlots(input: {
@@ -199,6 +211,7 @@ function useEnsureExplorerSystemContainers(input: {
           .ensureSystemContainer(
             systemContainer.systemSlot,
             systemContainer.name,
+            { skipAdvancedManagedRoot: true },
           )
           .catch((error) => {
             if (!cancelled) {
@@ -271,12 +284,13 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     logError: tearleads.logError,
     signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
   });
-  const trashSystemSlot = useMemo(
-    () =>
-      systemContainers.find(
-        (systemContainer) => systemContainer.kind === "trash",
-      )?.systemSlot ?? null,
-    [systemContainers],
+  const trashSystemSlot = findExplorerSystemContainerSlot(
+    systemContainers,
+    "trash",
+  );
+  const contactsSystemSlot = findExplorerSystemContainerSlot(
+    systemContainers,
+    "contacts",
   );
   const visibleSystemSlots = useMemo(
     () =>
@@ -303,12 +317,19 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   );
   const contextValue = useMemo(
     () => ({
+      contactsSystemSlot,
       logError: tearleads.logError,
       store,
       trashSystemSlot,
       visibleSystemSlots,
     }),
-    [store, tearleads.logError, trashSystemSlot, visibleSystemSlots],
+    [
+      contactsSystemSlot,
+      store,
+      tearleads.logError,
+      trashSystemSlot,
+      visibleSystemSlots,
+    ],
   );
 
   useEffect(() => {
@@ -337,7 +358,13 @@ export function useExplorer(): ExplorerContextValue {
     throw new Error("useExplorer must be used within an ExplorerProvider.");
   }
 
-  const { logError, store, trashSystemSlot, visibleSystemSlots } = context;
+  const {
+    contactsSystemSlot,
+    logError,
+    store,
+    trashSystemSlot,
+    visibleSystemSlots,
+  } = context;
   const snapshot = useTearleadsExternalStoreSnapshot(store);
   const ensureTrashContainer = useCallback(async () => {
     if (!trashSystemSlot) {
@@ -372,6 +399,7 @@ export function useExplorer(): ExplorerContextValue {
     () => ({
       canResolveTrashContainer:
         snapshot.ready && canResolveExplorerTrashContainer(trashSystemSlot),
+      contactsSystemSlot,
       createChild: store.createChild,
       deleteContainer: store.deleteContainer,
       ensureTrashContainer,
@@ -393,6 +421,7 @@ export function useExplorer(): ExplorerContextValue {
       ensureTrashContainer,
       snapshot,
       store,
+      contactsSystemSlot,
       trashSystemSlot,
       visibleSystemSlots,
     ],

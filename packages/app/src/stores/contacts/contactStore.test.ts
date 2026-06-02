@@ -7,6 +7,12 @@ import {
   primeDocumentStore,
 } from "@tearleads/client-sdk";
 import { getSQLitePersistenceRuntime } from "@tearleads/client-sdk/sqlite";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
@@ -234,6 +240,77 @@ test("contacts store imports self keys without a synthetic nickname", async () =
         title: selfKey.userId,
       }),
     );
+  } finally {
+    runtime.close();
+  }
+});
+
+test("contacts store ensures self contact from local keys without remote fetch", async () => {
+  const runtime = await createContactsRuntime();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const selfKey: UserKey = {
+    encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
+    signingKeyFingerprint: await toFingerprint(signingKeyPair.signingPublicKey),
+    signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+    userId: "self-user",
+  };
+  const store = createContactsStore(runtime, {
+    fetchUserKey: async () => {
+      throw new Error("unexpected remote self key fetch");
+    },
+    getLocalUserKey: async (userId) =>
+      userId === selfKey.userId ? selfKey : null,
+    logError: (message, cause) => {
+      throw new Error(String(message), { cause });
+    },
+  });
+
+  try {
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts store did not initialize.",
+    );
+
+    const contactId = await store.ensureSelfContact(selfKey.userId);
+    expect(contactId).toBe(selfKey.userId);
+
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .entries.some((entry) => entry.id === selfKey.userId),
+      "Self contact did not appear in the store snapshot.",
+    );
+
+    expect(store.getSnapshot().entries).toContainEqual({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      firstName: "",
+      id: selfKey.userId,
+      isSelf: true,
+      lastName: "",
+      nickname: "",
+      userId: selfKey.userId,
+    });
+
+    const { db } = getSQLitePersistenceRuntime(runtime.documents.infra.execSql);
+    const contactProjections = await db
+      .select({
+        containerId: contactProjection.containerId,
+        id: contactProjection.localId,
+        isSelf: contactProjection.isSelf,
+        userId: contactProjection.userId,
+      })
+      .from(contactProjection);
+    expect(contactProjections).toEqual([
+      {
+        containerId: CONTACTS_CONTAINER_ID,
+        id: selfKey.userId,
+        isSelf: 1,
+        userId: selfKey.userId,
+      },
+    ]);
   } finally {
     runtime.close();
   }
