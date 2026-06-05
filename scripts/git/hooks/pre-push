@@ -14,6 +14,9 @@ fi
 
 cd "$REPO_ROOT"
 
+echo "Linting branch name..."
+bun run lint:branch-name
+
 echo "Running shellcheck..."
 old_ifs=$IFS
 IFS='

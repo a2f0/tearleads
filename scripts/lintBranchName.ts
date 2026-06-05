@@ -1,0 +1,121 @@
+import { spawnSync } from "node:child_process";
+
+interface CommitlintConfig {
+  readonly rules: Record<string, unknown>;
+}
+
+const branchNamePattern =
+  /^(?<type>[a-z][a-z0-9-]*)\/(?<name>[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*)$/;
+const exemptBranchNames = new Set(["main"]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isCommitlintConfig(value: unknown): value is CommitlintConfig {
+  return isRecord(value) && isRecord(value.rules);
+}
+
+async function loadCommitlintConfig(): Promise<CommitlintConfig> {
+  const module: unknown = await import(
+    new URL("../commitlint.config.mts", import.meta.url).href
+  );
+
+  if (!isRecord(module) || !isCommitlintConfig(module.default)) {
+    throw new Error("commitlint config is not configured as expected.");
+  }
+
+  return module.default;
+}
+
+function listConventionalTypes(
+  commitlintConfig: CommitlintConfig,
+): readonly string[] {
+  const typeEnumRule = commitlintConfig.rules["type-enum"];
+
+  if (!Array.isArray(typeEnumRule) || !Array.isArray(typeEnumRule[2])) {
+    throw new Error("commitlint type-enum rule is not configured as expected.");
+  }
+
+  return typeEnumRule[2].map((type) => String(type));
+}
+
+function getCurrentBranchName(): string | undefined {
+  const result = spawnSync("git", ["branch", "--show-current"], {
+    encoding: "utf8",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(result.stderr?.trim() || "Failed to read current branch.");
+  }
+
+  const branchName = result.stdout?.trim();
+  return branchName ? branchName : undefined;
+}
+
+function formatBranchName(
+  branchName: string,
+  conventionalTypes: readonly string[],
+): string {
+  return [
+    `Invalid branch name: ${branchName}`,
+    `Expected: <type>/<name>, where <type> is one of ${conventionalTypes.join("|")}.`,
+    "Use lowercase letters, numbers, dots, dashes, underscores, and slashes after the type.",
+    "Examples: feat/add-login, perf/query-cache, cleanup/remove-dead-code",
+  ].join("\n");
+}
+
+function lintBranchName(
+  branchName: string,
+  conventionalTypes: ReadonlySet<string>,
+  conventionalTypeNames: readonly string[],
+): string | undefined {
+  if (exemptBranchNames.has(branchName)) {
+    return undefined;
+  }
+
+  if (branchName !== branchName.toLowerCase()) {
+    return formatBranchName(branchName, conventionalTypeNames);
+  }
+
+  const match = branchNamePattern.exec(branchName);
+  if (!match?.groups) {
+    return formatBranchName(branchName, conventionalTypeNames);
+  }
+
+  if (!conventionalTypes.has(match.groups.type)) {
+    return formatBranchName(branchName, conventionalTypeNames);
+  }
+
+  return undefined;
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
+}
+
+const commitlintConfig = await loadCommitlintConfig();
+const conventionalTypeNames = listConventionalTypes(commitlintConfig);
+const conventionalTypes = new Set(conventionalTypeNames);
+const branchNames = process.argv.slice(2);
+const branchNamesToLint =
+  branchNames.length > 0
+    ? branchNames
+    : [getCurrentBranchName()].filter(isDefined);
+const errors = branchNamesToLint.flatMap((branchName) => {
+  const error = lintBranchName(
+    branchName,
+    conventionalTypes,
+    conventionalTypeNames,
+  );
+  return error === undefined ? [] : [error];
+});
+
+if (errors.length > 0) {
+  console.error(errors.join("\n\n"));
+  process.exit(1);
+}
