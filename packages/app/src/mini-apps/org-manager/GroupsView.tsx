@@ -516,7 +516,13 @@ function GroupListSection({
     <section
       aria-label={ORG_MANAGER_LABELS.groups}
       className="org-manager-panel"
-      onContextMenu={(event) => openGroupContextMenu(event, null)}
+      onContextMenu={(event) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        openGroupContextMenu(event, null);
+      }}
     >
       <GroupTable
         groups={groups}

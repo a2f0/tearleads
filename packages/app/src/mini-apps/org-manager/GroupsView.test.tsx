@@ -230,6 +230,13 @@ test("org manager groups view exposes new group from group row context menus", (
   });
 
   fireEvent.contextMenu(view.getByText(customGroup.name));
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.deleteGroupAction,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(false);
   fireEvent.click(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.newGroupAction }),
   );
