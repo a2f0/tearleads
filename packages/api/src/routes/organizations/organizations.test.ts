@@ -9,6 +9,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { PrincipalMemberEnvelopeRequest } from "@tearleads/validators/request";
 import {
   isDeleteOrganizationGroupResponse,
   isListOrganizationGroupsResponse,
@@ -66,12 +67,16 @@ async function registerAndAuthenticate(user: TestUser): Promise<string> {
 async function createGroupRequest(input: {
   actor: TestUser;
   groupId: string;
+  includeActorAsAdmin?: boolean | undefined;
   name: string;
 }) {
   const principalKem = generateKemSeedAndKeyPair();
-  const projection = createProjectionWithAdminSigner(input.actor.userId, [
-    { principalType: "user", principalId: input.actor.userId },
-  ]);
+  const includeActorAsAdmin = input.includeActorAsAdmin ?? true;
+  const projection = includeActorAsAdmin
+    ? createProjectionWithAdminSigner(input.actor.userId, [
+        { principalType: "user", principalId: input.actor.userId },
+      ])
+    : [];
   const payloadCiphertext = bytesToBase64(
     new TextEncoder().encode(JSON.stringify({ members: projection })),
   );
@@ -83,7 +88,10 @@ async function createGroupRequest(input: {
     keyEpoch: 1,
     encapsulationPublicKey: bytesToBase64(principalKem.publicKey),
     keyFingerprint: await toFingerprint(principalKem.publicKey),
-    members: [{ principalType: "user", principalId: input.actor.userId }],
+    members: projection.map((member) => ({
+      principalType: member.memberPrincipalType,
+      principalId: member.memberPrincipalId,
+    })),
     projection,
     payloadCiphertext,
     signedAt: new Date("2026-05-12T12:00:00.000Z").toISOString(),
@@ -91,11 +99,23 @@ async function createGroupRequest(input: {
     signerUserKeyFingerprint: input.actor.fingerprint,
     signingPrivateKey: input.actor.signing.signingPrivateKey,
   });
-  const [memberEnvelope] = await wrapDekForRecipients(principalKem.secretKey, [
-    input.actor.kem.publicKey,
-  ]);
+  const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [];
 
-  invariant(memberEnvelope, "expected member envelope");
+  if (includeActorAsAdmin) {
+    const [memberEnvelope] = await wrapDekForRecipients(
+      principalKem.secretKey,
+      [input.actor.kem.publicKey],
+    );
+
+    invariant(memberEnvelope, "expected member envelope");
+    memberEnvelopes.push({
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: input.actor.userId,
+      memberKeyFingerprint: await toFingerprint(input.actor.kem.publicKey),
+      kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
+    });
+  }
 
   return {
     groupId: input.groupId,
@@ -104,15 +124,7 @@ async function createGroupRequest(input: {
       state: state.state,
       encryptedPayload: state.encryptedPayload,
       projection: state.projection,
-      memberEnvelopes: [
-        {
-          memberPrincipalType: "user" as const,
-          memberPrincipalId: input.actor.userId,
-          memberKeyFingerprint: await toFingerprint(input.actor.kem.publicKey),
-          kemCipherText: bytesToBase64(memberEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(memberEnvelope.wrappedKey),
-        },
-      ],
+      memberEnvelopes,
     },
   };
 }
@@ -850,6 +862,57 @@ test("org manager routes allow organization members to read but reserve mutation
     },
   );
   expect(organizationProfileResponse.status).toBe(403);
+});
+
+test("org manager routes let admins create empty externally-administered groups", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const groupId = crypto.randomUUID();
+
+  const createResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify(
+        await createGroupRequest({
+          actor,
+          groupId,
+          includeActorAsAdmin: false,
+          name: "Operators",
+        }),
+      ),
+    },
+  );
+
+  expect(createResponse.status).toBe(200);
+  const createBody = await createResponse.json();
+  invariant(
+    isOrganizationGroupSummaryResponse(createBody),
+    "expected organization group summary response",
+  );
+  expect(createBody.groupId).toBe(groupId);
+  expect(createBody.name).toBe("Operators");
+  expect(createBody.isBuiltin).toBe(false);
+  expect(createBody.currentState?.memberCount).toBe(0);
+
+  const membersResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups/${groupId}/members`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+  expect(membersResponse.status).toBe(200);
+  const membersBody = await membersResponse.json();
+  invariant(
+    isOrganizationGroupMembersResponse(membersBody),
+    "expected organization group members response",
+  );
+  expect(membersBody.members).toEqual([]);
 });
 
 test("org manager routes create and list groups with members", async () => {

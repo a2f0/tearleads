@@ -96,6 +96,7 @@ export async function importOrganizationUserRecipient(input: {
 interface BuildInitialGroupPolicyInput {
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly groupId: string;
+  readonly includeSignerAsAdmin?: boolean | undefined;
   readonly name: string;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
@@ -517,10 +518,10 @@ export async function buildInitialGroupPolicyRequest(
   input: BuildInitialGroupPolicyInput,
 ): Promise<CreateOrganizationGroupRequest> {
   const groupKem = generateKemSeedAndKeyPair();
-  const creatorFingerprint = await toFingerprint(
-    input.creatorEncapsulationKeyPair.publicKey,
-  );
-  const projection = [userProjectionMember(input.signerUserId, "admin")];
+  const includeSignerAsAdmin = input.includeSignerAsAdmin ?? true;
+  const projection = includeSignerAsAdmin
+    ? [userProjectionMember(input.signerUserId, "admin")]
+    : [];
   const stateRequest = await signedGroupStateRequest({
     encapsulationPublicKey: bytesToBase64(groupKem.publicKey),
     keyEpoch: 1,
@@ -532,12 +533,27 @@ export async function buildInitialGroupPolicyRequest(
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
-  const [creatorEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
-    input.creatorEncapsulationKeyPair.publicKey,
-  ]);
+  const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [];
 
-  if (!creatorEnvelope) {
-    throw new Error("Failed to wrap group key for creator");
+  if (includeSignerAsAdmin) {
+    const creatorFingerprint = await toFingerprint(
+      input.creatorEncapsulationKeyPair.publicKey,
+    );
+    const [creatorEnvelope] = await wrapDekForRecipients(groupKem.secretKey, [
+      input.creatorEncapsulationKeyPair.publicKey,
+    ]);
+
+    if (!creatorEnvelope) {
+      throw new Error("Failed to wrap group key for creator");
+    }
+
+    memberEnvelopes.push({
+      memberPrincipalType: "user",
+      memberPrincipalId: input.signerUserId,
+      memberKeyFingerprint: creatorFingerprint,
+      kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
+      wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
+    });
   }
 
   return {
@@ -545,15 +561,7 @@ export async function buildInitialGroupPolicyRequest(
     name: input.name.trim(),
     initialGroupPolicy: {
       ...stateRequest,
-      memberEnvelopes: [
-        {
-          memberPrincipalType: "user",
-          memberPrincipalId: input.signerUserId,
-          memberKeyFingerprint: creatorFingerprint,
-          kemCipherText: bytesToBase64(creatorEnvelope.kemCipherText),
-          wrappedKey: bytesToBase64(creatorEnvelope.wrappedKey),
-        },
-      ],
+      memberEnvelopes,
     },
   };
 }
@@ -863,6 +871,7 @@ export async function createOrganizationGroup(input: {
   const request = await buildInitialGroupPolicyRequest({
     creatorEncapsulationKeyPair: input.creatorEncapsulationKeyPair,
     groupId: crypto.randomUUID(),
+    includeSignerAsAdmin: false,
     name: input.name,
     signerUserId: input.signerUserId,
     signingFingerprint: input.signingFingerprint,

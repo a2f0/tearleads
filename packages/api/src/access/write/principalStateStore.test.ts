@@ -327,6 +327,45 @@ test("storeVerifiedPrincipalState rejects signed headers whose member count does
   ).rejects.toThrow("Principal state memberCount does not match projection");
 });
 
+test("storeVerifiedPrincipalState accepts empty initial states signed by authorized external admins", async () => {
+  const { publicKey } = generateKemSeedAndKeyPair();
+  const { signingPrivateKey, signingPublicKey } =
+    generateSigningSeedAndKeyPair();
+  const signer = await createPrincipalStateSigner(signingPublicKey);
+  const principalId = crypto.randomUUID();
+  const signedState = await signPrincipalState(
+    {
+      principalType: "group",
+      principalId,
+      version: 1,
+      prevStateHash: null,
+      keyEpoch: 1,
+      encapsulationPublicKey: bytesToBase64(publicKey),
+      keyFingerprint: await toFingerprint(publicKey),
+      members: [],
+      projection: [],
+      signedAt: new Date("2026-04-07T12:08:00.000Z").toISOString(),
+      ...signer,
+    },
+    signingPrivateKey,
+  );
+
+  await expect(storeVerifiedPrincipalState(signedState, db)).rejects.toThrow(
+    "Principal state signer must be an admin",
+  );
+
+  const storedState = await storeVerifiedPrincipalState(signedState, db, {
+    authorizeExternalAdminSigner: async (authorization) => {
+      expect(authorization.currentState).toBeNull();
+      expect(authorization.previousProjection).toBeNull();
+      expect(authorization.normalizedInput.projection).toEqual([]);
+      return authorization.signerUserId === signer.signerUserId;
+    },
+  });
+
+  expect(storedState.memberCount).toBe(0);
+});
+
 test("storeVerifiedPrincipalState rejects successor states signed by non-admins", async () => {
   const principalKeyPair = generateKemSeedAndKeyPair();
   const { signingPrivateKey, signingPublicKey } =

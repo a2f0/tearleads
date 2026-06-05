@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import {
+  buildInitialGroupPolicyRequest,
+  buildInitialOrganizationPolicyRequest,
   type CacheReferencedPrincipalPoliciesOptions,
   cacheReferencedPrincipalPolicies,
 } from "@tearleads/client-sdk";
@@ -29,6 +31,45 @@ function cacheReferencedPolicies(
   options: CacheReferencedPrincipalPoliciesOptions,
 ): Promise<void> {
   return cacheReferencedPrincipalPolicies(options);
+}
+
+type InitialPrincipalPolicy =
+  | Awaited<
+      ReturnType<typeof buildInitialGroupPolicyRequest>
+    >["initialGroupPolicy"]
+  | Awaited<ReturnType<typeof buildInitialOrganizationPolicyRequest>>;
+
+async function principalPolicyBundleFromInitialPolicy(input: {
+  readonly principalId: string;
+  readonly policy: InitialPrincipalPolicy;
+}): Promise<PrincipalPolicyBundleResponse> {
+  const stateHash = await computePrincipalStateHash(input.policy.state);
+
+  return {
+    currentState: {
+      ...input.policy.state,
+      createdAt: "2026-04-08T00:00:00.000Z",
+      stateHash,
+    },
+    currentPayload: {
+      principalType: input.policy.state.principalType,
+      principalId: input.principalId,
+      stateHash,
+      cipherSuite: input.policy.encryptedPayload.cipherSuite,
+      ciphertext: input.policy.encryptedPayload.ciphertext,
+      ciphertextHash: input.policy.encryptedPayload.ciphertextHash,
+      createdAt: "2026-04-08T00:00:00.000Z",
+    },
+    currentProjection: input.policy.projection,
+    currentMemberEnvelopes: {
+      principalType: input.policy.state.principalType,
+      principalId: input.principalId,
+      stateHash,
+      epoch: input.policy.state.keyEpoch,
+      envelopes: input.policy.memberEnvelopes,
+    },
+    previousStates: [],
+  };
 }
 
 async function createPrincipalPolicyBundle(): Promise<{
@@ -464,6 +505,86 @@ test("principal policy sync caches a verified referenced principal bundle and sk
     });
 
     expect(getCurrentPrincipalPolicyCallCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync authorizes empty group bundles from verified organization admins", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const organizationId = "organization-1";
+    const groupId = "group-empty-1";
+    const signerUserId = "organization-admin-1";
+    const signingKeyPair = generateSigningSeedAndKeyPair();
+    const encapsulationKeyPair = generateKemSeedAndKeyPair();
+    const signingKeyFingerprint = await toFingerprint(
+      signingKeyPair.signingPublicKey,
+    );
+    const signerKeyResponse = {
+      userId: signerUserId,
+      signingPublicKey: bytesToBase64(signingKeyPair.signingPublicKey),
+      signingKeyFingerprint,
+      encapsulationPublicKey: bytesToBase64(encapsulationKeyPair.publicKey),
+    };
+    const organizationPolicy = await principalPolicyBundleFromInitialPolicy({
+      principalId: organizationId,
+      policy: await buildInitialOrganizationPolicyRequest({
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        organizationId,
+        signingKeyPair,
+        userId: signerUserId,
+      }),
+    });
+    const groupPolicy = await principalPolicyBundleFromInitialPolicy({
+      principalId: groupId,
+      policy: (
+        await buildInitialGroupPolicyRequest({
+          creatorEncapsulationKeyPair: encapsulationKeyPair,
+          groupId,
+          includeSignerAsAdmin: false,
+          name: "Operators",
+          signerUserId,
+          signingFingerprint: signingKeyFingerprint,
+          signingKeyPair,
+        })
+      ).initialGroupPolicy,
+    });
+    const logs: string[] = [];
+
+    await cacheReferencedPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        if (
+          principalType === "organization" &&
+          principalId === organizationId
+        ) {
+          return organizationPolicy;
+        }
+
+        expect(principalType).toBe("group");
+        expect(principalId).toBe(groupId);
+        return groupPolicy;
+      },
+      getEncapsulationKey: async (userId) => {
+        expect(userId).toBe(signerUserId);
+        return signerKeyResponse;
+      },
+      log: (message) => logs.push(message),
+      organizationId,
+      references: [referencedPrincipalStateFromBundle(groupPolicy)],
+    });
+
+    expect(logs).toEqual([]);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", groupId),
+    ).resolves.toEqual(groupPolicy);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "organization", organizationId),
+    ).resolves.toEqual(organizationPolicy);
   } finally {
     close();
   }

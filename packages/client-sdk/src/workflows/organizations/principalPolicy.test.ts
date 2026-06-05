@@ -101,6 +101,34 @@ test("buildInitialGroupPolicyRequest creates an admin-only initial group policy"
   );
 });
 
+test("buildInitialGroupPolicyRequest can create an externally-administered empty initial group policy", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const userId = crypto.randomUUID();
+  const groupId = crypto.randomUUID();
+  const signingFingerprint = await toFingerprint(
+    signingKeyPair.signingPublicKey,
+  );
+
+  const request = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: encapsulationKeyPair,
+    groupId,
+    includeSignerAsAdmin: false,
+    name: " Operators ",
+    signerUserId: userId,
+    signingFingerprint,
+    signingKeyPair,
+  });
+
+  expect(request.name).toBe("Operators");
+  expect(request.initialGroupPolicy.state.principalType).toBe("group");
+  expect(request.initialGroupPolicy.state.principalId).toBe(groupId);
+  expect(request.initialGroupPolicy.state.version).toBe(1);
+  expect(request.initialGroupPolicy.state.memberCount).toBe(0);
+  expect(request.initialGroupPolicy.projection).toEqual([]);
+  expect(request.initialGroupPolicy.memberEnvelopes).toEqual([]);
+});
+
 test("importOrganizationUserRecipient loads a user key by id", async () => {
   const userId = crypto.randomUUID();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -144,6 +172,9 @@ test("createOrganizationGroup caches the created group policy in a fresh local d
   const apiClient: Parameters<typeof createOrganizationGroup>[0]["apiClient"] =
     {
       createOrganizationGroup: async (nextOrganizationId, request) => {
+        expect(request.initialGroupPolicy.state.memberCount).toBe(0);
+        expect(request.initialGroupPolicy.projection).toEqual([]);
+        expect(request.initialGroupPolicy.memberEnvelopes).toEqual([]);
         createdPolicyBundle = await policyBundleFromInitialRequest(request);
 
         return {
