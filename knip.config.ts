@@ -6,11 +6,7 @@ export default {
     ".": {
       entry: [],
       project: [],
-      ignoreDependencies: [
-        "@commitlint/cli",
-        "@commitlint/config-conventional",
-        "lint-staged",
-      ],
+      ignoreDependencies: ["@commitlint/cli", "lint-staged"],
     },
     "packages/api": {
       // `test/preload.ts` is discovered from bunfig.toml. There are no

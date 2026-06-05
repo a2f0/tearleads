@@ -6,6 +6,9 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 cd "$REPO_ROOT"
 
+echo "Linting branch name..."
+bun run lint:branch-name
+
 echo "Checking file names..."
 bun run lint:files
 
