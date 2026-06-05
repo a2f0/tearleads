@@ -8,6 +8,7 @@ import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
+import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
 import { DataUsageView } from "./DataUsageView";
 import { DirectoryView } from "./DirectoryView";
 import { GrantsView } from "./GrantsView";
@@ -43,6 +44,38 @@ function renderRosterProfileEditor(organizationId: string) {
   );
 }
 
+function OrgManagerDirectoryContent({
+  model,
+  renderProfileEditor,
+}: {
+  model: OrgManagerModel;
+  renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
+}) {
+  return (
+    <DirectoryView
+      canImportRosterUser={model.canImportRosterUser}
+      canUpdateSelectedRosterEntry={model.canUpdateSelectedRosterEntry}
+      canRevokeGrants={model.canRevokeGrants}
+      closeImportUserDialog={model.closeImportUserDialog}
+      detail={model.userDetail}
+      directory={model.directory}
+      error={model.error}
+      importRosterUser={model.importRosterUser}
+      importUserIdDraft={model.importUserIdDraft}
+      isImportUserDialogOpen={model.isImportUserDialogOpen}
+      loading={model.loading}
+      loadingUserDetail={model.loadingUserDetail}
+      mutating={model.mutating}
+      openGroupRoute={model.openGroupRoute}
+      renderRosterProfileEditor={renderProfileEditor}
+      revokeGrant={model.revokeGrant}
+      selectedUserId={model.selectedUserId}
+      selectUser={model.selectUser}
+      setImportUserIdDraft={model.setImportUserIdDraft}
+    />
+  );
+}
+
 function OrgManagerContent({
   model,
   organizationId,
@@ -57,19 +90,9 @@ function OrgManagerContent({
 
   if (model.view === "directory") {
     return (
-      <DirectoryView
-        canUpdateSelectedRosterEntry={model.canUpdateSelectedRosterEntry}
-        canRevokeGrants={model.canRevokeGrants}
-        detail={model.userDetail}
-        directory={model.directory}
-        loading={model.loading}
-        loadingUserDetail={model.loadingUserDetail}
-        mutating={model.mutating}
-        openGroupRoute={model.openGroupRoute}
-        renderRosterProfileEditor={renderProfileEditor}
-        revokeGrant={model.revokeGrant}
-        selectedUserId={model.selectedUserId}
-        selectUser={model.selectUser}
+      <OrgManagerDirectoryContent
+        model={model}
+        renderProfileEditor={renderProfileEditor}
       />
     );
   }
@@ -180,6 +203,16 @@ export function OrgManager() {
         )}
         <OrgManagerContent model={model} organizationId={organizationId} />
       </main>
+      <OrgManagerContextMenuLayer
+        canCreateGroup={model.canCreateGroup}
+        canImportRosterUser={model.canImportRosterUser}
+        closeContextMenu={model.contextMenuState.closeContextMenu}
+        contextMenu={model.contextMenuState.contextMenu}
+        loading={model.loading}
+        mutating={model.mutating}
+        openCreateGroupDialog={model.openCreateGroupDialog}
+        openImportUserDialog={model.openImportUserDialog}
+      />
     </MiniAppRoot>
   );
 }

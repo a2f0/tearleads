@@ -23,6 +23,10 @@ import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { useMiniAppMessage } from "../../bus";
 import {
+  type OrgManagerContextMenuModel,
+  useOrgManagerContextMenu,
+} from "../context-menu/OrgManagerContextMenu";
+import {
   removeRevokedGrantFromGrantState,
   removeRevokedGrantFromGroupContainers,
   removeRevokedGrantFromUserDetail,
@@ -61,6 +65,7 @@ export function useOrgManagerModel() {
   const [groups, setGroups] = useState<ReadonlyArray<OrganizationGroupSummary>>(
     [],
   );
+  const [memberGroupId, setMemberGroupId] = useState<string | null>(null);
   const {
     openGroupRoute,
     route,
@@ -91,6 +96,8 @@ export function useOrgManagerModel() {
   );
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
+  const [importUserIdDraft, setImportUserIdDraft] = useState("");
+  const [isImportUserDialogOpen, setIsImportUserDialogOpen] = useState(false);
   const [addUserId, setAddUserId] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingUserDetail, setLoadingUserDetail] = useState(false);
@@ -121,6 +128,15 @@ export function useOrgManagerModel() {
   const selectedGroupIsMembersGroup =
     selectedGroup?.name === ORG_MANAGER_LABELS.members;
   const canCreateGroup = directory?.currentUser.isOrgAdmin ?? false;
+  const canImportRosterUser = Boolean(
+    canLoadAuthenticatedOrgData &&
+      directory?.currentUser.isOrgAdmin &&
+      memberGroupId &&
+      appData.auth.userId &&
+      appData.crypto.signingFingerprint &&
+      appData.crypto.signingKeyPair &&
+      appData.crypto.encapsulationKeyPair,
+  );
   const canMutateSelectedGroup = canCurrentUserMutateSelectedGroup({
     directory,
     members,
@@ -200,9 +216,31 @@ export function useOrgManagerModel() {
     [selectGroup, selectUser, setView],
   );
 
+  const openImportUserDialog = useCallback(() => {
+    if (!canImportRosterUser) {
+      return;
+    }
+
+    setError(null);
+    setImportUserIdDraft("");
+    setOrgManagerView("directory");
+    setIsImportUserDialogOpen(true);
+  }, [canImportRosterUser, setOrgManagerView]);
+
+  const closeImportUserDialog = useCallback(() => {
+    if (mutating) {
+      return;
+    }
+
+    setError(null);
+    setImportUserIdDraft("");
+    setIsImportUserDialogOpen(false);
+  }, [mutating]);
+
   const resetDirectoryState = useCallback(() => {
     setDirectory(null);
     setGroups([]);
+    setMemberGroupId(null);
     setMembers(null);
     setGroupContainers(null);
     setGroupPolicyHistory(null);
@@ -210,6 +248,7 @@ export function useOrgManagerModel() {
     setGrants(null);
     setDataUsage(null);
     setIsCreateGroupDialogOpen(false);
+    setIsImportUserDialogOpen(false);
     selectUser(null);
     selectGroup(null);
   }, [selectGroup, selectUser]);
@@ -234,6 +273,7 @@ export function useOrgManagerModel() {
 
       setDirectory(nextDirectoryState.directory);
       setGroups(nextDirectoryState.groups);
+      setMemberGroupId(nextDirectoryState.memberGroupId);
       const currentSelectedGroupId = selectedGroupIdRef.current;
       const nextSelectedGroupId = resolveOrgManagerSelectedGroupId(
         currentSelectedGroupId,
@@ -647,6 +687,87 @@ export function useOrgManagerModel() {
     refreshDirectoryAndGroups,
   ]);
 
+  const importRosterUser = useCallback(async () => {
+    const targetUserId = importUserIdDraft.trim();
+    if (
+      !canImportRosterUser ||
+      !directory ||
+      !memberGroupId ||
+      targetUserId.length === 0 ||
+      !appData.auth.userId ||
+      !appData.crypto.signingFingerprint ||
+      !appData.crypto.signingKeyPair ||
+      !appData.crypto.encapsulationKeyPair
+    ) {
+      return;
+    }
+
+    setMutating(true);
+    setError(null);
+    try {
+      const directoryUser =
+        directory.users.find((user) => user.userId === targetUserId) ?? null;
+      const [targetUser, memberGroupDetails] = await Promise.all([
+        directoryUser
+          ? Promise.resolve(userRecipient(directoryUser))
+          : orgManagerActions.importUserById(targetUserId),
+        orgManagerActions.loadGroupDetails(memberGroupId),
+      ]);
+      if (!targetUser) {
+        setError(ORG_MANAGER_LABELS.userNotFound);
+        return;
+      }
+      if (!memberGroupDetails.members) {
+        setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
+        return;
+      }
+
+      const memberGroupUserIds = new Set(
+        memberGroupDetails.members.members
+          .filter((member) => member.memberPrincipalType === "user")
+          .map((member) => member.memberPrincipalId),
+      );
+      if (!memberGroupUserIds.has(targetUser.userId)) {
+        await orgManagerActions.addUserToGroup(
+          memberGroupId,
+          targetUser,
+          currentGroupUserRecipients({
+            directory,
+            members: memberGroupDetails.members,
+          }),
+          directory.currentUser.isOrgAdmin,
+        );
+      }
+
+      setImportUserIdDraft("");
+      setIsImportUserDialogOpen(false);
+      await refreshDirectoryAndGroups({
+        skipNextGroupDetailsEffect: true,
+      });
+      setOrgManagerView("directory");
+      selectUser(targetUser.userId);
+      await refreshSelectedUserDetail(targetUser.userId);
+    } catch (nextError) {
+      setUnknownError(setError, nextError);
+    } finally {
+      setMutating(false);
+    }
+  }, [
+    appData.auth.userId,
+    appData.crypto.encapsulationKeyPair,
+    appData.crypto.signingFingerprint,
+    appData.crypto.signingKeyPair,
+    canImportRosterUser,
+    directory,
+    importUserIdDraft,
+    memberGroupId,
+    orgManagerActions,
+    refreshDirectoryAndGroups,
+    refreshSelectedUserDetail,
+    selectUser,
+    setOrgManagerView,
+  ]);
+
   const addUser = useCallback(async () => {
     const targetUserId = addUserId.trim();
     const directoryUser = directory?.users.find(
@@ -792,11 +913,14 @@ export function useOrgManagerModel() {
     },
     [orgManagerActions],
   );
+  const contextMenuState: OrgManagerContextMenuModel =
+    useOrgManagerContextMenu();
 
   useOrgManagerSidebarPanel({
     enabled: Boolean(
       appData.auth.organizationId && appData.auth.isAuthenticated,
     ),
+    handleContextMenu: contextMenuState.handleSidebarContextMenu,
     setView: setOrgManagerView,
     view,
   });
@@ -807,11 +931,14 @@ export function useOrgManagerModel() {
     addUserListId,
     addableUsers,
     canCreateGroup,
+    canImportRosterUser,
     canLoadAuthenticatedOrgData,
     canMutateSelectedGroup,
     canRevokeGrants,
     canUpdateSelectedRosterEntry,
     closeCreateGroupDialog,
+    closeImportUserDialog,
+    contextMenuState,
     createGroup,
     dataUsage,
     directory,
@@ -821,7 +948,10 @@ export function useOrgManagerModel() {
     groupNameDraft,
     groupPolicyHistory,
     groups,
+    importRosterUser,
+    importUserIdDraft,
     isCreateGroupDialogOpen,
+    isImportUserDialogOpen,
     isAuthenticated: appData.auth.isAuthenticated,
     loading,
     loadingUserDetail,
@@ -830,6 +960,7 @@ export function useOrgManagerModel() {
     mutating,
     openGroupRoute,
     openCreateGroupDialog,
+    openImportUserDialog,
     organizationId: appData.auth.organizationId,
     organizationPolicyHistory,
     refreshOrgManager,
@@ -842,6 +973,7 @@ export function useOrgManagerModel() {
     selectUser,
     setAddUserId,
     setGroupNameDraft,
+    setImportUserIdDraft,
     userDetail,
     userId: appData.auth.userId,
     view,

@@ -72,6 +72,7 @@ export async function runListOrganizationGroupsWorkflow(
 
     return {
       organizationId,
+      memberGroupId: groupSummaries.memberGroupId,
       groups: groupSummaries.groups,
     };
   });

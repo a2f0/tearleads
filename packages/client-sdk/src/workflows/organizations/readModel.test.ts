@@ -38,6 +38,7 @@ const directory: OrganizationDirectoryResponse = {
 
 const groups: ListOrganizationGroupsResponse = {
   organizationId,
+  memberGroupId: "member-group-1",
   groups: [
     {
       groupId,
@@ -324,6 +325,7 @@ test("loadOrganizationDirectoryAndGroups combines directory and group lists", as
   expect(result).toEqual({
     directory,
     groups: groups.groups,
+    memberGroupId: groups.memberGroupId ?? null,
   });
 });
 

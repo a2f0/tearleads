@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { type MouseEvent, useMemo } from "react";
 import { MiniAppSidebar } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRowButton,
@@ -8,15 +8,25 @@ import {
   useRegisteredWindowSidebar,
   useWindowSidebar,
 } from "../../components/window/WindowSidebarContext";
+import type { OrgManagerContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
 
 export type { OrgManagerView } from "./routes";
 
+type OrgManagerSidebarContextMenuHandler =
+  | ((
+      event: MouseEvent<HTMLButtonElement>,
+      view: OrgManagerContextMenuTarget,
+    ) => void)
+  | undefined;
+
 function OrgManagerSidebar({
+  handleContextMenu,
   setView,
   view,
 }: {
+  handleContextMenu?: OrgManagerSidebarContextMenuHandler;
   setView: (view: OrgManagerView) => void;
   view: OrgManagerView;
 }) {
@@ -24,12 +34,14 @@ function OrgManagerSidebar({
     <MiniAppSidebar>
       <MiniAppRowButton
         onClick={() => setView("directory")}
+        onContextMenu={(event) => handleContextMenu?.(event, "directory")}
         selected={view === "directory"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.directory}</MiniAppRowText>
       </MiniAppRowButton>
       <MiniAppRowButton
         onClick={() => setView("groups")}
+        onContextMenu={(event) => handleContextMenu?.(event, "groups")}
         selected={view === "groups"}
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.groups}</MiniAppRowText>
@@ -58,17 +70,25 @@ function OrgManagerSidebar({
 
 export function useOrgManagerSidebarPanel({
   enabled = true,
+  handleContextMenu,
   setView,
   view,
 }: {
   enabled?: boolean;
+  handleContextMenu?: OrgManagerSidebarContextMenuHandler;
   setView: (view: OrgManagerView) => void;
   view: OrgManagerView;
 }) {
   const { setSidebar } = useWindowSidebar();
   const sidebar = useMemo(
-    () => <OrgManagerSidebar setView={setView} view={view} />,
-    [setView, view],
+    () => (
+      <OrgManagerSidebar
+        handleContextMenu={handleContextMenu}
+        setView={setView}
+        view={view}
+      />
+    ),
+    [handleContextMenu, setView, view],
   );
 
   useRegisteredWindowSidebar({ enabled, setSidebar, sidebar });

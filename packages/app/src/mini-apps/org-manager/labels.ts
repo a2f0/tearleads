@@ -38,6 +38,8 @@ export const ORG_MANAGER_LABELS = {
   group: "Group",
   groupName: "Group name",
   groups: "Groups",
+  importUserAction: "Import User",
+  importUserSubmitAction: "Import",
   joined: "Joined",
   lastName: "Last name",
   loadingDirectory: "Loading roster...",

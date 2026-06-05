@@ -5,16 +5,23 @@ import type {
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
 import {
+  type FormEvent,
   type KeyboardEvent,
   type ReactNode,
   useCallback,
+  useId,
   useState,
 } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppField,
   MiniAppHeader,
   MiniAppHeaderCopy,
+  MiniAppInput,
+  MiniAppModalBackdrop,
+  MiniAppModalForm,
+  MiniAppModalPanel,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
@@ -184,6 +191,96 @@ function DirectoryTable({
         />
       </MiniAppTable>
     </MiniAppTableFrame>
+  );
+}
+
+function ImportRosterUserDialog({
+  canImportRosterUser,
+  closeImportUserDialog,
+  error,
+  importRosterUser,
+  importUserIdDraft,
+  isOpen,
+  mutating,
+  setImportUserIdDraft,
+}: {
+  canImportRosterUser: boolean;
+  closeImportUserDialog: () => void;
+  error: string | null;
+  importRosterUser: () => void;
+  importUserIdDraft: string;
+  isOpen: boolean;
+  mutating: boolean;
+  setImportUserIdDraft: (userId: string) => void;
+}) {
+  const inputId = useId();
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (
+      !canImportRosterUser ||
+      mutating ||
+      importUserIdDraft.trim().length === 0
+    ) {
+      return;
+    }
+
+    importRosterUser();
+  };
+
+  return (
+    <MiniAppModalBackdrop role="presentation">
+      <MiniAppModalPanel
+        role="dialog"
+        aria-labelledby="org-manager-import-user-title"
+        aria-modal="true"
+      >
+        <MiniAppModalForm onSubmit={handleSubmit}>
+          <h2 id="org-manager-import-user-title">
+            {ORG_MANAGER_LABELS.importUserAction}
+          </h2>
+          {error && (
+            <MiniAppStatus className="org-manager-error" tone="error">
+              {error}
+            </MiniAppStatus>
+          )}
+          <MiniAppField>
+            <label htmlFor={inputId}>{ORG_MANAGER_LABELS.userId}</label>
+            <MiniAppInput
+              id={inputId}
+              autoFocus
+              disabled={!canImportRosterUser || mutating}
+              onChange={(event) => setImportUserIdDraft(event.target.value)}
+              placeholder={ORG_MANAGER_LABELS.userId}
+              value={importUserIdDraft}
+            />
+          </MiniAppField>
+          <MiniAppActions>
+            <MiniAppButton
+              disabled={mutating}
+              onClick={closeImportUserDialog}
+              type="button"
+            >
+              {ORG_MANAGER_LABELS.cancel}
+            </MiniAppButton>
+            <MiniAppButton
+              disabled={
+                !canImportRosterUser ||
+                mutating ||
+                importUserIdDraft.trim().length === 0
+              }
+              type="submit"
+            >
+              {ORG_MANAGER_LABELS.importUserSubmitAction}
+            </MiniAppButton>
+          </MiniAppActions>
+        </MiniAppModalForm>
+      </MiniAppModalPanel>
+    </MiniAppModalBackdrop>
   );
 }
 
@@ -453,10 +550,16 @@ function UserDetailView({
 }
 
 export function DirectoryView({
+  canImportRosterUser = false,
+  closeImportUserDialog = () => undefined,
   canUpdateSelectedRosterEntry = false,
   canRevokeGrants,
   detail,
   directory,
+  error = null,
+  importRosterUser = () => undefined,
+  importUserIdDraft = "",
+  isImportUserDialogOpen = false,
   loading,
   loadingUserDetail,
   mutating,
@@ -465,11 +568,18 @@ export function DirectoryView({
   revokeGrant,
   selectedUserId,
   selectUser,
+  setImportUserIdDraft = () => undefined,
 }: {
+  canImportRosterUser?: boolean | undefined;
   canUpdateSelectedRosterEntry?: boolean | undefined;
   canRevokeGrants: boolean;
+  closeImportUserDialog?: (() => void) | undefined;
   detail: OrganizationUserDetail | null;
   directory: OrganizationDirectory | null;
+  error?: string | null | undefined;
+  importRosterUser?: (() => void) | undefined;
+  importUserIdDraft?: string | undefined;
+  isImportUserDialogOpen?: boolean | undefined;
   loading: boolean;
   loadingUserDetail: boolean;
   mutating: boolean;
@@ -478,9 +588,22 @@ export function DirectoryView({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
+  setImportUserIdDraft?: ((userId: string) => void) | undefined;
 }) {
   const [profileDisplayNamesByUserId, setProfileDisplayNamesByUserId] =
     useState<ReadonlyMap<string, string>>(new Map());
+  const importUserDialog = (
+    <ImportRosterUserDialog
+      canImportRosterUser={canImportRosterUser}
+      closeImportUserDialog={closeImportUserDialog}
+      error={error ?? null}
+      importRosterUser={importRosterUser}
+      importUserIdDraft={importUserIdDraft}
+      isOpen={isImportUserDialogOpen}
+      mutating={mutating}
+      setImportUserIdDraft={setImportUserIdDraft}
+    />
+  );
 
   const setProfileDisplayName = useCallback(
     (userId: string, displayName: string | null) => {
@@ -514,44 +637,55 @@ export function DirectoryView({
   );
 
   if (!directory) {
-    return <DirectoryTable directory={directory} loading={loading} />;
+    return (
+      <>
+        <DirectoryTable directory={directory} loading={loading} />
+        {importUserDialog}
+      </>
+    );
   }
 
   if (!selectedUserId) {
     return (
-      <section className="org-manager-panel">
-        <DirectoryTable
-          directory={directory}
-          loading={loading}
-          profileDisplayNamesByUserId={profileDisplayNamesByUserId}
-          selectedUserId={selectedUserId}
-          selectUser={selectUser}
-        />
-      </section>
+      <>
+        <section className="org-manager-panel">
+          <DirectoryTable
+            directory={directory}
+            loading={loading}
+            profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+            selectedUserId={selectedUserId}
+            selectUser={selectUser}
+          />
+        </section>
+        {importUserDialog}
+      </>
     );
   }
 
   return (
-    <section className="org-manager-panel">
-      <UserDetailView
-        canEditRosterProfile={canUpdateSelectedRosterEntry}
-        canRevokeGrants={canRevokeGrants}
-        detail={detail}
-        key={selectedUserId}
-        loading={loadingUserDetail}
-        mutating={mutating}
-        onDismiss={() => selectUser(null)}
-        onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
-        openGroupRoute={openGroupRoute}
-        profileDisplayName={
-          selectedUserId
-            ? profileDisplayNamesByUserId.get(selectedUserId)
-            : undefined
-        }
-        renderRosterProfileEditor={renderRosterProfileEditor}
-        revokeGrant={revokeGrant}
-        selectedUserId={selectedUserId}
-      />
-    </section>
+    <>
+      <section className="org-manager-panel">
+        <UserDetailView
+          canEditRosterProfile={canUpdateSelectedRosterEntry}
+          canRevokeGrants={canRevokeGrants}
+          detail={detail}
+          key={selectedUserId}
+          loading={loadingUserDetail}
+          mutating={mutating}
+          onDismiss={() => selectUser(null)}
+          onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
+          openGroupRoute={openGroupRoute}
+          profileDisplayName={
+            selectedUserId
+              ? profileDisplayNamesByUserId.get(selectedUserId)
+              : undefined
+          }
+          renderRosterProfileEditor={renderRosterProfileEditor}
+          revokeGrant={revokeGrant}
+          selectedUserId={selectedUserId}
+        />
+      </section>
+      {importUserDialog}
+    </>
   );
 }
