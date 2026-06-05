@@ -53,7 +53,9 @@ export class Tearleads {
 
   private readonly apiClient: ApiClient;
   private readonly documentProjectors: DocumentProjectorRegistry;
+  // Tracks the storage/identity pair that owns domain-scoped runtime state.
   private domainScopeKey: string | null = null;
+  // Recreated when the storage database or signing identity changes.
   private domainScopeValue: DomainScope = createDomainScope();
   private readonly logErrorHandler: (
     message: string | Error,
