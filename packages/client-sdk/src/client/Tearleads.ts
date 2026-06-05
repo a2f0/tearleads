@@ -26,11 +26,13 @@ import { createSession, type Session } from "./session";
 import { createUserKeys, type UserKeys } from "./userKeys";
 import { createRuntime, type Runtime } from "./workflowRuntime";
 
+export type ClientDatabaseOptions = Omit<DatabaseOptions, "status">;
+
 export interface ClientOptions {
   apiBaseUrl?: string | undefined;
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
-  database?: DatabaseOptions | undefined;
+  database?: ClientDatabaseOptions | undefined;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   events?: ReadonlyArray<unknown> | undefined;
   identity?: IdentityOptions | undefined;

@@ -5,7 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { type Logger, Tearleads } from "./client";
+import { Database, type Logger, Tearleads } from "./client";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import type { DocumentProjectorDefinition } from "./documents";
 import type {
@@ -55,7 +55,7 @@ describe("Tearleads", () => {
     const sqlClient = createNoopSqlClient();
     const sdk = new Tearleads({
       apiBaseUrl: "https://api.example.test",
-      database: { client: sqlClient, id: "client-db", status: "ready" },
+      database: { client: sqlClient, id: "client-db" },
       logger: quietLogger,
       online: false,
     });
@@ -106,7 +106,7 @@ describe("Tearleads", () => {
   test("exposes grouped runtime input", () => {
     const sqlClient = createNoopSqlClient();
     const sdk = new Tearleads({
-      database: { client: sqlClient, id: "client-db", status: "ready" },
+      database: { client: sqlClient, id: "client-db" },
       logger: quietLogger,
       online: false,
     });
@@ -192,12 +192,10 @@ describe("Tearleads", () => {
     sdk.database.configure({
       client: sqlClient,
       id: "client-db",
-      status: "ready",
     });
     sdk.database.configure({
       client: sqlClient,
       id: "client-db",
-      status: "ready",
     });
     sdk.database.clear("terminated");
     unsubscribe();
@@ -437,7 +435,7 @@ describe("Tearleads", () => {
   test("creates workflow runtimes from the current SDK state", async () => {
     const sqlClient = createNoopSqlClient();
     const sdk = new Tearleads({
-      database: { client: sqlClient, id: "client-db", status: "ready" },
+      database: { client: sqlClient, id: "client-db" },
       logger: quietLogger,
     });
     await sdk.identity.generate();
@@ -558,7 +556,7 @@ describe("Tearleads", () => {
         { updatedAt: "2026-05-24T11:00:00.000Z" },
       );
       const sdk = new Tearleads({
-        database: { execSql, id: "client-db", status: "ready" },
+        database: { execSql, id: "client-db" },
         logger: quietLogger,
       });
 
@@ -601,7 +599,6 @@ describe("Tearleads", () => {
         database: {
           execSql: observedExecSql,
           id: "client-db",
-          status: "ready",
         },
         logger: quietLogger,
       });
@@ -645,7 +642,7 @@ describe("Tearleads", () => {
         { updatedAt: "2026-05-24T12:00:00.000Z" },
       );
       const sdk = new Tearleads({
-        database: { execSql, id: "client-db", status: "ready" },
+        database: { execSql, id: "client-db" },
         logger: quietLogger,
       });
       const readModel = sdk.containerContents.documentReadModel();
@@ -733,9 +730,8 @@ describe("Tearleads", () => {
   test("rejects ready database state without a SQLite executor", () => {
     expect(
       () =>
-        new Tearleads({
-          database: { status: "ready" },
-          logger: quietLogger,
+        new Database({
+          status: "ready",
         }),
     ).toThrow("ready SQLite database requires a configured executor");
   });
@@ -746,7 +742,7 @@ describe("Tearleads", () => {
       throw new Error("captured executor");
     };
     const sdk = new Tearleads({
-      database: { execSql, status: "ready" },
+      database: { execSql },
       logger: {
         ...quietLogger,
         log: (message) => messages.push(message),
@@ -779,7 +775,6 @@ describe("Tearleads", () => {
     sdk.database.configure({
       client: createNoopSqlClient(),
       id: "client-db",
-      status: "ready",
     });
     const databaseScope = sdk.domainScope;
 

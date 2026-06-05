@@ -68,7 +68,7 @@ async function bootSQLiteRuntime(
 function configureSdkSQLiteRuntime(
   tearleads: Tearleads,
   runtime: SQLiteRuntime,
-  status: SQLiteRuntimeStatus,
+  status?: SQLiteRuntimeStatus,
 ) {
   tearleads.database.configure({
     client: runtime.client,
@@ -92,7 +92,7 @@ function completeSQLiteRuntimeBoot(params: {
   }
 
   bootingRef.current = false;
-  configureSdkSQLiteRuntime(tearleads, runtime, "ready");
+  configureSdkSQLiteRuntime(tearleads, runtime);
   log(`Database initialized successfully: ${dbName}`);
   log("Worker spawned");
 }

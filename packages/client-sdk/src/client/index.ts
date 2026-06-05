@@ -140,7 +140,11 @@ export type {
   SessionSnapshot,
   UserSession,
 } from "./session";
-export { type ClientOptions, Tearleads } from "./Tearleads";
+export {
+  type ClientDatabaseOptions,
+  type ClientOptions,
+  Tearleads,
+} from "./Tearleads";
 export type {
   UserKey,
   UserKeys,

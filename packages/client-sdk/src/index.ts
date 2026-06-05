@@ -9,6 +9,7 @@ export type {
   BlobInfoSort,
   BlobInfoSortDirection,
   BlobInfoSortKey,
+  ClientDatabaseOptions,
   ContainerContents,
   ContainerContentsContextValue,
   ContainerContentsStore,
