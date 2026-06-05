@@ -220,24 +220,36 @@ function GroupTable({
 
 function GroupContextMenu({
   canDeleteGroup,
+  canCreateGroup,
   closeContextMenu,
   deleteGroup,
   group,
   mutating,
+  openCreateGroupDialog,
   position,
 }: {
   canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
+  canCreateGroup: boolean;
   closeContextMenu: () => void;
   deleteGroup: (groupId: string) => void;
   group: OrganizationGroupSummary | null;
   mutating: boolean;
+  openCreateGroupDialog: () => void;
   position: MenuPosition | null;
 }) {
-  if (!group || !position) {
+  if (!position) {
     return null;
   }
 
+  const handleCreateGroup = () => {
+    closeContextMenu();
+    openCreateGroupDialog();
+  };
   const handleDeleteGroup = () => {
+    if (!group) {
+      return;
+    }
+
     closeContextMenu();
     deleteGroup(group.groupId);
   };
@@ -245,10 +257,17 @@ function GroupContextMenu({
   return (
     <Menu direction="down" onClose={closeContextMenu} position={position}>
       <MenuItem
-        disabled={!canDeleteGroup(group) || mutating}
-        label={ORG_MANAGER_LABELS.deleteGroupAction}
-        onClick={handleDeleteGroup}
+        disabled={!canCreateGroup || mutating}
+        label={ORG_MANAGER_LABELS.newGroupAction}
+        onClick={handleCreateGroup}
       />
+      {group ? (
+        <MenuItem
+          disabled={!canDeleteGroup(group) || mutating}
+          label={ORG_MANAGER_LABELS.deleteGroupAction}
+          onClick={handleDeleteGroup}
+        />
+      ) : null}
     </Menu>
   );
 }
@@ -488,13 +507,23 @@ function GroupListSection({
   groups: ReadonlyArray<OrganizationGroupSummary>;
   openGroupContextMenu: (
     event: MouseEvent<HTMLElement>,
-    groupId: string,
+    groupId: string | null,
   ) => void;
   selectedGroupId: string | null;
   selectGroup: (groupId: string | null) => void;
 }) {
   return (
-    <section className="org-manager-panel">
+    <section
+      aria-label={ORG_MANAGER_LABELS.groups}
+      className="org-manager-panel"
+      onContextMenu={(event) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        openGroupContextMenu(event, null);
+      }}
+    >
       <GroupTable
         groups={groups}
         openGroupContextMenu={openGroupContextMenu}
@@ -512,7 +541,7 @@ function GroupDetailHeader({
 }: {
   openGroupContextMenu: (
     event: MouseEvent<HTMLElement>,
-    groupId: string,
+    groupId: string | null,
   ) => void;
   selectedGroup: OrganizationGroupSummary;
   selectGroup: (groupId: string | null) => void;
@@ -542,6 +571,114 @@ function GroupDetailHeader({
   );
 }
 
+function GroupDetailSection({
+  addUser,
+  addUserId,
+  addUserListId,
+  addableUsers,
+  canMutateSelectedGroup,
+  directory,
+  groupContainers,
+  groupPolicyHistory,
+  groups,
+  members,
+  memberUserIds,
+  mutating,
+  openGroupContextMenu,
+  removeMember,
+  selectedGroup,
+  selectGroup,
+  setAddUserId,
+  userId,
+}: {
+  addUser: () => void;
+  addUserId: string;
+  addUserListId: string;
+  addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
+  canMutateSelectedGroup: boolean;
+  directory: OrganizationDirectory | null;
+  groupContainers: OrganizationGroupContainers | null;
+  groupPolicyHistory: OrganizationGroupPolicyHistory | null;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
+  members: OrganizationGroupMembers | null;
+  memberUserIds: ReadonlySet<string>;
+  mutating: boolean;
+  openGroupContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    groupId: string | null,
+  ) => void;
+  removeMember: (userId: string) => void;
+  selectedGroup: OrganizationGroupSummary;
+  selectGroup: (groupId: string | null) => void;
+  setAddUserId: (userId: string) => void;
+  userId: string | null;
+}) {
+  return (
+    <section className="org-manager-panel">
+      <GroupDetailHeader
+        openGroupContextMenu={openGroupContextMenu}
+        selectedGroup={selectedGroup}
+        selectGroup={selectGroup}
+      />
+      <MiniAppToolbar className="org-manager-form-toolbar">
+        <MiniAppInput
+          aria-label={ORG_MANAGER_LABELS.userId}
+          disabled={!canMutateSelectedGroup || mutating}
+          list={addUserListId}
+          onChange={(event) => setAddUserId(event.target.value)}
+          placeholder={ORG_MANAGER_LABELS.userId}
+          value={addUserId}
+        />
+        <datalist id={addUserListId}>
+          {addableUsers.map((user) => (
+            <option key={user.userId} value={user.userId}>
+              {user.isSelf
+                ? ORG_MANAGER_LABELS.self
+                : compactFingerprint(user.userId)}
+            </option>
+          ))}
+        </datalist>
+        <MiniAppButton
+          disabled={
+            !canMutateSelectedGroup ||
+            mutating ||
+            !members ||
+            addUserId.trim().length === 0 ||
+            memberUserIds.has(addUserId.trim())
+          }
+          onClick={addUser}
+        >
+          {ORG_MANAGER_LABELS.add}
+        </MiniAppButton>
+      </MiniAppToolbar>
+      <MiniAppSection>
+        <MiniAppSectionHeading>
+          {ORG_MANAGER_LABELS.members}
+        </MiniAppSectionHeading>
+        <GroupMembers
+          canMutateGroup={canMutateSelectedGroup}
+          members={members?.members ?? []}
+          mutating={mutating}
+          removeMember={removeMember}
+          userId={userId}
+        />
+      </MiniAppSection>
+      <PolicyHistorySection
+        directory={directory}
+        groups={groups}
+        heading={ORG_MANAGER_LABELS.policyHistory}
+        history={groupPolicyHistory}
+      />
+      <MiniAppSection>
+        <MiniAppSectionHeading>
+          {ORG_MANAGER_LABELS.directContainerLinks}
+        </MiniAppSectionHeading>
+        <GroupContainers containers={groupContainers?.containers ?? []} />
+      </MiniAppSection>
+    </section>
+  );
+}
+
 interface GroupsViewProps {
   addUser: () => void;
   addUserId: string;
@@ -563,6 +700,7 @@ interface GroupsViewProps {
   members: OrganizationGroupMembers | null;
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
+  openCreateGroupDialog: () => void;
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
@@ -593,6 +731,7 @@ export function GroupsView({
   members,
   memberUserIds,
   mutating,
+  openCreateGroupDialog,
   removeMember,
   selectedGroup,
   selectedGroupId,
@@ -602,16 +741,18 @@ export function GroupsView({
   userId,
 }: GroupsViewProps) {
   const { closeContextMenu, contextMenu, openContextMenu } =
-    useContextMenuState<string>();
+    useContextMenuState<string | null>();
   const contextMenuGroup =
     groups.find((group) => group.groupId === contextMenu?.id) ?? null;
   const groupContextMenu = (
     <GroupContextMenu
+      canCreateGroup={canCreateGroup}
       canDeleteGroup={canDeleteGroup}
       closeContextMenu={closeContextMenu}
       deleteGroup={deleteGroup}
       group={contextMenuGroup}
       mutating={mutating}
+      openCreateGroupDialog={openCreateGroupDialog}
       position={contextMenu?.position ?? null}
     />
   );
@@ -648,68 +789,26 @@ export function GroupsView({
 
   return (
     <>
-      <section className="org-manager-panel">
-        <GroupDetailHeader
-          openGroupContextMenu={openContextMenu}
-          selectedGroup={selectedGroup}
-          selectGroup={selectGroup}
-        />
-        <MiniAppToolbar className="org-manager-form-toolbar">
-          <MiniAppInput
-            aria-label={ORG_MANAGER_LABELS.userId}
-            disabled={!canMutateSelectedGroup || mutating}
-            list={addUserListId}
-            onChange={(event) => setAddUserId(event.target.value)}
-            placeholder={ORG_MANAGER_LABELS.userId}
-            value={addUserId}
-          />
-          <datalist id={addUserListId}>
-            {addableUsers.map((user) => (
-              <option key={user.userId} value={user.userId}>
-                {user.isSelf
-                  ? ORG_MANAGER_LABELS.self
-                  : compactFingerprint(user.userId)}
-              </option>
-            ))}
-          </datalist>
-          <MiniAppButton
-            disabled={
-              !canMutateSelectedGroup ||
-              mutating ||
-              !members ||
-              addUserId.trim().length === 0 ||
-              memberUserIds.has(addUserId.trim())
-            }
-            onClick={addUser}
-          >
-            {ORG_MANAGER_LABELS.add}
-          </MiniAppButton>
-        </MiniAppToolbar>
-        <MiniAppSection>
-          <MiniAppSectionHeading>
-            {ORG_MANAGER_LABELS.members}
-          </MiniAppSectionHeading>
-          <GroupMembers
-            canMutateGroup={canMutateSelectedGroup}
-            members={members?.members ?? []}
-            mutating={mutating}
-            removeMember={removeMember}
-            userId={userId}
-          />
-        </MiniAppSection>
-        <PolicyHistorySection
-          directory={directory}
-          groups={groups}
-          heading={ORG_MANAGER_LABELS.policyHistory}
-          history={groupPolicyHistory}
-        />
-        <MiniAppSection>
-          <MiniAppSectionHeading>
-            {ORG_MANAGER_LABELS.directContainerLinks}
-          </MiniAppSectionHeading>
-          <GroupContainers containers={groupContainers?.containers ?? []} />
-        </MiniAppSection>
-      </section>
+      <GroupDetailSection
+        addUser={addUser}
+        addUserId={addUserId}
+        addUserListId={addUserListId}
+        addableUsers={addableUsers}
+        canMutateSelectedGroup={canMutateSelectedGroup}
+        directory={directory}
+        groupContainers={groupContainers}
+        groupPolicyHistory={groupPolicyHistory}
+        groups={groups}
+        members={members}
+        memberUserIds={memberUserIds}
+        mutating={mutating}
+        openGroupContextMenu={openContextMenu}
+        removeMember={removeMember}
+        selectedGroup={selectedGroup}
+        selectGroup={selectGroup}
+        setAddUserId={setAddUserId}
+        userId={userId}
+      />
       {groupContextMenu}
       {createGroupDialog}
     </>

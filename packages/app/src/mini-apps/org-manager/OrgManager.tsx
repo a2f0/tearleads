@@ -149,6 +149,7 @@ function OrgManagerContent({
       members={model.members}
       memberUserIds={model.memberUserIds}
       mutating={model.mutating}
+      openCreateGroupDialog={model.openCreateGroupDialog}
       removeMember={model.removeMember}
       selectedGroup={model.selectedGroup}
       selectedGroupId={model.selectedGroupId}
