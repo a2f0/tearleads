@@ -38,6 +38,7 @@ function renderGroupsView(input: {
   groupNameDraft?: string | undefined;
   groups?: ReadonlyArray<OrganizationGroupSummary> | undefined;
   isCreateGroupDialogOpen?: boolean | undefined;
+  openCreateGroupDialog?: (() => void) | undefined;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
   selectGroup?: ((groupId: string | null) => void) | undefined;
@@ -65,6 +66,7 @@ function renderGroupsView(input: {
       members={null}
       memberUserIds={new Set<string>()}
       mutating={false}
+      openCreateGroupDialog={input.openCreateGroupDialog ?? (() => undefined)}
       removeMember={() => undefined}
       selectedGroup={input.selectedGroup}
       selectedGroupId={input.selectedGroupId}
@@ -193,4 +195,44 @@ test("org manager groups view deletes custom groups from the context menu", () =
   );
 
   expect(deletedGroupIds).toEqual([customGroup.groupId]);
+});
+
+test("org manager groups view opens new group from the groups area context menu", () => {
+  let openCreateGroupDialogCount = 0;
+  const view = renderGroupsView({
+    canCreateGroup: true,
+    groups: [],
+    openCreateGroupDialog: () => {
+      openCreateGroupDialogCount += 1;
+    },
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+
+  fireEvent.contextMenu(view.getByText(ORG_MANAGER_LABELS.noGroups));
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.newGroupAction }),
+  );
+
+  expect(openCreateGroupDialogCount).toBe(1);
+});
+
+test("org manager groups view exposes new group from group row context menus", () => {
+  let openCreateGroupDialogCount = 0;
+  const view = renderGroupsView({
+    canCreateGroup: true,
+    groups: [customGroup],
+    openCreateGroupDialog: () => {
+      openCreateGroupDialogCount += 1;
+    },
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+
+  fireEvent.contextMenu(view.getByText(customGroup.name));
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.newGroupAction }),
+  );
+
+  expect(openCreateGroupDialogCount).toBe(1);
 });
