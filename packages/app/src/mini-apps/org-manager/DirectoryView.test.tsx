@@ -196,6 +196,47 @@ test("org manager roster view hides user detail until a user is selected", () =>
   expect(selections).toEqual([rosterUser.userId]);
 });
 
+test("org manager roster import dialog submits the user id draft", () => {
+  const drafts: string[] = [];
+  let importCount = 0;
+  const view = render(
+    <DirectoryView
+      canImportRosterUser
+      canRevokeGrants={false}
+      detail={null}
+      directory={directory}
+      importRosterUser={() => {
+        importCount += 1;
+      }}
+      importUserIdDraft="user-2"
+      isImportUserDialogOpen
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+      setImportUserIdDraft={(userId) => drafts.push(userId)}
+    />,
+  );
+
+  expect(
+    view.getByRole("dialog", { name: ORG_MANAGER_LABELS.importUserAction }),
+  ).toBeTruthy();
+  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.userId), {
+    target: { value: "user-3" },
+  });
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.importUserSubmitAction,
+    }),
+  );
+
+  expect(drafts).toEqual(["user-3"]);
+  expect(importCount).toBe(1);
+});
+
 function compactRosterUserId(): string {
   return `${rosterUser.userId.slice(0, 10)}...${rosterUser.userId.slice(-6)}`;
 }

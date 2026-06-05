@@ -1,9 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import type { MouseEvent } from "react";
 import {
   useWindowSidebar,
   WindowSidebarProvider,
 } from "../../components/window/WindowSidebarContext";
+import type { OrgManagerContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
 import { ORG_MANAGER_LABELS } from "./labels";
 import {
   type OrgManagerView,
@@ -14,9 +16,21 @@ afterEach(() => cleanup());
 
 function setView(_view: OrgManagerView) {}
 
-function SidebarRegistration({ enabled }: { enabled: boolean }) {
+function SidebarRegistration({
+  enabled,
+  handleContextMenu,
+}: {
+  enabled: boolean;
+  handleContextMenu?:
+    | ((
+        event: MouseEvent<HTMLButtonElement>,
+        view: OrgManagerContextMenuTarget,
+      ) => void)
+    | undefined;
+}) {
   useOrgManagerSidebarPanel({
     enabled,
+    handleContextMenu,
     setView,
     view: "directory",
   });
@@ -29,10 +43,24 @@ function SidebarOutput() {
   return <div>{sidebar}</div>;
 }
 
-function SidebarHarness({ enabled }: { enabled: boolean }) {
+function SidebarHarness({
+  enabled,
+  handleContextMenu,
+}: {
+  enabled: boolean;
+  handleContextMenu?:
+    | ((
+        event: MouseEvent<HTMLButtonElement>,
+        view: OrgManagerContextMenuTarget,
+      ) => void)
+    | undefined;
+}) {
   return (
     <WindowSidebarProvider>
-      <SidebarRegistration enabled={enabled} />
+      <SidebarRegistration
+        enabled={enabled}
+        handleContextMenu={handleContextMenu}
+      />
       <SidebarOutput />
     </WindowSidebarProvider>
   );
@@ -54,4 +82,26 @@ test("org manager sidebar panel clears itself when disabled", async () => {
   await waitFor(() => {
     expect(view.queryByText(ORG_MANAGER_LABELS.directory)).toBeNull();
   });
+});
+
+test("org manager sidebar exposes context menus for roster and groups", async () => {
+  const contextMenuTargets: OrgManagerContextMenuTarget[] = [];
+  const view = render(
+    <SidebarHarness
+      enabled
+      handleContextMenu={(_event, target) => {
+        contextMenuTargets.push(target);
+      }}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText(ORG_MANAGER_LABELS.directory)).toBeTruthy();
+  });
+
+  fireEvent.contextMenu(view.getByText(ORG_MANAGER_LABELS.directory));
+  fireEvent.contextMenu(view.getByText(ORG_MANAGER_LABELS.groups));
+  fireEvent.contextMenu(view.getByText(ORG_MANAGER_LABELS.grants));
+
+  expect(contextMenuTargets).toEqual(["directory", "groups"]);
 });
