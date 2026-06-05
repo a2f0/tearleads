@@ -500,9 +500,12 @@ function verifyPrincipalPolicyChainEntryIdentity(input: {
   }
 }
 
-function verifyInitialPrincipalPolicyChainEntry(
-  normalizedEntry: NormalizedPrincipalPolicyStateChainEntry,
-): void {
+function verifyInitialPrincipalPolicyChainEntry(input: {
+  readonly externalAdminSignerUserIds: ReadonlySet<string>;
+  readonly normalizedEntry: NormalizedPrincipalPolicyStateChainEntry;
+}): void {
+  const { externalAdminSignerUserIds, normalizedEntry } = input;
+
   if (normalizedEntry.state.prevStateHash !== null) {
     throwVerification(
       "stale_predecessor",
@@ -511,16 +514,25 @@ function verifyInitialPrincipalPolicyChainEntry(
   }
 
   if (
-    !projectionIncludesAdminUser(
+    projectionIncludesAdminUser(
       normalizedEntry.projection,
       normalizedEntry.state.signerUserId,
     )
   ) {
-    throwVerification(
-      "unauthorized",
-      "initial principal policy state signer is not an admin",
-    );
+    return;
   }
+
+  if (
+    normalizedEntry.projection.length === 0 &&
+    externalAdminSignerUserIds.has(normalizedEntry.state.signerUserId)
+  ) {
+    return;
+  }
+
+  throwVerification(
+    "unauthorized",
+    "initial principal policy state signer is not an admin",
+  );
 }
 
 function verifySuccessorPrincipalPolicyChainEntry(input: {
@@ -630,7 +642,10 @@ async function verifyPrincipalPolicyChain(input: {
         previousEntry,
       });
     } else {
-      verifyInitialPrincipalPolicyChainEntry(normalizedEntry);
+      verifyInitialPrincipalPolicyChainEntry({
+        externalAdminSignerUserIds: input.externalAdminSignerUserIds,
+        normalizedEntry,
+      });
     }
 
     await verifyPrincipalPolicyChainEntrySignature({

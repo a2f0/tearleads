@@ -335,13 +335,31 @@ async function validatePrincipalStateSignerAuthorization(input: {
 }): Promise<StoredPrincipalProjectionMember[] | null> {
   if (!input.currentState) {
     if (
-      !projectionIncludesAdminUser(
+      projectionIncludesAdminUser(
         input.normalizedInput.projection,
         input.signerUserId,
       )
     ) {
+      return null;
+    }
+
+    let isExternalAdmin = false;
+    if (
+      input.normalizedInput.projection.length === 0 &&
+      input.options?.authorizeExternalAdminSigner
+    ) {
+      isExternalAdmin = await input.options.authorizeExternalAdminSigner({
+        currentState: null,
+        normalizedInput: input.normalizedInput,
+        previousProjection: null,
+        signerUserId: input.signerUserId,
+      });
+    }
+
+    if (!isExternalAdmin) {
       throw new Error("Principal state signer must be an admin");
     }
+
     return null;
   }
 
@@ -356,15 +374,15 @@ async function validatePrincipalStateSignerAuthorization(input: {
     previousProjection,
     input.signerUserId,
   );
-  const isExternalAdmin =
-    !isDirectAdmin &&
-    input.options?.authorizeExternalAdminSigner &&
-    (await input.options.authorizeExternalAdminSigner({
+  let isExternalAdmin = false;
+  if (!isDirectAdmin && input.options?.authorizeExternalAdminSigner) {
+    isExternalAdmin = await input.options.authorizeExternalAdminSigner({
       currentState: input.currentState,
       normalizedInput: input.normalizedInput,
       previousProjection,
       signerUserId: input.signerUserId,
-    }));
+    });
+  }
 
   if (!isDirectAdmin && !isExternalAdmin) {
     throw new Error("Principal state signer must be an admin");

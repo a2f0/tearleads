@@ -1,4 +1,3 @@
-import { verifyPrincipalPolicyBundle } from "@tearleads/crypto";
 import type {
   EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
@@ -9,6 +8,10 @@ import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
+import {
+  verifyOrganizationAdminSignerUserIds,
+  verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
+} from "../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   collectPrincipalPolicySignerPublicKeys,
@@ -27,6 +30,7 @@ export interface CacheReferencedPrincipalPoliciesOptions {
     userId: string,
   ) => Promise<EncapsulationKeyResponse | null>;
   log?: (message: string) => void;
+  organizationId?: string | null | undefined;
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
 }
 
@@ -167,6 +171,7 @@ async function validatePrincipalPolicyBundle(
   bundle: PrincipalPolicyBundleResponse,
   getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
   cachedBundle: PrincipalPolicyBundleResponse | null,
+  loadExternalAdminSignerUserIds: () => Promise<readonly string[]>,
 ): Promise<string | null> {
   const referenceMismatch = getBundleReferenceMismatchReason(reference, bundle);
   if (referenceMismatch) {
@@ -189,12 +194,14 @@ async function validatePrincipalPolicyBundle(
     return signerPublicKeyLoadErrorMessage(signerPublicKeys.error);
   }
 
-  const verified = await verifyPrincipalPolicyBundle({
-    bundle,
-    expectedReference: reference,
-    localCheckpoint: principalPolicyCheckpoint(cachedBundle),
-    signerPublicKeys: signerPublicKeys.signerPublicKeys,
-  });
+  const verified =
+    await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
+      bundle,
+      expectedReference: reference,
+      loadExternalAdminSignerUserIds,
+      localCheckpoint: principalPolicyCheckpoint(cachedBundle),
+      signerPublicKeys: signerPublicKeys.signerPublicKeys,
+    });
 
   return verified.ok ? null : verified.error.message;
 }
@@ -205,6 +212,7 @@ async function cacheReferencedPrincipalPolicy(
   getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"],
   reference: ReferencedPrincipalStateResponse,
   log: ((message: string) => void) | undefined,
+  loadExternalAdminSignerUserIds: () => Promise<readonly string[]>,
 ): Promise<void> {
   const cachedBundle = await loadPrincipalPolicyBundle(
     execSql,
@@ -232,6 +240,7 @@ async function cacheReferencedPrincipalPolicy(
     bundle,
     getEncapsulationKey,
     cachedBundle,
+    loadExternalAdminSignerUserIds,
   );
   if (validationError) {
     log?.(
@@ -243,11 +252,66 @@ async function cacheReferencedPrincipalPolicy(
   await savePrincipalPolicyBundle(execSql, bundle, new Date().toISOString());
 }
 
+async function loadOrganizationExternalAdminSignerUserIds(input: {
+  readonly execSql: ExecSql;
+  readonly getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"];
+  readonly getEncapsulationKey: CacheReferencedPrincipalPoliciesOptions["getEncapsulationKey"];
+  readonly organizationId: string | null | undefined;
+}): Promise<string[]> {
+  if (!input.organizationId) {
+    return [];
+  }
+
+  try {
+    const bundle = await input.getCurrentPrincipalPolicy(
+      "organization",
+      input.organizationId,
+    );
+    if (!bundle) {
+      return [];
+    }
+
+    const cachedBundle = await loadPrincipalPolicyBundle(
+      input.execSql,
+      "organization",
+      input.organizationId,
+    );
+    const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
+      bundle,
+      getEncapsulationKey: input.getEncapsulationKey,
+    });
+    if ("error" in signerPublicKeys) {
+      return [];
+    }
+
+    const externalAdminSignerUserIds =
+      await verifyOrganizationAdminSignerUserIds({
+        bundle,
+        localCheckpoint: principalPolicyCheckpoint(cachedBundle),
+        organizationId: input.organizationId,
+        signerPublicKeys: signerPublicKeys.signerPublicKeys,
+      });
+
+    if (externalAdminSignerUserIds.length > 0) {
+      await savePrincipalPolicyBundle(
+        input.execSql,
+        bundle,
+        new Date().toISOString(),
+      );
+    }
+
+    return externalAdminSignerUserIds;
+  } catch {
+    return [];
+  }
+}
+
 export async function cacheReferencedPrincipalPolicies({
   execSql,
   getEncapsulationKey,
   getCurrentPrincipalPolicy,
   log,
+  organizationId,
   references,
 }: CacheReferencedPrincipalPoliciesOptions): Promise<void> {
   if (!references || references.length === 0) {
@@ -257,6 +321,18 @@ export async function cacheReferencedPrincipalPolicies({
   try {
     await ensurePrincipalPolicyTables(execSql);
     const uniqueReferences = dedupeReferencedPrincipals(references);
+    let externalAdminSignerUserIds: Promise<readonly string[]> | null = null;
+    const loadExternalAdminSignerUserIds = () => {
+      externalAdminSignerUserIds ??= loadOrganizationExternalAdminSignerUserIds(
+        {
+          execSql,
+          getCurrentPrincipalPolicy,
+          getEncapsulationKey,
+          organizationId,
+        },
+      );
+      return externalAdminSignerUserIds;
+    };
 
     await Promise.all(
       uniqueReferences.map(async (reference) => {
@@ -267,6 +343,7 @@ export async function cacheReferencedPrincipalPolicies({
             getEncapsulationKey,
             reference,
             log,
+            loadExternalAdminSignerUserIds,
           );
         } catch (error) {
           const message =

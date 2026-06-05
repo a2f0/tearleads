@@ -257,6 +257,7 @@ function createCacheReferencedPrincipalPolicies(
         dependencies.api.getCurrentPrincipalPolicy(principalType, principalId),
       getEncapsulationKey,
       log: dependencies.log,
+      organizationId: dependencies.session.organizationId,
       references,
     });
 }

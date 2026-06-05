@@ -237,7 +237,7 @@ test("verifyPrincipalPolicyBundle accepts additive membership without key epoch 
   }
 });
 
-test("verifyPrincipalPolicyBundle limits external admin signers to successor states", async () => {
+test("verifyPrincipalPolicyBundle accepts external admin signers for successors and empty initial policies", async () => {
   const principalAdmin = await createPolicySigner("principal-admin");
   const externalAdmin = await createPolicySigner("org-admin");
   const principalId = "group-external-admin";
@@ -278,6 +278,22 @@ test("verifyPrincipalPolicyBundle limits external admin signers to successor sta
   });
 
   expect(successorResult.ok).toBe(true);
+
+  const emptyInitial = await signPolicyState({
+    principalId: "group-empty-external-initial",
+    version: 1,
+    prevStateHash: null,
+    members: [],
+    projection: [],
+    signer: externalAdmin,
+  });
+  const emptyInitialResult = await verifyPrincipalPolicyBundle({
+    bundle: createBundle({ current: emptyInitial }),
+    externalAdminSignerUserIds: [externalAdmin.userId],
+    signerPublicKeys: [externalAdmin],
+  });
+
+  expect(emptyInitialResult.ok).toBe(true);
 
   const invalidInitial = await signPolicyState({
     principalId: "group-external-initial",

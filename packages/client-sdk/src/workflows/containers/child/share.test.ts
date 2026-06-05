@@ -33,6 +33,7 @@ import {
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 
 async function policyBundleFromInitialRequest(
   request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,
@@ -64,6 +65,39 @@ async function policyBundleFromInitialRequest(
       stateHash,
       epoch: request.initialGroupPolicy.state.keyEpoch,
       envelopes: request.initialGroupPolicy.memberEnvelopes,
+    },
+    previousStates: [],
+  };
+}
+
+async function organizationPolicyBundleFromInitialRequest(
+  organizationId: string,
+  request: Awaited<ReturnType<typeof buildInitialOrganizationPolicyRequest>>,
+): Promise<PrincipalPolicyBundleResponse> {
+  const stateHash = await computePrincipalStateHash(request.state);
+
+  return {
+    currentState: {
+      ...request.state,
+      stateHash,
+      createdAt: "2026-05-12T12:00:00.000Z",
+    },
+    currentPayload: {
+      principalType: "organization",
+      principalId: organizationId,
+      stateHash,
+      cipherSuite: request.encryptedPayload.cipherSuite,
+      ciphertext: request.encryptedPayload.ciphertext,
+      ciphertextHash: request.encryptedPayload.ciphertextHash,
+      createdAt: "2026-05-12T12:00:00.000Z",
+    },
+    currentProjection: request.projection,
+    currentMemberEnvelopes: {
+      principalType: "organization",
+      principalId: organizationId,
+      stateHash,
+      epoch: request.state.keyEpoch,
+      envelopes: request.memberEnvelopes,
     },
     previousStates: [],
   };
@@ -369,6 +403,89 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
       submittedRequest.userRecipientKeys as unknown as ContainerUserRecipientKey[]
     ).map((key) => key.userId),
   ).toEqual([parent.userId]);
+});
+
+test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin", async () => {
+  const parent = await createParentProjection();
+  const { author } = await createAuthor({
+    organizationId: parent.projection.organizationId,
+    userId: parent.userId,
+  });
+  const groupSigningKeyPair = generateSigningSeedAndKeyPair();
+  const groupEncapsulationKeyPair = generateKemSeedAndKeyPair();
+  const groupSignerUserId = "org-admin-signer";
+  const groupId = "group-empty";
+  const groupSigningFingerprint = await toFingerprint(
+    groupSigningKeyPair.signingPublicKey,
+  );
+  const organizationPolicyRequest = await buildInitialOrganizationPolicyRequest(
+    {
+      encapsulationPublicKey: groupEncapsulationKeyPair.publicKey,
+      organizationId: parent.projection.organizationId,
+      signingKeyPair: groupSigningKeyPair,
+      userId: groupSignerUserId,
+    },
+  );
+  const organizationPolicy = await organizationPolicyBundleFromInitialRequest(
+    parent.projection.organizationId,
+    organizationPolicyRequest,
+  );
+  const groupPolicyRequest = await buildInitialGroupPolicyRequest({
+    creatorEncapsulationKeyPair: groupEncapsulationKeyPair,
+    groupId,
+    includeSignerAsAdmin: false,
+    name: "Operators",
+    signerUserId: groupSignerUserId,
+    signingFingerprint: groupSigningFingerprint,
+    signingKeyPair: groupSigningKeyPair,
+  });
+  const groupPolicy = await policyBundleFromInitialRequest(groupPolicyRequest);
+  const submittedRequests: ContainerMutationRequest[] = [];
+
+  const shared = await shareRemoteContainerWithGroup({
+    accessLevel: "read",
+    apiClient: {
+      getContainerWriterProjection: async () => parent.projection,
+      getCurrentPrincipalPolicy: async (principalType, principalId) => {
+        if (principalType === "organization") {
+          expect(principalId).toBe(parent.projection.organizationId);
+          return organizationPolicy;
+        }
+
+        expect(principalId).toBe(groupId);
+        return groupPolicy;
+      },
+      getEncapsulationKey: async (userId) => {
+        expect(userId).toBe(groupSignerUserId);
+        return {
+          userId: groupSignerUserId,
+          signingPublicKey: bytesToBase64(groupSigningKeyPair.signingPublicKey),
+          signingKeyFingerprint: groupSigningFingerprint,
+          encapsulationPublicKey: bytesToBase64(
+            groupEncapsulationKeyPair.publicKey,
+          ),
+        };
+      },
+      shareContainer: async (_containerId, request) => {
+        submittedRequests.push(request);
+        return createMutationResponseFromRequest(request);
+      },
+    },
+    author,
+    containerId: parent.projection.containerId,
+    recipientGroupId: groupId,
+    resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
+    signedAt: SIGNED_AT,
+    targetSecretKey: parent.secretKey,
+  });
+
+  expect(shared).not.toBeNull();
+  expect(groupPolicy.currentProjection).toEqual([]);
+  expect(
+    (submittedRequests[0]?.principalPolicies as Record<string, unknown>[]).map(
+      (policy) => (policy as { principalId: unknown }).principalId,
+    ),
+  ).toEqual([groupId]);
 });
 
 test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {

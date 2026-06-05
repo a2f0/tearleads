@@ -14,7 +14,6 @@ import {
   type ManagedPrincipalKind,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
-  verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type {
   ContainerManifestBundle,
@@ -70,6 +69,11 @@ import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../../data/persistence/principalPolicyPersistence";
+import {
+  principalPolicyReferenceFromBundle,
+  verifyOrganizationAdminSignerUserIds,
+  verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
+} from "../../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   collectPrincipalPolicySignerPublicKeys,
@@ -362,22 +366,12 @@ function principalPolicySignerPublicKeyLoadErrorMessage(
   }
 }
 
-function principalPolicyReferenceFromBundle(
-  bundle: PrincipalPolicyBundleResponse,
-): ReferencedPrincipalHead {
-  return {
-    principalType: bundle.currentState.principalType,
-    principalId: bundle.currentState.principalId,
-    version: bundle.currentState.version,
-    keyEpoch: bundle.currentState.keyEpoch,
-    stateHash: bundle.currentState.stateHash,
-    keyFingerprint: bundle.currentState.keyFingerprint,
-  };
-}
-
 async function loadVerifiedSharePrincipalPolicy(input: {
   apiClient: ContainerManagedPrincipalShareApi;
   execSql?: ExecSql | undefined;
+  loadExternalAdminSignerUserIds?:
+    | (() => Promise<readonly string[]>)
+    | undefined;
   principalId: string;
   principalType: ManagedPrincipalKind;
 }): Promise<VerifiedPrincipalPolicy> {
@@ -413,12 +407,15 @@ async function loadVerifiedSharePrincipalPolicy(input: {
     );
   }
 
-  const verified = await verifyPrincipalPolicyBundle({
-    bundle,
-    expectedReference: principalPolicyReferenceFromBundle(bundle),
-    localCheckpoint: principalPolicyCheckpoint(cachedBundle),
-    signerPublicKeys: signerPublicKeys.signerPublicKeys,
-  });
+  const verified =
+    await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
+      bundle,
+      expectedReference: principalPolicyReferenceFromBundle(bundle),
+      loadExternalAdminSignerUserIds:
+        input.loadExternalAdminSignerUserIds ?? (() => Promise.resolve([])),
+      localCheckpoint: principalPolicyCheckpoint(cachedBundle),
+      signerPublicKeys: signerPublicKeys.signerPublicKeys,
+    });
   if (!verified.ok) {
     throw new Error(
       `Container share principal policy verification failed: ${verified.error.message}`,
@@ -434,6 +431,58 @@ async function loadVerifiedSharePrincipalPolicy(input: {
   }
 
   return verified.value;
+}
+
+async function loadShareOrganizationAdminSignerUserIds(input: {
+  apiClient: ContainerManagedPrincipalShareApi;
+  execSql?: ExecSql | undefined;
+  organizationId: string;
+}): Promise<string[]> {
+  try {
+    const bundle = await input.apiClient.getCurrentPrincipalPolicy(
+      "organization",
+      input.organizationId,
+    );
+    if (!bundle) {
+      return [];
+    }
+
+    const cachedBundle = input.execSql
+      ? await loadPrincipalPolicyBundle(
+          input.execSql,
+          "organization",
+          input.organizationId,
+        )
+      : null;
+    const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
+      bundle,
+      getEncapsulationKey: (userId) =>
+        input.apiClient.getEncapsulationKey(userId),
+    });
+    if ("error" in signerPublicKeys) {
+      return [];
+    }
+
+    const externalAdminSignerUserIds =
+      await verifyOrganizationAdminSignerUserIds({
+        bundle,
+        localCheckpoint: principalPolicyCheckpoint(cachedBundle),
+        organizationId: input.organizationId,
+        signerPublicKeys: signerPublicKeys.signerPublicKeys,
+      });
+
+    if (externalAdminSignerUserIds.length > 0 && input.execSql) {
+      await savePrincipalPolicyBundle(
+        input.execSql,
+        bundle,
+        new Date().toISOString(),
+      );
+    }
+
+    return externalAdminSignerUserIds;
+  } catch {
+    return [];
+  }
 }
 
 async function collectContainerSharePrincipalPolicies(input: {
@@ -676,6 +725,12 @@ export async function shareRemoteContainerWithGroup(input: {
   const principalPolicy = await loadVerifiedSharePrincipalPolicy({
     apiClient: input.apiClient,
     execSql: input.execSql,
+    loadExternalAdminSignerUserIds: () =>
+      loadShareOrganizationAdminSignerUserIds({
+        apiClient: input.apiClient,
+        execSql: input.execSql,
+        organizationId: input.author.organizationId,
+      }),
     principalId: input.recipientGroupId,
     principalType: "group",
   });

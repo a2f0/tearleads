@@ -147,6 +147,10 @@ export async function runCreateOrganizationGroupWorkflow(
           projection: input.initialGroupPolicy.projection,
         },
         tx,
+        {
+          authorizeExternalAdminSigner: (authorization) =>
+            Promise.resolve(authorization.signerUserId === sessionUserId),
+        },
       );
 
       await replaceCurrentPrincipalMemberEnvelopesInTransaction(

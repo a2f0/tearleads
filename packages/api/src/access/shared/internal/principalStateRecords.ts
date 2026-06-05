@@ -67,9 +67,9 @@ export interface PrincipalStateBundleInput {
 }
 
 export interface PrincipalStateExternalSignerAuthorizationInput {
-  currentState: StoredPrincipalState;
+  currentState: StoredPrincipalState | null;
   normalizedInput: PrincipalStateBundleInput;
-  previousProjection: StoredPrincipalProjectionMember[];
+  previousProjection: StoredPrincipalProjectionMember[] | null;
   signerUserId: string;
 }
 

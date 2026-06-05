@@ -13,7 +13,6 @@ import {
   verifyContainerAccessManifest,
   verifyContainerKekState,
   verifyDocumentLinkSetManifest,
-  verifyPrincipalPolicyBundle,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
@@ -37,6 +36,10 @@ import {
   readRecordValue,
 } from "./keyingProjectionVerification/readers";
 import { loadPrincipalPolicyBundle } from "./persistence/principalPolicyPersistence";
+import {
+  verifyOrganizationAdminSignerUserIds,
+  verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
+} from "./principalPolicyAdminSigners";
 import type { ExecSql } from "./sqlite/sqlSchema";
 
 export interface ProjectionUserKey {
@@ -233,8 +236,44 @@ async function collectPrincipalPolicySignerPublicKeys(input: {
   return [...signerPublicKeysByKey.values()];
 }
 
+async function loadOrganizationExternalAdminSignerUserIds(input: {
+  execSql?: ExecSql | undefined;
+  organizationId: string;
+  resolveUserKey: ProjectionUserKeyResolver;
+}): Promise<string[]> {
+  if (!input.execSql) {
+    return [];
+  }
+
+  const bundle = await loadPrincipalPolicyBundle(
+    input.execSql,
+    "organization",
+    input.organizationId,
+  );
+  if (!bundle) {
+    return [];
+  }
+
+  try {
+    const signerPublicKeys = await collectPrincipalPolicySignerPublicKeys({
+      bundle,
+      label: `Organization policy ${input.organizationId}`,
+      resolveUserKey: input.resolveUserKey,
+    });
+
+    return verifyOrganizationAdminSignerUserIds({
+      bundle,
+      organizationId: input.organizationId,
+      signerPublicKeys,
+    });
+  } catch {
+    return [];
+  }
+}
+
 async function verifyReferencedPrincipalPolicy(input: {
   execSql?: ExecSql | undefined;
+  organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
   reference: ReferencedPrincipalHead;
   resolveUserKey: ProjectionUserKeyResolver;
@@ -266,12 +305,19 @@ async function verifyReferencedPrincipalPolicy(input: {
     label: `Principal policy ${referenceLabel}`,
     resolveUserKey: input.resolveUserKey,
   });
-  const verified = await verifyPrincipalPolicyBundle({
-    bundle,
-    expectedReference: input.reference,
-    localCheckpoint: null,
-    signerPublicKeys,
-  });
+  const verified =
+    await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
+      bundle,
+      expectedReference: input.reference,
+      loadExternalAdminSignerUserIds: () =>
+        loadOrganizationExternalAdminSignerUserIds({
+          execSql: input.execSql,
+          organizationId: input.organizationId,
+          resolveUserKey: input.resolveUserKey,
+        }),
+      localCheckpoint: null,
+      signerPublicKeys,
+    });
   if (!verified.ok) {
     throw new Error(
       `Principal policy ${referenceLabel} verification failed: ${verified.error.message}`,
@@ -284,6 +330,7 @@ async function verifyReferencedPrincipalPolicy(input: {
 
 async function collectReferencedPrincipalPolicies(input: {
   execSql?: ExecSql | undefined;
+  organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
   references: readonly ReferencedPrincipalHead[];
   resolveUserKey: ProjectionUserKeyResolver;
@@ -297,6 +344,7 @@ async function collectReferencedPrincipalPolicies(input: {
     [...uniqueReferences.values()].map((reference) =>
       verifyReferencedPrincipalPolicy({
         execSql: input.execSql,
+        organizationId: input.organizationId,
         principalPolicyCache: input.principalPolicyCache,
         reference,
         resolveUserKey: input.resolveUserKey,
@@ -431,6 +479,7 @@ async function verifyContainerManifestBundle(input: {
   ];
   const principalPolicies = await collectReferencedPrincipalPolicies({
     execSql: input.execSql,
+    organizationId: event.event.organizationId,
     principalPolicyCache: input.principalPolicyCache,
     references: referencedPrincipalHeads,
     resolveUserKey: input.resolveUserKey,
@@ -668,6 +717,7 @@ async function verifyContainerKekProjection(input: {
   });
   const principalPolicies = await collectReferencedPrincipalPolicies({
     execSql: input.execSql,
+    organizationId: input.verifiedManifest.state.organizationId,
     principalPolicyCache: input.principalPolicyCache,
     references: [
       ...verifiedKekManifestHistory.flatMap(
@@ -855,6 +905,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
 
   return collectPrincipalPoliciesForContainerPaths({
     execSql: input.execSql,
+    organizationId: input.projection.organizationId,
     paths: [verifiedPath],
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
@@ -993,6 +1044,7 @@ function previousDocumentManifestFromCache(input: {
 
 async function collectPrincipalPoliciesForContainerPaths(input: {
   execSql?: ExecSql | undefined;
+  organizationId: string;
   paths: readonly (readonly VerifiedContainerAccessManifest[] | undefined)[];
   principalPolicyCache: PrincipalPolicyCache;
   resolveUserKey: ProjectionUserKeyResolver;
@@ -1003,6 +1055,7 @@ async function collectPrincipalPoliciesForContainerPaths(input: {
 
   return collectReferencedPrincipalPolicies({
     execSql: input.execSql,
+    organizationId: input.organizationId,
     principalPolicyCache: input.principalPolicyCache,
     references: referencedPrincipalHeads,
     resolveUserKey: input.resolveUserKey,
@@ -1054,6 +1107,7 @@ async function verifyDocumentManifestBundle(input: {
   );
   const principalPolicies = await collectPrincipalPoliciesForContainerPaths({
     execSql: input.execSql,
+    organizationId: event.event.organizationId,
     paths: [...dependencyContainerPaths, targetContainerPath],
     principalPolicyCache: input.principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
