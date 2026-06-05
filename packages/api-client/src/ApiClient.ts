@@ -76,6 +76,7 @@ import {
 import { getHealth } from "./routes/health";
 import {
   createOrganizationGroup,
+  deleteOrganizationGroup,
   getOrganizationDataUsage,
   getOrganizationUserDetail,
   listOrganizationContainerGrants,
@@ -762,6 +763,17 @@ export class ApiClient {
         this.clearWriterProjectionCaches();
       },
     );
+  }
+
+  deleteOrganizationGroup(organizationId: string, groupId: string) {
+    return deleteOrganizationGroup(
+      this.request,
+      organizationId,
+      groupId,
+    ).finally(() => {
+      this.organizationGroupRequestsByOrganizationId.delete(organizationId);
+      this.clearWriterProjectionCaches();
+    });
   }
 
   listOrganizationGroupMembers(organizationId: string, groupId: string) {

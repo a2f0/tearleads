@@ -10,6 +10,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
+  isDeleteOrganizationGroupResponse,
   isListOrganizationGroupsResponse,
   isOrganizationContainerGrantsResponse,
   isOrganizationDataUsageResponse,
@@ -787,6 +788,12 @@ test("org manager routes allow organization members to read but reserve mutation
 test("org manager routes create and list groups with members", async () => {
   const actor = createTestUser();
   const organizationId = await registerAndAuthenticate(actor);
+  const [organization] = await db
+    .select({ adminGroupId: organizations.adminGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  invariant(organization, "expected organization row");
   const groupId = crypto.randomUUID();
 
   const createResponse = await routeApp.request(
@@ -864,4 +871,49 @@ test("org manager routes create and list groups with members", async () => {
       groupName: null,
     },
   ]);
+
+  const builtinDeleteResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups/${organization.adminGroupId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+  expect(builtinDeleteResponse.status).toBe(409);
+
+  const deleteResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups/${groupId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+  expect(deleteResponse.status).toBe(200);
+  const deleteBody = await deleteResponse.json();
+  invariant(
+    isDeleteOrganizationGroupResponse(deleteBody),
+    "expected delete organization group response",
+  );
+  expect(deleteBody).toEqual({
+    deleted: true,
+    groupId,
+    organizationId,
+  });
+
+  const postDeleteListResponse = await routeApp.request(
+    `/organizations/${organizationId}/groups`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+  expect(postDeleteListResponse.status).toBe(200);
+  const postDeleteListBody = await postDeleteListResponse.json();
+  invariant(
+    isListOrganizationGroupsResponse(postDeleteListBody),
+    "expected list organization groups response",
+  );
+  expect(
+    postDeleteListBody.groups.map((deletedGroup) => deletedGroup.groupId),
+  ).not.toContain(groupId);
 });

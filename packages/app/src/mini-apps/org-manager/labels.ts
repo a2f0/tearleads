@@ -21,6 +21,7 @@ export const ORG_MANAGER_LABELS = {
   disabled: "Disabled",
   disabledAt: "Disabled at",
   disabledBy: "Disabled by",
+  deleteGroupAction: "Delete Group",
   done: "Done",
   edit: "Edit",
   failedLoadDirectoryGroups: "Failed to load organization roster or groups.",

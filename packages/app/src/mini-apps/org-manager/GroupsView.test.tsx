@@ -21,12 +21,22 @@ const group: OrganizationGroupSummary = {
   organizationId: "organization-1",
 };
 
+const customGroup: OrganizationGroupSummary = {
+  ...group,
+  groupId: "550e8400-e29b-41d4-a716-446655440011",
+  isBuiltin: false,
+  name: "Operators",
+};
+
 function renderGroupsView(input: {
+  canDeleteGroup?: ((group: OrganizationGroupSummary) => boolean) | undefined;
   canCreateGroup?: boolean | undefined;
   closeCreateGroupDialog?: (() => void) | undefined;
   createGroup?: (() => void) | undefined;
+  deleteGroup?: ((groupId: string) => void) | undefined;
   error?: string | null | undefined;
   groupNameDraft?: string | undefined;
+  groups?: ReadonlyArray<OrganizationGroupSummary> | undefined;
   isCreateGroupDialogOpen?: boolean | undefined;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
@@ -40,14 +50,16 @@ function renderGroupsView(input: {
       addUserListId="add-user-list"
       addableUsers={[]}
       canCreateGroup={input.canCreateGroup ?? false}
+      canDeleteGroup={input.canDeleteGroup ?? ((group) => !group.isBuiltin)}
       canMutateSelectedGroup={false}
       closeCreateGroupDialog={input.closeCreateGroupDialog ?? (() => undefined)}
       createGroup={input.createGroup ?? (() => undefined)}
+      deleteGroup={input.deleteGroup ?? (() => undefined)}
       directory={null}
       groupContainers={null}
       groupNameDraft={input.groupNameDraft ?? ""}
       groupPolicyHistory={null}
-      groups={[group]}
+      groups={input.groups ?? [group]}
       error={input.error ?? null}
       isCreateGroupDialogOpen={input.isCreateGroupDialogOpen ?? false}
       members={null}
@@ -145,4 +157,40 @@ test("org manager groups view shows creation errors inside the dialog", () => {
 
   expect(view.getByLabelText(ORG_MANAGER_LABELS.groupName)).toBeTruthy();
   expect(within(dialog).getByText("Failed to create group.")).toBeTruthy();
+});
+
+test("org manager groups view disables delete for built-in groups", () => {
+  const view = renderGroupsView({
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+
+  fireEvent.contextMenu(view.getByText(group.name));
+
+  expect(
+    (
+      view.getByRole("button", {
+        name: ORG_MANAGER_LABELS.deleteGroupAction,
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+});
+
+test("org manager groups view deletes custom groups from the context menu", () => {
+  const deletedGroupIds: string[] = [];
+  const view = renderGroupsView({
+    deleteGroup: (groupId) => deletedGroupIds.push(groupId),
+    groups: [customGroup],
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+
+  fireEvent.contextMenu(view.getByText(customGroup.name));
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.deleteGroupAction,
+    }),
+  );
+
+  expect(deletedGroupIds).toEqual([customGroup.groupId]);
 });

@@ -50,6 +50,12 @@ export interface OrganizationGroupSummaryResponse {
   currentState: OrganizationGroupCurrentStateResponse | null;
 }
 
+export interface DeleteOrganizationGroupResponse {
+  deleted: true;
+  groupId: string;
+  organizationId: string;
+}
+
 export interface ListOrganizationGroupsResponse {
   organizationId: string;
   memberGroupId?: string | undefined;
@@ -441,4 +447,15 @@ export function isCreateOrganizationGroupResponse(
   value: unknown,
 ): value is OrganizationGroupSummaryResponse {
   return isOrganizationGroupSummaryResponse(value);
+}
+
+export function isDeleteOrganizationGroupResponse(
+  value: unknown,
+): value is DeleteOrganizationGroupResponse {
+  return (
+    isPlainObject(value) &&
+    Reflect.get(value, "deleted") === true &&
+    hasStringProperty(value, "groupId") &&
+    hasStringProperty(value, "organizationId")
+  );
 }

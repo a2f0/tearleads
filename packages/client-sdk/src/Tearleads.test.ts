@@ -66,6 +66,7 @@ describe("Tearleads", () => {
     expect(sdk.database.status).toBe("ready");
     expect(sdk.identity.signingFingerprint).toBeNull();
     expect(sdk.network.online).toBe(false);
+    expect(sdk.organizations.deleteGroup).toBeFunction();
     expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
     expect(sdk.runtime.input).toBeFunction();
     expect("apiClient" in sdk.runtime.input()).toBe(false);

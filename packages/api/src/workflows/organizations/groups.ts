@@ -1,11 +1,12 @@
 import type {
+  DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
   OrganizationGroupContainersResponse,
   OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalState,
   getCurrentPrincipalStates,
@@ -13,7 +14,15 @@ import {
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
 import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
-import { groups as groupsTable, organizations } from "../../schema";
+import {
+  groups as groupsTable,
+  organizations,
+  principalEpochKeys,
+  principalMemberEnvelopes,
+  principalMembershipProjection,
+  principalStatePayloads,
+  principalStates,
+} from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import {
   listOrganizationContainerGrantRows,
@@ -31,6 +40,179 @@ interface NestedGroupRow {
 interface OrganizationGroupSummariesResult {
   readonly groups: OrganizationGroupSummaryResponse[];
   readonly memberGroupId: string;
+}
+
+interface OrganizationGroupMutationInput {
+  executor: DatabaseSession;
+  groupId: string;
+  organizationId: string;
+}
+
+function readReferenceCount(row: unknown): number {
+  if (!row || typeof row !== "object") {
+    throw new Error("Unexpected organization group reference row shape");
+  }
+
+  const referenceCount = Reflect.get(row, "referenceCount");
+  if (typeof referenceCount === "number" && Number.isInteger(referenceCount)) {
+    return referenceCount;
+  }
+  if (typeof referenceCount === "string" && referenceCount.length > 0) {
+    const parsedReferenceCount = Number(referenceCount);
+    if (Number.isInteger(parsedReferenceCount)) {
+      return parsedReferenceCount;
+    }
+  }
+
+  throw new Error("Unexpected organization group reference row shape");
+}
+
+async function hasCurrentPrincipalReferences(input: {
+  executor: DatabaseSession;
+  groupId: string;
+}): Promise<boolean> {
+  const result = await input.executor.execute(sql`
+    with current_managed_principal_states as (
+      select distinct on (principal_type, principal_id)
+        principal_type,
+        principal_id,
+        state_hash
+      from ${principalStates}
+      where principal_type in (${"group"}, ${"organization"})
+      order by principal_type asc, principal_id asc, version desc
+    )
+    select count(*)::int as "referenceCount"
+    from ${principalMembershipProjection} pmp
+    inner join current_managed_principal_states current_state
+      on current_state.principal_type = pmp.principal_type
+      and current_state.principal_id = pmp.principal_id
+      and current_state.state_hash = pmp.state_hash
+    where
+      pmp.member_principal_type = ${"group"}
+      and pmp.member_principal_id = ${input.groupId}
+  `);
+
+  return readReferenceCount(result.rows[0]) > 0;
+}
+
+async function requireDeletableOrganizationGroup(
+  input: OrganizationGroupMutationInput,
+): Promise<void> {
+  const [organization] = await input.executor
+    .select({
+      adminGroupId: organizations.adminGroupId,
+      memberGroupId: organizations.memberGroupId,
+    })
+    .from(organizations)
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  if (!organization) {
+    throw new OrganizationManagerError("Organization not found", 404);
+  }
+
+  const [group] = await input.executor
+    .select({ groupId: groupsTable.id })
+    .from(groupsTable)
+    .where(
+      and(
+        eq(groupsTable.id, input.groupId),
+        eq(groupsTable.organizationId, input.organizationId),
+      ),
+    )
+    .limit(1);
+  if (!group) {
+    throw new OrganizationManagerError("Group not found", 404);
+  }
+
+  if (
+    input.groupId === organization.adminGroupId ||
+    input.groupId === organization.memberGroupId
+  ) {
+    throw new OrganizationManagerError(
+      "Built-in groups cannot be deleted",
+      409,
+    );
+  }
+}
+
+async function requireOrganizationGroupWithoutDeleteBlockers(
+  input: OrganizationGroupMutationInput,
+): Promise<void> {
+  const directContainerGrants = await listOrganizationContainerGrantRows({
+    executor: input.executor,
+    organizationId: input.organizationId,
+    subjectFilter: {
+      subjectId: input.groupId,
+      subjectType: "group",
+    },
+  });
+  if (directContainerGrants.length > 0) {
+    throw new OrganizationManagerError(
+      "Group has direct container grants",
+      409,
+    );
+  }
+
+  if (
+    await hasCurrentPrincipalReferences({
+      executor: input.executor,
+      groupId: input.groupId,
+    })
+  ) {
+    throw new OrganizationManagerError(
+      "Group is referenced by current principal policy",
+      409,
+    );
+  }
+}
+
+async function deleteOrganizationGroupRows(input: {
+  executor: DatabaseSession;
+  groupId: string;
+}): Promise<void> {
+  await input.executor
+    .delete(principalMemberEnvelopes)
+    .where(
+      and(
+        eq(principalMemberEnvelopes.principalType, "group"),
+        eq(principalMemberEnvelopes.principalId, input.groupId),
+      ),
+    );
+  await input.executor
+    .delete(principalMembershipProjection)
+    .where(
+      and(
+        eq(principalMembershipProjection.principalType, "group"),
+        eq(principalMembershipProjection.principalId, input.groupId),
+      ),
+    );
+  await input.executor
+    .delete(principalStatePayloads)
+    .where(
+      and(
+        eq(principalStatePayloads.principalType, "group"),
+        eq(principalStatePayloads.principalId, input.groupId),
+      ),
+    );
+  await input.executor
+    .delete(principalEpochKeys)
+    .where(
+      and(
+        eq(principalEpochKeys.principalType, "group"),
+        eq(principalEpochKeys.principalId, input.groupId),
+      ),
+    );
+  await input.executor
+    .delete(principalStates)
+    .where(
+      and(
+        eq(principalStates.principalType, "group"),
+        eq(principalStates.principalId, input.groupId),
+      ),
+    );
+  await input.executor
+    .delete(groupsTable)
+    .where(eq(groupsTable.id, input.groupId));
 }
 
 async function requireGroupInOrganization(input: {
@@ -74,6 +256,39 @@ export async function runListOrganizationGroupsWorkflow(
       organizationId,
       memberGroupId: groupSummaries.memberGroupId,
       groups: groupSummaries.groups,
+    };
+  });
+}
+
+export async function runDeleteOrganizationGroupWorkflow(
+  db: ApiDatabase,
+  organizationId: string,
+  groupId: string,
+  sessionUserId: string,
+): Promise<DeleteOrganizationGroupResponse> {
+  return db.transaction(async (tx) => {
+    await requireDirectOrganizationAccess({
+      executor: tx,
+      organizationId,
+      requireAdmin: true,
+      userId: sessionUserId,
+    });
+    await requireDeletableOrganizationGroup({
+      executor: tx,
+      groupId,
+      organizationId,
+    });
+    await requireOrganizationGroupWithoutDeleteBlockers({
+      executor: tx,
+      groupId,
+      organizationId,
+    });
+    await deleteOrganizationGroupRows({ executor: tx, groupId });
+
+    return {
+      deleted: true,
+      groupId,
+      organizationId,
     };
   });
 }

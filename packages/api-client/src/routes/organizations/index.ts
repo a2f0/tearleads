@@ -6,6 +6,6 @@ export {
   listOrganizationGroupMembers,
   listOrganizationGroups,
 } from "./groups";
-export { createOrganizationGroup } from "./mutations";
+export { createOrganizationGroup, deleteOrganizationGroup } from "./mutations";
 export { updateOrganizationRosterEntry } from "./roster";
 export { getOrganizationUserDetail } from "./users";

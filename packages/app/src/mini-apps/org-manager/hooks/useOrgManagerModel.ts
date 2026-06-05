@@ -174,6 +174,10 @@ export function useOrgManagerModel() {
     [directory, memberUserIds, selectedGroupIsMembersGroup],
   );
   const canRevokeGrants = directory?.currentUser.isOrgAdmin ?? false;
+  const canDeleteGroup = useCallback(
+    (group: OrganizationGroupSummary) => canCreateGroup && !group.isBuiltin,
+    [canCreateGroup],
+  );
 
   const openCreateGroupDialog = useCallback(() => {
     if (!canCreateGroup) {
@@ -687,6 +691,47 @@ export function useOrgManagerModel() {
     refreshDirectoryAndGroups,
   ]);
 
+  const deleteGroup = useCallback(
+    async (groupId: string) => {
+      const targetGroup =
+        groups.find((group) => group.groupId === groupId) ?? null;
+      if (!targetGroup || !canDeleteGroup(targetGroup)) {
+        return;
+      }
+
+      setMutating(true);
+      setError(null);
+      try {
+        const wasSelectedGroup = selectedGroupIdRef.current === groupId;
+        if (wasSelectedGroup) {
+          selectGroup(null);
+          setMembers(null);
+          setGroupContainers(null);
+          setGroupPolicyHistory(null);
+        }
+
+        await orgManagerActions.deleteGroup(groupId);
+        await refreshDirectoryAndGroups({
+          skipNextGroupDetailsEffect: true,
+        });
+        await refreshSelectedUserDetail(selectedUserIdRef.current);
+      } catch (nextError) {
+        setUnknownError(setError, nextError);
+      } finally {
+        setMutating(false);
+      }
+    },
+    [
+      canDeleteGroup,
+      groups,
+      orgManagerActions,
+      refreshDirectoryAndGroups,
+      refreshSelectedUserDetail,
+      selectGroup,
+      selectedGroupIdRef,
+    ],
+  );
+
   const importRosterUser = useCallback(async () => {
     const targetUserId = importUserIdDraft.trim();
     if (
@@ -931,6 +976,7 @@ export function useOrgManagerModel() {
     addUserListId,
     addableUsers,
     canCreateGroup,
+    canDeleteGroup,
     canImportRosterUser,
     canLoadAuthenticatedOrgData,
     canMutateSelectedGroup,
@@ -941,6 +987,7 @@ export function useOrgManagerModel() {
     contextMenuState,
     createGroup,
     dataUsage,
+    deleteGroup,
     directory,
     error,
     grants,

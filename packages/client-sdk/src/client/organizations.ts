@@ -1,4 +1,5 @@
 import type { ContainerGrantSubjectType } from "@tearleads/crypto";
+import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import {
   addOrganizationGroupUser,
   createOrganizationGroup,
@@ -75,6 +76,9 @@ export interface Organizations {
     input: AddOrganizationGroupUserInput,
   ) => ReturnType<typeof addOrganizationGroupUser>;
   createGroup: (name: string) => ReturnType<typeof createOrganizationGroup>;
+  deleteGroup: (
+    groupId: string,
+  ) => Promise<DeleteOrganizationGroupResponse | null>;
   importUserById: (
     userId: string,
   ) => ReturnType<typeof importOrganizationUserRecipient>;
@@ -176,6 +180,16 @@ class OrganizationsService implements Organizations {
       name,
       ...signingContext,
     });
+  }
+
+  deleteGroup(groupId: string) {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    if (!organizationId || groupId.length === 0) {
+      return Promise.resolve(null);
+    }
+
+    return runtime.apiClient.deleteOrganizationGroup(organizationId, groupId);
   }
 
   importUserById(userId: string) {

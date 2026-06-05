@@ -1,11 +1,18 @@
 import { isCreateOrganizationGroupRequest } from "@tearleads/validators/request";
-import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
+import type {
+  DeleteOrganizationGroupResponse,
+  OrganizationGroupSummaryResponse,
+} from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
 import type { SessionEnv } from "../../middleware/session";
-import { createOrganizationGroup } from "../../services/organizations/orgManager";
+import {
+  createOrganizationGroup,
+  deleteOrganizationGroup,
+} from "../../services/organizations/orgManager";
 import {
   type OrganizationsRouterDeps,
+  parseGroupId,
   parseOrganizationId,
   toOrganizationManagerErrorResponse,
 } from "./shared";
@@ -39,6 +46,36 @@ export function createOrganizationMutationsRoute({
             organizationId,
             c.get("session").userId,
             c.req.valid("json"),
+          ),
+        );
+      } catch (error) {
+        const response = toOrganizationManagerErrorResponse(error);
+        if (response) {
+          return response;
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  route.delete(
+    "/organizations/:organizationId/groups/:groupId",
+    requireAuth,
+    async (c) => {
+      const organizationId = parseOrganizationId(c.req.param("organizationId"));
+      const groupId = parseGroupId(c.req.param("groupId"));
+      if (!organizationId || !groupId) {
+        return c.json({ error: "Invalid organization group route" }, 400);
+      }
+
+      try {
+        return c.json<DeleteOrganizationGroupResponse>(
+          await deleteOrganizationGroup(
+            runtime,
+            organizationId,
+            groupId,
+            c.get("session").userId,
           ),
         );
       } catch (error) {

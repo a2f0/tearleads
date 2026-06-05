@@ -3,6 +3,7 @@ import type {
   UpdateOrganizationRosterEntryRequest,
 } from "@tearleads/validators/request";
 import type {
+  DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantsResponse,
   OrganizationDataUsageResponse,
@@ -16,6 +17,7 @@ import type {
 import {
   OrganizationManagerError,
   runCreateOrganizationGroupWorkflow,
+  runDeleteOrganizationGroupWorkflow,
   runGetOrganizationDataUsageWorkflow,
   runGetOrganizationUserDetailWorkflow,
   runListOrganizationContainerGrantsWorkflow,
@@ -118,6 +120,20 @@ export async function createOrganizationGroup(
     organizationId,
     sessionUserId,
     input,
+  );
+}
+
+export async function deleteOrganizationGroup(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  groupId: string,
+  sessionUserId: string,
+): Promise<DeleteOrganizationGroupResponse> {
+  return runDeleteOrganizationGroupWorkflow(
+    runtime.db,
+    organizationId,
+    groupId,
+    sessionUserId,
   );
 }
 
