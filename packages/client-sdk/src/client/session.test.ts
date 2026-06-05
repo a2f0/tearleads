@@ -133,7 +133,6 @@ describe("session", () => {
       database: new Database({
         client: createSqlClient(execSql),
         id: "registration-test-db",
-        status: "ready",
       }),
     });
 
@@ -177,7 +176,6 @@ describe("session", () => {
       database: new Database({
         client: createSqlClient(execSql),
         id: "registration-failure-test-db",
-        status: "ready",
       }),
       logger: {
         ...quietLogger,

@@ -47,7 +47,6 @@ const tearleads = new Tearleads({
   database: {
     client: sqliteRuntime.client,
     id: sqliteRuntime.id,
-    status: "ready",
   },
   logger: {
     log: console.log,
@@ -140,7 +139,6 @@ continue to call its React provider and components `OrgManager`.
 ```ts
 const tearleads = new Tearleads({
   apiBaseUrl,
-  apiClient,
   blobStore,
   blobStoreFactory,
   database,
@@ -157,21 +155,22 @@ readonly array of `DocumentProjectorDefinition` values. Prefer passing
 definitions when integrating an app-owned document type list; the SDK will
 normalize and cache the registry internally.
 
-Use `apiBaseUrl` for the SDK-managed HTTP transport, or pass an existing
-`apiClient` for host integration and tests. The raw API client is internal SDK
-wiring, not a public instance namespace for host code.
+Use `apiBaseUrl` for the SDK-managed HTTP transport. The raw API client is
+internal SDK wiring, not a public instance namespace for host code.
 Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`; the
 constructor stays synchronous and only captures the current database `client`,
-`execSql`, `id`, and `status`. If the host has already initialized the worker,
-pass a ready database into the constructor:
+`execSql`, and `id`, deriving status unless the host supplies an explicit
+lifecycle override. If the host has already initialized the worker, pass the
+runtime into the constructor; the SDK infers `status: "ready"` from the
+configured client or executor:
 
 ```ts
 new Tearleads({
-  database: { client: runtime.client, id: runtime.id, status: "ready" },
+  database: { client: runtime.client, id: runtime.id },
 });
 ```
 
@@ -183,9 +182,14 @@ initialized runtime:
 tearleads.database.configure({
   client: runtime.client,
   id: runtime.id,
-  status: "ready",
 });
 ```
+
+Pass `status` to `tearleads.database.configure(...)` only for lifecycle states
+the SDK cannot infer from the presence of a client, such as a worker that
+exists but is still initializing (`"idle"`) or a failed initialization
+(`"error"`). Publish a destroyed runtime with
+`tearleads.database.clear("terminated")`.
 
 Browser and Electron hosts should create worker-backed SQLite runtimes through
 the SDK SQLite facade:
