@@ -12,6 +12,7 @@ import type {
   PutPrincipalMemberEnvelopesRequest,
   PutPrincipalStateRequest,
   StageBlobRequest,
+  UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
   UploadMultipartBlobPartRequest,
 } from "@tearleads/validators/request";
@@ -84,6 +85,7 @@ import {
   listOrganizationGroupContainers,
   listOrganizationGroupMembers,
   listOrganizationGroups,
+  updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./routes/organizations";
 import { pathSegment } from "./routes/path";
@@ -618,6 +620,9 @@ export class ApiClient {
     initialRootMetadataDocument: Parameters<typeof postRegistration>[10],
     initialRosterProfileContainer?: Parameters<typeof postRegistration>[11],
     initialRosterProfileDocument?: Parameters<typeof postRegistration>[12],
+    initialOrganizationProfileDocument?: Parameters<
+      typeof postRegistration
+    >[13],
   ) {
     return postRegistration(
       this.request,
@@ -633,6 +638,7 @@ export class ApiClient {
       initialRootMetadataDocument,
       initialRosterProfileContainer,
       initialRosterProfileDocument,
+      initialOrganizationProfileDocument,
     );
   }
 
@@ -751,6 +757,13 @@ export class ApiClient {
       userId,
       input,
     );
+  }
+
+  updateOrganizationProfile(
+    organizationId: string,
+    input: UpdateOrganizationProfileRequest,
+  ) {
+    return updateOrganizationProfile(this.request, organizationId, input);
   }
 
   createOrganizationGroup(

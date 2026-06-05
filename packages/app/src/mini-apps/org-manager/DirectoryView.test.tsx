@@ -29,6 +29,7 @@ const rosterUser: OrganizationDirectoryUser = {
 const directory: OrganizationDirectory = {
   currentUser: { isOrgAdmin: true },
   organizationId: "organization-1",
+  profileDocumentId: null,
   users: [rosterUser],
 };
 

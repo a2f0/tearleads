@@ -94,6 +94,8 @@ export const users = pgTable("users", {
  * - `memberGroupId`: Reserved organization-scoped group whose reachable
  *   members belong to the organization.
  * - `name`: Human-readable organization name.
+ * - `profileDocumentId`: Optional encrypted document containing org-scoped
+ *   profile fields such as customizable display name.
  * - `createdAt`: Server-side insertion timestamp.
  */
 export const organizations = pgTable("organizations", {
@@ -101,6 +103,7 @@ export const organizations = pgTable("organizations", {
   adminGroupId: uuid("admin_group_id").notNull(),
   memberGroupId: uuid("member_group_id").notNull(),
   name: text("name").notNull(),
+  profileDocumentId: uuid("profile_document_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

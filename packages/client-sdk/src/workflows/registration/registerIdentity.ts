@@ -36,6 +36,11 @@ import {
 import { resolveDocumentCreateAuthor } from "../documents/author";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import {
+  createInitializedOrganizationProfileDocument,
+  DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+  getOrganizationProfileDocumentLocalId,
+} from "../organizations/organizationProfile";
+import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
 } from "../organizations/principalPolicy";
@@ -62,6 +67,7 @@ export interface RegistrationApi {
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
     initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+    initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
   ): Promise<RegistrationResponse | null>;
 }
 
@@ -96,6 +102,11 @@ interface InitialRosterProfileBootstrap {
   containerMetadataInitialUpdate: Uint8Array;
   containerPlan: InitialRosterProfileContainerCreatePlan;
   containerRequest: ContainerCreateWithMetadataDocumentRequest;
+  organizationProfileDocument: Awaited<
+    ReturnType<typeof buildMaterializedDocumentCreatePlan>
+  >;
+  organizationProfileInitialUpdate: Uint8Array;
+  organizationProfileSnapshot: string;
   profileDocumentRequest: DocumentCreateRequest;
   systemSlot: ContainerSystemSlot;
 }
@@ -108,6 +119,20 @@ export interface RegisterIdentityInput {
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   signingKeyPair: SigningKeyPair;
+}
+
+interface PersistLocalRegistrationStateInput {
+  bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
+  containerId: string;
+  dbClient?: ExecSqlClientLike | null | undefined;
+  encapsulationPublicKey: Uint8Array;
+  initialAdminGroup: CreateOrganizationGroupRequest;
+  initialMemberGroup: CreateOrganizationGroupRequest;
+  log?: ((message: string) => void) | undefined;
+  logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
+  response: RegistrationResponse;
+  rootMetadataDocument: InitialRootMetadataDocument;
+  rosterProfileBootstrap: InitialRosterProfileBootstrap;
 }
 
 export async function buildInitialOrganizationPolicyRequest(input: {
@@ -239,24 +264,48 @@ async function verifiedPrincipalPolicyFromInitialGroupRequest(
   });
 }
 
-async function persistLocalRegistrationState(input: {
-  bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
-  containerId: string;
-  dbClient?: ExecSqlClientLike | null | undefined;
-  encapsulationPublicKey: Uint8Array;
-  initialAdminGroup: CreateOrganizationGroupRequest;
-  initialMemberGroup: CreateOrganizationGroupRequest;
-  log?: ((message: string) => void) | undefined;
-  logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
-  response: RegistrationResponse;
-  rootMetadataDocument: InitialRootMetadataDocument;
-  rosterProfileBootstrap: InitialRosterProfileBootstrap;
-}): Promise<void> {
+function buildOrganizationProfileRegistrationBootstrapInput(
+  input: PersistLocalRegistrationStateInput,
+):
+  | Parameters<
+      typeof persistRegistrationBootstrap
+    >[1]["organizationProfileDocument"]
+  | undefined {
+  const organizationProfileDocument =
+    input.response.organizationProfileDocument;
+  if (!organizationProfileDocument) {
+    return;
+  }
+
+  return {
+    accessEpoch: 1,
+    accessStateHash: organizationProfileDocument.accessManifest.manifestHash,
+    containerId: input.rosterProfileBootstrap.containerId,
+    documentId: organizationProfileDocument.id,
+    documentState: persistedDocumentCreateStateFromResponse(
+      input.rosterProfileBootstrap.organizationProfileDocument.plan,
+      organizationProfileDocument,
+    ),
+    initialUpdate:
+      input.rosterProfileBootstrap.organizationProfileInitialUpdate,
+    localId: getOrganizationProfileDocumentLocalId({
+      organizationId: input.response.organizationId,
+    }),
+    snapshot: input.rosterProfileBootstrap.organizationProfileSnapshot,
+  };
+}
+
+async function persistLocalRegistrationState(
+  input: PersistLocalRegistrationStateInput,
+): Promise<void> {
   if (!input.dbClient) {
     return;
   }
 
   try {
+    const organizationProfileDocument =
+      buildOrganizationProfileRegistrationBootstrapInput(input);
+
     await persistRegistrationBootstrap(input.dbClient, {
       containerId: input.containerId,
       initialAdminGroupPolicy:
@@ -306,6 +355,7 @@ async function persistLocalRegistrationState(input: {
             },
           }
         : {}),
+      ...(organizationProfileDocument ? { organizationProfileDocument } : {}),
       userId: input.response.userId,
     });
     input.log?.("Local identity and root container persisted");
@@ -421,6 +471,19 @@ async function buildInitialRosterProfileBootstrap(input: {
     targetSecretKey: input.targetSecretKey,
     trustedLocalProjection: true,
   });
+  const organizationProfileDocument = await buildMaterializedDocumentCreatePlan(
+    {
+      author: input.author,
+      containerProjection,
+      knownContainerKeks,
+      targetSecretKey: input.targetSecretKey,
+      trustedLocalProjection: true,
+    },
+  );
+  const organizationProfile =
+    await createInitializedOrganizationProfileDocument({
+      name: DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+    });
 
   return {
     containerId,
@@ -432,6 +495,9 @@ async function buildInitialRosterProfileBootstrap(input: {
       container: containerPlan.plan.request,
       metadataDocument: containerMetadataDocument.plan.request,
     },
+    organizationProfileDocument,
+    organizationProfileInitialUpdate: organizationProfile.initialUpdate,
+    organizationProfileSnapshot: organizationProfile.snapshot,
     profileDocumentRequest: rosterProfileDocument.plan.request,
     systemSlot,
   };
@@ -530,6 +596,7 @@ export async function registerIdentity(
     rootMetadataDocument.plan.request,
     rosterProfileBootstrap.containerRequest,
     rosterProfileBootstrap.profileDocumentRequest,
+    rosterProfileBootstrap.organizationProfileDocument.plan.request,
   );
   if (!response) {
     return null;

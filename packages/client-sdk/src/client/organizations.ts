@@ -13,6 +13,7 @@ import {
   type OrganizationUserRecipient,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
+  updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../workflows/organizations";
 import type {
@@ -35,6 +36,7 @@ export type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
+  OrganizationProfile,
   OrganizationUserDetail,
   OrganizationUserRecipient,
 } from "../workflows/organizations";
@@ -98,6 +100,9 @@ export interface Organizations {
     userId: string,
     profileDocumentId: string | null,
   ) => ReturnType<typeof updateOrganizationRosterEntry>;
+  updateProfile: (
+    profileDocumentId: string | null,
+  ) => ReturnType<typeof updateOrganizationProfile>;
   removeUserFromGroup: (
     input: RemoveOrganizationGroupUserInput,
   ) => ReturnType<typeof removeOrganizationGroupUser>;
@@ -302,6 +307,20 @@ class OrganizationsService implements Organizations {
       organizationId,
       profileDocumentId,
       userId,
+    });
+  }
+
+  updateProfile(profileDocumentId: string | null) {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    if (!organizationId) {
+      return Promise.resolve(null);
+    }
+
+    return updateOrganizationProfile({
+      apiClient: runtime.apiClient,
+      organizationId,
+      profileDocumentId,
     });
   }
 

@@ -102,6 +102,7 @@ export async function createRegistrationRequestBody(
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
   options: {
+    includeOrganizationProfileDocument?: boolean | undefined;
     includeRosterProfileDocument?: boolean | undefined;
   } = {},
 ): Promise<RegistrationRequest> {
@@ -127,6 +128,9 @@ export async function createRegistrationRequestBody(
     organizationId,
     ...(options.includeRosterProfileDocument
       ? { rosterProfileDocumentId: crypto.randomUUID() }
+      : {}),
+    ...(options.includeOrganizationProfileDocument
+      ? { organizationProfileDocumentId: crypto.randomUUID() }
       : {}),
     rootContainerId,
     signingPrivateKey,
@@ -161,6 +165,12 @@ export async function createRegistrationRequestBody(
       ? {
           initialRosterProfileDocument:
             rootBootstrap.initialRosterProfileDocument,
+        }
+      : {}),
+    ...(rootBootstrap.initialOrganizationProfileDocument
+      ? {
+          initialOrganizationProfileDocument:
+            rootBootstrap.initialOrganizationProfileDocument,
         }
       : {}),
   };

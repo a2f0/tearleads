@@ -402,6 +402,16 @@ test("listDocumentsByContainerIds only returns notes for the requested container
       loroSnapshot: "snapshot-c",
       accessEpoch: 1,
     });
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "org-profile",
+      containerId: "container-a",
+      documentId: "document-org-profile",
+      documentKind: "organization_profile",
+      text: "",
+      title: "Organization Profile",
+      loroSnapshot: "snapshot-org-profile",
+      accessEpoch: 1,
+    });
 
     await expect(
       listDocumentsByContainerIds(execSql, ["container-a", "container-c"]),
@@ -462,13 +472,23 @@ test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly l
       loroSnapshot: "snapshot-unrelated",
       accessEpoch: 1,
     });
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "linked-org-profile",
+      containerId: "shared-container",
+      documentId: "linked-org-profile-document",
+      documentKind: "organization_profile",
+      text: "",
+      title: "Organization Profile",
+      loroSnapshot: "snapshot-linked-org-profile",
+      accessEpoch: 1,
+    });
 
     await expect(
       sqlDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
         execSql,
         {
           containerIds: ["shared-container"],
-          documentIds: ["linked-document"],
+          documentIds: ["linked-document", "linked-org-profile-document"],
         },
       ),
     ).resolves.toEqual([
@@ -512,6 +532,16 @@ test("listDocuments reads driver license titles and document kinds from projecti
       text: "",
       title: "Driver's License D1234567",
       loroSnapshot: "snapshot-license",
+      accessEpoch: 1,
+    });
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      id: "org-profile",
+      containerId: "identity-container",
+      documentId: "document-org-profile",
+      documentKind: "organization_profile",
+      text: "",
+      title: "Organization Profile",
+      loroSnapshot: "snapshot-org-profile",
       accessEpoch: 1,
     });
 

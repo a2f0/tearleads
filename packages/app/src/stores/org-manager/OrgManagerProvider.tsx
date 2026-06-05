@@ -8,6 +8,7 @@ import type {
   OrganizationGroupDetails,
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
+  OrganizationProfile,
   OrganizationUserDetail,
   OrganizationUserRecipient,
 } from "@tearleads/client-sdk";
@@ -32,7 +33,10 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
-import { createRosterProfileDocument } from "./profileDocuments";
+import {
+  createOrganizationProfileDocument,
+  createRosterProfileDocument,
+} from "./profileDocuments";
 
 interface OrgManagerContextValue {
   addUserToGroup: (
@@ -48,6 +52,9 @@ interface OrgManagerContextValue {
   ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
   ) => Promise<OrganizationDirectoryUser | null>;
+  ensureOrganizationProfileDocument: (
+    profileDocumentId: string | null,
+  ) => Promise<string | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   importUserById: (userId: string) => Promise<OrganizationUserRecipient | null>;
   loadDataUsage: () => Promise<OrganizationDataUsage | null>;
@@ -72,6 +79,9 @@ interface OrgManagerContextValue {
     userId: string,
     profileDocumentId: string | null,
   ) => Promise<OrganizationDirectoryUser | null>;
+  updateProfile: (
+    profileDocumentId: string | null,
+  ) => Promise<OrganizationProfile | null>;
 }
 
 const OrgManagerContext = createContext<OrgManagerContextValue | null>(null);
@@ -195,6 +205,12 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [organizations],
   );
 
+  const updateProfile = useCallback(
+    (profileDocumentId: string | null) =>
+      organizations.updateProfile(profileDocumentId),
+    [organizations],
+  );
+
   const ensureRosterProfileContainer = useCallback(async () => {
     if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
       return null;
@@ -257,11 +273,47 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     ],
   );
 
+  const ensureOrganizationProfileDocument = useCallback(
+    async (profileDocumentId: string | null) => {
+      if (profileDocumentId) {
+        return profileDocumentId;
+      }
+      if (!runtime.auth.organizationId || !runtime.auth.isAuthenticated) {
+        return null;
+      }
+
+      const ensuredContainer = await ensureRosterProfileContainer();
+      if (!ensuredContainer?.id) {
+        return null;
+      }
+
+      const nextProfileDocumentId = await createOrganizationProfileDocument({
+        containerId: ensuredContainer.id,
+        documents,
+        organizationId: runtime.auth.organizationId,
+      });
+      if (!nextProfileDocumentId) {
+        return null;
+      }
+
+      const updated = await organizations.updateProfile(nextProfileDocumentId);
+      return updated?.profileDocumentId ?? null;
+    },
+    [
+      documents,
+      ensureRosterProfileContainer,
+      organizations,
+      runtime.auth.isAuthenticated,
+      runtime.auth.organizationId,
+    ],
+  );
+
   const value = useMemo(
     () => ({
       addUserToGroup,
       createGroup,
       deleteGroup,
+      ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
@@ -273,12 +325,14 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadUserDetail,
       removeUserFromGroup,
       revokeGrant,
+      updateProfile,
       updateRosterEntry,
     }),
     [
       addUserToGroup,
       createGroup,
       deleteGroup,
+      ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
@@ -290,6 +344,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       loadUserDetail,
       removeUserFromGroup,
       revokeGrant,
+      updateProfile,
       updateRosterEntry,
     ],
   );

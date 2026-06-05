@@ -7,5 +7,6 @@ export {
   listOrganizationGroups,
 } from "./groups";
 export { createOrganizationGroup, deleteOrganizationGroup } from "./mutations";
+export { updateOrganizationProfile } from "./profile";
 export { updateOrganizationRosterEntry } from "./roster";
 export { getOrganizationUserDetail } from "./users";

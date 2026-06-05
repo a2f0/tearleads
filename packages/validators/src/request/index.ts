@@ -48,7 +48,9 @@ export {
 export {
   type CreateOrganizationGroupRequest,
   isCreateOrganizationGroupRequest,
+  isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
+  type UpdateOrganizationProfileRequest,
   type UpdateOrganizationRosterEntryRequest,
 } from "./organization";
 export {

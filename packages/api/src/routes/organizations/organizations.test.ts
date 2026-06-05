@@ -19,6 +19,7 @@ import {
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
   isOrganizationGroupSummaryResponse,
+  isOrganizationProfileResponse,
   isOrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
@@ -37,6 +38,7 @@ import { storeVerifiedPrincipalState } from "../../access/write/principalStateSt
 import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
 import {
+  accessManifestHeads,
   blobContentWriteHeaders,
   blobs,
   containers,
@@ -327,6 +329,7 @@ test("org manager routes list the current org directory", async () => {
     "expected organization directory response",
   );
   expect(body.organizationId).toBe(organizationId);
+  expect(body.profileDocumentId).toBeNull();
   expect(body.currentUser.isOrgAdmin).toBe(true);
   expect(body.users).toHaveLength(1);
   expect(body.users[0]?.userId).toBe(actor.userId);
@@ -431,6 +434,57 @@ test("org manager routes let admins bind an encrypted roster profile document", 
   expect(body.userId).toBe(actor.userId);
   expect(body.profileDocumentId).toBeNull();
   expect(body.status).toBe("active");
+});
+
+test("org manager routes let admins bind an encrypted organization profile document", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  const profileDocumentId = crypto.randomUUID();
+
+  await db.insert(accessManifestHeads).values({
+    objectKind: "document",
+    objectId: profileDocumentId,
+    organizationId,
+    epoch: 1,
+    manifestHash: `organization-profile-manifest:${crypto.randomUUID()}`,
+  });
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/profile`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${actor.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId }),
+    },
+  );
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  invariant(
+    isOrganizationProfileResponse(body),
+    "expected organization profile response",
+  );
+  expect(body).toEqual({
+    organizationId,
+    profileDocumentId,
+  });
+
+  const directoryResponse = await routeApp.request(
+    `/organizations/${organizationId}/directory`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+  const directoryBody = await directoryResponse.json();
+  invariant(
+    isOrganizationDirectoryResponse(directoryBody),
+    "expected organization directory response",
+  );
+  expect(directoryBody.profileDocumentId).toBe(profileDocumentId);
 });
 
 test("org manager routes reject users outside the organization", async () => {
@@ -783,6 +837,19 @@ test("org manager routes allow organization members to read but reserve mutation
     },
   );
   expect(otherRosterResponse.status).toBe(403);
+
+  const organizationProfileResponse = await routeApp.request(
+    `/organizations/${organizationId}/profile`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${member.token}`,
+      },
+      body: JSON.stringify({ profileDocumentId: null }),
+    },
+  );
+  expect(organizationProfileResponse.status).toBe(403);
 });
 
 test("org manager routes create and list groups with members", async () => {

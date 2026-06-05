@@ -865,7 +865,10 @@ async function createInitialRosterProfileContainer(
   if (!input.initialRosterProfileContainer) {
     return null;
   }
-  if (!input.initialRosterProfileDocument) {
+  if (
+    !input.initialRosterProfileDocument &&
+    !input.initialOrganizationProfileDocument
+  ) {
     throw new RegistrationError(
       "Initial roster profile container requires a profile document",
       400,
@@ -994,6 +997,70 @@ async function createInitialRosterProfileDocument(
   return created;
 }
 
+async function createInitialOrganizationProfileDocument(
+  tx: DatabaseTransaction,
+  input: RegistrationRequest,
+  fingerprint: string,
+  profileContainer:
+    | ContainerCreateWithMetadataDocumentResponse["container"]
+    | null,
+) {
+  if (!input.initialOrganizationProfileDocument) {
+    return null;
+  }
+  if (!profileContainer) {
+    throw new RegistrationError(
+      "Initial organization profile document requires a profile container",
+      400,
+    );
+  }
+
+  const requestDocumentId = readDocumentCreateRequestId(
+    input.initialOrganizationProfileDocument,
+  );
+  if (!requestDocumentId) {
+    throw new RegistrationError(
+      "Initial organization profile document id is unavailable",
+      400,
+    );
+  }
+
+  const created = await createDocumentWithExecutor({
+    executor: tx,
+    fingerprint,
+    request: input.initialOrganizationProfileDocument,
+    userId: input.userId,
+  });
+  if (created.id !== requestDocumentId) {
+    throw new RegistrationError(
+      "Initial organization profile response does not match request",
+      400,
+    );
+  }
+  const linkedContainerIds = readDocumentLinkedContainerIds(created);
+  if (
+    linkedContainerIds.length !== 1 ||
+    linkedContainerIds[0] !== profileContainer.containerId
+  ) {
+    throw new RegistrationError(
+      "Initial organization profile document does not match roster profile container",
+      400,
+    );
+  }
+
+  const [organization] = await tx
+    .update(organizations)
+    .set({ profileDocumentId: created.id })
+    .where(eq(organizations.id, input.organizationId))
+    .returning({ profileDocumentId: organizations.profileDocumentId });
+
+  if (!organization) {
+    throw new RegistrationError("Initial organization not found", 500);
+  }
+
+  return created;
+}
+
 async function runRegistrationTransaction(
   db: ApiDatabase,
   input: RegistrationRequest,
@@ -1055,6 +1122,13 @@ async function runRegistrationTransaction(
       fingerprint,
       rosterProfileContainer?.container ?? null,
     );
+    const organizationProfileDocument =
+      await createInitialOrganizationProfileDocument(
+        tx,
+        input,
+        fingerprint,
+        rosterProfileContainer?.container ?? null,
+      );
 
     return {
       userId: user.id,
@@ -1066,6 +1140,7 @@ async function runRegistrationTransaction(
       rootMetadataDocument,
       rosterProfileContainer,
       rosterProfileDocument,
+      organizationProfileDocument,
     };
   });
 }

@@ -22,6 +22,7 @@ import {
   loadOrganizationGroupDetails,
   loadOrganizationPolicyHistory,
   loadOrganizationUserDetail,
+  updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./readModel";
 
@@ -30,6 +31,7 @@ const groupId = "group-1";
 
 const directory: OrganizationDirectoryResponse = {
   organizationId,
+  profileDocumentId: null,
   currentUser: {
     isOrgAdmin: true,
   },
@@ -543,6 +545,26 @@ test("updateOrganizationRosterEntry binds encrypted profile document ids", async
   });
 
   expect(calls).toEqual(["roster:org-1:user-1:profile-document-1"]);
+  expect(result?.profileDocumentId).toBe("profile-document-1");
+});
+
+test("updateOrganizationProfile binds encrypted profile document ids", async () => {
+  const calls: string[] = [];
+  const result = await updateOrganizationProfile({
+    apiClient: {
+      updateOrganizationProfile: async (nextOrganizationId, input) => {
+        calls.push(`profile:${nextOrganizationId}:${input.profileDocumentId}`);
+        return {
+          organizationId: nextOrganizationId,
+          profileDocumentId: input.profileDocumentId,
+        };
+      },
+    },
+    organizationId,
+    profileDocumentId: "profile-document-1",
+  });
+
+  expect(calls).toEqual(["profile:org-1:profile-document-1"]);
   expect(result?.profileDocumentId).toBe("profile-document-1");
 });
 

@@ -27,6 +27,7 @@ import {
   isOrganizationDirectoryResponse,
   isOrganizationGroupContainersResponse,
   isOrganizationGroupMembersResponse,
+  isOrganizationProfileResponse,
   isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
@@ -421,6 +422,7 @@ test("organization manager responses", () => {
   expect(
     isOrganizationDirectoryResponse({
       organizationId: "org-1",
+      profileDocumentId: null,
       currentUser: { isOrgAdmin: true },
       users: [
         {
@@ -447,6 +449,15 @@ test("organization manager responses", () => {
       users: [{ userId: "user-1" }],
     }),
   ).toBe(false);
+  expect(
+    isOrganizationProfileResponse({
+      organizationId: "org-1",
+      profileDocumentId: "profile-document-1",
+    }),
+  ).toBe(true);
+  expect(isOrganizationProfileResponse({ organizationId: "org-1" })).toBe(
+    false,
+  );
 
   expect(
     isListOrganizationGroupsResponse({

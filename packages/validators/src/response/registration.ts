@@ -27,6 +27,8 @@ export interface RegistrationResponse {
   rosterProfileContainerId?: string | undefined;
   rosterProfileDocument?: DocumentCreateResponse | undefined;
   rosterProfileDocumentId?: string | undefined;
+  organizationProfileDocument?: DocumentCreateResponse | undefined;
+  organizationProfileDocumentId?: string | undefined;
   challenge: string;
 }
 
@@ -53,6 +55,12 @@ export function isRegistrationResponse(
       isDocumentCreateResponse(Reflect.get(value, "rosterProfileDocument"))) &&
     (Reflect.get(value, "rosterProfileDocumentId") === undefined ||
       hasStringProperty(value, "rosterProfileDocumentId")) &&
+    (Reflect.get(value, "organizationProfileDocument") === undefined ||
+      isDocumentCreateResponse(
+        Reflect.get(value, "organizationProfileDocument"),
+      )) &&
+    (Reflect.get(value, "organizationProfileDocumentId") === undefined ||
+      hasStringProperty(value, "organizationProfileDocumentId")) &&
     hasStringProperty(value, "challenge") &&
     isAuthChallengeHexString(value.challenge)
   );

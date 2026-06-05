@@ -32,6 +32,10 @@ export interface UpdateOrganizationRosterEntryRequest {
   profileDocumentId: string | null;
 }
 
+export interface UpdateOrganizationProfileRequest {
+  profileDocumentId: string | null;
+}
+
 export function isCreateOrganizationGroupRequest(
   value: unknown,
 ): value is CreateOrganizationGroupRequest {
@@ -62,6 +66,17 @@ export function isCreateOrganizationGroupRequest(
 export function isUpdateOrganizationRosterEntryRequest(
   value: unknown,
 ): value is UpdateOrganizationRosterEntryRequest {
+  return (
+    isPlainObject(value) &&
+    hasNullableStringProperty(value, "profileDocumentId") &&
+    (value.profileDocumentId === null ||
+      isUuidV4String(value.profileDocumentId))
+  );
+}
+
+export function isUpdateOrganizationProfileRequest(
+  value: unknown,
+): value is UpdateOrganizationProfileRequest {
   return (
     isPlainObject(value) &&
     hasNullableStringProperty(value, "profileDocumentId") &&

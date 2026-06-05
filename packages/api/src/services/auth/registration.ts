@@ -81,6 +81,12 @@ export async function registerUser(
           rosterProfileDocumentId: result.rosterProfileDocument.id,
         }
       : {}),
+    ...(result.organizationProfileDocument
+      ? {
+          organizationProfileDocument: result.organizationProfileDocument,
+          organizationProfileDocumentId: result.organizationProfileDocument.id,
+        }
+      : {}),
     challenge: challengeHex,
   };
 }
