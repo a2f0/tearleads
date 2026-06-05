@@ -47,8 +47,12 @@ export async function createInitializedOrganizationProfileDocument(input: {
 }
 
 export function readOrganizationProfileName(
-  structuredFields: Readonly<Record<string, unknown>>,
+  structuredFields: Readonly<Record<string, unknown>> | null | undefined,
 ): string | null {
+  if (!structuredFields) {
+    return null;
+  }
+
   const value = Reflect.get(structuredFields, "name");
 
   return typeof value === "string" && value.trim().length > 0

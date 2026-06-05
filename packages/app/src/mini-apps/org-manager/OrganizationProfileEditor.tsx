@@ -50,6 +50,7 @@ function OrganizationProfileDocumentFields({
     syncing,
   } = useDocument();
   const [profileLinkReady, setProfileLinkReady] = useState(false);
+  const [relinkFailed, setRelinkFailed] = useState(false);
   const name = useMemo(
     () => readOrganizationProfileName(structuredFields),
     [structuredFields],
@@ -65,6 +66,7 @@ function OrganizationProfileDocumentFields({
 
   useEffect(() => {
     setProfileLinkReady(false);
+    setRelinkFailed(false);
     if (!ready || !documentId || documentId !== profileDocumentId) {
       return;
     }
@@ -81,7 +83,11 @@ function OrganizationProfileDocumentFields({
           setProfileLinkReady(true);
         }
       })
-      .catch(() => null);
+      .catch(() => {
+        if (!cancelled) {
+          setRelinkFailed(true);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -94,6 +100,14 @@ function OrganizationProfileDocumentFields({
     ready,
     relink,
   ]);
+
+  if (relinkFailed) {
+    return (
+      <MiniAppStatus>
+        {ORG_MANAGER_LABELS.organizationProfileUnavailable}
+      </MiniAppStatus>
+    );
+  }
 
   if (!ready || !profileLinkReady) {
     return (
