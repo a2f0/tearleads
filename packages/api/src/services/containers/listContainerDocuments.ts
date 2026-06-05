@@ -12,6 +12,7 @@ import {
   containerMetadataDocuments,
   documents,
   organizationRosterEntries,
+  organizations,
 } from "../../schema";
 import {
   collectReferencedPrincipalsFromContainerAccess,
@@ -105,10 +106,12 @@ async function loadCurrentContainerDocumentRows(input: {
       organizationRosterEntries,
       eq(organizationRosterEntries.profileDocumentId, documents.id),
     )
+    .leftJoin(organizations, eq(organizations.profileDocumentId, documents.id))
     .where(sql`
       ${accessManifestHeads.objectKind} = ${"document"}
       and ${containerMetadataDocuments.documentId} is null
       and ${organizationRosterEntries.profileDocumentId} is null
+      and ${organizations.profileDocumentId} is null
       ${watermarkPredicate(
         sql`${documents.updatedAt}`,
         sql`${accessManifestHeads.objectId}::text`,

@@ -28,10 +28,16 @@ export interface OrganizationDirectoryUserResponse {
 
 export interface OrganizationDirectoryResponse {
   organizationId: string;
+  profileDocumentId: string | null;
   currentUser: {
     isOrgAdmin: boolean;
   };
   users: OrganizationDirectoryUserResponse[];
+}
+
+export interface OrganizationProfileResponse {
+  organizationId: string;
+  profileDocumentId: string | null;
 }
 
 export interface OrganizationGroupCurrentStateResponse {
@@ -212,10 +218,21 @@ export function isOrganizationDirectoryResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "organizationId") &&
+    hasNullableStringProperty(value, "profileDocumentId") &&
     hasObjectProperty(value, "currentUser") &&
     isOrganizationDirectoryCurrentUserResponse(value.currentUser) &&
     hasArrayProperty(value, "users") &&
     value.users.every(isOrganizationDirectoryUserResponse)
+  );
+}
+
+export function isOrganizationProfileResponse(
+  value: unknown,
+): value is OrganizationProfileResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "organizationId") &&
+    hasNullableStringProperty(value, "profileDocumentId")
   );
 }
 

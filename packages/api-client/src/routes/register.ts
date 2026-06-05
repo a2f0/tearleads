@@ -22,6 +22,7 @@ export function postRegistration(
     | ContainerCreateWithMetadataDocumentRequest
     | undefined,
   initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+  initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
 ) {
   return request(
     "/auth/register",
@@ -40,6 +41,7 @@ export function postRegistration(
       initialRootMetadataDocument,
       initialRosterProfileContainer,
       initialRosterProfileDocument,
+      initialOrganizationProfileDocument,
     }),
   );
 }

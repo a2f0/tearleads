@@ -1797,8 +1797,15 @@ test("uses organization manager and principal policy route namespaces", async ()
       if (request.url.endsWith("/directory")) {
         return HttpResponse.json({
           organizationId: "org-1",
+          profileDocumentId: null,
           currentUser: { isOrgAdmin: true },
           users: [],
+        });
+      }
+      if (request.url.endsWith("/profile")) {
+        return HttpResponse.json({
+          organizationId: "org-1",
+          profileDocumentId: null,
         });
       }
       if (request.url.endsWith("/data-usage")) {
@@ -2000,6 +2007,11 @@ test("uses organization manager and principal policy route namespaces", async ()
     }),
   ).not.toBeNull();
   expect(
+    await client.updateOrganizationProfile("org-1", {
+      profileDocumentId: null,
+    }),
+  ).not.toBeNull();
+  expect(
     await client.createOrganizationGroup("org-1", groupRequest),
   ).not.toBeNull();
   expect(
@@ -2057,6 +2069,11 @@ test("uses organization manager and principal policy route namespaces", async ()
     {
       body: JSON.stringify({ profileDocumentId: null }),
       input: `${apiBaseUrl}/organizations/org-1/roster/user-1`,
+      method: "PUT",
+    },
+    {
+      body: JSON.stringify({ profileDocumentId: null }),
+      input: `${apiBaseUrl}/organizations/org-1/profile`,
       method: "PUT",
     },
     {

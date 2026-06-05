@@ -127,6 +127,7 @@ export type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
+  OrganizationProfile,
   Organizations,
   OrganizationUserDetail,
   OrganizationUserRecipient,

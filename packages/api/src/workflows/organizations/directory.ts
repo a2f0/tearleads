@@ -24,9 +24,15 @@ function compareOrganizationDirectoryUsers(
 async function loadMemberGroupId(input: {
   executor: DatabaseSession;
   organizationId: string;
-}): Promise<string> {
+}): Promise<{
+  memberGroupId: string;
+  profileDocumentId: string | null;
+}> {
   const [organization] = await input.executor
-    .select({ memberGroupId: organizations.memberGroupId })
+    .select({
+      memberGroupId: organizations.memberGroupId,
+      profileDocumentId: organizations.profileDocumentId,
+    })
     .from(organizations)
     .where(eq(organizations.id, input.organizationId))
     .limit(1);
@@ -35,7 +41,7 @@ async function loadMemberGroupId(input: {
     throw new OrganizationManagerError("Organization not found", 404);
   }
 
-  return organization.memberGroupId;
+  return organization;
 }
 
 export async function runListOrganizationDirectoryWorkflow(
@@ -49,13 +55,13 @@ export async function runListOrganizationDirectoryWorkflow(
       organizationId,
       userId: sessionUserId,
     });
-    const memberGroupId = await loadMemberGroupId({
+    const organization = await loadMemberGroupId({
       executor: tx,
       organizationId,
     });
     const memberUserIds = await listUsersReachableFromCurrentGroup({
       executor: tx,
-      groupId: memberGroupId,
+      groupId: organization.memberGroupId,
     });
     await upsertActiveOrganizationRosterEntries({
       executor: tx,
@@ -74,6 +80,7 @@ export async function runListOrganizationDirectoryWorkflow(
 
     return {
       organizationId,
+      profileDocumentId: organization.profileDocumentId,
       currentUser: {
         isOrgAdmin: access.isOrgAdmin,
       },

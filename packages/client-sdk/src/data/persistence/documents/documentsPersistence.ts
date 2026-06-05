@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
 import type {
   DiscoveredDocumentInput,
   DocumentSummary,
@@ -65,6 +65,8 @@ import type {
   RelinkPersistedDocumentInput,
   StoredDocumentRecord,
 } from "./types";
+
+const HIDDEN_DOCUMENT_SUMMARY_KINDS = ["organization_profile"];
 
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
 export type {
@@ -242,7 +244,15 @@ export async function listDocumentsByContainerIds(
     .select(documentSummarySelection)
     .from(documentProjection)
     .leftJoin(documents, documentSummaryJoin)
-    .where(inArray(documentProjection.containerId, uniqueContainerIds))
+    .where(
+      and(
+        inArray(documentProjection.containerId, uniqueContainerIds),
+        notInArray(
+          documentProjection.documentKind,
+          HIDDEN_DOCUMENT_SUMMARY_KINDS,
+        ),
+      ),
+    )
     .orderBy(
       desc(documentProjection.updatedAt),
       desc(documentProjection.localId),
@@ -279,7 +289,15 @@ async function listDocumentsByContainerIdsOrDocumentIds(
     .select(documentSummarySelection)
     .from(documentProjection)
     .leftJoin(documents, documentSummaryJoin)
-    .where(whereCondition)
+    .where(
+      and(
+        whereCondition,
+        notInArray(
+          documentProjection.documentKind,
+          HIDDEN_DOCUMENT_SUMMARY_KINDS,
+        ),
+      ),
+    )
     .orderBy(
       desc(documentProjection.updatedAt),
       desc(documentProjection.localId),
@@ -302,6 +320,12 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
       .select(documentSummarySelection)
       .from(documentProjection)
       .leftJoin(documents, documentSummaryJoin)
+      .where(
+        notInArray(
+          documentProjection.documentKind,
+          HIDDEN_DOCUMENT_SUMMARY_KINDS,
+        ),
+      )
       .orderBy(
         desc(documentProjection.updatedAt),
         desc(documentProjection.localId),

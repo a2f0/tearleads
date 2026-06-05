@@ -50,6 +50,13 @@
       "when": 1779649855521,
       "tag": "0006_black_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780693655951,
+      "tag": "0007_chilly_archangel",
+      "breakpoints": true
     }
   ]
 }

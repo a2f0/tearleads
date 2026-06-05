@@ -55,6 +55,7 @@ export interface RegistrationRequest {
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
   initialRosterProfileDocument?: DocumentCreateRequest | undefined;
+  initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
 }
 
 export function isRegistrationRequest(
@@ -68,6 +69,9 @@ export function isRegistrationRequest(
     : undefined;
   const initialRosterProfileDocument = isPlainObject(value)
     ? Reflect.get(value, "initialRosterProfileDocument")
+    : undefined;
+  const initialOrganizationProfileDocument = isPlainObject(value)
+    ? Reflect.get(value, "initialOrganizationProfileDocument")
     : undefined;
   const initialRosterProfileContainer = isPlainObject(value)
     ? Reflect.get(value, "initialRosterProfileContainer")
@@ -114,6 +118,8 @@ export function isRegistrationRequest(
         initialRosterProfileContainer,
       )) &&
     (initialRosterProfileDocument === undefined ||
-      isDocumentCreateRequest(initialRosterProfileDocument))
+      isDocumentCreateRequest(initialRosterProfileDocument)) &&
+    (initialOrganizationProfileDocument === undefined ||
+      isDocumentCreateRequest(initialOrganizationProfileDocument))
   );
 }

@@ -1,5 +1,13 @@
 export { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 export {
+  createInitializedOrganizationProfileDocument,
+  DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+  getOrganizationProfileDocumentLocalId,
+  getOrganizationProfileDocumentPatch,
+  ORGANIZATION_PROFILE_DOCUMENT_KIND,
+  readOrganizationProfileName,
+} from "./organizationProfile";
+export {
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,
@@ -35,7 +43,9 @@ export {
   type OrganizationPrincipalMemberChangeType,
   type OrganizationPrincipalPolicyHistory,
   type OrganizationPrincipalPolicyHistoryEntry,
+  type OrganizationProfile,
   type OrganizationUserDetail,
+  updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./readModel";
 export {

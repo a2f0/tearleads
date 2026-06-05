@@ -5,6 +5,7 @@ import { createOrganizationDirectoryRoute } from "./directory";
 import { createOrganizationGrantsRoute } from "./grants";
 import { createOrganizationGroupsRoute } from "./groups";
 import { createOrganizationMutationsRoute } from "./mutations";
+import { createOrganizationProfileRoute } from "./profile";
 import { createOrganizationRosterRoute } from "./roster";
 import type { OrganizationsRouterDeps } from "./shared";
 import { createOrganizationUsersRoute } from "./users";
@@ -17,6 +18,7 @@ export function createOrganizationsRouter(deps: OrganizationsRouterDeps) {
   organizationsRouter.route("/", createOrganizationGrantsRoute(deps));
   organizationsRouter.route("/", createOrganizationGroupsRoute(deps));
   organizationsRouter.route("/", createOrganizationMutationsRoute(deps));
+  organizationsRouter.route("/", createOrganizationProfileRoute(deps));
   organizationsRouter.route("/", createOrganizationRosterRoute(deps));
   organizationsRouter.route("/", createOrganizationUsersRoute(deps));
 

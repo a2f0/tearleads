@@ -3,6 +3,12 @@ import type {
   Documents,
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
+import {
+  DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+  getOrganizationProfileDocumentLocalId,
+  getOrganizationProfileDocumentPatch,
+  ORGANIZATION_PROFILE_DOCUMENT_KIND,
+} from "@tearleads/client-sdk";
 
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
 
@@ -98,6 +104,35 @@ export async function createRosterProfileDocument(input: {
   await store.setStructuredFields(
     "contact",
     getRosterProfileDocumentPatch(input.user),
+  );
+  store.requestSync();
+
+  return waitForRemoteDocumentId(store);
+}
+
+export async function createOrganizationProfileDocument(input: {
+  containerId: string;
+  documents: Documents;
+  name?: string | undefined;
+  organizationId: string;
+}): Promise<string | null> {
+  const store = input.documents.store({
+    containerId: input.containerId,
+    initialDocumentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
+    localId: getOrganizationProfileDocumentLocalId({
+      organizationId: input.organizationId,
+    }),
+  });
+
+  if (!(await store.ensureInitialized())) {
+    return null;
+  }
+
+  await store.setStructuredFields(
+    ORGANIZATION_PROFILE_DOCUMENT_KIND,
+    getOrganizationProfileDocumentPatch({
+      name: input.name ?? DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+    }),
   );
   store.requestSync();
 

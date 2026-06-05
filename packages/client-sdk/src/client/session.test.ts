@@ -109,6 +109,7 @@ describe("session", () => {
         initialRootMetadataDocument,
         _initialRosterProfileContainer,
         _initialRosterProfileDocument,
+        _initialOrganizationProfileDocument,
       ) => {
         registerUserCalls += 1;
         const rootMetadataDocument = await createResponseFromRequest(

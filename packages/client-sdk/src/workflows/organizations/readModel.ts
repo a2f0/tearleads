@@ -1,4 +1,7 @@
-import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
+import type {
+  UpdateOrganizationProfileRequest,
+  UpdateOrganizationRosterEntryRequest,
+} from "@tearleads/validators/request";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationContainerGrantResponse,
@@ -11,6 +14,7 @@ import type {
   OrganizationGroupMemberResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
+  OrganizationProfileResponse,
   OrganizationUserDetailResponse,
   PrincipalPolicyBundleResponse,
   PrincipalProjectionMemberResponse,
@@ -22,6 +26,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 export type OrganizationDirectory = OrganizationDirectoryResponse;
 export type OrganizationDataUsage = OrganizationDataUsageResponse;
 export type OrganizationDirectoryUser = OrganizationDirectoryUserResponse;
+export type OrganizationProfile = OrganizationProfileResponse;
 export type OrganizationGroupContainer = OrganizationGroupContainerResponse & {
   readonly containerDisplayName: string | null;
 };
@@ -121,6 +126,10 @@ interface OrganizationReadApi {
     userId: string,
     input: UpdateOrganizationRosterEntryRequest,
   ) => Promise<OrganizationDirectoryUserResponse | null>;
+  readonly updateOrganizationProfile: (
+    organizationId: string,
+    input: UpdateOrganizationProfileRequest,
+  ) => Promise<OrganizationProfileResponse | null>;
   readonly listOrganizationGroupMembers: (
     organizationId: string,
     groupId: string,
@@ -446,6 +455,16 @@ export async function updateOrganizationRosterEntry(input: {
     input.userId,
     { profileDocumentId: input.profileDocumentId },
   );
+}
+
+export async function updateOrganizationProfile(input: {
+  readonly apiClient: Pick<OrganizationReadApi, "updateOrganizationProfile">;
+  readonly organizationId: string;
+  readonly profileDocumentId: string | null;
+}): Promise<OrganizationProfileResponse | null> {
+  return input.apiClient.updateOrganizationProfile(input.organizationId, {
+    profileDocumentId: input.profileDocumentId,
+  });
 }
 
 export async function loadOrganizationGroupDetails(input: {

@@ -1,5 +1,6 @@
 import type {
   CreateOrganizationGroupRequest,
+  UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -12,6 +13,7 @@ import type {
   OrganizationGroupContainersResponse,
   OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
+  OrganizationProfileResponse,
   OrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import {
@@ -25,6 +27,7 @@ import {
   runListOrganizationGroupContainersWorkflow,
   runListOrganizationGroupMembersWorkflow,
   runListOrganizationGroupsWorkflow,
+  runUpdateOrganizationProfileWorkflow,
   runUpdateOrganizationRosterEntryWorkflow,
 } from "../../workflows/organizations";
 import type { ApiServiceRuntime } from "../runtime";
@@ -104,6 +107,20 @@ export async function updateOrganizationRosterEntry(
     runtime.db,
     organizationId,
     userId,
+    sessionUserId,
+    input,
+  );
+}
+
+export async function updateOrganizationProfile(
+  runtime: ApiServiceRuntime,
+  organizationId: string,
+  sessionUserId: string,
+  input: UpdateOrganizationProfileRequest,
+): Promise<OrganizationProfileResponse> {
+  return runUpdateOrganizationProfileWorkflow(
+    runtime.db,
+    organizationId,
     sessionUserId,
     input,
   );

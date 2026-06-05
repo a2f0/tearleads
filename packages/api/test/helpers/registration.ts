@@ -50,6 +50,7 @@ interface RegistrationBootstrapInput {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   encapsulationPublicKey: Uint8Array;
   organizationId: string;
+  organizationProfileDocumentId?: string | undefined;
   rosterProfileDocumentId?: string | undefined;
   rootContainerId: string;
   signingPrivateKey: Uint8Array;
@@ -62,6 +63,7 @@ interface RegistrationBootstrap {
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
   initialRosterProfileDocument?: DocumentCreateRequest | undefined;
+  initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: DocumentCreateRequest;
   rootMetadataDocumentId: string;
@@ -1015,17 +1017,18 @@ export async function createRegistrationBootstrap(
   });
   const rootContainerProjection =
     rootContainerProjectionFromArtifacts(rootContainer);
-  const rosterProfileContainer = input.rosterProfileDocumentId
-    ? await createChildContainerArtifacts({
-        metadataDocumentId: crypto.randomUUID(),
-        parent: rootContainer,
-        parentProjection: rootContainerProjection,
-        signerDeviceId,
-        signerKeyFingerprint,
-        signingPrivateKey: input.signingPrivateKey,
-        userId: input.userId,
-      })
-    : undefined;
+  const rosterProfileContainer =
+    input.rosterProfileDocumentId || input.organizationProfileDocumentId
+      ? await createChildContainerArtifacts({
+          metadataDocumentId: crypto.randomUUID(),
+          parent: rootContainer,
+          parentProjection: rootContainerProjection,
+          signerDeviceId,
+          signerKeyFingerprint,
+          signingPrivateKey: input.signingPrivateKey,
+          userId: input.userId,
+        })
+      : undefined;
   const rosterProfileContainerProjection = rosterProfileContainer
     ? childContainerProjectionFromArtifacts({
         child: rosterProfileContainer,
@@ -1066,10 +1069,28 @@ export async function createRegistrationBootstrap(
           userId: input.userId,
         })
       : undefined;
+  const initialOrganizationProfileDocument =
+    input.organizationProfileDocumentId &&
+    rosterProfileContainer &&
+    rosterProfileContainerProjection
+      ? await createRootMetadataDocumentRequest({
+          containerKey: rosterProfileContainer.containerKey,
+          containerProjection: rosterProfileContainerProjection,
+          organizationId: input.organizationId,
+          rootMetadataDocumentId: input.organizationProfileDocumentId,
+          signerDeviceId,
+          signerKeyFingerprint,
+          signingPrivateKey: input.signingPrivateKey,
+          userId: input.userId,
+        })
+      : undefined;
 
   return {
     ...(initialRosterProfileContainer ? { initialRosterProfileContainer } : {}),
     ...(initialRosterProfileDocument ? { initialRosterProfileDocument } : {}),
+    ...(initialOrganizationProfileDocument
+      ? { initialOrganizationProfileDocument }
+      : {}),
     initialRootContainer: rootContainer.request,
     initialRootMetadataDocument,
     rootMetadataDocumentId,
