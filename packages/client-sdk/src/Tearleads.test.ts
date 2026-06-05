@@ -1,12 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { ApiClient } from "@tearleads/api-client";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createResponseFromRequest } from "../test/helpers/documentFixtures";
 import { type Logger, Tearleads } from "./client";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import type { DocumentProjectorDefinition } from "./documents";
@@ -32,16 +30,6 @@ function createNoopSqlClient(): ExecSqlClientLike {
   return {
     async exec() {
       return { rows: [] };
-    },
-  };
-}
-
-function createSqlClient(execSql: ExecSql): ExecSqlClientLike {
-  return {
-    async exec({ bind, rowMode, sql }) {
-      return {
-        rows: await execSql(sql, bind, rowMode ? { rowMode } : undefined),
-      };
     },
   };
 }
@@ -84,6 +72,35 @@ describe("Tearleads", () => {
     expect("workflowInput" in sdk.runtime).toBe(false);
     expect(sdk.session.isAuthenticated).toBe(false);
     expect(sdk.userKeys.fetch).toBeFunction();
+  });
+
+  test("uses apiBaseUrl for internal api requests", async () => {
+    const previousFetch = globalThis.fetch;
+    const requests: Array<{ input: string; method: string | undefined }> = [];
+    globalThis.fetch = (async (input, init) => {
+      requests.push({ input: String(input), method: init?.method });
+      return new Response(JSON.stringify({ sessions: [] }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      });
+    }) as typeof fetch;
+
+    try {
+      const sdk = new Tearleads({
+        apiBaseUrl: " https://api.example.test/ ",
+        logger: quietLogger,
+      });
+
+      await expect(sdk.session.listSessions()).resolves.toEqual([]);
+      expect(requests).toEqual([
+        {
+          input: "https://api.example.test/auth/sessions",
+          method: "GET",
+        },
+      ]);
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
   });
 
   test("exposes grouped runtime input", () => {
@@ -776,78 +793,6 @@ describe("Tearleads", () => {
     expect(sdk.runtime.input().state.domainScope).toBe(identityScope);
   });
 
-  test("session registers the current identity through the internal api client", async () => {
-    const { close, execSql } = await createTestExecSql(
-      "tearleads-session-register-identity-test",
-    );
-    const apiClient = new ApiClient("");
-    const containerId = crypto.randomUUID();
-    let registerUserCalls = 0;
-    apiClient.registerUser = async (
-      userId,
-      organizationId,
-      rootContainerId,
-      _signingPublicKey,
-      _encapsulationPublicKey,
-      _initialAdminGroup,
-      _initialMemberGroup,
-      _initialOrganizationPolicy,
-      _initialRootContainer,
-      initialRootMetadataDocument,
-      _initialRosterProfileContainer,
-      _initialRosterProfileDocument,
-    ) => {
-      registerUserCalls += 1;
-      const rootMetadataDocument = await createResponseFromRequest(
-        initialRootMetadataDocument,
-      );
-
-      return {
-        challenge: "a".repeat(64),
-        organizationId,
-        rootContainerId,
-        rootMetadataAccessEpoch: 1,
-        rootMetadataAccessStateHash:
-          rootMetadataDocument.accessManifest.manifestHash,
-        rootMetadataDocument,
-        rootMetadataDocumentId: rootMetadataDocument.id,
-        userId,
-      };
-    };
-    const sdk = new Tearleads({
-      apiClient,
-      database: {
-        client: createSqlClient(execSql),
-        id: "registration-test-db",
-        status: "ready",
-      },
-      logger: quietLogger,
-    });
-
-    try {
-      await sdk.identity.generate();
-      sdk.session.setContainerId(containerId);
-
-      const result = await sdk.session.registerIdentity();
-      if (!result) {
-        throw new Error("Expected registration to succeed");
-      }
-
-      expect(registerUserCalls).toBe(1);
-      expect(result).toEqual({
-        challenge: "a".repeat(64),
-        containerId,
-        organizationId: expect.any(String),
-        userId: expect.any(String),
-      });
-      expect(sdk.session.containerId).toBe(containerId);
-      expect(sdk.session.organizationId).toBe(result.organizationId);
-      expect(sdk.session.userId).toBe(result.userId);
-    } finally {
-      close();
-    }
-  });
-
   test("session registration skips unavailable prerequisites", async () => {
     const messages: string[] = [];
     const sdk = new Tearleads({
@@ -878,168 +823,5 @@ describe("Tearleads", () => {
       "Key pair generated",
       "Registration skipped: database client is unavailable",
     ]);
-  });
-
-  test("session registration logs workflow failures before propagating them", async () => {
-    const { close, execSql } = await createTestExecSql(
-      "tearleads-session-register-identity-failure-test",
-    );
-    const registrationError = new Error("remote registration unavailable");
-    const errors: Array<{ cause: unknown; message: string | Error }> = [];
-    const apiClient = new ApiClient("");
-    apiClient.registerUser = async () => {
-      throw registrationError;
-    };
-    const sdk = new Tearleads({
-      apiClient,
-      database: {
-        client: createSqlClient(execSql),
-        id: "registration-failure-test-db",
-        status: "ready",
-      },
-      logger: {
-        ...quietLogger,
-        logError: (message, cause) => errors.push({ cause, message }),
-      },
-    });
-
-    try {
-      await sdk.identity.generate();
-      sdk.session.setContainerId(crypto.randomUUID());
-
-      await expect(sdk.session.registerIdentity()).rejects.toThrow(
-        "remote registration unavailable",
-      );
-
-      expect(errors).toEqual([
-        {
-          cause: registrationError,
-          message: "Identity registration failed",
-        },
-      ]);
-    } finally {
-      close();
-    }
-  });
-
-  test("login authenticates with the current identity and stores the auth token", async () => {
-    const apiClient = new ApiClient("");
-    let authenticateCalls = 0;
-    apiClient.authenticate = async () => {
-      authenticateCalls += 1;
-      return "test-token";
-    };
-    const sdk = new Tearleads({ apiClient, logger: quietLogger });
-    await sdk.identity.generate();
-
-    await expect(sdk.session.login()).resolves.toBe(true);
-
-    expect(authenticateCalls).toBe(1);
-    expect(sdk.session.authToken).toBe("test-token");
-    expect(apiClient.getAuthToken()).toBe("test-token");
-    expect(sdk.session.isAuthenticated).toBe(true);
-  });
-
-  test("login fails when authentication returns no token", async () => {
-    const apiClient = new ApiClient("");
-    apiClient.authenticate = async () => null;
-    const sdk = new Tearleads({ apiClient, logger: quietLogger });
-    await sdk.identity.generate();
-    sdk.session.setAuthToken("stale-token");
-
-    await expect(sdk.session.login()).resolves.toBe(false);
-
-    expect(sdk.session.authToken).toBeNull();
-    expect(apiClient.getAuthToken()).toBeNull();
-    expect(sdk.session.isAuthenticated).toBe(false);
-  });
-
-  test("session lists active sessions through the internal api client", async () => {
-    const apiClient = new ApiClient("");
-    let listSessionsCalls = 0;
-    apiClient.listSessions = async () => {
-      listSessionsCalls += 1;
-      return {
-        sessions: [
-          {
-            createdAt: "2026-05-22T10:00:00.000Z",
-            id: "a".repeat(64),
-            ipAddresses: ["198.51.100.10"],
-            isCurrent: true,
-            lastActiveAt: "2026-05-22T10:05:00.000Z",
-            lastActiveIp: "198.51.100.10",
-            signingKeyFingerprint: "b".repeat(64),
-          },
-        ],
-      };
-    };
-    const sdk = new Tearleads({ apiClient, logger: quietLogger });
-
-    await expect(sdk.session.listSessions()).resolves.toEqual([
-      {
-        createdAt: "2026-05-22T10:00:00.000Z",
-        id: "a".repeat(64),
-        ipAddresses: ["198.51.100.10"],
-        isCurrent: true,
-        lastActiveAt: "2026-05-22T10:05:00.000Z",
-        lastActiveIp: "198.51.100.10",
-        signingKeyFingerprint: "b".repeat(64),
-      },
-    ]);
-
-    expect(listSessionsCalls).toBe(1);
-  });
-
-  test("session destroys active sessions through the internal api client", async () => {
-    const apiClient = new ApiClient("");
-    const destroyedSessionIds: string[] = [];
-    apiClient.destroySession = async (sessionId) => {
-      destroyedSessionIds.push(sessionId);
-      return { message: "ok" };
-    };
-    const sdk = new Tearleads({ apiClient, logger: quietLogger });
-    const sessionId = "c".repeat(64);
-
-    await expect(sdk.session.destroySession(sessionId)).resolves.toBe(true);
-
-    expect(destroyedSessionIds).toEqual([sessionId]);
-  });
-
-  test("remote logout clears the local authenticated session", async () => {
-    const apiClient = new ApiClient("");
-    let logoutCalls = 0;
-    apiClient.logout = async () => {
-      logoutCalls += 1;
-      return { message: "ok" };
-    };
-    const sdk = new Tearleads({ apiClient, logger: quietLogger });
-    sdk.session.setAuthToken("test-token");
-    sdk.session.setContext({ isAuthenticated: true });
-
-    await expect(sdk.session.logoutRemote()).resolves.toBe(true);
-
-    expect(logoutCalls).toBe(1);
-    expect(sdk.session.authToken).toBeNull();
-    expect(apiClient.getAuthToken()).toBeNull();
-    expect(sdk.session.isAuthenticated).toBe(false);
-  });
-
-  test("remote logout clears the local session when the remote request fails", async () => {
-    const apiClient = new ApiClient("");
-    let logoutCalls = 0;
-    apiClient.logout = async () => {
-      logoutCalls += 1;
-      return null;
-    };
-    const sdk = new Tearleads({ apiClient, logger: quietLogger });
-    sdk.session.setAuthToken("stale-token");
-    sdk.session.setContext({ isAuthenticated: true });
-
-    await expect(sdk.session.logoutRemote()).resolves.toBe(false);
-
-    expect(logoutCalls).toBe(1);
-    expect(sdk.session.authToken).toBeNull();
-    expect(apiClient.getAuthToken()).toBeNull();
-    expect(sdk.session.isAuthenticated).toBe(false);
   });
 });

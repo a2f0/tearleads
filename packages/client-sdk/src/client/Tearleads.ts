@@ -28,7 +28,6 @@ import { createRuntime, type Runtime } from "./workflowRuntime";
 
 export interface ClientOptions {
   apiBaseUrl?: string | undefined;
-  apiClient?: ApiClient | undefined;
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
   database?: DatabaseOptions | undefined;
@@ -63,8 +62,7 @@ export class Tearleads {
   private readonly logHandler: (message: string) => void;
 
   constructor(options: ClientOptions = {}) {
-    this.apiClient =
-      options.apiClient ?? new ApiClient(options.apiBaseUrl ?? "");
+    this.apiClient = new ApiClient(options.apiBaseUrl ?? "");
     this.blobs = new Blobs(options.blobStore, options.blobStoreFactory);
     this.database = new Database(options.database);
     this.documentProjectors = resolveDocumentProjectorRegistry(
