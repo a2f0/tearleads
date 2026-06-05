@@ -3,6 +3,7 @@ export { runListOrganizationDirectoryWorkflow } from "./directory";
 export { OrganizationManagerError } from "./errors";
 export { runListOrganizationContainerGrantsWorkflow } from "./grants";
 export {
+  runDeleteOrganizationGroupWorkflow,
   runListOrganizationGroupContainersWorkflow,
   runListOrganizationGroupMembersWorkflow,
   runListOrganizationGroupsWorkflow,

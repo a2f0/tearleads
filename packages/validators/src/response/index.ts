@@ -83,7 +83,9 @@ export {
 } from "./documentMutation";
 export { type HealthResponse, isHealthResponse } from "./health";
 export {
+  type DeleteOrganizationGroupResponse,
   isCreateOrganizationGroupResponse,
+  isDeleteOrganizationGroupResponse,
   isListOrganizationGroupsResponse,
   isOrganizationContainerGrantResponse,
   isOrganizationContainerGrantSubjectType,

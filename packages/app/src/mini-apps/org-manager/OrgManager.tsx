@@ -134,9 +134,11 @@ function OrgManagerContent({
       addUserListId={model.addUserListId}
       addableUsers={model.addableUsers}
       canCreateGroup={model.canCreateGroup}
+      canDeleteGroup={model.canDeleteGroup}
       canMutateSelectedGroup={model.canMutateSelectedGroup}
       closeCreateGroupDialog={model.closeCreateGroupDialog}
       createGroup={model.createGroup}
+      deleteGroup={model.deleteGroup}
       directory={model.directory}
       groupContainers={model.groupContainers}
       groupNameDraft={model.groupNameDraft}

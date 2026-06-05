@@ -1713,6 +1713,17 @@ test("caches organization group lists and invalidates on group changes", async (
         );
       },
     ),
+    http.delete(
+      `${apiBaseUrl}/organizations/:organizationId/groups/:groupId`,
+      async ({ params, request }) => {
+        calls.push(await captureHttpCall(request));
+        const { groupId, organizationId } = params as {
+          groupId: string;
+          organizationId: string;
+        };
+        return HttpResponse.json({ deleted: true, groupId, organizationId });
+      },
+    ),
   );
 
   const client = new ApiClient(apiBaseUrl);
@@ -1732,6 +1743,15 @@ test("caches organization group lists and invalidates on group changes", async (
   await expect(createdGroup).resolves.not.toBeNull();
   const third = await client.listOrganizationGroups("org-1");
   expect(third).toEqual(first);
+  await expect(
+    client.deleteOrganizationGroup("org-1", "group-1"),
+  ).resolves.toEqual({
+    deleted: true,
+    groupId: "group-1",
+    organizationId: "org-1",
+  });
+  const fourth = await client.listOrganizationGroups("org-1");
+  expect(fourth).toEqual(first);
 
   expect(
     calls.map((call) => ({
@@ -1749,6 +1769,16 @@ test("caches organization group lists and invalidates on group changes", async (
       body: JSON.stringify(createOrganizationGroupRequest()),
       input: `${apiBaseUrl}/organizations/org-1/groups`,
       method: "POST",
+    },
+    {
+      body: null,
+      input: `${apiBaseUrl}/organizations/org-1/groups`,
+      method: "GET",
+    },
+    {
+      body: "",
+      input: `${apiBaseUrl}/organizations/org-1/groups/group-1`,
+      method: "DELETE",
     },
     {
       body: null,
@@ -1940,6 +1970,13 @@ test("uses organization manager and principal policy route namespaces", async ()
           },
         });
       }
+      if (request.method === "DELETE") {
+        return HttpResponse.json({
+          deleted: true,
+          groupId: "group-1",
+          organizationId: "org-1",
+        });
+      }
 
       return HttpResponse.json({ organizationId: "org-1", groups: [] });
     }),
@@ -1964,6 +2001,9 @@ test("uses organization manager and principal policy route namespaces", async ()
   ).not.toBeNull();
   expect(
     await client.createOrganizationGroup("org-1", groupRequest),
+  ).not.toBeNull();
+  expect(
+    await client.deleteOrganizationGroup("org-1", "group-1"),
   ).not.toBeNull();
   expect(
     await client.listOrganizationGroupMembers("org-1", "group-1"),
@@ -2023,6 +2063,11 @@ test("uses organization manager and principal policy route namespaces", async ()
       body: JSON.stringify(groupRequest),
       input: `${apiBaseUrl}/organizations/org-1/groups`,
       method: "POST",
+    },
+    {
+      body: "",
+      input: `${apiBaseUrl}/organizations/org-1/groups/group-1`,
+      method: "DELETE",
     },
     {
       body: null,

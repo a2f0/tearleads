@@ -8,7 +8,14 @@ import type {
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
-import { type FormEvent, type KeyboardEvent, useId } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  useId,
+} from "react";
+import { Menu, type MenuPosition } from "../../components/shared/Menu";
+import { MenuItem } from "../../components/shared/MenuItem";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -47,6 +54,7 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
+import { useContextMenuState } from "../../components/shared/useContextMenuState";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import {
   compactFingerprint,
@@ -108,10 +116,15 @@ const GROUP_TABLE_COLUMNS = [
 
 function GroupTable({
   groups,
+  openGroupContextMenu,
   selectedGroupId,
   setSelectedGroupId,
 }: {
   groups: ReadonlyArray<OrganizationGroupSummary>;
+  openGroupContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    groupId: string,
+  ) => void;
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
 }) {
@@ -160,6 +173,9 @@ function GroupTable({
               interactive
               key={group.groupId}
               onClick={openGroupDetail}
+              onContextMenu={(event) =>
+                openGroupContextMenu(event, group.groupId)
+              }
               onKeyDown={handleGroupRowKeyDown}
               selected={isSelected}
               tabIndex={0}
@@ -199,6 +215,41 @@ function GroupTable({
         />
       </MiniAppTable>
     </MiniAppTableFrame>
+  );
+}
+
+function GroupContextMenu({
+  canDeleteGroup,
+  closeContextMenu,
+  deleteGroup,
+  group,
+  mutating,
+  position,
+}: {
+  canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
+  closeContextMenu: () => void;
+  deleteGroup: (groupId: string) => void;
+  group: OrganizationGroupSummary | null;
+  mutating: boolean;
+  position: MenuPosition | null;
+}) {
+  if (!group || !position) {
+    return null;
+  }
+
+  const handleDeleteGroup = () => {
+    closeContextMenu();
+    deleteGroup(group.groupId);
+  };
+
+  return (
+    <Menu direction="down" onClose={closeContextMenu} position={position}>
+      <MenuItem
+        disabled={!canDeleteGroup(group) || mutating}
+        label={ORG_MANAGER_LABELS.deleteGroupAction}
+        onClick={handleDeleteGroup}
+      />
+    </Menu>
   );
 }
 
@@ -428,41 +479,80 @@ function GroupContainers({
   );
 }
 
-export function GroupsView({
-  addUser,
-  addUserId,
-  addUserListId,
-  addableUsers,
-  canCreateGroup,
-  canMutateSelectedGroup,
-  closeCreateGroupDialog,
-  createGroup,
-  directory,
-  error,
-  groupContainers,
-  groupNameDraft,
-  groupPolicyHistory,
+function GroupListSection({
   groups,
-  isCreateGroupDialogOpen,
-  members,
-  memberUserIds,
-  mutating,
-  removeMember,
-  selectedGroup,
+  openGroupContextMenu,
   selectedGroupId,
   selectGroup,
-  setAddUserId,
-  setGroupNameDraft,
-  userId,
 }: {
+  groups: ReadonlyArray<OrganizationGroupSummary>;
+  openGroupContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    groupId: string,
+  ) => void;
+  selectedGroupId: string | null;
+  selectGroup: (groupId: string | null) => void;
+}) {
+  return (
+    <section className="org-manager-panel">
+      <GroupTable
+        groups={groups}
+        openGroupContextMenu={openGroupContextMenu}
+        selectedGroupId={selectedGroupId}
+        setSelectedGroupId={selectGroup}
+      />
+    </section>
+  );
+}
+
+function GroupDetailHeader({
+  openGroupContextMenu,
+  selectedGroup,
+  selectGroup,
+}: {
+  openGroupContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    groupId: string,
+  ) => void;
+  selectedGroup: OrganizationGroupSummary;
+  selectGroup: (groupId: string | null) => void;
+}) {
+  return (
+    <MiniAppHeader
+      className="org-manager-detail-header"
+      onContextMenu={(event) =>
+        openGroupContextMenu(event, selectedGroup.groupId)
+      }
+    >
+      <MiniAppHeaderCopy>
+        <strong>{selectedGroup.name}</strong>
+        <span title={selectedGroup.groupId}>
+          {compactFingerprint(selectedGroup.groupId)}
+        </span>
+      </MiniAppHeaderCopy>
+      <span>
+        {selectedGroup.currentState
+          ? getOrgManagerEpochLabel(selectedGroup.currentState.keyEpoch)
+          : ORG_MANAGER_LABELS.noPolicy}
+      </span>
+      <MiniAppButton onClick={() => selectGroup(null)} variant="ghost">
+        {ORG_MANAGER_LABELS.back}
+      </MiniAppButton>
+    </MiniAppHeader>
+  );
+}
+
+interface GroupsViewProps {
   addUser: () => void;
   addUserId: string;
   addUserListId: string;
   addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
   canCreateGroup: boolean;
+  canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
   canMutateSelectedGroup: boolean;
   closeCreateGroupDialog: () => void;
   createGroup: () => void;
+  deleteGroup: (groupId: string) => void;
   directory: OrganizationDirectory | null;
   error?: string | null | undefined;
   groupContainers: OrganizationGroupContainers | null;
@@ -480,7 +570,51 @@ export function GroupsView({
   setAddUserId: (userId: string) => void;
   setGroupNameDraft: (groupName: string) => void;
   userId: string | null;
-}) {
+}
+
+export function GroupsView({
+  addUser,
+  addUserId,
+  addUserListId,
+  addableUsers,
+  canCreateGroup,
+  canDeleteGroup,
+  canMutateSelectedGroup,
+  closeCreateGroupDialog,
+  createGroup,
+  deleteGroup,
+  directory,
+  error,
+  groupContainers,
+  groupNameDraft,
+  groupPolicyHistory,
+  groups,
+  isCreateGroupDialogOpen,
+  members,
+  memberUserIds,
+  mutating,
+  removeMember,
+  selectedGroup,
+  selectedGroupId,
+  selectGroup,
+  setAddUserId,
+  setGroupNameDraft,
+  userId,
+}: GroupsViewProps) {
+  const { closeContextMenu, contextMenu, openContextMenu } =
+    useContextMenuState<string>();
+  const contextMenuGroup =
+    groups.find((group) => group.groupId === contextMenu?.id) ?? null;
+  const groupContextMenu = (
+    <GroupContextMenu
+      canDeleteGroup={canDeleteGroup}
+      closeContextMenu={closeContextMenu}
+      deleteGroup={deleteGroup}
+      group={contextMenuGroup}
+      mutating={mutating}
+      position={contextMenu?.position ?? null}
+    />
+  );
   const createGroupDialog = (
     <CreateGroupDialog
       canCreateGroup={canCreateGroup}
@@ -494,19 +628,19 @@ export function GroupsView({
     />
   );
   const groupListSection = (
-    <section className="org-manager-panel">
-      <GroupTable
-        groups={groups}
-        selectedGroupId={selectedGroupId}
-        setSelectedGroupId={selectGroup}
-      />
-    </section>
+    <GroupListSection
+      groups={groups}
+      openGroupContextMenu={openContextMenu}
+      selectedGroupId={selectedGroupId}
+      selectGroup={selectGroup}
+    />
   );
 
   if (!selectedGroup) {
     return (
       <>
         {groupListSection}
+        {groupContextMenu}
         {createGroupDialog}
       </>
     );
@@ -515,22 +649,11 @@ export function GroupsView({
   return (
     <>
       <section className="org-manager-panel">
-        <MiniAppHeader className="org-manager-detail-header">
-          <MiniAppHeaderCopy>
-            <strong>{selectedGroup.name}</strong>
-            <span title={selectedGroup.groupId}>
-              {compactFingerprint(selectedGroup.groupId)}
-            </span>
-          </MiniAppHeaderCopy>
-          <span>
-            {selectedGroup.currentState
-              ? getOrgManagerEpochLabel(selectedGroup.currentState.keyEpoch)
-              : ORG_MANAGER_LABELS.noPolicy}
-          </span>
-          <MiniAppButton onClick={() => selectGroup(null)} variant="ghost">
-            {ORG_MANAGER_LABELS.back}
-          </MiniAppButton>
-        </MiniAppHeader>
+        <GroupDetailHeader
+          openGroupContextMenu={openContextMenu}
+          selectedGroup={selectedGroup}
+          selectGroup={selectGroup}
+        />
         <MiniAppToolbar className="org-manager-form-toolbar">
           <MiniAppInput
             aria-label={ORG_MANAGER_LABELS.userId}
@@ -587,6 +710,7 @@ export function GroupsView({
           <GroupContainers containers={groupContainers?.containers ?? []} />
         </MiniAppSection>
       </section>
+      {groupContextMenu}
       {createGroupDialog}
     </>
   );

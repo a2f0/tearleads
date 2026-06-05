@@ -17,6 +17,7 @@ import {
 } from "@tearleads/client-sdk";
 import type {
   ContainerMutationResponse,
+  DeleteOrganizationGroupResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import {
@@ -41,6 +42,9 @@ interface OrgManagerContextValue {
     canAdministerOrganization: boolean,
   ) => Promise<PrincipalPolicyBundleResponse>;
   createGroup: (name: string) => Promise<OrganizationGroupSummary>;
+  deleteGroup: (
+    groupId: string,
+  ) => Promise<DeleteOrganizationGroupResponse | null>;
   ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
   ) => Promise<OrganizationDirectoryUser | null>;
@@ -92,6 +96,11 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
 
   const createGroup = useCallback(
     (name: string) => organizations.createGroup(name),
+    [organizations],
+  );
+
+  const deleteGroup = useCallback(
+    (groupId: string) => organizations.deleteGroup(groupId),
     [organizations],
   );
 
@@ -252,6 +261,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     () => ({
       addUserToGroup,
       createGroup,
+      deleteGroup,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
@@ -268,6 +278,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [
       addUserToGroup,
       createGroup,
+      deleteGroup,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
       importUserById,
