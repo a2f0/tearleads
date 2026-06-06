@@ -5,7 +5,8 @@ set -e
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # Source session.sh to get script paths for shellcheck.
-. "$REPO_ROOT/scripts/session.sh" "$REPO_ROOT"
+tearleads_repo_root=$REPO_ROOT
+. "$REPO_ROOT/scripts/session.sh"
 
 if [ -z "$repo_script_paths" ]; then
   echo "Error: repo_script_paths is not defined" >&2
@@ -50,23 +51,20 @@ echo "Checking file names..."
 bun run lint:files
 
 echo "Checking for binary files..."
-while read -r local_ref local_sha remote_ref remote_sha; do
-  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+zero_sha="0000000000000000000000000000000000000000"
+
+while read -r _ local_sha _ remote_sha; do
+  if [ "$local_sha" = "$zero_sha" ]; then
+    continue
+  fi
+
+  if [ "$remote_sha" = "$zero_sha" ]; then
     range="main..$local_sha"
   else
     range="$remote_sha..$local_sha"
   fi
 
-  tmpfile=$(mktemp)
-  git diff --numstat --diff-filter=ACM "$range" > "$tmpfile"
-  while IFS='	' read -r added deleted file; do
-    if [ "$added" = "-" ] || [ "$deleted" = "-" ]; then
-      echo "ERROR: Binary file detected: $file" >&2
-      rm -f "$tmpfile"
-      exit 1
-    fi
-  done < "$tmpfile"
-  rm -f "$tmpfile"
+  "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range"
 done
 
 echo "Running bun tests..."
