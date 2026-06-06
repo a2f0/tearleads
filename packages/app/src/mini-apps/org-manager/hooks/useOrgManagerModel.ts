@@ -1,4 +1,7 @@
 import type {
+  DocumentStore,
+  Documents,
+  DocumentsRuntime,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
@@ -11,6 +14,7 @@ import type {
   OrganizationPolicyHistory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
+import { getRosterProfileDocumentLocalId } from "@tearleads/client-sdk";
 import {
   useCallback,
   useEffect,
@@ -19,8 +23,15 @@ import {
   useRef,
   useState,
 } from "react";
-import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../../providers/sdk/TearleadsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import {
+  getRosterProfileDocumentRelinkInput,
+  readRosterProfileDisplayName,
+} from "../../../stores/org-manager/profileDocuments";
 import { useMiniAppMessage } from "../../bus";
 import {
   type OrgManagerContextMenuModel,
@@ -54,9 +65,96 @@ import {
 } from "../routes";
 import { useOrgManagerRoute } from "./useOrgManagerRoute";
 
+type RosterProfileDocumentUser = OrganizationDirectoryUser & {
+  profileDocumentId: string;
+};
+
+type ProfileDisplayNameSetter = (
+  userId: string,
+  displayName: string | null,
+) => void;
+
+function hasRosterProfileDocument(
+  user: OrganizationDirectoryUser,
+): user is RosterProfileDocumentUser {
+  return user.profileDocumentId !== null;
+}
+
+function applyRosterProfileDisplayName(input: {
+  setProfileDisplayName: ProfileDisplayNameSetter;
+  store: DocumentStore;
+  userId: string;
+}) {
+  const snapshot = input.store.getSnapshot();
+  if (!snapshot.ready) {
+    return;
+  }
+
+  const displayName = readRosterProfileDisplayName(snapshot.structuredFields);
+  if (displayName) {
+    input.setProfileDisplayName(input.userId, displayName);
+  }
+}
+
+async function loadRosterProfileDisplayName(input: {
+  documents: Documents;
+  isCancelled: () => boolean;
+  organizationId: string;
+  profileContainerId: string;
+  runtime: DocumentsRuntime;
+  setProfileDisplayName: ProfileDisplayNameSetter;
+  unsubscribes: Array<() => void>;
+  user: RosterProfileDocumentUser;
+}): Promise<void> {
+  if (input.isCancelled()) {
+    return;
+  }
+
+  const localId = getRosterProfileDocumentLocalId({
+    organizationId: input.organizationId,
+    userId: input.user.userId,
+  });
+  const store = input.documents.openStore(
+    {
+      containerId: input.profileContainerId,
+      documentId: input.user.profileDocumentId,
+      initialDocumentKind: "contact",
+      localId,
+    },
+    { workflowRuntime: input.runtime },
+  );
+  const applyDisplayName = () => {
+    applyRosterProfileDisplayName({
+      setProfileDisplayName: input.setProfileDisplayName,
+      store,
+      userId: input.user.userId,
+    });
+  };
+
+  input.unsubscribes.push(store.subscribe(applyDisplayName));
+  if (!(await store.ensureInitialized()) || input.isCancelled()) {
+    return;
+  }
+
+  await store.relink(
+    getRosterProfileDocumentRelinkInput({
+      localId,
+      profileContainerId: input.profileContainerId,
+      profileDocumentId: input.user.profileDocumentId,
+    }),
+  );
+  if (input.isCancelled()) {
+    return;
+  }
+
+  applyDisplayName();
+  store.requestSync();
+}
+
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
   const appData = useTearleadsRuntime();
+  const tearleads = useTearleads();
   const orgManagerActions = useOrgManagerActions();
   const addUserListId = useId();
   const [directory, setDirectory] = useState<OrganizationDirectory | null>(
@@ -94,6 +192,8 @@ export function useOrgManagerModel() {
   const [userDetail, setUserDetail] = useState<OrganizationUserDetail | null>(
     null,
   );
+  const [profileDisplayNamesByUserId, setProfileDisplayNamesByUserId] =
+    useState<ReadonlyMap<string, string>>(new Map());
   const [groupNameDraft, setGroupNameDraft] = useState("");
   const [isCreateGroupDialogOpen, setIsCreateGroupDialogOpen] = useState(false);
   const [importUserIdDraft, setImportUserIdDraft] = useState("");
@@ -111,6 +211,10 @@ export function useOrgManagerModel() {
   const canLoadAuthenticatedOrgData = Boolean(
     appData.auth.organizationId && appData.auth.isAuthenticated,
   );
+  useEffect(() => {
+    setProfileDisplayNamesByUserId(new Map());
+  }, [appData.auth.organizationId]);
+
   useMiniAppMessage(
     "org-manager",
     useCallback(
@@ -207,6 +311,95 @@ export function useOrgManagerModel() {
     setUserDetail(null);
   }, []);
 
+  const setProfileDisplayName = useCallback(
+    (userId: string, displayName: string | null) => {
+      const trimmedDisplayName = displayName?.trim() ?? "";
+
+      setProfileDisplayNamesByUserId((current) => {
+        const existing = current.get(userId) ?? "";
+        if (existing === trimmedDisplayName) {
+          return current;
+        }
+
+        const next = new Map(current);
+        if (trimmedDisplayName.length > 0) {
+          next.set(userId, trimmedDisplayName);
+        } else {
+          next.delete(userId);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setSelectedProfileDisplayName = useCallback(
+    (displayName: string | null) => {
+      if (selectedUserIdRef.current) {
+        setProfileDisplayName(selectedUserIdRef.current, displayName);
+      }
+    },
+    [setProfileDisplayName],
+  );
+
+  useEffect(() => {
+    const organizationId = appData.auth.organizationId;
+    if (!directory || !organizationId || !canLoadAuthenticatedOrgData) {
+      return;
+    }
+
+    const usersWithProfileDocuments = directory.users.filter(
+      hasRosterProfileDocument,
+    );
+    if (usersWithProfileDocuments.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    const unsubscribes: Array<() => void> = [];
+
+    const loadProfileDisplayNames = async () => {
+      const profileContainer =
+        await orgManagerActions.ensureRosterProfileContainer();
+      if (cancelled || !profileContainer?.id) {
+        return;
+      }
+
+      const runtime = tearleads.documents.workflowRuntime(profileContainer.id);
+
+      await Promise.all(
+        usersWithProfileDocuments.map((user) =>
+          loadRosterProfileDisplayName({
+            documents: tearleads.documents,
+            isCancelled: () => cancelled,
+            organizationId,
+            profileContainerId: profileContainer.id,
+            runtime,
+            setProfileDisplayName,
+            unsubscribes,
+            user,
+          }),
+        ),
+      );
+    };
+
+    void loadProfileDisplayNames().catch(() => null);
+
+    return () => {
+      cancelled = true;
+      for (const unsubscribe of unsubscribes) {
+        unsubscribe();
+      }
+    };
+  }, [
+    appData.auth.organizationId,
+    canLoadAuthenticatedOrgData,
+    directory,
+    orgManagerActions,
+    setProfileDisplayName,
+    tearleads.documents,
+  ]);
+
   const setOrgManagerView = useCallback(
     (nextView: OrgManagerView) => {
       if (nextView === "directory") {
@@ -251,6 +444,7 @@ export function useOrgManagerModel() {
     setOrganizationPolicyHistory(null);
     setGrants(null);
     setDataUsage(null);
+    setProfileDisplayNamesByUserId(new Map());
     setIsCreateGroupDialogOpen(false);
     setIsImportUserDialogOpen(false);
     selectUser(null);
@@ -1010,6 +1204,7 @@ export function useOrgManagerModel() {
     openImportUserDialog,
     organizationId: appData.auth.organizationId,
     organizationPolicyHistory,
+    profileDisplayNamesByUserId,
     refreshOrgManager,
     removeMember,
     revokeGrant,
@@ -1021,6 +1216,7 @@ export function useOrgManagerModel() {
     setAddUserId,
     setGroupNameDraft,
     setImportUserIdDraft,
+    setSelectedProfileDisplayName,
     userDetail,
     userId: appData.auth.userId,
     view,

@@ -1,5 +1,6 @@
 import type {
   DocumentStore,
+  DocumentStoreRelinkInput,
   Documents,
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
@@ -11,8 +12,44 @@ import {
   getRosterProfileDocumentPatch,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
 } from "@tearleads/client-sdk";
+import { readContactFields } from "../../document-types/contact/contactDocumentModel";
 
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
+
+export function getRosterProfileDisplayName(fields: {
+  firstName?: string | null | undefined;
+  lastName?: string | null | undefined;
+  nickname?: string | null | undefined;
+}): string | null {
+  const nickname = fields.nickname?.trim() ?? "";
+  if (nickname.length > 0) {
+    return nickname;
+  }
+
+  const firstName = fields.firstName?.trim() ?? "";
+  const lastName = fields.lastName?.trim() ?? "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName.length > 0 ? fullName : null;
+}
+
+export function readRosterProfileDisplayName(
+  structuredFields: Readonly<Record<string, unknown>>,
+): string | null {
+  return getRosterProfileDisplayName(readContactFields(structuredFields));
+}
+
+export function getRosterProfileDocumentRelinkInput(input: {
+  localId: string;
+  profileContainerId: string;
+  profileDocumentId: string;
+}): DocumentStoreRelinkInput {
+  return {
+    accessEpoch: 1,
+    containerId: input.profileContainerId,
+    documentId: input.profileDocumentId,
+    localId: input.localId,
+  };
+}
 
 function waitForRemoteDocumentId(
   store: DocumentStore,
