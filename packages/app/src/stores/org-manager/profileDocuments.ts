@@ -7,10 +7,14 @@ import {
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   getOrganizationProfileDocumentLocalId,
   getOrganizationProfileDocumentPatch,
+  getRosterProfileDocumentLocalId,
+  getRosterProfileDocumentPatch,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
 } from "@tearleads/client-sdk";
 
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
+
+export { getRosterProfileDocumentLocalId, getRosterProfileDocumentPatch };
 
 function waitForRemoteDocumentId(
   store: DocumentStore,
@@ -60,26 +64,6 @@ function waitForRemoteDocumentId(
       store.requestSync();
     }
   });
-}
-
-export function getRosterProfileDocumentLocalId(input: {
-  organizationId: string;
-  userId: string;
-}): string {
-  return `org-profile:${input.organizationId}:${input.userId}`;
-}
-
-export function getRosterProfileDocumentPatch(
-  user: Pick<
-    OrganizationDirectoryUser,
-    "encapsulationPublicKey" | "isSelf" | "userId"
-  >,
-): Record<string, string | undefined> {
-  return {
-    encapsulationPublicKey: user.encapsulationPublicKey,
-    isSelf: user.isSelf ? "1" : "0",
-    userId: user.userId,
-  };
 }
 
 export async function createRosterProfileDocument(input: {

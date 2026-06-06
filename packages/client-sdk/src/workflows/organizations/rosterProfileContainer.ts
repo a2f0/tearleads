@@ -1,9 +1,17 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
+import {
+  initializeStoredDocumentKind,
+  writeStoredDocumentFields,
+} from "../../data/documents/documentKinds";
+import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
 
 const CONTAINER_SYSTEM_SLOT_PREFIX = "sys_v1_";
 
 export const ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME = "Roster Profiles";
+export const ROSTER_PROFILE_DOCUMENT_KIND = "contact";
 
 function toBase64Url(bytes: Uint8Array): string {
   return bytesToBase64(bytes)
@@ -29,4 +37,47 @@ export async function deriveOrganizationRosterProfileContainerSystemSlot(input: 
   return `${CONTAINER_SYSTEM_SLOT_PREFIX}${toBase64Url(
     new Uint8Array(digest),
   )}`;
+}
+
+export function getRosterProfileDocumentLocalId(input: {
+  readonly organizationId: string;
+  readonly userId: string;
+}): string {
+  return `org-profile:${input.organizationId}:${input.userId}`;
+}
+
+export function getRosterProfileDocumentPatch(input: {
+  readonly encapsulationPublicKey: string;
+  readonly isSelf: boolean;
+  readonly userId: string;
+}): Record<string, string | undefined> {
+  return {
+    encapsulationPublicKey: input.encapsulationPublicKey,
+    isSelf: input.isSelf ? "1" : "0",
+    userId: input.userId,
+  };
+}
+
+export async function createInitializedRosterProfileDocument(input: {
+  readonly encapsulationPublicKey: string;
+  readonly isSelf: boolean;
+  readonly userId: string;
+}): Promise<{
+  readonly initialUpdate: Uint8Array;
+  readonly snapshot: string;
+}> {
+  const doc = await createDocument(getScopedPeerSeed(DOCUMENTS_APP_KIND));
+  initializeStoredDocumentKind(doc, ROSTER_PROFILE_DOCUMENT_KIND);
+  writeStoredDocumentFields(
+    doc,
+    ROSTER_PROFILE_DOCUMENT_KIND,
+    getRosterProfileDocumentPatch(input),
+  );
+
+  const initialUpdate = exportAllUpdates(doc);
+
+  return {
+    initialUpdate,
+    snapshot: bytesToBase64(initialUpdate),
+  };
 }

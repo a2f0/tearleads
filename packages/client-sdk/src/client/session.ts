@@ -1,4 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
+import type { DocumentProjectorRegistryInput } from "../data/documents/documentKinds";
 import {
   bootstrapRootContainer,
   registerIdentity as registerIdentityWorkflow,
@@ -27,6 +28,7 @@ export type SessionListener = () => void;
 interface SessionDependencies {
   api: ApiClient;
   database: Database;
+  documentProjectors?: DocumentProjectorRegistryInput | undefined;
   identity: Identity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
@@ -250,6 +252,7 @@ class SessionService implements Session {
         apiClient: this.dependencies.api,
         containerId,
         dbClient,
+        documentProjectors: this.dependencies.documentProjectors,
         encapsulationKeyPair,
         log: this.dependencies.log,
         logError: this.dependencies.logError,

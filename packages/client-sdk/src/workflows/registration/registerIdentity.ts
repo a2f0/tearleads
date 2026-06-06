@@ -23,6 +23,7 @@ import type {
   RegistrationResponse,
 } from "@tearleads/validators/response";
 import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import {
@@ -45,7 +46,9 @@ import {
   buildInitialMemberGroupPolicyRequest,
 } from "../organizations/principalPolicy";
 import {
+  createInitializedRosterProfileDocument,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  getRosterProfileDocumentLocalId,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
 } from "../organizations/rosterProfileContainer";
 import { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
@@ -107,6 +110,10 @@ interface InitialRosterProfileBootstrap {
   >;
   organizationProfileInitialUpdate: Uint8Array;
   organizationProfileSnapshot: string;
+  profileDocument: Awaited<
+    ReturnType<typeof buildMaterializedDocumentCreatePlan>
+  >;
+  profileDocumentInitialUpdate: Uint8Array;
   profileDocumentRequest: DocumentCreateRequest;
   systemSlot: ContainerSystemSlot;
 }
@@ -115,6 +122,7 @@ export interface RegisterIdentityInput {
   apiClient: RegistrationApi;
   containerId: string;
   dbClient?: ExecSqlClientLike | null | undefined;
+  documentProjectors?: DocumentProjectorRegistryInput | undefined;
   encapsulationKeyPair: EncapsulationKeyPair;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
@@ -125,7 +133,7 @@ interface PersistLocalRegistrationStateInput {
   bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
   containerId: string;
   dbClient?: ExecSqlClientLike | null | undefined;
-  encapsulationPublicKey: Uint8Array;
+  documentProjectors?: DocumentProjectorRegistryInput | undefined;
   initialAdminGroup: CreateOrganizationGroupRequest;
   initialMemberGroup: CreateOrganizationGroupRequest;
   log?: ((message: string) => void) | undefined;
@@ -295,6 +303,33 @@ function buildOrganizationProfileRegistrationBootstrapInput(
   };
 }
 
+function buildRosterProfileRegistrationBootstrapInput(
+  input: PersistLocalRegistrationStateInput,
+):
+  | Parameters<typeof persistRegistrationBootstrap>[1]["rosterProfileDocument"]
+  | undefined {
+  const rosterProfileDocument = input.response.rosterProfileDocument;
+  if (!rosterProfileDocument) {
+    return;
+  }
+
+  return {
+    accessEpoch: 1,
+    accessStateHash: rosterProfileDocument.accessManifest.manifestHash,
+    containerId: input.rosterProfileBootstrap.containerId,
+    documentId: rosterProfileDocument.id,
+    documentState: persistedDocumentCreateStateFromResponse(
+      input.rosterProfileBootstrap.profileDocument.plan,
+      rosterProfileDocument,
+    ),
+    initialUpdate: input.rosterProfileBootstrap.profileDocumentInitialUpdate,
+    localId: getRosterProfileDocumentLocalId({
+      organizationId: input.response.organizationId,
+      userId: input.response.userId,
+    }),
+  };
+}
+
 async function persistLocalRegistrationState(
   input: PersistLocalRegistrationStateInput,
 ): Promise<void> {
@@ -305,9 +340,12 @@ async function persistLocalRegistrationState(
   try {
     const organizationProfileDocument =
       buildOrganizationProfileRegistrationBootstrapInput(input);
+    const rosterProfileDocument =
+      buildRosterProfileRegistrationBootstrapInput(input);
 
     await persistRegistrationBootstrap(input.dbClient, {
       containerId: input.containerId,
+      documentProjectors: input.documentProjectors,
       initialAdminGroupPolicy:
         await principalPolicyBundleFromInitialGroupRequest(
           input.initialAdminGroup,
@@ -356,6 +394,7 @@ async function persistLocalRegistrationState(
           }
         : {}),
       ...(organizationProfileDocument ? { organizationProfileDocument } : {}),
+      ...(rosterProfileDocument ? { rosterProfileDocument } : {}),
       userId: input.response.userId,
     });
     input.log?.("Local identity and root container persisted");
@@ -416,6 +455,7 @@ async function createRegistrationPrincipalPolicies(input: {
 
 async function buildInitialRosterProfileBootstrap(input: {
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  encapsulationPublicKey: Uint8Array;
   initialAdminGroup: CreateOrganizationGroupRequest;
   rootContainer: InitialRootContainerCreatePlan;
   rootContainerProjection: InitialRootContainerProjection;
@@ -484,6 +524,11 @@ async function buildInitialRosterProfileBootstrap(input: {
     await createInitializedOrganizationProfileDocument({
       name: DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
     });
+  const rosterProfile = await createInitializedRosterProfileDocument({
+    encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
+    isSelf: true,
+    userId: input.author.signerUserId,
+  });
 
   return {
     containerId,
@@ -498,6 +543,8 @@ async function buildInitialRosterProfileBootstrap(input: {
     organizationProfileDocument,
     organizationProfileInitialUpdate: organizationProfile.initialUpdate,
     organizationProfileSnapshot: organizationProfile.snapshot,
+    profileDocument: rosterProfileDocument,
+    profileDocumentInitialUpdate: rosterProfile.initialUpdate,
     profileDocumentRequest: rosterProfileDocument.plan.request,
     systemSlot,
   };
@@ -577,6 +624,7 @@ export async function registerIdentity(
   });
   const rosterProfileBootstrap = await buildInitialRosterProfileBootstrap({
     author,
+    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
     initialAdminGroup,
     rootContainer,
     rootContainerProjection,
@@ -607,7 +655,7 @@ export async function registerIdentity(
     bootstrap,
     containerId: input.containerId,
     dbClient: input.dbClient,
-    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+    documentProjectors: input.documentProjectors,
     initialAdminGroup,
     initialMemberGroup,
     log: input.log,

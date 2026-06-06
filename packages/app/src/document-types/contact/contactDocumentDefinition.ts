@@ -25,6 +25,11 @@ function deriveContactTitle(fields: ContactDocumentFields): string {
     return fullName;
   }
 
+  const isSelf = fields.isSelf.trim().toLowerCase();
+  if (isSelf === "1" || isSelf === "true") {
+    return "You";
+  }
+
   return fields.userId.trim() || "Untitled contact";
 }
 

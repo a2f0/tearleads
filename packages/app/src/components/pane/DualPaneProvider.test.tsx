@@ -62,10 +62,10 @@ interface ProxiedApiRequestBudget {
 }
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 76,
+  total: 79,
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 14,
-    "POST /documents/:documentId/sync": 15,
+    "GET /documents/:documentId/writer-projection": 15,
+    "POST /documents/:documentId/sync": 17,
     "GET /containers/:containerId/documents": 5,
     "GET /containers": 22,
     "GET /auth/encapsulation-key/:userId": 2,

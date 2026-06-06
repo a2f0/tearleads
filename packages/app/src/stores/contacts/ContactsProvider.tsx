@@ -105,6 +105,9 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     () => tearleads.containerContents.runtime(),
     [appData, tearleads],
   );
+  const hasRootContainerId = Boolean(
+    containerContentsRuntime.state.containerId,
+  );
   const containerContentsStore = useMemo(
     () => tearleads.containerContents.store({ logLabel: "Contacts" }),
     [containerContentsRuntime.state.domainScope, tearleads],
@@ -131,13 +134,18 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const store = useContactsStoreForContainer(contactsContainerId);
 
   useEffect(() => {
+    if (!hasRootContainerId) {
+      return;
+    }
+
     containerContentsStore.updateRuntime(containerContentsRuntime);
-  }, [containerContentsRuntime, containerContentsStore]);
+  }, [containerContentsRuntime, containerContentsStore, hasRootContainerId]);
 
   useEnsureContactsContainer({
     contactsContainerId,
     contactsSystemSlot,
-    containerContentsReady: containerContentsSnapshot.ready,
+    containerContentsReady:
+      hasRootContainerId && containerContentsSnapshot.ready,
     containerContentsStore,
     logError: tearleads.logError,
   });

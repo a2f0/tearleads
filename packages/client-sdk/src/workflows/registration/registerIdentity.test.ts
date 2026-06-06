@@ -19,6 +19,7 @@ import { sqlContainerContentsPersistence } from "../../data/persistence/containe
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import {
   buildInitialOrganizationPolicyRequest,
   registerIdentity,
@@ -348,6 +349,28 @@ test("registerIdentity submits the registration request and persists the local b
       await sqlDocumentsPersistence.listPendingUpdates(
         execSql,
         `org-profile:${request.organizationId}`,
+      ),
+    ).toHaveLength(1);
+    const rosterProfileLocalId = getRosterProfileDocumentLocalId({
+      organizationId: request.organizationId,
+      userId: request.userId,
+    });
+    const rosterProfileDocument = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      rosterProfileLocalId,
+    );
+    expect(rosterProfileDocument).toEqual(
+      expect.objectContaining({
+        containerId: rosterProfileContainerState?.container.id,
+        documentId: response?.rosterProfileDocumentId,
+        documentKind: "contact",
+      }),
+    );
+    expect(rosterProfileDocument?.loroSnapshot.length).toBeGreaterThan(0);
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(
+        execSql,
+        rosterProfileLocalId,
       ),
     ).toHaveLength(1);
 

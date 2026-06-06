@@ -167,6 +167,31 @@ test("org manager roster detail uses profile names before self fallback labels",
   expect(view.queryByText(ORG_MANAGER_LABELS.self)).toBeNull();
 });
 
+test("org manager roster view labels unnamed self users as You", () => {
+  const selfRosterUser: OrganizationDirectoryUser = {
+    ...rosterUser,
+    isSelf: true,
+  };
+
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      detail={null}
+      directory={{ ...directory, users: [selfRosterUser] }}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+
+  expect(view.getByText(ORG_MANAGER_LABELS.self)).toBeTruthy();
+  expect(view.queryByText(compactRosterUserId())).toBeNull();
+});
+
 test("org manager roster view hides user detail until a user is selected", () => {
   const selections: Array<string | null> = [];
 

@@ -49,6 +49,10 @@ export {
   updateOrganizationRosterEntry,
 } from "./readModel";
 export {
+  createInitializedRosterProfileDocument,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  getRosterProfileDocumentLocalId,
+  getRosterProfileDocumentPatch,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+  ROSTER_PROFILE_DOCUMENT_KIND,
 } from "./rosterProfileContainer";

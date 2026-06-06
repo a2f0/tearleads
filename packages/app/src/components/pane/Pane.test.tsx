@@ -136,6 +136,33 @@ async function openNotes(view: ReturnType<typeof renderPane>) {
   return readyNotesWindow;
 }
 
+async function openContacts(view: ReturnType<typeof renderPane>) {
+  const existingWindowCount =
+    view.container.querySelectorAll<HTMLDivElement>("div.window").length;
+
+  fireEvent.contextMenu(view.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  fireEvent.click(view.getByText("Open Contacts"));
+
+  let contactsWindow: HTMLDivElement | null = null;
+  await waitFor(() => {
+    const windows =
+      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    expect(windows.length).toBeGreaterThan(existingWindowCount);
+    const contactsApps =
+      view.container.querySelectorAll<HTMLDivElement>(".contacts");
+    const contactsApp = contactsApps[contactsApps.length - 1] ?? null;
+    expect(contactsApp).toBeTruthy();
+    contactsWindow = contactsApp?.closest(".window") as HTMLDivElement | null;
+    expect(contactsWindow).toBeTruthy();
+  });
+
+  invariant(contactsWindow, "contacts window not found");
+  return contactsWindow;
+}
+
 function listExplorerNoteItems(
   explorerWindow: HTMLElement,
 ): HTMLButtonElement[] {
@@ -513,15 +540,24 @@ test("contacts windows in the same pane share live contact document state", asyn
   ).toBeNull();
 
   fireEvent.click(within(firstContactsWindow).getByText("File"));
+  let importContactMenuItem: HTMLButtonElement | null = null;
   await waitFor(() => {
     expect(within(firstContactsWindow).getByText("New Contact")).toBeTruthy();
-    expect(
-      within(firstContactsWindow).getByText("Import Contact"),
-    ).toBeTruthy();
+    const menuItem = within(firstContactsWindow).getByRole("menuitem", {
+      name: "Import Contact",
+    });
+    invariant(
+      menuItem instanceof HTMLButtonElement,
+      "import contact menu item not found",
+    );
+    expect(menuItem.disabled).toBe(false);
+    importContactMenuItem = menuItem;
   });
-  fireEvent.click(within(firstContactsWindow).getByText("Import Contact"));
+  invariant(importContactMenuItem, "import contact menu item not found");
+  fireEvent.click(importContactMenuItem);
 
-  const firstInput = within(firstContactsApp).getByLabelText("Contact user ID");
+  const firstInput =
+    await within(firstContactsApp).findByLabelText("Contact user ID");
   invariant(firstInput, "contact input not found");
 
   fireEvent.change(firstInput, {
@@ -572,6 +608,74 @@ test("contacts windows in the same pane share live contact document state", asyn
   view.unmount();
 });
 
+test(
+  "contacts app provisions the self contact without opening explorer",
+  async () => {
+    const view = renderPane();
+
+    await generateIdentityAndWaitForDb(view);
+    await uploadPublicKeyAndWaitForUserId(view);
+
+    const contactsWindow = await openContacts(view);
+    await waitFor(
+      () => {
+        expect(
+          within(contactsWindow).getByRole("button", { name: "You" }),
+        ).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    view.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+);
+
+test(
+  "explorer labels the provisioned self contact as You",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderPane();
+
+    await generateIdentityAndWaitForDb(view);
+    await uploadPublicKeyAndWaitForUserId(view);
+
+    const contactsWindow = await openContacts(view);
+    await waitFor(
+      () => {
+        expect(
+          within(contactsWindow).getByRole("button", { name: "You" }),
+        ).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    const explorer = await openExplorer(view);
+    await waitFor(
+      () => {
+        expect(getExplorerContainerItem(explorer, "Contacts")).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    fireEvent.click(getExplorerContainerItem(explorer, "Contacts"));
+    await waitFor(
+      () => {
+        const contactsItemsTable = within(explorer).getByRole("table", {
+          name: "Items in Contacts",
+        });
+        expect(
+          within(contactsItemsTable).getByRole("button", { name: "You" }),
+        ).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    view.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+);
+
 test("explorer exposes structured document creation from the file menu", async () => {
   const view = renderPane();
 
@@ -608,7 +712,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    const userId = await uploadPublicKeyAndWaitForUserId(view);
+    await uploadPublicKeyAndWaitForUserId(view);
 
     const explorer = await openExplorer(view);
 
@@ -629,18 +733,6 @@ test(
       { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
 
-    fireEvent.click(getExplorerContainerItem(explorer, "Contacts"));
-    await waitFor(
-      () => {
-        const contactsItemsTable = within(explorer).getByRole("table", {
-          name: "Items in Contacts",
-        });
-        expect(
-          within(contactsItemsTable).getByRole("button", { name: userId }),
-        ).toBeTruthy();
-      },
-      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-    );
     await waitForPaneRuntimeToSettle();
 
     view.unmount();

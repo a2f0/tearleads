@@ -85,6 +85,7 @@ export class Tearleads {
     this.session = createSession({
       api: this.apiClient,
       database: this.database,
+      documentProjectors: this.documentProjectors,
       identity: this.identity,
       log: this.log,
       logError: this.logError,
