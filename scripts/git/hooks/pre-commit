@@ -13,15 +13,6 @@ echo "Checking file names..."
 bun run lint:files
 
 echo "Checking for binary files..."
-tmpfile=$(mktemp)
-git diff --cached --numstat --diff-filter=ACM > "$tmpfile"
-while IFS='	' read -r added deleted file; do
-  if [ "$added" = "-" ] || [ "$deleted" = "-" ]; then
-    echo "ERROR: Binary file detected: $file" >&2
-    rm -f "$tmpfile"
-    exit 1
-  fi
-done < "$tmpfile"
-rm -f "$tmpfile"
+"$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --staged
 
 bun run lint-staged

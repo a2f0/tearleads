@@ -10,8 +10,10 @@ prepend_path() {
   esac
 }
 
-if [ -n "$1" ]; then
+if [ -n "${1:-}" ]; then
   repo_root=$1
+elif [ -n "${tearleads_repo_root:-}" ]; then
+  repo_root=$tearleads_repo_root
 else
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
     echo "could not determine repo root; pass it explicitly:" >&2
@@ -29,6 +31,7 @@ $repo_root/packages/app-electrobun/scripts
 $repo_root/packages/sqlite-instance/scripts
 $repo_root/packages/website/scripts
 $repo_root/scripts
+$repo_root/scripts/checks
 $repo_root/scripts/git
 $repo_root/scripts/testing"
 
@@ -41,4 +44,5 @@ EOF
 
 unset repo_root
 unset script_path
+unset tearleads_repo_root
 unset -f prepend_path 2>/dev/null || true
