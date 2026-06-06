@@ -55,28 +55,9 @@ export function useContactsStoreForContainer(
     store.updateRuntime(runtime);
   }, [store, runtime]);
 
-  useEnsureSelfContact(store, appData, tearleads);
+  useEnsureSelfContact(store, contactsContainerId, appData, tearleads);
 
   return store;
-}
-
-export function useEnsureContactsSelfContactForContainer(
-  contactsContainerId: string | null,
-): void {
-  const tearleads = useTearleads();
-  const appData = useTearleadsRuntime();
-  const runtime = useContactsRuntime(contactsContainerId);
-  const store = useMemo(
-    () =>
-      contactsContainerId ? createContactsStore(runtime, tearleads) : null,
-    [contactsContainerId, runtime, tearleads],
-  );
-
-  useEffect(() => {
-    store?.updateRuntime(runtime);
-  }, [store, runtime]);
-
-  useEnsureSelfContact(store, appData, tearleads);
 }
 
 function useContactsRuntime(
@@ -131,12 +112,13 @@ function createContactsStore(
 
 function useEnsureSelfContact(
   store: ContactsStore | null,
+  contactsContainerId: string | null,
   appData: ReturnType<typeof useTearleadsRuntime>,
   tearleads: ReturnType<typeof useTearleads>,
 ): void {
   useEffect(() => {
     const userId = appData.auth.userId;
-    if (!store || !userId) {
+    if (!store || !contactsContainerId || !userId) {
       return;
     }
 
@@ -156,6 +138,7 @@ function useEnsureSelfContact(
   }, [
     appData.auth.userId,
     appData.crypto.signingFingerprint,
+    contactsContainerId,
     store,
     tearleads,
   ]);

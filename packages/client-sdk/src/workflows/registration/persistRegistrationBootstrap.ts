@@ -1,8 +1,12 @@
+import { createDocument, importUpdates } from "@tearleads/loro";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import { createPendingUpdateFields } from "../../data/documentSync";
+import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
+  DOCUMENTS_APP_KIND,
   type StoredDocumentRecord,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
@@ -14,8 +18,12 @@ import {
   type ExecSqlClientLike,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
+import { persistDocumentState } from "../documents/persistence";
 import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizations/organizationProfile";
-import { ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME } from "../organizations/rosterProfileContainer";
+import {
+  ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
+  ROSTER_PROFILE_DOCUMENT_KIND,
+} from "../organizations/rosterProfileContainer";
 
 interface RegistrationBootstrapInput {
   containerId: string;
@@ -67,6 +75,22 @@ interface RegistrationBootstrapInput {
     localId: string;
     snapshot: string;
   };
+  rosterProfileDocument?: {
+    accessEpoch: number;
+    accessStateHash: string;
+    containerId: string;
+    documentId: string;
+    documentState: Pick<
+      DocumentRecord,
+      | "documentId"
+      | "contentKeyBundle"
+      | "documentKekTargets"
+      | "documentManifestBundle"
+    >;
+    initialUpdate: Uint8Array;
+    localId: string;
+  };
+  documentProjectors?: DocumentProjectorRegistryInput | undefined;
   organizationId: string;
   userId: string;
 }
@@ -207,6 +231,77 @@ async function persistOrganizationProfileDocumentBootstrap(
   }
 }
 
+async function persistInitialDocumentBootstrap(
+  execSql: ExecSql,
+  input: {
+    accessEpoch: number;
+    accessStateHash: string;
+    containerId: string;
+    documentId: string;
+    documentKind: string;
+    documentProjectors: DocumentProjectorRegistryInput | undefined;
+    documentState: Pick<
+      DocumentRecord,
+      "contentKeyBundle" | "documentKekTargets" | "documentManifestBundle"
+    >;
+    initialUpdate: Uint8Array;
+    localId: string;
+  },
+): Promise<void> {
+  const doc = await createDocument(getScopedPeerSeed(DOCUMENTS_APP_KIND));
+  importUpdates(doc, [input.initialUpdate]);
+
+  await persistDocumentState({
+    currentDoc: doc,
+    currentRecord: null,
+    documentProjectors: input.documentProjectors ?? [],
+    execSql,
+    localId: input.localId,
+    patch: {
+      accessEpoch: input.accessEpoch,
+      accessStateHash: input.accessStateHash,
+      containerId: input.containerId,
+      contentKeyBundle: input.documentState.contentKeyBundle ?? null,
+      documentId: input.documentId,
+      documentKekTargets: input.documentState.documentKekTargets ?? null,
+      documentKind: input.documentKind,
+      documentManifestBundle:
+        input.documentState.documentManifestBundle ?? null,
+    },
+    persistence: sqlDocumentsPersistence,
+  });
+
+  const initialUpdate = createPendingUpdateFields(input.initialUpdate);
+  if (initialUpdate) {
+    await sqlDocumentsPersistence.enqueuePendingUpdate(execSql, {
+      localId: input.localId,
+      ...initialUpdate,
+    });
+  }
+}
+
+async function persistRosterProfileDocumentBootstrap(
+  execSql: ExecSql,
+  input: RegistrationBootstrapInput,
+): Promise<void> {
+  const rosterProfileDocument = input.rosterProfileDocument;
+  if (!rosterProfileDocument) {
+    return;
+  }
+
+  await persistInitialDocumentBootstrap(execSql, {
+    accessEpoch: rosterProfileDocument.accessEpoch,
+    accessStateHash: rosterProfileDocument.accessStateHash,
+    containerId: rosterProfileDocument.containerId,
+    documentId: rosterProfileDocument.documentId,
+    documentKind: ROSTER_PROFILE_DOCUMENT_KIND,
+    documentProjectors: input.documentProjectors,
+    documentState: rosterProfileDocument.documentState,
+    initialUpdate: rosterProfileDocument.initialUpdate,
+    localId: rosterProfileDocument.localId,
+  });
+}
+
 /**
  * Persists the local root-container bootstrap created during successful
  * registration so container contents can initialize from SQLite on first login.
@@ -231,6 +326,7 @@ async function persistRegistrationBootstrapFromExecSql(
     );
     await persistRootContainerBootstrap(lockedExecSql, input);
     await persistRosterProfileContainerBootstrap(lockedExecSql, input);
+    await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
     await persistOrganizationProfileDocumentBootstrap(lockedExecSql, input);
   });
 }

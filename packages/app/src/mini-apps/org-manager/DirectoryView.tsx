@@ -1,6 +1,7 @@
 import type {
   OrganizationContainerGrant,
   OrganizationDirectory,
+  OrganizationDirectoryUser,
   OrganizationGroupSummary,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
@@ -90,6 +91,16 @@ function formatNullableDate(value: string | null): string {
 
 function getNullableIdentifierLabel(value: string | null): string {
   return value ? compactFingerprint(value) : ORG_MANAGER_LABELS.none;
+}
+
+function getDirectoryUserDisplayName(
+  user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined,
+): string {
+  return (
+    profileDisplayNamesByUserId?.get(user.userId) ??
+    (user.isSelf ? ORG_MANAGER_LABELS.self : compactFingerprint(user.userId))
+  );
 }
 
 function isDirectoryAreaContextMenuTarget(
@@ -183,8 +194,10 @@ function DirectoryTable({
             >
               <MiniAppTableCell>
                 <MiniAppTableText title={user.userId}>
-                  {profileDisplayNamesByUserId?.get(user.userId) ??
-                    compactFingerprint(user.userId)}
+                  {getDirectoryUserDisplayName(
+                    user,
+                    profileDisplayNamesByUserId,
+                  )}
                 </MiniAppTableText>
               </MiniAppTableCell>
               <MiniAppTableCell>
@@ -470,7 +483,10 @@ function UserDetailView({
       <MiniAppHeader className="org-manager-detail-header">
         <MiniAppHeaderCopy>
           <strong title={detail.user.userId}>
-            {profileDisplayName ?? compactFingerprint(detail.user.userId)}
+            {profileDisplayName ??
+              (detail.user.isSelf
+                ? ORG_MANAGER_LABELS.self
+                : compactFingerprint(detail.user.userId))}
           </strong>
           <span title={detail.user.signingKeyFingerprint}>
             {compactFingerprint(detail.user.signingKeyFingerprint)}

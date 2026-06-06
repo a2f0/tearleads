@@ -157,6 +157,21 @@ test("contact fields are stored as a structured document", async () => {
   });
 });
 
+test("unnamed self contact title is You", async () => {
+  const doc = await createDocument("self-contact-title");
+
+  initializeStoredDocumentKind(doc, "contact");
+  writeStoredDocumentFields(doc, "contact", {
+    isSelf: "1",
+    userId: "self-user",
+  });
+
+  expect(readStoredDocumentState(doc)).toMatchObject({
+    documentKind: "contact",
+    title: "You",
+  });
+});
+
 test("file document fields derive titles from imported file metadata", async () => {
   const image = await createDocument("image-file-document");
   const audio = await createDocument("audio-file-document");
