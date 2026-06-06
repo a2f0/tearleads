@@ -1,5 +1,4 @@
 import {
-  type DocumentStoreRelinkInput,
   getRosterProfileDocumentLocalId,
   getRosterProfileDocumentPatch,
   type OrganizationDirectoryUser,
@@ -21,7 +20,16 @@ import {
   useDocument,
 } from "../../stores/documents/DocumentsProvider";
 import { useOrgManagerActions } from "../../stores/org-manager/OrgManagerProvider";
+import {
+  getRosterProfileDisplayName,
+  getRosterProfileDocumentRelinkInput,
+} from "../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "./labels";
+
+export {
+  getRosterProfileDisplayName,
+  getRosterProfileDocumentRelinkInput,
+} from "../../stores/org-manager/profileDocuments";
 
 function useSyncedFieldValue(value: string | null | undefined) {
   const normalizedValue = value ?? "";
@@ -77,21 +85,6 @@ function getRosterProfileReadValue(value: string | null | undefined): string {
   return normalizedValue.length > 0 ? normalizedValue : ORG_MANAGER_LABELS.none;
 }
 
-export function getRosterProfileDisplayName(fields: {
-  firstName: string;
-  lastName: string;
-  nickname: string;
-}): string | null {
-  const nickname = fields.nickname.trim();
-  if (nickname.length > 0) {
-    return nickname;
-  }
-
-  const fullName =
-    `${fields.firstName.trim()} ${fields.lastName.trim()}`.trim();
-  return fullName.length > 0 ? fullName : null;
-}
-
 function RosterProfileReadField({
   label,
   value,
@@ -132,19 +125,6 @@ function getMissingProfileIdentityPatchFromExpectedPatch(
   );
 
   return Object.keys(missingPatch).length > 0 ? missingPatch : null;
-}
-
-export function getRosterProfileDocumentRelinkInput(input: {
-  localId: string;
-  profileContainerId: string;
-  profileDocumentId: string;
-}): DocumentStoreRelinkInput {
-  return {
-    accessEpoch: 1,
-    containerId: input.profileContainerId,
-    documentId: input.profileDocumentId,
-    localId: input.localId,
-  };
 }
 
 function useRosterProfileDocumentLinkState({

@@ -113,6 +113,7 @@ const GROUP_TABLE_COLUMNS = [
     width: "8rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
+const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
 
 function GroupTable({
   groups,
@@ -592,6 +593,7 @@ function GroupDetailSection({
   memberUserIds,
   mutating,
   openGroupContextMenu,
+  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   removeMember,
   selectedGroup,
   selectGroup,
@@ -614,6 +616,7 @@ function GroupDetailSection({
     event: MouseEvent<HTMLElement>,
     groupId: string | null,
   ) => void;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary;
   selectGroup: (groupId: string | null) => void;
@@ -675,6 +678,7 @@ function GroupDetailSection({
         groups={groups}
         heading={ORG_MANAGER_LABELS.policyHistory}
         history={groupPolicyHistory}
+        profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
       <MiniAppSection>
         <MiniAppSectionHeading>
@@ -708,6 +712,7 @@ interface GroupsViewProps {
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
   openCreateGroupDialog: () => void;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
@@ -739,6 +744,7 @@ export function GroupsView({
   memberUserIds,
   mutating,
   openCreateGroupDialog,
+  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   removeMember,
   selectedGroup,
   selectedGroupId,
@@ -810,6 +816,7 @@ export function GroupsView({
         memberUserIds={memberUserIds}
         mutating={mutating}
         openGroupContextMenu={openContextMenu}
+        profileDisplayNamesByUserId={profileDisplayNamesByUserId}
         removeMember={removeMember}
         selectedGroup={selectedGroup}
         selectGroup={selectGroup}

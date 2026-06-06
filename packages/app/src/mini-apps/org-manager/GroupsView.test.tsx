@@ -1,5 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
+import type {
+  OrganizationDirectory,
+  OrganizationGroupPolicyHistory,
+  OrganizationGroupSummary,
+} from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { compactFingerprint } from "./display";
 import { GroupsView } from "./GroupsView";
@@ -27,6 +31,52 @@ const customGroup: OrganizationGroupSummary = {
   isBuiltin: false,
   name: "Operators",
 };
+const rosterUser = {
+  createdAt: "2026-05-20T12:00:00.000Z",
+  disabledAt: null,
+  disabledByUserId: null,
+  encapsulationKeyFingerprint: "encapsulation-fingerprint",
+  encapsulationPublicKey: "encapsulation-public-key",
+  isSelf: false,
+  joinedAt: "2026-05-20T12:00:00.000Z",
+  profileDocumentId: "550e8400-e29b-41d4-a716-446655440001",
+  signingKeyFingerprint: "signing-fingerprint",
+  signingPublicKey: "signing-public-key",
+  status: "active",
+  userId: "550e8400-e29b-41d4-a716-446655440000",
+} satisfies OrganizationDirectory["users"][number];
+const directory: OrganizationDirectory = {
+  currentUser: { isOrgAdmin: true },
+  organizationId: "organization-1",
+  profileDocumentId: null,
+  users: [rosterUser],
+};
+const groupPolicyHistory: OrganizationGroupPolicyHistory = {
+  entries: [
+    {
+      changes: [
+        {
+          changeType: "added",
+          memberPrincipalId: rosterUser.userId,
+          memberPrincipalType: "user",
+          nextRole: "member",
+          previousRole: null,
+        },
+      ],
+      createdAt: "2026-05-20T12:00:00.000Z",
+      keyEpoch: 1,
+      memberCount: 1,
+      signedAt: "2026-05-20T12:00:00.000Z",
+      signerUserId: rosterUser.userId,
+      signerUserKeyFingerprint: "signing-fingerprint",
+      stateHash: "policy-state-hash",
+      version: 1,
+    },
+  ],
+  groupId: group.groupId,
+  principalId: group.groupId,
+  principalType: "group",
+};
 
 function renderGroupsView(input: {
   canDeleteGroup?: ((group: OrganizationGroupSummary) => boolean) | undefined;
@@ -34,11 +84,14 @@ function renderGroupsView(input: {
   closeCreateGroupDialog?: (() => void) | undefined;
   createGroup?: (() => void) | undefined;
   deleteGroup?: ((groupId: string) => void) | undefined;
+  directory?: OrganizationDirectory | null | undefined;
   error?: string | null | undefined;
   groupNameDraft?: string | undefined;
+  groupPolicyHistory?: OrganizationGroupPolicyHistory | null | undefined;
   groups?: ReadonlyArray<OrganizationGroupSummary> | undefined;
   isCreateGroupDialogOpen?: boolean | undefined;
   openCreateGroupDialog?: (() => void) | undefined;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
   selectGroup?: ((groupId: string | null) => void) | undefined;
@@ -56,10 +109,10 @@ function renderGroupsView(input: {
       closeCreateGroupDialog={input.closeCreateGroupDialog ?? (() => undefined)}
       createGroup={input.createGroup ?? (() => undefined)}
       deleteGroup={input.deleteGroup ?? (() => undefined)}
-      directory={null}
+      directory={input.directory ?? null}
       groupContainers={null}
       groupNameDraft={input.groupNameDraft ?? ""}
-      groupPolicyHistory={null}
+      groupPolicyHistory={input.groupPolicyHistory ?? null}
       groups={input.groups ?? [group]}
       error={input.error ?? null}
       isCreateGroupDialogOpen={input.isCreateGroupDialogOpen ?? false}
@@ -67,6 +120,7 @@ function renderGroupsView(input: {
       memberUserIds={new Set<string>()}
       mutating={false}
       openCreateGroupDialog={input.openCreateGroupDialog ?? (() => undefined)}
+      profileDisplayNamesByUserId={input.profileDisplayNamesByUserId}
       removeMember={() => undefined}
       selectedGroup={input.selectedGroup}
       selectedGroupId={input.selectedGroupId}
@@ -98,6 +152,22 @@ test("org manager groups view hides group detail until a group is selected", () 
 
   fireEvent.click(view.getByText(group.name));
   expect(selections).toEqual([group.groupId]);
+});
+
+test("org manager group policy history uses roster display names", () => {
+  const displayLabel = `Countess (${compactFingerprint(rosterUser.userId)})`;
+  const view = renderGroupsView({
+    directory,
+    groupPolicyHistory,
+    profileDisplayNamesByUserId: new Map([[rosterUser.userId, "Countess"]]),
+    selectedGroup: group,
+    selectedGroupId: group.groupId,
+  });
+
+  expect(view.getByText(displayLabel)).toBeTruthy();
+  expect(
+    view.getByText((content) => content.includes(`signed by ${displayLabel}`)),
+  ).toBeTruthy();
 });
 
 test("org manager groups view can dismiss group detail", () => {

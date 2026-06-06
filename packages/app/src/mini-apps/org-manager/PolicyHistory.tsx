@@ -1,5 +1,6 @@
 import type {
   OrganizationDirectory,
+  OrganizationDirectoryUser,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
   OrganizationPolicyHistory,
@@ -34,11 +35,30 @@ type OrgManagerGroupPolicyHistoryEntry =
   OrganizationGroupPolicyHistory["entries"][number];
 type OrgManagerPrincipalMemberChange =
   OrgManagerGroupPolicyHistoryEntry["changes"][number];
+const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
+
+function getPolicyUserLabel(input: {
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
+  user: Pick<OrganizationDirectoryUser, "isSelf" | "userId"> | null;
+  userId: string;
+}): string {
+  const displayName = input.profileDisplayNamesByUserId.get(input.userId);
+  if (displayName) {
+    return `${displayName} (${compactFingerprint(input.userId)})`;
+  }
+
+  if (input.user?.isSelf) {
+    return ORG_MANAGER_LABELS.self;
+  }
+
+  return compactFingerprint(input.userId);
+}
 
 function getPolicyMemberLabel(input: {
   change: OrgManagerPrincipalMemberChange;
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }): string {
   if (input.change.memberPrincipalType === "group") {
     return (
@@ -51,17 +71,18 @@ function getPolicyMemberLabel(input: {
   const user = input.directory?.users.find(
     (directoryUser) => directoryUser.userId === input.change.memberPrincipalId,
   );
-  if (user?.isSelf) {
-    return ORG_MANAGER_LABELS.self;
-  }
-
-  return compactFingerprint(input.change.memberPrincipalId);
+  return getPolicyUserLabel({
+    profileDisplayNamesByUserId: input.profileDisplayNamesByUserId,
+    user: user ?? null,
+    userId: input.change.memberPrincipalId,
+  });
 }
 
 function getPolicyChangeLabel(input: {
   change: OrgManagerPrincipalMemberChange;
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }): string {
   const memberLabel = getPolicyMemberLabel(input);
 
@@ -105,18 +126,30 @@ function PolicyHistoryChange({
   change,
   directory,
   groups,
+  profileDisplayNamesByUserId,
 }: {
   change: OrgManagerPrincipalMemberChange;
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }) {
-  const memberLabel = getPolicyMemberLabel({ change, directory, groups });
+  const memberLabel = getPolicyMemberLabel({
+    change,
+    directory,
+    groups,
+    profileDisplayNamesByUserId,
+  });
   const roleDetail = getPolicyChangeRoleDetail(change);
 
   return (
     <span
       className="org-manager-policy-change"
-      title={getPolicyChangeLabel({ change, directory, groups })}
+      title={getPolicyChangeLabel({
+        change,
+        directory,
+        groups,
+        profileDisplayNamesByUserId,
+      })}
     >
       <span className="org-manager-policy-change-status">
         {getOrgManagerPolicyChangeTypeLabel(change.changeType)}
@@ -139,14 +172,78 @@ function PolicyHistoryChange({
   );
 }
 
+function PolicyHistoryEntry({
+  directory,
+  entry,
+  groups,
+  profileDisplayNamesByUserId,
+}: {
+  directory: OrganizationDirectory | null;
+  entry: OrgManagerGroupPolicyHistoryEntry;
+  groups: ReadonlyArray<OrganizationGroupSummary>;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
+}) {
+  const signerUser =
+    directory?.users.find((user) => user.userId === entry.signerUserId) ?? null;
+  const signerLabel = getPolicyUserLabel({
+    profileDisplayNamesByUserId,
+    user: signerUser,
+    userId: entry.signerUserId,
+  });
+
+  return (
+    <MiniAppRow
+      className="org-manager-policy-history-row"
+      density="roomy"
+      variant="framed"
+    >
+      <MiniAppRowStack>
+        <span className="org-manager-policy-history-heading">
+          <strong title={entry.stateHash}>
+            {getOrgManagerPolicyVersionLabel(entry.version)}
+          </strong>
+          <span className="org-manager-policy-history-epoch">
+            {getOrgManagerEpochLabel(entry.keyEpoch)}
+          </span>
+        </span>
+        <MiniAppRowText muted title={entry.signerUserId}>
+          {getOrgManagerPolicySignatureLabel(
+            formatMiniAppDate(entry.signedAt),
+            signerLabel,
+          )}
+        </MiniAppRowText>
+        <span className="org-manager-policy-change-list">
+          {entry.changes.length > 0 ? (
+            entry.changes.map((change) => (
+              <PolicyHistoryChange
+                change={change}
+                directory={directory}
+                key={`${change.changeType}:${change.memberPrincipalType}:${change.memberPrincipalId}`}
+                groups={groups}
+                profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+              />
+            ))
+          ) : (
+            <span className="org-manager-policy-change org-manager-policy-change--empty">
+              {ORG_MANAGER_LABELS.noMembershipChanges}
+            </span>
+          )}
+        </span>
+      </MiniAppRowStack>
+    </MiniAppRow>
+  );
+}
+
 function PolicyHistory({
   directory,
   groups,
   history,
+  profileDisplayNamesByUserId,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }) {
   if (!history) {
     return (
@@ -167,45 +264,13 @@ function PolicyHistory({
   return (
     <div className="org-manager-policy-history">
       {history.entries.map((entry) => (
-        <MiniAppRow
-          className="org-manager-policy-history-row"
-          density="roomy"
+        <PolicyHistoryEntry
+          directory={directory}
+          entry={entry}
+          groups={groups}
           key={entry.stateHash}
-          variant="framed"
-        >
-          <MiniAppRowStack>
-            <span className="org-manager-policy-history-heading">
-              <strong title={entry.stateHash}>
-                {getOrgManagerPolicyVersionLabel(entry.version)}
-              </strong>
-              <span className="org-manager-policy-history-epoch">
-                {getOrgManagerEpochLabel(entry.keyEpoch)}
-              </span>
-            </span>
-            <MiniAppRowText muted title={entry.signerUserId}>
-              {getOrgManagerPolicySignatureLabel(
-                formatMiniAppDate(entry.signedAt),
-                compactFingerprint(entry.signerUserId),
-              )}
-            </MiniAppRowText>
-            <span className="org-manager-policy-change-list">
-              {entry.changes.length > 0 ? (
-                entry.changes.map((change) => (
-                  <PolicyHistoryChange
-                    change={change}
-                    directory={directory}
-                    key={`${change.changeType}:${change.memberPrincipalType}:${change.memberPrincipalId}`}
-                    groups={groups}
-                  />
-                ))
-              ) : (
-                <span className="org-manager-policy-change org-manager-policy-change--empty">
-                  {ORG_MANAGER_LABELS.noMembershipChanges}
-                </span>
-              )}
-            </span>
-          </MiniAppRowStack>
-        </MiniAppRow>
+          profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+        />
       ))}
     </div>
   );
@@ -216,16 +281,23 @@ export function PolicyHistorySection({
   groups,
   heading,
   history,
+  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   heading: string;
   history: OrganizationGroupPolicyHistory | OrganizationPolicyHistory | null;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
 }) {
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>{heading}</MiniAppSectionHeading>
-      <PolicyHistory directory={directory} groups={groups} history={history} />
+      <PolicyHistory
+        directory={directory}
+        groups={groups}
+        history={history}
+        profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+      />
     </MiniAppSection>
   );
 }

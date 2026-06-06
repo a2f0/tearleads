@@ -70,10 +70,12 @@ function OrgManagerDirectoryContent({
         model.contextMenuState.handleSidebarContextMenu(event, "directory")
       }
       openGroupRoute={model.openGroupRoute}
+      profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       renderRosterProfileEditor={renderProfileEditor}
       revokeGrant={model.revokeGrant}
       selectedUserId={model.selectedUserId}
       selectUser={model.selectUser}
+      setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
       setImportUserIdDraft={model.setImportUserIdDraft}
     />
   );
@@ -120,6 +122,7 @@ function OrgManagerContent({
         groups={model.groups}
         organizationId={organizationId}
         policyHistory={model.organizationPolicyHistory}
+        profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       />
     );
   }
@@ -153,6 +156,7 @@ function OrgManagerContent({
       memberUserIds={model.memberUserIds}
       mutating={model.mutating}
       openCreateGroupDialog={model.openCreateGroupDialog}
+      profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       removeMember={model.removeMember}
       selectedGroup={model.selectedGroup}
       selectedGroupId={model.selectedGroupId}

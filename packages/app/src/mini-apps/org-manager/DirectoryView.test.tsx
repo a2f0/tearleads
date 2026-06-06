@@ -5,7 +5,7 @@ import type {
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DirectoryView } from "./DirectoryView";
 import { ORG_MANAGER_LABELS } from "./labels";
 
@@ -56,6 +56,63 @@ function ProfileDisplayNameReporter({
   }, [displayName, onDisplayNameChange]);
 
   return <span>{displayName}</span>;
+}
+
+function DirectoryViewDisplayNameHarness({
+  detail,
+  directory,
+  displayName,
+}: {
+  detail: OrganizationUserDetail;
+  directory: OrganizationDirectory;
+  displayName: string;
+}) {
+  const [profileDisplayNamesByUserId, setProfileDisplayNamesByUserId] =
+    useState<ReadonlyMap<string, string>>(new Map());
+  const setSelectedProfileDisplayName = useCallback(
+    (nextDisplayName: string | null) => {
+      const trimmedDisplayName = nextDisplayName?.trim() ?? "";
+      setProfileDisplayNamesByUserId((current) => {
+        const existing = current.get(detail.user.userId) ?? "";
+        if (existing === trimmedDisplayName) {
+          return current;
+        }
+
+        const next = new Map(current);
+        if (trimmedDisplayName.length > 0) {
+          next.set(detail.user.userId, trimmedDisplayName);
+        } else {
+          next.delete(detail.user.userId);
+        }
+        return next;
+      });
+    },
+    [detail.user.userId],
+  );
+
+  return (
+    <DirectoryView
+      canRevokeGrants={false}
+      canUpdateSelectedRosterEntry
+      detail={detail}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openGroupRoute={() => undefined}
+      profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+      renderRosterProfileEditor={({ onDisplayNameChange }) => (
+        <ProfileDisplayNameReporter
+          displayName={displayName}
+          onDisplayNameChange={onDisplayNameChange}
+        />
+      )}
+      revokeGrant={() => undefined}
+      selectedUserId={detail.user.userId}
+      selectUser={() => undefined}
+      setSelectedProfileDisplayName={setSelectedProfileDisplayName}
+    />
+  );
 }
 
 test("org manager roster view exposes roster metadata and dismisses detail", () => {
@@ -140,24 +197,10 @@ test("org manager roster detail uses profile names before self fallback labels",
   };
 
   const view = render(
-    <DirectoryView
-      canRevokeGrants={false}
-      canUpdateSelectedRosterEntry
+    <DirectoryViewDisplayNameHarness
       detail={selfDetail}
       directory={{ ...directory, users: [selfRosterUser] }}
-      loading={false}
-      loadingUserDetail={false}
-      mutating={false}
-      openGroupRoute={() => undefined}
-      renderRosterProfileEditor={({ onDisplayNameChange }) => (
-        <ProfileDisplayNameReporter
-          displayName="Countess"
-          onDisplayNameChange={onDisplayNameChange}
-        />
-      )}
-      revokeGrant={() => undefined}
-      selectedUserId={selfRosterUser.userId}
-      selectUser={() => undefined}
+      displayName="Countess"
     />,
   );
 

@@ -13,16 +13,20 @@ import { ORG_MANAGER_LABELS } from "./labels";
 import { OrganizationProfileEditor } from "./OrganizationProfileEditor";
 import { PolicyHistorySection } from "./PolicyHistory";
 
+const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
+
 export function OrganizationView({
   directory,
   groups,
   organizationId,
   policyHistory,
+  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
 }: {
   directory: OrganizationDirectory | null;
   groups: ReadonlyArray<OrganizationGroupSummary>;
   organizationId: string;
   policyHistory: OrganizationPolicyHistory | null;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
 }) {
   const [organizationName, setOrganizationName] = useState<string | null>(null);
 
@@ -51,6 +55,7 @@ export function OrganizationView({
         groups={groups}
         heading={ORG_MANAGER_LABELS.organizationPolicyHistory}
         history={policyHistory}
+        profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
     </div>
   );

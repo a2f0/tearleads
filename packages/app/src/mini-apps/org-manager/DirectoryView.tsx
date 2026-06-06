@@ -10,7 +10,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
-  useCallback,
   useId,
   useState,
 } from "react";
@@ -75,6 +74,7 @@ const DIRECTORY_TABLE_COLUMNS = [
     width: "8rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
+const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
 
 type RenderRosterProfileEditor = (input: {
   canEdit: boolean;
@@ -639,10 +639,12 @@ export function DirectoryView({
   mutating,
   openDirectoryContextMenu,
   openGroupRoute,
+  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   renderRosterProfileEditor,
   revokeGrant,
   selectedUserId,
   selectUser,
+  setSelectedProfileDisplayName = () => undefined,
   setImportUserIdDraft = () => undefined,
 }: {
   canImportRosterUser?: boolean | undefined;
@@ -660,14 +662,16 @@ export function DirectoryView({
   mutating: boolean;
   openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
   openGroupRoute: (groupId: string) => void;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
+  setSelectedProfileDisplayName?:
+    | ((displayName: string | null) => void)
+    | undefined;
   setImportUserIdDraft?: ((userId: string) => void) | undefined;
 }) {
-  const [profileDisplayNamesByUserId, setProfileDisplayNamesByUserId] =
-    useState<ReadonlyMap<string, string>>(new Map());
   const importUserDialog = (
     <ImportRosterUserDialog
       canImportRosterUser={canImportRosterUser}
@@ -679,37 +683,6 @@ export function DirectoryView({
       mutating={mutating}
       setImportUserIdDraft={setImportUserIdDraft}
     />
-  );
-
-  const setProfileDisplayName = useCallback(
-    (userId: string, displayName: string | null) => {
-      const trimmedDisplayName = displayName?.trim() ?? "";
-
-      setProfileDisplayNamesByUserId((current) => {
-        const existing = current.get(userId) ?? "";
-        if (existing === trimmedDisplayName) {
-          return current;
-        }
-
-        const next = new Map(current);
-        if (trimmedDisplayName.length > 0) {
-          next.set(userId, trimmedDisplayName);
-        } else {
-          next.delete(userId);
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  const setSelectedProfileDisplayName = useCallback(
-    (displayName: string | null) => {
-      if (selectedUserId) {
-        setProfileDisplayName(selectedUserId, displayName);
-      }
-    },
-    [selectedUserId, setProfileDisplayName],
   );
 
   if (!directory) {
