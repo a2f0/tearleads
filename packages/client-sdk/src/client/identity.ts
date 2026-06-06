@@ -23,6 +23,12 @@ export interface IdentitySnapshot {
   signingKeyPair: SigningKeyPair | null;
 }
 
+export interface IdentityGenerationResult extends IdentitySnapshot {
+  rootContainerCreated: boolean | null;
+  rootContainerId: string | null;
+  userId: string | null;
+}
+
 export type IdentityListener = () => void;
 
 export interface Identity {
@@ -32,7 +38,7 @@ export interface Identity {
   readonly snapshot: IdentitySnapshot;
   destroy(): void;
   exportKeyPackage(): Promise<IdentityKeyPackage>;
-  generate(): Promise<IdentitySnapshot>;
+  generate(): Promise<IdentityGenerationResult>;
   importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot>;
   requireSigningKeyPair(operation?: string): SigningKeyPair;
   refreshSigningFingerprint(): Promise<string | null>;
@@ -44,12 +50,26 @@ export interface Identity {
   subscribe(listener: IdentityListener): () => void;
 }
 
+interface IdentityGenerationContext {
+  rootContainerCreated: boolean | null;
+  rootContainerId: string | null;
+  userId: string | null;
+}
+
+interface IdentityRuntimeHooks {
+  bootstrapLocalRootContainer?:
+    | (() => Promise<{ containerId: string; created: boolean } | null>)
+    | undefined;
+  getUserId?: (() => string | null) | undefined;
+}
+
 export function createIdentity(
   options: IdentityOptions = {},
   onIdentityChanged: (signingFingerprint: string | null) => void,
   log: (message: string) => void,
+  runtimeHooks: IdentityRuntimeHooks = {},
 ): Identity {
-  return new IdentityService(options, onIdentityChanged, log);
+  return new IdentityService(options, onIdentityChanged, log, runtimeHooks);
 }
 
 class IdentityService implements Identity {
@@ -65,6 +85,7 @@ class IdentityService implements Identity {
       signingFingerprint: string | null,
     ) => void,
     private readonly log: (message: string) => void,
+    private readonly runtimeHooks: IdentityRuntimeHooks,
   ) {
     this.encapsulationKeyPairValue = options.encapsulationKeyPair ?? null;
     this.signingFingerprintValue = options.signingFingerprint ?? null;
@@ -101,12 +122,15 @@ class IdentityService implements Identity {
     return createIdentityKeyPackage(this.snapshot);
   }
 
-  async generate(): Promise<IdentitySnapshot> {
+  async generate(): Promise<IdentityGenerationResult> {
     this.signingKeyPairValue = generateSigningSeedAndKeyPair();
     this.encapsulationKeyPairValue = generateKemSeedAndKeyPair();
     await this.refreshSigningFingerprint();
     this.log("Key pair generated");
-    return this.snapshot;
+    return {
+      ...this.snapshot,
+      ...(await this.createGenerationContext()),
+    };
   }
 
   async importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot> {
@@ -171,6 +195,24 @@ class IdentityService implements Identity {
       encapsulationKeyPair: this.encapsulationKeyPairValue,
       signingFingerprint: this.signingFingerprintValue,
       signingKeyPair: this.signingKeyPairValue,
+    };
+  }
+
+  private async createGenerationContext(): Promise<IdentityGenerationContext> {
+    let rootContainer: { containerId: string; created: boolean } | null = null;
+    if (this.runtimeHooks.bootstrapLocalRootContainer) {
+      try {
+        rootContainer = await this.runtimeHooks.bootstrapLocalRootContainer();
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.log(`Root container bootstrap failed: ${message}`);
+      }
+    }
+
+    return {
+      rootContainerCreated: rootContainer?.created ?? null,
+      rootContainerId: rootContainer?.containerId ?? null,
+      userId: this.runtimeHooks.getUserId?.() ?? null,
     };
   }
 

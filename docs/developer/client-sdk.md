@@ -54,11 +54,10 @@ const tearleads = new Tearleads({
   },
 });
 
-await tearleads.identity.generate();
-await tearleads.session.bootstrapLocalRootContainer();
+const identity = await tearleads.identity.generate();
+const rootContainerId = identity.rootContainerId;
 
-const containerContents = tearleads.containerContents.runtime();
-const documents = tearleads.documents.runtime(tearleads.session.containerId);
+const documents = tearleads.documents.runtime(rootContainerId);
 const documentStore = tearleads.documents.store();
 const localNotes = await tearleads.documents.listLocalSummaries({
   documentKind: DEFAULT_DOCUMENT_KIND,
@@ -114,6 +113,16 @@ Runtime input snapshots are grouped by capability:
 Host and workflow integration code should use these grouped fields so a
 consumer's dependency boundary is visible. Runtime snapshots expose grouped
 capabilities only.
+
+`tearleads.containerContents.runtime()` creates the lower-level
+container-contents workflow runtime for advanced host stores and custom
+workflows. It packages the current API client, auth/session ids, identity keys,
+SQLite/blob infrastructure, current container id, domain scope, events, online
+state, and SDK utility callbacks into the shape expected by
+`workflows/container-contents`. Most product code should use the higher-level
+container contents methods instead: `store()`, `documentReadModel()`,
+`documentLinksRuntime()`, `discoverDocuments(...)`, `refreshDocuments()`, and
+the diagnostic loaders.
 
 ## Workflow Facade Taxonomy
 
@@ -225,16 +234,31 @@ entry files and low-level SQLite tests may still import the underlying worker
 package when they are implementing or exercising the worker itself.
 
 Identity setup is asynchronous because the signing fingerprint is derived from
-the public key:
+the public key. When SQLite is already configured, `generate()` also creates or
+reuses the local root container and stores it on `tearleads.session.containerId`:
 
 ```ts
-await tearleads.identity.generate();
+const identity = await tearleads.identity.generate();
+
+identity.signingKeyPair;
+identity.encapsulationKeyPair;
+identity.signingFingerprint;
+identity.rootContainerId;
+identity.userId; // null until registration or login establishes a user
 
 await tearleads.identity.setKeyPairs({
   signingKeyPair,
   encapsulationKeyPair,
 });
 ```
+
+If SQLite is not ready when `generate()` runs, `rootContainerId` and
+`rootContainerCreated` are `null`; configure the database and then call
+`tearleads.session.bootstrapLocalRootContainer()`. The `Tearleads` constructor
+stays synchronous, so constructor-provided identity key pairs are available
+through `tearleads.identity.snapshot`, but callers should use
+`refreshSigningFingerprint()` or `setKeyPairs(...)` when they need the derived
+fingerprint asynchronously.
 
 When an identity fingerprint is available, the default blob store switches from
 an ephemeral memory store to the identity-scoped store returned by

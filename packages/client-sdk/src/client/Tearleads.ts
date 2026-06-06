@@ -76,13 +76,28 @@ export class Tearleads {
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;
     this.network = new Network(options.online);
+    let session: Session | null = null;
     this.identity = createIdentity(
       options.identity,
       (signingFingerprint) =>
         this.blobs.updateIdentityNamespace(signingFingerprint),
       this.log,
+      {
+        bootstrapLocalRootContainer: async () => {
+          if (
+            this.database.status !== "ready" ||
+            !this.database.execSql ||
+            !session
+          ) {
+            return null;
+          }
+
+          return session.bootstrapLocalRootContainer();
+        },
+        getUserId: () => session?.userId ?? null,
+      },
     );
-    this.session = createSession({
+    session = createSession({
       api: this.apiClient,
       database: this.database,
       documentProjectors: this.documentProjectors,
@@ -90,6 +105,7 @@ export class Tearleads {
       log: this.log,
       logError: this.logError,
     });
+    this.session = session;
     const runtime = createRuntime({
       api: this.apiClient,
       blobs: this.blobs,

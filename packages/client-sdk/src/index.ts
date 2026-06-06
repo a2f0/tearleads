@@ -43,6 +43,7 @@ export type {
   DocumentsRuntime,
   DomainScope,
   Identity,
+  IdentityGenerationResult,
   IdentityKeyPackage,
   IdentityListener,
   IdentityOptions,

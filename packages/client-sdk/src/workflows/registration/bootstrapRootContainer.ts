@@ -48,7 +48,9 @@ async function bootstrapRootContainerFromExecSql(
 }
 
 export async function bootstrapRootContainer(
-  client: ExecSqlClientLike,
+  input: ExecSql | ExecSqlClientLike,
 ): Promise<RootContainerBootstrapResult> {
-  return bootstrapRootContainerFromExecSql(createExecSql(client));
+  return bootstrapRootContainerFromExecSql(
+    typeof input === "function" ? input : createExecSql(input),
+  );
 }
