@@ -64,7 +64,7 @@ while read -r _ local_sha _ remote_sha; do
     range="$remote_sha..$local_sha"
   fi
 
-  "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range"
+  "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range" </dev/null
 done
 
 echo "Running bun tests..."

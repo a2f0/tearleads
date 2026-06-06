@@ -10,10 +10,10 @@ prepend_path() {
   esac
 }
 
-if [ -n "${tearleads_repo_root:-}" ]; then
-  repo_root=$tearleads_repo_root
-elif [ -n "${1:-}" ]; then
+if [ -n "${1:-}" ]; then
   repo_root=$1
+elif [ -n "${tearleads_repo_root:-}" ]; then
+  repo_root=$tearleads_repo_root
 else
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
     echo "could not determine repo root; pass it explicitly:" >&2

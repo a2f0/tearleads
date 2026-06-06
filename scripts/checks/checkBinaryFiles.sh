@@ -3,14 +3,16 @@
 set -eu
 
 usage() {
-  echo "Usage: $0 --staged | --from-upstream | --range <rev-range>" >&2
+  echo "Usage: $0 [--from-upstream] | --staged | --range <rev-range>" >&2
   exit 2
 }
 
 mode=
 range=
 
-if [ "$#" -eq 1 ]; then
+if [ "$#" -eq 0 ]; then
+  mode=--from-upstream
+elif [ "$#" -eq 1 ]; then
   case "$1" in
     --staged | --from-upstream)
       mode=$1
@@ -104,13 +106,16 @@ collect_numstat() {
 
 numstat_file=$(mktemp)
 
-trap 'rm -f "$numstat_file"' EXIT HUP INT TERM
+trap 'rm -f "$numstat_file"' EXIT
+trap 'exit 1' HUP INT TERM
 
 collect_numstat >"$numstat_file"
 
 bad_files=''
 
-while IFS='	' read -r added deleted path; do
+tab=$(printf '\t')
+
+while IFS="$tab" read -r added deleted path; do
   if [ -z "${path:-}" ]; then
     continue
   fi
@@ -130,9 +135,6 @@ if [ -z "$bad_files" ]; then
 fi
 
 echo "Error: binary files are not allowed in commits." >&2
-printf '%s' "$bad_files" | while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  printf '%s\n' "$line" >&2
-done
+printf '%s' "$bad_files" >&2
 echo "If you must add a binary, update the allowlist in scripts/checks/checkBinaryFiles.sh and document why." >&2
 exit 1
