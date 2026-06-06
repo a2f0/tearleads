@@ -197,6 +197,63 @@ test("org manager roster view hides user detail until a user is selected", () =>
   expect(selections).toEqual([rosterUser.userId]);
 });
 
+test("org manager roster view opens import user from whitespace below users", () => {
+  let directoryContextMenuCount = 0;
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      detail={null}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openDirectoryContextMenu={(event) => {
+        event.preventDefault();
+        directoryContextMenuCount += 1;
+      }}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+  const directorySection = view.getByRole("region", {
+    name: ORG_MANAGER_LABELS.directory,
+  });
+
+  expect(
+    directorySection.classList.contains("org-manager-panel--context-target"),
+  ).toBe(true);
+  fireEvent.contextMenu(directorySection);
+
+  expect(directoryContextMenuCount).toBe(1);
+});
+
+test("org manager roster view does not open import user from user rows", () => {
+  let directoryContextMenuCount = 0;
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      detail={null}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openDirectoryContextMenu={() => {
+        directoryContextMenuCount += 1;
+      }}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+
+  fireEvent.contextMenu(view.getByText(compactRosterUserId()));
+
+  expect(directoryContextMenuCount).toBe(0);
+});
+
 test("org manager roster import dialog submits the user id draft", () => {
   const drafts: string[] = [];
   let importCount = 0;
