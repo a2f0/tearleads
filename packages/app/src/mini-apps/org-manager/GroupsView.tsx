@@ -123,7 +123,7 @@ function GroupTable({
   groups: ReadonlyArray<OrganizationGroupSummary>;
   openGroupContextMenu: (
     event: MouseEvent<HTMLElement>,
-    groupId: string,
+    groupId: string | null,
   ) => void;
   selectedGroupId: string | null;
   setSelectedGroupId: (groupId: string) => void;
@@ -144,6 +144,13 @@ function GroupTable({
   return (
     <MiniAppTableFrame
       className="mini-app-table-frame--virtual org-manager-virtual-table"
+      onContextMenu={(event) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        openGroupContextMenu(event, null);
+      }}
       ref={virtualGroups.frameRef}
       style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
     >
@@ -515,7 +522,7 @@ function GroupListSection({
   return (
     <section
       aria-label={ORG_MANAGER_LABELS.groups}
-      className="org-manager-panel"
+      className="org-manager-panel org-manager-panel--context-target"
       onContextMenu={(event) => {
         if (event.defaultPrevented) {
           return;

@@ -217,6 +217,38 @@ test("org manager groups view opens new group from the groups area context menu"
   expect(openCreateGroupDialogCount).toBe(1);
 });
 
+test("org manager groups view opens new group from whitespace below groups", () => {
+  let openCreateGroupDialogCount = 0;
+  const view = renderGroupsView({
+    canCreateGroup: true,
+    groups: [customGroup],
+    openCreateGroupDialog: () => {
+      openCreateGroupDialogCount += 1;
+    },
+    selectedGroup: null,
+    selectedGroupId: null,
+  });
+  const groupListSection = view.getByRole("region", {
+    name: ORG_MANAGER_LABELS.groups,
+  });
+
+  expect(
+    groupListSection.classList.contains("org-manager-panel--context-target"),
+  ).toBe(true);
+  fireEvent.contextMenu(groupListSection);
+
+  expect(
+    view.queryByRole("button", {
+      name: ORG_MANAGER_LABELS.deleteGroupAction,
+    }),
+  ).toBeNull();
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.newGroupAction }),
+  );
+
+  expect(openCreateGroupDialogCount).toBe(1);
+});
+
 test("org manager groups view exposes new group from group row context menus", () => {
   let openCreateGroupDialogCount = 0;
   const view = renderGroupsView({
