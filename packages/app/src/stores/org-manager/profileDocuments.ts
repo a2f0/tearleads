@@ -17,17 +17,18 @@ import { readContactFields } from "../../document-types/contact/contactDocumentM
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
 
 export function getRosterProfileDisplayName(fields: {
-  firstName: string;
-  lastName: string;
-  nickname: string;
+  firstName?: string | null | undefined;
+  lastName?: string | null | undefined;
+  nickname?: string | null | undefined;
 }): string | null {
-  const nickname = fields.nickname.trim();
+  const nickname = fields.nickname?.trim() ?? "";
   if (nickname.length > 0) {
     return nickname;
   }
 
-  const fullName =
-    `${fields.firstName.trim()} ${fields.lastName.trim()}`.trim();
+  const firstName = fields.firstName?.trim() ?? "";
+  const lastName = fields.lastName?.trim() ?? "";
+  const fullName = `${firstName} ${lastName}`.trim();
   return fullName.length > 0 ? fullName : null;
 }
 

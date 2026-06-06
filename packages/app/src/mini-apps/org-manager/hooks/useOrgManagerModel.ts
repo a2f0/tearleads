@@ -367,18 +367,20 @@ export function useOrgManagerModel() {
 
       const runtime = tearleads.documents.workflowRuntime(profileContainer.id);
 
-      for (const user of usersWithProfileDocuments) {
-        await loadRosterProfileDisplayName({
-          documents: tearleads.documents,
-          isCancelled: () => cancelled,
-          organizationId,
-          profileContainerId: profileContainer.id,
-          runtime,
-          setProfileDisplayName,
-          unsubscribes,
-          user,
-        });
-      }
+      await Promise.all(
+        usersWithProfileDocuments.map((user) =>
+          loadRosterProfileDisplayName({
+            documents: tearleads.documents,
+            isCancelled: () => cancelled,
+            organizationId,
+            profileContainerId: profileContainer.id,
+            runtime,
+            setProfileDisplayName,
+            unsubscribes,
+            user,
+          }),
+        ),
+      );
     };
 
     void loadProfileDisplayNames().catch(() => null);
@@ -391,13 +393,6 @@ export function useOrgManagerModel() {
     };
   }, [
     appData.auth.organizationId,
-    appData.auth.userId,
-    appData.crypto.encapsulationKeyPair,
-    appData.crypto.signingFingerprint,
-    appData.crypto.signingKeyPair,
-    appData.infra.dbStatus,
-    appData.state.events.length,
-    appData.state.online,
     canLoadAuthenticatedOrgData,
     directory,
     orgManagerActions,

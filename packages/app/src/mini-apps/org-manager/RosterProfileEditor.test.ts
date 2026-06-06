@@ -78,4 +78,13 @@ test("roster profile display names prefer nickname before full name", () => {
       nickname: "",
     }),
   ).toBeNull();
+
+  expect(getRosterProfileDisplayName({})).toBeNull();
+  expect(
+    getRosterProfileDisplayName({
+      firstName: null,
+      lastName: undefined,
+      nickname: null,
+    }),
+  ).toBeNull();
 });
