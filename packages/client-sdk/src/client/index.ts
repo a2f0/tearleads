@@ -66,6 +66,7 @@ export {
 } from "./events";
 export type {
   Identity,
+  IdentityGenerationResult,
   IdentityListener,
   IdentityOptions,
   IdentitySnapshot,

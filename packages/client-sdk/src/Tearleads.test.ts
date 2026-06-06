@@ -7,6 +7,7 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { Database, type Logger, Tearleads } from "./client";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
+import { loadContainers } from "./data/persistence/containers/containerPersistence";
 import type { DocumentProjectorDefinition } from "./documents";
 import type {
   ExecSql,
@@ -285,6 +286,9 @@ describe("Tearleads", () => {
     expect(snapshot.signingKeyPair).not.toBeNull();
     expect(snapshot.encapsulationKeyPair).not.toBeNull();
     expect(snapshot.signingFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(snapshot.rootContainerCreated).toBeNull();
+    expect(snapshot.rootContainerId).toBeNull();
+    expect(snapshot.userId).toBeNull();
     expect(sdk.identity.signingFingerprint).toBe(snapshot.signingFingerprint);
     expect(sdk.blobs.store).not.toBe(ephemeralStore);
 
@@ -292,6 +296,72 @@ describe("Tearleads", () => {
 
     expect(sdk.identity.signingFingerprint).toBeNull();
     expect(sdk.blobs.store).toBe(ephemeralStore);
+  });
+
+  test("generates identity keys and bootstraps the local root container when SQLite is ready", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-identity-generate-root-bootstrap-test",
+    );
+    try {
+      const sdk = new Tearleads({
+        database: { execSql, id: "client-db" },
+        logger: quietLogger,
+      });
+
+      const result = await sdk.identity.generate();
+      if (!result.rootContainerId) {
+        throw new Error("Expected identity generation to bootstrap a root.");
+      }
+
+      expect(result.rootContainerCreated).toBe(true);
+      expect(result.rootContainerId).toHaveLength(36);
+      expect(result.userId).toBeNull();
+      expect(sdk.session.containerId).toBe(result.rootContainerId);
+
+      await expect(sdk.session.bootstrapLocalRootContainer()).resolves.toEqual({
+        containerId: result.rootContainerId,
+        created: false,
+      });
+
+      const containers = await loadContainers(execSql);
+      expect(containers).toEqual([
+        expect.objectContaining({
+          id: result.rootContainerId,
+          name: "/",
+          parentId: null,
+        }),
+      ]);
+    } finally {
+      close();
+    }
+  });
+
+  test("generates identity keys when automatic root bootstrap fails", async () => {
+    const messages: string[] = [];
+    const execSql: ExecSql = async () => {
+      throw new Error("locked database");
+    };
+    const sdk = new Tearleads({
+      database: { execSql, id: "client-db" },
+      logger: {
+        ...quietLogger,
+        log: (message) => messages.push(message),
+      },
+    });
+
+    const result = await sdk.identity.generate();
+
+    expect(result.signingKeyPair).not.toBeNull();
+    expect(result.encapsulationKeyPair).not.toBeNull();
+    expect(result.signingFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.rootContainerCreated).toBeNull();
+    expect(result.rootContainerId).toBeNull();
+    expect(result.userId).toBeNull();
+    expect(sdk.session.containerId).toBeNull();
+    expect(messages).toEqual([
+      "Key pair generated",
+      "Root container bootstrap failed: locked database",
+    ]);
   });
 
   test("uses a blob store factory for identity namespaces", async () => {

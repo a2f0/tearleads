@@ -121,7 +121,7 @@ class SessionService implements Session {
     created: boolean;
   }> {
     const result = await bootstrapRootContainer(
-      this.dependencies.database.requireClient("bootstrapLocalRootContainer"),
+      this.dependencies.database.requireExecSql("bootstrapLocalRootContainer"),
     );
     this.setContainerId(result.containerId);
     if (result.created) {
