@@ -100,16 +100,15 @@ export function useLocalDocumentSummaries({
     let cancelled = false;
     void (async () => {
       try {
-        const persistedSummaries =
-          (await tearleads.documents.listLocalSummaries(
-            documentKind === undefined ? {} : { documentKind },
-          )) ?? [];
+        const persistedSummaries = await tearleads.documents.listLocalDocuments(
+          documentKind === undefined ? {} : { documentKind },
+        );
 
         if (cancelled) {
           return;
         }
 
-        setSummaries(persistedSummaries);
+        setSummaries(persistedSummaries?.rows ?? []);
         setReady(true);
       } catch (error) {
         if (!cancelled) {
@@ -132,7 +131,7 @@ export function useLocalDocumentSummaries({
   ]);
 
   useEffect(() => {
-    return tearleads.documents.subscribeToLocalSummaries(mergeSummary, {
+    return tearleads.documents.subscribeToLocalDocuments(mergeSummary, {
       containerId: resolvedSubscriptionContainerId,
     });
   }, [

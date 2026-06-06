@@ -24,7 +24,7 @@ import {
   mapContainerDocumentSidebarRow,
   mapContainerItemRow,
   readContainerContentsContainerItemCount,
-} from "./documentReadModel/rows";
+} from "./documentQueries/rows";
 import {
   clampContainerItemWindowValue,
   getContainerContentsContainerDocumentSidebarOrderBy,
@@ -35,19 +35,19 @@ import {
   getContainerDocumentSidebarWindowLimit,
   getContainerItemWindowLimit,
   listContainerContentsSqlIdBatches,
-} from "./documentReadModel/sql";
+} from "./documentQueries/sql";
 import type {
   ContainerContentsContainerSubtreeState,
   ContainerContentsDocumentRuntimeTarget,
   ContainerContentsSharedDocumentSummaries,
   ContainerDocumentLinkInput,
   ContainerDocumentPrimeHost,
-  ContainerDocumentReadModelRuntime,
+  ContainerDocumentQueriesRuntime,
   ContainerDocumentSidebarWindow as ContainerDocumentSidebarWindowContract,
   ContainerDocumentTombstone,
   ContainerItemSort,
   ContainerItemWindow as ContainerItemWindowContract,
-} from "./documentReadModel/types";
+} from "./documentQueries/types";
 import type { ContainerDocumentObjectSyncState } from "./syncState";
 
 export type {
@@ -60,13 +60,13 @@ export type {
   ContainerItemSort,
   ContainerItemSortDirection,
   ContainerItemSortKey,
-} from "./documentReadModel/types";
+} from "./documentQueries/types";
 
 export type ContainerDocumentSidebarWindow =
   ContainerDocumentSidebarWindowContract;
 export type ContainerItemWindow = ContainerItemWindowContract;
 
-export interface ContainerDocumentReadModel {
+export interface ContainerDocumentQueries {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
   ): Promise<ReadonlyArray<DocumentSummary>>;
@@ -481,7 +481,7 @@ export function listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
   Parameters<typeof listDocumentRuntimeTargetsForContainerSubtree>[0],
   "execSql"
 > & {
-  runtime: ContainerDocumentReadModelRuntime;
+  runtime: ContainerDocumentQueriesRuntime;
 }): ReturnType<typeof listDocumentRuntimeTargetsForContainerSubtree> {
   return listDocumentRuntimeTargetsForContainerSubtree({
     ...input,
@@ -493,7 +493,7 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
   containersById: ReadonlyMap<string, ContainerContentsContainerSubtreeState>;
   host: ContainerDocumentPrimeHost<TRuntime>;
   rootContainerId: string;
-  runtime: ContainerDocumentReadModelRuntime;
+  runtime: ContainerDocumentQueriesRuntime;
 }): Promise<number> {
   const targets =
     await listDocumentRuntimeTargetsForContainerSubtreeFromRuntime({
@@ -506,11 +506,11 @@ export async function primeDocumentsForContainerSubtree<TRuntime>(input: {
   for (const target of targets) {
     let runtime = runtimesByContainerId.get(target.runtimeContainerId);
     if (runtime === undefined) {
-      runtime = input.host.createDocumentRuntime(target.runtimeContainerId);
+      runtime = input.host.documentWorkflowRuntime(target.runtimeContainerId);
       runtimesByContainerId.set(target.runtimeContainerId, runtime);
     }
 
-    const store = input.host.primeDocumentStore({
+    const store = input.host.openDocumentStore({
       documentId: target.documentId,
       localId: target.localId,
       runtime,
@@ -617,9 +617,9 @@ function upsertDiscoveredContainerContentsDocuments(
   return upsertDiscoveredDocuments(execSql, inputs);
 }
 
-function createContainerDocumentReadModel(
+function createContainerDocumentQueries(
   execSql: ExecSql,
-): ContainerDocumentReadModel {
+): ContainerDocumentQueries {
   return {
     applyContainerDocumentTombstones(tombstones) {
       return applyStoredContainerDocumentTombstones(execSql, tombstones);
@@ -663,8 +663,8 @@ function createContainerDocumentReadModel(
   };
 }
 
-export function createContainerDocumentReadModelFromRuntime(
-  runtime: ContainerDocumentReadModelRuntime,
-): ContainerDocumentReadModel {
-  return createContainerDocumentReadModel(runtime.infra.execSql);
+export function createContainerDocumentQueriesFromRuntime(
+  runtime: ContainerDocumentQueriesRuntime,
+): ContainerDocumentQueries {
+  return createContainerDocumentQueries(runtime.infra.execSql);
 }

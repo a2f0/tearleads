@@ -19,8 +19,8 @@ import {
   initializeDocumentLinksSchema as initializeExplorerDocumentLinksSchema,
   listDocumentLinkedContainerIds as listExplorerDocumentLinkedContainerIds,
   loadContainerSyncWatermark as loadExplorerContainerSyncWatermark,
+  openDocumentStore,
   persistedDocumentCreateStateFromResponse,
-  primeDocumentStore,
   replaceDocumentLinks as replaceExplorerDocumentLinks,
   type DocumentRecord as StoredDocumentRecord,
   saveContainerSyncWatermark as saveExplorerContainerSyncWatermark,
@@ -2225,7 +2225,7 @@ test("explorer sync primes local document stores after login", async () => {
       isAuthenticated: false,
       online: false,
     });
-    const importedDocumentStore = primeDocumentStore(
+    const importedDocumentStore = openDocumentStore(
       offlineRuntime.state.domainScope,
       "uploaded-text-note",
       createExplorerDocumentsRuntime(offlineRuntime, "root-container"),

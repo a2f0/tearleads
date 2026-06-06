@@ -1,6 +1,6 @@
 import type {
-  ContainerDocumentLinksRuntime,
-  ContainerDocumentReadModel,
+  ContainerDocumentLinkActions,
+  ContainerDocumentQueries,
   DocumentAttachmentUpload,
   DocumentSummary,
   StoredDocumentKind,
@@ -224,13 +224,13 @@ export async function importExplorerDroppedFiles(
 }
 
 export function useExplorerDroppedFileImport(params: {
-  appData: ContainerDocumentLinksRuntime;
-  documentReadModel: ContainerDocumentReadModel;
+  appData: ContainerDocumentLinkActions;
+  documentQueries: ContainerDocumentQueries;
   labels: ExplorerDroppedFileImportLabels;
   logError: (message: string, cause?: unknown) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
 }): ImportExplorerDroppedFiles {
-  const { appData, documentReadModel, labels, logError, mergeDocumentSummary } =
+  const { appData, documentQueries, labels, logError, mergeDocumentSummary } =
     params;
 
   return useCallback(
@@ -243,7 +243,7 @@ export function useExplorerDroppedFileImport(params: {
           initialText,
           localId,
         }) =>
-          appData.primeDocumentStore({
+          appData.openDocumentStore({
             containerId: targetContainerId,
             initialDocumentKind,
             initialText,
@@ -252,11 +252,11 @@ export function useExplorerDroppedFileImport(params: {
         createLocalId: () => crypto.randomUUID(),
         files,
         labels,
-        loadDocumentSummary: documentReadModel.loadDocumentSummary,
+        loadDocumentSummary: documentQueries.loadDocumentSummary,
         logError,
         mergeDocumentSummary,
         ...(onProgress === undefined ? {} : { onProgress }),
       }),
-    [appData, documentReadModel, labels, logError, mergeDocumentSummary],
+    [appData, documentQueries, labels, logError, mergeDocumentSummary],
   );
 }

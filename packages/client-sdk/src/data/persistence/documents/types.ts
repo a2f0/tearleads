@@ -55,9 +55,33 @@ export interface ContainerDocumentTombstoneInput {
   updatedAt: string;
 }
 
+export type DocumentSummarySortDirection = "asc" | "desc";
+export type DocumentSummarySortKey = "kind" | "title" | "updated";
+
+export interface DocumentSummarySort {
+  readonly direction: DocumentSummarySortDirection;
+  readonly key: DocumentSummarySortKey;
+}
+
+export interface ListDocumentSummariesInput {
+  documentKind?: StoredDocumentKind | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+  sort?: DocumentSummarySort | undefined;
+}
+
+export interface DocumentSummaryList {
+  readonly rows: ReadonlyArray<DocumentSummary>;
+  readonly totalCount: number;
+}
+
 export interface DocumentsPersistence {
   ensureSchema: (execSql: ExecSql) => Promise<void>;
   listDocuments: (execSql: ExecSql) => Promise<DocumentSummary[]>;
+  listDocumentSummaries: (
+    execSql: ExecSql,
+    input?: ListDocumentSummariesInput,
+  ) => Promise<DocumentSummaryList>;
   listDocumentsByContainerIdsOrDocumentIds: (
     execSql: ExecSql,
     input: {

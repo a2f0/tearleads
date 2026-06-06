@@ -1,19 +1,19 @@
-import type { ContainerDocumentReadModel } from "@tearleads/client-sdk";
+import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 
-interface ExplorerDocumentReadModelRuntimeState {
+interface ExplorerDocumentQueriesRuntimeState {
   infra: { readonly dbStatus: string };
   state: { readonly domainScope: object };
 }
 
-export function useExplorerDocumentReadModel(
-  appData: ExplorerDocumentReadModelRuntimeState,
-): ContainerDocumentReadModel {
+export function useExplorerDocumentQueries(
+  appData: ExplorerDocumentQueriesRuntimeState,
+): ContainerDocumentQueries {
   const { containerContents } = useTearleads();
 
   return useMemo(
-    () => containerContents.documentReadModel(),
+    () => containerContents.localQueries(),
     [appData.infra.dbStatus, appData.state.domainScope, containerContents],
   );
 }

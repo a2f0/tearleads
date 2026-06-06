@@ -1,5 +1,5 @@
 import type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerItemRow,
   ContainerItemSort,
   ContainerItemSortDirection,
@@ -163,7 +163,7 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
 function useExplorerContainerItemWindow(params: {
   containerListRevision: unknown;
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   enabled: boolean;
   limit: number;
   offset: number;
@@ -174,7 +174,7 @@ function useExplorerContainerItemWindow(params: {
   const {
     containerListRevision,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     enabled,
     limit,
     offset,
@@ -215,7 +215,7 @@ function useExplorerContainerItemWindow(params: {
       isLoading: true,
     }));
 
-    void documentReadModel
+    void documentQueries
       .listContainerItemWindow({
         containerId: selectedNode.id,
         limit,
@@ -254,7 +254,7 @@ function useExplorerContainerItemWindow(params: {
   }, [
     containerListRevision,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     enabled,
     limit,
     offset,
@@ -464,7 +464,7 @@ function ExplorerContainerDetailHeader(params: {
 export function ExplorerContainerDetail(params: {
   containerListRevision: unknown;
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   importDroppedFiles: ImportExplorerDroppedFiles;
   online: boolean;
   refreshError: string | null;
@@ -476,7 +476,7 @@ export function ExplorerContainerDetail(params: {
   const {
     containerListRevision,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     importDroppedFiles,
     online,
     refreshError,
@@ -497,7 +497,7 @@ export function ExplorerContainerDetail(params: {
   const itemWindow = useExplorerContainerItemWindow({
     containerListRevision,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     enabled: true,
     limit,
     offset,

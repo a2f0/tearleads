@@ -57,16 +57,19 @@ const tearleads = new Tearleads({
 const identity = await tearleads.identity.generate();
 const rootContainerId = identity.rootContainerId;
 
-const documents = tearleads.documents.runtime(rootContainerId);
-const documentStore = tearleads.documents.store();
-const localNotes = await tearleads.documents.listLocalSummaries({
+const documentWorkflowRuntime =
+  tearleads.documents.workflowRuntime(rootContainerId);
+const documentStore = tearleads.documents.openStore();
+const localNotes = await tearleads.documents.listLocalDocuments({
   documentKind: DEFAULT_DOCUMENT_KIND,
+  limit: 50,
+  offset: 0,
+  sort: { direction: "desc", key: "updated" },
 });
-const containerDocumentReadModel =
-  tearleads.containerContents.documentReadModel();
-const containerDocumentLinksRuntime =
-  tearleads.containerContents.documentLinksRuntime();
-const containerContentsStore = tearleads.containerContents.store();
+const containerDocumentQueries = tearleads.containerContents.localQueries();
+const containerDocumentLinkActions =
+  tearleads.containerContents.documentLinkActions();
+const containerContentsStore = tearleads.containerContents.openStore();
 ```
 
 The instance intentionally groups client capabilities by responsibility:
@@ -80,18 +83,17 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | document stores, local document summaries, local document deletion, and document workflow runtime composition |
-| `tearleads.containerContents` | container contents stores, read models, document-link runtimes, discovery, diagnostics, and workflow runtime composition |
+| `tearleads.documents` | document stores, paged local document lists, local document deletion, and document workflow runtime composition |
+| `tearleads.containerContents` | container contents stores, local query facades, document-link action bundles, discovery, diagnostics, and workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
-| `tearleads.userKeys` | verified user key lookup for product read models and recipient UIs |
+| `tearleads.userKeys` | verified user key lookup for product queries and recipient UIs |
 
 Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
 database id and identity fingerprint, which lets document and
 container/document stores share the same sync and subscription boundary.
-Product app code should prefer `tearleads.documents.store(...)`,
-`tearleads.documents.primeStore(...)`, and
-`tearleads.documents.subscribeToLocalSummaries(listener, { containerId })` over
+Product app code should prefer `tearleads.documents.openStore(...)`,
+`tearleads.documents.subscribeToLocalDocuments(listener, { containerId })` over
 importing the document store facade package directly.
 
 Host adapters that still need the raw workflow runtime contract should use
@@ -114,15 +116,15 @@ Host and workflow integration code should use these grouped fields so a
 consumer's dependency boundary is visible. Runtime snapshots expose grouped
 capabilities only.
 
-`tearleads.containerContents.runtime()` creates the lower-level
+`tearleads.containerContents.workflowRuntime()` creates the lower-level
 container-contents workflow runtime for advanced host stores and custom
 workflows. It packages the current API client, auth/session ids, identity keys,
 SQLite/blob infrastructure, current container id, domain scope, events, online
 state, and SDK utility callbacks into the shape expected by
 `workflows/container-contents`. Most product code should use the higher-level
-container contents methods instead: `store()`, `documentReadModel()`,
-`documentLinksRuntime()`, `discoverDocuments(...)`, `refreshDocuments()`, and
-the diagnostic loaders.
+container contents methods instead: `openStore()`, `localQueries()`,
+`documentLinkActions()`, `discoverContainerDocuments(...)`,
+`refreshAllContainerDocuments()`, and the diagnostic loaders.
 
 ## Workflow Facade Taxonomy
 
@@ -133,8 +135,8 @@ state, menu labels, component-local hooks, and React providers stay in
 | Facade | Classification | Boundary |
 | --- | --- | --- |
 | `workflows/documents`, `workflows/blobs`, `workflows/containers`, `workflows/principals`, `workflows/registration`, `workflows/sync` | Platform runtime | Protocol-facing client operations, local persistence orchestration, sync coordination, key verification, and registration bootstrap helpers |
-| `workflows/container-contents` | Platform read model and runtime | Container tree state, container metadata documents, document link/discovery read models, diagnostics, and sync-state helpers. The container-contents store facade adapts these into UI state without React. |
-| `workflows/organizations` | Platform organization administration | Organization roster/directory, encrypted roster profile document binding, groups, grants, usage, user-detail read models, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
+| `workflows/container-contents` | Platform query and runtime | Container tree state, container metadata documents, document link/discovery query facades, diagnostics, and sync-state helpers. The container-contents store facade adapts these into UI state without React. |
+| `workflows/organizations` | Platform organization administration | Organization roster/directory, encrypted roster profile document binding, groups, grants, usage, user-detail queries, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
 
 When a workflow exists mainly to support a product screen, keep its name tied to
 the platform state it exposes rather than to the app window that consumes it.
@@ -390,8 +392,8 @@ explicit documentation and lint treatment as any other package API addition.
 When a lower-level workflow facade name conflicts with an existing root service
 type, keep the existing root meaning stable and add an explicit migration alias.
 For example, root `ContainerDocumentLinkInput` remains the high-level client
-document-link input, while the lower-level container read-model link input is
-available as `ContainerDocumentReadModelLinkInput`.
+document-link input, while the lower-level container query link input is
+available as `ContainerDocumentQueriesLinkInput`.
 
 ## Package Status
 

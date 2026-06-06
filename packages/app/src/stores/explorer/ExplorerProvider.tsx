@@ -273,11 +273,11 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const runtime = useMemo(
-    () => tearleads.containerContents.runtime(),
+    () => tearleads.containerContents.workflowRuntime(),
     [appData, tearleads],
   );
   const store = useMemo(
-    () => tearleads.containerContents.store({ logLabel: "Explorer" }),
+    () => tearleads.containerContents.openStore({ logLabel: "Explorer" }),
     [runtime.state.domainScope, tearleads],
   );
   const systemContainers = useExplorerSystemContainerSlots({

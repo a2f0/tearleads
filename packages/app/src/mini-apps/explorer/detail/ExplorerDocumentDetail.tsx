@@ -1,6 +1,6 @@
 import type {
   ContainerDocumentObjectSyncState,
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerNode,
 } from "@tearleads/client-sdk";
 import {
@@ -394,10 +394,10 @@ function ExplorerLinkedContainerSection(params: {
 
 function useSelectedDocumentSyncState(params: {
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   selectedDocument: DocumentSummary;
 }): ContainerDocumentObjectSyncState {
-  const { documentListRevision, documentReadModel, selectedDocument } = params;
+  const { documentListRevision, documentQueries, selectedDocument } = params;
   const fallbackSyncState = useMemo(
     () =>
       createContainerDocumentObjectSyncState({
@@ -417,7 +417,7 @@ function useSelectedDocumentSyncState(params: {
       setSyncState(fallbackSyncState);
     }
 
-    void documentReadModel
+    void documentQueries
       .loadDocumentSyncState(selectedDocument.id)
       .then((nextSyncState) => {
         if (!cancelled && nextSyncState) {
@@ -435,7 +435,7 @@ function useSelectedDocumentSyncState(params: {
     };
   }, [
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     fallbackSyncState,
     selectedDocument.id,
   ]);
@@ -453,7 +453,7 @@ export function ExplorerDocumentDetail(params: {
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
@@ -476,7 +476,7 @@ export function ExplorerDocumentDetail(params: {
     : null;
   const selectedDocumentSyncState = useSelectedDocumentSyncState({
     documentListRevision: params.documentListRevision,
-    documentReadModel: params.documentReadModel,
+    documentQueries: params.documentQueries,
     selectedDocument: params.selectedDocument,
   });
   const SelectedDocumentApp =

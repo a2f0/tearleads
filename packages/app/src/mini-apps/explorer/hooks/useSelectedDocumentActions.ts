@@ -1,5 +1,5 @@
 import type {
-  ContainerDocumentLinksRuntime,
+  ContainerDocumentLinkActions,
   DocumentSummary,
   MergeDocumentSummary,
   SetLinkedContainerIdsForDocument,
@@ -31,7 +31,7 @@ async function resolveExplorerActionDocument(params: {
 }
 
 function useMoveDocumentAction(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   loadDocumentSummary: LoadExplorerDocumentSummary;
@@ -94,7 +94,7 @@ function useMoveDocumentAction(params: {
 }
 
 function useLinkDocumentAction(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
@@ -150,7 +150,7 @@ function useLinkDocumentAction(params: {
 }
 
 function useUnlinkDocumentAction(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
@@ -206,7 +206,7 @@ function useUnlinkDocumentAction(params: {
 }
 
 function useActivateLinkedDocumentAction(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
@@ -245,7 +245,7 @@ function useActivateLinkedDocumentAction(params: {
 }
 
 export function useSelectedDocumentActions(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   loadDocumentSummary: LoadExplorerDocumentSummary;

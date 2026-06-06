@@ -1,4 +1,4 @@
-import type { ContainerDocumentLinksRuntime } from "@tearleads/client-sdk";
+import type { ContainerDocumentLinkActions } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import {
   type RuntimeSnapshot,
@@ -22,11 +22,11 @@ export function isDestroyedDatabaseWorkerError(error: unknown): boolean {
 
 export function useExplorerDocumentsRuntimeAppData(
   appData: ExplorerDocumentsRuntimeAppDataInput,
-): ContainerDocumentLinksRuntime {
+): ContainerDocumentLinkActions {
   const { containerContents } = useTearleads();
 
   return useMemo(
-    () => containerContents.documentLinksRuntime(),
+    () => containerContents.documentLinkActions(),
     [
       appData.auth,
       appData.crypto,

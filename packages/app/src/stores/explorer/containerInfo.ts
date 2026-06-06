@@ -19,7 +19,7 @@ export function useExplorerContainerInfoLoader(input: {
   return useCallback(
     (containerId: string) => {
       const node = nodesById.get(containerId);
-      return containerContents.loadInfo({
+      return containerContents.loadContainerInfo({
         containerId,
         parentId: node?.parentId ?? null,
         remoteInfoMode:

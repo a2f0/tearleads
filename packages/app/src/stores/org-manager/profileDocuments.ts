@@ -70,7 +70,7 @@ export async function createRosterProfileDocument(input: {
   organizationId: string;
   user: OrganizationDirectoryUser;
 }): Promise<string | null> {
-  const store = input.documents.store({
+  const store = input.documents.openStore({
     containerId: input.containerId,
     initialDocumentKind: "contact",
     localId: getRosterProfileDocumentLocalId({
@@ -98,7 +98,7 @@ export async function createOrganizationProfileDocument(input: {
   name?: string | undefined;
   organizationId: string;
 }): Promise<string | null> {
-  const store = input.documents.store({
+  const store = input.documents.openStore({
     containerId: input.containerId,
     initialDocumentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
     localId: getOrganizationProfileDocumentLocalId({

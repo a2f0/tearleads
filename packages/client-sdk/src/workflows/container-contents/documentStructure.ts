@@ -45,9 +45,9 @@ export interface DocumentStructuralMutationLocalStore<TRuntime> {
 }
 
 export interface DocumentStructuralMutationHost<TRuntime> {
-  createDocumentRuntime: (containerId: string) => TRuntime;
+  documentWorkflowRuntime: (containerId: string) => TRuntime;
   mergeDocumentSummary: MergeDocumentSummary;
-  primeDocumentStore: (input: {
+  openDocumentStore: (input: {
     containerId: string;
     documentId: string | null;
     localId: string;
@@ -82,7 +82,7 @@ export function canMutateLocalDocumentLink(runtime: {
   return runtime.infra.dbStatus === "ready";
 }
 
-async function primeDocumentStoreForStructuralMutation<TRuntime>({
+async function openDocumentStoreForStructuralMutation<TRuntime>({
   host,
   note,
   requireDocumentId,
@@ -92,7 +92,7 @@ async function primeDocumentStoreForStructuralMutation<TRuntime>({
     return null;
   }
 
-  const documentStore = host.primeDocumentStore({
+  const documentStore = host.openDocumentStore({
     containerId: note.containerId,
     documentId: note.documentId,
     localId: note.id,
@@ -149,7 +149,7 @@ async function relinkContainerDocumentLocally<TRuntime>(params: {
 
   host.mergeDocumentSummary(relinkedNote);
   currentDocumentStore.updateRuntime(
-    host.createDocumentRuntime(targetContainerId),
+    host.documentWorkflowRuntime(targetContainerId),
   );
   if (requestSync) {
     currentDocumentStore.requestSync();
@@ -181,7 +181,7 @@ export async function moveLocalDocumentLinkState<TRuntime>(params: {
     return null;
   }
 
-  const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
+  const currentDocumentStore = await openDocumentStoreForStructuralMutation({
     host,
     note,
     requireDocumentId: false,
@@ -243,7 +243,7 @@ export async function moveDocumentLinkState<TRuntime>(params: {
     };
   }
 
-  const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
+  const currentDocumentStore = await openDocumentStoreForStructuralMutation({
     host,
     note,
     requireDocumentId: true,
@@ -313,7 +313,7 @@ export async function linkDocumentLinkState<TRuntime>(params: {
     return null;
   }
 
-  const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
+  const currentDocumentStore = await openDocumentStoreForStructuralMutation({
     host,
     note,
     requireDocumentId: true,
@@ -377,7 +377,7 @@ export async function unlinkDocumentLinkState<TRuntime>(params: {
     return null;
   }
 
-  const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
+  const currentDocumentStore = await openDocumentStoreForStructuralMutation({
     host,
     note,
     requireDocumentId: true,
@@ -449,7 +449,7 @@ export async function activateDocumentLinkState<TRuntime>(params: {
     return null;
   }
 
-  const currentDocumentStore = await primeDocumentStoreForStructuralMutation({
+  const currentDocumentStore = await openDocumentStoreForStructuralMutation({
     host,
     note,
     requireDocumentId: true,

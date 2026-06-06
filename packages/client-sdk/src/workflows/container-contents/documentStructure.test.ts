@@ -100,14 +100,14 @@ test("moveDocumentLinkState relinks local-only documents without remote mutation
   const requestedSyncs: string[] = [];
   const updatedRuntimes: string[] = [];
   const primeInputs: Parameters<
-    DocumentStructuralMutationHost<string>["primeDocumentStore"]
+    DocumentStructuralMutationHost<string>["openDocumentStore"]
   >[0][] = [];
   const host: DocumentStructuralMutationHost<string> = {
-    createDocumentRuntime: (containerId) => `runtime:${containerId}`,
+    documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
     mergeDocumentSummary: (document) => {
       mergedDocuments.push(document);
     },
-    primeDocumentStore: (input) => {
+    openDocumentStore: (input) => {
       primeInputs.push(input);
       return {
         ensureInitialized: async () => true,
@@ -189,11 +189,11 @@ test("activateDocumentLinkState relinks the local document without requesting re
   const requestedSyncs: string[] = [];
   const updatedRuntimes: string[] = [];
   const host: DocumentStructuralMutationHost<string> = {
-    createDocumentRuntime: (containerId) => `runtime:${containerId}`,
+    documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
     mergeDocumentSummary: (document) => {
       mergedDocuments.push(document);
     },
-    primeDocumentStore: () => ({
+    openDocumentStore: () => ({
       ensureInitialized: async () => true,
       relink: async (input) => {
         relinkInputs.push(input);
@@ -251,11 +251,11 @@ test("activateDocumentLinkState relinks the local document without requesting re
 test("activateDocumentLinkState skips documents that are not locally ready", async () => {
   const logs: string[] = [];
   const host: DocumentStructuralMutationHost<string> = {
-    createDocumentRuntime: (containerId) => `runtime:${containerId}`,
+    documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
     mergeDocumentSummary: () => {
       throw new Error("mergeDocumentSummary should not be called.");
     },
-    primeDocumentStore: () => ({
+    openDocumentStore: () => ({
       ensureInitialized: async () => false,
       relink: async () => {
         throw new Error("relink should not be called.");

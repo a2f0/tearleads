@@ -66,7 +66,7 @@ function useContactsRuntime(
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
   const documentsRuntime = useMemo(
-    () => tearleads.documents.runtime(contactsContainerId),
+    () => tearleads.documents.workflowRuntime(contactsContainerId),
     [appData, contactsContainerId, tearleads],
   );
   return useMemo<ContactsRuntime>(
@@ -74,8 +74,10 @@ function useContactsRuntime(
       deleteLocalDocument: (localId) =>
         tearleads.documents.deleteLocalDocument(localId),
       documents: documentsRuntime,
-      primeDocumentStore: (input) =>
-        tearleads.documents.primeStore(input, documentsRuntime),
+      openDocumentStore: (input) =>
+        tearleads.documents.openStore(input, {
+          workflowRuntime: documentsRuntime,
+        }),
     }),
     [documentsRuntime, tearleads],
   );

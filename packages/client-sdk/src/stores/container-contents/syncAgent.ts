@@ -6,7 +6,7 @@ import {
   type ContainerDocumentPrimeHost,
   type ContainerDocumentPrimeStore,
   primeDocumentsForContainerSubtree,
-} from "../../workflows/container-contents/documentReadModel";
+} from "../../workflows/container-contents/documentQueries";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import {
   listContainerMetadataDocumentUpdateIds,
@@ -29,7 +29,7 @@ import {
   isDestroyedContainerContentsSyncRuntimeError,
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
-import { primeDocumentStore, requestDomainDocumentSync } from "../documents";
+import { openDocumentStore, requestDomainDocumentSync } from "../documents";
 
 export type { ContainerState };
 
@@ -89,14 +89,14 @@ function createContainerContentsStoreDocumentPrimeHost(
   state: ContainerContentsStoreSyncState,
 ): ContainerDocumentPrimeHost<ContainerContentsStorePrimeDocumentRuntime> {
   return {
-    createDocumentRuntime: (containerId) =>
+    documentWorkflowRuntime: (containerId) =>
       createContainerContentsDocumentsRuntime(state.runtime, containerId),
-    primeDocumentStore: ({
+    openDocumentStore: ({
       documentId,
       localId,
       runtime,
     }): ContainerDocumentPrimeStore =>
-      primeDocumentStore(
+      openDocumentStore(
         state.runtime.state.domainScope,
         localId,
         runtime,

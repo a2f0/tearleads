@@ -1,7 +1,6 @@
 export { createDomainScope, type DomainScope } from "../data/domainScope";
 export { type BlobStoreFactory, Blobs } from "./blobs";
 export type {
-  ActivateContainerDocumentLinkInput,
   BlobInfo,
   BlobInfoAttachmentKind,
   BlobInfoDocumentReference,
@@ -14,11 +13,11 @@ export type {
   ContainerContentsContextValue,
   ContainerContentsStore,
   ContainerContentsStoreOptions,
+  ContainerDocumentLinkActions,
   ContainerDocumentLinkInput,
-  ContainerDocumentLinksRuntime,
   ContainerDocumentObjectSyncState,
   ContainerDocumentObjectSyncStatus,
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerDocumentSidebarRow,
   ContainerInfo,
   ContainerInfoInput,
@@ -30,12 +29,13 @@ export type {
   ContainerShareAccessLevel,
   DocumentInfo,
   DocumentInfoInput,
-  LinkContainerDocumentLinkInput,
+  LinkDocumentToContainerInput,
   MergeDocumentSummary,
-  MoveContainerDocumentLinkInput,
-  PrimeContainerDocumentStoreInput,
+  MoveDocumentToContainerInput,
+  OpenContainerDocumentStoreInput,
+  SetActiveDocumentContainerInput,
   SetLinkedContainerIdsForDocument,
-  UnlinkContainerDocumentLinkInput,
+  UnlinkDocumentFromContainerInput,
 } from "./containerContents";
 export { createContainerDocumentObjectSyncState } from "./containerContents";
 export {
@@ -50,13 +50,18 @@ export type {
   DocumentAttachmentUpload,
   DocumentContextValue,
   DocumentStore,
-  DocumentStoreInput,
   Documents,
   DocumentsRuntime,
-  ListLocalDocumentSummariesInput,
+  ListLocalDocumentsInput,
+  LocalDocumentList,
+  LocalDocumentSort,
+  LocalDocumentSortDirection,
+  LocalDocumentSortKey,
+  OpenDocumentStoreInput,
+  OpenDocumentStoreOptions,
+  OpenLocalDocumentStoreInput,
   PersistedDocumentListener,
-  PrimeDocumentStoreInput,
-  SubscribeToLocalSummariesOptions,
+  SubscribeToLocalDocumentsOptions,
 } from "./documents";
 export { DEFAULT_DOCUMENT_ID } from "./documents";
 export {

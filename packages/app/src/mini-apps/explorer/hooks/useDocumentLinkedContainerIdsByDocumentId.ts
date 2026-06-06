@@ -1,5 +1,5 @@
 import type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,13 +12,13 @@ import {
 
 export function useDocumentLinkedContainerIdsByDocumentId(params: {
   dbStatus: RuntimeSnapshot["infra"]["dbStatus"];
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   documentLinkProjectionVersion: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;
 }) {
   const {
     dbStatus,
-    documentReadModel,
+    documentQueries,
     documentLinkProjectionVersion,
     documentSummaries,
   } = params;
@@ -68,7 +68,7 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
     void (async () => {
       try {
         const nextLinkedContainerIdsByDocumentId =
-          await documentReadModel.listLinkedContainerIdsByDocumentIds(
+          await documentQueries.listLinkedContainerIdsByDocumentIds(
             requestedDocumentIds,
           );
         if (
@@ -99,7 +99,7 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
     };
   }, [
     dbStatus,
-    documentReadModel,
+    documentQueries,
     documentLinkProjectionVersion,
     requestedDocumentIdsKey,
   ]);

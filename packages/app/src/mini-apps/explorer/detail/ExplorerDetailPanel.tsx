@@ -2,7 +2,7 @@ import type {
   BlobInfoInput,
   BlobInfoList,
   BlobStore,
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerInfo,
   ContainerNode,
   ContainerShareAccessLevel,
@@ -85,7 +85,7 @@ interface ExplorerDetailPanelProps {
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   importDroppedFiles: ImportExplorerDroppedFiles;
   linkedContainerIds: ReadonlyArray<string>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
@@ -207,7 +207,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         canMoveSelectedDocument={params.canMoveSelectedDocument}
         canUnlinkSelectedDocument={params.canUnlinkSelectedDocument}
         documentListRevision={params.documentListRevision}
-        documentReadModel={params.documentReadModel}
+        documentQueries={params.documentQueries}
         linkedContainerIds={params.linkedContainerIds}
         nodes={params.nodes}
         online={params.online}
@@ -227,7 +227,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
       <ExplorerContainerDetail
         containerListRevision={params.nodes}
         documentListRevision={params.documentListRevision}
-        documentReadModel={params.documentReadModel}
+        documentQueries={params.documentQueries}
         importDroppedFiles={params.importDroppedFiles}
         online={params.online}
         refreshError={params.refreshError}

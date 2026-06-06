@@ -1,7 +1,7 @@
 import type {
   BlobInfoInput,
   BlobInfoList,
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerInfo,
   DocumentInfo,
   DocumentSummary,
@@ -94,7 +94,7 @@ export function useExplorerPanelState(params: {
   appData: RuntimeSnapshot;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
@@ -114,7 +114,7 @@ export function useExplorerPanelState(params: {
     appData,
     documentLinkProjectionVersion,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     explorer,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
@@ -173,7 +173,7 @@ export function useExplorerPanelState(params: {
     collapsedIds: selection.collapsedIds,
     documentLinkProjectionVersion,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     handleSidebarDocumentContextMenu:
       contextMenuState.handleSidebarDocumentContextMenu,
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
@@ -206,7 +206,7 @@ export function useExplorerPanelState(params: {
   });
   const importDroppedFiles = useExplorerDroppedFileImport({
     appData: explorerDocumentsAppData,
-    documentReadModel,
+    documentQueries,
     labels: explorerDroppedFileImportLabels,
     logError: appData.util.logError,
     mergeDocumentSummary,

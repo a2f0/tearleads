@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerDocumentSidebarRow,
   ContainerNode,
 } from "@tearleads/client-sdk";
@@ -77,13 +77,13 @@ function createSidebarRows(
   });
 }
 
-function createDocumentReadModel(
+function createDocumentQueries(
   rowsByContainerId: ReadonlyMap<
     string,
     ReadonlyArray<ContainerDocumentSidebarRow>
   >,
   calls: SidebarWindowCall[],
-): ContainerDocumentReadModel {
+): ContainerDocumentQueries {
   return {
     applyContainerDocumentTombstones: async () => [],
     listContainerDocumentSidebarWindow: async ({
@@ -119,14 +119,14 @@ function createRowsByContainerId(
 function ExplorerSidebarHarness(params: {
   collapsedIds?: ReadonlySet<string>;
   documentListRevision?: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   nodes?: ReadonlyArray<ContainerNode>;
   onDocumentContextMenu?: (localId: string, containerId: string) => void;
 }) {
   const {
     collapsedIds: collapsedIdsParam,
     documentListRevision = 0,
-    documentReadModel,
+    documentQueries,
     nodes = defaultNodes,
     onDocumentContextMenu,
   } = params;
@@ -162,7 +162,7 @@ function ExplorerSidebarHarness(params: {
     collapsedIds,
     documentLinkProjectionVersion: 0,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     handleSidebarContextMenu,
     handleSidebarDocumentContextMenu,
     nodes,
@@ -181,12 +181,12 @@ function ExplorerSidebarHarness(params: {
 
 test("explorer sidebar requests new document windows as the sidebar scrolls", async () => {
   const calls: SidebarWindowCall[] = [];
-  const documentReadModel = createDocumentReadModel(
+  const documentQueries = createDocumentQueries(
     createRowsByContainerId(createSidebarRows(80)),
     calls,
   );
   const view = render(
-    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
   );
 
   await waitFor(() => {
@@ -242,7 +242,7 @@ test("explorer sidebar scroll requests windows for each folder independently", a
     },
   ];
   const calls: SidebarWindowCall[] = [];
-  const documentReadModel = createDocumentReadModel(
+  const documentQueries = createDocumentQueries(
     new Map([
       ["child-container", createSidebarRows(80, "child-container")],
       ["root-container", createSidebarRows(5)],
@@ -251,7 +251,7 @@ test("explorer sidebar scroll requests windows for each folder independently", a
   );
   const view = render(
     <ExplorerSidebarHarness
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
       nodes={childNodes}
     />,
   );
@@ -302,7 +302,7 @@ test("explorer sidebar renders Phosphor folder icons for containers", async () =
       syncState: syncedContainerDocumentObjectSyncState,
     },
   ];
-  const documentReadModel = createDocumentReadModel(
+  const documentQueries = createDocumentQueries(
     new Map([
       ["child-container", []],
       ["root-container", []],
@@ -311,7 +311,7 @@ test("explorer sidebar renders Phosphor folder icons for containers", async () =
   );
   const view = render(
     <ExplorerSidebarHarness
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
       nodes={childNodes}
     />,
   );
@@ -330,7 +330,7 @@ test("explorer sidebar renders Phosphor folder icons for containers", async () =
   const collapsedView = render(
     <ExplorerSidebarHarness
       collapsedIds={new Set(["root-container"])}
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
       nodes={childNodes}
     />,
   );
@@ -350,7 +350,7 @@ test("explorer sidebar ignores stale document windows during fast scrolling", as
     | ((
         value: Awaited<
           ReturnType<
-            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
+            ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
           >
         >,
       ) => void)
@@ -359,13 +359,13 @@ test("explorer sidebar ignores stale document windows during fast scrolling", as
     | ((
         value: Awaited<
           ReturnType<
-            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
+            ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
           >
         >,
       ) => void)
     | undefined;
-  const documentReadModel = {
-    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+  const documentQueries = {
+    ...createDocumentQueries(createRowsByContainerId(rows), calls),
     listContainerDocumentSidebarWindow: async ({
       containerId,
       limit,
@@ -388,9 +388,9 @@ test("explorer sidebar ignores stale document windows during fast scrolling", as
         totalCount: rows.length,
       };
     },
-  } satisfies ContainerDocumentReadModel;
+  } satisfies ContainerDocumentQueries;
   const view = render(
-    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
   );
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
@@ -446,13 +446,13 @@ test("explorer sidebar shows loading feedback during the first document window r
     | ((
         value: Awaited<
           ReturnType<
-            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
+            ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
           >
         >,
       ) => void)
     | undefined;
-  const documentReadModel = {
-    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+  const documentQueries = {
+    ...createDocumentQueries(createRowsByContainerId(rows), calls),
     listContainerDocumentSidebarWindow: async ({
       containerId,
       limit,
@@ -463,9 +463,9 @@ test("explorer sidebar shows loading feedback during the first document window r
         resolveWindow = resolve;
       });
     },
-  } satisfies ContainerDocumentReadModel;
+  } satisfies ContainerDocumentQueries;
   const view = render(
-    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
   );
 
   const loadingButton = await view.findByRole("button", { name: "Loading..." });
@@ -488,13 +488,13 @@ test("explorer sidebar shows loading feedback during the first document window r
 
 test("explorer sidebar forwards document context-menu events with document and container ids", async () => {
   const calls: Array<{ containerId: string; localId: string }> = [];
-  const documentReadModel = createDocumentReadModel(
+  const documentQueries = createDocumentQueries(
     createRowsByContainerId(createSidebarRows(1)),
     [],
   );
   const view = render(
     <ExplorerSidebarHarness
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
       onDocumentContextMenu={(localId, containerId) => {
         calls.push({ containerId, localId });
       }}
@@ -513,8 +513,8 @@ test("explorer sidebar forwards document context-menu events with document and c
 test("explorer sidebar can retry a failed initial document window", async () => {
   const calls: SidebarWindowCall[] = [];
   const rows = createSidebarRows(1);
-  const documentReadModel = {
-    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+  const documentQueries = {
+    ...createDocumentQueries(createRowsByContainerId(rows), calls),
     listContainerDocumentSidebarWindow: async ({
       containerId,
       limit,
@@ -530,9 +530,9 @@ test("explorer sidebar can retry a failed initial document window", async () => 
         totalCount: rows.length,
       };
     },
-  } satisfies ContainerDocumentReadModel;
+  } satisfies ContainerDocumentQueries;
   const view = render(
-    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
   );
 
   fireEvent.click(await view.findByRole("button", { name: "Retry" }));
@@ -558,13 +558,13 @@ test("explorer sidebar keeps existing documents visible during document list ref
     | ((
         value: Awaited<
           ReturnType<
-            ContainerDocumentReadModel["listContainerDocumentSidebarWindow"]
+            ContainerDocumentQueries["listContainerDocumentSidebarWindow"]
           >
         >,
       ) => void)
     | undefined;
-  const documentReadModel = {
-    ...createDocumentReadModel(createRowsByContainerId(rows), calls),
+  const documentQueries = {
+    ...createDocumentQueries(createRowsByContainerId(rows), calls),
     listContainerDocumentSidebarWindow: async ({
       containerId,
       limit,
@@ -582,11 +582,11 @@ test("explorer sidebar keeps existing documents visible during document list ref
         resolveRefresh = resolve;
       });
     },
-  } satisfies ContainerDocumentReadModel;
+  } satisfies ContainerDocumentQueries;
   const view = render(
     <ExplorerSidebarHarness
       documentListRevision={0}
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
     />,
   );
 
@@ -595,7 +595,7 @@ test("explorer sidebar keeps existing documents visible during document list ref
   view.rerender(
     <ExplorerSidebarHarness
       documentListRevision={1}
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
     />,
   );
 
@@ -617,12 +617,12 @@ test("explorer sidebar keeps existing documents visible during document list ref
 
 test("explorer sidebar does not refresh loaded documents on collapsed state changes", async () => {
   const calls: SidebarWindowCall[] = [];
-  const documentReadModel = createDocumentReadModel(
+  const documentQueries = createDocumentQueries(
     createRowsByContainerId(createSidebarRows(1)),
     calls,
   );
   const view = render(
-    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
   );
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
@@ -634,7 +634,7 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
   view.rerender(
     <ExplorerSidebarHarness
       collapsedIds={new Set(["root-container"])}
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
     />,
   );
   expect(view.queryByRole("button", { name: "Document 1" })).toBeNull();
@@ -642,7 +642,7 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
   view.rerender(
     <ExplorerSidebarHarness
       collapsedIds={new Set()}
-      documentReadModel={documentReadModel}
+      documentQueries={documentQueries}
     />,
   );
 
@@ -654,12 +654,12 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
 });
 
 test("explorer sidebar does not reserve hidden sync badge space for synced rows", async () => {
-  const documentReadModel = createDocumentReadModel(
+  const documentQueries = createDocumentQueries(
     createRowsByContainerId(createSidebarRows(1)),
     [],
   );
   const view = render(
-    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
   );
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
@@ -673,12 +673,12 @@ test("explorer sidebar keeps visible sync badges for unsynced rows", async () =>
     ...row,
     syncState: createContainerDocumentObjectSyncState({ localOnly: true }),
   }));
-  const documentReadModel = createDocumentReadModel(
+  const documentQueries = createDocumentQueries(
     createRowsByContainerId(rows),
     [],
   );
   const view = render(
-    <ExplorerSidebarHarness documentReadModel={documentReadModel} />,
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
   );
 
   await waitFor(() => {
