@@ -1,5 +1,5 @@
 import type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerNode,
   DocumentSummary,
 } from "@tearleads/client-sdk";
@@ -15,7 +15,7 @@ import {
 
 export function useExplorerDocumentViewModel(params: {
   appData: Pick<RuntimeSnapshot, "infra" | "state">;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;
 }): {
@@ -34,7 +34,7 @@ export function useExplorerDocumentViewModel(params: {
     linkedContainerIds: ReadonlyArray<string>,
   ) => void;
 } {
-  const { appData, documentReadModel, documentLinkProjectionVersion, nodes } =
+  const { appData, documentQueries, documentLinkProjectionVersion, nodes } =
     params;
   const {
     documentListRevision,
@@ -46,12 +46,12 @@ export function useExplorerDocumentViewModel(params: {
     appData.infra.dbStatus,
     appData.state.domainScope,
     appData.state.containerId,
-    documentReadModel,
+    documentQueries,
   );
   const { linkedContainerIdsByDocumentId, setLinkedContainerIdsForDocument } =
     useDocumentLinkedContainerIdsByDocumentId({
       dbStatus: appData.infra.dbStatus,
-      documentReadModel,
+      documentQueries,
       documentLinkProjectionVersion,
       documentSummaries,
     });

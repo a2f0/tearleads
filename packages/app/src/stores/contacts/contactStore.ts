@@ -2,7 +2,7 @@ import type {
   DocumentStore,
   DocumentsRuntime,
   DomainScope,
-  PrimeDocumentStoreInput,
+  OpenLocalDocumentStoreInput,
   UserKey,
 } from "@tearleads/client-sdk";
 import {
@@ -23,7 +23,7 @@ export interface ContactsSnapshot {
 export interface ContactsRuntime {
   deleteLocalDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
-  primeDocumentStore: (input: PrimeDocumentStoreInput) => DocumentStore;
+  openDocumentStore: (input: OpenLocalDocumentStoreInput) => DocumentStore;
 }
 
 export interface ContactsStore {
@@ -159,7 +159,7 @@ function ensureContactDocumentStore(
     return existing.store;
   }
 
-  const store = state.runtime.primeDocumentStore({
+  const store = state.runtime.openDocumentStore({
     containerId: state.runtime.documents.state.containerId,
     documentId: null,
     initialDocumentKind: "contact",

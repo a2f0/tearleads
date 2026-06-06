@@ -11,14 +11,14 @@ export function useExplorerRefreshAction(params: {
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
   refresh: () => Promise<boolean>;
-  refreshDocuments: ContainerContents["refreshDocuments"];
+  refreshAllContainerDocuments: ContainerContents["refreshAllContainerDocuments"];
 }) {
   const {
     mergeDocumentSummaries,
     onDocumentLinksChanged,
     primeDiscoveredDocuments,
     refresh,
-    refreshDocuments,
+    refreshAllContainerDocuments,
   } = params;
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function useExplorerRefreshAction(params: {
         return false;
       }
 
-      const discoveredDocumentSummaries = await refreshDocuments();
+      const discoveredDocumentSummaries = await refreshAllContainerDocuments();
       if (!discoveredDocumentSummaries) {
         setRefreshError("Failed to refresh documents.");
         return false;
@@ -73,7 +73,7 @@ export function useExplorerRefreshAction(params: {
     onDocumentLinksChanged,
     primeDiscoveredDocuments,
     refresh,
-    refreshDocuments,
+    refreshAllContainerDocuments,
   ]);
 
   return { handleRefresh, isRefreshing, refreshError };

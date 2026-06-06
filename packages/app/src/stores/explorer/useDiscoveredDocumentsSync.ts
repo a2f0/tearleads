@@ -1,6 +1,6 @@
 import type {
   ContainerContents,
-  ContainerDocumentLinksRuntime,
+  ContainerDocumentLinkActions,
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
@@ -95,12 +95,12 @@ function getUndiscoveredDocumentUpdateIds(
 }
 
 function useContainerDiscoveryPromiseFactory(params: {
-  discoverDocuments: ContainerContents["discoverDocuments"];
+  discoverContainerDocuments: ContainerContents["discoverContainerDocuments"];
 }) {
-  const { discoverDocuments } = params;
+  const { discoverContainerDocuments } = params;
   const discoveryPromisesByContainerId = useMemo(
     () => new Map<string, DiscoveryPromise>(),
-    [discoverDocuments],
+    [discoverContainerDocuments],
   );
 
   return useCallback(
@@ -110,16 +110,18 @@ function useContainerDiscoveryPromiseFactory(params: {
         return currentPromise;
       }
 
-      const nextPromise = discoverDocuments(containerId).finally(() => {
-        if (discoveryPromisesByContainerId.get(containerId) === nextPromise) {
-          discoveryPromisesByContainerId.delete(containerId);
-        }
-      });
+      const nextPromise = discoverContainerDocuments(containerId).finally(
+        () => {
+          if (discoveryPromisesByContainerId.get(containerId) === nextPromise) {
+            discoveryPromisesByContainerId.delete(containerId);
+          }
+        },
+      );
 
       discoveryPromisesByContainerId.set(containerId, nextPromise);
       return nextPromise;
     },
-    [discoverDocuments, discoveryPromisesByContainerId],
+    [discoverContainerDocuments, discoveryPromisesByContainerId],
   );
 }
 
@@ -191,7 +193,7 @@ function applyDiscoveredDocumentSummaries(input: {
   primeDiscoveredDocumentsRef.current(discoveredDocumentSummaries);
 }
 
-function useDiscoverDocumentsForContainerCallback(input: {
+function useDiscoverContainerDocumentsForContainerCallback(input: {
   appliedDiscoveryPromisesRef: RefObject<WeakSet<DiscoveryPromise>>;
   getDiscoveryPromise: (containerId: string) => DiscoveryPromise;
   locallyCheckedContainerDocumentIdsRef: RefObject<Set<string>>;
@@ -276,8 +278,8 @@ function useDiscoverDocumentsForContainerCallback(input: {
 export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
   appData: ExplorerDiscoveryAppData;
-  discoverDocuments: ContainerContents["discoverDocuments"];
-  hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
+  discoverContainerDocuments: ContainerContents["discoverContainerDocuments"];
+  hasUnseenDocumentUpdates: ContainerContents["hasUnseenDocumentUpdates"];
   knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
@@ -290,8 +292,8 @@ export function useDiscoveredDocumentsSync(params: {
   const {
     activeContainerId,
     appData,
-    discoverDocuments,
-    hasUndiscoveredDocumentUpdates,
+    discoverContainerDocuments,
+    hasUnseenDocumentUpdates,
     knownDocumentIds,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
@@ -319,11 +321,11 @@ export function useDiscoveredDocumentsSync(params: {
   });
 
   const getDiscoveryPromise = useContainerDiscoveryPromiseFactory({
-    discoverDocuments,
+    discoverContainerDocuments,
   });
 
-  const discoverDocumentsForContainer =
-    useDiscoverDocumentsForContainerCallback({
+  const discoverContainerDocumentsForContainer =
+    useDiscoverContainerDocumentsForContainerCallback({
       appliedDiscoveryPromisesRef,
       getDiscoveryPromise,
       locallyCheckedContainerDocumentIdsRef,
@@ -337,10 +339,10 @@ export function useDiscoveredDocumentsSync(params: {
   useContainerDiscoveryEffects({
     activeContainerId,
     dbStatus: appData.infra.dbStatus,
-    discoverDocumentsForContainer,
+    discoverContainerDocumentsForContainer,
     domainScope: appData.state.domainScope,
     events: appData.state.events,
-    hasUndiscoveredDocumentUpdates,
+    hasUnseenDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
     locallyCheckedContainerDocumentIdsRef,
@@ -405,16 +407,16 @@ function useResetEventFrontierOnDomainScope(
   lastCheckedEventCountByContainerIdRef.current = new Map();
 }
 
-function useDiscoverDocumentsForUpdateEvents(params: {
+function useDiscoverContainerDocumentsForUpdateEvents(params: {
   activeContainerId: string | null;
   dbStatus: ExplorerDiscoveryAppData["infra"]["dbStatus"];
-  discoverDocumentsForContainer: (
+  discoverContainerDocumentsForContainer: (
     containerId: string,
     checkedDocumentUpdateIds?: ReadonlyArray<string>,
   ) => (() => void) | undefined;
   events: ExplorerDiscoveryAppData["state"]["events"];
   getKnownDocumentIdsForDiscovery: () => ReadonlySet<string>;
-  hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
+  hasUnseenDocumentUpdates: ContainerContents["hasUnseenDocumentUpdates"];
   isAuthenticated: ExplorerDiscoveryAppData["auth"]["isAuthenticated"];
   lastCheckedEventCountByContainerIdRef: RefObject<Map<string, number>>;
   online: ExplorerDiscoveryAppData["state"]["online"];
@@ -422,10 +424,10 @@ function useDiscoverDocumentsForUpdateEvents(params: {
   const {
     activeContainerId,
     dbStatus,
-    discoverDocumentsForContainer,
+    discoverContainerDocumentsForContainer,
     events,
     getKnownDocumentIdsForDiscovery,
-    hasUndiscoveredDocumentUpdates,
+    hasUnseenDocumentUpdates,
     isAuthenticated,
     lastCheckedEventCountByContainerIdRef,
     online,
@@ -462,22 +464,22 @@ function useDiscoverDocumentsForUpdateEvents(params: {
     );
     if (
       uncheckedDocumentUpdateIds.length === 0 ||
-      !hasUndiscoveredDocumentUpdates(knownDocumentIdsForDiscovery)
+      !hasUnseenDocumentUpdates(knownDocumentIdsForDiscovery)
     ) {
       return;
     }
 
-    return discoverDocumentsForContainer(
+    return discoverContainerDocumentsForContainer(
       activeContainerId,
       uncheckedDocumentUpdateIds,
     );
   }, [
     activeContainerId,
     dbStatus,
-    discoverDocumentsForContainer,
+    discoverContainerDocumentsForContainer,
     events,
     getKnownDocumentIdsForDiscovery,
-    hasUndiscoveredDocumentUpdates,
+    hasUnseenDocumentUpdates,
     isAuthenticated,
     lastCheckedEventCountByContainerIdRef,
     online,
@@ -487,13 +489,13 @@ function useDiscoverDocumentsForUpdateEvents(params: {
 function useContainerDiscoveryEffects(params: {
   activeContainerId: string | null;
   dbStatus: ExplorerDiscoveryAppData["infra"]["dbStatus"];
-  discoverDocumentsForContainer: (
+  discoverContainerDocumentsForContainer: (
     containerId: string,
     checkedDocumentUpdateIds?: ReadonlyArray<string>,
   ) => (() => void) | undefined;
   domainScope: ExplorerDiscoveryAppData["state"]["domainScope"];
   events: ExplorerDiscoveryAppData["state"]["events"];
-  hasUndiscoveredDocumentUpdates: ContainerContents["hasUndiscoveredDocumentUpdates"];
+  hasUnseenDocumentUpdates: ContainerContents["hasUnseenDocumentUpdates"];
   isAuthenticated: ExplorerDiscoveryAppData["auth"]["isAuthenticated"];
   knownDocumentIds: ReadonlySet<string>;
   locallyCheckedContainerDocumentIdsRef: RefObject<Set<string>>;
@@ -504,10 +506,10 @@ function useContainerDiscoveryEffects(params: {
   const {
     activeContainerId,
     dbStatus,
-    discoverDocumentsForContainer,
+    discoverContainerDocumentsForContainer,
     domainScope,
     events,
-    hasUndiscoveredDocumentUpdates,
+    hasUnseenDocumentUpdates,
     isAuthenticated,
     knownDocumentIds,
     locallyCheckedContainerDocumentIdsRef,
@@ -546,23 +548,23 @@ function useContainerDiscoveryEffects(params: {
       return;
     }
 
-    return discoverDocumentsForContainer(activeContainerId);
+    return discoverContainerDocumentsForContainer(activeContainerId);
   }, [
     activeContainerId,
     dbStatus,
-    discoverDocumentsForContainer,
+    discoverContainerDocumentsForContainer,
     isAuthenticated,
     locallyCheckedContainerDocumentIdsRef,
     online,
   ]);
 
-  useDiscoverDocumentsForUpdateEvents({
+  useDiscoverContainerDocumentsForUpdateEvents({
     activeContainerId,
     dbStatus,
-    discoverDocumentsForContainer,
+    discoverContainerDocumentsForContainer,
     events,
     getKnownDocumentIdsForDiscovery,
-    hasUndiscoveredDocumentUpdates,
+    hasUnseenDocumentUpdates,
     isAuthenticated,
     lastCheckedEventCountByContainerIdRef,
     online,
@@ -610,14 +612,14 @@ export function usePrimeDiscoveredDocuments(params: {
 
 export function primeDiscoveredDocumentStores(input: {
   discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>;
-  runtimeAppData: Pick<ContainerDocumentLinksRuntime, "primeDocumentStore">;
+  runtimeAppData: Pick<ContainerDocumentLinkActions, "openDocumentStore">;
 }) {
   for (const documentSummary of input.discoveredDocumentSummaries) {
     if (!documentSummary.containerId || !documentSummary.documentId) {
       continue;
     }
 
-    input.runtimeAppData.primeDocumentStore({
+    input.runtimeAppData.openDocumentStore({
       containerId: documentSummary.containerId,
       documentId: documentSummary.documentId,
       localId: documentSummary.id,

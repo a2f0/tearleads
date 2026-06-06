@@ -1,14 +1,19 @@
-import type { DocumentSummary } from "../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../data/documents/documentKinds";
+import type {
+  DocumentSummaryList,
+  DocumentSummarySort,
+  DocumentSummarySortDirection,
+  DocumentSummarySortKey,
+  ListDocumentSummariesInput,
+} from "../data/persistence/documents/types";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   DEFAULT_DOCUMENT_ID as DEFAULT_LOCAL_DOCUMENT_ID,
   type DocumentStore,
   type DocumentsRuntime,
-  getOrCreateDocumentStore,
+  openDocumentStore,
   type PersistedDocumentListener,
-  primeDocumentStore,
   subscribeToPersistedDocuments,
 } from "../stores/documents";
 import {
@@ -27,13 +32,18 @@ export type {
   PersistedDocumentListener,
 } from "../stores/documents";
 
-export interface ListLocalDocumentSummariesInput {
-  documentKind?: StoredDocumentKind | undefined;
-}
+export type LocalDocumentSortDirection = DocumentSummarySortDirection;
+export type LocalDocumentSortKey = DocumentSummarySortKey;
+
+export type LocalDocumentSort = DocumentSummarySort;
+
+export interface ListLocalDocumentsInput extends ListDocumentSummariesInput {}
+
+export type LocalDocumentList = DocumentSummaryList;
 
 export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
 
-export interface DocumentStoreInput {
+export interface OpenDocumentStoreInput {
   readonly containerId?: string | null | undefined;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
@@ -41,32 +51,32 @@ export interface DocumentStoreInput {
   readonly localId?: string | undefined;
 }
 
-export interface PrimeDocumentStoreInput extends DocumentStoreInput {
+export interface OpenLocalDocumentStoreInput extends OpenDocumentStoreInput {
   readonly localId: string;
 }
 
-export interface SubscribeToLocalSummariesOptions {
+export interface OpenDocumentStoreOptions {
+  readonly workflowRuntime?: DocumentsRuntime | undefined;
+}
+
+export interface SubscribeToLocalDocumentsOptions {
   readonly containerId?: string | null | undefined;
 }
 
 export interface Documents {
   deleteLocalDocument(localId: string): Promise<boolean>;
-  listLocalSummaries(
-    input?: ListLocalDocumentSummariesInput | undefined,
-  ): Promise<ReadonlyArray<DocumentSummary> | null>;
-  primeStore(
-    input: PrimeDocumentStoreInput,
-    runtime?: DocumentsRuntime | undefined,
+  listLocalDocuments(
+    input?: ListLocalDocumentsInput | undefined,
+  ): Promise<LocalDocumentList | null>;
+  openStore(
+    input?: OpenDocumentStoreInput | undefined,
+    options?: OpenDocumentStoreOptions | undefined,
   ): DocumentStore;
-  runtime(containerId?: string | null | undefined): DocumentsRuntime;
-  store(
-    input?: DocumentStoreInput | undefined,
-    runtime?: DocumentsRuntime | undefined,
-  ): DocumentStore;
-  subscribeToLocalSummaries(
+  subscribeToLocalDocuments(
     listener: PersistedDocumentListener,
-    options?: SubscribeToLocalSummariesOptions | undefined,
+    options?: SubscribeToLocalDocumentsOptions | undefined,
   ): () => void;
+  workflowRuntime(containerId?: string | null | undefined): DocumentsRuntime;
 }
 
 interface DocumentsDependencies {
@@ -89,7 +99,7 @@ class DocumentsService implements Documents {
   constructor(private readonly dependencies: DocumentsDependencies) {}
 
   async deleteLocalDocument(localId: string): Promise<boolean> {
-    const runtime = this.runtime();
+    const runtime = this.workflowRuntime();
     if (runtime.infra.dbStatus !== "ready") {
       return false;
     }
@@ -103,60 +113,31 @@ class DocumentsService implements Documents {
     return true;
   }
 
-  async listLocalSummaries(
-    input: ListLocalDocumentSummariesInput = {},
-  ): Promise<ReadonlyArray<DocumentSummary> | null> {
+  async listLocalDocuments(
+    input: ListLocalDocumentsInput = {},
+  ): Promise<LocalDocumentList | null> {
     const runtime = this.dependencies.runtime.workflowInput();
     if (runtime.infra.dbStatus !== "ready") {
       return null;
     }
 
     await this.ensureSchema(runtime.infra.execSql);
-    const summaries = await defaultDocumentsPersistence.listDocuments(
+    return defaultDocumentsPersistence.listDocumentSummaries(
       runtime.infra.execSql,
-    );
-    if (!input.documentKind) {
-      return summaries;
-    }
-
-    return summaries.filter(
-      (summary) =>
-        (summary.documentKind ?? DEFAULT_DOCUMENT_KIND) === input.documentKind,
+      input,
     );
   }
 
-  primeStore(
-    input: PrimeDocumentStoreInput,
-    runtimeOverride?: DocumentsRuntime | undefined,
-  ): DocumentStore {
-    const {
-      containerId,
-      documentId = null,
-      initialDocumentKind = DEFAULT_DOCUMENT_KIND,
-      initialText = "",
-      localId,
-    } = input;
-    const runtime = runtimeOverride ?? this.runtime(containerId);
-    return primeDocumentStore(
-      runtime.state.domainScope,
-      localId,
-      runtime,
-      documentId,
-      initialText,
-      initialDocumentKind,
-    );
-  }
-
-  runtime(
+  workflowRuntime(
     containerId = this.dependencies.getDefaultContainerId(),
   ): DocumentsRuntime {
     const input = this.dependencies.runtime.workflowInput(containerId);
     return createDocumentsWorkflowRuntime(input);
   }
 
-  store(
-    input: DocumentStoreInput = {},
-    runtimeOverride?: DocumentsRuntime | undefined,
+  openStore(
+    input: OpenDocumentStoreInput = {},
+    options: OpenDocumentStoreOptions = {},
   ): DocumentStore {
     const {
       containerId,
@@ -165,8 +146,9 @@ class DocumentsService implements Documents {
       initialText = "",
       localId = DEFAULT_LOCAL_DOCUMENT_ID,
     } = input;
-    const runtime = runtimeOverride ?? this.runtime(containerId);
-    return getOrCreateDocumentStore(
+    const runtime =
+      options.workflowRuntime ?? this.workflowRuntime(containerId);
+    return openDocumentStore(
       runtime.state.domainScope,
       localId,
       runtime,
@@ -176,9 +158,9 @@ class DocumentsService implements Documents {
     );
   }
 
-  subscribeToLocalSummaries(
+  subscribeToLocalDocuments(
     listener: PersistedDocumentListener,
-    options: SubscribeToLocalSummariesOptions = {},
+    options: SubscribeToLocalDocumentsOptions = {},
   ): () => void {
     return subscribeToPersistedDocuments(
       this.dependencies.runtime.workflowInput(options.containerId).state

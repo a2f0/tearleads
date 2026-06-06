@@ -83,7 +83,7 @@ export function Explorer() {
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
         documentListRevision={model.documentListRevision}
-        documentReadModel={model.documentReadModel}
+        documentQueries={model.documentQueries}
         importDroppedFiles={model.importDroppedFiles}
         linkedContainerIds={model.linkedContainerIds}
         loadBlobInfo={model.loadBlobInfo}

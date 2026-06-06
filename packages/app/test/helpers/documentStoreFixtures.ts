@@ -66,6 +66,7 @@ function createDocumentReadPersistence(
 ): Pick<
   DocumentsPersistence,
   | "ensureSchema"
+  | "listDocumentSummaries"
   | "listDocuments"
   | "listDocumentsByContainerIdsOrDocumentIds"
   | "loadDocument"
@@ -74,6 +75,15 @@ function createDocumentReadPersistence(
     async ensureSchema() {},
     async listDocuments() {
       return state.document ? [documentSummaryFromRecord(state.document)] : [];
+    },
+    async listDocumentSummaries() {
+      const rows = state.document
+        ? [documentSummaryFromRecord(state.document)]
+        : [];
+      return {
+        rows,
+        totalCount: rows.length,
+      };
     },
     async listDocumentsByContainerIdsOrDocumentIds(_execSql, input) {
       if (!state.document) {

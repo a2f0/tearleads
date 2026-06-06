@@ -1,7 +1,7 @@
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
 import type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerDocumentSidebarRow,
   ContainerNode,
 } from "@tearleads/client-sdk";
@@ -680,7 +680,7 @@ function useExplorerSidebarDocumentWindows(params: {
   collapsedIds: ReadonlySet<string>;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
@@ -689,7 +689,7 @@ function useExplorerSidebarDocumentWindows(params: {
     collapsedIds,
     documentLinkProjectionVersion,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     nodes,
     ready,
     treeEntries,
@@ -744,7 +744,7 @@ function useExplorerSidebarDocumentWindows(params: {
         return nextWindows;
       });
 
-      void documentReadModel
+      void documentQueries
         .listContainerDocumentSidebarWindow({
           containerId,
           limit,
@@ -809,7 +809,7 @@ function useExplorerSidebarDocumentWindows(params: {
           });
         });
     },
-    [documentReadModel],
+    [documentQueries],
   );
 
   useEffect(() => {
@@ -819,7 +819,7 @@ function useExplorerSidebarDocumentWindows(params: {
     setDocumentWindowsByContainerId((currentWindows) =>
       currentWindows.size === 0 ? currentWindows : new Map(),
     );
-  }, [documentReadModel]);
+  }, [documentQueries]);
 
   useEffect(() => {
     if (!ready) {
@@ -1045,7 +1045,7 @@ interface ExplorerSidebarPanelParams {
   collapsedIds: ReadonlySet<string>;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   handleSidebarContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
     nodeId: string,
@@ -1135,7 +1135,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.collapsedIds,
       params.documentLinkProjectionVersion,
       params.documentListRevision,
-      params.documentReadModel,
+      params.documentQueries,
       params.handleSidebarContextMenu,
       params.handleSidebarDocumentContextMenu,
       params.nodes,

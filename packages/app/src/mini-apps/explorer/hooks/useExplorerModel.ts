@@ -1,10 +1,10 @@
 import type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { type ReactNode, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { useExplorerDocumentReadModel } from "../../../stores/explorer/documentReadModel";
+import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
   ExplorerDocumentMutationAction,
@@ -30,7 +30,7 @@ interface ExplorerModel {
   contextMenuState: ExplorerPanelState["contextMenuState"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
   documentListRevision: number;
-  documentReadModel: ContainerDocumentReadModel;
+  documentQueries: ContainerDocumentQueries;
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
@@ -59,7 +59,7 @@ export function useExplorerModel(
 ): ExplorerModel {
   const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
     useDocumentLinkProjectionVersion();
-  const documentReadModel = useExplorerDocumentReadModel(appData);
+  const documentQueries = useExplorerDocumentQueries(appData);
   const {
     documentListRevision,
     knownDocumentIds,
@@ -72,7 +72,7 @@ export function useExplorerModel(
     setLinkedContainerIdsForDocument,
   } = useExplorerDocumentViewModel({
     appData,
-    documentReadModel,
+    documentQueries,
     documentLinkProjectionVersion,
     nodes: explorer.nodes,
   });
@@ -108,7 +108,7 @@ export function useExplorerModel(
   } = useExplorerPanelState({
     appData,
     documentLinkProjectionVersion,
-    documentReadModel,
+    documentQueries,
     explorer,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
@@ -138,7 +138,7 @@ export function useExplorerModel(
     contextMenuState,
     deleteDocument,
     documentListRevision,
-    documentReadModel,
+    documentQueries,
     explorer,
     handleRefresh,
     importDroppedFiles,

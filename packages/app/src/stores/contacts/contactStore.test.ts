@@ -4,7 +4,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
   deletePersistedDocument,
-  primeDocumentStore,
+  openDocumentStore,
 } from "@tearleads/client-sdk";
 import { getSQLitePersistenceRuntime } from "@tearleads/client-sdk/sqlite";
 import {
@@ -59,8 +59,8 @@ async function createContactsRuntime(): Promise<
       return true;
     },
     documents,
-    primeDocumentStore: (input) =>
-      primeDocumentStore(
+    openDocumentStore: (input) =>
+      openDocumentStore(
         documents.state.domainScope,
         input.localId,
         documents,

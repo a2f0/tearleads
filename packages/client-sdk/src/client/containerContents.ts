@@ -6,7 +6,7 @@ import {
   type ContainerContentsStoreOptions,
   getOrCreateContainerContentsStore,
 } from "../stores/container-contents";
-import { type DocumentStore, primeDocumentStore } from "../stores/documents";
+import { type DocumentStore, openDocumentStore } from "../stores/documents";
 import {
   type BlobInfoInput,
   type BlobInfoList,
@@ -29,9 +29,9 @@ import {
   loadDocumentInfo,
 } from "../workflows/container-contents/documentInfo";
 import {
-  type ContainerDocumentReadModel,
-  createContainerDocumentReadModelFromRuntime,
-} from "../workflows/container-contents/documentReadModel";
+  type ContainerDocumentQueries,
+  createContainerDocumentQueriesFromRuntime,
+} from "../workflows/container-contents/documentQueries";
 import {
   activateDocumentLinkState,
   canMutateDocumentLink,
@@ -80,13 +80,13 @@ export type {
 } from "../workflows/container-contents/containerInfo";
 export type { DocumentInfo } from "../workflows/container-contents/documentInfo";
 export type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   ContainerDocumentSidebarRow,
   ContainerItemRow,
   ContainerItemSort,
   ContainerItemSortDirection,
   ContainerItemSortKey,
-} from "../workflows/container-contents/documentReadModel";
+} from "../workflows/container-contents/documentQueries";
 export type { SetLinkedContainerIdsForDocument } from "../workflows/container-contents/documentStructure";
 export type {
   ContainerDocumentObjectSyncState,
@@ -94,7 +94,7 @@ export type {
 } from "../workflows/container-contents/syncState";
 
 type ContainerDocumentDiscoveryPersistence = Pick<
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   | "applyContainerDocumentTombstones"
   | "loadContainerDocumentWatermark"
   | "replaceDocumentLinksBatch"
@@ -141,7 +141,7 @@ export { createContainerDocumentObjectSyncState };
 
 export type MergeDocumentSummary = (nextDocument: DocumentSummary) => void;
 
-export interface PrimeContainerDocumentStoreInput {
+export interface OpenContainerDocumentStoreInput {
   readonly containerId: string;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
@@ -154,48 +154,48 @@ export interface ContainerDocumentLinkInput {
   readonly note: DocumentSummary;
 }
 
-export interface MoveContainerDocumentLinkInput
+export interface MoveDocumentToContainerInput
   extends ContainerDocumentLinkInput {
   readonly expandNode: (nodeId: string) => void;
   readonly setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   readonly targetContainerId: string;
 }
 
-export interface LinkContainerDocumentLinkInput
+export interface LinkDocumentToContainerInput
   extends ContainerDocumentLinkInput {
   readonly setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   readonly targetContainerId: string;
 }
 
-export interface UnlinkContainerDocumentLinkInput
+export interface UnlinkDocumentFromContainerInput
   extends ContainerDocumentLinkInput {
   readonly removedContainerId: string;
   readonly setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }
 
-export interface ActivateContainerDocumentLinkInput
+export interface SetActiveDocumentContainerInput
   extends ContainerDocumentLinkInput {
   readonly targetContainerId: string;
 }
 
-export interface ContainerDocumentLinksRuntime
+export interface ContainerDocumentLinkActions
   extends ContainerContentsWorkflowRuntime {
-  activateDocumentContainer(
-    input: ActivateContainerDocumentLinkInput,
+  documentWorkflowRuntime(containerId: string): DocumentsWorkflowRuntime;
+  openDocumentStore(input: OpenContainerDocumentStoreInput): DocumentStore;
+  setActiveDocumentContainer(
+    input: SetActiveDocumentContainerInput,
   ): Promise<DocumentSummary | null>;
   readonly canMutateDocumentLinks: boolean;
   readonly canMutateLocalDocumentLinks: boolean;
-  createDocumentRuntime(containerId: string): DocumentsWorkflowRuntime;
   linkDocumentToContainer(
-    input: LinkContainerDocumentLinkInput,
+    input: LinkDocumentToContainerInput,
   ): Promise<DocumentSummary | null>;
   moveDocumentToContainer(
-    input: MoveContainerDocumentLinkInput,
+    input: MoveDocumentToContainerInput,
   ): Promise<{ linksChanged: boolean; note: DocumentSummary | null }>;
-  primeDocumentStore(input: PrimeContainerDocumentStoreInput): DocumentStore;
   readonly resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   unlinkDocumentFromContainer(
-    input: UnlinkContainerDocumentLinkInput,
+    input: UnlinkDocumentFromContainerInput,
   ): Promise<DocumentSummary | null>;
 }
 
@@ -203,7 +203,7 @@ export interface ContainerDocumentLinksRuntime
  * High-level container-content service for document discovery and diagnostics.
  *
  * The facade owns the normal SDK protocol: it supplies the API client,
- * referenced-principal policy cache, local document read model, link
+ * referenced-principal policy cache, local document query facade, link
  * projection, tombstone handling, and sync watermarks. Consumers that need a
  * custom persistence protocol can call the lower-level workflows directly from
  * `@tearleads/client-sdk`.
@@ -216,27 +216,27 @@ export interface ContainerContents {
    * snapshot. Long-lived hosts should call `updateRuntime` after runtime
    * changes, such as from a React effect.
    */
-  store(
+  openStore(
     options?: ContainerContentsStoreOptions | undefined,
   ): ContainerContentsStore;
 
   /**
-   * Create the default local document read model for container contents.
+   * Create the default local query facade for container contents.
    *
-   * The model is bound to the current SDK runtime snapshot, including the
+   * The facade is bound to the current SDK runtime snapshot, including the
    * active SQLite executor. Recreate it when the SDK runtime version changes.
    */
-  documentReadModel(): ContainerDocumentReadModel;
+  localQueries(): ContainerDocumentQueries;
 
   /**
-   * Create the default runtime bundle for advanced document-link workflows.
+   * Create the default action bundle for document-link workflows.
    *
    * The returned object includes the current container-contents runtime,
    * the document projection-key resolver, mutation readiness, document store
    * priming, and container document-link mutations. Product stores can pass
    * this bundle around without rebuilding SDK runtime plumbing themselves.
    */
-  documentLinksRuntime(): ContainerDocumentLinksRuntime;
+  documentLinkActions(): ContainerDocumentLinkActions;
 
   /**
    * Discover remote documents linked to one container.
@@ -253,7 +253,7 @@ export interface ContainerContents {
    * Parameters:
    * - `containerId`: Remote container id whose document lane should be listed.
    */
-  discoverDocuments(
+  discoverContainerDocuments(
     containerId: string,
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
 
@@ -261,9 +261,7 @@ export interface ContainerContents {
    * Check whether the current event snapshot includes document updates that
    * are not yet represented by the supplied known remote document ids.
    */
-  hasUndiscoveredDocumentUpdates(
-    knownDocumentIds: ReadonlySet<string>,
-  ): boolean;
+  hasUnseenDocumentUpdates(knownDocumentIds: ReadonlySet<string>): boolean;
 
   /**
    * Load diagnostic information for one local document.
@@ -277,7 +275,7 @@ export interface ContainerContents {
   /**
    * List local blob projections and pending attachment bytes grouped by blob.
    *
-   * This is a reverse lookup read model: callers can search by server blob id,
+   * This is a reverse lookup query: callers can search by server blob id,
    * local storage key, document id/title, attachment slot, or MIME metadata and
    * then traverse matching blobs back to their owning local documents.
    */
@@ -291,20 +289,20 @@ export interface ContainerContents {
    * `"always"`. Pass `parentId` when inspecting a container before its local row
    * has been synced.
    */
-  loadInfo(input: ContainerInfoInput): Promise<ContainerInfo>;
+  loadContainerInfo(input: ContainerInfoInput): Promise<ContainerInfo>;
 
   /**
    * Refresh document discovery for every remotely visible container.
    *
    * The method discovers the remote container tree first, then applies each
    * container-document lane through the same local persistence protocol as
-   * `discoverDocuments`.
+   * `discoverContainerDocuments`.
    *
    * Returns all document summaries touched by the refresh, or `null` when the
    * local database is unavailable, or when the remote container tree or a
    * document lane could not be fully listed.
    */
-  refreshDocuments(): Promise<ReadonlyArray<DocumentSummary> | null>;
+  refreshAllContainerDocuments(): Promise<ReadonlyArray<DocumentSummary> | null>;
 
   /**
    * Create a workflow runtime for advanced container-content workflows.
@@ -313,7 +311,7 @@ export interface ContainerContents {
    * Use this when constructing lower-level stores or custom workflows that need
    * access to the current runtime snapshot.
    */
-  runtime(): ContainerContentsWorkflowRuntime;
+  workflowRuntime(): ContainerContentsWorkflowRuntime;
 }
 
 export function createContainerContents(
@@ -323,14 +321,14 @@ export function createContainerContents(
 }
 
 function createDocumentLinkHost(
-  runtime: ContainerDocumentLinksRuntime,
+  runtime: ContainerDocumentLinkActions,
   mergeDocumentSummary: MergeDocumentSummary,
 ): DocumentStructuralMutationHost<DocumentsWorkflowRuntime> {
   return {
-    createDocumentRuntime: runtime.createDocumentRuntime,
+    documentWorkflowRuntime: runtime.documentWorkflowRuntime,
     mergeDocumentSummary,
-    primeDocumentStore: (input) =>
-      runtime.primeDocumentStore({
+    openDocumentStore: (input) =>
+      runtime.openDocumentStore({
         containerId: input.containerId,
         documentId: input.documentId,
         localId: input.localId,
@@ -360,10 +358,10 @@ export function listUserContainerIdsForDocumentRefresh(
 class ContainerContentsService implements ContainerContents {
   constructor(private readonly runtimeService: InternalRuntime) {}
 
-  store(
+  openStore(
     options?: ContainerContentsStoreOptions | undefined,
   ): ContainerContentsStore {
-    const runtime = this.runtime();
+    const runtime = this.workflowRuntime();
     const store = getOrCreateContainerContentsStore(
       runtime.state.domainScope,
       runtime,
@@ -372,48 +370,49 @@ class ContainerContentsService implements ContainerContents {
     return store;
   }
 
-  documentReadModel(): ContainerDocumentReadModel {
-    return createContainerDocumentReadModelFromRuntime(this.runtime());
+  localQueries(): ContainerDocumentQueries {
+    return createContainerDocumentQueriesFromRuntime(this.workflowRuntime());
   }
 
-  documentLinksRuntime(): ContainerDocumentLinksRuntime {
-    const runtime = this.runtime();
-    const createDocumentRuntime = (containerId: string) =>
+  documentLinkActions(): ContainerDocumentLinkActions {
+    const runtime = this.workflowRuntime();
+    const documentWorkflowRuntime = (containerId: string) =>
       createContainerContentsDocumentsRuntime(runtime, containerId);
-    const primeContainerDocumentStore = (
-      input: PrimeContainerDocumentStoreInput,
+    const openContainerDocumentStore = (
+      input: OpenContainerDocumentStoreInput,
     ) =>
-      primeDocumentStore(
+      openDocumentStore(
         runtime.state.domainScope,
         input.localId,
-        createDocumentRuntime(input.containerId),
+        documentWorkflowRuntime(input.containerId),
         input.documentId ?? null,
         input.initialText,
         input.initialDocumentKind,
       );
-    const documentLinksRuntime: ContainerDocumentLinksRuntime = {
+    const documentLinkActions: ContainerDocumentLinkActions = {
       ...runtime,
-      activateDocumentContainer: (input) =>
+      documentWorkflowRuntime,
+      openDocumentStore: openContainerDocumentStore,
+      setActiveDocumentContainer: (input) =>
         activateDocumentLinkState({
           host: createDocumentLinkHost(
-            documentLinksRuntime,
+            documentLinkActions,
             input.mergeDocumentSummary,
           ),
           note: input.note,
-          runtime: documentLinksRuntime,
+          runtime: documentLinkActions,
           targetContainerId: input.targetContainerId,
         }),
       canMutateDocumentLinks: canMutateDocumentLink(runtime),
       canMutateLocalDocumentLinks: canMutateLocalDocumentLink(runtime),
-      createDocumentRuntime,
       linkDocumentToContainer: (input) =>
         linkDocumentLinkState({
           host: createDocumentLinkHost(
-            documentLinksRuntime,
+            documentLinkActions,
             input.mergeDocumentSummary,
           ),
           note: input.note,
-          runtime: documentLinksRuntime,
+          runtime: documentLinkActions,
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,
@@ -422,36 +421,35 @@ class ContainerContentsService implements ContainerContents {
         moveDocumentLinkState({
           expandNode: input.expandNode,
           host: createDocumentLinkHost(
-            documentLinksRuntime,
+            documentLinkActions,
             input.mergeDocumentSummary,
           ),
           note: input.note,
-          runtime: documentLinksRuntime,
+          runtime: documentLinkActions,
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,
         }),
-      primeDocumentStore: primeContainerDocumentStore,
       resolveProjectionUserKey:
         createContainerContentsDocumentProjectionUserKeyResolver(runtime),
       unlinkDocumentFromContainer: (input) =>
         unlinkDocumentLinkState({
           host: createDocumentLinkHost(
-            documentLinksRuntime,
+            documentLinkActions,
             input.mergeDocumentSummary,
           ),
           note: input.note,
           removedContainerId: input.removedContainerId,
-          runtime: documentLinksRuntime,
+          runtime: documentLinkActions,
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
         }),
     };
 
-    return documentLinksRuntime;
+    return documentLinkActions;
   }
 
-  discoverDocuments(
+  discoverContainerDocuments(
     containerId: string,
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
     const runtime = createContainerContentsDiscoveryRuntime(
@@ -470,11 +468,9 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
-  hasUndiscoveredDocumentUpdates(
-    knownDocumentIds: ReadonlySet<string>,
-  ): boolean {
+  hasUnseenDocumentUpdates(knownDocumentIds: ReadonlySet<string>): boolean {
     const allKnownDocumentIds = new Set(knownDocumentIds);
-    const snapshot = this.store().getSnapshot();
+    const snapshot = this.openStore().getSnapshot();
     for (const node of snapshot.nodes ?? []) {
       if (node.metadataDocumentId) {
         allKnownDocumentIds.add(node.metadataDocumentId);
@@ -487,10 +483,10 @@ class ContainerContentsService implements ContainerContents {
     );
   }
 
-  loadInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
+  loadContainerInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
     const runtime = this.runtimeService.workflowInput();
     const cachedContainerProjection =
-      this.store().getCachedContainerWriterProjection(input.containerId);
+      this.openStore().getCachedContainerWriterProjection(input.containerId);
     return loadContainerInfo({
       ...input,
       apiClient: runtime.apiClient,
@@ -521,7 +517,7 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
-  refreshDocuments(): Promise<ReadonlyArray<DocumentSummary> | null> {
+  refreshAllContainerDocuments(): Promise<ReadonlyArray<DocumentSummary> | null> {
     const runtime = createContainerContentsDiscoveryRuntime(
       this.runtimeService.workflowInput(),
     );
@@ -529,7 +525,7 @@ class ContainerContentsService implements ContainerContents {
       return Promise.resolve(null);
     }
 
-    const snapshot = this.store().getSnapshot();
+    const snapshot = this.openStore().getSnapshot();
     const snapshotContainerIds =
       listUserContainerIdsForDocumentRefresh(snapshot);
     if (snapshotContainerIds) {
@@ -565,7 +561,7 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
-  runtime(): ContainerContentsWorkflowRuntime {
+  workflowRuntime(): ContainerContentsWorkflowRuntime {
     return createContainerContentsWorkflowRuntime(
       this.runtimeService.workflowInput(),
     );
@@ -585,18 +581,18 @@ function createContainerContentsDiscoveryRuntime(
 function createContainerDocumentDiscoveryPersistence(
   runtime: ContainerContentsWorkflowRuntime,
 ): ContainerDocumentDiscoveryPersistence {
-  const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+  const queries = createContainerDocumentQueriesFromRuntime(runtime);
 
   return {
     applyContainerDocumentTombstones: (tombstones) =>
-      readModel.applyContainerDocumentTombstones(tombstones),
+      queries.applyContainerDocumentTombstones(tombstones),
     loadContainerDocumentWatermark: (containerId) =>
-      readModel.loadContainerDocumentWatermark(containerId),
+      queries.loadContainerDocumentWatermark(containerId),
     replaceDocumentLinksBatch: (inputs) =>
-      readModel.replaceDocumentLinksBatch(inputs),
+      queries.replaceDocumentLinksBatch(inputs),
     saveContainerDocumentWatermark: (containerId, watermark) =>
-      readModel.saveContainerDocumentWatermark(containerId, watermark),
+      queries.saveContainerDocumentWatermark(containerId, watermark),
     upsertDiscoveredDocuments: (inputs) =>
-      readModel.upsertDiscoveredDocuments(inputs),
+      queries.upsertDiscoveredDocuments(inputs),
   };
 }

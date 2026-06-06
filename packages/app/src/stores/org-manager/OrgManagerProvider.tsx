@@ -92,11 +92,11 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   const { documents, organizations } = tearleads;
   const runtime = useTearleadsRuntime();
   const containerContentsRuntime = useMemo(
-    () => tearleads.containerContents.runtime(),
+    () => tearleads.containerContents.workflowRuntime(),
     [runtime, tearleads],
   );
   const containerContentsStore = useMemo(
-    () => tearleads.containerContents.store({ logLabel: "Org Manager" }),
+    () => tearleads.containerContents.openStore({ logLabel: "Org Manager" }),
     [containerContentsRuntime.state.domainScope, tearleads],
   );
 

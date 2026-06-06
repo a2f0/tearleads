@@ -30,17 +30,18 @@ export function useExplorerInteractionState(params: {
     onDocumentLinksChanged,
   } = params;
   const { containerContents } = useTearleads();
-  const discoverDocuments = useCallback(
-    (containerId: string) => containerContents.discoverDocuments(containerId),
+  const discoverContainerDocuments = useCallback(
+    (containerId: string) =>
+      containerContents.discoverContainerDocuments(containerId),
     [containerContents],
   );
-  const refreshDocuments = useCallback(
-    () => containerContents.refreshDocuments(),
+  const refreshAllContainerDocuments = useCallback(
+    () => containerContents.refreshAllContainerDocuments(),
     [containerContents],
   );
-  const hasUndiscoveredDocumentUpdates = useCallback(
+  const hasUnseenDocumentUpdates = useCallback(
     (knownDocumentIds: ReadonlySet<string>) =>
-      containerContents.hasUndiscoveredDocumentUpdates(knownDocumentIds),
+      containerContents.hasUnseenDocumentUpdates(knownDocumentIds),
     [containerContents],
   );
   const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({
@@ -49,8 +50,8 @@ export function useExplorerInteractionState(params: {
   useDiscoveredDocumentsSync({
     activeContainerId,
     appData,
-    discoverDocuments,
-    hasUndiscoveredDocumentUpdates,
+    discoverContainerDocuments,
+    hasUnseenDocumentUpdates,
     knownDocumentIds,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
@@ -62,6 +63,6 @@ export function useExplorerInteractionState(params: {
     onDocumentLinksChanged,
     primeDiscoveredDocuments,
     refresh: explorer.refresh,
-    refreshDocuments,
+    refreshAllContainerDocuments,
   });
 }

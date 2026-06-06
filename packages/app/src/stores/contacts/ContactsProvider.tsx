@@ -102,14 +102,14 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
   const containerContentsRuntime = useMemo(
-    () => tearleads.containerContents.runtime(),
+    () => tearleads.containerContents.workflowRuntime(),
     [appData, tearleads],
   );
   const hasRootContainerId = Boolean(
     containerContentsRuntime.state.containerId,
   );
   const containerContentsStore = useMemo(
-    () => tearleads.containerContents.store({ logLabel: "Contacts" }),
+    () => tearleads.containerContents.openStore({ logLabel: "Contacts" }),
     [containerContentsRuntime.state.domainScope, tearleads],
   );
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(

@@ -1,5 +1,5 @@
 import type {
-  ContainerDocumentLinksRuntime,
+  ContainerDocumentLinkActions,
   ContainerNode,
   DocumentSummary,
 } from "@tearleads/client-sdk";
@@ -88,7 +88,7 @@ function useSelectedDocumentTargetOptions(params: {
 }
 
 export function useSelectedDocumentStructuralState(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;

@@ -3,10 +3,10 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import {
-  createContainerDocumentReadModelFromRuntime,
+  createContainerDocumentQueriesFromRuntime,
   listDocumentRuntimeTargetsForContainerSubtreeFromRuntime,
   primeDocumentsForContainerSubtree,
-} from "./documentReadModel";
+} from "./documentQueries";
 import {
   createContainerDocumentObjectSyncState,
   syncedContainerDocumentObjectSyncState,
@@ -63,13 +63,13 @@ async function saveTestDocument(input: {
   );
 }
 
-test("createContainerDocumentReadModelFromRuntime uses the runtime executor", async () => {
+test("createContainerDocumentQueriesFromRuntime uses the runtime executor", async () => {
   const { close, execSql } = await createTestExecSql(
-    "containerContents-document-read-model-runtime",
+    "containerContents-document-queries-runtime",
   );
   try {
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
     const watermark = {
       id: "document-1",
       updatedAt: "2026-05-09T00:00:00.000Z",
@@ -93,7 +93,7 @@ test("listContainerItemWindow pages and sorts container rows from SQLite", async
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
 
     await saveTestContainer({
       execSql,
@@ -205,7 +205,7 @@ test("listContainerItemWindow includes allowlisted system container rows", async
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
     const contactsSystemSlot =
       "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     const trashSystemSlot =
@@ -281,7 +281,7 @@ test("listContainerItemWindow includes documents linked to the selected containe
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
 
     await saveTestContainer({
       execSql,
@@ -360,7 +360,7 @@ test("listContainerDocumentSidebarWindow pages container document rows from SQLi
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
 
     await saveTestDocument({
       containerId: "root-container",
@@ -446,7 +446,7 @@ test("listContainerDocumentSidebarWindow includes linked documents for a sidebar
     await defaultContainerContentsPersistence.ensureSchema(execSql);
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
 
     await saveTestDocument({
       containerId: "private-container",
@@ -489,7 +489,7 @@ test("loadDocumentSummary loads a single document projection by local id", async
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
 
     await saveTestDocument({
       containerId: "root-container",
@@ -524,7 +524,7 @@ test("loadDocumentSyncState summarizes pending document work", async () => {
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
 
     await saveTestDocument({
       containerId: "root-container",
@@ -571,7 +571,7 @@ test("listDocumentRuntimeTargetsForContainerSubtreeFromRuntime uses the runtime 
   );
   try {
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
     await readModel.upsertDiscoveredDocuments([
       {
         accessEpoch: 1,
@@ -622,7 +622,7 @@ test("primeDocumentsForContainerSubtree primes matching document stores", async 
   );
   try {
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
     await readModel.upsertDiscoveredDocuments([
       {
         accessEpoch: 1,
@@ -699,11 +699,11 @@ test("primeDocumentsForContainerSubtree primes matching document stores", async 
         ],
       ]),
       host: {
-        createDocumentRuntime: (containerId) => {
+        documentWorkflowRuntime: (containerId) => {
           createdRuntimeContainerIds.push(containerId);
           return { containerId };
         },
-        primeDocumentStore: (input) => {
+        openDocumentStore: (input) => {
           primedStores.push(input);
           return {
             getSnapshot: () => ({ ready: true }),
@@ -754,7 +754,7 @@ test("primeDocumentsForContainerSubtree lets initializing document stores schedu
   );
   try {
     const runtime = { infra: { execSql } };
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
     await readModel.upsertDiscoveredDocuments([
       {
         accessEpoch: 1,
@@ -780,8 +780,8 @@ test("primeDocumentsForContainerSubtree lets initializing document stores schedu
         ],
       ]),
       host: {
-        createDocumentRuntime: (containerId) => ({ containerId }),
-        primeDocumentStore: (input) => ({
+        documentWorkflowRuntime: (containerId) => ({ containerId }),
+        openDocumentStore: (input) => ({
           getSnapshot: () => ({ ready: false }),
           requestSync: () => {
             syncRequests.push(input.localId);

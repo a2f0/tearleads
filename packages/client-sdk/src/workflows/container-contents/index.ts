@@ -57,15 +57,15 @@ export {
 } from "./documentLinks";
 export {
   type ContainerDocumentLinkInput,
-  type ContainerDocumentReadModel,
+  type ContainerDocumentQueries,
   type ContainerDocumentSidebarRow,
   type ContainerDocumentTombstone,
   type ContainerItemRow,
   type ContainerItemSort,
   type ContainerItemSortDirection,
   type ContainerItemSortKey,
-  createContainerDocumentReadModelFromRuntime,
-} from "./documentReadModel";
+  createContainerDocumentQueriesFromRuntime,
+} from "./documentQueries";
 export {
   activateDocumentLinkState,
   canMutateDocumentLink,

@@ -13,10 +13,10 @@ import {
   type DocumentsRuntime,
   getOrCreateDomainSyncCoordinator,
   type LocalAttachmentRecord,
+  openDocumentStore,
   type PendingAttachmentRecord,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
-  primeDocumentStore,
   subscribeToPersistedDocuments,
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
@@ -438,7 +438,7 @@ function documentProjectionRuntimeFromPatch(
   };
 }
 
-async function createDocumentRuntimePatch(input: {
+async function documentWorkflowRuntimePatch(input: {
   attachmentBinds?: Array<{
     blobId: string;
     request: BlobAttachmentBindRequest;
@@ -684,39 +684,39 @@ function createDocumentsPersistence(): DocumentsPersistence & {
   let pendingAttachments: PendingAttachmentRecord[] = [];
   let pendingUpdates: PendingUpdateRecord[] = [];
 
+  const buildDocumentSummaries = (): DocumentSummary[] =>
+    document
+      ? [
+          {
+            id: document.id,
+            containerId: document.containerId,
+            documentId: document.documentId,
+            title: document.text.trim() || "Untitled note",
+            updatedAt: "2026-04-06T00:00:00.000Z",
+          },
+        ]
+      : [];
+
   return {
     async ensureSchema() {},
     getState() {
       return {
         document,
-        documentSummaries: document
-          ? [
-              {
-                id: document.id,
-                containerId: document.containerId,
-                documentId: document.documentId,
-                title: document.text.trim() || "Untitled note",
-                updatedAt: "2026-04-06T00:00:00.000Z",
-              },
-            ]
-          : [],
+        documentSummaries: buildDocumentSummaries(),
         localAttachments,
         pendingAttachments,
         pendingUpdates,
       };
     },
     async listDocuments() {
-      return document
-        ? [
-            {
-              id: document.id,
-              containerId: document.containerId,
-              documentId: document.documentId,
-              title: document.text.trim() || "Untitled note",
-              updatedAt: "2026-04-06T00:00:00.000Z",
-            },
-          ]
-        : [];
+      return buildDocumentSummaries();
+    },
+    async listDocumentSummaries() {
+      const rows = buildDocumentSummaries();
+      return {
+        rows,
+        totalCount: rows.length,
+      };
     },
     async listDocumentsByContainerIdsOrDocumentIds(_execSql, input) {
       if (!document) {
@@ -926,7 +926,7 @@ async function createSyncRuntimeInput(
     syncCalls?: Array<{ minLsn: string | null; outgoingUpdateCount: number }>;
   } = {},
 ): Promise<DocumentsRuntimeInput> {
-  const patch = await createDocumentRuntimePatch({
+  const patch = await documentWorkflowRuntimePatch({
     containerId,
     encapsulationKeyPair,
     ...(options.attachmentBinds
@@ -1067,10 +1067,10 @@ async function createSqlRuntime(): Promise<
   };
 }
 
-test("primeDocumentStore reuses a synced remote note across different local ids", async () => {
+test("openDocumentStore reuses a synced remote note across different local ids", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const patch = await createDocumentRuntimePatch({
+  const patch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
   });
   const runtime = cloneDocumentsTestRuntime(runtimeBase, {
@@ -1091,7 +1091,7 @@ test("primeDocumentStore reuses a synced remote note across different local ids"
   });
 
   try {
-    const firstStore = primeDocumentStore(
+    const firstStore = openDocumentStore(
       runtime.state.domainScope,
       "note-1",
       runtime,
@@ -1112,7 +1112,7 @@ test("primeDocumentStore reuses a synced remote note across different local ids"
       throw new Error("Expected first store to have a remote document id.");
     }
 
-    const secondStore = primeDocumentStore(
+    const secondStore = openDocumentStore(
       runtime.state.domainScope,
       "default",
       runtime,
@@ -1130,10 +1130,10 @@ test("primeDocumentStore reuses a synced remote note across different local ids"
   }
 });
 
-test("primeDocumentStore collapses live duplicate document facades after remote identity resolves", async () => {
+test("openDocumentStore collapses live duplicate document facades after remote identity resolves", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const patch = await createDocumentRuntimePatch({
+  const patch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
   });
   const runtime = cloneDocumentsTestRuntime(runtimeBase, {
@@ -1154,12 +1154,12 @@ test("primeDocumentStore collapses live duplicate document facades after remote 
   });
 
   try {
-    const firstStore = primeDocumentStore(
+    const firstStore = openDocumentStore(
       runtime.state.domainScope,
       "note-1",
       runtime,
     );
-    const secondStore = primeDocumentStore(
+    const secondStore = openDocumentStore(
       runtime.state.domainScope,
       "default",
       runtime,
@@ -1680,7 +1680,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
 
 test("uploadDocumentAttachment rejects bind responses with tampered target material", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtimePatch = await createDocumentRuntimePatch({
+  const runtimePatch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
     mapBindBlobAttachmentResponse: (response) => ({
       ...response,
@@ -1737,7 +1737,7 @@ test("uploadDocumentAttachment rejects bind responses with tampered target mater
 
 test("uploadDocumentAttachment rejects document writer projections with bad signatures", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtimePatch = await createDocumentRuntimePatch({
+  const runtimePatch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
     mapDocumentWriterProjectionResponse: (projection) => {
       const tamperedProjection = structuredClone(projection);
@@ -1801,7 +1801,7 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
 
 test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryption", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
-  const runtimePatch = await createDocumentRuntimePatch({
+  const runtimePatch = await documentWorkflowRuntimePatch({
     encapsulationKeyPair,
   });
   const author = {

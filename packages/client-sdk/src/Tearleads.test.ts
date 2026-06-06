@@ -517,9 +517,9 @@ describe("Tearleads", () => {
       userId: "user-1",
     });
 
-    const documents = sdk.documents.runtime();
-    const containerContents = sdk.containerContents.runtime();
-    const unsubscribeDocuments = sdk.documents.subscribeToLocalSummaries(
+    const documents = sdk.documents.workflowRuntime();
+    const containerContents = sdk.containerContents.workflowRuntime();
+    const unsubscribeDocuments = sdk.documents.subscribeToLocalDocuments(
       () => undefined,
       { containerId: "container-1" },
     );
@@ -529,29 +529,29 @@ describe("Tearleads", () => {
     expect(documents.auth.isAuthenticated).toBe(true);
     expect(documents.state.online).toBe(true);
     expect(resolveDocumentCreateAuthor(documents)).not.toBeNull();
-    expect(sdk.documents.store().getSnapshot).toBeFunction();
+    expect(sdk.documents.openStore().getSnapshot).toBeFunction();
     expect(
-      sdk.documents.primeStore({ localId: "sdk-runtime-note" }).getSnapshot,
+      sdk.documents.openStore({ localId: "sdk-runtime-note" }).getSnapshot,
     ).toBeFunction();
     expect(unsubscribeDocuments).toBeFunction();
     unsubscribeDocuments();
     expect(containerContents.auth.userId).toBe("user-1");
-    const documentLinksRuntime = sdk.containerContents.documentLinksRuntime();
+    const documentLinkActions = sdk.containerContents.documentLinkActions();
     expect(
-      documentLinksRuntime.createDocumentRuntime("container-2").state
+      documentLinkActions.documentWorkflowRuntime("container-2").state
         .containerId,
     ).toBe("container-2");
-    expect(documentLinksRuntime.resolveProjectionUserKey).toBeFunction();
-    expect(documentLinksRuntime.canMutateDocumentLinks).toBe(true);
-    expect(documentLinksRuntime.canMutateLocalDocumentLinks).toBe(true);
-    expect(documentLinksRuntime.primeDocumentStore).toBeFunction();
-    expect(documentLinksRuntime.moveDocumentToContainer).toBeFunction();
-    expect(documentLinksRuntime.linkDocumentToContainer).toBeFunction();
-    expect(documentLinksRuntime.unlinkDocumentFromContainer).toBeFunction();
-    expect(documentLinksRuntime.activateDocumentContainer).toBeFunction();
-    expect(
-      sdk.containerContents.hasUndiscoveredDocumentUpdates(new Set()),
-    ).toBe(false);
+    expect(documentLinkActions.resolveProjectionUserKey).toBeFunction();
+    expect(documentLinkActions.canMutateDocumentLinks).toBe(true);
+    expect(documentLinkActions.canMutateLocalDocumentLinks).toBe(true);
+    expect(documentLinkActions.openDocumentStore).toBeFunction();
+    expect(documentLinkActions.moveDocumentToContainer).toBeFunction();
+    expect(documentLinkActions.linkDocumentToContainer).toBeFunction();
+    expect(documentLinkActions.unlinkDocumentFromContainer).toBeFunction();
+    expect(documentLinkActions.setActiveDocumentContainer).toBeFunction();
+    expect(sdk.containerContents.hasUnseenDocumentUpdates(new Set())).toBe(
+      false,
+    );
   });
 
   test("container document discovery ignores known container metadata document updates", () => {
@@ -567,24 +567,26 @@ describe("Tearleads", () => {
         },
       ],
     });
-    const snapshot = sdk.containerContents.store().getSnapshot() as unknown as {
+    const snapshot = sdk.containerContents
+      .openStore()
+      .getSnapshot() as unknown as {
       nodes: Array<{ metadataDocumentId: string }>;
     };
     snapshot.nodes = [{ metadataDocumentId: "metadata-document-1" }];
 
     expect(
-      sdk.containerContents.hasUndiscoveredDocumentUpdates(
+      sdk.containerContents.hasUnseenDocumentUpdates(
         new Set(["user-document-1"]),
       ),
     ).toBe(false);
-    expect(
-      sdk.containerContents.hasUndiscoveredDocumentUpdates(new Set()),
-    ).toBe(true);
+    expect(sdk.containerContents.hasUnseenDocumentUpdates(new Set())).toBe(
+      true,
+    );
   });
 
-  test("lists local document summaries through the documents service", async () => {
+  test("lists local documents through the documents service", async () => {
     const { close, execSql } = await createTestExecSql(
-      "tearleads-documents-list-summaries-test",
+      "tearleads-documents-list-test",
     );
     try {
       await defaultDocumentsPersistence.ensureSchema(execSql);
@@ -632,24 +634,102 @@ describe("Tearleads", () => {
       });
 
       expect(
-        await sdk.documents.listLocalSummaries({ documentKind: "note" }),
-      ).toEqual([
-        {
-          accessStateHash: null,
-          containerId: "container-1",
-          documentId: null,
-          documentKind: "note",
-          id: "note-1",
-          title: "Note title",
-          updatedAt: "2026-05-24T12:00:00.000Z",
-        },
-      ]);
+        await sdk.documents.listLocalDocuments({ documentKind: "note" }),
+      ).toEqual({
+        rows: [
+          {
+            accessStateHash: null,
+            containerId: "container-1",
+            documentId: null,
+            documentKind: "note",
+            id: "note-1",
+            title: "Note title",
+            updatedAt: "2026-05-24T12:00:00.000Z",
+          },
+        ],
+        totalCount: 1,
+      });
       await expect(sdk.documents.deleteLocalDocument("note-1")).resolves.toBe(
         true,
       );
       expect(
-        await sdk.documents.listLocalSummaries({ documentKind: "note" }),
-      ).toEqual([]);
+        await sdk.documents.listLocalDocuments({ documentKind: "note" }),
+      ).toEqual({ rows: [], totalCount: 0 });
+    } finally {
+      close();
+    }
+  });
+
+  test("lists local documents with pagination and sorting", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-documents-list-window-test",
+    );
+    try {
+      await defaultDocumentsPersistence.ensureSchema(execSql);
+      async function saveNote(
+        id: string,
+        title: string,
+        updatedAt: string,
+      ): Promise<void> {
+        await defaultDocumentsPersistence.saveDocument(
+          execSql,
+          {
+            accessEpoch: 1,
+            accessStateHash: null,
+            containerId: "container-1",
+            contentKeyBundle: null,
+            documentId: null,
+            documentKekTargets: null,
+            documentKind: "note",
+            documentManifestBundle: null,
+            id,
+            lastCommitLsn: null,
+            loroSnapshot: "",
+            text: title,
+            title,
+          },
+          { updatedAt },
+        );
+      }
+
+      await saveNote("note-z", "Zebra", "2026-05-24T12:00:00.000Z");
+      await saveNote("note-a", "Alpha", "2026-05-24T11:00:00.000Z");
+      await saveNote("note-m", "Middle", "2026-05-24T10:00:00.000Z");
+      const sdk = new Tearleads({
+        database: { execSql, id: "client-db" },
+        logger: quietLogger,
+      });
+
+      expect(
+        await sdk.documents.listLocalDocuments({
+          documentKind: "note",
+          limit: 2,
+          offset: 1,
+          sort: { direction: "asc", key: "title" },
+        }),
+      ).toEqual({
+        rows: [
+          {
+            accessStateHash: null,
+            containerId: "container-1",
+            documentId: null,
+            documentKind: "note",
+            id: "note-m",
+            title: "Middle",
+            updatedAt: "2026-05-24T10:00:00.000Z",
+          },
+          {
+            accessStateHash: null,
+            containerId: "container-1",
+            documentId: null,
+            documentKind: "note",
+            id: "note-z",
+            title: "Zebra",
+            updatedAt: "2026-05-24T12:00:00.000Z",
+          },
+        ],
+        totalCount: 3,
+      });
     } finally {
       close();
     }
@@ -657,7 +737,7 @@ describe("Tearleads", () => {
 
   test("caches documents service schema initialization per SQL executor", async () => {
     const { close, execSql } = await createTestExecSql(
-      "tearleads-documents-list-summaries-schema-cache-test",
+      "tearleads-documents-list-schema-cache-test",
     );
     try {
       let createTableStatementCount = 0;
@@ -674,11 +754,17 @@ describe("Tearleads", () => {
         logger: quietLogger,
       });
 
-      expect(await sdk.documents.listLocalSummaries()).toEqual([]);
+      expect(await sdk.documents.listLocalDocuments()).toEqual({
+        rows: [],
+        totalCount: 0,
+      });
       const firstCallCreateTableStatementCount = createTableStatementCount;
       expect(firstCallCreateTableStatementCount).toBeGreaterThan(0);
 
-      expect(await sdk.documents.listLocalSummaries()).toEqual([]);
+      expect(await sdk.documents.listLocalDocuments()).toEqual({
+        rows: [],
+        totalCount: 0,
+      });
       expect(createTableStatementCount).toBe(
         firstCallCreateTableStatementCount,
       );
@@ -687,9 +773,9 @@ describe("Tearleads", () => {
     }
   });
 
-  test("creates the container contents document read model from the SDK runtime", async () => {
+  test("creates the container contents document queries from the SDK runtime", async () => {
     const { close, execSql } = await createTestExecSql(
-      "tearleads-container-contents-read-model-test",
+      "tearleads-container-contents-queries-test",
     );
     try {
       await defaultDocumentsPersistence.ensureSchema(execSql);
@@ -716,7 +802,7 @@ describe("Tearleads", () => {
         database: { execSql, id: "client-db" },
         logger: quietLogger,
       });
-      const readModel = sdk.containerContents.documentReadModel();
+      const readModel = sdk.containerContents.localQueries();
 
       expect(await readModel.loadDocumentSummary("note-1")).toEqual({
         accessStateHash: "access-state-hash",

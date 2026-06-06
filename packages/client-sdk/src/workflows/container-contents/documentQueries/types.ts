@@ -66,7 +66,7 @@ export interface ContainerContentsDocumentRuntimeTarget {
   runtimeContainerId: string;
 }
 
-export type ContainerDocumentReadModelRuntime =
+export type ContainerDocumentQueriesRuntime =
   ContainerContentsWorkflowSqlRuntime;
 
 export interface ContainerDocumentPrimeStore {
@@ -75,8 +75,8 @@ export interface ContainerDocumentPrimeStore {
 }
 
 export interface ContainerDocumentPrimeHost<TRuntime> {
-  createDocumentRuntime: (containerId: string) => TRuntime;
-  primeDocumentStore: (input: {
+  documentWorkflowRuntime: (containerId: string) => TRuntime;
+  openDocumentStore: (input: {
     documentId: string | null;
     localId: string;
     runtime: TRuntime;

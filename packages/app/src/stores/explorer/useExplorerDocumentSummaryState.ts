@@ -1,5 +1,5 @@
 import type {
-  ContainerDocumentReadModel,
+  ContainerDocumentQueries,
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -14,7 +14,7 @@ export function useExplorerDocumentSummaryState(
   dbStatus: RuntimeSnapshot["infra"]["dbStatus"],
   domainScope: RuntimeSnapshot["state"]["domainScope"],
   containerId: RuntimeSnapshot["state"]["containerId"],
-  documentReadModel: ContainerDocumentReadModel,
+  documentQueries: ContainerDocumentQueries,
 ) {
   const tearleads = useTearleads();
   const [documentSummaries, setDocumentSummaries] = useState<
@@ -92,18 +92,18 @@ export function useExplorerDocumentSummaryState(
       }
 
       const documentSummary =
-        await documentReadModel.loadDocumentSummary(localId);
+        await documentQueries.loadDocumentSummary(localId);
       if (documentSummary) {
         mergeDocumentSummary(documentSummary);
       }
 
       return documentSummary;
     },
-    [dbStatus, documentReadModel, mergeDocumentSummary],
+    [dbStatus, documentQueries, mergeDocumentSummary],
   );
 
   useEffect(() => {
-    return tearleads.documents.subscribeToLocalSummaries(
+    return tearleads.documents.subscribeToLocalDocuments(
       mergeTrackedDocumentSummary,
       { containerId },
     );

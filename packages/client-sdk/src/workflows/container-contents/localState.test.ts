@@ -16,7 +16,7 @@ import type { ContainerRecord } from "../../data/persistence/containers/containe
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
-import { createContainerDocumentReadModelFromRuntime } from "./documentReadModel";
+import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import { loadLocalContainerStates } from "./localState";
 import { syncedContainerDocumentObjectSyncState } from "./syncState";
 
@@ -308,7 +308,7 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
       serverUpdatedAt: syncedAt,
     });
 
-    const readModel = createContainerDocumentReadModelFromRuntime(runtime);
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
     await expect(
       readModel.listContainerItemWindow({
         containerId: "root-container",

@@ -1,24 +1,24 @@
 import type {
-  ContainerDocumentLinksRuntime,
+  ContainerDocumentLinkActions,
   DocumentSummary,
   MergeDocumentSummary,
   SetLinkedContainerIdsForDocument,
 } from "@tearleads/client-sdk";
 
 export function canMutateSelectedDocument(
-  appData: ContainerDocumentLinksRuntime,
+  appData: ContainerDocumentLinkActions,
 ) {
   return appData.canMutateDocumentLinks;
 }
 
 export function canMutateLocalSelectedDocument(
-  appData: ContainerDocumentLinksRuntime,
+  appData: ContainerDocumentLinkActions,
 ) {
   return appData.canMutateLocalDocumentLinks;
 }
 
 export function moveExplorerNote(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
@@ -44,7 +44,7 @@ export function moveExplorerNote(params: {
 }
 
 export function linkExplorerNote(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -67,7 +67,7 @@ export function linkExplorerNote(params: {
 }
 
 export function unlinkExplorerLinkedNote(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   removedContainerId: string;
@@ -90,14 +90,14 @@ export function unlinkExplorerLinkedNote(params: {
 }
 
 export function activateExplorerLinkedNote(params: {
-  appData: ContainerDocumentLinksRuntime;
+  appData: ContainerDocumentLinkActions;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   targetContainerId: string;
 }) {
   const { appData, mergeDocumentSummary, note, targetContainerId } = params;
 
-  return appData.activateDocumentContainer({
+  return appData.setActiveDocumentContainer({
     mergeDocumentSummary,
     note,
     targetContainerId,

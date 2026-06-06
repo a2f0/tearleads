@@ -44,13 +44,13 @@ export function DocumentsProvider({
   const runtime = useMemo<DocumentsRuntime>(
     () =>
       containerId === undefined
-        ? tearleads.documents.runtime()
-        : tearleads.documents.runtime(containerId),
+        ? tearleads.documents.workflowRuntime()
+        : tearleads.documents.workflowRuntime(containerId),
     [appData, containerId, tearleads],
   );
   const store = useMemo(
     () =>
-      tearleads.documents.store(
+      tearleads.documents.openStore(
         {
           containerId,
           documentId,
@@ -58,7 +58,7 @@ export function DocumentsProvider({
           initialText,
           localId,
         },
-        runtime,
+        { workflowRuntime: runtime },
       ),
     [
       containerId,

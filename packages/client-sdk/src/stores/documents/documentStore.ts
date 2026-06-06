@@ -215,7 +215,7 @@ export function getOrCreateDocumentStore(
   return nextStore;
 }
 
-export function primeDocumentStore(
+export function openDocumentStore(
   domainScope: DomainScope,
   localId: string,
   runtime: DocumentsRuntime,
