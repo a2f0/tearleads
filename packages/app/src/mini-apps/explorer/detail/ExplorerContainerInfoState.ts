@@ -16,6 +16,9 @@ const DEFAULT_SHARE_ACCESS_LEVEL: ContainerShareAccessLevel = "write";
 export type ExplorerContainerInfoGrant = NonNullable<
   ContainerInfo["remoteInfo"]
 >["grants"][number];
+type ExplorerContainerInfoGroup = NonNullable<
+  ContainerInfo["remoteInfo"]
+>["groups"][number];
 
 export type ReloadExplorerContainerInfo = (options?: {
   optimisticGrant?: ExplorerContainerInfoGrant | null;
@@ -100,19 +103,36 @@ export function upsertContainerInfoGrant(
   };
 }
 
-function getInitialDraftShareGroupId(info: ContainerInfo): string {
-  return (
-    info.remoteInfo?.groups.find((group) => group.currentState)?.groupId ?? ""
+export function getContainerInfoShareableGroups(
+  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>,
+): ExplorerContainerInfoGroup[] {
+  const directlyGrantedGroupIds = new Set(
+    (remoteInfo.grants ?? []).flatMap((grant) =>
+      grant.subjectType === "group" ? [grant.subjectId] : [],
+    ),
   );
+
+  return (remoteInfo.groups ?? []).filter(
+    (group) =>
+      group.currentState && !directlyGrantedGroupIds.has(group.groupId),
+  );
+}
+
+function getInitialDraftShareGroupId(info: ContainerInfo): string {
+  return info.remoteInfo
+    ? (getContainerInfoShareableGroups(info.remoteInfo)[0]?.groupId ?? "")
+    : "";
 }
 
 function getNextDraftShareGroupId(
   info: ContainerInfo,
   currentGroupId: string,
 ): string {
-  const groups = info.remoteInfo?.groups ?? [];
-  const currentGroupIsShareable = groups.some(
-    (group) => group.groupId === currentGroupId && group.currentState,
+  const shareableGroups = info.remoteInfo
+    ? getContainerInfoShareableGroups(info.remoteInfo)
+    : [];
+  const currentGroupIsShareable = shareableGroups.some(
+    (group) => group.groupId === currentGroupId,
   );
   if (currentGroupIsShareable) {
     return currentGroupId;

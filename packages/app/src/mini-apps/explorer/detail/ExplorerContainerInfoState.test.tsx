@@ -4,6 +4,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { FormEvent } from "react";
 import {
   type ExplorerContainerInfoGrant,
+  getContainerInfoShareableGroups,
   type ReloadExplorerContainerInfo,
   upsertContainerInfoGrant,
   useExplorerContainerInfo,
@@ -71,6 +72,7 @@ function createContainerInfo(
       groups: [
         createGroup({ current: false, groupId: "stale-group", name: "Stale" }),
         createGroup({ current: true, groupId: "group-1", name: "Admins" }),
+        createGroup({ current: true, groupId: "group-2", name: "Writers" }),
       ],
       syncCursors: [],
     },
@@ -143,7 +145,19 @@ test("upsertContainerInfoGrant appends and updates remote grants", () => {
   ).toBe(localOnlyInfo);
 });
 
-test("useExplorerContainerInfo loads info and selects the first shareable group", async () => {
+test("getContainerInfoShareableGroups excludes stale and directly granted groups", () => {
+  const remoteInfo = createContainerInfo().remoteInfo;
+  expect(remoteInfo).not.toBeNull();
+  if (!remoteInfo) {
+    return;
+  }
+
+  expect(
+    getContainerInfoShareableGroups(remoteInfo).map((group) => group.groupId),
+  ).toEqual(["group-2"]);
+});
+
+test("useExplorerContainerInfo loads info and selects the first ungranted shareable group", async () => {
   const loadContainerInfo = async () => createContainerInfo();
   const view = renderHook(() =>
     useExplorerContainerInfo({
@@ -154,10 +168,10 @@ test("useExplorerContainerInfo loads info and selects the first shareable group"
 
   await waitFor(() => {
     expect(
-      view.result.current.containerInfo?.remoteInfo?.groups[1]?.groupId,
-    ).toBe("group-1");
+      view.result.current.containerInfo?.remoteInfo?.groups[2]?.groupId,
+    ).toBe("group-2");
     expect(view.result.current.draftShareAccessLevel).toBe("write");
-    expect(view.result.current.draftShareGroupId).toBe("group-1");
+    expect(view.result.current.draftShareGroupId).toBe("group-2");
     expect(view.result.current.isLoadingContainerInfo).toBe(false);
   });
 });

@@ -811,8 +811,9 @@ async function buildGrantRequest(input: {
 }
 
 async function buildGroupGrantRequest(input: {
+  readonly accessLevel?: "admin" | "read" | "write";
   readonly containerManifestHistory?: readonly ContainerManifestBundle[];
-  readonly parentKekState: VerifiedContainerKekState;
+  readonly parentKekState: VerifiedContainerKekState | null;
   readonly previous: ContainerManifestBundle;
   readonly previousContainerPath: readonly ContainerManifestBundle[];
   readonly previousKekState: VerifiedContainerKekState;
@@ -833,7 +834,7 @@ async function buildGroupGrantRequest(input: {
   const grant = {
     subjectType: "group" as const,
     subjectId: input.principalReference.principalId,
-    accessLevel: "read" as const,
+    accessLevel: input.accessLevel ?? ("read" as const),
   };
   const body: ContainerAccessEventBody = {
     eventType: "container.grant",
@@ -900,7 +901,10 @@ async function buildGroupGrantRequest(input: {
       unknown
     >,
     wraps: wraps as unknown as Record<string, unknown>[],
-    parentKekState: input.parentKekState as unknown as Record<string, unknown>,
+    parentKekState: input.parentKekState as unknown as Record<
+      string,
+      unknown
+    > | null,
     userRecipientKeys: (input.userRecipientKeys ?? []) as unknown as Record<
       string,
       unknown
@@ -1712,6 +1716,53 @@ test("POST /containers/:containerId/share stores signed grants", async () => {
       recipientKeyFingerprint: await toFingerprint(recipient.kem.publicKey),
     },
   ]);
+});
+
+test("POST /containers/:containerId/share allows additional root group grants", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+
+  const root = await bootstrapRoot(owner);
+  const rootManifest = asVerifiedContainerManifest(root.bundle);
+  const groupPrincipalId = crypto.randomUUID();
+  const group = await putGroupPrincipalPolicy({
+    actor: owner,
+    principalId: groupPrincipalId,
+  });
+  const request = await buildGroupGrantRequest({
+    accessLevel: "write",
+    parentKekState: null,
+    previous: root.bundle,
+    previousContainerPath: [root.bundle],
+    previousKekState: root.kekState,
+    principalPolicy: group.policy,
+    principalReference: group.reference,
+    signer: owner,
+  });
+
+  const shared = await expectMutationSuccess(
+    await postMutation({
+      path: `/containers/${rootManifest.state.containerId}/share`,
+      request,
+      token: owner.token,
+    }),
+  );
+
+  const sharedManifest = asVerifiedContainerManifest(
+    accessManifestFromResponse(shared),
+  );
+  expect(shared.manifestHead.epoch).toBe(rootManifest.state.epoch + 1);
+  expect(sharedManifest.state.directGrants).toContainEqual({
+    accessLevel: "write",
+    subjectId: groupPrincipalId,
+    subjectType: "group",
+  });
+  expect(shared.containerKek.recipientTargets).toContainEqual({
+    recipientKind: "group",
+    recipientId: groupPrincipalId,
+    recipientKeyEpochId: derivePrincipalRecipientKeyEpochId(group.reference),
+    recipientKeyFingerprint: group.reference.keyFingerprint,
+  });
 });
 
 test("POST /containers/:containerId/share avoids downstream content-key fanout for additive grants", async () => {
