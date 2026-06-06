@@ -29,6 +29,7 @@ import {
   getExplorerContainerInfoPathSummaryLabel,
   getExplorerContainerInfoRecipientSummaryLabel,
 } from "../labels";
+import { getContainerInfoShareableGroups } from "./ExplorerContainerInfoState";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
   ContainerInfo["remoteInfo"]
@@ -443,9 +444,7 @@ function ExplorerContainerInfoGroupShareSection(params: {
     setDraftShareGroupId,
     setPanelError,
   } = params;
-  const shareableGroups = remoteInfo.groups.filter(
-    (group) => group.currentState,
-  );
+  const shareableGroups = getContainerInfoShareableGroups(remoteInfo);
 
   return (
     <MiniAppInfoSection
