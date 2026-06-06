@@ -7,6 +7,7 @@ import type {
 import {
   type FormEvent,
   type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
   useCallback,
   useId,
@@ -81,12 +82,28 @@ type RenderRosterProfileEditor = (input: {
   user: OrganizationUserDetail["user"];
 }) => ReactNode;
 
+type DirectoryContextMenuHandler = (event: MouseEvent<HTMLElement>) => void;
+
 function formatNullableDate(value: string | null): string {
   return value ? formatMiniAppDate(value) : ORG_MANAGER_LABELS.none;
 }
 
 function getNullableIdentifierLabel(value: string | null): string {
   return value ? compactFingerprint(value) : ORG_MANAGER_LABELS.none;
+}
+
+function isDirectoryAreaContextMenuTarget(
+  event: MouseEvent<HTMLElement>,
+): boolean {
+  if (!(event.target instanceof Element)) {
+    return true;
+  }
+
+  const tableRow = event.target.closest(".mini-app-table-row");
+  return (
+    !tableRow ||
+    tableRow.classList.contains("mini-app-virtual-table-spacer-row")
+  );
 }
 
 function DirectoryTable({
@@ -549,6 +566,47 @@ function UserDetailView({
   );
 }
 
+function DirectoryListSection({
+  directory,
+  loading,
+  openDirectoryContextMenu,
+  profileDisplayNamesByUserId,
+  selectedUserId,
+  selectUser,
+}: {
+  directory: OrganizationDirectory;
+  loading: boolean;
+  openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
+  profileDisplayNamesByUserId: ReadonlyMap<string, string>;
+  selectedUserId: string | null;
+  selectUser: (userId: string | null) => void;
+}) {
+  return (
+    <section
+      aria-label={ORG_MANAGER_LABELS.directory}
+      className="org-manager-panel org-manager-panel--context-target"
+      onContextMenu={(event) => {
+        if (
+          event.defaultPrevented ||
+          !isDirectoryAreaContextMenuTarget(event)
+        ) {
+          return;
+        }
+
+        openDirectoryContextMenu?.(event);
+      }}
+    >
+      <DirectoryTable
+        directory={directory}
+        loading={loading}
+        profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+        selectedUserId={selectedUserId}
+        selectUser={selectUser}
+      />
+    </section>
+  );
+}
+
 export function DirectoryView({
   canImportRosterUser = false,
   closeImportUserDialog = () => undefined,
@@ -563,6 +621,7 @@ export function DirectoryView({
   loading,
   loadingUserDetail,
   mutating,
+  openDirectoryContextMenu,
   openGroupRoute,
   renderRosterProfileEditor,
   revokeGrant,
@@ -583,6 +642,7 @@ export function DirectoryView({
   loading: boolean;
   loadingUserDetail: boolean;
   mutating: boolean;
+  openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
   openGroupRoute: (groupId: string) => void;
   renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
@@ -648,15 +708,14 @@ export function DirectoryView({
   if (!selectedUserId) {
     return (
       <>
-        <section className="org-manager-panel">
-          <DirectoryTable
-            directory={directory}
-            loading={loading}
-            profileDisplayNamesByUserId={profileDisplayNamesByUserId}
-            selectedUserId={selectedUserId}
-            selectUser={selectUser}
-          />
-        </section>
+        <DirectoryListSection
+          directory={directory}
+          loading={loading}
+          openDirectoryContextMenu={openDirectoryContextMenu}
+          profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+          selectedUserId={selectedUserId}
+          selectUser={selectUser}
+        />
         {importUserDialog}
       </>
     );

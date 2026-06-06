@@ -66,6 +66,9 @@ function OrgManagerDirectoryContent({
       loading={model.loading}
       loadingUserDetail={model.loadingUserDetail}
       mutating={model.mutating}
+      openDirectoryContextMenu={(event) =>
+        model.contextMenuState.handleSidebarContextMenu(event, "directory")
+      }
       openGroupRoute={model.openGroupRoute}
       renderRosterProfileEditor={renderProfileEditor}
       revokeGrant={model.revokeGrant}
@@ -164,16 +167,20 @@ function OrgManagerContent({
 export function OrgManager() {
   const model = useOrgManagerModel();
   const organizationId = model.organizationId;
-  const handleMainContextMenu =
-    model.view === "groups" && !model.selectedGroup
-      ? (event: MouseEvent<HTMLElement>) => {
-          if (event.defaultPrevented) {
-            return;
-          }
-
-          model.contextMenuState.handleSidebarContextMenu(event, "groups");
+  const contextMenuTarget =
+    model.view === "groups" && !model.selectedGroup ? "groups" : null;
+  const handleMainContextMenu = contextMenuTarget
+    ? (event: MouseEvent<HTMLElement>) => {
+        if (event.defaultPrevented) {
+          return;
         }
-      : undefined;
+
+        model.contextMenuState.handleSidebarContextMenu(
+          event,
+          contextMenuTarget,
+        );
+      }
+    : undefined;
 
   useWindowFileMenuItem(
     model.canLoadAuthenticatedOrgData
@@ -183,6 +190,18 @@ export function OrgManager() {
           label: ORG_MANAGER_LABELS.newGroupAction,
           onClick: model.openCreateGroupDialog,
           priority: 100,
+        }
+      : null,
+  );
+  useWindowFileMenuItem(
+    model.canLoadAuthenticatedOrgData
+      ? {
+          disabled:
+            !model.canImportRosterUser || model.loading || model.mutating,
+          id: "org-manager-import-user",
+          label: ORG_MANAGER_LABELS.importUserAction,
+          onClick: model.openImportUserDialog,
+          priority: 90,
         }
       : null,
   );
