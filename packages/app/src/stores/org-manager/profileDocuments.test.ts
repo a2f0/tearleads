@@ -1,14 +1,12 @@
 import { expect, test } from "bun:test";
-import type {
-  DocumentStore,
-  Documents,
-  OrganizationDirectoryUser,
-} from "@tearleads/client-sdk";
 import {
-  createRosterProfileDocument,
+  type DocumentStore,
+  type Documents,
   getRosterProfileDocumentLocalId,
   getRosterProfileDocumentPatch,
-} from "./profileDocuments";
+  type OrganizationDirectoryUser,
+} from "@tearleads/client-sdk";
+import { createRosterProfileDocument } from "./profileDocuments";
 
 const user: OrganizationDirectoryUser = {
   createdAt: "2026-05-20T12:00:00.000Z",

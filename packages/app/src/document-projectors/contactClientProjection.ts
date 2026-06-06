@@ -1,7 +1,6 @@
 import type { DocumentClientProjectionDefinition } from "@tearleads/client-sdk";
 import {
   defineSqlTableSchema,
-  type ExecSql,
   getSQLitePersistenceRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import { eq, sql } from "drizzle-orm";
@@ -44,29 +43,6 @@ export const contactProjection = sqliteTable(
 );
 
 const CONTACT_PROJECTION_TABLE = defineSqlTableSchema(contactProjection);
-const legacyContactProjectionIndexDropPromises = new WeakMap<
-  ExecSql,
-  Promise<void>
->();
-
-async function dropLegacyContactProjectionIndexes(
-  execSql: ExecSql,
-): Promise<void> {
-  const existingPromise = legacyContactProjectionIndexDropPromises.get(execSql);
-  if (existingPromise) {
-    return existingPromise;
-  }
-
-  const promise = (async () => {
-    await execSql('DROP INDEX IF EXISTS "contact_projection_self_idx"');
-    await execSql('DROP INDEX IF EXISTS "contact_projection_user_idx"');
-  })().catch((error: unknown) => {
-    legacyContactProjectionIndexDropPromises.delete(execSql);
-    throw error;
-  });
-  legacyContactProjectionIndexDropPromises.set(execSql, promise);
-  return promise;
-}
 
 export const contactClientProjection: DocumentClientProjectionDefinition = {
   tables: [CONTACT_PROJECTION_TABLE],
@@ -85,7 +61,6 @@ export const contactClientProjection: DocumentClientProjectionDefinition = {
       updatedAt: input.updatedAt,
     };
 
-    await dropLegacyContactProjectionIndexes(input.execSql);
     await getSQLitePersistenceRuntime(input.execSql).runMutation(async (db) => {
       await db
         .insert(contactProjection)
