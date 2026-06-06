@@ -14,8 +14,6 @@ import {
 
 const PROFILE_DOCUMENT_SYNC_TIMEOUT_MS = 15_000;
 
-export { getRosterProfileDocumentLocalId, getRosterProfileDocumentPatch };
-
 function waitForRemoteDocumentId(
   store: DocumentStore,
   timeoutMs = PROFILE_DOCUMENT_SYNC_TIMEOUT_MS,

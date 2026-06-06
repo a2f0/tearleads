@@ -1,6 +1,8 @@
-import type {
-  DocumentStoreRelinkInput,
-  OrganizationDirectoryUser,
+import {
+  type DocumentStoreRelinkInput,
+  getRosterProfileDocumentLocalId,
+  getRosterProfileDocumentPatch,
+  type OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
 import {
@@ -19,10 +21,6 @@ import {
   useDocument,
 } from "../../stores/documents/DocumentsProvider";
 import { useOrgManagerActions } from "../../stores/org-manager/OrgManagerProvider";
-import {
-  getRosterProfileDocumentLocalId,
-  getRosterProfileDocumentPatch,
-} from "../../stores/org-manager/profileDocuments";
 import { ORG_MANAGER_LABELS } from "./labels";
 
 function useSyncedFieldValue(value: string | null | undefined) {

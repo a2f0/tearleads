@@ -15,30 +15,19 @@ function normalizeProjectionNullableText(value: string | null): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-async function dropLegacyContactProjectionIndexes(
-  execSql: ExecSql,
-): Promise<void> {
-  await execSql('DROP INDEX IF EXISTS "contact_projection_self_idx"');
-  await execSql('DROP INDEX IF EXISTS "contact_projection_user_idx"');
-}
-
 function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
   const existingPromise = contactProjectionSchemaPromises.get(execSql);
   if (existingPromise) {
     return existingPromise;
   }
 
-  const promise = dropLegacyContactProjectionIndexes(execSql)
-    .then(() =>
-      ensureSqlTables(
-        execSql,
-        getDocumentClientProjectionTables(APP_DOCUMENT_PROJECTOR_DEFINITIONS),
-      ),
-    )
-    .catch((error: unknown) => {
-      contactProjectionSchemaPromises.delete(execSql);
-      throw error;
-    });
+  const promise = ensureSqlTables(
+    execSql,
+    getDocumentClientProjectionTables(APP_DOCUMENT_PROJECTOR_DEFINITIONS),
+  ).catch((error: unknown) => {
+    contactProjectionSchemaPromises.delete(execSql);
+    throw error;
+  });
   contactProjectionSchemaPromises.set(execSql, promise);
   return promise;
 }
