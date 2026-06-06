@@ -26,6 +26,11 @@
   min-width: 0;
 }
 
+.org-manager-panel--context-target {
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
 .org-manager-virtual-table,
 .org-manager-virtual-list {
   max-height: min(28rem, 70vh);

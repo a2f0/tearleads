@@ -23,7 +23,7 @@ function SidebarRegistration({
   enabled: boolean;
   handleContextMenu?:
     | ((
-        event: MouseEvent<HTMLButtonElement>,
+        event: MouseEvent<HTMLElement>,
         view: OrgManagerContextMenuTarget,
       ) => void)
     | undefined;
@@ -50,7 +50,7 @@ function SidebarHarness({
   enabled: boolean;
   handleContextMenu?:
     | ((
-        event: MouseEvent<HTMLButtonElement>,
+        event: MouseEvent<HTMLElement>,
         view: OrgManagerContextMenuTarget,
       ) => void)
     | undefined;

@@ -20,7 +20,7 @@ export interface OrgManagerContextMenuModel {
   closeContextMenu: () => void;
   contextMenu: OrgManagerContextMenuState | null;
   handleSidebarContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLElement>,
     view: OrgManagerContextMenuTarget,
   ) => void;
 }
@@ -30,7 +30,7 @@ export function useOrgManagerContextMenu(): OrgManagerContextMenuModel {
     useContextMenuState<OrgManagerContextMenuTarget>();
 
   const handleSidebarContextMenu = useCallback(
-    (event: MouseEvent<HTMLButtonElement>, view: OrgManagerContextMenuTarget) =>
+    (event: MouseEvent<HTMLElement>, view: OrgManagerContextMenuTarget) =>
       openContextMenu(event, view),
     [openContextMenu],
   );

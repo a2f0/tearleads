@@ -16,7 +16,7 @@ export type { OrgManagerView } from "./routes";
 
 type OrgManagerSidebarContextMenuHandler =
   | ((
-      event: MouseEvent<HTMLButtonElement>,
+      event: MouseEvent<HTMLElement>,
       view: OrgManagerContextMenuTarget,
     ) => void)
   | undefined;

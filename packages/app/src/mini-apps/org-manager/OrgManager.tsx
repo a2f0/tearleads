@@ -1,5 +1,5 @@
 import type { OrganizationUserDetail } from "@tearleads/client-sdk";
-import { useMemo } from "react";
+import { type MouseEvent, useMemo } from "react";
 import {
   MiniAppRoot,
   MiniAppStatus,
@@ -164,6 +164,16 @@ function OrgManagerContent({
 export function OrgManager() {
   const model = useOrgManagerModel();
   const organizationId = model.organizationId;
+  const handleMainContextMenu =
+    model.view === "groups" && !model.selectedGroup
+      ? (event: MouseEvent<HTMLElement>) => {
+          if (event.defaultPrevented) {
+            return;
+          }
+
+          model.contextMenuState.handleSidebarContextMenu(event, "groups");
+        }
+      : undefined;
 
   useWindowFileMenuItem(
     model.canLoadAuthenticatedOrgData
@@ -198,7 +208,7 @@ export function OrgManager() {
 
   return (
     <MiniAppRoot>
-      <main className="org-manager-main">
+      <main className="org-manager-main" onContextMenu={handleMainContextMenu}>
         {model.error && (
           <MiniAppStatus className="org-manager-error" tone="error">
             {model.error}
