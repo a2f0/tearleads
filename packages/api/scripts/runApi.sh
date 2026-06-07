@@ -64,4 +64,4 @@ case "$(printf '%s' "$DATABASE_MODE" | tr '[:upper:]' '[:lower:]')" in
 esac
 
 cd "$API_DIR"
-exec bun run dev ${@+"$@"}
+exec bun run dev ${1+"$@"}
