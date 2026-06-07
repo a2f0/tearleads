@@ -59,20 +59,7 @@ else
 fi
 
 is_ignored() {
-  path=$1
-  old_ifs=$IFS
-  IFS='
-'
-
-  for pattern in $IGNORE_PATTERNS; do
-    if printf '%s\n' "$path" | grep -Eq "$pattern"; then
-      IFS=$old_ifs
-      return 0
-    fi
-  done
-
-  IFS=$old_ifs
-  return 1
+  printf '%s\n' "$1" | grep -Eq "$IGNORE_PATTERNS"
 }
 
 resolve_base_ref() {
@@ -161,8 +148,10 @@ for path in $files; do
     continue
   fi
 
-  lines=$(wc -l <"$path" | xargs)
-  bytes=$(wc -c <"$path" | xargs)
+  lines=$(wc -l <"$path")
+  lines=${lines##* }
+  bytes=$(wc -c <"$path")
+  bytes=${bytes##* }
 
   if [ "$lines" -gt "$LINE_LIMIT" ] || [ "$bytes" -gt "$BYTE_LIMIT" ]; then
     bad_files="${bad_files}${path} (Lines: ${lines}, Bytes: ${bytes})
@@ -177,10 +166,7 @@ if [ -z "$bad_files" ]; then
 fi
 
 echo "Error: The following files exceed the project's size limits (${LINE_LIMIT} lines or ${BYTE_LIMIT} bytes):" >&2
-printf '%s' "$bad_files" | while IFS= read -r line; do
-  [ -z "$line" ] && continue
-  printf '  - %s\n' "$line" >&2
-done
+printf '%s' "$bad_files" | sed 's/^/  - /' >&2
 echo "" >&2
 echo "Split oversized files into smaller modules before committing. Existing oversized files should be reduced or left untouched until they can be refactored deliberately." >&2
 exit 1

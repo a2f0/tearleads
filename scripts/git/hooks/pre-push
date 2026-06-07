@@ -17,6 +17,7 @@ cd "$REPO_ROOT"
 
 refs_file=$(mktemp)
 trap 'rm -f "$refs_file"' EXIT
+trap 'exit 1' HUP INT TERM
 
 if [ -t 0 ]; then
   : >"$refs_file"
