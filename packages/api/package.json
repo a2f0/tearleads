@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "API_DATABASE=postgres bun src/scripts/migratePostgres.ts",
     "dev": "bun --hot src/index.ts",
+    "dev:postgres": "API_DATABASE=postgres bun --hot src/index.ts",
     "start": "bun src/index.ts",
     "test": "bun test src --max-concurrency=4"
   },
@@ -18,11 +20,13 @@
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.1",
     "hono": "4.7.11",
+    "pg": "8.19.0",
     "redis": "5.11.0"
   },
   "devDependencies": {
     "@tearleads/bob-and-alice": "workspace:*",
     "@types/bun": "catalog:",
+    "@types/pg": "8.16.0",
     "drizzle-kit": "0.31.10"
   }
 }

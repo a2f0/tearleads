@@ -45,4 +45,5 @@ package's `build` task, so generated artifacts are refreshed before tests run.
 
 ## Developer Docs
 
+- [API Persistence](./docs/developer/api-persistence.md)
 - [Client SDK](./docs/developer/client-sdk.md)
