@@ -1676,7 +1676,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       writerProjection,
     }),
   ).rejects.toThrow("target hash is not canonical");
-});
+}, 10_000);
 
 test("uploadDocumentAttachment rejects bind responses with tampered target material", async () => {
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

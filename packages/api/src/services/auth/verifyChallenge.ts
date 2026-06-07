@@ -15,7 +15,9 @@ interface VerifyChallengeInput {
 }
 
 interface VerifyChallengeResult {
+  organizationId: string;
   token: string;
+  userId: string;
 }
 
 type VerifyChallengeErrorReason =
@@ -47,7 +49,11 @@ export async function verifyChallenge(
   }
 
   const [user] = await runtime.db
-    .select({ id: users.id, signingPublicKey: users.signingPublicKey })
+    .select({
+      defaultOrganizationId: users.defaultOrganizationId,
+      id: users.id,
+      signingPublicKey: users.signingPublicKey,
+    })
     .from(users)
     .where(eq(users.fingerprint, input.fingerprint))
     .limit(1);
@@ -87,6 +93,8 @@ export async function verifyChallenge(
   });
 
   return {
+    organizationId: user.defaultOrganizationId,
     token,
+    userId: user.id,
   };
 }

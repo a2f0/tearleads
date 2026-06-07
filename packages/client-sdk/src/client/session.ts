@@ -175,7 +175,7 @@ class SessionService implements Session {
     this.dependencies.log(
       challengeHex ? "Authenticating with challenge..." : "Authenticating...",
     );
-    const token = challengeHex
+    const authentication = challengeHex
       ? await this.dependencies.api.authenticateWithChallenge(
           fingerprint,
           signingKeyPair.signingPrivateKey,
@@ -186,13 +186,18 @@ class SessionService implements Session {
           signingKeyPair.signingPrivateKey,
         );
 
-    if (!token) {
+    if (!authentication) {
       this.setContext({ authToken: null, isAuthenticated: false });
       this.dependencies.log("Authentication failed");
       return false;
     }
 
-    this.setContext({ authToken: token, isAuthenticated: true });
+    this.setContext({
+      authToken: authentication.token,
+      isAuthenticated: true,
+      organizationId: authentication.organizationId,
+      userId: authentication.userId,
+    });
     this.dependencies.log("Authentication successful");
     return true;
   }

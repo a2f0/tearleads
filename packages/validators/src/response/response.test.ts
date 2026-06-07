@@ -87,7 +87,17 @@ test("isChallengeErrorResponse", () => {
 
 test("isVerifyResponse", () => {
   expect(isVerifyResponse({ authenticated: true })).toBe(false);
-  expect(isVerifyResponse({ authenticated: true, token: "abc123" })).toBe(true);
+  expect(
+    isVerifyResponse({
+      authenticated: true,
+      organizationId: "org-1",
+      token: "abc123",
+      userId: "user-1",
+    }),
+  ).toBe(true);
+  expect(isVerifyResponse({ authenticated: true, token: "abc123" })).toBe(
+    false,
+  );
   expect(isVerifyResponse({ authenticated: false, error: "bad sig" })).toBe(
     true,
   );
@@ -98,6 +108,13 @@ test("isVerifyResponse", () => {
   expect(isVerifyResponse({ authenticated: "yes" })).toBe(false);
   expect(isVerifyResponse({ authenticated: true, token: 123 })).toBe(false);
   expect(isVerifyResponse({ authenticated: true, error: 123 })).toBe(false);
+  expect(
+    isVerifyResponse({
+      authenticated: false,
+      organizationId: "org-1",
+      userId: "user-1",
+    }),
+  ).toBe(false);
   expect(isVerifyResponse({})).toBe(false);
   expect(isVerifyResponse(null)).toBe(false);
 });

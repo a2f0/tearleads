@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import type { ManagedApiDatabase } from "./postgres";
 import {
   createDefaultManagedApiDatabase,
   createPostgresPoolConfig,
@@ -137,7 +138,7 @@ test("Postgres pool config supports SSL settings", () => {
 });
 
 test("default API database trims the adapter kind", async () => {
-  const database = createDefaultManagedApiDatabase({
+  const database: ManagedApiDatabase = createDefaultManagedApiDatabase({
     API_DATABASE: " pglite ",
   });
 

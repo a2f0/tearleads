@@ -36,5 +36,11 @@ export async function authenticateWithChallenge(
     JSON.stringify({ fingerprint, signature: Array.from(signed) }),
   );
 
-  return response?.authenticated ? response.token : null;
+  return response?.authenticated
+    ? {
+        organizationId: response.organizationId,
+        token: response.token,
+        userId: response.userId,
+      }
+    : null;
 }

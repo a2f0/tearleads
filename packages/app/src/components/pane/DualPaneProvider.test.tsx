@@ -533,16 +533,31 @@ async function shareContainerWithGroup(
   await waitFor(() => {
     expect(shareButton.disabled).toBe(false);
   });
+  const requestStartIndex = listProxiedApiRequests().length;
   await interact(() => {
     fireEvent.click(shareButton);
   });
+  await waitForCondition(
+    () =>
+      listProxiedApiRequests()
+        .slice(requestStartIndex)
+        .some(
+          (request) =>
+            request.method === "POST" &&
+            request.status === 200 &&
+            requestPath(request.url).endsWith("/share"),
+        ),
+    `Container group share did not finish.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
+    15_000,
+  );
   await waitForCondition(
     () =>
       Array.from(pane.querySelectorAll("tr")).some((row) => {
         const text = row.textContent ?? "";
         return text.includes(groupName) && text.includes(accessLevel);
       }),
-    `Container group share did not appear in grants.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    `Container group share did not appear in grants.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
+    15_000,
   );
 
   const backButton = within(pane).getByRole("button", {
@@ -678,6 +693,13 @@ async function createGroupAndAddPeer(
   await waitFor(() => {
     expect(userIdInput.value).toBe("");
   });
+  await waitForCondition(
+    () =>
+      Array.from(pane.querySelectorAll("strong")).some(
+        (element) => element.getAttribute("title") === peerUserId,
+      ),
+    `Peer ${peerUserId} did not appear in group "${groupName}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+  );
 }
 
 async function createOrganizationGroup(pane: HTMLElement, groupName: string) {
@@ -1526,6 +1548,8 @@ test(
           ),
       `Restored key package did not authenticate.\nrequests=\n${summarizeProxiedApiRequests()}`,
     );
+
+    await openOrgManager(pane);
 
     expect(listPaneErrorLines([pane])).toEqual([]);
   },

@@ -26,11 +26,13 @@ afterAll(async () => {
 
 test("authenticates with a valid signature", async () => {
   fingerprint = await toFingerprint(signingKeys.signingPublicKey);
-  await submitRegistration(
+  const registrationRes = await submitRegistration(
     signingKeys.signingPublicKey,
     signingKeys.signingPrivateKey,
     kemKeys.publicKey,
   );
+  expect(registrationRes.status).toBe(200);
+  const registrationBody = await registrationRes.json();
 
   const challengeRes = await requestChallenge(fingerprint);
   const { challenge } = await challengeRes.json();
@@ -46,6 +48,8 @@ test("authenticates with a valid signature", async () => {
   const body = await res.json();
   expect(body.authenticated).toBe(true);
   expect(typeof body.token).toBe("string");
+  expect(body.organizationId).toBe(registrationBody.organizationId);
+  expect(body.userId).toBe(registrationBody.userId);
 });
 
 test("returns 401 when no challenge exists", async () => {
