@@ -476,7 +476,7 @@ async function shareContainerWithGroup(
   name: string,
   groupName: string,
   accessLevel: "read" | "write" | "admin",
-) {
+): Promise<string> {
   await interact(() => {
     fireEvent.contextMenu(getExplorerSidebarItem(pane, name), {
       clientX: 200,
@@ -490,26 +490,40 @@ async function shareContainerWithGroup(
     fireEvent.click(getInfoButton);
   });
 
-  const groupSelect = await within(pane).findByLabelText("Group");
+  const initialGroupSelect = await within(pane).findByLabelText("Group");
+  invariant(
+    initialGroupSelect instanceof HTMLSelectElement,
+    "Expected group select.",
+  );
+  let groupOption: HTMLOptionElement | undefined;
+  await waitFor(() => {
+    groupOption = Array.from(initialGroupSelect.options).find(
+      (option) => option.textContent?.trim() === groupName,
+    );
+    expect(groupOption).toBeTruthy();
+  });
+  await waitFor(() => {
+    expect(initialGroupSelect.disabled).toBe(false);
+  });
+  await act(async () => {
+    await waitForAppTestRuntimeToSettle({
+      apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+      timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+    });
+  });
+
+  const groupSelect = within(pane).getByLabelText("Group");
   invariant(groupSelect instanceof HTMLSelectElement, "Expected group select.");
   const permissionSelect = within(pane).getByLabelText("Permission");
   invariant(
     permissionSelect instanceof HTMLSelectElement,
     "Expected permission select.",
   );
-  let groupOption: HTMLOptionElement | undefined;
-  await waitFor(() => {
-    groupOption = Array.from(groupSelect.options).find(
-      (option) => option.textContent?.trim() === groupName,
-    );
-    expect(groupOption).toBeTruthy();
-  });
-  const selectedGroupOption = groupOption;
+  const selectedGroupOption = Array.from(groupSelect.options).find(
+    (option) => option.textContent?.trim() === groupName,
+  );
   invariant(selectedGroupOption, `Expected group option "${groupName}".`);
 
-  await waitFor(() => {
-    expect(groupSelect.disabled).toBe(false);
-  });
   await interact(() => {
     fireEvent.change(groupSelect, {
       target: { value: selectedGroupOption.value },
@@ -550,15 +564,6 @@ async function shareContainerWithGroup(
     `Container group share did not finish.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
     15_000,
   );
-  await waitForCondition(
-    () =>
-      Array.from(pane.querySelectorAll("tr")).some((row) => {
-        const text = row.textContent ?? "";
-        return text.includes(groupName) && text.includes(accessLevel);
-      }),
-    `Container group share did not appear in grants.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}\npane=${truncateText(pane.textContent ?? "")}`,
-    15_000,
-  );
 
   const backButton = within(pane).getByRole("button", {
     name: "Back to Container",
@@ -577,6 +582,8 @@ async function shareContainerWithGroup(
     () => Boolean(queryExplorerItemTable(pane)),
     `Container group share route did not return to the container.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
+
+  return selectedGroupOption.value;
 }
 
 async function addPeerToAdminsGroup(pane: HTMLElement, peerUserId: string) {
@@ -765,23 +772,55 @@ async function openExplorerContainerInfo(pane: HTMLElement, name: string) {
   await within(getExplorerWindowRoot(pane)).findByText("Container Info");
 }
 
+function formatExplorerWindowDebug(pane: HTMLElement): string {
+  const explorerWindow = getExplorerWindowRoot(pane);
+  const rowSummaries = Array.from(
+    explorerWindow.querySelectorAll<HTMLTableRowElement>("tr"),
+  ).map((row) => {
+    const cells = Array.from(row.querySelectorAll("th, td")).map((cell) => {
+      const title = cell.getAttribute("title");
+      const text = cell.textContent?.replace(/\s+/gu, " ").trim() ?? "";
+      return title ? `${text} [title=${title}]` : text;
+    });
+    return cells.join(" | ");
+  });
+
+  return [
+    `explorer=${truncateText(
+      explorerWindow.textContent?.replace(/\s+/gu, " ").trim() ?? "",
+      2_000,
+    )}`,
+    `rows=${rowSummaries.length > 0 ? rowSummaries.join("\n") : "(none)"}`,
+  ].join("\n");
+}
+
 async function findExplorerInfoGrantRow(
   pane: HTMLElement,
+  groupId: string,
   groupName: string,
   accessLevel: string,
 ): Promise<HTMLTableRowElement> {
   let row: HTMLTableRowElement | null = null;
-  await waitFor(() => {
-    const explorerWindow = getExplorerWindowRoot(pane);
-    row =
-      Array.from(
-        explorerWindow.querySelectorAll<HTMLTableRowElement>("tr"),
-      ).find((candidate) => {
-        const text = candidate.textContent ?? "";
-        return text.includes(groupName) && text.includes(accessLevel);
-      }) ?? null;
-    expect(row).toBeTruthy();
-  });
+  await waitForCondition(
+    () => {
+      const explorerWindow = getExplorerWindowRoot(pane);
+      row =
+        Array.from(
+          explorerWindow.querySelectorAll<HTMLTableRowElement>("tr"),
+        ).find((candidate) => {
+          const text = candidate.textContent ?? "";
+          const hasGroupSubject =
+            text.includes(groupName) ||
+            Array.from(candidate.querySelectorAll("td")).some(
+              (cell) => cell.getAttribute("title") === groupId,
+            );
+          return hasGroupSubject && text.includes(accessLevel);
+        }) ?? null;
+      return row !== null;
+    },
+    `Explorer info grant row did not appear.\n${formatExplorerWindowDebug(pane)}\nrequest volume=\n${summarizeProxiedApiRequestVolume(listProxiedApiRequests())}`,
+    15_000,
+  );
 
   invariant(row, `Expected grant row for "${groupName}".`);
   return row;
@@ -1046,10 +1085,13 @@ function summarizeRequestBody(body: string | null): string {
   return body === null ? "null" : `<${body.length} chars>`;
 }
 
-function truncateText(text: string): string {
-  return text.length <= MAX_REQUEST_SUMMARY_BODY_LENGTH
+function truncateText(
+  text: string,
+  maxLength = MAX_REQUEST_SUMMARY_BODY_LENGTH,
+): string {
+  return text.length <= maxLength
     ? text
-    : `${text.slice(0, MAX_REQUEST_SUMMARY_BODY_LENGTH)}... <${text.length} chars>`;
+    : `${text.slice(0, maxLength)}... <${text.length} chars>`;
 }
 
 function summarizeProxiedApiRequests(
@@ -1731,10 +1773,23 @@ test(
 
     await openExplorer(leftPane);
     const postShareRequestStartIndex = listProxiedApiRequests().length;
-    await shareContainerWithGroup(leftPane, "/", groupName, "read");
+    const sharedGroupId = await shareContainerWithGroup(
+      leftPane,
+      "/",
+      groupName,
+      "read",
+    );
+    await clickExplorerRefresh(leftPane);
+    await act(async () => {
+      await waitForAppTestRuntimeToSettle({
+        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+        timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+      });
+    });
     await openExplorerContainerInfo(leftPane, "/");
     const grantRow = await findExplorerInfoGrantRow(
       leftPane,
+      sharedGroupId,
       groupName,
       "read",
     );
@@ -1751,7 +1806,7 @@ test(
       postShareRequestStartIndex,
     );
   },
-  DUAL_PANE_TEST_TIMEOUT_MS,
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
 test(

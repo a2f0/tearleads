@@ -25,6 +25,11 @@ export type ReloadExplorerContainerInfo = (options?: {
   resetDrafts?: boolean;
 }) => Promise<void>;
 
+interface ReloadExplorerContainerInfoOptions {
+  optimisticGrant?: ExplorerContainerInfoGrant | null;
+  resetDrafts?: boolean;
+}
+
 interface ExplorerContainerInfoShareParams {
   containerId: string;
   isSubmitting: boolean;
@@ -157,12 +162,12 @@ function unknownErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function isCurrentContainerInfoRequest(params: {
-  isMounted: boolean;
-  requestId: number;
-  activeRequestId: number;
-}): boolean {
-  return params.isMounted && params.activeRequestId === params.requestId;
+function isCurrentContainerInfoRequest(
+  isMountedRef: { current: boolean },
+  requestIdRef: { current: number },
+  requestId: number,
+): boolean {
+  return isMountedRef.current && requestIdRef.current === requestId;
 }
 
 function useMountedRef() {
@@ -176,6 +181,52 @@ function useMountedRef() {
   }, []);
 
   return isMountedRef;
+}
+
+function commitContainerInfo(params: {
+  containerId: string;
+  containerInfoRef: { current: ContainerInfo | null };
+  info: ContainerInfo;
+  options?: ReloadExplorerContainerInfoOptions;
+  setContainerInfo: (info: ContainerInfo) => void;
+  setDraftShareGroupId: (updater: (current: string) => string) => void;
+}) {
+  const {
+    containerId,
+    containerInfoRef,
+    info,
+    options = {},
+    setContainerInfo,
+    setDraftShareGroupId,
+  } = params;
+  const updatedInfo = upsertContainerInfoGrant(
+    info,
+    options.optimisticGrant ?? null,
+    containerId,
+  );
+  containerInfoRef.current = updatedInfo;
+  setContainerInfo(updatedInfo);
+  setDraftShareGroupId((current) =>
+    getReloadedDraftShareGroupId({
+      currentGroupId: current,
+      info: updatedInfo,
+      resetDrafts: options.resetDrafts ?? false,
+    }),
+  );
+}
+
+function resetContainerInfoState(params: {
+  containerInfoRef: { current: ContainerInfo | null };
+  setContainerInfo: (info: ContainerInfo | null) => void;
+  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
+  setDraftShareGroupId: (value: string) => void;
+  setPanelError: (error: string | null) => void;
+}) {
+  params.containerInfoRef.current = null;
+  params.setContainerInfo(null);
+  params.setDraftShareGroupId("");
+  params.setDraftShareAccessLevel(DEFAULT_SHARE_ACCESS_LEVEL);
+  params.setPanelError(null);
 }
 
 export function useExplorerContainerInfo(params: {
@@ -196,30 +247,44 @@ export function useExplorerContainerInfo(params: {
   const [isLoadingContainerInfo, setIsLoadingContainerInfo] = useState(false);
   const [panelError, setPanelError] = useState<string | null>(null);
   const isMountedRef = useMountedRef();
+  const containerInfoRef = useRef<ContainerInfo | null>(null);
   const requestIdRef = useRef(0);
 
   const reloadContainerInfo = useCallback(
-    async (
-      options: {
-        optimisticGrant?: ExplorerContainerInfoGrant | null;
-        resetDrafts?: boolean;
-      } = {},
-    ) => {
+    async (options: ReloadExplorerContainerInfoOptions = {}) => {
       const requestId = requestIdRef.current + 1;
       const isCurrentRequest = () =>
-        isCurrentContainerInfoRequest({
-          activeRequestId: requestIdRef.current,
-          isMounted: isMountedRef.current,
-          requestId,
+        isCurrentContainerInfoRequest(isMountedRef, requestIdRef, requestId);
+      const commitInfo = (
+        info: ContainerInfo,
+        commitOptions: ReloadExplorerContainerInfoOptions = {},
+      ) =>
+        commitContainerInfo({
+          containerId,
+          containerInfoRef,
+          info,
+          options: commitOptions,
+          setContainerInfo,
+          setDraftShareGroupId,
         });
       requestIdRef.current = requestId;
       setIsLoadingContainerInfo(true);
       setContainerInfoError(null);
       if (options.resetDrafts) {
-        setContainerInfo(null);
-        setDraftShareGroupId("");
-        setDraftShareAccessLevel(DEFAULT_SHARE_ACCESS_LEVEL);
-        setPanelError(null);
+        resetContainerInfoState({
+          containerInfoRef,
+          setContainerInfo,
+          setDraftShareAccessLevel,
+          setDraftShareGroupId,
+          setPanelError,
+        });
+      }
+
+      const optimisticInfo = containerInfoRef.current;
+      if (options.optimisticGrant && !options.resetDrafts && optimisticInfo) {
+        commitInfo(optimisticInfo, {
+          optimisticGrant: options.optimisticGrant,
+        });
       }
 
       try {
@@ -228,25 +293,16 @@ export function useExplorerContainerInfo(params: {
           return;
         }
 
-        const updatedInfo = upsertContainerInfoGrant(
-          nextInfo,
-          options.optimisticGrant ?? null,
-          containerId,
-        );
-        setContainerInfo(updatedInfo);
-        setDraftShareGroupId((current) =>
-          getReloadedDraftShareGroupId({
-            currentGroupId: current,
-            info: updatedInfo,
-            resetDrafts: options.resetDrafts ?? false,
-          }),
-        );
+        commitInfo(nextInfo, options);
       } catch (error) {
         if (!isCurrentRequest()) {
           return;
         }
 
-        setContainerInfo(null);
+        if (!options.optimisticGrant || !containerInfoRef.current) {
+          containerInfoRef.current = null;
+          setContainerInfo(null);
+        }
         setContainerInfoError(unknownErrorMessage(error));
       } finally {
         if (isCurrentRequest()) {

@@ -261,6 +261,73 @@ test("useExplorerContainerInfo surfaces loader errors", async () => {
   });
 });
 
+test("useExplorerContainerInfo preserves optimistic grants when reload fails", async () => {
+  let failReload = false;
+  const optimisticGrant: ExplorerContainerInfoGrant = {
+    accessLevel: "write",
+    subjectId: "group-2",
+    subjectType: "group",
+  };
+  const loadContainerInfo = async () => {
+    if (failReload) {
+      throw new Error("principal policy is not cached");
+    }
+
+    return createContainerInfo();
+  };
+  const view = renderHook(() =>
+    useExplorerContainerInfo({
+      containerId: "container-1",
+      loadContainerInfo,
+    }),
+  );
+
+  await waitFor(() => {
+    expect(view.result.current.containerInfo?.remoteInfo?.grants).toEqual([
+      {
+        accessLevel: "read",
+        subjectId: "group-1",
+        subjectType: "group",
+      },
+    ]);
+  });
+
+  failReload = true;
+  await act(async () => {
+    await view.result.current.reloadContainerInfo({ optimisticGrant });
+  });
+
+  await waitFor(() => {
+    expect(view.result.current.containerInfo?.remoteInfo?.grants).toEqual([
+      {
+        accessLevel: "read",
+        subjectId: "group-1",
+        subjectType: "group",
+      },
+      optimisticGrant,
+    ]);
+    expect(view.result.current.containerInfo?.remoteInfo?.grantRows).toEqual([
+      {
+        accessLevel: "read",
+        inherited: false,
+        sourceContainerId: "container-1",
+        subjectId: "group-1",
+        subjectType: "group",
+      },
+      {
+        ...optimisticGrant,
+        inherited: false,
+        sourceContainerId: "container-1",
+      },
+    ]);
+    expect(view.result.current.containerInfoError).toBe(
+      "principal policy is not cached",
+    );
+    expect(view.result.current.draftShareGroupId).toBe("");
+    expect(view.result.current.isLoadingContainerInfo).toBe(false);
+  });
+});
+
 test("useExplorerContainerInfoGroupShare requires a draft group", async () => {
   const panelErrors: Array<string | null> = [];
   const shareCalls: string[] = [];
