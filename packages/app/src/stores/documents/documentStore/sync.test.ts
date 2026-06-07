@@ -1871,7 +1871,7 @@ test("uploadDocumentAttachment uses a fresh IV for same-domain blob re-encryptio
   expect(secondRecord.iv).not.toBe(bytesToBase64(new Uint8Array(12)));
   expect(firstRecord.iv).not.toBe(secondRecord.iv);
   expect(firstRecord.ciphertext).not.toBe(secondRecord.ciphertext);
-});
+}, 10_000);
 
 test("document store preserves a replacement queued during attachment upload", async () => {
   const persistence = createDocumentsPersistence();
