@@ -11,17 +11,33 @@ interface PaneProviderProps extends PropsWithChildren {
 
 export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
   const side = usePaneSide();
+  const {
+    apiBaseUrl,
+    createBlobStore,
+    createLocalKeyring,
+    createSQLiteRuntime,
+    localIdentityNamespace,
+    wsUrl,
+  } = hostConfig;
   const paneHostConfig = useMemo(
     () =>
       new PaneAppHostConfig(
-        hostConfig.apiBaseUrl,
-        hostConfig.wsUrl,
-        hostConfig.createSQLiteRuntime,
-        hostConfig.createBlobStore,
-        `${hostConfig.localIdentityNamespace ?? "tearleads.pane"}.${side}`,
-        hostConfig.createLocalKeyring,
+        apiBaseUrl,
+        wsUrl,
+        createSQLiteRuntime,
+        createBlobStore,
+        `${localIdentityNamespace ?? "tearleads.pane"}.${side}`,
+        createLocalKeyring,
       ),
-    [hostConfig, side],
+    [
+      apiBaseUrl,
+      createBlobStore,
+      createLocalKeyring,
+      createSQLiteRuntime,
+      localIdentityNamespace,
+      side,
+      wsUrl,
+    ],
   );
 
   return (

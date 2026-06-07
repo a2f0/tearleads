@@ -61,20 +61,25 @@ interface LocalIdentityEnvelope {
 }
 
 function getDefaultLocalIdentityStorage(): LocalIdentityStorage | null {
-  return typeof globalThis.localStorage === "undefined"
-    ? null
-    : globalThis.localStorage;
+  try {
+    return typeof globalThis.localStorage === "undefined"
+      ? null
+      : globalThis.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 function createHostLocalKeyring(input: {
   readonly createLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly localIdentityStorage: LocalIdentityStorage | null;
 }): LocalKeyring | null {
   if (input.createLocalKeyring) {
     return input.createLocalKeyring();
   }
   if (
     typeof globalThis.indexedDB === "undefined" ||
-    typeof globalThis.localStorage === "undefined"
+    !input.localIdentityStorage
   ) {
     return null;
   }
@@ -209,9 +214,10 @@ function useLocalIdentityPersistence(input: {
       input.namespace
         ? createHostLocalKeyring({
             createLocalKeyring: input.createLocalKeyring,
+            localIdentityStorage,
           })
         : null,
-    [input.createLocalKeyring, input.namespace],
+    [input.createLocalKeyring, input.namespace, localIdentityStorage],
   );
 
   return useMemo(() => {
@@ -466,7 +472,14 @@ function useRestoreKeyPackage(input: {
       generationIdRef.current += 1;
       generationInFlight.current = false;
       await tearleads.identity.importKeyPackage(keyPackage);
-      await persistLocalIdentity();
+      try {
+        await persistLocalIdentity();
+      } catch (error: unknown) {
+        tearleads.logError(
+          "Failed to persist local identity key package after restore",
+          error,
+        );
+      }
     },
     [generationIdRef, generationInFlight, persistLocalIdentity, tearleads],
   );
