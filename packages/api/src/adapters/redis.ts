@@ -1,4 +1,17 @@
 import { createClient } from "redis";
+import {
+  clearInMemoryRedisData,
+  inMemoryRedisDel,
+  inMemoryRedisExpire,
+  inMemoryRedisGet,
+  inMemoryRedisGetDel,
+  inMemoryRedisSadd,
+  inMemoryRedisSet,
+  inMemoryRedisSetKeepTtl,
+  inMemoryRedisSrem,
+  inMemoryRedisSscanMembers,
+  isInMemoryRedisEnabled,
+} from "./inMemoryRedis";
 
 type RedisClient = ReturnType<typeof createClient>;
 
@@ -41,6 +54,10 @@ async function ensureClient(): Promise<RedisClient> {
 }
 
 export async function get(key: string): Promise<string | null> {
+  if (isInMemoryRedisEnabled()) {
+    return inMemoryRedisGet(key);
+  }
+
   const activeClient = await ensureClient();
   return activeClient.get(key);
 }
@@ -50,6 +67,11 @@ export async function set(
   value: string,
   ttlSeconds?: number,
 ): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    await inMemoryRedisSet(key, value, ttlSeconds);
+    return;
+  }
+
   const activeClient = await ensureClient();
   if (ttlSeconds !== undefined) {
     await activeClient.set(key, value, { EX: ttlSeconds });
@@ -59,6 +81,11 @@ export async function set(
 }
 
 export async function setKeepTtl(key: string, value: string): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    await inMemoryRedisSetKeepTtl(key, value);
+    return;
+  }
+
   const activeClient = await ensureClient();
   await activeClient.set(key, value, {
     KEEPTTL: true,
@@ -67,26 +94,50 @@ export async function setKeepTtl(key: string, value: string): Promise<void> {
 }
 
 export async function getdel(key: string): Promise<string | null> {
+  if (isInMemoryRedisEnabled()) {
+    return inMemoryRedisGetDel(key);
+  }
+
   const activeClient = await ensureClient();
   return activeClient.getDel(key);
 }
 
 export async function del(key: string): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    await inMemoryRedisDel(key);
+    return;
+  }
+
   const activeClient = await ensureClient();
   await activeClient.del(key);
 }
 
 export async function expire(key: string, ttlSeconds: number): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    await inMemoryRedisExpire(key, ttlSeconds);
+    return;
+  }
+
   const activeClient = await ensureClient();
   await activeClient.expire(key, ttlSeconds);
 }
 
 export async function sadd(key: string, member: string): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    await inMemoryRedisSadd(key, member);
+    return;
+  }
+
   const activeClient = await ensureClient();
   await activeClient.sAdd(key, member);
 }
 
 export async function srem(key: string, member: string): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    await inMemoryRedisSrem(key, member);
+    return;
+  }
+
   const activeClient = await ensureClient();
   await activeClient.sRem(key, member);
 }
@@ -96,13 +147,25 @@ export async function srem(key: string, member: string): Promise<void> {
 export async function* sscanMembers(
   key: string,
 ): AsyncGenerator<string[], void, unknown> {
+  if (isInMemoryRedisEnabled()) {
+    yield* inMemoryRedisSscanMembers(key);
+    return;
+  }
+
   const activeClient = await ensureClient();
-  yield* activeClient.sScanIterator(key, {
+  for await (const members of activeClient.sScanIterator(key, {
     COUNT: 100,
-  });
+  })) {
+    yield members;
+  }
 }
 
 export async function closeRedisClient(): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    clearInMemoryRedisData();
+    return;
+  }
+
   const activeClient = client;
   client = null;
   connectPromise = null;

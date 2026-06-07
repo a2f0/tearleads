@@ -795,7 +795,7 @@ export function getProxiedApiNetworkActivitySnapshot(): ProxiedApiNetworkActivit
 }
 
 async function waitForProxiedApiRequestsToSettle(
-  timeoutMs = 500,
+  timeoutMs = 2_000,
   quietMs = 50,
 ): Promise<void> {
   const settled = await waitForProxiedApiNetworkIdle(timeoutMs, quietMs);

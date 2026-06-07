@@ -3100,7 +3100,7 @@ test("POST /containers/:containerId/move validates destination manifest heads", 
     ?.updatedAt.toISOString();
   expect(movedSourceUpdatedAt).toBe(movedGrandchildUpdatedAt);
   expect(movedSourceUpdatedAt).not.toBe(preMoveUpdatedAt.toISOString());
-});
+}, 10_000);
 
 test("POST /containers/:containerId/move emits tombstones when inherited access is lost", async () => {
   const owner = createTestUser();

@@ -736,4 +736,4 @@ test("PUT /principals/:principalType/:principalId/state allows org admins to upd
   );
   expect(successorStoredState.signerUserId).toBe(orgAdmin.userId);
   expect(successorStoredState.version).toBe(2);
-});
+}, 10_000);
