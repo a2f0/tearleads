@@ -3,11 +3,14 @@ import {
   type BlobInfoInput,
   type ContainerDocumentObjectSyncState,
   type ContainerDocumentQueriesLinkInput,
+  createBrowserLocalKeyring,
   createContainerDocumentObjectSyncState,
   createDocumentProjectorRegistry,
   createEncryptedBlobStore,
   createEncryptedOpfsBlobStore,
+  createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
+  createLocalStorageLocalKeyringManifestStore,
   createMemoryBlobStore,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
@@ -40,7 +43,10 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(createDocumentProjectorRegistry).toBeFunction();
   expect(createEncryptedBlobStore).toBeFunction();
   expect(createEncryptedOpfsBlobStore).toBeFunction();
+  expect(createBrowserLocalKeyring).toBeFunction();
+  expect(createIndexedDbWrappingKeyKeystore).toBeFunction();
   expect(createLocalKeyring).toBeFunction();
+  expect(createLocalStorageLocalKeyringManifestStore).toBeFunction();
   expect(createMemoryLocalKeyringManifestStore).toBeFunction();
   expect(createMemoryWrappingKeyKeystore).toBeFunction();
   expect(getDocumentClientProjectionTables).toBeFunction();

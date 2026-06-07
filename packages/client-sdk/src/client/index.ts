@@ -81,15 +81,19 @@ export {
   type IdentityKeyPackage,
 } from "./identityKeyPackage";
 export type {
+  BrowserLocalKeyringOptions,
+  IndexedDbWrappingKeyKeystoreOptions,
   LocalKeyPurpose,
   LocalKeyring,
   LocalKeyringManifest,
   LocalKeyringManifestFormat,
+  LocalKeyringManifestStorage,
   LocalKeyringManifestStore,
   LocalKeyringOptions,
   LocalKeyringScope,
   LocalKeyringSession,
   LocalSecretContext,
+  LocalStorageLocalKeyringManifestStoreOptions,
   NormalizedLocalKeyringScope,
   UnwrapLocalSecretInput,
   WrapLocalSecretInput,
@@ -99,7 +103,10 @@ export type {
   WrappingKeyKeystore,
 } from "./localKeyring";
 export {
+  createBrowserLocalKeyring,
+  createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
+  createLocalStorageLocalKeyringManifestStore,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
   decodeLocalKeyringSqliteKey,
