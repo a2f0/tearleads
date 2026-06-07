@@ -1,6 +1,12 @@
 import { afterAll } from "bun:test";
-import { initializeApiDatabase } from "../src/adapters/postgres";
-import { closeApiTestAdapters } from "./cleanup";
+
+const apiRedisEnvKey = "API_REDIS";
+
+process.env[apiRedisEnvKey] ??= "memory";
+
+const [{ initializeApiDatabase }, { closeApiTestAdapters }] = await Promise.all(
+  [import("../src/adapters/postgres"), import("./cleanup")],
+);
 
 await initializeApiDatabase();
 

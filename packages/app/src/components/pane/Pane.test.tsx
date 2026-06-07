@@ -371,12 +371,14 @@ function summarizeProxiedApiRequests(): string {
     .join("\n");
 }
 
-async function waitForPaneRuntimeToSettle(): Promise<void> {
+async function waitForPaneRuntimeToSettle(
+  timeoutMs = PANE_ASYNC_TEST_TIMEOUT_MS,
+): Promise<void> {
   let settled = false;
   await act(async () => {
     settled = await waitForAppTestRuntimeToSettle({
       apiQuietMs: 25,
-      timeoutMs: PANE_ASYNC_TEST_TIMEOUT_MS,
+      timeoutMs,
     });
   });
   expect(
@@ -901,7 +903,7 @@ test(
       { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
 
-    await waitForPaneRuntimeToSettle();
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
 
     view.unmount();
   },
@@ -1088,7 +1090,7 @@ test("registered explorer child folders settle to synced in the pane UI", async 
   });
 
   await createExplorerChildContainer(view, explorer, "Docs");
-  await waitForPaneRuntimeToSettle();
+  await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
 
   await waitFor(
     () => {

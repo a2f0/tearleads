@@ -1,4 +1,10 @@
 import { createClient } from "redis";
+import {
+  clearInMemoryRedisPubSub,
+  inMemoryRedisAddListener,
+  inMemoryRedisPublish,
+  isInMemoryRedisEnabled,
+} from "./inMemoryRedis";
 
 const CHANNEL = "events";
 
@@ -95,11 +101,20 @@ async function ensureSubscriber(): Promise<RedisClient> {
 }
 
 export async function publish(event: Record<string, unknown>): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    await inMemoryRedisPublish(event);
+    return;
+  }
+
   const activePublisher = await ensurePublisher();
   await activePublisher.publish(CHANNEL, JSON.stringify(event));
 }
 
 export function addListener(listener: EventListener): () => void {
+  if (isInMemoryRedisEnabled()) {
+    return inMemoryRedisAddListener(listener);
+  }
+
   listeners.add(listener);
   void ensureSubscriber().catch((error) => {
     console.error("Redis subscriber setup error:", error);
@@ -110,6 +125,11 @@ export function addListener(listener: EventListener): () => void {
 }
 
 export async function closeRedisPubSub(): Promise<void> {
+  if (isInMemoryRedisEnabled()) {
+    clearInMemoryRedisPubSub();
+    return;
+  }
+
   const activePublisher = publisher;
   const activeSubscriber = subscriber;
 
