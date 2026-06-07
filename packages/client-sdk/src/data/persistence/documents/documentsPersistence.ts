@@ -89,12 +89,7 @@ const DEFAULT_DOCUMENT_SUMMARY_SORT: DocumentSummarySort = {
 export { DOCUMENTS_APP_KIND } from "./internal/constants";
 export type {
   ContainerDocumentTombstoneInput,
-  DocumentSummaryList,
-  DocumentSummarySort,
-  DocumentSummarySortDirection,
-  DocumentSummarySortKey,
   DocumentsPersistence,
-  ListDocumentSummariesInput,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
   PendingUpdateInsert,
