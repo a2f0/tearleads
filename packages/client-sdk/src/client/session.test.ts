@@ -208,7 +208,12 @@ describe("session", () => {
     const api = createApi({
       authenticate: async () => {
         authenticateCalls += 1;
-        return "test-token";
+        return {
+          authenticated: true,
+          organizationId: "org-1",
+          token: "test-token",
+          userId: "user-1",
+        };
       },
     });
     const { identity, session } = createSessionHarness({ api });
@@ -220,6 +225,8 @@ describe("session", () => {
     expect(session.authToken).toBe("test-token");
     expect(api.getAuthToken()).toBe("test-token");
     expect(session.isAuthenticated).toBe(true);
+    expect(session.organizationId).toBe("org-1");
+    expect(session.userId).toBe("user-1");
   });
 
   test("login fails when authentication returns no token", async () => {

@@ -25,12 +25,10 @@ afterAll(async () => {
     return;
   }
 
-  const postgresModuleUrl = new URL(
-    "../api/src/adapters/postgres.ts",
-    import.meta.url,
-  ).href;
-  const { default: postgresClient } = await import(postgresModuleUrl);
-  await postgresClient.close();
+  const cleanupModuleUrl = new URL("../api/test/cleanup.ts", import.meta.url)
+    .href;
+  const { closeApiTestAdapters } = await import(cleanupModuleUrl);
+  await closeApiTestAdapters();
 });
 
 const broadcastChannelPrototype = globalThis.BroadcastChannel?.prototype;

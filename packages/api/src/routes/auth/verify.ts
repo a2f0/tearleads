@@ -29,7 +29,9 @@ export function createVerifyRoute(runtime: ApiServiceRuntime) {
 
         return c.json<VerifyResponse>({
           authenticated: true,
+          organizationId: result.organizationId,
           token: result.token,
+          userId: result.userId,
         });
       } catch (error) {
         if (error instanceof VerifyChallengeError) {

@@ -16,6 +16,7 @@ import type {
   RegistrationResponse,
   VerifyResponse,
 } from "@tearleads/validators/response";
+import { sql } from "drizzle-orm";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
 
@@ -69,6 +70,7 @@ function createApiModuleUrl(relativePath: string): string {
 }
 
 const appTestRuntimeModuleUrl = createApiModuleUrl("appTestRuntime.ts");
+const apiPostgresAdapterModuleUrl = createApiModuleUrl("adapters/postgres.ts");
 
 const appTestProcessState = globalThis as typeof globalThis & {
   __tearleadsAppTestProcessState?: AppTestProcessState;
@@ -103,6 +105,7 @@ const mockEncapsulationKeysByUserId = new Map<
   string,
   Promise<EncapsulationKeyResponse>
 >();
+let mockAuthContext: { organizationId: string; userId: string } | null = null;
 
 function getMockEncapsulationKeyResponse(
   userId: string,
@@ -383,10 +386,15 @@ const server = setupServer(
     const rootContainerId = isRecord(requestBody)
       ? Reflect.get(requestBody, "rootContainerId")
       : null;
+    const context = {
+      organizationId: crypto.randomUUID(),
+      userId: crypto.randomUUID(),
+    };
+    mockAuthContext = context;
 
     return HttpResponse.json<RegistrationResponse>({
-      userId: crypto.randomUUID(),
-      organizationId: crypto.randomUUID(),
+      userId: context.userId,
+      organizationId: context.organizationId,
       rootContainerId:
         typeof rootContainerId === "string"
           ? rootContainerId
@@ -399,9 +407,17 @@ const server = setupServer(
     });
   }),
   http.post("http://localhost:3001/auth/verify", () => {
+    const context = mockAuthContext ?? {
+      organizationId: crypto.randomUUID(),
+      userId: crypto.randomUUID(),
+    };
+    mockAuthContext = context;
+
     return HttpResponse.json<VerifyResponse>({
       authenticated: true,
+      organizationId: context.organizationId,
       token: randomHex(64),
+      userId: context.userId,
     });
   }),
   http.get("http://localhost:3001/auth/sessions", () => {
@@ -620,6 +636,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
   testProcessState.hasLoadedApiRuntimeModule = true;
   testApiAppPromise = (async () => {
     const [
+      { initializeApiDatabase },
       {
         createDestroySession,
         createDestroyUserSession,
@@ -629,8 +646,16 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
         createSessionTokenIssuer,
         db,
       },
-    ] = await Promise.all([import(appTestRuntimeModuleUrl)]);
+    ] = await Promise.all([
+      import(apiPostgresAdapterModuleUrl),
+      import(appTestRuntimeModuleUrl),
+    ]);
 
+    if (typeof initializeApiDatabase !== "function") {
+      throw new Error(
+        "API postgres adapter module missing initializeApiDatabase export.",
+      );
+    }
     if (typeof createRouteApp !== "function") {
       throw new Error("API routeApp module missing createRouteApp export.");
     }
@@ -660,6 +685,8 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     if (!db) {
       throw new Error("API app test runtime module missing db export.");
     }
+
+    await initializeApiDatabase();
 
     const keyValueStore = createInMemoryKeyValueStore();
     const eventPublisher = {
@@ -782,6 +809,55 @@ async function waitForProxiedApiRequestsToSettle(
   );
 }
 
+function quoteSqlIdentifier(identifier: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier)) {
+    throw new Error(`Unexpected API test table name: ${identifier}`);
+  }
+
+  return `"${identifier}"`;
+}
+
+async function resetTestApiDatabase(): Promise<void> {
+  if (!testApiAppPromise) {
+    return;
+  }
+
+  const [{ initializeApiDatabase }, { db }] = await Promise.all([
+    import(apiPostgresAdapterModuleUrl),
+    import(appTestRuntimeModuleUrl),
+  ]);
+  if (typeof initializeApiDatabase !== "function") {
+    throw new Error(
+      "API postgres adapter module missing initializeApiDatabase export.",
+    );
+  }
+  if (!db) {
+    throw new Error("API app test runtime module missing db export.");
+  }
+
+  await initializeApiDatabase();
+
+  const tableResult = await db.execute(sql<{ tableName: string }>`
+    select tablename as "tableName"
+    from pg_catalog.pg_tables
+    where schemaname = 'public'
+      and tablename <> '__drizzle_migrations'
+    order by tablename
+  `);
+  const tableNames = tableResult.rows.map(
+    (row: { tableName: string }) => row.tableName,
+  );
+  if (tableNames.length === 0) {
+    return;
+  }
+
+  await db.execute(
+    sql.raw(
+      `truncate table ${tableNames.map(quoteSqlIdentifier).join(", ")} restart identity cascade`,
+    ),
+  );
+}
+
 export async function resetMockServer(
   options: ResetMockServerOptions = {},
 ): Promise<void> {
@@ -790,8 +866,11 @@ export async function resetMockServer(
     options.proxiedApiTimeoutMs,
     options.proxiedApiQuietMs,
   );
+  await resetTestApiDatabase();
   testApiAppPromise = null;
   activeProxiedApiRequestCount = 0;
+  mockAuthContext = null;
+  mockEncapsulationKeysByUserId.clear();
   proxiedApiRequests.length = 0;
   server.resetHandlers();
 }
