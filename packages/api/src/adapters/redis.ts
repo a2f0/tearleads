@@ -153,9 +153,11 @@ export async function* sscanMembers(
   }
 
   const activeClient = await ensureClient();
-  yield* activeClient.sScanIterator(key, {
+  for await (const members of activeClient.sScanIterator(key, {
     COUNT: 100,
-  });
+  })) {
+    yield members;
+  }
 }
 
 export async function closeRedisClient(): Promise<void> {

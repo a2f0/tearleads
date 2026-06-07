@@ -167,7 +167,11 @@ export async function inMemoryRedisPublish(
 ): Promise<void> {
   const message = JSON.stringify(event);
   for (const listener of listeners) {
-    listener(message);
+    try {
+      listener(message);
+    } catch (error) {
+      console.error("In-memory Redis listener error:", error);
+    }
   }
 }
 
