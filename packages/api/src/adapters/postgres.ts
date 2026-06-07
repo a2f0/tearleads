@@ -1,7 +1,10 @@
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
+import {
+  drizzle as drizzleNodePostgres,
+  type NodePgDatabase,
+} from "drizzle-orm/node-postgres";
 import { migrate as migrateNodePostgres } from "drizzle-orm/node-postgres/migrator";
 import type { PgliteDatabase } from "drizzle-orm/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -36,7 +39,14 @@ interface ApiDatabaseEnv {
 type ApiDatabaseKind = "memory" | "postgres";
 
 type ApiSchema = typeof schema;
-export type ApiDatabase = PgliteDatabase<ApiSchema>;
+type ConcreteApiDatabase =
+  | NodePgDatabase<ApiSchema>
+  | PgliteDatabase<ApiSchema>;
+type ApiDatabaseSurface = Pick<
+  PgliteDatabase<ApiSchema>,
+  "delete" | "execute" | "insert" | "select" | "transaction" | "update"
+>;
+export type ApiDatabase = ConcreteApiDatabase & ApiDatabaseSurface;
 type TransactionCallback = Parameters<ApiDatabase["transaction"]>[0];
 export type DatabaseTransaction = Parameters<TransactionCallback>[0];
 // Shared statement surface for helpers that can run against either the root
@@ -54,6 +64,7 @@ export interface ManagedApiDatabase {
   readonly db: ApiDatabase;
   readonly kind: ApiDatabaseKind;
   close(): Promise<void>;
+  migrate(): Promise<void>;
 }
 
 const databaseUrlKeys = ["DATABASE_URL", "POSTGRES_URL"] as const;
@@ -87,7 +98,9 @@ function parsePort(value: string | undefined): number | undefined {
   }
 
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 65_535
+    ? parsed
+    : undefined;
 }
 
 function isDevMode(env: ApiDatabaseEnv): boolean {
@@ -125,7 +138,7 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
 }
 
 function readApiDatabaseKind(env: ApiDatabaseEnv): ApiDatabaseKind {
-  const value = env.API_DATABASE ?? "memory";
+  const value = getEnvValue(env, ["API_DATABASE"]) ?? "memory";
   if (value === "memory" || value === "pglite") {
     return "memory";
   }
@@ -170,15 +183,16 @@ function requirePostgresEnv(
 export function createPostgresPoolConfig(
   env: ApiDatabaseEnv = process.env,
 ): PoolConfig {
+  const ssl = readPostgresSslConfig(env);
   const databaseUrl = getEnvValue(env, databaseUrlKeys);
   if (databaseUrl) {
     return {
       connectionString: databaseUrl,
       ...postgresPoolSizing,
+      ...(ssl ? { ssl } : {}),
     };
   }
 
-  const ssl = readPostgresSslConfig(env);
   if (!isDevMode(env)) {
     const missing: string[] = [];
     const host = requirePostgresEnv(env, "POSTGRES_HOST", missing);
@@ -227,36 +241,33 @@ export function createPostgresPoolConfig(
   };
 }
 
-async function createMemoryApiDatabase(): Promise<ManagedApiDatabase> {
+function createMemoryApiDatabase(): ManagedApiDatabase {
   const client = new PGlite({ debug: 0 });
   const db = drizzle({ client, schema });
-  await migrate(db, { migrationsFolder });
 
   return {
     db,
     kind: "memory",
     close: () => client.close(),
+    migrate: () => migrate(db, { migrationsFolder }),
   };
 }
 
-async function createPostgresApiDatabase(
-  env: ApiDatabaseEnv,
-): Promise<ManagedApiDatabase> {
+function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
   const pool = new Pool(createPostgresPoolConfig(env));
   const db = drizzleNodePostgres({ client: pool, schema });
-  await migrateNodePostgres(db, { migrationsFolder });
-  const apiDb: ApiDatabase = db;
 
   return {
-    db: apiDb,
+    db,
     kind: "postgres",
     close: () => pool.end(),
+    migrate: () => migrateNodePostgres(db, { migrationsFolder }),
   };
 }
 
-export async function createDefaultManagedApiDatabase(
+export function createDefaultManagedApiDatabase(
   env: ApiDatabaseEnv = process.env,
-): Promise<ManagedApiDatabase> {
+): ManagedApiDatabase {
   const kind = readApiDatabaseKind(env);
   if (kind === "memory") {
     return createMemoryApiDatabase();
@@ -265,11 +276,22 @@ export async function createDefaultManagedApiDatabase(
   return createPostgresApiDatabase(env);
 }
 
-const defaultDatabase = await createDefaultManagedApiDatabase();
+const defaultDatabase = createDefaultManagedApiDatabase();
+let defaultDatabaseMigration: Promise<void> | undefined;
+
+export function initializeApiDatabase(): Promise<void> {
+  defaultDatabaseMigration ??= defaultDatabase.migrate();
+  return defaultDatabaseMigration;
+}
+
 export const db = defaultDatabase.db;
 
 export async function closeApiDatabase(): Promise<void> {
-  await defaultDatabase.close();
+  try {
+    await defaultDatabaseMigration;
+  } finally {
+    await defaultDatabase.close();
+  }
 }
 
 export default defaultDatabase;

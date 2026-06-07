@@ -1,6 +1,9 @@
+import { initializeApiDatabase } from "./adapters/postgres";
 import type { RouteRequestBindings } from "./requestContext";
 import { routeApp } from "./routeApp";
 import { websocket } from "./ws";
+
+await initializeApiDatabase();
 
 interface ApiServer {
   requestIP(req: Request): { address: string } | null;

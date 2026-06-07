@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createPostgresPoolConfig } from "./postgres";
+import {
+  createDefaultManagedApiDatabase,
+  createPostgresPoolConfig,
+} from "./postgres";
 
 function expectedDevHost(): string {
   return process.platform === "linux" ? "/var/run/postgresql" : "localhost";
@@ -16,6 +19,18 @@ test("Postgres pool config uses DATABASE_URL when provided", () => {
     max: 15,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
+  });
+});
+
+test("Postgres pool config applies SSL settings to DATABASE_URL", () => {
+  expect(
+    createPostgresPoolConfig({
+      DATABASE_URL: "postgres://dev-user@localhost:5432/tearleads_dev",
+      POSTGRES_SSL: "true",
+    }),
+  ).toMatchObject({
+    connectionString: "postgres://dev-user@localhost:5432/tearleads_dev",
+    ssl: { rejectUnauthorized: true },
   });
 });
 
@@ -80,6 +95,28 @@ test("Postgres pool config validates release port", () => {
       POSTGRES_USER: "api",
     }),
   ).toThrow("POSTGRES_PORT must be a valid number");
+
+  expect(() =>
+    createPostgresPoolConfig({
+      NODE_ENV: "production",
+      POSTGRES_DATABASE: "tearleads",
+      POSTGRES_HOST: "postgres.example.com",
+      POSTGRES_PASSWORD: "secret",
+      POSTGRES_PORT: "5432.5",
+      POSTGRES_USER: "api",
+    }),
+  ).toThrow("POSTGRES_PORT must be a valid number");
+
+  expect(() =>
+    createPostgresPoolConfig({
+      NODE_ENV: "production",
+      POSTGRES_DATABASE: "tearleads",
+      POSTGRES_HOST: "postgres.example.com",
+      POSTGRES_PASSWORD: "secret",
+      POSTGRES_PORT: "65536",
+      POSTGRES_USER: "api",
+    }),
+  ).toThrow("POSTGRES_PORT must be a valid number");
 });
 
 test("Postgres pool config supports SSL settings", () => {
@@ -97,4 +134,13 @@ test("Postgres pool config supports SSL settings", () => {
   ).toMatchObject({
     ssl: { rejectUnauthorized: false },
   });
+});
+
+test("default API database trims the adapter kind", async () => {
+  const database = createDefaultManagedApiDatabase({
+    API_DATABASE: " pglite ",
+  });
+
+  expect(database.kind).toBe("memory");
+  await database.close();
 });
