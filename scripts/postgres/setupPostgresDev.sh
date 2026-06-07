@@ -1,0 +1,293 @@
+#!/bin/sh
+set -eu
+
+echo "Setting up Postgres for dev..."
+
+OS_NAME="$(uname -s)"
+DB_NAME="tearleads_development"
+PG_USER="${USER:-${LOGNAME:-}}"
+
+match_postgres_formula() {
+  if command -v rg >/dev/null 2>&1; then
+    rg "^postgresql(@[0-9]+)?$"
+  else
+    grep -E "^postgresql(@[0-9]+)?$"
+  fi
+}
+
+ensure_linux_role_exists() {
+  role_name="$1"
+
+  if [ "${OS_NAME}" != "Linux" ] || [ -z "${role_name}" ]; then
+    return
+  fi
+  if ! command -v sudo >/dev/null 2>&1; then
+    return
+  fi
+
+  set +e
+  create_output="$(sudo -u postgres createuser "${role_name}" 2>&1)"
+  create_status=$?
+  set -e
+
+  if [ "${create_status}" -eq 0 ]; then
+    echo "Created Postgres role ${role_name}."
+    return
+  fi
+  if echo "${create_output}" | grep -q "already exists"; then
+    return
+  fi
+
+  echo "Postgres role ${role_name} does not exist and could not be created automatically." >&2
+  echo "Run: sudo -u postgres createuser ${role_name}" >&2
+  echo "Error details: ${create_output}" >&2
+  exit 1
+}
+
+ensure_postgres_binaries_linux() {
+  has_client=0
+  has_server=0
+
+  if command -v psql >/dev/null 2>&1 && command -v createdb >/dev/null 2>&1; then
+    has_client=1
+  fi
+  if command -v postgres >/dev/null 2>&1 || command -v pg_ctlcluster >/dev/null 2>&1; then
+    has_server=1
+  fi
+  if [ "${has_client}" -eq 1 ] && [ "${has_server}" -eq 1 ]; then
+    return
+  fi
+
+  if ! command -v apt-get >/dev/null 2>&1; then
+    echo "PostgreSQL tools/server are missing and apt-get is unavailable." >&2
+    echo "Install PostgreSQL server/client for your distro, then rerun." >&2
+    exit 1
+  fi
+  if ! command -v sudo >/dev/null 2>&1; then
+    echo "PostgreSQL tools/server are missing and sudo is not available." >&2
+    echo "Run manually: apt-get update && apt-get install -y postgresql postgresql-client" >&2
+    exit 1
+  fi
+
+  echo "Installing PostgreSQL server/client via apt-get..."
+  sudo apt-get update >/dev/null
+  sudo apt-get install -y postgresql postgresql-client >/dev/null
+}
+
+start_postgres_macos() {
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew is required but not found in PATH." >&2
+    exit 1
+  fi
+
+  postgres_formula="$(brew list --formula | match_postgres_formula | head -n1 || true)"
+  if [ -z "${postgres_formula}" ]; then
+    echo "PostgreSQL not found via Homebrew. Installing..." >&2
+    brew install postgresql
+    postgres_formula="$(brew list --formula | match_postgres_formula | head -n1 || true)"
+  fi
+  if [ -z "${postgres_formula}" ]; then
+    echo "PostgreSQL install succeeded but formula was not detected." >&2
+    exit 1
+  fi
+
+  PATH="$(brew --prefix "${postgres_formula}")/bin:${PATH}"
+  export PATH
+
+  if ! brew services start "${postgres_formula}" >/dev/null; then
+    brew_prefix="$(brew --prefix)"
+    data_dir="${brew_prefix}/var/${postgres_formula}"
+    postgres_bin="$(brew --prefix "${postgres_formula}")/bin/postgres"
+    echo "Failed to start Postgres via brew services." >&2
+    echo "Try one of the following:" >&2
+    echo "  brew services start ${postgres_formula}" >&2
+    echo "  ${postgres_bin} -D ${data_dir}" >&2
+    exit 1
+  fi
+
+  echo "Postgres service started (${postgres_formula})."
+}
+
+start_pg_cluster_linux() {
+  if ! command -v pg_ctlcluster >/dev/null 2>&1 || ! command -v pg_lsclusters >/dev/null 2>&1; then
+    return 1
+  fi
+
+  cluster="$(pg_lsclusters 2>/dev/null | awk 'NR > 1 && $1 != "" { print $1 ":" $2; exit }')"
+  if [ -z "${cluster}" ]; then
+    return 1
+  fi
+
+  version="${cluster%%:*}"
+  name="${cluster#*:}"
+
+  if command -v sudo >/dev/null 2>&1 && sudo pg_ctlcluster "${version}" "${name}" start >/dev/null 2>&1; then
+    return 0
+  fi
+  if pg_ctlcluster "${version}" "${name}" start >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+start_pg_service_linux() {
+  service_name="$1"
+
+  if command -v systemctl >/dev/null 2>&1; then
+    if systemctl is-active --quiet "${service_name}" 2>/dev/null; then
+      return 0
+    fi
+    if command -v sudo >/dev/null 2>&1 && sudo systemctl start "${service_name}" >/dev/null 2>&1; then
+      return 0
+    fi
+    if systemctl start "${service_name}" >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  if command -v service >/dev/null 2>&1; then
+    if command -v sudo >/dev/null 2>&1 && sudo service "${service_name}" start >/dev/null 2>&1; then
+      return 0
+    fi
+    if service "${service_name}" start >/dev/null 2>&1; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+start_postgres_linux() {
+  ensure_postgres_binaries_linux
+
+  if command -v pg_isready >/dev/null 2>&1 && pg_isready -h localhost -p 5432 >/dev/null 2>&1; then
+    echo "Postgres service already running."
+    return
+  fi
+
+  started=0
+  if start_pg_cluster_linux; then
+    started=1
+  fi
+
+  if [ "${started}" -eq 0 ]; then
+    if start_pg_service_linux postgresql; then
+      started=1
+    elif command -v systemctl >/dev/null 2>&1; then
+      detected_unit="$(systemctl list-unit-files 'postgresql*.service' --no-legend 2>/dev/null | awk 'NR==1 { print $1 }')"
+      if [ -n "${detected_unit}" ]; then
+        service_name="${detected_unit%.service}"
+        if start_pg_service_linux "${service_name}"; then
+          started=1
+        fi
+      fi
+    fi
+  fi
+
+  if command -v pg_isready >/dev/null 2>&1; then
+    if ! pg_isready -h localhost -p 5432 >/dev/null 2>&1; then
+      echo "Postgres is not reachable at localhost:5432." >&2
+      echo "Start it manually and rerun. For Ubuntu, try:" >&2
+      echo "  sudo pg_ctlcluster <version> <cluster> start" >&2
+      echo "  sudo systemctl start postgresql" >&2
+      exit 1
+    fi
+  elif [ "${started}" -eq 0 ]; then
+    echo "Unable to verify Postgres readiness because pg_isready is missing." >&2
+    exit 1
+  fi
+
+  echo "Postgres service started (Linux)."
+}
+
+check_database_exists() {
+  if [ -n "${PG_USER}" ]; then
+    PGUSER="${PG_USER}" psql --dbname postgres --tuples-only --quiet --no-align \
+      -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'"
+  else
+    psql --dbname postgres --tuples-only --quiet --no-align \
+      -c "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'"
+  fi
+}
+
+provision_dev_db() {
+  set +e
+  psql_check_output="$(check_database_exists 2>&1)"
+  psql_status=$?
+  set -e
+
+  if [ "${psql_status}" -ne 0 ] && echo "${psql_check_output}" | grep -q "role .* does not exist"; then
+    ensure_linux_role_exists "${PG_USER}"
+    set +e
+    psql_check_output="$(check_database_exists 2>&1)"
+    psql_status=$?
+    set -e
+  fi
+
+  db_exists="$(printf '%s\n' "${psql_check_output}" | tr -d '[:space:]')"
+  if [ "${db_exists}" = "1" ]; then
+    echo "Database ${DB_NAME} already exists."
+    return
+  fi
+
+  set +e
+  if [ -n "${PG_USER}" ]; then
+    createdb_output="$(PGUSER="${PG_USER}" createdb "${DB_NAME}" 2>&1)"
+  else
+    createdb_output="$(createdb "${DB_NAME}" 2>&1)"
+  fi
+  createdb_status=$?
+  set -e
+
+  if [ "${createdb_status}" -eq 0 ]; then
+    echo "Created database ${DB_NAME}."
+    return
+  fi
+  if echo "${createdb_output}" | grep -q "already exists"; then
+    echo "Database ${DB_NAME} already exists."
+    return
+  fi
+  if echo "${createdb_output}" | grep -q "permission denied to create database"; then
+    if [ "${OS_NAME}" = "Linux" ] && [ -n "${PG_USER}" ] && command -v sudo >/dev/null 2>&1; then
+      if sudo -u postgres createdb -O "${PG_USER}" "${DB_NAME}" >/dev/null 2>&1; then
+        echo "Created database ${DB_NAME} via postgres superuser."
+        return
+      fi
+    fi
+    echo "Role ${PG_USER} lacks CREATEDB permission." >&2
+    echo "Run one of the following, then rerun:" >&2
+    echo "  sudo -u postgres createdb -O ${PG_USER} ${DB_NAME}" >&2
+    echo "  sudo -u postgres psql -d postgres -c \"ALTER ROLE ${PG_USER} CREATEDB;\"" >&2
+    exit 1
+  fi
+
+  echo "Failed to create database ${DB_NAME}." >&2
+  echo "${createdb_output}" >&2
+  if [ "${psql_status}" -ne 0 ]; then
+    echo "${psql_check_output}" >&2
+  fi
+  exit 1
+}
+
+case "${OS_NAME}" in
+  Darwin)
+    start_postgres_macos
+    ;;
+  Linux)
+    start_postgres_linux
+    ;;
+  *)
+    echo "setupPostgresDev.sh supports macOS and Linux only." >&2
+    exit 1
+    ;;
+esac
+
+provision_dev_db
+
+echo "Local dev Postgres is ready."
+echo "Use API_DATABASE=postgres to select it."
+if [ "${OS_NAME}" = "Linux" ]; then
+  echo "Defaults use peer auth over /var/run/postgresql with database ${DB_NAME}."
+else
+  echo "Defaults use localhost:5432 with database ${DB_NAME}."
+fi

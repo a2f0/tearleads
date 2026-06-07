@@ -59,14 +59,45 @@ test("default blob object store requires S3 bucket and region", () => {
 test("default blob object store creates S3 adapter from env", () => {
   const store = createDefaultBlobObjectStore({
     BLOB_OBJECT_STORE: "s3",
+    BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "test",
     BLOB_OBJECT_STORE_S3_BUCKET: "blob-test-bucket",
     BLOB_OBJECT_STORE_S3_ENDPOINT: "http://127.0.0.1:9000",
     BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE: "true",
     BLOB_OBJECT_STORE_S3_REGION: "us-east-1",
+    BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: "test",
   });
 
   expect(store).toHaveProperty("createMultipartUpload");
   expect(store).toHaveProperty("uploadPart");
+});
+
+test("default blob object store accepts legacy VFS S3 env aliases", () => {
+  const store = createDefaultBlobObjectStore({
+    VFS_BLOB_STORE_PROVIDER: "s3",
+    VFS_BLOB_S3_ACCESS_KEY_ID: "test",
+    VFS_BLOB_S3_BUCKET: "blob-test-bucket",
+    VFS_BLOB_S3_ENDPOINT: "http://127.0.0.1:9000",
+    VFS_BLOB_S3_FORCE_PATH_STYLE: "true",
+    VFS_BLOB_S3_KEY_PREFIX: "dev/blobs",
+    VFS_BLOB_S3_REGION: "us-east-1",
+    VFS_BLOB_S3_SECRET_ACCESS_KEY: "test",
+  });
+
+  expect(store).toHaveProperty("createMultipartUpload");
+  expect(store).toHaveProperty("uploadPart");
+});
+
+test("default blob object store requires complete S3 credentials", () => {
+  expect(() =>
+    createDefaultBlobObjectStore({
+      BLOB_OBJECT_STORE: "s3",
+      BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "test",
+      BLOB_OBJECT_STORE_S3_BUCKET: "blob-test-bucket",
+      BLOB_OBJECT_STORE_S3_REGION: "us-east-1",
+    }),
+  ).toThrow(
+    "Both BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID and BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY are required when either is set",
+  );
 });
 
 test("default blob object store rejects invalid S3 boolean env values", () => {

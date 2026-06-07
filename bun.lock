@@ -34,11 +34,13 @@
         "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
         "hono": "4.7.11",
+        "pg": "8.19.0",
         "redis": "5.11.0",
       },
       "devDependencies": {
         "@tearleads/bob-and-alice": "workspace:*",
         "@types/bun": "catalog:",
+        "@types/pg": "8.16.0",
         "drizzle-kit": "0.31.10",
       },
     },
@@ -864,6 +866,8 @@
 
     "@types/node": ["@types/node@25.5.0", "", { "dependencies": { "undici-types": "~7.18.0" } }, "sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw=="],
 
+    "@types/pg": ["@types/pg@8.16.0", "", { "dependencies": { "@types/node": "*", "pg-protocol": "*", "pg-types": "^2.2.0" } }, "sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ=="],
+
     "@types/react": ["@types/react@19.2.14", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w=="],
 
     "@types/react-dom": ["@types/react-dom@19.2.3", "", { "peerDependencies": { "@types/react": "^19.2.0" } }, "sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ=="],
@@ -1464,6 +1468,22 @@
 
     "path-to-regexp": ["path-to-regexp@6.3.0", "", {}, "sha512-Yhpw4T9C6hPpgPeA28us07OJeqZ5EzQTkbfwuhsUg0c237RomFoETJgmp2sa3F/41gfLE6G5cqcYwznmeEeOlQ=="],
 
+    "pg": ["pg@8.19.0", "", { "dependencies": { "pg-connection-string": "^2.11.0", "pg-pool": "^3.12.0", "pg-protocol": "^1.12.0", "pg-types": "2.2.0", "pgpass": "1.0.5" }, "optionalDependencies": { "pg-cloudflare": "^1.3.0" }, "peerDependencies": { "pg-native": ">=3.0.1" }, "optionalPeers": ["pg-native"] }, "sha512-QIcLGi508BAHkQ3pJNptsFz5WQMlpGbuBGBaIaXsWK8mel2kQ/rThYI+DbgjUvZrIr7MiuEuc9LcChJoEZK1xQ=="],
+
+    "pg-cloudflare": ["pg-cloudflare@1.4.0", "", {}, "sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A=="],
+
+    "pg-connection-string": ["pg-connection-string@2.13.0", "", {}, "sha512-EMnU9E2fSULdsbErBbMaXJvFeD9B4+nPcM3f+4lsiCR0BHLPrLVjv3DbyM2hgQQviKJaTWIRRTjKjWlHg3p2ig=="],
+
+    "pg-int8": ["pg-int8@1.0.1", "", {}, "sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw=="],
+
+    "pg-pool": ["pg-pool@3.14.0", "", { "peerDependencies": { "pg": ">=8.0" } }, "sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw=="],
+
+    "pg-protocol": ["pg-protocol@1.14.0", "", {}, "sha512-n5taZ1kO3s9ngDTVxsEznOqCyToTgz0FLuPq0B33COy5pPpuWJpY3/2oRBVETuOgzdqRXfWpM9HIhp2LBBT1BA=="],
+
+    "pg-types": ["pg-types@2.2.0", "", { "dependencies": { "pg-int8": "1.0.1", "postgres-array": "~2.0.0", "postgres-bytea": "~1.0.0", "postgres-date": "~1.0.4", "postgres-interval": "^1.1.0" } }, "sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA=="],
+
+    "pgpass": ["pgpass@1.0.5", "", { "dependencies": { "split2": "^4.1.0" } }, "sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug=="],
+
     "piccolore": ["piccolore@0.1.3", "", {}, "sha512-o8bTeDWjE086iwKrROaDf31K0qC/BENdm15/uH9usSC/uZjJOKb2YGiVHfLY4GhwsERiPI1jmwI2XrA7ACOxVw=="],
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
@@ -1479,6 +1499,14 @@
     "pngjs": ["pngjs@6.0.0", "", {}, "sha512-TRzzuFRRmEoSW/p1KVAmiOgPco2Irlah+bGFCeNfJXxxYGwSw7YwAOAcd7X28K/m5bjBWKsC29KyoMfHbypayg=="],
 
     "postcss": ["postcss@8.5.15", "", { "dependencies": { "nanoid": "^3.3.12", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A=="],
+
+    "postgres-array": ["postgres-array@2.0.0", "", {}, "sha512-VpZrUqU5A69eQyW2c5CA1jtLecCsN2U/bD6VilrFDWq5+5UIEVO7nazS3TEcHf1zuPYO/sqGvUvW62g86RXZuA=="],
+
+    "postgres-bytea": ["postgres-bytea@1.0.1", "", {}, "sha512-5+5HqXnsZPE65IJZSMkZtURARZelel2oXUEO8rH83VS/hxH5vv1uHquPg5wZs8yMAfdv971IU+kcPUczi7NVBQ=="],
+
+    "postgres-date": ["postgres-date@1.0.7", "", {}, "sha512-suDmjLVQg78nMK2UZ454hAG+OAW+HQPZ6n++TNDUX+L0+uUlLywnoxJKDou51Zm+zTCjrCl0Nq6J9C5hP9vK/Q=="],
+
+    "postgres-interval": ["postgres-interval@1.2.0", "", { "dependencies": { "xtend": "^4.0.0" } }, "sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ=="],
 
     "pretty-format": ["pretty-format@27.5.1", "", { "dependencies": { "ansi-regex": "^5.0.1", "ansi-styles": "^5.0.0", "react-is": "^17.0.1" } }, "sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ=="],
 
@@ -1605,6 +1633,8 @@
     "source-map-support": ["source-map-support@0.5.21", "", { "dependencies": { "buffer-from": "^1.0.0", "source-map": "^0.6.0" } }, "sha512-uBHU3L3czsIyYXKX88fdrGovxdSCoTGDRZ6SYXtSRxLZUzHg5P/66Ht6uoUlHu9EZod+inXhKo3qQgwXUT/y1w=="],
 
     "space-separated-tokens": ["space-separated-tokens@2.0.2", "", {}, "sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q=="],
+
+    "split2": ["split2@4.2.0", "", {}, "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg=="],
 
     "statuses": ["statuses@2.0.2", "", {}, "sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw=="],
 
@@ -1737,6 +1767,8 @@
     "ws": ["ws@8.20.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA=="],
 
     "xml-naming": ["xml-naming@0.1.0", "", {}, "sha512-k8KO9hrMyNk6tUWqUfkTEZbezRRpONVOzUTnc97VnCvyj6Tf9lyUR9EDAIeiVLv56jsMcoXEwjW8Kv5yPY52lw=="],
+
+    "xtend": ["xtend@4.0.2", "", {}, "sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ=="],
 
     "xxhash-wasm": ["xxhash-wasm@1.1.0", "", {}, "sha512-147y/6YNh+tlp6nd/2pWq38i9h6mz/EuQ6njIrmW8D1BS5nCqs0P6DG+m6zTGnNz5I+uhZ0SHxBs9BsPrwcKDA=="],
 

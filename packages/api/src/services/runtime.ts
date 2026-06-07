@@ -12,10 +12,21 @@ import type { SessionCreateInput } from "../validators/session";
 
 interface RuntimeEnv {
   readonly BLOB_OBJECT_STORE?: string | undefined;
+  readonly BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_BUCKET?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_ENDPOINT?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE?: string | undefined;
+  readonly BLOB_OBJECT_STORE_S3_KEY_PREFIX?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_REGION?: string | undefined;
+  readonly BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY?: string | undefined;
+  readonly VFS_BLOB_STORE_PROVIDER?: string | undefined;
+  readonly VFS_BLOB_S3_ACCESS_KEY_ID?: string | undefined;
+  readonly VFS_BLOB_S3_BUCKET?: string | undefined;
+  readonly VFS_BLOB_S3_ENDPOINT?: string | undefined;
+  readonly VFS_BLOB_S3_FORCE_PATH_STYLE?: string | undefined;
+  readonly VFS_BLOB_S3_KEY_PREFIX?: string | undefined;
+  readonly VFS_BLOB_S3_REGION?: string | undefined;
+  readonly VFS_BLOB_S3_SECRET_ACCESS_KEY?: string | undefined;
   readonly [key: string]: string | undefined;
 }
 
@@ -46,10 +57,10 @@ type BlobObjectStoreKind = "memory" | "s3";
 
 function requireRuntimeEnv(
   env: RuntimeEnv,
-  key: string,
+  keys: readonly string[],
   message: string,
 ): string {
-  const value = env[key];
+  const value = readRuntimeEnv(env, keys);
   if (!value) {
     throw new Error(message);
   }
@@ -57,8 +68,24 @@ function requireRuntimeEnv(
   return value;
 }
 
+function readRuntimeEnv(
+  env: RuntimeEnv,
+  keys: readonly string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = env[key];
+    if (value && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
 function readBlobObjectStoreKind(env: RuntimeEnv): BlobObjectStoreKind {
-  const value = env.BLOB_OBJECT_STORE ?? "memory";
+  const value =
+    readRuntimeEnv(env, ["BLOB_OBJECT_STORE", "VFS_BLOB_STORE_PROVIDER"]) ??
+    "memory";
   if (value === "memory" || value === "s3") {
     return value;
   }
@@ -80,6 +107,63 @@ function readBooleanEnv(value: string | undefined): boolean | undefined {
   throw new Error(`Invalid boolean environment value: ${value}`);
 }
 
+function readBlobObjectStoreKeyPrefix(env: RuntimeEnv): string | undefined {
+  const value = readRuntimeEnv(env, [
+    "BLOB_OBJECT_STORE_S3_KEY_PREFIX",
+    "VFS_BLOB_S3_KEY_PREFIX",
+  ]);
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.replace(/^\/+|\/+$/g, "");
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function prefixBlobObjectKey(prefix: string, key: string): string {
+  return `${prefix}/${key}`;
+}
+
+function createPrefixedBlobObjectStore(
+  store: BlobObjectStore,
+  prefix: string | undefined,
+): BlobObjectStore {
+  if (!prefix) {
+    return store;
+  }
+
+  return {
+    abortMultipartUpload: (input) =>
+      store.abortMultipartUpload({
+        ...input,
+        key: prefixBlobObjectKey(prefix, input.key),
+      }),
+    completeMultipartUpload: (input) =>
+      store.completeMultipartUpload({
+        ...input,
+        key: prefixBlobObjectKey(prefix, input.key),
+      }),
+    createMultipartUpload: (input) =>
+      store.createMultipartUpload({
+        ...input,
+        key: prefixBlobObjectKey(prefix, input.key),
+      }),
+    deleteObject: (key) => store.deleteObject(prefixBlobObjectKey(prefix, key)),
+    getObjectStream: (key) =>
+      store.getObjectStream(prefixBlobObjectKey(prefix, key)),
+    listParts: (input) =>
+      store.listParts({
+        ...input,
+        key: prefixBlobObjectKey(prefix, input.key),
+      }),
+    uploadPart: (input) =>
+      store.uploadPart({
+        ...input,
+        key: prefixBlobObjectKey(prefix, input.key),
+      }),
+  };
+}
+
 export function createDefaultBlobObjectStore(
   env: RuntimeEnv = process.env,
 ): BlobObjectStore {
@@ -89,31 +173,57 @@ export function createDefaultBlobObjectStore(
   }
   const bucket = requireRuntimeEnv(
     env,
-    "BLOB_OBJECT_STORE_S3_BUCKET",
+    ["BLOB_OBJECT_STORE_S3_BUCKET", "VFS_BLOB_S3_BUCKET"],
     "BLOB_OBJECT_STORE_S3_BUCKET is required when BLOB_OBJECT_STORE=s3",
   );
   const clientConfig: S3ClientConfig = {
     region: requireRuntimeEnv(
       env,
-      "BLOB_OBJECT_STORE_S3_REGION",
+      ["BLOB_OBJECT_STORE_S3_REGION", "VFS_BLOB_S3_REGION"],
       "BLOB_OBJECT_STORE_S3_REGION is required when BLOB_OBJECT_STORE=s3",
     ),
   };
-  const endpoint = env.BLOB_OBJECT_STORE_S3_ENDPOINT;
+  const endpoint = readRuntimeEnv(env, [
+    "BLOB_OBJECT_STORE_S3_ENDPOINT",
+    "VFS_BLOB_S3_ENDPOINT",
+  ]);
   if (endpoint !== undefined) {
     clientConfig.endpoint = endpoint;
   }
   const forcePathStyle = readBooleanEnv(
-    env.BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE,
+    readRuntimeEnv(env, [
+      "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE",
+      "VFS_BLOB_S3_FORCE_PATH_STYLE",
+    ]),
   );
   if (forcePathStyle !== undefined) {
     clientConfig.forcePathStyle = forcePathStyle;
   }
+  const accessKeyId = readRuntimeEnv(env, [
+    "BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID",
+    "VFS_BLOB_S3_ACCESS_KEY_ID",
+  ]);
+  const secretAccessKey = readRuntimeEnv(env, [
+    "BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY",
+    "VFS_BLOB_S3_SECRET_ACCESS_KEY",
+  ]);
+  if (accessKeyId || secretAccessKey) {
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        "Both BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID and BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY are required when either is set",
+      );
+    }
 
-  return createS3BlobObjectStore({
-    bucket,
-    client: new S3Client(clientConfig),
-  });
+    clientConfig.credentials = { accessKeyId, secretAccessKey };
+  }
+
+  return createPrefixedBlobObjectStore(
+    createS3BlobObjectStore({
+      bucket,
+      client: new S3Client(clientConfig),
+    }),
+    readBlobObjectStoreKeyPrefix(env),
+  );
 }
 
 export const defaultApiServiceRuntime: ApiServiceRuntime = {
