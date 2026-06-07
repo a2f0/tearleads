@@ -150,8 +150,13 @@ function createFakeIndexedDbDatabase(
   } as unknown as IDBDatabase;
 }
 
-function createFakeIndexedDb(): IDBFactory {
+interface FakeIndexedDbOptions {
+  readonly failOpenCount?: number | undefined;
+}
+
+function createFakeIndexedDb(options: FakeIndexedDbOptions = {}): IDBFactory {
   const databases = new Map<string, Map<string, Map<string, unknown>>>();
+  let remainingOpenFailures = options.failOpenCount ?? 0;
 
   return {
     open: (name: string) => {
@@ -166,6 +171,16 @@ function createFakeIndexedDb(): IDBFactory {
       };
 
       queueMicrotask(() => {
+        if (remainingOpenFailures > 0) {
+          remainingOpenFailures -= 1;
+          request.error = createFakeIndexedDbError(
+            "UnknownError",
+            "Fake IndexedDB open failed.",
+          );
+          request.onerror?.({} as Event);
+          return;
+        }
+
         let stores = databases.get(name);
         const needsUpgrade = !stores;
         if (!stores) {
@@ -241,6 +256,19 @@ test("browser local keyring persists manifests and non-extractable wrapping keys
   expect(reopened.identityPersistenceKey).toEqual(
     session.identityPersistenceKey,
   );
+});
+
+test("browser local keyring retries IndexedDB open after a transient failure", async () => {
+  const indexedDB = createFakeIndexedDb({ failOpenCount: 1 });
+  const manifestStorage = createTestManifestStorage();
+  const keyring = createBrowserLocalKeyring({ indexedDB, manifestStorage });
+
+  await expect(keyring.getOrCreateSession(scope)).rejects.toThrow(
+    "IndexedDB open failed",
+  );
+  await expect(keyring.getOrCreateSession(scope)).resolves.toMatchObject({
+    scope,
+  });
 });
 
 test("local keyring scopes manifests by namespace and identity", async () => {

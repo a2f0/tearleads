@@ -838,6 +838,7 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
     this.databasePromise = new Promise((resolve, reject) => {
       const request = this.indexedDB.open(this.databaseName, 1);
       request.onerror = () => {
+        this.databasePromise = null;
         reject(request.error ?? new Error("IndexedDB open failed."));
       };
       request.onupgradeneeded = () => {
