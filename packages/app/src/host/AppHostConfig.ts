@@ -1,7 +1,8 @@
-import type { BlobStoreFactory } from "@tearleads/client-sdk";
+import type { BlobStoreFactory, LocalKeyring } from "@tearleads/client-sdk";
 import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
+export type CreateLocalKeyringFn = () => LocalKeyring;
 
 export class AppHostConfig {
   constructor(
@@ -9,5 +10,7 @@ export class AppHostConfig {
     readonly wsUrl: string,
     readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn,
     readonly createBlobStore?: BlobStoreFactory,
+    readonly localIdentityNamespace?: string | undefined,
+    readonly createLocalKeyring?: CreateLocalKeyringFn | undefined,
   ) {}
 }

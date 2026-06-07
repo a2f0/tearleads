@@ -83,6 +83,7 @@ const requestProfileEnv = process.env as {
 
 afterEach(async () => {
   cleanup();
+  globalThis.localStorage.clear();
   await resetMockServer();
 });
 
