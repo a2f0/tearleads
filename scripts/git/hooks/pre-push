@@ -15,6 +15,15 @@ fi
 
 cd "$REPO_ROOT"
 
+refs_file=$(mktemp)
+trap 'rm -f "$refs_file"' EXIT
+
+if [ -t 0 ]; then
+  : >"$refs_file"
+else
+  cat >"$refs_file"
+fi
+
 echo "Linting branch name..."
 bun run lint:branch-name
 
@@ -50,7 +59,7 @@ bun run lint:architecture
 echo "Checking file names..."
 bun run lint:files
 
-echo "Checking for binary files..."
+echo "Checking file size limits..."
 zero_sha="0000000000000000000000000000000000000000"
 
 while read -r _ local_sha _ remote_sha; do
@@ -64,8 +73,24 @@ while read -r _ local_sha _ remote_sha; do
     range="$remote_sha..$local_sha"
   fi
 
+  "$REPO_ROOT/scripts/checks/checkFileLimits.sh" --range "$range" </dev/null
+done <"$refs_file"
+
+echo "Checking for binary files..."
+
+while read -r _ local_sha _ remote_sha; do
+  if [ "$local_sha" = "$zero_sha" ]; then
+    continue
+  fi
+
+  if [ "$remote_sha" = "$zero_sha" ]; then
+    range="main..$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
   "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range" </dev/null
-done
+done <"$refs_file"
 
 echo "Running bun tests..."
 bun run test:turbo:affected

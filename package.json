@@ -27,6 +27,7 @@
     "lint:branch-name": "bun scripts/lintBranchName.ts",
     "lint:commit-msg": "sh -lc 'NPX=$(command -v npx); \"$NPX\" --yes --package @commitlint/cli --package @commitlint/config-conventional commitlint --config commitlint.config.mts --edit \"$1\"' --",
     "lint:files": "ls-lint",
+    "lint:file-limits": "sh scripts/checks/checkFileLimits.sh",
     "lint:package-assertions": "bun scripts/lintPackageAssertions.ts",
     "test:bun": "bun run --filter='@tearleads/sqlite-instance' build && bun run --filter='@tearleads/client-sdk' build && bun run --filter='*' --sequential test",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
