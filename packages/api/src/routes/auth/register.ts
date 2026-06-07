@@ -27,7 +27,7 @@ export function createRegisterRoute(runtime: ApiServiceRuntime) {
         );
       } catch (error) {
         if (isDuplicateRegistrationFingerprintError(error)) {
-          return c.json({ error: "Key already exists" }, 409);
+          return c.json({ error: "Key already exists, try logging in" }, 409);
         }
 
         if (error instanceof RegistrationError) {

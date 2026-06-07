@@ -281,11 +281,11 @@ function useIdentityManagerIdentityMutations({
     try {
       const registered = await registerCurrentIdentity();
       if (!registered) {
-        setIdentityError("Could not upload public key.");
+        setIdentityError("Could not register key.");
       }
     } catch (error: unknown) {
-      logError("Failed to upload public key", error);
-      setIdentityError("Could not upload public key.");
+      logError("Failed to register key", error);
+      setIdentityError("Could not register key.");
     } finally {
       setIdentityBusy(null);
     }
@@ -373,7 +373,7 @@ function IdentityActionToolbar({
           disabled={identityBusy !== null}
           onClick={() => void handleRegisterIdentity()}
         >
-          Upload Public Key
+          Register
         </MiniAppButton>
       )}
       {canAuthenticate && (

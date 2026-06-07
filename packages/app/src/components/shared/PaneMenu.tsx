@@ -17,7 +17,7 @@ export function PaneMenu({
   onClose: () => void;
 }) {
   const { killWorker, spawnWorker, status } = useDatabase();
-  const { userId } = useCryptoSession();
+  const { isAuthenticated, login, userId } = useCryptoSession();
   const { destroyKey, encapsulationKeyPair, generateKey, signingKeyPair } =
     useIdentity();
   const { canRegisterCurrentIdentity, registerCurrentIdentity } =
@@ -88,7 +88,7 @@ export function PaneMenu({
         !userId &&
         canRegisterCurrentIdentity && (
           <MenuItem
-            label="Upload Public Key"
+            label="Register"
             onClick={async () => {
               onClose();
               if (!canRegisterCurrentIdentity) {
@@ -99,6 +99,15 @@ export function PaneMenu({
             }}
           />
         )}
+      {signingKeyPair && !isAuthenticated && (
+        <MenuItem
+          label="Login"
+          onClick={async () => {
+            onClose();
+            await login();
+          }}
+        />
+      )}
     </Menu>
   );
 }

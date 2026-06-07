@@ -198,7 +198,9 @@ test("POST /auth/register returns 409 when key already exists", async () => {
     publicKey,
   );
   expect(second.status).toBe(409);
-  expect(await second.json()).toEqual({ error: "Key already exists" });
+  expect(await second.json()).toEqual({
+    error: "Key already exists, try logging in",
+  });
 });
 
 test("POST /auth/register rolls back organization and container rows on duplicate fingerprint", async () => {

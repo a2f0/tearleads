@@ -52,7 +52,7 @@ function useDualPane(): DualPaneContextValue {
   return ctx;
 }
 
-function usePaneSide(): PaneSide {
+export function usePaneSide(): PaneSide {
   const side = useContext(PaneSideContext);
   if (!side) {
     throw new Error("usePaneSide must be used within a PaneSideProvider.");

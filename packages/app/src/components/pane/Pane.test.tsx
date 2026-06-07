@@ -1,4 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
+import {
+  createLocalKeyring,
+  createMemoryLocalKeyringManifestStore,
+  createMemoryWrappingKeyKeystore,
+  type LocalKeyring,
+} from "@tearleads/client-sdk";
 import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   act,
@@ -30,22 +36,85 @@ const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
 
 afterEach(async () => {
   cleanup();
+  globalThis.localStorage.clear();
   await resetMockServer();
 });
 
-function renderPane() {
+function createTestHostConfig(
+  options: {
+    readonly createLocalKeyring?: (() => LocalKeyring) | undefined;
+    readonly localIdentityNamespace?: string | undefined;
+  } = {},
+) {
+  return new AppHostConfig(
+    "http://localhost:3001",
+    wsUrl,
+    () =>
+      createModuleSQLiteRuntime({
+        workerConstructor: MockWorker,
+      }),
+    undefined,
+    options.localIdentityNamespace,
+    options.createLocalKeyring,
+  );
+}
+
+function createSharedMemoryLocalKeyringFactory(): () => LocalKeyring {
+  const keystore = createMemoryWrappingKeyKeystore();
+  const manifestStore = createMemoryLocalKeyringManifestStore();
+
+  return () => createLocalKeyring({ keystore, manifestStore });
+}
+
+function createDeferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+}
+
+function createDelayedLoadLocalKeyringFactory(
+  createBaseLocalKeyring: () => LocalKeyring,
+) {
+  const loadStarted = createDeferred();
+  const loadFinished = createDeferred();
+  const releaseLoad = createDeferred();
+
+  return {
+    createLocalKeyring: (): LocalKeyring => {
+      const keyring = createBaseLocalKeyring();
+
+      return {
+        deleteSession: (scope) => keyring.deleteSession(scope),
+        getOrCreateSession: (scope) => keyring.getOrCreateSession(scope),
+        loadSession: async (scope) => {
+          loadStarted.resolve();
+          await releaseLoad.promise;
+          try {
+            return await keyring.loadSession(scope);
+          } finally {
+            loadFinished.resolve();
+          }
+        },
+      };
+    },
+    waitForLoadSessionResult: () => loadFinished.promise,
+    releaseLoadSession: () => releaseLoad.resolve(),
+    waitForLoadSession: () => loadStarted.promise,
+  };
+}
+
+function renderPane({
+  hostConfig = createTestHostConfig(),
+}: {
+  readonly hostConfig?: AppHostConfig | undefined;
+} = {}) {
   return render(
     <DualPaneProvider>
       <PaneSideProvider side="left">
-        <PaneProvider
-          hostConfig={
-            new AppHostConfig("http://localhost:3001", wsUrl, () =>
-              createModuleSQLiteRuntime({
-                workerConstructor: MockWorker,
-              }),
-            )
-          }
-        >
+        <PaneProvider hostConfig={hostConfig}>
           <AppTestRuntimeScopeProbe />
           <Pane className="pane" />
         </PaneProvider>
@@ -318,6 +387,15 @@ async function waitForPaneRuntimeToSettle(): Promise<void> {
 
 const userIdStatusPattern =
   /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
+const publicKeyStatusPattern = /publicKey:\s*([0-9a-f]+)/u;
+
+function getPanePublicKey(view: ReturnType<typeof renderPane>): string {
+  const statusText =
+    view.container.querySelector(".pane-content")?.textContent ?? "";
+  const match = publicKeyStatusPattern.exec(statusText);
+  invariant(match?.[1], "Expected pane public key.");
+  return match[1];
+}
 
 async function generateIdentityAndWaitForDb(
   view: ReturnType<typeof renderPane>,
@@ -331,14 +409,15 @@ async function generateIdentityAndWaitForDb(
   });
 }
 
-async function uploadPublicKeyAndWaitForUserId(
+async function registerAndWaitForUserId(
   view: ReturnType<typeof renderPane>,
 ): Promise<string> {
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
-    expect(view.getByText("Upload Public Key")).toBeTruthy();
+    expect(view.getByText("Register")).toBeTruthy();
+    expect(view.getByText("Login")).toBeTruthy();
   });
-  fireEvent.click(view.getByText("Upload Public Key"));
+  fireEvent.click(view.getByText("Register"));
 
   let userId = "";
   await waitFor(
@@ -352,7 +431,7 @@ async function uploadPublicKeyAndWaitForUserId(
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
   );
   await waitFor(() => {
-    expect(view.queryByText("Upload Public Key")).toBeNull();
+    expect(view.queryByText("Register")).toBeNull();
   });
 
   return userId;
@@ -390,20 +469,109 @@ test("unbooted pane context menu can generate a key pair", async () => {
   view.unmount();
 });
 
+test("generated pane key pair rehydrates after remount", async () => {
+  const hostConfig = createTestHostConfig({
+    createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+    localIdentityNamespace: `test-pane-reload-${crypto.randomUUID()}`,
+  });
+  const view = renderPane({ hostConfig });
+
+  await generateIdentityAndWaitForDb(view);
+  await waitFor(() => {
+    expect(view.getByText(/Local identity key package persisted/)).toBeTruthy();
+  });
+  view.unmount();
+
+  const reloadedView = renderPane({ hostConfig });
+  await waitFor(
+    () => {
+      expect(reloadedView.getByText(/sqlite worker: ready/)).toBeTruthy();
+      expect(reloadedView.queryByText(/publicKey: none/)).toBeNull();
+      expect(
+        reloadedView.getByText(/Local identity key package restored/),
+      ).toBeTruthy();
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
+
+  fireEvent.contextMenu(reloadedView.getByRole("application"), {
+    clientX: 120,
+    clientY: 120,
+  });
+  expect(reloadedView.queryByText("Generate Key Pair")).toBeNull();
+  expect(reloadedView.getByText("Open Notes")).toBeTruthy();
+
+  reloadedView.unmount();
+});
+
+test("local identity restore does not overwrite generate clicks while loading", async () => {
+  const createSharedLocalKeyring = createSharedMemoryLocalKeyringFactory();
+  const localIdentityNamespace = `test-pane-restore-race-${crypto.randomUUID()}`;
+  const initialHostConfig = createTestHostConfig({
+    createLocalKeyring: createSharedLocalKeyring,
+    localIdentityNamespace,
+  });
+  const view = renderPane({ hostConfig: initialHostConfig });
+
+  await generateIdentityAndWaitForDb(view);
+  await waitFor(() => {
+    expect(view.getByText(/Local identity key package persisted/)).toBeTruthy();
+  });
+  const persistedPublicKey = getPanePublicKey(view);
+  view.unmount();
+
+  const delayedLocalKeyring = createDelayedLoadLocalKeyringFactory(
+    createSharedLocalKeyring,
+  );
+  const reloadedHostConfig = createTestHostConfig({
+    createLocalKeyring: delayedLocalKeyring.createLocalKeyring,
+    localIdentityNamespace,
+  });
+  const reloadedView = renderPane({ hostConfig: reloadedHostConfig });
+
+  await delayedLocalKeyring.waitForLoadSession();
+  fireEvent.click(reloadedView.getByText("Menu"));
+  fireEvent.click(reloadedView.getByText("Generate Key Pair"));
+
+  await waitFor(
+    () => {
+      expect(reloadedView.getByText(/sqlite worker: ready/)).toBeTruthy();
+      expect(reloadedView.queryByText(/publicKey: none/)).toBeNull();
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
+  const generatedPublicKey = getPanePublicKey(reloadedView);
+  expect(generatedPublicKey).not.toBe(persistedPublicKey);
+
+  delayedLocalKeyring.releaseLoadSession();
+  await act(async () => {
+    await delayedLocalKeyring.waitForLoadSessionResult();
+    await Promise.resolve();
+  });
+
+  expect(getPanePublicKey(reloadedView)).toBe(generatedPublicKey);
+  expect(reloadedView.queryByText(/Local identity key package restored/)).toBe(
+    null,
+  );
+
+  reloadedView.unmount();
+});
+
 test("displays userId after registration", async () => {
   const view = renderPane();
 
   expect(view.getByText(/userId: none/)).toBeTruthy();
 
   await generateIdentityAndWaitForDb(view);
-  const userId = await uploadPublicKeyAndWaitForUserId(view);
+  const userId = await registerAndWaitForUserId(view);
 
   await waitFor(() => {
     expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
   });
 
   fireEvent.click(view.getByText("Menu"));
-  expect(view.queryByText("Upload Public Key")).toBeNull();
+  expect(view.queryByText("Register")).toBeNull();
+  expect(view.queryByText("Login")).toBeNull();
 
   view.unmount();
 });
@@ -412,7 +580,7 @@ test("identity manager opens from the pane and lists active sessions", async () 
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  await uploadPublicKeyAndWaitForUserId(view);
+  await registerAndWaitForUserId(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -435,7 +603,7 @@ test("userId resets to none when key pair is destroyed", async () => {
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  const userId = await uploadPublicKeyAndWaitForUserId(view);
+  const userId = await registerAndWaitForUserId(view);
 
   await waitFor(() => {
     expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
@@ -504,7 +672,7 @@ test("contacts windows in the same pane share live contact document state", asyn
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  await uploadPublicKeyAndWaitForUserId(view);
+  await registerAndWaitForUserId(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -614,7 +782,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await uploadPublicKeyAndWaitForUserId(view);
+    await registerAndWaitForUserId(view);
 
     const contactsWindow = await openContacts(view);
     await waitFor(
@@ -638,7 +806,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await uploadPublicKeyAndWaitForUserId(view);
+    await registerAndWaitForUserId(view);
 
     const contactsWindow = await openContacts(view);
     await waitFor(
@@ -712,7 +880,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await uploadPublicKeyAndWaitForUserId(view);
+    await registerAndWaitForUserId(view);
 
     const explorer = await openExplorer(view);
 
@@ -912,7 +1080,7 @@ test("registered explorer child folders settle to synced in the pane UI", async 
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  await uploadPublicKeyAndWaitForUserId(view);
+  await registerAndWaitForUserId(view);
   const explorer = await openExplorer(view);
 
   await waitFor(() => {
