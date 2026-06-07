@@ -103,10 +103,41 @@ export interface LocalKeyringOptions {
   readonly now?: (() => Date) | undefined;
 }
 
+export type LocalKeyringManifestStorage = Pick<
+  Storage,
+  "getItem" | "removeItem" | "setItem"
+>;
+
+export interface LocalStorageLocalKeyringManifestStoreOptions {
+  readonly prefix?: string | undefined;
+  readonly storage?: LocalKeyringManifestStorage | undefined;
+}
+
+export interface IndexedDbWrappingKeyKeystoreOptions {
+  readonly databaseName?: string | undefined;
+  readonly indexedDB?: IDBFactory | undefined;
+  readonly objectStoreName?: string | undefined;
+  readonly provider?: string | undefined;
+}
+
+export interface BrowserLocalKeyringOptions {
+  readonly databaseName?: string | undefined;
+  readonly indexedDB?: IDBFactory | undefined;
+  readonly manifestStorage?: LocalKeyringManifestStorage | undefined;
+  readonly manifestStoragePrefix?: string | undefined;
+  readonly objectStoreName?: string | undefined;
+  readonly provider?: string | undefined;
+  readonly now?: (() => Date) | undefined;
+}
+
 const TEXT_ENCODER = new TextEncoder();
 const LOCAL_ROOT_KEY_BYTES = 32;
 const AES_GCM_IV_BYTES = 12;
-const MEMORY_WRAPPING_ALGORITHM = "aes-256-gcm";
+const AES_GCM_WRAPPING_ALGORITHM = "aes-256-gcm";
+const BROWSER_INDEXED_DB_PROVIDER = "browser-indexeddb";
+const BROWSER_KEYRING_DATABASE_NAME = "tearleads-local-keyring";
+const BROWSER_WRAPPING_KEYS_STORE_NAME = "wrappingKeys";
+const LOCAL_STORAGE_MANIFEST_PREFIX = "tearleads.local-keyring.manifest:";
 
 function asArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   const copy = new Uint8Array(bytes.byteLength);
@@ -208,13 +239,19 @@ async function hashHex(bytes: Uint8Array): Promise<string> {
   );
 }
 
-async function memoryWrappingKeyId(
+async function localWrappingKeyScopeHash(
   scope: NormalizedLocalKeyringScope,
 ): Promise<string> {
   const keyMaterial = TEXT_ENCODER.encode(
-    `tearleads.memory-wrapping-key.v1.${localKeyringScopeKey(scope)}`,
+    `tearleads.local-wrapping-key.v1.${localKeyringScopeKey(scope)}`,
   );
-  return `memory:${await hashHex(keyMaterial)}`;
+  return hashHex(keyMaterial);
+}
+
+async function memoryWrappingKeyId(
+  scope: NormalizedLocalKeyringScope,
+): Promise<string> {
+  return `memory:${await localWrappingKeyScopeHash(scope)}`;
 }
 
 async function importHkdfRootKey(rootKey: Uint8Array): Promise<CryptoKey> {
@@ -465,6 +502,389 @@ class MemoryLocalKeyringManifestStore implements LocalKeyringManifestStore {
   }
 }
 
+function getDefaultLocalKeyringManifestStorage(): LocalKeyringManifestStorage {
+  if (typeof globalThis.localStorage === "undefined") {
+    throw new Error("Browser local keyring manifest storage is unavailable.");
+  }
+
+  return globalThis.localStorage;
+}
+
+class LocalStorageLocalKeyringManifestStore
+  implements LocalKeyringManifestStore
+{
+  private readonly prefix: string;
+  private readonly storage: LocalKeyringManifestStorage;
+
+  constructor(
+    options: LocalStorageLocalKeyringManifestStoreOptions | undefined,
+  ) {
+    this.prefix = options?.prefix ?? LOCAL_STORAGE_MANIFEST_PREFIX;
+    this.storage = options?.storage ?? getDefaultLocalKeyringManifestStorage();
+  }
+
+  async deleteManifest(scope: LocalKeyringScope): Promise<void> {
+    this.storage.removeItem(this.storageKey(scope));
+  }
+
+  async loadManifest(
+    scope: LocalKeyringScope,
+  ): Promise<LocalKeyringManifest | null> {
+    const serialized = this.storage.getItem(this.storageKey(scope));
+    return serialized ? parseLocalKeyringManifest(serialized) : null;
+  }
+
+  async saveManifest(manifest: LocalKeyringManifest): Promise<void> {
+    this.storage.setItem(
+      this.storageKey(manifest.scope),
+      serializeLocalKeyringManifest(manifest),
+    );
+  }
+
+  private storageKey(scope: LocalKeyringScope): string {
+    return `${this.prefix}${localKeyringScopeKey(scope)}`;
+  }
+}
+
+interface IndexedDbWrappingKeyRecord {
+  readonly createdAt: string;
+  readonly key: CryptoKey;
+  readonly keyId: string;
+  readonly provider: string;
+}
+
+function indexedDbRequest<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onerror = () => {
+      reject(request.error ?? new Error("IndexedDB request failed."));
+    };
+    request.onsuccess = () => {
+      resolve(request.result);
+    };
+  });
+}
+
+function indexedDbTransactionDone(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.onabort = () => {
+      reject(transaction.error ?? new Error("IndexedDB transaction aborted."));
+    };
+    transaction.onerror = () => {
+      reject(transaction.error ?? new Error("IndexedDB transaction failed."));
+    };
+    transaction.oncomplete = () => {
+      resolve();
+    };
+  });
+}
+
+async function runIndexedDbRequest<T>(
+  transaction: IDBTransaction,
+  request: IDBRequest<T>,
+): Promise<T> {
+  const transactionDone = indexedDbTransactionDone(transaction);
+  try {
+    const result = await indexedDbRequest(request);
+    await transactionDone;
+    return result;
+  } catch (error) {
+    await transactionDone.catch(() => undefined);
+    throw error;
+  }
+}
+
+function hasErrorName(error: unknown, expectedName: string): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+  if (
+    "name" in error &&
+    typeof error.name === "string" &&
+    error.name === expectedName
+  ) {
+    return true;
+  }
+  if ("cause" in error) {
+    return hasErrorName(error.cause, expectedName);
+  }
+
+  return false;
+}
+
+function isCryptoKey(value: unknown): value is CryptoKey {
+  return typeof CryptoKey !== "undefined" && value instanceof CryptoKey;
+}
+
+function assertAesGcmWrappingCryptoKey(key: CryptoKey): void {
+  const algorithm = key.algorithm;
+  const algorithmLength =
+    "length" in algorithm && typeof algorithm.length === "number"
+      ? algorithm.length
+      : null;
+  if (
+    key.type !== "secret" ||
+    key.extractable ||
+    algorithm.name !== "AES-GCM" ||
+    algorithmLength !== 256 ||
+    !key.usages.includes("decrypt") ||
+    !key.usages.includes("encrypt")
+  ) {
+    throw new Error(
+      "IndexedDB wrapping key must be a non-extractable AES-GCM secret key.",
+    );
+  }
+}
+
+function readIndexedDbWrappingKeyRecord(input: {
+  readonly keyId: string;
+  readonly provider: string;
+  readonly value: unknown;
+}): IndexedDbWrappingKeyRecord {
+  const record = readObject(input.value, "IndexedDB wrapping key record");
+  const keyId = readString(record, "keyId");
+  if (keyId !== input.keyId) {
+    throw new Error("IndexedDB wrapping key id does not match.");
+  }
+  const provider = readString(record, "provider");
+  if (provider !== input.provider) {
+    throw new Error("IndexedDB wrapping key provider does not match.");
+  }
+  const createdAt = readString(record, "createdAt");
+  const key = record.get("key");
+  if (!isCryptoKey(key)) {
+    throw new Error("IndexedDB wrapping key record is missing its CryptoKey.");
+  }
+  assertAesGcmWrappingCryptoKey(key);
+
+  return { createdAt, key, keyId, provider };
+}
+
+function getDefaultIndexedDbFactory(): IDBFactory {
+  if (typeof globalThis.indexedDB === "undefined") {
+    throw new Error("Browser local keyring IndexedDB is unavailable.");
+  }
+
+  return globalThis.indexedDB;
+}
+
+class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
+  readonly provider: string;
+  private readonly databaseName: string;
+  private readonly indexedDB: IDBFactory;
+  private readonly objectStoreName: string;
+  private databasePromise: Promise<IDBDatabase> | null = null;
+
+  constructor(options: IndexedDbWrappingKeyKeystoreOptions | undefined) {
+    this.databaseName = options?.databaseName ?? BROWSER_KEYRING_DATABASE_NAME;
+    this.indexedDB = options?.indexedDB ?? getDefaultIndexedDbFactory();
+    this.objectStoreName =
+      options?.objectStoreName ?? BROWSER_WRAPPING_KEYS_STORE_NAME;
+    this.provider = options?.provider ?? BROWSER_INDEXED_DB_PROVIDER;
+
+    assertNonEmptyString(this.databaseName, "IndexedDB database name");
+    assertNonEmptyString(this.objectStoreName, "IndexedDB object store name");
+    assertNonEmptyString(this.provider, "IndexedDB wrapping key provider");
+  }
+
+  async deleteWrappingKey(scope: LocalKeyringScope): Promise<void> {
+    await this.deleteStoredKey(await this.wrappingKeyId(scope));
+  }
+
+  async getOrCreateWrappingKey(
+    scope: LocalKeyringScope,
+  ): Promise<WrappingKeyHandle> {
+    const keyId = await this.wrappingKeyId(scope);
+    const existingKey = await this.loadStoredKey(keyId);
+    if (existingKey) {
+      return { keyId, provider: this.provider };
+    }
+
+    const key = await crypto.subtle.generateKey(
+      { length: 256, name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"],
+    );
+    assertAesGcmWrappingCryptoKey(key);
+
+    try {
+      await this.addStoredKey({
+        createdAt: new Date().toISOString(),
+        key,
+        keyId,
+        provider: this.provider,
+      });
+    } catch (error) {
+      if (!hasErrorName(error, "ConstraintError")) {
+        throw error;
+      }
+      const racedKey = await this.loadStoredKey(keyId);
+      if (!racedKey) {
+        throw error;
+      }
+    }
+
+    return { keyId, provider: this.provider };
+  }
+
+  async unwrapSecret({
+    context,
+    envelope,
+  }: UnwrapLocalSecretInput): Promise<Uint8Array<ArrayBuffer>> {
+    assertWrappedLocalSecretEnvelope(envelope);
+    assertEnvelopeContextMatches({
+      actual: envelope.context,
+      expected: context,
+    });
+    if (envelope.provider !== this.provider) {
+      throw new Error("Wrapped local secret provider is unsupported.");
+    }
+    if (envelope.algorithm !== AES_GCM_WRAPPING_ALGORITHM) {
+      throw new Error("Wrapped local secret algorithm is unsupported.");
+    }
+    if (!envelope.iv) {
+      throw new Error("Wrapped local secret IV is required.");
+    }
+
+    const key = await this.loadStoredKey(envelope.keyId);
+    if (!key) {
+      throw new Error("Wrapping key is unavailable.");
+    }
+
+    try {
+      return new Uint8Array(
+        await crypto.subtle.decrypt(
+          {
+            additionalData: localSecretAdditionalData(context),
+            iv: asArrayBufferBytes(base64ToBytes(envelope.iv)),
+            name: "AES-GCM",
+          },
+          key,
+          asArrayBufferBytes(base64ToBytes(envelope.ciphertext)),
+        ),
+      );
+    } catch (error) {
+      throw new Error("Wrapped local secret could not be unwrapped.", {
+        cause: error,
+      });
+    }
+  }
+
+  async wrapSecret({
+    context,
+    handle,
+    plaintext,
+  }: WrapLocalSecretInput): Promise<WrappedLocalSecretEnvelope> {
+    if (handle.provider !== this.provider) {
+      throw new Error("Wrapping key handle provider is unsupported.");
+    }
+    const key = await this.loadStoredKey(handle.keyId);
+    if (!key) {
+      throw new Error("Wrapping key is unavailable.");
+    }
+    const iv = randomBytes(AES_GCM_IV_BYTES);
+    const ciphertext = new Uint8Array(
+      await crypto.subtle.encrypt(
+        {
+          additionalData: localSecretAdditionalData(context),
+          iv,
+          name: "AES-GCM",
+        },
+        key,
+        copyBytes(plaintext),
+      ),
+    );
+
+    return {
+      algorithm: AES_GCM_WRAPPING_ALGORITHM,
+      ciphertext: bytesToBase64(ciphertext),
+      context,
+      format: WRAPPED_LOCAL_SECRET_FORMAT,
+      iv: bytesToBase64(iv),
+      keyId: handle.keyId,
+      provider: this.provider,
+      version: 1,
+      wrappedAt: new Date().toISOString(),
+    };
+  }
+
+  private addStoredKey(
+    record: IndexedDbWrappingKeyRecord,
+  ): Promise<IDBValidKey> {
+    return this.writeStoredKey((store) => store.add(record));
+  }
+
+  private async deleteStoredKey(keyId: string): Promise<void> {
+    await this.writeStoredKey((store) => store.delete(keyId));
+  }
+
+  private async loadStoredKey(keyId: string): Promise<CryptoKey | null> {
+    const record = await this.readStoredKey(keyId);
+    if (record === undefined) {
+      return null;
+    }
+
+    return readIndexedDbWrappingKeyRecord({
+      keyId,
+      provider: this.provider,
+      value: record,
+    }).key;
+  }
+
+  private async openDatabase(): Promise<IDBDatabase> {
+    if (this.databasePromise) {
+      return this.databasePromise;
+    }
+
+    this.databasePromise = new Promise((resolve, reject) => {
+      const request = this.indexedDB.open(this.databaseName, 1);
+      request.onerror = () => {
+        this.databasePromise = null;
+        reject(request.error ?? new Error("IndexedDB open failed."));
+      };
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains(this.objectStoreName)) {
+          database.createObjectStore(this.objectStoreName, {
+            keyPath: "keyId",
+          });
+        }
+      };
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => {
+          database.close();
+          this.databasePromise = null;
+        };
+        resolve(database);
+      };
+    });
+
+    return this.databasePromise;
+  }
+
+  private async readStoredKey(keyId: string): Promise<unknown | undefined> {
+    const database = await this.openDatabase();
+    const transaction = database.transaction(this.objectStoreName, "readonly");
+    const store = transaction.objectStore(this.objectStoreName);
+    return runIndexedDbRequest(transaction, store.get(keyId));
+  }
+
+  private async writeStoredKey<T>(
+    operation: (store: IDBObjectStore) => IDBRequest<T>,
+  ): Promise<T> {
+    const database = await this.openDatabase();
+    const transaction = database.transaction(this.objectStoreName, "readwrite");
+    const store = transaction.objectStore(this.objectStoreName);
+    return runIndexedDbRequest(transaction, operation(store));
+  }
+
+  private async wrappingKeyId(scope: LocalKeyringScope): Promise<string> {
+    return `indexeddb:${await localWrappingKeyScopeHash(
+      normalizeLocalKeyringScope(scope),
+    )}`;
+  }
+}
+
 class MemoryWrappingKeyKeystore implements WrappingKeyKeystore {
   readonly provider = "memory";
   private readonly keysById = new Map<string, CryptoKey>();
@@ -505,7 +925,7 @@ class MemoryWrappingKeyKeystore implements WrappingKeyKeystore {
     if (envelope.provider !== this.provider) {
       throw new Error("Wrapped local secret provider is unsupported.");
     }
-    if (envelope.algorithm !== MEMORY_WRAPPING_ALGORITHM) {
+    if (envelope.algorithm !== AES_GCM_WRAPPING_ALGORITHM) {
       throw new Error("Wrapped local secret algorithm is unsupported.");
     }
     if (!envelope.iv) {
@@ -562,7 +982,7 @@ class MemoryWrappingKeyKeystore implements WrappingKeyKeystore {
     );
 
     return {
-      algorithm: MEMORY_WRAPPING_ALGORITHM,
+      algorithm: AES_GCM_WRAPPING_ALGORITHM,
       ciphertext: bytesToBase64(ciphertext),
       context,
       format: WRAPPED_LOCAL_SECRET_FORMAT,
@@ -775,6 +1195,36 @@ export function createLocalKeyring(options: LocalKeyringOptions): LocalKeyring {
     ...options,
     now: options.now ?? (() => new Date()),
   });
+}
+
+export function createBrowserLocalKeyring(
+  options: BrowserLocalKeyringOptions = {},
+): LocalKeyring {
+  return createLocalKeyring({
+    keystore: createIndexedDbWrappingKeyKeystore({
+      databaseName: options.databaseName,
+      indexedDB: options.indexedDB,
+      objectStoreName: options.objectStoreName,
+      provider: options.provider,
+    }),
+    manifestStore: createLocalStorageLocalKeyringManifestStore({
+      prefix: options.manifestStoragePrefix,
+      storage: options.manifestStorage,
+    }),
+    now: options.now,
+  });
+}
+
+export function createIndexedDbWrappingKeyKeystore(
+  options: IndexedDbWrappingKeyKeystoreOptions = {},
+): WrappingKeyKeystore {
+  return new IndexedDbWrappingKeyKeystore(options);
+}
+
+export function createLocalStorageLocalKeyringManifestStore(
+  options: LocalStorageLocalKeyringManifestStoreOptions = {},
+): LocalKeyringManifestStore {
+  return new LocalStorageLocalKeyringManifestStore(options);
 }
 
 export function createMemoryLocalKeyringManifestStore(): LocalKeyringManifestStore {

@@ -293,7 +293,10 @@ The SDK exports a local keyring helper for host-controlled at-rest secret
 management:
 
 ```ts
-import { createLocalKeyring } from "@tearleads/client-sdk";
+import {
+  createBrowserLocalKeyring,
+  createLocalKeyring,
+} from "@tearleads/client-sdk";
 
 const keyring = createLocalKeyring({
   keystore: platformWrappingKeyKeystore,
@@ -306,6 +309,19 @@ const session = await keyring.getOrCreateSession({
   signingFingerprint,
 });
 ```
+
+Browser hosts can use the built-in durable wiring:
+
+```ts
+const keyring = createBrowserLocalKeyring();
+```
+
+`createBrowserLocalKeyring()` stores the JSON manifest in `localStorage` and
+stores the wrapping-key handle as a non-extractable AES-GCM `CryptoKey` in
+IndexedDB. The wrapped account-root secret and the browser `CryptoKey` survive
+same-origin app restarts; `keyring.deleteSession(scope)` removes both. Hosts
+that need custom storage can use `createIndexedDbWrappingKeyKeystore(...)` and
+`createLocalStorageLocalKeyringManifestStore(...)` separately.
 
 `WrappingKeyKeystore` is the platform boundary. Browser, Electron, iOS, and
 Android hosts should implement it with their available keychain or secure
@@ -332,6 +348,11 @@ key when a manifest store needs a stable index.
 `createMemoryWrappingKeyKeystore()` and
 `createMemoryLocalKeyringManifestStore()` are process-local helpers for tests
 and development wiring. They are not a durable or platform-secure keychain.
+The browser IndexedDB helper is durable, but it is still origin-bound browser
+storage: same-origin code can ask the stored `CryptoKey` to unwrap the local
+secret even though it cannot export the key bytes. Hosts that require explicit
+user unlock should provide a `WrappingKeyKeystore` backed by their chosen
+PIN/passphrase, WebAuthn, OS keychain, or secure enclave flow.
 Call `session.dispose()` when a host is done with a local keyring session; it
 zeroes the in-memory root and derived byte keys owned by that session.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
