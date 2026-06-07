@@ -409,14 +409,15 @@ async function generateIdentityAndWaitForDb(
   });
 }
 
-async function uploadPublicKeyAndWaitForUserId(
+async function registerAndWaitForUserId(
   view: ReturnType<typeof renderPane>,
 ): Promise<string> {
   fireEvent.click(view.getByText("Menu"));
   await waitFor(() => {
-    expect(view.getByText("Upload Public Key")).toBeTruthy();
+    expect(view.getByText("Register")).toBeTruthy();
+    expect(view.getByText("Login")).toBeTruthy();
   });
-  fireEvent.click(view.getByText("Upload Public Key"));
+  fireEvent.click(view.getByText("Register"));
 
   let userId = "";
   await waitFor(
@@ -430,7 +431,7 @@ async function uploadPublicKeyAndWaitForUserId(
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
   );
   await waitFor(() => {
-    expect(view.queryByText("Upload Public Key")).toBeNull();
+    expect(view.queryByText("Register")).toBeNull();
   });
 
   return userId;
@@ -562,14 +563,15 @@ test("displays userId after registration", async () => {
   expect(view.getByText(/userId: none/)).toBeTruthy();
 
   await generateIdentityAndWaitForDb(view);
-  const userId = await uploadPublicKeyAndWaitForUserId(view);
+  const userId = await registerAndWaitForUserId(view);
 
   await waitFor(() => {
     expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
   });
 
   fireEvent.click(view.getByText("Menu"));
-  expect(view.queryByText("Upload Public Key")).toBeNull();
+  expect(view.queryByText("Register")).toBeNull();
+  expect(view.queryByText("Login")).toBeNull();
 
   view.unmount();
 });
@@ -578,7 +580,7 @@ test("identity manager opens from the pane and lists active sessions", async () 
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  await uploadPublicKeyAndWaitForUserId(view);
+  await registerAndWaitForUserId(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -601,7 +603,7 @@ test("userId resets to none when key pair is destroyed", async () => {
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  const userId = await uploadPublicKeyAndWaitForUserId(view);
+  const userId = await registerAndWaitForUserId(view);
 
   await waitFor(() => {
     expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
@@ -670,7 +672,7 @@ test("contacts windows in the same pane share live contact document state", asyn
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  await uploadPublicKeyAndWaitForUserId(view);
+  await registerAndWaitForUserId(view);
 
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
@@ -780,7 +782,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await uploadPublicKeyAndWaitForUserId(view);
+    await registerAndWaitForUserId(view);
 
     const contactsWindow = await openContacts(view);
     await waitFor(
@@ -804,7 +806,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await uploadPublicKeyAndWaitForUserId(view);
+    await registerAndWaitForUserId(view);
 
     const contactsWindow = await openContacts(view);
     await waitFor(
@@ -878,7 +880,7 @@ test(
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await uploadPublicKeyAndWaitForUserId(view);
+    await registerAndWaitForUserId(view);
 
     const explorer = await openExplorer(view);
 
@@ -1078,7 +1080,7 @@ test("registered explorer child folders settle to synced in the pane UI", async 
   const view = renderPane();
 
   await generateIdentityAndWaitForDb(view);
-  await uploadPublicKeyAndWaitForUserId(view);
+  await registerAndWaitForUserId(view);
   const explorer = await openExplorer(view);
 
   await waitFor(() => {

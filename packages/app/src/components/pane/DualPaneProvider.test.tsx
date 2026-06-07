@@ -507,16 +507,32 @@ async function shareContainerWithGroup(
   const selectedGroupOption = groupOption;
   invariant(selectedGroupOption, `Expected group option "${groupName}".`);
 
+  await waitFor(() => {
+    expect(groupSelect.disabled).toBe(false);
+  });
   await interact(() => {
     fireEvent.change(groupSelect, {
       target: { value: selectedGroupOption.value },
     });
+  });
+  await waitFor(() => {
+    expect(groupSelect.value).toBe(selectedGroupOption.value);
+    expect(permissionSelect.disabled).toBe(false);
+  });
+  await interact(() => {
     fireEvent.change(permissionSelect, {
       target: { value: accessLevel },
     });
   });
+  await waitFor(() => {
+    expect(permissionSelect.value).toBe(accessLevel);
+  });
 
   const shareButton = within(pane).getByRole("button", { name: "Share" });
+  invariant(shareButton instanceof HTMLButtonElement, "Expected share button.");
+  await waitFor(() => {
+    expect(shareButton.disabled).toBe(false);
+  });
   await interact(() => {
     fireEvent.click(shareButton);
   });
@@ -1283,11 +1299,11 @@ async function provisionPaneFromMenu(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const uploadButton = screen.getByRole("button", {
-    name: "Upload Public Key",
+  const registerButton = screen.getByRole("button", {
+    name: "Register",
   });
   await interact(() => {
-    fireEvent.click(uploadButton);
+    fireEvent.click(registerButton);
   });
 
   await waitForSinglePaneProvisioning(pane);
