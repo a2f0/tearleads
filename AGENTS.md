@@ -52,7 +52,8 @@ Do not edit generated or build output directly:
 
 - Keep changes inside one ownership lane when possible. If a change crosses lanes, explain the dependency direction in the PR body.
 - Prefer small source files and focused modules. New or modified files are checked by `scripts/lintSourceShape.ts`.
-- Do not grow an over-limit file as an incidental edit. Split by behavior, storage concern, workflow step, or UI subcomponent.
+- File-size, suppression, and approved barrel baselines live in `scripts/sourceShapeBaseline.json`.
+- Do not grow an over-limit file as an incidental edit. Split by behavior, storage concern, workflow step, or UI subcomponent. If an over-limit file intentionally grows, update its line/byte budget in `scripts/sourceShapeBaseline.json` with reviewer context.
 - Treat package root barrels and workflow facades as API policy. Add explicit named exports; new `export *` barrels must be added to the source-shape baseline intentionally.
 - Do not add `biome-ignore`, `ts-ignore`, `ts-expect-error`, or TODO suppressions casually. The source-shape check tracks baseline growth.
 - When changing public SDK exports, update `packages/client-sdk/package.json`, `packages/client-sdk/src/index.ts`, `packages/client-sdk/src/workflows/README.md`, and `docs/developer/client-sdk.md` together.
