@@ -1,6 +1,6 @@
 import type { KnipConfig } from "knip";
 
-export default {
+const baseConfig = {
   treatConfigHintsAsErrors: true,
   workspaces: {
     ".": {
@@ -101,3 +101,89 @@ export default {
     },
   },
 } satisfies KnipConfig;
+
+const productionConfig = {
+  treatConfigHintsAsErrors: true,
+  // Keep production entries broad enough to validate runtime dependency
+  // declarations without letting test reachability hide production drift.
+  // The default config above stays narrower for dead-file and export checks.
+  workspaces: {
+    ".": {
+      entry: [],
+      project: [],
+      ignoreDependencies: ["@commitlint/cli", "lint-staged"],
+    },
+    "packages/api": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts", "!src/appTestRuntime.ts"],
+      project: [],
+    },
+    "packages/api-client": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/app": {
+      entry: [
+        "src/**/*.{ts,tsx}!",
+        "!src/**/*.test.{ts,tsx}",
+        "!src/**/testUtils.{ts,tsx}",
+      ],
+      project: [],
+    },
+    "packages/app-web": {
+      entry: ["src/**/*.{ts,tsx}!", "!src/servers/e2eServer.ts"],
+      project: [],
+    },
+    "packages/app-electrobun": {
+      entry: ["electrobun.config.ts!", "src/**/*.{ts,tsx}!"],
+      project: [],
+    },
+    "packages/bob-and-alice": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/client-sdk": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/crypto": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/encoding": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/loro": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/ui": {
+      entry: ["src/**/*.{ts,tsx}!"],
+      project: [],
+    },
+    "packages/validators": {
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/website": {
+      entry: ["astro.config.ts!", "src/**/*.{astro,ts,tsx}!"],
+      project: [],
+      ignoreDependencies: ["@astrojs/react", "react-dom"],
+    },
+    "packages/sqlite-instance": {
+      entry: ["src/**/*.ts!"],
+      project: [],
+    },
+    "packages/sqlite-worker": {
+      entry: ["src/**/*.ts!"],
+      project: [],
+    },
+    "packages/test-utils": {
+      entry: ["src/**/*.ts!"],
+      project: [],
+    },
+  },
+} satisfies KnipConfig;
+
+export default ((options: { production?: boolean }) =>
+  options.production ? productionConfig : baseConfig) satisfies KnipConfig;
