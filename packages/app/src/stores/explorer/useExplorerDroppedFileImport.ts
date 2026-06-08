@@ -1,5 +1,5 @@
 import type {
-  ContainerDocumentLinkActions,
+  ContainerDocumentLinks,
   ContainerDocumentQueries,
   DocumentAttachmentUpload,
   DocumentSummary,
@@ -224,7 +224,7 @@ export async function importExplorerDroppedFiles(
 }
 
 export function useExplorerDroppedFileImport(params: {
-  appData: ContainerDocumentLinkActions;
+  appData: ContainerDocumentLinks;
   documentQueries: ContainerDocumentQueries;
   labels: ExplorerDroppedFileImportLabels;
   logError: (message: string, cause?: unknown) => void;
@@ -243,7 +243,7 @@ export function useExplorerDroppedFileImport(params: {
           initialText,
           localId,
         }) =>
-          appData.openDocumentStore({
+          appData.openDocument({
             containerId: targetContainerId,
             initialDocumentKind,
             initialText,

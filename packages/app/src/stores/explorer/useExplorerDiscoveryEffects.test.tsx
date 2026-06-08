@@ -3,7 +3,7 @@ import type {
   ContainerContents,
   DocumentStore,
   DocumentSummary,
-  OpenContainerDocumentStoreInput,
+  OpenContainerDocumentInput,
 } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
@@ -844,7 +844,7 @@ test("container document discovery follows update events scoped to the active co
 });
 
 test("primeDiscoveredDocumentStores primes discovered identities without forcing sync", () => {
-  const openedStores: OpenContainerDocumentStoreInput[] = [];
+  const openedStores: OpenContainerDocumentInput[] = [];
   let requestSyncCallCount = 0;
 
   primeDiscoveredDocumentStores({
@@ -859,8 +859,8 @@ test("primeDiscoveredDocumentStores primes discovered identities without forcing
         documentId: null,
       },
     ],
-    runtimeAppData: {
-      openDocumentStore: (input) => {
+    documentLinks: {
+      openDocument: (input) => {
         openedStores.push(input);
         return {
           attachFiles: () => undefined,

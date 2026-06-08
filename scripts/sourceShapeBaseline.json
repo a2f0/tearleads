@@ -33,7 +33,6 @@
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": { "lines": 759, "bytes": 22020 },
-    "docs/developer/client-sdk.md": { "lines": 450, "bytes": 20436 },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 639,
       "bytes": 22654

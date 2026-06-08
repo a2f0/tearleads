@@ -96,7 +96,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [runtime, tearleads],
   );
   const containerContentsStore = useMemo(
-    () => tearleads.containerContents.openStore({ logLabel: "Org Manager" }),
+    () => tearleads.containerContents.openTree({ logLabel: "Org Manager" }),
     [containerContentsRuntime.state.domainScope, tearleads],
   );
 

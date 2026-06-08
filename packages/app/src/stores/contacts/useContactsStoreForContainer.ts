@@ -71,11 +71,10 @@ function useContactsRuntime(
   );
   return useMemo<ContactsRuntime>(
     () => ({
-      deleteLocalDocument: (localId) =>
-        tearleads.documents.deleteLocalDocument(localId),
+      deleteDocument: (localId) => tearleads.documents.delete(localId),
       documents: documentsRuntime,
       openDocumentStore: (input) =>
-        tearleads.documents.openStore(input, {
+        tearleads.documents.open(input, {
           workflowRuntime: documentsRuntime,
         }),
     }),

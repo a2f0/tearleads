@@ -114,7 +114,7 @@ async function loadRosterProfileDisplayName(input: {
     organizationId: input.organizationId,
     userId: input.user.userId,
   });
-  const store = input.documents.openStore(
+  const store = input.documents.open(
     {
       containerId: input.profileContainerId,
       documentId: input.user.profileDocumentId,

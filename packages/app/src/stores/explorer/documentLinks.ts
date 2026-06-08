@@ -1,24 +1,22 @@
 import type {
-  ContainerDocumentLinkActions,
+  ContainerDocumentLinks,
   DocumentSummary,
   MergeDocumentSummary,
   SetLinkedContainerIdsForDocument,
 } from "@tearleads/client-sdk";
 
-export function canMutateSelectedDocument(
-  appData: ContainerDocumentLinkActions,
-) {
+export function canMutateSelectedDocument(appData: ContainerDocumentLinks) {
   return appData.canMutateDocumentLinks;
 }
 
-export function canMutateLocalSelectedDocument(
-  appData: ContainerDocumentLinkActions,
+export function canMutateUnsyncedSelectedDocument(
+  appData: ContainerDocumentLinks,
 ) {
-  return appData.canMutateLocalDocumentLinks;
+  return appData.canMutateUnsyncedDocumentLinks;
 }
 
 export function moveExplorerNote(params: {
-  appData: ContainerDocumentLinkActions;
+  appData: ContainerDocumentLinks;
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
@@ -44,7 +42,7 @@ export function moveExplorerNote(params: {
 }
 
 export function linkExplorerNote(params: {
-  appData: ContainerDocumentLinkActions;
+  appData: ContainerDocumentLinks;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
@@ -67,7 +65,7 @@ export function linkExplorerNote(params: {
 }
 
 export function unlinkExplorerLinkedNote(params: {
-  appData: ContainerDocumentLinkActions;
+  appData: ContainerDocumentLinks;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   removedContainerId: string;
@@ -90,7 +88,7 @@ export function unlinkExplorerLinkedNote(params: {
 }
 
 export function activateExplorerLinkedNote(params: {
-  appData: ContainerDocumentLinkActions;
+  appData: ContainerDocumentLinks;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
   targetContainerId: string;

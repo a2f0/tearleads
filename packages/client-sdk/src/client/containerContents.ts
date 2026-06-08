@@ -48,11 +48,11 @@ import { createContainerDocumentObjectSyncState } from "../workflows/container-c
 import type { DocumentsWorkflowRuntime } from "../workflows/documents";
 import type {
   ContainerContents,
-  ContainerDocumentLinkActions,
+  ContainerDocumentLinks,
   ContainerInfoInput,
   DocumentInfoInput,
   MergeDocumentSummary,
-  OpenContainerDocumentStoreInput,
+  OpenContainerDocumentInput,
 } from "./containerContentsTypes";
 import type {
   InternalRuntime,
@@ -95,14 +95,14 @@ export type {
 } from "../workflows/container-contents/syncState";
 export type {
   ContainerContents,
-  ContainerDocumentLinkActions,
   ContainerDocumentLinkInput,
+  ContainerDocumentLinks,
   ContainerInfoInput,
   DocumentInfoInput,
   LinkDocumentToContainerInput,
   MergeDocumentSummary,
   MoveDocumentToContainerInput,
-  OpenContainerDocumentStoreInput,
+  OpenContainerDocumentInput,
   SetActiveDocumentContainerInput,
   UnlinkDocumentFromContainerInput,
 } from "./containerContentsTypes";
@@ -125,14 +125,14 @@ export function createContainerContents(
 }
 
 function createDocumentLinkHost(
-  runtime: ContainerDocumentLinkActions,
+  runtime: ContainerDocumentLinks,
   mergeDocumentSummary: MergeDocumentSummary,
 ): DocumentStructuralMutationHost<DocumentsWorkflowRuntime> {
   return {
-    documentWorkflowRuntime: runtime.documentWorkflowRuntime,
+    documentWorkflowRuntime: runtime.documentRuntime,
     mergeDocumentSummary,
     openDocumentStore: (input) =>
-      runtime.openDocumentStore({
+      runtime.openDocument({
         containerId: input.containerId,
         documentId: input.documentId,
         localId: input.localId,
@@ -162,7 +162,7 @@ export function listUserContainerIdsForDocumentRefresh(
 class ContainerContentsService implements ContainerContents {
   constructor(private readonly runtimeService: InternalRuntime) {}
 
-  openStore(
+  openTree(
     options?: ContainerContentsStoreOptions | undefined,
   ): ContainerContentsStore {
     const runtime = this.workflowRuntime();
@@ -174,49 +174,47 @@ class ContainerContentsService implements ContainerContents {
     return store;
   }
 
-  localQueries(): ContainerDocumentQueries {
+  documentQueries(): ContainerDocumentQueries {
     return createContainerDocumentQueriesFromRuntime(this.workflowRuntime());
   }
 
-  documentLinkActions(): ContainerDocumentLinkActions {
+  documentLinks(): ContainerDocumentLinks {
     const runtime = this.workflowRuntime();
-    const documentWorkflowRuntime = (containerId: string) =>
+    const documentRuntime = (containerId: string) =>
       createContainerContentsDocumentsRuntime(runtime, containerId);
-    const openContainerDocumentStore = (
-      input: OpenContainerDocumentStoreInput,
-    ) =>
+    const openContainerDocument = (input: OpenContainerDocumentInput) =>
       openDocumentStore(
         runtime.state.domainScope,
         input.localId,
-        documentWorkflowRuntime(input.containerId),
+        documentRuntime(input.containerId),
         input.documentId ?? null,
         input.initialText,
         input.initialDocumentKind,
       );
-    const documentLinkActions: ContainerDocumentLinkActions = {
+    const documentLinks: ContainerDocumentLinks = {
       ...runtime,
-      documentWorkflowRuntime,
-      openDocumentStore: openContainerDocumentStore,
+      documentRuntime,
+      openDocument: openContainerDocument,
       setActiveDocumentContainer: (input) =>
         activateDocumentLinkState({
           host: createDocumentLinkHost(
-            documentLinkActions,
+            documentLinks,
             input.mergeDocumentSummary,
           ),
           note: input.note,
-          runtime: documentLinkActions,
+          runtime: documentLinks,
           targetContainerId: input.targetContainerId,
         }),
       canMutateDocumentLinks: canMutateDocumentLink(runtime),
-      canMutateLocalDocumentLinks: canMutateLocalDocumentLink(runtime),
+      canMutateUnsyncedDocumentLinks: canMutateLocalDocumentLink(runtime),
       linkDocumentToContainer: (input) =>
         linkDocumentLinkState({
           host: createDocumentLinkHost(
-            documentLinkActions,
+            documentLinks,
             input.mergeDocumentSummary,
           ),
           note: input.note,
-          runtime: documentLinkActions,
+          runtime: documentLinks,
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,
@@ -225,11 +223,11 @@ class ContainerContentsService implements ContainerContents {
         moveDocumentLinkState({
           expandNode: input.expandNode,
           host: createDocumentLinkHost(
-            documentLinkActions,
+            documentLinks,
             input.mergeDocumentSummary,
           ),
           note: input.note,
-          runtime: documentLinkActions,
+          runtime: documentLinks,
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,
@@ -239,18 +237,18 @@ class ContainerContentsService implements ContainerContents {
       unlinkDocumentFromContainer: (input) =>
         unlinkDocumentLinkState({
           host: createDocumentLinkHost(
-            documentLinkActions,
+            documentLinks,
             input.mergeDocumentSummary,
           ),
           note: input.note,
           removedContainerId: input.removedContainerId,
-          runtime: documentLinkActions,
+          runtime: documentLinks,
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
         }),
     };
 
-    return documentLinkActions;
+    return documentLinks;
   }
 
   discoverContainerDocuments(
@@ -274,7 +272,7 @@ class ContainerContentsService implements ContainerContents {
 
   hasUnseenDocumentUpdates(knownDocumentIds: ReadonlySet<string>): boolean {
     const allKnownDocumentIds = new Set(knownDocumentIds);
-    const snapshot = this.openStore().getSnapshot();
+    const snapshot = this.openTree().getSnapshot();
     for (const node of snapshot.nodes ?? []) {
       if (node.metadataDocumentId) {
         allKnownDocumentIds.add(node.metadataDocumentId);
@@ -290,7 +288,7 @@ class ContainerContentsService implements ContainerContents {
   loadContainerInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
     const runtime = this.runtimeService.workflowInput();
     const cachedContainerProjection =
-      this.openStore().getCachedContainerWriterProjection(input.containerId);
+      this.openTree().getCachedContainerWriterProjection(input.containerId);
     return loadContainerInfo({
       ...input,
       apiClient: runtime.apiClient,
@@ -329,7 +327,7 @@ class ContainerContentsService implements ContainerContents {
       return Promise.resolve(null);
     }
 
-    const snapshot = this.openStore().getSnapshot();
+    const snapshot = this.openTree().getSnapshot();
     const snapshotContainerIds =
       listUserContainerIdsForDocumentRefresh(snapshot);
     if (snapshotContainerIds) {

@@ -277,7 +277,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     [appData, tearleads],
   );
   const store = useMemo(
-    () => tearleads.containerContents.openStore({ logLabel: "Explorer" }),
+    () => tearleads.containerContents.openTree({ logLabel: "Explorer" }),
     [runtime.state.domainScope, tearleads],
   );
   const systemContainers = useExplorerSystemContainerSlots({
