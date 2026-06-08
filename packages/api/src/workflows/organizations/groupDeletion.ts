@@ -18,12 +18,16 @@ interface OrganizationGroupMutationInput {
   organizationId: string;
 }
 
+interface ReferenceCountRow {
+  readonly referenceCount?: unknown;
+}
+
 function readReferenceCount(row: unknown): number {
-  if (!row || typeof row !== "object") {
+  if (!isReferenceCountRow(row)) {
     throw new Error("Unexpected organization group reference row shape");
   }
 
-  const referenceCount = Reflect.get(row, "referenceCount");
+  const referenceCount = row.referenceCount;
   if (typeof referenceCount === "number" && Number.isInteger(referenceCount)) {
     return referenceCount;
   }
@@ -35,6 +39,10 @@ function readReferenceCount(row: unknown): number {
   }
 
   throw new Error("Unexpected organization group reference row shape");
+}
+
+function isReferenceCountRow(value: unknown): value is ReferenceCountRow {
+  return value !== null && typeof value === "object";
 }
 
 async function hasCurrentPrincipalReferences(input: {

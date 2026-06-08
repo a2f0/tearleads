@@ -24,17 +24,24 @@ export interface AccessibleContainerRow {
   updatedAt: string;
 }
 
+interface AccessibleContainerRowShape {
+  readonly id?: unknown;
+  readonly metadataDocumentId?: unknown;
+  readonly organizationId?: unknown;
+  readonly parentId?: unknown;
+}
+
 function isAccessibleContainerRow(
   value: unknown,
 ): value is AccessibleContainerRow {
-  if (typeof value !== "object" || value === null) {
+  if (!isAccessibleContainerRowShape(value)) {
     return false;
   }
 
-  const id = Reflect.get(value, "id");
-  const metadataDocumentId = Reflect.get(value, "metadataDocumentId");
-  const organizationId = Reflect.get(value, "organizationId");
-  const parentId = Reflect.get(value, "parentId");
+  const id = value.id;
+  const metadataDocumentId = value.metadataDocumentId;
+  const organizationId = value.organizationId;
+  const parentId = value.parentId;
 
   return (
     typeof id === "string" &&
@@ -42,6 +49,12 @@ function isAccessibleContainerRow(
     (typeof metadataDocumentId === "string" || metadataDocumentId === null) &&
     (typeof parentId === "string" || parentId === null)
   );
+}
+
+function isAccessibleContainerRowShape(
+  value: unknown,
+): value is AccessibleContainerRowShape {
+  return value !== null && typeof value === "object";
 }
 
 function readDateIso(value: unknown, label: string): string {
@@ -288,18 +301,16 @@ export async function listAccessibleContainersForUser(input: {
       throw new Error("Unexpected row shape from accessible containers query");
     }
 
-    const metadataAccessEpoch = readOptionalNumber(
-      Reflect.get(row, "metadataAccessEpoch"),
-    );
+    const metadataAccessEpoch = readOptionalNumber(row.metadataAccessEpoch);
     const metadataAccessStateHash = readOptionalString(
-      Reflect.get(row, "metadataAccessStateHash"),
+      row.metadataAccessStateHash,
     );
 
     accessibleContainers.push({
       ...row,
-      createdAt: readDateIso(Reflect.get(row, "createdAt"), "createdAt"),
-      depth: readRequiredNumber(Reflect.get(row, "depth"), "depth"),
-      updatedAt: readDateIso(Reflect.get(row, "updatedAt"), "updatedAt"),
+      createdAt: readDateIso(row.createdAt, "createdAt"),
+      depth: readRequiredNumber(row.depth, "depth"),
+      updatedAt: readDateIso(row.updatedAt, "updatedAt"),
       ...(metadataAccessEpoch === undefined ? {} : { metadataAccessEpoch }),
       ...(metadataAccessStateHash === undefined
         ? {}
