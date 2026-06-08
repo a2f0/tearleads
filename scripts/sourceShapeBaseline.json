@@ -336,10 +336,6 @@
       "lines": 1151,
       "bytes": 32354
     },
-    "packages/crypto/src/keying/principalPolicy.test.ts": {
-      "lines": 572,
-      "bytes": 17319
-    },
     "packages/crypto/src/keying/principalPolicy.ts": {
       "lines": 719,
       "bytes": 20623
@@ -355,22 +351,6 @@
     "packages/crypto/src/keying/types.ts": {
       "lines": 1059,
       "bytes": 32251
-    },
-    "packages/crypto/src/keying/writeHeader.test.ts": {
-      "lines": 505,
-      "bytes": 15870
-    },
-    "packages/crypto/src/keying/writeHeader.ts": {
-      "lines": 522,
-      "bytes": 14936
-    },
-    "packages/crypto/src/principalState.ts": {
-      "lines": 545,
-      "bytes": 15953
-    },
-    "packages/validators/src/request/request.test.ts": {
-      "lines": 849,
-      "bytes": 25177
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 1133,

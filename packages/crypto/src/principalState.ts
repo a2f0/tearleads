@@ -1,67 +1,42 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { toFingerprint } from "./fingerprint";
+import {
+  comparePrincipalProjectionMembers,
+  comparePrincipalStateMembers,
+  hasDuplicateNormalizedPrincipalProjectionMembers,
+  hasDuplicateNormalizedPrincipalStateMembers,
+} from "./principalStateMembers";
+import type {
+  ManagedRecipientPrincipalType,
+  PrincipalProjectionMember,
+  PrincipalProjectionRole,
+  PrincipalStateHeaderInput,
+  PrincipalStateMember,
+  PrincipalStateMembershipMode,
+  PrincipalStateMemberType,
+  PrincipalStateSigningInput,
+  SignedPrincipalState,
+  UnsignedPrincipalState,
+} from "./principalStateTypes";
 import { sign } from "./signing/sign";
 import { verify } from "./signing/verify";
 
 const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
 
-export type ManagedRecipientPrincipalType = "group" | "organization";
-export type PrincipalStateMemberType = "user" | "group";
-export type PrincipalProjectionRole = "member" | "admin";
-export type PrincipalStateMembershipMode = "projection";
-export type PrincipalStatePayloadCipherSuite = "aes-256-gcm";
-
-export interface PrincipalStateMember {
-  principalType: PrincipalStateMemberType;
-  principalId: string;
-}
-
-export interface PrincipalProjectionMember {
-  memberPrincipalType: PrincipalStateMemberType;
-  memberPrincipalId: string;
-  role: PrincipalProjectionRole;
-}
-
-export interface UnsignedPrincipalState {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  version: number;
-  prevStateHash: string | null;
-  keyEpoch: number;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  membershipMode: PrincipalStateMembershipMode;
-  membershipRoot: string;
-  projectionRoot: string;
-  payloadCiphertextHash: string;
-  memberCount: number;
-  signedAt: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-}
-
-export type PrincipalStateSigningInput = UnsignedPrincipalState;
-
-export interface PrincipalStateHeaderInput {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  version: number;
-  prevStateHash: string | null;
-  keyEpoch: number;
-  encapsulationPublicKey: string;
-  keyFingerprint: string;
-  members: PrincipalStateMember[];
-  projection: PrincipalProjectionMember[];
-  payloadCiphertext: string;
-  signedAt: string;
-  signerUserId: string;
-  signerUserKeyFingerprint: string;
-}
-
-export interface SignedPrincipalState extends UnsignedPrincipalState {
-  signature: string;
-}
+export type {
+  ManagedRecipientPrincipalType,
+  PrincipalProjectionMember,
+  PrincipalProjectionRole,
+  PrincipalStateHeaderInput,
+  PrincipalStateMember,
+  PrincipalStateMembershipMode,
+  PrincipalStateMemberType,
+  PrincipalStatePayloadCipherSuite,
+  PrincipalStateSigningInput,
+  SignedPrincipalState,
+  UnsignedPrincipalState,
+} from "./principalStateTypes";
 
 interface PrincipalStateLike {
   principalType: ManagedRecipientPrincipalType;
@@ -80,79 +55,6 @@ interface PrincipalStateLike {
   payloadCiphertextHash?: string;
   memberCount?: number;
   signature?: string;
-}
-
-function compareCanonicalStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-function comparePrincipalStateMembers(
-  left: PrincipalStateMember,
-  right: PrincipalStateMember,
-): number {
-  if (left.principalType === right.principalType) {
-    return compareCanonicalStrings(left.principalId, right.principalId);
-  }
-
-  return compareCanonicalStrings(left.principalType, right.principalType);
-}
-
-function comparePrincipalProjectionMembers(
-  left: PrincipalProjectionMember,
-  right: PrincipalProjectionMember,
-): number {
-  if (left.memberPrincipalType === right.memberPrincipalType) {
-    return compareCanonicalStrings(
-      left.memberPrincipalId,
-      right.memberPrincipalId,
-    );
-  }
-
-  return compareCanonicalStrings(
-    left.memberPrincipalType,
-    right.memberPrincipalType,
-  );
-}
-
-function hasDuplicateNormalizedPrincipalStateMembers(
-  normalizedMembers: ReadonlyArray<PrincipalStateMember>,
-): boolean {
-  for (let index = 1; index < normalizedMembers.length; index += 1) {
-    const previousMember = normalizedMembers[index - 1];
-    const currentMember = normalizedMembers[index];
-
-    if (
-      previousMember &&
-      currentMember &&
-      previousMember.principalType === currentMember.principalType &&
-      previousMember.principalId === currentMember.principalId
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function hasDuplicateNormalizedPrincipalProjectionMembers(
-  normalizedMembers: ReadonlyArray<PrincipalProjectionMember>,
-): boolean {
-  for (let index = 1; index < normalizedMembers.length; index += 1) {
-    const previousMember = normalizedMembers[index - 1];
-    const currentMember = normalizedMembers[index];
-
-    if (
-      previousMember &&
-      currentMember &&
-      previousMember.memberPrincipalType ===
-        currentMember.memberPrincipalType &&
-      previousMember.memberPrincipalId === currentMember.memberPrincipalId
-    ) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 function isValidPositiveInteger(value: number): boolean {
