@@ -16,30 +16,22 @@ export function PaneMenu({
   position: MenuPosition;
   onClose: () => void;
 }) {
-  const { killWorker, spawnWorker, status } = useDatabase();
-  const { isAuthenticated, login, userId } = useCryptoSession();
-  const { destroyKey, encapsulationKeyPair, generateKey, signingKeyPair } =
-    useIdentity();
-  const { canRegisterCurrentIdentity, registerCurrentIdentity } =
-    useRegisterCurrentIdentity();
-  const isTerminated = status === "terminated";
-  const backupKeyPackage = useBackupKeyPackageAction({ onComplete: onClose });
-  const {
-    handleRestoreFileChange,
-    handleRestoreKeyPackageClick,
-    restoreFileInputRef,
-  } = useRestoreKeyPackageAction({ onComplete: onClose });
-
   return (
     <Menu position={position} onClose={onClose}>
-      <input
-        ref={restoreFileInputRef}
-        aria-label="Restore Key Package File"
-        type="file"
-        accept="application/json,.json"
-        hidden
-        onChange={handleRestoreFileChange}
-      />
+      <PaneWorkerMenuItems onClose={onClose} />
+      <PaneKeyMenuItems onClose={onClose} />
+      <PaneSessionMenuItems onClose={onClose} />
+    </Menu>
+  );
+}
+
+function PaneWorkerMenuItems({ onClose }: { onClose: () => void }) {
+  const { killWorker, spawnWorker, status } = useDatabase();
+  const { signingKeyPair } = useIdentity();
+  const isTerminated = status === "terminated";
+
+  return (
+    <>
       {signingKeyPair && !isTerminated && (
         <MenuItem
           label="Kill Worker"
@@ -58,6 +50,30 @@ export function PaneMenu({
           }}
         />
       )}
+    </>
+  );
+}
+
+function PaneKeyMenuItems({ onClose }: { onClose: () => void }) {
+  const backupKeyPackage = useBackupKeyPackageAction({ onComplete: onClose });
+  const {
+    handleRestoreFileChange,
+    handleRestoreKeyPackageClick,
+    restoreFileInputRef,
+  } = useRestoreKeyPackageAction({ onComplete: onClose });
+  const { destroyKey, encapsulationKeyPair, generateKey, signingKeyPair } =
+    useIdentity();
+
+  return (
+    <>
+      <input
+        ref={restoreFileInputRef}
+        aria-label="Restore Key Package File"
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={handleRestoreFileChange}
+      />
       {!signingKeyPair && (
         <MenuItem
           label="Generate Key Pair"
@@ -79,6 +95,27 @@ export function PaneMenu({
           label="Destroy Key Pair"
           onClick={() => {
             destroyKey();
+            onClose();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function PaneSessionMenuItems({ onClose }: { onClose: () => void }) {
+  const { isAuthenticated, login, logout, userId } = useCryptoSession();
+  const { encapsulationKeyPair, signingKeyPair } = useIdentity();
+  const { canRegisterCurrentIdentity, registerCurrentIdentity } =
+    useRegisterCurrentIdentity();
+
+  return (
+    <>
+      {signingKeyPair && isAuthenticated && (
+        <MenuItem
+          label="Logout"
+          onClick={() => {
+            logout();
             onClose();
           }}
         />
@@ -108,6 +145,6 @@ export function PaneMenu({
           }}
         />
       )}
-    </Menu>
+    </>
   );
 }
