@@ -109,7 +109,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     containerContentsRuntime.state.containerId,
   );
   const containerContentsStore = useMemo(
-    () => tearleads.containerContents.openStore({ logLabel: "Contacts" }),
+    () => tearleads.containerContents.openTree({ logLabel: "Contacts" }),
     [containerContentsRuntime.state.domainScope, tearleads],
   );
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(

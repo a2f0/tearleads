@@ -2,7 +2,7 @@ import type {
   DocumentStore,
   DocumentsRuntime,
   DomainScope,
-  OpenLocalDocumentStoreInput,
+  OpenLocalDocumentInput,
   UserKey,
 } from "@tearleads/client-sdk";
 import {
@@ -27,7 +27,7 @@ export interface ContactsSnapshot {
 export interface ContactsRuntime {
   deleteLocalDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
-  openDocumentStore: (input: OpenLocalDocumentStoreInput) => DocumentStore;
+  openDocumentStore: (input: OpenLocalDocumentInput) => DocumentStore;
 }
 
 export interface ContactsStore {

@@ -13,7 +13,7 @@ export function useExplorerDocumentQueries(
   const { containerContents } = useTearleads();
 
   return useMemo(
-    () => containerContents.localQueries(),
+    () => containerContents.documentQueries(),
     [appData.infra.dbStatus, appData.state.domainScope, containerContents],
   );
 }

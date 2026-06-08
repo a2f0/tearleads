@@ -60,7 +60,7 @@ export interface DocumentInfoInput {
 
 export type MergeDocumentSummary = (nextDocument: DocumentSummary) => void;
 
-export interface OpenContainerDocumentStoreInput {
+export interface OpenContainerDocumentInput {
   readonly containerId: string;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
@@ -97,10 +97,10 @@ export interface SetActiveDocumentContainerInput
   readonly targetContainerId: string;
 }
 
-export interface ContainerDocumentLinkActions
+export interface ContainerDocumentLinks
   extends ContainerContentsWorkflowRuntime {
-  documentWorkflowRuntime(containerId: string): DocumentsWorkflowRuntime;
-  openDocumentStore(input: OpenContainerDocumentStoreInput): DocumentStore;
+  documentRuntime(containerId: string): DocumentsWorkflowRuntime;
+  openDocument(input: OpenContainerDocumentInput): DocumentStore;
   setActiveDocumentContainer(
     input: SetActiveDocumentContainerInput,
   ): Promise<DocumentSummary | null>;
@@ -119,43 +119,44 @@ export interface ContainerDocumentLinkActions
 }
 
 /**
- * High-level container-content service for document discovery and diagnostics.
+ * High-level container-content service for tree state, document lists, document
+ * links, discovery, and diagnostics.
  *
  * The facade owns the normal SDK protocol: it supplies the API client,
- * referenced-principal policy cache, local document query facade, link
+ * referenced-principal policy cache, local document query helpers, link
  * projection, tombstone handling, and sync watermarks. Consumers that need a
  * custom persistence protocol can call the lower-level workflows directly from
  * `@tearleads/client-sdk`.
  */
 export interface ContainerContents {
   /**
-   * Get the default container contents store for the current SDK runtime.
+   * Open the container tree state store for the current SDK runtime.
    *
    * The store is cached per domain scope and created from the current runtime
    * snapshot. Long-lived hosts should call `updateRuntime` after runtime
    * changes, such as from a React effect.
    */
-  openStore(
+  openTree(
     options?: ContainerContentsStoreOptions | undefined,
   ): ContainerContentsStore;
 
   /**
-   * Create the default local query facade for container contents.
+   * Create local document query helpers for container contents.
    *
    * The facade is bound to the current SDK runtime snapshot, including the
    * active SQLite executor. Recreate it when the SDK runtime version changes.
    */
-  localQueries(): ContainerDocumentQueries;
+  documentQueries(): ContainerDocumentQueries;
 
   /**
-   * Create the default action bundle for document-link workflows.
+   * Create the default document-link workflow helper.
    *
    * The returned object includes the current container-contents runtime,
    * the document projection-key resolver, mutation readiness, document store
    * priming, and container document-link mutations. Product stores can pass
    * this bundle around without rebuilding SDK runtime plumbing themselves.
    */
-  documentLinkActions(): ContainerDocumentLinkActions;
+  documentLinks(): ContainerDocumentLinks;
 
   /**
    * Discover remote documents linked to one container.

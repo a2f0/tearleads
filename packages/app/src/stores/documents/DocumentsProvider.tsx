@@ -50,7 +50,7 @@ export function DocumentsProvider({
   );
   const store = useMemo(
     () =>
-      tearleads.documents.openStore(
+      tearleads.documents.open(
         {
           containerId,
           documentId,

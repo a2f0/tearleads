@@ -60,7 +60,7 @@ test("roster profile document sync wait handles synchronous subscriptions", asyn
     },
   } as unknown as DocumentStore;
   const documents = {
-    openStore: (input: { containerId?: string | null | undefined }) => {
+    open: (input: { containerId?: string | null | undefined }) => {
       expect(input.containerId).toBe("roster-profile-container-1");
       return store;
     },

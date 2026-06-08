@@ -16,7 +16,6 @@ import {
   createLocalKeyring,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
-  DEFAULT_DOCUMENT_KIND,
   Tearleads,
 } from "@tearleads/client-sdk";
 import {
@@ -57,19 +56,34 @@ const tearleads = new Tearleads({
 const identity = await tearleads.identity.generate();
 const rootContainerId = identity.rootContainerId;
 
-const documentWorkflowRuntime =
-  tearleads.documents.workflowRuntime(rootContainerId);
-const documentStore = tearleads.documents.openStore();
-const localNotes = await tearleads.documents.listLocalDocuments({
-  documentKind: DEFAULT_DOCUMENT_KIND,
+if (!rootContainerId) {
+  throw new Error("SQLite must be ready before local root setup can complete.");
+}
+
+const document = tearleads.documents.open({
+  containerId: rootContainerId,
+  initialText: "Draft note",
+  localId: "draft-note",
+});
+await document.ensureInitialized();
+await document.setText("Updated note text");
+
+const localNotes = await tearleads.documents.listLocal({
   limit: 50,
   offset: 0,
   sort: { direction: "desc", key: "updated" },
 });
-const containerDocumentQueries = tearleads.containerContents.localQueries();
-const containerDocumentLinkActions =
-  tearleads.containerContents.documentLinkActions();
-const containerContentsStore = tearleads.containerContents.openStore();
+
+const containerTree = tearleads.containerContents.openTree();
+await containerTree.refresh();
+
+const firstContainerPage =
+  await tearleads.containerContents.documentQueries().listContainerItemWindow({
+    containerId: rootContainerId,
+    limit: 50,
+    offset: 0,
+    sort: { direction: "asc", key: "name" },
+  });
 ```
 
 The instance intentionally groups client capabilities by responsibility:
@@ -83,8 +97,8 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | document stores, paged local document lists, local document deletion, and document workflow runtime composition |
-| `tearleads.containerContents` | container contents stores, local query facades, document-link action bundles, discovery, diagnostics, and workflow runtime composition |
+| `tearleads.documents` | opening one editable document, paged local document lists, local document deletion, document subscriptions, and document workflow runtime composition |
+| `tearleads.containerContents` | the container tree store, container document query helpers, document-link operations, discovery, diagnostics, and workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product queries and recipient UIs |
 
@@ -92,9 +106,12 @@ Prefer these instance services over constructing workflow runtimes directly
 from host code. The SDK keeps workflow cache scope aligned with the active
 database id and identity fingerprint, which lets document and
 container/document stores share the same sync and subscription boundary.
-Product app code should prefer `tearleads.documents.openStore(...)`,
-`tearleads.documents.subscribeToLocalDocuments(listener, { containerId })` over
-importing the document store facade package directly.
+Product app code should prefer the instance surface:
+`tearleads.documents.open(...)`, `tearleads.documents.listLocal(...)`,
+`tearleads.documents.subscribeToLocal(listener, { containerId })`,
+`tearleads.containerContents.openTree()`, and
+`tearleads.containerContents.documentQueries()`. Import lower-level store and
+workflow packages only when writing SDK internals or custom host integrations.
 
 Host adapters that still need the raw workflow runtime contract should use
 `tearleads.runtime.input(containerId)` instead of reconstructing the dependency
@@ -122,26 +139,9 @@ workflows. It packages the current API client, auth/session ids, identity keys,
 SQLite/blob infrastructure, current container id, domain scope, events, online
 state, and SDK utility callbacks into the shape expected by
 `workflows/container-contents`. Most product code should use the higher-level
-container contents methods instead: `openStore()`, `localQueries()`,
-`documentLinkActions()`, `discoverContainerDocuments(...)`,
+container contents methods instead: `openTree()`, `documentQueries()`,
+`documentLinks()`, `discoverContainerDocuments(...)`,
 `refreshAllContainerDocuments()`, and the diagnostic loaders.
-
-## Workflow Facade Taxonomy
-
-SDK workflow facades expose client platform capabilities. Product UI, route
-state, menu labels, component-local hooks, and React providers stay in
-`packages/app`.
-
-| Facade | Classification | Boundary |
-| --- | --- | --- |
-| `workflows/documents`, `workflows/blobs`, `workflows/containers`, `workflows/principals`, `workflows/registration`, `workflows/sync` | Platform runtime | Protocol-facing client operations, local persistence orchestration, sync coordination, key verification, and registration bootstrap helpers |
-| `workflows/container-contents` | Platform query and runtime | Container tree state, container metadata documents, document link/discovery query facades, diagnostics, and sync-state helpers. The container-contents store facade adapts these into UI state without React. |
-| `workflows/organizations` | Platform organization administration | Organization roster/directory, encrypted roster profile document binding, groups, grants, usage, user-detail queries, and principal-policy mutation helpers; the Org Manager mini-app adapts these into product screens in `packages/app` |
-
-When a workflow exists mainly to support a product screen, keep its name tied to
-the platform state it exposes rather than to the app window that consumes it.
-The SDK should export `workflows/organizations`, for example, while the app may
-continue to call its React provider and components `OrgManager`.
 
 ## Constructor Options
 

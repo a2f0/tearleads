@@ -100,7 +100,7 @@ export function useLocalDocumentSummaries({
     let cancelled = false;
     void (async () => {
       try {
-        const persistedSummaries = await tearleads.documents.listLocalDocuments(
+        const persistedSummaries = await tearleads.documents.listLocal(
           documentKind === undefined ? {} : { documentKind },
         );
 
@@ -131,7 +131,7 @@ export function useLocalDocumentSummaries({
   ]);
 
   useEffect(() => {
-    return tearleads.documents.subscribeToLocalDocuments(mergeSummary, {
+    return tearleads.documents.subscribeToLocal(mergeSummary, {
       containerId: resolvedSubscriptionContainerId,
     });
   }, [

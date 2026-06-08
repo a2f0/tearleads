@@ -12,7 +12,7 @@ import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
 import { useExplorerDocumentInfoLoader } from "../../../stores/explorer/documentInfo";
-import { useExplorerDocumentsRuntimeAppData } from "../../../stores/explorer/documentRuntime";
+import { useExplorerDocumentLinks } from "../../../stores/explorer/documentRuntime";
 import {
   type ExplorerDroppedFileImportLabels,
   type ImportExplorerDroppedFiles,
@@ -127,7 +127,7 @@ export function useExplorerPanelState(params: {
     setSidebar,
     treeEntries,
   } = params;
-  const explorerDocumentsAppData = useExplorerDocumentsRuntimeAppData(appData);
+  const explorerDocumentLinks = useExplorerDocumentLinks(appData);
   const loadContainerInfo = useExplorerContainerInfoLoader({
     appData,
     nodes: explorer.nodes,
@@ -139,7 +139,7 @@ export function useExplorerPanelState(params: {
     setSelectedId: selection.setSelectedId,
   });
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
-    appData: explorerDocumentsAppData,
+    appData: explorerDocumentLinks,
     expandNode: selection.expandNode,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
@@ -205,7 +205,7 @@ export function useExplorerPanelState(params: {
     setSelectedId: routeState.selectExplorerItem,
   });
   const importDroppedFiles = useExplorerDroppedFileImport({
-    appData: explorerDocumentsAppData,
+    appData: explorerDocumentLinks,
     documentQueries,
     labels: explorerDroppedFileImportLabels,
     logError: appData.util.logError,

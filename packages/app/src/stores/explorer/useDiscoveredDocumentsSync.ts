@@ -1,16 +1,18 @@
 import type {
   ContainerContents,
-  ContainerDocumentLinkActions,
+  ContainerDocumentLinks,
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 import {
-  type ExplorerDocumentsRuntimeAppDataInput,
+  type ExplorerDocumentLinksRuntimeInput,
   isDestroyedDatabaseWorkerError,
-  useExplorerDocumentsRuntimeAppData,
+  useExplorerDocumentLinks,
 } from "./documentRuntime";
 
-type ExplorerDiscoveryAppData = ExplorerDocumentsRuntimeAppDataInput;
+type ExplorerDiscoveryRuntimeInput = ExplorerDocumentLinksRuntimeInput;
+type ExplorerDiscoveryDomainScope =
+  ExplorerDiscoveryRuntimeInput["state"]["domainScope"];
 
 type DiscoveryPromise = Promise<ReadonlyArray<DocumentSummary> | null>;
 
@@ -136,8 +138,8 @@ function useLatestValueRef<T>(value: T): RefObject<T> {
 }
 
 function useResetDiscoveryTrackingOnDomainScope(params: {
-  domainScope: ExplorerDiscoveryAppData["state"]["domainScope"];
-  domainScopeRef: RefObject<ExplorerDiscoveryAppData["state"]["domainScope"]>;
+  domainScope: ExplorerDiscoveryDomainScope;
+  domainScopeRef: RefObject<ExplorerDiscoveryDomainScope>;
   locallyCheckedContainerDocumentIdsRef: RefObject<Set<string>>;
   locallyCheckedDocumentUpdateIdsRef: RefObject<Set<string>>;
   locallyDiscoveredDocumentIdsRef: RefObject<Set<string>>;
@@ -277,7 +279,7 @@ function useDiscoverContainerDocumentsForContainerCallback(input: {
 
 export function useDiscoveredDocumentsSync(params: {
   activeContainerId: string | null;
-  appData: ExplorerDiscoveryAppData;
+  appData: ExplorerDiscoveryRuntimeInput;
   discoverContainerDocuments: ContainerContents["discoverContainerDocuments"];
   hasUnseenDocumentUpdates: ContainerContents["hasUnseenDocumentUpdates"];
   knownDocumentIds: ReadonlySet<string>;
@@ -393,10 +395,8 @@ function useKnownDocumentIdsForDiscovery(params: {
 }
 
 function useResetEventFrontierOnDomainScope(
-  domainScope: ExplorerDiscoveryAppData["state"]["domainScope"],
-  eventCountDomainScopeRef: RefObject<
-    ExplorerDiscoveryAppData["state"]["domainScope"]
-  >,
+  domainScope: ExplorerDiscoveryDomainScope,
+  eventCountDomainScopeRef: RefObject<ExplorerDiscoveryDomainScope>,
   lastCheckedEventCountByContainerIdRef: RefObject<Map<string, number>>,
 ) {
   if (eventCountDomainScopeRef.current === domainScope) {
@@ -409,17 +409,17 @@ function useResetEventFrontierOnDomainScope(
 
 function useDiscoverContainerDocumentsForUpdateEvents(params: {
   activeContainerId: string | null;
-  dbStatus: ExplorerDiscoveryAppData["infra"]["dbStatus"];
+  dbStatus: ExplorerDiscoveryRuntimeInput["infra"]["dbStatus"];
   discoverContainerDocumentsForContainer: (
     containerId: string,
     checkedDocumentUpdateIds?: ReadonlyArray<string>,
   ) => (() => void) | undefined;
-  events: ExplorerDiscoveryAppData["state"]["events"];
+  events: ExplorerDiscoveryRuntimeInput["state"]["events"];
   getKnownDocumentIdsForDiscovery: () => ReadonlySet<string>;
   hasUnseenDocumentUpdates: ContainerContents["hasUnseenDocumentUpdates"];
-  isAuthenticated: ExplorerDiscoveryAppData["auth"]["isAuthenticated"];
+  isAuthenticated: ExplorerDiscoveryRuntimeInput["auth"]["isAuthenticated"];
   lastCheckedEventCountByContainerIdRef: RefObject<Map<string, number>>;
-  online: ExplorerDiscoveryAppData["state"]["online"];
+  online: ExplorerDiscoveryRuntimeInput["state"]["online"];
 }) {
   const {
     activeContainerId,
@@ -488,20 +488,20 @@ function useDiscoverContainerDocumentsForUpdateEvents(params: {
 
 function useContainerDiscoveryEffects(params: {
   activeContainerId: string | null;
-  dbStatus: ExplorerDiscoveryAppData["infra"]["dbStatus"];
+  dbStatus: ExplorerDiscoveryRuntimeInput["infra"]["dbStatus"];
   discoverContainerDocumentsForContainer: (
     containerId: string,
     checkedDocumentUpdateIds?: ReadonlyArray<string>,
   ) => (() => void) | undefined;
-  domainScope: ExplorerDiscoveryAppData["state"]["domainScope"];
-  events: ExplorerDiscoveryAppData["state"]["events"];
+  domainScope: ExplorerDiscoveryDomainScope;
+  events: ExplorerDiscoveryRuntimeInput["state"]["events"];
   hasUnseenDocumentUpdates: ContainerContents["hasUnseenDocumentUpdates"];
-  isAuthenticated: ExplorerDiscoveryAppData["auth"]["isAuthenticated"];
+  isAuthenticated: ExplorerDiscoveryRuntimeInput["auth"]["isAuthenticated"];
   knownDocumentIds: ReadonlySet<string>;
   locallyCheckedContainerDocumentIdsRef: RefObject<Set<string>>;
   locallyCheckedDocumentUpdateIdsRef: RefObject<Set<string>>;
   locallyDiscoveredDocumentIdsRef: RefObject<Set<string>>;
-  online: ExplorerDiscoveryAppData["state"]["online"];
+  online: ExplorerDiscoveryRuntimeInput["state"]["online"];
 }) {
   const {
     activeContainerId,
@@ -592,19 +592,19 @@ function shouldEvaluateContainerEventFrontier(
 }
 
 export function usePrimeDiscoveredDocuments(params: {
-  appData: ExplorerDiscoveryAppData;
+  appData: ExplorerDiscoveryRuntimeInput;
 }) {
   const { appData } = params;
-  const runtimeAppData = useExplorerDocumentsRuntimeAppData(appData);
+  const documentLinks = useExplorerDocumentLinks(appData);
 
   const primeDiscoveredDocuments = useCallback(
     (discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>) => {
       primeDiscoveredDocumentStores({
         discoveredDocumentSummaries,
-        runtimeAppData,
+        documentLinks,
       });
     },
-    [runtimeAppData],
+    [documentLinks],
   );
 
   return { primeDiscoveredDocuments };
@@ -612,14 +612,14 @@ export function usePrimeDiscoveredDocuments(params: {
 
 export function primeDiscoveredDocumentStores(input: {
   discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>;
-  runtimeAppData: Pick<ContainerDocumentLinkActions, "openDocumentStore">;
+  documentLinks: Pick<ContainerDocumentLinks, "openDocument">;
 }) {
   for (const documentSummary of input.discoveredDocumentSummaries) {
     if (!documentSummary.containerId || !documentSummary.documentId) {
       continue;
     }
 
-    input.runtimeAppData.openDocumentStore({
+    input.documentLinks.openDocument({
       containerId: documentSummary.containerId,
       documentId: documentSummary.documentId,
       localId: documentSummary.id,
