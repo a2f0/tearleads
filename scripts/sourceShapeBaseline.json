@@ -244,10 +244,6 @@
       "lines": 1017,
       "bytes": 30465
     },
-    "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
-      "lines": 800,
-      "bytes": 22643
-    },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
       "lines": 670,
       "bytes": 20397
