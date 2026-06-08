@@ -307,6 +307,10 @@ function sourceShapeFiles(args: readonly string[]): string[] {
   return filesChangedIn(args);
 }
 
+function isFullSourceShapeScan(args: readonly string[]): boolean {
+  return args.length === 0 || args.includes("--all");
+}
+
 function fileSizeViolations(args: readonly string[]): Violation[] {
   const files = sourceShapeFiles(args);
   const scannedFiles = new Set(files);
@@ -335,7 +339,7 @@ function fileSizeViolations(args: readonly string[]): Violation[] {
     return findFileSizeViolations(filePath, fileSizeOf(buffer));
   });
 
-  if (args.length === 0 || args.includes("--all")) {
+  if (isFullSourceShapeScan(args)) {
     for (const filePath of Object.keys(fileSizeBaseline)) {
       if (!scannedFiles.has(filePath)) {
         violations.push({
@@ -421,8 +425,31 @@ function findStarExportViolations(
 }
 
 function sourceShapeViolations(args: readonly string[]): Violation[] {
-  return sourceShapeFiles(args).flatMap((filePath) => {
-    if (!existsSync(filePath) || !shouldScan(filePath)) {
+  const files = sourceShapeFiles(args);
+  const scannedFiles = new Set(files);
+  const violations = files.flatMap((filePath) => {
+    if (!existsSync(filePath)) {
+      const missingBaselineViolations: Violation[] = [];
+
+      if (filePath in suppressionBaseline) {
+        missingBaselineViolations.push({
+          detail: "suppression baseline refers to a missing file; remove it",
+          filePath,
+        });
+      }
+
+      if (filePath in approvedStarExports) {
+        missingBaselineViolations.push({
+          detail:
+            "approved star exports baseline refers to a missing file; remove it",
+          filePath,
+        });
+      }
+
+      return missingBaselineViolations;
+    }
+
+    if (!shouldScan(filePath)) {
       return [];
     }
 
@@ -432,6 +459,30 @@ function sourceShapeViolations(args: readonly string[]): Violation[] {
       ...findStarExportViolations(filePath, source),
     ];
   });
+
+  if (isFullSourceShapeScan(args)) {
+    for (const filePath of Object.keys(suppressionBaseline)) {
+      if (!scannedFiles.has(filePath)) {
+        violations.push({
+          detail:
+            "suppression baseline refers to a file that is no longer tracked; remove it",
+          filePath,
+        });
+      }
+    }
+
+    for (const filePath of Object.keys(approvedStarExports)) {
+      if (!scannedFiles.has(filePath)) {
+        violations.push({
+          detail:
+            "approved star exports baseline refers to a file that is no longer tracked; remove it",
+          filePath,
+        });
+      }
+    }
+  }
+
+  return violations;
 }
 
 const rawArgs = process.argv.slice(2);
