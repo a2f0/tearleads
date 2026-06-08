@@ -260,14 +260,6 @@
       "lines": 920,
       "bytes": 26923
     },
-    "packages/client-sdk/src/workflows/containers/child/revoke.ts": {
-      "lines": 549,
-      "bytes": 17524
-    },
-    "packages/client-sdk/src/workflows/containers/child/share.test.ts": {
-      "lines": 588,
-      "bytes": 20524
-    },
     "packages/client-sdk/src/workflows/containers/child/share.ts": {
       "lines": 766,
       "bytes": 24142

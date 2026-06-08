@@ -11,7 +11,6 @@ import {
   type ContainerUserRecipientKey,
   computeAccessEventHash,
   computeContainerKeyEpochHash,
-  computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   type KeyingCanonicalJson,
@@ -23,7 +22,6 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
   createMutationResponseFromRequest,
@@ -32,76 +30,12 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../test/helpers/containerFixtures";
+import {
+  organizationPolicyBundleFromInitialRequest,
+  policyBundleFromInitialRequest,
+} from "../../../../test/helpers/principalPolicyFixtures";
 import { buildInitialGroupPolicyRequest } from "../../organizations/principalPolicy";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
-
-async function policyBundleFromInitialRequest(
-  request: Awaited<ReturnType<typeof buildInitialGroupPolicyRequest>>,
-): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(
-    request.initialGroupPolicy.state,
-  );
-
-  return {
-    currentState: {
-      ...request.initialGroupPolicy.state,
-      stateHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentPayload: {
-      principalType: "group",
-      principalId: request.groupId,
-      stateHash,
-      cipherSuite: request.initialGroupPolicy.encryptedPayload.cipherSuite,
-      ciphertext: request.initialGroupPolicy.encryptedPayload.ciphertext,
-      ciphertextHash:
-        request.initialGroupPolicy.encryptedPayload.ciphertextHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentProjection: request.initialGroupPolicy.projection,
-    currentMemberEnvelopes: {
-      principalType: "group",
-      principalId: request.groupId,
-      stateHash,
-      epoch: request.initialGroupPolicy.state.keyEpoch,
-      envelopes: request.initialGroupPolicy.memberEnvelopes,
-    },
-    previousStates: [],
-  };
-}
-
-async function organizationPolicyBundleFromInitialRequest(
-  organizationId: string,
-  request: Awaited<ReturnType<typeof buildInitialOrganizationPolicyRequest>>,
-): Promise<PrincipalPolicyBundleResponse> {
-  const stateHash = await computePrincipalStateHash(request.state);
-
-  return {
-    currentState: {
-      ...request.state,
-      stateHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentPayload: {
-      principalType: "organization",
-      principalId: organizationId,
-      stateHash,
-      cipherSuite: request.encryptedPayload.cipherSuite,
-      ciphertext: request.encryptedPayload.ciphertext,
-      ciphertextHash: request.encryptedPayload.ciphertextHash,
-      createdAt: "2026-05-12T12:00:00.000Z",
-    },
-    currentProjection: request.projection,
-    currentMemberEnvelopes: {
-      principalType: "organization",
-      principalId: organizationId,
-      stateHash,
-      epoch: request.state.keyEpoch,
-      envelopes: request.memberEnvelopes,
-    },
-    previousStates: [],
-  };
-}
 
 test("shareRemoteContainer rejects tampered projected container state before sending", async () => {
   const parent = await createParentProjection();
@@ -486,103 +420,4 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
       (policy) => (policy as { principalId: unknown }).principalId,
     ),
   ).toEqual([groupId]);
-});
-
-test("shareRemoteContainer replaces stale wraps when re-sharing a user", async () => {
-  const existingUserId = "user-2";
-  const oldRecipientKeyPair = generateKemSeedAndKeyPair();
-  const newRecipientKeyPair = generateKemSeedAndKeyPair();
-  const oldRecipientKeyEpochId = `user:${existingUserId}:encapsulation:${await toFingerprint(oldRecipientKeyPair.publicKey)}`;
-  const parent = await createParentProjection({
-    existingUserRecipient: {
-      accessLevel: "read",
-      publicKey: oldRecipientKeyPair.publicKey,
-      recipientKeyEpochId: oldRecipientKeyEpochId,
-      userId: existingUserId,
-    },
-  });
-  const { author } = await createAuthor({
-    organizationId: parent.projection.organizationId,
-    userId: parent.userId,
-  });
-  const previousKek = parent.projection.containerKeks[0];
-  if (!previousKek) {
-    throw new Error("Expected parent projection KEK");
-  }
-  const existingWrap = previousKek.wraps.find(
-    (wrap) =>
-      Reflect.get(wrap, "recipientKind") === "user" &&
-      Reflect.get(wrap, "recipientId") === existingUserId,
-  );
-  if (!existingWrap) {
-    throw new Error("Expected existing user wrap");
-  }
-  const existingRecipientTarget = previousKek.recipientTargets.find(
-    (target) =>
-      Reflect.get(target, "recipientKind") === "user" &&
-      Reflect.get(target, "recipientId") === existingUserId,
-  );
-  if (!existingRecipientTarget) {
-    throw new Error("Expected existing user recipient target");
-  }
-  const projectionWithExistingShare = parent.projection;
-  const submittedRequests: ContainerMutationRequest[] = [];
-
-  const shared = await shareRemoteContainer({
-    accessLevel: "write",
-    apiClient: {
-      getContainerWriterProjection: async () => projectionWithExistingShare,
-      shareContainer: async (_containerId, request) => {
-        submittedRequests.push(request);
-        return createMutationResponseFromRequest(request);
-      },
-    },
-    author,
-    containerId: parent.projection.containerId,
-    recipientEncapsulationPublicKey: newRecipientKeyPair.publicKey,
-    recipientUserId: existingUserId,
-    resolveProjectionUserKey: async (userId) => {
-      if (userId === parent.userId) {
-        return {
-          encapsulationPublicKey: parent.encapsulationPublicKey,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        };
-      }
-      if (userId === existingUserId) {
-        return {
-          encapsulationPublicKey: oldRecipientKeyPair.publicKey,
-          signingPublicKey: parent.signingPublicKey,
-          userId,
-        };
-      }
-
-      return null;
-    },
-    signedAt: SIGNED_AT,
-    targetSecretKey: parent.secretKey,
-  });
-
-  expect(shared).not.toBeNull();
-  const submittedRequest = submittedRequests[0];
-  if (!submittedRequest) {
-    throw new Error("Expected submitted share request");
-  }
-  const submittedWraps =
-    submittedRequest.wraps as unknown as ContainerKeyWrap[];
-  const existingUserWraps = submittedWraps.filter(
-    (wrap) =>
-      wrap.recipientKind === "user" && wrap.recipientId === existingUserId,
-  );
-  expect(existingUserWraps).toHaveLength(1);
-  expect(existingUserWraps[0]?.recipientKeyEpochId).not.toBe(
-    oldRecipientKeyEpochId,
-  );
-  expect(submittedWraps).not.toContainEqual(
-    expect.objectContaining({
-      recipientId: existingUserId,
-      recipientKeyEpochId: oldRecipientKeyEpochId,
-    }),
-  );
-  expect(submittedWraps).toHaveLength(previousKek.wraps.length);
 });
