@@ -185,5 +185,5 @@ const productionConfig = {
   },
 } satisfies KnipConfig;
 
-export default ((options) =>
+export default ((options: { production?: boolean }) =>
   options.production ? productionConfig : baseConfig) satisfies KnipConfig;
