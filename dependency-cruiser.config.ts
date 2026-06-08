@@ -5,12 +5,30 @@ type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 const testFilesPattern = "\\.test\\.[tj]sx?$";
 
 const sourceRoot = {
+  apiClient: "^packages/api-client/src/",
   api: "^packages/api/src/",
+  appElectrobun: "^packages/app-electrobun/src/",
+  appWeb: "^packages/app-web/src/",
   app: "^packages/app/src/",
+  bobAndAlice: "^packages/bob-and-alice/src/",
   clientSdk: "^packages/client-sdk/src/",
+  crypto: "^packages/crypto/src/",
+  encoding: "^packages/encoding/src/",
+  loro: "^packages/loro/src/",
+  sqliteInstance: "^packages/sqlite-instance/src/",
+  sqliteWorker: "^packages/sqlite-worker/src/",
+  testUtils: "^packages/test-utils/src/",
   ui: "^packages/ui/src/",
+  validators: "^packages/validators/src/",
   website: "^packages/website/src/",
 } as const;
+
+const allPackageSourceRoots = Object.values(sourceRoot);
+const deploymentTargetSourceRoots = [
+  sourceRoot.appElectrobun,
+  sourceRoot.appWeb,
+  sourceRoot.website,
+];
 
 const appLayer = {
   data: `${sourceRoot.app}data/`,
@@ -143,7 +161,11 @@ const standardRules = [
         testFilesPattern,
         "(^|/)tsconfig\\.json$",
         "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
+        "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
+        "^packages/app-web/src/index\\.tsx$",
         "^packages/app/src/test/",
+        "^packages/sqlite-instance/src/(assets|index)\\.ts$",
+        "^packages/sqlite-worker/src/assets\\.ts$",
         "^packages/website/src/",
       ],
     },
@@ -463,6 +485,203 @@ const clientSdkRules = [
   },
 ] satisfies ForbiddenRules;
 
+const corePackageRules = [
+  {
+    name: "validators-stays-leaf",
+    severity: "error",
+    comment:
+      "Validators define wire contracts and low-level shape checks; they must not depend on other source packages.",
+    from: {
+      path: sourceRoot.validators,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: allPackageSourceRoots.filter(
+        (root) => root !== sourceRoot.validators,
+      ),
+    },
+  },
+  {
+    name: "encoding-stays-leaf",
+    severity: "error",
+    comment:
+      "Encoding helpers are leaf-level primitives and must not depend on other source packages.",
+    from: {
+      path: sourceRoot.encoding,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: allPackageSourceRoots.filter(
+        (root) => root !== sourceRoot.encoding,
+      ),
+    },
+  },
+  {
+    name: "sqlite-instance-stays-leaf",
+    severity: "error",
+    comment:
+      "The SQLite instance package only wraps the wasm distribution and must not depend on higher-level source packages.",
+    from: {
+      path: sourceRoot.sqliteInstance,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: allPackageSourceRoots.filter(
+        (root) => root !== sourceRoot.sqliteInstance,
+      ),
+    },
+  },
+  {
+    name: "crypto-does-not-depend-on-app-api-or-sdk-implementations",
+    severity: "error",
+    comment:
+      "Crypto is a lower-level protocol package and must not import application, API, or client SDK implementation code.",
+    from: {
+      path: sourceRoot.crypto,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [
+        sourceRoot.api,
+        sourceRoot.apiClient,
+        sourceRoot.app,
+        sourceRoot.appElectrobun,
+        sourceRoot.appWeb,
+        sourceRoot.clientSdk,
+        sourceRoot.ui,
+        sourceRoot.website,
+      ],
+    },
+  },
+  {
+    name: "api-client-does-not-depend-on-runtime-implementations",
+    severity: "error",
+    comment:
+      "API client source may share protocol contracts but must not import server, app, SDK, UI, or deployment implementation code.",
+    from: {
+      path: sourceRoot.apiClient,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [
+        sourceRoot.api,
+        sourceRoot.app,
+        sourceRoot.appElectrobun,
+        sourceRoot.appWeb,
+        sourceRoot.clientSdk,
+        sourceRoot.ui,
+        sourceRoot.website,
+      ],
+    },
+  },
+  {
+    name: "sqlite-worker-depends-only-on-sqlite-instance",
+    severity: "error",
+    comment:
+      "SQLite worker source should stay storage-runtime focused and only depend on the SQLite instance package.",
+    from: {
+      path: sourceRoot.sqliteWorker,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: allPackageSourceRoots.filter(
+        (root) =>
+          root !== sourceRoot.sqliteWorker &&
+          root !== sourceRoot.sqliteInstance,
+      ),
+    },
+  },
+  {
+    name: "production-source-does-not-import-test-utils",
+    severity: "error",
+    comment:
+      "Test utilities are dev-only helpers and must not be imported by production source files.",
+    from: {
+      path: allPackageSourceRoots.filter(
+        (root) => root !== sourceRoot.testUtils,
+      ),
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: sourceRoot.testUtils,
+    },
+  },
+  {
+    name: "test-utils-does-not-depend-on-product-or-server-implementations",
+    severity: "error",
+    comment:
+      "Shared test utilities should compose protocol/client/storage helpers, not product shells or server internals.",
+    from: {
+      path: sourceRoot.testUtils,
+    },
+    to: {
+      path: [
+        sourceRoot.api,
+        sourceRoot.app,
+        sourceRoot.appElectrobun,
+        sourceRoot.appWeb,
+        sourceRoot.clientSdk,
+        sourceRoot.ui,
+        sourceRoot.website,
+      ],
+    },
+  },
+  {
+    name: "deployment-targets-are-not-reusable-libraries",
+    severity: "error",
+    comment:
+      "Deployment target packages should consume shared packages and app facades, not become dependencies of reusable source packages.",
+    from: {
+      path: allPackageSourceRoots.filter(
+        (root) => !deploymentTargetSourceRoots.includes(root),
+      ),
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: deploymentTargetSourceRoots,
+    },
+  },
+  {
+    name: "app-web-does-not-import-other-deployment-targets",
+    severity: "error",
+    comment:
+      "Deployment targets should stay independently launchable and must not import one another.",
+    from: {
+      path: sourceRoot.appWeb,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [sourceRoot.appElectrobun, sourceRoot.website],
+    },
+  },
+  {
+    name: "app-electrobun-does-not-import-other-deployment-targets",
+    severity: "error",
+    comment:
+      "Deployment targets should stay independently launchable and must not import one another.",
+    from: {
+      path: sourceRoot.appElectrobun,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [sourceRoot.appWeb, sourceRoot.website],
+    },
+  },
+  {
+    name: "website-does-not-import-other-deployment-targets",
+    severity: "error",
+    comment:
+      "Deployment targets should stay independently launchable and must not import one another.",
+    from: {
+      path: sourceRoot.website,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [sourceRoot.appElectrobun, sourceRoot.appWeb],
+    },
+  },
+] satisfies ForbiddenRules;
+
 const uiRules = [
   {
     name: "ui-does-not-depend-on-app-or-website",
@@ -501,13 +720,15 @@ const dependencyCruiserConfig = {
     ...apiRules,
     ...appRules,
     ...clientSdkRules,
+    ...corePackageRules,
     ...uiRules,
     ...websiteRules,
   ],
   options: {
     // Bun workspace subpath exports are checked separately in lintArchitecture.
     // Keep dependency-cruiser focused on source files whose paths it can resolve.
-    includeOnly: "^packages/(api|app|client-sdk|ui|website)/src/",
+    includeOnly:
+      "^packages/(api|api-client|app|app-electrobun|app-web|bob-and-alice|client-sdk|crypto|encoding|loro|sqlite-instance|sqlite-worker|test-utils|ui|validators|website)/src/",
     tsPreCompilationDeps: "specify",
   },
 } satisfies IConfiguration;
