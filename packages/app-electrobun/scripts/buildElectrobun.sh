@@ -8,6 +8,11 @@ BUILD_DIR="$PACKAGE_DIR/build"
 cd "$PACKAGE_DIR"
 NODE_ENV=production bun run build
 
+if [ ! -d "$BUILD_DIR" ]; then
+  echo "Build directory $BUILD_DIR does not exist. The build may have failed." >&2
+  exit 1
+fi
+
 ARTIFACT_PATH="$(
   find "$BUILD_DIR" -type f \( \
     -path "*/Contents/MacOS/launcher" -o \
@@ -17,7 +22,10 @@ ARTIFACT_PATH="$(
 )"
 
 if [ -z "$ARTIFACT_PATH" ]; then
-  echo "No executable build artifact found in $BUILD_DIR." >&2
+  echo "No build artifact found in $BUILD_DIR." >&2
+  exit 1
+elif [ ! -x "$ARTIFACT_PATH" ]; then
+  echo "Build artifact found at $ARTIFACT_PATH is not executable." >&2
   exit 1
 fi
 
