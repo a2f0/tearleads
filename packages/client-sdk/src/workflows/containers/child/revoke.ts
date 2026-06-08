@@ -10,10 +10,6 @@ import type {
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import {
-  computeAccessManifestHash,
-  deriveContainerAccessManifest,
-} from "@tearleads/crypto";
 import type {
   ContainerManifestBundle,
   ContainerMutationRequest,
@@ -63,101 +59,10 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-
-type ContainerRevokeSubject = Pick<
-  ContainerDirectGrant,
-  "subjectId" | "subjectType"
->;
-
-function isSameContainerGrantSubject(
-  left: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
-  right: Pick<ContainerDirectGrant, "subjectId" | "subjectType">,
-): boolean {
-  return (
-    left.subjectType === right.subjectType && left.subjectId === right.subjectId
-  );
-}
-
-function isSameReferencedPrincipalSubject(
-  head: ReferencedPrincipalHead,
-  revokedSubject: ContainerRevokeSubject,
-): boolean {
-  return (
-    head.principalType === revokedSubject.subjectType &&
-    head.principalId === revokedSubject.subjectId
-  );
-}
-
-function removeContainerGrant(
-  grants: readonly ContainerDirectGrant[],
-  revokedSubject: ContainerRevokeSubject,
-): ContainerDirectGrant[] {
-  return grants.filter(
-    (grant) => !isSameContainerGrantSubject(grant, revokedSubject),
-  );
-}
-
-function removeReferencedPrincipalHead(
-  principalHeads: readonly ReferencedPrincipalHead[],
-  revokedSubject: ContainerRevokeSubject,
-): ReferencedPrincipalHead[] {
-  if (revokedSubject.subjectType === "user") {
-    return [...principalHeads];
-  }
-
-  return principalHeads.filter(
-    (head) => !isSameReferencedPrincipalSubject(head, revokedSubject),
-  );
-}
-
-function requireRevokedGrantExists(input: {
-  previousState: ContainerAccessManifestState;
-  revokedSubject: ContainerRevokeSubject;
-}): void {
-  if (
-    !input.previousState.directGrants.some((grant) =>
-      isSameContainerGrantSubject(grant, input.revokedSubject),
-    )
-  ) {
-    throw new Error("Container grant is not present");
-  }
-}
-
-async function deriveContainerRevokeManifest(input: {
-  containerKeyEpochId: string;
-  eventHash: string;
-  previousManifest: ContainerWriterProjectionResponse["path"][number];
-  revokedSubject: ContainerRevokeSubject;
-}): Promise<Pick<ContainerRevokePlan, "manifest" | "manifestHash" | "state">> {
-  const previousState = readContainerState(input.previousManifest);
-  requireRevokedGrantExists({
-    previousState,
-    revokedSubject: input.revokedSubject,
-  });
-
-  const state: ContainerAccessManifestState = {
-    ...previousState,
-    epoch: previousState.epoch + 1,
-    previousManifestHash: input.previousManifest.manifestHash,
-    eventHash: input.eventHash,
-    containerKeyEpochId: input.containerKeyEpochId,
-    directGrants: removeContainerGrant(
-      previousState.directGrants,
-      input.revokedSubject,
-    ),
-    referencedPrincipalHeads: removeReferencedPrincipalHead(
-      previousState.referencedPrincipalHeads,
-      input.revokedSubject,
-    ),
-  };
-  const manifest = await deriveContainerAccessManifest(state);
-
-  return {
-    manifest,
-    manifestHash: await computeAccessManifestHash(manifest),
-    state,
-  };
-}
+import {
+  type ContainerRevokeSubject,
+  deriveContainerRevokeManifest,
+} from "./revokeManifest";
 
 function buildContainerRevokeRequest(input: {
   body: ContainerRevokeAccessEventBody;
