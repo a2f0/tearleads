@@ -1,203 +1,27 @@
-import type {
-  ReferencedPrincipalStateResponse,
-  SyncWatermark,
-} from "@tearleads/validators/response";
-import type {
-  DiscoveredDocumentInput,
-  DocumentSummary,
-} from "../../data/documentSummary";
+import type { DocumentSummary } from "../../data/documentSummary";
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import {
+  collectDiscoveredDocumentInputs,
+  getApplicableDocumentTombstones,
+  uniqueReferencedPrincipalStates,
+} from "./documentDiscoveryInputs";
+import type {
+  ContainerDocumentDiscoveryApi,
+  ContainerDocumentTombstone,
+  ContainerParentDiscoveryLane,
+  DiscoverAllContainerDocumentsOptions,
+  DiscoverContainerDocumentsOptions,
+  ListedContainerDocument,
+  ListedContainerDocuments,
+  ListedContainerDocumentsLane,
+  RefreshAllContainerDocumentsFromApiOptions,
+  RefreshAllContainerDocumentsOptions,
+} from "./documentDiscoveryTypes";
 
-interface ListedContainerDocument {
-  createdAt: string;
-  currentAccessEpoch: number;
-  currentAccessStateHash: string;
-  id: string;
-  linkedContainerIds: string[];
-  referencedPrincipals?: ReferencedPrincipalStateResponse[];
-  updatedAt: string;
-}
-
-interface ListContainerDocumentsResponse {
-  hasMore: boolean;
-  items: ListedContainerDocument[];
-  nextWatermark: SyncWatermark | null;
-  tombstones: ReadonlyArray<{
-    containerId: string;
-    documentId: string;
-    updatedAt: string;
-  }>;
-}
-
-interface ListedContainer {
-  id: string;
-}
-
-interface ListContainersResponse {
-  hasMore: boolean;
-  items: ListedContainer[];
-  nextWatermark: SyncWatermark | null;
-}
-
-interface ContainerDocumentDiscoveryApi {
-  readonly listContainerDocuments: (
-    containerId: string,
-    options?: { watermark?: SyncWatermark | null },
-  ) => Promise<ListContainerDocumentsResponse | null>;
-  readonly listContainers: (options: {
-    parentId: string | null;
-    watermark?: SyncWatermark | null;
-  }) => Promise<ListContainersResponse | null>;
-}
-
-interface DocumentLinkInput {
-  containerIds: ReadonlyArray<string>;
-  documentId: string;
-}
-
-type ContainerDocumentTombstone =
-  ListContainerDocumentsResponse["tombstones"][number];
-
-interface DiscoverContainerDocumentsOptions {
-  applyContainerDocumentTombstones: (
-    tombstones: ReadonlyArray<ContainerDocumentTombstone>,
-  ) => Promise<ReadonlyArray<DocumentSummary>>;
-  cacheReferencedPrincipalPolicies?: (
-    references: ReadonlyArray<ReferencedPrincipalStateResponse>,
-  ) => Promise<void>;
-  containerId: string;
-  loadContainerDocumentWatermark: (
-    containerId: string,
-  ) => Promise<SyncWatermark | null>;
-  listContainerDocuments: ContainerDocumentDiscoveryApi["listContainerDocuments"];
-  replaceDocumentLinksBatch: (
-    inputs: ReadonlyArray<DocumentLinkInput>,
-  ) => Promise<void>;
-  saveContainerDocumentWatermark: (
-    containerId: string,
-    watermark: SyncWatermark,
-  ) => Promise<void>;
-  upsertDiscoveredDocuments: (
-    inputs: ReadonlyArray<DiscoveredDocumentInput>,
-  ) => Promise<ReadonlyArray<DocumentSummary>>;
-}
-
-interface ListedContainerDocuments {
-  items: ListedContainerDocument[];
-  nextWatermark: SyncWatermark | null;
-  tombstones: ContainerDocumentTombstone[];
-}
-
-interface ContainerParentDiscoveryLane {
-  parentId: string | null;
-  watermark: SyncWatermark | null;
-}
-
-interface ListedContainerDocumentsLane {
-  containerId: string;
-  listedDocuments: ListedContainerDocuments | null;
-}
+export type { RefreshAllContainerDocumentsFromApiOptions } from "./documentDiscoveryTypes";
 
 const CONTAINER_PARENT_DISCOVERY_CONCURRENCY = 4;
 const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
-
-function getReferencedPrincipalStateKey(
-  reference: ReferencedPrincipalStateResponse,
-): string {
-  return JSON.stringify([
-    reference.principalType,
-    reference.principalId,
-    reference.version,
-    reference.keyEpoch,
-    reference.keyFingerprint,
-    reference.stateHash,
-  ]);
-}
-
-function uniqueReferencedPrincipalStates(
-  references: ReadonlyArray<ReferencedPrincipalStateResponse>,
-): ReferencedPrincipalStateResponse[] {
-  const referencesByState = new Map<string, ReferencedPrincipalStateResponse>();
-
-  for (const reference of references) {
-    referencesByState.set(getReferencedPrincipalStateKey(reference), reference);
-  }
-
-  return Array.from(referencesByState.values());
-}
-
-function uniqueSortedStrings(values: Iterable<string>): string[] {
-  return Array.from(new Set(values)).sort();
-}
-
-function mergeDiscoveredDocumentInputs(
-  current: DiscoveredDocumentInput,
-  next: DiscoveredDocumentInput,
-): DiscoveredDocumentInput {
-  const accessStateHash =
-    next.accessEpoch >= current.accessEpoch
-      ? next.accessStateHash
-      : current.accessStateHash;
-
-  return {
-    accessEpoch: Math.max(current.accessEpoch, next.accessEpoch),
-    ...(accessStateHash === undefined ? {} : { accessStateHash }),
-    containerId: current.containerId,
-    createdAt:
-      current.createdAt.localeCompare(next.createdAt) <= 0
-        ? current.createdAt
-        : next.createdAt,
-    documentId: current.documentId,
-    linkedContainerIds: uniqueSortedStrings([
-      current.containerId,
-      next.containerId,
-      ...current.linkedContainerIds,
-      ...next.linkedContainerIds,
-    ]),
-  };
-}
-
-function collectDiscoveredDocumentInputs(
-  listedDocumentsByContainer: ReadonlyArray<ListedContainerDocumentsLane>,
-): DiscoveredDocumentInput[] {
-  const discoveredDocumentInputsByDocumentId = new Map<
-    string,
-    DiscoveredDocumentInput
-  >();
-
-  for (const { containerId, listedDocuments } of listedDocumentsByContainer) {
-    if (!listedDocuments) {
-      continue;
-    }
-
-    for (const document of listedDocuments.items) {
-      const discoveredDocumentInput: DiscoveredDocumentInput = {
-        accessEpoch: document.currentAccessEpoch,
-        accessStateHash: document.currentAccessStateHash,
-        containerId,
-        createdAt: document.createdAt,
-        documentId: document.id,
-        linkedContainerIds: uniqueSortedStrings([
-          containerId,
-          ...document.linkedContainerIds,
-        ]),
-      };
-      const currentDiscoveredDocumentInput =
-        discoveredDocumentInputsByDocumentId.get(document.id);
-      discoveredDocumentInputsByDocumentId.set(
-        document.id,
-        currentDiscoveredDocumentInput
-          ? mergeDiscoveredDocumentInputs(
-              currentDiscoveredDocumentInput,
-              discoveredDocumentInput,
-            )
-          : discoveredDocumentInput,
-      );
-    }
-  }
-
-  return Array.from(discoveredDocumentInputsByDocumentId.values());
-}
 
 async function listAllContainerDocuments(input: {
   containerId: string;
@@ -233,30 +57,6 @@ async function listAllContainerDocuments(input: {
   }
 }
 
-function getApplicableDocumentTombstones(
-  listedDocuments: ListedContainerDocuments,
-): ContainerDocumentTombstone[] {
-  const latestItemsByDocumentId = new Map<string, ListedContainerDocument>();
-  for (const document of listedDocuments.items) {
-    const existingDocument = latestItemsByDocumentId.get(document.id);
-    if (
-      !existingDocument ||
-      existingDocument.updatedAt.localeCompare(document.updatedAt) < 0
-    ) {
-      latestItemsByDocumentId.set(document.id, document);
-    }
-  }
-
-  return listedDocuments.tombstones.filter((tombstone) => {
-    const item = latestItemsByDocumentId.get(tombstone.documentId);
-    return (
-      !item ||
-      !item.linkedContainerIds.includes(tombstone.containerId) ||
-      item.updatedAt.localeCompare(tombstone.updatedAt) < 0
-    );
-  });
-}
-
 async function saveAppliedContainerDocumentWatermark(input: {
   containerId: string;
   listedDocuments: ListedContainerDocuments;
@@ -272,27 +72,6 @@ async function saveAppliedContainerDocumentWatermark(input: {
     containerId,
     listedDocuments.nextWatermark,
   );
-}
-
-interface DiscoverAllContainerDocumentsOptions
-  extends Omit<DiscoverContainerDocumentsOptions, "containerId"> {
-  containerIds: ReadonlyArray<string>;
-}
-
-interface RefreshAllContainerDocumentsOptions
-  extends Omit<DiscoverAllContainerDocumentsOptions, "containerIds"> {
-  listContainers: ContainerDocumentDiscoveryApi["listContainers"];
-}
-
-export interface RefreshAllContainerDocumentsFromApiOptions
-  extends Omit<
-    RefreshAllContainerDocumentsOptions,
-    "listContainerDocuments" | "listContainers"
-  > {
-  readonly apiClient: Pick<
-    ContainerDocumentDiscoveryApi,
-    "listContainerDocuments" | "listContainers"
-  >;
 }
 
 async function listContainerDocumentLanes(input: {
