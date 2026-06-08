@@ -208,10 +208,6 @@
       "lines": 979,
       "bytes": 30751
     },
-    "packages/client-sdk/src/client/containerContents.ts": {
-      "lines": 598,
-      "bytes": 20797
-    },
     "packages/client-sdk/src/client/localKeyring.ts": {
       "lines": 1246,
       "bytes": 37406
@@ -248,17 +244,9 @@
       "lines": 682,
       "bytes": 19037
     },
-    "packages/client-sdk/src/workflows/container-contents/blobInfo.ts": {
-      "lines": 584,
-      "bytes": 19509
-    },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
       "bytes": 30465
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentDiscovery.ts": {
-      "lines": 595,
-      "bytes": 17319
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
       "lines": 800,
