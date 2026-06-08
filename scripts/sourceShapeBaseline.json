@@ -164,21 +164,9 @@
       "lines": 935,
       "bytes": 26350
     },
-    "packages/app/src/mini-apps/explorer/detail/ExplorerContainerDetail.tsx": {
-      "lines": 564,
-      "bytes": 15178
-    },
     "packages/app/src/mini-apps/explorer/detail/ExplorerContainerInfoSections.tsx": {
       "lines": 680,
       "bytes": 21465
-    },
-    "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentDetail.tsx": {
-      "lines": 549,
-      "bytes": 17002
-    },
-    "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentInfoPanel.tsx": {
-      "lines": 522,
-      "bytes": 17867
     },
     "packages/app/src/mini-apps/identity-manager/IdentityManager.tsx": {
       "lines": 787,
@@ -195,14 +183,6 @@
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 1226,
       "bytes": 34998
-    },
-    "packages/app/src/providers/identity/IdentityProvider.tsx": {
-      "lines": 570,
-      "bytes": 16238
-    },
-    "packages/app/src/stores/contacts/contactStore.ts": {
-      "lines": 543,
-      "bytes": 14910
     },
     "packages/app/src/stores/documents/documentStore/sync.test.ts": {
       "lines": 2418,

@@ -9,11 +9,15 @@ import {
   type ContactEntry,
   type ContactEntryPatch,
   contactEntryToStructuredFieldPatch,
-  contactFieldsToEntry,
-  readContactFields,
 } from "../../document-types/contact/contactDocumentModel";
 import { loadProjectedContacts } from "./contactProjection";
 import { sameContactEntry, sortContactEntries } from "./contactSnapshot";
+import {
+  contactEntryFromDocumentStore,
+  findContactByUserId,
+  findSelfContact,
+  getUserKeyForSelfContact,
+} from "./contactStoreLookup";
 
 export interface ContactsSnapshot {
   entries: ReadonlyArray<ContactEntry>;
@@ -134,21 +138,6 @@ function hasContactsContainerRuntime(state: ContactsStoreState): boolean {
   return typeof containerId === "string" && containerId.length > 0;
 }
 
-function contactEntryFromDocumentStore(
-  contactId: string,
-  store: DocumentStore,
-): ContactEntry | null {
-  const snapshot = store.getSnapshot();
-  if (!snapshot.ready || snapshot.documentKind !== "contact") {
-    return null;
-  }
-
-  return contactFieldsToEntry(
-    contactId,
-    readContactFields(snapshot.structuredFields),
-  );
-}
-
 function ensureContactDocumentStore(
   state: ContactsStoreState,
   contactId: string,
@@ -249,46 +238,6 @@ async function waitForContactsInitialization(
   }
 }
 
-function findContactByUserId(
-  entriesById: ReadonlyMap<string, ContactEntry>,
-  userId: string,
-): ContactEntry | null {
-  for (const entry of entriesById.values()) {
-    if (entry.userId === userId) {
-      return entry;
-    }
-  }
-
-  return null;
-}
-
-function findSelfContact(
-  entriesById: ReadonlyMap<string, ContactEntry>,
-  userId: string,
-): ContactEntry | null {
-  let selfContact: ContactEntry | null = null;
-  for (const entry of entriesById.values()) {
-    if (entry.userId === userId) {
-      return entry;
-    }
-    if (entry.isSelf && !selfContact) {
-      selfContact = entry;
-    }
-  }
-
-  return selfContact;
-}
-
-async function getUserKeyForSelfContact(
-  state: ContactsStoreState,
-  userId: string,
-): Promise<UserKey | null> {
-  return (
-    (await state.dependencies.getLocalUserKey?.(userId)) ??
-    (await state.dependencies.fetchUserKey(userId))
-  );
-}
-
 async function writeContactPatch(
   state: ContactsStoreState,
   contactId: string,
@@ -345,7 +294,7 @@ async function ensureSelfContactFromRuntime(
     return null;
   }
 
-  const userKey = await getUserKeyForSelfContact(state, userId);
+  const userKey = await getUserKeyForSelfContact(state.dependencies, userId);
   if (!userKey) {
     return null;
   }
