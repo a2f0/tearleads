@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 interface SuppressionCounts {
   readonly biomeIgnore: number;
@@ -130,6 +130,11 @@ function runFileLimitCheck(args: readonly string[]): void {
     },
   );
 
+  if (result.error) {
+    console.error("Failed to execute file limit check:", result.error);
+    process.exit(1);
+  }
+
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
   }
@@ -140,6 +145,48 @@ function trackedFiles(): string[] {
     .split("\n")
     .filter((path) => path.length > 0)
     .sort();
+}
+
+function parseRange(args: readonly string[]): string | undefined {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--range") {
+      return args[index + 1];
+    }
+
+    if (arg?.startsWith("--range=")) {
+      return arg.slice("--range=".length);
+    }
+  }
+}
+
+function filesChangedIn(args: readonly string[]): string[] {
+  if (args.includes("--staged")) {
+    return execFileSync(
+      "git",
+      ["diff", "--name-only", "--diff-filter=ACM", "--cached"],
+      { encoding: "utf8" },
+    )
+      .split("\n")
+      .filter((path) => path.length > 0)
+      .sort();
+  }
+
+  const range = parseRange(args);
+
+  if (range) {
+    return execFileSync(
+      "git",
+      ["diff", "--name-only", "--diff-filter=ACM", range],
+      { encoding: "utf8" },
+    )
+      .split("\n")
+      .filter((path) => path.length > 0)
+      .sort();
+  }
+
+  return trackedFiles();
 }
 
 function extensionOf(filePath: string): string {
@@ -155,6 +202,12 @@ function shouldScan(filePath: string): boolean {
 }
 
 function countMatches(source: string, pattern: RegExp): number {
+  if (!pattern.global) {
+    throw new Error(
+      `RegExp pattern must have the global ('g') flag set: ${pattern.source}`,
+    );
+  }
+
   let count = 0;
   pattern.lastIndex = 0;
 
@@ -235,9 +288,9 @@ function findStarExportViolations(
   );
 }
 
-function sourceShapeViolations(): Violation[] {
-  return trackedFiles().flatMap((filePath) => {
-    if (!shouldScan(filePath)) {
+function sourceShapeViolations(args: readonly string[]): Violation[] {
+  return filesChangedIn(args).flatMap((filePath) => {
+    if (!existsSync(filePath) || !shouldScan(filePath)) {
       return [];
     }
 
@@ -249,9 +302,11 @@ function sourceShapeViolations(): Violation[] {
   });
 }
 
-runFileLimitCheck(process.argv.slice(2));
+const args = process.argv.slice(2);
 
-const violations = sourceShapeViolations();
+runFileLimitCheck(args);
+
+const violations = sourceShapeViolations(args);
 
 if (violations.length > 0) {
   console.error(
