@@ -165,9 +165,9 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
   };
   const tamperedTargetProjection = structuredClone(projection);
   const signedEvent = tamperedTargetProjection.path[0]?.event
-    .event as unknown as AccessEvent;
-  const signature = signedEvent.signature;
-  if (typeof signature !== "string" || signature.length === 0) {
+    ?.event as unknown as AccessEvent | undefined;
+  const signature = signedEvent?.signature;
+  if (!signedEvent || typeof signature !== "string" || signature.length === 0) {
     throw new Error("Expected signed target container event fixture");
   }
   signedEvent.signature = `${signature.slice(0, -1)}${
