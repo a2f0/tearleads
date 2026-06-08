@@ -29,7 +29,8 @@
       "./types",
       "./writeHeader"
     ],
-    "packages/loro/src/index.ts": ["./server", "./shared"]
+    "packages/loro/src/index.ts": ["./server", "./shared"],
+    "packages/api/src/schema.ts": ["./schema/index"]
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": { "lines": 759, "bytes": 22020 },
@@ -106,7 +107,6 @@
       "bytes": 23300
     },
     "packages/api/src/schema.test.ts": { "lines": 507, "bytes": 15971 },
-    "packages/api/src/schema.ts": { "lines": 2142, "bytes": 92263 },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
       "lines": 1285,
       "bytes": 38873
