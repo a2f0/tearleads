@@ -181,6 +181,10 @@ export function useExplorerContainerItemWindow(params: {
     rows: [],
     totalCount: 0,
   });
+  const serializedSystemSlots = useMemo(
+    () => Array.from(visibleSystemSlots).sort().join("\u0000"),
+    [visibleSystemSlots],
+  );
 
   useEffect(() => {
     if (!enabled) {
@@ -246,7 +250,7 @@ export function useExplorerContainerItemWindow(params: {
     offset,
     selectedNode.id,
     sort,
-    visibleSystemSlots,
+    serializedSystemSlots,
   ]);
 
   return state;

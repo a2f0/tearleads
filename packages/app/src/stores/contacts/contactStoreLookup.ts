@@ -40,17 +40,12 @@ export function findSelfContact(
   return selfContact;
 }
 
-export function getUserKeyForSelfContact(
+export async function getUserKeyForSelfContact(
   dependencies: ContactKeyLookupDependencies,
   userId: string,
 ): Promise<UserKey | null> {
-  return (
-    dependencies
-      .getLocalUserKey?.(userId)
-      .then(
-        (localUserKey) => localUserKey ?? dependencies.fetchUserKey(userId),
-      ) ?? dependencies.fetchUserKey(userId)
-  );
+  const localUserKey = await dependencies.getLocalUserKey?.(userId);
+  return localUserKey ?? dependencies.fetchUserKey(userId);
 }
 
 export function contactEntryFromDocumentStore(
