@@ -288,25 +288,9 @@
       "lines": 1246,
       "bytes": 37406
     },
-    "packages/client-sdk/src/data/blobs/encryptedBlobStore.ts": {
-      "lines": 554,
-      "bytes": 15247
-    },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1039,
       "bytes": 36053
-    },
-    "packages/client-sdk/src/data/documents/shared/projection.ts": {
-      "lines": 758,
-      "bytes": 23763
-    },
-    "packages/client-sdk/src/data/documents/shared/readers.ts": {
-      "lines": 539,
-      "bytes": 16376
-    },
-    "packages/client-sdk/src/data/documents/shared/responses.ts": {
-      "lines": 717,
-      "bytes": 23236
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1197,
@@ -356,10 +340,6 @@
       "lines": 670,
       "bytes": 20397
     },
-    "packages/client-sdk/src/workflows/container-contents/metadata.ts": {
-      "lines": 593,
-      "bytes": 17692
-    },
     "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
       "lines": 920,
       "bytes": 26923
@@ -396,10 +376,6 @@
       "lines": 625,
       "bytes": 17394
     },
-    "packages/client-sdk/src/workflows/organizations/readModel.ts": {
-      "lines": 514,
-      "bytes": 16769
-    },
     "packages/client-sdk/src/workflows/principals/policyCache.test.ts": {
       "lines": 853,
       "bytes": 26807
@@ -407,14 +383,6 @@
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 669,
       "bytes": 22989
-    },
-    "packages/client-sdk/test/helpers/containerFixtures.ts": {
-      "lines": 530,
-      "bytes": 17113
-    },
-    "packages/client-sdk/test/helpers/documentFixtures.ts": {
-      "lines": 851,
-      "bytes": 27875
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 732,
