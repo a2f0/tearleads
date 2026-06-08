@@ -7,7 +7,7 @@ import {
 
 test("listDocumentsByContainerIds only returns notes for the requested containers", async () => {
   const { close, execSql } = await createTestExecSql(
-    "documents-persistence-behavior-test",
+    "documents-persistence-list-behavior-test",
   );
 
   try {
@@ -77,7 +77,7 @@ test("listDocumentsByContainerIds only returns notes for the requested container
 
 test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly linked notes", async () => {
   const { close, execSql } = await createTestExecSql(
-    "documents-persistence-behavior-test",
+    "documents-persistence-list-behavior-test",
   );
 
   try {
@@ -153,7 +153,7 @@ test("listDocumentsByContainerIdsOrDocumentIds returns directly and indirectly l
 
 test("listDocuments reads driver license titles and document kinds from projection metadata", async () => {
   const { close, execSql } = await createTestExecSql(
-    "documents-persistence-behavior-test",
+    "documents-persistence-list-behavior-test",
   );
 
   try {
@@ -200,7 +200,7 @@ test("listDocuments reads driver license titles and document kinds from projecti
 
 test("listDocuments reads masked credit card titles and document kinds from projection metadata", async () => {
   const { close, execSql } = await createTestExecSql(
-    "documents-persistence-behavior-test",
+    "documents-persistence-list-behavior-test",
   );
 
   try {
@@ -237,7 +237,7 @@ test("listDocuments reads masked credit card titles and document kinds from proj
 
 test("upsertDiscoveredDocument uses the remote createdAt for a newly discovered document", async () => {
   const { close, execSql } = await createTestExecSql(
-    "documents-persistence-behavior-test",
+    "documents-persistence-list-behavior-test",
   );
 
   try {
