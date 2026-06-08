@@ -3,10 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "electrobun dev",
-    "dev:watch": "electrobun dev --watch",
-    "build": "electrobun build",
-    "build:dev": "electrobun build --env dev"
+    "dev": "sh scripts/runElectronbun.sh dev",
+    "dev:watch": "sh scripts/runElectronbun.sh dev --watch",
+    "build": "sh scripts/buildElectrobun.sh",
+    "build:dev": "sh scripts/buildElectrobun.sh --env dev"
   },
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",

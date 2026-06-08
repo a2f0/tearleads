@@ -7,7 +7,7 @@ function createElectrobunSQLiteRuntime() {
   const workerUrl =
     location.protocol === "http:"
       ? "/worker.js"
-      : new URL("./databaseWorker.ts", import.meta.url);
+      : new URL("./worker.js", import.meta.url);
 
   return createModuleSQLiteRuntime({ workerUrl });
 }

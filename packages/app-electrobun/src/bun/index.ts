@@ -1,16 +1,32 @@
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
 import { BrowserWindow } from "electrobun/bun";
 
+const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
 const isDev = process.env.NODE_ENV !== "production";
 
+function getPackageSourcePath(
+  packageRelativePath: string,
+  moduleRelativeUrl: string,
+) {
+  const packageDir = process.env[packageDirEnvName];
+  if (packageDir) {
+    return resolve(packageDir, packageRelativePath);
+  }
+
+  return fileURLToPath(new URL(moduleRelativeUrl, import.meta.url));
+}
+
 async function createDevServerConfig() {
-  const workerEntrypoint = fileURLToPath(
-    new URL("../renderer/databaseWorker.ts", import.meta.url),
+  const workerEntrypoint = getPackageSourcePath(
+    "src/renderer/databaseWorker.ts",
+    "../renderer/databaseWorker.ts",
   );
-  const webEntrypoint = fileURLToPath(
-    new URL("../../../app-web/src/index.html", import.meta.url),
+  const webEntrypoint = getPackageSourcePath(
+    "../app-web/src/index.html",
+    "../../../app-web/src/index.html",
   );
 
   const webBuild = await Bun.build({
