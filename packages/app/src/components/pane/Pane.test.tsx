@@ -578,6 +578,31 @@ test("displays userId after registration", async () => {
   view.unmount();
 });
 
+test("logged-in pane menu can log out", async () => {
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+  const userId = await registerAndWaitForUserId(view);
+
+  await waitFor(() => {
+    expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
+    expect(view.queryByText(/session: none/)).toBeNull();
+  });
+
+  fireEvent.click(view.getByText("Menu"));
+  expect(view.getByText("Destroy Key Pair")).toBeTruthy();
+  expect(view.getByText("Logout")).toBeTruthy();
+
+  fireEvent.click(view.getByText("Logout"));
+
+  await waitFor(() => {
+    expect(view.getByText(/session: none/)).toBeTruthy();
+    expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
+  });
+
+  view.unmount();
+});
+
 test("identity manager opens from the pane and lists active sessions", async () => {
   const view = renderPane();
 
