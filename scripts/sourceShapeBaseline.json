@@ -264,10 +264,6 @@
       "lines": 992,
       "bytes": 31765
     },
-    "packages/client-sdk/src/workflows/principals/policyCache.test.ts": {
-      "lines": 853,
-      "bytes": 26807
-    },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
       "lines": 669,
       "bytes": 22989
