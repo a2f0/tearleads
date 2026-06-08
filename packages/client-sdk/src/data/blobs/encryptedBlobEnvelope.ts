@@ -150,7 +150,7 @@ export function createKeyDerivationEnvelope(input: {
 function readKeyDerivationEnvelope(
   value: unknown,
 ): KeyDerivationEnvelope | null {
-  if (value === null) {
+  if (value === null || value === undefined) {
     return null;
   }
   const record = readRecord(value, "Encrypted blob store keyDerivation");

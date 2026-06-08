@@ -153,7 +153,7 @@ async function seedKnownContainerKeks(input: {
   const keksByEpochId = new Map<string, UnwrappedContainerKek>();
 
   for (const [containerKeyEpochId, keyMaterial] of input.knownContainerKeks ??
-    []) {
+    new Map<string, Uint8Array>()) {
     const index = input.projection.containerKeks.findIndex(
       (candidate) => candidate.containerKeyEpochId === containerKeyEpochId,
     );

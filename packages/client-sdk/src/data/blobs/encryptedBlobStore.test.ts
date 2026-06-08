@@ -289,6 +289,34 @@ test("encrypted blob store ignores unknown envelope fields", async () => {
   );
 });
 
+test("encrypted blob store treats omitted raw-key derivation as none", async () => {
+  const { rawBytesByKey, store: innerStore } = createInspectableBlobStore();
+  const rawKey = crypto.getRandomValues(new Uint8Array(32));
+  const store = wrapEncryptedBlobStore(innerStore, {
+    key: rawKey,
+    namespace: "identity-a",
+  });
+  await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
+
+  const stored = rawBytesByKey.get("attachment-1");
+  if (!stored) {
+    throw new Error("Expected encrypted blob bytes.");
+  }
+  const envelope = JSON.parse(TEXT_DECODER.decode(stored)) as Record<
+    string,
+    unknown
+  >;
+  Reflect.deleteProperty(envelope, "keyDerivation");
+  rawBytesByKey.set(
+    "attachment-1",
+    TEXT_ENCODER.encode(JSON.stringify(envelope)),
+  );
+
+  await expect(store.readBytes("attachment-1")).resolves.toEqual(
+    blobBytes("local attachment bytes"),
+  );
+});
+
 test("encrypted blob store rejects missing and invalid runtime keys", () => {
   const { store: innerStore } = createInspectableBlobStore();
 

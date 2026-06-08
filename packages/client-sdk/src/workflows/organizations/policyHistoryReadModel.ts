@@ -135,7 +135,7 @@ function principalPolicyHistoryStates(
   bundle: PrincipalPolicyBundleResponse,
 ): PrincipalPolicyHistoryState[] {
   return [
-    ...bundle.previousStates.map((entry) => ({
+    ...(bundle.previousStates ?? []).map((entry) => ({
       projection: entry.projection,
       state: entry.state,
     })),
