@@ -1,4 +1,6 @@
-export function createDocumentContentKeyBundle(overrides = {}) {
+export function createDocumentContentKeyBundle(
+  overrides: Record<string, unknown> = {},
+) {
   return {
     contentKeyEpoch: 1,
     linkSetManifestHash: "document-link-set-hash",

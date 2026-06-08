@@ -10,7 +10,7 @@ import {
 } from "./index";
 import { createDocumentContentKeyBundle } from "./requestTestFixtures";
 
-function createBlobContentKeyBundle(overrides = {}) {
+function createBlobContentKeyBundle(overrides: Record<string, unknown> = {}) {
   return {
     contentKeyEpoch: 1,
     targetHash: "target-hash",
@@ -30,7 +30,7 @@ function createBlobContentKeyBundle(overrides = {}) {
   };
 }
 
-function createBlobManifestBundle(overrides = {}) {
+function createBlobManifestBundle(overrides: Record<string, unknown> = {}) {
   return {
     event: { eventId: "event-1" },
     manifest: { version: 1 },
@@ -40,7 +40,9 @@ function createBlobManifestBundle(overrides = {}) {
   };
 }
 
-function createContainerMutationRequest(overrides = {}) {
+function createContainerMutationRequest(
+  overrides: Record<string, unknown> = {},
+) {
   return {
     event: { eventType: "container.rekey" },
     body: { eventType: "container.rekey" },
