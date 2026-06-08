@@ -43,16 +43,19 @@ IFS=$old_ifs
 find "$REPO_ROOT/scripts/git/hooks" -name '*.sh' -exec shellcheck {} +
 
 echo "Running TypeScript compiler..."
-bun tsc --build
+bun tsc --build --pretty false
 
 echo "Running biome check..."
-bun run biome check --error-on-warnings
+bun run lint:biome
 
 echo "Checking package type assertions..."
 bun run lint:package-assertions
 
 echo "Running knip..."
-bun run knip
+bun run lint:knip:all
+
+echo "Running production knip..."
+bun run lint:knip:production
 
 echo "Checking dependency graph and architecture boundaries..."
 bun run lint:architecture

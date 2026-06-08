@@ -16,7 +16,6 @@
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",
-    "@tearleads/loro": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.1",
@@ -26,6 +25,7 @@
   "devDependencies": {
     "@happy-dom/global-registrator": "catalog:testing",
     "@testing-library/react": "catalog:testing",
+    "@tearleads/loro": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:",

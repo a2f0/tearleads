@@ -1,18 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { IConfiguration, ICruiseOptions } from "dependency-cruiser";
 import { cruise } from "dependency-cruiser";
 import * as ts from "typescript";
 
-import dependencyCruiserConfig from "../dependency-cruiser.config";
+import {
+  createDependencyCruiserOptions,
+  dependencyCruiserEntryPoints,
+} from "./dependencyCruiserConfig";
 
-const architectureEntryPoints = [
-  "packages/api/src",
-  "packages/app/src",
-  "packages/client-sdk/src",
-  "packages/ui/src",
-  "packages/website/src",
-];
 const appPresentationEntryPoints = [
   "packages/app/src/components",
   "packages/app/src/document-types",
@@ -152,17 +147,6 @@ const clientSdkPackageDependencySections = [
   "optionalDependencies",
   "peerDependencies",
 ] as const;
-
-function configToCruiseOptions(config: IConfiguration): ICruiseOptions {
-  const { options = {}, ...ruleSet } = config;
-
-  return {
-    ...options,
-    outputType: "err",
-    ruleSet,
-    validate: Object.keys(ruleSet).length > 0,
-  };
-}
 
 function formatViolation(
   name: string,
@@ -895,8 +879,8 @@ function isPaneRuntimeProviderBypassImport(specifier: string): boolean {
 
 async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {
   const result = await cruise(
-    architectureEntryPoints,
-    configToCruiseOptions(dependencyCruiserConfig),
+    dependencyCruiserEntryPoints,
+    createDependencyCruiserOptions("err"),
   );
   const output =
     typeof result.output === "string" && result.output.trim().length > 0
