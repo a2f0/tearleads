@@ -53,7 +53,7 @@ function readRequiredString(
 export function readRequiredNumber(
   value: number | null | undefined,
   key: string,
-) {
+): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`Blob info row is missing ${key}.`);
   }
