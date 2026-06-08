@@ -9,10 +9,10 @@ export function canMutateSelectedDocument(appData: ContainerDocumentLinks) {
   return appData.canMutateDocumentLinks;
 }
 
-export function canMutateLocalSelectedDocument(
+export function canMutateUnsyncedSelectedDocument(
   appData: ContainerDocumentLinks,
 ) {
-  return appData.canMutateLocalDocumentLinks;
+  return appData.canMutateUnsyncedDocumentLinks;
 }
 
 export function moveExplorerNote(params: {

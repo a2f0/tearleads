@@ -519,10 +519,9 @@ describe("Tearleads", () => {
 
     const documents = sdk.documents.workflowRuntime();
     const containerContents = sdk.containerContents.workflowRuntime();
-    const unsubscribeDocuments = sdk.documents.subscribeToLocal(
-      () => undefined,
-      { containerId: "container-1" },
-    );
+    const unsubscribeDocuments = sdk.documents.subscribe(() => undefined, {
+      containerId: "container-1",
+    });
 
     expect(documents.state.containerId).toBe("container-1");
     expect(documents.infra.dbStatus).toBe("ready");
@@ -542,7 +541,7 @@ describe("Tearleads", () => {
     );
     expect(documentLinks.resolveProjectionUserKey).toBeFunction();
     expect(documentLinks.canMutateDocumentLinks).toBe(true);
-    expect(documentLinks.canMutateLocalDocumentLinks).toBe(true);
+    expect(documentLinks.canMutateUnsyncedDocumentLinks).toBe(true);
     expect(documentLinks.openDocument).toBeFunction();
     expect(documentLinks.moveDocumentToContainer).toBeFunction();
     expect(documentLinks.linkDocumentToContainer).toBeFunction();
@@ -583,7 +582,7 @@ describe("Tearleads", () => {
     );
   });
 
-  test("lists local documents through the documents service", async () => {
+  test("lists documents through the documents service", async () => {
     const { close, execSql } = await createTestExecSql(
       "tearleads-documents-list-test",
     );
@@ -632,7 +631,7 @@ describe("Tearleads", () => {
         logger: quietLogger,
       });
 
-      expect(await sdk.documents.listLocal({ documentKind: "note" })).toEqual({
+      expect(await sdk.documents.list({ documentKind: "note" })).toEqual({
         rows: [
           {
             accessStateHash: null,
@@ -646,8 +645,8 @@ describe("Tearleads", () => {
         ],
         totalCount: 1,
       });
-      await expect(sdk.documents.deleteLocal("note-1")).resolves.toBe(true);
-      expect(await sdk.documents.listLocal({ documentKind: "note" })).toEqual({
+      await expect(sdk.documents.delete("note-1")).resolves.toBe(true);
+      expect(await sdk.documents.list({ documentKind: "note" })).toEqual({
         rows: [],
         totalCount: 0,
       });
@@ -656,7 +655,7 @@ describe("Tearleads", () => {
     }
   });
 
-  test("lists local documents with pagination and sorting", async () => {
+  test("lists documents with pagination and sorting", async () => {
     const { close, execSql } = await createTestExecSql(
       "tearleads-documents-list-window-test",
     );
@@ -697,7 +696,7 @@ describe("Tearleads", () => {
       });
 
       expect(
-        await sdk.documents.listLocal({
+        await sdk.documents.list({
           documentKind: "note",
           limit: 2,
           offset: 1,
@@ -750,14 +749,14 @@ describe("Tearleads", () => {
         logger: quietLogger,
       });
 
-      expect(await sdk.documents.listLocal()).toEqual({
+      expect(await sdk.documents.list()).toEqual({
         rows: [],
         totalCount: 0,
       });
       const firstCallCreateTableStatementCount = createTableStatementCount;
       expect(firstCallCreateTableStatementCount).toBeGreaterThan(0);
 
-      expect(await sdk.documents.listLocal()).toEqual({
+      expect(await sdk.documents.list()).toEqual({
         rows: [],
         totalCount: 0,
       });

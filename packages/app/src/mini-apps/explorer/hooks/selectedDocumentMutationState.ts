@@ -30,13 +30,13 @@ export function getSelectedDocumentMutationState(params: {
     canActivateSelectedDocument &&
     appData.auth.isAuthenticated &&
     appData.state.online;
-  const canMutateLocalSelectedDocument =
+  const canMutateUnsyncedSelectedDocument =
     appData.infra.dbStatus === "ready" && selectedDocument?.documentId === null;
 
   return {
     canActivateSelectedDocument,
     canDeleteSelectedDocument:
-      (canMutateSelectedDocument || canMutateLocalSelectedDocument) &&
+      (canMutateSelectedDocument || canMutateUnsyncedSelectedDocument) &&
       canResolveTrashContainer &&
       selectedDocument !== undefined &&
       selectedDocument.containerId !== null &&

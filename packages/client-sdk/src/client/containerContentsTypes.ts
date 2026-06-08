@@ -105,7 +105,7 @@ export interface ContainerDocumentLinks
     input: SetActiveDocumentContainerInput,
   ): Promise<DocumentSummary | null>;
   readonly canMutateDocumentLinks: boolean;
-  readonly canMutateLocalDocumentLinks: boolean;
+  readonly canMutateUnsyncedDocumentLinks: boolean;
   linkDocumentToContainer(
     input: LinkDocumentToContainerInput,
   ): Promise<DocumentSummary | null>;

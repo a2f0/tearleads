@@ -6,7 +6,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { DEFAULT_DOCUMENT_ID } from "../../../stores/documents/DocumentsProvider";
-import { useLocalDocumentSummaries } from "../../../stores/documents/useLocalDocumentSummaries";
+import { useDocumentSummaries } from "../../../stores/documents/useDocumentSummaries";
 
 function compareNoteSummaries(
   left: DocumentSummary,
@@ -43,7 +43,7 @@ export function useNotesDirectory(explicitNoteId: string | null) {
     mergeSummary: mergeNoteSummary,
     ready,
     summaries: notes,
-  } = useLocalDocumentSummaries({
+  } = useDocumentSummaries({
     documentKind: DEFAULT_DOCUMENT_KIND,
     loadErrorMessage: "Notes: failed to load notes.",
     sortSummaries: compareNoteSummaries,

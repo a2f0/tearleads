@@ -206,7 +206,7 @@ class ContainerContentsService implements ContainerContents {
           targetContainerId: input.targetContainerId,
         }),
       canMutateDocumentLinks: canMutateDocumentLink(runtime),
-      canMutateLocalDocumentLinks: canMutateLocalDocumentLink(runtime),
+      canMutateUnsyncedDocumentLinks: canMutateLocalDocumentLink(runtime),
       linkDocumentToContainer: (input) =>
         linkDocumentLinkState({
           host: createDocumentLinkHost(

@@ -68,7 +68,7 @@ const document = tearleads.documents.open({
 await document.ensureInitialized();
 await document.setText("Updated note text");
 
-const localNotes = await tearleads.documents.listLocal({
+const notes = await tearleads.documents.list({
   limit: 50,
   offset: 0,
   sort: { direction: "desc", key: "updated" },
@@ -97,7 +97,7 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | opening one editable document, paged local document lists, local document deletion, document subscriptions, and document workflow runtime composition |
+| `tearleads.documents` | opening one editable document, paged document lists, document deletion, document subscriptions, and document workflow runtime composition |
 | `tearleads.containerContents` | the container tree store, container document query helpers, document-link operations, discovery, diagnostics, and workflow runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product queries and recipient UIs |
@@ -107,8 +107,8 @@ from host code. The SDK keeps workflow cache scope aligned with the active
 database id and identity fingerprint, which lets document and
 container/document stores share the same sync and subscription boundary.
 Product app code should prefer the instance surface:
-`tearleads.documents.open(...)`, `tearleads.documents.listLocal(...)`,
-`tearleads.documents.subscribeToLocal(listener, { containerId })`,
+`tearleads.documents.open(...)`, `tearleads.documents.list(...)`,
+`tearleads.documents.subscribe(listener, { containerId })`,
 `tearleads.containerContents.openTree()`, and
 `tearleads.containerContents.documentQueries()`. Import lower-level store and
 workflow packages only when writing SDK internals or custom host integrations.

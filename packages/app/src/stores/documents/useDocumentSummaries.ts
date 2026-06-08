@@ -14,7 +14,7 @@ type DocumentSummarySort = (
   right: DocumentSummary,
 ) => number;
 
-interface UseLocalDocumentSummariesInput {
+interface UseDocumentSummariesInput {
   documentKind?: StoredDocumentKind | undefined;
   loadErrorMessage: string;
   sortSummaries?: DocumentSummarySort | undefined;
@@ -41,7 +41,7 @@ function orderDocumentSummaries(
     : nextDocumentSummaries;
 }
 
-function mergeLocalDocumentSummary(
+function mergeDocumentSummary(
   currentDocumentSummaries: ReadonlyArray<DocumentSummary>,
   nextDocumentSummary: DocumentSummary,
   documentKind: StoredDocumentKind | undefined,
@@ -60,12 +60,12 @@ function mergeLocalDocumentSummary(
       );
 }
 
-export function useLocalDocumentSummaries({
+export function useDocumentSummaries({
   documentKind,
   loadErrorMessage,
   sortSummaries,
   subscriptionContainerId,
-}: UseLocalDocumentSummariesInput) {
+}: UseDocumentSummariesInput) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const [summaries, setSummaries] = useState<ReadonlyArray<DocumentSummary>>(
@@ -80,7 +80,7 @@ export function useLocalDocumentSummaries({
   const mergeSummary = useCallback(
     (nextDocumentSummary: DocumentSummary) => {
       setSummaries((currentDocumentSummaries) =>
-        mergeLocalDocumentSummary(
+        mergeDocumentSummary(
           currentDocumentSummaries,
           nextDocumentSummary,
           documentKind,
@@ -100,7 +100,7 @@ export function useLocalDocumentSummaries({
     let cancelled = false;
     void (async () => {
       try {
-        const persistedSummaries = await tearleads.documents.listLocal(
+        const persistedSummaries = await tearleads.documents.list(
           documentKind === undefined ? {} : { documentKind },
         );
 
@@ -131,7 +131,7 @@ export function useLocalDocumentSummaries({
   ]);
 
   useEffect(() => {
-    return tearleads.documents.subscribeToLocal(mergeSummary, {
+    return tearleads.documents.subscribe(mergeSummary, {
       containerId: resolvedSubscriptionContainerId,
     });
   }, [

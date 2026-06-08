@@ -49,7 +49,7 @@ async function createContactsRuntime(): Promise<
 
   return {
     close,
-    deleteLocalDocument: async (localId) => {
+    deleteDocument: async (localId) => {
       await deletePersistedDocument({
         documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
         execSql: runtimeInputBase.infra.execSql,

@@ -32,14 +32,14 @@ export type {
   PersistedDocumentListener,
 } from "../stores/documents";
 
-export type LocalDocumentSortDirection = DocumentSummarySortDirection;
-export type LocalDocumentSortKey = DocumentSummarySortKey;
+export type DocumentSortDirection = DocumentSummarySortDirection;
+export type DocumentSortKey = DocumentSummarySortKey;
 
-export type LocalDocumentSort = DocumentSummarySort;
+export type DocumentSort = DocumentSummarySort;
 
-export interface ListLocalDocumentsInput extends ListDocumentSummariesInput {}
+export interface ListDocumentsInput extends ListDocumentSummariesInput {}
 
-export type LocalDocumentList = DocumentSummaryList;
+export type DocumentList = DocumentSummaryList;
 
 export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
 
@@ -51,30 +51,24 @@ export interface OpenDocumentInput {
   readonly localId?: string | undefined;
 }
 
-export interface OpenLocalDocumentInput extends OpenDocumentInput {
-  readonly localId: string;
-}
-
 export interface OpenDocumentOptions {
   readonly workflowRuntime?: DocumentsRuntime | undefined;
 }
 
-export interface SubscribeToLocalOptions {
+export interface DocumentSubscriptionOptions {
   readonly containerId?: string | null | undefined;
 }
 
 export interface Documents {
-  deleteLocal(localId: string): Promise<boolean>;
-  listLocal(
-    input?: ListLocalDocumentsInput | undefined,
-  ): Promise<LocalDocumentList | null>;
+  delete(localId: string): Promise<boolean>;
+  list(input?: ListDocumentsInput | undefined): Promise<DocumentList | null>;
   open(
     input?: OpenDocumentInput | undefined,
     options?: OpenDocumentOptions | undefined,
   ): DocumentStore;
-  subscribeToLocal(
+  subscribe(
     listener: PersistedDocumentListener,
-    options?: SubscribeToLocalOptions | undefined,
+    options?: DocumentSubscriptionOptions | undefined,
   ): () => void;
   workflowRuntime(containerId?: string | null | undefined): DocumentsRuntime;
 }
@@ -98,7 +92,7 @@ class DocumentsService implements Documents {
 
   constructor(private readonly dependencies: DocumentsDependencies) {}
 
-  async deleteLocal(localId: string): Promise<boolean> {
+  async delete(localId: string): Promise<boolean> {
     const runtime = this.workflowRuntime();
     if (runtime.infra.dbStatus !== "ready") {
       return false;
@@ -113,9 +107,7 @@ class DocumentsService implements Documents {
     return true;
   }
 
-  async listLocal(
-    input: ListLocalDocumentsInput = {},
-  ): Promise<LocalDocumentList | null> {
+  async list(input: ListDocumentsInput = {}): Promise<DocumentList | null> {
     const runtime = this.dependencies.runtime.workflowInput();
     if (runtime.infra.dbStatus !== "ready") {
       return null;
@@ -158,9 +150,9 @@ class DocumentsService implements Documents {
     );
   }
 
-  subscribeToLocal(
+  subscribe(
     listener: PersistedDocumentListener,
-    options: SubscribeToLocalOptions = {},
+    options: DocumentSubscriptionOptions = {},
   ): () => void {
     return subscribeToPersistedDocuments(
       this.dependencies.runtime.workflowInput(options.containerId).state

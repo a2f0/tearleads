@@ -2,7 +2,7 @@ import type {
   DocumentStore,
   DocumentsRuntime,
   DomainScope,
-  OpenLocalDocumentInput,
+  OpenDocumentInput,
   UserKey,
 } from "@tearleads/client-sdk";
 import {
@@ -25,9 +25,11 @@ export interface ContactsSnapshot {
 }
 
 export interface ContactsRuntime {
-  deleteLocalDocument: (localId: string) => Promise<boolean>;
+  deleteDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
-  openDocumentStore: (input: OpenLocalDocumentInput) => DocumentStore;
+  openDocumentStore: (
+    input: OpenDocumentInput & { readonly localId: string },
+  ) => DocumentStore;
 }
 
 export interface ContactsStore {
@@ -409,7 +411,7 @@ async function removeContactFromRuntime(
       const trackedStore = state.contactDocumentStoresById.get(contactId);
       trackedStore?.unsubscribe();
       state.contactDocumentStoresById.delete(contactId);
-      await state.runtime.deleteLocalDocument(contactId);
+      await state.runtime.deleteDocument(contactId);
       removeContactEntry(state, contactId);
     })
     .catch((error: unknown) => {

@@ -103,7 +103,7 @@ export function useExplorerDocumentSummaryState(
   );
 
   useEffect(() => {
-    return tearleads.documents.subscribeToLocal(mergeTrackedDocumentSummary, {
+    return tearleads.documents.subscribe(mergeTrackedDocumentSummary, {
       containerId,
     });
   }, [containerId, domainScope, mergeTrackedDocumentSummary, tearleads]);
