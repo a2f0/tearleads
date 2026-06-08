@@ -34,7 +34,7 @@ Use `bun run lint:file-limits --staged` before committing and `bun run lint:file
 - `@tearleads/validators`, `@tearleads/encoding`, and `@tearleads/sqlite-instance` are leaf-level support packages.
 - `@tearleads/sqlite-worker` may depend on `@tearleads/sqlite-instance`, but not app, API, SDK, UI, or other support implementation code.
 - `@tearleads/api-client` may share crypto and validator contracts, but must not import server, app, SDK, UI, or deployment implementation code.
-- Production source must not import `@tearleads/test-utils`; keep shared test helpers in tests or documented test helper directories.
+- Production source must not import `@tearleads/test-utils` or `@tearleads/bob-and-alice`; keep shared test helpers in tests or documented test helper directories.
 - Deployment target packages (`app-web`, `app-electrobun`, and `website`) should consume shared packages and app facades, not import each other or become dependencies of reusable packages.
 - Support packages must not import `packages/api`, `packages/app`, `packages/app-web`, `packages/app-electrobun`, `packages/client-sdk`, or `packages/website` implementation code unless an architecture rule explicitly allows it.
 - Package-private source paths stay private unless they are exported in `package.json` and documented as public API.

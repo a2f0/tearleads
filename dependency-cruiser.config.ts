@@ -554,6 +554,28 @@ const corePackageRules = [
     },
   },
   {
+    name: "loro-does-not-depend-on-app-api-or-sdk-implementations",
+    severity: "error",
+    comment:
+      "Loro is a lower-level support package and must not import application, API, or client SDK implementation code.",
+    from: {
+      path: sourceRoot.loro,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [
+        sourceRoot.api,
+        sourceRoot.apiClient,
+        sourceRoot.app,
+        sourceRoot.appElectrobun,
+        sourceRoot.appWeb,
+        sourceRoot.clientSdk,
+        sourceRoot.ui,
+        sourceRoot.website,
+      ],
+    },
+  },
+  {
     name: "api-client-does-not-depend-on-runtime-implementations",
     severity: "error",
     comment:
@@ -592,18 +614,19 @@ const corePackageRules = [
     },
   },
   {
-    name: "production-source-does-not-import-test-utils",
+    name: "production-source-does-not-import-test-support-packages",
     severity: "error",
     comment:
-      "Test utilities are dev-only helpers and must not be imported by production source files.",
+      "Test support packages are dev-only helpers and must not be imported by production source files.",
     from: {
       path: allPackageSourceRoots.filter(
-        (root) => root !== sourceRoot.testUtils,
+        (root) =>
+          root !== sourceRoot.bobAndAlice && root !== sourceRoot.testUtils,
       ),
       pathNot: testFilesPattern,
     },
     to: {
-      path: sourceRoot.testUtils,
+      path: [sourceRoot.bobAndAlice, sourceRoot.testUtils],
     },
   },
   {
