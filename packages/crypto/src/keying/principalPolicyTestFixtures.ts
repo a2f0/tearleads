@@ -1,0 +1,152 @@
+import { expect } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
+import { toFingerprint } from "../fingerprint";
+import {
+  buildPrincipalStateSigningInput,
+  computePrincipalStateHash,
+  type PrincipalProjectionMember,
+  type PrincipalStateMember,
+  signPrincipalState,
+} from "../principalState";
+import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import type {
+  KeyingVerificationCode,
+  KeyingVerificationResult,
+  PrincipalPolicyBundle,
+  PrincipalPolicySignedState,
+  PrincipalPolicySignerPublicKey,
+  PrincipalPolicyStateChainEntry,
+} from "./index";
+
+export function expectVerificationError<T>(
+  result: KeyingVerificationResult<T>,
+  code: KeyingVerificationCode,
+) {
+  if (result.ok) {
+    throw new Error("Expected verification to fail");
+  }
+
+  expect(result.error.code).toBe(code);
+}
+
+function projectionWithAdmin(
+  signerUserId: string,
+  members: readonly PrincipalStateMember[],
+): PrincipalProjectionMember[] {
+  const projectionByMember = new Map<string, PrincipalProjectionMember>();
+
+  projectionByMember.set(`user:${signerUserId}`, {
+    memberPrincipalType: "user",
+    memberPrincipalId: signerUserId,
+    role: "admin",
+  });
+
+  for (const member of members) {
+    const key = `${member.principalType}:${member.principalId}`;
+    if (projectionByMember.has(key)) {
+      continue;
+    }
+
+    projectionByMember.set(key, {
+      memberPrincipalType: member.principalType,
+      memberPrincipalId: member.principalId,
+      role: "member",
+    });
+  }
+
+  return Array.from(projectionByMember.values());
+}
+
+export async function createPolicySigner(
+  userId = "user-admin",
+): Promise<
+  ReturnType<typeof generateSigningSeedAndKeyPair> &
+    PrincipalPolicySignerPublicKey
+> {
+  const signing = generateSigningSeedAndKeyPair();
+  return {
+    ...signing,
+    userId,
+    signingKeyFingerprint: await toFingerprint(signing.signingPublicKey),
+    signingPublicKey: signing.signingPublicKey,
+  };
+}
+
+export async function signPolicyState(input: {
+  readonly keyEpoch?: number;
+  readonly members: readonly PrincipalStateMember[];
+  readonly prevStateHash: string | null;
+  readonly principalId: string;
+  readonly principalKeyPair?: ReturnType<typeof generateKemSeedAndKeyPair>;
+  readonly projection?: readonly PrincipalProjectionMember[];
+  readonly signedAt?: string;
+  readonly signer: Awaited<ReturnType<typeof createPolicySigner>>;
+  readonly version: number;
+}): Promise<{
+  readonly entry: PrincipalPolicyStateChainEntry;
+  readonly payload: PrincipalPolicyBundle["currentPayload"];
+  readonly state: PrincipalPolicySignedState;
+}> {
+  const principalKeyPair =
+    input.principalKeyPair ?? generateKemSeedAndKeyPair();
+  const projection =
+    input.projection ?? projectionWithAdmin(input.signer.userId, input.members);
+  const payloadCiphertext = JSON.stringify({ members: projection });
+  const state = await signPrincipalState(
+    await buildPrincipalStateSigningInput({
+      principalType: "group",
+      principalId: input.principalId,
+      version: input.version,
+      prevStateHash: input.prevStateHash,
+      keyEpoch: input.keyEpoch ?? 1,
+      encapsulationPublicKey: bytesToBase64(principalKeyPair.publicKey),
+      keyFingerprint: await toFingerprint(principalKeyPair.publicKey),
+      members: [...input.members],
+      projection: [...projection],
+      payloadCiphertext,
+      signedAt: input.signedAt ?? `2026-04-26T12:0${input.version}:00.000Z`,
+      signerUserId: input.signer.userId,
+      signerUserKeyFingerprint: input.signer.signingKeyFingerprint,
+    }),
+    input.signer.signingPrivateKey,
+  );
+  const stateWithHash = {
+    ...state,
+    stateHash: await computePrincipalStateHash(state),
+  };
+
+  return {
+    state: stateWithHash,
+    entry: {
+      state: stateWithHash,
+      projection,
+    },
+    payload: {
+      principalType: "group",
+      principalId: input.principalId,
+      stateHash: stateWithHash.stateHash,
+      cipherSuite: "aes-256-gcm",
+      ciphertext: payloadCiphertext,
+      ciphertextHash: state.payloadCiphertextHash,
+    },
+  };
+}
+
+export function createBundle(input: {
+  readonly current: Awaited<ReturnType<typeof signPolicyState>>;
+  readonly previous?: readonly PrincipalPolicyStateChainEntry[];
+}): PrincipalPolicyBundle {
+  return {
+    currentState: input.current.state,
+    currentPayload: input.current.payload,
+    currentProjection: input.current.entry.projection,
+    currentMemberEnvelopes: {
+      principalType: input.current.state.principalType,
+      principalId: input.current.state.principalId,
+      stateHash: input.current.state.stateHash,
+      epoch: input.current.state.keyEpoch,
+    },
+    previousStates: input.previous ?? [],
+  };
+}
