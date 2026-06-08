@@ -6,7 +6,7 @@ PACKAGE_DIR="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd)"
 BUILD_DIR="$PACKAGE_DIR/build"
 
 cd "$PACKAGE_DIR"
-NODE_ENV=production bun run build
+NODE_ENV=production bun run electrobun build "$@"
 
 if [ ! -d "$BUILD_DIR" ]; then
   echo "Build directory $BUILD_DIR does not exist. The build may have failed." >&2
@@ -28,5 +28,7 @@ elif [ ! -x "$ARTIFACT_PATH" ]; then
   echo "Build artifact found at $ARTIFACT_PATH is not executable." >&2
   exit 1
 fi
+
+bun scripts/packageElectrobunAssets.ts "$ARTIFACT_PATH"
 
 printf 'Executable build artifact: %s\n' "$ARTIFACT_PATH"
