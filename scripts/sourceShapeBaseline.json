@@ -224,10 +224,6 @@
       "lines": 1258,
       "bytes": 37789
     },
-    "packages/client-sdk/src/data/persistence/documents/documentsPersistence.behavior.test.ts": {
-      "lines": 645,
-      "bytes": 18346
-    },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
       "lines": 758,
       "bytes": 23123
@@ -247,10 +243,6 @@
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
       "bytes": 30465
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
-      "lines": 800,
-      "bytes": 22643
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
       "lines": 670,
