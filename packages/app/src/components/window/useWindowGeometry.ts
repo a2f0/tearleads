@@ -1,5 +1,7 @@
 import {
+  type MutableRefObject,
   type MouseEvent as ReactMouseEvent,
+  type RefObject,
   useCallback,
   useEffect,
   useRef,
@@ -39,11 +41,10 @@ interface WindowResizeState {
 }
 
 function clampWindowPosition(
-  windowRef: { current: HTMLDivElement | null },
+  element: HTMLDivElement | null,
   x: number,
   y: number,
 ): WindowPosition {
-  const element = windowRef.current;
   const container = element?.parentElement;
   if (!element || !container) {
     return { x, y };
@@ -102,9 +103,9 @@ function resizeWindowWithinContainer(
 }
 
 function useWindowPointerTracking(
-  windowRef: { current: HTMLDivElement | null },
-  dragging: { current: WindowDragState | null },
-  resizing: { current: WindowResizeState | null },
+  windowRef: RefObject<HTMLDivElement | null>,
+  dragging: MutableRefObject<WindowDragState | null>,
+  resizing: MutableRefObject<WindowResizeState | null>,
   clamp: (x: number, y: number) => WindowPosition,
   setPosition: (value: WindowPosition) => void,
   setSize: (value: WindowSize) => void,
@@ -150,14 +151,14 @@ function useWindowPointerTracking(
 export function useWindowGeometry(
   entry: WindowEntry,
   maximized: boolean,
-  windowRef: { current: HTMLDivElement | null },
+  windowRef: RefObject<HTMLDivElement | null>,
 ) {
   const [position, setPosition] = useState<WindowPosition | null>(null);
   const [size, setSize] = useState<WindowSize | null>(null);
   const dragging = useRef<WindowDragState | null>(null);
   const resizing = useRef<WindowResizeState | null>(null);
   const clamp = useCallback(
-    (x: number, y: number) => clampWindowPosition(windowRef, x, y),
+    (x: number, y: number) => clampWindowPosition(windowRef.current, x, y),
     [windowRef],
   );
 
