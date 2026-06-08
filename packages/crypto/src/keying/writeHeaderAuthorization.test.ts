@@ -274,6 +274,41 @@ test("write header authorization covers every linked container target and histor
     "hash_mismatch",
   );
 
+  const duplicateHistoricalTarget = {
+    ...firstHistoricalTarget,
+    containerKeyEpoch: firstHistoricalTarget.containerKeyEpoch + 1,
+    containerKeyEpochId: "container-multi-write-key-duplicate",
+  };
+  const duplicateContainerTargets = {
+    ...historicalTargets,
+    documentKeyTargetHash: await computeDocumentContentKeyTargetHash([
+      firstHistoricalTarget,
+      duplicateHistoricalTarget,
+    ]),
+    targets: [firstHistoricalTarget, duplicateHistoricalTarget],
+  };
+  const duplicateContainerHeader = await createWriteHeaderFixture({
+    accessManifestHash: documentManifest.manifestHash,
+    contentRecordId: "44444444-4444-4444-8444-444444444444",
+    objectId: documentId,
+    organizationId,
+    signing: writerSigning,
+    targetHash: duplicateContainerTargets.documentKeyTargetHash,
+    writerUserId,
+  });
+  expectVerificationError(
+    await verifyWriteHeader({
+      documentAuthorization: {
+        authorizingContainerPaths: [[writeContainer]],
+        documentKekTargets: duplicateContainerTargets,
+        documentManifest,
+      },
+      header: duplicateContainerHeader,
+      writerPublicKey: writerSigning.signingPublicKey,
+    }),
+    "hash_mismatch",
+  );
+
   const laterWriteContainer = await createContainerManifestFixture({
     containerId: writeContainer.state.containerId,
     containerKeyEpochId: "container-multi-write-key-2",

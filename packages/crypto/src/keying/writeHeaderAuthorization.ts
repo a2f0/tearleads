@@ -44,8 +44,11 @@ function assertDocumentWriteHeaderAuthorization(input: {
   }
 
   const linkedContainerIds = new Set(documentManifest.state.linkedContainerIds);
+  const targetContainerIds = new Set(
+    documentKekTargets.targets.map((target) => target.containerId),
+  );
   if (
-    documentKekTargets.targets.length !== linkedContainerIds.size ||
+    targetContainerIds.size !== linkedContainerIds.size ||
     documentKekTargets.targets.some(
       (target) => !linkedContainerIds.has(target.containerId),
     )
