@@ -12,8 +12,8 @@ bun run lint:branch-name
 echo "Checking file names..."
 bun run lint:files
 
-echo "Checking file size limits..."
-"$REPO_ROOT/scripts/checks/checkFileLimits.sh" --staged
+echo "Checking source shape..."
+bun scripts/lintSourceShape.ts --staged
 
 echo "Checking for binary files..."
 "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --staged

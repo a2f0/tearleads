@@ -38,7 +38,7 @@
     "lint:knip:files": "knip --files",
     "lint:knip:production": "knip --production",
     "lint:package-assertions": "bun scripts/lintPackageAssertions.ts",
-    "lint:source-shape": "bun run lint:file-limits",
+    "lint:source-shape": "bun scripts/lintSourceShape.ts",
     "report:dependencies": "bun scripts/reportDependencyGraph.ts",
     "report:dependencies:archi": "bun scripts/reportDependencyGraph.ts --format archi",
     "report:dependencies:json": "bun scripts/reportDependencyGraph.ts --format json",

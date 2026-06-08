@@ -12,7 +12,7 @@ Run the smallest command that matches the handoff risk:
 - `bun run report:dependencies:mermaid`: graph output for quick dependency visualization.
 - `bun run report:dependencies:archi`: collapsed Graphviz DOT output for package/module reports.
 
-Use `bun run lint:file-limits --staged` before committing and `bun run lint:file-limits --range <base>..<head>` before handing off a larger branch.
+Use `bun run lint:source-shape -- --staged` before committing and `bun run lint:source-shape -- --range <base>..<head>` before handing off a larger branch.
 
 ## Ownership Lanes
 
@@ -51,9 +51,10 @@ Do not edit generated or build output directly:
 ## Coordination Rules
 
 - Keep changes inside one ownership lane when possible. If a change crosses lanes, explain the dependency direction in the PR body.
-- Prefer small source files and focused modules. New or modified files are checked by `scripts/checks/checkFileLimits.sh`.
+- Prefer small source files and focused modules. New or modified files are checked by `scripts/lintSourceShape.ts`.
 - Do not grow an over-limit file as an incidental edit. Split by behavior, storage concern, workflow step, or UI subcomponent.
-- Treat package root barrels and workflow facades as API policy. Add explicit named exports; avoid new unreviewed `export *` barrels.
+- Treat package root barrels and workflow facades as API policy. Add explicit named exports; new `export *` barrels must be added to the source-shape baseline intentionally.
+- Do not add `biome-ignore`, `ts-ignore`, `ts-expect-error`, or TODO suppressions casually. The source-shape check tracks baseline growth.
 - When changing public SDK exports, update `packages/client-sdk/package.json`, `packages/client-sdk/src/index.ts`, `packages/client-sdk/src/workflows/README.md`, and `docs/developer/client-sdk.md` together.
 - When changing dependency topology, run `bun run lint:architecture` and inspect `bun run report:dependencies:json` if the failure is not obvious.
 - When changing production dependencies, run both `bun run lint:knip:all` and `bun run lint:knip:production`.
