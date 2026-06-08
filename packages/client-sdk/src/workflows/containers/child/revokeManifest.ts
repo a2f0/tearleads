@@ -45,11 +45,11 @@ function removeContainerGrant(
 }
 
 function removeReferencedPrincipalHead(
-  principalHeads: readonly ReferencedPrincipalHead[],
+  principalHeads: ReferencedPrincipalHead[],
   revokedSubject: ContainerRevokeSubject,
 ): ReferencedPrincipalHead[] {
   if (revokedSubject.subjectType === "user") {
-    return [...principalHeads];
+    return principalHeads;
   }
 
   return principalHeads.filter(

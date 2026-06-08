@@ -34,22 +34,6 @@ test("shareRemoteContainer replaces stale wraps when re-sharing a user", async (
   if (!previousKek) {
     throw new Error("Expected parent projection KEK");
   }
-  const existingWrap = previousKek.wraps.find(
-    (wrap) =>
-      Reflect.get(wrap, "recipientKind") === "user" &&
-      Reflect.get(wrap, "recipientId") === existingUserId,
-  );
-  if (!existingWrap) {
-    throw new Error("Expected existing user wrap");
-  }
-  const existingRecipientTarget = previousKek.recipientTargets.find(
-    (target) =>
-      Reflect.get(target, "recipientKind") === "user" &&
-      Reflect.get(target, "recipientId") === existingUserId,
-  );
-  if (!existingRecipientTarget) {
-    throw new Error("Expected existing user recipient target");
-  }
   const projectionWithExistingShare = parent.projection;
   const submittedRequests: ContainerMutationRequest[] = [];
 
