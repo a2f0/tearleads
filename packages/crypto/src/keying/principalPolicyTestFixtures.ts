@@ -105,7 +105,9 @@ export async function signPolicyState(input: {
       members: [...input.members],
       projection: [...projection],
       payloadCiphertext,
-      signedAt: input.signedAt ?? `2026-04-26T12:0${input.version}:00.000Z`,
+      signedAt:
+        input.signedAt ??
+        `2026-04-26T12:${String(input.version).padStart(2, "0")}:00.000Z`,
       signerUserId: input.signer.userId,
       signerUserKeyFingerprint: input.signer.signingKeyFingerprint,
     }),
