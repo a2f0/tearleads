@@ -46,42 +46,6 @@
       "bytes": 61096
     },
     "packages/api-client/src/ApiClient.ts": { "lines": 1071, "bytes": 29722 },
-    "packages/api/drizzle/0000_perfect_banshee.sql": {
-      "lines": 547,
-      "bytes": 31415
-    },
-    "packages/api/drizzle/meta/0000_snapshot.json": {
-      "lines": 4566,
-      "bytes": 124841
-    },
-    "packages/api/drizzle/meta/0001_snapshot.json": {
-      "lines": 4572,
-      "bytes": 124999
-    },
-    "packages/api/drizzle/meta/0002_snapshot.json": {
-      "lines": 4593,
-      "bytes": 125627
-    },
-    "packages/api/drizzle/meta/0003_snapshot.json": {
-      "lines": 4599,
-      "bytes": 125787
-    },
-    "packages/api/drizzle/meta/0004_snapshot.json": {
-      "lines": 4605,
-      "bytes": 125942
-    },
-    "packages/api/drizzle/meta/0005_snapshot.json": {
-      "lines": 4705,
-      "bytes": 128602
-    },
-    "packages/api/drizzle/meta/0006_snapshot.json": {
-      "lines": 4869,
-      "bytes": 133130
-    },
-    "packages/api/drizzle/meta/0007_snapshot.json": {
-      "lines": 4875,
-      "bytes": 133299
-    },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 559,
       "bytes": 17848
@@ -122,14 +86,6 @@
       "lines": 974,
       "bytes": 30893
     },
-    "packages/api/src/adapters/s3BlobObjectStore.test.ts": {
-      "lines": 514,
-      "bytes": 15508
-    },
-    "packages/api/src/adapters/s3BlobObjectStore.ts": {
-      "lines": 545,
-      "bytes": 13860
-    },
     "packages/api/src/routes/auth/register.test.ts": {
       "lines": 541,
       "bytes": 17521
@@ -160,10 +116,6 @@
       "lines": 1285,
       "bytes": 38873
     },
-    "packages/api/src/services/containers/listContainers.ts": {
-      "lines": 625,
-      "bytes": 19093
-    },
     "packages/api/src/workflows/auth/registration.ts": {
       "lines": 1227,
       "bytes": 33647
@@ -183,10 +135,6 @@
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 718,
       "bytes": 21625
-    },
-    "packages/api/src/workflows/organizations/groups.ts": {
-      "lines": 541,
-      "bytes": 14903
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
