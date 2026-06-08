@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { stat } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getSqliteWasmAssetUrl } from "@tearleads/sqlite-worker/assets";
 import { serve } from "bun";
@@ -17,6 +18,65 @@ function getPackageSourcePath(
   }
 
   return fileURLToPath(new URL(moduleRelativeUrl, import.meta.url));
+}
+
+async function isRegularFile(path: string) {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function getPackagedViewAssetPath(viewDir: string, pathname: string) {
+  const assetPathname = pathname === "/" ? "/index.html" : pathname;
+  let decodedPathname: string;
+
+  try {
+    decodedPathname = decodeURIComponent(assetPathname);
+  } catch {
+    return null;
+  }
+
+  const assetPath = resolve(viewDir, `.${decodedPathname}`);
+  const relativePath = relative(viewDir, assetPath);
+
+  if (
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  ) {
+    return null;
+  }
+
+  return assetPath;
+}
+
+function createPackagedServerConfig() {
+  const viewDir = fileURLToPath(new URL("../views/mainview/", import.meta.url));
+  const indexPath = resolve(viewDir, "index.html");
+
+  return {
+    async fetch(req: Request) {
+      const { pathname } = new URL(req.url);
+      const assetPath = getPackagedViewAssetPath(viewDir, pathname);
+
+      if (!assetPath) {
+        return new Response("Not found", { status: 404 });
+      }
+
+      const responsePath = (await isRegularFile(assetPath))
+        ? assetPath
+        : indexPath;
+      const responseFile = Bun.file(responsePath);
+
+      return new Response(responseFile, {
+        headers: {
+          "Content-Type": responseFile.type || "application/octet-stream",
+        },
+      });
+    },
+  };
 }
 
 async function createDevServerConfig() {
@@ -89,24 +149,25 @@ async function createDevServerConfig() {
   };
 }
 
-const devServer = isDev
-  ? serve({
-      port: 3000,
-      ...(await createDevServerConfig()),
-      development: {
-        hmr: true,
-        console: true,
-      },
-    })
-  : null;
+const appServer = serve({
+  hostname: "127.0.0.1",
+  port: isDev ? 3000 : 0,
+  ...(isDev ? await createDevServerConfig() : createPackagedServerConfig()),
+  ...(isDev
+    ? {
+        development: {
+          hmr: true,
+          console: true,
+        },
+      }
+    : {}),
+});
 
-if (devServer) {
-  console.log(`Electrobun dev server running at ${devServer.url}`);
-}
+console.log(`Electrobun app server running at ${appServer.url}`);
 
 new BrowserWindow({
   title: "Tearleads",
-  url: devServer ? devServer.url.href : "views://mainview/index.html",
+  url: appServer.url.href,
   frame: {
     x: 0,
     y: 0,
