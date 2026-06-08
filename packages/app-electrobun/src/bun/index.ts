@@ -38,18 +38,26 @@ function getPackagedViewAssetPath(viewDir: string, pathname: string) {
     return null;
   }
 
-  const assetPath = resolve(viewDir, `.${decodedPathname}`);
-  const relativePath = relative(viewDir, assetPath);
-
-  if (
-    relativePath === ".." ||
-    relativePath.startsWith(`..${sep}`) ||
-    isAbsolute(relativePath)
-  ) {
+  if (decodedPathname.includes("\0")) {
     return null;
   }
 
-  return assetPath;
+  try {
+    const assetPath = resolve(viewDir, `.${decodedPathname}`);
+    const relativePath = relative(viewDir, assetPath);
+
+    if (
+      relativePath === ".." ||
+      relativePath.startsWith(`..${sep}`) ||
+      isAbsolute(relativePath)
+    ) {
+      return null;
+    }
+
+    return assetPath;
+  } catch {
+    return null;
+  }
 }
 
 function createPackagedServerConfig() {
@@ -65,9 +73,12 @@ function createPackagedServerConfig() {
         return new Response("Not found", { status: 404 });
       }
 
-      const responsePath = (await isRegularFile(assetPath))
-        ? assetPath
-        : indexPath;
+      const fileExists = await isRegularFile(assetPath);
+      if (!fileExists && /\.[a-z0-9]+$/i.test(pathname)) {
+        return new Response("Not found", { status: 404 });
+      }
+
+      const responsePath = fileExists ? assetPath : indexPath;
       const responseFile = Bun.file(responsePath);
 
       return new Response(responseFile, {
