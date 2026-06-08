@@ -144,10 +144,6 @@
       "lines": 1945,
       "bytes": 57497
     },
-    "packages/app/src/components/pane/Pane.test.tsx": {
-      "lines": 1106,
-      "bytes": 31145
-    },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 692,
       "bytes": 19306
