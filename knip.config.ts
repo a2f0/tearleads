@@ -114,23 +114,23 @@ const productionConfig = {
       ignoreDependencies: ["@commitlint/cli", "lint-staged"],
     },
     "packages/api": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!", "!src/appTestRuntime.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts", "!src/appTestRuntime.ts"],
       project: [],
     },
     "packages/api-client": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
       project: [],
     },
     "packages/app": {
       entry: [
         "src/**/*.{ts,tsx}!",
-        "!src/**/*.test.{ts,tsx}!",
-        "!src/**/testUtils.{ts,tsx}!",
+        "!src/**/*.test.{ts,tsx}",
+        "!src/**/testUtils.{ts,tsx}",
       ],
       project: [],
     },
     "packages/app-web": {
-      entry: ["src/**/*.{ts,tsx}!", "!src/servers/e2eServer.ts!"],
+      entry: ["src/**/*.{ts,tsx}!", "!src/servers/e2eServer.ts"],
       project: [],
     },
     "packages/app-electrobun": {
@@ -138,23 +138,23 @@ const productionConfig = {
       project: [],
     },
     "packages/bob-and-alice": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
       project: [],
     },
     "packages/client-sdk": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
       project: [],
     },
     "packages/crypto": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
       project: [],
     },
     "packages/encoding": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
       project: [],
     },
     "packages/loro": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
       project: [],
     },
     "packages/ui": {
@@ -162,7 +162,7 @@ const productionConfig = {
       project: [],
     },
     "packages/validators": {
-      entry: ["src/**/*.ts!", "!src/**/*.test.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
       project: [],
     },
     "packages/website": {

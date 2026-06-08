@@ -34,11 +34,23 @@ function usage(): string {
 function nextArg(args: string[], index: number, flag: string): string {
   const value = args[index + 1];
 
-  if (!value || value.startsWith("--")) {
+  if (!value || value.startsWith("-")) {
     throw new Error(`${flag} requires a value`);
   }
 
   return value;
+}
+
+function stringifyCruiseOutput(output: unknown): string {
+  if (typeof output === "string") {
+    return output;
+  }
+
+  if (output === undefined) {
+    return "";
+  }
+
+  return JSON.stringify(output, null, 2) ?? "";
 }
 
 function parseCliOptions(args: string[]): CliOptions {
@@ -91,10 +103,7 @@ async function main() {
     dependencyCruiserEntryPoints,
     createDependencyCruiserOptions(options.format),
   );
-  const output =
-    typeof result.output === "string"
-      ? result.output
-      : JSON.stringify(result.output, null, 2);
+  const output = stringifyCruiseOutput(result.output);
 
   if (options.outputPath) {
     await writeOutput(options.outputPath, output);
