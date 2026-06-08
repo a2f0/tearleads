@@ -1,5 +1,10 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+
+interface FileSizeBudget {
+  readonly bytes: number;
+  readonly lines: number;
+}
 
 interface SuppressionCounts {
   readonly biomeIgnore: number;
@@ -7,6 +12,19 @@ interface SuppressionCounts {
   readonly tsExpectError: number;
   readonly tsIgnore: number;
 }
+
+interface SourceShapeBaseline {
+  readonly approvedStarExports: Record<string, readonly string[]>;
+  readonly fileSizes: Record<string, FileSizeBudget>;
+  readonly suppressions: Record<string, Partial<SuppressionCounts>>;
+}
+
+const lineLimit = 500;
+const byteLimit = 20_000;
+
+const sourceShapeBaseline = JSON.parse(
+  readFileSync("scripts/sourceShapeBaseline.json", "utf8"),
+) as SourceShapeBaseline;
 
 const suppressionKinds = [
   "biomeIgnore",
@@ -22,66 +40,9 @@ const zeroSuppressions: SuppressionCounts = {
   tsIgnore: 0,
 };
 
-const suppressionBaseline = {
-  "packages/app/src/components/shared/MiniAppLayout.tsx": { biomeIgnore: 1 },
-  "packages/app/src/mini-apps/explorer/Explorer.tsx": { biomeIgnore: 1 },
-  "packages/app/src/mini-apps/explorer/ExplorerTree.tsx": { biomeIgnore: 1 },
-  "packages/app/src/mini-apps/explorer/detail/ExplorerDetailPanel.tsx": {
-    biomeIgnore: 1,
-  },
-  "packages/app/src/mini-apps/explorer/hooks/useExplorerModel.ts": {
-    biomeIgnore: 1,
-  },
-  "packages/app/src/mini-apps/explorer/hooks/useExplorerPanelState.ts": {
-    biomeIgnore: 1,
-  },
-  "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-    biomeIgnore: 1,
-  },
-  "packages/app/src/stores/org-manager/OrgManagerProvider.tsx": {
-    biomeIgnore: 1,
-  },
-  "packages/client-sdk/src/data/documents/shared/responses.ts": { todo: 1 },
-  "packages/client-sdk/src/workflows/containers/child/revoke.ts": {
-    biomeIgnore: 1,
-  },
-  "packages/client-sdk/src/workflows/containers/child/share.ts": {
-    biomeIgnore: 1,
-  },
-} satisfies Record<string, Partial<SuppressionCounts>>;
-
-const approvedStarExports = {
-  "packages/client-sdk/src/documents.ts": [
-    "./data/blobContracts",
-    "./data/documentSummary",
-    "./data/documents/documentConstants",
-    "./data/documents/documentContent",
-  ],
-  "packages/client-sdk/src/stores/container-contents/index.ts": [
-    "./containerContentsStore",
-    "./state",
-    "./syncAgent",
-    "./types",
-  ],
-  "packages/client-sdk/src/stores/documents/index.ts": [
-    "./documentStore",
-    "./types",
-  ],
-  "packages/crypto/src/keying.ts": ["./keying/index"],
-  "packages/crypto/src/keying/index.ts": [
-    "./accessEvent",
-    "./canonical",
-    "./checkpoints",
-    "./containerAccess",
-    "./containerKek",
-    "./documentAccess",
-    "./principalPolicy",
-    "./transparency",
-    "./types",
-    "./writeHeader",
-  ],
-  "packages/loro/src/index.ts": ["./server", "./shared"],
-} satisfies Record<string, readonly string[]>;
+const suppressionBaseline = sourceShapeBaseline.suppressions;
+const approvedStarExports = sourceShapeBaseline.approvedStarExports;
+const fileSizeBaseline = sourceShapeBaseline.fileSizes;
 
 const scanExtensions = new Set([
   ".astro",
@@ -108,12 +69,20 @@ const ignoredPathPatterns = [
   /^dist\//,
   /^build\//,
   /^node_modules\//,
+  /^pkg\//,
   /^packages\/[^/]+\/\.turbo\//,
   /^packages\/[^/]+\/dist\//,
   /^packages\/[^/]+\/build\//,
+  /^packages\/[^/]+\/pkg\//,
+  /^packages\/[^/]+\/test-results\//,
+  /^packages\/website\/\.astro\//,
+  /^packages\/api\/drizzle\/meta\/_journal\.json$/,
   /^playwright-report\//,
   /^scripts\/lintSourceShape\.ts$/,
+  /^scripts\/sourceShapeBaseline\.json$/,
   /^test-results\//,
+  /\.min\.js$/,
+  /\.map$/,
 ];
 
 interface Violation {
@@ -121,30 +90,71 @@ interface Violation {
   readonly filePath: string;
 }
 
-function runFileLimitCheck(args: readonly string[]): void {
-  const result = spawnSync(
-    "sh",
-    ["scripts/checks/checkFileLimits.sh", ...args],
-    {
-      stdio: "inherit",
-    },
-  );
-
-  if (result.error) {
-    console.error("Failed to execute file limit check:", result.error);
-    process.exit(1);
-  }
-
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
-  }
-}
-
 function trackedFiles(): string[] {
   return execFileSync("git", ["ls-files"], { encoding: "utf8" })
     .split("\n")
     .filter((path) => path.length > 0)
     .sort();
+}
+
+function gitRefExists(ref: string): boolean {
+  try {
+    execFileSync("git", ["rev-parse", "--verify", ref], {
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveBaseRef(): string {
+  try {
+    return execFileSync(
+      "git",
+      ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+      { encoding: "utf8" },
+    ).trim();
+  } catch {
+    // Fall through to CI/base-branch resolution below.
+  }
+
+  const githubBaseRef = process.env.GITHUB_BASE_REF;
+
+  if (githubBaseRef) {
+    const baseRef = `origin/${githubBaseRef}`;
+
+    if (!gitRefExists(baseRef)) {
+      try {
+        execFileSync(
+          "git",
+          [
+            "fetch",
+            "--depth=1",
+            "origin",
+            `${githubBaseRef}:refs/remotes/origin/${githubBaseRef}`,
+          ],
+          { stdio: "ignore" },
+        );
+      } catch {
+        // Fall through to the local fallback refs below.
+      }
+    }
+
+    if (gitRefExists(baseRef)) {
+      return baseRef;
+    }
+  }
+
+  if (gitRefExists("origin/main")) {
+    return "origin/main";
+  }
+
+  if (gitRefExists("main")) {
+    return "main";
+  }
+
+  throw new Error("cannot determine base branch for comparison");
 }
 
 function parseRange(args: readonly string[]): string | undefined {
@@ -165,7 +175,7 @@ function filesChangedIn(args: readonly string[]): string[] {
   if (args.includes("--staged")) {
     return execFileSync(
       "git",
-      ["diff", "--name-only", "--diff-filter=ACM", "--cached"],
+      ["diff", "--name-only", "--diff-filter=ACMRD", "--cached"],
       { encoding: "utf8" },
     )
       .split("\n")
@@ -178,7 +188,23 @@ function filesChangedIn(args: readonly string[]): string[] {
   if (range) {
     return execFileSync(
       "git",
-      ["diff", "--name-only", "--diff-filter=ACM", range],
+      ["diff", "--name-only", "--diff-filter=ACMRD", range],
+      { encoding: "utf8" },
+    )
+      .split("\n")
+      .filter((path) => path.length > 0)
+      .sort();
+  }
+
+  if (args.includes("--from-upstream")) {
+    return execFileSync(
+      "git",
+      [
+        "diff",
+        "--name-only",
+        "--diff-filter=ACMRD",
+        `${resolveBaseRef()}..HEAD`,
+      ],
       { encoding: "utf8" },
     )
       .split("\n")
@@ -201,6 +227,10 @@ function shouldScan(filePath: string): boolean {
   );
 }
 
+function shouldCheckFileSize(filePath: string): boolean {
+  return !ignoredPathPatterns.some((pattern) => pattern.test(filePath));
+}
+
 function countMatches(source: string, pattern: RegExp): number {
   if (!pattern.global) {
     throw new Error(
@@ -216,6 +246,108 @@ function countMatches(source: string, pattern: RegExp): number {
   }
 
   return count;
+}
+
+function fileSizeOf(buffer: Buffer): FileSizeBudget {
+  return {
+    bytes: buffer.byteLength,
+    lines: countMatches(buffer.toString("utf8"), /\n/g),
+  };
+}
+
+function isOverDefaultBudget(size: FileSizeBudget): boolean {
+  return size.lines > lineLimit || size.bytes > byteLimit;
+}
+
+function isOverBudget(size: FileSizeBudget, budget: FileSizeBudget): boolean {
+  return size.lines > budget.lines || size.bytes > budget.bytes;
+}
+
+function formatFileSize(size: FileSizeBudget): string {
+  return `${size.lines} lines/${size.bytes} bytes`;
+}
+
+function findFileSizeViolations(
+  filePath: string,
+  size: FileSizeBudget,
+): Violation[] {
+  const baselineBudget = fileSizeBaseline[filePath];
+
+  if (baselineBudget) {
+    if (!isOverDefaultBudget(size)) {
+      return [
+        {
+          detail: `file size baseline is no longer needed; current size is ${formatFileSize(size)} under the default ${lineLimit} lines/${byteLimit} bytes budget`,
+          filePath,
+        },
+      ];
+    }
+
+    return isOverBudget(size, baselineBudget)
+      ? [
+          {
+            detail: `file size is ${formatFileSize(size)} but baseline allows ${formatFileSize(baselineBudget)}`,
+            filePath,
+          },
+        ]
+      : [];
+  }
+
+  return isOverDefaultBudget(size)
+    ? [
+        {
+          detail: `file size is ${formatFileSize(size)} but default budget allows ${lineLimit} lines/${byteLimit} bytes`,
+          filePath,
+        },
+      ]
+    : [];
+}
+
+function sourceShapeFiles(args: readonly string[]): string[] {
+  return filesChangedIn(args);
+}
+
+function fileSizeViolations(args: readonly string[]): Violation[] {
+  const files = sourceShapeFiles(args);
+  const scannedFiles = new Set(files);
+  const violations = files.flatMap((filePath) => {
+    if (!existsSync(filePath)) {
+      return fileSizeBaseline[filePath]
+        ? [
+            {
+              detail: "file size baseline refers to a missing file; remove it",
+              filePath,
+            },
+          ]
+        : [];
+    }
+
+    if (!shouldCheckFileSize(filePath)) {
+      return [];
+    }
+
+    const buffer = readFileSync(filePath);
+
+    if (buffer.includes(0)) {
+      return [];
+    }
+
+    return findFileSizeViolations(filePath, fileSizeOf(buffer));
+  });
+
+  if (args.length === 0 || args.includes("--all")) {
+    for (const filePath of Object.keys(fileSizeBaseline)) {
+      if (!scannedFiles.has(filePath)) {
+        violations.push({
+          detail:
+            "file size baseline refers to a file that is no longer tracked; remove it",
+          filePath,
+        });
+      }
+    }
+  }
+
+  return violations;
 }
 
 function suppressionCounts(source: string): SuppressionCounts {
@@ -289,7 +421,7 @@ function findStarExportViolations(
 }
 
 function sourceShapeViolations(args: readonly string[]): Violation[] {
-  return filesChangedIn(args).flatMap((filePath) => {
+  return sourceShapeFiles(args).flatMap((filePath) => {
     if (!existsSync(filePath) || !shouldScan(filePath)) {
       return [];
     }
@@ -302,15 +434,18 @@ function sourceShapeViolations(args: readonly string[]): Violation[] {
   });
 }
 
-const args = process.argv.slice(2);
+const rawArgs = process.argv.slice(2);
+const fileLimitsOnly = rawArgs.includes("--file-limits-only");
+const args = rawArgs.filter((arg) => arg !== "--file-limits-only");
 
-runFileLimitCheck(args);
-
-const violations = sourceShapeViolations(args);
+const violations = [
+  ...fileSizeViolations(args),
+  ...(fileLimitsOnly ? [] : sourceShapeViolations(args)),
+];
 
 if (violations.length > 0) {
   console.error(
-    "error source-shape: source-shape suppressions and barrel facades exceeded the approved baseline.",
+    "error source-shape: source-shape budgets, suppressions, or barrel facades exceeded the approved baseline.",
   );
   for (const violation of violations) {
     console.error(`  ${violation.filePath}: ${violation.detail}`);

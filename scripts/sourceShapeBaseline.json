@@ -1,0 +1,528 @@
+{
+  "approvedStarExports": {
+    "packages/client-sdk/src/documents.ts": [
+      "./data/blobContracts",
+      "./data/documentSummary",
+      "./data/documents/documentConstants",
+      "./data/documents/documentContent"
+    ],
+    "packages/client-sdk/src/stores/container-contents/index.ts": [
+      "./containerContentsStore",
+      "./state",
+      "./syncAgent",
+      "./types"
+    ],
+    "packages/client-sdk/src/stores/documents/index.ts": [
+      "./documentStore",
+      "./types"
+    ],
+    "packages/crypto/src/keying.ts": ["./keying/index"],
+    "packages/crypto/src/keying/index.ts": [
+      "./accessEvent",
+      "./canonical",
+      "./checkpoints",
+      "./containerAccess",
+      "./containerKek",
+      "./documentAccess",
+      "./principalPolicy",
+      "./transparency",
+      "./types",
+      "./writeHeader"
+    ],
+    "packages/loro/src/index.ts": ["./server", "./shared"]
+  },
+  "fileSizes": {
+    "dependency-cruiser.config.ts": { "lines": 759, "bytes": 22020 },
+    "docs/developer/client-sdk.md": { "lines": 450, "bytes": 20436 },
+    "docs/document-rekey-and-audit-history.md": {
+      "lines": 639,
+      "bytes": 22654
+    },
+    "docs/glossary.md": { "lines": 506, "bytes": 18158 },
+    "docs/keying-design.md": { "lines": 885, "bytes": 37936 },
+    "docs/loro-e2ee-sync-protocol.md": { "lines": 541, "bytes": 22215 },
+    "packages/api-client/src/ApiClient.test.ts": {
+      "lines": 2110,
+      "bytes": 61096
+    },
+    "packages/api-client/src/ApiClient.ts": { "lines": 1071, "bytes": 29722 },
+    "packages/api/drizzle/0000_perfect_banshee.sql": {
+      "lines": 547,
+      "bytes": 31415
+    },
+    "packages/api/drizzle/meta/0000_snapshot.json": {
+      "lines": 4566,
+      "bytes": 124841
+    },
+    "packages/api/drizzle/meta/0001_snapshot.json": {
+      "lines": 4572,
+      "bytes": 124999
+    },
+    "packages/api/drizzle/meta/0002_snapshot.json": {
+      "lines": 4593,
+      "bytes": 125627
+    },
+    "packages/api/drizzle/meta/0003_snapshot.json": {
+      "lines": 4599,
+      "bytes": 125787
+    },
+    "packages/api/drizzle/meta/0004_snapshot.json": {
+      "lines": 4605,
+      "bytes": 125942
+    },
+    "packages/api/drizzle/meta/0005_snapshot.json": {
+      "lines": 4705,
+      "bytes": 128602
+    },
+    "packages/api/drizzle/meta/0006_snapshot.json": {
+      "lines": 4869,
+      "bytes": 133130
+    },
+    "packages/api/drizzle/meta/0007_snapshot.json": {
+      "lines": 4875,
+      "bytes": 133299
+    },
+    "packages/api/src/access/read/documentKekTargets.test.ts": {
+      "lines": 559,
+      "bytes": 17848
+    },
+    "packages/api/src/access/shared/internal/accessManifestStore.ts": {
+      "lines": 846,
+      "bytes": 25322
+    },
+    "packages/api/src/access/shared/internal/blobContentKeyStore.ts": {
+      "lines": 775,
+      "bytes": 21225
+    },
+    "packages/api/src/access/shared/internal/containerKekTargets.ts": {
+      "lines": 550,
+      "bytes": 17634
+    },
+    "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
+      "lines": 1047,
+      "bytes": 30754
+    },
+    "packages/api/src/access/shared/internal/principalStateStore.ts": {
+      "lines": 914,
+      "bytes": 25735
+    },
+    "packages/api/src/access/write/blobContentKeyStore.test.ts": {
+      "lines": 668,
+      "bytes": 19181
+    },
+    "packages/api/src/access/write/containerKekStore.test.ts": {
+      "lines": 591,
+      "bytes": 18287
+    },
+    "packages/api/src/access/write/documentContentKeyStore.test.ts": {
+      "lines": 1044,
+      "bytes": 32256
+    },
+    "packages/api/src/access/write/principalStateStore.test.ts": {
+      "lines": 974,
+      "bytes": 30893
+    },
+    "packages/api/src/adapters/s3BlobObjectStore.test.ts": {
+      "lines": 514,
+      "bytes": 15508
+    },
+    "packages/api/src/adapters/s3BlobObjectStore.ts": {
+      "lines": 545,
+      "bytes": 13860
+    },
+    "packages/api/src/routes/auth/register.test.ts": {
+      "lines": 541,
+      "bytes": 17521
+    },
+    "packages/api/src/routes/containers/listContainers.test.ts": {
+      "lines": 621,
+      "bytes": 18608
+    },
+    "packages/api/src/routes/containers/mutations.test.ts": {
+      "lines": 3485,
+      "bytes": 113770
+    },
+    "packages/api/src/routes/keyingWriterProjection.test.ts": {
+      "lines": 2550,
+      "bytes": 84176
+    },
+    "packages/api/src/routes/organizations/organizations.test.ts": {
+      "lines": 1049,
+      "bytes": 32235
+    },
+    "packages/api/src/routes/principals/policy.test.ts": {
+      "lines": 739,
+      "bytes": 23300
+    },
+    "packages/api/src/schema.test.ts": { "lines": 507, "bytes": 15971 },
+    "packages/api/src/schema.ts": { "lines": 2142, "bytes": 92263 },
+    "packages/api/src/services/blobs/blobMutations.test.ts": {
+      "lines": 1285,
+      "bytes": 38873
+    },
+    "packages/api/src/services/containers/listContainers.ts": {
+      "lines": 625,
+      "bytes": 19093
+    },
+    "packages/api/src/workflows/auth/registration.ts": {
+      "lines": 1227,
+      "bytes": 33647
+    },
+    "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
+      "lines": 588,
+      "bytes": 16927
+    },
+    "packages/api/src/workflows/documents/mutations/shared/records.ts": {
+      "lines": 560,
+      "bytes": 16289
+    },
+    "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
+      "lines": 883,
+      "bytes": 27557
+    },
+    "packages/api/src/workflows/documents/writerProjection.ts": {
+      "lines": 718,
+      "bytes": 21625
+    },
+    "packages/api/src/workflows/organizations/groups.ts": {
+      "lines": 541,
+      "bytes": 14903
+    },
+    "packages/api/src/workflows/principals/accessLossTombstones.ts": {
+      "lines": 710,
+      "bytes": 20900
+    },
+    "packages/api/test/helpers/registration.ts": {
+      "lines": 1098,
+      "bytes": 36324
+    },
+    "packages/app/src/components/pane/DualPaneProvider.test.tsx": {
+      "lines": 1945,
+      "bytes": 57497
+    },
+    "packages/app/src/components/pane/Pane.test.tsx": {
+      "lines": 1106,
+      "bytes": 31145
+    },
+    "packages/app/src/components/window/Window.tsx": {
+      "lines": 521,
+      "bytes": 13142
+    },
+    "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
+      "lines": 692,
+      "bytes": 19306
+    },
+    "packages/app/src/mini-apps/explorer/ExplorerTree.tsx": {
+      "lines": 1156,
+      "bytes": 32410
+    },
+    "packages/app/src/mini-apps/explorer/detail/ExplorerBlobBrowserPanel.tsx": {
+      "lines": 935,
+      "bytes": 26350
+    },
+    "packages/app/src/mini-apps/explorer/detail/ExplorerContainerDetail.tsx": {
+      "lines": 564,
+      "bytes": 15178
+    },
+    "packages/app/src/mini-apps/explorer/detail/ExplorerContainerInfoSections.tsx": {
+      "lines": 680,
+      "bytes": 21465
+    },
+    "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentDetail.tsx": {
+      "lines": 549,
+      "bytes": 17002
+    },
+    "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentInfoPanel.tsx": {
+      "lines": 522,
+      "bytes": 17867
+    },
+    "packages/app/src/mini-apps/explorer/labels.ts": {
+      "lines": 508,
+      "bytes": 19196
+    },
+    "packages/app/src/mini-apps/identity-manager/IdentityManager.tsx": {
+      "lines": 787,
+      "bytes": 23342
+    },
+    "packages/app/src/mini-apps/org-manager/DirectoryView.tsx": {
+      "lines": 739,
+      "bytes": 21631
+    },
+    "packages/app/src/mini-apps/org-manager/GroupsView.tsx": {
+      "lines": 830,
+      "bytes": 23435
+    },
+    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
+      "lines": 1226,
+      "bytes": 34998
+    },
+    "packages/app/src/providers/identity/IdentityProvider.tsx": {
+      "lines": 570,
+      "bytes": 16238
+    },
+    "packages/app/src/stores/contacts/contactStore.ts": {
+      "lines": 543,
+      "bytes": 14910
+    },
+    "packages/app/src/stores/documents/documentStore/sync.test.ts": {
+      "lines": 2418,
+      "bytes": 73930
+    },
+    "packages/app/src/stores/explorer/ExplorerProvider.test.ts": {
+      "lines": 4523,
+      "bytes": 142656
+    },
+    "packages/app/src/stores/explorer/useDiscoveredDocumentsSync.ts": {
+      "lines": 628,
+      "bytes": 18666
+    },
+    "packages/app/src/stores/explorer/useExplorerDiscoveryEffects.test.tsx": {
+      "lines": 946,
+      "bytes": 27357
+    },
+    "packages/app/test/helpers/mswServer.ts": {
+      "lines": 956,
+      "bytes": 27795
+    },
+    "packages/client-sdk/src/Tearleads.test.ts": {
+      "lines": 979,
+      "bytes": 30751
+    },
+    "packages/client-sdk/src/client/containerContents.ts": {
+      "lines": 598,
+      "bytes": 20797
+    },
+    "packages/client-sdk/src/client/localKeyring.ts": {
+      "lines": 1246,
+      "bytes": 37406
+    },
+    "packages/client-sdk/src/data/blobs/encryptedBlobStore.ts": {
+      "lines": 554,
+      "bytes": 15247
+    },
+    "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
+      "lines": 1039,
+      "bytes": 36053
+    },
+    "packages/client-sdk/src/data/documents/shared/projection.ts": {
+      "lines": 758,
+      "bytes": 23763
+    },
+    "packages/client-sdk/src/data/documents/shared/readers.ts": {
+      "lines": 539,
+      "bytes": 16376
+    },
+    "packages/client-sdk/src/data/documents/shared/responses.ts": {
+      "lines": 717,
+      "bytes": 23236
+    },
+    "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
+      "lines": 1197,
+      "bytes": 39118
+    },
+    "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
+      "lines": 1258,
+      "bytes": 37789
+    },
+    "packages/client-sdk/src/data/persistence/documents/documentsPersistence.behavior.test.ts": {
+      "lines": 645,
+      "bytes": 18346
+    },
+    "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
+      "lines": 758,
+      "bytes": 23123
+    },
+    "packages/client-sdk/src/data/sqlite/schema.ts": {
+      "lines": 557,
+      "bytes": 21652
+    },
+    "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
+      "lines": 664,
+      "bytes": 18285
+    },
+    "packages/client-sdk/src/workflows/blobs/upload.ts": {
+      "lines": 682,
+      "bytes": 19037
+    },
+    "packages/client-sdk/src/workflows/container-contents/blobInfo.ts": {
+      "lines": 584,
+      "bytes": 19509
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
+      "lines": 1017,
+      "bytes": 30465
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentDiscovery.ts": {
+      "lines": 595,
+      "bytes": 17319
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
+      "lines": 800,
+      "bytes": 22643
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
+      "lines": 670,
+      "bytes": 20397
+    },
+    "packages/client-sdk/src/workflows/container-contents/metadata.ts": {
+      "lines": 593,
+      "bytes": 17692
+    },
+    "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
+      "lines": 920,
+      "bytes": 26923
+    },
+    "packages/client-sdk/src/workflows/containers/child/revoke.ts": {
+      "lines": 549,
+      "bytes": 17524
+    },
+    "packages/client-sdk/src/workflows/containers/child/share.test.ts": {
+      "lines": 588,
+      "bytes": 20524
+    },
+    "packages/client-sdk/src/workflows/containers/child/share.ts": {
+      "lines": 766,
+      "bytes": 24142
+    },
+    "packages/client-sdk/src/workflows/documents/linkSet.test.ts": {
+      "lines": 559,
+      "bytes": 20607
+    },
+    "packages/client-sdk/src/workflows/documents/sync.test.ts": {
+      "lines": 1241,
+      "bytes": 41821
+    },
+    "packages/client-sdk/src/workflows/documents/sync.ts": {
+      "lines": 1132,
+      "bytes": 35200
+    },
+    "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
+      "lines": 992,
+      "bytes": 31765
+    },
+    "packages/client-sdk/src/workflows/organizations/readModel.test.ts": {
+      "lines": 625,
+      "bytes": 17394
+    },
+    "packages/client-sdk/src/workflows/organizations/readModel.ts": {
+      "lines": 514,
+      "bytes": 16769
+    },
+    "packages/client-sdk/src/workflows/principals/policyCache.test.ts": {
+      "lines": 853,
+      "bytes": 26807
+    },
+    "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
+      "lines": 669,
+      "bytes": 22989
+    },
+    "packages/client-sdk/test/helpers/containerFixtures.ts": {
+      "lines": 530,
+      "bytes": 17113
+    },
+    "packages/client-sdk/test/helpers/documentFixtures.ts": {
+      "lines": 851,
+      "bytes": 27875
+    },
+    "packages/crypto/src/keying/containerAccess.test.ts": {
+      "lines": 732,
+      "bytes": 22724
+    },
+    "packages/crypto/src/keying/containerAccess.ts": {
+      "lines": 1279,
+      "bytes": 37092
+    },
+    "packages/crypto/src/keying/containerKek.test.ts": {
+      "lines": 650,
+      "bytes": 21925
+    },
+    "packages/crypto/src/keying/containerKek.ts": {
+      "lines": 800,
+      "bytes": 22833
+    },
+    "packages/crypto/src/keying/containerKek/contentKeyTargets.ts": {
+      "lines": 650,
+      "bytes": 18726
+    },
+    "packages/crypto/src/keying/documentAccess.ts": {
+      "lines": 1151,
+      "bytes": 32354
+    },
+    "packages/crypto/src/keying/principalPolicy.test.ts": {
+      "lines": 572,
+      "bytes": 17319
+    },
+    "packages/crypto/src/keying/principalPolicy.ts": {
+      "lines": 719,
+      "bytes": 20623
+    },
+    "packages/crypto/src/keying/testFixtures.ts": {
+      "lines": 664,
+      "bytes": 22038
+    },
+    "packages/crypto/src/keying/transparency.ts": {
+      "lines": 1131,
+      "bytes": 30430
+    },
+    "packages/crypto/src/keying/types.ts": {
+      "lines": 1059,
+      "bytes": 32251
+    },
+    "packages/crypto/src/keying/writeHeader.test.ts": {
+      "lines": 505,
+      "bytes": 15870
+    },
+    "packages/crypto/src/keying/writeHeader.ts": {
+      "lines": 522,
+      "bytes": 14936
+    },
+    "packages/crypto/src/principalState.ts": {
+      "lines": 545,
+      "bytes": 15953
+    },
+    "packages/validators/src/request/request.test.ts": {
+      "lines": 849,
+      "bytes": 25177
+    },
+    "packages/validators/src/response/response.test.ts": {
+      "lines": 1133,
+      "bytes": 33031
+    },
+    "scripts/lintArchitecture.ts": { "lines": 1135, "bytes": 35731 }
+  },
+  "suppressions": {
+    "packages/app/src/components/shared/MiniAppLayout.tsx": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/explorer/Explorer.tsx": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/explorer/ExplorerTree.tsx": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/explorer/detail/ExplorerDetailPanel.tsx": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/explorer/hooks/useExplorerModel.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/explorer/hooks/useExplorerPanelState.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/stores/org-manager/OrgManagerProvider.tsx": {
+      "biomeIgnore": 1
+    },
+    "packages/client-sdk/src/data/documents/shared/responses.ts": {
+      "todo": 1
+    },
+    "packages/client-sdk/src/workflows/containers/child/revoke.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/client-sdk/src/workflows/containers/child/share.ts": {
+      "biomeIgnore": 1
+    }
+  }
+}
