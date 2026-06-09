@@ -309,6 +309,25 @@
     },
     "scripts/lintArchitecture.ts": { "lines": 1135, "bytes": 35731 }
   },
+  "categories": {
+    "configuration": {
+      "description": "Monorepo configuration files that depend on holistic, interlocking rule sets.",
+      "files": ["dependency-cruiser.config.ts"]
+    },
+    "documentation": {
+      "description": "Long-form design and reference documents that lose coherence when split.",
+      "files": [
+        "docs/document-rekey-and-audit-history.md",
+        "docs/glossary.md",
+        "docs/keying-design.md",
+        "docs/loro-e2ee-sync-protocol.md"
+      ]
+    },
+    "tooling": {
+      "description": "Build and check infrastructure scripts that are intentionally monolithic.",
+      "files": ["scripts/lintArchitecture.ts"]
+    }
+  },
   "suppressions": {
     "packages/app/src/components/shared/MiniAppLayout.tsx": {
       "biomeIgnore": 1
