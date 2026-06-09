@@ -1,4 +1,4 @@
-import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import { AppHostConfig } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
@@ -9,7 +9,7 @@ function createElectrobunSQLiteRuntime() {
       ? "/worker.js"
       : new URL("./worker.js", import.meta.url);
 
-  return createModuleSQLiteRuntime({ workerUrl });
+  return createSQLiteRuntime({ workerUrl });
 }
 
 const elem = document.getElementById("root");

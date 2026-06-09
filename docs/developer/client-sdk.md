@@ -19,11 +19,11 @@ import {
   Tearleads,
 } from "@tearleads/client-sdk";
 import {
-  createModuleSQLiteRuntime,
+  createSQLiteRuntime,
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 
-const sqliteRuntime: SQLiteRuntime = createModuleSQLiteRuntime();
+const sqliteRuntime: SQLiteRuntime = createSQLiteRuntime();
 const localKeyring = createLocalKeyring({
   // Development only. Production hosts should provide a platform keystore and
   // persisted manifest store.
@@ -206,7 +206,7 @@ Browser and Electron hosts should create worker-backed SQLite runtimes through
 the SDK SQLite facade:
 
 ```ts
-import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 ```
 
 `SQLiteRuntime` is the host lifecycle object with `{ id, client,
@@ -220,11 +220,12 @@ into SDK SQLite vocabulary:
 
 | SDK export | Use for |
 | --- | --- |
-| `createModuleSQLiteRuntime(options?)` | Creating the default module-worker runtime, optionally with `workerUrl` or a custom `workerConstructor` |
-| `createSQLiteRuntime(worker)` | Wrapping a host-created terminable worker-like object |
+| `createSQLiteRuntime(options?)` | Creating the default module-worker runtime, optionally with `workerUrl` or a custom `workerConstructor` |
+| `createSQLiteRuntimeFromWorker(worker)` | Wrapping a host-created terminable worker-like object |
+| `createModuleSQLiteRuntime(options?)` | Compatibility alias for the default module-worker runtime factory |
 | `SQLiteRuntime` | The `{ id, client, destroy() }` lifecycle contract returned by both runtime factories |
 | `SQLiteWorkerClient` | The worker client contract accepted by `database.client` through `ExecSqlClientLike` |
-| `CreateModuleSQLiteRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
+| `CreateSQLiteRuntimeOptions`, `CreateModuleSQLiteRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
 | `getSQLitePersistenceRuntime(execSql)` | Building typed Drizzle queries against the active SDK SQLite executor |
 | `defineSqlTableSchema(table)` | Rendering app-owned Drizzle SQLite table definitions for `ensureSqlTables` |
 | `ExecSql`, `SqlTableSchema`, `ensureSqlTables`, `runSerializedSqlMutation` | Explicit executor, schema, and mutation helpers for host-owned persistence edges |

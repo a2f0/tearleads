@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import {
-  createModuleSQLiteRuntime,
+  createSQLiteRuntime,
+  createSQLiteRuntimeFromWorker,
   defineSqlTableSchema,
   type ExecSql,
   getSQLitePersistenceRuntime,
@@ -37,8 +38,8 @@ class MockWorker extends EventTarget {
   }
 }
 
-test("SQLite facade exposes the module worker runtime factory", async () => {
-  const runtime = createModuleSQLiteRuntime({
+test("SQLite facade exposes the default module worker runtime factory", async () => {
+  const runtime = createSQLiteRuntime({
     workerConstructor: MockWorker,
     workerUrl: "/custom-worker.js",
   });
@@ -60,6 +61,38 @@ test("SQLite facade exposes the module worker runtime factory", async () => {
 
   expect(worker?.terminated).toBe(true);
   await expect(pendingPing).rejects.toThrow(
+    "Database worker client has been destroyed.",
+  );
+});
+
+test("SQLite facade wraps a host-created worker explicitly", async () => {
+  const worker = new MockWorker("/host-worker.js");
+  const runtime = createSQLiteRuntimeFromWorker(worker);
+  const pendingPing = runtime.client.ping();
+
+  expect(worker.messages).toEqual([
+    {
+      id: 1,
+      method: "ping",
+      params: undefined,
+    },
+  ]);
+
+  runtime.destroy();
+
+  expect(worker.terminated).toBe(true);
+  await expect(pendingPing).rejects.toThrow(
+    "Database worker client has been destroyed.",
+  );
+
+  const compatibilityWorker = new MockWorker("/compat-worker.js");
+  const compatibilityRuntime = createSQLiteRuntime(compatibilityWorker);
+  const pendingCompatibilityPing = compatibilityRuntime.client.ping();
+
+  compatibilityRuntime.destroy();
+
+  expect(compatibilityWorker.terminated).toBe(true);
+  await expect(pendingCompatibilityPing).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
 });
