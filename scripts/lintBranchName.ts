@@ -27,6 +27,8 @@ function isCommitlintConfigModule(
   return (
     isRecord(value) &&
     typeof value.commitHeaderMaxLength === "number" &&
+    Number.isInteger(value.commitHeaderMaxLength) &&
+    value.commitHeaderMaxLength > 0 &&
     isCommitlintConfig(value.default)
   );
 }
