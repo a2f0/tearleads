@@ -1,8 +1,6 @@
 import { expect } from "bun:test";
 import {
-  createLocalKeyring,
-  createMemoryLocalKeyringManifestStore,
-  createMemoryWrappingKeyKeystore,
+  createMemoryBlobStore,
   type LocalKeyring,
 } from "@tearleads/client-sdk";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
@@ -29,6 +27,9 @@ import {
 } from "./appRuntimeIdle";
 import { MockWorker } from "./mockWorker";
 import { listProxiedApiRequests, resetMockServer, wsUrl } from "./mswServer";
+import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
+
+export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 
 export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
 export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
@@ -52,17 +53,11 @@ export function createTestHostConfig(
       createSQLiteRuntime({
         workerConstructor: MockWorker,
       }),
-    undefined,
+    () => createMemoryBlobStore(),
     options.localIdentityNamespace,
-    options.createLocalKeyring,
+    options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory(),
+    options.localIdentityNamespace === undefined,
   );
-}
-
-export function createSharedMemoryLocalKeyringFactory(): () => LocalKeyring {
-  const keystore = createMemoryWrappingKeyKeystore();
-  const manifestStore = createMemoryLocalKeyringManifestStore();
-
-  return () => createLocalKeyring({ keystore, manifestStore });
 }
 
 function createDeferred<T = void>() {
@@ -409,13 +404,22 @@ export function getPanePublicKey(view: ReturnType<typeof renderPane>): string {
 export async function generateIdentityAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
-  fireEvent.click(view.getByText("Menu"));
-  fireEvent.click(view.getByText("Generate Key Pair"));
-
-  await waitFor(() => {
-    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
-    expect(view.queryByText(/publicKey: none/)).toBeNull();
+  await act(async () => {
+    fireEvent.click(view.getByText("Menu"));
   });
+  await act(async () => {
+    fireEvent.click(view.getByText("Generate Key Pair"));
+  });
+
+  await waitFor(
+    () => {
+      const statusText =
+        view.container.querySelector(".pane-content")?.textContent ?? "";
+      expect(statusText).toMatch(/sqlite worker:\s*ready/);
+      expect(statusText).toMatch(publicKeyStatusPattern);
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
 }
 
 export async function registerAndWaitForUserId(

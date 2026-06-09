@@ -28,19 +28,25 @@ test("renders the boot prompt in the pane log", () => {
 test("unbooted pane context menu can generate a key pair", async () => {
   const view = renderPane();
 
-  fireEvent.contextMenu(view.getByRole("application"), {
-    clientX: 120,
-    clientY: 120,
+  await act(async () => {
+    fireEvent.contextMenu(view.getByRole("application"), {
+      clientX: 120,
+      clientY: 120,
+    });
   });
 
   expect(view.getByText("Generate Key Pair")).toBeTruthy();
   expect(view.queryByText("Open Notes")).toBeNull();
 
-  fireEvent.click(view.getByText("Generate Key Pair"));
+  await act(async () => {
+    fireEvent.click(view.getByText("Generate Key Pair"));
+  });
 
   await waitFor(() => {
-    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
-    expect(view.queryByText(/publicKey: none/)).toBeNull();
+    const statusText =
+      view.container.querySelector(".pane-content")?.textContent ?? "";
+    expect(statusText).toMatch(/sqlite worker:\s*ready/);
+    expect(statusText).toMatch(/publicKey:\s*[0-9a-f]{64}/u);
   });
 
   view.unmount();
@@ -140,13 +146,20 @@ test("local identity restore does not overwrite generate clicks while loading", 
   const reloadedView = renderPane({ hostConfig: reloadedHostConfig });
 
   await delayedLocalKeyring.waitForLoadSession();
-  fireEvent.click(reloadedView.getByText("Menu"));
-  fireEvent.click(reloadedView.getByText("Generate Key Pair"));
+  await act(async () => {
+    fireEvent.click(reloadedView.getByText("Menu"));
+  });
+  await act(async () => {
+    fireEvent.click(reloadedView.getByText("Generate Key Pair"));
+  });
 
   await waitFor(
     () => {
-      expect(reloadedView.getByText(/sqlite worker: ready/)).toBeTruthy();
-      expect(reloadedView.queryByText(/publicKey: none/)).toBeNull();
+      const statusText =
+        reloadedView.container.querySelector(".pane-content")?.textContent ??
+        "";
+      expect(statusText).toMatch(/sqlite worker:\s*ready/);
+      expect(statusText).toMatch(/publicKey:\s*[0-9a-f]{64}/u);
     },
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
   );

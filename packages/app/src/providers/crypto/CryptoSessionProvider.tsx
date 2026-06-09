@@ -90,6 +90,23 @@ function useBootstrapCryptoSessionContainer(
   ]);
 }
 
+function useEnsureDatabaseForIdentity(
+  signingFingerprint: string | null,
+  dbStatus: ReturnType<typeof useDatabase>["status"],
+  ensureDatabaseReady: ReturnType<typeof useDatabase>["ensureReady"],
+  logError: (message: string, error: unknown) => void,
+) {
+  useEffect(() => {
+    if (!signingFingerprint || dbStatus !== "idle") {
+      return;
+    }
+
+    void ensureDatabaseReady().catch((error: unknown) => {
+      logError("Failed to initialize SQLite for local identity", error);
+    });
+  }, [dbStatus, ensureDatabaseReady, logError, signingFingerprint]);
+}
+
 function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   const logout = useCallback(() => {
     tearleads.session.logout();
@@ -216,7 +233,11 @@ function useSdkBackedCryptoSessionState(
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { logError } = useLog();
-  const { client: dbClient, status: dbStatus } = useDatabase();
+  const {
+    client: dbClient,
+    ensureReady: ensureDatabaseReady,
+    status: dbStatus,
+  } = useDatabase();
   const {
     localIdentityRestoredFingerprint,
     signingFingerprint,
@@ -229,6 +250,12 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     containerBootstrapped,
     signingKeyPair,
     sessionState.resetSession,
+  );
+  useEnsureDatabaseForIdentity(
+    signingFingerprint,
+    dbStatus,
+    ensureDatabaseReady,
+    logError,
   );
   useBootstrapCryptoSessionContainer(
     containerBootstrapped,

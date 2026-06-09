@@ -51,6 +51,13 @@ function createObservedExecSql(
   return observedExecSql as ExecSql;
 }
 
+async function setGeneratedIdentity(sdk: Tearleads) {
+  return sdk.identity.setKeyPairs({
+    encapsulationKeyPair: generateKemSeedAndKeyPair(),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+}
+
 describe("Tearleads", () => {
   test("creates grouped SDK namespaces from constructor options", () => {
     const sqlClient = createNoopSqlClient();
@@ -277,28 +284,22 @@ describe("Tearleads", () => {
     expect(notifications).toBe(1);
   });
 
-  test("generates identity keys and switches blob storage to the identity namespace", async () => {
+  test("rejects identity generation until SQLite is ready", async () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const ephemeralStore = sdk.blobs.store;
 
-    const snapshot = await sdk.identity.generate();
+    await expect(sdk.identity.generate()).rejects.toThrow("ready SQLite");
 
-    expect(snapshot.signingKeyPair).not.toBeNull();
-    expect(snapshot.encapsulationKeyPair).not.toBeNull();
-    expect(snapshot.signingFingerprint).toMatch(/^[a-f0-9]{64}$/);
-    expect(snapshot.rootContainerCreated).toBeNull();
-    expect(snapshot.rootContainerId).toBeNull();
-    expect(snapshot.userId).toBeNull();
-    expect(sdk.identity.signingFingerprint).toBe(snapshot.signingFingerprint);
-    expect(sdk.blobs.store).not.toBe(ephemeralStore);
-
-    sdk.identity.destroy();
-
-    expect(sdk.identity.signingFingerprint).toBeNull();
+    expect(sdk.identity.snapshot).toEqual({
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    });
+    expect(sdk.session.containerId).toBeNull();
     expect(sdk.blobs.store).toBe(ephemeralStore);
   });
 
-  test("generates identity keys and bootstraps the local root container when SQLite is ready", async () => {
+  test("generates identity keys, bootstraps the local root container, and switches blob storage when SQLite is ready", async () => {
     const { close, execSql } = await createTestExecSql(
       "tearleads-identity-generate-root-bootstrap-test",
     );
@@ -307,16 +308,19 @@ describe("Tearleads", () => {
         database: { execSql, id: "client-db" },
         logger: quietLogger,
       });
+      const ephemeralStore = sdk.blobs.store;
 
       const result = await sdk.identity.generate();
-      if (!result.rootContainerId) {
-        throw new Error("Expected identity generation to bootstrap a root.");
-      }
 
       expect(result.rootContainerCreated).toBe(true);
       expect(result.rootContainerId).toHaveLength(36);
       expect(result.userId).toBeNull();
       expect(sdk.session.containerId).toBe(result.rootContainerId);
+      expect(result.signingKeyPair).not.toBeNull();
+      expect(result.encapsulationKeyPair).not.toBeNull();
+      expect(result.signingFingerprint).toMatch(/^[a-f0-9]{64}$/);
+      expect(sdk.identity.signingFingerprint).toBe(result.signingFingerprint);
+      expect(sdk.blobs.store).not.toBe(ephemeralStore);
 
       await expect(sdk.session.bootstrapLocalRootContainer()).resolves.toEqual({
         containerId: result.rootContainerId,
@@ -331,12 +335,17 @@ describe("Tearleads", () => {
           parentId: null,
         }),
       ]);
+
+      sdk.identity.destroy();
+
+      expect(sdk.identity.signingFingerprint).toBeNull();
+      expect(sdk.blobs.store).toBe(ephemeralStore);
     } finally {
       close();
     }
   });
 
-  test("generates identity keys when automatic root bootstrap fails", async () => {
+  test("rejects identity generation when automatic root bootstrap fails", async () => {
     const messages: string[] = [];
     const execSql: ExecSql = async () => {
       throw new Error("locked database");
@@ -349,19 +358,15 @@ describe("Tearleads", () => {
       },
     });
 
-    const result = await sdk.identity.generate();
+    await expect(sdk.identity.generate()).rejects.toThrow("locked database");
 
-    expect(result.signingKeyPair).not.toBeNull();
-    expect(result.encapsulationKeyPair).not.toBeNull();
-    expect(result.signingFingerprint).toMatch(/^[a-f0-9]{64}$/);
-    expect(result.rootContainerCreated).toBeNull();
-    expect(result.rootContainerId).toBeNull();
-    expect(result.userId).toBeNull();
+    expect(sdk.identity.snapshot).toEqual({
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    });
     expect(sdk.session.containerId).toBeNull();
-    expect(messages).toEqual([
-      "Key pair generated",
-      "Root container bootstrap failed: locked database",
-    ]);
+    expect(messages.join()).toContain("locked database");
   });
 
   test("uses a blob store factory for identity namespaces", async () => {
@@ -381,7 +386,7 @@ describe("Tearleads", () => {
     });
     const ephemeralStore = sdk.blobs.store;
 
-    const snapshot = await sdk.identity.generate();
+    const snapshot = await setGeneratedIdentity(sdk);
     if (!snapshot.signingFingerprint) {
       throw new Error("Expected generated signing fingerprint.");
     }
@@ -415,7 +420,7 @@ describe("Tearleads", () => {
       });
     });
 
-    await sdk.identity.generate();
+    await setGeneratedIdentity(sdk);
     sdk.identity.destroy();
     unsubscribe();
     sdk.identity.destroy();
@@ -436,7 +441,7 @@ describe("Tearleads", () => {
 
   test("exports and imports identity key packages", async () => {
     const source = new Tearleads({ logger: quietLogger });
-    await source.identity.generate();
+    await setGeneratedIdentity(source);
 
     const keyPackage = await source.identity.exportKeyPackage();
     source.identity.destroy();
@@ -456,7 +461,7 @@ describe("Tearleads", () => {
 
   test("rejects identity key packages with mismatched signing fingerprints", async () => {
     const sdk = new Tearleads({ logger: quietLogger });
-    await sdk.identity.generate();
+    await setGeneratedIdentity(sdk);
     const keyPackage = await sdk.identity.exportKeyPackage();
 
     await expect(
@@ -469,7 +474,7 @@ describe("Tearleads", () => {
 
   test("rejects identity key packages with mismatched signing key pairs", async () => {
     const sdk = new Tearleads({ logger: quietLogger });
-    await sdk.identity.generate();
+    await setGeneratedIdentity(sdk);
     const keyPackage = await sdk.identity.exportKeyPackage();
     const otherSigningKeyPair = generateSigningSeedAndKeyPair();
 
@@ -488,7 +493,7 @@ describe("Tearleads", () => {
 
   test("rejects identity key packages with mismatched encapsulation key pairs", async () => {
     const sdk = new Tearleads({ logger: quietLogger });
-    await sdk.identity.generate();
+    await setGeneratedIdentity(sdk);
     const keyPackage = await sdk.identity.exportKeyPackage();
     const otherEncapsulationKeyPair = generateKemSeedAndKeyPair();
 
@@ -509,7 +514,7 @@ describe("Tearleads", () => {
       database: { client: sqlClient, id: "client-db" },
       logger: quietLogger,
     });
-    await sdk.identity.generate();
+    await setGeneratedIdentity(sdk);
     sdk.session.setContext({
       containerId: "container-1",
       isAuthenticated: true,
@@ -933,7 +938,7 @@ describe("Tearleads", () => {
     expect(databaseScope).not.toBe(initialScope);
     expect(sdk.runtime.input().state.domainScope).toBe(databaseScope);
 
-    await sdk.identity.generate();
+    await setGeneratedIdentity(sdk);
     const identityScope = sdk.domainScope;
 
     expect(identityScope).not.toBe(databaseScope);
@@ -960,14 +965,13 @@ describe("Tearleads", () => {
     });
     await expect(sdk.session.registerIdentity()).resolves.toBeNull();
 
-    await sdk.identity.generate();
+    await setGeneratedIdentity(sdk);
     await expect(sdk.session.registerIdentity()).resolves.toBeNull();
 
     expect(messages).toEqual([
       "Registration skipped: container id is unavailable",
       "Registration skipped: signing key is unavailable",
       "Registration skipped: encapsulation key is unavailable",
-      "Key pair generated",
       "Registration skipped: database client is unavailable",
     ]);
   });

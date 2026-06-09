@@ -84,12 +84,16 @@ export class Tearleads {
       this.log,
       {
         bootstrapLocalRootContainer: async () => {
-          if (
-            this.database.status !== "ready" ||
-            !this.database.execSql ||
-            !session
-          ) {
-            return null;
+          if (this.database.status !== "ready") {
+            throw new Error(
+              "identity.generate requires a ready SQLite database.",
+            );
+          }
+          this.database.requireExecSql("identity.generate");
+          if (!session) {
+            throw new Error(
+              "identity.generate requires an initialized session.",
+            );
           }
 
           return session.bootstrapLocalRootContainer();

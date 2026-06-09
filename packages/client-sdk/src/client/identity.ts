@@ -24,8 +24,8 @@ export interface IdentitySnapshot {
 }
 
 export interface IdentityGenerationResult extends IdentitySnapshot {
-  rootContainerCreated: boolean | null;
-  rootContainerId: string | null;
+  rootContainerCreated: boolean;
+  rootContainerId: string;
   userId: string | null;
 }
 
@@ -51,14 +51,14 @@ export interface Identity {
 }
 
 interface IdentityGenerationContext {
-  rootContainerCreated: boolean | null;
-  rootContainerId: string | null;
+  rootContainerCreated: boolean;
+  rootContainerId: string;
   userId: string | null;
 }
 
 interface IdentityRuntimeHooks {
   bootstrapLocalRootContainer?:
-    | (() => Promise<{ containerId: string; created: boolean } | null>)
+    | (() => Promise<{ containerId: string; created: boolean }>)
     | undefined;
   getUserId?: (() => string | null) | undefined;
 }
@@ -123,13 +123,21 @@ class IdentityService implements Identity {
   }
 
   async generate(): Promise<IdentityGenerationResult> {
-    this.signingKeyPairValue = generateSigningSeedAndKeyPair();
-    this.encapsulationKeyPairValue = generateKemSeedAndKeyPair();
-    await this.refreshSigningFingerprint();
+    const signingKeyPair = generateSigningSeedAndKeyPair();
+    const encapsulationKeyPair = generateKemSeedAndKeyPair();
+    const signingFingerprint = await toFingerprint(
+      signingKeyPair.signingPublicKey,
+    );
+    const generationContext = await this.createGenerationContext();
+
+    this.signingKeyPairValue = signingKeyPair;
+    this.encapsulationKeyPairValue = encapsulationKeyPair;
+    this.signingFingerprintValue = signingFingerprint;
+    this.publishSnapshot();
     this.log("Key pair generated");
     return {
       ...this.snapshot,
-      ...(await this.createGenerationContext()),
+      ...generationContext,
     };
   }
 
@@ -199,21 +207,27 @@ class IdentityService implements Identity {
   }
 
   private async createGenerationContext(): Promise<IdentityGenerationContext> {
-    let rootContainer: { containerId: string; created: boolean } | null = null;
-    if (this.runtimeHooks.bootstrapLocalRootContainer) {
-      try {
-        rootContainer = await this.runtimeHooks.bootstrapLocalRootContainer();
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.log(`Root container bootstrap failed: ${message}`);
+    try {
+      const bootstrapLocalRootContainer =
+        this.runtimeHooks.bootstrapLocalRootContainer;
+      if (!bootstrapLocalRootContainer) {
+        throw new Error(
+          "identity.generate requires local root container bootstrap.",
+        );
       }
-    }
 
-    return {
-      rootContainerCreated: rootContainer?.created ?? null,
-      rootContainerId: rootContainer?.containerId ?? null,
-      userId: this.runtimeHooks.getUserId?.() ?? null,
-    };
+      const rootContainer = await bootstrapLocalRootContainer();
+
+      return {
+        rootContainerCreated: rootContainer.created,
+        rootContainerId: rootContainer.containerId,
+        userId: this.runtimeHooks.getUserId?.() ?? null,
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log(`Root container bootstrap failed: ${message}`);
+      throw error;
+    }
   }
 
   private notifyListeners(): void {

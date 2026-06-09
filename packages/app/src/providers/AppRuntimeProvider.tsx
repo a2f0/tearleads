@@ -19,11 +19,11 @@ export function AppRuntimeProvider({
     <AppHostConfigProvider value={hostConfig}>
       <LogProvider>
         <TearleadsProvider>
-          <IdentityProvider>
-            <DatabaseProvider>
+          <DatabaseProvider>
+            <IdentityProvider>
               <CryptoSessionProvider>{children}</CryptoSessionProvider>
-            </DatabaseProvider>
-          </IdentityProvider>
+            </IdentityProvider>
+          </DatabaseProvider>
         </TearleadsProvider>
       </LogProvider>
     </AppHostConfigProvider>

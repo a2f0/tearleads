@@ -12,5 +12,6 @@ export class AppHostConfig {
     readonly createBlobStore?: BlobStoreFactory,
     readonly localIdentityNamespace?: string | undefined,
     readonly createLocalKeyring?: CreateLocalKeyringFn | undefined,
+    readonly disableLocalIdentityPersistence?: boolean | undefined,
   ) {}
 }

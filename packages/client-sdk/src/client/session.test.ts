@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+} from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createResponseFromRequest } from "../../test/helpers/documentFixtures";
 import type { ExecSql, ExecSqlClientLike } from "../sqlite";
@@ -88,6 +92,13 @@ function createSessionHarness(
   };
 }
 
+async function setGeneratedIdentity(identity: Identity) {
+  await identity.setKeyPairs({
+    encapsulationKeyPair: generateKemSeedAndKeyPair(),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+}
+
 describe("session", () => {
   test("registers the current identity through the api client", async () => {
     const { close, execSql } = await createTestExecSql(
@@ -138,7 +149,7 @@ describe("session", () => {
     });
 
     try {
-      await identity.generate();
+      await setGeneratedIdentity(identity);
       session.setContainerId(containerId);
 
       const result = await session.registerIdentity();
@@ -185,7 +196,7 @@ describe("session", () => {
     });
 
     try {
-      await identity.generate();
+      await setGeneratedIdentity(identity);
       session.setContainerId(crypto.randomUUID());
 
       await expect(session.registerIdentity()).rejects.toThrow(
@@ -217,7 +228,7 @@ describe("session", () => {
       },
     });
     const { identity, session } = createSessionHarness({ api });
-    await identity.generate();
+    await setGeneratedIdentity(identity);
 
     await expect(session.login()).resolves.toBe(true);
 
@@ -232,7 +243,7 @@ describe("session", () => {
   test("login fails when authentication returns no token", async () => {
     const api = createApi({ authenticate: async () => null });
     const { identity, session } = createSessionHarness({ api });
-    await identity.generate();
+    await setGeneratedIdentity(identity);
     session.setAuthToken("stale-token");
 
     await expect(session.login()).resolves.toBe(false);

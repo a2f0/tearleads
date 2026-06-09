@@ -16,9 +16,13 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
     createBlobStore,
     createLocalKeyring,
     createSQLiteRuntime,
+    disableLocalIdentityPersistence,
     localIdentityNamespace,
     wsUrl,
   } = hostConfig;
+  const paneLocalIdentityNamespace = disableLocalIdentityPersistence
+    ? undefined
+    : `${localIdentityNamespace ?? "tearleads.pane"}.${side}`;
   const paneHostConfig = useMemo(
     () =>
       new PaneAppHostConfig(
@@ -26,15 +30,18 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
         wsUrl,
         createSQLiteRuntime,
         createBlobStore,
-        `${localIdentityNamespace ?? "tearleads.pane"}.${side}`,
+        paneLocalIdentityNamespace,
         createLocalKeyring,
+        disableLocalIdentityPersistence,
       ),
     [
       apiBaseUrl,
       createBlobStore,
       createLocalKeyring,
       createSQLiteRuntime,
+      disableLocalIdentityPersistence,
       localIdentityNamespace,
+      paneLocalIdentityNamespace,
       side,
       wsUrl,
     ],

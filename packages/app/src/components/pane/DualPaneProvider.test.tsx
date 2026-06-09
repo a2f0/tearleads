@@ -1,5 +1,4 @@
 import { afterEach, expect, test } from "bun:test";
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   act,
   cleanup,
@@ -15,16 +14,14 @@ import {
   AppTestRuntimeScopeProbe,
   waitForAppTestRuntimeToSettle,
 } from "../../../test/helpers/appRuntimeIdle";
-import { MockWorker } from "../../../test/helpers/mockWorker";
 import {
   getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
-  wsUrl,
 } from "../../../test/helpers/mswServer";
+import { createTestHostConfig } from "../../../test/helpers/paneTestUtils";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { AppHostConfig } from "../../host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
 import { ORG_MANAGER_LABELS } from "../../mini-apps/org-manager/labels";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
@@ -134,9 +131,7 @@ function PaneAutoProvisioner() {
 }
 
 function renderDualPane() {
-  const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
-    createSQLiteRuntime({ workerConstructor: MockWorker }),
-  );
+  const hostConfig = createTestHostConfig();
 
   return render(
     <DualPaneProvider>
@@ -163,9 +158,7 @@ function renderSinglePane({
 }: {
   autoProvision?: boolean;
 } = {}) {
-  const hostConfig = new AppHostConfig("http://localhost:3001", wsUrl, () =>
-    createSQLiteRuntime({ workerConstructor: MockWorker }),
-  );
+  const hostConfig = createTestHostConfig();
 
   return render(
     <DualPaneProvider>
