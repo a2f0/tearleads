@@ -11,28 +11,55 @@ SDK setup.
 Create one SDK instance for the active client environment:
 
 ```ts
+import { Tearleads } from "@tearleads/client-sdk";
+
+const tearleads = new Tearleads();
+```
+
+All constructor options are optional. The minimal instance uses same-origin API
+routes, memory blob storage, default logging, and an idle database. Publish an
+initialized SQLite runtime when persistence, sync, or identity generation is
+needed:
+
+```ts
+tearleads.database.configure({
+  client: sqliteRuntime.client,
+  id: sqliteRuntime.id,
+});
+```
+
+Single-identity clients can ask the constructor to start local identity
+provisioning once SQLite becomes ready:
+
+```ts
+const tearleads = new Tearleads({
+  identityProvisioning: "auto",
+});
+```
+
+Automatic provisioning calls `tearleads.identity.generate()` when no signing key
+pair exists and the database is ready. Hosts that need the root container id
+immediately can keep the explicit call after configuring SQLite:
+
+```ts
+const { rootContainerId } = await tearleads.identity.generate();
+```
+
+## Advanced Configuration
+
+Hosts that own API routing, encrypted blob storage, keyring-derived
+`localKeys`, and logging can pass those adapters explicitly:
+
+```ts
 import {
   createEncryptedBlobStore,
-  createLocalKeyring,
-  createMemoryLocalKeyringManifestStore,
-  createMemoryWrappingKeyKeystore,
   Tearleads,
 } from "@tearleads/client-sdk";
 import {
   createSQLiteRuntime,
-  type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 
-const sqliteRuntime: SQLiteRuntime = createSQLiteRuntime();
-const localKeyring = createLocalKeyring({
-  // Development only. Production hosts should provide a platform keystore and
-  // persisted manifest store.
-  keystore: createMemoryWrappingKeyKeystore(),
-  manifestStore: createMemoryLocalKeyringManifestStore(),
-});
-const localKeys = await localKeyring.getOrCreateSession({
-  namespace: "development",
-});
+const sqliteRuntime = createSQLiteRuntime();
 await sqliteRuntime.client.init({
   dbName: "/app-identity.db",
   cipher: "chacha20",
@@ -54,30 +81,6 @@ const tearleads = new Tearleads({
 });
 
 const { rootContainerId } = await tearleads.identity.generate();
-
-const document = tearleads.documents.open({
-  containerId: rootContainerId,
-  initialText: "Draft note",
-  localId: "draft-note",
-});
-await document.setText("Updated note text");
-
-const notes = await tearleads.documents.list({
-  limit: 50,
-  offset: 0,
-  sort: { direction: "desc", key: "updated" },
-});
-
-const containerTree = tearleads.containerContents.openTree();
-await containerTree.refresh();
-
-const firstContainerPage =
-  await tearleads.containerContents.documentQueries().listContainerItemWindow({
-    containerId: rootContainerId,
-    limit: 50,
-    offset: 0,
-    sort: { direction: "asc", key: "name" },
-  });
 ```
 
 The instance intentionally groups client capabilities by responsibility:
@@ -91,8 +94,8 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
-| `tearleads.documents` | opening one editable document, paged document lists, document deletion, document subscriptions, and document workflow runtime composition |
-| `tearleads.containerContents` | the container tree store, container document query helpers, document-link operations, discovery, diagnostics, and workflow runtime composition |
+| `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
+| `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product queries and recipient UIs |
 
@@ -133,15 +136,10 @@ Host and workflow integration code should use these grouped fields so a
 consumer's dependency boundary is visible. Runtime snapshots expose grouped
 capabilities only.
 
-`tearleads.containerContents.workflowRuntime()` creates the lower-level
-container-contents workflow runtime for advanced host stores and custom
-workflows. It packages the current API client, auth/session ids, identity keys,
-SQLite/blob infrastructure, current container id, domain scope, events, online
-state, and SDK utility callbacks into the shape expected by
-`workflows/container-contents`. Most product code should use the higher-level
-container contents methods instead: `openTree()`, `documentQueries()`,
-`documentLinks()`, `discoverContainerDocuments(...)`,
-`refreshAllContainerDocuments()`, and the diagnostic loaders.
+`tearleads.containerContents.workflowRuntime()` remains available for advanced
+host stores that need the lower-level container contents runtime. Most product
+code should use `openTree()`, `documentQueries()`, `documentLinks()`, discovery,
+refresh helpers, and diagnostic loaders.
 
 ## Constructor Options
 
@@ -156,10 +154,15 @@ const tearleads = new Tearleads({
   documentProjectors,
   events,
   identity,
+  identityProvisioning,
   logger,
   online,
 });
 ```
+
+Every option is optional. Defaults are local and host-neutral: same-origin API
+paths, memory blob storage, ignored `log` messages, `console.error` errors, and
+an idle database.
 
 `documentProjectors` may be either a prebuilt `DocumentProjectorRegistry` or a
 readonly array of `DocumentProjectorDefinition` values. Prefer passing
@@ -172,12 +175,11 @@ Use `database.client` for a SQLite worker client that implements
 `ExecSqlClientLike`; the SDK creates the canonical `ExecSql` adapter from it.
 Use `database.execSql` only when the host already owns executor construction.
 
-`new Tearleads(...)` does not initialize SQLite or call `client.init(...)`; the
-constructor stays synchronous and only captures the current database `client`,
-`execSql`, and `id`, deriving status unless the host supplies an explicit
-lifecycle override. If the host has already initialized the worker, pass the
-runtime into the constructor; the SDK infers `status: "ready"` from the
-configured client or executor:
+`new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
+constructor only captures the current database `client`, `execSql`, and `id`,
+deriving status unless the host supplies an explicit lifecycle override. If the
+host has already initialized the worker, pass the runtime into the constructor;
+the SDK infers `status: "ready"` from the configured client or executor:
 
 ```ts
 new Tearleads({
@@ -268,6 +270,12 @@ synchronous, so constructor-provided identity key pairs are available through
 `tearleads.identity.snapshot`, but callers should use
 `refreshSigningFingerprint()` or `setKeyPairs(...)` when they need the derived
 fingerprint asynchronously.
+
+Set `identityProvisioning: "auto"` to provision a single-identity SDK instance
+once SQLite is available. It schedules `identity.generate()` when the database
+is ready and no signing key pair exists, and does not initialize SQLite, replace
+an existing signing key, block the constructor, or provision again after a
+successful automatic provisioning.
 
 When an identity fingerprint is available, the default blob store switches from
 an ephemeral memory store to the identity-scoped store returned by

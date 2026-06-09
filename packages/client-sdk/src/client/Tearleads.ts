@@ -36,6 +36,7 @@ export interface ClientOptions {
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   events?: ReadonlyArray<unknown> | undefined;
   identity?: IdentityOptions | undefined;
+  identityProvisioning?: "auto" | "manual" | undefined;
   logger?: Logger | undefined;
   online?: boolean | undefined;
 }
@@ -64,6 +65,8 @@ export class Tearleads {
     cause?: unknown,
   ) => void;
   private readonly logHandler: (message: string) => void;
+  private autoIdentityProvisioned = false;
+  private autoIdentityProvisioningPromise: Promise<void> | null = null;
 
   constructor(options: ClientOptions = {}) {
     this.apiClient = new ApiClient(options.apiBaseUrl ?? "");
@@ -138,6 +141,10 @@ export class Tearleads {
     this.apiClient.setOnError((message) => this.logError(message));
     this.apiClient.setOnNetworkError(() => this.network.setOnline(false));
     this.apiClient.setOnNetworkSuccess(() => this.network.setOnline(true));
+
+    if (options.identityProvisioning === "auto") {
+      this.startAutomaticIdentityProvisioning();
+    }
   }
 
   log = (message: string): void => {
@@ -159,5 +166,46 @@ export class Tearleads {
     }
 
     return this.domainScopeValue;
+  }
+
+  private startAutomaticIdentityProvisioning(): void {
+    let unsubscribe: (() => void) | null = null;
+    const stopProvisioningListener = () => {
+      unsubscribe?.();
+      unsubscribe = null;
+    };
+    const maybeProvisionIdentity = () => {
+      if (this.autoIdentityProvisioned || this.identity.signingKeyPair) {
+        stopProvisioningListener();
+        return;
+      }
+
+      if (
+        this.autoIdentityProvisioningPromise ||
+        this.database.status !== "ready"
+      ) {
+        return;
+      }
+
+      this.autoIdentityProvisioningPromise = this.identity
+        .generate()
+        .then(() => {
+          this.autoIdentityProvisioned = true;
+          stopProvisioningListener();
+        })
+        .catch((error: unknown) => {
+          try {
+            this.logError("Automatic identity provisioning failed", error);
+          } catch {
+            // Keep background provisioning failures from surfacing as unhandled rejections.
+          }
+        })
+        .finally(() => {
+          this.autoIdentityProvisioningPromise = null;
+        });
+    };
+
+    unsubscribe = this.database.subscribe(maybeProvisionIdentity);
+    void Promise.resolve().then(maybeProvisionIdentity);
   }
 }
