@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Tearleads, UserSession } from "@tearleads/client-sdk";
-import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { act, cleanup, render, waitFor, within } from "@testing-library/react";
 import { type PropsWithChildren, useEffect } from "react";
@@ -32,7 +32,7 @@ const TEST_HOST_CONFIG = new AppHostConfig(
   "http://api.example.test",
   "ws://events.example.test",
   () =>
-    createModuleSQLiteRuntime({
+    createSQLiteRuntime({
       workerConstructor: MockWorker,
     }),
 );

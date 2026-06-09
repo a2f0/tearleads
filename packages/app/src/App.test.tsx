@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { cleanup, render } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
@@ -30,7 +30,7 @@ test("renders App", async () => {
             "http://localhost:3001",
             "ws://localhost:3002",
             () =>
-              createModuleSQLiteRuntime({
+              createSQLiteRuntime({
                 workerConstructor: MockWorker,
               }),
           )

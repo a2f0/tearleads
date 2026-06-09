@@ -4,7 +4,7 @@ import type {
   Tearleads,
 } from "@tearleads/client-sdk";
 import {
-  createModuleSQLiteRuntime,
+  createSQLiteRuntime as createDefaultSQLiteRuntime,
   type SQLiteRuntime,
 } from "@tearleads/client-sdk/sqlite";
 import {
@@ -273,7 +273,7 @@ function useManagedSQLiteRuntime(
 }
 
 export function DatabaseProvider({ children }: PropsWithChildren) {
-  const { createSQLiteRuntime = createModuleSQLiteRuntime } =
+  const { createSQLiteRuntime = createDefaultSQLiteRuntime } =
     useAppHostConfig();
   const tearleads = useTearleads();
   const { log } = useLog();

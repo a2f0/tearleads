@@ -5,7 +5,7 @@ import {
   createMemoryWrappingKeyKeystore,
   type LocalKeyring,
 } from "@tearleads/client-sdk";
-import { createModuleSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import {
   act,
   cleanup,
@@ -49,7 +49,7 @@ export function createTestHostConfig(
     "http://localhost:3001",
     wsUrl,
     () =>
-      createModuleSQLiteRuntime({
+      createSQLiteRuntime({
         workerConstructor: MockWorker,
       }),
     undefined,
