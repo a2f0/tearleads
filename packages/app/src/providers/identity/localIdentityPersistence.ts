@@ -216,6 +216,7 @@ async function restorePersistedLocalIdentity(input: {
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly isCancelled: () => boolean;
   readonly localPersistence: LocalIdentityPersistence;
+  readonly onRestored: (signingFingerprint: string | null) => void;
   readonly tearleads: Tearleads;
 }): Promise<void> {
   const observedGenerationId = input.generationIdRef.current;
@@ -254,7 +255,9 @@ async function restorePersistedLocalIdentity(input: {
         return;
       }
 
-      await input.tearleads.identity.importKeyPackage(keyPackage);
+      const snapshot =
+        await input.tearleads.identity.importKeyPackage(keyPackage);
+      input.onRestored(snapshot.signingFingerprint);
       input.tearleads.log("Local identity key package restored");
     } finally {
       if (input.generationIdRef.current === generationId) {
@@ -270,6 +273,7 @@ export function useRestoreLocalIdentity(input: {
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly localPersistence: LocalIdentityPersistence | null;
+  readonly onRestored: (signingFingerprint: string | null) => void;
   readonly signingKeyPair: SigningKeyPair | null;
   readonly tearleads: Tearleads;
 }): void {
@@ -277,6 +281,7 @@ export function useRestoreLocalIdentity(input: {
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onRestored,
     signingKeyPair,
     tearleads,
   } = input;
@@ -292,6 +297,7 @@ export function useRestoreLocalIdentity(input: {
       generationInFlight,
       isCancelled: () => cancelled,
       localPersistence,
+      onRestored,
       tearleads,
     }).catch((error: unknown) => {
       tearleads.logError("Failed to restore local identity key package", error);
@@ -304,6 +310,7 @@ export function useRestoreLocalIdentity(input: {
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onRestored,
     signingKeyPair,
     tearleads,
   ]);

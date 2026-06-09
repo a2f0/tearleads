@@ -81,6 +81,39 @@ test("generated pane key pair rehydrates after remount", async () => {
   reloadedView.unmount();
 });
 
+test("registered pane identity reauthenticates after remount", async () => {
+  const hostConfig = createTestHostConfig({
+    createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+    localIdentityNamespace: `test-pane-session-reload-${crypto.randomUUID()}`,
+  });
+  const view = renderPane({ hostConfig });
+
+  await generateIdentityAndWaitForDb(view);
+  const userId = await registerAndWaitForUserId(view);
+  await waitFor(() => {
+    expect(view.queryByText(/session: none/)).toBeNull();
+  });
+  view.unmount();
+
+  const reloadedView = renderPane({ hostConfig });
+  await waitFor(
+    () => {
+      expect(reloadedView.getByText(/sqlite worker: ready/)).toBeTruthy();
+      expect(
+        reloadedView.getByText(new RegExp(`userId: ${userId}`)),
+      ).toBeTruthy();
+      expect(reloadedView.queryByText(/session: none/)).toBeNull();
+      expect(
+        reloadedView.getByText(/Local identity key package restored/),
+      ).toBeTruthy();
+      expect(reloadedView.getByText(/Authentication successful/)).toBeTruthy();
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
+
+  reloadedView.unmount();
+});
+
 test("local identity restore does not overwrite generate clicks while loading", async () => {
   const createSharedLocalKeyring = createSharedMemoryLocalKeyringFactory();
   const localIdentityNamespace = `test-pane-restore-race-${crypto.randomUUID()}`;

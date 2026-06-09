@@ -391,7 +391,6 @@ const server = setupServer(
       userId: crypto.randomUUID(),
     };
     mockAuthContext = context;
-
     return HttpResponse.json<RegistrationResponse>({
       userId: context.userId,
       organizationId: context.organizationId,
@@ -406,13 +405,15 @@ const server = setupServer(
       challenge: randomHex(32),
     });
   }),
+  http.post("http://localhost:3001/auth/challenge", () =>
+    HttpResponse.json({ challenge: randomHex(32) }),
+  ),
   http.post("http://localhost:3001/auth/verify", () => {
     const context = mockAuthContext ?? {
       organizationId: crypto.randomUUID(),
       userId: crypto.randomUUID(),
     };
     mockAuthContext = context;
-
     return HttpResponse.json<VerifyResponse>({
       authenticated: true,
       organizationId: context.organizationId,
@@ -502,8 +503,7 @@ function clearMswSocketClientStore(): void {
     return;
   }
 
-  // MSW keeps WebSocket clients in its own manager; closing the client does
-  // not remove it from eventsSocket.clients in happy-dom/Bun.
+  // Reset MSW's WebSocket client manager in happy-dom/Bun.
   window.dispatchEvent(
     new MessageEvent("message", {
       data: { type: "msw/worker:stop" },
@@ -512,7 +512,6 @@ function clearMswSocketClientStore(): void {
 }
 
 async function drainSocketClients(): Promise<void> {
-  // Let component unmount cleanups call ws.close() before forcing shutdown.
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   for (const client of eventsSocket.clients) {
