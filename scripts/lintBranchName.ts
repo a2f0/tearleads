@@ -4,6 +4,11 @@ interface CommitlintConfig {
   readonly rules: Record<string, unknown>;
 }
 
+interface CommitlintConfigModule {
+  readonly commitHeaderMaxLength: number;
+  readonly default: CommitlintConfig;
+}
+
 const branchNamePattern =
   /^(?<type>[a-z][a-z0-9-]*)\/(?<name>[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9][a-z0-9._-]*)*)$/;
 const exemptBranchNames = new Set(["main"]);
@@ -16,16 +21,26 @@ function isCommitlintConfig(value: unknown): value is CommitlintConfig {
   return isRecord(value) && isRecord(value.rules);
 }
 
-async function loadCommitlintConfig(): Promise<CommitlintConfig> {
+function isCommitlintConfigModule(
+  value: unknown,
+): value is CommitlintConfigModule {
+  return (
+    isRecord(value) &&
+    typeof value.commitHeaderMaxLength === "number" &&
+    isCommitlintConfig(value.default)
+  );
+}
+
+async function loadCommitlintConfigModule(): Promise<CommitlintConfigModule> {
   const module: unknown = await import(
     new URL("../commitlint.config.mts", import.meta.url).href
   );
 
-  if (!isRecord(module) || !isCommitlintConfig(module.default)) {
+  if (!isCommitlintConfigModule(module)) {
     throw new Error("commitlint config is not configured as expected.");
   }
 
-  return module.default;
+  return module;
 }
 
 function listConventionalTypes(
@@ -69,13 +84,26 @@ function formatBranchName(
   ].join("\n");
 }
 
+function formatBranchNameLength(branchName: string, maxLength: number): string {
+  return [
+    `Invalid branch name: ${branchName}`,
+    `Expected: ${maxLength} characters or fewer, matching commitlint header-max-length.`,
+    `Received: ${branchName.length} characters.`,
+  ].join("\n");
+}
+
 function lintBranchName(
   branchName: string,
   conventionalTypes: ReadonlySet<string>,
   conventionalTypeNames: readonly string[],
+  branchNameMaxLength: number,
 ): string | undefined {
   if (exemptBranchNames.has(branchName)) {
     return undefined;
+  }
+
+  if (branchName.length > branchNameMaxLength) {
+    return formatBranchNameLength(branchName, branchNameMaxLength);
   }
 
   if (branchName !== branchName.toLowerCase()) {
@@ -98,8 +126,10 @@ function isDefined<T>(value: T | undefined): value is T {
   return value !== undefined;
 }
 
-const commitlintConfig = await loadCommitlintConfig();
-const conventionalTypeNames = listConventionalTypes(commitlintConfig);
+const commitlintConfigModule = await loadCommitlintConfigModule();
+const conventionalTypeNames = listConventionalTypes(
+  commitlintConfigModule.default,
+);
 const conventionalTypes = new Set(conventionalTypeNames);
 const branchNames = process.argv.slice(2);
 const branchNamesToLint =
@@ -111,6 +141,7 @@ const errors = branchNamesToLint.flatMap((branchName) => {
     branchName,
     conventionalTypes,
     conventionalTypeNames,
+    commitlintConfigModule.commitHeaderMaxLength,
   );
   return error === undefined ? [] : [error];
 });
