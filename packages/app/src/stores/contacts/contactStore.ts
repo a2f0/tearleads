@@ -164,12 +164,6 @@ function ensureContactDocumentStore(
     }
   });
   state.contactDocumentStoresById.set(contactId, { store, unsubscribe });
-  void store.ensureInitialized().catch((error: unknown) => {
-    state.dependencies.logError(
-      "Contacts: failed to initialize contact.",
-      error,
-    );
-  });
   return store;
 }
 
@@ -246,11 +240,6 @@ async function writeContactPatch(
   patch: ContactEntryPatch,
 ): Promise<void> {
   const store = ensureContactDocumentStore(state, contactId);
-  const ready = await store.ensureInitialized();
-  if (!ready) {
-    return;
-  }
-
   await store.setStructuredFields(
     "contact",
     contactEntryToStructuredFieldPatch(patch),

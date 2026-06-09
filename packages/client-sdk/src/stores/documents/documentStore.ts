@@ -124,18 +124,18 @@ function createBackingDocumentStore(
 
   return {
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
-      attachFilesToDocumentStore(state, files),
+      attachFilesToDocumentStore(state, scheduleSync, files),
     ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
     setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      setAttachmentInDocumentStore(state, slotId, file),
+      setAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      replaceAttachmentInDocumentStore(state, slotId, file),
+      replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     requestSync: () => scheduleSync(),
-    relink: (input) => relinkDocumentStore(state, input),
+    relink: (input) => relinkDocumentStore(state, input, scheduleSync),
     setStructuredFields: (kind, patch) =>
-      setDocumentStructuredFields(state, kind, patch),
-    setText: (value: string) => setDocumentText(state, value),
+      setDocumentStructuredFields(state, scheduleSync, kind, patch),
+    setText: (value: string) => setDocumentText(state, scheduleSync, value),
     subscribe: (listener: () => void) =>
       subscribeToDocumentStore(state, listener),
     updateRuntime: (runtime: DocumentsRuntime) =>

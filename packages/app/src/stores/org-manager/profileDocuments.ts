@@ -116,14 +116,13 @@ export async function createRosterProfileDocument(input: {
     }),
   });
 
-  if (!(await store.ensureInitialized())) {
-    return null;
-  }
-
   await store.setStructuredFields(
     "contact",
     getRosterProfileDocumentPatch(input.user),
   );
+  if (!store.getSnapshot().ready) {
+    return null;
+  }
   store.requestSync();
 
   return waitForRemoteDocumentId(store);
@@ -143,16 +142,15 @@ export async function createOrganizationProfileDocument(input: {
     }),
   });
 
-  if (!(await store.ensureInitialized())) {
-    return null;
-  }
-
   await store.setStructuredFields(
     ORGANIZATION_PROFILE_DOCUMENT_KIND,
     getOrganizationProfileDocumentPatch({
       name: input.name ?? DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
     }),
   );
+  if (!store.getSnapshot().ready) {
+    return null;
+  }
   store.requestSync();
 
   return waitForRemoteDocumentId(store);

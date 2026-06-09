@@ -13,6 +13,7 @@ interface CreatedImportStore {
   containerId: string;
   initialDocumentKind: StoredDocumentKind;
   initialText: string;
+  ready: boolean;
   localId: string;
   structuredFieldKind: StoredDocumentKind | null;
   structuredFields: Record<string, string | undefined>;
@@ -94,6 +95,7 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
       containerId,
       initialDocumentKind,
       initialText,
+      ready: false,
       localId,
       structuredFieldKind: null,
       structuredFields: {},
@@ -111,6 +113,7 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
         return {
           documentId: null,
           documentKind: createdStore.initialDocumentKind,
+          ready: createdStore.ready,
           title: fileName ?? createdStore.initialText ?? "Untitled",
         };
       },
@@ -121,8 +124,13 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
         kind: Exclude<StoredDocumentKind, "note">,
         patch: Readonly<Record<string, string | undefined>>,
       ) => {
+        createdStore.ready = true;
         createdStore.structuredFieldKind = kind;
         createdStore.structuredFields = { ...patch };
+      },
+      setText: async (value: string) => {
+        createdStore.ready = true;
+        createdStore.initialText = value;
       },
     };
   };

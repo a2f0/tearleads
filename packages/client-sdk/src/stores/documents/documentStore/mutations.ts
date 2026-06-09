@@ -10,15 +10,17 @@ import {
 } from "../../../data/documents/documentKinds";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentStructuredFieldPatch } from "../types";
+import { ensureDocumentStoreReady } from "./initialization";
 import { enqueuePendingUpdate, persistDocument } from "./persistence";
 import { type DocumentStoreState, setDocumentSnapshot } from "./state";
 
-export function setDocumentText(
+export async function setDocumentText(
   state: DocumentStoreState,
+  scheduleSync: () => void,
   value: string,
 ): Promise<void> {
-  if (!state.doc) {
-    return Promise.resolve();
+  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
+    return;
   }
 
   setDocumentSnapshot(state, {
@@ -68,13 +70,14 @@ export function setDocumentText(
   return state.writeChain;
 }
 
-export function setDocumentStructuredFields(
+export async function setDocumentStructuredFields(
   state: DocumentStoreState,
+  scheduleSync: () => void,
   kind: Exclude<StoredDocumentKind, "note">,
   patch: DocumentStructuredFieldPatch,
 ): Promise<void> {
-  if (!state.doc) {
-    return Promise.resolve();
+  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
+    return;
   }
 
   const nextStructuredFields = { ...state.snapshot.structuredFields };

@@ -127,7 +127,7 @@ export function ensureDocumentStoreInitialized(
     return;
   }
 
-  state.initializePromise = initializeDocumentStore(state, scheduleSync).catch(
+  const initializePromise = initializeDocumentStore(state, scheduleSync).catch(
     (error: unknown) => {
       state.initializePromise = null;
 
@@ -138,6 +138,8 @@ export function ensureDocumentStoreInitialized(
       throw error;
     },
   );
+  state.initializePromise = initializePromise;
+  void initializePromise.catch(() => undefined);
 }
 
 export async function awaitInitializationForSync(state: DocumentStoreState) {
@@ -177,8 +179,9 @@ export async function ensureDocumentStoreReady(
 export async function relinkDocumentStore(
   state: DocumentStoreState,
   input: DocumentStoreRelinkInput,
+  scheduleSync: () => void,
 ): Promise<DocumentSummary | null> {
-  if (!state.doc) {
+  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
     return null;
   }
 

@@ -12,6 +12,7 @@ import {
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
+import { ensureDocumentStoreReady } from "./initialization";
 import {
   enqueuePendingUpdate,
   persistDocument,
@@ -232,11 +233,24 @@ async function persistSlotAttachmentFile(
   requestDocumentStoreSync(state);
 }
 
-export function attachFilesToDocumentStore(
+export async function attachFilesToDocumentStore(
   state: DocumentStoreState,
+  scheduleSync: () => void,
   files: ReadonlyArray<DocumentAttachmentUpload>,
 ) {
-  if (files.length === 0 || !state.doc) {
+  if (files.length === 0) {
+    return;
+  }
+
+  let ready: boolean;
+  try {
+    ready = await ensureDocumentStoreReady(state, scheduleSync);
+  } catch (error) {
+    console.error("Failed to attach document files:", error);
+    return;
+  }
+
+  if (!ready || !state.doc) {
     return;
   }
 
@@ -246,14 +260,24 @@ export function attachFilesToDocumentStore(
     .catch((error: unknown) => {
       console.error("Failed to attach document files:", error);
     });
+  return state.writeChain;
 }
 
-export function replaceAttachmentInDocumentStore(
+export async function replaceAttachmentInDocumentStore(
   state: DocumentStoreState,
+  scheduleSync: () => void,
   slotId: string,
   file: DocumentAttachmentUpload,
 ) {
-  if (!state.doc) {
+  let ready: boolean;
+  try {
+    ready = await ensureDocumentStoreReady(state, scheduleSync);
+  } catch (error) {
+    console.error("Failed to replace document attachment:", error);
+    return;
+  }
+
+  if (!ready || !state.doc) {
     return;
   }
 
@@ -263,12 +287,14 @@ export function replaceAttachmentInDocumentStore(
     .catch((error: unknown) => {
       console.error("Failed to replace document attachment:", error);
     });
+  return state.writeChain;
 }
 
 export function setAttachmentInDocumentStore(
   state: DocumentStoreState,
+  scheduleSync: () => void,
   slotId: string,
   file: DocumentAttachmentUpload,
 ) {
-  replaceAttachmentInDocumentStore(state, slotId, file);
+  return replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file);
 }

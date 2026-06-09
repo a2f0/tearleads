@@ -82,3 +82,33 @@ test("document store persists structured field edits as Loro updates", async () 
     title: "Credit Card ending in 1234",
   });
 });
+
+test("document store initializes before immediate structured field edits", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore(
+    "immediate-structured-card",
+    runtime,
+    persistence,
+    null,
+    "",
+    "credit_card",
+  );
+
+  store.updateRuntime(runtime);
+
+  await store.setStructuredFields("credit_card", {
+    cardNumber: "4111 1111 1111 9876",
+  });
+
+  expect(store.getSnapshot()).toMatchObject({
+    ready: true,
+    structuredFields: {
+      cardNumber: "4111 1111 1111 9876",
+    },
+    title: "Credit Card ending in 9876",
+  });
+  expect(persistence.getState().document).toMatchObject({
+    title: "Credit Card ending in 9876",
+  });
+});

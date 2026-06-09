@@ -132,18 +132,18 @@ async function loadRosterProfileDisplayName(input: {
   };
 
   input.unsubscribes.push(store.subscribe(applyDisplayName));
-  if (!(await store.ensureInitialized()) || input.isCancelled()) {
+  if (input.isCancelled()) {
     return;
   }
 
-  await store.relink(
+  const relinked = await store.relink(
     getRosterProfileDocumentRelinkInput({
       localId,
       profileContainerId: input.profileContainerId,
       profileDocumentId: input.user.profileDocumentId,
     }),
   );
-  if (input.isCancelled()) {
+  if (!relinked || input.isCancelled()) {
     return;
   }
 
