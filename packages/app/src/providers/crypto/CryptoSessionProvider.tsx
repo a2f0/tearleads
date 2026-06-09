@@ -118,6 +118,56 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   };
 }
 
+function useAutoLoginRestoredSession(input: {
+  readonly authToken: string | null;
+  readonly isAuthenticated: boolean;
+  readonly localIdentityRestoredFingerprint: string | null;
+  readonly logError: (message: string, error: unknown) => void;
+  readonly signingFingerprint: string | null;
+  readonly signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"];
+  readonly tearleads: ReturnType<typeof useTearleads>;
+}) {
+  const {
+    authToken,
+    isAuthenticated,
+    localIdentityRestoredFingerprint,
+    logError,
+    signingFingerprint,
+    signingKeyPair,
+    tearleads,
+  } = input;
+  const attemptedFingerprint = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!signingKeyPair || !signingFingerprint) {
+      attemptedFingerprint.current = null;
+      return;
+    }
+
+    if (
+      authToken ||
+      isAuthenticated ||
+      localIdentityRestoredFingerprint !== signingFingerprint ||
+      attemptedFingerprint.current === signingFingerprint
+    ) {
+      return;
+    }
+
+    attemptedFingerprint.current = signingFingerprint;
+    void tearleads.session.login().catch((error: unknown) => {
+      logError("Failed to authenticate restored local identity", error);
+    });
+  }, [
+    authToken,
+    isAuthenticated,
+    localIdentityRestoredFingerprint,
+    logError,
+    signingFingerprint,
+    signingKeyPair,
+    tearleads,
+  ]);
+}
+
 function useSdkBackedCryptoSessionState(
   tearleads: ReturnType<typeof useTearleads>,
 ) {
@@ -167,7 +217,11 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { logError } = useLog();
   const { client: dbClient, status: dbStatus } = useDatabase();
-  const { signingFingerprint, signingKeyPair } = useIdentity();
+  const {
+    localIdentityRestoredFingerprint,
+    signingFingerprint,
+    signingKeyPair,
+  } = useIdentity();
   const containerBootstrapped = useRef<string | null>(null);
   const sessionState = useSdkBackedCryptoSessionState(tearleads);
 
@@ -185,6 +239,15 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     dbClient,
     logError,
   );
+  useAutoLoginRestoredSession({
+    authToken: sessionState.authToken,
+    isAuthenticated: sessionState.isAuthenticated,
+    localIdentityRestoredFingerprint,
+    logError,
+    signingFingerprint,
+    signingKeyPair,
+    tearleads,
+  });
   const { login, loginWithChallenge, logout } = useCryptoAuthActions(tearleads);
 
   return (

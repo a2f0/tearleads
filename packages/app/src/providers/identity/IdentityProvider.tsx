@@ -7,6 +7,7 @@ import {
   useContext,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
@@ -25,6 +26,7 @@ interface IdentityContextValue {
   destroyKey: () => void;
   exportKeyPackage: () => Promise<IdentityKeyPackage>;
   generateKey: () => void;
+  localIdentityRestoredFingerprint: string | null;
   restoreKeyPackage: (keyPackage: unknown) => Promise<void>;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
@@ -37,6 +39,10 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
+  const [
+    localIdentityRestoredFingerprint,
+    setLocalIdentityRestoredFingerprint,
+  ] = useState<string | null>(null);
   const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
   const localPersistence = useLocalIdentityPersistence({
     createLocalKeyring: hostConfig.createLocalKeyring,
@@ -47,6 +53,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onRestored: setLocalIdentityRestoredFingerprint,
     signingKeyPair: snapshot.signingKeyPair,
     tearleads,
   });
@@ -85,6 +92,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
       destroyKey,
       exportKeyPackage,
       generateKey,
+      localIdentityRestoredFingerprint,
       restoreKeyPackage,
       signingFingerprint: snapshot.signingFingerprint,
       signingKeyPair: snapshot.signingKeyPair,
@@ -93,6 +101,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
       destroyKey,
       exportKeyPackage,
       generateKey,
+      localIdentityRestoredFingerprint,
       restoreKeyPackage,
       snapshot.encapsulationKeyPair,
       snapshot.signingFingerprint,
