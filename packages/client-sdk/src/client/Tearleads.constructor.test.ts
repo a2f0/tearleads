@@ -1,0 +1,78 @@
+import { describe, expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { loadContainers } from "../data/persistence/containers/containerPersistence";
+import type { Logger } from "./logger";
+import { Tearleads } from "./Tearleads";
+
+const quietLogger: Required<Logger> = {
+  log: () => undefined,
+  logError: () => undefined,
+};
+
+async function waitForProvisionedIdentity(sdk: Tearleads): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (sdk.identity.signingFingerprint && sdk.session.containerId) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+
+  throw new Error("Timed out waiting for identity provisioning.");
+}
+
+describe("Tearleads constructor", () => {
+  test("creates a minimal SDK instance without host adapters", () => {
+    const sdk = new Tearleads();
+
+    expect(sdk.database.snapshot).toEqual({
+      client: null,
+      execSql: null,
+      id: null,
+      status: "idle",
+    });
+    expect(sdk.identity.snapshot).toEqual({
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    });
+    expect(sdk.session.containerId).toBeNull();
+    expect(sdk.documents.open).toBeFunction();
+    expect(sdk.containerContents.openTree).toBeFunction();
+    expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
+  });
+
+  test("auto-provisions identity after SQLite becomes ready", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "tearleads-constructor-auto-provision-test",
+    );
+    try {
+      const sdk = new Tearleads({
+        identityProvisioning: "auto",
+        logger: quietLogger,
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(sdk.identity.signingFingerprint).toBeNull();
+      expect(sdk.session.containerId).toBeNull();
+
+      sdk.database.configure({ execSql, id: "client-db" });
+      await waitForProvisionedIdentity(sdk);
+
+      expect(sdk.identity.signingFingerprint).toMatch(/^[a-f0-9]{64}$/);
+      expect(sdk.identity.encapsulationKeyPair).not.toBeNull();
+      expect(sdk.identity.signingKeyPair).not.toBeNull();
+      expect(sdk.session.containerId).toHaveLength(36);
+      expect(await loadContainers(execSql)).toEqual([
+        expect.objectContaining({
+          id: sdk.session.containerId,
+          name: "/",
+          parentId: null,
+        }),
+      ]);
+    } finally {
+      close();
+    }
+  });
+});
