@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useDatabase } from "../db/DatabaseProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
@@ -36,6 +37,10 @@ const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 export function IdentityProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
+  const {
+    clearWorker: clearDatabase,
+    ensureIdentityReady: ensureIdentityDatabaseReady,
+  } = useDatabase();
   const tearleads = useTearleads();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
@@ -63,12 +68,14 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     tearleads,
   );
   const generateKey = useGenerateKey({
+    ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     persistLocalIdentity,
     tearleads,
   });
   const destroyKey = useDestroyKey({
+    clearDatabase,
     generationIdRef,
     generationInFlight,
     localPersistence,

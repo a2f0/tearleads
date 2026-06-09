@@ -1,8 +1,6 @@
 import { expect } from "bun:test";
 import {
-  createLocalKeyring,
-  createMemoryLocalKeyringManifestStore,
-  createMemoryWrappingKeyKeystore,
+  createMemoryBlobStore,
   type LocalKeyring,
 } from "@tearleads/client-sdk";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
@@ -29,6 +27,9 @@ import {
 } from "./appRuntimeIdle";
 import { MockWorker } from "./mockWorker";
 import { listProxiedApiRequests, resetMockServer, wsUrl } from "./mswServer";
+import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
+
+export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 
 export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
 export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
@@ -52,17 +53,11 @@ export function createTestHostConfig(
       createSQLiteRuntime({
         workerConstructor: MockWorker,
       }),
-    undefined,
+    () => createMemoryBlobStore(),
     options.localIdentityNamespace,
-    options.createLocalKeyring,
+    options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory(),
+    options.localIdentityNamespace === undefined,
   );
-}
-
-export function createSharedMemoryLocalKeyringFactory(): () => LocalKeyring {
-  const keystore = createMemoryWrappingKeyKeystore();
-  const manifestStore = createMemoryLocalKeyringManifestStore();
-
-  return () => createLocalKeyring({ keystore, manifestStore });
 }
 
 function createDeferred<T = void>() {
@@ -397,10 +392,35 @@ export async function waitForPaneRuntimeToSettle(
 const userIdStatusPattern =
   /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 const publicKeyStatusPattern = /publicKey:\s*([0-9a-f]+)/u;
+const LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX =
+  "tearleads.local-identity-key-package:";
+
+function paneLocalIdentityStorageKey(namespace: string): string {
+  return `${LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX}${namespace}.left`;
+}
+
+export async function waitForPersistedPaneLocalIdentity(
+  namespace: string,
+): Promise<void> {
+  await waitFor(
+    () => {
+      expect(
+        globalThis.localStorage.getItem(paneLocalIdentityStorageKey(namespace)),
+      ).not.toBeNull();
+    },
+    { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+  );
+}
+
+export function getPaneStatusText(view: ReturnType<typeof renderPane>): string {
+  const paneContent =
+    view.container.querySelector(".pane-content") ??
+    view.baseElement.querySelector(".pane-content");
+  return paneContent?.textContent ?? "";
+}
 
 export function getPanePublicKey(view: ReturnType<typeof renderPane>): string {
-  const statusText =
-    view.container.querySelector(".pane-content")?.textContent ?? "";
+  const statusText = getPaneStatusText(view);
   const match = publicKeyStatusPattern.exec(statusText);
   invariant(match?.[1], "Expected pane public key.");
   return match[1];
@@ -409,13 +429,27 @@ export function getPanePublicKey(view: ReturnType<typeof renderPane>): string {
 export async function generateIdentityAndWaitForDb(
   view: ReturnType<typeof renderPane>,
 ) {
-  fireEvent.click(view.getByText("Menu"));
-  fireEvent.click(view.getByText("Generate Key Pair"));
-
-  await waitFor(() => {
-    expect(view.getByText(/sqlite worker: ready/)).toBeTruthy();
-    expect(view.queryByText(/publicKey: none/)).toBeNull();
+  await act(async () => {
+    fireEvent.click(view.getByText("Menu"));
   });
+  await act(async () => {
+    fireEvent.click(view.getByText("Generate Key Pair"));
+  });
+
+  await waitFor(
+    () => {
+      const statusText = getPaneStatusText(view);
+      expect(statusText).toMatch(/sqlite worker:\s*ready/);
+      expect(statusText).toMatch(publicKeyStatusPattern);
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
+  await waitFor(
+    () => {
+      expect(view.getByText(/Root container (created|loaded)/)).toBeTruthy();
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
 }
 
 export async function registerAndWaitForUserId(
@@ -431,8 +465,7 @@ export async function registerAndWaitForUserId(
   let userId = "";
   await waitFor(
     () => {
-      const statusText =
-        view.container.querySelector(".pane-content")?.textContent ?? "";
+      const statusText = getPaneStatusText(view);
       const match = userIdStatusPattern.exec(statusText);
       expect(match).toBeTruthy();
       userId = match?.[1] ?? "";

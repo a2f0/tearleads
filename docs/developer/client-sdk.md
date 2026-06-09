@@ -53,12 +53,7 @@ const tearleads = new Tearleads({
   },
 });
 
-const identity = await tearleads.identity.generate();
-const rootContainerId = identity.rootContainerId;
-
-if (!rootContainerId) {
-  throw new Error("SQLite must be ready before local root setup can complete.");
-}
+const { rootContainerId } = await tearleads.identity.generate();
 
 const document = tearleads.documents.open({
   containerId: rootContainerId,
@@ -242,17 +237,23 @@ entry files and low-level SQLite tests may still import the underlying worker
 package when they are implementing or exercising the worker itself.
 
 Identity setup is asynchronous because the signing fingerprint is derived from
-the public key. When SQLite is already configured, `generate()` also creates or
-reuses the local root container and stores it on `tearleads.session.containerId`:
+the public key and local root setup requires SQLite. `generate()` requires a
+ready SQLite database, creates or reuses the local root container, and stores it
+on `tearleads.session.containerId` before resolving:
 
 ```ts
-const identity = await tearleads.identity.generate();
+const {
+  encapsulationKeyPair,
+  rootContainerCreated,
+  rootContainerId,
+  signingFingerprint,
+  signingKeyPair,
+  userId,
+} = await tearleads.identity.generate();
 
-identity.signingKeyPair;
-identity.encapsulationKeyPair;
-identity.signingFingerprint;
-identity.rootContainerId;
-identity.userId; // null until registration or login establishes a user
+rootContainerId; // available after generate() resolves
+rootContainerCreated; // true when generate() created the local root
+userId; // null until registration or login establishes a user
 
 await tearleads.identity.setKeyPairs({
   signingKeyPair,
@@ -260,11 +261,11 @@ await tearleads.identity.setKeyPairs({
 });
 ```
 
-If SQLite is not ready when `generate()` runs, `rootContainerId` and
-`rootContainerCreated` are `null`; configure the database and then call
-`tearleads.session.bootstrapLocalRootContainer()`. The `Tearleads` constructor
-stays synchronous, so constructor-provided identity key pairs are available
-through `tearleads.identity.snapshot`, but callers should use
+If SQLite is not ready or local root bootstrap fails when `generate()` runs, the
+promise rejects and the previous identity snapshot is left in place. Configure
+the database and then call `generate()` again. The `Tearleads` constructor stays
+synchronous, so constructor-provided identity key pairs are available through
+`tearleads.identity.snapshot`, but callers should use
 `refreshSigningFingerprint()` or `setKeyPairs(...)` when they need the derived
 fingerprint asynchronously.
 
