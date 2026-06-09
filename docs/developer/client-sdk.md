@@ -65,7 +65,6 @@ const document = tearleads.documents.open({
   initialText: "Draft note",
   localId: "draft-note",
 });
-await document.ensureInitialized();
 await document.setText("Updated note text");
 
 const notes = await tearleads.documents.list({
@@ -112,6 +111,12 @@ Product app code should prefer the instance surface:
 `tearleads.containerContents.openTree()`, and
 `tearleads.containerContents.documentQueries()`. Import lower-level store and
 workflow packages only when writing SDK internals or custom host integrations.
+
+Document stores initialize automatically before mutating operations such as
+`setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`, and
+`relink(...)`. Call `ensureInitialized()` only when host code needs an explicit
+readiness probe without performing a mutation, for example before reading a
+ready snapshot or deciding whether to show an unavailable-storage state.
 
 Host adapters that still need the raw workflow runtime contract should use
 `tearleads.runtime.input(containerId)` instead of reconstructing the dependency
