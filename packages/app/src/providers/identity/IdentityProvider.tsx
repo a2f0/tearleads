@@ -37,8 +37,10 @@ const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 export function IdentityProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
-  const { clearWorker: clearDatabase, ensureReady: ensureDatabaseReady } =
-    useDatabase();
+  const {
+    clearWorker: clearDatabase,
+    ensureIdentityReady: ensureIdentityDatabaseReady,
+  } = useDatabase();
   const tearleads = useTearleads();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
@@ -66,7 +68,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     tearleads,
   );
   const generateKey = useGenerateKey({
-    ensureDatabaseReady,
+    ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     persistLocalIdentity,

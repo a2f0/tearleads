@@ -93,7 +93,9 @@ function useBootstrapCryptoSessionContainer(
 function useEnsureDatabaseForIdentity(
   signingFingerprint: string | null,
   dbStatus: ReturnType<typeof useDatabase>["status"],
-  ensureDatabaseReady: ReturnType<typeof useDatabase>["ensureReady"],
+  ensureIdentityDatabaseReady: ReturnType<
+    typeof useDatabase
+  >["ensureIdentityReady"],
   logError: (message: string, error: unknown) => void,
 ) {
   useEffect(() => {
@@ -101,10 +103,12 @@ function useEnsureDatabaseForIdentity(
       return;
     }
 
-    void ensureDatabaseReady().catch((error: unknown) => {
-      logError("Failed to initialize SQLite for local identity", error);
-    });
-  }, [dbStatus, ensureDatabaseReady, logError, signingFingerprint]);
+    void ensureIdentityDatabaseReady(signingFingerprint).catch(
+      (error: unknown) => {
+        logError("Failed to initialize SQLite for local identity", error);
+      },
+    );
+  }, [dbStatus, ensureIdentityDatabaseReady, logError, signingFingerprint]);
 }
 
 function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
@@ -235,7 +239,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const { logError } = useLog();
   const {
     client: dbClient,
-    ensureReady: ensureDatabaseReady,
+    ensureIdentityReady: ensureIdentityDatabaseReady,
     status: dbStatus,
   } = useDatabase();
   const {
@@ -254,7 +258,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   useEnsureDatabaseForIdentity(
     signingFingerprint,
     dbStatus,
-    ensureDatabaseReady,
+    ensureIdentityDatabaseReady,
     logError,
   );
   useBootstrapCryptoSessionContainer(

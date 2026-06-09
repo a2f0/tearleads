@@ -4,7 +4,12 @@ import {
   type LocalKeyringScope,
   type Tearleads,
 } from "@tearleads/client-sdk";
-import type { SigningKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+  type SigningKeyPair,
+  toFingerprint,
+} from "@tearleads/crypto";
 import { type MutableRefObject, useCallback, useEffect, useMemo } from "react";
 import {
   decryptLocalIdentityKeyPackage,
@@ -264,7 +269,9 @@ async function deletePersistedLocalIdentity(
 }
 
 export function useGenerateKey(input: {
-  readonly ensureDatabaseReady: () => Promise<void>;
+  readonly ensureIdentityDatabaseReady: (
+    signingFingerprint: string,
+  ) => Promise<void>;
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly persistLocalIdentity: (
@@ -273,7 +280,7 @@ export function useGenerateKey(input: {
   readonly tearleads: Tearleads;
 }): () => void {
   const {
-    ensureDatabaseReady,
+    ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     persistLocalIdentity,
@@ -289,12 +296,21 @@ export function useGenerateKey(input: {
     generationIdRef.current = generationId;
     generationInFlight.current = true;
     void (async () => {
-      await ensureDatabaseReady();
+      const signingKeyPair = generateSigningSeedAndKeyPair();
+      const encapsulationKeyPair = generateKemSeedAndKeyPair();
+      const signingFingerprint = await toFingerprint(
+        signingKeyPair.signingPublicKey,
+      );
+      await ensureIdentityDatabaseReady(signingFingerprint);
       if (generationIdRef.current !== generationId) {
         return;
       }
 
-      await tearleads.identity.generate();
+      await tearleads.identity.setKeyPairs({
+        encapsulationKeyPair,
+        signingKeyPair,
+      });
+      await tearleads.session.bootstrapLocalRootContainer();
       if (generationIdRef.current !== generationId) {
         return;
       }
@@ -314,10 +330,13 @@ export function useGenerateKey(input: {
       }
 
       generationInFlight.current = false;
+      if (tearleads.identity.signingKeyPair) {
+        tearleads.identity.destroy();
+      }
       tearleads.logError("Failed to generate identity keys", error);
     });
   }, [
-    ensureDatabaseReady,
+    ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     persistLocalIdentity,

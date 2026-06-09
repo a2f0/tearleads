@@ -10,7 +10,7 @@ import {
 } from "@tearleads/client-sdk";
 
 export function createSharedMemoryLocalKeyringFactory(): () => LocalKeyring {
-  const identityKeysByScopeKey = new Map<string, Uint8Array<ArrayBuffer>>();
+  const identityKeysByScopeKey = new Map<string, Uint8Array>();
 
   return () => ({
     async deleteSession(scope) {
@@ -37,10 +37,16 @@ export function createSharedMemoryLocalKeyringFactory(): () => LocalKeyring {
   });
 }
 
-function createTestKey(seed: number): Uint8Array<ArrayBuffer> {
+function createTestKey(seed: number): Uint8Array {
   const key = new Uint8Array(32);
   key.fill(seed % 256);
   return key;
+}
+
+function asArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }
 
 function createTestLocalKeyringManifest(
@@ -72,17 +78,19 @@ function createTestLocalKeyringManifest(
 
 function createTestLocalKeyringSession(
   scope: LocalKeyringScope,
-  identityPersistenceKey: Uint8Array<ArrayBuffer>,
+  identityPersistenceKey: Uint8Array,
 ): LocalKeyringSession {
-  const sessionIdentityPersistenceKey = identityPersistenceKey.slice();
+  const sessionIdentityPersistenceKey = asArrayBufferBytes(
+    identityPersistenceKey,
+  );
   return {
-    blobStoreKey: createTestKey(2),
+    blobStoreKey: asArrayBufferBytes(createTestKey(2)),
     identityPersistenceKey: sessionIdentityPersistenceKey,
     manifest: createTestLocalKeyringManifest(scope),
     scope: normalizeLocalKeyringScope(scope),
     sqliteKey: "test-sqlite-key",
     async deriveKey() {
-      return sessionIdentityPersistenceKey.slice();
+      return asArrayBufferBytes(sessionIdentityPersistenceKey);
     },
     dispose() {
       sessionIdentityPersistenceKey.fill(0);

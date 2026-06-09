@@ -17,21 +17,27 @@ interface LocalIdentityEnvelope {
   readonly version: 1;
 }
 
+function asArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
 function importAesGcmKey(key: Uint8Array): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
-    key.slice(),
+    asArrayBufferBytes(key),
     { name: "AES-GCM" },
     false,
     ["decrypt", "encrypt"],
   );
 }
 
-function randomBytes(byteLength: number): Uint8Array<ArrayBuffer> {
+function randomBytes(byteLength: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(byteLength));
 }
 
-function decodeBase64Bytes(value: string): Uint8Array<ArrayBuffer> {
+function decodeBase64Bytes(value: string): Uint8Array {
   return new Uint8Array(base64ToBytes(value));
 }
 
@@ -83,7 +89,7 @@ export async function encryptLocalIdentityKeyPackage(input: {
   readonly keyPackage: IdentityKeyPackage;
 }): Promise<string> {
   const key = await importAesGcmKey(input.identityPersistenceKey);
-  const iv = randomBytes(AES_GCM_IV_BYTES);
+  const iv = asArrayBufferBytes(randomBytes(AES_GCM_IV_BYTES));
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt(
       { iv, name: "AES-GCM" },
@@ -111,11 +117,11 @@ export async function decryptLocalIdentityKeyPackage(input: {
   const key = await importAesGcmKey(input.identityPersistenceKey);
   const plaintext = await crypto.subtle.decrypt(
     {
-      iv: decodeBase64Bytes(envelope.iv),
+      iv: asArrayBufferBytes(decodeBase64Bytes(envelope.iv)),
       name: "AES-GCM",
     },
     key,
-    decodeBase64Bytes(envelope.ciphertext),
+    asArrayBufferBytes(decodeBase64Bytes(envelope.ciphertext)),
   );
 
   return JSON.parse(TEXT_DECODER.decode(plaintext));

@@ -392,10 +392,35 @@ export async function waitForPaneRuntimeToSettle(
 const userIdStatusPattern =
   /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 const publicKeyStatusPattern = /publicKey:\s*([0-9a-f]+)/u;
+const LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX =
+  "tearleads.local-identity-key-package:";
+
+function paneLocalIdentityStorageKey(namespace: string): string {
+  return `${LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX}${namespace}.left`;
+}
+
+export async function waitForPersistedPaneLocalIdentity(
+  namespace: string,
+): Promise<void> {
+  await waitFor(
+    () => {
+      expect(
+        globalThis.localStorage.getItem(paneLocalIdentityStorageKey(namespace)),
+      ).not.toBeNull();
+    },
+    { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+  );
+}
+
+export function getPaneStatusText(view: ReturnType<typeof renderPane>): string {
+  const paneContent =
+    view.container.querySelector(".pane-content") ??
+    view.baseElement.querySelector(".pane-content");
+  return paneContent?.textContent ?? "";
+}
 
 export function getPanePublicKey(view: ReturnType<typeof renderPane>): string {
-  const statusText =
-    view.container.querySelector(".pane-content")?.textContent ?? "";
+  const statusText = getPaneStatusText(view);
   const match = publicKeyStatusPattern.exec(statusText);
   invariant(match?.[1], "Expected pane public key.");
   return match[1];
@@ -413,10 +438,15 @@ export async function generateIdentityAndWaitForDb(
 
   await waitFor(
     () => {
-      const statusText =
-        view.container.querySelector(".pane-content")?.textContent ?? "";
+      const statusText = getPaneStatusText(view);
       expect(statusText).toMatch(/sqlite worker:\s*ready/);
       expect(statusText).toMatch(publicKeyStatusPattern);
+    },
+    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+  );
+  await waitFor(
+    () => {
+      expect(view.getByText(/Root container (created|loaded)/)).toBeTruthy();
     },
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
   );
@@ -435,8 +465,7 @@ export async function registerAndWaitForUserId(
   let userId = "";
   await waitFor(
     () => {
-      const statusText =
-        view.container.querySelector(".pane-content")?.textContent ?? "";
+      const statusText = getPaneStatusText(view);
       const match = userIdStatusPattern.exec(statusText);
       expect(match).toBeTruthy();
       userId = match?.[1] ?? "";
