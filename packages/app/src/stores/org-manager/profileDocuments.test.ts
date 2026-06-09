@@ -46,7 +46,7 @@ test("roster profile document sync wait handles synchronous subscriptions", asyn
   let unsubscribeCalls = 0;
   const store = {
     ensureInitialized: () => Promise.resolve(true),
-    getSnapshot: () => ({ documentId }),
+    getSnapshot: () => ({ documentId, ready: true }),
     requestSync: () => {
       requestSyncCalls += 1;
     },

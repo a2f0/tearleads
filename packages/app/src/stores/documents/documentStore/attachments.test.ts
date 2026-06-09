@@ -49,20 +49,15 @@ test("document store attaches files locally without authentication or network", 
   );
   store.updateRuntime(runtime);
 
-  await waitForCondition(
-    () => store.getSnapshot().ready,
-    "Offline attachment document store did not become ready.",
-  );
-
-  expect(store.getSnapshot().canAttach).toBe(true);
-
-  store.attachFiles([
+  await store.attachFiles([
     {
       bytes: new TextEncoder().encode("offline bytes"),
       mimeType: "image/png",
       name: "offline.png",
     },
   ]);
+
+  expect(store.getSnapshot().canAttach).toBe(true);
 
   await waitForCondition(
     () =>

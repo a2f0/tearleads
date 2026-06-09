@@ -11,11 +11,13 @@ import { getDocumentFileImporter } from "../../document-types/importers";
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
 
 interface ExplorerDroppedFileDocumentStore {
-  attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
-  ensureInitialized: () => Promise<boolean>;
+  attachFiles: (
+    files: ReadonlyArray<DocumentAttachmentUpload>,
+  ) => Promise<void> | void;
   getSnapshot: () => {
     documentId: string | null;
     documentKind: StoredDocumentKind;
+    ready: boolean;
     title: string;
   };
   requestSync: () => void;
@@ -23,6 +25,7 @@ interface ExplorerDroppedFileDocumentStore {
     kind: Exclude<StoredDocumentKind, "note">,
     patch: Readonly<Record<string, string | undefined>>,
   ) => Promise<void>;
+  setText: (value: string) => Promise<void>;
 }
 
 export interface ExplorerDroppedFileImportProgress {
@@ -127,8 +130,8 @@ async function importExplorerDroppedFile(input: {
     initialText: importedFile.initialText,
     localId,
   });
-  const initialized = await store.ensureInitialized();
-  if (!initialized) {
+  await store.setText(importedFile.initialText);
+  if (!store.getSnapshot().ready) {
     throw new Error(input.labels.fileImportStoreNotReady);
   }
 
@@ -142,7 +145,7 @@ async function importExplorerDroppedFile(input: {
     );
   }
   if (importedFile.attachment) {
-    store.attachFiles([importedFile.attachment]);
+    await store.attachFiles([importedFile.attachment]);
   }
   store.requestSync();
 
