@@ -158,6 +158,7 @@ interface CryptoSessionPersistenceState {
 
 function useRestorePersistedSession(input: {
   readonly localPersistence: LocalCryptoSessionPersistence | null;
+  readonly log: (message: string) => void;
   readonly logError: (message: string, error: unknown) => void;
   readonly sessionState: CryptoSessionPersistenceState;
   readonly signingFingerprint: string | null;
@@ -165,6 +166,7 @@ function useRestorePersistedSession(input: {
 }) {
   const {
     localPersistence,
+    log,
     logError,
     sessionState: { authToken },
     signingFingerprint,
@@ -213,6 +215,7 @@ function useRestorePersistedSession(input: {
         setCheckedFingerprint(signingFingerprint);
         if (persistedSession) {
           tearleads.session.setContext(persistedSession);
+          log("Restored persisted crypto session");
         }
       })
       .catch((error: unknown) => {
@@ -347,7 +350,7 @@ function useSdkBackedCryptoSessionState(
 
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
-  const { logError } = useLog();
+  const { log, logError } = useLog();
   const hostConfig = useAppHostConfig();
   const {
     client: dbClient,
@@ -384,6 +387,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   );
   const checkedPersistedSessionFingerprint = useRestorePersistedSession({
     localPersistence: localSessionPersistence,
+    log,
     logError,
     sessionState,
     signingFingerprint,
