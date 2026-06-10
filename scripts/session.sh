@@ -33,7 +33,8 @@ $repo_root/packages/website/scripts
 $repo_root/scripts
 $repo_root/scripts/checks
 $repo_root/scripts/git
-$repo_root/scripts/testing"
+$repo_root/scripts/testing
+$repo_root/terraform/scripts"
 
 while read -r script_path; do
   prepend_path "$script_path"

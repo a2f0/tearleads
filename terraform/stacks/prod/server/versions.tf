@@ -1,0 +1,30 @@
+terraform {
+  required_version = ">= 1.6"
+
+  backend "s3" {
+    key = "prod/server/terraform.tfstate"
+  }
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
+}

@@ -42,6 +42,9 @@ IFS=$old_ifs
 
 find "$REPO_ROOT/scripts/git/hooks" -name '*.sh' -exec shellcheck {} +
 
+echo "Running terraform linting..."
+"$REPO_ROOT/scripts/checks/checkTerraform.sh"
+
 echo "Running TypeScript compiler..."
 bun tsc --build --pretty false
 

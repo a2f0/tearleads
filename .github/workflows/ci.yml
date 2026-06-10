@@ -27,3 +27,25 @@ jobs:
 
       - name: Run tests
         run: bun run test:bun
+
+  terraform:
+    name: Terraform lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+
+      - name: Init TFLint plugins
+        run: tflint --init
+
+      - name: Lint Terraform
+        run: ./scripts/checks/checkTerraform.sh
