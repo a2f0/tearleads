@@ -110,9 +110,7 @@ function createDocumentQueries(
   };
 }
 
-function createRowsByContainerId(
-  rows: ReadonlyArray<ContainerDocumentSidebarRow>,
-): ReadonlyMap<string, ReadonlyArray<ContainerDocumentSidebarRow>> {
+function createRowsByContainerId(rows: ContainerDocumentSidebarRow[]) {
   return new Map([["root-container", rows]]);
 }
 
@@ -160,6 +158,7 @@ function ExplorerSidebarHarness(params: {
   useExplorerSidebarPanel({
     activeContainerId: "root-container",
     collapsedIds,
+    currentOrganizationId: "org-1",
     documentLinkProjectionVersion: 0,
     documentListRevision,
     documentQueries,

@@ -19,27 +19,33 @@ import {
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
 import {
+  MiniAppRow,
   MiniAppRowButton,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import {
   getMiniAppVirtualWindowRange,
-  MINI_APP_VIRTUAL_DEFAULT_MIN_WINDOW_ROWS,
   MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   MiniAppVirtualBlockSpacer,
   useMiniAppVirtualWindow,
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import {
+  buildExplorerSidebarSections,
+  countExplorerSidebarRows,
+  EXPLORER_SIDEBAR_MIN_WINDOW_ROWS,
+  type ExplorerSidebarDocumentWindowState,
+  type ExplorerSidebarTreeEntry,
+  type ExplorerSidebarVirtualRow,
+  getExplorerSidebarDocumentWindowRequests,
+  getExplorerSidebarRowsInRange,
+  getLoadedExplorerSidebarDocumentRow,
+} from "./ExplorerSidebarRows";
 import { ExplorerSyncStateBadge } from "./ExplorerSyncStateBadge";
 
 const EXPLORER_SIDEBAR_ROW_HEIGHT = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT;
-const EXPLORER_SIDEBAR_MIN_WINDOW_ROWS =
-  MINI_APP_VIRTUAL_DEFAULT_MIN_WINDOW_ROWS;
 
-export interface ExplorerTreeEntry {
-  children: ExplorerTreeEntry[];
-  node: ContainerNode;
-}
+export type ExplorerTreeEntry = ExplorerSidebarTreeEntry;
 
 export function buildExplorerTree(
   nodes: ReadonlyArray<ContainerNode>,
@@ -73,14 +79,6 @@ export function buildExplorerTree(
 
   sortEntries(roots);
   return roots;
-}
-
-interface ExplorerSidebarDocumentWindowState {
-  error: string | null;
-  isLoading: boolean;
-  offset: number;
-  rows: ReadonlyArray<ContainerDocumentSidebarRow>;
-  totalCount: number | null;
 }
 
 interface ExplorerSidebarRowProps {
@@ -331,271 +329,19 @@ export function getExplorerSidebarWindowRange(params: {
   });
 }
 
-type ExplorerSidebarSection =
-  | {
-      depth: number;
-      entry: ExplorerTreeEntry;
-      kind: "container";
-      rowCount: 1;
-    }
-  | {
-      containerId: string;
-      depth: number;
-      kind: "documents";
-      rowCount: number;
-      state: ExplorerSidebarDocumentWindowState;
-    }
-  | {
-      containerId: string;
-      depth: number;
-      error: string | null;
-      isLoading: boolean;
-      kind: "document-status";
-      rowCount: 1;
-    };
-
-type ExplorerSidebarVirtualRow =
-  | {
-      depth: number;
-      entry: ExplorerTreeEntry;
-      isCollapsed: boolean;
-      key: string;
-      kind: "container";
-    }
-  | {
-      containerId: string;
-      depth: number;
-      documentIndex: number;
-      key: string;
-      kind: "document";
-      state: ExplorerSidebarDocumentWindowState;
-    }
-  | {
-      containerId: string;
-      depth: number;
-      error: string | null;
-      isLoading: boolean;
-      key: string;
-      kind: "document-status";
-    };
-
-function buildExplorerSidebarSections(params: {
-  collapsedIds: ReadonlySet<string>;
-  documentWindowsByContainerId: ReadonlyMap<
-    string,
-    ExplorerSidebarDocumentWindowState
-  >;
-  entries: ReadonlyArray<ExplorerTreeEntry>;
-}): ReadonlyArray<ExplorerSidebarSection> {
-  const { collapsedIds, documentWindowsByContainerId, entries } = params;
-  const sections: ExplorerSidebarSection[] = [];
-
-  function visit(entry: ExplorerTreeEntry, depth: number) {
-    sections.push({
-      depth,
-      entry,
-      kind: "container",
-      rowCount: 1,
-    });
-
-    if (collapsedIds.has(entry.node.id)) {
-      return;
-    }
-
-    for (const child of entry.children) {
-      visit(child, depth + 1);
-    }
-
-    const state = documentWindowsByContainerId.get(entry.node.id);
-    if (state?.totalCount !== null && state?.totalCount !== undefined) {
-      if (state.totalCount > 0) {
-        sections.push({
-          containerId: entry.node.id,
-          depth: depth + 1,
-          kind: "documents",
-          rowCount: state.totalCount,
-          state,
-        });
-      }
-      return;
-    }
-
-    sections.push({
-      containerId: entry.node.id,
-      depth: depth + 1,
-      error: state?.error ?? null,
-      isLoading: state?.isLoading ?? true,
-      kind: "document-status",
-      rowCount: 1,
-    });
-  }
-
-  for (const entry of entries) {
-    visit(entry, 0);
-  }
-
-  return sections;
-}
-
-function countExplorerSidebarRows(
-  sections: ReadonlyArray<ExplorerSidebarSection>,
-): number {
-  return sections.reduce((count, section) => count + section.rowCount, 0);
-}
-
-function getExplorerSidebarRowsInRange(params: {
-  collapsedIds: ReadonlySet<string>;
-  limit: number;
-  offset: number;
-  sections: ReadonlyArray<ExplorerSidebarSection>;
-}): ReadonlyArray<ExplorerSidebarVirtualRow> {
-  const { collapsedIds, limit, offset, sections } = params;
-  const rows: ExplorerSidebarVirtualRow[] = [];
-  const endOffset = offset + limit;
-  let cursor = 0;
-
-  for (const section of sections) {
-    const sectionStart = cursor;
-    const sectionEnd = sectionStart + section.rowCount;
-    cursor = sectionEnd;
-
-    if (sectionEnd <= offset) {
-      continue;
-    }
-
-    if (sectionStart >= endOffset) {
-      break;
-    }
-
-    const startInSection = Math.max(0, offset - sectionStart);
-    const endInSection = Math.min(section.rowCount, endOffset - sectionStart);
-
-    if (section.kind === "container") {
-      rows.push({
-        depth: section.depth,
-        entry: section.entry,
-        isCollapsed: collapsedIds.has(section.entry.node.id),
-        key: `container:${section.entry.node.id}`,
-        kind: "container",
-      });
-      continue;
-    }
-
-    if (section.kind === "document-status") {
-      rows.push({
-        containerId: section.containerId,
-        depth: section.depth,
-        error: section.error,
-        isLoading: section.isLoading,
-        key: `document-status:${section.containerId}`,
-        kind: "document-status",
-      });
-      continue;
-    }
-
-    for (
-      let documentIndex = startInSection;
-      documentIndex < endInSection;
-      documentIndex += 1
-    ) {
-      rows.push({
-        containerId: section.containerId,
-        depth: section.depth,
-        documentIndex,
-        key: `document:${section.containerId}:${documentIndex}`,
-        kind: "document",
-        state: section.state,
-      });
-    }
-  }
-
-  return rows;
-}
-
-function getLoadedExplorerSidebarDocumentRow(
-  row: Extract<ExplorerSidebarVirtualRow, { kind: "document" }>,
-): ContainerDocumentSidebarRow | null {
-  const rowOffset = row.documentIndex - row.state.offset;
-  return rowOffset >= 0 && rowOffset < row.state.rows.length
-    ? (row.state.rows[rowOffset] ?? null)
-    : null;
-}
-
-function getExplorerSidebarDocumentWindowRequests(params: {
-  documentWindowsByContainerId: ReadonlyMap<
-    string,
-    ExplorerSidebarDocumentWindowState
-  >;
-  rows: ReadonlyArray<ExplorerSidebarVirtualRow>;
-}): ReadonlyArray<{ containerId: string; limit: number; offset: number }> {
-  const requestsByContainerId = new Map<
-    string,
-    {
-      hasMissingRows: boolean;
-      maxIndex: number;
-      minIndex: number;
-      shouldRequest: boolean;
-    }
-  >();
-
-  for (const row of params.rows) {
-    if (row.kind === "document-status") {
-      if (!row.error) {
-        requestsByContainerId.set(row.containerId, {
-          hasMissingRows: true,
-          maxIndex: EXPLORER_SIDEBAR_MIN_WINDOW_ROWS - 1,
-          minIndex: 0,
-          shouldRequest: true,
-        });
-      }
-      continue;
-    }
-
-    if (row.kind !== "document") {
-      continue;
-    }
-
-    if (row.state.error) {
-      continue;
-    }
-
-    const range = requestsByContainerId.get(row.containerId);
-    const hasLoadedRow = Boolean(getLoadedExplorerSidebarDocumentRow(row));
-    if (!range) {
-      requestsByContainerId.set(row.containerId, {
-        hasMissingRows: !hasLoadedRow,
-        maxIndex: row.documentIndex,
-        minIndex: row.documentIndex,
-        shouldRequest: false,
-      });
-      continue;
-    }
-
-    range.hasMissingRows ||= !hasLoadedRow;
-    range.minIndex = Math.min(range.minIndex, row.documentIndex);
-    range.maxIndex = Math.max(range.maxIndex, row.documentIndex);
-  }
-
-  return Array.from(requestsByContainerId.entries())
-    .filter(([, range]) => range.shouldRequest || range.hasMissingRows)
-    .map(([containerId, range]) => {
-      const state = params.documentWindowsByContainerId.get(containerId);
-      const offset = Math.max(0, range.minIndex);
-      const requestedLimit = Math.max(
-        EXPLORER_SIDEBAR_MIN_WINDOW_ROWS,
-        range.maxIndex - offset + 1,
-      );
-      const limit =
-        state?.totalCount === null || state?.totalCount === undefined
-          ? requestedLimit
-          : Math.min(requestedLimit, Math.max(0, state.totalCount - offset));
-
-      return {
-        containerId,
-        limit,
-        offset,
-      };
-    });
+function ExplorerSidebarSectionLabelRow(props: { label: string }) {
+  return (
+    <div className="explorer-sidebar-row explorer-sidebar-row--section">
+      <MiniAppRow
+        className="explorer-sidebar-section-label"
+        header
+        role="heading"
+        aria-level={2}
+      >
+        <MiniAppRowText truncate={false}>{props.label}</MiniAppRowText>
+      </MiniAppRow>
+    </div>
+  );
 }
 
 function ExplorerSidebarVirtualRowView(
@@ -604,6 +350,10 @@ function ExplorerSidebarVirtualRowView(
   },
 ) {
   const { row } = props;
+
+  if (row.kind === "section-label") {
+    return <ExplorerSidebarSectionLabelRow label={row.label} />;
+  }
 
   if (row.kind === "container") {
     return (
@@ -898,13 +648,19 @@ function useExplorerSidebarDocumentWindows(params: {
 
 function useExplorerSidebarVisibleRows(params: {
   collapsedIds: ReadonlySet<string>;
+  currentOrganizationId: string | null;
   documentWindowsByContainerId: ReadonlyMap<
     string,
     ExplorerSidebarDocumentWindowState
   >;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }) {
-  const { collapsedIds, documentWindowsByContainerId, treeEntries } = params;
+  const {
+    collapsedIds,
+    currentOrganizationId,
+    documentWindowsByContainerId,
+    treeEntries,
+  } = params;
   const collapsedIdsKey = useMemo(
     () => getExplorerTreeIdSetKey(collapsedIds),
     [collapsedIds],
@@ -920,10 +676,16 @@ function useExplorerSidebarVisibleRows(params: {
     () =>
       buildExplorerSidebarSections({
         collapsedIds,
+        currentOrganizationId,
         documentWindowsByContainerId,
         entries: treeEntries,
       }),
-    [collapsedIdsKey, documentWindowsByContainerId, treeEntries],
+    [
+      collapsedIdsKey,
+      currentOrganizationId,
+      documentWindowsByContainerId,
+      treeEntries,
+    ],
   );
   const totalRows = useMemo(
     () => countExplorerSidebarRows(sidebarSections),
@@ -1043,6 +805,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
 interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
+  currentOrganizationId: string | null;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -1086,6 +849,7 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
     totalRows: totalSidebarRows,
   } = useExplorerSidebarVisibleRows({
     collapsedIds: props.collapsedIds,
+    currentOrganizationId: props.currentOrganizationId,
     documentWindowsByContainerId: props.documentWindowsByContainerId,
     treeEntries: props.treeEntries,
   });
@@ -1133,6 +897,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
     [
       params.activeContainerId,
       params.collapsedIds,
+      params.currentOrganizationId,
       params.documentLinkProjectionVersion,
       params.documentListRevision,
       params.documentQueries,
