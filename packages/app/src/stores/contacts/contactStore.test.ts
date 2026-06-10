@@ -18,7 +18,11 @@ import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { contactProjection } from "../../document-projectors/contactClientProjection";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
-import { type ContactsRuntime, createContactsStore } from "./contactStore";
+import {
+  type ContactsRuntime,
+  createContactsStore,
+  getSelfContactLocalId,
+} from "./contactStore";
 
 type SqlRuntimeBase = Awaited<ReturnType<typeof createSqlRuntimeBase>>;
 const CONTACTS_CONTAINER_ID = "builtin-contacts-container";
@@ -245,7 +249,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
   }
 });
 
-test("contacts store ensures self contact from local keys without remote fetch", async () => {
+test("contacts store ensures self contact from deterministic local identity", async () => {
   const runtime = await createContactsRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -273,21 +277,34 @@ test("contacts store ensures self contact from local keys without remote fetch",
       "Contacts store did not initialize.",
     );
 
-    const contactId = await store.ensureSelfContact(selfKey.userId);
-    expect(contactId).toBe(selfKey.userId);
+    const selfContactId = getSelfContactLocalId(selfKey.signingKeyFingerprint);
+    const provisionalContactId = await store.ensureSelfContact({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      localId: selfContactId,
+    });
+    expect(provisionalContactId).toBe(selfContactId);
 
     await waitForCondition(
       () =>
         store
           .getSnapshot()
-          .entries.some((entry) => entry.id === selfKey.userId),
+          .entries.some(
+            (entry) => entry.id === selfContactId && entry.userId === null,
+          ),
       "Self contact did not appear in the store snapshot.",
     );
+
+    const registeredContactId = await store.ensureSelfContact({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      localId: selfContactId,
+      userId: selfKey.userId,
+    });
+    expect(registeredContactId).toBe(selfContactId);
 
     expect(store.getSnapshot().entries).toContainEqual({
       encapsulationPublicKey: selfKey.encapsulationPublicKey,
       firstName: "",
-      id: selfKey.userId,
+      id: selfContactId,
       isSelf: true,
       lastName: "",
       nickname: "",
@@ -306,11 +323,70 @@ test("contacts store ensures self contact from local keys without remote fetch",
     expect(contactProjections).toEqual([
       {
         containerId: CONTACTS_CONTAINER_ID,
-        id: selfKey.userId,
+        id: selfContactId,
         isSelf: 1,
         userId: selfKey.userId,
       },
     ]);
+  } finally {
+    runtime.close();
+  }
+});
+
+test("contacts store replaces an empty legacy self contact", async () => {
+  const runtime = await createContactsRuntime();
+  const selfKey: UserKey = {
+    encapsulationPublicKey: "self-encapsulation-public-key",
+    signingKeyFingerprint: "self-signing-fingerprint",
+    signingPublicKey: "self-signing-public-key",
+    userId: "self-user",
+  };
+  const store = createContactsStore(runtime, {
+    fetchUserKey: async () => {
+      throw new Error("unexpected remote self key fetch");
+    },
+    logError: (message, cause) => {
+      throw new Error(String(message), { cause });
+    },
+  });
+
+  try {
+    store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Contacts store did not initialize.",
+    );
+
+    const legacyContactId = await store.createContact({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      isSelf: true,
+      userId: selfKey.userId,
+    });
+    expect(legacyContactId).not.toBeNull();
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .entries.some(
+            (entry) => entry.id === legacyContactId && entry.isSelf,
+          ),
+      "Legacy self contact did not appear.",
+    );
+
+    const selfContactId = getSelfContactLocalId(selfKey.signingKeyFingerprint);
+    const contactId = await store.ensureSelfContact({
+      encapsulationPublicKey: selfKey.encapsulationPublicKey,
+      localId: selfContactId,
+      userId: selfKey.userId,
+    });
+    expect(contactId).toBe(selfContactId);
+
+    await waitForCondition(
+      () =>
+        store.getSnapshot().entries.filter((entry) => entry.isSelf).length ===
+          1 && store.getSnapshot().entries[0]?.id === selfContactId,
+      "Legacy self contact was not replaced.",
+    );
   } finally {
     runtime.close();
   }

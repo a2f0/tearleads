@@ -1,10 +1,4 @@
-import type {
-  DocumentStore,
-  DocumentsRuntime,
-  DomainScope,
-  OpenDocumentInput,
-  UserKey,
-} from "@tearleads/client-sdk";
+import type { DocumentStore, DomainScope } from "@tearleads/client-sdk";
 import {
   type ContactEntry,
   type ContactEntryPatch,
@@ -18,54 +12,27 @@ import {
   findSelfContact,
   getUserKeyForSelfContact,
 } from "./contactStoreLookup";
+import type {
+  ContactsRuntime,
+  ContactsSnapshot,
+  ContactsStore,
+  ContactsStoreDependencies,
+  ContactsStoreState,
+} from "./contactStoreTypes";
+import {
+  type EnsureSelfContactInput,
+  findPrimarySelfContact,
+  getSelfContactLocalId,
+  isSelfContactCurrent,
+  normalizeEnsureSelfContactInput,
+  type ResolvedSelfContactIdentity,
+  resolveSelfContactId,
+  shouldRemoveDuplicateSelfContact,
+  toResolvedSelfContactIdentity,
+} from "./selfContact";
 
-export interface ContactsSnapshot {
-  entries: ReadonlyArray<ContactEntry>;
-  ready: boolean;
-}
-
-export interface ContactsRuntime {
-  deleteDocument: (localId: string) => Promise<boolean>;
-  documents: DocumentsRuntime;
-  openDocumentStore: (
-    input: OpenDocumentInput & { readonly localId: string },
-  ) => DocumentStore;
-}
-
-export interface ContactsStore {
-  createContact: (patch: ContactEntryPatch) => Promise<string | null>;
-  ensureSelfContact: (userId: string) => Promise<string | null>;
-  getSnapshot: () => ContactsSnapshot;
-  importKey: (userId: string) => Promise<string | null>;
-  removeContact: (contactId: string) => Promise<void>;
-  subscribe: (listener: () => void) => () => void;
-  updateContact: (contactId: string, patch: ContactEntryPatch) => Promise<void>;
-  updateRuntime: (runtime: ContactsRuntime) => void;
-}
-
-interface ContactsStoreDependencies {
-  fetchUserKey: (userId: string) => Promise<UserKey | null>;
-  getLocalUserKey?: ((userId: string) => Promise<UserKey | null>) | undefined;
-  logError: (message: string | Error, cause?: unknown) => void;
-}
-
-interface TrackedContactDocumentStore {
-  store: DocumentStore;
-  unsubscribe: () => void;
-}
-
-interface ContactsStoreState {
-  contactDocumentStoresById: Map<string, TrackedContactDocumentStore>;
-  dependencies: ContactsStoreDependencies;
-  entriesById: Map<string, ContactEntry>;
-  initializePromise: Promise<void> | null;
-  initialized: boolean;
-  listeners: Set<() => void>;
-  pendingSnapshotFlush: boolean;
-  runtime: ContactsRuntime;
-  snapshot: ContactsSnapshot;
-  writeChain: Promise<void>;
-}
+export type { ContactsRuntime, ContactsStore, EnsureSelfContactInput };
+export { getSelfContactLocalId };
 
 const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
 
@@ -273,9 +240,48 @@ async function createContactFromRuntime(
   return contactId;
 }
 
+async function resolveSelfContactIdentity(
+  state: ContactsStoreState,
+  input: string | EnsureSelfContactInput,
+): Promise<ResolvedSelfContactIdentity | null> {
+  const normalizedInput = normalizeEnsureSelfContactInput(input);
+  if (
+    normalizedInput.userId &&
+    !normalizedInput.encapsulationPublicKey?.trim()
+  ) {
+    const userKey = await getUserKeyForSelfContact(
+      state.dependencies,
+      normalizedInput.userId,
+    );
+    return userKey
+      ? toResolvedSelfContactIdentity(normalizedInput, userKey)
+      : null;
+  }
+
+  return toResolvedSelfContactIdentity(normalizedInput);
+}
+
+async function removeDuplicateSelfContacts(
+  state: ContactsStoreState,
+  primaryContactId: string,
+  identity: ResolvedSelfContactIdentity,
+): Promise<void> {
+  for (const entry of state.entriesById.values()) {
+    if (!shouldRemoveDuplicateSelfContact(entry, primaryContactId, identity)) {
+      continue;
+    }
+
+    const trackedStore = state.contactDocumentStoresById.get(entry.id);
+    trackedStore?.unsubscribe();
+    state.contactDocumentStoresById.delete(entry.id);
+    await state.runtime.deleteDocument(entry.id);
+    removeContactEntry(state, entry.id);
+  }
+}
+
 async function ensureSelfContactFromRuntime(
   state: ContactsStoreState,
-  userId: string,
+  input: string | EnsureSelfContactInput,
 ): Promise<string | null> {
   await waitForContactsInitialization(state);
   if (
@@ -285,30 +291,31 @@ async function ensureSelfContactFromRuntime(
     return null;
   }
 
-  const userKey = await getUserKeyForSelfContact(state.dependencies, userId);
-  if (!userKey) {
+  const identity = await resolveSelfContactIdentity(state, input);
+  if (!identity) {
     return null;
   }
 
-  const existingContact = findSelfContact(state.entriesById, userKey.userId);
-  if (
-    existingContact?.isSelf &&
-    existingContact.userId === userKey.userId &&
-    existingContact.encapsulationPublicKey === userKey.encapsulationPublicKey
-  ) {
-    return existingContact.id;
+  const existingContact = findPrimarySelfContact(state.entriesById, identity);
+  const contactId = resolveSelfContactId(existingContact, identity);
+  if (!contactId) {
+    return null;
   }
+  const current = isSelfContactCurrent(existingContact, identity);
 
-  const contactId = existingContact?.id ?? userKey.userId;
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(() =>
-      writeContactPatch(state, contactId, {
-        encapsulationPublicKey: userKey.encapsulationPublicKey,
-        isSelf: true,
-        userId: userKey.userId,
-      }),
-    )
+    .then(async () => {
+      await removeDuplicateSelfContacts(state, contactId, identity);
+      if (!current) {
+        await writeContactPatch(state, contactId, {
+          encapsulationPublicKey: identity.encapsulationPublicKey,
+          isSelf: true,
+          userId: identity.userId,
+        });
+      }
+      await removeDuplicateSelfContacts(state, contactId, identity);
+    })
     .catch((error: unknown) => {
       state.dependencies.logError(
         "Contacts: failed to ensure self contact.",
@@ -358,20 +365,27 @@ async function importKeyFromRuntime(
     return null;
   }
 
-  const existingContact = findContactByUserId(
-    state.entriesById,
-    userKey.userId,
-  );
+  const isSelf = userKey.userId === state.runtime.documents.auth.userId;
+  const existingContact = isSelf
+    ? findSelfContact(state.entriesById, userKey.userId)
+    : findContactByUserId(state.entriesById, userKey.userId);
   const contactId = existingContact?.id ?? userKey.userId;
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(() =>
-      writeContactPatch(state, contactId, {
+    .then(async () => {
+      const identity = toResolvedSelfContactIdentity({
         encapsulationPublicKey: userKey.encapsulationPublicKey,
-        isSelf: userKey.userId === state.runtime.documents.auth.userId,
         userId: userKey.userId,
-      }),
-    )
+      });
+      await writeContactPatch(state, contactId, {
+        encapsulationPublicKey: userKey.encapsulationPublicKey,
+        isSelf,
+        userId: userKey.userId,
+      });
+      if (isSelf && identity) {
+        await removeDuplicateSelfContacts(state, contactId, identity);
+      }
+    })
     .catch((error: unknown) => {
       state.dependencies.logError(
         "Contacts: failed to import user key.",
@@ -473,7 +487,6 @@ export function getOrCreateContactsStore(
 ): ContactsStore {
   const existingStore = contactsStoresByScope.get(domainScope);
   if (existingStore) {
-    existingStore.updateRuntime(runtime);
     return existingStore;
   }
 

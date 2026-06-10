@@ -9,7 +9,9 @@ import {
 import {
   type ContactsRuntime,
   type ContactsStore,
+  type EnsureSelfContactInput,
   getOrCreateContactsStore,
+  getSelfContactLocalId,
 } from "./contactStore";
 
 async function getLocalUserKey(input: {
@@ -119,12 +121,24 @@ function useEnsureSelfContact(
 ): void {
   useEffect(() => {
     const userId = appData.auth.userId;
-    if (!store || !contactsContainerId || !userId) {
+    const signingFingerprint = appData.crypto.signingFingerprint;
+    const localId = signingFingerprint
+      ? getSelfContactLocalId(signingFingerprint)
+      : null;
+    const encapsulationPublicKey = appData.crypto.encapsulationKeyPair
+      ? bytesToBase64(appData.crypto.encapsulationKeyPair.publicKey)
+      : null;
+    if (!store || !contactsContainerId || (!localId && !userId)) {
       return;
     }
+    const selfContact: EnsureSelfContactInput = {
+      encapsulationPublicKey,
+      localId,
+      userId,
+    };
 
     let cancelled = false;
-    void store.ensureSelfContact(userId).catch((error: unknown) => {
+    void store.ensureSelfContact(selfContact).catch((error: unknown) => {
       if (!cancelled) {
         tearleads.logError(
           "Contacts: failed to auto-create self contact.",
@@ -138,6 +152,7 @@ function useEnsureSelfContact(
     };
   }, [
     appData.auth.userId,
+    appData.crypto.encapsulationKeyPair,
     appData.crypto.signingFingerprint,
     contactsContainerId,
     store,

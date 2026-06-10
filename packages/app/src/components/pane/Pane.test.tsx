@@ -131,19 +131,28 @@ test("contacts windows in the same pane share live contact document state", asyn
 });
 
 test(
-  "contacts app provisions the self contact without opening explorer",
+  "contacts app provisions one self contact before login",
   async () => {
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
-    await registerAndWaitForUserId(view);
 
     const contactsWindow = await openContacts(view);
     await waitFor(
       () => {
         expect(
-          within(contactsWindow).getByRole("button", { name: "You" }),
-        ).toBeTruthy();
+          within(contactsWindow).getAllByRole("button", { name: "You" }),
+        ).toHaveLength(1);
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    await registerAndWaitForUserId(view);
+    await waitFor(
+      () => {
+        expect(
+          within(contactsWindow).getAllByRole("button", { name: "You" }),
+        ).toHaveLength(1);
       },
       { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
