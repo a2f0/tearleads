@@ -306,13 +306,14 @@ async function ensureSelfContactFromRuntime(
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      await removeDuplicateSelfContacts(state, contactId, identity);
       if (!current) {
+        await removeDuplicateSelfContacts(state, contactId, identity);
         await writeContactPatch(state, contactId, {
           encapsulationPublicKey: identity.encapsulationPublicKey,
           isSelf: true,
           userId: identity.userId,
         });
+        return;
       }
       await removeDuplicateSelfContacts(state, contactId, identity);
     })

@@ -49,7 +49,7 @@ export function findPrimarySelfContact(
           identity.localId &&
           shouldRemoveDuplicateSelfContact(entry, identity.localId, identity)
         ) {
-          return null;
+          continue;
         }
         return entry;
       }
