@@ -36,3 +36,5 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+# Stack lock files require real backend init to generate correctly
+terraform/stacks/**/.terraform.lock.hcl
