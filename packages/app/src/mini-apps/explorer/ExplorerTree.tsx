@@ -35,6 +35,7 @@ import {
   countExplorerSidebarRows,
   EXPLORER_SIDEBAR_MIN_WINDOW_ROWS,
   type ExplorerSidebarDocumentWindowState,
+  type ExplorerSidebarTreeEntry,
   type ExplorerSidebarVirtualRow,
   getExplorerSidebarDocumentWindowRequests,
   getExplorerSidebarRowsInRange,
@@ -44,10 +45,7 @@ import { ExplorerSyncStateBadge } from "./ExplorerSyncStateBadge";
 
 const EXPLORER_SIDEBAR_ROW_HEIGHT = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT;
 
-export interface ExplorerTreeEntry {
-  children: ExplorerTreeEntry[];
-  node: ContainerNode;
-}
+export type ExplorerTreeEntry = ExplorerSidebarTreeEntry;
 
 export function buildExplorerTree(
   nodes: ReadonlyArray<ContainerNode>,
