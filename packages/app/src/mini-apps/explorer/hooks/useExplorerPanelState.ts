@@ -171,6 +171,7 @@ export function useExplorerPanelState(params: {
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
+    currentOrganizationId: appData.auth.organizationId,
     documentLinkProjectionVersion,
     documentListRevision,
     documentQueries,

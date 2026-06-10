@@ -177,6 +177,18 @@
   opacity: var(--mini-app-muted-opacity);
 }
 
+.explorer-sidebar-row--section {
+  padding-right: var(--mini-app-space-sm);
+}
+
+.explorer-sidebar-section-label {
+  width: 100%;
+  min-height: 100%;
+  padding-inline: var(--mini-app-space-2xs);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
 .explorer-sync-badge {
   display: inline-flex;
   align-items: center;

@@ -185,6 +185,7 @@ export const EXPLORER_LABELS = {
   newStructuredDocumentAction: "New Structured Document",
   newStructuredDocumentDocumentTypeHeading: "Document Type",
   newStructuredDocumentRouteLabel: "New structured document",
+  sharedWithMeSection: "Shared with me",
   syncStateBlobCountOne: "blob",
   syncStateBlobCountOther: "blobs",
   syncStateError: "Error",
