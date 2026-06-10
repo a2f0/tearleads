@@ -1,4 +1,7 @@
-import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
+import {
+  type ContainerContentsStore,
+  deriveContainerSystemSlot,
+} from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   createContext,
@@ -23,12 +26,10 @@ import { useContactsStoreForContainer } from "./useContactsStoreForContainer";
 
 const ContactsContext = createContext<ContactsStore | null>(null);
 
-interface ContactsContainerEnsurer {
-  ensureSystemContainer: (
-    systemSlot: ContainerSystemSlot,
-    name: string,
-  ) => Promise<unknown>;
-}
+type ContactsContainerEnsurer = Pick<
+  ContainerContentsStore,
+  "ensureSystemContainer"
+>;
 
 function useContactsSystemSlot(input: {
   logError: (message: string | Error, cause?: unknown) => void;
@@ -85,7 +86,13 @@ function useEnsureContactsContainer(input: {
     }
 
     void input.containerContentsStore
-      .ensureSystemContainer(input.contactsSystemSlot, CONTACTS_CONTAINER_NAME)
+      .ensureSystemContainer(
+        input.contactsSystemSlot,
+        CONTACTS_CONTAINER_NAME,
+        {
+          skipAdvancedManagedRoot: true,
+        },
+      )
       .catch((error) => {
         input.logError("Failed to ensure system contacts container", error);
       });
