@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useRef,
+  useState,
 } from "react";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useIdentity } from "../identity/IdentityProvider";
@@ -30,6 +31,8 @@ interface CryptoSessionContextValue {
 const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
   null,
 );
+const AUTO_LOGIN_MAX_ATTEMPTS = 5;
+const AUTO_LOGIN_RETRY_DELAY_MS = 250;
 
 function useResetCryptoSession(
   containerBootstrapped: MutableRefObject<string | null>,
@@ -139,7 +142,7 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   };
 }
 
-function useAutoLoginRestoredSession(input: {
+interface AutoLoginRestoredSessionInput {
   readonly authToken: string | null;
   readonly isAuthenticated: boolean;
   readonly localIdentityRestoredFingerprint: string | null;
@@ -147,7 +150,9 @@ function useAutoLoginRestoredSession(input: {
   readonly signingFingerprint: string | null;
   readonly signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"];
   readonly tearleads: ReturnType<typeof useTearleads>;
-}) {
+}
+
+function useAutoLoginRestoredSession(input: AutoLoginRestoredSessionInput) {
   const {
     authToken,
     isAuthenticated,
@@ -157,27 +162,85 @@ function useAutoLoginRestoredSession(input: {
     signingKeyPair,
     tearleads,
   } = input;
+  const completedFingerprint = useRef<string | null>(null);
   const attemptedFingerprint = useRef<string | null>(null);
+  const attemptCount = useRef(0);
+  const inFlightFingerprint = useRef<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
     if (!signingKeyPair || !signingFingerprint) {
       attemptedFingerprint.current = null;
+      attemptCount.current = 0;
+      completedFingerprint.current = null;
+      inFlightFingerprint.current = null;
+      return;
+    }
+
+    if (authToken || isAuthenticated) {
+      completedFingerprint.current = signingFingerprint;
+      inFlightFingerprint.current = null;
       return;
     }
 
     if (
-      authToken ||
-      isAuthenticated ||
       localIdentityRestoredFingerprint !== signingFingerprint ||
-      attemptedFingerprint.current === signingFingerprint
+      completedFingerprint.current === signingFingerprint ||
+      inFlightFingerprint.current === signingFingerprint
     ) {
       return;
     }
 
-    attemptedFingerprint.current = signingFingerprint;
-    void tearleads.session.login().catch((error: unknown) => {
-      logError("Failed to authenticate restored local identity", error);
-    });
+    if (attemptedFingerprint.current !== signingFingerprint) {
+      attemptedFingerprint.current = signingFingerprint;
+      attemptCount.current = 0;
+    }
+
+    if (attemptCount.current >= AUTO_LOGIN_MAX_ATTEMPTS) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    attemptCount.current += 1;
+    inFlightFingerprint.current = signingFingerprint;
+    const retry = () => {
+      if (
+        cancelled ||
+        completedFingerprint.current === signingFingerprint ||
+        attemptCount.current >= AUTO_LOGIN_MAX_ATTEMPTS
+      ) {
+        return;
+      }
+      setRetryAttempt((attempt) => attempt + 1);
+    };
+    void tearleads.session
+      .login()
+      .then((authenticated) => {
+        inFlightFingerprint.current = null;
+        if (cancelled) {
+          return;
+        }
+        if (authenticated) {
+          completedFingerprint.current = signingFingerprint;
+          return;
+        }
+
+        retryTimeout = setTimeout(retry, AUTO_LOGIN_RETRY_DELAY_MS);
+      })
+      .catch((error: unknown) => {
+        inFlightFingerprint.current = null;
+        if (cancelled) {
+          return;
+        }
+        logError("Failed to authenticate restored local identity", error);
+        retryTimeout = setTimeout(retry, AUTO_LOGIN_RETRY_DELAY_MS);
+      });
+
+    return () => {
+      cancelled = true;
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
   }, [
     authToken,
     isAuthenticated,
@@ -185,6 +248,7 @@ function useAutoLoginRestoredSession(input: {
     logError,
     signingFingerprint,
     signingKeyPair,
+    retryAttempt,
     tearleads,
   ]);
 }

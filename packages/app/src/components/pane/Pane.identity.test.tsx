@@ -17,6 +17,37 @@ import {
 
 afterEach(cleanupPaneTestEnvironment);
 
+function failNextAuthVerify(): () => void {
+  const originalFetch = globalThis.fetch;
+  let shouldFail = true;
+  const restoreFetch = () => {
+    if (globalThis.fetch === failVerifyOnceFetch) {
+      globalThis.fetch = originalFetch;
+    }
+  };
+  const failVerifyOnceFetch = ((
+    input: Parameters<typeof fetch>[0],
+    init?: Parameters<typeof fetch>[1],
+  ) => {
+    const request = input instanceof Request ? input : new Request(input, init);
+    if (
+      shouldFail &&
+      request.method === "POST" &&
+      request.url === "http://localhost:3001/auth/verify"
+    ) {
+      shouldFail = false;
+      restoreFetch();
+      return Promise.reject(new TypeError("transient test auth failure"));
+    }
+
+    return originalFetch(input, init);
+  }) as typeof fetch;
+  failVerifyOnceFetch.preconnect = originalFetch.preconnect;
+
+  globalThis.fetch = failVerifyOnceFetch;
+  return restoreFetch;
+}
+
 test("renders the boot prompt in the pane log", () => {
   const view = renderPane();
 
@@ -122,6 +153,43 @@ test(
     );
 
     reloadedView.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
+);
+
+test(
+  "registered pane identity retries restored login after a transient auth request failure",
+  async () => {
+    const localIdentityNamespace = `test-pane-session-retry-${crypto.randomUUID()}`;
+    const hostConfig = createTestHostConfig({
+      createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+      localIdentityNamespace,
+    });
+    const view = renderPane({ hostConfig });
+
+    await generateIdentityAndWaitForDb(view);
+    await waitForPersistedPaneLocalIdentity(localIdentityNamespace);
+    const userId = await registerAndWaitForUserId(view);
+    await waitFor(() => {
+      expect(view.queryByText(/session: none/)).toBeNull();
+    });
+    view.unmount();
+
+    const restoreFetch = failNextAuthVerify();
+    const reloadedView = renderPane({ hostConfig });
+    try {
+      await waitFor(
+        () => {
+          const statusText = getPaneStatusText(reloadedView);
+          expect(statusText).toContain(`userId: ${userId}`);
+          expect(statusText).not.toMatch(/session:\s*none/);
+        },
+        { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+      );
+    } finally {
+      restoreFetch();
+      reloadedView.unmount();
+    }
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
 );
