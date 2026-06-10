@@ -21,8 +21,6 @@ REGISTRY_URL="https://registry.terraform.io/v1/providers"
 CACHE_DIR="$(mktemp -d)"
 trap 'rm -rf "$CACHE_DIR"' EXIT
 
-HAS_MAJOR_GAP=0
-
 log() {
   echo "checkProviderVersions: $*"
 }
@@ -37,7 +35,7 @@ major_version() {
 constraint_major() {
   local constraint="$1"
   local version
-  version="$(echo "$constraint" | sed 's/^[~>=!<]* *//')"
+  version="${constraint##* }"
   major_version "$version"
 }
 

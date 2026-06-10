@@ -259,7 +259,8 @@ get_github_repo() {
 
 # Setup SSH host keys for persistent identity
 setup_ssh_host_keys() {
-  local secrets_dir="$(get_repo_root)/.secrets"
+  local secrets_dir
+  secrets_dir="$(get_repo_root)/.secrets"
   local key_file="$secrets_dir/persistent_ssh_host_ed25519_key"
 
   mkdir -p "$secrets_dir"
@@ -267,8 +268,10 @@ setup_ssh_host_keys() {
     ssh-keygen -t ed25519 -f "$key_file" -N "" -C "persistent_ssh_host_ed25519_key" > /dev/null
   fi
 
-  export TF_VAR_ssh_host_private_key="$(cat "$key_file")"
-  export TF_VAR_ssh_host_public_key="$(cat "$key_file.pub")"
+  TF_VAR_ssh_host_private_key="$(cat "$key_file")"
+  export TF_VAR_ssh_host_private_key
+  TF_VAR_ssh_host_public_key="$(cat "$key_file.pub")"
+  export TF_VAR_ssh_host_public_key
 }
 
 # Ensure known_hosts has the persistent ed25519 host key for a host.

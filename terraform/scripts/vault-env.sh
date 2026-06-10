@@ -5,9 +5,6 @@
 #          ./vault-env.sh prod ./deploy.sh
 set -eu
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-
 export VAULT_ADDR="${VAULT_ADDR:-http://vault-prod:8200}"
 
 usage() {
@@ -40,7 +37,8 @@ fi
 # Check for vault token
 if [[ -z "${VAULT_TOKEN:-}" ]]; then
   if [[ -f ~/.vault-token ]]; then
-    export VAULT_TOKEN=$(cat ~/.vault-token)
+    VAULT_TOKEN=$(cat ~/.vault-token)
+    export VAULT_TOKEN
   else
     echo "ERROR: No VAULT_TOKEN set and ~/.vault-token not found."
     echo "Login first: vault login"
