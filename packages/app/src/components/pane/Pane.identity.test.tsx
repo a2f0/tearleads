@@ -17,35 +17,59 @@ import {
 
 afterEach(cleanupPaneTestEnvironment);
 
-function failNextAuthVerify(): () => void {
+const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
+
+function paneLocalCryptoSessionStorageKey(namespace: string): string {
+  return `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}.left`;
+}
+
+async function waitForPersistedPaneCryptoSession(
+  namespace: string,
+): Promise<void> {
+  await waitFor(
+    () => {
+      expect(
+        globalThis.localStorage.getItem(
+          paneLocalCryptoSessionStorageKey(namespace),
+        ),
+      ).not.toBeNull();
+    },
+    { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+  );
+}
+
+function rejectAuthVerifyRequests(): {
+  readonly getCallCount: () => number;
+  readonly restore: () => void;
+} {
   const originalFetch = globalThis.fetch;
-  let shouldFail = true;
+  let callCount = 0;
   const restoreFetch = () => {
-    if (globalThis.fetch === failVerifyOnceFetch) {
+    if (globalThis.fetch === rejectAuthVerifyFetch) {
       globalThis.fetch = originalFetch;
     }
   };
-  const failVerifyOnceFetch = ((
+  const rejectAuthVerifyFetch = ((
     input: Parameters<typeof fetch>[0],
     init?: Parameters<typeof fetch>[1],
   ) => {
     const request = input instanceof Request ? input : new Request(input, init);
     if (
-      shouldFail &&
       request.method === "POST" &&
       request.url === "http://localhost:3001/auth/verify"
     ) {
-      shouldFail = false;
-      restoreFetch();
-      return Promise.reject(new TypeError("transient test auth failure"));
+      callCount += 1;
+      return Promise.reject(
+        new TypeError("auth verify should not run after session restore"),
+      );
     }
 
     return originalFetch(input, init);
   }) as typeof fetch;
-  failVerifyOnceFetch.preconnect = originalFetch.preconnect;
+  rejectAuthVerifyFetch.preconnect = originalFetch.preconnect;
 
-  globalThis.fetch = failVerifyOnceFetch;
-  return restoreFetch;
+  globalThis.fetch = rejectAuthVerifyFetch;
+  return { getCallCount: () => callCount, restore: restoreFetch };
 }
 
 test("renders the boot prompt in the pane log", () => {
@@ -124,7 +148,7 @@ test(
 );
 
 test(
-  "registered pane identity reauthenticates after remount",
+  "registered pane identity restores persisted session after remount",
   async () => {
     const localIdentityNamespace = `test-pane-session-reload-${crypto.randomUUID()}`;
     const hostConfig = createTestHostConfig({
@@ -139,55 +163,24 @@ test(
     await waitFor(() => {
       expect(view.queryByText(/session: none/)).toBeNull();
     });
+    await waitForPersistedPaneCryptoSession(localIdentityNamespace);
     view.unmount();
 
-    const reloadedView = renderPane({ hostConfig });
-    await waitFor(
-      () => {
-        const statusText = getPaneStatusText(reloadedView);
-        expect(statusText).toMatch(/sqlite worker:\s*ready/);
-        expect(statusText).toContain(`userId: ${userId}`);
-        expect(statusText).not.toMatch(/session:\s*none/);
-      },
-      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
-    );
-
-    reloadedView.unmount();
-  },
-  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
-);
-
-test(
-  "registered pane identity retries restored login after a transient auth request failure",
-  async () => {
-    const localIdentityNamespace = `test-pane-session-retry-${crypto.randomUUID()}`;
-    const hostConfig = createTestHostConfig({
-      createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
-      localIdentityNamespace,
-    });
-    const view = renderPane({ hostConfig });
-
-    await generateIdentityAndWaitForDb(view);
-    await waitForPersistedPaneLocalIdentity(localIdentityNamespace);
-    const userId = await registerAndWaitForUserId(view);
-    await waitFor(() => {
-      expect(view.queryByText(/session: none/)).toBeNull();
-    });
-    view.unmount();
-
-    const restoreFetch = failNextAuthVerify();
+    const authVerifyGuard = rejectAuthVerifyRequests();
     const reloadedView = renderPane({ hostConfig });
     try {
       await waitFor(
         () => {
           const statusText = getPaneStatusText(reloadedView);
+          expect(statusText).toMatch(/sqlite worker:\s*ready/);
           expect(statusText).toContain(`userId: ${userId}`);
           expect(statusText).not.toMatch(/session:\s*none/);
         },
         { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
       );
+      expect(authVerifyGuard.getCallCount()).toBe(0);
     } finally {
-      restoreFetch();
+      authVerifyGuard.restore();
       reloadedView.unmount();
     }
   },
