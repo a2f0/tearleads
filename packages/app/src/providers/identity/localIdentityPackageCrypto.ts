@@ -84,9 +84,9 @@ function readLocalIdentityEnvelope(value: unknown): LocalIdentityEnvelope {
   };
 }
 
-export async function encryptLocalIdentityKeyPackage(input: {
+export async function encryptLocalIdentityPayload(input: {
   readonly identityPersistenceKey: Uint8Array;
-  readonly keyPackage: IdentityKeyPackage;
+  readonly payload: unknown;
 }): Promise<string> {
   const key = await importAesGcmKey(input.identityPersistenceKey);
   const iv = asArrayBufferBytes(randomBytes(AES_GCM_IV_BYTES));
@@ -94,7 +94,7 @@ export async function encryptLocalIdentityKeyPackage(input: {
     await crypto.subtle.encrypt(
       { iv, name: "AES-GCM" },
       key,
-      TEXT_ENCODER.encode(JSON.stringify(input.keyPackage)),
+      TEXT_ENCODER.encode(JSON.stringify(input.payload)),
     ),
   );
   const envelope: LocalIdentityEnvelope = {
@@ -109,7 +109,7 @@ export async function encryptLocalIdentityKeyPackage(input: {
   return JSON.stringify(envelope);
 }
 
-export async function decryptLocalIdentityKeyPackage(input: {
+export async function decryptLocalIdentityPayload(input: {
   readonly identityPersistenceKey: Uint8Array;
   readonly serializedEnvelope: string;
 }): Promise<unknown> {
@@ -125,4 +125,21 @@ export async function decryptLocalIdentityKeyPackage(input: {
   );
 
   return JSON.parse(TEXT_DECODER.decode(plaintext));
+}
+
+export function encryptLocalIdentityKeyPackage(input: {
+  readonly identityPersistenceKey: Uint8Array;
+  readonly keyPackage: IdentityKeyPackage;
+}): Promise<string> {
+  return encryptLocalIdentityPayload({
+    identityPersistenceKey: input.identityPersistenceKey,
+    payload: input.keyPackage,
+  });
+}
+
+export function decryptLocalIdentityKeyPackage(input: {
+  readonly identityPersistenceKey: Uint8Array;
+  readonly serializedEnvelope: string;
+}): Promise<unknown> {
+  return decryptLocalIdentityPayload(input);
 }

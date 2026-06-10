@@ -9,10 +9,18 @@ import {
   useState,
 } from "react";
 import { useDatabase } from "../db/DatabaseProvider";
+import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useIdentity } from "../identity/IdentityProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import {
+  clearPersistedCryptoSession,
+  type LocalCryptoSessionPersistence,
+  persistCryptoSession,
+  restorePersistedCryptoSession,
+  useLocalCryptoSessionPersistence,
+} from "./localCryptoSessionPersistence";
 
 interface CryptoSessionContextValue {
   userId: string | null;
@@ -31,8 +39,6 @@ interface CryptoSessionContextValue {
 const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
   null,
 );
-const AUTO_LOGIN_MAX_ATTEMPTS = 5;
-const AUTO_LOGIN_RETRY_DELAY_MS = 250;
 
 function useResetCryptoSession(
   containerBootstrapped: MutableRefObject<string | null>,
@@ -142,114 +148,155 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   };
 }
 
-interface AutoLoginRestoredSessionInput {
+interface CryptoSessionPersistenceState {
   readonly authToken: string | null;
+  readonly containerId: string | null;
   readonly isAuthenticated: boolean;
-  readonly localIdentityRestoredFingerprint: string | null;
-  readonly logError: (message: string, error: unknown) => void;
-  readonly signingFingerprint: string | null;
-  readonly signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"];
-  readonly tearleads: ReturnType<typeof useTearleads>;
+  readonly organizationId: string | null;
+  readonly userId: string | null;
 }
 
-function useAutoLoginRestoredSession(input: AutoLoginRestoredSessionInput) {
+function useRestorePersistedSession(input: {
+  readonly localPersistence: LocalCryptoSessionPersistence | null;
+  readonly logError: (message: string, error: unknown) => void;
+  readonly sessionState: CryptoSessionPersistenceState;
+  readonly signingFingerprint: string | null;
+  readonly tearleads: ReturnType<typeof useTearleads>;
+}) {
   const {
-    authToken,
-    isAuthenticated,
-    localIdentityRestoredFingerprint,
+    localPersistence,
     logError,
+    sessionState: { authToken },
     signingFingerprint,
-    signingKeyPair,
     tearleads,
   } = input;
-  const completedFingerprint = useRef<string | null>(null);
-  const attemptedFingerprint = useRef<string | null>(null);
-  const attemptCount = useRef(0);
+  const [checkedFingerprint, setCheckedFingerprint] = useState<string | null>(
+    null,
+  );
   const inFlightFingerprint = useRef<string | null>(null);
-  const [retryAttempt, setRetryAttempt] = useState(0);
-
   useEffect(() => {
-    if (!signingKeyPair || !signingFingerprint) {
-      attemptedFingerprint.current = null;
-      attemptCount.current = 0;
-      completedFingerprint.current = null;
+    if (!signingFingerprint) {
+      setCheckedFingerprint(null);
       inFlightFingerprint.current = null;
       return;
     }
-
-    if (authToken || isAuthenticated) {
-      completedFingerprint.current = signingFingerprint;
-      inFlightFingerprint.current = null;
+    const clearInFlightFingerprint = () => {
+      if (inFlightFingerprint.current === signingFingerprint) {
+        inFlightFingerprint.current = null;
+      }
+    };
+    if (authToken) {
+      setCheckedFingerprint(signingFingerprint);
+      clearInFlightFingerprint();
       return;
     }
-
     if (
-      localIdentityRestoredFingerprint !== signingFingerprint ||
-      completedFingerprint.current === signingFingerprint ||
+      !localPersistence ||
+      checkedFingerprint === signingFingerprint ||
       inFlightFingerprint.current === signingFingerprint
     ) {
       return;
     }
 
-    if (attemptedFingerprint.current !== signingFingerprint) {
-      attemptedFingerprint.current = signingFingerprint;
-      attemptCount.current = 0;
-    }
-
-    if (attemptCount.current >= AUTO_LOGIN_MAX_ATTEMPTS) {
-      return;
-    }
-
     let cancelled = false;
-    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
-    attemptCount.current += 1;
     inFlightFingerprint.current = signingFingerprint;
-    const retry = () => {
-      if (
-        cancelled ||
-        completedFingerprint.current === signingFingerprint ||
-        attemptCount.current >= AUTO_LOGIN_MAX_ATTEMPTS
-      ) {
-        return;
-      }
-      setRetryAttempt((attempt) => attempt + 1);
-    };
-    void tearleads.session
-      .login()
-      .then((authenticated) => {
-        inFlightFingerprint.current = null;
+    void restorePersistedCryptoSession({
+      localPersistence,
+      signingFingerprint,
+    })
+      .then((persistedSession) => {
         if (cancelled) {
+          clearInFlightFingerprint();
           return;
         }
-        if (authenticated) {
-          completedFingerprint.current = signingFingerprint;
-          return;
+        clearInFlightFingerprint();
+        setCheckedFingerprint(signingFingerprint);
+        if (persistedSession) {
+          tearleads.session.setContext(persistedSession);
         }
-
-        retryTimeout = setTimeout(retry, AUTO_LOGIN_RETRY_DELAY_MS);
       })
       .catch((error: unknown) => {
-        inFlightFingerprint.current = null;
         if (cancelled) {
+          clearInFlightFingerprint();
           return;
         }
-        logError("Failed to authenticate restored local identity", error);
-        retryTimeout = setTimeout(retry, AUTO_LOGIN_RETRY_DELAY_MS);
+        clearInFlightFingerprint();
+        setCheckedFingerprint(signingFingerprint);
+        logError("Failed to restore persisted crypto session", error);
       });
 
     return () => {
       cancelled = true;
-      if (retryTimeout) clearTimeout(retryTimeout);
     };
   }, [
     authToken,
-    isAuthenticated,
-    localIdentityRestoredFingerprint,
+    checkedFingerprint,
+    localPersistence,
     logError,
     signingFingerprint,
-    signingKeyPair,
-    retryAttempt,
     tearleads,
+  ]);
+
+  return checkedFingerprint;
+}
+
+function usePersistCryptoSession(input: {
+  readonly checkedFingerprint: string | null;
+  readonly localPersistence: LocalCryptoSessionPersistence | null;
+  readonly logError: (message: string, error: unknown) => void;
+  readonly sessionState: CryptoSessionPersistenceState;
+  readonly signingFingerprint: string | null;
+}) {
+  const {
+    checkedFingerprint,
+    localPersistence,
+    logError,
+    sessionState: {
+      authToken,
+      containerId,
+      isAuthenticated,
+      organizationId,
+      userId,
+    },
+    signingFingerprint,
+  } = input;
+  useEffect(() => {
+    if (
+      !localPersistence ||
+      !signingFingerprint ||
+      checkedFingerprint !== signingFingerprint
+    ) {
+      return;
+    }
+
+    if (!authToken && !containerId && !organizationId && !userId) {
+      clearPersistedCryptoSession(localPersistence);
+      return;
+    }
+
+    void persistCryptoSession({
+      context: {
+        authToken,
+        containerId,
+        isAuthenticated,
+        organizationId,
+        userId,
+      },
+      localPersistence,
+      signingFingerprint,
+    }).catch((error: unknown) => {
+      logError("Failed to persist crypto session", error);
+    });
+  }, [
+    authToken,
+    checkedFingerprint,
+    containerId,
+    isAuthenticated,
+    localPersistence,
+    logError,
+    organizationId,
+    signingFingerprint,
+    userId,
   ]);
 }
 
@@ -301,18 +348,19 @@ function useSdkBackedCryptoSessionState(
 export function CryptoSessionProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { logError } = useLog();
+  const hostConfig = useAppHostConfig();
   const {
     client: dbClient,
     ensureIdentityReady: ensureIdentityDatabaseReady,
     status: dbStatus,
   } = useDatabase();
-  const {
-    localIdentityRestoredFingerprint,
-    signingFingerprint,
-    signingKeyPair,
-  } = useIdentity();
+  const { signingFingerprint, signingKeyPair } = useIdentity();
   const containerBootstrapped = useRef<string | null>(null);
   const sessionState = useSdkBackedCryptoSessionState(tearleads);
+  const localSessionPersistence = useLocalCryptoSessionPersistence({
+    createLocalKeyring: hostConfig.createLocalKeyring,
+    namespace: hostConfig.localIdentityNamespace ?? null,
+  });
 
   useResetCryptoSession(
     containerBootstrapped,
@@ -334,14 +382,19 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     dbClient,
     logError,
   );
-  useAutoLoginRestoredSession({
-    authToken: sessionState.authToken,
-    isAuthenticated: sessionState.isAuthenticated,
-    localIdentityRestoredFingerprint,
+  const checkedPersistedSessionFingerprint = useRestorePersistedSession({
+    localPersistence: localSessionPersistence,
     logError,
+    sessionState,
     signingFingerprint,
-    signingKeyPair,
     tearleads,
+  });
+  usePersistCryptoSession({
+    checkedFingerprint: checkedPersistedSessionFingerprint,
+    localPersistence: localSessionPersistence,
+    logError,
+    sessionState,
+    signingFingerprint,
   });
   const { login, loginWithChallenge, logout } = useCryptoAuthActions(tearleads);
 
