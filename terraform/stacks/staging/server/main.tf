@@ -2,15 +2,6 @@ locals {
   tailscale_hostname = "staging"
 }
 
-data "terraform_remote_state" "tailscale" {
-  backend = "s3"
-  config = {
-    bucket = "tearleads-terraform-state"
-    key    = "shared/tailscale/terraform.tfstate"
-    region = "us-east-1"
-  }
-}
-
 data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
 }
@@ -52,7 +43,7 @@ module "server" {
     runcmd:
       - systemctl restart ssh
       - curl -fsSL https://tailscale.com/install.sh | sh
-      - tailscale up --authkey=${data.terraform_remote_state.tailscale.outputs.staging_auth_key} --hostname=${local.tailscale_hostname}
+      - tailscale up --authkey=${var.tailscale_auth_key} --hostname=${local.tailscale_hostname}
   EOF
 
   create_firewall = true

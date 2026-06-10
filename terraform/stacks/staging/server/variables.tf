@@ -70,3 +70,9 @@ variable "tailscale_api_token" {
   type        = string
   sensitive   = true
 }
+
+variable "tailscale_auth_key" {
+  description = "Tailscale auth key for server registration"
+  type        = string
+  sensitive   = true
+}
