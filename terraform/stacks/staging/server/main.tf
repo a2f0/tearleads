@@ -121,6 +121,6 @@ resource "terraform_data" "tailscale_destroy_cleanup" {
     environment = {
       TAILSCALE_API_TOKEN = self.input.api_token
     }
-    command = "${path.module}/../../../scripts/cleanup-tailscale-device.sh ${self.input.hostname} ${try(self.input.tailnet, "")}"
+    command = "${path.module}/../../../scripts/cleanup-tailscale-device.sh '${self.input.hostname}' '${try(self.input.tailnet, "")}'"
   }
 }
