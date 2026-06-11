@@ -9,8 +9,10 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env prod
 validate_aws_env
+validate_hetzner_env
 validate_cloudflare_env
 validate_domain_env
+validate_tailscale_auth_key_env
 
 BACKEND_CONFIG="$(get_backend_config)"
 

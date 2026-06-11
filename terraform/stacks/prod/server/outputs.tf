@@ -1,26 +1,31 @@
 output "server_ip" {
-  description = "Public IPv4 address of the server"
-  value       = aws_eip.server.public_ip
+  description = "IPv4 address of the server"
+  value       = module.server.ipv4_address
 }
 
-output "server_private_ip" {
-  description = "Private IPv4 address of the server"
-  value       = aws_instance.server.private_ip
+output "server_ipv6" {
+  description = "IPv6 address of the server"
+  value       = module.server.ipv6_address
 }
 
 output "server_status" {
-  description = "Instance state"
-  value       = aws_instance.server.instance_state
-}
-
-output "ssh_hostname" {
-  description = "SSH hostname for server access"
-  value       = "ssh.${var.domain}"
+  description = "Status of the server"
+  value       = module.server.status
 }
 
 output "ssh_command" {
-  description = "SSH command to connect"
-  value       = "ssh ssh.${var.domain}"
+  description = "SSH command to connect (via Tailscale MagicDNS)"
+  value       = "ssh ${local.tailscale_hostname}"
+}
+
+output "ssh_hostname" {
+  description = "Tailscale hostname for server access"
+  value       = local.tailscale_hostname
+}
+
+output "server_username" {
+  description = "Username for SSH access"
+  value       = var.server_username
 }
 
 output "tunnel_id" {
@@ -34,12 +39,12 @@ output "tunnel_token" {
   sensitive   = true
 }
 
-output "vpc_id" {
-  description = "VPC ID"
-  value       = aws_vpc.main.id
+output "cloudflare_zone_nameservers" {
+  description = "Cloudflare authoritative nameservers"
+  value       = data.cloudflare_zone.production.name_servers
 }
 
-output "security_group_id" {
-  description = "Server security group ID"
-  value       = aws_security_group.server.id
+output "tailscale_hostname" {
+  description = "Tailscale hostname for the server"
+  value       = local.tailscale_hostname
 }

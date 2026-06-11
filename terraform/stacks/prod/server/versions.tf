@@ -6,9 +6,9 @@ terraform {
   }
 
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
+    hcloud = {
+      source  = "hetznercloud/hcloud"
+      version = "~> 1.58"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
@@ -21,8 +21,8 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = var.aws_region
+provider "hcloud" {
+  token = var.hcloud_token
 }
 
 provider "cloudflare" {
