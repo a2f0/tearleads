@@ -23,6 +23,8 @@
     postgres_host: "127.0.0.1"
     redis_bind: "127.0.0.1"
     domain: "{{ lookup('env', 'TF_VAR_domain') | default('tearleads.com', true) }}"
+    server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
+    bun_path: "/home/{{ server_user }}/.bun/bin/bun"
     nginx_worker_connections: 1024
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | default('admin@' + (domain | default('tearleads.com')), true) }}"
 
@@ -114,6 +116,22 @@
         state: link
       notify: Reload nginx
 
+    - name: Configure nginx site for API
+      ansible.builtin.template:
+        src: etc/nginx/sites-available/api.conf.j2
+        dest: /etc/nginx/sites-available/api.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Enable nginx API site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/api.conf
+        dest: /etc/nginx/sites-enabled/api.conf
+        state: link
+      notify: Reload nginx
+
     - name: Ensure nginx is enabled and started
       ansible.builtin.systemd:
         name: nginx
@@ -126,6 +144,70 @@
           - certbot
           - python3-certbot-nginx
         state: present
+
+    - name: Install Bun
+      ansible.builtin.shell:
+        cmd: curl -fsSL https://bun.sh/install | bash
+        creates: /home/{{ server_user }}/.bun/bin/bun
+      become: true
+      become_user: "{{ server_user }}"
+
+    - name: Create application directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ server_user }}"
+        group: "{{ server_user }}"
+        mode: "0755"
+      loop:
+        - /opt/tearleads
+        - /etc/tearleads
+
+    - name: Deploy API environment file
+      ansible.builtin.template:
+        src: etc/tearleads/api.env.j2
+        dest: /etc/tearleads/api.env
+        owner: root
+        group: "{{ server_user }}"
+        mode: "0640"
+
+    - name: Deploy app-web environment file
+      ansible.builtin.template:
+        src: etc/tearleads/app-web.env.j2
+        dest: /etc/tearleads/app-web.env
+        owner: root
+        group: "{{ server_user }}"
+        mode: "0640"
+
+    - name: Deploy API systemd service
+      ansible.builtin.template:
+        src: etc/systemd/system/tearleads-api.service.j2
+        dest: /etc/systemd/system/tearleads-api.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart tearleads-api
+
+    - name: Deploy app-web systemd service
+      ansible.builtin.template:
+        src: etc/systemd/system/tearleads-app-web.service.j2
+        dest: /etc/systemd/system/tearleads-app-web.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart tearleads-app-web
+
+    - name: Enable API systemd service
+      ansible.builtin.systemd:
+        name: tearleads-api
+        daemon_reload: true
+        enabled: true
+
+    - name: Enable app-web systemd service
+      ansible.builtin.systemd:
+        name: tearleads-app-web
+        daemon_reload: true
+        enabled: true
 
     - name: Install Redis
       ansible.builtin.apt:
@@ -208,4 +290,16 @@
     - name: Restart redis
       ansible.builtin.systemd:
         name: redis-server
+        state: restarted
+
+    - name: Restart tearleads-api
+      ansible.builtin.systemd:
+        name: tearleads-api
+        daemon_reload: true
+        state: restarted
+
+    - name: Restart tearleads-app-web
+      ansible.builtin.systemd:
+        name: tearleads-app-web
+        daemon_reload: true
         state: restarted

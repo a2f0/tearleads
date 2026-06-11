@@ -1,0 +1,18 @@
+[Unit]
+Description=Tearleads App Web
+After=network.target
+
+[Service]
+Type=simple
+User={{ server_user | default('deploy') }}
+WorkingDirectory=/opt/tearleads/packages/app-web
+EnvironmentFile=/etc/tearleads/app-web.env
+ExecStart={{ bun_path }} src/servers/prodServer.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tearleads-app-web
+
+[Install]
+WantedBy=multi-user.target

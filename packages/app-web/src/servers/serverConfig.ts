@@ -3,7 +3,12 @@ import {
   getDefaultDatabaseWorkerEntrypointUrl,
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
-import index from "../index.html";
+
+const isProduction = process.env.NODE_ENV === "production";
+
+const indexHtml = isProduction
+  ? await Bun.file("./dist/index.html").text()
+  : (await import("../index.html")).default;
 
 const workerBuild = await Bun.build({
   entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
@@ -27,6 +32,8 @@ export const serverConfig = {
     "/sqlite3.wasm": new Response(sqliteWasm, {
       headers: { "Content-Type": "application/wasm" },
     }),
-    "/*": index,
+    "/*": new Response(indexHtml, {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    }),
   },
 };
