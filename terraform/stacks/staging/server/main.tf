@@ -119,8 +119,8 @@ resource "terraform_data" "tailscale_destroy_cleanup" {
   provisioner "local-exec" {
     when = destroy
     environment = {
-      TAILSCALE_API_TOKEN = var.tailscale_api_token
+      TAILSCALE_API_TOKEN = self.input.api_token
     }
-    command = "${path.module}/../../../scripts/cleanup-tailscale-device.sh ${self.input.hostname} ${var.tailscale_tailnet_id}"
+    command = "${path.module}/../../../scripts/cleanup-tailscale-device.sh ${self.input.hostname} ${try(self.input.tailnet, "")}"
   }
 }
