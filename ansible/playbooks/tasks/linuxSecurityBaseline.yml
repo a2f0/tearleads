@@ -1,0 +1,41 @@
+- name: Enforce SSH daemon hardening defaults
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?{{ item.key }}\\s+"
+    line: "{{ item.key }} {{ item.value }}"
+    validate: "sshd -t -f %s"
+  loop: "{{ linux_security_baseline_ssh_settings }}"
+  notify: Restart sshd
+
+- name: Install UFW when baseline firewall is enabled
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+  when: linux_security_baseline_manage_ufw | bool
+
+- name: Set UFW default deny incoming when baseline firewall is enabled
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+  when: linux_security_baseline_manage_ufw | bool
+
+- name: Set UFW default allow outgoing when baseline firewall is enabled
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+  when: linux_security_baseline_manage_ufw | bool
+
+- name: Apply baseline UFW allow rules
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    src: "{{ item.src | default(omit) }}"
+  loop: "{{ linux_security_baseline_ufw_allow_rules }}"
+  when: linux_security_baseline_manage_ufw | bool
+
+- name: Enable UFW when baseline firewall is enabled
+  community.general.ufw:
+    state: enabled
+  when: linux_security_baseline_manage_ufw | bool
