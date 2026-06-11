@@ -20,6 +20,7 @@
     postgres_db: "tearleads"
     postgres_user: "tearleads"
     postgres_password: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters,digits length=32') }}"
+    postgres_host: "127.0.0.1"
     redis_bind: "127.0.0.1"
     nginx_worker_connections: 1024
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | default('admin@' + (domain | default('tearleads.com')), true) }}"
@@ -132,7 +133,6 @@
         name:
           - "postgresql-{{ postgres_version }}"
           - "postgresql-client-{{ postgres_version }}"
-          - python3-psycopg2
         state: present
 
     - name: Ensure PostgreSQL is enabled and started
@@ -141,23 +141,45 @@
         enabled: true
         state: started
 
-    - name: Create PostgreSQL database
-      community.postgresql.postgresql_db:
-        name: "{{ postgres_db }}"
-        encoding: UTF-8
-        lc_collate: en_US.UTF-8
-        lc_ctype: en_US.UTF-8
+    - name: Check if PostgreSQL database exists
+      ansible.builtin.command:
+        cmd: psql -tc "SELECT 1 FROM pg_database WHERE datname = '{{ postgres_db }}'"
       become: true
       become_user: postgres
+      register: db_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Create PostgreSQL database
+      ansible.builtin.command:
+        cmd: createdb --encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8 "{{ postgres_db }}"
+      become: true
+      become_user: postgres
+      when: "'1' not in db_exists.stdout"
+
+    - name: Check if PostgreSQL user exists
+      ansible.builtin.command:
+        cmd: psql -tc "SELECT 1 FROM pg_roles WHERE rolname = '{{ postgres_user }}'"
+      become: true
+      become_user: postgres
+      register: user_exists
+      changed_when: false
+      failed_when: false
 
     - name: Create PostgreSQL user
-      community.postgresql.postgresql_user:
-        name: "{{ postgres_user }}"
-        password: "{{ postgres_password }}"
-        db: "{{ postgres_db }}"
-        priv: ALL
+      ansible.builtin.shell:
+        cmd: psql -c "CREATE USER \"{{ postgres_user }}\" WITH PASSWORD '{{ postgres_password }}'"
       become: true
       become_user: postgres
+      no_log: true
+      when: "'1' not in user_exists.stdout"
+
+    - name: Grant database privileges
+      ansible.builtin.command:
+        cmd: psql -c "GRANT ALL PRIVILEGES ON DATABASE \"{{ postgres_db }}\" TO \"{{ postgres_user }}\""
+      become: true
+      become_user: postgres
+      changed_when: false
 
     - name: Show generated PostgreSQL password
       ansible.builtin.debug:
