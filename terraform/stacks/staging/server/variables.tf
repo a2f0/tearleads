@@ -76,3 +76,8 @@ variable "tailscale_auth_key" {
   type        = string
   sensitive   = true
 }
+
+variable "tailscale_tailnet_id" {
+  description = "Tailscale tailnet name for device cleanup"
+  type        = string
+}
