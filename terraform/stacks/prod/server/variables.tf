@@ -1,53 +1,57 @@
+variable "hcloud_token" {
+  description = "Hetzner Cloud API token"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_key_name" {
+  description = "Name of existing SSH key in Hetzner"
+  type        = string
+}
+
 variable "domain" {
   description = "Domain name for DNS records"
   type        = string
 }
 
-variable "aws_region" {
-  description = "AWS region for prod resources"
+variable "server_location" {
+  description = "Hetzner server location"
   type        = string
-  default     = "us-east-1"
+  default     = "nbg1"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
+variable "server_username" {
+  description = "Non-root username for server access"
   type        = string
-  default     = "t3.small"
 }
 
-variable "ami_id" {
-  description = "AMI ID to use (empty for latest Ubuntu Noble 24.04)"
+variable "server_type" {
+  description = "Hetzner server type"
   type        = string
-  default     = ""
-}
-
-variable "ssh_key_name" {
-  description = "Name of existing AWS EC2 key pair"
-  type        = string
+  default     = "cx33"
 }
 
 variable "server_user_data" {
-  description = "Cloud-init user data for the server"
+  description = "Cloud-init user data (empty uses built-in with Tailscale)"
   type        = string
   default     = ""
-}
-
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
-  type        = string
-  default     = "10.42.0.0/16"
-}
-
-variable "public_subnet_cidr" {
-  description = "Public subnet CIDR"
-  type        = string
-  default     = "10.42.1.0/24"
 }
 
 variable "allowed_ssh_ips" {
   description = "List of IP addresses/CIDRs allowed SSH access"
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"]
+}
+
+variable "ssh_host_private_key" {
+  description = "SSH host private key for the server"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_host_public_key" {
+  description = "SSH host public key for the server"
+  type        = string
 }
 
 variable "cloudflare_api_token" {
@@ -58,5 +62,22 @@ variable "cloudflare_api_token" {
 
 variable "cloudflare_account_id" {
   description = "Cloudflare account ID"
+  type        = string
+}
+
+variable "tailscale_api_token" {
+  description = "Tailscale API token for destroy-time device cleanup"
+  type        = string
+  sensitive   = true
+}
+
+variable "tailscale_auth_key" {
+  description = "Tailscale auth key for server registration"
+  type        = string
+  sensitive   = true
+}
+
+variable "tailscale_tailnet_id" {
+  description = "Tailscale tailnet name for device cleanup"
   type        = string
 }
