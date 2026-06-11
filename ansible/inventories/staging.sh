@@ -1,28 +1,25 @@
 #!/bin/sh
 # Dynamic inventory script for the staging server from its Terraform output
-set -e
+# The runner script (run-server-staging.sh) handles loading secrets and
+# initializing the Terraform backend before invoking ansible-playbook.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+STACK_DIR="$(dirname "$0")/../../terraform/stacks/staging/server"
 
-# Source common.sh to load secrets (needed for S3 backend access)
-# shellcheck source=../../terraform/scripts/common.sh
-. "$REPO_ROOT/terraform/scripts/common.sh"
-load_secrets_env staging
+cd "$STACK_DIR" 2>/dev/null || {
+  echo '{"_meta": {"hostvars": {}}}'
+  exit 0
+}
 
-cd "$REPO_ROOT/terraform/stacks/staging/server"
-
-TF_STDERR=$(mktemp)
+TF_STDERR=$(mktemp 2>/dev/null) || TF_STDERR=/dev/null
 HOSTNAME=$(terraform output -raw ssh_hostname 2>"$TF_STDERR") || true
 USERNAME=$(terraform output -raw server_username 2>>"$TF_STDERR") || true
 
-# Check for real errors (not just "output not found")
-if grep -qv "No outputs found\|output.*not found" "$TF_STDERR" 2>/dev/null && [ -s "$TF_STDERR" ]; then
-  cat "$TF_STDERR" >&2
+if [ -n "$TF_STDERR" ] && [ "$TF_STDERR" != "/dev/null" ]; then
+  if grep -qv "No outputs found\|output.*not found" "$TF_STDERR" 2>/dev/null && [ -s "$TF_STDERR" ]; then
+    cat "$TF_STDERR" >&2
+  fi
   rm -f "$TF_STDERR"
-  exit 1
 fi
-rm -f "$TF_STDERR"
 
 if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
   echo '{"_meta": {"hostvars": {}}}'

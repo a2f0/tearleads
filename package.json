@@ -39,6 +39,7 @@
     "lint:knip:files": "knip --files",
     "lint:knip:production": "knip --production",
     "lint:package-assertions": "bun scripts/lintPackageAssertions.ts",
+    "lint:scripts": "shellcheck --severity=info ansible/inventories/*.sh ansible/scripts/*.sh terraform/scripts/*.sh terraform/stacks/staging/server/scripts/*.sh terraform/stacks/prod/server/scripts/*.sh",
     "lint:source-shape": "bun scripts/lintSourceShape.ts",
     "report:dependencies": "bun scripts/reportDependencyGraph.ts",
     "report:dependencies:archi": "bun scripts/reportDependencyGraph.ts --format archi",
