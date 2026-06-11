@@ -54,7 +54,18 @@ rsync -avz --delete \
   "$REPO_ROOT/" "$SSH_TARGET:$REMOTE_PATH/"
 
 echo "Installing dependencies..."
-ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install --production 2>&1"
+ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install 2>&1"
+
+echo "Syncing built workspace dist directories..."
+rsync -avz --delete \
+  "$REPO_ROOT/packages/sqlite-instance/dist/" \
+  "$SSH_TARGET:$REMOTE_PATH/packages/sqlite-instance/dist/"
+rsync -avz --delete \
+  "$REPO_ROOT/packages/client-sdk/dist/" \
+  "$SSH_TARGET:$REMOTE_PATH/packages/client-sdk/dist/"
+rsync -avz --delete \
+  "$REPO_ROOT/packages/app-web/dist/" \
+  "$SSH_TARGET:$REMOTE_PATH/packages/app-web/dist/"
 
 echo "Restarting app-web service..."
 ssh "$SSH_TARGET" "sudo systemctl restart tearleads-app-web"
