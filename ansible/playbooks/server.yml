@@ -22,6 +22,7 @@
     postgres_password: "{{ lookup('env', 'DATABASE_PASSWORD') | default(lookup('ansible.builtin.password', playbook_dir + '/.postgres_password chars=ascii_letters,digits length=32'), true) }}"
     postgres_host: "127.0.0.1"
     redis_bind: "127.0.0.1"
+    domain: "{{ lookup('env', 'TF_VAR_domain') | default('tearleads.com', true) }}"
     nginx_worker_connections: 1024
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | default('admin@' + (domain | default('tearleads.com')), true) }}"
 
@@ -89,6 +90,30 @@
         state: link
       notify: Reload nginx
 
+    - name: Create website directory
+      ansible.builtin.file:
+        path: /var/www/website
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Configure nginx site for website
+      ansible.builtin.template:
+        src: etc/nginx/sites-available/website.conf.j2
+        dest: /etc/nginx/sites-available/website.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Enable nginx website site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/website.conf
+        dest: /etc/nginx/sites-enabled/website.conf
+        state: link
+      notify: Reload nginx
+
     - name: Ensure nginx is enabled and started
       ansible.builtin.systemd:
         name: nginx
@@ -111,14 +136,14 @@
     - name: Configure Redis
       ansible.builtin.lineinfile:
         path: /etc/redis/redis.conf
-        regexp: "^bind "
+        regexp: '^#?[[:space:]]*bind[[:space:]]'
         line: "bind {{ redis_bind }}"
       notify: Restart redis
 
     - name: Configure Redis protected mode
       ansible.builtin.lineinfile:
         path: /etc/redis/redis.conf
-        regexp: "^protected-mode "
+        regexp: '^#?[[:space:]]*protected-mode[[:space:]]'
         line: "protected-mode yes"
       notify: Restart redis
 
@@ -145,6 +170,7 @@
     - name: Create PostgreSQL database
       community.postgresql.postgresql_db:
         name: "{{ postgres_db }}"
+        owner: "{{ postgres_user }}"
         encoding: UTF-8
         lc_collate: en_US.UTF-8
         lc_ctype: en_US.UTF-8
@@ -167,10 +193,6 @@
         privs: ALL
       become: true
       become_user: postgres
-
-    - name: Show generated PostgreSQL password
-      ansible.builtin.debug:
-        msg: "PostgreSQL user '{{ postgres_user }}' password: {{ postgres_password }}"
 
   handlers:
     - name: Restart sshd

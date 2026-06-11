@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Install ansible-core and required collections via mise
-set -eu
+set -euo pipefail
 
 cd "$(dirname "$0")"
 
 mise install pipx:ansible-core
-ansible-galaxy collection install -r ../requirements.yml
+mise exec pipx:ansible-core -- ansible-galaxy collection install -r ../requirements.yml
