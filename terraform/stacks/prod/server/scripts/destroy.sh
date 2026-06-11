@@ -16,7 +16,6 @@ validate_aws_env
 validate_hetzner_env
 validate_cloudflare_env
 validate_domain_env
-validate_tailscale_auth_key_env
 validate_tailscale_env
 
 BACKEND_CONFIG="$(get_backend_config)"

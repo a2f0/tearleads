@@ -43,7 +43,14 @@ module "server" {
     runcmd:
       - systemctl restart ssh
       - curl -fsSL https://tailscale.com/install.sh | sh
-      - tailscale up --authkey=${var.tailscale_auth_key} --hostname=${local.tailscale_hostname}
+      - |
+        for i in {1..10}; do
+          if systemctl is-active --quiet tailscaled; then
+            tailscale up --authkey=${var.tailscale_auth_key} --hostname=${local.tailscale_hostname}
+            break
+          fi
+          sleep 2
+        done
   EOF
 
   create_firewall = true
@@ -121,6 +128,6 @@ resource "terraform_data" "tailscale_destroy_cleanup" {
     environment = {
       TAILSCALE_API_TOKEN = self.input.api_token
     }
-    command = "${path.module}/../../../scripts/cleanup-tailscale-device.sh '${self.input.hostname}' '${try(self.input.tailnet, "")}'"
+    command = "${path.module}/../../../scripts/cleanup-tailscale-device.sh '${self.input.hostname}' '${self.input.tailnet != null ? self.input.tailnet : ""}'"
   }
 }
