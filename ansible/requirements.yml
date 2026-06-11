@@ -4,3 +4,5 @@ collections:
     version: "2.1.0"
   - name: community.general
     version: "10.5.0"
+  - name: community.postgresql
+    version: "3.4.0"

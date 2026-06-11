@@ -14,12 +14,6 @@
     update_cache: true
   when: linux_security_baseline_manage_ufw | bool
 
-- name: Set UFW default deny incoming when baseline firewall is enabled
-  community.general.ufw:
-    direction: incoming
-    policy: deny
-  when: linux_security_baseline_manage_ufw | bool
-
 - name: Set UFW default allow outgoing when baseline firewall is enabled
   community.general.ufw:
     direction: outgoing
@@ -33,6 +27,12 @@
     proto: "{{ item.proto | default('tcp') }}"
     src: "{{ item.src | default(omit) }}"
   loop: "{{ linux_security_baseline_ufw_allow_rules }}"
+  when: linux_security_baseline_manage_ufw | bool
+
+- name: Set UFW default deny incoming when baseline firewall is enabled
+  community.general.ufw:
+    direction: incoming
+    policy: deny
   when: linux_security_baseline_manage_ufw | bool
 
 - name: Enable UFW when baseline firewall is enabled
