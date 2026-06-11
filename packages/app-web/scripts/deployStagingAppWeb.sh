@@ -44,7 +44,7 @@ echo "Deploying source to $SSH_TARGET:$REMOTE_PATH ..."
 rsync -avz --delete \
   --exclude='.git/' \
   --exclude='node_modules/' \
-  --exclude='packages/website/dist/' \
+  --exclude='dist/' \
   --exclude='.turbo/' \
   --exclude='build/' \
   --exclude='.astro/' \
@@ -54,7 +54,7 @@ rsync -avz --delete \
   "$REPO_ROOT/" "$SSH_TARGET:$REMOTE_PATH/"
 
 echo "Installing dependencies..."
-ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install 2>&1"
+ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install --production 2>&1"
 
 echo "Restarting app-web service..."
 ssh "$SSH_TARGET" "sudo systemctl restart tearleads-app-web"

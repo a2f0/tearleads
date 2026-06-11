@@ -4,11 +4,10 @@ import {
   getSqliteWasmAssetUrl,
 } from "@tearleads/sqlite-worker/assets";
 
-const distDir = `${import.meta.dir}/../../dist`;
 const isProduction = process.env.NODE_ENV === "production";
 
 const indexHtml = isProduction
-  ? await Bun.file(`${distDir}/index.html`).text()
+  ? await Bun.file("./dist/index.html").text()
   : (await import("../index.html")).default;
 
 const workerBuild = await Bun.build({
@@ -33,20 +32,8 @@ export const serverConfig = {
     "/sqlite3.wasm": new Response(sqliteWasm, {
       headers: { "Content-Type": "application/wasm" },
     }),
-  },
-  async fetch(req: Request) {
-    const url = new URL(req.url);
-    if (isProduction) {
-      const { pathname } = url;
-      if (pathname !== "/") {
-        const file = Bun.file(`${distDir}${pathname}`);
-        if (await file.exists()) {
-          return new Response(file);
-        }
-      }
-    }
-    return new Response(indexHtml, {
+    "/*": new Response(indexHtml, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
-    });
+    }),
   },
 };

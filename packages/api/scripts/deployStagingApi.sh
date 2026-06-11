@@ -47,7 +47,7 @@ rsync -avz --delete \
   "$REPO_ROOT/" "$SSH_TARGET:$REMOTE_PATH/"
 
 echo "Installing dependencies..."
-ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install 2>&1"
+ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install --production 2>&1"
 
 echo "Running database migrations..."
 ssh "$SSH_TARGET" "set -a && . /etc/tearleads/api.env && cd $REMOTE_PATH/packages/api && ~/.bun/bin/bun run db:migrate 2>&1"
