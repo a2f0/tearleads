@@ -1,8 +1,9 @@
 #!/bin/sh
 # Configure the prod server
 #
-# Loads .secrets/root.env + .secrets/prod.env so the dynamic inventory
-# script can reach the Terraform S3 backend for host resolution.
+# Loads .secrets/root.env + .secrets/prod.env, resolves the server
+# hostname and username from Terraform outputs, and runs the Ansible
+# server playbook.
 
 set -eu
 
@@ -16,10 +17,26 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 load_secrets_env prod
 validate_aws_env
 
-# Ensure terraform backend is initialized for the inventory script
+# Ensure terraform backend is initialized
+STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"
 BACKEND_CONFIG="$(get_backend_config)"
-terraform -chdir="$REPO_ROOT/terraform/stacks/prod/server" init \
-  -backend-config="$BACKEND_CONFIG" >&2
+terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
 
-ansible-playbook -i "$SCRIPT_DIR/../inventories/prod.sh" \
+# Resolve hostname and username from terraform outputs
+HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw ssh_hostname 2>/dev/null) || true
+USERNAME=$(terraform -chdir="$STACK_DIR" output -raw server_username 2>/dev/null) || true
+
+if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
+  echo "ERROR: Could not resolve hostname or username from terraform outputs." >&2
+  echo "       Run 'terraform apply' in $STACK_DIR first." >&2
+  exit 1
+fi
+
+INVENTORY_FILE=$(mktemp -t tearleads-prod-inventory)
+# shellcheck disable=SC2064
+trap "rm -f '$INVENTORY_FILE'" EXIT
+
+printf '[all]\n%s ansible_user=%s\n' "$HOSTNAME" "$USERNAME" > "$INVENTORY_FILE"
+
+ansible-playbook -i "$INVENTORY_FILE" \
   "$SCRIPT_DIR/../playbooks/server.yml" "$@"
