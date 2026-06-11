@@ -32,8 +32,20 @@ export const serverConfig = {
     "/sqlite3.wasm": new Response(sqliteWasm, {
       headers: { "Content-Type": "application/wasm" },
     }),
-    "/*": new Response(indexHtml, {
+  },
+  fetch(req: Request) {
+    const url = new URL(req.url);
+    if (isProduction) {
+      const { pathname } = url;
+      if (pathname !== "/") {
+        const file = Bun.file(`./dist${pathname}`);
+        if (file.size > 0) {
+          return new Response(file);
+        }
+      }
+    }
+    return new Response(indexHtml, {
       headers: { "Content-Type": "text/html; charset=utf-8" },
-    }),
+    });
   },
 };
