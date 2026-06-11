@@ -1,0 +1,19 @@
+[Unit]
+Description=Tearleads API
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User={{ server_user | default('deploy') }}
+WorkingDirectory=/opt/tearleads/packages/api
+EnvironmentFile=/etc/tearleads/api.env
+ExecStart={{ bun_path }} run start
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tearleads-api
+
+[Install]
+WantedBy=multi-user.target
