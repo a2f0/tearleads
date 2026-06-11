@@ -22,7 +22,7 @@
     postgres_password: "{{ lookup('env', 'DATABASE_PASSWORD') | default(lookup('ansible.builtin.password', playbook_dir + '/.postgres_password chars=ascii_letters,digits length=32'), true) }}"
     postgres_host: "127.0.0.1"
     redis_bind: "127.0.0.1"
-    domain: "{{ lookup('env', 'TF_VAR_domain') | default('tearleads.com', true) }}"
+    domain: "{{ lookup('env', 'TF_VAR_domain') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
     nginx_worker_connections: 1024

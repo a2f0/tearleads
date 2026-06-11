@@ -31,9 +31,10 @@ if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
 fi
 
 echo "Building app-web..."
-BUN_PUBLIC_API_BASE_URL="https://api.${DOMAIN}" \
+(cd "$REPO_ROOT/packages/app-web" && \
+  BUN_PUBLIC_API_BASE_URL="https://api.${DOMAIN}" \
   BUN_PUBLIC_WS_URL="wss://api.${DOMAIN}" \
-  (cd "$REPO_ROOT/packages/app-web" && bun run build)
+  bun run build)
 
 SSH_TARGET="$USERNAME@$HOSTNAME"
 REMOTE_PATH="/opt/tearleads"

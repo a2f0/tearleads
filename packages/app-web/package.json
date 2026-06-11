@@ -15,6 +15,7 @@
     "start": "bun src/servers/devServer.ts"
   },
   "dependencies": {
+    "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "react-dom": "catalog:react"
