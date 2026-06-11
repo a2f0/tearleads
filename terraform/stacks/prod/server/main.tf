@@ -164,6 +164,22 @@ data "aws_key_pair" "main" {
   key_name = var.ssh_key_name
 }
 
+resource "aws_eip" "server" {
+  domain = "vpc"
+
+  tags = {
+    Name        = "tearleads-prod-server"
+    Project     = "tearleads"
+    Environment = "prod"
+    Stack       = "server"
+  }
+}
+
+resource "aws_eip_association" "server" {
+  instance_id   = aws_instance.server.id
+  allocation_id = aws_eip.server.id
+}
+
 resource "aws_instance" "server" {
   ami                    = var.ami_id != "" ? var.ami_id : data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
@@ -173,6 +189,13 @@ resource "aws_instance" "server" {
   source_dest_check      = false
 
   user_data = var.server_user_data
+
+  root_block_device {
+    volume_size           = 30
+    volume_type           = "gp3"
+    encrypted             = true
+    delete_on_termination = true
+  }
 
   tags = {
     Name        = "prod-${var.domain}"
@@ -219,7 +242,7 @@ resource "cloudflare_dns_record" "ssh" {
   zone_id = data.cloudflare_zone.production.id
   name    = "ssh.${var.domain}"
   type    = "A"
-  content = aws_instance.server.public_ip
+  content = aws_eip.server.public_ip
   proxied = false
   ttl     = 1
 }

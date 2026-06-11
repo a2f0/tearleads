@@ -28,6 +28,7 @@ run_terraform_fmt() {
 
 run_tflint() {
   echo "Running tflint..."
+  tflint --init --chdir="$TERRAFORM_DIR"
   if ! tflint --chdir="$TERRAFORM_DIR"; then
     echo "Error: tflint failed" >&2
     return 1

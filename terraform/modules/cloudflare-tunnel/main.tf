@@ -41,18 +41,18 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "main" {
         service  = rule.service
         path     = rule.path != "" ? rule.path : null
       }],
-      [{ hostname = "", service = var.catch_all_service }]
+      [{ hostname = null, service = var.catch_all_service }]
     )
   }
 }
 
 resource "cloudflare_dns_record" "tunnel" {
-  for_each = var.create_dns_records ? {
-    for rule in var.ingress_rules : rule.hostname => rule
-  } : {}
+  for_each = var.create_dns_records ? toset([
+    for rule in var.ingress_rules : rule.hostname
+  ]) : toset([])
 
   zone_id = local.zone_id
-  name    = each.value.hostname
+  name    = each.value
   type    = "CNAME"
   content = "${cloudflare_zero_trust_tunnel_cloudflared.main.id}.cfargotunnel.com"
   proxied = true

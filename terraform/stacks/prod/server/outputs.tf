@@ -1,6 +1,6 @@
 output "server_ip" {
   description = "Public IPv4 address of the server"
-  value       = aws_instance.server.public_ip
+  value       = aws_eip.server.public_ip
 }
 
 output "server_private_ip" {

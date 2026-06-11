@@ -95,6 +95,10 @@ validate_azure_env() {
 
 # Validate AWS credentials for S3 backend
 validate_aws_env() {
+  if [[ -n "${AWS_PROFILE:-}" || -n "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" || -n "${AWS_CONTAINER_CREDENTIALS_RELATIVE_URI:-}" ]]; then
+    return 0
+  fi
+
   local missing=()
 
   [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && missing+=("AWS_ACCESS_KEY_ID")

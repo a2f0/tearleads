@@ -108,20 +108,6 @@ module "tunnel" {
   ]
 }
 
-resource "cloudflare_dns_record" "server" {
-  for_each = {
-    A    = module.server.ipv4_address
-    AAAA = module.server.ipv6_address
-  }
-
-  zone_id = data.cloudflare_zone.staging.id
-  name    = var.domain
-  type    = each.key
-  content = each.value
-  proxied = false
-  ttl     = 1
-}
-
 resource "terraform_data" "tailscale_destroy_cleanup" {
   input = {
     hostname  = local.tailscale_hostname

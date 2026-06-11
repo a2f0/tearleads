@@ -1,8 +1,8 @@
 #!/bin/bash
 # Upgrade Terraform providers across all stacks. Run from anywhere.
 #
-# Walks every stack that has a scripts/update.sh, runs `terraform init -upgrade`
-# via that script, and reports which lock files changed.
+# Walks every stack that has a versions.tf, runs `terraform init -upgrade`
+# directly, and reports which lock files changed.
 #
 # Environment toggles:
 #   SKIP_BOOTSTRAP=1        Skip the bootstrap stack
@@ -28,23 +28,23 @@ warn() {
   echo "updateTerraform: WARNING: $*" >&2
 }
 
-# Collect all stacks with update.sh scripts.
+# Collect all stacks with versions.tf files.
 collect_stacks() {
   local stacks=""
 
   # Bootstrap (no tier)
   if [ "${SKIP_BOOTSTRAP:-0}" -ne 1 ] && [ -z "${ONLY_TIER:-}" ] && [ -z "${ONLY_STACK:-}" ]; then
-    if [ -f "$TF_ROOT/bootstrap/scripts/update.sh" ]; then
+    if [ -f "$TF_ROOT/bootstrap/versions.tf" ]; then
       stacks="bootstrap"
     fi
   fi
 
-  # Walk stacks/<tier>/<stack>/scripts/update.sh
-  for update_script in "$TF_ROOT"/stacks/*/*/scripts/update.sh; do
-    [ -f "$update_script" ] || continue
+  # Walk stacks/<tier>/<stack>/versions.tf
+  for versions_file in "$TF_ROOT"/stacks/*/*/versions.tf; do
+    [ -f "$versions_file" ] || continue
     # Extract relative path: stacks/<tier>/<stack>
     local rel_path
-    rel_path="$(dirname "$(dirname "$update_script")")"
+    rel_path="$(dirname "$versions_file")"
     rel_path="${rel_path#"$TF_ROOT"/}"
 
     # Filter by tier if requested
@@ -71,7 +71,6 @@ collect_stacks() {
 update_stack() {
   local rel_path="$1"
   local stack_dir="$TF_ROOT/$rel_path"
-  local update_script="$stack_dir/scripts/update.sh"
 
   TOTAL=$((TOTAL + 1))
   log "[$rel_path] upgrading providers..."
@@ -92,7 +91,7 @@ update_stack() {
     lock_hash_before="$(shasum "$lock_file" | cut -d' ' -f1)"
   fi
 
-  if bash "$update_script"; then
+  if terraform -chdir="$stack_dir" init -upgrade -backend=false; then
     SUCCEEDED=$((SUCCEEDED + 1))
 
     # Check if lock file was created or changed
