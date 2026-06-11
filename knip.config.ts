@@ -6,12 +6,8 @@ const baseConfig = {
     ".": {
       entry: [],
       project: [],
-      ignoreDependencies: [
-        "@commitlint/cli",
-        "lint-staged",
-        "ansible-lint",
-        "shellcheck",
-      ],
+      ignoreDependencies: ["@commitlint/cli", "lint-staged"],
+      ignoreBinaries: ["ansible-lint", "shellcheck"],
     },
     "packages/api": {
       // `test/preload.ts` is discovered from bunfig.toml. There are no
@@ -116,12 +112,8 @@ const productionConfig = {
     ".": {
       entry: [],
       project: [],
-      ignoreDependencies: [
-        "@commitlint/cli",
-        "lint-staged",
-        "ansible-lint",
-        "shellcheck",
-      ],
+      ignoreDependencies: ["@commitlint/cli", "lint-staged"],
+      ignoreBinaries: ["ansible-lint", "shellcheck"],
     },
     "packages/api": {
       entry: ["src/**/*.ts!", "!src/**/*.test.ts", "!src/appTestRuntime.ts"],
