@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Configure the prod server
 #
 # Loads .secrets/root.env + .secrets/prod.env, resolves the server
 # hostname and username from Terraform outputs, and runs the Ansible
 # server playbook.
 
-set -eu
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export ANSIBLE_CONFIG="${SCRIPT_DIR}/../ansible.cfg"
@@ -22,9 +22,10 @@ STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"
 BACKEND_CONFIG="$(get_backend_config)"
 terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
 
-# Resolve hostname and username from terraform outputs
+# Resolve hostname, username, and domain from terraform outputs
 HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw ssh_hostname 2>/dev/null) || true
 USERNAME=$(terraform -chdir="$STACK_DIR" output -raw server_username 2>/dev/null) || true
+DOMAIN="${TF_VAR_domain:-}"
 
 if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
   echo "ERROR: Could not resolve hostname or username from terraform outputs." >&2
@@ -32,11 +33,15 @@ if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
   exit 1
 fi
 
-INVENTORY_FILE=$(mktemp -t tearleads-prod-inventory)
+SSH_TARGET="$USERNAME@$HOSTNAME"
+wait_for_ssh_ready "$SSH_TARGET"
+
+INVENTORY_FILE=$(mktemp /tmp/tearleads-prod-inventory-XXXXXX)
 # shellcheck disable=SC2064
 trap "rm -f '$INVENTORY_FILE'" EXIT
 
 printf '[all]\n%s ansible_user=%s\n' "$HOSTNAME" "$USERNAME" > "$INVENTORY_FILE"
 
 ansible-playbook -i "$INVENTORY_FILE" \
+  -e "domain=${DOMAIN}" \
   "$SCRIPT_DIR/../playbooks/server.yml" "$@"

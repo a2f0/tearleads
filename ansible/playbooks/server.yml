@@ -22,6 +22,7 @@
     postgres_password: "{{ lookup('env', 'DATABASE_PASSWORD') | default(lookup('ansible.builtin.password', playbook_dir + '/.postgres_password chars=ascii_letters,digits length=32'), true) }}"
     postgres_host: "127.0.0.1"
     redis_bind: "127.0.0.1"
+    domain: "{{ lookup('env', 'TF_VAR_domain') | default('tearleads.com', true) }}"
     nginx_worker_connections: 1024
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | default('admin@' + (domain | default('tearleads.com')), true) }}"
 
@@ -86,6 +87,30 @@
       ansible.builtin.file:
         src: /etc/nginx/sites-available/app.conf
         dest: /etc/nginx/sites-enabled/app.conf
+        state: link
+      notify: Reload nginx
+
+    - name: Create website directory
+      ansible.builtin.file:
+        path: /var/www/website
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Configure nginx site for website
+      ansible.builtin.template:
+        src: etc/nginx/sites-available/website.conf.j2
+        dest: /etc/nginx/sites-available/website.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Enable nginx website site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/website.conf
+        dest: /etc/nginx/sites-enabled/website.conf
         state: link
       notify: Reload nginx
 

@@ -4,7 +4,7 @@
 server {
   listen 80;
   listen [::]:80;
-  server_name {{ domain | default('tearleads.com') }} app.{{ domain | default('tearleads.com') }} api.{{ domain | default('tearleads.com') }};
+  server_name app.{{ domain | default('tearleads.com') }} api.{{ domain | default('tearleads.com') }};
 
   {% if certbot_ssl | default(false) %}
   listen 443 ssl;
