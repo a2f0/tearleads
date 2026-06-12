@@ -252,13 +252,17 @@ function useUnlockAction(input: {
         return false;
       }
 
+      let verified = false;
       try {
-        await verifyPinCode({
+        verified = await verifyPinCode({
           manifestStore: input.environment.manifestStore,
           pinCode,
           scopes: input.environment.scopes,
         });
       } catch {
+        return false;
+      }
+      if (!verified) {
         return false;
       }
 

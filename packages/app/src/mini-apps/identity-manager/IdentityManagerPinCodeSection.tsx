@@ -8,6 +8,7 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 
 type PinAction = "clear" | "set" | "unlock" | null;
@@ -52,8 +53,10 @@ function PinUnlockForm({ lock }: { readonly lock: LocalKeyringLock }) {
         return;
       }
       setUnlockPinCode("");
-    } catch {
-      setError(pinActionErrorMessage());
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : pinActionErrorMessage(),
+      );
     } finally {
       setBusy(null);
     }
@@ -247,6 +250,8 @@ function PinManagementForms({ lock }: { readonly lock: LocalKeyringLock }) {
 
 export function IdentityManagerPinCodeSection() {
   const lock = useLocalKeyringLock();
+  const { signingKeyPair } = useIdentity();
+  const hasSigningKeyPair = signingKeyPair !== null;
 
   return (
     <MiniAppSection>
@@ -260,6 +265,10 @@ export function IdentityManagerPinCodeSection() {
         </MiniAppStatus>
       ) : lock.isLocked ? (
         <PinUnlockForm lock={lock} />
+      ) : !hasSigningKeyPair ? (
+        <MiniAppStatus>
+          Generate a key pair first to enable PIN locking.
+        </MiniAppStatus>
       ) : (
         <PinManagementForms lock={lock} />
       )}
