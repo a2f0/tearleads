@@ -3,12 +3,12 @@ import {
   createIndexedDbWrappingKeyKeystore,
   createPinCodeBrowserLocalKeyring,
   createPinCodeWrappingKeyKeystore,
+  isPinCodeWrappedLocalSecretEnvelope,
   type LocalKeyring,
   type LocalKeyringManifest,
   type LocalKeyringManifestStore,
   type LocalKeyringScope,
   type LocalSecretContext,
-  type WrappedLocalSecretEnvelope,
   type WrappingKeyKeystore,
 } from "@tearleads/client-sdk";
 
@@ -24,17 +24,6 @@ export interface LockSnapshot {
 }
 
 const PIN_CODE_CONFIG_PREFIX = "tearleads.local-keyring.pin-code:";
-const PIN_CODE_PROVIDER = "pin-code";
-const PIN_CODE_WRAPPING_ALGORITHM = "pin-code-pbkdf2-sha256-aes-256-gcm";
-
-function isPinCodeWrappedLocalSecretEnvelope(
-  envelope: WrappedLocalSecretEnvelope,
-): boolean {
-  return (
-    envelope.provider === PIN_CODE_PROVIDER &&
-    envelope.algorithm === PIN_CODE_WRAPPING_ALGORITHM
-  );
-}
 
 export function pinCodeConfigKey(namespace: string): string {
   return `${PIN_CODE_CONFIG_PREFIX}${namespace}`;
@@ -221,6 +210,7 @@ export async function verifyPinCode(input: {
   readonly scopes: readonly LocalKeyringScope[];
 }): Promise<boolean> {
   const pinKeystore = createPinKeystore(input.pinCode);
+  let verifiedAnyManifest = false;
   for (const scope of input.scopes) {
     const manifest = await input.manifestStore.loadManifest(scope);
     if (
@@ -230,16 +220,19 @@ export async function verifyPinCode(input: {
       continue;
     }
 
-    const rootKey = await pinKeystore.unwrapSecret({
-      context: localSecretContext(manifest),
-      envelope: manifest.rootKeyEnvelope,
-    });
+    let rootKey: Uint8Array<ArrayBuffer> | null = null;
     try {
-      return true;
+      rootKey = await pinKeystore.unwrapSecret({
+        context: localSecretContext(manifest),
+        envelope: manifest.rootKeyEnvelope,
+      });
+    } catch {
+      return false;
     } finally {
-      rootKey.fill(0);
+      rootKey?.fill(0);
     }
+    verifiedAnyManifest = true;
   }
 
-  return false;
+  return verifiedAnyManifest;
 }

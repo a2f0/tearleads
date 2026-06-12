@@ -249,6 +249,14 @@
         enabled: true
         state: started
 
+    - name: Create or update PostgreSQL user
+      community.postgresql.postgresql_user:
+        name: "{{ postgres_user }}"
+        password: "{{ postgres_password }}"
+      become: true
+      become_user: postgres
+      no_log: true
+
     - name: Create PostgreSQL database
       community.postgresql.postgresql_db:
         name: "{{ postgres_db }}"
@@ -258,14 +266,6 @@
         lc_ctype: en_US.UTF-8
       become: true
       become_user: postgres
-
-    - name: Create or update PostgreSQL user
-      community.postgresql.postgresql_user:
-        name: "{{ postgres_user }}"
-        password: "{{ postgres_password }}"
-      become: true
-      become_user: postgres
-      no_log: true
 
     - name: Grant database privileges
       community.postgresql.postgresql_privs:
