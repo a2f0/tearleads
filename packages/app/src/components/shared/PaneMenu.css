@@ -1,0 +1,28 @@
+.pane-menu-unlock-form {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 12rem;
+  padding: 0.5rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--color-dark);
+}
+
+.pane-menu-unlock-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: var(--font-size-sm);
+}
+
+.pane-menu-unlock-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 1.75rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--color-dark);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.pane-menu-unlock-error {
+  font-size: var(--font-size-sm);
+}
