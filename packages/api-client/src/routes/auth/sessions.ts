@@ -18,5 +18,7 @@ export async function destroySession(request: RequestFn, sessionId: string) {
 }
 
 export async function logout(request: RequestFn) {
-  return request("/auth/logout", isDestroySessionResponse, "POST");
+  return request("/auth/logout", isDestroySessionResponse, "POST", undefined, {
+    retryOnSessionExpired: false,
+  });
 }

@@ -276,6 +276,99 @@ testApiClient(
 );
 
 testApiClient(
+  "renews expired auth tokens and retries the original request",
+  async () => {
+    const calls: CapturedHttpCall[] = [];
+    server.use(
+      http.get(
+        `${apiBaseUrl}/auth/encapsulation-key/:userId`,
+        async ({ params, request }) => {
+          calls.push(await captureHttpCall(request));
+          if (request.headers.get("authorization") === "Bearer stale-token") {
+            return HttpResponse.json(
+              { error: "Session expired" },
+              { status: 401, statusText: "Unauthorized" },
+            );
+          }
+
+          const { userId } = params as { userId: string };
+          return HttpResponse.json(createEncapsulationKeyResponse(userId));
+        },
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const errors: string[] = [];
+    let refreshCalls = 0;
+    client.setAuthToken("stale-token");
+    client.setOnError((message) => {
+      errors.push(message);
+    });
+    client.setOnSessionExpired(() => {
+      refreshCalls += 1;
+      client.setAuthToken("fresh-token");
+      return true;
+    });
+
+    await expect(client.getEncapsulationKey("user-1")).resolves.toEqual(
+      createEncapsulationKeyResponse("user-1"),
+    );
+
+    expect(refreshCalls).toBe(1);
+    expect(errors).toEqual([]);
+    expect(
+      calls.map((call) => ({
+        authorization: call.authorization,
+        input: call.url,
+        method: call.method,
+      })),
+    ).toEqual([
+      {
+        authorization: "Bearer stale-token",
+        input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
+        method: "GET",
+      },
+      {
+        authorization: "Bearer fresh-token",
+        input: `${apiBaseUrl}/auth/encapsulation-key/user-1`,
+        method: "GET",
+      },
+    ]);
+  },
+);
+
+testApiClient("does not renew expired sessions for logout", async () => {
+  server.use(
+    http.post(`${apiBaseUrl}/auth/logout`, () => {
+      return HttpResponse.json(
+        { error: "Session expired" },
+        { status: 401, statusText: "Unauthorized" },
+      );
+    }),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+  const errors: string[] = [];
+  let refreshCalls = 0;
+  client.setAuthToken("stale-token");
+  client.setOnError((message) => {
+    errors.push(message);
+  });
+  client.setOnSessionExpired(() => {
+    refreshCalls += 1;
+    client.setAuthToken("fresh-token");
+    return true;
+  });
+
+  await expect(client.logout()).resolves.toBeNull();
+
+  expect(refreshCalls).toBe(0);
+  expect(errors).toEqual([
+    "POST /auth/logout: 401 Unauthorized: Session expired",
+  ]);
+});
+
+testApiClient(
   "returns document sync failures without reporting when requested",
   async () => {
     server.use(
