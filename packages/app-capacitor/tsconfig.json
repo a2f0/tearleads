@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "composite": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "vite.config.ts", "capacitor.config.ts"],
+  "exclude": ["node_modules", "dist", "../../node_modules"]
+}
