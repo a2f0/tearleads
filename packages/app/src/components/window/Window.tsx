@@ -295,8 +295,11 @@ function WindowBodyWithSidebar({
   children,
 }: PropsWithChildren<{ showSidebar: boolean }>) {
   const { sidebar } = useWindowSidebar();
+  const hasSidebar =
+    sidebar !== null && sidebar !== undefined && sidebar !== false;
+
   return (
-    <WindowBody showSidebar={showSidebar} sidebar={sidebar}>
+    <WindowBody showSidebar={showSidebar && hasSidebar} sidebar={sidebar}>
       {children}
     </WindowBody>
   );

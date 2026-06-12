@@ -119,6 +119,26 @@ function RegisteredSidebarContent() {
   return <div>Main Content</div>;
 }
 
+function NoSidebarContent() {
+  return <div>Main Content</div>;
+}
+
+function WindowNoSidebarHarness() {
+  const { windows, create } = useWindowState();
+
+  useEffect(() => {
+    create("No Sidebar", 0, 0, NoSidebarContent);
+  }, [create]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
 function WindowSidebarDefaultHarness({
   initialShowSidebar,
 }: {
@@ -358,4 +378,18 @@ test("window can start with the sidebar hidden", async () => {
   await waitFor(() => {
     expect(view.getByText("Registered Sidebar")).toBeTruthy();
   });
+});
+
+test("window hides sidebar chrome until sidebar content is registered", async () => {
+  const view = render(
+    <WindowStateProvider>
+      <WindowNoSidebarHarness />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("Main Content")).toBeTruthy();
+  });
+
+  expect(view.container.querySelector(".window-sidebar-layout")).toBeNull();
 });

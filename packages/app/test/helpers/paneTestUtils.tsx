@@ -42,10 +42,15 @@ export async function cleanupPaneTestEnvironment(): Promise<void> {
 
 export function createTestHostConfig(
   options: {
-    readonly createLocalKeyring?: (() => LocalKeyring) | undefined;
+    readonly createLocalKeyring?: (() => LocalKeyring) | null | undefined;
     readonly localIdentityNamespace?: string | undefined;
   } = {},
 ) {
+  const createLocalKeyring =
+    options.createLocalKeyring === null
+      ? undefined
+      : (options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory());
+
   return new AppHostConfig(
     "http://localhost:3001",
     wsUrl,
@@ -55,7 +60,7 @@ export function createTestHostConfig(
       }),
     () => createMemoryBlobStore(),
     options.localIdentityNamespace,
-    options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory(),
+    createLocalKeyring,
     options.localIdentityNamespace === undefined,
   );
 }
