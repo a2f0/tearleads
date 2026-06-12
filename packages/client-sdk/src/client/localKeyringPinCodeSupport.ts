@@ -400,28 +400,33 @@ export async function derivePinCodeWrappingKey(input: {
   readonly pinCode: LocalKeyringPinCode;
 }): Promise<CryptoKey> {
   const pinCode = await resolvePinCode(input.pinCode);
-  const material = await crypto.subtle.importKey(
-    "raw",
-    TEXT_ENCODER.encode(pinCode),
-    "PBKDF2",
-    false,
-    ["deriveKey"],
-  );
+  const pinCodeBytes = TEXT_ENCODER.encode(pinCode);
+  try {
+    const material = await crypto.subtle.importKey(
+      "raw",
+      pinCodeBytes,
+      "PBKDF2",
+      false,
+      ["deriveKey"],
+    );
 
-  return crypto.subtle.deriveKey(
-    {
-      hash: "SHA-256",
-      iterations: input.metadata.iterations,
-      name: "PBKDF2",
-      salt: readBase64Bytes(
-        { salt: input.metadata.salt },
-        "salt",
-        "PIN code wrapping key metadata",
-      ),
-    },
-    material,
-    { length: 256, name: "AES-GCM" },
-    false,
-    ["encrypt", "decrypt"],
-  );
+    return await crypto.subtle.deriveKey(
+      {
+        hash: "SHA-256",
+        iterations: input.metadata.iterations,
+        name: "PBKDF2",
+        salt: readBase64Bytes(
+          { salt: input.metadata.salt },
+          "salt",
+          "PIN code wrapping key metadata",
+        ),
+      },
+      material,
+      { length: 256, name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"],
+    );
+  } finally {
+    pinCodeBytes.fill(0);
+  }
 }

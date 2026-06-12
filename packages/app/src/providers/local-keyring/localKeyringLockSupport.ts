@@ -230,11 +230,15 @@ export async function verifyPinCode(input: {
       continue;
     }
 
-    await pinKeystore.unwrapSecret({
+    const rootKey = await pinKeystore.unwrapSecret({
       context: localSecretContext(manifest),
       envelope: manifest.rootKeyEnvelope,
     });
-    return true;
+    try {
+      return true;
+    } finally {
+      rootKey.fill(0);
+    }
   }
 
   return false;

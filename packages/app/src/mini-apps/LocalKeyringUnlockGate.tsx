@@ -35,9 +35,13 @@ export function LocalKeyringUnlockGate({
     setError(null);
     try {
       const unlocked = await lock.unlock(pinCode);
-      if (!unlocked) {
+      if (unlocked) {
+        setPinCode("");
+      } else {
         setError("That PIN did not unlock the local keychain.");
       }
+    } catch {
+      setError("Could not unlock the local keychain.");
     } finally {
       setUnlocking(false);
     }

@@ -27,6 +27,10 @@ function pinStatusLabel(input: {
   return input.pinCodeEnabled ? "On" : "Off";
 }
 
+function pinActionErrorMessage(): string {
+  return "Could not complete the PIN action.";
+}
+
 function PinUnlockForm({ lock }: { readonly lock: LocalKeyringLock }) {
   const [unlockPinCode, setUnlockPinCode] = useState("");
   const [busy, setBusy] = useState<PinAction>(null);
@@ -48,6 +52,8 @@ function PinUnlockForm({ lock }: { readonly lock: LocalKeyringLock }) {
         return;
       }
       setUnlockPinCode("");
+    } catch {
+      setError(pinActionErrorMessage());
     } finally {
       setBusy(null);
     }
@@ -183,6 +189,8 @@ function PinManagementForms({ lock }: { readonly lock: LocalKeyringLock }) {
       }
       setPinCode("");
       setConfirmPinCode("");
+    } catch {
+      setError(pinActionErrorMessage());
     } finally {
       setBusy(null);
     }
@@ -204,6 +212,8 @@ function PinManagementForms({ lock }: { readonly lock: LocalKeyringLock }) {
         return;
       }
       setClearPinCode("");
+    } catch {
+      setError(pinActionErrorMessage());
     } finally {
       setBusy(null);
     }

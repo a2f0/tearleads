@@ -125,8 +125,12 @@ function useLocalKeyringLockRuntime(
     }),
     revision: 0,
   }));
+  const latestRefreshId = useRef(0);
 
   const refresh = useCallback(async () => {
+    const refreshId = latestRefreshId.current + 1;
+    latestRefreshId.current = refreshId;
+
     if (
       !environment.canManagePinCode ||
       !environment.manifestStore ||
@@ -144,6 +148,10 @@ function useLocalKeyringLockRuntime(
       manifestStore: environment.manifestStore,
       scopes: environment.scopes,
     });
+    if (refreshId !== latestRefreshId.current) {
+      return;
+    }
+
     if (!enabled) {
       environment.storage?.removeItem(
         pinCodeConfigKey(environment.pinCodeConfigNamespace),
