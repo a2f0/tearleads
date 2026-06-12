@@ -350,6 +350,9 @@
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "biomeIgnore": 1
     },
+    "packages/app-web/src/index.tsx": {
+      "biomeIgnore": 3
+    },
     "packages/app/src/stores/org-manager/OrgManagerProvider.tsx": {
       "biomeIgnore": 1
     },

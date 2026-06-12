@@ -42,9 +42,7 @@ const baseConfig = {
       project: ["src/**/*.{ts,tsx}"],
       ignoreDependencies: [
         "@capacitor-community/sqlite",
-        "@capacitor/android",
         "@capacitor/app",
-        "@capacitor/core",
         "@capacitor/filesystem",
         "@capacitor/ios",
         "@capacitor/keyboard",
@@ -157,11 +155,10 @@ const productionConfig = {
       project: [],
     },
     "packages/app-capacitor": {
-      entry: ["src/**/*.{ts,tsx}!"],
+      entry: ["capacitor.config.ts!", "src/**/*.{ts,tsx}!"],
       project: [],
       ignoreDependencies: [
         "@capacitor-community/sqlite",
-        "@capacitor/android",
         "@capacitor/app",
         "@capacitor/core",
         "@capacitor/filesystem",

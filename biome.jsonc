@@ -94,6 +94,14 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "packages/app-capacitor/ios/**/Assets.xcassets/**",
+        "packages/app-capacitor/android/**"
+      ],
+      "formatter": { "enabled": false },
+      "linter": { "enabled": false }
     }
   ],
   "javascript": {

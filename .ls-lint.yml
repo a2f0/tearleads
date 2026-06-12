@@ -15,3 +15,7 @@ ignore:
   - target
   - playwright-report
   - test-results
+  - "packages/app-capacitor/android/**"
+  - "packages/app-capacitor/ios/**"
+  - "packages/app-capacitor/public/**"
+  - "**/capacitor-cordova-*"
