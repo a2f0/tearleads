@@ -292,15 +292,17 @@ new Tearleads({
 });
 ```
 
-The example uses a `LocalKeyringSession`-derived key; hosts can also pass any
-supported key type directly.
+The example uses a `LocalKeyringSession`-derived key; hosts can pass any
+supported key type directly, or use
+`createLazyEncryptedBlobStore(namespace, keyProvider)` to defer async keyring
+loading and retry transient load failures.
 
 `createEncryptedBlobStore(namespace, options)` stores local attachment bytes in
-OPFS when available and falls back to encrypted memory storage otherwise. The
-OPFS-specific `createEncryptedOpfsBlobStore(namespace, options)` throws when
-OPFS is unavailable. The encrypted store currently supports `aes-256-gcm`.
-String keys are derived with PBKDF2-SHA256; hosts may also pass a 32-byte raw
-AES key or an AES-GCM `CryptoKey`.
+OPFS when available and encrypted memory otherwise.
+`createEncryptedOpfsBlobStore(namespace, options)` throws when OPFS is
+unavailable. The encrypted store supports `aes-256-gcm`. String keys use
+PBKDF2-SHA256; hosts may also pass a 32-byte raw AES key or AES-GCM
+`CryptoKey`.
 
 ## Local Keyring
 

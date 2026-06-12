@@ -17,6 +17,10 @@ coordination, but they must stay React-free and product-UI-free.
 | `registration` | Platform runtime | Local registration and root-container bootstrap helpers. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
 
+The `blobs` facade also exports encrypted local blob store helpers, including
+`createLazyEncryptedBlobStore` for hosts that load encryption keys from an async
+keyring provider.
+
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.
 For example, the SDK exports `workflows/organizations`, while the app can keep
