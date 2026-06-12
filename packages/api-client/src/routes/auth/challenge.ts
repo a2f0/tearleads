@@ -7,5 +7,6 @@ export function getChallenge(request: RequestFn, fingerprint: string) {
     isChallengeResponse,
     "POST",
     JSON.stringify({ fingerprint }),
+    { retryOnSessionExpired: false },
   );
 }

@@ -4,6 +4,7 @@ export type RequestBody = BodyInit;
 export interface RequestResultOptions {
   readonly headers?: Record<string, string> | undefined;
   readonly reportErrors?: boolean | undefined;
+  readonly retryOnSessionExpired?: boolean | undefined;
 }
 
 export type RequestFn = <T>(

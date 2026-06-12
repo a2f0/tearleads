@@ -67,6 +67,7 @@ export class Tearleads {
   private readonly logHandler: (message: string) => void;
   private autoIdentityProvisioned = false;
   private autoIdentityProvisioningPromise: Promise<void> | null = null;
+  private expiredSessionLoginPromise: Promise<boolean> | null = null;
 
   constructor(options: ClientOptions = {}) {
     this.apiClient = new ApiClient(options.apiBaseUrl ?? "");
@@ -141,6 +142,7 @@ export class Tearleads {
     this.apiClient.setOnError((message) => this.logError(message));
     this.apiClient.setOnNetworkError(() => this.network.setOnline(false));
     this.apiClient.setOnNetworkSuccess(() => this.network.setOnline(true));
+    this.apiClient.setOnSessionExpired(() => this.loginAfterSessionExpired());
 
     if (options.identityProvisioning === "auto") {
       this.startAutomaticIdentityProvisioning();
@@ -166,6 +168,18 @@ export class Tearleads {
     }
 
     return this.domainScopeValue;
+  }
+
+  private loginAfterSessionExpired(): Promise<boolean> {
+    if (!this.session.authToken || !this.identity.signingKeyPair) {
+      this.session.logout();
+      return Promise.resolve(false);
+    }
+
+    this.expiredSessionLoginPromise ??= this.session.login().finally(() => {
+      this.expiredSessionLoginPromise = null;
+    });
+    return this.expiredSessionLoginPromise;
   }
 
   private startAutomaticIdentityProvisioning(): void {

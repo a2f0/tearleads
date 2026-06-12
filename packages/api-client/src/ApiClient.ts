@@ -30,8 +30,20 @@ import {
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
   type ListOrganizationGroupsResponse,
-  type SyncWatermark,
 } from "@tearleads/validators/response";
+import {
+  bindPrototypeMethods,
+  cachedRequest,
+  dedupedRequest,
+  describeErrorResponse,
+  type ErrorResponseDescription,
+  hasHeader,
+  isRefreshableSessionError,
+  isReplayableRequestBody,
+  listContainerDocumentsRequestKey,
+  listContainersRequestKey,
+  normalizeApiBaseUrl,
+} from "./requestInternals";
 import {
   authenticate,
   authenticateWithChallenge,
@@ -107,64 +119,7 @@ import type {
   ResponseRequestValidationFailureInput,
 } from "./types";
 
-function bindPrototypeMethods(instance: object, prototype: object): void {
-  for (const propertyName of Object.getOwnPropertyNames(prototype)) {
-    if (propertyName === "constructor") {
-      continue;
-    }
-
-    const property = Reflect.get(prototype, propertyName);
-    if (typeof property === "function") {
-      Reflect.set(instance, propertyName, property.bind(instance));
-    }
-  }
-}
-
-function normalizeApiBaseUrl(baseUrl: string | null | undefined): string {
-  const trimmed = (baseUrl ?? "").trim();
-  if (trimmed === "" || trimmed === "/") {
-    return "";
-  }
-
-  return trimmed.replace(/\/+$/u, "");
-}
-
-function hasHeader(
-  headers: Record<string, string> | undefined,
-  name: string,
-): boolean {
-  const normalizedName = name.toLowerCase();
-  return Object.keys(headers ?? {}).some(
-    (headerName) => headerName.toLowerCase() === normalizedName,
-  );
-}
-
-function syncWatermarkRequestKey(
-  watermark: SyncWatermark | null | undefined,
-): string {
-  return watermark ? `${watermark.updatedAt}\u0000${watermark.id}` : "";
-}
-
-function listContainersRequestKey(options: ListContainersOptions = {}): string {
-  const { watermark, ...rest } = options;
-  return JSON.stringify({
-    ...rest,
-    parentId: rest.parentId === undefined ? "__undefined__" : rest.parentId,
-    watermark: syncWatermarkRequestKey(watermark),
-  });
-}
-
-function listContainerDocumentsRequestKey(
-  containerId: string,
-  options: ListContainerDocumentsOptions = {},
-): string {
-  const { watermark, ...rest } = options;
-  return JSON.stringify({
-    containerId,
-    ...rest,
-    watermark: syncWatermarkRequestKey(watermark),
-  });
-}
+type ExpiredHandler = () => boolean | Promise<boolean>;
 
 export class ApiClient {
   private authToken: string | null = null;
@@ -202,6 +157,7 @@ export class ApiClient {
   private onError: ((message: string) => void) | null = null;
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
+  private onSessionExpired: ExpiredHandler | null = null;
 
   constructor(baseUrl?: string | null) {
     this.baseUrl = normalizeApiBaseUrl(baseUrl);
@@ -210,54 +166,6 @@ export class ApiClient {
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
     });
-  }
-
-  private cachedRequest<T>(
-    cache: Map<string, Promise<T | null>>,
-    cacheKey: string,
-    request: () => Promise<T | null>,
-  ): Promise<T | null> {
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    let pending: Promise<T | null>;
-    pending = request()
-      .then((response) => {
-        if (!response && cache.get(cacheKey) === pending) {
-          cache.delete(cacheKey);
-        }
-        return response;
-      })
-      .catch((error: unknown) => {
-        if (cache.get(cacheKey) === pending) {
-          cache.delete(cacheKey);
-        }
-        throw error;
-      });
-    cache.set(cacheKey, pending);
-    return pending;
-  }
-
-  private dedupedRequest<T>(
-    cache: Map<string, Promise<T | null>>,
-    cacheKey: string,
-    request: () => Promise<T | null>,
-  ): Promise<T | null> {
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-
-    let pending: Promise<T | null>;
-    pending = request().finally(() => {
-      if (cache.get(cacheKey) === pending) {
-        cache.delete(cacheKey);
-      }
-    });
-    cache.set(cacheKey, pending);
-    return pending;
   }
 
   private clearAuthScopedCaches(): void {
@@ -390,6 +298,10 @@ export class ApiClient {
     this.onNetworkSuccess = handler;
   }
 
+  setOnSessionExpired(handler: ExpiredHandler | null): void {
+    this.onSessionExpired = handler;
+  }
+
   setAuthToken(token: string | null): void {
     if (this.authToken !== token) {
       this.clearAuthScopedCaches();
@@ -404,45 +316,15 @@ export class ApiClient {
   private buildHeaders(
     body: RequestBody | undefined,
     headers: Record<string, string> | undefined,
+    authToken: string | null,
   ): Record<string, string> {
     return {
-      ...(this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...(typeof body === "string" && !hasHeader(headers, "Content-Type")
         ? { "Content-Type": "application/json" }
         : {}),
       ...headers,
     };
-  }
-
-  private async describeErrorResponse(response: Response): Promise<string> {
-    let responseText = "";
-
-    try {
-      responseText = (await response.text()).trim();
-    } catch {
-      return "";
-    }
-
-    if (responseText.length === 0) {
-      return "";
-    }
-
-    try {
-      const parsed = JSON.parse(responseText);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        "error" in parsed &&
-        typeof parsed.error === "string" &&
-        parsed.error.trim().length > 0
-      ) {
-        return `: ${parsed.error.trim()}`;
-      }
-    } catch {
-      // Use the raw response body when the error payload is not JSON.
-    }
-
-    return `: ${responseText}`;
   }
 
   private async makeRequest<T>(
@@ -547,10 +429,83 @@ export class ApiClient {
     body?: RequestBody,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<Response>> {
+    const authToken = this.authToken;
+    const responseResult = await this.fetchResponseRequest(
+      path,
+      method,
+      body,
+      options,
+      authToken,
+    );
+    if (!responseResult.ok) {
+      return responseResult;
+    }
+
+    const { response } = responseResult;
+    if (response.ok) {
+      return { data: response, ok: true };
+    }
+
+    const errorDescription = responseResult.errorDescription;
+    if (
+      await this.shouldRetryAfterSessionExpired({
+        authToken,
+        body,
+        error: errorDescription.error,
+        options,
+        response,
+      })
+    ) {
+      const retryResult = await this.fetchResponseRequest(
+        path,
+        method,
+        body,
+        options,
+        this.authToken,
+      );
+      if (!retryResult.ok) {
+        return retryResult;
+      }
+      if (retryResult.response.ok) {
+        return { data: retryResult.response, ok: true };
+      }
+
+      return this.httpFailure({
+        errorDescription: retryResult.errorDescription,
+        method,
+        options,
+        path,
+        response: retryResult.response,
+      });
+    }
+
+    return this.httpFailure({
+      errorDescription,
+      path,
+      method,
+      options,
+      response,
+    });
+  }
+
+  private async fetchResponseRequest(
+    path: string,
+    method: HttpMethod,
+    body: RequestBody | undefined,
+    options: RequestResultOptions,
+    authToken: string | null,
+  ): Promise<
+    | RequestFailure
+    | {
+        readonly errorDescription: ErrorResponseDescription;
+        readonly ok: true;
+        readonly response: Response;
+      }
+  > {
     const reportErrors = options.reportErrors ?? true;
     const init: RequestInit & { duplex?: "half" } = {
       method,
-      headers: this.buildHeaders(body, options.headers),
+      headers: this.buildHeaders(body, options.headers, authToken),
     };
     if (body !== undefined) {
       init.body = body;
@@ -579,19 +534,63 @@ export class ApiClient {
     this.onNetworkSuccess?.();
 
     if (!response.ok) {
-      const detail = await this.describeErrorResponse(response);
-      return this.requestFailure({
-        kind: "http",
-        message: `${method} ${path}: ${response.status} ${response.statusText}${detail}`,
-        method,
-        path,
-        reportErrors,
-        status: response.status,
-        statusText: response.statusText,
-      });
+      const errorDescription = await describeErrorResponse(response);
+      return { errorDescription, ok: true, response };
     }
 
-    return { data: response, ok: true };
+    return {
+      errorDescription: { detail: "", error: null },
+      ok: true,
+      response,
+    };
+  }
+
+  private httpFailure(input: {
+    readonly errorDescription: ErrorResponseDescription;
+    readonly method: HttpMethod;
+    readonly options: RequestResultOptions;
+    readonly path: string;
+    readonly response: Response;
+  }): RequestFailure {
+    const reportErrors = input.options.reportErrors ?? true;
+    return this.requestFailure({
+      kind: "http",
+      message: `${input.method} ${input.path}: ${input.response.status} ${input.response.statusText}${input.errorDescription.detail}`,
+      method: input.method,
+      path: input.path,
+      reportErrors,
+      status: input.response.status,
+      statusText: input.response.statusText,
+    });
+  }
+
+  private async shouldRetryAfterSessionExpired(input: {
+    readonly authToken: string | null;
+    readonly body: RequestBody | undefined;
+    readonly error: string | null;
+    readonly options: RequestResultOptions;
+    readonly response: Response;
+  }): Promise<boolean> {
+    if (
+      input.options.retryOnSessionExpired === false ||
+      !input.authToken ||
+      !isReplayableRequestBody(input.body) ||
+      !isRefreshableSessionError(input.response.status, input.error)
+    ) {
+      return false;
+    }
+
+    if (this.authToken && this.authToken !== input.authToken) {
+      return true;
+    }
+
+    let refreshed = false;
+    try {
+      refreshed = (await this.onSessionExpired?.()) ?? false;
+    } catch {}
+    return Boolean(
+      refreshed && this.authToken && this.authToken !== input.authToken,
+    );
   }
 
   private reportResponseRequestFailure(
@@ -660,10 +659,8 @@ export class ApiClient {
   }
 
   getEncapsulationKey(userId: string) {
-    return this.cachedRequest(
-      this.encapsulationKeyRequestsByUserId,
-      userId,
-      () => getEncapsulationKey(this.request, userId),
+    return cachedRequest(this.encapsulationKeyRequestsByUserId, userId, () =>
+      getEncapsulationKey(this.request, userId),
     );
   }
 
@@ -727,7 +724,7 @@ export class ApiClient {
   }
 
   listOrganizationGroups(organizationId: string) {
-    return this.cachedRequest(
+    return cachedRequest(
       this.organizationGroupRequestsByOrganizationId,
       organizationId,
       () => listOrganizationGroups(this.request, organizationId),
@@ -806,7 +803,7 @@ export class ApiClient {
   }
 
   getContainerWriterProjection(containerId: string) {
-    return this.cachedRequest(
+    return cachedRequest(
       this.containerWriterProjectionRequestsByContainerId,
       containerId,
       () => getContainerWriterProjection(this.request, containerId),
@@ -869,7 +866,7 @@ export class ApiClient {
   }
 
   getDocumentWriterProjection(documentId: string) {
-    return this.cachedRequest(
+    return cachedRequest(
       this.documentWriterProjectionRequestsByDocumentId,
       documentId,
       () => getDocumentWriterProjection(this.request, documentId),
@@ -883,7 +880,7 @@ export class ApiClient {
   }
 
   listContainers(options?: ListContainersOptions) {
-    return this.dedupedRequest(
+    return dedupedRequest(
       this.containerListRequestsByKey,
       listContainersRequestKey(options),
       () => listContainers(this.request, options),
@@ -894,7 +891,7 @@ export class ApiClient {
     containerId: string,
     options?: ListContainerDocumentsOptions,
   ) {
-    return this.dedupedRequest(
+    return dedupedRequest(
       this.containerDocumentListRequestsByKey,
       listContainerDocumentsRequestKey(containerId, options),
       () => listContainerDocuments(this.request, containerId, options),
@@ -1062,7 +1059,7 @@ export class ApiClient {
   }
 
   listDocumentAttachments(documentId: string) {
-    return this.cachedRequest(
+    return cachedRequest(
       this.documentAttachmentListRequestsByDocumentId,
       documentId,
       () => listDocumentAttachments(this.request, documentId),

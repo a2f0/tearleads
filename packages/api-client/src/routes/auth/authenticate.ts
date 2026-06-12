@@ -34,6 +34,7 @@ export async function authenticateWithChallenge(
     isVerifyResponse,
     "POST",
     JSON.stringify({ fingerprint, signature: Array.from(signed) }),
+    { retryOnSessionExpired: false },
   );
 
   return response?.authenticated
