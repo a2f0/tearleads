@@ -301,3 +301,41 @@ export function createEncryptedBlobStore(
 
   return wrapEncryptedBlobStore(store, { ...options, namespace });
 }
+
+export function createLazyEncryptedBlobStore(
+  namespace: string,
+  keyProvider: () => Promise<EncryptedBlobStoreKey>,
+): BlobStore {
+  let innerStorePromise: Promise<BlobStore> | null = null;
+
+  function getStore(): Promise<BlobStore> {
+    if (!innerStorePromise) {
+      innerStorePromise = (async () => {
+        try {
+          const key = await keyProvider();
+          return createEncryptedBlobStore(namespace, { key });
+        } catch (error) {
+          innerStorePromise = null;
+          throw error;
+        }
+      })();
+    }
+
+    return innerStorePromise;
+  }
+
+  return {
+    deleteBytes: async (storageKey) => {
+      const store = await getStore();
+      return store.deleteBytes(storageKey);
+    },
+    readBytes: async (storageKey) => {
+      const store = await getStore();
+      return store.readBytes(storageKey);
+    },
+    writeBytes: async (storageKey, bytes) => {
+      const store = await getStore();
+      return store.writeBytes(storageKey, bytes);
+    },
+  };
+}

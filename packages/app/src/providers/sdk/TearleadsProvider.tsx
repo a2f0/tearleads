@@ -1,6 +1,7 @@
 import {
   type BlobStoreFactory,
   createEncryptedBlobStore,
+  createLazyEncryptedBlobStore,
   Tearleads,
 } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
@@ -154,12 +155,44 @@ function useServerEventsBinding(
 export function TearleadsProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
   const { log, logError } = useLog();
+  const blobStoreFactory = useMemo((): BlobStoreFactory => {
+    if (hostConfig.createBlobStore) {
+      return hostConfig.createBlobStore;
+    }
+
+    if (hostConfig.createLocalKeyring) {
+      const createLocalKeyring = hostConfig.createLocalKeyring;
+      const scopeNamespace = hostConfig.localIdentityNamespace
+        ? `tearleads.blobs:${hostConfig.localIdentityNamespace}`
+        : "tearleads.blob-store";
+
+      let keyring: ReturnType<typeof createLocalKeyring> | null = null;
+
+      return (namespace) =>
+        createLazyEncryptedBlobStore(namespace, async () => {
+          if (!keyring) {
+            keyring = createLocalKeyring();
+          }
+          const session = await keyring.getOrCreateSession({
+            namespace: scopeNamespace,
+          });
+          const key = session.blobStoreKey.slice();
+          session.dispose();
+          return key;
+        });
+    }
+
+    return createDevelopmentBlobStoreFactory();
+  }, [
+    hostConfig.createBlobStore,
+    hostConfig.createLocalKeyring,
+    hostConfig.localIdentityNamespace,
+  ]);
   const [tearleads] = useState(
     () =>
       new Tearleads({
         apiBaseUrl: hostConfig.apiBaseUrl,
-        blobStoreFactory:
-          hostConfig.createBlobStore ?? createDevelopmentBlobStoreFactory(),
+        blobStoreFactory,
         documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
         logger: { log, logError },
       }),

@@ -9,6 +9,7 @@ export type {
 export {
   createEncryptedBlobStore,
   createEncryptedOpfsBlobStore,
+  createLazyEncryptedBlobStore,
   wrapEncryptedBlobStore,
 } from "../../data/blobs/encryptedBlobStore";
 export { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
