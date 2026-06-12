@@ -147,6 +147,7 @@ export {
   type EventsSnapshot,
   encodeLocalKeyringSqliteKey,
   IDENTITY_KEY_PACKAGE_FORMAT,
+  isPinCodeWrappedLocalSecretEnvelope,
   LOCAL_KEYRING_MANIFEST_FORMAT,
   localKeyringScopeKey,
   Network,

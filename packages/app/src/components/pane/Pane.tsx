@@ -11,6 +11,7 @@ import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
 import { OrgManagerApp } from "../../mini-apps/org-manager/OrgManagerApp";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
+import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
@@ -28,6 +29,8 @@ import { PaneStatus } from "./PaneStatus";
 
 const BOOT_PANE_LOG_MESSAGE =
   "Generate a key pair from the pane menu to boot this pane.";
+const LOCKED_PANE_LOG_MESSAGE =
+  "Unlock the local keychain to restore this pane.";
 
 const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   contacts: {
@@ -67,19 +70,21 @@ const PANE_MINI_APP_MENU_ITEMS = [
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
   const { generateKey, signingKeyPair } = useIdentity();
+  const localKeyringLock = useLocalKeyringLock();
   useRegisterUserId(userId);
   const { windows } = useWindowStateData();
   const { create } = useWindowActions();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
   const hasSigningKeyPair = signingKeyPair !== null;
+  const paneLocked = localKeyringLock.isLocked && !hasSigningKeyPair;
   const bootPaneLogEntry = useMemo(
     () => ({
       id: "boot-pane-prompt",
       level: "info" as const,
       timestamp: Date.now(),
-      message: BOOT_PANE_LOG_MESSAGE,
+      message: paneLocked ? LOCKED_PANE_LOG_MESSAGE : BOOT_PANE_LOG_MESSAGE,
     }),
-    [hasSigningKeyPair],
+    [paneLocked],
   );
   const trailingLogEntries = useMemo(
     () => (hasSigningKeyPair ? [] : [bootPaneLogEntry]),
@@ -141,7 +146,7 @@ function PaneInner({ className }: { className: string }) {
       <PaneFooter />
       {contextMenu && (
         <Menu position={contextMenu} onClose={closeContextMenu}>
-          {!hasSigningKeyPair ? (
+          {!hasSigningKeyPair && !paneLocked ? (
             <MenuItem label="Generate Key Pair" onClick={generateKeyPair} />
           ) : (
             <>

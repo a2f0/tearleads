@@ -11,6 +11,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { type MutableRefObject, useCallback, useEffect, useMemo } from "react";
+import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {
   decryptLocalIdentityKeyPackage,
   encryptLocalIdentityKeyPackage,
@@ -18,7 +19,6 @@ import {
 
 const LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX =
   "tearleads.local-identity-key-package:";
-const LOCAL_IDENTITY_SCOPE_PREFIX = "tearleads.local-identity:";
 
 type LocalIdentityStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
@@ -58,12 +58,6 @@ function createHostLocalKeyring(input: {
 
 function localIdentityStorageKey(namespace: string): string {
   return `${LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX}${namespace}`;
-}
-
-function localIdentityScope(namespace: string): LocalKeyringScope {
-  return {
-    namespace: `${LOCAL_IDENTITY_SCOPE_PREFIX}${namespace}`,
-  };
 }
 
 export function useLocalIdentityPersistence(input: {

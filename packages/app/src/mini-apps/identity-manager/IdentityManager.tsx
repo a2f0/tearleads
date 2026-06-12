@@ -6,7 +6,6 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-  MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppTable,
@@ -24,7 +23,6 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
-import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
 import {
   useBackupKeyPackageAction,
   useRestoreKeyPackageAction,
@@ -32,10 +30,19 @@ import {
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
+import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import "./IdentityManager.css";
+import {
+  IdentityActionToolbar,
+  type IdentityActionToolbarProps,
+  type IdentityBusyState,
+} from "./IdentityManagerActionToolbar";
+import { getIdentityState } from "./IdentityManagerIdentityState";
+import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
+import { useIdentityManagerRefreshMenu } from "./IdentityManagerRefreshMenu";
 
 const CURRENT_SESSION_MUTATION_ID = "current-session";
 
@@ -77,20 +84,6 @@ function IdentityDetail({
   );
 }
 
-function getIdentityState({
-  signingKeyPair,
-  userId,
-}: {
-  signingKeyPair: unknown;
-  userId: string | null;
-}): string {
-  if (!signingKeyPair) {
-    return "No key pair";
-  }
-
-  return userId ? "Registered" : "Local only";
-}
-
 function getSessionMutationLabel(session: UserSession): string {
   return session.isCurrent ? "Log Out" : "Revoke";
 }
@@ -115,7 +108,6 @@ type CryptoSessionContextValue = ReturnType<typeof useCryptoSession>;
 type IdentityContextValue = ReturnType<typeof useIdentity>;
 type LogContextValue = ReturnType<typeof useLog>;
 type SdkClient = ReturnType<typeof useTearleads>;
-type IdentityBusyState = "authenticate" | "register" | null;
 
 function useIdentityManagerSessionList({
   canManageSessions,
@@ -324,83 +316,6 @@ function useIdentityManagerIdentityMutations({
   };
 }
 
-function IdentityActionToolbar({
-  backupKeyPackage,
-  canAuthenticate,
-  canExportKeyPackage,
-  canRegisterCurrentIdentity,
-  generateKey,
-  handleAuthenticate,
-  handleDestroyKeyPair,
-  handleLogoutCurrentSession,
-  handleRegisterIdentity,
-  handleRestoreKeyPackageClick,
-  hasSigningKeyPair,
-  identityBusy,
-  isAuthenticated,
-  mutatingSessionId,
-}: {
-  backupKeyPackage: () => Promise<void>;
-  canAuthenticate: boolean;
-  canExportKeyPackage: boolean;
-  canRegisterCurrentIdentity: boolean;
-  generateKey: () => void;
-  handleAuthenticate: () => Promise<void>;
-  handleDestroyKeyPair: () => void;
-  handleLogoutCurrentSession: () => Promise<void>;
-  handleRegisterIdentity: () => Promise<void>;
-  handleRestoreKeyPackageClick: () => void;
-  hasSigningKeyPair: boolean;
-  identityBusy: IdentityBusyState;
-  isAuthenticated: boolean;
-  mutatingSessionId: string | null;
-}) {
-  return (
-    <MiniAppToolbar wrap>
-      {!hasSigningKeyPair && (
-        <MiniAppButton onClick={generateKey}>Generate Key Pair</MiniAppButton>
-      )}
-      {canExportKeyPackage && (
-        <MiniAppButton onClick={() => void backupKeyPackage()}>
-          Backup Key Package
-        </MiniAppButton>
-      )}
-      <MiniAppButton onClick={handleRestoreKeyPackageClick}>
-        Restore Key Package
-      </MiniAppButton>
-      {canRegisterCurrentIdentity && (
-        <MiniAppButton
-          disabled={identityBusy !== null}
-          onClick={() => void handleRegisterIdentity()}
-        >
-          Register
-        </MiniAppButton>
-      )}
-      {canAuthenticate && (
-        <MiniAppButton
-          disabled={identityBusy !== null}
-          onClick={() => void handleAuthenticate()}
-        >
-          Authenticate
-        </MiniAppButton>
-      )}
-      {isAuthenticated && (
-        <MiniAppButton
-          disabled={mutatingSessionId !== null}
-          onClick={() => void handleLogoutCurrentSession()}
-        >
-          Log Out
-        </MiniAppButton>
-      )}
-      {hasSigningKeyPair && (
-        <MiniAppButton variant="ghost" onClick={handleDestroyKeyPair}>
-          Destroy Key Pair
-        </MiniAppButton>
-      )}
-    </MiniAppToolbar>
-  );
-}
-
 function IdentitySection({
   actions,
   containerId,
@@ -411,7 +326,7 @@ function IdentitySection({
   signingFingerprint,
   userId,
 }: {
-  actions: Parameters<typeof IdentityActionToolbar>[0];
+  actions: IdentityActionToolbarProps;
   containerId: string | null;
   identityError: string | null;
   identityState: string;
@@ -625,6 +540,7 @@ function IdentityManagerLayout({
   identity,
   identityMutations,
   identityState,
+  localKeyringLocked,
   registration,
   restoreFileInputRef,
   session,
@@ -642,6 +558,7 @@ function IdentityManagerLayout({
   identity: IdentityContextValue;
   identityMutations: ReturnType<typeof useIdentityManagerIdentityMutations>;
   identityState: string;
+  localKeyringLocked: boolean;
   registration: ReturnType<typeof useRegisterCurrentIdentity>;
   restoreFileInputRef: ReturnType<
     typeof useRestoreKeyPackageAction
@@ -666,7 +583,9 @@ function IdentityManagerLayout({
             backupKeyPackage,
             canAuthenticate,
             canExportKeyPackage,
+            canGenerateKey: !localKeyringLocked,
             canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
+            canRestoreKeyPackage: !localKeyringLocked,
             generateKey: identity.generateKey,
             handleAuthenticate: identityMutations.authenticate,
             handleDestroyKeyPair: identityMutations.destroyKeyPair,
@@ -686,6 +605,7 @@ function IdentityManagerLayout({
           signingFingerprint={identity.signingFingerprint}
           userId={session.userId}
         />
+        <IdentityManagerPinCodeSection />
         <SessionsSection
           canManageSessions={canManageSessions}
           handleEndSession={sessionMutations.endSession}
@@ -704,6 +624,7 @@ export function IdentityManager() {
   const tearleads = useTearleads();
   const session = useCryptoSession();
   const identity = useIdentity();
+  const localKeyringLock = useLocalKeyringLock();
   const { log, logError } = useLog();
   const registration = useRegisterCurrentIdentity();
   const backupKeyPackage = useBackupKeyPackageAction();
@@ -752,17 +673,12 @@ export function IdentityManager() {
     registerCurrentIdentity: registration.registerCurrentIdentity,
   });
 
-  useWindowRefreshMenuItem(
-    canManageSessions
-      ? {
-          disabled:
-            sessionList.loadingSessions ||
-            sessionMutations.mutatingSessionId !== null,
-          onRefresh: sessionList.refreshSessions,
-          refreshing: sessionList.loadingSessions,
-        }
-      : null,
-  );
+  useIdentityManagerRefreshMenu({
+    canManageSessions,
+    loadingSessions: sessionList.loadingSessions,
+    mutatingSessionId: sessionMutations.mutatingSessionId,
+    refreshSessions: sessionList.refreshSessions,
+  });
 
   return (
     <IdentityManagerLayout
@@ -777,6 +693,7 @@ export function IdentityManager() {
       identity={identity}
       identityMutations={identityMutations}
       identityState={identityState}
+      localKeyringLocked={localKeyringLock.isLocked}
       registration={registration}
       restoreFileInputRef={restoreKeyPackage.restoreFileInputRef}
       session={session}

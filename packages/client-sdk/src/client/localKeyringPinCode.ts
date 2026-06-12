@@ -212,6 +212,15 @@ export function createPinCodeWrappingKeyKeystore(
   return new PinCodeWrappingKeyKeystore(options);
 }
 
+export function isPinCodeWrappedLocalSecretEnvelope(
+  envelope: WrappedLocalSecretEnvelope,
+): boolean {
+  return (
+    envelope.provider === PIN_CODE_PROVIDER &&
+    envelope.algorithm === PIN_CODE_WRAPPING_ALGORITHM
+  );
+}
+
 export function createPinCodeBrowserLocalKeyring(
   options: PinCodeBrowserLocalKeyringOptions,
 ): LocalKeyring {

@@ -1,11 +1,14 @@
 import { ExplorerProvider } from "../../stores/explorer/ExplorerProvider";
 import { AppWindow } from "../AppWindow";
+import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { Explorer } from "./Explorer";
 
 export function ExplorerApp() {
   return (
-    <AppWindow Provider={ExplorerProvider}>
-      <Explorer />
-    </AppWindow>
+    <LocalKeyringUnlockGate appName="Explorer">
+      <AppWindow Provider={ExplorerProvider}>
+        <Explorer />
+      </AppWindow>
+    </LocalKeyringUnlockGate>
   );
 }

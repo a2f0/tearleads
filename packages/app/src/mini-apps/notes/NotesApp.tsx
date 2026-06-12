@@ -4,6 +4,7 @@ import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
 } from "../../stores/documents/DocumentsProvider";
+import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { NOTES_LABELS } from "./labels";
 import { Notes } from "./Notes";
@@ -17,11 +18,13 @@ export function createNotesWindowComponent({
 }: NotesAppProps = {}) {
   function NotesWindowComponent() {
     return (
-      <NotesApp
-        {...(noteId === undefined ? {} : { noteId })}
-        {...(containerId === undefined ? {} : { containerId })}
-        {...(documentId === undefined ? {} : { documentId })}
-      />
+      <LocalKeyringUnlockGate appName="Notes">
+        <NotesApp
+          {...(noteId === undefined ? {} : { noteId })}
+          {...(containerId === undefined ? {} : { containerId })}
+          {...(documentId === undefined ? {} : { documentId })}
+        />
+      </LocalKeyringUnlockGate>
     );
   }
 

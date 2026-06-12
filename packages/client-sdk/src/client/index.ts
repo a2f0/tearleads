@@ -125,6 +125,7 @@ export type {
 export {
   createPinCodeBrowserLocalKeyring,
   createPinCodeWrappingKeyKeystore,
+  isPinCodeWrappedLocalSecretEnvelope,
 } from "./localKeyringPinCode";
 export type { Logger } from "./logger";
 export {

@@ -9,10 +9,10 @@ import {
   decryptLocalIdentityPayload,
   encryptLocalIdentityPayload,
 } from "../identity/localIdentityPackageCrypto";
+import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 
 const LOCAL_CRYPTO_SESSION_FORMAT = "tearleads.app.crypto-session";
 const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
-const LOCAL_IDENTITY_SCOPE_PREFIX = "tearleads.local-identity:";
 
 type LocalCryptoSessionStorage = Pick<
   Storage,
@@ -67,12 +67,6 @@ function createHostLocalKeyring(input: {
 
 function localCryptoSessionStorageKey(namespace: string): string {
   return `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}`;
-}
-
-function localIdentityScope(namespace: string): LocalKeyringScope {
-  return {
-    namespace: `${LOCAL_IDENTITY_SCOPE_PREFIX}${namespace}`,
-  };
 }
 
 function readNullableString(

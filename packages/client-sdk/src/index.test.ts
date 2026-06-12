@@ -19,6 +19,7 @@ import {
   DEFAULT_DOCUMENT_KIND,
   type DocumentAttachmentUpload,
   getDocumentClientProjectionTables,
+  isPinCodeWrappedLocalSecretEnvelope,
   syncedContainerDocumentObjectSyncState,
 } from "./index";
 
@@ -53,6 +54,7 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(createMemoryWrappingKeyKeystore).toBeFunction();
   expect(createPinCodeBrowserLocalKeyring).toBeFunction();
   expect(createPinCodeWrappingKeyKeystore).toBeFunction();
+  expect(isPinCodeWrappedLocalSecretEnvelope).toBeFunction();
   expect(getDocumentClientProjectionTables).toBeFunction();
   expect(createMemoryBlobStore).toBeFunction();
   expect(syncState.status).toBe("pending");
