@@ -284,16 +284,14 @@ function useLockAction(input: {
   readonly setLockState: Dispatch<SetStateAction<LockState>>;
   readonly setUnlockedPinCode: Dispatch<SetStateAction<string | null>>;
 }): () => boolean {
+  const { lockState, setLockState, setUnlockedPinCode } = input;
   return useCallback((): boolean => {
-    if (
-      !input.lockState.pinCodeEnabled ||
-      input.lockState.status === "locked"
-    ) {
+    if (!lockState.pinCodeEnabled || lockState.status === "locked") {
       return false;
     }
 
-    input.setUnlockedPinCode(null);
-    input.setLockState((current) =>
+    setUnlockedPinCode(null);
+    setLockState((current) =>
       current.pinCodeEnabled
         ? {
             pinCodeEnabled: true,
@@ -303,7 +301,12 @@ function useLockAction(input: {
         : current,
     );
     return true;
-  }, [input]);
+  }, [
+    lockState.pinCodeEnabled,
+    lockState.status,
+    setLockState,
+    setUnlockedPinCode,
+  ]);
 }
 
 function useSetPinCodeAction(input: {

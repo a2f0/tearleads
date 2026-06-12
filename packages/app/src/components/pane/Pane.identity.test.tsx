@@ -192,7 +192,11 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
     let unlockWindow: HTMLDivElement | null = null;
     await waitFor(() => {
       const unlockHeading = view.getByText("Local keychain locked");
-      unlockWindow = unlockHeading.closest(".window");
+      const closestWindow = unlockHeading.closest(".window");
+      if (!(closestWindow instanceof HTMLDivElement)) {
+        throw new Error("Expected unlock heading to be inside a window.");
+      }
+      unlockWindow = closestWindow;
       expect(unlockWindow).toBeTruthy();
     });
     if (!unlockWindow) {

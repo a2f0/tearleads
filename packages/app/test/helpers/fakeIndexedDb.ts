@@ -1,4 +1,6 @@
 interface FakeIndexedDbTransaction {
+  activeRequestCount: number;
+  completed: boolean;
   error: Error | null;
   onabort: ((event: Event) => void) | null;
   oncomplete: ((event: Event) => void) | null;
@@ -12,6 +14,26 @@ function createFakeIndexedDbError(name: string, message: string): Error {
   return error;
 }
 
+function finishFakeIndexedDbRequest(
+  transaction: FakeIndexedDbTransaction | null,
+): void {
+  if (!transaction) {
+    return;
+  }
+
+  transaction.activeRequestCount -= 1;
+  if (transaction.completed || transaction.activeRequestCount !== 0) {
+    return;
+  }
+
+  transaction.completed = true;
+  if (transaction.error) {
+    transaction.onabort?.({} as Event);
+  } else {
+    transaction.oncomplete?.({} as Event);
+  }
+}
+
 function createFakeIndexedDbRequest<T>(
   operation: () => T,
   transaction: FakeIndexedDbTransaction | null,
@@ -23,11 +45,14 @@ function createFakeIndexedDbRequest<T>(
     result: undefined as T,
   };
 
+  if (transaction) {
+    transaction.activeRequestCount += 1;
+  }
+
   queueMicrotask(() => {
     try {
       request.result = operation();
       request.onsuccess?.({} as Event);
-      transaction?.oncomplete?.({} as Event);
     } catch (error) {
       request.error =
         error instanceof Error ? error : new Error("IndexedDB request failed.");
@@ -35,7 +60,8 @@ function createFakeIndexedDbRequest<T>(
         transaction.error = request.error;
       }
       request.onerror?.({} as Event);
-      transaction?.onabort?.({} as Event);
+    } finally {
+      finishFakeIndexedDbRequest(transaction);
     }
   });
 
@@ -69,10 +95,12 @@ function createFakeIndexedDbObjectStore(
   } as unknown as IDBObjectStore;
 }
 
-function createFakeIndexedDbTransaction(
+function createFakeIndexedDbTransactionState(
   records: Map<string, unknown>,
-): IDBTransaction {
+): FakeIndexedDbTransaction {
   const transaction: FakeIndexedDbTransaction = {
+    activeRequestCount: 0,
+    completed: false,
     error: null,
     onabort: null,
     oncomplete: null,
@@ -80,7 +108,15 @@ function createFakeIndexedDbTransaction(
     objectStore: () => createFakeIndexedDbObjectStore(records, transaction),
   };
 
-  return transaction as unknown as IDBTransaction;
+  return transaction;
+}
+
+function createFakeIndexedDbTransaction(
+  records: Map<string, unknown>,
+): IDBTransaction {
+  return createFakeIndexedDbTransactionState(
+    records,
+  ) as unknown as IDBTransaction;
 }
 
 function createFakeIndexedDbDatabase(
@@ -93,9 +129,7 @@ function createFakeIndexedDbDatabase(
       stores.set(name, records);
       return createFakeIndexedDbObjectStore(
         records,
-        createFakeIndexedDbTransaction(
-          records,
-        ) as unknown as FakeIndexedDbTransaction,
+        createFakeIndexedDbTransactionState(records),
       );
     },
     objectStoreNames: {
