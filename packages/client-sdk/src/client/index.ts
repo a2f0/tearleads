@@ -117,6 +117,15 @@ export {
   serializeLocalKeyringManifest,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./localKeyring";
+export type {
+  LocalKeyringPinCode,
+  PinCodeBrowserLocalKeyringOptions,
+  PinCodeWrappingKeyKeystoreOptions,
+} from "./localKeyringPinCode";
+export {
+  createPinCodeBrowserLocalKeyring,
+  createPinCodeWrappingKeyKeystore,
+} from "./localKeyringPinCode";
 export type { Logger } from "./logger";
 export {
   Network,

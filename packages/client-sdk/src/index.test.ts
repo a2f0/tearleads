@@ -14,6 +14,8 @@ import {
   createMemoryBlobStore,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
+  createPinCodeBrowserLocalKeyring,
+  createPinCodeWrappingKeyKeystore,
   DEFAULT_DOCUMENT_KIND,
   type DocumentAttachmentUpload,
   getDocumentClientProjectionTables,
@@ -49,6 +51,8 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(createLocalStorageLocalKeyringManifestStore).toBeFunction();
   expect(createMemoryLocalKeyringManifestStore).toBeFunction();
   expect(createMemoryWrappingKeyKeystore).toBeFunction();
+  expect(createPinCodeBrowserLocalKeyring).toBeFunction();
+  expect(createPinCodeWrappingKeyKeystore).toBeFunction();
   expect(getDocumentClientProjectionTables).toBeFunction();
   expect(createMemoryBlobStore).toBeFunction();
   expect(syncState.status).toBe("pending");

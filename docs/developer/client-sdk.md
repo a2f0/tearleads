@@ -340,6 +340,9 @@ same-origin app restarts; `keyring.deleteSession(scope)` removes both. Hosts
 that need custom storage can use `createIndexedDbWrappingKeyKeystore(...)` and
 `createLocalStorageLocalKeyringManifestStore(...)` separately.
 
+`createPinCodeBrowserLocalKeyring({ pinCode })` enables opt-in PIN
+locking.
+
 `WrappingKeyKeystore` is the platform boundary. Browser, Electron, iOS, and
 Android hosts should implement it with their available keychain or secure
 storage primitive. The SDK stores only a manifest containing a wrapped
@@ -365,11 +368,11 @@ key when a manifest store needs a stable index.
 `createMemoryWrappingKeyKeystore()` and
 `createMemoryLocalKeyringManifestStore()` are process-local helpers for tests
 and development wiring. They are not a durable or platform-secure keychain.
-The browser IndexedDB helper is durable, but it is still origin-bound browser
-storage: same-origin code can ask the stored `CryptoKey` to unwrap the local
-secret even though it cannot export the key bytes. Hosts that require explicit
-user unlock should provide a `WrappingKeyKeystore` backed by their chosen
-PIN/passphrase, WebAuthn, OS keychain, or secure enclave flow.
+The browser IndexedDB helper is durable but origin-bound: same-origin code can
+ask the stored `CryptoKey` to unwrap the local secret even though it cannot
+export the key bytes. Hosts needing
+unlock can use `createPinCodeWrappingKeyKeystore`, passphrases, WebAuthn, OS
+keychains, or secure enclaves.
 Call `session.dispose()` when a host is done with a local keyring session; it
 zeroes the in-memory root and derived byte keys owned by that session.
 `keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
