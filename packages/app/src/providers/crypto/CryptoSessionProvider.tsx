@@ -11,6 +11,7 @@ import {
 import { useDatabase } from "../db/DatabaseProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useIdentity } from "../identity/IdentityProvider";
+import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
@@ -358,11 +359,14 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     status: dbStatus,
   } = useDatabase();
   const { signingFingerprint, signingKeyPair } = useIdentity();
+  const localKeyringLock = useLocalKeyringLock();
   const containerBootstrapped = useRef<string | null>(null);
   const sessionState = useSdkBackedCryptoSessionState(tearleads);
   const localSessionPersistence = useLocalCryptoSessionPersistence({
-    createLocalKeyring: hostConfig.createLocalKeyring,
-    namespace: hostConfig.localIdentityNamespace ?? null,
+    createLocalKeyring: localKeyringLock.createLocalKeyring,
+    namespace: localKeyringLock.isLocked
+      ? null
+      : (hostConfig.localIdentityNamespace ?? null),
   });
 
   useResetCryptoSession(

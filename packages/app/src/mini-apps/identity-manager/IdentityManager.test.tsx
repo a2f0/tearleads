@@ -136,3 +136,38 @@ test("active sessions render last IP and session IP history", async () => {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
 });
+
+test("PIN lock setup waits for a generated local key pair", async () => {
+  const originalIndexedDB = globalThis.indexedDB;
+  const hadIndexedDB = "indexedDB" in globalThis;
+  const originalWebSocket = globalThis.WebSocket;
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
+
+  try {
+    Reflect.set(globalThis, "indexedDB", originalIndexedDB ?? {});
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const view = render(
+      <IdentityManagerTestRuntime
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
+        }}
+      >
+        <IdentityManager />
+      </IdentityManagerTestRuntime>,
+    );
+
+    await waitFor(() => {
+      expect(tearleadsRef.current).toBeTruthy();
+      expect(
+        view.getByText("Generate a key pair first to enable PIN locking."),
+      ).toBeTruthy();
+    });
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+    if (hadIndexedDB) {
+      Reflect.set(globalThis, "indexedDB", originalIndexedDB);
+    } else {
+      Reflect.deleteProperty(globalThis, "indexedDB");
+    }
+  }
+});

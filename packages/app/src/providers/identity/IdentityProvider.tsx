@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
+import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import {
@@ -42,6 +43,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     ensureIdentityReady: ensureIdentityDatabaseReady,
   } = useDatabase();
   const tearleads = useTearleads();
+  const localKeyringLock = useLocalKeyringLock();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
   const [
@@ -50,8 +52,10 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   ] = useState<string | null>(null);
   const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
   const localPersistence = useLocalIdentityPersistence({
-    createLocalKeyring: hostConfig.createLocalKeyring,
-    namespace: hostConfig.localIdentityNamespace ?? null,
+    createLocalKeyring: localKeyringLock.createLocalKeyring,
+    namespace: localKeyringLock.isLocked
+      ? null
+      : (hostConfig.localIdentityNamespace ?? null),
   });
 
   useRestoreLocalIdentity({

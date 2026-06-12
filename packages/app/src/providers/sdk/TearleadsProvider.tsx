@@ -18,6 +18,8 @@ import {
 } from "react";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
+import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
+import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 import { useLog } from "../logging/LogProvider";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
@@ -30,7 +32,6 @@ const DEVELOPMENT_HOSTNAMES = new Set([
   "::1",
   "localhost",
 ]);
-const LOCAL_BLOB_STORE_SCOPE_NAMESPACE = "tearleads.blob-store";
 
 type TearleadsRuntimeInput = ReturnType<Tearleads["runtime"]["input"]>;
 
@@ -193,20 +194,21 @@ function useServerEventsBinding(
 
 export function TearleadsProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
+  const localKeyringLock = useLocalKeyringLock();
   const { log, logError } = useLog();
   const blobStoreFactory = useMemo((): BlobStoreFactory => {
     if (hostConfig.createBlobStore) {
       return hostConfig.createBlobStore;
     }
 
-    if (hostConfig.createLocalKeyring) {
+    if (localKeyringLock.createLocalKeyring) {
       return createLocalKeyringBlobStoreFactory({
-        createLocalKeyring: hostConfig.createLocalKeyring,
+        createLocalKeyring: localKeyringLock.createLocalKeyring,
       });
     }
 
     return createDevelopmentBlobStoreFactory();
-  }, [hostConfig.createBlobStore, hostConfig.createLocalKeyring]);
+  }, [hostConfig.createBlobStore, localKeyringLock.createLocalKeyring]);
   const [tearleads] = useState(
     () =>
       new Tearleads({

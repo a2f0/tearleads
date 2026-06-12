@@ -10,6 +10,7 @@ import type {
 import { act, cleanup, render } from "@testing-library/react";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
+import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
 import { TearleadsProvider, useTearleads } from "./TearleadsProvider";
 
@@ -58,11 +59,13 @@ function Harness({
     <AppHostConfigProvider
       value={hostConfig ?? new AppHostConfig("http://api.example.test", wsUrl)}
     >
-      <LogProvider>
-        <TearleadsProvider>
-          <TearleadsProbe onReady={onReady} />
-        </TearleadsProvider>
-      </LogProvider>
+      <LocalKeyringLockProvider>
+        <LogProvider>
+          <TearleadsProvider>
+            <TearleadsProbe onReady={onReady} />
+          </TearleadsProvider>
+        </LogProvider>
+      </LocalKeyringLockProvider>
     </AppHostConfigProvider>
   );
 }

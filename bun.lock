@@ -133,7 +133,6 @@
       "name": "app-web",
       "version": "0.1.0",
       "dependencies": {
-        "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "react-dom": "catalog:react",

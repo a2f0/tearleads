@@ -234,6 +234,12 @@ fingerprint should not unwrap under another scope. The memory keystore and
 manifest store exported by the SDK are test/development helpers only and do
 not provide durable platform protection.
 
+PIN-code local keyring support is an optional wrapper over a host keystore. In
+that mode, the account-root secret is wrapped by the inner keystore and then
+the inner envelope is encrypted with a PBKDF2-SHA256/AES-GCM key derived from
+the supplied PIN. Reopening the local session requires both the host wrapping
+key and the PIN; the default browser local keyring does not require a PIN.
+
 This local keyring protects local database and blob-store keys at rest on the
 client device. It does not change server-side access authorization, signed
 manifest verification, content-key bundle validation, or remote ciphertext

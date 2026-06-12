@@ -1,0 +1,28 @@
+.local-keyring-unlock-gate {
+  min-width: 20rem;
+  min-height: 16rem;
+}
+
+.local-keyring-unlock-gate-panel {
+  width: min(100%, 22rem);
+}
+
+.local-keyring-unlock-copy {
+  display: grid;
+  gap: var(--mini-app-space-xs);
+  min-width: 0;
+}
+
+.local-keyring-unlock-copy h2,
+.local-keyring-unlock-copy p {
+  margin: 0;
+}
+
+.local-keyring-unlock-copy h2 {
+  font-size: 1rem;
+}
+
+.local-keyring-unlock-copy p {
+  font-size: var(--font-size-sm);
+  opacity: var(--mini-app-muted-opacity);
+}

@@ -1,11 +1,14 @@
 import { ContactsProvider } from "../../stores/contacts/ContactsProvider";
 import { AppWindow } from "../AppWindow";
+import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
 import { Contacts } from "./Contacts";
 
 export function ContactsApp() {
   return (
-    <AppWindow Provider={ContactsProvider}>
-      <Contacts />
-    </AppWindow>
+    <LocalKeyringUnlockGate appName="Contacts">
+      <AppWindow Provider={ContactsProvider}>
+        <Contacts />
+      </AppWindow>
+    </LocalKeyringUnlockGate>
   );
 }
