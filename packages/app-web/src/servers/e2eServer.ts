@@ -1,9 +1,12 @@
 import { serve } from "bun";
-import { serverConfig } from "./serverConfig";
+import { coreRoutes, devRoute } from "./serverConfig";
 
 const server = serve({
   port: 3100,
-  ...serverConfig,
+  routes: { ...coreRoutes, ...devRoute },
+  websocket: {
+    message() {},
+  },
 });
 
 console.log(`E2E server running at ${server.url}`);

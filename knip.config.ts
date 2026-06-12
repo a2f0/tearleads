@@ -37,6 +37,20 @@ const baseConfig = {
         entry: ["e2e/**/*.spec.ts"],
       },
     },
+    "packages/app-capacitor": {
+      entry: ["src/databaseWorker.ts"],
+      project: ["src/**/*.{ts,tsx}"],
+      ignoreDependencies: [
+        "@capacitor-community/sqlite",
+        "@capacitor/app",
+        "@capacitor/filesystem",
+        "@capacitor/ios",
+        "@capacitor/keyboard",
+        "@capacitor/share",
+        "@capawesome/capacitor-file-picker",
+        "@capgo/capacitor-native-biometric",
+      ],
+    },
     "packages/app-electrobun": {
       entry: [
         "electrobun.config.ts",
@@ -139,6 +153,21 @@ const productionConfig = {
     "packages/app-web": {
       entry: ["src/**/*.{ts,tsx}!", "!src/servers/e2eServer.ts"],
       project: [],
+    },
+    "packages/app-capacitor": {
+      entry: ["capacitor.config.ts!", "src/**/*.{ts,tsx}!"],
+      project: [],
+      ignoreDependencies: [
+        "@capacitor-community/sqlite",
+        "@capacitor/app",
+        "@capacitor/core",
+        "@capacitor/filesystem",
+        "@capacitor/ios",
+        "@capacitor/keyboard",
+        "@capacitor/share",
+        "@capawesome/capacitor-file-picker",
+        "@capgo/capacitor-native-biometric",
+      ],
     },
     "packages/app-electrobun": {
       entry: ["electrobun.config.ts!", "src/**/*.{ts,tsx}!"],

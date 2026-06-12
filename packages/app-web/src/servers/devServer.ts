@@ -1,11 +1,11 @@
 import { serve } from "bun";
-import { serverConfig } from "./serverConfig";
+import { coreRoutes, devRoute } from "./serverConfig";
 
 const server = serve({
-  ...serverConfig,
-  development: process.env.NODE_ENV !== "production" && {
-    hmr: true,
-    console: true,
+  routes: { ...coreRoutes, ...devRoute },
+  development: { hmr: true, console: true },
+  websocket: {
+    message() {},
   },
 });
 

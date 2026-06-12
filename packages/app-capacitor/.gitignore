@@ -1,0 +1,13 @@
+# Build output
+dist/
+public/worker.js
+public/sqlite3.wasm
+
+# Generated native image assets (run scripts/buildImages.sh to regenerate)
+android/app/src/main/res/drawable/*.png
+android/app/src/main/res/drawable-*/*.png
+android/app/src/main/res/mipmap-*/*.png
+ios/App/App/Assets.xcassets/**/*.png
+
+# Gradle wrapper binary
+android/gradle/wrapper/gradle-wrapper.jar

@@ -26,18 +26,19 @@ const prodIndexHtml = isProduction
   ? await Bun.file(`${distDir}/index.html`).text()
   : "";
 
-const routes = {
+export const coreRoutes = {
   "/worker.js": new Response(workerScript, {
     headers: { "Content-Type": "application/javascript" },
   }),
   "/sqlite3.wasm": new Response(sqliteWasm, {
     headers: { "Content-Type": "application/wasm" },
   }),
-  ...(!isProduction ? { "/*": index } : {}),
 };
 
+export const devRoute = { "/*": index };
+
 export const serverConfig = {
-  routes,
+  routes: coreRoutes,
   async fetch(req: Request) {
     if (!isProduction) {
       return new Response("Not Found", { status: 404 });

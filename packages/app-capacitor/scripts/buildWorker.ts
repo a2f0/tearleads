@@ -1,0 +1,29 @@
+import { copyFile, mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import {
+  getDefaultDatabaseWorkerEntrypointUrl,
+  getSqliteWasmAssetUrl,
+} from "@tearleads/sqlite-worker/assets";
+
+const publicDir = new URL("../public/", import.meta.url);
+
+await mkdir(publicDir, { recursive: true });
+
+const workerBuild = await Bun.build({
+  entrypoints: [fileURLToPath(getDefaultDatabaseWorkerEntrypointUrl())],
+  format: "esm",
+  target: "browser",
+});
+
+if (!workerBuild.success || workerBuild.outputs.length === 0) {
+  throw new Error("Failed to build database worker", {
+    cause: workerBuild.logs,
+  });
+}
+
+await Bun.write(new URL("worker.js", publicDir), workerBuild.outputs[0]);
+
+const wasmSrc = fileURLToPath(getSqliteWasmAssetUrl());
+await copyFile(wasmSrc, fileURLToPath(new URL("sqlite3.wasm", publicDir)));
+
+console.log("Worker and WASM assets built successfully.");

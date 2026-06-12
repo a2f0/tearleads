@@ -59,6 +59,7 @@
     "packages/api-client",
     "packages/app",
     "packages/app-web",
+    "packages/app-capacitor",
     "packages/app-electrobun",
     "packages/bob-and-alice",
     "packages/client-sdk",
