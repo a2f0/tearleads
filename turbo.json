@@ -22,6 +22,7 @@
       ]
     },
     "e2e": {
+      "dependsOn": ["^build"],
       "outputs": [],
       "inputs": [
         "$TURBO_DEFAULT$",
