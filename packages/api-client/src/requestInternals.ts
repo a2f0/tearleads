@@ -5,7 +5,7 @@ import type {
 } from "./routes/containers";
 import type { RequestBody } from "./types";
 
-interface ErrorResponseDescription {
+export interface ErrorResponseDescription {
   readonly detail: string;
   readonly error: string | null;
 }

@@ -337,6 +337,36 @@ testApiClient(
   },
 );
 
+testApiClient(
+  "reports the session error when renewal throws synchronously",
+  async () => {
+    server.use(
+      http.get(`${apiBaseUrl}/auth/encapsulation-key/:userId`, () =>
+        HttpResponse.json(
+          { error: "Session expired" },
+          { status: 401, statusText: "Unauthorized" },
+        ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const errors: string[] = [];
+    client.setAuthToken("stale-token");
+    client.setOnError((message) => {
+      errors.push(message);
+    });
+    client.setOnSessionExpired(() => {
+      throw new Error("local key unavailable");
+    });
+
+    await expect(client.getEncapsulationKey("user-1")).resolves.toBeNull();
+
+    expect(errors).toEqual([
+      "GET /auth/encapsulation-key/user-1: 401 Unauthorized: Session expired",
+    ]);
+  },
+);
+
 testApiClient("does not renew expired sessions for logout", async () => {
   server.use(
     http.post(`${apiBaseUrl}/auth/logout`, () => {

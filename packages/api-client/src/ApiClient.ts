@@ -36,6 +36,7 @@ import {
   cachedRequest,
   dedupedRequest,
   describeErrorResponse,
+  type ErrorResponseDescription,
   hasHeader,
   isRefreshableSessionError,
   isReplayableRequestBody,
@@ -496,9 +497,7 @@ export class ApiClient {
   ): Promise<
     | RequestFailure
     | {
-        readonly errorDescription: Awaited<
-          ReturnType<typeof describeErrorResponse>
-        >;
+        readonly errorDescription: ErrorResponseDescription;
         readonly ok: true;
         readonly response: Response;
       }
@@ -547,9 +546,7 @@ export class ApiClient {
   }
 
   private httpFailure(input: {
-    readonly errorDescription: Awaited<
-      ReturnType<typeof describeErrorResponse>
-    >;
+    readonly errorDescription: ErrorResponseDescription;
     readonly method: HttpMethod;
     readonly options: RequestResultOptions;
     readonly path: string;
@@ -587,9 +584,10 @@ export class ApiClient {
       return true;
     }
 
-    const refreshed = await Promise.resolve(this.onSessionExpired?.()).catch(
-      () => false,
-    );
+    let refreshed = false;
+    try {
+      refreshed = (await this.onSessionExpired?.()) ?? false;
+    } catch {}
     return Boolean(
       refreshed && this.authToken && this.authToken !== input.authToken,
     );
