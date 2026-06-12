@@ -18,6 +18,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
     createSQLiteRuntime,
     disableLocalIdentityPersistence,
     localIdentityNamespace,
+    navigationMode,
     wsUrl,
   } = hostConfig;
   const paneLocalIdentityNamespace = disableLocalIdentityPersistence
@@ -33,6 +34,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
         paneLocalIdentityNamespace,
         createLocalKeyring,
         disableLocalIdentityPersistence,
+        navigationMode,
       ),
     [
       apiBaseUrl,
@@ -41,6 +43,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
       createSQLiteRuntime,
       disableLocalIdentityPersistence,
       localIdentityNamespace,
+      navigationMode,
       paneLocalIdentityNamespace,
       side,
       wsUrl,

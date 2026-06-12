@@ -7,13 +7,13 @@ import {
   useWindowStateData,
   WindowStateProvider,
 } from "../components/window/WindowStateProvider";
+import { AppNavigationProvider } from "../navigation/AppNavigationProvider";
 import {
   MiniAppBusProvider,
-  type MiniAppDefinition,
-  type MiniAppId,
   useMiniAppBusActions,
   useMiniAppMessage,
 } from "./bus";
+import type { MiniAppDefinition, MiniAppId } from "./types";
 
 function EmptyMiniApp() {
   return null;
@@ -115,10 +115,15 @@ test("mini-app bus opens a target app and delivers route messages", async () => 
 
   const view = render(
     <WindowStateProvider>
-      <MiniAppBusProvider miniApps={createMiniApps(OrgManagerProbe)}>
-        <OpenButtons />
-        <WindowLayer />
-      </MiniAppBusProvider>
+      <AppNavigationProvider
+        mode="windowed"
+        miniApps={createMiniApps(OrgManagerProbe)}
+      >
+        <MiniAppBusProvider>
+          <OpenButtons />
+          <WindowLayer />
+        </MiniAppBusProvider>
+      </AppNavigationProvider>
     </WindowStateProvider>,
   );
 
@@ -166,11 +171,16 @@ test("mini-app bus action consumers do not re-render on window state changes", (
 
   const view = render(
     <WindowStateProvider>
-      <MiniAppBusProvider miniApps={createMiniApps(EmptyMiniApp)}>
-        <ActionConsumer />
-        <CreateWindowButton />
-        <WindowCounter />
-      </MiniAppBusProvider>
+      <AppNavigationProvider
+        mode="windowed"
+        miniApps={createMiniApps(EmptyMiniApp)}
+      >
+        <MiniAppBusProvider>
+          <ActionConsumer />
+          <CreateWindowButton />
+          <WindowCounter />
+        </MiniAppBusProvider>
+      </AppNavigationProvider>
     </WindowStateProvider>,
   );
 

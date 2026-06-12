@@ -2,9 +2,11 @@ import { TearleadsFrame } from "@tearleads/ui";
 import { type MouseEvent, useCallback, useState } from "react";
 import "../../App.css";
 import type { AppHostConfig } from "../../host/AppHostConfig";
+import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import type { MenuPosition } from "../shared/Menu";
 import { StartMenu } from "../shared/StartMenu";
 import "./Layout.css";
+import { RoutedWorkspace } from "./routed/RoutedWorkspace";
 import { Workspace } from "./workspace/Workspace";
 import {
   useWorkspace,
@@ -17,6 +19,7 @@ interface LayoutProps {
 }
 
 function LayoutInner({ hostConfig }: LayoutProps) {
+  const navigationMode = useAppNavigationMode(hostConfig.navigationMode);
   const [split, setSplit] = useState(true);
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { activeWorkspace, setActiveWorkspace } = useWorkspace();
@@ -59,6 +62,17 @@ function LayoutInner({ hostConfig }: LayoutProps) {
     </div>
   );
 
+  if (navigationMode === "routed") {
+    return (
+      <TearleadsFrame className="layout layout--routed">
+        <RoutedWorkspace
+          hostConfig={hostConfig}
+          navigationMode={navigationMode}
+        />
+      </TearleadsFrame>
+    );
+  }
+
   return (
     <>
       <TearleadsFrame
@@ -72,6 +86,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
             key={id}
             hostConfig={hostConfig}
             active={activeWorkspace === id}
+            navigationMode={navigationMode}
             split={split}
           />
         ))}

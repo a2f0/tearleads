@@ -7,7 +7,7 @@ import {
   MiniAppFormPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
-import type { MiniAppWindowPosition } from "../../bus";
+import type { MiniAppWindowPosition } from "../types";
 import {
   ExplorerContainerInfoActions,
   ExplorerContainerInfoBody,

@@ -12,8 +12,8 @@ import type {
 } from "@tearleads/client-sdk";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
-import type { MiniAppWindowPosition } from "../../bus";
 import type { ExplorerRoute } from "../routes";
+import type { MiniAppWindowPosition } from "../types";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";

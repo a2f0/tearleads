@@ -1,0 +1,118 @@
+.routed-pane {
+  grid-area: left;
+  display: grid;
+  grid-template:
+    "toolbar" auto
+    "sidebar" auto
+    "main" 1fr
+    / minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  color: var(--color-dark);
+  background: var(--color-light);
+}
+
+.routed-pane-toolbar {
+  grid-area: toolbar;
+  display: flex;
+  align-items: center;
+  gap: var(--footer-gap);
+  min-width: 0;
+  padding: calc(var(--padding) / 2);
+  border-bottom: 1px solid var(--color-dark);
+  background: var(--color-muted);
+}
+
+.routed-pane-history-controls,
+.routed-pane-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--footer-gap);
+  flex: 0 0 auto;
+}
+
+.routed-pane-history-controls button,
+.routed-pane-actions button,
+.routed-pane-nav-link {
+  min-height: 2rem;
+  padding: 0 calc(var(--padding) / 2);
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.routed-pane-history-controls button:hover,
+.routed-pane-actions button:hover:not(:disabled),
+.routed-pane-nav-link:hover,
+.routed-pane-nav-link--active {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.routed-pane-actions button:disabled {
+  opacity: var(--mini-app-disabled-opacity);
+  cursor: default;
+}
+
+.routed-pane-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--footer-gap);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.routed-pane-sidebar {
+  grid-area: sidebar;
+  max-height: min(38vh, 18rem);
+  min-width: 0;
+  overflow: auto;
+  border-bottom: 1px solid var(--color-dark);
+  background: var(--color-light);
+}
+
+.routed-pane-sidebar .mini-app-sidebar {
+  min-height: unset;
+}
+
+.routed-pane-main {
+  grid-area: main;
+  min-height: 0;
+  overflow: auto;
+}
+
+.routed-pane-home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.routed-pane-launcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--footer-gap);
+  padding: var(--padding);
+}
+
+@media (max-width: 760px) {
+  .routed-pane-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .routed-pane-history-controls,
+  .routed-pane-actions,
+  .routed-pane-nav {
+    width: 100%;
+  }
+
+  .routed-pane-history-controls button,
+  .routed-pane-actions button,
+  .routed-pane-nav-link {
+    flex: 0 0 auto;
+  }
+}

@@ -1,5 +1,4 @@
 import {
-  type ComponentType,
   createContext,
   type PropsWithChildren,
   useCallback,
@@ -9,40 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  useWindowActions,
-  useWindowStateData,
-} from "../components/window/WindowStateProvider";
-
-export type MiniAppId =
-  | "contacts"
-  | "explorer"
-  | "identity-manager"
-  | "notes"
-  | "org-manager";
-
-export interface MiniAppDefinition {
-  createComponent: () => ComponentType;
-  initialShowSidebar?: boolean | undefined;
-  title: string;
-}
-
-export interface MiniAppWindowPosition {
-  x: number;
-  y: number;
-}
-
-type MiniAppMessage = {
-  appId: "org-manager";
-  groupId: string;
-  type: "open-group";
-};
-
-interface OpenMiniAppRequest {
-  appId: MiniAppId;
-  message?: MiniAppMessage;
-  position?: MiniAppWindowPosition;
-}
+import { useAppNavigationActions } from "../navigation/AppNavigationProvider";
+import type { MiniAppId, MiniAppMessage, OpenMiniAppRequest } from "./types";
 
 interface MiniAppMessageEnvelope {
   message: MiniAppMessage;
@@ -65,11 +32,6 @@ function isMiniAppMessageFor<AppId extends MiniAppId>(
 ): message is Extract<MiniAppMessage, { appId: AppId }> {
   return message.appId === appId;
 }
-
-const DEFAULT_MINI_APP_POSITION = {
-  x: 200,
-  y: 160,
-} satisfies MiniAppWindowPosition;
 
 const MiniAppBusActionsContext = createContext<MiniAppBusActions | null>(null);
 const MiniAppBusMessagesContext = createContext<MiniAppBusMessages | null>(
@@ -117,37 +79,11 @@ export function useMiniAppMessage<AppId extends MiniAppId>(
   }, [acknowledgeMiniAppMessage, appId, latestMessage, onMessage]);
 }
 
-function findTopMiniAppWindow(
-  windows: ReturnType<typeof useWindowStateData>["windows"],
-  appId: MiniAppId,
-) {
-  return windows.reduce<(typeof windows)[number] | null>(
-    (topWindow, window) => {
-      if (window.appId !== appId) {
-        return topWindow;
-      }
-
-      return !topWindow || window.zIndex > topWindow.zIndex
-        ? window
-        : topWindow;
-    },
-    null,
-  );
-}
-
-export function MiniAppBusProvider({
-  children,
-  miniApps,
-}: PropsWithChildren<{
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>;
-}>) {
-  const { bringToFront, create, restore } = useWindowActions();
-  const { windows } = useWindowStateData();
-  const windowsRef = useRef(windows);
+export function MiniAppBusProvider({ children }: PropsWithChildren) {
+  const appNavigation = useAppNavigationActions();
   const sequenceRef = useRef(0);
   const [latestMessage, setLatestMessage] =
     useState<MiniAppMessageEnvelope | null>(null);
-  windowsRef.current = windows;
 
   const sendMiniAppMessage = useCallback((message: MiniAppMessage) => {
     const sequence = sequenceRef.current + 1;
@@ -162,35 +98,18 @@ export function MiniAppBusProvider({
   }, []);
 
   const openMiniApp = useCallback(
-    ({
-      appId,
-      message,
-      position = DEFAULT_MINI_APP_POSITION,
-    }: OpenMiniAppRequest) => {
-      const existingWindow = findTopMiniAppWindow(windowsRef.current, appId);
-
-      if (existingWindow) {
-        restore(existingWindow.id);
-        bringToFront(existingWindow.id);
-      } else {
-        const definition = miniApps[appId];
-        create(
-          definition.title,
-          position.x,
-          position.y,
-          definition.createComponent(),
-          {
-            appId,
-            initialShowSidebar: definition.initialShowSidebar,
-          },
-        );
-      }
+    ({ appId, message, position, reuseExisting }: OpenMiniAppRequest) => {
+      appNavigation.openMiniApp({
+        appId,
+        ...(position ? { position } : {}),
+        ...(reuseExisting === undefined ? {} : { reuseExisting }),
+      });
 
       if (message) {
         sendMiniAppMessage(message);
       }
     },
-    [bringToFront, create, miniApps, restore, sendMiniAppMessage],
+    [appNavigation, sendMiniAppMessage],
   );
 
   const actions = useMemo(

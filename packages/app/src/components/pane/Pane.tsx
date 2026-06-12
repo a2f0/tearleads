@@ -1,15 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  MiniAppBusProvider,
-  type MiniAppDefinition,
-  type MiniAppId,
-} from "../../mini-apps/bus";
-import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
-import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
-import { IdentityManagerApp } from "../../mini-apps/identity-manager/IdentityManagerApp";
+import { MiniAppBusProvider } from "../../mini-apps/bus";
 import { LocalKeyringUnlockWindow } from "../../mini-apps/LocalKeyringUnlockGate";
-import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
-import { OrgManagerApp } from "../../mini-apps/org-manager/OrgManagerApp";
+import { MINI_APP_MENU_ITEMS, MINI_APPS } from "../../mini-apps/registry";
+import type { MiniAppId } from "../../mini-apps/types";
+import type { AppNavigationMode } from "../../navigation/AppNavigationMode";
+import {
+  AppNavigationProvider,
+  useAppNavigationActions,
+} from "../../navigation/AppNavigationProvider";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
@@ -34,41 +32,6 @@ const BOOT_PANE_LOG_MESSAGE =
   "Generate a key pair from the pane menu to boot this pane.";
 const LOCKED_PANE_LOG_MESSAGE =
   "Unlock the local keychain to restore this pane.";
-
-const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
-  contacts: {
-    createComponent: () => ContactsApp,
-    title: "Contacts",
-  },
-  explorer: {
-    createComponent: () => ExplorerApp,
-    title: "Explorer",
-  },
-  "identity-manager": {
-    createComponent: () => IdentityManagerApp,
-    initialShowSidebar: false,
-    title: "Identity Manager",
-  },
-  notes: {
-    createComponent: () => createNotesWindowComponent(),
-    title: "Notes",
-  },
-  "org-manager": {
-    createComponent: () => OrgManagerApp,
-    title: "Org Manager",
-  },
-};
-
-const PANE_MINI_APP_MENU_ITEMS = [
-  { appId: "notes", label: "Open Notes" },
-  { appId: "contacts", label: "Open Contacts" },
-  { appId: "explorer", label: "Open Explorer" },
-  { appId: "identity-manager", label: "Open Identity Manager" },
-  { appId: "org-manager", label: "Open Org Manager" },
-] satisfies ReadonlyArray<{
-  appId: MiniAppId;
-  label: string;
-}>;
 
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
@@ -160,7 +123,7 @@ function PaneContextMenu({
           )}
           {canLockPane && <MenuItem label="Lock" onClick={lockPane} />}
           <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />
-          {PANE_MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
+          {MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
             <MenuItem
               key={appId}
               label={label}
@@ -181,6 +144,7 @@ function usePaneWindowMenuActions({
   onClose: () => void;
 }) {
   const { create } = useWindowActions();
+  const { openMiniApp: openMiniAppRoute } = useAppNavigationActions();
 
   const openFloatingWindow = useCallback(() => {
     create("Window", position.x, position.y);
@@ -200,20 +164,10 @@ function usePaneWindowMenuActions({
 
   const openMiniApp = useCallback(
     (appId: MiniAppId) => {
-      const definition = MINI_APPS[appId];
-      create(
-        definition.title,
-        position.x,
-        position.y,
-        definition.createComponent(),
-        {
-          appId,
-          initialShowSidebar: definition.initialShowSidebar,
-        },
-      );
+      openMiniAppRoute({ appId, position, reuseExisting: false });
       onClose();
     },
-    [create, onClose, position],
+    [onClose, openMiniAppRoute, position],
   );
 
   return { openFloatingWindow, openMiniApp, openUnlockWindow };
@@ -254,12 +208,20 @@ function usePaneLockMenuAction(onClose: () => void) {
   return { canLockPane, lockPane };
 }
 
-export function Pane({ className }: { className: string }) {
+export function Pane({
+  className,
+  navigationMode = "windowed",
+}: {
+  className: string;
+  navigationMode?: AppNavigationMode | undefined;
+}) {
   return (
     <WindowStateProvider>
-      <MiniAppBusProvider miniApps={MINI_APPS}>
-        <PaneInner className={className} />
-      </MiniAppBusProvider>
+      <AppNavigationProvider mode={navigationMode} miniApps={MINI_APPS}>
+        <MiniAppBusProvider>
+          <PaneInner className={className} />
+        </MiniAppBusProvider>
+      </AppNavigationProvider>
     </WindowStateProvider>
   );
 }
