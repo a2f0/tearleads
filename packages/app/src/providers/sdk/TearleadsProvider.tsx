@@ -1,6 +1,9 @@
 import {
   type BlobStoreFactory,
   createEncryptedBlobStore,
+  createLazyEncryptedBlobStore,
+  type LocalKeyPurpose,
+  type LocalKeyring,
   Tearleads,
 } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
@@ -27,6 +30,7 @@ const DEVELOPMENT_HOSTNAMES = new Set([
   "::1",
   "localhost",
 ]);
+const LOCAL_BLOB_STORE_SCOPE_NAMESPACE = "tearleads.blob-store";
 
 type TearleadsRuntimeInput = ReturnType<Tearleads["runtime"]["input"]>;
 
@@ -67,6 +71,42 @@ function createDevelopmentBlobStoreFactory(): BlobStoreFactory {
     createEncryptedBlobStore(namespace, {
       key: DEVELOPMENT_LOCAL_STORAGE_KEY,
     });
+}
+
+function localBlobStoreKeyPurpose(namespace: string): LocalKeyPurpose {
+  return `blob-store:${namespace}`;
+}
+
+function createLocalKeyringBlobStoreFactory(input: {
+  readonly createLocalKeyring: () => LocalKeyring;
+}): BlobStoreFactory {
+  let keyring: LocalKeyring | null = null;
+  let keyDerivationQueue: Promise<void> = Promise.resolve();
+
+  function deriveBlobStoreKey(namespace: string) {
+    const operation = keyDerivationQueue.then(async () => {
+      keyring ??= input.createLocalKeyring();
+      const session = await keyring.getOrCreateSession({
+        namespace: LOCAL_BLOB_STORE_SCOPE_NAMESPACE,
+      });
+      try {
+        return await session.deriveKey(localBlobStoreKeyPurpose(namespace));
+      } finally {
+        session.dispose();
+      }
+    });
+
+    keyDerivationQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    );
+    return operation;
+  }
+
+  return (namespace) =>
+    createLazyEncryptedBlobStore(namespace, () =>
+      deriveBlobStoreKey(namespace),
+    );
 }
 
 let nextEventId = 0;
@@ -154,12 +194,24 @@ function useServerEventsBinding(
 export function TearleadsProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
   const { log, logError } = useLog();
+  const blobStoreFactory = useMemo((): BlobStoreFactory => {
+    if (hostConfig.createBlobStore) {
+      return hostConfig.createBlobStore;
+    }
+
+    if (hostConfig.createLocalKeyring) {
+      return createLocalKeyringBlobStoreFactory({
+        createLocalKeyring: hostConfig.createLocalKeyring,
+      });
+    }
+
+    return createDevelopmentBlobStoreFactory();
+  }, [hostConfig.createBlobStore, hostConfig.createLocalKeyring]);
   const [tearleads] = useState(
     () =>
       new Tearleads({
         apiBaseUrl: hostConfig.apiBaseUrl,
-        blobStoreFactory:
-          hostConfig.createBlobStore ?? createDevelopmentBlobStoreFactory(),
+        blobStoreFactory,
         documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
         logger: { log, logError },
       }),

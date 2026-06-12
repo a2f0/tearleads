@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { BlobBytes, BlobStore } from "../blobContracts";
 import {
   createEncryptedOpfsBlobStore,
+  createLazyEncryptedBlobStore,
   wrapEncryptedBlobStore,
 } from "./encryptedBlobStore";
 
@@ -249,6 +250,43 @@ test("encrypted blob store retries key derivation after a transient failure", as
   await expect(readerStore.readBytes("attachment-1")).resolves.toEqual(
     blobBytes("local attachment bytes"),
   );
+});
+
+test("lazy encrypted blob store defers key loading until first operation", async () => {
+  let keyProviderCalls = 0;
+  const store = createLazyEncryptedBlobStore("identity-a", async () => {
+    keyProviderCalls += 1;
+    return "test-key";
+  });
+
+  expect(keyProviderCalls).toBe(0);
+
+  await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
+  await expect(store.readBytes("attachment-1")).resolves.toEqual(
+    blobBytes("local attachment bytes"),
+  );
+  expect(keyProviderCalls).toBe(1);
+});
+
+test("lazy encrypted blob store retries after key provider failure", async () => {
+  let keyProviderCalls = 0;
+  const store = createLazyEncryptedBlobStore("identity-a", async () => {
+    keyProviderCalls += 1;
+    if (keyProviderCalls === 1) {
+      throw new Error("temporary key provider failure");
+    }
+
+    return "test-key";
+  });
+
+  await expect(
+    store.writeBytes("attachment-1", blobBytes("bytes")),
+  ).rejects.toThrow("temporary key provider failure");
+  await store.writeBytes("attachment-1", blobBytes("local attachment bytes"));
+  await expect(store.readBytes("attachment-1")).resolves.toEqual(
+    blobBytes("local attachment bytes"),
+  );
+  expect(keyProviderCalls).toBe(2);
 });
 
 test("encrypted blob store ignores unknown envelope fields", async () => {
