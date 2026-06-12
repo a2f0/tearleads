@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build:client-sdk": "bun run --cwd ../client-sdk build",
+    "pree2e": "bun run build:client-sdk",
     "e2e": "playwright test",
     "test:e2e": "bun run e2e",
     "predev": "bun run build:client-sdk",
