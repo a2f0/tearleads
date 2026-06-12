@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import { createLocalStorageLocalKeyringManifestStore } from "@tearleads/client-sdk";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { createFakeIndexedDb } from "../../../test/helpers/fakeIndexedDb";
@@ -8,10 +9,15 @@ import {
   LocalKeyringLockProvider,
   useLocalKeyringLock,
 } from "./LocalKeyringLockProvider";
-import { pinCodeConfigKey } from "./localKeyringLockSupport";
+import {
+  createBrowserLocalKeyringForPinCode,
+  pinCodeConfigKey,
+  verifyPinCode,
+} from "./localKeyringLockSupport";
 
 type LocalKeyringLock = ReturnType<typeof useLocalKeyringLock>;
 const BLOB_STORE_SCOPE = { namespace: "tearleads.blob-store" };
+const IDENTITY_SCOPE = { namespace: "tearleads.local-identity:test" };
 
 function LockProbe({
   onReady,
@@ -139,6 +145,49 @@ test("lock clears only the in-memory PIN unlock state", async () => {
     await act(async () => {
       await expect(lockRef.current?.unlock("123456")).resolves.toBe(true);
     });
+  } finally {
+    globalThis.localStorage.clear();
+    if (hadIndexedDB) {
+      Reflect.set(globalThis, "indexedDB", originalIndexedDB);
+    } else {
+      Reflect.deleteProperty(globalThis, "indexedDB");
+    }
+  }
+});
+
+test("PIN verification requires every PIN-wrapped managed scope", async () => {
+  const originalIndexedDB = globalThis.indexedDB;
+  const hadIndexedDB = "indexedDB" in globalThis;
+
+  try {
+    Reflect.set(globalThis, "indexedDB", createFakeIndexedDb());
+    globalThis.localStorage.clear();
+
+    (
+      await createBrowserLocalKeyringForPinCode("111111").getOrCreateSession(
+        IDENTITY_SCOPE,
+      )
+    ).dispose();
+    (
+      await createBrowserLocalKeyringForPinCode("222222").getOrCreateSession(
+        BLOB_STORE_SCOPE,
+      )
+    ).dispose();
+
+    await expect(
+      verifyPinCode({
+        manifestStore: createLocalStorageLocalKeyringManifestStore(),
+        pinCode: "111111",
+        scopes: [IDENTITY_SCOPE, BLOB_STORE_SCOPE],
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      verifyPinCode({
+        manifestStore: createLocalStorageLocalKeyringManifestStore(),
+        pinCode: "222222",
+        scopes: [IDENTITY_SCOPE, BLOB_STORE_SCOPE],
+      }),
+    ).resolves.toBe(false);
   } finally {
     globalThis.localStorage.clear();
     if (hadIndexedDB) {
