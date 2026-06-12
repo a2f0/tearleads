@@ -5,7 +5,7 @@ import {
   type LocalKeyringManifest,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "@tearleads/client-sdk";
-import { act, fireEvent, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
   createDelayedLoadLocalKeyringFactory,
@@ -179,12 +179,27 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
 
     fireEvent.click(view.getByText("Menu"));
 
-    expect(view.getByRole("button", { name: "Unlock Database" })).toBeTruthy();
-    expect(view.getByLabelText("PIN code")).toBeTruthy();
+    const unlockDatabaseItem = view.getByRole("button", {
+      name: "Unlock Database",
+    });
+    expect(unlockDatabaseItem).toBeTruthy();
+    expect(view.queryByLabelText("PIN code")).toBeNull();
     expect(view.queryByText("Generate Key Pair")).toBeNull();
     expect(view.getByText("Restore Key Package")).toBeTruthy();
 
-    fireEvent.mouseDown(document.body);
+    fireEvent.click(unlockDatabaseItem);
+
+    let unlockWindow: HTMLDivElement | null = null;
+    await waitFor(() => {
+      const unlockHeading = view.getByText("Local keychain locked");
+      unlockWindow = unlockHeading.closest(".window");
+      expect(unlockWindow).toBeTruthy();
+    });
+    if (!unlockWindow) {
+      throw new Error("Expected unlock window.");
+    }
+    expect(within(unlockWindow).getByLabelText("PIN code")).toBeTruthy();
+
     fireEvent.contextMenu(view.getByRole("application"), {
       clientX: 120,
       clientY: 120,
@@ -192,7 +207,9 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
     fireEvent.click(view.getByText("Open Contacts"));
 
     await waitFor(() => {
-      expect(view.getByText("Local keychain locked")).toBeTruthy();
+      expect(view.getAllByText("Local keychain locked").length).toBeGreaterThan(
+        1,
+      );
     });
     expect(view.container.querySelector(".window-sidebar-layout")).toBeNull();
 

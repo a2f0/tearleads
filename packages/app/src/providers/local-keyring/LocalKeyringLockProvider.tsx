@@ -43,6 +43,7 @@ interface LocalKeyringLockContextValue {
   readonly revision: number;
   readonly status: LocalKeyringLockStatus;
   clearPinCode(pinCode: string): Promise<boolean>;
+  lock(): boolean;
   refresh(): Promise<void>;
   setPinCode(pinCode: string): Promise<boolean>;
   unlock(pinCode: string): Promise<boolean>;
@@ -278,6 +279,33 @@ function useUnlockAction(input: {
   );
 }
 
+function useLockAction(input: {
+  readonly lockState: LockState;
+  readonly setLockState: Dispatch<SetStateAction<LockState>>;
+  readonly setUnlockedPinCode: Dispatch<SetStateAction<string | null>>;
+}): () => boolean {
+  return useCallback((): boolean => {
+    if (
+      !input.lockState.pinCodeEnabled ||
+      input.lockState.status === "locked"
+    ) {
+      return false;
+    }
+
+    input.setUnlockedPinCode(null);
+    input.setLockState((current) =>
+      current.pinCodeEnabled
+        ? {
+            pinCodeEnabled: true,
+            revision: current.revision + 1,
+            status: "locked",
+          }
+        : current,
+    );
+    return true;
+  }, [input]);
+}
+
 function useSetPinCodeAction(input: {
   readonly environment: LocalKeyringLockEnvironment;
   readonly setLockState: Dispatch<SetStateAction<LockState>>;
@@ -375,6 +403,7 @@ function useLocalKeyringLockContextValue(input: {
   readonly clearPinCode: (pinCode: string) => Promise<boolean>;
   readonly createLocalKeyring: () => LocalKeyring;
   readonly environment: LocalKeyringLockEnvironment;
+  readonly lock: () => boolean;
   readonly lockState: LockState;
   readonly refresh: () => Promise<void>;
   readonly setPinCode: (pinCode: string) => Promise<boolean>;
@@ -390,6 +419,7 @@ function useLocalKeyringLockContextValue(input: {
           ? input.createLocalKeyring
           : undefined,
       isLocked: input.lockState.status === "locked",
+      lock: input.lock,
       pinCodeEnabled: input.lockState.pinCodeEnabled,
       refresh: input.refresh,
       revision: input.lockState.revision,
@@ -414,6 +444,11 @@ export function LocalKeyringLockProvider({ children }: PropsWithChildren) {
     setLockState: runtime.setLockState,
     setUnlockedPinCode: runtime.setUnlockedPinCode,
   });
+  const lock = useLockAction({
+    lockState: runtime.lockState,
+    setLockState: runtime.setLockState,
+    setUnlockedPinCode: runtime.setUnlockedPinCode,
+  });
   const setPinCode = useSetPinCodeAction({
     environment,
     setLockState: runtime.setLockState,
@@ -430,6 +465,7 @@ export function LocalKeyringLockProvider({ children }: PropsWithChildren) {
     clearPinCode,
     createLocalKeyring,
     environment,
+    lock,
     lockState: runtime.lockState,
     refresh: runtime.refresh,
     setPinCode,

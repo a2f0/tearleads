@@ -7,11 +7,14 @@ import {
 import { ContactsApp } from "../../mini-apps/contacts/ContactsApp";
 import { ExplorerApp } from "../../mini-apps/explorer/ExplorerApp";
 import { IdentityManagerApp } from "../../mini-apps/identity-manager/IdentityManagerApp";
+import { LocalKeyringUnlockWindow } from "../../mini-apps/LocalKeyringUnlockGate";
 import { createNotesWindowComponent } from "../../mini-apps/notes/NotesApp";
 import { OrgManagerApp } from "../../mini-apps/org-manager/OrgManagerApp";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
+import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
 import { MenuItem } from "../shared/MenuItem";
@@ -73,7 +76,6 @@ function PaneInner({ className }: { className: string }) {
   const localKeyringLock = useLocalKeyringLock();
   useRegisterUserId(userId);
   const { windows } = useWindowStateData();
-  const { create } = useWindowActions();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
   const hasSigningKeyPair = signingKeyPair !== null;
   const paneLocked = localKeyringLock.isLocked && !hasSigningKeyPair;
@@ -103,33 +105,6 @@ function PaneInner({ className }: { className: string }) {
     setContextMenu(null);
   }, [generateKey]);
 
-  const openFloatingWindow = useCallback(() => {
-    if (contextMenu) {
-      create("Window", contextMenu.x, contextMenu.y);
-    }
-    setContextMenu(null);
-  }, [contextMenu, create]);
-
-  const openMiniApp = useCallback(
-    (appId: MiniAppId) => {
-      if (contextMenu) {
-        const definition = MINI_APPS[appId];
-        create(
-          definition.title,
-          contextMenu.x,
-          contextMenu.y,
-          definition.createComponent(),
-          {
-            appId,
-            initialShowSidebar: definition.initialShowSidebar,
-          },
-        );
-      }
-      setContextMenu(null);
-    },
-    [contextMenu, create],
-  );
-
   return (
     <section
       role="application"
@@ -145,28 +120,138 @@ function PaneInner({ className }: { className: string }) {
       </div>
       <PaneFooter />
       {contextMenu && (
-        <Menu position={contextMenu} onClose={closeContextMenu}>
-          {!hasSigningKeyPair && !paneLocked ? (
-            <MenuItem label="Generate Key Pair" onClick={generateKeyPair} />
-          ) : (
-            <>
-              <MenuItem
-                label="Open Floating Window"
-                onClick={openFloatingWindow}
-              />
-              {PANE_MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
-                <MenuItem
-                  key={appId}
-                  label={label}
-                  onClick={() => openMiniApp(appId)}
-                />
-              ))}
-            </>
-          )}
-        </Menu>
+        <PaneContextMenu
+          hasSigningKeyPair={hasSigningKeyPair}
+          paneLocked={paneLocked}
+          position={contextMenu}
+          onClose={closeContextMenu}
+          onGenerateKeyPair={generateKeyPair}
+        />
       )}
     </section>
   );
+}
+
+function PaneContextMenu({
+  hasSigningKeyPair,
+  paneLocked,
+  position,
+  onClose,
+  onGenerateKeyPair,
+}: {
+  hasSigningKeyPair: boolean;
+  paneLocked: boolean;
+  position: MenuPosition;
+  onClose: () => void;
+  onGenerateKeyPair: () => void;
+}) {
+  const { openFloatingWindow, openMiniApp, openUnlockWindow } =
+    usePaneWindowMenuActions({ onClose, position });
+  const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
+
+  return (
+    <Menu position={position} onClose={onClose}>
+      {!hasSigningKeyPair && !paneLocked ? (
+        <MenuItem label="Generate Key Pair" onClick={onGenerateKeyPair} />
+      ) : (
+        <>
+          {paneLocked && (
+            <MenuItem label="Unlock Database" onClick={openUnlockWindow} />
+          )}
+          {canLockPane && <MenuItem label="Lock" onClick={lockPane} />}
+          <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />
+          {PANE_MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
+            <MenuItem
+              key={appId}
+              label={label}
+              onClick={() => openMiniApp(appId)}
+            />
+          ))}
+        </>
+      )}
+    </Menu>
+  );
+}
+
+function usePaneWindowMenuActions({
+  position,
+  onClose,
+}: {
+  position: MenuPosition;
+  onClose: () => void;
+}) {
+  const { create } = useWindowActions();
+
+  const openFloatingWindow = useCallback(() => {
+    create("Window", position.x, position.y);
+    onClose();
+  }, [create, onClose, position]);
+
+  const openUnlockWindow = useCallback(() => {
+    create(
+      "Unlock Database",
+      position.x,
+      position.y,
+      LocalKeyringUnlockWindow,
+      { initialShowSidebar: false },
+    );
+    onClose();
+  }, [create, onClose, position]);
+
+  const openMiniApp = useCallback(
+    (appId: MiniAppId) => {
+      const definition = MINI_APPS[appId];
+      create(
+        definition.title,
+        position.x,
+        position.y,
+        definition.createComponent(),
+        {
+          appId,
+          initialShowSidebar: definition.initialShowSidebar,
+        },
+      );
+      onClose();
+    },
+    [create, onClose, position],
+  );
+
+  return { openFloatingWindow, openMiniApp, openUnlockWindow };
+}
+
+function usePaneLockMenuAction(onClose: () => void) {
+  const { clearWorker } = useDatabase();
+  const localKeyringLock = useLocalKeyringLock();
+  const tearleads = useTearleads();
+  const canLockPane =
+    localKeyringLock.pinCodeEnabled && !localKeyringLock.isLocked;
+
+  const lockPane = useCallback(() => {
+    if (!canLockPane || !localKeyringLock.lock()) {
+      onClose();
+      return;
+    }
+
+    tearleads.session.setContext({
+      authToken: null,
+      containerId: null,
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    });
+    void tearleads.identity
+      .setKeyPairs({ encapsulationKeyPair: null, signingKeyPair: null })
+      .catch((error: unknown) => {
+        tearleads.logError(
+          "Failed to clear identity keys while locking",
+          error,
+        );
+      });
+    clearWorker();
+    onClose();
+  }, [canLockPane, clearWorker, localKeyringLock, onClose, tearleads]);
+
+  return { canLockPane, lockPane };
 }
 
 export function Pane({ className }: { className: string }) {
