@@ -5,6 +5,7 @@ export type ExplorerRoute =
   | { view: "blob-browser"; blobId: string | null; storageKey: string | null }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
+  | { view: "document-selection"; containerId: string; localId: string }
   | { view: "document-info"; containerId: string; localId: string };
 
 export const DEFAULT_EXPLORER_ROUTE: ExplorerRoute = { view: "selection" };
@@ -70,7 +71,14 @@ function parseExplorerContainerRoute(
             view: "document-info",
           },
         }
-      : { route: DEFAULT_EXPLORER_ROUTE, selectedId: fourth };
+      : {
+          route: {
+            containerId,
+            localId: fourth,
+            view: "document-selection",
+          },
+          selectedId: fourth,
+        };
   }
 
   return { route: DEFAULT_EXPLORER_ROUTE, selectedId: containerId };
@@ -124,6 +132,10 @@ export function formatExplorerRouteSegments(
 
   if (route.view === "new-structured-document") {
     return ["containers", route.containerId, "new"];
+  }
+
+  if (route.view === "document-selection") {
+    return ["containers", route.containerId, "documents", route.localId];
   }
 
   return ["containers", route.containerId, "documents", route.localId, "info"];

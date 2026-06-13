@@ -68,6 +68,21 @@ test("explorer route segments cover selection and detail routes", () => {
       "container-1",
       "documents",
       "document-1",
+    ]),
+  ).toEqual({
+    route: {
+      containerId: "container-1",
+      localId: "document-1",
+      view: "document-selection",
+    },
+    selectedId: "document-1",
+  });
+  expect(
+    parseExplorerRouteSegments([
+      "containers",
+      "container-1",
+      "documents",
+      "document-1",
       "info",
     ]),
   ).toEqual({
@@ -93,6 +108,13 @@ test("explorer route segments cover selection and detail routes", () => {
       view: "container-info",
     }),
   ).toEqual(["containers", "container-1", "info"]);
+  expect(
+    formatExplorerRouteSegments({
+      containerId: "container-1",
+      localId: "document-1",
+      view: "document-selection",
+    }),
+  ).toEqual(["containers", "container-1", "documents", "document-1"]);
   expect(
     formatExplorerRouteSegments({ view: "selection" }, "document-1"),
   ).toEqual(["items", "document-1"]);

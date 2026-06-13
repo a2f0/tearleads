@@ -88,13 +88,11 @@ function useAvailableExplorerRoute(params: {
 }
 
 function useExplorerRouteActions(params: {
-  appRoute: ReturnType<typeof useMiniAppRouteSegments>;
   route: ExplorerRoute;
   setRoute: ExplorerRouteSetter;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { appRoute, route, setRoute, setSelectedId } = params;
-  const { isRouted, setPathSegments } = appRoute;
+  const { route, setRoute, setSelectedId } = params;
   const showSelectionRoute = useCallback(() => {
     setRoute(DEFAULT_EXPLORER_ROUTE);
   }, [setRoute]);
@@ -109,14 +107,16 @@ function useExplorerRouteActions(params: {
 
   const selectExplorerDocument = useCallback(
     (localId: string, containerId: string) => {
-      if (isRouted) {
-        setPathSegments(["containers", containerId, "documents", localId]);
-        return;
-      }
-
-      setRoute(DEFAULT_EXPLORER_ROUTE, localId);
+      setRoute(
+        {
+          containerId,
+          localId,
+          view: "document-selection",
+        },
+        localId,
+      );
     },
-    [isRouted, setPathSegments, setRoute],
+    [setRoute],
   );
 
   const openBlobBrowserRoute = useCallback(
@@ -187,7 +187,6 @@ export function useExplorerRoute(params: {
   });
   useAvailableExplorerRoute({ nodes, route, setRoute });
   const actions = useExplorerRouteActions({
-    appRoute,
     route,
     setRoute,
     setSelectedId,
