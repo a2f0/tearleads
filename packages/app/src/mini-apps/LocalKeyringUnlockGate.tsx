@@ -1,4 +1,9 @@
-import { type FormEvent, type PropsWithChildren, useState } from "react";
+import {
+  type FormEvent,
+  type PropsWithChildren,
+  useEffect,
+  useState,
+} from "react";
 import {
   MiniAppButton,
   MiniAppField,
@@ -9,6 +14,7 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../components/shared/MiniAppLayout";
+import { useCurrentWindow } from "../components/window/CurrentWindowContext";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import "./LocalKeyringUnlockGate.css";
 
@@ -31,6 +37,17 @@ export function LocalKeyringUnlockGate({
 
 export function LocalKeyringUnlockWindow() {
   const lock = useLocalKeyringLock();
+  const currentWindow = useCurrentWindow();
+
+  useEffect(() => {
+    if (!lock.isLocked) {
+      currentWindow?.close();
+    }
+  }, [currentWindow, lock.isLocked]);
+
+  if (!lock.isLocked && currentWindow) {
+    return null;
+  }
 
   return (
     <MiniAppRoot centered className="local-keyring-unlock-gate">

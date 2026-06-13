@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import "./Window.css";
+import { CurrentWindowProvider } from "./CurrentWindowContext";
 import {
   useWindowGeometry,
   type WindowPosition,
@@ -279,11 +280,13 @@ function WindowInnerContent({
       />
       <WindowMenuBar menus={menus} />
       <WindowSidebarProvider>
-        <WindowBodyWithSidebar showSidebar={showSidebar}>
-          <WindowMiniAppRouteBoundary entry={entry}>
-            {Component && <Component />}
-          </WindowMiniAppRouteBoundary>
-        </WindowBodyWithSidebar>
+        <CurrentWindowProvider close={handleClose} id={entry.id}>
+          <WindowBodyWithSidebar showSidebar={showSidebar}>
+            <WindowMiniAppRouteBoundary entry={entry}>
+              {Component && <Component />}
+            </WindowMiniAppRouteBoundary>
+          </WindowBodyWithSidebar>
+        </CurrentWindowProvider>
       </WindowSidebarProvider>
       {showStatusBar && <WindowStatusBar />}
       {!maximized && (
