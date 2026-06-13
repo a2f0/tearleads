@@ -145,9 +145,11 @@
           - python3-certbot-nginx
         state: present
 
-    - name: Install unzip (Bun bootstrap dependency)
+    - name: Install deploy helper packages
       ansible.builtin.apt:
-        name: unzip
+        name:
+          - acl
+          - unzip
         state: present
 
     - name: Install Bun
