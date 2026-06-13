@@ -4,6 +4,7 @@ AllCops:
     - ios/**/*
     - node_modules/**/*
     - public/**/*
+    - vendor/bundle/**/*
   NewCops: enable
   SuggestExtensions: false
   TargetRubyVersion: 3.3
