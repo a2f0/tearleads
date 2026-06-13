@@ -24,6 +24,7 @@
 }
 
 .routed-pane-history-controls,
+.routed-pane-system-controls,
 .routed-pane-actions {
   display: flex;
   align-items: center;
@@ -32,6 +33,7 @@
 }
 
 .routed-pane-history-controls button,
+.routed-pane-system-controls button,
 .routed-pane-actions button,
 .routed-pane-nav-link {
   min-height: 2rem;
@@ -45,6 +47,7 @@
 }
 
 .routed-pane-history-controls button:hover,
+.routed-pane-system-controls button:hover,
 .routed-pane-actions button:hover:not(:disabled),
 .routed-pane-nav-link:hover,
 .routed-pane-nav-link--active {
@@ -106,12 +109,14 @@
   }
 
   .routed-pane-history-controls,
+  .routed-pane-system-controls,
   .routed-pane-actions,
   .routed-pane-nav {
     width: 100%;
   }
 
   .routed-pane-history-controls button,
+  .routed-pane-system-controls button,
   .routed-pane-actions button,
   .routed-pane-nav-link {
     flex: 0 0 auto;

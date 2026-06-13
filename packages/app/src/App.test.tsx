@@ -58,7 +58,7 @@ test("renders App", async () => {
   }
 });
 
-test("routed App home can generate a pane key pair without desktop menu chrome", async () => {
+test("routed App home can generate a pane key pair from shell chrome", async () => {
   const originalWebSocket = globalThis.WebSocket;
 
   class SilentWebSocket extends EventTarget {
@@ -92,18 +92,31 @@ test("routed App home can generate a pane key pair without desktop menu chrome",
       />,
     );
 
-    expect(view.queryByText("Menu")).toBeNull();
+    expect(view.queryByRole("button", { name: "Menu" })).toBeNull();
     expect(
       view.getByText(/Generate a key pair to boot this pane\./),
     ).toBeTruthy();
 
-    fireEvent.click(view.getByRole("button", { name: "Generate Key Pair" }));
+    fireEvent.click(view.getByRole("button", { name: "Pane" }));
+    expect(
+      view.getByRole("button", { name: "Restore Key Package" }),
+    ).toBeTruthy();
+    const generateKeyPairButton = view.getAllByRole("button", {
+      name: "Generate Key Pair",
+    })[1];
+    if (!generateKeyPairButton) {
+      throw new Error("Expected routed pane menu generate action.");
+    }
+    fireEvent.click(generateKeyPairButton);
 
     await waitFor(() => {
       const statusText = view.container.textContent ?? "";
       expect(statusText).toMatch(/sqlite worker:\s*ready/);
       expect(statusText).toMatch(/publicKey:\s*[0-9a-f]{64}/u);
     });
+
+    fireEvent.click(view.getByRole("button", { name: "Pane" }));
+    expect(view.getByRole("button", { name: "Destroy Key Pair" })).toBeTruthy();
 
     view.unmount();
   } finally {
