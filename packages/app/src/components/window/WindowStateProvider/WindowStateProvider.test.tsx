@@ -44,10 +44,49 @@ test("create stores optional app metadata", () => {
   act(() =>
     result.current.create("Explorer", 0, 0, undefined, {
       appId: "explorer",
+      miniAppPathSegments: ["items", "container-1"],
     }),
   );
 
   expect(at(result, 0).appId).toBe("explorer");
+  expect(at(result, 0).miniAppPathSegments).toEqual(["items", "container-1"]);
+});
+
+test("updateMiniAppRoute updates route metadata without mutating input", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+  const pathSegments = ["items", "container-1"];
+
+  act(() =>
+    result.current.create("Explorer", 0, 0, undefined, {
+      appId: "explorer",
+    }),
+  );
+  const id = at(result, 0).id;
+
+  act(() => result.current.updateMiniAppRoute(id, pathSegments));
+  pathSegments.push("ignored");
+
+  expect(result.current.windowMap.get(id)?.miniAppPathSegments).toEqual([
+    "items",
+    "container-1",
+  ]);
+});
+
+test("updateMiniAppRoute skips unchanged route metadata", () => {
+  const { result } = renderHook(() => useWindowState(), { wrapper });
+
+  act(() =>
+    result.current.create("Explorer", 0, 0, undefined, {
+      appId: "explorer",
+      miniAppPathSegments: ["items", "container-1"],
+    }),
+  );
+  const id = at(result, 0).id;
+  const windowsBeforeUpdate = result.current.windows;
+
+  act(() => result.current.updateMiniAppRoute(id, ["items", "container-1"]));
+
+  expect(result.current.windows).toBe(windowsBeforeUpdate);
 });
 
 test("zIndex change triggers re-render in consuming component", () => {

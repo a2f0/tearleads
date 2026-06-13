@@ -1,11 +1,13 @@
 import type { ComponentType } from "react";
+import type { MiniAppId } from "../../../mini-apps/types";
 
 export type WindowMoveDirection = "forward" | "backward";
 
 export interface WindowEntry {
-  appId?: string;
+  appId?: MiniAppId;
   id: string;
   initialShowSidebar?: boolean | undefined;
+  miniAppPathSegments?: ReadonlyArray<string> | undefined;
   title: string;
   initialX: number;
   initialY: number;
@@ -15,8 +17,9 @@ export interface WindowEntry {
 }
 
 export interface WindowCreateOptions {
-  appId?: string;
+  appId?: MiniAppId;
   initialShowSidebar?: boolean | undefined;
+  miniAppPathSegments?: ReadonlyArray<string> | undefined;
 }
 
 export interface WindowStateData {
@@ -38,6 +41,7 @@ export interface WindowStateActions {
   close: (id: string) => void;
   minimize: (id: string) => void;
   restore: (id: string) => void;
+  updateMiniAppRoute: (id: string, pathSegments: ReadonlyArray<string>) => void;
   updateTitle: (id: string, title: string) => void;
   moveForward: (id: string) => void;
   moveBackward: (id: string) => void;

@@ -4,6 +4,7 @@ import {
   useCallback,
   useMemo,
 } from "react";
+import { LocalKeyringUnlockWindow } from "../../../mini-apps/LocalKeyringUnlockGate";
 import { MINI_APP_MENU_ITEMS, MINI_APPS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
@@ -28,14 +29,13 @@ import {
 } from "../../window/WindowSidebarContext";
 import "./RoutedPane.css";
 
-const BOOT_PANE_LOG_MESSAGE =
-  "Generate a key pair from the pane menu to boot this pane.";
+const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
 const LOCKED_PANE_LOG_MESSAGE =
   "Unlock the local keychain to restore this pane.";
 
 function RoutedPaneHome() {
   const { openMiniApp } = useAppNavigationActions();
-  const { signingKeyPair } = useIdentity();
+  const { generateKey, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
   const paneLocked = localKeyringLock.isLocked && !signingKeyPair;
   const bootPaneLogEntry = useMemo(
@@ -55,13 +55,21 @@ function RoutedPaneHome() {
   return (
     <div className="routed-pane-home">
       <PaneStatus />
-      <div className="routed-pane-launcher">
-        {MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
-          <MiniAppButton key={appId} onClick={() => openMiniApp({ appId })}>
-            {label}
-          </MiniAppButton>
-        ))}
-      </div>
+      {paneLocked ? (
+        <LocalKeyringUnlockWindow />
+      ) : signingKeyPair ? (
+        <div className="routed-pane-launcher">
+          {MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
+            <MiniAppButton key={appId} onClick={() => openMiniApp({ appId })}>
+              {label}
+            </MiniAppButton>
+          ))}
+        </div>
+      ) : (
+        <div className="routed-pane-launcher">
+          <MiniAppButton onClick={generateKey}>Generate Key Pair</MiniAppButton>
+        </div>
+      )}
       <PaneLog trailingEntries={trailingLogEntries} />
     </div>
   );

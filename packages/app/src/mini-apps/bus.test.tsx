@@ -7,7 +7,10 @@ import {
   useWindowStateData,
   WindowStateProvider,
 } from "../components/window/WindowStateProvider";
-import { AppNavigationProvider } from "../navigation/AppNavigationProvider";
+import {
+  AppNavigationProvider,
+  useAppNavigationState,
+} from "../navigation/AppNavigationProvider";
 import {
   MiniAppBusProvider,
   useMiniAppBusActions,
@@ -48,6 +51,7 @@ function createMiniApps(
 
 afterEach(() => {
   cleanup();
+  window.history.replaceState(null, "", "/");
 });
 
 test("mini-app bus opens a target app and delivers route messages", async () => {
@@ -141,6 +145,91 @@ test("mini-app bus opens a target app and delivers route messages", async () => 
     expect(receivedGroupIds).toEqual(["group-1", "group-2"]);
     expect(view.getByTestId("window-count").textContent).toBe("1");
   });
+});
+
+test("mini-app bus routes target apps without windows in routed mode", async () => {
+  const receivedGroupIds: string[] = [];
+  const originalPushState = window.history.pushState;
+  let pushedUrl: string | URL | null | undefined;
+  window.history.pushState = function pushStateSpy(
+    _data: unknown,
+    _unused: string,
+    url?: string | URL | null,
+  ) {
+    pushedUrl = url;
+  };
+
+  function OrgManagerProbe() {
+    useMiniAppMessage("org-manager", (message) => {
+      receivedGroupIds.push(message.groupId);
+    });
+
+    return <div>Routed Org Manager Ready</div>;
+  }
+
+  function OpenButton() {
+    const { openMiniApp } = useMiniAppBusActions();
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          openMiniApp({
+            appId: "org-manager",
+            message: {
+              appId: "org-manager",
+              groupId: "group-1",
+              type: "open-group",
+            },
+            pathSegments: ["groups", "group-1"],
+            position: { x: 10, y: 10 },
+          })
+        }
+      >
+        Open routed group
+      </button>
+    );
+  }
+
+  function RoutedLayer() {
+    const {
+      route: { appId },
+    } = useAppNavigationState();
+    const { windows } = useWindowStateData();
+
+    return (
+      <>
+        <div data-testid="window-count">{windows.length}</div>
+        {appId === "org-manager" && <OrgManagerProbe />}
+      </>
+    );
+  }
+
+  try {
+    const view = render(
+      <WindowStateProvider>
+        <AppNavigationProvider
+          mode="routed"
+          miniApps={createMiniApps(OrgManagerProbe)}
+        >
+          <MiniAppBusProvider>
+            <OpenButton />
+            <RoutedLayer />
+          </MiniAppBusProvider>
+        </AppNavigationProvider>
+      </WindowStateProvider>,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "Open routed group" }));
+
+    await waitFor(() => {
+      expect(pushedUrl).toBe("/app/org-manager/groups/group-1");
+      expect(view.getByText("Routed Org Manager Ready")).toBeTruthy();
+      expect(receivedGroupIds).toEqual(["group-1"]);
+      expect(view.getByTestId("window-count").textContent).toBe("0");
+    });
+  } finally {
+    window.history.pushState = originalPushState;
+  }
 });
 
 test("mini-app bus action consumers do not re-render on window state changes", () => {

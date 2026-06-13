@@ -27,6 +27,7 @@ import {
   buildMiniAppPath,
   parseAppRoute,
 } from "./AppRoutePaths";
+import { useMiniAppWindowRouteSegments } from "./MiniAppRouteSegmentsContext";
 
 interface AppNavigationActions {
   getMiniAppHref: (
@@ -54,7 +55,10 @@ interface AppNavigationProviderProps extends PropsWithChildren {
 }
 
 interface AppNavigationRuntime {
-  actions: Pick<WindowStateActions, "bringToFront" | "create" | "restore">;
+  actions: Pick<
+    WindowStateActions,
+    "bringToFront" | "create" | "restore" | "updateMiniAppRoute"
+  >;
   miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>;
   mode: AppNavigationMode;
   windows: WindowStateData["windows"];
@@ -105,17 +109,27 @@ function AppNavigationWindowRuntimeBridge({
   mode: AppNavigationMode;
   runtimeRef: MutableRefObject<AppNavigationRuntime>;
 }) {
-  const { bringToFront, create, restore } = useWindowActions();
+  const { bringToFront, create, restore, updateMiniAppRoute } =
+    useWindowActions();
   const { windows } = useWindowStateData();
 
   useEffect(() => {
     runtimeRef.current = {
-      actions: { bringToFront, create, restore },
+      actions: { bringToFront, create, restore, updateMiniAppRoute },
       miniApps,
       mode,
       windows,
     };
-  }, [bringToFront, create, miniApps, mode, restore, runtimeRef, windows]);
+  }, [
+    bringToFront,
+    create,
+    miniApps,
+    mode,
+    restore,
+    runtimeRef,
+    updateMiniAppRoute,
+    windows,
+  ]);
 
   return null;
 }
@@ -157,6 +171,10 @@ function useAppRouteController({
       pathSegments?: ReadonlyArray<string> | undefined;
       replace?: boolean | undefined;
     }) => {
+      if (runtimeRef.current.mode !== "routed") {
+        return;
+      }
+
       const path = buildMiniAppPath(appId, pathSegments);
       setRoute({ appId, pathSegments: [...pathSegments] });
 
@@ -172,7 +190,7 @@ function useAppRouteController({
 
       window.history.pushState(window.history.state, "", path);
     },
-    [],
+    [runtimeRef],
   );
 
   return { navigateMiniAppRoute, route };
@@ -207,6 +225,9 @@ function useAppNavigationActionValue(
       if (existingWindow) {
         actions.restore(existingWindow.id);
         actions.bringToFront(existingWindow.id);
+        if (pathSegments) {
+          actions.updateMiniAppRoute(existingWindow.id, pathSegments);
+        }
         return;
       }
 
@@ -219,6 +240,7 @@ function useAppNavigationActionValue(
         {
           appId,
           initialShowSidebar: definition.initialShowSidebar,
+          ...(pathSegments ? { miniAppPathSegments: pathSegments } : {}),
         },
       );
     },
@@ -258,6 +280,7 @@ export function AppNavigationProvider({
       bringToFront: () => {},
       create: () => "",
       restore: () => {},
+      updateMiniAppRoute: () => {},
     },
     miniApps,
     mode,
@@ -309,23 +332,33 @@ export function useAppNavigationState(): AppNavigationState {
 export function useMiniAppRouteSegments(appId: MiniAppId) {
   const actions = useContext(AppNavigationActionsContext);
   const state = useContext(AppNavigationStateContext);
-  const isRouted = actions !== null && state?.mode === "routed";
+  const windowRoute = useMiniAppWindowRouteSegments(appId);
+  const isGlobalRouted = actions !== null && state?.mode === "routed";
+  const isRouted = isGlobalRouted || windowRoute !== null;
   const pathSegments =
-    isRouted && state.route.appId === appId
+    isGlobalRouted && state.route.appId === appId
       ? state.route.pathSegments
-      : EMPTY_ROUTE_SEGMENTS;
+      : (windowRoute?.pathSegments ?? EMPTY_ROUTE_SEGMENTS);
+  const windowSetPathSegments = windowRoute?.setPathSegments;
   const setPathSegments = useCallback(
     (
       nextPathSegments: ReadonlyArray<string>,
       options: { replace?: boolean | undefined } = {},
     ) => {
-      actions?.navigateMiniAppRoute({
-        appId,
-        pathSegments: nextPathSegments,
-        ...(options.replace === undefined ? {} : { replace: options.replace }),
-      });
+      if (isGlobalRouted) {
+        actions?.navigateMiniAppRoute({
+          appId,
+          pathSegments: nextPathSegments,
+          ...(options.replace === undefined
+            ? {}
+            : { replace: options.replace }),
+        });
+        return;
+      }
+
+      windowSetPathSegments?.(nextPathSegments, options);
     },
-    [actions, appId],
+    [actions, appId, isGlobalRouted, windowSetPathSegments],
   );
 
   return useMemo(
