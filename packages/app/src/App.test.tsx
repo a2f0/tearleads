@@ -96,6 +96,9 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     expect(
       view.getByText(/Generate a key pair to boot this pane\./),
     ).toBeTruthy();
+    expect(
+      view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
+    ).toBe("page");
 
     fireEvent.click(view.getByRole("button", { name: "Pane" }));
     expect(
@@ -113,6 +116,45 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
       const statusText = view.container.textContent ?? "";
       expect(statusText).toMatch(/sqlite worker:\s*ready/);
       expect(statusText).toMatch(/publicKey:\s*[0-9a-f]{64}/u);
+    });
+
+    fireEvent.click(view.getByRole("link", { name: "Contacts" }));
+
+    await waitFor(() => {
+      expect(
+        view
+          .getByRole("link", { name: "Contacts" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
+      expect(view.getByRole("button", { name: "Hide Sidebar" })).toBeTruthy();
+      expect(view.container.querySelector("#routed-pane-sidebar")).toBeTruthy();
+    });
+
+    fireEvent.click(view.getByRole("button", { name: "Hide Sidebar" }));
+    expect(
+      view.container.querySelector<HTMLElement>("#routed-pane-sidebar")?.style
+        .display,
+    ).toBe("none");
+    expect(
+      view
+        .getByRole("button", { name: "Show Sidebar" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+
+    fireEvent.click(view.getByRole("button", { name: "Show Sidebar" }));
+    expect(
+      view.container.querySelector<HTMLElement>("#routed-pane-sidebar")?.style
+        .display,
+    ).toBe("");
+
+    const homeLink = view.getByRole("link", { name: "Home" });
+    fireEvent.click(homeLink);
+
+    await waitFor(() => {
+      expect(
+        view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
+      ).toBe("page");
+      expect(view.queryByRole("button", { name: "Hide Sidebar" })).toBeNull();
     });
 
     fireEvent.click(view.getByRole("button", { name: "Pane" }));
