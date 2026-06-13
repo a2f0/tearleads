@@ -42,7 +42,7 @@ def android_gradle_path
   gradle_path = ENV.fetch('PATH', '')
                    .split(File::PATH_SEPARATOR)
                    .map { |path| File.join(path, 'gradle') }
-                   .find { |path| File.executable?(path) }
+                   .find { |path| File.file?(path) && File.executable?(path) }
   return gradle_path unless gradle_path.nil?
 
   UI.user_error!('Gradle is not installed. Run `mise install` from the repo root.')
