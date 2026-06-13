@@ -2,7 +2,9 @@ import {
   type ComponentType,
   type MouseEvent as ReactMouseEvent,
   useCallback,
+  useEffect,
   useMemo,
+  useState,
 } from "react";
 import { LocalKeyringUnlockWindow } from "../../../mini-apps/LocalKeyringUnlockGate";
 import { MINI_APP_MENU_ITEMS, MINI_APPS } from "../../../mini-apps/registry";
@@ -17,7 +19,9 @@ import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyri
 import { useRegisterUserId } from "../../pane/DualPaneProvider";
 import { PaneLog } from "../../pane/PaneLog";
 import { PaneStatus } from "../../pane/PaneStatus";
+import { Menu, type MenuPosition } from "../../shared/Menu";
 import { MiniAppButton } from "../../shared/MiniAppLayout";
+import { PaneSystemMenuItems } from "../../shared/PaneSystemMenuItems";
 import {
   useWindowFileMenuItems,
   useWindowViewMenuItems,
@@ -107,7 +111,50 @@ function RoutedPaneNavButton({
   );
 }
 
-function RoutedPaneToolbar({ activeAppId }: { activeAppId: MiniAppId | null }) {
+function RoutedPaneSystemMenuButton({
+  onOpenUnlock,
+}: {
+  onOpenUnlock: () => void;
+}) {
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
+  const toggleMenu = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
+      setMenuPosition((currentPosition) => {
+        if (currentPosition) {
+          return null;
+        }
+        const rect = event.currentTarget.getBoundingClientRect();
+        return { x: rect.left, y: rect.bottom };
+      });
+    },
+    [],
+  );
+  const closeMenu = useCallback(() => setMenuPosition(null), []);
+
+  return (
+    <div className="routed-pane-system-controls">
+      <button type="button" onClick={toggleMenu}>
+        Pane
+      </button>
+      {menuPosition && (
+        <Menu direction="down" position={menuPosition} onClose={closeMenu}>
+          <PaneSystemMenuItems
+            onClose={closeMenu}
+            onOpenUnlock={onOpenUnlock}
+          />
+        </Menu>
+      )}
+    </div>
+  );
+}
+
+function RoutedPaneToolbar({
+  activeAppId,
+  onOpenUnlock,
+}: {
+  activeAppId: MiniAppId | null;
+  onOpenUnlock: () => void;
+}) {
   const { goBack, goForward } = useAppNavigationActions();
   const { history } = useAppNavigationState();
   const fileMenuItems = useWindowFileMenuItems();
@@ -137,6 +184,7 @@ function RoutedPaneToolbar({ activeAppId }: { activeAppId: MiniAppId | null }) {
           Forward
         </button>
       </div>
+      <RoutedPaneSystemMenuButton onOpenUnlock={onOpenUnlock} />
       <nav aria-label="Apps" className="routed-pane-nav">
         {MINI_APP_MENU_ITEMS.map(({ appId }) => (
           <RoutedPaneNavButton
@@ -167,9 +215,13 @@ function RoutedPaneToolbar({ activeAppId }: { activeAppId: MiniAppId | null }) {
 function RoutedPaneSurface({
   activeAppId,
   ActiveMiniApp,
+  showUnlockPanel,
+  onOpenUnlock,
 }: {
   activeAppId: MiniAppId | null;
   ActiveMiniApp: ComponentType | null;
+  showUnlockPanel: boolean;
+  onOpenUnlock: () => void;
 }) {
   const { sidebar } = useWindowSidebar();
   const hasSidebar =
@@ -177,10 +229,19 @@ function RoutedPaneSurface({
 
   return (
     <section className="routed-pane" role="application">
-      <RoutedPaneToolbar activeAppId={activeAppId} />
+      <RoutedPaneToolbar
+        activeAppId={activeAppId}
+        onOpenUnlock={onOpenUnlock}
+      />
       {hasSidebar && <div className="routed-pane-sidebar">{sidebar}</div>}
       <main className="routed-pane-main">
-        {ActiveMiniApp ? <ActiveMiniApp /> : <RoutedPaneHome />}
+        {showUnlockPanel ? (
+          <LocalKeyringUnlockWindow />
+        ) : ActiveMiniApp ? (
+          <ActiveMiniApp />
+        ) : (
+          <RoutedPaneHome />
+        )}
       </main>
     </section>
   );
@@ -193,12 +254,24 @@ function RoutedPaneWithRegistries({
   activeAppId: MiniAppId | null;
   ActiveMiniApp: ComponentType | null;
 }) {
+  const localKeyringLock = useLocalKeyringLock();
+  const [showUnlockPanel, setShowUnlockPanel] = useState(false);
+  const openUnlockPanel = useCallback(() => setShowUnlockPanel(true), []);
+
+  useEffect(() => {
+    if (!localKeyringLock.isLocked) {
+      setShowUnlockPanel(false);
+    }
+  }, [localKeyringLock.isLocked]);
+
   return (
     <WindowMenuProvider>
       <WindowSidebarProvider>
         <RoutedPaneSurface
           activeAppId={activeAppId}
           ActiveMiniApp={ActiveMiniApp}
+          showUnlockPanel={showUnlockPanel}
+          onOpenUnlock={openUnlockPanel}
         />
       </WindowSidebarProvider>
     </WindowMenuProvider>
