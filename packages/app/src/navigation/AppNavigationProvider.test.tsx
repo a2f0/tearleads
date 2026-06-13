@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { Window } from "../components/window/Window";
 import {
   useWindowStateData,
   WindowStateProvider,
@@ -17,9 +18,25 @@ function EmptyMiniApp() {
   return null;
 }
 
+function ContactsRouteProbe() {
+  const { pathSegments, setPathSegments } = useMiniAppRouteSegments("contacts");
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setPathSegments(["contact", "grace"])}
+      >
+        Select Grace
+      </button>
+      <div data-testid="contacts-window-path">{pathSegments.join("/")}</div>
+    </>
+  );
+}
+
 const TEST_MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   contacts: {
-    createComponent: () => EmptyMiniApp,
+    createComponent: () => ContactsRouteProbe,
     title: "Contacts",
   },
   explorer: {
@@ -61,6 +78,28 @@ function NavigationProbe() {
       <button
         type="button"
         onClick={() =>
+          openMiniApp({
+            appId: "contacts",
+            pathSegments: ["contact", "ada"],
+          })
+        }
+      >
+        Open Contacts at Ada
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          openMiniApp({
+            appId: "contacts",
+            pathSegments: ["contact", "hopper"],
+          })
+        }
+      >
+        Open Contacts at Hopper
+      </button>
+      <button
+        type="button"
+        onClick={() =>
           navigateMiniAppRoute({
             appId: "contacts",
             pathSegments: ["contact", "ada"],
@@ -75,6 +114,9 @@ function NavigationProbe() {
         {contactsRoute.pathSegments.join("/")}
       </div>
       <div data-testid="window-count">{windows.length}</div>
+      {windows.map((windowEntry) => (
+        <Window key={windowEntry.id} windowId={windowEntry.id} />
+      ))}
     </>
   );
 }
@@ -167,4 +209,86 @@ test("windowed navigation creates a mini-app window without changing route", () 
   } finally {
     window.history.pushState = originalPushState;
   }
+});
+
+test("windowed direct route navigation does not push browser history", () => {
+  const originalPushState = window.history.pushState;
+  let pushedUrl: string | URL | null | undefined;
+  window.history.pushState = function pushStateSpy(
+    _data: unknown,
+    _unused: string,
+    url?: string | URL | null,
+  ) {
+    pushedUrl = url;
+  };
+  const view = renderNavigationProbe("windowed");
+
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Open Ada" }));
+
+    expect(pushedUrl).toBeUndefined();
+    expect(view.getByTestId("active-app").textContent).toBe("none");
+    expect(view.getByTestId("active-path").textContent).toBe("");
+    expect(view.getByTestId("window-count").textContent).toBe("0");
+  } finally {
+    window.history.pushState = originalPushState;
+  }
+});
+
+test("windowed mini-app opens with window-local route segments", async () => {
+  const originalPushState = window.history.pushState;
+  let pushedUrl: string | URL | null | undefined;
+  window.history.pushState = function pushStateSpy(
+    _data: unknown,
+    _unused: string,
+    url?: string | URL | null,
+  ) {
+    pushedUrl = url;
+  };
+  const view = renderNavigationProbe("windowed");
+
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Open Contacts at Ada" }));
+
+    await waitFor(() => {
+      expect(pushedUrl).toBeUndefined();
+      expect(view.getByTestId("window-count").textContent).toBe("1");
+      expect(view.getByTestId("contacts-window-path").textContent).toBe(
+        "contact/ada",
+      );
+    });
+
+    fireEvent.click(view.getByRole("button", { name: "Select Grace" }));
+
+    await waitFor(() => {
+      expect(view.getByTestId("contacts-window-path").textContent).toBe(
+        "contact/grace",
+      );
+    });
+  } finally {
+    window.history.pushState = originalPushState;
+  }
+});
+
+test("windowed mini-app reuse receives the next route segments", async () => {
+  const view = renderNavigationProbe("windowed");
+
+  fireEvent.click(view.getByRole("button", { name: "Open Contacts at Ada" }));
+
+  await waitFor(() => {
+    expect(view.getByTestId("contacts-window-path").textContent).toBe(
+      "contact/ada",
+    );
+  });
+
+  fireEvent.click(
+    view.getByRole("button", { name: "Open Contacts at Hopper" }),
+  );
+
+  await waitFor(() => {
+    expect(view.getByTestId("window-count").textContent).toBe("1");
+    expect(view.getByTestId("contacts-window-path").textContent).toBe(
+      "contact/hopper",
+    );
+  });
 });

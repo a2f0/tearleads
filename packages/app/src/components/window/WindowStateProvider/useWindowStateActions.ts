@@ -31,6 +31,62 @@ function getMaxWindowZIndex(windows: ReadonlyArray<WindowEntry>) {
   );
 }
 
+function arePathSegmentsEqual(
+  left: ReadonlyArray<string>,
+  right: ReadonlyArray<string>,
+) {
+  return (
+    left.length === right.length &&
+    left.every((segment, index) => segment === right[index])
+  );
+}
+
+function useUpdateMiniAppRouteAction(
+  setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
+) {
+  return useCallback(
+    (id: string, pathSegments: ReadonlyArray<string>) => {
+      setWindows((previousWindows) => {
+        const targetWindow = previousWindows.find(
+          (windowEntry) => windowEntry.id === id,
+        );
+        if (!targetWindow) {
+          return previousWindows;
+        }
+
+        if (
+          arePathSegmentsEqual(
+            targetWindow.miniAppPathSegments ?? [],
+            pathSegments,
+          )
+        ) {
+          return previousWindows;
+        }
+
+        return previousWindows.map((windowEntry) =>
+          windowEntry.id === id
+            ? { ...windowEntry, miniAppPathSegments: [...pathSegments] }
+            : windowEntry,
+        );
+      });
+    },
+    [setWindows],
+  );
+}
+
+function useCloseWindowAction(
+  setWindows: Dispatch<SetStateAction<WindowEntry[]>>,
+) {
+  return useCallback(
+    (id: string) => {
+      setWindows((previousWindows) =>
+        previousWindows.filter((windowEntry) => windowEntry.id !== id),
+      );
+    },
+    [setWindows],
+  );
+}
+
 export function useWindowStateActions({
   counter,
   setWindows,
@@ -56,14 +112,7 @@ export function useWindowStateActions({
     [counter, setWindows],
   );
 
-  const close = useCallback(
-    (id: string) => {
-      setWindows((previousWindows) =>
-        previousWindows.filter((windowEntry) => windowEntry.id !== id),
-      );
-    },
-    [setWindows],
-  );
+  const close = useCloseWindowAction(setWindows);
 
   const minimize = useCallback(
     (id: string) => {
@@ -83,6 +132,8 @@ export function useWindowStateActions({
     },
     [setWindows],
   );
+
+  const updateMiniAppRoute = useUpdateMiniAppRouteAction(setWindows);
 
   const updateTitle = useCallback(
     (id: string, title: string) => {
@@ -126,6 +177,7 @@ export function useWindowStateActions({
     moveBackward,
     moveForward,
     restore,
+    updateMiniAppRoute,
     updateTitle,
   });
 }
@@ -139,6 +191,7 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
     moveBackward,
     moveForward,
     restore,
+    updateMiniAppRoute,
     updateTitle,
   } = actions;
 
@@ -151,6 +204,7 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
       moveBackward,
       moveForward,
       restore,
+      updateMiniAppRoute,
       updateTitle,
     }),
     [
@@ -161,6 +215,7 @@ function useMemoizedWindowActions(actions: WindowStateActions) {
       moveBackward,
       moveForward,
       restore,
+      updateMiniAppRoute,
       updateTitle,
     ],
   );

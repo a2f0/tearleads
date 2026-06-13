@@ -20,6 +20,7 @@ import {
   useWindowViewMenuItems,
   WindowMenuProvider,
 } from "./WindowMenuContext";
+import { WindowMiniAppRouteBoundary } from "./WindowMiniAppRouteBoundary";
 import type { ResizeCorner } from "./WindowResizeHandle";
 import { WindowResizeHandle } from "./WindowResizeHandle";
 import {
@@ -279,7 +280,9 @@ function WindowInnerContent({
       <WindowMenuBar menus={menus} />
       <WindowSidebarProvider>
         <WindowBodyWithSidebar showSidebar={showSidebar}>
-          {Component && <Component />}
+          <WindowMiniAppRouteBoundary entry={entry}>
+            {Component && <Component />}
+          </WindowMiniAppRouteBoundary>
         </WindowBodyWithSidebar>
       </WindowSidebarProvider>
       {showStatusBar && <WindowStatusBar />}
