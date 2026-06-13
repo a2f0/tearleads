@@ -19,20 +19,21 @@ interface NotesAppModel {
 
 function useNotesRouteState(props: NotesAppProps) {
   const appRoute = useMiniAppRouteSegments("notes");
+  const { isRouted, pathSegments, setPathSegments } = appRoute;
   const propSelection = useExplicitNoteSelection(props);
-  const routeSelection = appRoute.isRouted
-    ? parseNotesRouteSegments(appRoute.pathSegments).selection
+  const routeSelection = isRouted
+    ? parseNotesRouteSegments(pathSegments).selection
     : propSelection;
   const selectNoteRoute = useCallback(
     (
       selection: ActiveNoteSelection,
       options: { replace?: boolean | undefined } = {},
     ) => {
-      if (appRoute.isRouted) {
-        appRoute.setPathSegments(formatNotesRouteSegments(selection), options);
+      if (isRouted) {
+        setPathSegments(formatNotesRouteSegments(selection), options);
       }
     },
-    [appRoute],
+    [isRouted, setPathSegments],
   );
 
   return { explicitSelection: routeSelection, selectNoteRoute };

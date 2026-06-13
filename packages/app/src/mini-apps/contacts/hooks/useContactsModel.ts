@@ -66,29 +66,27 @@ interface ContactDraftModel {
 }
 
 function useContactsRouteState() {
-  const appRoute = useMiniAppRouteSegments("contacts");
+  const { isRouted, pathSegments, setPathSegments } =
+    useMiniAppRouteSegments("contacts");
   const [localRoute, setLocalRoute] = useState<ContactsRouteSnapshot>(
     DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
   );
-  const routeSnapshot = appRoute.isRouted
-    ? parseContactsRouteSegments(appRoute.pathSegments)
+  const routeSnapshot = isRouted
+    ? parseContactsRouteSegments(pathSegments)
     : localRoute;
   const setRouteSnapshot = useCallback(
     (
       nextRoute: ContactsRouteSnapshot,
       options: { replace?: boolean | undefined } = {},
     ) => {
-      if (appRoute.isRouted) {
-        appRoute.setPathSegments(
-          formatContactsRouteSegments(nextRoute),
-          options,
-        );
+      if (isRouted) {
+        setPathSegments(formatContactsRouteSegments(nextRoute), options);
         return;
       }
 
       setLocalRoute(nextRoute);
     },
-    [appRoute],
+    [isRouted, setPathSegments],
   );
   const showSelectionRoute = useCallback(
     () =>

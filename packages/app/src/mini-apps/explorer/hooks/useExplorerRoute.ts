@@ -33,17 +33,18 @@ type ExplorerRouteSetter = (
 
 function useExplorerRouteBinding() {
   const appRoute = useMiniAppRouteSegments("explorer" satisfies MiniAppId);
+  const { isRouted, pathSegments, setPathSegments } = appRoute;
   const [localRoute, setLocalRoute] = useState<ExplorerRoute>(
     DEFAULT_EXPLORER_ROUTE,
   );
-  const parsedAppRoute = appRoute.isRouted
-    ? parseExplorerRouteSegments(appRoute.pathSegments)
+  const parsedAppRoute = isRouted
+    ? parseExplorerRouteSegments(pathSegments)
     : null;
   const route = parsedAppRoute?.route ?? localRoute;
   const setRoute = useCallback<ExplorerRouteSetter>(
     (nextRoute, selectedId, options = {}) => {
-      if (appRoute.isRouted) {
-        appRoute.setPathSegments(
+      if (isRouted) {
+        setPathSegments(
           formatExplorerRouteSegments(nextRoute, selectedId),
           options,
         );
@@ -52,7 +53,7 @@ function useExplorerRouteBinding() {
 
       setLocalRoute(nextRoute);
     },
-    [appRoute],
+    [isRouted, setPathSegments],
   );
 
   return { appRoute, parsedAppRoute, route, setRoute };
@@ -93,6 +94,7 @@ function useExplorerRouteActions(params: {
   setSelectedId: (id: string | null) => void;
 }) {
   const { appRoute, route, setRoute, setSelectedId } = params;
+  const { isRouted, setPathSegments } = appRoute;
   const showSelectionRoute = useCallback(() => {
     setRoute(DEFAULT_EXPLORER_ROUTE);
   }, [setRoute]);
@@ -107,19 +109,14 @@ function useExplorerRouteActions(params: {
 
   const selectExplorerDocument = useCallback(
     (localId: string, containerId: string) => {
-      if (appRoute.isRouted) {
-        appRoute.setPathSegments([
-          "containers",
-          containerId,
-          "documents",
-          localId,
-        ]);
+      if (isRouted) {
+        setPathSegments(["containers", containerId, "documents", localId]);
         return;
       }
 
       setRoute(DEFAULT_EXPLORER_ROUTE, localId);
     },
-    [appRoute, setRoute],
+    [isRouted, setPathSegments, setRoute],
   );
 
   const openBlobBrowserRoute = useCallback(

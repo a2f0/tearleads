@@ -28,11 +28,12 @@ export function useOrgManagerRoute(params: {
 }): OrgManagerRouteState {
   const { groups } = params;
   const appRoute = useMiniAppRouteSegments("org-manager");
+  const { isRouted, pathSegments, setPathSegments } = appRoute;
   const [localRoute, setLocalRoute] = useState<OrgManagerRoute>(
     DEFAULT_ORG_MANAGER_ROUTE,
   );
-  const route = appRoute.isRouted
-    ? parseOrgManagerRouteSegments(appRoute.pathSegments)
+  const route = isRouted
+    ? parseOrgManagerRouteSegments(pathSegments)
     : localRoute;
   const routeRef = useRef(route);
   const selectedGroupIdRef = useRef(route.selectedGroupId);
@@ -44,17 +45,14 @@ export function useOrgManagerRoute(params: {
     ) => {
       routeRef.current = nextRoute;
       selectedGroupIdRef.current = nextRoute.selectedGroupId;
-      if (appRoute.isRouted) {
-        appRoute.setPathSegments(
-          formatOrgManagerRouteSegments(nextRoute),
-          options,
-        );
+      if (isRouted) {
+        setPathSegments(formatOrgManagerRouteSegments(nextRoute), options);
         return;
       }
 
       setLocalRoute(nextRoute);
     },
-    [appRoute],
+    [isRouted, setPathSegments],
   );
 
   useEffect(() => {
