@@ -1,4 +1,7 @@
+import { useCallback } from "react";
+import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { useNotesSidebarPanel } from "../NotesSidebar";
+import { formatNotesRouteSegments, parseNotesRouteSegments } from "../routes";
 import type {
   ActiveNoteSelection,
   NotesAppProps,
@@ -14,13 +17,35 @@ interface NotesAppModel {
   ready: boolean;
 }
 
+function useNotesRouteState(props: NotesAppProps) {
+  const appRoute = useMiniAppRouteSegments("notes");
+  const { isRouted, pathSegments, setPathSegments } = appRoute;
+  const propSelection = useExplicitNoteSelection(props);
+  const routeSelection = isRouted
+    ? parseNotesRouteSegments(pathSegments).selection
+    : propSelection;
+  const selectNoteRoute = useCallback(
+    (
+      selection: ActiveNoteSelection,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
+      if (isRouted) {
+        setPathSegments(formatNotesRouteSegments(selection), options);
+      }
+    },
+    [isRouted, setPathSegments],
+  );
+
+  return { explicitSelection: routeSelection, selectNoteRoute };
+}
+
 export function useNotesAppModel(
   props: NotesAppProps,
   setSidebar: NotesSetSidebar,
 ): NotesAppModel {
-  const explicitSelection = useExplicitNoteSelection(props);
+  const { explicitSelection, selectNoteRoute } = useNotesRouteState(props);
   const { createNote, notes, ready, selectedNoteId, selectNote } =
-    useNotesDirectory(explicitSelection?.noteId ?? null);
+    useNotesDirectory({ explicitSelection, selectNoteRoute });
   const activeSelection = useActiveNoteSelection({
     explicitSelection,
     notes,

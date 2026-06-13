@@ -1,9 +1,14 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useState } from "react";
+import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import type { MiniAppId } from "../../types";
 import {
   DEFAULT_EXPLORER_ROUTE,
   type ExplorerRoute,
+  type ExplorerRouteSnapshot,
+  formatExplorerRouteSegments,
   isExplorerRouteAvailable,
+  parseExplorerRouteSegments,
 } from "../routes";
 
 export interface ExplorerRouteState {
@@ -15,33 +20,103 @@ export interface ExplorerRouteState {
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
+  selectExplorerDocument: (localId: string, containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
   showSelectionRoute: () => void;
 }
 
-export function useExplorerRoute(params: {
-  nodes: ReadonlyArray<ContainerNode>;
-  setSelectedId: (id: string | null) => void;
-}): ExplorerRouteState {
-  const { nodes, setSelectedId } = params;
-  const [route, setRoute] = useState<ExplorerRoute>(DEFAULT_EXPLORER_ROUTE);
+type ExplorerRouteSetter = (
+  nextRoute: ExplorerRoute,
+  selectedId?: string | null | undefined,
+  options?: { replace?: boolean | undefined },
+) => void;
 
+function useExplorerRouteBinding() {
+  const appRoute = useMiniAppRouteSegments("explorer" satisfies MiniAppId);
+  const { isRouted, pathSegments, setPathSegments } = appRoute;
+  const [localRoute, setLocalRoute] = useState<ExplorerRoute>(
+    DEFAULT_EXPLORER_ROUTE,
+  );
+  const parsedAppRoute = isRouted
+    ? parseExplorerRouteSegments(pathSegments)
+    : null;
+  const route = parsedAppRoute?.route ?? localRoute;
+  const setRoute = useCallback<ExplorerRouteSetter>(
+    (nextRoute, selectedId, options = {}) => {
+      if (isRouted) {
+        setPathSegments(
+          formatExplorerRouteSegments(nextRoute, selectedId),
+          options,
+        );
+        return;
+      }
+
+      setLocalRoute(nextRoute);
+    },
+    [isRouted, setPathSegments],
+  );
+
+  return { appRoute, parsedAppRoute, route, setRoute };
+}
+
+function useExplorerRouteSelectionEffect(params: {
+  appRouteIsRouted: boolean;
+  parsedAppRoute: ExplorerRouteSnapshot | null;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const { appRouteIsRouted, parsedAppRoute, setSelectedId } = params;
+  useEffect(() => {
+    if (!appRouteIsRouted || parsedAppRoute?.selectedId === undefined) {
+      return;
+    }
+
+    setSelectedId(parsedAppRoute.selectedId);
+  }, [appRouteIsRouted, parsedAppRoute?.selectedId, setSelectedId]);
+}
+
+function useAvailableExplorerRoute(params: {
+  nodes: ReadonlyArray<ContainerNode>;
+  route: ExplorerRoute;
+  setRoute: ExplorerRouteSetter;
+}) {
+  const { nodes, route, setRoute } = params;
   useEffect(() => {
     if (!isExplorerRouteAvailable(route, nodes)) {
-      setRoute(DEFAULT_EXPLORER_ROUTE);
+      setRoute(DEFAULT_EXPLORER_ROUTE, null, { replace: true });
     }
-  }, [nodes, route]);
+  }, [nodes, route, setRoute]);
+}
 
+function useExplorerRouteActions(params: {
+  route: ExplorerRoute;
+  setRoute: ExplorerRouteSetter;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const { route, setRoute, setSelectedId } = params;
   const showSelectionRoute = useCallback(() => {
     setRoute(DEFAULT_EXPLORER_ROUTE);
-  }, []);
+  }, [setRoute]);
 
   const selectExplorerItem = useCallback(
     (id: string | null) => {
       setSelectedId(id);
-      setRoute(DEFAULT_EXPLORER_ROUTE);
+      setRoute(DEFAULT_EXPLORER_ROUTE, id);
     },
-    [setSelectedId],
+    [setRoute, setSelectedId],
+  );
+
+  const selectExplorerDocument = useCallback(
+    (localId: string, containerId: string) => {
+      setRoute(
+        {
+          containerId,
+          localId,
+          view: "document-selection",
+        },
+        localId,
+      );
+    },
+    [setRoute],
   );
 
   const openBlobBrowserRoute = useCallback(
@@ -51,36 +126,39 @@ export function useExplorerRoute(params: {
         storageKey?: string | null | undefined;
       } = {},
     ) => {
-      setRoute({
-        blobId: input.blobId ?? null,
-        storageKey: input.storageKey ?? null,
-        view: "blob-browser",
-      });
+      setRoute(
+        {
+          blobId: input.blobId ?? null,
+          storageKey: input.storageKey ?? null,
+          view: "blob-browser",
+        },
+        undefined,
+      );
     },
-    [],
+    [setRoute],
   );
 
   const openContainerInfoRoute = useCallback(
     (containerId: string) => {
       setSelectedId(containerId);
-      setRoute({ view: "container-info", containerId });
+      setRoute({ view: "container-info", containerId }, containerId);
     },
-    [setSelectedId],
+    [setRoute, setSelectedId],
   );
 
   const openDocumentInfoRoute = useCallback(
     (localId: string, containerId: string) => {
       setRoute({ view: "document-info", containerId, localId });
     },
-    [],
+    [setRoute],
   );
 
   const openNewStructuredDocumentRoute = useCallback(
     (containerId: string) => {
       setSelectedId(containerId);
-      setRoute({ view: "new-structured-document", containerId });
+      setRoute({ view: "new-structured-document", containerId }, containerId);
     },
-    [setSelectedId],
+    [setRoute, setSelectedId],
   );
 
   return {
@@ -89,7 +167,33 @@ export function useExplorerRoute(params: {
     openDocumentInfoRoute,
     openNewStructuredDocumentRoute,
     route,
+    selectExplorerDocument,
     selectExplorerItem,
     showSelectionRoute,
+  };
+}
+
+export function useExplorerRoute(params: {
+  nodes: ReadonlyArray<ContainerNode>;
+  setSelectedId: (id: string | null) => void;
+}): ExplorerRouteState {
+  const { nodes, setSelectedId } = params;
+  const { appRoute, parsedAppRoute, route, setRoute } =
+    useExplorerRouteBinding();
+  useExplorerRouteSelectionEffect({
+    appRouteIsRouted: appRoute.isRouted,
+    parsedAppRoute,
+    setSelectedId,
+  });
+  useAvailableExplorerRoute({ nodes, route, setRoute });
+  const actions = useExplorerRouteActions({
+    route,
+    setRoute,
+    setSelectedId,
+  });
+
+  return {
+    ...actions,
+    route,
   };
 }

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
@@ -15,7 +16,13 @@ import {
   type ContactsContextMenuModel,
   useContactsContextMenu,
 } from "../context-menu/ContactsContextMenu";
-import type { ContactsRoute } from "../routes";
+import {
+  type ContactsRoute,
+  type ContactsRouteSnapshot,
+  DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
+  formatContactsRouteSegments,
+  parseContactsRouteSegments,
+} from "../routes";
 import type { ContactEntries } from "../types";
 
 interface ContactsModel {
@@ -59,18 +66,60 @@ interface ContactDraftModel {
 }
 
 function useContactsRouteState() {
-  const [route, setRoute] = useState<ContactsRoute>("selection");
-  const showSelectionRoute = useCallback(() => setRoute("selection"), []);
-  const openNewContactRoute = useCallback(() => setRoute("new-contact"), []);
+  const { isRouted, pathSegments, setPathSegments } =
+    useMiniAppRouteSegments("contacts");
+  const [localRoute, setLocalRoute] = useState<ContactsRouteSnapshot>(
+    DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
+  );
+  const routeSnapshot = isRouted
+    ? parseContactsRouteSegments(pathSegments)
+    : localRoute;
+  const setRouteSnapshot = useCallback(
+    (
+      nextRoute: ContactsRouteSnapshot,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
+      if (isRouted) {
+        setPathSegments(formatContactsRouteSegments(nextRoute), options);
+        return;
+      }
+
+      setLocalRoute(nextRoute);
+    },
+    [isRouted, setPathSegments],
+  );
+  const showSelectionRoute = useCallback(
+    () =>
+      setRouteSnapshot({
+        route: "selection",
+        selectedContactId: routeSnapshot.selectedContactId,
+      }),
+    [routeSnapshot.selectedContactId, setRouteSnapshot],
+  );
+  const openNewContactRoute = useCallback(
+    () => setRouteSnapshot({ route: "new-contact", selectedContactId: null }),
+    [setRouteSnapshot],
+  );
   const openImportContactRoute = useCallback(
-    () => setRoute("import-contact"),
-    [],
+    () =>
+      setRouteSnapshot({ route: "import-contact", selectedContactId: null }),
+    [setRouteSnapshot],
+  );
+  const selectContactRoute = useCallback(
+    (contactId: string, options: { replace?: boolean | undefined } = {}) =>
+      setRouteSnapshot(
+        { route: "selection", selectedContactId: contactId },
+        options,
+      ),
+    [setRouteSnapshot],
   );
 
   return {
     openImportContactRoute,
     openNewContactRoute,
-    route,
+    route: routeSnapshot.route,
+    selectContactRoute,
+    selectedContactId: routeSnapshot.selectedContactId,
     showSelectionRoute,
   };
 }
@@ -78,27 +127,33 @@ function useContactsRouteState() {
 function useContactsSelectionState(
   routeState: ReturnType<typeof useContactsRouteState>,
 ) {
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(
-    null,
-  );
   const selectContact = useCallback(
     (contactId: string) => {
-      setSelectedContactId(contactId);
-      routeState.showSelectionRoute();
+      routeState.selectContactRoute(contactId);
     },
-    [routeState.showSelectionRoute],
+    [routeState.selectContactRoute],
   );
   const setSelectedContactRouteAware = useCallback(
     (contactId: string | null) => {
-      setSelectedContactId(contactId);
+      if (contactId) {
+        routeState.selectContactRoute(contactId);
+        return;
+      }
+
       routeState.showSelectionRoute();
     },
-    [routeState.showSelectionRoute],
+    [routeState.selectContactRoute, routeState.showSelectionRoute],
+  );
+  const setSelectedContactId = useCallback(
+    (contactId: string) => {
+      routeState.selectContactRoute(contactId, { replace: true });
+    },
+    [routeState.selectContactRoute],
   );
 
   return {
     selectContact,
-    selectedContactId,
+    selectedContactId: routeState.selectedContactId,
     setSelectedContactId,
     setSelectedContactRouteAware,
   };

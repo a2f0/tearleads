@@ -22,21 +22,29 @@ import {
   type OpenMiniAppRequest,
 } from "../mini-apps/types";
 import type { AppNavigationMode } from "./AppNavigationMode";
-
-const APP_ROUTE_PREFIX = "/app/";
-
-interface AppRouteState {
-  appId: MiniAppId | null;
-}
+import {
+  type AppRouteState,
+  buildMiniAppPath,
+  parseAppRoute,
+} from "./AppRoutePaths";
 
 interface AppNavigationActions {
-  getMiniAppHref: (appId: MiniAppId) => string;
+  getMiniAppHref: (
+    appId: MiniAppId,
+    pathSegments?: ReadonlyArray<string> | undefined,
+  ) => string;
   goBack: () => void;
   goForward: () => void;
+  navigateMiniAppRoute: (input: {
+    appId: MiniAppId;
+    pathSegments?: ReadonlyArray<string> | undefined;
+    replace?: boolean | undefined;
+  }) => void;
   openMiniApp: (request: OpenMiniAppRequest) => void;
 }
 
 interface AppNavigationState {
+  mode: AppNavigationMode;
   route: AppRouteState;
 }
 
@@ -58,10 +66,7 @@ const AppNavigationActionsContext = createContext<AppNavigationActions | null>(
 const AppNavigationStateContext = createContext<AppNavigationState | null>(
   null,
 );
-
-function buildMiniAppPath(appId: MiniAppId): string {
-  return `${APP_ROUTE_PREFIX}${encodeURIComponent(appId)}`;
-}
+const EMPTY_ROUTE_SEGMENTS: ReadonlyArray<string> = [];
 
 function findTopMiniAppWindow(
   windows: ReturnType<typeof useWindowStateData>["windows"],
@@ -81,35 +86,11 @@ function findTopMiniAppWindow(
   );
 }
 
-export function parseAppRoute(
-  pathname: string,
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>,
-): AppRouteState {
-  if (!pathname.startsWith(APP_ROUTE_PREFIX)) {
-    return { appId: null };
-  }
-
-  const [encodedAppId = ""] = pathname
-    .slice(APP_ROUTE_PREFIX.length)
-    .split("/");
-  const rawAppId = decodeURIComponent(encodedAppId);
-  return isKnownMiniAppId(rawAppId, miniApps)
-    ? { appId: rawAppId }
-    : { appId: null };
-}
-
-function isKnownMiniAppId(
-  appId: string,
-  miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>,
-): appId is MiniAppId {
-  return Object.hasOwn(miniApps, appId);
-}
-
 function readCurrentRoute(
   miniApps: Readonly<Record<MiniAppId, MiniAppDefinition>>,
 ): AppRouteState {
   if (typeof window === "undefined") {
-    return { appId: null };
+    return { appId: null, pathSegments: [] };
   }
 
   return parseAppRoute(window.location.pathname, miniApps);
@@ -166,32 +147,45 @@ function useAppRouteController({
     return () => window.removeEventListener("popstate", handlePopState);
   }, [mode]);
 
-  const pushMiniAppRoute = useCallback((appId: MiniAppId) => {
-    const path = buildMiniAppPath(appId);
-    setRoute({ appId });
+  const navigateMiniAppRoute = useCallback(
+    ({
+      appId,
+      pathSegments = [],
+      replace = false,
+    }: {
+      appId: MiniAppId;
+      pathSegments?: ReadonlyArray<string> | undefined;
+      replace?: boolean | undefined;
+    }) => {
+      const path = buildMiniAppPath(appId, pathSegments);
+      setRoute({ appId, pathSegments: [...pathSegments] });
 
-    if (typeof window === "undefined") {
-      return;
-    }
+      if (typeof window === "undefined") {
+        return;
+      }
 
-    if (window.location.pathname === path) {
-      window.history.replaceState(window.history.state, "", path);
-      return;
-    }
+      const shouldReplace = replace || window.location.pathname === path;
+      if (shouldReplace) {
+        window.history.replaceState(window.history.state, "", path);
+        return;
+      }
 
-    window.history.pushState(window.history.state, "", path);
-  }, []);
+      window.history.pushState(window.history.state, "", path);
+    },
+    [],
+  );
 
-  return { pushMiniAppRoute, route };
+  return { navigateMiniAppRoute, route };
 }
 
 function useAppNavigationActionValue(
   runtimeRef: MutableRefObject<AppNavigationRuntime>,
-  pushMiniAppRoute: (appId: MiniAppId) => void,
+  navigateMiniAppRoute: AppNavigationActions["navigateMiniAppRoute"],
 ): AppNavigationActions {
   const openMiniApp = useCallback(
     ({
       appId,
+      pathSegments,
       position = DEFAULT_MINI_APP_POSITION,
       reuseExisting = true,
     }: OpenMiniAppRequest) => {
@@ -203,7 +197,7 @@ function useAppNavigationActionValue(
       } = runtimeRef.current;
 
       if (currentMode === "routed") {
-        pushMiniAppRoute(appId);
+        navigateMiniAppRoute({ appId, pathSegments });
         return;
       }
 
@@ -228,7 +222,7 @@ function useAppNavigationActionValue(
         },
       );
     },
-    [pushMiniAppRoute],
+    [navigateMiniAppRoute],
   );
   const getMiniAppHref = useCallback(buildMiniAppPath, []);
   const goBack = useCallback(() => {
@@ -247,9 +241,10 @@ function useAppNavigationActionValue(
       getMiniAppHref,
       goBack,
       goForward,
+      navigateMiniAppRoute,
       openMiniApp,
     }),
-    [getMiniAppHref, goBack, goForward, openMiniApp],
+    [getMiniAppHref, goBack, goForward, navigateMiniAppRoute, openMiniApp],
   );
 }
 
@@ -268,13 +263,16 @@ export function AppNavigationProvider({
     mode,
     windows: [],
   });
-  const { pushMiniAppRoute, route } = useAppRouteController({
+  const { navigateMiniAppRoute, route } = useAppRouteController({
     miniApps,
     mode,
     runtimeRef,
   });
-  const actions = useAppNavigationActionValue(runtimeRef, pushMiniAppRoute);
-  const state = useMemo<AppNavigationState>(() => ({ route }), [route]);
+  const actions = useAppNavigationActionValue(runtimeRef, navigateMiniAppRoute);
+  const state = useMemo<AppNavigationState>(
+    () => ({ mode, route }),
+    [mode, route],
+  );
 
   return (
     <AppNavigationActionsContext.Provider value={actions}>
@@ -307,3 +305,37 @@ export function useAppNavigationState(): AppNavigationState {
 
   return context;
 }
+
+export function useMiniAppRouteSegments(appId: MiniAppId) {
+  const actions = useContext(AppNavigationActionsContext);
+  const state = useContext(AppNavigationStateContext);
+  const isRouted = actions !== null && state?.mode === "routed";
+  const pathSegments =
+    isRouted && state.route.appId === appId
+      ? state.route.pathSegments
+      : EMPTY_ROUTE_SEGMENTS;
+  const setPathSegments = useCallback(
+    (
+      nextPathSegments: ReadonlyArray<string>,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
+      actions?.navigateMiniAppRoute({
+        appId,
+        pathSegments: nextPathSegments,
+        ...(options.replace === undefined ? {} : { replace: options.replace }),
+      });
+    },
+    [actions, appId],
+  );
+
+  return useMemo(
+    () => ({
+      isRouted,
+      pathSegments,
+      setPathSegments,
+    }),
+    [isRouted, pathSegments, setPathSegments],
+  );
+}
+
+export { parseAppRoute } from "./AppRoutePaths";

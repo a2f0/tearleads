@@ -98,9 +98,16 @@ export function MiniAppBusProvider({ children }: PropsWithChildren) {
   }, []);
 
   const openMiniApp = useCallback(
-    ({ appId, message, position, reuseExisting }: OpenMiniAppRequest) => {
+    ({
+      appId,
+      message,
+      pathSegments,
+      position,
+      reuseExisting,
+    }: OpenMiniAppRequest) => {
       appNavigation.openMiniApp({
         appId,
+        ...(pathSegments ? { pathSegments } : {}),
         ...(position ? { position } : {}),
         ...(reuseExisting === undefined ? {} : { reuseExisting }),
       });

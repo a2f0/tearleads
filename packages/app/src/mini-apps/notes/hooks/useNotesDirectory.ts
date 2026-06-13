@@ -7,6 +7,17 @@ import { useCallback, useEffect, useState } from "react";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { DEFAULT_DOCUMENT_ID } from "../../../stores/documents/DocumentsProvider";
 import { useDocumentSummaries } from "../../../stores/documents/useDocumentSummaries";
+import type { ActiveNoteSelection } from "../types";
+
+type SelectNoteRoute = (
+  selection: ActiveNoteSelection,
+  options?: { replace?: boolean | undefined },
+) => void;
+
+interface NotesDirectoryInput {
+  explicitSelection: ActiveNoteSelection | null;
+  selectNoteRoute: SelectNoteRoute;
+}
 
 function compareNoteSummaries(
   left: DocumentSummary,
@@ -37,8 +48,12 @@ function resolveSelectedNoteId(
   return nextNotes[0]?.id ?? DEFAULT_DOCUMENT_ID;
 }
 
-export function useNotesDirectory(explicitNoteId: string | null) {
+export function useNotesDirectory({
+  explicitSelection,
+  selectNoteRoute,
+}: NotesDirectoryInput) {
   const appData = useTearleadsRuntime();
+  const explicitNoteId = explicitSelection?.noteId ?? null;
   const {
     mergeSummary: mergeNoteSummary,
     ready,
@@ -60,7 +75,7 @@ export function useNotesDirectory(explicitNoteId: string | null) {
 
   useEffect(() => {
     if (appData.infra.dbStatus !== "ready") {
-      if (!explicitNoteId) {
+      if (!explicitNoteId && selectedNoteId !== null) {
         setSelectedNoteId(null);
       }
       return;
@@ -70,10 +85,27 @@ export function useNotesDirectory(explicitNoteId: string | null) {
       return;
     }
 
-    setSelectedNoteId((currentNoteId) =>
-      resolveSelectedNoteId(currentNoteId, notes, explicitNoteId),
+    const nextSelectedNoteId = resolveSelectedNoteId(
+      selectedNoteId,
+      notes,
+      explicitNoteId,
     );
-  }, [appData.infra.dbStatus, explicitNoteId, notes, ready]);
+    if (nextSelectedNoteId === selectedNoteId) {
+      return;
+    }
+
+    setSelectedNoteId(nextSelectedNoteId);
+    if (!explicitNoteId) {
+      selectNoteRoute({ noteId: nextSelectedNoteId }, { replace: true });
+    }
+  }, [
+    appData.infra.dbStatus,
+    explicitNoteId,
+    notes,
+    ready,
+    selectedNoteId,
+    selectNoteRoute,
+  ]);
 
   const createNote = useCallback(() => {
     const noteId = crypto.randomUUID();
@@ -90,13 +122,22 @@ export function useNotesDirectory(explicitNoteId: string | null) {
 
     mergeNoteSummary(nextNote);
     setSelectedNoteId(noteId);
-  }, [appData.state.containerId, mergeNoteSummary]);
+    selectNoteRoute({ noteId });
+  }, [appData.state.containerId, mergeNoteSummary, selectNoteRoute]);
+
+  const selectNote = useCallback(
+    (noteId: string) => {
+      setSelectedNoteId(noteId);
+      selectNoteRoute({ noteId });
+    },
+    [selectNoteRoute],
+  );
 
   return {
     createNote,
     notes,
     ready,
     selectedNoteId,
-    selectNote: setSelectedNoteId,
+    selectNote,
   };
 }

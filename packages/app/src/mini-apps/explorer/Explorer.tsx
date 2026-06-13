@@ -29,6 +29,7 @@ function useOpenGrantGroupInOrgManager() {
           groupId,
           type: "open-group",
         },
+        pathSegments: ["groups", groupId],
         ...(position ? { position } : {}),
       });
     },

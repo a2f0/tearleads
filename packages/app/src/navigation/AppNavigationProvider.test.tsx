@@ -10,6 +10,7 @@ import {
   parseAppRoute,
   useAppNavigationActions,
   useAppNavigationState,
+  useMiniAppRouteSegments,
 } from "./AppNavigationProvider";
 
 function EmptyMiniApp() {
@@ -45,10 +46,11 @@ afterEach(() => {
 });
 
 function NavigationProbe() {
-  const { openMiniApp } = useAppNavigationActions();
+  const { navigateMiniAppRoute, openMiniApp } = useAppNavigationActions();
   const {
-    route: { appId },
+    route: { appId, pathSegments },
   } = useAppNavigationState();
+  const contactsRoute = useMiniAppRouteSegments("contacts");
   const { windows } = useWindowStateData();
 
   return (
@@ -56,7 +58,22 @@ function NavigationProbe() {
       <button type="button" onClick={() => openMiniApp({ appId: "contacts" })}>
         Open Contacts
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          navigateMiniAppRoute({
+            appId: "contacts",
+            pathSegments: ["contact", "ada"],
+          })
+        }
+      >
+        Open Ada
+      </button>
       <div data-testid="active-app">{appId ?? "none"}</div>
+      <div data-testid="active-path">{pathSegments.join("/")}</div>
+      <div data-testid="contacts-path">
+        {contactsRoute.pathSegments.join("/")}
+      </div>
       <div data-testid="window-count">{windows.length}</div>
     </>
   );
@@ -100,7 +117,33 @@ test("routed navigation pushes mini-app routes without creating windows", async 
 test("app route parsing reads the mini-app segment from nested route paths", () => {
   expect(
     parseAppRoute("/app/explorer/documents/example", TEST_MINI_APPS),
-  ).toEqual({ appId: "explorer" });
+  ).toEqual({ appId: "explorer", pathSegments: ["documents", "example"] });
+});
+
+test("routed navigation pushes mini-app subroutes", async () => {
+  const originalPushState = window.history.pushState;
+  let pushedUrl: string | URL | null | undefined;
+  window.history.pushState = function pushStateSpy(
+    _data: unknown,
+    _unused: string,
+    url?: string | URL | null,
+  ) {
+    pushedUrl = url;
+  };
+  const view = renderNavigationProbe("routed");
+
+  fireEvent.click(view.getByRole("button", { name: "Open Ada" }));
+
+  try {
+    await waitFor(() => {
+      expect(pushedUrl).toBe("/app/contacts/contact/ada");
+      expect(view.getByTestId("active-app").textContent).toBe("contacts");
+      expect(view.getByTestId("active-path").textContent).toBe("contact/ada");
+      expect(view.getByTestId("contacts-path").textContent).toBe("contact/ada");
+    });
+  } finally {
+    window.history.pushState = originalPushState;
+  }
 });
 
 test("windowed navigation creates a mini-app window without changing route", () => {
