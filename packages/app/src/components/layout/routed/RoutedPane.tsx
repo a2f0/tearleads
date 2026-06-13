@@ -109,6 +109,7 @@ function RoutedPaneNavButton({
 
 function RoutedPaneToolbar({ activeAppId }: { activeAppId: MiniAppId | null }) {
   const { goBack, goForward } = useAppNavigationActions();
+  const { history } = useAppNavigationState();
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
   const menuItems = useMemo(
@@ -119,10 +120,20 @@ function RoutedPaneToolbar({ activeAppId }: { activeAppId: MiniAppId | null }) {
   return (
     <div className="routed-pane-toolbar">
       <div className="routed-pane-history-controls">
-        <button aria-label="Back" type="button" onClick={goBack}>
+        <button
+          aria-label="Back"
+          disabled={!history.canGoBack}
+          type="button"
+          onClick={goBack}
+        >
           Back
         </button>
-        <button aria-label="Forward" type="button" onClick={goForward}>
+        <button
+          aria-label="Forward"
+          disabled={!history.canGoForward}
+          type="button"
+          onClick={goForward}
+        >
           Forward
         </button>
       </div>

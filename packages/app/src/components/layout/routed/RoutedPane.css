@@ -52,6 +52,7 @@
   color: var(--color-light);
 }
 
+.routed-pane-history-controls button:disabled,
 .routed-pane-actions button:disabled {
   opacity: var(--mini-app-disabled-opacity);
   cursor: default;
