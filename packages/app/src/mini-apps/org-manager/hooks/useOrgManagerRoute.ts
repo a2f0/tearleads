@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import {
   areOrgManagerRoutesEqual,
   DEFAULT_ORG_MANAGER_ROUTE,
+  formatOrgManagerRouteSegments,
   type OrgManagerRoute,
   type OrgManagerView,
+  parseOrgManagerRouteSegments,
   resolveOrgManagerRoute,
 } from "../routes";
 
@@ -24,22 +27,45 @@ export function useOrgManagerRoute(params: {
   groups: ReadonlyArray<OrgManagerGroupRouteTarget>;
 }): OrgManagerRouteState {
   const { groups } = params;
-  const [route, setRouteState] = useState<OrgManagerRoute>(
+  const appRoute = useMiniAppRouteSegments("org-manager");
+  const [localRoute, setLocalRoute] = useState<OrgManagerRoute>(
     DEFAULT_ORG_MANAGER_ROUTE,
   );
+  const route = appRoute.isRouted
+    ? parseOrgManagerRouteSegments(appRoute.pathSegments)
+    : localRoute;
   const routeRef = useRef(route);
   const selectedGroupIdRef = useRef(route.selectedGroupId);
 
-  const setRoute = useCallback((nextRoute: OrgManagerRoute) => {
-    routeRef.current = nextRoute;
-    selectedGroupIdRef.current = nextRoute.selectedGroupId;
-    setRouteState(nextRoute);
-  }, []);
+  const setRoute = useCallback(
+    (
+      nextRoute: OrgManagerRoute,
+      options: { replace?: boolean | undefined } = {},
+    ) => {
+      routeRef.current = nextRoute;
+      selectedGroupIdRef.current = nextRoute.selectedGroupId;
+      if (appRoute.isRouted) {
+        appRoute.setPathSegments(
+          formatOrgManagerRouteSegments(nextRoute),
+          options,
+        );
+        return;
+      }
+
+      setLocalRoute(nextRoute);
+    },
+    [appRoute],
+  );
+
+  useEffect(() => {
+    routeRef.current = route;
+    selectedGroupIdRef.current = route.selectedGroupId;
+  }, [route]);
 
   useEffect(() => {
     const nextRoute = resolveOrgManagerRoute(route, groups);
     if (!areOrgManagerRoutesEqual(route, nextRoute)) {
-      setRoute(nextRoute);
+      setRoute(nextRoute, { replace: true });
     }
   }, [groups, route, setRoute]);
 

@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import {
   DEFAULT_ORG_MANAGER_ROUTE,
+  formatOrgManagerRouteSegments,
+  parseOrgManagerRouteSegments,
   resolveOrgManagerRoute,
   resolveOrgManagerSelectedGroupId,
 } from "./routes";
@@ -31,4 +33,29 @@ test("org manager route keeps a pending group while groups are unavailable", () 
   expect(
     resolveOrgManagerRoute({ selectedGroupId: "admins", view: "groups" }, []),
   ).toEqual({ selectedGroupId: "admins", view: "groups" });
+});
+
+test("org manager route segments preserve view and selected group", () => {
+  expect(parseOrgManagerRouteSegments([])).toEqual(DEFAULT_ORG_MANAGER_ROUTE);
+  expect(parseOrgManagerRouteSegments(["groups", "admins"])).toEqual({
+    selectedGroupId: "admins",
+    view: "groups",
+  });
+  expect(parseOrgManagerRouteSegments(["grants", "groups", "admins"])).toEqual({
+    selectedGroupId: "admins",
+    view: "grants",
+  });
+
+  expect(
+    formatOrgManagerRouteSegments({
+      selectedGroupId: "admins",
+      view: "groups",
+    }),
+  ).toEqual(["groups", "admins"]);
+  expect(
+    formatOrgManagerRouteSegments({
+      selectedGroupId: "admins",
+      view: "grants",
+    }),
+  ).toEqual(["grants", "groups", "admins"]);
 });

@@ -27,6 +27,7 @@ export type MiniAppMessage = {
 export interface OpenMiniAppRequest {
   appId: MiniAppId;
   message?: MiniAppMessage;
+  pathSegments?: ReadonlyArray<string> | undefined;
   position?: MiniAppWindowPosition;
   reuseExisting?: boolean | undefined;
 }
