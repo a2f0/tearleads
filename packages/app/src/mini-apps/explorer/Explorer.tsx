@@ -8,12 +8,13 @@ import {
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
-import { type MiniAppWindowPosition, useMiniAppBusActions } from "../bus";
+import { useMiniAppBusActions } from "../bus";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
+import type { MiniAppWindowPosition } from "./types";
 import "./Explorer.css";
 
 function useOpenGrantGroupInOrgManager() {

@@ -20,5 +20,10 @@ renderApp(createRoot(elem), {
     apiBaseUrl,
     wsUrl,
     createCapacitorSQLiteRuntime,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    "routed",
   ),
 });

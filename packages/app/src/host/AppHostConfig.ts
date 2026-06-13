@@ -1,5 +1,6 @@
 import type { BlobStoreFactory, LocalKeyring } from "@tearleads/client-sdk";
 import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import type { AppNavigationMode } from "../navigation/AppNavigationMode";
 
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 export type CreateLocalKeyringFn = () => LocalKeyring;
@@ -13,5 +14,6 @@ export class AppHostConfig {
     readonly localIdentityNamespace?: string | undefined,
     readonly createLocalKeyring?: CreateLocalKeyringFn | undefined,
     readonly disableLocalIdentityPersistence?: boolean | undefined,
+    readonly navigationMode?: AppNavigationMode | undefined,
   ) {}
 }

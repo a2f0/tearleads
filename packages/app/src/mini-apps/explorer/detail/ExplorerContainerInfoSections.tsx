@@ -19,7 +19,6 @@ import {
   MiniAppInfoTableRow,
 } from "../../../components/shared/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
-import type { MiniAppWindowPosition } from "../../bus";
 import {
   EXPLORER_LABELS,
   getExplorerContainerInfoEventLabel,
@@ -29,6 +28,7 @@ import {
   getExplorerContainerInfoPathSummaryLabel,
   getExplorerContainerInfoRecipientSummaryLabel,
 } from "../labels";
+import type { MiniAppWindowPosition } from "../types";
 import { getContainerInfoShareableGroups } from "./ExplorerContainerInfoState";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
