@@ -145,6 +145,13 @@
           - python3-certbot-nginx
         state: present
 
+    - name: Install deploy helper packages
+      ansible.builtin.apt:
+        name:
+          - acl
+          - unzip
+        state: present
+
     - name: Install Bun
       ansible.builtin.shell:
         cmd: curl -fsSL https://bun.sh/install | bash
