@@ -18,4 +18,5 @@ ignore:
   - "packages/app-capacitor/android/**"
   - "packages/app-capacitor/ios/**"
   - "packages/app-capacitor/public/**"
+  - "packages/app-capacitor/vendor/bundle/**"
   - "**/capacitor-cordova-*"

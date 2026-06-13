@@ -11,3 +11,14 @@ ios/App/App/Assets.xcassets/**/*.png
 
 # Gradle wrapper binary
 android/gradle/wrapper/gradle-wrapper.jar
+
+# Bundler cache
+vendor/bundle/
+
+# fastlane output
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+fastlane/README.md
+fastlane/readme.md

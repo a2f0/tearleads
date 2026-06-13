@@ -1,6 +1,8 @@
 [tools]
 rust = "1.93.0"
 bun = "1.3.11"
+ruby = "3.3.0"
+gradle = "8.14.3"
 "pipx:ansible-core" = "2.20.3"
 "pipx:ansible-lint" = "25.6.1"
 "aqua:rustwasm/wasm-pack" = "0.14.0"
