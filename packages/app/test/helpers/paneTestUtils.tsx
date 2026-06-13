@@ -451,7 +451,9 @@ export async function generateIdentityAndWaitForDb(
   );
   await waitFor(
     () => {
-      expect(view.getByText(/Root container (created|loaded)/)).toBeTruthy();
+      expect(
+        view.queryAllByText(/Root container (created|loaded)/).length,
+      ).toBeGreaterThan(0);
     },
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
   );

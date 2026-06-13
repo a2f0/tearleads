@@ -12,26 +12,25 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-STEPS=(
-  "terraform:${REPO_ROOT}/terraform/stacks/staging/server/scripts/apply.sh"
-  "ansible:${REPO_ROOT}/ansible/scripts/run-server-staging.sh"
-  "api:${REPO_ROOT}/packages/api/scripts/deployStagingApi.sh"
-  "website:${REPO_ROOT}/packages/website/scripts/deployStagingWebsite.sh"
-  "app-web:${REPO_ROOT}/packages/app-web/scripts/deployStagingAppWeb.sh"
-)
+run_step() {
+  local label="$1"
+  shift
+  echo "--- [$label] $* ---"
+  "$@"
+  echo "[$label] done."
+  echo ""
+}
 
 echo "=== Tearleads Staging Deployment ==="
 echo ""
 
-for step in "${STEPS[@]}"; do
-  label="${step%%:*}"
-  script="${step#*:}"
-
-  echo "--- [$label] $script ---"
-  bash "$script"
-  echo "[$label] done."
-  echo ""
-done
+run_step "terraform" \
+  "${REPO_ROOT}/terraform/stacks/staging/server/scripts/apply.sh" \
+  --auto-approve
+run_step "ansible" "${REPO_ROOT}/ansible/scripts/run-server-staging.sh"
+run_step "api" "${REPO_ROOT}/packages/api/scripts/deployStagingApi.sh"
+run_step "website" "${REPO_ROOT}/packages/website/scripts/deployStagingWebsite.sh"
+run_step "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployStagingAppWeb.sh"
 
 echo "=== Deployment finished ==="
 echo "All steps succeeded."
