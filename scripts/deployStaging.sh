@@ -20,8 +20,6 @@ STEPS=(
   "app-web:${REPO_ROOT}/packages/app-web/scripts/deployStagingAppWeb.sh"
 )
 
-FAILED=()
-
 echo "=== Tearleads Staging Deployment ==="
 echo ""
 
@@ -30,18 +28,10 @@ for step in "${STEPS[@]}"; do
   script="${step#*:}"
 
   echo "--- [$label] $script ---"
-  if ! bash "$script"; then
-    echo "ERROR: [$label] failed."
-    FAILED+=("$label")
-  else
-    echo "[$label] done."
-  fi
+  bash "$script"
+  echo "[$label] done."
   echo ""
 done
 
 echo "=== Deployment finished ==="
-if [ ${#FAILED[@]} -gt 0 ]; then
-  echo "Failed steps: ${FAILED[*]}"
-  exit 1
-fi
 echo "All steps succeeded."
