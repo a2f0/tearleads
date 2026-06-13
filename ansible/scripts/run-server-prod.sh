@@ -9,6 +9,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export ANSIBLE_CONFIG="${SCRIPT_DIR}/../ansible.cfg"
+# PostgreSQL tasks become the postgres OS user; keep module temp files in an
+# existing system temp dir instead of creating /var/lib/postgresql/.ansible/tmp.
+export ANSIBLE_REMOTE_TEMP="${ANSIBLE_REMOTE_TEMP:-/tmp}"
+export ANSIBLE_DEPRECATION_WARNINGS="${ANSIBLE_DEPRECATION_WARNINGS:-False}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # shellcheck source=../../terraform/scripts/common.sh
