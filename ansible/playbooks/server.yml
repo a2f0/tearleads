@@ -143,6 +143,7 @@
         name:
           - certbot
           - python3-certbot-nginx
+          - unzip
         state: present
 
     - name: Install Bun

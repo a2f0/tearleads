@@ -52,6 +52,7 @@ rsync -avz --delete \
   --exclude='*.tsbuildinfo' \
   --exclude='playwright-report/' \
   --exclude='test-results/' \
+  --exclude='target/' \
   "$REPO_ROOT/" "$SSH_TARGET:$REMOTE_PATH/"
 
 echo "Installing dependencies..."
