@@ -21,6 +21,15 @@ import {
   type MiniAppId,
   type OpenMiniAppRequest,
 } from "../mini-apps/types";
+import {
+  type AppNavigationHistoryAvailability,
+  type AppNavigationHistoryCursor,
+  createAppNavigationHistoryState,
+  DEFAULT_APP_NAVIGATION_HISTORY_CURSOR,
+  getAppNavigationHistoryAvailability,
+  getNextAppNavigationHistoryCursor,
+  readAppNavigationHistoryCursor,
+} from "./AppNavigationHistory";
 import type { AppNavigationMode } from "./AppNavigationMode";
 import {
   type AppRouteState,
@@ -45,6 +54,7 @@ interface AppNavigationActions {
 }
 
 interface AppNavigationState {
+  history: AppNavigationHistoryAvailability;
   mode: AppNavigationMode;
   route: AppRouteState;
 }
@@ -100,6 +110,58 @@ function readCurrentRoute(
   return parseAppRoute(window.location.pathname, miniApps);
 }
 
+function readWindowHistoryCursor(): AppNavigationHistoryCursor {
+  if (typeof window === "undefined") {
+    return DEFAULT_APP_NAVIGATION_HISTORY_CURSOR;
+  }
+
+  return (
+    readAppNavigationHistoryCursor(window.history.state) ??
+    DEFAULT_APP_NAVIGATION_HISTORY_CURSOR
+  );
+}
+
+function ensureWindowHistoryCursor(): AppNavigationHistoryCursor {
+  const cursor = readWindowHistoryCursor();
+  if (
+    typeof window !== "undefined" &&
+    readAppNavigationHistoryCursor(window.history.state) === null
+  ) {
+    replaceWindowHistoryCursor(cursor);
+  }
+
+  return cursor;
+}
+
+function replaceWindowHistoryCursor(
+  cursor: AppNavigationHistoryCursor,
+  path?: string,
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const state = createAppNavigationHistoryState(window.history.state, cursor);
+  if (path === undefined) {
+    window.history.replaceState(state, "");
+    return;
+  }
+
+  window.history.replaceState(state, "", path);
+}
+
+function pushWindowHistoryCursor(
+  cursor: AppNavigationHistoryCursor,
+  path: string,
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const state = createAppNavigationHistoryState(window.history.state, cursor);
+  window.history.pushState(state, "", path);
+}
+
 function AppNavigationWindowRuntimeBridge({
   miniApps,
   mode,
@@ -146,20 +208,32 @@ function useAppRouteController({
   const [route, setRoute] = useState<AppRouteState>(() =>
     readCurrentRoute(miniApps),
   );
+  const [historyCursor, setHistoryCursorState] =
+    useState<AppNavigationHistoryCursor>(readWindowHistoryCursor);
+  const historyCursorRef = useRef(historyCursor);
+  const setHistoryCursor = useCallback((cursor: AppNavigationHistoryCursor) => {
+    historyCursorRef.current = cursor;
+    setHistoryCursorState(cursor);
+  }, []);
 
   useEffect(() => {
     if (mode !== "routed" || typeof window === "undefined") {
       return;
     }
 
-    const handlePopState = () => {
+    const handlePopState = (event: PopStateEvent) => {
+      setHistoryCursor(
+        readAppNavigationHistoryCursor(event.state) ??
+          DEFAULT_APP_NAVIGATION_HISTORY_CURSOR,
+      );
       setRoute(readCurrentRoute(runtimeRef.current.miniApps));
     };
 
+    setHistoryCursor(ensureWindowHistoryCursor());
     setRoute(readCurrentRoute(runtimeRef.current.miniApps));
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [mode]);
+  }, [mode, runtimeRef, setHistoryCursor]);
 
   const navigateMiniAppRoute = useCallback(
     ({
@@ -178,26 +252,58 @@ function useAppRouteController({
       const path = buildMiniAppPath(appId, pathSegments);
       setRoute({ appId, pathSegments: [...pathSegments] });
 
-      if (typeof window === "undefined") {
-        return;
-      }
-
-      const shouldReplace = replace || window.location.pathname === path;
+      const shouldReplace =
+        replace ||
+        (typeof window !== "undefined" && window.location.pathname === path);
       if (shouldReplace) {
-        window.history.replaceState(window.history.state, "", path);
+        const cursor = historyCursorRef.current;
+        replaceWindowHistoryCursor(cursor, path);
         return;
       }
 
-      window.history.pushState(window.history.state, "", path);
+      const currentCursor = historyCursorRef.current;
+      const nextCursor = getNextAppNavigationHistoryCursor(currentCursor);
+      replaceWindowHistoryCursor({
+        entries: nextCursor.entries,
+        index: currentCursor.index,
+      });
+      setHistoryCursor(nextCursor);
+      pushWindowHistoryCursor(nextCursor, path);
     },
-    [runtimeRef],
+    [runtimeRef, setHistoryCursor],
   );
 
-  return { navigateMiniAppRoute, route };
+  const goBack = useCallback(() => {
+    if (typeof window !== "undefined" && historyCursorRef.current.index > 0) {
+      setHistoryCursor({
+        ...historyCursorRef.current,
+        index: historyCursorRef.current.index - 1,
+      });
+      window.history.back();
+    }
+  }, [setHistoryCursor]);
+  const goForward = useCallback(() => {
+    const { entries, index } = historyCursorRef.current;
+    if (typeof window !== "undefined" && index < entries - 1) {
+      setHistoryCursor({
+        ...historyCursorRef.current,
+        index: index + 1,
+      });
+      window.history.forward();
+    }
+  }, [setHistoryCursor]);
+  const history = useMemo(
+    () => getAppNavigationHistoryAvailability(historyCursor),
+    [historyCursor],
+  );
+
+  return { goBack, goForward, history, navigateMiniAppRoute, route };
 }
 
 function useAppNavigationActionValue(
   runtimeRef: MutableRefObject<AppNavigationRuntime>,
+  goBack: AppNavigationActions["goBack"],
+  goForward: AppNavigationActions["goForward"],
   navigateMiniAppRoute: AppNavigationActions["navigateMiniAppRoute"],
 ): AppNavigationActions {
   const openMiniApp = useCallback(
@@ -247,17 +353,6 @@ function useAppNavigationActionValue(
     [navigateMiniAppRoute],
   );
   const getMiniAppHref = useCallback(buildMiniAppPath, []);
-  const goBack = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.history.back();
-    }
-  }, []);
-  const goForward = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.history.forward();
-    }
-  }, []);
-
   return useMemo<AppNavigationActions>(
     () => ({
       getMiniAppHref,
@@ -286,15 +381,21 @@ export function AppNavigationProvider({
     mode,
     windows: [],
   });
-  const { navigateMiniAppRoute, route } = useAppRouteController({
-    miniApps,
-    mode,
+  const { goBack, goForward, history, navigateMiniAppRoute, route } =
+    useAppRouteController({
+      miniApps,
+      mode,
+      runtimeRef,
+    });
+  const actions = useAppNavigationActionValue(
     runtimeRef,
-  });
-  const actions = useAppNavigationActionValue(runtimeRef, navigateMiniAppRoute);
+    goBack,
+    goForward,
+    navigateMiniAppRoute,
+  );
   const state = useMemo<AppNavigationState>(
-    () => ({ mode, route }),
-    [mode, route],
+    () => ({ history, mode, route }),
+    [history, mode, route],
   );
 
   return (
