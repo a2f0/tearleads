@@ -5,7 +5,9 @@ set -e
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # Source session.sh to get script paths for shellcheck.
+# shellcheck disable=SC2034
 tearleads_repo_root=$REPO_ROOT
+# shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/session.sh"
 
 if [ -z "$repo_script_paths" ]; then
@@ -98,6 +100,9 @@ while read -r _ local_sha _ remote_sha; do
 
   "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range" </dev/null
 done <"$refs_file"
+
+echo "Running Ruby linting..."
+bun run lint:ruby
 
 echo "Running bun tests..."
 bun run test:turbo:affected

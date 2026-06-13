@@ -10,11 +10,19 @@
     "build": "vite build",
     "build:worker": "bun run --silent scripts/buildWorker.ts",
     "build:client-sdk": "bun run --cwd ../client-sdk build",
-    "cap:sync": "cap sync",
+    "cap:sync": "bun run cap:sync:debug",
+    "cap:sync:debug": "CAPACITOR_BUILD_CONFIGURATION=Debug cap sync",
+    "cap:sync:release": "CAPACITOR_BUILD_CONFIGURATION=Release cap sync",
     "cap:open:android": "cap open android",
     "cap:run:android": "cap run android",
     "cap:open:ios": "cap open ios",
-    "cap:run:ios": "cap run ios"
+    "cap:run:ios": "cap run ios",
+    "android:build:debug": "bundle exec fastlane android build_debug",
+    "android:build:release": "bundle exec fastlane android build_release",
+    "android:sideload": "bundle exec fastlane android sideload",
+    "android:sideload:debug": "bundle exec fastlane android install_debug",
+    "android:sideload:release": "bundle exec fastlane android install_release",
+    "lint:rubocop": "bundle exec rubocop"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.0",

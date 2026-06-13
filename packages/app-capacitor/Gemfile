@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+source 'https://rubygems.org'
+
+ruby file: '../../.ruby-version'
+
+gem 'fastlane', '~> 2.230'
+gem 'rubocop', '~> 1.82'

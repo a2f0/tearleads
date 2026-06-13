@@ -1,0 +1,5 @@
+# frozen_string_literal: true
+
+default_platform(:android)
+
+import 'Fastfile.android.rb'
