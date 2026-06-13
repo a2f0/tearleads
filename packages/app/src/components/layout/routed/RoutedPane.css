@@ -25,6 +25,7 @@
 
 .routed-pane-history-controls,
 .routed-pane-system-controls,
+.routed-pane-sidebar-controls,
 .routed-pane-actions {
   display: flex;
   align-items: center;
@@ -34,6 +35,7 @@
 
 .routed-pane-history-controls button,
 .routed-pane-system-controls button,
+.routed-pane-sidebar-controls button,
 .routed-pane-actions button,
 .routed-pane-nav-link {
   min-height: 2rem;
@@ -48,6 +50,7 @@
 
 .routed-pane-history-controls button:hover,
 .routed-pane-system-controls button:hover,
+.routed-pane-sidebar-controls button:hover,
 .routed-pane-actions button:hover:not(:disabled),
 .routed-pane-nav-link:hover,
 .routed-pane-nav-link--active {
@@ -59,6 +62,15 @@
 .routed-pane-actions button:disabled {
   opacity: var(--mini-app-disabled-opacity);
   cursor: default;
+}
+
+.routed-pane-title {
+  flex: 0 0 auto;
+  max-width: min(24vw, 12rem);
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .routed-pane-nav {
@@ -110,6 +122,7 @@
 
   .routed-pane-history-controls,
   .routed-pane-system-controls,
+  .routed-pane-sidebar-controls,
   .routed-pane-actions,
   .routed-pane-nav {
     width: 100%;
@@ -117,8 +130,13 @@
 
   .routed-pane-history-controls button,
   .routed-pane-system-controls button,
+  .routed-pane-sidebar-controls button,
   .routed-pane-actions button,
   .routed-pane-nav-link {
     flex: 0 0 auto;
+  }
+
+  .routed-pane-title {
+    max-width: 100%;
   }
 }

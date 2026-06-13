@@ -1,5 +1,6 @@
 import type { MiniAppDefinition, MiniAppId } from "../mini-apps/types";
 
+export const APP_HOME_PATH = "/";
 const APP_ROUTE_PREFIX = "/app/";
 
 export interface AppRouteState {

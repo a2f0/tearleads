@@ -111,6 +111,36 @@ function RoutedPaneNavButton({
   );
 }
 
+function RoutedPaneHomeNavButton({
+  activeAppId,
+}: {
+  activeAppId: MiniAppId | null;
+}) {
+  const { getHomeHref, navigateHome } = useAppNavigationActions();
+  const handleClick = useCallback(
+    (event: ReactMouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      navigateHome();
+    },
+    [navigateHome],
+  );
+
+  return (
+    <a
+      aria-current={activeAppId === null ? "page" : undefined}
+      className={
+        activeAppId === null
+          ? "routed-pane-nav-link routed-pane-nav-link--active"
+          : "routed-pane-nav-link"
+      }
+      href={getHomeHref()}
+      onClick={handleClick}
+    >
+      Home
+    </a>
+  );
+}
+
 function RoutedPaneSystemMenuButton({
   onOpenUnlock,
 }: {
@@ -150,10 +180,16 @@ function RoutedPaneSystemMenuButton({
 
 function RoutedPaneToolbar({
   activeAppId,
+  hasSidebar,
   onOpenUnlock,
+  onToggleSidebar,
+  sidebarExpanded,
 }: {
   activeAppId: MiniAppId | null;
+  hasSidebar: boolean;
   onOpenUnlock: () => void;
+  onToggleSidebar: () => void;
+  sidebarExpanded: boolean;
 }) {
   const { goBack, goForward } = useAppNavigationActions();
   const { history } = useAppNavigationState();
@@ -166,6 +202,9 @@ function RoutedPaneToolbar({
 
   return (
     <div className="routed-pane-toolbar">
+      <div className="routed-pane-title">
+        {activeAppId ? MINI_APPS[activeAppId].title : "Home"}
+      </div>
       <div className="routed-pane-history-controls">
         <button
           aria-label="Back"
@@ -185,7 +224,20 @@ function RoutedPaneToolbar({
         </button>
       </div>
       <RoutedPaneSystemMenuButton onOpenUnlock={onOpenUnlock} />
+      {hasSidebar && (
+        <div className="routed-pane-sidebar-controls">
+          <button
+            aria-controls="routed-pane-sidebar"
+            aria-expanded={sidebarExpanded}
+            type="button"
+            onClick={onToggleSidebar}
+          >
+            {sidebarExpanded ? "Hide Sidebar" : "Show Sidebar"}
+          </button>
+        </div>
+      )}
       <nav aria-label="Apps" className="routed-pane-nav">
+        <RoutedPaneHomeNavButton activeAppId={activeAppId} />
         {MINI_APP_MENU_ITEMS.map(({ appId }) => (
           <RoutedPaneNavButton
             key={appId}
@@ -226,14 +278,32 @@ function RoutedPaneSurface({
   const { sidebar } = useWindowSidebar();
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
+  const [sidebarExpanded, setSidebarExpanded] = useState(() =>
+    activeAppId ? (MINI_APPS[activeAppId].initialShowSidebar ?? true) : true,
+  );
+  const toggleSidebar = useCallback(
+    () => setSidebarExpanded((current) => !current),
+    [],
+  );
 
   return (
     <section className="routed-pane" role="application">
       <RoutedPaneToolbar
         activeAppId={activeAppId}
+        hasSidebar={hasSidebar}
         onOpenUnlock={onOpenUnlock}
+        onToggleSidebar={toggleSidebar}
+        sidebarExpanded={sidebarExpanded}
       />
-      {hasSidebar && <div className="routed-pane-sidebar">{sidebar}</div>}
+      {hasSidebar && (
+        <div
+          className="routed-pane-sidebar"
+          id="routed-pane-sidebar"
+          style={{ display: sidebarExpanded ? undefined : "none" }}
+        >
+          {sidebarExpanded && sidebar}
+        </div>
+      )}
       <main className="routed-pane-main">
         {showUnlockPanel ? (
           <LocalKeyringUnlockWindow />

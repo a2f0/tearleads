@@ -24,14 +24,17 @@ import {
 import {
   type AppNavigationHistoryAvailability,
   type AppNavigationHistoryCursor,
-  createAppNavigationHistoryState,
   DEFAULT_APP_NAVIGATION_HISTORY_CURSOR,
   getAppNavigationHistoryAvailability,
-  getNextAppNavigationHistoryCursor,
   readAppNavigationHistoryCursor,
 } from "./AppNavigationHistory";
 import type { AppNavigationMode } from "./AppNavigationMode";
 import {
+  replaceWindowHistoryCursor,
+  useRoutedPathNavigator,
+} from "./AppRoutedPathNavigator";
+import {
+  APP_HOME_PATH,
   type AppRouteState,
   buildMiniAppPath,
   parseAppRoute,
@@ -45,11 +48,13 @@ interface AppNavigationActions {
   ) => string;
   goBack: () => void;
   goForward: () => void;
+  getHomeHref: () => string;
   navigateMiniAppRoute: (input: {
     appId: MiniAppId;
     pathSegments?: ReadonlyArray<string> | undefined;
     replace?: boolean | undefined;
   }) => void;
+  navigateHome: (input?: { replace?: boolean | undefined }) => void;
   openMiniApp: (request: OpenMiniAppRequest) => void;
 }
 
@@ -133,35 +138,6 @@ function ensureWindowHistoryCursor(): AppNavigationHistoryCursor {
   return cursor;
 }
 
-function replaceWindowHistoryCursor(
-  cursor: AppNavigationHistoryCursor,
-  path?: string,
-) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const state = createAppNavigationHistoryState(window.history.state, cursor);
-  if (path === undefined) {
-    window.history.replaceState(state, "");
-    return;
-  }
-
-  window.history.replaceState(state, "", path);
-}
-
-function pushWindowHistoryCursor(
-  cursor: AppNavigationHistoryCursor,
-  path: string,
-) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const state = createAppNavigationHistoryState(window.history.state, cursor);
-  window.history.pushState(state, "", path);
-}
-
 function AppNavigationWindowRuntimeBridge({
   miniApps,
   mode,
@@ -215,6 +191,12 @@ function useAppRouteController({
     historyCursorRef.current = cursor;
     setHistoryCursorState(cursor);
   }, []);
+  const navigateRoutedPath = useRoutedPathNavigator({
+    historyCursorRef,
+    runtimeRef,
+    setHistoryCursor,
+    setRoute,
+  });
 
   useEffect(() => {
     if (mode !== "routed" || typeof window === "undefined") {
@@ -245,32 +227,23 @@ function useAppRouteController({
       pathSegments?: ReadonlyArray<string> | undefined;
       replace?: boolean | undefined;
     }) => {
-      if (runtimeRef.current.mode !== "routed") {
-        return;
-      }
-
-      const path = buildMiniAppPath(appId, pathSegments);
-      setRoute({ appId, pathSegments: [...pathSegments] });
-
-      const shouldReplace =
-        replace ||
-        (typeof window !== "undefined" && window.location.pathname === path);
-      if (shouldReplace) {
-        const cursor = historyCursorRef.current;
-        replaceWindowHistoryCursor(cursor, path);
-        return;
-      }
-
-      const currentCursor = historyCursorRef.current;
-      const nextCursor = getNextAppNavigationHistoryCursor(currentCursor);
-      replaceWindowHistoryCursor({
-        entries: nextCursor.entries,
-        index: currentCursor.index,
+      navigateRoutedPath({
+        path: buildMiniAppPath(appId, pathSegments),
+        replace,
+        route: { appId, pathSegments: [...pathSegments] },
       });
-      setHistoryCursor(nextCursor);
-      pushWindowHistoryCursor(nextCursor, path);
     },
-    [runtimeRef, setHistoryCursor],
+    [navigateRoutedPath],
+  );
+  const navigateHome = useCallback(
+    ({ replace = false }: { replace?: boolean | undefined } = {}) => {
+      navigateRoutedPath({
+        path: APP_HOME_PATH,
+        replace,
+        route: { appId: null, pathSegments: [] },
+      });
+    },
+    [navigateRoutedPath],
   );
 
   const goBack = useCallback(() => {
@@ -297,13 +270,21 @@ function useAppRouteController({
     [historyCursor],
   );
 
-  return { goBack, goForward, history, navigateMiniAppRoute, route };
+  return {
+    goBack,
+    goForward,
+    history,
+    navigateHome,
+    navigateMiniAppRoute,
+    route,
+  };
 }
 
 function useAppNavigationActionValue(
   runtimeRef: MutableRefObject<AppNavigationRuntime>,
   goBack: AppNavigationActions["goBack"],
   goForward: AppNavigationActions["goForward"],
+  navigateHome: AppNavigationActions["navigateHome"],
   navigateMiniAppRoute: AppNavigationActions["navigateMiniAppRoute"],
 ): AppNavigationActions {
   const openMiniApp = useCallback(
@@ -352,16 +333,27 @@ function useAppNavigationActionValue(
     },
     [navigateMiniAppRoute],
   );
+  const getHomeHref = useCallback(() => APP_HOME_PATH, []);
   const getMiniAppHref = useCallback(buildMiniAppPath, []);
   return useMemo<AppNavigationActions>(
     () => ({
+      getHomeHref,
       getMiniAppHref,
       goBack,
       goForward,
+      navigateHome,
       navigateMiniAppRoute,
       openMiniApp,
     }),
-    [getMiniAppHref, goBack, goForward, navigateMiniAppRoute, openMiniApp],
+    [
+      getHomeHref,
+      getMiniAppHref,
+      goBack,
+      goForward,
+      navigateHome,
+      navigateMiniAppRoute,
+      openMiniApp,
+    ],
   );
 }
 
@@ -381,16 +373,23 @@ export function AppNavigationProvider({
     mode,
     windows: [],
   });
-  const { goBack, goForward, history, navigateMiniAppRoute, route } =
-    useAppRouteController({
-      miniApps,
-      mode,
-      runtimeRef,
-    });
+  const {
+    goBack,
+    goForward,
+    history,
+    navigateHome,
+    navigateMiniAppRoute,
+    route,
+  } = useAppRouteController({
+    miniApps,
+    mode,
+    runtimeRef,
+  });
   const actions = useAppNavigationActionValue(
     runtimeRef,
     goBack,
     goForward,
+    navigateHome,
     navigateMiniAppRoute,
   );
   const state = useMemo<AppNavigationState>(
