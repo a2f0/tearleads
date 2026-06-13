@@ -38,9 +38,10 @@ REMOTE_PATH="/var/www/website"
 wait_for_ssh_ready "$SSH_TARGET"
 
 echo "Deploying website to $SSH_TARGET:$REMOTE_PATH ..."
-rsync -avz --delete --rsync-path="sudo rsync" --chown=www-data:www-data \
+rsync -avz --delete --rsync-path="sudo rsync" \
   "$WEBSITE_DIR/dist/" "$SSH_TARGET:$REMOTE_PATH/"
 
+ssh "$SSH_TARGET" "sudo chown -R www-data:www-data $REMOTE_PATH"
 ssh "$SSH_TARGET" "sudo systemctl reload nginx"
 
 echo "Website deployed."
