@@ -111,6 +111,10 @@ resource "terraform_data" "tailscale_destroy_cleanup" {
     server_id = module.server.server_id
   }
 
+  triggers_replace = [
+    module.server.server_id
+  ]
+
   provisioner "local-exec" {
     when = destroy
     environment = {

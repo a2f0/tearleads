@@ -19,15 +19,8 @@ STACK_DIR="$REPO_ROOT/terraform/stacks/staging/server"
 BACKEND_CONFIG="$(get_backend_config)"
 terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
 
-HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw ssh_hostname 2>/dev/null) || true
-USERNAME=$(terraform -chdir="$STACK_DIR" output -raw server_username 2>/dev/null) || true
+SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
 DOMAIN="${TF_VAR_domain:-}"
-
-if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
-  echo "ERROR: Could not resolve hostname or username from terraform outputs." >&2
-  echo "       Run 'terraform apply' in $STACK_DIR first." >&2
-  exit 1
-fi
 
 if [ -z "$DOMAIN" ]; then
   echo "ERROR: TF_VAR_domain is required to build staging app-web URLs." >&2
@@ -40,10 +33,7 @@ echo "Building app-web..."
   BUN_PUBLIC_WS_URL="wss://api.${DOMAIN}" \
   bun run build)
 
-SSH_TARGET="$USERNAME@$HOSTNAME"
 REMOTE_PATH="/var/www/app-web"
-
-wait_for_ssh_ready "$SSH_TARGET"
 
 echo "Deploying app-web static files to $SSH_TARGET:$REMOTE_PATH ..."
 ssh "$SSH_TARGET" "sudo mkdir -p $REMOTE_PATH"
