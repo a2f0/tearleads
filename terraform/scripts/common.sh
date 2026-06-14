@@ -330,6 +330,10 @@ wait_for_ssh_ready() {
       return 0
     fi
 
+    if (( attempt == ssh_retries )); then
+      break
+    fi
+
     echo "SSH not ready yet (attempt $attempt/$ssh_retries). Retrying in ${ssh_retry_delay_seconds}s..."
     if [[ -n "$ssh_output" ]]; then
       echo "$ssh_output"
@@ -340,4 +344,44 @@ wait_for_ssh_ready() {
 
   echo "ERROR: Unable to connect to $ssh_target over SSH after $ssh_retries attempts."
   return 1
+}
+
+# Resolve a reachable SSH target from a Terraform stack.
+# Prefer the public server IP because Tailscale MagicDNS can lag after a server
+# replacement, but keep the Tailscale hostname as a fallback.
+resolve_stack_ssh_target() {
+  local stack_dir="$1"
+  local username hostname server_ip ssh_target
+
+  username="$(terraform -chdir="$stack_dir" output -raw server_username 2>/dev/null || true)"
+  hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null || true)"
+  server_ip="$(terraform -chdir="$stack_dir" output -raw server_ip 2>/dev/null || true)"
+
+  if [[ -z "$username" ]]; then
+    echo "ERROR: Could not resolve server username from terraform outputs." >&2
+    echo "       Run 'terraform apply' in $stack_dir first." >&2
+    return 1
+  fi
+
+  if [[ -n "$server_ip" ]]; then
+    ssh_target="$username@$server_ip"
+    if wait_for_ssh_ready "$ssh_target" >&2; then
+      echo "$ssh_target"
+      return 0
+    fi
+
+    if [[ -n "$hostname" ]]; then
+      echo "WARNING: $ssh_target is not reachable; falling back to $username@$hostname." >&2
+    fi
+  fi
+
+  if [[ -z "$hostname" ]]; then
+    echo "ERROR: Could not resolve ssh_hostname or server_ip from terraform outputs." >&2
+    echo "       Run 'terraform apply' in $stack_dir first." >&2
+    return 1
+  fi
+
+  ssh_target="$username@$hostname"
+  wait_for_ssh_ready "$ssh_target" >&2 || return 1
+  echo "$ssh_target"
 }

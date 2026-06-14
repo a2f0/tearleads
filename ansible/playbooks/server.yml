@@ -23,6 +23,7 @@
     postgres_host: "127.0.0.1"
     redis_bind: "127.0.0.1"
     domain: "{{ lookup('env', 'TF_VAR_domain') | default('', true) }}"
+    cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
     nginx_worker_connections: 1024
@@ -158,8 +159,61 @@
       ansible.builtin.apt:
         name:
           - acl
+          - ca-certificates
           - unzip
         state: present
+
+    - name: Add Cloudflare package signing key
+      ansible.builtin.get_url:
+        url: https://pkg.cloudflare.com/cloudflare-main.gpg
+        dest: /usr/share/keyrings/cloudflare-main.gpg
+        mode: "0644"
+      when: cloudflare_tunnel_token != ""
+
+    - name: Add Cloudflare cloudflared apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main"
+        state: present
+      when: cloudflare_tunnel_token != ""
+
+    - name: Install cloudflared
+      ansible.builtin.apt:
+        name: cloudflared
+        state: present
+        update_cache: true
+      when: cloudflare_tunnel_token != ""
+
+    - name: Configure cloudflared tunnel service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/cloudflared.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=cloudflare-tunnel
+          After=network.target
+
+          [Service]
+          TimeoutStartSec=0
+          Type=simple
+          ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token {{ cloudflare_tunnel_token }}
+          Restart=on-failure
+          RestartSec=5s
+
+          [Install]
+          WantedBy=multi-user.target
+      register: cloudflared_service_file
+      no_log: true
+      when: cloudflare_tunnel_token != ""
+
+    - name: Ensure cloudflared is enabled and started
+      ansible.builtin.systemd:
+        name: cloudflared
+        daemon_reload: true
+        enabled: true
+        state: "{{ 'restarted' if cloudflared_service_file.changed else 'started' }}"
+      when: cloudflare_tunnel_token != ""
 
     - name: Install Bun
       ansible.builtin.shell:

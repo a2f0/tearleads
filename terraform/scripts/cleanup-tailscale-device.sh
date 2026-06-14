@@ -41,7 +41,12 @@ if [[ -z "$DEVICES" ]]; then
 fi
 
 DEVICE_ID="$(echo "$DEVICES" | jq -r --arg name "$HOSTNAME" \
-  '.devices[]? | select(.hostname == $name) | .id' 2>/dev/null | head -1 || true)"
+  '.devices[]? | select(((.name // "") | split(".")[0]) == $name) | .id' 2>/dev/null | head -1 || true)"
+
+if [[ -z "$DEVICE_ID" ]]; then
+  DEVICE_ID="$(echo "$DEVICES" | jq -r --arg name "$HOSTNAME" \
+    '.devices[]? | select(.hostname == $name) | .id' 2>/dev/null | head -1 || true)"
+fi
 
 if [[ -z "$DEVICE_ID" ]]; then
   echo "Device '$HOSTNAME' not found in tailnet, nothing to clean up"
