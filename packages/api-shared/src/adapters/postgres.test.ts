@@ -1,9 +1,14 @@
-import { expect, test } from "bun:test";
+import { afterAll, expect, test } from "bun:test";
 import type { ManagedApiDatabase } from "./postgres";
 import {
+  closeApiDatabase,
   createDefaultManagedApiDatabase,
   createPostgresPoolConfig,
 } from "./postgres";
+
+afterAll(async () => {
+  await closeApiDatabase();
+});
 
 function expectedDevHost(): string {
   return process.platform === "linux" ? "/var/run/postgresql" : "localhost";
