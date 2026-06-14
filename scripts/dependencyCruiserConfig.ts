@@ -8,6 +8,8 @@ import dependencyCruiserConfig from "../dependency-cruiser.config";
 
 export const dependencyCruiserEntryPoints = [
   "packages/api-client/src",
+  "packages/api-cli/src",
+  "packages/api-shared/src",
   "packages/api/src",
   "packages/app-electrobun/src",
   "packages/app-web/src",

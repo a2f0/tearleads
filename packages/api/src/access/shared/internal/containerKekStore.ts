@@ -1,4 +1,13 @@
 import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import {
+  containerKeyEpochs,
+  containerKeyWraps,
+} from "@tearleads/api-shared/schema";
+import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -8,12 +17,6 @@ import type {
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import type {
-  ApiDatabase,
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
-import { containerKeyEpochs, containerKeyWraps } from "../../../schema";
 
 interface StoredContainerKeyEpoch extends ContainerKeyEpoch {
   readonly createdAt: Date;

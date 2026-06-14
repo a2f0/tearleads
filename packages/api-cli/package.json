@@ -1,0 +1,16 @@
+{
+  "name": "@tearleads/api-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/buildApiCliExecutable.ts",
+    "migrate": "bun src/index.ts migrate"
+  },
+  "dependencies": {
+    "@tearleads/api-shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}

@@ -1,3 +1,4 @@
+import { blobStages } from "@tearleads/api-shared/schema";
 import type {
   CompleteMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequest,
@@ -15,7 +16,6 @@ import {
   BlobObjectStoreError,
   type BlobObjectUploadPartBody,
 } from "../../adapters/blobObjectStore";
-import { blobStages } from "../../schema";
 import {
   encodeMultipartBlobStageRecord,
   readMultipartBlobStageRecord,

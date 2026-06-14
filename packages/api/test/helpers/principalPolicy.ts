@@ -1,9 +1,9 @@
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type {
   ManagedPrincipalKind,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import type { ApiDatabase } from "../../src/adapters/postgres";
 import { runGetCurrentPrincipalPolicyWorkflow } from "../../src/workflows/principals/getCurrentPrincipalPolicy";
 
 function verifiedPrincipalPolicyFromBundle(

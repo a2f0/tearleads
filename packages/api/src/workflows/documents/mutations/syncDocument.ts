@@ -1,4 +1,10 @@
 import { Buffer } from "node:buffer";
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import { documentUpdates } from "@tearleads/api-shared/schema";
 import type { VerifiedWriteHeader, WriteHeader } from "@tearleads/crypto";
 import {
   computeDocumentContentRecordCiphertextHash,
@@ -23,18 +29,12 @@ import {
   storeDocumentContentKeyBundleInTransaction,
   storeDocumentContentWriteHeader,
 } from "../../../access/write/documentContentKeyStore";
-import type {
-  ApiDatabase,
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
 import { readCurrentCommitLsn } from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { maybeWriteDocumentAuditCheckpoint } from "../../../documents/documentAuditCheckpoints";
 import { appendDocumentUpdateAuditEntries } from "../../../documents/documentAuditEntries";
 import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpans";
 import { listMissingDocumentUpdates } from "../../../documents/documentUpdateStore";
-import { documentUpdates } from "../../../schema";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { applyContainerRekeys } from "../../containers/mutations";

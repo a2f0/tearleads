@@ -26,6 +26,7 @@ else
 fi
 
 repo_script_paths="$repo_root/packages/api/scripts
+$repo_root/packages/api-cli/scripts
 $repo_root/packages/app-web/scripts
 $repo_root/packages/app-electrobun/scripts
 $repo_root/packages/sqlite-instance/scripts

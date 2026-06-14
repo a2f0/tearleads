@@ -1,10 +1,10 @@
+import { blobs } from "@tearleads/api-shared/schema";
 import type { BlobResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {
   type BlobObjectReadStream,
   blobObjectChunkToStream,
 } from "../../adapters/blobObjectStore";
-import { blobs } from "../../schema";
 import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import {
   KeyingReadAccessError,

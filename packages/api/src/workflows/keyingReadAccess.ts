@@ -1,3 +1,5 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { attachmentBindings } from "@tearleads/api-shared/schema";
 import type {
   DocumentLinkSetManifestState,
   ReferencedPrincipalHead,
@@ -9,7 +11,6 @@ import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
 } from "../access/read/accessManifestStore";
-import type { DatabaseSession } from "../adapters/postgres";
 import {
   readProjectionNullableString,
   readProjectionPlainRecord,
@@ -19,7 +20,6 @@ import {
   readProjectionValue,
   readProjectionVersion,
 } from "../keyingProjectionRecords";
-import { attachmentBindings } from "../schema";
 import {
   type ContainerAccessProjection,
   type ContainerAccessProjectionResult,

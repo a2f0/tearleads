@@ -1,3 +1,7 @@
+import type {
+  ApiDatabase,
+  DatabaseSession,
+} from "@tearleads/api-shared/postgres";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { listCurrentPrincipalMemberEnvelopes } from "../../access/read/principalMemberEnvelopes";
 import {
@@ -7,7 +11,6 @@ import {
   listPrincipalStateHistory,
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
-import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
 import {
   PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,

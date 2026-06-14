@@ -1,13 +1,13 @@
 import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import type {
   AccessEventType,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
-import type {
-  ApiDatabase,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
 
 export type { ApiDatabase };
 export type ContainerMutationStatus = 400 | 403 | 404 | 409;

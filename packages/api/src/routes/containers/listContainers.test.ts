@@ -1,4 +1,11 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestHeads,
+  accessManifests,
+  containerSyncTombstones,
+  containers,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
@@ -17,14 +24,7 @@ import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import {
-  accessManifestHeads,
-  accessManifests,
-  containerSyncTombstones,
-  containers,
-} from "../../schema";
 
 const SIGNED_AT = "2026-05-05T00:00:00.000Z";
 const TEST_CONTACTS_SYSTEM_SLOT =

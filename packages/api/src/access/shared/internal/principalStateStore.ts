@@ -1,3 +1,15 @@
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import {
+  principalEpochKeys,
+  principalMembershipProjection,
+  principalStatePayloads,
+  principalStates,
+  users,
+} from "@tearleads/api-shared/schema";
 import {
   computePrincipalStateHash,
   type ManagedRecipientPrincipalType,
@@ -6,18 +18,6 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import type {
-  ApiDatabase,
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
-import {
-  principalEpochKeys,
-  principalMembershipProjection,
-  principalStatePayloads,
-  principalStates,
-  users,
-} from "../../../schema";
 import { uniqueSortedStrings } from "../../../utils/array";
 import {
   normalizePrincipalStateWriteInput,

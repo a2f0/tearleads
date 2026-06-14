@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { attachmentBindings } from "@tearleads/api-shared/schema";
 import {
   type AttachmentBindAccessEventBody,
   type AttachmentDetachAccessEventBody,
@@ -10,8 +12,6 @@ import {
   type VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../adapters/postgres";
-import { attachmentBindings } from "../../schema";
 import {
   storeVerifiedAttachmentBinding,
   storeVerifiedAttachmentDetach,

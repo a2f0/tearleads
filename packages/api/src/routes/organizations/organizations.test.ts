@@ -1,4 +1,17 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestHeads,
+  blobContentWriteHeaders,
+  blobs,
+  containers,
+  documentContentWriteHeaders,
+  documents,
+  documentUpdates,
+  organizationRosterEntries,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -36,20 +49,7 @@ import {
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
 import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
-import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import {
-  accessManifestHeads,
-  blobContentWriteHeaders,
-  blobs,
-  containers,
-  documentContentWriteHeaders,
-  documents,
-  documentUpdates,
-  organizationRosterEntries,
-  organizations,
-  users,
-} from "../../schema";
 
 async function registerAndAuthenticate(user: TestUser): Promise<string> {
   await registerUser(user);

@@ -1,4 +1,11 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  groups as groupsTable,
+  organizationRosterEntries,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -19,14 +26,7 @@ import {
   getCurrentPrincipalState,
   listCurrentPrincipalProjectionMembers,
 } from "../../access/read/principalStateStore";
-import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import {
-  groups as groupsTable,
-  organizationRosterEntries,
-  organizations,
-  users,
-} from "../../schema";
 
 async function createSignedPrincipalState(input: {
   keyEpoch?: number;

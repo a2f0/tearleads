@@ -1,5 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
-import type { DatabaseSession } from "../../adapters/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   groups as groupsTable,
   organizations,
@@ -8,7 +7,8 @@ import {
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
-} from "../../schema";
+} from "@tearleads/api-shared/schema";
+import { and, eq, sql } from "drizzle-orm";
 import { listOrganizationContainerGrantRows } from "./containerGrants";
 import { OrganizationManagerError } from "./errors";
 

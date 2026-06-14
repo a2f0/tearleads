@@ -1,8 +1,8 @@
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { organizationRosterEntries } from "@tearleads/api-shared/schema";
 import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import type { ApiDatabase } from "../../adapters/postgres";
-import { organizationRosterEntries } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import {

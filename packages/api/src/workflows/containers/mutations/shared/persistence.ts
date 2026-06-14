@@ -1,3 +1,10 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import {
+  containerMetadataDocuments,
+  containerSyncTombstones,
+  containers,
+  documents,
+} from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
   VerifiedContainerAccessManifest,
@@ -8,17 +15,10 @@ import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { eq, sql } from "drizzle-orm";
 import { storeVerifiedAccessManifestInTransaction } from "../../../../access/write/accessManifestStore";
 import { storeVerifiedContainerKekStateInTransaction } from "../../../../access/write/containerKekStore";
-import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import {
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
 } from "../../../../keyingProjectionRecords";
-import {
-  containerMetadataDocuments,
-  containerSyncTombstones,
-  containers,
-  documents,
-} from "../../../../schema";
 import {
   KeyingReadAccessError,
   resolveReadableContainerAccess,

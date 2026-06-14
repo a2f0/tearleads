@@ -1,3 +1,5 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
@@ -13,8 +15,6 @@ import {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
 import { getCurrentContainerKeyEpoch } from "../../../../access/read/containerKekStore";
-import type { DatabaseTransaction } from "../../../../adapters/postgres";
-import { users } from "../../../../schema";
 import { ContainerMutationError } from "../errors";
 import {
   readContainerKeyEpoch,

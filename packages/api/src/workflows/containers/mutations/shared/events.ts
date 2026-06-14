@@ -1,11 +1,11 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import type { AccessEventType, VerifiedAccessEvent } from "@tearleads/crypto";
 import { verifySignedAccessEvent } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import { readProjectionAccessEvent } from "../../../../keyingProjectionRecords";
-import { users } from "../../../../schema";
 import { readKeyingCanonicalJson } from "../../../../utils/canonicalJson";
 import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { MutateContainerInput } from "../types";

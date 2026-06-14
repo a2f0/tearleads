@@ -1,6 +1,6 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { organizations } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
-import type { DatabaseSession } from "../../adapters/postgres";
-import { organizations } from "../../schema";
 import { OrganizationManagerError } from "./errors";
 import { listUserReachableCurrentGroupIds } from "./principalReachability";
 

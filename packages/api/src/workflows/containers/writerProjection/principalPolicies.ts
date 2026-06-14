@@ -1,9 +1,9 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import type { DatabaseSession } from "../../../adapters/postgres";
 import {
   loadPrincipalPoliciesForContainerPaths,
   PrincipalPolicyProjectionError,

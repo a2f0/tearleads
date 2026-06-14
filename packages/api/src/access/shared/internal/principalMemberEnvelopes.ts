@@ -1,14 +1,14 @@
 import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import { principalMemberEnvelopes, users } from "@tearleads/api-shared/schema";
+import type {
   ManagedRecipientPrincipalType,
   PrincipalStateMemberType,
 } from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import type {
-  ApiDatabase,
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
-import { principalMemberEnvelopes, users } from "../../../schema";
 import {
   getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,

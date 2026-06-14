@@ -1,4 +1,17 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  attachmentBindings,
+  blobAuditObjects,
+  blobs,
+  containers,
+  documentAttachmentAuditEvents,
+  documentAuditEntries,
+  documentContainerLinks,
+  documents,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentBindAccessEventBody,
@@ -45,20 +58,7 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { db } from "../../adapters/postgres";
 import { verifyDocumentAuditHistory } from "../../documents/verifyDocumentAuditHistory";
-import {
-  attachmentBindings,
-  blobAuditObjects,
-  blobs,
-  containers,
-  documentAttachmentAuditEvents,
-  documentAuditEntries,
-  documentContainerLinks,
-  documents,
-  organizations,
-  users,
-} from "../../schema";
 import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import {
   BlobMutationError,

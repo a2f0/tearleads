@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { attachmentBindings, blobs } from "@tearleads/api-shared/schema";
 import {
   encryptForRecipients,
   serializeBlobEnvelope,
@@ -11,8 +13,6 @@ import {
   createRecordingDb,
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
-import { db } from "../../adapters/postgres";
-import { attachmentBindings, blobs } from "../../schema";
 import { encodeExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import { sha256Hex } from "../../utils/sha256";
 import { GetBlobError, getBlob, getBlobBytes } from "./getBlob";

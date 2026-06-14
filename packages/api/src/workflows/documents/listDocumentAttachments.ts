@@ -1,3 +1,5 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { attachmentBindings } from "@tearleads/api-shared/schema";
 import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
 import {
@@ -8,8 +10,6 @@ import {
   BlobKekTargetError,
   resolveCurrentBlobKekTargets,
 } from "../../access/read/blobKekTargets";
-import type { DatabaseSession } from "../../adapters/postgres";
-import { attachmentBindings } from "../../schema";
 import { toContentKeyBundleResponse } from "../blobs/mutations/records";
 import {
   KeyingReadAccessError,

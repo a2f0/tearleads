@@ -1,3 +1,5 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { containers } from "@tearleads/api-shared/schema";
 import type {
   ContainerAccessLevel,
   VerifiedPrincipalPolicy,
@@ -8,8 +10,6 @@ import {
   getAccessManifestBundle,
   getCurrentAccessManifestHead,
 } from "../../../access/read/accessManifestStore";
-import type { DatabaseSession } from "../../../adapters/postgres";
-import { containers } from "../../../schema";
 import { cachedProjectionValue } from "./context";
 import {
   loadPrincipalPoliciesForAccessPaths,

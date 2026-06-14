@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import {
   createDocument,
   encodeVersionVector,
@@ -6,8 +8,6 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
-import { db } from "../adapters/postgres";
-import { documents, documentUpdates } from "../schema";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   DocumentUpdateReadError,

@@ -6,6 +6,8 @@ const testFilesPattern = "\\.test\\.[tj]sx?$";
 
 const sourceRoot = {
   apiClient: "^packages/api-client/src/",
+  apiCli: "^packages/api-cli/src/",
+  apiShared: "^packages/api-shared/src/",
   api: "^packages/api/src/",
   appElectrobun: "^packages/app-electrobun/src/",
   appWeb: "^packages/app-web/src/",
@@ -128,7 +130,7 @@ const standardRules = [
     comment:
       "Production app and API modules must not import runtime values from devDependencies.",
     from: {
-      path: "^packages/(api|app|client-sdk)/src/",
+      path: "^packages/(api|api-cli|api-shared|app|client-sdk)/src/",
       pathNot: testFilesPattern,
     },
     to: {
@@ -161,6 +163,8 @@ const standardRules = [
         testFilesPattern,
         "(^|/)tsconfig\\.json$",
         "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
+        "^packages/api-cli/src/index\\.ts$",
+        "^packages/api-shared/src/index\\.ts$",
         "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
         "^packages/app-web/src/index\\.tsx$",
         "^packages/app/src/test/",
@@ -302,6 +306,48 @@ const apiRules = [
     },
     to: {
       path: apiLayer.access,
+    },
+  },
+] satisfies ForbiddenRules;
+
+const apiPackageBoundaryRules = [
+  {
+    name: "api-cli-does-not-depend-on-api",
+    severity: "error",
+    comment:
+      "The API CLI is a separate deployable entry package; shared server infrastructure belongs in api-shared.",
+    from: {
+      path: sourceRoot.apiCli,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: sourceRoot.api,
+    },
+  },
+  {
+    name: "api-does-not-depend-on-api-cli",
+    severity: "error",
+    comment:
+      "The API server must not depend on CLI implementation code; shared server infrastructure belongs in api-shared.",
+    from: {
+      path: sourceRoot.api,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: sourceRoot.apiCli,
+    },
+  },
+  {
+    name: "api-shared-does-not-depend-on-api-or-cli",
+    severity: "error",
+    comment:
+      "API shared source must stay below the API server and CLI packages.",
+    from: {
+      path: sourceRoot.apiShared,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: [sourceRoot.api, sourceRoot.apiCli],
     },
   },
 ] satisfies ForbiddenRules;
@@ -544,6 +590,8 @@ const corePackageRules = [
       path: [
         sourceRoot.api,
         sourceRoot.apiClient,
+        sourceRoot.apiCli,
+        sourceRoot.apiShared,
         sourceRoot.app,
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
@@ -566,6 +614,8 @@ const corePackageRules = [
       path: [
         sourceRoot.api,
         sourceRoot.apiClient,
+        sourceRoot.apiCli,
+        sourceRoot.apiShared,
         sourceRoot.app,
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
@@ -587,6 +637,8 @@ const corePackageRules = [
     to: {
       path: [
         sourceRoot.api,
+        sourceRoot.apiCli,
+        sourceRoot.apiShared,
         sourceRoot.app,
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
@@ -640,6 +692,8 @@ const corePackageRules = [
     to: {
       path: [
         sourceRoot.api,
+        sourceRoot.apiCli,
+        sourceRoot.apiShared,
         sourceRoot.app,
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
@@ -741,6 +795,7 @@ const dependencyCruiserConfig = {
   forbidden: [
     ...standardRules,
     ...apiRules,
+    ...apiPackageBoundaryRules,
     ...appRules,
     ...clientSdkRules,
     ...corePackageRules,
@@ -751,7 +806,7 @@ const dependencyCruiserConfig = {
     // Bun workspace subpath exports are checked separately in lintArchitecture.
     // Keep dependency-cruiser focused on source files whose paths it can resolve.
     includeOnly:
-      "^packages/(api|api-client|app|app-electrobun|app-web|bob-and-alice|client-sdk|crypto|encoding|loro|sqlite-instance|sqlite-worker|test-utils|ui|validators|website)/src/",
+      "^packages/(api|api-client|api-cli|api-shared|app|app-electrobun|app-web|bob-and-alice|client-sdk|crypto|encoding|loro|sqlite-instance|sqlite-worker|test-utils|ui|validators|website)/src/",
     tsPreCompilationDeps: "specify",
   },
 } satisfies IConfiguration;

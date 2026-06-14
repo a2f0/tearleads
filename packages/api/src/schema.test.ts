@@ -1,11 +1,5 @@
 import { expect, test } from "bun:test";
-import type {
-  KeyingCanonicalJson,
-  ReferencedPrincipalHead,
-  WriteHeader,
-} from "@tearleads/crypto";
-import { eq } from "drizzle-orm";
-import { db } from "./adapters/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -22,7 +16,13 @@ import {
   documentContentKeyTargets,
   documentContentWriteHeaders,
   documentUpdateSpans,
-} from "./schema";
+} from "@tearleads/api-shared/schema";
+import type {
+  KeyingCanonicalJson,
+  ReferencedPrincipalHead,
+  WriteHeader,
+} from "@tearleads/crypto";
+import { eq } from "drizzle-orm";
 
 const contentRecordEncryptionSuite = "aes-256-gcm-hkdf-sha256-record-key";
 

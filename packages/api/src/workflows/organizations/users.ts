@@ -1,6 +1,6 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import { inArray } from "drizzle-orm";
-import type { DatabaseSession } from "../../adapters/postgres";
-import { users } from "../../schema";
 
 export interface UserKeyRow {
   userId: string;

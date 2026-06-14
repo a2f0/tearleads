@@ -33,4 +33,4 @@ if [ "${has_pg_env}" -eq 0 ] && command -v pg_isready >/dev/null 2>&1; then
   fi
 fi
 
-API_DATABASE="${API_DATABASE:-postgres}" bun "$ROOT_DIR/packages/api/src/scripts/migratePostgres.ts" "$@"
+API_DATABASE="${API_DATABASE:-postgres}" bun "$ROOT_DIR/packages/api-cli/src/index.ts" migrate "$@"

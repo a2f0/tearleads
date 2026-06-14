@@ -1,7 +1,10 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestHeads,
+  accessManifests,
+} from "@tearleads/api-shared/schema";
 import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
-import type { DatabaseSession } from "../../../adapters/postgres";
-import { accessManifestHeads, accessManifests } from "../../../schema";
 import { getContainerKeyEpochsById } from "./containerKekStore";
 
 type ContainerKekTargetStatus = 404 | 409;

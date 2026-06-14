@@ -1,17 +1,17 @@
-import type { WriteHeader } from "@tearleads/crypto";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type {
   ApiDatabase,
   DatabaseSession,
   DatabaseTransaction,
-} from "../../../adapters/postgres";
+} from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
   accessManifests,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
-} from "../../../schema";
+} from "@tearleads/api-shared/schema";
+import type { WriteHeader } from "@tearleads/crypto";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   assertTargetHashMatches,
   assertTargetsMatchCurrent,

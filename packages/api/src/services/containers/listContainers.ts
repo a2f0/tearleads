@@ -1,3 +1,4 @@
+import { containerSyncTombstones } from "@tearleads/api-shared/schema";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerSummary,
@@ -7,7 +8,6 @@ import type {
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
-import { containerSyncTombstones } from "../../schema";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,

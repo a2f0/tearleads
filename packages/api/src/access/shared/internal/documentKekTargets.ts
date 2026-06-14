@@ -1,8 +1,8 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
 } from "@tearleads/crypto";
-import type { DatabaseSession } from "../../../adapters/postgres";
 import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,

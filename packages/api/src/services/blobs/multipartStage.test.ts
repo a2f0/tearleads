@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
+import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import { blobStages } from "../../schema";
 import { readMultipartBlobStageRecord } from "../../utils/blobStageRecords";
 import { sha256Hex } from "../../utils/sha256";
 import {

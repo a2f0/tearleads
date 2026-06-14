@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessManifests,
+  containerKeyEpochs,
+} from "@tearleads/api-shared/schema";
 import {
   type AccessEventType,
   type AccessManifest,
@@ -18,8 +23,6 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../adapters/postgres";
-import { accessManifests, containerKeyEpochs } from "../../schema";
 import { storeVerifiedAccessManifest } from "../write/accessManifestStore";
 import {
   assertDocumentKekTargetsCurrent,

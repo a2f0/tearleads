@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessEventDependencyProjection,
+  accessManifestPrincipalHeadProjection,
+} from "@tearleads/api-shared/schema";
 import {
   type AccessManifest,
   computeAccessEventBodyHash,
@@ -11,11 +16,6 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../adapters/postgres";
-import {
-  accessEventDependencyProjection,
-  accessManifestPrincipalHeadProjection,
-} from "../../schema";
 import {
   getCurrentAccessManifestHead,
   listAccessEventDependencyProjection,

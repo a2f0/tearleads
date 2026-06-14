@@ -1,9 +1,9 @@
 import { S3Client, type S3ClientConfig } from "@aws-sdk/client-s3";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   type BlobObjectStore,
   createMemoryBlobObjectStore,
 } from "../adapters/blobObjectStore";
-import { db } from "../adapters/postgres";
 import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
 import { createS3BlobObjectStore } from "../adapters/s3BlobObjectStore";

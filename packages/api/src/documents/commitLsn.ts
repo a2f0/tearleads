@@ -1,5 +1,5 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { sql } from "drizzle-orm";
-import type { DatabaseSession } from "../adapters/postgres";
 
 export async function readCurrentCommitLsn(
   executor: DatabaseSession,

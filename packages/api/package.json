@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "API_DATABASE=postgres bun src/scripts/migratePostgres.ts",
+    "build": "bun scripts/buildApiExecutable.ts",
+    "db:generate": "bun run --cwd ../api-shared db:generate",
+    "db:migrate": "bun run --cwd ../api-cli migrate",
     "dev": "bun --hot src/index.ts",
     "dev:postgres": "API_DATABASE=postgres bun --hot src/index.ts",
     "start": "bun src/index.ts",
@@ -13,20 +14,17 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1049.0",
-    "@electric-sql/pglite": "0.4.1",
+    "@tearleads/api-shared": "workspace:*",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/encoding": "workspace:*",
     "@tearleads/loro": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "drizzle-orm": "0.45.1",
     "hono": "4.7.11",
-    "pg": "8.19.0",
     "redis": "5.11.0"
   },
   "devDependencies": {
     "@tearleads/bob-and-alice": "workspace:*",
-    "@types/bun": "catalog:",
-    "@types/pg": "8.16.0",
-    "drizzle-kit": "0.31.10"
+    "@types/bun": "catalog:"
   }
 }

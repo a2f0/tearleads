@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
   VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,
@@ -9,7 +10,6 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import type { DatabaseTransaction } from "../../../adapters/postgres";
 
 export interface CreateDocumentInput {
   readonly fingerprint: string;

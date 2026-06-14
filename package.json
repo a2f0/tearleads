@@ -58,6 +58,8 @@
   "workspaces": [
     "packages/api",
     "packages/api-client",
+    "packages/api-cli",
+    "packages/api-shared",
     "packages/app",
     "packages/app-web",
     "packages/app-capacitor",

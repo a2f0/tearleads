@@ -36,7 +36,7 @@ interface ApiDatabaseEnv {
   readonly [key: string]: string | undefined;
 }
 
-type ApiDatabaseKind = "memory" | "postgres";
+export type ApiDatabaseKind = "memory" | "postgres";
 
 type ApiSchema = typeof schema;
 type ConcreteApiDatabase =
@@ -60,11 +60,15 @@ const migrationsFolder = fileURLToPath(
   new URL("../../drizzle", import.meta.url),
 );
 
+export interface MigrationOptions {
+  readonly migrationsFolder?: string;
+}
+
 export interface ManagedApiDatabase {
   readonly db: ApiDatabase;
   readonly kind: ApiDatabaseKind;
   close(): Promise<void>;
-  migrate(): Promise<void>;
+  migrate(options?: MigrationOptions): Promise<void>;
 }
 
 const databaseUrlKeys = ["DATABASE_URL", "POSTGRES_URL"] as const;
@@ -242,14 +246,17 @@ export function createPostgresPoolConfig(
 }
 
 function createMemoryApiDatabase(): ManagedApiDatabase {
-  const client = new PGlite({ debug: 0 });
+  const client = new PGlite({ dataDir: "memory://", debug: 0 });
   const db = drizzle({ client, schema });
 
   return {
     db,
     kind: "memory",
     close: () => client.close(),
-    migrate: () => migrate(db, { migrationsFolder }),
+    migrate: (options) =>
+      migrate(db, {
+        migrationsFolder: options?.migrationsFolder ?? migrationsFolder,
+      }),
   };
 }
 
@@ -261,7 +268,10 @@ function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
     db,
     kind: "postgres",
     close: () => pool.end(),
-    migrate: () => migrateNodePostgres(db, { migrationsFolder }),
+    migrate: (options) =>
+      migrateNodePostgres(db, {
+        migrationsFolder: options?.migrationsFolder ?? migrationsFolder,
+      }),
   };
 }
 
@@ -279,8 +289,14 @@ export function createDefaultManagedApiDatabase(
 const defaultDatabase = createDefaultManagedApiDatabase();
 let defaultDatabaseMigration: Promise<void> | undefined;
 
-export function initializeApiDatabase(): Promise<void> {
-  defaultDatabaseMigration ??= defaultDatabase.migrate();
+export function getDefaultApiDatabaseKind(): ApiDatabaseKind {
+  return defaultDatabase.kind;
+}
+
+export function initializeApiDatabase(
+  options?: MigrationOptions,
+): Promise<void> {
+  defaultDatabaseMigration ??= defaultDatabase.migrate(options);
   return defaultDatabaseMigration;
 }
 

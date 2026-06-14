@@ -1,7 +1,10 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import {
+  documentAuditCheckpoints,
+  documents,
+} from "@tearleads/api-shared/schema";
 import type { DocumentCheckpointKind } from "@tearleads/loro/shared";
 import { desc, eq } from "drizzle-orm";
-import type { DatabaseSession } from "../adapters/postgres";
-import { documentAuditCheckpoints, documents } from "../schema";
 import { sha256Hex } from "../utils/sha256";
 
 interface CheckpointInput {

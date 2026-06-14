@@ -1,3 +1,13 @@
+import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import {
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
+  blobContentWriteHeaders,
+} from "@tearleads/api-shared/schema";
 import {
   type BlobContentKeyTarget,
   computeBlobContentKeyTargetHash,
@@ -6,16 +16,6 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import type {
-  ApiDatabase,
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
-import {
-  blobContentKeyEpochs,
-  blobContentKeyTargets,
-  blobContentWriteHeaders,
-} from "../../../schema";
 import {
   assertBlobKekTargetsCurrent,
   BlobKekTargetError,

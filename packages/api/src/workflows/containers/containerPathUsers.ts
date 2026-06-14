@@ -1,11 +1,14 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import {
+  principalMembershipProjection,
+  principalStates,
+} from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
   ReferencedPrincipalHead,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
-import type { DatabaseTransaction } from "../../adapters/postgres";
-import { principalMembershipProjection, principalStates } from "../../schema";
 
 interface ContainerPathUserIds {
   readonly allUserIds: readonly string[];

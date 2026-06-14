@@ -1,6 +1,6 @@
+import { users } from "@tearleads/api-shared/schema";
 import type { EncapsulationKeyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { users } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 
 export class GetEncapsulationKeyError extends Error {

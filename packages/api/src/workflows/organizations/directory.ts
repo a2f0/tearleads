@@ -1,7 +1,10 @@
+import type {
+  ApiDatabase,
+  DatabaseSession,
+} from "@tearleads/api-shared/postgres";
+import { organizations } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
-import { organizations } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";

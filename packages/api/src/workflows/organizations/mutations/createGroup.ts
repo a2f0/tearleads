@@ -1,9 +1,9 @@
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { groups as groupsTable } from "@tearleads/api-shared/schema";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../../access/write/principalMemberEnvelopes";
 import { storeVerifiedPrincipalStateInTransaction } from "../../../access/write/principalStateStore";
-import type { ApiDatabase } from "../../../adapters/postgres";
-import { groups as groupsTable } from "../../../schema";
 import { requireDirectOrganizationAccess } from "../access";
 import { OrganizationManagerError } from "../errors";
 import { toGroupSummary } from "../groupSummary";

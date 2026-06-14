@@ -4,7 +4,7 @@
 # Runs in order:
 #   1. terraform apply (staging server stack)
 #   2. ansible playbook (server configuration)
-#   3. API deploy (source sync, deps, migrations, service restart)
+#   3. API deploy (executable deploy, migrations, service restart)
 #   4. Website deploy (build, rsync to /var/www, nginx reload)
 #   5. App-web deploy (build, source sync, deps, service restart)
 

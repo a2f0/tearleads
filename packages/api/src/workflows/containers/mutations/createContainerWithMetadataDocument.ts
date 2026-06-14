@@ -1,8 +1,8 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { containers } from "@tearleads/api-shared/schema";
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
-import type { DatabaseTransaction } from "../../../adapters/postgres";
-import { containers } from "../../../schema";
 import { createDocumentWithExecutor } from "../../documents/mutations/createDocument";
 import { DocumentMutationError } from "../../documents/mutations/errors";
 import { createContainer } from "./createContainer";
