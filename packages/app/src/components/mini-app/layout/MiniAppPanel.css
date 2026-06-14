@@ -1,0 +1,17 @@
+.mini-app-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mini-app-space-md);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.mini-app-panel--framed {
+  padding: var(--mini-app-panel-padding);
+  border: var(--mini-app-border);
+}
+
+.mini-app-panel--scroll {
+  min-height: 0;
+  overflow: auto;
+}

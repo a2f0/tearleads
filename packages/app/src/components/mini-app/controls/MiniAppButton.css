@@ -1,0 +1,48 @@
+.mini-app-button {
+  min-height: var(--mini-app-control-min-height);
+  padding: var(--mini-app-control-padding-block)
+    var(--mini-app-control-padding-inline);
+  border: var(--mini-app-border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mini-app-button:hover:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.mini-app-button:disabled {
+  opacity: var(--mini-app-disabled-opacity);
+  cursor: default;
+}
+
+.mini-app-button--block {
+  width: 100%;
+}
+
+.mini-app-button--ghost {
+  border-color: transparent;
+  padding-inline: var(--mini-app-space-sm);
+}
+
+.mini-app-button--ghost:hover:not(:disabled) {
+  border-color: var(--color-dark);
+}
+
+.mini-app-icon-button {
+  display: inline-flex;
+  flex: 0 0 var(--mini-app-control-min-height);
+  align-items: center;
+  justify-content: center;
+  width: var(--mini-app-control-min-height);
+  min-width: var(--mini-app-control-min-height);
+  padding: 0;
+}
+
+.mini-app-icon-button svg {
+  flex: 0 0 auto;
+}
