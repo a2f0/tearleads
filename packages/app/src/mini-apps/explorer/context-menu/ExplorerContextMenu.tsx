@@ -55,8 +55,8 @@ export function useExplorerContextMenu(
     [nodes],
   );
 
-  const handleSidebarContextMenu = useCallback(
-    (event: MouseEvent<HTMLButtonElement>, nodeId: string) => {
+  const handleContainerContextMenu = useCallback(
+    (event: MouseEvent<HTMLElement>, nodeId: string) => {
       selectContainer(nodeId);
       openContextMenu(event, { kind: "container", containerId: nodeId });
     },
@@ -99,8 +99,9 @@ export function useExplorerContextMenu(
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
     closeContextMenu,
     contextMenu,
+    handleContainerContextMenu,
     handleSidebarDocumentContextMenu,
-    handleSidebarContextMenu,
+    handleSidebarContextMenu: handleContainerContextMenu,
   };
 }
 

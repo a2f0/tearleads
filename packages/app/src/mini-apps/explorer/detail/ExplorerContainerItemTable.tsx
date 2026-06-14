@@ -7,7 +7,13 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
-import { type DragEvent, useEffect, useMemo, useState } from "react";
+import {
+  type DragEvent,
+  type MouseEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
   MiniAppTable,
@@ -288,7 +294,7 @@ function ExplorerContainerItemTableRow(params: {
   const { online, row, selectDocumentProjection, setSelectedId } = params;
 
   return (
-    <MiniAppTableRow>
+    <MiniAppTableRow className="explorer-item-table-row">
       <MiniAppTableCell>
         <ExplorerContainerItemName
           row={row}
@@ -320,7 +326,86 @@ function ExplorerContainerItemTableRow(params: {
   );
 }
 
-export function ExplorerContainerItemTable(params: {
+function isExplorerItemTableBlankContextTarget(
+  target: EventTarget | null,
+): boolean {
+  return (
+    target instanceof Element &&
+    !target.closest(
+      "button, a, input, select, textarea, th, thead, .explorer-item-table-row",
+    )
+  );
+}
+
+function ExplorerContainerItemTableBody(params: {
+  columns: ReadonlyArray<MiniAppTableColumn>;
+  error: string | null;
+  isLoading: boolean;
+  online: boolean;
+  rows: ReadonlyArray<ContainerItemRow>;
+  rowOffset: number;
+  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  setSelectedId: (id: string | null) => void;
+  totalCount: number;
+}) {
+  const {
+    columns,
+    error,
+    isLoading,
+    online,
+    rows,
+    rowOffset,
+    selectDocumentProjection,
+    setSelectedId,
+    totalCount,
+  } = params;
+  const topPadding = rowOffset * EXPLORER_VIRTUAL_ROW_HEIGHT;
+  const bottomPadding =
+    Math.max(0, totalCount - rowOffset - rows.length) *
+    EXPLORER_VIRTUAL_ROW_HEIGHT;
+
+  return (
+    <>
+      {topPadding > 0 ? (
+        <MiniAppVirtualTableSpacerRow
+          colSpan={columns.length}
+          height={topPadding}
+        />
+      ) : null}
+      {rows.length > 0 ? (
+        rows.map((row) => (
+          <ExplorerContainerItemTableRow
+            key={getExplorerContainerItemRowKey(row)}
+            online={online}
+            row={row}
+            selectDocumentProjection={selectDocumentProjection}
+            setSelectedId={setSelectedId}
+          />
+        ))
+      ) : isLoading ? (
+        <MiniAppTableEmptyRow colSpan={columns.length}>
+          Loading...
+        </MiniAppTableEmptyRow>
+      ) : error ? (
+        <MiniAppTableEmptyRow colSpan={columns.length}>
+          {error}
+        </MiniAppTableEmptyRow>
+      ) : totalCount === 0 ? (
+        <MiniAppTableEmptyRow colSpan={columns.length}>
+          {EXPLORER_LABELS.itemTableEmpty}
+        </MiniAppTableEmptyRow>
+      ) : null}
+      {bottomPadding > 0 ? (
+        <MiniAppVirtualTableSpacerRow
+          colSpan={columns.length}
+          height={bottomPadding}
+        />
+      ) : null}
+    </>
+  );
+}
+
+interface ItemTableProps {
   dragActive: boolean;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
@@ -331,6 +416,10 @@ export function ExplorerContainerItemTable(params: {
   isImporting: boolean;
   isLoading: boolean;
   online: boolean;
+  onBlankContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    containerId: string,
+  ) => void;
   onSort: (key: ContainerItemSortKey) => void;
   rows: ReadonlyArray<ContainerItemRow>;
   rowOffset: number;
@@ -339,7 +428,9 @@ export function ExplorerContainerItemTable(params: {
   setSelectedId: (id: string | null) => void;
   sort: ContainerItemSort;
   totalCount: number;
-}) {
+}
+
+export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
     dragActive,
     error,
@@ -351,6 +442,7 @@ export function ExplorerContainerItemTable(params: {
     isImporting,
     isLoading,
     online,
+    onBlankContextMenu,
     onSort,
     rows,
     rowOffset,
@@ -364,10 +456,6 @@ export function ExplorerContainerItemTable(params: {
     () => getExplorerItemTableColumns({ onSort, sort }),
     [onSort, sort],
   );
-  const topPadding = rowOffset * EXPLORER_VIRTUAL_ROW_HEIGHT;
-  const bottomPadding =
-    Math.max(0, totalCount - rowOffset - rows.length) *
-    EXPLORER_VIRTUAL_ROW_HEIGHT;
 
   return (
     <MiniAppTableFrame
@@ -380,6 +468,11 @@ export function ExplorerContainerItemTable(params: {
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
+      onContextMenu={(event) => {
+        if (isExplorerItemTableBlankContextTarget(event.target)) {
+          onBlankContextMenu(event, selectedNode.id);
+        }
+      }}
       onDrop={handleDrop}
       ref={frameRef}
       style={getMiniAppVirtualFrameStyle(EXPLORER_VIRTUAL_ROW_HEIGHT)}
@@ -388,41 +481,17 @@ export function ExplorerContainerItemTable(params: {
         aria-label={getExplorerItemTableLabel(selectedNode.name)}
         columns={columns}
       >
-        {topPadding > 0 ? (
-          <MiniAppVirtualTableSpacerRow
-            colSpan={columns.length}
-            height={topPadding}
-          />
-        ) : null}
-        {rows.length > 0 ? (
-          rows.map((row) => (
-            <ExplorerContainerItemTableRow
-              key={getExplorerContainerItemRowKey(row)}
-              online={online}
-              row={row}
-              selectDocumentProjection={selectDocumentProjection}
-              setSelectedId={setSelectedId}
-            />
-          ))
-        ) : isLoading ? (
-          <MiniAppTableEmptyRow colSpan={columns.length}>
-            Loading...
-          </MiniAppTableEmptyRow>
-        ) : error ? (
-          <MiniAppTableEmptyRow colSpan={columns.length}>
-            {error}
-          </MiniAppTableEmptyRow>
-        ) : totalCount === 0 ? (
-          <MiniAppTableEmptyRow colSpan={columns.length}>
-            {EXPLORER_LABELS.itemTableEmpty}
-          </MiniAppTableEmptyRow>
-        ) : null}
-        {bottomPadding > 0 ? (
-          <MiniAppVirtualTableSpacerRow
-            colSpan={columns.length}
-            height={bottomPadding}
-          />
-        ) : null}
+        <ExplorerContainerItemTableBody
+          columns={columns}
+          error={error}
+          isLoading={isLoading}
+          online={online}
+          rows={rows}
+          rowOffset={rowOffset}
+          selectDocumentProjection={selectDocumentProjection}
+          setSelectedId={setSelectedId}
+          totalCount={totalCount}
+        />
       </MiniAppTable>
     </MiniAppTableFrame>
   );

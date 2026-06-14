@@ -135,7 +135,7 @@ function ExplorerSidebarHarness(params: {
     [collapsedIdsParam],
   );
   const handleSidebarContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => event.preventDefault(),
+    (event: ReactMouseEvent<HTMLElement>) => event.preventDefault(),
     [],
   );
   const handleSidebarDocumentContextMenu = useCallback(

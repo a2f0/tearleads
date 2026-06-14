@@ -93,6 +93,9 @@ export function Explorer() {
         loadDocumentInfo={model.loadDocumentInfo}
         nodes={model.explorer.nodes}
         online={appData.state.online}
+        onContainerContextMenu={
+          model.contextMenuState.handleContainerContextMenu
+        }
         onBackToSelectionRoute={model.routeState.showSelectionRoute}
         onOpenGrantGroup={openGrantGroupInOrgManager}
         openInlineDocument={model.openInlineDocument}

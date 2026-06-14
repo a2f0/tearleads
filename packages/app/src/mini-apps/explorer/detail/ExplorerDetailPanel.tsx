@@ -10,6 +10,7 @@ import type {
   DocumentSummary,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerRoute } from "../routes";
@@ -93,6 +94,10 @@ interface ExplorerDetailPanelProps {
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
+  onContainerContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    containerId: string,
+  ) => void;
   onBackToSelectionRoute: () => void;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
   openInlineDocument: (
@@ -230,6 +235,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         documentQueries={params.documentQueries}
         importDroppedFiles={params.importDroppedFiles}
         online={params.online}
+        onContainerContextMenu={params.onContainerContextMenu}
         refreshError={params.refreshError}
         selectedNode={selectedNode}
         selectDocumentProjection={params.selectDocumentProjection}
