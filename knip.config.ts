@@ -33,13 +33,8 @@ const baseConfig = {
       project: ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"],
     },
     "packages/app-web": {
-      entry: [
-        "src/index.tsx",
-        "src/servers/prodServer.ts",
-        "src/servers/e2eServer.ts",
-        "e2e/**/*.spec.ts",
-      ],
-      project: ["src/**/*.{ts,tsx}", "e2e/**/*.ts"],
+      entry: ["src/index.tsx", "src/servers/e2eServer.ts", "e2e/**/*.spec.ts"],
+      project: ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "e2e/**/*.ts"],
       playwright: {
         config: ["playwright.config.ts"],
         entry: ["e2e/**/*.spec.ts"],

@@ -1,5 +1,5 @@
 # {{ ansible_managed }}
-# Application server block for {{ domain | default('tearleads.com') }}
+# Static application server block for {{ domain | default('tearleads.com') }}
 
 server {
   listen 80;
@@ -15,15 +15,29 @@ server {
   ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
   {% endif %}
 
+  root /var/www/app-web;
+  index index.html;
+
+  location = /index.html {
+    add_header Cache-Control "no-cache";
+  }
+
+  location = /worker.js {
+    try_files $uri =404;
+    add_header Cache-Control "no-cache";
+  }
+
+  location = /sqlite3.wasm {
+    try_files $uri =404;
+    add_header Cache-Control "no-cache";
+  }
+
   location / {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Host $host;
+    try_files $uri $uri/ /index.html;
+  }
+
+  location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|wasm)$ {
+    try_files $uri =404;
+    add_header Cache-Control "public, max-age=31536000, immutable";
   }
 }

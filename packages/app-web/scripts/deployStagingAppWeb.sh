@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # Deploy the Tearleads app-web to the staging server
 #
-# Builds the client bundle with staging API URLs, syncs the monorepo
-# source to the staging server, installs dependencies, and restarts
-# the app-web service.
+# Builds the client bundle with staging API URLs and deploys the
+# static files served by nginx.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 
 # shellcheck source=../../../../terraform/scripts/common.sh
 . "$REPO_ROOT/terraform/scripts/common.sh"
@@ -30,36 +29,29 @@ if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
   exit 1
 fi
 
+if [ -z "$DOMAIN" ]; then
+  echo "ERROR: TF_VAR_domain is required to build staging app-web URLs." >&2
+  exit 1
+fi
+
 echo "Building app-web..."
-(cd "$REPO_ROOT/packages/app-web" && \
+(cd "$APP_WEB_DIR" && \
   BUN_PUBLIC_API_BASE_URL="https://api.${DOMAIN}" \
   BUN_PUBLIC_WS_URL="wss://api.${DOMAIN}" \
   bun run build)
 
 SSH_TARGET="$USERNAME@$HOSTNAME"
-REMOTE_PATH="/opt/tearleads"
+REMOTE_PATH="/var/www/app-web"
 
 wait_for_ssh_ready "$SSH_TARGET"
 
-echo "Deploying source to $SSH_TARGET:$REMOTE_PATH ..."
-rsync -avz --delete \
-  --exclude='.git/' \
-  --exclude='node_modules/' \
-  --exclude='packages/website/dist/' \
-  --exclude='.turbo/' \
-  --exclude='build/' \
-  --exclude='.astro/' \
-  --exclude='*.tsbuildinfo' \
-  --exclude='playwright-report/' \
-  --exclude='test-results/' \
-  --exclude='target/' \
-  "$REPO_ROOT/" "$SSH_TARGET:$REMOTE_PATH/"
+echo "Deploying app-web static files to $SSH_TARGET:$REMOTE_PATH ..."
+ssh "$SSH_TARGET" "sudo mkdir -p $REMOTE_PATH"
+rsync -avz --no-owner --no-group --delete --rsync-path="sudo rsync" \
+  "$APP_WEB_DIR/dist/" "$SSH_TARGET:$REMOTE_PATH/"
 
-echo "Installing dependencies..."
-ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install 2>&1"
-
-echo "Restarting app-web service..."
-ssh "$SSH_TARGET" "sudo systemctl restart tearleads-app-web"
+ssh "$SSH_TARGET" "sudo chown -R www-data:www-data $REMOTE_PATH"
+ssh "$SSH_TARGET" "sudo systemctl reload nginx"
 
 echo "App-web deployed."
 
