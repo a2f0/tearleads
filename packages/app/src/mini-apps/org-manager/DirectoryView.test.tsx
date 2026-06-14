@@ -9,7 +9,19 @@ import { useCallback, useEffect, useState } from "react";
 import { DirectoryView } from "./DirectoryView";
 import { ORG_MANAGER_LABELS } from "./labels";
 
-afterEach(() => cleanup());
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+  navigator,
+  "clipboard",
+);
+
+afterEach(() => {
+  cleanup();
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(navigator, "clipboard", originalClipboardDescriptor);
+  } else {
+    delete (navigator as { clipboard?: Clipboard }).clipboard;
+  }
+});
 
 const rosterUser: OrganizationDirectoryUser = {
   createdAt: "2026-05-20T12:00:00.000Z",
@@ -115,6 +127,20 @@ function DirectoryViewDisplayNameHarness({
   );
 }
 
+function installClipboardWriteMock(): string[] {
+  const writes: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText: (value: string) => {
+        writes.push(value);
+        return Promise.resolve();
+      },
+    },
+  });
+  return writes;
+}
+
 test("org manager roster view exposes roster metadata and dismisses detail", () => {
   const selections: Array<string | null> = [];
 
@@ -149,6 +175,30 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
 
   fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
   expect(selections).toEqual([null]);
+});
+
+test("org manager roster view copies the selected user id", () => {
+  const clipboardWrites = installClipboardWriteMock();
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      detail={detail}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedUserId={rosterUser.userId}
+      selectUser={() => undefined}
+    />,
+  );
+
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.copyUserIdAction }),
+  );
+
+  expect(clipboardWrites).toEqual([rosterUser.userId]);
 });
 
 test("org manager roster view can render an editable encrypted profile editor", () => {

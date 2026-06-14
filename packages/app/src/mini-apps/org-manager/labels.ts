@@ -12,6 +12,7 @@ export const ORG_MANAGER_LABELS = {
   builtIn: "Built-in",
   cancel: "Cancel",
   container: "Container",
+  copyUserIdAction: "Copy user ID",
   created: "Created",
   create: "Create",
   clear: "Clear",
