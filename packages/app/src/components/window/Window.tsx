@@ -3,6 +3,7 @@ import {
   type PropsWithChildren,
   type MouseEvent as ReactMouseEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -48,6 +49,8 @@ interface WindowInnerProps {
   moveBackward: (id: string) => void;
   moveForward: (id: string) => void;
 }
+
+const WINDOW_STATUS_MESSAGE_DURATION_MS = 2500;
 
 export function Window({ windowId }: WindowProps) {
   const { close, minimize, moveForward, moveBackward, bringToFront } =
@@ -253,9 +256,37 @@ function WindowInnerContent({
   );
   const { handleMouseDown, handleResizeMouseDown, position, size } =
     useWindowGeometry(entry, maximized, windowRef);
+  const [statusText, setStatusText] = useState("");
+  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
   const handleWindowMouseDown = useCallback(() => {
     bringToFront(entry.id);
   }, [bringToFront, entry.id]);
+  const showStatusMessage = useCallback((message: string) => {
+    if (!mountedRef.current) {
+      return;
+    }
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current);
+    }
+    setStatusText(message);
+    statusTimeoutRef.current = setTimeout(() => {
+      if (!mountedRef.current) {
+        return;
+      }
+      setStatusText("");
+      statusTimeoutRef.current = null;
+    }, WINDOW_STATUS_MESSAGE_DURATION_MS);
+  }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+    };
+  }, []);
   const style = getWindowStyle(maximized, position, size, zIndex);
 
   if (minimized) {
@@ -280,7 +311,11 @@ function WindowInnerContent({
       />
       <WindowMenuBar menus={menus} />
       <WindowSidebarProvider>
-        <CurrentWindowProvider close={handleClose} id={entry.id}>
+        <CurrentWindowProvider
+          close={handleClose}
+          id={entry.id}
+          showStatusMessage={showStatusMessage}
+        >
           <WindowBodyWithSidebar showSidebar={showSidebar}>
             <WindowMiniAppRouteBoundary entry={entry}>
               {Component && <Component />}
@@ -288,7 +323,7 @@ function WindowInnerContent({
           </WindowBodyWithSidebar>
         </CurrentWindowProvider>
       </WindowSidebarProvider>
-      {showStatusBar && <WindowStatusBar />}
+      {showStatusBar && <WindowStatusBar text={statusText} />}
       {!maximized && (
         <WindowResizeHandles handleResizeMouseDown={handleResizeMouseDown} />
       )}

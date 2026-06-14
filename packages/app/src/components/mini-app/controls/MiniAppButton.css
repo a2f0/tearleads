@@ -46,3 +46,9 @@
 .mini-app-icon-button svg {
   flex: 0 0 auto;
 }
+
+.mini-app-clipboard-button--copied,
+.mini-app-clipboard-button--copied:hover:not(:disabled) {
+  background: var(--color-muted);
+  color: inherit;
+}

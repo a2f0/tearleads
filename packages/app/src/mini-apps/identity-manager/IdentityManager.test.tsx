@@ -2,7 +2,14 @@ import { afterEach, expect, test } from "bun:test";
 import type { Tearleads, UserSession } from "@tearleads/client-sdk";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
-import { act, cleanup, render, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { type PropsWithChildren, useEffect } from "react";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { AppHostConfig } from "../../host/AppHostConfig";
@@ -19,6 +26,11 @@ const ACTIVE_SESSION: UserSession = {
   lastActiveIp: "203.0.113.9",
   signingKeyFingerprint: "b".repeat(64),
 };
+
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+  Navigator.prototype,
+  "clipboard",
+);
 
 class TestWebSocket extends EventTarget {
   constructor(readonly url: string | URL) {
@@ -65,7 +77,30 @@ function IdentityManagerTestRuntime({
 
 afterEach(() => {
   cleanup();
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(
+      Navigator.prototype,
+      "clipboard",
+      originalClipboardDescriptor,
+    );
+  } else {
+    delete (Navigator.prototype as { clipboard?: Clipboard }).clipboard;
+  }
 });
+
+function installClipboardWriteMock(): string[] {
+  const writes: string[] = [];
+  Object.defineProperty(Navigator.prototype, "clipboard", {
+    configurable: true,
+    get: () => ({
+      writeText: (value: string) => {
+        writes.push(value);
+        return Promise.resolve();
+      },
+    }),
+  });
+  return writes;
+}
 
 test("active sessions render last IP and session IP history", async () => {
   const originalWebSocket = globalThis.WebSocket;
@@ -129,6 +164,72 @@ test("active sessions render last IP and session IP history", async () => {
         expect(within(table).getByText("203.0.113.9")).toBeTruthy();
         expect(within(table).getByText("198.51.100.10, +1")).toBeTruthy();
       });
+    } finally {
+      tearleads.session.listSessions = originalListSessions;
+    }
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
+test("identity detail copies the authenticated user id", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
+  const clipboardWrites = installClipboardWriteMock();
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const view = render(
+      <IdentityManagerTestRuntime
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
+        }}
+      >
+        <IdentityManager />
+      </IdentityManagerTestRuntime>,
+    );
+
+    await waitFor(() => {
+      expect(tearleadsRef.current).toBeTruthy();
+    });
+
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
+      throw new Error("Expected Tearleads SDK to be available after render.");
+    }
+
+    const originalListSessions = tearleads.session.listSessions;
+    try {
+      tearleads.session.listSessions = async () => [];
+      await act(async () => {
+        tearleads.session.setContext({
+          authToken: "test-token",
+          containerId: "container-1",
+          isAuthenticated: true,
+          organizationId: "org-1",
+          userId: "user-1",
+        });
+      });
+
+      view.rerender(
+        <IdentityManagerTestRuntime
+          onTearleadsReady={(sdk) => {
+            tearleadsRef.current = sdk;
+          }}
+        >
+          <IdentityManager />
+        </IdentityManagerTestRuntime>,
+      );
+
+      await waitFor(() => {
+        expect(view.getByText("user-1")).toBeTruthy();
+      });
+
+      await act(async () => {
+        fireEvent.click(view.getByRole("button", { name: "Copy user ID" }));
+      });
+
+      expect(clipboardWrites).toEqual(["user-1"]);
     } finally {
       tearleads.session.listSessions = originalListSessions;
     }

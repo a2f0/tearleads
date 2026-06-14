@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
+import { MiniAppClipboardButton } from "../mini-app/MiniAppLayout";
 import { Window } from "./Window";
 import {
   useWindowFileMenuItem,
@@ -9,7 +10,30 @@ import {
 import { useWindowSidebar } from "./WindowSidebarContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
 
-afterEach(() => cleanup());
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+  Navigator.prototype,
+  "clipboard",
+);
+
+afterEach(() => {
+  cleanup();
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(
+      Navigator.prototype,
+      "clipboard",
+      originalClipboardDescriptor,
+    );
+  } else {
+    delete (Navigator.prototype as { clipboard?: Clipboard }).clipboard;
+  }
+});
+
+function installClipboard(writeText: Clipboard["writeText"]): void {
+  Object.defineProperty(Navigator.prototype, "clipboard", {
+    configurable: true,
+    get: () => ({ writeText }),
+  });
+}
 
 function WindowHarness() {
   const { windows, create } = useWindowState();
@@ -139,6 +163,26 @@ function WindowNoSidebarHarness() {
   );
 }
 
+function WindowClipboardHarness() {
+  const { windows, create } = useWindowState();
+
+  useEffect(() => {
+    function ClipboardWindow() {
+      return <MiniAppClipboardButton label="Copy user ID" value="user-1" />;
+    }
+
+    create("Clipboard", 0, 0, ClipboardWindow);
+  }, [create]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
 function WindowSidebarDefaultHarness({
   initialShowSidebar,
 }: {
@@ -243,6 +287,27 @@ test("maximized window fills its parent via inline styles", async () => {
   expect(style.left).toBe("0px");
   expect(style.width).toBe("100%");
   expect(style.height).toBe("100%");
+});
+
+test("clipboard actions publish status bar feedback", async () => {
+  installClipboard(() => Promise.resolve());
+  const view = render(
+    <WindowStateProvider>
+      <WindowClipboardHarness />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Copy user ID" })).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Copy user ID" }));
+
+  await waitFor(() => {
+    expect(view.getByRole("status").textContent).toBe(
+      "Successfully copied to clipboard",
+    );
+  });
 });
 
 test("right-clicking a rendered window title bar opens the window menu", async () => {
