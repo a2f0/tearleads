@@ -100,6 +100,14 @@
         group: www-data
         mode: "0755"
 
+    - name: Create app-web directory
+      ansible.builtin.file:
+        path: /var/www/app-web
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
     - name: Configure nginx site for website
       ansible.builtin.template:
         src: etc/nginx/sites-available/website.conf.j2
@@ -180,14 +188,6 @@
         group: "{{ server_user }}"
         mode: "0640"
 
-    - name: Deploy app-web environment file
-      ansible.builtin.template:
-        src: etc/tearleads/app-web.env.j2
-        dest: /etc/tearleads/app-web.env
-        owner: root
-        group: "{{ server_user }}"
-        mode: "0640"
-
     - name: Deploy API systemd service
       ansible.builtin.template:
         src: etc/systemd/system/tearleads-api.service.j2
@@ -197,26 +197,30 @@
         mode: "0644"
       notify: Restart tearleads-api
 
-    - name: Deploy app-web systemd service
-      ansible.builtin.template:
-        src: etc/systemd/system/tearleads-app-web.service.j2
-        dest: /etc/systemd/system/tearleads-app-web.service
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Restart tearleads-app-web
-
     - name: Enable API systemd service
       ansible.builtin.systemd:
         name: tearleads-api
         daemon_reload: true
         enabled: true
 
-    - name: Enable app-web systemd service
+    - name: Disable legacy app-web systemd service
       ansible.builtin.systemd:
         name: tearleads-app-web
         daemon_reload: true
-        enabled: true
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: Remove legacy app-web systemd service
+      ansible.builtin.file:
+        path: /etc/systemd/system/tearleads-app-web.service
+        state: absent
+      notify: Reload systemd
+
+    - name: Remove legacy app-web environment file
+      ansible.builtin.file:
+        path: /etc/tearleads/app-web.env
+        state: absent
 
     - name: Install Redis
       ansible.builtin.apt:
@@ -301,6 +305,10 @@
         name: redis-server
         state: restarted
 
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
     - name: Check if tearleads-api binary exists
       ansible.builtin.stat:
         path: /opt/tearleads/bin/tearleads-api
@@ -314,9 +322,3 @@
         state: restarted
       when: tearleads_api_bin.stat.exists | default(false)
       listen: Restart tearleads-api
-
-    - name: Restart tearleads-app-web
-      ansible.builtin.systemd:
-        name: tearleads-app-web
-        daemon_reload: true
-        state: restarted
