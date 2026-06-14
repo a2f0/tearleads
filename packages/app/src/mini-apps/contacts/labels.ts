@@ -1,6 +1,7 @@
 export const CONTACTS_LABELS = {
   backToContactsAction: "Back to Contacts",
   contactUserIdField: "Contact user ID",
+  copyUserIdAction: "Copy user ID",
   createContactAction: "Create",
   doneAction: "Done",
   editAction: "Edit",

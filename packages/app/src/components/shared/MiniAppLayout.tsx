@@ -1,3 +1,4 @@
+import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
 import type {
   ButtonHTMLAttributes,
   FormHTMLAttributes,
@@ -209,6 +210,55 @@ export function MiniAppButton({
       )}
       type={type}
     />
+  );
+}
+
+export function MiniAppClipboardButton({
+  className,
+  disabled,
+  label,
+  onClick,
+  title,
+  value,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "value"> & {
+  label: string;
+  value: string | null | undefined;
+}) {
+  const clipboardValue = value ?? "";
+  const canCopy = clipboardValue.trim().length > 0;
+
+  return (
+    <MiniAppButton
+      {...props}
+      aria-label={label}
+      className={classNames("mini-app-icon-button", className)}
+      disabled={disabled || !canCopy}
+      onMouseDown={(event) => {
+        props.onMouseDown?.(event);
+        if (!event.defaultPrevented) {
+          event.preventDefault();
+        }
+      }}
+      onClick={(event) => {
+        onClick?.(event);
+        if (
+          event.defaultPrevented ||
+          !canCopy ||
+          typeof navigator === "undefined" ||
+          !navigator.clipboard
+        ) {
+          return;
+        }
+
+        void navigator.clipboard
+          .writeText(clipboardValue)
+          .catch(() => undefined);
+      }}
+      title={title ?? label}
+    >
+      <ClipboardIcon aria-hidden size={16} />
+    </MiniAppButton>
   );
 }
 

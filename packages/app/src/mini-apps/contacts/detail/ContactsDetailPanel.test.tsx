@@ -1,11 +1,23 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ContactEntry } from "../../../document-types/contact/contactDocumentModel";
+import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
+import type { ContactEntryPatch } from "../types";
 import { ContactsDetailPanel } from "./ContactsDetailPanel";
+
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+  navigator,
+  "clipboard",
+);
 
 afterEach(() => {
   cleanup();
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(navigator, "clipboard", originalClipboardDescriptor);
+  } else {
+    delete (navigator as { clipboard?: Clipboard }).clipboard;
+  }
 });
 
 const contactEntry: ContactEntry = {
@@ -55,6 +67,20 @@ function renderContactsDetailPanel(
   return render(
     <ContactsDetailPanel {...createContactsDetailPanelProps(props)} />,
   );
+}
+
+function installClipboardWriteMock(): string[] {
+  const writes: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText: (value: string) => {
+        writes.push(value);
+        return Promise.resolve();
+      },
+    },
+  });
+  return writes;
 }
 
 test("contacts selection route omits create and import controls", () => {
@@ -123,6 +149,47 @@ test("contacts selected detail opens read-only before entering edit mode", () =>
     "Countess",
   );
   expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
+});
+
+test("contacts selected detail copies the user id", () => {
+  const clipboardWrites = installClipboardWriteMock();
+  const view = renderContactsDetailPanel({
+    entries: [contactEntry],
+    selectedContactId: contactEntry.id,
+  });
+
+  fireEvent.click(
+    view.getByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+  );
+
+  expect(clipboardWrites).toEqual(["ada-user"]);
+});
+
+test("contacts user id copy button keeps the edit field focused", () => {
+  const updates: ContactEntryPatch[] = [];
+  const view = renderContactsDetailPanel({
+    entries: [contactEntry],
+    selectedContactId: contactEntry.id,
+    updateContact: (_contactId, patch) => {
+      updates.push(patch);
+    },
+  });
+
+  fireEvent.click(
+    view.getByRole("button", { name: CONTACTS_LABELS.editAction }),
+  );
+  const userIdInput = view.getByLabelText(
+    CONTACTS_LABELS.userIdField,
+  ) as HTMLInputElement;
+
+  userIdInput.focus();
+  const defaultAllowed = fireEvent.mouseDown(
+    view.getByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+  );
+
+  expect(defaultAllowed).toBe(false);
+  expect(document.activeElement).toBe(userIdInput);
+  expect(updates).toEqual([]);
 });
 
 test("contacts new-contact back action does not submit the draft form", () => {
