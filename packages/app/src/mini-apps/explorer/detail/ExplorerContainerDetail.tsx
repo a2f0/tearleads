@@ -3,7 +3,7 @@ import type {
   ContainerItemSort,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { useCallback, useState } from "react";
+import { type MouseEvent, useCallback, useState } from "react";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -53,6 +53,10 @@ export function ExplorerContainerDetail(params: {
   documentQueries: ContainerDocumentQueries;
   importDroppedFiles: ImportExplorerDroppedFiles;
   online: boolean;
+  onContainerContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    containerId: string,
+  ) => void;
   refreshError: string | null;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedNode: ContainerNode;
@@ -65,6 +69,7 @@ export function ExplorerContainerDetail(params: {
     documentQueries,
     importDroppedFiles,
     online,
+    onContainerContextMenu,
     refreshError,
     selectDocumentProjection,
     selectedNode,
@@ -136,6 +141,7 @@ export function ExplorerContainerDetail(params: {
         isImporting={fileDropTarget.isImporting}
         isLoading={itemWindow.isLoading}
         online={online}
+        onBlankContextMenu={onContainerContextMenu}
         onSort={handleSort}
         rowOffset={rowOffset}
         rows={rows}

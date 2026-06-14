@@ -88,7 +88,7 @@ interface ExplorerSidebarRowProps {
     string,
     ExplorerSidebarDocumentWindowState
   >;
-  onContextMenu: (event: MouseEvent<HTMLButtonElement>, id: string) => void;
+  onContextMenu: (event: MouseEvent<HTMLElement>, id: string) => void;
   onDocumentContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
     localId: string,
@@ -763,6 +763,7 @@ function useExplorerSidebarDocumentWindowLoader(params: {
 }
 
 interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
+  blankContextMenuContainerId: string | null;
   frameRef: (nextFrame: HTMLDivElement | null) => void;
   nodesLength: number;
   offset: number;
@@ -774,7 +775,19 @@ interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
 function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
   return (
     <MiniAppSidebar className="explorer-sidebar explorer-sidebar--virtual">
-      <div className="explorer-sidebar-viewport" ref={props.frameRef}>
+      <section
+        className="explorer-sidebar-viewport"
+        aria-label="Explorer containers"
+        onContextMenu={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            props.blankContextMenuContainerId
+          ) {
+            props.onContextMenu(event, props.blankContextMenuContainerId);
+          }
+        }}
+        ref={props.frameRef}
+      >
         {!props.ready ? (
           <MiniAppStatus>Loading...</MiniAppStatus>
         ) : props.nodesLength === 0 ? (
@@ -797,7 +810,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
             totalRows={props.totalRows}
           />
         )}
-      </div>
+      </section>
     </MiniAppSidebar>
   );
 }
@@ -810,7 +823,7 @@ interface ExplorerSidebarPanelParams {
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   handleSidebarContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLElement>,
     nodeId: string,
   ) => void;
   handleSidebarDocumentContextMenu: (
@@ -853,6 +866,14 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
     documentWindowsByContainerId: props.documentWindowsByContainerId,
     treeEntries: props.treeEntries,
   });
+  const blankContextMenuContainerId = useMemo(() => {
+    const ownedRoot = props.treeEntries.find(
+      (entry) =>
+        props.currentOrganizationId === null ||
+        entry.node.organizationId === props.currentOrganizationId,
+    );
+    return ownedRoot?.node.id ?? props.treeEntries[0]?.node.id ?? null;
+  }, [props.currentOrganizationId, props.treeEntries]);
   const retryDocumentWindow = useExplorerSidebarDocumentWindowLoader({
     documentWindowsByContainerId: props.documentWindowsByContainerId,
     ready: props.ready,
@@ -863,6 +884,7 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
   return (
     <ExplorerSidebarContent
       activeContainerId={props.activeContainerId}
+      blankContextMenuContainerId={blankContextMenuContainerId}
       depth={0}
       documentWindowsByContainerId={props.documentWindowsByContainerId}
       frameRef={frameRef}

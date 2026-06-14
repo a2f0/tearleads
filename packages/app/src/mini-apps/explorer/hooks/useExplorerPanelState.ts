@@ -54,13 +54,17 @@ interface ExplorerContextMenuModel {
   canMoveContextMenuNode: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
+  handleContainerContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    nodeId: string,
+  ) => void;
   handleSidebarDocumentContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
     localId: string,
     containerId: string,
   ) => void;
   handleSidebarContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLElement>,
     nodeId: string,
   ) => void;
 }
