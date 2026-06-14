@@ -294,7 +294,7 @@ function ExplorerContainerItemTableRow(params: {
   const { online, row, selectDocumentProjection, setSelectedId } = params;
 
   return (
-    <MiniAppTableRow>
+    <MiniAppTableRow className="explorer-item-table-row">
       <MiniAppTableCell>
         <ExplorerContainerItemName
           row={row}
@@ -323,6 +323,17 @@ function ExplorerContainerItemTableRow(params: {
         })}
       </MiniAppTableCell>
     </MiniAppTableRow>
+  );
+}
+
+function isExplorerItemTableBlankContextTarget(
+  target: EventTarget | null,
+): boolean {
+  return (
+    target instanceof Element &&
+    !target.closest(
+      "button, a, input, select, textarea, th, thead, .explorer-item-table-row",
+    )
   );
 }
 
@@ -458,7 +469,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onContextMenu={(event) => {
-        if (event.target === event.currentTarget) {
+        if (isExplorerItemTableBlankContextTarget(event.target)) {
           onBlankContextMenu(event, selectedNode.id);
         }
       }}

@@ -101,14 +101,14 @@ test("explorer sidebar opens the root context menu from blank space", async () =
   await waitFor(() => {
     expect(view.getByRole("button", { name: "Root" })).toBeTruthy();
   });
-  const sidebarViewport = view.container.querySelector(
-    ".explorer-sidebar-viewport",
+  const sidebarBlankSpace = view.container.querySelector(
+    ".explorer-sidebar-virtual-space",
   );
-  if (!sidebarViewport) {
-    throw new Error("Expected explorer sidebar viewport.");
+  if (!sidebarBlankSpace) {
+    throw new Error("Expected explorer sidebar blank space.");
   }
 
-  const defaultAllowed = fireEvent.contextMenu(sidebarViewport);
+  const defaultAllowed = fireEvent.contextMenu(sidebarBlankSpace);
 
   expect(defaultAllowed).toBe(false);
   expect(containerIds).toEqual([rootNode.id]);

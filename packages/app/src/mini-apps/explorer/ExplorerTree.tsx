@@ -772,6 +772,12 @@ interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
   totalRows: number;
 }
 
+function isExplorerSidebarBlankContextTarget(
+  target: EventTarget | null,
+): boolean {
+  return target instanceof Element && !target.closest(".explorer-sidebar-row");
+}
+
 function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
   return (
     <MiniAppSidebar className="explorer-sidebar explorer-sidebar--virtual">
@@ -780,7 +786,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
         aria-label="Explorer containers"
         onContextMenu={(event) => {
           if (
-            event.target === event.currentTarget &&
+            isExplorerSidebarBlankContextTarget(event.target) &&
             props.blankContextMenuContainerId
           ) {
             props.onContextMenu(event, props.blankContextMenuContainerId);
