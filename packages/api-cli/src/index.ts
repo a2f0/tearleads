@@ -69,6 +69,31 @@ async function materializeEmbeddedMigrations(): Promise<string | undefined> {
   return migrationsFolder;
 }
 
+async function cleanupApiDatabase(
+  closeApiDatabase: () => Promise<void>,
+  migrationsFolder: string | undefined,
+): Promise<unknown> {
+  let cleanupError: unknown;
+
+  try {
+    await closeApiDatabase();
+  } catch (error) {
+    cleanupError ??= error;
+    console.error("Error closing API database:", error);
+  }
+
+  try {
+    if (migrationsFolder) {
+      await rm(migrationsFolder, { force: true, recursive: true });
+    }
+  } catch (error) {
+    cleanupError ??= error;
+    console.error("Error cleaning up API migration files:", error);
+  }
+
+  return cleanupError;
+}
+
 async function runMigrations(): Promise<void> {
   process.env[apiDatabaseEnvKey] ??= "postgres";
 
@@ -83,11 +108,17 @@ async function runMigrations(): Promise<void> {
       migrationsFolder ? { migrationsFolder } : undefined,
     );
     console.log("API database migrations complete.");
-  } finally {
-    await closeApiDatabase();
-    if (migrationsFolder) {
-      await rm(migrationsFolder, { force: true, recursive: true });
-    }
+  } catch (error) {
+    await cleanupApiDatabase(closeApiDatabase, migrationsFolder);
+    throw error;
+  }
+
+  const cleanupError = await cleanupApiDatabase(
+    closeApiDatabase,
+    migrationsFolder,
+  );
+  if (cleanupError) {
+    throw cleanupError;
   }
 }
 

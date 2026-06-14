@@ -1,7 +1,8 @@
+import { fileURLToPath } from "node:url";
 import { Glob } from "bun";
 
-const repoRoot = new URL("../../..", import.meta.url);
-process.chdir(repoRoot.pathname);
+const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
+process.chdir(repoRoot);
 
 const drizzleFiles = [
   ...new Glob("packages/api-shared/drizzle/**/*.sql").scanSync("."),

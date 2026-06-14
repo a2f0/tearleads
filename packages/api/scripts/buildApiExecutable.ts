@@ -1,5 +1,7 @@
-const repoRoot = new URL("../../..", import.meta.url);
-process.chdir(repoRoot.pathname);
+import { fileURLToPath } from "node:url";
+
+const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
+process.chdir(repoRoot);
 
 const result = await Bun.build({
   entrypoints: ["packages/api/src/index.ts"],

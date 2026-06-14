@@ -301,13 +301,19 @@
         name: redis-server
         state: restarted
 
-    - name: Restart tearleads-api
-      ansible.builtin.shell: |
-        systemctl daemon-reload
-        if [ -x /opt/tearleads/bin/tearleads-api ]; then
-          systemctl restart tearleads-api
-        fi
-      changed_when: true
+    - name: Check if tearleads-api binary exists
+      ansible.builtin.stat:
+        path: /opt/tearleads/bin/tearleads-api
+      register: tearleads_api_bin
+      listen: Restart tearleads-api
+
+    - name: Restart tearleads-api service
+      ansible.builtin.systemd:
+        name: tearleads-api
+        daemon_reload: true
+        state: restarted
+      when: tearleads_api_bin.stat.exists | default(false)
+      listen: Restart tearleads-api
 
     - name: Restart tearleads-app-web
       ansible.builtin.systemd:

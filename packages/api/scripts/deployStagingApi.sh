@@ -35,7 +35,7 @@ wait_for_ssh_ready "$SSH_TARGET"
 echo "Building API executable..."
 (cd "$REPO_ROOT/packages/api" && bun run build)
 
-"$REPO_ROOT/packages/api-cli/scripts/deployStagingApiCli.sh"
+bash "$REPO_ROOT/packages/api-cli/scripts/deployStagingApiCli.sh"
 
 echo "Deploying API executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
 ssh "$SSH_TARGET" "mkdir -p $REMOTE_BIN_PATH"
