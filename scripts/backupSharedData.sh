@@ -50,7 +50,7 @@ while [[ $# -gt 0 ]]; do
         usage >&2
         exit 1
       fi
-      OUTPUT_DIR="$1"
+      OUTPUT_DIR="${1/#~/$HOME}"
       output_dir_set=1
       shift
       ;;
@@ -82,6 +82,7 @@ done
 
 ZIP_ARGS=(-r)
 if [[ -n "$PASSWORD" ]]; then
+  echo "backupSharedData: WARNING: --password exposes the passphrase in the process list. Prefer interactive -e mode in multi-user environments." >&2
   ZIP_ARGS+=(-P "$PASSWORD")
 elif [[ "$NO_PASSWORD" == "true" ]]; then
   : # No encryption
