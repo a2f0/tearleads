@@ -20,6 +20,10 @@ import {
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import type { ContactEntries, ContactEntryPatch } from "../types";
+import {
+  type ContactsAreaContextMenuHandler,
+  ContactsDetailContextTarget,
+} from "./ContactsDetailContextTarget";
 
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
 type SelectedContactEntry = ContactEntries[number];
@@ -408,6 +412,7 @@ export function ContactsDetailPanel(params: {
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
+  onAreaContextMenu: ContactsAreaContextMenuHandler;
   onBackToSelectionRoute: () => void;
   ready: boolean;
   route: ContactsRoute;
@@ -429,6 +434,7 @@ export function ContactsDetailPanel(params: {
     entries,
     importDraftContact,
     isAuthenticated,
+    onAreaContextMenu,
     onBackToSelectionRoute,
     ready,
     route,
@@ -470,11 +476,13 @@ export function ContactsDetailPanel(params: {
   }
 
   return (
-    <ContactsSelectionState
-      entries={entries}
-      ready={ready}
-      selectedContactId={selectedContactId}
-      updateContact={updateContact}
-    />
+    <ContactsDetailContextTarget onAreaContextMenu={onAreaContextMenu}>
+      <ContactsSelectionState
+        entries={entries}
+        ready={ready}
+        selectedContactId={selectedContactId}
+        updateContact={updateContact}
+      />
+    </ContactsDetailContextTarget>
   );
 }

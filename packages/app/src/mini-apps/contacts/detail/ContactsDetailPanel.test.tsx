@@ -46,6 +46,7 @@ function createContactsDetailPanelProps(
     entries: [],
     importDraftContact: async () => undefined,
     isAuthenticated: true,
+    onAreaContextMenu: () => undefined,
     onBackToSelectionRoute: () => undefined,
     ready: true,
     route: "selection",
@@ -248,4 +249,55 @@ test("contacts import-contact back action does not submit the import form", () =
 
   expect(backCount).toBe(1);
   expect(importCount).toBe(0);
+});
+
+test("contacts detail opens the area context menu from selection whitespace", () => {
+  let areaContextMenuCount = 0;
+  const view = renderContactsDetailPanel({
+    onAreaContextMenu: (event) => {
+      event.preventDefault();
+      areaContextMenuCount += 1;
+    },
+  });
+
+  const defaultAllowed = fireEvent.contextMenu(
+    view.getByText("No contacts imported yet."),
+  );
+
+  expect(defaultAllowed).toBe(false);
+  expect(areaContextMenuCount).toBe(1);
+});
+
+test("contacts detail opens the area context menu from selected panel whitespace", () => {
+  let areaContextMenuCount = 0;
+  const view = renderContactsDetailPanel({
+    entries: [contactEntry],
+    onAreaContextMenu: () => {
+      areaContextMenuCount += 1;
+    },
+    selectedContactId: contactEntry.id,
+  });
+  const panel = view.container.querySelector(".mini-app-panel");
+  if (!panel) {
+    throw new Error("Expected selected contacts panel.");
+  }
+
+  fireEvent.contextMenu(panel);
+
+  expect(areaContextMenuCount).toBe(1);
+});
+
+test("contacts detail does not open the area context menu from contact rows", () => {
+  let areaContextMenuCount = 0;
+  const view = renderContactsDetailPanel({
+    entries: [contactEntry],
+    onAreaContextMenu: () => {
+      areaContextMenuCount += 1;
+    },
+    selectedContactId: contactEntry.id,
+  });
+
+  fireEvent.contextMenu(view.getByText("Countess"));
+
+  expect(areaContextMenuCount).toBe(0);
 });

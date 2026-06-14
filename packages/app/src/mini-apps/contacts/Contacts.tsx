@@ -39,6 +39,7 @@ export function Contacts() {
         entries={model.entries}
         importDraftContact={model.importDraftContact}
         isAuthenticated={model.isAuthenticated}
+        onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
         onBackToSelectionRoute={model.showSelectionRoute}
         ready={model.ready}
         route={model.route}
@@ -57,6 +58,9 @@ export function Contacts() {
         }
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
+        openImportContactRoute={model.openImportContactRoute}
+        openNewContactRoute={model.openNewContactRoute}
+        ready={model.ready}
         removeContextMenuContact={
           model.contextMenuState.removeContextMenuContact
         }
