@@ -347,6 +347,7 @@ export function useContactsModel(
 
   useContactsSidebarPanel({
     entries,
+    handleAreaContextMenu: contextMenuState.handleAreaContextMenu,
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
     ready,
     selectedContactId: selectionState.selectedContactId,

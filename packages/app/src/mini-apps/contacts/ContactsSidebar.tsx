@@ -43,7 +43,7 @@ function ContactsSidebarEntries({
 }: {
   entries: ContactEntries;
   handleContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLElement>,
     contactId: string,
   ) => void;
   ready: boolean;
@@ -91,7 +91,10 @@ function ContactsSidebarEntries({
         topPadding={virtualEntries.topPadding}
       >
         {virtualEntries.rows.map((entry) => (
-          <MiniAppVirtualListRow key={entry.id}>
+          <MiniAppVirtualListRow
+            className="contacts-sidebar-row"
+            key={entry.id}
+          >
             <MiniAppRowButton
               onClick={() => setSelectedContactId(entry.id)}
               onMouseDown={(event) => handlePrimaryMouseDown(event, entry.id)}
@@ -107,10 +110,20 @@ function ContactsSidebarEntries({
   );
 }
 
+function isContactsSidebarAreaContextMenuTarget(
+  event: MouseEvent<HTMLElement>,
+): boolean {
+  return (
+    !(event.target instanceof Element) ||
+    !event.target.closest(".contacts-sidebar-row, .mini-app-row")
+  );
+}
+
 export function useContactsSidebarPanel(params: {
   entries: ContactEntries;
+  handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
   handleContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLElement>,
     contactId: string,
   ) => void;
   ready: boolean;
@@ -120,6 +133,7 @@ export function useContactsSidebarPanel(params: {
 }) {
   const {
     entries,
+    handleAreaContextMenu,
     handleContextMenu,
     ready,
     selectedContactId,
@@ -129,7 +143,19 @@ export function useContactsSidebarPanel(params: {
 
   const sidebar = useMemo(
     () => (
-      <MiniAppSidebar className="mini-app-sidebar--virtual">
+      <MiniAppSidebar
+        className="mini-app-sidebar--virtual"
+        onContextMenu={(event) => {
+          if (
+            event.defaultPrevented ||
+            !isContactsSidebarAreaContextMenuTarget(event)
+          ) {
+            return;
+          }
+
+          handleAreaContextMenu(event);
+        }}
+      >
         <ContactsSidebarEntries
           entries={entries}
           handleContextMenu={handleContextMenu}
@@ -141,6 +167,7 @@ export function useContactsSidebarPanel(params: {
     ),
     [
       entries,
+      handleAreaContextMenu,
       handleContextMenu,
       ready,
       selectedContactId,

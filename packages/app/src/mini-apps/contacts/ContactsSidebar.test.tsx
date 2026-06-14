@@ -61,19 +61,49 @@ const entries: ContactEntry[] = [
   },
 ];
 
-function ContactsSidebarHarness() {
+function createContactEntry(id: string): ContactEntry {
+  return {
+    id,
+    firstName: "Contact",
+    lastName: id,
+    nickname: "",
+    userId: null,
+    encapsulationPublicKey: null,
+    isSelf: false,
+  };
+}
+
+function ContactsSidebarHarness(
+  params: {
+    contactEntries?: ContactEntry[] | undefined;
+    onAreaContextMenu?: (() => void) | undefined;
+    onContactContextMenu?: ((contactId: string) => void) | undefined;
+  } = {},
+) {
   const [blurred, setBlurred] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     null,
   );
   const [sidebar, setSidebar] = useState<ReactNode>(null);
+  const contactEntries = params.contactEntries ?? entries;
+  const handleAreaContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      params.onAreaContextMenu?.();
+    },
+    [params.onAreaContextMenu],
+  );
   const handleContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => event.preventDefault(),
-    [],
+    (event: ReactMouseEvent<HTMLElement>, contactId: string) => {
+      event.preventDefault();
+      params.onContactContextMenu?.(contactId);
+    },
+    [params.onContactContextMenu],
   );
 
   useContactsSidebarPanel({
-    entries,
+    entries: contactEntries,
+    handleAreaContextMenu,
     handleContextMenu,
     ready: true,
     selectedContactId,
@@ -138,4 +168,55 @@ test("contacts sidebar does not append self labels to contact names", async () =
   expect(await view.findByRole("button", { name: "Local User" })).toBeTruthy();
   expect(view.queryByRole("button", { name: "Boss (me)" })).toBeNull();
   expect(view.queryByRole("button", { name: "Local User (me)" })).toBeNull();
+});
+
+test("contacts sidebar opens the area context menu from blank list space", async () => {
+  let areaContextMenuCount = 0;
+  const contactContextMenuIds: string[] = [];
+  const view = render(
+    <ContactsSidebarHarness
+      onAreaContextMenu={() => {
+        areaContextMenuCount += 1;
+      }}
+      onContactContextMenu={(contactId) => {
+        contactContextMenuIds.push(contactId);
+      }}
+    />,
+  );
+
+  await view.findByRole("button", { name: "Grace Hopper" });
+  const list = view.container.querySelector(".mini-app-virtual-list");
+  if (!list) {
+    throw new Error("Expected contacts virtual list.");
+  }
+
+  fireEvent.contextMenu(list);
+  fireEvent.contextMenu(view.getByRole("button", { name: "Grace Hopper" }));
+
+  expect(areaContextMenuCount).toBe(1);
+  expect(contactContextMenuIds).toEqual(["grace"]);
+});
+
+test("contacts sidebar opens the area context menu from virtual spacers", async () => {
+  let areaContextMenuCount = 0;
+  const view = render(
+    <ContactsSidebarHarness
+      contactEntries={Array.from({ length: 30 }, (_, index) =>
+        createContactEntry(`contact-${index}`),
+      )}
+      onAreaContextMenu={() => {
+        areaContextMenuCount += 1;
+      }}
+    />,
+  );
+
+  await view.findByRole("button", { name: "Contact contact-0" });
+  const spacer = view.container.querySelector(".mini-app-virtual-block-spacer");
+  if (!spacer) {
+    throw new Error("Expected contacts virtual spacer.");
+  }
+
+  fireEvent.contextMenu(spacer);
+
+  expect(areaContextMenuCount).toBe(1);
 });
