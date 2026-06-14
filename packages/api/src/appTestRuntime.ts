@@ -1,4 +1,4 @@
-export { db } from "./adapters/postgres";
+export { db } from "@tearleads/api-shared/postgres";
 export {
   createDestroySession,
   createDestroyUserSession,

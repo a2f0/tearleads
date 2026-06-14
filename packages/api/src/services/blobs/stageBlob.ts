@@ -1,6 +1,6 @@
+import { blobStages } from "@tearleads/api-shared/schema";
 import type { StageBlobRequest } from "@tearleads/validators/request";
 import type { StageBlobResponse } from "@tearleads/validators/response";
-import { blobStages } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
 import type { ApiServiceRuntime } from "../runtime";
 

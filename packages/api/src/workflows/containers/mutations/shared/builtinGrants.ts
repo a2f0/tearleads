@@ -1,3 +1,5 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { containerBuiltinGrants } from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
   ContainerGrantSubjectType,
@@ -5,8 +7,6 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
-import type { DatabaseTransaction } from "../../../../adapters/postgres";
-import { containerBuiltinGrants } from "../../../../schema";
 import { ContainerMutationError } from "../errors";
 
 type ContainerMutationSubject = Pick<

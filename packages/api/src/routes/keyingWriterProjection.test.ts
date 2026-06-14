@@ -1,4 +1,21 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestDocumentLinkProjection,
+  accessManifests,
+  containerDocumentSyncTombstones,
+  containerKeyEpochs,
+  containers,
+  documentAuditCheckpoints,
+  documentAuditEntries,
+  documentContainerLinks,
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
+  documents,
+  documentUpdateAuditEvents,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
@@ -70,25 +87,8 @@ import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
 } from "../access/read/containerKekStore";
-import { db } from "../adapters/postgres";
 import { verifyDocumentAuditHistory } from "../documents/verifyDocumentAuditHistory";
 import { routeApp } from "../routeApp";
-import {
-  accessManifestDocumentLinkProjection,
-  accessManifests,
-  containerDocumentSyncTombstones,
-  containerKeyEpochs,
-  containers,
-  documentAuditCheckpoints,
-  documentAuditEntries,
-  documentContainerLinks,
-  documentContentKeyEpochs,
-  documentContentKeyTargets,
-  documents,
-  documentUpdateAuditEvents,
-  organizations,
-  users,
-} from "../schema";
 
 interface RootContainerFixture {
   readonly adminGroupId: string;

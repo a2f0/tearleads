@@ -1,3 +1,16 @@
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import {
+  containerBuiltinGrants,
+  containerMetadataDocuments,
+  containers,
+  groups,
+  organizationRosterEntries,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import {
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
@@ -18,7 +31,6 @@ import { storeVerifiedAccessManifestInTransaction } from "../../access/write/acc
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
-import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
@@ -28,15 +40,6 @@ import {
   readProjectionString,
   readProjectionValue,
 } from "../../keyingProjectionRecords";
-import {
-  containerBuiltinGrants,
-  containerMetadataDocuments,
-  containers,
-  groups,
-  organizationRosterEntries,
-  organizations,
-  users,
-} from "../../schema";
 import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 import { createContainer } from "../containers/mutations/createContainer";
 import {

@@ -1,11 +1,17 @@
+import type {
+  ApiDatabase,
+  DatabaseSession,
+} from "@tearleads/api-shared/postgres";
+import {
+  groups as groupsTable,
+  organizations,
+} from "@tearleads/api-shared/schema";
 import {
   isOrganizationContainerGrantSubjectType,
   type OrganizationContainerGrantResponse,
   type OrganizationContainerGrantsResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
-import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
-import { groups as groupsTable, organizations } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import {
   listOrganizationContainerGrantRows,

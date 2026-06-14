@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { blobStages } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import { stageBlob } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
-import { blobStages } from "../../schema";
 
 const alice = createTestUser();
 

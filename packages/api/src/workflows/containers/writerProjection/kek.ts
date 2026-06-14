@@ -1,3 +1,5 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import type {
   ContainerKeyWrap,
   ContainerUserRecipientKey,
@@ -11,8 +13,6 @@ import {
   getContainerKeyEpochById,
   listContainerKeyWraps,
 } from "../../../access/read/containerKekStore";
-import type { DatabaseSession } from "../../../adapters/postgres";
-import { users } from "../../../schema";
 import { loadContainerManifestBundleByHash } from "./accessPaths";
 import { cachedProjectionValue } from "./context";
 import { principalPolicyCacheKey } from "./principalPolicies";

@@ -1,7 +1,10 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestHeads,
+  organizationRosterEntries,
+} from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
-import type { DatabaseSession } from "../../adapters/postgres";
-import { accessManifestHeads, organizationRosterEntries } from "../../schema";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import type { UserKeyRow } from "./users";
 

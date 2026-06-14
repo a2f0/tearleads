@@ -1,4 +1,4 @@
-import pgClient from "../src/adapters/postgres";
+import pgClient from "@tearleads/api-shared/postgres";
 import { closeRedisClient } from "../src/adapters/redis";
 import { closeRedisPubSub } from "../src/adapters/redisPubSub";
 

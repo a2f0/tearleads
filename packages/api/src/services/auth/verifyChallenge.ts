@@ -1,3 +1,4 @@
+import { users } from "@tearleads/api-shared/schema";
 import {
   authChallengeSigningBytes,
   toFingerprint,
@@ -5,7 +6,6 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
-import { users } from "../../schema";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface VerifyChallengeInput {

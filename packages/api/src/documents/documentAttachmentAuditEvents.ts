@@ -1,5 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
-import type { DatabaseSession } from "../adapters/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   type BlobAuditRetentionMode,
   blobAuditObjects,
@@ -8,7 +7,8 @@ import {
   documentAttachmentAuditEvents,
   documentAuditEntries,
   documents,
-} from "../schema";
+} from "@tearleads/api-shared/schema";
+import { desc, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings } from "../utils/array";
 import { sha256Hex } from "../utils/sha256";
 

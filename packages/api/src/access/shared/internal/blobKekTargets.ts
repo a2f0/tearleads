@@ -1,11 +1,11 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { attachmentBindings } from "@tearleads/api-shared/schema";
 import {
   type BlobContentKeyTarget,
   computeBlobAccessManifestHash,
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import type { DatabaseSession } from "../../../adapters/postgres";
-import { attachmentBindings } from "../../../schema";
 import { compareStrings } from "../../../utils/array";
 import {
   getCurrentAccessManifestHeads,

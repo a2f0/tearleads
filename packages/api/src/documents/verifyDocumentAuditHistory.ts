@@ -1,5 +1,4 @@
-import { eq } from "drizzle-orm";
-import type { DatabaseSession } from "../adapters/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   type BlobAuditRetentionMode,
   type DocumentAttachmentAuditAction,
@@ -7,7 +6,8 @@ import {
   documentAuditCheckpoints,
   documentAuditEntries,
   documentUpdateAuditEvents,
-} from "../schema";
+} from "@tearleads/api-shared/schema";
+import { eq } from "drizzle-orm";
 import {
   computeDocumentAttachmentAuditEntryHash,
   DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT,

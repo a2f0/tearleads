@@ -1,4 +1,13 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessEvents,
+  accessManifestDocumentLinkProjection,
+  accessManifestHeads,
+  accessManifests,
+  attachmentBindings,
+  containerKeyEpochs,
+} from "@tearleads/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeBlobContentKeyTargetHash,
@@ -7,15 +16,6 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../adapters/postgres";
-import {
-  accessEvents,
-  accessManifestDocumentLinkProjection,
-  accessManifestHeads,
-  accessManifests,
-  attachmentBindings,
-  containerKeyEpochs,
-} from "../../schema";
 import {
   type BlobContentKeyTargetEnvelope,
   getLatestCurrentBlobContentKeyBundle,

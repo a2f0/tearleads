@@ -1,11 +1,18 @@
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import {
+  groups,
+  organizationRosterEntries,
+  organizations,
+} from "@tearleads/api-shared/schema";
 import type { PutPrincipalStateRequest } from "@tearleads/validators/request";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import type { PrincipalStateExternalSignerAuthorizationInput } from "../../access/write/principalStateStore";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
-import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
-import { groups, organizationRosterEntries, organizations } from "../../schema";
 import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";

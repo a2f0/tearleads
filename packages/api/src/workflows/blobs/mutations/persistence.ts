@@ -1,3 +1,9 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import {
+  attachmentBindings,
+  blobStages,
+  blobs,
+} from "@tearleads/api-shared/schema";
 import type {
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
@@ -5,10 +11,8 @@ import type {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import type { DatabaseTransaction } from "../../../adapters/postgres";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
-import { attachmentBindings, blobStages, blobs } from "../../../schema";
 import {
   encodeExternalBlobBytesRef,
   readMultipartBlobStageRecord,

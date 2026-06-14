@@ -1,4 +1,10 @@
 import {
+  principalEpochKeys,
+  principalMembershipProjection,
+  principalStatePayloads,
+  principalStates,
+} from "@tearleads/api-shared/schema";
+import {
   type ManagedRecipientPrincipalType,
   normalizePrincipalProjectionMembers,
   type PrincipalProjectionMember,
@@ -7,12 +13,6 @@ import {
   type PrincipalStatePayloadCipherSuite,
   type SignedPrincipalState,
 } from "@tearleads/crypto";
-import {
-  principalEpochKeys,
-  principalMembershipProjection,
-  principalStatePayloads,
-  principalStates,
-} from "../../../schema";
 
 export interface StoredPrincipalState extends SignedPrincipalState {
   stateHash: string;

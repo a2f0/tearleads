@@ -1,3 +1,4 @@
+import { db as defaultDb } from "@tearleads/api-shared/postgres";
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   buildPrincipalStateSigningInput,
@@ -10,7 +11,6 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { createMemoryBlobObjectStore } from "../../src/adapters/blobObjectStore";
-import { db as defaultDb } from "../../src/adapters/postgres";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
 import {
   createInitialAdminGroupRequest,

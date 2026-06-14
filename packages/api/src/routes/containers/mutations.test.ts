@@ -1,4 +1,20 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  attachmentBindings,
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
+  blobs,
+  containerMetadataDocuments,
+  containerSyncTombstones,
+  containers,
+  documentContainerLinks,
+  documentContentKeyEpochs,
+  documentContentKeyTargets,
+  documents,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   AccessEvent,
@@ -62,23 +78,7 @@ import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
-import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import {
-  attachmentBindings,
-  blobContentKeyEpochs,
-  blobContentKeyTargets,
-  blobs,
-  containerMetadataDocuments,
-  containerSyncTombstones,
-  containers,
-  documentContainerLinks,
-  documentContentKeyEpochs,
-  documentContentKeyTargets,
-  documents,
-  organizations,
-  users,
-} from "../../schema";
 
 interface RootContainerFixture {
   readonly adminGroupId: string;

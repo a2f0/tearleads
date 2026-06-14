@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { containers, organizations, users } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
@@ -25,8 +27,6 @@ import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
 import { storeVerifiedPrincipalState } from "../../access/write/principalStateStore";
-import { db } from "../../adapters/postgres";
-import { containers, organizations, users } from "../../schema";
 import { listContainers } from "./listContainers";
 
 const SIGNED_AT = "2026-04-30T00:00:00.000Z";

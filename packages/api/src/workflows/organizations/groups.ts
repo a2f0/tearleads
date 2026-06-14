@@ -1,4 +1,12 @@
 import type {
+  ApiDatabase,
+  DatabaseSession,
+} from "@tearleads/api-shared/postgres";
+import {
+  groups as groupsTable,
+  organizations,
+} from "@tearleads/api-shared/schema";
+import type {
   DeleteOrganizationGroupResponse,
   ListOrganizationGroupsResponse,
   OrganizationGroupContainersResponse,
@@ -13,8 +21,6 @@ import {
   listCurrentPrincipalProjectionMembers,
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
-import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
-import { groups as groupsTable, organizations } from "../../schema";
 import { requireDirectOrganizationAccess } from "./access";
 import {
   listOrganizationContainerGrantRows,

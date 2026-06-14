@@ -1,4 +1,11 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  containerDocumentSyncTombstones,
+  containers,
+  documents,
+  organizationRosterEntries,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
@@ -6,14 +13,7 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { db } from "../../adapters/postgres";
 import { routeApp } from "../../routeApp";
-import {
-  containerDocumentSyncTombstones,
-  containers,
-  documents,
-  organizationRosterEntries,
-} from "../../schema";
 
 async function getContainerOrganizationId(containerId: string) {
   const [container] = await db

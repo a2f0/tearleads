@@ -1,9 +1,12 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import {
+  documentUpdateSpans,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 import { parseWalLsn } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
-import type { DatabaseSession } from "../adapters/postgres";
-import { documentUpdateSpans, documentUpdates } from "../schema";
 import { readCurrentCommitLsn } from "./commitLsn";
 
 interface SqlNamedColumn {

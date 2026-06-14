@@ -20,6 +20,14 @@ const baseConfig = {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/api-cli": {
+      entry: [],
+      project: ["src/**/*.ts", "scripts/**/*.ts"],
+    },
+    "packages/api-shared": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/app": {
       entry: ["src/**/*.test.{ts,tsx}"],
       project: ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"],
@@ -140,6 +148,14 @@ const productionConfig = {
     },
     "packages/api-client": {
       entry: ["src/**/*.ts!", "!src/**/*.test.ts"],
+      project: [],
+    },
+    "packages/api-cli": {
+      entry: ["src/**/*.ts!", "scripts/**/*.ts!"],
+      project: [],
+    },
+    "packages/api-shared": {
+      entry: ["src/**/*.ts!", "drizzle.config.ts!"],
       project: [],
     },
     "packages/app": {

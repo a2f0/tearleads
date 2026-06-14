@@ -1,9 +1,9 @@
+import { blobStages } from "@tearleads/api-shared/schema";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { blobStages } from "../../schema";
 import { readMultipartBlobStageRecord } from "../../utils/blobStageRecords";
 import { summarizeSha256Stream } from "../../utils/sha256";
 import {

@@ -30,94 +30,112 @@
       "./writeHeader"
     ],
     "packages/loro/src/index.ts": ["./server", "./shared"],
-    "packages/api/src/schema.ts": ["./schema/index"]
+    "packages/api-shared/src/schema.ts": ["./schema/index"]
   },
   "fileSizes": {
-    "dependency-cruiser.config.ts": { "lines": 759, "bytes": 22020 },
+    "dependency-cruiser.config.ts": {
+      "lines": 814,
+      "bytes": 23546
+    },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 639,
       "bytes": 22654
     },
-    "docs/glossary.md": { "lines": 506, "bytes": 18158 },
-    "docs/keying-design.md": { "lines": 885, "bytes": 37936 },
-    "docs/loro-e2ee-sync-protocol.md": { "lines": 541, "bytes": 22215 },
-    "packages/api-client/src/ApiClient.ts": { "lines": 1071, "bytes": 29722 },
+    "docs/glossary.md": {
+      "lines": 506,
+      "bytes": 18158
+    },
+    "docs/keying-design.md": {
+      "lines": 885,
+      "bytes": 37936
+    },
+    "docs/loro-e2ee-sync-protocol.md": {
+      "lines": 541,
+      "bytes": 22215
+    },
+    "packages/api-client/src/ApiClient.ts": {
+      "lines": 1071,
+      "bytes": 29722
+    },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
-      "lines": 559,
-      "bytes": 17848
+      "lines": 562,
+      "bytes": 17876
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
       "lines": 846,
-      "bytes": 25322
+      "bytes": 25339
     },
     "packages/api/src/access/shared/internal/blobContentKeyStore.ts": {
       "lines": 775,
-      "bytes": 21225
+      "bytes": 21242
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 550,
-      "bytes": 17634
+      "lines": 553,
+      "bytes": 17656
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
       "lines": 1047,
-      "bytes": 30754
+      "bytes": 30771
     },
     "packages/api/src/access/shared/internal/principalStateStore.ts": {
       "lines": 914,
-      "bytes": 25735
+      "bytes": 25752
     },
     "packages/api/src/access/write/blobContentKeyStore.test.ts": {
       "lines": 668,
-      "bytes": 19181
+      "bytes": 19204
     },
     "packages/api/src/access/write/containerKekStore.test.ts": {
       "lines": 591,
-      "bytes": 18287
+      "bytes": 18310
     },
     "packages/api/src/access/write/documentContentKeyStore.test.ts": {
-      "lines": 1044,
-      "bytes": 32256
+      "lines": 1047,
+      "bytes": 32284
     },
     "packages/api/src/access/write/principalStateStore.test.ts": {
       "lines": 974,
-      "bytes": 30893
+      "bytes": 30916
     },
     "packages/api/src/routes/auth/register.test.ts": {
       "lines": 541,
-      "bytes": 17521
+      "bytes": 17544
     },
     "packages/api/src/routes/containers/listContainers.test.ts": {
       "lines": 621,
-      "bytes": 18608
+      "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
       "lines": 3485,
-      "bytes": 113770
+      "bytes": 113793
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2550,
-      "bytes": 84176
+      "bytes": 84205
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1049,
-      "bytes": 32235
+      "bytes": 32258
     },
     "packages/api/src/routes/principals/policy.test.ts": {
       "lines": 739,
-      "bytes": 23300
+      "bytes": 23323
     },
-    "packages/api/src/schema.test.ts": { "lines": 507, "bytes": 15971 },
+    "packages/api/src/schema.test.ts": {
+      "lines": 507,
+      "bytes": 16002
+    },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
       "lines": 1285,
-      "bytes": 38873
+      "bytes": 38896
     },
     "packages/api/src/workflows/auth/registration.ts": {
-      "lines": 1227,
-      "bytes": 33647
+      "lines": 1230,
+      "bytes": 33675
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 588,
-      "bytes": 16927
+      "bytes": 16938
     },
     "packages/api/src/workflows/documents/mutations/shared/records.ts": {
       "lines": 560,
@@ -125,15 +143,15 @@
     },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
       "lines": 883,
-      "bytes": 27557
+      "bytes": 27574
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
-      "lines": 718,
-      "bytes": 21625
+      "lines": 721,
+      "bytes": 21637
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
-      "bytes": 20900
+      "bytes": 20923
     },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1098,
@@ -307,7 +325,10 @@
       "lines": 1133,
       "bytes": 33031
     },
-    "scripts/lintArchitecture.ts": { "lines": 1135, "bytes": 35731 }
+    "scripts/lintArchitecture.ts": {
+      "lines": 1135,
+      "bytes": 35731
+    }
   },
   "categories": {
     "configuration": {

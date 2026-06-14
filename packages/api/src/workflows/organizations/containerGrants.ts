@@ -1,16 +1,16 @@
-import {
-  isOrganizationGroupContainerAccessLevel,
-  type OrganizationGroupContainerResponse,
-} from "@tearleads/validators/response";
-import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
-import type { DatabaseSession } from "../../adapters/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
   accessManifests,
   containerBuiltinGrants,
   containers,
-} from "../../schema";
+} from "@tearleads/api-shared/schema";
+import {
+  isOrganizationGroupContainerAccessLevel,
+  type OrganizationGroupContainerResponse,
+} from "@tearleads/validators/response";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 
 export interface OrganizationContainerGrantRow {
   accessLevel: string;

@@ -1,4 +1,9 @@
 import type {
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
+import type {
   VerifiedAccessEvent,
   VerifiedContainerAccessManifest,
   VerifiedDocumentLinkSetManifest,
@@ -19,15 +24,10 @@ import type {
 import { eq } from "drizzle-orm";
 import { getCurrentAccessManifestHeads } from "../../../../access/read/accessManifestStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
-import type {
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../../adapters/postgres";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
 } from "../../../../keyingProjectionRecords";
-import { users } from "../../../../schema";
 import {
   canonicalJsonEquals,
   readKeyingCanonicalJson,

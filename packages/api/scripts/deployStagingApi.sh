@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # Deploy the Tearleads API to the staging server
 #
-# Syncs the monorepo source to the staging server, installs
-# dependencies, runs database migrations, and restarts the API service.
+# Builds and deploys standalone API executables, runs database migrations,
+# and restarts the API service.
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # shellcheck source=../../../../terraform/scripts/common.sh
@@ -29,29 +28,22 @@ if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
 fi
 
 SSH_TARGET="$USERNAME@$HOSTNAME"
-REMOTE_PATH="/opt/tearleads"
+REMOTE_BIN_PATH="/opt/tearleads/bin"
 
 wait_for_ssh_ready "$SSH_TARGET"
 
-echo "Deploying source to $SSH_TARGET:$REMOTE_PATH ..."
-rsync -avz --delete \
-  --exclude='.git/' \
-  --exclude='node_modules/' \
-  --exclude='dist/' \
-  --exclude='.turbo/' \
-  --exclude='build/' \
-  --exclude='.astro/' \
-  --exclude='*.tsbuildinfo' \
-  --exclude='playwright-report/' \
-  --exclude='test-results/' \
-  --exclude='target/' \
-  "$REPO_ROOT/" "$SSH_TARGET:$REMOTE_PATH/"
+echo "Building API executable..."
+(cd "$REPO_ROOT/packages/api" && bun run build)
 
-echo "Installing dependencies..."
-ssh "$SSH_TARGET" "cd $REMOTE_PATH && ~/.bun/bin/bun install 2>&1"
+bash "$REPO_ROOT/packages/api-cli/scripts/deployStagingApiCli.sh"
+
+echo "Deploying API executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
+ssh "$SSH_TARGET" "mkdir -p $REMOTE_BIN_PATH"
+rsync -avz "$REPO_ROOT/packages/api/dist/tearleads-api" \
+  "$SSH_TARGET:$REMOTE_BIN_PATH/"
 
 echo "Running database migrations..."
-ssh "$SSH_TARGET" "set -a && . /etc/tearleads/api.env && cd $REMOTE_PATH/packages/api && ~/.bun/bin/bun run db:migrate 2>&1"
+ssh "$SSH_TARGET" "set -a && . /etc/tearleads/api.env && set +a && $REMOTE_BIN_PATH/tearleads-api-cli migrate 2>&1"
 
 echo "Restarting API service..."
 ssh "$SSH_TARGET" "sudo systemctl restart tearleads-api"

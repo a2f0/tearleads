@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalProjectionMember,
   VerifiedPrincipalPolicy,
@@ -8,7 +9,6 @@ import {
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../../../access/read/principalStateStore";
-import type { DatabaseTransaction } from "../../../../adapters/postgres";
 import { ContainerMutationError } from "../errors";
 
 function projectionMemberKey(

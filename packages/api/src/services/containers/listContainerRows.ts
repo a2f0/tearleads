@@ -1,5 +1,3 @@
-import type { SyncWatermark } from "@tearleads/validators/response";
-import { type SQL, sql } from "drizzle-orm";
 import {
   accessManifestContainerGrantProjection,
   accessManifestHeads,
@@ -7,7 +5,9 @@ import {
   containers,
   principalMembershipProjection,
   principalStates,
-} from "../../schema";
+} from "@tearleads/api-shared/schema";
+import type { SyncWatermark } from "@tearleads/validators/response";
+import { type SQL, sql } from "drizzle-orm";
 import type { ApiServiceRuntime } from "../runtime";
 import { watermarkPredicate } from "./syncPaging";
 

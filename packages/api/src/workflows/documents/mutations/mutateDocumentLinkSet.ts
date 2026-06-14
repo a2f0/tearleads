@@ -1,11 +1,11 @@
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
-import type {
-  ApiDatabase,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { toMutationError } from "./errors";
 import {

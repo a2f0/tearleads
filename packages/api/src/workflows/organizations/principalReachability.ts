@@ -1,6 +1,9 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import {
+  principalMembershipProjection,
+  principalStates,
+} from "@tearleads/api-shared/schema";
 import { sql } from "drizzle-orm";
-import type { DatabaseSession } from "../../adapters/postgres";
-import { principalMembershipProjection, principalStates } from "../../schema";
 
 const currentManagedPrincipalStatesCte = sql`
   current_managed_principal_states as (

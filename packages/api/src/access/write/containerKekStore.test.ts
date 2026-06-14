@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { containerKeyWraps } from "@tearleads/api-shared/schema";
 import type {
   AccessManifest,
   ContainerDirectGrant,
@@ -16,8 +18,6 @@ import {
   verifyContainerKekState,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../adapters/postgres";
-import { containerKeyWraps } from "../../schema";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,

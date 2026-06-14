@@ -1,3 +1,4 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   ContainerAccessLevel,
   VerifiedContainerAccessManifest,
@@ -5,7 +6,6 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import type { DatabaseSession } from "../../../adapters/postgres";
 
 type ContainerWriterProjectionStatus = 403 | 404 | 409;
 

@@ -1,3 +1,5 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { documents } from "@tearleads/api-shared/schema";
 import type {
   AccessEvent,
   VerifiedContainerAccessManifest,
@@ -10,8 +12,6 @@ import type {
 } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
-import type { DatabaseTransaction } from "../../../adapters/postgres";
-import { documents } from "../../../schema";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   assertCurrentContainerPathGroups,

@@ -1,4 +1,9 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  accessManifests,
+  containerKeyEpochs,
+} from "@tearleads/api-shared/schema";
 import {
   type AccessEventType,
   type AccessManifest,
@@ -21,8 +26,6 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
-import { db } from "../../adapters/postgres";
-import { accessManifests, containerKeyEpochs } from "../../schema";
 import {
   type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,

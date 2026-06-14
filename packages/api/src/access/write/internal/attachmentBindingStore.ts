@@ -1,14 +1,14 @@
 import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import { attachmentBindings } from "@tearleads/api-shared/schema";
+import type {
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import type {
-  ApiDatabase,
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
-import { attachmentBindings } from "../../../schema";
 import { storeVerifiedAccessEventInTransaction } from "../../shared/internal/accessManifestStore";
 
 class AttachmentBindingProjectionError extends Error {

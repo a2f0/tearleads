@@ -1,4 +1,8 @@
 import type {
+  ApiDatabase,
+  DatabaseSession,
+} from "@tearleads/api-shared/postgres";
+import type {
   AccessManifest,
   DocumentLinkSetManifestState,
   KeyingCanonicalJson,
@@ -25,7 +29,6 @@ import {
   DocumentKekTargetError,
   resolveCurrentDocumentKekTargets,
 } from "../../access/read/documentKekTargets";
-import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
 import {
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,

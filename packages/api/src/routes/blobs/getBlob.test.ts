@@ -1,14 +1,18 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  attachmentBindings,
+  blobs,
+  containers,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { db } from "../../adapters/postgres";
 import { del } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
-import { attachmentBindings, blobs, containers } from "../../schema";
 
 const alice = createTestUser();
 

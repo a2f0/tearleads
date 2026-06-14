@@ -1,8 +1,8 @@
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import type { PutPrincipalMemberEnvelopesRequest } from "@tearleads/validators/request";
 import type { CurrentPrincipalMemberEnvelopesResponse } from "@tearleads/validators/response";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
-import type { ApiDatabase } from "../../adapters/postgres";
 import {
   PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,

@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import { db } from "../../adapters/postgres";
-import { blobStages } from "../../schema";
 import { sha256Hex } from "../../utils/sha256";
 import { StageBlobError, stageBlob } from "./stageBlob";
 

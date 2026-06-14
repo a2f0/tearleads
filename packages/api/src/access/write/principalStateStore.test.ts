@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { users } from "@tearleads/api-shared/schema";
 import {
   computePrincipalMembershipRoot,
   computePrincipalProjectionRoot,
@@ -11,8 +13,6 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
-import { db } from "../../adapters/postgres";
-import { users } from "../../schema";
 import {
   getCurrentPrincipalEpochKey,
   getCurrentPrincipalEpochKeys,

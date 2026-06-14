@@ -1,10 +1,3 @@
-import type {
-  ContainerDocumentSummary,
-  ContainerDocumentSyncTombstone,
-  ListContainerDocumentsResponse,
-  SyncWatermark,
-} from "@tearleads/validators/response";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
@@ -13,7 +6,14 @@ import {
   documents,
   organizationRosterEntries,
   organizations,
-} from "../../schema";
+} from "@tearleads/api-shared/schema";
+import type {
+  ContainerDocumentSummary,
+  ContainerDocumentSyncTombstone,
+  ListContainerDocumentsResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,

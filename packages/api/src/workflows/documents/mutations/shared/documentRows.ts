@@ -1,14 +1,14 @@
-import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { eq, inArray } from "drizzle-orm";
-import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
-import type { DatabaseTransaction } from "../../../../adapters/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
   containers,
   documentContainerLinks,
   documents,
-} from "../../../../schema";
+} from "@tearleads/api-shared/schema";
+import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
+import { eq, inArray } from "drizzle-orm";
+import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
 import { DocumentMutationError } from "../errors";
 
 export async function insertDocumentAndLinks(input: {

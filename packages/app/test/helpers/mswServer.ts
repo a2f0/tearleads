@@ -65,12 +65,10 @@ interface TestApiKeyValueStore {
   sscanMembers: (key: string) => AsyncIterable<string[]>;
 }
 
-function createApiModuleUrl(relativePath: string): string {
-  return new URL(`../../../api/src/${relativePath}`, import.meta.url).href;
-}
-
-const appTestRuntimeModuleUrl = createApiModuleUrl("appTestRuntime.ts");
-const apiPostgresAdapterModuleUrl = createApiModuleUrl("adapters/postgres.ts");
+const [appTestRuntimeModuleUrl, apiPostgresAdapterModuleUrl] = [
+  "../../../api/src/appTestRuntime.ts",
+  "../../../api-shared/src/adapters/postgres.ts",
+].map((path) => new URL(path, import.meta.url).href) as [string, string];
 
 const appTestProcessState = globalThis as typeof globalThis & {
   __tearleadsAppTestProcessState?: AppTestProcessState;

@@ -1,4 +1,18 @@
 import type {
+  ApiDatabase,
+  DatabaseSession,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
+import {
+  accessEventDependencyProjection,
+  accessEvents,
+  accessManifestContainerGrantProjection,
+  accessManifestDocumentLinkProjection,
+  accessManifestHeads,
+  accessManifestPrincipalHeadProjection,
+  accessManifests,
+} from "@tearleads/api-shared/schema";
+import type {
   AccessManifest,
   AccessObjectKind,
   AnyVerifiedAccessManifest,
@@ -9,20 +23,6 @@ import type {
 } from "@tearleads/crypto";
 import { makeVerifiedAccessEvent } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
-import type {
-  ApiDatabase,
-  DatabaseSession,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
-import {
-  accessEventDependencyProjection,
-  accessEvents,
-  accessManifestContainerGrantProjection,
-  accessManifestDocumentLinkProjection,
-  accessManifestHeads,
-  accessManifestPrincipalHeadProjection,
-  accessManifests,
-} from "../../../schema";
 import {
   canonicalJsonEquals,
   readKeyingCanonicalJson,

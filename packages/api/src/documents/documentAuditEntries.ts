@@ -1,10 +1,10 @@
-import { desc, eq } from "drizzle-orm";
-import type { DatabaseSession } from "../adapters/postgres";
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   documentAuditEntries,
   documents,
   documentUpdateAuditEvents,
-} from "../schema";
+} from "@tearleads/api-shared/schema";
+import { desc, eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
 
 const textEncoder = new TextEncoder();

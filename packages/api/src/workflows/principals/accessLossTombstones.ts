@@ -1,3 +1,11 @@
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import {
+  accessManifestContainerGrantProjection,
+  accessManifestHeads,
+  containerSyncTombstones,
+  containers,
+  principalMembershipProjection,
+} from "@tearleads/api-shared/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
@@ -5,14 +13,6 @@ import {
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
-import type { DatabaseTransaction } from "../../adapters/postgres";
-import {
-  accessManifestContainerGrantProjection,
-  accessManifestHeads,
-  containerSyncTombstones,
-  containers,
-  principalMembershipProjection,
-} from "../../schema";
 
 type ManagedPrincipalType = StoredPrincipalState["principalType"];
 type PrincipalMemberType =

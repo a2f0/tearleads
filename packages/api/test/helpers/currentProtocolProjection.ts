@@ -1,11 +1,11 @@
-import { db } from "../../src/adapters/postgres";
+import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
   accessManifests,
   documents,
-} from "../../src/schema";
+} from "@tearleads/api-shared/schema";
 
 export async function createCurrentDocumentProjection(input: {
   readonly containerIds: readonly string[];

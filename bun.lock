@@ -25,21 +25,28 @@
       "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1049.0",
-        "@electric-sql/pglite": "0.4.1",
+        "@tearleads/api-shared": "workspace:*",
         "@tearleads/crypto": "workspace:*",
         "@tearleads/encoding": "workspace:*",
         "@tearleads/loro": "workspace:*",
         "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
         "hono": "4.7.11",
-        "pg": "8.19.0",
         "redis": "5.11.0",
       },
       "devDependencies": {
         "@tearleads/bob-and-alice": "workspace:*",
         "@types/bun": "catalog:",
-        "@types/pg": "8.16.0",
-        "drizzle-kit": "0.31.10",
+      },
+    },
+    "packages/api-cli": {
+      "name": "@tearleads/api-cli",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tearleads/api-shared": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
       },
     },
     "packages/api-client": {
@@ -52,6 +59,22 @@
       "devDependencies": {
         "@types/bun": "catalog:",
         "msw": "catalog:testing",
+      },
+    },
+    "packages/api-shared": {
+      "name": "@tearleads/api-shared",
+      "version": "0.1.0",
+      "dependencies": {
+        "@electric-sql/pglite": "0.4.1",
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/loro": "workspace:*",
+        "drizzle-orm": "0.45.1",
+        "pg": "8.19.0",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/pg": "8.16.0",
+        "drizzle-kit": "0.31.10",
       },
     },
     "packages/app": {
@@ -866,7 +889,11 @@
 
     "@tearleads/api": ["@tearleads/api@workspace:packages/api"],
 
+    "@tearleads/api-cli": ["@tearleads/api-cli@workspace:packages/api-cli"],
+
     "@tearleads/api-client": ["@tearleads/api-client@workspace:packages/api-client"],
+
+    "@tearleads/api-shared": ["@tearleads/api-shared@workspace:packages/api-shared"],
 
     "@tearleads/bob-and-alice": ["@tearleads/bob-and-alice@workspace:packages/bob-and-alice"],
 

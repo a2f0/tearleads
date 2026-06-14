@@ -1,4 +1,11 @@
 import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  attachmentBindings,
+  blobContentKeyEpochs,
+  blobContentKeyTargets,
+  blobs,
+} from "@tearleads/api-shared/schema";
 import { toFingerprint } from "@tearleads/crypto";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
@@ -7,13 +14,6 @@ import {
   createServiceTestRuntime,
 } from "../../../test/helpers/serviceRuntime";
 import { resolveCurrentBlobKekTargets } from "../../access/read/blobKekTargets";
-import { db } from "../../adapters/postgres";
-import {
-  attachmentBindings,
-  blobContentKeyEpochs,
-  blobContentKeyTargets,
-  blobs,
-} from "../../schema";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,

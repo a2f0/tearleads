@@ -1,9 +1,14 @@
-import { initializeApiDatabase } from "./adapters/postgres";
+import {
+  getDefaultApiDatabaseKind,
+  initializeApiDatabase,
+} from "@tearleads/api-shared/postgres";
 import type { RouteRequestBindings } from "./requestContext";
 import { routeApp } from "./routeApp";
 import { websocket } from "./ws";
 
-await initializeApiDatabase();
+if (getDefaultApiDatabaseKind() === "memory") {
+  await initializeApiDatabase();
+}
 
 interface ApiServer {
   requestIP(req: Request): { address: string } | null;

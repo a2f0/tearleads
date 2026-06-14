@@ -3,6 +3,8 @@
   "references": [
     { "path": "packages/api" },
     { "path": "packages/api-client" },
+    { "path": "packages/api-cli" },
+    { "path": "packages/api-shared" },
     { "path": "packages/app" },
     { "path": "packages/app-web" },
     { "path": "packages/app-electrobun" },

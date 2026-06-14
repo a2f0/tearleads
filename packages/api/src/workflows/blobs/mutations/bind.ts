@@ -1,3 +1,7 @@
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import {
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
@@ -8,10 +12,6 @@ import {
   storeBlobContentKeyBundleInTransaction,
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
-import type {
-  ApiDatabase,
-  DatabaseTransaction,
-} from "../../../adapters/postgres";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";

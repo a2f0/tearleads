@@ -1,11 +1,14 @@
-import type { ContainerDeleteResponse } from "@tearleads/validators/response";
-import { and, eq, sql } from "drizzle-orm";
-import type { ApiDatabase, DatabaseTransaction } from "../../adapters/postgres";
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import {
   containerSyncTombstones,
   containers,
   documentContainerLinks,
-} from "../../schema";
+} from "@tearleads/api-shared/schema";
+import type { ContainerDeleteResponse } from "@tearleads/validators/response";
+import { and, eq, sql } from "drizzle-orm";
 import { userIdsByContainerPath } from "./containerPathUsers";
 import {
   ContainerWriterProjectionError,

@@ -1,4 +1,15 @@
 import { afterAll, expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  containerBuiltinGrants,
+  containerMetadataDocuments,
+  containers,
+  documentContentKeyEpochs,
+  groups,
+  organizationRosterEntries,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -11,19 +22,8 @@ import {
   createRegistrationRequestBody,
   submitRegistration,
 } from "../../../test/helpers/api";
-import { db } from "../../adapters/postgres";
 import { del, get } from "../../adapters/redis";
 import { routeApp } from "../../routeApp";
-import {
-  containerBuiltinGrants,
-  containerMetadataDocuments,
-  containers,
-  documentContentKeyEpochs,
-  groups,
-  organizationRosterEntries,
-  organizations,
-  users,
-} from "../../schema";
 
 let fingerprint: string;
 

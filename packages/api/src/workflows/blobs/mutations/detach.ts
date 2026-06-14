@@ -1,7 +1,7 @@
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
 import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
-import type { ApiDatabase } from "../../../adapters/postgres";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";

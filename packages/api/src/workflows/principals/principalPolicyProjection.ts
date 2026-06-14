@@ -1,3 +1,4 @@
+import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalProjectionMember,
   ReferencedPrincipalHead,
@@ -16,7 +17,6 @@ import {
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
-import type { DatabaseSession } from "../../adapters/postgres";
 
 export class PrincipalPolicyProjectionError extends Error {
   readonly status = 409;

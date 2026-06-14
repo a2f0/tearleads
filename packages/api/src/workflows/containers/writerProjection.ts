@@ -1,9 +1,12 @@
 import type {
+  ApiDatabase,
+  DatabaseSession,
+} from "@tearleads/api-shared/postgres";
+import type {
   ContainerAccessLevel,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import type { ApiDatabase, DatabaseSession } from "../../adapters/postgres";
 import {
   asContainerWriterProjectionError,
   buildContainerAccessProjection,

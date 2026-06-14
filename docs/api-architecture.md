@@ -188,7 +188,7 @@ This is the lowest layer.
 
 Examples:
 
-- `packages/api/src/adapters/postgres.ts`
+- `packages/api-shared/src/adapters/postgres.ts`
 - `packages/api/src/adapters/redis.ts`
 - `packages/api/src/adapters/redisPubSub.ts`
 - `packages/api/src/adapters/blobObjectStore.ts`
