@@ -346,3 +346,31 @@ test(
   },
   PANE_ASYNC_TEST_TIMEOUT_MS,
 );
+
+test(
+  "pane menu can generate a new key pair after destroying the current key pair",
+  async () => {
+    const view = renderPane({
+      hostConfig: createTestHostConfig({
+        localIdentityNamespace: `test-pane-regenerate-${crypto.randomUUID()}`,
+      }),
+    });
+
+    await generateIdentityAndWaitForDb(view);
+    const firstPublicKey = getPanePublicKey(view);
+    await registerAndWaitForUserId(view);
+
+    fireEvent.click(view.getByText("Menu"));
+    fireEvent.click(view.getByText("Destroy Key Pair"));
+
+    await generateIdentityAndWaitForDb(view);
+    const secondPublicKey = getPanePublicKey(view);
+
+    expect(secondPublicKey).not.toBe(firstPublicKey);
+    expect(getPaneStatusText(view)).toMatch(/userId:\s*none/);
+    expect(view.queryByText(/Failed to generate identity keys/)).toBeNull();
+
+    view.unmount();
+  },
+  PANE_ASYNC_TEST_TIMEOUT_MS,
+);

@@ -314,6 +314,13 @@ function useSQLiteRuntimeControls(params: {
       if (currentDbNameRef.current && currentDbNameRef.current !== nextDbName) {
         destroyCurrentRuntime("idle");
       }
+      // A failed init leaves the target DB pinned in error; retry with a fresh worker.
+      if (
+        currentDbNameRef.current === nextDbName &&
+        tearleads.database.status === "error"
+      ) {
+        destroyCurrentRuntime("idle");
+      }
 
       return waitForReadySQLiteRuntime(
         tearleads,
