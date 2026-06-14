@@ -382,6 +382,6 @@ resolve_stack_ssh_target() {
   fi
 
   ssh_target="$username@$hostname"
-  wait_for_ssh_ready "$ssh_target" >&2
+  wait_for_ssh_ready "$ssh_target" >&2 || return 1
   echo "$ssh_target"
 }
