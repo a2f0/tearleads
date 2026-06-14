@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import {
   MiniAppButton,
@@ -58,7 +58,7 @@ test("mini app buttons preserve default type and variant classes", () => {
   expect(buttonRef.current).toBe(button as HTMLButtonElement);
 });
 
-test("mini app clipboard button copies non-empty values after caller click handlers", () => {
+test("mini app clipboard button copies non-empty values after caller click handlers", async () => {
   const copied: string[] = [];
   const clickOrder: string[] = [];
   installClipboard((value) => {
@@ -81,8 +81,13 @@ test("mini app clipboard button copies non-empty values after caller click handl
   expect(mouseDownAllowed).toBe(false);
   expect(copied).toEqual([" user-1 "]);
   expect(clickOrder).toEqual(["caller", "clipboard"]);
-  expect(button.getAttribute("title")).toBe("Copy user id");
   expect(button.classList.contains("mini-app-icon-button")).toBe(true);
+  await waitFor(() => {
+    expect(button.classList.contains("mini-app-clipboard-button--copied")).toBe(
+      true,
+    );
+    expect(button.getAttribute("title")).toBe("Copied to clipboard");
+  });
 });
 
 test("mini app clipboard button disables empty values and respects prevented clicks", () => {

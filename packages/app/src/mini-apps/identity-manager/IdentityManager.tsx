@@ -1,7 +1,14 @@
 import type { UserSession } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   MiniAppButton,
+  MiniAppClipboardButton,
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
@@ -70,16 +77,26 @@ function compactIdentifier(value: string | null | undefined): string {
 }
 
 function IdentityDetail({
+  action,
   label,
   value,
 }: {
+  action?: ReactNode | undefined;
   label: string;
   value: string | null;
 }) {
   return (
     <>
       <dt>{label}</dt>
-      <dd title={value ?? undefined}>{compactIdentifier(value)}</dd>
+      <dd>
+        <span
+          className="identity-manager-detail-text"
+          title={value ?? undefined}
+        >
+          {compactIdentifier(value)}
+        </span>
+        {action}
+      </dd>
     </>
   );
 }
@@ -346,7 +363,13 @@ function IdentitySection({
       )}
       <dl className="identity-manager-details">
         <IdentityDetail label="Signing Key" value={signingFingerprint} />
-        <IdentityDetail label="User ID" value={userId} />
+        <IdentityDetail
+          action={
+            <MiniAppClipboardButton label="Copy user ID" value={userId} />
+          }
+          label="User ID"
+          value={userId}
+        />
         <IdentityDetail label="Organization ID" value={organizationId} />
         <IdentityDetail label="Container ID" value={containerId} />
         <dt>Authentication</dt>

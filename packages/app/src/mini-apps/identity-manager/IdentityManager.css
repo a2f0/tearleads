@@ -24,7 +24,14 @@
 }
 
 .identity-manager-details dd {
+  display: flex;
+  align-items: center;
+  gap: var(--mini-app-space-xs);
   margin: 0;
+  min-width: 0;
+}
+
+.identity-manager-detail-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
