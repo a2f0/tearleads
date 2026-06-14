@@ -61,7 +61,9 @@ export function useContactsContextMenu(params: {
       ? entriesById.get(contextMenu.id.contactId)
       : undefined;
   const canRemoveContextMenuContact =
-    contextMenu?.id.kind === "contact" && !(contextMenuEntry?.isSelf ?? false);
+    contextMenu?.id.kind === "contact" &&
+    contextMenuEntry !== undefined &&
+    !contextMenuEntry.isSelf;
 
   const removeContextMenuContact = useCallback(async () => {
     if (!contextMenu || contextMenu.id.kind !== "contact") {
