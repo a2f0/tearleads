@@ -1,0 +1,20 @@
+.mini-app-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mini-app-space-md);
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: var(--mini-app-space-md);
+  color: var(--color-dark);
+}
+
+.mini-app-root--padding-none {
+  gap: 0;
+  padding: 0;
+}
+
+.mini-app-root--centered {
+  align-items: center;
+  justify-content: center;
+}

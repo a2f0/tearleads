@@ -329,9 +329,6 @@
     }
   },
   "suppressions": {
-    "packages/app/src/components/shared/MiniAppLayout.tsx": {
-      "biomeIgnore": 1
-    },
     "packages/app/src/mini-apps/explorer/Explorer.tsx": {
       "biomeIgnore": 1
     },

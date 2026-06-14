@@ -1,0 +1,8 @@
+.mini-app-status {
+  font-size: var(--font-size-sm);
+  opacity: var(--mini-app-muted-opacity);
+}
+
+.mini-app-status--error {
+  opacity: 1;
+}
