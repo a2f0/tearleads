@@ -47,7 +47,7 @@ wait_for_ssh_ready "$SSH_TARGET"
 
 echo "Deploying app-web static files to $SSH_TARGET:$REMOTE_PATH ..."
 ssh "$SSH_TARGET" "sudo mkdir -p $REMOTE_PATH"
-rsync -avz --delete --rsync-path="sudo rsync" \
+rsync -avz --no-owner --no-group --delete --rsync-path="sudo rsync" \
   "$APP_WEB_DIR/dist/" "$SSH_TARGET:$REMOTE_PATH/"
 
 ssh "$SSH_TARGET" "sudo chown -R www-data:www-data $REMOTE_PATH"
