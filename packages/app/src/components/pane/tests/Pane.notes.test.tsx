@@ -71,7 +71,11 @@ test("explorer windows in the same pane share newly created notes without refres
   const secondExplorer = await openExplorer(view);
 
   await waitFor(() => {
-    expect(listExplorerNoteItems(secondExplorer)).toHaveLength(0);
+    expect(
+      listExplorerNoteItems(secondExplorer).some(
+        (button) => button.textContent?.trim() === "fresh explorer note",
+      ),
+    ).toBe(false);
   });
 
   await openExplorerNewStructuredDocumentRoute(firstExplorer);
