@@ -27,6 +27,18 @@ echo ""
 run_step "terraform" \
   "${REPO_ROOT}/terraform/stacks/prod/server/scripts/apply.sh" \
   --auto-approve
+
+# Resolve SSH_TARGET once so sub-scripts can reuse it
+# shellcheck source=../terraform/scripts/common.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/terraform/scripts/common.sh"
+load_secrets_env prod
+validate_aws_env
+STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"
+BACKEND_CONFIG="$(get_backend_config)"
+terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
+export SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
+
 run_step "ansible" "${REPO_ROOT}/ansible/scripts/run-server-prod.sh"
 run_step "api" "${REPO_ROOT}/packages/api/scripts/deployProductionApi.sh"
 run_step "website" "${REPO_ROOT}/packages/website/scripts/deployProductionWebsite.sh"
