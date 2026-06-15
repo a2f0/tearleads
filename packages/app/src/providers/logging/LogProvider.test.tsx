@@ -72,6 +72,28 @@ test("renders raw Error objects with their type information", () => {
   view.unmount();
 });
 
+test("renders pane log timestamps with locale-independent milliseconds", () => {
+  const timestamp = new Date(2026, 0, 2, 3, 4, 5, 6).getTime();
+  const view = render(
+    <LogProvider>
+      <PaneLog
+        trailingEntries={[
+          {
+            id: "stable-timestamp",
+            level: "info",
+            timestamp,
+            message: "Stable timestamp",
+          },
+        ]}
+      />
+    </LogProvider>,
+  );
+
+  expect(view.getByText("[03:04:05.006] Stable timestamp")).toBeTruthy();
+
+  view.unmount();
+});
+
 test("retains only the most recent 1000 log entries", () => {
   const view = render(
     <LogProvider>

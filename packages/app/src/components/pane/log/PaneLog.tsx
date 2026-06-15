@@ -13,9 +13,11 @@ interface PaneLogProps {
 
 function formatTimestamp(ts: number): string {
   const d = new Date(ts);
-  const time = d.toLocaleTimeString();
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const seconds = String(d.getSeconds()).padStart(2, "0");
   const ms = String(d.getMilliseconds()).padStart(3, "0");
-  return time.replace(/(\d{2})([ \u202f](?:AM|PM))/i, `$1.${ms}$2`);
+  return `${hours}:${minutes}:${seconds}.${ms}`;
 }
 
 export function PaneLog({ trailingEntries = [] }: PaneLogProps) {

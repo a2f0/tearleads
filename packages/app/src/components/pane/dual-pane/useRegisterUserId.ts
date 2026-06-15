@@ -9,5 +9,10 @@ export function useRegisterUserId(userId: string | null): void {
   useEffect(() => {
     const setter = side === "left" ? setLeftUserId : setRightUserId;
     setter(userId);
+    return () => {
+      setter((currentUserId) =>
+        currentUserId === userId ? null : currentUserId,
+      );
+    };
   }, [userId, side, setLeftUserId, setRightUserId]);
 }

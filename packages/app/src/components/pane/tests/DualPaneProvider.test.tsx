@@ -15,6 +15,13 @@ import {
   waitForAppTestRuntimeToSettle,
 } from "../../../../test/helpers/appRuntimeIdle";
 import {
+  type ProxiedApiRequest,
+  requestPath,
+  requestPathAndQuery,
+  summarizeProxiedApiRequests,
+  truncateText,
+} from "../../../../test/helpers/dualPaneRequestSummary";
+import {
   getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
   resetMockServer,
@@ -37,7 +44,6 @@ const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
 const POST_SHARE_NETWORK_IDLE_TIMEOUT_MS = 500;
 const POST_SHARE_NETWORK_IDLE_INTERVAL_MS = 10;
-const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
 const MOVED_NOTE_TITLE = "Moved folder note";
 const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
@@ -45,8 +51,6 @@ const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
   "Document content-key bundle is stale",
   "Document write authorization manifest does not match sync request",
 ] as const;
-
-type ProxiedApiRequest = ReturnType<typeof listProxiedApiRequests>[number];
 
 interface BlobAttachmentBindingJson {
   bindingId?: unknown;
@@ -618,6 +622,19 @@ async function addPeerToAdminsGroup(pane: HTMLElement, peerUserId: string) {
   await waitFor(() => {
     expect(userIdInput.value).toBe("");
   });
+  await waitForCondition(
+    () =>
+      Array.from(pane.querySelectorAll("strong")).some(
+        (element) => element.getAttribute("title") === peerUserId,
+      ),
+    `Peer ${peerUserId} did not appear in Admins.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+  );
+  await act(async () => {
+    await waitForAppTestRuntimeToSettle({
+      apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+      timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+    });
+  });
 }
 
 async function createGroupAndAddPeer(
@@ -817,23 +834,6 @@ async function findExplorerInfoGrantRow(
 
   invariant(row, `Expected grant row for "${groupName}".`);
   return row;
-}
-
-function requestPath(url: string): string {
-  try {
-    return new URL(url).pathname;
-  } catch {
-    return url;
-  }
-}
-
-function requestPathAndQuery(url: string): string {
-  try {
-    const parsedUrl = new URL(url);
-    return `${parsedUrl.pathname}${parsedUrl.search}`;
-  } catch {
-    return url;
-  }
 }
 
 function normalizeRequestPath(path: string): string {
@@ -1072,30 +1072,6 @@ async function waitForRemoteAttachmentBlob() {
     () => listProxiedApiRequests().some(isSuccessfulBlobAttachmentBinding),
     `Note attachment blob was not uploaded before sharing.\nrequests=\n${summarizeProxiedApiRequests()}`,
   );
-}
-
-function summarizeRequestBody(body: string | null): string {
-  return body === null ? "null" : `<${body.length} chars>`;
-}
-
-function truncateText(
-  text: string,
-  maxLength = MAX_REQUEST_SUMMARY_BODY_LENGTH,
-): string {
-  return text.length <= maxLength
-    ? text
-    : `${text.slice(0, maxLength)}... <${text.length} chars>`;
-}
-
-function summarizeProxiedApiRequests(
-  requests: readonly ProxiedApiRequest[] = listProxiedApiRequests(),
-): string {
-  return requests
-    .map(
-      (request) =>
-        `${request.method} ${request.status} ${requestPath(request.url)} request=${summarizeRequestBody(request.requestBody)} response=${truncateText(request.responseBody)}`,
-    )
-    .join("\n");
 }
 
 function isRetryableDocumentSyncStaleFailure(

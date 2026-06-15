@@ -11,7 +11,7 @@ export function usePaneLockMenuAction(onClose: () => void) {
   const canLockPane =
     localKeyringLock.pinCodeEnabled && !localKeyringLock.isLocked;
 
-  const lockPane = useCallback(() => {
+  const lockPane = useCallback(async () => {
     if (!canLockPane || !localKeyringLock.lock()) {
       onClose();
       return;
@@ -24,14 +24,14 @@ export function usePaneLockMenuAction(onClose: () => void) {
       organizationId: null,
       userId: null,
     });
-    void tearleads.identity
-      .setKeyPairs({ encapsulationKeyPair: null, signingKeyPair: null })
-      .catch((error: unknown) => {
-        tearleads.logError(
-          "Failed to clear identity keys while locking",
-          error,
-        );
+    try {
+      await tearleads.identity.setKeyPairs({
+        encapsulationKeyPair: null,
+        signingKeyPair: null,
       });
+    } catch (error: unknown) {
+      tearleads.logError("Failed to clear identity keys while locking", error);
+    }
     clearWorker();
     onClose();
   }, [canLockPane, clearWorker, localKeyringLock, onClose, tearleads]);
