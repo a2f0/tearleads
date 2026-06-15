@@ -1,7 +1,4 @@
 import type {
-  DocumentStore,
-  Documents,
-  DocumentsRuntime,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
@@ -14,7 +11,6 @@ import type {
   OrganizationPolicyHistory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { getRosterProfileDocumentLocalId } from "@tearleads/client-sdk";
 import {
   useCallback,
   useEffect,
@@ -28,15 +24,8 @@ import {
   useTearleadsRuntime,
 } from "../../../providers/sdk/TearleadsProvider";
 import { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
-import {
-  getRosterProfileDocumentRelinkInput,
-  readRosterProfileDisplayName,
-} from "../../../stores/org-manager/profileDocuments";
-import { useMiniAppMessage } from "../../bus";
-import {
-  type OrgManagerContextMenuModel,
-  useOrgManagerContextMenu,
-} from "../context-menu/OrgManagerContextMenu";
+import { useMiniAppBusActions } from "../../bus";
+import { useOrgManagerContextMenu } from "../context-menu/OrgManagerContextMenu";
 import {
   removeRevokedGrantFromGrantState,
   removeRevokedGrantFromGroupContainers,
@@ -63,99 +52,20 @@ import {
   type OrgManagerView,
   resolveOrgManagerSelectedGroupId,
 } from "../routes";
+import {
+  hasRosterProfileDocument,
+  loadRosterProfileDisplayName,
+} from "./rosterProfileDisplayNames";
+import { useOrgManagerRosterActions } from "./useOrgManagerRosterActions";
 import { useOrgManagerRoute } from "./useOrgManagerRoute";
-
-type RosterProfileDocumentUser = OrganizationDirectoryUser & {
-  profileDocumentId: string;
-};
-
-type ProfileDisplayNameSetter = (
-  userId: string,
-  displayName: string | null,
-) => void;
-
-function hasRosterProfileDocument(
-  user: OrganizationDirectoryUser,
-): user is RosterProfileDocumentUser {
-  return user.profileDocumentId !== null;
-}
-
-function applyRosterProfileDisplayName(input: {
-  setProfileDisplayName: ProfileDisplayNameSetter;
-  store: DocumentStore;
-  userId: string;
-}) {
-  const snapshot = input.store.getSnapshot();
-  if (!snapshot.ready) {
-    return;
-  }
-
-  const displayName = readRosterProfileDisplayName(snapshot.structuredFields);
-  if (displayName) {
-    input.setProfileDisplayName(input.userId, displayName);
-  }
-}
-
-async function loadRosterProfileDisplayName(input: {
-  documents: Documents;
-  isCancelled: () => boolean;
-  organizationId: string;
-  profileContainerId: string;
-  runtime: DocumentsRuntime;
-  setProfileDisplayName: ProfileDisplayNameSetter;
-  unsubscribes: Array<() => void>;
-  user: RosterProfileDocumentUser;
-}): Promise<void> {
-  if (input.isCancelled()) {
-    return;
-  }
-
-  const localId = getRosterProfileDocumentLocalId({
-    organizationId: input.organizationId,
-    userId: input.user.userId,
-  });
-  const store = input.documents.open(
-    {
-      containerId: input.profileContainerId,
-      documentId: input.user.profileDocumentId,
-      initialDocumentKind: "contact",
-      localId,
-    },
-    { workflowRuntime: input.runtime },
-  );
-  const applyDisplayName = () => {
-    applyRosterProfileDisplayName({
-      setProfileDisplayName: input.setProfileDisplayName,
-      store,
-      userId: input.user.userId,
-    });
-  };
-
-  input.unsubscribes.push(store.subscribe(applyDisplayName));
-  if (input.isCancelled()) {
-    return;
-  }
-
-  const relinked = await store.relink(
-    getRosterProfileDocumentRelinkInput({
-      localId,
-      profileContainerId: input.profileContainerId,
-      profileDocumentId: input.user.profileDocumentId,
-    }),
-  );
-  if (!relinked || input.isCancelled()) {
-    return;
-  }
-
-  applyDisplayName();
-  store.requestSync();
-}
+import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const orgManagerActions = useOrgManagerActions();
+  const { openMiniApp } = useMiniAppBusActions();
   const addUserListId = useId();
   const [directory, setDirectory] = useState<OrganizationDirectory | null>(
     null,
@@ -215,17 +125,7 @@ export function useOrgManagerModel() {
     setProfileDisplayNamesByUserId(new Map());
   }, [appData.auth.organizationId]);
 
-  useMiniAppMessage(
-    "org-manager",
-    useCallback(
-      (message) => {
-        if (message.type === "open-group") {
-          openGroupRoute(message.groupId);
-        }
-      },
-      [openGroupRoute],
-    ),
-  );
+  useOrgManagerRouteMessages(openGroupRoute);
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
@@ -253,12 +153,6 @@ export function useOrgManagerModel() {
       null,
     [directory?.users, selectedUserId, userDetail?.user],
   );
-  const canUpdateSelectedRosterEntry = Boolean(
-    selectedRosterUser &&
-      (directory?.currentUser.isOrgAdmin ||
-        selectedRosterUser.userId === appData.auth.userId),
-  );
-
   const memberUserIds = useMemo(
     () =>
       new Set(
@@ -434,6 +328,17 @@ export function useOrgManagerModel() {
     setIsImportUserDialogOpen(false);
   }, [mutating]);
 
+  const contextMenuState = useOrgManagerContextMenu();
+  const rosterActions = useOrgManagerRosterActions({
+    authUserId: appData.auth.userId,
+    contextMenu: contextMenuState.contextMenu,
+    directory,
+    openMiniApp,
+    selectUser,
+    selectedRosterUser,
+    setOrgManagerView,
+  });
+
   const resetDirectoryState = useCallback(() => {
     setDirectory(null);
     setGroups([]);
@@ -447,9 +352,9 @@ export function useOrgManagerModel() {
     setProfileDisplayNamesByUserId(new Map());
     setIsCreateGroupDialogOpen(false);
     setIsImportUserDialogOpen(false);
-    selectUser(null);
+    rosterActions.selectRosterUser(null);
     selectGroup(null);
-  }, [selectGroup, selectUser]);
+  }, [rosterActions.selectRosterUser, selectGroup]);
 
   const loadDirectoryAndGroups = useCallback(
     async (
@@ -796,7 +701,7 @@ export function useOrgManagerModel() {
       !selectedRosterUser ||
       selectedRosterUser.profileDocumentId ||
       !canLoadAuthenticatedOrgData ||
-      !canUpdateSelectedRosterEntry ||
+      !rosterActions.canUpdateSelectedRosterEntry ||
       !appData.auth.organizationId
     ) {
       return;
@@ -841,8 +746,8 @@ export function useOrgManagerModel() {
   }, [
     appData.auth.organizationId,
     canLoadAuthenticatedOrgData,
-    canUpdateSelectedRosterEntry,
     orgManagerActions,
+    rosterActions.canUpdateSelectedRosterEntry,
     selectedRosterUser,
     updateRosterUserState,
   ]);
@@ -1152,9 +1057,6 @@ export function useOrgManagerModel() {
     },
     [orgManagerActions],
   );
-  const contextMenuState: OrgManagerContextMenuModel =
-    useOrgManagerContextMenu();
-
   useOrgManagerSidebarPanel({
     enabled: Boolean(
       appData.auth.organizationId && appData.auth.isAuthenticated,
@@ -1171,11 +1073,12 @@ export function useOrgManagerModel() {
     addableUsers,
     canCreateGroup,
     canDeleteGroup,
+    canEditContextMenuRosterUser: rosterActions.canEditContextMenuRosterUser,
     canImportRosterUser,
     canLoadAuthenticatedOrgData,
     canMutateSelectedGroup,
     canRevokeGrants,
-    canUpdateSelectedRosterEntry,
+    canUpdateSelectedRosterEntry: rosterActions.canUpdateSelectedRosterEntry,
     closeCreateGroupDialog,
     closeImportUserDialog,
     contextMenuState,
@@ -1189,6 +1092,7 @@ export function useOrgManagerModel() {
     groupNameDraft,
     groupPolicyHistory,
     groups,
+    importRosterUserIntoContacts: rosterActions.importRosterUserIntoContacts,
     importRosterUser,
     importUserIdDraft,
     isCreateGroupDialogOpen,
@@ -1202,17 +1106,20 @@ export function useOrgManagerModel() {
     openGroupRoute,
     openCreateGroupDialog,
     openImportUserDialog,
+    openRosterUser: rosterActions.openRosterUser,
+    openRosterUserForEditing: rosterActions.openRosterUserForEditing,
     organizationId: appData.auth.organizationId,
     organizationPolicyHistory,
     profileDisplayNamesByUserId,
     refreshOrgManager,
     removeMember,
     revokeGrant,
+    rosterProfileEditRequest: rosterActions.rosterProfileEditRequest,
     selectedGroup,
     selectedGroupId,
     selectedUserId,
     selectGroup,
-    selectUser,
+    selectUser: rosterActions.selectRosterUser,
     setAddUserId,
     setGroupNameDraft,
     setImportUserIdDraft,

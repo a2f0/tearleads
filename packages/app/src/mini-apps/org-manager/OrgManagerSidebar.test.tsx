@@ -5,7 +5,7 @@ import {
   useWindowSidebar,
   WindowSidebarProvider,
 } from "../../components/window/WindowSidebarContext";
-import type { OrgManagerContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
+import type { OrgManagerSidebarContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
 import { ORG_MANAGER_LABELS } from "./labels";
 import {
   type OrgManagerView,
@@ -24,7 +24,7 @@ function SidebarRegistration({
   handleContextMenu?:
     | ((
         event: MouseEvent<HTMLElement>,
-        view: OrgManagerContextMenuTarget,
+        view: OrgManagerSidebarContextMenuTarget,
       ) => void)
     | undefined;
 }) {
@@ -51,7 +51,7 @@ function SidebarHarness({
   handleContextMenu?:
     | ((
         event: MouseEvent<HTMLElement>,
-        view: OrgManagerContextMenuTarget,
+        view: OrgManagerSidebarContextMenuTarget,
       ) => void)
     | undefined;
 }) {
@@ -85,7 +85,7 @@ test("org manager sidebar panel clears itself when disabled", async () => {
 });
 
 test("org manager sidebar exposes context menus for roster and groups", async () => {
-  const contextMenuTargets: OrgManagerContextMenuTarget[] = [];
+  const contextMenuTargets: OrgManagerSidebarContextMenuTarget[] = [];
   const view = render(
     <SidebarHarness
       enabled

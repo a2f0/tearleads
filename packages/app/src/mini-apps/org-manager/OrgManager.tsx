@@ -69,10 +69,14 @@ function OrgManagerDirectoryContent({
       openDirectoryContextMenu={(event) =>
         model.contextMenuState.handleSidebarContextMenu(event, "directory")
       }
+      openRosterUserContextMenu={
+        model.contextMenuState.handleRosterUserContextMenu
+      }
       openGroupRoute={model.openGroupRoute}
       profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       renderRosterProfileEditor={renderProfileEditor}
       revokeGrant={model.revokeGrant}
+      rosterProfileEditRequest={model.rosterProfileEditRequest}
       selectedUserId={model.selectedUserId}
       selectUser={model.selectUser}
       setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
@@ -241,13 +245,17 @@ export function OrgManager() {
       </main>
       <OrgManagerContextMenuLayer
         canCreateGroup={model.canCreateGroup}
+        canEditContextMenuRosterUser={model.canEditContextMenuRosterUser}
         canImportRosterUser={model.canImportRosterUser}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
+        importRosterUserIntoContacts={model.importRosterUserIntoContacts}
         loading={model.loading}
         mutating={model.mutating}
         openCreateGroupDialog={model.openCreateGroupDialog}
         openImportUserDialog={model.openImportUserDialog}
+        openRosterUser={model.openRosterUser}
+        openRosterUserForEditing={model.openRosterUserForEditing}
       />
     </MiniAppRoot>
   );

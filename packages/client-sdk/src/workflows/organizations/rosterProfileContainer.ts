@@ -61,6 +61,7 @@ export function getRosterProfileDocumentPatch(input: {
 export async function createInitializedRosterProfileDocument(input: {
   readonly encapsulationPublicKey: string;
   readonly isSelf: boolean;
+  readonly nickname?: string | undefined;
   readonly userId: string;
 }): Promise<{
   readonly initialUpdate: Uint8Array;
@@ -68,11 +69,10 @@ export async function createInitializedRosterProfileDocument(input: {
 }> {
   const doc = await createDocument(getScopedPeerSeed(DOCUMENTS_APP_KIND));
   initializeStoredDocumentKind(doc, ROSTER_PROFILE_DOCUMENT_KIND);
-  writeStoredDocumentFields(
-    doc,
-    ROSTER_PROFILE_DOCUMENT_KIND,
-    getRosterProfileDocumentPatch(input),
-  );
+  writeStoredDocumentFields(doc, ROSTER_PROFILE_DOCUMENT_KIND, {
+    ...getRosterProfileDocumentPatch(input),
+    ...(input.nickname ? { nickname: input.nickname } : {}),
+  });
 
   const initialUpdate = exportAllUpdates(doc);
 

@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  useEffect,
   useId,
   useState,
 } from "react";
@@ -84,6 +85,10 @@ type RenderRosterProfileEditor = (input: {
 }) => ReactNode;
 
 type DirectoryContextMenuHandler = (event: MouseEvent<HTMLElement>) => void;
+type RosterUserContextMenuHandler = (
+  event: MouseEvent<HTMLElement>,
+  userId: string,
+) => void;
 
 function getDirectoryUserDisplayName(
   user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
@@ -114,10 +119,12 @@ function DirectoryTable({
   loading,
   profileDisplayNamesByUserId,
   selectedUserId,
+  openRosterUserContextMenu,
   selectUser,
 }: {
   directory: OrganizationDirectory | null;
   loading: boolean;
+  openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   selectedUserId?: string | null;
   selectUser?: ((userId: string) => void) | undefined;
@@ -180,6 +187,11 @@ function DirectoryTable({
               interactive={Boolean(selectUser)}
               key={user.userId}
               onClick={selectUser ? openUserDetail : undefined}
+              onContextMenu={
+                openRosterUserContextMenu
+                  ? (event) => openRosterUserContextMenu(event, user.userId)
+                  : undefined
+              }
               onKeyDown={selectUser ? handleUserRowKeyDown : undefined}
               selected={isSelected}
               tabIndex={selectUser ? 0 : undefined}
@@ -364,6 +376,7 @@ function UserDetailView({
   loading,
   onDismiss,
   onRosterProfileDisplayNameChange,
+  rosterProfileEditRequestKey,
   openGroupRoute,
   profileDisplayName,
   renderRosterProfileEditor,
@@ -377,6 +390,7 @@ function UserDetailView({
   loading: boolean;
   onDismiss: () => void;
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
+  rosterProfileEditRequestKey?: number | null | undefined;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
   profileDisplayName?: string | undefined;
@@ -385,6 +399,22 @@ function UserDetailView({
   selectedUserId: string | null;
 }) {
   const [isRosterProfileEditing, setIsRosterProfileEditing] = useState(false);
+
+  useEffect(() => {
+    if (
+      typeof rosterProfileEditRequestKey !== "number" ||
+      !canEditRosterProfile ||
+      !renderRosterProfileEditor
+    ) {
+      return;
+    }
+
+    setIsRosterProfileEditing(true);
+  }, [
+    canEditRosterProfile,
+    renderRosterProfileEditor,
+    rosterProfileEditRequestKey,
+  ]);
 
   if (!selectedUserId) {
     return (
@@ -526,6 +556,7 @@ function DirectoryListSection({
   directory,
   loading,
   openDirectoryContextMenu,
+  openRosterUserContextMenu,
   profileDisplayNamesByUserId,
   selectedUserId,
   selectUser,
@@ -533,6 +564,7 @@ function DirectoryListSection({
   directory: OrganizationDirectory;
   loading: boolean;
   openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
+  openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
@@ -555,6 +587,7 @@ function DirectoryListSection({
       <DirectoryTable
         directory={directory}
         loading={loading}
+        openRosterUserContextMenu={openRosterUserContextMenu}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
         selectedUserId={selectedUserId}
         selectUser={selectUser}
@@ -578,10 +611,12 @@ export function DirectoryView({
   loadingUserDetail,
   mutating,
   openDirectoryContextMenu,
+  openRosterUserContextMenu,
   openGroupRoute,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   renderRosterProfileEditor,
   revokeGrant,
+  rosterProfileEditRequest,
   selectedUserId,
   selectUser,
   setSelectedProfileDisplayName = () => undefined,
@@ -601,10 +636,12 @@ export function DirectoryView({
   loadingUserDetail: boolean;
   mutating: boolean;
   openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
+  openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
   openGroupRoute: (groupId: string) => void;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
+  rosterProfileEditRequest?: { key: number; userId: string } | null | undefined;
   selectedUserId: string | null;
   selectUser: (userId: string | null) => void;
   setSelectedProfileDisplayName?:
@@ -641,6 +678,7 @@ export function DirectoryView({
           directory={directory}
           loading={loading}
           openDirectoryContextMenu={openDirectoryContextMenu}
+          openRosterUserContextMenu={openRosterUserContextMenu}
           profileDisplayNamesByUserId={profileDisplayNamesByUserId}
           selectedUserId={selectedUserId}
           selectUser={selectUser}
@@ -670,6 +708,11 @@ export function DirectoryView({
           }
           renderRosterProfileEditor={renderRosterProfileEditor}
           revokeGrant={revokeGrant}
+          rosterProfileEditRequestKey={
+            rosterProfileEditRequest?.userId === selectedUserId
+              ? rosterProfileEditRequest.key
+              : null
+          }
           selectedUserId={selectedUserId}
         />
       </section>

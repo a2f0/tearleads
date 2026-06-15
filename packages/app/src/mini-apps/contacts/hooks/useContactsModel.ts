@@ -11,6 +11,7 @@ import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvid
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
+import { useMiniAppMessage } from "../../bus";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
 import {
   type ContactsContextMenuModel,
@@ -343,6 +344,18 @@ export function useContactsModel(
     routeState.openImportContactRoute,
     peerUserId,
     drafts.setDraftUserId,
+  );
+  useMiniAppMessage(
+    "contacts",
+    useCallback(
+      (message) => {
+        if (message.type === "import-contact") {
+          routeState.openImportContactRoute();
+          drafts.setDraftUserId(message.userId);
+        }
+      },
+      [drafts.setDraftUserId, routeState.openImportContactRoute],
+    ),
   );
 
   useContactsSidebarPanel({

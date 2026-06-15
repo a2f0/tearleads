@@ -520,16 +520,15 @@ async function buildInitialRosterProfileBootstrap(input: {
       trustedLocalProjection: true,
     },
   );
-  const organizationProfile =
-    await createInitializedOrganizationProfileDocument({
-      name: DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
-    });
+  const orgProfile = await createInitializedOrganizationProfileDocument({
+    name: DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+  });
   const rosterProfile = await createInitializedRosterProfileDocument({
     encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
     isSelf: true,
+    nickname: "You",
     userId: input.author.signerUserId,
   });
-
   return {
     containerId,
     containerMetadataDocument,
@@ -541,8 +540,8 @@ async function buildInitialRosterProfileBootstrap(input: {
       metadataDocument: containerMetadataDocument.plan.request,
     },
     organizationProfileDocument,
-    organizationProfileInitialUpdate: organizationProfile.initialUpdate,
-    organizationProfileSnapshot: organizationProfile.snapshot,
+    organizationProfileInitialUpdate: orgProfile.initialUpdate,
+    organizationProfileSnapshot: orgProfile.snapshot,
     profileDocument: rosterProfileDocument,
     profileDocumentInitialUpdate: rosterProfile.initialUpdate,
     profileDocumentRequest: rosterProfileDocument.plan.request,

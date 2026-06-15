@@ -24,10 +24,11 @@ function EmptyMiniApp() {
 
 function createMiniApps(
   orgManagerComponent: ComponentType,
+  contactsComponent: ComponentType = EmptyMiniApp,
 ): Readonly<Record<MiniAppId, MiniAppDefinition>> {
   return {
     contacts: {
-      createComponent: () => EmptyMiniApp,
+      createComponent: () => contactsComponent,
       title: "Contacts",
     },
     explorer: {
@@ -143,6 +144,75 @@ test("mini-app bus opens a target app and delivers route messages", async () => 
 
   await waitFor(() => {
     expect(receivedGroupIds).toEqual(["group-1", "group-2"]);
+    expect(view.getByTestId("window-count").textContent).toBe("1");
+  });
+});
+
+test("mini-app bus opens contacts and delivers import messages", async () => {
+  const receivedUserIds: string[] = [];
+
+  function ContactsProbe() {
+    useMiniAppMessage("contacts", (message) => {
+      receivedUserIds.push(message.userId);
+    });
+
+    return <div>Contacts Ready</div>;
+  }
+
+  function OpenButton() {
+    const { openMiniApp } = useMiniAppBusActions();
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          openMiniApp({
+            appId: "contacts",
+            message: {
+              appId: "contacts",
+              type: "import-contact",
+              userId: "user-1",
+            },
+            pathSegments: ["import"],
+            position: { x: 10, y: 10 },
+          })
+        }
+      >
+        Import contact
+      </button>
+    );
+  }
+
+  function WindowLayer() {
+    const { windows } = useWindowStateData();
+    return (
+      <>
+        <div data-testid="window-count">{windows.length}</div>
+        {windows.map((windowEntry) => (
+          <Window key={windowEntry.id} windowId={windowEntry.id} />
+        ))}
+      </>
+    );
+  }
+
+  const view = render(
+    <WindowStateProvider>
+      <AppNavigationProvider
+        mode="windowed"
+        miniApps={createMiniApps(EmptyMiniApp, ContactsProbe)}
+      >
+        <MiniAppBusProvider>
+          <OpenButton />
+          <WindowLayer />
+        </MiniAppBusProvider>
+      </AppNavigationProvider>
+    </WindowStateProvider>,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "Import contact" }));
+
+  await waitFor(() => {
+    expect(view.getByText("Contacts Ready")).toBeTruthy();
+    expect(receivedUserIds).toEqual(["user-1"]);
     expect(view.getByTestId("window-count").textContent).toBe("1");
   });
 });

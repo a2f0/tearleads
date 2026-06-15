@@ -236,6 +236,34 @@ test("org manager roster view can render an editable encrypted profile editor", 
   ).toBeTruthy();
 });
 
+test("org manager roster view opens selected detail in edit mode from edit requests", () => {
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      canUpdateSelectedRosterEntry
+      detail={detail}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openGroupRoute={() => undefined}
+      renderRosterProfileEditor={({ isEditing, user }) => (
+        <span>
+          {user.profileDocumentId}:{isEditing ? "editable" : "readonly"}
+        </span>
+      )}
+      revokeGrant={() => undefined}
+      rosterProfileEditRequest={{ key: 1, userId: rosterUser.userId }}
+      selectedUserId={rosterUser.userId}
+      selectUser={() => undefined}
+    />,
+  );
+
+  expect(
+    view.getByText(`${rosterUser.profileDocumentId}:editable`),
+  ).toBeTruthy();
+});
+
 test("org manager roster detail uses profile names before self fallback labels", async () => {
   const selfRosterUser: OrganizationDirectoryUser = {
     ...rosterUser,
@@ -370,6 +398,37 @@ test("org manager roster view does not open import user from user rows", () => {
   fireEvent.contextMenu(view.getByText(compactRosterUserId()));
 
   expect(directoryContextMenuCount).toBe(0);
+});
+
+test("org manager roster view opens row context menus from user rows", () => {
+  let directoryContextMenuCount = 0;
+  const rowContextMenuUserIds: string[] = [];
+  const view = render(
+    <DirectoryView
+      canRevokeGrants={false}
+      detail={null}
+      directory={directory}
+      loading={false}
+      loadingUserDetail={false}
+      mutating={false}
+      openDirectoryContextMenu={() => {
+        directoryContextMenuCount += 1;
+      }}
+      openRosterUserContextMenu={(event, userId) => {
+        event.preventDefault();
+        rowContextMenuUserIds.push(userId);
+      }}
+      openGroupRoute={() => undefined}
+      revokeGrant={() => undefined}
+      selectedUserId={null}
+      selectUser={() => undefined}
+    />,
+  );
+
+  fireEvent.contextMenu(view.getByText(compactRosterUserId()));
+
+  expect(directoryContextMenuCount).toBe(0);
+  expect(rowContextMenuUserIds).toEqual([rosterUser.userId]);
 });
 
 test("org manager roster import dialog submits the user id draft", () => {

@@ -8,7 +8,7 @@ import {
   useRegisteredWindowSidebar,
   useWindowSidebar,
 } from "../../components/window/WindowSidebarContext";
-import type { OrgManagerContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
+import type { OrgManagerSidebarContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
 
@@ -17,7 +17,7 @@ export type { OrgManagerView } from "./routes";
 type OrgManagerSidebarContextMenuHandler =
   | ((
       event: MouseEvent<HTMLElement>,
-      view: OrgManagerContextMenuTarget,
+      view: OrgManagerSidebarContextMenuTarget,
     ) => void)
   | undefined;
 

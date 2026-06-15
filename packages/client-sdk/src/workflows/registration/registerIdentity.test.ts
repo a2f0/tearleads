@@ -5,6 +5,8 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import { base64ToBytes } from "@tearleads/encoding";
+import { createDocument, importUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ContainerCreateWithMetadataDocumentRequest,
@@ -15,6 +17,7 @@ import type {
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
+import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
@@ -366,7 +369,21 @@ test("registerIdentity submits the registration request and persists the local b
         documentKind: "contact",
       }),
     );
+    if (!rosterProfileDocument) {
+      throw new Error("Expected persisted roster profile document.");
+    }
     expect(rosterProfileDocument?.loroSnapshot.length).toBeGreaterThan(0);
+    const rosterProfileDoc = await createDocument(
+      "registration-roster-profile-test",
+    );
+    importUpdates(rosterProfileDoc, [
+      base64ToBytes(rosterProfileDocument.loroSnapshot),
+    ]);
+    expect(readStoredDocumentState(rosterProfileDoc)).toMatchObject({
+      structuredFields: {
+        nickname: "You",
+      },
+    });
     expect(
       await sqlDocumentsPersistence.listPendingUpdates(
         execSql,
