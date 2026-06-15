@@ -28,6 +28,7 @@ export function registerDocumentSyncLane(input: {
   return getOrCreateDomainSyncCoordinator(input.domainScope).registerLane(
     `documents:${input.localId}`,
     {
+      label: `Document ${input.localId}`,
       onUnexpectedError: (error) => {
         console.error(`Failed to sync document ${input.localId}:`, error);
       },

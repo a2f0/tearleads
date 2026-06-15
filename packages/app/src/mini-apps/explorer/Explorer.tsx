@@ -54,6 +54,9 @@ export function Explorer() {
   const openBlobBrowser = useCallback(() => {
     model.routeState.openBlobBrowserRoute();
   }, [model.routeState.openBlobBrowserRoute]);
+  const openSyncLanes = useCallback(() => {
+    model.routeState.openSyncLanesRoute();
+  }, [model.routeState.openSyncLanesRoute]);
   useWindowFileMenuItem({
     disabled: !model.explorer.ready || !activeContainerId,
     id: "explorer-new-structured-document",
@@ -67,6 +70,12 @@ export function Explorer() {
     label: EXPLORER_LABELS.blobBrowserAction,
     onClick: openBlobBrowser,
     priority: 110,
+  });
+  useWindowFileMenuItem({
+    id: "explorer-sync-lanes",
+    label: EXPLORER_LABELS.syncLanesAction,
+    onClick: openSyncLanes,
+    priority: 120,
   });
   useWindowRefreshMenuItem({
     disabled: !model.explorer.ready || model.isRefreshing,
@@ -86,6 +95,7 @@ export function Explorer() {
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
         documentListRevision={model.documentListRevision}
         documentQueries={model.documentQueries}
+        domainScope={appData.state.domainScope}
         importDroppedFiles={model.importDroppedFiles}
         linkedContainerIds={model.linkedContainerIds}
         loadBlobInfo={model.loadBlobInfo}

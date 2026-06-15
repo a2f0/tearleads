@@ -57,6 +57,17 @@ test("explorer blob-browser route does not require a selected container", () => 
   ).toBe(true);
 });
 
+test("explorer sync-lanes route does not require a selected container", () => {
+  expect(
+    isExplorerRouteAvailable(
+      {
+        view: "sync-lanes",
+      },
+      [],
+    ),
+  ).toBe(true);
+});
+
 test("explorer route segments cover selection and detail routes", () => {
   expect(parseExplorerRouteSegments(["items", "container-1"])).toEqual({
     route: { view: "selection" },
@@ -101,6 +112,11 @@ test("explorer route segments cover selection and detail routes", () => {
       view: "blob-browser",
     },
   });
+  expect(parseExplorerRouteSegments(["sync"])).toEqual({
+    route: {
+      view: "sync-lanes",
+    },
+  });
 
   expect(
     formatExplorerRouteSegments({
@@ -118,4 +134,5 @@ test("explorer route segments cover selection and detail routes", () => {
   expect(
     formatExplorerRouteSegments({ view: "selection" }, "document-1"),
   ).toEqual(["items", "document-1"]);
+  expect(formatExplorerRouteSegments({ view: "sync-lanes" })).toEqual(["sync"]);
 });
