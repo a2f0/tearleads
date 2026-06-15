@@ -1,0 +1,108 @@
+---
+- name: Validate Garage S3 configuration
+  ansible.builtin.assert:
+    that:
+      - garage_rpc_secret | length > 0
+      - garage_admin_token | length > 0
+      - garage_metrics_token | length > 0
+      - garage_default_access_key | length > 0
+      - garage_default_secret_key | length > 0
+      - garage_default_bucket | length > 0
+      - garage_s3_region | length > 0
+    fail_msg: "Garage is enabled but required S3 secrets are missing. Set them in .secrets/<tier>.garage.env."
+  when: garage_enabled | bool
+
+- name: Create Garage system group
+  ansible.builtin.group:
+    name: garage
+    system: true
+  when: garage_enabled | bool
+
+- name: Create Garage system user
+  ansible.builtin.user:
+    name: garage
+    group: garage
+    home: /var/lib/garage
+    create_home: false
+    shell: /usr/sbin/nologin
+    system: true
+  when: garage_enabled | bool
+
+- name: Install Garage binary
+  ansible.builtin.get_url:
+    url: "{{ garage_binary_url }}"
+    dest: /usr/local/bin/garage
+    owner: root
+    group: root
+    mode: "0755"
+    checksum: "{{ garage_binary_checksum if garage_binary_checksum != '' else omit }}"
+  notify: Restart garage
+  when: garage_enabled | bool
+
+- name: Create Garage data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: garage
+    group: garage
+    mode: "0750"
+  loop:
+    - /var/lib/garage
+    - /var/lib/garage/meta
+    - /var/lib/garage/data
+  when: garage_enabled | bool
+
+- name: Deploy Garage configuration
+  ansible.builtin.template:
+    src: etc/garage.toml.j2
+    dest: /etc/garage.toml
+    owner: root
+    group: garage
+    mode: "0640"
+  notify: Restart garage
+  no_log: true
+  when: garage_enabled | bool
+
+- name: Deploy Garage default bucket environment
+  ansible.builtin.template:
+    src: etc/garage.env.j2
+    dest: /etc/garage.env
+    owner: root
+    group: garage
+    mode: "0640"
+  notify: Restart garage
+  no_log: true
+  when: garage_enabled | bool
+
+- name: Deploy Garage systemd service
+  ansible.builtin.template:
+    src: etc/systemd/system/garage.service.j2
+    dest: /etc/systemd/system/garage.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart garage
+  when: garage_enabled | bool
+
+- name: Ensure Garage is enabled and started
+  ansible.builtin.systemd:
+    name: garage
+    daemon_reload: true
+    enabled: true
+    state: started
+  when: garage_enabled | bool
+
+- name: Wait for Garage S3 API
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 3900
+    timeout: 30
+  when: garage_enabled | bool
+
+- name: Check Garage status
+  ansible.builtin.command:
+    cmd: /usr/local/bin/garage status
+  register: garage_status
+  changed_when: false
+  failed_when: garage_status.rc != 0
+  when: garage_enabled | bool

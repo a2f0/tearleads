@@ -39,6 +39,11 @@ output "tunnel_token" {
   sensitive   = true
 }
 
+output "s3_endpoint" {
+  description = "Public Garage S3-compatible endpoint"
+  value       = "https://s3.${var.domain}"
+}
+
 output "cloudflare_zone_nameservers" {
   description = "Cloudflare authoritative nameservers"
   value       = data.cloudflare_zone.production.name_servers

@@ -32,10 +32,22 @@ _source_env_file() {
   set +a
 }
 
-# Load secrets from .secrets/{root,<tier>}.env files.
+# Source a single env file with export semantics when it exists.
+_source_optional_env_file() {
+  local env_file="$1"
+
+  if [[ ! -e "$env_file" ]]; then
+    return 0
+  fi
+
+  _source_env_file "$env_file"
+}
+
+# Load secrets from .secrets/{root,<tier>,<tier>.garage}.env files.
 # Usage: load_secrets_env [staging|prod]
 #   - Always sources .secrets/root.env (shared infra creds).
 #   - When a tier is given, also sources .secrets/<tier>.env.
+#   - When present, also sources .secrets/<tier>.garage.env.
 load_secrets_env() {
   local tier="${1:-}"
   local secrets_dir
@@ -45,6 +57,7 @@ load_secrets_env() {
 
   if [[ -n "$tier" ]]; then
     _source_env_file "$secrets_dir/${tier}.env"
+    _source_optional_env_file "$secrets_dir/${tier}.garage.env"
   fi
 }
 

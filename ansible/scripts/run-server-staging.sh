@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Configure the staging server
 #
-# Loads .secrets/root.env + .secrets/staging.env, resolves the server
-# hostname and username from Terraform outputs, and runs the Ansible
-# server playbook.
+# Loads .secrets/root.env + .secrets/staging.env +
+# .secrets/staging.garage.env, resolves the server hostname and username from
+# Terraform outputs, and runs the Ansible server playbook.
 
 set -euo pipefail
 
@@ -16,6 +16,7 @@ export ANSIBLE_DEPRECATION_WARNINGS="${ANSIBLE_DEPRECATION_WARNINGS:-False}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # shellcheck source=../../terraform/scripts/common.sh
+# shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env staging
