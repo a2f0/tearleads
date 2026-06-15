@@ -18,11 +18,17 @@ export interface MiniAppWindowPosition {
   y: number;
 }
 
-export type MiniAppMessage = {
-  appId: "org-manager";
-  groupId: string;
-  type: "open-group";
-};
+export type MiniAppMessage =
+  | {
+      appId: "contacts";
+      type: "import-contact";
+      userId: string;
+    }
+  | {
+      appId: "org-manager";
+      groupId: string;
+      type: "open-group";
+    };
 
 export interface OpenMiniAppRequest {
   appId: MiniAppId;
