@@ -1,8 +1,11 @@
 .window-statusbar {
-  display: flex;
-  align-items: center;
-  min-height: 1lh;
+  display: block;
+  min-height: var(--window-bar-height);
+  overflow: hidden;
   padding: var(--window-bar-padding);
   background: var(--color-muted);
+  line-height: var(--window-bar-line-height);
+  text-overflow: ellipsis;
   user-select: none;
+  white-space: nowrap;
 }
