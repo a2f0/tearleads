@@ -68,6 +68,10 @@ module "server" {
     environment = "prod"
     stack       = "server"
   }
+
+  depends_on = [
+    terraform_data.cloudflare_tunnel_destroy_grace,
+  ]
 }
 
 data "cloudflare_zone" "production" {
@@ -103,19 +107,34 @@ module "tunnel" {
   ]
 }
 
-resource "terraform_data" "tailscale_destroy_cleanup" {
+resource "terraform_data" "cloudflare_tunnel_destroy_grace" {
   input = {
-    hostname  = local.tailscale_hostname
-    api_token = var.tailscale_api_token
-    tailnet   = var.tailscale_tailnet_id
-    server_id = module.server.server_id
+    tunnel_id             = module.tunnel.tunnel_id
+    destroy_grace_seconds = var.cloudflare_tunnel_destroy_grace_seconds
   }
 
+  triggers_replace = [
+    module.tunnel.tunnel_id
+  ]
+
   provisioner "local-exec" {
-    when = destroy
-    environment = {
-      TAILSCALE_API_TOKEN = self.input.api_token
-    }
+    when    = destroy
+    command = "echo 'Waiting ${self.input.destroy_grace_seconds}s for Cloudflare tunnel connections to close before deleting tunnel ${self.input.tunnel_id}.' >&2; sleep ${self.input.destroy_grace_seconds}"
+  }
+}
+
+resource "terraform_data" "tailscale_destroy_cleanup" {
+  input = {
+    hostname = local.tailscale_hostname
+    tailnet  = var.tailscale_tailnet_id
+  }
+
+  triggers_replace = [
+    module.server.server_id
+  ]
+
+  provisioner "local-exec" {
+    when    = destroy
     command = "${path.module}/../../../scripts/cleanup-tailscale-device.sh '${self.input.hostname}' '${self.input.tailnet != null ? self.input.tailnet : ""}'"
   }
 }
