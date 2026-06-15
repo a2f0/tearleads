@@ -7,12 +7,10 @@ if (!elem) {
   throw new Error("Root element not found");
 }
 
-const rawEnv = typeof process !== "undefined" && process.env ? process.env : {};
-
-// biome-ignore lint/complexity/useLiteralKeys: bracket notation required by noPropertyAccessFromIndexSignature
-const apiBaseUrl = rawEnv["BUN_PUBLIC_API_BASE_URL"] ?? "http://localhost:3001";
-// biome-ignore lint/complexity/useLiteralKeys: bracket notation required by noPropertyAccessFromIndexSignature
-const wsUrl = rawEnv["BUN_PUBLIC_WS_URL"] ?? apiBaseUrl.replace(/^http/, "ws");
+const apiBaseUrl =
+  process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+const wsUrl =
+  process.env.BUN_PUBLIC_WS_URL ?? apiBaseUrl.replace(/^http/, "ws");
 
 const hostConfig = new AppHostConfig(apiBaseUrl, wsUrl);
 
