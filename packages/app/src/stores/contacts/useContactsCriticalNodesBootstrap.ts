@@ -118,16 +118,16 @@ function useEnsureSelfContact(input: {
   store: ContactsStore;
 }): void {
   const appData = useTearleadsRuntime();
+  const userId = appData.auth.userId;
+  const signingFingerprint = appData.crypto.signingFingerprint;
+  const localId = signingFingerprint
+    ? getSelfContactLocalId(signingFingerprint)
+    : null;
+  const encapsulationPublicKey = appData.crypto.encapsulationKeyPair
+    ? bytesToBase64(appData.crypto.encapsulationKeyPair.publicKey)
+    : null;
 
   useEffect(() => {
-    const userId = appData.auth.userId;
-    const signingFingerprint = appData.crypto.signingFingerprint;
-    const localId = signingFingerprint
-      ? getSelfContactLocalId(signingFingerprint)
-      : null;
-    const encapsulationPublicKey = appData.crypto.encapsulationKeyPair
-      ? bytesToBase64(appData.crypto.encapsulationKeyPair.publicKey)
-      : null;
     if (!input.contactsContainerId || (!localId && !userId)) {
       return;
     }
@@ -148,12 +148,12 @@ function useEnsureSelfContact(input: {
       cancelled = true;
     };
   }, [
-    appData.auth.userId,
-    appData.crypto.encapsulationKeyPair,
-    appData.crypto.signingFingerprint,
+    encapsulationPublicKey,
     input.contactsContainerId,
     input.logError,
     input.store,
+    localId,
+    userId,
   ]);
 }
 
