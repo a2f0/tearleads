@@ -103,10 +103,6 @@ module "tunnel" {
     {
       hostname = "api.${var.domain}"
       service  = "http://localhost:80"
-    },
-    {
-      hostname = "s3.${var.domain}"
-      service  = "http://localhost:3900"
     }
   ]
 }
