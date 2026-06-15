@@ -445,13 +445,19 @@ export {
 } from "./workflows/registration";
 export type {
   DomainSyncCoordinator,
+  DomainSyncSnapshot,
   SyncIdleOptions,
   SyncLane,
   SyncLaneConfig,
+  SyncLaneLastAction,
   SyncLanePhase,
+  SyncLaneSnapshot,
+  SyncLaneStatus,
 } from "./workflows/sync";
 export {
+  getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
+  subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "./workflows/sync";

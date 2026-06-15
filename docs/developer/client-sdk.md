@@ -397,7 +397,7 @@ Supported package entry points are:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, top-level SDK service types, local keyring helpers, document contracts, store facades, and workflow facade symbols that remain public |
+| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, and public workflow symbols |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
 
 Each package export maps `types` to an emitted `.d.ts` file and `default` to an

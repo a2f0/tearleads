@@ -8,6 +8,7 @@ import type {
   ContainerShareAccessLevel,
   DocumentInfo,
   DocumentSummary,
+  DomainScope,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
@@ -21,6 +22,7 @@ import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 import { ExplorerDocumentDetail } from "./ExplorerDocumentDetail";
 import { ExplorerDocumentInfoPanel } from "./ExplorerDocumentInfoPanel";
 import { ExplorerNewStructuredDocumentPanel } from "./ExplorerNewStructuredDocumentPanel";
+import { ExplorerSyncLanesPanel } from "./ExplorerSyncLanesPanel";
 
 function ExplorerEmptyDetail(params: {
   nodes: ReadonlyArray<ContainerNode>;
@@ -87,6 +89,7 @@ interface ExplorerDetailPanelProps {
   canUnlinkSelectedDocument: boolean;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
   linkedContainerIds: ReadonlyArray<string>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
@@ -161,6 +164,15 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         route={route}
         selectDocumentProjection={params.selectDocumentProjection}
+      />
+    );
+  }
+
+  if (route.view === "sync-lanes") {
+    return (
+      <ExplorerSyncLanesPanel
+        domainScope={params.domainScope}
+        onBackToSelectionRoute={params.onBackToSelectionRoute}
       />
     );
   }

@@ -17,6 +17,12 @@ coordination, but they must stay React-free and product-UI-free.
 | `registration` | Platform runtime | Local registration and root-container bootstrap helpers. |
 | `sync` | Platform runtime | Shared sync coordinator helpers. |
 
+The `sync` facade exposes read-only coordinator snapshots through
+`getDomainSyncCoordinatorSnapshot(...)` and
+`subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use
+those snapshots to show lane status, request/run/error counts, and last action
+timestamps without reaching into coordinator internals or owning sync policy.
+
 The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async
 keyring provider.

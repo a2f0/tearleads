@@ -48,6 +48,27 @@ export function getExplorerSyncPendingBlobCountLabel(
   return byteLength > 0 ? `${label} (${formatByteLength(byteLength)})` : label;
 }
 
+export function getExplorerSyncLaneCountLabel(input: {
+  errorCount: number;
+  requestCount: number;
+  runCount: number;
+}): string {
+  return [
+    formatExplorerCountLabel(input.requestCount, {
+      one: EXPLORER_LABELS.syncLanesRequestCountOne,
+      other: EXPLORER_LABELS.syncLanesRequestCountOther,
+    }),
+    formatExplorerCountLabel(input.runCount, {
+      one: EXPLORER_LABELS.syncLanesRunCountOne,
+      other: EXPLORER_LABELS.syncLanesRunCountOther,
+    }),
+    formatExplorerCountLabel(input.errorCount, {
+      one: EXPLORER_LABELS.syncLanesErrorCountOne,
+      other: EXPLORER_LABELS.syncLanesErrorCountOther,
+    }),
+  ].join(", ");
+}
+
 export function getExplorerBlobBrowserDocumentCountLabel(
   value: number,
 ): string {

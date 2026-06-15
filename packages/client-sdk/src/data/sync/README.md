@@ -30,6 +30,11 @@ The pump is non-preemptive: a lane pass that has already started is allowed to
 finish. New higher-priority requests are selected before the next lower-priority
 lane pass starts.
 
+The coordinator also maintains cached read-only telemetry snapshots. A snapshot
+contains lane phase, status, request/run/error counts, last action timestamps,
+and the last handled error message. It is for diagnostics and UI observation
+only; callers still trigger sync through the lane owners.
+
 ## Reads, Writes, Documents, And Blobs
 
 The coordinator is not specifically read-only or write-only. It can schedule

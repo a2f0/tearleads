@@ -3,6 +3,7 @@ import type { ContainerNode } from "@tearleads/client-sdk";
 export type ExplorerRoute =
   | { view: "selection" }
   | { view: "blob-browser"; blobId: string | null; storageKey: string | null }
+  | { view: "sync-lanes" }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-selection"; containerId: string; localId: string }
@@ -101,6 +102,10 @@ export function parseExplorerRouteSegments(
     return parseExplorerBlobRoute(pathSegments);
   }
 
+  if (first === "sync") {
+    return { route: { view: "sync-lanes" } };
+  }
+
   if (first === "containers") {
     return parseExplorerContainerRoute(pathSegments);
   }
@@ -124,6 +129,10 @@ export function formatExplorerRouteSegments(
     }
 
     return route.blobId ? ["blobs", "blob", route.blobId] : ["blobs"];
+  }
+
+  if (route.view === "sync-lanes") {
+    return ["sync"];
   }
 
   if (route.view === "container-info") {
@@ -150,6 +159,10 @@ export function isExplorerRouteAvailable(
   }
 
   if (route.view === "blob-browser") {
+    return true;
+  }
+
+  if (route.view === "sync-lanes") {
     return true;
   }
 
