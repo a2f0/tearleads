@@ -1,0 +1,24 @@
+[Unit]
+Description=Garage S3 Object Store
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=garage
+Group=garage
+Environment=RUST_LOG=garage=info
+Environment=RUST_BACKTRACE=1
+EnvironmentFile=/etc/garage.env
+ExecStart=/usr/local/bin/garage server --single-node --default-bucket
+Restart=always
+RestartSec=5
+LimitNOFILE=42000
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/garage
+
+[Install]
+WantedBy=multi-user.target

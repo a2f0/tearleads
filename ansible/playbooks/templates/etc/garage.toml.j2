@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "{{ garage_db_engine }}"
+
+replication_factor = 1
+rpc_bind_addr = "127.0.0.1:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "{{ garage_rpc_secret }}"
+
+[s3_api]
+s3_region = "{{ garage_s3_region }}"
+api_bind_addr = "127.0.0.1:3900"
+root_domain = ".s3.{{ domain | default('tearleads.com') }}"
+
+[admin]
+api_bind_addr = "127.0.0.1:3903"
+admin_token = "{{ garage_admin_token }}"
+metrics_token = "{{ garage_metrics_token }}"
+metrics_require_token = true
