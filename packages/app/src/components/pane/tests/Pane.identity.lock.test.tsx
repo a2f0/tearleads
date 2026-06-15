@@ -6,17 +6,17 @@ import {
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "@tearleads/client-sdk";
 import { fireEvent, waitFor, within } from "@testing-library/react";
-import { createFakeIndexedDb } from "../../../test/helpers/fakeIndexedDb";
+import { createFakeIndexedDb } from "../../../../test/helpers/fakeIndexedDb";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
   renderPane,
-} from "../../../test/helpers/paneTestUtils";
+} from "../../../../test/helpers/paneTestUtils";
 import {
   createBrowserLocalKeyringForPinCode,
   pinCodeConfigKey,
-} from "../../providers/local-keyring/localKeyringLockSupport";
-import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../../providers/local-keyring/localKeyringScopes";
+} from "../../../providers/local-keyring/localKeyringLockSupport";
+import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../../../providers/local-keyring/localKeyringScopes";
 
 afterEach(cleanupPaneTestEnvironment);
 

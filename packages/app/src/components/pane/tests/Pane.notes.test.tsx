@@ -9,7 +9,7 @@ import {
   openExplorerNewStructuredDocumentRoute,
   openNotes,
   renderPane,
-} from "../../../test/helpers/paneTestUtils";
+} from "../../../../test/helpers/paneTestUtils";
 
 afterEach(cleanupPaneTestEnvironment);
 
