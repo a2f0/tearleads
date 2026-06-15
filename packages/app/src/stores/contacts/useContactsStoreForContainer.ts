@@ -9,9 +9,7 @@ import {
 import {
   type ContactsRuntime,
   type ContactsStore,
-  type EnsureSelfContactInput,
   getOrCreateContactsStore,
-  getSelfContactLocalId,
 } from "./contactStore";
 
 async function getLocalUserKey(input: {
@@ -48,16 +46,12 @@ async function getLocalUserKey(input: {
 export function useContactsStoreForContainer(
   contactsContainerId: string | null,
 ): ContactsStore {
-  const tearleads = useTearleads();
-  const appData = useTearleadsRuntime();
   const runtime = useContactsRuntime(contactsContainerId);
   const store = useContactsStore(runtime);
 
   useEffect(() => {
     store.updateRuntime(runtime);
   }, [store, runtime]);
-
-  useEnsureSelfContact(store, contactsContainerId, appData, tearleads);
 
   return store;
 }
@@ -111,51 +105,4 @@ function createContactsStore(
       logError: tearleads.logError,
     },
   );
-}
-
-function useEnsureSelfContact(
-  store: ContactsStore | null,
-  contactsContainerId: string | null,
-  appData: ReturnType<typeof useTearleadsRuntime>,
-  tearleads: ReturnType<typeof useTearleads>,
-): void {
-  useEffect(() => {
-    const userId = appData.auth.userId;
-    const signingFingerprint = appData.crypto.signingFingerprint;
-    const localId = signingFingerprint
-      ? getSelfContactLocalId(signingFingerprint)
-      : null;
-    const encapsulationPublicKey = appData.crypto.encapsulationKeyPair
-      ? bytesToBase64(appData.crypto.encapsulationKeyPair.publicKey)
-      : null;
-    if (!store || !contactsContainerId || (!localId && !userId)) {
-      return;
-    }
-    const selfContact: EnsureSelfContactInput = {
-      encapsulationPublicKey,
-      localId,
-      userId,
-    };
-
-    let cancelled = false;
-    void store.ensureSelfContact(selfContact).catch((error: unknown) => {
-      if (!cancelled) {
-        tearleads.logError(
-          "Contacts: failed to auto-create self contact.",
-          error,
-        );
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    appData.auth.userId,
-    appData.crypto.encapsulationKeyPair,
-    appData.crypto.signingFingerprint,
-    contactsContainerId,
-    store,
-    tearleads,
-  ]);
 }

@@ -207,6 +207,41 @@ test(
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 );
 
+test(
+  "explorer provisions the self contact without opening contacts first",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderPane();
+
+    await generateIdentityAndWaitForDb(view);
+    await registerAndWaitForUserId(view);
+
+    const explorer = await openExplorer(view);
+    await waitFor(
+      () => {
+        expect(getExplorerContainerItem(explorer, "Contacts")).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    fireEvent.click(getExplorerContainerItem(explorer, "Contacts"));
+    await waitFor(
+      () => {
+        const contactsItemsTable = within(explorer).getByRole("table", {
+          name: "Items in Contacts",
+        });
+        expect(
+          within(contactsItemsTable).getByRole("button", { name: "You" }),
+        ).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    view.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+);
+
 test("explorer exposes structured document creation from the file menu", async () => {
   const view = renderPane();
 
