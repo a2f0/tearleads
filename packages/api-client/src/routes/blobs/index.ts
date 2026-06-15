@@ -9,3 +9,4 @@ export {
 } from "./multipartStage";
 export { bindBlobAttachment, detachBlobAttachment } from "./mutations";
 export { stageBlob } from "./stage";
+export { getBlobUploadCapabilities } from "./uploadCapabilities";

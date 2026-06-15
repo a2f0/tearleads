@@ -44,17 +44,11 @@ import {
 import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-
-type MultipartBlobAttachmentApi = BlobAttachmentApi &
-  Required<
-    Pick<
-      BlobAttachmentApi,
-      | "completeMultipartBlobStage"
-      | "getMultipartBlobStage"
-      | "initiateMultipartBlobStage"
-      | "uploadMultipartBlobPart"
-    >
-  >;
+import {
+  type MultipartBlobAttachmentApi,
+  requireMultipartBlobAttachmentApi,
+  resolveMultipartUploadOptions,
+} from "./automaticMultipartUpload";
 
 const TEXT_ENCODER = new TextEncoder();
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
@@ -68,26 +62,6 @@ interface MultipartPartUploadTask {
   readonly encryptedPart: string;
   readonly partIndex: number;
   readonly partNumber: number;
-}
-
-function assertMultipartBlobAttachmentApi(
-  apiClient: BlobAttachmentApi,
-): asserts apiClient is MultipartBlobAttachmentApi {
-  if (
-    typeof apiClient.completeMultipartBlobStage !== "function" ||
-    typeof apiClient.getMultipartBlobStage !== "function" ||
-    typeof apiClient.initiateMultipartBlobStage !== "function" ||
-    typeof apiClient.uploadMultipartBlobPart !== "function"
-  ) {
-    throw new Error("Multipart blob upload API is unavailable");
-  }
-}
-
-function requireMultipartBlobAttachmentApi(
-  apiClient: BlobAttachmentApi,
-): MultipartBlobAttachmentApi {
-  assertMultipartBlobAttachmentApi(apiClient);
-  return apiClient;
 }
 
 function splitEncryptedBytesIntoParts(
@@ -447,11 +421,16 @@ async function stageAndBindBlobAttachment(input: {
     signedAt: input.signedAt,
     targetHash: input.material.targetHash,
   });
-  const stageId = input.multipart
+  const multipart = await resolveMultipartUploadOptions({
+    apiClient: input.apiClient,
+    encryptedByteLength: input.material.encrypted.byteLength,
+    multipart: input.multipart,
+  });
+  const stageId = multipart
     ? await stageMultipartBlobAttachment({
         apiClient: input.apiClient,
         encryptedBytes: input.material.encrypted.encryptedBytes,
-        multipart: input.multipart,
+        multipart,
         byteLength: input.material.encrypted.byteLength,
         sha256: input.material.encrypted.sha256,
       })

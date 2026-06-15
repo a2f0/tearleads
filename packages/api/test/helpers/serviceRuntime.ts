@@ -25,6 +25,7 @@ export function createServiceTestRuntime(
 
   return {
     blobObjectStore: createMemoryBlobObjectStore(),
+    blobObjectStoreKind: "memory",
     db,
     eventPublisher: {
       publish: async () => {},

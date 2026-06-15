@@ -47,13 +47,14 @@ export interface SessionTokenIssuer {
 
 export interface ApiServiceRuntime {
   blobObjectStore: BlobObjectStore;
+  blobObjectStoreKind: BlobObjectStoreKind;
   db: typeof db;
   eventPublisher: EventPublisher;
   keyValueStore: KeyValueStore;
   sessionTokenIssuer: SessionTokenIssuer;
 }
 
-type BlobObjectStoreKind = "memory" | "s3";
+export type BlobObjectStoreKind = "memory" | "s3";
 
 function requireRuntimeEnv(
   env: RuntimeEnv,
@@ -228,6 +229,7 @@ export function createDefaultBlobObjectStore(
 
 export const defaultApiServiceRuntime: ApiServiceRuntime = {
   blobObjectStore: createDefaultBlobObjectStore(),
+  blobObjectStoreKind: readBlobObjectStoreKind(process.env),
   db,
   eventPublisher: { publish },
   keyValueStore: { del, get, getdel, set },

@@ -10,6 +10,42 @@ import {
   textStream,
 } from "./ApiClient.testHarness";
 
+testApiClient("caches blob upload capabilities", async () => {
+  const calls: CapturedHttpCall[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/blobs/uploads/capabilities`,
+      async ({ request }) => {
+        calls.push(await captureHttpCall(request));
+
+        return HttpResponse.json({
+          multipart: { durable: true, enabled: true },
+        });
+      },
+    ),
+  );
+
+  const client = new ApiClient(apiBaseUrl);
+
+  await expect(client.getBlobUploadCapabilities()).resolves.toEqual({
+    multipart: { durable: true, enabled: true },
+  });
+  await expect(client.getBlobUploadCapabilities()).resolves.toEqual({
+    multipart: { durable: true, enabled: true },
+  });
+  expect(
+    calls.map((call) => ({
+      input: call.url,
+      method: call.method,
+    })),
+  ).toEqual([
+    {
+      input: `${apiBaseUrl}/blobs/uploads/capabilities`,
+      method: "GET",
+    },
+  ]);
+});
+
 testApiClient("uses blob multipart stage route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(

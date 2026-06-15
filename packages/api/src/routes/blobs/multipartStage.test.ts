@@ -3,9 +3,13 @@ import { createMiddleware } from "hono/factory";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import type { SessionEnv } from "../../middleware/session";
 import { createRouteApp } from "../../routeApp";
+import type { ApiServiceRuntime } from "../../services/runtime";
 import { sha256Hex } from "../../utils/sha256";
 
-function createAuthenticatedTestApp(userId: string) {
+function createAuthenticatedTestApp(
+  userId: string,
+  runtime: ApiServiceRuntime = createServiceTestRuntime(),
+) {
   return createRouteApp({
     requireAuth: createMiddleware<SessionEnv>(async (c, next) => {
       c.set("session", {
@@ -19,9 +23,33 @@ function createAuthenticatedTestApp(userId: string) {
       });
       return next();
     }),
-    runtime: createServiceTestRuntime(),
+    runtime,
   });
 }
+
+test("blob upload capabilities report durable multipart only for S3 storage", async () => {
+  const userId = crypto.randomUUID();
+  const memoryResponse = await createAuthenticatedTestApp(userId).request(
+    "/blobs/uploads/capabilities",
+  );
+  expect(memoryResponse.status).toBe(200);
+  await expect(memoryResponse.json()).resolves.toEqual({
+    multipart: { durable: false, enabled: false },
+  });
+
+  const s3Runtime = {
+    ...createServiceTestRuntime(),
+    blobObjectStoreKind: "s3" as const,
+  };
+  const s3Response = await createAuthenticatedTestApp(
+    userId,
+    s3Runtime,
+  ).request("/blobs/uploads/capabilities");
+  expect(s3Response.status).toBe(200);
+  await expect(s3Response.json()).resolves.toEqual({
+    multipart: { durable: true, enabled: true },
+  });
+});
 
 test("multipart blob stage routes support resumable upload completion", async () => {
   const encryptedBytes = "route-multipart-encrypted-bytes";

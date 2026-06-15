@@ -11,6 +11,7 @@ import type {
 import type {
   BlobAttachmentBindResponse,
   BlobContentKeyBundleResponse,
+  BlobUploadCapabilitiesResponse,
   CompleteMultipartBlobStageResponse,
   DocumentWriterProjectionResponse,
   InitiateMultipartBlobStageResponse,
@@ -59,6 +60,7 @@ export interface BlobAttachmentApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+  getBlobUploadCapabilities?(): Promise<BlobUploadCapabilitiesResponse | null>;
   getMultipartBlobStage?(
     stageId: string,
   ): Promise<MultipartBlobStageStatusResponse | null>;
