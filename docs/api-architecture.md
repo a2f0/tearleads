@@ -82,6 +82,7 @@ Read surfaces:
 | Get container writer projection | `GET /containers/:containerId/writer-projection` |
 | Get document writer projection | `GET /documents/:documentId/writer-projection` |
 | List active document attachments | `GET /documents/:documentId/attachments` |
+| Get blob upload capabilities | `GET /blobs/uploads/capabilities` |
 | Get committed blob JSON | `GET /blobs/:blobId` |
 | Get committed blob bytes | `GET /blobs/:blobId/bytes` |
 | Get multipart blob stage status | `GET /blobs/stages/multipart/:stageId` |

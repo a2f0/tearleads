@@ -325,6 +325,7 @@ client-supplied frontier.
 
 Blob bytes are staged before attachment binding:
 
+- `GET /blobs/uploads/capabilities`
 - `POST /blobs/stage`
 - `POST /blobs/stages/multipart`
 - `GET /blobs/stages/multipart/:stageId`
@@ -339,11 +340,13 @@ length and SHA-256 digest, stores the stage under the authenticated user, and
 returns `stageId` plus `expiresAt`. Staged bytes are not readable as committed
 blobs and are promoted only by a successful attachment bind.
 
-Multipart staging uses the same ownership, expiry, byte-length, and SHA-256
-rules, but stores object-store multipart metadata in `blob_stages` until all
-parts are uploaded and completed. A completed multipart stage is promoted by
-the same attachment bind path as a single-request stage; incomplete multipart
-stages fail closed during bind.
+`GET /blobs/uploads/capabilities` lets clients discover whether automatic
+multipart uploads are enabled for durable object storage. Multipart staging
+uses the same ownership, expiry, byte-length, and SHA-256 rules, but stores
+object-store multipart metadata in `blob_stages` until all parts are uploaded
+and completed. A completed multipart stage is promoted by the same attachment
+bind path as a single-request stage; incomplete multipart stages fail closed
+during bind.
 
 ## Attachment Bind, Replace, Detach, And Slots
 

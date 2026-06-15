@@ -1,6 +1,7 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasArrayProperty,
+  hasBooleanProperty,
   hasObjectProperty,
   hasPositiveIntegerProperty,
   hasStringProperty,
@@ -11,6 +12,13 @@ import {
 export interface StageBlobResponse {
   stageId: string;
   expiresAt: string;
+}
+
+export interface BlobUploadCapabilitiesResponse {
+  multipart: {
+    durable: boolean;
+    enabled: boolean;
+  };
 }
 
 export interface MultipartBlobStagePart {
@@ -115,6 +123,21 @@ export function isStageBlobResponse(
     isPlainObject(value) &&
     hasStringProperty(value, "stageId") &&
     hasStringProperty(value, "expiresAt")
+  );
+}
+
+export function isBlobUploadCapabilitiesResponse(
+  value: unknown,
+): value is BlobUploadCapabilitiesResponse {
+  const multipart = isPlainObject(value)
+    ? Reflect.get(value, "multipart")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    isPlainObject(multipart) &&
+    hasBooleanProperty(multipart, "enabled") &&
+    hasBooleanProperty(multipart, "durable")
   );
 }
 

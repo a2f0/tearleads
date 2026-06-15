@@ -6,6 +6,7 @@ import { createGetBlobRoute } from "./getBlob";
 import { createMultipartBlobStageRoute } from "./multipartStage";
 import { createBlobMutationsRoute } from "./mutations";
 import { createStageBlobRoute } from "./stageBlob";
+import { createBlobUploadCapabilitiesRoute } from "./uploadCapabilities";
 
 interface BlobsRouterDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
@@ -16,6 +17,7 @@ export function createBlobsRouter({ requireAuth, runtime }: BlobsRouterDeps) {
   const blobsRouter = new Hono();
   const routeDeps = { requireAuth, runtime };
 
+  blobsRouter.route("/", createBlobUploadCapabilitiesRoute(routeDeps));
   blobsRouter.route("/", createStageBlobRoute(routeDeps));
   blobsRouter.route("/", createMultipartBlobStageRoute(routeDeps));
   blobsRouter.route("/", createBlobMutationsRoute(routeDeps));

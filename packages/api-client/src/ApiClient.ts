@@ -58,6 +58,7 @@ import {
   detachBlobAttachment,
   getBlob,
   getBlobBytes,
+  getBlobUploadCapabilities,
   getMultipartBlobStage,
   initiateMultipartBlobStage,
   stageBlob,
@@ -976,6 +977,10 @@ export class ApiClient {
 
   stageBlob(input: StageBlobRequest) {
     return stageBlob(this.request, input);
+  }
+
+  getBlobUploadCapabilities() {
+    return getBlobUploadCapabilities(this.request);
   }
 
   initiateMultipartBlobStage(input: InitiateMultipartBlobStageRequest) {
