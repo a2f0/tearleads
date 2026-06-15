@@ -157,7 +157,7 @@
       "lines": 1098,
       "bytes": 36324
     },
-    "packages/app/src/components/pane/DualPaneProvider.test.tsx": {
+    "packages/app/src/components/pane/tests/DualPaneProvider.test.tsx": {
       "lines": 1945,
       "bytes": 57497
     },

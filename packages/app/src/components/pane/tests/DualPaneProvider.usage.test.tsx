@@ -13,22 +13,22 @@ import { useEffect, useRef } from "react";
 import {
   AppTestRuntimeScopeProbe,
   waitForAppTestRuntimeToSettle,
-} from "../../../test/helpers/appRuntimeIdle";
+} from "../../../../test/helpers/appRuntimeIdle";
 import {
   listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
-} from "../../../test/helpers/mswServer";
-import { createTestHostConfig } from "../../../test/helpers/paneTestUtils";
-import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
-import { ORG_MANAGER_LABELS } from "../../mini-apps/org-manager/labels";
-import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
-import { useDatabase } from "../../providers/db/DatabaseProvider";
-import { useIdentity } from "../../providers/identity/IdentityProvider";
-import { DualPaneProvider, PaneSideProvider } from "./DualPaneProvider";
-import { Pane } from "./Pane";
-import { PaneProvider } from "./PaneProvider";
+} from "../../../../test/helpers/mswServer";
+import { createTestHostConfig } from "../../../../test/helpers/paneTestUtils";
+import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import { useRegisterCurrentIdentity } from "../../../identity/useRegisterCurrentIdentity";
+import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
+import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
+import { useDatabase } from "../../../providers/db/DatabaseProvider";
+import { useIdentity } from "../../../providers/identity/IdentityProvider";
+import { DualPaneProvider, PaneSideProvider } from "../DualPaneProvider";
+import { Pane } from "../Pane";
+import { PaneProvider } from "../PaneProvider";
 
 const ORG_MANAGER_USAGE_TEST_TIMEOUT_MS = 20_000;
 const BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS = 6_000;

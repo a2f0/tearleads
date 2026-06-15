@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
-import { useTestApiAppHandlers } from "../../../test/helpers/mswServer";
+import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createExplorerChildContainer,
@@ -18,7 +18,7 @@ import {
   renderPane,
   summarizeProxiedApiRequests,
   waitForPaneRuntimeToSettle,
-} from "../../../test/helpers/paneTestUtils";
+} from "../../../../test/helpers/paneTestUtils";
 
 afterEach(cleanupPaneTestEnvironment);
 

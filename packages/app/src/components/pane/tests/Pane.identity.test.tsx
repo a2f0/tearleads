@@ -13,7 +13,7 @@ import {
   registerAndWaitForUserId,
   renderPane,
   waitForPersistedPaneLocalIdentity,
-} from "../../../test/helpers/paneTestUtils";
+} from "../../../../test/helpers/paneTestUtils";
 
 afterEach(cleanupPaneTestEnvironment);
 
