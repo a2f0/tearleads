@@ -16,6 +16,72 @@ import type {
   CreatedChildContainerState,
 } from "./types";
 
+const SYSTEM_CONTAINER_ID_NAMESPACE_BYTES = new Uint8Array([
+  0xc5, 0x5e, 0x8f, 0x2e, 0x3d, 0x82, 0x4b, 0x4d, 0x8d, 0xbd, 0x0d, 0xd2, 0xd3,
+  0x60, 0xb3, 0x6d,
+]);
+const TEXT_ENCODER = new TextEncoder();
+
+function concatenateBytes(left: Uint8Array, right: Uint8Array) {
+  const bytes = new Uint8Array(left.byteLength + right.byteLength);
+  bytes.set(left, 0);
+  bytes.set(right, left.byteLength);
+  return bytes;
+}
+
+function byteToHex(byte: number): string {
+  return byte.toString(16).padStart(2, "0");
+}
+
+function formatUuid(bytes: Uint8Array): string {
+  const hex = Array.from(bytes, byteToHex).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
+    12,
+    16,
+  )}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+function toUuidV4ShapedBytes(bytes: Uint8Array): Uint8Array {
+  return bytes.slice(0, 16).map((byte, index) => {
+    if (index === 6) {
+      return (byte & 0x0f) | 0x40;
+    }
+
+    if (index === 8) {
+      return (byte & 0x3f) | 0x80;
+    }
+
+    return byte;
+  });
+}
+
+/**
+ * Derives a stable, UUID-shaped container id for a built-in system slot.
+ *
+ * The namespace digest makes each slot idempotent across stale store snapshots.
+ * The UUID version and variant bits are normalized to a v4 shape because remote
+ * container APIs currently validate container ids with the same v4 UUID contract
+ * they use for random user-created containers.
+ */
+async function deriveSystemContainerId(
+  systemSlot: ContainerSystemSlot,
+): Promise<string> {
+  const slotBytes = TEXT_ENCODER.encode(systemSlot);
+  const digest = new Uint8Array(
+    await crypto.subtle.digest(
+      "SHA-1",
+      concatenateBytes(SYSTEM_CONTAINER_ID_NAMESPACE_BYTES, slotBytes),
+    ),
+  );
+  return formatUuid(toUuidV4ShapedBytes(digest));
+}
+
+async function createChildContainerId(
+  systemSlot: ContainerSystemSlot | null | undefined,
+): Promise<string> {
+  return systemSlot ? deriveSystemContainerId(systemSlot) : crypto.randomUUID();
+}
+
 async function buildRemoteContainerContentsChildContainerState(input: {
   childId: string;
   systemSlot?: ContainerSystemSlot | null | undefined;
@@ -130,7 +196,7 @@ export async function createChildContainerState(input: {
     return null;
   }
 
-  const childId = crypto.randomUUID();
+  const childId = await createChildContainerId(systemSlot);
   const { doc, initialUpdate } =
     await createInitializedContainerMetadataDocument(childId, {
       icon: null,
