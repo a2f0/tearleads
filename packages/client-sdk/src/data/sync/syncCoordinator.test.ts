@@ -363,6 +363,29 @@ test("sync coordinator subscriptions ignore listener failures", async () => {
   expect(runs).toBe(1);
 });
 
+test("sync coordinator subscriptions snapshot listeners before notifying", () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  let firstNotifications = 0;
+  let secondNotifications = 0;
+  let unsubscribeSecond = () => {};
+
+  coordinator.subscribe(() => {
+    firstNotifications += 1;
+    unsubscribeSecond();
+  });
+  unsubscribeSecond = coordinator.subscribe(() => {
+    secondNotifications += 1;
+  });
+
+  coordinator.registerLane("observable", {
+    run: async () => {},
+  });
+
+  expect(firstNotifications).toBe(1);
+  expect(secondNotifications).toBe(1);
+});
+
 test("isDestroyedDatabaseClientError detects wrapped teardown messages", () => {
   expect(
     isDestroyedDatabaseClientError(

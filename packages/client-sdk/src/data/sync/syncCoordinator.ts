@@ -113,7 +113,7 @@ function publishSyncCoordinatorSnapshot(state: DomainSyncCoordinatorState) {
     lanes: state.lanes.values(),
     pumpActive: !!state.pump,
   });
-  for (const listener of state.listeners) {
+  for (const listener of [...state.listeners]) {
     try {
       listener();
     } catch {
