@@ -21,7 +21,7 @@ const baseConfig = {
       project: ["src/**/*.ts"],
     },
     "packages/api-cli": {
-      entry: [],
+      entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts", "scripts/**/*.ts"],
     },
     "packages/api-shared": {
@@ -146,7 +146,7 @@ const productionConfig = {
       project: [],
     },
     "packages/api-cli": {
-      entry: ["src/**/*.ts!", "scripts/**/*.ts!"],
+      entry: ["src/**/*.ts!", "!src/**/*.test.ts", "scripts/**/*.ts!"],
       project: [],
     },
     "packages/api-shared": {

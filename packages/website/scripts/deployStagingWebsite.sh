@@ -6,11 +6,11 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 WEBSITE_DIR="$REPO_ROOT/packages/website"
 
 # shellcheck source=../../../../terraform/scripts/common.sh
+# shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env staging
@@ -30,8 +30,8 @@ echo "Deploying website to $SSH_TARGET:$REMOTE_PATH ..."
 rsync -avz --delete --rsync-path="sudo rsync" \
   "$WEBSITE_DIR/dist/" "$SSH_TARGET:$REMOTE_PATH/"
 
-ssh "$SSH_TARGET" "sudo chown -R www-data:www-data $REMOTE_PATH"
-ssh "$SSH_TARGET" "sudo systemctl reload nginx"
+ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$REMOTE_PATH"
+ssh "$SSH_TARGET" sudo systemctl reload nginx
 
 echo "Website deployed."
 

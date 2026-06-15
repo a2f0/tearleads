@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "bun scripts/buildApiCliExecutable.ts",
-    "migrate": "bun src/index.ts migrate"
+    "migrate": "bun src/index.ts migrate",
+    "test": "bun test src"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1049.0",
     "@tearleads/api-shared": "workspace:*"
   },
   "devDependencies": {
