@@ -10,6 +10,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 
 # shellcheck source=../../../../terraform/scripts/common.sh
+# shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env staging
@@ -36,12 +37,12 @@ echo "Building app-web..."
 REMOTE_PATH="/var/www/app-web"
 
 echo "Deploying app-web static files to $SSH_TARGET:$REMOTE_PATH ..."
-ssh "$SSH_TARGET" "sudo mkdir -p $REMOTE_PATH"
+ssh "$SSH_TARGET" sudo mkdir -p "$REMOTE_PATH"
 rsync -avz --no-owner --no-group --delete --rsync-path="sudo rsync" \
   "$APP_WEB_DIR/dist/" "$SSH_TARGET:$REMOTE_PATH/"
 
-ssh "$SSH_TARGET" "sudo chown -R www-data:www-data $REMOTE_PATH"
-ssh "$SSH_TARGET" "sudo systemctl reload nginx"
+ssh "$SSH_TARGET" sudo chown -R www-data:www-data "$REMOTE_PATH"
+ssh "$SSH_TARGET" sudo systemctl reload nginx
 
 echo "App-web deployed."
 

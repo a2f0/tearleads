@@ -9,6 +9,7 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # shellcheck source=../../../../terraform/scripts/common.sh
+# shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env staging
@@ -27,12 +28,12 @@ echo "Building API executable..."
 bash "$REPO_ROOT/packages/api-cli/scripts/deployStagingApiCli.sh"
 
 echo "Deploying API executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
-ssh "$SSH_TARGET" "mkdir -p $REMOTE_BIN_PATH"
+ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH"
 rsync -avz "$REPO_ROOT/packages/api/dist/tearleads-api" \
   "$SSH_TARGET:$REMOTE_BIN_PATH/"
 
 echo "Running database migrations..."
-ssh "$SSH_TARGET" "set -a && . /etc/tearleads/api.env && set +a && $REMOTE_BIN_PATH/tearleads-api-cli migrate 2>&1"
+ssh "$SSH_TARGET" 'set -a && . /etc/tearleads/api.env && set +a && /opt/tearleads/bin/tearleads-api-cli migrate 2>&1'
 
 echo "Restarting API service..."
 ssh "$SSH_TARGET" "sudo systemctl restart tearleads-api"
