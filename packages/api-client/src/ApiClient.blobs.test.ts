@@ -10,7 +10,7 @@ import {
   textStream,
 } from "./ApiClient.testHarness";
 
-testApiClient("caches blob upload capabilities", async () => {
+testApiClient("uses blob upload capabilities route", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(
     http.get(
@@ -27,9 +27,6 @@ testApiClient("caches blob upload capabilities", async () => {
 
   const client = new ApiClient(apiBaseUrl);
 
-  await expect(client.getBlobUploadCapabilities()).resolves.toEqual({
-    multipart: { durable: true, enabled: true },
-  });
   await expect(client.getBlobUploadCapabilities()).resolves.toEqual({
     multipart: { durable: true, enabled: true },
   });

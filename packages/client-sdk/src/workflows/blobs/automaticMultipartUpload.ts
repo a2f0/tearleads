@@ -64,8 +64,20 @@ export async function resolveMultipartUploadOptions(input: {
     return undefined;
   }
 
-  const capabilities = await input.apiClient.getBlobUploadCapabilities();
-  if (!capabilities?.multipart.enabled || !capabilities.multipart.durable) {
+  let capabilities: Awaited<
+    ReturnType<NonNullable<BlobAttachmentApi["getBlobUploadCapabilities"]>>
+  >;
+  try {
+    capabilities = await input.apiClient.getBlobUploadCapabilities();
+  } catch {
+    return undefined;
+  }
+
+  if (
+    !capabilities ||
+    !capabilities.multipart.enabled ||
+    !capabilities.multipart.durable
+  ) {
     return undefined;
   }
 

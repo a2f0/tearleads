@@ -19,7 +19,6 @@ import type {
 import {
   type BlobAttachmentBindResponse,
   type BlobAttachmentDetachResponse,
-  type BlobUploadCapabilitiesResponse,
   type ContainerDeleteResponse,
   type ContainerWriterProjectionResponse,
   type DocumentSyncResponse,
@@ -146,8 +145,6 @@ export class ApiClient {
     string,
     Promise<ListDocumentAttachmentsResponse | null>
   >();
-  private blobUploadCapabilitiesRequest: Promise<BlobUploadCapabilitiesResponse | null> | null =
-    null;
   private readonly encapsulationKeyRequestsByUserId = new Map<
     string,
     Promise<EncapsulationKeyResponse | null>
@@ -176,7 +173,6 @@ export class ApiClient {
     this.containerDocumentListRequestsByKey.clear();
     this.containerListRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();
-    this.blobUploadCapabilitiesRequest = null;
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
     this.encapsulationKeyRequestsByUserId.clear();
@@ -984,14 +980,7 @@ export class ApiClient {
   }
 
   getBlobUploadCapabilities() {
-    this.blobUploadCapabilitiesRequest ??= getBlobUploadCapabilities(
-      this.request,
-    ).catch((error: unknown) => {
-      this.blobUploadCapabilitiesRequest = null;
-      throw error;
-    });
-
-    return this.blobUploadCapabilitiesRequest;
+    return getBlobUploadCapabilities(this.request);
   }
 
   initiateMultipartBlobStage(input: InitiateMultipartBlobStageRequest) {
