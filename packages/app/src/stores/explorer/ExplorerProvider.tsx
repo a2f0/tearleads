@@ -36,6 +36,13 @@ const USER_SYSTEM_CONTAINER_NAMES = new Set(
   USER_SYSTEM_CONTAINER_DEFINITIONS.map((definition) => definition.name),
 );
 
+const SYSTEM_NODE_SYNC_STATUS_RANK = {
+  synced: 3,
+  pending: 2,
+  error: 1,
+  "local-only": 0,
+} as const satisfies Record<ContainerNode["syncState"]["status"], number>;
+
 interface ExplorerContextModel {
   contactsSystemSlot: ContainerSystemSlot | null;
   logError: (message: string | Error, cause?: unknown) => void;
@@ -54,25 +61,76 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
 
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
 
+function shouldShowExplorerSystemSlot(
+  node: ContainerNode,
+  visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
+): boolean {
+  const systemSlot = node.systemSlot ?? null;
+  if (!systemSlot) {
+    return true;
+  }
+
+  if (visibleSystemSlots !== undefined && visibleSystemSlots.size > 0) {
+    return visibleSystemSlots.has(systemSlot);
+  }
+
+  return USER_SYSTEM_CONTAINER_NAMES.has(node.name);
+}
+
+function shouldPreferExplorerSystemNode(
+  currentNode: ContainerNode,
+  candidateNode: ContainerNode,
+): boolean {
+  const currentRank =
+    SYSTEM_NODE_SYNC_STATUS_RANK[currentNode.syncState.status];
+  const candidateRank =
+    SYSTEM_NODE_SYNC_STATUS_RANK[candidateNode.syncState.status];
+  if (candidateRank !== currentRank) {
+    return candidateRank > currentRank;
+  }
+
+  const currentTime = currentNode.updatedAt ?? currentNode.createdAt ?? "";
+  const candidateTime =
+    candidateNode.updatedAt ?? candidateNode.createdAt ?? "";
+  if (candidateTime !== currentTime) {
+    return candidateTime > currentTime;
+  }
+
+  return candidateNode.id < currentNode.id;
+}
+
 export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
 ): ContainerContentsContextValue["nodes"] {
-  const hasResolvedVisibleSystemSlots =
-    visibleSystemSlots !== undefined && visibleSystemSlots.size > 0;
+  const visibleNodes: ContainerNode[] = [];
+  const systemSlotIndexes = new Map<ContainerSystemSlot, number>();
 
-  return (nodes ?? []).filter((node) => {
+  for (const node of nodes ?? []) {
     const systemSlot = node.systemSlot ?? null;
+    if (!shouldShowExplorerSystemSlot(node, visibleSystemSlots)) {
+      continue;
+    }
+
     if (!systemSlot) {
-      return true;
+      visibleNodes.push(node);
+      continue;
     }
 
-    if (hasResolvedVisibleSystemSlots) {
-      return visibleSystemSlots.has(systemSlot);
+    const existingIndex = systemSlotIndexes.get(systemSlot);
+    if (existingIndex === undefined) {
+      systemSlotIndexes.set(systemSlot, visibleNodes.length);
+      visibleNodes.push(node);
+      continue;
     }
 
-    return USER_SYSTEM_CONTAINER_NAMES.has(node.name);
-  });
+    const existingNode = visibleNodes[existingIndex];
+    if (existingNode && shouldPreferExplorerSystemNode(existingNode, node)) {
+      visibleNodes[existingIndex] = node;
+    }
+  }
+
+  return visibleNodes;
 }
 
 function findExplorerSystemNode(
