@@ -65,6 +65,17 @@ variable "cloudflare_account_id" {
   type        = string
 }
 
+variable "cloudflare_tunnel_destroy_grace_seconds" {
+  description = "Seconds to wait after the prod server is destroyed before deleting the Cloudflare tunnel, allowing stale tunnel connections to close."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.cloudflare_tunnel_destroy_grace_seconds >= 0 && var.cloudflare_tunnel_destroy_grace_seconds <= 600
+    error_message = "cloudflare_tunnel_destroy_grace_seconds must be between 0 and 600."
+  }
+}
+
 variable "tailscale_api_token" {
   description = "Tailscale API token for destroy-time device cleanup"
   type        = string

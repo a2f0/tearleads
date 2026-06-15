@@ -216,6 +216,8 @@ validate_tailscale_env() {
     printf '  - %s\n' "${missing[@]}" >&2
     return 1
   fi
+
+  export TAILSCALE_API_TOKEN="${TAILSCALE_API_TOKEN:-$TF_VAR_tailscale_api_token}"
 }
 
 # Validate Tailscale auth key for server registration
