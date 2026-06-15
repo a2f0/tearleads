@@ -30,6 +30,7 @@
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | default('admin@' + (domain | default('tearleads.com')), true) }}"
     garage_enabled: "{{ lookup('env', 'GARAGE_ENABLED') | default('true', true) }}"
     garage_version: "{{ lookup('env', 'GARAGE_VERSION') | default('v2.3.0', true) }}"
+    garage_db_engine: "{{ lookup('env', 'GARAGE_DB_ENGINE') | default('lmdb', true) }}"
     garage_binary_arch_map:
       aarch64: aarch64-unknown-linux-musl
       arm64: aarch64-unknown-linux-musl
@@ -37,9 +38,15 @@
       amd64: x86_64-unknown-linux-musl
       i386: i686-unknown-linux-musl
       i686: i686-unknown-linux-musl
+    garage_binary_checksums:
+      v2.3.0:
+        aarch64-unknown-linux-musl: sha256:8ced2ad3040262571de08aa600959aa51f97576d55da7946fcde6f66140705e2
+        i686-unknown-linux-musl: sha256:fbcc35b5b87bdceb227af610f09994a5b3aef7fb18d94453720d6e4478b0b024
+        x86_64-unknown-linux-musl: sha256:f98d317942bb341151a2775162016bb50cf86b865d0108de03eb5db16e2120cd
     garage_binary_arch: "{{ garage_binary_arch_map.get(ansible_facts['architecture'], ansible_facts['architecture']) }}"
+    garage_default_binary_checksum: "{{ garage_binary_checksums.get(garage_version, {}).get(garage_binary_arch, '') }}"
     garage_binary_url: "https://garagehq.deuxfleurs.fr/_releases/{{ garage_version }}/{{ garage_binary_arch }}/garage"
-    garage_binary_checksum: "{{ lookup('env', 'GARAGE_BINARY_CHECKSUM') | default('', true) }}"
+    garage_binary_checksum: "{{ lookup('env', 'GARAGE_BINARY_CHECKSUM') | default(garage_default_binary_checksum, true) }}"
     garage_rpc_secret: "{{ lookup('env', 'GARAGE_RPC_SECRET') | default('', true) }}"
     garage_admin_token: "{{ lookup('env', 'GARAGE_ADMIN_TOKEN') | default('', true) }}"
     garage_metrics_token: "{{ lookup('env', 'GARAGE_METRICS_TOKEN') | default('', true) }}"
