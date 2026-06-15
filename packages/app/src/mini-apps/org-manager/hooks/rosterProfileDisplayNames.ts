@@ -36,9 +36,7 @@ function applyRosterProfileDisplayName(input: {
   }
 
   const displayName = readRosterProfileDisplayName(snapshot.structuredFields);
-  if (displayName) {
-    input.setProfileDisplayName(input.userId, displayName);
-  }
+  input.setProfileDisplayName(input.userId, displayName ?? null);
 }
 
 export async function loadRosterProfileDisplayName(input: {
