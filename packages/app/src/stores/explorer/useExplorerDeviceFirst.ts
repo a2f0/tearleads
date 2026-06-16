@@ -1,6 +1,7 @@
 import type {
   ContainerContentsWorkflowRuntime,
   ContainerNode,
+  DocumentSummary,
   LocalProjectionView,
   ReconciliationService,
 } from "@tearleads/client-sdk";
@@ -37,11 +38,28 @@ function reconciliationEventKey(event: unknown, index: number): string {
 
 export function takePendingExplorerReconciliationEvents(input: {
   events: ReadonlyArray<unknown>;
-  knownDocumentIdsByContainerId?: ReadonlyMap<string, ReadonlySet<string>>;
+  documentSummariesByContainerId?: ReadonlyMap<
+    string,
+    ReadonlyArray<DocumentSummary>
+  >;
   knownContainerIds: ReadonlyArray<string>;
   processedEventKeys: Set<string>;
 }): ReadonlyArray<unknown> {
   const knownContainerIds = new Set(input.knownContainerIds);
+  const documentIdSetsByContainerId = new Map<string, ReadonlySet<string>>();
+  const getDocumentIdSet = (containerId: string): ReadonlySet<string> => {
+    const cached = documentIdSetsByContainerId.get(containerId);
+    if (cached) {
+      return cached;
+    }
+    const documentIds = new Set(
+      (input.documentSummariesByContainerId?.get(containerId) ?? []).flatMap(
+        (summary) => (summary.documentId ? [summary.documentId] : []),
+      ),
+    );
+    documentIdSetsByContainerId.set(containerId, documentIds);
+    return documentIds;
+  };
   const pendingEvents: unknown[] = [];
 
   input.events.forEach((event, index) => {
@@ -71,9 +89,7 @@ export function takePendingExplorerReconciliationEvents(input: {
             knownContainerIds.has(containerId) &&
             !(
               typeof event.documentId === "string" &&
-              input.knownDocumentIdsByContainerId
-                ?.get(containerId)
-                ?.has(event.documentId)
+              getDocumentIdSet(containerId).has(event.documentId)
             ) &&
             !input.processedEventKeys.has(`${eventKey}:${containerId}`),
         ),
@@ -135,20 +151,9 @@ export function useExplorerDeviceFirst(input: {
       return;
     }
     const pendingEvents = takePendingExplorerReconciliationEvents({
+      documentSummariesByContainerId:
+        view.getSnapshot().documentSummariesByContainerId,
       events,
-      knownDocumentIdsByContainerId: new Map(
-        Array.from(
-          view.getSnapshot().documentSummariesByContainerId.entries(),
-          ([containerId, summaries]) => [
-            containerId,
-            new Set(
-              summaries.flatMap((summary) =>
-                summary.documentId ? [summary.documentId] : [],
-              ),
-            ),
-          ],
-        ),
-      ),
       knownContainerIds,
       processedEventKeys: processedEventKeysRef.current,
     });
