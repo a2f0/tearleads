@@ -495,6 +495,33 @@ export const containerSyncWatermarks = sqliteTable(
   (table) => [primaryKey({ columns: [table.laneKind, table.laneId] })],
 );
 
+/**
+ * Local freshness markers for container sync lanes.
+ *
+ * These rows track the last successful API check for a lane independently from
+ * server watermarks. Empty server responses do not always include a new
+ * watermark, but the client still needs to remember that it recently checked
+ * the lane so startup can use cached container state without polling every
+ * time a container tree opens.
+ *
+ * Columns:
+ * - `laneKind`: Sync lane category matching `containerSyncWatermarks`.
+ * - `laneId`: Lane identity matching `containerSyncWatermarks`.
+ * - `checkedAt`: Local timestamp for the most recent successful lane check.
+ *
+ * Indexes:
+ * - `(laneKind, laneId)` is the primary key and stores one marker per lane.
+ */
+export const containerSyncLaneChecks = sqliteTable(
+  "container_sync_lane_checks",
+  {
+    laneKind: text("lane_kind").notNull(),
+    laneId: text("lane_id").notNull(),
+    checkedAt: text("checked_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.laneKind, table.laneId] })],
+);
+
 export const documentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documents),
   defineSqlTableSchema(documentPendingUpdates),
@@ -528,6 +555,7 @@ export const containerMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
 
 export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerSyncWatermarks),
+  defineSqlTableSchema(containerSyncLaneChecks),
 ];
 
 export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
@@ -553,5 +581,6 @@ export const clientSQLiteSchema = {
   documentAttachmentBlobProjection,
   containerCreateIntents,
   containerMoveIntents,
+  containerSyncLaneChecks,
   containerSyncWatermarks,
 };

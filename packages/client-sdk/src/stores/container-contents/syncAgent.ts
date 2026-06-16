@@ -30,6 +30,10 @@ import {
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
+import {
+  hasStartupContainerSyncWork,
+  scheduleStaleStartupRemoteHydration,
+} from "./startupHydration";
 
 export type { ContainerState };
 
@@ -61,7 +65,11 @@ export interface ContainerContentsStoreSyncAgent {
   ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
   primeDocumentsForSharedSubtree: (rootContainerId: string) => Promise<void>;
   refresh: () => Promise<boolean>;
-  requestRemoteHydration: () => Promise<void>;
+  requestRemoteHydration: (options?: {
+    followDiscoveredParentLanes?: boolean | undefined;
+    parentIds?: ReadonlyArray<string | null> | undefined;
+    rememberRecentMutationHydration?: boolean | undefined;
+  }) => Promise<void>;
   scheduleRemoteHydration: () => void;
   scheduleSync: () => void;
 }
@@ -135,27 +143,52 @@ async function primeDocumentsForSharedRoots(
 }
 
 function requestRemoteHydration(input: {
+  followDiscoveredParentLanes?: boolean | undefined;
   host: ContainerContentsStoreSyncHost;
+  parentIds?: ReadonlyArray<string | null> | undefined;
+  rememberRecentMutationHydration?: boolean | undefined;
+  scheduleSyncAfterHydration?: boolean | undefined;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
 }): Promise<void> {
   const { host, scheduleSync, state } = input;
-  if (state.remoteHydrationPromise) {
-    return state.remoteHydrationPromise;
+  if (input.parentIds) {
+    for (const parentId of input.parentIds) {
+      state.containerParentIdsNeedingHydration.add(parentId);
+    }
   }
-  const parentIds =
-    state.containerParentIdsNeedingHydration.size === 0
+
+  if (state.remoteHydrationPromise) {
+    const requestQueuedHydration = () =>
+      state.containerParentIdsNeedingHydration.size > 0
+        ? requestRemoteHydration(input)
+        : undefined;
+    return state.remoteHydrationPromise.then(
+      requestQueuedHydration,
+      (error: unknown) => requestQueuedHydration() ?? Promise.reject(error),
+    );
+  }
+  const queuedParentIds = Array.from(state.containerParentIdsNeedingHydration);
+  const followDiscoveredParentLanes =
+    input.followDiscoveredParentLanes ?? queuedParentIds.length === 0;
+  const parentIds = followDiscoveredParentLanes
+    ? undefined
+    : queuedParentIds.length === 0
       ? undefined
-      : Array.from(state.containerParentIdsNeedingHydration);
+      : queuedParentIds;
   state.containerParentIdsNeedingHydration.clear();
 
+  let appliedRemoteContainerChange = false;
   state.remoteHydrationPromise = hydrateRemoteContainers({
+    followDiscoveredParentLanes,
     host,
     parentIds,
     state,
   })
-    .then(() => {
-      state.recentContainerMutationHydrationAt = parentIds ? Date.now() : null;
+    .then((changedCount) => {
+      appliedRemoteContainerChange = changedCount > 0;
+      state.recentContainerMutationHydrationAt =
+        input.rememberRecentMutationHydration ? Date.now() : null;
     })
     .catch((error: unknown) => {
       if (isDestroyedContainerContentsSyncRuntimeError(error)) {
@@ -168,6 +201,7 @@ function requestRemoteHydration(input: {
       state.remoteHydrationPromise = null;
 
       if (
+        (appliedRemoteContainerChange || input.scheduleSyncAfterHydration) &&
         state.snapshot.ready &&
         state.runtime.auth.isAuthenticated &&
         state.runtime.state.online
@@ -177,6 +211,15 @@ function requestRemoteHydration(input: {
     });
 
   return state.remoteHydrationPromise;
+}
+
+function queueAllRemoteHydrationParentIds(
+  state: ContainerContentsStoreSyncState,
+) {
+  state.containerParentIdsNeedingHydration.add(null);
+  for (const containerId of state.containersById.keys()) {
+    state.containerParentIdsNeedingHydration.add(containerId);
+  }
 }
 
 function hasRecentContainerMutationHydration(
@@ -210,19 +253,22 @@ async function initializeContainerContentsStore(input: {
 
   state.initialized = true;
   state.initializePromise = null;
+
+  await scheduleStaleStartupRemoteHydration({
+    requestHydration: () =>
+      requestRemoteHydration({ host, scheduleSync, state }),
+    state,
+  });
+
   host.updateSnapshot();
 
   state.runtime.util.log(
     `${getContainerContentsStoreLogLabel(state)}: loaded ${state.containersById.size} container(s)`,
   );
 
-  if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
-    await hydrateRemoteContainers({ host, state });
-  }
-
   if (
-    state.containersById.size > 0 ||
-    (state.runtime.auth.isAuthenticated && state.runtime.state.online)
+    state.containersById.size > 0 &&
+    (await hasStartupContainerSyncWork(state))
   ) {
     scheduleSync();
   }
@@ -363,8 +409,17 @@ export function createContainerContentsStoreSyncAgent(input: {
     state,
   });
 
-  const requestHydration = () =>
-    requestRemoteHydration({ host, scheduleSync, state });
+  const requestHydration: ContainerContentsStoreSyncAgent["requestRemoteHydration"] =
+    (options = {}) =>
+      requestRemoteHydration({
+        followDiscoveredParentLanes: options.followDiscoveredParentLanes,
+        host,
+        parentIds: options.parentIds,
+        rememberRecentMutationHydration:
+          options.rememberRecentMutationHydration,
+        scheduleSync,
+        state,
+      });
 
   return {
     ensureInitialized: () =>
@@ -420,7 +475,17 @@ export function createContainerContentsStoreSyncAgent(input: {
         return Promise.resolve(true);
       }
 
-      return requestHydration().then(() => {
+      if (state.remoteHydrationPromise) {
+        queueAllRemoteHydrationParentIds(state);
+      }
+
+      return requestRemoteHydration({
+        followDiscoveredParentLanes: true,
+        host,
+        scheduleSyncAfterHydration: true,
+        scheduleSync,
+        state,
+      }).then(() => {
         state.recentContainerMutationHydrationAt = null;
         return true;
       });

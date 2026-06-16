@@ -198,8 +198,8 @@
       "bytes": 73930
     },
     "packages/app/src/stores/explorer/ExplorerProvider.test.ts": {
-      "lines": 4523,
-      "bytes": 142656
+      "lines": 4542,
+      "bytes": 143432
     },
     "packages/app/src/stores/explorer/useDiscoveredDocumentsSync.ts": {
       "lines": 628,
@@ -238,8 +238,8 @@
       "bytes": 23123
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 557,
-      "bytes": 21652
+      "lines": 586,
+      "bytes": 22748
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 664,
@@ -258,8 +258,8 @@
       "bytes": 20397
     },
     "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
-      "lines": 920,
-      "bytes": 26923
+      "lines": 915,
+      "bytes": 26997
     },
     "packages/client-sdk/src/workflows/containers/child/share.ts": {
       "lines": 766,

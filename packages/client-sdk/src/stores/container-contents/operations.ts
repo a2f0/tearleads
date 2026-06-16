@@ -170,7 +170,12 @@ export async function ensureSystemContainer(
   }
 
   if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
-    await syncAgent.requestRemoteHydration();
+    const existingRoot = findRootContainerState(state);
+    // System containers only live under the root. Check the root lanes instead
+    // of asking for a full-tree refresh during container contents startup.
+    await syncAgent.requestRemoteHydration({
+      parentIds: existingRoot ? [null, existingRoot.container.id] : [null],
+    });
     const hydrated = findSystemContainerState(state, systemSlot);
     if (hydrated) {
       return toContainerNode(hydrated);
@@ -478,7 +483,10 @@ export async function moveContainer(
   }
 
   await syncAgent.ingestRemoteContainer(moved);
-  await syncAgent.requestRemoteHydration();
+  await syncAgent.requestRemoteHydration({
+    parentIds: [previousParentId, parentId],
+    rememberRecentMutationHydration: true,
+  });
   requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
   state.runtime.util.log(
