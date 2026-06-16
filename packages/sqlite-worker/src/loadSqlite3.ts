@@ -12,6 +12,30 @@ import type {
 type SAHPoolUtil = Awaited<ReturnType<Sqlite3Static["installOpfsSAHPoolVfs"]>>;
 
 /**
+ * Invokes the untyped `sqlite3mc_vfs_create` SQLite3MultipleCiphers C export,
+ * which is not part of the typed wasm CAPI. It wraps an already-registered VFS
+ * (named `zVfsReal`) with the multiple-ciphers codec so that databases opened
+ * against the wrapper support `PRAGMA key=` encryption; it returns 0 (SQLITE_OK)
+ * on success.
+ *
+ * Read and called via `Reflect` so production sources stay free of type
+ * assertions. Returns null when the build does not provide the export.
+ */
+function callCreateCipherVfs(
+  s: Sqlite3Static,
+  zVfsReal: string,
+  makeDefault: number,
+): number | null {
+  const fn = Reflect.get(s.capi, "sqlite3mc_vfs_create");
+  if (typeof fn !== "function") {
+    return null;
+  }
+
+  const result = Reflect.apply(fn, s.capi, [zVfsReal, makeDefault]);
+  return typeof result === "number" ? result : null;
+}
+
+/**
  * OPFS directory and registered VFS name for the persistent SAHPool. Kept stable
  * across sessions so a reload re-attaches to the same on-disk pool. Bumping these
  * would orphan previously persisted databases, so treat them as a storage
@@ -28,10 +52,20 @@ const SAHPOOL_DIRECTORY = "/tearleads-sqlite";
  */
 const SAHPOOL_MINIMUM_CAPACITY = 12;
 
+interface PersistentVfs {
+  readonly poolUtil: SAHPoolUtil;
+  /**
+   * Name of the cipher-capable VFS that databases must be opened against — the
+   * multiple-ciphers wrapper around the SAHPool VFS. Opening against the bare
+   * SAHPool VFS would reject `PRAGMA key=`.
+   */
+  readonly cipherVfsName: string;
+}
+
 let sqlite3: Sqlite3Static | undefined;
 let sqlite3Promise: Promise<Sqlite3Static> | undefined;
-let sahPoolUtil: SAHPoolUtil | undefined;
-let sahPoolPromise: Promise<SAHPoolUtil> | undefined;
+let persistentVfs: PersistentVfs | undefined;
+let persistentVfsPromise: Promise<PersistentVfs> | undefined;
 let sqliteInitQueue = Promise.resolve();
 
 function getBunFetch(): typeof fetch | null {
@@ -83,20 +117,63 @@ export async function loadSqlite3(): Promise<Sqlite3Static> {
 }
 
 /**
- * Installs (once) the OPFS SyncAccessHandle Pool VFS and returns its util handle.
+ * Wraps the SAHPool VFS with the SQLite3MultipleCiphers codec VFS and returns the
+ * name of the resulting cipher-capable VFS.
  *
- * The VFS is registered globally in the WASM instance under {@link SAHPOOL_VFS_NAME},
- * so it must be installed exactly once and reused across every database opened in
- * this worker (e.g. the bootstrap database and the per-identity database). The
- * SAHPool VFS is synchronous and therefore needs neither `SharedArrayBuffer` nor
- * cross-origin isolation (COOP/COEP).
- *
- * Throws if OPFS is unavailable or the VFS cannot be installed — persistence is
- * a hard requirement once requested, never a silent fall back to memory.
+ * The bare SAHPool VFS does not implement the encryption hooks, so opening a
+ * database against it makes `PRAGMA key=` fail with "Encryption is not supported
+ * by the VFS." `sqlite3mc_vfs_create` registers a wrapper VFS (conventionally
+ * named `multipleciphers-<real>`) that delegates I/O to SAHPool while adding the
+ * codec. We resolve the wrapper's actual name from the live VFS list rather than
+ * assuming the prefix, so a build-specific naming change cannot silently regress.
  */
-async function loadSAHPoolVfs(s: Sqlite3Static): Promise<SAHPoolUtil> {
-  if (sahPoolUtil) {
-    return sahPoolUtil;
+function createCipherVfs(s: Sqlite3Static, underlyingVfsName: string): string {
+  const before = new Set(s.capi.sqlite3_js_vfs_list());
+  const rc = callCreateCipherVfs(s, underlyingVfsName, 0);
+  if (rc === null) {
+    throw new Error(
+      "Persistent storage requested but the SQLite build does not provide sqlite3mc_vfs_create.",
+    );
+  }
+  if (rc !== 0) {
+    throw new Error(
+      `Failed to create the multiple-ciphers VFS over ${underlyingVfsName} (rc=${rc}).`,
+    );
+  }
+
+  const created = s.capi
+    .sqlite3_js_vfs_list()
+    .filter((name) => !before.has(name));
+  // Prefer a wrapper whose name references the underlying VFS; fall back to the
+  // single newly-registered VFS if the naming convention ever changes.
+  const cipherVfsName =
+    created.find((name) => name.includes(underlyingVfsName)) ?? created[0];
+  if (!cipherVfsName) {
+    throw new Error(
+      "The multiple-ciphers VFS was created but could not be located in the VFS list.",
+    );
+  }
+
+  return cipherVfsName;
+}
+
+/**
+ * Installs (once) the persistent VFS stack: the OPFS SyncAccessHandle Pool VFS
+ * wrapped by the SQLite3MultipleCiphers codec VFS.
+ *
+ * The VFSes are registered globally in the WASM instance, so they must be set up
+ * exactly once and reused across every database opened in this worker (e.g. the
+ * bootstrap database and the per-identity database). The SAHPool VFS is
+ * synchronous and therefore needs neither `SharedArrayBuffer` nor cross-origin
+ * isolation (COOP/COEP).
+ *
+ * Throws if OPFS is unavailable or the VFS stack cannot be installed —
+ * persistence is a hard requirement once requested, never a silent fall back to
+ * memory.
+ */
+async function loadPersistentVfs(s: Sqlite3Static): Promise<PersistentVfs> {
+  if (persistentVfs) {
+    return persistentVfs;
   }
 
   if (typeof s.installOpfsSAHPoolVfs !== "function") {
@@ -105,29 +182,31 @@ async function loadSAHPoolVfs(s: Sqlite3Static): Promise<SAHPoolUtil> {
     );
   }
 
-  if (!sahPoolPromise) {
-    sahPoolPromise = (async () => {
-      const util = await s.installOpfsSAHPoolVfs({
+  if (!persistentVfsPromise) {
+    persistentVfsPromise = (async () => {
+      const poolUtil = await s.installOpfsSAHPoolVfs({
         name: SAHPOOL_VFS_NAME,
         directory: SAHPOOL_DIRECTORY,
         // Preserve existing files across sessions — this is the whole point.
         clearOnInit: false,
       });
-      await util.reserveMinimumCapacity(SAHPOOL_MINIMUM_CAPACITY);
-      sahPoolUtil = util;
-      return util;
+      await poolUtil.reserveMinimumCapacity(SAHPOOL_MINIMUM_CAPACITY);
+      const cipherVfsName = createCipherVfs(s, poolUtil.vfsName);
+      const resolved: PersistentVfs = { poolUtil, cipherVfsName };
+      persistentVfs = resolved;
+      return resolved;
     })().catch((error: unknown) => {
       // Allow a later attempt to retry rather than caching a rejected promise.
-      sahPoolPromise = undefined;
+      persistentVfsPromise = undefined;
       throw error instanceof Error
         ? error
-        : new Error("Failed to install the OPFS SAHPool VFS.", {
+        : new Error("Failed to install the persistent SQLite VFS.", {
             cause: error,
           });
     });
   }
 
-  return sahPoolPromise;
+  return persistentVfsPromise;
 }
 
 async function openDatabaseForMode(
@@ -139,8 +218,10 @@ async function openDatabaseForMode(
     return new s.oo1.DB(dbName);
   }
 
-  const poolUtil = await loadSAHPoolVfs(s);
-  return new poolUtil.OpfsSAHPoolDb(dbName);
+  const { cipherVfsName } = await loadPersistentVfs(s);
+  // Open against the cipher-capable wrapper VFS (not the bare SAHPool VFS) so the
+  // encryption PRAGMAs below succeed. "c" = create-if-missing, read/write.
+  return new s.oo1.DB(dbName, "c", cipherVfsName);
 }
 
 export async function initDatabase(
