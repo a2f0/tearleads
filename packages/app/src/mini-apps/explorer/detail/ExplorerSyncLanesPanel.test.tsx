@@ -29,6 +29,7 @@ function createLaneSnapshot(
     lastRequestedAt: null,
     lastStartedAt: null,
     phase: "structural",
+    progress: null,
     registrationIndex: 0,
     requestCount: 0,
     requested: false,
@@ -92,6 +93,42 @@ test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () 
   expect(
     view.getAllByRole("progressbar")[0]?.getAttribute("aria-valuenow"),
   ).toBe("65");
+});
+
+test("ExplorerSyncLanesPanelView renders real multipart upload progress", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "blob-upload:slot-1",
+      label: "Upload report.pdf",
+      lastAction: "started",
+      phase: "blob",
+      progress: {
+        bytesTotal: 40 * 1024 * 1024,
+        bytesUploaded: 24 * 1024 * 1024,
+        partsCompleted: 3,
+        partsTotal: 5,
+      },
+      requestCount: 0,
+      runCount: 1,
+      running: true,
+      status: "running",
+    }),
+  ]);
+
+  const view = render(
+    createElement(ExplorerSyncLanesPanelView, {
+      onBackToSelectionRoute: () => undefined,
+      snapshot,
+    }),
+  );
+
+  expect(view.getByText("Upload report.pdf")).toBeTruthy();
+  expect(view.getByText("Blob")).toBeTruthy();
+  // 24 MiB of 40 MiB ≈ 60%, derived from bytes rather than the status fallback.
+  expect(
+    view.getAllByRole("progressbar")[0]?.getAttribute("aria-valuenow"),
+  ).toBe("60");
+  expect(view.getByText(/3\/5 parts/)).toBeTruthy();
 });
 
 test("ExplorerSyncLanesPanelView renders the empty state", () => {

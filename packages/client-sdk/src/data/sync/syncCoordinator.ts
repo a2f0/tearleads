@@ -3,6 +3,7 @@ import type {
   DomainSyncSnapshot,
   SyncLaneLastAction,
   SyncLanePhase,
+  SyncLaneProgress,
 } from "./syncTelemetry";
 import {
   createDomainSyncSnapshot,
@@ -14,6 +15,7 @@ export type {
   DomainSyncSnapshot,
   SyncLaneLastAction,
   SyncLanePhase,
+  SyncLaneProgress,
   SyncLaneSnapshot,
   SyncLaneStatus,
 } from "./syncTelemetry";
@@ -33,6 +35,27 @@ interface SyncRuntimeStatus {
 export interface SyncLane {
   requestSync: () => void;
 }
+
+/**
+ * Handle for an observational upload lane. Unlike pump-driven lanes, these are
+ * never `requested` — the upload path that owns the handle drives the lane's
+ * running/progress/terminal state directly. The coordinator pump ignores them
+ * because `selectNextRequestedLane` only ever picks `requested` lanes.
+ */
+export interface UploadSyncLane {
+  reportProgress: (progress: SyncLaneProgress) => void;
+  complete: () => void;
+  fail: (error: unknown) => void;
+}
+
+export interface UploadSyncLaneOptions {
+  label?: string | undefined;
+}
+
+// Completed/failed upload lanes are retained so a finished upload stays visible
+// in the visualizer, but capped so a long-lived session can't grow `lanes`
+// without bound (one upload lane is created per attachment slot upload).
+const MAX_RETAINED_UPLOAD_LANES = 10;
 
 export interface SyncIdleOptions {
   intervalMs?: number;
@@ -59,6 +82,7 @@ interface SyncLaneState {
   lastFailedAt: string | null;
   lastRequestedAt: string | null;
   lastStartedAt: string | null;
+  progress: SyncLaneProgress | null;
   registrationIndex: number;
   requestCount: number;
   requested: boolean;
@@ -67,6 +91,10 @@ interface SyncLaneState {
 }
 
 export interface DomainSyncCoordinator {
+  beginUploadLane: (
+    key: string,
+    options?: UploadSyncLaneOptions,
+  ) => UploadSyncLane;
   getSnapshot: () => DomainSyncSnapshot;
   registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
   hasPendingWork: () => boolean;
@@ -93,6 +121,12 @@ const DESTROYED_DATABASE_CLIENT_MESSAGES = [
 
 function describeSyncLaneError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+// Observational upload lanes never enter the pump, so their run is never
+// invoked; this satisfies the SyncLaneConfig contract without behavior.
+function noopLaneRun(): Promise<void> {
+  return Promise.resolve();
 }
 
 function compareSyncLaneOrder(
@@ -248,6 +282,107 @@ function scheduleCoordinatorPump(coordinatorState: DomainSyncCoordinatorState) {
     });
 }
 
+function evictRetainedUploadLanes(
+  coordinatorState: DomainSyncCoordinatorState,
+) {
+  const settledUploadLanes: SyncLaneState[] = [];
+  for (const lane of coordinatorState.lanes.values()) {
+    if (lane.config.phase === "blob" && !lane.running) {
+      settledUploadLanes.push(lane);
+    }
+  }
+
+  if (settledUploadLanes.length <= MAX_RETAINED_UPLOAD_LANES) {
+    return;
+  }
+
+  settledUploadLanes.sort(
+    (left, right) => left.registrationIndex - right.registrationIndex,
+  );
+  const removeCount = settledUploadLanes.length - MAX_RETAINED_UPLOAD_LANES;
+  for (const lane of settledUploadLanes.slice(0, removeCount)) {
+    coordinatorState.lanes.delete(lane.key);
+  }
+}
+
+function beginUploadLane(
+  coordinatorState: DomainSyncCoordinatorState,
+  key: string,
+  options: UploadSyncLaneOptions,
+): UploadSyncLane {
+  const startedAt = createSyncTimestamp();
+  let lane = coordinatorState.lanes.get(key);
+  if (lane) {
+    lane.config = { label: options.label, phase: "blob", run: noopLaneRun };
+  } else {
+    lane = {
+      config: { label: options.label, phase: "blob", run: noopLaneRun },
+      errorCount: 0,
+      key,
+      lastAction: "started",
+      lastActionAt: startedAt,
+      lastCompletedAt: null,
+      lastError: null,
+      lastFailedAt: null,
+      lastRequestedAt: null,
+      lastStartedAt: startedAt,
+      progress: null,
+      registrationIndex: coordinatorState.nextRegistrationIndex,
+      requestCount: 0,
+      requested: false,
+      runCount: 0,
+      running: false,
+    };
+    coordinatorState.nextRegistrationIndex += 1;
+    coordinatorState.lanes.set(key, lane);
+  }
+
+  const uploadLane = lane;
+  uploadLane.running = true;
+  uploadLane.runCount += 1;
+  uploadLane.lastAction = "started";
+  uploadLane.lastActionAt = startedAt;
+  uploadLane.lastStartedAt = startedAt;
+  uploadLane.lastError = null;
+  uploadLane.progress = null;
+  evictRetainedUploadLanes(coordinatorState);
+  publishSyncCoordinatorSnapshot(coordinatorState);
+
+  return {
+    complete() {
+      uploadLane.running = false;
+      uploadLane.lastAction = "completed";
+      uploadLane.lastActionAt = createSyncTimestamp();
+      uploadLane.lastCompletedAt = uploadLane.lastActionAt;
+      uploadLane.lastError = null;
+      if (uploadLane.progress) {
+        uploadLane.progress = {
+          ...uploadLane.progress,
+          bytesUploaded: uploadLane.progress.bytesTotal,
+          partsCompleted: uploadLane.progress.partsTotal,
+        };
+      }
+      evictRetainedUploadLanes(coordinatorState);
+      publishSyncCoordinatorSnapshot(coordinatorState);
+    },
+    fail(error: unknown) {
+      uploadLane.running = false;
+      uploadLane.errorCount += 1;
+      uploadLane.lastAction = "failed";
+      uploadLane.lastActionAt = createSyncTimestamp();
+      uploadLane.lastError = describeSyncLaneError(error);
+      uploadLane.lastFailedAt = uploadLane.lastActionAt;
+      evictRetainedUploadLanes(coordinatorState);
+      publishSyncCoordinatorSnapshot(coordinatorState);
+    },
+    reportProgress(progress: SyncLaneProgress) {
+      uploadLane.progress = { ...progress };
+      uploadLane.lastActionAt = createSyncTimestamp();
+      publishSyncCoordinatorSnapshot(coordinatorState);
+    },
+  };
+}
+
 function requestLaneSync(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
@@ -303,6 +438,9 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
   };
 
   return {
+    beginUploadLane(key: string, options: UploadSyncLaneOptions = {}) {
+      return beginUploadLane(coordinatorState, key, options);
+    },
     getSnapshot() {
       return coordinatorState.snapshot;
     },
@@ -334,6 +472,7 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         lastFailedAt: null,
         lastRequestedAt: null,
         lastStartedAt: null,
+        progress: null,
         registrationIndex: coordinatorState.nextRegistrationIndex,
         requestCount: 0,
         requested: false,
@@ -389,6 +528,17 @@ export function subscribeToDomainSyncCoordinator(
   listener: () => void,
 ): () => void {
   return getOrCreateDomainSyncCoordinator(domainScope).subscribe(listener);
+}
+
+export function beginDomainSyncUploadLane(
+  domainScope: DomainScope,
+  key: string,
+  options?: UploadSyncLaneOptions,
+): UploadSyncLane {
+  return getOrCreateDomainSyncCoordinator(domainScope).beginUploadLane(
+    key,
+    options,
+  );
 }
 
 export function waitForDomainSyncCoordinatorToSettle(

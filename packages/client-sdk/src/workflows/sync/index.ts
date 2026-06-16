@@ -7,10 +7,14 @@ export type {
   SyncLaneConfig,
   SyncLaneLastAction,
   SyncLanePhase,
+  SyncLaneProgress,
   SyncLaneSnapshot,
   SyncLaneStatus,
+  UploadSyncLane,
+  UploadSyncLaneOptions,
 } from "../../data/sync/syncCoordinator";
 export {
+  beginDomainSyncUploadLane,
   getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,

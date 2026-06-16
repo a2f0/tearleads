@@ -6,6 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import type { BlobBytes } from "../../data/blobContracts";
+import type { MultipartUploadProgress } from "../../data/documents/blob/shared/types";
 import { uploadDocumentAttachment } from "./upload";
 
 test("uploadDocumentAttachment automatically uses multipart for large durable blob uploads", async () => {
@@ -15,6 +16,7 @@ test("uploadDocumentAttachment automatically uses multipart for large durable bl
   const bindingId = "550e8400-e29b-41d4-a716-446655440576";
   const slotId = "preview";
   const uploadedParts: { encryptedBytes: string; partNumber: number }[] = [];
+  const progressEvents: MultipartUploadProgress[] = [];
   let capabilityRequests = 0;
   let legacyStageCalled = false;
 
@@ -127,6 +129,7 @@ test("uploadDocumentAttachment automatically uses multipart for large durable bl
     bytes: new Uint8Array(8 * 1024 * 1024) as BlobBytes,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
+    onMultipartProgress: (progress) => progressEvents.push(progress),
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
@@ -139,4 +142,22 @@ test("uploadDocumentAttachment automatically uses multipart for large durable bl
   expect(capabilityRequests).toBe(1);
   expect(legacyStageCalled).toBe(false);
   expect(uploadedParts.length).toBeGreaterThan(1);
+
+  // Progress is emitted once at the start (nothing uploaded yet) and once per
+  // completed part, ending fully uploaded.
+  expect(progressEvents.length).toBe(uploadedParts.length + 1);
+  const initial = progressEvents[0];
+  expect(initial?.partsCompleted).toBe(0);
+  expect(initial?.bytesUploaded).toBe(0);
+  expect(initial?.partsTotal).toBe(uploadedParts.length);
+  const final = progressEvents.at(-1);
+  expect(final?.partsCompleted).toBe(final?.partsTotal);
+  expect(final?.bytesUploaded).toBe(final?.bytesTotal);
+  expect(final?.bytesTotal).toBeGreaterThan(0);
+  // Cumulative byte progress never moves backwards.
+  for (let index = 1; index < progressEvents.length; index += 1) {
+    expect(progressEvents[index]?.bytesUploaded).toBeGreaterThanOrEqual(
+      progressEvents[index - 1]?.bytesUploaded ?? 0,
+    );
+  }
 });

@@ -1,4 +1,4 @@
-export type SyncLanePhase = "structural" | "document";
+export type SyncLanePhase = "structural" | "document" | "blob";
 export type SyncLaneStatus =
   | "idle"
   | "queued"
@@ -12,6 +12,18 @@ export type SyncLaneLastAction =
   | "completed"
   | "failed";
 
+/**
+ * Fine-grained progress for lanes that expose it (currently multipart blob
+ * uploads). Coarse status lanes leave this null and fall back to the
+ * status-keyed progress bar in the visualizer.
+ */
+export interface SyncLaneProgress {
+  bytesTotal: number;
+  bytesUploaded: number;
+  partsCompleted: number;
+  partsTotal: number;
+}
+
 export interface SyncLaneSnapshot {
   errorCount: number;
   key: string;
@@ -24,6 +36,7 @@ export interface SyncLaneSnapshot {
   lastRequestedAt: string | null;
   lastStartedAt: string | null;
   phase: SyncLanePhase;
+  progress: SyncLaneProgress | null;
   registrationIndex: number;
   requestCount: number;
   requested: boolean;
@@ -55,6 +68,7 @@ interface SyncLaneTelemetryState {
   lastFailedAt: string | null;
   lastRequestedAt: string | null;
   lastStartedAt: string | null;
+  progress?: SyncLaneProgress | null;
   registrationIndex: number;
   requestCount: number;
   requested: boolean;
@@ -66,6 +80,7 @@ const DEFAULT_SYNC_LANE_PHASE: SyncLanePhase = "document";
 const SYNC_LANE_PHASE_RANK: Record<SyncLanePhase, number> = {
   structural: 0,
   document: 1,
+  blob: 2,
 };
 
 export function createSyncTimestamp(): string {
@@ -123,6 +138,7 @@ function createSyncLaneSnapshot(
     lastRequestedAt: state.lastRequestedAt,
     lastStartedAt: state.lastStartedAt,
     phase: state.config.phase ?? DEFAULT_SYNC_LANE_PHASE,
+    progress: state.progress ?? null,
     registrationIndex: state.registrationIndex,
     requestCount: state.requestCount,
     requested: state.requested,

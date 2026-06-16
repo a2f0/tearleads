@@ -31,6 +31,7 @@ import { assertBlobAttachmentBindResponse } from "../../data/documents/blob/shar
 import type {
   BlobAttachmentApi,
   BlobAttachmentMaterial,
+  MultipartUploadProgressListener,
   UploadDocumentAttachmentInput,
   UploadDocumentAttachmentResult,
 } from "../../data/documents/blob/shared/types";
@@ -59,6 +60,7 @@ interface MultipartPartCommit {
 }
 
 interface MultipartPartUploadTask {
+  readonly byteLength: number;
   readonly encryptedPart: string;
   readonly partIndex: number;
   readonly partNumber: number;
@@ -183,6 +185,7 @@ async function uploadMultipartPartTasks(input: {
   readonly apiClient: MultipartBlobAttachmentApi;
   readonly completeParts: (MultipartPartCommit | undefined)[];
   readonly concurrency: number;
+  readonly onPartUploaded?: (task: MultipartPartUploadTask) => void;
   readonly stageId: string;
   readonly tasks: readonly MultipartPartUploadTask[];
   readonly uploadId: string;
@@ -222,6 +225,7 @@ async function uploadMultipartPartTasks(input: {
         etag: uploaded.part.etag,
         partNumber: task.partNumber,
       };
+      input.onPartUploaded?.(task);
     }
   }
 
@@ -388,6 +392,7 @@ async function stageAndBindBlobAttachment(input: {
   expectedBindingId: string | null;
   material: BlobAttachmentMaterial;
   multipart: UploadDocumentAttachmentInput["multipart"];
+  onMultipartProgress?: MultipartUploadProgressListener | undefined;
   signedAt: string;
   slotId: string;
 }): Promise<{
@@ -432,6 +437,7 @@ async function stageAndBindBlobAttachment(input: {
         encryptedBytes: input.material.encrypted.encryptedBytes,
         multipart,
         byteLength: input.material.encrypted.byteLength,
+        onMultipartProgress: input.onMultipartProgress,
         sha256: input.material.encrypted.sha256,
       })
     : await stageLegacyBlobAttachment({
@@ -505,11 +511,72 @@ function uploadedPartsByPartNumber(
   return new Map(parts.map((part) => [part.partNumber, part]));
 }
 
+interface MultipartUploadProgressState {
+  bytesTotal: number;
+  bytesUploaded: number;
+  partsCompleted: number;
+  partsTotal: number;
+}
+
+interface MultipartPartPlan {
+  completeParts: (MultipartPartCommit | undefined)[];
+  progress: MultipartUploadProgressState;
+  uploadTasks: MultipartPartUploadTask[];
+}
+
+/**
+ * Splits the encrypted payload into parts, reusing any already-staged parts and
+ * seeding cumulative progress so resumed uploads report from where they left
+ * off rather than restarting at zero.
+ */
+function planMultipartParts(input: {
+  encryptedParts: readonly string[];
+  uploadedParts: ReadonlyMap<number, MultipartBlobStagePart>;
+}): MultipartPartPlan {
+  const { encryptedParts, uploadedParts } = input;
+  const completeParts: (MultipartPartCommit | undefined)[] = new Array(
+    encryptedParts.length,
+  );
+  const uploadTasks: MultipartPartUploadTask[] = [];
+  const progress: MultipartUploadProgressState = {
+    bytesTotal: 0,
+    bytesUploaded: 0,
+    partsCompleted: 0,
+    partsTotal: encryptedParts.length,
+  };
+
+  for (const [partIndex, encryptedPart] of encryptedParts.entries()) {
+    const partNumber = partIndex + 1;
+    const byteLength = partByteLength(encryptedPart);
+    progress.bytesTotal += byteLength;
+    const uploadedPart = uploadedParts.get(partNumber);
+    if (uploadedPart?.byteLength === byteLength) {
+      completeParts[partIndex] = {
+        etag: uploadedPart.etag,
+        partNumber,
+      };
+      progress.partsCompleted += 1;
+      progress.bytesUploaded += byteLength;
+      continue;
+    }
+
+    uploadTasks.push({
+      byteLength,
+      encryptedPart,
+      partIndex,
+      partNumber,
+    });
+  }
+
+  return { completeParts, progress, uploadTasks };
+}
+
 async function stageMultipartBlobAttachment(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly byteLength: number;
   readonly encryptedBytes: string;
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly onMultipartProgress?: MultipartUploadProgressListener | undefined;
   readonly sha256: string;
 }): Promise<string | null> {
   const apiClient = requireMultipartBlobAttachmentApi(input.apiClient);
@@ -538,39 +605,36 @@ async function stageMultipartBlobAttachment(input: {
     return status.stageId;
   }
 
-  const uploadedParts = uploadedPartsByPartNumber(status.uploadedParts);
   const encryptedParts = splitEncryptedBytesIntoParts(
     input.encryptedBytes,
     input.multipart.partSize,
   );
-  const completeParts: (MultipartPartCommit | undefined)[] = new Array(
-    encryptedParts.length,
-  );
-  const uploadTasks: MultipartPartUploadTask[] = [];
+  const { completeParts, progress, uploadTasks } = planMultipartParts({
+    encryptedParts,
+    uploadedParts: uploadedPartsByPartNumber(status.uploadedParts),
+  });
 
-  for (const [partIndex, encryptedPart] of encryptedParts.entries()) {
-    const partNumber = partIndex + 1;
-    const uploadedPart = uploadedParts.get(partNumber);
-    if (uploadedPart?.byteLength === partByteLength(encryptedPart)) {
-      completeParts[partIndex] = {
-        etag: uploadedPart.etag,
-        partNumber,
-      };
-      continue;
-    }
-
-    uploadTasks.push({
-      encryptedPart,
-      partIndex,
-      partNumber,
+  const reportMultipartProgress = () => {
+    input.onMultipartProgress?.({
+      bytesTotal: progress.bytesTotal,
+      bytesUploaded: progress.bytesUploaded,
+      partsCompleted: progress.partsCompleted,
+      partsTotal: progress.partsTotal,
     });
-  }
+  };
+  reportMultipartProgress();
+
   const uploaded = await uploadMultipartPartTasks({
     apiClient,
     completeParts,
     concurrency: normalizeMultipartUploadConcurrency(
       input.multipart.uploadConcurrency,
     ),
+    onPartUploaded: (task) => {
+      progress.partsCompleted += 1;
+      progress.bytesUploaded += task.byteLength;
+      reportMultipartProgress();
+    },
     stageId: stage.stageId,
     tasks: uploadTasks,
     uploadId: stage.uploadId,
@@ -604,6 +668,7 @@ export async function uploadDocumentAttachment({
   execSql,
   expectedBindingId,
   multipart,
+  onMultipartProgress,
   resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
@@ -645,6 +710,7 @@ export async function uploadDocumentAttachment({
     expectedBindingId,
     material,
     multipart,
+    onMultipartProgress,
     signedAt,
     slotId,
   });

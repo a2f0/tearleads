@@ -123,6 +123,21 @@ export interface BlobAttachmentMaterial {
   writerProjection: DocumentWriterProjectionResponse;
 }
 
+/**
+ * Progress for an in-flight multipart blob upload. Only emitted when the
+ * multipart path is taken (single-shot staging reports nothing).
+ */
+export interface MultipartUploadProgress {
+  readonly bytesTotal: number;
+  readonly bytesUploaded: number;
+  readonly partsCompleted: number;
+  readonly partsTotal: number;
+}
+
+export type MultipartUploadProgressListener = (
+  progress: MultipartUploadProgress,
+) => void;
+
 export interface UploadDocumentAttachmentInput {
   apiClient: BlobAttachmentApi;
   author: DocumentCreateAuthor;
@@ -136,6 +151,7 @@ export interface UploadDocumentAttachmentInput {
   execSql?: ExecSql | undefined;
   expectedBindingId: string | null;
   multipart?: MultipartBlobUploadOptions | undefined;
+  onMultipartProgress?: MultipartUploadProgressListener | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;

@@ -69,6 +69,28 @@ export function getExplorerSyncLaneCountLabel(input: {
   ].join(", ");
 }
 
+export function getExplorerSyncLaneUploadProgressLabel(progress: {
+  bytesTotal: number;
+  bytesUploaded: number;
+  partsCompleted: number;
+  partsTotal: number;
+}): string {
+  const parts = `${EXPLORER_COUNT_FORMATTER.format(
+    progress.partsCompleted,
+  )}/${EXPLORER_COUNT_FORMATTER.format(progress.partsTotal)} ${getExplorerPluralLabel(
+    progress.partsTotal,
+    {
+      one: EXPLORER_LABELS.syncLanesUploadPartOne,
+      other: EXPLORER_LABELS.syncLanesUploadPartOther,
+    },
+  )}`;
+  const bytes = `${formatByteLength(progress.bytesUploaded)} / ${formatByteLength(
+    progress.bytesTotal,
+  )}`;
+
+  return `${parts} · ${bytes}`;
+}
+
 export function getExplorerBlobBrowserDocumentCountLabel(
   value: number,
 ): string {

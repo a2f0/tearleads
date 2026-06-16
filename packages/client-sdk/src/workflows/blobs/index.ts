@@ -13,6 +13,10 @@ export {
   wrapEncryptedBlobStore,
 } from "../../data/blobs/encryptedBlobStore";
 export { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
+export type {
+  MultipartUploadProgress,
+  MultipartUploadProgressListener,
+} from "../../data/documents/blob/shared/types";
 export { decryptDocumentAttachmentBlob } from "./decrypt";
 export { hydrateDocumentAttachmentBlobs } from "./hydrate";
 export { uploadDocumentAttachment } from "./upload";
