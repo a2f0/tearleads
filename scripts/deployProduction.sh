@@ -12,13 +12,34 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+DEPLOY_START="$SECONDS"
+STEP_TIMINGS=()
+
+format_duration() {
+  local total="$1"
+  printf '%dm%02ds' "$((total / 60))" "$((total % 60))"
+}
+
 run_step() {
   local label="$1"
   shift
   echo "--- [$label] $* ---"
+  local step_start="$SECONDS"
   "$@"
-  echo "[$label] done."
+  local elapsed="$((SECONDS - step_start))"
+  STEP_TIMINGS+=("$(printf '%-12s %s' "$label" "$(format_duration "$elapsed")")")
+  echo "[$label] done in $(format_duration "$elapsed")."
   echo ""
+}
+
+print_timing_summary() {
+  echo "--- Timing summary ---"
+  local row
+  for row in "${STEP_TIMINGS[@]+"${STEP_TIMINGS[@]}"}"; do
+    echo "  $row"
+  done
+  echo "  ----------------------"
+  printf '  %-12s %s\n' "total" "$(format_duration "$((SECONDS - DEPLOY_START))")"
 }
 
 echo "=== Tearleads Production Deployment ==="
@@ -46,3 +67,5 @@ run_step "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployProductionAppWeb
 
 echo "=== Deployment finished ==="
 echo "All steps succeeded."
+echo ""
+print_timing_summary
