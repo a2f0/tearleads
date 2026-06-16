@@ -547,7 +547,11 @@ function planMultipartParts(input: {
 
   for (const [partIndex, encryptedPart] of encryptedParts.entries()) {
     const partNumber = partIndex + 1;
-    const byteLength = partByteLength(encryptedPart);
+    // Encrypted payloads are typically ASCII (base64/hex), where the UTF-8 byte
+    // length equals the string length, so we can skip re-encoding the part.
+    const byteLength = isAsciiString(encryptedPart)
+      ? encryptedPart.length
+      : partByteLength(encryptedPart);
     progress.bytesTotal += byteLength;
     const uploadedPart = uploadedParts.get(partNumber);
     if (uploadedPart?.byteLength === byteLength) {

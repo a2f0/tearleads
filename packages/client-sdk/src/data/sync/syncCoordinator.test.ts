@@ -472,6 +472,20 @@ test("upload lanes are ignored by the coordinator pump", async () => {
   ).toBe(true);
 });
 
+test("a stale upload lane handle cannot clobber a newer session", () => {
+  const domainScope = createDomainScope();
+  const stale = beginDomainSyncUploadLane(domainScope, "blob-upload:slot-r");
+  // Re-begin the same lane key (e.g. a retried upload) — this advances the
+  // session and the stale handle's calls should become no-ops.
+  const current = beginDomainSyncUploadLane(domainScope, "blob-upload:slot-r");
+
+  stale.complete();
+  expect(findLane(domainScope, "blob-upload:slot-r")?.status).toBe("running");
+
+  current.complete();
+  expect(findLane(domainScope, "blob-upload:slot-r")?.status).toBe("complete");
+});
+
 test("completed upload lanes are capped to the retention limit", () => {
   const domainScope = createDomainScope();
 

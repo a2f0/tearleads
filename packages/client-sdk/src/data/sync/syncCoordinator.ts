@@ -348,8 +348,17 @@ function beginUploadLane(
   evictRetainedUploadLanes(coordinatorState);
   publishSyncCoordinatorSnapshot(coordinatorState);
 
+  // If this lane key is re-begun (or evicted and recreated), runCount advances
+  // and a stale handle from the prior session becomes a no-op, so out-of-order
+  // callbacks can't clobber the newer upload's state.
+  const sessionRunCount = uploadLane.runCount;
+  const isCurrentSession = () => uploadLane.runCount === sessionRunCount;
+
   return {
     complete() {
+      if (!isCurrentSession()) {
+        return;
+      }
       uploadLane.running = false;
       uploadLane.lastAction = "completed";
       uploadLane.lastActionAt = createSyncTimestamp();
@@ -366,6 +375,9 @@ function beginUploadLane(
       publishSyncCoordinatorSnapshot(coordinatorState);
     },
     fail(error: unknown) {
+      if (!isCurrentSession()) {
+        return;
+      }
       uploadLane.running = false;
       uploadLane.errorCount += 1;
       uploadLane.lastAction = "failed";
@@ -376,6 +388,9 @@ function beginUploadLane(
       publishSyncCoordinatorSnapshot(coordinatorState);
     },
     reportProgress(progress: SyncLaneProgress) {
+      if (!isCurrentSession()) {
+        return;
+      }
       uploadLane.progress = { ...progress };
       uploadLane.lastActionAt = createSyncTimestamp();
       publishSyncCoordinatorSnapshot(coordinatorState);
