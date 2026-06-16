@@ -10,7 +10,6 @@ import {
   type CommandWithInput,
   createFakeS3BlobObjectStore,
   listPartNumbers,
-  sha256Base64,
   textStream,
 } from "../../test/helpers/fakeS3BlobObjectStore";
 import { sha256Hex } from "../utils/sha256";
@@ -68,13 +67,11 @@ test("S3 blob object store completes multipart uploads by part number", async ()
       { ETag: secondPart.etag, PartNumber: 2 },
     ],
   });
-  expect(completeCommand?.input.MpuObjectSize).toBe(
-    Buffer.byteLength("first-second", "utf8"),
-  );
-  expect(completeCommand?.input.ChecksumSHA256).toBe(
-    await sha256Base64("first-second"),
-  );
-  expect(completeCommand?.input.ChecksumType).toBe("FULL_OBJECT");
+  // Completion is by part ETag only; the proprietary FULL_OBJECT whole-object
+  // checksum flow (rejected by Garage and by AWS for SHA-256) must not be sent.
+  expect(completeCommand?.input.MpuObjectSize).toBeUndefined();
+  expect(completeCommand?.input.ChecksumSHA256).toBeUndefined();
+  expect(completeCommand?.input.ChecksumType).toBeUndefined();
   expect(await readBlobObjectText(store, "blob-stages/s3-complete")).toBe(
     "first-second",
   );

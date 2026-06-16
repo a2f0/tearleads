@@ -112,8 +112,10 @@ class FakeS3Client {
     this.commands.push(command);
     const input = (command as CommandWithInput).input;
     if (command instanceof CreateMultipartUploadCommand) {
-      expect(input.ChecksumAlgorithm).toBe("SHA256");
-      expect(input.ChecksumType).toBe("FULL_OBJECT");
+      // No checksum algorithm is declared at create time; declaring one would
+      // force every part checksum to be echoed on completion.
+      expect(input.ChecksumAlgorithm).toBeUndefined();
+      expect(input.ChecksumType).toBeUndefined();
       const uploadId = `upload-${this.nextUploadId}`;
       this.nextUploadId += 1;
       this.uploads.set(uploadId, {
@@ -163,7 +165,9 @@ class FakeS3Client {
     }
     if (command instanceof CompleteMultipartUploadCommand) {
       const upload = this.requireUpload(input);
-      expect(input.ChecksumType).toBe("FULL_OBJECT");
+      // Portable S3/Garage completion: validate by part ETag only. The
+      // proprietary FULL_OBJECT whole-object checksum + MpuObjectSize flow is
+      // not used; per-part integrity was already validated at upload time.
       const parts =
         (
           input.MultipartUpload as {
@@ -185,16 +189,6 @@ class FakeS3Client {
           return storedPart.bytes;
         })
         .join("");
-      if (Number(input.MpuObjectSize) !== Buffer.byteLength(bytes, "utf8")) {
-        throw Object.assign(new Error("InvalidRequest"), {
-          name: "InvalidRequest",
-        });
-      }
-      if (input.ChecksumSHA256 !== (await sha256Base64(bytes))) {
-        throw Object.assign(new Error("BadDigest"), {
-          name: "BadDigest",
-        });
-      }
       this.objects.set(upload.key, bytes);
       this.uploads.delete(String(input.UploadId));
 
