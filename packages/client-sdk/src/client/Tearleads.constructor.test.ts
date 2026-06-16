@@ -44,6 +44,25 @@ describe("Tearleads constructor", () => {
     expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
   });
 
+  test("device-first view and reconciler are shared across a domain scope", () => {
+    const sdk = new Tearleads();
+
+    // openView()/reconciler() are cached per domain scope, so every mini-app in
+    // the same storage/identity context shares one read view and one background
+    // reconciler. This is what makes it safe for the explorer, contacts, and
+    // org-manager mini-apps to open the view concurrently: they coordinate
+    // through a single shared active-container pointer and reconcile queue
+    // rather than racing divergent copies.
+    const view = sdk.deviceFirst.openView();
+    expect(sdk.deviceFirst.openView()).toBe(view);
+    expect(sdk.deviceFirst.reconciler()).toBe(sdk.deviceFirst.reconciler());
+
+    expect(view.getSnapshot).toBeFunction();
+    expect(view.subscribe).toBeFunction();
+    expect(view.setActiveContainer).toBeFunction();
+    expect(view.getSnapshot().ready).toBe(false);
+  });
+
   test("auto-provisions identity after SQLite becomes ready", async () => {
     const { close, execSql } = await createTestExecSql(
       "tearleads-constructor-auto-provision-test",

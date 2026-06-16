@@ -5,9 +5,10 @@ Owner lane: `packages/client-sdk` (primary), `packages/app` (consumer simplifica
 
 Implemented as: `tearleads.deviceFirst` facade (`client/deviceFirst.ts`) over
 `stores/local-projection` (Layer A) and `sync/reconciliation` (Layer B). The
-container-contents auth-gain reset was removed. The explorer mini-app consumes
-the view via `useExplorerDeviceFirst` and no longer drives discovery from render
-effects.
+container-contents auth-gain reset was removed. The explorer, contacts, and
+org-manager mini-apps all consume the view + reconciler through the shared
+`useContainerContentsDeviceFirst` hook (`packages/app/src/stores/device-first/`)
+and no longer drive discovery from render effects.
 
 ## Problem
 
@@ -190,11 +191,12 @@ interface DeviceFirst {
 `LocalProjectionView` is the app-facing read handle (snapshot + subscribe +
 `setActiveContainer` passthrough). The app never imports the store/service
 internals — only `tearleads.deviceFirst` returns and their exported *types*. The
-legacy `containerContents` methods `openTree`, `discoverContainerDocuments`,
-`refreshAllContainerDocuments`, `hasUnseenDocumentUpdates` become internal to the
-new owners or are removed (greenfield); `containerContents` keeps mutation
-methods (create/move/rename/share) and info loaders that aren't part of the
-read/reconcile seam.
+dead `containerContents` read/discovery methods `refreshAllContainerDocuments`
+and `hasUnseenDocumentUpdates` were removed (greenfield); `discoverContainerDocuments`
+is retained but is now driven by the reconciler (Layer B) rather than the app.
+`openTree` is **not** superseded: every mini-app still opens the container store
+for tree mutations (create/move/rename/share) and system-container reads, which
+are not part of the read/reconcile seam.
 
 ## App-side simplification (`packages/app`)
 
@@ -213,6 +215,30 @@ The app gets **thinner** — it stops orchestrating network:
 
 Net: `packages/app/src/stores/explorer/` loses ~3-4 orchestration files and the
 mini-app reads one subscribable view.
+
+### Remaining mini-apps (contacts, org-manager)
+
+The explorer wiring was generalized into
+`stores/device-first/useContainerContentsDeviceFirst.ts` — a shared hook that
+opens the per-scope view + reconciler, drives `view.updateRuntime` from an
+effect, and routes server events through `enqueueReconciliationForEvents`. The
+explorer, contacts, and org-manager providers all call it. Contacts and
+org-manager keep their `openTree()` store for tree reads and system-container
+mutations, and add the hook so their scope gets background reconciliation and
+event routing instead of a render-driven discovery effect (they never had one).
+
+**Safe to share across mini-apps.** `openView()` and `reconciler()` are cached
+per `DomainScope` (`WeakMap` in `client/deviceFirst.ts` + `local-projection/registry.ts`),
+over the same per-scope container store. So when several mini-apps are open in
+one scope they share **one** read view, **one** reconciler, and **one**
+active-container pointer — they coordinate rather than racing divergent copies
+(asserted in `Tearleads.constructor.test.ts`). Only the explorer claims the
+active pointer (via `useExplorerInteractionState`, driven by user navigation);
+contacts/org-manager open the view for instant reads + background reconcile and
+never call `setActiveContainer`. Even if two consumers set it, the pointer only
+re-prioritizes the reconcile queue — idle backfill + event enqueues still cover
+every known container, so concurrent pointers are benign (priority churn, no
+data loss).
 
 ## Why this is correct device-first (trace)
 
