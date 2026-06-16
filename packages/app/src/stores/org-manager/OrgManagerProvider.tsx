@@ -33,6 +33,7 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useContainerContentsDeviceFirst } from "../device-first/useContainerContentsDeviceFirst";
 import {
   createOrganizationProfileDocument,
   createRosterProfileDocument,
@@ -99,6 +100,15 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     () => tearleads.containerContents.openTree({ logLabel: "Org Manager" }),
     [containerContentsRuntime.state.domainScope, tearleads],
   );
+
+  // Device-first seam: instant local tree reads plus the background reconciler,
+  // which routes server events instead of any render-driven discovery effect.
+  // The store (above) is still used for tree mutations + system-container reads.
+  useContainerContentsDeviceFirst({
+    events: runtime.state.events,
+    logLabel: "Org Manager",
+    runtime: containerContentsRuntime,
+  });
 
   useEffect(() => {
     containerContentsStore.updateRuntime(containerContentsRuntime);

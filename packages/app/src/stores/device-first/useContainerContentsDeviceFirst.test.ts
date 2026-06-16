@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { takePendingExplorerReconciliationEvents } from "./useExplorerDeviceFirst";
+import { takePendingReconciliationEvents } from "./useContainerContentsDeviceFirst";
 
 function summary(input: {
   containerId: string;
@@ -15,7 +15,7 @@ function summary(input: {
   };
 }
 
-test("explorer reconciliation events are processed once per known container", () => {
+test("reconciliation events are processed once per known container", () => {
   const processedEventKeys = new Set<string>();
   const event = {
     containerIds: ["c-1"],
@@ -24,14 +24,14 @@ test("explorer reconciliation events are processed once per known container", ()
   };
 
   expect(
-    takePendingExplorerReconciliationEvents({
+    takePendingReconciliationEvents({
       events: [event],
       knownContainerIds: ["c-1"],
       processedEventKeys,
     }),
   ).toEqual([event]);
   expect(
-    takePendingExplorerReconciliationEvents({
+    takePendingReconciliationEvents({
       events: [event],
       knownContainerIds: ["c-1"],
       processedEventKeys,
@@ -39,7 +39,7 @@ test("explorer reconciliation events are processed once per known container", ()
   ).toEqual([]);
 });
 
-test("explorer reconciliation events can become pending when containers become known", () => {
+test("reconciliation events can become pending when containers become known", () => {
   const processedEventKeys = new Set<string>();
   const event = {
     containerIds: ["c-1", "c-2"],
@@ -48,14 +48,14 @@ test("explorer reconciliation events can become pending when containers become k
   };
 
   expect(
-    takePendingExplorerReconciliationEvents({
+    takePendingReconciliationEvents({
       events: [event],
       knownContainerIds: ["c-1"],
       processedEventKeys,
     }),
   ).toEqual([{ ...event, containerIds: ["c-1"] }]);
   expect(
-    takePendingExplorerReconciliationEvents({
+    takePendingReconciliationEvents({
       events: [event],
       knownContainerIds: ["c-1", "c-2"],
       processedEventKeys,
@@ -63,7 +63,7 @@ test("explorer reconciliation events can become pending when containers become k
   ).toEqual([{ ...event, containerIds: ["c-2"] }]);
 });
 
-test("explorer reconciliation events skip documents already known in a container", () => {
+test("reconciliation events skip documents already known in a container", () => {
   const processedEventKeys = new Set<string>();
   const event = {
     containerIds: ["c-1", "c-2"],
@@ -73,7 +73,7 @@ test("explorer reconciliation events skip documents already known in a container
   };
 
   expect(
-    takePendingExplorerReconciliationEvents({
+    takePendingReconciliationEvents({
       documentSummariesByContainerId: new Map([
         ["c-1", [summary({ containerId: "c-1", documentId: "doc-1" })]],
       ]),
@@ -84,7 +84,7 @@ test("explorer reconciliation events skip documents already known in a container
   ).toEqual([{ ...event, containerIds: ["c-2"] }]);
 });
 
-test("explorer reconciliation events only inspect summaries for touched containers", () => {
+test("reconciliation events only inspect summaries for touched containers", () => {
   const processedEventKeys = new Set<string>();
   const event = {
     containerIds: ["c-1"],
@@ -106,7 +106,7 @@ test("explorer reconciliation events only inspect summaries for touched containe
   };
 
   expect(
-    takePendingExplorerReconciliationEvents({
+    takePendingReconciliationEvents({
       documentSummariesByContainerId,
       events: [event],
       knownContainerIds: ["c-1"],

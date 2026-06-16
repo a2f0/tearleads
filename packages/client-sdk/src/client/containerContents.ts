@@ -1,6 +1,5 @@
 import type { DocumentSummary } from "../data/documentSummary";
 import {
-  type ContainerContentsSnapshot,
   type ContainerContentsStore,
   type ContainerContentsStoreOptions,
   getOrCreateContainerContentsStore,
@@ -15,12 +14,7 @@ import {
   type ContainerInfo,
   loadContainerInfo,
 } from "../workflows/container-contents/containerInfo";
-import {
-  discoverAllContainerDocuments,
-  discoverContainerDocumentsFromApi,
-  hasUndiscoveredDocumentUpdateEvent,
-  refreshAllContainerDocumentsFromApi,
-} from "../workflows/container-contents/documentDiscovery";
+import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
 import {
   type DocumentInfo,
   loadDocumentInfo,
@@ -140,25 +134,6 @@ function createDocumentLinkHost(
   };
 }
 
-type DocumentRefreshContainerSnapshot = Pick<
-  ContainerContentsSnapshot,
-  "ready"
-> & {
-  nodes?: ContainerContentsSnapshot["nodes"] | null;
-};
-
-export function listUserContainerIdsForDocumentRefresh(
-  snapshot: DocumentRefreshContainerSnapshot,
-): string[] | null {
-  if (!snapshot.ready) {
-    return null;
-  }
-
-  return (snapshot.nodes ?? []).flatMap((node) =>
-    node.systemSlot ? [] : [node.id],
-  );
-}
-
 class ContainerContentsService implements ContainerContents {
   constructor(private readonly runtimeService: InternalRuntime) {}
 
@@ -270,21 +245,6 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
-  hasUnseenDocumentUpdates(knownDocumentIds: ReadonlySet<string>): boolean {
-    const allKnownDocumentIds = new Set(knownDocumentIds);
-    const snapshot = this.openTree().getSnapshot();
-    for (const node of snapshot.nodes ?? []) {
-      if (node.metadataDocumentId) {
-        allKnownDocumentIds.add(node.metadataDocumentId);
-      }
-    }
-
-    return hasUndiscoveredDocumentUpdateEvent(
-      this.runtimeService.workflowInput().state.events,
-      allKnownDocumentIds,
-    );
-  }
-
   loadContainerInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
     const runtime = this.runtimeService.workflowInput();
     const cachedContainerProjection =
@@ -316,50 +276,6 @@ class ContainerContentsService implements ContainerContents {
       ...input,
       execSql:
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
-    });
-  }
-
-  refreshAllContainerDocuments(): Promise<ReadonlyArray<DocumentSummary> | null> {
-    const runtime = createContainerContentsDiscoveryRuntime(
-      this.runtimeService.workflowInput(),
-    );
-    if (!runtime) {
-      return Promise.resolve(null);
-    }
-
-    const snapshot = this.openTree().getSnapshot();
-    const snapshotContainerIds =
-      listUserContainerIdsForDocumentRefresh(snapshot);
-    if (snapshotContainerIds) {
-      if (
-        snapshotContainerIds.length === 0 &&
-        (snapshot.nodes ?? []).length > 0
-      ) {
-        return Promise.resolve([]);
-      }
-      if (snapshotContainerIds.length === 0) {
-        return refreshAllContainerDocumentsFromApi({
-          ...createContainerDocumentDiscoveryPersistence(runtime),
-          apiClient: runtime.apiClient,
-          cacheReferencedPrincipalPolicies:
-            runtime.util.cacheReferencedPrincipalPolicies,
-        });
-      }
-      return discoverAllContainerDocuments({
-        ...createContainerDocumentDiscoveryPersistence(runtime),
-        cacheReferencedPrincipalPolicies:
-          runtime.util.cacheReferencedPrincipalPolicies,
-        containerIds: snapshotContainerIds,
-        listContainerDocuments: (containerId, options) =>
-          runtime.apiClient.listContainerDocuments(containerId, options),
-      });
-    }
-
-    return refreshAllContainerDocumentsFromApi({
-      ...createContainerDocumentDiscoveryPersistence(runtime),
-      apiClient: runtime.apiClient,
-      cacheReferencedPrincipalPolicies:
-        runtime.util.cacheReferencedPrincipalPolicies,
     });
   }
 

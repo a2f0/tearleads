@@ -10,6 +10,7 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
+import { useContainerContentsDeviceFirst } from "../device-first/useContainerContentsDeviceFirst";
 import type { ContactsStore } from "./contactStore";
 import type { ContactsContextValue } from "./types";
 import {
@@ -38,6 +39,14 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
+  // Device-first seam: instant local tree reads plus the background reconciler,
+  // which routes server events instead of any render-driven discovery effect.
+  // The store (above) is still used for tree reads + system-container mutations.
+  useContainerContentsDeviceFirst({
+    events: appData.state.events,
+    logLabel: "Contacts",
+    runtime: containerContentsRuntime,
+  });
   const contactsSystemSlot = useContactsSystemSlot({
     logError: tearleads.logError,
     signingPrivateKey:

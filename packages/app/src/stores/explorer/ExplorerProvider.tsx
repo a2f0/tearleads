@@ -24,6 +24,7 @@ import {
   useContactsCriticalNodesBootstrap,
 } from "../contacts/useContactsCriticalNodesBootstrap";
 import { useContactsStoreForContainer } from "../contacts/useContactsStoreForContainer";
+import { useContainerContentsDeviceFirst } from "../device-first/useContainerContentsDeviceFirst";
 import { EXPLORER_TRASH_CONTAINER_NAME } from "../systemContainers";
 import {
   canResolveExplorerTrashContainer,
@@ -31,7 +32,6 @@ import {
   getExplorerTrashDeleteTargetId,
   getVisibleExplorerNodes,
 } from "./ExplorerSystemContainers";
-import { useExplorerDeviceFirst } from "./useExplorerDeviceFirst";
 import { useExplorerSystemProvisioning } from "./useExplorerSystemProvisioning";
 
 export {
@@ -99,10 +99,10 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   // Device-first read view (instant local tree + summaries) and the background
   // reconciler that patches it. Both share the mutation store's domain scope,
   // so reads and writes stay coherent.
-  const { reconciler, view } = useExplorerDeviceFirst({
+  const { reconciler, view } = useContainerContentsDeviceFirst({
     runtime,
     events: appData.state.events,
-    nodes: snapshot.nodes,
+    logLabel: "Explorer",
   });
   const {
     contactsSystemSlot,

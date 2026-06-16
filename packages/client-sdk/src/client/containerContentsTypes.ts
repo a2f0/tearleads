@@ -178,12 +178,6 @@ export interface ContainerContents {
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
 
   /**
-   * Check whether the current event snapshot includes document updates that
-   * are not yet represented by the supplied known remote document ids.
-   */
-  hasUnseenDocumentUpdates(knownDocumentIds: ReadonlySet<string>): boolean;
-
-  /**
    * Load diagnostic information for one local document.
    *
    * Local details are available when SQLite is ready. Remote details are loaded
@@ -210,19 +204,6 @@ export interface ContainerContents {
    * has been synced.
    */
   loadContainerInfo(input: ContainerInfoInput): Promise<ContainerInfo>;
-
-  /**
-   * Refresh document discovery for every remotely visible container.
-   *
-   * The method discovers the remote container tree first, then applies each
-   * container-document lane through the same local persistence protocol as
-   * `discoverContainerDocuments`.
-   *
-   * Returns all document summaries touched by the refresh, or `null` when the
-   * local database is unavailable, or when the remote container tree or a
-   * document lane could not be fully listed.
-   */
-  refreshAllContainerDocuments(): Promise<ReadonlyArray<DocumentSummary> | null>;
 
   /**
    * Create a workflow runtime for advanced container-content workflows.

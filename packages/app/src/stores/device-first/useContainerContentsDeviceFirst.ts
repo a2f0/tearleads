@@ -1,6 +1,5 @@
 import type {
   ContainerContentsWorkflowRuntime,
-  ContainerNode,
   DocumentSummary,
   LocalProjectionView,
   ReconciliationService,
@@ -8,6 +7,7 @@ import type {
 import { enqueueReconciliationForEvents } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useRef } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
 function isDocumentUpdateEvent(event: unknown): event is {
   readonly containerIds?: unknown;
@@ -36,7 +36,13 @@ function reconciliationEventKey(event: unknown, index: number): string {
   return `event-index:${index}`;
 }
 
-export function takePendingExplorerReconciliationEvents(input: {
+/**
+ * Dedupe a batch of server events down to the ones a mini-app has not yet
+ * routed into the reconciler. Events are matched per known container, and
+ * skipped when their document is already present in that container's cached
+ * summaries, so reopening or re-rendering never re-enqueues the same work.
+ */
+export function takePendingReconciliationEvents(input: {
   events: ReadonlyArray<unknown>;
   documentSummariesByContainerId?: ReadonlyMap<
     string,
@@ -109,17 +115,19 @@ export function takePendingExplorerReconciliationEvents(input: {
 }
 
 /**
- * Wire the explorer to the device-first SDK seam: the local projection view
- * (instant reads) and the background reconciler. Server events are routed into
- * the reconciler here so the provider never drives network from a render effect.
+ * Wire a mini-app to the device-first SDK seam: the local projection view
+ * (instant local reads) and the background reconciler. Server events are routed
+ * into the reconciler here so the provider never drives network from a render
+ * effect. The view + reconciler are cached per domain scope, so every mini-app
+ * in the same scope shares one read view and one reconciler.
  */
-export function useExplorerDeviceFirst(input: {
+export function useContainerContentsDeviceFirst(input: {
   runtime: ContainerContentsWorkflowRuntime;
   events: ReadonlyArray<unknown>;
-  nodes: ReadonlyArray<ContainerNode>;
+  logLabel: string;
 }): { reconciler: ReconciliationService; view: LocalProjectionView } {
   const tearleads = useTearleads();
-  const { events, nodes, runtime } = input;
+  const { events, logLabel, runtime } = input;
   const domainScope = runtime.state.domainScope;
   const processedEventKeysRef = useRef<Set<string>>(new Set());
   const processedEventScopeRef = useRef(domainScope);
@@ -128,16 +136,20 @@ export function useExplorerDeviceFirst(input: {
     processedEventKeysRef.current = new Set();
   }
   const view = useMemo(
-    () => tearleads.deviceFirst.openView({ logLabel: "Explorer" }),
-    [domainScope, tearleads],
+    () => tearleads.deviceFirst.openView({ logLabel }),
+    [domainScope, logLabel, tearleads],
   );
   const reconciler = useMemo(
     () => tearleads.deviceFirst.reconciler(),
     [domainScope, tearleads],
   );
+  const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
   const knownContainerIds = useMemo(
-    () => nodes.flatMap((node) => (node.systemSlot ? [] : [node.id])),
-    [nodes],
+    () =>
+      viewSnapshot.containers.flatMap((node) =>
+        node.systemSlot ? [] : [node.id],
+      ),
+    [viewSnapshot.containers],
   );
 
   // Drive runtime updates from an effect — never during render — so the view's
@@ -150,7 +162,7 @@ export function useExplorerDeviceFirst(input: {
     if (events.length === 0) {
       return;
     }
-    const pendingEvents = takePendingExplorerReconciliationEvents({
+    const pendingEvents = takePendingReconciliationEvents({
       documentSummariesByContainerId:
         view.getSnapshot().documentSummariesByContainerId,
       events,
