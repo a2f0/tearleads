@@ -29,8 +29,8 @@
 }
 
 .workspace-button {
-  width: 2rem;
-  height: 2rem;
+  width: var(--control-height);
+  height: var(--control-height);
   padding: 0;
 }
 

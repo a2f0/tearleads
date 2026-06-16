@@ -2,7 +2,7 @@
 .mini-app-actions {
   display: flex;
   align-items: center;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
   min-width: 0;
 }
 

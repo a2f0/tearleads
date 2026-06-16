@@ -9,7 +9,7 @@
 .window-sidebar {
   overflow: auto;
   flex-shrink: 0;
-  min-width: 80px;
+  min-width: 5rem;
 }
 
 .window-sidebar-handle {
@@ -33,13 +33,13 @@
   width: 1px;
   background: var(--color-dark);
   content: "";
-  opacity: 0.45;
+  opacity: var(--opacity-disabled);
 }
 
 .window-sidebar-handle:hover::before,
 .window-sidebar-handle:focus-visible::before {
   width: 2px;
-  opacity: 0.8;
+  opacity: var(--opacity-subtle);
 }
 
 .window-sidebar-handle:focus-visible {

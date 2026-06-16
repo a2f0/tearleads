@@ -1,8 +1,8 @@
 .mini-app-sidebar {
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-list-gap);
+  gap: var(--list-gap);
   min-height: 100%;
   box-sizing: border-box;
-  padding: var(--mini-app-space-sm);
+  padding: var(--space-sm);
 }

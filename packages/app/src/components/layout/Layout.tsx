@@ -1,6 +1,5 @@
 import { TearleadsFrame } from "@tearleads/ui";
 import { type MouseEvent, useCallback, useState } from "react";
-import "../../App.css";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import type { MenuPosition } from "../shared/Menu";

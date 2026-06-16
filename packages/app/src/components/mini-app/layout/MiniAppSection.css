@@ -1,7 +1,7 @@
 .mini-app-section {
   display: grid;
-  gap: var(--mini-app-space-sm);
-  margin-top: var(--mini-app-space-md);
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 .mini-app-section:first-child {
@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--mini-app-space-md);
+  gap: var(--space-md);
   min-width: 0;
   font-weight: 700;
   font-size: var(--font-size-sm);
@@ -20,13 +20,13 @@
 
 .mini-app-section-heading h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-md);
 }
 
 .mini-app-info-section {
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
 }
 
 .mini-app-info-section-heading {

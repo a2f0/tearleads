@@ -9,9 +9,9 @@
 }
 
 .window-menubar-trigger {
-  background: none;
-  border: none;
   padding: var(--window-bar-padding);
+  border: none;
+  background: none;
   cursor: pointer;
 }
 
@@ -25,21 +25,21 @@
   position: absolute;
   top: 100%;
   left: 0;
-  background: var(--color-light);
-  border: 1px solid var(--color-dark);
+  z-index: 1000;
   display: flex;
   flex-direction: column;
-  z-index: 1000;
-  min-width: 120px;
+  min-width: 7.5rem;
+  background: var(--color-light);
+  border: var(--border-strong);
 }
 
 .window-menubar-dropdown button {
-  background: none;
-  border: none;
   padding: var(--window-bar-padding);
+  border: none;
+  background: none;
   text-align: left;
-  cursor: pointer;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .window-menubar-dropdown button:hover:not(:disabled) {
@@ -47,6 +47,6 @@
 }
 
 .window-menubar-dropdown button:disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   cursor: default;
 }

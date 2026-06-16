@@ -6,19 +6,19 @@
 }
 
 .org-manager-error {
-  margin-bottom: var(--mini-app-space-sm);
-  padding: var(--mini-app-space-sm);
-  border: var(--mini-app-border);
+  margin-bottom: var(--space-sm);
+  padding: var(--space-sm);
+  border: var(--border);
 }
 
 .org-manager-hint {
-  padding: var(--mini-app-space-sm);
+  padding: var(--space-sm);
 }
 
 .org-manager-groups {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
-  gap: var(--mini-app-space-md);
+  grid-template-columns: minmax(14rem, 0.8fr) minmax(18rem, 1.2fr);
+  gap: var(--space-md);
   min-height: 0;
 }
 
@@ -37,13 +37,13 @@
 }
 
 .org-manager-form-toolbar {
-  margin-bottom: var(--mini-app-space-sm);
+  margin-bottom: var(--space-sm);
 }
 
 .org-manager-roster-metadata,
 .org-manager-policy-history {
   display: grid;
-  gap: var(--mini-app-list-gap);
+  gap: var(--list-gap);
 }
 
 .org-manager-group-button {
@@ -64,18 +64,18 @@
 }
 
 .org-manager-panel--detail {
-  border-left: var(--mini-app-border);
-  padding-left: var(--mini-app-space-md);
+  border-left: var(--border);
+  padding-left: var(--space-md);
 }
 
 .org-manager-detail-header {
-  margin-bottom: var(--mini-app-space-sm);
+  margin-bottom: var(--space-sm);
 }
 
 .org-manager-detail-status,
 .org-manager-member-row .mini-app-row-text {
   font-size: var(--font-size-sm);
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
 }
 
 .org-manager-detail-actions {
@@ -105,22 +105,22 @@
 
 .org-manager-roster-profile {
   display: grid;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
 }
 
 .org-manager-roster-detail {
-  gap: var(--mini-app-list-gap);
+  gap: var(--list-gap);
 }
 
 .org-manager-roster-profile-fields {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
 }
 
 .org-manager-roster-profile-read-fields {
   display: grid;
-  gap: var(--mini-app-list-gap);
+  gap: var(--list-gap);
 }
 
 .org-manager-member-row .mini-app-row-stack,
@@ -145,7 +145,7 @@
 }
 
 .org-manager-member-row .mini-app-button {
-  padding: 0 var(--mini-app-panel-padding);
+  padding: 0 var(--panel-padding);
 }
 
 .org-manager-roster-profile-field {
@@ -165,13 +165,13 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
   min-width: 0;
 }
 
 .org-manager-policy-change-list {
   display: grid;
-  gap: var(--mini-app-list-gap);
+  gap: var(--list-gap);
   min-width: 0;
 }
 
@@ -179,9 +179,9 @@
   display: grid;
   grid-template-columns: minmax(5.75rem, max-content) minmax(0, 1fr) max-content;
   align-items: baseline;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
   min-width: 0;
-  padding: 0.2rem 0;
+  padding: var(--space-2xs) 0;
 }
 
 .org-manager-policy-change--empty {
@@ -202,14 +202,14 @@
 .org-manager-policy-change-principal {
   display: flex;
   align-items: baseline;
-  gap: var(--mini-app-info-table-cell-padding);
+  gap: var(--info-table-cell-padding);
   min-width: 0;
 }
 
 .org-manager-policy-change-principal-type,
 .org-manager-policy-change-role,
 .org-manager-policy-history-epoch {
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
 }
 
 .org-manager-policy-change-principal-name {
@@ -223,26 +223,20 @@
 
   .org-manager-panel--detail {
     border-left: 0;
-    border-top: var(--mini-app-border);
+    border-top: var(--border);
     padding-left: 0;
-    padding-top: var(--mini-app-space-md);
+    padding-top: var(--space-md);
   }
 
-  .org-manager-directory-joined-column {
-    display: none;
-  }
-
-  .org-manager-container-updated-column {
-    display: none;
-  }
-
+  .org-manager-directory-joined-column,
+  .org-manager-container-updated-column,
   .org-manager-group-created-column {
     display: none;
   }
 
   .org-manager-policy-change {
     grid-template-columns: 1fr;
-    gap: var(--mini-app-space-2xs);
+    gap: var(--space-2xs);
   }
 
   .org-manager-policy-change-principal {

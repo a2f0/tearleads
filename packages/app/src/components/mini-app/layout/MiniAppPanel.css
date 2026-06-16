@@ -1,14 +1,14 @@
 .mini-app-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-space-md);
+  gap: var(--space-md);
   min-width: 0;
   box-sizing: border-box;
 }
 
 .mini-app-panel--framed {
-  padding: var(--mini-app-panel-padding);
-  border: var(--mini-app-border);
+  padding: var(--panel-padding);
+  border: var(--border);
 }
 
 .mini-app-panel--scroll {

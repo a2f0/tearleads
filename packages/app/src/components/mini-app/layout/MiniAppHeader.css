@@ -2,13 +2,13 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--mini-app-space-md);
+  gap: var(--space-md);
   min-width: 0;
 }
 
 .mini-app-header-copy {
   display: grid;
-  gap: var(--mini-app-space-2xs);
+  gap: var(--space-2xs);
   min-width: 0;
 }
 
@@ -22,5 +22,5 @@
 
 .mini-app-header-copy > span {
   font-size: var(--font-size-sm);
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
 }

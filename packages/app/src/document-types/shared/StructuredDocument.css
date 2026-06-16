@@ -1,84 +1,87 @@
 .structured-document {
   display: grid;
-  gap: calc(var(--padding) * 1.25);
+  gap: var(--space-md);
 }
 
 .structured-document-header {
   display: grid;
-  gap: calc(var(--padding) / 2);
+  gap: var(--space-sm);
 }
 
 .structured-document-title {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--padding);
+  gap: var(--space-md);
 }
 
 .structured-document-status {
-  color: var(--muted);
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
 }
 
 .structured-document-fields {
   display: grid;
-  gap: var(--padding);
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 }
 
 .structured-document-field {
   display: grid;
-  gap: calc(var(--padding) / 2);
-  font-size: 0.95rem;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
 }
 
 .structured-document-field input,
 .structured-document-field select,
 .structured-document-field textarea {
   width: 100%;
-  padding: calc(var(--padding) * 0.75);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) / 1.5);
-  background: var(--panel-background);
+  min-height: var(--control-height);
+  padding: 0 var(--space-sm);
+  border: var(--border);
+  background: transparent;
   color: inherit;
   font: inherit;
 }
 
+.structured-document-field textarea {
+  min-height: 5lh;
+  padding: var(--space-sm);
+  resize: vertical;
+}
+
 .structured-document-attachments {
   display: grid;
-  gap: var(--padding);
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
 }
 
 .structured-document-slot {
   display: grid;
-  gap: calc(var(--padding) / 1.5);
-  padding: var(--padding);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel-background);
+  gap: var(--space-sm);
+  padding: var(--panel-padding);
+  border: var(--border);
 }
 
 .structured-document-slot-copy {
   display: grid;
-  gap: calc(var(--padding) / 4);
+  gap: var(--space-xs);
 }
 
 .structured-document-slot-description {
-  color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
 }
 
 .structured-document-slot-preview {
   /* standard ID-1 card format */
   aspect-ratio: 1.58 / 1;
   width: 100%;
-  border: 1px dashed var(--border);
-  border-radius: calc(var(--radius) / 1.5);
+  border: var(--border-width) dashed currentColor;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--panel-background) 84%, var(--accent) 16%),
-    var(--panel-background)
+    color-mix(in srgb, currentColor 6%, transparent),
+    transparent
   );
   object-fit: cover;
 }
@@ -86,13 +89,13 @@
 .structured-document-slot-placeholder {
   display: grid;
   place-items: center;
-  color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
 }
 
 .structured-document-slot-meta {
   display: grid;
-  gap: calc(var(--padding) / 4);
+  gap: var(--space-xs);
   min-height: 2.5rem;
 }
 
@@ -101,74 +104,78 @@
 }
 
 .structured-document-slot-detail {
-  color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
 }
 
 .structured-document-slot-actions {
   display: flex;
-  justify-content: space-between;
-  gap: calc(var(--padding) / 2);
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
+  gap: var(--space-sm);
 }
 
 .structured-document-slot-button {
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) / 1.5);
-  background: var(--button-background);
+  min-height: var(--control-height);
+  padding: var(--control-padding-block) var(--control-padding-inline);
+  border: var(--border);
+  background: transparent;
   color: inherit;
-  padding: calc(var(--padding) * 0.6) calc(var(--padding) * 0.9);
   font: inherit;
   cursor: pointer;
 }
 
+.structured-document-slot-button:hover:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
 .structured-document-slot-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+  cursor: default;
 }
 
 .structured-document-slot-status {
-  color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
 }
 
 .structured-document-blob-picker {
   display: grid;
-  gap: calc(var(--padding) / 2);
+  gap: var(--space-sm);
 }
 
 .structured-document-blob-picker-toolbar {
   display: flex;
-  gap: calc(var(--padding) / 2);
+  gap: var(--space-sm);
   min-width: 0;
 }
 
 .structured-document-blob-picker-search {
   flex: 1 1 auto;
   min-width: 0;
-  padding: calc(var(--padding) * 0.6) calc(var(--padding) * 0.75);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) / 1.5);
-  background: var(--panel-background);
+  min-height: var(--control-height);
+  padding: 0 var(--space-sm);
+  border: var(--border);
+  background: transparent;
   color: inherit;
   font: inherit;
 }
 
 .structured-document-blob-picker-results {
   display: grid;
-  gap: calc(var(--padding) / 3);
+  gap: var(--list-gap);
   max-height: 12rem;
   overflow: auto;
 }
 
 .structured-document-blob-picker-option {
   display: grid;
-  gap: calc(var(--padding) / 5);
+  gap: var(--space-2xs);
   min-width: 0;
-  padding: calc(var(--padding) * 0.55) calc(var(--padding) * 0.7);
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) / 1.5);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -177,12 +184,13 @@
 }
 
 .structured-document-blob-picker-option:hover:not(:disabled) {
-  background: var(--button-background);
+  background: var(--color-dark);
+  color: var(--color-light);
 }
 
 .structured-document-blob-picker-option:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+  cursor: default;
 }
 
 .structured-document-blob-picker-option span {
@@ -194,12 +202,12 @@
 
 .structured-document-blob-picker-option span + span,
 .structured-document-blob-picker-status {
-  color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
 }
 
 .structured-document-blob-picker-status--error {
-  color: inherit;
+  opacity: 1;
 }
 
 .structured-document-file-input {
