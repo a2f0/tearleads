@@ -23,6 +23,13 @@ The `sync` facade exposes read-only coordinator snapshots through
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
 
+The device-first read/reconcile seam lives outside the workflow facades, in
+`src/stores/local-projection` (the synchronously-readable `LocalProjectionStore`)
+and `src/sync/reconciliation` (the background `ReconciliationService` that owns
+remote document discovery over the sync coordinator). Product UIs consume both
+through the `tearleads.deviceFirst` SDK facade rather than these modules
+directly. See `docs/developer/device-first-reconciliation.md`.
+
 The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async
 keyring provider.

@@ -96,6 +96,7 @@ The instance intentionally groups client capabilities by responsibility:
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
+| `tearleads.deviceFirst` | device-first local projection view (instant cached tree + document summaries) and the background reconciler that syncs remote state into it |
 | `tearleads.organizations` | organization administration and directory operations |
 | `tearleads.userKeys` | verified user key lookup for product queries and recipient UIs |
 
@@ -140,6 +141,18 @@ capabilities only.
 host stores that need the lower-level container contents runtime. Most product
 code should use `openTree()`, `documentQueries()`, `documentLinks()`, discovery,
 refresh helpers, and diagnostic loaders.
+
+### Device-first reads and background reconciliation
+
+`tearleads.deviceFirst` renders container/document state instantly from the
+local cache while remote reconciliation runs in the background.
+`deviceFirst.openView()` returns a `LocalProjectionView` whose
+`LocalProjectionSnapshot` carries the tree plus document summaries by container;
+its `ready` reflects **local** hydration only (never auth/network).
+`deviceFirst.reconciler()` returns the `ReconciliationService` that owns remote
+discovery, reconciling the active container first. Both share the
+`openTree()` domain scope. See
+[device-first-reconciliation.md](./device-first-reconciliation.md).
 
 ## Constructor Options
 

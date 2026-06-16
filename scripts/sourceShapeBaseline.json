@@ -37,6 +37,10 @@
       "lines": 814,
       "bytes": 23546
     },
+    "docs/developer/client-sdk.md": {
+      "lines": 483,
+      "bytes": 20803
+    },
     "docs/document-rekey-and-audit-history.md": {
       "lines": 639,
       "bytes": 22654
@@ -200,14 +204,6 @@
     "packages/app/src/stores/explorer/ExplorerProvider.test.ts": {
       "lines": 4542,
       "bytes": 143432
-    },
-    "packages/app/src/stores/explorer/useDiscoveredDocumentsSync.ts": {
-      "lines": 628,
-      "bytes": 18666
-    },
-    "packages/app/src/stores/explorer/useExplorerDiscoveryEffects.test.tsx": {
-      "lines": 946,
-      "bytes": 27357
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 956,

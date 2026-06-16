@@ -1,4 +1,12 @@
 export { createDomainScope, type DomainScope } from "../data/domainScope";
+export type {
+  LocalProjectionReconciledDelta,
+  LocalProjectionSnapshot,
+} from "../stores/local-projection";
+export {
+  enqueueReconciliationForEvents,
+  type ReconciliationService,
+} from "../sync/reconciliation";
 export { type BlobStoreFactory, Blobs } from "./blobs";
 export type {
   BlobInfo,
@@ -45,6 +53,7 @@ export {
   type DatabaseSnapshot,
   type DatabaseStatus,
 } from "./database";
+export type { DeviceFirst, LocalProjectionView } from "./deviceFirst";
 export type {
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,

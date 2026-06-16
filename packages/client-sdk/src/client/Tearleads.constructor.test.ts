@@ -39,6 +39,8 @@ describe("Tearleads constructor", () => {
     expect(sdk.session.containerId).toBeNull();
     expect(sdk.documents.open).toBeFunction();
     expect(sdk.containerContents.openTree).toBeFunction();
+    expect(sdk.deviceFirst.openView).toBeFunction();
+    expect(sdk.deviceFirst.reconciler).toBeFunction();
     expect(sdk.organizations.loadDirectoryAndGroups).toBeFunction();
   });
 

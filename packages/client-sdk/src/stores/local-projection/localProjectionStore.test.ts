@@ -1,0 +1,350 @@
+import { expect, test } from "bun:test";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import type { BlobStore } from "../../data/blobContracts";
+import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import type { DomainScope } from "../../data/domainScope";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { upsertDiscoveredDocuments } from "../../data/persistence/documents/documentsPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  createContainerParentSyncLane,
+  defaultContainerContentsPersistence,
+  markContainerSyncLaneChecked,
+} from "../../workflows/container-contents/containerPersistence";
+import {
+  type ContainerContentsWorkflowRuntime,
+  createContainerContentsWorkflowRuntime,
+} from "../../workflows/container-contents/runtime";
+import { createContainerContentsStore } from "../container-contents/containerContentsStore";
+import { createLocalProjectionStore } from "./localProjectionStore";
+
+function createThrowingApiClient(): ReturnType<typeof createMockApiClient> {
+  // Any remote call is a device-first violation in these tests.
+  return createMockApiClient({
+    listContainers: async () => {
+      throw new Error("network is forbidden in device-first read tests");
+    },
+    listContainerDocuments: async () => {
+      throw new Error("network is forbidden in device-first read tests");
+    },
+  });
+}
+
+function createRuntime(input: {
+  apiClient: ReturnType<typeof createMockApiClient>;
+  domainScope: DomainScope;
+  execSql: ExecSql;
+  isAuthenticated: boolean;
+  online: boolean;
+  dbStatus?: string;
+}): ContainerContentsWorkflowRuntime {
+  return createContainerContentsWorkflowRuntime({
+    apiClient: input.apiClient,
+    auth: {
+      isAuthenticated: input.isAuthenticated,
+      organizationId: input.isAuthenticated ? "org-1" : null,
+      userId: input.isAuthenticated ? "user-1" : null,
+    },
+    crypto: {
+      encapsulationKeyPair: null,
+      signingFingerprint: null,
+      signingKeyPair: null,
+    },
+    infra: {
+      blobStore: {} as BlobStore,
+      dbStatus: input.dbStatus ?? "ready",
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql: input.execSql,
+    },
+    state: {
+      containerId: null,
+      domainScope: input.domainScope,
+      events: [],
+      online: input.online,
+    },
+    util: {
+      cacheReferencedPrincipalPolicies: async () => {},
+      log: () => {},
+    },
+  });
+}
+
+async function waitFor(
+  predicate: () => boolean | Promise<boolean>,
+  message: string,
+): Promise<void> {
+  const deadline = Date.now() + 1_000;
+  while (Date.now() <= deadline) {
+    if (await predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(message);
+}
+
+async function seedContainerWithDocument(
+  execSql: ExecSql,
+  input: { containerId: string; documentId: string },
+): Promise<void> {
+  await defaultContainerContentsPersistence.ensureSchema(execSql);
+  await defaultContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      icon: null,
+      id: input.containerId,
+      metadataDocumentId: `${input.containerId}-metadata`,
+      name: "/",
+      organizationId: "org-1",
+      parentId: null,
+    },
+    null,
+  );
+  // Mark the root lane fresh so startup hydration stays cache-first (no network).
+  await markContainerSyncLaneChecked(
+    execSql,
+    createContainerParentSyncLane(null),
+  );
+  await markContainerSyncLaneChecked(
+    execSql,
+    createContainerParentSyncLane(input.containerId),
+  );
+
+  await upsertDiscoveredDocuments(execSql, [
+    {
+      accessEpoch: 1,
+      accessStateHash: null,
+      containerId: input.containerId,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      documentId: input.documentId,
+      linkedContainerIds: [input.containerId],
+    },
+  ]);
+  await sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+    execSql,
+    [{ documentId: input.documentId, containerIds: [input.containerId] }],
+  );
+}
+
+test("local projection store paints cached container documents without any network", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-device-first-read-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    await seedContainerWithDocument(execSql, {
+      containerId: "cached-root",
+      documentId: "doc-1",
+    });
+
+    const runtime = createRuntime({
+      apiClient: createThrowingApiClient(),
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    const containerStore = createContainerContentsStore(runtime);
+    const store = createLocalProjectionStore({ containerStore, runtime });
+    store.updateRuntime(runtime);
+
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Local projection store did not become ready from cache.",
+    );
+
+    expect(store.getSnapshot().containers.map((node) => node.id)).toContain(
+      "cached-root",
+    );
+
+    store.setActiveContainer("cached-root");
+
+    await waitFor(() => {
+      const summaries = store
+        .getSnapshot()
+        .documentSummariesByContainerId.get("cached-root");
+      return (summaries?.length ?? 0) > 0;
+    }, "Active container summaries were not loaded from cache.");
+
+    const summaries = store
+      .getSnapshot()
+      .documentSummariesByContainerId.get("cached-root");
+    expect(summaries?.map((summary) => summary.documentId)).toEqual(["doc-1"]);
+  } finally {
+    close();
+  }
+});
+
+test("local projection store does not blank its snapshot when authentication is gained", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-auth-gain-no-reset-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    await seedContainerWithDocument(execSql, {
+      containerId: "cached-root",
+      documentId: "doc-1",
+    });
+
+    // Gaining auth legitimately schedules a background reconcile; allow the
+    // benign empty remote responses. The point under test is that the snapshot
+    // never blanks and cached summaries survive — not that no call is made.
+    const apiClient = createMockApiClient();
+
+    // Start unauthenticated: device-first reads must work offline/pre-auth.
+    const unauthenticatedRuntime = createRuntime({
+      apiClient,
+      domainScope,
+      execSql,
+      isAuthenticated: false,
+      online: false,
+    });
+    const containerStore = createContainerContentsStore(unauthenticatedRuntime);
+    const store = createLocalProjectionStore({
+      containerStore,
+      runtime: unauthenticatedRuntime,
+    });
+    store.updateRuntime(unauthenticatedRuntime);
+
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Local projection store did not become ready while unauthenticated.",
+    );
+    store.setActiveContainer("cached-root");
+    await waitFor(() => {
+      const summaries = store
+        .getSnapshot()
+        .documentSummariesByContainerId.get("cached-root");
+      return (summaries?.length ?? 0) > 0;
+    }, "Cached summaries were not loaded while unauthenticated.");
+
+    let blanked = false;
+    store.subscribe(() => {
+      if (!store.getSnapshot().ready) {
+        blanked = true;
+      }
+    });
+
+    // Gain authentication — the exact transition that used to reset the store.
+    const authenticatedRuntime = createRuntime({
+      apiClient,
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    store.updateRuntime(authenticatedRuntime);
+
+    // Give any (incorrect) reset a chance to surface.
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(blanked).toBe(false);
+    expect(store.getSnapshot().ready).toBe(true);
+    expect(
+      store
+        .getSnapshot()
+        .documentSummariesByContainerId.get("cached-root")
+        ?.map((summary) => summary.documentId),
+    ).toEqual(["doc-1"]);
+  } finally {
+    close();
+  }
+});
+
+test("local projection store raises an active-changed reconcile signal", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-reconcile-signal-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    await seedContainerWithDocument(execSql, {
+      containerId: "cached-root",
+      documentId: "doc-1",
+    });
+    const runtime = createRuntime({
+      apiClient: createThrowingApiClient(),
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    const containerStore = createContainerContentsStore(runtime);
+    const store = createLocalProjectionStore({ containerStore, runtime });
+
+    const signals: Array<string | null> = [];
+    store.onReconcileSignal((signal) => {
+      signals.push(signal.activeContainerId);
+    });
+
+    store.updateRuntime(runtime);
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Local projection store did not become ready.",
+    );
+
+    store.setActiveContainer("cached-root");
+    expect(signals).toContain("cached-root");
+  } finally {
+    close();
+  }
+});
+
+test("local projection store resets summaries when the database goes away", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-db-loss-reset-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    await seedContainerWithDocument(execSql, {
+      containerId: "cached-root",
+      documentId: "doc-1",
+    });
+    const runtime = createRuntime({
+      apiClient: createMockApiClient(),
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    const containerStore = createContainerContentsStore(runtime);
+    const store = createLocalProjectionStore({ containerStore, runtime });
+    store.updateRuntime(runtime);
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Local projection store did not become ready.",
+    );
+    store.setActiveContainer("cached-root");
+    await waitFor(() => {
+      const summaries = store
+        .getSnapshot()
+        .documentSummariesByContainerId.get("cached-root");
+      return (summaries?.length ?? 0) > 0;
+    }, "Cached summaries were not loaded.");
+
+    // Database goes away: the store must reset to not-ready and drop summaries,
+    // and any in-flight summary load must not repopulate the reset cache.
+    store.updateRuntime(
+      createRuntime({
+        apiClient: createMockApiClient(),
+        domainScope,
+        execSql,
+        isAuthenticated: true,
+        online: true,
+        dbStatus: "terminated",
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(store.getSnapshot().ready).toBe(false);
+    expect(
+      store.getSnapshot().documentSummariesByContainerId.get("cached-root") ??
+        [],
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});

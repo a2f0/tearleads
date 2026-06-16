@@ -2,6 +2,8 @@ import type {
   ContainerContentsContextValue,
   ContainerContentsStore,
   ContainerNode,
+  LocalProjectionView,
+  ReconciliationService,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
@@ -24,18 +26,13 @@ import {
 import { useContactsStoreForContainer } from "../contacts/useContactsStoreForContainer";
 import { EXPLORER_TRASH_CONTAINER_NAME } from "../systemContainers";
 import {
-  canProvisionExplorerSystemContainers,
   canResolveExplorerTrashContainer,
-  findContactsSystemContainerSlot,
   findExplorerSystemNode,
-  findTrashSystemContainerSlot,
-  getExplorerOwnedSystemContainers,
   getExplorerTrashDeleteTargetId,
-  getExplorerVisibleSystemSlots,
   getVisibleExplorerNodes,
-  useEnsureExplorerSystemContainers,
-  useExplorerSystemContainerSlots,
 } from "./ExplorerSystemContainers";
+import { useExplorerDeviceFirst } from "./useExplorerDeviceFirst";
+import { useExplorerSystemProvisioning } from "./useExplorerSystemProvisioning";
 
 export {
   canProvisionExplorerSystemContainers,
@@ -47,8 +44,10 @@ export {
 interface ExplorerContextModel {
   contactsSystemSlot: ContainerSystemSlot | null;
   logError: (message: string | Error, cause?: unknown) => void;
+  reconciler: ReconciliationService;
   store: ContainerContentsStore;
   trashSystemSlot: ContainerSystemSlot | null;
+  view: LocalProjectionView;
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
@@ -56,7 +55,9 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
   canResolveTrashContainer: boolean;
   contactsSystemSlot: ContainerSystemSlot | null;
   ensureTrashContainer: () => Promise<ContainerNode | null>;
+  reconciler: ReconciliationService;
   trashContainerId: string | null;
+  view: LocalProjectionView;
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
@@ -94,49 +95,47 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     () => tearleads.containerContents.openTree({ logLabel: "Explorer" }),
     [runtime.state.domainScope, tearleads],
   );
-  const systemContainers = useExplorerSystemContainerSlots({
-    logError: tearleads.logError,
-    signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
-  });
-  const trashSystemSlot = findTrashSystemContainerSlot(systemContainers);
-  const contactsSystemSlot = findContactsSystemContainerSlot(systemContainers);
-  const visibleSystemSlots = useMemo(
-    () => getExplorerVisibleSystemSlots(systemContainers),
-    [systemContainers],
-  );
-  const explorerSystemContainers = useMemo(
-    () => getExplorerOwnedSystemContainers(systemContainers),
-    [systemContainers],
-  );
   const snapshot = useTearleadsExternalStoreSnapshot(store);
-  const shouldProvisionSystemContainers = useMemo(
-    () =>
-      canProvisionExplorerSystemContainers({
-        isAuthenticated: runtime.auth.isAuthenticated,
-        nodes: snapshot.nodes,
-        organizationId: runtime.auth.organizationId,
-        rootContainerId: runtime.state.containerId,
-      }),
-    [
-      runtime.auth.isAuthenticated,
-      runtime.auth.organizationId,
-      runtime.state.containerId,
-      snapshot.nodes,
-    ],
-  );
+  // Device-first read view (instant local tree + summaries) and the background
+  // reconciler that patches it. Both share the mutation store's domain scope,
+  // so reads and writes stay coherent.
+  const { reconciler, view } = useExplorerDeviceFirst({
+    runtime,
+    events: appData.state.events,
+    nodes: snapshot.nodes,
+  });
+  const {
+    contactsSystemSlot,
+    shouldProvisionSystemContainers,
+    trashSystemSlot,
+    visibleSystemSlots,
+  } = useExplorerSystemProvisioning({
+    store,
+    ready: snapshot.ready,
+    nodes: snapshot.nodes,
+    signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
+    organizationId: runtime.auth.organizationId,
+    rootContainerId: runtime.state.containerId,
+    isAuthenticated: runtime.auth.isAuthenticated,
+    logError: tearleads.logError,
+  });
   const contextValue = useMemo(
     () => ({
       contactsSystemSlot,
       logError: tearleads.logError,
+      reconciler,
       store,
       trashSystemSlot,
+      view,
       visibleSystemSlots,
     }),
     [
       contactsSystemSlot,
+      reconciler,
       store,
       tearleads.logError,
       trashSystemSlot,
+      view,
       visibleSystemSlots,
     ],
   );
@@ -150,15 +149,6 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     containerContentsReady: snapshot.ready && shouldProvisionSystemContainers,
     containerContentsStore: store,
     nodes: snapshot.nodes,
-  });
-
-  useEnsureExplorerSystemContainers({
-    containerContentsReady: snapshot.ready,
-    containerContentsStore: store,
-    logError: tearleads.logError,
-    nodes: snapshot.nodes,
-    shouldProvisionSystemContainers,
-    systemContainers: explorerSystemContainers,
   });
 
   return (
@@ -177,8 +167,10 @@ export function useExplorer(): ExplorerContextValue {
   const {
     contactsSystemSlot,
     logError,
+    reconciler,
     store,
     trashSystemSlot,
+    view,
     visibleSystemSlots,
   } = context;
   const snapshot = useTearleadsExternalStoreSnapshot(store);
@@ -221,6 +213,7 @@ export function useExplorer(): ExplorerContextValue {
       ensureTrashContainer,
       ensureSystemContainer: store.ensureSystemContainer,
       moveContainer: store.moveContainer,
+      reconciler,
       refresh: store.refresh,
       renameContainer: store.renameContainer,
       shareWithGroup: store.shareWithGroup,
@@ -231,14 +224,17 @@ export function useExplorer(): ExplorerContextValue {
         snapshot.nodes,
         trashSystemSlot,
       ),
+      view,
       visibleSystemSlots,
     }),
     [
       ensureTrashContainer,
+      reconciler,
       snapshot,
       store,
       contactsSystemSlot,
       trashSystemSlot,
+      view,
       visibleSystemSlots,
     ],
   );

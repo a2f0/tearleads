@@ -3,9 +3,7 @@ import type {
   ContainerNode,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import { useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { getKnownDocumentIds } from "../../../stores/explorer/documentSummaryUtils";
 import { useExplorerDocumentSummaryState } from "../../../stores/explorer/useExplorerDocumentSummaryState";
 import { useDocumentLinkedContainerIdsByDocumentId } from "./useDocumentLinkedContainerIdsByDocumentId";
 import {
@@ -21,7 +19,6 @@ export function useExplorerDocumentViewModel(params: {
 }): {
   documentListRevision: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;
-  knownDocumentIds: ReadonlySet<string>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   mergeDocumentSummaries: (
@@ -55,20 +52,10 @@ export function useExplorerDocumentViewModel(params: {
       documentLinkProjectionVersion,
       documentSummaries,
     });
-  const knownDocumentIds = useMemo(() => {
-    const ids = new Set(getKnownDocumentIds(documentSummaries));
-    for (const node of nodes) {
-      if (node.metadataDocumentId) {
-        ids.add(node.metadataDocumentId);
-      }
-    }
-    return ids;
-  }, [documentSummaries, nodes]);
   const selection = useExplorerSelection(nodes, documentSummaries);
 
   return {
     documentListRevision,
-    knownDocumentIds,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
     mergeDocumentSummaries,

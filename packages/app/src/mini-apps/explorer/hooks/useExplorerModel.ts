@@ -62,7 +62,6 @@ export function useExplorerModel(
   const documentQueries = useExplorerDocumentQueries(appData);
   const {
     documentListRevision,
-    knownDocumentIds,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
     mergeDocumentSummaries,
@@ -85,7 +84,6 @@ export function useExplorerModel(
       activeContainerId: selection.activeContainerId,
       appData,
       explorer,
-      knownDocumentIds,
       mergeDocumentSummaries,
       onDocumentLinksChanged: handleDocumentLinksChanged,
     });
