@@ -165,6 +165,37 @@ test("service applies the reconciled delta for each container", async () => {
   );
 });
 
+test("service retries a container after a failed reconciliation", async () => {
+  const attempts: string[] = [];
+  let failNext = true;
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      attempts.push(containerId);
+      if (failNext) {
+        failNext = false;
+        throw new Error("transient discovery failure");
+      }
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  // First attempt fails; the container must not be permanently marked
+  // discovered, so a fresh enqueue retries it.
+  service.enqueueContainer("c-1", "active");
+  await waitFor(
+    () => attempts.length === 1,
+    "Expected the first (failing) attempt",
+  );
+
+  service.enqueueContainer("c-1", "active");
+  await waitFor(
+    () => attempts.length === 2,
+    "Expected a retry after the failed reconciliation",
+  );
+});
+
 test("event triggers enqueue the named container at active priority", () => {
   const enqueued: Array<{ containerId: string; priority: string }> = [];
   const service = {

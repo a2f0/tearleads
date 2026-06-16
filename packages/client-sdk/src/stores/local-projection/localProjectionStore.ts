@@ -108,27 +108,35 @@ function loadActiveContainerSummaries(
     return;
   }
 
-  const loadPromise = loadLocalContainerProjectionDocumentsFromRuntime({
-    containerIds: [containerId],
-    runtime: state.runtime,
-  })
-    .then((documents) => {
-      const changed = applyContainerSummaries(state.cache, {
-        containerId,
-        documentSummaries: documents.documentSummaries,
-        linkedContainerIdsByDocumentId:
-          documents.linkedContainerIdsByDocumentId,
+  const loadPromise: Promise<void> =
+    loadLocalContainerProjectionDocumentsFromRuntime({
+      containerIds: [containerId],
+      runtime: state.runtime,
+    })
+      .then((documents) => {
+        // A runtime reset (e.g. dbStatus loss) clears this entry and the cache
+        // mid-flight; do not apply a stale read to a freshly reset cache.
+        if (state.summaryLoadByContainerId.get(containerId) !== loadPromise) {
+          return;
+        }
+        const changed = applyContainerSummaries(state.cache, {
+          containerId,
+          documentSummaries: documents.documentSummaries,
+          linkedContainerIdsByDocumentId:
+            documents.linkedContainerIdsByDocumentId,
+        });
+        if (changed) {
+          emit(state);
+        }
+      })
+      .catch(() => {
+        // Local read failures fall back to an empty list; the reconciler retries.
+      })
+      .finally(() => {
+        if (state.summaryLoadByContainerId.get(containerId) === loadPromise) {
+          state.summaryLoadByContainerId.delete(containerId);
+        }
       });
-      if (changed) {
-        emit(state);
-      }
-    })
-    .catch(() => {
-      // Local read failures fall back to an empty list; the reconciler retries.
-    })
-    .finally(() => {
-      state.summaryLoadByContainerId.delete(containerId);
-    });
 
   state.summaryLoadByContainerId.set(containerId, loadPromise);
 }

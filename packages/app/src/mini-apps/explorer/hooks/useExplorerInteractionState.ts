@@ -46,6 +46,14 @@ export function useExplorerInteractionState(params: {
   const lastActiveSummariesRef = useRef<ReadonlyArray<DocumentSummary> | null>(
     null,
   );
+  // Reset the per-view priming/merge tracking when the view (domain scope)
+  // rotates, so the new scope's documents prime even if old state lingers.
+  const lastViewRef = useRef(view);
+  if (lastViewRef.current !== view) {
+    lastViewRef.current = view;
+    primedSummaryListsRef.current = new WeakSet();
+    lastActiveSummariesRef.current = null;
+  }
   useEffect(() => {
     const applyFromView = () => {
       const summariesMap = view.getSnapshot().documentSummariesByContainerId;

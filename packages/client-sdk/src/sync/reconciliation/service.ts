@@ -81,6 +81,34 @@ async function reconcileOneContainer(
   }
 }
 
+async function sweepKnownContainers(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): Promise<void> {
+  const knownIds = host.listKnownContainerIds();
+  // Mark known containers discovered so the background lane will not also fetch
+  // them while this refresh sweeps. Each is still fetched directly below —
+  // discovery is watermark-based, so this is a cheap delta check.
+  for (const containerId of knownIds) {
+    state.discoveredContainerIds.add(containerId);
+  }
+  // Reconcile every container independently: one failing container must not
+  // block refreshing the rest. Surface the first real error after the sweep.
+  let firstError: unknown;
+  for (const containerId of knownIds) {
+    try {
+      await reconcileOneContainer(host, containerId);
+    } catch (error) {
+      if (!host.isIgnorableError(error) && firstError === undefined) {
+        firstError = error;
+      }
+    }
+  }
+  if (firstError !== undefined) {
+    throw firstError;
+  }
+}
+
 async function runReconcileLane(
   host: ReconciliationHost,
   state: ReconciliationState,
@@ -95,11 +123,17 @@ async function runReconcileLane(
   }
 
   // Double-check at run time: a container may have been discovered (by an
-  // explicit refresh or an earlier lane pass) after it was queued. Marking it
-  // discovered up front also collapses concurrent re-enqueues into one fetch.
+  // explicit refresh or an earlier lane pass) after it was queued. Mark it
+  // discovered up front to collapse concurrent re-enqueues into one fetch, but
+  // roll the mark back on failure so a transient error can be retried later.
   if (!state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
-    await reconcileOneContainer(host, containerId);
+    try {
+      await reconcileOneContainer(host, containerId);
+    } catch (error) {
+      state.discoveredContainerIds.delete(containerId);
+      throw error;
+    }
   }
 
   // Keep draining: schedule another pass while the queue holds work.
@@ -197,23 +231,12 @@ export function createReconciliationService(
         return;
       }
       // Explicit refresh: refresh the tree, then re-discover every known
-      // container exactly once. Discovery flows through this single path (not
-      // the background lane and a separate bulk sweep), so each container is
-      // fetched once.
+      // container exactly once via a single path (not the background lane and a
+      // separate bulk sweep), so each container is fetched once.
       state.queue.clear();
       try {
         await host.refreshTree();
-        const knownIds = host.listKnownContainerIds();
-        // Mark known containers discovered so the background lane will not also
-        // fetch them while this refresh sweeps. Each is still fetched directly
-        // below — discovery is watermark-based, so this is a cheap delta check.
-        for (const containerId of knownIds) {
-          state.discoveredContainerIds.add(containerId);
-        }
-        for (const containerId of knownIds) {
-          // reconcileOneContainer discovers, reloads the delta, and applies it.
-          await reconcileOneContainer(host, containerId);
-        }
+        await sweepKnownContainers(host, state);
       } catch (error) {
         if (!host.isIgnorableError(error)) {
           throw error;

@@ -36,6 +36,7 @@ function createRuntime(input: {
   execSql: ExecSql;
   isAuthenticated: boolean;
   online: boolean;
+  dbStatus?: string;
 }): ContainerContentsWorkflowRuntime {
   return createContainerContentsWorkflowRuntime({
     apiClient: input.apiClient,
@@ -51,7 +52,7 @@ function createRuntime(input: {
     },
     infra: {
       blobStore: {} as BlobStore,
-      dbStatus: "ready",
+      dbStatus: input.dbStatus ?? "ready",
       documentProjectors: defaultDocumentProjectorRegistry,
       execSql: input.execSql,
     },
@@ -286,6 +287,63 @@ test("local projection store raises an active-changed reconcile signal", async (
 
     store.setActiveContainer("cached-root");
     expect(signals).toContain("cached-root");
+  } finally {
+    close();
+  }
+});
+
+test("local projection store resets summaries when the database goes away", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-db-loss-reset-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    await seedContainerWithDocument(execSql, {
+      containerId: "cached-root",
+      documentId: "doc-1",
+    });
+    const runtime = createRuntime({
+      apiClient: createMockApiClient(),
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    const containerStore = createContainerContentsStore(runtime);
+    const store = createLocalProjectionStore({ containerStore, runtime });
+    store.updateRuntime(runtime);
+    await waitFor(
+      () => store.getSnapshot().ready,
+      "Local projection store did not become ready.",
+    );
+    store.setActiveContainer("cached-root");
+    await waitFor(() => {
+      const summaries = store
+        .getSnapshot()
+        .documentSummariesByContainerId.get("cached-root");
+      return (summaries?.length ?? 0) > 0;
+    }, "Cached summaries were not loaded.");
+
+    // Database goes away: the store must reset to not-ready and drop summaries,
+    // and any in-flight summary load must not repopulate the reset cache.
+    store.updateRuntime(
+      createRuntime({
+        apiClient: createMockApiClient(),
+        domainScope,
+        execSql,
+        isAuthenticated: true,
+        online: true,
+        dbStatus: "terminated",
+      }),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(store.getSnapshot().ready).toBe(false);
+    expect(
+      store.getSnapshot().documentSummariesByContainerId.get("cached-root") ??
+        [],
+    ).toEqual([]);
   } finally {
     close();
   }
