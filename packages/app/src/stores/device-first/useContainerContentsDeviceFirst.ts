@@ -144,12 +144,16 @@ export function useContainerContentsDeviceFirst(input: {
     [domainScope, tearleads],
   );
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
+  // Stabilise the id list by content: the view emits a fresh `containers` array
+  // on every tree change (including node syncState churn during sync), but the
+  // event-routing effect below only needs to re-run when the *set* of
+  // reconcilable (non-system) container ids actually changes.
+  const knownContainerIdsKey = viewSnapshot.containers
+    .flatMap((node) => (node.systemSlot ? [] : [node.id]))
+    .join("\n");
   const knownContainerIds = useMemo(
-    () =>
-      viewSnapshot.containers.flatMap((node) =>
-        node.systemSlot ? [] : [node.id],
-      ),
-    [viewSnapshot.containers],
+    () => (knownContainerIdsKey === "" ? [] : knownContainerIdsKey.split("\n")),
+    [knownContainerIdsKey],
   );
 
   // Drive runtime updates from an effect — never during render — so the view's
