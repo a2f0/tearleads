@@ -201,14 +201,6 @@
       "lines": 4542,
       "bytes": 143432
     },
-    "packages/app/src/stores/explorer/useDiscoveredDocumentsSync.ts": {
-      "lines": 628,
-      "bytes": 18666
-    },
-    "packages/app/src/stores/explorer/useExplorerDiscoveryEffects.test.tsx": {
-      "lines": 946,
-      "bytes": 27357
-    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 956,
       "bytes": 27795

@@ -1,4 +1,9 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerNode,
+  DocumentSummary,
+  LocalProjectionView,
+  ReconciliationService,
+} from "@tearleads/client-sdk";
 
 export interface ExplorerModelExplorer {
   canResolveTrashContainer: boolean;
@@ -26,7 +31,9 @@ export interface ExplorerModelExplorer {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
+  reconciler: ReconciliationService;
   trashContainerId: string | null;
+  view: LocalProjectionView;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 

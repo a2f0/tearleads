@@ -77,7 +77,9 @@ export function enqueueReconciliationForEvents(input: {
     }
     for (const containerId of containerIds) {
       if (knownContainerIds.includes(containerId)) {
-        service.enqueueContainer(containerId, "active");
+        // Events signal fresh remote data, so force re-discovery even if this
+        // container was already reconciled this session.
+        service.enqueueContainer(containerId, "active", true);
       }
     }
   }

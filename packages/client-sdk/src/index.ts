@@ -151,6 +151,7 @@ export {
   type EventsListener,
   type EventsSnapshot,
   encodeLocalKeyringSqliteKey,
+  enqueueReconciliationForEvents,
   IDENTITY_KEY_PACKAGE_FORMAT,
   isPinCodeWrappedLocalSecretEnvelope,
   LOCAL_KEYRING_MANIFEST_FORMAT,

@@ -34,8 +34,8 @@ export interface ReconciliationHost {
   ) => Promise<LocalProjectionReconciledDelta>;
   /** Push a reconciled delta into the local projection store. */
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
-  /** Refresh the container tree + all container documents (explicit refresh). */
-  refreshTreeAndAllDocuments: () => Promise<void>;
+  /** Refresh the container tree from the server (explicit refresh). */
+  refreshTree: () => Promise<void>;
   /** True if the destroyed-db error should be swallowed rather than surfaced. */
   isIgnorableError: (error: unknown) => boolean;
 }
@@ -43,7 +43,11 @@ export interface ReconciliationHost {
 export interface ReconciliationService {
   start: () => void;
   setActiveContainer: (containerId: string | null) => void;
-  enqueueContainer: (containerId: string, priority: ReconcilePriority) => void;
+  enqueueContainer: (
+    containerId: string,
+    priority: ReconcilePriority,
+    force?: boolean,
+  ) => void;
   enqueueIdleBackfill: () => void;
   reconcileNow: () => Promise<void>;
   stop: () => void;
@@ -90,8 +94,13 @@ async function runReconcileLane(
     return;
   }
 
-  await reconcileOneContainer(host, containerId);
-  state.discoveredContainerIds.add(containerId);
+  // Double-check at run time: a container may have been discovered (by an
+  // explicit refresh or an earlier lane pass) after it was queued. Marking it
+  // discovered up front also collapses concurrent re-enqueues into one fetch.
+  if (!state.discoveredContainerIds.has(containerId)) {
+    state.discoveredContainerIds.add(containerId);
+    await reconcileOneContainer(host, containerId);
+  }
 
   // Keep draining: schedule another pass while the queue holds work.
   if (state.queue.size > 0) {
@@ -123,8 +132,15 @@ export function createReconciliationService(
   const enqueueContainer = (
     containerId: string,
     priority: ReconcilePriority,
+    force = false,
   ) => {
     if (!containerId) {
+      return;
+    }
+    // Skip containers already reconciled this session unless forced. Events
+    // force re-discovery; passive active/backfill scheduling does not, so
+    // opening Explorer does not re-fetch every container on each navigation.
+    if (!force && state.discoveredContainerIds.has(containerId)) {
       return;
     }
     state.queue.enqueue(containerId, priority);
@@ -133,7 +149,10 @@ export function createReconciliationService(
 
   const enqueueIdleBackfill = () => {
     for (const containerId of host.listKnownContainerIds()) {
-      if (containerId === state.activeContainerId) {
+      if (
+        containerId === state.activeContainerId ||
+        state.discoveredContainerIds.has(containerId)
+      ) {
         continue;
       }
       state.queue.enqueue(containerId, "idle");
@@ -165,9 +184,10 @@ export function createReconciliationService(
     setActiveContainer: (containerId) => {
       state.activeContainerId = containerId;
       if (containerId) {
-        // Active container is reconciled first; siblings backfill at idle.
+        // Reconcile the active container first. Siblings are not eagerly
+        // swept here — they reconcile when visited (each becomes active) or on
+        // an explicit refresh — which keeps first-open network minimal.
         enqueueContainer(containerId, "active");
-        enqueueIdleBackfill();
       }
     },
     enqueueContainer,
@@ -176,8 +196,26 @@ export function createReconciliationService(
       if (!canReconcile(host.getRuntimeStatus())) {
         return;
       }
+      // Explicit refresh: refresh the tree, then re-discover every known
+      // container exactly once. Discovery flows through this single path (not
+      // the background lane and a separate bulk sweep), so each container is
+      // fetched once. The discovered set is reset and rebuilt as we go, which
+      // also suppresses duplicate background-lane fetches mid-refresh.
+      state.queue.clear();
       try {
-        await host.refreshTreeAndAllDocuments();
+        await host.refreshTree();
+        const knownIds = host.listKnownContainerIds();
+        // Mark known containers discovered so the background lane will not also
+        // fetch them while this refresh sweeps. We still fetch each directly
+        // below — discovery is watermark-based, so this is a cheap delta check.
+        for (const containerId of knownIds) {
+          state.discoveredContainerIds.add(containerId);
+        }
+        for (const containerId of knownIds) {
+          await reconcileOneContainer(host, containerId);
+          const delta = await host.loadContainerDelta(containerId);
+          host.applyReconciled(delta);
+        }
       } catch (error) {
         if (!host.isIgnorableError(error)) {
           throw error;

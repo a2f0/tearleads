@@ -149,10 +149,8 @@ class DeviceFirstService implements DeviceFirst {
         };
       },
       applyReconciled: (delta) => store.applyReconciled(delta),
-      refreshTreeAndAllDocuments: async () => {
-        const view = store.getContainerStore();
-        await view.refresh();
-        await containerContents.refreshAllContainerDocuments();
+      refreshTree: async () => {
+        await store.getContainerStore().refresh();
       },
       isIgnorableError: isDestroyedContainerContentsSyncRuntimeError,
     };

@@ -37,7 +37,7 @@ function createHost(
       documentSummaries: [],
     }),
     applyReconciled: () => {},
-    refreshTreeAndAllDocuments: async () => {},
+    refreshTree: async () => {},
     isIgnorableError: () => false,
     ...overrides,
   };
@@ -95,13 +95,21 @@ test("service reconciles the active container before idle backfill", async () =>
   const service = createReconciliationService(host);
   service.start();
 
+  // The active container reconciles first and on its own — siblings are not
+  // eagerly swept on navigation.
   service.setActiveContainer("active");
+  await waitFor(
+    () => discovered.length === 1,
+    `Expected only the active container reconciled, saw ${discovered.join(",")}`,
+  );
+  expect(discovered).toEqual(["active"]);
 
+  // An explicit idle backfill reconciles the remaining known containers.
+  service.enqueueIdleBackfill();
   await waitFor(
     () => discovered.length === 3,
     `Expected all containers reconciled, saw ${discovered.join(",")}`,
   );
-  expect(discovered[0]).toBe("active");
   expect(discovered.slice(1).sort()).toEqual(["sibling-a", "sibling-b"]);
 });
 

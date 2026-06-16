@@ -3,7 +3,10 @@ export type {
   LocalProjectionReconciledDelta,
   LocalProjectionSnapshot,
 } from "../stores/local-projection";
-export type { ReconciliationService } from "../sync/reconciliation";
+export {
+  enqueueReconciliationForEvents,
+  type ReconciliationService,
+} from "../sync/reconciliation";
 export { type BlobStoreFactory, Blobs } from "./blobs";
 export type {
   BlobInfo,
