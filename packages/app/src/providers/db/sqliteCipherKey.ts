@@ -62,6 +62,11 @@ export function createSqliteCipherKeyResolver(
       const session = await keyring.getOrCreateSession({
         namespace: LOCAL_SQLITE_SCOPE_NAMESPACE,
       });
+      // Guard before the finally: a nullish session would otherwise make
+      // session.dispose() throw a TypeError that masks the real failure.
+      if (!session) {
+        throw new Error("Failed to obtain a local keyring session for SQLite.");
+      }
       try {
         return session.sqliteKey;
       } finally {

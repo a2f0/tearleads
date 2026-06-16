@@ -65,6 +65,19 @@ test("resolves the keyring session sqliteKey when a keyring is available", async
   expect(stub.disposed()).toBe(2);
 });
 
+test("throws a clear error when the keyring yields no session", async () => {
+  const keyring: LocalKeyring = {
+    deleteSession: async () => {},
+    loadSession: async () => null,
+    getOrCreateSession: async () =>
+      null as unknown as Awaited<
+        ReturnType<LocalKeyring["getOrCreateSession"]>
+      >,
+  };
+  const resolve = createSqliteCipherKeyResolver(() => keyring);
+  await expect(resolve()).rejects.toThrow(/keyring session/i);
+});
+
 test("falls back to the development key on local-development hosts", async () => {
   setHostname("localhost");
   const resolve = createSqliteCipherKeyResolver(undefined);
