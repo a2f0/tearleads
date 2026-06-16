@@ -1,6 +1,6 @@
 services:
   localstack:
-    image: localstack/localstack:s3-latest
+    image: localstack/localstack:3
     restart: unless-stopped
     environment:
       SERVICES: s3
