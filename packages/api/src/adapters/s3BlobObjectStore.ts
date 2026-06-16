@@ -139,10 +139,31 @@ function toBlobObjectStoreError(error: unknown): BlobObjectStoreError | null {
   return null;
 }
 
-async function mapS3Errors<T>(operation: () => Promise<T>): Promise<T> {
+function logRawS3Error(operationName: string, error: unknown): void {
+  // Domain errors we constructed ourselves carry no extra diagnostic value.
+  if (error instanceof BlobObjectStoreError) {
+    return;
+  }
+
+  // The object store may be Garage or another S3 clone whose error names/codes
+  // differ from AWS. Surface the raw fields so the underlying rejection is
+  // visible instead of the lossy "Multipart upload part not found" mapping.
+  console.error(`S3 blob object store ${operationName} failed`, {
+    name: errorName(error),
+    code: recordValue(error, "Code"),
+    httpStatusCode: errorStatusCode(error),
+    message: recordValue(error, "message"),
+  });
+}
+
+async function mapS3Errors<T>(
+  operationName: string,
+  operation: () => Promise<T>,
+): Promise<T> {
   try {
     return await operation();
   } catch (error) {
+    logRawS3Error(operationName, error);
     const mappedError = toBlobObjectStoreError(error);
     if (mappedError) {
       throw mappedError;
@@ -254,12 +275,15 @@ function createCompleteMultipartUpload({
       );
     }
 
-    await mapS3Errors(() =>
+    // Complete by part ETag only. Garage (and AWS for SHA-256) do not accept
+    // FULL_OBJECT whole-object checksums for multipart uploads, and MpuObjectSize
+    // is part of that same proprietary flexible-checksum flow. Per-part integrity
+    // is still validated at upload time via each part's ChecksumSHA256, and the
+    // payload is AES-GCM encrypted with a client-side sha256 check on download.
+    await mapS3Errors("completeMultipartUpload", () =>
       client.send(
         new CompleteMultipartUploadCommand({
           Bucket: bucket,
-          ChecksumSHA256: sha256HexToBase64(expected.sha256),
-          ChecksumType: "FULL_OBJECT",
           Key: key,
           MultipartUpload: {
             Parts: sortedParts(parts).map((part) => ({
@@ -267,7 +291,6 @@ function createCompleteMultipartUpload({
               PartNumber: part.partNumber,
             })),
           },
-          MpuObjectSize: expected.byteLength,
           UploadId: uploadId,
         }),
       ),
@@ -282,12 +305,15 @@ function createMultipartUpload({
   client,
 }: S3BlobObjectStoreInput): BlobObjectStore["createMultipartUpload"] {
   return ({ key }) =>
-    mapS3Errors(async () => {
+    mapS3Errors("createMultipartUpload", async () => {
+      // Do not declare a checksum algorithm at create time. Doing so (with
+      // SHA-256) makes S3/Garage require every part's checksum to be echoed in
+      // CompleteMultipartUpload, which we don't carry there. Parts still send
+      // their own ChecksumSHA256 on UploadPart for in-transit validation, and
+      // completion is by ETag.
       const upload = await client.send(
         new CreateMultipartUploadCommand({
           Bucket: bucket,
-          ChecksumAlgorithm: "SHA256",
-          ChecksumType: "FULL_OBJECT",
           Key: key,
         }),
       );
@@ -327,7 +353,7 @@ function createListParts({
   client,
 }: S3BlobObjectStoreInput): BlobObjectStore["listParts"] {
   return (input) =>
-    mapS3Errors(() =>
+    mapS3Errors("listParts", () =>
       listS3Parts({ bucket, client, key: input.key, uploadId: input.uploadId }),
     );
 }
@@ -337,7 +363,7 @@ function createUploadPart({
   client,
 }: S3BlobObjectStoreInput): BlobObjectStore["uploadPart"] {
   return (input) =>
-    mapS3Errors(async () => {
+    mapS3Errors("uploadPart", async () => {
       const uploadBody = isStringUploadPartBody(input.body)
         ? {
             body: input.body.bytes,
