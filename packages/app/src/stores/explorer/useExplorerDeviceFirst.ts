@@ -1,4 +1,5 @@
 import type {
+  ContainerContentsWorkflowRuntime,
   ContainerNode,
   LocalProjectionView,
   ReconciliationService,
@@ -13,12 +14,13 @@ import { useTearleads } from "../../providers/sdk/TearleadsProvider";
  * the reconciler here so the provider never drives network from a render effect.
  */
 export function useExplorerDeviceFirst(input: {
-  domainScope: object;
+  runtime: ContainerContentsWorkflowRuntime;
   events: ReadonlyArray<unknown>;
   nodes: ReadonlyArray<ContainerNode>;
 }): { reconciler: ReconciliationService; view: LocalProjectionView } {
   const tearleads = useTearleads();
-  const { domainScope } = input;
+  const { events, nodes, runtime } = input;
+  const domainScope = runtime.state.domainScope;
   const view = useMemo(
     () => tearleads.deviceFirst.openView({ logLabel: "Explorer" }),
     [domainScope, tearleads],
@@ -28,7 +30,12 @@ export function useExplorerDeviceFirst(input: {
     [domainScope, tearleads],
   );
 
-  const { events, nodes } = input;
+  // Drive runtime updates from an effect — never during render — so the view's
+  // synchronous emit cannot setState in a child while the provider renders.
+  useEffect(() => {
+    view.updateRuntime(runtime);
+  }, [runtime, view]);
+
   useEffect(() => {
     if (events.length === 0) {
       return;

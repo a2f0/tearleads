@@ -1,4 +1,5 @@
 import type { DocumentSummary } from "../../data/documentSummary";
+import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerNode } from "../container-contents/types";
 
 /**
@@ -44,4 +45,9 @@ export interface LocalProjectionView {
    * first. Passing `null` clears the active pointer.
    */
   setActiveContainer: (containerId: string | null) => void;
+  /**
+   * Push the latest workflow runtime into the view. Call this from an effect
+   * (never during render): it may emit synchronously to subscribers.
+   */
+  updateRuntime: (runtime: ContainerContentsStoreRuntime) => void;
 }

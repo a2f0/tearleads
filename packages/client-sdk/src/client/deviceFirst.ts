@@ -83,7 +83,9 @@ class DeviceFirstService implements DeviceFirst {
     const domainScope = runtime.state.domainScope;
     const existing = this.entriesByScope.get(domainScope);
     if (existing) {
-      existing.store.updateRuntime(runtime);
+      // Do not call updateRuntime here: openView()/reconciler() run during
+      // React render, and updateRuntime emits synchronously. Hosts drive runtime
+      // updates through view.updateRuntime() from an effect instead.
       return existing;
     }
 
@@ -97,13 +99,13 @@ class DeviceFirstService implements DeviceFirst {
     );
     connectReconciliationTriggers({ service, store });
     service.start();
-    store.updateRuntime(runtime);
 
     const view: LocalProjectionView = {
       getSnapshot: () => store.getSnapshot(),
       subscribe: (listener) => store.subscribe(listener),
       setActiveContainer: (containerId) =>
         store.setActiveContainer(containerId),
+      updateRuntime: (nextRuntime) => store.updateRuntime(nextRuntime),
     };
 
     const entry: DeviceFirstScopeEntry = { service, store, view };

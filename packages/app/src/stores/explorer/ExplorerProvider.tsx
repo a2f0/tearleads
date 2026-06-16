@@ -100,7 +100,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   // reconciler that patches it. Both share the mutation store's domain scope,
   // so reads and writes stay coherent.
   const { reconciler, view } = useExplorerDeviceFirst({
-    domainScope: runtime.state.domainScope,
+    runtime,
     events: appData.state.events,
     nodes: snapshot.nodes,
   });

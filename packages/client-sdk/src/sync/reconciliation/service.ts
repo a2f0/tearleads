@@ -199,22 +199,20 @@ export function createReconciliationService(
       // Explicit refresh: refresh the tree, then re-discover every known
       // container exactly once. Discovery flows through this single path (not
       // the background lane and a separate bulk sweep), so each container is
-      // fetched once. The discovered set is reset and rebuilt as we go, which
-      // also suppresses duplicate background-lane fetches mid-refresh.
+      // fetched once.
       state.queue.clear();
       try {
         await host.refreshTree();
         const knownIds = host.listKnownContainerIds();
         // Mark known containers discovered so the background lane will not also
-        // fetch them while this refresh sweeps. We still fetch each directly
+        // fetch them while this refresh sweeps. Each is still fetched directly
         // below — discovery is watermark-based, so this is a cheap delta check.
         for (const containerId of knownIds) {
           state.discoveredContainerIds.add(containerId);
         }
         for (const containerId of knownIds) {
+          // reconcileOneContainer discovers, reloads the delta, and applies it.
           await reconcileOneContainer(host, containerId);
-          const delta = await host.loadContainerDelta(containerId);
-          host.applyReconciled(delta);
         }
       } catch (error) {
         if (!host.isIgnorableError(error)) {
