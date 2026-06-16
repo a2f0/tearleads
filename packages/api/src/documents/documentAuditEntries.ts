@@ -6,6 +6,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { desc, eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
+import { serializeAuditHashField } from "./auditHashField";
 
 const textEncoder = new TextEncoder();
 export const DOCUMENT_AUDIT_EVENT_TYPE_LORO_UPDATE = "loro_update";
@@ -28,10 +29,6 @@ interface DocumentAuditUpdateMetadata {
   sourceVersionVector: string | null;
 }
 
-function serializeAuditEntryHashField(name: string, value: string) {
-  return `${name}:${value.length}:${value}`;
-}
-
 function buildDocumentUpdateAuditEntryHashPayload(input: {
   accessEpoch: number;
   accessManifestHash: string;
@@ -49,44 +46,38 @@ function buildDocumentUpdateAuditEntryHashPayload(input: {
   sourceVersionVector: string | null;
 }) {
   const fields = [
-    serializeAuditEntryHashField("documentId", input.documentId),
-    serializeAuditEntryHashField("eventType", input.eventType),
-    serializeAuditEntryHashField("accessEpoch", String(input.accessEpoch)),
-    serializeAuditEntryHashField(
-      "accessManifestHash",
-      input.accessManifestHash,
-    ),
+    serializeAuditHashField("documentId", input.documentId),
+    serializeAuditHashField("eventType", input.eventType),
+    serializeAuditHashField("accessEpoch", String(input.accessEpoch)),
+    serializeAuditHashField("accessManifestHash", input.accessManifestHash),
   ];
   if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
     fields.push(
-      serializeAuditEntryHashField("accessStateHash", input.accessStateHash),
+      serializeAuditHashField("accessStateHash", input.accessStateHash),
     );
   }
   fields.push(
-    serializeAuditEntryHashField("actorUserId", input.actorUserId),
-    serializeAuditEntryHashField("actorFingerprint", input.actorFingerprint),
-    serializeAuditEntryHashField(
-      "previousEntryHash",
-      input.previousEntryHash ?? "",
-    ),
-    serializeAuditEntryHashField("liveUpdateId", input.liveUpdateId),
-    serializeAuditEntryHashField(
+    serializeAuditHashField("actorUserId", input.actorUserId),
+    serializeAuditHashField("actorFingerprint", input.actorFingerprint),
+    serializeAuditHashField("previousEntryHash", input.previousEntryHash ?? ""),
+    serializeAuditHashField("liveUpdateId", input.liveUpdateId),
+    serializeAuditHashField(
       "partialStartVersionVector",
       input.partialStartVersionVector,
     ),
-    serializeAuditEntryHashField(
+    serializeAuditHashField(
       "partialEndVersionVector",
       input.partialEndVersionVector,
     ),
-    serializeAuditEntryHashField(
+    serializeAuditHashField(
       "sourceVersionVector",
       input.sourceVersionVector ?? "",
     ),
-    serializeAuditEntryHashField(
+    serializeAuditHashField(
       "encryptedUpdateSha256",
       input.encryptedUpdateSha256,
     ),
-    serializeAuditEntryHashField(
+    serializeAuditHashField(
       "encryptedUpdateByteLength",
       String(input.encryptedUpdateByteLength),
     ),

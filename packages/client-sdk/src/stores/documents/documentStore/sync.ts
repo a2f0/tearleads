@@ -1,90 +1,31 @@
 import { encodeVersionVector, importUpdates } from "@tearleads/loro";
 import {
-  type MultipartUploadProgressListener,
-  uploadDocumentAttachment,
-} from "../../../workflows/blobs";
-import {
   createDocumentWriterPublicKeyResolver,
-  createRemoteDocument,
   type DocumentRecord,
   type DocumentSyncLane,
   isDestroyedDocumentSyncRuntimeError,
-  type PendingAttachmentRecord,
   type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../../workflows/documents";
-import {
-  beginDomainSyncUploadLane,
-  type UploadSyncLane,
-} from "../../../workflows/sync";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
 import {
-  deletePendingAttachment,
   hydrateAttachmentBlobs,
   listPendingUpdates,
   persistDocument,
-  saveLocalAttachmentRecord,
 } from "./persistence";
 import {
-  type DocumentAttachmentBinding,
   type DocumentState,
   type DocumentStoreState,
   type DocumentSyncAttempt,
   type EncapsulationKeyPair,
-  type PendingMutationSyncResult,
   setDocumentSyncing,
   setReadySnapshot,
 } from "./state";
-
-async function ensureRemoteDocument(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  nextRecord: DocumentRecord | null,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<DocumentRecord | null> {
-  if (nextRecord?.documentId) {
-    return nextRecord;
-  }
-
-  if (!state.runtime.state.containerId) {
-    state.runtime.util.log(
-      "Documents: cannot create a remote document without a container.",
-    );
-    return nextRecord;
-  }
-
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  if (!author) {
-    state.runtime.util.log(
-      "Documents: skipped remote create because the writer context is unavailable.",
-    );
-    return nextRecord;
-  }
-
-  const created = await createRemoteDocument({
-    apiClient: state.runtime.apiClient,
-    author,
-    containerId: state.runtime.state.containerId,
-    execSql: state.runtime.infra.execSql,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    targetSecretKey: encapsulationKeyPair.secretKey,
-  });
-  if (!created) {
-    return nextRecord;
-  }
-
-  state.runtime.util.log(`Created document: ${created.documentId}`);
-  state.writerProjection = created.writerProjection;
-
-  return (
-    await persistDocument(state, currentDoc, {
-      ...created.persistedState,
-    })
-  ).record;
-}
+import { syncPendingAttachments } from "./syncAttachments";
+import { ensureRemoteDocument } from "./syncShared";
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
   return (
@@ -94,95 +35,6 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.runtime.auth.isAuthenticated &&
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
-  );
-}
-
-async function syncPendingAttachments(
-  state: DocumentStoreState,
-  nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<PendingMutationSyncResult> {
-  if (state.pendingAttachments.length === 0) {
-    return { completed: false, nextRecord };
-  }
-
-  const currentDoc = state.doc;
-  if (!currentDoc) {
-    return { completed: false, nextRecord };
-  }
-
-  const currentRecord = await ensureRemoteDocumentForAttachmentSync(
-    state,
-    currentDoc,
-    nextRecord,
-    encapsulationKeyPair,
-  );
-  if (!currentRecord?.documentId) {
-    return { completed: false, nextRecord };
-  }
-  const remoteDocumentId = currentRecord.documentId;
-
-  const activeBindingBySlotId = new Map<string, DocumentAttachmentBinding>();
-  let fetchedRemoteBindings = false;
-  const completedSlotIds = new Set<string>();
-
-  for (const pendingAttachment of [...state.pendingAttachments]) {
-    if (
-      !fetchedRemoteBindings &&
-      !isNewPendingAttachmentSlot(state, pendingAttachment)
-    ) {
-      const remoteBindings =
-        await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
-      if (!remoteBindings) {
-        return {
-          completed: completedSlotIds.size > 0,
-          nextRecord: currentRecord,
-        };
-      }
-
-      fetchedRemoteBindings = true;
-      for (const binding of remoteBindings) {
-        activeBindingBySlotId.set(binding.slotId, binding);
-      }
-    }
-
-    const uploaded = await syncPendingAttachmentUpload({
-      activeBindingBySlotId,
-      encapsulationKeyPair,
-      pendingAttachment,
-      remoteDocumentId,
-      state,
-    });
-    if (!uploaded) {
-      return {
-        completed: completedSlotIds.size > 0,
-        nextRecord: currentRecord,
-      };
-    }
-
-    completedSlotIds.add(pendingAttachment.slotId);
-    state.pendingAttachments = state.pendingAttachments.filter(
-      (attachment) => attachment !== pendingAttachment,
-    );
-  }
-
-  if (completedSlotIds.size === 0) {
-    return { completed: false, nextRecord: currentRecord };
-  }
-
-  setReadySnapshot(state, currentDoc, state.snapshot.syncing);
-
-  return { completed: true, nextRecord: currentRecord };
-}
-
-function isNewPendingAttachmentSlot(
-  state: DocumentStoreState,
-  pendingAttachment: PendingAttachmentRecord,
-): boolean {
-  // Fresh slots use a deterministic key; replacements append a UUID.
-  return (
-    pendingAttachment.storageKey ===
-    `${state.localId}-${pendingAttachment.slotId}`
   );
 }
 
@@ -203,147 +55,6 @@ async function ensureDocumentRecordForSync(
     nextRecord,
     encapsulationKeyPair,
   );
-}
-
-async function ensureRemoteDocumentForAttachmentSync(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  nextRecord: DocumentRecord,
-  encapsulationKeyPair: EncapsulationKeyPair,
-): Promise<DocumentRecord | null> {
-  if (nextRecord.documentId) {
-    return nextRecord;
-  }
-
-  return ensureRemoteDocument(
-    state,
-    currentDoc,
-    nextRecord,
-    encapsulationKeyPair,
-  );
-}
-
-async function syncPendingAttachmentUpload(input: {
-  activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
-  encapsulationKeyPair: EncapsulationKeyPair;
-  pendingAttachment: PendingAttachmentRecord;
-  remoteDocumentId: string;
-  state: DocumentStoreState;
-}): Promise<boolean> {
-  const { pendingAttachment, state } = input;
-  const bytes = await state.runtime.infra.blobStore.readBytes(
-    pendingAttachment.storageKey,
-  );
-  if (!bytes) {
-    state.runtime.util.log(
-      `Documents: pending attachment ${pendingAttachment.slotId} is missing local bytes.`,
-    );
-    return false;
-  }
-
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  if (!author) {
-    state.runtime.util.log(
-      "Documents: skipped attachment upload because the writer context is unavailable.",
-    );
-    return false;
-  }
-
-  const { laneRef: uploadLaneRef, onMultipartProgress } =
-    createAttachmentUploadLaneReporter({ pendingAttachment, state });
-
-  const writerProjection =
-    state.writerProjection?.documentId === input.remoteDocumentId
-      ? state.writerProjection
-      : null;
-  const baseUploadInput = {
-    apiClient: state.runtime.apiClient,
-    author,
-    bytes,
-    documentId: input.remoteDocumentId,
-    execSql: state.runtime.infra.execSql,
-    expectedBindingId:
-      input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
-      null,
-    onMultipartProgress,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    slotId: pendingAttachment.slotId,
-    targetSecretKey: input.encapsulationKeyPair.secretKey,
-  };
-  let uploaded = await uploadDocumentAttachment({
-    ...baseUploadInput,
-    writerProjection: writerProjection ?? undefined,
-  });
-  if (!uploaded && writerProjection) {
-    // The stale writer projection was rejected; retry once without it.
-    state.writerProjection = null;
-    uploaded = await uploadDocumentAttachment(baseUploadInput);
-  }
-  if (!uploaded) {
-    uploadLaneRef.current?.fail(
-      new Error(
-        `Attachment upload failed for slot ${pendingAttachment.slotId}.`,
-      ),
-    );
-    return false;
-  }
-
-  await saveLocalAttachmentRecord(state, {
-    blobId: uploaded.blobId,
-    byteLength: pendingAttachment.byteLength,
-    localId: state.localId,
-    mimeType: pendingAttachment.mimeType,
-    slotId: pendingAttachment.slotId,
-    storageKey: pendingAttachment.storageKey,
-  });
-  await deletePendingAttachment(
-    state,
-    pendingAttachment.slotId,
-    pendingAttachment.storageKey,
-  );
-  input.activeBindingBySlotId.set(pendingAttachment.slotId, {
-    bindingId: uploaded.bindingId,
-    blobId: uploaded.blobId,
-    contentKeyBundle: uploaded.response.contentKeyBundle,
-    slotId: pendingAttachment.slotId,
-  });
-  state.writerProjection = uploaded.writerProjection;
-  uploadLaneRef.current?.complete();
-  state.runtime.util.log(
-    `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
-  );
-  return true;
-}
-
-function getAttachmentUploadLaneLabel(name: string | null | undefined): string {
-  return name ? `Upload ${name}` : "Attachment upload";
-}
-
-// Surfaces a multipart upload as its own lane in the sync visualizer. The lane
-// is created lazily on the first progress event, so single-shot uploads (below
-// the multipart threshold) stay laneless. The holder keeps the lane reference
-// visible to the caller despite being assigned inside the progress callback.
-function createAttachmentUploadLaneReporter(input: {
-  pendingAttachment: PendingAttachmentRecord;
-  state: DocumentStoreState;
-}): {
-  laneRef: { current: UploadSyncLane | null };
-  onMultipartProgress: MultipartUploadProgressListener;
-} {
-  const { pendingAttachment, state } = input;
-  const laneRef: { current: UploadSyncLane | null } = { current: null };
-  const onMultipartProgress: MultipartUploadProgressListener = (progress) => {
-    if (!laneRef.current) {
-      laneRef.current = beginDomainSyncUploadLane(
-        state.runtime.state.domainScope,
-        `blob-upload:${pendingAttachment.slotId}`,
-        { label: getAttachmentUploadLaneLabel(pendingAttachment.name) },
-      );
-    }
-    laneRef.current.reportProgress(progress);
-  };
-
-  return { laneRef, onMultipartProgress };
 }
 
 async function requestRemoteDocumentSync(input: {

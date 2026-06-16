@@ -39,6 +39,7 @@ import {
 } from "../../../components/shared/MiniAppVirtual";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
+import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import {
   EXPLORER_LABELS,
   getExplorerBlobBrowserDocumentCountLabel,
@@ -81,10 +82,6 @@ function compactId(value: string | null | undefined): string {
   return value.length <= 18
     ? value
     : `${value.slice(0, 10)}...${value.slice(-6)}`;
-}
-
-function unknownErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function getBlobRouteQuery(route: BlobBrowserRoute): string {

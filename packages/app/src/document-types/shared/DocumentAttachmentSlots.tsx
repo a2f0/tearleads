@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
   type DocumentAttachmentSlot,
   getDocumentAttachmentBlobName,
@@ -33,10 +34,6 @@ interface BlobPickerListState {
   error: string | null;
   isLoading: boolean;
   rows: ReadonlyArray<BlobInfo>;
-}
-
-function unknownErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function useDocumentAttachmentBlobPickerList(

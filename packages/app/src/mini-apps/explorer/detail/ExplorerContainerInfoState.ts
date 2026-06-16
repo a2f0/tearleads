@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import { EXPLORER_LABELS } from "../labels";
 
 const DEFAULT_SHARE_ACCESS_LEVEL: ContainerShareAccessLevel = "write";
@@ -156,10 +157,6 @@ function getReloadedDraftShareGroupId(params: {
   }
 
   return getNextDraftShareGroupId(params.info, params.currentGroupId);
-}
-
-function unknownErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function isCurrentContainerInfoRequest(

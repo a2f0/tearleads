@@ -1,16 +1,24 @@
 import type { DomainScope } from "../domainScope";
 import type {
-  DomainSyncSnapshot,
-  SyncLaneLastAction,
-  SyncLanePhase,
-  SyncLaneProgress,
-} from "./syncTelemetry";
+  DomainSyncCoordinatorState,
+  SyncLaneState,
+} from "./coordinatorState";
+import {
+  describeSyncLaneError,
+  hasPendingLaneWork,
+  publishSyncCoordinatorSnapshot,
+} from "./coordinatorState";
+import type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
+import type { DomainSyncSnapshot } from "./syncTelemetry";
 import {
   createDomainSyncSnapshot,
   createSyncTimestamp,
   getSyncLanePhaseRank,
 } from "./syncTelemetry";
+import type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
+import { beginUploadLane } from "./uploadLane";
 
+export type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
 export type {
   DomainSyncSnapshot,
   SyncLaneLastAction,
@@ -19,6 +27,7 @@ export type {
   SyncLaneSnapshot,
   SyncLaneStatus,
 } from "./syncTelemetry";
+export type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
 
 interface SyncRuntimeStatus {
   crypto: {
@@ -32,62 +41,10 @@ interface SyncRuntimeStatus {
   };
 }
 
-export interface SyncLane {
-  requestSync: () => void;
-}
-
-/**
- * Handle for an observational upload lane. Unlike pump-driven lanes, these are
- * never `requested` — the upload path that owns the handle drives the lane's
- * running/progress/terminal state directly. The coordinator pump ignores them
- * because `selectNextRequestedLane` only ever picks `requested` lanes.
- */
-export interface UploadSyncLane {
-  reportProgress: (progress: SyncLaneProgress) => void;
-  complete: () => void;
-  fail: (error: unknown) => void;
-}
-
-export interface UploadSyncLaneOptions {
-  label?: string | undefined;
-}
-
-// Completed/failed upload lanes are retained so a finished upload stays visible
-// in the visualizer, but capped so a long-lived session can't grow `lanes`
-// without bound (one upload lane is created per attachment slot upload).
-const MAX_RETAINED_UPLOAD_LANES = 10;
-
 export interface SyncIdleOptions {
   intervalMs?: number;
   quietMs?: number;
   timeoutMs?: number;
-}
-
-export interface SyncLaneConfig {
-  label?: string | undefined;
-  onUnexpectedError?: (error: unknown) => void;
-  phase?: SyncLanePhase;
-  run: () => Promise<void>;
-  shouldIgnoreError?: (error: unknown) => boolean;
-}
-
-interface SyncLaneState {
-  config: SyncLaneConfig;
-  errorCount: number;
-  key: string;
-  lastAction: SyncLaneLastAction;
-  lastActionAt: string;
-  lastCompletedAt: string | null;
-  lastError: string | null;
-  lastFailedAt: string | null;
-  lastRequestedAt: string | null;
-  lastStartedAt: string | null;
-  progress: SyncLaneProgress | null;
-  registrationIndex: number;
-  requestCount: number;
-  requested: boolean;
-  runCount: number;
-  running: boolean;
 }
 
 export interface DomainSyncCoordinator {
@@ -102,14 +59,6 @@ export interface DomainSyncCoordinator {
   waitForIdle: (options?: SyncIdleOptions) => Promise<boolean>;
 }
 
-interface DomainSyncCoordinatorState {
-  lanes: Map<string, SyncLaneState>;
-  listeners: Set<() => void>;
-  nextRegistrationIndex: number;
-  pump: Promise<void> | null;
-  snapshot: DomainSyncSnapshot;
-}
-
 const coordinatorsByScope = new WeakMap<DomainScope, DomainSyncCoordinator>();
 const DEFAULT_SYNC_IDLE_INTERVAL_MS = 10;
 const DEFAULT_SYNC_IDLE_QUIET_MS = 0;
@@ -118,16 +67,6 @@ const DESTROYED_DATABASE_CLIENT_MESSAGES = [
   "Database worker client has been destroyed.",
   "DB has been closed.",
 ] as const;
-
-function describeSyncLaneError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-// Observational upload lanes never enter the pump, so their run is never
-// invoked; this satisfies the SyncLaneConfig contract without behavior.
-function noopLaneRun(): Promise<void> {
-  return Promise.resolve();
-}
 
 function compareSyncLaneOrder(
   left: SyncLaneState,
@@ -139,21 +78,6 @@ function compareSyncLaneOrder(
   }
 
   return left.registrationIndex - right.registrationIndex;
-}
-
-function publishSyncCoordinatorSnapshot(state: DomainSyncCoordinatorState) {
-  state.snapshot = createDomainSyncSnapshot({
-    hasPendingWork: !!state.pump || hasPendingLaneWork(state.lanes.values()),
-    lanes: state.lanes.values(),
-    pumpActive: !!state.pump,
-  });
-  for (const listener of [...state.listeners]) {
-    try {
-      listener();
-    } catch {
-      // Keep one observer failure from blocking sync or later observers.
-    }
-  }
 }
 
 type SyncLaneRunResult =
@@ -184,16 +108,6 @@ function reportUnexpectedSyncLaneError(state: SyncLaneState, error: unknown) {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function hasPendingLaneWork(lanes: Iterable<SyncLaneState>): boolean {
-  for (const lane of lanes) {
-    if (lane.requested || lane.running) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 function hasRequestedLaneWork(lanes: Iterable<SyncLaneState>): boolean {
@@ -280,122 +194,6 @@ function scheduleCoordinatorPump(coordinatorState: DomainSyncCoordinatorState) {
         scheduleCoordinatorPump(coordinatorState);
       }
     });
-}
-
-function evictRetainedUploadLanes(
-  coordinatorState: DomainSyncCoordinatorState,
-) {
-  const settledUploadLanes: SyncLaneState[] = [];
-  for (const lane of coordinatorState.lanes.values()) {
-    if (lane.config.phase === "blob" && !lane.running) {
-      settledUploadLanes.push(lane);
-    }
-  }
-
-  if (settledUploadLanes.length <= MAX_RETAINED_UPLOAD_LANES) {
-    return;
-  }
-
-  settledUploadLanes.sort(
-    (left, right) => left.registrationIndex - right.registrationIndex,
-  );
-  const removeCount = settledUploadLanes.length - MAX_RETAINED_UPLOAD_LANES;
-  for (const lane of settledUploadLanes.slice(0, removeCount)) {
-    coordinatorState.lanes.delete(lane.key);
-  }
-}
-
-function beginUploadLane(
-  coordinatorState: DomainSyncCoordinatorState,
-  key: string,
-  options: UploadSyncLaneOptions,
-): UploadSyncLane {
-  const startedAt = createSyncTimestamp();
-  let lane = coordinatorState.lanes.get(key);
-  if (lane) {
-    lane.config = { label: options.label, phase: "blob", run: noopLaneRun };
-  } else {
-    lane = {
-      config: { label: options.label, phase: "blob", run: noopLaneRun },
-      errorCount: 0,
-      key,
-      lastAction: "started",
-      lastActionAt: startedAt,
-      lastCompletedAt: null,
-      lastError: null,
-      lastFailedAt: null,
-      lastRequestedAt: null,
-      lastStartedAt: startedAt,
-      progress: null,
-      registrationIndex: coordinatorState.nextRegistrationIndex,
-      requestCount: 0,
-      requested: false,
-      runCount: 0,
-      running: false,
-    };
-    coordinatorState.nextRegistrationIndex += 1;
-    coordinatorState.lanes.set(key, lane);
-  }
-
-  const uploadLane = lane;
-  uploadLane.running = true;
-  uploadLane.runCount += 1;
-  uploadLane.lastAction = "started";
-  uploadLane.lastActionAt = startedAt;
-  uploadLane.lastStartedAt = startedAt;
-  uploadLane.lastError = null;
-  uploadLane.progress = null;
-  evictRetainedUploadLanes(coordinatorState);
-  publishSyncCoordinatorSnapshot(coordinatorState);
-
-  // If this lane key is re-begun (or evicted and recreated), runCount advances
-  // and a stale handle from the prior session becomes a no-op, so out-of-order
-  // callbacks can't clobber the newer upload's state.
-  const sessionRunCount = uploadLane.runCount;
-  const isCurrentSession = () => uploadLane.runCount === sessionRunCount;
-
-  return {
-    complete() {
-      if (!isCurrentSession()) {
-        return;
-      }
-      uploadLane.running = false;
-      uploadLane.lastAction = "completed";
-      uploadLane.lastActionAt = createSyncTimestamp();
-      uploadLane.lastCompletedAt = uploadLane.lastActionAt;
-      uploadLane.lastError = null;
-      if (uploadLane.progress) {
-        uploadLane.progress = {
-          ...uploadLane.progress,
-          bytesUploaded: uploadLane.progress.bytesTotal,
-          partsCompleted: uploadLane.progress.partsTotal,
-        };
-      }
-      evictRetainedUploadLanes(coordinatorState);
-      publishSyncCoordinatorSnapshot(coordinatorState);
-    },
-    fail(error: unknown) {
-      if (!isCurrentSession()) {
-        return;
-      }
-      uploadLane.running = false;
-      uploadLane.errorCount += 1;
-      uploadLane.lastAction = "failed";
-      uploadLane.lastActionAt = createSyncTimestamp();
-      uploadLane.lastError = describeSyncLaneError(error);
-      uploadLane.lastFailedAt = uploadLane.lastActionAt;
-      evictRetainedUploadLanes(coordinatorState);
-      publishSyncCoordinatorSnapshot(coordinatorState);
-    },
-    reportProgress(progress: SyncLaneProgress) {
-      if (!isCurrentSession()) {
-        return;
-      }
-      uploadLane.progress = { ...progress };
-      uploadLane.lastActionAt = createSyncTimestamp();
-      publishSyncCoordinatorSnapshot(coordinatorState);
-    },
-  };
 }
 
 function requestLaneSync(
