@@ -141,6 +141,26 @@ function loadActiveContainerSummaries(
   state.summaryLoadByContainerId.set(containerId, loadPromise);
 }
 
+function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
+  if (
+    state.hydratedContainerSummaries ||
+    state.runtime.infra.dbStatus !== "ready" ||
+    !state.containerStore.getSnapshot().ready
+  ) {
+    return false;
+  }
+
+  state.hydratedContainerSummaries = true;
+  if (state.activeContainerId) {
+    loadActiveContainerSummaries(state, state.activeContainerId);
+  }
+  notifyReconcile(state, {
+    reason: "hydrated",
+    activeContainerId: state.activeContainerId,
+  });
+  return true;
+}
+
 export function createLocalProjectionStore(input: {
   containerStore: ContainerContentsStore;
   runtime: ContainerContentsStoreRuntime;
@@ -161,6 +181,7 @@ export function createLocalProjectionStore(input: {
   // Re-emit whenever the underlying container tree changes (mutations, remote
   // hydration). This keeps the merged snapshot in step with the tree store.
   input.containerStore.subscribe(() => {
+    markHydratedIfReady(state);
     emit(state);
   });
 
@@ -212,18 +233,7 @@ export function createLocalProjectionStore(input: {
       // Reload the active container's summaries when the local store becomes
       // ready (e.g. first DB attach) so first paint reflects cached contents.
       if (
-        !state.hydratedContainerSummaries &&
-        state.containerStore.getSnapshot().ready
-      ) {
-        state.hydratedContainerSummaries = true;
-        if (state.activeContainerId) {
-          loadActiveContainerSummaries(state, state.activeContainerId);
-        }
-        notifyReconcile(state, {
-          reason: "hydrated",
-          activeContainerId: state.activeContainerId,
-        });
-      } else if (
+        !markHydratedIfReady(state) &&
         didRegainRemotePrerequisites(previousRuntime, runtime) &&
         state.containerStore.getSnapshot().ready
       ) {

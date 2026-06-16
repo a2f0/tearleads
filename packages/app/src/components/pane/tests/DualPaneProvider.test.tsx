@@ -60,15 +60,15 @@ interface ProxiedApiRequestBudget {
 }
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 95,
+  total: 97,
   byRequest: {
     "GET /documents/:documentId/writer-projection": 20,
     "POST /documents/:documentId/sync": 24,
     // Device-first reconciliation re-checks the active container on both open
-    // and explicit refresh (a cheap watermark delta), so the shared-root flow
-    // makes one more container-documents call than the prior render-driven
-    // discovery. Discovery on the open critical path is unchanged/lower.
-    "GET /containers/:containerId/documents": 7,
+    // and explicit refresh, and forced server-event reconciliation now rechecks
+    // each event-scoped container once. These are cheap watermark deltas;
+    // discovery on the open critical path is unchanged/lower.
+    "GET /containers/:containerId/documents": 9,
     "GET /containers": 22,
     "GET /auth/encapsulation-key/:userId": 2,
     "GET /containers/:containerId/writer-projection": 4,
