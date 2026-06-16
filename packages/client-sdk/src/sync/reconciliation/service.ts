@@ -61,6 +61,7 @@ interface ReconciliationState {
   active: boolean;
   activeContainerId: string | null;
   discoveredContainerIds: Set<string>;
+  forcedContainerIds: Set<string>;
   lane: SyncLane | null;
   queue: ReconcileQueue;
 }
@@ -102,6 +103,7 @@ async function sweepKnownContainers(
       if (!host.isIgnorableError(error) && firstError === undefined) {
         firstError = error;
       }
+      state.discoveredContainerIds.delete(containerId);
     }
   }
   if (firstError !== undefined) {
@@ -126,7 +128,8 @@ async function runReconcileLane(
   // explicit refresh or an earlier lane pass) after it was queued. Mark it
   // discovered up front to collapse concurrent re-enqueues into one fetch, but
   // roll the mark back on failure so a transient error can be retried later.
-  if (!state.discoveredContainerIds.has(containerId)) {
+  const shouldForce = state.forcedContainerIds.delete(containerId);
+  if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
     state.discoveredContainerIds.add(containerId);
     try {
       await reconcileOneContainer(host, containerId);
@@ -149,6 +152,7 @@ export function createReconciliationService(
     active: false,
     activeContainerId: null,
     discoveredContainerIds: new Set(),
+    forcedContainerIds: new Set(),
     lane: null,
     queue: createReconcileQueue(),
   };
@@ -176,6 +180,9 @@ export function createReconciliationService(
     // opening Explorer does not re-fetch every container on each navigation.
     if (!force && state.discoveredContainerIds.has(containerId)) {
       return;
+    }
+    if (force) {
+      state.forcedContainerIds.add(containerId);
     }
     state.queue.enqueue(containerId, priority);
     scheduleDrain();
@@ -234,6 +241,7 @@ export function createReconciliationService(
       // container exactly once via a single path (not the background lane and a
       // separate bulk sweep), so each container is fetched once.
       state.queue.clear();
+      state.forcedContainerIds.clear();
       try {
         await host.refreshTree();
         await sweepKnownContainers(host, state);
@@ -246,6 +254,7 @@ export function createReconciliationService(
     stop: () => {
       state.active = false;
       state.queue.clear();
+      state.forcedContainerIds.clear();
     },
   };
 }

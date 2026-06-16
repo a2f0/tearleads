@@ -18,6 +18,10 @@ export function connectReconciliationTriggers(input: {
         service.setActiveContainer(signal.activeContainerId);
         break;
       case "hydrated":
+        if (signal.activeContainerId) {
+          service.enqueueContainer(signal.activeContainerId, "active");
+        }
+        break;
       case "prerequisites-regained":
         if (signal.activeContainerId) {
           service.enqueueContainer(signal.activeContainerId, "active");

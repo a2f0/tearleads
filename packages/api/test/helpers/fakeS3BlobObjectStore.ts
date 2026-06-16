@@ -31,7 +31,7 @@ interface S3CommandInput {
   readonly UploadId?: unknown;
 }
 
-export async function sha256Base64(value: string): Promise<string> {
+async function sha256Base64(value: string): Promise<string> {
   return Buffer.from(await sha256Hex(value), "hex").toString("base64");
 }
 

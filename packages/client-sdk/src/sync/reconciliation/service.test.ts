@@ -1,13 +1,21 @@
 import { expect, test } from "bun:test";
 import type { DomainScope } from "../../data/domainScope";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
+import type {
+  LocalProjectionReconcileListener,
+  LocalProjectionReconcileSignal,
+  LocalProjectionStore,
+} from "../../stores/local-projection/localProjectionStore";
 import { createReconcileQueue } from "./queue";
 import {
   createReconciliationService,
   type ReconciliationHost,
   type ReconciliationRuntimeStatus,
 } from "./service";
-import { enqueueReconciliationForEvents } from "./triggers";
+import {
+  connectReconciliationTriggers,
+  enqueueReconciliationForEvents,
+} from "./triggers";
 
 function createHost(
   overrides: Partial<ReconciliationHost> & {
@@ -196,14 +204,115 @@ test("service retries a container after a failed reconciliation", async () => {
   );
 });
 
-test("event triggers enqueue the named container at active priority", () => {
-  const enqueued: Array<{ containerId: string; priority: string }> = [];
+test("service force-reconciles a discovered container", async () => {
+  const attempts: string[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      attempts.push(containerId);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  service.enqueueContainer("c-1", "active");
+  await waitFor(
+    () => attempts.length === 1,
+    "Expected the initial reconciliation",
+  );
+
+  service.enqueueContainer("c-1", "active", true);
+  await waitFor(
+    () => attempts.length === 2,
+    "Expected forced reconciliation to refetch a discovered container",
+  );
+});
+
+test("service retries a container that failed during explicit refresh", async () => {
+  const attempts: string[] = [];
+  let failNext = true;
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      attempts.push(containerId);
+      if (failNext) {
+        failNext = false;
+        throw new Error("transient refresh failure");
+      }
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  await expect(service.reconcileNow()).rejects.toThrow(
+    "transient refresh failure",
+  );
+  expect(attempts).toEqual(["c-1"]);
+
+  service.enqueueContainer("c-1", "active");
+  await waitFor(
+    () => attempts.length === 2,
+    "Expected passive retry after the refresh failure",
+  );
+});
+
+test("hydrated trigger reconciles only the active container", () => {
+  const reconcileListeners: LocalProjectionReconcileListener[] = [];
+  const store = {
+    onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
+      reconcileListeners.push(listener);
+      return () => {
+        reconcileListeners.splice(reconcileListeners.indexOf(listener), 1);
+      };
+    },
+  } as LocalProjectionStore;
+  const calls: Array<{ containerId: string; priority: string }> = [];
+  let idleBackfills = 0;
   const service = {
     enqueueContainer: (containerId: string, priority: string) => {
-      enqueued.push({ containerId, priority });
+      calls.push({ containerId, priority });
     },
     enqueueIdleBackfill: () => {
-      enqueued.push({ containerId: "*", priority: "idle" });
+      idleBackfills += 1;
+    },
+    setActiveContainer: () => {},
+  } as unknown as Parameters<
+    typeof connectReconciliationTriggers
+  >[0]["service"];
+
+  connectReconciliationTriggers({ service, store });
+  const reconcileListener = reconcileListeners[0];
+  if (!reconcileListener) {
+    throw new Error(
+      "Expected reconciliation trigger listener to be connected.",
+    );
+  }
+  const signal: LocalProjectionReconcileSignal = {
+    activeContainerId: "c-1",
+    reason: "hydrated",
+  };
+  reconcileListener(signal);
+
+  expect(calls).toEqual([{ containerId: "c-1", priority: "active" }]);
+  expect(idleBackfills).toBe(0);
+});
+
+test("event triggers enqueue the named container at active priority", () => {
+  const enqueued: Array<{
+    containerId: string;
+    force: boolean | undefined;
+    priority: string;
+  }> = [];
+  const service = {
+    enqueueContainer: (
+      containerId: string,
+      priority: string,
+      force: boolean | undefined,
+    ) => {
+      enqueued.push({ containerId, force, priority });
+    },
+    enqueueIdleBackfill: () => {
+      enqueued.push({ containerId: "*", force: undefined, priority: "idle" });
     },
   } as unknown as Parameters<
     typeof enqueueReconciliationForEvents
@@ -226,7 +335,9 @@ test("event triggers enqueue the named container at active priority", () => {
     service,
   });
 
-  expect(enqueued).toEqual([{ containerId: "c-1", priority: "active" }]);
+  expect(enqueued).toEqual([
+    { containerId: "c-1", force: true, priority: "active" },
+  ]);
 });
 
 test("event triggers backfill when an update has no container scope", () => {

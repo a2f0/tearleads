@@ -292,6 +292,43 @@ test("local projection store raises an active-changed reconcile signal", async (
   }
 });
 
+test("local projection store raises hydrated when local tree initialization finishes", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-projection-async-hydrated-signal-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    await seedContainerWithDocument(execSql, {
+      containerId: "cached-root",
+      documentId: "doc-1",
+    });
+    const runtime = createRuntime({
+      apiClient: createThrowingApiClient(),
+      domainScope,
+      execSql,
+      isAuthenticated: true,
+      online: true,
+    });
+    const containerStore = createContainerContentsStore(runtime);
+    const store = createLocalProjectionStore({ containerStore, runtime });
+    const signals: string[] = [];
+    store.onReconcileSignal((signal) => {
+      signals.push(signal.reason);
+    });
+
+    store.updateRuntime(runtime);
+
+    await waitFor(
+      () => signals.includes("hydrated"),
+      "Local projection store did not raise hydrated after local tree initialization.",
+    );
+    expect(store.getSnapshot().ready).toBe(true);
+  } finally {
+    close();
+  }
+});
+
 test("local projection store resets summaries when the database goes away", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-projection-db-loss-reset-test",
