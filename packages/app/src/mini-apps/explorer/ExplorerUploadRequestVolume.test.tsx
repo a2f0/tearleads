@@ -49,18 +49,12 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 function uploadedAttachmentBindingSucceeded(startIndex: number): boolean {
   return listProxiedApiRequests()
     .slice(startIndex)
-    .some((request) => {
-      if (request.method !== "POST" || request.status !== 200) {
-        return false;
-      }
-      try {
-        return /^\/blobs\/[^/]+\/attachment-bindings$/u.test(
-          new URL(request.url).pathname,
-        );
-      } catch {
-        return false;
-      }
-    });
+    .some(
+      (request) =>
+        request.method === "POST" &&
+        request.status === 200 &&
+        /\/blobs\/[^/]+\/attachment-bindings/u.test(request.url),
+    );
 }
 
 test(
