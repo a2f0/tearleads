@@ -1,9 +1,9 @@
 .notes-sidebar-empty {
-  padding: var(--mini-app-space-sm);
+  padding: var(--space-sm);
 }
 
 .notes-toolbar {
-  padding: var(--mini-app-space-sm) var(--mini-app-space-md);
+  padding: var(--space-sm) var(--space-md);
 }
 
 .notes-file-input {
@@ -11,9 +11,9 @@
 }
 
 .notes-dropzone {
-  margin: 0 var(--mini-app-space-md);
-  padding: var(--mini-app-space-md);
-  border: 1px dashed currentColor;
+  margin: 0 var(--space-md);
+  padding: var(--space-md);
+  border: var(--border-width) dashed currentColor;
   background: transparent;
 }
 
@@ -23,12 +23,12 @@
 }
 
 .notes-dropzone--disabled {
-  opacity: var(--mini-app-disabled-opacity);
+  opacity: var(--opacity-disabled);
 }
 
 .notes-dropzone-empty {
   font-size: var(--font-size-sm);
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
 }
 
 .notes-attachments {
@@ -37,23 +37,23 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
 }
 
 .notes-attachment {
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
 }
 
 .notes-attachment-main {
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
 }
 
 .notes-attachment-meta {
   display: flex;
   justify-content: space-between;
-  gap: var(--mini-app-space-md);
+  gap: var(--space-md);
 }
 
 .notes-attachment-status {
@@ -61,9 +61,9 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--mini-app-space-sm);
-  padding: var(--mini-app-space-sm) var(--mini-app-panel-padding);
-  border: var(--mini-app-border);
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--panel-padding);
+  border: var(--border);
   font-size: var(--font-size-sm);
 }
 
@@ -80,7 +80,7 @@
 }
 
 .notes-attachment-size {
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
   white-space: nowrap;
 }
 
@@ -89,13 +89,13 @@
   max-width: min(28rem, 100%);
   max-height: 18rem;
   object-fit: contain;
-  border: var(--mini-app-border);
+  border: var(--border);
   background: transparent;
 }
 
 .notes-editor {
   flex: 1;
-  padding: var(--mini-app-space-md);
+  padding: var(--space-md);
   border: none;
   outline: none;
   resize: none;

@@ -2,9 +2,9 @@
 .mini-app-select,
 .mini-app-textarea {
   min-width: 0;
-  min-height: var(--mini-app-control-min-height);
+  min-height: var(--control-height);
   box-sizing: border-box;
-  border: var(--mini-app-border);
+  border: var(--border);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -12,12 +12,12 @@
 
 .mini-app-input,
 .mini-app-select {
-  padding: 0 var(--mini-app-space-sm);
+  padding: 0 var(--space-sm);
 }
 
 .mini-app-textarea {
   min-height: 5lh;
-  padding: var(--mini-app-space-sm);
+  padding: var(--space-sm);
   resize: vertical;
 }
 
@@ -29,20 +29,20 @@
 .mini-app-field {
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-space-xs);
+  gap: var(--space-xs);
   min-width: 0;
   font-size: var(--font-size-sm);
 }
 
 .mini-app-field > span:first-child,
 .mini-app-field > label:first-child {
-  opacity: var(--mini-app-subtle-opacity);
+  opacity: var(--opacity-subtle);
 }
 
 .mini-app-field-control {
   display: flex;
   align-items: stretch;
-  gap: var(--mini-app-space-xs);
+  gap: var(--space-xs);
   min-width: 0;
 }
 

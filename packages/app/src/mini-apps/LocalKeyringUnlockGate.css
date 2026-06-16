@@ -9,7 +9,7 @@
 
 .local-keyring-unlock-copy {
   display: grid;
-  gap: var(--mini-app-space-xs);
+  gap: var(--space-xs);
   min-width: 0;
 }
 
@@ -19,10 +19,10 @@
 }
 
 .local-keyring-unlock-copy h2 {
-  font-size: 1rem;
+  font-size: var(--font-size-md);
 }
 
 .local-keyring-unlock-copy p {
   font-size: var(--font-size-sm);
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
 }

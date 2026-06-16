@@ -21,5 +21,22 @@
 
 .window-titlebar-buttons {
   display: flex;
-  gap: 0.25rem;
+  gap: var(--space-xs);
+}
+
+.window-close,
+.window-maximize,
+.window-minimize {
+  padding: 0 var(--space-xs);
+  border: none;
+  background: none;
+  color: var(--color-light);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.window-close:hover,
+.window-maximize:hover,
+.window-minimize:hover {
+  opacity: var(--opacity-muted);
 }

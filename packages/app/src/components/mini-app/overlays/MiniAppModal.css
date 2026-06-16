@@ -5,15 +5,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--mini-app-space-md);
-  background: var(--mini-app-overlay-background);
+  padding: var(--space-md);
+  background: var(--overlay-background);
 }
 
 .mini-app-modal-panel {
   width: min(100%, 22rem);
   box-sizing: border-box;
-  padding: var(--mini-app-space-md);
-  border: var(--mini-app-border);
+  padding: var(--space-md);
+  border: var(--border);
   background: var(--color-light);
   box-shadow: 0 0 0 1px currentColor;
 }
@@ -21,10 +21,10 @@
 .mini-app-modal-form {
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-space-md);
+  gap: var(--space-md);
 }
 
 .mini-app-modal-form h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--font-size-md);
 }

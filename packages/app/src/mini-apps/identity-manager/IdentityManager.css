@@ -6,27 +6,27 @@
 .identity-manager-main {
   display: flex;
   flex-direction: column;
-  gap: var(--mini-app-space-md);
+  gap: var(--space-md);
   min-height: 0;
 }
 
 .identity-manager-details {
   display: grid;
   grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
-  gap: var(--mini-app-space-sm) var(--mini-app-space-md);
+  gap: var(--space-sm) var(--space-md);
   margin: 0;
   min-width: 0;
   font-size: var(--font-size-sm);
 }
 
 .identity-manager-details dt {
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
 }
 
 .identity-manager-details dd {
   display: flex;
   align-items: center;
-  gap: var(--mini-app-space-xs);
+  gap: var(--space-xs);
   margin: 0;
   min-width: 0;
 }
@@ -45,12 +45,12 @@
 .identity-manager-pin-forms {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--mini-app-space-md);
+  gap: var(--space-md);
 }
 
 .identity-manager-pin-form {
   display: grid;
-  gap: var(--mini-app-space-sm);
+  gap: var(--space-sm);
   min-width: 0;
 }
 

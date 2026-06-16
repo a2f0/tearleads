@@ -1,17 +1,5 @@
 .window {
-  --window-bar-block-padding: 0.25rem;
-  --window-bar-inline-padding: 0.5rem;
-  --window-bar-line-height: 1.25em;
-  --window-bar-height: calc(
-    var(--window-bar-line-height) +
-    (var(--window-bar-block-padding) * 2)
-  );
-  --window-bar-padding: var(--window-bar-block-padding)
-    var(--window-bar-inline-padding);
   position: absolute;
-  background: var(--color-light);
-  border: 1px solid var(--color-dark);
-
   display: flex;
   flex-direction: column;
   width: 900px;
@@ -20,6 +8,8 @@
   max-height: 100%;
   min-width: 200px;
   min-height: 100px;
+  background: var(--color-light);
+  border: var(--border-strong);
 }
 
 .window--maximized {

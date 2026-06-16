@@ -1,6 +1,6 @@
 .mini-app-status {
   font-size: var(--font-size-sm);
-  opacity: var(--mini-app-muted-opacity);
+  opacity: var(--opacity-muted);
 }
 
 .mini-app-status--error {
