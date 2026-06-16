@@ -159,31 +159,38 @@ async function uploadMultipartPartTasks(input: {
         return;
       }
 
-      const uploaded = input.apiClient.uploadMultipartBlobPartBytes
-        ? await uploadMultipartPartBytes({
-            apiClient: input.apiClient,
-            stageId: input.stageId,
-            task,
-            uploadId: input.uploadId,
-          })
-        : await input.apiClient.uploadMultipartBlobPart(
-            input.stageId,
-            task.partNumber,
-            {
-              encryptedBytes: task.encryptedPart,
+      try {
+        const uploaded = input.apiClient.uploadMultipartBlobPartBytes
+          ? await uploadMultipartPartBytes({
+              apiClient: input.apiClient,
+              stageId: input.stageId,
+              task,
               uploadId: input.uploadId,
-            },
-          );
-      if (!uploaded) {
-        failed = true;
-        return;
-      }
+            })
+          : await input.apiClient.uploadMultipartBlobPart(
+              input.stageId,
+              task.partNumber,
+              {
+                encryptedBytes: task.encryptedPart,
+                uploadId: input.uploadId,
+              },
+            );
+        if (!uploaded) {
+          failed = true;
+          return;
+        }
 
-      input.completeParts[task.partIndex] = {
-        etag: uploaded.part.etag,
-        partNumber: task.partNumber,
-      };
-      input.onPartUploaded?.(task);
+        input.completeParts[task.partIndex] = {
+          etag: uploaded.part.etag,
+          partNumber: task.partNumber,
+        };
+        input.onPartUploaded?.(task);
+      } catch (error) {
+        // Stop sibling workers from pulling new tasks and firing more uploads
+        // once any part rejects; rethrow so Promise.all still surfaces it.
+        failed = true;
+        throw error;
+      }
     }
   }
 
