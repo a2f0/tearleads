@@ -13,16 +13,6 @@ function areDocumentSummariesEqualForExplorerMerge(
   );
 }
 
-export function getKnownDocumentIds(
-  documentSummaries: ReadonlyArray<DocumentSummary>,
-): ReadonlySet<string> {
-  return new Set(
-    documentSummaries.flatMap((note) =>
-      note.documentId ? [note.documentId] : [],
-    ),
-  );
-}
-
 export function mergeSingleDocumentSummaryList(
   currentDocumentSummaries: ReadonlyArray<DocumentSummary>,
   nextDocument: DocumentSummary,

@@ -13,7 +13,7 @@ import {
  * content is ready when the user opens them. Priming never forces a sync; the
  * background reconciler owns remote work.
  */
-export function primeDiscoveredDocumentStores(input: {
+function primeDiscoveredDocumentStores(input: {
   discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>;
   documentLinks: Pick<ContainerDocumentLinks, "openDocument">;
 }) {

@@ -1,7 +1,13 @@
 # Device-First Reads & Background Reconciliation
 
-Status: **proposed** (design for review)
+Status: **implemented**
 Owner lane: `packages/client-sdk` (primary), `packages/app` (consumer simplification)
+
+Implemented as: `tearleads.deviceFirst` facade (`client/deviceFirst.ts`) over
+`stores/local-projection` (Layer A) and `sync/reconciliation` (Layer B). The
+container-contents auth-gain reset was removed. The explorer mini-app consumes
+the view via `useExplorerDeviceFirst` and no longer drives discovery from render
+effects.
 
 ## Problem
 

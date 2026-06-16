@@ -17,7 +17,6 @@ export function useExplorerInteractionState(params: {
   activeContainerId: string | null;
   appData: RuntimeSnapshot;
   explorer: ExplorerModelExplorer;
-  knownDocumentIds: ReadonlySet<string>;
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
