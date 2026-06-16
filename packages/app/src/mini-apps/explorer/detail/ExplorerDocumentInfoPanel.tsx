@@ -8,6 +8,7 @@ import {
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
+import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import { EXPLORER_LABELS } from "../labels";
 import {
   compactId,
@@ -26,10 +27,6 @@ interface Props {
   nodes: ReadonlyArray<ContainerNode>;
   onBackToDocument: () => void;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
-}
-
-function unknownErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function useExplorerDocumentInfo(params: {

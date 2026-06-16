@@ -6,15 +6,12 @@ import {
 import type { DocumentCheckpointKind } from "@tearleads/loro/shared";
 import { desc, eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
+import { serializeAuditHashField } from "./auditHashField";
 
 interface CheckpointInput {
   checkpointKind?: DocumentCheckpointKind | undefined;
   id: string;
   sourceVersionVector?: string | undefined;
-}
-
-function serializeCheckpointHashField(name: string, value: string) {
-  return `${name}:${value.length}:${value}`;
 }
 
 function buildCheckpointHashPayload(input: {
@@ -31,35 +28,29 @@ function buildCheckpointHashPayload(input: {
   sourceVersionVector: string;
 }) {
   const fields = [
-    serializeCheckpointHashField("documentId", input.documentId),
-    serializeCheckpointHashField("baselineUpdateId", input.baselineUpdateId),
-    serializeCheckpointHashField("checkpointKind", input.checkpointKind),
-    serializeCheckpointHashField(
-      "sourceVersionVector",
-      input.sourceVersionVector,
-    ),
-    serializeCheckpointHashField(
+    serializeAuditHashField("documentId", input.documentId),
+    serializeAuditHashField("baselineUpdateId", input.baselineUpdateId),
+    serializeAuditHashField("checkpointKind", input.checkpointKind),
+    serializeAuditHashField("sourceVersionVector", input.sourceVersionVector),
+    serializeAuditHashField(
       "coveredAuditEntryHash",
       input.coveredAuditEntryHash ?? "",
     ),
-    serializeCheckpointHashField(
+    serializeAuditHashField(
       "previousCheckpointHash",
       input.previousCheckpointHash ?? "",
     ),
-    serializeCheckpointHashField("accessEpoch", String(input.accessEpoch)),
-    serializeCheckpointHashField(
-      "accessManifestHash",
-      input.accessManifestHash,
-    ),
+    serializeAuditHashField("accessEpoch", String(input.accessEpoch)),
+    serializeAuditHashField("accessManifestHash", input.accessManifestHash),
   ];
   if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
     fields.push(
-      serializeCheckpointHashField("accessStateHash", input.accessStateHash),
+      serializeAuditHashField("accessStateHash", input.accessStateHash),
     );
   }
   fields.push(
-    serializeCheckpointHashField("actorUserId", input.actorUserId),
-    serializeCheckpointHashField("actorFingerprint", input.actorFingerprint),
+    serializeAuditHashField("actorUserId", input.actorUserId),
+    serializeAuditHashField("actorFingerprint", input.actorFingerprint),
   );
   return fields.join("\n");
 }

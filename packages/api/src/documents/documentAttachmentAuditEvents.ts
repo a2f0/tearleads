@@ -11,6 +11,7 @@ import {
 import { desc, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings } from "../utils/array";
 import { sha256Hex } from "../utils/sha256";
+import { serializeAuditHashField } from "./auditHashField";
 
 export const DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT = "attachment_event";
 const BLOB_AUDIT_RETENTION_MODE_LIVE_ONLY: BlobAuditRetentionMode = "live_only";
@@ -22,10 +23,6 @@ interface DocumentAttachmentAuditEventInput {
   previousBindingId: string | null;
   previousBlobId: string | null;
   slotId: string;
-}
-
-function serializeAttachmentAuditHashField(name: string, value: string) {
-  return `${name}:${value.length}:${value}`;
 }
 
 function buildDocumentAttachmentAuditEntryHashPayload(input: {
@@ -46,45 +43,27 @@ function buildDocumentAttachmentAuditEntryHashPayload(input: {
   slotId: string;
 }) {
   const fields = [
-    serializeAttachmentAuditHashField("documentId", input.documentId),
-    serializeAttachmentAuditHashField("eventType", input.eventType),
-    serializeAttachmentAuditHashField("accessEpoch", String(input.accessEpoch)),
-    serializeAttachmentAuditHashField(
-      "accessManifestHash",
-      input.accessManifestHash,
-    ),
+    serializeAuditHashField("documentId", input.documentId),
+    serializeAuditHashField("eventType", input.eventType),
+    serializeAuditHashField("accessEpoch", String(input.accessEpoch)),
+    serializeAuditHashField("accessManifestHash", input.accessManifestHash),
   ];
   if (input.accessStateHash !== null && input.accessStateHash !== undefined) {
     fields.push(
-      serializeAttachmentAuditHashField(
-        "accessStateHash",
-        input.accessStateHash,
-      ),
+      serializeAuditHashField("accessStateHash", input.accessStateHash),
     );
   }
   fields.push(
-    serializeAttachmentAuditHashField("actorUserId", input.actorUserId),
-    serializeAttachmentAuditHashField(
-      "actorFingerprint",
-      input.actorFingerprint,
-    ),
-    serializeAttachmentAuditHashField(
-      "previousEntryHash",
-      input.previousEntryHash ?? "",
-    ),
-    serializeAttachmentAuditHashField("action", input.action),
-    serializeAttachmentAuditHashField("slotId", input.slotId),
-    serializeAttachmentAuditHashField("bindingId", input.bindingId ?? ""),
-    serializeAttachmentAuditHashField(
-      "previousBindingId",
-      input.previousBindingId ?? "",
-    ),
-    serializeAttachmentAuditHashField("blobId", input.blobId ?? ""),
-    serializeAttachmentAuditHashField(
-      "previousBlobId",
-      input.previousBlobId ?? "",
-    ),
-    serializeAttachmentAuditHashField("retentionMode", input.retentionMode),
+    serializeAuditHashField("actorUserId", input.actorUserId),
+    serializeAuditHashField("actorFingerprint", input.actorFingerprint),
+    serializeAuditHashField("previousEntryHash", input.previousEntryHash ?? ""),
+    serializeAuditHashField("action", input.action),
+    serializeAuditHashField("slotId", input.slotId),
+    serializeAuditHashField("bindingId", input.bindingId ?? ""),
+    serializeAuditHashField("previousBindingId", input.previousBindingId ?? ""),
+    serializeAuditHashField("blobId", input.blobId ?? ""),
+    serializeAuditHashField("previousBlobId", input.previousBlobId ?? ""),
+    serializeAuditHashField("retentionMode", input.retentionMode),
   );
   return fields.join("\n");
 }

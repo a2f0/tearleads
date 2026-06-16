@@ -8,10 +8,16 @@ on:
 permissions:
   contents: read
 
+# TEMPORARY: CI jobs are paused to avoid spending Actions credits.
+# Each job is gated on `workflow_dispatch` so it only runs when triggered
+# manually from the Actions tab. To fully re-enable, delete the
+# `if: ${{ github.event_name == 'workflow_dispatch' }}` line from every job.
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout
@@ -40,6 +46,7 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout
@@ -59,6 +66,7 @@ jobs:
   terraform:
     name: Terraform lint
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' }}
 
     steps:
       - name: Checkout

@@ -1,3 +1,5 @@
+import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
+
 export type DirectoryRefreshOptions = {
   clearError?: boolean;
   manageLoading?: boolean;
@@ -27,10 +29,6 @@ export type RefreshBehaviorOptions = {
   clearError?: boolean;
   manageLoading?: boolean;
 };
-
-function unknownErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 export function setUnknownError(
   setError: (error: string | null) => void,
