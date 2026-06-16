@@ -2,6 +2,7 @@ import type { SyncWatermark } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
+  type ContainerSyncLaneCheckRecord,
   type ContainerSyncWatermarkLane,
   containerContentsSyncLane,
   containerParentSyncLane,
@@ -73,4 +74,21 @@ export async function saveContainerSyncWatermark(
     syncLane,
     watermark,
   );
+}
+
+export async function loadContainerSyncLaneCheckRecords(
+  execSql: ExecSql,
+  syncLanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+): Promise<Array<ContainerSyncLaneCheckRecord | null>> {
+  return sqlContainerSyncWatermarkPersistence.loadCheckRecords(
+    execSql,
+    syncLanes,
+  );
+}
+
+export async function markContainerSyncLaneChecked(
+  execSql: ExecSql,
+  syncLane: ContainerSyncWatermarkLane,
+): Promise<void> {
+  await sqlContainerSyncWatermarkPersistence.markChecked(execSql, syncLane);
 }

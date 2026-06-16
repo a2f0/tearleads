@@ -2277,6 +2277,11 @@ test("explorer sync primes local document stores after login", async () => {
     });
 
     store.updateRuntime(runtime);
+    await waitForCondition(
+      () => store?.getSnapshot().ready === true,
+      "Online explorer store did not become ready.",
+    );
+    await expect(store.refresh()).resolves.toBe(true);
 
     await waitForCondition(
       () =>
@@ -3532,6 +3537,7 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       () => createdStore.getSnapshot().ready,
       "Explorer store did not become ready.",
     );
+    await expect(createdStore.refresh()).resolves.toBe(true);
 
     await waitForCondition(
       () => syncCalls.some((call) => call.minLsn === null),
@@ -3885,16 +3891,18 @@ test("explorer hydration repairs stale local timestamps for remote containers wi
     store = createdStore;
     createdStore.updateRuntime(runtime);
 
-    await waitForCondition(() => {
-      const repairedNodes = createdStore
-        .getSnapshot()
-        .nodes.filter((node) =>
-          [
-            "shared-root-container",
-            "shared-child-container",
-            "shared-child-container-b",
-          ].includes(node.id),
-        );
+    await waitForCondition(async () => {
+      const repairedNodes = (await createdStore.refresh())
+        ? createdStore
+            .getSnapshot()
+            .nodes.filter((node) =>
+              [
+                "shared-root-container",
+                "shared-child-container",
+                "shared-child-container-b",
+              ].includes(node.id),
+            )
+        : [];
       return (
         repairedNodes.length === 3 &&
         repairedNodes.every((node) => node.syncState.status === "synced")
@@ -4031,7 +4039,8 @@ test("explorer hydration reconciles a restored local-only root into the authenti
     createdStore.updateRuntime(runtime);
 
     await waitForCondition(
-      () =>
+      async () =>
+        (await createdStore.refresh()) &&
         createdStore
           .getSnapshot()
           .nodes.some(
@@ -4140,6 +4149,11 @@ test("explorer sync hydrates container parent lanes concurrently", async () => {
     const createdStore = createExplorerStore(runtime);
     store = createdStore;
     createdStore.updateRuntime(runtime);
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+    await expect(createdStore.refresh()).resolves.toBe(true);
 
     await waitForCondition(
       () =>
@@ -4244,6 +4258,11 @@ test("explorer sync retries failed parent lane batches without advancing their w
     const createdStore = createExplorerStore(runtime);
     store = createdStore;
     createdStore.updateRuntime(runtime);
+    await waitForCondition(
+      () => createdStore.getSnapshot().ready,
+      "Explorer store did not become ready.",
+    );
+    await expect(createdStore.refresh()).resolves.toBe(true);
 
     await waitForCondition(
       () =>
@@ -4447,8 +4466,8 @@ test("explorer sync applies container tombstones before advancing the parent wat
     createdStore.updateRuntime(runtime);
 
     await waitForCondition(
-      () =>
-        createdStore.getSnapshot().ready &&
+      async () =>
+        (await createdStore.refresh()) &&
         createdStore
           .getSnapshot()
           .nodes.some((node) => node.id === "archive-container") &&

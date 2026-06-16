@@ -155,6 +155,35 @@ test("container sync watermarks are persisted independently per lane", async () 
       id: "child-container",
       updatedAt: "2026-05-05T00:05:00.000Z",
     });
+
+    await sqlContainerSyncWatermarkPersistence.markChecked(
+      execSql,
+      containerParentSyncLane(null),
+    );
+    await sqlContainerSyncWatermarkPersistence.markChecked(
+      execSql,
+      containerContentsSyncLane("parent-container"),
+    );
+
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [
+        containerParentSyncLane(null),
+        containerParentSyncLane("missing-parent"),
+        containerContentsSyncLane("parent-container"),
+      ]),
+    ).resolves.toEqual([
+      {
+        checkedAt: expect.any(String),
+        laneId: "root",
+        laneKind: "container_parent",
+      },
+      null,
+      {
+        checkedAt: expect.any(String),
+        laneId: "parent-container",
+        laneKind: "container_documents",
+      },
+    ]);
   } finally {
     close();
   }

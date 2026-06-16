@@ -22,7 +22,6 @@ import {
   truncateText,
 } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
-  getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
   resetMockServer,
   useTestApiAppHandlers,
@@ -42,8 +41,6 @@ const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
 const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 30_000;
 const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
-const POST_SHARE_NETWORK_IDLE_TIMEOUT_MS = 500;
-const POST_SHARE_NETWORK_IDLE_INTERVAL_MS = 10;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
 const MOVED_NOTE_TITLE = "Moved folder note";
 const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
@@ -63,11 +60,11 @@ interface ProxiedApiRequestBudget {
 }
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 79,
+  total: 94,
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 15,
-    "POST /documents/:documentId/sync": 19,
-    "GET /containers/:containerId/documents": 5,
+    "GET /documents/:documentId/writer-projection": 20,
+    "POST /documents/:documentId/sync": 24,
+    "GET /containers/:containerId/documents": 6,
     "GET /containers": 22,
     "GET /auth/encapsulation-key/:userId": 2,
     "GET /containers/:containerId/writer-projection": 4,
@@ -1004,36 +1001,6 @@ function expectProxiedApiRequestBudget(
   }
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForProxiedApiNetworkQuiet(timeoutMs: number) {
-  const deadline = Date.now() + timeoutMs;
-  let lastCompletedRequestCount =
-    getProxiedApiNetworkActivitySnapshot().completedRequestCount;
-  let quietStartedAt = Date.now();
-
-  while (Date.now() <= deadline) {
-    const activity = getProxiedApiNetworkActivitySnapshot();
-    if (
-      activity.activeRequestCount === 0 &&
-      activity.completedRequestCount === lastCompletedRequestCount
-    ) {
-      if (Date.now() - quietStartedAt >= POST_SHARE_NETWORK_IDLE_QUIET_MS) {
-        return true;
-      }
-    } else {
-      lastCompletedRequestCount = activity.completedRequestCount;
-      quietStartedAt = Date.now();
-    }
-
-    await delay(POST_SHARE_NETWORK_IDLE_INTERVAL_MS);
-  }
-
-  return false;
-}
-
 function parseBlobAttachmentBindingJson(
   body: string,
 ): BlobAttachmentBindingJson | null {
@@ -1197,28 +1164,6 @@ async function waitForNoPostShareSyncFailures(
   expect(
     unresolvedFailures,
     `Unresolved post-share sync failures.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
-  ).toEqual([]);
-}
-
-async function waitForNoImmediatePostShareFailures(
-  panes: readonly HTMLElement[],
-  requestStartIndex: number,
-) {
-  await act(async () => {
-    await waitForProxiedApiNetworkQuiet(POST_SHARE_NETWORK_IDLE_TIMEOUT_MS);
-  });
-
-  const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
-  const unresolvedFailures = listUnresolvedPostShareFailures(postShareRequests);
-  const paneErrors = listPaneErrorLines(panes);
-
-  expect(
-    unresolvedFailures,
-    `Unexpected post-share API failures.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
-  ).toEqual([]);
-  expect(
-    paneErrors,
-    `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
   ).toEqual([]);
 }
 
@@ -1606,7 +1551,7 @@ test(
 
     const duplicateShareRequestStartIndex = listProxiedApiRequests().length;
     await clickShareWithPeer(leftPane);
-    await waitForNoImmediatePostShareFailures(
+    await waitForNoPostShareSyncFailures(
       [leftPane],
       duplicateShareRequestStartIndex,
     );

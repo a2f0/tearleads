@@ -1,6 +1,7 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { and, eq, inArray, or } from "drizzle-orm";
 import {
+  containerSyncLaneChecks,
   containerSyncWatermarks,
   containerSyncWatermarkTables,
 } from "../../sqlite/schema";
@@ -12,6 +13,9 @@ const CONTAINER_PARENT_LANE = "container_parent";
 const CONTAINER_DOCUMENTS_LANE = "container_documents";
 const ROOT_CONTAINER_PARENT_LANE_ID = "root";
 const CONTAINER_PARENT_LANE_ID_PREFIX = "parent:";
+// Each lane predicate binds two values, so keep batches comfortably under
+// SQLite's variable limit when startup checks many cached parent lanes.
+const CHECK_RECORD_SELECT_BATCH_SIZE = 100;
 
 export type ContainerSyncWatermarkLane =
   | {
@@ -36,6 +40,12 @@ interface ContainerSyncWatermarkRecord {
   laneKind: string;
   updatedAt: string;
   watermark: SyncWatermark;
+}
+
+export interface ContainerSyncLaneCheckRecord {
+  checkedAt: string;
+  laneId: string;
+  laneKind: string;
 }
 
 export const containerParentSyncLane = (
@@ -154,6 +164,53 @@ async function selectWatermarkRows(
   return rows;
 }
 
+async function selectCheckRows(
+  execSql: ExecSql,
+  lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+): Promise<ContainerSyncLaneCheckRecord[]> {
+  const laneKeys = uniqueLaneKeys(lanes);
+  if (laneKeys.length === 0) {
+    return [];
+  }
+
+  await ensureSqlTables(execSql, containerSyncWatermarkTables);
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const rows: ContainerSyncLaneCheckRecord[] = [];
+
+  for (
+    let index = 0;
+    index < laneKeys.length;
+    index += CHECK_RECORD_SELECT_BATCH_SIZE
+  ) {
+    const lanePredicates = laneKeys
+      .slice(index, index + CHECK_RECORD_SELECT_BATCH_SIZE)
+      .map(({ laneId, laneKind }) =>
+        and(
+          eq(containerSyncLaneChecks.laneKind, laneKind),
+          eq(containerSyncLaneChecks.laneId, laneId),
+        ),
+      );
+    const whereClause =
+      lanePredicates.length === 1 ? lanePredicates[0] : or(...lanePredicates);
+    if (!whereClause) {
+      continue;
+    }
+
+    rows.push(
+      ...(await db
+        .select({
+          checkedAt: containerSyncLaneChecks.checkedAt,
+          laneId: containerSyncLaneChecks.laneId,
+          laneKind: containerSyncLaneChecks.laneKind,
+        })
+        .from(containerSyncLaneChecks)
+        .where(whereClause)),
+    );
+  }
+
+  return rows;
+}
+
 export const sqlContainerSyncWatermarkPersistence = {
   async ensureSchema(execSql: ExecSql): Promise<void> {
     await ensureSqlTables(execSql, containerSyncWatermarkTables);
@@ -201,6 +258,63 @@ export const sqlContainerSyncWatermarkPersistence = {
     return lanes.map((lane) => {
       const laneKey = containerSyncWatermarkLaneKey(lane);
       return recordsByKey.get(laneKeyString(laneKey)) ?? null;
+    });
+  },
+
+  async loadCheckRecord(
+    execSql: ExecSql,
+    lane: ContainerSyncWatermarkLane,
+  ): Promise<ContainerSyncLaneCheckRecord | null> {
+    return (
+      (
+        await sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [
+          lane,
+        ])
+      )[0] ?? null
+    );
+  },
+
+  async loadCheckRecords(
+    execSql: ExecSql,
+    lanes: ReadonlyArray<ContainerSyncWatermarkLane>,
+  ): Promise<Array<ContainerSyncLaneCheckRecord | null>> {
+    const rows = await selectCheckRows(execSql, lanes);
+    const recordsByKey = new Map<string, ContainerSyncLaneCheckRecord>();
+
+    for (const row of rows) {
+      recordsByKey.set(laneKeyString(row), row);
+    }
+
+    return lanes.map((lane) => {
+      const laneKey = containerSyncWatermarkLaneKey(lane);
+      return recordsByKey.get(laneKeyString(laneKey)) ?? null;
+    });
+  },
+
+  async markChecked(
+    execSql: ExecSql,
+    lane: ContainerSyncWatermarkLane,
+  ): Promise<void> {
+    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
+    const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
+    const row = {
+      checkedAt: new Date().toISOString(),
+      laneId,
+      laneKind,
+    };
+
+    await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+      await db
+        .insert(containerSyncLaneChecks)
+        .values(row)
+        .onConflictDoUpdate({
+          target: [
+            containerSyncLaneChecks.laneKind,
+            containerSyncLaneChecks.laneId,
+          ],
+          set: row,
+        })
+        .run();
     });
   },
 
@@ -261,6 +375,22 @@ export const sqlContainerSyncWatermarkPersistence = {
             and(
               eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
               inArray(containerSyncWatermarks.laneId, uniqueContainerIds),
+            ),
+          ),
+        )
+        .run();
+
+      await db
+        .delete(containerSyncLaneChecks)
+        .where(
+          or(
+            and(
+              eq(containerSyncLaneChecks.laneKind, CONTAINER_PARENT_LANE),
+              inArray(containerSyncLaneChecks.laneId, parentLaneIds),
+            ),
+            and(
+              eq(containerSyncLaneChecks.laneKind, CONTAINER_DOCUMENTS_LANE),
+              inArray(containerSyncLaneChecks.laneId, uniqueContainerIds),
             ),
           ),
         )

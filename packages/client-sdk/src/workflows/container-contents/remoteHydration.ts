@@ -12,7 +12,6 @@ import {
   type ContainerRecord,
   createContainerParentSyncLane,
   loadContainerSyncWatermark,
-  saveContainerSyncWatermark,
 } from "./containerPersistence";
 import {
   addIndexedContainerChild,
@@ -20,6 +19,7 @@ import {
   moveIndexedContainerChild,
   removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
+import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
@@ -627,20 +627,6 @@ async function applyContainerTombstones(input: {
   return removedContainerIds.length;
 }
 
-async function advanceContainerParentWatermark(input: {
-  response: ListContainersResponse;
-  state: RemoteContainerHydrationState;
-  syncLane: ReturnType<typeof createContainerParentSyncLane>;
-}): Promise<boolean> {
-  const { response, state, syncLane } = input;
-  if (response.nextWatermark) {
-    const execSql = state.runtime.infra.execSql;
-    await saveContainerSyncWatermark(execSql, syncLane, response.nextWatermark);
-  }
-
-  return true;
-}
-
 function canHydrateRemoteContainers(
   state: RemoteContainerHydrationState,
 ): boolean {
@@ -710,13 +696,13 @@ async function applyContainerParentLanePage(input: {
     state,
   });
 
-  const didAdvanceWatermark = await advanceContainerParentWatermark({
+  const didMarkFetched = await markContainerParentLaneFetched({
     response,
     state,
     syncLane,
   });
-  if (!didAdvanceWatermark) {
-    return { changedCount, shouldStop: false };
+  if (!didMarkFetched) {
+    return { changedCount, shouldStop: true };
   }
 
   if (!response.hasMore) {
@@ -887,13 +873,14 @@ async function hydrateContainerParentLanes(input: {
 }
 
 export async function hydrateRemoteContainers(input: {
+  followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
   parentIds?: ReadonlyArray<string | null> | undefined;
   state: RemoteContainerHydrationState;
-}): Promise<void> {
+}): Promise<number> {
   const { host, state } = input;
   if (!canHydrateRemoteContainers(state)) {
-    return;
+    return 0;
   }
 
   const seenContainerIds = new Set<string>();
@@ -902,11 +889,18 @@ export async function hydrateRemoteContainers(input: {
     containerIds: state.containersById.keys(),
     parentIds: input.parentIds,
   });
+  // Startup and event-triggered checks pass explicit parent lanes. Keep those
+  // shallow so contents can render from cache without a background
+  // whole-tree crawl; explicit refresh passes this flag to opt back into
+  // following discovered children.
+  const queueDiscoveredParentLane = input.followDiscoveredParentLanes
+    ? queueParentLane
+    : () => {};
   const { changedCount } = await hydrateContainerParentLanes({
     childIdsByParentId,
     host,
     lanes,
-    queueParentLane,
+    queueParentLane: queueDiscoveredParentLane,
     seenContainerIds,
     state,
   });
@@ -917,4 +911,5 @@ export async function hydrateRemoteContainers(input: {
       `Container contents: applied ${changedCount} remote container change(s)`,
     );
   }
+  return changedCount;
 }
