@@ -37,6 +37,39 @@ test("initDatabase opens an encrypted database", async () => {
   db.close();
 });
 
+test("initDatabase opens an explicit in-memory database", async () => {
+  const db = await initDatabase({
+    dbName: `/${crypto.randomUUID()}.db`,
+    cipher: "chacha20",
+    key: "test-secret",
+    persistence: "memory",
+  });
+
+  try {
+    db.exec("CREATE TABLE t(x TEXT)");
+    db.exec("INSERT INTO t VALUES('still here')");
+    expect(db.exec("SELECT x FROM t", { returnValue: "resultRows" })).toEqual([
+      ["still here"],
+    ]);
+  } finally {
+    db.close();
+  }
+});
+
+test("initDatabase hard-fails when persistence is requested without OPFS", async () => {
+  // Bun's test runtime has no navigator.storage / OPFS, so the SAHPool VFS
+  // cannot be installed. Persistence is opt-in and must throw rather than
+  // silently falling back to an in-memory database.
+  expect(
+    initDatabase({
+      dbName: `/${crypto.randomUUID()}.db`,
+      cipher: "chacha20",
+      key: "test-secret",
+      persistence: "opfs-sahpool",
+    }),
+  ).rejects.toThrow();
+});
+
 test("execDatabaseStatement supports positional binds and array row mode", async () => {
   const db = await initDatabase({
     dbName: `/${crypto.randomUUID()}.db`,

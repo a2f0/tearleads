@@ -5,7 +5,9 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   createSQLiteRuntime as createDefaultSQLiteRuntime,
+  type DatabasePersistenceMode,
   type SQLiteRuntime,
+  type StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
 import {
   createContext,
@@ -20,6 +22,7 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { usePersistentStoragePolicy } from "./usePersistentStoragePolicy";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 
@@ -56,14 +59,20 @@ function destroyRuntime(
 async function bootSQLiteRuntime(
   runtime: SQLiteRuntime,
   dbName: string,
+  persistence: DatabasePersistenceMode,
   log: (message: string) => void,
 ) {
   log("Loading SQLite3 WASM module...");
-  log(`Initializing database: ${dbName}`);
+  log(
+    `Initializing database: ${dbName} (${
+      persistence === "memory" ? "in-memory" : "persistent OPFS"
+    })`,
+  );
   await runtime.client.init({
     dbName,
     cipher: "chacha20",
     key: "development-key",
+    persistence,
   });
 }
 
@@ -218,6 +227,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   currentDbNameRef: RefObject<string | null>;
   killedRef: RefObject<boolean>;
   log: (message: string) => void;
+  persistence: DatabasePersistenceMode;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
@@ -228,6 +238,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     currentDbNameRef,
     killedRef,
     log,
+    persistence,
     runtimeRef,
     targetDbNameRef,
     tearleads,
@@ -249,7 +260,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         runtimeRef.current = runtime;
         configureSdkSQLiteRuntime(tearleads, runtime, "idle");
 
-        void bootSQLiteRuntime(runtime, nextDbName, log)
+        void bootSQLiteRuntime(runtime, nextDbName, persistence, log)
           .then(() => {
             completeSQLiteRuntimeBoot({
               runtime,
@@ -281,6 +292,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       currentDbNameRef,
       killedRef,
       log,
+      persistence,
       runtimeRef,
       targetDbNameRef,
       tearleads,
@@ -375,6 +387,7 @@ function useSQLiteRuntimeControls(params: {
 function useManagedSQLiteRuntime(
   createSQLiteRuntime: () => SQLiteRuntime,
   dbName: string,
+  persistencePolicy: StoragePersistencePolicy,
   log: (message: string) => void,
   tearleads: Tearleads,
 ): DatabaseContextValue {
@@ -396,6 +409,7 @@ function useManagedSQLiteRuntime(
     currentDbNameRef,
     killedRef,
     log,
+    persistence: persistencePolicy.databasePersistence,
     runtimeRef,
     targetDbNameRef,
     tearleads,
@@ -430,19 +444,23 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
   const {
     createSQLiteRuntime = createDefaultSQLiteRuntime,
     localIdentityNamespace,
+    storagePersistence,
   } = useAppHostConfig();
   const tearleads = useTearleads();
   const { log } = useLog();
   const identity = useTearleadsStoreSnapshot(tearleads.identity);
+  const persistencePolicy = usePersistentStoragePolicy(storagePersistence, log);
   const dbName = sqliteDbNameForNamespace(
     localIdentityNamespace ?? "tearleads.app",
   );
   const activeDbName = identity.signingFingerprint
     ? sqliteDbNameForSigningFingerprint(identity.signingFingerprint)
     : dbName;
+
   const value = useManagedSQLiteRuntime(
     createSQLiteRuntime,
     activeDbName,
+    persistencePolicy,
     log,
     tearleads,
   );
