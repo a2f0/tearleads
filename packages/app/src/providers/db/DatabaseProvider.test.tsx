@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import type { LocalKeyring } from "@tearleads/client-sdk";
 import {
   PERSISTENT_STORAGE_POLICY,
   type SQLiteRuntime,
@@ -6,6 +7,7 @@ import {
 } from "@tearleads/client-sdk/sqlite";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
+import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import {
   AppHostConfig,
   type CreateSQLiteRuntimeFn,
@@ -112,6 +114,7 @@ function DatabaseProbe({
 }
 
 function renderDatabaseProvider(props: {
+  readonly createLocalKeyring?: () => LocalKeyring;
   readonly createSQLiteRuntime: CreateSQLiteRuntimeFn;
   readonly onControls: (controls: DatabaseControls) => void;
   readonly storagePersistence?: StoragePersistencePolicy;
@@ -127,7 +130,7 @@ function renderDatabaseProvider(props: {
           props.createSQLiteRuntime,
           undefined,
           undefined,
-          undefined,
+          props.createLocalKeyring,
           undefined,
           undefined,
           props.storagePersistence,
@@ -211,11 +214,12 @@ test("ensureIdentityReady retries a failed identity database initialization", as
   }
 });
 
-test("the storage persistence policy threads into the database init", async () => {
+test("the storage persistence policy and keyring cipher key thread into init", async () => {
   const runtimeFactory = createRecordingSQLiteRuntimeFactory();
   const controlsReady = createDeferred();
   let controls: DatabaseControls | null = null;
   const view = renderDatabaseProvider({
+    createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
     onControls: (nextControls) => {
       controls = nextControls;
@@ -237,6 +241,10 @@ test("the storage persistence policy threads into the database init", async () =
       expect(options.persistence).toBe(
         PERSISTENT_STORAGE_POLICY.databasePersistence,
       );
+      // The cipher key must come from the keyring session, never a hardcoded
+      // value, now that the database is persisted to disk.
+      expect(options.key).toBe("test-sqlite-key");
+      expect(options.key).not.toBe("development-key");
     }
   } finally {
     view.unmount();

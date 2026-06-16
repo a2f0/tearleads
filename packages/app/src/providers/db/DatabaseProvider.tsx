@@ -16,12 +16,22 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
+import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import {
+  createSqliteCipherKeyResolver,
+  type ResolveSqliteCipherKey,
+} from "./sqliteCipherKey";
+import {
+  sqliteDbNameForNamespace,
+  sqliteDbNameForSigningFingerprint,
+} from "./sqliteDbName";
 import { usePersistentStoragePolicy } from "./usePersistentStoragePolicy";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
@@ -60,18 +70,17 @@ async function bootSQLiteRuntime(
   runtime: SQLiteRuntime,
   dbName: string,
   persistence: DatabasePersistenceMode,
+  resolveCipherKey: ResolveSqliteCipherKey,
   log: (message: string) => void,
 ) {
+  const backend = persistence === "memory" ? "in-memory" : "persistent OPFS";
   log("Loading SQLite3 WASM module...");
-  log(
-    `Initializing database: ${dbName} (${
-      persistence === "memory" ? "in-memory" : "persistent OPFS"
-    })`,
-  );
+  log(`Initializing database: ${dbName} (${backend})`);
+  const key = await resolveCipherKey();
   await runtime.client.init({
     dbName,
     cipher: "chacha20",
-    key: "development-key",
+    key,
     persistence,
   });
 }
@@ -86,16 +95,6 @@ function configureSdkSQLiteRuntime(
     id: runtime.id,
     status,
   });
-}
-
-function sqliteDbNameForNamespace(namespace: string): string {
-  const pathSegment =
-    namespace.trim().replace(/[^a-zA-Z0-9._-]+/g, "_") || "default";
-  return `/app-identity-bootstrap-${pathSegment}.db`;
-}
-
-function sqliteDbNameForSigningFingerprint(signingFingerprint: string): string {
-  return `/app-identity-${signingFingerprint}.db`;
 }
 
 function completeSQLiteRuntimeBoot(params: {
@@ -228,6 +227,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   killedRef: RefObject<boolean>;
   log: (message: string) => void;
   persistence: DatabasePersistenceMode;
+  resolveCipherKey: ResolveSqliteCipherKey;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
@@ -239,6 +239,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     killedRef,
     log,
     persistence,
+    resolveCipherKey,
     runtimeRef,
     targetDbNameRef,
     tearleads,
@@ -260,7 +261,13 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         runtimeRef.current = runtime;
         configureSdkSQLiteRuntime(tearleads, runtime, "idle");
 
-        void bootSQLiteRuntime(runtime, nextDbName, persistence, log)
+        void bootSQLiteRuntime(
+          runtime,
+          nextDbName,
+          persistence,
+          resolveCipherKey,
+          log,
+        )
           .then(() => {
             completeSQLiteRuntimeBoot({
               runtime,
@@ -293,6 +300,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       killedRef,
       log,
       persistence,
+      resolveCipherKey,
       runtimeRef,
       targetDbNameRef,
       tearleads,
@@ -388,6 +396,7 @@ function useManagedSQLiteRuntime(
   createSQLiteRuntime: () => SQLiteRuntime,
   dbName: string,
   persistencePolicy: StoragePersistencePolicy,
+  resolveCipherKey: ResolveSqliteCipherKey,
   log: (message: string) => void,
   tearleads: Tearleads,
 ): DatabaseContextValue {
@@ -410,6 +419,7 @@ function useManagedSQLiteRuntime(
     killedRef,
     log,
     persistence: persistencePolicy.databasePersistence,
+    resolveCipherKey,
     runtimeRef,
     targetDbNameRef,
     tearleads,
@@ -446,10 +456,15 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     localIdentityNamespace,
     storagePersistence,
   } = useAppHostConfig();
+  const { createLocalKeyring } = useLocalKeyringLock();
   const tearleads = useTearleads();
   const { log } = useLog();
   const identity = useTearleadsStoreSnapshot(tearleads.identity);
   const persistencePolicy = usePersistentStoragePolicy(storagePersistence, log);
+  const resolveCipherKey = useMemo(
+    () => createSqliteCipherKeyResolver(createLocalKeyring),
+    [createLocalKeyring],
+  );
   const dbName = sqliteDbNameForNamespace(
     localIdentityNamespace ?? "tearleads.app",
   );
@@ -461,6 +476,7 @@ export function DatabaseProvider({ children }: PropsWithChildren) {
     createSQLiteRuntime,
     activeDbName,
     persistencePolicy,
+    resolveCipherKey,
     log,
     tearleads,
   );
