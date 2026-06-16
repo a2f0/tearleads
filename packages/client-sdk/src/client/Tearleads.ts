@@ -12,6 +12,7 @@ import {
   createContainerContents,
 } from "./containerContents";
 import { Database, type DatabaseOptions } from "./database";
+import { createDeviceFirst, type DeviceFirst } from "./deviceFirst";
 import { createDocuments, type Documents } from "./documents";
 import { Events } from "./events";
 import {
@@ -44,6 +45,7 @@ export interface ClientOptions {
 export class Tearleads {
   readonly blobs: Blobs;
   readonly database: Database;
+  readonly deviceFirst: DeviceFirst;
   readonly documents: Documents;
   readonly events: Events;
   readonly containerContents: ContainerContents;
@@ -133,6 +135,7 @@ export class Tearleads {
       runtime,
     });
     this.containerContents = createContainerContents(runtime);
+    this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
     this.organizations = createOrganizations(runtime);
     this.userKeys = createUserKeys({
       apiClient: this.apiClient,

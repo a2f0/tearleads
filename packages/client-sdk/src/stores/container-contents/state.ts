@@ -159,13 +159,13 @@ export function updateContainerContentsStoreRuntime(
     return;
   }
 
+  // Gaining authentication within a domain scope does not change identity
+  // (the scope is keyed on the signing fingerprint), so the locally-loaded
+  // tree stays valid. Reconcile it in place instead of resetting — resetting
+  // here is what blanked Explorer and forced a re-read on first open after
+  // register. Identity/storage changes are handled by scope rotation and the
+  // dbStatus-loss branch above.
   if (
-    !previousRuntime.auth.isAuthenticated &&
-    nextRuntime.auth.isAuthenticated
-  ) {
-    resetContainerContentsStore(state);
-    state.lastEventCount = nextRuntime.state.events.length;
-  } else if (
     state.snapshot.ready &&
     didRegainContainerContentsSyncPrerequisites(previousRuntime, nextRuntime)
   ) {
