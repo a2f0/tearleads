@@ -3,6 +3,8 @@ import { TearleadsFrame } from "@tearleads/ui";
 import { StaticStatus } from "../components/StaticStatus";
 import "../styles/global.css";
 
+const isStaging = import.meta.env.PUBLIC_ENVIRONMENT === "staging";
+
 const statusItems = [
   { label: "Framework", value: "Astro + React" },
   { label: "Output", value: "Static HTML" },
@@ -20,6 +22,7 @@ const statusItems = [
       content="Tearleads website workspace, built as a fast static site."
     />
     <title>Tearleads</title>
+    {isStaging && <meta name="robots" content="noindex" />}
   </head>
   <body>
     <TearleadsFrame brandHref="/" footerEnd="Static HTML">

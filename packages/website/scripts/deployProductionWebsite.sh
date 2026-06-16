@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Deploy the Tearleads website to the staging server
+# Deploy the Tearleads website to the production server
 #
-# Builds the Astro website, resolves the staging server hostname and
+# Builds the Astro website, resolves the production server hostname and
 # username from Terraform outputs, and deploys the static files via rsync.
 
 set -euo pipefail
@@ -13,17 +13,20 @@ WEBSITE_DIR="$REPO_ROOT/packages/website"
 # shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
-load_secrets_env staging
+load_secrets_env prod
 validate_aws_env
 
 echo "Building website..."
-(cd "$WEBSITE_DIR" && PUBLIC_ENVIRONMENT=staging bun run build)
+(cd "$WEBSITE_DIR" && bun run build)
 
-STACK_DIR="$REPO_ROOT/terraform/stacks/staging/server"
-BACKEND_CONFIG="$(get_backend_config)"
-terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
+if [ -z "${SSH_TARGET:-}" ]; then
+  STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"
+  BACKEND_CONFIG="$(get_backend_config)"
+  terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
+  SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
+fi
+export SSH_TARGET
 
-SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
 REMOTE_PATH="/var/www/website"
 
 echo "Deploying website to $SSH_TARGET:$REMOTE_PATH ..."
