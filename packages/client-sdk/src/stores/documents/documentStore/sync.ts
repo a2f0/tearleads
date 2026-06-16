@@ -1,5 +1,8 @@
 import { encodeVersionVector, importUpdates } from "@tearleads/loro";
-import { uploadDocumentAttachment } from "../../../workflows/blobs";
+import {
+  type MultipartUploadProgressListener,
+  uploadDocumentAttachment,
+} from "../../../workflows/blobs";
 import {
   createDocumentWriterPublicKeyResolver,
   createRemoteDocument,
@@ -12,6 +15,10 @@ import {
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../../workflows/documents";
+import {
+  beginDomainSyncUploadLane,
+  type UploadSyncLane,
+} from "../../../workflows/sync";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
 import {
@@ -242,11 +249,14 @@ async function syncPendingAttachmentUpload(input: {
     return false;
   }
 
+  const { laneRef: uploadLaneRef, onMultipartProgress } =
+    createAttachmentUploadLaneReporter({ pendingAttachment, state });
+
   const writerProjection =
     state.writerProjection?.documentId === input.remoteDocumentId
       ? state.writerProjection
       : null;
-  let uploaded = await uploadDocumentAttachment({
+  const baseUploadInput = {
     apiClient: state.runtime.apiClient,
     author,
     bytes,
@@ -255,28 +265,26 @@ async function syncPendingAttachmentUpload(input: {
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
+    onMultipartProgress,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
+  };
+  let uploaded = await uploadDocumentAttachment({
+    ...baseUploadInput,
     writerProjection: writerProjection ?? undefined,
   });
   if (!uploaded && writerProjection) {
+    // The stale writer projection was rejected; retry once without it.
     state.writerProjection = null;
-    uploaded = await uploadDocumentAttachment({
-      apiClient: state.runtime.apiClient,
-      author,
-      bytes,
-      documentId: input.remoteDocumentId,
-      execSql: state.runtime.infra.execSql,
-      expectedBindingId:
-        input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
-        null,
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      slotId: pendingAttachment.slotId,
-      targetSecretKey: input.encapsulationKeyPair.secretKey,
-    });
+    uploaded = await uploadDocumentAttachment(baseUploadInput);
   }
   if (!uploaded) {
+    uploadLaneRef.current?.fail(
+      new Error(
+        `Attachment upload failed for slot ${pendingAttachment.slotId}.`,
+      ),
+    );
     return false;
   }
 
@@ -300,10 +308,42 @@ async function syncPendingAttachmentUpload(input: {
     slotId: pendingAttachment.slotId,
   });
   state.writerProjection = uploaded.writerProjection;
+  uploadLaneRef.current?.complete();
   state.runtime.util.log(
     `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
   );
   return true;
+}
+
+function getAttachmentUploadLaneLabel(name: string | null | undefined): string {
+  return name ? `Upload ${name}` : "Attachment upload";
+}
+
+// Surfaces a multipart upload as its own lane in the sync visualizer. The lane
+// is created lazily on the first progress event, so single-shot uploads (below
+// the multipart threshold) stay laneless. The holder keeps the lane reference
+// visible to the caller despite being assigned inside the progress callback.
+function createAttachmentUploadLaneReporter(input: {
+  pendingAttachment: PendingAttachmentRecord;
+  state: DocumentStoreState;
+}): {
+  laneRef: { current: UploadSyncLane | null };
+  onMultipartProgress: MultipartUploadProgressListener;
+} {
+  const { pendingAttachment, state } = input;
+  const laneRef: { current: UploadSyncLane | null } = { current: null };
+  const onMultipartProgress: MultipartUploadProgressListener = (progress) => {
+    if (!laneRef.current) {
+      laneRef.current = beginDomainSyncUploadLane(
+        state.runtime.state.domainScope,
+        `blob-upload:${pendingAttachment.slotId}`,
+        { label: getAttachmentUploadLaneLabel(pendingAttachment.name) },
+      );
+    }
+    laneRef.current.reportProgress(progress);
+  };
+
+  return { laneRef, onMultipartProgress };
 }
 
 async function requestRemoteDocumentSync(input: {

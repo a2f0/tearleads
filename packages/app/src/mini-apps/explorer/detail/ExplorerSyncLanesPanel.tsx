@@ -30,7 +30,11 @@ import {
 } from "../../../components/shared/MiniAppTable";
 import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
-import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../labels";
+import {
+  EXPLORER_LABELS,
+  getExplorerSyncLaneCountLabel,
+  getExplorerSyncLaneUploadProgressLabel,
+} from "../labels";
 
 interface SyncLaneSummary {
   complete: number;
@@ -116,9 +120,14 @@ function getExplorerSyncLaneStatusLabel(status: SyncLaneStatus): string {
 }
 
 function getSyncLanePhaseLabel(phase: SyncLanePhase): string {
-  return phase === "structural"
-    ? EXPLORER_LABELS.syncLanesStructuralPhase
-    : EXPLORER_LABELS.syncLanesDocumentPhase;
+  switch (phase) {
+    case "structural":
+      return EXPLORER_LABELS.syncLanesStructuralPhase;
+    case "blob":
+      return EXPLORER_LABELS.syncLanesBlobPhase;
+    case "document":
+      return EXPLORER_LABELS.syncLanesDocumentPhase;
+  }
 }
 
 function getSyncLaneLastActionLabel(action: SyncLaneLastAction): string {
@@ -223,24 +232,41 @@ function ExplorerSyncLaneStatusBadge(params: { status: SyncLaneStatus }) {
   );
 }
 
-function ExplorerSyncLaneProgress(params: { status: SyncLaneStatus }) {
-  const label = getExplorerSyncLaneStatusLabel(params.status);
-  const progress = getExplorerSyncLaneProgress(params.status);
+function getExplorerSyncLaneProgressPercent(lane: SyncLaneSnapshot): number {
+  if (lane.progress && lane.progress.bytesTotal > 0) {
+    const ratio = lane.progress.bytesUploaded / lane.progress.bytesTotal;
+    return Math.max(0, Math.min(100, Math.round(ratio * 100)));
+  }
+
+  return getExplorerSyncLaneProgress(lane.status);
+}
+
+function ExplorerSyncLaneProgress(params: { lane: SyncLaneSnapshot }) {
+  const { lane } = params;
+  const label = getExplorerSyncLaneStatusLabel(lane.status);
+  const percent = getExplorerSyncLaneProgressPercent(lane);
 
   return (
-    <div
-      aria-label={label}
-      aria-valuemax={100}
-      aria-valuemin={0}
-      aria-valuenow={progress}
-      className={classNames(
-        "explorer-sync-lane-progress",
-        `explorer-sync-lane-progress--${params.status}`,
-      )}
-      role="progressbar"
-    >
-      <span style={{ width: `${progress}%` }} />
-    </div>
+    <>
+      <div
+        aria-label={label}
+        aria-valuemax={100}
+        aria-valuemin={0}
+        aria-valuenow={percent}
+        className={classNames(
+          "explorer-sync-lane-progress",
+          `explorer-sync-lane-progress--${lane.status}`,
+        )}
+        role="progressbar"
+      >
+        <span style={{ width: `${percent}%` }} />
+      </div>
+      {lane.progress ? (
+        <MiniAppTableText muted>
+          {getExplorerSyncLaneUploadProgressLabel(lane.progress)}
+        </MiniAppTableText>
+      ) : null}
+    </>
   );
 }
 
@@ -275,7 +301,7 @@ function ExplorerSyncLaneRow(params: { lane: SyncLaneSnapshot }) {
         <ExplorerSyncLaneStatusBadge status={lane.status} />
       </MiniAppTableCell>
       <MiniAppTableCell>
-        <ExplorerSyncLaneProgress status={lane.status} />
+        <ExplorerSyncLaneProgress lane={lane} />
       </MiniAppTableCell>
       <MiniAppTableCell title={lane.lastError ?? undefined}>
         <ExplorerSyncLaneLastAction lane={lane} />
