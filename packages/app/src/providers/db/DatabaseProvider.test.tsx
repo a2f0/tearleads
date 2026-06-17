@@ -1,7 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
-import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import type { LocalKeyring } from "@tearleads/client-sdk";
+import {
+  PERSISTENT_STORAGE_POLICY,
+  type SQLiteRuntime,
+  type StoragePersistencePolicy,
+} from "@tearleads/client-sdk/sqlite";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
+import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import {
   AppHostConfig,
   type CreateSQLiteRuntimeFn,
@@ -73,6 +79,27 @@ function createRetryableSQLiteRuntimeFactory() {
   };
 }
 
+function createRecordingSQLiteRuntimeFactory() {
+  const initOptions: Array<Parameters<SQLiteRuntime["client"]["init"]>[0]> = [];
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      const client: SQLiteRuntime["client"] = {
+        destroy() {},
+        exec: async () => ({ ok: true, rows: [] }),
+        init: async (options) => {
+          initOptions.push(options);
+          return { ok: true };
+        },
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return { client, destroy: () => client.destroy(), id: "recording" };
+    },
+    getInitOptions: () => initOptions,
+  };
+}
+
 function DatabaseProbe({
   onControls,
 }: {
@@ -87,8 +114,10 @@ function DatabaseProbe({
 }
 
 function renderDatabaseProvider(props: {
+  readonly createLocalKeyring?: () => LocalKeyring;
   readonly createSQLiteRuntime: CreateSQLiteRuntimeFn;
   readonly onControls: (controls: DatabaseControls) => void;
+  readonly storagePersistence?: StoragePersistencePolicy;
 }) {
   const originalWebSocket = globalThis.WebSocket;
   Reflect.set(globalThis, "WebSocket", SilentWebSocket);
@@ -99,6 +128,12 @@ function renderDatabaseProvider(props: {
           "http://localhost:3001",
           "ws://localhost:3002",
           props.createSQLiteRuntime,
+          undefined,
+          undefined,
+          props.createLocalKeyring,
+          undefined,
+          undefined,
+          props.storagePersistence,
         )
       }
     >
@@ -175,6 +210,43 @@ test("ensureIdentityReady retries a failed identity database initialization", as
     });
   } finally {
     console.error = originalConsoleError;
+    view.unmount();
+  }
+});
+
+test("the storage persistence policy and keyring cipher key thread into init", async () => {
+  const runtimeFactory = createRecordingSQLiteRuntimeFactory();
+  const controlsReady = createDeferred();
+  let controls: DatabaseControls | null = null;
+  const view = renderDatabaseProvider({
+    createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    onControls: (nextControls) => {
+      controls = nextControls;
+      controlsReady.resolve();
+    },
+    storagePersistence: PERSISTENT_STORAGE_POLICY,
+  });
+
+  try {
+    await controlsReady.promise;
+    await act(async () => {
+      await (controls as DatabaseControls | null)?.ensureReady();
+    });
+
+    await waitFor(() => {
+      expect(runtimeFactory.getInitOptions().length).toBeGreaterThan(0);
+    });
+    for (const options of runtimeFactory.getInitOptions()) {
+      expect(options.persistence).toBe(
+        PERSISTENT_STORAGE_POLICY.databasePersistence,
+      );
+      // The cipher key must come from the keyring session, never a hardcoded
+      // value, now that the database is persisted to disk.
+      expect(options.key).toBe("test-sqlite-key");
+      expect(options.key).not.toBe("development-key");
+    }
+  } finally {
     view.unmount();
   }
 });

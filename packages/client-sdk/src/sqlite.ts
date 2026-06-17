@@ -58,6 +58,7 @@ export function createSQLiteRuntimeFromWorker(
   return createDatabaseRuntime(worker);
 }
 
+export type { DatabasePersistenceMode } from "@tearleads/sqlite-worker/types";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,
   type ClientSQLitePersistenceRuntime as SQLitePersistenceRuntime,
@@ -79,3 +80,12 @@ export {
   type SqlTableSchema,
   unavailableExecSql,
 } from "./data/sqlite/sqlSchema";
+export {
+  EPHEMERAL_STORAGE_POLICY,
+  isPersistentStorageSupported,
+  PERSISTENT_STORAGE_POLICY,
+  type RequestPersistentStorageResult,
+  requestPersistentStorage,
+  resolveStoragePersistencePolicy,
+  type StoragePersistencePolicy,
+} from "./data/sqlite/storagePersistence";

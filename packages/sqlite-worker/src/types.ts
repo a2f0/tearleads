@@ -5,10 +5,31 @@ export type CipherName =
   | "aes256cbc"
   | "ascon128";
 
+/**
+ * Where the database file lives.
+ *
+ * - `"memory"`: transient in-memory database (the historical default). Wiped on
+ *   every reload / worker restart.
+ * - `"opfs-sahpool"`: persistent database backed by the OPFS SyncAccessHandle
+ *   Pool VFS. Survives reloads (including hard / shift+reload) because the bytes
+ *   live in the Origin Private File System, not in the worker heap or the HTTP
+ *   cache. Requires neither `SharedArrayBuffer` nor COOP/COEP headers.
+ *
+ * When `"opfs-sahpool"` is requested but OPFS is unavailable (or the VFS fails
+ * to install), `initDatabase` throws rather than silently degrading to memory —
+ * persistence is opt-in and a missing backend is treated as a hard error.
+ */
+export type DatabasePersistenceMode = "memory" | "opfs-sahpool";
+
 export interface DatabaseWorkerInitOptions {
   dbName: string;
   cipher: CipherName;
   key: string;
+  /**
+   * Storage backend for the database. Defaults to `"memory"` to preserve the
+   * historical behavior for callers that do not opt into persistence.
+   */
+  persistence?: DatabasePersistenceMode;
 }
 
 export type SqliteBindValue = string | number | null;
