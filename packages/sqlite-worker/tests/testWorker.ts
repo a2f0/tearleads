@@ -1,5 +1,6 @@
 import {
   closeDatabase,
+  deleteDatabase,
   execDatabaseStatement,
   initDatabase,
 } from "../src/loadSqlite3";
@@ -26,5 +27,10 @@ registerDatabaseWorker({
     const current = db;
     db = null;
     await closeDatabase(current);
+  },
+  onDelete: async () => {
+    const current = db;
+    db = null;
+    await deleteDatabase(current);
   },
 });

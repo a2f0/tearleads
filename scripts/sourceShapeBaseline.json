@@ -181,10 +181,6 @@
       "lines": 680,
       "bytes": 21465
     },
-    "packages/app/src/mini-apps/identity-manager/IdentityManager.tsx": {
-      "lines": 787,
-      "bytes": 23342
-    },
     "packages/app/src/mini-apps/org-manager/DirectoryView.tsx": {
       "lines": 739,
       "bytes": 21631

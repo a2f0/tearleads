@@ -60,6 +60,10 @@ export interface DatabaseWorkerClosed {
   ok: true;
 }
 
+export interface DatabaseWorkerDeleted {
+  ok: true;
+}
+
 export interface DatabaseWorkerPingResult {
   ok: true;
   message: "pong";
@@ -91,6 +95,12 @@ export interface WorkerRequestMap {
   close: {
     params: undefined;
     result: DatabaseWorkerClosed;
+  };
+  // Destructive shutdown: close the db and WIPE the persistent VFS's OPFS files
+  // (not merely release the handles). Used to forget local data on logout.
+  delete: {
+    params: undefined;
+    result: DatabaseWorkerDeleted;
   };
 }
 

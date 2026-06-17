@@ -1,11 +1,5 @@
 import type { UserSession } from "@tearleads/client-sdk";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import type { ReactNode } from "react";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -30,28 +24,16 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
-import {
-  useBackupKeyPackageAction,
-  useRestoreKeyPackageAction,
-} from "../../identity/useKeyPackageActions";
-import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
-import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
-import { useIdentity } from "../../providers/identity/IdentityProvider";
-import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
-import { useLog } from "../../providers/logging/LogProvider";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import "./IdentityManager.css";
 import {
   IdentityActionToolbar,
   type IdentityActionToolbarProps,
-  type IdentityBusyState,
 } from "./IdentityManagerActionToolbar";
-import { getIdentityState } from "./IdentityManagerIdentityState";
+import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
+import { useIdentityManager } from "./IdentityManagerController";
+import { IdentityManagerLogoutDialog } from "./IdentityManagerLogoutDialog";
 import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
-import { useIdentityManagerRefreshMenu } from "./IdentityManagerRefreshMenu";
-
-const CURRENT_SESSION_MUTATION_ID = "current-session";
 
 const SESSION_TABLE_COLUMNS = [
   { header: "Status", id: "status", width: "6.5rem" },
@@ -119,218 +101,6 @@ function formatSessionIpAddresses(ipAddresses: ReadonlyArray<string>): string {
 
 function sessionIpAddressesTitle(ipAddresses: ReadonlyArray<string>): string {
   return ipAddresses.length === 0 ? "No recorded IPs" : ipAddresses.join(", ");
-}
-
-type CryptoSessionContextValue = ReturnType<typeof useCryptoSession>;
-type IdentityContextValue = ReturnType<typeof useIdentity>;
-type LogContextValue = ReturnType<typeof useLog>;
-type SdkClient = ReturnType<typeof useTearleads>;
-
-function useIdentityManagerSessionList({
-  canManageSessions,
-  logError,
-  tearleads,
-}: {
-  canManageSessions: boolean;
-  logError: LogContextValue["logError"];
-  tearleads: SdkClient;
-}) {
-  const [sessions, setSessions] = useState<UserSession[]>([]);
-  const [loadingSessions, setLoadingSessions] = useState(false);
-  const [sessionError, setSessionError] = useState<string | null>(null);
-  const requestIdRef = useRef(0);
-
-  const refreshSessions = useCallback(async () => {
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-
-    if (!canManageSessions) {
-      setSessions([]);
-      setSessionError(null);
-      setLoadingSessions(false);
-      return;
-    }
-
-    setLoadingSessions(true);
-    setSessionError(null);
-    try {
-      const nextSessions = await tearleads.session.listSessions();
-      if (requestIdRef.current === requestId) {
-        setSessions(nextSessions);
-      }
-    } catch (error: unknown) {
-      logError("Failed to load sessions", error);
-      if (requestIdRef.current === requestId) {
-        setSessionError("Could not load active sessions.");
-      }
-    } finally {
-      if (requestIdRef.current === requestId) {
-        setLoadingSessions(false);
-      }
-    }
-  }, [canManageSessions, logError, tearleads]);
-
-  useEffect(() => {
-    void refreshSessions();
-  }, [refreshSessions]);
-
-  return {
-    loadingSessions,
-    refreshSessions,
-    sessionError,
-    sessions,
-    setSessionError,
-    setSessions,
-  };
-}
-
-function useIdentityManagerSessionMutations({
-  clearSessions,
-  log,
-  logError,
-  logout,
-  refreshSessions,
-  setSessionError,
-  tearleads,
-}: {
-  clearSessions: () => void;
-  log: LogContextValue["log"];
-  logError: LogContextValue["logError"];
-  logout: CryptoSessionContextValue["logout"];
-  refreshSessions: () => Promise<void>;
-  setSessionError: (error: string | null) => void;
-  tearleads: SdkClient;
-}) {
-  const [mutatingSessionId, setMutatingSessionId] = useState<string | null>(
-    null,
-  );
-
-  const logoutCurrentSession = useCallback(async () => {
-    setMutatingSessionId(CURRENT_SESSION_MUTATION_ID);
-    setSessionError(null);
-    try {
-      const loggedOut = await tearleads.session.logoutRemote();
-      if (!loggedOut) {
-        setSessionError("Could not log out remote session.");
-        return;
-      }
-
-      log("Logged out");
-    } catch (error: unknown) {
-      logError("Failed to log out", error);
-      setSessionError("Could not log out remote session.");
-    } finally {
-      logout();
-      clearSessions();
-      setMutatingSessionId(null);
-    }
-  }, [clearSessions, log, logError, logout, setSessionError, tearleads]);
-
-  const endSession = useCallback(
-    async (session: UserSession) => {
-      if (session.isCurrent) {
-        await logoutCurrentSession();
-        return;
-      }
-
-      setMutatingSessionId(session.id);
-      setSessionError(null);
-      try {
-        const destroyed = await tearleads.session.destroySession(session.id);
-        if (!destroyed) {
-          setSessionError("Could not revoke session.");
-          return;
-        }
-
-        log("Session revoked");
-        await refreshSessions();
-      } catch (error: unknown) {
-        logError("Failed to revoke session", error);
-        setSessionError("Could not revoke session.");
-      } finally {
-        setMutatingSessionId(null);
-      }
-    },
-    [
-      log,
-      logError,
-      logoutCurrentSession,
-      refreshSessions,
-      setSessionError,
-      tearleads,
-    ],
-  );
-
-  return { endSession, logoutCurrentSession, mutatingSessionId };
-}
-
-function useIdentityManagerIdentityMutations({
-  clearSessionError,
-  clearSessions,
-  destroyKey,
-  logError,
-  logout,
-  login,
-  registerCurrentIdentity,
-}: {
-  clearSessionError: () => void;
-  clearSessions: () => void;
-  destroyKey: IdentityContextValue["destroyKey"];
-  logError: LogContextValue["logError"];
-  logout: CryptoSessionContextValue["logout"];
-  login: CryptoSessionContextValue["login"];
-  registerCurrentIdentity: () => Promise<boolean>;
-}) {
-  const [identityError, setIdentityError] = useState<string | null>(null);
-  const [identityBusy, setIdentityBusy] = useState<IdentityBusyState>(null);
-
-  const handleRegisterIdentity = useCallback(async () => {
-    setIdentityBusy("register");
-    setIdentityError(null);
-    try {
-      const registered = await registerCurrentIdentity();
-      if (!registered) {
-        setIdentityError("Could not register key.");
-      }
-    } catch (error: unknown) {
-      logError("Failed to register key", error);
-      setIdentityError("Could not register key.");
-    } finally {
-      setIdentityBusy(null);
-    }
-  }, [logError, registerCurrentIdentity]);
-
-  const authenticate = useCallback(async () => {
-    setIdentityBusy("authenticate");
-    setIdentityError(null);
-    try {
-      const authenticated = await login();
-      if (!authenticated) {
-        setIdentityError("Authentication failed.");
-      }
-    } catch (error: unknown) {
-      logError("Authentication failed", error);
-      setIdentityError("Authentication failed.");
-    } finally {
-      setIdentityBusy(null);
-    }
-  }, [logError, login]);
-
-  const destroyKeyPair = useCallback(() => {
-    logout();
-    destroyKey();
-    clearSessions();
-    setIdentityError(null);
-    clearSessionError();
-  }, [clearSessionError, clearSessions, destroyKey, logout]);
-
-  return {
-    authenticate,
-    destroyKeyPair,
-    handleRegisterIdentity,
-    identityBusy,
-    identityError,
-  };
 }
 
 function IdentitySection({
@@ -564,32 +334,15 @@ function IdentityManagerLayout({
   identityMutations,
   identityState,
   localKeyringLocked,
+  logoutBusy,
+  logoutDialog,
+  onConfirmLogout,
   registration,
   restoreFileInputRef,
   session,
   sessionList,
   sessionMutations,
-}: {
-  backupKeyPackage: () => Promise<void>;
-  canAuthenticate: boolean;
-  canExportKeyPackage: boolean;
-  canManageSessions: boolean;
-  handleRestoreFileChange: ReturnType<
-    typeof useRestoreKeyPackageAction
-  >["handleRestoreFileChange"];
-  handleRestoreKeyPackageClick: () => void;
-  identity: IdentityContextValue;
-  identityMutations: ReturnType<typeof useIdentityManagerIdentityMutations>;
-  identityState: string;
-  localKeyringLocked: boolean;
-  registration: ReturnType<typeof useRegisterCurrentIdentity>;
-  restoreFileInputRef: ReturnType<
-    typeof useRestoreKeyPackageAction
-  >["restoreFileInputRef"];
-  session: CryptoSessionContextValue;
-  sessionList: ReturnType<typeof useIdentityManagerSessionList>;
-  sessionMutations: ReturnType<typeof useIdentityManagerSessionMutations>;
-}) {
+}: ReturnType<typeof useIdentityManager>) {
   return (
     <MiniAppRoot className="identity-manager">
       <input
@@ -612,7 +365,7 @@ function IdentityManagerLayout({
             generateKey: identity.generateKey,
             handleAuthenticate: identityMutations.authenticate,
             handleDestroyKeyPair: identityMutations.destroyKeyPair,
-            handleLogoutCurrentSession: sessionMutations.logoutCurrentSession,
+            handleLogoutCurrentSession: logoutDialog.requestLogout,
             handleRegisterIdentity: identityMutations.handleRegisterIdentity,
             handleRestoreKeyPackageClick,
             hasSigningKeyPair: identity.signingKeyPair !== null,
@@ -639,89 +392,16 @@ function IdentityManagerLayout({
           sessions={sessionList.sessions}
         />
       </main>
+      <IdentityManagerLogoutDialog
+        busy={logoutBusy}
+        isOpen={logoutDialog.isOpen}
+        onCancel={logoutDialog.closeLogoutDialog}
+        onConfirm={onConfirmLogout}
+      />
     </MiniAppRoot>
   );
 }
 
 export function IdentityManager() {
-  const tearleads = useTearleads();
-  const session = useCryptoSession();
-  const identity = useIdentity();
-  const localKeyringLock = useLocalKeyringLock();
-  const { log, logError } = useLog();
-  const registration = useRegisterCurrentIdentity();
-  const backupKeyPackage = useBackupKeyPackageAction();
-  const restoreKeyPackage = useRestoreKeyPackageAction();
-  const canManageSessions =
-    session.isAuthenticated && session.authToken !== null;
-  const canExportKeyPackage =
-    identity.signingKeyPair !== null && identity.encapsulationKeyPair !== null;
-  const canAuthenticate =
-    identity.signingKeyPair !== null &&
-    session.userId !== null &&
-    !session.isAuthenticated;
-  const identityState = getIdentityState({
-    signingKeyPair: identity.signingKeyPair,
-    userId: session.userId,
-  });
-  const sessionList = useIdentityManagerSessionList({
-    canManageSessions,
-    logError,
-    tearleads,
-  });
-  const clearSessions = useCallback(
-    () => sessionList.setSessions([]),
-    [sessionList.setSessions],
-  );
-  const clearSessionError = useCallback(
-    () => sessionList.setSessionError(null),
-    [sessionList.setSessionError],
-  );
-  const sessionMutations = useIdentityManagerSessionMutations({
-    clearSessions,
-    log,
-    logError,
-    logout: session.logout,
-    refreshSessions: sessionList.refreshSessions,
-    setSessionError: sessionList.setSessionError,
-    tearleads,
-  });
-  const identityMutations = useIdentityManagerIdentityMutations({
-    clearSessionError,
-    clearSessions,
-    destroyKey: identity.destroyKey,
-    logError,
-    logout: session.logout,
-    login: session.login,
-    registerCurrentIdentity: registration.registerCurrentIdentity,
-  });
-
-  useIdentityManagerRefreshMenu({
-    canManageSessions,
-    loadingSessions: sessionList.loadingSessions,
-    mutatingSessionId: sessionMutations.mutatingSessionId,
-    refreshSessions: sessionList.refreshSessions,
-  });
-
-  return (
-    <IdentityManagerLayout
-      backupKeyPackage={backupKeyPackage}
-      canAuthenticate={canAuthenticate}
-      canExportKeyPackage={canExportKeyPackage}
-      canManageSessions={canManageSessions}
-      handleRestoreFileChange={restoreKeyPackage.handleRestoreFileChange}
-      handleRestoreKeyPackageClick={
-        restoreKeyPackage.handleRestoreKeyPackageClick
-      }
-      identity={identity}
-      identityMutations={identityMutations}
-      identityState={identityState}
-      localKeyringLocked={localKeyringLock.isLocked}
-      registration={registration}
-      restoreFileInputRef={restoreKeyPackage.restoreFileInputRef}
-      session={session}
-      sessionList={sessionList}
-      sessionMutations={sessionMutations}
-    />
-  );
+  return <IdentityManagerLayout {...useIdentityManager()} />;
 }

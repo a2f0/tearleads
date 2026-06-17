@@ -55,6 +55,7 @@ function createRetryableSQLiteRuntimeFactory() {
       const runtimeId = `runtime-${createCount}`;
       const client: SQLiteRuntime["client"] = {
         close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
         destroy() {
           destroyCount += 1;
         },
@@ -72,6 +73,7 @@ function createRetryableSQLiteRuntimeFactory() {
 
       return {
         client,
+        deleteData: async () => client.destroy(),
         destroy: () => client.destroy(),
         id: runtimeId,
         terminateNow: () => client.destroy(),
@@ -88,6 +90,7 @@ function createRecordingSQLiteRuntimeFactory() {
     createSQLiteRuntime: (): SQLiteRuntime => {
       const client: SQLiteRuntime["client"] = {
         close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
         destroy() {},
         exec: async () => ({ ok: true, rows: [] }),
         init: async (options) => {
@@ -99,6 +102,7 @@ function createRecordingSQLiteRuntimeFactory() {
 
       return {
         client,
+        deleteData: async () => client.destroy(),
         destroy: () => client.destroy(),
         id: "recording",
         terminateNow: () => client.destroy(),

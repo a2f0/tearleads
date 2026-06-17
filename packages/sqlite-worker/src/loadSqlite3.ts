@@ -1,12 +1,9 @@
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import sqlite3InitModule from "@tearleads/sqlite-instance/jswasm/sqlite3.mjs";
+import { runWithBunFetchLock } from "./bunFetchLock";
 import type {
   DatabasePersistenceMode,
-  DatabaseWorkerExecOptions,
   DatabaseWorkerInitOptions,
-  SqliteArrayRow,
-  SqliteObjectRow,
-  SqliteRow,
 } from "./types";
 
 type SAHPoolUtil = Awaited<ReturnType<Sqlite3Static["installOpfsSAHPoolVfs"]>>;
@@ -136,7 +133,6 @@ const persistentVfsPromisesByStorageKey = new Map<
   Promise<PersistentVfs>
 >();
 const storageKeyByDb = new WeakMap<object, string>();
-let sqliteInitQueue = Promise.resolve();
 
 function sahPoolStorageSegmentForDbName(dbName: string): string {
   const segment = dbName
@@ -166,38 +162,6 @@ function persistentVfsStorageKey(storage: {
   vfsName: string;
 }): string {
   return `${storage.vfsName}\n${storage.directory}`;
-}
-
-function getBunFetch(): typeof fetch | null {
-  return typeof Bun === "undefined" ? null : Bun.fetch;
-}
-
-function runWithBunFetchLock<T>(operation: () => Promise<T>): Promise<T> {
-  const bunFetch = getBunFetch();
-  if (!bunFetch) {
-    return operation();
-  }
-
-  const nextOperation = sqliteInitQueue.then(async () => {
-    const previousFetch = globalThis.fetch;
-    // The generated SQLite/Emscripten loader calls bare fetch() while loading
-    // sqlite3.wasm. In Bun, temporarily routing that global fetch call through
-    // Bun.fetch keeps WASM loading working without patching generated files.
-    globalThis.fetch = bunFetch;
-
-    try {
-      return await operation();
-    } finally {
-      globalThis.fetch = previousFetch;
-    }
-  });
-
-  sqliteInitQueue = nextOperation.then(
-    () => undefined,
-    () => undefined,
-  );
-
-  return nextOperation;
 }
 
 export async function loadSqlite3(): Promise<Sqlite3Static> {
@@ -427,22 +391,31 @@ export async function initDatabase(
  * one transient contention retry next boot, which `installSahPoolVfsWithRetry`
  * already absorbs.
  */
-export async function closeDatabase(
+/**
+ * Shared teardown for {@link closeDatabase} and {@link deleteDatabase}: close
+ * the db, drop its bookkeeping, then run `releaseVfs` against each persistent
+ * pool that should be released. A specific db releases only its own pool; a
+ * `null` db is the worker-level fallback that releases every installed pool.
+ *
+ * Best-effort and never throws — the caller terminates the worker right after,
+ * so a cleanup failure must not become an unhandled rejection.
+ */
+async function teardownDatabase(
   db: InstanceType<Sqlite3Static["oo1"]["DB"]> | null,
+  releaseVfs: (vfs: PersistentVfs) => void | Promise<void>,
 ): Promise<void> {
+  const storageKey = db ? storageKeyByDb.get(db) : undefined;
+
   try {
     db?.close();
   } catch {
-    // The db may already be closed or in a bad state; ignore — we are tearing
-    // down regardless.
+    // Already closed or in a bad state; we are tearing down regardless.
   }
 
-  // Release OPFS handles after closing the db. Specific db closes pause only
-  // their pool; `null` is the worker-level fallback that pauses every known pool.
-  const storageKey = db ? storageKeyByDb.get(db) : undefined;
   if (db) {
     storageKeyByDb.delete(db);
   }
+
   const vfsPromises = storageKey
     ? [persistentVfsPromisesByStorageKey.get(storageKey)]
     : db
@@ -459,40 +432,41 @@ export async function closeDatabase(
       continue;
     }
     try {
-      const vfs = await vfsPromise;
-      vfs.poolUtil.pauseVfs();
+      await releaseVfs(await vfsPromise);
     } catch {
-      // The install may have failed, or pausing may throw; either way the handles
-      // are released when the worker is terminated and the next boot falls back
-      // to the contention retry. Swallow so this stays a no-throw best-effort
-      // teardown.
+      // The install may have failed, or release may throw; swallow so this stays
+      // a no-throw best-effort teardown. Terminating the worker releases the
+      // handles regardless, and the next boot's contention retry covers the gap.
     }
   }
 }
 
-export function execDatabaseStatement(
-  db: InstanceType<Sqlite3Static["oo1"]["DB"]>,
-  options: DatabaseWorkerExecOptions,
-): SqliteRow[] {
-  if (options.rowMode === "array") {
-    const rows: SqliteArrayRow[] = [];
-
-    db.exec(options.sql, {
-      ...(options.bind !== undefined ? { bind: options.bind } : {}),
-      rowMode: "array",
-      resultRows: rows,
-    });
-
-    return rows;
-  }
-
-  const rows: SqliteObjectRow[] = [];
-
-  db.exec(options.sql, {
-    ...(options.bind !== undefined ? { bind: options.bind } : {}),
-    rowMode: "object",
-    resultRows: rows,
+/**
+ * Gracefully tear down a database, releasing (but not deleting) the SAHPool
+ * VFS's OPFS access handles via `pauseVfs()` so the next worker can acquire them
+ * without losing the lock-contention race. See {@link teardownDatabase}.
+ */
+export function closeDatabase(
+  db: InstanceType<Sqlite3Static["oo1"]["DB"]> | null,
+): Promise<void> {
+  return teardownDatabase(db, (vfs) => {
+    vfs.poolUtil.pauseVfs();
   });
-
-  return rows;
 }
+
+/**
+ * Permanently destroy a persistent database: close it, then `wipeFiles()` +
+ * `removeVfs()` so the OPFS-backed bytes are gone (not merely released for the
+ * next worker, as {@link closeDatabase} does). For an in-memory database there
+ * is nothing on disk, so this is just a close.
+ */
+export function deleteDatabase(
+  db: InstanceType<Sqlite3Static["oo1"]["DB"]> | null,
+): Promise<void> {
+  return teardownDatabase(db, async (vfs) => {
+    await vfs.poolUtil.wipeFiles();
+    await vfs.poolUtil.removeVfs();
+  });
+}
+
+export { execDatabaseStatement } from "./executeStatement";

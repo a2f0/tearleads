@@ -97,3 +97,35 @@ export function isOpfsBlobStoreSupported(): boolean {
 export function createOpfsBlobStore(namespace: string): BlobStore {
   return new OpfsBlobStore(namespace);
 }
+
+/**
+ * Permanently remove the OPFS directory backing a namespace's blob store
+ * (`tearleads/<namespace>`), discarding every stored blob for that namespace.
+ * Used to forget local data on logout. No-op when OPFS is unavailable or the
+ * directory was never created; never throws on a missing directory.
+ */
+export async function purgeOpfsBlobStore(namespace: string): Promise<void> {
+  if (!isOpfsBlobStoreSupported()) {
+    return;
+  }
+
+  const rootDirectory = await navigator.storage.getDirectory();
+  let appDirectory: FileSystemDirectoryHandle;
+  try {
+    appDirectory = await rootDirectory.getDirectoryHandle("tearleads");
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "NotFoundError") {
+      return;
+    }
+    throw error;
+  }
+
+  try {
+    await appDirectory.removeEntry(namespace, { recursive: true });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "NotFoundError") {
+      return;
+    }
+    throw error;
+  }
+}

@@ -24,7 +24,7 @@ import {
 } from "./localCryptoSessionPersistence";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
 
-interface CryptoSessionContextValue {
+export interface CryptoSessionContextValue {
   userId: string | null;
   organizationId: string | null;
   containerId: string | null;
