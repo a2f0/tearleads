@@ -49,6 +49,14 @@ export interface ReconciliationService {
     force?: boolean,
   ) => void;
   enqueueIdleBackfill: () => void;
+  /**
+   * Forget which containers were reconciled this session so the next enqueue of
+   * each re-validates against the server exactly once. Call on the
+   * cannot-reconcile → can-reconcile edge (relogin/reconnect): the discovered
+   * set is a per-session suppression cache, and a previously-visited container
+   * may have changed remotely while this client could not reach the server.
+   */
+  resetDiscovered: () => void;
   reconcileNow: () => Promise<void>;
   stop: () => void;
 }
@@ -233,6 +241,9 @@ export function createReconciliationService(
     },
     enqueueContainer,
     enqueueIdleBackfill,
+    resetDiscovered: () => {
+      state.discoveredContainerIds.clear();
+    },
     reconcileNow: async () => {
       if (!canReconcile(host.getRuntimeStatus())) {
         return;
@@ -255,6 +266,10 @@ export function createReconciliationService(
       state.active = false;
       state.queue.clear();
       state.forcedContainerIds.clear();
+      // Drop the per-session discovered suppression cache too: a stopped
+      // reconciler is being torn down (scope/identity change) or paused across
+      // a prerequisite loss, after which every container must be re-validated.
+      state.discoveredContainerIds.clear();
     },
   };
 }

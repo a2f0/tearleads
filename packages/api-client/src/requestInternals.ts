@@ -175,3 +175,7 @@ export function isRefreshableSessionError(
     (error === "Session expired" || error === "Invalid session data")
   );
 }
+
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}

@@ -361,7 +361,10 @@ testApiClient(
 
     await expect(client.getEncapsulationKey("user-1")).resolves.toBeNull();
 
+    // The thrown renewal error is surfaced as a diagnostic (so a failing silent
+    // re-auth is not swallowed) in addition to the downstream 401.
     expect(errors).toEqual([
+      "Session refresh failed: local key unavailable",
       "GET /auth/encapsulation-key/user-1: 401 Unauthorized: Session expired",
     ]);
   },
