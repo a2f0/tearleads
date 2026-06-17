@@ -21,6 +21,8 @@ export interface RegisterDatabaseWorkerOptions {
   ) =>
     | Promise<DatabaseWorkerExecResult["rows"]>
     | DatabaseWorkerExecResult["rows"];
+  // Graceful shutdown hook: close the db and release persistent-VFS handles.
+  onClose?: () => Promise<void> | void;
 }
 
 export function registerDatabaseWorker(
@@ -71,6 +73,13 @@ export async function handleRequest(
           ok: true,
           rows: (await options.onExec?.(message.params)) ?? [],
         },
+      };
+
+    case "close":
+      await options.onClose?.();
+      return {
+        id: message.id,
+        result: { ok: true },
       };
   }
 }

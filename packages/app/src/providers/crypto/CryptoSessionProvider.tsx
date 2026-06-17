@@ -22,6 +22,7 @@ import {
   restorePersistedCryptoSession,
   useLocalCryptoSessionPersistence,
 } from "./localCryptoSessionPersistence";
+import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
 
 interface CryptoSessionContextValue {
   userId: string | null;
@@ -98,27 +99,6 @@ function useBootstrapCryptoSessionContainer(
     signingFingerprint,
     tearleads,
   ]);
-}
-
-function useEnsureDatabaseForIdentity(
-  signingFingerprint: string | null,
-  dbStatus: ReturnType<typeof useDatabase>["status"],
-  ensureIdentityDatabaseReady: ReturnType<
-    typeof useDatabase
-  >["ensureIdentityReady"],
-  logError: (message: string, error: unknown) => void,
-) {
-  useEffect(() => {
-    if (!signingFingerprint || dbStatus !== "idle") {
-      return;
-    }
-
-    void ensureIdentityDatabaseReady(signingFingerprint).catch(
-      (error: unknown) => {
-        logError("Failed to initialize SQLite for local identity", error);
-      },
-    );
-  }, [dbStatus, ensureIdentityDatabaseReady, logError, signingFingerprint]);
 }
 
 function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {

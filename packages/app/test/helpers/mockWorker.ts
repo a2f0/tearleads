@@ -53,6 +53,13 @@ export class MockWorker extends EventTarget {
 
           return execDatabaseStatement(this.db, options);
         },
+        // Mirror the real worker's graceful close so the runtime's close→terminate
+        // teardown path is exercised in app tests too. The in-memory test db has no
+        // OPFS handles to release; closing it is the meaningful part.
+        onClose: () => {
+          this.db?.close();
+          this.db = null;
+        },
       })) satisfies WorkerResponse;
 
       this.dispatchEvent(
