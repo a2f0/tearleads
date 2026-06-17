@@ -27,6 +27,24 @@ export interface RegisterDatabaseWorkerOptions {
   onDelete?: () => Promise<void> | void;
 }
 
+function isWorkerRequest(value: unknown): value is WorkerRequest {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const id = Reflect.get(value, "id");
+  const method = Reflect.get(value, "method");
+
+  return (
+    typeof id === "number" &&
+    (method === "ping" ||
+      method === "init" ||
+      method === "exec" ||
+      method === "close" ||
+      method === "delete")
+  );
+}
+
 export function registerDatabaseWorker(
   scope: DatabaseWorkerScope,
   options: RegisterDatabaseWorkerOptions = {},
@@ -34,6 +52,10 @@ export function registerDatabaseWorker(
   scope.addEventListener(
     "message",
     async (event: MessageEvent<WorkerRequest>) => {
+      if (!isWorkerRequest(event.data)) {
+        return;
+      }
+
       try {
         const response = await handleRequest(event.data, options);
         scope.postMessage(response);

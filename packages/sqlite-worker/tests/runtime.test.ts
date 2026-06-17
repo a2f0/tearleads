@@ -44,6 +44,59 @@ class MockWorker extends EventTarget {
   }
 }
 
+class MockSharedWorkerPort extends EventTarget {
+  readonly messages: WorkerMessage[] = [];
+  closed = false;
+  started = false;
+
+  start() {
+    this.started = true;
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  postMessage(message: WorkerMessage) {
+    this.messages.push(message);
+    if (message.method === "close" || message.method === "delete") {
+      queueMicrotask(() => {
+        this.dispatchEvent(
+          new MessageEvent("message", {
+            data: { id: message.id, result: { ok: true } },
+          }),
+        );
+      });
+    }
+  }
+}
+
+class MockSharedWorker extends EventTarget {
+  static lastConstructed: MockSharedWorker | null = null;
+  static lastScriptUrl: string | URL | null = null;
+  static lastOptions:
+    | {
+        name?: string;
+        type?: "classic" | "module";
+      }
+    | undefined;
+
+  readonly port = new MockSharedWorkerPort();
+
+  constructor(
+    scriptURL: string | URL,
+    options?: {
+      name?: string;
+      type?: "classic" | "module";
+    },
+  ) {
+    super();
+    MockSharedWorker.lastConstructed = this;
+    MockSharedWorker.lastScriptUrl = scriptURL;
+    MockSharedWorker.lastOptions = options;
+  }
+}
+
 test("createModuleDatabaseRuntime creates a module worker and destroys it", async () => {
   const runtime = createModuleDatabaseRuntime({
     workerConstructor: MockWorker,
@@ -81,6 +134,44 @@ test("createModuleDatabaseRuntime creates a module worker and destroys it", asyn
     "Database worker client has been destroyed.",
   );
   expect(worker?.terminated).toBe(true);
+});
+
+test("createModuleDatabaseRuntime creates a shared module worker when supplied", async () => {
+  const runtime = createModuleDatabaseRuntime({
+    sharedWorkerConstructor: MockSharedWorker,
+    workerUrl: "/custom-worker.js",
+  });
+
+  const pendingPing = runtime.client.ping();
+  const port = MockSharedWorker.lastConstructed?.port;
+
+  expect(MockSharedWorker.lastScriptUrl).toBe("/custom-worker.js");
+  expect(MockSharedWorker.lastOptions).toEqual({
+    name: "tearleads-sqlite-worker",
+    type: "module",
+  });
+  expect(port?.started).toBe(true);
+  expect(port?.messages).toEqual([
+    {
+      id: 1,
+      method: "ping",
+      params: undefined,
+    },
+  ]);
+
+  runtime.destroy();
+
+  expect(port?.messages.at(-1)).toEqual({
+    id: 2,
+    method: "close",
+    params: undefined,
+  });
+  expect(port?.closed).toBe(false);
+
+  await expect(pendingPing).rejects.toThrow(
+    "Database worker client has been destroyed.",
+  );
+  expect(port?.closed).toBe(true);
 });
 
 test("deleteData posts a delete request, then terminates the worker", async () => {

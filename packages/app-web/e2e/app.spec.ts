@@ -93,3 +93,27 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
     ),
   ).toHaveCount(0);
 });
+
+test("same persisted identity can boot in two tabs", async ({
+  context,
+  page,
+}) => {
+  await page.goto("/");
+
+  const firstPane = visiblePane(page, "left");
+  await generateKeyPair(page, firstPane);
+  await waitForPaneBooted(firstPane);
+  const publicKey = await panePublicKey(firstPane);
+
+  const secondPage = await context.newPage();
+  await secondPage.goto("/");
+
+  const secondPane = visiblePane(secondPage, "left");
+  await waitForPaneBooted(secondPane);
+  await expect(secondPane.locator(".pane-content")).toContainText(
+    `publicKey: ${publicKey}`,
+  );
+  await expect(
+    secondPane.getByText("Local identity key package restored"),
+  ).toBeVisible({ timeout: 20_000 });
+});
