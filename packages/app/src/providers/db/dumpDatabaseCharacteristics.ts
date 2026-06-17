@@ -24,30 +24,32 @@ async function readDatabaseCharacteristics(
     { rowMode: "array" },
   );
 
-  const characteristics: TableCharacteristic[] = [];
-  for (const [name] of tableRows) {
-    if (typeof name !== "string") {
-      continue;
-    }
+  // COUNT(*) is an O(N) scan per table, so issue the counts concurrently rather
+  // than serially to keep boot-blocking time down. The worker serializes the
+  // reads on its single connection, but this still pipelines the main-thread <->
+  // worker round-trips instead of paying each latency in sequence.
+  const characteristics = await Promise.all(
+    tableRows.map(async ([name]): Promise<TableCharacteristic | null> => {
+      if (typeof name !== "string") {
+        return null;
+      }
 
-    // Table names come from sqlite_master, so quote-escape rather than bind
-    // (identifiers cannot be parameterized) and count rows for each one.
-    const quoted = `"${name.replace(/"/g, '""')}"`;
-    const countRows = await execSql(
-      `SELECT COUNT(*) FROM ${quoted}`,
-      undefined,
-      {
-        rowMode: "array",
-      },
-    );
-    const rows = countRows[0]?.[0];
-    characteristics.push({
-      name,
-      rows: typeof rows === "number" ? rows : 0,
-    });
-  }
+      // Table names come from sqlite_master, so quote-escape rather than bind
+      // (identifiers cannot be parameterized) and count rows for each one.
+      const quoted = `"${name.replace(/"/g, '""')}"`;
+      const countRows = await execSql(
+        `SELECT COUNT(*) FROM ${quoted}`,
+        undefined,
+        { rowMode: "array" },
+      );
+      const rows = countRows[0]?.[0];
+      return { name, rows: typeof rows === "number" ? rows : 0 };
+    }),
+  );
 
-  return characteristics;
+  return characteristics.filter(
+    (entry): entry is TableCharacteristic => entry !== null,
+  );
 }
 
 // Logs the mounted database's table list and per-table row counts. Intended to
