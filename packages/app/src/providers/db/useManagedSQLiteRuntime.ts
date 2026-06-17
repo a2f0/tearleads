@@ -3,10 +3,11 @@ import type {
   DatabaseStatus,
   Tearleads,
 } from "@tearleads/client-sdk";
-import type {
-  DatabasePersistenceMode,
-  SQLiteRuntime,
-  StoragePersistencePolicy,
+import {
+  type DatabasePersistenceMode,
+  purgeOpfsSqliteDatabase,
+  type SQLiteRuntime,
+  type StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
@@ -55,9 +56,12 @@ async function purgeRuntime(
   runtimeRef: RefObject<SQLiteRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
+  targetDbNameRef: RefObject<string>,
   tearleads: Tearleads,
 ) {
   const runtime = runtimeRef.current;
+  // The db name to wipe: the live runtime's db, else the target we would boot.
+  const dbName = currentDbNameRef.current ?? targetDbNameRef.current;
   runtimeRef.current = null;
   bootingRef.current = false;
   currentDbNameRef.current = null;
@@ -66,6 +70,12 @@ async function purgeRuntime(
     // Wipe the persisted OPFS files (not just release the handles) before the
     // worker terminates. deleteData() awaits the worker's confirmation.
     await runtime.deleteData();
+  } else if (dbName) {
+    // No live worker (cleared/killed/failed to boot), so deleteData() cannot
+    // run. Fall back to deleting the database's SAHPool OPFS directory from the
+    // main thread so opting out of keeping local data still wipes SQLite. Safe
+    // because no worker holds the access handles here.
+    await purgeOpfsSqliteDatabase(dbName);
   }
 
   tearleads.database.clear("idle");
@@ -190,13 +200,27 @@ function usePurgeSQLiteRuntime(params: {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   currentDbNameRef: RefObject<string | null>;
+  targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
 }) {
-  const { runtimeRef, bootingRef, currentDbNameRef, tearleads } = params;
+  const {
+    runtimeRef,
+    bootingRef,
+    currentDbNameRef,
+    targetDbNameRef,
+    tearleads,
+  } = params;
 
   return useCallback(
-    () => purgeRuntime(runtimeRef, bootingRef, currentDbNameRef, tearleads),
-    [bootingRef, currentDbNameRef, runtimeRef, tearleads],
+    () =>
+      purgeRuntime(
+        runtimeRef,
+        bootingRef,
+        currentDbNameRef,
+        targetDbNameRef,
+        tearleads,
+      ),
+    [bootingRef, currentDbNameRef, runtimeRef, targetDbNameRef, tearleads],
   );
 }
 
@@ -425,6 +449,7 @@ export function useManagedSQLiteRuntime(
     runtimeRef,
     bootingRef,
     currentDbNameRef,
+    targetDbNameRef,
     tearleads,
   });
   const spawnRuntimeForDbName = useSpawnSQLiteRuntimeForDbName({

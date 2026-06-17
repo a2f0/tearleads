@@ -7,6 +7,7 @@
     "./client": "./src/client.ts",
     "./default-thread": "./src/defaultThread.ts",
     "./load-sqlite3": "./src/loadSqlite3.ts",
+    "./purge-opfs-database": "./src/purgeOpfsDatabase.ts",
     "./runtime": "./src/runtime.ts",
     "./types": "./src/types.ts",
     "./worker": "./src/worker.ts",

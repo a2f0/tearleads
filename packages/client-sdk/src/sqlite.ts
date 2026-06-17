@@ -58,6 +58,7 @@ export function createSQLiteRuntimeFromWorker(
   return createDatabaseRuntime(worker);
 }
 
+export { purgeOpfsSqliteDatabase } from "@tearleads/sqlite-worker/purge-opfs-database";
 export type { DatabasePersistenceMode } from "@tearleads/sqlite-worker/types";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,

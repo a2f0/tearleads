@@ -392,12 +392,17 @@ function IdentityManagerLayout({
           sessions={sessionList.sessions}
         />
       </main>
-      <IdentityManagerLogoutDialog
-        busy={logoutBusy}
-        isOpen={logoutDialog.isOpen}
-        onCancel={logoutDialog.closeLogoutDialog}
-        onConfirm={onConfirmLogout}
-      />
+      {logoutDialog.isOpen && (
+        // Mount only while open so the dialog's keep-local-data checkbox resets
+        // to its safe default (checked) on every open — a cancelled "wipe"
+        // choice must not silently persist into the next logout.
+        <IdentityManagerLogoutDialog
+          busy={logoutBusy}
+          isOpen={logoutDialog.isOpen}
+          onCancel={logoutDialog.closeLogoutDialog}
+          onConfirm={onConfirmLogout}
+        />
+      )}
     </MiniAppRoot>
   );
 }
