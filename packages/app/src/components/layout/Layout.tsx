@@ -87,6 +87,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
             active={activeWorkspace === id}
             navigationMode={navigationMode}
             split={split}
+            workspaceId={id}
           />
         ))}
       </TearleadsFrame>

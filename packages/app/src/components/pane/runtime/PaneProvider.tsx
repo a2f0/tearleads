@@ -19,6 +19,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
     disableLocalIdentityPersistence,
     localIdentityNamespace,
     navigationMode,
+    storagePersistence,
     wsUrl,
   } = hostConfig;
   const paneLocalIdentityNamespace = disableLocalIdentityPersistence
@@ -35,6 +36,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
         createLocalKeyring,
         disableLocalIdentityPersistence,
         navigationMode,
+        storagePersistence,
       ),
     [
       apiBaseUrl,
@@ -46,6 +48,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
       navigationMode,
       paneLocalIdentityNamespace,
       side,
+      storagePersistence,
       wsUrl,
     ],
   );
