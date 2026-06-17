@@ -1,4 +1,8 @@
-import { execDatabaseStatement, initDatabase } from "../src/loadSqlite3";
+import {
+  closeDatabase,
+  execDatabaseStatement,
+  initDatabase,
+} from "../src/loadSqlite3";
 import { registerDatabaseWorker } from "../src/worker";
 
 let db: Awaited<ReturnType<typeof initDatabase>> | null = null;
@@ -17,5 +21,10 @@ registerDatabaseWorker({
     }
 
     return execDatabaseStatement(db, options);
+  },
+  onClose: async () => {
+    const current = db;
+    db = null;
+    await closeDatabase(current);
   },
 });

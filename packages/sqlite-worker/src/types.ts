@@ -56,6 +56,10 @@ export interface DatabaseWorkerReady {
   ok: true;
 }
 
+export interface DatabaseWorkerClosed {
+  ok: true;
+}
+
 export interface DatabaseWorkerPingResult {
   ok: true;
   message: "pong";
@@ -80,6 +84,13 @@ export interface WorkerRequestMap {
   exec: {
     params: DatabaseWorkerExecOptions;
     result: DatabaseWorkerExecResult;
+  };
+  // Graceful shutdown: close the db and release the persistent VFS's OPFS access
+  // handles before the worker is terminated, so the next worker (reload / other
+  // tab) can acquire them without losing the SAHPool lock-contention race.
+  close: {
+    params: undefined;
+    result: DatabaseWorkerClosed;
   };
 }
 

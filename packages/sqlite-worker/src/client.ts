@@ -1,4 +1,5 @@
 import type {
+  DatabaseWorkerClosed,
   DatabaseWorkerExecOptions,
   DatabaseWorkerExecResult,
   DatabaseWorkerInitOptions,
@@ -13,6 +14,12 @@ export interface DatabaseWorkerClient {
   ping(): Promise<DatabaseWorkerPingResult>;
   init(options: DatabaseWorkerInitOptions): Promise<DatabaseWorkerReady>;
   exec(options: DatabaseWorkerExecOptions): Promise<DatabaseWorkerExecResult>;
+  /**
+   * Ask the worker to gracefully release its database and persistent-VFS OPFS
+   * handles. Resolves when the worker confirms; callers terminate the worker
+   * after this so the next worker can acquire the handles without contention.
+   */
+  close(): Promise<DatabaseWorkerClosed>;
   destroy(): void;
 }
 
@@ -101,6 +108,10 @@ export function createDatabaseWorkerClient(
     params: DatabaseWorkerExecOptions,
   ): Promise<DatabaseWorkerExecResult>;
   function request(
+    method: "close",
+    params: undefined,
+  ): Promise<DatabaseWorkerClosed>;
+  function request(
     method: WorkerMethod,
     params: WorkerRequestMap[WorkerMethod]["params"],
   ): Promise<WorkerRequestMap[WorkerMethod]["result"]> {
@@ -134,6 +145,9 @@ export function createDatabaseWorkerClient(
     },
     exec(options) {
       return request("exec", options);
+    },
+    close() {
+      return request("close", undefined);
     },
     destroy() {
       if (isDestroyed) {

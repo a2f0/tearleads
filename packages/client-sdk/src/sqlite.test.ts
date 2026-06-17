@@ -30,7 +30,20 @@ class MockWorker extends EventTarget {
   }
 
   postMessage(message: unknown) {
-    this.messages.push(message as WorkerMessage);
+    const workerMessage = message as WorkerMessage;
+    this.messages.push(workerMessage);
+    // Ack the graceful-shutdown request so destroy() proceeds to terminate
+    // immediately instead of waiting out its fallback timeout. The runtime now
+    // closes the worker (releasing its OPFS handles) before terminating it.
+    if (workerMessage.method === "close") {
+      queueMicrotask(() => {
+        this.dispatchEvent(
+          new MessageEvent("message", {
+            data: { id: workerMessage.id, result: { ok: true } },
+          }),
+        );
+      });
+    }
   }
 
   terminate() {
@@ -59,10 +72,13 @@ test("SQLite facade exposes the default module worker runtime factory", async ()
 
   runtime.destroy();
 
-  expect(worker?.terminated).toBe(true);
+  // destroy() gracefully closes before terminating, so termination is no longer
+  // synchronous; it completes after the worker acks the close, at which point the
+  // pending ping is rejected.
   await expect(pendingPing).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
+  expect(worker?.terminated).toBe(true);
 });
 
 test("SQLite facade wraps a host-created worker explicitly", async () => {
@@ -80,10 +96,10 @@ test("SQLite facade wraps a host-created worker explicitly", async () => {
 
   runtime.destroy();
 
-  expect(worker.terminated).toBe(true);
   await expect(pendingPing).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
+  expect(worker.terminated).toBe(true);
 
   const compatibilityWorker = new MockWorker("/compat-worker.js");
   const compatibilityRuntime = createSQLiteRuntime(compatibilityWorker);
@@ -91,10 +107,10 @@ test("SQLite facade wraps a host-created worker explicitly", async () => {
 
   compatibilityRuntime.destroy();
 
-  expect(compatibilityWorker.terminated).toBe(true);
   await expect(pendingCompatibilityPing).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
+  expect(compatibilityWorker.terminated).toBe(true);
 });
 
 test("SQLite facade exposes typed persistence DSL helpers", () => {

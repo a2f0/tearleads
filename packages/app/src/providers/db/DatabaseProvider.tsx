@@ -34,6 +34,7 @@ import {
   sqliteDbNameForSigningFingerprint,
 } from "./sqliteDbName";
 import { usePersistentStoragePolicy } from "./usePersistentStoragePolicy";
+import { useReleaseRuntimeOnPageHide } from "./useReleaseRuntimeOnPageHide";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 
@@ -423,6 +424,7 @@ function useManagedSQLiteRuntime(
     currentDbNameRef,
     destroyCurrentRuntime,
   );
+  useReleaseRuntimeOnPageHide(runtimeRef);
 
   return {
     id: snapshot.id,

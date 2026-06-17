@@ -28,6 +28,18 @@ class MockWorker extends EventTarget {
 
   postMessage(message: WorkerMessage) {
     this.messages.push(message);
+    // Reply to the graceful-shutdown request so destroy() proceeds to terminate
+    // without waiting out its timeout. A real worker confirms `close` after
+    // releasing its db/OPFS handles; the mock just acks immediately.
+    if (message.method === "close") {
+      queueMicrotask(() => {
+        this.dispatchEvent(
+          new MessageEvent("message", {
+            data: { id: message.id, result: { ok: true } },
+          }),
+        );
+      });
+    }
   }
 }
 
@@ -52,8 +64,47 @@ test("createModuleDatabaseRuntime creates a module worker and destroys it", asyn
 
   runtime.destroy();
 
-  expect(worker?.terminated).toBe(true);
-  expect(pendingPing).rejects.toThrow(
+  // destroy() now closes gracefully before terminating: it posts a `close`
+  // request first (so the worker can release its OPFS access handles) and only
+  // terminates once the worker confirms. So termination is no longer synchronous.
+  expect(worker?.messages.at(-1)).toEqual({
+    id: 2,
+    method: "close",
+    params: undefined,
+  });
+  expect(worker?.terminated).toBe(false);
+
+  // After the worker acks the close, the runtime terminates and rejects the
+  // still-pending ping.
+  await expect(pendingPing).rejects.toThrow(
     "Database worker client has been destroyed.",
   );
+  expect(worker?.terminated).toBe(true);
+});
+
+test("createModuleDatabaseRuntime terminates even if the worker never confirms close", async () => {
+  // A wedged worker that never replies to `close` must not hang teardown forever.
+  // destroy() falls back to terminating after its timeout. We assert the request
+  // is posted; the timeout path itself is covered by the runtime's constant
+  // rather than waited out here (it is 1s) to keep the suite fast.
+  class SilentWorker extends MockWorker {
+    override postMessage(message: WorkerMessage) {
+      this.messages.push(message);
+      // Intentionally never acks `close`.
+    }
+  }
+
+  const runtime = createModuleDatabaseRuntime({
+    workerConstructor: SilentWorker,
+    workerUrl: "/custom-worker.js",
+  });
+  const worker = MockWorker.lastConstructed;
+
+  runtime.destroy();
+
+  expect(worker?.messages.at(-1)).toEqual({
+    id: 1,
+    method: "close",
+    params: undefined,
+  });
 });

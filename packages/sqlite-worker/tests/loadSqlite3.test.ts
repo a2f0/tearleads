@@ -1,9 +1,45 @@
 import { expect, test } from "bun:test";
+import type { Sqlite3Static } from "@tearleads/sqlite-instance";
 import {
   execDatabaseStatement,
   initDatabase,
+  installSahPoolVfsWithRetry,
+  isAccessHandleContentionError,
   loadSqlite3,
 } from "../src/loadSqlite3";
+
+type SahPoolUtil = Awaited<ReturnType<Sqlite3Static["installOpfsSAHPoolVfs"]>>;
+
+// A DOMException-like error matching the browser's lock-contention failure: the
+// new worker's SAHPool install collides with the previous worker's not-yet-freed
+// OPFS access handles. We can't reproduce real OPFS in Bun, so we model the exact
+// error the install throws and assert the retry/fail-fast policy around it.
+function accessHandleContentionError(): Error {
+  const error = new Error(
+    "Failed to execute 'createSyncAccessHandle' on 'FileSystemFileHandle': " +
+      "Access Handles cannot be created if there is another open Access Handle " +
+      "or Writable stream associated with the same file.",
+  );
+  error.name = "NoModificationAllowedError";
+  return error;
+}
+
+// Minimal sqlite3 stand-in exposing only installOpfsSAHPoolVfs, which is all
+// installSahPoolVfsWithRetry touches. Records attempt count so tests can assert
+// how many times the install was tried.
+function fakeSqlite3WithInstall(install: () => Promise<SahPoolUtil>): {
+  sqlite3: Sqlite3Static;
+  attempts: () => number;
+} {
+  let attempts = 0;
+  const sqlite3 = {
+    installOpfsSAHPoolVfs: () => {
+      attempts += 1;
+      return install();
+    },
+  } as unknown as Sqlite3Static;
+  return { sqlite3, attempts: () => attempts };
+}
 
 test("loadSqlite3 returns the sqlite3 API", async () => {
   const sqlite3 = await loadSqlite3();
@@ -102,4 +138,112 @@ test("execDatabaseStatement supports positional binds and array row mode", async
   } finally {
     db.close();
   }
+});
+
+test("isAccessHandleContentionError matches the lock-contention failure only", () => {
+  // Matched by DOMException name...
+  expect(isAccessHandleContentionError(accessHandleContentionError())).toBe(
+    true,
+  );
+  // ...and by message text, in case the name is lost when the error is rewrapped
+  // as a plain Error by the SAHPool installer.
+  expect(
+    isAccessHandleContentionError(
+      new Error("... Access Handles cannot be created ..."),
+    ),
+  ).toBe(true);
+
+  // Unrelated failures (no OPFS, missing wasm, anything else) must NOT match, so
+  // they fail fast instead of being retried.
+  expect(isAccessHandleContentionError(new Error("Cannot install OPFS"))).toBe(
+    false,
+  );
+  expect(isAccessHandleContentionError(null)).toBe(false);
+  expect(isAccessHandleContentionError("a string")).toBe(false);
+});
+
+// Regression for the reload/second-tab boot failure: after the OPFS-SAHPool
+// backend (PR #980) shipped, reloading the app (or opening a second tab on the
+// same origin) made the SQLite worker's SAHPool install collide with the
+// previous worker's not-yet-released OPFS access handles, throwing
+// NoModificationAllowedError and leaving the database stuck in `status: "error"`
+// ("Failed to initialize SQLite for local identity"). The handles free up within
+// a tick of the old worker's teardown, so a bounded retry must turn that
+// transient race into a successful boot.
+test("installSahPoolVfsWithRetry retries past transient access-handle contention", async () => {
+  const poolUtil = { vfsName: "tearleads-opfs-sahpool" } as SahPoolUtil;
+  let remainingFailures = 3;
+  const { sqlite3, attempts } = fakeSqlite3WithInstall(async () => {
+    if (remainingFailures > 0) {
+      remainingFailures -= 1;
+      throw accessHandleContentionError();
+    }
+    return poolUtil;
+  });
+
+  // Override the budget/delays for a fast test (production waits several seconds
+  // of real time); the behavior under test is retry-until-success, not timing.
+  await expect(
+    installSahPoolVfsWithRetry(sqlite3, {
+      totalBudgetMs: 10_000,
+      initialDelayMs: 1,
+      maxDelayMs: 1,
+    }),
+  ).resolves.toBe(poolUtil);
+  // Three contention failures, then success on the fourth attempt.
+  expect(attempts()).toBe(4);
+});
+
+// The other half of the contract: a failure that will never clear by waiting
+// (no OPFS, missing wasm on an offline reload) must propagate on the FIRST
+// attempt. Retrying it would only delay Explorer's boot-error/Retry surface,
+// which keys off `status: "error"` (see ExplorerDatabaseErrorStatus and the
+// offline-boot test). So persistence stays fail-fast for permanent failures.
+test("installSahPoolVfsWithRetry fails fast on a non-contention error", async () => {
+  const { sqlite3, attempts } = fakeSqlite3WithInstall(() => {
+    return Promise.reject(
+      new Error("Cannot install OPFS: missing sqlite3.wasm (offline)."),
+    );
+  });
+
+  await expect(
+    installSahPoolVfsWithRetry(sqlite3, {
+      totalBudgetMs: 10_000,
+      initialDelayMs: 1,
+      maxDelayMs: 1,
+    }),
+  ).rejects.toThrow(/Cannot install OPFS/);
+  // Fails on the first attempt despite a generous budget — never retried.
+  expect(attempts()).toBe(1);
+});
+
+// Even pure contention is bounded: a worker whose handles never free (e.g. a
+// wedged sibling tab) must give up and surface an error rather than retry
+// forever and hang the boot. We drive a fake clock so the wall-clock budget is
+// exhausted deterministically without waiting real seconds.
+test("installSahPoolVfsWithRetry gives up once its wall-clock budget is exhausted", async () => {
+  const { sqlite3, attempts } = fakeSqlite3WithInstall(() =>
+    Promise.reject(accessHandleContentionError()),
+  );
+
+  // Each call to now() advances 1000ms, so a 3000ms budget allows only a couple
+  // of retries before the next backoff would overrun it.
+  let clock = 0;
+  const now = () => {
+    const value = clock;
+    clock += 1000;
+    return value;
+  };
+
+  await expect(
+    installSahPoolVfsWithRetry(sqlite3, {
+      totalBudgetMs: 3_000,
+      initialDelayMs: 1,
+      maxDelayMs: 1,
+      now,
+    }),
+  ).rejects.toThrow(/Access Handles cannot be created/);
+  // Bounded: it stops once the budget is spent instead of retrying forever.
+  expect(attempts()).toBeGreaterThanOrEqual(1);
+  expect(attempts()).toBeLessThanOrEqual(4);
 });

@@ -89,6 +89,50 @@ test("worker responds to exec", async () => {
   worker.terminate();
 });
 
+test("worker responds to close", async () => {
+  const worker = new Worker(new URL("./testWorker.ts", import.meta.url).href);
+
+  worker.postMessage({
+    id: 6,
+    method: "init",
+    params: {
+      dbName: "test.db",
+      cipher: "sqlcipher",
+      key: "secret",
+    },
+  });
+  await onceMessage(worker);
+
+  // Graceful shutdown: the worker closes its db (and, for the persistent
+  // backend, releases its OPFS access handles) and acks.
+  worker.postMessage({
+    id: 7,
+    method: "close",
+    params: undefined,
+  });
+  expect(await onceMessage(worker)).toEqual({
+    id: 7,
+    result: { ok: true },
+  });
+
+  // After close the db is gone, so exec reports it is not initialized — proving
+  // close actually released the handle rather than being a no-op ack.
+  worker.postMessage({
+    id: 8,
+    method: "exec",
+    params: { sql: "SELECT 1", rowMode: "array" },
+  });
+  expect(await onceMessage(worker)).toEqual({
+    id: 8,
+    result: {
+      ok: false,
+      message: "Database has not been initialized.",
+    },
+  });
+
+  worker.terminate();
+});
+
 test("worker rejects repeat init", async () => {
   const worker = new Worker(new URL("./testWorker.ts", import.meta.url).href);
 
