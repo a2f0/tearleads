@@ -67,16 +67,28 @@ check_no_coauthors() {
 
 failed=0
 
-# Assign rather than iterate $(...) directly so a git rev-list failure (bad
-# range, missing object) is caught here instead of silently expanding to an
-# empty list and passing the check.
-if ! commits=$(git rev-list "$range"); then
+# Batch-scan the whole range in one git process: per commit, emit
+# "<sha> <%G?> <co-author trailer values>". On the happy path (everything
+# clean) this is the only git invocation; the detailed per-commit functions
+# above only run for the few offenders. Assigning rather than iterating $(...)
+# also lets a git failure (bad range, missing object) surface here instead of
+# silently expanding to an empty list and passing the check.
+if ! commit_info=$(git log --format="%H %G? %(trailers:key=Co-authored-by,valueonly,separator=%x2C)" "$range"); then
   echo "Error: failed to list commits for range '$range'." >&2
   exit 1
 fi
 
-for commit in $commits; do
+# A commit is an offender if its signature field is N/B, or if a third field
+# (the trailer values) is present. %G? is always a single token, so the third
+# field is unambiguously the co-author trailers.
+unsigned=$(printf '%s\n' "$commit_info" | grep '^[^ ]* [NB] ' | cut -d' ' -f1)
+coauthored=$(printf '%s\n' "$commit_info" | grep '^[^ ]* [^ ]* .' | cut -d' ' -f1)
+
+for commit in $unsigned; do
   check_signed "$commit" || failed=1
+done
+
+for commit in $coauthored; do
   check_no_coauthors "$commit" || failed=1
 done
 
