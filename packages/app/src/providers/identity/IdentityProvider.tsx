@@ -23,7 +23,7 @@ import {
   useRestoreLocalIdentity,
 } from "./localIdentityPersistence";
 
-interface IdentityContextValue {
+export interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: () => void;
   exportKeyPackage: () => Promise<IdentityKeyPackage>;

@@ -1,5 +1,6 @@
 import {
   closeDatabase,
+  deleteDatabase,
   execDatabaseStatement,
   initDatabase,
 } from "./loadSqlite3";
@@ -30,5 +31,12 @@ registerDatabaseWorker({
     const db = database;
     database = null;
     await closeDatabase(db);
+  },
+  onDelete: async () => {
+    // Close the db and WIPE its persistent OPFS files (logout discarding local
+    // data). Null the reference first, same invariant as onClose.
+    const db = database;
+    database = null;
+    await deleteDatabase(db);
   },
 });

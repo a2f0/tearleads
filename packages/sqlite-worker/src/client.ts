@@ -1,5 +1,6 @@
 import type {
   DatabaseWorkerClosed,
+  DatabaseWorkerDeleted,
   DatabaseWorkerExecOptions,
   DatabaseWorkerExecResult,
   DatabaseWorkerInitOptions,
@@ -20,6 +21,12 @@ export interface DatabaseWorkerClient {
    * after this so the next worker can acquire the handles without contention.
    */
   close(): Promise<DatabaseWorkerClosed>;
+  /**
+   * Ask the worker to close its database and WIPE the persistent-VFS OPFS files,
+   * permanently destroying the on-disk data (vs {@link close}, which only
+   * releases the handles). Callers terminate the worker after this resolves.
+   */
+  delete(): Promise<DatabaseWorkerDeleted>;
   destroy(): void;
 }
 
@@ -57,15 +64,8 @@ export interface WorkerLike {
   removeEventListener: Worker["removeEventListener"];
 }
 
-// Runs on the main thread
-export function createDatabaseWorkerClient(
-  worker: WorkerLike,
-): DatabaseWorkerClient {
-  let nextId = 1;
-  const pending = new Map<number, PendingRequest>();
-  let isDestroyed = false;
-
-  const handleMessage = (event: MessageEvent<WorkerResponse>) => {
+function makeMessageHandler(pending: Map<number, PendingRequest>) {
+  return (event: MessageEvent<WorkerResponse>) => {
     const response = event.data;
     const callback = pending.get(response.id);
 
@@ -82,8 +82,10 @@ export function createDatabaseWorkerClient(
 
     callback.resolve(response.result);
   };
+}
 
-  const handleError = (event: Event) => {
+function makeErrorHandler(pending: Map<number, PendingRequest>) {
+  return (event: Event) => {
     const workerError =
       event instanceof ErrorEvent
         ? toError(event.error ?? event.message, "Database worker failed.")
@@ -91,6 +93,18 @@ export function createDatabaseWorkerClient(
 
     rejectPendingRequests(pending, workerError);
   };
+}
+
+// Runs on the main thread
+export function createDatabaseWorkerClient(
+  worker: WorkerLike,
+): DatabaseWorkerClient {
+  let nextId = 1;
+  const pending = new Map<number, PendingRequest>();
+  let isDestroyed = false;
+
+  const handleMessage = makeMessageHandler(pending);
+  const handleError = makeErrorHandler(pending);
 
   worker.addEventListener("message", handleMessage);
   worker.addEventListener("error", handleError);
@@ -111,6 +125,10 @@ export function createDatabaseWorkerClient(
     method: "close",
     params: undefined,
   ): Promise<DatabaseWorkerClosed>;
+  function request(
+    method: "delete",
+    params: undefined,
+  ): Promise<DatabaseWorkerDeleted>;
   function request(
     method: WorkerMethod,
     params: WorkerRequestMap[WorkerMethod]["params"],
@@ -148,6 +166,9 @@ export function createDatabaseWorkerClient(
     },
     close() {
       return request("close", undefined);
+    },
+    delete() {
+      return request("delete", undefined);
     },
     destroy() {
       if (isDestroyed) {

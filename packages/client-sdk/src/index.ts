@@ -250,6 +250,7 @@ export {
   createMemoryBlobStore,
   decryptDocumentAttachmentBlob,
   hydrateDocumentAttachmentBlobs,
+  purgeOpfsBlobStore,
   uploadDocumentAttachment,
   wrapEncryptedBlobStore,
 } from "./workflows/blobs";

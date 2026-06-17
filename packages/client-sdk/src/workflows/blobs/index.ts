@@ -13,6 +13,7 @@ export {
   wrapEncryptedBlobStore,
 } from "../../data/blobs/encryptedBlobStore";
 export { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
+export { purgeOpfsBlobStore } from "../../data/blobs/opfsBlobStore";
 export type {
   MultipartUploadProgress,
   MultipartUploadProgressListener,

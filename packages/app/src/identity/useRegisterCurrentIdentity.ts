@@ -4,7 +4,7 @@ import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
-interface RegisterCurrentIdentityResult {
+export interface RegisterCurrentIdentityResult {
   canRegisterCurrentIdentity: boolean;
   registerCurrentIdentity: () => Promise<boolean>;
 }

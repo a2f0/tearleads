@@ -62,3 +62,16 @@
 .identity-manager-session-table .mini-app-table {
   min-width: 62rem;
 }
+
+.identity-manager-logout-keep-data {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.identity-manager-logout-warning {
+  margin: 0;
+  color: var(--color-danger, #b00020);
+  font-size: var(--font-size-sm);
+}

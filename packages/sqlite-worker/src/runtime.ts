@@ -21,6 +21,13 @@ export interface DatabaseRuntime {
   client: DatabaseWorkerClient;
   destroy(): void;
   /**
+   * Permanently destroy the persisted database: ask the worker to wipe its OPFS
+   * files (not merely release the handles, as {@link destroy} does), then
+   * terminate the worker. Resolves once teardown completes. Used to forget local
+   * data on logout. Best-effort: a wipe failure still terminates the worker.
+   */
+  deleteData(): Promise<void>;
+  /**
    * Synchronous, abrupt teardown for page-unload handlers (`pagehide`), where
    * there is no time for destroy()'s async graceful close. Terminating the worker
    * thread releases its OPFS access handles promptly, so the next page's worker
@@ -94,6 +101,28 @@ export function createDatabaseRuntime(
           terminate();
         },
       );
+    },
+    async deleteData() {
+      if (torndown) {
+        return;
+      }
+      // Ask the worker to wipe its OPFS files before terminating. Unlike
+      // destroy()'s fire-and-forget close, callers await this so they know the
+      // data is gone before re-provisioning a fresh database. The wipe is
+      // best-effort inside the worker; terminate regardless once it settles or
+      // the timeout elapses so teardown can never hang on a wedged worker.
+      await new Promise<void>((resolve) => {
+        const timeoutId = setTimeout(() => {
+          terminate();
+          resolve();
+        }, GRACEFUL_CLOSE_TIMEOUT_MS);
+        const finish = () => {
+          clearTimeout(timeoutId);
+          terminate();
+          resolve();
+        };
+        client.delete().then(finish, finish);
+      });
     },
     terminateNow() {
       terminate();

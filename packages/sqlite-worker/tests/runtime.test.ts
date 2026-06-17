@@ -28,10 +28,11 @@ class MockWorker extends EventTarget {
 
   postMessage(message: WorkerMessage) {
     this.messages.push(message);
-    // Reply to the graceful-shutdown request so destroy() proceeds to terminate
-    // without waiting out its timeout. A real worker confirms `close` after
-    // releasing its db/OPFS handles; the mock just acks immediately.
-    if (message.method === "close") {
+    // Reply to the graceful-shutdown requests so destroy()/deleteData() proceed
+    // to terminate without waiting out their timeout. A real worker confirms
+    // `close`/`delete` after releasing (or wiping) its db/OPFS handles; the mock
+    // just acks immediately.
+    if (message.method === "close" || message.method === "delete") {
       queueMicrotask(() => {
         this.dispatchEvent(
           new MessageEvent("message", {
@@ -80,6 +81,29 @@ test("createModuleDatabaseRuntime creates a module worker and destroys it", asyn
     "Database worker client has been destroyed.",
   );
   expect(worker?.terminated).toBe(true);
+});
+
+test("deleteData posts a delete request, then terminates the worker", async () => {
+  const runtime = createModuleDatabaseRuntime({
+    workerConstructor: MockWorker,
+    workerUrl: "/custom-worker.js",
+  });
+  const pendingPing = runtime.client.ping();
+  const worker = MockWorker.lastConstructed;
+
+  // deleteData() asks the worker to WIPE its OPFS files (vs destroy()'s close)
+  // and resolves once the worker confirms; the worker is then terminated.
+  await runtime.deleteData();
+
+  expect(worker?.messages.at(-1)).toEqual({
+    id: 2,
+    method: "delete",
+    params: undefined,
+  });
+  expect(worker?.terminated).toBe(true);
+  await expect(pendingPing).rejects.toThrow(
+    "Database worker client has been destroyed.",
+  );
 });
 
 test("createModuleDatabaseRuntime terminates even if the worker never confirms close", async () => {

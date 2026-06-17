@@ -15,7 +15,7 @@ export interface IdentityActionToolbarProps {
   readonly generateKey: () => void;
   readonly handleAuthenticate: () => Promise<void>;
   readonly handleDestroyKeyPair: () => void;
-  readonly handleLogoutCurrentSession: () => Promise<void>;
+  readonly handleLogoutCurrentSession: () => void;
   readonly handleRegisterIdentity: () => Promise<void>;
   readonly handleRestoreKeyPackageClick: () => void;
   readonly hasSigningKeyPair: boolean;
@@ -70,13 +70,13 @@ export function IdentityActionToolbar({
           disabled={identityBusy !== null}
           onClick={() => void handleAuthenticate()}
         >
-          Authenticate
+          Login
         </MiniAppButton>
       )}
       {isAuthenticated && (
         <MiniAppButton
           disabled={mutatingSessionId !== null}
-          onClick={() => void handleLogoutCurrentSession()}
+          onClick={handleLogoutCurrentSession}
         >
           Log Out
         </MiniAppButton>
