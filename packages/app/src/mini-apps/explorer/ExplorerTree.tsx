@@ -790,9 +790,14 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
   // which reads as the sidebar's contents appearing and then vanishing.
   const hasRenderedTreeRef = useRef(false);
   const canRenderTree = props.ready && props.nodesLength > 0;
-  if (canRenderTree) {
-    hasRenderedTreeRef.current = true;
-  }
+  // Latch in an effect rather than during render to keep render pure: on the
+  // first ready render `canRenderTree` already makes `shouldShowTree` true, and
+  // the effect persists it so a later transient `ready` flip keeps the tree.
+  useEffect(() => {
+    if (canRenderTree) {
+      hasRenderedTreeRef.current = true;
+    }
+  }, [canRenderTree]);
   const shouldShowTree = canRenderTree || hasRenderedTreeRef.current;
 
   return (
