@@ -20,17 +20,23 @@ afterEach(async () => {
   await cleanupPaneTestEnvironment();
 });
 
-function openExplorerWindow(
+async function openExplorerWindow(
   view: ReturnType<typeof renderPane>,
-): HTMLDivElement {
+): Promise<HTMLDivElement> {
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
     clientY: 120,
   });
   fireEvent.click(view.getByText("Open Explorer"));
 
-  const windows = view.container.querySelectorAll<HTMLDivElement>("div.window");
-  const explorerWindow = windows[windows.length - 1] ?? null;
+  let explorerWindow: HTMLDivElement | null = null;
+  await waitFor(() => {
+    const windows =
+      view.container.querySelectorAll<HTMLDivElement>("div.window");
+    explorerWindow = windows[windows.length - 1] ?? null;
+    expect(explorerWindow).toBeTruthy();
+  });
+
   if (!explorerWindow) {
     throw new Error("explorer window not found");
   }
@@ -88,7 +94,7 @@ test(
       { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
     );
 
-    const explorerWindow = openExplorerWindow(offline);
+    const explorerWindow = await openExplorerWindow(offline);
 
     // The Explorer window renders, but its content is stuck on "Loading...".
     await waitFor(() => {
