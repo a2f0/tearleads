@@ -70,7 +70,7 @@ export function IdentityActionToolbar({
           disabled={identityBusy !== null}
           onClick={() => void handleAuthenticate()}
         >
-          Authenticate
+          Login
         </MiniAppButton>
       )}
       {isAuthenticated && (

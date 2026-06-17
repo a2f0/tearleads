@@ -299,7 +299,7 @@ function SessionsSection({
         <MiniAppStatus tone="error">{sessionError}</MiniAppStatus>
       )}
       {!canManageSessions ? (
-        <MiniAppStatus>Authenticate to manage sessions.</MiniAppStatus>
+        <MiniAppStatus>Login to manage sessions.</MiniAppStatus>
       ) : (
         <MiniAppTableFrame
           className="identity-manager-session-table mini-app-table-frame--virtual"
