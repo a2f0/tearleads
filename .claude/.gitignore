@@ -1,9 +1,9 @@
 # Machine-local / generated Claude Code state
-projects/
-shell-snapshots/
-todos/
-statsig/
-.credentials.json
+/projects/
+/shell-snapshots/
+/todos/
+/statsig/
+/.credentials.json
 
 # Per-developer local settings (committed: settings.json)
-settings.local.json
+/settings.local.json
