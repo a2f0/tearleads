@@ -75,7 +75,10 @@ export class CrossTabOwner {
     }
 
     port.postMessage(request);
-    void this.sweepInactiveClients();
+    // No per-request sweep: each one runs an async lock-manager query on the hot
+    // path, and the periodic interval sweep already reaps crashed clients within a
+    // second — fast enough, since a dropped client only needs cleanup, not an
+    // instant response.
   }
 
   stop(): void {
@@ -124,8 +127,13 @@ export class CrossTabOwner {
       response,
     });
 
+    // A `close`/`delete` is explicit teardown (logout / forget-local-data) for one
+    // client. Drop it, and once no clients remain, tear the whole owner down —
+    // terminate the worker and release the owner lock so the freed OPFS handles are
+    // available to the next boot. While other tabs' clients are still attached the
+    // owner keeps running for them.
     if (method === "close" || method === "delete") {
-      this.closeClient(clientId);
+      this.closeClient(clientId, { stopWhenIdle: true });
     }
   }
 
@@ -158,7 +166,10 @@ export class CrossTabOwner {
     return method;
   }
 
-  private closeClient(clientId: string): void {
+  private closeClient(
+    clientId: string,
+    options: { stopWhenIdle: boolean } = { stopWhenIdle: false },
+  ): void {
     this.activeClientIds.delete(clientId);
     this.trackableClientIds.delete(clientId);
     const port = this.portsByClientId.get(clientId);
@@ -166,7 +177,13 @@ export class CrossTabOwner {
     this.portsByClientId.delete(clientId);
     this.methodsByClientRequestId.delete(clientId);
 
-    if (this.activeClientIds.size === 0) {
+    // Only an explicit close/delete tears the owner down when the last client
+    // leaves. A client that merely vanishes (the sweep below, or a crashed tab)
+    // must NOT stop the owner: the coordinator holds the owner lock with a single
+    // lifelong bid and never re-contends, so releasing here would strand this tab
+    // — and any tab queued behind its lock — ownerless, timing out every later
+    // request. A reopened client simply reuses the still-live worker.
+    if (options.stopWhenIdle && this.activeClientIds.size === 0) {
       this.stop();
     }
   }

@@ -17,6 +17,11 @@ import {
 const CROSS_TAB_CHANNEL_NAME = "tearleads-sqlite-worker";
 const CROSS_TAB_OWNER_LOCK_NAME = "tearleads-sqlite-worker-owner";
 const CROSS_TAB_REQUEST_TIMEOUT_MS = 10_000;
+// How long a non-owner tab polls for an owner to appear before it unblocks
+// routing anyway. Generous enough to cover a same-origin tab winning the
+// ownership bid, short enough never to noticeably delay the first request.
+const OWNER_OBSERVE_BUDGET_MS = 2_000;
+const OWNER_OBSERVE_INTERVAL_MS = 50;
 
 interface CrossTabDatabaseWorker extends WorkerLike {
   close(): void;
@@ -117,9 +122,11 @@ class CrossTabCoordinator {
         return;
       }
 
-      // This tab tried to own but its owner worker failed to construct; it cannot
-      // serve and won't post into the void. Surface the construction error.
-      if (this.ownerError) {
+      // This tab won ownership earlier but its owner worker failed to construct.
+      // If another tab has since become a healthy owner, fall back to it; only
+      // surface the construction error when no owner exists anywhere, so a single
+      // tab whose worker cannot start fails fast instead of hanging on the timeout.
+      if (this.ownerError && !(await this.anotherTabOwns())) {
         throw this.ownerError;
       }
 
@@ -232,7 +239,7 @@ class CrossTabCoordinator {
    *
    * The bid is fire-and-forget: its promise resolves only when this coordinator's
    * own owner is later released, by which point nothing awaits it. The initial
-   * routing gate is settled separately by {@link settleOwnershipKnown} as soon as
+   * routing gate is settled separately by {@link observeExistingOwner} as soon as
    * this tab becomes owner OR observes that another tab already owns.
    */
   private contendForOwnership(): void {
@@ -299,36 +306,78 @@ class CrossTabCoordinator {
   }
 
   /**
-   * Settle the initial routing gate on a tab that did NOT win ownership, by
-   * asking the lock manager whether the owner lock is already held. Runs
-   * concurrently with the blocking bid above: whichever resolves first settles
-   * the gate (the bid wins on the owner tab; this wins on every other tab).
+   * Settle the initial routing gate on a tab that did NOT win ownership. Runs
+   * concurrently with the blocking bid above; whichever resolves first settles the
+   * gate (the bid settles it on the tab that becomes owner, this settles it on
+   * every other tab).
    *
-   * Falls back to settling immediately when the lock manager cannot be queried,
-   * so routing is never blocked indefinitely — at worst the first request takes
-   * the remote path and relies on the response/timeout like any other.
+   * A single owner-lock query is not enough: at cold start no tab owns yet, so the
+   * query sees nothing held and the bid losers would never settle. Poll on a short
+   * budget instead, settling as soon as an owner is observed — either this tab won
+   * (`this.owner`) or another tab holds the owner lock. After the budget we settle
+   * regardless: by then some tab has almost certainly won, and the worst case is
+   * the first request takes the remote path and relies on the response/timeout.
+   *
+   * Falls back to settling immediately when the lock manager cannot be queried, so
+   * routing is never blocked indefinitely.
    */
   private observeExistingOwner(locks: LockManagerLike): void {
-    void this.isOwnerLockHeld(locks)
-      .then((held) => {
-        if (held) {
-          this.settleInitialOwnership();
-        }
-      })
-      .catch(() => {
+    if (!locks.query) {
+      // No query support: cannot observe another tab's owner without contending
+      // for the lock (which would steal it). Settle so routing proceeds remotely.
+      this.settleInitialOwnership();
+      return;
+    }
+
+    void this.pollForOwner(locks);
+  }
+
+  private async pollForOwner(locks: LockManagerLike): Promise<void> {
+    const deadline = OWNER_OBSERVE_BUDGET_MS / OWNER_OBSERVE_INTERVAL_MS;
+    for (let attempt = 0; attempt < deadline; attempt += 1) {
+      if (this.owner || (await this.isOwnerLockHeld(locks))) {
         this.settleInitialOwnership();
+        return;
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, OWNER_OBSERVE_INTERVAL_MS);
       });
+    }
+
+    // Budget elapsed without observing an owner; settle anyway so routing is never
+    // wedged. A tab has almost certainly won the bid by now.
+    this.settleInitialOwnership();
+  }
+
+  /**
+   * Whether some other tab currently holds the owner lock. Used by routing to
+   * decide, when this tab's own owner failed to construct, between surfacing that
+   * error (no owner anywhere) and falling back to a healthy remote owner. Returns
+   * false when the lock cannot be queried, so routing posts remotely and lets the
+   * request/timeout path decide rather than throwing a possibly-stale error.
+   */
+  private async anotherTabOwns(): Promise<boolean> {
+    if (this.owner) {
+      return false;
+    }
+
+    const locks = lockManager();
+    return locks ? this.isOwnerLockHeld(locks) : false;
   }
 
   private async isOwnerLockHeld(locks: LockManagerLike): Promise<boolean> {
     if (!locks.query) {
-      // No query support: cannot observe other owners without contending for the
-      // lock (which would steal it). Settle so routing proceeds remotely.
-      this.settleInitialOwnership();
       return false;
     }
 
-    const snapshot = await locks.query();
+    let snapshot: unknown;
+    try {
+      snapshot = await locks.query();
+    } catch {
+      return false;
+    }
+
     if (typeof snapshot !== "object" || snapshot === null) {
       return false;
     }
