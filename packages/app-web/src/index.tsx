@@ -33,10 +33,19 @@ if (
   typeof navigator !== "undefined" &&
   "serviceWorker" in navigator
 ) {
-  globalThis.addEventListener("load", () => {
+  const registerServiceWorker = () => {
     navigator.serviceWorker.register("/sw.js").catch(() => {
       // The app works online without the service worker; only offline support is
       // lost if registration fails.
     });
-  });
+  };
+
+  // This module script may evaluate after `load` has already fired, in which case
+  // the listener would never run — so register immediately when the document is
+  // already complete, otherwise defer to `load` to avoid contending with startup.
+  if (typeof document !== "undefined" && document.readyState === "complete") {
+    registerServiceWorker();
+  } else {
+    globalThis.addEventListener("load", registerServiceWorker);
+  }
 }
