@@ -104,6 +104,8 @@ export interface WorkerRequestMap {
   };
 }
 
+export const WORKER_CONNECT_PORT_MESSAGE_TYPE = "tearleads:sqlite-connect-port";
+
 export type WorkerMethod = keyof WorkerRequestMap;
 
 export type WorkerRequest<K extends WorkerMethod = WorkerMethod> =

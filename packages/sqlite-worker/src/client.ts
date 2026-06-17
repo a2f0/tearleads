@@ -8,7 +8,6 @@ import type {
   DatabaseWorkerReady,
   WorkerMethod,
   WorkerRequestMap,
-  WorkerResponse,
 } from "./types";
 
 export interface DatabaseWorkerClient {
@@ -59,13 +58,23 @@ type PendingRequest = {
 };
 
 export interface WorkerLike {
-  postMessage(message: unknown): void;
-  addEventListener: Worker["addEventListener"];
-  removeEventListener: Worker["removeEventListener"];
+  postMessage(message: unknown, transfer?: Transferable[]): void;
+  addEventListener(
+    type: "message" | "error",
+    listener: (event: Event) => void,
+  ): void;
+  removeEventListener(
+    type: "message" | "error",
+    listener: (event: Event) => void,
+  ): void;
 }
 
 function makeMessageHandler(pending: Map<number, PendingRequest>) {
-  return (event: MessageEvent<WorkerResponse>) => {
+  return (event: Event) => {
+    if (!(event instanceof MessageEvent)) {
+      return;
+    }
+
     const response = event.data;
     const callback = pending.get(response.id);
 

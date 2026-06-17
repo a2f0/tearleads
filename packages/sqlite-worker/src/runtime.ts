@@ -3,17 +3,39 @@ import {
   type DatabaseWorkerClient,
   type WorkerLike,
 } from "./client";
+import { createCrossTabDatabaseWorker } from "./crossTabRuntime";
 
 const DEFAULT_DATABASE_WORKER_URL = "/worker.js";
+const DEFAULT_SHARED_DATABASE_WORKER_NAME = "tearleads-sqlite-worker";
 
 interface TerminableWorkerLike extends WorkerLike {
   terminate(): void;
+}
+
+interface CloseableWorkerLike extends WorkerLike {
+  close(): void;
 }
 
 export interface ModuleWorkerLike extends TerminableWorkerLike {}
 
 export interface ModuleWorkerConstructor {
   new (scriptURL: string | URL, options?: WorkerOptions): ModuleWorkerLike;
+}
+
+export interface ModuleSharedWorkerLike {
+  readonly port: CloseableWorkerLike & { start?: () => void };
+  addEventListener?: WorkerLike["addEventListener"];
+  removeEventListener?: WorkerLike["removeEventListener"];
+}
+
+export interface ModuleSharedWorkerConstructor {
+  new (
+    scriptURL: string | URL,
+    options?: {
+      name?: string;
+      type?: "classic" | "module";
+    },
+  ): ModuleSharedWorkerLike;
 }
 
 export interface DatabaseRuntime {
@@ -37,7 +59,17 @@ export interface DatabaseRuntime {
 }
 
 export interface CreateModuleDatabaseRuntimeOptions {
+  /**
+   * Dedicated Worker fallback. Supplying this keeps the historical dedicated
+   * worker path, which is useful for tests and non-browser hosts.
+   */
   workerConstructor?: ModuleWorkerConstructor;
+  /**
+   * SharedWorker constructor for browser hosts that can share one SQLite owner
+   * across tabs. Pass `null` to force the dedicated Worker fallback.
+   */
+  sharedWorkerConstructor?: ModuleSharedWorkerConstructor | null;
+  sharedWorkerName?: string;
   workerUrl?: string | URL;
 }
 
@@ -46,6 +78,64 @@ function createModuleWorker(
   workerConstructor: ModuleWorkerConstructor = globalThis.Worker,
 ): ModuleWorkerLike {
   return new workerConstructor(workerUrl, { type: "module" });
+}
+
+function portFromModuleSharedWorker(
+  sharedWorker: ModuleSharedWorkerLike,
+): CloseableWorkerLike {
+  sharedWorker.port.start?.();
+
+  return {
+    postMessage(message) {
+      sharedWorker.port.postMessage(message);
+    },
+    addEventListener(type, listener) {
+      if (type === "error" && sharedWorker.addEventListener) {
+        sharedWorker.addEventListener(type, listener);
+        return;
+      }
+
+      sharedWorker.port.addEventListener(type, listener);
+    },
+    removeEventListener(type, listener) {
+      if (type === "error" && sharedWorker.removeEventListener) {
+        sharedWorker.removeEventListener(type, listener);
+        return;
+      }
+
+      sharedWorker.port.removeEventListener(type, listener);
+    },
+    close() {
+      sharedWorker.port.close();
+    },
+  };
+}
+
+function createModuleSharedWorkerPort(
+  workerUrl: string | URL,
+  sharedWorkerConstructor: ModuleSharedWorkerConstructor,
+  sharedWorkerName: string,
+): CloseableWorkerLike {
+  return portFromModuleSharedWorker(
+    new sharedWorkerConstructor(workerUrl, {
+      name: sharedWorkerName,
+      type: "module",
+    }),
+  );
+}
+
+function createExplicitSharedWorkerPort(
+  options: CreateModuleDatabaseRuntimeOptions,
+): CloseableWorkerLike | null {
+  if (options.workerConstructor || !options.sharedWorkerConstructor) {
+    return null;
+  }
+
+  return createModuleSharedWorkerPort(
+    options.workerUrl ?? DEFAULT_DATABASE_WORKER_URL,
+    options.sharedWorkerConstructor,
+    options.sharedWorkerName ?? DEFAULT_SHARED_DATABASE_WORKER_NAME,
+  );
 }
 
 // Upper bound on how long destroy() waits for the worker's graceful close
@@ -130,9 +220,102 @@ export function createDatabaseRuntime(
   };
 }
 
+function postCloseWithoutWaiting(worker: WorkerLike): void {
+  try {
+    worker.postMessage({ id: 0, method: "close", params: undefined });
+  } catch {
+    // The page is unloading or the closeable port is already gone. The browser
+    // will release page-owned ports/workers when the document is discarded.
+  }
+}
+
+export function createSharedDatabaseRuntime(
+  worker: CloseableWorkerLike,
+): DatabaseRuntime {
+  const client = createDatabaseWorkerClient(worker);
+  let torndown = false;
+
+  const close = () => {
+    if (torndown) {
+      return;
+    }
+
+    torndown = true;
+    client.destroy();
+    worker.close();
+  };
+
+  return {
+    id: crypto.randomUUID(),
+    client,
+    destroy() {
+      if (torndown) {
+        return;
+      }
+
+      const timeoutId = setTimeout(close, GRACEFUL_CLOSE_TIMEOUT_MS);
+      client.close().then(
+        () => {
+          clearTimeout(timeoutId);
+          close();
+        },
+        () => {
+          clearTimeout(timeoutId);
+          close();
+        },
+      );
+    },
+    async deleteData() {
+      if (torndown) {
+        return;
+      }
+
+      await new Promise<void>((resolve) => {
+        const timeoutId = setTimeout(() => {
+          close();
+          resolve();
+        }, GRACEFUL_CLOSE_TIMEOUT_MS);
+        const finish = () => {
+          clearTimeout(timeoutId);
+          close();
+          resolve();
+        };
+        client.delete().then(finish, finish);
+      });
+    },
+    terminateNow() {
+      if (torndown) {
+        return;
+      }
+
+      postCloseWithoutWaiting(worker);
+      close();
+    },
+  };
+}
+
 export function createModuleDatabaseRuntime(
   options: CreateModuleDatabaseRuntimeOptions = {},
 ): DatabaseRuntime {
+  if (
+    !options.workerConstructor &&
+    options.sharedWorkerConstructor === undefined &&
+    typeof Worker !== "undefined"
+  ) {
+    const crossTabWorker = createCrossTabDatabaseWorker(
+      options.workerUrl ?? DEFAULT_DATABASE_WORKER_URL,
+      globalThis.Worker,
+    );
+    if (crossTabWorker) {
+      return createSharedDatabaseRuntime(crossTabWorker);
+    }
+  }
+
+  const sharedWorkerPort = createExplicitSharedWorkerPort(options);
+  if (sharedWorkerPort) {
+    return createSharedDatabaseRuntime(sharedWorkerPort);
+  }
+
   if (
     typeof options.workerConstructor === "undefined" &&
     typeof Worker === "undefined"

@@ -1,36 +1,4 @@
-import {
-  closeDatabase,
-  deleteDatabase,
-  execDatabaseStatement,
-  initDatabase,
-} from "../src/loadSqlite3";
+import { createDatabaseWorkerConnectionFactory } from "../src/databaseConnections";
 import { registerDatabaseWorker } from "../src/worker";
 
-let db: Awaited<ReturnType<typeof initDatabase>> | null = null;
-
-registerDatabaseWorker({
-  onInit: async (options) => {
-    if (db) {
-      throw new Error("Database has already been initialized.");
-    }
-
-    db = await initDatabase(options);
-  },
-  onExec: async (options) => {
-    if (!db) {
-      throw new Error("Database has not been initialized.");
-    }
-
-    return execDatabaseStatement(db, options);
-  },
-  onClose: async () => {
-    const current = db;
-    db = null;
-    await closeDatabase(current);
-  },
-  onDelete: async () => {
-    const current = db;
-    db = null;
-    await deleteDatabase(current);
-  },
-});
+registerDatabaseWorker(createDatabaseWorkerConnectionFactory());
