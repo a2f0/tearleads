@@ -182,7 +182,9 @@ export function useExplorerContainerItemWindow(params: {
     totalCount: number;
   }>({
     error: null,
-    isLoading: false,
+    // Start loading when a fetch is pending so the first render (before the load
+    // effect runs) shows "Loading..." instead of flashing the empty message.
+    isLoading: enabled,
     offset: 0,
     rows: [],
     totalCount: 0,

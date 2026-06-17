@@ -783,6 +783,18 @@ function isExplorerSidebarBlankContextTarget(
 }
 
 function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
+  // The device-first store can briefly re-report `ready: false` while it
+  // re-snapshots during boot, even after it has already produced the tree. Latch
+  // the first time we have a real tree to show so a transient `ready` flip keeps
+  // displaying the existing rows instead of unmounting them back to "Loading...",
+  // which reads as the sidebar's contents appearing and then vanishing.
+  const hasRenderedTreeRef = useRef(false);
+  const canRenderTree = props.ready && props.nodesLength > 0;
+  if (canRenderTree) {
+    hasRenderedTreeRef.current = true;
+  }
+  const shouldShowTree = canRenderTree || hasRenderedTreeRef.current;
+
   return (
     <MiniAppSidebar className="explorer-sidebar explorer-sidebar--virtual">
       <section
@@ -803,11 +815,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
           // boot, so surface the error (matching the detail panel) rather than an
           // indistinguishable, never-ending "Loading...".
           <ExplorerDatabaseErrorStatus onRetry={props.onRetryDatabase} />
-        ) : !props.ready ? (
-          <MiniAppStatus>Loading...</MiniAppStatus>
-        ) : props.nodesLength === 0 ? (
-          <MiniAppStatus>No containers.</MiniAppStatus>
-        ) : (
+        ) : shouldShowTree ? (
           <ExplorerSidebarVirtualTree
             activeContainerId={props.activeContainerId}
             depth={0}
@@ -824,6 +832,12 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
             selectedId={props.selectedId}
             totalRows={props.totalRows}
           />
+        ) : props.ready ? (
+          // Settled and genuinely empty (distinct from the transient flip the
+          // latch above absorbs, which keeps the tree mounted).
+          <MiniAppStatus>No containers.</MiniAppStatus>
+        ) : (
+          <MiniAppStatus>Loading...</MiniAppStatus>
         )}
       </section>
     </MiniAppSidebar>
