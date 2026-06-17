@@ -3,7 +3,10 @@ import {
   createMemoryBlobStore,
   type LocalKeyring,
 } from "@tearleads/client-sdk";
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import {
+  type CreateSQLiteRuntimeOptions,
+  createSQLiteRuntime,
+} from "@tearleads/client-sdk/sqlite";
 import {
   act,
   cleanup,
@@ -44,6 +47,7 @@ export function createTestHostConfig(
   options: {
     readonly createLocalKeyring?: (() => LocalKeyring) | null | undefined;
     readonly localIdentityNamespace?: string | undefined;
+    readonly workerConstructor?: CreateSQLiteRuntimeOptions["workerConstructor"];
   } = {},
 ) {
   const createLocalKeyring =
@@ -56,7 +60,7 @@ export function createTestHostConfig(
     wsUrl,
     () =>
       createSQLiteRuntime({
-        workerConstructor: MockWorker,
+        workerConstructor: options.workerConstructor ?? MockWorker,
       }),
     () => createMemoryBlobStore(),
     options.localIdentityNamespace,
