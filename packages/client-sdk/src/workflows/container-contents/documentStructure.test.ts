@@ -148,7 +148,7 @@ test("moveDocumentLinkState relinks local-only documents without remote mutation
   }
 
   expect(moved).toEqual({
-    linksChanged: false,
+    linksChanged: true,
     note: {
       id: "note-1",
       containerId: "trash-container",

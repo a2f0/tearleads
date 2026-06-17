@@ -231,15 +231,16 @@ export async function moveDocumentLinkState<TRuntime>(params: {
     return { linksChanged: false, note: null };
   }
   if (!note.documentId) {
+    const movedNote = await moveLocalDocumentLinkState({
+      expandNode,
+      host,
+      note,
+      runtime,
+      targetContainerId,
+    });
     return {
-      linksChanged: false,
-      note: await moveLocalDocumentLinkState({
-        expandNode,
-        host,
-        note,
-        runtime,
-        targetContainerId,
-      }),
+      linksChanged: movedNote !== null,
+      note: movedNote,
     };
   }
 
