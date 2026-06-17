@@ -2,15 +2,22 @@ ls:
   .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
   .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | regex:Cargo
 
+# A leading `**/` ignore forces ls-lint to walk the entire tree (including every
+# nested node_modules) to expand the glob before it can prune anything. Anchoring
+# these patterns to the depths where the directories actually live lets ls-lint
+# prune during traversal instead, cutting this check from ~16s to ~3s.
 ignore:
   - .git
   - .gemini
   - .serena
   - "**/.*"
-  - "**/node_modules"
-  - "**/dist"
-  - "**/build"
-  - "**/.turbo"
+  - node_modules
+  - packages/*/node_modules
+  - dist
+  - packages/*/dist
+  - build
+  - packages/*/build
+  - packages/*/.turbo
   - packages/api-shared/drizzle/meta/_journal.json
   - target
   - playwright-report
@@ -19,4 +26,3 @@ ignore:
   - "packages/app-capacitor/ios/**"
   - "packages/app-capacitor/public/**"
   - "packages/app-capacitor/vendor/bundle/**"
-  - "**/capacitor-cordova-*"
