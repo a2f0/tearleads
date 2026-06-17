@@ -23,6 +23,13 @@ export function connectReconciliationTriggers(input: {
         }
         break;
       case "prerequisites-regained":
+        // Auth/connectivity was just regained (relogin or reconnect). Forget the
+        // per-session discovered set first: containers visited before the gap
+        // may have changed remotely while this client was offline, and the
+        // enqueue calls below are otherwise suppressed for already-discovered
+        // containers. Resetting makes the active container and every backfill
+        // target re-validate against the server exactly once.
+        service.resetDiscovered();
         if (signal.activeContainerId) {
           service.enqueueContainer(signal.activeContainerId, "active");
         }

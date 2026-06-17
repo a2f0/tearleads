@@ -37,6 +37,7 @@ import {
   dedupedRequest,
   describeErrorResponse,
   type ErrorResponseDescription,
+  errorMessage,
   hasHeader,
   isRefreshableSessionError,
   isReplayableRequestBody,
@@ -397,7 +398,7 @@ export class ApiClient {
     try {
       data = await response.json();
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = errorMessage(e);
       return this.requestFailure({
         kind: "json",
         message: `${method} ${path}: failed to parse JSON: ${message}`,
@@ -519,7 +520,7 @@ export class ApiClient {
     try {
       response = await fetch(`${this.baseUrl}${path}`, init);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const message = errorMessage(e);
       this.onNetworkError?.();
       return this.requestFailure({
         kind: "network",
@@ -588,7 +589,14 @@ export class ApiClient {
     let refreshed = false;
     try {
       refreshed = (await this.onSessionExpired?.()) ?? false;
-    } catch {}
+    } catch (error: unknown) {
+      // A throw means re-auth failed: do not replay, but surface it so a failing
+      // silent re-login is diagnosable rather than only a downstream 401. Respect
+      // the caller's reportErrors opt-out, like every other failure on this path.
+      if (input.options.reportErrors ?? true) {
+        this.onError?.(`Session refresh failed: ${errorMessage(error)}`);
+      }
+    }
     return Boolean(
       refreshed && this.authToken && this.authToken !== input.authToken,
     );

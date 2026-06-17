@@ -256,6 +256,101 @@ test("service retries a container that failed during explicit refresh", async ()
   );
 });
 
+test("resetDiscovered lets a previously-reconciled container refetch", async () => {
+  const attempts: string[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      attempts.push(containerId);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  service.enqueueContainer("c-1", "active");
+  await waitFor(() => attempts.length === 1, "Expected the initial reconcile");
+
+  // Without a reset, a passive enqueue of a discovered container is suppressed.
+  service.enqueueContainer("c-1", "active");
+  await flushMicrotasks();
+  expect(attempts.length).toBe(1);
+
+  // After resetting the per-session discovered set (relogin/reconnect), the
+  // same container reconciles again exactly once.
+  service.resetDiscovered();
+  service.enqueueContainer("c-1", "active");
+  await waitFor(
+    () => attempts.length === 2,
+    "Expected a refetch after resetDiscovered",
+  );
+});
+
+test("stop clears the discovered set so a restarted lane refetches", async () => {
+  const attempts: string[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      attempts.push(containerId);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  service.enqueueContainer("c-1", "active");
+  await waitFor(() => attempts.length === 1, "Expected the initial reconcile");
+
+  service.stop();
+  service.start();
+  service.enqueueContainer("c-1", "active");
+  await waitFor(
+    () => attempts.length === 2,
+    "Expected a refetch after stop()/start() cleared the discovered set",
+  );
+});
+
+test("prerequisites-regained trigger resets the discovered set first", () => {
+  const reconcileListeners: LocalProjectionReconcileListener[] = [];
+  const store = {
+    onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
+      reconcileListeners.push(listener);
+      return () => {
+        reconcileListeners.splice(reconcileListeners.indexOf(listener), 1);
+      };
+    },
+  } as LocalProjectionStore;
+  const calls: string[] = [];
+  const service = {
+    enqueueContainer: (containerId: string) => {
+      calls.push(`enqueue:${containerId}`);
+    },
+    enqueueIdleBackfill: () => {
+      calls.push("backfill");
+    },
+    resetDiscovered: () => {
+      calls.push("reset");
+    },
+    setActiveContainer: () => {},
+  } as unknown as Parameters<
+    typeof connectReconciliationTriggers
+  >[0]["service"];
+
+  connectReconciliationTriggers({ service, store });
+  const reconcileListener = reconcileListeners[0];
+  if (!reconcileListener) {
+    throw new Error(
+      "Expected reconciliation trigger listener to be connected.",
+    );
+  }
+  reconcileListener({
+    activeContainerId: "c-1",
+    reason: "prerequisites-regained",
+  });
+
+  // Reset must happen before the enqueue/backfill, otherwise those calls are
+  // suppressed for already-discovered containers.
+  expect(calls).toEqual(["reset", "enqueue:c-1", "backfill"]);
+});
+
 test("hydrated trigger reconciles only the active container", () => {
   const reconcileListeners: LocalProjectionReconcileListener[] = [];
   const store = {
