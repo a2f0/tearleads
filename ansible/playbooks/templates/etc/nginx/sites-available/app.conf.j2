@@ -32,6 +32,14 @@ server {
     add_header Cache-Control "no-cache";
   }
 
+  # The service worker must revalidate on every load so clients pick up new
+  # versions promptly; the worker itself precaches the (immutable, hashed)
+  # assets for offline use.
+  location = /sw.js {
+    try_files $uri =404;
+    add_header Cache-Control "no-cache";
+  }
+
   location / {
     try_files $uri $uri/ /index.html;
   }
