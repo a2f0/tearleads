@@ -68,8 +68,24 @@ bun run lint:architecture
 echo "Checking file names..."
 bun run lint:files
 
-echo "Checking source shape..."
+echo "Checking commit signatures and co-authors..."
 zero_sha="0000000000000000000000000000000000000000"
+
+while read -r _ local_sha _ remote_sha; do
+  if [ "$local_sha" = "$zero_sha" ]; then
+    continue
+  fi
+
+  if [ "$remote_sha" = "$zero_sha" ]; then
+    range="main..$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  "$REPO_ROOT/scripts/checks/checkCommitTrust.sh" --range "$range" </dev/null
+done <"$refs_file"
+
+echo "Checking source shape..."
 
 while read -r _ local_sha _ remote_sha; do
   if [ "$local_sha" = "$zero_sha" ]; then
