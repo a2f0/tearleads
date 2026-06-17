@@ -1,9 +1,24 @@
 import type { WorkerLike } from "./client";
-import { WORKER_CONNECT_PORT_MESSAGE_TYPE, type WorkerResponse } from "./types";
+import {
+  type ClientLivenessLock,
+  canUseCrossTabPrimitives,
+  createClientLivenessLock,
+  lockManager,
+  queryLiveClientIds,
+} from "./crossTabLocks";
+import {
+  errorResponse,
+  isCrossTabEnvelope,
+  requestId,
+  requestMethod,
+  responseId,
+} from "./crossTabProtocol";
+import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "./types";
 
 const CROSS_TAB_CHANNEL_NAME = "tearleads-sqlite-worker";
 const CROSS_TAB_OWNER_LOCK_NAME = "tearleads-sqlite-worker-owner";
 const CROSS_TAB_REQUEST_TIMEOUT_MS = 10_000;
+const CROSS_TAB_CLIENT_SWEEP_INTERVAL_MS = 1_000;
 
 interface CrossTabDatabaseWorker extends WorkerLike {
   close(): void;
@@ -17,124 +32,14 @@ interface ModuleWorkerConstructor {
   new (scriptURL: string | URL, options?: WorkerOptions): ModuleWorkerLike;
 }
 
-interface LockManagerLike {
-  request(
-    name: string,
-    options: { ifAvailable: true },
-    callback: (lock: unknown) => Promise<void> | void,
-  ): Promise<void>;
-}
-
 interface LocalClient {
   readonly dispatch: (response: unknown) => void;
+  readonly liveness: ClientLivenessLock;
   readonly timeoutsByRequestId: Map<number, ReturnType<typeof setTimeout>>;
 }
 
-type CrossTabEnvelope =
-  | {
-      readonly type: "request";
-      readonly clientId: string;
-      readonly request: unknown;
-    }
-  | {
-      readonly type: "response";
-      readonly clientId: string;
-      readonly response: unknown;
-    };
-
-function isObject(value: unknown): value is object {
-  return typeof value === "object" && value !== null;
-}
-
-function getString(value: unknown, key: string): string | null {
-  if (!isObject(value)) {
-    return null;
-  }
-
-  const property = Reflect.get(value, key);
-  return typeof property === "string" ? property : null;
-}
-
-function getNumber(value: unknown, key: string): number | null {
-  if (!isObject(value)) {
-    return null;
-  }
-
-  const property = Reflect.get(value, key);
-  return typeof property === "number" ? property : null;
-}
-
-function requestId(request: unknown): number | null {
-  return getNumber(request, "id");
-}
-
-function requestMethod(request: unknown): string | null {
-  return getString(request, "method");
-}
-
-function responseId(response: unknown): number | null {
-  return getNumber(response, "id");
-}
-
-function errorResponse(id: number, message: string): WorkerResponse {
-  return {
-    id,
-    result: {
-      ok: false,
-      message,
-    },
-  };
-}
-
-function isCrossTabEnvelope(value: unknown): value is CrossTabEnvelope {
-  if (!isObject(value)) {
-    return false;
-  }
-
-  const type = Reflect.get(value, "type");
-  const clientId = Reflect.get(value, "clientId");
-  if (typeof clientId !== "string") {
-    return false;
-  }
-
-  if (type === "request") {
-    return true;
-  }
-
-  return type === "response";
-}
-
-function lockManager(): LockManagerLike | null {
-  const navigatorValue = Reflect.get(globalThis, "navigator");
-  if (!isObject(navigatorValue)) {
-    return null;
-  }
-
-  const locks = Reflect.get(navigatorValue, "locks");
-  if (!isObject(locks)) {
-    return null;
-  }
-
-  const request = Reflect.get(locks, "request");
-  if (typeof request !== "function") {
-    return null;
-  }
-
-  return {
-    request(name, options, callback) {
-      return Promise.resolve(
-        Reflect.apply(request, locks, [name, options, callback]),
-      ).then(() => undefined);
-    },
-  };
-}
-
-function canUseCrossTabPrimitives(): boolean {
-  return (
-    typeof BroadcastChannel !== "undefined" &&
-    typeof MessageChannel !== "undefined" &&
-    lockManager() !== null
-  );
+interface CrossTabRouteOptions {
+  readonly hasClientLock: boolean;
 }
 
 class CrossTabOwner {
@@ -144,7 +49,11 @@ class CrossTabOwner {
     Map<number, string>
   >();
   private readonly portsByClientId = new Map<string, MessagePort>();
+  private readonly sweepIntervalId: ReturnType<typeof setInterval>;
+  private readonly trackableClientIds = new Set<string>();
   private readonly worker: ModuleWorkerLike;
+  private stopped = false;
+  private sweepInFlight = false;
 
   constructor(
     workerUrl: string | URL,
@@ -157,22 +66,47 @@ class CrossTabOwner {
     private readonly release: () => void,
   ) {
     this.worker = new workerConstructor(workerUrl, { type: "module" });
+    this.sweepIntervalId = setInterval(() => {
+      void this.sweepInactiveClients();
+    }, CROSS_TAB_CLIENT_SWEEP_INTERVAL_MS);
   }
 
-  route(clientId: string, request: unknown): void {
+  route(
+    clientId: string,
+    request: unknown,
+    options: CrossTabRouteOptions,
+  ): void {
+    if (this.stopped) {
+      return;
+    }
+
     const port = this.ensurePort(clientId);
     this.rememberMethod(clientId, request);
     this.activeClientIds.add(clientId);
+    if (options.hasClientLock) {
+      this.trackableClientIds.add(clientId);
+    }
+
     port.postMessage(request);
+    void this.sweepInactiveClients();
   }
 
   stop(): void {
+    if (this.stopped) {
+      return;
+    }
+
+    this.stopped = true;
+    clearInterval(this.sweepIntervalId);
     for (const port of this.portsByClientId.values()) {
       port.close();
     }
     this.portsByClientId.clear();
     this.activeClientIds.clear();
+    this.trackableClientIds.clear();
+    this.methodsByClientRequestId.clear();
     this.worker.terminate();
+    this.release();
   }
 
   private ensurePort(clientId: string): MessagePort {
@@ -239,6 +173,7 @@ class CrossTabOwner {
 
   private closeClient(clientId: string): void {
     this.activeClientIds.delete(clientId);
+    this.trackableClientIds.delete(clientId);
     const port = this.portsByClientId.get(clientId);
     port?.close();
     this.portsByClientId.delete(clientId);
@@ -246,7 +181,37 @@ class CrossTabOwner {
 
     if (this.activeClientIds.size === 0) {
       this.stop();
-      this.release();
+    }
+  }
+
+  private async sweepInactiveClients(): Promise<void> {
+    if (
+      this.stopped ||
+      this.sweepInFlight ||
+      this.trackableClientIds.size === 0
+    ) {
+      return;
+    }
+
+    this.sweepInFlight = true;
+    try {
+      const liveClientIds = await queryLiveClientIds();
+      if (!liveClientIds || this.stopped) {
+        return;
+      }
+
+      for (const clientId of [...this.trackableClientIds]) {
+        if (liveClientIds.has(clientId)) {
+          continue;
+        }
+
+        this.closeClient(clientId);
+        if (this.stopped) {
+          return;
+        }
+      }
+    } finally {
+      this.sweepInFlight = false;
     }
   }
 }
@@ -273,6 +238,7 @@ class CrossTabCoordinator {
       dispatch: (response) => {
         events.dispatchEvent(new MessageEvent("message", { data: response }));
       },
+      liveness: createClientLivenessLock(clientId),
       timeoutsByRequestId: new Map(),
     });
 
@@ -299,12 +265,17 @@ class CrossTabCoordinator {
   private async routeAsync(clientId: string, request: unknown): Promise<void> {
     const id = requestId(request);
     try {
-      if (await this.ensureOwner()) {
-        this.owner?.route(clientId, request);
+      const hasClientLock = await this.waitForLocalClientLock(clientId);
+      if (!this.localClientsById.has(clientId)) {
         return;
       }
 
-      this.postRemoteRequest(clientId, request);
+      if (await this.ensureOwner()) {
+        this.owner?.route(clientId, request, { hasClientLock });
+        return;
+      }
+
+      this.postRemoteRequest(clientId, request, hasClientLock);
     } catch (error: unknown) {
       if (id !== null) {
         this.dispatchLocalResponse(
@@ -320,7 +291,20 @@ class CrossTabCoordinator {
     }
   }
 
-  private postRemoteRequest(clientId: string, request: unknown): void {
+  private async waitForLocalClientLock(clientId: string): Promise<boolean> {
+    const localClient = this.localClientsById.get(clientId);
+    if (!localClient) {
+      return false;
+    }
+
+    return localClient.liveness.ready;
+  }
+
+  private postRemoteRequest(
+    clientId: string,
+    request: unknown,
+    hasClientLock: boolean,
+  ): void {
     const id = requestId(request);
     if (id !== null) {
       const localClient = this.localClientsById.get(clientId);
@@ -337,6 +321,7 @@ class CrossTabCoordinator {
     this.channel.postMessage({
       type: "request",
       clientId,
+      hasClientLock,
       request,
     });
   }
@@ -365,6 +350,7 @@ class CrossTabCoordinator {
       for (const timeoutId of localClient.timeoutsByRequestId.values()) {
         clearTimeout(timeoutId);
       }
+      localClient.liveness.release();
     }
 
     this.localClientsById.delete(clientId);
@@ -377,7 +363,9 @@ class CrossTabCoordinator {
     }
 
     if (envelope.type === "request") {
-      this.owner?.route(envelope.clientId, envelope.request);
+      this.owner?.route(envelope.clientId, envelope.request, {
+        hasClientLock: envelope.hasClientLock === true,
+      });
       return;
     }
 
@@ -405,40 +393,72 @@ class CrossTabCoordinator {
     }
 
     let resolveAcquired: (acquired: boolean) => void = () => {};
-    const acquired = new Promise<boolean>((resolve) => {
+    let rejectAcquired: (error: unknown) => void = () => {};
+    let acquiredSettled = false;
+    const rejectAcquiredOnce = (error: unknown) => {
+      if (acquiredSettled) {
+        return;
+      }
+
+      acquiredSettled = true;
+      rejectAcquired(error);
+    };
+    const resolveAcquiredOnce = (hasOwnerLock: boolean) => {
+      if (acquiredSettled) {
+        return;
+      }
+
+      acquiredSettled = true;
+      resolveAcquired(hasOwnerLock);
+    };
+    const acquiredWithRejection = new Promise<boolean>((resolve, reject) => {
       resolveAcquired = resolve;
+      rejectAcquired = reject;
     });
 
-    void locks.request(
-      CROSS_TAB_OWNER_LOCK_NAME,
-      { ifAvailable: true },
-      async (lock) => {
-        if (!lock) {
-          resolveAcquired(false);
-          return;
-        }
+    void locks
+      .request(
+        CROSS_TAB_OWNER_LOCK_NAME,
+        { ifAvailable: true },
+        async (lock) => {
+          if (!lock) {
+            resolveAcquiredOnce(false);
+            return;
+          }
 
-        let releaseOwner: (() => void) | null = null;
-        const ownerReleased = new Promise<void>((resolve) => {
-          releaseOwner = resolve;
-        });
-        this.owner = new CrossTabOwner(
-          this.workerUrl,
-          this.workerConstructor,
-          this.channel,
-          (clientId, response) =>
-            this.dispatchLocalResponse(clientId, response),
-          () => {
+          let releaseOwner: (() => void) | null = null;
+          const ownerReleased = new Promise<void>((resolve) => {
+            releaseOwner = resolve;
+          });
+          try {
+            const owner = new CrossTabOwner(
+              this.workerUrl,
+              this.workerConstructor,
+              this.channel,
+              (clientId, response) =>
+                this.dispatchLocalResponse(clientId, response),
+              () => {
+                if (this.owner === owner) {
+                  this.owner = null;
+                }
+                releaseOwner?.();
+              },
+            );
+            this.owner = owner;
+            resolveAcquiredOnce(true);
+            await ownerReleased;
+          } catch (error) {
             this.owner = null;
-            releaseOwner?.();
-          },
-        );
-        resolveAcquired(true);
-        await ownerReleased;
-      },
-    );
+            rejectAcquiredOnce(error);
+            throw error;
+          }
+        },
+      )
+      .catch((error) => {
+        rejectAcquiredOnce(error);
+      });
 
-    return acquired;
+    return acquiredWithRejection;
   }
 }
 
