@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect, test } from "bun:test";
 import { HttpResponse, http } from "msw";
 import { ApiClient } from "./ApiClient";
 import {
@@ -13,6 +13,7 @@ import {
   server,
   testApiClient,
 } from "./ApiClient.testHarness";
+import { errorMessage } from "./requestInternals";
 
 testApiClient(
   "normalizes base URL and includes authorization headers",
@@ -370,6 +371,41 @@ testApiClient(
   },
 );
 
+testApiClient(
+  "suppresses the session refresh error when reportErrors is false",
+  async () => {
+    server.use(
+      http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
+        HttpResponse.json(
+          { error: "Session expired" },
+          { status: 401, statusText: "Unauthorized" },
+        ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const errors: string[] = [];
+    client.setAuthToken("stale-token");
+    client.setOnError((message) => {
+      errors.push(message);
+    });
+    client.setOnSessionExpired(() => {
+      throw new Error("local key unavailable");
+    });
+
+    const result = await client.syncDocumentResult(
+      "doc-1",
+      createDocumentSyncRequest(),
+      { reportErrors: false },
+    );
+
+    // reportErrors:false must suppress both the refresh diagnostic and the
+    // downstream HTTP error, matching every other failure on this path.
+    expect(result.ok).toBe(false);
+    expect(errors).toEqual([]);
+  },
+);
+
 testApiClient("does not renew expired sessions for logout", async () => {
   server.use(
     http.post(`${apiBaseUrl}/auth/logout`, () => {
@@ -446,3 +482,14 @@ testApiClient(
     ]);
   },
 );
+
+test("errorMessage extracts a message across realms and falls back", () => {
+  expect(errorMessage(new Error("boom"))).toBe("boom");
+  // Cross-realm error (e.g. thrown in a web worker): instanceof Error fails, so
+  // duck-type a string `message`.
+  expect(errorMessage({ message: "worker boom" })).toBe("worker boom");
+  // Non-error-shaped values fall back to String().
+  expect(errorMessage({ message: 42 })).toBe("[object Object]");
+  expect(errorMessage("plain string")).toBe("plain string");
+  expect(errorMessage(null)).toBe("null");
+});

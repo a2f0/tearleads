@@ -591,8 +591,11 @@ export class ApiClient {
       refreshed = (await this.onSessionExpired?.()) ?? false;
     } catch (error: unknown) {
       // A throw means re-auth failed: do not replay, but surface it so a failing
-      // silent re-login is diagnosable rather than only a downstream 401.
-      this.onError?.(`Session refresh failed: ${errorMessage(error)}`);
+      // silent re-login is diagnosable rather than only a downstream 401. Respect
+      // the caller's reportErrors opt-out, like every other failure on this path.
+      if (input.options.reportErrors ?? true) {
+        this.onError?.(`Session refresh failed: ${errorMessage(error)}`);
+      }
     }
     return Boolean(
       refreshed && this.authToken && this.authToken !== input.authToken,
