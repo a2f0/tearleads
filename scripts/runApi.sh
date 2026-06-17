@@ -15,7 +15,7 @@ EOF
 }
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
-API_DIR="$(cd -- "$SCRIPT_DIR/../packages/api" && pwd -P)"
+API_DIR="$(cd -- "$SCRIPT_DIR/../packages/api" && pwd -P)" || exit 1
 DATABASE_MODE="${API_DATABASE:-pglite}"
 
 if [ "$#" -gt 0 ]; then
