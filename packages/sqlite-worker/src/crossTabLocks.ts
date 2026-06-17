@@ -1,6 +1,6 @@
 const CROSS_TAB_CLIENT_LOCK_PREFIX = "tearleads-sqlite-worker-client:";
 
-interface LockManagerLike {
+export interface LockManagerLike {
   request(
     name: string,
     options: { ifAvailable: true } | null,

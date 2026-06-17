@@ -1,265 +1,16 @@
 import { expect, test } from "bun:test";
 import { createCrossTabDatabaseWorker } from "../src/crossTabRuntime";
-import { WORKER_CONNECT_PORT_MESSAGE_TYPE } from "../src/types";
-
-type WorkerMessage = {
-  id: number;
-  method: string;
-  params: unknown;
-};
-
-type LockCallback = (lock: unknown) => Promise<void> | void;
-
-class MockLockManager {
-  readonly heldLockNames = new Set<string>();
-
-  async request(
-    name: string,
-    optionsOrCallback: { ifAvailable?: true } | LockCallback,
-    maybeCallback?: LockCallback,
-  ): Promise<void> {
-    const callback =
-      typeof optionsOrCallback === "function"
-        ? optionsOrCallback
-        : maybeCallback;
-    if (!callback) {
-      throw new Error("Missing lock callback.");
-    }
-
-    const ifAvailable =
-      typeof optionsOrCallback !== "function" &&
-      optionsOrCallback.ifAvailable === true;
-    if (this.heldLockNames.has(name)) {
-      if (ifAvailable) {
-        await callback(null);
-        return;
-      }
-
-      throw new Error(`Lock already held: ${name}`);
-    }
-
-    this.heldLockNames.add(name);
-    try {
-      await callback({ name });
-    } finally {
-      this.heldLockNames.delete(name);
-    }
-  }
-
-  async query(): Promise<{ held: Array<{ name: string }> }> {
-    return {
-      held: [...this.heldLockNames].map((name) => ({ name })),
-    };
-  }
-}
-
-class MockBroadcastChannel extends EventTarget {
-  private static readonly channelsByName = new Map<
-    string,
-    Set<MockBroadcastChannel>
-  >();
-
-  static reset(): void {
-    MockBroadcastChannel.channelsByName.clear();
-  }
-
-  constructor(readonly name: string) {
-    super();
-    const channels = MockBroadcastChannel.channelsByName.get(name) ?? new Set();
-    channels.add(this);
-    MockBroadcastChannel.channelsByName.set(name, channels);
-  }
-
-  close(): void {
-    MockBroadcastChannel.channelsByName.get(this.name)?.delete(this);
-  }
-
-  postMessage(message: unknown): void {
-    for (const channel of MockBroadcastChannel.channelsByName.get(this.name) ??
-      []) {
-      if (channel === this) {
-        continue;
-      }
-
-      queueMicrotask(() => {
-        channel.dispatchEvent(new MessageEvent("message", { data: message }));
-      });
-    }
-  }
-}
-
-class ThrowingWorker extends EventTarget {
-  constructor() {
-    super();
-    throw new Error("worker construction failed");
-  }
-
-  postMessage(): void {}
-
-  terminate(): void {}
-}
-
-class PortAwareWorker extends EventTarget {
-  static lastConstructed: PortAwareWorker | null = null;
-
-  readonly ports: MessagePort[] = [];
-  terminated = false;
-
-  constructor() {
-    super();
-    PortAwareWorker.lastConstructed = this;
-  }
-
-  postMessage(message: unknown, transfer?: Transferable[]): void {
-    if (
-      typeof message === "object" &&
-      message !== null &&
-      Reflect.get(message, "type") === WORKER_CONNECT_PORT_MESSAGE_TYPE
-    ) {
-      const port = transfer?.[0];
-      if (!(port instanceof MessagePort)) {
-        throw new Error("Expected transferred MessagePort.");
-      }
-
-      this.ports.push(port);
-      port.start();
-      port.addEventListener("message", (event) => {
-        if (!(event instanceof MessageEvent)) {
-          return;
-        }
-
-        const request = event.data as WorkerMessage;
-        port.postMessage({
-          id: request.id,
-          result: { ok: true },
-        });
-      });
-    }
-  }
-
-  terminate(): void {
-    this.terminated = true;
-  }
-}
-
-function uniqueWorkerUrl(label: string): string {
-  return `/worker-${label}-${crypto.randomUUID()}.js`;
-}
-
-function requireCrossTabWorker(
-  worker: ReturnType<typeof createCrossTabDatabaseWorker>,
-): NonNullable<ReturnType<typeof createCrossTabDatabaseWorker>> {
-  if (!worker) {
-    throw new Error("Expected cross-tab worker to be available.");
-  }
-
-  return worker;
-}
-
-async function withCrossTabGlobals<T>(
-  locks: MockLockManager,
-  run: () => Promise<T>,
-): Promise<T> {
-  const originalBroadcastChannel = globalThis.BroadcastChannel;
-  const navigatorValue = Reflect.get(globalThis, "navigator");
-  const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(
-    globalThis,
-    "navigator",
-  );
-  const originalLocksDescriptor =
-    typeof navigatorValue === "object" && navigatorValue !== null
-      ? Object.getOwnPropertyDescriptor(navigatorValue, "locks")
-      : undefined;
-
-  Object.defineProperty(globalThis, "BroadcastChannel", {
-    configurable: true,
-    value: MockBroadcastChannel,
-  });
-
-  if (typeof navigatorValue === "object" && navigatorValue !== null) {
-    Object.defineProperty(navigatorValue, "locks", {
-      configurable: true,
-      value: locks,
-    });
-  } else {
-    Object.defineProperty(globalThis, "navigator", {
-      configurable: true,
-      value: { locks },
-    });
-  }
-
-  try {
-    return await run();
-  } finally {
-    MockBroadcastChannel.reset();
-    Object.defineProperty(globalThis, "BroadcastChannel", {
-      configurable: true,
-      value: originalBroadcastChannel,
-    });
-
-    if (typeof navigatorValue === "object" && navigatorValue !== null) {
-      if (originalLocksDescriptor) {
-        Object.defineProperty(navigatorValue, "locks", originalLocksDescriptor);
-      } else {
-        Reflect.deleteProperty(navigatorValue, "locks");
-      }
-    } else if (originalNavigatorDescriptor) {
-      Object.defineProperty(
-        globalThis,
-        "navigator",
-        originalNavigatorDescriptor,
-      );
-    } else {
-      Reflect.deleteProperty(globalThis, "navigator");
-    }
-  }
-}
-
-function waitForMessage(
-  worker: {
-    addEventListener(type: "message", listener: (event: Event) => void): void;
-    removeEventListener(
-      type: "message",
-      listener: (event: Event) => void,
-    ): void;
-  },
-  timeoutMs = 500,
-): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      worker.removeEventListener("message", listener);
-      reject(new Error("Timed out waiting for worker message."));
-    }, timeoutMs);
-
-    const listener = (event: Event) => {
-      if (!(event instanceof MessageEvent)) {
-        return;
-      }
-
-      clearTimeout(timeoutId);
-      worker.removeEventListener("message", listener);
-      resolve(event.data);
-    };
-
-    worker.addEventListener("message", listener);
-  });
-}
-
-async function waitUntil(
-  predicate: () => boolean,
-  timeoutMs = 2_000,
-): Promise<void> {
-  const startedAt = performance.now();
-  while (performance.now() - startedAt < timeoutMs) {
-    if (predicate()) {
-      return;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-
-  throw new Error("Timed out waiting for condition.");
-}
+import {
+  MockLockManager,
+  PortAwareWorker,
+  requireCrossTabWorker,
+  SilentPortWorker,
+  ThrowingWorker,
+  uniqueWorkerUrl,
+  waitForMessage,
+  waitUntil,
+  withCrossTabGlobals,
+} from "./crossTabTestHarness";
 
 test("cross-tab owner acquisition reports worker construction failures instead of hanging", async () => {
   await withCrossTabGlobals(new MockLockManager(), async () => {
@@ -277,6 +28,34 @@ test("cross-tab owner acquisition reports worker construction failures instead o
         message: "worker construction failed",
       },
     });
+  });
+});
+
+test("a tab whose worker fails to construct falls back to a healthy owner tab", async () => {
+  // One tab's owner worker throws on construction; another tab's worker is fine.
+  // The failed tab must not brick itself on the construction error — once a
+  // healthy owner exists elsewhere, its requests route remotely to that owner.
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    PortAwareWorker.lastConstructed = null;
+
+    const failingWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("fail-a"), ThrowingWorker),
+    );
+    const healthyWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("ok-b"), PortAwareWorker),
+    );
+
+    // The healthy tab takes ownership (the failing tab releases the lock when its
+    // worker construction throws), then serves the failing tab's request remotely.
+    const healthyResponse = waitForMessage(healthyWorker);
+    healthyWorker.postMessage({ id: 1, method: "ping", params: undefined });
+    expect(await healthyResponse).toEqual({ id: 1, result: { ok: true } });
+
+    const failingResponse = waitForMessage(failingWorker, 3_000);
+    failingWorker.postMessage({ id: 2, method: "ping", params: undefined });
+    expect(await failingResponse).toEqual({ id: 2, result: { ok: true } });
   });
 });
 
@@ -305,13 +84,193 @@ test("cross-tab owner drops a client whose lifetime lock disappears", async () =
     expect(ownerWorker.terminated).toBe(false);
     expect(ownerWorker.ports).toHaveLength(1);
 
+    // The client goes away: its liveness lock is released and the sweep drops it.
     worker.close();
 
-    await waitUntil(() => ownerWorker.terminated);
-    expect(
-      [...locks.heldLockNames].some((name) =>
-        name.startsWith("tearleads-sqlite-worker-client:"),
+    await waitUntil(
+      () =>
+        ![...locks.heldLockNames].some((name) =>
+          name.startsWith("tearleads-sqlite-worker-client:"),
+        ),
+    );
+
+    // The owner worker stays alive even with no clients: under the single lifelong
+    // ownership bid it must not release the owner lock (and re-contention never
+    // happens), so a reopened client reuses it instead of being stranded.
+    expect(ownerWorker.terminated).toBe(false);
+  });
+});
+
+test("an explicit close tears the owner down once its last client is gone", async () => {
+  // Unlike a client that merely vanishes, an explicit `close`/`delete` is teardown
+  // (logout / forget-local-data): once the last client closes, the owner worker is
+  // terminated and the owner lock released so the freed OPFS handles are available
+  // to the next boot.
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    PortAwareWorker.lastConstructed = null;
+    const worker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(
+        uniqueWorkerUrl("teardown"),
+        PortAwareWorker,
       ),
-    ).toBe(false);
+    );
+
+    const ready = waitForMessage(worker);
+    worker.postMessage({ id: 1, method: "ping", params: undefined });
+    expect(await ready).toEqual({ id: 1, result: { ok: true } });
+
+    const ownerWorker =
+      PortAwareWorker.lastConstructed as PortAwareWorker | null;
+    if (!ownerWorker) {
+      throw new Error("Expected cross-tab owner worker to be constructed.");
+    }
+    expect(ownerWorker.terminated).toBe(false);
+
+    const closed = waitForMessage(worker);
+    worker.postMessage({ id: 2, method: "close", params: undefined });
+    expect(await closed).toEqual({ id: 2, result: { ok: true } });
+
+    await waitUntil(() => ownerWorker.terminated);
+    // The owner lock releases a microtask after stop() (the blocking bid's callback
+    // returns), so wait for the release rather than asserting synchronously.
+    await waitUntil(
+      () => !locks.heldLockNames.has("tearleads-sqlite-worker-owner"),
+    );
+  });
+});
+
+test("a surviving tab is promoted to owner after the owner tab releases", async () => {
+  // Two coordinators (two tabs) share one lock manager + broadcast channel. The
+  // first wins ownership and serves both tabs' requests. When it releases the
+  // owner lock (its tab is discarded), the second tab must be promoted and serve
+  // requests itself — no stranded tab, no reliance on the request timeout.
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    PortAwareWorker.lastConstructed = null;
+
+    const firstWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("owner-a"), PortAwareWorker),
+    );
+    const firstResponse = waitForMessage(firstWorker);
+    firstWorker.postMessage({ id: 1, method: "ping", params: undefined });
+    expect(await firstResponse).toEqual({ id: 1, result: { ok: true } });
+
+    const firstOwnerWorker =
+      PortAwareWorker.lastConstructed as PortAwareWorker | null;
+    if (!firstOwnerWorker) {
+      throw new Error("Expected the first owner worker to be constructed.");
+    }
+
+    // Second tab joins. It loses the ownership race, so its requests are routed
+    // over the channel to the first tab's owner worker (which now serves 2 ports).
+    const secondWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("owner-b"), PortAwareWorker),
+    );
+    const secondResponse = waitForMessage(secondWorker);
+    secondWorker.postMessage({ id: 2, method: "ping", params: undefined });
+    expect(await secondResponse).toEqual({ id: 2, result: { ok: true } });
+    expect(firstOwnerWorker.ports).toHaveLength(2);
+
+    // The owner tab crashes: the browser reclaims its owner lock without the
+    // graceful stop path running (the tab — and its worker — are simply gone).
+    locks.forceRelease("tearleads-sqlite-worker-owner");
+
+    // The second tab must now be promoted: its queued bid is granted, a NEW owner
+    // worker is constructed, and it serves the second tab's subsequent requests.
+    await waitUntil(() => PortAwareWorker.lastConstructed !== firstOwnerWorker);
+    const secondOwnerWorker =
+      PortAwareWorker.lastConstructed as PortAwareWorker | null;
+    if (!secondOwnerWorker || secondOwnerWorker === firstOwnerWorker) {
+      throw new Error("Expected the second tab to be promoted to owner.");
+    }
+
+    const promotedResponse = waitForMessage(secondWorker);
+    secondWorker.postMessage({ id: 3, method: "ping", params: undefined });
+    expect(await promotedResponse).toEqual({ id: 3, result: { ok: true } });
+    expect(secondOwnerWorker.terminated).toBe(false);
+  });
+});
+
+test("a tab that loses the cold-start ownership race still routes its requests", async () => {
+  // Two tabs are created in the same tick, before any owner exists. One wins the
+  // ownership bid; the other must still observe that an owner now exists and route
+  // its request to it, rather than wedging on a gate that a single owner-lock
+  // query (taken before anyone owned) would never settle.
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    PortAwareWorker.lastConstructed = null;
+
+    const firstWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("cold-a"), PortAwareWorker),
+    );
+    const secondWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("cold-b"), PortAwareWorker),
+    );
+
+    // Both tabs issue a request immediately, racing the ownership election.
+    const firstResponse = waitForMessage(firstWorker);
+    const secondResponse = waitForMessage(secondWorker);
+    firstWorker.postMessage({ id: 1, method: "ping", params: undefined });
+    secondWorker.postMessage({ id: 2, method: "ping", params: undefined });
+
+    expect(await firstResponse).toEqual({ id: 1, result: { ok: true } });
+    expect(await secondResponse).toEqual({ id: 2, result: { ok: true } });
+  });
+});
+
+test("promotion fails a tab's in-flight remote requests instead of waiting out the timeout", async () => {
+  // A request routed to the owner that never answers (its tab is about to crash)
+  // must not hang for the full timeout. When the surviving tab is promoted, it
+  // fails its own orphaned in-flight requests with a retryable error right away.
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    SilentPortWorker.lastConstructed = null;
+
+    // First tab wins ownership; its owner worker accepts ports but never replies.
+    const firstWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(
+        uniqueWorkerUrl("silent-a"),
+        SilentPortWorker,
+      ),
+    );
+    firstWorker.postMessage({ id: 1, method: "ping", params: undefined });
+    await waitUntil(() => SilentPortWorker.lastConstructed !== null);
+    const firstOwnerWorker =
+      SilentPortWorker.lastConstructed as SilentPortWorker | null;
+
+    // Second tab loses the race and routes a request to the (silent) owner, where
+    // it sits unanswered.
+    const secondWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(
+        uniqueWorkerUrl("silent-b"),
+        SilentPortWorker,
+      ),
+    );
+    const pendingResponse = waitForMessage(secondWorker, 2_000);
+    secondWorker.postMessage({
+      id: 2,
+      method: "exec",
+      params: { sql: "SELECT 1" },
+    });
+
+    // Give the request time to reach the owner and be recorded as in-flight.
+    await waitUntil(() => (firstOwnerWorker?.ports.length ?? 0) >= 1);
+
+    // The owner tab crashes before answering. The second tab is promoted and must
+    // fail its orphaned request promptly (well under the 10s request timeout).
+    locks.forceRelease("tearleads-sqlite-worker-owner");
+
+    expect(await pendingResponse).toEqual({
+      id: 2,
+      result: {
+        ok: false,
+        message: "The database owner tab changed; retry the request.",
+      },
+    });
   });
 });
