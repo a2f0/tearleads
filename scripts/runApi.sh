@@ -3,7 +3,7 @@ set -eu
 
 usage() {
   cat <<'EOF'
-Usage: sh packages/api/scripts/runApi.sh [pglite|postgres] [-- dev args]
+Usage: sh scripts/runApi.sh [pglite|postgres] [-- dev args]
 
 Modes:
   pglite, pg-lite, memory      Run with in-memory PGlite. This is the default.
@@ -15,7 +15,7 @@ EOF
 }
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
-API_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd -P)"
+API_DIR="$(cd -- "$SCRIPT_DIR/../packages/api" && pwd -P)"
 DATABASE_MODE="${API_DATABASE:-pglite}"
 
 if [ "$#" -gt 0 ]; then
