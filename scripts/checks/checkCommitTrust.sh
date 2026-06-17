@@ -41,6 +41,8 @@ check_signed() {
     echo "Sign it (e.g. 'git commit --amend -S' or rebase with --gpg-sign) before pushing." >&2
     return 1
   fi
+
+  return 0
 }
 
 check_no_coauthors() {
@@ -49,7 +51,7 @@ check_no_coauthors() {
 
   if [ -n "$coauthors" ]; then
     echo "Error: commit $commit has a Co-authored-by trailer:" >&2
-    echo "$coauthors" | sed 's/^/  /' >&2
+    printf '%s\n' "$coauthors" | sed 's/^/  /' >&2
     echo "" >&2
     echo "AGENT INSTRUCTION: Remove every Co-authored-by trailer from this commit's" >&2
     echo "message. Rewrite the offending commit(s) with 'git rebase -i <base>' (mark" >&2
@@ -58,11 +60,21 @@ check_no_coauthors() {
     echo "commits. Then re-run the push." >&2
     return 1
   fi
+
+  return 0
 }
 
 failed=0
 
-for commit in $(git rev-list "$range"); do
+# Assign rather than iterate $(...) directly so a git rev-list failure (bad
+# range, missing object) is caught here instead of silently expanding to an
+# empty list and passing the check.
+if ! commits=$(git rev-list "$range"); then
+  echo "Error: failed to list commits for range '$range'." >&2
+  exit 1
+fi
+
+for commit in $commits; do
   check_signed "$commit" || failed=1
   check_no_coauthors "$commit" || failed=1
 done
