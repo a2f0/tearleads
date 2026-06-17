@@ -20,3 +20,23 @@ if (import.meta.hot) {
 } else {
   renderApp(createRoot(elem), { hostConfig });
 }
+
+// Register the offline precache service worker outside of HMR (i.e. the built
+// app, not `bun --hot` dev). `import.meta.hot` is the same prod/dev signal the
+// render path above uses, and unlike a `process.env.NODE_ENV` check it survives
+// the production build's define/minify pass. Registration is a progressive
+// enhancement (it lets the app shell, the SQLite worker, and sqlite3.wasm load
+// with no network), so it is best-effort and never blocks startup; where /sw.js
+// is absent (e.g. the dynamic e2e server) the register call simply rejects.
+if (
+  !import.meta.hot &&
+  typeof navigator !== "undefined" &&
+  "serviceWorker" in navigator
+) {
+  globalThis.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // The app works online without the service worker; only offline support is
+      // lost if registration fails.
+    });
+  });
+}

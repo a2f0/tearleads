@@ -11,7 +11,7 @@
     "predev": "bun run build:client-sdk",
     "dev": "bun --hot src/servers/devServer.ts",
     "prebuild": "bun run build:client-sdk",
-    "build": "rm -rf dist && bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='production' --env='BUN_PUBLIC_*' && bun scripts/buildStaticAssets.ts",
+    "build": "rm -rf dist && bun build ./src/index.html --outdir=dist --sourcemap --target=browser --minify --define:process.env.NODE_ENV='production' --env='BUN_PUBLIC_*' && bun scripts/buildStaticAssets.ts && bun scripts/buildServiceWorker.ts",
     "prestart": "bun run build:client-sdk",
     "start": "bun src/servers/devServer.ts"
   },
