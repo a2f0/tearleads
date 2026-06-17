@@ -28,9 +28,21 @@ export function useReleaseRuntimeOnPageHide(
     const handlePageHide = () => {
       runtimeRef.current?.terminateNow();
     };
+    // If the page is restored from the back-forward cache, the worker we
+    // terminated on `pagehide` is gone and the client is destroyed — the app
+    // would come back frozen. `pageshow` with `event.persisted` is the bfcache
+    // restore signal; reload to re-initialize cleanly rather than running on a
+    // dead database runtime.
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
     window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
     return () => {
       window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, [runtimeRef]);
 }

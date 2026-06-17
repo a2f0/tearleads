@@ -32,8 +32,21 @@ export function useEnsureDatabaseForIdentity(
   // Auto-retry budget for the current fingerprint; reset whenever the identity
   // we are booting a database for changes.
   const retriesRef = useRef(0);
+  // Re-entrancy guard for a single boot attempt. ensureIdentityReady
+  // *synchronously* resets a failed runtime to `idle` before spawning a fresh
+  // one, so calling it re-renders this hook with `dbStatus === "idle"` and would
+  // re-enter and fire a second, redundant boot. We set this flag immediately
+  // before an attempt and clear it on a microtask, so only that reflexive
+  // same-tick `idle` is suppressed — a genuine later `idle` (e.g. Explorer's
+  // Retry, which calls clearWorker() to reset to idle and rely on this effect to
+  // re-boot) still triggers a fresh attempt.
+  const attemptInFlightRef = useRef(false);
   useEffect(() => {
+    // A new identity is an independent boot: reset the retry budget and clear any
+    // stale in-flight marker so the new fingerprint's first `idle` is not mistaken
+    // for the previous boot's reflexive re-entry.
     retriesRef.current = 0;
+    attemptInFlightRef.current = false;
   }, [signingFingerprint]);
 
   useEffect(() => {
@@ -45,6 +58,11 @@ export function useEnsureDatabaseForIdentity(
     // ensureIdentityReady spawns a fresh worker for a DB pinned in error, so a
     // transient SAHPool contention failure can still succeed on a later attempt.
     if (dbStatus !== "idle" && dbStatus !== "error") {
+      return;
+    }
+    // Suppress the reflexive idle re-entry triggered synchronously by our own
+    // in-flight attempt (see attemptInFlightRef).
+    if (dbStatus === "idle" && attemptInFlightRef.current) {
       return;
     }
     if (
@@ -61,6 +79,14 @@ export function useEnsureDatabaseForIdentity(
       if (cancelled) {
         return;
       }
+      // Mark the attempt in flight across the synchronous part of
+      // ensureIdentityReady (which may reset status to `idle`), then clear it on a
+      // microtask so the reflexive same-tick re-render is suppressed but later
+      // transitions are not.
+      attemptInFlightRef.current = true;
+      void Promise.resolve().then(() => {
+        attemptInFlightRef.current = false;
+      });
       void ensureIdentityDatabaseReady(signingFingerprint).catch(
         (error: unknown) => {
           logError("Failed to initialize SQLite for local identity", error);

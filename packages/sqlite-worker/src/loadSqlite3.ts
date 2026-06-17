@@ -388,18 +388,25 @@ export async function closeDatabase(
   // which is why pausing lives here rather than alongside the install. The
   // singleton is cleared so a subsequent init in the same worker re-installs
   // (e.g. switching identity databases) instead of reusing a paused pool.
-  const vfs = persistentVfs;
-  if (!vfs) {
-    return;
-  }
+  //
+  // Capture the in-flight install promise, not just the resolved singleton: a
+  // close that races an still-pending install would otherwise see
+  // `persistentVfs === undefined`, skip the pause, and then the install would
+  // resolve and leave the VFS active with its handles leaked. Awaiting the
+  // promise pauses whichever pool actually got installed.
+  const vfsPromise = persistentVfsPromise;
   persistentVfs = undefined;
   persistentVfsPromise = undefined;
+  if (!vfsPromise) {
+    return;
+  }
   try {
+    const vfs = await vfsPromise;
     vfs.poolUtil.pauseVfs();
   } catch {
-    // If pausing fails the handles are released when the worker is terminated;
-    // the next boot just falls back to the contention retry. Swallow so this
-    // stays a no-throw best-effort teardown.
+    // The install may have failed, or pausing may throw; either way the handles
+    // are released when the worker is terminated and the next boot falls back to
+    // the contention retry. Swallow so this stays a no-throw best-effort teardown.
   }
 }
 
