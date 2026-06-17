@@ -36,13 +36,14 @@ function callCreateCipherVfs(
 }
 
 /**
- * OPFS directory and registered VFS name for the persistent SAHPool. Kept stable
- * across sessions so a reload re-attaches to the same on-disk pool. Bumping these
- * would orphan previously persisted databases, so treat them as a storage
- * contract, not a tunable.
+ * OPFS directory root and registered VFS name prefix for persistent SAHPools.
+ * The final directory/name are derived from the SQLite database name so separate
+ * pane databases can be opened by separate workers without contending on the
+ * same SAHPool access-handle files. Keep the derivation stable: changing it
+ * changes where persisted bytes live.
  */
-const SAHPOOL_VFS_NAME = "tearleads-opfs-sahpool";
-const SAHPOOL_DIRECTORY = "/tearleads-sqlite";
+const SAHPOOL_VFS_NAME_PREFIX = "tearleads-opfs-sahpool";
+const SAHPOOL_DIRECTORY_ROOT = "/tearleads-sqlite";
 
 /**
  * The pool reserves one access handle per file it manages, including journal and
@@ -130,9 +131,42 @@ interface PersistentVfs {
 
 let sqlite3: Sqlite3Static | undefined;
 let sqlite3Promise: Promise<Sqlite3Static> | undefined;
-let persistentVfs: PersistentVfs | undefined;
-let persistentVfsPromise: Promise<PersistentVfs> | undefined;
+const persistentVfsPromisesByStorageKey = new Map<
+  string,
+  Promise<PersistentVfs>
+>();
+const storageKeyByDb = new WeakMap<object, string>();
 let sqliteInitQueue = Promise.resolve();
+
+function sahPoolStorageSegmentForDbName(dbName: string): string {
+  const segment = dbName
+    .trim()
+    .replace(/^\/+/u, "")
+    // Preserve dots so `a.b` and `a_b` do not collapse to the same SAHPool.
+    .replace(/[^a-zA-Z0-9_.-]+/gu, "_")
+    .replace(/^_+|_+$/gu, "");
+  // A literal "." or ".." could be interpreted as navigation relative to the
+  // SAHPool root; keep those reserved names mapped to a regular child segment.
+  return !segment || segment === "." || segment === ".." ? "default" : segment;
+}
+
+export function persistentSahPoolStorageForDbName(dbName: string): {
+  directory: string;
+  vfsName: string;
+} {
+  const segment = sahPoolStorageSegmentForDbName(dbName);
+  return {
+    directory: `${SAHPOOL_DIRECTORY_ROOT}/${segment}`,
+    vfsName: `${SAHPOOL_VFS_NAME_PREFIX}-${segment}`,
+  };
+}
+
+function persistentVfsStorageKey(storage: {
+  directory: string;
+  vfsName: string;
+}): string {
+  return `${storage.vfsName}\n${storage.directory}`;
+}
 
 function getBunFetch(): typeof fetch | null {
   return typeof Bun === "undefined" ? null : Bun.fetch;
@@ -238,12 +272,16 @@ function createCipherVfs(s: Sqlite3Static, underlyingVfsName: string): string {
 export async function installSahPoolVfsWithRetry(
   s: Sqlite3Static,
   overrides?: {
+    directory?: string;
     totalBudgetMs?: number;
     initialDelayMs?: number;
     maxDelayMs?: number;
     now?: () => number;
+    vfsName?: string;
   },
 ): Promise<SAHPoolUtil> {
+  const directory = overrides?.directory ?? SAHPOOL_DIRECTORY_ROOT;
+  const vfsName = overrides?.vfsName ?? SAHPOOL_VFS_NAME_PREFIX;
   const totalBudgetMs =
     overrides?.totalBudgetMs ?? SAHPOOL_INSTALL_TOTAL_BUDGET_MS;
   const maxDelayMs = overrides?.maxDelayMs ?? SAHPOOL_INSTALL_MAX_DELAY_MS;
@@ -256,8 +294,8 @@ export async function installSahPoolVfsWithRetry(
   for (;;) {
     try {
       return await s.installOpfsSAHPoolVfs({
-        name: SAHPOOL_VFS_NAME,
-        directory: SAHPOOL_DIRECTORY,
+        name: vfsName,
+        directory,
         // Preserve existing files across sessions — this is the whole point.
         clearOnInit: false,
       });
@@ -284,20 +322,21 @@ export async function installSahPoolVfsWithRetry(
  * Installs (once) the persistent VFS stack: the OPFS SyncAccessHandle Pool VFS
  * wrapped by the SQLite3MultipleCiphers codec VFS.
  *
- * The VFSes are registered globally in the WASM instance, so they must be set up
- * exactly once and reused across every database opened in this worker (e.g. the
- * bootstrap database and the per-identity database). The SAHPool VFS is
- * synchronous and therefore needs neither `SharedArrayBuffer` nor cross-origin
- * isolation (COOP/COEP).
+ * The VFSes are registered globally in the WASM instance, so a worker reuses the
+ * same VFS stack for repeated opens of the same database name. The SAHPool VFS
+ * is synchronous and therefore needs neither `SharedArrayBuffer` nor
+ * cross-origin isolation (COOP/COEP).
  *
  * Throws if OPFS is unavailable or the VFS stack cannot be installed —
  * persistence is a hard requirement once requested, never a silent fall back to
  * memory.
  */
-async function loadPersistentVfs(s: Sqlite3Static): Promise<PersistentVfs> {
-  if (persistentVfs) {
-    return persistentVfs;
-  }
+async function loadPersistentVfs(
+  s: Sqlite3Static,
+  dbName: string,
+): Promise<PersistentVfs> {
+  const storage = persistentSahPoolStorageForDbName(dbName);
+  const storageKey = persistentVfsStorageKey(storage);
 
   if (typeof s.installOpfsSAHPoolVfs !== "function") {
     throw new Error(
@@ -305,26 +344,37 @@ async function loadPersistentVfs(s: Sqlite3Static): Promise<PersistentVfs> {
     );
   }
 
-  if (!persistentVfsPromise) {
-    persistentVfsPromise = (async () => {
-      const poolUtil = await installSahPoolVfsWithRetry(s);
-      await poolUtil.reserveMinimumCapacity(SAHPOOL_MINIMUM_CAPACITY);
-      const cipherVfsName = createCipherVfs(s, poolUtil.vfsName);
-      const resolved: PersistentVfs = { poolUtil, cipherVfsName };
-      persistentVfs = resolved;
-      return resolved;
-    })().catch((error: unknown) => {
-      // Allow a later attempt to retry rather than caching a rejected promise.
-      persistentVfsPromise = undefined;
-      throw error instanceof Error
-        ? error
-        : new Error("Failed to install the persistent SQLite VFS.", {
-            cause: error,
-          });
-    });
+  const existingPromise = persistentVfsPromisesByStorageKey.get(storageKey);
+  if (existingPromise) {
+    return existingPromise;
   }
 
-  return persistentVfsPromise;
+  // Compare failures through an entry object so an older rejected install only
+  // clears the promise it created, not a newer retry installed after teardown.
+  const entry: { promise?: Promise<PersistentVfs> } = {};
+  entry.promise = (async () => {
+    const poolUtil = await installSahPoolVfsWithRetry(s, {
+      directory: storage.directory,
+      vfsName: storage.vfsName,
+    });
+    await poolUtil.reserveMinimumCapacity(SAHPOOL_MINIMUM_CAPACITY);
+    const cipherVfsName = createCipherVfs(s, poolUtil.vfsName);
+    const resolved: PersistentVfs = { poolUtil, cipherVfsName };
+    return resolved;
+  })().catch((error: unknown) => {
+    // Allow a later attempt to retry rather than caching a rejected promise.
+    if (persistentVfsPromisesByStorageKey.get(storageKey) === entry.promise) {
+      persistentVfsPromisesByStorageKey.delete(storageKey);
+    }
+    throw error instanceof Error
+      ? error
+      : new Error("Failed to install the persistent SQLite VFS.", {
+          cause: error,
+        });
+  });
+  persistentVfsPromisesByStorageKey.set(storageKey, entry.promise);
+
+  return entry.promise;
 }
 
 async function openDatabaseForMode(
@@ -336,10 +386,13 @@ async function openDatabaseForMode(
     return new s.oo1.DB(dbName);
   }
 
-  const { cipherVfsName } = await loadPersistentVfs(s);
+  const { cipherVfsName } = await loadPersistentVfs(s, dbName);
   // Open against the cipher-capable wrapper VFS (not the bare SAHPool VFS) so the
   // encryption PRAGMAs below succeed. "c" = create-if-missing, read/write.
-  return new s.oo1.DB(dbName, "c", cipherVfsName);
+  const db = new s.oo1.DB(dbName, "c", cipherVfsName);
+  const storage = persistentSahPoolStorageForDbName(dbName);
+  storageKeyByDb.set(db, persistentVfsStorageKey(storage));
+  return db;
 }
 
 export async function initDatabase(
@@ -384,29 +437,36 @@ export async function closeDatabase(
     // down regardless.
   }
 
-  // Release the OPFS access handles. The db must be closed first (done above),
-  // which is why pausing lives here rather than alongside the install. The
-  // singleton is cleared so a subsequent init in the same worker re-installs
-  // (e.g. switching identity databases) instead of reusing a paused pool.
-  //
-  // Capture the in-flight install promise, not just the resolved singleton: a
-  // close that races an still-pending install would otherwise see
-  // `persistentVfs === undefined`, skip the pause, and then the install would
-  // resolve and leave the VFS active with its handles leaked. Awaiting the
-  // promise pauses whichever pool actually got installed.
-  const vfsPromise = persistentVfsPromise;
-  persistentVfs = undefined;
-  persistentVfsPromise = undefined;
-  if (!vfsPromise) {
-    return;
+  // Release OPFS handles after closing the db. Specific db closes pause only
+  // their pool; `null` is the worker-level fallback that pauses every known pool.
+  const storageKey = db ? storageKeyByDb.get(db) : undefined;
+  if (db) {
+    storageKeyByDb.delete(db);
   }
-  try {
-    const vfs = await vfsPromise;
-    vfs.poolUtil.pauseVfs();
-  } catch {
-    // The install may have failed, or pausing may throw; either way the handles
-    // are released when the worker is terminated and the next boot falls back to
-    // the contention retry. Swallow so this stays a no-throw best-effort teardown.
+  const vfsPromises = storageKey
+    ? [persistentVfsPromisesByStorageKey.get(storageKey)]
+    : db
+      ? []
+      : [...persistentVfsPromisesByStorageKey.values()];
+  if (storageKey) {
+    persistentVfsPromisesByStorageKey.delete(storageKey);
+  } else if (!db) {
+    persistentVfsPromisesByStorageKey.clear();
+  }
+
+  for (const vfsPromise of vfsPromises) {
+    if (!vfsPromise) {
+      continue;
+    }
+    try {
+      const vfs = await vfsPromise;
+      vfs.poolUtil.pauseVfs();
+    } catch {
+      // The install may have failed, or pausing may throw; either way the handles
+      // are released when the worker is terminated and the next boot falls back
+      // to the contention retry. Swallow so this stays a no-throw best-effort
+      // teardown.
+    }
   }
 }
 
