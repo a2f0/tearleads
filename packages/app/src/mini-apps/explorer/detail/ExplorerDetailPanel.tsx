@@ -14,6 +14,7 @@ import type {
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
@@ -30,6 +31,9 @@ function ExplorerEmptyDetail(params: {
 }) {
   const { nodes, ready } = params;
 
+  // The database-error case is handled once at the top of ExplorerDetailPanel
+  // (every route is non-functional without the DB), so this only covers the
+  // healthy idle/empty/select states.
   return (
     <MiniAppStatus>
       {ready && nodes.length > 0
@@ -87,6 +91,9 @@ interface ExplorerDetailPanelProps {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
+  // True when the local SQLite database failed to start; gates the whole panel
+  // on an explicit boot error + Retry instead of an endless "Loading...".
+  databaseError: boolean;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
@@ -103,6 +110,8 @@ interface ExplorerDetailPanelProps {
   ) => void;
   onBackToSelectionRoute: () => void;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  // Re-attempts the SQLite worker boot after a failure (the Retry action).
+  onRetryDatabase: () => void;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
@@ -153,6 +162,13 @@ function renderExplorerNewStructuredDocumentRoute(
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Route rendering stays explicit so each Explorer state is easy to follow.
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
+  // A failed SQLite boot makes every detail route non-functional (they all read
+  // from the local database), so gate the whole panel on the error — matching
+  // the sidebar — rather than letting individual routes render broken UIs.
+  if (params.databaseError) {
+    return <ExplorerDatabaseErrorStatus onRetry={params.onRetryDatabase} />;
+  }
+
   const { route, selectedDocument, selectedNode } = params;
   if (route.view === "blob-browser") {
     return (

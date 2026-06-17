@@ -105,6 +105,8 @@ export function useExplorerPanelState(params: {
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   onDocumentLinksChanged: () => void;
+  // Re-attempts the SQLite worker boot; forwarded to the sidebar tree's gate.
+  onRetryDatabase: () => void;
   peerUserId: string | null;
   selection: ExplorerSelectionState;
   setLinkedContainerIdsForDocument: (
@@ -125,6 +127,7 @@ export function useExplorerPanelState(params: {
     mergeDocumentSummary,
     documentSummaries,
     onDocumentLinksChanged,
+    onRetryDatabase,
     peerUserId,
     selection,
     setLinkedContainerIdsForDocument,
@@ -176,6 +179,9 @@ export function useExplorerPanelState(params: {
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
     currentOrganizationId: appData.auth.organizationId,
+    // Derived from the same worker status as Explorer's detail gate so both show
+    // the boot error together; the retry callback is threaded from Explorer.
+    databaseError: appData.infra.dbStatus === "error",
     documentLinkProjectionVersion,
     documentListRevision,
     documentQueries,
@@ -184,6 +190,7 @@ export function useExplorerPanelState(params: {
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
     online: appData.state.online,
+    onRetryDatabase,
     ready: explorer.ready,
     selectedId: selection.selectedId,
     selectDocumentProjection,

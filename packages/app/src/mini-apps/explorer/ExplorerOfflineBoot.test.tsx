@@ -44,19 +44,16 @@ async function openExplorerWindow(
   return explorerWindow;
 }
 
-// Reproduces the offline failure mode: on a reload with no network, the local
+// Verifies the offline boot-failure UX. On a reload with no network, the local
 // identity restores from storage (which needs no network), but the SQLite worker
 // cannot boot because the separately-fetched `sqlite3.wasm` asset is unavailable
-// and there is no service worker to serve it from cache. Explorer is then stuck
-// on "Loading..." forever, and the boot error is never surfaced.
-//
-// This documents the current (buggy) behavior. Explorer's loading gate is a
-// single boolean (`ready`) tied to `dbStatus === "ready"` with no error branch
-// (ExplorerDetailPanel `ExplorerEmptyDetail`), so a definitive boot failure is
-// rendered identically to "still loading". A correct device-first/offline gate
-// would surface the error (with a retry) instead of an infinite spinner.
+// and there is no service worker to serve it from cache. Explorer must surface
+// this as an explicit error with a Retry — not an indistinguishable, never-ending
+// "Loading...". (`ready` stays false on a hard failure just like during boot, so
+// without the explicit error branch the failure looks identical to still
+// loading; see ExplorerDatabaseErrorStatus and the detail/sidebar gates.)
 test(
-  "explorer is stuck on 'Loading...' offline when the identity restores but the SQLite worker fails to boot",
+  "explorer surfaces a database error with retry (not an endless spinner) when the worker fails to boot offline",
   async () => {
     useTestApiAppHandlers();
     // One shared keyring instance so the persisted identity from phase 1 can be
@@ -96,16 +93,35 @@ test(
 
     const explorerWindow = await openExplorerWindow(offline);
 
-    // The Explorer window renders, but its content is stuck on "Loading...".
+    // The boot error is surfaced with a Retry (in both the detail panel and the
+    // sidebar tree) instead of an indistinguishable, never-ending "Loading...".
     await waitFor(() => {
-      expect(explorerWindow.textContent).toContain("Loading...");
+      expect(explorerWindow.textContent).toContain(
+        "Couldn't open the local database.",
+      );
     });
-
-    // It never resolves to the ready-but-empty state ("No containers.") and never
-    // surfaces the boot error — the database status is "error" the whole time.
-    expect(getPaneStatusText(offline)).toMatch(/sqlite worker:\s*error/);
-    expect(explorerWindow.textContent).toContain("Loading...");
+    expect(
+      within(explorerWindow).getAllByRole("button", { name: "Retry" }).length,
+    ).toBeGreaterThan(0);
+    expect(explorerWindow.textContent).not.toContain("Loading...");
+    // And it never falsely reaches the ready-but-empty "No containers." state.
     expect(explorerWindow.textContent).not.toContain("No containers.");
+
+    // Retrying re-attempts the boot; with a permanently-failing worker it returns
+    // to the same surfaced error and never silently hangs.
+    const [retryButton] = within(explorerWindow).getAllByRole("button", {
+      name: "Retry",
+    });
+    if (!retryButton) {
+      throw new Error("expected a Retry button");
+    }
+    fireEvent.click(retryButton);
+    await waitFor(() => {
+      expect(getPaneStatusText(offline)).toMatch(/sqlite worker:\s*error/);
+      expect(explorerWindow.textContent).toContain(
+        "Couldn't open the local database.",
+      );
+    });
 
     offline.unmount();
   },

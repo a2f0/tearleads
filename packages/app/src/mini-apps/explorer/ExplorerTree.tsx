@@ -30,6 +30,7 @@ import {
   useMiniAppVirtualWindow,
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
 import {
   buildExplorerSidebarSections,
   countExplorerSidebarRows,
@@ -764,9 +765,12 @@ function useExplorerSidebarDocumentWindowLoader(params: {
 
 interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
   blankContextMenuContainerId: string | null;
+  // True when the SQLite boot failed; surfaces the error instead of "Loading...".
+  databaseError: boolean;
   frameRef: (nextFrame: HTMLDivElement | null) => void;
   nodesLength: number;
   offset: number;
+  onRetryDatabase: () => void;
   ready: boolean;
   rows: ReadonlyArray<ExplorerSidebarVirtualRow>;
   totalRows: number;
@@ -794,7 +798,12 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
         }}
         ref={props.frameRef}
       >
-        {!props.ready ? (
+        {props.databaseError ? (
+          // A failed SQLite boot leaves `ready` false just like an in-progress
+          // boot, so surface the error (matching the detail panel) rather than an
+          // indistinguishable, never-ending "Loading...".
+          <ExplorerDatabaseErrorStatus onRetry={props.onRetryDatabase} />
+        ) : !props.ready ? (
           <MiniAppStatus>Loading...</MiniAppStatus>
         ) : props.nodesLength === 0 ? (
           <MiniAppStatus>No containers.</MiniAppStatus>
@@ -825,6 +834,9 @@ interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
   currentOrganizationId: string | null;
+  // Surfaces a failed SQLite boot (with Retry) in the sidebar tree's gate.
+  databaseError: boolean;
+  onRetryDatabase: () => void;
   documentLinkProjectionVersion: number;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -891,6 +903,7 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
     <ExplorerSidebarContent
       activeContainerId={props.activeContainerId}
       blankContextMenuContainerId={blankContextMenuContainerId}
+      databaseError={props.databaseError}
       depth={0}
       documentWindowsByContainerId={props.documentWindowsByContainerId}
       frameRef={frameRef}
@@ -898,6 +911,7 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
       offset={sidebarOffset}
       onContextMenu={props.handleSidebarContextMenu}
       onDocumentContextMenu={props.handleSidebarDocumentContextMenu}
+      onRetryDatabase={props.onRetryDatabase}
       onRetryDocumentWindow={retryDocumentWindow}
       onSelectContainer={props.setSelectedId}
       onSelectDocument={props.selectDocumentProjection}
@@ -926,6 +940,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.activeContainerId,
       params.collapsedIds,
       params.currentOrganizationId,
+      params.databaseError,
       params.documentLinkProjectionVersion,
       params.documentListRevision,
       params.documentQueries,
@@ -933,6 +948,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.handleSidebarDocumentContextMenu,
       params.nodes,
       params.online,
+      params.onRetryDatabase,
       params.ready,
       params.selectedId,
       params.selectDocumentProjection,

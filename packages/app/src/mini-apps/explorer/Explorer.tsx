@@ -6,6 +6,7 @@ import {
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { useMiniAppBusActions } from "../bus";
@@ -43,7 +44,26 @@ export function Explorer() {
   const explorer = useExplorer();
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
-  const model = useExplorerModel(appData, explorer, setSidebar, peerUserId);
+  // Surface a failed SQLite boot (e.g. an offline reload where the worker/wasm
+  // could not load) as an explicit error + Retry in Explorer's gates, rather than
+  // an indistinguishable "Loading...". appData.infra.dbStatus mirrors the worker
+  // status (workflowRuntime sets it from database.status); "error" = boot failed.
+  const { clearWorker } = useDatabase();
+  const databaseError = appData.infra.dbStatus === "error";
+  const retryDatabaseBoot = useCallback(() => {
+    // A failed boot leaves the database at the terminal "error" status with the
+    // worker handle still set, so re-spawning directly would no-op. clearWorker
+    // resets it to "idle", from which DatabaseProvider's identity effect
+    // re-spawns the worker and re-attempts the boot.
+    clearWorker();
+  }, [clearWorker]);
+  const model = useExplorerModel(
+    appData,
+    explorer,
+    setSidebar,
+    peerUserId,
+    retryDatabaseBoot,
+  );
   const openGrantGroupInOrgManager = useOpenGrantGroupInOrgManager();
   const activeContainerId = model.selection.activeContainerId;
   const openStructuredDocumentGrid = useCallback(() => {
@@ -89,6 +109,8 @@ export function Explorer() {
       <ExplorerDetailPanel
         activateLinkedContainer={model.activateLinkedContainer}
         blobStore={appData.infra.blobStore}
+        databaseError={databaseError}
+        onRetryDatabase={retryDatabaseBoot}
         canActivateSelectedDocument={model.canActivateSelectedDocument}
         canLinkSelectedDocument={model.canLinkSelectedDocument}
         canMoveSelectedDocument={model.canMoveSelectedDocument}
