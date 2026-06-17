@@ -26,19 +26,14 @@ import { ExplorerNewStructuredDocumentPanel } from "./ExplorerNewStructuredDocum
 import { ExplorerSyncLanesPanel } from "./ExplorerSyncLanesPanel";
 
 function ExplorerEmptyDetail(params: {
-  databaseError: boolean;
   nodes: ReadonlyArray<ContainerNode>;
-  onRetryDatabase: () => void;
   ready: boolean;
 }) {
-  const { databaseError, nodes, onRetryDatabase, ready } = params;
+  const { nodes, ready } = params;
 
-  // A failed SQLite boot leaves `ready` false just like an in-progress boot, so
-  // surface the error explicitly instead of falling through to "Loading...".
-  if (databaseError) {
-    return <ExplorerDatabaseErrorStatus onRetry={onRetryDatabase} />;
-  }
-
+  // The database-error case is handled once at the top of ExplorerDetailPanel
+  // (every route is non-functional without the DB), so this only covers the
+  // healthy idle/empty/select states.
   return (
     <MiniAppStatus>
       {ready && nodes.length > 0
@@ -56,10 +51,8 @@ type ExplorerNewStructuredDocumentRouteState = Extract<
 >;
 
 function ExplorerNewStructuredDocumentRoutePanel(params: {
-  databaseError: boolean;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToSelectionRoute: () => void;
-  onRetryDatabase: () => void;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
@@ -68,26 +61,12 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
   ready: boolean;
   route: ExplorerNewStructuredDocumentRouteState;
 }) {
-  const {
-    databaseError,
-    nodes,
-    onBackToSelectionRoute,
-    onRetryDatabase,
-    openInlineDocument,
-    ready,
-    route,
-  } = params;
+  const { nodes, onBackToSelectionRoute, openInlineDocument, ready, route } =
+    params;
   const creationNode = nodes.find((node) => node.id === route.containerId);
 
   if (!creationNode) {
-    return (
-      <ExplorerEmptyDetail
-        databaseError={databaseError}
-        nodes={nodes}
-        onRetryDatabase={onRetryDatabase}
-        ready={ready}
-      />
-    );
+    return <ExplorerEmptyDetail nodes={nodes} ready={ready} />;
   }
 
   return (
@@ -112,8 +91,8 @@ interface ExplorerDetailPanelProps {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
-  // True when the local SQLite database failed to start; drives the explicit
-  // boot-error state in ExplorerEmptyDetail instead of an endless "Loading...".
+  // True when the local SQLite database failed to start; gates the whole panel
+  // on an explicit boot error + Retry instead of an endless "Loading...".
   databaseError: boolean;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -172,10 +151,8 @@ function renderExplorerNewStructuredDocumentRoute(
 ) {
   return (
     <ExplorerNewStructuredDocumentRoutePanel
-      databaseError={params.databaseError}
       nodes={params.nodes}
       onBackToSelectionRoute={params.onBackToSelectionRoute}
-      onRetryDatabase={params.onRetryDatabase}
       openInlineDocument={params.openInlineDocument}
       ready={params.ready}
       route={route}
@@ -185,6 +162,13 @@ function renderExplorerNewStructuredDocumentRoute(
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Route rendering stays explicit so each Explorer state is easy to follow.
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
+  // A failed SQLite boot makes every detail route non-functional (they all read
+  // from the local database), so gate the whole panel on the error — matching
+  // the sidebar — rather than letting individual routes render broken UIs.
+  if (params.databaseError) {
+    return <ExplorerDatabaseErrorStatus onRetry={params.onRetryDatabase} />;
+  }
+
   const { route, selectedDocument, selectedNode } = params;
   if (route.view === "blob-browser") {
     return (
@@ -289,12 +273,5 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
     );
   }
 
-  return (
-    <ExplorerEmptyDetail
-      databaseError={params.databaseError}
-      nodes={params.nodes}
-      onRetryDatabase={params.onRetryDatabase}
-      ready={params.ready}
-    />
-  );
+  return <ExplorerEmptyDetail nodes={params.nodes} ready={params.ready} />;
 }

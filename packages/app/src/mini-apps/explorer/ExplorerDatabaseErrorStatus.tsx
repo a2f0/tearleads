@@ -2,6 +2,7 @@ import {
   MiniAppButton,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
+import { EXPLORER_LABELS } from "./labels";
 
 // Shared boot-failure surface for Explorer's two gates (the detail panel and the
 // sidebar tree). When the local SQLite database fails to start — e.g. an offline
@@ -17,8 +18,8 @@ export function ExplorerDatabaseErrorStatus({
 }) {
   return (
     <MiniAppStatus tone="error">
-      Couldn't open the local database.{" "}
-      <MiniAppButton onClick={onRetry}>Retry</MiniAppButton>
+      {EXPLORER_LABELS.databaseLoadError}{" "}
+      <MiniAppButton onClick={onRetry}>{EXPLORER_LABELS.retry}</MiniAppButton>
     </MiniAppStatus>
   );
 }
