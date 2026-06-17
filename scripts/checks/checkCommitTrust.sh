@@ -28,16 +28,17 @@ fi
 
 [ -n "${range:-}" ] || usage
 
-# Signature presence rather than cryptographic validity: %G? is "N" only when a
-# commit carries no signature at all. We accept G/U/E/X/Y/R so locally
-# unverifiable signatures (no public key on this machine -> "E") are not
-# rejected.
+# %G? is "N" when a commit carries no signature and "B" when it carries a bad
+# (corrupt or forged) signature -- both are rejected. We accept G/U/E/X/Y/R so a
+# signature that simply can't be verified locally (no public key on this machine
+# -> "E") is allowed; we require a signature to be present and not provably bad,
+# not that it be locally verifiable.
 check_signed() {
   commit=$1
   sig=$(git show --no-patch --format="%G?" "$commit")
 
-  if [ "$sig" = "N" ]; then
-    echo "Error: commit $commit is not signed." >&2
+  if [ "$sig" = "N" ] || [ "$sig" = "B" ]; then
+    echo "Error: commit $commit has a missing or invalid signature (status: $sig)." >&2
     echo "Sign it (e.g. 'git commit --amend -S' or rebase with --gpg-sign) before pushing." >&2
     return 1
   fi
