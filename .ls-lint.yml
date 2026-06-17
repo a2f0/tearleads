@@ -17,6 +17,7 @@ ignore:
   - packages/*/dist
   - build
   - packages/*/build
+  - .turbo
   - packages/*/.turbo
   - packages/api-shared/drizzle/meta/_journal.json
   - target
