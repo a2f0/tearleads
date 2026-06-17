@@ -14,6 +14,7 @@ import type {
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
@@ -25,10 +26,18 @@ import { ExplorerNewStructuredDocumentPanel } from "./ExplorerNewStructuredDocum
 import { ExplorerSyncLanesPanel } from "./ExplorerSyncLanesPanel";
 
 function ExplorerEmptyDetail(params: {
+  databaseError: boolean;
   nodes: ReadonlyArray<ContainerNode>;
+  onRetryDatabase: () => void;
   ready: boolean;
 }) {
-  const { nodes, ready } = params;
+  const { databaseError, nodes, onRetryDatabase, ready } = params;
+
+  // A failed SQLite boot leaves `ready` false just like an in-progress boot, so
+  // surface the error explicitly instead of falling through to "Loading...".
+  if (databaseError) {
+    return <ExplorerDatabaseErrorStatus onRetry={onRetryDatabase} />;
+  }
 
   return (
     <MiniAppStatus>
@@ -47,8 +56,10 @@ type ExplorerNewStructuredDocumentRouteState = Extract<
 >;
 
 function ExplorerNewStructuredDocumentRoutePanel(params: {
+  databaseError: boolean;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToSelectionRoute: () => void;
+  onRetryDatabase: () => void;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
@@ -57,12 +68,26 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
   ready: boolean;
   route: ExplorerNewStructuredDocumentRouteState;
 }) {
-  const { nodes, onBackToSelectionRoute, openInlineDocument, ready, route } =
-    params;
+  const {
+    databaseError,
+    nodes,
+    onBackToSelectionRoute,
+    onRetryDatabase,
+    openInlineDocument,
+    ready,
+    route,
+  } = params;
   const creationNode = nodes.find((node) => node.id === route.containerId);
 
   if (!creationNode) {
-    return <ExplorerEmptyDetail nodes={nodes} ready={ready} />;
+    return (
+      <ExplorerEmptyDetail
+        databaseError={databaseError}
+        nodes={nodes}
+        onRetryDatabase={onRetryDatabase}
+        ready={ready}
+      />
+    );
   }
 
   return (
@@ -87,6 +112,9 @@ interface ExplorerDetailPanelProps {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
+  // True when the local SQLite database failed to start; drives the explicit
+  // boot-error state in ExplorerEmptyDetail instead of an endless "Loading...".
+  databaseError: boolean;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
@@ -103,6 +131,8 @@ interface ExplorerDetailPanelProps {
   ) => void;
   onBackToSelectionRoute: () => void;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  // Re-attempts the SQLite worker boot after a failure (the Retry action).
+  onRetryDatabase: () => void;
   openInlineDocument: (
     containerId: string,
     documentKind: StoredDocumentKind,
@@ -142,8 +172,10 @@ function renderExplorerNewStructuredDocumentRoute(
 ) {
   return (
     <ExplorerNewStructuredDocumentRoutePanel
+      databaseError={params.databaseError}
       nodes={params.nodes}
       onBackToSelectionRoute={params.onBackToSelectionRoute}
+      onRetryDatabase={params.onRetryDatabase}
       openInlineDocument={params.openInlineDocument}
       ready={params.ready}
       route={route}
@@ -257,5 +289,12 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
     );
   }
 
-  return <ExplorerEmptyDetail nodes={params.nodes} ready={params.ready} />;
+  return (
+    <ExplorerEmptyDetail
+      databaseError={params.databaseError}
+      nodes={params.nodes}
+      onRetryDatabase={params.onRetryDatabase}
+      ready={params.ready}
+    />
+  );
 }

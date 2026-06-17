@@ -153,12 +153,17 @@ function ExplorerSidebarHarness(params: {
     setSelectedId(localId);
   }, []);
   const toggleCollapsed = useCallback(() => undefined, []);
+  // Stable identity: the sidebar memoizes on this, so an inline function would
+  // recreate the sidebar every render and loop useRegisteredWindowSidebar.
+  const onRetryDatabase = useCallback(() => undefined, []);
   const treeEntries = useMemo(() => buildExplorerTree(nodes), [nodes]);
 
   useExplorerSidebarPanel({
     activeContainerId: "root-container",
     collapsedIds,
     currentOrganizationId: "org-1",
+    databaseError: false,
+    onRetryDatabase,
     documentLinkProjectionVersion: 0,
     documentListRevision,
     documentQueries,

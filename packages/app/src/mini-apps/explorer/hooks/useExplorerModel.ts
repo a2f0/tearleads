@@ -56,6 +56,9 @@ export function useExplorerModel(
   explorer: ExplorerModelExplorer,
   setSidebar: (sidebar: ReactNode | null) => void,
   peerUserId: string | null,
+  // Re-attempts the SQLite worker boot; threaded to the sidebar tree's gate so a
+  // boot failure surfaces a Retry there too (the detail panel gets it directly).
+  onRetryDatabase: () => void,
 ): ExplorerModel {
   const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
     useDocumentLinkProjectionVersion();
@@ -114,6 +117,7 @@ export function useExplorerModel(
     documentSummaries,
     documentListRevision,
     onDocumentLinksChanged: handleDocumentLinksChanged,
+    onRetryDatabase,
     peerUserId,
     selection,
     setLinkedContainerIdsForDocument,
