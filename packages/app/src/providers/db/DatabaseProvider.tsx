@@ -24,6 +24,7 @@ import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { bootSQLiteRuntime } from "./bootSQLiteRuntime";
 import {
   createSqliteCipherKeyResolver,
   type ResolveSqliteCipherKey,
@@ -64,25 +65,6 @@ function destroyRuntime(
   bootingRef.current = false;
   currentDbNameRef.current = null;
   tearleads.database.clear(nextStatus);
-}
-
-async function bootSQLiteRuntime(
-  runtime: SQLiteRuntime,
-  dbName: string,
-  persistence: DatabasePersistenceMode,
-  resolveCipherKey: ResolveSqliteCipherKey,
-  log: (message: string) => void,
-) {
-  const backend = persistence === "memory" ? "in-memory" : "persistent OPFS";
-  log("Loading SQLite3 WASM module...");
-  log(`Initializing database: ${dbName} (${backend})`);
-  const key = await resolveCipherKey();
-  await runtime.client.init({
-    dbName,
-    cipher: "chacha20",
-    key,
-    persistence,
-  });
 }
 
 function configureSdkSQLiteRuntime(
