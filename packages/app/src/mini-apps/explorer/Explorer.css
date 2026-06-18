@@ -265,6 +265,33 @@
   height: 2.25rem;
 }
 
+/* The name-cell button keeps real button semantics, while its ::after overlay
+   stretches its hit area across the whole row so any click on the row navigates.
+   The row is the positioning context for that overlay. */
+.explorer-item-table-row {
+  position: relative;
+}
+
+.explorer-item-row-button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.explorer-item-row-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
 .explorer-table-sort-button {
   display: inline-flex;
   align-items: center;

@@ -1,5 +1,4 @@
 import type {
-  ContainerDocumentQueries,
   ContainerItemRow,
   ContainerItemSort,
   ContainerItemSortDirection,
@@ -7,35 +6,26 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
-import {
-  type DragEvent,
-  type MouseEvent,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type DragEvent, type MouseEvent, useMemo } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
   MiniAppTable,
-  MiniAppTableActionButton,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
   MiniAppTableRow,
+  MiniAppTableText,
 } from "../../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MiniAppVirtualTableSpacerRow,
 } from "../../../components/shared/MiniAppVirtual";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
-
-export const EXPLORER_VIRTUAL_ROW_HEIGHT =
-  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
+import { EXPLORER_VIRTUAL_ROW_HEIGHT } from "./explorerContainerItemWindow";
 
 function getSortAria(
   sort: ContainerItemSort,
@@ -46,23 +36,6 @@ function getSortAria(
   }
 
   return sort.direction === "asc" ? "ascending" : "descending";
-}
-
-export function getNextExplorerItemSort(
-  currentSort: ContainerItemSort,
-  key: ContainerItemSortKey,
-): ContainerItemSort {
-  if (currentSort.key === key) {
-    return {
-      direction: currentSort.direction === "asc" ? "desc" : "asc",
-      key,
-    };
-  }
-
-  return {
-    direction: key === "name" || key === "type" ? "asc" : "desc",
-    key,
-  };
 }
 
 function ExplorerSortableTableHeader(params: {
@@ -152,157 +125,49 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
     : `document:${row.localId}:${row.containerId}`;
 }
 
-export function useExplorerContainerItemWindow(params: {
-  containerListRevision: unknown;
-  documentListRevision: number;
-  documentQueries: ContainerDocumentQueries;
-  enabled: boolean;
-  limit: number;
-  offset: number;
-  selectedNode: ContainerNode;
-  sort: ContainerItemSort;
-  visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
-}) {
-  const {
-    containerListRevision,
-    documentListRevision,
-    documentQueries,
-    enabled,
-    limit,
-    offset,
-    selectedNode,
-    sort,
-    visibleSystemSlots,
-  } = params;
-  const [state, setState] = useState<{
-    error: string | null;
-    isLoading: boolean;
-    offset: number;
-    rows: ReadonlyArray<ContainerItemRow>;
-    totalCount: number;
-  }>({
-    error: null,
-    // Start loading when a fetch is pending so the first render (before the load
-    // effect runs) shows "Loading..." instead of flashing the empty message.
-    isLoading: enabled,
-    offset: 0,
-    rows: [],
-    totalCount: 0,
-  });
-  const serializedSystemSlots = useMemo(
-    () => Array.from(visibleSystemSlots).sort().join("\u0000"),
-    [visibleSystemSlots],
-  );
-
-  useEffect(() => {
-    if (!enabled) {
-      setState({
-        error: null,
-        isLoading: false,
-        offset: 0,
-        rows: [],
-        totalCount: 0,
-      });
-      return;
-    }
-
-    let cancelled = false;
-    setState((current) => ({
-      ...current,
-      error: null,
-      isLoading: true,
-    }));
-
-    void documentQueries
-      .listContainerItemWindow({
-        containerId: selectedNode.id,
-        limit,
-        offset,
-        sort,
-        visibleSystemSlots: Array.from(visibleSystemSlots),
-      })
-      .then((window) => {
-        if (cancelled) {
-          return;
-        }
-
-        setState({
-          error: null,
-          isLoading: false,
-          offset,
-          rows: window.rows,
-          totalCount: window.totalCount,
-        });
-      })
-      .catch((error: unknown) => {
-        if (cancelled) {
-          return;
-        }
-
-        setState((current) => ({
-          ...current,
-          error: error instanceof Error ? error.message : String(error),
-          isLoading: false,
-        }));
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    containerListRevision,
-    documentListRevision,
-    documentQueries,
-    enabled,
-    limit,
-    offset,
-    selectedNode.id,
-    sort,
-    serializedSystemSlots,
-  ]);
-
-  return state;
-}
-
-function ExplorerContainerItemName(params: {
-  row: ContainerItemRow;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
-  setSelectedId: (id: string | null) => void;
-}) {
-  const { row, selectDocumentProjection, setSelectedId } = params;
-
-  return (
-    <MiniAppTableActionButton
-      onClick={() => {
-        if (row.itemKind === "container") {
-          setSelectedId(row.id);
-          return;
-        }
-
-        selectDocumentProjection(row.localId, row.containerId);
-      }}
-    >
-      {row.name}
-    </MiniAppTableActionButton>
-  );
-}
-
 function ExplorerContainerItemTableRow(params: {
   online: boolean;
   row: ContainerItemRow;
+  onItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
+  ) => void;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { online, row, selectDocumentProjection, setSelectedId } = params;
+  const {
+    online,
+    onItemContextMenu,
+    row,
+    selectDocumentProjection,
+    setSelectedId,
+  } = params;
+  const openItem = () => {
+    if (row.itemKind === "container") {
+      setSelectedId(row.id);
+      return;
+    }
 
+    selectDocumentProjection(row.localId, row.containerId);
+  };
+
+  // Keep standard table-row semantics: a native button in the name cell carries
+  // the click/keyboard behaviour, and a CSS ::after overlay (see Explorer.css)
+  // stretches its hit area across the whole row so the entire row is clickable.
   return (
-    <MiniAppTableRow className="explorer-item-table-row">
+    <MiniAppTableRow
+      className="explorer-item-table-row"
+      interactive
+      onContextMenu={(event) => onItemContextMenu(event, row)}
+    >
       <MiniAppTableCell>
-        <ExplorerContainerItemName
-          row={row}
-          selectDocumentProjection={selectDocumentProjection}
-          setSelectedId={setSelectedId}
-        />
+        <button
+          className="explorer-item-row-button"
+          onClick={openItem}
+          type="button"
+        >
+          <MiniAppTableText title={row.name}>{row.name}</MiniAppTableText>
+        </button>
       </MiniAppTableCell>
       <MiniAppTableCell>
         {getExplorerContainerItemTypeLabel(row)}
@@ -344,6 +209,10 @@ function ExplorerContainerItemTableBody(params: {
   error: string | null;
   isLoading: boolean;
   online: boolean;
+  onItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
+  ) => void;
   rows: ReadonlyArray<ContainerItemRow>;
   rowOffset: number;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
@@ -355,6 +224,7 @@ function ExplorerContainerItemTableBody(params: {
     error,
     isLoading,
     online,
+    onItemContextMenu,
     rows,
     rowOffset,
     selectDocumentProjection,
@@ -379,6 +249,7 @@ function ExplorerContainerItemTableBody(params: {
           <ExplorerContainerItemTableRow
             key={getExplorerContainerItemRowKey(row)}
             online={online}
+            onItemContextMenu={onItemContextMenu}
             row={row}
             selectDocumentProjection={selectDocumentProjection}
             setSelectedId={setSelectedId}
@@ -422,6 +293,10 @@ interface ItemTableProps {
     event: MouseEvent<HTMLElement>,
     containerId: string,
   ) => void;
+  onItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
+  ) => void;
   onSort: (key: ContainerItemSortKey) => void;
   rows: ReadonlyArray<ContainerItemRow>;
   rowOffset: number;
@@ -445,6 +320,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     isLoading,
     online,
     onBlankContextMenu,
+    onItemContextMenu,
     onSort,
     rows,
     rowOffset,
@@ -488,6 +364,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
           error={error}
           isLoading={isLoading}
           online={online}
+          onItemContextMenu={onItemContextMenu}
           rows={rows}
           rowOffset={rowOffset}
           selectDocumentProjection={selectDocumentProjection}

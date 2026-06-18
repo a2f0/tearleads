@@ -3,6 +3,7 @@ import type {
   BlobInfoList,
   ContainerDocumentQueries,
   ContainerInfo,
+  ContainerItemRow,
   DocumentInfo,
   DocumentSummary,
 } from "@tearleads/client-sdk";
@@ -57,6 +58,10 @@ interface ExplorerContextMenuModel {
   handleContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
     nodeId: string,
+  ) => void;
+  handleItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
   ) => void;
   handleSidebarDocumentContextMenu: (
     event: MouseEvent<HTMLButtonElement>,
