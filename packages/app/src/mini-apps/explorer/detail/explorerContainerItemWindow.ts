@@ -28,7 +28,23 @@ export function getNextExplorerItemSort(
   };
 }
 
-export function useExplorerContainerItemWindow(params: {
+interface ContainerItemWindowState {
+  error: string | null;
+  isLoading: boolean;
+  offset: number;
+  rows: ReadonlyArray<ContainerItemRow>;
+  totalCount: number;
+}
+
+const EMPTY_CONTAINER_ITEM_WINDOW_STATE: ContainerItemWindowState = {
+  error: null,
+  isLoading: false,
+  offset: 0,
+  rows: [],
+  totalCount: 0,
+};
+
+interface ExplorerContainerItemWindowParams {
   containerListRevision: unknown;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -38,7 +54,11 @@ export function useExplorerContainerItemWindow(params: {
   selectedNode: ContainerNode;
   sort: ContainerItemSort;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
-}) {
+}
+
+export function useExplorerContainerItemWindow(
+  params: ExplorerContainerItemWindowParams,
+) {
   const {
     containerListRevision,
     documentListRevision,
@@ -50,35 +70,23 @@ export function useExplorerContainerItemWindow(params: {
     sort,
     visibleSystemSlots,
   } = params;
-  const [state, setState] = useState<{
-    error: string | null;
-    isLoading: boolean;
-    offset: number;
-    rows: ReadonlyArray<ContainerItemRow>;
-    totalCount: number;
-  }>({
-    error: null,
+  const [state, setState] = useState<ContainerItemWindowState>(() => ({
+    ...EMPTY_CONTAINER_ITEM_WINDOW_STATE,
     // Start loading when a fetch is pending so the first render (before the load
     // effect runs) shows "Loading..." instead of flashing the empty message.
     isLoading: enabled,
-    offset: 0,
-    rows: [],
-    totalCount: 0,
-  });
+  }));
   const serializedSystemSlots = useMemo(
     () => Array.from(visibleSystemSlots).sort().join("\u0000"),
     [visibleSystemSlots],
   );
+  // Depend on the sort primitives, not the object reference, so a re-created
+  // `sort` with the same key/direction doesn't re-run the fetch.
+  const { direction: sortDirection, key: sortKey } = sort;
 
   useEffect(() => {
     if (!enabled) {
-      setState({
-        error: null,
-        isLoading: false,
-        offset: 0,
-        rows: [],
-        totalCount: 0,
-      });
+      setState(EMPTY_CONTAINER_ITEM_WINDOW_STATE);
       return;
     }
 
@@ -94,7 +102,7 @@ export function useExplorerContainerItemWindow(params: {
         containerId: selectedNode.id,
         limit,
         offset,
-        sort,
+        sort: { direction: sortDirection, key: sortKey },
         visibleSystemSlots: Array.from(visibleSystemSlots),
       })
       .then((window) => {
@@ -133,7 +141,8 @@ export function useExplorerContainerItemWindow(params: {
     limit,
     offset,
     selectedNode.id,
-    sort,
+    sortDirection,
+    sortKey,
     serializedSystemSlots,
   ]);
 

@@ -6,12 +6,7 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
-import {
-  type DragEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-  useMemo,
-} from "react";
+import { type DragEvent, type MouseEvent, useMemo } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
   MiniAppTable,
@@ -130,10 +125,6 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
     : `document:${row.localId}:${row.containerId}`;
 }
 
-function isExplorerItemKeyboardActivationKey(key: string): boolean {
-  return key === "Enter" || key === " ";
-}
-
 function ExplorerContainerItemTableRow(params: {
   online: boolean;
   row: ContainerItemRow;
@@ -159,28 +150,24 @@ function ExplorerContainerItemTableRow(params: {
 
     selectDocumentProjection(row.localId, row.containerId);
   };
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
-    if (!isExplorerItemKeyboardActivationKey(event.key)) {
-      return;
-    }
 
-    event.preventDefault();
-    openItem();
-  };
-
+  // Keep standard table-row semantics: a native button in the name cell carries
+  // the click/keyboard behaviour, and a CSS ::after overlay (see Explorer.css)
+  // stretches its hit area across the whole row so the entire row is clickable.
   return (
     <MiniAppTableRow
-      aria-label={row.name}
       className="explorer-item-table-row"
       interactive
-      onClick={openItem}
       onContextMenu={(event) => onItemContextMenu(event, row)}
-      onKeyDown={handleRowKeyDown}
-      role="button"
-      tabIndex={0}
     >
       <MiniAppTableCell>
-        <MiniAppTableText title={row.name}>{row.name}</MiniAppTableText>
+        <button
+          className="explorer-item-row-button"
+          onClick={openItem}
+          type="button"
+        >
+          <MiniAppTableText title={row.name}>{row.name}</MiniAppTableText>
+        </button>
       </MiniAppTableCell>
       <MiniAppTableCell>
         {getExplorerContainerItemTypeLabel(row)}
