@@ -1,4 +1,7 @@
-import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import {
   accessEventDependencyProjection,
   accessEvents,
@@ -24,7 +27,6 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { DocumentPurgeResponse } from "@tearleads/validators/response";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
-import type { ApiServiceRuntime } from "../../../services/runtime";
 import { readExternalBlobBytesRef } from "../../../utils/blobStageRecords";
 import {
   ContainerWriterProjectionError,
@@ -406,32 +408,24 @@ async function purgeDocumentWithExecutor(input: {
   };
 }
 
-export async function purgeDocument(
-  runtime: ApiServiceRuntime,
+// Hard-deletes the document and its per-document rows in one transaction, and
+// returns the object-store keys for blobs that became fully orphaned. The
+// caller (service layer) deletes those bytes after commit — the workflow stays
+// on the database alone so it does not depend on the services layer. Because
+// byte deletion happens post-commit, a rollback never leaves dangling
+// references, and a later storage failure only leaks reclaimable bytes.
+export async function runPurgeDocumentWorkflow(
+  db: ApiDatabase,
   input: {
     readonly documentId: string;
     readonly userId: string;
   },
 ): Promise<DocumentPurgeResponse> {
-  const response = await runtime.db.transaction((tx) =>
+  return db.transaction((tx) =>
     purgeDocumentWithExecutor({
       documentId: input.documentId,
       executor: tx,
       userId: input.userId,
     }),
   );
-
-  // Object-store bytes are deleted only after the transaction commits, so a
-  // rollback never leaves dangling references and a post-commit storage failure
-  // only leaks bytes (reclaimable later) rather than corrupting state.
-  for (const storageKey of response.reclaimedBlobStorageKeys) {
-    try {
-      await runtime.blobObjectStore.deleteObject(storageKey);
-    } catch {
-      // Best-effort: the blob row is already gone, so the bytes are orphaned
-      // and safe to leave for a future sweep. Do not fail the purge.
-    }
-  }
-
-  return response;
 }
