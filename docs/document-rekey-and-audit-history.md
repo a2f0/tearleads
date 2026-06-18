@@ -226,9 +226,9 @@ durable history. The split is:
 - live-state tables, kept live-only
 - a baseline/checkpoint metadata model
 - an attachment/blob history model
-- access-state hashes snapshotted into audit records (`accessEpoch`,
-  `accessManifestHash`, `accessStateHash`) so the audit layer can prove which
-  access state a write was accepted under
+- access-state metadata and hashes snapshotted into audit records
+  (`accessEpoch`, `accessManifestHash`, `accessStateHash`) so the audit layer can
+  prove which access state a write was accepted under
 
 The signed document sync path appends audit entries for newly accepted live
 updates and writes checkpoint rows for accepted baseline updates. Signed blob
@@ -422,7 +422,7 @@ durable history.
 
 The audit layer has no history-side wrapped-key or key-target tables. Signed
 access manifest heads and key-target tables are live-only. Audit records instead
-snapshot `accessEpoch`, `accessManifestHash`, and `accessStateHash`, which proves
+snapshot `accessEpoch`, `accessManifestHash`, and `accessStateHash`, which prove
 the access state a write was accepted under without retaining old wrapped keys.
 
 ### Verification Model
