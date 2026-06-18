@@ -15,6 +15,7 @@ import type {
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
@@ -92,6 +93,9 @@ interface ExplorerDetailPanelProps {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
+  // The open row context menu's target, so the container listing can keep the
+  // right-clicked row highlighted while the menu is open (it does not select).
+  contextTarget: ExplorerContextMenuTarget | null;
   // True when the local SQLite database failed to start; gates the whole panel
   // on an explicit boot error + Retry instead of an endless "Loading...".
   databaseError: boolean;
@@ -264,6 +268,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
     return (
       <ExplorerContainerDetail
         containerListRevision={params.nodes}
+        contextTarget={params.contextTarget}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         importDroppedFiles={params.importDroppedFiles}

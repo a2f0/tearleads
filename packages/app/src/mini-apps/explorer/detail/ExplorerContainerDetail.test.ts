@@ -29,6 +29,18 @@ const archiveRow: ContainerItemRow = {
   updatedAt: null,
 };
 
+const noteRow: ContainerItemRow = {
+  containerId: "root-container",
+  createdAt: null,
+  documentId: "note-doc",
+  documentKind: "note",
+  itemKind: "document",
+  localId: "note-local",
+  name: "Note",
+  syncState: syncedContainerDocumentObjectSyncState,
+  updatedAt: null,
+};
+
 type ExplorerContainerItemTableProps = ComponentProps<
   typeof ExplorerContainerItemTable
 >;
@@ -38,6 +50,7 @@ function renderContainerItemTable(
 ) {
   return render(
     createElement(ExplorerContainerItemTable, {
+      contextTarget: null,
       dragActive: false,
       error: null,
       frameRef: () => undefined,
@@ -186,6 +199,50 @@ test("container item table opens the per-item context menu from an item row", ()
   fireEvent.contextMenu(itemRow);
 
   expect(rows).toEqual([archiveRow]);
+});
+
+test("container item table highlights the row matching the open context menu", () => {
+  const view = renderContainerItemTable({
+    contextTarget: { containerId: "archive-container", kind: "container" },
+    rows: [archiveRow, noteRow],
+    totalCount: 2,
+  });
+  const selectedRows = view.container.querySelectorAll(
+    ".mini-app-table-row--selected",
+  );
+
+  expect(selectedRows.length).toBe(1);
+  expect(selectedRows[0]?.textContent).toContain("Archive");
+});
+
+test("container item table highlights the document row matching the context menu", () => {
+  const view = renderContainerItemTable({
+    contextTarget: {
+      containerId: "root-container",
+      kind: "document",
+      localId: "note-local",
+    },
+    rows: [archiveRow, noteRow],
+    totalCount: 2,
+  });
+  const selectedRows = view.container.querySelectorAll(
+    ".mini-app-table-row--selected",
+  );
+
+  expect(selectedRows.length).toBe(1);
+  expect(selectedRows[0]?.textContent).toContain("Note");
+});
+
+test("container item table highlights no row when the context menu is closed", () => {
+  const view = renderContainerItemTable({
+    contextTarget: null,
+    rows: [archiveRow, noteRow],
+    totalCount: 2,
+  });
+
+  expect(
+    view.container.querySelectorAll(".mini-app-table-row--selected").length,
+  ).toBe(0);
 });
 
 test("container item table navigates when an item row is clicked", () => {

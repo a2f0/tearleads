@@ -115,6 +115,7 @@ export function Explorer() {
         canLinkSelectedDocument={model.canLinkSelectedDocument}
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
+        contextTarget={model.contextMenuState.contextMenu?.id ?? null}
         documentListRevision={model.documentListRevision}
         documentQueries={model.documentQueries}
         domainScope={appData.state.domainScope}
