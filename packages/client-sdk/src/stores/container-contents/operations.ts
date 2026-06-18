@@ -12,6 +12,7 @@ import {
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
+import { isDestroyedContainerContentsSyncRuntimeError } from "../../workflows/container-contents/syncLane";
 import { requestDomainDocumentSync } from "../documents";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
@@ -171,11 +172,21 @@ export async function ensureSystemContainer(
 
   if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
     const existingRoot = findRootContainerState(state);
-    // System containers only live under the root. Check the root lanes instead
-    // of asking for a full-tree refresh during container contents startup.
-    await syncAgent.requestRemoteHydration({
-      parentIds: existingRoot ? [null, existingRoot.container.id] : [null],
-    });
+    // System containers only live under the root, so probe the root lanes (not a
+    // full-tree refresh). Device-first: this probe is best-effort — a network
+    // failure must not abort provisioning, or a caller that waits on this
+    // container never observes it. On failure we fall through to a local create.
+    try {
+      await syncAgent.requestRemoteHydration({
+        parentIds: existingRoot ? [null, existingRoot.container.id] : [null],
+      });
+    } catch (error) {
+      if (!isDestroyedContainerContentsSyncRuntimeError(error)) {
+        state.runtime.util.log(
+          `${getContainerContentsStoreLogLabel(state)}: remote probe for "${systemSlot}" failed; creating it locally`,
+        );
+      }
+    }
     const hydrated = findSystemContainerState(state, systemSlot);
     if (hydrated) {
       return toContainerNode(hydrated);

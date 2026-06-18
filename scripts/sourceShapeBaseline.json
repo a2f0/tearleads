@@ -233,6 +233,10 @@
       "lines": 586,
       "bytes": 22748
     },
+    "packages/client-sdk/src/stores/container-contents/operations.ts": {
+      "lines": 508,
+      "bytes": 15210
+    },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
       "bytes": 30465
