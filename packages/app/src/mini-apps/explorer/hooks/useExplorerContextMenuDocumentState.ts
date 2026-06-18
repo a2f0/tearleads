@@ -77,15 +77,27 @@ export function useExplorerContextMenuDocumentState(params: {
         : [],
     [documentSummaries, linkedContainerIds, nodes, targetDocument],
   );
-  const mutationState = getSelectedDocumentMutationState({
-    appData,
-    canResolveTrashContainer,
-    selectedDocument: targetDocument,
-    selectedDocumentLinkTargetOptions: linkTargetOptions,
-    selectedDocumentLinkedContainerIds: linkedContainerIds,
-    selectedDocumentMoveTargetOptions: moveTargetOptions,
-    trashContainerId,
-  });
+  const mutationState = useMemo(
+    () =>
+      getSelectedDocumentMutationState({
+        appData,
+        canResolveTrashContainer,
+        selectedDocument: targetDocument,
+        selectedDocumentLinkTargetOptions: linkTargetOptions,
+        selectedDocumentLinkedContainerIds: linkedContainerIds,
+        selectedDocumentMoveTargetOptions: moveTargetOptions,
+        trashContainerId,
+      }),
+    [
+      appData,
+      canResolveTrashContainer,
+      linkTargetOptions,
+      linkedContainerIds,
+      moveTargetOptions,
+      targetDocument,
+      trashContainerId,
+    ],
+  );
 
   return {
     canDeleteContextMenuDocument: mutationState.canDeleteSelectedDocument,
