@@ -7,7 +7,10 @@ import {
 } from "../../pane/DualPaneProvider";
 import { Pane } from "../../pane/Pane";
 import { PaneProvider } from "../../pane/PaneProvider";
-import type { WORKSPACE_IDS } from "./WorkspaceProvider";
+import {
+  localIdentityNamespaceForWorkspace,
+  type WORKSPACE_IDS,
+} from "./WorkspaceProvider";
 
 interface WorkspaceProps {
   hostConfig: AppHostConfig;
@@ -15,17 +18,6 @@ interface WorkspaceProps {
   navigationMode: AppNavigationMode;
   split: boolean;
   workspaceId: (typeof WORKSPACE_IDS)[number];
-}
-
-function localIdentityNamespaceForWorkspace(
-  baseNamespace: string | undefined,
-  workspaceId: (typeof WORKSPACE_IDS)[number],
-): string {
-  // Workspaces are mounted concurrently even when hidden, so each workspace
-  // needs its own namespace before PaneProvider appends `.left` / `.right`;
-  // otherwise hidden panes can restore the same identity and race the visible
-  // pane for the same persistent SQLite database.
-  return `${baseNamespace ?? "tearleads.pane"}.workspace-${workspaceId}`;
 }
 
 export function Workspace({
