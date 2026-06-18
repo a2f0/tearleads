@@ -133,7 +133,7 @@ function isExplorerContainerItemContextTarget(
   row: ContainerItemRow,
   contextTarget: ExplorerContextMenuTarget | null,
 ): boolean {
-  if (contextTarget === null) {
+  if (!contextTarget) {
     return false;
   }
 
