@@ -140,6 +140,7 @@ export function useExplorerModel(
     explorer,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
     documentListRevision,

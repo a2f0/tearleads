@@ -13,9 +13,12 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { DocumentsPersistence } from "../documents";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
 import {
   moveRemoteContainerDocument,
+  purgeLocalContainerDocument,
   relinkRemoteContainerDocument,
 } from "./documentLinks";
 
@@ -330,4 +333,34 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
   } finally {
     close();
   }
+});
+
+test("purgeLocalContainerDocument tears down local state and returns a result", async () => {
+  const execSql: ExecSql = (async () => []) as ExecSql;
+  const deletedLocalIds: string[] = [];
+  const persistence = {
+    ensureSchema: async () => undefined,
+    loadDocument: async () => null,
+    deleteDocument: async (_execSql: ExecSql, localId: string) => {
+      deletedLocalIds.push(localId);
+    },
+  } as unknown as DocumentsPersistence;
+
+  const purged = await purgeLocalContainerDocument({
+    noteId: "purge-local-note",
+    persistence,
+    runtime: {
+      infra: {
+        documentProjectors: defaultDocumentProjectorRegistry,
+        execSql,
+      },
+      util: { log: () => undefined },
+    } as never,
+  });
+
+  // A never-synced document has no server row, so purge deletes only local
+  // state and still returns a result so the caller refreshes the listing.
+  expect(deletedLocalIds).toEqual(["purge-local-note"]);
+  expect(purged?.documentId).toBe("purge-local-note");
+  expect(purged?.reclaimedBlobStorageKeys).toEqual([]);
 });

@@ -19,7 +19,10 @@ import {
   type DocumentInfo,
   loadDocumentInfo,
 } from "../workflows/container-contents/documentInfo";
-import { purgeRemoteContainerDocument } from "../workflows/container-contents/documentLinks";
+import {
+  purgeLocalContainerDocument,
+  purgeRemoteContainerDocument,
+} from "../workflows/container-contents/documentLinks";
 import {
   type ContainerDocumentQueries,
   createContainerDocumentQueriesFromRuntime,
@@ -211,8 +214,14 @@ class ContainerContentsService implements ContainerContents {
           targetContainerId: input.targetContainerId,
         }),
       purgeDocument: (input) => {
+        // A never-synced document has no server row to delete; tear down its
+        // local state only. A synced document is purged server-side first, then
+        // locally.
         if (!input.note.documentId) {
-          return Promise.resolve(null);
+          return purgeLocalContainerDocument({
+            noteId: input.note.id,
+            runtime: documentLinks,
+          });
         }
 
         return purgeRemoteContainerDocument({
