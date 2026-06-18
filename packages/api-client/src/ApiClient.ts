@@ -38,6 +38,7 @@ import {
   describeErrorResponse,
   type ErrorResponseDescription,
   errorMessage,
+  evictWriterProjectionIfSyncChanged,
   hasHeader,
   isRefreshableSessionError,
   isReplayableRequestBody,
@@ -251,41 +252,6 @@ export class ApiClient {
           (binding) => binding.bindingId !== response.bindingId,
         ),
     );
-  }
-
-  private async clearDocumentWriterProjectionCacheIfSyncChanged(
-    documentId: string,
-    response: DocumentSyncResponse,
-  ): Promise<void> {
-    const cached =
-      this.documentWriterProjectionRequestsByDocumentId.get(documentId);
-    if (!cached) {
-      return;
-    }
-
-    const writerProjection = await cached.catch(() => null);
-    if (
-      this.documentWriterProjectionRequestsByDocumentId.get(documentId) !==
-        cached ||
-      !writerProjection
-    ) {
-      return;
-    }
-
-    if (
-      writerProjection.contentKeyBundle?.contentKeyEpoch !==
-        response.contentKeyBundle?.contentKeyEpoch ||
-      writerProjection.contentKeyBundle?.linkSetManifestHash !==
-        response.contentKeyBundle?.linkSetManifestHash ||
-      writerProjection.contentKeyBundle?.targetHash !==
-        response.contentKeyBundle?.targetHash ||
-      writerProjection.documentKekTargets?.linkSetManifestHash !==
-        response.documentKekTargets?.linkSetManifestHash ||
-      writerProjection.documentKekTargets?.documentKeyTargetHash !==
-        response.documentKekTargets?.documentKeyTargetHash
-    ) {
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
-    }
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
@@ -882,6 +848,30 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Seed the writer-projection cache from a mutation response the client just
+   * authored, so the next read resolves locally instead of a cold
+   * `GET /documents/:documentId/writer-projection`. The seed is the same
+   * material a fresh fetch returns (create/link/sync responses carry the
+   * manifest, content-key bundle, and KEK targets; authorizing paths are the
+   * projection the client supplied). No-op when a fetch is in flight or the
+   * slot is primed — never clobber an existing entry. The existing invalidation
+   * paths (sync-change, share/rekey/move, link/unlink) evict a primed
+   * projection that later goes stale, exactly as they evict a fetched one.
+   */
+  primeDocumentWriterProjection(
+    documentId: string,
+    projection: DocumentWriterProjectionResponse,
+  ): void {
+    if (this.documentWriterProjectionRequestsByDocumentId.has(documentId)) {
+      return;
+    }
+    this.documentWriterProjectionRequestsByDocumentId.set(
+      documentId,
+      Promise.resolve(projection),
+    );
+  }
+
   linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
     return linkDocument(this.request, documentId, input).finally(() => {
       this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
@@ -922,7 +912,8 @@ export class ApiClient {
           if (response.updates.length > 0) {
             this.documentAttachmentListRequestsByDocumentId.delete(documentId);
           }
-          await this.clearDocumentWriterProjectionCacheIfSyncChanged(
+          await evictWriterProjectionIfSyncChanged(
+            this.documentWriterProjectionRequestsByDocumentId,
             documentId,
             response,
           );
@@ -968,7 +959,8 @@ export class ApiClient {
       if (result.data.updates.length > 0) {
         this.documentAttachmentListRequestsByDocumentId.delete(documentId);
       }
-      await this.clearDocumentWriterProjectionCacheIfSyncChanged(
+      await evictWriterProjectionIfSyncChanged(
+        this.documentWriterProjectionRequestsByDocumentId,
         documentId,
         result.data,
       );

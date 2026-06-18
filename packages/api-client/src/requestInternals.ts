@@ -1,9 +1,60 @@
-import type { SyncWatermark } from "@tearleads/validators/response";
+import type {
+  DocumentSyncResponse,
+  DocumentWriterProjectionResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import type {
   ListContainerDocumentsOptions,
   ListContainersOptions,
 } from "./routes/containers";
 import type { RequestBody } from "./types";
+
+/**
+ * True when a sync response advances the document's write material past what a
+ * cached/primed writer projection holds, so the projection must be re-fetched
+ * before the next write. Compares the content-key bundle and KEK target hashes
+ * the projection authorizes against the ones the server just committed.
+ */
+function documentSyncInvalidatesWriterProjection(
+  projection: DocumentWriterProjectionResponse,
+  response: DocumentSyncResponse,
+): boolean {
+  return (
+    projection.contentKeyBundle?.contentKeyEpoch !==
+      response.contentKeyBundle?.contentKeyEpoch ||
+    projection.contentKeyBundle?.linkSetManifestHash !==
+      response.contentKeyBundle?.linkSetManifestHash ||
+    projection.contentKeyBundle?.targetHash !==
+      response.contentKeyBundle?.targetHash ||
+    projection.documentKekTargets?.linkSetManifestHash !==
+      response.documentKekTargets?.linkSetManifestHash ||
+    projection.documentKekTargets?.documentKeyTargetHash !==
+      response.documentKekTargets?.documentKeyTargetHash
+  );
+}
+
+/**
+ * Evict a cached/primed document writer projection iff the just-committed sync
+ * response moved its write material. Re-checks the cache slot after awaiting so
+ * a concurrent invalidation or refetch is not clobbered.
+ */
+export async function evictWriterProjectionIfSyncChanged(
+  cache: Map<string, Promise<DocumentWriterProjectionResponse | null>>,
+  documentId: string,
+  response: DocumentSyncResponse,
+): Promise<void> {
+  const cached = cache.get(documentId);
+  if (!cached) {
+    return;
+  }
+  const projection = await cached.catch(() => null);
+  if (cache.get(documentId) !== cached || !projection) {
+    return;
+  }
+  if (documentSyncInvalidatesWriterProjection(projection, response)) {
+    cache.delete(documentId);
+  }
+}
 
 export interface ErrorResponseDescription {
   readonly detail: string;

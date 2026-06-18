@@ -114,6 +114,10 @@ export async function createRemoteDocument(input: {
     documentKekTargets: response.documentKekTargets,
     documentManifest: response.accessManifest,
   };
+  // Seed the projection the create response already gave us so the first read
+  // after create (sync, blob attach, container-contents hydration) resolves
+  // locally instead of a cold GET writer-projection.
+  input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
 
   return {
     contentKey: materializedPlan.contentKey,

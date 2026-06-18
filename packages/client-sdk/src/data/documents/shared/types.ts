@@ -133,6 +133,10 @@ export interface DocumentCreateApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
+  primeDocumentWriterProjection(
+    documentId: string,
+    projection: DocumentWriterProjectionResponse,
+  ): void;
 }
 
 export interface CreateRemoteDocumentResult {
