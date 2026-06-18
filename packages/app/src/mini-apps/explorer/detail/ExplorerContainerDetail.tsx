@@ -13,6 +13,7 @@ import {
 } from "../../../components/shared/MiniAppLayout";
 import { useMiniAppVirtualWindow } from "../../../components/shared/MiniAppVirtual";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
 import { EXPLORER_LABELS } from "../labels";
@@ -50,6 +51,7 @@ function ExplorerContainerDetailHeader(params: {
 
 interface ExplorerContainerDetailProps {
   containerListRevision: unknown;
+  contextTarget: ExplorerContextMenuTarget | null;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   importDroppedFiles: ImportExplorerDroppedFiles;
@@ -112,6 +114,7 @@ function useExplorerContainerItems(
 
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   const {
+    contextTarget,
     importDroppedFiles,
     online,
     onContainerContextMenu,
@@ -152,6 +155,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         </MiniAppStatus>
       ) : null}
       <ExplorerContainerItemTable
+        contextTarget={contextTarget}
         dragActive={fileDropTarget.dragActive}
         error={itemWindow.error}
         frameRef={frameRef}

@@ -23,6 +23,7 @@ import {
 } from "../../../components/shared/MiniAppVirtual";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
+import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import { EXPLORER_VIRTUAL_ROW_HEIGHT } from "./explorerContainerItemWindow";
@@ -125,6 +126,30 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
     : `document:${row.localId}:${row.containerId}`;
 }
 
+// The row right-clicked into the context menu stays highlighted while the menu
+// is open: opening the menu does not move the selection (that would navigate the
+// pane away), so without this the user loses track of which row the menu acts on.
+function isExplorerContainerItemContextTarget(
+  row: ContainerItemRow,
+  contextTarget: ExplorerContextMenuTarget | null,
+): boolean {
+  if (contextTarget === null) {
+    return false;
+  }
+
+  if (row.itemKind === "container") {
+    return (
+      contextTarget.kind === "container" && contextTarget.containerId === row.id
+    );
+  }
+
+  return (
+    contextTarget.kind === "document" &&
+    contextTarget.localId === row.localId &&
+    contextTarget.containerId === row.containerId
+  );
+}
+
 function ExplorerContainerItemTableRow(params: {
   online: boolean;
   row: ContainerItemRow;
@@ -132,6 +157,7 @@ function ExplorerContainerItemTableRow(params: {
     event: MouseEvent<HTMLElement>,
     row: ContainerItemRow,
   ) => void;
+  selected: boolean;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
@@ -139,6 +165,7 @@ function ExplorerContainerItemTableRow(params: {
     online,
     onItemContextMenu,
     row,
+    selected,
     selectDocumentProjection,
     setSelectedId,
   } = params;
@@ -159,6 +186,7 @@ function ExplorerContainerItemTableRow(params: {
       className="explorer-item-table-row"
       interactive
       onContextMenu={(event) => onItemContextMenu(event, row)}
+      selected={selected}
     >
       <MiniAppTableCell>
         <button
@@ -206,6 +234,7 @@ function isExplorerItemTableBlankContextTarget(
 
 function ExplorerContainerItemTableBody(params: {
   columns: ReadonlyArray<MiniAppTableColumn>;
+  contextTarget: ExplorerContextMenuTarget | null;
   error: string | null;
   isLoading: boolean;
   online: boolean;
@@ -221,6 +250,7 @@ function ExplorerContainerItemTableBody(params: {
 }) {
   const {
     columns,
+    contextTarget,
     error,
     isLoading,
     online,
@@ -251,6 +281,7 @@ function ExplorerContainerItemTableBody(params: {
             online={online}
             onItemContextMenu={onItemContextMenu}
             row={row}
+            selected={isExplorerContainerItemContextTarget(row, contextTarget)}
             selectDocumentProjection={selectDocumentProjection}
             setSelectedId={setSelectedId}
           />
@@ -279,6 +310,7 @@ function ExplorerContainerItemTableBody(params: {
 }
 
 interface ItemTableProps {
+  contextTarget: ExplorerContextMenuTarget | null;
   dragActive: boolean;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
@@ -309,6 +341,7 @@ interface ItemTableProps {
 
 export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
+    contextTarget,
     dragActive,
     error,
     frameRef,
@@ -361,6 +394,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       >
         <ExplorerContainerItemTableBody
           columns={columns}
+          contextTarget={contextTarget}
           error={error}
           isLoading={isLoading}
           online={online}
