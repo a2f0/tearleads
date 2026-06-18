@@ -36,9 +36,9 @@ export function useExplorerDocumentModalState(params: {
   linkDocument: ExplorerDocumentMutationAction;
   moveDocument: ExplorerDocumentMutationAction;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   peerUserId: string | null;
   setSelectedId: (id: string | null) => void;
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   selectionExpandNode: (nodeId: string) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }): ExplorerDocumentModalState {
@@ -47,9 +47,9 @@ export function useExplorerDocumentModalState(params: {
     linkDocument,
     moveDocument,
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     peerUserId,
     setSelectedId,
-    selectedDocumentLinkedContainerIds,
     selectionExpandNode,
     shareWithUser,
   } = params;
@@ -63,9 +63,9 @@ export function useExplorerDocumentModalState(params: {
     moveDocument,
     nodes: explorer.nodes,
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     peerUserId,
     renameContainer: explorer.renameContainer,
-    selectedDocumentLinkedContainerIds,
     setSelectedId,
     shareWithUser,
   });

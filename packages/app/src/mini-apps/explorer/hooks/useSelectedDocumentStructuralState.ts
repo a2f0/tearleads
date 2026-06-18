@@ -6,32 +6,11 @@ import type {
 import { useCallback, useMemo } from "react";
 import {
   createExplorerTargetLookups,
+  getDocumentLinkedContainerIds,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
 } from "../targetOptions";
 import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
-
-function getSelectedDocumentLinkedContainerIds(params: {
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  selectedDocument: DocumentSummary | undefined;
-}) {
-  const { linkedContainerIdsByDocumentId, selectedDocument } = params;
-  if (!selectedDocument) {
-    return [];
-  }
-
-  const defaultContainerIds =
-    selectedDocument.containerId === null ? [] : [selectedDocument.containerId];
-  if (!selectedDocument.documentId) {
-    return defaultContainerIds;
-  }
-
-  const linkedContainerIds =
-    linkedContainerIdsByDocumentId.get(selectedDocument.documentId) ?? [];
-  return linkedContainerIds.length > 0
-    ? linkedContainerIds
-    : defaultContainerIds;
-}
 
 function useSelectedDocumentTargetOptions(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
@@ -114,11 +93,10 @@ export function useSelectedDocumentStructuralState(params: {
     selectedDocument,
     setLinkedContainerIdsForDocument,
   } = params;
-  const selectedDocumentLinkedContainerIds =
-    getSelectedDocumentLinkedContainerIds({
-      linkedContainerIdsByDocumentId,
-      selectedDocument,
-    });
+  const selectedDocumentLinkedContainerIds = getDocumentLinkedContainerIds({
+    document: selectedDocument,
+    linkedContainerIdsByDocumentId,
+  });
   const { activateLinkedDocument, linkDocument, moveDocument, unlinkDocument } =
     useSelectedDocumentActions({
       appData,

@@ -3,6 +3,7 @@ import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createExplorerTargetLookups,
+  getDocumentLinkedContainerIds,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
@@ -74,7 +75,7 @@ function useExplorerModalEffects(params: {
 function useExplorerModalState(
   nodes: ReadonlyArray<ContainerNode>,
   documentSummaries: ReadonlyArray<DocumentSummary>,
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>,
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
 ) {
   const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -103,8 +104,8 @@ function useExplorerModalState(
   }, [clearModal, isSubmittingModal]);
   const openers = useExplorerModalOpeners({
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     nodes,
-    selectedDocumentLinkedContainerIds,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -231,7 +232,7 @@ export function useExplorerModalController(
   const modalState = useExplorerModalState(
     params.nodes,
     params.documentSummaries,
-    params.selectedDocumentLinkedContainerIds,
+    params.linkedContainerIdsByDocumentId,
   );
   const moveTargetOptions = useMemo(() => {
     if (modalState.modalState?.mode === "move") {
@@ -243,11 +244,16 @@ export function useExplorerModalController(
     }
 
     if (modalState.modalState?.mode === "link-document") {
+      const { documentLocalId } = modalState.modalState;
       return getDocumentLinkTargetOptions(
         params.nodes,
         params.documentSummaries,
-        modalState.modalState.documentLocalId,
-        params.selectedDocumentLinkedContainerIds,
+        documentLocalId,
+        getDocumentLinkedContainerIds({
+          document:
+            modalState.targetLookups.documentSummariesById.get(documentLocalId),
+          linkedContainerIdsByDocumentId: params.linkedContainerIdsByDocumentId,
+        }),
         modalState.targetLookups,
       );
     }
@@ -266,8 +272,8 @@ export function useExplorerModalController(
     modalState.modalState,
     modalState.targetLookups,
     params.documentSummaries,
+    params.linkedContainerIdsByDocumentId,
     params.nodes,
-    params.selectedDocumentLinkedContainerIds,
   ]);
   const handleModalSubmit = useExplorerModalSubmit({
     ...params,

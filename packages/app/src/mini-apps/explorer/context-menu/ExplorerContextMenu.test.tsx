@@ -1,14 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  type ContainerItemRow,
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { type MouseEvent, useRef, useState } from "react";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import {
   ExplorerContextMenuLayer,
   type ExplorerContextMenuState,
+  useExplorerContextMenu,
 } from "./ExplorerContextMenu";
 
 afterEach(() => cleanup());
@@ -140,4 +142,89 @@ test("document context menu deletes the selected document", async () => {
     ]);
   });
   expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
+});
+
+const folderRow: ContainerItemRow = {
+  createdAt: null,
+  id: "child-container",
+  itemKind: "container",
+  name: "Child",
+  syncState: syncedContainerDocumentObjectSyncState,
+  updatedAt: null,
+};
+
+const documentRow: ContainerItemRow = {
+  containerId: "root-container",
+  createdAt: null,
+  documentId: "doc-1",
+  documentKind: "note",
+  itemKind: "document",
+  localId: "doc-local-1",
+  name: "Note",
+  syncState: syncedContainerDocumentObjectSyncState,
+  updatedAt: null,
+};
+
+function ItemContextMenuHarness(params: {
+  navigations: Array<string | null>;
+  openedTargets: Array<ExplorerContextMenuState["id"]>;
+  row: ContainerItemRow;
+}) {
+  const { navigations, openedTargets } = params;
+  const rowRef = useRef(params.row);
+  const { contextMenu, handleItemContextMenu } = useExplorerContextMenu(
+    [rootNode],
+    (id) => navigations.push(id),
+    (localId, containerId) => navigations.push(`${containerId}/${localId}`),
+  );
+
+  if (contextMenu && !openedTargets.includes(contextMenu.id)) {
+    openedTargets.push(contextMenu.id);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(event: MouseEvent<HTMLButtonElement>) =>
+        handleItemContextMenu(event, rowRef.current)
+      }
+    >
+      open
+    </button>
+  );
+}
+
+test("right-clicking a detail-pane row opens its menu without navigating", () => {
+  for (const row of [folderRow, documentRow]) {
+    const navigations: Array<string | null> = [];
+    const openedTargets: Array<ExplorerContextMenuState["id"]> = [];
+    const view = render(
+      <ItemContextMenuHarness
+        navigations={navigations}
+        openedTargets={openedTargets}
+        row={row}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "open" }));
+
+    // The menu opens for the right-clicked row, but no selection/navigation
+    // side effect fires (a left-click is what navigates, not a right-click).
+    expect(navigations).toEqual([]);
+    expect(openedTargets).toHaveLength(1);
+    if (row.itemKind === "container") {
+      expect(openedTargets[0]).toEqual({
+        kind: "container",
+        containerId: row.id,
+      });
+    } else {
+      expect(openedTargets[0]).toEqual({
+        kind: "document",
+        containerId: row.containerId,
+        localId: row.localId,
+      });
+    }
+
+    cleanup();
+  }
 });
