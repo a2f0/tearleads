@@ -37,7 +37,10 @@ export interface ExplorerModalControllerParams {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
+  // Linked containers per document id, so link targets are computed for whatever
+  // document a modal operates on (selection or right-clicked row) rather than a
+  // single pre-selected document.
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   setSelectedId: (id: string | null) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }

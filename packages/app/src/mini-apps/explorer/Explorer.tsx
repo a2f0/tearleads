@@ -150,13 +150,13 @@ export function Explorer() {
         visibleSystemSlots={model.explorer.visibleSystemSlots}
       />
       <ExplorerContextMenuLayer
-        canDeleteSelectedDocument={model.canDeleteSelectedDocument}
-        canLinkSelectedDocument={model.canLinkSelectedDocument}
+        canDeleteSelectedDocument={model.canDeleteContextMenuDocument}
+        canLinkSelectedDocument={model.canLinkContextMenuDocument}
         canDeleteContextMenuNode={
           model.contextMenuState.canDeleteContextMenuNode
         }
         canMoveContextMenuNode={model.contextMenuState.canMoveContextMenuNode}
-        canMoveSelectedDocument={model.canMoveSelectedDocument}
+        canMoveSelectedDocument={model.canMoveContextMenuDocument}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
         deleteDocument={model.deleteDocument}

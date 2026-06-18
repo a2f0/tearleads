@@ -39,6 +39,30 @@ function getDocumentSummariesById(
   );
 }
 
+// Resolve the containers a document is currently linked into, falling back to
+// its home container when the link projection has nothing for it yet.
+export function getDocumentLinkedContainerIds(params: {
+  document: DocumentSummary | undefined;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+}): ReadonlyArray<string> {
+  const { document, linkedContainerIdsByDocumentId } = params;
+  if (!document) {
+    return [];
+  }
+
+  const defaultContainerIds =
+    document.containerId === null ? [] : [document.containerId];
+  if (!document.documentId) {
+    return defaultContainerIds;
+  }
+
+  const linkedContainerIds =
+    linkedContainerIdsByDocumentId.get(document.documentId) ?? [];
+  return linkedContainerIds.length > 0
+    ? linkedContainerIds
+    : defaultContainerIds;
+}
+
 function getSortedTargetOptions(
   candidateNodes: ReadonlyArray<ContainerNode>,
 ): ReadonlyArray<MoveTargetOption> {

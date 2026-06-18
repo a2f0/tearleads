@@ -12,6 +12,7 @@ import type {
 } from "./explorerModelTypes";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 import { useDocumentLinkProjectionVersion } from "./useDocumentLinkProjectionVersion";
+import { useExplorerContextMenuDocumentState } from "./useExplorerContextMenuDocumentState";
 import { useExplorerDocumentViewModel } from "./useExplorerDocumentViewModel";
 import { useExplorerInteractionState } from "./useExplorerInteractionState";
 import {
@@ -23,8 +24,11 @@ import type { ExplorerSelectionState } from "./useExplorerSelection";
 interface ExplorerModel {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   canActivateSelectedDocument: boolean;
+  canDeleteContextMenuDocument: boolean;
   canDeleteSelectedDocument: boolean;
+  canLinkContextMenuDocument: boolean;
   canLinkSelectedDocument: boolean;
+  canMoveContextMenuDocument: boolean;
   canMoveSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
@@ -133,10 +137,25 @@ export function useExplorerModel(
     selectedDocumentMoveTargetOptions,
     trashContainerId: explorer.trashContainerId,
   });
+  const contextMenuDocumentState = useExplorerContextMenuDocumentState({
+    appData,
+    canResolveTrashContainer: explorer.canResolveTrashContainer,
+    contextMenu: contextMenuState.contextMenu,
+    documentSummaries,
+    linkedContainerIdsByDocumentId,
+    nodes: explorer.nodes,
+    trashContainerId: explorer.trashContainerId,
+  });
 
   return {
     activateLinkedContainer,
     ...selectedDocumentMutationState,
+    canDeleteContextMenuDocument:
+      contextMenuDocumentState.canDeleteContextMenuDocument,
+    canLinkContextMenuDocument:
+      contextMenuDocumentState.canLinkContextMenuDocument,
+    canMoveContextMenuDocument:
+      contextMenuDocumentState.canMoveContextMenuDocument,
     contextMenuState,
     deleteDocument,
     documentListRevision,

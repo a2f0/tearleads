@@ -210,10 +210,9 @@ export function useExplorerPanelState(params: {
     linkDocument: selectedNoteStructuralState.linkDocument,
     moveDocument: selectedNoteStructuralState.moveDocument,
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     peerUserId,
     setSelectedId: routeState.selectExplorerItem,
-    selectedDocumentLinkedContainerIds:
-      selectedNoteStructuralState.selectedDocumentLinkedContainerIds,
     selectionExpandNode: selection.expandNode,
     shareWithUser: explorer.shareWithUser,
   });

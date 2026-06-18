@@ -75,25 +75,27 @@ export function useExplorerContextMenu(
     [openContextMenu, selectDocumentProjection],
   );
 
-  // The container listing's rows reuse the same per-item menus as the sidebar:
-  // a folder row opens the container menu, a document row opens the document
-  // menu (selecting the item first, matching a left-click).
+  // The container listing's rows reuse the same per-item menus as the sidebar,
+  // but right-clicking a row must NOT navigate: a left-click in the detail pane
+  // dives into a folder / opens a document, so selecting on right-click would
+  // yank the pane away while the menu opens. The menus are driven entirely by
+  // the target in `contextMenu.id` (containers from the node map, documents from
+  // the context-menu mutation state), so we open them without touching the
+  // selection.
   const handleItemContextMenu = useCallback(
     (event: MouseEvent<HTMLElement>, row: ContainerItemRow) => {
       if (row.itemKind === "container") {
-        selectContainer(row.id);
         openContextMenu(event, { kind: "container", containerId: row.id });
         return;
       }
 
-      selectDocumentProjection(row.localId, row.containerId);
       openContextMenu(event, {
         kind: "document",
         containerId: row.containerId,
         localId: row.localId,
       });
     },
-    [openContextMenu, selectContainer, selectDocumentProjection],
+    [openContextMenu],
   );
 
   const contextMenuNode = contextMenu?.id

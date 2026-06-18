@@ -2,6 +2,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import {
   type ExplorerTargetLookups,
+  getDocumentLinkedContainerIds,
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
@@ -52,8 +53,8 @@ function openExplorerTargetModal(params: {
 
 function useExplorerTargetModalOpeners(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
@@ -159,8 +160,8 @@ function useExplorerMoveDocumentModalOpener(params: {
 
 function useExplorerLinkDocumentModalOpener(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
@@ -169,8 +170,8 @@ function useExplorerLinkDocumentModalOpener(params: {
 }) {
   const {
     documentSummaries,
+    linkedContainerIdsByDocumentId,
     nodes,
-    selectedDocumentLinkedContainerIds,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -180,6 +181,8 @@ function useExplorerLinkDocumentModalOpener(params: {
 
   return useCallback(
     (documentLocalId: string) => {
+      const linkingDocument =
+        targetLookups.documentSummariesById.get(documentLocalId);
       openExplorerTargetModal({
         nextModalState: { mode: "link-document", documentLocalId },
         setDraftName,
@@ -190,15 +193,18 @@ function useExplorerLinkDocumentModalOpener(params: {
           nodes,
           documentSummaries,
           documentLocalId,
-          selectedDocumentLinkedContainerIds,
+          getDocumentLinkedContainerIds({
+            document: linkingDocument,
+            linkedContainerIdsByDocumentId,
+          }),
           targetLookups,
         ),
       });
     },
     [
       documentSummaries,
+      linkedContainerIdsByDocumentId,
       nodes,
-      selectedDocumentLinkedContainerIds,
       setDraftName,
       setDraftTargetContainerId,
       setModalError,
@@ -210,8 +216,8 @@ function useExplorerLinkDocumentModalOpener(params: {
 
 export function useExplorerModalOpeners(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
-  selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
