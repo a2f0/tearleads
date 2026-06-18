@@ -4,6 +4,7 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import { useCallback, useMemo } from "react";
+import type { ExplorerContainerRulesContext } from "../containerRules";
 import {
   createExplorerTargetLookups,
   getDocumentLinkedContainerIds,
@@ -15,12 +16,14 @@ import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 function useSelectedDocumentTargetOptions(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
   selectedDocument: DocumentSummary | undefined;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
 }) {
   const {
     documentSummaries,
     nodes,
+    rulesContext,
     selectedDocument,
     selectedDocumentLinkedContainerIds,
   } = params;
@@ -36,9 +39,10 @@ function useSelectedDocumentTargetOptions(params: {
             documentSummaries,
             selectedDocument.id,
             targetLookups,
+            rulesContext,
           )
         : [],
-    [documentSummaries, nodes, selectedDocument, targetLookups],
+    [documentSummaries, nodes, rulesContext, selectedDocument, targetLookups],
   );
   const selectedDocumentLinkTargetOptions = useMemo(
     () =>
@@ -75,6 +79,7 @@ export function useSelectedDocumentStructuralState(params: {
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: () => void;
+  rulesContext: ExplorerContainerRulesContext;
   selectedDocument: DocumentSummary | undefined;
   setLinkedContainerIdsForDocument: (
     documentId: string,
@@ -90,6 +95,7 @@ export function useSelectedDocumentStructuralState(params: {
     mergeDocumentSummary,
     nodes,
     onDocumentLinksChanged,
+    rulesContext,
     selectedDocument,
     setLinkedContainerIdsForDocument,
   } = params;
@@ -113,6 +119,7 @@ export function useSelectedDocumentStructuralState(params: {
   } = useSelectedDocumentTargetOptions({
     documentSummaries,
     nodes,
+    rulesContext,
     selectedDocument,
     selectedDocumentLinkedContainerIds,
   });

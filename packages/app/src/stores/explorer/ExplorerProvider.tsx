@@ -57,6 +57,7 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
   ensureTrashContainer: () => Promise<ContainerNode | null>;
   reconciler: ReconciliationService;
   trashContainerId: string | null;
+  trashSystemSlot: ContainerSystemSlot | null;
   view: LocalProjectionView;
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
@@ -224,6 +225,7 @@ export function useExplorer(): ExplorerContextValue {
         snapshot.nodes,
         trashSystemSlot,
       ),
+      trashSystemSlot,
       view,
       visibleSystemSlots,
     }),

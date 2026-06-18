@@ -33,6 +33,7 @@ export interface ExplorerModelExplorer {
   ready: boolean;
   reconciler: ReconciliationService;
   trashContainerId: string | null;
+  trashSystemSlot: NonNullable<ContainerNode["systemSlot"]> | null;
   view: LocalProjectionView;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }

@@ -7,6 +7,7 @@ import {
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { type MouseEvent, useRef, useState } from "react";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import { createExplorerContainerRulesContext } from "../containerRules";
 import {
   ExplorerContextMenuLayer,
   type ExplorerContextMenuState,
@@ -14,6 +15,12 @@ import {
 } from "./ExplorerContextMenu";
 
 afterEach(() => cleanup());
+
+const emptyRulesContext = createExplorerContainerRulesContext({
+  contactsContainerId: null,
+  contactsSystemSlot: null,
+  trashSystemSlot: null,
+});
 
 const rootNode: ContainerNode = {
   id: "root-container",
@@ -176,6 +183,7 @@ function ItemContextMenuHarness(params: {
     [rootNode],
     (id) => navigations.push(id),
     (localId, containerId) => navigations.push(`${containerId}/${localId}`),
+    emptyRulesContext,
   );
 
   if (contextMenu && !openedTargets.includes(contextMenu.id)) {

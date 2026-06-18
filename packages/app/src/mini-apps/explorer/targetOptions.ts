@@ -1,4 +1,9 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import {
+  canMoveContainerByRules,
+  canMoveDocumentOutByRules,
+  type ExplorerContainerRulesContext,
+} from "./containerRules";
 
 export interface MoveTargetOption {
   id: string;
@@ -84,10 +89,15 @@ export function getMoveTargetOptions(
   nodes: ReadonlyArray<ContainerNode>,
   movingNodeId: string,
   lookups?: Pick<ExplorerTargetLookups, "nodesById">,
+  rulesContext?: ExplorerContainerRulesContext,
 ): ReadonlyArray<MoveTargetOption> {
   const nodesById = getNodesById(nodes, lookups);
   const movingNode = nodesById.get(movingNodeId);
   if (!movingNode || movingNode.parentId === null) {
+    return [];
+  }
+
+  if (rulesContext && !canMoveContainerByRules(rulesContext, movingNode)) {
     return [];
   }
 
@@ -121,6 +131,7 @@ export function getDocumentMoveTargetOptions(
   documentSummaries: ReadonlyArray<DocumentSummary>,
   documentLocalId: string,
   lookups?: ExplorerTargetLookups,
+  rulesContext?: ExplorerContainerRulesContext,
 ): ReadonlyArray<MoveTargetOption> {
   const documentSummariesById = getDocumentSummariesById(
     documentSummaries,
@@ -134,6 +145,13 @@ export function getDocumentMoveTargetOptions(
 
   const currentContainer = nodesById.get(movingDocument.containerId);
   if (!currentContainer) {
+    return [];
+  }
+
+  if (
+    rulesContext &&
+    !canMoveDocumentOutByRules(rulesContext, currentContainer)
+  ) {
     return [];
   }
 

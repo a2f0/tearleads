@@ -1,5 +1,9 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import {
+  canDeleteDocumentByRules,
+  type ExplorerContainerRulesContext,
+} from "../containerRules";
 import type { MoveTargetOption } from "../targetOptions";
 
 export function getSelectedDocumentMutationState(params: {
@@ -9,6 +13,7 @@ export function getSelectedDocumentMutationState(params: {
     state: Pick<RuntimeSnapshot["state"], "online">;
   };
   canResolveTrashContainer: boolean;
+  rulesContext: ExplorerContainerRulesContext;
   selectedDocument: DocumentSummary | undefined;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
@@ -18,6 +23,7 @@ export function getSelectedDocumentMutationState(params: {
   const {
     appData,
     canResolveTrashContainer,
+    rulesContext,
     selectedDocument,
     selectedDocumentLinkTargetOptions,
     selectedDocumentLinkedContainerIds,
@@ -40,7 +46,8 @@ export function getSelectedDocumentMutationState(params: {
       canResolveTrashContainer &&
       selectedDocument !== undefined &&
       selectedDocument.containerId !== null &&
-      selectedDocument.containerId !== trashContainerId,
+      selectedDocument.containerId !== trashContainerId &&
+      canDeleteDocumentByRules(rulesContext, selectedDocument),
     canLinkSelectedDocument:
       canMutateSelectedDocument && selectedDocumentLinkTargetOptions.length > 0,
     canMoveSelectedDocument:
