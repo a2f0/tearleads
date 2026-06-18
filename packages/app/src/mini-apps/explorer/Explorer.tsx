@@ -157,6 +157,9 @@ export function Explorer() {
           model.contextMenuState.canDeleteContextMenuNode
         }
         canMoveContextMenuNode={model.contextMenuState.canMoveContextMenuNode}
+        canRenameContextMenuNode={
+          model.contextMenuState.canRenameContextMenuNode
+        }
         canMoveSelectedDocument={model.canMoveContextMenuDocument}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}

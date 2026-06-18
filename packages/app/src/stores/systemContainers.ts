@@ -28,6 +28,8 @@ export interface UserSystemContainerRules {
   readonly protectFromMove: boolean;
   // Block deleting this container.
   readonly protectFromDelete: boolean;
+  // Block renaming this container.
+  readonly protectFromRename: boolean;
   // Block moving documents out of this container (e.g. contacts must stay in
   // the Contacts container). Documents may still be deleted (moved to trash).
   readonly protectContentsFromLeaving: boolean;
@@ -51,6 +53,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
       rules: {
         protectFromMove: true,
         protectFromDelete: true,
+        protectFromRename: true,
         protectContentsFromLeaving: true,
         protectSelfDocumentFromDelete: true,
       },
@@ -62,6 +65,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
       rules: {
         protectFromMove: true,
         protectFromDelete: true,
+        protectFromRename: true,
         // Trash is a destination, not a home: items are expected to leave it
         // (restore) freely, so its contents are not pinned.
         protectContentsFromLeaving: false,
