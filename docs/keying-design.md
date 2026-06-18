@@ -831,9 +831,9 @@ by background jobs or first-writer-wins lazy materialization. The security rule
 is that future writes must not continue under a KEK chain reachable by the
 revoked principal.
 
-## Implementation Surface
+## Protocol Surface
 
-Implemented surface:
+The protocol covers:
 
 1. Canonical encodings and shared verifier APIs for Keying objects.
 2. Signed access event and manifest types for containers, document link sets,

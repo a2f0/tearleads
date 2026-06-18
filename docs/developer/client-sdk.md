@@ -414,70 +414,46 @@ Supported package entry points are:
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, and adapter helpers |
 
 Each package export maps `types` to an emitted `.d.ts` file and `default` to an
-emitted ESM JavaScript file under `dist`. Keep the export map exact; adding a
-new public subpath is a package API expansion and needs an explicit migration
-plan, documentation, and architecture-lint coverage.
+emitted ESM JavaScript file under `dist`. The export map is exact: these two
+entry points are the entire public surface. Host code reaches document
+contracts, store facades, and public workflow symbols through the root entry
+point; `@tearleads/client-sdk/sqlite` is separate because it is the SQLite
+runtime adapter boundary.
 
-Do not import `@tearleads/client-sdk/data/*` from host code. Promote a contract
-through the root entry point when it is meant to become public.
+Do not import `@tearleads/client-sdk/data/*` from host code. The root entry
+point aggregates documented public facades and does not make `data/*` internals,
+deep workflow files, or store implementation files public. Promote a contract
+through the root entry point when it is meant to become public; package-level
+test helpers belong in a dedicated `@tearleads/client-sdk/testing` entry point
+with the same documentation and lint treatment as any other package API.
 
-## Entrypoint Consolidation Migration
-
-Issue #750 reduced the public package import surface to the root SDK entry
-point plus the SQLite runtime facade:
-
-| Entry point | Target use |
-| --- | --- |
-| `@tearleads/client-sdk` | SDK instance, public service types, local keyring helpers, document contracts, store facades, and workflow facade symbols that remain public |
-| `@tearleads/client-sdk/sqlite` | SQLite worker runtime and executor contracts |
-
-The deprecated document, store, and workflow subpaths are no longer package
-exports. New host-code imports should use the root entry point for document
-contracts, store facades, and workflow facade symbols. Keep
-`@tearleads/client-sdk/sqlite` separate because it is the SQLite runtime
-adapter boundary.
-
-The root entry point aggregates documented public facades. This does not make
-`data/*` internals public, and it should not be used to expose deep workflow or
-store implementation files. If package-level test helpers become necessary,
-add a dedicated `@tearleads/client-sdk/testing` entry point with the same
-explicit documentation and lint treatment as any other package API addition.
-
-When a lower-level workflow facade name conflicts with an existing root service
-type, keep the existing root meaning stable and add an explicit migration alias.
-For example, root `ContainerDocumentLinkInput` remains the high-level client
+When a lower-level workflow facade name conflicts with a root service type, the
+root meaning stays stable and the lower-level name is exposed under a distinct
+alias. For example, root `ContainerDocumentLinkInput` is the high-level client
 document-link input, while the lower-level container query link input is
-available as `ContainerDocumentQueriesLinkInput`.
+`ContainerDocumentQueriesLinkInput`.
 
-## Package Status
+## Package Contract
 
-The package remains `private: true` for now. It has an explicit build contract
-for monorepo package consumption and publish rehearsal:
+The package is `private: true` and consumed across the monorepo by build output.
+The build emits ESM JavaScript, inline-source source maps, and declaration files
+from `tsconfig.build.json`, replacing any previous `dist`:
 
 ```sh
 bun run --filter='@tearleads/client-sdk' build
 ```
 
-The build removes the previous `dist` and emits ESM JavaScript, inline-source
-source maps, and declaration files from `tsconfig.build.json`.
+`bun run lint:architecture` enforces the package-consumption contract:
 
-Before removing `private: true`, confirm all runtime dependencies are either
-published packages or intentionally declared peer dependencies, replace
-workspace-only dependency ranges with publishable ranges, and run a package
-dry-run against the built `dist` contents.
-
-`bun run lint:architecture` enforces the current package-consumption contract:
-
-- `@tearleads/client-sdk` stays private, ESM, side-effect-free, and backed by
-  build-output package exports until a release decision is made.
-- Local `@tearleads/*` package dependencies stay on `workspace:*` ranges while
-  the SDK remains private inside the monorepo.
+- `@tearleads/client-sdk` is private, ESM, side-effect-free, and backed by
+  build-output package exports.
+- Local `@tearleads/*` package dependencies use `workspace:*` ranges.
 - The package export map matches the documented root and SQLite entry points
-  exactly, points at `dist` JavaScript/declaration files, and keeps the public
-  API entry-point table in sync with it.
+  exactly, points at `dist` JavaScript/declaration files, and stays in sync with
+  the public API entry-point table.
 - `data/*`, document, store, workflow, and deep implementation package exports
   are rejected.
-- Production app code uses SDK root service surfaces instead of importing SDK
-  document, workflow, or store package facades directly.
+- App code uses SDK root service surfaces instead of importing SDK document,
+  workflow, or store package facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
-  `packages/app`; SDK source should use platform workflow names.
+  `packages/app`; SDK source uses platform workflow names.

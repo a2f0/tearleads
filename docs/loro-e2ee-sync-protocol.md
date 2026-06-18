@@ -285,7 +285,7 @@ updates.
 Objects:
 
 - `blobs`
- - committed encrypted blob payload rows, backed by inline legacy bytes or an
+ - committed encrypted blob payload rows, backed by inline bytes or an
  object-store storage key
 - `blob_stages`
  - temporary staged uploads owned by one actor and expiring automatically;

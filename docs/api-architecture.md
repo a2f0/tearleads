@@ -353,8 +353,3 @@ Rules:
  not import the full server entrypoint.
 7. Protocol planes can cross service boundaries, but transport concerns do
  not leak downward.
-
-## Follow-up Work
-
-New work in this area belongs in focused follow-up issues rather than a
-standing task list in this document.
