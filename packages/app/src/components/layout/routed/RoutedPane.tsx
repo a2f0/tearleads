@@ -141,6 +141,11 @@ function RoutedPaneHomeNavButton({
   );
 }
 
+export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
+  const rect = anchor.getBoundingClientRect();
+  return { x: rect.left, y: rect.bottom };
+}
+
 function RoutedPaneSystemMenuButton({
   onOpenUnlock,
 }: {
@@ -149,13 +154,13 @@ function RoutedPaneSystemMenuButton({
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
   const toggleMenu = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => {
-      setMenuPosition((currentPosition) => {
-        if (currentPosition) {
-          return null;
-        }
-        const rect = event.currentTarget.getBoundingClientRect();
-        return { x: rect.left, y: rect.bottom };
-      });
+      // Capture the anchor position synchronously: React clears
+      // event.currentTarget once the handler returns, so it is null inside
+      // the state updater.
+      const anchorPosition = menuPositionBelow(event.currentTarget);
+      setMenuPosition((currentPosition) =>
+        currentPosition ? null : anchorPosition,
+      );
     },
     [],
   );

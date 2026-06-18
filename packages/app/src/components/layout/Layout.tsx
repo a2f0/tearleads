@@ -1,6 +1,10 @@
 import { TearleadsFrame } from "@tearleads/ui";
 import { type MouseEvent, useCallback, useState } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
+import {
+  type NavigationModeOverride,
+  NavigationModeToggle,
+} from "../../navigation/NavigationModeToggle";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import type { MenuPosition } from "../shared/Menu";
 import { StartMenu } from "../shared/StartMenu";
@@ -18,7 +22,12 @@ interface LayoutProps {
 }
 
 function LayoutInner({ hostConfig }: LayoutProps) {
-  const navigationMode = useAppNavigationMode(hostConfig.navigationMode);
+  const [modeOverride, setModeOverride] =
+    useState<NavigationModeOverride>(null);
+  const navigationMode = useAppNavigationMode(
+    hostConfig.navigationMode,
+    modeOverride,
+  );
   const [split, setSplit] = useState(true);
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { activeWorkspace, setActiveWorkspace } = useWorkspace();
@@ -46,6 +55,13 @@ function LayoutInner({ hostConfig }: LayoutProps) {
       Footer
     </button>
   );
+  const modeToggle = (
+    <NavigationModeToggle
+      override={modeOverride}
+      resolvedMode={navigationMode}
+      onChange={setModeOverride}
+    />
+  );
   const footerEnd = (
     <div className="workspace-switcher">
       {WORKSPACE_IDS.map((id) => (
@@ -58,12 +74,13 @@ function LayoutInner({ hostConfig }: LayoutProps) {
           {id}
         </button>
       ))}
+      {modeToggle}
     </div>
   );
 
   if (navigationMode === "routed") {
     return (
-      <TearleadsFrame className="layout layout--routed">
+      <TearleadsFrame className="layout layout--routed" footerEnd={modeToggle}>
         <RoutedWorkspace
           hostConfig={hostConfig}
           navigationMode={navigationMode}
