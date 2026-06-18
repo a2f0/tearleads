@@ -4,6 +4,7 @@ export {
 } from "./createDocument";
 export { DocumentMutationError } from "./errors";
 export { runDocumentLinkSetMutationWorkflow } from "./mutateDocumentLinkSet";
+export { purgeDocument } from "./purgeDocument";
 export {
   assertCurrentContainerPathGroups,
   assertDocumentManifestBundleConsistent,

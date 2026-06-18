@@ -56,6 +56,12 @@ export interface DocumentLinkSetMutationResponse {
   documentKekTargets: DocumentKekTargetsResponse;
 }
 
+export interface DocumentPurgeResponse {
+  documentId: string;
+  purgedAt: string;
+  reclaimedBlobStorageKeys: string[];
+}
+
 export interface DocumentSyncUpdateResponse {
   accessEpoch: number;
   id: string;
@@ -219,6 +225,20 @@ export function isDocumentLinkSetMutationResponse(
     isAccessManifestBundleWireResponse(accessManifest) &&
     isDocumentContentKeyBundleResponse(contentKeyBundle) &&
     isDocumentKekTargetsResponse(documentKekTargets)
+  );
+}
+
+export function isDocumentPurgeResponse(
+  value: unknown,
+): value is DocumentPurgeResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "documentId") &&
+    value.documentId.length > 0 &&
+    hasStringProperty(value, "purgedAt") &&
+    value.purgedAt.length > 0 &&
+    hasArrayProperty(value, "reclaimedBlobStorageKeys") &&
+    isStringArray(value.reclaimedBlobStorageKeys)
   );
 }
 

@@ -1,6 +1,7 @@
 import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentPurgeResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import {
@@ -9,6 +10,7 @@ import {
   runCreateDocumentWorkflow,
   runDocumentLinkSetMutationWorkflow,
   runDocumentSyncWorkflow,
+  purgeDocument as runPurgeDocumentWorkflow,
   type SyncDocumentInput,
 } from "../../workflows/documents/mutations";
 import type { ApiServiceRuntime } from "../runtime";
@@ -34,4 +36,14 @@ export async function syncDocument(
   input: SyncDocumentInput,
 ): Promise<DocumentSyncResponse> {
   return runDocumentSyncWorkflow(runtime.db, input);
+}
+
+export async function purgeDocument(
+  runtime: ApiServiceRuntime,
+  input: {
+    readonly documentId: string;
+    readonly userId: string;
+  },
+): Promise<DocumentPurgeResponse> {
+  return runPurgeDocumentWorkflow(runtime, input);
 }

@@ -86,6 +86,7 @@ import {
   getDocumentWriterProjection,
   linkDocument,
   listDocumentAttachments,
+  purgeDocument,
   syncDocument,
   unlinkDocument,
 } from "./routes/documents";
@@ -900,6 +901,13 @@ export class ApiClient {
   unlinkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
     return unlinkDocument(this.request, documentId, input).finally(() => {
       this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    });
+  }
+
+  purgeDocument(documentId: string) {
+    return purgeDocument(this.request, documentId).finally(() => {
+      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      this.documentAttachmentListRequestsByDocumentId.delete(documentId);
     });
   }
 
