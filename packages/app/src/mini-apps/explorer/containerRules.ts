@@ -107,7 +107,7 @@ export function canDeleteDocumentByRules(
 
   if (
     isSelfContactDocument(document) &&
-    document.containerId !== null &&
+    context.contactsContainerId !== null &&
     document.containerId === context.contactsContainerId
   ) {
     const contactsRules = context.contactsSystemSlot
