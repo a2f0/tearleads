@@ -56,6 +56,7 @@ import {
   verifyContainerWriterProjection,
 } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { seedLinkSetWriterProjection } from "./linkSetProjectionSeed";
 
 function deriveDocumentLinkSetTargetState(input: {
   operation: DocumentLinkSetMutationOperation;
@@ -431,6 +432,16 @@ export async function relinkRemoteDocument(input: {
     materializedPlan.plan,
     response,
   );
+
+  await seedLinkSetWriterProjection({
+    apiClient: input.apiClient,
+    execSql: input.execSql,
+    operation: input.operation,
+    priorProjection: writerProjection,
+    response,
+    targetContainerId: input.targetContainerId,
+    targetContainerProjection,
+  });
 
   return {
     contentKey: materializedPlan.contentKey,

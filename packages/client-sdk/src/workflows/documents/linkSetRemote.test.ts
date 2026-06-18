@@ -59,6 +59,10 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
     documentManifest: createdResponse.accessManifest,
   };
   const submittedRequests: DocumentLinkSetMutationRequest[] = [];
+  const primedProjections: Array<{
+    documentId: string;
+    projection: DocumentWriterProjectionResponse;
+  }> = [];
 
   const linked = await relinkRemoteDocument({
     apiClient: {
@@ -68,6 +72,9 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
           : null,
       getDocumentWriterProjection: async (documentId) =>
         documentId === writerProjection.documentId ? writerProjection : null,
+      primeDocumentWriterProjection: (documentId, primed) => {
+        primedProjections.push({ documentId, projection: primed });
+      },
       linkDocument: async (documentId, request) => {
         submittedRequests.push(request);
         return createLinkSetResponseFromRequest(documentId, request);
@@ -98,6 +105,20 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
       linked.response,
     ),
   ).toEqual(linked.persistedState);
+  // The link response carries enough to seed the writer projection, so the
+  // first read after link resolves locally instead of a cold GET.
+  expect(primedProjections).toEqual([
+    {
+      documentId: linked.response.id,
+      projection: {
+        authorizingContainerPaths: [projection, siblingProjection],
+        contentKeyBundle: linked.response.contentKeyBundle,
+        documentId: linked.response.id,
+        documentKekTargets: linked.response.documentKekTargets,
+        documentManifest: linked.response.accessManifest,
+      },
+    },
+  ]);
 });
 
 test("relinkRemoteDocument rejects bad unlink target container signatures before sending", async () => {
@@ -186,6 +207,7 @@ test("relinkRemoteDocument rejects bad unlink target container signatures before
           documentId === linkedWriterProjection.documentId
             ? linkedWriterProjection
             : null,
+        primeDocumentWriterProjection: () => {},
         linkDocument: async () => {
           throw new Error("Unexpected link call");
         },

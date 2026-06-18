@@ -206,6 +206,10 @@ export interface DocumentLinkSetMutationApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+  primeDocumentWriterProjection(
+    documentId: string,
+    projection: DocumentWriterProjectionResponse,
+  ): void;
   linkDocument(
     documentId: string,
     input: DocumentLinkSetMutationRequest,
