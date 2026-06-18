@@ -133,6 +133,10 @@ export interface DocumentCreateApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
+  primeDocumentWriterProjection(
+    documentId: string,
+    projection: DocumentWriterProjectionResponse,
+  ): void;
 }
 
 export interface CreateRemoteDocumentResult {
@@ -202,6 +206,10 @@ export interface DocumentLinkSetMutationApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+  primeDocumentWriterProjection(
+    documentId: string,
+    projection: DocumentWriterProjectionResponse,
+  ): void;
   linkDocument(
     documentId: string,
     input: DocumentLinkSetMutationRequest,

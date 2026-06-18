@@ -89,6 +89,7 @@ test("relinkRemoteContainerDocument persists linked container projections after 
             documentId === writerProjection.documentId
               ? writerProjection
               : null,
+          primeDocumentWriterProjection: () => {},
           linkDocument: async (documentId, request) => {
             submittedRequests.push(request);
             return createLinkSetResponseFromRequest(documentId, request);
@@ -225,6 +226,7 @@ test("moveRemoteContainerDocument links the target before unlinking the current 
             documentId === writerProjection.documentId
               ? writerProjection
               : null,
+          primeDocumentWriterProjection: () => {},
           linkDocument: async (documentId, request) => {
             submittedRequests.push({
               operation: "link",

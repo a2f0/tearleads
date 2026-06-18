@@ -60,9 +60,9 @@ interface BlobAttachmentBindingJson {
 }
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 97,
+  total: 96,
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 20,
+    "GET /documents/:documentId/writer-projection": 19,
     "POST /documents/:documentId/sync": 24,
     // Device-first reconciliation re-checks the active container on both open
     // and explicit refresh, and forced server-event reconciliation now rechecks

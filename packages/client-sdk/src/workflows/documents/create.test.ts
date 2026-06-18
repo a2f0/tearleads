@@ -9,6 +9,7 @@ import {
   type DocumentCreateRequest,
   isDocumentCreateRequest,
 } from "@tearleads/validators/request";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
@@ -84,6 +85,10 @@ test("createRemoteDocument submits the materialized request and persists the ver
     userId: author.signerUserId,
   });
   const submittedRequests: DocumentCreateRequest[] = [];
+  const primedProjections: Array<{
+    documentId: string;
+    projection: DocumentWriterProjectionResponse;
+  }> = [];
   const created = await createRemoteDocument({
     apiClient: {
       createDocument: async (request) => {
@@ -92,6 +97,9 @@ test("createRemoteDocument submits the materialized request and persists the ver
       },
       getContainerWriterProjection: async (containerId) =>
         containerId === projection.containerId ? projection : null,
+      primeDocumentWriterProjection: (documentId, primed) => {
+        primedProjections.push({ documentId, projection: primed });
+      },
     },
     author,
     containerId: projection.containerId,
@@ -127,6 +135,11 @@ test("createRemoteDocument submits the materialized request and persists the ver
     documentKekTargets: created.response.documentKekTargets,
     documentManifest: created.response.accessManifest,
   });
+  // The create response carries enough to seed the projection cache, so the
+  // first read after create resolves locally instead of a cold GET.
+  expect(primedProjections).toEqual([
+    { documentId: "document-remote", projection: created.writerProjection },
+  ]);
 });
 
 test("createRemoteDocument rejects substituted KEK material before submitting", async () => {
@@ -149,6 +162,7 @@ test("createRemoteDocument rejects substituted KEK material before submitting", 
           containerId === tamperedProjection.containerId
             ? tamperedProjection
             : null,
+        primeDocumentWriterProjection: () => {},
       },
       author: parent.author,
       containerId: tamperedProjection.containerId,
@@ -178,6 +192,7 @@ test("createRemoteDocument rejects bad container projection signatures before su
           containerId === tamperedProjection.containerId
             ? tamperedProjection
             : null,
+        primeDocumentWriterProjection: () => {},
       },
       author: parent.author,
       containerId: tamperedProjection.containerId,
