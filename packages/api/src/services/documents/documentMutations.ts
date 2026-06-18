@@ -48,17 +48,20 @@ export async function purgeDocument(
   const response = await runPurgeDocumentWorkflow(runtime.db, input);
 
   // The workflow committed the row deletions and returned the object-store keys
-  // for blobs that became fully orphaned. Delete those bytes after commit: a
-  // rollback never leaves dangling references, and a storage failure here only
-  // leaks reclaimable bytes rather than failing the purge.
-  for (const storageKey of response.reclaimedBlobStorageKeys) {
-    try {
-      await runtime.blobObjectStore.deleteObject(storageKey);
-    } catch {
-      // Best-effort: the blob row is already gone, so leave the bytes for a
-      // future sweep.
-    }
-  }
+  // for blobs that became fully orphaned. Delete those bytes after commit (in
+  // parallel — they are independent): a rollback never leaves dangling
+  // references, and a storage failure here only leaks reclaimable bytes rather
+  // than failing the purge.
+  await Promise.all(
+    response.reclaimedBlobStorageKeys.map(async (storageKey) => {
+      try {
+        await runtime.blobObjectStore.deleteObject(storageKey);
+      } catch {
+        // Best-effort: the blob row is already gone, so leave the bytes for a
+        // future sweep.
+      }
+    }),
+  );
 
   return response;
 }

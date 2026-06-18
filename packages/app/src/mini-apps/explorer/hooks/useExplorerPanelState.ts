@@ -113,9 +113,6 @@ export function useExplorerPanelState(params: {
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
-  mergeDocumentSummaries: (
-    nextDocuments: ReadonlyArray<DocumentSummary>,
-  ) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   onDocumentLinksChanged: () => void;
@@ -139,7 +136,6 @@ export function useExplorerPanelState(params: {
     explorer,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
-    mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
     onDocumentLinksChanged,
@@ -290,10 +286,10 @@ export function useExplorerPanelState(params: {
         const purgedDocument =
           await selectedNoteStructuralState.purgeDocument(noteId);
         if (purgedDocument) {
-          // The local document projection is gone after a purge; bumping the
-          // document list revision re-queries the container so the destroyed
-          // row drops out of the listing.
-          mergeDocumentSummaries([]);
+          // The local document projection is gone after a purge. Signal a link
+          // change so the container listing re-queries and the destroyed row
+          // drops out — the same refresh path move/link/unlink use.
+          onDocumentLinksChanged();
           routeState.selectExplorerItem(currentContainerId);
         }
 
@@ -306,7 +302,7 @@ export function useExplorerPanelState(params: {
     [
       appData.util.logError,
       explorer.trashContainerId,
-      mergeDocumentSummaries,
+      onDocumentLinksChanged,
       routeState.selectExplorerItem,
       selectedNoteStructuralState.purgeDocument,
     ],
