@@ -71,16 +71,16 @@ test("default blob object store creates S3 adapter from env", () => {
   expect(store).toHaveProperty("uploadPart");
 });
 
-test("default blob object store accepts legacy VFS S3 env aliases", () => {
+test("default blob object store applies an S3 key prefix", () => {
   const store = createDefaultBlobObjectStore({
-    VFS_BLOB_STORE_PROVIDER: "s3",
-    VFS_BLOB_S3_ACCESS_KEY_ID: "test",
-    VFS_BLOB_S3_BUCKET: "blob-test-bucket",
-    VFS_BLOB_S3_ENDPOINT: "http://127.0.0.1:9000",
-    VFS_BLOB_S3_FORCE_PATH_STYLE: "true",
-    VFS_BLOB_S3_KEY_PREFIX: "dev/blobs",
-    VFS_BLOB_S3_REGION: "us-east-1",
-    VFS_BLOB_S3_SECRET_ACCESS_KEY: "test",
+    BLOB_OBJECT_STORE: "s3",
+    BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "test",
+    BLOB_OBJECT_STORE_S3_BUCKET: "blob-test-bucket",
+    BLOB_OBJECT_STORE_S3_ENDPOINT: "http://127.0.0.1:9000",
+    BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE: "true",
+    BLOB_OBJECT_STORE_S3_KEY_PREFIX: "dev/blobs",
+    BLOB_OBJECT_STORE_S3_REGION: "us-east-1",
+    BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: "test",
   });
 
   expect(store).toHaveProperty("createMultipartUpload");
