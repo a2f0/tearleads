@@ -20,12 +20,19 @@
   grid-template:
     "header" auto
     "left" 1fr
+    "footer" auto
     / minmax(0, 1fr);
 }
 
 .workspace-switcher {
   display: flex;
   gap: var(--footer-gap);
+}
+
+.nav-mode-toggle {
+  padding: 0 var(--space-sm);
+  border-style: dashed;
+  white-space: nowrap;
 }
 
 .workspace-button {

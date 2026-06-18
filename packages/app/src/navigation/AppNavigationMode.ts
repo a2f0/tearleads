@@ -1,3 +1,5 @@
+import { MOBILE_BREAKPOINT_PX } from "./breakpoints";
+
 export type AppNavigationMode = "routed" | "windowed";
 
 export interface AppNavigationEnvironment {
@@ -13,8 +15,6 @@ interface ResolveAppNavigationModeInput {
   mobileBreakpoint?: number | undefined;
 }
 
-const DEFAULT_MOBILE_BREAKPOINT = 1024;
-
 function isIPadLikeEnvironment(environment: AppNavigationEnvironment): boolean {
   const userAgent = environment.userAgent.toLowerCase();
   return (
@@ -26,7 +26,7 @@ function isIPadLikeEnvironment(environment: AppNavigationEnvironment): boolean {
 export function resolveAppNavigationMode({
   environment,
   forcedMode,
-  mobileBreakpoint = DEFAULT_MOBILE_BREAKPOINT,
+  mobileBreakpoint = MOBILE_BREAKPOINT_PX,
 }: ResolveAppNavigationModeInput): AppNavigationMode {
   if (forcedMode) {
     return forcedMode;

@@ -4,14 +4,16 @@ import {
   type AppNavigationMode,
   resolveAppNavigationMode,
 } from "./AppNavigationMode";
-
-const MOBILE_BREAKPOINT_QUERY = "(max-width: 1023px)";
-const COARSE_POINTER_QUERY = "(pointer: coarse)";
+import {
+  COARSE_POINTER_QUERY,
+  MOBILE_BREAKPOINT_PX,
+  MOBILE_BREAKPOINT_QUERY,
+} from "./breakpoints";
 
 function readEnvironment(): AppNavigationEnvironment {
   const viewport =
     typeof window === "undefined"
-      ? { innerWidth: 1024, matchMedia: undefined }
+      ? { innerWidth: MOBILE_BREAKPOINT_PX, matchMedia: undefined }
       : window;
   const navigatorLike =
     typeof navigator === "undefined"
@@ -30,19 +32,28 @@ function readEnvironment(): AppNavigationEnvironment {
   };
 }
 
+/**
+ * Resolves the active navigation mode.
+ *
+ * Precedence: an explicit {@link override} (e.g. a manual test toggle) wins,
+ * then a host-level {@link forcedMode}, then live viewport detection that
+ * tracks the {@link MOBILE_BREAKPOINT_QUERY} and pointer media queries.
+ */
 export function useAppNavigationMode(
   forcedMode?: AppNavigationMode | undefined,
+  override?: AppNavigationMode | null | undefined,
 ): AppNavigationMode {
+  const resolvedForced = override ?? forcedMode;
   const [mode, setMode] = useState(() =>
     resolveAppNavigationMode({
       environment: readEnvironment(),
-      forcedMode,
+      forcedMode: resolvedForced ?? undefined,
     }),
   );
 
   useEffect(() => {
-    if (forcedMode) {
-      setMode(forcedMode);
+    if (resolvedForced) {
+      setMode(resolvedForced);
       return;
     }
 
@@ -67,7 +78,7 @@ export function useAppNavigationMode(
       mobileQuery.removeEventListener("change", updateMode);
       pointerQuery.removeEventListener("change", updateMode);
     };
-  }, [forcedMode]);
+  }, [resolvedForced]);
 
   return mode;
 }
