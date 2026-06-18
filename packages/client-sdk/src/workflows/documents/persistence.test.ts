@@ -1,15 +1,17 @@
 import { expect, test } from "bun:test";
-import {
-  type DocumentRecord,
-  type DocumentsPersistence,
-  loadPersistedDocumentStoreState,
-  type PendingAttachmentRecord,
-  persistDocumentState,
-  savePendingDocumentAttachment,
+import type {
+  DocumentRecord,
+  DocumentsPersistence,
+  PendingAttachmentRecord,
 } from "@tearleads/client-sdk";
 import { createDocument } from "@tearleads/loro";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createDocumentProjectorRegistry } from "../../documents";
+import {
+  loadPersistedDocumentStoreState,
+  persistDocumentState,
+  savePendingDocumentAttachment,
+} from "./index";
 
 function createNoopExecSql(): ExecSql {
   return (async () => []) as ExecSql;

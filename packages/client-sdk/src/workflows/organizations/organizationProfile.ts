@@ -16,7 +16,7 @@ export function getOrganizationProfileDocumentLocalId(input: {
   return `org-profile:${input.organizationId}`;
 }
 
-export function getOrganizationProfileDocumentPatch(input: {
+export function buildOrganizationProfileDocumentPatch(input: {
   readonly name: string;
 }): Record<string, string | undefined> {
   return {
@@ -35,7 +35,7 @@ export async function createInitializedOrganizationProfileDocument(input: {
   writeStoredDocumentFields(
     doc,
     ORGANIZATION_PROFILE_DOCUMENT_KIND,
-    getOrganizationProfileDocumentPatch({ name: input.name }),
+    buildOrganizationProfileDocumentPatch({ name: input.name }),
   );
 
   const initialUpdate = exportAllUpdates(doc);

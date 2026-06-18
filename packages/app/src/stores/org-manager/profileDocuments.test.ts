@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import {
+  buildRosterProfileDocumentPatch,
   type DocumentStore,
   type Documents,
   getRosterProfileDocumentLocalId,
-  getRosterProfileDocumentPatch,
   type OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import { createRosterProfileDocument } from "./profileDocuments";
@@ -33,7 +33,7 @@ test("roster profile documents use stable org-scoped local ids", () => {
 });
 
 test("roster profile documents seed contact identity fields", () => {
-  expect(getRosterProfileDocumentPatch(user)).toEqual({
+  expect(buildRosterProfileDocumentPatch(user)).toEqual({
     encapsulationPublicKey: user.encapsulationPublicKey,
     isSelf: "1",
     userId: user.userId,

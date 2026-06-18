@@ -5,11 +5,11 @@ import type {
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import {
+  buildOrganizationProfileDocumentPatch,
+  buildRosterProfileDocumentPatch,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   getOrganizationProfileDocumentLocalId,
-  getOrganizationProfileDocumentPatch,
   getRosterProfileDocumentLocalId,
-  getRosterProfileDocumentPatch,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
 } from "@tearleads/client-sdk";
 import { readContactFields } from "../../document-types/contact/contactDocumentModel";
@@ -118,7 +118,7 @@ export async function createRosterProfileDocument(input: {
 
   await store.setStructuredFields(
     "contact",
-    getRosterProfileDocumentPatch(input.user),
+    buildRosterProfileDocumentPatch(input.user),
   );
   if (!store.getSnapshot().ready) {
     return null;
@@ -144,7 +144,7 @@ export async function createOrganizationProfileDocument(input: {
 
   await store.setStructuredFields(
     ORGANIZATION_PROFILE_DOCUMENT_KIND,
-    getOrganizationProfileDocumentPatch({
+    buildOrganizationProfileDocumentPatch({
       name: input.name ?? DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
     }),
   );

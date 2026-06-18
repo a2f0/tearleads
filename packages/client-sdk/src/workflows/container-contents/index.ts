@@ -67,16 +67,16 @@ export {
   createContainerDocumentQueriesFromRuntime,
 } from "./documentQueries";
 export {
-  activateDocumentLinkState,
+  activateDocumentLink,
+  addDocumentLink,
   canMutateDocumentLink,
   canMutateLocalDocumentLink,
   type DocumentStructuralMutationHost,
-  linkDocumentLinkState,
   type MergeDocumentSummary,
-  moveDocumentLinkState,
-  moveLocalDocumentLinkState,
+  moveDocumentLink,
+  moveLocalDocumentLink,
+  removeDocumentLink,
   type SetLinkedContainerIdsForDocument,
-  unlinkDocumentLinkState,
 } from "./documentStructure";
 export {
   type ContainerMetadataPatch,

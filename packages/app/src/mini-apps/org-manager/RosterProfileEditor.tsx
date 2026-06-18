@@ -1,6 +1,6 @@
 import {
+  buildRosterProfileDocumentPatch,
   getRosterProfileDocumentLocalId,
-  getRosterProfileDocumentPatch,
   type OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import { type KeyboardEvent, useEffect, useMemo, useState } from "react";
@@ -109,7 +109,7 @@ export function getMissingProfileIdentityPatch(
   structuredFields: Readonly<Record<string, string>>,
 ): Record<string, string | undefined> | null {
   return getMissingProfileIdentityPatchFromExpectedPatch(
-    getRosterProfileDocumentPatch(user),
+    buildRosterProfileDocumentPatch(user),
     structuredFields,
   );
 }
@@ -198,7 +198,7 @@ function useRosterProfileIdentitySeed({
   const { encapsulationPublicKey, isSelf, userId } = user;
   const expectedPatch = useMemo(
     () =>
-      getRosterProfileDocumentPatch({
+      buildRosterProfileDocumentPatch({
         encapsulationPublicKey,
         isSelf,
         userId,

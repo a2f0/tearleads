@@ -11,7 +11,7 @@ target/
 node_modules/
 dist/
 build/
-tsconfig.tsbuildinfo
+*.tsbuildinfo
 .turbo/
 .astro/
 playwright-report/

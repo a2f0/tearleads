@@ -1,9 +1,5 @@
 import { expect, test } from "bun:test";
 import {
-  buildMaterializedDocumentCreatePlan,
-  buildMaterializedDocumentLinkSetMutationPlan,
-} from "@tearleads/client-sdk";
-import {
   type AccessEvent,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   generateKemSeedAndKeyPair,
@@ -34,6 +30,10 @@ import {
   createSyncResponse,
   projectionPathRecords,
 } from "../../../test/helpers/documentFixtures";
+import {
+  buildMaterializedDocumentCreatePlan,
+  buildMaterializedDocumentLinkSetMutationPlan,
+} from "./index";
 import {
   buildDocumentSyncPlan,
   buildMaterializedDocumentSyncPlan,

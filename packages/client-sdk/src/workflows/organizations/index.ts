@@ -1,9 +1,9 @@
 export { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 export {
+  buildOrganizationProfileDocumentPatch,
   createInitializedOrganizationProfileDocument,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   getOrganizationProfileDocumentLocalId,
-  getOrganizationProfileDocumentPatch,
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   readOrganizationProfileName,
 } from "./organizationProfile";
@@ -49,10 +49,10 @@ export {
   updateOrganizationRosterEntry,
 } from "./readModel";
 export {
+  buildRosterProfileDocumentPatch,
   createInitializedRosterProfileDocument,
   deriveOrganizationRosterProfileContainerSystemSlot,
   getRosterProfileDocumentLocalId,
-  getRosterProfileDocumentPatch,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
   ROSTER_PROFILE_DOCUMENT_KIND,
 } from "./rosterProfileContainer";

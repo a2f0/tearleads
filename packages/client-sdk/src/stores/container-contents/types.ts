@@ -1,3 +1,4 @@
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
@@ -7,7 +8,10 @@ import type {
   ContainerContentsStoreSyncState,
 } from "./syncAgent";
 
-export type ContainerContentsShareAccessLevel = "admin" | "read" | "write";
+// Reuse the canonical access-level union from the crypto layer (the same source
+// `ContainerShareAccessLevel` chains to) rather than re-spelling the literals,
+// so the two can't drift.
+export type ContainerContentsShareAccessLevel = ContainerAccessLevel;
 
 export interface ContainerContentsStoreOptions {
   logLabel?: string | undefined;
