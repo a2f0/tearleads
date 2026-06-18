@@ -10,6 +10,18 @@ export const WORKSPACE_IDS = [1, 2] as const;
 
 type WorkspaceId = (typeof WORKSPACE_IDS)[number];
 
+export function localIdentityNamespaceForWorkspace(
+  baseNamespace: string | undefined,
+  workspaceId: WorkspaceId,
+): string {
+  // Workspaces are mounted concurrently even when hidden, so each workspace
+  // needs its own namespace before PaneProvider appends `.left` / `.right`;
+  // otherwise hidden panes can restore the same identity and race the visible
+  // pane for the same persistent SQLite database. Routed mode reuses this so a
+  // session established in windowed mode survives the mode toggle.
+  return `${baseNamespace ?? "tearleads.pane"}.workspace-${workspaceId}`;
+}
+
 interface WorkspaceContextValue {
   activeWorkspace: WorkspaceId;
   setActiveWorkspace: (workspace: WorkspaceId) => void;
