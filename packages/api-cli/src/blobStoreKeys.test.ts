@@ -22,23 +22,6 @@ test("blob store key listing reads S3 settings from current env names", () => {
   });
 });
 
-test("blob store key listing reads legacy VFS S3 env aliases", () => {
-  const settings = readS3BlobStoreListKeysSettings({
-    VFS_BLOB_STORE_PROVIDER: "s3",
-    VFS_BLOB_S3_ACCESS_KEY_ID: "test-access-key",
-    VFS_BLOB_S3_BUCKET: "blob-test-bucket",
-    VFS_BLOB_S3_ENDPOINT: "http://127.0.0.1:3900",
-    VFS_BLOB_S3_FORCE_PATH_STYLE: "false",
-    VFS_BLOB_S3_REGION: "garage",
-    VFS_BLOB_S3_SECRET_ACCESS_KEY: "test-secret-key",
-  });
-
-  expect(settings.bucket).toBe("blob-test-bucket");
-  expect(settings.clientConfig.region).toBe("garage");
-  expect(settings.clientConfig.endpoint).toBe("http://127.0.0.1:3900");
-  expect(settings.clientConfig.forcePathStyle).toBe(false);
-});
-
 test("blob store key listing requires S3 object storage", () => {
   expect(() => readS3BlobStoreListKeysSettings({})).toThrow(
     "BLOB_OBJECT_STORE must be s3 to list blob store keys",

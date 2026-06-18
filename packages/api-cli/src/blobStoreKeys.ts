@@ -13,13 +13,6 @@ interface RuntimeEnv {
   readonly BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_REGION?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY?: string | undefined;
-  readonly VFS_BLOB_STORE_PROVIDER?: string | undefined;
-  readonly VFS_BLOB_S3_ACCESS_KEY_ID?: string | undefined;
-  readonly VFS_BLOB_S3_BUCKET?: string | undefined;
-  readonly VFS_BLOB_S3_ENDPOINT?: string | undefined;
-  readonly VFS_BLOB_S3_FORCE_PATH_STYLE?: string | undefined;
-  readonly VFS_BLOB_S3_REGION?: string | undefined;
-  readonly VFS_BLOB_S3_SECRET_ACCESS_KEY?: string | undefined;
   readonly [key: string]: string | undefined;
 }
 
@@ -34,23 +27,17 @@ interface ListS3BlobStoreKeysInput {
   readonly writeKey?: (key: string) => void;
 }
 
-function readEnv(env: RuntimeEnv, keys: readonly string[]): string | undefined {
-  for (const key of keys) {
-    const value = env[key];
-    if (value && value.trim().length > 0) {
-      return value.trim();
-    }
+function readEnv(env: RuntimeEnv, key: string): string | undefined {
+  const value = env[key];
+  if (value && value.trim().length > 0) {
+    return value.trim();
   }
 
   return undefined;
 }
 
-function requireEnv(
-  env: RuntimeEnv,
-  keys: readonly string[],
-  message: string,
-): string {
-  const value = readEnv(env, keys);
+function requireEnv(env: RuntimeEnv, key: string, message: string): string {
+  const value = readEnv(env, key);
   if (!value) {
     throw new Error(message);
   }
@@ -75,52 +62,40 @@ function readBooleanEnv(value: string | undefined): boolean | undefined {
 export function readS3BlobStoreListKeysSettings(
   env: RuntimeEnv = process.env,
 ): S3BlobStoreListKeysSettings {
-  const objectStore = readEnv(env, [
-    "BLOB_OBJECT_STORE",
-    "VFS_BLOB_STORE_PROVIDER",
-  ]);
+  const objectStore = readEnv(env, "BLOB_OBJECT_STORE");
   if (objectStore !== "s3") {
     throw new Error("BLOB_OBJECT_STORE must be s3 to list blob store keys");
   }
 
   const bucket = requireEnv(
     env,
-    ["BLOB_OBJECT_STORE_S3_BUCKET", "VFS_BLOB_S3_BUCKET"],
+    "BLOB_OBJECT_STORE_S3_BUCKET",
     "BLOB_OBJECT_STORE_S3_BUCKET is required to list blob store keys",
   );
   const clientConfig: S3ClientConfig = {
     region: requireEnv(
       env,
-      ["BLOB_OBJECT_STORE_S3_REGION", "VFS_BLOB_S3_REGION"],
+      "BLOB_OBJECT_STORE_S3_REGION",
       "BLOB_OBJECT_STORE_S3_REGION is required to list blob store keys",
     ),
   };
-  const endpoint = readEnv(env, [
-    "BLOB_OBJECT_STORE_S3_ENDPOINT",
-    "VFS_BLOB_S3_ENDPOINT",
-  ]);
+  const endpoint = readEnv(env, "BLOB_OBJECT_STORE_S3_ENDPOINT");
   if (endpoint !== undefined) {
     clientConfig.endpoint = endpoint;
   }
 
   const forcePathStyle = readBooleanEnv(
-    readEnv(env, [
-      "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE",
-      "VFS_BLOB_S3_FORCE_PATH_STYLE",
-    ]),
+    readEnv(env, "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE"),
   );
   if (forcePathStyle !== undefined) {
     clientConfig.forcePathStyle = forcePathStyle;
   }
 
-  const accessKeyId = readEnv(env, [
-    "BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID",
-    "VFS_BLOB_S3_ACCESS_KEY_ID",
-  ]);
-  const secretAccessKey = readEnv(env, [
+  const accessKeyId = readEnv(env, "BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID");
+  const secretAccessKey = readEnv(
+    env,
     "BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY",
-    "VFS_BLOB_S3_SECRET_ACCESS_KEY",
-  ]);
+  );
   if (accessKeyId || secretAccessKey) {
     if (!accessKeyId || !secretAccessKey) {
       throw new Error(
