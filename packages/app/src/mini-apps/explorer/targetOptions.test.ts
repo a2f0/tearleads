@@ -98,6 +98,7 @@ test("a document in a plain container can be moved out", () => {
     rulesContext,
   );
 
-  expect(options.map((option) => option.id)).toContain(TRASH_CONTAINER_ID);
-  expect(options.map((option) => option.id)).not.toContain("user-container");
+  const optionIds = options.map((option) => option.id);
+  expect(optionIds).toContain(TRASH_CONTAINER_ID);
+  expect(optionIds).not.toContain("user-container");
 });
