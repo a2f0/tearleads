@@ -9,6 +9,7 @@ import {
 import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentPurgeResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
@@ -19,6 +20,7 @@ import {
   createDocument,
   DocumentMutationError,
   mutateDocumentLinkSet,
+  purgeDocument,
   syncDocument,
 } from "../../services/documents/documentMutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
@@ -170,6 +172,26 @@ async function respondWithDocumentSync(
   }
 }
 
+async function respondWithDocumentPurge(
+  c: DocumentRouteContext,
+  runtime: ApiServiceRuntime,
+) {
+  const documentId = c.req.param("documentId");
+  const session = c.get("session");
+
+  try {
+    return c.json<DocumentPurgeResponse>(
+      await purgeDocument(runtime, {
+        documentId,
+        userId: session.userId,
+      }),
+    );
+  } catch (error) {
+    const result = handleDocumentMutationError(error);
+    return c.json({ error: result.error }, result.status);
+  }
+}
+
 export function createDocumentMutationsRoute({
   publish,
   requireAuth,
@@ -220,6 +242,10 @@ export function createDocumentMutationsRoute({
         request: c.req.valid("json"),
         runtime,
       }),
+  );
+
+  route.delete("/documents/:documentId", requireAuth, (c) =>
+    respondWithDocumentPurge(c, runtime),
   );
 
   return route;

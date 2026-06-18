@@ -6,6 +6,7 @@ import type {
 import {
   isDocumentCreateResponse,
   isDocumentLinkSetMutationResponse,
+  isDocumentPurgeResponse,
   isDocumentSyncResponse,
 } from "@tearleads/validators/response";
 import type { RequestFn } from "../../types";
@@ -59,5 +60,13 @@ export function syncDocument(
     isDocumentSyncResponse,
     "POST",
     JSON.stringify(input),
+  );
+}
+
+export function purgeDocument(request: RequestFn, documentId: string) {
+  return request(
+    `/documents/${pathSegment(documentId)}`,
+    isDocumentPurgeResponse,
+    "DELETE",
   );
 }

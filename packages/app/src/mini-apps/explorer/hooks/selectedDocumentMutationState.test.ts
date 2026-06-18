@@ -105,3 +105,58 @@ test("document delete stays enabled for non-self contacts in the contacts contai
     }).canDeleteSelectedDocument,
   ).toBe(true);
 });
+
+test("document purge is enabled for documents already in trash", () => {
+  expect(
+    getMutationState({
+      selectedDocument: { ...selectedDocument, containerId: "trash" },
+      trashContainerId: "trash",
+    }).canPurgeSelectedDocument,
+  ).toBe(true);
+});
+
+test("document purge is disabled for documents outside trash", () => {
+  expect(
+    getMutationState({ trashContainerId: "trash" }).canPurgeSelectedDocument,
+  ).toBe(false);
+});
+
+test("document purge is disabled when delete is enabled (inverse trash gate)", () => {
+  const state = getMutationState();
+  expect(state.canDeleteSelectedDocument).toBe(true);
+  expect(state.canPurgeSelectedDocument).toBe(false);
+});
+
+test("document purge is enabled for unsynced documents in trash before authentication", () => {
+  expect(
+    getMutationState({
+      appData: deviceFirstRuntime,
+      selectedDocument: {
+        ...selectedDocument,
+        containerId: "trash",
+        documentId: null,
+      },
+      trashContainerId: "trash",
+    }).canPurgeSelectedDocument,
+  ).toBe(true);
+});
+
+test("document purge is disabled for synced documents in trash before authentication", () => {
+  expect(
+    getMutationState({
+      appData: deviceFirstRuntime,
+      selectedDocument: { ...selectedDocument, containerId: "trash" },
+      trashContainerId: "trash",
+    }).canPurgeSelectedDocument,
+  ).toBe(false);
+});
+
+test("document purge waits until trash can be resolved", () => {
+  expect(
+    getMutationState({
+      canResolveTrashContainer: false,
+      selectedDocument: { ...selectedDocument, containerId: "trash" },
+      trashContainerId: "trash",
+    }).canPurgeSelectedDocument,
+  ).toBe(false);
+});

@@ -168,6 +168,7 @@ export const EXPLORER_LABELS = {
   documentInfoUpdatedRow: "Updated",
   documentLinkAction: "Link",
   documentMoveAction: "Move",
+  documentPurgeAction: "Delete Forever",
   fileDropHint: "Drop files to import documents.",
   fileImportFailedStatus: "Some files could not be imported.",
   fileImportGenericFailure: "Failed to import files.",

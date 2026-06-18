@@ -103,16 +103,21 @@ export function useSelectedDocumentStructuralState(params: {
     document: selectedDocument,
     linkedContainerIdsByDocumentId,
   });
-  const { activateLinkedDocument, linkDocument, moveDocument, unlinkDocument } =
-    useSelectedDocumentActions({
-      appData,
-      documentSummaries,
-      expandNode,
-      loadDocumentSummary,
-      mergeDocumentSummary,
-      onDocumentLinksChanged,
-      setLinkedContainerIdsForDocument,
-    });
+  const {
+    activateLinkedDocument,
+    linkDocument,
+    moveDocument,
+    purgeDocument,
+    unlinkDocument,
+  } = useSelectedDocumentActions({
+    appData,
+    documentSummaries,
+    expandNode,
+    loadDocumentSummary,
+    mergeDocumentSummary,
+    onDocumentLinksChanged,
+    setLinkedContainerIdsForDocument,
+  });
   const {
     selectedDocumentLinkTargetOptions,
     selectedDocumentMoveTargetOptions,
@@ -128,6 +133,7 @@ export function useSelectedDocumentStructuralState(params: {
     activateLinkedDocument,
     linkDocument,
     moveDocument,
+    purgeDocument,
     selectedDocumentLinkedContainerIds,
     selectedDocumentLinkTargetOptions,
     selectedDocumentMoveTargetOptions,

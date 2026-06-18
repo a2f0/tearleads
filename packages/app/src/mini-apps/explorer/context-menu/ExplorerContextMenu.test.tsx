@@ -33,9 +33,11 @@ const rootNode: ContainerNode = {
 
 function ExplorerContextMenuLayerHarness(params: {
   canDeleteSelectedDocument?: boolean;
+  canPurgeSelectedDocument?: boolean;
   contextMenu?: ExplorerContextMenuState | null;
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   importDroppedFiles: ImportExplorerDroppedFiles;
+  purgeDocument?: (localId: string, containerId: string) => Promise<unknown>;
 }) {
   const [contextMenu, setContextMenu] =
     useState<ExplorerContextMenuState | null>(
@@ -53,6 +55,7 @@ function ExplorerContextMenuLayerHarness(params: {
       canMoveContextMenuNode={false}
       canRenameContextMenuNode={false}
       canMoveSelectedDocument={false}
+      canPurgeSelectedDocument={params.canPurgeSelectedDocument ?? false}
       closeContextMenu={() => setContextMenu(null)}
       contextMenu={contextMenu}
       deleteDocument={params.deleteDocument ?? (async () => null)}
@@ -65,6 +68,7 @@ function ExplorerContextMenuLayerHarness(params: {
       openMoveDocumentModal={() => {}}
       openMoveModal={() => {}}
       openRenameModal={() => {}}
+      purgeDocument={params.purgeDocument ?? (async () => null)}
       selectContainer={() => {}}
     />
   );
@@ -150,6 +154,62 @@ test("document context menu deletes the selected document", async () => {
     ]);
   });
   expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
+});
+
+const documentContextMenu: ExplorerContextMenuState = {
+  id: {
+    kind: "document",
+    containerId: rootNode.id,
+    localId: "document-1",
+  },
+  position: { x: 12, y: 34 },
+};
+
+const noopImportDroppedFiles: ImportExplorerDroppedFiles = async () => ({
+  completedCount: 0,
+  failedCount: 0,
+  importedCount: 0,
+  importedDocuments: [],
+  totalCount: 0,
+});
+
+test("document context menu disables Delete Forever outside the trash", () => {
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      contextMenu={documentContextMenu}
+      importDroppedFiles={noopImportDroppedFiles}
+    />,
+  );
+
+  const purgeButton = view.getByRole("button", {
+    name: "Delete Forever",
+  }) as HTMLButtonElement;
+  expect(purgeButton).toBeTruthy();
+  expect(purgeButton.disabled).toBe(true);
+});
+
+test("document context menu purges the selected document forever", async () => {
+  const purges: Array<{ containerId: string; localId: string }> = [];
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      canPurgeSelectedDocument
+      contextMenu={documentContextMenu}
+      importDroppedFiles={noopImportDroppedFiles}
+      purgeDocument={async (localId, containerId) => {
+        purges.push({ containerId, localId });
+        return null;
+      }}
+    />,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "Delete Forever" }));
+
+  await waitFor(() => {
+    expect(purges).toEqual([
+      { containerId: rootNode.id, localId: "document-1" },
+    ]);
+  });
+  expect(view.queryByRole("button", { name: "Delete Forever" })).toBeNull();
 });
 
 const folderRow: ContainerItemRow = {

@@ -19,6 +19,7 @@ import {
   type DocumentInfo,
   loadDocumentInfo,
 } from "../workflows/container-contents/documentInfo";
+import { purgeRemoteContainerDocument } from "../workflows/container-contents/documentLinks";
 import {
   type ContainerDocumentQueries,
   createContainerDocumentQueriesFromRuntime,
@@ -97,6 +98,8 @@ export type {
   MergeDocumentSummary,
   MoveDocumentToContainerInput,
   OpenContainerDocumentInput,
+  PurgeDocumentInput,
+  PurgeDocumentResult,
   SetActiveDocumentContainerInput,
   UnlinkDocumentFromContainerInput,
 } from "./containerContentsTypes";
@@ -207,6 +210,17 @@ class ContainerContentsService implements ContainerContents {
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,
         }),
+      purgeDocument: (input) => {
+        if (!input.note.documentId) {
+          return Promise.resolve(null);
+        }
+
+        return purgeRemoteContainerDocument({
+          documentId: input.note.documentId,
+          noteId: input.note.id,
+          runtime: documentLinks,
+        });
+      },
       resolveProjectionUserKey:
         createContainerContentsDocumentProjectionUserKeyResolver(runtime),
       unlinkDocumentFromContainer: (input) =>

@@ -92,6 +92,10 @@ export interface ExplorerPanelState {
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
+  purgeDocument: (
+    noteId: string,
+    currentContainerId: string,
+  ) => Promise<unknown>;
   routeState: ExplorerRouteState;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
@@ -266,6 +270,43 @@ export function useExplorerPanelState(params: {
       selectedNoteStructuralState.moveDocument,
     ],
   );
+  const purgeDocument = useCallback(
+    async (noteId: string, currentContainerId: string) => {
+      try {
+        // Purge is the inverse of "move to trash": it only permanently destroys
+        // a document that is already in the trash container. The server enforces
+        // the cardinality/authorization gate; this is the usability guard.
+        if (
+          !explorer.trashContainerId ||
+          currentContainerId !== explorer.trashContainerId
+        ) {
+          return null;
+        }
+
+        const purgedDocument =
+          await selectedNoteStructuralState.purgeDocument(noteId);
+        if (purgedDocument) {
+          // The local document projection is gone after a purge. Signal a link
+          // change so the container listing re-queries and the destroyed row
+          // drops out — the same refresh path move/link/unlink use.
+          onDocumentLinksChanged();
+          routeState.selectExplorerItem(currentContainerId);
+        }
+
+        return purgedDocument;
+      } catch (error) {
+        appData.util.logError("Failed to purge explorer document", error);
+        return null;
+      }
+    },
+    [
+      appData.util.logError,
+      explorer.trashContainerId,
+      onDocumentLinksChanged,
+      routeState.selectExplorerItem,
+      selectedNoteStructuralState.purgeDocument,
+    ],
+  );
 
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
@@ -277,6 +318,7 @@ export function useExplorerPanelState(params: {
     loadDocumentInfo,
     modalState,
     openInlineDocument,
+    purgeDocument,
     routeState,
     selectDocumentProjection,
     selectedDocumentLinkedContainerIds:

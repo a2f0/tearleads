@@ -41,6 +41,15 @@ export function moveExplorerNote(params: {
   });
 }
 
+export function purgeExplorerNote(params: {
+  appData: ContainerDocumentLinks;
+  note: DocumentSummary;
+}) {
+  const { appData, note } = params;
+
+  return appData.purgeDocument({ note });
+}
+
 export function linkExplorerNote(params: {
   appData: ContainerDocumentLinks;
   mergeDocumentSummary: MergeDocumentSummary;

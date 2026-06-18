@@ -161,6 +161,7 @@ export function Explorer() {
           model.contextMenuState.canRenameContextMenuNode
         }
         canMoveSelectedDocument={model.canMoveContextMenuDocument}
+        canPurgeSelectedDocument={model.canPurgeContextMenuDocument}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
         deleteDocument={model.deleteDocument}
@@ -173,6 +174,7 @@ export function Explorer() {
         openMoveModal={model.modalState.openMoveModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
         openRenameModal={model.modalState.openRenameModal}
+        purgeDocument={model.purgeDocument}
         selectContainer={model.routeState.selectExplorerItem}
       />
       <ExplorerModalLayer

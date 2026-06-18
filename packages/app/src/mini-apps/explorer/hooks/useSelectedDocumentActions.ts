@@ -11,6 +11,7 @@ import {
   canMutateUnsyncedSelectedDocument,
   linkExplorerNote,
   moveExplorerNote,
+  purgeExplorerNote,
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinks";
 import { getDocumentByLocalId } from "../documentSummaries";
@@ -90,6 +91,34 @@ function useMoveDocumentAction(params: {
       onDocumentLinksChanged,
       setLinkedContainerIdsForDocument,
     ],
+  );
+}
+
+function usePurgeDocumentAction(params: {
+  appData: ContainerDocumentLinks;
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  loadDocumentSummary: LoadExplorerDocumentSummary;
+}) {
+  const { appData, documentSummaries, loadDocumentSummary } = params;
+
+  return useCallback(
+    async (noteId: string) => {
+      if (!canMutateSelectedDocument(appData)) {
+        return null;
+      }
+
+      const existingDocument = await resolveExplorerActionDocument({
+        documentSummaries,
+        loadDocumentSummary,
+        noteId,
+      });
+      if (!existingDocument) {
+        return null;
+      }
+
+      return purgeExplorerNote({ appData, note: existingDocument });
+    },
+    [appData, documentSummaries, loadDocumentSummary],
   );
 }
 
@@ -272,6 +301,11 @@ export function useSelectedDocumentActions(params: {
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
   });
+  const purgeDocument = usePurgeDocumentAction({
+    appData,
+    documentSummaries,
+    loadDocumentSummary,
+  });
   const activateLinkedDocument = useActivateLinkedDocumentAction({
     appData,
     documentSummaries,
@@ -299,6 +333,7 @@ export function useSelectedDocumentActions(params: {
     activateLinkedDocument,
     linkDocument,
     moveDocument,
+    purgeDocument,
     unlinkDocument,
   };
 }

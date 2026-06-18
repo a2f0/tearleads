@@ -1,6 +1,7 @@
 import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentPurgeResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
 import {
@@ -9,6 +10,7 @@ import {
   runCreateDocumentWorkflow,
   runDocumentLinkSetMutationWorkflow,
   runDocumentSyncWorkflow,
+  runPurgeDocumentWorkflow,
   type SyncDocumentInput,
 } from "../../workflows/documents/mutations";
 import type { ApiServiceRuntime } from "../runtime";
@@ -34,4 +36,32 @@ export async function syncDocument(
   input: SyncDocumentInput,
 ): Promise<DocumentSyncResponse> {
   return runDocumentSyncWorkflow(runtime.db, input);
+}
+
+export async function purgeDocument(
+  runtime: ApiServiceRuntime,
+  input: {
+    readonly documentId: string;
+    readonly userId: string;
+  },
+): Promise<DocumentPurgeResponse> {
+  const response = await runPurgeDocumentWorkflow(runtime.db, input);
+
+  // The workflow committed the row deletions and returned the object-store keys
+  // for blobs that became fully orphaned. Delete those bytes after commit (in
+  // parallel — they are independent): a rollback never leaves dangling
+  // references, and a storage failure here only leaks reclaimable bytes rather
+  // than failing the purge.
+  await Promise.all(
+    response.reclaimedBlobStorageKeys.map(async (storageKey) => {
+      try {
+        await runtime.blobObjectStore.deleteObject(storageKey);
+      } catch {
+        // Best-effort: the blob row is already gone, so leave the bytes for a
+        // future sweep.
+      }
+    }),
+  );
+
+  return response;
 }

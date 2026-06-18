@@ -14,6 +14,7 @@ interface ExplorerContextMenuDocumentState {
   canDeleteContextMenuDocument: boolean;
   canLinkContextMenuDocument: boolean;
   canMoveContextMenuDocument: boolean;
+  canPurgeContextMenuDocument: boolean;
 }
 
 function useContextMenuTargetDocumentOptions(params: {
@@ -136,5 +137,6 @@ export function useExplorerContextMenuDocumentState(params: {
     canDeleteContextMenuDocument: mutationState.canDeleteSelectedDocument,
     canLinkContextMenuDocument: mutationState.canLinkSelectedDocument,
     canMoveContextMenuDocument: mutationState.canMoveSelectedDocument,
+    canPurgeContextMenuDocument: mutationState.canPurgeSelectedDocument,
   };
 }
