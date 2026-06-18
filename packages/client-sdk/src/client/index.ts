@@ -41,6 +41,8 @@ export type {
   MergeDocumentSummary,
   MoveDocumentToContainerInput,
   OpenContainerDocumentInput,
+  PurgeDocumentInput,
+  PurgeDocumentResult,
   SetActiveDocumentContainerInput,
   SetLinkedContainerIdsForDocument,
   UnlinkDocumentFromContainerInput,

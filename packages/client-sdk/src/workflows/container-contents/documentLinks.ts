@@ -2,6 +2,9 @@ import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerif
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  type DocumentsPersistence,
+  defaultDocumentsPersistence,
+  deletePersistedDocument,
   type RelinkRemoteDocumentResult,
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
@@ -11,6 +14,13 @@ import type { ContainerContentsWorkflowRuntime } from "./runtime";
 type ContainerDocumentLinkApi = Parameters<
   typeof relinkRemoteDocument
 >[0]["apiClient"];
+type ContainerDocumentPurgeApi = Pick<
+  ContainerContentsWorkflowRuntime["apiClient"],
+  "purgeDocument"
+>;
+type DocumentPurgeResult = Awaited<
+  ReturnType<ContainerDocumentPurgeApi["purgeDocument"]>
+>;
 type ContainerDocumentLinkOperation = Parameters<
   typeof relinkRemoteDocument
 >[0]["operation"];
@@ -150,6 +160,53 @@ export async function relinkRemoteContainerDocument(input: {
   } catch (error) {
     runtime.util.log(
       `Container contents: failed to ${operation} note ${noteId} ${operation === "link" ? "to" : "from"} container ${targetContainerId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
+interface ContainerDocumentPurgeRuntime
+  extends Pick<ContainerContentsWorkflowRuntime, "infra" | "util"> {
+  apiClient: ContainerDocumentPurgeApi;
+}
+
+export async function purgeRemoteContainerDocument(input: {
+  documentId: string;
+  noteId: string;
+  persistence?: DocumentsPersistence | undefined;
+  runtime: ContainerDocumentPurgeRuntime;
+}): Promise<DocumentPurgeResult> {
+  const { documentId, noteId, runtime } = input;
+  const persistence = input.persistence ?? defaultDocumentsPersistence;
+
+  try {
+    const response = await runtime.apiClient.purgeDocument(documentId);
+    if (!response) {
+      runtime.util.log(
+        `Container contents: failed to purge note ${noteId} (document ${documentId})`,
+      );
+      return null;
+    }
+
+    // Tear down the purged document's local state. `deletePersistedDocument`
+    // reuses the same SQLite delete path as a document delete, which removes the
+    // document record, its client projection, pending updates, pending/local
+    // attachment rows, the attachment blob projection, and the
+    // document-container link projection in a single transaction.
+    await deletePersistedDocument({
+      documentProjectors: runtime.infra.documentProjectors,
+      execSql: runtime.infra.execSql,
+      localId: noteId,
+      persistence,
+    });
+
+    runtime.util.log(
+      `Container contents: purged note ${noteId} (document ${documentId})`,
+    );
+    return response;
+  } catch (error) {
+    runtime.util.log(
+      `Container contents: failed to purge note ${noteId} (document ${documentId}): ${error instanceof Error ? error.message : String(error)}`,
     );
     return null;
   }

@@ -101,6 +101,8 @@ export type {
   PersistedDocumentListener,
   PinCodeBrowserLocalKeyringOptions,
   PinCodeWrappingKeyKeystoreOptions,
+  PurgeDocumentInput,
+  PurgeDocumentResult,
   ReconciliationService,
   RemoveOrganizationGroupUserInput,
   Session,

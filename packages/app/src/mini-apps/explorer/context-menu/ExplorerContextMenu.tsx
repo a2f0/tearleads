@@ -148,12 +148,14 @@ interface ExplorerDocumentContextMenuProps {
   canDeleteSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
+  canPurgeSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerDocumentContextMenuState;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openLinkDocumentModal: (localId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
+  purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
   selectContainer: (containerId: string) => void;
 }
 
@@ -162,12 +164,14 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
     canDeleteSelectedDocument,
     canLinkSelectedDocument,
     canMoveSelectedDocument,
+    canPurgeSelectedDocument,
     closeContextMenu,
     contextMenu,
     deleteDocument,
     openDocumentInfoRoute,
     openLinkDocumentModal,
     openMoveDocumentModal,
+    purgeDocument,
     selectContainer,
   } = params;
 
@@ -209,6 +213,17 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         onClick={() => {
           closeContextMenu();
           void deleteDocument(
+            contextMenu.id.localId,
+            contextMenu.id.containerId,
+          );
+        }}
+      />
+      <MenuItem
+        label={EXPLORER_LABELS.documentPurgeAction}
+        disabled={!canPurgeSelectedDocument}
+        onClick={() => {
+          closeContextMenu();
+          void purgeDocument(
             contextMenu.id.localId,
             contextMenu.id.containerId,
           );
@@ -319,6 +334,7 @@ export function ExplorerContextMenuLayer(params: {
   canMoveContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
   canMoveSelectedDocument: boolean;
+  canPurgeSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
@@ -331,6 +347,7 @@ export function ExplorerContextMenuLayer(params: {
   openMoveModal: (containerId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
   openRenameModal: (containerId: string) => void;
+  purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
   selectContainer: (containerId: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);

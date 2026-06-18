@@ -92,6 +92,10 @@ export interface ExplorerPanelState {
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
+  purgeDocument: (
+    noteId: string,
+    currentContainerId: string,
+  ) => Promise<unknown>;
   routeState: ExplorerRouteState;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
@@ -109,6 +113,9 @@ export function useExplorerPanelState(params: {
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  mergeDocumentSummaries: (
+    nextDocuments: ReadonlyArray<DocumentSummary>,
+  ) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   onDocumentLinksChanged: () => void;
@@ -132,6 +139,7 @@ export function useExplorerPanelState(params: {
     explorer,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
     onDocumentLinksChanged,
@@ -266,6 +274,43 @@ export function useExplorerPanelState(params: {
       selectedNoteStructuralState.moveDocument,
     ],
   );
+  const purgeDocument = useCallback(
+    async (noteId: string, currentContainerId: string) => {
+      try {
+        // Purge is the inverse of "move to trash": it only permanently destroys
+        // a document that is already in the trash container. The server enforces
+        // the cardinality/authorization gate; this is the usability guard.
+        if (
+          !explorer.trashContainerId ||
+          currentContainerId !== explorer.trashContainerId
+        ) {
+          return null;
+        }
+
+        const purgedDocument =
+          await selectedNoteStructuralState.purgeDocument(noteId);
+        if (purgedDocument) {
+          // The local document projection is gone after a purge; bumping the
+          // document list revision re-queries the container so the destroyed
+          // row drops out of the listing.
+          mergeDocumentSummaries([]);
+          routeState.selectExplorerItem(currentContainerId);
+        }
+
+        return purgedDocument;
+      } catch (error) {
+        appData.util.logError("Failed to purge explorer document", error);
+        return null;
+      }
+    },
+    [
+      appData.util.logError,
+      explorer.trashContainerId,
+      mergeDocumentSummaries,
+      routeState.selectExplorerItem,
+      selectedNoteStructuralState.purgeDocument,
+    ],
+  );
 
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
@@ -277,6 +322,7 @@ export function useExplorerPanelState(params: {
     loadDocumentInfo,
     modalState,
     openInlineDocument,
+    purgeDocument,
     routeState,
     selectDocumentProjection,
     selectedDocumentLinkedContainerIds:

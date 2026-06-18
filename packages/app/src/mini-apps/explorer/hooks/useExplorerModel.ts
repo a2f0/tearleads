@@ -32,9 +32,12 @@ interface ExplorerModel {
   canLinkSelectedDocument: boolean;
   canMoveContextMenuDocument: boolean;
   canMoveSelectedDocument: boolean;
+  canPurgeContextMenuDocument: boolean;
+  canPurgeSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
+  purgeDocument: ExplorerPanelState["purgeDocument"];
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   explorer: ExplorerModelExplorer;
@@ -123,6 +126,7 @@ export function useExplorerModel(
     loadDocumentInfo,
     modalState,
     openInlineDocument,
+    purgeDocument,
     routeState,
     selectDocumentProjection,
     selectedDocumentLinkedContainerIds,
@@ -136,6 +140,7 @@ export function useExplorerModel(
     explorer,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
+    mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
     documentListRevision,
@@ -178,8 +183,11 @@ export function useExplorerModel(
       contextMenuDocumentState.canLinkContextMenuDocument,
     canMoveContextMenuDocument:
       contextMenuDocumentState.canMoveContextMenuDocument,
+    canPurgeContextMenuDocument:
+      contextMenuDocumentState.canPurgeContextMenuDocument,
     contextMenuState,
     deleteDocument,
+    purgeDocument,
     documentListRevision,
     documentQueries,
     explorer,

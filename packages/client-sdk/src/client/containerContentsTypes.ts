@@ -97,6 +97,16 @@ export interface SetActiveDocumentContainerInput
   readonly targetContainerId: string;
 }
 
+export interface PurgeDocumentInput {
+  readonly note: DocumentSummary;
+}
+
+export interface PurgeDocumentResult {
+  readonly documentId: string;
+  readonly purgedAt: string;
+  readonly reclaimedBlobStorageKeys: ReadonlyArray<string>;
+}
+
 export interface ContainerDocumentLinks
   extends ContainerContentsWorkflowRuntime {
   documentRuntime(containerId: string): DocumentsWorkflowRuntime;
@@ -112,6 +122,7 @@ export interface ContainerDocumentLinks
   moveDocumentToContainer(
     input: MoveDocumentToContainerInput,
   ): Promise<{ linksChanged: boolean; note: DocumentSummary | null }>;
+  purgeDocument(input: PurgeDocumentInput): Promise<PurgeDocumentResult | null>;
   readonly resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
   unlinkDocumentFromContainer(
     input: UnlinkDocumentFromContainerInput,

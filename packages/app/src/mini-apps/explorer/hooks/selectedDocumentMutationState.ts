@@ -52,6 +52,12 @@ export function getSelectedDocumentMutationState(params: {
       canMutateSelectedDocument && selectedDocumentLinkTargetOptions.length > 0,
     canMoveSelectedDocument:
       canMutateSelectedDocument && selectedDocumentMoveTargetOptions.length > 0,
+    canPurgeSelectedDocument:
+      (canMutateSelectedDocument || canMutateUnsyncedSelectedDocument) &&
+      canResolveTrashContainer &&
+      selectedDocument !== undefined &&
+      selectedDocument.containerId !== null &&
+      selectedDocument.containerId === trashContainerId,
     canUnlinkSelectedDocument:
       canMutateSelectedDocument &&
       selectedDocumentLinkedContainerIds.length > 1,
