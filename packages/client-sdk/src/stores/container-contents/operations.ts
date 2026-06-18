@@ -12,6 +12,7 @@ import {
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
+import { isDestroyedContainerContentsSyncRuntimeError } from "../../workflows/container-contents/syncLane";
 import { requestDomainDocumentSync } from "../documents";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
@@ -148,6 +149,33 @@ function hasAdvancedManagedPrincipalReference(
   );
 }
 
+// Best-effort remote probe for an already-existing system container. System
+// containers only live under the root, so this probes the root lanes (not a
+// full-tree refresh). Device-first: a network failure must not abort
+// provisioning, or a caller that waits on this container never observes it —
+// the caller falls through to a local create whose intent reconciles later.
+async function hydrateExistingSystemContainer(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  systemSlot: ContainerSystemSlot,
+) {
+  const existingRoot = findRootContainerState(state);
+  try {
+    await syncAgent.requestRemoteHydration({
+      parentIds: existingRoot ? [null, existingRoot.container.id] : [null],
+    });
+  } catch (error) {
+    if (!isDestroyedContainerContentsSyncRuntimeError(error)) {
+      const reason = error instanceof Error ? error.message : String(error);
+      state.runtime.util.log(
+        `${getContainerContentsStoreLogLabel(state)}: remote probe for "${systemSlot}" failed (${reason}); creating it locally`,
+      );
+    }
+  }
+  const hydrated = findSystemContainerState(state, systemSlot);
+  return hydrated ? toContainerNode(hydrated) : null;
+}
+
 export async function ensureSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
@@ -170,15 +198,13 @@ export async function ensureSystemContainer(
   }
 
   if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
-    const existingRoot = findRootContainerState(state);
-    // System containers only live under the root. Check the root lanes instead
-    // of asking for a full-tree refresh during container contents startup.
-    await syncAgent.requestRemoteHydration({
-      parentIds: existingRoot ? [null, existingRoot.container.id] : [null],
-    });
-    const hydrated = findSystemContainerState(state, systemSlot);
+    const hydrated = await hydrateExistingSystemContainer(
+      state,
+      syncAgent,
+      systemSlot,
+    );
     if (hydrated) {
-      return toContainerNode(hydrated);
+      return hydrated;
     }
   }
 
