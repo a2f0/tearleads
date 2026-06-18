@@ -51,6 +51,7 @@ function ExplorerContextMenuLayerHarness(params: {
       canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
       canLinkSelectedDocument={false}
       canMoveContextMenuNode={false}
+      canRenameContextMenuNode={false}
       canMoveSelectedDocument={false}
       closeContextMenu={() => setContextMenu(null)}
       contextMenu={contextMenu}

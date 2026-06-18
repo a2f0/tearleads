@@ -77,6 +77,13 @@ export function canDeleteContainerByRules(
   return resolveContainerRules(context, container)?.protectFromDelete !== true;
 }
 
+export function canRenameContainerByRules(
+  context: ExplorerContainerRulesContext,
+  container: Pick<ContainerNode, "systemSlot"> | undefined,
+): boolean {
+  return resolveContainerRules(context, container)?.protectFromRename !== true;
+}
+
 export function isSelfContactDocument(
   document: Pick<DocumentSummary, "id"> | undefined,
 ): boolean {

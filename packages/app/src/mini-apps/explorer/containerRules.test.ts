@@ -6,6 +6,7 @@ import {
   canDeleteDocumentByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
+  canRenameContainerByRules,
   createExplorerContainerRulesContext,
   isSelfContactDocument,
 } from "./containerRules";
@@ -67,9 +68,17 @@ test("the contacts and trash containers cannot be deleted", () => {
   expect(canDeleteContainerByRules(rulesContext, trashContainer)).toBe(false);
 });
 
-test("plain user containers stay movable and deletable", () => {
+test("the contacts and trash containers cannot be renamed", () => {
+  expect(canRenameContainerByRules(rulesContext, contactsContainer)).toBe(
+    false,
+  );
+  expect(canRenameContainerByRules(rulesContext, trashContainer)).toBe(false);
+});
+
+test("plain user containers stay movable, deletable, and renamable", () => {
   expect(canMoveContainerByRules(rulesContext, userContainer)).toBe(true);
   expect(canDeleteContainerByRules(rulesContext, userContainer)).toBe(true);
+  expect(canRenameContainerByRules(rulesContext, userContainer)).toBe(true);
 });
 
 test("contacts cannot be moved out of the contacts container", () => {
@@ -133,6 +142,9 @@ test("rules are disabled when the configuration flags are absent for a slot", ()
     true,
   );
   expect(canDeleteContainerByRules(rulesContext, unknownSlotContainer)).toBe(
+    true,
+  );
+  expect(canRenameContainerByRules(rulesContext, unknownSlotContainer)).toBe(
     true,
   );
   expect(canMoveDocumentOutByRules(rulesContext, unknownSlotContainer)).toBe(

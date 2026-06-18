@@ -15,6 +15,7 @@ import {
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import {
   canDeleteContainerByRules,
+  canRenameContainerByRules,
   type ExplorerContainerRulesContext,
 } from "../containerRules";
 import { EXPLORER_LABELS } from "../labels";
@@ -131,6 +132,9 @@ export function useExplorerContextMenu(
       !contextMenuNodeHasChildren &&
       canDeleteContainerByRules(rulesContext, contextMenuNode),
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
+    canRenameContextMenuNode:
+      contextMenuNode !== undefined &&
+      canRenameContainerByRules(rulesContext, contextMenuNode),
     closeContextMenu,
     contextMenu,
     handleContainerContextMenu,
@@ -224,6 +228,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
 interface ExplorerContainerContextMenuProps {
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
+  canRenameContextMenuNode: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContainerContextMenuState;
   triggerUpload: (containerId: string) => void;
@@ -240,6 +245,7 @@ function ExplorerContainerContextMenu(
   const {
     canDeleteContextMenuNode,
     canMoveContextMenuNode,
+    canRenameContextMenuNode,
     closeContextMenu,
     contextMenu,
     triggerUpload,
@@ -273,6 +279,7 @@ function ExplorerContainerContextMenu(
       />
       <MenuItem
         label="Rename"
+        disabled={!canRenameContextMenuNode}
         onClick={() => {
           closeContextMenu();
           openRenameModal(containerId);
@@ -310,6 +317,7 @@ export function ExplorerContextMenuLayer(params: {
   canLinkSelectedDocument: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
+  canRenameContextMenuNode: boolean;
   canMoveSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
