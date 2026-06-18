@@ -63,16 +63,40 @@ function useExplorerRouteBinding() {
 function useExplorerRouteSelectionEffect(params: {
   appRouteIsRouted: boolean;
   parsedAppRoute: ExplorerRouteSnapshot | null;
+  selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { appRouteIsRouted, parsedAppRoute, setSelectedId } = params;
+  const { appRouteIsRouted, parsedAppRoute, selectDocument, setSelectedId } =
+    params;
+  const route = parsedAppRoute?.route;
+  const documentSelectionContainerId =
+    route?.view === "document-selection" ? route.containerId : null;
+  const documentSelectionLocalId =
+    route?.view === "document-selection" ? route.localId : null;
+  const selectedId = parsedAppRoute?.selectedId;
   useEffect(() => {
-    if (!appRouteIsRouted || parsedAppRoute?.selectedId === undefined) {
+    if (!appRouteIsRouted) {
       return;
     }
 
-    setSelectedId(parsedAppRoute.selectedId);
-  }, [appRouteIsRouted, parsedAppRoute?.selectedId, setSelectedId]);
+    if (documentSelectionContainerId && documentSelectionLocalId) {
+      selectDocument(documentSelectionLocalId, documentSelectionContainerId);
+      return;
+    }
+
+    if (selectedId === undefined) {
+      return;
+    }
+
+    setSelectedId(selectedId);
+  }, [
+    appRouteIsRouted,
+    documentSelectionContainerId,
+    documentSelectionLocalId,
+    selectDocument,
+    selectedId,
+    setSelectedId,
+  ]);
 }
 
 function useAvailableExplorerRoute(params: {
@@ -181,14 +205,16 @@ function useExplorerRouteActions(params: {
 
 export function useExplorerRoute(params: {
   nodes: ReadonlyArray<ContainerNode>;
+  selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }): ExplorerRouteState {
-  const { nodes, setSelectedId } = params;
+  const { nodes, selectDocument, setSelectedId } = params;
   const { appRoute, parsedAppRoute, route, setRoute } =
     useExplorerRouteBinding();
   useExplorerRouteSelectionEffect({
     appRouteIsRouted: appRoute.isRouted,
     parsedAppRoute,
+    selectDocument,
     setSelectedId,
   });
   useAvailableExplorerRoute({ nodes, route, setRoute });

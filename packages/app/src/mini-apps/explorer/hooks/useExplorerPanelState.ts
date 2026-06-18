@@ -143,6 +143,7 @@ export function useExplorerPanelState(params: {
   const loadDocumentInfo = useExplorerDocumentInfoLoader({ appData });
   const routeState = useExplorerRoute({
     nodes: explorer.nodes,
+    selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,
   });
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
