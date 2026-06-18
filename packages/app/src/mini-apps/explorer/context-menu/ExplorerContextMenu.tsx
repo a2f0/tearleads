@@ -13,6 +13,10 @@ import {
   useContextMenuState,
 } from "../../../components/shared/useContextMenuState";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import {
+  canDeleteContainerByRules,
+  type ExplorerContainerRulesContext,
+} from "../containerRules";
 import { EXPLORER_LABELS } from "../labels";
 import { getMoveTargetOptions } from "../targetOptions";
 
@@ -47,6 +51,7 @@ export function useExplorerContextMenu(
   nodes: ReadonlyArray<ContainerNode>,
   selectContainer: (id: string | null) => void,
   selectDocumentProjection: (localId: string, containerId: string) => void,
+  rulesContext: ExplorerContainerRulesContext,
 ) {
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<ExplorerContextMenuTarget>();
@@ -110,15 +115,21 @@ export function useExplorerContextMenu(
     () =>
       contextMenuNode === undefined
         ? []
-        : getMoveTargetOptions(nodes, contextMenuNode.id, { nodesById }),
-    [contextMenuNode, nodes, nodesById],
+        : getMoveTargetOptions(
+            nodes,
+            contextMenuNode.id,
+            { nodesById },
+            rulesContext,
+          ),
+    [contextMenuNode, nodes, nodesById, rulesContext],
   );
 
   return {
     canDeleteContextMenuNode:
       contextMenuNode !== undefined &&
       contextMenuNode.parentId !== null &&
-      !contextMenuNodeHasChildren,
+      !contextMenuNodeHasChildren &&
+      canDeleteContainerByRules(rulesContext, contextMenuNode),
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
     closeContextMenu,
     contextMenu,

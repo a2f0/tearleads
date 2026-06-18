@@ -19,6 +19,7 @@ import {
   type ImportExplorerDroppedFiles,
   useExplorerDroppedFileImport,
 } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import type { ExplorerContainerRulesContext } from "../containerRules";
 import {
   type ExplorerContextMenuState,
   useExplorerContextMenu,
@@ -113,6 +114,7 @@ export function useExplorerPanelState(params: {
   // Re-attempts the SQLite worker boot; forwarded to the sidebar tree's gate.
   onRetryDatabase: () => void;
   peerUserId: string | null;
+  rulesContext: ExplorerContainerRulesContext;
   selection: ExplorerSelectionState;
   setLinkedContainerIdsForDocument: (
     documentId: string,
@@ -134,6 +136,7 @@ export function useExplorerPanelState(params: {
     onDocumentLinksChanged,
     onRetryDatabase,
     peerUserId,
+    rulesContext,
     selection,
     setLinkedContainerIdsForDocument,
     setSidebar,
@@ -160,6 +163,7 @@ export function useExplorerPanelState(params: {
     nodes: explorer.nodes,
     documentSummaries,
     onDocumentLinksChanged,
+    rulesContext,
     setLinkedContainerIdsForDocument,
     selectedDocument: selection.selectedDocument,
   });
@@ -180,6 +184,7 @@ export function useExplorerPanelState(params: {
     explorer.nodes,
     routeState.selectExplorerItem,
     selectDocumentProjection,
+    rulesContext,
   );
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,

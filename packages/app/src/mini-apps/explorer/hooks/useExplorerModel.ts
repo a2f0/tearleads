@@ -4,7 +4,9 @@ import type {
 } from "@tearleads/client-sdk";
 import { type ReactNode, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { getContactsContainerId } from "../../../stores/contacts/useContactsCriticalNodesBootstrap";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
+import { createExplorerContainerRulesContext } from "../containerRules";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
   ExplorerDocumentMutationAction,
@@ -86,6 +88,23 @@ export function useExplorerModel(
     () => buildExplorerTree(explorer.nodes),
     [explorer.nodes],
   );
+  const contactsContainerId = useMemo(
+    () => getContactsContainerId(explorer.nodes, explorer.contactsSystemSlot),
+    [explorer.contactsSystemSlot, explorer.nodes],
+  );
+  const rulesContext = useMemo(
+    () =>
+      createExplorerContainerRulesContext({
+        contactsContainerId,
+        contactsSystemSlot: explorer.contactsSystemSlot,
+        trashSystemSlot: explorer.trashSystemSlot,
+      }),
+    [
+      contactsContainerId,
+      explorer.contactsSystemSlot,
+      explorer.trashSystemSlot,
+    ],
+  );
   const { handleRefresh, isRefreshing, refreshError } =
     useExplorerInteractionState({
       activeContainerId: selection.activeContainerId,
@@ -123,6 +142,7 @@ export function useExplorerModel(
     onDocumentLinksChanged: handleDocumentLinksChanged,
     onRetryDatabase,
     peerUserId,
+    rulesContext,
     selection,
     setLinkedContainerIdsForDocument,
     setSidebar,
@@ -131,6 +151,7 @@ export function useExplorerModel(
   const selectedDocumentMutationState = getSelectedDocumentMutationState({
     appData,
     canResolveTrashContainer: explorer.canResolveTrashContainer,
+    rulesContext,
     selectedDocument: selection.selectedDocument,
     selectedDocumentLinkTargetOptions,
     selectedDocumentLinkedContainerIds,
@@ -144,6 +165,7 @@ export function useExplorerModel(
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes: explorer.nodes,
+    rulesContext,
     trashContainerId: explorer.trashContainerId,
   });
 

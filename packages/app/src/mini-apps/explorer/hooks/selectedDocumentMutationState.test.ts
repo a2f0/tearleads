@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk";
+import { createExplorerContainerRulesContext } from "../containerRules";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 
 const editableRuntime = {
@@ -22,6 +23,12 @@ const selectedDocument: DocumentSummary = {
   updatedAt: "2026-06-01T00:00:00.000Z",
 };
 
+const rulesContext = createExplorerContainerRulesContext({
+  contactsContainerId: "contacts-container",
+  contactsSystemSlot: "contacts-slot",
+  trashSystemSlot: "trash-slot",
+});
+
 function getMutationState(
   overrides: Partial<
     Parameters<typeof getSelectedDocumentMutationState>[0]
@@ -30,6 +37,7 @@ function getMutationState(
   return getSelectedDocumentMutationState({
     appData: editableRuntime,
     canResolveTrashContainer: true,
+    rulesContext,
     selectedDocument,
     selectedDocumentLinkedContainerIds: ["source-container"],
     selectedDocumentLinkTargetOptions: [],
@@ -72,4 +80,28 @@ test("document delete is disabled for documents already in trash", () => {
       trashContainerId: "trash",
     }).canDeleteSelectedDocument,
   ).toBe(false);
+});
+
+test("document delete is disabled for the self contact in the contacts container", () => {
+  expect(
+    getMutationState({
+      selectedDocument: {
+        ...selectedDocument,
+        containerId: "contacts-container",
+        id: "self_contact_v1_fingerprint",
+      },
+    }).canDeleteSelectedDocument,
+  ).toBe(false);
+});
+
+test("document delete stays enabled for non-self contacts in the contacts container", () => {
+  expect(
+    getMutationState({
+      selectedDocument: {
+        ...selectedDocument,
+        containerId: "contacts-container",
+        id: "local-contact-2",
+      },
+    }).canDeleteSelectedDocument,
+  ).toBe(true);
 });

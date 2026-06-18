@@ -1,6 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import type { ExplorerContainerRulesContext } from "../containerRules";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
 import {
   getDocumentLinkedContainerIds,
@@ -15,37 +16,20 @@ interface ExplorerContextMenuDocumentState {
   canMoveContextMenuDocument: boolean;
 }
 
-// The detail-pane row context menu opens without selecting (selecting would
-// navigate the pane away), so the document menu's enable/disable flags and
-// link/move target options are derived from the right-clicked target document
-// here rather than from the global selection.
-export function useExplorerContextMenuDocumentState(params: {
-  appData: RuntimeSnapshot;
-  canResolveTrashContainer: boolean;
-  contextMenu: ExplorerContextMenuState | null;
+function useContextMenuTargetDocumentOptions(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
-  trashContainerId: string | null;
-}): ExplorerContextMenuDocumentState {
+  rulesContext: ExplorerContainerRulesContext;
+  targetDocument: DocumentSummary | undefined;
+}) {
   const {
-    appData,
-    canResolveTrashContainer,
-    contextMenu,
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes,
-    trashContainerId,
+    rulesContext,
+    targetDocument,
   } = params;
-  const targetLocalId =
-    contextMenu?.id.kind === "document" ? contextMenu.id.localId : null;
-  const targetDocument = useMemo(
-    () =>
-      targetLocalId === null
-        ? undefined
-        : documentSummaries.find((document) => document.id === targetLocalId),
-    [documentSummaries, targetLocalId],
-  );
   const linkedContainerIds = useMemo(
     () =>
       getDocumentLinkedContainerIds({
@@ -61,9 +45,11 @@ export function useExplorerContextMenuDocumentState(params: {
             nodes,
             documentSummaries,
             targetDocument.id,
+            undefined,
+            rulesContext,
           )
         : [],
-    [documentSummaries, nodes, targetDocument],
+    [documentSummaries, nodes, rulesContext, targetDocument],
   );
   const linkTargetOptions = useMemo(
     () =>
@@ -77,11 +63,57 @@ export function useExplorerContextMenuDocumentState(params: {
         : [],
     [documentSummaries, linkedContainerIds, nodes, targetDocument],
   );
+
+  return { linkTargetOptions, linkedContainerIds, moveTargetOptions };
+}
+
+// The detail-pane row context menu opens without selecting (selecting would
+// navigate the pane away), so the document menu's enable/disable flags and
+// link/move target options are derived from the right-clicked target document
+// here rather than from the global selection.
+export function useExplorerContextMenuDocumentState(params: {
+  appData: RuntimeSnapshot;
+  canResolveTrashContainer: boolean;
+  contextMenu: ExplorerContextMenuState | null;
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
+  trashContainerId: string | null;
+}): ExplorerContextMenuDocumentState {
+  const {
+    appData,
+    canResolveTrashContainer,
+    contextMenu,
+    documentSummaries,
+    linkedContainerIdsByDocumentId,
+    nodes,
+    rulesContext,
+    trashContainerId,
+  } = params;
+  const targetLocalId =
+    contextMenu?.id.kind === "document" ? contextMenu.id.localId : null;
+  const targetDocument = useMemo(
+    () =>
+      targetLocalId === null
+        ? undefined
+        : documentSummaries.find((document) => document.id === targetLocalId),
+    [documentSummaries, targetLocalId],
+  );
+  const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
+    useContextMenuTargetDocumentOptions({
+      documentSummaries,
+      linkedContainerIdsByDocumentId,
+      nodes,
+      rulesContext,
+      targetDocument,
+    });
   const mutationState = useMemo(
     () =>
       getSelectedDocumentMutationState({
         appData,
         canResolveTrashContainer,
+        rulesContext,
         selectedDocument: targetDocument,
         selectedDocumentLinkTargetOptions: linkTargetOptions,
         selectedDocumentLinkedContainerIds: linkedContainerIds,
@@ -94,6 +126,7 @@ export function useExplorerContextMenuDocumentState(params: {
       linkTargetOptions,
       linkedContainerIds,
       moveTargetOptions,
+      rulesContext,
       targetDocument,
       trashContainerId,
     ],
