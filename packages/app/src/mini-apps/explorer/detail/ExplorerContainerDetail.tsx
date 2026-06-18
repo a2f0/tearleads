@@ -1,5 +1,6 @@
 import type {
   ContainerDocumentQueries,
+  ContainerItemRow,
   ContainerItemSort,
   ContainerNode,
 } from "@tearleads/client-sdk";
@@ -15,14 +16,14 @@ import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExp
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
 import { EXPLORER_LABELS } from "../labels";
+import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
   EXPLORER_VIRTUAL_ROW_HEIGHT,
-  ExplorerContainerItemTable,
   getNextExplorerItemSort,
   useExplorerContainerItemWindow,
-} from "./ExplorerContainerItemTable";
+} from "./explorerContainerItemWindow";
 
-export { getNextExplorerItemSort } from "./ExplorerContainerItemTable";
+export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 
 function ExplorerContainerDetailHeader(params: {
   online: boolean;
@@ -47,7 +48,7 @@ function ExplorerContainerDetailHeader(params: {
   );
 }
 
-export function ExplorerContainerDetail(params: {
+interface ExplorerContainerDetailProps {
   containerListRevision: unknown;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
@@ -57,51 +58,71 @@ export function ExplorerContainerDetail(params: {
     event: MouseEvent<HTMLElement>,
     containerId: string,
   ) => void;
+  onItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
+  ) => void;
   refreshError: string | null;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
   selectedNode: ContainerNode;
   setSelectedId: (id: string | null) => void;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
-}) {
-  const {
-    containerListRevision,
-    documentListRevision,
-    documentQueries,
-    importDroppedFiles,
-    online,
-    onContainerContextMenu,
-    refreshError,
-    selectDocumentProjection,
-    selectedNode,
-    setSelectedId,
-    visibleSystemSlots,
-  } = params;
+}
+
+function useExplorerContainerItems(
+  params: Pick<
+    ExplorerContainerDetailProps,
+    | "containerListRevision"
+    | "documentListRevision"
+    | "documentQueries"
+    | "selectedNode"
+    | "visibleSystemSlots"
+  >,
+) {
   const [sort, setSort] = useState<ContainerItemSort>({
     direction: "asc",
     key: "name",
   });
-  const resetKey = `${selectedNode.id}:${sort.key}:${sort.direction}`;
+  const resetKey = `${params.selectedNode.id}:${sort.key}:${sort.direction}`;
   const { frameRef, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
     rowHeight: EXPLORER_VIRTUAL_ROW_HEIGHT,
   });
   const itemWindow = useExplorerContainerItemWindow({
-    containerListRevision,
-    documentListRevision,
-    documentQueries,
+    ...params,
     enabled: true,
     limit,
     offset,
-    selectedNode,
     sort,
-    visibleSystemSlots,
   });
   const isShowingRequestedWindow = itemWindow.offset === offset;
-  const rows = isShowingRequestedWindow ? itemWindow.rows : [];
-  const rowOffset = isShowingRequestedWindow ? itemWindow.offset : offset;
   const handleSort = useCallback((key: ContainerItemSort["key"]) => {
     setSort((currentSort) => getNextExplorerItemSort(currentSort, key));
   }, []);
+
+  return {
+    frameRef,
+    handleSort,
+    itemWindow,
+    rowOffset: isShowingRequestedWindow ? itemWindow.offset : offset,
+    rows: isShowingRequestedWindow ? itemWindow.rows : [],
+    sort,
+  };
+}
+
+export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
+  const {
+    importDroppedFiles,
+    online,
+    onContainerContextMenu,
+    onItemContextMenu,
+    refreshError,
+    selectDocumentProjection,
+    selectedNode,
+    setSelectedId,
+  } = params;
+  const { frameRef, handleSort, itemWindow, rowOffset, rows, sort } =
+    useExplorerContainerItems(params);
   const fileDropTarget = useExplorerContainerFileDropTarget({
     importDroppedFiles,
     selectedNode,
@@ -142,6 +163,7 @@ export function ExplorerContainerDetail(params: {
         isLoading={itemWindow.isLoading}
         online={online}
         onBlankContextMenu={onContainerContextMenu}
+        onItemContextMenu={onItemContextMenu}
         onSort={handleSort}
         rowOffset={rowOffset}
         rows={rows}

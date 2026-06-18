@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@tearleads/client-sdk";
+import type { ContainerItemRow, ContainerNode } from "@tearleads/client-sdk";
 import {
   type MouseEvent,
   type ReactNode,
@@ -75,6 +75,27 @@ export function useExplorerContextMenu(
     [openContextMenu, selectDocumentProjection],
   );
 
+  // The container listing's rows reuse the same per-item menus as the sidebar:
+  // a folder row opens the container menu, a document row opens the document
+  // menu (selecting the item first, matching a left-click).
+  const handleItemContextMenu = useCallback(
+    (event: MouseEvent<HTMLElement>, row: ContainerItemRow) => {
+      if (row.itemKind === "container") {
+        selectContainer(row.id);
+        openContextMenu(event, { kind: "container", containerId: row.id });
+        return;
+      }
+
+      selectDocumentProjection(row.localId, row.containerId);
+      openContextMenu(event, {
+        kind: "document",
+        containerId: row.containerId,
+        localId: row.localId,
+      });
+    },
+    [openContextMenu, selectContainer, selectDocumentProjection],
+  );
+
   const contextMenuNode = contextMenu?.id
     ? contextMenu.id.kind === "container"
       ? nodesById.get(contextMenu.id.containerId)
@@ -100,6 +121,7 @@ export function useExplorerContextMenu(
     closeContextMenu,
     contextMenu,
     handleContainerContextMenu,
+    handleItemContextMenu,
     handleSidebarDocumentContextMenu,
     handleSidebarContextMenu: handleContainerContextMenu,
   };

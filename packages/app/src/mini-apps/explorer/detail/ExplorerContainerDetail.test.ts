@@ -49,6 +49,7 @@ function renderContainerItemTable(
       isLoading: false,
       online: true,
       onBlankContextMenu: () => undefined,
+      onItemContextMenu: () => undefined,
       onSort: () => undefined,
       rows: [],
       rowOffset: 0,
@@ -149,7 +150,7 @@ test("container item table opens the context menu from virtual spacers", () => {
   expect(containerIds).toEqual(["root-container"]);
 });
 
-test("container item table does not open the context menu from item rows", () => {
+test("container item table does not open the blank context menu from item rows", () => {
   const containerIds: string[] = [];
   const view = renderContainerItemTable({
     onBlankContextMenu: (_event, containerId) => {
@@ -166,4 +167,41 @@ test("container item table does not open the context menu from item rows", () =>
   fireEvent.contextMenu(itemRow);
 
   expect(containerIds).toEqual([]);
+});
+
+test("container item table opens the per-item context menu from an item row", () => {
+  const rows: ContainerItemRow[] = [];
+  const view = renderContainerItemTable({
+    onItemContextMenu: (_event, row) => {
+      rows.push(row);
+    },
+    rows: [archiveRow],
+    totalCount: 1,
+  });
+  const itemRow = view.container.querySelector(".explorer-item-table-row");
+  if (!itemRow) {
+    throw new Error("Expected explorer item table row.");
+  }
+
+  fireEvent.contextMenu(itemRow);
+
+  expect(rows).toEqual([archiveRow]);
+});
+
+test("container item table navigates when an item row is clicked", () => {
+  const selectedIds: Array<string | null> = [];
+  const view = renderContainerItemTable({
+    rows: [archiveRow],
+    setSelectedId: (id) => {
+      selectedIds.push(id);
+    },
+    totalCount: 1,
+  });
+  // The whole row is the navigable target: it exposes a button role named after
+  // the item so callers (and end-to-end tests) can find and activate it.
+  const itemRow = view.getByRole("button", { name: archiveRow.name });
+
+  fireEvent.click(itemRow);
+
+  expect(selectedIds).toEqual(["archive-container"]);
 });

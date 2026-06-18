@@ -4,6 +4,7 @@ import type {
   BlobStore,
   ContainerDocumentQueries,
   ContainerInfo,
+  ContainerItemRow,
   ContainerNode,
   ContainerShareAccessLevel,
   DocumentInfo,
@@ -107,6 +108,10 @@ interface ExplorerDetailPanelProps {
   onContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
     containerId: string,
+  ) => void;
+  onItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
   ) => void;
   onBackToSelectionRoute: () => void;
   onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
@@ -264,6 +269,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         importDroppedFiles={params.importDroppedFiles}
         online={params.online}
         onContainerContextMenu={params.onContainerContextMenu}
+        onItemContextMenu={params.onItemContextMenu}
         refreshError={params.refreshError}
         selectedNode={selectedNode}
         selectDocumentProjection={params.selectDocumentProjection}
