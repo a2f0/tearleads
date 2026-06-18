@@ -22,15 +22,6 @@ import type { Identity } from "./identity";
 import type { Network } from "./network";
 import type { Session } from "./session";
 
-export type {
-  WorkflowRuntimeAuthInput,
-  WorkflowRuntimeCryptoInput,
-  WorkflowRuntimeGroups,
-  WorkflowRuntimeInfraInput,
-  WorkflowRuntimeStateInput,
-  WorkflowRuntimeUtilInput,
-} from "../workflows/runtimeInput";
-
 export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {}
 
 export type RuntimeListener = () => void;

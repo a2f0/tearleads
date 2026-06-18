@@ -3,13 +3,13 @@ import type { DocumentSummary } from "../../data/documentSummary";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import {
-  activateDocumentLinkState,
+  activateDocumentLink,
   canMutateDocumentLink,
   canMutateLocalDocumentLink,
   type DocumentStructuralMutationHost,
   type DocumentStructuralMutationRelinkInput,
   type DocumentStructuralMutationRuntime,
-  moveDocumentLinkState,
+  moveDocumentLink,
 } from "./documentStructure";
 
 function createRuntime(logs: string[] = []): DocumentStructuralMutationRuntime {
@@ -92,7 +92,7 @@ test("canMutateLocalDocumentLink only requires local storage readiness", () => {
   );
 });
 
-test("moveDocumentLinkState relinks local-only documents without remote mutation", async () => {
+test("moveDocumentLink relinks local-only documents without remote mutation", async () => {
   const logs: string[] = [];
   const expandedNodes: string[] = [];
   const mergedDocuments: DocumentSummary[] = [];
@@ -131,7 +131,7 @@ test("moveDocumentLinkState relinks local-only documents without remote mutation
     },
   };
 
-  const moved = await moveDocumentLinkState({
+  const moved = await moveDocumentLink({
     expandNode: (nodeId) => {
       expandedNodes.push(nodeId);
     },
@@ -182,7 +182,7 @@ test("moveDocumentLinkState relinks local-only documents without remote mutation
   ]);
 });
 
-test("activateDocumentLinkState relinks the local document without requesting remote sync", async () => {
+test("activateDocumentLink relinks the local document without requesting remote sync", async () => {
   const logs: string[] = [];
   const mergedDocuments: DocumentSummary[] = [];
   const relinkInputs: DocumentStructuralMutationRelinkInput[] = [];
@@ -214,7 +214,7 @@ test("activateDocumentLinkState relinks the local document without requesting re
     }),
   };
 
-  const activated = await activateDocumentLinkState({
+  const activated = await activateDocumentLink({
     host,
     note: createNote(),
     runtime: createRuntime(logs),
@@ -248,7 +248,7 @@ test("activateDocumentLinkState relinks the local document without requesting re
   ]);
 });
 
-test("activateDocumentLinkState skips documents that are not locally ready", async () => {
+test("activateDocumentLink skips documents that are not locally ready", async () => {
   const logs: string[] = [];
   const host: DocumentStructuralMutationHost<string> = {
     documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
@@ -269,7 +269,7 @@ test("activateDocumentLinkState skips documents that are not locally ready", asy
     }),
   };
 
-  const activated = await activateDocumentLinkState({
+  const activated = await activateDocumentLink({
     host,
     note: createNote(),
     runtime: createRuntime(logs),

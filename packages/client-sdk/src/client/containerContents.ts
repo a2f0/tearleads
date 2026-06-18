@@ -24,13 +24,13 @@ import {
   createContainerDocumentQueriesFromRuntime,
 } from "../workflows/container-contents/documentQueries";
 import {
-  activateDocumentLinkState,
+  activateDocumentLink,
+  addDocumentLink,
   canMutateDocumentLink,
   canMutateLocalDocumentLink,
   type DocumentStructuralMutationHost,
-  linkDocumentLinkState,
-  moveDocumentLinkState,
-  unlinkDocumentLinkState,
+  moveDocumentLink,
+  removeDocumentLink,
 } from "../workflows/container-contents/documentStructure";
 import { createContainerContentsDocumentProjectionUserKeyResolver } from "../workflows/container-contents/projectionKeys";
 import {
@@ -171,7 +171,7 @@ class ContainerContentsService implements ContainerContents {
       documentRuntime,
       openDocument: openContainerDocument,
       setActiveDocumentContainer: (input) =>
-        activateDocumentLinkState({
+        activateDocumentLink({
           host: createDocumentLinkHost(
             documentLinks,
             input.mergeDocumentSummary,
@@ -183,7 +183,7 @@ class ContainerContentsService implements ContainerContents {
       canMutateDocumentLinks: canMutateDocumentLink(runtime),
       canMutateUnsyncedDocumentLinks: canMutateLocalDocumentLink(runtime),
       linkDocumentToContainer: (input) =>
-        linkDocumentLinkState({
+        addDocumentLink({
           host: createDocumentLinkHost(
             documentLinks,
             input.mergeDocumentSummary,
@@ -195,7 +195,7 @@ class ContainerContentsService implements ContainerContents {
           targetContainerId: input.targetContainerId,
         }),
       moveDocumentToContainer: (input) =>
-        moveDocumentLinkState({
+        moveDocumentLink({
           expandNode: input.expandNode,
           host: createDocumentLinkHost(
             documentLinks,
@@ -210,7 +210,7 @@ class ContainerContentsService implements ContainerContents {
       resolveProjectionUserKey:
         createContainerContentsDocumentProjectionUserKeyResolver(runtime),
       unlinkDocumentFromContainer: (input) =>
-        unlinkDocumentLinkState({
+        removeDocumentLink({
           host: createDocumentLinkHost(
             documentLinks,
             input.mergeDocumentSummary,

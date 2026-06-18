@@ -169,7 +169,7 @@ function relinkDocumentAfterStructuralMutation<TRuntime>(
   });
 }
 
-export async function moveLocalDocumentLinkState<TRuntime>(params: {
+export async function moveLocalDocumentLink<TRuntime>(params: {
   expandNode: (nodeId: string) => void;
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
@@ -211,7 +211,7 @@ export async function moveLocalDocumentLinkState<TRuntime>(params: {
   return movedNote;
 }
 
-export async function moveDocumentLinkState<TRuntime>(params: {
+export async function moveDocumentLink<TRuntime>(params: {
   expandNode: (nodeId: string) => void;
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
@@ -231,7 +231,7 @@ export async function moveDocumentLinkState<TRuntime>(params: {
     return { linksChanged: false, note: null };
   }
   if (!note.documentId) {
-    const movedNote = await moveLocalDocumentLinkState({
+    const movedNote = await moveLocalDocumentLink({
       expandNode,
       host,
       note,
@@ -296,7 +296,7 @@ export async function moveDocumentLinkState<TRuntime>(params: {
   return { linksChanged: true, note: movedNote };
 }
 
-export async function linkDocumentLinkState<TRuntime>(params: {
+export async function addDocumentLink<TRuntime>(params: {
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
   runtime: DocumentStructuralMutationRuntime;
@@ -360,7 +360,7 @@ export async function linkDocumentLinkState<TRuntime>(params: {
   return linkedNote;
 }
 
-export async function unlinkDocumentLinkState<TRuntime>(params: {
+export async function removeDocumentLink<TRuntime>(params: {
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
   removedContainerId: string;
@@ -435,7 +435,7 @@ export async function unlinkDocumentLinkState<TRuntime>(params: {
   return unlinkedNote;
 }
 
-export async function activateDocumentLinkState<TRuntime>(params: {
+export async function activateDocumentLink<TRuntime>(params: {
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
   runtime: DocumentStructuralMutationRuntime;

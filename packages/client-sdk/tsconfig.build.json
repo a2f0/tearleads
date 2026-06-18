@@ -7,7 +7,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "sourceMap": true,
-    "tsBuildInfoFile": "dist/tsconfig.build.tsbuildinfo"
+    "tsBuildInfoFile": "tsconfig.build.tsbuildinfo"
   },
   "include": ["src"],
   "exclude": ["dist", "src/**/*.test.ts", "src/**/*.test.tsx", "test"]

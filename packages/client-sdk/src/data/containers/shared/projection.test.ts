@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
 import {
-  buildMaterializedContainerCreatePlan,
   buildMaterializedDocumentCreatePlan,
-  childContainerWriterProjectionFromCreatePlan,
   moveRemoteContainer,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
@@ -46,6 +44,10 @@ import {
   createUserContainerWrap,
   SIGNED_AT,
 } from "../../../../test/helpers/containerFixtures";
+import {
+  buildMaterializedContainerCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
+} from "../../../workflows/containers";
 import type { BlobBytes } from "../../blobContracts";
 import {
   ensurePrincipalPolicyTables,

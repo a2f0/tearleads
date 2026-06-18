@@ -206,8 +206,8 @@
       "bytes": 37406
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
-      "lines": 1039,
-      "bytes": 36053
+      "lines": 1041,
+      "bytes": 36102
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1197,

@@ -46,7 +46,7 @@ export function getRosterProfileDocumentLocalId(input: {
   return `org-profile:${input.organizationId}:${input.userId}`;
 }
 
-export function getRosterProfileDocumentPatch(input: {
+export function buildRosterProfileDocumentPatch(input: {
   readonly encapsulationPublicKey: string;
   readonly isSelf: boolean;
   readonly userId: string;
@@ -70,7 +70,7 @@ export async function createInitializedRosterProfileDocument(input: {
   const doc = await createDocument(getScopedPeerSeed(DOCUMENTS_APP_KIND));
   initializeStoredDocumentKind(doc, ROSTER_PROFILE_DOCUMENT_KIND);
   writeStoredDocumentFields(doc, ROSTER_PROFILE_DOCUMENT_KIND, {
-    ...getRosterProfileDocumentPatch(input),
+    ...buildRosterProfileDocumentPatch(input),
     ...(input.nickname ? { nickname: input.nickname } : {}),
   });
 
