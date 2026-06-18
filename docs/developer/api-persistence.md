@@ -66,9 +66,6 @@ S3 env vars:
 - `BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY`
 - `BLOB_OBJECT_STORE_S3_KEY_PREFIX`
 
-The API also accepts the old `VFS_BLOB_STORE_PROVIDER` and `VFS_BLOB_S3_*`
-aliases for compatibility.
-
 LocalStack helper:
 
 ```sh

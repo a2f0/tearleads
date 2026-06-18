@@ -105,10 +105,9 @@ document/blob writes still fail closed if their projections are stale or
 unauthorized. The client can later request structural sync again after remote
 state, credentials, network, or local input changes.
 
-## Design Decision
+## Orchestration Boundary
 
-This change does not introduce a new domain-specific sync orchestrator. The
-existing domain sync coordinator now provides the small amount of shared
-orchestration needed: phase ordering, lane serialization, request coalescing,
-pending-work observation, and idle waiting. Container, document, Loro, and blob
-logic remains in the workflow that owns that state.
+There is no domain-specific sync orchestrator. The domain sync coordinator
+provides the shared orchestration: phase ordering, lane serialization, request
+coalescing, pending-work observation, and idle waiting. Container, document,
+Loro, and blob logic remains in the workflow that owns that state.
