@@ -55,12 +55,19 @@ function containerKekStateCacheKey(input: {
   ].join("||");
 }
 
-async function loadContainerKekManifestHistory(input: {
+export async function loadContainerKekManifestHistory(input: {
   readonly context: ContainerWriterProjectionContext;
   readonly currentManifest: VerifiedContainerAccessManifest;
   readonly keyEpoch: ReturnType<typeof stripContainerKeyEpoch>;
   readonly wraps: readonly ContainerKeyWrap[];
+  // Limit traversal to the mutated container's own manifest lineage (skip the
+  // walk up to parent containers). Used by the mutation response, where the
+  // client already holds the parent path and only needs this container's
+  // previous-epoch manifest to verify the transition — avoiding an N+1 ancestry
+  // walk inside the write transaction.
+  readonly onlyCurrentContainer?: boolean;
 }): Promise<ContainerKekManifestHistory> {
+  const currentContainerId = input.currentManifest.state.containerId;
   const pendingHashes = new Set<string>();
   const visitedHashes = new Set([input.currentManifest.manifestHash]);
   const enqueue = (manifestHash: string | null): void => {
@@ -93,15 +100,20 @@ async function loadContainerKekManifestHistory(input: {
       manifestHash,
     );
     const verifiedManifest = toVerifiedContainerManifest(bundle);
+    const isCurrentContainer =
+      verifiedManifest.state.containerId === currentContainerId;
     bundles.push(bundle);
-    if (
-      verifiedManifest.state.containerId ===
-      input.currentManifest.state.containerId
-    ) {
+    if (isCurrentContainer) {
       verified.push(verifiedManifest);
     }
-    enqueue(verifiedManifest.manifest.previousManifestHash);
-    enqueue(verifiedManifest.state.parentManifestHash);
+    // When limiting to the current container, only keep following the lineage
+    // of manifests that belong to it, and never cross into parent containers.
+    if (!input.onlyCurrentContainer || isCurrentContainer) {
+      enqueue(verifiedManifest.manifest.previousManifestHash);
+    }
+    if (!input.onlyCurrentContainer) {
+      enqueue(verifiedManifest.state.parentManifestHash);
+    }
   }
 
   return { bundles, verified };

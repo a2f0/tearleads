@@ -1495,6 +1495,74 @@ test(
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
+// Regression: creating a child container under root immediately after granting
+// a group read-only access to root used to fail. The group share rekeys root;
+// the writer projection synthesized from the share mutation response did not
+// carry the previous-epoch root manifest in its containerKek manifest history,
+// so building the child-create plan against the cached parent projection threw
+// "Container writer projection path[0] previous manifest <hash> is missing"
+// before any request reached the server (the explorer surfaced "Failed to
+// create child container"). A hard reload masked it by re-fetching a complete,
+// verifiable root projection.
+test(
+  "explorer creates a child under root right after group-sharing root read-only",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+    const groupName = "Pane 2 Readers";
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    await createGroupAndAddPeer(leftPane, groupName, getPaneUserId(rightPane));
+    await openExplorer(rightPane);
+    await openExplorer(leftPane);
+
+    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    await shareContainerWithGroup(leftPane, "/", groupName, "read");
+
+    await clickExplorerRefresh(rightPane);
+    await refreshUntil(
+      rightPane,
+      () => {
+        const containerNames = listExplorerContainerItems(rightPane).map(
+          (button) => button.textContent?.trim() ?? "",
+        );
+        return (
+          containerNames.length > 1 && !containerNames.includes("Untitled")
+        );
+      },
+      "Peer did not hydrate the root container shared to the new group.",
+    );
+
+    // The previously-failing operation: peer1 creates a sub-container under root
+    // after the group rekey. createChildContainer asserts the child appears.
+    const childCreateRequestStartIndex = listProxiedApiRequests().length;
+    await createChildContainer(leftPane, "Pane 1 sub container");
+
+    const childCreateConflicts = listProxiedApiRequests()
+      .slice(childCreateRequestStartIndex)
+      .filter(
+        (request) =>
+          requestPath(request.url).endsWith(
+            "/containers/with-metadata-document",
+          ) && request.status === 409,
+      );
+    expect(
+      childCreateConflicts,
+      `Unexpected 409 on child create after group share.\nrequests=\n${summarizeProxiedApiRequests(
+        listProxiedApiRequests().slice(childCreateRequestStartIndex),
+      )}`,
+    ).toEqual([]);
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postShareRequestStartIndex,
+    );
+  },
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+);
+
 test(
   "explorer grant rows open the org manager group route",
   async () => {
