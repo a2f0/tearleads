@@ -1,108 +1,60 @@
-import { useId, useMemo } from "react";
+import { useMemo, useState } from "react";
+import {
+  MiniAppActions,
+  MiniAppButton,
+} from "../../components/shared/MiniAppLayout";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
-import {
-  StructuredDocument,
-  StructuredDocumentField,
-  StructuredDocumentFields,
-} from "../shared/StructuredDocument";
+import { StructuredDocument } from "../shared/StructuredDocument";
+import "./ContactDocument.css";
+import { ContactFields } from "./ContactFields";
 import { readContactFields } from "./contactDocumentModel";
+import type { ContactFieldValues } from "./contactFieldDescriptors";
 
-type ContactDocumentFieldsValue = ReturnType<typeof readContactFields>;
 type ContactStructuredFieldSetter = ReturnType<
   typeof useDocument
 >["setStructuredFields"];
 
-interface ContactDocumentFieldsFormProps {
-  fields: ContactDocumentFieldsValue;
-  inputIds: {
-    encapsulationPublicKey: string;
-    firstName: string;
-    lastName: string;
-    nickname: string;
-    userId: string;
+function toContactFieldValues(
+  fields: ReturnType<typeof readContactFields>,
+): ContactFieldValues {
+  return {
+    encapsulationPublicKey: fields.encapsulationPublicKey,
+    firstName: fields.firstName,
+    lastName: fields.lastName,
+    nickname: fields.nickname,
+    userId: fields.userId,
   };
-  ready: boolean;
-  setStructuredFields: ContactStructuredFieldSetter;
 }
 
-function ContactDocumentFieldsForm({
-  fields,
-  inputIds,
+function ContactDocumentFields({
+  isEditing,
   ready,
+  setEditing,
   setStructuredFields,
-}: ContactDocumentFieldsFormProps) {
+  values,
+}: {
+  isEditing: boolean;
+  ready: boolean;
+  setEditing: (editing: boolean) => void;
+  setStructuredFields: ContactStructuredFieldSetter;
+  values: ContactFieldValues;
+}) {
   return (
-    <StructuredDocumentFields>
-      <StructuredDocumentField inputId={inputIds.nickname} label="Nickname">
-        <input
-          id={inputIds.nickname}
-          aria-label="Contact nickname"
-          value={fields.nickname}
-          onChange={(event) =>
-            setStructuredFields("contact", { nickname: event.target.value })
-          }
-          placeholder={ready ? "Ada" : "Loading..."}
-          disabled={!ready}
-        />
-      </StructuredDocumentField>
-      <StructuredDocumentField inputId={inputIds.firstName} label="First Name">
-        <input
-          id={inputIds.firstName}
-          aria-label="Contact first name"
-          value={fields.firstName}
-          onChange={(event) =>
-            setStructuredFields("contact", { firstName: event.target.value })
-          }
-          placeholder={ready ? "Ada" : "Loading..."}
-          disabled={!ready}
-        />
-      </StructuredDocumentField>
-      <StructuredDocumentField inputId={inputIds.lastName} label="Last Name">
-        <input
-          id={inputIds.lastName}
-          aria-label="Contact last name"
-          value={fields.lastName}
-          onChange={(event) =>
-            setStructuredFields("contact", { lastName: event.target.value })
-          }
-          placeholder={ready ? "Lovelace" : "Loading..."}
-          disabled={!ready}
-        />
-      </StructuredDocumentField>
-      <StructuredDocumentField
-        inputId={inputIds.userId}
-        label="Tearleads User ID"
-      >
-        <input
-          id={inputIds.userId}
-          aria-label="Contact user ID"
-          value={fields.userId}
-          onChange={(event) =>
-            setStructuredFields("contact", { userId: event.target.value })
-          }
-          placeholder={ready ? "User ID" : "Loading..."}
-          disabled={!ready}
-        />
-      </StructuredDocumentField>
-      <StructuredDocumentField
-        inputId={inputIds.encapsulationPublicKey}
-        label="Public Key"
-      >
-        <textarea
-          id={inputIds.encapsulationPublicKey}
-          aria-label="Contact public key"
-          value={fields.encapsulationPublicKey}
-          onChange={(event) =>
-            setStructuredFields("contact", {
-              encapsulationPublicKey: event.target.value,
-            })
-          }
-          placeholder={ready ? "Encapsulation public key" : "Loading..."}
-          disabled={!ready}
-        />
-      </StructuredDocumentField>
-    </StructuredDocumentFields>
+    <div className="contact-document-fields">
+      <MiniAppActions>
+        <MiniAppButton disabled={!ready} onClick={() => setEditing(!isEditing)}>
+          {isEditing ? "Done" : "Edit"}
+        </MiniAppButton>
+      </MiniAppActions>
+      <ContactFields
+        isEditing={isEditing && ready}
+        onFieldCommit={(key, value) =>
+          setStructuredFields("contact", { [key]: value })
+        }
+        values={values}
+      />
+    </div>
   );
 }
 
@@ -112,17 +64,11 @@ export function ContactDocument() {
   const { online } = state;
   const { ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
-  const fields = useMemo(
-    () => readContactFields(structuredFields),
+  const [isEditing, setIsEditing] = useState(false);
+  const values = useMemo(
+    () => toContactFieldValues(readContactFields(structuredFields)),
     [structuredFields],
   );
-  const inputIds = {
-    firstName: useId(),
-    lastName: useId(),
-    nickname: useId(),
-    userId: useId(),
-    encapsulationPublicKey: useId(),
-  };
 
   return (
     <StructuredDocument
@@ -134,11 +80,12 @@ export function ContactDocument() {
       attachments={null}
       canAttach={false}
       fields={
-        <ContactDocumentFieldsForm
-          fields={fields}
-          inputIds={inputIds}
+        <ContactDocumentFields
+          isEditing={isEditing}
           ready={ready}
+          setEditing={setIsEditing}
           setStructuredFields={setStructuredFields}
+          values={values}
         />
       }
       isAuthenticated={isAuthenticated}

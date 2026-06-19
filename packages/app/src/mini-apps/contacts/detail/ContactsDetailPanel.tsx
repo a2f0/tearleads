@@ -1,8 +1,7 @@
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
-  MiniAppClipboardButton,
   MiniAppField,
   MiniAppFormPanel,
   MiniAppHeader,
@@ -10,13 +9,12 @@ import {
   MiniAppInput,
   MiniAppPanel,
   MiniAppStatus,
-  MiniAppTextarea,
 } from "../../../components/shared/MiniAppLayout";
-import {
-  MiniAppRow,
-  MiniAppRowStack,
-  MiniAppRowText,
-} from "../../../components/shared/MiniAppRow";
+import { ContactFields } from "../../../document-types/contact/ContactFields";
+import type {
+  ContactFieldKey,
+  ContactFieldValues,
+} from "../../../document-types/contact/contactFieldDescriptors";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import type { ContactEntries, ContactEntryPatch } from "../types";
@@ -28,191 +26,21 @@ import {
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
 type SelectedContactEntry = ContactEntries[number];
 
-function useSyncedFieldValue(value: string) {
-  const [localValue, setLocalValue] = useState(value);
-
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-
-  return [localValue, setLocalValue] as const;
+function toContactFieldValues(entry: SelectedContactEntry): ContactFieldValues {
+  return {
+    encapsulationPublicKey: entry.encapsulationPublicKey ?? "",
+    firstName: entry.firstName,
+    lastName: entry.lastName,
+    nickname: entry.nickname,
+    userId: entry.userId ?? "",
+  };
 }
 
-function ContactTextField(params: {
-  label: string;
-  value: string;
-  onCommit: (value: string) => void;
-  placeholder?: string;
-  renderAction?: ((value: string) => ReactNode) | undefined;
-}) {
-  const { label, onCommit, placeholder, renderAction, value } = params;
-  const inputId = useId();
-  const [localValue, setLocalValue] = useSyncedFieldValue(value);
-  const input = (
-    <MiniAppInput
-      id={inputId}
-      value={localValue}
-      placeholder={placeholder}
-      onChange={(event) => setLocalValue(event.target.value)}
-      onBlur={() => {
-        if (localValue !== value) {
-          onCommit(localValue);
-        }
-      }}
-    />
-  );
-
-  return (
-    <div className="mini-app-field">
-      <label htmlFor={inputId}>{label}</label>
-      {renderAction ? (
-        <div className="mini-app-field-control">
-          {input}
-          {renderAction(localValue)}
-        </div>
-      ) : (
-        input
-      )}
-    </div>
-  );
-}
-
-function ContactTextareaField(params: {
-  label: string;
-  value: string;
-  onCommit: (value: string) => void;
-  placeholder?: string;
-}) {
-  const { label, onCommit, placeholder, value } = params;
-  const [localValue, setLocalValue] = useSyncedFieldValue(value);
-
-  return (
-    <MiniAppField>
-      <span>{label}</span>
-      <MiniAppTextarea
-        value={localValue}
-        placeholder={placeholder}
-        onChange={(event) => setLocalValue(event.target.value)}
-        onBlur={() => {
-          if (localValue !== value) {
-            onCommit(localValue);
-          }
-        }}
-      />
-    </MiniAppField>
-  );
-}
-
-function getContactReadValue(value: string | null | undefined): string {
-  const normalizedValue = value?.trim() ?? "";
-  return normalizedValue.length > 0 ? normalizedValue : CONTACTS_LABELS.none;
-}
-
-function ContactReadField(params: {
-  action?: ReactNode | undefined;
-  label: string;
-  title?: string | null | undefined;
-  value: string | null | undefined;
-}) {
-  const { action, label, title, value } = params;
-  return (
-    <MiniAppRow density="roomy">
-      <MiniAppRowStack>
-        <strong>{label}</strong>
-        <MiniAppRowText muted title={title ?? undefined}>
-          {getContactReadValue(value)}
-        </MiniAppRowText>
-      </MiniAppRowStack>
-      {action}
-    </MiniAppRow>
-  );
-}
-
-function ContactEditableFields({
-  selectedEntry,
-  updateContact,
-}: {
-  selectedEntry: SelectedContactEntry;
-  updateContact: UpdateContact;
-}) {
-  return (
-    <>
-      <ContactTextField
-        label={CONTACTS_LABELS.nicknameField}
-        value={selectedEntry.nickname}
-        onCommit={(nickname) => updateContact(selectedEntry.id, { nickname })}
-      />
-      <ContactTextField
-        label={CONTACTS_LABELS.firstNameField}
-        value={selectedEntry.firstName}
-        onCommit={(firstName) => updateContact(selectedEntry.id, { firstName })}
-      />
-      <ContactTextField
-        label={CONTACTS_LABELS.lastNameField}
-        value={selectedEntry.lastName}
-        onCommit={(lastName) => updateContact(selectedEntry.id, { lastName })}
-      />
-      <ContactTextField
-        label={CONTACTS_LABELS.userIdField}
-        value={selectedEntry.userId ?? ""}
-        placeholder={CONTACTS_LABELS.optionalPlaceholder}
-        renderAction={(userId) => (
-          <MiniAppClipboardButton
-            label={CONTACTS_LABELS.copyUserIdAction}
-            value={userId}
-          />
-        )}
-        onCommit={(userId) => updateContact(selectedEntry.id, { userId })}
-      />
-      <ContactTextareaField
-        label={CONTACTS_LABELS.publicKeyField}
-        value={selectedEntry.encapsulationPublicKey ?? ""}
-        placeholder={CONTACTS_LABELS.optionalPlaceholder}
-        onCommit={(encapsulationPublicKey) =>
-          updateContact(selectedEntry.id, { encapsulationPublicKey })
-        }
-      />
-    </>
-  );
-}
-
-function ContactReadFields({
-  selectedEntry,
-}: {
-  selectedEntry: SelectedContactEntry;
-}) {
-  return (
-    <>
-      <ContactReadField
-        label={CONTACTS_LABELS.nicknameField}
-        value={selectedEntry.nickname}
-      />
-      <ContactReadField
-        label={CONTACTS_LABELS.firstNameField}
-        value={selectedEntry.firstName}
-      />
-      <ContactReadField
-        label={CONTACTS_LABELS.lastNameField}
-        value={selectedEntry.lastName}
-      />
-      <ContactReadField
-        action={
-          <MiniAppClipboardButton
-            label={CONTACTS_LABELS.copyUserIdAction}
-            value={selectedEntry.userId}
-          />
-        }
-        label={CONTACTS_LABELS.userIdField}
-        title={selectedEntry.userId}
-        value={selectedEntry.userId}
-      />
-      <ContactReadField
-        label={CONTACTS_LABELS.publicKeyField}
-        title={selectedEntry.encapsulationPublicKey}
-        value={selectedEntry.encapsulationPublicKey}
-      />
-    </>
-  );
+function toContactEntryPatch(
+  key: ContactFieldKey,
+  value: string,
+): ContactEntryPatch {
+  return { [key]: value };
 }
 
 function ContactsSelectionState({
@@ -257,14 +85,13 @@ function ContactsSelectionState({
           {isEditing ? CONTACTS_LABELS.doneAction : CONTACTS_LABELS.editAction}
         </MiniAppButton>
       </MiniAppActions>
-      {isEditing ? (
-        <ContactEditableFields
-          selectedEntry={selectedEntry}
-          updateContact={updateContact}
-        />
-      ) : (
-        <ContactReadFields selectedEntry={selectedEntry} />
-      )}
+      <ContactFields
+        isEditing={isEditing}
+        onFieldCommit={(key, value) =>
+          updateContact(selectedEntry.id, toContactEntryPatch(key, value))
+        }
+        values={toContactFieldValues(selectedEntry)}
+      />
     </MiniAppPanel>
   );
 }

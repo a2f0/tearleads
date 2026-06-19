@@ -13,8 +13,6 @@ export const CONTACTS_LABELS = {
   loadingState: "Loading contacts...",
   newContactAction: "New Contact",
   nicknameField: "Nickname",
-  none: "None",
-  optionalPlaceholder: "Optional",
   publicKeyField: "Public key",
   selectState: "Select a contact.",
   unauthenticatedImportState: "Authenticate before importing peer keys.",
