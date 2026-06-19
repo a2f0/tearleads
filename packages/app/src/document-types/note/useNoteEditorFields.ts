@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
@@ -103,6 +104,7 @@ function useNoteDropzone(
 export function useNoteEditorFields(): NoteEditorFieldsModel {
   const { infra } = useTearleadsRuntime();
   const { blobStore } = infra;
+  const { logError } = useLog();
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -128,36 +130,52 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
         return;
       }
 
-      void Promise.all(Array.from(fileList).map(readAttachmentUpload)).then(
-        (uploads) => attachFiles(uploads),
-      );
+      void Promise.all(Array.from(fileList).map(readAttachmentUpload))
+        .then((uploads) => attachFiles(uploads))
+        .catch((error) => {
+          logError("Failed to attach note files", error);
+        });
     },
-    [attachFiles],
+    [attachFiles, logError],
   );
 
-  const dropzone = useNoteDropzone(canAttach, handleSelectedFiles);
+  const {
+    dragActive,
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop,
+  } = useNoteDropzone(canAttach, handleSelectedFiles);
 
   return useMemo(
     () => ({
       attachments,
       attachmentStatusBySlotId,
       canAttach,
+      dragActive,
       fileInputId,
       fileInputRef,
+      handleDragEnter,
+      handleDragLeave,
+      handleDragOver,
+      handleDrop,
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,
       setText,
       syncing,
       text,
-      ...dropzone,
     }),
     [
       attachments,
       attachmentStatusBySlotId,
       canAttach,
-      dropzone,
+      dragActive,
       fileInputId,
+      handleDragEnter,
+      handleDragLeave,
+      handleDragOver,
+      handleDrop,
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,
