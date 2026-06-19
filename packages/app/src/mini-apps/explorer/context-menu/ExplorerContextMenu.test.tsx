@@ -34,6 +34,7 @@ const rootNode: ContainerNode = {
 function ExplorerContextMenuLayerHarness(params: {
   canDeleteSelectedDocument?: boolean;
   canPurgeSelectedDocument?: boolean;
+  canUploadToContextMenuNode?: boolean;
   contextMenu?: ExplorerContextMenuState | null;
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   importDroppedFiles: ImportExplorerDroppedFiles;
@@ -54,6 +55,7 @@ function ExplorerContextMenuLayerHarness(params: {
       canLinkSelectedDocument={false}
       canMoveContextMenuNode={false}
       canRenameContextMenuNode={false}
+      canUploadToContextMenuNode={params.canUploadToContextMenuNode ?? true}
       canMoveSelectedDocument={false}
       canPurgeSelectedDocument={params.canPurgeSelectedDocument ?? false}
       closeContextMenu={() => setContextMenu(null)}
@@ -116,6 +118,20 @@ test("container upload uses the target captured before opening the file picker",
   expect(imports[0]?.containerId).toBe(rootNode.id);
   expect(imports[0]?.files).toEqual(uploadedFiles);
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
+});
+
+test("container upload is disabled for upload-protected containers", () => {
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      canUploadToContextMenuNode={false}
+      importDroppedFiles={noopImportDroppedFiles}
+    />,
+  );
+
+  const uploadButton = view.getByRole("button", {
+    name: "Upload",
+  }) as HTMLButtonElement;
+  expect(uploadButton.disabled).toBe(true);
 });
 
 test("document context menu deletes the selected document", async () => {

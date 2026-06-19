@@ -84,6 +84,15 @@ export function canRenameContainerByRules(
   return resolveContainerRules(context, container)?.protectFromRename !== true;
 }
 
+// Files may be uploaded into a container unless it is a protected system folder
+// (e.g. the Trash, which is only ever populated by deleting documents).
+export function canUploadToContainerByRules(
+  context: ExplorerContainerRulesContext,
+  container: Pick<ContainerNode, "systemSlot"> | undefined,
+): boolean {
+  return resolveContainerRules(context, container)?.protectFromUpload !== true;
+}
+
 export function isSelfContactDocument(
   document: Pick<DocumentSummary, "id"> | undefined,
 ): boolean {

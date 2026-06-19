@@ -55,6 +55,7 @@ interface ExplorerContextMenuModel {
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
+  canUploadToContextMenuNode: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
   handleContainerContextMenu: (
