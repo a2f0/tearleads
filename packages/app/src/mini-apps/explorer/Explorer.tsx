@@ -160,6 +160,9 @@ export function Explorer() {
         canRenameContextMenuNode={
           model.contextMenuState.canRenameContextMenuNode
         }
+        canUploadToContextMenuNode={
+          model.contextMenuState.canUploadToContextMenuNode
+        }
         canMoveSelectedDocument={model.canMoveContextMenuDocument}
         canPurgeSelectedDocument={model.canPurgeContextMenuDocument}
         closeContextMenu={model.contextMenuState.closeContextMenu}

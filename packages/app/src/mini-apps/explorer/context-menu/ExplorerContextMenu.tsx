@@ -16,6 +16,7 @@ import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExp
 import {
   canDeleteContainerByRules,
   canRenameContainerByRules,
+  canUploadToContainerByRules,
   type ExplorerContainerRulesContext,
 } from "../containerRules";
 import { EXPLORER_LABELS } from "../labels";
@@ -135,6 +136,9 @@ export function useExplorerContextMenu(
     canRenameContextMenuNode:
       contextMenuNode !== undefined &&
       canRenameContainerByRules(rulesContext, contextMenuNode),
+    canUploadToContextMenuNode:
+      contextMenuNode !== undefined &&
+      canUploadToContainerByRules(rulesContext, contextMenuNode),
     closeContextMenu,
     contextMenu,
     handleContainerContextMenu,
@@ -244,6 +248,7 @@ interface ExplorerContainerContextMenuProps {
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
+  canUploadToContextMenuNode: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerContainerContextMenuState;
   triggerUpload: (containerId: string) => void;
@@ -261,6 +266,7 @@ function ExplorerContainerContextMenu(
     canDeleteContextMenuNode,
     canMoveContextMenuNode,
     canRenameContextMenuNode,
+    canUploadToContextMenuNode,
     closeContextMenu,
     contextMenu,
     triggerUpload,
@@ -287,6 +293,7 @@ function ExplorerContainerContextMenu(
       />
       <MenuItem
         label="Upload"
+        disabled={!canUploadToContextMenuNode}
         onClick={() => {
           closeContextMenu();
           triggerUpload(containerId);
@@ -333,6 +340,7 @@ export function ExplorerContextMenuLayer(params: {
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
+  canUploadToContextMenuNode: boolean;
   canMoveSelectedDocument: boolean;
   canPurgeSelectedDocument: boolean;
   closeContextMenu: () => void;

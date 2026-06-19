@@ -84,6 +84,30 @@ export function canRenameContainerByRules(
   return resolveContainerRules(context, container)?.protectFromRename !== true;
 }
 
+// Files may be uploaded into a container unless it is a protected system folder
+// (e.g. the Trash, which is only ever populated by deleting documents).
+export function canUploadToContainerByRules(
+  context: ExplorerContainerRulesContext,
+  container: Pick<ContainerNode, "systemSlot"> | undefined,
+): boolean {
+  return resolveContainerRules(context, container)?.protectFromUpload !== true;
+}
+
+// Resolve a container by id from the explorer's node list and report whether it
+// accepts uploads. Used to gate every import path (context menu and
+// drag-and-drop) at a single chokepoint; an unknown id is treated as uploadable
+// since it carries no system slot.
+export function canUploadToContainerIdByRules(
+  context: ExplorerContainerRulesContext,
+  nodes: ReadonlyArray<Pick<ContainerNode, "id" | "systemSlot">>,
+  containerId: string,
+): boolean {
+  return canUploadToContainerByRules(
+    context,
+    nodes.find((node) => node.id === containerId),
+  );
+}
+
 export function isSelfContactDocument(
   document: Pick<DocumentSummary, "id"> | undefined,
 ): boolean {

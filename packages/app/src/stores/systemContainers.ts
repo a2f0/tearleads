@@ -33,6 +33,10 @@ export interface UserSystemContainerRules {
   // Block moving documents out of this container (e.g. contacts must stay in
   // the Contacts container). Documents may still be deleted (moved to trash).
   readonly protectContentsFromLeaving: boolean;
+  // Block uploading files directly into this container. System folders are
+  // populated by the app (e.g. trash receives deleted items, contacts receives
+  // contact documents), never by direct user upload.
+  readonly protectFromUpload: boolean;
   // Block deleting the builtin self ("You") contact that lives in this
   // container. Only meaningful for the contacts container.
   readonly protectSelfDocumentFromDelete: boolean;
@@ -56,6 +60,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromRename: true,
         protectContentsFromLeaving: true,
         protectSelfDocumentFromDelete: true,
+        protectFromUpload: true,
       },
       slotDefinition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
     },
@@ -70,6 +75,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         // (restore) freely, so its contents are not pinned.
         protectContentsFromLeaving: false,
         protectSelfDocumentFromDelete: false,
+        protectFromUpload: true,
       },
       slotDefinition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,
     },
