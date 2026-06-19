@@ -355,7 +355,9 @@ test("purgeLocalContainerDocument tears down local state and returns a result", 
         execSql,
       },
       util: { log: () => undefined },
-    } as never,
+    } as unknown as Parameters<
+      typeof purgeLocalContainerDocument
+    >[0]["runtime"],
   });
 
   // A never-synced document has no server row, so purge deletes only local

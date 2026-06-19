@@ -73,6 +73,7 @@ export function useExplorerModel(
     useDocumentLinkProjectionVersion();
   const documentQueries = useExplorerDocumentQueries(appData);
   const {
+    bumpDocumentListRevision,
     documentListRevision,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
@@ -138,9 +139,9 @@ export function useExplorerModel(
     documentLinkProjectionVersion,
     documentQueries,
     explorer,
+    bumpDocumentListRevision,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,
-    mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
     documentListRevision,

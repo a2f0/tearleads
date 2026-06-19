@@ -17,6 +17,7 @@ export function useExplorerDocumentViewModel(params: {
   documentLinkProjectionVersion: number;
   nodes: ReadonlyArray<ContainerNode>;
 }): {
+  bumpDocumentListRevision: () => void;
   documentListRevision: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -34,6 +35,7 @@ export function useExplorerDocumentViewModel(params: {
   const { appData, documentQueries, documentLinkProjectionVersion, nodes } =
     params;
   const {
+    bumpDocumentListRevision,
     documentListRevision,
     documentSummaries,
     loadDocumentSummary,
@@ -55,6 +57,7 @@ export function useExplorerDocumentViewModel(params: {
   const selection = useExplorerSelection(nodes, documentSummaries);
 
   return {
+    bumpDocumentListRevision,
     documentListRevision,
     linkedContainerIdsByDocumentId,
     loadDocumentSummary,

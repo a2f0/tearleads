@@ -112,10 +112,8 @@ export function useExplorerPanelState(params: {
   documentQueries: ContainerDocumentQueries;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  bumpDocumentListRevision: () => void;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
-  mergeDocumentSummaries: (
-    nextDocuments: ReadonlyArray<DocumentSummary>,
-  ) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   onDocumentLinksChanged: () => void;
@@ -138,8 +136,8 @@ export function useExplorerPanelState(params: {
     documentQueries,
     explorer,
     linkedContainerIdsByDocumentId,
+    bumpDocumentListRevision,
     loadDocumentSummary,
-    mergeDocumentSummaries,
     mergeDocumentSummary,
     documentSummaries,
     onDocumentLinksChanged,
@@ -294,7 +292,7 @@ export function useExplorerPanelState(params: {
           // revision so the open container listing re-queries SQLite and the
           // destroyed row drops out, and signal a link change so the sidebar
           // tree and linked-container map refresh too.
-          mergeDocumentSummaries([]);
+          bumpDocumentListRevision();
           onDocumentLinksChanged();
           routeState.selectExplorerItem(currentContainerId);
         }
@@ -307,8 +305,8 @@ export function useExplorerPanelState(params: {
     },
     [
       appData.util.logError,
+      bumpDocumentListRevision,
       explorer.trashContainerId,
-      mergeDocumentSummaries,
       onDocumentLinksChanged,
       routeState.selectExplorerItem,
       selectedNoteStructuralState.purgeDocument,
