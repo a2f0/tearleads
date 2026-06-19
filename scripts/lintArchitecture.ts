@@ -13,6 +13,7 @@ const appPresentationEntryPoints = [
   "packages/app/src/document-types",
   "packages/app/src/mini-apps",
 ];
+const appDocumentTypesEntryPoints = ["packages/app/src/document-types"];
 const appDocumentProjectionSourcePaths = new Set([
   "packages/app/src/document-types/projectors.ts",
 ]);
@@ -870,6 +871,10 @@ function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
   );
 }
 
+function isMiniAppImportFromDocumentTypes(specifier: string): boolean {
+  return /^(?:\.\.\/)+mini-apps(?:\/|$)/.test(specifier);
+}
+
 function isPaneRuntimeProviderBypassImport(specifier: string): boolean {
   return (
     specifier.startsWith("../../providers/") &&
@@ -928,6 +933,13 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "Mini-app bus should stay SDK-independent app window/message infrastructure; pass SDK-backed data, providers, stores, and concrete mini-app definitions in from callers.",
     name: "app-mini-app-bus-stays-sdk-independent",
+  }),
+  createModuleSpecifierCheck({
+    entryPoints: appDocumentTypesEntryPoints,
+    matches: isMiniAppImportFromDocumentTypes,
+    message:
+      "Document types are shared building blocks for mini-apps; mini-apps should import from document-types, not the reverse. Lift shared UI down into document-types/ and have the mini-app consume it.",
+    name: "app-document-types-do-not-import-mini-apps",
   }),
   createModuleSpecifierCheck({
     entryPoints: [appPaneProviderSourcePath],

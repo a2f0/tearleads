@@ -32,7 +32,7 @@ test("notes windows in the same pane share live note state", async () => {
   await waitFor(() => {
     const editors = Array.from(
       view.container.querySelectorAll<HTMLTextAreaElement>(
-        "textarea.notes-editor",
+        "textarea.note-document-editor",
       ),
     );
     expect(editors).toHaveLength(2);
@@ -42,7 +42,7 @@ test("notes windows in the same pane share live note state", async () => {
   });
 
   const noteEditors = view.container.querySelectorAll<HTMLTextAreaElement>(
-    "textarea.notes-editor",
+    "textarea.note-document-editor",
   );
   const firstEditor = noteEditors[0];
   const secondEditor = noteEditors[1];

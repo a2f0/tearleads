@@ -1,11 +1,5 @@
 export const NOTES_LABELS = {
   attachButton: "Attach File",
-  attachmentSyncing: "Syncing attachment.",
-  attachmentsEmpty: "No attachments yet.",
-  editor: "Notes editor",
-  editorLoadingPlaceholder: "Loading notes...",
-  editorReadyPlaceholder: "Type your notes here...",
-  editorSyncing: "Notes editor syncing",
   emptyStateLoading: "Loading notes...",
   newNoteAction: "New Note",
   sidebarEmpty: "No notes.",

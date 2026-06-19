@@ -4,7 +4,7 @@ import { creditCardDocumentProjectorDefinition } from "../document-types/credit-
 import { driverLicenseDocumentProjectorDefinition } from "../document-types/drivers-license/driverLicenseDocumentDefinition";
 import { genericFileDocumentProjectorDefinition } from "../document-types/generic-file/genericFileDocumentDefinition";
 import { imageDocumentProjectorDefinition } from "../document-types/image/imageDocumentDefinition";
-import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocument";
+import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
 import type { AppDocumentProjectorDefinition } from "../document-types/types";
 import { contactClientProjection } from "./contactClientProjection";
