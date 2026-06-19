@@ -1,9 +1,9 @@
-import { Notes } from "../../mini-apps/notes/Notes";
 import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
 } from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
+import { NoteDocument } from "./NoteDocument";
 
 export function NoteDocumentApp({
   containerId,
@@ -16,7 +16,7 @@ export function NoteDocumentApp({
       {...(containerId === undefined ? {} : { containerId })}
       {...(documentId === undefined ? {} : { documentId })}
     >
-      <Notes />
+      <NoteDocument />
     </DocumentsProvider>
   );
 }

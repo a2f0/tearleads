@@ -5,7 +5,7 @@ import type {
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
-import { APP_DEFAULT_DOCUMENT_KIND } from "./note/noteDocument";
+import { APP_DEFAULT_DOCUMENT_KIND } from "./note/noteDocumentDefinition";
 import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 
 export const TEXT_FILE_IMPORT_MAX_BYTES = 5 * 1024 * 1024;

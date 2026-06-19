@@ -1,9 +1,8 @@
 import { useCallback } from "react";
 import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowRefreshMenuItem } from "../../components/window/WindowMenuContext";
-import { NotesAttachmentsPanel } from "./attachments/NotesAttachmentsPanel";
+import { NoteEditorFields } from "../../document-types/note/NoteEditorFields";
 import { useNotesModel } from "./hooks/useNotesModel";
-import { NotesEditor } from "./NotesEditor";
 import { NotesToolbar } from "./NotesToolbar";
 import "./Notes.css";
 
@@ -29,32 +28,32 @@ export function Notes({
 
   return (
     <MiniAppRoot padding="none">
-      <NotesToolbar
-        canAttach={model.canAttach}
-        fileInputId={model.fileInputId}
-        fileInputRef={model.fileInputRef}
-        handleSelectedFiles={model.handleSelectedFiles}
-        isAuthenticated={model.isAuthenticated}
-        online={model.online}
-        ready={model.ready}
-      />
-      <NotesAttachmentsPanel
+      <NoteEditorFields
         attachments={model.attachments}
         attachmentStatusBySlotId={model.attachmentStatusBySlotId}
         canAttach={model.canAttach}
         dragActive={model.dragActive}
         fileInputId={model.fileInputId}
+        fileInputRef={model.fileInputRef}
         handleDragEnter={model.handleDragEnter}
         handleDragLeave={model.handleDragLeave}
         handleDragOver={model.handleDragOver}
         handleDrop={model.handleDrop}
+        handleSelectedFiles={model.handleSelectedFiles}
         imageUrlBySlotId={model.imageUrlBySlotId}
-      />
-      <NotesEditor
         ready={model.ready}
         setText={model.setText}
         syncing={model.syncing}
         text={model.text}
+        toolbar={
+          <NotesToolbar
+            canAttach={model.canAttach}
+            fileInputRef={model.fileInputRef}
+            isAuthenticated={model.isAuthenticated}
+            online={model.online}
+            ready={model.ready}
+          />
+        }
       />
     </MiniAppRoot>
   );

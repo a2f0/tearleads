@@ -208,7 +208,7 @@ export async function openNotes(view: ReturnType<typeof renderPane>) {
   await waitFor(() => {
     expect(
       readyNotesWindow.querySelector<HTMLTextAreaElement>(
-        "textarea.notes-editor",
+        "textarea.note-document-editor",
       ),
     ).toBeTruthy();
   });

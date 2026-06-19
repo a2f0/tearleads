@@ -330,15 +330,16 @@ async function createNoteWithAttachment(pane: HTMLElement) {
   const editor = await within(pane).findByRole("textbox", {
     name: /Notes editor/u,
   });
+  // The explorer's inline note view renders the editor and attachments
+  // without the notes mini-app toolbar, so attachments are staged through
+  // the hidden file input (and drag/drop) rather than an Attach button. Wait
+  // until that input is enabled to know the note document is ready to attach.
   await waitFor(() => {
-    const attachButton = within(pane).getByRole("button", {
-      name: "Attach File",
-    });
-    invariant(
-      attachButton instanceof HTMLButtonElement,
-      "Expected attach button.",
+    const input = pane.querySelector<HTMLInputElement>(
+      "input.note-document-file-input",
     );
-    expect(attachButton.disabled).toBe(false);
+    invariant(input, "Expected notes file input.");
+    expect(input.disabled).toBe(false);
   });
   await interact(() => {
     fireEvent.change(editor, {
@@ -347,7 +348,7 @@ async function createNoteWithAttachment(pane: HTMLElement) {
   });
 
   const fileInput = pane.querySelector<HTMLInputElement>(
-    "input.notes-file-input",
+    "input.note-document-file-input",
   );
   invariant(fileInput, "Expected notes file input.");
   const attachment = new File(["peer one attachment"], "peer-one.png", {
