@@ -19,7 +19,10 @@ import {
   type ImportExplorerDroppedFiles,
   useExplorerDroppedFileImport,
 } from "../../../stores/explorer/useExplorerDroppedFileImport";
-import type { ExplorerContainerRulesContext } from "../containerRules";
+import {
+  canUploadToContainerIdByRules,
+  type ExplorerContainerRulesContext,
+} from "../containerRules";
 import {
   type ExplorerContextMenuState,
   useExplorerContextMenu,
@@ -234,13 +237,36 @@ export function useExplorerPanelState(params: {
     mergeDocumentSummary,
     setSelectedId: routeState.selectExplorerItem,
   });
-  const importDroppedFiles = useExplorerDroppedFileImport({
+  const importDroppedFilesUnguarded = useExplorerDroppedFileImport({
     appData: explorerDocumentLinks,
     documentQueries,
     labels: explorerDroppedFileImportLabels,
     logError: appData.util.logError,
     mergeDocumentSummary,
   });
+  // Enforce the container upload rule on every import path. The context menu
+  // already hides "Upload" for protected folders, but drag-and-drop targets the
+  // container directly, so the rule has to hold here too — otherwise a drop
+  // would bypass the protection and land files in e.g. the Trash. Throwing
+  // surfaces the reason in the drop target's import status.
+  const importDroppedFiles = useCallback<ImportExplorerDroppedFiles>(
+    (containerId, files, onProgress) => {
+      if (
+        !canUploadToContainerIdByRules(
+          rulesContext,
+          explorer.nodes,
+          containerId,
+        )
+      ) {
+        return Promise.reject(
+          new Error(EXPLORER_LABELS.fileImportBlockedByContainer),
+        );
+      }
+
+      return importDroppedFilesUnguarded(containerId, files, onProgress);
+    },
+    [explorer.nodes, importDroppedFilesUnguarded, rulesContext],
+  );
   const deleteDocument = useCallback(
     async (noteId: string, currentContainerId: string) => {
       try {

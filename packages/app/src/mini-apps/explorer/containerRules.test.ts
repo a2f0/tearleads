@@ -7,6 +7,8 @@ import {
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
   canRenameContainerByRules,
+  canUploadToContainerByRules,
+  canUploadToContainerIdByRules,
   createExplorerContainerRulesContext,
   isSelfContactDocument,
 } from "./containerRules";
@@ -81,6 +83,38 @@ test("plain user containers stay movable, deletable, and renamable", () => {
   expect(canRenameContainerByRules(rulesContext, userContainer)).toBe(true);
 });
 
+test("the contacts and trash containers reject uploads", () => {
+  expect(canUploadToContainerByRules(rulesContext, contactsContainer)).toBe(
+    false,
+  );
+  expect(canUploadToContainerByRules(rulesContext, trashContainer)).toBe(false);
+});
+
+test("plain user containers accept uploads", () => {
+  expect(canUploadToContainerByRules(rulesContext, userContainer)).toBe(true);
+});
+
+test("uploads are gated by container id against the node list", () => {
+  const nodes = [contactsContainer, trashContainer, userContainer];
+  expect(
+    canUploadToContainerIdByRules(rulesContext, nodes, trashContainer.id),
+  ).toBe(false);
+  expect(
+    canUploadToContainerIdByRules(rulesContext, nodes, contactsContainer.id),
+  ).toBe(false);
+  expect(
+    canUploadToContainerIdByRules(rulesContext, nodes, userContainer.id),
+  ).toBe(true);
+});
+
+test("an unknown container id is treated as uploadable", () => {
+  // A drop targeting an id that is not in the node list carries no system slot,
+  // so it falls through to the permissive default rather than blocking.
+  expect(
+    canUploadToContainerIdByRules(rulesContext, [trashContainer], "missing-id"),
+  ).toBe(true);
+});
+
 test("contacts cannot be moved out of the contacts container", () => {
   expect(canMoveDocumentOutByRules(rulesContext, contactsContainer)).toBe(
     false,
@@ -148,6 +182,9 @@ test("rules are disabled when the configuration flags are absent for a slot", ()
     true,
   );
   expect(canMoveDocumentOutByRules(rulesContext, unknownSlotContainer)).toBe(
+    true,
+  );
+  expect(canUploadToContainerByRules(rulesContext, unknownSlotContainer)).toBe(
     true,
   );
 });

@@ -170,6 +170,7 @@ export const EXPLORER_LABELS = {
   documentMoveAction: "Move",
   documentPurgeAction: "Delete Forever",
   fileDropHint: "Drop files to import documents.",
+  fileImportBlockedByContainer: "This folder does not accept uploads.",
   fileImportFailedStatus: "Some files could not be imported.",
   fileImportGenericFailure: "Failed to import files.",
   fileImportStoreNotReady: "Document store was not ready.",
