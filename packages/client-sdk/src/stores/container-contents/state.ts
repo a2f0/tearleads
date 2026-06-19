@@ -69,7 +69,6 @@ export function createContainerContentsStoreState(
     logLabel,
     metadataDocumentIdsNeedingSync: new Set(),
     persistence,
-    recentContainerMutationHydrationAt: null,
     remoteHydrationPromise: null,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
@@ -120,7 +119,6 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.initialized = false;
   state.initializePromise = null;
   state.metadataDocumentIdsNeedingSync = new Set();
-  state.recentContainerMutationHydrationAt = null;
   state.remoteHydrationPromise = null;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setContainerContentsSnapshot(state, {

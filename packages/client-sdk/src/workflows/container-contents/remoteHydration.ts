@@ -20,6 +20,7 @@ import {
   removeIndexedContainerChild,
 } from "./remoteHydration/childIndex";
 import { markContainerParentLaneFetched } from "./remoteHydration/laneFetchMarkers";
+import { createContainerParentHydrationQueue } from "./remoteHydration/parentLaneQueue";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,
@@ -402,39 +403,6 @@ export function createRemoteContainerIngestor(input: {
 
     return ingestRemoteContainersPromise;
   };
-}
-
-function createContainerParentHydrationQueue(input: {
-  containerIds: Iterable<string>;
-  parentIds?: Iterable<string | null> | undefined;
-}): {
-  lanes: ContainerParentHydrationLane[];
-  queueParentLane: QueueContainerParentLane;
-} {
-  const queuedParentIds = new Set<string>();
-  const lanes: ContainerParentHydrationLane[] = [];
-  const queueParentLane = (parentId: string | null) => {
-    const laneKey = parentId === null ? "root" : `container:${parentId}`;
-    if (queuedParentIds.has(laneKey)) {
-      return;
-    }
-
-    queuedParentIds.add(laneKey);
-    lanes.push({ parentId });
-  };
-
-  if (input.parentIds) {
-    for (const parentId of input.parentIds) {
-      queueParentLane(parentId);
-    }
-  } else {
-    queueParentLane(null);
-    for (const containerId of input.containerIds) {
-      queueParentLane(containerId);
-    }
-  }
-
-  return { lanes, queueParentLane };
 }
 
 async function applyRemoteContainerPage(input: {
@@ -876,6 +844,7 @@ export async function hydrateRemoteContainers(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
   parentIds?: ReadonlyArray<string | null> | undefined;
+  resetRootLaneWatermark?: boolean | undefined;
   state: RemoteContainerHydrationState;
 }): Promise<number> {
   const { host, state } = input;
@@ -888,6 +857,7 @@ export async function hydrateRemoteContainers(input: {
   const { lanes, queueParentLane } = createContainerParentHydrationQueue({
     containerIds: state.containersById.keys(),
     parentIds: input.parentIds,
+    resetRootLaneWatermark: input.resetRootLaneWatermark,
   });
   // Startup and event-triggered checks pass explicit parent lanes. Keep those
   // shallow so contents can render from cache without a background

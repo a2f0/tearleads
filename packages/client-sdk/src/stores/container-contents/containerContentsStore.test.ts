@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
-import type { ListContainersResponse } from "@tearleads/validators/response";
+import type {
+  ListContainersResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 import type { BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { DomainScope } from "../../data/domainScope";
@@ -11,6 +14,7 @@ import {
   defaultContainerContentsPersistence,
   loadContainerSyncLaneCheckRecords,
   markContainerSyncLaneChecked,
+  saveContainerSyncWatermark,
 } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import {
@@ -266,6 +270,112 @@ test("container contents store publishes cached containers before startup hydrat
       ]);
       return checks.every((check) => check !== null);
     }, "Startup hydration did not save lane check markers.");
+  } finally {
+    close();
+  }
+});
+
+function sharedRootSummary(): ListContainersResponse {
+  return {
+    hasMore: false,
+    items: [
+      {
+        createdAt: "2026-06-19T00:00:00.000Z",
+        depth: 0,
+        id: "owner-root",
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "owner-root-access-hash",
+        metadataDocumentId: "owner-root-metadata-document",
+        organizationId: "org-2",
+        parentId: null,
+        updatedAt: "2026-06-19T00:00:00.000Z",
+      },
+    ],
+    nextWatermark: {
+      id: "owner-root",
+      updatedAt: "2026-06-19T00:00:00.000Z",
+    },
+    tombstones: [],
+  };
+}
+
+test("refresh re-lists the root lane unwatermarked to surface a newly shared root", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-refresh-discovers-shared-root-test",
+  );
+  const domainScope = {} as DomainScope;
+  const rootLaneWatermarks: Array<SyncWatermark | null | undefined> = [];
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    // Warm cache: the peer already has their own root container locally, the
+    // root lane is marked freshly checked, and it carries a persisted watermark
+    // from a prior sync. Startup stays cache-first and does not auto-probe.
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        icon: null,
+        id: "peer-root",
+        metadataDocumentId: "peer-root-metadata-document",
+        name: "/",
+        organizationId: "org-1",
+        parentId: null,
+      },
+      null,
+    );
+    await markContainerSyncLaneChecked(
+      execSql,
+      createContainerParentSyncLane(null),
+    );
+    // The shared root's updatedAt predates this watermark (joining a group does
+    // not bump it), so a watermarked resume would filter it out forever.
+    await saveContainerSyncWatermark(
+      execSql,
+      createContainerParentSyncLane(null),
+      { id: "peer-root", updatedAt: "2026-06-20T00:00:00.000Z" },
+    );
+
+    // The server grants the peer access to the owner's root container, but only
+    // returns it when the root lane is probed WITHOUT the stale watermark.
+    const runtime = createSqlTestRuntime({
+      apiClient: createMockApiClient({
+        listContainers: async ({ parentId, watermark } = {}) => {
+          if (parentId !== null && parentId !== undefined) {
+            return emptyListContainersResponse();
+          }
+          rootLaneWatermarks.push(watermark);
+          return watermark
+            ? emptyListContainersResponse()
+            : sharedRootSummary();
+        },
+      }),
+      domainScope,
+      execSql,
+    });
+    const store = createContainerContentsStore(runtime);
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    // Cache-first: only the peer's own root is visible before refresh.
+    expect(store.getSnapshot().nodes.map((node) => node.id)).toEqual([
+      "peer-root",
+    ]);
+
+    // The refresh button (reconcileNow -> refreshTree -> store.refresh()) probes
+    // the root lane WITHOUT the persisted watermark and discovers the share.
+    await store.refresh();
+
+    await waitForCondition(
+      () => store.getSnapshot().nodes.some((node) => node.id === "owner-root"),
+      "Refresh did not surface the newly shared root container.",
+    );
+    // The refresh root-lane probe dropped the persisted watermark.
+    expect(rootLaneWatermarks).toContainEqual(null);
   } finally {
     close();
   }

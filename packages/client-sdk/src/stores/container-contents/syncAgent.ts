@@ -48,7 +48,6 @@ export interface ContainerContentsStoreSyncState {
   logLabel?: string | undefined;
   metadataDocumentIdsNeedingSync: Set<string>;
   containerParentIdsNeedingHydration: Set<string | null>;
-  recentContainerMutationHydrationAt: number | null;
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
   resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
@@ -68,7 +67,6 @@ export interface ContainerContentsStoreSyncAgent {
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;
     parentIds?: ReadonlyArray<string | null> | undefined;
-    rememberRecentMutationHydration?: boolean | undefined;
   }) => Promise<void>;
   scheduleRemoteHydration: () => void;
   scheduleSync: () => void;
@@ -78,8 +76,6 @@ type ContainerContentsStoreSyncHost = RemoteContainerHydrationHost;
 type ContainerContentsStorePrimeDocumentRuntime = ReturnType<
   typeof createContainerContentsDocumentsRuntime
 >;
-
-const RECENT_CONTAINER_MUTATION_HYDRATION_MS = 10_000;
 
 function getContainerContentsStoreLogLabel(
   state: ContainerContentsStoreSyncState,
@@ -146,7 +142,7 @@ function requestRemoteHydration(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: ContainerContentsStoreSyncHost;
   parentIds?: ReadonlyArray<string | null> | undefined;
-  rememberRecentMutationHydration?: boolean | undefined;
+  resetRootLaneWatermark?: boolean | undefined;
   scheduleSyncAfterHydration?: boolean | undefined;
   scheduleSync: () => void;
   state: ContainerContentsStoreSyncState;
@@ -183,12 +179,11 @@ function requestRemoteHydration(input: {
     followDiscoveredParentLanes,
     host,
     parentIds,
+    resetRootLaneWatermark: input.resetRootLaneWatermark,
     state,
   })
     .then((changedCount) => {
       appliedRemoteContainerChange = changedCount > 0;
-      state.recentContainerMutationHydrationAt =
-        input.rememberRecentMutationHydration ? Date.now() : null;
     })
     .catch((error: unknown) => {
       if (isDestroyedContainerContentsSyncRuntimeError(error)) {
@@ -220,16 +215,6 @@ function queueAllRemoteHydrationParentIds(
   for (const containerId of state.containersById.keys()) {
     state.containerParentIdsNeedingHydration.add(containerId);
   }
-}
-
-function hasRecentContainerMutationHydration(
-  state: ContainerContentsStoreSyncState,
-): boolean {
-  return (
-    state.recentContainerMutationHydrationAt !== null &&
-    Date.now() - state.recentContainerMutationHydrationAt <=
-      RECENT_CONTAINER_MUTATION_HYDRATION_MS
-  );
 }
 
 async function initializeContainerContentsStore(input: {
@@ -415,8 +400,6 @@ export function createContainerContentsStoreSyncAgent(input: {
         followDiscoveredParentLanes: options.followDiscoveredParentLanes,
         host,
         parentIds: options.parentIds,
-        rememberRecentMutationHydration:
-          options.rememberRecentMutationHydration,
         scheduleSync,
         state,
       });
@@ -467,28 +450,22 @@ export function createContainerContentsStoreSyncAgent(input: {
         return Promise.resolve(false);
       }
 
-      if (
-        state.containerParentIdsNeedingHydration.size === 0 &&
-        hasRecentContainerMutationHydration(state)
-      ) {
-        state.recentContainerMutationHydrationAt = null;
-        return Promise.resolve(true);
-      }
-
       if (state.remoteHydrationPromise) {
         queueAllRemoteHydrationParentIds(state);
       }
 
+      // An explicit refresh always re-lists the root discovery lane from the
+      // start. A grant that makes a new top-level container reachable (e.g.
+      // joining a group) does not bump that container's updatedAt, so a
+      // persisted watermark would hide it from the resume page forever.
       return requestRemoteHydration({
         followDiscoveredParentLanes: true,
         host,
+        resetRootLaneWatermark: true,
         scheduleSyncAfterHydration: true,
         scheduleSync,
         state,
-      }).then(() => {
-        state.recentContainerMutationHydrationAt = null;
-        return true;
-      });
+      }).then(() => true);
     },
     requestRemoteHydration: requestHydration,
     scheduleRemoteHydration: () => {
