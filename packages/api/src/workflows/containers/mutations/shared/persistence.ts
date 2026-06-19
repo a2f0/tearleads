@@ -28,6 +28,7 @@ import {
   userIdsWithReadableAccessThroughPath,
 } from "../../containerPathUsers";
 import { createContainerWriterProjectionContext } from "../../writerProjection";
+import { loadContainerKekManifestHistory } from "../../writerProjection/kek";
 import { ContainerMutationError, runConflictBoundary } from "../errors";
 import type {
   ContainerMutationContext,
@@ -494,6 +495,57 @@ async function persistMoveAccessLossTombstones(input: {
     });
 }
 
+// Build the KEK's container manifest history for the mutation response so
+// clients can synthesize a self-verifiable writer projection from this mutation
+// alone (matching the writer-projection endpoint). A manifest-advancing mutation
+// (grant/share, move, revoke) chains its new manifest to the prior one via
+// previousManifestHash; without the history the response omits that prior
+// bundle, so a later op reusing this container as a parent fails verification
+// with "previous manifest <hash> is missing".
+async function loadMutationContainerKekHistory(
+  executor: DatabaseTransaction,
+  manifest: VerifiedContainerAccessManifest,
+  kekState: VerifiedContainerKekState,
+): Promise<
+  Awaited<ReturnType<typeof loadContainerKekManifestHistory>>["bundles"]
+> {
+  const history = await loadContainerKekManifestHistory({
+    context: createContainerWriterProjectionContext(executor),
+    currentManifest: manifest,
+    keyEpoch: kekState.keyEpoch,
+    wraps: kekState.wraps,
+    // The client already holds the parent path; it only needs this container's
+    // own previous-epoch manifest, so skip the ancestry walk in the write txn.
+    onlyCurrentContainer: true,
+  });
+  return history.bundles;
+}
+
+function containerKekResponseRecord(
+  storedKekState: Awaited<
+    ReturnType<typeof storeVerifiedContainerKekStateInTransaction>
+  >,
+  containerManifestHistory: Awaited<
+    ReturnType<typeof loadMutationContainerKekHistory>
+  >,
+): ContainerMutationResponse["containerKek"] {
+  return {
+    containerId: storedKekState.containerId,
+    accessManifestHash: storedKekState.accessManifestHash,
+    containerKeyEpochId: storedKekState.containerKeyEpochId,
+    containerKeyEpoch: storedKekState.containerKeyEpoch,
+    keyEpoch: containerKeyEpochRecord(storedKekState.keyEpoch),
+    keyEpochHash: storedKekState.keyEpochHash,
+    keyTargetHash: storedKekState.keyTargetHash,
+    parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
+    recipientTargets: storedKekState.recipientTargets.map(
+      containerKekRecipientTargetRecord,
+    ),
+    wraps: storedKekState.wraps.map(containerKeyWrapRecord),
+    containerManifestHistory,
+  };
+}
+
 export async function persistVerifiedMutation(
   context: ContainerMutationContext,
   manifest: VerifiedContainerAccessManifest,
@@ -546,6 +598,12 @@ export async function persistVerifiedMutation(
     ),
   );
 
+  const containerManifestHistory = await loadMutationContainerKekHistory(
+    executor,
+    manifest,
+    kekState,
+  );
+
   const systemSlot = isContainerSystemSlot(container.systemSlot)
     ? container.systemSlot
     : null;
@@ -567,20 +625,10 @@ export async function persistVerifiedMutation(
       manifestHash: manifest.manifestHash,
       state: containerAccessStateRecord(manifest.state),
     },
-    containerKek: {
-      containerId: storedKekState.containerId,
-      accessManifestHash: storedKekState.accessManifestHash,
-      containerKeyEpochId: storedKekState.containerKeyEpochId,
-      containerKeyEpoch: storedKekState.containerKeyEpoch,
-      keyEpoch: containerKeyEpochRecord(storedKekState.keyEpoch),
-      keyEpochHash: storedKekState.keyEpochHash,
-      keyTargetHash: storedKekState.keyTargetHash,
-      parentContainerKeyEpochId: storedKekState.parentContainerKeyEpochId,
-      recipientTargets: storedKekState.recipientTargets.map(
-        containerKekRecipientTargetRecord,
-      ),
-      wraps: storedKekState.wraps.map(containerKeyWrapRecord),
-    },
+    containerKek: containerKekResponseRecord(
+      storedKekState,
+      containerManifestHistory,
+    ),
     referencedPrincipalHeads: manifest.manifest.referencedPrincipalHeads.map(
       referencedPrincipalHeadRecord,
     ),
