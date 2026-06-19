@@ -511,7 +511,6 @@ export async function moveContainer(
   await syncAgent.ingestRemoteContainer(moved);
   await syncAgent.requestRemoteHydration({
     parentIds: [previousParentId, parentId],
-    rememberRecentMutationHydration: true,
   });
   requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
