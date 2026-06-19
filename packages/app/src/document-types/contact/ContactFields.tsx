@@ -15,11 +15,10 @@ import {
   type ContactFieldDescriptor,
   type ContactFieldKey,
   type ContactFieldValues,
+  getContactCopyLabel,
 } from "./contactFieldDescriptors";
 
 type ContactFieldCommit = (key: ContactFieldKey, value: string) => void;
-
-const COPY_USER_ID_LABEL = "Copy user ID";
 
 function getReadValue(value: string): string {
   const normalized = value.trim();
@@ -61,10 +60,12 @@ function ContactReadFieldRow({
 
 function ContactEditFieldRow({
   descriptor,
+  disabled,
   onCommit,
   value,
 }: {
   descriptor: ContactFieldDescriptor;
+  disabled?: boolean | undefined;
   onCommit: (value: string) => void;
   value: string;
 }) {
@@ -85,6 +86,7 @@ function ContactEditFieldRow({
         placeholder={descriptor.placeholder}
         onChange={(event) => setLocalValue(event.target.value)}
         onBlur={commitOnBlur}
+        disabled={disabled}
       />
     ) : (
       <MiniAppInput
@@ -94,6 +96,7 @@ function ContactEditFieldRow({
         placeholder={descriptor.placeholder}
         onChange={(event) => setLocalValue(event.target.value)}
         onBlur={commitOnBlur}
+        disabled={disabled}
       />
     );
 
@@ -104,7 +107,7 @@ function ContactEditFieldRow({
         <div className="mini-app-field-control">
           {control}
           <MiniAppClipboardButton
-            label={COPY_USER_ID_LABEL}
+            label={getContactCopyLabel(descriptor)}
             value={localValue}
           />
         </div>
@@ -118,12 +121,17 @@ function ContactEditFieldRow({
 // Shared contact field layout used by both the contacts mini-app and the
 // explorer's contact document renderer. It is intentionally unaware of how a
 // contact is stored: callers pass a normalized value map and an `onFieldCommit`
-// callback that is fired (on blur) when an editable field changes.
+// callback that is fired (on blur) when an editable field changes. While
+// editing, `disabled` greys out the inputs without leaving edit mode, so a
+// transient not-ready state (e.g. a background sync) never discards unsaved
+// local edits by unmounting the fields.
 export function ContactFields({
+  disabled,
   isEditing,
   onFieldCommit,
   values,
 }: {
+  disabled?: boolean | undefined;
   isEditing: boolean;
   onFieldCommit: ContactFieldCommit;
   values: ContactFieldValues;
@@ -137,6 +145,7 @@ export function ContactFields({
             <ContactEditFieldRow
               key={descriptor.key}
               descriptor={descriptor}
+              disabled={disabled}
               value={value}
               onCommit={(nextValue) => onFieldCommit(descriptor.key, nextValue)}
             />
@@ -149,7 +158,7 @@ export function ContactFields({
             action={
               descriptor.copyable ? (
                 <MiniAppClipboardButton
-                  label={COPY_USER_ID_LABEL}
+                  label={getContactCopyLabel(descriptor)}
                   value={value}
                 />
               ) : undefined

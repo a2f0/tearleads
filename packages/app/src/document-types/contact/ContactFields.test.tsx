@@ -72,6 +72,21 @@ test("edit mode commits a changed field on blur", () => {
   expect(commits).toEqual([{ key: "nickname", value: "Ada" }]);
 });
 
+test("edit mode disables inputs without leaving edit mode when disabled", () => {
+  const view = render(
+    <ContactFields
+      disabled={true}
+      isEditing={true}
+      onFieldCommit={() => undefined}
+      values={values}
+    />,
+  );
+
+  const nicknameInput = view.getByLabelText("Nickname") as HTMLInputElement;
+  expect(nicknameInput.value).toBe("Countess");
+  expect(nicknameInput.disabled).toBe(true);
+});
+
 test("edit mode does not commit when a field is left unchanged on blur", () => {
   const commits: Array<{ key: ContactFieldKey; value: string }> = [];
   const view = render(

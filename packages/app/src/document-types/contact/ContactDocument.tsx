@@ -48,7 +48,8 @@ function ContactDocumentFields({
         </MiniAppButton>
       </MiniAppActions>
       <ContactFields
-        isEditing={isEditing && ready}
+        disabled={!ready}
+        isEditing={isEditing}
         onFieldCommit={(key, value) =>
           setStructuredFields("contact", { [key]: value })
         }

@@ -14,11 +14,19 @@ export type ContactFieldControl = "input" | "textarea";
 export interface ContactFieldDescriptor {
   /** Whether the field offers a copy-to-clipboard action. */
   copyable: boolean;
+  /** Accessible label for the copy action; defaults to `Copy <label>`. */
+  copyLabel?: string;
   control: ContactFieldControl;
   key: ContactFieldKey;
   label: string;
   /** Placeholder shown for empty optional fields while editing. */
   placeholder?: string;
+}
+
+export function getContactCopyLabel(
+  descriptor: ContactFieldDescriptor,
+): string {
+  return descriptor.copyLabel ?? `Copy ${descriptor.label}`;
 }
 
 // A normalized, presentation-only view of a contact: every field is a plain
@@ -58,6 +66,7 @@ export const CONTACT_FIELD_DESCRIPTORS: readonly ContactFieldDescriptor[] = [
   },
   {
     copyable: true,
+    copyLabel: "Copy user ID",
     control: "input",
     key: "userId",
     label: CONTACT_FIELD_LABELS.userId,
