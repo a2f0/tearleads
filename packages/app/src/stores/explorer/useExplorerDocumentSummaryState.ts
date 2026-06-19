@@ -40,6 +40,13 @@ export function useExplorerDocumentSummaryState(
     setDocumentListRevision((revision) => revision + 1);
   }, [domainScope]);
 
+  // Force the container item listing to re-query SQLite without changing the
+  // in-memory summaries (e.g. after a document was deleted out from under the
+  // current view). The detail pane keys its reload on documentListRevision.
+  const bumpDocumentListRevision = useCallback(() => {
+    setDocumentListRevision((revision) => revision + 1);
+  }, []);
+
   const mergeDocumentSummary = useCallback((nextDocument: DocumentSummary) => {
     setDocumentListRevision((revision) => revision + 1);
     setDocumentSummaries((currentDocumentSummaries) =>
@@ -109,6 +116,7 @@ export function useExplorerDocumentSummaryState(
   }, [containerId, domainScope, mergeTrackedDocumentSummary, tearleads]);
 
   return {
+    bumpDocumentListRevision,
     documentListRevision,
     documentSummaries,
     loadDocumentSummary,

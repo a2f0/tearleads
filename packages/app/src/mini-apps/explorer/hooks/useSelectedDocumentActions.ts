@@ -103,16 +103,23 @@ function usePurgeDocumentAction(params: {
 
   return useCallback(
     async (noteId: string) => {
-      if (!canMutateSelectedDocument(appData)) {
-        return null;
-      }
-
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
         noteId,
       });
       if (!existingDocument) {
+        return null;
+      }
+
+      // A never-synced document purges locally; a synced one needs an
+      // authenticated, online session for the server delete — mirror the move
+      // action's branching so the action matches the menu-enable gate.
+      const canPurgeDocument =
+        existingDocument.documentId === null
+          ? canMutateUnsyncedSelectedDocument(appData)
+          : canMutateSelectedDocument(appData);
+      if (!canPurgeDocument) {
         return null;
       }
 

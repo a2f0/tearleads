@@ -212,6 +212,43 @@ export async function purgeRemoteContainerDocument(input: {
   }
 }
 
+interface ContainerDocumentLocalPurgeRuntime
+  extends Pick<ContainerContentsWorkflowRuntime, "infra" | "util"> {}
+
+// Purge a document that was never synced to the server (no remote document id):
+// there is nothing to delete server-side, so we only tear down the local state
+// via the same path a server purge uses. Returns a purge result so the caller
+// treats it like any other successful purge (and refreshes the listing).
+export async function purgeLocalContainerDocument(input: {
+  noteId: string;
+  persistence?: DocumentsPersistence | undefined;
+  runtime: ContainerDocumentLocalPurgeRuntime;
+}): Promise<DocumentPurgeResult> {
+  const { noteId, runtime } = input;
+  const persistence = input.persistence ?? defaultDocumentsPersistence;
+
+  try {
+    await deletePersistedDocument({
+      documentProjectors: runtime.infra.documentProjectors,
+      execSql: runtime.infra.execSql,
+      localId: noteId,
+      persistence,
+    });
+
+    runtime.util.log(`Container contents: purged local-only note ${noteId}`);
+    return {
+      documentId: noteId,
+      purgedAt: new Date().toISOString(),
+      reclaimedBlobStorageKeys: [],
+    };
+  } catch (error) {
+    runtime.util.log(
+      `Container contents: failed to purge local-only note ${noteId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
 export async function linkRemoteContainerDocument(input: {
   documentId: string;
   noteId: string;
