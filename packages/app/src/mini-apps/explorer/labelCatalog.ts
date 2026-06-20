@@ -2,6 +2,7 @@ export const EXPLORER_LABELS = {
   backToContainerAction: "Back to Container",
   blobBrowserAction: "Blob Browser",
   blobBrowserBackAction: "Back to Explorer",
+  blobBrowserBackToListAction: "Back to List",
   blobBrowserBlobColumn: "Blob",
   blobBrowserByteLengthRow: "Size",
   blobBrowserCopiedState: "copied",

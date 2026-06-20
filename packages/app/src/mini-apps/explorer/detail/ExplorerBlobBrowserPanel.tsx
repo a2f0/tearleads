@@ -190,7 +190,11 @@ function getBlobInfoColumns(params: {
       width: "11rem",
     },
     {
-      header: EXPLORER_LABELS.blobBrowserSizeColumn,
+      ariaSort: getBlobSortAria(sort, "byteLength"),
+      header: sortableHeader(
+        "byteLength",
+        EXPLORER_LABELS.blobBrowserSizeColumn,
+      ),
       id: "size",
       width: "7rem",
     },
@@ -464,10 +468,11 @@ function getSelectedBlob(params: {
     );
   }
 
+  // The list is the default screen; only open the detail screen when the route
+  // deep-links to a specific blob. Do not fall back to the first row, which
+  // would skip the list entirely.
   return (
-    params.rows.find((blob) => matchesRouteTarget(blob, params.route)) ??
-    params.rows[0] ??
-    null
+    params.rows.find((blob) => matchesRouteTarget(blob, params.route)) ?? null
   );
 }
 
@@ -813,7 +818,74 @@ function BlobDetail(params: {
   );
 }
 
-export function ExplorerBlobBrowserPanel(params: {
+function BlobBrowserListScreen(params: {
+  blobInfo: BlobInfoListState;
+  frameRef: (frame: HTMLDivElement | null) => void;
+  isWindowPending: boolean;
+  onQueryChange: (value: string) => void;
+  onSelectBlob: (blob: BlobInfo) => void;
+  onSort: (key: BlobInfoSortKey) => void;
+  query: string;
+  rowOffset: number;
+  rows: ReadonlyArray<BlobInfo>;
+  sort: BlobInfoSort;
+}) {
+  return (
+    <>
+      <MiniAppToolbar>
+        <MiniAppInput
+          aria-label={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
+          onChange={(event) => params.onQueryChange(event.currentTarget.value)}
+          placeholder={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
+          value={params.query}
+        />
+      </MiniAppToolbar>
+      <div className="explorer-blob-browser-screen">
+        <BlobInfoTable
+          activeBlob={null}
+          error={params.blobInfo.error}
+          frameRef={params.frameRef}
+          isLoading={params.blobInfo.isLoading || params.isWindowPending}
+          onSelectBlob={params.onSelectBlob}
+          onSort={params.onSort}
+          rowOffset={params.rowOffset}
+          rows={params.rows}
+          sort={params.sort}
+          totalCount={params.blobInfo.totalCount}
+        />
+      </div>
+    </>
+  );
+}
+
+function BlobBrowserHeader(params: {
+  onBack: () => void;
+  selectedBlob: BlobInfo | null;
+}) {
+  const { onBack, selectedBlob } = params;
+
+  return (
+    <MiniAppHeader>
+      <MiniAppHeaderCopy>
+        <strong>{EXPLORER_LABELS.blobBrowserTitle}</strong>
+        <span>
+          {selectedBlob
+            ? compactId(selectedBlob.blobId ?? selectedBlob.storageKey)
+            : EXPLORER_LABELS.blobBrowserNoSelection}
+        </span>
+      </MiniAppHeaderCopy>
+      <MiniAppActions>
+        <MiniAppButton onClick={onBack}>
+          {selectedBlob
+            ? EXPLORER_LABELS.blobBrowserBackToListAction
+            : EXPLORER_LABELS.blobBrowserBackAction}
+        </MiniAppButton>
+      </MiniAppActions>
+    </MiniAppHeader>
+  );
+}
+
+interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -821,10 +893,19 @@ export function ExplorerBlobBrowserPanel(params: {
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   route: BlobBrowserRoute;
   selectDocumentProjection: (noteId: string, containerId: string) => void;
+}
+
+function useBlobBrowserData(params: {
+  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  route: BlobBrowserRoute;
 }) {
   const [query, setQuery] = useState(() => getBlobRouteQuery(params.route));
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [activeBlob, setActiveBlob] = useState<BlobInfo | null>(null);
+  // Tracks whether the user dismissed the detail screen. Needed because a
+  // route deep-link makes getSelectedBlob return a blob even when activeBlob is
+  // null, so clearing activeBlob alone could not return to the list.
+  const [isDetailDismissed, setIsDetailDismissed] = useState(false);
   const [sort, setSort] = useState<BlobInfoSort>({
     direction: "desc",
     key: "updated",
@@ -846,18 +927,25 @@ export function ExplorerBlobBrowserPanel(params: {
   const isResettingWindow = isWindowPending && offset === 0;
   const rows = isResettingWindow ? [] : blobInfo.rows;
   const rowOffset = isResettingWindow ? 0 : blobInfo.offset;
-  const selectedBlob = getSelectedBlob({
-    activeBlob,
-    route: params.route,
-    rows,
-  });
-  const containerNamesById = useMemo(
-    () => getContainerNameById(params.nodes),
-    [params.nodes],
-  );
+  const selectedBlob = isDetailDismissed
+    ? null
+    : getSelectedBlob({ activeBlob, route: params.route, rows });
   const handleSort = useCallback((key: BlobInfoSortKey) => {
     setActiveBlob(null);
     setSort((currentSort) => getNextBlobInfoSort(currentSort, key));
+  }, []);
+  const handleSelectBlob = useCallback((blob: BlobInfo) => {
+    setActiveBlob(blob);
+    setIsDetailDismissed(false);
+  }, []);
+  const handleBackToList = useCallback(() => {
+    setActiveBlob(null);
+    setIsDetailDismissed(true);
+  }, []);
+  const handleQueryChange = useCallback((value: string) => {
+    setActiveBlob(null);
+    setIsDetailDismissed(true);
+    setQuery(value);
   }, []);
 
   useEffect(() => {
@@ -870,9 +958,52 @@ export function ExplorerBlobBrowserPanel(params: {
 
   useEffect(() => {
     setActiveBlob(null);
+    setIsDetailDismissed(false);
     setQuery(routeQuery);
     setDebouncedQuery(routeQuery);
   }, [routeQuery]);
+
+  return {
+    blobInfo,
+    frameRef,
+    handleBackToList,
+    handleQueryChange,
+    handleSelectBlob,
+    handleSort,
+    isWindowPending,
+    query,
+    rowOffset,
+    rows,
+    selectedBlob,
+    sort,
+  };
+}
+
+export function ExplorerBlobBrowserPanel(
+  params: ExplorerBlobBrowserPanelProps,
+) {
+  const {
+    blobInfo,
+    frameRef,
+    handleBackToList,
+    handleQueryChange,
+    handleSelectBlob,
+    handleSort,
+    isWindowPending,
+    query,
+    rowOffset,
+    rows,
+    selectedBlob,
+    sort,
+  } = useBlobBrowserData({
+    loadBlobInfo: params.loadBlobInfo,
+    route: params.route,
+  });
+  const containerNamesById = useMemo(
+    () => getContainerNameById(params.nodes),
+    [params.nodes],
+  );
+  const isDetailScreen = selectedBlob !== null;
 
   return (
     <MiniAppPanel
@@ -880,53 +1011,36 @@ export function ExplorerBlobBrowserPanel(params: {
       key={`${params.route.blobId ?? ""}:${params.route.storageKey ?? ""}`}
       variant="framed"
     >
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.blobBrowserTitle}</strong>
-          <span>
-            {selectedBlob
-              ? compactId(selectedBlob.blobId ?? selectedBlob.storageKey)
-              : EXPLORER_LABELS.blobBrowserNoSelection}
-          </span>
-        </MiniAppHeaderCopy>
-        <MiniAppActions>
-          <MiniAppButton onClick={params.onBackToSelectionRoute}>
-            {EXPLORER_LABELS.blobBrowserBackAction}
-          </MiniAppButton>
-        </MiniAppActions>
-      </MiniAppHeader>
-      <MiniAppToolbar>
-        <MiniAppInput
-          aria-label={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
-          onChange={(event) => {
-            setActiveBlob(null);
-            setQuery(event.currentTarget.value);
-          }}
-          placeholder={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
-          value={query}
-        />
-      </MiniAppToolbar>
-      <div className="explorer-blob-browser-grid">
-        <BlobInfoTable
-          activeBlob={selectedBlob}
-          error={blobInfo.error}
+      <BlobBrowserHeader
+        onBack={
+          isDetailScreen ? handleBackToList : params.onBackToSelectionRoute
+        }
+        selectedBlob={selectedBlob}
+      />
+      {isDetailScreen ? (
+        <div className="explorer-blob-browser-screen">
+          <BlobDetail
+            blob={selectedBlob}
+            blobStore={params.blobStore}
+            containerNamesById={containerNamesById}
+            openDocumentInfoRoute={params.openDocumentInfoRoute}
+            selectDocumentProjection={params.selectDocumentProjection}
+          />
+        </div>
+      ) : (
+        <BlobBrowserListScreen
+          blobInfo={blobInfo}
           frameRef={frameRef}
-          isLoading={blobInfo.isLoading || isWindowPending}
-          onSelectBlob={setActiveBlob}
+          isWindowPending={isWindowPending}
+          onQueryChange={handleQueryChange}
+          onSelectBlob={handleSelectBlob}
           onSort={handleSort}
+          query={query}
           rowOffset={rowOffset}
           rows={rows}
           sort={sort}
-          totalCount={blobInfo.totalCount}
         />
-        <BlobDetail
-          blob={selectedBlob}
-          blobStore={params.blobStore}
-          containerNamesById={containerNamesById}
-          openDocumentInfoRoute={params.openDocumentInfoRoute}
-          selectDocumentProjection={params.selectDocumentProjection}
-        />
-      </div>
+      )}
     </MiniAppPanel>
   );
 }

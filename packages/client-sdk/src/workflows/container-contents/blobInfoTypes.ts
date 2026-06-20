@@ -2,7 +2,7 @@ import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 
 export type BlobInfoAttachmentKind = "local" | "pending";
 export type BlobInfoSortDirection = "asc" | "desc";
-export type BlobInfoSortKey = "mimeType" | "updated";
+export type BlobInfoSortKey = "byteLength" | "mimeType" | "updated";
 
 export interface BlobInfoSort {
   readonly direction: BlobInfoSortDirection;

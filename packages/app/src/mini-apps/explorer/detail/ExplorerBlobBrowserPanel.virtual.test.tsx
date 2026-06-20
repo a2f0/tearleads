@@ -46,6 +46,99 @@ function createBlobStore(): BlobStore {
   };
 }
 
+test("blob browser navigates between the list and detail screens", async () => {
+  const rows = createBlobRows(3);
+  const loadBlobInfo = async (
+    input: BlobInfoInput = {},
+  ): Promise<{ rows: BlobInfo[]; totalCount: number }> => {
+    const limit = input.limit ?? 24;
+    const offset = input.offset ?? 0;
+    return {
+      rows: rows.slice(offset, offset + limit),
+      totalCount: rows.length,
+    };
+  };
+  const view = render(
+    <ExplorerBlobBrowserPanel
+      blobStore={createBlobStore()}
+      loadBlobInfo={loadBlobInfo}
+      nodes={[]}
+      onBackToSelectionRoute={() => undefined}
+      openDocumentInfoRoute={() => undefined}
+      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      selectDocumentProjection={() => undefined}
+    />,
+  );
+
+  // List screen: the table is visible, the detail metadata heading is not.
+  await waitFor(() => {
+    expect(
+      view.container.querySelector(".explorer-blob-browser-table-wrap"),
+    ).toBeTruthy();
+  });
+  expect(view.queryByText("Blob Metadata")).toBeNull();
+
+  // Click a blob row to push the detail screen.
+  fireEvent.click(view.getByRole("button", { name: "blob-1" }));
+
+  await waitFor(() => {
+    expect(view.getByText("Blob Metadata")).toBeTruthy();
+  });
+  expect(
+    view.container.querySelector(".explorer-blob-browser-table-wrap"),
+  ).toBeNull();
+
+  // The back button returns to the list screen.
+  fireEvent.click(view.getByRole("button", { name: "Back to List" }));
+
+  await waitFor(() => {
+    expect(
+      view.container.querySelector(".explorer-blob-browser-table-wrap"),
+    ).toBeTruthy();
+  });
+  expect(view.queryByText("Blob Metadata")).toBeNull();
+});
+
+test("blob browser returns to the list from a deep-linked detail screen", async () => {
+  const rows = createBlobRows(3);
+  const loadBlobInfo = async (
+    input: BlobInfoInput = {},
+  ): Promise<{ rows: BlobInfo[]; totalCount: number }> => {
+    const limit = input.limit ?? 24;
+    const offset = input.offset ?? 0;
+    return {
+      rows: rows.slice(offset, offset + limit),
+      totalCount: rows.length,
+    };
+  };
+  // Deep-link straight to a blob's detail screen via the route.
+  const view = render(
+    <ExplorerBlobBrowserPanel
+      blobStore={createBlobStore()}
+      loadBlobInfo={loadBlobInfo}
+      nodes={[]}
+      onBackToSelectionRoute={() => undefined}
+      openDocumentInfoRoute={() => undefined}
+      route={{ blobId: "blob-2", storageKey: null, view: "blob-browser" }}
+      selectDocumentProjection={() => undefined}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("Blob Metadata")).toBeTruthy();
+  });
+
+  // Back to List must escape the deep-linked detail, not stay stuck on it.
+  fireEvent.click(view.getByRole("button", { name: "Back to List" }));
+
+  await waitFor(() => {
+    expect(
+      view.container.querySelector(".explorer-blob-browser-table-wrap"),
+    ).toBeTruthy();
+  });
+  expect(view.queryByText("Blob Metadata")).toBeNull();
+});
+
 test("blob browser requests a new blob window when the table scrolls", async () => {
   resizeObserverGlobal.ResizeObserver = undefined;
   const rows = createBlobRows(80);
