@@ -272,7 +272,12 @@
   position: relative;
 }
 
-.explorer-item-row-button {
+.explorer-blob-browser-table-row {
+  position: relative;
+}
+
+.explorer-item-row-button,
+.explorer-blob-browser-row-button {
   display: block;
   width: 100%;
   min-width: 0;
@@ -285,7 +290,8 @@
   cursor: pointer;
 }
 
-.explorer-item-row-button::after {
+.explorer-item-row-button::after,
+.explorer-blob-browser-row-button::after {
   content: "";
   position: absolute;
   inset: 0;

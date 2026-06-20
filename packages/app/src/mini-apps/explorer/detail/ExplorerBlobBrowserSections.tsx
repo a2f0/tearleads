@@ -91,12 +91,14 @@ function BlobInfoTable(params: {
         {params.rows.length > 0 ? (
           params.rows.map((blob) => (
             <MiniAppTableRow
+              className="explorer-blob-browser-table-row"
               interactive
               key={blob.key}
               selected={params.activeBlob?.key === blob.key}
             >
               <MiniAppTableCell title={blob.blobId ?? blob.storageKey}>
                 <MiniAppTableActionButton
+                  className="explorer-blob-browser-row-button"
                   onClick={() => params.onSelectBlob(blob)}
                 >
                   {compactId(blob.blobId ?? blob.storageKey)}
