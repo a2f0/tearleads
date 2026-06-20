@@ -7,6 +7,7 @@ import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useEffect, useRef, useState } from "react";
 import {
+  SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
   USER_SYSTEM_CONTAINER_DEFINITIONS,
   type UserSystemContainerKind,
 } from "../systemContainers";
@@ -31,6 +32,7 @@ const SYSTEM_NODE_SYNC_STATUS_RANK = {
 function shouldShowExplorerSystemSlot(
   node: ContainerNode,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
+  currentOrganizationId?: string | null,
 ): boolean {
   const systemSlot = node.systemSlot ?? null;
   if (!systemSlot) {
@@ -38,7 +40,24 @@ function shouldShowExplorerSystemSlot(
   }
 
   if (visibleSystemSlots !== undefined && visibleSystemSlots.size > 0) {
-    return visibleSystemSlots.has(systemSlot);
+    if (visibleSystemSlots.has(systemSlot)) {
+      return true;
+    }
+
+    // A system folder under another user's shared root carries an opaque
+    // per-owner HMAC slot that never matches the viewer's derived set, so it
+    // is classified by name and kept only if it is shareable. The shared-root
+    // test (a different, valid organization) is what distinguishes a legitimate
+    // peer folder from a same-org spoof reusing a system name with a foreign
+    // slot. A missing organizationId must not pass as "shared" — this gate
+    // controls whether another user's system folder is shown.
+    const isUnderSharedRoot =
+      currentOrganizationId != null &&
+      node.organizationId !== "" &&
+      node.organizationId !== currentOrganizationId;
+    return (
+      isUnderSharedRoot && SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES.has(node.name)
+    );
   }
 
   return USER_SYSTEM_CONTAINER_NAMES.has(node.name);
@@ -69,13 +88,20 @@ function shouldPreferExplorerSystemNode(
 export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
+  currentOrganizationId?: string | null,
 ): ContainerContentsContextValue["nodes"] {
   const visibleNodes: ContainerNode[] = [];
   const systemSlotIndexes = new Map<ContainerSystemSlot, number>();
 
   for (const node of nodes ?? []) {
     const systemSlot = node.systemSlot ?? null;
-    if (!shouldShowExplorerSystemSlot(node, visibleSystemSlots)) {
+    if (
+      !shouldShowExplorerSystemSlot(
+        node,
+        visibleSystemSlots,
+        currentOrganizationId,
+      )
+    ) {
       continue;
     }
 

@@ -112,6 +112,125 @@ test("explorer keeps one visible system container per slot", () => {
   ).toEqual(["root-container", "contacts-remote-container", "trash-container"]);
 });
 
+test("explorer shows a shared peer's Contacts but hides their Trash", () => {
+  // The viewer owns these slots (derived from their own signing key).
+  const ownContactsSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const ownTrashSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
+  // A peer's system slots are HMAC'd from the peer's key, so they never match
+  // the viewer's visibleSystemSlots set.
+  const peerContactsSlot = "sys_v1_ddddddddddddddddddddddddddddddddddddddddddd";
+  const peerTrashSlot = "sys_v1_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
+  expect(
+    getVisibleExplorerNodes(
+      [
+        {
+          id: "own-root",
+          kind: "container",
+          name: "/",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+        {
+          id: "peer-root",
+          kind: "container",
+          name: "/",
+          organizationId: "org-2",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+        {
+          id: "peer-contacts",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "org-2",
+          parentId: "peer-root",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: peerContactsSlot,
+        },
+        {
+          id: "peer-trash",
+          kind: "container",
+          name: "Trash",
+          organizationId: "org-2",
+          parentId: "peer-root",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: peerTrashSlot,
+        },
+      ],
+      new Set([ownContactsSlot, ownTrashSlot]),
+      "org-1",
+    ).map((node) => node.id),
+  ).toEqual(["own-root", "peer-root", "peer-contacts"]);
+});
+
+test("explorer hides a same-org spoof reusing a system name with a foreign slot", () => {
+  const ownContactsSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+  expect(
+    getVisibleExplorerNodes(
+      [
+        {
+          id: "own-root",
+          kind: "container",
+          name: "/",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+        {
+          // Same org as the viewer but a slot they did not derive: a spoof, not
+          // a shared peer folder. Must stay hidden even though it is named
+          // "Contacts".
+          id: "spoofed-contacts",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "org-1",
+          parentId: "own-root",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "sys_v1_ddddddddddddddddddddddddddddddddddddddddddd",
+        },
+      ],
+      new Set([ownContactsSlot]),
+      "org-1",
+    ).map((node) => node.id),
+  ).toEqual(["own-root"]);
+});
+
+test("explorer hides a system folder with a missing org and a foreign slot", () => {
+  const ownContactsSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+  expect(
+    getVisibleExplorerNodes(
+      [
+        {
+          id: "own-root",
+          kind: "container",
+          name: "/",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+        {
+          // A foreign-slot "Contacts" with no organization must not pass the
+          // shared-root gate just because its (empty) org differs from the
+          // viewer's. Otherwise a malformed node would be treated as shared.
+          id: "orgless-contacts",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "",
+          parentId: "own-root",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "sys_v1_ddddddddddddddddddddddddddddddddddddddddddd",
+        },
+      ],
+      new Set([ownContactsSlot]),
+      "org-1",
+    ).map((node) => node.id),
+  ).toEqual(["own-root"]);
+});
+
 test("explorer store uses one local system container across stale store snapshots", async () => {
   const runtime = await createSqlRuntime();
   const systemSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
