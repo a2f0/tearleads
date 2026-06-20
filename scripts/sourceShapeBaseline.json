@@ -169,10 +169,6 @@
       "lines": 1156,
       "bytes": 32410
     },
-    "packages/app/src/mini-apps/explorer/detail/ExplorerBlobBrowserPanel.tsx": {
-      "lines": 1046,
-      "bytes": 29392
-    },
     "packages/app/src/mini-apps/explorer/detail/ExplorerContainerInfoSections.tsx": {
       "lines": 680,
       "bytes": 21465

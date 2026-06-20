@@ -10,8 +10,8 @@ import {
 } from "../../../components/shared/MiniAppLayout";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import { EXPLORER_LABELS } from "../labels";
+import { compactId } from "./compactId";
 import {
-  compactId,
   ExplorerDocumentInfoAttachmentsSection,
   ExplorerDocumentInfoAuthorizingContainersSection,
   ExplorerDocumentInfoLocalSection,

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   getBlobInfoWindowRange,
   getNextBlobInfoSort,
-} from "./ExplorerBlobBrowserPanel";
+} from "./ExplorerBlobBrowserState";
 
 test("blob info sort toggles the active column and initializes MIME ascending", () => {
   expect(
