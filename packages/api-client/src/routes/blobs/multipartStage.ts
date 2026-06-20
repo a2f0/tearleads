@@ -18,7 +18,7 @@ const BLOB_PART_UPLOAD_ID_HEADER = "X-Tearleads-Blob-Upload-Id";
 
 export interface UploadMultipartBlobPartBytesRequest {
   readonly byteLength: number;
-  readonly encryptedBytes: BodyInit;
+  readonly encryptedBytes: Blob | BufferSource;
   readonly sha256: string;
   readonly uploadId: string;
 }
