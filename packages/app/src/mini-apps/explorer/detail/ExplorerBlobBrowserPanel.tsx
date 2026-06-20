@@ -902,6 +902,10 @@ function useBlobBrowserData(params: {
   const [query, setQuery] = useState(() => getBlobRouteQuery(params.route));
   const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [activeBlob, setActiveBlob] = useState<BlobInfo | null>(null);
+  // Tracks whether the user dismissed the detail screen. Needed because a
+  // route deep-link makes getSelectedBlob return a blob even when activeBlob is
+  // null, so clearing activeBlob alone could not return to the list.
+  const [isDetailDismissed, setIsDetailDismissed] = useState(false);
   const [sort, setSort] = useState<BlobInfoSort>({
     direction: "desc",
     key: "updated",
@@ -923,14 +927,25 @@ function useBlobBrowserData(params: {
   const isResettingWindow = isWindowPending && offset === 0;
   const rows = isResettingWindow ? [] : blobInfo.rows;
   const rowOffset = isResettingWindow ? 0 : blobInfo.offset;
-  const selectedBlob = getSelectedBlob({
-    activeBlob,
-    route: params.route,
-    rows,
-  });
+  const selectedBlob = isDetailDismissed
+    ? null
+    : getSelectedBlob({ activeBlob, route: params.route, rows });
   const handleSort = useCallback((key: BlobInfoSortKey) => {
     setActiveBlob(null);
     setSort((currentSort) => getNextBlobInfoSort(currentSort, key));
+  }, []);
+  const handleSelectBlob = useCallback((blob: BlobInfo) => {
+    setActiveBlob(blob);
+    setIsDetailDismissed(false);
+  }, []);
+  const handleBackToList = useCallback(() => {
+    setActiveBlob(null);
+    setIsDetailDismissed(true);
+  }, []);
+  const handleQueryChange = useCallback((value: string) => {
+    setActiveBlob(null);
+    setIsDetailDismissed(true);
+    setQuery(value);
   }, []);
 
   useEffect(() => {
@@ -943,6 +958,7 @@ function useBlobBrowserData(params: {
 
   useEffect(() => {
     setActiveBlob(null);
+    setIsDetailDismissed(false);
     setQuery(routeQuery);
     setDebouncedQuery(routeQuery);
   }, [routeQuery]);
@@ -950,17 +966,15 @@ function useBlobBrowserData(params: {
   return {
     blobInfo,
     frameRef,
+    handleBackToList,
+    handleQueryChange,
+    handleSelectBlob,
     handleSort,
     isWindowPending,
-    onQueryChange: (value: string) => {
-      setActiveBlob(null);
-      setQuery(value);
-    },
     query,
     rowOffset,
     rows,
     selectedBlob,
-    setActiveBlob,
     sort,
   };
 }
@@ -971,14 +985,15 @@ export function ExplorerBlobBrowserPanel(
   const {
     blobInfo,
     frameRef,
+    handleBackToList,
+    handleQueryChange,
+    handleSelectBlob,
     handleSort,
     isWindowPending,
-    onQueryChange,
     query,
     rowOffset,
     rows,
     selectedBlob,
-    setActiveBlob,
     sort,
   } = useBlobBrowserData({
     loadBlobInfo: params.loadBlobInfo,
@@ -998,9 +1013,7 @@ export function ExplorerBlobBrowserPanel(
     >
       <BlobBrowserHeader
         onBack={
-          isDetailScreen
-            ? () => setActiveBlob(null)
-            : params.onBackToSelectionRoute
+          isDetailScreen ? handleBackToList : params.onBackToSelectionRoute
         }
         selectedBlob={selectedBlob}
       />
@@ -1019,8 +1032,8 @@ export function ExplorerBlobBrowserPanel(
           blobInfo={blobInfo}
           frameRef={frameRef}
           isWindowPending={isWindowPending}
-          onQueryChange={onQueryChange}
-          onSelectBlob={setActiveBlob}
+          onQueryChange={handleQueryChange}
+          onSelectBlob={handleSelectBlob}
           onSort={handleSort}
           query={query}
           rowOffset={rowOffset}
