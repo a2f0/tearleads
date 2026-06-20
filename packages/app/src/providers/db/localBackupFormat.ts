@@ -5,6 +5,8 @@ export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
 export const BACKUP_FORMAT_VERSION = 1;
 
 const BACKUP_KDF_ITERATIONS = 250_000;
+const BACKUP_KDF_MIN_ITERATIONS = 1_000;
+const BACKUP_KDF_MAX_ITERATIONS = 1_000_000;
 const BACKUP_KEY_BITS = 256;
 const BACKUP_SALT_BYTES = 16;
 const BACKUP_IV_BYTES = 12;
@@ -123,6 +125,19 @@ function readNumber(value: unknown, label: string): number {
   return value;
 }
 
+function readBackupKdfIterations(value: unknown): number {
+  const iterations = readNumber(value, "Backup KDF iterations");
+  if (
+    !Number.isInteger(iterations) ||
+    iterations < BACKUP_KDF_MIN_ITERATIONS ||
+    iterations > BACKUP_KDF_MAX_ITERATIONS
+  ) {
+    throw new Error("Backup KDF iterations count is out of safe bounds.");
+  }
+
+  return iterations;
+}
+
 function readBackupSqlValue(value: unknown, label: string): BackupSqlValue {
   if (value === null || typeof value === "string") {
     return value;
@@ -219,10 +234,7 @@ function validateBackupFileEnvelope(value: unknown): BackupFileEnvelope {
     format: BACKUP_FILE_FORMAT,
     kdf: {
       hash: "SHA-256",
-      iterations: readNumber(
-        readProperty(kdf, "iterations"),
-        "Backup KDF iterations",
-      ),
+      iterations: readBackupKdfIterations(readProperty(kdf, "iterations")),
       name: "PBKDF2",
       salt: readString(readProperty(kdf, "salt"), "Backup KDF salt"),
     },

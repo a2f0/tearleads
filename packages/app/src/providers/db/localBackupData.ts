@@ -71,6 +71,11 @@ function readString(row: SqlRow, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+function readNumber(row: SqlRow | undefined, key: string): number {
+  const value = row?.[key];
+  return typeof value === "number" ? value : 0;
+}
+
 function quoteSqlIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
@@ -336,29 +341,44 @@ async function restoreDatabaseTables(input: {
   readonly tables: ReadonlyArray<BackupTable>;
 }): Promise<void> {
   await runSerializedSqlMutation(input.execSql, async (execSql) => {
-    await execSql("BEGIN IMMEDIATE");
+    const wasForeignKeysEnabled =
+      readNumber((await execSql("PRAGMA foreign_keys"))[0], "foreign_keys") ===
+      1;
+    if (wasForeignKeysEnabled) {
+      await execSql("PRAGMA foreign_keys = OFF");
+    }
+
     try {
-      const currentTables = await listUserTableDefinitions(execSql);
-      for (const table of [...currentTables].reverse()) {
-        await execSql(`DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}`);
-      }
+      await execSql("BEGIN IMMEDIATE");
+      try {
+        const currentTables = await listUserTableDefinitions(execSql);
+        for (const table of [...currentTables].reverse()) {
+          await execSql(
+            `DROP TABLE IF EXISTS ${quoteSqlIdentifier(table.name)}`,
+          );
+        }
 
-      for (const table of input.tables) {
-        await execSql(table.sql);
-      }
+        for (const table of input.tables) {
+          await execSql(table.sql);
+        }
 
-      for (const table of input.tables) {
-        await insertBackupTable({ execSql, table });
-      }
+        for (const table of input.tables) {
+          await insertBackupTable({ execSql, table });
+        }
 
-      for (const index of input.indexes) {
-        await execSql(index.sql);
-      }
+        for (const index of input.indexes) {
+          await execSql(index.sql);
+        }
 
-      await execSql("COMMIT");
-    } catch (error) {
-      await execSql("ROLLBACK").catch(() => undefined);
-      throw error;
+        await execSql("COMMIT");
+      } catch (error) {
+        await execSql("ROLLBACK").catch(() => undefined);
+        throw error;
+      }
+    } finally {
+      if (wasForeignKeysEnabled) {
+        await execSql("PRAGMA foreign_keys = ON").catch(() => undefined);
+      }
     }
   });
 }

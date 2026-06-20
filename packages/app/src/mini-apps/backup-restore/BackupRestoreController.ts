@@ -73,7 +73,14 @@ function formatSummary(summary: BackupSummary): string {
   return `${summary.rowCount} rows, ${summary.blobCount} blobs${missingBlobText}`;
 }
 
-function useExportBackupAction(input: {
+function useExportBackupAction({
+  backupPassword,
+  confirmBackupPassword,
+  exportLocalBackup,
+  log,
+  logError,
+  state,
+}: {
   readonly backupPassword: string;
   readonly confirmBackupPassword: string;
   readonly exportLocalBackup: ExportLocalBackup;
@@ -81,90 +88,157 @@ function useExportBackupAction(input: {
   readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly state: BackupRestoreOperationState;
 }) {
+  const {
+    resetOperationState,
+    setBackupPassword,
+    setBusy,
+    setConfirmBackupPassword,
+    setError,
+    setLastSummary,
+    setProgress,
+    setStatus,
+  } = state;
+
   return useCallback(async () => {
-    input.state.resetOperationState();
-    if (!input.backupPassword) {
-      input.state.setError("Enter a backup password.");
+    resetOperationState();
+    if (!backupPassword) {
+      setError("Enter a backup password.");
       return;
     }
-    if (input.backupPassword !== input.confirmBackupPassword) {
-      input.state.setError("Backup passwords do not match.");
+    if (backupPassword !== confirmBackupPassword) {
+      setError("Backup passwords do not match.");
       return;
     }
 
-    input.state.setBusy("export");
+    setBusy("export");
     try {
-      const result = await input.exportLocalBackup({
-        onProgress: input.state.setProgress,
-        password: input.backupPassword,
+      const result = await exportLocalBackup({
+        onProgress: setProgress,
+        password: backupPassword,
       });
       downloadBackupFile({
         fileName: result.fileName,
         text: result.text,
       });
-      input.state.setBackupPassword("");
-      input.state.setConfirmBackupPassword("");
-      input.state.setLastSummary(result.summary);
-      input.state.setStatus(
-        `Backup exported: ${formatSummary(result.summary)}.`,
-      );
-      input.log("Local backup exported");
+      setBackupPassword("");
+      setConfirmBackupPassword("");
+      setLastSummary(result.summary);
+      setStatus(`Backup exported: ${formatSummary(result.summary)}.`);
+      log("Local backup exported");
     } catch (operationError: unknown) {
-      input.logError("Failed to export local backup", operationError);
-      input.state.setError(readErrorMessage(operationError));
+      logError("Failed to export local backup", operationError);
+      setError(readErrorMessage(operationError));
     } finally {
-      input.state.setBusy(null);
-      input.state.setProgress(null);
+      setBusy(null);
+      setProgress(null);
     }
-  }, [input]);
+  }, [
+    backupPassword,
+    confirmBackupPassword,
+    exportLocalBackup,
+    log,
+    logError,
+    resetOperationState,
+    setBackupPassword,
+    setBusy,
+    setConfirmBackupPassword,
+    setError,
+    setLastSummary,
+    setProgress,
+    setStatus,
+  ]);
 }
 
-function useRestoreBackupAction(input: {
+function useRestoreBackupAction({
+  log,
+  logError,
+  restorePassword,
+  restoreLocalBackup,
+  state,
+}: {
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly restorePassword: string;
   readonly restoreLocalBackup: RestoreLocalBackup;
   readonly state: BackupRestoreOperationState;
 }) {
+  const {
+    resetOperationState,
+    restoreFileInputRef,
+    selectedRestoreFileText,
+    setBusy,
+    setError,
+    setLastSummary,
+    setProgress,
+    setRestoreComplete,
+    setRestorePassword,
+    setSelectedRestoreFileName,
+    setSelectedRestoreFileText,
+    setStatus,
+  } = state;
+
   return useCallback(async () => {
-    input.state.resetOperationState();
-    if (!input.state.selectedRestoreFileText) {
-      input.state.setError("Choose a backup file.");
+    resetOperationState();
+    if (!selectedRestoreFileText) {
+      setError("Choose a backup file.");
       return;
     }
-    if (!input.restorePassword) {
-      input.state.setError("Enter the restore password.");
+    if (!restorePassword) {
+      setError("Enter the restore password.");
       return;
     }
 
-    input.state.setBusy("restore");
+    setBusy("restore");
     try {
-      const summary = await input.restoreLocalBackup({
-        onProgress: input.state.setProgress,
-        password: input.restorePassword,
-        text: input.state.selectedRestoreFileText,
+      const summary = await restoreLocalBackup({
+        onProgress: setProgress,
+        password: restorePassword,
+        text: selectedRestoreFileText,
       });
-      input.state.setLastSummary(summary);
-      input.state.setRestorePassword("");
-      input.state.setSelectedRestoreFileName(null);
-      input.state.setSelectedRestoreFileText(null);
-      input.state.setRestoreComplete(true);
-      input.state.setStatus(`Backup restored: ${formatSummary(summary)}.`);
-      input.log("Local backup restored");
+      setLastSummary(summary);
+      setRestorePassword("");
+      setSelectedRestoreFileName(null);
+      setSelectedRestoreFileText(null);
+      setRestoreComplete(true);
+      setStatus(`Backup restored: ${formatSummary(summary)}.`);
+      log("Local backup restored");
     } catch (operationError: unknown) {
-      input.logError("Failed to restore local backup", operationError);
-      input.state.setError(readErrorMessage(operationError));
+      logError("Failed to restore local backup", operationError);
+      setError(readErrorMessage(operationError));
     } finally {
-      input.state.setBusy(null);
-      input.state.setProgress(null);
-      if (input.state.restoreFileInputRef.current) {
-        input.state.restoreFileInputRef.current.value = "";
+      setBusy(null);
+      setProgress(null);
+      if (restoreFileInputRef.current) {
+        restoreFileInputRef.current.value = "";
       }
     }
-  }, [input]);
+  }, [
+    log,
+    logError,
+    resetOperationState,
+    restoreFileInputRef,
+    restoreLocalBackup,
+    restorePassword,
+    selectedRestoreFileText,
+    setBusy,
+    setError,
+    setLastSummary,
+    setProgress,
+    setRestoreComplete,
+    setRestorePassword,
+    setSelectedRestoreFileName,
+    setSelectedRestoreFileText,
+    setStatus,
+  ]);
 }
 
-function useRestoreFileSelection(input: {
+function useRestoreFileSelection({
+  logError,
+  resetOperationState,
+  setError,
+  setSelectedRestoreFileName,
+  setSelectedRestoreFileText,
+}: {
   readonly logError: (message: string | Error, cause?: unknown) => void;
   readonly resetOperationState: () => void;
   readonly setError: (value: string | null) => void;
@@ -173,24 +247,30 @@ function useRestoreFileSelection(input: {
 }) {
   return useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      input.resetOperationState();
+      resetOperationState();
       const file = event.currentTarget.files?.[0];
       if (!file) {
         return;
       }
 
-      input.setSelectedRestoreFileName(file.name);
+      setSelectedRestoreFileName(file.name);
       void file
         .text()
-        .then(input.setSelectedRestoreFileText)
+        .then(setSelectedRestoreFileText)
         .catch((fileError: unknown) => {
-          input.logError("Failed to read local backup file", fileError);
-          input.setSelectedRestoreFileName(null);
-          input.setSelectedRestoreFileText(null);
-          input.setError(readErrorMessage(fileError));
+          logError("Failed to read local backup file", fileError);
+          setSelectedRestoreFileName(null);
+          setSelectedRestoreFileText(null);
+          setError(readErrorMessage(fileError));
         });
     },
-    [input],
+    [
+      logError,
+      resetOperationState,
+      setError,
+      setSelectedRestoreFileName,
+      setSelectedRestoreFileText,
+    ],
   );
 }
 
