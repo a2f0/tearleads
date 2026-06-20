@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   formatBlobStoreKeyLine,
+  parseListBlobStoreKeysArgs,
   readS3BlobStoreListKeysSettings,
 } from "./blobStoreKeys";
 
@@ -45,6 +46,44 @@ test("blob store key line prefixes size when requested", () => {
 test("blob store key line tolerates missing size when requested", () => {
   expect(formatBlobStoreKeyLine("blobs/abc", undefined, true)).toBe(
     "\tblobs/abc",
+  );
+});
+
+test("blob store args default to no prefix and no size", () => {
+  expect(parseListBlobStoreKeysArgs([])).toEqual({
+    prefix: undefined,
+    withSize: false,
+  });
+});
+
+test("blob store args parse prefix and size flags in any order", () => {
+  expect(
+    parseListBlobStoreKeysArgs(["--prefix", "blobs/", "--with-size"]),
+  ).toEqual({ prefix: "blobs/", withSize: true });
+  expect(
+    parseListBlobStoreKeysArgs(["--with-size", "--prefix=blobs/"]),
+  ).toEqual({
+    prefix: "blobs/",
+    withSize: true,
+  });
+});
+
+test("blob store args keep a literal --with-size used as the prefix value", () => {
+  expect(parseListBlobStoreKeysArgs(["--prefix", "--with-size"])).toEqual({
+    prefix: "--with-size",
+    withSize: false,
+  });
+});
+
+test("blob store args reject a prefix flag without a value", () => {
+  expect(() => parseListBlobStoreKeysArgs(["--prefix"])).toThrow(
+    "--prefix requires a value",
+  );
+});
+
+test("blob store args reject unknown arguments", () => {
+  expect(() => parseListBlobStoreKeysArgs(["--nope"])).toThrow(
+    "Unknown argument: --nope",
   );
 });
 
