@@ -84,7 +84,7 @@ hcloud_server_ip_for_tier() {
 resolve_garage_ssh_target() {
   local stack_dir="$1"
   local tier="$2"
-  local username hostname server_ip ssh_target
+  local username server_ip ssh_target
 
   if [[ -n "${GARAGE_SSH_TARGET:-}" ]]; then
     wait_for_ssh_ready "$GARAGE_SSH_TARGET" >&2 || return 1
@@ -92,27 +92,24 @@ resolve_garage_ssh_target() {
     return 0
   fi
 
+  # Prefer the shared resolver, which tries the public server IP before the
+  # Tailscale hostname. MagicDNS can lag after a server replacement, so the
+  # hostname-first order this script used to use would hang on a stale name.
+  if ssh_target="$(resolve_stack_ssh_target "$stack_dir")"; then
+    echo "$ssh_target"
+    return 0
+  fi
+
+  # Fallback for workstations without complete Terraform outputs: resolve the
+  # public IP straight from the Hetzner API.
   username="$(terraform_output_raw "$stack_dir" server_username || true)"
   username="${username:-${TF_VAR_server_username:-}}"
-  hostname="$(terraform_output_raw "$stack_dir" ssh_hostname || true)"
-  hostname="${hostname:-$tier}"
-
   if [[ -z "$username" ]]; then
     echo "ERROR: Could not resolve server username from Terraform outputs or TF_VAR_server_username." >&2
     return 1
   fi
 
-  if [[ -n "$hostname" ]]; then
-    ssh_target="$username@$hostname"
-    if wait_for_ssh_ready "$ssh_target" 3 5 10 >&2; then
-      echo "$ssh_target"
-      return 0
-    fi
-    echo "WARNING: $ssh_target is not reachable; trying the public server IP." >&2
-  fi
-
-  server_ip="$(terraform_output_raw "$stack_dir" server_ip || true)"
-  server_ip="${server_ip:-$(hcloud_server_ip_for_tier "$tier" || true)}"
+  server_ip="$(hcloud_server_ip_for_tier "$tier" || true)"
   if [[ -n "$server_ip" ]]; then
     ssh_target="$username@$server_ip"
     wait_for_ssh_ready "$ssh_target" >&2 || return 1
