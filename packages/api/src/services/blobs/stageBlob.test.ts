@@ -3,8 +3,18 @@ import { db } from "@tearleads/api-shared/postgres";
 import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
+import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
+import { readMultipartBlobStageRecord } from "../../utils/blobStageRecords";
 import { sha256Hex } from "../../utils/sha256";
 import { StageBlobError, stageBlob } from "./stageBlob";
+
+async function readObjectStoreText(
+  store: ReturnType<typeof createMemoryBlobObjectStore>,
+  key: string,
+): Promise<string | null> {
+  const stream = await store.getObjectStream(key);
+  return stream === null ? null : new Response(stream).text();
+}
 
 async function createStageBlobInput(encryptedBytes: string) {
   return {
@@ -54,6 +64,36 @@ test("stageBlob validates and stores staged encrypted bytes", async () => {
     ownerUserId: userId,
     sha256: input.sha256,
   });
+});
+
+test("stageBlob offloads bytes to the object store when configured", async () => {
+  const userId = crypto.randomUUID();
+  const input = await createStageBlobInput("encrypted payload");
+  const blobObjectStore = createMemoryBlobObjectStore();
+
+  const result = await stageBlob(
+    createServiceTestRuntime(db, {
+      blobObjectStore,
+      blobObjectStoreKind: "s3",
+    }),
+    { ...input, userId },
+  );
+
+  const storageKey = `blob-stages/${result.stageId}`;
+  expect(await readObjectStoreText(blobObjectStore, storageKey)).toBe(
+    input.encryptedBytes,
+  );
+
+  const [stage] = await db
+    .select({ encryptedBytes: blobStages.encryptedBytes })
+    .from(blobStages)
+    .where(eq(blobStages.id, result.stageId))
+    .limit(1);
+
+  // The Postgres row must hold an external pointer, not the inline bytes.
+  expect(stage?.encryptedBytes).not.toBe(input.encryptedBytes);
+  const record = readMultipartBlobStageRecord(stage?.encryptedBytes ?? "");
+  expect(record).toMatchObject({ state: "complete", storageKey });
 });
 
 test("stageBlob rejects mismatched bytes and digests", async () => {

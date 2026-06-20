@@ -5,6 +5,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   ListPartsCommand,
+  PutObjectCommand,
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
@@ -358,6 +359,35 @@ function createListParts({
     );
 }
 
+function createPutObject({
+  bucket,
+  client,
+}: S3BlobObjectStoreInput): BlobObjectStore["putObject"] {
+  return ({ bytes, key, sha256 }) =>
+    mapS3Errors("putObject", async () => {
+      const objectByteLength = byteLength(bytes);
+      if (objectByteLength <= 0) {
+        throw new BlobObjectStoreError(
+          "Object bytes are required",
+          "invalid_part",
+        );
+      }
+
+      await client.send(
+        new PutObjectCommand({
+          Body: bytes,
+          Bucket: bucket,
+          ChecksumAlgorithm: "SHA256",
+          ChecksumSHA256: sha256HexToBase64(sha256),
+          ContentLength: objectByteLength,
+          Key: key,
+        }),
+      );
+
+      return { byteLength: objectByteLength, sha256 };
+    });
+}
+
 function createUploadPart({
   bucket,
   client,
@@ -414,6 +444,7 @@ export function createS3BlobObjectStore(
     deleteObject: createDeleteObject(input),
     getObjectStream: createGetObjectStream(input),
     listParts: createListParts(input),
+    putObject: createPutObject(input),
     uploadPart: createUploadPart(input),
   };
 }
