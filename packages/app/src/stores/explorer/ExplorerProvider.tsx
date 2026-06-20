@@ -43,6 +43,7 @@ export {
 
 interface ExplorerContextModel {
   contactsSystemSlot: ContainerSystemSlot | null;
+  currentOrganizationId: string | null;
   logError: (message: string | Error, cause?: unknown) => void;
   reconciler: ReconciliationService;
   store: ContainerContentsStore;
@@ -123,6 +124,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   const contextValue = useMemo(
     () => ({
       contactsSystemSlot,
+      currentOrganizationId: runtime.auth.organizationId,
       logError: tearleads.logError,
       reconciler,
       store,
@@ -133,6 +135,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     [
       contactsSystemSlot,
       reconciler,
+      runtime.auth.organizationId,
       store,
       tearleads.logError,
       trashSystemSlot,
@@ -167,6 +170,7 @@ export function useExplorer(): ExplorerContextValue {
 
   const {
     contactsSystemSlot,
+    currentOrganizationId,
     logError,
     reconciler,
     store,
@@ -219,7 +223,11 @@ export function useExplorer(): ExplorerContextValue {
       renameContainer: store.renameContainer,
       shareWithGroup: store.shareWithGroup,
       shareWithUser: store.shareWithUser,
-      nodes: getVisibleExplorerNodes(snapshot.nodes, visibleSystemSlots),
+      nodes: getVisibleExplorerNodes(
+        snapshot.nodes,
+        visibleSystemSlots,
+        currentOrganizationId,
+      ),
       ready: snapshot.ready,
       trashContainerId: getExplorerTrashDeleteTargetId(
         snapshot.nodes,
@@ -235,6 +243,7 @@ export function useExplorer(): ExplorerContextValue {
       snapshot,
       store,
       contactsSystemSlot,
+      currentOrganizationId,
       trashSystemSlot,
       view,
       visibleSystemSlots,

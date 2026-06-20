@@ -47,6 +47,11 @@ interface UserSystemContainerDefinition {
   readonly name: string;
   readonly rules: UserSystemContainerRules;
   readonly slotDefinition: ContainerSystemSlotDefinition;
+  // Whether this system folder stays visible when its parent root is shared
+  // with another user. A peer's system slots are HMAC'd from the owner's key,
+  // so they never match the viewer's own slots — the explorer falls back to the
+  // container name to decide. Contacts are meant to be shared; Trash is private.
+  readonly visibleWhenShared: boolean;
 }
 
 export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefinition[] =
@@ -63,6 +68,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromUpload: true,
       },
       slotDefinition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
+      visibleWhenShared: true,
     },
     {
       kind: "trash",
@@ -78,8 +84,18 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromUpload: true,
       },
       slotDefinition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,
+      visibleWhenShared: false,
     },
   ];
+
+// Names of system folders that remain visible when viewed under another user's
+// shared root. Used as the cross-user classifier since system slots are opaque
+// per-owner HMACs and cannot be derived by a peer.
+export const SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = new Set(
+  USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
+    (definition) => definition.visibleWhenShared,
+  ).map((definition) => definition.name),
+);
 
 export function getUserSystemContainerRulesByKind(
   kind: UserSystemContainerKind,
