@@ -1,4 +1,5 @@
 import type {
+  AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
@@ -12,6 +13,74 @@ interface DocumentLinkSetProjectionSeedApi {
     documentId: string,
     projection: DocumentWriterProjectionResponse,
   ): void;
+}
+
+function uniqueManifestBundles(
+  bundles: readonly AccessManifestBundleWireResponse[],
+): AccessManifestBundleWireResponse[] {
+  const byHash = new Map<string, AccessManifestBundleWireResponse>();
+  for (const bundle of bundles) {
+    if (!byHash.has(bundle.manifestHash)) {
+      byHash.set(bundle.manifestHash, bundle);
+    }
+  }
+
+  return [...byHash.values()];
+}
+
+function uniqueManifestPaths(
+  paths: readonly (readonly AccessManifestBundleWireResponse[])[],
+): AccessManifestBundleWireResponse[][] {
+  const byLeafHash = new Map<string, AccessManifestBundleWireResponse[]>();
+  for (const path of paths) {
+    const leafHash = path.at(-1)?.manifestHash;
+    if (!leafHash || byLeafHash.has(leafHash)) {
+      continue;
+    }
+
+    byLeafHash.set(leafHash, [...path]);
+  }
+
+  return [...byLeafHash.values()];
+}
+
+function containerProjectionManifestHistory(
+  projection: ContainerWriterProjectionResponse,
+): AccessManifestBundleWireResponse[] {
+  return projection.containerKeks.flatMap(
+    (kek) => kek.containerManifestHistory ?? [],
+  );
+}
+
+function documentProjectionContainerPaths(
+  projection: DocumentWriterProjectionResponse,
+): AccessManifestBundleWireResponse[][] {
+  return uniqueManifestPaths([
+    ...(projection.documentManifestContainerPaths ?? []),
+    ...projection.authorizingContainerPaths.map((path) => path.path),
+  ]);
+}
+
+function documentProjectionContainerHistory(input: {
+  priorProjection: DocumentWriterProjectionResponse;
+  targetContainerProjection: ContainerWriterProjectionResponse;
+}): AccessManifestBundleWireResponse[] {
+  const priorContainerPaths = documentProjectionContainerPaths(
+    input.priorProjection,
+  );
+  const priorAuthorizingContainerProjections =
+    input.priorProjection.authorizingContainerPaths;
+
+  return uniqueManifestBundles([
+    ...(input.priorProjection.documentContainerManifestHistory ?? []),
+    ...priorContainerPaths.flat(),
+    ...priorAuthorizingContainerProjections.flatMap((projection) => [
+      ...projection.path,
+      ...containerProjectionManifestHistory(projection),
+    ]),
+    ...input.targetContainerProjection.path,
+    ...containerProjectionManifestHistory(input.targetContainerProjection),
+  ]);
 }
 
 /**
@@ -40,12 +109,25 @@ function linkSetWriterProjectionFromResponse(input: {
     input.operation === "link"
       ? [...retainedPaths, input.targetContainerProjection]
       : retainedPaths;
+  const documentManifestContainerPaths = uniqueManifestPaths([
+    ...documentProjectionContainerPaths(input.priorProjection),
+    input.targetContainerProjection.path,
+  ]);
   return {
     authorizingContainerPaths,
     contentKeyBundle: input.response.contentKeyBundle,
     documentId: input.response.id,
+    documentContainerManifestHistory: documentProjectionContainerHistory({
+      priorProjection: input.priorProjection,
+      targetContainerProjection: input.targetContainerProjection,
+    }),
     documentKekTargets: input.response.documentKekTargets,
     documentManifest: input.response.accessManifest,
+    documentManifestContainerPaths,
+    documentManifestHistory: [
+      input.priorProjection.documentManifest,
+      ...(input.priorProjection.documentManifestHistory ?? []),
+    ],
   };
 }
 

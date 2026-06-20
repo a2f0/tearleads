@@ -41,4 +41,8 @@ export interface ExplorerModelExplorer {
 export type ExplorerDocumentMutationAction = (
   noteId: string,
   targetContainerId: string,
+  options?: {
+    replaceLinkedContainers?: boolean | undefined;
+    sourceContainerId?: string | null | undefined;
+  },
 ) => Promise<DocumentSummary | null>;

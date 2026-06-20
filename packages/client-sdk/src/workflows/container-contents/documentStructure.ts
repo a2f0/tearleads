@@ -215,6 +215,7 @@ export async function moveDocumentLink<TRuntime>(params: {
   expandNode: (nodeId: string) => void;
   host: DocumentStructuralMutationHost<TRuntime>;
   note: DocumentSummary;
+  replaceLinkedContainers?: boolean | undefined;
   runtime: DocumentStructuralMutationRuntime;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   targetContainerId: string;
@@ -223,6 +224,7 @@ export async function moveDocumentLink<TRuntime>(params: {
     expandNode,
     host,
     note,
+    replaceLinkedContainers,
     runtime,
     setLinkedContainerIdsForDocument,
     targetContainerId,
@@ -258,6 +260,7 @@ export async function moveDocumentLink<TRuntime>(params: {
     currentContainerId: note.containerId,
     documentId: note.documentId,
     noteId: note.id,
+    replaceLinkedContainers,
     resolveProjectionUserKey: runtime.resolveProjectionUserKey,
     runtime,
     targetContainerId,

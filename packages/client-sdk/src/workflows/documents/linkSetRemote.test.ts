@@ -105,20 +105,48 @@ test("relinkRemoteDocument submits a verified signed link-set mutation", async (
       linked.response,
     ),
   ).toEqual(linked.persistedState);
-  // The link response carries enough to seed the writer projection, so the
-  // first read after link resolves locally instead of a cold GET.
-  expect(primedProjections).toEqual([
-    {
-      documentId: linked.response.id,
-      projection: {
-        authorizingContainerPaths: [projection, siblingProjection],
-        contentKeyBundle: linked.response.contentKeyBundle,
-        documentId: linked.response.id,
-        documentKekTargets: linked.response.documentKekTargets,
-        documentManifest: linked.response.accessManifest,
-      },
-    },
+  // The link response carries enough to seed a verifiable writer projection,
+  // so the first read after link resolves locally instead of a cold GET.
+  expect(primedProjections).toHaveLength(1);
+  const primedProjection = primedProjections[0]?.projection;
+  expect(primedProjections[0]?.documentId).toBe(linked.response.id);
+  if (!primedProjection) {
+    throw new Error("Expected primed projection");
+  }
+  expect(primedProjection.authorizingContainerPaths).toEqual([
+    projection,
+    siblingProjection,
   ]);
+  expect(primedProjection.contentKeyBundle).toEqual(
+    linked.response.contentKeyBundle,
+  );
+  expect(primedProjection.documentId).toBe(linked.response.id);
+  expect(primedProjection.documentKekTargets).toEqual(
+    linked.response.documentKekTargets,
+  );
+  expect(primedProjection.documentManifest).toEqual(
+    linked.response.accessManifest,
+  );
+  expect(
+    primedProjection.documentManifestHistory?.map(
+      (bundle) => bundle.manifestHash,
+    ),
+  ).toEqual([writerProjection.documentManifest.manifestHash]);
+  const rootManifestHash = projection.path.at(-1)?.manifestHash;
+  const siblingManifestHash = siblingProjection.path.at(-1)?.manifestHash;
+  if (!rootManifestHash || !siblingManifestHash) {
+    throw new Error("Expected container projection leaf manifests");
+  }
+  expect(
+    primedProjection.documentManifestContainerPaths?.map(
+      (path) => path.at(-1)?.manifestHash,
+    ),
+  ).toEqual([rootManifestHash, siblingManifestHash]);
+  expect(
+    primedProjection.documentContainerManifestHistory?.map(
+      (bundle) => bundle.manifestHash,
+    ),
+  ).toEqual([rootManifestHash, siblingManifestHash]);
 });
 
 test("relinkRemoteDocument rejects bad unlink target container signatures before sending", async () => {

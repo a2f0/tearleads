@@ -15,6 +15,7 @@ import {
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinks";
 import { getDocumentByLocalId } from "../documentSummaries";
+import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
 
 type LoadExplorerDocumentSummary = (
   localId: string,
@@ -51,7 +52,11 @@ function useMoveDocumentAction(params: {
   } = params;
 
   return useCallback(
-    async (noteId: string, targetContainerId: string) => {
+    async (
+      noteId: string,
+      targetContainerId: string,
+      options?: Parameters<ExplorerDocumentMutationAction>[2],
+    ) => {
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
@@ -73,7 +78,9 @@ function useMoveDocumentAction(params: {
         expandNode,
         mergeDocumentSummary,
         note: existingDocument,
+        replaceLinkedContainers: options?.replaceLinkedContainers,
         setLinkedContainerIdsForDocument,
+        sourceContainerId: options?.sourceContainerId,
         targetContainerId,
       });
       if (moveResult.linksChanged) {
