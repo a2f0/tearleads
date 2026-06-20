@@ -12,6 +12,19 @@ import {
   withCrossTabGlobals,
 } from "./crossTabTestHarness";
 
+class TransientThrowingWorker extends PortAwareWorker {
+  static throwNext = true;
+
+  constructor() {
+    if (TransientThrowingWorker.throwNext) {
+      TransientThrowingWorker.throwNext = false;
+      throw new Error("transient worker construction failed");
+    }
+
+    super();
+  }
+}
+
 test("cross-tab owner acquisition reports worker construction failures instead of hanging", async () => {
   await withCrossTabGlobals(new MockLockManager(), async () => {
     const worker = requireCrossTabWorker(
@@ -28,6 +41,40 @@ test("cross-tab owner acquisition reports worker construction failures instead o
         message: "worker construction failed",
       },
     });
+  });
+});
+
+test("a new same-tab client retries after transient owner construction failure", async () => {
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    TransientThrowingWorker.throwNext = true;
+    PortAwareWorker.lastConstructed = null;
+    const workerUrl = uniqueWorkerUrl("transient-owner-error");
+
+    const firstWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(workerUrl, TransientThrowingWorker),
+    );
+    const failedResponse = waitForMessage(firstWorker);
+    firstWorker.postMessage({ id: 1, method: "ping", params: undefined });
+    expect(await failedResponse).toEqual({
+      id: 1,
+      result: {
+        ok: false,
+        message: "transient worker construction failed",
+      },
+    });
+
+    const secondWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(workerUrl, TransientThrowingWorker),
+    );
+    const recoveredResponse = waitForMessage(secondWorker);
+    secondWorker.postMessage({ id: 2, method: "ping", params: undefined });
+
+    expect(await recoveredResponse).toEqual({ id: 2, result: { ok: true } });
+    expect(PortAwareWorker.lastConstructed).toBeInstanceOf(
+      TransientThrowingWorker,
+    );
   });
 });
 
@@ -138,6 +185,51 @@ test("an explicit close tears the owner down once its last client is gone", asyn
     await waitUntil(
       () => !locks.heldLockNames.has("tearleads-sqlite-worker-owner"),
     );
+  });
+});
+
+test("a same-tab client can reopen after an explicit close tears the owner down", async () => {
+  // Routed/windowed mode switches can close every current SQLite client and then
+  // mount a replacement client in the same page. The coordinator must start a
+  // fresh owner bid for that later client instead of broadcasting into a page
+  // that no longer has an owner.
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    const workerUrl = uniqueWorkerUrl("same-tab-reopen");
+    PortAwareWorker.lastConstructed = null;
+    const firstWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(workerUrl, PortAwareWorker),
+    );
+
+    const ready = waitForMessage(firstWorker);
+    firstWorker.postMessage({ id: 1, method: "ping", params: undefined });
+    expect(await ready).toEqual({ id: 1, result: { ok: true } });
+
+    const firstOwnerWorker =
+      PortAwareWorker.lastConstructed as PortAwareWorker | null;
+    if (!firstOwnerWorker) {
+      throw new Error("Expected the first owner worker to be constructed.");
+    }
+
+    const closed = waitForMessage(firstWorker);
+    firstWorker.postMessage({ id: 2, method: "close", params: undefined });
+    expect(await closed).toEqual({ id: 2, result: { ok: true } });
+    firstWorker.close();
+
+    await waitUntil(() => firstOwnerWorker.terminated);
+    await waitUntil(
+      () => !locks.heldLockNames.has("tearleads-sqlite-worker-owner"),
+    );
+
+    const secondWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(workerUrl, PortAwareWorker),
+    );
+    const reopened = waitForMessage(secondWorker);
+    secondWorker.postMessage({ id: 3, method: "ping", params: undefined });
+
+    expect(await reopened).toEqual({ id: 3, result: { ok: true } });
+    expect(PortAwareWorker.lastConstructed).not.toBe(firstOwnerWorker);
   });
 });
 
