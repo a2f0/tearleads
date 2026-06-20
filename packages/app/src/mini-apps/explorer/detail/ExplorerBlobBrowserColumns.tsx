@@ -71,7 +71,11 @@ export function getBlobInfoColumns(params: {
       width: "11rem",
     },
     {
-      header: EXPLORER_LABELS.blobBrowserSizeColumn,
+      ariaSort: getBlobSortAria(sort, "byteLength"),
+      header: sortableHeader(
+        "byteLength",
+        EXPLORER_LABELS.blobBrowserSizeColumn,
+      ),
       id: "size",
       width: "7rem",
     },

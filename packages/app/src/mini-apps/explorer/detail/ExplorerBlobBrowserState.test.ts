@@ -27,6 +27,22 @@ test("blob info sort toggles the active column and initializes MIME ascending", 
   });
 });
 
+test("blob info sort initializes byte length descending and toggles", () => {
+  expect(
+    getNextBlobInfoSort({ direction: "desc", key: "updated" }, "byteLength"),
+  ).toEqual({
+    direction: "desc",
+    key: "byteLength",
+  });
+
+  expect(
+    getNextBlobInfoSort({ direction: "desc", key: "byteLength" }, "byteLength"),
+  ).toEqual({
+    direction: "asc",
+    key: "byteLength",
+  });
+});
+
 test("blob info window range follows row height with overscan", () => {
   expect(getBlobInfoWindowRange({ scrollTop: 0, viewportHeight: 0 })).toEqual({
     limit: 24,

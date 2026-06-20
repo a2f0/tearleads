@@ -3,10 +3,11 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/listGarageBucketKeys.sh <staging|prod> [prefix]
+Usage: scripts/listGarageBucketKeys.sh <staging|prod> [prefix] [--with-size]
 
 Lists object keys in the Garage-backed blob bucket for the selected server.
 The optional prefix limits the S3 ListObjectsV2 request.
+Pass --with-size to prefix each line with the object size as "<size>\t<key>".
 
 Set GARAGE_SSH_TARGET=user@host to bypass Terraform/Hetzner SSH resolution.
 EOF
@@ -129,15 +130,26 @@ main() {
     return 0
   fi
 
-  local tier="${1:-}"
-  local prefix="${2:-}"
+  local with_size=""
+  local positionals=()
+  local arg
+  for arg in "$@"; do
+    if [[ "$arg" == "--with-size" ]]; then
+      with_size="--with-size"
+    else
+      positionals+=("$arg")
+    fi
+  done
+
+  local tier="${positionals[0]:-}"
+  local prefix="${positionals[1]:-}"
 
   if [[ "$tier" != "staging" && "$tier" != "prod" ]]; then
     usage >&2
     exit 1
   fi
 
-  if [[ $# -gt 2 ]]; then
+  if [[ ${#positionals[@]} -gt 2 ]]; then
     usage >&2
     exit 1
   fi
@@ -146,7 +158,7 @@ main() {
   require_command ssh
   require_command terraform
 
-  local repo_root stack_dir backend_config ssh_target remote_prefix_arg
+  local repo_root stack_dir backend_config ssh_target remote_prefix_arg remote_with_size_arg
   repo_root="$(git rev-parse --show-toplevel)"
 
   # shellcheck source=../terraform/scripts/common.sh
@@ -162,21 +174,29 @@ main() {
   terraform -chdir="$stack_dir" init -input=false -no-color -backend-config="$backend_config" >&2
   ssh_target="$(resolve_garage_ssh_target "$stack_dir" "$tier")"
   remote_prefix_arg="$(shell_quote "$prefix")"
+  remote_with_size_arg="$(shell_quote "$with_size")"
 
   echo "Listing Garage bucket keys for $tier via $ssh_target..." >&2
 
   # shellcheck disable=SC2029
-  ssh "$ssh_target" "/bin/sh -s -- $remote_prefix_arg" <<'SH'
+  ssh "$ssh_target" "/bin/sh -s -- $remote_prefix_arg $remote_with_size_arg" <<'SH'
 set -eu
 set -a
 . /etc/tearleads/api.env
 set +a
 
-if [ -n "${1:-}" ]; then
-  exec /opt/tearleads/bin/tearleads-api-cli blob-store:list-keys --prefix "$1"
+prefix="${1:-}"
+with_size="${2:-}"
+
+set -- blob-store:list-keys
+if [ -n "$prefix" ]; then
+  set -- "$@" --prefix "$prefix"
+fi
+if [ -n "$with_size" ]; then
+  set -- "$@" "$with_size"
 fi
 
-exec /opt/tearleads/bin/tearleads-api-cli blob-store:list-keys
+exec /opt/tearleads/bin/tearleads-api-cli "$@"
 SH
 }
 

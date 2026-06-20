@@ -139,6 +139,11 @@ function createPrefixedBlobObjectStore(
         ...input,
         key: prefixBlobObjectKey(prefix, input.key),
       }),
+    putObject: (input) =>
+      store.putObject({
+        ...input,
+        key: prefixBlobObjectKey(prefix, input.key),
+      }),
     uploadPart: (input) =>
       store.uploadPart({
         ...input,

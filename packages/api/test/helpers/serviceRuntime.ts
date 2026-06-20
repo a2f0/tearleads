@@ -10,8 +10,14 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
-import { createMemoryBlobObjectStore } from "../../src/adapters/blobObjectStore";
-import type { ApiServiceRuntime } from "../../src/services/runtime";
+import {
+  type BlobObjectStore,
+  createMemoryBlobObjectStore,
+} from "../../src/adapters/blobObjectStore";
+import type {
+  ApiServiceRuntime,
+  BlobObjectStoreKind,
+} from "../../src/services/runtime";
 import {
   createInitialAdminGroupRequest,
   createInitialMemberGroupRequest,
@@ -20,12 +26,16 @@ import {
 
 export function createServiceTestRuntime(
   db: ApiServiceRuntime["db"] = defaultDb,
+  overrides: {
+    readonly blobObjectStore?: BlobObjectStore;
+    readonly blobObjectStoreKind?: BlobObjectStoreKind;
+  } = {},
 ): ApiServiceRuntime {
   const values = new Map<string, string>();
 
   return {
-    blobObjectStore: createMemoryBlobObjectStore(),
-    blobObjectStoreKind: "memory",
+    blobObjectStore: overrides.blobObjectStore ?? createMemoryBlobObjectStore(),
+    blobObjectStoreKind: overrides.blobObjectStoreKind ?? "memory",
     db,
     eventPublisher: {
       publish: async () => {},

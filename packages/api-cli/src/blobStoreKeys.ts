@@ -24,7 +24,8 @@ interface S3BlobStoreListKeysSettings {
 interface ListS3BlobStoreKeysInput {
   readonly env?: RuntimeEnv;
   readonly prefix?: string | undefined;
-  readonly writeKey?: (key: string) => void;
+  readonly withSize?: boolean | undefined;
+  readonly writeKey?: (key: string, size: number | undefined) => void;
 }
 
 function readEnv(env: RuntimeEnv, key: string): string | undefined {
@@ -109,11 +110,54 @@ export function readS3BlobStoreListKeysSettings(
   return { bucket, clientConfig };
 }
 
+export function formatBlobStoreKeyLine(
+  key: string,
+  size: number | undefined,
+  withSize: boolean,
+): string {
+  return withSize ? `${size ?? ""}\t${key}` : key;
+}
+
+interface ListBlobStoreKeysArgs {
+  readonly prefix: string | undefined;
+  readonly withSize: boolean;
+}
+
+// Single pass so a literal "--with-size" passed as the --prefix value is kept
+// as the prefix rather than stripped as the flag.
+export function parseListBlobStoreKeysArgs(
+  args: readonly string[],
+): ListBlobStoreKeysArgs {
+  let prefix: string | undefined;
+  let withSize = false;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--prefix") {
+      const nextArg = args[index + 1];
+      if (nextArg === undefined) {
+        throw new Error("--prefix requires a value");
+      }
+      prefix = nextArg;
+      index += 1;
+    } else if (arg?.startsWith("--prefix=")) {
+      prefix = arg.slice("--prefix=".length);
+    } else if (arg === "--with-size") {
+      withSize = true;
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+
+  return { prefix, withSize };
+}
+
 export async function listS3BlobStoreKeys({
   env = process.env,
   prefix,
-  writeKey = (key) => {
-    process.stdout.write(`${key}\n`);
+  withSize = false,
+  writeKey = (key, size) => {
+    process.stdout.write(`${formatBlobStoreKeyLine(key, size, withSize)}\n`);
   },
 }: ListS3BlobStoreKeysInput = {}): Promise<void> {
   const { bucket, clientConfig } = readS3BlobStoreListKeysSettings(env);
@@ -132,7 +176,7 @@ export async function listS3BlobStoreKeys({
     const response = await client.send(new ListObjectsV2Command(input));
     for (const object of response.Contents ?? []) {
       if (object.Key) {
-        writeKey(object.Key);
+        writeKey(object.Key, object.Size);
       }
     }
 

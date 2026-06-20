@@ -7,10 +7,11 @@ import type {
   BlobStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   getMiniAppVirtualWindowRange,
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+  useMiniAppVirtualWindow,
 } from "../../../components/shared/MiniAppVirtual";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import type { ExplorerRoute } from "../routes";
@@ -34,7 +35,7 @@ export type BlobPreviewState =
       url: string | null;
     };
 
-interface BlobInfoListState {
+export interface BlobInfoListState {
   error: string | null;
   isLoading: boolean;
   offset: number;
@@ -42,7 +43,11 @@ interface BlobInfoListState {
   totalCount: number;
 }
 
-export function getBlobRouteQuery(route: BlobBrowserRoute): string {
+// NUL separator: a query can never contain it, so the query and sort fields
+// can never collide when building the virtual-window reset key.
+const BLOB_BROWSER_RESET_KEY_SEPARATOR = "\u0000";
+
+function getBlobRouteQuery(route: BlobBrowserRoute): string {
   return route.blobId ?? route.storageKey ?? "";
 }
 
@@ -83,7 +88,7 @@ export function getContainerNameById(
   return new Map(nodes.map((node) => [node.id, node.name]));
 }
 
-export function useBlobInfoList(params: {
+function useBlobInfoList(params: {
   limit: number;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   offset: number;
@@ -303,7 +308,7 @@ function matchesRouteTarget(blob: BlobInfo, route: BlobBrowserRoute): boolean {
   );
 }
 
-export function getSelectedBlob(params: {
+function getSelectedBlob(params: {
   activeBlob: BlobInfo | null;
   route: BlobBrowserRoute;
   rows: ReadonlyArray<BlobInfo>;
@@ -315,9 +320,96 @@ export function getSelectedBlob(params: {
     );
   }
 
+  // The list is the default screen; only open the detail screen when the route
+  // deep-links to a specific blob. Do not fall back to the first row, which
+  // would skip the list entirely.
   return (
-    params.rows.find((blob) => matchesRouteTarget(blob, params.route)) ??
-    params.rows[0] ??
-    null
+    params.rows.find((blob) => matchesRouteTarget(blob, params.route)) ?? null
   );
+}
+
+export function useBlobBrowserData(params: {
+  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
+  route: BlobBrowserRoute;
+}) {
+  const [query, setQuery] = useState(() => getBlobRouteQuery(params.route));
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  const [activeBlob, setActiveBlob] = useState<BlobInfo | null>(null);
+  // Tracks whether the user dismissed the detail screen. Needed because a
+  // route deep-link makes getSelectedBlob return a blob even when activeBlob is
+  // null, so clearing activeBlob alone could not return to the list.
+  const [isDetailDismissed, setIsDetailDismissed] = useState(false);
+  const [sort, setSort] = useState<BlobInfoSort>({
+    direction: "desc",
+    key: "updated",
+  });
+  const routeQuery = getBlobRouteQuery(params.route);
+  const resetKey = [debouncedQuery, sort.key, sort.direction].join(
+    BLOB_BROWSER_RESET_KEY_SEPARATOR,
+  );
+  const { frameRef, limit, offset } = useMiniAppVirtualWindow({
+    resetKey,
+    rowHeight: BLOB_BROWSER_ROW_HEIGHT,
+  });
+  const blobInfo = useBlobInfoList({
+    limit,
+    loadBlobInfo: params.loadBlobInfo,
+    offset,
+    query: debouncedQuery,
+    sort,
+  });
+  const isWindowPending = blobInfo.offset !== offset;
+  const isResettingWindow = isWindowPending && offset === 0;
+  const rows = isResettingWindow ? [] : blobInfo.rows;
+  const rowOffset = isResettingWindow ? 0 : blobInfo.offset;
+  const selectedBlob = isDetailDismissed
+    ? null
+    : getSelectedBlob({ activeBlob, route: params.route, rows });
+  const handleSort = useCallback((key: BlobInfoSortKey) => {
+    setActiveBlob(null);
+    setSort((currentSort) => getNextBlobInfoSort(currentSort, key));
+  }, []);
+  const handleSelectBlob = useCallback((blob: BlobInfo) => {
+    setActiveBlob(blob);
+    setIsDetailDismissed(false);
+  }, []);
+  const handleBackToList = useCallback(() => {
+    setActiveBlob(null);
+    setIsDetailDismissed(true);
+  }, []);
+  const handleQueryChange = useCallback((value: string) => {
+    setActiveBlob(null);
+    setIsDetailDismissed(true);
+    setQuery(value);
+  }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 200);
+
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  useEffect(() => {
+    setActiveBlob(null);
+    setIsDetailDismissed(false);
+    setQuery(routeQuery);
+    setDebouncedQuery(routeQuery);
+  }, [routeQuery]);
+
+  return {
+    blobInfo,
+    frameRef,
+    handleBackToList,
+    handleQueryChange,
+    handleSelectBlob,
+    handleSort,
+    isWindowPending,
+    query,
+    rowOffset,
+    rows,
+    selectedBlob,
+    sort,
+  };
 }

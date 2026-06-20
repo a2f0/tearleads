@@ -62,6 +62,11 @@ export interface BlobObjectStore {
     readonly key: string;
     readonly uploadId: string;
   }): Promise<readonly BlobObjectPart[]>;
+  putObject(input: {
+    readonly bytes: string;
+    readonly key: string;
+    readonly sha256: string;
+  }): Promise<CompletedBlobObject>;
   uploadPart(input: {
     readonly key: string;
     readonly partNumber: number;
@@ -345,6 +350,20 @@ export function createMemoryBlobObjectStore(): BlobObjectStore {
     },
 
     listParts: createListParts(uploads),
+
+    async putObject({ bytes, key, sha256 }) {
+      const computed = await sha256Hex(bytes);
+      if (computed !== sha256) {
+        throw new BlobObjectStoreError(
+          "Object sha256 does not match bytes",
+          "invalid_part",
+        );
+      }
+      objects.set(key, bytes);
+
+      return { byteLength: byteLength(bytes), sha256 };
+    },
+
     uploadPart: createUploadPart(uploads),
   };
 }

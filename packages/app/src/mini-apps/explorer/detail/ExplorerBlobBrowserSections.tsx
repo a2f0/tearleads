@@ -8,9 +8,13 @@ import { useMemo } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppHeader,
+  MiniAppHeaderCopy,
   MiniAppInfoSection,
+  MiniAppInput,
   MiniAppPanel,
   MiniAppStatus,
+  MiniAppToolbar,
 } from "../../../components/shared/MiniAppLayout";
 import {
   MiniAppInfoTable,
@@ -40,13 +44,14 @@ import {
 } from "./ExplorerBlobBrowserColumns";
 import {
   BLOB_BROWSER_ROW_HEIGHT,
+  type BlobInfoListState,
   type BlobPreviewState,
   getBlobChangedAt,
   isImageMimeType,
   useBlobPreview,
 } from "./ExplorerBlobBrowserState";
 
-export function BlobInfoTable(params: {
+function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
@@ -385,5 +390,72 @@ export function BlobDetail(params: {
         selectDocumentProjection={params.selectDocumentProjection}
       />
     </MiniAppPanel>
+  );
+}
+
+export function BlobBrowserHeader(params: {
+  onBack: () => void;
+  selectedBlob: BlobInfo | null;
+}) {
+  const { onBack, selectedBlob } = params;
+
+  return (
+    <MiniAppHeader>
+      <MiniAppHeaderCopy>
+        <strong>{EXPLORER_LABELS.blobBrowserTitle}</strong>
+        <span>
+          {selectedBlob
+            ? compactId(selectedBlob.blobId ?? selectedBlob.storageKey)
+            : EXPLORER_LABELS.blobBrowserNoSelection}
+        </span>
+      </MiniAppHeaderCopy>
+      <MiniAppActions>
+        <MiniAppButton onClick={onBack}>
+          {selectedBlob
+            ? EXPLORER_LABELS.blobBrowserBackToListAction
+            : EXPLORER_LABELS.blobBrowserBackAction}
+        </MiniAppButton>
+      </MiniAppActions>
+    </MiniAppHeader>
+  );
+}
+
+export function BlobBrowserListScreen(params: {
+  blobInfo: BlobInfoListState;
+  frameRef: (frame: HTMLDivElement | null) => void;
+  isWindowPending: boolean;
+  onQueryChange: (value: string) => void;
+  onSelectBlob: (blob: BlobInfo) => void;
+  onSort: (key: BlobInfoSortKey) => void;
+  query: string;
+  rowOffset: number;
+  rows: ReadonlyArray<BlobInfo>;
+  sort: BlobInfoSort;
+}) {
+  return (
+    <>
+      <MiniAppToolbar>
+        <MiniAppInput
+          aria-label={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
+          onChange={(event) => params.onQueryChange(event.currentTarget.value)}
+          placeholder={EXPLORER_LABELS.blobBrowserSearchPlaceholder}
+          value={params.query}
+        />
+      </MiniAppToolbar>
+      <div className="explorer-blob-browser-screen">
+        <BlobInfoTable
+          activeBlob={null}
+          error={params.blobInfo.error}
+          frameRef={params.frameRef}
+          isLoading={params.blobInfo.isLoading || params.isWindowPending}
+          onSelectBlob={params.onSelectBlob}
+          onSort={params.onSort}
+          rowOffset={params.rowOffset}
+          rows={params.rows}
+          sort={params.sort}
+          totalCount={params.blobInfo.totalCount}
+        />
+      </div>
+    </>
   );
 }

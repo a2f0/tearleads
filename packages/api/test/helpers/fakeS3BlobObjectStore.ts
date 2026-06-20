@@ -6,6 +6,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   ListPartsCommand,
+  PutObjectCommand,
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
@@ -210,6 +211,15 @@ class FakeS3Client {
       }
 
       return { Body: new Blob([bytes]) };
+    }
+    if (command instanceof PutObjectCommand) {
+      const bytes = await bodyToString(input.Body);
+      expect(input.ChecksumAlgorithm).toBe("SHA256");
+      expect(input.ChecksumSHA256).toBe(await sha256Base64(bytes));
+      expect(input.ContentLength).toBe(Buffer.byteLength(bytes, "utf8"));
+      this.objects.set(String(input.Key), bytes);
+
+      return {};
     }
     if (command instanceof DeleteObjectCommand) {
       this.objects.delete(String(input.Key));
