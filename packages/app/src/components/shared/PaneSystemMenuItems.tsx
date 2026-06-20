@@ -3,6 +3,7 @@ import {
   useRestoreKeyPackageAction,
 } from "../../identity/useKeyPackageActions";
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
+import { useNetworkState } from "../../providers/api/useNetworkState";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
@@ -19,9 +20,46 @@ export function PaneSystemMenuItems({
   return (
     <>
       <PaneWorkerMenuItems onClose={onClose} />
+      <PaneNetworkMenuItems onClose={onClose} />
       <PaneUnlockMenuItem onClose={onClose} onOpenUnlock={onOpenUnlock} />
       <PaneKeyMenuItems onClose={onClose} />
       <PaneSessionMenuItems onClose={onClose} />
+    </>
+  );
+}
+
+function PaneNetworkMenuItems({ onClose }: { onClose: () => void }) {
+  const { mode, setNetworkMode } = useNetworkState();
+
+  return (
+    <>
+      {mode !== "online" && (
+        <MenuItem
+          label="Force Online"
+          onClick={() => {
+            setNetworkMode("online");
+            onClose();
+          }}
+        />
+      )}
+      {mode !== "offline" && (
+        <MenuItem
+          label="Force Offline"
+          onClick={() => {
+            setNetworkMode("offline");
+            onClose();
+          }}
+        />
+      )}
+      {mode !== "automatic" && (
+        <MenuItem
+          label="Use Automatic Network"
+          onClick={() => {
+            setNetworkMode("automatic");
+            onClose();
+          }}
+        />
+      )}
     </>
   );
 }

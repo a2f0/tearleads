@@ -142,6 +142,7 @@ export type { Logger } from "./logger";
 export {
   Network,
   type NetworkListener,
+  type NetworkMode,
 } from "./network";
 export type {
   AddOrganizationGroupUserInput,

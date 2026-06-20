@@ -7,6 +7,7 @@ import {
   createExplorerChildContainer,
   generateIdentityAndWaitForDb,
   getExplorerContainerItem,
+  getPaneStatusText,
   getSelectedExplorerContainerSyncLabel,
   moveExplorerContainer,
   openContacts,
@@ -21,6 +22,55 @@ import {
 } from "../../../../test/helpers/paneTestUtils";
 
 afterEach(cleanupPaneTestEnvironment);
+
+test("pane menu manually controls the app network mode", async () => {
+  const view = renderPane();
+
+  fireEvent(window, new Event("online"));
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*online/);
+  });
+
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByRole("button", { name: "Force Online" }));
+
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*online \(manual\)/);
+  });
+
+  fireEvent(window, new Event("offline"));
+  expect(getPaneStatusText(view)).toMatch(/network:\s*online \(manual\)/);
+
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByRole("button", { name: "Use Automatic Network" }));
+
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*offline/);
+    expect(getPaneStatusText(view)).not.toMatch(
+      /network:\s*offline \(manual\)/,
+    );
+  });
+
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByRole("button", { name: "Force Offline" }));
+
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
+  });
+
+  fireEvent(window, new Event("online"));
+  expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
+
+  fireEvent.click(view.getByText("Menu"));
+  fireEvent.click(view.getByRole("button", { name: "Use Automatic Network" }));
+
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*online/);
+    expect(getPaneStatusText(view)).not.toMatch(/network:\s*online \(manual\)/);
+  });
+
+  view.unmount();
+});
 
 test("contacts windows in the same pane share live contact document state", async () => {
   const view = renderPane();
