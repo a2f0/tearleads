@@ -1,4 +1,8 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import {
+  type ContainerNode,
+  DEFAULT_DOCUMENT_KIND,
+  type DocumentSummary,
+} from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   getUserSystemContainerRulesByKind,
@@ -124,6 +128,26 @@ export function canMoveDocumentOutByRules(
     resolveContainerRules(context, currentContainer)
       ?.protectContentsFromLeaving !== true
   );
+}
+
+// A document may move or link into a destination container unless that
+// container restricts inbound documents by kind (e.g. Contacts accepts contacts
+// only). An unknown destination carries no system slot, so it remains
+// permissive like the other rule helpers.
+export function canAddDocumentToContainerByRules(
+  context: ExplorerContainerRulesContext,
+  destinationContainer: Pick<ContainerNode, "systemSlot"> | undefined,
+  document: Pick<DocumentSummary, "documentKind"> | undefined,
+): boolean {
+  const acceptedDocumentKinds =
+    resolveContainerRules(context, destinationContainer)
+      ?.acceptedDocumentKinds ?? null;
+  if (acceptedDocumentKinds === null) {
+    return true;
+  }
+
+  const documentKind = document?.documentKind ?? DEFAULT_DOCUMENT_KIND;
+  return acceptedDocumentKinds.includes(documentKind);
 }
 
 // The builtin self ("You") contact is protected from deletion when the Contacts

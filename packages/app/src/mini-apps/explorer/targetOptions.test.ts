@@ -51,6 +51,7 @@ test("a document in trash can be moved out to another container", () => {
   const trashedDocument = documentSummary({
     id: "trashed-doc",
     containerId: TRASH_CONTAINER_ID,
+    documentKind: "note",
   });
   const options = getDocumentMoveTargetOptions(
     nodes,
@@ -62,11 +63,28 @@ test("a document in trash can be moved out to another container", () => {
   const optionIds = options.map((option) => option.id);
 
   // The trash container itself is excluded (can't move to current container),
-  // but every other container is a valid restore target.
+  // and the Contacts system container rejects non-contact documents.
   expect(optionIds).not.toContain(TRASH_CONTAINER_ID);
+  expect(optionIds).not.toContain(CONTACTS_CONTAINER_ID);
   expect(optionIds).toContain("user-container");
-  expect(optionIds).toContain(CONTACTS_CONTAINER_ID);
   expect(optionIds).toContain("root-container");
+});
+
+test("a contact in trash can be moved back into the contacts container", () => {
+  const trashedContact = documentSummary({
+    id: "trashed-contact",
+    containerId: TRASH_CONTAINER_ID,
+    documentKind: "contact",
+  });
+  const options = getDocumentMoveTargetOptions(
+    nodes,
+    [trashedContact],
+    trashedContact.id,
+    undefined,
+    rulesContext,
+  );
+
+  expect(options.map((option) => option.id)).toContain(CONTACTS_CONTAINER_ID);
 });
 
 test("a contact cannot be moved out of the contacts container", () => {

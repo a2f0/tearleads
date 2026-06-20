@@ -1,5 +1,6 @@
 import type {
   ContainerDocumentLinks,
+  ContainerNode,
   DocumentSummary,
   MergeDocumentSummary,
   SetLinkedContainerIdsForDocument,
@@ -14,6 +15,10 @@ import {
   purgeExplorerNote,
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinks";
+import {
+  canAddDocumentToContainerByRules,
+  type ExplorerContainerRulesContext,
+} from "../containerRules";
 import { getDocumentByLocalId } from "../documentSummaries";
 import type { ExplorerDocumentMutationOptions } from "./explorerModelTypes";
 
@@ -38,7 +43,9 @@ function useMoveDocumentAction(params: {
   expandNode: (nodeId: string) => void;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
+  nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: () => void;
+  rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
   const {
@@ -47,7 +54,9 @@ function useMoveDocumentAction(params: {
     expandNode,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
+    rulesContext,
     setLinkedContainerIdsForDocument,
   } = params;
 
@@ -70,6 +79,19 @@ function useMoveDocumentAction(params: {
           ? canMutateUnsyncedSelectedDocument(appData)
           : canMutateSelectedDocument(appData);
       if (!canMoveDocument) {
+        return null;
+      }
+      const targetContainer = nodes.find(
+        (node) => node.id === targetContainerId,
+      );
+      if (
+        !targetContainer ||
+        !canAddDocumentToContainerByRules(
+          rulesContext,
+          targetContainer,
+          existingDocument,
+        )
+      ) {
         return null;
       }
 
@@ -95,7 +117,9 @@ function useMoveDocumentAction(params: {
       expandNode,
       loadDocumentSummary,
       mergeDocumentSummary,
+      nodes,
       onDocumentLinksChanged,
+      rulesContext,
       setLinkedContainerIdsForDocument,
     ],
   );
@@ -141,7 +165,9 @@ function useLinkDocumentAction(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
+  nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: () => void;
+  rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
   const {
@@ -149,7 +175,9 @@ function useLinkDocumentAction(params: {
     documentSummaries,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
+    rulesContext,
     setLinkedContainerIdsForDocument,
   } = params;
 
@@ -165,6 +193,19 @@ function useLinkDocumentAction(params: {
         noteId,
       });
       if (!existingDocument) {
+        return null;
+      }
+      const targetContainer = nodes.find(
+        (node) => node.id === targetContainerId,
+      );
+      if (
+        !targetContainer ||
+        !canAddDocumentToContainerByRules(
+          rulesContext,
+          targetContainer,
+          existingDocument,
+        )
+      ) {
         return null;
       }
 
@@ -186,7 +227,9 @@ function useLinkDocumentAction(params: {
       documentSummaries,
       loadDocumentSummary,
       mergeDocumentSummary,
+      nodes,
       onDocumentLinksChanged,
+      rulesContext,
       setLinkedContainerIdsForDocument,
     ],
   );
@@ -293,7 +336,9 @@ export function useSelectedDocumentActions(params: {
   expandNode: (nodeId: string) => void;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
+  nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: () => void;
+  rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
   const {
@@ -302,7 +347,9 @@ export function useSelectedDocumentActions(params: {
     expandNode,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
+    rulesContext,
     setLinkedContainerIdsForDocument,
   } = params;
 
@@ -312,7 +359,9 @@ export function useSelectedDocumentActions(params: {
     expandNode,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
+    rulesContext,
     setLinkedContainerIdsForDocument,
   });
   const purgeDocument = usePurgeDocumentAction({
@@ -331,7 +380,9 @@ export function useSelectedDocumentActions(params: {
     documentSummaries,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
+    rulesContext,
     setLinkedContainerIdsForDocument,
   });
   const unlinkDocument = useUnlinkDocumentAction({

@@ -53,11 +53,13 @@ function useSelectedDocumentTargetOptions(params: {
             selectedDocument.id,
             selectedDocumentLinkedContainerIds,
             targetLookups,
+            rulesContext,
           )
         : [],
     [
       documentSummaries,
       nodes,
+      rulesContext,
       selectedDocument,
       selectedDocumentLinkedContainerIds,
       targetLookups,
@@ -115,7 +117,9 @@ export function useSelectedDocumentStructuralState(params: {
     expandNode,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
+    rulesContext,
     setLinkedContainerIdsForDocument,
   });
   const {

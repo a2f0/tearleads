@@ -1,5 +1,6 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback } from "react";
+import type { ExplorerContainerRulesContext } from "../containerRules";
 import {
   type ExplorerTargetLookups,
   getDocumentLinkedContainerIds,
@@ -55,6 +56,7 @@ function useExplorerTargetModalOpeners(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
@@ -74,6 +76,7 @@ function useExplorerTargetModalOpeners(params: {
 
 function useExplorerMoveModalOpener(params: {
   nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
@@ -82,6 +85,7 @@ function useExplorerMoveModalOpener(params: {
 }) {
   const {
     nodes,
+    rulesContext,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -97,11 +101,17 @@ function useExplorerMoveModalOpener(params: {
         setDraftTargetContainerId,
         setModalError,
         setModalState,
-        targetOptions: getMoveTargetOptions(nodes, containerId, targetLookups),
+        targetOptions: getMoveTargetOptions(
+          nodes,
+          containerId,
+          targetLookups,
+          rulesContext,
+        ),
       });
     },
     [
       nodes,
+      rulesContext,
       setDraftName,
       setDraftTargetContainerId,
       setModalError,
@@ -114,6 +124,7 @@ function useExplorerMoveModalOpener(params: {
 function useExplorerMoveDocumentModalOpener(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
@@ -123,6 +134,7 @@ function useExplorerMoveDocumentModalOpener(params: {
   const {
     documentSummaries,
     nodes,
+    rulesContext,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -143,12 +155,14 @@ function useExplorerMoveDocumentModalOpener(params: {
           documentSummaries,
           documentLocalId,
           targetLookups,
+          rulesContext,
         ),
       });
     },
     [
       documentSummaries,
       nodes,
+      rulesContext,
       setDraftName,
       setDraftTargetContainerId,
       setModalError,
@@ -162,6 +176,7 @@ function useExplorerLinkDocumentModalOpener(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
@@ -172,6 +187,7 @@ function useExplorerLinkDocumentModalOpener(params: {
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes,
+    rulesContext,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -198,6 +214,7 @@ function useExplorerLinkDocumentModalOpener(params: {
             linkedContainerIdsByDocumentId,
           }),
           targetLookups,
+          rulesContext,
         ),
       });
     },
@@ -205,6 +222,7 @@ function useExplorerLinkDocumentModalOpener(params: {
       documentSummaries,
       linkedContainerIdsByDocumentId,
       nodes,
+      rulesContext,
       setDraftName,
       setDraftTargetContainerId,
       setModalError,
@@ -218,6 +236,7 @@ export function useExplorerModalOpeners(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;

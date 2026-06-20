@@ -1,5 +1,6 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
+import type { ExplorerContainerRulesContext } from "../containerRules";
 import { useExplorerModalController } from "../modal/controller";
 import type { ExplorerModalState } from "../modal/types";
 import type { MoveTargetOption } from "../targetOptions";
@@ -38,6 +39,7 @@ export function useExplorerDocumentModalState(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   peerUserId: string | null;
+  rulesContext: ExplorerContainerRulesContext;
   setSelectedId: (id: string | null) => void;
   selectionExpandNode: (nodeId: string) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
@@ -49,6 +51,7 @@ export function useExplorerDocumentModalState(params: {
     documentSummaries,
     linkedContainerIdsByDocumentId,
     peerUserId,
+    rulesContext,
     setSelectedId,
     selectionExpandNode,
     shareWithUser,
@@ -66,6 +69,7 @@ export function useExplorerDocumentModalState(params: {
     linkedContainerIdsByDocumentId,
     peerUserId,
     renameContainer: explorer.renameContainer,
+    rulesContext,
     setSelectedId,
     shareWithUser,
   });
