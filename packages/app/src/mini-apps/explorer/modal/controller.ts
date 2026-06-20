@@ -81,6 +81,9 @@ function useExplorerModalState(
 ) {
   const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [backgroundActionError, setBackgroundActionError] = useState<
+    string | null
+  >(null);
   const [isSubmittingModal, setIsSubmittingModal] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [draftTargetContainerId, setDraftTargetContainerId] = useState("");
@@ -125,6 +128,7 @@ function useExplorerModalState(
 
   return {
     ...openers,
+    backgroundActionError,
     clearModal,
     closeModal,
     draftName,
@@ -137,6 +141,7 @@ function useExplorerModalState(
     targetSelectRef,
     setDraftName,
     setDraftTargetContainerId,
+    setBackgroundActionError,
     setIsSubmittingModal,
     setModalError,
   };
@@ -146,6 +151,7 @@ interface ExplorerModalSubmitControllerParams
   extends ExplorerModalSubmitParams {
   isSubmittingModal: boolean;
   setIsSubmittingModal: (value: boolean) => void;
+  setBackgroundActionError: (error: string | null) => void;
 }
 
 function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
@@ -164,6 +170,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
     nodes,
     peerUserId,
     renameContainer,
+    setBackgroundActionError,
     setIsSubmittingModal,
     setModalError,
     setSelectedId,
@@ -178,6 +185,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
       }
 
       setModalError(null);
+      setBackgroundActionError(null);
       setIsSubmittingModal(true);
 
       try {
@@ -195,6 +203,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
           nodes,
           peerUserId,
           renameContainer,
+          setBackgroundActionError,
           setModalError,
           setSelectedId,
           shareWithUser,
@@ -221,6 +230,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
       nodes,
       peerUserId,
       renameContainer,
+      setBackgroundActionError,
       setIsSubmittingModal,
       setModalError,
       setSelectedId,
@@ -290,11 +300,13 @@ export function useExplorerModalController(
     draftTargetContainerId: modalState.draftTargetContainerId,
     isSubmittingModal: modalState.isSubmittingModal,
     modalState: modalState.modalState,
+    setBackgroundActionError: modalState.setBackgroundActionError,
     setIsSubmittingModal: modalState.setIsSubmittingModal,
     setModalError: modalState.setModalError,
   });
 
   return {
+    backgroundActionError: modalState.backgroundActionError,
     closeModal: modalState.closeModal,
     draftName: modalState.draftName,
     draftTargetContainerId: modalState.draftTargetContainerId,

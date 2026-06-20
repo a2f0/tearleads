@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
-import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
+import {
+  MiniAppRoot,
+  MiniAppStatus,
+} from "../../components/shared/MiniAppLayout";
 import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
@@ -106,6 +109,11 @@ export function Explorer() {
 
   return (
     <MiniAppRoot className="explorer">
+      {model.modalState.backgroundActionError && (
+        <MiniAppStatus role="alert" tone="error">
+          {model.modalState.backgroundActionError}
+        </MiniAppStatus>
+      )}
       <ExplorerDetailPanel
         activateLinkedContainer={model.activateLinkedContainer}
         blobStore={appData.infra.blobStore}

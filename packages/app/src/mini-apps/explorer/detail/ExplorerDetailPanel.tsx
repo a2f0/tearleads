@@ -211,6 +211,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
       <ExplorerContainerInfoPanel
         containerId={route.containerId}
         containerName={infoNode?.name}
+        containerSyncStatus={infoNode?.syncState.status ?? null}
         containerNamesById={containerNamesById}
         loadContainerInfo={params.loadContainerInfo}
         onBackToContainer={params.onBackToSelectionRoute}

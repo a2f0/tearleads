@@ -22,6 +22,7 @@ import {
 interface Props {
   containerId: string;
   containerName: string | undefined;
+  containerSyncStatus: string | null;
   containerNamesById: ReadonlyMap<string, string>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   onBackToContainer: () => void;
@@ -35,68 +36,75 @@ interface Props {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
 
-export function ExplorerContainerInfoPanel(params: Props) {
-  const {
+function useExplorerContainerInfoPanelState(params: Props) {
+  const { containerId } = params;
+  const containerInfoState = useExplorerContainerInfo({
     containerId,
-    containerName,
-    containerNamesById,
-    loadContainerInfo,
-    onBackToContainer,
-    onOpenGrantGroup,
-    peerUserId,
-    shareWithGroup,
-    shareWithUser,
-  } = params;
+    loadContainerInfo: params.loadContainerInfo,
+    reloadToken: params.containerSyncStatus,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleShareWithGroup = useExplorerContainerInfoGroupShare({
+    containerId,
+    draftShareAccessLevel: containerInfoState.draftShareAccessLevel,
+    draftShareGroupId: containerInfoState.draftShareGroupId,
+    isSubmitting,
+    reloadContainerInfo: containerInfoState.reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError: containerInfoState.setPanelError,
+    shareWithGroup: params.shareWithGroup,
+  });
+  const handleShareWithPeer = useExplorerContainerInfoPeerShare({
+    containerId,
+    isSubmitting,
+    peerUserId: params.peerUserId,
+    reloadContainerInfo: containerInfoState.reloadContainerInfo,
+    setIsSubmitting,
+    setPanelError: containerInfoState.setPanelError,
+    shareWithUser: params.shareWithUser,
+  });
+
+  return {
+    ...containerInfoState,
+    handleShareWithGroup,
+    handleShareWithPeer,
+    isSubmitting,
+  };
+}
+
+export function ExplorerContainerInfoPanel(params: Props) {
   const {
     containerInfo,
     containerInfoError,
     draftShareAccessLevel,
     draftShareGroupId,
+    handleShareWithGroup,
+    handleShareWithPeer,
     isLoadingContainerInfo,
+    isSubmitting,
     panelError,
-    reloadContainerInfo,
     setDraftShareAccessLevel,
     setDraftShareGroupId,
     setPanelError,
-  } = useExplorerContainerInfo({ containerId, loadContainerInfo });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const handleShareWithGroup = useExplorerContainerInfoGroupShare({
-    containerId,
-    draftShareAccessLevel,
-    draftShareGroupId,
-    isSubmitting,
-    reloadContainerInfo,
-    setIsSubmitting,
-    setPanelError,
-    shareWithGroup,
-  });
-  const handleShareWithPeer = useExplorerContainerInfoPeerShare({
-    containerId,
-    isSubmitting,
-    peerUserId,
-    reloadContainerInfo,
-    setIsSubmitting,
-    setPanelError,
-    shareWithUser,
-  });
+  } = useExplorerContainerInfoPanelState(params);
 
   return (
     <MiniAppFormPanel
       className="explorer-detail explorer-detail--container-info"
-      key={containerId}
+      key={params.containerId}
       onSubmit={handleShareWithGroup}
       scroll
       variant="framed"
     >
       <ExplorerContainerInfoHeader
-        containerId={containerId}
-        containerName={containerName}
+        containerId={params.containerId}
+        containerName={params.containerName}
         isSubmitting={isSubmitting}
-        onBackToContainer={onBackToContainer}
+        onBackToContainer={params.onBackToContainer}
       />
       <ExplorerContainerInfoBody
-        containerNamesById={containerNamesById}
-        containerId={containerId}
+        containerNamesById={params.containerNamesById}
+        containerId={params.containerId}
         containerInfo={containerInfo}
         containerInfoError={containerInfoError}
         draftShareAccessLevel={draftShareAccessLevel}
@@ -104,8 +112,8 @@ export function ExplorerContainerInfoPanel(params: Props) {
         isLoadingContainerInfo={isLoadingContainerInfo}
         isSubmitting={isSubmitting}
         onShareWithPeer={handleShareWithPeer}
-        onOpenGrantGroup={onOpenGrantGroup}
-        peerUserId={peerUserId}
+        onOpenGrantGroup={params.onOpenGrantGroup}
+        peerUserId={params.peerUserId}
         setDraftShareAccessLevel={setDraftShareAccessLevel}
         setDraftShareGroupId={setDraftShareGroupId}
         setPanelError={setPanelError}

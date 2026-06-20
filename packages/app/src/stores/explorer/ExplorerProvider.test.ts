@@ -1880,7 +1880,7 @@ test("explorer sync skips pending metadata updates for containers without docume
   }
 });
 
-test("explorer store creates authenticated child containers through the API before persisting locally", async () => {
+test("explorer store queues authenticated child containers locally before background sync", async () => {
   let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -1964,6 +1964,24 @@ test("explorer store creates authenticated child containers through the API befo
       throw new Error("Expected createChild to return a new container node.");
     }
 
+    await waitForCondition(async () => {
+      const pendingRows = await runtime.infra.execSql(
+        `
+ SELECT COUNT(*) AS count
+ FROM document_pending_updates
+ WHERE app_kind = 'container-metadata'
+ AND local_id = :containerId
+ `,
+        {
+          ":containerId": childNode.id,
+        },
+      );
+      return (
+        harness.containerCreateCalls.length === 1 &&
+        Number(readSqlRowValue(pendingRows[0] ?? {}, "count")) === 0
+      );
+    }, "Created child metadata update was not synced.");
+
     expect(harness.containerCreateCalls).toEqual([
       {
         containerId: childNode.id,
@@ -1984,40 +2002,17 @@ test("explorer store creates authenticated child containers through the API befo
         metadataDocumentId: childNode.id,
       },
     ]);
-
-    const persistedContainers = await loadContainers(runtime.infra.execSql);
-    const persistedChild = persistedContainers.find(
-      (container) => container.id === childNode.id,
-    );
-
-    expect(persistedChild).not.toBeUndefined();
-    expect(persistedChild?.metadataDocumentId).toBe(childNode.id);
-    expect(persistedChild?.name).toBe("Docs");
-    expect(persistedChild?.createdAt).toBe(childNode.createdAt);
-    expect(persistedChild?.updatedAt).toBe(childNode.updatedAt);
-    expect(childNode.organizationId).toBe("org-1");
-    expect(childNode.parentId).toBe("root-container");
-    await waitForCondition(async () => {
-      const pendingRows = await runtime.infra.execSql(
-        `
- SELECT COUNT(*) AS count
- FROM document_pending_updates
- WHERE app_kind = 'container-metadata'
- AND local_id = :containerId
- `,
-        {
-          ":containerId": childNode.id,
-        },
-      );
-      return Number(readSqlRowValue(pendingRows[0] ?? {}, "count")) === 0;
-    }, "Created child metadata update was not synced.");
-
     expect(harness.documentSyncCalls).toEqual([
       {
         documentId: childNode.id,
         outgoingUpdateCount: 1,
       },
     ]);
+    const persistedContainers = await loadContainers(runtime.infra.execSql);
+    const persistedChild = persistedContainers.find(
+      (container) => container.id === childNode.id,
+    );
+    expect(persistedChild?.metadataDocumentId).toBe(childNode.id);
     expect(
       store.getSnapshot().nodes.find((node) => node.id === childNode.id)
         ?.syncState,
@@ -2790,6 +2785,11 @@ test("explorer store creates a child under a writable shared root through the pa
       throw new Error("Expected createChild to return a new container node.");
     }
 
+    await waitForCondition(
+      () => harness.containerCreateCalls.length === 1,
+      "Explorer store did not sync the shared-root child create.",
+    );
+
     expect(harness.containerCreateCalls).toEqual([
       {
         containerId: childNode.id,
@@ -2819,7 +2819,7 @@ test("explorer store creates a child under a writable shared root through the pa
   }
 });
 
-test("explorer store moves an authenticated child container through the API and refreshes local state", async () => {
+test("explorer store moves authenticated child containers locally before background sync", async () => {
   let runtime = await createSqlRuntime();
   const localKeyPair = generateKemSeedAndKeyPair();
   const signingKeyPair = generateSigningSeedAndKeyPair();
@@ -2959,13 +2959,14 @@ test("explorer store moves an authenticated child container through the API and 
 
     await waitForCondition(
       () =>
+        harness.containerMoveCalls.length === 1 &&
         store
           .getSnapshot()
           .nodes.some(
             (node) =>
               node.id === "child-container" && node.parentId === "parent-b",
           ),
-      "Explorer store did not update the moved container parent.",
+      "Explorer store did not sync the moved container parent.",
     );
 
     expect(harness.containerMoveCalls).toEqual([

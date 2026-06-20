@@ -176,6 +176,44 @@ test("useExplorerContainerInfo loads info and selects the first ungranted sharea
   });
 });
 
+test("useExplorerContainerInfo reloads when the reload token changes", async () => {
+  const requestedContainerIds: string[] = [];
+  const loadContainerInfo = async (containerId: string) => {
+    requestedContainerIds.push(containerId);
+    return requestedContainerIds.length === 1
+      ? createContainerInfo({ remoteInfo: null })
+      : createContainerInfo();
+  };
+  const view = renderHook(
+    ({ reloadToken }: { reloadToken: string }) =>
+      useExplorerContainerInfo({
+        containerId: "container-1",
+        loadContainerInfo,
+        reloadToken,
+      }),
+    { initialProps: { reloadToken: "local-only" } },
+  );
+
+  await waitFor(() => {
+    expect(requestedContainerIds).toEqual(["container-1"]);
+    expect(view.result.current.containerInfo?.remoteInfo).toBeNull();
+  });
+
+  act(() => {
+    view.result.current.setDraftShareAccessLevel("admin");
+    view.result.current.setDraftShareGroupId("draft-group");
+  });
+
+  view.rerender({ reloadToken: "synced" });
+
+  await waitFor(() => {
+    expect(requestedContainerIds).toEqual(["container-1", "container-1"]);
+    expect(view.result.current.containerInfo?.remoteInfo).not.toBeNull();
+    expect(view.result.current.draftShareAccessLevel).toBe("admin");
+    expect(view.result.current.draftShareGroupId).toBe("draft-group");
+  });
+});
+
 test("useExplorerContainerInfo ignores stale requests after the container changes", async () => {
   const firstLoad = createDeferred<ContainerInfo>();
   const secondLoad = createDeferred<ContainerInfo>();

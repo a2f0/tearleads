@@ -1,7 +1,6 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createChildContainerState } from "../../workflows/container-contents/container-state/createChild";
 import { deleteContainerState } from "../../workflows/container-contents/container-state/delete";
-import { moveRemoteContainer } from "../../workflows/container-contents/container-state/remote";
 import {
   shareContainerState,
   shareContainerStateWithGroup,
@@ -13,7 +12,6 @@ import {
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
 import { isDestroyedContainerContentsSyncRuntimeError } from "../../workflows/container-contents/syncLane";
-import { requestDomainDocumentSync } from "../documents";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -79,9 +77,7 @@ export async function createChildContainer(
   }
 
   const created = await createChildContainerState({
-    createRemote:
-      state.runtime.auth.isAuthenticated &&
-      Boolean(state.runtime.crypto.encapsulationKeyPair),
+    createRemote: false,
     name: trimmedName,
     parentState,
     persistence: state.persistence,
@@ -478,45 +474,15 @@ export async function moveContainer(
     return toContainerNode(existingState);
   }
 
-  const canMoveRemoteContainerNow =
-    state.runtime.auth.isAuthenticated &&
-    state.runtime.state.online &&
-    Boolean(targetParentState.record?.documentId) &&
-    typeof existingState.record?.accessStateHash === "string" &&
-    existingState.record.accessStateHash.length > 0;
-  if (!canMoveRemoteContainerNow) {
-    await persistContainerState(state, existingState, { parentId }, true, {
-      moveIntent: {
-        parentContainerId: parentId,
-        previousParentContainerId: previousParentId,
-      },
-    });
-    syncAgent.scheduleSync();
-    state.runtime.util.log(
-      `${getContainerContentsStoreLogLabel(state)}: queued container move ${containerId} under ${parentId}`,
-    );
-    return toContainerNode(existingState);
-  }
-
-  const moved = await moveRemoteContainer({
-    containerId,
-    parentContainerId: parentId,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
+  await persistContainerState(state, existingState, { parentId }, true, {
+    moveIntent: {
+      parentContainerId: parentId,
+      previousParentContainerId: previousParentId,
+    },
   });
-  if (!moved) {
-    return null;
-  }
-
-  await syncAgent.ingestRemoteContainer(moved);
-  await syncAgent.requestRemoteHydration({
-    parentIds: [previousParentId, parentId],
-  });
-  requestDomainDocumentSync(state.runtime.state.domainScope);
   syncAgent.scheduleSync();
   state.runtime.util.log(
-    `${getContainerContentsStoreLogLabel(state)}: moved container ${containerId} under ${parentId}`,
+    `${getContainerContentsStoreLogLabel(state)}: queued container move ${containerId} under ${parentId}`,
   );
-  const latestState = state.containersById.get(containerId) ?? existingState;
-  return toContainerNode(latestState);
+  return toContainerNode(existingState);
 }

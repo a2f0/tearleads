@@ -48,6 +48,7 @@ export interface ExplorerModalControllerParams {
 }
 
 export interface ExplorerModalController {
+  backgroundActionError: string | null;
   closeModal: () => void;
   draftName: string;
   draftTargetContainerId: string;

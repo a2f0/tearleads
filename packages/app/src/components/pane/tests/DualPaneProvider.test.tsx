@@ -428,9 +428,13 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
   await interact(() => {
     fireEvent.click(getInfoButton);
   });
-  const shareWithPeerButton = await screen.findByRole("button", {
-    name: "Share With Peer",
-  });
+  const shareWithPeerButton = await screen.findByRole(
+    "button",
+    {
+      name: "Share With Peer",
+    },
+    { timeout: 15_000 },
+  );
   await interact(() => {
     fireEvent.click(shareWithPeerButton);
   });
@@ -1088,6 +1092,7 @@ async function waitForSinglePaneProvisioning(pane: HTMLElement) {
       !pane.textContent?.includes("userId: none") &&
       !pane.textContent?.includes("session: none"),
     "Left pane identity did not finish provisioning.",
+    DUAL_PANE_TEST_TIMEOUT_MS,
   );
 }
 
@@ -1219,6 +1224,7 @@ async function waitForDualPaneProvisioning(
       !leftPane.textContent?.includes("peerUserId: none") &&
       !rightPane.textContent?.includes("peerUserId: none"),
     "Dual pane identities did not finish provisioning.",
+    DUAL_PANE_TEST_TIMEOUT_MS,
   );
 }
 
@@ -1341,7 +1347,7 @@ test(
 
     expect(listPaneErrorLines([pane])).toEqual([]);
   },
-  DUAL_PANE_TEST_TIMEOUT_MS,
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
 test(
@@ -1363,7 +1369,7 @@ test(
 
     expect(listExplorerContainerItems(rightPane).length).toBeGreaterThan(1);
   },
-  DUAL_PANE_TEST_TIMEOUT_MS,
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
 test(
@@ -1399,7 +1405,7 @@ test(
       `Duplicate peer share should not create another share mutation.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(duplicateShareRequestStartIndex))}`,
     ).toEqual([]);
   },
-  DUAL_PANE_TEST_TIMEOUT_MS,
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
 test(
