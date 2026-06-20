@@ -75,6 +75,7 @@ export type {
   MergeDocumentSummary,
   MoveDocumentToContainerInput,
   NetworkListener,
+  NetworkMode,
   NormalizedLocalKeyringScope,
   OpenContainerDocumentInput,
   OpenDocumentInput,

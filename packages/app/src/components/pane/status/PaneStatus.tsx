@@ -11,8 +11,9 @@ export function PaneStatus() {
   const { userId, authToken } = useCryptoSession();
   const { signingFingerprint } = useIdentity();
   const { events, connected } = useEvents();
-  const { online } = useNetworkState();
+  const { mode, online } = useNetworkState();
   const peerUserId = usePeerUserId();
+  const networkModeLabel = mode === "automatic" ? "" : " (manual)";
 
   return (
     <div className="pane-content">
@@ -29,6 +30,7 @@ export function PaneStatus() {
       session: {authToken ? authToken.slice(0, 32) : "none"}
       <br />
       network: {online ? "online" : "offline"}
+      {networkModeLabel}
       <br />
       ws: {connected ? "connected" : "disconnected"}
       <br />

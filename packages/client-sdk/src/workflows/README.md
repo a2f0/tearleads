@@ -23,6 +23,10 @@ The `sync` facade exposes read-only coordinator snapshots through
 those snapshots to show lane status, request/run/error counts, and last action
 timestamps without reaching into coordinator internals or owning sync policy.
 
+Workflow code consumes the resolved `runtime.state.online` value. Host-level
+network detection and any manual online/offline override policy belongs to the
+SDK `tearleads.network` runtime state, not individual workflow facades.
+
 The device-first read/reconcile seam lives outside the workflow facades, in
 `src/stores/local-projection` (the synchronously-readable `LocalProjectionStore`)
 and `src/sync/reconciliation` (the background `ReconciliationService` that owns

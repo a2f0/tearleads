@@ -1,4 +1,5 @@
 export type NetworkListener = (online: boolean) => void;
+export type NetworkMode = "automatic" | "online" | "offline";
 
 function defaultOnline(): boolean {
   return typeof navigator === "object" && typeof navigator.onLine === "boolean"
@@ -6,24 +7,62 @@ function defaultOnline(): boolean {
     : true;
 }
 
+function resolveOnline(mode: NetworkMode, detectedOnline: boolean): boolean {
+  if (mode === "online") {
+    return true;
+  }
+
+  if (mode === "offline") {
+    return false;
+  }
+
+  return detectedOnline;
+}
+
 export class Network {
   private readonly listeners = new Set<NetworkListener>();
-  private onlineValue: boolean;
+  private detectedOnlineValue: boolean;
+  private modeValue: NetworkMode = "automatic";
 
   constructor(online: boolean = defaultOnline()) {
-    this.onlineValue = online;
+    this.detectedOnlineValue = online;
   }
 
   get online(): boolean {
-    return this.onlineValue;
+    return resolveOnline(this.modeValue, this.detectedOnlineValue);
+  }
+
+  get detectedOnline(): boolean {
+    return this.detectedOnlineValue;
+  }
+
+  get mode(): NetworkMode {
+    return this.modeValue;
   }
 
   setOnline(online: boolean): void {
-    if (this.onlineValue === online) {
+    const previousOnline = this.online;
+    if (this.detectedOnlineValue === online) {
       return;
     }
 
-    this.onlineValue = online;
+    this.detectedOnlineValue = online;
+    if (this.online !== previousOnline) {
+      this.notifyListeners();
+    }
+  }
+
+  setMode(mode: NetworkMode): void {
+    if (this.modeValue === mode) {
+      return;
+    }
+
+    this.modeValue = mode;
+    this.notifyListeners();
+  }
+
+  private notifyListeners(): void {
+    const online = this.online;
     for (const listener of this.listeners) {
       try {
         listener(online);

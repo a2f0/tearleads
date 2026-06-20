@@ -249,6 +249,39 @@ describe("Tearleads", () => {
     expect(sdk.network.online).toBe(false);
   });
 
+  test("manual network mode overrides detected connectivity changes", () => {
+    const sdk = new Tearleads({ logger: quietLogger, online: true });
+    const snapshots: boolean[] = [];
+    sdk.network.subscribe((online) => {
+      snapshots.push(online);
+    });
+
+    sdk.network.setMode("offline");
+    sdk.network.setOnline(true);
+    sdk.network.setMode("online");
+    sdk.network.setOnline(false);
+    sdk.network.setMode("automatic");
+
+    expect(snapshots).toEqual([false, true, false]);
+    expect(sdk.network.detectedOnline).toBe(false);
+    expect(sdk.network.mode).toBe("automatic");
+    expect(sdk.network.online).toBe(false);
+  });
+
+  test("notifies network subscribers when mode changes without changing effective online state", () => {
+    const sdk = new Tearleads({ logger: quietLogger, online: true });
+    const snapshots: boolean[] = [];
+    sdk.network.subscribe((online) => {
+      snapshots.push(online);
+    });
+
+    sdk.network.setMode("online");
+
+    expect(snapshots).toEqual([true]);
+    expect(sdk.network.mode).toBe("online");
+    expect(sdk.network.online).toBe(true);
+  });
+
   test("notifies event subscribers with stable snapshots", () => {
     const sdk = new Tearleads({ logger: quietLogger });
     const snapshots: ReadonlyArray<unknown>[] = [];
