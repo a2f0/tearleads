@@ -60,9 +60,17 @@ function useContextMenuTargetDocumentOptions(params: {
             documentSummaries,
             targetDocument.id,
             linkedContainerIds,
+            undefined,
+            rulesContext,
           )
         : [],
-    [documentSummaries, linkedContainerIds, nodes, targetDocument],
+    [
+      documentSummaries,
+      linkedContainerIds,
+      nodes,
+      rulesContext,
+      targetDocument,
+    ],
   );
 
   return { linkTargetOptions, linkedContainerIds, moveTargetOptions };

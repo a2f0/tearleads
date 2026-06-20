@@ -1,6 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { FormEvent, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ExplorerContainerRulesContext } from "../containerRules";
 import {
   createExplorerTargetLookups,
   getDocumentLinkedContainerIds,
@@ -76,6 +77,7 @@ function useExplorerModalState(
   nodes: ReadonlyArray<ContainerNode>,
   documentSummaries: ReadonlyArray<DocumentSummary>,
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
+  rulesContext: ExplorerContainerRulesContext,
 ) {
   const [modalState, setModalState] = useState<ExplorerModalState | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -106,6 +108,7 @@ function useExplorerModalState(
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes,
+    rulesContext,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -233,6 +236,7 @@ export function useExplorerModalController(
     params.nodes,
     params.documentSummaries,
     params.linkedContainerIdsByDocumentId,
+    params.rulesContext,
   );
   const moveTargetOptions = useMemo(() => {
     if (modalState.modalState?.mode === "move") {
@@ -240,6 +244,7 @@ export function useExplorerModalController(
         params.nodes,
         modalState.modalState.nodeId,
         modalState.targetLookups,
+        params.rulesContext,
       );
     }
 
@@ -255,6 +260,7 @@ export function useExplorerModalController(
           linkedContainerIdsByDocumentId: params.linkedContainerIdsByDocumentId,
         }),
         modalState.targetLookups,
+        params.rulesContext,
       );
     }
 
@@ -264,6 +270,7 @@ export function useExplorerModalController(
         params.documentSummaries,
         modalState.modalState.documentLocalId,
         modalState.targetLookups,
+        params.rulesContext,
       );
     }
 
@@ -274,6 +281,7 @@ export function useExplorerModalController(
     params.documentSummaries,
     params.linkedContainerIdsByDocumentId,
     params.nodes,
+    params.rulesContext,
   ]);
   const handleModalSubmit = useExplorerModalSubmit({
     ...params,

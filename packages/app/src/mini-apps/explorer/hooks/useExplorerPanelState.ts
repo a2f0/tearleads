@@ -228,6 +228,7 @@ export function useExplorerPanelState(params: {
     documentSummaries,
     linkedContainerIdsByDocumentId,
     peerUserId,
+    rulesContext,
     setSelectedId: routeState.selectExplorerItem,
     selectionExpandNode: selection.expandNode,
     shareWithUser: explorer.shareWithUser,

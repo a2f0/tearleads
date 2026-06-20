@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
+  canAddDocumentToContainerByRules,
   canDeleteContainerByRules,
   canDeleteDocumentByRules,
   canMoveContainerByRules,
@@ -127,6 +128,33 @@ test("items can be moved out of the trash container", () => {
 
 test("documents in plain containers can move out freely", () => {
   expect(canMoveDocumentOutByRules(rulesContext, userContainer)).toBe(true);
+});
+
+test("contacts container only accepts contact documents", () => {
+  expect(
+    canAddDocumentToContainerByRules(
+      rulesContext,
+      contactsContainer,
+      documentSummary({ id: "note-1", documentKind: "note" }),
+    ),
+  ).toBe(false);
+  expect(
+    canAddDocumentToContainerByRules(
+      rulesContext,
+      contactsContainer,
+      documentSummary({ id: "contact-1", documentKind: "contact" }),
+    ),
+  ).toBe(true);
+});
+
+test("trash and plain containers accept every document kind", () => {
+  const note = documentSummary({ id: "note-1", documentKind: "note" });
+  expect(
+    canAddDocumentToContainerByRules(rulesContext, trashContainer, note),
+  ).toBe(true);
+  expect(
+    canAddDocumentToContainerByRules(rulesContext, userContainer, note),
+  ).toBe(true);
 });
 
 test("the self contact in the contacts container cannot be deleted", () => {

@@ -1,4 +1,7 @@
-import type { ContainerSystemSlotDefinition } from "@tearleads/client-sdk";
+import type {
+  ContainerSystemSlotDefinition,
+  StoredDocumentKind,
+} from "@tearleads/client-sdk";
 
 export const CONTACTS_CONTAINER_NAME = "Contacts";
 export const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
@@ -21,7 +24,7 @@ const EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefini
 export type UserSystemContainerKind = "contacts" | "trash";
 
 // Rules that govern what a user may do to a system container and the documents
-// it holds. Every flag defaults to `true` (the rule is enforced); flip one to
+// it holds. Boolean flags default to `true` (the rule is enforced); flip one to
 // `false` in a container's definition to disable that rule for everyone.
 export interface UserSystemContainerRules {
   // Block moving this container under a different parent.
@@ -37,6 +40,9 @@ export interface UserSystemContainerRules {
   // populated by the app (e.g. trash receives deleted items, contacts receives
   // contact documents), never by direct user upload.
   readonly protectFromUpload: boolean;
+  // Restrict document kinds that may be linked or moved into this container.
+  // `null` means the container accepts every document kind.
+  readonly acceptedDocumentKinds: ReadonlyArray<StoredDocumentKind> | null;
   // Block deleting the builtin self ("You") contact that lives in this
   // container. Only meaningful for the contacts container.
   readonly protectSelfDocumentFromDelete: boolean;
@@ -66,6 +72,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectContentsFromLeaving: true,
         protectSelfDocumentFromDelete: true,
         protectFromUpload: true,
+        acceptedDocumentKinds: ["contact"],
       },
       slotDefinition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
       visibleWhenShared: true,
@@ -82,6 +89,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectContentsFromLeaving: false,
         protectSelfDocumentFromDelete: false,
         protectFromUpload: true,
+        acceptedDocumentKinds: null,
       },
       slotDefinition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,
       visibleWhenShared: false,

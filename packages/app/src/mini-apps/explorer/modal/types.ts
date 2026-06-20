@@ -1,5 +1,6 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { Dispatch, FormEvent, RefObject, SetStateAction } from "react";
+import type { ExplorerContainerRulesContext } from "../containerRules";
 import type { MoveTargetOption } from "../targetOptions";
 
 export type ExplorerModalState =
@@ -37,6 +38,7 @@ export interface ExplorerModalControllerParams {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  rulesContext: ExplorerContainerRulesContext;
   // Linked containers per document id, so link targets are computed for whatever
   // document a modal operates on (selection or right-clicked row) rather than a
   // single pre-selected document.

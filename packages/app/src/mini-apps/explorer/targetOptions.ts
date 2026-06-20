@@ -1,5 +1,6 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import {
+  canAddDocumentToContainerByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
   type ExplorerContainerRulesContext,
@@ -159,7 +160,13 @@ export function getDocumentMoveTargetOptions(
     nodes.filter(
       (candidateNode) =>
         candidateNode.id !== currentContainer.id &&
-        candidateNode.organizationId === currentContainer.organizationId,
+        candidateNode.organizationId === currentContainer.organizationId &&
+        (rulesContext === undefined ||
+          canAddDocumentToContainerByRules(
+            rulesContext,
+            candidateNode,
+            movingDocument,
+          )),
     ),
   );
 }
@@ -170,6 +177,7 @@ export function getDocumentLinkTargetOptions(
   documentLocalId: string,
   linkedContainerIds: ReadonlyArray<string>,
   lookups?: ExplorerTargetLookups,
+  rulesContext?: ExplorerContainerRulesContext,
 ): ReadonlyArray<MoveTargetOption> {
   const documentSummariesById = getDocumentSummariesById(
     documentSummaries,
@@ -191,7 +199,13 @@ export function getDocumentLinkTargetOptions(
     nodes.filter(
       (candidateNode) =>
         candidateNode.organizationId === currentContainer.organizationId &&
-        !linkedContainerIdSet.has(candidateNode.id),
+        !linkedContainerIdSet.has(candidateNode.id) &&
+        (rulesContext === undefined ||
+          canAddDocumentToContainerByRules(
+            rulesContext,
+            candidateNode,
+            linkingDocument,
+          )),
     ),
   );
 }
