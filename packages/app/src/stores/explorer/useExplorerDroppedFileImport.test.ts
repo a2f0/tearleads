@@ -413,7 +413,7 @@ test("dropped file import uses a larger size limit for binary attachments", asyn
       }),
       createOversizedFile({
         name: "huge.mp3",
-        size: 51 * 1024 * 1024,
+        size: 201 * 1024 * 1024,
         type: "audio/mpeg",
       }),
     ],
@@ -434,6 +434,6 @@ test("dropped file import uses a larger size limit for binary attachments", asyn
     6 * 1024 * 1024,
   );
   expect(errors).toEqual([
-    "Explorer: failed to import huge.mp3. huge.mp3 is larger than 50.0 MB.",
+    "Explorer: failed to import huge.mp3. huge.mp3 is larger than 200.0 MB.",
   ]);
 });

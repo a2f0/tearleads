@@ -9,7 +9,7 @@ import { APP_DEFAULT_DOCUMENT_KIND } from "./note/noteDocumentDefinition";
 import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 
 export const TEXT_FILE_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
-export const BINARY_FILE_IMPORT_MAX_BYTES = 50 * 1024 * 1024;
+export const BINARY_FILE_IMPORT_MAX_BYTES = 200 * 1024 * 1024;
 
 interface DocumentFileImportResult {
   attachment: DocumentAttachmentUpload | null;
