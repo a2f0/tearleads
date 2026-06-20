@@ -10,7 +10,7 @@ function usage(): string {
     "Usage: tearleads-api-cli <command>",
     "",
     "Commands:",
-    "  blob-store:list-keys [--prefix <prefix>]    List configured S3 blob store keys",
+    "  blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys",
     "  migrate    Run API database migrations",
   ].join("\n");
 }
@@ -123,37 +123,11 @@ async function runMigrations(): Promise<void> {
   }
 }
 
-function readOptionalValueArg(
-  args: readonly string[],
-  name: string,
-): string | undefined {
-  let value: string | undefined;
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg === name) {
-      const nextArg = args[index + 1];
-      if (nextArg === undefined) {
-        throw new Error(`${name} requires a value`);
-      }
-      value = nextArg;
-      index += 1;
-      continue;
-    }
-
-    if (arg?.startsWith(`${name}=`)) {
-      value = arg.slice(name.length + 1);
-      continue;
-    }
-
-    throw new Error(`Unknown argument: ${arg}`);
-  }
-
-  return value;
-}
-
 async function listBlobStoreKeys(args: readonly string[]): Promise<void> {
-  const { listS3BlobStoreKeys } = await import("./blobStoreKeys");
-  await listS3BlobStoreKeys({ prefix: readOptionalValueArg(args, "--prefix") });
+  const { listS3BlobStoreKeys, parseListBlobStoreKeysArgs } = await import(
+    "./blobStoreKeys"
+  );
+  await listS3BlobStoreKeys(parseListBlobStoreKeysArgs(args));
 }
 
 const command = process.argv[2];
