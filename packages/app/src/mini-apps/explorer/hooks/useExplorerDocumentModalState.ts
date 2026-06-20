@@ -10,6 +10,7 @@ import type {
 } from "./explorerModelTypes";
 
 export interface ExplorerDocumentModalState {
+  backgroundActionError: string | null;
   closeModal: () => void;
   draftName: string;
   draftTargetContainerId: string;

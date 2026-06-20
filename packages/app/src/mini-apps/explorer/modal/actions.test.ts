@@ -40,6 +40,7 @@ function createSubmitParams(
     nodes: [containerNode],
     peerUserId: null,
     renameContainer: async () => null,
+    setBackgroundActionError: () => undefined,
     setModalError: () => undefined,
     setSelectedId: () => undefined,
     shareWithUser: async () => false,
@@ -95,7 +96,7 @@ test("document move modal clears before the network mutation resolves", async ()
     }),
   );
 
-  expect(calls).toEqual(["clear"]);
+  expect(calls).toEqual(["select:note-1", "clear"]);
 
   moveDeferred.resolve({
     accessStateHash: "access-state-hash",
@@ -109,7 +110,7 @@ test("document move modal clears before the network mutation resolves", async ()
   await moveDeferred.promise;
   await Promise.resolve();
 
-  expect(calls).toEqual(["clear", "select:note-1"]);
+  expect(calls).toEqual(["select:note-1", "clear"]);
 });
 
 test("delete modal clears before the container delete resolves", async () => {
@@ -129,11 +130,41 @@ test("delete modal clears before the container delete resolves", async () => {
     }),
   );
 
-  expect(calls).toEqual(["clear"]);
+  expect(calls).toEqual(["select:root-container", "clear"]);
 
   deleteDeferred.resolve(true);
   await deleteDeferred.promise;
   await Promise.resolve();
 
-  expect(calls).toEqual(["clear", "select:root-container"]);
+  expect(calls).toEqual(["select:root-container", "clear"]);
+});
+
+test("background modal failures are surfaced after the modal closes", async () => {
+  const deleteDeferred = createDeferred<boolean>();
+  const backgroundErrors: Array<string | null> = [];
+  const previousConsoleError = console.error;
+  console.error = () => undefined;
+
+  try {
+    await submitExplorerModalAction(
+      createSubmitParams({
+        clearModal: () => undefined,
+        deleteContainer: () => deleteDeferred.promise,
+        modalState: { mode: "delete", nodeId: "container-1" },
+        setBackgroundActionError: (error) => {
+          backgroundErrors.push(error);
+        },
+      }),
+    );
+
+    expect(backgroundErrors).toEqual([]);
+
+    deleteDeferred.resolve(false);
+    await deleteDeferred.promise;
+    await Promise.resolve();
+
+    expect(backgroundErrors).toEqual(["Failed to delete container."]);
+  } finally {
+    console.error = previousConsoleError;
+  }
 });

@@ -199,11 +199,18 @@ test("useExplorerContainerInfo reloads when the reload token changes", async () 
     expect(view.result.current.containerInfo?.remoteInfo).toBeNull();
   });
 
+  act(() => {
+    view.result.current.setDraftShareAccessLevel("admin");
+    view.result.current.setDraftShareGroupId("draft-group");
+  });
+
   view.rerender({ reloadToken: "synced" });
 
   await waitFor(() => {
     expect(requestedContainerIds).toEqual(["container-1", "container-1"]);
     expect(view.result.current.containerInfo?.remoteInfo).not.toBeNull();
+    expect(view.result.current.draftShareAccessLevel).toBe("admin");
+    expect(view.result.current.draftShareGroupId).toBe("draft-group");
   });
 });
 

@@ -23,11 +23,13 @@ type ExplorerContainerInfoGroup = NonNullable<
 
 export type ReloadExplorerContainerInfo = (options?: {
   optimisticGrant?: ExplorerContainerInfoGrant | null;
+  preserveDrafts?: boolean;
   resetDrafts?: boolean;
 }) => Promise<void>;
 
 interface ReloadExplorerContainerInfoOptions {
   optimisticGrant?: ExplorerContainerInfoGrant | null;
+  preserveDrafts?: boolean;
   resetDrafts?: boolean;
 }
 
@@ -203,6 +205,10 @@ function commitContainerInfo(params: {
   );
   containerInfoRef.current = updatedInfo;
   setContainerInfo(updatedInfo);
+  if (options.preserveDrafts) {
+    return;
+  }
+
   setDraftShareGroupId((current) =>
     getReloadedDraftShareGroupId({
       currentGroupId: current,
@@ -224,6 +230,23 @@ function resetContainerInfoState(params: {
   params.setDraftShareGroupId("");
   params.setDraftShareAccessLevel(DEFAULT_SHARE_ACCESS_LEVEL);
   params.setPanelError(null);
+}
+
+function useContainerInfoAutoReload(params: {
+  containerId: string;
+  reloadContainerInfo: ReloadExplorerContainerInfo;
+  reloadToken?: string | null | undefined;
+}) {
+  const { containerId, reloadContainerInfo, reloadToken } = params;
+  const previousContainerIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const resetDrafts = previousContainerIdRef.current !== containerId;
+    previousContainerIdRef.current = containerId;
+    void reloadContainerInfo({
+      preserveDrafts: !resetDrafts,
+      resetDrafts,
+    });
+  }, [containerId, reloadContainerInfo, reloadToken]);
 }
 
 export function useExplorerContainerInfo(params: {
@@ -311,9 +334,7 @@ export function useExplorerContainerInfo(params: {
     [containerId, loadContainerInfo],
   );
 
-  useEffect(() => {
-    void reloadContainerInfo({ resetDrafts: true });
-  }, [reloadContainerInfo, reloadToken]);
+  useContainerInfoAutoReload({ containerId, reloadContainerInfo, reloadToken });
 
   return {
     containerInfo,

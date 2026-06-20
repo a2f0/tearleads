@@ -31,6 +31,7 @@ export interface ExplorerModalSubmitParams {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  setBackgroundActionError: (error: string | null) => void;
   setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
@@ -41,21 +42,31 @@ function submitExplorerDeleteModal(params: {
   deleteContainer: (containerId: string) => Promise<boolean>;
   modalState: { mode: "delete"; nodeId: string };
   nodes: ReadonlyArray<ContainerNode>;
+  setBackgroundActionError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { clearModal, deleteContainer, modalState, nodes, setSelectedId } =
-    params;
+  const {
+    clearModal,
+    deleteContainer,
+    modalState,
+    nodes,
+    setBackgroundActionError,
+    setSelectedId,
+  } = params;
   const deletingNode = nodes.find((node) => node.id === modalState.nodeId);
+  setSelectedId(deletingNode?.parentId ?? null);
   void deleteContainer(modalState.nodeId)
     .then((deleted) => {
       if (deleted) {
-        setSelectedId(deletingNode?.parentId ?? null);
         return;
       }
 
-      console.error(getExplorerModalError(modalState.mode));
+      const message = getExplorerModalError(modalState.mode);
+      setBackgroundActionError(message);
+      console.error(message);
     })
     .catch((error: unknown) => {
+      setBackgroundActionError(getExplorerModalError(modalState.mode));
       console.error(getExplorerModalLog(modalState.mode), error);
     });
   clearModal();
@@ -177,6 +188,7 @@ function submitExplorerMoveDocumentModal(params: {
     noteId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  setBackgroundActionError: (error: string | null) => void;
   setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
   targetContainerId: string;
@@ -186,6 +198,7 @@ function submitExplorerMoveDocumentModal(params: {
     linkDocument,
     modalState,
     moveDocument,
+    setBackgroundActionError,
     setModalError,
     setSelectedId,
     targetContainerId,
@@ -200,16 +213,22 @@ function submitExplorerMoveDocumentModal(params: {
     modalState.mode === "link-document"
       ? linkDocument(modalState.documentLocalId, targetContainerId)
       : moveDocument(modalState.documentLocalId, targetContainerId);
+  setSelectedId(modalState.documentLocalId);
   void movedDocumentPromise
     .then((movedDocument) => {
       if (movedDocument) {
-        setSelectedId(movedDocument.id);
+        if (movedDocument.id !== modalState.documentLocalId) {
+          setSelectedId(movedDocument.id);
+        }
         return;
       }
 
-      console.error(getExplorerModalError(modalState.mode));
+      const message = getExplorerModalError(modalState.mode);
+      setBackgroundActionError(message);
+      console.error(message);
     })
     .catch((error: unknown) => {
+      setBackgroundActionError(getExplorerModalError(modalState.mode));
       console.error(getExplorerModalLog(modalState.mode), error);
     });
   clearModal();
@@ -239,6 +258,7 @@ async function submitExplorerNonNameModal(params: {
   ) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
+  setBackgroundActionError: (error: string | null) => void;
   setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
@@ -250,6 +270,7 @@ async function submitExplorerNonNameModal(params: {
         deleteContainer: params.deleteContainer,
         modalState: params.modalState,
         nodes: params.nodes,
+        setBackgroundActionError: params.setBackgroundActionError,
         setSelectedId: params.setSelectedId,
       });
       return;
@@ -270,6 +291,7 @@ async function submitExplorerNonNameModal(params: {
         linkDocument: params.linkDocument,
         modalState: params.modalState,
         moveDocument: params.moveDocument,
+        setBackgroundActionError: params.setBackgroundActionError,
         setModalError: params.setModalError,
         setSelectedId: params.setSelectedId,
         targetContainerId: params.draftTargetContainerId,
@@ -321,6 +343,7 @@ export async function submitExplorerModalAction(
     moveDocument: params.moveDocument,
     nodes: params.nodes,
     peerUserId: params.peerUserId,
+    setBackgroundActionError: params.setBackgroundActionError,
     setModalError: params.setModalError,
     setSelectedId: params.setSelectedId,
     shareWithUser: params.shareWithUser,
