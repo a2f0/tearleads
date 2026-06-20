@@ -96,6 +96,39 @@ test("stageBlob offloads bytes to the object store when configured", async () =>
   expect(record).toMatchObject({ state: "complete", storageKey });
 });
 
+test("stageBlob deletes the offloaded object when the db insert fails", async () => {
+  const userId = crypto.randomUUID();
+  const input = await createStageBlobInput("encrypted payload");
+  const blobObjectStore = createMemoryBlobObjectStore();
+  const deletedKeys: string[] = [];
+  const spiedStore = {
+    ...blobObjectStore,
+    deleteObject: async (key: string) => {
+      deletedKeys.push(key);
+      return blobObjectStore.deleteObject(key);
+    },
+  };
+  const runtime = createServiceTestRuntime(db, {
+    blobObjectStore: spiedStore,
+    blobObjectStoreKind: "s3",
+  });
+  const insertError = new Error("insert failed");
+  runtime.db = {
+    insert: () => {
+      throw insertError;
+    },
+  } as unknown as typeof runtime.db;
+
+  await expect(stageBlob(runtime, { ...input, userId })).rejects.toBe(
+    insertError,
+  );
+  // The object was uploaded, then cleaned up so it is not orphaned.
+  expect(deletedKeys).toHaveLength(1);
+  expect(
+    await readObjectStoreText(spiedStore, deletedKeys[0] ?? ""),
+  ).toBeNull();
+});
+
 test("stageBlob rejects mismatched bytes and digests", async () => {
   const userId = crypto.randomUUID();
   const input = await createStageBlobInput("encrypted payload");

@@ -36,16 +36,17 @@ test("S3 blob object store puts a single object with a sha256 checksum", async (
   expect(await readBlobObjectText(store, "blob-stages/s3-put")).toBe(bytes);
 });
 
-test("S3 blob object store rejects putObject with empty bytes", async () => {
+test("S3 blob object store puts an empty object like the memory store", async () => {
   const { store } = createFakeS3BlobObjectStore();
 
-  await expect(
-    store.putObject({
-      bytes: "",
-      key: "blob-stages/s3-put-empty",
-      sha256: await sha256Hex(""),
-    }),
-  ).rejects.toBeInstanceOf(BlobObjectStoreError);
+  const result = await store.putObject({
+    bytes: "",
+    key: "blob-stages/s3-put-empty",
+    sha256: await sha256Hex(""),
+  });
+
+  expect(result).toEqual({ byteLength: 0, sha256: await sha256Hex("") });
+  expect(await readBlobObjectText(store, "blob-stages/s3-put-empty")).toBe("");
 });
 
 test("S3 blob object store completes multipart uploads by part number", async () => {

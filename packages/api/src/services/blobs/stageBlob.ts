@@ -48,8 +48,9 @@ export async function stageBlob(
   // When an object store is configured, offload the bytes to it so every blob
   // lives in object storage (Garage/S3). The memory store keeps bytes inline in
   // Postgres, which is only used for tests and local development.
+  const offloadToObjectStore = runtime.blobObjectStoreKind === "s3";
   let encryptedBytes = input.encryptedBytes;
-  if (runtime.blobObjectStoreKind === "s3") {
+  if (offloadToObjectStore) {
     const storageKey = storageKeyForStage(stageId);
     await runtime.blobObjectStore.putObject({
       bytes: input.encryptedBytes,
@@ -63,17 +64,29 @@ export async function stageBlob(
     });
   }
 
-  const [stage] = await runtime.db
-    .insert(blobStages)
-    .values({
-      id: stageId,
-      ownerUserId: input.userId,
-      encryptedBytes,
-      byteLength: input.byteLength,
-      sha256: input.sha256,
-      expiresAt,
-    })
-    .returning({ id: blobStages.id, expiresAt: blobStages.expiresAt });
+  let stage: { expiresAt: Date; id: string } | undefined;
+  try {
+    [stage] = await runtime.db
+      .insert(blobStages)
+      .values({
+        id: stageId,
+        ownerUserId: input.userId,
+        encryptedBytes,
+        byteLength: input.byteLength,
+        sha256: input.sha256,
+        expiresAt,
+      })
+      .returning({ id: blobStages.id, expiresAt: blobStages.expiresAt });
+  } catch (error) {
+    // Cleanup expiry relies on the blobStages row, so a failed insert would
+    // orphan the offloaded object. Best-effort delete it before rethrowing.
+    if (offloadToObjectStore) {
+      await runtime.blobObjectStore
+        .deleteObject(storageKeyForStage(stageId))
+        .catch(() => {});
+    }
+    throw error;
+  }
 
   if (!stage) {
     throw new StageBlobError("Failed to stage blob", 500);

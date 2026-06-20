@@ -366,13 +366,6 @@ function createPutObject({
   return ({ bytes, key, sha256 }) =>
     mapS3Errors("putObject", async () => {
       const objectByteLength = byteLength(bytes);
-      if (objectByteLength <= 0) {
-        throw new BlobObjectStoreError(
-          "Object bytes are required",
-          "invalid_part",
-        );
-      }
-
       await client.send(
         new PutObjectCommand({
           Body: bytes,
