@@ -85,6 +85,7 @@ function useMoveDocumentAction(params: {
         (node) => node.id === targetContainerId,
       );
       if (
+        !targetContainer ||
         !canAddDocumentToContainerByRules(
           rulesContext,
           targetContainer,
@@ -198,6 +199,7 @@ function useLinkDocumentAction(params: {
         (node) => node.id === targetContainerId,
       );
       if (
+        !targetContainer ||
         !canAddDocumentToContainerByRules(
           rulesContext,
           targetContainer,
