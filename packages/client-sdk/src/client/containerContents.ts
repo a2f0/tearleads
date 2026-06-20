@@ -50,6 +50,7 @@ import type {
   ContainerInfoInput,
   DocumentInfoInput,
   MergeDocumentSummary,
+  MoveDocumentToContainerInput,
   OpenContainerDocumentInput,
 } from "./containerContentsTypes";
 import type {
@@ -140,6 +141,20 @@ function createDocumentLinkHost(
   };
 }
 
+function moveDocumentLinkNote(
+  input: Pick<MoveDocumentToContainerInput, "note" | "sourceContainerId">,
+): DocumentSummary {
+  if (
+    input.note.documentId &&
+    input.sourceContainerId &&
+    input.sourceContainerId !== input.note.containerId
+  ) {
+    return { ...input.note, containerId: input.sourceContainerId };
+  }
+
+  return input.note;
+}
+
 class ContainerContentsService implements ContainerContents {
   constructor(private readonly runtimeService: InternalRuntime) {}
 
@@ -207,7 +222,8 @@ class ContainerContentsService implements ContainerContents {
             documentLinks,
             input.mergeDocumentSummary,
           ),
-          note: input.note,
+          note: moveDocumentLinkNote(input),
+          replaceLinkedContainers: input.replaceLinkedContainers,
           runtime: documentLinks,
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,

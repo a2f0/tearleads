@@ -280,6 +280,10 @@ export function useExplorerPanelState(params: {
         const deletedDocument = await selectedNoteStructuralState.moveDocument(
           noteId,
           trashContainerId,
+          {
+            replaceLinkedContainers: true,
+            sourceContainerId: currentContainerId,
+          },
         );
         if (deletedDocument) {
           routeState.selectExplorerItem(currentContainerId);

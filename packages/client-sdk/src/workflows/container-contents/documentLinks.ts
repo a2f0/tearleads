@@ -106,6 +106,23 @@ function containerDocumentMoveResult(input: {
   };
 }
 
+function resolveContainerDocumentMoveUnlinkIds(input: {
+  currentContainerId: string;
+  linkedContainerIds: readonly string[];
+  replaceLinkedContainers?: boolean | undefined;
+  targetContainerId: string;
+}): string[] {
+  const unlinkContainerIds = input.replaceLinkedContainers
+    ? input.linkedContainerIds.filter(
+        (containerId) => containerId !== input.targetContainerId,
+      )
+    : [input.currentContainerId];
+
+  return Array.from(new Set(unlinkContainerIds)).filter(
+    (containerId) => containerId !== input.targetContainerId,
+  );
+}
+
 export async function relinkRemoteContainerDocument(input: {
   documentId: string;
   noteId: string;
@@ -279,6 +296,7 @@ export async function moveRemoteContainerDocument(input: {
   currentContainerId: string;
   documentId: string;
   noteId: string;
+  replaceLinkedContainers?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerDocumentLinkRuntime;
   targetContainerId: string;
@@ -287,6 +305,7 @@ export async function moveRemoteContainerDocument(input: {
     currentContainerId,
     documentId,
     noteId,
+    replaceLinkedContainers,
     resolveProjectionUserKey,
     runtime,
     targetContainerId,
@@ -302,26 +321,39 @@ export async function moveRemoteContainerDocument(input: {
     return null;
   }
 
-  const unlinkedDocument = await unlinkRemoteContainerDocument({
-    documentId,
-    noteId,
-    resolveProjectionUserKey,
-    runtime,
-    targetContainerId: currentContainerId,
+  const unlinkContainerIds = resolveContainerDocumentMoveUnlinkIds({
+    currentContainerId,
+    linkedContainerIds: linkedDocument.linkedContainerIds,
+    replaceLinkedContainers,
+    targetContainerId,
   });
-  if (!unlinkedDocument) {
-    runtime.util.log(
-      `Container contents: note ${noteId} was linked to ${targetContainerId} but failed to unlink from ${currentContainerId}`,
-    );
-    return containerDocumentMoveResult({
-      document: linkedDocument,
-      nextContainerId: targetContainerId,
-      status: "partial",
+
+  let latestDocument = linkedDocument;
+  let queueBaselineAfterRelink = linkedDocument.contentKeyRotated;
+  const failedUnlinkContainerIds: string[] = [];
+  for (const unlinkContainerId of unlinkContainerIds) {
+    const unlinkedDocument = await unlinkRemoteContainerDocument({
+      documentId,
+      noteId,
+      resolveProjectionUserKey,
+      runtime,
+      targetContainerId: unlinkContainerId,
     });
+    if (!unlinkedDocument) {
+      failedUnlinkContainerIds.push(unlinkContainerId);
+      runtime.util.log(
+        `Container contents: note ${noteId} was linked to ${targetContainerId} but failed to unlink from ${unlinkContainerId}`,
+      );
+      continue;
+    }
+
+    latestDocument = unlinkedDocument;
+    queueBaselineAfterRelink =
+      queueBaselineAfterRelink || unlinkedDocument.contentKeyRotated;
   }
 
   const nextContainerId = resolveActiveDocumentContainerId(
-    unlinkedDocument.linkedContainerIds,
+    latestDocument.linkedContainerIds,
     targetContainerId,
   );
   if (!nextContainerId) {
@@ -329,10 +361,9 @@ export async function moveRemoteContainerDocument(input: {
   }
 
   return containerDocumentMoveResult({
-    document: unlinkedDocument,
+    document: latestDocument,
     nextContainerId,
-    queueBaselineAfterRelink:
-      linkedDocument.contentKeyRotated || unlinkedDocument.contentKeyRotated,
-    status: "complete",
+    queueBaselineAfterRelink,
+    status: failedUnlinkContainerIds.length > 0 ? "partial" : "complete",
   });
 }

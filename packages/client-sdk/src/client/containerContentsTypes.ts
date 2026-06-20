@@ -76,7 +76,9 @@ export interface ContainerDocumentLinkInput {
 export interface MoveDocumentToContainerInput
   extends ContainerDocumentLinkInput {
   readonly expandNode: (nodeId: string) => void;
+  readonly replaceLinkedContainers?: boolean | undefined;
   readonly setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
+  readonly sourceContainerId?: string | null | undefined;
   readonly targetContainerId: string;
 }
 

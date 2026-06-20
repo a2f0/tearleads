@@ -20,7 +20,9 @@ export function moveExplorerNote(params: {
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: MergeDocumentSummary;
   note: DocumentSummary;
+  replaceLinkedContainers?: boolean | undefined;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
+  sourceContainerId?: string | null | undefined;
   targetContainerId: string;
 }) {
   const {
@@ -28,7 +30,9 @@ export function moveExplorerNote(params: {
     expandNode,
     mergeDocumentSummary,
     note,
+    replaceLinkedContainers,
     setLinkedContainerIdsForDocument,
+    sourceContainerId,
     targetContainerId,
   } = params;
 
@@ -36,7 +40,9 @@ export function moveExplorerNote(params: {
     expandNode,
     mergeDocumentSummary,
     note,
+    replaceLinkedContainers,
     setLinkedContainerIdsForDocument,
+    sourceContainerId,
     targetContainerId,
   });
 }
