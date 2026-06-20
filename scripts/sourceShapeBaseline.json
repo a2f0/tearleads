@@ -126,8 +126,8 @@
       "bytes": 16002
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1285,
-      "bytes": 38896
+      "lines": 1330,
+      "bytes": 40549
     },
     "packages/api/src/workflows/auth/registration.ts": {
       "lines": 1230,

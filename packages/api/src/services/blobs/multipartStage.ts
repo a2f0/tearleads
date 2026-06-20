@@ -88,7 +88,7 @@ function toMultipartBlobStageError(
   return new MultipartBlobStageError(error.message, 400);
 }
 
-function storageKeyForStage(stageId: string): string {
+export function storageKeyForStage(stageId: string): string {
   return `blob-stages/${stageId}`;
 }
 

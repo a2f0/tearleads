@@ -58,6 +58,7 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
+import { createMemoryBlobObjectStore } from "../../adapters/blobObjectStore";
 import { verifyDocumentAuditHistory } from "../../documents/verifyDocumentAuditHistory";
 import { readExternalBlobBytesRef } from "../../utils/blobStageRecords";
 import {
@@ -896,17 +897,19 @@ test("bindBlobAttachment applies optional container rekeys before target validat
   );
 });
 
-test("bindBlobAttachment promotes multipart blob stages without storing payload bytes", async () => {
-  const owner = createTestUser();
-  await registerOnly(owner);
+// Bind a staged blob, then assert the permanent row holds an external object
+// pointer (not inline bytes) and that getBlob round-trips through the store.
+async function expectStagePromotesToExternalPointer(input: {
+  readonly encryptedBytes: string;
+  readonly owner: TestUser;
+  readonly serviceRuntime: typeof runtime;
+  readonly sha256: string;
+  readonly stagedBlob: Awaited<ReturnType<typeof stageEncryptedBlob>>;
+}) {
+  const { owner } = input;
   const container = await bootstrapRoot(owner);
   const document = await createDocumentFixture({ container, owner });
   const blobId = crypto.randomUUID();
-  const encryptedBytes = "multipart-bind-encrypted-bytes";
-  const multipartStage = await stageMultipartEncryptedBlob({
-    encryptedBytes,
-    owner,
-  });
   const bind = await buildBindRequest({
     blobId,
     container,
@@ -914,10 +917,10 @@ test("bindBlobAttachment promotes multipart blob stages without storing payload 
     expectedBindingId: null,
     owner,
     slotId: "preview",
-    stagedBlob: multipartStage,
+    stagedBlob: input.stagedBlob,
   });
 
-  await bindBlobAttachment(runtime, {
+  await bindBlobAttachment(input.serviceRuntime, {
     blobId,
     fingerprint: owner.fingerprint,
     request: bind.request,
@@ -932,20 +935,62 @@ test("bindBlobAttachment promotes multipart blob stages without storing payload 
     .from(blobs)
     .where(eq(blobs.id, blobId))
     .limit(1);
-  expect(storedBlob?.encryptedBytes).not.toBe(encryptedBytes);
+  expect(storedBlob?.encryptedBytes).not.toBe(input.encryptedBytes);
   expect(
     readExternalBlobBytesRef(storedBlob?.encryptedBytes ?? "")?.storageKey,
   ).toBe(storedBlob?.storageKey);
 
   await expect(
-    getBlob(runtime, {
-      blobId,
-      userId: owner.userId,
-    }),
+    getBlob(input.serviceRuntime, { blobId, userId: owner.userId }),
   ).resolves.toMatchObject({
     blobId,
+    encryptedBytes: input.encryptedBytes,
+    sha256: input.sha256,
+  });
+}
+
+test("bindBlobAttachment promotes multipart blob stages without storing payload bytes", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const encryptedBytes = "multipart-bind-encrypted-bytes";
+  const multipartStage = await stageMultipartEncryptedBlob({
     encryptedBytes,
+    owner,
+  });
+
+  await expectStagePromotesToExternalPointer({
+    encryptedBytes,
+    owner,
+    serviceRuntime: runtime,
     sha256: multipartStage.sha256,
+    stagedBlob: multipartStage,
+  });
+});
+
+test("bindBlobAttachment promotes single-shot s3 stages to an external pointer", async () => {
+  const owner = createTestUser();
+  await registerOnly(owner);
+  const encryptedBytes = "single-shot-s3-bind-bytes";
+  // An s3-kind runtime backed by an in-memory object store: stageBlob offloads
+  // the bytes and bind/get must round-trip through the same object store.
+  const s3Runtime = createServiceTestRuntime(db, {
+    blobObjectStore: createMemoryBlobObjectStore(),
+    blobObjectStoreKind: "s3",
+  });
+  const sha256 = await sha256Hex(encryptedBytes);
+  const staged = await stageBlob(s3Runtime, {
+    encryptedBytes,
+    byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+    sha256,
+    userId: owner.userId,
+  });
+
+  await expectStagePromotesToExternalPointer({
+    encryptedBytes,
+    owner,
+    serviceRuntime: s3Runtime,
+    sha256,
+    stagedBlob: { ...staged, sha256 },
   });
 });
 

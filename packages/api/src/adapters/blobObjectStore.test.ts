@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
 import { sha256Hex } from "../utils/sha256";
-import { createMemoryBlobObjectStore } from "./blobObjectStore";
+import {
+  BlobObjectStoreError,
+  createMemoryBlobObjectStore,
+} from "./blobObjectStore";
 
 function textStream(value: string): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
@@ -11,6 +14,36 @@ function textStream(value: string): ReadableStream<Uint8Array> {
     },
   });
 }
+
+test("memory blob object store puts and reads back a single object", async () => {
+  const store = createMemoryBlobObjectStore();
+  const bytes = "single-shot payload";
+
+  const result = await store.putObject({
+    bytes,
+    key: "blob-stages/memory-put",
+    sha256: await sha256Hex(bytes),
+  });
+
+  expect(result).toEqual({
+    byteLength: Buffer.byteLength(bytes, "utf8"),
+    sha256: await sha256Hex(bytes),
+  });
+  expect(await readBlobObjectText(store, "blob-stages/memory-put")).toBe(bytes);
+});
+
+test("memory blob object store rejects putObject with a mismatched sha256", async () => {
+  const store = createMemoryBlobObjectStore();
+
+  await expect(
+    store.putObject({
+      bytes: "single-shot payload",
+      key: "blob-stages/memory-put-bad",
+      sha256: await sha256Hex("different"),
+    }),
+  ).rejects.toBeInstanceOf(BlobObjectStoreError);
+  expect(await store.getObjectStream("blob-stages/memory-put-bad")).toBeNull();
+});
 
 test("memory blob object store completes multipart uploads by part number", async () => {
   const store = createMemoryBlobObjectStore();

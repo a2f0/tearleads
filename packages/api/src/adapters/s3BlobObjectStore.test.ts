@@ -3,6 +3,7 @@ import {
   CompleteMultipartUploadCommand,
   GetObjectCommand,
   ListPartsCommand,
+  PutObjectCommand,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { readBlobObjectText } from "../../test/helpers/blobObjectStore";
@@ -14,6 +15,39 @@ import {
 } from "../../test/helpers/fakeS3BlobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { BlobObjectStoreError } from "./blobObjectStore";
+
+test("S3 blob object store puts a single object with a sha256 checksum", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  const bytes = "single-shot payload";
+
+  const result = await store.putObject({
+    bytes,
+    key: "blob-stages/s3-put",
+    sha256: await sha256Hex(bytes),
+  });
+
+  expect(result).toEqual({
+    byteLength: Buffer.byteLength(bytes, "utf8"),
+    sha256: await sha256Hex(bytes),
+  });
+  expect(
+    client.commands.some((command) => command instanceof PutObjectCommand),
+  ).toBe(true);
+  expect(await readBlobObjectText(store, "blob-stages/s3-put")).toBe(bytes);
+});
+
+test("S3 blob object store puts an empty object like the memory store", async () => {
+  const { store } = createFakeS3BlobObjectStore();
+
+  const result = await store.putObject({
+    bytes: "",
+    key: "blob-stages/s3-put-empty",
+    sha256: await sha256Hex(""),
+  });
+
+  expect(result).toEqual({ byteLength: 0, sha256: await sha256Hex("") });
+  expect(await readBlobObjectText(store, "blob-stages/s3-put-empty")).toBe("");
+});
 
 test("S3 blob object store completes multipart uploads by part number", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
