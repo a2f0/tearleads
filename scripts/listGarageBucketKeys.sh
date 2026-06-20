@@ -95,7 +95,9 @@ resolve_garage_ssh_target() {
   # Prefer the shared resolver, which tries the public server IP before the
   # Tailscale hostname. MagicDNS can lag after a server replacement, so the
   # hostname-first order this script used to use would hang on a stale name.
-  if ssh_target="$(resolve_stack_ssh_target "$stack_dir")"; then
+  # Suppress its stderr: this call is speculative and the Hetzner-API fallback
+  # below recovers, so its loud ERROR lines would mislead on a successful run.
+  if ssh_target="$(resolve_stack_ssh_target "$stack_dir" 2>/dev/null)"; then
     echo "$ssh_target"
     return 0
   fi
