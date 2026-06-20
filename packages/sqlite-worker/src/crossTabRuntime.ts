@@ -11,6 +11,7 @@ import {
   errorResponse,
   isCrossTabEnvelope,
   requestId,
+  requestMethod,
   responseId,
 } from "./crossTabProtocol";
 
@@ -28,6 +29,7 @@ interface CrossTabDatabaseWorker extends WorkerLike {
 }
 
 interface LocalClient {
+  closing: boolean;
   readonly dispatch: (response: unknown) => void;
   readonly liveness: ClientLivenessLock;
   readonly timeoutsByRequestId: Map<number, ReturnType<typeof setTimeout>>;
@@ -37,43 +39,50 @@ interface LocalClient {
   readonly pendingRemoteRequestIds: Set<number>;
 }
 
+function isTeardownRequest(request: unknown): boolean {
+  const method = requestMethod(request);
+  return method === "close" || method === "delete";
+}
+
 class CrossTabCoordinator {
   private readonly channel = new BroadcastChannel(CROSS_TAB_CHANNEL_NAME);
+  private hasCreatedClient = false;
   private readonly localClientsById = new Map<string, LocalClient>();
   private owner: CrossTabOwner | null = null;
-  // Set if this tab won ownership but its owner worker failed to construct. Such a
-  // tab cannot serve requests itself; it surfaces this error to its own clients
-  // instead of posting into the void, while the released lock lets another tab try
-  // to own. Cleared if a later bid succeeds in installing an owner.
+  // Set if this tab won ownership but its owner worker failed to construct.
+  // Cleared if a later bid succeeds in installing an owner.
   private ownerError: Error | null = null;
-  // Resolves the first time ownership is settled for this tab (it won and either
-  // installed or failed to construct an owner, or it observed another tab already
-  // owns), so routing waits for an initial verdict instead of posting remotely
-  // before any owner exists.
-  private readonly initialOwnershipSettled: Promise<void>;
-  private settleInitialOwnership: () => void = () => {};
+  // Resolves when ownership is settled for the current owner generation (this tab
+  // won and installed/failed to construct an owner, or it observed another tab
+  // already owns), so routing never posts remotely while no owner exists.
+  private ownershipBidActive = false;
+  private ownershipGeneration = 0;
+  private ownershipSettled: Promise<void> = Promise.resolve();
+  private retryOwnershipAfterBid = false;
+  private settleOwnershipGate: () => void = () => {};
 
   constructor(
     private readonly workerUrl: string | URL,
     private readonly workerConstructor: ModuleWorkerConstructor,
   ) {
-    this.initialOwnershipSettled = new Promise((resolve) => {
-      this.settleInitialOwnership = resolve;
-    });
+    this.resetOwnershipGate();
     this.channel.addEventListener("message", (event) => {
       this.handleChannelMessage(event);
     });
-    // Contend for ownership in the background for this coordinator's whole life.
-    // Exactly one tab's bid wins and runs the owner; the rest block inside the
-    // lock callback. When the owning tab dies, its lock auto-releases and the
-    // next blocked bid is promoted instantly — no polling, no stranded tabs.
+    // Start the first ownership bid; later clients can restart it after teardown.
     this.contendForOwnership();
   }
 
   createWorker(): CrossTabDatabaseWorker {
     const clientId = crypto.randomUUID();
     const events = new EventTarget();
+    if (this.ownerError && this.hasCreatedClient) {
+      this.ownerError = null;
+      this.retryOwnershipAfterBid = this.ownershipBidActive;
+      this.resetOwnershipGate();
+    }
     this.localClientsById.set(clientId, {
+      closing: false,
       dispatch: (response) => {
         events.dispatchEvent(new MessageEvent("message", { data: response }));
       },
@@ -81,6 +90,8 @@ class CrossTabCoordinator {
       timeoutsByRequestId: new Map(),
       pendingRemoteRequestIds: new Set(),
     });
+    this.hasCreatedClient = true;
+    this.contendForOwnership();
 
     return {
       postMessage: (message) => {
@@ -105,14 +116,21 @@ class CrossTabCoordinator {
   private async routeAsync(clientId: string, request: unknown): Promise<void> {
     const id = requestId(request);
     try {
+      const localClient = this.localClientsById.get(clientId);
+      if (localClient && isTeardownRequest(request)) {
+        localClient.closing = true;
+      }
+
       const hasClientLock = await this.waitForLocalClientLock(clientId);
       if (!this.localClientsById.has(clientId)) {
         return;
       }
 
-      // Don't route until an owner has been elected somewhere; otherwise the
-      // first request races the ownership bid and is posted into the void.
-      await this.initialOwnershipSettled;
+      // Wait for ownership so this request is not posted into the void.
+      if (!this.owner && !this.ownerError) {
+        this.contendForOwnership();
+      }
+      await this.ownershipSettled;
       if (!this.localClientsById.has(clientId)) {
         return;
       }
@@ -231,31 +249,29 @@ class CrossTabCoordinator {
   }
 
   /**
-   * Hold a single, lifelong *blocking* bid for the owner lock. The browser grants
-   * it to exactly one coordinator at a time; the rest wait their turn inside the
-   * lock manager's queue. When the owning tab is discarded (reload, crash, close),
-   * its lock auto-releases and the next queued bid is granted — promoting a new
-   * owner with no polling and no gap that strands the surviving tabs.
-   *
-   * The bid is fire-and-forget: its promise resolves only when this coordinator's
-   * own owner is later released, by which point nothing awaits it. The initial
-   * routing gate is settled separately by {@link observeExistingOwner} as soon as
-   * this tab becomes owner OR observes that another tab already owns.
+   * Hold one blocking owner-lock bid. The current holder owns until it releases;
+   * queued bidders are promoted when the holder disappears.
    */
   private contendForOwnership(): void {
-    const locks = lockManager();
-    if (!locks) {
-      // No Web Locks: this coordinator can never become (or detect) an owner, so
-      // unblock routing immediately. It will post remotely and rely on the
-      // timeout — the same degraded path as before this change.
-      this.settleInitialOwnership();
+    if (this.owner || this.ownershipBidActive || this.ownerError) {
       return;
     }
 
+    const locks = lockManager();
+    if (!locks) {
+      // No Web Locks: unblock routing and rely on the request timeout.
+      this.settleOwnership();
+      return;
+    }
+
+    this.ownershipBidActive = true;
+    const generation = this.ownershipGeneration;
     // A non-owner tab's blocking bid stays queued (never enters its callback)
     // until the current owner dies, so it cannot settle the routing gate on its
     // own. Settle it from here as soon as ownership is known either way.
-    this.observeExistingOwner(locks);
+    this.observeExistingOwner(locks, generation);
+
+    let releasedNormally = false;
 
     void locks
       .request(CROSS_TAB_OWNER_LOCK_NAME, null, async () => {
@@ -273,19 +289,19 @@ class CrossTabCoordinator {
             () => {
               if (this.owner === owner) {
                 this.owner = null;
+                this.resetOwnershipGate();
               }
               releaseOwner?.();
             },
           );
           this.owner = owner;
           this.ownerError = null;
-          // We were just promoted. Any requests this tab posted to the *previous*
-          // owner are now orphaned (that owner's worker is gone, and we won't
-          // replay them — an in-flight `exec` may already have committed). Fail
-          // them now with a retryable error rather than waiting out the timeout.
+          // Requests posted to the previous owner are orphaned; fail them with a
+          // retryable error instead of waiting out the timeout.
           this.failPendingRemoteRequests();
-          this.settleInitialOwnership();
+          this.settleOwnership(generation);
           await ownerReleased;
+          releasedNormally = true;
         } catch (error) {
           // This tab won ownership but could not stand up the owner worker. Record
           // the failure so its own clients see the error instead of hanging, then
@@ -294,15 +310,40 @@ class CrossTabCoordinator {
           this.ownerError =
             error instanceof Error ? error : new Error(String(error));
           this.failPendingRemoteRequests();
-          this.settleInitialOwnership();
+          this.settleOwnership(generation);
           throw error;
         }
       })
       .catch(() => {
         // The bid itself failed (e.g. the lock manager rejected). Unblock routing
         // so requests fall back to the remote path instead of hanging forever.
-        this.settleInitialOwnership();
+        this.settleOwnership(generation);
+      })
+      .finally(() => {
+        this.ownershipBidActive = false;
+        const shouldRetryOwnership =
+          releasedNormally || this.retryOwnershipAfterBid;
+        this.retryOwnershipAfterBid = false;
+        if (!shouldRetryOwnership) {
+          return;
+        }
+
+        queueMicrotask(() => {
+          if (this.hasOpenLocalClients() && !this.owner && !this.ownerError) {
+            this.contendForOwnership();
+          }
+        });
       });
+  }
+
+  private hasOpenLocalClients(): boolean {
+    for (const localClient of this.localClientsById.values()) {
+      if (!localClient.closing) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -321,22 +362,28 @@ class CrossTabCoordinator {
    * Falls back to settling immediately when the lock manager cannot be queried, so
    * routing is never blocked indefinitely.
    */
-  private observeExistingOwner(locks: LockManagerLike): void {
+  private observeExistingOwner(
+    locks: LockManagerLike,
+    generation: number,
+  ): void {
     if (!locks.query) {
       // No query support: cannot observe another tab's owner without contending
       // for the lock (which would steal it). Settle so routing proceeds remotely.
-      this.settleInitialOwnership();
+      this.settleOwnership(generation);
       return;
     }
 
-    void this.pollForOwner(locks);
+    void this.pollForOwner(locks, generation);
   }
 
-  private async pollForOwner(locks: LockManagerLike): Promise<void> {
+  private async pollForOwner(
+    locks: LockManagerLike,
+    generation: number,
+  ): Promise<void> {
     const deadline = OWNER_OBSERVE_BUDGET_MS / OWNER_OBSERVE_INTERVAL_MS;
     for (let attempt = 0; attempt < deadline; attempt += 1) {
       if (this.owner || (await this.isOwnerLockHeld(locks))) {
-        this.settleInitialOwnership();
+        this.settleOwnership(generation);
         return;
       }
 
@@ -347,7 +394,22 @@ class CrossTabCoordinator {
 
     // Budget elapsed without observing an owner; settle anyway so routing is never
     // wedged. A tab has almost certainly won the bid by now.
-    this.settleInitialOwnership();
+    this.settleOwnership(generation);
+  }
+
+  private resetOwnershipGate(): void {
+    this.ownershipGeneration += 1;
+    this.ownershipSettled = new Promise((resolve) => {
+      this.settleOwnershipGate = resolve;
+    });
+  }
+
+  private settleOwnership(generation = this.ownershipGeneration): void {
+    if (generation !== this.ownershipGeneration) {
+      return;
+    }
+
+    this.settleOwnershipGate();
   }
 
   /**
