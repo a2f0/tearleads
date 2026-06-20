@@ -170,12 +170,14 @@ export async function deleteLocalAttachmentRecord(
     storageKey,
   });
 
-  const { [slotId]: _removedStorageKey, ...nextStorageKeys } =
-    state.attachmentStorageKeyBySlotId;
-  const { [slotId]: _removedBlobId, ...nextBlobIds } =
-    state.attachmentBlobIdBySlotId;
-  state.attachmentStorageKeyBySlotId = nextStorageKeys;
-  state.attachmentBlobIdBySlotId = nextBlobIds;
+  if (state.attachmentStorageKeyBySlotId[slotId] === storageKey) {
+    const { [slotId]: _removedStorageKey, ...nextStorageKeys } =
+      state.attachmentStorageKeyBySlotId;
+    const { [slotId]: _removedBlobId, ...nextBlobIds } =
+      state.attachmentBlobIdBySlotId;
+    state.attachmentStorageKeyBySlotId = nextStorageKeys;
+    state.attachmentBlobIdBySlotId = nextBlobIds;
+  }
 
   if (currentDoc) {
     setReadySnapshot(
