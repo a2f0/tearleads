@@ -41,12 +41,10 @@ function ContactsRouteProbe() {
 }
 
 const TEST_MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
+  "backup-restore": { createComponent: () => EmptyMiniApp, title: "Backup" },
   contacts: { createComponent: () => ContactsRouteProbe, title: "Contacts" },
   explorer: { createComponent: () => EmptyMiniApp, title: "Explorer" },
-  "identity-manager": {
-    createComponent: () => EmptyMiniApp,
-    title: "Identity Manager",
-  },
+  "identity-manager": { createComponent: () => EmptyMiniApp, title: "ID" },
   notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
   "org-manager": { createComponent: () => EmptyMiniApp, title: "Org Manager" },
 };

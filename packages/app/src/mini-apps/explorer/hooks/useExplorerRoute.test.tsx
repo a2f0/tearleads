@@ -38,6 +38,10 @@ function EmptyMiniApp() {
 }
 
 const TEST_MINI_APPS = {
+  "backup-restore": {
+    createComponent: () => EmptyMiniApp,
+    title: "Backup / Restore",
+  },
   contacts: { createComponent: () => EmptyMiniApp, title: "Contacts" },
   explorer: { createComponent: () => EmptyMiniApp, title: "Explorer" },
   "identity-manager": {
