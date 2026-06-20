@@ -79,7 +79,9 @@ function normalizeBlobInfoSort(value: BlobInfoSort | undefined): BlobInfoSort {
 
   if (
     (value.direction !== "asc" && value.direction !== "desc") ||
-    (value.key !== "mimeType" && value.key !== "updated")
+    (value.key !== "byteLength" &&
+      value.key !== "mimeType" &&
+      value.key !== "updated")
   ) {
     return DEFAULT_BLOB_INFO_SORT;
   }
@@ -304,21 +306,33 @@ async function listBlobInfoRows(input: {
     input.sort.direction === "desc"
       ? desc(groupedBlobInfo.changedAtSort)
       : asc(groupedBlobInfo.changedAtSort);
-  const orderBy =
-    input.sort.key === "mimeType"
-      ? [
-          asc(sql`${groupedBlobInfo.mimeType} IS NULL`),
-          input.sort.direction === "desc"
-            ? desc(sql`${groupedBlobInfo.mimeType} COLLATE NOCASE`)
-            : asc(sql`${groupedBlobInfo.mimeType} COLLATE NOCASE`),
-          desc(groupedBlobInfo.changedAtSort),
-          asc(groupedBlobInfo.blobKey),
-        ]
-      : [
-          asc(sql`${groupedBlobInfo.changedAtSort} IS NULL`),
-          changedAtSortDirection,
-          asc(groupedBlobInfo.blobKey),
-        ];
+  const byteLengthSortDirection =
+    input.sort.direction === "desc"
+      ? desc(groupedBlobInfo.byteLength)
+      : asc(groupedBlobInfo.byteLength);
+  let orderBy: ReturnType<typeof asc | typeof desc>[];
+  if (input.sort.key === "mimeType") {
+    orderBy = [
+      asc(sql`${groupedBlobInfo.mimeType} IS NULL`),
+      input.sort.direction === "desc"
+        ? desc(sql`${groupedBlobInfo.mimeType} COLLATE NOCASE`)
+        : asc(sql`${groupedBlobInfo.mimeType} COLLATE NOCASE`),
+      desc(groupedBlobInfo.changedAtSort),
+      asc(groupedBlobInfo.blobKey),
+    ];
+  } else if (input.sort.key === "byteLength") {
+    orderBy = [
+      byteLengthSortDirection,
+      desc(groupedBlobInfo.changedAtSort),
+      asc(groupedBlobInfo.blobKey),
+    ];
+  } else {
+    orderBy = [
+      asc(sql`${groupedBlobInfo.changedAtSort} IS NULL`),
+      changedAtSortDirection,
+      asc(groupedBlobInfo.blobKey),
+    ];
+  }
   const selection = {
     blobId: groupedBlobInfo.blobId,
     blobKey: groupedBlobInfo.blobKey,

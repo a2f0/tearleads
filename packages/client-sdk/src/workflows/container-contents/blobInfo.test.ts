@@ -313,6 +313,77 @@ test("listBlobInfo sorts grouped rows by MIME type", async () => {
   }
 });
 
+test("listBlobInfo sorts grouped rows by byte length", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-blob-info-size-sort-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await saveBlobInfoTestDocument({
+      documentId: "document-1",
+      execSql,
+      id: "local-document-1",
+      title: "Small",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: "document-2",
+      execSql,
+      id: "local-document-2",
+      title: "Medium",
+    });
+    await saveBlobInfoTestDocument({
+      documentId: "document-3",
+      execSql,
+      id: "local-document-3",
+      title: "Large",
+    });
+
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-small",
+      byteLength: 12,
+      localId: "local-document-1",
+      mimeType: "image/png",
+      slotId: "front",
+      storageKey: "storage-small",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-medium",
+      byteLength: 240,
+      localId: "local-document-2",
+      mimeType: "text/plain",
+      slotId: "copy",
+      storageKey: "storage-medium",
+    });
+    await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
+      blobId: "blob-large",
+      byteLength: 3600,
+      localId: "local-document-3",
+      mimeType: null,
+      slotId: "raw",
+      storageKey: "storage-large",
+    });
+
+    const ascending = await listBlobInfo({
+      execSql,
+      sort: { direction: "asc", key: "byteLength" },
+    });
+    const descending = await listBlobInfo({
+      execSql,
+      sort: { direction: "desc", key: "byteLength" },
+    });
+
+    expect(ascending.rows.map((row) => row.byteLength)).toEqual([
+      12, 240, 3600,
+    ]);
+    expect(descending.rows.map((row) => row.byteLength)).toEqual([
+      3600, 240, 12,
+    ]);
+  } finally {
+    close();
+  }
+});
+
 test("listBlobInfo returns an empty window without SQLite", async () => {
   await expect(listBlobInfo({ execSql: null })).resolves.toEqual({
     rows: [],

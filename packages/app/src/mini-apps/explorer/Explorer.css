@@ -327,9 +327,9 @@
   align-self: flex-start;
 }
 
-.explorer-blob-browser-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
+.explorer-blob-browser-screen {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-md);
   flex: 1;
   min-height: 0;
@@ -343,8 +343,6 @@
 
 .explorer-blob-browser-detail {
   gap: var(--space-md);
-  padding-left: var(--space-md);
-  border-left: var(--border);
 }
 
 .explorer-blob-browser-preview-actions {
@@ -474,17 +472,4 @@
 
 .explorer-sync-lane-progress--error > span {
   opacity: 1;
-}
-
-@media (max-width: 760px) {
-  .explorer-blob-browser-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .explorer-blob-browser-detail {
-    padding-top: var(--space-md);
-    padding-left: 0;
-    border-top: var(--border);
-    border-left: 0;
-  }
 }
