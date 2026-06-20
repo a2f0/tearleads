@@ -163,8 +163,9 @@ function decodePreviewText(bytes: Uint8Array<ArrayBuffer>): {
   truncated: boolean;
 } {
   const truncated = bytes.byteLength > BLOB_TEXT_PREVIEW_LIMIT;
+  // subarray returns a view rather than copying; we only read it to decode.
   const previewBytes = truncated
-    ? bytes.slice(0, BLOB_TEXT_PREVIEW_LIMIT)
+    ? bytes.subarray(0, BLOB_TEXT_PREVIEW_LIMIT)
     : bytes;
 
   return {
@@ -194,20 +195,28 @@ async function readBlobPreview(input: {
   const objectUrl = canCreateObjectUrl()
     ? URL.createObjectURL(new Blob([bytes], { type: mimeType }))
     : null;
-  const textPreview = isTextMimeType(input.blob.mimeType)
-    ? decodePreviewText(bytes)
-    : null;
 
-  return {
-    objectUrl,
-    state: {
-      byteLength: bytes.byteLength,
-      status: "ready",
-      text: textPreview?.text ?? null,
-      truncated: textPreview?.truncated ?? false,
-      url: objectUrl,
-    },
-  };
+  try {
+    const textPreview = isTextMimeType(input.blob.mimeType)
+      ? decodePreviewText(bytes)
+      : null;
+
+    return {
+      objectUrl,
+      state: {
+        byteLength: bytes.byteLength,
+        status: "ready",
+        text: textPreview?.text ?? null,
+        truncated: textPreview?.truncated ?? false,
+        url: objectUrl,
+      },
+    };
+  } catch (error) {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    throw error;
+  }
 }
 
 export function useBlobPreview(params: {
