@@ -1,3 +1,4 @@
+import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
@@ -22,14 +23,19 @@ function getAttachmentStatusLabel(
 
 function NoteAttachmentItem({
   attachment,
+  canRemove,
   imageUrl,
+  onRemoveAttachment,
   status,
 }: {
   attachment: DocumentAttachment;
+  canRemove: boolean;
   imageUrl: string | undefined;
+  onRemoveAttachment: (slotId: string) => void;
   status: DocumentAttachmentStatus | undefined;
 }) {
   const statusLabel = getAttachmentStatusLabel(status);
+  const removeLabel = NOTE_DOCUMENT_LABELS.removeAttachment(attachment.name);
 
   return (
     <li className="note-document-attachment">
@@ -41,6 +47,23 @@ function NoteAttachmentItem({
           <span className="note-document-attachment-size">
             {formatByteLength(attachment.byteLength)}
           </span>
+          <button
+            type="button"
+            className="note-document-attachment-remove"
+            aria-label={removeLabel}
+            title={removeLabel}
+            disabled={!canRemove}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onRemoveAttachment(attachment.slotId);
+            }}
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <TrashIcon aria-hidden size={14} />
+          </button>
         </div>
         {statusLabel ? (
           <div className="note-document-attachment-status">
@@ -77,6 +100,7 @@ export function NoteEditorFields({
   handleDragLeave,
   handleDragOver,
   handleDrop,
+  handleRemoveAttachment,
   handleSelectedFiles,
   imageUrlBySlotId,
   ready,
@@ -95,6 +119,7 @@ export function NoteEditorFields({
   handleDragLeave: (event: DragEvent<HTMLLabelElement>) => void;
   handleDragOver: (event: DragEvent<HTMLLabelElement>) => void;
   handleDrop: (event: DragEvent<HTMLLabelElement>) => void;
+  handleRemoveAttachment: (slotId: string) => void;
   handleSelectedFiles: NoteHandleSelectedFiles;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   ready: boolean;
@@ -133,7 +158,9 @@ export function NoteEditorFields({
               <NoteAttachmentItem
                 key={attachment.slotId}
                 attachment={attachment}
+                canRemove={canAttach}
                 imageUrl={imageUrlBySlotId[attachment.slotId]}
+                onRemoveAttachment={handleRemoveAttachment}
                 status={attachmentStatusBySlotId[attachment.slotId]}
               />
             ))}

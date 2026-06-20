@@ -1,6 +1,7 @@
 import {
   type AccessEvent,
   type AttachmentBindAccessEventBody,
+  type AttachmentDetachAccessEventBody,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeAccessEventBodyHash,
   computeContentRecordNonceDomainHash,
@@ -54,6 +55,52 @@ export async function signBlobAttachmentEvent(input: {
     ]),
     bodyHash: await computeAccessEventBodyHash(
       readCanonicalJson(body, "Blob attachment bind body"),
+    ),
+    signerUserId: input.author.signerUserId,
+    signerDeviceId: input.author.signerDeviceId,
+    signerKeyFingerprint: input.author.signerKeyFingerprint,
+    signedAt: input.signedAt,
+  };
+
+  return {
+    body,
+    event: await signAccessEvent(unsignedEvent, input.author.signerPrivateKey),
+  };
+}
+
+export async function signBlobAttachmentDetachEvent(input: {
+  author: DocumentCreateAuthor;
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  eventId: string;
+  manifestIdentity: DocumentManifestIdentity;
+  signedAt: string;
+  slotId: string;
+  targets: readonly BlobContentKeyTarget[];
+}): Promise<{ body: AttachmentDetachAccessEventBody; event: AccessEvent }> {
+  const body: AttachmentDetachAccessEventBody = {
+    eventType: "attachment.detach",
+    bindingId: input.bindingId,
+    blobId: input.blobId,
+    documentId: input.documentId,
+    slotId: input.slotId,
+    documentManifestHash: input.manifestIdentity.manifestHash,
+  };
+  const unsignedEvent: UnsignedAccessEvent = {
+    version: 1,
+    eventId: input.eventId,
+    eventType: "attachment.detach",
+    objectKind: "blob",
+    objectId: input.blobId,
+    organizationId: input.manifestIdentity.organizationId,
+    previousManifestHash: null,
+    dependencyManifestHashes: uniqueSortedStrings([
+      input.manifestIdentity.manifestHash,
+      ...input.targets.map((target) => target.containerManifestHash),
+    ]),
+    bodyHash: await computeAccessEventBodyHash(
+      readCanonicalJson(body, "Blob attachment detach body"),
     ),
     signerUserId: input.author.signerUserId,
     signerDeviceId: input.author.signerDeviceId,

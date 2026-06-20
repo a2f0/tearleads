@@ -1,6 +1,9 @@
 import { computeBlobContentKeyTargetHash } from "@tearleads/crypto";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
-import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
+import type {
+  BlobAttachmentBindResponse,
+  BlobAttachmentDetachResponse,
+} from "@tearleads/validators/response";
 import { serializeCanonical, uniqueSortedStrings } from "../../shared/readers";
 import {
   contentKeyTargetReference,
@@ -157,4 +160,21 @@ export async function assertBlobAttachmentBindResponse(input: {
   }
 
   await assertBlobAttachmentBindResponseTargets(input);
+}
+
+export function assertBlobAttachmentDetachResponse(input: {
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  response: BlobAttachmentDetachResponse;
+  slotId: string;
+}): void {
+  if (
+    input.response.bindingId !== input.bindingId ||
+    input.response.blobId !== input.blobId ||
+    input.response.documentId !== input.documentId ||
+    input.response.slotId !== input.slotId
+  ) {
+    throw new Error("Blob attachment detach response did not match request");
+  }
 }

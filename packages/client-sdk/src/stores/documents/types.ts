@@ -38,6 +38,7 @@ export interface DocumentContextValue {
   ready: boolean;
   requestSync: () => void;
   relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
+  removeAttachment: (slotId: string) => void;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   setStructuredFields: (
@@ -70,6 +71,7 @@ export interface DocumentStore {
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
+  removeAttachment: (slotId: string) => void;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   requestSync: () => void;

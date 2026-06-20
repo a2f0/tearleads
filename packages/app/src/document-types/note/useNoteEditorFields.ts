@@ -33,6 +33,7 @@ interface NoteEditorFieldsModel {
   handleDragLeave: (event: DragEvent<HTMLLabelElement>) => void;
   handleDragOver: (event: DragEvent<HTMLLabelElement>) => void;
   handleDrop: (event: DragEvent<HTMLLabelElement>) => void;
+  handleRemoveAttachment: (slotId: string) => void;
   handleSelectedFiles: (fileList: FileList | null) => void;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   ready: boolean;
@@ -96,6 +97,39 @@ function useNoteDropzone(
   };
 }
 
+function useNoteAttachmentActions({
+  attachFiles,
+  logError,
+  removeAttachment,
+}: {
+  attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
+  logError: (message: string, error: unknown) => void;
+  removeAttachment: (slotId: string) => void;
+}) {
+  const handleSelectedFiles = useCallback(
+    (fileList: FileList | null) => {
+      if (!fileList || fileList.length === 0) {
+        return;
+      }
+
+      void Promise.all(Array.from(fileList).map(readAttachmentUpload))
+        .then((uploads) => attachFiles(uploads))
+        .catch((error) => {
+          logError("Failed to attach note files", error);
+        });
+    },
+    [attachFiles, logError],
+  );
+  const handleRemoveAttachment = useCallback(
+    (slotId: string) => {
+      removeAttachment(slotId);
+    },
+    [removeAttachment],
+  );
+
+  return { handleRemoveAttachment, handleSelectedFiles };
+}
+
 // Shared note editor data wiring: reads the documents store and exposes the
 // editor text, attachment value maps, and drag/drop + file-input handlers that
 // the presentational NoteEditorFields renders. Both the notes mini-app model
@@ -112,6 +146,7 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     attachFiles,
     canAttach,
     ready,
+    removeAttachment,
     setText,
     syncing,
     text,
@@ -123,21 +158,12 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     attachmentStorageKeyBySlotId,
     blobStore,
   );
-
-  const handleSelectedFiles = useCallback(
-    (fileList: FileList | null) => {
-      if (!fileList || fileList.length === 0) {
-        return;
-      }
-
-      void Promise.all(Array.from(fileList).map(readAttachmentUpload))
-        .then((uploads) => attachFiles(uploads))
-        .catch((error) => {
-          logError("Failed to attach note files", error);
-        });
-    },
-    [attachFiles, logError],
-  );
+  const { handleRemoveAttachment, handleSelectedFiles } =
+    useNoteAttachmentActions({
+      attachFiles,
+      logError,
+      removeAttachment,
+    });
 
   const {
     dragActive,
@@ -159,6 +185,7 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
       handleDragLeave,
       handleDragOver,
       handleDrop,
+      handleRemoveAttachment,
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,
@@ -176,6 +203,7 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
       handleDragLeave,
       handleDragOver,
       handleDrop,
+      handleRemoveAttachment,
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,

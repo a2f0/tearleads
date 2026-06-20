@@ -2,6 +2,8 @@ import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
+  getDocumentAttachments,
+  removeDocumentAttachment,
 } from "../../../data/documents/documentContent";
 import {
   deleteLocalDocumentAttachment,
@@ -14,6 +16,7 @@ import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
 import { ensureDocumentStoreReady } from "./initialization";
 import {
+  deleteLocalAttachmentRecord,
   enqueuePendingUpdate,
   persistDocument,
   queuePendingAttachmentUpload,
@@ -60,6 +63,7 @@ async function persistPendingAttachments(
   nextPendingAttachments: PendingAttachmentRecord[],
 ) {
   const previousStorageKeys = state.attachmentStorageKeyBySlotId;
+  const previousBlobIds = state.attachmentBlobIdBySlotId;
   const localAttachmentRecords = nextPendingAttachments.map(
     (pendingAttachment): LocalAttachmentRecord => ({
       blobId: null,
@@ -101,6 +105,7 @@ async function persistPendingAttachments(
     }
   } catch (error) {
     state.attachmentStorageKeyBySlotId = previousStorageKeys;
+    state.attachmentBlobIdBySlotId = previousBlobIds;
     await rollbackPendingAttachmentPersistence(
       state,
       nextPendingAttachments,
@@ -233,6 +238,82 @@ async function persistSlotAttachmentFile(
   requestDocumentStoreSync(state);
 }
 
+async function deletePendingAttachmentForSlot(
+  state: DocumentStoreState,
+  slotId: string,
+  storageKey: string,
+) {
+  const pendingAttachment = state.pendingAttachments.find(
+    (attachment) =>
+      attachment.slotId === slotId && attachment.storageKey === storageKey,
+  );
+  if (!pendingAttachment) {
+    return;
+  }
+
+  await deletePendingDocumentAttachment({
+    execSql: state.runtime.infra.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
+    slotId,
+    storageKey,
+  });
+  state.pendingAttachments = state.pendingAttachments.filter(
+    (attachment) => attachment !== pendingAttachment,
+  );
+}
+
+async function deleteLocalOnlyDetachedAttachment(
+  state: DocumentStoreState,
+  slotId: string,
+  storageKey: string,
+) {
+  await Promise.allSettled([
+    deletePendingAttachmentForSlot(state, slotId, storageKey),
+    deleteLocalAttachmentRecord(state, slotId, storageKey, null),
+    state.runtime.infra.blobStore.deleteBytes(storageKey),
+  ]);
+}
+
+async function persistRemovedAttachment(
+  state: DocumentStoreState,
+  slotId: string,
+) {
+  const currentDoc = state.doc;
+  if (!currentDoc) {
+    return;
+  }
+
+  const existingAttachment = getDocumentAttachments(currentDoc).find(
+    (attachment) => attachment.slotId === slotId,
+  );
+  if (!existingAttachment) {
+    return;
+  }
+
+  const storageKey = state.attachmentStorageKeyBySlotId[slotId];
+  const previousVersion = encodeVersionVector(currentDoc);
+  removeDocumentAttachment(currentDoc, slotId);
+  const attachmentUpdate = exportUpdatesSince(currentDoc, previousVersion);
+  if (attachmentUpdate.byteLength > 0) {
+    await enqueuePendingUpdate(state, attachmentUpdate);
+  }
+
+  if (storageKey) {
+    if (state.record?.documentId) {
+      await deletePendingAttachmentForSlot(state, slotId, storageKey);
+    } else {
+      await deleteLocalOnlyDetachedAttachment(state, slotId, storageKey);
+    }
+  }
+
+  await persistDocument(state, currentDoc);
+  state.runtime.util.log(
+    `Removed attachment ${existingAttachment.name} from document ${state.localId}.`,
+  );
+  requestDocumentStoreSync(state);
+}
+
 export async function attachFilesToDocumentStore(
   state: DocumentStoreState,
   scheduleSync: () => void,
@@ -259,6 +340,32 @@ export async function attachFilesToDocumentStore(
     .then(async () => persistAttachedFiles(state, files))
     .catch((error: unknown) => {
       console.error("Failed to attach document files:", error);
+    });
+  return state.writeChain;
+}
+
+export async function removeAttachmentFromDocumentStore(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  slotId: string,
+) {
+  let ready: boolean;
+  try {
+    ready = await ensureDocumentStoreReady(state, scheduleSync);
+  } catch (error) {
+    console.error("Failed to remove document attachment:", error);
+    return;
+  }
+
+  if (!ready || !state.doc) {
+    return;
+  }
+
+  state.writeChain = state.writeChain
+    .catch(() => undefined)
+    .then(async () => persistRemovedAttachment(state, slotId))
+    .catch((error: unknown) => {
+      console.error("Failed to remove document attachment:", error);
     });
   return state.writeChain;
 }

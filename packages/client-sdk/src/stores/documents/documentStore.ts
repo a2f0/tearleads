@@ -10,6 +10,7 @@ import {
 } from "../../workflows/documents";
 import {
   attachFilesToDocumentStore,
+  removeAttachmentFromDocumentStore,
   replaceAttachmentInDocumentStore,
   setAttachmentInDocumentStore,
 } from "./documentStore/attachments";
@@ -127,6 +128,8 @@ function createBackingDocumentStore(
       attachFilesToDocumentStore(state, scheduleSync, files),
     ensureInitialized: () => ensureDocumentStoreReady(state, scheduleSync),
     getSnapshot: () => state.snapshot,
+    removeAttachment: (slotId: string) =>
+      removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
     setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       setAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>

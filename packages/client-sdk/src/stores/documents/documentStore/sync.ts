@@ -24,7 +24,10 @@ import {
   setDocumentSyncing,
   setReadySnapshot,
 } from "./state";
-import { syncPendingAttachments } from "./syncAttachments";
+import {
+  syncDetachedAttachmentBindings,
+  syncPendingAttachments,
+} from "./syncAttachments";
 import { ensureRemoteDocument } from "./syncShared";
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
@@ -349,7 +352,18 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     return;
   }
 
-  await syncDocumentState(state, currentDoc, nextRecord, encapsulationKeyPair);
+  nextRecord = await syncDocumentState(
+    state,
+    currentDoc,
+    nextRecord,
+    encapsulationKeyPair,
+  );
+
+  if ((await listPendingUpdates(state)).length > 0) {
+    return;
+  }
+
+  await syncDetachedAttachmentBindings(state, nextRecord);
 }
 
 async function runScheduledSyncIteration(state: DocumentStoreState) {

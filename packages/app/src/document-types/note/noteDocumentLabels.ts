@@ -9,4 +9,5 @@ export const NOTE_DOCUMENT_LABELS = {
   editorLoadingPlaceholder: "Loading notes...",
   editorReadyPlaceholder: "Type your notes here...",
   editorSyncing: "Notes editor syncing",
+  removeAttachment: (name: string) => `Remove attachment ${name}`,
 } as const;

@@ -171,6 +171,13 @@ export function addDocumentAttachments(
   }
 }
 
+export function removeDocumentAttachment(
+  doc: StructuredDocumentShape,
+  slotId: string,
+): void {
+  doc.getMap(DOCUMENT_CONTENT_MAP_KEY).delete(getAttachmentMapKey(slotId));
+}
+
 export function sameDocumentAttachments(
   left: ReadonlyArray<DocumentAttachment>,
   right: ReadonlyArray<DocumentAttachment>,

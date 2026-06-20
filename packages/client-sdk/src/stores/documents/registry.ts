@@ -138,6 +138,7 @@ export function createDocumentStoreFacade(
       targetStore.attachFiles(files),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
+    removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       targetStore.replaceAttachment(slotId, file),
     requestSync: () => targetStore.requestSync(),
