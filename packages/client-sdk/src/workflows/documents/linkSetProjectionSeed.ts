@@ -47,7 +47,7 @@ function uniqueManifestPaths(
 function containerProjectionManifestHistory(
   projection: ContainerWriterProjectionResponse,
 ): AccessManifestBundleWireResponse[] {
-  return projection.containerKeks.flatMap(
+  return (projection.containerKeks ?? []).flatMap(
     (kek) => kek.containerManifestHistory ?? [],
   );
 }

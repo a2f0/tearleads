@@ -15,7 +15,7 @@ import {
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinks";
 import { getDocumentByLocalId } from "../documentSummaries";
-import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
+import type { ExplorerDocumentMutationOptions } from "./explorerModelTypes";
 
 type LoadExplorerDocumentSummary = (
   localId: string,
@@ -55,7 +55,7 @@ function useMoveDocumentAction(params: {
     async (
       noteId: string,
       targetContainerId: string,
-      options?: Parameters<ExplorerDocumentMutationAction>[2],
+      options?: ExplorerDocumentMutationOptions,
     ) => {
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,

@@ -38,11 +38,13 @@ export interface ExplorerModelExplorer {
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
+export interface ExplorerDocumentMutationOptions {
+  replaceLinkedContainers?: boolean | undefined;
+  sourceContainerId?: string | null | undefined;
+}
+
 export type ExplorerDocumentMutationAction = (
   noteId: string,
   targetContainerId: string,
-  options?: {
-    replaceLinkedContainers?: boolean | undefined;
-    sourceContainerId?: string | null | undefined;
-  },
+  options?: ExplorerDocumentMutationOptions,
 ) => Promise<DocumentSummary | null>;
