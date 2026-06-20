@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ContainerNode } from "@tearleads/client-sdk";
+import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   type ExplorerModalSubmitParams,
@@ -14,6 +14,14 @@ const containerNode: ContainerNode = {
   parentId: "root-container",
   syncState: syncedContainerDocumentObjectSyncState,
 };
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
 
 function createSubmitParams(
   overrides: Partial<ExplorerModalSubmitParams>,
@@ -67,4 +75,65 @@ test("name modal actions trim container names before submission", async () => {
 
   expect(submittedCreates).toEqual(["Child container"]);
   expect(submittedRenames).toEqual(["Renamed container"]);
+});
+
+test("document move modal clears before the network mutation resolves", async () => {
+  const moveDeferred = createDeferred<DocumentSummary | null>();
+  const calls: string[] = [];
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      clearModal: () => {
+        calls.push("clear");
+      },
+      draftTargetContainerId: "target-container",
+      modalState: { mode: "move-document", documentLocalId: "note-1" },
+      moveDocument: () => moveDeferred.promise,
+      setSelectedId: (id) => {
+        calls.push(`select:${id}`);
+      },
+    }),
+  );
+
+  expect(calls).toEqual(["clear"]);
+
+  moveDeferred.resolve({
+    accessStateHash: "access-state-hash",
+    containerId: "target-container",
+    documentId: "document-1",
+    documentKind: "note",
+    id: "note-1",
+    title: "Moved note",
+    updatedAt: "2026-06-20T00:00:00.000Z",
+  });
+  await moveDeferred.promise;
+  await Promise.resolve();
+
+  expect(calls).toEqual(["clear", "select:note-1"]);
+});
+
+test("delete modal clears before the container delete resolves", async () => {
+  const deleteDeferred = createDeferred<boolean>();
+  const calls: string[] = [];
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      clearModal: () => {
+        calls.push("clear");
+      },
+      deleteContainer: () => deleteDeferred.promise,
+      modalState: { mode: "delete", nodeId: "container-1" },
+      setSelectedId: (id) => {
+        calls.push(`select:${id}`);
+      },
+    }),
+  );
+
+  expect(calls).toEqual(["clear"]);
+
+  deleteDeferred.resolve(true);
+  await deleteDeferred.promise;
+  await Promise.resolve();
+
+  expect(calls).toEqual(["clear", "select:root-container"]);
 });

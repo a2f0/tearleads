@@ -1,5 +1,5 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
-import { getExplorerModalError } from "./labels";
+import { getExplorerModalError, getExplorerModalLog } from "./labels";
 import type { ExplorerModalState } from "./types";
 
 export interface ExplorerModalSubmitParams {
@@ -36,30 +36,28 @@ export interface ExplorerModalSubmitParams {
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }
 
-async function submitExplorerDeleteModal(params: {
+function submitExplorerDeleteModal(params: {
   clearModal: () => void;
   deleteContainer: (containerId: string) => Promise<boolean>;
   modalState: { mode: "delete"; nodeId: string };
   nodes: ReadonlyArray<ContainerNode>;
-  setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
 }) {
-  const {
-    clearModal,
-    deleteContainer,
-    modalState,
-    nodes,
-    setModalError,
-    setSelectedId,
-  } = params;
+  const { clearModal, deleteContainer, modalState, nodes, setSelectedId } =
+    params;
   const deletingNode = nodes.find((node) => node.id === modalState.nodeId);
-  const deleted = await deleteContainer(modalState.nodeId);
-  if (!deleted) {
-    setModalError("Failed to delete container.");
-    return;
-  }
+  void deleteContainer(modalState.nodeId)
+    .then((deleted) => {
+      if (deleted) {
+        setSelectedId(deletingNode?.parentId ?? null);
+        return;
+      }
 
-  setSelectedId(deletingNode?.parentId ?? null);
+      console.error(getExplorerModalError(modalState.mode));
+    })
+    .catch((error: unknown) => {
+      console.error(getExplorerModalLog(modalState.mode), error);
+    });
   clearModal();
 }
 
@@ -166,7 +164,7 @@ async function submitExplorerNameModal(params: {
   clearModal();
 }
 
-async function submitExplorerMoveDocumentModal(params: {
+function submitExplorerMoveDocumentModal(params: {
   clearModal: () => void;
   linkDocument: (
     noteId: string,
@@ -198,20 +196,22 @@ async function submitExplorerMoveDocumentModal(params: {
     return;
   }
 
-  const movedDocument =
+  const movedDocumentPromise =
     modalState.mode === "link-document"
-      ? await linkDocument(modalState.documentLocalId, targetContainerId)
-      : await moveDocument(modalState.documentLocalId, targetContainerId);
-  if (!movedDocument) {
-    setModalError(
-      modalState.mode === "link-document"
-        ? "Failed to link document."
-        : "Failed to move document.",
-    );
-    return;
-  }
+      ? linkDocument(modalState.documentLocalId, targetContainerId)
+      : moveDocument(modalState.documentLocalId, targetContainerId);
+  void movedDocumentPromise
+    .then((movedDocument) => {
+      if (movedDocument) {
+        setSelectedId(movedDocument.id);
+        return;
+      }
 
-  setSelectedId(movedDocument.id);
+      console.error(getExplorerModalError(modalState.mode));
+    })
+    .catch((error: unknown) => {
+      console.error(getExplorerModalLog(modalState.mode), error);
+    });
   clearModal();
 }
 
@@ -245,12 +245,11 @@ async function submitExplorerNonNameModal(params: {
 }) {
   switch (params.modalState.mode) {
     case "delete":
-      await submitExplorerDeleteModal({
+      submitExplorerDeleteModal({
         clearModal: params.clearModal,
         deleteContainer: params.deleteContainer,
         modalState: params.modalState,
         nodes: params.nodes,
-        setModalError: params.setModalError,
         setSelectedId: params.setSelectedId,
       });
       return;
@@ -266,7 +265,7 @@ async function submitExplorerNonNameModal(params: {
       return;
     case "link-document":
     case "move-document":
-      await submitExplorerMoveDocumentModal({
+      submitExplorerMoveDocumentModal({
         clearModal: params.clearModal,
         linkDocument: params.linkDocument,
         modalState: params.modalState,

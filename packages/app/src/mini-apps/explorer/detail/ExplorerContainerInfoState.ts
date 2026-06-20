@@ -229,8 +229,9 @@ function resetContainerInfoState(params: {
 export function useExplorerContainerInfo(params: {
   containerId: string;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
+  reloadToken?: string | null | undefined;
 }) {
-  const { containerId, loadContainerInfo } = params;
+  const { containerId, loadContainerInfo, reloadToken } = params;
   const [containerInfo, setContainerInfo] = useState<ContainerInfo | null>(
     null,
   );
@@ -312,7 +313,7 @@ export function useExplorerContainerInfo(params: {
 
   useEffect(() => {
     void reloadContainerInfo({ resetDrafts: true });
-  }, [reloadContainerInfo]);
+  }, [reloadContainerInfo, reloadToken]);
 
   return {
     containerInfo,
