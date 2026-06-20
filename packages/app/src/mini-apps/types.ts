@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 
 export type MiniAppId =
+  | "backup-restore"
   | "contacts"
   | "explorer"
   | "identity-manager"

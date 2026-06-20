@@ -27,6 +27,10 @@ function createMiniApps(
   contactsComponent: ComponentType = EmptyMiniApp,
 ): Readonly<Record<MiniAppId, MiniAppDefinition>> {
   return {
+    "backup-restore": {
+      createComponent: () => EmptyMiniApp,
+      title: "Backup / Restore",
+    },
     contacts: {
       createComponent: () => contactsComponent,
       title: "Contacts",

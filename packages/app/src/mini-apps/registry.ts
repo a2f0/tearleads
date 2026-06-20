@@ -1,3 +1,4 @@
+import { BackupRestoreApp } from "./backup-restore/BackupRestoreApp";
 import { ContactsApp } from "./contacts/ContactsApp";
 import { ExplorerApp } from "./explorer/ExplorerApp";
 import { IdentityManagerApp } from "./identity-manager/IdentityManagerApp";
@@ -6,6 +7,11 @@ import { OrgManagerApp } from "./org-manager/OrgManagerApp";
 import type { MiniAppDefinition, MiniAppId } from "./types";
 
 export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
+  "backup-restore": {
+    createComponent: () => BackupRestoreApp,
+    initialShowSidebar: false,
+    title: "Backup / Restore",
+  },
   contacts: {
     createComponent: () => ContactsApp,
     title: "Contacts",
@@ -30,6 +36,7 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
 };
 
 export const MINI_APP_MENU_ITEMS = [
+  { appId: "backup-restore", label: "Open Backup / Restore" },
   { appId: "notes", label: "Open Notes" },
   { appId: "contacts", label: "Open Contacts" },
   { appId: "explorer", label: "Open Explorer" },
