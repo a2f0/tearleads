@@ -116,6 +116,7 @@ export function useDocument(): DocumentContextValue {
       ready: snapshot.ready,
       requestSync: store.requestSync,
       relink: store.relink,
+      removeAttachment: store.removeAttachment,
       setAttachment: store.setAttachment,
       replaceAttachment: store.replaceAttachment,
       setStructuredFields: store.setStructuredFields,

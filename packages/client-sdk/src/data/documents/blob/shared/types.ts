@@ -2,6 +2,7 @@ import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client"
 import type { WriteHeader } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
+  BlobAttachmentDetachRequest,
   BlobContentKeyBundleRequest,
   CompleteMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequest,
@@ -10,6 +11,7 @@ import type {
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
+  BlobAttachmentDetachResponse,
   BlobContentKeyBundleResponse,
   BlobUploadCapabilitiesResponse,
   CompleteMultipartBlobStageResponse,
@@ -78,6 +80,17 @@ export interface BlobAttachmentApi {
     partNumber: number,
     input: UploadMultipartBlobPartBytesRequest,
   ): Promise<UploadMultipartBlobPartResponse | null>;
+}
+
+export interface BlobAttachmentDetachApi {
+  detachBlobAttachment(
+    blobId: string,
+    bindingId: string,
+    input: BlobAttachmentDetachRequest,
+  ): Promise<BlobAttachmentDetachResponse | null>;
+  getDocumentWriterProjection(
+    documentId: string,
+  ): Promise<DocumentWriterProjectionResponse | null>;
 }
 
 export interface BlobContentKeyTarget {
@@ -178,6 +191,26 @@ export interface UploadDocumentAttachmentResult {
   byteLength: number;
   writeHeader: WriteHeader;
   writeHeaderHash: string;
+  writerProjection: DocumentWriterProjectionResponse;
+}
+
+export interface DetachDocumentAttachmentInput {
+  apiClient: BlobAttachmentDetachApi;
+  author: DocumentCreateAuthor;
+  bindingId: string;
+  blobId: string;
+  documentId: string;
+  eventId?: string | undefined;
+  execSql?: ExecSql | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  signedAt?: string | undefined;
+  slotId: string;
+  writerProjection?: DocumentWriterProjectionResponse | undefined;
+}
+
+export interface DetachDocumentAttachmentResult {
+  request: BlobAttachmentDetachRequest;
+  response: BlobAttachmentDetachResponse;
   writerProjection: DocumentWriterProjectionResponse;
 }
 

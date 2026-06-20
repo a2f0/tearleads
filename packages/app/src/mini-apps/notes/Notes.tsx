@@ -39,6 +39,7 @@ export function Notes({
         handleDragLeave={model.handleDragLeave}
         handleDragOver={model.handleDragOver}
         handleDrop={model.handleDrop}
+        handleRemoveAttachment={model.handleRemoveAttachment}
         handleSelectedFiles={model.handleSelectedFiles}
         imageUrlBySlotId={model.imageUrlBySlotId}
         ready={model.ready}

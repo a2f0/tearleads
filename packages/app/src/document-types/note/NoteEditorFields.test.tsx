@@ -26,6 +26,7 @@ function renderNoteEditorFields(
     handleDragLeave: noop,
     handleDragOver: noop,
     handleDrop: noop,
+    handleRemoveAttachment: noop,
     handleSelectedFiles: noop,
     imageUrlBySlotId: {},
     ready: true,
@@ -76,6 +77,22 @@ test("lists attachments with their byte size", () => {
 
   expect(view.getByText("diagram.png")).toBeTruthy();
   expect(view.queryByText("No attachments yet.")).toBeNull();
+});
+
+test("removing an attachment forwards its slot id", () => {
+  const removedSlots: string[] = [];
+  const view = renderNoteEditorFields({
+    attachments: [attachment],
+    handleRemoveAttachment: (slotId) => {
+      removedSlots.push(slotId);
+    },
+  });
+
+  fireEvent.click(
+    view.getByRole("button", { name: "Remove attachment diagram.png" }),
+  );
+
+  expect(removedSlots).toEqual(["slot-1"]);
 });
 
 test("surfaces a syncing attachment status", () => {

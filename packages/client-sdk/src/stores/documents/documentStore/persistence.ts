@@ -12,6 +12,7 @@ import {
 import { hydrateDocumentAttachmentBlobs } from "../../../workflows/blobs";
 import {
   type DocumentRecord,
+  deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
   enqueuePendingDocumentUpdate,
   type LocalAttachmentRecord,
@@ -155,6 +156,37 @@ export async function deletePendingAttachment(
   });
 }
 
+export async function deleteLocalAttachmentRecord(
+  state: DocumentStoreState,
+  slotId: string,
+  storageKey: string,
+  currentDoc: DocumentState | null = state.doc,
+) {
+  await deleteLocalDocumentAttachment({
+    execSql: state.runtime.infra.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
+    slotId,
+    storageKey,
+  });
+
+  const { [slotId]: _removedStorageKey, ...nextStorageKeys } =
+    state.attachmentStorageKeyBySlotId;
+  const { [slotId]: _removedBlobId, ...nextBlobIds } =
+    state.attachmentBlobIdBySlotId;
+  state.attachmentStorageKeyBySlotId = nextStorageKeys;
+  state.attachmentBlobIdBySlotId = nextBlobIds;
+
+  if (currentDoc) {
+    setReadySnapshot(
+      state,
+      currentDoc,
+      state.snapshot.syncing,
+      currentDoc === state.doc ? state.snapshot.text : getTextValue(currentDoc),
+    );
+  }
+}
+
 export async function saveLocalAttachmentRecord(
   state: DocumentStoreState,
   attachment: LocalAttachmentRecord,
@@ -178,6 +210,12 @@ async function saveLocalAttachmentRecords(
     persistence: state.persistence,
   });
 
+  state.attachmentBlobIdBySlotId = {
+    ...state.attachmentBlobIdBySlotId,
+    ...Object.fromEntries(
+      attachments.map((attachment) => [attachment.slotId, attachment.blobId]),
+    ),
+  };
   state.attachmentStorageKeyBySlotId = {
     ...state.attachmentStorageKeyBySlotId,
     ...Object.fromEntries(

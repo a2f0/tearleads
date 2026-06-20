@@ -81,6 +81,53 @@ test("document store attaches files locally without authentication or network", 
   );
 });
 
+test("document store removes local-only attachments and stored bytes", async () => {
+  const persistence = createDocumentStorePersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const { blobStore, storageKeys } = createTrackedMemoryBlobStore();
+  const runtime = createDocumentStoreRuntime({
+    crypto: {
+      encapsulationKeyPair,
+    },
+    infra: {
+      blobStore,
+    },
+  });
+  const store = createDocumentStore(
+    "remove-local-attachment-document",
+    runtime,
+    persistence,
+  );
+  store.updateRuntime(runtime);
+
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode("remove me"),
+      mimeType: "text/plain",
+      name: "remove-me.txt",
+    },
+  ]);
+
+  await waitForCondition(
+    () =>
+      store.getSnapshot().attachments.length === 1 && storageKeys.size === 1,
+    "Local attachment was not staged before removal.",
+  );
+
+  const slotId = store.getSnapshot().attachments[0]?.slotId;
+  expect(slotId).toBeString();
+  store.removeAttachment(slotId ?? "");
+
+  await waitForCondition(
+    () =>
+      store.getSnapshot().attachments.length === 0 &&
+      persistence.getState().pendingAttachments.length === 0 &&
+      persistence.getState().localAttachments.length === 0 &&
+      storageKeys.size === 0,
+    "Local attachment was not removed.",
+  );
+});
+
 test("document store rolls back staged attachment rows and bytes when local attachment persistence fails", async () => {
   const basePersistence = createDocumentStorePersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

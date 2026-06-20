@@ -55,6 +55,12 @@ async function initializeDocumentStore(
     persistence: state.persistence,
   });
   state.pendingAttachments = persistedState.pendingAttachments;
+  state.attachmentBlobIdBySlotId = Object.fromEntries(
+    persistedState.localAttachments.map((attachment) => [
+      attachment.slotId,
+      attachment.blobId,
+    ]),
+  );
   state.attachmentStorageKeyBySlotId = Object.fromEntries(
     persistedState.localAttachments.map((attachment) => [
       attachment.slotId,

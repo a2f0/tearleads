@@ -64,6 +64,7 @@ export interface DocumentStorePersistenceEffects {
 }
 
 export interface DocumentStoreState {
+  attachmentBlobIdBySlotId: Record<string, string | null>;
   attachmentStorageKeyBySlotId: Record<string, string>;
   doc: DocumentState | null;
   effects: DocumentStorePersistenceEffects;
@@ -142,6 +143,7 @@ export function createDocumentStoreState(
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
 ): DocumentStoreState {
   return {
+    attachmentBlobIdBySlotId: {},
     attachmentStorageKeyBySlotId: {},
     doc: null,
     effects,
@@ -228,6 +230,7 @@ export function resetDocumentStore(state: DocumentStoreState) {
   state.doc = null;
   state.record = null;
   state.pendingAttachments = [];
+  state.attachmentBlobIdBySlotId = {};
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
   state.remoteUpdatePending = false;
