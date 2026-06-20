@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { readS3BlobStoreListKeysSettings } from "./blobStoreKeys";
+import {
+  formatBlobStoreKeyLine,
+  readS3BlobStoreListKeysSettings,
+} from "./blobStoreKeys";
 
 test("blob store key listing reads S3 settings from current env names", () => {
   const settings = readS3BlobStoreListKeysSettings({
@@ -29,6 +32,20 @@ test("blob store key listing requires S3 object storage", () => {
   expect(() =>
     readS3BlobStoreListKeysSettings({ BLOB_OBJECT_STORE: "memory" }),
   ).toThrow("BLOB_OBJECT_STORE must be s3 to list blob store keys");
+});
+
+test("blob store key line omits size by default", () => {
+  expect(formatBlobStoreKeyLine("blobs/abc", 123, false)).toBe("blobs/abc");
+});
+
+test("blob store key line prefixes size when requested", () => {
+  expect(formatBlobStoreKeyLine("blobs/abc", 123, true)).toBe("123\tblobs/abc");
+});
+
+test("blob store key line tolerates missing size when requested", () => {
+  expect(formatBlobStoreKeyLine("blobs/abc", undefined, true)).toBe(
+    "\tblobs/abc",
+  );
 });
 
 test("blob store key listing requires complete S3 credentials", () => {

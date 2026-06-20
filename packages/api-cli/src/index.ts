@@ -10,7 +10,7 @@ function usage(): string {
     "Usage: tearleads-api-cli <command>",
     "",
     "Commands:",
-    "  blob-store:list-keys [--prefix <prefix>]    List configured S3 blob store keys",
+    "  blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys",
     "  migrate    Run API database migrations",
   ].join("\n");
 }
@@ -151,9 +151,21 @@ function readOptionalValueArg(
   return value;
 }
 
+function takeBooleanFlag(
+  args: readonly string[],
+  name: string,
+): { present: boolean; rest: string[] } {
+  const rest = args.filter((arg) => arg !== name);
+  return { present: rest.length !== args.length, rest };
+}
+
 async function listBlobStoreKeys(args: readonly string[]): Promise<void> {
   const { listS3BlobStoreKeys } = await import("./blobStoreKeys");
-  await listS3BlobStoreKeys({ prefix: readOptionalValueArg(args, "--prefix") });
+  const { present: withSize, rest } = takeBooleanFlag(args, "--with-size");
+  await listS3BlobStoreKeys({
+    prefix: readOptionalValueArg(rest, "--prefix"),
+    withSize,
+  });
 }
 
 const command = process.argv[2];
