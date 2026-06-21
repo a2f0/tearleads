@@ -127,6 +127,7 @@ test("pending container move sync records per-intent failures and continues", as
             signingPrivateKey: new Uint8Array(32),
           } as ContainerMoveIntentSyncState["runtime"]["crypto"]["signingKeyPair"],
         },
+        getEncapsulationKey: async () => null,
         infra: {
           blobStore:
             {} as ContainerMoveIntentSyncState["runtime"]["infra"]["blobStore"],

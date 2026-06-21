@@ -7,6 +7,7 @@ import {
   createContainerDeleteResponse,
   createContainerMutationRequest,
   createContainerMutationResponse,
+  createPrincipalPolicyBundleResponse,
 } from "./ApiClient.testFactories";
 import {
   apiBaseUrl,
@@ -113,6 +114,38 @@ testApiClient(
         method: "POST",
       },
     ]);
+  },
+);
+
+testApiClient(
+  "returns stale principal policy bundles from container create failures",
+  async () => {
+    const principalPolicy = createPrincipalPolicyBundleResponse();
+    server.use(
+      http.post(`${apiBaseUrl}/containers/with-metadata-document`, () => {
+        return HttpResponse.json(
+          {
+            error: "Principal policy is stale",
+            code: "principal_policy_stale",
+            principalPolicies: [principalPolicy],
+          },
+          { status: 409, statusText: "Conflict" },
+        );
+      }),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const result = await client.createContainerWithMetadataDocumentResult(
+      createContainerCreateWithMetadataDocumentRequest(),
+      { reportErrors: false },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected create failure");
+    }
+    expect(result.status).toBe(409);
+    expect(result.stalePrincipalPolicies).toEqual([principalPolicy]);
   },
 );
 

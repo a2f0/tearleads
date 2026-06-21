@@ -1,8 +1,10 @@
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
+  PrincipalPolicyBundleResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
+import { isPrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
 import type {
   ListContainerDocumentsOptions,
   ListContainersOptions,
@@ -59,6 +61,7 @@ export async function evictWriterProjectionIfSyncChanged(
 export interface ErrorResponseDescription {
   readonly detail: string;
   readonly error: string | null;
+  readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
 }
 
 export function bindPrototypeMethods(
@@ -208,7 +211,15 @@ export async function describeErrorResponse(
       parsed.error.trim().length > 0
     ) {
       const error = parsed.error.trim();
-      return { detail: `: ${error}`, error };
+      return {
+        detail: `: ${error}`,
+        error,
+        // Container mutation 409s can carry signed policy bundles that make the
+        // failed write repairable; preserve them on the typed failure object.
+        ...(isPrincipalPolicyStaleErrorResponse(parsed)
+          ? { stalePrincipalPolicies: parsed.principalPolicies }
+          : {}),
+      };
     }
   } catch {
     // Use the raw response body when the error payload is not JSON.

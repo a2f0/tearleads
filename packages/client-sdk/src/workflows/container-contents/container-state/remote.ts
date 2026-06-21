@@ -6,8 +6,6 @@ import type {
 } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import {
-  buildMaterializedContainerCreatePlan,
-  childContainerWriterProjectionFromCreatePlan,
   createRemoteContainer as createRemoteContainerMutation,
   moveRemoteContainer as moveRemoteContainerMutation,
   readContainerMutationMetadataDocumentId,
@@ -16,108 +14,16 @@ import {
   shareRemoteContainerWithGroup as shareRemoteContainerWithGroupMutation,
 } from "../../containers";
 import {
-  buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
-  persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
+import { createRemoteContainerWithMetadataDocument } from "./createWithMetadata";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
   RemoteContainer,
   SharedRemoteContainerState,
 } from "./types";
-
-async function createRemoteContainerWithMetadataDocument(input: {
-  systemSlot?: ContainerSystemSlot | null | undefined;
-  containerId: string;
-  parentContainerId: string;
-  parentProjection?: ContainerWriterProjectionResponse | undefined;
-  resolveProjectionUserKey: ProjectionUserKeyResolver;
-  runtime: ContainerWorkflowRuntime;
-}): Promise<CreatedRemoteContainerState | null> {
-  const author = resolveDocumentCreateAuthor(input.runtime);
-  const { apiClient } = input.runtime;
-  const execSql = input.runtime.infra.execSql;
-  const parentSecretKey = input.runtime.crypto.encapsulationKeyPair?.secretKey;
-  if (!author || !parentSecretKey) {
-    input.runtime.util.log(
-      "Container contents: skipped container create because the writer context is unavailable.",
-    );
-    return null;
-  }
-
-  if (!apiClient.createContainerWithMetadataDocument) {
-    return null;
-  }
-
-  const parentProjection =
-    input.parentProjection ??
-    (await apiClient.getContainerWriterProjection(input.parentContainerId));
-  if (!parentProjection) {
-    return null;
-  }
-
-  const containerPlan = await buildMaterializedContainerCreatePlan({
-    author,
-    containerId: input.containerId,
-    execSql,
-    metadataDocumentId: input.containerId,
-    parentProjection,
-    parentSecretKey,
-    resolveProjectionUserKey: input.resolveProjectionUserKey,
-  });
-  const childProjection = childContainerWriterProjectionFromCreatePlan({
-    materializedPlan: containerPlan,
-    parentProjection,
-  });
-  const metadataDocumentPlan = await buildMaterializedDocumentCreatePlan({
-    author,
-    containerProjection: childProjection,
-    documentId: containerPlan.plan.metadataDocumentId,
-    execSql,
-    knownContainerKeks: new Map([
-      [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
-    ]),
-    targetSecretKey: parentSecretKey,
-    trustedLocalProjection: true,
-  });
-  const response = await apiClient.createContainerWithMetadataDocument({
-    systemSlot: input.systemSlot ?? null,
-    container: containerPlan.plan.request,
-    metadataDocument: metadataDocumentPlan.plan.request,
-  });
-  if (!response) {
-    return null;
-  }
-  if (response.container.containerId !== containerPlan.plan.containerId) {
-    throw new Error("Container metadata create response container mismatch");
-  }
-  const metadataDocumentId = readContainerMutationMetadataDocumentId({
-    response: response.container,
-  });
-  if (
-    metadataDocumentId !== containerPlan.plan.metadataDocumentId ||
-    response.metadataDocument.id !== metadataDocumentPlan.plan.documentId
-  ) {
-    throw new Error("Container metadata create response document mismatch");
-  }
-
-  return {
-    accessManifestHash: response.container.manifestHead.manifestHash,
-    systemSlot: response.container.systemSlot ?? input.systemSlot ?? null,
-    containerId: response.container.containerId,
-    createdAt: response.container.createdAt,
-    metadataDocumentId,
-    organizationId: response.container.organizationId,
-    parentId: response.container.parentId,
-    persistedMetadataState: persistedDocumentCreateStateFromResponse(
-      metadataDocumentPlan.plan,
-      response.metadataDocument,
-    ),
-    updatedAt: response.container.updatedAt,
-  };
-}
 
 async function createRemoteContainerWithSeparateMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;

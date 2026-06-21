@@ -34,10 +34,32 @@ export interface CacheReferencedPrincipalPoliciesOptions {
   references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined;
 }
 
+export interface CachePrincipalPolicyBundlesOptions
+  extends Omit<CacheReferencedPrincipalPoliciesOptions, "references"> {
+  bundles: ReadonlyArray<PrincipalPolicyBundleResponse> | undefined;
+}
+
 function getReferencedPrincipalKey(
   reference: ReferencedPrincipalStateResponse,
 ): string {
   return `${reference.principalType}:${reference.principalId}`;
+}
+
+function getBundlePrincipalKey(bundle: PrincipalPolicyBundleResponse): string {
+  return `${bundle.currentState.principalType}:${bundle.currentState.principalId}`;
+}
+
+function referenceFromPrincipalPolicyBundle(
+  bundle: PrincipalPolicyBundleResponse,
+): ReferencedPrincipalStateResponse {
+  return {
+    principalType: bundle.currentState.principalType,
+    principalId: bundle.currentState.principalId,
+    version: bundle.currentState.version,
+    keyEpoch: bundle.currentState.keyEpoch,
+    stateHash: bundle.currentState.stateHash,
+    keyFingerprint: bundle.currentState.keyFingerprint,
+  };
 }
 
 function dedupeReferencedPrincipals(
@@ -53,6 +75,25 @@ function dedupeReferencedPrincipals(
   }
 
   return Array.from(referencesByPrincipal.values());
+}
+
+function dedupePrincipalPolicyBundles(
+  bundles: ReadonlyArray<PrincipalPolicyBundleResponse>,
+): PrincipalPolicyBundleResponse[] {
+  const bundlesByPrincipal = new Map<string, PrincipalPolicyBundleResponse>();
+
+  for (const bundle of bundles) {
+    const key = getBundlePrincipalKey(bundle);
+    const previous = bundlesByPrincipal.get(key);
+    if (
+      !previous ||
+      bundle.currentState.version > previous.currentState.version
+    ) {
+      bundlesByPrincipal.set(key, bundle);
+    }
+  }
+
+  return Array.from(bundlesByPrincipal.values());
 }
 
 function getBundleReferenceMismatchReason(
@@ -252,6 +293,47 @@ async function cacheReferencedPrincipalPolicy(
   await savePrincipalPolicyBundle(execSql, bundle, new Date().toISOString());
 }
 
+async function cachePrincipalPolicyBundle(input: {
+  readonly bundle: PrincipalPolicyBundleResponse;
+  readonly execSql: ExecSql;
+  readonly getEncapsulationKey: CachePrincipalPolicyBundlesOptions["getEncapsulationKey"];
+  readonly loadExternalAdminSignerUserIds: () => Promise<readonly string[]>;
+  readonly log: ((message: string) => void) | undefined;
+}): Promise<void> {
+  const reference = referenceFromPrincipalPolicyBundle(input.bundle);
+  const cachedBundle = await loadPrincipalPolicyBundle(
+    input.execSql,
+    reference.principalType,
+    reference.principalId,
+  );
+  const cachedStateHash = cachedBundle?.currentState.stateHash ?? null;
+  if (cachedStateHash === reference.stateHash) {
+    return;
+  }
+
+  // The API supplied this bundle after rejecting a write, but local storage is
+  // only updated after normal signature, signer, and checkpoint verification.
+  const validationError = await validatePrincipalPolicyBundle(
+    reference,
+    input.bundle,
+    input.getEncapsulationKey,
+    cachedBundle,
+    input.loadExternalAdminSignerUserIds,
+  );
+  if (validationError) {
+    input.log?.(
+      `Principal policy cache: skipped ${getReferencedPrincipalKey(reference)}: ${validationError}`,
+    );
+    return;
+  }
+
+  await savePrincipalPolicyBundle(
+    input.execSql,
+    input.bundle,
+    new Date().toISOString(),
+  );
+}
+
 async function loadOrganizationExternalAdminSignerUserIds(input: {
   readonly execSql: ExecSql;
   readonly getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"];
@@ -350,6 +432,59 @@ export async function cacheReferencedPrincipalPolicies({
             error instanceof Error ? error.message : String(error);
           log?.(
             `Principal policy cache: failed to store ${getReferencedPrincipalKey(reference)}: ${message}`,
+          );
+        }
+      }),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log?.(`Principal policy cache: failed to initialize cache: ${message}`);
+  }
+}
+
+export async function cachePrincipalPolicyBundles({
+  bundles,
+  execSql,
+  getEncapsulationKey,
+  getCurrentPrincipalPolicy,
+  log,
+  organizationId,
+}: CachePrincipalPolicyBundlesOptions): Promise<void> {
+  if (!bundles || bundles.length === 0) {
+    return;
+  }
+
+  try {
+    await ensurePrincipalPolicyTables(execSql);
+    const uniqueBundles = dedupePrincipalPolicyBundles(bundles);
+    let externalAdminSignerUserIds: Promise<readonly string[]> | null = null;
+    const loadExternalAdminSignerUserIds = () => {
+      externalAdminSignerUserIds ??= loadOrganizationExternalAdminSignerUserIds(
+        {
+          execSql,
+          getCurrentPrincipalPolicy,
+          getEncapsulationKey,
+          organizationId,
+        },
+      );
+      return externalAdminSignerUserIds;
+    };
+
+    await Promise.all(
+      uniqueBundles.map(async (bundle) => {
+        try {
+          await cachePrincipalPolicyBundle({
+            bundle,
+            execSql,
+            getEncapsulationKey,
+            loadExternalAdminSignerUserIds,
+            log,
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          log?.(
+            `Principal policy cache: failed to store ${getBundlePrincipalKey(bundle)}: ${message}`,
           );
         }
       }),

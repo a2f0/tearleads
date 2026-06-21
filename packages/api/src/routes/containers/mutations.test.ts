@@ -2025,9 +2025,7 @@ test("POST /containers/:containerId/share stores group KEK targets and rejects s
   });
 
   expect(staleResponse.status).toBe(409);
-  expect(await staleResponse.json()).toEqual({
-    error: "Principal policy is stale",
-  });
+  expect((await staleResponse.json()).error).toBe("Principal policy is stale");
 });
 
 test("POST /containers/:containerId/revoke advances the KEK epoch", async () => {

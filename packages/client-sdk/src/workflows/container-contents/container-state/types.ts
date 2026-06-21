@@ -2,6 +2,7 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type {
   ContainerWriterProjectionResponse,
   EncapsulationKeyResponse,
+  PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
@@ -47,12 +48,16 @@ export type ContainerWorkflowApi = Parameters<
     getEncapsulationKey(
       userId: string,
     ): Promise<EncapsulationKeyResponse | null>;
+    getCurrentPrincipalPolicy?(
+      principalType: "group" | "organization",
+      principalId: string,
+    ): Promise<PrincipalPolicyBundleResponse | null>;
   };
 
 export interface ContainerWorkflowRuntime
   extends Pick<
     ContainerContentsWorkflowRuntime,
-    "auth" | "crypto" | "infra" | "state" | "util"
+    "auth" | "crypto" | "getEncapsulationKey" | "infra" | "state" | "util"
   > {
   readonly apiClient: ContainerWorkflowApi;
 }

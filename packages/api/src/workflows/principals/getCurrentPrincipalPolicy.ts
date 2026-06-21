@@ -28,7 +28,7 @@ function toProjectionResponse(
   }));
 }
 
-async function getCurrentPrincipalPolicyWithExecutor(
+export async function getCurrentPrincipalPolicyWithExecutor(
   executor: DatabaseSession,
   principalType: "group" | "organization",
   principalId: string,

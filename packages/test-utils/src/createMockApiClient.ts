@@ -1,4 +1,4 @@
-import { ApiClient } from "@tearleads/api-client";
+import { ApiClient, type RequestFailure } from "@tearleads/api-client";
 import type { ListContainersResponse } from "@tearleads/validators/response";
 
 type PublicApiClient = Pick<ApiClient, keyof ApiClient>;
@@ -9,6 +9,23 @@ const EMPTY_LIST_CONTAINERS_RESPONSE: ListContainersResponse = {
   nextWatermark: null,
   tombstones: [],
 };
+
+function mockRequestFailure(input: {
+  readonly message: string;
+  readonly method: RequestFailure["method"];
+  readonly path: string;
+}): RequestFailure {
+  return {
+    kind: "network",
+    message: input.message,
+    method: input.method,
+    ok: false,
+    path: input.path,
+    report: () => {},
+    status: null,
+    statusText: "",
+  };
+}
 
 export function createMockApiClient(
   overrides: Partial<PublicApiClient> = {},
@@ -56,6 +73,40 @@ export function createMockApiClient(
     ...overrides,
   } satisfies Partial<PublicApiClient>);
 
+  // Container create retries use the RequestResult APIs so stale-policy
+  // failures can carry verified repair bundles instead of being reported early.
+  if (!overrides.createContainerResult) {
+    apiClient.createContainerResult = async (input) => {
+      const data = await apiClient.createContainer(input);
+      if (data) {
+        return { data, ok: true };
+      }
+
+      const path = "/containers";
+      return mockRequestFailure({
+        message: `POST ${path}: mock createContainer returned null`,
+        method: "POST",
+        path,
+      });
+    };
+  }
+
+  if (!overrides.createContainerWithMetadataDocumentResult) {
+    apiClient.createContainerWithMetadataDocumentResult = async (input) => {
+      const data = await apiClient.createContainerWithMetadataDocument(input);
+      if (data) {
+        return { data, ok: true };
+      }
+
+      const path = "/containers/with-metadata-document";
+      return mockRequestFailure({
+        message: `POST ${path}: mock createContainerWithMetadataDocument returned null`,
+        method: "POST",
+        path,
+      });
+    };
+  }
+
   if (!overrides.deleteContainerResult) {
     apiClient.deleteContainerResult = async (containerId) => {
       const data = await apiClient.deleteContainer(containerId);
@@ -64,17 +115,11 @@ export function createMockApiClient(
       }
 
       const path = `/containers/${containerId}`;
-      const message = `DELETE ${path}: mock deleteContainer returned null`;
-      return {
-        kind: "network",
-        message,
+      return mockRequestFailure({
+        message: `DELETE ${path}: mock deleteContainer returned null`,
         method: "DELETE",
-        ok: false,
         path,
-        report: () => {},
-        status: null,
-        statusText: "",
-      };
+      });
     };
   }
 
@@ -86,17 +131,11 @@ export function createMockApiClient(
       }
 
       const path = `/documents/${documentId}/sync`;
-      const message = `POST ${path}: mock syncDocument returned null`;
-      return {
-        kind: "network",
-        message,
+      return mockRequestFailure({
+        message: `POST ${path}: mock syncDocument returned null`,
         method: "POST",
-        ok: false,
         path,
-        report: () => {},
-        status: null,
-        statusText: "",
-      };
+      });
     };
   }
 

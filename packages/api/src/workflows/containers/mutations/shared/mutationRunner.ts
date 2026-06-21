@@ -1,3 +1,7 @@
+import type {
+  ReferencedPrincipalHead,
+  VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import type {
   ContainerMutationContext,
@@ -20,6 +24,32 @@ import {
 import { persistVerifiedMutation } from "./persistence";
 import { assertPrincipalPoliciesCurrent } from "./principalPolicies";
 import { principalPoliciesFromRequest } from "./principalPolicyRecords";
+
+function collectReferencedPrincipalHeads(
+  paths: readonly (
+    | readonly VerifiedContainerAccessManifest[]
+    | null
+    | undefined
+  )[],
+): ReferencedPrincipalHead[] {
+  return paths.flatMap((path) =>
+    (path ?? []).flatMap((manifest) => manifest.state.referencedPrincipalHeads),
+  );
+}
+
+async function readCurrentPrincipalPolicies(input: {
+  readonly executor: MutateContainerWithExecutorInput["executor"];
+  readonly request: MutateContainerWithExecutorInput["request"];
+  readonly referencedPrincipalHeads: readonly ReferencedPrincipalHead[];
+}) {
+  return assertPrincipalPoliciesCurrent(
+    input.executor,
+    principalPoliciesFromRequest(input.request),
+    {
+      referencedPrincipalHeads: input.referencedPrincipalHeads,
+    },
+  );
+}
 
 export async function mutateContainerWithExecutor(
   input: MutateContainerWithExecutorInput,
@@ -64,8 +94,17 @@ export async function mutateContainerWithExecutor(
       "previousManifest",
     );
   }
-  const principalPolicies = principalPoliciesFromRequest(input.request);
-  await assertPrincipalPoliciesCurrent(context.executor, principalPolicies);
+  const principalPolicies = await readCurrentPrincipalPolicies({
+    executor: context.executor,
+    request: input.request,
+    referencedPrincipalHeads: collectReferencedPrincipalHeads([
+      previousContainerPath,
+      parentContainerPath,
+      destinationParentContainerPath,
+      containerManifestHistory,
+      previousManifest ? [previousManifest] : null,
+    ]),
+  });
 
   const event = await verifyMutationEvent(context.executor, input);
   assertAccessEventDependenciesMatchRequest(input.request, event);

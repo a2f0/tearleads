@@ -72,7 +72,9 @@ export interface ContainerContentsWorkflowRuntimeInput
 
 export interface ContainerContentsWorkflowRuntime
   extends ContainerContentsWorkflowRuntimeGroups,
-    Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {}
+    Pick<ContainerContentsWorkflowRuntimeInput, "apiClient"> {
+  readonly getEncapsulationKey: ContainerContentsWorkflowApi["getEncapsulationKey"];
+}
 
 export interface ContainerContentsWorkflowSqlRuntime {
   readonly infra: {
@@ -118,6 +120,8 @@ export function createContainerContentsWorkflowRuntime(
     apiClient: input.apiClient,
     auth: input.auth,
     crypto: input.crypto,
+    getEncapsulationKey: (userId) =>
+      input.apiClient.getEncapsulationKey(userId),
     infra,
     state: input.state,
     util: input.util,
