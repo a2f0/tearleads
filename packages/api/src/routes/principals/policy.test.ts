@@ -583,6 +583,141 @@ test("PUT /principals/:principalType/:principalId/member-envelopes stores curren
   );
 });
 
+// Regression for a missing-authorization defect: the member-envelopes write
+// unconditionally DELETEs every existing envelope and INSERTs the supplied
+// rows, the envelopes are unsigned, and the wrapped key material is opaque to
+// the server. Before this fix the route was gated only by `requireAuth`, so any
+// authenticated user (with no relationship to the principal) could read the
+// public policy bundle (stateHash + member set + per-member fingerprints) via
+// GET /policy and replay a structurally-valid PUT with attacker-chosen wrapped
+// keys, irrecoverably destroying the legitimate envelopes and locking every
+// member out of decrypting anything shared to that principal. Membership is the
+// only authorization signal available (no signer to verify), so a non-member
+// must be rejected and the stored envelopes must be left intact.
+test("PUT /principals/:principalType/:principalId/member-envelopes rejects a non-member and preserves existing envelopes", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  // An unrelated authenticated user: registered, with a valid session, but not
+  // a member of the target principal.
+  const outsider = createTestUser();
+  await registerUser(outsider);
+  await authenticate(outsider);
+
+  const principalId = crypto.randomUUID();
+  const signedState = await createSignedPrincipalState({
+    principalType: "group",
+    principalId,
+    members: [{ principalType: "user", principalId: owner.userId }],
+    signerUserId: owner.userId,
+    signerUserKeyFingerprint: owner.fingerprint,
+    signingPrivateKey: owner.signing.signingPrivateKey,
+  });
+  const putStateResponse = await routeApp.request(
+    `/principals/group/${principalId}/state`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        state: signedState.state,
+        encryptedPayload: signedState.encryptedPayload,
+        projection: signedState.projection,
+      }),
+    },
+  );
+  expect(putStateResponse.status).toBe(200);
+  const storedState = await putStateResponse.json();
+  invariant(
+    isPrincipalStateResponse(storedState),
+    "expected principal state response",
+  );
+
+  // The legitimate member seeds the real envelopes.
+  const legitimateEnvelope = {
+    memberPrincipalType: "user" as const,
+    memberPrincipalId: owner.userId,
+    memberKeyFingerprint: await toFingerprint(owner.kem.publicKey),
+    kemCipherText: "owner-kem-ciphertext",
+    wrappedKey: "owner-wrapped-key",
+  };
+  const seedResponse = await routeApp.request(
+    `/principals/group/${principalId}/member-envelopes`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${owner.token}`,
+      },
+      body: JSON.stringify({
+        stateHash: storedState.stateHash,
+        envelopes: [legitimateEnvelope],
+      }),
+    },
+  );
+  expect(seedResponse.status).toBe(200);
+
+  // The attack: the outsider learns everything it needs from the public policy
+  // bundle, then replays a structurally-valid PUT with garbage wrapped keys.
+  const outsiderPolicyResponse = await routeApp.request(
+    `/principals/group/${principalId}/policy`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${outsider.token}` },
+    },
+  );
+  expect(outsiderPolicyResponse.status).toBe(200);
+
+  const attackResponse = await routeApp.request(
+    `/principals/group/${principalId}/member-envelopes`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${outsider.token}`,
+      },
+      body: JSON.stringify({
+        stateHash: storedState.stateHash,
+        envelopes: [
+          {
+            ...legitimateEnvelope,
+            // Correct (public) fingerprint, attacker-controlled key material.
+            kemCipherText: "attacker-kem-ciphertext",
+            wrappedKey: "attacker-wrapped-key",
+          },
+        ],
+      }),
+    },
+  );
+
+  expect(attackResponse.status).toBe(403);
+  expect(await attackResponse.json()).toEqual({
+    error:
+      "Principal member envelope writer is not authorized for this principal",
+  });
+
+  // The legitimate envelopes must survive untouched.
+  const ownerPolicyResponse = await routeApp.request(
+    `/principals/group/${principalId}/policy`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${owner.token}` },
+    },
+  );
+  expect(ownerPolicyResponse.status).toBe(200);
+  const policyBundle = await ownerPolicyResponse.json();
+  invariant(
+    isPrincipalPolicyBundleResponse(policyBundle),
+    "expected principal policy bundle response",
+  );
+  expect(policyBundle.currentMemberEnvelopes.envelopes).toEqual([
+    legitimateEnvelope,
+  ]);
+});
+
 test("PUT /principals/:principalType/:principalId/state rejects signers who are not admins", async () => {
   const actor = createTestUser();
   await registerUser(actor);

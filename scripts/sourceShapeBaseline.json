@@ -118,8 +118,8 @@
       "bytes": 32258
     },
     "packages/api/src/routes/principals/policy.test.ts": {
-      "lines": 739,
-      "bytes": 23323
+      "lines": 874,
+      "bytes": 28152
     },
     "packages/api/src/schema.test.ts": {
       "lines": 507,
@@ -190,7 +190,7 @@
       "bytes": 73930
     },
     "packages/app/src/stores/explorer/ExplorerProvider.test.ts": {
-      "lines": 4542,
+      "lines": 4545,
       "bytes": 143432
     },
     "packages/app/test/helpers/mswServer.ts": {
@@ -224,6 +224,10 @@
     "packages/client-sdk/src/data/sqlite/schema.ts": {
       "lines": 586,
       "bytes": 22748
+    },
+    "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
+      "lines": 520,
+      "bytes": 17500
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,

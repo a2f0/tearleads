@@ -31,6 +31,11 @@ import {
 } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
 import {
+  bumpMetadataSyncSeq,
+  clearMetadataSyncQueueIfUnchanged,
+  readMetadataSyncSeq,
+} from "./metadataSyncSignal";
+import {
   hasStartupContainerSyncWork,
   scheduleStaleStartupRemoteHydration,
 } from "./startupHydration";
@@ -47,6 +52,16 @@ export interface ContainerContentsStoreSyncState {
   lastEventCount: number;
   logLabel?: string | undefined;
   metadataDocumentIdsNeedingSync: Set<string>;
+  /**
+   * Per-metadata-document enqueue sequence. Bumped for a specific id whenever a
+   * remote event re-queues it in {@link metadataDocumentIdsNeedingSync}. A sync
+   * pass snapshots the id's sequence before its GET and only clears the id if it
+   * is unchanged at pass end, so a mid-pass re-queue of THIS container is not
+   * erased. Keyed per id (not a single global counter) so a remote event for an
+   * unrelated container does not force a redundant re-sync of this one. See
+   * {@link clearMetadataSyncQueueIfUnchanged}.
+   */
+  metadataSyncSignalSeqById: Map<string, number>;
   containerParentIdsNeedingHydration: Set<string | null>;
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
@@ -298,6 +313,17 @@ async function syncSingleContainerMetadata(input: {
 }) {
   const { containerState, encapsulationKeyPair, host, state } = input;
   const metadataDocumentId = containerState.record.documentId;
+  // Snapshot THIS metadata document's enqueue sequence before the network GET
+  // so the post-await clear can tell whether a remote event re-queued this
+  // specific id mid-pass (see metadataSyncSignal.ts). Per id, not a global
+  // counter, so an unrelated container's event does not force a re-sync here.
+  const consumedSeqById = new Map<string, number>();
+  if (typeof metadataDocumentId === "string") {
+    consumedSeqById.set(
+      metadataDocumentId,
+      readMetadataSyncSeq(state.metadataSyncSignalSeqById, metadataDocumentId),
+    );
+  }
   const synced = await syncContainerMetadataState({
     forceReadSync:
       typeof metadataDocumentId === "string" &&
@@ -312,11 +338,15 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
-  if (typeof metadataDocumentId === "string") {
-    state.metadataDocumentIdsNeedingSync.delete(metadataDocumentId);
-  }
-  if (typeof synced.record.documentId === "string") {
-    state.metadataDocumentIdsNeedingSync.delete(synced.record.documentId);
+  for (const id of [metadataDocumentId, synced.record.documentId]) {
+    if (typeof id === "string") {
+      clearMetadataSyncQueueIfUnchanged({
+        consumedSeqById,
+        id,
+        needingSync: state.metadataDocumentIdsNeedingSync,
+        seqById: state.metadataSyncSignalSeqById,
+      });
+    }
   }
   containerState.container = synced.container;
   containerState.record = synced.record;
@@ -431,6 +461,12 @@ export function createContainerContentsStoreSyncAgent(input: {
       );
       for (const metadataDocumentId of metadataDocumentIds) {
         state.metadataDocumentIdsNeedingSync.add(metadataDocumentId);
+        // Bump this id's sequence so an in-flight pass syncing this same
+        // container detects the fresh re-queue and does not clear it.
+        bumpMetadataSyncSeq(
+          state.metadataSyncSignalSeqById,
+          metadataDocumentId,
+        );
       }
 
       if (metadataDocumentIds.length > 0) {

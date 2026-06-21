@@ -82,6 +82,16 @@ export interface DocumentStoreState {
   record: DocumentRecord | null;
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
   remoteUpdatePending: boolean;
+  /**
+   * Monotonically incremented every time a remote update event sets
+   * `remoteUpdatePending`. A sync pass snapshots this when it consumes the
+   * signal so it can tell, after its async network/persist window, whether a
+   * NEW remote event arrived mid-pass. Without this a boolean alone cannot
+   * distinguish "the signal I consumed" from "a fresh signal that arrived
+   * during the await", and clearing it unconditionally drops the new event —
+   * stalling convergence until an unrelated trigger re-arms the lane.
+   */
+  remoteUpdateSignalSeq: number;
   runtime: DocumentsRuntime;
   snapshot: DocumentSnapshot;
   syncLane: DocumentSyncLane | null;
@@ -162,6 +172,7 @@ export function createDocumentStoreState(
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
     remoteUpdatePending: false,
+    remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
     snapshot: {
       attachments: [],
@@ -234,6 +245,7 @@ export function resetDocumentStore(state: DocumentStoreState) {
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();
   state.remoteUpdatePending = false;
+  state.remoteUpdateSignalSeq = 0;
   state.writerProjection = null;
   state.initialized = false;
   state.initializePromise = null;
