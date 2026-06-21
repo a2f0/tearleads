@@ -10,6 +10,7 @@ import type {
   PutPrincipalMemberEnvelopesRequest,
   PutPrincipalStateRequest,
 } from "@tearleads/validators/request";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 
 export function createContainerMutationRequest(): ContainerMutationRequest {
   return {
@@ -200,6 +201,55 @@ export function createContainerCreateWithMetadataDocumentResponse() {
   return {
     container: createContainerMutationResponse(),
     metadataDocument: createDocumentCreateResponse(),
+  };
+}
+
+export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResponse {
+  return {
+    currentState: {
+      principalType: "group",
+      principalId: "group-1",
+      version: 2,
+      prevStateHash: "previous-state-hash",
+      keyEpoch: 2,
+      encapsulationPublicKey: "principal-public-key",
+      keyFingerprint: "principal-key-fingerprint",
+      membershipMode: "projection",
+      membershipRoot: "membership-root",
+      projectionRoot: "projection-root",
+      payloadCiphertextHash: "payload-ciphertext-hash",
+      memberCount: 1,
+      signedAt: "2026-06-21T12:00:00.000Z",
+      signerUserId: "user-1",
+      signerUserKeyFingerprint: "signer-key-fingerprint",
+      signature: "signature",
+      stateHash: "state-hash",
+      createdAt: "2026-06-21T12:00:00.000Z",
+    },
+    currentPayload: {
+      principalType: "group",
+      principalId: "group-1",
+      stateHash: "state-hash",
+      cipherSuite: "aes-256-gcm",
+      ciphertext: "ciphertext",
+      ciphertextHash: "payload-ciphertext-hash",
+      createdAt: "2026-06-21T12:00:00.000Z",
+    },
+    currentProjection: [
+      {
+        memberPrincipalType: "user",
+        memberPrincipalId: "user-1",
+        role: "admin",
+      },
+    ],
+    currentMemberEnvelopes: {
+      principalType: "group",
+      principalId: "group-1",
+      stateHash: "state-hash",
+      epoch: 2,
+      envelopes: [],
+    },
+    previousStates: [],
   };
 }
 

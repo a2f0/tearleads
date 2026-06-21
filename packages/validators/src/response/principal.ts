@@ -82,6 +82,12 @@ export interface PrincipalPolicyBundleResponse {
   previousStates: PrincipalPolicyStateChainEntryResponse[];
 }
 
+export interface PrincipalPolicyStaleErrorResponse {
+  error: string;
+  code: "principal_policy_stale";
+  principalPolicies: PrincipalPolicyBundleResponse[];
+}
+
 function isManagedPrincipalType(
   value: string,
 ): value is PrincipalStateResponse["principalType"] {
@@ -231,5 +237,18 @@ export function isPrincipalPolicyBundleResponse(
     isCurrentPrincipalMemberEnvelopesResponse(value.currentMemberEnvelopes) &&
     hasArrayProperty(value, "previousStates") &&
     value.previousStates.every(isPrincipalPolicyStateChainEntryResponse)
+  );
+}
+
+export function isPrincipalPolicyStaleErrorResponse(
+  value: unknown,
+): value is PrincipalPolicyStaleErrorResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "error") &&
+    hasStringProperty(value, "code") &&
+    value.code === "principal_policy_stale" &&
+    hasArrayProperty(value, "principalPolicies") &&
+    value.principalPolicies.every(isPrincipalPolicyBundleResponse)
   );
 }

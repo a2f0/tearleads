@@ -1,14 +1,19 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalProjectionMember,
+  ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,
+  listPrincipalStateHistory,
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../../../access/read/principalStateStore";
+import { getCurrentPrincipalPolicyWithExecutor } from "../../../principals/getCurrentPrincipalPolicy";
 import { ContainerMutationError } from "../errors";
 
 function projectionMemberKey(
@@ -22,6 +27,16 @@ function projectionMemberKey(
     member.memberPrincipalId,
     member.role,
   ].join(":");
+}
+
+function projectionMemberFromStored(
+  member: StoredPrincipalProjectionMember,
+): PrincipalProjectionMember {
+  return {
+    memberPrincipalType: member.memberPrincipalType,
+    memberPrincipalId: member.memberPrincipalId,
+    role: member.role,
+  };
 }
 
 function principalPolicyKey(
@@ -94,61 +109,195 @@ async function loadPrincipalPolicyArtifacts(
   return { currentStateByPolicyKey, projectionByPolicyKey };
 }
 
-function assertPrincipalPolicyStateCurrent(
+function principalPolicyMatchesReference(
   policy: VerifiedPrincipalPolicy,
-  currentState: StoredPrincipalState | undefined,
-): void {
-  if (
-    !currentState ||
-    currentState.version !== policy.version ||
-    currentState.keyEpoch !== policy.keyEpoch ||
-    currentState.stateHash !== policy.stateHash ||
-    currentState.keyFingerprint !== policy.state.keyFingerprint
-  ) {
-    throw new ContainerMutationError("Principal policy is stale", 409);
-  }
+  reference: ReferencedPrincipalHead,
+): boolean {
+  return (
+    policy.principalType === reference.principalType &&
+    policy.principalId === reference.principalId &&
+    policy.version === reference.version &&
+    policy.keyEpoch === reference.keyEpoch &&
+    policy.stateHash === reference.stateHash &&
+    policy.state.keyFingerprint === reference.keyFingerprint
+  );
 }
 
-function assertPrincipalPolicyProjectionCurrent(
+function principalPolicyNeedsStoredHistory(
+  policy: VerifiedPrincipalPolicy,
+  referencedPrincipalHeads: readonly ReferencedPrincipalHead[],
+): boolean {
+  return referencedPrincipalHeads.some(
+    (reference) =>
+      policy.principalType === reference.principalType &&
+      policy.principalId === reference.principalId &&
+      !principalPolicyMatchesReference(policy, reference),
+  );
+}
+
+function isPrincipalPolicyStateCurrent(
+  policy: VerifiedPrincipalPolicy,
+  currentState: StoredPrincipalState | undefined,
+): boolean {
+  return Boolean(
+    currentState &&
+      currentState.version === policy.version &&
+      currentState.keyEpoch === policy.keyEpoch &&
+      currentState.stateHash === policy.stateHash &&
+      currentState.keyFingerprint === policy.state.keyFingerprint,
+  );
+}
+
+function isPrincipalPolicyProjectionCurrent(
   policy: VerifiedPrincipalPolicy,
   storedProjection: readonly StoredPrincipalProjectionMember[],
-): void {
-  const storedProjectionKeys = storedProjection.map(projectionMemberKey).sort();
+): boolean {
+  const storedProjectionKeys = storedProjection
+    .map(projectionMemberFromStored)
+    .map(projectionMemberKey)
+    .sort();
   const policyProjectionKeys = policy.projection
     .map(projectionMemberKey)
     .sort();
 
-  if (
-    storedProjectionKeys.length !== policyProjectionKeys.length ||
-    storedProjectionKeys.some(
+  return (
+    storedProjectionKeys.length === policyProjectionKeys.length &&
+    !storedProjectionKeys.some(
       (storedKey, index) => storedKey !== policyProjectionKeys[index],
     )
-  ) {
-    throw new ContainerMutationError(
-      "Principal policy projection is stale",
-      409,
-    );
+  );
+}
+
+async function stalePrincipalPolicyError(input: {
+  readonly artifacts: PrincipalPolicyArtifacts;
+  readonly executor: DatabaseTransaction;
+  readonly message: string;
+  readonly policies: readonly VerifiedPrincipalPolicy[];
+}): Promise<ContainerMutationError> {
+  const seenPrincipalPolicyKeys = new Set<string>();
+  const policiesToFetch: VerifiedPrincipalPolicy[] = [];
+
+  // Stale-policy rejects are repairable: return the server's current signed
+  // bundles so the client can verify, cache, rebuild the mutation, and retry.
+  for (const policy of input.policies) {
+    const key = principalPolicyKey(policy);
+    if (
+      seenPrincipalPolicyKeys.has(key) ||
+      !input.artifacts.currentStateByPolicyKey.has(key)
+    ) {
+      continue;
+    }
+
+    seenPrincipalPolicyKeys.add(key);
+    policiesToFetch.push(policy);
   }
+
+  const principalPolicies: PrincipalPolicyBundleResponse[] = await Promise.all(
+    policiesToFetch.map((policy) =>
+      getCurrentPrincipalPolicyWithExecutor(
+        input.executor,
+        policy.principalType,
+        policy.principalId,
+      ),
+    ),
+  );
+
+  return new ContainerMutationError(input.message, 409, {
+    error: input.message,
+    code: "principal_policy_stale",
+    principalPolicies,
+  });
+}
+
+async function loadPrincipalPolicyWithStoredHistory(
+  executor: DatabaseTransaction,
+  policy: VerifiedPrincipalPolicy,
+): Promise<VerifiedPrincipalPolicy> {
+  // Current policy bundles may authorize manifests that reference older group
+  // heads. Load stored history server-side so verification can match those
+  // signed references without trusting client-supplied history.
+  const history = (
+    await listPrincipalStateHistory(
+      policy.principalType,
+      policy.principalId,
+      executor,
+    )
+  ).map((entry) => ({
+    state: entry.state,
+    projection: entry.projection.map(projectionMemberFromStored),
+  }));
+  const currentEntry = history.at(-1);
+
+  if (!currentEntry) {
+    throw new ContainerMutationError("Principal policy is stale", 409);
+  }
+
+  return makeVerifiedPrincipalPolicy({
+    principalType: currentEntry.state.principalType,
+    principalId: currentEntry.state.principalId,
+    version: currentEntry.state.version,
+    keyEpoch: currentEntry.state.keyEpoch,
+    stateHash: currentEntry.state.stateHash,
+    state: currentEntry.state,
+    projection: currentEntry.projection,
+    history,
+    checkpoint: {
+      principalType: currentEntry.state.principalType,
+      principalId: currentEntry.state.principalId,
+      version: currentEntry.state.version,
+      stateHash: currentEntry.state.stateHash,
+    },
+  });
 }
 
 export async function assertPrincipalPoliciesCurrent(
   executor: DatabaseTransaction,
   principalPolicies: readonly VerifiedPrincipalPolicy[],
-): Promise<void> {
+  options: {
+    readonly referencedPrincipalHeads?: readonly ReferencedPrincipalHead[];
+  } = {},
+): Promise<VerifiedPrincipalPolicy[]> {
   const artifacts = await loadPrincipalPolicyArtifacts(
     executor,
     principalPolicies,
   );
+  const stalePolicies: VerifiedPrincipalPolicy[] = [];
+  let staleMessage = "Principal policy is stale";
 
   for (const policy of principalPolicies) {
     const key = principalPolicyKey(policy);
-    assertPrincipalPolicyStateCurrent(
-      policy,
-      artifacts.currentStateByPolicyKey.get(key),
-    );
-    assertPrincipalPolicyProjectionCurrent(
-      policy,
-      artifacts.projectionByPolicyKey.get(key) ?? [],
-    );
+    const currentState = artifacts.currentStateByPolicyKey.get(key);
+    if (!isPrincipalPolicyStateCurrent(policy, currentState)) {
+      stalePolicies.push(policy);
+      continue;
+    }
+
+    if (
+      !isPrincipalPolicyProjectionCurrent(
+        policy,
+        artifacts.projectionByPolicyKey.get(key) ?? [],
+      )
+    ) {
+      staleMessage = "Principal policy projection is stale";
+      stalePolicies.push(policy);
+    }
   }
+
+  if (stalePolicies.length > 0) {
+    throw await stalePrincipalPolicyError({
+      artifacts,
+      executor,
+      message: staleMessage,
+      policies: stalePolicies,
+    });
+  }
+
+  const referencedPrincipalHeads = options.referencedPrincipalHeads ?? [];
+  return Promise.all(
+    principalPolicies.map((policy) =>
+      principalPolicyNeedsStoredHistory(policy, referencedPrincipalHeads)
+        ? loadPrincipalPolicyWithStoredHistory(executor, policy)
+        : Promise.resolve(policy),
+    ),
+  );
 }

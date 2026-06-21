@@ -23,6 +23,8 @@ import type {
   ContainerKekResponse,
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
+  EncapsulationKeyResponse,
+  PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
@@ -82,16 +84,50 @@ export interface ContainerCreatePlanContext
   signedAt: string;
 }
 
+export interface ContainerMutationSubmitFailure {
+  readonly message: string;
+  readonly ok: false;
+  readonly report: () => void;
+  readonly stalePrincipalPolicies?:
+    | readonly PrincipalPolicyBundleResponse[]
+    | undefined;
+  readonly status: number | null;
+}
+
+export type ContainerMutationSubmitResult<T> =
+  | {
+      readonly data: T;
+      readonly ok: true;
+    }
+  | ContainerMutationSubmitFailure;
+
 export interface ContainerCreateApi {
   createContainer(
     input: ContainerMutationRequest,
   ): Promise<ContainerMutationResponse | null>;
+  createContainerResult?(
+    input: ContainerMutationRequest,
+    options?: { readonly reportErrors?: boolean | undefined },
+  ): Promise<ContainerMutationSubmitResult<ContainerMutationResponse>>;
   createContainerWithMetadataDocument?(
     input: ContainerCreateWithMetadataDocumentRequest,
   ): Promise<ContainerCreateWithMetadataDocumentResponse | null>;
+  createContainerWithMetadataDocumentResult?(
+    input: ContainerCreateWithMetadataDocumentRequest,
+    options?: { readonly reportErrors?: boolean | undefined },
+  ): Promise<
+    ContainerMutationSubmitResult<ContainerCreateWithMetadataDocumentResponse>
+  >;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
+  getCurrentPrincipalPolicy?(
+    principalType: "group" | "organization",
+    principalId: string,
+  ): Promise<PrincipalPolicyBundleResponse | null>;
+  getEncapsulationKey?(
+    userId: string,
+  ): Promise<EncapsulationKeyResponse | null>;
 }
 
 export interface ContainerShareApi {

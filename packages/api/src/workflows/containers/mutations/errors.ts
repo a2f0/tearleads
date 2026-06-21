@@ -1,10 +1,16 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
+import type { PrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
 import type { ContainerMutationStatus } from "./types";
+
+type ContainerMutationErrorBody =
+  | { readonly error: string }
+  | PrincipalPolicyStaleErrorResponse;
 
 export class ContainerMutationError extends Error {
   constructor(
     message: string,
     readonly status: ContainerMutationStatus,
+    readonly body?: ContainerMutationErrorBody | undefined,
   ) {
     super(message);
     this.name = "ContainerMutationError";

@@ -1,3 +1,5 @@
+import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+
 export type HttpMethod = "DELETE" | "GET" | "POST" | "PUT";
 export type RequestBody = BodyInit;
 
@@ -26,6 +28,7 @@ export interface RequestFailure {
   readonly report: () => void;
   readonly status: number | null;
   readonly statusText: string;
+  readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
 }
 
 export interface RequestSuccess<T> {

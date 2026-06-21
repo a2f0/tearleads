@@ -11,6 +11,7 @@ import {
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
+  ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
@@ -33,6 +34,7 @@ import type {
   ContainerCreatePlan,
   ContainerCreatePlanContext,
   ContainerMutationAuthor,
+  ContainerMutationSubmitFailure,
   CreateRemoteContainerResult,
   MaterializedContainerCreatePlan,
 } from "../../../data/containers/shared/types";
@@ -51,6 +53,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
 
 function assertContainerCreatePlanInput(input: {
   author: ContainerMutationAuthor;
@@ -319,6 +322,61 @@ export function childContainerWriterProjectionFromCreatePlan(input: {
   };
 }
 
+async function submitRemoteContainerCreate(input: {
+  readonly apiClient: ContainerCreateApi;
+  readonly plan: ContainerCreatePlan;
+}): Promise<
+  | {
+      readonly ok: true;
+      readonly response: ContainerMutationResponse;
+    }
+  | ContainerMutationSubmitFailure
+  | null
+> {
+  if (input.apiClient.createContainerResult) {
+    const result = await input.apiClient.createContainerResult(
+      input.plan.request,
+      { reportErrors: false },
+    );
+
+    return result.ok ? { ok: true, response: result.data } : result;
+  }
+
+  const response = await input.apiClient.createContainer(input.plan.request);
+  return response ? { ok: true, response } : null;
+}
+
+async function cacheRemoteContainerCreatePolicyRepair(input: {
+  readonly apiClient: ContainerCreateApi;
+  readonly execSql: ExecSql | undefined;
+  readonly failure: ContainerMutationSubmitFailure;
+  readonly organizationId: string;
+}): Promise<boolean> {
+  const bundles = input.failure.stalePrincipalPolicies;
+  const getCurrentPrincipalPolicy = input.apiClient.getCurrentPrincipalPolicy;
+  const getEncapsulationKey = input.apiClient.getEncapsulationKey;
+  if (
+    !input.execSql ||
+    !bundles ||
+    bundles.length === 0 ||
+    !getCurrentPrincipalPolicy ||
+    !getEncapsulationKey
+  ) {
+    return false;
+  }
+
+  // The server supplied fresh signed policy bundles with the 409. Verify and
+  // cache them locally before rebuilding the signed create request.
+  await cachePrincipalPolicyBundles({
+    bundles,
+    execSql: input.execSql,
+    getCurrentPrincipalPolicy,
+    getEncapsulationKey,
+    organizationId: input.organizationId,
+  });
+  return true;
+}
+
 export async function createRemoteContainer(input: {
   apiClient: ContainerCreateApi;
   author: ContainerMutationAuthor;
@@ -347,31 +405,56 @@ export async function createRemoteContainer(input: {
     return null;
   }
 
-  const materializedPlan = await buildMaterializedContainerCreatePlan({
-    author: input.author,
-    containerId: input.containerId,
-    containerKey: input.containerKey,
-    containerKeyEpochId: input.containerKeyEpochId,
-    eventId: input.eventId,
-    execSql: input.execSql,
-    metadataDocumentId: input.metadataDocumentId,
-    parentProjection,
-    parentSecretKey: input.parentSecretKey,
-    resolveProjectionUserKey,
-    signedAt: input.signedAt,
-  });
-  const response = await input.apiClient.createContainer(
-    materializedPlan.plan.request,
-  );
-  if (!response) {
-    return null;
+  const maxAttempts = input.apiClient.createContainerResult ? 2 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const materializedPlan = await buildMaterializedContainerCreatePlan({
+      author: input.author,
+      containerId: input.containerId,
+      containerKey: input.containerKey,
+      containerKeyEpochId: input.containerKeyEpochId,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      metadataDocumentId: input.metadataDocumentId,
+      parentProjection,
+      parentSecretKey: input.parentSecretKey,
+      resolveProjectionUserKey,
+      signedAt: input.signedAt,
+    });
+    const submitted = await submitRemoteContainerCreate({
+      apiClient: input.apiClient,
+      plan: materializedPlan.plan,
+    });
+    if (!submitted) {
+      return null;
+    }
+
+    if (!submitted.ok) {
+      if (
+        attempt < maxAttempts &&
+        (await cacheRemoteContainerCreatePolicyRepair({
+          apiClient: input.apiClient,
+          execSql: input.execSql,
+          failure: submitted,
+          organizationId: input.author.organizationId,
+        }))
+      ) {
+        // Rebuild after caching the current signed policy bundle; the rejected
+        // request was signed against stale policy material and cannot be replayed.
+        continue;
+      }
+
+      submitted.report();
+      return null;
+    }
+
+    return {
+      containerKey: materializedPlan.containerKey,
+      containerId: submitted.response.containerId,
+      metadataDocumentId: materializedPlan.plan.metadataDocumentId,
+      plan: materializedPlan.plan,
+      response: submitted.response,
+    };
   }
 
-  return {
-    containerKey: materializedPlan.containerKey,
-    containerId: response.containerId,
-    metadataDocumentId: materializedPlan.plan.metadataDocumentId,
-    plan: materializedPlan.plan,
-    response,
-  };
+  return null;
 }

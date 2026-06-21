@@ -33,8 +33,12 @@ interface ContainerMutationsRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
+interface ErrorResponseBody {
+  readonly error: string;
+}
+
 interface JsonValidationContext {
-  json: (body: { readonly error: string }, status: 400) => Response;
+  json: (body: ErrorResponseBody, status: 400) => Response;
 }
 
 interface AddContainerMutationRouteInput extends ContainerMutationsRouteDeps {
@@ -182,11 +186,15 @@ function validateContainerCreateWithMetadataDocumentRequest(
 }
 
 function handleContainerMetadataCreateError(error: unknown) {
-  if (
-    error instanceof ContainerMutationError ||
-    error instanceof DocumentMutationError
-  ) {
-    return { error: error.message, status: error.status };
+  if (error instanceof ContainerMutationError) {
+    return {
+      body: error.body ?? { error: error.message },
+      status: error.status,
+    };
+  }
+
+  if (error instanceof DocumentMutationError) {
+    return { body: { error: error.message }, status: error.status };
   }
 
   return null;
@@ -229,7 +237,7 @@ function addContainerMutationRoute({
         return c.json<ContainerMutationResponse>(response);
       } catch (error) {
         if (error instanceof ContainerMutationError) {
-          return c.json({ error: error.message }, error.status);
+          return c.json(error.body ?? { error: error.message }, error.status);
         }
 
         throw error;
@@ -289,7 +297,7 @@ export function createContainerMutationsRoute({
       } catch (error) {
         const mutationError = handleContainerMetadataCreateError(error);
         if (mutationError) {
-          return c.json({ error: mutationError.error }, mutationError.status);
+          return c.json(mutationError.body, mutationError.status);
         }
 
         throw error;

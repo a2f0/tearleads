@@ -19,12 +19,16 @@ import type {
 import {
   type BlobAttachmentBindResponse,
   type BlobAttachmentDetachResponse,
+  type ContainerCreateWithMetadataDocumentResponse,
   type ContainerDeleteResponse,
+  type ContainerMutationResponse,
   type ContainerWriterProjectionResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
   type EncapsulationKeyResponse,
+  isContainerCreateWithMetadataDocumentResponse,
   isContainerDeleteResponse,
+  isContainerMutationResponse,
   isDocumentSyncResponse,
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
@@ -319,6 +323,7 @@ export class ApiClient {
     method: HttpMethod;
     path: string;
     reportErrors: boolean;
+    stalePrincipalPolicies: RequestFailure["stalePrincipalPolicies"];
     status: number | null;
     statusText: string;
   }): RequestFailure {
@@ -333,6 +338,9 @@ export class ApiClient {
       },
       status: input.status,
       statusText: input.statusText,
+      ...(input.stalePrincipalPolicies
+        ? { stalePrincipalPolicies: input.stalePrincipalPolicies }
+        : {}),
     };
 
     if (input.reportErrors) {
@@ -372,6 +380,7 @@ export class ApiClient {
         method,
         path,
         reportErrors,
+        stalePrincipalPolicies: undefined,
         status: response.status,
         statusText: response.statusText,
       });
@@ -384,6 +393,7 @@ export class ApiClient {
         method,
         path,
         reportErrors,
+        stalePrincipalPolicies: undefined,
         status: response.status,
         statusText: response.statusText,
       });
@@ -495,6 +505,7 @@ export class ApiClient {
         method,
         path,
         reportErrors,
+        stalePrincipalPolicies: undefined,
         status: null,
         statusText: "",
       });
@@ -528,6 +539,7 @@ export class ApiClient {
       method: input.method,
       path: input.path,
       reportErrors,
+      stalePrincipalPolicies: input.errorDescription.stalePrincipalPolicies,
       status: input.response.status,
       statusText: input.response.statusText,
     });
@@ -575,6 +587,7 @@ export class ApiClient {
     return this.requestFailure({
       ...input,
       reportErrors: input.options?.reportErrors ?? true,
+      stalePrincipalPolicies: undefined,
     });
   }
 
@@ -790,10 +803,36 @@ export class ApiClient {
     return createContainer(this.request, input);
   }
 
+  createContainerResult(
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerMutationResponse>> {
+    return this.makeRequestResult(
+      "/containers",
+      isContainerMutationResponse,
+      "POST",
+      JSON.stringify(input),
+      options,
+    );
+  }
+
   createContainerWithMetadataDocument(
     input: ContainerCreateWithMetadataDocumentRequest,
   ) {
     return createContainerWithMetadataDocument(this.request, input);
+  }
+
+  createContainerWithMetadataDocumentResult(
+    input: ContainerCreateWithMetadataDocumentRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerCreateWithMetadataDocumentResponse>> {
+    return this.makeRequestResult(
+      "/containers/with-metadata-document",
+      isContainerCreateWithMetadataDocumentResponse,
+      "POST",
+      JSON.stringify(input),
+      options,
+    );
   }
 
   shareContainer(containerId: string, input: ContainerMutationRequest) {
