@@ -30,6 +30,7 @@ import {
   isContainerDeleteResponse,
   isContainerMutationResponse,
   isDocumentSyncResponse,
+  isDocumentWriterProjectionResponse,
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
@@ -886,6 +887,48 @@ export class ApiClient {
       documentId,
       () => getDocumentWriterProjection(this.request, documentId),
     );
+  }
+
+  async getDocumentWriterProjectionResult(
+    documentId: string,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<DocumentWriterProjectionResponse>> {
+    const cached =
+      this.documentWriterProjectionRequestsByDocumentId.get(documentId);
+    if (cached) {
+      try {
+        const data = await cached;
+        if (data) {
+          return { data, ok: true };
+        }
+      } catch {
+        if (
+          this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
+          cached
+        ) {
+          this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+        }
+      }
+    }
+
+    const result = await this.makeRequestResult(
+      `/documents/${pathSegment(documentId)}/writer-projection`,
+      isDocumentWriterProjectionResponse,
+      "GET",
+      undefined,
+      options,
+    );
+
+    if (result.ok) {
+      this.documentWriterProjectionRequestsByDocumentId.set(
+        documentId,
+        Promise.resolve(result.data),
+      );
+    } else {
+      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+    }
+
+    return result;
   }
 
   /**

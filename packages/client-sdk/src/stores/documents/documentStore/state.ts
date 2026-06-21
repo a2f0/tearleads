@@ -266,6 +266,35 @@ export function resetDocumentStore(state: DocumentStoreState) {
   });
 }
 
+export function markDocumentStoreRemoved(state: DocumentStoreState) {
+  state.doc = null;
+  state.record = null;
+  state.pendingAttachments = [];
+  state.attachmentBlobIdBySlotId = {};
+  state.attachmentStorageKeyBySlotId = {};
+  state.locallyAcceptedUpdateIds = new Set();
+  state.remoteUpdatePending = false;
+  state.remoteUpdateSignalSeq = 0;
+  state.writerProjection = null;
+  state.initialized = true;
+  state.initializePromise = null;
+  state.writeChain = Promise.resolve();
+  setDocumentSnapshot(state, {
+    attachments: [],
+    attachmentStatusBySlotId: {},
+    attachmentStorageKeyBySlotId: {},
+    canAttach: false,
+    documentId: null,
+    documentKind: DEFAULT_DOCUMENT_KIND,
+    fieldValidationIssues: [],
+    ready: false,
+    structuredFields: {},
+    text: "",
+    title: "",
+    syncing: false,
+  });
+}
+
 export function canAttachFiles(state: DocumentStoreState): boolean {
   return (
     state.runtime.infra.dbStatus === "ready" &&

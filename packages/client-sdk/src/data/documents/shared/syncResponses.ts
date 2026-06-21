@@ -455,6 +455,12 @@ export function isRetryableDocumentSyncConflict(
   );
 }
 
+export function isUpstreamDeletedDocumentSyncFailure(
+  failure: DocumentSyncSubmitFailure,
+): boolean {
+  return failure.status === 404;
+}
+
 export async function submitDocumentSync(input: {
   apiClient: DocumentSyncApi;
   plan: DocumentSyncPlan;

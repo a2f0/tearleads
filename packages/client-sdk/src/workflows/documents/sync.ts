@@ -56,7 +56,6 @@ import type {
   DocumentSyncApi,
   DocumentSyncPlan,
   DocumentSyncPreparedUpdate,
-  DocumentSyncSubmitFailure,
   DocumentWriterPublicKeyResolver,
   MaterializedDocumentSyncPlan,
   PersistedDocumentSyncState,
@@ -71,6 +70,13 @@ import {
 } from "../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  handleUpstreamDeletedDocumentSyncFailure,
+  REMOTE_DOCUMENT_DELETED,
+  type RemoteDocumentDeletionHandler,
+  resolveDocumentSyncWriterProjection,
+  resolveFailedDocumentSyncAction,
+} from "./syncFailures";
 
 export function hasDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
@@ -334,39 +340,6 @@ function contentKeyBundleForSyncRequest(
       wrappingMetadata: target.wrappingMetadata,
     })),
   };
-}
-
-function isRecoverableDocumentUpdateIdConflict(
-  failure: DocumentSyncSubmitFailure,
-): boolean {
-  return (
-    failure.status === 409 &&
-    failure.message.includes("Document update id conflict")
-  );
-}
-
-function canRetryDocumentSyncConflict(input: {
-  attempt: number;
-  failure: DocumentSyncSubmitFailure;
-  maxAttempts: number;
-}): boolean {
-  return (
-    input.attempt < input.maxAttempts &&
-    isRetryableDocumentSyncConflict(input.failure)
-  );
-}
-
-function canRecoverDocumentUpdateIdConflict(input: {
-  attempt: number;
-  failure: DocumentSyncSubmitFailure;
-  maxAttempts: number;
-  pendingUpdateCount: number;
-}): boolean {
-  return (
-    input.attempt < input.maxAttempts &&
-    input.pendingUpdateCount > 0 &&
-    isRecoverableDocumentUpdateIdConflict(input.failure)
-  );
 }
 
 function settledPendingUpdateIdsFromSync(input: {
@@ -687,6 +660,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   execSql?: ExecSql | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey?: DocumentWriterPublicKeyResolver | undefined;
@@ -713,6 +687,16 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
     return { kind: "completed", result: null };
   }
   if (!submitted.ok) {
+    if (
+      await handleUpstreamDeletedDocumentSyncFailure({
+        documentId: input.documentId,
+        failure: submitted,
+        onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+      })
+    ) {
+      return { kind: "completed", result: null };
+    }
+
     if (isRetryableDocumentSyncConflict(submitted)) {
       return { kind: "retry_with_projection" };
     }
@@ -926,17 +910,6 @@ function assertUniqueDocumentOutgoingUpdates(
   }
 }
 
-async function resolveDocumentSyncWriterProjection(input: {
-  apiClient: DocumentSyncApi;
-  documentId: string;
-  reusableWriterProjection: DocumentWriterProjectionResponse | null;
-}): Promise<DocumentWriterProjectionResponse | null> {
-  return (
-    input.reusableWriterProjection ??
-    (await input.apiClient.getDocumentWriterProjection(input.documentId))
-  );
-}
-
 interface SyncRemoteDocumentInput {
   apiClient: DocumentSyncApi;
   author: DocumentCreateAuthor;
@@ -944,6 +917,7 @@ interface SyncRemoteDocumentInput {
   execSql?: ExecSql | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -969,6 +943,7 @@ async function tryPersistedReadOnlyDocumentSync(
     execSql: input.execSql,
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
+    onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
     persistedState: input.persistedState,
     resolveProjectionUserKey,
     resolveWriterPublicKey: input.resolveWriterPublicKey,
@@ -1079,6 +1054,10 @@ export async function syncRemoteDocument(
       reusableWriterProjection,
     });
     reusableWriterProjection = null;
+    if (writerProjection === REMOTE_DOCUMENT_DELETED) {
+      await input.onRemoteDocumentDeleted?.({ documentId: input.documentId });
+      return null;
+    }
     if (!writerProjection) {
       return null;
     }
@@ -1102,31 +1081,22 @@ export async function syncRemoteDocument(
       return null;
     }
     if (!submitted.ok) {
-      if (
-        canRetryDocumentSyncConflict({
-          attempt,
-          failure: submitted,
-          maxAttempts,
-        })
-      ) {
+      const action = await resolveFailedDocumentSyncAction({
+        attempt,
+        documentId: input.documentId,
+        failure: submitted,
+        maxAttempts,
+        onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+        pendingUpdates,
+      });
+      if (action === "retry") {
         continue;
       }
-      if (
-        canRecoverDocumentUpdateIdConflict({
-          attempt,
-          failure: submitted,
-          maxAttempts,
-          pendingUpdateCount: pendingUpdates.length,
-        })
-      ) {
-        recoveryPendingUpdatesById = new Map(
-          pendingUpdates.map((update) => [update.id, update]),
-        );
+      if (action !== "stop") {
+        recoveryPendingUpdatesById = action.recoveryPendingUpdatesById;
         pendingUpdates = [];
         continue;
       }
-
-      submitted.report();
       return null;
     }
 

@@ -139,5 +139,13 @@ export function createMockApiClient(
     };
   }
 
+  if (!Object.hasOwn(overrides, "getDocumentWriterProjectionResult")) {
+    Object.defineProperty(apiClient, "getDocumentWriterProjectionResult", {
+      configurable: true,
+      value: undefined,
+      writable: true,
+    });
+  }
+
   return apiClient;
 }
