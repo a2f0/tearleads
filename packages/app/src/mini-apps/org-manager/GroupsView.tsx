@@ -3,7 +3,6 @@ import type {
   OrganizationDirectoryUser,
   OrganizationGroupContainer,
   OrganizationGroupContainers,
-  OrganizationGroupMember,
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
@@ -32,11 +31,6 @@ import {
   MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
 import {
-  MiniAppRow,
-  MiniAppRowStack,
-  MiniAppRowText,
-} from "../../components/shared/MiniAppRow";
-import {
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
@@ -46,11 +40,7 @@ import {
 } from "../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
   MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
-  MiniAppVirtualList,
-  MiniAppVirtualListFrame,
-  MiniAppVirtualListRow,
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
@@ -63,10 +53,10 @@ import {
   getContainerDisplayTitle,
   isKeyboardActivationKey,
 } from "./display";
+import { GroupMembers } from "./GroupMembers";
 import {
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
-  getOrgManagerPolicyRoleLabel,
   ORG_MANAGER_LABELS,
 } from "./labels";
 import { PolicyHistorySection } from "./PolicyHistory";
@@ -362,90 +352,6 @@ function CreateGroupDialog({
   );
 }
 
-function GroupMembers({
-  canMutateGroup,
-  members,
-  mutating,
-  removeMember,
-  userId,
-}: {
-  canMutateGroup: boolean;
-  members: ReadonlyArray<OrganizationGroupMember>;
-  mutating: boolean;
-  removeMember: (userId: string) => void;
-  userId: string | null;
-}) {
-  const virtualMembers = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
-    rows: members,
-  });
-
-  if (members.length === 0) {
-    return (
-      <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.noGroupMembers}
-      </MiniAppStatus>
-    );
-  }
-
-  const adminCount = members.filter(
-    (member) =>
-      member.memberPrincipalType === "user" && member.role === "admin",
-  ).length;
-
-  return (
-    <MiniAppVirtualListFrame
-      className="org-manager-virtual-list"
-      ref={virtualMembers.frameRef}
-      rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
-    >
-      <MiniAppVirtualList
-        bottomPadding={virtualMembers.bottomPadding}
-        topPadding={virtualMembers.topPadding}
-      >
-        {virtualMembers.rows.map((member) => {
-          const isLastAdmin = member.role === "admin" && adminCount <= 1;
-          const canRemove =
-            canMutateGroup &&
-            member.memberPrincipalType === "user" &&
-            member.memberPrincipalId !== userId &&
-            !isLastAdmin;
-
-          return (
-            <MiniAppVirtualListRow key={member.memberPrincipalId}>
-              <MiniAppRow
-                className="org-manager-member-row"
-                density="roomy"
-                variant="framed"
-              >
-                <MiniAppRowStack>
-                  <strong title={member.memberPrincipalId}>
-                    {member.userId
-                      ? compactFingerprint(member.userId)
-                      : (member.groupName ??
-                        compactFingerprint(member.memberPrincipalId))}
-                  </strong>
-                  <MiniAppRowText muted>
-                    {getOrgManagerPolicyRoleLabel(member.role)}
-                  </MiniAppRowText>
-                </MiniAppRowStack>
-                {member.memberPrincipalType === "user" && (
-                  <MiniAppButton
-                    disabled={!canRemove || mutating}
-                    onClick={() => removeMember(member.memberPrincipalId)}
-                  >
-                    {ORG_MANAGER_LABELS.remove}
-                  </MiniAppButton>
-                )}
-              </MiniAppRow>
-            </MiniAppVirtualListRow>
-          );
-        })}
-      </MiniAppVirtualList>
-    </MiniAppVirtualListFrame>
-  );
-}
-
 function GroupContainers({
   containers,
 }: {
@@ -593,6 +499,7 @@ function GroupDetailSection({
   memberUserIds,
   mutating,
   openGroupContextMenu,
+  openRosterUser,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   removeMember,
   selectedGroup,
@@ -616,6 +523,7 @@ function GroupDetailSection({
     event: MouseEvent<HTMLElement>,
     groupId: string | null,
   ) => void;
+  openRosterUser: (userId: string) => void;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary;
@@ -669,6 +577,7 @@ function GroupDetailSection({
           canMutateGroup={canMutateSelectedGroup}
           members={members?.members ?? []}
           mutating={mutating}
+          openRosterUser={openRosterUser}
           removeMember={removeMember}
           userId={userId}
         />
@@ -712,6 +621,7 @@ interface GroupsViewProps {
   memberUserIds: ReadonlySet<string>;
   mutating: boolean;
   openCreateGroupDialog: () => void;
+  openRosterUser: (userId: string) => void;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   removeMember: (userId: string) => void;
   selectedGroup: OrganizationGroupSummary | null;
@@ -744,6 +654,7 @@ export function GroupsView({
   memberUserIds,
   mutating,
   openCreateGroupDialog,
+  openRosterUser,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   removeMember,
   selectedGroup,
@@ -816,6 +727,7 @@ export function GroupsView({
         memberUserIds={memberUserIds}
         mutating={mutating}
         openGroupContextMenu={openContextMenu}
+        openRosterUser={openRosterUser}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
         removeMember={removeMember}
         selectedGroup={selectedGroup}

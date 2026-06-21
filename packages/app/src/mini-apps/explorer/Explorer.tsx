@@ -184,6 +184,9 @@ export function Explorer() {
         openLinkDocumentModal={model.modalState.openLinkDocumentModal}
         openMoveModal={model.modalState.openMoveModal}
         openMoveDocumentModal={model.modalState.openMoveDocumentModal}
+        openNewStructuredDocumentRoute={
+          model.routeState.openNewStructuredDocumentRoute
+        }
         openRenameModal={model.modalState.openRenameModal}
         purgeDocument={model.purgeDocument}
         selectContainer={model.routeState.selectExplorerItem}

@@ -160,6 +160,7 @@ function OrgManagerContent({
       memberUserIds={model.memberUserIds}
       mutating={model.mutating}
       openCreateGroupDialog={model.openCreateGroupDialog}
+      openRosterUser={model.openRosterUser}
       profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       removeMember={model.removeMember}
       selectedGroup={model.selectedGroup}
