@@ -107,17 +107,6 @@ async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   );
 }
 
-function blobPartBytesToStream(
-  bytes: Uint8Array<ArrayBuffer>,
-): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-}
-
 function normalizeMultipartUploadConcurrency(
   value: number | undefined,
 ): number {
@@ -223,7 +212,7 @@ async function uploadMultipartPartBytes(input: {
     input.task.partNumber,
     {
       byteLength: encryptedPartBytes.byteLength,
-      encryptedBytes: blobPartBytesToStream(encryptedPartBytes),
+      encryptedBytes: encryptedPartBytes,
       sha256: await sha256BytesHex(encryptedPartBytes),
       uploadId: input.uploadId,
     },

@@ -90,9 +90,10 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   const client = new ApiClient(apiBaseUrl);
   const initiateRequest = { byteLength: 12, sha256: "sha256-1" };
   const partRequest = { encryptedBytes: "part-1", uploadId: "upload-1" };
-  const streamedPartRequest = {
-    byteLength: new TextEncoder().encode("part-2").byteLength,
-    encryptedBytes: textStream("part-2"),
+  const encryptedPartBytes = new TextEncoder().encode("part-2");
+  const partBytesRequest = {
+    byteLength: encryptedPartBytes.byteLength,
+    encryptedBytes: encryptedPartBytes,
     sha256: "2bb41b3bc344d2a5c1f31d662d86d78d7e98198b1eef7be3209d4f85da4ef14d",
     uploadId: "upload-1",
   };
@@ -109,11 +110,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
     await client.uploadMultipartBlobPart("stage-1", 1, partRequest),
   ).not.toBeNull();
   expect(
-    await client.uploadMultipartBlobPartBytes(
-      "stage-1",
-      2,
-      streamedPartRequest,
-    ),
+    await client.uploadMultipartBlobPartBytes("stage-1", 2, partBytesRequest),
   ).not.toBeNull();
   expect(
     await client.completeMultipartBlobStage("stage-1", completeRequest),

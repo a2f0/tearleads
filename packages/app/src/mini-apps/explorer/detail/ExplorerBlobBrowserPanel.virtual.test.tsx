@@ -78,8 +78,18 @@ test("blob browser navigates between the list and detail screens", async () => {
   });
   expect(view.queryByText("Blob Metadata")).toBeNull();
 
-  // Click a blob row to push the detail screen.
-  fireEvent.click(view.getByRole("button", { name: "blob-1" }));
+  // The row button stretches across the row so clicking any visible blob row
+  // area opens detail.
+  const blobButton = view.getByRole("button", { name: "blob-1" });
+  expect(
+    blobButton.classList.contains("explorer-blob-browser-row-button"),
+  ).toBe(true);
+  expect(
+    blobButton
+      .closest("tr")
+      ?.classList.contains("explorer-blob-browser-table-row"),
+  ).toBe(true);
+  fireEvent.click(blobButton);
 
   await waitFor(() => {
     expect(view.getByText("Blob Metadata")).toBeTruthy();
