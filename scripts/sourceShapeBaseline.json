@@ -106,8 +106,8 @@
       "bytes": 113793
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1089,
-      "bytes": 35831
+      "lines": 1269,
+      "bytes": 42412
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2550,
