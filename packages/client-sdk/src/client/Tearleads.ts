@@ -160,6 +160,15 @@ export class Tearleads {
     this.logErrorHandler(message, cause);
   };
 
+  /**
+   * Mint a single-use ticket to authenticate the server-events websocket
+   * handshake (which cannot carry the bearer header). Returns null when no
+   * session is active. The caller appends it to the websocket URL.
+   */
+  requestWebSocketTicket(): Promise<string | null> {
+    return this.apiClient.requestWebSocketTicket();
+  }
+
   get domainScope(): DomainScope {
     const nextScopeKey = JSON.stringify([
       this.database.id,

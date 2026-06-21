@@ -1,3 +1,4 @@
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -36,6 +37,7 @@ import {
   type ListDocumentAttachmentsResponse,
   type ListOrganizationGroupsResponse,
 } from "@tearleads/validators/response";
+import { hasStringProperty } from "@tearleads/validators/util";
 import {
   bindPrototypeMethods,
   cachedRequest,
@@ -129,6 +131,12 @@ import type {
 } from "./types";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
+
+function isWebSocketTicketResponse(
+  value: unknown,
+): value is { ticket: string } {
+  return isPlainObject(value) && hasStringProperty(value, "ticket");
+}
 
 export class ApiClient {
   private authToken: string | null = null;
@@ -285,6 +293,20 @@ export class ApiClient {
 
   getAuthToken(): string | null {
     return this.authToken;
+  }
+
+  /**
+   * Mint a single-use websocket ticket via the authenticated HTTP session, so
+   * the (header-less) websocket handshake can authenticate by query param.
+   * Returns null when unauthenticated or the request fails.
+   */
+  async requestWebSocketTicket(): Promise<string | null> {
+    const response = await this.makeRequest(
+      "/auth/ws-ticket",
+      isWebSocketTicketResponse,
+      "POST",
+    );
+    return response?.ticket ?? null;
   }
 
   private buildHeaders(

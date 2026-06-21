@@ -139,57 +139,82 @@ function useNetworkTransitionLog(tearleads: Tearleads): void {
   );
 }
 
+function appendTicketToWsUrl(wsUrl: string, ticket: string): string {
+  const url = new URL(wsUrl);
+  url.searchParams.set("ticket", ticket);
+  return url.toString();
+}
+
 function useServerEventsBinding(
   tearleads: Tearleads,
   wsUrl: string,
+  authToken: string | null,
   log: (message: string) => void,
 ): void {
   useEffect(() => {
+    // The websocket handshake authenticates with a single-use ticket minted by
+    // the active session, so there is nothing to connect to until logged in.
+    // An empty wsUrl (unconfigured host) would also throw when building the
+    // ticketed URL, so skip in that case too.
+    if (!authToken || !wsUrl) {
+      return;
+    }
+
     let cancelled = false;
-    const ws = new WebSocket(wsUrl);
+    let socket: WebSocket | null = null;
 
-    ws.addEventListener("open", () => {
-      if (cancelled) {
+    void (async () => {
+      const ticket = await tearleads.requestWebSocketTicket();
+      if (cancelled || ticket === null) {
         return;
       }
 
-      tearleads.events.setConnected(true);
-      log("WebSocket connected");
-    });
+      const ws = new WebSocket(appendTicketToWsUrl(wsUrl, ticket));
+      socket = ws;
 
-    ws.addEventListener("message", (event) => {
-      if (cancelled) {
-        return;
-      }
-
-      try {
-        const data: unknown = JSON.parse(String(event.data));
-        if (isServerEvent(data)) {
-          tearleads.events.push({ ...data, id: String(nextEventId++) });
+      ws.addEventListener("open", () => {
+        if (cancelled) {
+          return;
         }
-      } catch {
-        // ignore malformed messages
-      }
-    });
 
-    ws.addEventListener("close", () => {
-      if (!cancelled) {
-        tearleads.events.setConnected(false);
-      }
-    });
+        tearleads.events.setConnected(true);
+        log("WebSocket connected");
+      });
 
-    ws.addEventListener("error", () => {
-      if (!cancelled) {
-        tearleads.events.setConnected(false);
-      }
-    });
+      ws.addEventListener("message", (event) => {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          const data: unknown = JSON.parse(String(event.data));
+          if (isServerEvent(data)) {
+            tearleads.events.push({ ...data, id: String(nextEventId++) });
+          }
+        } catch {
+          // ignore malformed messages
+        }
+      });
+
+      ws.addEventListener("close", () => {
+        if (!cancelled) {
+          tearleads.events.setConnected(false);
+        }
+      });
+
+      ws.addEventListener("error", () => {
+        if (!cancelled) {
+          tearleads.events.setConnected(false);
+        }
+      });
+    })();
 
     return () => {
       cancelled = true;
-      ws.close();
+      socket?.close();
       tearleads.events.setConnected(false);
     };
-  }, [log, tearleads, wsUrl]);
+  }, [authToken, log, tearleads, wsUrl]);
 }
 
 export function TearleadsProvider({ children }: PropsWithChildren) {
@@ -251,7 +276,12 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
 
   useBrowserNetworkBinding(tearleads);
   useNetworkTransitionLog(tearleads);
-  useServerEventsBinding(tearleads, hostConfig.wsUrl, log);
+  useServerEventsBinding(
+    tearleads,
+    hostConfig.wsUrl,
+    runtimeAuth.authToken,
+    log,
+  );
 
   return (
     <SdkContext.Provider value={tearleads}>
