@@ -1,4 +1,7 @@
-import type { DocumentContentKeyTarget } from "@tearleads/crypto";
+import type {
+  DocumentContentKeyTarget,
+  VerifiedContainerAccessManifest,
+} from "@tearleads/crypto";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
@@ -91,6 +94,7 @@ export async function assertDocumentWriterProjectionConsistent(
   input: ProjectionVerificationOptions & {
     execSql?: ExecSql | undefined;
     principalPolicyCache?: PrincipalPolicyCache | undefined;
+    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
   },
 ): Promise<DocumentContentKeyTarget[]> {
   const resolveProjectionUserKey = resolveProjectionVerifier(
@@ -103,6 +107,7 @@ export async function assertDocumentWriterProjectionConsistent(
       principalPolicyCache: input.principalPolicyCache,
       projection: writerProjection,
       resolveUserKey: resolveProjectionUserKey,
+      verifiedByHash: input.verifiedByHash,
     });
   }
 

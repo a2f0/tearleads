@@ -3,11 +3,15 @@ import {
   computeContainerKekMaterialId,
   decryptWithDek,
   isContainerKekMaterialId,
+  type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
+import {
+  type PrincipalPolicyCache,
+  verifyContainerWriterProjection,
+} from "../../keyingProjectionVerification";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../principalPolicyCrypto";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
@@ -180,8 +184,10 @@ export async function unwrapContainerKekPath(
   input: {
     execSql?: ExecSql | undefined;
     knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
     projection: ContainerWriterProjectionResponse;
     secretKey: Uint8Array;
+    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
   } & ProjectionVerificationOptions,
 ): Promise<ReadonlyMap<string, Uint8Array>> {
   if (input.projection.path.length !== input.projection.containerKeks.length) {
@@ -194,10 +200,14 @@ export async function unwrapContainerKekPath(
     "Container KEK unwrap",
   );
   if (resolveProjectionUserKey) {
+    // Reuse the caller's verification caches so manifests/policies already
+    // verified by the projection-consistency pass are not re-verified here.
     await verifyContainerWriterProjection({
       execSql: input.execSql,
+      principalPolicyCache: input.principalPolicyCache,
       projection: input.projection,
       resolveUserKey: resolveProjectionUserKey,
+      verifiedByHash: input.verifiedByHash,
     });
   }
 

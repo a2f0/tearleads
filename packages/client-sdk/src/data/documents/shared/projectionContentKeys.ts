@@ -2,6 +2,7 @@ import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   decryptWithDek,
   encryptWithDek,
+  type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
@@ -10,6 +11,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { unwrapContainerKekPath } from "./containerKekPath";
 import {
@@ -94,7 +96,9 @@ export async function unwrapDocumentContentKeyTarget(input: {
 export async function collectContainerKeksForDocumentSync(
   input: {
     execSql?: ExecSql | undefined;
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
     secretKey: Uint8Array;
+    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<ReadonlyMap<string, Uint8Array>> {
@@ -105,8 +109,10 @@ export async function collectContainerKeksForDocumentSync(
     try {
       projectionKeks = await unwrapContainerKekPath({
         execSql: input.execSql,
+        principalPolicyCache: input.principalPolicyCache,
         projection,
         secretKey: input.secretKey,
+        verifiedByHash: input.verifiedByHash,
         ...projectionVerificationOptions(input),
       });
     } catch (error) {
@@ -134,7 +140,9 @@ export async function collectContainerKeksForDocumentSync(
 export async function unwrapDocumentContentKeyFromWriterProjection(
   input: {
     execSql?: ExecSql | undefined;
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
     secretKey: Uint8Array;
+    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<Uint8Array> {

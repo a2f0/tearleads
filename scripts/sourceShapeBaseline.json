@@ -210,8 +210,8 @@
       "bytes": 36102
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
-      "lines": 1197,
-      "bytes": 39118
+      "lines": 1207,
+      "bytes": 39539
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
       "lines": 1258,
@@ -246,12 +246,12 @@
       "bytes": 24142
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
-      "lines": 1241,
-      "bytes": 41821
+      "lines": 1296,
+      "bytes": 44380
     },
     "packages/client-sdk/src/workflows/documents/sync.ts": {
-      "lines": 1132,
-      "bytes": 35200
+      "lines": 1147,
+      "bytes": 36011
     },
     "packages/client-sdk/src/workflows/organizations/principalPolicy.ts": {
       "lines": 992,

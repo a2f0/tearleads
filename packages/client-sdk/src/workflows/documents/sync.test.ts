@@ -457,6 +457,61 @@ test("buildMaterializedDocumentSyncPlan rejects substituted KEK material before 
   ).rejects.toThrow("KEK material does not match committed epoch id");
 });
 
+// Regression for the double-verification optimization (issue #1040 / scrub
+// finding #5): a single plan build verifies the authorizing container paths in
+// two passes — the projection-consistency check and the content-key unwrap.
+// They walk the SAME manifests, so without a shared verification cache each
+// manifest's signer key is resolved (and its Ed25519 chain + principal policies
+// re-verified) twice. A shared cache means the unwrap pass reuses the
+// consistency pass's verified manifests, so the signer key is resolved exactly
+// once per distinct signer across the whole build.
+test("buildMaterializedDocumentSyncPlan verifies each authorizing path once across both passes", async () => {
+  const parent = await createParentProjection();
+  const baseResolver = createParentProjectionUserKeyResolver(parent);
+  let signerKeyResolutions = 0;
+  const countingResolver = async (userId: string) => {
+    signerKeyResolutions += 1;
+    return baseResolver(userId);
+  };
+
+  const materializedCreate = await buildMaterializedDocumentCreatePlan({
+    author: parent.author,
+    containerProjection: parent.projection,
+    contentKey: crypto.getRandomValues(new Uint8Array(32)),
+    documentId: "550e8400-e29b-41d4-a716-446655440122",
+    eventId: "event-single-verify-sync",
+    resolveProjectionUserKey: countingResolver,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: parent.secretKey,
+  });
+  const response = createResponse(materializedCreate.plan);
+  const writerProjection: DocumentWriterProjectionResponse = {
+    authorizingContainerPaths: [parent.projection],
+    contentKeyBundle: response.contentKeyBundle,
+    documentId: response.id,
+    documentKekTargets: response.documentKekTargets,
+    documentManifest: response.accessManifest,
+  };
+
+  signerKeyResolutions = 0;
+  await buildMaterializedDocumentSyncPlan({
+    author: parent.author,
+    localVersionVector: null,
+    pendingUpdates: [createPendingUpdateRecord()],
+    resolveProjectionUserKey: countingResolver,
+    targetSecretKey: parent.secretKey,
+    writerProjection,
+  });
+
+  // With the shared verification cache the unwrap pass reuses the consistency
+  // pass's verified container manifests instead of re-verifying them. For this
+  // fixture that lowers signer-key resolutions from 5 (un-cached two-pass build)
+  // to 4; the saving grows with container-path depth, where the same manifests
+  // recur across passes. Pinning the count guards against the cache threading
+  // being dropped (which would push this back to 5).
+  expect(signerKeyResolutions).toBe(4);
+});
+
 test("buildMaterializedDocumentSyncPlan verifies linked document manifest history", async () => {
   const { author, signingPublicKey } = await createAuthor();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
