@@ -68,6 +68,7 @@ export function createContainerContentsStoreState(
     listeners: new Set(),
     logLabel,
     metadataDocumentIdsNeedingSync: new Set(),
+    metadataSyncSignalSeqById: new Map(),
     persistence,
     remoteHydrationPromise: null,
     resolveProjectionUserKey:

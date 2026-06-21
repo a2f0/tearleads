@@ -60,10 +60,21 @@ interface BlobAttachmentBindingJson {
 }
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 96,
+  total: 109,
   byRequest: {
     "GET /documents/:documentId/writer-projection": 19,
-    "POST /documents/:documentId/sync": 24,
+    // Document sync rose from 24 to 35 after fixing a convergence-stall race
+    // (commit "authz member-envelopes; sync clear race"): a remote update
+    // arriving while a document sync pass was awaiting the network used to be
+    // dropped because the pass cleared its pending signal unconditionally at
+    // the end. The lane now correctly retains the signal and re-syncs, so each
+    // document that sees a concurrent peer update during this dual-pane share
+    // does the additional (correct) passes that fetch updates which were
+    // previously lost. The per-document signal sequencing makes this count
+    // deterministic (observed 35); the ceiling has a small headroom. Per-doc
+    // counts stay small (<=5), confirming convergence rather than amplification
+    // — a true regression (e.g. a re-sync loop) would blow far past this.
+    "POST /documents/:documentId/sync": 37,
     // Device-first reconciliation re-checks the active container on both open
     // and explicit refresh, and forced server-event reconciliation now rechecks
     // each event-scoped container once. These are cheap watermark deltas;

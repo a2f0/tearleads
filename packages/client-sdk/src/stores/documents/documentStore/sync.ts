@@ -249,11 +249,28 @@ function resolveSyncedDocumentWriterProjection(
     : null;
 }
 
+/**
+ * A sync pass may clear `remoteUpdatePending` only when the remote-update
+ * signal sequence it consumed at pass entry is unchanged at pass end. A moved
+ * sequence means a new remote update event arrived during the pass's async
+ * window; that update may post-date this pass's server snapshot, so the signal
+ * must survive for the coalesced re-run. Returns false (keep the signal) on any
+ * mismatch. Exported for direct regression testing of the convergence-stall
+ * race where this clear used to be unconditional.
+ */
+export function canClearRemoteUpdateSignalAfterSync(
+  currentSignalSeq: number,
+  consumedSignalSeq: number,
+): boolean {
+  return currentSignalSeq === consumedSignalSeq;
+}
+
 async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
   currentRecord: DocumentRecord,
   syncAttempt: DocumentSyncAttempt,
+  consumedRemoteUpdateSignalSeq: number,
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
 
@@ -275,7 +292,19 @@ async function finalizeDocumentSync(
       acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     },
   );
-  state.remoteUpdatePending = false;
+  // Clear the remote-update signal ONLY if no new remote event arrived while
+  // this pass was awaiting the network GET and persist. If the sequence moved,
+  // a peer update (E2) committed and was signalled mid-pass but is not in this
+  // pass's response, so we must leave the signal set for the coalesced re-run
+  // to fetch it. Clearing unconditionally here is exactly what dropped E2.
+  if (
+    canClearRemoteUpdateSignalAfterSync(
+      state.remoteUpdateSignalSeq,
+      consumedRemoteUpdateSignalSeq,
+    )
+  ) {
+    state.remoteUpdatePending = false;
+  }
 
   if (syncAttempt.outgoingUpdateCount > synced.settledPendingUpdateIds.length) {
     requestDocumentStoreSync(state);
@@ -291,6 +320,11 @@ async function syncDocumentState(
   nextRecord: DocumentRecord,
   encapsulationKeyPair: EncapsulationKeyPair,
 ): Promise<DocumentRecord> {
+  // Snapshot the remote-update signal sequence before any await. The GET below
+  // fetches server state as of its own snapshot; any remote event delivered
+  // after this point describes an update that may not be in that response, so
+  // finalizeDocumentSync must not clear the signal if this sequence has moved.
+  const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
   const pendingUpdates = await listPendingUpdates(state);
   const nextRemoteRecord = await ensureDocumentRecordForSync(
     state,
@@ -326,7 +360,13 @@ async function syncDocumentState(
     return nextRemoteRecord;
   }
 
-  return finalizeDocumentSync(state, currentDoc, nextRemoteRecord, syncAttempt);
+  return finalizeDocumentSync(
+    state,
+    currentDoc,
+    nextRemoteRecord,
+    syncAttempt,
+    consumedRemoteUpdateSignalSeq,
+  );
 }
 
 async function runDocumentSyncPass(state: DocumentStoreState) {
@@ -414,6 +454,9 @@ export function handleDocumentRemoteEvents(
 
   if (hasRemoteDocumentUpdateEvent(state, nextEvents)) {
     state.remoteUpdatePending = true;
+    // Bump the signal sequence so an in-flight sync pass can detect that a NEW
+    // remote update arrived after it consumed the signal and must not clear it.
+    state.remoteUpdateSignalSeq += 1;
     scheduleSync();
   }
 }

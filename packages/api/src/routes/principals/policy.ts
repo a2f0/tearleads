@@ -156,6 +156,9 @@ export function createPrincipalPolicyRoute({
             ...c.req.valid("json"),
             principalType: principalParams.principalType,
             principalId: principalParams.principalId,
+            // Authorization signal: only a member of this principal may rewrite
+            // its member key envelopes (see runPutPrincipalMemberEnvelopesWorkflow).
+            requesterUserId: c.get("session").userId,
           }),
         );
       } catch (error) {

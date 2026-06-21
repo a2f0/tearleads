@@ -1573,6 +1573,7 @@ test("explorer sync agent batches concurrent remote ingests into one snapshot up
       initialized: false,
       lastEventCount: 0,
       metadataDocumentIdsNeedingSync: new Set(),
+      metadataSyncSignalSeqById: new Map(),
       persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
@@ -1694,6 +1695,7 @@ test("explorer sync agent retries remote ingests after a failed batch", async ()
       initialized: false,
       lastEventCount: 0,
       metadataDocumentIdsNeedingSync: new Set(),
+      metadataSyncSignalSeqById: new Map(),
       persistence: defaultExplorerPersistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
@@ -1849,6 +1851,7 @@ test("explorer sync skips pending metadata updates for containers without docume
       initialized: true,
       lastEventCount: 0,
       metadataDocumentIdsNeedingSync: new Set(),
+      metadataSyncSignalSeqById: new Map(),
       persistence,
       remoteHydrationPromise: null,
       resolveProjectionUserKey:
