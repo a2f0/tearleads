@@ -3,6 +3,7 @@ import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
   type DocumentSyncLane,
+  deletePersistedDocument,
   isDestroyedDocumentSyncRuntimeError,
   type PendingUpdateRecord,
   registerDocumentSyncLane,
@@ -21,6 +22,7 @@ import {
   type DocumentStoreState,
   type DocumentSyncAttempt,
   type EncapsulationKeyPair,
+  markDocumentStoreRemoved,
   setDocumentSyncing,
   setReadySnapshot,
 } from "./state";
@@ -94,6 +96,7 @@ async function requestRemoteDocumentSync(input: {
     execSql: state.runtime.infra.execSql,
     localVersionVector: encodeVersionVector(currentDoc),
     minLsn: currentRecord.lastCommitLsn ?? undefined,
+    onRemoteDocumentDeleted: () => deleteUpstreamDeletedDocument(state),
     pendingUpdates,
     persistedState: currentRecord,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
@@ -116,6 +119,19 @@ async function requestRemoteDocumentSync(input: {
     outgoingUpdateCount: pendingUpdates.length,
     synced,
   };
+}
+
+async function deleteUpstreamDeletedDocument(state: DocumentStoreState) {
+  await deletePersistedDocument({
+    documentProjectors: state.runtime.infra.documentProjectors,
+    execSql: state.runtime.infra.execSql,
+    localId: state.localId,
+    persistence: state.persistence,
+  });
+  markDocumentStoreRemoved(state);
+  state.runtime.util.log(
+    `Documents: removed local document ${state.localId} because the remote document was deleted.`,
+  );
 }
 
 function hasPersistedRemoteDocumentSyncState(record: DocumentRecord): boolean {
@@ -398,6 +414,10 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     nextRecord,
     encapsulationKeyPair,
   );
+
+  if (!state.doc || !state.record) {
+    return;
+  }
 
   if ((await listPendingUpdates(state)).length > 0) {
     return;

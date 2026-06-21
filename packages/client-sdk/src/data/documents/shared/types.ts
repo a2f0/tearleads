@@ -314,10 +314,24 @@ export interface DocumentSyncSubmitFailure {
   readonly status: number | null;
 }
 
+export interface DocumentSyncRequestResultOptions {
+  readonly reportErrors?: boolean | undefined;
+}
+
 export interface DocumentSyncApi {
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
+  getDocumentWriterProjectionResult?(
+    documentId: string,
+    options?: DocumentSyncRequestResultOptions | undefined,
+  ): Promise<
+    | {
+        readonly data: DocumentWriterProjectionResponse;
+        readonly ok: true;
+      }
+    | DocumentSyncSubmitFailure
+  >;
   syncDocument(
     documentId: string,
     input: DocumentSyncRequest,

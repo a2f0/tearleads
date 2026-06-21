@@ -16,6 +16,7 @@ import type {
 
 export {
   isRetryableDocumentSyncConflict,
+  isUpstreamDeletedDocumentSyncFailure,
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "./syncResponses";
