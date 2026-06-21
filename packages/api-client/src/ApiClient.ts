@@ -893,7 +893,7 @@ export class ApiClient {
     documentId: string,
     options: RequestResultOptions = {},
   ): Promise<RequestResult<DocumentWriterProjectionResponse>> {
-    const cached =
+    let cached =
       this.documentWriterProjectionRequestsByDocumentId.get(documentId);
     if (cached) {
       try {
@@ -907,6 +907,7 @@ export class ApiClient {
           cached
         ) {
           this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+          cached = undefined;
         }
       }
     }
@@ -920,12 +921,22 @@ export class ApiClient {
     );
 
     if (result.ok) {
-      this.documentWriterProjectionRequestsByDocumentId.set(
-        documentId,
-        Promise.resolve(result.data),
-      );
+      if (
+        this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
+        cached
+      ) {
+        this.documentWriterProjectionRequestsByDocumentId.set(
+          documentId,
+          Promise.resolve(result.data),
+        );
+      }
     } else {
-      this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      if (
+        this.documentWriterProjectionRequestsByDocumentId.get(documentId) ===
+        cached
+      ) {
+        this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+      }
     }
 
     return result;
