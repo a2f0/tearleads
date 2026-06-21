@@ -11,6 +11,7 @@ export { resolveDocumentCreateAuthor } from "./author";
 export {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
+  documentWriterProjectionFromCreateResponse,
 } from "./create";
 export {
   buildMaterializedDocumentLinkSetMutationPlan,

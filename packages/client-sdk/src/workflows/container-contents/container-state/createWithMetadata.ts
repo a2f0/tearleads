@@ -5,7 +5,9 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { ContainerMutationSubmitFailure } from "../../../data/containers/shared/types";
+import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
@@ -13,6 +15,7 @@ import {
 } from "../../containers";
 import {
   buildMaterializedDocumentCreatePlan,
+  documentWriterProjectionFromCreateResponse,
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../documents";
@@ -74,6 +77,39 @@ async function cacheStalePrincipalPolicyBundles(input: {
     organizationId: input.runtime.auth.organizationId,
   });
   return true;
+}
+
+/**
+ * Seed the metadata document's writer projection from the create response so the
+ * first read after the container is created (its own metadata sync, contents
+ * hydration) resolves locally instead of a cold `GET writer-projection`. The
+ * authorizing path is the child container projection the create was authored
+ * against — locally built rather than server-fetched, so unlike the plain
+ * document-create path this is gated on the projection's internal consistency;
+ * on any mismatch the seed is skipped and the next read falls back to a fetch.
+ */
+async function seedMetadataDocumentWriterProjection(input: {
+  readonly runtime: ContainerWorkflowRuntime;
+  readonly childProjection: ContainerWriterProjectionResponse;
+  readonly response: ContainerCreateWithMetadataDocumentResponse;
+  readonly execSql?: ExecSql | undefined;
+}): Promise<void> {
+  const projection = documentWriterProjectionFromCreateResponse({
+    containerProjection: input.childProjection,
+    response: input.response.metadataDocument,
+  });
+  try {
+    await assertDocumentWriterProjectionConsistent(projection, {
+      execSql: input.execSql,
+      trustedLocalProjection: true,
+    });
+  } catch {
+    return;
+  }
+  input.runtime.apiClient.primeDocumentWriterProjection(
+    input.response.metadataDocument.id,
+    projection,
+  );
 }
 
 async function createRemoteContainerWithMetadataDocumentAttempt(input: {
@@ -144,6 +180,13 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   ) {
     throw new Error("Container metadata create response document mismatch");
   }
+
+  await seedMetadataDocumentWriterProjection({
+    childProjection,
+    execSql,
+    response,
+    runtime: input.runtime,
+  });
 
   return {
     ok: true,

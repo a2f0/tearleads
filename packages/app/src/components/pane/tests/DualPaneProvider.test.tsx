@@ -60,9 +60,14 @@ interface BlobAttachmentBindingJson {
 }
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 109,
+  total: 106,
   byRequest: {
-    "GET /documents/:documentId/writer-projection": 19,
+    // Dropped from 19 to ~13-14 (observed) by priming the writer projection of
+    // each container metadata document from its create response, the same way
+    // plain document creates already seed it. The first read of a metadata
+    // document (its own sync, contents hydration) now resolves locally instead
+    // of a cold GET. Priming can only ever avoid a fetch, so this is a ceiling.
+    "GET /documents/:documentId/writer-projection": 15,
     // Document sync rose from 24 to 35 after fixing a convergence-stall race
     // (commit "authz member-envelopes; sync clear race"): a remote update
     // arriving while a document sync pass was awaiting the network used to be

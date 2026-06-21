@@ -1,5 +1,6 @@
 import type {
   ContainerWriterProjectionResponse,
+  DocumentCreateResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
@@ -62,6 +63,28 @@ export async function buildMaterializedDocumentCreatePlan(
   };
 }
 
+/**
+ * Build the writer projection a document-create response establishes, from the
+ * container projection the create was authored against plus the manifest,
+ * content-key bundle, and KEK targets the server just returned. This is the
+ * same material a cold `GET /documents/:id/writer-projection` would yield, so
+ * seeding it lets the first read after a create resolve locally. Shared by the
+ * plain document-create path and the container-with-metadata-document path,
+ * whose response carries an equivalent `DocumentCreateResponse`.
+ */
+export function documentWriterProjectionFromCreateResponse(input: {
+  containerProjection: ContainerWriterProjectionResponse;
+  response: DocumentCreateResponse;
+}): DocumentWriterProjectionResponse {
+  return {
+    authorizingContainerPaths: [input.containerProjection],
+    contentKeyBundle: input.response.contentKeyBundle,
+    documentId: input.response.id,
+    documentKekTargets: input.response.documentKekTargets,
+    documentManifest: input.response.accessManifest,
+  };
+}
+
 export async function createRemoteDocument(input: {
   apiClient: DocumentCreateApi;
   author: DocumentCreateAuthor;
@@ -107,13 +130,10 @@ export async function createRemoteDocument(input: {
     materializedPlan.plan,
     response,
   );
-  const writerProjection: DocumentWriterProjectionResponse = {
-    authorizingContainerPaths: [containerProjection],
-    contentKeyBundle: response.contentKeyBundle,
-    documentId: response.id,
-    documentKekTargets: response.documentKekTargets,
-    documentManifest: response.accessManifest,
-  };
+  const writerProjection = documentWriterProjectionFromCreateResponse({
+    containerProjection,
+    response,
+  });
   // Seed the projection the create response already gave us so the first read
   // after create (sync, blob attach, container-contents hydration) resolves
   // locally instead of a cold GET writer-projection.
