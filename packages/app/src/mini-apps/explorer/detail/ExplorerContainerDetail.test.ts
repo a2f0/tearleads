@@ -65,6 +65,18 @@ const ownerSelfContactRow: ContainerItemRow = {
   updatedAt: null,
 };
 
+const namedCurrentSelfContactRow: ContainerItemRow = {
+  containerId: "contacts-container",
+  createdAt: null,
+  documentId: "named-current-self-contact-doc",
+  documentKind: "contact",
+  itemKind: "document",
+  localId: "current-user-id",
+  name: "Local Admin",
+  syncState: syncedContainerDocumentObjectSyncState,
+  updatedAt: null,
+};
+
 type ExplorerContainerItemTableProps = ComponentProps<
   typeof ExplorerContainerItemTable
 >;
@@ -274,11 +286,17 @@ test("container item table highlights no row when the context menu is closed", (
 test("container item table labels only the current self contact as You", () => {
   const view = renderContainerItemTable({
     currentSigningFingerprint: "current-fingerprint",
-    rows: [currentSelfContactRow, ownerSelfContactRow],
-    totalCount: 2,
+    currentUserId: "current-user-id",
+    rows: [
+      currentSelfContactRow,
+      namedCurrentSelfContactRow,
+      ownerSelfContactRow,
+    ],
+    totalCount: 3,
   });
 
   expect(view.getByRole("button", { name: "You" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Local Admin" })).toBeTruthy();
   expect(view.getByRole("button", { name: "owner-user-id" })).toBeTruthy();
 });
 

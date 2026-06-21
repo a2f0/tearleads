@@ -32,6 +32,18 @@ export function getViewerRelativeContactLabel(
   return entry.userId ? timeLow(entry.userId) : "Untitled contact";
 }
 
+function isUnnamedCurrentSelfContactFallback(input: {
+  currentUserId?: string | null | undefined;
+  fallbackLabel: string;
+}): boolean {
+  const label = input.fallbackLabel.trim();
+  return (
+    label.length === 0 ||
+    label === "Untitled contact" ||
+    (Boolean(input.currentUserId) && label === input.currentUserId)
+  );
+}
+
 export function getViewerRelativeContactDocumentLabel(input: {
   currentSigningFingerprint: string | null | undefined;
   currentUserId?: string | null | undefined;
@@ -45,7 +57,9 @@ export function getViewerRelativeContactDocumentLabel(input: {
       input.localId,
       input.currentSigningFingerprint,
     ) ||
-      (Boolean(input.currentUserId) && input.localId === input.currentUserId))
+      (Boolean(input.currentUserId) &&
+        input.localId === input.currentUserId)) &&
+    isUnnamedCurrentSelfContactFallback(input)
   ) {
     return YOU_LABEL;
   }
