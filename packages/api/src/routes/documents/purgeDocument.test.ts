@@ -6,9 +6,12 @@ import {
   accessManifestHeads,
   accessManifests,
   attachmentBindings,
+  blobAuditObjects,
   blobs,
   containerDocumentSyncTombstones,
   containers,
+  documentAttachmentAuditEvents,
+  documentAuditEntries,
   documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
@@ -1086,4 +1089,181 @@ test("DELETE /documents/:documentId preserves a blob shared with another documen
       shared.storageKey,
     ),
   ).not.toBeNull();
+});
+
+// Mark an existing binding detached, simulating a replace/detach that retains
+// the binding row as history.
+async function markBindingDetached(bindingId: string): Promise<void> {
+  await db
+    .update(attachmentBindings)
+    .set({ detachedAt: new Date("2026-06-01T00:00:00.000Z") })
+    .where(eq(attachmentBindings.id, bindingId));
+}
+
+// Seed the per-blob audit-object row plus an attachment audit event on a
+// document that references the blob, simulating retained attachment history.
+async function seedBlobAuditHistory(input: {
+  readonly actor: TestUser;
+  readonly blobId: string;
+  readonly documentId: string;
+  readonly accessManifestHash: string;
+  readonly slotId: string;
+}): Promise<void> {
+  await db
+    .insert(blobAuditObjects)
+    .values({
+      blobId: input.blobId,
+      sha256: `sha256:${input.blobId}`,
+      byteLength: 16,
+      liveStorageKey: null,
+      retentionMode: "live_only",
+      historicalBytesRetained: false,
+    })
+    .onConflictDoNothing();
+
+  const [entry] = await db
+    .insert(documentAuditEntries)
+    .values({
+      documentId: input.documentId,
+      eventType: "attachment_event",
+      accessEpoch: 1,
+      accessManifestHash: input.accessManifestHash,
+      actorUserId: input.actor.userId,
+      actorFingerprint: input.actor.fingerprint,
+      entryHash: `entry:${crypto.randomUUID()}`,
+    })
+    .returning({ id: documentAuditEntries.id });
+  invariant(entry, "expected seeded audit entry");
+
+  await db.insert(documentAttachmentAuditEvents).values({
+    auditEntryId: entry.id,
+    action: "detach",
+    slotId: input.slotId,
+    blobId: input.blobId,
+    retentionMode: "live_only",
+  });
+}
+
+// Regression for the purge over-reclaim defect (issue #1041 / scrub finding #4):
+// a blob that another document still references only through a DETACHED binding
+// (plus retained attachment audit history) must NOT be reclaimed when purging an
+// unrelated document. The old orphan check looked only at ACTIVE bindings on
+// other documents, so it would destroy bytes + the immutable blobAuditObjects
+// row still referenced by the other document's history.
+test("DELETE /documents/:documentId preserves a blob another document references via a detached binding", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const documentToPurge = await createDocument({ owner, root });
+  const survivingDocument = await createDocument({ owner, root });
+
+  // The blob is actively bound on the document we purge...
+  const shared = await seedExternalBlobAttachment({
+    documentId: documentToPurge.id,
+    documentManifestHash: documentToPurge.accessManifest.manifestHash,
+    slotId: "slot_shared_image",
+  });
+  // ...and only DETACHED (history) on the surviving document, which also has a
+  // retained attachment audit event + blob-audit-object row referencing it.
+  const survivingBinding = await seedExternalBlobAttachment({
+    documentId: survivingDocument.id,
+    documentManifestHash: survivingDocument.accessManifest.manifestHash,
+    slotId: "slot_shared_image",
+    blobId: shared.blobId,
+    storageKey: shared.storageKey,
+  });
+  await markBindingDetached(survivingBinding.bindingId);
+  await seedBlobAuditHistory({
+    accessManifestHash: survivingDocument.accessManifest.manifestHash,
+    actor: owner,
+    blobId: shared.blobId,
+    documentId: survivingDocument.id,
+    slotId: "slot_shared_image",
+  });
+
+  const response = await purgeDocumentViaRoute({
+    documentId: documentToPurge.id,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(200);
+  const purged = await response.json();
+  expect(isDocumentPurgeResponse(purged)).toBe(true);
+  // The surviving document still references the blob (detached binding + audit
+  // history), so its bytes/row/audit-object must be preserved.
+  expect(purged.reclaimedBlobStorageKeys).toEqual([]);
+
+  const blobRows = await db
+    .select({ id: blobs.id })
+    .from(blobs)
+    .where(eq(blobs.id, shared.blobId));
+  expect(blobRows).toHaveLength(1);
+
+  const auditObjectRows = await db
+    .select({ blobId: blobAuditObjects.blobId })
+    .from(blobAuditObjects)
+    .where(eq(blobAuditObjects.blobId, shared.blobId));
+  expect(auditObjectRows).toHaveLength(1);
+
+  expect(
+    await readBlobObjectText(
+      defaultApiServiceRuntime.blobObjectStore,
+      shared.storageKey,
+    ),
+  ).not.toBeNull();
+});
+
+// Regression for the replace-then-purge leak (issue #1041 / scrub finding #8):
+// a blob whose only remaining references are this document's own DETACHED
+// bindings (e.g. left behind by a replace) must be reclaimed on purge. The old
+// candidate set considered only ACTIVE bindings, so such blobs leaked forever.
+test("DELETE /documents/:documentId reclaims a blob referenced only by this document's detached binding", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+
+  // Original blob, later "replaced": its binding is detached but retained.
+  const replaced = await seedExternalBlobAttachment({
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    slotId: "slot_replaced_image",
+  });
+  await markBindingDetached(replaced.bindingId);
+  // The current blob occupying the slot after the replace.
+  const current = await seedExternalBlobAttachment({
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    slotId: "slot_replaced_image",
+  });
+
+  const response = await purgeDocumentViaRoute({
+    documentId: created.id,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(200);
+  const purged = await response.json();
+  expect(isDocumentPurgeResponse(purged)).toBe(true);
+  // Both the replaced (detached) and current blobs were referenced only by this
+  // document, so both are reclaimed.
+  expect([...purged.reclaimedBlobStorageKeys].sort()).toEqual(
+    [replaced.storageKey, current.storageKey].sort(),
+  );
+
+  for (const blobId of [replaced.blobId, current.blobId]) {
+    const blobRows = await db
+      .select({ id: blobs.id })
+      .from(blobs)
+      .where(eq(blobs.id, blobId));
+    expect(blobRows).toHaveLength(0);
+  }
+  for (const storageKey of [replaced.storageKey, current.storageKey]) {
+    expect(
+      await readBlobObjectText(
+        defaultApiServiceRuntime.blobObjectStore,
+        storageKey,
+      ),
+    ).toBeNull();
+  }
 });

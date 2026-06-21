@@ -26,7 +26,7 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import type { DocumentPurgeResponse } from "@tearleads/validators/response";
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { readExternalBlobBytesRef } from "../../../utils/blobStageRecords";
 import {
   ContainerWriterProjectionError,
@@ -132,45 +132,96 @@ async function authorizePurge(input: {
   }
 }
 
-// Blobs can be shared: a single blob may have active attachment bindings on
-// several documents. We may only delete a blob's bytes when purging this
-// document removes its last active binding anywhere. Returns the storage keys
-// safe to delete from the object store.
-async function resolveReclaimableBlobBytes(input: {
+// Collect every blobId still referenced by some OTHER document, so purging this
+// document never reclaims a blob another document still needs. "Referenced"
+// spans more than active bindings:
+//   - any binding on another document, ACTIVE OR DETACHED — a detached binding
+//     is retained history that still points at the blob; and
+//   - any attachment audit event on another document that names the blob as its
+//     blobId or previousBlobId — the immutable audit trail references it.
+// `blobAuditObjects` itself is a single per-blob row (keyed by blobId, no
+// documentId), so it is not a cross-document signal; we delete it for a blob
+// only once that blob is proven orphaned below.
+async function resolveBlobIdsReferencedByOtherDocuments(input: {
+  readonly candidateBlobIds: readonly string[];
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
-}): Promise<BlobByteDeletion[]> {
-  const activeBindings = await input.executor
-    .select({ blobId: attachmentBindings.blobId })
-    .from(attachmentBindings)
-    .where(
-      and(
-        eq(attachmentBindings.documentId, input.documentId),
-        isNull(attachmentBindings.detachedAt),
-      ),
-    );
-  const candidateBlobIds = [
-    ...new Set(activeBindings.map((binding) => binding.blobId)),
-  ];
-  if (candidateBlobIds.length === 0) {
-    return [];
-  }
+}): Promise<Set<string>> {
+  const candidateBlobIds = [...input.candidateBlobIds];
+  const referenced = new Set<string>();
 
-  const bindingsElsewhere = await input.executor
+  const otherBindings = await input.executor
     .select({ blobId: attachmentBindings.blobId })
     .from(attachmentBindings)
     .where(
       and(
         inArray(attachmentBindings.blobId, candidateBlobIds),
         ne(attachmentBindings.documentId, input.documentId),
-        isNull(attachmentBindings.detachedAt),
       ),
     );
-  const sharedBlobIds = new Set(
-    bindingsElsewhere.map((binding) => binding.blobId),
-  );
+  for (const binding of otherBindings) {
+    referenced.add(binding.blobId);
+  }
+
+  // Attachment audit events live on `documentAttachmentAuditEvents` and reach
+  // their owning document through `documentAuditEntries.documentId`. A blob
+  // named as blobId or previousBlobId by another document's history must be
+  // retained so that history keeps resolving.
+  const otherAuditEvents = await input.executor
+    .select({
+      blobId: documentAttachmentAuditEvents.blobId,
+      previousBlobId: documentAttachmentAuditEvents.previousBlobId,
+    })
+    .from(documentAttachmentAuditEvents)
+    .innerJoin(
+      documentAuditEntries,
+      eq(documentAuditEntries.id, documentAttachmentAuditEvents.auditEntryId),
+    )
+    .where(ne(documentAuditEntries.documentId, input.documentId));
+  const candidateSet = new Set(candidateBlobIds);
+  for (const event of otherAuditEvents) {
+    if (event.blobId && candidateSet.has(event.blobId)) {
+      referenced.add(event.blobId);
+    }
+    if (event.previousBlobId && candidateSet.has(event.previousBlobId)) {
+      referenced.add(event.previousBlobId);
+    }
+  }
+
+  return referenced;
+}
+
+// Blobs can be shared: a single blob may be bound to several documents, and a
+// document's own history can hold detached bindings to a blob it replaced. We
+// may delete a blob's bytes only when purging this document removes the last
+// reference to that blob anywhere (across all documents, active or detached
+// bindings, and attachment audit history). Returns the storage keys safe to
+// delete from the object store.
+async function resolveReclaimableBlobBytes(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+}): Promise<BlobByteDeletion[]> {
+  // Candidates are every blob this document references, including via DETACHED
+  // bindings left behind by replace/detach — those are reclaimable once this
+  // document (their last referrer) is purged.
+  const ownBindings = await input.executor
+    .select({ blobId: attachmentBindings.blobId })
+    .from(attachmentBindings)
+    .where(eq(attachmentBindings.documentId, input.documentId));
+  const candidateBlobIds = [
+    ...new Set(ownBindings.map((binding) => binding.blobId)),
+  ];
+  if (candidateBlobIds.length === 0) {
+    return [];
+  }
+
+  const referencedElsewhere = await resolveBlobIdsReferencedByOtherDocuments({
+    candidateBlobIds,
+    documentId: input.documentId,
+    executor: input.executor,
+  });
   const orphanedBlobIds = candidateBlobIds.filter(
-    (blobId) => !sharedBlobIds.has(blobId),
+    (blobId) => !referencedElsewhere.has(blobId),
   );
   if (orphanedBlobIds.length === 0) {
     return [];
