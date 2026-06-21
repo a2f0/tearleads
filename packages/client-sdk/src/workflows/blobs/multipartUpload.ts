@@ -35,64 +35,27 @@ function isAsciiString(value: string): boolean {
   return true;
 }
 
-function splitEncryptedBytesIntoParts(
+export function splitEncryptedBytesIntoParts(
   encryptedBytes: string,
   partSize: number,
 ): string[] {
   if (!Number.isInteger(partSize) || partSize <= 0) {
     throw new Error("Multipart blob part size must be a positive integer");
   }
-
-  if (encryptedBytes.length === 0) {
-    return [];
-  }
-  if (isAsciiString(encryptedBytes)) {
-    const parts: string[] = [];
-    for (let start = 0; start < encryptedBytes.length; start += partSize) {
-      parts.push(encryptedBytes.slice(start, start + partSize));
-    }
-
-    return parts;
+  // Encrypted blob payloads are the canonical-JSON serialization of base64/hex
+  // fields, so they are always ASCII: one byte per character, and the byte
+  // budget equals the character budget. Assert that invariant rather than carry
+  // a UTF-8-aware splitter for input that cannot occur.
+  if (!isAsciiString(encryptedBytes)) {
+    throw new Error("Multipart blob payload must be ASCII");
   }
 
-  return splitUnicodeEncryptedBytesIntoParts(encryptedBytes, partSize);
-}
-
-function splitUnicodeEncryptedBytesIntoParts(
-  encryptedBytes: string,
-  partSize: number,
-): string[] {
   const parts: string[] = [];
-  let currentPart = "";
-  let currentPartLength = 0;
-
-  for (const character of encryptedBytes) {
-    const characterLength = TEXT_ENCODER.encode(character).byteLength;
-    if (characterLength > partSize) {
-      throw new Error("Multipart blob part size is too small");
-    }
-    if (
-      currentPart.length > 0 &&
-      currentPartLength + characterLength > partSize
-    ) {
-      parts.push(currentPart);
-      currentPart = "";
-      currentPartLength = 0;
-    }
-
-    currentPart += character;
-    currentPartLength += characterLength;
-  }
-
-  if (currentPart.length > 0) {
-    parts.push(currentPart);
+  for (let start = 0; start < encryptedBytes.length; start += partSize) {
+    parts.push(encryptedBytes.slice(start, start + partSize));
   }
 
   return parts;
-}
-
-function partByteLength(encryptedBytes: string): number {
-  return TEXT_ENCODER.encode(encryptedBytes).byteLength;
 }
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -261,11 +224,9 @@ function planMultipartParts(input: {
 
   for (const [partIndex, encryptedPart] of encryptedParts.entries()) {
     const partNumber = partIndex + 1;
-    // Encrypted payloads are typically ASCII (base64/hex), where the UTF-8 byte
-    // length equals the string length, so we can skip re-encoding the part.
-    const byteLength = isAsciiString(encryptedPart)
-      ? encryptedPart.length
-      : partByteLength(encryptedPart);
+    // Parts come from splitEncryptedBytesIntoParts, which guarantees ASCII, so
+    // the UTF-8 byte length equals the string length.
+    const byteLength = encryptedPart.length;
     progress.bytesTotal += byteLength;
     const uploadedPart = uploadedParts.get(partNumber);
     if (uploadedPart?.byteLength === byteLength) {
