@@ -10,6 +10,7 @@ import {
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
+import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
 import { useMiniAppMessage } from "../../bus";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
@@ -306,6 +307,7 @@ export function useContactsModel(
   setSidebar: (sidebar: ReactNode) => void,
   peerUserId: string | null,
 ): ContactsModel {
+  const appData = useTearleadsRuntime();
   const {
     createContact,
     entries,
@@ -359,6 +361,8 @@ export function useContactsModel(
   );
 
   useContactsSidebarPanel({
+    currentSigningFingerprint: appData.crypto.signingFingerprint,
+    currentUserId: appData.auth.userId,
     entries,
     handleAreaContextMenu: contextMenuState.handleAreaContextMenu,
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
@@ -369,26 +373,15 @@ export function useContactsModel(
   });
 
   return {
-    canCreate: drafts.canCreate,
-    canImport: drafts.canImport,
     contextMenuState,
-    createDraftContact: drafts.createDraftContact,
-    draftFirstName: drafts.draftFirstName,
-    draftLastName: drafts.draftLastName,
-    draftNickname: drafts.draftNickname,
-    draftUserId: drafts.draftUserId,
+    ...drafts,
     entries,
-    importDraftContact: drafts.importDraftContact,
     isAuthenticated,
     openImportContactRoute: routeState.openImportContactRoute,
     openNewContactRoute: routeState.openNewContactRoute,
     ready,
     route: routeState.route,
     selectedContactId: selectionState.selectedContactId,
-    setDraftFirstName: drafts.setDraftFirstName,
-    setDraftLastName: drafts.setDraftLastName,
-    setDraftNickname: drafts.setDraftNickname,
-    setDraftUserId: drafts.setDraftUserId,
     showSelectionRoute: routeState.showSelectionRoute,
     updateContact,
   };

@@ -15,32 +15,20 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
-import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
+import { getViewerRelativeContactLabel } from "../../stores/contacts/contactLabels";
 import type { ContactEntries } from "./types";
 
-// Extract the time_low field (first 32 bits) from a UUID string.
-function timeLow(uuid: string): string {
-  return uuid.split("-")[0] ?? uuid;
-}
-
-function getSidebarContactLabel(entry: ContactEntries[number]): string {
-  const name = getContactDisplayName(entry);
-  return name.length > 0
-    ? name
-    : entry.isSelf
-      ? "You"
-      : entry.userId
-        ? timeLow(entry.userId)
-        : "Untitled contact";
-}
-
 function ContactsSidebarEntries({
+  currentSigningFingerprint,
+  currentUserId,
   entries,
   handleContextMenu,
   ready,
   selectedContactId,
   setSelectedContactId,
 }: {
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   entries: ContactEntries;
   handleContextMenu: (
     event: MouseEvent<HTMLElement>,
@@ -101,7 +89,13 @@ function ContactsSidebarEntries({
               onContextMenu={(event) => handleContextMenu(event, entry.id)}
               selected={selectedContactId === entry.id}
             >
-              <MiniAppRowText>{getSidebarContactLabel(entry)}</MiniAppRowText>
+              <MiniAppRowText>
+                {getViewerRelativeContactLabel(
+                  entry,
+                  currentSigningFingerprint,
+                  currentUserId,
+                )}
+              </MiniAppRowText>
             </MiniAppRowButton>
           </MiniAppVirtualListRow>
         ))}
@@ -120,6 +114,8 @@ function isContactsSidebarAreaContextMenuTarget(
 }
 
 export function useContactsSidebarPanel(params: {
+  currentSigningFingerprint?: string | null | undefined;
+  currentUserId?: string | null | undefined;
   entries: ContactEntries;
   handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
   handleContextMenu: (
@@ -132,6 +128,8 @@ export function useContactsSidebarPanel(params: {
   setSidebar: (sidebar: ReactNode) => void;
 }) {
   const {
+    currentSigningFingerprint,
+    currentUserId,
     entries,
     handleAreaContextMenu,
     handleContextMenu,
@@ -157,6 +155,8 @@ export function useContactsSidebarPanel(params: {
         }}
       >
         <ContactsSidebarEntries
+          currentSigningFingerprint={currentSigningFingerprint}
+          currentUserId={currentUserId}
           entries={entries}
           handleContextMenu={handleContextMenu}
           ready={ready}
@@ -166,6 +166,8 @@ export function useContactsSidebarPanel(params: {
       </MiniAppSidebar>
     ),
     [
+      currentSigningFingerprint,
+      currentUserId,
       entries,
       handleAreaContextMenu,
       handleContextMenu,

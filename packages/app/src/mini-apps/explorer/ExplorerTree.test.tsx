@@ -156,6 +156,8 @@ function ExplorerSidebarHarness(params: {
     activeContainerId: "root-container",
     collapsedIds,
     currentOrganizationId: "org-1",
+    currentSigningFingerprint: null,
+    currentUserId: null,
     databaseError: false,
     onRetryDatabase,
     documentLinkProjectionVersion: 0,

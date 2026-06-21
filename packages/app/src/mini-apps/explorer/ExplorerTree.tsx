@@ -30,6 +30,7 @@ import {
   useMiniAppVirtualWindow,
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { getViewerRelativeContactDocumentLabel } from "../../stores/contacts/contactLabels";
 import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
 import {
   buildExplorerSidebarSections,
@@ -84,6 +85,8 @@ export function buildExplorerTree(
 
 interface ExplorerSidebarRowProps {
   activeContainerId: string | null;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   depth: number;
   documentWindowsByContainerId: ReadonlyMap<
     string,
@@ -149,6 +152,13 @@ function ExplorerTreeDocumentRow(
   },
 ) {
   const { row } = props;
+  const title = getViewerRelativeContactDocumentLabel({
+    currentSigningFingerprint: props.currentSigningFingerprint,
+    currentUserId: props.currentUserId,
+    documentKind: row.documentKind,
+    fallbackLabel: row.title,
+    localId: row.localId,
+  });
 
   return (
     <div
@@ -172,7 +182,7 @@ function ExplorerTreeDocumentRow(
           online={props.online}
           syncState={row.syncState}
         >
-          {row.title}
+          {title}
         </ExplorerSidebarItemLabel>
       </MiniAppRowButton>
     </div>
@@ -823,6 +833,8 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
         ) : shouldShowTree ? (
           <ExplorerSidebarVirtualTree
             activeContainerId={props.activeContainerId}
+            currentSigningFingerprint={props.currentSigningFingerprint}
+            currentUserId={props.currentUserId}
             depth={0}
             documentWindowsByContainerId={props.documentWindowsByContainerId}
             offset={props.offset}
@@ -853,6 +865,8 @@ interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
   currentOrganizationId: string | null;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   // Surfaces a failed SQLite boot (with Retry) in the sidebar tree's gate.
   databaseError: boolean;
   onRetryDatabase: () => void;
@@ -922,6 +936,8 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
     <ExplorerSidebarContent
       activeContainerId={props.activeContainerId}
       blankContextMenuContainerId={blankContextMenuContainerId}
+      currentSigningFingerprint={props.currentSigningFingerprint}
+      currentUserId={props.currentUserId}
       databaseError={props.databaseError}
       depth={0}
       documentWindowsByContainerId={props.documentWindowsByContainerId}
@@ -959,6 +975,8 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.activeContainerId,
       params.collapsedIds,
       params.currentOrganizationId,
+      params.currentSigningFingerprint,
+      params.currentUserId,
       params.databaseError,
       params.documentLinkProjectionVersion,
       params.documentListRevision,

@@ -157,7 +157,7 @@ test("contact fields are stored as a structured document", async () => {
   });
 });
 
-test("unnamed self contact title is You", async () => {
+test("unnamed self contact title falls back to the user id", async () => {
   const doc = await createDocument("self-contact-title");
 
   initializeStoredDocumentKind(doc, "contact");
@@ -168,7 +168,7 @@ test("unnamed self contact title is You", async () => {
 
   expect(readStoredDocumentState(doc)).toMatchObject({
     documentKind: "contact",
-    title: "You",
+    title: "self-user",
   });
 });
 

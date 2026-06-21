@@ -22,6 +22,7 @@ import {
   MiniAppVirtualTableSpacerRow,
 } from "../../../components/shared/MiniAppVirtual";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
+import { getViewerRelativeContactDocumentLabel } from "../../../stores/contacts/contactLabels";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
@@ -151,6 +152,8 @@ function isExplorerContainerItemContextTarget(
 }
 
 function ExplorerContainerItemTableRow(params: {
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   online: boolean;
   row: ContainerItemRow;
   onItemContextMenu: (
@@ -162,6 +165,8 @@ function ExplorerContainerItemTableRow(params: {
   setSelectedId: (id: string | null) => void;
 }) {
   const {
+    currentSigningFingerprint,
+    currentUserId,
     online,
     onItemContextMenu,
     row,
@@ -169,6 +174,16 @@ function ExplorerContainerItemTableRow(params: {
     selectDocumentProjection,
     setSelectedId,
   } = params;
+  const name =
+    row.itemKind === "document"
+      ? getViewerRelativeContactDocumentLabel({
+          currentSigningFingerprint,
+          currentUserId,
+          documentKind: row.documentKind,
+          fallbackLabel: row.name,
+          localId: row.localId,
+        })
+      : row.name;
   const openItem = () => {
     if (row.itemKind === "container") {
       setSelectedId(row.id);
@@ -194,7 +209,7 @@ function ExplorerContainerItemTableRow(params: {
           onClick={openItem}
           type="button"
         >
-          <MiniAppTableText title={row.name}>{row.name}</MiniAppTableText>
+          <MiniAppTableText title={name}>{name}</MiniAppTableText>
         </button>
       </MiniAppTableCell>
       <MiniAppTableCell>
@@ -235,6 +250,8 @@ function isExplorerItemTableBlankContextTarget(
 function ExplorerContainerItemTableBody(params: {
   columns: ReadonlyArray<MiniAppTableColumn>;
   contextTarget: ExplorerContextMenuTarget | null;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   error: string | null;
   isLoading: boolean;
   online: boolean;
@@ -251,6 +268,8 @@ function ExplorerContainerItemTableBody(params: {
   const {
     columns,
     contextTarget,
+    currentSigningFingerprint,
+    currentUserId,
     error,
     isLoading,
     online,
@@ -278,6 +297,8 @@ function ExplorerContainerItemTableBody(params: {
         rows.map((row) => (
           <ExplorerContainerItemTableRow
             key={getExplorerContainerItemRowKey(row)}
+            currentSigningFingerprint={currentSigningFingerprint}
+            currentUserId={currentUserId}
             online={online}
             onItemContextMenu={onItemContextMenu}
             row={row}
@@ -311,6 +332,8 @@ function ExplorerContainerItemTableBody(params: {
 
 interface ItemTableProps {
   contextTarget: ExplorerContextMenuTarget | null;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   dragActive: boolean;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
@@ -342,6 +365,8 @@ interface ItemTableProps {
 export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
     contextTarget,
+    currentSigningFingerprint,
+    currentUserId,
     dragActive,
     error,
     frameRef,
@@ -395,6 +420,8 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
         <ExplorerContainerItemTableBody
           columns={columns}
           contextTarget={contextTarget}
+          currentSigningFingerprint={currentSigningFingerprint}
+          currentUserId={currentUserId}
           error={error}
           isLoading={isLoading}
           online={online}

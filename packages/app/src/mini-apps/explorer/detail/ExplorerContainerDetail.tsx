@@ -52,6 +52,8 @@ function ExplorerContainerDetailHeader(params: {
 interface ExplorerContainerDetailProps {
   containerListRevision: unknown;
   contextTarget: ExplorerContextMenuTarget | null;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   importDroppedFiles: ImportExplorerDroppedFiles;
@@ -115,6 +117,8 @@ function useExplorerContainerItems(
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   const {
     contextTarget,
+    currentSigningFingerprint,
+    currentUserId,
     importDroppedFiles,
     online,
     onContainerContextMenu,
@@ -156,6 +160,8 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
       ) : null}
       <ExplorerContainerItemTable
         contextTarget={contextTarget}
+        currentSigningFingerprint={currentSigningFingerprint}
+        currentUserId={currentUserId}
         dragActive={fileDropTarget.dragActive}
         error={itemWindow.error}
         frameRef={frameRef}

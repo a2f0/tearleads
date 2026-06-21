@@ -4,16 +4,11 @@ import {
   type DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { isSelfContactLocalId } from "../../stores/contacts/selfContact";
 import {
   getUserSystemContainerRulesByKind,
   type UserSystemContainerRules,
 } from "../../stores/systemContainers";
-
-// Documents created for the builtin "You" contact use this deterministic local
-// id prefix (see stores/contacts/selfContact.ts). We match on the prefix here
-// so the explorer can recognise the self contact from a DocumentSummary alone,
-// without loading its structured fields.
-const SELF_CONTACT_LOCAL_ID_PREFIX = "self_contact_v1_";
 
 // The configured rules keyed by the system slot they apply to. A container with
 // no system slot (a plain user container) has no rules and is fully mutable.
@@ -115,7 +110,7 @@ export function canUploadToContainerIdByRules(
 export function isSelfContactDocument(
   document: Pick<DocumentSummary, "id"> | undefined,
 ): boolean {
-  return document?.id.startsWith(SELF_CONTACT_LOCAL_ID_PREFIX) ?? false;
+  return document ? isSelfContactLocalId(document.id) : false;
 }
 
 // A document may move out of its current container unless that container pins

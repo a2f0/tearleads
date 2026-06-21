@@ -41,6 +41,30 @@ const noteRow: ContainerItemRow = {
   updatedAt: null,
 };
 
+const currentSelfContactRow: ContainerItemRow = {
+  containerId: "contacts-container",
+  createdAt: null,
+  documentId: "current-self-contact-doc",
+  documentKind: "contact",
+  itemKind: "document",
+  localId: "self_contact_v1_current-fingerprint",
+  name: "current-user-id",
+  syncState: syncedContainerDocumentObjectSyncState,
+  updatedAt: null,
+};
+
+const ownerSelfContactRow: ContainerItemRow = {
+  containerId: "shared-contacts-container",
+  createdAt: null,
+  documentId: "owner-self-contact-doc",
+  documentKind: "contact",
+  itemKind: "document",
+  localId: "self_contact_v1_owner-fingerprint",
+  name: "owner-user-id",
+  syncState: syncedContainerDocumentObjectSyncState,
+  updatedAt: null,
+};
+
 type ExplorerContainerItemTableProps = ComponentProps<
   typeof ExplorerContainerItemTable
 >;
@@ -51,6 +75,8 @@ function renderContainerItemTable(
   return render(
     createElement(ExplorerContainerItemTable, {
       contextTarget: null,
+      currentSigningFingerprint: null,
+      currentUserId: null,
       dragActive: false,
       error: null,
       frameRef: () => undefined,
@@ -243,6 +269,17 @@ test("container item table highlights no row when the context menu is closed", (
   expect(
     view.container.querySelectorAll(".mini-app-table-row--selected").length,
   ).toBe(0);
+});
+
+test("container item table labels only the current self contact as You", () => {
+  const view = renderContainerItemTable({
+    currentSigningFingerprint: "current-fingerprint",
+    rows: [currentSelfContactRow, ownerSelfContactRow],
+    totalCount: 2,
+  });
+
+  expect(view.getByRole("button", { name: "You" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "owner-user-id" })).toBeTruthy();
 });
 
 test("container item table navigates when an item row is clicked", () => {

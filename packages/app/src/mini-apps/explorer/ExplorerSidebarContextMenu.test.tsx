@@ -72,6 +72,8 @@ function SidebarContextMenuHarness(params: {
     activeContainerId: rootNode.id,
     collapsedIds,
     currentOrganizationId: rootNode.organizationId,
+    currentSigningFingerprint: null,
+    currentUserId: null,
     databaseError: false,
     onRetryDatabase,
     documentLinkProjectionVersion: 0,
