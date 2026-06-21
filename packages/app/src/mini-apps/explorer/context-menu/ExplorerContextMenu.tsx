@@ -256,6 +256,7 @@ interface ExplorerContainerContextMenuProps {
   openDeleteModal: (containerId: string) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
+  openNewStructuredDocumentRoute: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
 }
 
@@ -274,6 +275,7 @@ function ExplorerContainerContextMenu(
     openDeleteModal,
     openContainerInfoRoute,
     openMoveModal,
+    openNewStructuredDocumentRoute,
     openRenameModal,
   } = params;
   const containerId = contextMenu.id.containerId;
@@ -289,6 +291,13 @@ function ExplorerContainerContextMenu(
         onClick={() => {
           closeContextMenu();
           openCreateChildModal(containerId);
+        }}
+      />
+      <MenuItem
+        label={EXPLORER_LABELS.newStructuredDocumentAction}
+        onClick={() => {
+          closeContextMenu();
+          openNewStructuredDocumentRoute(containerId);
         }}
       />
       <MenuItem
@@ -354,6 +363,7 @@ export function ExplorerContextMenuLayer(params: {
   openContainerInfoRoute: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
+  openNewStructuredDocumentRoute: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
   purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
   selectContainer: (containerId: string) => void;

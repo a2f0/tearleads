@@ -124,10 +124,18 @@
 }
 
 .org-manager-member-row .mini-app-row-stack,
+.org-manager-member-button,
 .org-manager-roster-row .mini-app-row-stack,
 .org-manager-policy-history-row .mini-app-row-stack {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.org-manager-member-button strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .org-manager-member-row strong,

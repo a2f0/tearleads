@@ -38,6 +38,7 @@ function ExplorerContextMenuLayerHarness(params: {
   contextMenu?: ExplorerContextMenuState | null;
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
   importDroppedFiles: ImportExplorerDroppedFiles;
+  openNewStructuredDocumentRoute?: (containerId: string) => void;
   purgeDocument?: (localId: string, containerId: string) => Promise<unknown>;
 }) {
   const [contextMenu, setContextMenu] =
@@ -69,6 +70,9 @@ function ExplorerContextMenuLayerHarness(params: {
       openLinkDocumentModal={() => {}}
       openMoveDocumentModal={() => {}}
       openMoveModal={() => {}}
+      openNewStructuredDocumentRoute={
+        params.openNewStructuredDocumentRoute ?? (() => {})
+      }
       openRenameModal={() => {}}
       purgeDocument={params.purgeDocument ?? (async () => null)}
       selectContainer={() => {}}
@@ -132,6 +136,27 @@ test("container upload is disabled for upload-protected containers", () => {
     name: "Upload",
   }) as HTMLButtonElement;
   expect(uploadButton.disabled).toBe(true);
+});
+
+test("container context menu opens a new structured document in the target", () => {
+  const openedContainerIds: string[] = [];
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      importDroppedFiles={noopImportDroppedFiles}
+      openNewStructuredDocumentRoute={(containerId) =>
+        openedContainerIds.push(containerId)
+      }
+    />,
+  );
+
+  fireEvent.click(
+    view.getByRole("button", { name: "New Structured Document" }),
+  );
+
+  expect(openedContainerIds).toEqual([rootNode.id]);
+  expect(
+    view.queryByRole("button", { name: "New Structured Document" }),
+  ).toBeNull();
 });
 
 test("document context menu deletes the selected document", async () => {

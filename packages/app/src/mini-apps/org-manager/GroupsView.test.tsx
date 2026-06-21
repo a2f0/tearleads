@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type {
   OrganizationDirectory,
+  OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
 } from "@tearleads/client-sdk";
@@ -78,6 +79,25 @@ const groupPolicyHistory: OrganizationGroupPolicyHistory = {
   principalType: "group",
 };
 
+const groupMembers: OrganizationGroupMembers = {
+  groupId: group.groupId,
+  members: [
+    {
+      encapsulationKeyFingerprint: null,
+      encapsulationPublicKey: null,
+      groupId: null,
+      groupName: null,
+      memberPrincipalId: rosterUser.userId,
+      memberPrincipalType: "user",
+      role: "member",
+      signingKeyFingerprint: null,
+      signingPublicKey: null,
+      userId: rosterUser.userId,
+    },
+  ],
+  organizationId: "organization-1",
+};
+
 function renderGroupsView(input: {
   canDeleteGroup?: ((group: OrganizationGroupSummary) => boolean) | undefined;
   canCreateGroup?: boolean | undefined;
@@ -90,7 +110,9 @@ function renderGroupsView(input: {
   groupPolicyHistory?: OrganizationGroupPolicyHistory | null | undefined;
   groups?: ReadonlyArray<OrganizationGroupSummary> | undefined;
   isCreateGroupDialogOpen?: boolean | undefined;
+  members?: OrganizationGroupMembers | null | undefined;
   openCreateGroupDialog?: (() => void) | undefined;
+  openRosterUser?: ((userId: string) => void) | undefined;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   selectedGroup: OrganizationGroupSummary | null;
   selectedGroupId: string | null;
@@ -116,10 +138,11 @@ function renderGroupsView(input: {
       groups={input.groups ?? [group]}
       error={input.error ?? null}
       isCreateGroupDialogOpen={input.isCreateGroupDialogOpen ?? false}
-      members={null}
+      members={input.members ?? null}
       memberUserIds={new Set<string>()}
       mutating={false}
       openCreateGroupDialog={input.openCreateGroupDialog ?? (() => undefined)}
+      openRosterUser={input.openRosterUser ?? (() => undefined)}
       profileDisplayNamesByUserId={input.profileDisplayNamesByUserId}
       removeMember={() => undefined}
       selectedGroup={input.selectedGroup}
@@ -344,4 +367,22 @@ test("org manager groups view exposes new group from group row context menus", (
   );
 
   expect(openCreateGroupDialogCount).toBe(1);
+});
+
+test("org manager groups view opens roster detail from a group member", () => {
+  const openedUserIds: string[] = [];
+  const view = renderGroupsView({
+    members: groupMembers,
+    openRosterUser: (userId) => openedUserIds.push(userId),
+    selectedGroup: group,
+    selectedGroupId: group.groupId,
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: new RegExp(compactFingerprint(rosterUser.userId)),
+    }),
+  );
+
+  expect(openedUserIds).toEqual([rosterUser.userId]);
 });
