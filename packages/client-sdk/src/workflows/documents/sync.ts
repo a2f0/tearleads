@@ -4,6 +4,8 @@ import {
   computeDocumentContentKeyTargetHash,
   signWriteHeader,
   type UnsignedWriteHeader,
+  type VerifiedContainerAccessManifest,
+  type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
@@ -257,13 +259,26 @@ export async function buildMaterializedDocumentSyncPlan(
     writerProjection: DocumentWriterProjectionResponse;
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedDocumentSyncPlan> {
+  // Share one verification cache across both passes of this plan build. The
+  // consistency pass and the content-key unwrap pass walk the SAME authorizing
+  // container paths; without a shared cache each manifest's Ed25519 chain and
+  // principal policies would be signature-verified twice. The unwrap pass still
+  // binds key material independently (assertProjectionKekMatchesPath +
+  // computeContainerKekMaterialId), so reusing verified-manifest results does
+  // not weaken any check.
+  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
+  const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
   await assertDocumentWriterProjectionConsistent(input.writerProjection, {
     execSql: input.execSql,
+    principalPolicyCache,
+    verifiedByHash,
     ...projectionVerificationOptions(input),
   });
   const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
     execSql: input.execSql,
+    principalPolicyCache,
     secretKey: input.targetSecretKey,
+    verifiedByHash,
     writerProjection: input.writerProjection,
     ...projectionVerificationOptions(input),
   });

@@ -947,6 +947,9 @@ async function verifyProjectionContainerPaths(input: {
   readonly principalPolicyCache: PrincipalPolicyCache;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash?:
+    | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
 }): Promise<Map<string, VerifiedContainerAccessManifest[]>> {
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const [
@@ -984,7 +987,10 @@ async function verifyProjectionContainerPaths(input: {
     string,
     VerifiedContainerAccessManifest[]
   >();
-  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
+  // Reuse a caller-supplied cache when provided so a later unwrap pass over the
+  // same authorizing container paths does not re-verify identical manifests.
+  const verifiedByHash =
+    input.verifiedByHash ?? new Map<string, VerifiedContainerAccessManifest>();
   for (const projection of input.projection.authorizingContainerPaths) {
     const path = await verifyContainerWriterProjection({
       execSql: input.execSql,
@@ -1140,6 +1146,9 @@ export async function verifyDocumentWriterProjection(input: {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: DocumentWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly verifiedByHash?:
+    | Map<string, VerifiedContainerAccessManifest>
+    | undefined;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
@@ -1148,6 +1157,7 @@ export async function verifyDocumentWriterProjection(input: {
     principalPolicyCache,
     projection: input.projection,
     resolveUserKey: input.resolveUserKey,
+    verifiedByHash: input.verifiedByHash,
   });
   const bundlesByHash = new Map<string, AccessManifestBundleWireResponse>();
   addBundleByHash(
