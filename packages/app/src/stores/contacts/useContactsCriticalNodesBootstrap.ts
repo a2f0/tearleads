@@ -98,6 +98,7 @@ function useEnsureContactsContainer(input: {
         CONTACTS_CONTAINER_NAME,
         {
           skipAdvancedManagedRoot: true,
+          skipRemoteProbe: true,
         },
       )
       .catch((error) => {

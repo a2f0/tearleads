@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
 import { AppHostConfig } from "./host/AppHostConfig";
@@ -133,7 +139,11 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
           .getAttribute("aria-current"),
       ).toBe("page");
       expect(view.getByRole("button", { name: "Hide Sidebar" })).toBeTruthy();
-      expect(view.container.querySelector("#routed-pane-sidebar")).toBeTruthy();
+      const sidebar = view.container.querySelector("#routed-pane-sidebar");
+      expect(sidebar).toBeTruthy();
+      expect(
+        within(sidebar as HTMLElement).getByRole("button", { name: "You" }),
+      ).toBeTruthy();
     });
 
     fireEvent.click(view.getByRole("button", { name: "Hide Sidebar" }));

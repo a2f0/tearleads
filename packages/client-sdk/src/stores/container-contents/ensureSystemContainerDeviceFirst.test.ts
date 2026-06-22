@@ -193,6 +193,31 @@ test("ensureSystemContainer creates the slot locally while offline without touch
   );
 });
 
+test("ensureSystemContainer can skip the remote probe for non-blocking bootstrap", async () => {
+  // Contacts opens from local SQLite first; a slow remote system-container probe
+  // must not keep the mini-app on its loading gate.
+  let listContainersCalls = 0;
+  await withReadyStore(
+    true,
+    () => {
+      listContainersCalls += 1;
+      return new Promise<never>(() => {});
+    },
+    async (store) => {
+      const node = await store.ensureSystemContainer(
+        TEST_SYSTEM_SLOT,
+        "Contacts",
+        { skipAdvancedManagedRoot: true, skipRemoteProbe: true },
+      );
+
+      expect(node).not.toBeNull();
+      expect(node?.systemSlot).toBe(TEST_SYSTEM_SLOT);
+      expect(listContainersCalls).toBe(0);
+      expect(store.getSnapshot().ready).toBe(true);
+    },
+  );
+});
+
 test("ensureSystemContainer cannot provision a slot when no local root exists and the network is down", async () => {
   // Characterization: provisioning is parented under the local root. If the root
   // itself was never persisted locally (e.g. a fresh login whose root lives only

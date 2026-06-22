@@ -193,7 +193,11 @@ export async function ensureSystemContainer(
     return toContainerNode(existing);
   }
 
-  if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
+  if (
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.state.online &&
+    !options.skipRemoteProbe
+  ) {
     const hydrated = await hydrateExistingSystemContainer(
       state,
       syncAgent,
