@@ -145,6 +145,81 @@ function appendTicketToWsUrl(wsUrl: string, ticket: string): string {
   return url.toString();
 }
 
+// Single pass over each set so only the changed ids are allocated, not a full
+// array copy of a possibly-thousands-strong known set on every change.
+function diffContainerInterest(
+  current: ReadonlySet<string>,
+  declared: ReadonlySet<string>,
+): { added: string[]; removed: string[] } {
+  const added: string[] = [];
+  for (const id of current) {
+    if (!declared.has(id)) {
+      added.push(id);
+    }
+  }
+  const removed: string[] = [];
+  for (const id of declared) {
+    if (!current.has(id)) {
+      removed.push(id);
+    }
+  }
+  return { added, removed };
+}
+
+/**
+ * Declare the containers this client cares about so the server only routes their
+ * invalidations here. Seeds from the (passively shared) container tree and pushes
+ * add/remove deltas as it changes, rather than re-sending the whole set — a
+ * device may know thousands of containers. Interest is not authorization; the
+ * server still enforces access, and missed events are recovered over HTTP sync.
+ * Returns a cleanup that stops the subscription.
+ */
+export function startContainerInterestDeclaration(
+  tearleads: Tearleads,
+  ws: WebSocket,
+): () => void {
+  let store: ReturnType<Tearleads["containerContents"]["openTree"]>;
+  try {
+    store = tearleads.containerContents.openTree();
+  } catch {
+    // Runtime not ready yet; the next reconnect re-declares from a ready tree.
+    return () => undefined;
+  }
+
+  let declared = new Set<string>();
+  let hasDeclared = false;
+
+  const send = (message: Record<string, unknown>): void => {
+    if (ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    ws.send(JSON.stringify(message));
+  };
+
+  const syncInterest = (): void => {
+    const current = new Set(store.getSnapshot().nodes.map((node) => node.id));
+
+    if (!hasDeclared) {
+      send({ type: "known_containers", containerIds: [...current] });
+      hasDeclared = true;
+      declared = current;
+      return;
+    }
+
+    const { added, removed } = diffContainerInterest(current, declared);
+    if (added.length > 0) {
+      send({ type: "known_containers.add", containerIds: added });
+    }
+    if (removed.length > 0) {
+      send({ type: "known_containers.remove", containerIds: removed });
+    }
+    declared = current;
+  };
+
+  syncInterest();
+  return store.subscribe(syncInterest);
+}
+
 function useServerEventsBinding(
   tearleads: Tearleads,
   wsUrl: string,
@@ -162,6 +237,7 @@ function useServerEventsBinding(
 
     let cancelled = false;
     let socket: WebSocket | null = null;
+    let stopInterest: (() => void) | null = null;
 
     void (async () => {
       const ticket = await tearleads.requestWebSocketTicket();
@@ -179,6 +255,7 @@ function useServerEventsBinding(
 
         tearleads.events.setConnected(true);
         log("WebSocket connected");
+        stopInterest = startContainerInterestDeclaration(tearleads, ws);
       });
 
       ws.addEventListener("message", (event) => {
@@ -197,12 +274,16 @@ function useServerEventsBinding(
       });
 
       ws.addEventListener("close", () => {
+        stopInterest?.();
+        stopInterest = null;
         if (!cancelled) {
           tearleads.events.setConnected(false);
         }
       });
 
       ws.addEventListener("error", () => {
+        stopInterest?.();
+        stopInterest = null;
         if (!cancelled) {
           tearleads.events.setConnected(false);
         }
@@ -211,6 +292,7 @@ function useServerEventsBinding(
 
     return () => {
       cancelled = true;
+      stopInterest?.();
       socket?.close();
       tearleads.events.setConnected(false);
     };
