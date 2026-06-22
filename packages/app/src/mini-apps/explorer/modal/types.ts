@@ -21,7 +21,7 @@ export interface ExplorerModalControllerParams {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   moveContainer: (
@@ -29,7 +29,7 @@ export interface ExplorerModalControllerParams {
     parentId: string,
   ) => Promise<ContainerNode | null>;
   moveDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;

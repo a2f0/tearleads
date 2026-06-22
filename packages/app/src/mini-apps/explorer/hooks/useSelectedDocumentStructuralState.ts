@@ -147,7 +147,7 @@ export function useSelectedDocumentStructuralState(params: {
 
 export function useSelectDocumentProjection(params: {
   activateLinkedDocument: (
-    noteId: string,
+    documentId: string,
     containerId: string,
   ) => Promise<DocumentSummary | null>;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
@@ -167,14 +167,14 @@ export function useSelectDocumentProjection(params: {
   const selectionTokenRef = useRef(0);
 
   return useCallback(
-    (noteId: string, containerId: string) => {
-      selectDocument(noteId, containerId);
+    (documentId: string, containerId: string) => {
+      selectDocument(documentId, containerId);
       selectionTokenRef.current += 1;
       const selectionToken = selectionTokenRef.current;
       const isCurrent = () => selectionTokenRef.current === selectionToken;
 
       async function resolveSelection(): Promise<void> {
-        const existingDocument = await loadDocumentSummary(noteId);
+        const existingDocument = await loadDocumentSummary(documentId);
         if (!isCurrent()) {
           return;
         }
@@ -187,11 +187,11 @@ export function useSelectDocumentProjection(params: {
         }
 
         const activatedDocument = await activateLinkedDocument(
-          noteId,
+          documentId,
           containerId,
         );
         if (isCurrent() && !activatedDocument) {
-          setSelectedId(noteId);
+          setSelectedId(documentId);
         }
       }
 

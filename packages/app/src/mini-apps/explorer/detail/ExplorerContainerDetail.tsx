@@ -67,7 +67,7 @@ interface ExplorerContainerDetailProps {
     row: ContainerItemRow,
   ) => void;
   refreshError: string | null;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
   selectedNode: ContainerNode;
   setSelectedId: (id: string | null) => void;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;

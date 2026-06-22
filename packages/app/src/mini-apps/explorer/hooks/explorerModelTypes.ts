@@ -44,7 +44,7 @@ export interface ExplorerDocumentMutationOptions {
 }
 
 export type ExplorerDocumentMutationAction = (
-  noteId: string,
+  documentId: string,
   targetContainerId: string,
   options?: ExplorerDocumentMutationOptions,
 ) => Promise<DocumentSummary | null>;

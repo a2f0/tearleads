@@ -287,7 +287,7 @@ function BlobReferencesSection(params: {
   blob: BlobInfo;
   containerNamesById: ReadonlyMap<string, string>;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
 }) {
   const columns = useMemo(() => getBlobReferenceColumns(), []);
 
@@ -366,7 +366,7 @@ export function BlobDetail(params: {
   blobStore: BlobStore;
   containerNamesById: ReadonlyMap<string, string>;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
 }) {
   const preview = useBlobPreview({
     blob: params.blob,

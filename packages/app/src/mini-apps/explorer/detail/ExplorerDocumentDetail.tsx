@@ -37,8 +37,8 @@ function ExplorerDocumentDetailActions(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  openLinkDocumentModal: (noteId: string) => void;
-  openMoveDocumentModal: (noteId: string) => void;
+  openLinkDocumentModal: (documentId: string) => void;
+  openMoveDocumentModal: (documentId: string) => void;
   selectedDocument: DocumentSummary;
   setSelectedId: (id: string | null) => void;
 }) {
@@ -154,7 +154,7 @@ function useSelectedDocumentSyncState(params: {
 
 export function ExplorerDocumentDetail(params: {
   activateLinkedContainer: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   canActivateSelectedDocument: boolean;
@@ -166,14 +166,14 @@ export function ExplorerDocumentDetail(params: {
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
-  openLinkDocumentModal: (noteId: string) => void;
+  openLinkDocumentModal: (documentId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  openMoveDocumentModal: (noteId: string) => void;
+  openMoveDocumentModal: (documentId: string) => void;
   refreshError: string | null;
   selectedDocument: DocumentSummary;
   setSelectedId: (id: string | null) => void;
   unlinkDocument: (
-    noteId: string,
+    documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
 }) {

@@ -45,7 +45,7 @@ export function getLinkedContainerDetails(
 
 async function handleActivateLinkedContainer(params: {
   activateLinkedContainer: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   linkedContainer: LinkedContainerDetail;
@@ -89,7 +89,7 @@ async function handleDetachLinkedContainer(params: {
   setActionError: (error: string | null) => void;
   setUnlinkingContainerId: (containerId: string | null) => void;
   unlinkDocument: (
-    noteId: string,
+    documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
 }) {
@@ -125,7 +125,7 @@ async function handleDetachLinkedContainer(params: {
 
 interface ExplorerLinkedContainerRowParams {
   activateLinkedContainer: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   activatingContainerId: string | null;
@@ -139,7 +139,7 @@ interface ExplorerLinkedContainerRowParams {
   setUnlinkingContainerId: (containerId: string | null) => void;
   unlinkingContainerId: string | null;
   unlinkDocument: (
-    noteId: string,
+    documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
 }
@@ -238,7 +238,7 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
 
 export function ExplorerLinkedContainerSection(params: {
   activateLinkedContainer: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   canActivateSelectedDocument: boolean;
@@ -248,7 +248,7 @@ export function ExplorerLinkedContainerSection(params: {
   selectedDocument: DocumentSummary;
   setSelectedId: (id: string | null) => void;
   unlinkDocument: (
-    noteId: string,
+    documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
 }) {

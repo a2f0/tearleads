@@ -161,7 +161,7 @@ function ExplorerContainerItemTableRow(params: {
     row: ContainerItemRow,
   ) => void;
   selected: boolean;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
   const {
@@ -261,7 +261,7 @@ function ExplorerContainerItemTableBody(params: {
   ) => void;
   rows: ReadonlyArray<ContainerItemRow>;
   rowOffset: number;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   totalCount: number;
 }) {
@@ -356,7 +356,7 @@ interface ItemTableProps {
   rows: ReadonlyArray<ContainerItemRow>;
   rowOffset: number;
   selectedNode: ContainerNode;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   sort: ContainerItemSort;
   totalCount: number;

@@ -23,12 +23,13 @@ function createDocumentSummary(
 test("document projection selection updates immediately before async lookup", async () => {
   const selectedDocuments: Array<{ containerId: string; id: string }> = [];
   const selectedIds: Array<string | null> = [];
-  const activationCalls: Array<{ containerId: string; noteId: string }> = [];
+  const activationCalls: Array<{ containerId: string; documentId: string }> =
+    [];
   let resolveDocument: ((value: DocumentSummary | null) => void) | undefined;
   const { result } = renderHook(() =>
     useSelectDocumentProjection({
-      activateLinkedDocument: async (noteId, containerId) => {
-        activationCalls.push({ containerId, noteId });
+      activateLinkedDocument: async (documentId, containerId) => {
+        activationCalls.push({ containerId, documentId });
         return createDocumentSummary({ containerId });
       },
       loadDocumentSummary: async () =>
@@ -58,7 +59,7 @@ test("document projection selection updates immediately before async lookup", as
 
   await waitFor(() => {
     expect(activationCalls).toEqual([
-      { containerId: "linked-container", noteId: "document-1" },
+      { containerId: "linked-container", documentId: "document-1" },
     ]);
   });
 });

@@ -13,7 +13,7 @@ export interface ExplorerModalSubmitParams {
   draftTargetContainerId: string;
   expandNode: (nodeId: string) => void;
   linkDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   modalState: ExplorerModalState | null;
@@ -22,7 +22,7 @@ export interface ExplorerModalSubmitParams {
     parentId: string,
   ) => Promise<ContainerNode | null>;
   moveDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -178,14 +178,14 @@ async function submitExplorerNameModal(params: {
 function submitExplorerMoveDocumentModal(params: {
   clearModal: () => void;
   linkDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   modalState:
     | { mode: "link-document"; documentLocalId: string }
     | { mode: "move-document"; documentLocalId: string };
   moveDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   setBackgroundActionError: (error: string | null) => void;
@@ -239,7 +239,7 @@ async function submitExplorerNonNameModal(params: {
   deleteContainer: (containerId: string) => Promise<boolean>;
   draftTargetContainerId: string;
   linkDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   modalState:
@@ -253,7 +253,7 @@ async function submitExplorerNonNameModal(params: {
     parentId: string,
   ) => Promise<ContainerNode | null>;
   moveDocument: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
