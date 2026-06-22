@@ -10,7 +10,9 @@ import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
 
 export type { ApiDatabase };
-export type ContainerMutationStatus = 400 | 403 | 404 | 409;
+// 503 covers transient failures bubbling up from the metadata-document write
+// inside a container create (wrapped from DocumentMutationError).
+export type ContainerMutationStatus = 400 | 403 | 404 | 409 | 503;
 
 export interface MutateContainerInput {
   readonly expectedContainerId?: string;

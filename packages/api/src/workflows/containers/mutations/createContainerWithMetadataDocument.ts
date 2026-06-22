@@ -144,8 +144,11 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
     if (containerMutationError) {
       throw containerMutationError;
     }
+    // The metadata-document write can fail with a documents-domain error;
+    // surface it as a ContainerMutationError so callers of the container
+    // workflow only ever deal with the container error type.
     if (error instanceof DocumentMutationError) {
-      throw error;
+      throw new ContainerMutationError(error.message, error.status);
     }
 
     throw error;

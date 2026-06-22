@@ -270,7 +270,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   if (selectedNode) {
     return (
       <ExplorerContainerDetail
-        containerListRevision={params.nodes}
+        containerNodes={params.nodes}
         contextTarget={params.contextTarget}
         currentSigningFingerprint={params.currentSigningFingerprint}
         currentUserId={params.currentUserId}

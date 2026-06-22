@@ -9,6 +9,7 @@ import type {
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
+import { isSha256HexString } from "@tearleads/validators/util";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
@@ -73,10 +74,6 @@ function parseSafePositiveInteger(value: string | null): number | null {
 
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
-function isSha256Hex(value: string | null): value is string {
-  return value !== null && /^[0-9a-f]{64}$/u.test(value);
 }
 
 function validatePartRouteParams(
@@ -221,7 +218,7 @@ function registerPartBytesRoute(
       const stream = c.req.raw.body;
       if (
         byteLength === null ||
-        !isSha256Hex(sha256) ||
+        !isSha256HexString(sha256) ||
         !uploadId ||
         stream === null
       ) {

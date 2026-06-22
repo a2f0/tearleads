@@ -45,7 +45,9 @@ const EMPTY_CONTAINER_ITEM_WINDOW_STATE: ContainerItemWindowState = {
 };
 
 interface ExplorerContainerItemWindowParams {
-  containerListRevision: unknown;
+  // The current container nodes; its reference changes whenever the container
+  // tree is rebuilt, which is used purely as a refetch signal (not read).
+  containerNodes: ReadonlyArray<ContainerNode>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   enabled: boolean;
@@ -60,7 +62,7 @@ export function useExplorerContainerItemWindow(
   params: ExplorerContainerItemWindowParams,
 ) {
   const {
-    containerListRevision,
+    containerNodes,
     documentListRevision,
     documentQueries,
     enabled,
@@ -79,6 +81,17 @@ export function useExplorerContainerItemWindow(
   const serializedSystemSlots = useMemo(
     () => Array.from(visibleSystemSlots).sort().join("\u0000"),
     [visibleSystemSlots],
+  );
+  // Refetch only when the selected container's own child sub-containers change
+  // (id/name/sync), not when any container elsewhere in the tree does. Documents
+  // are tracked separately via `documentListRevision`.
+  const childContainerSignature = useMemo(
+    () =>
+      containerNodes
+        .filter((node) => node.parentId === selectedNode.id)
+        .map((node) => `${node.id} ${node.name} ${node.syncState}`)
+        .join("|"),
+    [containerNodes, selectedNode.id],
   );
   // Depend on the sort primitives, not the object reference, so a re-created
   // `sort` with the same key/direction doesn't re-run the fetch.
@@ -134,7 +147,7 @@ export function useExplorerContainerItemWindow(
       cancelled = true;
     };
   }, [
-    containerListRevision,
+    childContainerSignature,
     documentListRevision,
     documentQueries,
     enabled,

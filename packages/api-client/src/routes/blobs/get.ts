@@ -4,7 +4,7 @@ import { pathSegment } from "../path";
 
 const BLOB_BYTES_BLOB_ID_HEADER = "X-Tearleads-Blob-Id";
 const BLOB_BYTES_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Byte-Length";
-const BLOB_BYTES_CONTENT_LENGTH_HEADER = "content-length";
+const BLOB_BYTES_CONTENT_LENGTH_HEADER = "Content-Length";
 const BLOB_BYTES_SHA256_HEADER = "X-Tearleads-Blob-Sha256";
 
 export interface BlobBytesResponse {
