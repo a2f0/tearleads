@@ -101,12 +101,13 @@ export function useUnlockAction(input: {
   readonly setLockState: Dispatch<SetStateAction<LockState>>;
   readonly setUnlockedPinCode: Dispatch<SetStateAction<string | null>>;
 }): (pinCode: string) => Promise<boolean> {
+  const { environment, setLockState, setUnlockedPinCode } = input;
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
       if (
-        !input.environment.canManagePinCode ||
-        !input.environment.manifestStore ||
-        !input.environment.pinCodeConfigNamespace ||
+        !environment.canManagePinCode ||
+        !environment.manifestStore ||
+        !environment.pinCodeConfigNamespace ||
         !pinCode
       ) {
         return false;
@@ -115,9 +116,9 @@ export function useUnlockAction(input: {
       let verified = false;
       try {
         verified = await verifyPinCode({
-          manifestStore: input.environment.manifestStore,
+          manifestStore: environment.manifestStore,
           pinCode,
-          scopes: input.environment.scopes,
+          scopes: environment.scopes,
         });
       } catch {
         return false;
@@ -126,15 +127,15 @@ export function useUnlockAction(input: {
         return false;
       }
 
-      input.setUnlockedPinCode(pinCode);
-      input.setLockState((current) => ({
+      setUnlockedPinCode(pinCode);
+      setLockState((current) => ({
         pinCodeEnabled: true,
         revision: current.revision + 1,
         status: "unlocked",
       }));
       return true;
     },
-    [input],
+    [environment, setLockState, setUnlockedPinCode],
   );
 }
 
@@ -174,12 +175,14 @@ export function useSetPinCodeAction(input: {
   readonly setUnlockedPinCode: Dispatch<SetStateAction<string | null>>;
   readonly unlockedPinCode: string | null;
 }): (pinCode: string) => Promise<boolean> {
+  const { environment, setLockState, setUnlockedPinCode, unlockedPinCode } =
+    input;
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
       if (
-        !input.environment.canManagePinCode ||
-        !input.environment.manifestStore ||
-        !input.environment.pinCodeConfigNamespace ||
+        !environment.canManagePinCode ||
+        !environment.manifestStore ||
+        !environment.pinCodeConfigNamespace ||
         !pinCode
       ) {
         return false;
@@ -188,34 +191,34 @@ export function useSetPinCodeAction(input: {
       let protectedAnyManifest = false;
       try {
         protectedAnyManifest = await rewrapExistingManifestsWithPin({
-          manifestStore: input.environment.manifestStore,
+          manifestStore: environment.manifestStore,
           pinCode,
-          scopes: input.environment.scopes,
-          sourcePinCode: input.unlockedPinCode,
+          scopes: environment.scopes,
+          sourcePinCode: unlockedPinCode,
         });
       } catch {
         return false;
       }
       if (!protectedAnyManifest) {
-        input.environment.storage?.removeItem(
-          pinCodeConfigKey(input.environment.pinCodeConfigNamespace),
+        environment.storage?.removeItem(
+          pinCodeConfigKey(environment.pinCodeConfigNamespace),
         );
         return false;
       }
 
-      input.environment.storage?.setItem(
-        pinCodeConfigKey(input.environment.pinCodeConfigNamespace),
+      environment.storage?.setItem(
+        pinCodeConfigKey(environment.pinCodeConfigNamespace),
         "1",
       );
-      input.setUnlockedPinCode(pinCode);
-      input.setLockState((current) => ({
+      setUnlockedPinCode(pinCode);
+      setLockState((current) => ({
         pinCodeEnabled: true,
         revision: current.revision + 1,
         status: "unlocked",
       }));
       return true;
     },
-    [input],
+    [environment, setLockState, setUnlockedPinCode, unlockedPinCode],
   );
 }
 
@@ -224,12 +227,13 @@ export function useClearPinCodeAction(input: {
   readonly setLockState: Dispatch<SetStateAction<LockState>>;
   readonly setUnlockedPinCode: Dispatch<SetStateAction<string | null>>;
 }): (pinCode: string) => Promise<boolean> {
+  const { environment, setLockState, setUnlockedPinCode } = input;
   return useCallback(
     async (pinCode: string): Promise<boolean> => {
       if (
-        !input.environment.canManagePinCode ||
-        !input.environment.manifestStore ||
-        !input.environment.pinCodeConfigNamespace ||
+        !environment.canManagePinCode ||
+        !environment.manifestStore ||
+        !environment.pinCodeConfigNamespace ||
         !pinCode
       ) {
         return false;
@@ -237,8 +241,8 @@ export function useClearPinCodeAction(input: {
 
       try {
         await rewrapExistingManifests({
-          manifestStore: input.environment.manifestStore,
-          scopes: input.environment.scopes,
+          manifestStore: environment.manifestStore,
+          scopes: environment.scopes,
           sourcePinCode: pinCode,
           targetKeystore: createPlainKeystore(),
         });
@@ -246,18 +250,18 @@ export function useClearPinCodeAction(input: {
         return false;
       }
 
-      input.environment.storage?.removeItem(
-        pinCodeConfigKey(input.environment.pinCodeConfigNamespace),
+      environment.storage?.removeItem(
+        pinCodeConfigKey(environment.pinCodeConfigNamespace),
       );
-      input.setUnlockedPinCode(null);
-      input.setLockState((current) => ({
+      setUnlockedPinCode(null);
+      setLockState((current) => ({
         pinCodeEnabled: false,
         revision: current.revision + 1,
         status: "unlocked",
       }));
       return true;
     },
-    [input],
+    [environment, setLockState, setUnlockedPinCode],
   );
 }
 
