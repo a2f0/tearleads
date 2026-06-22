@@ -63,6 +63,7 @@ Review config (shared by CLI and server):
 | `CODE_ASSIST_SEVERITY_THRESHOLD` | `medium` | Minimum severity to post (`low`/`medium`/`high`/`critical`). |
 | `CODE_ASSIST_MAX_COMMENTS` | `25` | Cap on inline comments per review (highest severity first). |
 | `CODE_ASSIST_BOT_HANDLE` | `@tearleads-code-assist` | Mention string that triggers an interactive re-check on a review thread. |
+| `CODE_ASSIST_IGNORE_PATTERNS` | lockfiles + build output | Comma-separated globs of paths to skip reviewing (replaces the default list). |
 
 Server-only config:
 
