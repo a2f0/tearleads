@@ -8,7 +8,8 @@ import type {
   VerifiedAttachmentBinding,
   VerifiedAttachmentDetach,
 } from "@tearleads/crypto";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
+import { nowExpression } from "../../../utils/sqlDialect";
 import { storeVerifiedAccessEventInTransaction } from "../../shared/internal/accessManifestStore";
 
 class AttachmentBindingProjectionError extends Error {
@@ -134,7 +135,7 @@ export async function storeVerifiedAttachmentDetachInTransaction(
 
   const [detachedRow] = await executor
     .update(attachmentBindings)
-    .set({ detachedAt: sql`now()` })
+    .set({ detachedAt: nowExpression() })
     .where(
       and(
         eq(attachmentBindings.id, detach.bindingId),

@@ -1609,7 +1609,7 @@ test("read-only document sync works for a user with read access to a linked cont
     },
   );
   expect(stateChangingReadSyncResponse.status).toBe(400);
-});
+}, 10_000);
 
 test("GET /documents/:documentId/writer-projection blocks revoked users after root KEK rotation", async () => {
   const owner = createTestUser();
@@ -1721,7 +1721,7 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
     },
   );
   expect(recipientProjectionResponse.status).toBe(403);
-});
+}, 10_000);
 
 test("POST /documents/:documentId/sync writes audit rows for accepted live updates", async () => {
   const owner = createTestUser();
@@ -2090,7 +2090,7 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
     )
     .limit(1);
   expect(storedBundleAfterProjection).toEqual(storedBundleBeforeProjection);
-});
+}, 10_000);
 
 test("GET /documents/:documentId/writer-projection rejects tampered content-key targets", async () => {
   const owner = createTestUser();

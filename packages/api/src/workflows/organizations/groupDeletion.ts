@@ -9,6 +9,7 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, sql } from "drizzle-orm";
+import { intExpression } from "../../utils/sqlDialect";
 import { listOrganizationContainerGrantRows } from "./containerGrants";
 import { OrganizationManagerError } from "./errors";
 
@@ -51,15 +52,25 @@ async function hasCurrentPrincipalReferences(input: {
 }): Promise<boolean> {
   const result = await input.executor.execute(sql`
     with current_managed_principal_states as (
-      select distinct on (principal_type, principal_id)
+      select
         principal_type,
         principal_id,
         state_hash
-      from ${principalStates}
-      where principal_type in (${"group"}, ${"organization"})
-      order by principal_type asc, principal_id asc, version desc
+      from (
+        select
+          principal_type,
+          principal_id,
+          state_hash,
+          row_number() over (
+            partition by principal_type, principal_id
+            order by version desc
+          ) as rn
+        from ${principalStates}
+        where principal_type in (${"group"}, ${"organization"})
+      ) ranked_principal_states
+      where rn = 1
     )
-    select count(*)::int as "referenceCount"
+    select ${intExpression(sql`count(*)`)} as "referenceCount"
     from ${principalMembershipProjection} pmp
     inner join current_managed_principal_states current_state
       on current_state.principal_type = pmp.principal_type

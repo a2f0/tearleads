@@ -9,6 +9,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
+import { uuidValue } from "../../utils/sqlDialect";
 
 interface ContainerPathUserIds {
   readonly allUserIds: readonly string[];
@@ -106,18 +107,28 @@ async function userIdsForManagedGrantReferences(input: {
       values ${sql.join(
         references.map(
           (reference) =>
-            sql`(${reference.principalType}, ${reference.principalId}::uuid, ${reference.stateHash})`,
+            sql`(${reference.principalType}, ${uuidValue(reference.principalId)}, ${reference.stateHash})`,
         ),
         sql`, `,
       )}
     ),
     current_principal_states as (
-      select distinct on (principal_type, principal_id)
+      select
         principal_type,
         principal_id,
         state_hash
-      from ${principalStates}
-      order by principal_type asc, principal_id asc, version desc
+      from (
+        select
+          principal_type,
+          principal_id,
+          state_hash,
+          row_number() over (
+            partition by principal_type, principal_id
+            order by version desc
+          ) as rn
+        from ${principalStates}
+      ) ranked_principal_states
+      where rn = 1
     ),
     reachable_members as (
       select

@@ -7,25 +7,45 @@ import { sql } from "drizzle-orm";
 
 const currentManagedPrincipalStatesCte = sql`
   current_managed_principal_states as (
-    select distinct on (principal_type, principal_id)
+    select
       principal_type,
       principal_id,
       state_hash
-    from ${principalStates}
-    where principal_type in (${"group"}, ${"organization"})
-    order by principal_type asc, principal_id asc, version desc
+    from (
+      select
+        principal_type,
+        principal_id,
+        state_hash,
+        row_number() over (
+          partition by principal_type, principal_id
+          order by version desc
+        ) as rn
+      from ${principalStates}
+      where principal_type in (${"group"}, ${"organization"})
+    ) ranked_principal_states
+    where rn = 1
   )
 `;
 
 const currentGroupStatesCte = sql`
   current_group_states as (
-    select distinct on (principal_type, principal_id)
+    select
       principal_type,
       principal_id,
       state_hash
-    from ${principalStates}
-    where principal_type = ${"group"}
-    order by principal_type asc, principal_id asc, version desc
+    from (
+      select
+        principal_type,
+        principal_id,
+        state_hash,
+        row_number() over (
+          partition by principal_type, principal_id
+          order by version desc
+        ) as rn
+      from ${principalStates}
+      where principal_type = ${"group"}
+    ) ranked_principal_states
+    where rn = 1
   )
 `;
 

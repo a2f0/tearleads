@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { test as bunTest, expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
@@ -102,6 +102,12 @@ interface DownstreamContentKeyRowCounts {
 
 const TEST_CONTACTS_SYSTEM_SLOT =
   "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+type TestCallback = () => Promise<void> | void;
+
+function test(name: string, run: TestCallback): void {
+  bunTest(name, run, 10_000);
+}
 
 interface SeededDownstreamContentKeyRows {
   readonly blobId: string;
@@ -3098,7 +3104,7 @@ test("POST /containers/:containerId/move validates destination manifest heads", 
     ?.updatedAt.toISOString();
   expect(movedSourceUpdatedAt).toBe(movedGrandchildUpdatedAt);
   expect(movedSourceUpdatedAt).not.toBe(preMoveUpdatedAt.toISOString());
-}, 10_000);
+});
 
 test("POST /containers/:containerId/move emits tombstones when inherited access is lost", async () => {
   const owner = createTestUser();

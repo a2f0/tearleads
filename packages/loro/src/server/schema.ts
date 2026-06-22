@@ -7,7 +7,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "drizzle-orm/pg-core";
+} from "./columns";
 
 export const documents = pgTable(
   "documents",

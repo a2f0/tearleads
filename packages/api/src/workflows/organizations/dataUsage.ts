@@ -10,6 +10,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
+import { uuidValue } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "./access";
 
 interface OrganizationDataUsageRow {
@@ -67,7 +68,7 @@ async function loadOrganizationDataUsageInTransaction(input: {
       from ${documentUpdates}
       inner join ${documentContentWriteHeaders}
         on ${documentContentWriteHeaders.updateId} = ${documentUpdates.id}
-      where ${documentContentWriteHeaders.organizationId} = ${input.organizationId}::uuid
+      where ${documentContentWriteHeaders.organizationId} = ${uuidValue(input.organizationId)}
       group by
         ${documentUpdates.id},
         ${documentUpdates.documentId},
@@ -75,9 +76,9 @@ async function loadOrganizationDataUsageInTransaction(input: {
     ),
     document_usage as (
       select
-        coalesce(sum("byteLength"), 0)::text as "documentByteLength",
-        count(distinct "documentId")::text as "documentCount",
-        count("updateId")::text as "documentUpdateCount"
+        coalesce(sum("byteLength"), 0) as "documentByteLength",
+        count(distinct "documentId") as "documentCount",
+        count("updateId") as "documentUpdateCount"
       from document_rows
     ),
     blob_rows as (
@@ -87,12 +88,12 @@ async function loadOrganizationDataUsageInTransaction(input: {
       from ${blobs}
       inner join ${blobContentWriteHeaders}
         on ${blobContentWriteHeaders.blobId} = ${blobs.id}
-      where ${blobContentWriteHeaders.organizationId} = ${input.organizationId}::uuid
+      where ${blobContentWriteHeaders.organizationId} = ${uuidValue(input.organizationId)}
     ),
     blob_usage as (
       select
-        coalesce(sum("byteLength"), 0)::text as "blobByteLength",
-        count("blobId")::text as "blobCount"
+        coalesce(sum("byteLength"), 0) as "blobByteLength",
+        count("blobId") as "blobCount"
       from blob_rows
     )
     select
@@ -102,9 +103,9 @@ async function loadOrganizationDataUsageInTransaction(input: {
       blob_usage."blobByteLength",
       blob_usage."blobCount",
       (
-        document_usage."documentByteLength"::bigint +
-        blob_usage."blobByteLength"::bigint
-      )::text as "totalByteLength"
+        document_usage."documentByteLength" +
+        blob_usage."blobByteLength"
+      ) as "totalByteLength"
     from document_usage, blob_usage
   `);
   const row = result.rows[0];

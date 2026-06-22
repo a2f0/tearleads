@@ -11,6 +11,7 @@ import {
   type OrganizationGroupContainerResponse,
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
+import { booleanExpression, jsonTextProperty } from "../../utils/sqlDialect";
 
 export interface OrganizationContainerGrantRow {
   accessLevel: string;
@@ -127,12 +128,14 @@ export function listOrganizationContainerGrantRows(input: {
       containerId: containers.id,
       createdAt: containers.createdAt,
       depth: containers.depth,
-      isBuiltin: sql<boolean>`${containerBuiltinGrants.id} is not null`,
+      isBuiltin: booleanExpression(
+        sql`${containerBuiltinGrants.id} is not null`,
+      ),
       metadataAccessEpoch: accessManifestHeads.epoch,
       metadataAccessStateHash: accessManifestHeads.manifestHash,
       metadataDocumentId: sql<
         string | null
-      >`${accessManifests.state}->>'metadataDocumentId'`,
+      >`${jsonTextProperty(sql`${accessManifests.state}`, "metadataDocumentId")}`,
       parentId: containers.parentId,
       subjectId: accessManifestContainerGrantProjection.subjectId,
       subjectType: accessManifestContainerGrantProjection.subjectType,

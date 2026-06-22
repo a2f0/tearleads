@@ -12,7 +12,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "drizzle-orm/pg-core";
+} from "./columns";
 
 /**
  * Content-key epochs for encrypted blob payloads.

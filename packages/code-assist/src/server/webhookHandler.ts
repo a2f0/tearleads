@@ -1,4 +1,5 @@
 import { Webhooks } from "@octokit/webhooks";
+import { isTrustedAssociation } from "../github/trust";
 import { handlePullRequest } from "../handlers/handlePullRequest";
 import { handleReviewComment } from "../handlers/handleReviewComment";
 import type { ServerConfig } from "./serverConfig";
@@ -21,6 +22,17 @@ export function createWebhooks(config: ServerConfig): Webhooks {
       const installationId = payload.installation?.id;
       if (installationId === undefined) {
         console.warn("pull_request event without an installation id; ignoring");
+        return;
+      }
+      // Do not ship untrusted code to the LLM or act on fork/external PRs.
+      if (
+        payload.pull_request.head.repo?.fork === true ||
+        !isTrustedAssociation(payload.pull_request.author_association)
+      ) {
+        console.log(
+          `PR #${payload.pull_request.number} from untrusted author ` +
+            `(${payload.pull_request.author_association}); skipping auto-review`,
+        );
         return;
       }
       const task = handlePullRequest({
@@ -48,6 +60,17 @@ export function createWebhooks(config: ServerConfig): Webhooks {
       return;
     }
     const { comment } = payload;
+    // Only trusted repository members may steer a re-check; an arbitrary
+    // commenter must not be able to drive an LLM reply posted under the bot's
+    // identity (prompt-injection / spend abuse).
+    if (!isTrustedAssociation(comment.author_association)) {
+      console.log(
+        `review comment from untrusted author ` +
+          `(${comment.author_association}) on PR #${payload.pull_request.number}; ` +
+          `skipping re-check`,
+      );
+      return;
+    }
     const task = handleReviewComment({
       app: config.app,
       review: config.review,

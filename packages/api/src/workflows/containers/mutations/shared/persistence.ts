@@ -20,6 +20,11 @@ import {
   projectionVerifiedAccessEventRecord,
 } from "../../../../keyingProjectionRecords";
 import {
+  intExpression,
+  timestampValue,
+  uuidValue,
+} from "../../../../utils/sqlDialect";
+import {
   KeyingReadAccessError,
   resolveReadableContainerAccess,
 } from "../../../keyingReadAccess";
@@ -248,9 +253,9 @@ async function persistContainerStructure(
     with recursive subtree as (
       select
         ${containers.id} as id,
-        ${destinationParent.depth + 1}::int as next_depth
+        ${intExpression(sql`${destinationParent.depth + 1}`)} as next_depth
       from ${containers}
-      where ${containers.id} = ${state.containerId}::uuid
+      where ${containers.id} = ${uuidValue(state.containerId)}
       union all
       select
         child.id,
@@ -258,16 +263,19 @@ async function persistContainerStructure(
       from ${containers} child
       inner join subtree on child.parent_id = subtree.id
     )
-    update ${containers} c
+    update ${containers}
     set
       parent_id = case
-        when c.id = ${state.containerId}::uuid then ${state.parentContainerId}::uuid
-        else c.parent_id
+        when ${containers.id} = ${uuidValue(state.containerId)} then ${uuidValue(state.parentContainerId)}
+        else ${containers.parentId}
       end,
-      depth = subtree.next_depth,
-      updated_at = ${updatedAt}
-    from subtree
-    where c.id = subtree.id
+      depth = (
+        select subtree.next_depth
+        from subtree
+        where subtree.id = ${containers.id}
+      ),
+      updated_at = ${timestampValue(updatedAt)}
+    where ${containers.id} in (select id from subtree)
   `);
 
   return {

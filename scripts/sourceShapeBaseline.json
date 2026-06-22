@@ -66,12 +66,12 @@
       "bytes": 21242
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 553,
-      "bytes": 17656
+      "lines": 599,
+      "bytes": 18921
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
-      "lines": 1047,
-      "bytes": 30771
+      "lines": 1074,
+      "bytes": 31365
     },
     "packages/api/src/access/shared/internal/principalStateStore.ts": {
       "lines": 914,
@@ -102,8 +102,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3485,
-      "bytes": 113793
+      "lines": 3489,
+      "bytes": 113920
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1269,
@@ -111,7 +111,7 @@
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2550,
-      "bytes": 84205
+      "bytes": 84229
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1049,
@@ -134,8 +134,8 @@
       "bytes": 33675
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
-      "lines": 636,
-      "bytes": 18731
+      "lines": 644,
+      "bytes": 18997
     },
     "packages/api/src/workflows/documents/mutations/shared/records.ts": {
       "lines": 560,

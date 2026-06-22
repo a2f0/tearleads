@@ -10,13 +10,14 @@ import type {
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import {
   encodeExternalBlobBytesRef,
   readMultipartBlobStageRecord,
 } from "../../../utils/blobStageRecords";
+import { nowExpression } from "../../../utils/sqlDialect";
 import {
   BlobMutationError,
   type PrevalidatedMultipartBlobStage,
@@ -205,7 +206,7 @@ export async function detachActiveSlotBinding(input: {
 
   await input.executor
     .update(attachmentBindings)
-    .set({ detachedAt: sql`now()` })
+    .set({ detachedAt: nowExpression() })
     .where(eq(attachmentBindings.id, input.activeBinding.id));
 }
 

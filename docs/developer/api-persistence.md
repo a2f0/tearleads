@@ -8,6 +8,7 @@ Use `API_DATABASE` to select the database adapter:
 
 - `memory` or unset: in-memory PGlite with the API Drizzle migrations applied at startup.
 - `postgres`: node-postgres with the API Drizzle migrations applied at startup.
+- `sqlite`: Bun's native SQLite driver with the API SQLite Drizzle migrations applied at startup.
 
 Postgres accepts either a connection URL:
 
@@ -48,6 +49,21 @@ sh scripts/postgres/reset.sh
 ```
 
 The reset script only drops `tearleads_development`.
+
+SQLite uses an in-memory database by default. Set `API_SQLITE_PATH` or
+`SQLITE_PATH` to persist it to a file:
+
+```sh
+API_DATABASE=sqlite API_SQLITE_PATH=.data/api.sqlite bun run --filter=@tearleads/api dev
+```
+
+API package tests run against both in-memory PGlite and SQLite:
+
+```sh
+bun run --filter=@tearleads/api test
+```
+
+The test runner prints elapsed time for each adapter.
 
 ## Blob Object Store
 

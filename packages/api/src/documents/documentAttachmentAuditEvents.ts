@@ -11,6 +11,7 @@ import {
 import { desc, eq, inArray } from "drizzle-orm";
 import { uniqueSortedStrings } from "../utils/array";
 import { sha256Hex } from "../utils/sha256";
+import { isSqliteApiDatabase } from "../utils/sqlDialect";
 import { serializeAuditHashField } from "./auditHashField";
 
 export const DOCUMENT_AUDIT_EVENT_TYPE_ATTACHMENT = "attachment_event";
@@ -173,12 +174,16 @@ export async function appendDocumentAttachmentAuditEntries(
     return;
   }
 
-  await executor
+  const documentLockQuery = executor
     .select({ id: documents.id })
     .from(documents)
     .where(eq(documents.id, input.documentId))
-    .limit(1)
-    .for("update");
+    .limit(1);
+  if (isSqliteApiDatabase()) {
+    await documentLockQuery;
+  } else {
+    await documentLockQuery.for("update");
+  }
 
   await ensureBlobAuditObjects(
     executor,

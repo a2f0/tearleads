@@ -1,18 +1,33 @@
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import {
-  drizzle as drizzleNodePostgres,
-  type NodePgDatabase,
-} from "drizzle-orm/node-postgres";
+import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
 import { migrate as migrateNodePostgres } from "drizzle-orm/node-postgres/migrator";
-import type { PgliteDatabase } from "drizzle-orm/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import pg, { type PoolConfig } from "pg";
 import * as schema from "../schema";
+import { readApiDatabaseKind } from "../schema/dialect";
+import { createSqliteApiDatabase } from "./sqliteAdapter";
+import type {
+  ApiDatabaseKind,
+  ManagedApiDatabase,
+  MigrationOptions,
+} from "./types";
 
 const { Pool } = pg;
+
+export type {
+  ApiDatabase,
+  ApiDatabaseKind,
+  ApiDatabaseSurface,
+  ApiSchema,
+  DatabaseSession,
+  DatabaseTransaction,
+  ManagedApiDatabase,
+  MigrationOptions,
+  TransactionCallback,
+} from "./types";
 
 interface ApiDatabaseEnv {
   readonly API_DATABASE?: string | undefined;
@@ -31,45 +46,19 @@ interface ApiDatabaseEnv {
   readonly POSTGRES_SSL_REJECT_UNAUTHORIZED?: string | undefined;
   readonly POSTGRES_URL?: string | undefined;
   readonly POSTGRES_USER?: string | undefined;
+  readonly API_SQLITE_PATH?: string | undefined;
+  readonly SQLITE_PATH?: string | undefined;
   readonly USER?: string | undefined;
   readonly LOGNAME?: string | undefined;
   readonly [key: string]: string | undefined;
 }
 
-export type ApiDatabaseKind = "memory" | "postgres";
-
-type ApiSchema = typeof schema;
-type ConcreteApiDatabase =
-  | NodePgDatabase<ApiSchema>
-  | PgliteDatabase<ApiSchema>;
-type ApiDatabaseSurface = Pick<
-  PgliteDatabase<ApiSchema>,
-  "delete" | "execute" | "insert" | "select" | "transaction" | "update"
->;
-export type ApiDatabase = ConcreteApiDatabase & ApiDatabaseSurface;
-type TransactionCallback = Parameters<ApiDatabase["transaction"]>[0];
-export type DatabaseTransaction = Parameters<TransactionCallback>[0];
-// Shared statement surface for helpers that can run against either the root
-// database or an active transaction, without starting their own transaction.
-export type DatabaseSession = Pick<
-  ApiDatabase,
-  "delete" | "execute" | "insert" | "select" | "update"
->;
-
-const migrationsFolder = fileURLToPath(
+const postgresMigrationsFolder = fileURLToPath(
   new URL("../../drizzle", import.meta.url),
 );
-
-export interface MigrationOptions {
-  readonly migrationsFolder?: string;
-}
-
-export interface ManagedApiDatabase {
-  readonly db: ApiDatabase;
-  readonly kind: ApiDatabaseKind;
-  close(): Promise<void>;
-  migrate(options?: MigrationOptions): Promise<void>;
-}
+const sqliteMigrationsFolder = fileURLToPath(
+  new URL("../../drizzle-sqlite", import.meta.url),
+);
 
 const databaseUrlKeys = ["DATABASE_URL", "POSTGRES_URL"] as const;
 const hostKeys = ["POSTGRES_HOST", "PGHOST"] as const;
@@ -77,6 +66,7 @@ const portKeys = ["POSTGRES_PORT", "PGPORT"] as const;
 const userKeys = ["POSTGRES_USER", "PGUSER"] as const;
 const passwordKeys = ["POSTGRES_PASSWORD", "PGPASSWORD"] as const;
 const databaseKeys = ["POSTGRES_DATABASE", "PGDATABASE"] as const;
+const sqlitePathKeys = ["API_SQLITE_PATH", "SQLITE_PATH"] as const;
 const postgresPoolSizing = {
   max: 15,
   idleTimeoutMillis: 30_000,
@@ -139,18 +129,6 @@ function getPostgresDevDefaults(env: ApiDatabaseEnv): {
   };
 
   return user ? { ...defaults, user } : defaults;
-}
-
-function readApiDatabaseKind(env: ApiDatabaseEnv): ApiDatabaseKind {
-  const value = getEnvValue(env, ["API_DATABASE"]) ?? "memory";
-  if (value === "memory" || value === "pglite") {
-    return "memory";
-  }
-  if (value === "postgres") {
-    return "postgres";
-  }
-
-  throw new Error(`Unsupported API_DATABASE value: ${value}`);
 }
 
 function readPostgresSslConfig(
@@ -255,7 +233,7 @@ function createMemoryApiDatabase(): ManagedApiDatabase {
     close: () => client.close(),
     migrate: (options) =>
       migrate(db, {
-        migrationsFolder: options?.migrationsFolder ?? migrationsFolder,
+        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder,
       }),
   };
 }
@@ -270,7 +248,7 @@ function createPostgresApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
     close: () => pool.end(),
     migrate: (options) =>
       migrateNodePostgres(db, {
-        migrationsFolder: options?.migrationsFolder ?? migrationsFolder,
+        migrationsFolder: options?.migrationsFolder ?? postgresMigrationsFolder,
       }),
   };
 }
@@ -281,6 +259,12 @@ export function createDefaultManagedApiDatabase(
   const kind = readApiDatabaseKind(env);
   if (kind === "memory") {
     return createMemoryApiDatabase();
+  }
+  if (kind === "sqlite") {
+    return createSqliteApiDatabase({
+      sqlitePath: getEnvValue(env, sqlitePathKeys) ?? ":memory:",
+      migrationsFolder: sqliteMigrationsFolder,
+    });
   }
 
   return createPostgresApiDatabase(env);

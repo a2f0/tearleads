@@ -10,6 +10,7 @@
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",
+    "db:generate:sqlite": "API_DATABASE=sqlite drizzle-kit generate --config drizzle.sqlite.config.ts",
     "test": "bun test src"
   },
   "dependencies": {

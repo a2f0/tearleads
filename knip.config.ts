@@ -10,11 +10,10 @@ const baseConfig = {
       ignoreBinaries: ["ansible-lint", "shellcheck"],
     },
     "packages/api": {
-      // `test/preload.ts` is discovered from bunfig.toml. There are no
-      // standalone `test/**/*.test.ts` files; `test/**/*.ts` stays in project so
-      // helper modules are still checked when reached from source tests.
-      entry: ["src/appTestRuntime.ts", "src/**/*.test.ts"],
-      project: ["src/**/*.ts", "test/**/*.ts"],
+      // The package test script launches Bun from `scripts/testAllDatabases.ts`;
+      // `test/preload.ts` is loaded by Bun from `bunfig.toml`.
+      entry: ["src/appTestRuntime.ts", "src/**/*.test.ts", "test/preload.ts"],
+      project: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
     },
     "packages/api-client": {
       entry: ["src/**/*.test.ts"],

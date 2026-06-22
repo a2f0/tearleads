@@ -1,10 +1,4 @@
-import {
-  index,
-  pgTable,
-  timestamp,
-  uniqueIndex,
-  uuid,
-} from "drizzle-orm/pg-core";
+import { index, pgTable, timestamp, uniqueIndex, uuid } from "./columns";
 
 /**
  * Current materialized document-to-container links.
