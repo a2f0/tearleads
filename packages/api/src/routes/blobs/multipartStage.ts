@@ -22,9 +22,8 @@ import {
   uploadMultipartBlobPartStream,
 } from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { isUuidString } from "../../utils/uuid";
 
-const UUID_PATTERN =
-  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
 const BLOB_PART_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Part-Byte-Length";
 const BLOB_PART_SHA256_HEADER = "X-Tearleads-Blob-Part-Sha256";
 const BLOB_PART_UPLOAD_ID_HEADER = "X-Tearleads-Blob-Upload-Id";
@@ -41,10 +40,6 @@ interface JsonValidationContext {
 interface MultipartBlobPartParams {
   readonly partNumber: number;
   readonly stageId: string;
-}
-
-function isUuidString(value: string): boolean {
-  return new RegExp(UUID_PATTERN).test(value);
 }
 
 function readStringProperty(value: unknown, key: string): string | null {

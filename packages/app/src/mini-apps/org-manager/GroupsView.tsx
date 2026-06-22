@@ -48,6 +48,7 @@ import { useContextMenuState } from "../../components/shared/useContextMenuState
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import {
   compactFingerprint,
+  EMPTY_PROFILE_DISPLAY_NAMES,
   getAccessLabel,
   getContainerDisplayLabel,
   getContainerDisplayTitle,
@@ -103,7 +104,6 @@ const GROUP_TABLE_COLUMNS = [
     width: "8rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
-const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
 
 function GroupTable({
   groups,

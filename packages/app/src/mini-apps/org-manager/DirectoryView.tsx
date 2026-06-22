@@ -52,7 +52,11 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
-import { compactFingerprint, isKeyboardActivationKey } from "./display";
+import {
+  compactFingerprint,
+  EMPTY_PROFILE_DISPLAY_NAMES,
+  isKeyboardActivationKey,
+} from "./display";
 import { GrantTable } from "./GrantTable";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { UserRosterMetadata } from "./RosterMetadata";
@@ -75,7 +79,6 @@ const DIRECTORY_TABLE_COLUMNS = [
     width: "8rem",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn>;
-const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
 
 type RenderRosterProfileEditor = (input: {
   canEdit: boolean;

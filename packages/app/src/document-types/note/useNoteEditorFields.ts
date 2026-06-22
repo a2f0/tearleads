@@ -15,6 +15,7 @@ import {
 import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { readDocumentAttachmentUpload } from "../shared/documentAttachmentUtils";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 
 type NoteAttachmentStatusBySlotId = Readonly<
@@ -40,16 +41,6 @@ interface NoteEditorFieldsModel {
   setText: (text: string) => void;
   syncing: boolean;
   text: string;
-}
-
-async function readAttachmentUpload(
-  file: File,
-): Promise<DocumentAttachmentUpload> {
-  return {
-    bytes: new Uint8Array(await file.arrayBuffer()),
-    mimeType: file.type.length > 0 ? file.type : null,
-    name: file.name,
-  };
 }
 
 function useNoteDropzone(
@@ -112,7 +103,7 @@ function useNoteAttachmentActions({
         return;
       }
 
-      void Promise.all(Array.from(fileList).map(readAttachmentUpload))
+      void Promise.all(Array.from(fileList).map(readDocumentAttachmentUpload))
         .then((uploads) => attachFiles(uploads))
         .catch((error) => {
           logError("Failed to attach note files", error);

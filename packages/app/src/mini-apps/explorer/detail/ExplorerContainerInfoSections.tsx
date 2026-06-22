@@ -29,6 +29,7 @@ import {
   getExplorerContainerInfoRecipientSummaryLabel,
 } from "../labels";
 import type { MiniAppWindowPosition } from "../types";
+import { compactId } from "./compactId";
 import { getContainerInfoShareableGroups } from "./ExplorerContainerInfoState";
 
 type ExplorerContainerInfoGrantSubjectType = NonNullable<
@@ -59,14 +60,6 @@ function isContainerShareAccessLevel(
   return value === "admin" || value === "read" || value === "write";
 }
 
-function compactPrincipalId(value: string): string {
-  if (value.length <= 18) {
-    return value;
-  }
-
-  return `${value.slice(0, 10)}...${value.slice(-6)}`;
-}
-
 function principalLabel(
   subjectType: string,
   subjectId: string,
@@ -81,7 +74,7 @@ function principalLabel(
     }
   }
 
-  return compactPrincipalId(subjectId);
+  return compactId(subjectId);
 }
 
 function sourceContainerLabel(
@@ -89,8 +82,7 @@ function sourceContainerLabel(
   containerNamesById: ReadonlyMap<string, string>,
 ): string {
   return (
-    containerNamesById.get(sourceContainerId) ??
-    compactPrincipalId(sourceContainerId)
+    containerNamesById.get(sourceContainerId) ?? compactId(sourceContainerId)
   );
 }
 
@@ -172,9 +164,7 @@ function ExplorerContainerInfoSyncCursorList(params: {
                     {formatMiniAppDateTime(cursor.watermarkUpdatedAt)}
                   </div>
                   <code title={cursor.watermarkId ?? undefined}>
-                    {cursor.watermarkId
-                      ? compactPrincipalId(cursor.watermarkId)
-                      : ""}
+                    {cursor.watermarkId ? compactId(cursor.watermarkId) : ""}
                   </code>
                 </>
               ) : (
@@ -282,21 +272,21 @@ function ExplorerContainerInfoSecuritySection(params: {
           <tr>
             <th>{EXPLORER_LABELS.containerInfoSecurityManifestHashRow}</th>
             <td title={security.currentManifestHash}>
-              {compactPrincipalId(security.currentManifestHash)}
+              {compactId(security.currentManifestHash)}
             </td>
           </tr>
           <tr>
             <th>{EXPLORER_LABELS.containerInfoSecurityKeyEpochRow}</th>
             <td title={security.currentContainerKeyEpochId}>
               {security.currentContainerKeyEpoch} /{" "}
-              {compactPrincipalId(security.currentContainerKeyEpochId)}
+              {compactId(security.currentContainerKeyEpochId)}
             </td>
           </tr>
           <tr>
             <th>{EXPLORER_LABELS.containerInfoSecurityParentKeyEpochRow}</th>
             <td title={security.currentParentContainerKeyEpochId ?? undefined}>
               {security.currentParentContainerKeyEpochId
-                ? compactPrincipalId(security.currentParentContainerKeyEpochId)
+                ? compactId(security.currentParentContainerKeyEpochId)
                 : "-"}
             </td>
           </tr>
@@ -337,19 +327,19 @@ function ExplorerContainerInfoSecuritySection(params: {
             <tr key={`${entry.containerId}:${entry.manifestHash}`}>
               <td title={entry.containerId}>
                 {containerNamesById.get(entry.containerId) ??
-                  compactPrincipalId(entry.containerId)}
+                  compactId(entry.containerId)}
               </td>
               <td title={entry.manifestHash}>
-                <div>{compactPrincipalId(entry.manifestHash)}</div>
+                <div>{compactId(entry.manifestHash)}</div>
                 <code title={entry.eventHash}>
                   {getExplorerContainerInfoEventLabel(
-                    compactPrincipalId(entry.eventHash),
+                    compactId(entry.eventHash),
                   )}
                 </code>
               </td>
               <td title={entry.containerKeyEpochId}>
                 <div>{entry.containerKeyEpoch}</div>
-                <code>{compactPrincipalId(entry.containerKeyEpochId)}</code>
+                <code>{compactId(entry.containerKeyEpochId)}</code>
               </td>
               <td>
                 {getExplorerContainerInfoRecipientSummaryLabel({
@@ -638,7 +628,7 @@ export function ExplorerContainerInfoHeader(params: {
     <MiniAppHeader>
       <MiniAppHeaderCopy>
         <strong>{EXPLORER_LABELS.containerInfoTitle}</strong>
-        <span>{containerName ?? compactPrincipalId(containerId)}</span>
+        <span>{containerName ?? compactId(containerId)}</span>
       </MiniAppHeaderCopy>
       <MiniAppActions>
         <MiniAppButton disabled={isSubmitting} onClick={onBackToContainer}>

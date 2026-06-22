@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback, useMemo, useState } from "react";
+import { type MouseEvent, useCallback, useState } from "react";
 import { MiniAppBusProvider } from "../../../mini-apps/bus";
 import { MINI_APPS } from "../../../mini-apps/registry";
 import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
@@ -13,6 +13,7 @@ import {
   WindowStateProvider,
 } from "../../window/WindowStateProvider";
 import { useRegisterUserId } from "../DualPaneProvider";
+import { useBootPaneLogEntries } from "../log/useBootPaneLogEntries";
 import { PaneFooter } from "../PaneFooter";
 import { PaneLog } from "../PaneLog";
 import { PaneStatus } from "../PaneStatus";
@@ -21,8 +22,6 @@ import { PaneContextMenu } from "./PaneContextMenu";
 
 const BOOT_PANE_LOG_MESSAGE =
   "Generate a key pair from the pane menu to boot this pane.";
-const LOCKED_PANE_LOG_MESSAGE =
-  "Unlock the local keychain to restore this pane.";
 
 function PaneInner({ className }: { className: string }) {
   const { userId } = useCryptoSession();
@@ -33,19 +32,11 @@ function PaneInner({ className }: { className: string }) {
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
   const hasSigningKeyPair = signingKeyPair !== null;
   const paneLocked = localKeyringLock.isLocked && !hasSigningKeyPair;
-  const bootPaneLogEntry = useMemo(
-    () => ({
-      id: "boot-pane-prompt",
-      level: "info" as const,
-      timestamp: Date.now(),
-      message: paneLocked ? LOCKED_PANE_LOG_MESSAGE : BOOT_PANE_LOG_MESSAGE,
-    }),
-    [paneLocked],
-  );
-  const trailingLogEntries = useMemo(
-    () => (hasSigningKeyPair ? [] : [bootPaneLogEntry]),
-    [bootPaneLogEntry, hasSigningKeyPair],
-  );
+  const trailingLogEntries = useBootPaneLogEntries({
+    bootMessage: BOOT_PANE_LOG_MESSAGE,
+    hasSigningKeyPair,
+    paneLocked,
+  });
 
   const handleContextMenu = useCallback((e: MouseEvent) => {
     e.preventDefault();

@@ -18,7 +18,7 @@ export function mergeSingleDocumentSummaryList(
   nextDocument: DocumentSummary,
 ): ReadonlyArray<DocumentSummary> {
   const existingDocumentIndex = currentDocumentSummaries.findIndex(
-    (note) => note.id === nextDocument.id,
+    (documentSummary) => documentSummary.id === nextDocument.id,
   );
 
   if (existingDocumentIndex < 0) {
@@ -46,8 +46,8 @@ export function getRequestedDocumentIds(
 ): ReadonlyArray<string> {
   return Array.from(
     new Set(
-      documentSummaries.flatMap((note) =>
-        note.documentId ? [note.documentId] : [],
+      documentSummaries.flatMap((documentSummary) =>
+        documentSummary.documentId ? [documentSummary.documentId] : [],
       ),
     ),
   ).sort();
@@ -95,7 +95,7 @@ export function mergeDocumentSummaryLists(
 
   for (const nextDocument of nextDocuments) {
     const existingDocumentIndex = nextDocumentSummaries.findIndex(
-      (note) => note.id === nextDocument.id,
+      (documentSummary) => documentSummary.id === nextDocument.id,
     );
 
     if (existingDocumentIndex < 0) {

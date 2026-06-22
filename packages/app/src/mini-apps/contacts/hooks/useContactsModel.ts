@@ -192,7 +192,7 @@ function useSelectInitialSelfContact(input: {
 function usePeerUserIdDraft(
   openImportContactRoute: () => void,
   peerUserId: string | null,
-  setDraftUserId: (setter: (currentId: string) => string) => void,
+  setDraftUserId: Dispatch<SetStateAction<string>>,
 ) {
   useEffect(() => {
     if (peerUserId) {

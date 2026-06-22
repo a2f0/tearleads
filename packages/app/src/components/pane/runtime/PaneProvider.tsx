@@ -38,16 +38,16 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
         navigationMode,
         storagePersistence,
       ),
+    // localIdentityNamespace and side are intentionally omitted: they only feed
+    // paneLocalIdentityNamespace (above), which is itself a dependency.
     [
       apiBaseUrl,
       createBlobStore,
       createLocalKeyring,
       createSQLiteRuntime,
       disableLocalIdentityPersistence,
-      localIdentityNamespace,
       navigationMode,
       paneLocalIdentityNamespace,
-      side,
       storagePersistence,
       wsUrl,
     ],

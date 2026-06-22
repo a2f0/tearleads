@@ -8,12 +8,10 @@ import {
   MiniAppHeader,
   MiniAppHeaderCopy,
 } from "../../components/shared/MiniAppLayout";
-import { compactFingerprint } from "./display";
+import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "./display";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { OrganizationProfileEditor } from "./OrganizationProfileEditor";
 import { PolicyHistorySection } from "./PolicyHistory";
-
-const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
 
 export function OrganizationView({
   directory,

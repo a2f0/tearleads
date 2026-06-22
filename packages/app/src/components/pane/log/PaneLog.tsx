@@ -1,6 +1,6 @@
 import { useLog } from "../../../providers/logging/LogProvider";
 
-interface PaneLogEntry {
+export interface PaneLogEntry {
   id: string;
   level: "error" | "info";
   timestamp: number;

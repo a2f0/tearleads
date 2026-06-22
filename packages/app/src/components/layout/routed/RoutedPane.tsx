@@ -17,6 +17,7 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useRegisterUserId } from "../../pane/DualPaneProvider";
+import { useBootPaneLogEntries } from "../../pane/log/useBootPaneLogEntries";
 import { PaneLog } from "../../pane/PaneLog";
 import { PaneStatus } from "../../pane/PaneStatus";
 import { Menu, type MenuPosition } from "../../shared/Menu";
@@ -34,27 +35,17 @@ import {
 import "./RoutedPane.css";
 
 const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
-const LOCKED_PANE_LOG_MESSAGE =
-  "Unlock the local keychain to restore this pane.";
 
 function RoutedPaneHome() {
   const { openMiniApp } = useAppNavigationActions();
   const { generateKey, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
   const paneLocked = localKeyringLock.isLocked && !signingKeyPair;
-  const bootPaneLogEntry = useMemo(
-    () => ({
-      id: "boot-pane-prompt",
-      level: "info" as const,
-      timestamp: Date.now(),
-      message: paneLocked ? LOCKED_PANE_LOG_MESSAGE : BOOT_PANE_LOG_MESSAGE,
-    }),
-    [paneLocked],
-  );
-  const trailingLogEntries = useMemo(
-    () => (signingKeyPair ? [] : [bootPaneLogEntry]),
-    [bootPaneLogEntry, signingKeyPair],
-  );
+  const trailingLogEntries = useBootPaneLogEntries({
+    bootMessage: BOOT_PANE_LOG_MESSAGE,
+    hasSigningKeyPair: signingKeyPair !== null,
+    paneLocked,
+  });
 
   return (
     <div className="routed-pane-home">

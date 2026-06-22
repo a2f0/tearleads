@@ -277,7 +277,7 @@ testApiClient("reports malformed blob byte responses", async () => {
 
   await expect(client.getBlob("blob-1")).resolves.toBeNull();
   expect(errors).toEqual([
-    "Invalid response shape for /blobs/blob-1/bytes: missing x-tearleads-blob-id, x-tearleads-blob-sha256",
+    "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, X-Tearleads-Blob-Sha256",
   ]);
 });
 
@@ -298,7 +298,7 @@ testApiClient(
 
     await expect(client.getBlob("blob-1")).resolves.toBeNull();
     expect(errors).toEqual([
-      "Invalid response shape for /blobs/blob-1/bytes: missing x-tearleads-blob-id, (x-tearleads-blob-byte-length or content-length), x-tearleads-blob-sha256",
+      "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, (X-Tearleads-Blob-Byte-Length or content-length), X-Tearleads-Blob-Sha256",
     ]);
   },
 );
