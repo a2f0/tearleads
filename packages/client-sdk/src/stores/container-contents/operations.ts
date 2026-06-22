@@ -193,7 +193,12 @@ export async function ensureSystemContainer(
     return toContainerNode(existing);
   }
 
-  if (state.runtime.auth.isAuthenticated && state.runtime.state.online) {
+  const allowSynchronousRemoteBootstrap = !options.deferRemoteBootstrap;
+  if (
+    state.runtime.auth.isAuthenticated &&
+    state.runtime.state.online &&
+    allowSynchronousRemoteBootstrap
+  ) {
     const hydrated = await hydrateExistingSystemContainer(
       state,
       syncAgent,
@@ -221,6 +226,7 @@ export async function ensureSystemContainer(
   const created = await createChildContainerState({
     systemSlot,
     createRemote:
+      allowSynchronousRemoteBootstrap &&
       state.runtime.auth.isAuthenticated &&
       Boolean(state.runtime.crypto.encapsulationKeyPair),
     name: trimmedName,

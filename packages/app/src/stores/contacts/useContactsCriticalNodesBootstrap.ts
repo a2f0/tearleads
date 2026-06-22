@@ -81,6 +81,7 @@ function useEnsureContactsContainer(input: {
   contactsSystemSlot: ContainerSystemSlot | null;
   containerContentsReady: boolean;
   containerContentsStore: ContactsContainerEnsurer;
+  deferRemoteBootstrap?: boolean | undefined;
   logError: (message: string | Error, cause?: unknown) => void;
 }): void {
   useEffect(() => {
@@ -97,6 +98,7 @@ function useEnsureContactsContainer(input: {
         input.contactsSystemSlot,
         CONTACTS_CONTAINER_NAME,
         {
+          deferRemoteBootstrap: input.deferRemoteBootstrap,
           skipAdvancedManagedRoot: true,
         },
       )
@@ -108,6 +110,7 @@ function useEnsureContactsContainer(input: {
     input.contactsSystemSlot,
     input.containerContentsReady,
     input.containerContentsStore,
+    input.deferRemoteBootstrap,
     input.logError,
   ]);
 }
@@ -163,6 +166,7 @@ export function useContactsCriticalNodesBootstrap(input: {
   contactsSystemSlot: ContainerSystemSlot | null;
   containerContentsReady: boolean;
   containerContentsStore: ContactsContainerEnsurer;
+  deferRemoteBootstrap?: boolean | undefined;
 }): void {
   const tearleads = useTearleads();
 
@@ -171,6 +175,7 @@ export function useContactsCriticalNodesBootstrap(input: {
     contactsSystemSlot: input.contactsSystemSlot,
     containerContentsReady: input.containerContentsReady,
     containerContentsStore: input.containerContentsStore,
+    deferRemoteBootstrap: input.deferRemoteBootstrap,
     logError: tearleads.logError,
   });
   useEnsureSelfContact({

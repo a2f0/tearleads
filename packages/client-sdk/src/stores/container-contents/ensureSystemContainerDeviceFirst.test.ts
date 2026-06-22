@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { BlobStore } from "../../data/blobContracts";
@@ -35,6 +36,7 @@ function createAuthenticatedRuntime(input: {
   domainScope: DomainScope;
   execSql: ExecSql;
   online: boolean;
+  writerReady?: boolean | undefined;
 }) {
   return createContainerContentsWorkflowRuntime({
     apiClient: input.apiClient,
@@ -44,7 +46,9 @@ function createAuthenticatedRuntime(input: {
       userId: "user-1",
     },
     crypto: {
-      encapsulationKeyPair: null,
+      encapsulationKeyPair: input.writerReady
+        ? generateKemSeedAndKeyPair()
+        : null,
       signingFingerprint: null,
       signingKeyPair: null,
     },
@@ -89,6 +93,10 @@ async function withReadyStore(
   body: (
     store: ReturnType<typeof createContainerContentsStore>,
   ) => Promise<void>,
+  options: {
+    apiClientOverrides?: Partial<ReturnType<typeof createMockApiClient>>;
+    writerReady?: boolean | undefined;
+  } = {},
 ): Promise<void> {
   const { close, execSql } = await createTestExecSql(
     "ensure-system-container-device-first-test",
@@ -96,10 +104,14 @@ async function withReadyStore(
   try {
     await seedLocalRootContainer(execSql);
     const runtime = createAuthenticatedRuntime({
-      apiClient: createMockApiClient({ listContainers }),
+      apiClient: createMockApiClient({
+        listContainers,
+        ...options.apiClientOverrides,
+      }),
       domainScope: {} as DomainScope,
       execSql,
       online,
+      writerReady: options.writerReady,
     });
     const store = createContainerContentsStore(runtime);
     store.updateRuntime(runtime);
@@ -189,6 +201,42 @@ test("ensureSystemContainer creates the slot locally while offline without touch
       expect(node?.systemSlot).toBe(TEST_SYSTEM_SLOT);
       expect(listContainersCalls).toBe(0);
       expect(store.getSnapshot().ready).toBe(true);
+    },
+  );
+});
+
+test("ensureSystemContainer can defer remote bootstrap for non-blocking startup", async () => {
+  // Contacts opens from local SQLite first; slow remote system-container I/O
+  // must not keep the mini-app on its loading gate.
+  let listContainersCalls = 0;
+  let projectionCalls = 0;
+  await withReadyStore(
+    true,
+    () => {
+      listContainersCalls += 1;
+      return new Promise<never>(() => {});
+    },
+    async (store) => {
+      const node = await store.ensureSystemContainer(
+        TEST_SYSTEM_SLOT,
+        "Contacts",
+        { deferRemoteBootstrap: true, skipAdvancedManagedRoot: true },
+      );
+
+      expect(node).not.toBeNull();
+      expect(node?.systemSlot).toBe(TEST_SYSTEM_SLOT);
+      expect(listContainersCalls).toBe(0);
+      expect(projectionCalls).toBe(0);
+      expect(store.getSnapshot().ready).toBe(true);
+    },
+    {
+      apiClientOverrides: {
+        getContainerWriterProjection: async () => {
+          projectionCalls += 1;
+          return null;
+        },
+      },
+      writerReady: true,
     },
   );
 });

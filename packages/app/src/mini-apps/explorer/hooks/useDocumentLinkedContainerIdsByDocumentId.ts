@@ -58,7 +58,9 @@ export function useDocumentLinkedContainerIdsByDocumentId(params: {
 
   useEffect(() => {
     if (dbStatus !== "ready" || requestedDocumentIds.length === 0) {
-      setLinkedContainerIdsByDocumentId(new Map());
+      setLinkedContainerIdsByDocumentId((currentMap) =>
+        currentMap.size === 0 ? currentMap : new Map(),
+      );
       return;
     }
 
