@@ -107,6 +107,9 @@ export function createProjectionUserKeyResolver(
           runtime.log?.(
             `${logPrefix}: skipped projection key for ${userId} because it could not be loaded.`,
           );
+          // Evict the rejected fetch so a transient failure can be retried on
+          // the next call rather than being cached as a permanent null.
+          cache.delete(userId);
           return null;
         });
       cache.set(userId, cached);

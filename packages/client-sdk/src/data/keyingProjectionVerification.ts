@@ -286,24 +286,24 @@ async function filterUncachedReferences(input: {
   principalPolicyCache: PrincipalPolicyCache;
   references: readonly ReferencedPrincipalHead[];
 }): Promise<ReferencedPrincipalHead[]> {
-  const uncached: ReferencedPrincipalHead[] = [];
-  for (const reference of input.references) {
-    if (
-      input.principalPolicyCache.has(referencedPrincipalPolicyKey(reference))
-    ) {
-      continue;
-    }
-    const bundle = await loadPrincipalPolicyBundle(
-      input.execSql,
-      reference.principalType,
-      reference.principalId,
-    );
-    if (!bundle) {
-      uncached.push(reference);
-    }
-  }
-
-  return uncached;
+  const results = await Promise.all(
+    input.references.map(async (reference) => {
+      if (
+        input.principalPolicyCache.has(referencedPrincipalPolicyKey(reference))
+      ) {
+        return null;
+      }
+      const bundle = await loadPrincipalPolicyBundle(
+        input.execSql,
+        reference.principalType,
+        reference.principalId,
+      );
+      return bundle ? null : reference;
+    }),
+  );
+  return results.filter(
+    (reference): reference is ReferencedPrincipalHead => reference !== null,
+  );
 }
 
 function canonicalString(value: unknown, label: string): string {
