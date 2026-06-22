@@ -66,6 +66,7 @@
     "packages/app-electrobun",
     "packages/bob-and-alice",
     "packages/client-sdk",
+    "packages/code-assist",
     "packages/crypto",
     "packages/encoding",
     "packages/loro",
