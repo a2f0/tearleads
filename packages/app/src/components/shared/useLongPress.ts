@@ -8,6 +8,8 @@ import {
 const LONG_PRESS_DELAY_MS = 450;
 /** Cancel the press if the finger drifts past this many px (a scroll, not a hold). */
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+/** Drop the click-suppressor if no synthesized click arrives within this window. */
+const SYNTHESIZED_CLICK_WINDOW_MS = 700;
 
 interface LongPressHandlers {
   onPointerCancel: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -27,13 +29,19 @@ interface LongPressHandlers {
  * verbatim. Mouse and pen pointers are ignored so right-click stays the desktop
  * affordance.
  *
+ * After the long press fires we register a one-shot capturing `click` listener
+ * on `window` to swallow the click the browser synthesizes on touch release —
+ * `preventDefault()` on `pointerup` does NOT suppress that click per the Pointer
+ * Events spec, so without this the element's `onClick` (navigate/select) would
+ * also run.
+ *
  * Pass `enabled: false` (e.g. when no context-menu handler is wired) to make the
  * returned handlers no-ops.
  */
 export function useLongPress(enabled: boolean): LongPressHandlers {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const originRef = useRef<{ x: number; y: number } | null>(null);
-  const firedRef = useRef(false);
+  const removeClickSuppressorRef = useRef<(() => void) | null>(null);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -43,7 +51,40 @@ export function useLongPress(enabled: boolean): LongPressHandlers {
     originRef.current = null;
   }, []);
 
-  useEffect(() => clearTimer, [clearTimer]);
+  // Swallow exactly the next click (the one the browser synthesizes from the
+  // touch release after a long press) and then detach. A timeout detaches the
+  // suppressor if that click never arrives, so a later genuine tap still works.
+  const armClickSuppressor = useCallback(() => {
+    removeClickSuppressorRef.current?.();
+
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    const onClickCapture = (clickEvent: MouseEvent) => {
+      clickEvent.preventDefault();
+      clickEvent.stopPropagation();
+      removeClickSuppressorRef.current?.();
+    };
+
+    const remove = () => {
+      window.removeEventListener("click", onClickCapture, true);
+      if (fallbackTimer !== null) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      removeClickSuppressorRef.current = null;
+    };
+
+    removeClickSuppressorRef.current = remove;
+    window.addEventListener("click", onClickCapture, true);
+    fallbackTimer = setTimeout(remove, SYNTHESIZED_CLICK_WINDOW_MS);
+  }, []);
+
+  useEffect(
+    () => () => {
+      clearTimer();
+      removeClickSuppressorRef.current?.();
+    },
+    [clearTimer],
+  );
 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
@@ -52,14 +93,13 @@ export function useLongPress(enabled: boolean): LongPressHandlers {
       }
 
       clearTimer();
-      firedRef.current = false;
       originRef.current = { x: event.clientX, y: event.clientY };
       const element = event.currentTarget;
       const clientX = event.clientX;
       const clientY = event.clientY;
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
-        firedRef.current = true;
+        armClickSuppressor();
         element.dispatchEvent(
           new MouseEvent("contextmenu", {
             bubbles: true,
@@ -70,7 +110,7 @@ export function useLongPress(enabled: boolean): LongPressHandlers {
         );
       }, LONG_PRESS_DELAY_MS);
     },
-    [clearTimer, enabled],
+    [armClickSuppressor, clearTimer, enabled],
   );
 
   const onPointerMove = useCallback(
@@ -90,23 +130,10 @@ export function useLongPress(enabled: boolean): LongPressHandlers {
     [clearTimer],
   );
 
-  const onPointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLElement>) => {
-      // A completed long-press already opened the menu; swallow the click that
-      // a touch release would otherwise synthesize so it doesn't also select.
-      if (firedRef.current) {
-        event.preventDefault();
-        firedRef.current = false;
-      }
-      clearTimer();
-    },
-    [clearTimer],
-  );
-
   return {
     onPointerCancel: clearTimer,
     onPointerDown,
     onPointerMove,
-    onPointerUp,
+    onPointerUp: clearTimer,
   };
 }

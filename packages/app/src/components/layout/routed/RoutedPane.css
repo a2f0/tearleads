@@ -196,11 +196,21 @@
   border-right: var(--border-strong);
   background: var(--color-muted);
   transform: translateX(-100%);
-  transition: transform 0.18s ease;
+  /* `visibility: hidden` takes the off-screen drawer out of the tab order and
+     the accessibility tree while closed; the delayed transition keeps it
+     visible through the slide-out so the animation still plays. */
+  visibility: hidden;
+  transition:
+    transform 0.18s ease,
+    visibility 0s linear 0.18s;
 }
 
 .routed-pane-drawer[data-open="true"] {
   transform: translateX(0);
+  visibility: visible;
+  transition:
+    transform 0.18s ease,
+    visibility 0s;
 }
 
 /* === Mini-app sidebar === */
