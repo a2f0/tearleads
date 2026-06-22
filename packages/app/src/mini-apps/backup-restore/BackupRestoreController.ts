@@ -252,13 +252,15 @@ function useRestoreFileSelection({
   return useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       resetOperationState();
+      selectionTokenRef.current += 1;
+      const selectionToken = selectionTokenRef.current;
       const file = event.currentTarget.files?.[0];
       if (!file) {
+        setSelectedRestoreFileName(null);
+        setSelectedRestoreFileText(null);
         return;
       }
 
-      selectionTokenRef.current += 1;
-      const selectionToken = selectionTokenRef.current;
       setSelectedRestoreFileName(file.name);
       void file
         .text()

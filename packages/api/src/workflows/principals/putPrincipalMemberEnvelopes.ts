@@ -12,6 +12,7 @@ import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import {
   PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,
+  toPrincipalMemberEnvelopeError,
 } from "./shared";
 
 export type PutPrincipalMemberEnvelopesInput =
@@ -120,61 +121,6 @@ async function assertRequesterMayWritePrincipalEnvelopes(
     "Principal member envelope writer is not authorized for this principal",
     403,
   );
-}
-
-export function toPrincipalMemberEnvelopeError(
-  error: unknown,
-): PrincipalPolicyError | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-
-  if (
-    error.message === "Principal member envelopes must target the current state"
-  ) {
-    return new PrincipalPolicyError(error.message, 409);
-  }
-
-  if (
-    error.message ===
-      "Principal member envelopes must match the current direct member set" ||
-    error.message ===
-      "Principal member envelopes must cover the current direct member set" ||
-    error.message.startsWith(
-      "Principal member envelope targets unknown member",
-    ) ||
-    error.message.startsWith("Principal member envelope fingerprint mismatch")
-  ) {
-    return new PrincipalPolicyError(error.message, 409);
-  }
-
-  if (
-    error.message.startsWith(
-      "Principal member envelope is missing wrapped material",
-    )
-  ) {
-    return new PrincipalPolicyError(error.message, 400);
-  }
-
-  if (
-    error.message.startsWith("Missing current principal state for ") ||
-    error.message === "Principal state not found"
-  ) {
-    return new PrincipalPolicyError("Principal state not found", 404);
-  }
-
-  if (
-    error.message.startsWith(
-      "Missing user recipient key for principal state member",
-    ) ||
-    error.message.startsWith(
-      "Missing current principal epoch key for group member",
-    )
-  ) {
-    return new PrincipalPolicyError(error.message, 409);
-  }
-
-  return null;
 }
 
 /**

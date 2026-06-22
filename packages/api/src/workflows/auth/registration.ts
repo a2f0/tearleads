@@ -54,8 +54,7 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
-import { toPrincipalMemberEnvelopeError } from "../principals/putPrincipalMemberEnvelopes";
-import { toPrincipalStateError } from "../principals/putPrincipalState";
+import { toPrincipalPolicyError } from "../principals/shared";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
 const INITIAL_ADMIN_GROUP_NAME = "Admins";
@@ -1157,16 +1156,9 @@ function toRegisterPrincipalPolicyError(
     return null;
   }
 
-  // Reuse the canonical principal-policy status mapping so registration emits
-  // the same 403/404/409/400 codes as putPrincipalState /
-  // putPrincipalMemberEnvelopes rather than collapsing everything into 400.
-  const principalPolicyError =
-    toPrincipalStateError(error) ?? toPrincipalMemberEnvelopeError(error);
-  if (principalPolicyError) {
-    return new RegistrationError(
-      principalPolicyError.message,
-      principalPolicyError.status,
-    );
+  const policyError = toPrincipalPolicyError(error);
+  if (policyError) {
+    return new RegistrationError(policyError.message, policyError.status);
   }
 
   if (
@@ -1176,13 +1168,7 @@ function toRegisterPrincipalPolicyError(
     return new RegistrationError(error.message, error.status);
   }
 
-  // Remaining principal-policy validation messages (structural input checks
-  // the precise mappers above do not enumerate) stay a 400 client error
-  // rather than escaping as an opaque 500.
-  if (
-    error.message.startsWith("Principal state ") ||
-    error.message.startsWith("Principal member envelope")
-  ) {
+  if (/^Principal (?:state |member envelope)/u.test(error.message)) {
     return new RegistrationError(error.message, 400);
   }
 

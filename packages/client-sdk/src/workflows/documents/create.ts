@@ -85,6 +85,69 @@ export function documentWriterProjectionFromCreateResponse(input: {
   };
 }
 
+function shouldRetryWithFreshContainerProjection(error: unknown): boolean {
+  return (
+    error instanceof Error && error.message.includes("could not be unwrapped")
+  );
+}
+
+async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
+  apiClient: DocumentCreateApi;
+  author: DocumentCreateAuthor;
+  containerId: string;
+  contentKey?: Uint8Array | undefined;
+  contentKeyEpoch?: number | undefined;
+  documentId?: string | undefined;
+  eventId?: string | undefined;
+  execSql?: ExecSql | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  signedAt?: string | undefined;
+  targetSecretKey: Uint8Array;
+}): Promise<{
+  readonly containerProjection: ContainerWriterProjectionResponse;
+  readonly materializedPlan: MaterializedDocumentCreatePlan;
+} | null> {
+  const buildWithProjection = async (
+    containerProjection: ContainerWriterProjectionResponse,
+  ) => ({
+    containerProjection,
+    materializedPlan: await buildMaterializedDocumentCreatePlan({
+      author: input.author,
+      containerProjection,
+      contentKey: input.contentKey,
+      contentKeyEpoch: input.contentKeyEpoch,
+      documentId: input.documentId,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      resolveProjectionUserKey: input.resolveProjectionUserKey,
+      signedAt: input.signedAt,
+      targetSecretKey: input.targetSecretKey,
+    }),
+  });
+
+  const containerProjection =
+    await input.apiClient.getContainerWriterProjection(input.containerId);
+  if (!containerProjection) {
+    return null;
+  }
+
+  try {
+    return await buildWithProjection(containerProjection);
+  } catch (error) {
+    if (
+      !input.apiClient.clearWriterProjectionCaches ||
+      !shouldRetryWithFreshContainerProjection(error)
+    ) {
+      throw error;
+    }
+  }
+
+  input.apiClient.clearWriterProjectionCaches();
+  const refreshedProjection =
+    await input.apiClient.getContainerWriterProjection(input.containerId);
+  return refreshedProjection ? buildWithProjection(refreshedProjection) : null;
+}
+
 export async function createRemoteDocument(input: {
   apiClient: DocumentCreateApi;
   author: DocumentCreateAuthor;
@@ -102,36 +165,36 @@ export async function createRemoteDocument(input: {
     input.resolveProjectionUserKey,
     "Remote document create",
   );
-  const containerProjection =
-    await input.apiClient.getContainerWriterProjection(input.containerId);
-  if (!containerProjection) {
+  const createPlan =
+    await buildMaterializedDocumentCreatePlanWithFreshProjection({
+      apiClient: input.apiClient,
+      author: input.author,
+      containerId: input.containerId,
+      contentKey: input.contentKey,
+      contentKeyEpoch: input.contentKeyEpoch,
+      documentId: input.documentId,
+      eventId: input.eventId,
+      execSql: input.execSql,
+      resolveProjectionUserKey,
+      signedAt: input.signedAt,
+      targetSecretKey: input.targetSecretKey,
+    });
+  if (!createPlan) {
     return null;
   }
 
-  const materializedPlan = await buildMaterializedDocumentCreatePlan({
-    author: input.author,
-    containerProjection,
-    contentKey: input.contentKey,
-    contentKeyEpoch: input.contentKeyEpoch,
-    documentId: input.documentId,
-    eventId: input.eventId,
-    execSql: input.execSql,
-    resolveProjectionUserKey,
-    signedAt: input.signedAt,
-    targetSecretKey: input.targetSecretKey,
-  });
   const response = await input.apiClient.createDocument(
-    materializedPlan.plan.request,
+    createPlan.materializedPlan.plan.request,
   );
   if (!response) {
     return null;
   }
   const persistedState = persistedDocumentCreateStateFromResponse(
-    materializedPlan.plan,
+    createPlan.materializedPlan.plan,
     response,
   );
   const writerProjection = documentWriterProjectionFromCreateResponse({
-    containerProjection,
+    containerProjection: createPlan.containerProjection,
     response,
   });
   // Seed the projection the create response already gave us so the first read
@@ -140,10 +203,10 @@ export async function createRemoteDocument(input: {
   input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
 
   return {
-    contentKey: materializedPlan.contentKey,
+    contentKey: createPlan.materializedPlan.contentKey,
     documentId: response.id,
     persistedState,
-    plan: materializedPlan.plan,
+    plan: createPlan.materializedPlan.plan,
     response,
     writerProjection,
   };

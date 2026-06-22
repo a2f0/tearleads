@@ -203,19 +203,19 @@ test("S3 blob object store rejects string-only SDK body transforms", async () =>
 test("S3 blob object store streams SDK web streams without string transforms", async () => {
   const { client, store } = createFakeS3BlobObjectStore();
   let transformToStringCalls = 0;
+  const source = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode("from-"));
+      controller.enqueue(new TextEncoder().encode("stream"));
+      controller.close();
+    },
+  });
   client.objectBodies.set("blob-stages/stream", {
     transformToString: async () => {
       transformToStringCalls += 1;
       return "from-transform";
     },
-    transformToWebStream: () =>
-      new ReadableStream({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode("from-"));
-          controller.enqueue(new TextEncoder().encode("stream"));
-          controller.close();
-        },
-      }),
+    transformToWebStream: () => source,
   });
 
   const stream = await store.getObjectStream("blob-stages/stream");
@@ -226,6 +226,7 @@ test("S3 blob object store streams SDK web streams without string transforms", a
   }
   await expect(new Response(stream).text()).resolves.toBe("from-stream");
   expect(transformToStringCalls).toBe(0);
+  expect(source.locked).toBe(false);
 });
 
 test("S3 blob object store cancels source streams after conversion errors", async () => {
@@ -279,6 +280,38 @@ test("S3 blob object store closes async iterable bodies after iteration errors",
     throw new Error("Expected S3 object stream");
   }
   await expect(new Response(stream).text()).rejects.toThrow("iterator failed");
+  expect(returned).toBe(true);
+});
+
+test("S3 blob object store closes async iterable bodies after normal completion", async () => {
+  const { client, store } = createFakeS3BlobObjectStore();
+  let nextCalls = 0;
+  let returned = false;
+  client.objectBodies.set("blob-stages/completed-iterable", {
+    [Symbol.asyncIterator]() {
+      return {
+        async next(): Promise<IteratorResult<string>> {
+          nextCalls += 1;
+          if (nextCalls === 1) {
+            return { done: false, value: "completed" };
+          }
+          return { done: true, value: "" };
+        },
+        async return(): Promise<IteratorResult<string>> {
+          returned = true;
+          return { done: true, value: "" };
+        },
+      };
+    },
+  });
+
+  const stream = await store.getObjectStream("blob-stages/completed-iterable");
+
+  expect(stream).not.toBeNull();
+  if (!stream) {
+    throw new Error("Expected S3 object stream");
+  }
+  await expect(new Response(stream).text()).resolves.toBe("completed");
   expect(returned).toBe(true);
 });
 

@@ -17,64 +17,15 @@ import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
 import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
-import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
+import {
+  PrincipalPolicyError,
+  toPrincipalStateError,
+  toPrincipalStateResponse,
+} from "./shared";
 
 export interface PutPrincipalStateInput extends PutPrincipalStateRequest {
   expectedPrincipalId: string;
   expectedPrincipalType: "group" | "organization";
-}
-
-export function toPrincipalStateError(
-  error: unknown,
-): PrincipalPolicyError | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-
-  if (error.message === "Invalid principal state signature") {
-    return new PrincipalPolicyError(error.message, 403);
-  }
-
-  if (
-    error.message === "Principal state signer user not found" ||
-    error.message === "Principal state signer fingerprint mismatch" ||
-    error.message === "Principal state signer must be an admin"
-  ) {
-    return new PrincipalPolicyError(error.message, 403);
-  }
-
-  if (
-    error.message === "Principal state version conflict" ||
-    error.message === "Principal epoch key conflict" ||
-    error.message === "Principal state previous hash mismatch" ||
-    error.message === "Principal state payload conflict" ||
-    error.message === "Principal state projection conflict" ||
-    error.message === "Principal policy transition principal mismatch" ||
-    error.message === "Principal policy transition version is not contiguous" ||
-    error.message === "Principal policy transition previous hash mismatch" ||
-    error.message === "Principal policy key epoch cannot decrease" ||
-    error.message === "Principal policy key change requires a new key epoch" ||
-    error.message ===
-      "Principal policy key epoch advance requires new key material" ||
-    error.message ===
-      "Principal policy shrink requires a new key epoch and key material"
-  ) {
-    return new PrincipalPolicyError(error.message, 409);
-  }
-
-  if (
-    error.message ===
-      "Principal state payload ciphertext hash does not match ciphertext" ||
-    error.message ===
-      "Principal state payloadCiphertextHash does not match encrypted payload" ||
-    error.message ===
-      "Principal state projectionRoot does not match projection" ||
-    error.message === "Principal state memberCount does not match projection"
-  ) {
-    return new PrincipalPolicyError(error.message, 400);
-  }
-
-  return null;
 }
 
 async function isOrgAdminAuthorizedPrincipalPolicySigner(

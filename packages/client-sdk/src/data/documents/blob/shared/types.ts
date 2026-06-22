@@ -55,6 +55,7 @@ export interface BlobAttachmentApi {
     blobId: string,
     input: BlobAttachmentBindRequest,
   ): Promise<BlobAttachmentBindResponse | null>;
+  clearWriterProjectionCaches?(): void;
   completeMultipartBlobStage?(
     stageId: string,
     input: CompleteMultipartBlobStageRequest,

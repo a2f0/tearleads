@@ -195,7 +195,7 @@ export class ApiClient {
     this.organizationGroupRequestsByOrganizationId.clear();
   }
 
-  private clearWriterProjectionCaches(): void {
+  clearWriterProjectionCaches(): void {
     this.containerWriterProjectionRequestsByContainerId.clear();
     this.documentWriterProjectionRequestsByDocumentId.clear();
   }
