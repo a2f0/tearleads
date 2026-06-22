@@ -6,21 +6,29 @@ import {
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { isSelfContactLocalId } from "../../stores/contacts/selfContact";
 import {
+  getSharedSystemContainerRulesByName,
   getUserSystemContainerRulesByKind,
+  isUnderForeignSharedRoot,
   type UserSystemContainerRules,
 } from "../../stores/systemContainers";
 
 // The configured rules keyed by the system slot they apply to. A container with
 // no system slot (a plain user container) has no rules and is fully mutable.
+// `currentOrganizationId` is the viewer's own organization; a container from a
+// different org is a peer's shared folder whose owner-derived slot the viewer
+// cannot match, so its rules are resolved by name instead (see
+// resolveContainerRules).
 export interface ExplorerContainerRulesContext {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
+  currentOrganizationId: string | null;
   rulesBySystemSlot: ReadonlyMap<ContainerSystemSlot, UserSystemContainerRules>;
 }
 
 interface ExplorerContainerRulesInput {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
+  currentOrganizationId: string | null;
   trashSystemSlot: ContainerSystemSlot | null;
 }
 
@@ -46,39 +54,69 @@ export function createExplorerContainerRulesContext(
   return {
     contactsContainerId: input.contactsContainerId,
     contactsSystemSlot: input.contactsSystemSlot,
+    currentOrganizationId: input.currentOrganizationId,
     rulesBySystemSlot,
   };
 }
 
+// Fields a container must carry for its rules to be resolvable. `name` and
+// `organizationId` are only consulted for the shared-root fallback below; a
+// same-org container is resolved purely by slot.
+type ContainerRulesNode = Pick<
+  ContainerNode,
+  "systemSlot" | "name" | "organizationId"
+>;
+
 function resolveContainerRules(
   context: ExplorerContainerRulesContext,
-  container: Pick<ContainerNode, "systemSlot"> | undefined,
+  container: ContainerRulesNode | undefined,
 ): UserSystemContainerRules | null {
-  const systemSlot = container?.systemSlot ?? null;
-  if (!systemSlot) {
+  if (!container) {
     return null;
   }
 
-  return context.rulesBySystemSlot.get(systemSlot) ?? null;
+  const systemSlot = container.systemSlot ?? null;
+  if (systemSlot) {
+    const rulesBySlot = context.rulesBySystemSlot.get(systemSlot);
+    if (rulesBySlot) {
+      return rulesBySlot;
+    }
+  }
+
+  // A peer's system folder under a shared root carries the owner's opaque HMAC
+  // slot, which never matches the viewer's own slots, so the slot lookup above
+  // misses. Fall back to resolving the rules by name — but only for a genuine
+  // foreign-org shared folder, so a same-org sibling cannot spoof a system name
+  // to fabricate rules. Own-org containers therefore stay strictly slot-keyed.
+  if (
+    isUnderForeignSharedRoot({
+      currentOrganizationId: context.currentOrganizationId,
+      organizationId: container.organizationId,
+    })
+  ) {
+    return getSharedSystemContainerRulesByName(container.name);
+  }
+
+  return null;
 }
 
 export function canMoveContainerByRules(
   context: ExplorerContainerRulesContext,
-  container: Pick<ContainerNode, "systemSlot"> | undefined,
+  container: ContainerRulesNode | undefined,
 ): boolean {
   return resolveContainerRules(context, container)?.protectFromMove !== true;
 }
 
 export function canDeleteContainerByRules(
   context: ExplorerContainerRulesContext,
-  container: Pick<ContainerNode, "systemSlot"> | undefined,
+  container: ContainerRulesNode | undefined,
 ): boolean {
   return resolveContainerRules(context, container)?.protectFromDelete !== true;
 }
 
 export function canRenameContainerByRules(
   context: ExplorerContainerRulesContext,
-  container: Pick<ContainerNode, "systemSlot"> | undefined,
+  container: ContainerRulesNode | undefined,
 ): boolean {
   return resolveContainerRules(context, container)?.protectFromRename !== true;
 }
@@ -87,7 +125,7 @@ export function canRenameContainerByRules(
 // (e.g. the Trash, which is only ever populated by deleting documents).
 export function canUploadToContainerByRules(
   context: ExplorerContainerRulesContext,
-  container: Pick<ContainerNode, "systemSlot"> | undefined,
+  container: ContainerRulesNode | undefined,
 ): boolean {
   return resolveContainerRules(context, container)?.protectFromUpload !== true;
 }
@@ -98,7 +136,7 @@ export function canUploadToContainerByRules(
 // since it carries no system slot.
 export function canUploadToContainerIdByRules(
   context: ExplorerContainerRulesContext,
-  nodes: ReadonlyArray<Pick<ContainerNode, "id" | "systemSlot">>,
+  nodes: ReadonlyArray<Pick<ContainerNode, "id"> & ContainerRulesNode>,
   containerId: string,
 ): boolean {
   return canUploadToContainerByRules(
@@ -117,7 +155,7 @@ export function isSelfContactDocument(
 // its contents (e.g. contacts must stay in the Contacts container).
 export function canMoveDocumentOutByRules(
   context: ExplorerContainerRulesContext,
-  currentContainer: Pick<ContainerNode, "systemSlot"> | undefined,
+  currentContainer: ContainerRulesNode | undefined,
 ): boolean {
   return (
     resolveContainerRules(context, currentContainer)
@@ -131,7 +169,7 @@ export function canMoveDocumentOutByRules(
 // permissive like the other rule helpers.
 export function canAddDocumentToContainerByRules(
   context: ExplorerContainerRulesContext,
-  destinationContainer: Pick<ContainerNode, "systemSlot"> | undefined,
+  destinationContainer: ContainerRulesNode | undefined,
   document: Pick<DocumentSummary, "documentKind"> | undefined,
 ): boolean {
   const acceptedDocumentKinds =

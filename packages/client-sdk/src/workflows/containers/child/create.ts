@@ -47,7 +47,10 @@ import {
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../../data/keyingCanonicalJson";
-import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
+import type {
+  ProjectionUserKeyResolver,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../../data/keyingProjectionVerification";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   requireProjectionUserKeyResolver,
@@ -56,10 +59,8 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
 
 function assertContainerCreatePlanInput(input: {
-  author: ContainerMutationAuthor;
   containerKey: Uint8Array;
   parentKekMaterial: Uint8Array;
-  parentProjection: ContainerWriterProjectionResponse;
 }): void {
   if (input.containerKey.byteLength !== 32) {
     throw new Error("Container KEK material must be 32 bytes");
@@ -67,11 +68,10 @@ function assertContainerCreatePlanInput(input: {
   if (input.parentKekMaterial.byteLength !== 32) {
     throw new Error("Container parent KEK material must be 32 bytes");
   }
-  if (input.author.organizationId !== input.parentProjection.organizationId) {
-    throw new Error(
-      "Container author organization does not match parent projection",
-    );
-  }
+  // The child container's organization is derived from the parent projection
+  // (see buildContainerCreatePlan), so it always matches the parent by
+  // construction — a member writing under another org's shared root is the
+  // expected case, not an error. The author supplies only the signer identity.
 }
 
 function buildContainerCreateRequest(input: {
@@ -144,21 +144,26 @@ export async function buildContainerCreatePlan(
     parentContainerId,
     parentManifestHash,
   });
+  // The new container belongs to the parent's organization, not the author's.
+  // A member writing under another org's shared root mints a container owned by
+  // that org; the author only supplies the signer identity.
+  const organizationId = context.parentProjection.organizationId;
   const { event, eventHash } = await signContainerCreateEvent({
     author: context.author,
     body,
     containerId: context.containerId,
     eventId: context.eventId,
+    organizationId,
     parentPath: context.parentProjection.path,
     signedAt: context.signedAt,
   });
   const { manifest, manifestHash, state } = await deriveContainerCreateManifest(
     {
-      author: context.author,
       containerId: context.containerId,
       containerKeyEpochId: context.containerKeyEpochId,
       eventHash,
       metadataDocumentId: context.metadataDocumentId,
+      organizationId,
       parentContainerId,
       parentManifestHash,
     },
@@ -226,6 +231,12 @@ export async function buildMaterializedContainerCreatePlan(
     parentProjection: ContainerWriterProjectionResponse;
     parentSecretKey: Uint8Array;
     signedAt?: string | undefined;
+    // Fetches the parent path's referenced principal policies on demand when
+    // they are not cached locally — lets a member create under another org's
+    // shared root without having first hydrated that org's group policy.
+    warmReferencedPrincipalPolicies?:
+      | ReferencedPrincipalPolicyWarmer
+      | undefined;
   } & ProjectionVerificationOptions,
 ): Promise<MaterializedContainerCreatePlan> {
   const containerKey =
@@ -249,6 +260,7 @@ export async function buildMaterializedContainerCreatePlan(
         execSql: input.execSql,
         projection: input.parentProjection,
         resolveUserKey: input.resolveProjectionUserKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       })
     : [];
 

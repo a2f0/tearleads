@@ -20,10 +20,36 @@ import {
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import { cachePrincipalPolicyBundles } from "../../principals/policyCache";
+import { createReferencedPrincipalPolicyWarmer } from "../../principals/referencedPrincipalPolicyWarmer";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
 } from "./types";
+
+// Build an on-demand principal-policy warmer for the create when the API can
+// serve current policies. The warmer fetches the parent path's referenced
+// policies (e.g. the granting group's) so a member writing under another org's
+// shared root can build the create plan without a pre-warmed cache. Returns
+// undefined when the API lacks the capability, leaving behavior unchanged.
+function buildContainerCreatePolicyWarmer(input: {
+  runtime: ContainerWorkflowRuntime;
+  organizationId: string;
+}) {
+  const getCurrentPrincipalPolicy =
+    input.runtime.apiClient.getCurrentPrincipalPolicy;
+  if (!getCurrentPrincipalPolicy) {
+    return undefined;
+  }
+
+  return createReferencedPrincipalPolicyWarmer({
+    execSql: input.runtime.infra.execSql,
+    getCurrentPrincipalPolicy: (principalType, principalId) =>
+      getCurrentPrincipalPolicy(principalType, principalId),
+    getEncapsulationKey: input.runtime.getEncapsulationKey,
+    log: input.runtime.util.log,
+    organizationId: input.organizationId,
+  });
+}
 
 async function submitContainerWithMetadataDocument(input: {
   readonly request: ContainerCreateWithMetadataDocumentRequest;
@@ -139,6 +165,10 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
     parentProjection: input.parentProjection,
     parentSecretKey: input.parentSecretKey,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
+    warmReferencedPrincipalPolicies: buildContainerCreatePolicyWarmer({
+      organizationId: input.parentProjection.organizationId,
+      runtime: input.runtime,
+    }),
   });
   const childProjection = childContainerWriterProjectionFromCreatePlan({
     materializedPlan: containerPlan,

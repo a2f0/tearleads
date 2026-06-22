@@ -21,6 +21,20 @@ const CONTACTS_CONTAINER_ID = "contacts-container";
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
+  currentOrganizationId: null,
+  trashSystemSlot: TRASH_SLOT,
+});
+
+// A viewer who is a member of another organization sees that org's system
+// folders carrying the OWNER's opaque HMAC slot, which never matches the
+// viewer's own derived slots. These contexts model that cross-org view so the
+// name-based fallback (see resolveContainerRules) can be exercised.
+const VIEWER_ORG_ID = "viewer-org";
+const FOREIGN_ORG_ID = "owner-org";
+const sharedRulesContext = createExplorerContainerRulesContext({
+  contactsContainerId: CONTACTS_CONTAINER_ID,
+  contactsSystemSlot: CONTACTS_SLOT,
+  currentOrganizationId: VIEWER_ORG_ID,
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -191,6 +205,79 @@ test("isSelfContactDocument matches the deterministic self-contact id prefix", (
   expect(isSelfContactDocument({ id: "self_contact_v1_abc" })).toBe(true);
   expect(isSelfContactDocument({ id: "local-contact-2" })).toBe(false);
   expect(isSelfContactDocument(undefined)).toBe(false);
+});
+
+test("a peer's shared contacts folder enforces contacts rules by name", () => {
+  // The owner's HMAC slot does not match the viewer's, so slot resolution
+  // misses; the foreign-org + system-name fallback applies the contacts rules.
+  const sharedContacts = containerNode({
+    id: "peer-contacts",
+    name: "Contacts",
+    organizationId: FOREIGN_ORG_ID,
+    systemSlot: "owner-derived-slot",
+  });
+  expect(canMoveDocumentOutByRules(sharedRulesContext, sharedContacts)).toBe(
+    false,
+  );
+  expect(canMoveContainerByRules(sharedRulesContext, sharedContacts)).toBe(
+    false,
+  );
+  expect(canDeleteContainerByRules(sharedRulesContext, sharedContacts)).toBe(
+    false,
+  );
+  expect(canUploadToContainerByRules(sharedRulesContext, sharedContacts)).toBe(
+    false,
+  );
+  expect(
+    canAddDocumentToContainerByRules(
+      sharedRulesContext,
+      sharedContacts,
+      documentSummary({ id: "note-1", documentKind: "note" }),
+    ),
+  ).toBe(false);
+});
+
+test("a peer's shared trash folder gets no system rules (trash is not shared)", () => {
+  // Trash is not in the shared-visible set, so the name fallback never resolves
+  // rules for it under a foreign org — it behaves like a plain container.
+  const sharedTrash = containerNode({
+    id: "peer-trash",
+    name: "Trash",
+    organizationId: FOREIGN_ORG_ID,
+    systemSlot: "owner-trash-slot",
+  });
+  expect(canMoveContainerByRules(sharedRulesContext, sharedTrash)).toBe(true);
+  expect(canDeleteContainerByRules(sharedRulesContext, sharedTrash)).toBe(true);
+});
+
+test("a same-org folder named Contacts cannot spoof contacts rules", () => {
+  // Within the viewer's own org, rules resolve strictly by slot. A sibling
+  // reusing the name "Contacts" with a foreign/opaque slot must NOT inherit the
+  // contacts rules, or a peer could fabricate restrictions on their own folder.
+  const sameOrgImposter = containerNode({
+    id: "imposter-contacts",
+    name: "Contacts",
+    organizationId: VIEWER_ORG_ID,
+    systemSlot: "unrelated-slot",
+  });
+  expect(canMoveDocumentOutByRules(sharedRulesContext, sameOrgImposter)).toBe(
+    true,
+  );
+  expect(canMoveContainerByRules(sharedRulesContext, sameOrgImposter)).toBe(
+    true,
+  );
+});
+
+test("the foreign-org name fallback is off before the viewer org is known", () => {
+  // With a null currentOrganizationId (pre-hydration) the fallback stays off, so
+  // a peer's Contacts folder is not protected until the session org is resolved.
+  const sharedContacts = containerNode({
+    id: "peer-contacts",
+    name: "Contacts",
+    organizationId: FOREIGN_ORG_ID,
+    systemSlot: "owner-derived-slot",
+  });
+  expect(canMoveDocumentOutByRules(rulesContext, sharedContacts)).toBe(true);
 });
 
 test("rules are disabled when the configuration flags are absent for a slot", () => {

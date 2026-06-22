@@ -105,6 +105,17 @@ export const SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = new Set(
   ).map((definition) => definition.name),
 );
 
+// Rules for the shareable system folders keyed by their name. A peer's system
+// folder carries the owner's opaque HMAC slot, so its rules cannot be resolved
+// by slot on the viewer's side — they are resolved by name instead (see
+// resolveContainerRules). Only `visibleWhenShared` folders are included, so a
+// peer's Trash never inherits system rules.
+const SHARED_SYSTEM_CONTAINER_RULES_BY_NAME = new Map(
+  USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
+    (definition) => definition.visibleWhenShared,
+  ).map((definition) => [definition.name, definition.rules]),
+);
+
 export function getUserSystemContainerRulesByKind(
   kind: UserSystemContainerKind,
 ): UserSystemContainerRules | null {
@@ -112,5 +123,33 @@ export function getUserSystemContainerRulesByKind(
     USER_SYSTEM_CONTAINER_DEFINITIONS.find(
       (definition) => definition.kind === kind,
     )?.rules ?? null
+  );
+}
+
+// Resolve the rules for a shareable system folder by its name. Used for a peer's
+// system folder under a shared root, whose owner-derived slot the viewer cannot
+// match. Returns null for non-system names and for folders that are not shared
+// (e.g. Trash).
+export function getSharedSystemContainerRulesByName(
+  name: string,
+): UserSystemContainerRules | null {
+  return SHARED_SYSTEM_CONTAINER_RULES_BY_NAME.get(name) ?? null;
+}
+
+// A container belongs to another organization's shared root (a peer's tree the
+// viewer can see by membership) when it carries a different, valid organization
+// than the viewer's own. The empty-org and null-current-org guards keep a
+// same-org sibling — or a node seen before session hydration — from passing as
+// shared, which is what prevents a same-org peer from spoofing a system folder
+// name to fabricate rules or system status. Mirrors the visibility classifier in
+// ExplorerSystemContainers so the two never diverge.
+export function isUnderForeignSharedRoot(input: {
+  currentOrganizationId: string | null | undefined;
+  organizationId: string;
+}): boolean {
+  return (
+    input.currentOrganizationId != null &&
+    input.organizationId !== "" &&
+    input.organizationId !== input.currentOrganizationId
   );
 }

@@ -101,9 +101,11 @@ export function useExplorerModel(
       createExplorerContainerRulesContext({
         contactsContainerId,
         contactsSystemSlot: explorer.contactsSystemSlot,
+        currentOrganizationId: appData.auth.organizationId ?? null,
         trashSystemSlot: explorer.trashSystemSlot,
       }),
     [
+      appData.auth.organizationId,
       contactsContainerId,
       explorer.contactsSystemSlot,
       explorer.trashSystemSlot,

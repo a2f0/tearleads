@@ -7,6 +7,7 @@ import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useEffect, useRef, useState } from "react";
 import {
+  isUnderForeignSharedRoot,
   SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
   USER_SYSTEM_CONTAINER_DEFINITIONS,
   type UserSystemContainerKind,
@@ -51,12 +52,11 @@ function shouldShowExplorerSystemSlot(
     // peer folder from a same-org spoof reusing a system name with a foreign
     // slot. A missing organizationId must not pass as "shared" — this gate
     // controls whether another user's system folder is shown.
-    const isUnderSharedRoot =
-      currentOrganizationId != null &&
-      node.organizationId !== "" &&
-      node.organizationId !== currentOrganizationId;
     return (
-      isUnderSharedRoot && SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES.has(node.name)
+      isUnderForeignSharedRoot({
+        currentOrganizationId,
+        organizationId: node.organizationId,
+      }) && SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES.has(node.name)
     );
   }
 

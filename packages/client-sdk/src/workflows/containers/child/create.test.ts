@@ -162,19 +162,26 @@ test("buildMaterializedContainerCreatePlan commits generated KEK epoch ids to ma
   ).toBe(true);
 });
 
-test("buildContainerCreatePlan rejects stale parent projections and wrong organization authors", async () => {
+test("buildContainerCreatePlan stamps the child with the parent's organization regardless of the author's", async () => {
+  // A member writing under another org's shared root has a different personal
+  // org than the parent. The child belongs to the parent's org (not the
+  // author's), and the author supplies only the signer identity.
   const parent = await createParentProjection();
   const { author } = await createAuthor({ organizationId: "other-org" });
 
-  await expect(
-    buildContainerCreatePlan({
-      author,
-      containerKey: crypto.getRandomValues(new Uint8Array(32)),
-      parentKekMaterial: parent.parentContainerKek,
-      parentProjection: parent.projection,
-    }),
-  ).rejects.toThrow("organization");
+  const plan = await buildContainerCreatePlan({
+    author,
+    containerKey: crypto.getRandomValues(new Uint8Array(32)),
+    parentKekMaterial: parent.parentContainerKek,
+    parentProjection: parent.projection,
+  });
+  expect(plan.state.organizationId).toBe(parent.projection.organizationId);
+  expect(plan.event.organizationId).toBe(parent.projection.organizationId);
+  expect(plan.event.signerUserId).toBe(author.signerUserId);
+});
 
+test("buildContainerCreatePlan rejects stale parent projections and invalid key material", async () => {
+  const parent = await createParentProjection();
   const validAuthor = (
     await createAuthor({ organizationId: parent.projection.organizationId })
   ).author;

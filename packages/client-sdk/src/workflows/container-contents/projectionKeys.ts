@@ -1,7 +1,5 @@
-import {
-  createProjectionUserKeyResolver,
-  type ProjectionUserKeyResolver,
-} from "../../data/keyingProjectionVerification";
+import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 
 export type ContainerContentsProjectionUserKeyResolver =
   ProjectionUserKeyResolver;

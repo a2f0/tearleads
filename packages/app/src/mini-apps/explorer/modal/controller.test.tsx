@@ -15,6 +15,7 @@ const TRASH_CONTAINER_ID = "trash-container";
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
+  currentOrganizationId: null,
   trashSystemSlot: TRASH_SLOT,
 });
 

@@ -15,12 +15,10 @@ import {
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
-  EncapsulationKeyResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
@@ -61,116 +59,6 @@ export function requireProjectionUserKeyResolver(
   }
 
   return resolveProjectionUserKey;
-}
-
-interface ProjectionUserKeyRuntime {
-  readonly apiClient: {
-    getEncapsulationKey(
-      userId: string,
-    ): Promise<EncapsulationKeyResponse | null>;
-  };
-  readonly encapsulationKeyPair?: { readonly publicKey: Uint8Array } | null;
-  readonly log?: (message: string) => void;
-  readonly signingFingerprint?: string | null;
-  readonly signingKeyPair?:
-    | { readonly signingPublicKey: Uint8Array }
-    | null
-    | undefined;
-  readonly userId?: string | null;
-}
-
-export function createProjectionUserKeyResolver(
-  runtime: ProjectionUserKeyRuntime,
-  logPrefix: string,
-): ProjectionUserKeyResolver {
-  const cache = new Map<string, Promise<ProjectionUserKey | null>>();
-  let ownUserKey: Promise<ProjectionUserKey | null> | null = null;
-  let ownUserKeyUserId: string | null = null;
-  let ownUserKeySigningFingerprint: string | null | undefined;
-  let ownUserKeySigningKeyPair: ProjectionUserKeyRuntime["signingKeyPair"];
-  let ownUserKeyEncapsulationKeyPair: ProjectionUserKeyRuntime["encapsulationKeyPair"];
-
-  return async (userId) => {
-    if (
-      userId === runtime.userId &&
-      runtime.signingKeyPair &&
-      runtime.encapsulationKeyPair
-    ) {
-      if (
-        !ownUserKey ||
-        ownUserKeyUserId !== userId ||
-        ownUserKeySigningFingerprint !== runtime.signingFingerprint ||
-        ownUserKeySigningKeyPair !== runtime.signingKeyPair ||
-        ownUserKeyEncapsulationKeyPair !== runtime.encapsulationKeyPair
-      ) {
-        const { encapsulationKeyPair, signingKeyPair } = runtime;
-        ownUserKey = null;
-        ownUserKeyUserId = userId;
-        ownUserKeySigningFingerprint = runtime.signingFingerprint;
-        ownUserKeySigningKeyPair = signingKeyPair;
-        ownUserKeyEncapsulationKeyPair = encapsulationKeyPair;
-        ownUserKey = (async () => {
-          const signingFingerprint = await toFingerprint(
-            signingKeyPair.signingPublicKey,
-          );
-          if (
-            runtime.signingFingerprint &&
-            runtime.signingFingerprint !== signingFingerprint
-          ) {
-            return null;
-          }
-
-          return {
-            encapsulationPublicKey: encapsulationKeyPair.publicKey,
-            signingPublicKey: signingKeyPair.signingPublicKey,
-            userId,
-          };
-        })();
-      }
-
-      return ownUserKey;
-    }
-
-    let cached = cache.get(userId);
-    if (!cached) {
-      cached = runtime.apiClient
-        .getEncapsulationKey(userId)
-        .then(async (response) => {
-          if (!response) {
-            return null;
-          }
-
-          const signingPublicKey = base64ToBytes(response.signingPublicKey);
-          const signingKeyFingerprint = await toFingerprint(signingPublicKey);
-          if (
-            response.userId !== userId ||
-            response.signingKeyFingerprint !== signingKeyFingerprint
-          ) {
-            runtime.log?.(
-              `${logPrefix}: skipped projection key for ${userId} because the signing fingerprint does not match the public key.`,
-            );
-            return null;
-          }
-
-          return {
-            encapsulationPublicKey: base64ToBytes(
-              response.encapsulationPublicKey,
-            ),
-            signingPublicKey,
-            userId,
-          };
-        })
-        .catch(() => {
-          runtime.log?.(
-            `${logPrefix}: skipped projection key for ${userId} because it could not be loaded.`,
-          );
-          return null;
-        });
-      cache.set(userId, cached);
-    }
-
-    return cached;
-  };
 }
 
 export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
@@ -271,12 +159,22 @@ async function loadOrganizationExternalAdminSignerUserIds(input: {
   }
 }
 
+// Fetches and verifies referenced principal policies from the server into the
+// local cache. Supplied by the create/link paths so a member writing under
+// another org's shared container can obtain that org's group policy on demand
+// instead of hard-failing when it was never warmed by hydration. Returns true
+// when at least one reference was newly cached.
+export type ReferencedPrincipalPolicyWarmer = (
+  references: readonly ReferencedPrincipalHead[],
+) => Promise<void>;
+
 async function verifyReferencedPrincipalPolicy(input: {
   execSql?: ExecSql | undefined;
   organizationId: string;
   principalPolicyCache: PrincipalPolicyCache;
   reference: ReferencedPrincipalHead;
   resolveUserKey: ProjectionUserKeyResolver;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy> {
   const cacheKey = referencedPrincipalPolicyKey(input.reference);
   const cachedPolicy = input.principalPolicyCache.get(cacheKey);
@@ -291,11 +189,22 @@ async function verifyReferencedPrincipalPolicy(input: {
     );
   }
 
-  const bundle = await loadPrincipalPolicyBundle(
+  let bundle = await loadPrincipalPolicyBundle(
     input.execSql,
     input.reference.principalType,
     input.reference.principalId,
   );
+  if (!bundle && input.warmReferencedPrincipalPolicies) {
+    // The reference is not cached locally — the common case for a member who
+    // gained access via another org's group grant and never hydrated that
+    // group's policy. Fetch+verify+persist it, then re-read from the cache.
+    await input.warmReferencedPrincipalPolicies([input.reference]);
+    bundle = await loadPrincipalPolicyBundle(
+      input.execSql,
+      input.reference.principalType,
+      input.reference.principalId,
+    );
+  }
   if (!bundle) {
     throw new Error(`Principal policy ${referenceLabel} is not cached`);
   }
@@ -334,23 +243,67 @@ async function collectReferencedPrincipalPolicies(input: {
   principalPolicyCache: PrincipalPolicyCache;
   references: readonly ReferencedPrincipalHead[];
   resolveUserKey: ProjectionUserKeyResolver;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const uniqueReferences = new Map<string, ReferencedPrincipalHead>();
   for (const reference of input.references) {
     uniqueReferences.set(referencedPrincipalPolicyKey(reference), reference);
   }
 
+  const references = [...uniqueReferences.values()];
+  // Warm every missing reference in one batched fetch before verifying, so a
+  // path that references several uncached policies makes a single round of
+  // requests rather than one per reference.
+  if (input.warmReferencedPrincipalPolicies && input.execSql) {
+    const uncached = await filterUncachedReferences({
+      execSql: input.execSql,
+      principalPolicyCache: input.principalPolicyCache,
+      references,
+    });
+    if (uncached.length > 0) {
+      await input.warmReferencedPrincipalPolicies(uncached);
+    }
+  }
+
   return Promise.all(
-    [...uniqueReferences.values()].map((reference) =>
+    references.map((reference) =>
       verifyReferencedPrincipalPolicy({
         execSql: input.execSql,
         organizationId: input.organizationId,
         principalPolicyCache: input.principalPolicyCache,
         reference,
         resolveUserKey: input.resolveUserKey,
+        warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
     ),
   );
+}
+
+// Identify which referenced policies are absent from both the in-memory cache
+// and local storage, so the warmer fetches only what is genuinely missing.
+async function filterUncachedReferences(input: {
+  execSql: ExecSql;
+  principalPolicyCache: PrincipalPolicyCache;
+  references: readonly ReferencedPrincipalHead[];
+}): Promise<ReferencedPrincipalHead[]> {
+  const uncached: ReferencedPrincipalHead[] = [];
+  for (const reference of input.references) {
+    if (
+      input.principalPolicyCache.has(referencedPrincipalPolicyKey(reference))
+    ) {
+      continue;
+    }
+    const bundle = await loadPrincipalPolicyBundle(
+      input.execSql,
+      reference.principalType,
+      reference.principalId,
+    );
+    if (!bundle) {
+      uncached.push(reference);
+    }
+  }
+
+  return uncached;
 }
 
 function canonicalString(value: unknown, label: string): string {
@@ -893,6 +846,9 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
   readonly principalPolicyCache?: PrincipalPolicyCache | undefined;
   readonly projection: ContainerWriterProjectionResponse;
   readonly resolveUserKey: ProjectionUserKeyResolver;
+  readonly warmReferencedPrincipalPolicies?:
+    | ReferencedPrincipalPolicyWarmer
+    | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const principalPolicyCache =
     input.principalPolicyCache ?? new Map<string, VerifiedPrincipalPolicy>();
@@ -909,6 +865,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(input: {
     paths: [verifiedPath],
     principalPolicyCache,
     resolveUserKey: input.resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 }
 
@@ -1054,6 +1011,7 @@ async function collectPrincipalPoliciesForContainerPaths(input: {
   paths: readonly (readonly VerifiedContainerAccessManifest[] | undefined)[];
   principalPolicyCache: PrincipalPolicyCache;
   resolveUserKey: ProjectionUserKeyResolver;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }): Promise<VerifiedPrincipalPolicy[]> {
   const referencedPrincipalHeads = input.paths.flatMap((path) =>
     (path ?? []).flatMap((manifest) => manifest.state.referencedPrincipalHeads),
@@ -1065,6 +1023,7 @@ async function collectPrincipalPoliciesForContainerPaths(input: {
     principalPolicyCache: input.principalPolicyCache,
     references: referencedPrincipalHeads,
     resolveUserKey: input.resolveUserKey,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
 }
 

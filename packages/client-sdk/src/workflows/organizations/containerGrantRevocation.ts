@@ -1,6 +1,6 @@
 import type { ContainerDirectGrant } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
+import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { revokeRemoteContainer } from "../containers";
 import { resolveDocumentCreateAuthor } from "../documents";
