@@ -8,6 +8,7 @@ import {
   type ThHTMLAttributes,
 } from "react";
 import { classNames } from "../../shared/classNames";
+import { useLongPress } from "../../shared/useLongPress";
 import "./MiniAppTable.css";
 
 export interface MiniAppTableColumn {
@@ -130,12 +131,20 @@ export const MiniAppTableRow = forwardRef<
   HTMLTableRowElement,
   MiniAppTableRowProps
 >(function MiniAppTableRow(
-  { className, interactive = false, selected = false, ...props },
+  { className, interactive = false, onContextMenu, selected = false, ...props },
   ref,
 ) {
+  // Touch devices have no right-click; long-press an interactive row to reach
+  // the same `onContextMenu` actions a mouse user gets (the press dispatches a
+  // native `contextmenu` event). Non-interactive rows keep their handler for
+  // desktop right-click but skip the touch synthesis.
+  const longPress = useLongPress(interactive && Boolean(onContextMenu));
+
   return (
     <tr
       {...props}
+      {...longPress}
+      onContextMenu={onContextMenu}
       className={classNames(
         "mini-app-table-row",
         interactive && "mini-app-table-row--interactive",

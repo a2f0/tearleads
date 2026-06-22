@@ -1,99 +1,236 @@
+/*
+ * Routed shell. Two responsive tiers share one component tree; the
+ * `routed-pane--mobile` / `routed-pane--tablet` modifier (driven by
+ * useRoutedLayoutTier, keyed to the same 760px line as the media query below)
+ * picks the layout.
+ *
+ * - mobile: top app bar + hamburger that opens a slide-in drawer over content.
+ * - tablet: persistent left rail beside the main content (the iPad layout).
+ */
+
 .routed-pane {
   grid-area: left;
-  display: grid;
-  grid-template:
-    "toolbar" auto
-    "sidebar" auto
-    "main" 1fr
-    / minmax(0, 1fr);
+  position: relative;
   min-height: 0;
   overflow: hidden;
   color: var(--color-dark);
   background: var(--color-light);
+  --routed-rail-width: clamp(13rem, 22vw, 17rem);
+  --routed-drawer-width: min(20rem, 82vw);
+  --routed-touch-target: 2.75rem;
 }
 
-.routed-pane-toolbar {
-  grid-area: toolbar;
+/* Mobile: app bar on top, main fills the rest; rail/sidebar are overlays. */
+.routed-pane--mobile {
+  display: grid;
+  grid-template:
+    "appbar" auto
+    "main" 1fr
+    / minmax(0, 1fr);
+}
+
+/* Tablet: persistent rail column + app bar over main. */
+.routed-pane--tablet {
+  display: grid;
+  grid-template:
+    "rail appbar" auto
+    "rail main" 1fr
+    / auto minmax(0, 1fr);
+}
+
+.routed-pane--tablet[data-sidebar="open"] {
+  grid-template:
+    "rail appbar appbar" auto
+    "rail sidebar main" 1fr
+    / auto auto minmax(0, 1fr);
+}
+
+/* === App bar === */
+
+.routed-pane-appbar {
+  grid-area: appbar;
   display: flex;
   align-items: center;
-  gap: var(--footer-gap);
+  gap: var(--space-sm);
   min-width: 0;
-  padding: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
   border-bottom: var(--border-strong);
   background: var(--color-muted);
 }
 
-.routed-pane-history-controls,
-.routed-pane-system-controls,
-.routed-pane-sidebar-controls,
-.routed-pane-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--footer-gap);
-  flex: 0 0 auto;
-}
-
-.routed-pane-history-controls button,
-.routed-pane-system-controls button,
-.routed-pane-sidebar-controls button,
-.routed-pane-actions button,
-.routed-pane-nav-link {
-  min-height: var(--control-height);
-  padding: 0 var(--space-sm);
-  border: var(--border);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.routed-pane-history-controls button:hover,
-.routed-pane-system-controls button:hover,
-.routed-pane-sidebar-controls button:hover,
-.routed-pane-actions button:hover:not(:disabled),
-.routed-pane-nav-link:hover,
-.routed-pane-nav-link--active {
-  background: var(--color-dark);
-  color: var(--color-light);
-}
-
-.routed-pane-history-controls button:disabled,
-.routed-pane-actions button:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: default;
+.routed-pane-appbar-spacer {
+  flex: 1 1 auto;
 }
 
 .routed-pane-title {
-  flex: 0 0 auto;
-  max-width: min(24vw, 12rem);
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.routed-pane-nav {
+.routed-pane-history-controls {
   display: flex;
   align-items: center;
-  gap: var(--footer-gap);
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  gap: var(--space-xs);
+  flex: 0 0 auto;
 }
+
+.routed-pane-appbar button {
+  min-height: var(--control-height);
+  padding: 0 var(--space-sm);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.routed-pane-appbar button:hover:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.routed-pane-appbar button:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.routed-pane-iconbutton {
+  flex: 0 0 auto;
+}
+
+.routed-pane-hamburger {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+/* === Navigation panel (shared by rail + drawer) === */
+
+.routed-pane-nav-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 0;
+  padding: var(--space-sm);
+}
+
+.routed-pane-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.routed-pane-nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding-top: var(--space-sm);
+  border-top: var(--border);
+}
+
+.routed-pane-nav-link,
+.routed-pane-nav-action,
+.routed-pane-nav-section > button {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.routed-pane-nav-link:hover,
+.routed-pane-nav-link--active,
+.routed-pane-nav-action:hover:not(:disabled),
+.routed-pane-nav-section > button:hover:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.routed-pane-nav-action:disabled,
+.routed-pane-nav-section > button:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+/* === Tablet rail === */
+
+.routed-pane-rail {
+  grid-area: rail;
+  width: var(--routed-rail-width);
+  min-height: 0;
+  overflow-y: auto;
+  border-right: var(--border-strong);
+  background: var(--color-muted);
+}
+
+/* === Mobile drawer + scrim === */
+
+.routed-pane-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--overlay-background);
+  cursor: pointer;
+}
+
+.routed-pane-drawer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 2;
+  width: var(--routed-drawer-width);
+  overflow-y: auto;
+  border-right: var(--border-strong);
+  background: var(--color-muted);
+  transform: translateX(-100%);
+  transition: transform 0.18s ease;
+}
+
+.routed-pane-drawer[data-open="true"] {
+  transform: translateX(0);
+}
+
+/* === Mini-app sidebar === */
 
 .routed-pane-sidebar {
   grid-area: sidebar;
-  max-height: min(38vh, 18rem);
   min-width: 0;
   overflow: auto;
-  border-bottom: var(--border-strong);
   background: var(--color-light);
 }
 
-.routed-pane-sidebar .mini-app-sidebar {
-  min-height: unset;
+.routed-pane--tablet .routed-pane-sidebar {
+  width: var(--routed-rail-width);
+  border-right: var(--border-strong);
 }
+
+.routed-pane--mobile .routed-pane-sidebar {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 2;
+  width: var(--routed-drawer-width);
+  border-left: var(--border-strong);
+}
+
+.routed-pane-sidebar .mini-app-sidebar {
+  min-height: 100%;
+}
+
+/* === Main === */
 
 .routed-pane-main {
   grid-area: main;
@@ -114,29 +251,39 @@
   padding: var(--space-md);
 }
 
-@media (max-width: 760px) {
-  .routed-pane-toolbar {
-    align-items: stretch;
-    flex-direction: column;
+/*
+ * Coarse-pointer (touch) sizing. Bump interactive targets toward ~44px so
+ * taps land reliably on phones and tablets without a mouse. Scoped to the
+ * routed shell so the windowed desktop chrome is untouched.
+ */
+@media (pointer: coarse) {
+  .routed-pane-appbar button,
+  .routed-pane-nav-link,
+  .routed-pane-nav-action,
+  .routed-pane-nav-section > button {
+    min-height: var(--routed-touch-target);
   }
 
-  .routed-pane-history-controls,
-  .routed-pane-system-controls,
-  .routed-pane-sidebar-controls,
-  .routed-pane-actions,
-  .routed-pane-nav {
-    width: 100%;
+  .routed-pane .mini-app-row--button {
+    min-height: var(--routed-touch-target);
+  }
+}
+
+/*
+ * Keep the JS tier and CSS in lockstep at the 760px line
+ * (ROUTED_TABLET_BREAKPOINT_PX). Below it the mobile shell is active; this
+ * guard prevents a brief tablet-rail flash if markup renders before the tier
+ * hook resolves.
+ */
+@media (max-width: 759px) {
+  .routed-pane--tablet {
+    grid-template:
+      "appbar" auto
+      "main" 1fr
+      / minmax(0, 1fr);
   }
 
-  .routed-pane-history-controls button,
-  .routed-pane-system-controls button,
-  .routed-pane-sidebar-controls button,
-  .routed-pane-actions button,
-  .routed-pane-nav-link {
-    flex: 0 0 auto;
-  }
-
-  .routed-pane-title {
-    max-width: 100%;
+  .routed-pane--tablet .routed-pane-rail {
+    display: none;
   }
 }

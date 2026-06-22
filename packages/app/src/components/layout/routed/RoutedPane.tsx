@@ -1,6 +1,6 @@
 import {
   type ComponentType,
-  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -13,15 +13,18 @@ import {
   useAppNavigationActions,
   useAppNavigationState,
 } from "../../../navigation/AppNavigationProvider";
+import {
+  type RoutedLayoutTier,
+  useRoutedLayoutTier,
+} from "../../../navigation/useRoutedLayoutTier";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useRegisterUserId } from "../../pane/DualPaneProvider";
 import { PaneLog } from "../../pane/PaneLog";
 import { PaneStatus } from "../../pane/PaneStatus";
-import { Menu, type MenuPosition } from "../../shared/Menu";
+import type { MenuPosition } from "../../shared/Menu";
 import { MiniAppButton } from "../../shared/MiniAppLayout";
-import { PaneSystemMenuItems } from "../../shared/PaneSystemMenuItems";
 import {
   useWindowFileMenuItems,
   useWindowViewMenuItems,
@@ -32,6 +35,7 @@ import {
   WindowSidebarProvider,
 } from "../../window/WindowSidebarContext";
 import "./RoutedPane.css";
+import { RoutedPaneNav } from "./RoutedPaneNav";
 
 const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
 const LOCKED_PANE_LOG_MESSAGE =
@@ -79,137 +83,51 @@ function RoutedPaneHome() {
   );
 }
 
-function RoutedPaneNavButton({
-  appId,
-  activeAppId,
-}: {
-  appId: MiniAppId;
-  activeAppId: MiniAppId | null;
-}) {
-  const { getMiniAppHref, openMiniApp } = useAppNavigationActions();
-  const handleClick = useCallback(
-    (event: ReactMouseEvent<HTMLAnchorElement>) => {
-      event.preventDefault();
-      openMiniApp({ appId });
-    },
-    [appId, openMiniApp],
-  );
-
-  return (
-    <a
-      aria-current={activeAppId === appId ? "page" : undefined}
-      className={
-        activeAppId === appId
-          ? "routed-pane-nav-link routed-pane-nav-link--active"
-          : "routed-pane-nav-link"
-      }
-      href={getMiniAppHref(appId)}
-      onClick={handleClick}
-    >
-      {MINI_APPS[appId].title}
-    </a>
-  );
-}
-
-function RoutedPaneHomeNavButton({
-  activeAppId,
-}: {
-  activeAppId: MiniAppId | null;
-}) {
-  const { getHomeHref, navigateHome } = useAppNavigationActions();
-  const handleClick = useCallback(
-    (event: ReactMouseEvent<HTMLAnchorElement>) => {
-      event.preventDefault();
-      navigateHome();
-    },
-    [navigateHome],
-  );
-
-  return (
-    <a
-      aria-current={activeAppId === null ? "page" : undefined}
-      className={
-        activeAppId === null
-          ? "routed-pane-nav-link routed-pane-nav-link--active"
-          : "routed-pane-nav-link"
-      }
-      href={getHomeHref()}
-      onClick={handleClick}
-    >
-      Home
-    </a>
-  );
-}
-
 export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
   const rect = anchor.getBoundingClientRect();
   return { x: rect.left, y: rect.bottom };
 }
 
-function RoutedPaneSystemMenuButton({
-  onOpenUnlock,
-}: {
-  onOpenUnlock: () => void;
-}) {
-  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
-  const toggleMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      // Capture the anchor position synchronously: React clears
-      // event.currentTarget once the handler returns, so it is null inside
-      // the state updater.
-      const anchorPosition = menuPositionBelow(event.currentTarget);
-      setMenuPosition((currentPosition) =>
-        currentPosition ? null : anchorPosition,
-      );
-    },
-    [],
-  );
-  const closeMenu = useCallback(() => setMenuPosition(null), []);
-
-  return (
-    <div className="routed-pane-system-controls">
-      <button type="button" onClick={toggleMenu}>
-        Pane
-      </button>
-      {menuPosition && (
-        <Menu direction="down" position={menuPosition} onClose={closeMenu}>
-          <PaneSystemMenuItems
-            onClose={closeMenu}
-            onOpenUnlock={onOpenUnlock}
-          />
-        </Menu>
-      )}
-    </div>
-  );
-}
-
-function RoutedPaneToolbar({
+/**
+ * The navigation surface shared by both tiers: app links, the system ("Pane")
+ * menu items, and any file/view actions. Rendered as the persistent left rail
+ * on tablet and as the slide-in drawer body on mobile.
+ */
+function RoutedPaneAppBar({
   activeAppId,
   hasSidebar,
-  onOpenUnlock,
+  onToggleDrawer,
   onToggleSidebar,
   sidebarExpanded,
+  tier,
 }: {
   activeAppId: MiniAppId | null;
   hasSidebar: boolean;
-  onOpenUnlock: () => void;
+  onToggleDrawer: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
+  tier: RoutedLayoutTier;
 }) {
   const { goBack, goForward } = useAppNavigationActions();
   const { history } = useAppNavigationState();
-  const fileMenuItems = useWindowFileMenuItems();
-  const viewMenuItems = useWindowViewMenuItems();
-  const menuItems = useMemo(
-    () => [...fileMenuItems, ...viewMenuItems],
-    [fileMenuItems, viewMenuItems],
-  );
 
   return (
-    <div className="routed-pane-toolbar">
+    <header className="routed-pane-appbar">
+      {tier === "mobile" && (
+        <button
+          aria-controls="routed-pane-drawer"
+          aria-label="Menu"
+          className="routed-pane-iconbutton routed-pane-hamburger"
+          type="button"
+          onClick={onToggleDrawer}
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+      )}
       <div className="routed-pane-title">
         {activeAppId ? MINI_APPS[activeAppId].title : "Home"}
       </div>
+      <div className="routed-pane-appbar-spacer" />
       <div className="routed-pane-history-controls">
         <button
           aria-label="Back"
@@ -228,44 +146,52 @@ function RoutedPaneToolbar({
           Forward
         </button>
       </div>
-      <RoutedPaneSystemMenuButton onOpenUnlock={onOpenUnlock} />
       {hasSidebar && (
-        <div className="routed-pane-sidebar-controls">
-          <button
-            aria-controls="routed-pane-sidebar"
-            aria-expanded={sidebarExpanded}
-            type="button"
-            onClick={onToggleSidebar}
-          >
-            {sidebarExpanded ? "Hide Sidebar" : "Show Sidebar"}
-          </button>
-        </div>
+        <button
+          aria-controls="routed-pane-sidebar"
+          aria-expanded={sidebarExpanded}
+          className="routed-pane-iconbutton"
+          type="button"
+          onClick={onToggleSidebar}
+        >
+          {sidebarExpanded ? "Hide Sidebar" : "Show Sidebar"}
+        </button>
       )}
-      <nav aria-label="Apps" className="routed-pane-nav">
-        <RoutedPaneHomeNavButton activeAppId={activeAppId} />
-        {MINI_APP_MENU_ITEMS.map(({ appId }) => (
-          <RoutedPaneNavButton
-            key={appId}
-            activeAppId={activeAppId}
-            appId={appId}
-          />
-        ))}
-      </nav>
-      {menuItems.length > 0 && (
-        <div className="routed-pane-actions">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              disabled={item.disabled}
-              type="button"
-              onClick={item.onClick}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+    </header>
+  );
+}
+
+/**
+ * The active mini-app's sidebar: a rail column beside main on tablet, or a
+ * dismissable overlay (with scrim) on mobile.
+ */
+function RoutedPaneSidebar({
+  children,
+  onClose,
+  tier,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  tier: RoutedLayoutTier;
+}) {
+  return (
+    <>
+      {tier === "mobile" && (
+        <button
+          aria-label="Close sidebar"
+          className="routed-pane-scrim"
+          type="button"
+          onClick={onClose}
+        />
       )}
-    </div>
+      <div
+        className="routed-pane-sidebar"
+        id="routed-pane-sidebar"
+        role={tier === "mobile" ? "dialog" : undefined}
+      >
+        {children}
+      </div>
+    </>
   );
 }
 
@@ -280,34 +206,71 @@ function RoutedPaneSurface({
   showUnlockPanel: boolean;
   onOpenUnlock: () => void;
 }) {
+  const tier = useRoutedLayoutTier();
   const { sidebar } = useWindowSidebar();
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
+
+  const fileMenuItems = useWindowFileMenuItems();
+  const viewMenuItems = useWindowViewMenuItems();
+  const menuItems = useMemo(
+    () => [...fileMenuItems, ...viewMenuItems],
+    [fileMenuItems, viewMenuItems],
+  );
+
+  // On tablet the sidebar is a persistent rail column; on mobile it is an
+  // overlay. Either way `sidebarExpanded` tracks the app's preference.
   const [sidebarExpanded, setSidebarExpanded] = useState(() =>
     activeAppId ? (MINI_APPS[activeAppId].initialShowSidebar ?? true) : true,
   );
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const toggleSidebar = useCallback(
     () => setSidebarExpanded((current) => !current),
     [],
   );
+  const closeSidebar = useCallback(() => setSidebarExpanded(false), []);
+  const toggleDrawer = useCallback(
+    () => setDrawerOpen((current) => !current),
+    [],
+  );
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  // The drawer is mobile-only; collapse it whenever we land on the tablet rail.
+  useEffect(() => {
+    if (tier === "tablet") {
+      setDrawerOpen(false);
+    }
+  }, [tier]);
+
+  const sidebarVisible = hasSidebar && sidebarExpanded;
 
   return (
-    <section className="routed-pane" role="application">
-      <RoutedPaneToolbar
+    <section
+      className={`routed-pane routed-pane--${tier}`}
+      data-sidebar={sidebarVisible ? "open" : "closed"}
+      role="application"
+    >
+      <RoutedPaneAppBar
         activeAppId={activeAppId}
         hasSidebar={hasSidebar}
-        onOpenUnlock={onOpenUnlock}
+        onToggleDrawer={toggleDrawer}
         onToggleSidebar={toggleSidebar}
         sidebarExpanded={sidebarExpanded}
+        tier={tier}
       />
-      {hasSidebar && (
-        <div
-          className="routed-pane-sidebar"
-          id="routed-pane-sidebar"
-          style={{ display: sidebarExpanded ? undefined : "none" }}
-        >
-          {sidebarExpanded && sidebar}
-        </div>
+      <RoutedPaneNav
+        activeAppId={activeAppId}
+        drawerOpen={drawerOpen}
+        menuItems={menuItems}
+        onCloseDrawer={closeDrawer}
+        onOpenUnlock={onOpenUnlock}
+        tier={tier}
+      />
+      {sidebarVisible && (
+        <RoutedPaneSidebar onClose={closeSidebar} tier={tier}>
+          {sidebar}
+        </RoutedPaneSidebar>
       )}
       <main className="routed-pane-main">
         {showUnlockPanel ? (
