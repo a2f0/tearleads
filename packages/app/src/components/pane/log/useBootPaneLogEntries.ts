@@ -3,6 +3,9 @@ import type { PaneLogEntry } from "./PaneLog";
 
 const LOCKED_PANE_LOG_MESSAGE =
   "Unlock the local keychain to restore this pane.";
+// Stable empty result so the no-prompt case keeps a constant reference across
+// renders rather than handing PaneLog a fresh [] each time the memo recomputes.
+const EMPTY_ENTRIES: readonly PaneLogEntry[] = [];
 
 /**
  * Shared trailing pane-log prompt used by both pane shells (windowed and
@@ -43,7 +46,7 @@ export function useBootPaneLogEntries(input: {
 
   return useMemo(() => {
     if (hasSigningKeyPair) {
-      return [];
+      return EMPTY_ENTRIES;
     }
     return [
       {
