@@ -6,6 +6,7 @@ import {
   severityLabel,
 } from "../severity";
 import type { FileAnchors } from "./diffAnchors";
+import { findingMarkerId, renderMarker } from "./findingMarker";
 
 export interface ReviewComment {
   readonly path: string;
@@ -21,6 +22,7 @@ interface MappedFindings {
 
 interface MapOptions {
   readonly anchors: Map<string, FileAnchors>;
+  readonly existingMarkerIds: ReadonlySet<string>;
   readonly severityThreshold: Severity;
   readonly maxComments: number;
 }
@@ -32,12 +34,12 @@ function isAnchored(anchors: FileAnchors | undefined, line: number): boolean {
   return anchors.added.has(line) || anchors.context.has(line);
 }
 
-function renderBody(finding: ReviewFinding): string {
+function renderBody(finding: ReviewFinding, markerId: string): string {
   const header = `${severityLabel(finding.severity)} — ${finding.title}`;
   const suggestion = finding.suggestion
     ? `\n\n\`\`\`suggestion\n${finding.suggestion}\n\`\`\``
     : "";
-  return `${header}\n\n${finding.body}${suggestion}`;
+  return `${header}\n\n${finding.body}${suggestion}\n\n${renderMarker(markerId)}`;
 }
 
 export function mapFindingsToComments(
@@ -54,6 +56,10 @@ export function mapFindingsToComments(
     if (!meetsThreshold(finding.severity, options.severityThreshold)) {
       continue;
     }
+    const markerId = findingMarkerId(finding.path, finding.title);
+    if (options.existingMarkerIds.has(markerId)) {
+      continue;
+    }
     if (!isAnchored(options.anchors.get(finding.path), finding.line)) {
       dropped.push(finding);
       continue;
@@ -62,7 +68,7 @@ export function mapFindingsToComments(
       path: finding.path,
       line: finding.line,
       side: "RIGHT",
-      body: renderBody(finding),
+      body: renderBody(finding, markerId),
     });
     if (comments.length >= options.maxComments) {
       break;

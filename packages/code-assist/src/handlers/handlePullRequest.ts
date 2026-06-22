@@ -1,5 +1,6 @@
 import type { CodeAssistConfig } from "../config";
 import { createInstallationClient } from "../github/appAuth";
+import { fetchExistingMarkerIds } from "../github/fetchExistingMarkers";
 import { postReview } from "../github/postReview";
 import { createLlmClient } from "../llm/deepseekClient";
 import { buildReviewSummary } from "../review/reviewSummary";
@@ -23,6 +24,14 @@ export async function handlePullRequest(
     params.review.deepseekApiKey,
     params.review.baseUrl,
   );
+  const ref = `${params.owner}/${params.repo}#${params.pullNumber}`;
+
+  const existingMarkerIds = await fetchExistingMarkerIds(
+    octokit,
+    params.owner,
+    params.repo,
+    params.pullNumber,
+  );
 
   const result = await runReview({
     octokit,
@@ -31,14 +40,18 @@ export async function handlePullRequest(
     repo: params.repo,
     pullNumber: params.pullNumber,
     model: params.review.model,
+    existingMarkerIds,
     severityThreshold: params.review.severityThreshold,
     maxComments: params.review.maxComments,
     styleguide: null,
   });
 
-  const ref = `${params.owner}/${params.repo}#${params.pullNumber}`;
   if (result.skipped) {
     console.log(`${ref}: no reviewable diff, skipped`);
+    return;
+  }
+  if (result.comments.length === 0) {
+    console.log(`${ref}: no new findings to post`);
     return;
   }
 

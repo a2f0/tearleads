@@ -15,9 +15,9 @@ factory so the provider is swappable.
 - **Phase 2 — webhook server (done).** `Bun.serve` + `X-Hub-Signature-256`
   verification + GitHub App installation-token auth; auto-review on `pull_request`
   opened/reopened.
-- **Phase 3 — interactive re-check (todo).** Handle `pull_request_review_comment`
-  to answer `@tearleads-code-assist` follow-ups on a thread; auto-review on
-  `synchronize` with finding de-duplication.
+- **Phase 3 — interactive re-check (done).** A mention of the bot on a review
+  thread re-checks that finding against the current code and replies; auto-review
+  also runs on `synchronize`, de-duplicated so a push only surfaces new findings.
 - **Phase 4 — deploy (done).** Compiled Bun executable run by systemd behind the
   Cloudflare tunnel; provisioned by Ansible + Terraform, gated on
   `CODE_ASSIST_ENABLED` so existing deploys are unaffected until opted in.
@@ -62,6 +62,7 @@ Review config (shared by CLI and server):
 | `CODE_ASSIST_BASE_URL` | `https://api.deepseek.com` | OpenAI-compatible base URL; point elsewhere to swap providers. |
 | `CODE_ASSIST_SEVERITY_THRESHOLD` | `medium` | Minimum severity to post (`low`/`medium`/`high`/`critical`). |
 | `CODE_ASSIST_MAX_COMMENTS` | `25` | Cap on inline comments per review (highest severity first). |
+| `CODE_ASSIST_BOT_HANDLE` | `@tearleads-code-assist` | Mention string that triggers an interactive re-check on a review thread. |
 
 Server-only config:
 
@@ -71,6 +72,7 @@ Server-only config:
 | `CODE_ASSIST_GITHUB_PRIVATE_KEY_PATH` | _(one of these)_ | Path to the App's PEM private key. |
 | `CODE_ASSIST_GITHUB_PRIVATE_KEY` | _(one of these)_ | The PEM inline (escaped `\n` allowed). |
 | `CODE_ASSIST_GITHUB_WEBHOOK_SECRET` | _(required)_ | Webhook secret for signature verification. |
+| `CODE_ASSIST_HOST` | `127.0.0.1` | Bind address for `Bun.serve` (loopback; the tunnel reaches it locally). |
 | `CODE_ASSIST_PORT` | `3939` | Port for `Bun.serve`. |
 
 ## Registering the GitHub App
@@ -83,8 +85,7 @@ One-time manual setup (Settings → Developer settings → GitHub Apps → New):
    and put the same value in `CODE_ASSIST_GITHUB_WEBHOOK_SECRET`.
 3. **Repository permissions:** Pull requests = **Read & write**;
    Contents = **Read-only**; Metadata = **Read-only**.
-4. **Subscribe to events:** `Pull request` (Phase 3 adds `Pull request review
-   comment`).
+4. **Subscribe to events:** `Pull request` and `Pull request review comment`.
 5. **Where can this be installed:** Only on this account.
 6. Create the app, then **Generate a private key** (downloads a `.pem`) and note
    the numeric **App ID**.
