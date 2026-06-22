@@ -18,6 +18,11 @@ const KNOWN_CONTAINERS_REPLACE = "known_containers";
 const KNOWN_CONTAINERS_ADD = "known_containers.add";
 const KNOWN_CONTAINERS_REMOVE = "known_containers.remove";
 
+// A container's access changed; sockets interested in it must resync (server ->
+// router control event) and are told to over HTTP (router -> client).
+const ACCESS_CHANGED = "access_changed";
+const RESYNC_REQUIRED = "resync_required";
+
 /**
  * The interest change a client message applied, returned to the impure shell so
  * it can mirror the change into the Redis per-session interest set. Null when the
@@ -27,6 +32,14 @@ export type AppliedInterest = {
   readonly kind: "replace" | "add" | "remove";
   readonly containerIds: string[];
 } | null;
+
+// An interest the router dropped on an access change, returned so the caller can
+// remove it from the persisted set too.
+interface InterestEviction {
+  readonly userId: string;
+  readonly sessionId: string;
+  readonly containerId: string;
+}
 
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -148,14 +161,59 @@ export class WsEventRouter {
     this.replaceInterest(ws, containerIds);
   }
 
-  routeServerEvent(rawMessage: string): void {
+  /**
+   * Route one event. Returns the interest evictions an access-change caused, so
+   * the impure shell can mirror them into the persisted set (otherwise a
+   * reconnect would re-hydrate an interest the access change just dropped).
+   * Non-access events return no evictions.
+   */
+  routeServerEvent(rawMessage: string): InterestEviction[] {
     const event = parseJsonObject(rawMessage);
     if (!event) {
-      return;
+      return [];
+    }
+    if (Reflect.get(event, "type") === ACCESS_CHANGED) {
+      return this.handleAccessChanged(event);
     }
     for (const ws of this.recipientsForEvent(event)) {
-      ws.send(rawMessage);
+      sendSafely(ws, rawMessage);
     }
+    return [];
+  }
+
+  /**
+   * A container's access changed (share/revoke/rekey/move/delete). Tell every
+   * socket interested in it to resync and drop it from their interest, so no
+   * further events for that container reach them until they reconcile over HTTP
+   * and (if still authorized) re-declare it. This uses only the process-local
+   * interest index — no member resolution — and over-evicts harmlessly: still-
+   * authorized members simply re-add the container after their resync. The
+   * returned evictions must also be persisted so a reconnect does not restore
+   * the dropped interest.
+   */
+  private handleAccessChanged(
+    event: Record<string, unknown>,
+  ): InterestEviction[] {
+    const containerId = readStringField(Reflect.get(event, "containerId"));
+    if (!containerId) {
+      return [];
+    }
+    const interested = this.socketsByContainerId.get(containerId);
+    if (!interested) {
+      return [];
+    }
+    const resync = JSON.stringify({ containerId, type: RESYNC_REQUIRED });
+    const evictions: InterestEviction[] = [];
+    for (const ws of [...interested]) {
+      sendSafely(ws, resync);
+      this.removeInterest(ws, [containerId]);
+      evictions.push({
+        containerId,
+        sessionId: ws.data.sessionId,
+        userId: ws.data.userId,
+      });
+    }
+    return evictions;
   }
 
   // Test/diagnostics: number of sockets currently interested in a container.
@@ -223,6 +281,14 @@ export class WsEventRouter {
         removeFromIndex(this.socketsByContainerId, containerId, ws);
       }
     }
+  }
+}
+
+function sendSafely(ws: WsConnection, message: string): void {
+  try {
+    ws.send(message);
+  } catch {
+    // A broken/closing socket must not block delivery to the other recipients.
   }
 }
 

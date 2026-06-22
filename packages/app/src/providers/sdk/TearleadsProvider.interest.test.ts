@@ -43,7 +43,7 @@ test("declares the full known set against an empty baseline, then deltas", () =>
   const fakeStore = createFakeStore(["c1", "c2"]);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
 
-  const stop = startContainerInterestDeclaration(
+  const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
     new Set(),
@@ -66,9 +66,34 @@ test("declares the full known set against an empty baseline, then deltas", () =>
     containerIds: ["c1"],
   });
 
-  stop();
+  handle.stop();
   fakeStore.setNodes(["c2"]);
   expect(sent).toHaveLength(3);
+});
+
+test("re-declares an invalidated container on the next tree change", () => {
+  // The server evicted "b" on an access change; invalidate forgets it so the
+  // next tree change re-declares it (still authorized) without an immediate
+  // re-add before the access re-check.
+  const fakeStore = createFakeStore(["a", "b"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(["a", "b"]),
+  );
+  expect(sent).toEqual([]);
+
+  handle.invalidate("b");
+  // No immediate re-add; only the next tree change re-evaluates.
+  expect(sent).toEqual([]);
+
+  fakeStore.setNodes(["a", "b"]);
+  expect(JSON.parse(sent[0] ?? "null")).toEqual({
+    type: "known_containers.add",
+    containerIds: ["b"],
+  });
 });
 
 test("declares only the delta against a hydrated baseline (no full resend)", () => {
@@ -106,7 +131,7 @@ test("sends nothing when the tree already matches the baseline", () => {
 test("skips interest when the container tree cannot be opened", () => {
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
 
-  const stop = startContainerInterestDeclaration(
+  const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => {
       throw new Error("runtime not ready");
     }),
@@ -115,7 +140,8 @@ test("skips interest when the container tree cannot be opened", () => {
   );
 
   expect(sent).toEqual([]);
-  expect(() => stop()).not.toThrow();
+  expect(() => handle.stop()).not.toThrow();
+  expect(() => handle.invalidate("anything")).not.toThrow();
 });
 
 test("does not send while the socket is not open", () => {
