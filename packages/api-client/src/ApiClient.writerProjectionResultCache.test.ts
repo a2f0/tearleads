@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { ApiClient } from "./ApiClient";
-import { createDocumentWriterProjectionResponse } from "./ApiClient.testFactories";
+import { createDocumentWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
@@ -9,7 +8,8 @@ import {
   createDeferred,
   server,
   testApiClient,
-} from "./ApiClient.testHarness";
+} from "../test/helpers/apiClientTestHarness";
+import { ApiClient } from "./ApiClient";
 
 type DocumentWriterProjection = ReturnType<
   typeof createDocumentWriterProjectionResponse

@@ -1,7 +1,11 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
+import {
+  apiBaseUrl,
+  server,
+  testApiClient,
+} from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
-import { apiBaseUrl, server, testApiClient } from "./ApiClient.testHarness";
 
 testApiClient(
   "returns the websocket ticket from a successful mint",

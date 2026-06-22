@@ -1,12 +1,11 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { ApiClient } from "./ApiClient";
 import {
   createOrganizationGroupRequest,
   createOrganizationGroupSummary,
   createPrincipalMemberEnvelopesRequest,
   createPrincipalStateRequest,
-} from "./ApiClient.testFactories";
+} from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
@@ -14,7 +13,8 @@ import {
   createDeferred,
   server,
   testApiClient,
-} from "./ApiClient.testHarness";
+} from "../test/helpers/apiClientTestHarness";
+import { ApiClient } from "./ApiClient";
 
 testApiClient(
   "caches organization group lists and invalidates on group changes",
