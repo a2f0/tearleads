@@ -139,11 +139,13 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
           .getAttribute("aria-current"),
       ).toBe("page");
       expect(view.getByRole("button", { name: "Hide Sidebar" })).toBeTruthy();
-      const sidebar = view.container.querySelector("#routed-pane-sidebar");
-      expect(sidebar).toBeTruthy();
-      expect(
-        within(sidebar as HTMLElement).getByRole("button", { name: "You" }),
-      ).toBeTruthy();
+      const sidebar = view.container.querySelector<HTMLElement>(
+        "#routed-pane-sidebar",
+      );
+      if (!sidebar) {
+        throw new Error("Expected routed pane sidebar to be mounted.");
+      }
+      expect(within(sidebar).getByRole("button", { name: "You" })).toBeTruthy();
     });
 
     fireEvent.click(view.getByRole("button", { name: "Hide Sidebar" }));

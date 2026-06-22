@@ -75,6 +75,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     containerContentsReady:
       hasRootContainerId && containerContentsSnapshot.ready,
     containerContentsStore,
+    deferRemoteBootstrap: true,
   });
 
   return (
