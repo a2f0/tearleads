@@ -16,7 +16,7 @@ import {
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
-import { compactFingerprint } from "./display";
+import { compactFingerprint, EMPTY_PROFILE_DISPLAY_NAMES } from "./display";
 import {
   getOrgManagerEpochLabel,
   getOrgManagerPolicyAddedLabel,
@@ -35,7 +35,6 @@ type OrgManagerGroupPolicyHistoryEntry =
   OrganizationGroupPolicyHistory["entries"][number];
 type OrgManagerPrincipalMemberChange =
   OrgManagerGroupPolicyHistoryEntry["changes"][number];
-const EMPTY_PROFILE_DISPLAY_NAMES = new Map<string, string>();
 
 function getPolicyUserLabel(input: {
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;

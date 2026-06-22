@@ -10,7 +10,20 @@ import type {
   PutPrincipalMemberEnvelopesRequest,
   PutPrincipalStateRequest,
 } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  BlobAttachmentBindResponse,
+  ContainerCreateWithMetadataDocumentResponse,
+  ContainerDeleteResponse,
+  ContainerMutationResponse,
+  ContainerWriterProjectionResponse,
+  DocumentCreateResponse,
+  DocumentLinkSetMutationResponse,
+  DocumentSyncResponse,
+  DocumentWriterProjectionResponse,
+  EncapsulationKeyResponse,
+  OrganizationGroupSummaryResponse,
+  PrincipalPolicyBundleResponse,
+} from "@tearleads/validators/response";
 
 export function createContainerMutationRequest(): ContainerMutationRequest {
   return {
@@ -30,7 +43,7 @@ export function createContainerCreateWithMetadataDocumentRequest(): ContainerCre
   };
 }
 
-export function createContainerMutationResponse() {
+export function createContainerMutationResponse(): ContainerMutationResponse {
   return {
     containerId: "container-1",
     createdAt: "2026-05-06T18:00:00.000Z",
@@ -67,14 +80,14 @@ export function createContainerMutationResponse() {
   };
 }
 
-export function createContainerDeleteResponse() {
+export function createContainerDeleteResponse(): ContainerDeleteResponse {
   return {
     containerId: "container-1",
     deletedAt: "2026-05-06T18:00:00.000Z",
   };
 }
 
-export function createContainerWriterProjectionResponse() {
+export function createContainerWriterProjectionResponse(): ContainerWriterProjectionResponse {
   const mutationResponse = createContainerMutationResponse();
 
   return {
@@ -117,7 +130,7 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
   };
 }
 
-export function createDocumentLinkSetMutationResponse() {
+export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutationResponse {
   return {
     id: "document-1",
     accessManifest: {
@@ -190,14 +203,14 @@ export function createDocumentCreateRequest(): DocumentCreateRequest {
   };
 }
 
-export function createDocumentCreateResponse() {
+export function createDocumentCreateResponse(): DocumentCreateResponse {
   return {
     ...createDocumentLinkSetMutationResponse(),
     createdAt: "2026-04-28T00:00:00.000Z",
   };
 }
 
-export function createContainerCreateWithMetadataDocumentResponse() {
+export function createContainerCreateWithMetadataDocumentResponse(): ContainerCreateWithMetadataDocumentResponse {
   return {
     container: createContainerMutationResponse(),
     metadataDocument: createDocumentCreateResponse(),
@@ -263,7 +276,7 @@ export function createDocumentSyncRequest(): DocumentSyncRequest {
   };
 }
 
-export function createDocumentSyncResponse() {
+export function createDocumentSyncResponse(): DocumentSyncResponse {
   const mutationResponse = createDocumentLinkSetMutationResponse();
 
   return {
@@ -321,7 +334,7 @@ export function createBlobAttachmentDetachRequest(): BlobAttachmentDetachRequest
   };
 }
 
-export function createBlobAttachmentBindResponse() {
+export function createBlobAttachmentBindResponse(): BlobAttachmentBindResponse {
   return {
     bindingId: "binding-1",
     blobId: "blob-1",
@@ -358,7 +371,7 @@ export function createBlobAttachmentBindResponse() {
   };
 }
 
-export function createDocumentWriterProjectionResponse() {
+export function createDocumentWriterProjectionResponse(): DocumentWriterProjectionResponse {
   const mutationResponse = createDocumentLinkSetMutationResponse();
 
   return {
@@ -433,7 +446,9 @@ export function createOrganizationGroupRequest(): CreateOrganizationGroupRequest
   };
 }
 
-export function createEncapsulationKeyResponse(userId: string) {
+export function createEncapsulationKeyResponse(
+  userId: string,
+): EncapsulationKeyResponse {
   return {
     encapsulationPublicKey: "encapsulation-key",
     signingKeyFingerprint: "a".repeat(64),
@@ -442,7 +457,9 @@ export function createEncapsulationKeyResponse(userId: string) {
   };
 }
 
-export function createOrganizationGroupSummary(organizationId: string) {
+export function createOrganizationGroupSummary(
+  organizationId: string,
+): OrganizationGroupSummaryResponse {
   return {
     groupId: "group-1",
     organizationId,

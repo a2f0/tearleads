@@ -9,9 +9,8 @@ import {
   getBlobBytes,
 } from "../../services/blobs/getBlob";
 import type { ApiServiceRuntime } from "../../services/runtime";
+import { isUuidString } from "../../utils/uuid";
 
-const UUID_PATTERN =
-  "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$";
 const BLOB_BYTES_BYTE_LENGTH_HEADER = "X-Tearleads-Blob-Byte-Length";
 const BLOB_BYTES_BLOB_ID_HEADER = "X-Tearleads-Blob-Id";
 const BLOB_BYTES_SHA256_HEADER = "X-Tearleads-Blob-Sha256";
@@ -19,10 +18,6 @@ const BLOB_BYTES_SHA256_HEADER = "X-Tearleads-Blob-Sha256";
 interface GetBlobRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
-}
-
-function isUuidString(value: string): boolean {
-  return new RegExp(UUID_PATTERN).test(value);
 }
 
 function readStringProperty(value: unknown, key: string): string | null {

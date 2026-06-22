@@ -10,6 +10,13 @@ const ACCESS_LEVEL_LABELS = {
   write: ORG_MANAGER_LABELS.accessWrite,
 } satisfies Record<OrganizationGroupContainer["accessLevel"], string>;
 
+// Shared empty default for `profileDisplayNamesByUserId` props/params across
+// the org-manager views, so they don't each allocate an identical empty Map.
+export const EMPTY_PROFILE_DISPLAY_NAMES: ReadonlyMap<string, string> = new Map<
+  string,
+  string
+>();
+
 export function compactFingerprint(value: string): string {
   if (value.length <= 18) {
     return value;
