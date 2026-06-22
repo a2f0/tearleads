@@ -7,6 +7,7 @@ import {
   type ReviewComment,
 } from "../github/mapFindingsToComments";
 import type { Severity } from "../severity";
+import { isIgnoredPath } from "./ignoreFilter";
 import { renderDiff } from "./renderDiff";
 import { generateReview } from "./reviewer";
 import type { ReviewFinding } from "./reviewSchema";
@@ -19,6 +20,7 @@ interface RunReviewParams {
   readonly pullNumber: number;
   readonly model: string;
   readonly existingMarkerIds: ReadonlySet<string>;
+  readonly ignorePatterns: readonly string[];
   readonly severityThreshold: Severity;
   readonly maxComments: number;
   readonly styleguide: string | null;
@@ -47,7 +49,10 @@ export async function runReview(
     params.repo,
     params.pullNumber,
   );
-  const diff = renderDiff(pull.files);
+  const reviewableFiles = pull.files.filter(
+    (file) => !isIgnoredPath(file.filename, params.ignorePatterns),
+  );
+  const diff = renderDiff(reviewableFiles);
   if (!diff) {
     return {
       skipped: true,
@@ -66,7 +71,7 @@ export async function runReview(
     styleguide: params.styleguide,
   });
   const { comments, dropped } = mapFindingsToComments(findings, {
-    anchors: buildAnchorMap(pull.files),
+    anchors: buildAnchorMap(reviewableFiles),
     existingMarkerIds: params.existingMarkerIds,
     severityThreshold: params.severityThreshold,
     maxComments: params.maxComments,

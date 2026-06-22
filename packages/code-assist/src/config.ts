@@ -1,3 +1,4 @@
+import { DEFAULT_IGNORE_PATTERNS } from "./review/ignoreFilter";
 import { isSeverity, type Severity } from "./severity";
 
 export interface CodeAssistConfig {
@@ -7,6 +8,7 @@ export interface CodeAssistConfig {
   readonly botHandle: string;
   readonly severityThreshold: Severity;
   readonly maxComments: number;
+  readonly ignorePatterns: readonly string[];
 }
 
 const DEFAULT_MODEL = "deepseek-v4-flash";
@@ -46,6 +48,18 @@ function readMaxComments(): number {
   return parsed;
 }
 
+function readIgnorePatterns(): readonly string[] {
+  const { CODE_ASSIST_IGNORE_PATTERNS: raw } = process.env;
+  if (!raw) {
+    return DEFAULT_IGNORE_PATTERNS;
+  }
+  const patterns = raw
+    .split(",")
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0);
+  return patterns.length > 0 ? patterns : DEFAULT_IGNORE_PATTERNS;
+}
+
 export function loadConfig(): CodeAssistConfig {
   const { CODE_ASSIST_MODEL, CODE_ASSIST_BASE_URL, CODE_ASSIST_BOT_HANDLE } =
     process.env;
@@ -56,5 +70,6 @@ export function loadConfig(): CodeAssistConfig {
     botHandle: CODE_ASSIST_BOT_HANDLE ?? DEFAULT_BOT_HANDLE,
     severityThreshold: readSeverityThreshold(),
     maxComments: readMaxComments(),
+    ignorePatterns: readIgnorePatterns(),
   };
 }

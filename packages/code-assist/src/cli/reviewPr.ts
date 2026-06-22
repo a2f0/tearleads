@@ -65,6 +65,7 @@ async function main(): Promise<void> {
     pullNumber: args.pullNumber,
     model: config.model,
     existingMarkerIds: new Set<string>(),
+    ignorePatterns: config.ignorePatterns,
     severityThreshold: config.severityThreshold,
     maxComments: config.maxComments,
     styleguide: null,

@@ -41,6 +41,7 @@ export async function handlePullRequest(
     pullNumber: params.pullNumber,
     model: params.review.model,
     existingMarkerIds,
+    ignorePatterns: params.review.ignorePatterns,
     severityThreshold: params.review.severityThreshold,
     maxComments: params.review.maxComments,
     styleguide: null,
