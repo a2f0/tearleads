@@ -92,6 +92,10 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
       />,
     );
 
+    // The redesigned routed shell renders the navigation/system actions
+    // inline in the rail (tablet) or drawer (mobile) instead of behind a
+    // "Pane" popover, so there is no "Pane" or "Menu" button.
+    expect(view.queryByRole("button", { name: "Pane" })).toBeNull();
     expect(view.queryByRole("button", { name: "Menu" })).toBeNull();
     expect(
       view.getByText(/Generate a key pair to boot this pane\./),
@@ -100,7 +104,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
       view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
     ).toBe("page");
 
-    fireEvent.click(view.getByRole("button", { name: "Pane" }));
+    // System actions live directly in the rail — no popover to open first.
     expect(
       view.getByRole("button", { name: "Restore Key Package" }),
     ).toBeTruthy();
@@ -108,7 +112,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
       name: "Generate Key Pair",
     })[1];
     if (!generateKeyPairButton) {
-      throw new Error("Expected routed pane menu generate action.");
+      throw new Error("Expected routed rail generate action.");
     }
     fireEvent.click(generateKeyPairButton);
 
@@ -120,6 +124,8 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
 
     fireEvent.click(view.getByRole("link", { name: "Contacts" }));
 
+    // The mini-app sidebar mounts when expanded and unmounts when hidden
+    // (conditional render), rather than toggling an inline display style.
     await waitFor(() => {
       expect(
         view
@@ -131,10 +137,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     });
 
     fireEvent.click(view.getByRole("button", { name: "Hide Sidebar" }));
-    expect(
-      view.container.querySelector<HTMLElement>("#routed-pane-sidebar")?.style
-        .display,
-    ).toBe("none");
+    expect(view.container.querySelector("#routed-pane-sidebar")).toBeNull();
     expect(
       view
         .getByRole("button", { name: "Show Sidebar" })
@@ -142,10 +145,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     ).toBe("false");
 
     fireEvent.click(view.getByRole("button", { name: "Show Sidebar" }));
-    expect(
-      view.container.querySelector<HTMLElement>("#routed-pane-sidebar")?.style
-        .display,
-    ).toBe("");
+    expect(view.container.querySelector("#routed-pane-sidebar")).toBeTruthy();
 
     const homeLink = view.getByRole("link", { name: "Home" });
     fireEvent.click(homeLink);
@@ -157,7 +157,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
       expect(view.queryByRole("button", { name: "Hide Sidebar" })).toBeNull();
     });
 
-    fireEvent.click(view.getByRole("button", { name: "Pane" }));
+    // Destroy Key Pair is also inline in the rail now that a key pair exists.
     expect(view.getByRole("button", { name: "Destroy Key Pair" })).toBeTruthy();
 
     view.unmount();

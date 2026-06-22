@@ -5,6 +5,7 @@ import {
   type HTMLAttributes,
 } from "react";
 import { classNames } from "../../shared/classNames";
+import { useLongPress } from "../../shared/useLongPress";
 import "./MiniAppRow.css";
 
 type MiniAppRowDensity = "compact" | "normal" | "roomy";
@@ -73,16 +74,23 @@ export const MiniAppRow = forwardRef<HTMLElement, MiniAppRowProps>(
 export function MiniAppRowButton({
   className,
   density,
+  onContextMenu,
   selected,
   type = "button",
   variant,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> &
   Omit<MiniAppRowStyleProps, "header">) {
+  // Touch devices have no right-click; a long-press on the row dispatches a
+  // native `contextmenu` event so this same `onContextMenu` handler fires.
+  const longPress = useLongPress(Boolean(onContextMenu));
+
   return (
     <button
       {...props}
+      {...longPress}
       type={type}
+      onContextMenu={onContextMenu}
       className={getMiniAppRowClassName({
         className,
         density,
