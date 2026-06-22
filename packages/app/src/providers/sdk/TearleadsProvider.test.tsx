@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import type {
   BlobBytes,
   LocalKeyPurpose,
@@ -151,7 +151,7 @@ function createTestLocalKeyringSession(
   };
 }
 
-test("marks SDK events disconnected when the WebSocket binding changes URL", () => {
+test("marks SDK events disconnected when the WebSocket binding changes URL", async () => {
   const originalWebSocket = globalThis.WebSocket;
   const state: { tearleads?: Tearleads } = {};
   TestWebSocket.instances = [];
@@ -168,11 +168,21 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", () 
     );
 
     const tearleads = state.tearleads;
+    if (!tearleads) {
+      throw new Error("Expected the Tearleads SDK to initialize.");
+    }
+
+    // The socket only connects once authenticated, and the handshake fetches a
+    // single-use ticket first — stub both so the binding builds a socket.
+    spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue("test-ticket");
+    await act(async () => {
+      tearleads.session.setAuthToken("test-token");
+      await Promise.resolve();
+    });
+
     const firstSocket = TestWebSocket.instances[0];
-    if (!tearleads || !firstSocket) {
-      throw new Error(
-        "Expected the Tearleads SDK and WebSocket to initialize.",
-      );
+    if (!firstSocket) {
+      throw new Error("Expected the WebSocket to initialize.");
     }
 
     act(() => {
@@ -180,14 +190,17 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", () 
     });
     expect(tearleads.events.connected).toBe(true);
 
-    view.rerender(
-      <Harness
-        wsUrl="ws://events.example.test/two"
-        onReady={(nextTearleads) => {
-          state.tearleads = nextTearleads;
-        }}
-      />,
-    );
+    await act(async () => {
+      view.rerender(
+        <Harness
+          wsUrl="ws://events.example.test/two"
+          onReady={(nextTearleads) => {
+            state.tearleads = nextTearleads;
+          }}
+        />,
+      );
+      await Promise.resolve();
+    });
 
     expect(firstSocket.closeCalls).toBe(1);
     expect(tearleads.events.connected).toBe(false);
