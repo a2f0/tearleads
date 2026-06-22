@@ -18,6 +18,7 @@ interface RunReviewParams {
   readonly repo: string;
   readonly pullNumber: number;
   readonly model: string;
+  readonly existingMarkerIds: ReadonlySet<string>;
   readonly severityThreshold: Severity;
   readonly maxComments: number;
   readonly styleguide: string | null;
@@ -66,6 +67,7 @@ export async function runReview(
   });
   const { comments, dropped } = mapFindingsToComments(findings, {
     anchors: buildAnchorMap(pull.files),
+    existingMarkerIds: params.existingMarkerIds,
     severityThreshold: params.severityThreshold,
     maxComments: params.maxComments,
   });

@@ -4,8 +4,10 @@ import { createWebhooks } from "./webhookHandler";
 const config = await loadServerConfig();
 const webhooks = createWebhooks(config);
 
-function isPullRequestEvent(name: string): name is "pull_request" {
-  return name === "pull_request";
+function isHandledEvent(
+  name: string,
+): name is "pull_request" | "pull_request_review_comment" {
+  return name === "pull_request" || name === "pull_request_review_comment";
 }
 
 const server = Bun.serve({
@@ -30,7 +32,7 @@ const server = Bun.serve({
         return new Response("invalid signature\n", { status: 401 });
       }
       // Acknowledge immediately; only handled events are dispatched (detached).
-      if (isPullRequestEvent(name)) {
+      if (isHandledEvent(name)) {
         void webhooks
           .receive({ id, name, payload: JSON.parse(body) })
           .catch((error: unknown) => {

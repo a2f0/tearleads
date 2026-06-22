@@ -4,12 +4,14 @@ export interface CodeAssistConfig {
   readonly deepseekApiKey: string;
   readonly model: string;
   readonly baseUrl: string;
+  readonly botHandle: string;
   readonly severityThreshold: Severity;
   readonly maxComments: number;
 }
 
 const DEFAULT_MODEL = "deepseek-v4-flash";
 const DEFAULT_BASE_URL = "https://api.deepseek.com";
+const DEFAULT_BOT_HANDLE = "@tearleads-code-assist";
 const DEFAULT_SEVERITY_THRESHOLD: Severity = "medium";
 const DEFAULT_MAX_COMMENTS = 25;
 
@@ -45,11 +47,13 @@ function readMaxComments(): number {
 }
 
 export function loadConfig(): CodeAssistConfig {
-  const { CODE_ASSIST_MODEL, CODE_ASSIST_BASE_URL } = process.env;
+  const { CODE_ASSIST_MODEL, CODE_ASSIST_BASE_URL, CODE_ASSIST_BOT_HANDLE } =
+    process.env;
   return {
     deepseekApiKey: requireEnv("DEEPSEEK_API_KEY"),
     model: CODE_ASSIST_MODEL ?? DEFAULT_MODEL,
     baseUrl: CODE_ASSIST_BASE_URL ?? DEFAULT_BASE_URL,
+    botHandle: CODE_ASSIST_BOT_HANDLE ?? DEFAULT_BOT_HANDLE,
     severityThreshold: readSeverityThreshold(),
     maxComments: readMaxComments(),
   };
