@@ -82,6 +82,17 @@ export function useExplorerContainerItemWindow(
     () => Array.from(visibleSystemSlots).sort().join("\u0000"),
     [visibleSystemSlots],
   );
+  // Refetch only when the selected container's own child sub-containers change
+  // (id/name/sync), not when any container elsewhere in the tree does. Documents
+  // are tracked separately via `documentListRevision`.
+  const childContainerSignature = useMemo(
+    () =>
+      containerNodes
+        .filter((node) => node.parentId === selectedNode.id)
+        .map((node) => `${node.id} ${node.name} ${node.syncState}`)
+        .join("|"),
+    [containerNodes, selectedNode.id],
+  );
   // Depend on the sort primitives, not the object reference, so a re-created
   // `sort` with the same key/direction doesn't re-run the fetch.
   const { direction: sortDirection, key: sortKey } = sort;
@@ -136,7 +147,7 @@ export function useExplorerContainerItemWindow(
       cancelled = true;
     };
   }, [
-    containerNodes,
+    childContainerSignature,
     documentListRevision,
     documentQueries,
     enabled,
