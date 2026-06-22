@@ -68,7 +68,7 @@ function readableStreamToBlobObjectStream(
           controller.close();
           // reader.cancel()/read-to-done do not release the lock; do it
           // explicitly so the underlying stream isn't pinned by a live reader.
-          reader.releaseLock();
+          releaseReaderLock(reader);
           return;
         }
 
@@ -93,6 +93,16 @@ function readableStreamToBlobObjectStream(
   });
 }
 
+function releaseReaderLock(reader: ReadableStreamDefaultReader<unknown>): void {
+  try {
+    reader.releaseLock();
+  } catch {
+    // releaseLock() throws if the lock was already released (e.g. a pending
+    // read rejected and re-entered cancelReader); ignore so the original
+    // stream error is preserved.
+  }
+}
+
 async function cancelReader(
   reader: ReadableStreamDefaultReader<unknown>,
   reason: unknown,
@@ -104,7 +114,7 @@ async function cancelReader(
   } finally {
     // cancel() does not release the reader lock; release it so the underlying
     // stream isn't left pinned by a live reader.
-    reader.releaseLock();
+    releaseReaderLock(reader);
   }
 }
 
