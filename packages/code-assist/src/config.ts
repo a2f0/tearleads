@@ -50,14 +50,15 @@ function readMaxComments(): number {
 
 function readIgnorePatterns(): readonly string[] {
   const { CODE_ASSIST_IGNORE_PATTERNS: raw } = process.env;
-  if (!raw) {
+  // Unset → defaults; an explicit (even empty) value disables filtering or
+  // overrides the defaults entirely.
+  if (raw === undefined) {
     return DEFAULT_IGNORE_PATTERNS;
   }
-  const patterns = raw
+  return raw
     .split(",")
     .map((pattern) => pattern.trim())
     .filter((pattern) => pattern.length > 0);
-  return patterns.length > 0 ? patterns : DEFAULT_IGNORE_PATTERNS;
 }
 
 export function loadConfig(): CodeAssistConfig {
