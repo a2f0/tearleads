@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useState } from "react";
 import type { PaneLogEntry } from "./PaneLog";
 
 const LOCKED_PANE_LOG_MESSAGE =
@@ -18,23 +18,27 @@ export function useBootPaneLogEntries(input: {
   const { bootMessage, hasSigningKeyPair, paneLocked } = input;
 
   // Stamp the timestamp only when the inputs actually change. useMemo is not a
-  // semantic guarantee (React may discard and recompute it), so calling
-  // Date.now() inside it could drift the timestamp on a spurious recompute;
-  // tracking previous inputs in a ref keeps it stable until a real change.
-  const previousInputsRef = useRef({
+  // semantic guarantee (React may recompute it), so Date.now() inside it could
+  // drift on a spurious recompute. Derive the stamp via the set-state-during-
+  // render pattern instead of mutating a ref in render, which is unsafe under
+  // concurrent/Strict Mode (an aborted render would persist the mutation).
+  const [stamped, setStamped] = useState(() => ({
     bootMessage,
     hasSigningKeyPair,
     paneLocked,
-  });
-  const timestampRef = useRef(Date.now());
-  const previous = previousInputsRef.current;
+    timestamp: Date.now(),
+  }));
   if (
-    previous.bootMessage !== bootMessage ||
-    previous.hasSigningKeyPair !== hasSigningKeyPair ||
-    previous.paneLocked !== paneLocked
+    stamped.bootMessage !== bootMessage ||
+    stamped.hasSigningKeyPair !== hasSigningKeyPair ||
+    stamped.paneLocked !== paneLocked
   ) {
-    timestampRef.current = Date.now();
-    previousInputsRef.current = { bootMessage, hasSigningKeyPair, paneLocked };
+    setStamped({
+      bootMessage,
+      hasSigningKeyPair,
+      paneLocked,
+      timestamp: Date.now(),
+    });
   }
 
   return useMemo(() => {
@@ -45,9 +49,9 @@ export function useBootPaneLogEntries(input: {
       {
         id: "boot-pane-prompt",
         level: "info" as const,
-        timestamp: timestampRef.current,
+        timestamp: stamped.timestamp,
         message: paneLocked ? LOCKED_PANE_LOG_MESSAGE : bootMessage,
       },
     ];
-  }, [bootMessage, hasSigningKeyPair, paneLocked]);
+  }, [bootMessage, hasSigningKeyPair, paneLocked, stamped.timestamp]);
 }
