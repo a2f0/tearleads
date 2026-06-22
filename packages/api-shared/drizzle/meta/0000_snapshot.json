@@ -1,5 +1,5 @@
 {
-  "id": "1c36ebc2-541f-43f1-84d9-6fb97f04a6ef",
+  "id": "2a7de757-cb99-49b6-86f5-49829d4a5c35",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1759,6 +1759,106 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.container_builtin_grants": {
+      "name": "container_builtin_grants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "container_id": {
+          "name": "container_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "access_level": {
+          "name": "access_level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_type": {
+          "name": "subject_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "container_builtin_grants_org_idx": {
+          "name": "container_builtin_grants_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "container_builtin_grants_identity_idx": {
+          "name": "container_builtin_grants_identity_idx",
+          "columns": [
+            {
+              "expression": "container_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subject_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subject_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.container_document_sync_tombstones": {
       "name": "container_document_sync_tombstones",
       "schema": "",
@@ -2355,6 +2455,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "system_slot": {
+          "name": "system_slot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "depth": {
           "name": "depth",
           "type": "integer",
@@ -2390,6 +2496,28 @@
           ],
           "isUnique": true,
           "where": "\"containers\".\"parent_id\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "containers_org_system_slot_idx": {
+          "name": "containers_org_system_slot_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "system_slot",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"containers\".\"system_slot\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2576,7 +2704,7 @@
         "id": {
           "name": "id",
           "type": "uuid",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "default": "gen_random_uuid()"
         },
@@ -2589,7 +2717,7 @@
         "sequence": {
           "name": "sequence",
           "type": "bigint",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
           "identity": {
             "type": "always",
@@ -2745,6 +2873,11 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "document_audit_checkpoints_id_unique": {
+          "name": "document_audit_checkpoints_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id"]
+        },
         "document_audit_checkpoints_baseline_update_id_unique": {
           "name": "document_audit_checkpoints_baseline_update_id_unique",
           "nullsNotDistinct": false,
@@ -2762,7 +2895,7 @@
         "id": {
           "name": "id",
           "type": "uuid",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "default": "gen_random_uuid()"
         },
@@ -2775,7 +2908,7 @@
         "sequence": {
           "name": "sequence",
           "type": "bigint",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
           "identity": {
             "type": "always",
@@ -2912,7 +3045,13 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "document_audit_entries_id_unique": {
+          "name": "document_audit_entries_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -3625,6 +3764,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "byte_length": {
+          "name": "byte_length",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "partial_start_version_vector": {
           "name": "partial_start_version_vector",
           "type": "text",
@@ -3760,6 +3905,142 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.organization_roster_entries": {
+      "name": "organization_roster_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "profile_document_id": {
+          "name": "profile_document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "disabled_at": {
+          "name": "disabled_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "disabled_by_user_id": {
+          "name": "disabled_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "organization_roster_entries_org_user_idx": {
+          "name": "organization_roster_entries_org_user_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "organization_roster_entries_org_status_idx": {
+          "name": "organization_roster_entries_org_status_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "organization_roster_entries_profile_document_idx": {
+          "name": "organization_roster_entries_profile_document_idx",
+          "columns": [
+            {
+              "expression": "profile_document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.organizations": {
       "name": "organizations",
       "schema": "",
@@ -3771,11 +4052,29 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "admin_group_id": {
+          "name": "admin_group_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_group_id": {
+          "name": "member_group_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "name": {
           "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "profile_document_id": {
+          "name": "profile_document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -4114,6 +4413,27 @@
             },
             {
               "expression": "principal_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "principal_membership_projection_member_idx": {
+          "name": "principal_membership_projection_member_idx",
+          "columns": [
+            {
+              "expression": "member_principal_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "member_principal_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

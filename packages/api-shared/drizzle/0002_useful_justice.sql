@@ -1,1 +1,0 @@
-CREATE INDEX "principal_membership_projection_member_idx" ON "principal_membership_projection" USING btree ("member_principal_type","member_principal_id");

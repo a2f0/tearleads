@@ -1,1 +1,0 @@
-ALTER TABLE "organizations" ADD COLUMN "profile_document_id" uuid;

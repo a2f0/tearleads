@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1778096820507,
-      "tag": "0000_perfect_banshee",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1778691600000,
-      "tag": "0001_admin_groups",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1778709771735,
-      "tag": "0002_useful_justice",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1778750413619,
-      "tag": "0003_gifted_captain_stacy",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1779126341080,
-      "tag": "0004_pretty_gressill",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1779293066964,
-      "tag": "0005_nappy_annihilus",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1779649855521,
-      "tag": "0006_black_sue_storm",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1780693655951,
-      "tag": "0007_chilly_archangel",
+      "when": 1782156599993,
+      "tag": "0000_common_cobalt_man",
       "breakpoints": true
     }
   ]

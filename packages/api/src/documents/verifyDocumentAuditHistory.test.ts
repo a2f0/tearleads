@@ -261,3 +261,51 @@ test("verifyDocumentAuditHistory detects tampered checkpoint access state hash",
     ),
   ).toBe(true);
 });
+
+test("audit entry sequences are engine-assigned and strictly increasing", async () => {
+  const actorUserId = crypto.randomUUID();
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: ACTOR_FINGERPRINT })
+    .returning({ id: documents.id });
+  if (!document) {
+    throw new Error("Failed to create audit test document");
+  }
+
+  // Append two update audit entries without ever supplying a `sequence`. The
+  // database engine must assign it (Postgres GENERATED ALWAYS AS IDENTITY /
+  // SQLite INTEGER PRIMARY KEY AUTOINCREMENT); the hash-chain ordering relies on
+  // these values being non-null and strictly increasing.
+  for (let index = 0; index < 2; index += 1) {
+    await appendDocumentUpdateAuditEntries(db, {
+      accessEpoch: ACCESS_EPOCH,
+      accessManifestHash: ACCESS_MANIFEST_HASH,
+      accessStateHash: ACCESS_STATE_HASH,
+      actorFingerprint: ACTOR_FINGERPRINT,
+      actorUserId,
+      documentId: document.id,
+      updates: [
+        {
+          encryptedData: `sequence-update-${index}`,
+          id: crypto.randomUUID(),
+          partialEndVersionVector: `sequence-end-${index}`,
+          partialStartVersionVector: `sequence-start-${index}`,
+        },
+      ],
+    });
+  }
+
+  const rows = await db
+    .select({ sequence: documentAuditEntries.sequence })
+    .from(documentAuditEntries)
+    .where(eq(documentAuditEntries.documentId, document.id))
+    .orderBy(documentAuditEntries.sequence);
+
+  expect(rows.length).toBe(2);
+  for (const row of rows) {
+    expect(Number.isInteger(row.sequence)).toBe(true);
+    expect(row.sequence).toBeGreaterThan(0);
+  }
+  const [first, second] = rows;
+  expect(second?.sequence).toBeGreaterThan(first?.sequence ?? 0);
+});

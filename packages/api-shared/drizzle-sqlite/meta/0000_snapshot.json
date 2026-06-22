@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b7557f85-18fa-4ac2-8c2e-bad236e6183d",
+  "id": "e6ae7e58-849e-43b5-afb2-07d6c9e15fd1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -1921,7 +1921,7 @@
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -1935,9 +1935,9 @@
         "sequence": {
           "name": "sequence",
           "type": "integer",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "baseline_update_id": {
           "name": "baseline_update_id",
@@ -2026,6 +2026,11 @@
         }
       },
       "indexes": {
+        "document_audit_checkpoints_id_unique": {
+          "name": "document_audit_checkpoints_id_unique",
+          "columns": ["id"],
+          "isUnique": true
+        },
         "document_audit_checkpoints_baseline_update_id_unique": {
           "name": "document_audit_checkpoints_baseline_update_id_unique",
           "columns": ["baseline_update_id"],
@@ -2058,7 +2063,7 @@
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -2072,9 +2077,9 @@
         "sequence": {
           "name": "sequence",
           "type": "integer",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": true
         },
         "event_type": {
           "name": "event_type",
@@ -2142,6 +2147,11 @@
         }
       },
       "indexes": {
+        "document_audit_entries_id_unique": {
+          "name": "document_audit_entries_id_unique",
+          "columns": ["id"],
+          "isUnique": true
+        },
         "document_audit_entries_document_sequence_idx": {
           "name": "document_audit_entries_document_sequence_idx",
           "columns": ["document_id", "sequence"],

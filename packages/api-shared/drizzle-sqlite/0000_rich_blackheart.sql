@@ -314,9 +314,9 @@ CREATE TABLE `document_attachment_audit_events` (
 );
 --> statement-breakpoint
 CREATE TABLE `document_audit_checkpoints` (
-	`id` text PRIMARY KEY NOT NULL,
+	`id` text NOT NULL,
 	`document_id` text NOT NULL,
-	`sequence` integer NOT NULL,
+	`sequence` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`baseline_update_id` text NOT NULL,
 	`checkpoint_kind` text NOT NULL,
 	`source_version_vector` text NOT NULL,
@@ -331,14 +331,15 @@ CREATE TABLE `document_audit_checkpoints` (
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `document_audit_checkpoints_id_unique` ON `document_audit_checkpoints` (`id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_audit_checkpoints_baseline_update_id_unique` ON `document_audit_checkpoints` (`baseline_update_id`);--> statement-breakpoint
 CREATE INDEX `document_audit_checkpoints_document_sequence_idx` ON `document_audit_checkpoints` (`document_id`,`sequence`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_audit_checkpoints_document_hash_idx` ON `document_audit_checkpoints` (`document_id`,`checkpoint_hash`);--> statement-breakpoint
 CREATE INDEX `document_audit_checkpoints_document_created_idx` ON `document_audit_checkpoints` (`document_id`,`created_at`);--> statement-breakpoint
 CREATE TABLE `document_audit_entries` (
-	`id` text PRIMARY KEY NOT NULL,
+	`id` text NOT NULL,
 	`document_id` text NOT NULL,
-	`sequence` integer NOT NULL,
+	`sequence` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`event_type` text NOT NULL,
 	`access_epoch` integer NOT NULL,
 	`access_manifest_hash` text NOT NULL,
@@ -350,6 +351,7 @@ CREATE TABLE `document_audit_entries` (
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `document_audit_entries_id_unique` ON `document_audit_entries` (`id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_audit_entries_document_sequence_idx` ON `document_audit_entries` (`document_id`,`sequence`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_audit_entries_document_hash_idx` ON `document_audit_entries` (`document_id`,`entry_hash`);--> statement-breakpoint
 CREATE INDEX `document_audit_entries_document_created_idx` ON `document_audit_entries` (`document_id`,`created_at`);--> statement-breakpoint

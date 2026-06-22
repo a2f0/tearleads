@@ -24,10 +24,10 @@ import type {
  * those fields for later audit-history verification.
  *
  * Columns:
- * - `id`: Surrogate database primary key.
+ * - `id`: Surrogate unique identifier for the checkpoint row.
  * - `documentId`: Document whose audit checkpoint this row describes.
- * - `sequence`: Database-generated monotonic sequence used to order
- *   checkpoints. Queries scope the ordering by `documentId`.
+ * - `sequence`: Engine-generated monotonic sequence and table primary key,
+ *   used to order checkpoints. Queries scope the ordering by `documentId`.
  * - `baselineUpdateId`: Live document update id that carries the checkpoint
  *   baseline. Unique so the same update cannot create multiple checkpoints.
  * - `checkpointKind`: Loro checkpoint kind supplied by the update metadata.
@@ -58,11 +58,11 @@ import type {
 export const documentAuditCheckpoints = pgTable(
   "document_audit_checkpoints",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").defaultRandom().notNull().unique(),
     documentId: uuid("document_id").notNull(),
     sequence: bigint("sequence", { mode: "number" })
       .generatedAlwaysAsIdentity()
-      .notNull(),
+      .primaryKey(),
     baselineUpdateId: uuid("baseline_update_id").notNull().unique(),
     checkpointKind: text("checkpoint_kind").notNull(),
     sourceVersionVector: text("source_version_vector").notNull(),
@@ -102,11 +102,11 @@ export const documentAuditCheckpoints = pgTable(
  * previous entry hash so verifiers can replay the document's audit chain.
  *
  * Columns:
- * - `id`: Surrogate database primary key. Companion event tables reference this
- *   id as their primary key.
+ * - `id`: Surrogate unique identifier. Companion event tables reference this id
+ *   as their own primary key.
  * - `documentId`: Document whose audit history this row belongs to.
- * - `sequence`: Database-generated monotonic sequence used to order entries.
- *   Queries scope the ordering by `documentId`.
+ * - `sequence`: Engine-generated monotonic sequence and table primary key, used
+ *   to order entries. Queries scope the ordering by `documentId`.
  * - `eventType`: Audit event family, for example `loro_update` or
  *   `attachment_event`.
  * - `accessEpoch`: Access manifest epoch active when the event was written.
@@ -131,11 +131,11 @@ export const documentAuditCheckpoints = pgTable(
 export const documentAuditEntries = pgTable(
   "document_audit_entries",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    id: uuid("id").defaultRandom().notNull().unique(),
     documentId: uuid("document_id").notNull(),
     sequence: bigint("sequence", { mode: "number" })
       .generatedAlwaysAsIdentity()
-      .notNull(),
+      .primaryKey(),
     eventType: text("event_type").notNull(),
     accessEpoch: integer("access_epoch").notNull(),
     accessManifestHash: text("access_manifest_hash").notNull(),

@@ -22,7 +22,6 @@ import { unsafeCoerce } from "../unsafeCoerce.js";
 import { isSqliteSchemaDialect } from "./dialect";
 
 const isSqlite = isSqliteSchemaDialect();
-let lastSqliteIdentityValue = 0;
 
 const pgBigintNumber = (name: string) =>
   pgBigint(name, { mode: "number" }).generatedAlwaysAsIdentity();
@@ -45,11 +44,6 @@ const sqliteUniqueIndexAny =
   unsafeCoerce<typeof pgUniqueIndex>(sqliteUniqueIndex);
 const sqliteTextAny = unsafeCoerce<typeof pgText>(sqliteText);
 
-interface SqliteRuntimeDefaultBuilder {
-  $defaultFn(defaultFn: () => number): unknown;
-  generatedAlwaysAsIdentity(): unknown;
-}
-
 interface SqliteRuntimeIntegerBuilder {
   config: { autoIncrement?: boolean; hasDefault?: boolean };
   generatedAlwaysAsIdentity(): unknown;
@@ -69,27 +63,24 @@ type SqliteTextBridge = (name: string, config?: { mode?: "json" }) => unknown;
 const sqliteIntegerBridge = unsafeCoerce<SqliteIntegerBridge>(sqliteInteger);
 const sqliteTextBridge = unsafeCoerce<SqliteTextBridge>(sqliteText);
 
-// Emulates Postgres `GENERATED ALWAYS AS IDENTITY` for bigint sequence columns
-// (e.g. document_audit_entries.sequence) under SQLite, where the migration
-// emits a plain integer column with no engine-managed identity. The contract
-// the callers rely on is *strict monotonicity* and *uniqueness*: audit rows are
-// hash-chained by selecting the latest `sequence` per document, and
-// `(document_id, sequence)` is a UNIQUE index. A wall-clock value alone cannot
-// guarantee this (multiple inserts within one millisecond, clock going
-// backwards), so we clamp to always exceed the previously issued value. Values
-// stay within Number.MAX_SAFE_INTEGER until well past the year 2255.
-function nextSqliteIdentityValue(): number {
-  const next = Math.max(Date.now() * 1000, lastSqliteIdentityValue + 1);
-  lastSqliteIdentityValue = next;
-  return next;
-}
-
+// Maps Postgres `GENERATED ALWAYS AS IDENTITY` bigint sequence columns
+// (e.g. document_audit_entries.sequence) onto a real engine-managed SQLite
+// identity. `.generatedAlwaysAsIdentity()` flips the underlying integer column
+// to `INTEGER PRIMARY KEY AUTOINCREMENT` (the schema pairs it with
+// `.primaryKey()`), so monotonicity and uniqueness are owned by SQLite itself
+// rather than a JS counter — matching how packages/loro emits
+// document_updates.sequence. Audit rows are hash-chained by selecting the
+// latest `sequence` per document, which AUTOINCREMENT keeps strictly
+// increasing.
 function sqliteBigint(name: string): PgBigintNumberBuilder {
-  const builder = unsafeCoerce<SqliteRuntimeDefaultBuilder>(
+  const builder = unsafeCoerce<SqliteRuntimeIntegerBuilder>(
     sqliteIntegerBridge(name),
   );
-  builder.generatedAlwaysAsIdentity = () =>
-    builder.$defaultFn(nextSqliteIdentityValue);
+  builder.generatedAlwaysAsIdentity = () => {
+    builder.config.autoIncrement = true;
+    builder.config.hasDefault = true;
+    return builder;
+  };
   return unsafeCoerce<PgBigintNumberBuilder>(builder);
 }
 
@@ -102,15 +93,7 @@ function sqliteBoolean(name: string): PgBooleanBuilder {
 }
 
 function sqliteIntegerColumn(name: string): PgIntegerBuilder {
-  const builder = unsafeCoerce<SqliteRuntimeIntegerBuilder>(
-    sqliteIntegerBridge(name),
-  );
-  builder.generatedAlwaysAsIdentity = () => {
-    builder.config.autoIncrement = true;
-    builder.config.hasDefault = true;
-    return builder;
-  };
-  return unsafeCoerce<PgIntegerBuilder>(builder);
+  return unsafeCoerce<PgIntegerBuilder>(sqliteIntegerBridge(name));
 }
 
 function sqliteJson(name: string): PgJsonBuilder {
