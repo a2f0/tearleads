@@ -20,6 +20,7 @@ ignore:
   - .turbo
   - packages/*/.turbo
   - packages/api-shared/drizzle/meta/_journal.json
+  - packages/api-shared/drizzle-sqlite/meta/_journal.json
   - target
   - playwright-report
   - test-results

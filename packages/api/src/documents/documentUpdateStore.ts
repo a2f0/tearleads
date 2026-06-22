@@ -7,6 +7,12 @@ import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 import { parseWalLsn } from "@tearleads/validators/util";
 import { sql } from "drizzle-orm";
+import {
+  isSqliteApiDatabase,
+  readDateValue,
+  textExpression,
+  uuidValue,
+} from "../utils/sqlDialect";
 import { readCurrentCommitLsn } from "./commitLsn";
 
 interface SqlNamedColumn {
@@ -17,7 +23,7 @@ interface MissingDocumentUpdateRow {
   accessEpoch: number;
   authorFingerprint: string;
   byteLength: number;
-  createdAt: string;
+  createdAt: Date | number | string;
   documentId: string;
   encryptedData: string;
   id: string;
@@ -72,7 +78,9 @@ function isMissingDocumentUpdateRow(
     typeof authorFingerprint === "string" &&
     typeof byteLength === "number" &&
     Number.isInteger(byteLength) &&
-    typeof createdAt === "string" &&
+    (createdAt instanceof Date ||
+      typeof createdAt === "number" ||
+      typeof createdAt === "string") &&
     typeof documentId === "string" &&
     typeof encryptedData === "string" &&
     typeof id === "string" &&
@@ -108,6 +116,22 @@ function buildClientFrontierJson(localVersionVector: string | null): string {
       peer_id: row.peerId,
     })),
   );
+}
+
+function buildFrontierRecordset(clientFrontierJson: string) {
+  if (isSqliteApiDatabase()) {
+    return {
+      counter: sql`json_extract(frontier.value, '$.counter')`,
+      peerId: sql`json_extract(frontier.value, '$.peer_id')`,
+      recordset: sql`json_each(${clientFrontierJson}) as frontier`,
+    };
+  }
+
+  return {
+    counter: sql`frontier.counter`,
+    peerId: sql`frontier.peer_id`,
+    recordset: sql`jsonb_to_recordset(${clientFrontierJson}::jsonb) as frontier(peer_id text, counter integer)`,
+  };
 }
 
 async function assertMinLsnSatisfied(
@@ -161,12 +185,12 @@ export async function listMissingDocumentUpdates(
   const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
   const spanEndCounter = aliasedColumn("s", documentUpdateSpans.endCounter);
   const clientFrontierJson = buildClientFrontierJson(input.localVersionVector);
-  const frontierRecordset = sql`jsonb_to_recordset(${clientFrontierJson}::jsonb) as frontier(peer_id text, counter integer)`;
+  const frontier = buildFrontierRecordset(clientFrontierJson);
   const result = await executor.execute(sql`
     select
       ${updateSequence} as "sequence",
-      ${updateId}::text as "id",
-      ${updateDocumentId}::text as "documentId",
+      ${textExpression(updateId)} as "id",
+      ${textExpression(updateDocumentId)} as "documentId",
       ${updateAccessEpoch} as "accessEpoch",
       ${updateAuthorFingerprint} as "authorFingerprint",
       ${updateEncryptedData} as "encryptedData",
@@ -175,22 +199,22 @@ export async function listMissingDocumentUpdates(
       ${updatePartialEndVersionVector} as "partialEndVersionVector",
       ${updateCreatedAt} as "createdAt"
     from ${documentUpdates} u
-    where ${updateDocumentId} = ${input.documentId}::uuid
+    where ${updateDocumentId} = ${uuidValue(input.documentId)}
       and (
         not exists (
           select 1
           from ${documentUpdateSpans} s
-          where ${spanDocumentId} = ${input.documentId}::uuid
+          where ${spanDocumentId} = ${uuidValue(input.documentId)}
             and ${spanUpdateId} = ${updateId}
         )
         or exists (
           select 1
           from ${documentUpdateSpans} s
-          left join ${frontierRecordset}
-            on frontier.peer_id = ${spanPeerId}
-          where ${spanDocumentId} = ${input.documentId}::uuid
+          left join ${frontier.recordset}
+            on ${frontier.peerId} = ${spanPeerId}
+          where ${spanDocumentId} = ${uuidValue(input.documentId)}
             and ${spanUpdateId} = ${updateId}
-            and coalesce(frontier.counter, 0) < ${spanEndCounter}
+            and coalesce(${frontier.counter}, 0) < ${spanEndCounter}
         )
       )
     order by ${updateSequence} asc
@@ -204,12 +228,10 @@ export async function listMissingDocumentUpdates(
       );
     }
 
-    const createdAt = new Date(row.createdAt);
-    if (Number.isNaN(createdAt.getTime())) {
-      throw new Error(
-        "Unexpected createdAt value from missing document updates query",
-      );
-    }
+    const createdAt = readDateValue(
+      row.createdAt,
+      "createdAt from missing document updates query",
+    );
 
     missingUpdates.push({
       accessEpoch: row.accessEpoch,

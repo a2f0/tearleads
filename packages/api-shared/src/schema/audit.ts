@@ -8,7 +8,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
-} from "drizzle-orm/pg-core";
+} from "./columns";
 import type {
   BlobAuditRetentionMode,
   DocumentAttachmentAuditAction,

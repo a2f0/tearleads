@@ -1,5 +1,6 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
+import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
@@ -54,7 +55,9 @@ export function watermarkPredicate(
     return sql``;
   }
 
-  return sql`and (${updatedAtExpression}, ${idExpression}) > (${new Date(
-    watermark.updatedAt,
-  )}, ${watermark.id})`;
+  const updatedAt = new Date(watermark.updatedAt);
+  const updatedAtValue = isSqliteApiDatabase()
+    ? updatedAt.getTime()
+    : updatedAt;
+  return sql`and (${updatedAtExpression}, ${idExpression}) > (${updatedAtValue}, ${watermark.id})`;
 }

@@ -6,6 +6,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { desc, eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
+import { isSqliteApiDatabase } from "../utils/sqlDialect";
 import { serializeAuditHashField } from "./auditHashField";
 
 const textEncoder = new TextEncoder();
@@ -125,12 +126,16 @@ export async function appendDocumentUpdateAuditEntries(
     return entryHashByUpdateId;
   }
 
-  await executor
+  const documentLockQuery = executor
     .select({ id: documents.id })
     .from(documents)
     .where(eq(documents.id, input.documentId))
-    .limit(1)
-    .for("update");
+    .limit(1);
+  if (isSqliteApiDatabase()) {
+    await documentLockQuery;
+  } else {
+    await documentLockQuery.for("update");
+  }
 
   const [latest] = await executor
     .select({ entryHash: documentAuditEntries.entryHash })

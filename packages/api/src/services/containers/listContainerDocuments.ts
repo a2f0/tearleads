@@ -14,6 +14,7 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { textExpression } from "../../utils/sqlDialect";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
@@ -114,7 +115,7 @@ async function loadCurrentContainerDocumentRows(input: {
       and ${organizations.profileDocumentId} is null
       ${watermarkPredicate(
         sql`${documents.updatedAt}`,
-        sql`${accessManifestHeads.objectId}::text`,
+        textExpression(sql`${accessManifestHeads.objectId}`),
         input.watermark,
       )}
     `)
@@ -138,7 +139,7 @@ async function loadContainerDocumentTombstoneRows(input: {
       ${containerDocumentSyncTombstones.containerId} = ${input.containerId}
       ${watermarkPredicate(
         sql`${containerDocumentSyncTombstones.updatedAt}`,
-        sql`${containerDocumentSyncTombstones.documentId}::text`,
+        textExpression(sql`${containerDocumentSyncTombstones.documentId}`),
         input.watermark,
       )}
     `)

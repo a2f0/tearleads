@@ -5,6 +5,15 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
+import {
+  jsonTextProperty,
+  readSqlBoolean,
+  textExpression,
+  uuidExpression,
+  visitedPathAppend,
+  visitedPathContains,
+  visitedPathStart,
+} from "../../../utils/sqlDialect";
 import { getContainerKeyEpochsById } from "./containerKekStore";
 
 type ContainerKekTargetStatus = 404 | 409;
@@ -23,6 +32,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function readRecord(value: unknown): Record<string, unknown> | null {
+  if (isRecord(value)) {
+    return value;
+  }
+  if (typeof value !== "string" || value.length === 0) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function readNullableString(value: unknown): string | null {
   if (value === null) {
     return null;
@@ -34,20 +59,21 @@ function readContainerManifestTarget(input: {
   readonly containerId: string;
   readonly state: unknown;
 }): Pick<ContainerManifestTarget, "containerKeyEpochId" | "parentContainerId"> {
-  if (!isRecord(input.state)) {
+  const state = readRecord(input.state);
+  if (!state) {
     throw new ContainerKekTargetError(
       "Container manifest state is invalid",
       409,
     );
   }
 
-  const version = Reflect.get(input.state, "version");
-  const stateContainerId = Reflect.get(input.state, "containerId");
+  const version = Reflect.get(state, "version");
+  const stateContainerId = Reflect.get(state, "containerId");
   if (version !== 1 || stateContainerId !== input.containerId) {
     throw new ContainerKekTargetError("Container manifest state mismatch", 409);
   }
 
-  const containerKeyEpochId = Reflect.get(input.state, "containerKeyEpochId");
+  const containerKeyEpochId = Reflect.get(state, "containerKeyEpochId");
   if (typeof containerKeyEpochId !== "string" || !containerKeyEpochId) {
     throw new ContainerKekTargetError(
       "Container manifest has no current KEK epoch",
@@ -55,7 +81,7 @@ function readContainerManifestTarget(input: {
     );
   }
 
-  const parentContainerValue = Reflect.get(input.state, "parentContainerId");
+  const parentContainerValue = Reflect.get(state, "parentContainerId");
   const parentContainerId = readNullableString(parentContainerValue);
   if (parentContainerId === null && parentContainerValue !== null) {
     throw new ContainerKekTargetError(
@@ -89,7 +115,9 @@ function isContainerAncestorClosureRow(
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof Reflect.get(value, "cycleDetected") === "boolean" &&
+    (typeof Reflect.get(value, "cycleDetected") === "boolean" ||
+      Reflect.get(value, "cycleDetected") === 0 ||
+      Reflect.get(value, "cycleDetected") === 1) &&
     typeof Reflect.get(value, "id") === "string" &&
     typeof Reflect.get(value, "manifestHash") === "string" &&
     typeof Reflect.get(value, "objectId") === "string" &&
@@ -117,7 +145,9 @@ function isContainerManifestBindingHistoryRow(
     value !== null &&
     typeof Reflect.get(value, "containerId") === "string" &&
     typeof Reflect.get(value, "containerKeyEpochId") === "string" &&
-    typeof Reflect.get(value, "cycleDetected") === "boolean" &&
+    (typeof Reflect.get(value, "cycleDetected") === "boolean" ||
+      Reflect.get(value, "cycleDetected") === 0 ||
+      Reflect.get(value, "cycleDetected") === 1) &&
     typeof Reflect.get(value, "eventHash") === "string" &&
     typeof Reflect.get(value, "manifestHash") === "string" &&
     typeof Reflect.get(value, "objectId") === "string" &&
@@ -151,7 +181,7 @@ async function loadCurrentContainerManifestTargetClosure(input: {
         m.object_kind,
         m.object_id as manifest_object_id,
         m.state,
-        array[h.object_id] as visited_ids,
+        ${visitedPathStart(sql`h.object_id`)} as visited_path,
         false as cycle_detected,
         0 as depth
       from ${accessManifestHeads} h
@@ -168,17 +198,23 @@ async function loadCurrentContainerManifestTargetClosure(input: {
         m.object_kind,
         m.object_id as manifest_object_id,
         m.state,
-        ap.visited_ids || h.object_id,
-        h.object_id = any(ap.visited_ids) as cycle_detected,
+        ${visitedPathAppend(sql`ap.visited_path`, sql`h.object_id`)},
+        ${visitedPathContains(
+          sql`ap.visited_path`,
+          sql`h.object_id`,
+        )} as cycle_detected,
         ap.depth + 1
       from ancestor_path ap
       inner join ${accessManifestHeads} h
         on h.object_kind = 'container'
-        and h.object_id = (ap.state->>'parentContainerId')::uuid
+        and ${textExpression(sql`h.object_id`)} = ${jsonTextProperty(
+          sql`ap.state`,
+          "parentContainerId",
+        )}
       inner join ${accessManifests} m on m.manifest_hash = h.manifest_hash
       where not ap.cycle_detected
         and ap.depth < 100
-        and ap.state->>'parentContainerId' is not null
+        and ${jsonTextProperty(sql`ap.state`, "parentContainerId")} is not null
     )
     select
       object_id as "id",
@@ -199,7 +235,8 @@ async function loadCurrentContainerManifestTargetClosure(input: {
         409,
       );
     }
-    if (row.cycleDetected) {
+    const cycleDetected = readSqlBoolean(row.cycleDetected, "cycleDetected");
+    if (cycleDetected) {
       throw new ContainerKekTargetError(
         `Container parent cycle detected at container ${row.id}`,
         409,
@@ -233,7 +270,11 @@ function assertBindingHistoryRowCurrent(input: {
   readonly row: ContainerManifestBindingHistoryRow;
   readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
 }): void {
-  if (input.row.cycleDetected) {
+  const cycleDetected = readSqlBoolean(
+    input.row.cycleDetected,
+    "cycleDetected",
+  );
+  if (cycleDetected) {
     throw new ContainerKekTargetError(
       `Container manifest history cycle detected at container ${input.row.containerId}`,
       409,
@@ -270,17 +311,15 @@ function assertBindingHistoryRowCurrent(input: {
     );
   }
 
-  if (!isRecord(input.row.state)) {
+  const state = readRecord(input.row.state);
+  if (!state) {
     throw new ContainerKekTargetError(
       "Container manifest state is invalid",
       409,
     );
   }
 
-  const previousManifestValue = Reflect.get(
-    input.row.state,
-    "previousManifestHash",
-  );
+  const previousManifestValue = Reflect.get(state, "previousManifestHash");
   const previousManifestHash = readNullableString(previousManifestValue);
   if (
     (previousManifestHash === null && previousManifestValue !== null) ||
@@ -306,9 +345,22 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
   }
 
   const result = await input.executor.execute(sql`
-    with recursive manifest_path as (
+    with recursive manifest_targets(
+      container_id,
+      container_key_epoch_id,
+      manifest_hash
+    ) as (
+      values ${sql.join(
+        targets.map(
+          (target) =>
+            sql`(${target.containerId}, ${target.containerKeyEpochId}, ${target.containerManifestHash})`,
+        ),
+        sql`, `,
+      )}
+    ),
+    manifest_path as (
       select
-        manifest_targets.container_id::uuid as container_id,
+        ${uuidExpression(sql`manifest_targets.container_id`)} as container_id,
         manifest_targets.container_key_epoch_id,
         m.manifest_hash,
         m.object_kind,
@@ -316,20 +368,10 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
         m.event_hash,
         m.previous_manifest_hash,
         m.state,
-        array[m.manifest_hash] as visited_hashes,
+        ${visitedPathStart(sql`m.manifest_hash`)} as visited_path,
         false as cycle_detected,
         0 as depth
-      from (values ${sql.join(
-        targets.map(
-          (target) =>
-            sql`(${target.containerId}, ${target.containerKeyEpochId}, ${target.containerManifestHash})`,
-        ),
-        sql`, `,
-      )}) as manifest_targets(
-        container_id,
-        container_key_epoch_id,
-        manifest_hash
-      )
+      from manifest_targets
       inner join ${accessManifests} m
         on m.manifest_hash = manifest_targets.manifest_hash
       union all
@@ -342,8 +384,11 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
         pm.event_hash,
         pm.previous_manifest_hash,
         pm.state,
-        mp.visited_hashes || pm.manifest_hash,
-        pm.manifest_hash = any(mp.visited_hashes) as cycle_detected,
+        ${visitedPathAppend(sql`mp.visited_path`, sql`pm.manifest_hash`)},
+        ${visitedPathContains(
+          sql`mp.visited_path`,
+          sql`pm.manifest_hash`,
+        )} as cycle_detected,
         mp.depth + 1
       from manifest_path mp
       inner join ${accessManifests} pm
@@ -352,7 +397,8 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
         and mp.previous_manifest_hash is not null
         and pm.object_kind = 'container'
         and pm.object_id = mp.container_id
-        and pm.state->>'containerKeyEpochId' = mp.container_key_epoch_id
+        and ${jsonTextProperty(sql`pm.state`, "containerKeyEpochId")} =
+          mp.container_key_epoch_id
     )
     select
       container_id as "containerId",

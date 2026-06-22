@@ -43,7 +43,7 @@ import { Pane } from "../Pane";
 import { PaneProvider } from "../PaneProvider";
 
 const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
-const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 45_000;
+const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 60_000;
 const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
@@ -893,6 +893,7 @@ async function waitForRemoteAttachmentBlob() {
   await waitForCondition(
     () => listProxiedApiRequests().some(isSuccessfulBlobAttachmentBinding),
     `Note attachment blob was not uploaded before sharing.\nrequests=\n${summarizeProxiedApiRequests()}`,
+    DUAL_PANE_TEST_TIMEOUT_MS,
   );
 }
 

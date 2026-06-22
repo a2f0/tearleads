@@ -6,6 +6,7 @@ import {
 import type { DocumentCheckpointKind } from "@tearleads/loro/shared";
 import { desc, eq } from "drizzle-orm";
 import { sha256Hex } from "../utils/sha256";
+import { isSqliteApiDatabase } from "../utils/sqlDialect";
 import { serializeAuditHashField } from "./auditHashField";
 
 interface CheckpointInput {
@@ -90,12 +91,16 @@ export async function maybeWriteDocumentAuditCheckpoint(
     return;
   }
 
-  await executor
+  const documentLockQuery = executor
     .select({ id: documents.id })
     .from(documents)
     .where(eq(documents.id, input.documentId))
-    .limit(1)
-    .for("update");
+    .limit(1);
+  if (isSqliteApiDatabase()) {
+    await documentLockQuery;
+  } else {
+    await documentLockQuery.for("update");
+  }
 
   const [existing] = await executor
     .select({ id: documentAuditCheckpoints.id })

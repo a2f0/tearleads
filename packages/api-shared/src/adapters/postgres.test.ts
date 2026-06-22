@@ -149,4 +149,53 @@ test("default API database trims the adapter kind", async () => {
 
   expect(database.kind).toBe("memory");
   await database.close();
-});
+}, 15_000);
+
+test("default API database supports sqlite migrations", async () => {
+  const adapterUrl = new URL("./postgres.ts", import.meta.url).href;
+  const schemaUrl = new URL("../schema.ts", import.meta.url).href;
+  const script = `
+    const {
+      closeApiDatabase,
+      db,
+      getDefaultApiDatabaseKind,
+      initializeApiDatabase,
+    } = await import(${JSON.stringify(adapterUrl)});
+    const { documents } = await import(${JSON.stringify(schemaUrl)});
+
+    if (getDefaultApiDatabaseKind() !== "sqlite") {
+      throw new Error("expected sqlite API database");
+    }
+    await initializeApiDatabase();
+    const [inserted] = await db
+      .insert(documents)
+      .values({ createdByFingerprint: "sqlite-adapter-test" })
+      .returning({ id: documents.id });
+    if (!inserted?.id) {
+      throw new Error("missing inserted document id");
+    }
+    const rows = await db
+      .select({ id: documents.id })
+      .from(documents);
+    if (rows.length !== 1 || rows[0].id !== inserted.id) {
+      throw new Error("sqlite document lookup failed");
+    }
+    await closeApiDatabase();
+  `;
+  const child = Bun.spawn({
+    cmd: ["bun", "-e", script],
+    env: {
+      ...process.env,
+      API_DATABASE: "sqlite",
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  expect({ exitCode, stderr, stdout }).toMatchObject({ exitCode: 0 });
+}, 15_000);

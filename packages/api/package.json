@@ -6,11 +6,12 @@
   "scripts": {
     "build": "bun scripts/buildApiExecutable.ts",
     "db:generate": "bun run --cwd ../api-shared db:generate",
+    "db:generate:sqlite": "bun run --cwd ../api-shared db:generate:sqlite",
     "db:migrate": "bun run --cwd ../api-cli migrate",
     "dev": "bun --hot src/index.ts",
     "dev:postgres": "API_DATABASE=postgres bun --hot src/index.ts",
     "start": "bun src/index.ts",
-    "test": "bun test src --max-concurrency=4"
+    "test": "bun scripts/testAllDatabases.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1049.0",

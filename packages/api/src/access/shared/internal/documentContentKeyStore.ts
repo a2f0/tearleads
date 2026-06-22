@@ -13,6 +13,13 @@ import {
 import type { WriteHeader } from "@tearleads/crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
+  jsonTextProperty,
+  uuidExpression,
+  visitedPathAppend,
+  visitedPathContains,
+  visitedPathStart,
+} from "../../../utils/sqlDialect";
+import {
   assertTargetHashMatches,
   assertTargetsMatchCurrent,
   type CurrentDocumentKekTargets,
@@ -182,7 +189,9 @@ function isContainerManifestMoveLineageRow(
   return (
     typeof row.containerId === "string" &&
     typeof row.containerKeyEpochId === "string" &&
-    typeof row.cycleDetected === "boolean" &&
+    (typeof row.cycleDetected === "boolean" ||
+      row.cycleDetected === 0 ||
+      row.cycleDetected === 1) &&
     typeof row.eventType === "string" &&
     typeof row.manifestHash === "string" &&
     (typeof previousManifestHash === "string" || previousManifestHash === null)
@@ -201,50 +210,68 @@ async function loadContainerManifestMoveLineages(
   }
 
   const result = await executor.execute(sql`
-    with recursive move_lineage as (
-      select
-        seed_targets.container_id,
-        m.manifest_hash,
-        m.previous_manifest_hash,
-        m.state->>'containerKeyEpochId' as container_key_epoch_id,
-        e.event_type,
-        array[m.manifest_hash] as visited_hashes,
-        false as cycle_detected,
-        0 as depth
-      from (values ${sql.join(
+    with recursive seed_targets(
+      container_id,
+      manifest_hash
+    ) as (
+      values ${sql.join(
         seedTargets.map(
           (target) =>
             sql`(${target.containerId}, ${target.containerManifestHash})`,
         ),
         sql`, `,
-      )}) as seed_targets(container_id, manifest_hash)
+      )}
+    ),
+    move_lineage as (
+      select
+        seed_targets.container_id,
+        m.manifest_hash,
+        m.previous_manifest_hash,
+        ${jsonTextProperty(
+          sql`m.state`,
+          "containerKeyEpochId",
+        )} as container_key_epoch_id,
+        e.event_type,
+        ${visitedPathStart(sql`m.manifest_hash`)} as visited_path,
+        false as cycle_detected,
+        0 as depth
+      from seed_targets
       inner join ${accessManifests} m
         on m.manifest_hash = seed_targets.manifest_hash
         and m.object_kind = 'container'
-        and m.object_id = seed_targets.container_id::uuid
+        and m.object_id = ${uuidExpression(sql`seed_targets.container_id`)}
       inner join ${accessEvents} e on e.event_hash = m.event_hash
-      where m.state->>'containerKeyEpochId' is not null
+      where ${jsonTextProperty(sql`m.state`, "containerKeyEpochId")} is not null
       union all
       select
         ml.container_id,
         previous_manifest.manifest_hash,
         previous_manifest.previous_manifest_hash,
-        previous_manifest.state->>'containerKeyEpochId',
+        ${jsonTextProperty(sql`previous_manifest.state`, "containerKeyEpochId")},
         previous_event.event_type,
-        ml.visited_hashes || previous_manifest.manifest_hash,
-        previous_manifest.manifest_hash = any(ml.visited_hashes),
+        ${visitedPathAppend(
+          sql`ml.visited_path`,
+          sql`previous_manifest.manifest_hash`,
+        )},
+        ${visitedPathContains(
+          sql`ml.visited_path`,
+          sql`previous_manifest.manifest_hash`,
+        )},
         ml.depth + 1
       from move_lineage ml
       inner join ${accessManifests} previous_manifest
         on previous_manifest.manifest_hash = ml.previous_manifest_hash
         and previous_manifest.object_kind = 'container'
-        and previous_manifest.object_id = ml.container_id::uuid
+        and previous_manifest.object_id = ${uuidExpression(sql`ml.container_id`)}
       inner join ${accessEvents} previous_event
         on previous_event.event_hash = previous_manifest.event_hash
       where not ml.cycle_detected
         and ml.previous_manifest_hash is not null
         and ml.depth < 100
-        and previous_manifest.state->>'containerKeyEpochId' is not null
+        and ${jsonTextProperty(
+          sql`previous_manifest.state`,
+          "containerKeyEpochId",
+        )} is not null
     )
     select
       container_id as "containerId",

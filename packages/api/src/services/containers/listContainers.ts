@@ -8,6 +8,7 @@ import type {
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
+import { textExpression } from "../../utils/sqlDialect";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
@@ -104,13 +105,13 @@ async function listContainerTombstones(input: {
       and ${tombstoneParentIdPredicate(input.parentId)}
       ${watermarkPredicate(
         sql`${containerSyncTombstones.updatedAt}`,
-        sql`${containerSyncTombstones.containerId}::text`,
+        textExpression(sql`${containerSyncTombstones.containerId}`),
         input.watermark,
       )}
     `)
     .orderBy(
       containerSyncTombstones.updatedAt,
-      sql`${containerSyncTombstones.containerId}::text`,
+      textExpression(sql`${containerSyncTombstones.containerId}`),
     )
     .limit(input.limit + 1);
 

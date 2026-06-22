@@ -9,6 +9,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import { and, eq, sql } from "drizzle-orm";
+import { uuidValue } from "../../utils/sqlDialect";
 import { userIdsByContainerPath } from "./containerPathUsers";
 import {
   ContainerWriterProjectionError,
@@ -125,12 +126,12 @@ async function deleteLeafContainerRow(input: {
         sql`not exists (
           select 1
           from ${containers} child
-          where child.parent_id = ${input.containerId}::uuid
+          where child.parent_id = ${uuidValue(input.containerId)}
         )`,
         sql`not exists (
           select 1
           from ${documentContainerLinks} link
-          where link.container_id = ${input.containerId}::uuid
+          where link.container_id = ${uuidValue(input.containerId)}
         )`,
       ),
     )
