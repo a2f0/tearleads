@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { PaneLogEntry } from "./PaneLog";
 
 const LOCKED_PANE_LOG_MESSAGE =
@@ -16,6 +16,27 @@ export function useBootPaneLogEntries(input: {
   readonly paneLocked: boolean;
 }): readonly PaneLogEntry[] {
   const { bootMessage, hasSigningKeyPair, paneLocked } = input;
+
+  // Stamp the timestamp only when the inputs actually change. useMemo is not a
+  // semantic guarantee (React may discard and recompute it), so calling
+  // Date.now() inside it could drift the timestamp on a spurious recompute;
+  // tracking previous inputs in a ref keeps it stable until a real change.
+  const previousInputsRef = useRef({
+    bootMessage,
+    hasSigningKeyPair,
+    paneLocked,
+  });
+  const timestampRef = useRef(Date.now());
+  const previous = previousInputsRef.current;
+  if (
+    previous.bootMessage !== bootMessage ||
+    previous.hasSigningKeyPair !== hasSigningKeyPair ||
+    previous.paneLocked !== paneLocked
+  ) {
+    timestampRef.current = Date.now();
+    previousInputsRef.current = { bootMessage, hasSigningKeyPair, paneLocked };
+  }
+
   return useMemo(() => {
     if (hasSigningKeyPair) {
       return [];
@@ -24,10 +45,7 @@ export function useBootPaneLogEntries(input: {
       {
         id: "boot-pane-prompt",
         level: "info" as const,
-        // Stamped when the prompt is (re)built, i.e. when its visibility or
-        // message changes — hasSigningKeyPair is in the deps so the timestamp
-        // reflects when the entry actually appears, not an earlier render.
-        timestamp: Date.now(),
+        timestamp: timestampRef.current,
         message: paneLocked ? LOCKED_PANE_LOG_MESSAGE : bootMessage,
       },
     ];
