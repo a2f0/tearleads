@@ -440,6 +440,9 @@ const server = setupServer(
   http.post("http://localhost:3001/auth/logout", () => {
     return HttpResponse.json<DestroySessionResponse>({ message: "ok" });
   }),
+  http.post("http://localhost:3001/auth/ws-ticket", () => {
+    return HttpResponse.json({ ticket: randomHex(32) });
+  }),
   http.get("http://localhost:3001/containers", () => {
     return HttpResponse.json<ListContainersResponse>({
       hasMore: false,

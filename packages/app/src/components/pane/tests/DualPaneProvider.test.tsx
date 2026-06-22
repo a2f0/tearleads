@@ -87,6 +87,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /containers/:containerId/documents": 9,
     "GET /containers": 22,
     "GET /auth/encapsulation-key/:userId": 2,
+    // One websocket auth ticket per pane (each opens one events socket). A tight
+    // ceiling here catches a reconnect storm, since each reconnect re-mints one.
+    "POST /auth/ws-ticket": 3,
     "GET /containers/:containerId/writer-projection": 4,
     "GET /documents/:documentId/attachments": 1,
     "GET /organizations/:organizationId/groups": 1,

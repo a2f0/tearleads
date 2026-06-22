@@ -5,6 +5,10 @@ import {
 import type { RouteRequestBindings } from "./requestContext";
 import { routeApp } from "./routeApp";
 import { websocket } from "./ws";
+import {
+  consumeWebSocketTicket,
+  type WebSocketTicketIdentity,
+} from "./wsTicket";
 
 if (getDefaultApiDatabaseKind() === "memory") {
   await initializeApiDatabase();
@@ -12,7 +16,37 @@ if (getDefaultApiDatabaseKind() === "memory") {
 
 interface ApiServer {
   requestIP(req: Request): { address: string } | null;
-  upgrade(req: Request): boolean;
+  upgrade(req: Request, options?: { data?: WebSocketTicketIdentity }): boolean;
+}
+
+/**
+ * Authenticate and perform a websocket upgrade. The handshake must carry a
+ * single-use `ticket` query param minted by `POST /auth/ws-ticket`; it is
+ * consumed atomically here. A missing/expired/already-used ticket is rejected
+ * before the upgrade, and the resolved identity is bound to the socket via
+ * `ws.data` for later scoped routing. Exported (with an injectable consumer) so
+ * the auth gate is unit-testable without a live Bun socket.
+ */
+export async function resolveWebSocketUpgrade(
+  req: Request,
+  server: Pick<ApiServer, "upgrade">,
+  consume: (
+    ticket: string,
+  ) => Promise<WebSocketTicketIdentity | null> = consumeWebSocketTicket,
+): Promise<Response | undefined> {
+  // Fall back to a base so a relative req.url (mock/test envs) parses instead
+  // of throwing; the base is ignored for the absolute URLs Bun provides.
+  const ticket =
+    new URL(req.url, "http://localhost").searchParams.get("ticket") ?? "";
+  const identity = await consume(ticket);
+  if (!identity) {
+    return new Response("WebSocket ticket required", { status: 401 });
+  }
+
+  if (server.upgrade(req, { data: identity })) {
+    return undefined;
+  }
+  return new Response("WebSocket upgrade failed", { status: 400 });
 }
 
 export function createRouteRequestBindings(
@@ -29,10 +63,12 @@ export function createRouteRequestBindings(
 
 const server = {
   port: 3001,
-  fetch(req: Request, server: ApiServer) {
+  fetch(
+    req: Request,
+    server: ApiServer,
+  ): Response | Promise<Response | undefined> {
     if (req.headers.get("upgrade") === "websocket") {
-      if (server.upgrade(req)) return undefined;
-      return new Response("WebSocket upgrade failed", { status: 400 });
+      return resolveWebSocketUpgrade(req, server);
     }
     return routeApp.fetch(req, createRouteRequestBindings(req, server));
   },

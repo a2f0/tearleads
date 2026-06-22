@@ -50,8 +50,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1174,
-      "bytes": 33173
+      "lines": 1196,
+      "bytes": 33918
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 562,
@@ -195,7 +195,7 @@
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 956,
-      "bytes": 27795
+      "bytes": 27812
     },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 979,

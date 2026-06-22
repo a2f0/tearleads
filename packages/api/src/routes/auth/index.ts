@@ -8,6 +8,7 @@ import { createLogoutRoute, type LogoutRouteDeps } from "./logout";
 import { createRegisterRoute } from "./register";
 import { createSessionsRoute, type SessionsRouteDeps } from "./sessions";
 import { createVerifyRoute } from "./verify";
+import { createWsTicketRoute } from "./wsTicket";
 
 interface AuthRouterDeps {
   readonly destroySession: LogoutRouteDeps["destroySession"];
@@ -31,6 +32,7 @@ export function createAuthRouter({
   auth.route("/", createRegisterRoute(runtime));
   auth.route("/", createVerifyRoute(runtime));
   auth.route("/", createLogoutRoute({ destroySession, requireAuth }));
+  auth.route("/", createWsTicketRoute({ requireAuth }));
   auth.route(
     "/",
     createSessionsRoute({ destroyUserSession, listUserSessions, requireAuth }),
