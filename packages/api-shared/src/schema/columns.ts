@@ -72,7 +72,13 @@ const sqliteTextBridge = unsafeCoerce<SqliteTextBridge>(sqliteText);
 // document_updates.sequence. Audit rows are hash-chained by selecting the
 // latest `sequence` per document, which AUTOINCREMENT keeps strictly
 // increasing.
-function sqliteBigint(name: string): PgBigintNumberBuilder {
+function sqliteBigint(
+  name: string,
+  // Accepted for signature parity with `pgBigint`; the mode is irrelevant under
+  // SQLite, where the column is always a JS-number integer.
+  config: { mode: "number" | "bigint" },
+): PgBigintNumberBuilder {
+  void config;
   const builder = unsafeCoerce<SqliteRuntimeIntegerBuilder>(
     sqliteIntegerBridge(name),
   );
