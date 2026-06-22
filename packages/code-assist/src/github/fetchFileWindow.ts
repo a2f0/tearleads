@@ -16,11 +16,17 @@ export async function fetchFileWindow(
   ref: string,
   line: number | null,
 ): Promise<string | null> {
-  const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
-  if (Array.isArray(data) || data.type !== "file") {
+  let text: string;
+  try {
+    const { data } = await octokit.repos.getContent({ owner, repo, path, ref });
+    if (Array.isArray(data) || data.type !== "file" || !data.content) {
+      return null;
+    }
+    text = Buffer.from(data.content, "base64").toString("utf8");
+  } catch {
+    // The file may be absent at this ref (e.g. deleted in the PR) or unreadable.
     return null;
   }
-  const text = Buffer.from(data.content, "base64").toString("utf8");
   const lines = text.split("\n");
   const center = line ?? 1;
   const start = Math.max(1, center - WINDOW_RADIUS);

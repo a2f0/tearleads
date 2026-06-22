@@ -30,20 +30,27 @@ interface HandleReviewCommentParams {
 export async function handleReviewComment(
   params: HandleReviewCommentParams,
 ): Promise<void> {
-  if (params.isBotAuthor || !params.body.includes(params.review.botHandle)) {
+  if (
+    params.isBotAuthor ||
+    !params.body.toLowerCase().includes(params.review.botHandle.toLowerCase())
+  ) {
+    return;
+  }
+  // Only re-check replies on a finding the bot itself raised — ignore top-level
+  // mentions and replies on human-started threads.
+  if (params.rootCommentId === params.commentId) {
     return;
   }
   const octokit = createInstallationClient(params.app, params.installationId);
-
-  let originalFinding = params.body;
-  if (params.rootCommentId !== params.commentId) {
-    const { data: root } = await octokit.pulls.getReviewComment({
-      owner: params.owner,
-      repo: params.repo,
-      comment_id: params.rootCommentId,
-    });
-    originalFinding = root.body;
+  const { data: root } = await octokit.pulls.getReviewComment({
+    owner: params.owner,
+    repo: params.repo,
+    comment_id: params.rootCommentId,
+  });
+  if (root.user?.type !== "Bot") {
+    return;
   }
+  const originalFinding = root.body;
 
   const code = await fetchFileWindow(
     octokit,
