@@ -1,26 +1,33 @@
-import { Database as SqliteDatabase } from "bun:sqlite";
-import { AsyncLocalStorage } from "node:async_hooks";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import {
-  type BunSQLiteDatabase,
-  drizzle as drizzleBunSqlite,
-} from "drizzle-orm/bun-sqlite";
-import { migrate as migrateBunSqlite } from "drizzle-orm/bun-sqlite/migrator";
 import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
 import { migrate as migrateNodePostgres } from "drizzle-orm/node-postgres/migrator";
-import type { PgliteDatabase } from "drizzle-orm/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import pg, { type PoolConfig } from "pg";
 import * as schema from "../schema";
-import { type ApiDatabaseKind, readApiDatabaseKind } from "../schema/dialect";
-import { unsafeCoerce } from "../unsafeCoerce.js";
+import { readApiDatabaseKind } from "../schema/dialect";
+import { createSqliteApiDatabase } from "./sqliteAdapter";
+import type {
+  ApiDatabaseKind,
+  ManagedApiDatabase,
+  MigrationOptions,
+} from "./types";
 
 const { Pool } = pg;
 
-export type { ApiDatabaseKind };
+export type {
+  ApiDatabase,
+  ApiDatabaseKind,
+  ApiDatabaseSurface,
+  ApiSchema,
+  DatabaseSession,
+  DatabaseTransaction,
+  ManagedApiDatabase,
+  MigrationOptions,
+  TransactionCallback,
+} from "./types";
 
 interface ApiDatabaseEnv {
   readonly API_DATABASE?: string | undefined;
@@ -46,38 +53,12 @@ interface ApiDatabaseEnv {
   readonly [key: string]: string | undefined;
 }
 
-type ApiSchema = typeof schema;
-type ApiDatabaseSurface = Pick<
-  PgliteDatabase<ApiSchema>,
-  "delete" | "execute" | "insert" | "select" | "transaction" | "update"
->;
-export type ApiDatabase = ApiDatabaseSurface;
-type TransactionCallback = Parameters<ApiDatabase["transaction"]>[0];
-export type DatabaseTransaction = Parameters<TransactionCallback>[0];
-// Shared statement surface for helpers that can run against either the root
-// database or an active transaction, without starting their own transaction.
-export type DatabaseSession = Pick<
-  ApiDatabase,
-  "delete" | "execute" | "insert" | "select" | "update"
->;
-
 const postgresMigrationsFolder = fileURLToPath(
   new URL("../../drizzle", import.meta.url),
 );
 const sqliteMigrationsFolder = fileURLToPath(
   new URL("../../drizzle-sqlite", import.meta.url),
 );
-
-export interface MigrationOptions {
-  readonly migrationsFolder?: string;
-}
-
-export interface ManagedApiDatabase {
-  readonly db: ApiDatabase;
-  readonly kind: ApiDatabaseKind;
-  close(): Promise<void>;
-  migrate(options?: MigrationOptions): Promise<void>;
-}
 
 const databaseUrlKeys = ["DATABASE_URL", "POSTGRES_URL"] as const;
 const hostKeys = ["POSTGRES_HOST", "PGHOST"] as const;
@@ -242,92 +223,6 @@ export function createPostgresPoolConfig(
   };
 }
 
-function attachSqliteExecute(
-  db: BunSQLiteDatabase<ApiSchema>,
-): BunSQLiteDatabase<ApiSchema> & Pick<ApiDatabaseSurface, "execute"> {
-  const database = unsafeCoerce<{
-    execute(query: Parameters<ApiDatabaseSurface["execute"]>[0]): Promise<{
-      readonly rows: readonly unknown[];
-    }>;
-  }>(db);
-  database.execute = (query: Parameters<ApiDatabaseSurface["execute"]>[0]) =>
-    Promise.resolve({
-      rows: db.all(query),
-    });
-  return unsafeCoerce<
-    BunSQLiteDatabase<ApiSchema> & Pick<ApiDatabaseSurface, "execute">
-  >(database);
-}
-
-function createSqliteApiDatabase(env: ApiDatabaseEnv): ManagedApiDatabase {
-  const sqlitePath = getEnvValue(env, sqlitePathKeys) ?? ":memory:";
-  const client = new SqliteDatabase(sqlitePath, { create: true });
-  client.exec("PRAGMA foreign_keys = ON");
-  const sqliteDb = attachSqliteExecute(drizzleBunSqlite({ client, schema }));
-  const transactionContext = new AsyncLocalStorage<{
-    readonly depth: number;
-  }>();
-  let transactionQueue = Promise.resolve();
-  let savepointCounter = 0;
-
-  const transactionDb = unsafeCoerce<DatabaseTransaction>(sqliteDb);
-  const runSqliteTransaction = async (callback: TransactionCallback) => {
-    const activeTransaction = transactionContext.getStore();
-    if (activeTransaction) {
-      const savepointName = `tearleads_sp_${++savepointCounter}`;
-      client.exec(`savepoint ${savepointName}`);
-      try {
-        const result = await transactionContext.run(
-          { depth: activeTransaction.depth + 1 },
-          () => callback(transactionDb),
-        );
-        client.exec(`release savepoint ${savepointName}`);
-        return result;
-      } catch (error) {
-        client.exec(`rollback to savepoint ${savepointName}`);
-        client.exec(`release savepoint ${savepointName}`);
-        throw error;
-      }
-    }
-
-    const run = () =>
-      transactionContext.run({ depth: 0 }, async () => {
-        client.exec("begin immediate");
-        try {
-          const result = await callback(transactionDb);
-          client.exec("commit");
-          return result;
-        } catch (error) {
-          client.exec("rollback");
-          throw error;
-        }
-      });
-
-    const result = transactionQueue.then(run, run);
-    transactionQueue = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
-  };
-
-  const dbBridge = unsafeCoerce<{
-    transaction(callback: TransactionCallback): Promise<unknown>;
-  }>(sqliteDb);
-  dbBridge.transaction = runSqliteTransaction;
-
-  return {
-    db: unsafeCoerce<ApiDatabase>(dbBridge),
-    kind: "sqlite",
-    close: async () => client.close(),
-    migrate: async (options) => {
-      migrateBunSqlite(sqliteDb, {
-        migrationsFolder: options?.migrationsFolder ?? sqliteMigrationsFolder,
-      });
-    },
-  };
-}
-
 function createMemoryApiDatabase(): ManagedApiDatabase {
   const client = new PGlite({ dataDir: "memory://", debug: 0 });
   const db = drizzle({ client, schema });
@@ -366,7 +261,10 @@ export function createDefaultManagedApiDatabase(
     return createMemoryApiDatabase();
   }
   if (kind === "sqlite") {
-    return createSqliteApiDatabase(env);
+    return createSqliteApiDatabase({
+      sqlitePath: getEnvValue(env, sqlitePathKeys) ?? ":memory:",
+      migrationsFolder: sqliteMigrationsFolder,
+    });
   }
 
   return createPostgresApiDatabase(env);

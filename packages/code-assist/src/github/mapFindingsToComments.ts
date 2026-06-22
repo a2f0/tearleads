@@ -34,12 +34,29 @@ function isAnchored(anchors: FileAnchors | undefined, line: number): boolean {
   return anchors.added.has(line) || anchors.context.has(line);
 }
 
+// Model output is attacker-influenced (a PR diff feeds the prompt). Strip any
+// embedded code-assist marker comments so relayed text cannot forge a dedup
+// marker (extractMarkerIds parses these on later runs and assumes only the bot
+// emits them; a forged id can silently suppress a future real finding).
+function stripMarkers(text: string): string {
+  return text.replace(/<!--\s*code-assist:[^>]*-->/gi, "");
+}
+
+// A GitHub ```suggestion block must contain the exact replacement code, so we
+// cannot safely escape a stray fence inside it (mangling would corrupt the
+// applied suggestion). If the model output contains a ``` run it could break
+// out of the fence, so we drop the suggestion entirely and keep the prose.
+function renderSuggestion(suggestion: string | null | undefined): string {
+  if (!suggestion || /`{3,}/.test(suggestion)) {
+    return "";
+  }
+  return `\n\n\`\`\`suggestion\n${stripMarkers(suggestion)}\n\`\`\``;
+}
+
 function renderBody(finding: ReviewFinding, markerId: string): string {
   const header = `${severityLabel(finding.severity)} — ${finding.title}`;
-  const suggestion = finding.suggestion
-    ? `\n\n\`\`\`suggestion\n${finding.suggestion}\n\`\`\``
-    : "";
-  return `${header}\n\n${finding.body}${suggestion}\n\n${renderMarker(markerId)}`;
+  const suggestion = renderSuggestion(finding.suggestion);
+  return `${header}\n\n${stripMarkers(finding.body)}${suggestion}\n\n${renderMarker(markerId)}`;
 }
 
 export function mapFindingsToComments(

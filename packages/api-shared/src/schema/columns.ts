@@ -22,7 +22,7 @@ import { unsafeCoerce } from "../unsafeCoerce.js";
 import { isSqliteSchemaDialect } from "./dialect";
 
 const isSqlite = isSqliteSchemaDialect();
-let sqliteIdentityCounter = 0;
+let lastSqliteIdentityValue = 0;
 
 const pgBigintNumber = (name: string) =>
   pgBigint(name, { mode: "number" }).generatedAlwaysAsIdentity();
@@ -69,9 +69,19 @@ type SqliteTextBridge = (name: string, config?: { mode?: "json" }) => unknown;
 const sqliteIntegerBridge = unsafeCoerce<SqliteIntegerBridge>(sqliteInteger);
 const sqliteTextBridge = unsafeCoerce<SqliteTextBridge>(sqliteText);
 
+// Emulates Postgres `GENERATED ALWAYS AS IDENTITY` for bigint sequence columns
+// (e.g. document_audit_entries.sequence) under SQLite, where the migration
+// emits a plain integer column with no engine-managed identity. The contract
+// the callers rely on is *strict monotonicity* and *uniqueness*: audit rows are
+// hash-chained by selecting the latest `sequence` per document, and
+// `(document_id, sequence)` is a UNIQUE index. A wall-clock value alone cannot
+// guarantee this (multiple inserts within one millisecond, clock going
+// backwards), so we clamp to always exceed the previously issued value. Values
+// stay within Number.MAX_SAFE_INTEGER until well past the year 2255.
 function nextSqliteIdentityValue(): number {
-  sqliteIdentityCounter = (sqliteIdentityCounter + 1) % 1000;
-  return Date.now() * 1000 + sqliteIdentityCounter;
+  const next = Math.max(Date.now() * 1000, lastSqliteIdentityValue + 1);
+  lastSqliteIdentityValue = next;
+  return next;
 }
 
 function sqliteBigint(name: string): PgBigintNumberBuilder {
