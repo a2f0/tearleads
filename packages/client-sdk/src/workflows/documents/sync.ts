@@ -75,7 +75,8 @@ import {
   REMOTE_DOCUMENT_DELETED,
   type RemoteDocumentDeletionHandler,
   resolveDocumentSyncWriterProjection,
-  resolveFailedDocumentSyncAction,
+  retrySyncPlan,
+  submitDocumentSyncAttempt,
 } from "./syncFailures";
 
 export function hasDocumentUpdateEvent(
@@ -1061,42 +1062,47 @@ export async function syncRemoteDocument(
     if (!writerProjection) {
       return null;
     }
-    const materializedPlan = await buildMaterializedDocumentSyncPlan({
-      author: input.author,
-      execSql: input.execSql,
-      localVersionVector: input.localVersionVector,
-      minLsn: input.minLsn,
-      pendingUpdates,
-      resolveProjectionUserKey,
-      signedAt: input.signedAt,
-      targetSecretKey: input.targetSecretKey,
+    const planned = await retrySyncPlan({
+      apiClient: input.apiClient,
+      buildWithProjection: (projection) =>
+        buildMaterializedDocumentSyncPlan({
+          author: input.author,
+          execSql: input.execSql,
+          localVersionVector: input.localVersionVector,
+          minLsn: input.minLsn,
+          pendingUpdates,
+          resolveProjectionUserKey,
+          signedAt: input.signedAt,
+          targetSecretKey: input.targetSecretKey,
+          writerProjection: projection,
+        }),
+      documentId: input.documentId,
+      onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
       writerProjection,
     });
-    const plan = materializedPlan.plan;
-    const submitted = await submitDocumentSync({
-      apiClient: input.apiClient,
-      plan,
-    });
-    if (!submitted) {
+    if (!planned) {
       return null;
     }
-    if (!submitted.ok) {
-      const action = await resolveFailedDocumentSyncAction({
-        attempt,
-        documentId: input.documentId,
-        failure: submitted,
-        maxAttempts,
-        onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
-        pendingUpdates,
-      });
-      if (action === "retry") {
-        continue;
-      }
-      if (action !== "stop") {
-        recoveryPendingUpdatesById = action.recoveryPendingUpdatesById;
-        pendingUpdates = [];
-        continue;
-      }
+    const [materializedPlan, plannedWriterProjection] = planned;
+    const plan = materializedPlan.plan;
+    const submitted = await submitDocumentSyncAttempt({
+      apiClient: input.apiClient,
+      attempt,
+      documentId: input.documentId,
+      maxAttempts,
+      onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+      pendingUpdates,
+      plan,
+    });
+    if (submitted === "retry") {
+      continue;
+    }
+    if (submitted !== "stop" && submitted.kind !== "completed") {
+      recoveryPendingUpdatesById = submitted.recoveryPendingUpdatesById;
+      pendingUpdates = [];
+      continue;
+    }
+    if (submitted === "stop") {
       return null;
     }
 
@@ -1108,7 +1114,7 @@ export async function syncRemoteDocument(
       resolveWriterPublicKey: input.resolveWriterPublicKey,
       response: submitted.response,
       targetSecretKey: input.targetSecretKey,
-      writerProjection,
+      writerProjection: plannedWriterProjection,
       writerPublicKeysByFingerprint: input.writerPublicKeysByFingerprint,
     });
   }

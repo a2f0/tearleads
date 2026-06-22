@@ -126,6 +126,14 @@ async function buildBlobAttachmentMaterial(
   };
 }
 
+function shouldRetryBlobUploadWithFreshWriterProjection(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.startsWith("Container writer projection KEK") &&
+    error.message.includes("could not be unwrapped")
+  );
+}
+
 function blobAttachmentStagedBlobRequest(
   stageId: string,
   writeHeader: WriteHeader,
@@ -308,23 +316,41 @@ export async function uploadDocumentAttachment({
   if (contentKey.byteLength !== 32) {
     throw new Error("Blob content key must be 32 bytes");
   }
+  const resolveProjectionUserKeyForUpload = requireProjectionUserKeyResolver(
+    resolveProjectionUserKey,
+    "Document attachment upload",
+  );
 
-  const material = await buildBlobAttachmentMaterial({
-    apiClient,
-    bindingId,
-    blobId,
-    bytes,
-    contentKey,
-    contentKeyEpoch,
-    documentId,
-    execSql,
-    resolveProjectionUserKey: requireProjectionUserKeyResolver(
-      resolveProjectionUserKey,
-      "Document attachment upload",
-    ),
-    targetSecretKey,
-    writerProjection,
-  });
+  const buildMaterial = (
+    freshWriterProjection: UploadDocumentAttachmentInput["writerProjection"],
+  ) =>
+    buildBlobAttachmentMaterial({
+      apiClient,
+      bindingId,
+      blobId,
+      bytes,
+      contentKey,
+      contentKeyEpoch,
+      documentId,
+      execSql,
+      resolveProjectionUserKey: resolveProjectionUserKeyForUpload,
+      targetSecretKey,
+      writerProjection: freshWriterProjection,
+    });
+  let material: BlobAttachmentMaterial | null;
+  try {
+    material = await buildMaterial(writerProjection);
+  } catch (error) {
+    if (
+      !apiClient.clearWriterProjectionCaches ||
+      !shouldRetryBlobUploadWithFreshWriterProjection(error)
+    ) {
+      throw error;
+    }
+
+    apiClient.clearWriterProjectionCaches();
+    material = await buildMaterial(undefined);
+  }
   if (!material) {
     return null;
   }

@@ -54,6 +54,7 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
+import { toPrincipalPolicyError } from "../principals/shared";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
 const INITIAL_ADMIN_GROUP_NAME = "Admins";
@@ -1155,22 +1156,20 @@ function toRegisterPrincipalPolicyError(
     return null;
   }
 
+  const policyError = toPrincipalPolicyError(error);
+  if (policyError) {
+    return new RegistrationError(policyError.message, policyError.status);
+  }
+
   if (
-    error.message === "Invalid principal state signature" ||
-    error.message.startsWith("Principal state ") ||
-    error.message.startsWith("Principal member envelope") ||
-    error.message.startsWith("Principal member envelopes") ||
-    error.message === "Principal epoch key conflict"
+    error instanceof DocumentMutationError ||
+    error instanceof ContainerMutationError
   ) {
+    return new RegistrationError(error.message, error.status);
+  }
+
+  if (/^Principal (?:state |member envelope)/u.test(error.message)) {
     return new RegistrationError(error.message, 400);
-  }
-
-  if (error instanceof DocumentMutationError) {
-    return new RegistrationError(error.message, error.status);
-  }
-
-  if (error instanceof ContainerMutationError) {
-    return new RegistrationError(error.message, error.status);
   }
 
   return null;

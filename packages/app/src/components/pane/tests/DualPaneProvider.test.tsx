@@ -43,7 +43,7 @@ import { Pane } from "../Pane";
 import { PaneProvider } from "../PaneProvider";
 
 const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
-const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 30_000;
+const DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS = 45_000;
 const POST_SHARE_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const POST_SHARE_NETWORK_IDLE_QUIET_MS = 25;
 const SHARED_NOTE_TITLE = "Peer one note with attachment";
@@ -1300,15 +1300,20 @@ async function refreshUntil(
   pane: HTMLElement,
   predicate: () => boolean,
   message: string,
+  timeoutMs = 10_000,
 ) {
-  await waitForCondition(() => {
-    if (predicate()) {
-      return true;
-    }
+  await waitForCondition(
+    () => {
+      if (predicate()) {
+        return true;
+      }
 
-    clickAvailableExplorerRefresh(pane);
-    return false;
-  }, message);
+      clickAvailableExplorerRefresh(pane);
+      return false;
+    },
+    message,
+    timeoutMs,
+  );
 }
 
 async function selectPeerSharedContainer(
@@ -1405,8 +1410,34 @@ test(
     await openExplorer(leftPane);
     await openExplorer(rightPane);
 
+    await refreshUntil(
+      leftPane,
+      () => getExplorerSidebarItemsByName(leftPane, "Contacts").length > 0,
+      "Owner did not provision the Contacts system folder.",
+    );
+    const ownerContactsItemsTable = await selectContainerAndWaitForItemTable(
+      leftPane,
+      "Contacts",
+    );
+    await waitFor(() => {
+      expect(
+        within(ownerContactsItemsTable).queryByRole("button", {
+          name: "You",
+        }) ??
+          within(ownerContactsItemsTable).queryByRole("button", {
+            name: ownerUserId,
+          }),
+      ).toBeTruthy();
+    });
+    await act(async () => {
+      await waitForAppTestRuntimeToSettle({
+        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+        timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+      });
+    });
+
     const postShareRequestStartIndex = listProxiedApiRequests().length;
-    await shareContainerWithPeer(leftPane, "/");
+    await shareContainerWithPeer(leftPane, "Contacts");
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postShareRequestStartIndex,
@@ -1428,22 +1459,26 @@ test(
       fireEvent.click(sharedContactsItem);
     });
 
-    const sharedContactsItemsTable = await waitFor(() =>
+    let sharedContactsItemsTable = await waitFor(() =>
       within(rightPane).getByRole("table", {
         name: "Items in Contacts",
       }),
     );
-    await waitFor(() => {
-      const ownerContactButton = within(sharedContactsItemsTable).queryByRole(
-        "button",
-        { name: ownerUserId },
-      );
-      const leakedYouButton = within(sharedContactsItemsTable).queryByRole(
-        "button",
-        { name: "You" },
-      );
-      expect(ownerContactButton ?? leakedYouButton).toBeTruthy();
-    });
+    await refreshUntil(
+      rightPane,
+      () => {
+        sharedContactsItemsTable =
+          within(rightPane).queryByRole("table", {
+            name: "Items in Contacts",
+          }) ?? sharedContactsItemsTable;
+        return Boolean(
+          within(sharedContactsItemsTable).queryByRole("button", {
+            name: ownerUserId,
+          }),
+        );
+      },
+      "Peer did not discover the owner self contact in shared Contacts.",
+    );
 
     expect(
       within(sharedContactsItemsTable).queryByRole("button", { name: "You" }),

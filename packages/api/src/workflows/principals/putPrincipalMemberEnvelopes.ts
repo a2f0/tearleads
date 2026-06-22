@@ -12,6 +12,7 @@ import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import {
   PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,
+  toPrincipalMemberEnvelopeError,
 } from "./shared";
 
 export type PutPrincipalMemberEnvelopesInput =
@@ -122,61 +123,6 @@ async function assertRequesterMayWritePrincipalEnvelopes(
   );
 }
 
-function toPrincipalMemberEnvelopeError(
-  error: unknown,
-): PrincipalPolicyError | null {
-  if (!(error instanceof Error)) {
-    return null;
-  }
-
-  if (
-    error.message === "Principal member envelopes must target the current state"
-  ) {
-    return new PrincipalPolicyError(error.message, 409);
-  }
-
-  if (
-    error.message ===
-      "Principal member envelopes must match the current direct member set" ||
-    error.message ===
-      "Principal member envelopes must cover the current direct member set" ||
-    error.message.startsWith(
-      "Principal member envelope targets unknown member",
-    ) ||
-    error.message.startsWith("Principal member envelope fingerprint mismatch")
-  ) {
-    return new PrincipalPolicyError(error.message, 409);
-  }
-
-  if (
-    error.message.startsWith(
-      "Principal member envelope is missing wrapped material",
-    )
-  ) {
-    return new PrincipalPolicyError(error.message, 400);
-  }
-
-  if (
-    error.message.startsWith("Missing current principal state for ") ||
-    error.message === "Principal state not found"
-  ) {
-    return new PrincipalPolicyError("Principal state not found", 404);
-  }
-
-  if (
-    error.message.startsWith(
-      "Missing user recipient key for principal state member",
-    ) ||
-    error.message.startsWith(
-      "Missing current principal epoch key for group member",
-    )
-  ) {
-    return new PrincipalPolicyError(error.message, 409);
-  }
-
-  return null;
-}
-
 /**
  * Stores the current member key envelopes for a principal's active state and
  * returns them in the current-state response shape.
@@ -222,7 +168,10 @@ export async function runPutPrincipalMemberEnvelopesWorkflow(
       return toCurrentPrincipalMemberEnvelopesResponse({
         principalType: input.principalType,
         principalId: input.principalId,
-        stateHash: currentState.stateHash,
+        // Report the validated/written hash. The replace above enforces
+        // input.stateHash === currentState.stateHash (throwing "must target
+        // the current state" otherwise), so this matches what was persisted.
+        stateHash: input.stateHash,
         epoch: currentState.keyEpoch,
         envelopes: storedEnvelopes,
       });

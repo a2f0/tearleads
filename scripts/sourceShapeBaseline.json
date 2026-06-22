@@ -143,7 +143,7 @@
     },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
       "lines": 883,
-      "bytes": 27574
+      "bytes": 27607
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 721,

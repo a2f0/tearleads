@@ -1,11 +1,17 @@
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  DocumentSyncResponse,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,
+  submitDocumentSync,
 } from "../../data/documents/shared/responses";
 import type {
   DocumentSyncApi,
+  DocumentSyncPlan,
   DocumentSyncSubmitFailure,
+  MaterializedDocumentSyncPlan,
 } from "../../data/documents/shared/types";
 import type { PendingUpdateRecord } from "../../data/sqlite/documentPersistence";
 
@@ -27,6 +33,23 @@ type FailedDocumentSyncAction =
       readonly kind: "recover_update_id_conflict";
       readonly recoveryPendingUpdatesById: Map<string, PendingUpdateRecord>;
     };
+
+type DocumentSyncAttemptSubmission =
+  | {
+      readonly kind: "completed";
+      readonly response: DocumentSyncResponse;
+    }
+  | FailedDocumentSyncAction;
+
+function shouldRetrySyncWithFreshWriterProjection(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.startsWith(
+      "Document authorizing container KEK path could not be unwrapped",
+    ) &&
+    error.message.includes("Container writer projection KEK")
+  );
+}
 
 function isRecoverableDocumentUpdateIdConflict(
   failure: DocumentSyncSubmitFailure,
@@ -74,7 +97,7 @@ export async function handleUpstreamDeletedDocumentSyncFailure(input: {
   return true;
 }
 
-export async function resolveFailedDocumentSyncAction(input: {
+async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
   documentId: string;
   failure: DocumentSyncSubmitFailure;
@@ -122,6 +145,39 @@ export async function resolveFailedDocumentSyncAction(input: {
   return "stop";
 }
 
+export async function submitDocumentSyncAttempt(input: {
+  apiClient: DocumentSyncApi;
+  attempt: number;
+  documentId: string;
+  maxAttempts: number;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  pendingUpdates: readonly PendingUpdateRecord[];
+  plan: DocumentSyncPlan;
+}): Promise<DocumentSyncAttemptSubmission> {
+  const submitted = await submitDocumentSync({
+    apiClient: input.apiClient,
+    plan: input.plan,
+  });
+  if (!submitted) {
+    return "stop";
+  }
+  if (submitted.ok) {
+    return {
+      kind: "completed",
+      response: submitted.response,
+    };
+  }
+
+  return resolveFailedDocumentSyncAction({
+    attempt: input.attempt,
+    documentId: input.documentId,
+    failure: submitted,
+    maxAttempts: input.maxAttempts,
+    onRemoteDocumentDeleted: input.onRemoteDocumentDeleted,
+    pendingUpdates: input.pendingUpdates,
+  });
+}
+
 export async function resolveDocumentSyncWriterProjection(input: {
   apiClient: DocumentSyncApi;
   documentId: string;
@@ -148,4 +204,47 @@ export async function resolveDocumentSyncWriterProjection(input: {
   }
 
   return input.apiClient.getDocumentWriterProjection(input.documentId);
+}
+
+export async function retrySyncPlan(input: {
+  apiClient: DocumentSyncApi;
+  buildWithProjection: (
+    projection: DocumentWriterProjectionResponse,
+  ) => Promise<MaterializedDocumentSyncPlan>;
+  documentId: string;
+  onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
+  writerProjection: DocumentWriterProjectionResponse;
+}): Promise<
+  | readonly [MaterializedDocumentSyncPlan, DocumentWriterProjectionResponse]
+  | null
+> {
+  try {
+    return [
+      await input.buildWithProjection(input.writerProjection),
+      input.writerProjection,
+    ];
+  } catch (error) {
+    if (
+      !input.apiClient.clearWriterProjectionCaches ||
+      !shouldRetrySyncWithFreshWriterProjection(error)
+    ) {
+      throw error;
+    }
+  }
+
+  input.apiClient.clearWriterProjectionCaches();
+  const writerProjection = await resolveDocumentSyncWriterProjection({
+    apiClient: input.apiClient,
+    documentId: input.documentId,
+    reusableWriterProjection: null,
+  });
+  if (writerProjection === REMOTE_DOCUMENT_DELETED) {
+    await input.onRemoteDocumentDeleted?.({ documentId: input.documentId });
+    return null;
+  }
+  if (!writerProjection) {
+    return null;
+  }
+
+  return [await input.buildWithProjection(writerProjection), writerProjection];
 }

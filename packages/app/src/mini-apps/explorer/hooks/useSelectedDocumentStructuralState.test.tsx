@@ -62,3 +62,52 @@ test("document projection selection updates immediately before async lookup", as
     ]);
   });
 });
+
+test("document projection selection ignores superseded async lookups", async () => {
+  const selectedDocuments: Array<{ containerId: string; id: string }> = [];
+  const selectedIds: Array<string | null> = [];
+  const pendingLoads = new Map<
+    string,
+    (value: DocumentSummary | null) => void
+  >();
+  const { result } = renderHook(() =>
+    useSelectDocumentProjection({
+      activateLinkedDocument: async () => null,
+      loadDocumentSummary: async (localId) =>
+        new Promise<DocumentSummary | null>((resolve) => {
+          pendingLoads.set(localId, resolve);
+        }),
+      selectDocument: (id, containerId) => {
+        selectedDocuments.push({ containerId, id });
+      },
+      setSelectedId: (id) => {
+        selectedIds.push(id);
+      },
+    }),
+  );
+
+  act(() => {
+    result.current("document-1", "first-container");
+    result.current("document-2", "second-container");
+  });
+
+  await act(async () => {
+    pendingLoads.get("document-2")?.(
+      createDocumentSummary({
+        containerId: "second-container",
+        id: "document-2",
+      }),
+    );
+    await Promise.resolve();
+  });
+  await act(async () => {
+    pendingLoads.get("document-1")?.(null);
+    await Promise.resolve();
+  });
+
+  expect(selectedDocuments).toEqual([
+    { containerId: "first-container", id: "document-1" },
+    { containerId: "second-container", id: "document-2" },
+  ]);
+  expect(selectedIds).toEqual([]);
+});
