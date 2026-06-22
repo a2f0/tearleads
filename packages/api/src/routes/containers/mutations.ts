@@ -149,18 +149,29 @@ async function publishContainerMutationCreated(input: {
   const signerKeyFingerprint = readContainerMutationSignerKeyFingerprint(
     input.request,
   );
+  const eventType =
+    readContainerMutationBodyEventType(input.request) ??
+    input.expectedEventType;
 
   await input.publish({
     type: "container_mutation_created",
     containerId: input.response.containerId,
-    eventType:
-      readContainerMutationBodyEventType(input.request) ??
-      input.expectedEventType,
+    eventType,
     parentId: input.response.parentId,
     ...(previousParentId === undefined ? {} : { previousParentId }),
     ...(signerKeyFingerprint === undefined ? {} : { signerKeyFingerprint }),
     updatedAt: input.response.updatedAt,
   });
+
+  // Everything but a plain create changes who can read the container or rotates
+  // its key epoch, so tell sockets interested in it to resync their access (and
+  // drop stale interest) before they receive further scoped events.
+  if (eventType !== "container.create") {
+    await input.publish({
+      type: "access_changed",
+      containerId: input.response.containerId,
+    });
+  }
 }
 
 function validateContainerMutationRequest(
@@ -336,14 +347,25 @@ export function createContainerMutationsRoute({
   });
   route.delete("/containers/:containerId", requireAuth, async (c) => {
     const session = c.get("session");
+    const containerId = c.req.param("containerId");
 
     try {
-      return c.json<ContainerDeleteResponse>(
-        await deleteContainer(runtime, {
-          containerId: c.req.param("containerId"),
-          userId: session.userId,
-        }),
-      );
+      const response = await deleteContainer(runtime, {
+        containerId,
+        userId: session.userId,
+      });
+      // The container is gone; interested sockets must resync (and drop it).
+      // Best-effort: the delete is already committed, so a publish failure must
+      // not turn it into a 500 (the missed resync is recovered by HTTP sync).
+      try {
+        await publish({ type: "access_changed", containerId });
+      } catch (publishError) {
+        console.error(
+          "Failed to publish container delete access_changed:",
+          publishError,
+        );
+      }
+      return c.json<ContainerDeleteResponse>(response);
     } catch (error) {
       if (error instanceof DeleteContainerError) {
         return c.json({ error: error.message }, error.status);

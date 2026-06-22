@@ -18,14 +18,13 @@ function messageToString(message: string | Buffer): string {
 }
 
 function persistInterestInOrder(
-  ws: ServerWebSocket<WebSocketTicketIdentity>,
+  userId: string,
+  sessionId: string,
   applied: AppliedInterest,
 ): void {
-  const sessionKey = `${ws.data.userId}:${ws.data.sessionId}`;
+  const sessionKey = `${userId}:${sessionId}`;
   const chain = (interestWriteChains.get(sessionKey) ?? Promise.resolve())
-    .then(() =>
-      wsInterestStore.apply(ws.data.userId, ws.data.sessionId, applied),
-    )
+    .then(() => wsInterestStore.apply(userId, sessionId, applied))
     .catch((error: unknown) => {
       console.error("Failed to persist websocket interest:", error);
     });
@@ -80,13 +79,20 @@ export const websocket = {
   ) {
     const applied = router.handleClientMessage(ws, messageToString(message));
     if (applied) {
-      persistInterestInOrder(ws, applied);
+      persistInterestInOrder(ws.data.userId, ws.data.sessionId, applied);
     }
   },
 };
 
 // Redis pub/sub fans every event to every API process; this process routes each
-// event only to its locally-connected sockets that declared interest.
+// event only to its locally-connected sockets that declared interest. An access
+// change drops interest locally; mirror that into the persisted set so a
+// reconnect does not restore it before the client re-checks access.
 addListener((message) => {
-  router.routeServerEvent(message);
+  for (const eviction of router.routeServerEvent(message)) {
+    persistInterestInOrder(eviction.userId, eviction.sessionId, {
+      containerIds: [eviction.containerId],
+      kind: "remove",
+    });
+  }
 });

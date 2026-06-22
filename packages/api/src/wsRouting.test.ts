@@ -201,6 +201,45 @@ test("hydrateInterest seeds a reconnecting socket's interest", () => {
   expect(router.interestedSocketCount("c2")).toBe(1);
 });
 
+test("access_changed evicts interest and tells interested sockets to resync", () => {
+  const router = new WsEventRouter();
+  const alice = fakeSocket("alice");
+  const bob = fakeSocket("bob");
+  router.open(alice);
+  router.open(bob);
+  router.handleClientMessage(
+    alice,
+    JSON.stringify({ type: "known_containers", containerIds: ["x", "y"] }),
+  );
+  router.handleClientMessage(
+    bob,
+    JSON.stringify({ type: "known_containers", containerIds: ["x"] }),
+  );
+
+  const evictions = router.routeServerEvent(
+    JSON.stringify({ type: "access_changed", containerId: "x" }),
+  );
+
+  const resync = JSON.stringify({ containerId: "x", type: "resync_required" });
+  // Both sockets interested in x are told to resync, and x is dropped from
+  // their interest so no further x events reach them until they re-declare.
+  expect(alice.sent).toEqual([resync]);
+  expect(bob.sent).toEqual([resync]);
+  expect(router.interestedSocketCount("x")).toBe(0);
+  // Unaffected interest (y) is untouched.
+  expect(router.interestedSocketCount("y")).toBe(1);
+  // The evictions are returned so the shell drops them from the persisted set,
+  // or a reconnect would restore the just-revoked interest.
+  expect(evictions).toEqual([
+    { containerId: "x", sessionId: "alice-session", userId: "alice" },
+    { containerId: "x", sessionId: "bob-session", userId: "bob" },
+  ]);
+
+  router.routeServerEvent(documentEvent(["x"]));
+  // No document delivery after eviction.
+  expect(alice.sent).toEqual([resync]);
+});
+
 test("ignores malformed client messages and unscoped events", () => {
   const router = new WsEventRouter();
   const alice = fakeSocket("alice");

@@ -66,10 +66,45 @@ function readInterestStateContainerIds(value: unknown): string[] | null {
   return containerIds.filter((id): id is string => typeof id === "string");
 }
 
+// The server's "a container's access changed — resync it" signal.
+function readResyncRequiredContainerId(value: unknown): string | null {
+  if (!isServerEvent(value) || value.type !== "resync_required") {
+    return null;
+  }
+  const containerId = Reflect.get(value, "containerId");
+  return typeof containerId === "string" && containerId.length > 0
+    ? containerId
+    : null;
+}
+
+// Force a fresh access check + tree re-list for a container the server flagged.
+// HTTP is the source of access truth: a now-unauthorized container drops out of
+// the tree (and interest); a still-authorized one is re-validated.
+function resyncContainerAccess(
+  tearleads: Tearleads,
+  containerId: string,
+): void {
+  try {
+    // Re-validate just the affected container (force re-discovery), not the
+    // whole tree — a single access change shouldn't re-sync everything.
+    tearleads.deviceFirst
+      .reconciler()
+      .enqueueContainer(containerId, "active", true);
+  } catch {
+    // Reconciler unavailable (runtime not ready); the refresh below still runs.
+  }
+  try {
+    void tearleads.containerContents.openTree().refresh();
+  } catch {
+    // Runtime not ready; the next reconnect re-validates from a ready tree.
+  }
+}
+
 function routeIncomingWsMessage(
   rawData: string,
   handlers: {
     onInterestState: (baseline: string[]) => void;
+    onResyncRequired: (containerId: string) => void;
     onServerEvent: (event: { type: string; [key: string]: unknown }) => void;
   },
 ): void {
@@ -83,6 +118,11 @@ function routeIncomingWsMessage(
   const baseline = readInterestStateContainerIds(data);
   if (baseline !== null) {
     handlers.onInterestState(baseline);
+    return;
+  }
+  const resyncContainerId = readResyncRequiredContainerId(data);
+  if (resyncContainerId !== null) {
+    handlers.onResyncRequired(resyncContainerId);
     return;
   }
   if (isServerEvent(data)) {
@@ -211,17 +251,25 @@ function diffContainerInterest(
  * server still enforces access, and missed events are recovered over HTTP sync.
  * Returns a cleanup that stops the subscription.
  */
+interface ContainerInterestDeclaration {
+  // Stop declaring interest (unsubscribe from the container tree).
+  readonly stop: () => void;
+  // Forget a container so the next tree change re-declares it if it is still
+  // present — used after the server evicts it on an access change.
+  readonly invalidate: (containerId: string) => void;
+}
+
 export function startContainerInterestDeclaration(
   tearleads: Tearleads,
   ws: WebSocket,
   baseline: ReadonlySet<string>,
-): () => void {
+): ContainerInterestDeclaration {
   let store: ReturnType<Tearleads["containerContents"]["openTree"]>;
   try {
     store = tearleads.containerContents.openTree();
   } catch {
     // Runtime not ready yet; the next reconnect re-declares from a ready tree.
-    return () => undefined;
+    return { invalidate: () => undefined, stop: () => undefined };
   }
 
   // The server already holds `baseline` (hydrated from its per-session interest
@@ -249,7 +297,15 @@ export function startContainerInterestDeclaration(
   };
 
   syncInterest();
-  return store.subscribe(syncInterest);
+  return {
+    // Drop it from the declared baseline only; the resync's tree change
+    // re-declares it if still authorized, or leaves it dropped if not — so an
+    // evicted container is not immediately re-added before the access re-check.
+    invalidate: (containerId: string) => {
+      declared.delete(containerId);
+    },
+    stop: store.subscribe(syncInterest),
+  };
 }
 
 function useServerEventsBinding(
@@ -269,7 +325,7 @@ function useServerEventsBinding(
 
     let cancelled = false;
     let socket: WebSocket | null = null;
-    let stopInterest: (() => void) | null = null;
+    let interestHandle: ContainerInterestDeclaration | null = null;
 
     void (async () => {
       const ticket = await tearleads.requestWebSocketTicket();
@@ -298,12 +354,18 @@ function useServerEventsBinding(
           // The server sends interest_state once on (re)connect with the
           // baseline it already holds; declare interest as a delta against it.
           onInterestState: (baseline) => {
-            stopInterest?.();
-            stopInterest = startContainerInterestDeclaration(
+            interestHandle?.stop();
+            interestHandle = startContainerInterestDeclaration(
               tearleads,
               ws,
               new Set(baseline),
             );
+          },
+          // The server evicted a container's interest on an access change; drop
+          // it locally and resync so it is re-declared only if still authorized.
+          onResyncRequired: (containerId) => {
+            interestHandle?.invalidate(containerId);
+            resyncContainerAccess(tearleads, containerId);
           },
           onServerEvent: (data) => {
             tearleads.events.push({ ...data, id: String(nextEventId++) });
@@ -312,16 +374,16 @@ function useServerEventsBinding(
       });
 
       ws.addEventListener("close", () => {
-        stopInterest?.();
-        stopInterest = null;
+        interestHandle?.stop();
+        interestHandle = null;
         if (!cancelled) {
           tearleads.events.setConnected(false);
         }
       });
 
       ws.addEventListener("error", () => {
-        stopInterest?.();
-        stopInterest = null;
+        interestHandle?.stop();
+        interestHandle = null;
         if (!cancelled) {
           tearleads.events.setConnected(false);
         }
@@ -330,7 +392,7 @@ function useServerEventsBinding(
 
     return () => {
       cancelled = true;
-      stopInterest?.();
+      interestHandle?.stop();
       socket?.close();
       tearleads.events.setConnected(false);
     };
