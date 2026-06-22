@@ -373,8 +373,11 @@ async function createRootMetadataDocumentResponse(
 }
 
 const server = setupServer(
-  eventsSocket.addEventListener("connection", () => {
-    // Keep the test socket open; individual tests can add behavior later.
+  eventsSocket.addEventListener("connection", ({ client }) => {
+    // Mirror the real server: send the reconnect interest baseline (empty in the
+    // mock) so the client starts declaring container interest. The mock then
+    // broadcasts every event to all clients regardless of interest.
+    client.send(JSON.stringify({ type: "interest_state", containerIds: [] }));
   }),
   http.post("http://localhost:3001/auth/register", async ({ request }) => {
     const requestBody = await request.json().catch(() => null);

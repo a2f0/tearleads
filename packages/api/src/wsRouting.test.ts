@@ -157,6 +157,50 @@ test("drops a closed socket from all routing", () => {
   expect(router.interestedSocketCount("c1")).toBe(0);
 });
 
+test("reports the applied interest change back to the caller", () => {
+  const router = new WsEventRouter();
+  const alice = fakeSocket("alice");
+  router.open(alice);
+
+  expect(
+    router.handleClientMessage(
+      alice,
+      JSON.stringify({ type: "known_containers", containerIds: ["c1"] }),
+    ),
+  ).toEqual({ kind: "replace", containerIds: ["c1"] });
+  expect(
+    router.handleClientMessage(
+      alice,
+      JSON.stringify({ type: "known_containers.add", containerIds: ["c2"] }),
+    ),
+  ).toEqual({ kind: "add", containerIds: ["c2"] });
+  expect(
+    router.handleClientMessage(
+      alice,
+      JSON.stringify({ type: "known_containers.remove", containerIds: ["c1"] }),
+    ),
+  ).toEqual({ kind: "remove", containerIds: ["c1"] });
+  expect(router.handleClientMessage(alice, "not json")).toBeNull();
+  expect(
+    router.handleClientMessage(alice, JSON.stringify({ type: "other" })),
+  ).toBeNull();
+});
+
+test("hydrateInterest seeds a reconnecting socket's interest", () => {
+  const router = new WsEventRouter();
+  const alice = fakeSocket("alice");
+  router.open(alice);
+
+  // Reconnect: the server restores interest from its persisted set, no client
+  // re-declaration needed.
+  router.hydrateInterest(alice, ["c1", "c2"]);
+  router.routeServerEvent(documentEvent(["c2"]));
+
+  expect(alice.sent).toHaveLength(1);
+  expect(router.interestedSocketCount("c1")).toBe(1);
+  expect(router.interestedSocketCount("c2")).toBe(1);
+});
+
 test("ignores malformed client messages and unscoped events", () => {
   const router = new WsEventRouter();
   const alice = fakeSocket("alice");

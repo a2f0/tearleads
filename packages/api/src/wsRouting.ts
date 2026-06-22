@@ -18,6 +18,16 @@ const KNOWN_CONTAINERS_REPLACE = "known_containers";
 const KNOWN_CONTAINERS_ADD = "known_containers.add";
 const KNOWN_CONTAINERS_REMOVE = "known_containers.remove";
 
+/**
+ * The interest change a client message applied, returned to the impure shell so
+ * it can mirror the change into the Redis per-session interest set. Null when the
+ * message was malformed or not an interest declaration.
+ */
+export type AppliedInterest = {
+  readonly kind: "replace" | "add" | "remove";
+  readonly containerIds: string[];
+} | null;
+
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter(
@@ -107,25 +117,35 @@ export class WsEventRouter {
     }
   }
 
-  handleClientMessage(ws: WsConnection, rawMessage: string): void {
+  handleClientMessage(ws: WsConnection, rawMessage: string): AppliedInterest {
     const parsed = parseJsonObject(rawMessage);
     if (!parsed) {
-      return;
+      return null;
     }
     const containerIds = readStringArray(Reflect.get(parsed, "containerIds"));
     switch (Reflect.get(parsed, "type")) {
       case KNOWN_CONTAINERS_REPLACE:
         this.replaceInterest(ws, containerIds);
-        return;
+        return { containerIds, kind: "replace" };
       case KNOWN_CONTAINERS_ADD:
         this.addInterest(ws, containerIds);
-        return;
+        return { containerIds, kind: "add" };
       case KNOWN_CONTAINERS_REMOVE:
         this.removeInterest(ws, containerIds);
-        return;
+        return { containerIds, kind: "remove" };
       default:
-        return;
+        return null;
     }
+  }
+
+  /**
+   * Seed a reconnecting socket's interest from the server-side persisted set,
+   * so it routes correctly before (or without) the client re-declaring. Same
+   * replace semantics as a `known_containers` message; no I/O (the caller loads
+   * the persisted set and keeps the router pure).
+   */
+  hydrateInterest(ws: WsConnection, containerIds: string[]): void {
+    this.replaceInterest(ws, containerIds);
   }
 
   routeServerEvent(rawMessage: string): void {

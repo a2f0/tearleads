@@ -53,6 +53,43 @@ function isServerEvent(value: unknown): value is {
   return isPlainObject(value) && hasStringProperty(value, "type");
 }
 
+// The server's reconnect baseline frame: the container ids it already holds for
+// this session. Returns the (possibly empty) set, or null when not that frame.
+function readInterestStateContainerIds(value: unknown): string[] | null {
+  if (!isServerEvent(value) || value.type !== "interest_state") {
+    return null;
+  }
+  const containerIds = Reflect.get(value, "containerIds");
+  if (!Array.isArray(containerIds)) {
+    return [];
+  }
+  return containerIds.filter((id): id is string => typeof id === "string");
+}
+
+function routeIncomingWsMessage(
+  rawData: string,
+  handlers: {
+    onInterestState: (baseline: string[]) => void;
+    onServerEvent: (event: { type: string; [key: string]: unknown }) => void;
+  },
+): void {
+  let data: unknown;
+  try {
+    data = JSON.parse(rawData);
+  } catch {
+    return;
+  }
+
+  const baseline = readInterestStateContainerIds(data);
+  if (baseline !== null) {
+    handlers.onInterestState(baseline);
+    return;
+  }
+  if (isServerEvent(data)) {
+    handlers.onServerEvent(data);
+  }
+}
+
 function allowDevelopmentBlobStoreFallback(): boolean {
   if (typeof location !== "object") {
     return false;
@@ -177,6 +214,7 @@ function diffContainerInterest(
 export function startContainerInterestDeclaration(
   tearleads: Tearleads,
   ws: WebSocket,
+  baseline: ReadonlySet<string>,
 ): () => void {
   let store: ReturnType<Tearleads["containerContents"]["openTree"]>;
   try {
@@ -186,8 +224,10 @@ export function startContainerInterestDeclaration(
     return () => undefined;
   }
 
-  let declared = new Set<string>();
-  let hasDeclared = false;
+  // The server already holds `baseline` (hydrated from its per-session interest
+  // set), so only the delta between it and the current tree needs declaring —
+  // a reconnect never resends the whole known set.
+  let declared = new Set(baseline);
 
   const send = (message: Record<string, unknown>): void => {
     if (ws.readyState !== WebSocket.OPEN) {
@@ -198,14 +238,6 @@ export function startContainerInterestDeclaration(
 
   const syncInterest = (): void => {
     const current = new Set(store.getSnapshot().nodes.map((node) => node.id));
-
-    if (!hasDeclared) {
-      send({ type: "known_containers", containerIds: [...current] });
-      hasDeclared = true;
-      declared = current;
-      return;
-    }
-
     const { added, removed } = diffContainerInterest(current, declared);
     if (added.length > 0) {
       send({ type: "known_containers.add", containerIds: added });
@@ -255,7 +287,6 @@ function useServerEventsBinding(
 
         tearleads.events.setConnected(true);
         log("WebSocket connected");
-        stopInterest = startContainerInterestDeclaration(tearleads, ws);
       });
 
       ws.addEventListener("message", (event) => {
@@ -263,14 +294,21 @@ function useServerEventsBinding(
           return;
         }
 
-        try {
-          const data: unknown = JSON.parse(String(event.data));
-          if (isServerEvent(data)) {
+        routeIncomingWsMessage(String(event.data), {
+          // The server sends interest_state once on (re)connect with the
+          // baseline it already holds; declare interest as a delta against it.
+          onInterestState: (baseline) => {
+            stopInterest?.();
+            stopInterest = startContainerInterestDeclaration(
+              tearleads,
+              ws,
+              new Set(baseline),
+            );
+          },
+          onServerEvent: (data) => {
             tearleads.events.push({ ...data, id: String(nextEventId++) });
-          }
-        } catch {
-          // ignore malformed messages
-        }
+          },
+        });
       });
 
       ws.addEventListener("close", () => {

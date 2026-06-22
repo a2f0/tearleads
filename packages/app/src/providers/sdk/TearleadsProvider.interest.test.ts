@@ -39,18 +39,18 @@ function fakeSocket(readyState: number) {
   };
 }
 
-test("declares known containers, then pushes add/remove deltas", () => {
+test("declares the full known set against an empty baseline, then deltas", () => {
   const fakeStore = createFakeStore(["c1", "c2"]);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
 
   const stop = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
+    new Set(),
   );
 
-  // Initial declaration is a full replace of the currently-known set.
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
-    type: "known_containers",
+    type: "known_containers.add",
     containerIds: ["c1", "c2"],
   });
 
@@ -68,8 +68,39 @@ test("declares known containers, then pushes add/remove deltas", () => {
 
   stop();
   fakeStore.setNodes(["c2"]);
-  // No further declarations after the subscription is stopped.
   expect(sent).toHaveLength(3);
+});
+
+test("declares only the delta against a hydrated baseline (no full resend)", () => {
+  // The server already holds {a, b}; the current tree adds c. Only c is sent.
+  const fakeStore = createFakeStore(["a", "b", "c"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+
+  startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(["a", "b"]),
+  );
+
+  expect(JSON.parse(sent[0] ?? "null")).toEqual({
+    type: "known_containers.add",
+    containerIds: ["c"],
+  });
+  // a and b are not re-declared.
+  expect(sent).toHaveLength(1);
+});
+
+test("sends nothing when the tree already matches the baseline", () => {
+  const fakeStore = createFakeStore(["a", "b"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+
+  startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(["a", "b"]),
+  );
+
+  expect(sent).toEqual([]);
 });
 
 test("skips interest when the container tree cannot be opened", () => {
@@ -80,6 +111,7 @@ test("skips interest when the container tree cannot be opened", () => {
       throw new Error("runtime not ready");
     }),
     ws,
+    new Set(),
   );
 
   expect(sent).toEqual([]);
@@ -93,6 +125,7 @@ test("does not send while the socket is not open", () => {
   startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
+    new Set(),
   );
 
   expect(sent).toEqual([]);
