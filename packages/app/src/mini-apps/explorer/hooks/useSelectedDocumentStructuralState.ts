@@ -3,7 +3,7 @@ import type {
   ContainerNode,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { ExplorerContainerRulesContext } from "../containerRules";
 import {
   createExplorerTargetLookups,
@@ -161,30 +161,45 @@ export function useSelectDocumentProjection(params: {
     setSelectedId,
   } = params;
 
+  // Token of the most recent selection, so out-of-order resolution of a
+  // superseded selection's async loads can't clobber the active selection
+  // when the user rapidly switches documents.
+  const selectionTokenRef = useRef(0);
+
   return useCallback(
     (noteId: string, containerId: string) => {
       selectDocument(noteId, containerId);
-      void (async () => {
-        try {
-          const existingDocument = await loadDocumentSummary(noteId);
-          if (!existingDocument) {
-            setSelectedId(containerId);
-            return;
-          }
+      selectionTokenRef.current += 1;
+      const selectionToken = selectionTokenRef.current;
+      const isCurrent = () => selectionTokenRef.current === selectionToken;
 
-          if (existingDocument.containerId !== containerId) {
-            const activatedDocument = await activateLinkedDocument(
-              noteId,
-              containerId,
-            );
-            if (!activatedDocument) {
-              setSelectedId(noteId);
-            }
-          }
-        } catch (error: unknown) {
+      async function resolveSelection(): Promise<void> {
+        const existingDocument = await loadDocumentSummary(noteId);
+        if (!isCurrent()) {
+          return;
+        }
+        if (!existingDocument) {
+          setSelectedId(containerId);
+          return;
+        }
+        if (existingDocument.containerId === containerId) {
+          return;
+        }
+
+        const activatedDocument = await activateLinkedDocument(
+          noteId,
+          containerId,
+        );
+        if (isCurrent() && !activatedDocument) {
+          setSelectedId(noteId);
+        }
+      }
+
+      void resolveSelection().catch((error: unknown) => {
+        if (isCurrent()) {
           console.error("Explorer: failed to select linked document:", error);
         }
-      })();
+      });
     },
     [
       activateLinkedDocument,
