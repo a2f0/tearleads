@@ -201,6 +201,23 @@ test("hydrateInterest seeds a reconnecting socket's interest", () => {
   expect(router.interestedSocketCount("c2")).toBe(1);
 });
 
+test("hydrateInterest preserves interest declared during the open window", () => {
+  const router = new WsEventRouter();
+  const alice = fakeSocket("alice");
+  router.open(alice);
+
+  // A client message can arrive while open()'s async hydration is still
+  // pending; that just-declared interest must survive hydration.
+  router.handleClientMessage(
+    alice,
+    JSON.stringify({ type: "known_containers.add", containerIds: ["live"] }),
+  );
+  router.hydrateInterest(alice, ["persisted"]);
+
+  expect(router.interestedSocketCount("live")).toBe(1);
+  expect(router.interestedSocketCount("persisted")).toBe(1);
+});
+
 test("access_changed evicts interest and tells interested sockets to resync", () => {
   const router = new WsEventRouter();
   const alice = fakeSocket("alice");
