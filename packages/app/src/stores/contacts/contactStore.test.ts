@@ -241,7 +241,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
     expect(documentProjections).toContainEqual(
       expect.objectContaining({
         id: selfKey.userId,
-        title: "You",
+        title: selfKey.userId,
       }),
     );
   } finally {

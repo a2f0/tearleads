@@ -25,6 +25,19 @@ export function getSelfContactLocalId(signingFingerprint: string): string {
   return `${SELF_CONTACT_ID_PREFIX}${signingFingerprint.trim()}`;
 }
 
+export function isSelfContactLocalId(localId: string): boolean {
+  return localId.startsWith(SELF_CONTACT_ID_PREFIX);
+}
+
+export function isCurrentSelfContactLocalId(
+  localId: string,
+  signingFingerprint: string | null | undefined,
+): boolean {
+  return Boolean(
+    signingFingerprint && localId === getSelfContactLocalId(signingFingerprint),
+  );
+}
+
 export function normalizeEnsureSelfContactInput(
   input: string | EnsureSelfContactInput,
 ): EnsureSelfContactInput {

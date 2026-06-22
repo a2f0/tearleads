@@ -1389,6 +1389,72 @@ test(
 );
 
 test(
+  "peer sees the owner self contact in a shared contacts folder without the You label",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+    const ownerUserId = getPaneUserId(leftPane);
+
+    await openExplorer(leftPane);
+    await openExplorer(rightPane);
+
+    const postShareRequestStartIndex = listProxiedApiRequests().length;
+    await shareContainerWithPeer(leftPane, "/");
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postShareRequestStartIndex,
+    );
+
+    await clickExplorerRefresh(rightPane);
+    await refreshUntil(
+      rightPane,
+      () => getExplorerSidebarItemsByName(rightPane, "Contacts").length > 1,
+      "Peer did not discover the shared Contacts container.",
+    );
+
+    const sharedContactsItem = getExplorerSidebarItemsByName(
+      rightPane,
+      "Contacts",
+    ).at(-1);
+    invariant(sharedContactsItem, "Expected a shared Contacts sidebar item.");
+    await interact(() => {
+      fireEvent.click(sharedContactsItem);
+    });
+
+    const sharedContactsItemsTable = await waitFor(() =>
+      within(rightPane).getByRole("table", {
+        name: "Items in Contacts",
+      }),
+    );
+    await waitFor(() => {
+      const ownerContactButton = within(sharedContactsItemsTable).queryByRole(
+        "button",
+        { name: ownerUserId },
+      );
+      const leakedYouButton = within(sharedContactsItemsTable).queryByRole(
+        "button",
+        { name: "You" },
+      );
+      expect(ownerContactButton ?? leakedYouButton).toBeTruthy();
+    });
+
+    expect(
+      within(sharedContactsItemsTable).queryByRole("button", { name: "You" }),
+    ).toBeNull();
+    expect(
+      within(sharedContactsItemsTable).getByRole("button", {
+        name: ownerUserId,
+      }),
+    ).toBeTruthy();
+  },
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+);
+
+test(
   "dual pane explorer treats a duplicate peer share as a no-op",
   async () => {
     useTestApiAppHandlers();

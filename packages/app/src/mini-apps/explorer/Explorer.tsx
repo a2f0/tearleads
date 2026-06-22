@@ -124,6 +124,8 @@ export function Explorer() {
         canMoveSelectedDocument={model.canMoveSelectedDocument}
         canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
         contextTarget={model.contextMenuState.contextMenu?.id ?? null}
+        currentSigningFingerprint={appData.crypto.signingFingerprint}
+        currentUserId={appData.auth.userId}
         documentListRevision={model.documentListRevision}
         documentQueries={model.documentQueries}
         domainScope={appData.state.domainScope}

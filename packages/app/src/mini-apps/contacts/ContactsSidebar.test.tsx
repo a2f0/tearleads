@@ -76,6 +76,8 @@ function createContactEntry(id: string): ContactEntry {
 function ContactsSidebarHarness(
   params: {
     contactEntries?: ContactEntry[] | undefined;
+    currentSigningFingerprint?: string | null | undefined;
+    currentUserId?: string | null | undefined;
     onAreaContextMenu?: (() => void) | undefined;
     onContactContextMenu?: ((contactId: string) => void) | undefined;
   } = {},
@@ -102,6 +104,8 @@ function ContactsSidebarHarness(
   );
 
   useContactsSidebarPanel({
+    currentSigningFingerprint: params.currentSigningFingerprint,
+    currentUserId: params.currentUserId,
     entries: contactEntries,
     handleAreaContextMenu,
     handleContextMenu,
@@ -168,6 +172,37 @@ test("contacts sidebar does not append self labels to contact names", async () =
   expect(await view.findByRole("button", { name: "Local User" })).toBeTruthy();
   expect(view.queryByRole("button", { name: "Boss (me)" })).toBeNull();
   expect(view.queryByRole("button", { name: "Local User (me)" })).toBeNull();
+});
+
+test("contacts sidebar labels only the current self contact as You", async () => {
+  const view = render(
+    <ContactsSidebarHarness
+      currentSigningFingerprint="current-fingerprint"
+      contactEntries={[
+        {
+          id: "self_contact_v1_current-fingerprint",
+          firstName: "",
+          lastName: "",
+          nickname: "",
+          userId: "current-user",
+          encapsulationPublicKey: "current-public-key",
+          isSelf: true,
+        },
+        {
+          id: "self_contact_v1_owner-fingerprint",
+          firstName: "",
+          lastName: "",
+          nickname: "",
+          userId: "owner-user",
+          encapsulationPublicKey: "owner-public-key",
+          isSelf: true,
+        },
+      ]}
+    />,
+  );
+
+  expect(await view.findByRole("button", { name: "You" })).toBeTruthy();
+  expect(await view.findByRole("button", { name: "owner" })).toBeTruthy();
 });
 
 test("contacts sidebar opens the area context menu from blank list space", async () => {

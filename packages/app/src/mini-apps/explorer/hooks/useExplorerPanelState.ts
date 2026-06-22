@@ -201,6 +201,8 @@ export function useExplorerPanelState(params: {
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
     currentOrganizationId: appData.auth.organizationId,
+    currentSigningFingerprint: appData.crypto.signingFingerprint,
+    currentUserId: appData.auth.userId,
     // Derived from the same worker status as Explorer's detail gate so both show
     // the boot error together; the retry callback is threaded from Explorer.
     databaseError: appData.infra.dbStatus === "error",
