@@ -1,18 +1,18 @@
 import { expect, test } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { ApiClient } from "./ApiClient";
 import {
   createContainerMutationRequest,
   createDocumentSyncRequest,
   createEncapsulationKeyResponse,
-} from "./ApiClient.testFactories";
+} from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
   captureHttpCall,
   server,
   testApiClient,
-} from "./ApiClient.testHarness";
+} from "../test/helpers/apiClientTestHarness";
+import { ApiClient } from "./ApiClient";
 import { errorMessage } from "./requestInternals";
 
 testApiClient(

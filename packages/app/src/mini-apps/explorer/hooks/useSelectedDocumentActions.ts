@@ -29,11 +29,11 @@ type LoadExplorerDocumentSummary = (
 async function resolveExplorerActionDocument(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
-  noteId: string;
+  documentId: string;
 }): Promise<DocumentSummary | null> {
   return (
-    getDocumentByLocalId(params.documentSummaries, params.noteId) ??
-    (await params.loadDocumentSummary(params.noteId))
+    getDocumentByLocalId(params.documentSummaries, params.documentId) ??
+    (await params.loadDocumentSummary(params.documentId))
   );
 }
 
@@ -62,14 +62,14 @@ function useMoveDocumentAction(params: {
 
   return useCallback(
     async (
-      noteId: string,
+      documentId: string,
       targetContainerId: string,
       options?: ExplorerDocumentMutationOptions,
     ) => {
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
-        noteId,
+        documentId,
       });
       if (!existingDocument) {
         return null;
@@ -133,11 +133,11 @@ function usePurgeDocumentAction(params: {
   const { appData, documentSummaries, loadDocumentSummary } = params;
 
   return useCallback(
-    async (noteId: string) => {
+    async (documentId: string) => {
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
-        noteId,
+        documentId,
       });
       if (!existingDocument) {
         return null;
@@ -182,7 +182,7 @@ function useLinkDocumentAction(params: {
   } = params;
 
   return useCallback(
-    async (noteId: string, targetContainerId: string) => {
+    async (documentId: string, targetContainerId: string) => {
       if (!canMutateSelectedDocument(appData)) {
         return null;
       }
@@ -190,7 +190,7 @@ function useLinkDocumentAction(params: {
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
-        noteId,
+        documentId,
       });
       if (!existingDocument) {
         return null;
@@ -253,7 +253,7 @@ function useUnlinkDocumentAction(params: {
   } = params;
 
   return useCallback(
-    async (noteId: string, removedContainerId: string) => {
+    async (documentId: string, removedContainerId: string) => {
       if (!canMutateSelectedDocument(appData)) {
         return null;
       }
@@ -261,7 +261,7 @@ function useUnlinkDocumentAction(params: {
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
-        noteId,
+        documentId,
       });
       if (!existingDocument) {
         return null;
@@ -305,7 +305,7 @@ function useActivateLinkedDocumentAction(params: {
   } = params;
 
   return useCallback(
-    async (noteId: string, targetContainerId: string) => {
+    async (documentId: string, targetContainerId: string) => {
       if (appData.infra.dbStatus !== "ready") {
         return null;
       }
@@ -313,7 +313,7 @@ function useActivateLinkedDocumentAction(params: {
       const existingDocument = await resolveExplorerActionDocument({
         documentSummaries,
         loadDocumentSummary,
-        noteId,
+        documentId,
       });
       if (!existingDocument) {
         return null;

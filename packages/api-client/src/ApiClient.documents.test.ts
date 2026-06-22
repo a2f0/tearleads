@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { ApiClient } from "./ApiClient";
 import {
   createDocumentCreateRequest,
   createDocumentCreateResponse,
@@ -8,14 +7,15 @@ import {
   createDocumentLinkSetMutationResponse,
   createDocumentSyncRequest,
   createDocumentSyncResponse,
-} from "./ApiClient.testFactories";
+} from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
   captureHttpCall,
   server,
   testApiClient,
-} from "./ApiClient.testHarness";
+} from "../test/helpers/apiClientTestHarness";
+import { ApiClient } from "./ApiClient";
 
 testApiClient(
   "posts signed document link-set mutations to the route namespace",

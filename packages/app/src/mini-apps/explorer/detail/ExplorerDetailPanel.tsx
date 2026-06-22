@@ -85,7 +85,7 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
 
 interface ExplorerDetailPanelProps {
   activateLinkedContainer: (
-    noteId: string,
+    documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   blobStore: BlobStore;
@@ -132,14 +132,14 @@ interface ExplorerDetailPanelProps {
     blobId?: string | null | undefined;
     storageKey?: string | null | undefined;
   }) => void;
-  openLinkDocumentModal: (noteId: string) => void;
+  openLinkDocumentModal: (documentId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  openMoveDocumentModal: (noteId: string) => void;
+  openMoveDocumentModal: (documentId: string) => void;
   peerUserId: string | null;
   ready: boolean;
   refreshError: string | null;
   route: ExplorerRoute;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
   selectedDocument: DocumentSummary | undefined;
   selectedNode: ContainerNode | undefined;
   setSelectedId: (id: string | null) => void;
@@ -150,7 +150,7 @@ interface ExplorerDetailPanelProps {
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   unlinkDocument: (
-    noteId: string,
+    documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;

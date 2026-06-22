@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { ApiClient } from "./ApiClient";
 import {
   createBlobAttachmentBindRequest,
   createBlobAttachmentBindResponse,
@@ -13,7 +12,7 @@ import {
   createDocumentSyncRequest,
   createDocumentSyncResponse,
   createDocumentWriterProjectionResponse,
-} from "./ApiClient.testFactories";
+} from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
@@ -21,7 +20,8 @@ import {
   createDeferred,
   server,
   testApiClient,
-} from "./ApiClient.testHarness";
+} from "../test/helpers/apiClientTestHarness";
+import { ApiClient } from "./ApiClient";
 
 testApiClient(
   "caches writer projection requests and invalidates on mutations",

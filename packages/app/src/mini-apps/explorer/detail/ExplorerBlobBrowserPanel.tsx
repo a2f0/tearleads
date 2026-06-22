@@ -24,7 +24,7 @@ interface ExplorerBlobBrowserPanelProps {
   onBackToSelectionRoute: () => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   route: BlobBrowserRoute;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
 }
 
 export function ExplorerBlobBrowserPanel(

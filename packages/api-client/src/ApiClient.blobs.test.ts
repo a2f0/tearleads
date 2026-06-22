@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { ApiClient } from "./ApiClient";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
@@ -8,7 +7,8 @@ import {
   server,
   testApiClient,
   textStream,
-} from "./ApiClient.testHarness";
+} from "../test/helpers/apiClientTestHarness";
+import { ApiClient } from "./ApiClient";
 
 testApiClient("uses blob upload capabilities route", async () => {
   const calls: CapturedHttpCall[] = [];

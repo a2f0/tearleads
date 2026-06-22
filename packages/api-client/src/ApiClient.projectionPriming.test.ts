@@ -1,18 +1,18 @@
 import { expect } from "bun:test";
 import { HttpResponse, http } from "msw";
-import { ApiClient } from "./ApiClient";
 import {
   createDocumentLinkSetMutationRequest,
   createDocumentLinkSetMutationResponse,
   createDocumentWriterProjectionResponse,
-} from "./ApiClient.testFactories";
+} from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
   captureHttpCall,
   server,
   testApiClient,
-} from "./ApiClient.testHarness";
+} from "../test/helpers/apiClientTestHarness";
+import { ApiClient } from "./ApiClient";
 
 testApiClient(
   "serves a primed document writer projection without a network fetch",

@@ -97,11 +97,11 @@ export interface ExplorerPanelState {
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
   purgeDocument: (
-    noteId: string,
+    documentId: string,
     currentContainerId: string,
   ) => Promise<unknown>;
   routeState: ExplorerRouteState;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
   selectedDocumentMoveTargetOptions: ReadonlyArray<MoveTargetOption>;
@@ -179,9 +179,9 @@ export function useExplorerPanelState(params: {
     selectedDocument: selection.selectedDocument,
   });
   const selectDocument = useCallback(
-    (noteId: string, containerId: string) => {
-      selection.selectDocument(noteId, containerId);
-      routeState.selectExplorerDocument(noteId, containerId);
+    (documentId: string, containerId: string) => {
+      selection.selectDocument(documentId, containerId);
+      routeState.selectExplorerDocument(documentId, containerId);
     },
     [routeState.selectExplorerDocument, selection.selectDocument],
   );
@@ -271,7 +271,7 @@ export function useExplorerPanelState(params: {
     [explorer.nodes, importDroppedFilesUnguarded, rulesContext],
   );
   const deleteDocument = useCallback(
-    async (noteId: string, currentContainerId: string) => {
+    async (documentId: string, currentContainerId: string) => {
       try {
         const trashContainerId =
           explorer.trashContainerId ??
@@ -281,7 +281,7 @@ export function useExplorerPanelState(params: {
         }
 
         const deletedDocument = await selectedNoteStructuralState.moveDocument(
-          noteId,
+          documentId,
           trashContainerId,
           {
             replaceLinkedContainers: true,
@@ -307,7 +307,7 @@ export function useExplorerPanelState(params: {
     ],
   );
   const purgeDocument = useCallback(
-    async (noteId: string, currentContainerId: string) => {
+    async (documentId: string, currentContainerId: string) => {
       try {
         // Purge is the inverse of "move to trash": it only permanently destroys
         // a document that is already in the trash container. The server enforces
@@ -320,7 +320,7 @@ export function useExplorerPanelState(params: {
         }
 
         const purgedDocument =
-          await selectedNoteStructuralState.purgeDocument(noteId);
+          await selectedNoteStructuralState.purgeDocument(documentId);
         if (purgedDocument) {
           // The purged document's local row is gone. Bump the document list
           // revision so the open container listing re-queries SQLite and the

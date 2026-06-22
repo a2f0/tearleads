@@ -885,7 +885,7 @@ interface ExplorerSidebarPanelParams {
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
   selectedId: string | null;
-  selectDocumentProjection: (noteId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   setSidebar: (sidebar: ReactNode | null) => void;
   online: boolean;

@@ -17,7 +17,7 @@ const baseConfig = {
     },
     "packages/api-client": {
       entry: ["src/**/*.test.ts"],
-      project: ["src/**/*.ts"],
+      project: ["src/**/*.ts", "test/**/*.ts"],
     },
     "packages/api-cli": {
       entry: ["src/**/*.test.ts"],

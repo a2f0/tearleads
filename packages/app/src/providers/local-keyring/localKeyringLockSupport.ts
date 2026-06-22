@@ -23,6 +23,19 @@ export interface LockSnapshot {
   readonly status: LocalKeyringLockStatus;
 }
 
+export interface LockState extends LockSnapshot {
+  readonly revision: number;
+}
+
+export interface LocalKeyringLockEnvironment {
+  readonly canManagePinCode: boolean;
+  readonly hostCreateLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly manifestStore: LocalKeyringManifestStore | null;
+  readonly pinCodeConfigNamespace: string | null;
+  readonly scopes: readonly LocalKeyringScope[];
+  readonly storage: BrowserStorage | null;
+}
+
 const PIN_CODE_CONFIG_PREFIX = "tearleads.local-keyring.pin-code:";
 
 export function pinCodeConfigKey(namespace: string): string {
