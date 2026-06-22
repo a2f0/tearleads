@@ -46,4 +46,14 @@ describe("parsePatchAnchors", () => {
     expect([...anchors.added]).toEqual([1]);
     expect(anchors.context.size).toBe(0);
   });
+
+  test("ignores a trailing empty line from a newline-terminated patch", () => {
+    const patch = `${["@@ -1,1 +1,2 @@", " keep", "+added"].join("\n")}\n`;
+    const anchors = parsePatchAnchors(patch);
+    expect([...anchors.context]).toEqual([1]);
+    expect([...anchors.added]).toEqual([2]);
+    // The trailing "" must not become a phantom anchor at line 3.
+    expect(anchors.context.has(3)).toBe(false);
+    expect(anchors.added.has(3)).toBe(false);
+  });
 });

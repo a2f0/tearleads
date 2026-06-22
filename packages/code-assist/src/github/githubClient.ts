@@ -18,13 +18,15 @@ export async function resolveGithubToken(): Promise<string> {
     stdout: "pipe",
     stderr: "ignore",
   });
+  // Drain stdout before awaiting exit: reading first frees the pipe buffer so
+  // the subprocess can never block on a full pipe and deadlock.
+  const token = (await new Response(proc.stdout).text()).trim();
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
     throw new Error(
       "No GitHub token found. Set GITHUB_TOKEN/GH_TOKEN or run `gh auth login`.",
     );
   }
-  const token = (await new Response(proc.stdout).text()).trim();
   if (!token) {
     throw new Error("`gh auth token` returned an empty token.");
   }

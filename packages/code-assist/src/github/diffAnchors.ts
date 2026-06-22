@@ -33,12 +33,12 @@ export function parsePatchAnchors(patch: string): FileAnchors {
     if (marker === "+") {
       added.add(newLine);
       newLine += 1;
-    } else if (marker === "-" || marker === "\\") {
-      // Deletions do not advance the new-file counter; "\ No newline" is noise.
-    } else {
+    } else if (marker === " ") {
       context.add(newLine);
       newLine += 1;
     }
+    // "-" deletions, "\" no-newline markers, and the trailing empty string left
+    // by splitting a patch that ends in a newline do not map to a new-file line.
   }
   return { added, context };
 }
