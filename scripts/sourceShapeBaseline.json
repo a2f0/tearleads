@@ -130,8 +130,8 @@
       "bytes": 40549
     },
     "packages/api/src/workflows/auth/registration.ts": {
-      "lines": 1244,
-      "bytes": 34321
+      "lines": 1243,
+      "bytes": 34261
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 636,

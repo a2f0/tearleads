@@ -1176,13 +1176,12 @@ function toRegisterPrincipalPolicyError(
     return new RegistrationError(error.message, error.status);
   }
 
-  // Any remaining principal-policy validation message (structural input
-  // checks the precise mappers above do not enumerate) stays a 400 client
-  // error rather than escaping as an opaque 500.
+  // Remaining principal-policy validation messages (structural input checks
+  // the precise mappers above do not enumerate) stay a 400 client error
+  // rather than escaping as an opaque 500.
   if (
     error.message.startsWith("Principal state ") ||
-    error.message.startsWith("Principal member envelope") ||
-    error.message === "Principal epoch key conflict"
+    error.message.startsWith("Principal member envelope")
   ) {
     return new RegistrationError(error.message, 400);
   }
