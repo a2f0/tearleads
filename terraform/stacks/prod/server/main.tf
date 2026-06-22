@@ -103,6 +103,10 @@ module "tunnel" {
     {
       hostname = "api.${var.domain}"
       service  = "http://localhost:80"
+    },
+    {
+      hostname = "code-assist.${var.domain}"
+      service  = "http://localhost:3939"
     }
   ]
 }

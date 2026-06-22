@@ -63,6 +63,15 @@
     garage_default_access_key: "{{ blob_s3_access_key_id }}"
     garage_default_secret_key: "{{ blob_s3_secret_access_key }}"
     garage_default_bucket: "{{ blob_s3_bucket }}"
+    code_assist_enabled: "{{ lookup('env', 'CODE_ASSIST_ENABLED') | default('false', true) }}"
+    code_assist_deepseek_api_key: "{{ lookup('env', 'DEEPSEEK_API_KEY') | default('', true) }}"
+    code_assist_model: "{{ lookup('env', 'CODE_ASSIST_MODEL') | default('deepseek-v4-flash', true) }}"
+    code_assist_severity_threshold: "{{ lookup('env', 'CODE_ASSIST_SEVERITY_THRESHOLD') | default('medium', true) }}"
+    code_assist_max_comments: "{{ lookup('env', 'CODE_ASSIST_MAX_COMMENTS') | default('25', true) }}"
+    code_assist_port: "{{ lookup('env', 'CODE_ASSIST_PORT') | default('3939', true) }}"
+    code_assist_github_app_id: "{{ lookup('env', 'CODE_ASSIST_GITHUB_APP_ID') | default('', true) }}"
+    code_assist_github_webhook_secret: "{{ lookup('env', 'CODE_ASSIST_GITHUB_WEBHOOK_SECRET') | default('', true) }}"
+    code_assist_github_private_key_src: "{{ lookup('env', 'CODE_ASSIST_GITHUB_PRIVATE_KEY_SRC') | default('', true) }}"
 
   tasks:
     - name: Apply shared Linux security baseline
@@ -297,6 +306,10 @@
         daemon_reload: true
         enabled: true
 
+    - name: Configure tearleads-code-assist
+      ansible.builtin.import_tasks: tasks/codeAssist.yml
+      when: code_assist_enabled | bool
+
     - name: Disable legacy app-web systemd service
       ansible.builtin.systemd:
         name: tearleads-app-web
@@ -422,3 +435,17 @@
         state: restarted
       when: tearleads_api_bin.stat.exists | default(false)
       listen: Restart tearleads-api
+
+    - name: Check if tearleads-code-assist binary exists
+      ansible.builtin.stat:
+        path: /opt/tearleads/bin/tearleads-code-assist
+      register: tearleads_code_assist_bin
+      listen: Restart tearleads-code-assist
+
+    - name: Restart tearleads-code-assist service
+      ansible.builtin.systemd:
+        name: tearleads-code-assist
+        daemon_reload: true
+        state: restarted
+      when: tearleads_code_assist_bin.stat.exists | default(false)
+      listen: Restart tearleads-code-assist
