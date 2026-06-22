@@ -141,24 +141,28 @@ async function wrapDocumentContentKeyForTargets(input: {
   );
 }
 
-async function assertDocumentLinkSetMutationOrganizations(input: {
-  author: DocumentCreateAuthor;
+// Resolve the organization a link/unlink mutation belongs to: the document's
+// own org (from its manifest), which must equal the target container's org —
+// both are owned by the same organization. The acting member's personal org is
+// intentionally not part of this check; a member may link documents within any
+// org they belong to. Returns the document org so the plan stamps it onto the
+// signed event and manifest rather than the author's org.
+async function resolveDocumentLinkSetMutationOrganization(input: {
   targetContainerProjection: ContainerWriterProjectionResponse;
   writerProjection: DocumentWriterProjectionResponse;
-}): Promise<void> {
+}): Promise<string> {
   const manifestIdentity = await assertDocumentManifestBundleConsistent({
     bundle: input.writerProjection.documentManifest,
     label: "Document link-set manifest",
   });
-  if (input.author.organizationId !== manifestIdentity.organizationId) {
-    throw new Error("Document link-set author organization mismatch");
-  }
   if (
-    input.author.organizationId !==
+    manifestIdentity.organizationId !==
     input.targetContainerProjection.organizationId
   ) {
     throw new Error("Document target container organization mismatch");
   }
+
+  return manifestIdentity.organizationId;
 }
 
 async function verifyDocumentLinkSetTargetContainerProjection(
@@ -218,8 +222,7 @@ async function buildDocumentLinkSetMutationPlan({
   targetEnvelopes,
   writerProjection,
 }: BuildDocumentLinkSetMutationPlanInput): Promise<DocumentLinkSetMutationPlan> {
-  await assertDocumentLinkSetMutationOrganizations({
-    author,
+  const organizationId = await resolveDocumentLinkSetMutationOrganization({
     targetContainerProjection,
     writerProjection,
   });
@@ -236,6 +239,7 @@ async function buildDocumentLinkSetMutationPlan({
     author,
     eventId,
     operation,
+    organizationId,
     signedAt,
     targetState,
     writerProjection,
@@ -245,7 +249,7 @@ async function buildDocumentLinkSetMutationPlan({
   const state: DocumentLinkSetManifestState = {
     version: 1,
     documentId: writerProjection.documentId,
-    organizationId: author.organizationId,
+    organizationId,
     epoch: previousEpoch + 1,
     previousManifestHash: writerProjection.documentManifest.manifestHash,
     eventHash: eventPlan.eventHash,

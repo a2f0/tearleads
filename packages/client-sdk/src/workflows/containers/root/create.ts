@@ -143,7 +143,8 @@ async function deriveRootContainerCreateManifest(input: {
   metadataDocumentId: string;
 }): Promise<Pick<ContainerCreatePlan, "manifest" | "manifestHash" | "state">> {
   const { state } = await deriveContainerCreateManifest({
-    author: input.author,
+    // A root container belongs to the creator's own organization.
+    organizationId: input.author.organizationId,
     containerId: input.containerId,
     containerKeyEpochId: input.containerKeyEpochId,
     eventHash: input.eventHash,
@@ -351,6 +352,8 @@ export async function buildRootContainerCreatePlan(input: {
     body,
     containerId: input.containerId,
     eventId: input.eventId ?? crypto.randomUUID(),
+    // A root container belongs to the creator's own organization.
+    organizationId: input.author.organizationId,
     parentPath: [],
     signedAt: input.signedAt ?? new Date().toISOString(),
   });

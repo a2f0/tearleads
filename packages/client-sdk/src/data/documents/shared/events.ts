@@ -40,9 +40,10 @@ export async function buildDocumentCreatePlan({
   signedAt = new Date().toISOString(),
   targetEnvelopes,
 }: BuildDocumentCreatePlanInput): Promise<DocumentCreatePlan> {
-  if (author.organizationId !== containerProjection.organizationId) {
-    throw new Error("Document author organization does not match container");
-  }
+  // The document belongs to its container's organization, not the author's. A
+  // member authoring a document under another org's shared container creates a
+  // document owned by that org; the author supplies only the signer identity.
+  const organizationId = containerProjection.organizationId;
 
   const targets = deriveDocumentCreateTargets(containerProjection);
   const targetEnvelopesForRequest = mergeTargetEnvelopes(
@@ -69,7 +70,7 @@ export async function buildDocumentCreatePlan({
     eventType: "document.link",
     objectKind: "document",
     objectId: documentId,
-    organizationId: author.organizationId,
+    organizationId,
     previousManifestHash: null,
     dependencyManifestHashes: [targetContainerManifestHash],
     bodyHash,
@@ -83,7 +84,7 @@ export async function buildDocumentCreatePlan({
   const state: DocumentLinkSetManifestState = {
     version: 1,
     documentId,
-    organizationId: author.organizationId,
+    organizationId,
     epoch: 1,
     previousManifestHash: null,
     eventHash,
@@ -127,6 +128,10 @@ export async function buildDocumentLinkSetEventPlan(input: {
   author: DocumentCreateAuthor;
   eventId: string;
   operation: DocumentLinkSetMutationOperation;
+  // The document's existing organization (from its manifest). Link/unlink does
+  // not change ownership, so the event keeps the document's org, which is the
+  // container's org — never the acting member's personal org.
+  organizationId: string;
   signedAt: string;
   targetState: DocumentLinkSetTargetState;
   writerProjection: DocumentWriterProjectionResponse;
@@ -158,7 +163,7 @@ export async function buildDocumentLinkSetEventPlan(input: {
     eventType,
     objectKind: "document",
     objectId: input.writerProjection.documentId,
-    organizationId: input.author.organizationId,
+    organizationId: input.organizationId,
     previousManifestHash: input.writerProjection.documentManifest.manifestHash,
     dependencyManifestHashes,
     bodyHash,

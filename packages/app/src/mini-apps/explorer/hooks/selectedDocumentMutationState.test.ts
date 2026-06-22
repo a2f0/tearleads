@@ -28,6 +28,7 @@ const selectedDocument: DocumentSummary = {
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: "contacts-container",
   contactsSystemSlot: "contacts-slot",
+  currentOrganizationId: null,
   trashSystemSlot: "trash-slot",
 });
 

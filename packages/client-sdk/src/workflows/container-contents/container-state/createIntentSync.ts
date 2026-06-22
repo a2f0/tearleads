@@ -124,13 +124,28 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return "blocked";
   }
 
-  const created = await createRemoteContainer({
-    systemSlot: containerState.container.systemSlot,
-    containerId: containerState.container.id,
-    parentContainerId: parentState.container.id,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    runtime: state.runtime,
-  });
+  let created: Awaited<ReturnType<typeof createRemoteContainer>>;
+  try {
+    created = await createRemoteContainer({
+      systemSlot: containerState.container.systemSlot,
+      containerId: containerState.container.id,
+      parentContainerId: parentState.container.id,
+      resolveProjectionUserKey: state.resolveProjectionUserKey,
+      runtime: state.runtime,
+    });
+  } catch (error) {
+    // Plan construction (e.g. an uncached principal policy or a key-unwrap
+    // failure) can throw. Record the error for this one intent and keep it
+    // pending so the next pass retries it, rather than aborting the whole sweep
+    // and stranding every other pending create.
+    const message = error instanceof Error ? error.message : String(error);
+    await state.persistence.recordCreateIntentError(
+      state.runtime.infra.execSql,
+      intent.containerId,
+      `Remote container create failed: ${message}`,
+    );
+    return "failed";
+  }
 
   if (!created) {
     const execSql = state.runtime.infra.execSql;

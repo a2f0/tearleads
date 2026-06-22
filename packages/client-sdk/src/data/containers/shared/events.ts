@@ -50,6 +50,12 @@ export async function signContainerCreateEvent(input: {
   body: ContainerCreateAccessEventBody;
   containerId: string;
   eventId: string;
+  // The organization the new container belongs to — always the parent
+  // container's org, NOT the author's. A member writing under another org's
+  // shared root creates a container owned by that org; only the signer identity
+  // comes from the author. The server trusts this signed field, so it is the
+  // load-bearing org for the create.
+  organizationId: string;
   parentPath: ContainerWriterProjectionResponse["path"];
   signedAt: string;
 }): Promise<Pick<ContainerCreatePlan, "event" | "eventHash">> {
@@ -62,7 +68,7 @@ export async function signContainerCreateEvent(input: {
     eventType: "container.create",
     objectKind: "container",
     objectId: input.containerId,
-    organizationId: input.author.organizationId,
+    organizationId: input.organizationId,
     previousManifestHash: null,
     dependencyManifestHashes: uniqueSortedManifestHashes(input.parentPath),
     bodyHash,
@@ -131,18 +137,20 @@ export async function signContainerMutationEvent(input: {
 }
 
 export async function deriveContainerCreateManifest(input: {
-  author: ContainerMutationAuthor;
   containerId: string;
   containerKeyEpochId: string;
   eventHash: string;
   metadataDocumentId: string;
+  // The parent container's org (see signContainerCreateEvent). Must match the
+  // signed event's org or the manifest hash will not reconcile server-side.
+  organizationId: string;
   parentContainerId: string | null;
   parentManifestHash: string | null;
 }): Promise<Pick<ContainerCreatePlan, "manifest" | "manifestHash" | "state">> {
   const state: ContainerAccessManifestState = {
     version: 1,
     containerId: input.containerId,
-    organizationId: input.author.organizationId,
+    organizationId: input.organizationId,
     epoch: 1,
     previousManifestHash: null,
     eventHash: input.eventHash,

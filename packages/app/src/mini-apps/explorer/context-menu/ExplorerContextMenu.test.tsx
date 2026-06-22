@@ -19,6 +19,7 @@ afterEach(() => cleanup());
 const emptyRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: null,
   contactsSystemSlot: null,
+  currentOrganizationId: null,
   trashSystemSlot: null,
 });
 

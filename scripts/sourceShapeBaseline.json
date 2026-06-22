@@ -210,8 +210,8 @@
       "bytes": 36102
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
-      "lines": 1207,
-      "bytes": 39539
+      "lines": 1166,
+      "bytes": 38946
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
       "lines": 1258,
