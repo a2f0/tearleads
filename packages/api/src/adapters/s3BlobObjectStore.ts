@@ -9,6 +9,7 @@ import {
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
+import { isSha256HexString } from "@tearleads/validators/util";
 import { sha256Hex } from "../utils/sha256";
 import {
   type BlobObjectPart,
@@ -38,7 +39,7 @@ function byteLength(value: string): number {
 }
 
 function sha256HexToBase64(value: string): string {
-  if (!/^[0-9a-f]{64}$/u.test(value)) {
+  if (!isSha256HexString(value)) {
     throw new BlobObjectStoreError("Invalid SHA-256 digest", "invalid_part");
   }
 

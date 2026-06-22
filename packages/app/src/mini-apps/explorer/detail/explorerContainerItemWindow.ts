@@ -45,7 +45,9 @@ const EMPTY_CONTAINER_ITEM_WINDOW_STATE: ContainerItemWindowState = {
 };
 
 interface ExplorerContainerItemWindowParams {
-  containerListRevision: unknown;
+  // The current container nodes; its reference changes whenever the container
+  // tree is rebuilt, which is used purely as a refetch signal (not read).
+  containerNodes: ReadonlyArray<ContainerNode>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   enabled: boolean;
@@ -60,7 +62,7 @@ export function useExplorerContainerItemWindow(
   params: ExplorerContainerItemWindowParams,
 ) {
   const {
-    containerListRevision,
+    containerNodes,
     documentListRevision,
     documentQueries,
     enabled,
@@ -134,7 +136,7 @@ export function useExplorerContainerItemWindow(
       cancelled = true;
     };
   }, [
-    containerListRevision,
+    containerNodes,
     documentListRevision,
     documentQueries,
     enabled,

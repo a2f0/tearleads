@@ -22,7 +22,6 @@ import {
 import {
   ContainerMutationError,
   createContainerWithMetadataDocument,
-  DocumentMutationError,
   mutateContainer,
 } from "../../services/containers/mutations";
 import type { ApiServiceRuntime } from "../../services/runtime";
@@ -202,10 +201,6 @@ function handleContainerMetadataCreateError(error: unknown) {
       body: error.body ?? { error: error.message },
       status: error.status,
     };
-  }
-
-  if (error instanceof DocumentMutationError) {
-    return { body: { error: error.message }, status: error.status };
   }
 
   return null;

@@ -298,7 +298,7 @@ testApiClient(
 
     await expect(client.getBlob("blob-1")).resolves.toBeNull();
     expect(errors).toEqual([
-      "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, (X-Tearleads-Blob-Byte-Length or content-length), X-Tearleads-Blob-Sha256",
+      "Invalid response shape for /blobs/blob-1/bytes: missing X-Tearleads-Blob-Id, (X-Tearleads-Blob-Byte-Length or Content-Length), X-Tearleads-Blob-Sha256",
     ]);
   },
 );
