@@ -78,12 +78,15 @@ export function useLongPress(enabled: boolean): LongPressHandlers {
     fallbackTimer = setTimeout(remove, SYNTHESIZED_CLICK_WINDOW_MS);
   }, []);
 
+  // Tear down on unmount, and also when `enabled` flips off mid-press so a
+  // scheduled long-press timer / click suppressor never fires after the hook
+  // is disabled.
   useEffect(
     () => () => {
       clearTimer();
       removeClickSuppressorRef.current?.();
     },
-    [clearTimer],
+    [clearTimer, enabled],
   );
 
   const onPointerDown = useCallback(
