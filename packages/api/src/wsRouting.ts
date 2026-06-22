@@ -153,12 +153,15 @@ export class WsEventRouter {
 
   /**
    * Seed a reconnecting socket's interest from the server-side persisted set,
-   * so it routes correctly before (or without) the client re-declaring. Same
-   * replace semantics as a `known_containers` message; no I/O (the caller loads
-   * the persisted set and keeps the router pure).
+   * so it routes correctly before (or without) the client re-declaring. Uses
+   * union (add) semantics, NOT replace: hydration is awaited asynchronously in
+   * `open`, during which a client `known_containers.add` may already have
+   * declared live interest. Replacing would discard that just-declared interest
+   * until the client noticed and re-sent it. No I/O (the caller loads the
+   * persisted set and keeps the router pure).
    */
   hydrateInterest(ws: WsConnection, containerIds: string[]): void {
-    this.replaceInterest(ws, containerIds);
+    this.addInterest(ws, containerIds);
   }
 
   /**

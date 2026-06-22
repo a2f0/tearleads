@@ -41,7 +41,7 @@ function documentSyncInvalidatesWriterProjection(
  * a concurrent invalidation or refetch is not clobbered.
  */
 export async function evictWriterProjectionIfSyncChanged(
-  cache: Map<string, Promise<DocumentWriterProjectionResponse | null>>,
+  cache: RequestCache<DocumentWriterProjectionResponse>,
   documentId: string,
   response: DocumentSyncResponse,
 ): Promise<void> {
@@ -130,8 +130,19 @@ export function listContainerDocumentsRequestKey(
   });
 }
 
+/**
+ * Minimal cache surface shared by `Map` and `ApiCache.BoundedCache`, so the
+ * request helpers work with either backing store.
+ */
+interface RequestCache<T> {
+  get(key: string): Promise<T | null> | undefined;
+  has(key: string): boolean;
+  set(key: string, value: Promise<T | null>): unknown;
+  delete(key: string): unknown;
+}
+
 export function cachedRequest<T>(
-  cache: Map<string, Promise<T | null>>,
+  cache: RequestCache<T>,
   cacheKey: string,
   request: () => Promise<T | null>,
 ): Promise<T | null> {
@@ -159,7 +170,7 @@ export function cachedRequest<T>(
 }
 
 export function dedupedRequest<T>(
-  cache: Map<string, Promise<T | null>>,
+  cache: RequestCache<T>,
   cacheKey: string,
   request: () => Promise<T | null>,
 ): Promise<T | null> {
