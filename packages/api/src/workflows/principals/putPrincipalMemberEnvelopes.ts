@@ -122,7 +122,7 @@ async function assertRequesterMayWritePrincipalEnvelopes(
   );
 }
 
-function toPrincipalMemberEnvelopeError(
+export function toPrincipalMemberEnvelopeError(
   error: unknown,
 ): PrincipalPolicyError | null {
   if (!(error instanceof Error)) {
@@ -222,7 +222,10 @@ export async function runPutPrincipalMemberEnvelopesWorkflow(
       return toCurrentPrincipalMemberEnvelopesResponse({
         principalType: input.principalType,
         principalId: input.principalId,
-        stateHash: currentState.stateHash,
+        // Report the validated/written hash. The replace above enforces
+        // input.stateHash === currentState.stateHash (throwing "must target
+        // the current state" otherwise), so this matches what was persisted.
+        stateHash: input.stateHash,
         epoch: currentState.keyEpoch,
         envelopes: storedEnvelopes,
       });

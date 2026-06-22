@@ -165,20 +165,24 @@ export function useSelectDocumentProjection(params: {
     (noteId: string, containerId: string) => {
       selectDocument(noteId, containerId);
       void (async () => {
-        const existingDocument = await loadDocumentSummary(noteId);
-        if (!existingDocument) {
-          setSelectedId(containerId);
-          return;
-        }
-
-        if (existingDocument.containerId !== containerId) {
-          const activatedDocument = await activateLinkedDocument(
-            noteId,
-            containerId,
-          );
-          if (!activatedDocument) {
-            setSelectedId(noteId);
+        try {
+          const existingDocument = await loadDocumentSummary(noteId);
+          if (!existingDocument) {
+            setSelectedId(containerId);
+            return;
           }
+
+          if (existingDocument.containerId !== containerId) {
+            const activatedDocument = await activateLinkedDocument(
+              noteId,
+              containerId,
+            );
+            if (!activatedDocument) {
+              setSelectedId(noteId);
+            }
+          }
+        } catch (error: unknown) {
+          console.error("Explorer: failed to select linked document:", error);
         }
       })();
     },

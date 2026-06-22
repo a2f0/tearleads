@@ -245,6 +245,10 @@ function useRestoreFileSelection({
   readonly setSelectedRestoreFileName: (value: string | null) => void;
   readonly setSelectedRestoreFileText: (value: string | null) => void;
 }) {
+  // Token of the most recent selection, so a slow file.text() from a
+  // superseded selection can't clobber the text of the file currently shown.
+  const selectionTokenRef = useRef(0);
+
   return useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       resetOperationState();
@@ -253,11 +257,20 @@ function useRestoreFileSelection({
         return;
       }
 
+      selectionTokenRef.current += 1;
+      const selectionToken = selectionTokenRef.current;
       setSelectedRestoreFileName(file.name);
       void file
         .text()
-        .then(setSelectedRestoreFileText)
+        .then((text) => {
+          if (selectionTokenRef.current === selectionToken) {
+            setSelectedRestoreFileText(text);
+          }
+        })
         .catch((fileError: unknown) => {
+          if (selectionTokenRef.current !== selectionToken) {
+            return;
+          }
           logError("Failed to read local backup file", fileError);
           setSelectedRestoreFileName(null);
           setSelectedRestoreFileText(null);

@@ -292,7 +292,10 @@ test("dropped file import creates file document types with original attachments"
     },
     {
       attachmentName: "archive.bin",
-      attachmentType: "application/octet-stream",
+      // An unrecognized extension with a generic application/octet-stream
+      // declared type infers to no MIME type (null) rather than echoing back
+      // the placeholder octet-stream that inferMimeType deliberately rejects.
+      attachmentType: null,
       initialDocumentKind: "generic_file",
       initialText: "",
       structuredFieldKind: "generic_file",

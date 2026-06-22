@@ -73,7 +73,8 @@ async function handleActivateLinkedContainer(params: {
         getExplorerActivateLinkedContainerError(linkedContainer.label),
       );
     }
-  } catch {
+  } catch (error: unknown) {
+    console.error("Explorer: failed to activate linked container:", error);
     setActionError(
       getExplorerActivateLinkedContainerError(linkedContainer.label),
     );
@@ -112,7 +113,8 @@ async function handleDetachLinkedContainer(params: {
         getExplorerDetachLinkedContainerError(linkedContainer.label),
       );
     }
-  } catch {
+  } catch (error: unknown) {
+    console.error("Explorer: failed to detach linked container:", error);
     setActionError(
       getExplorerDetachLinkedContainerError(linkedContainer.label),
     );

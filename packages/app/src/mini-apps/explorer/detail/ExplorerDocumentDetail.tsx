@@ -128,10 +128,15 @@ function useSelectedDocumentSyncState(params: {
           setSyncState(nextSyncState);
         }
       })
-      .catch(() => {
-        if (!cancelled && selectedDocumentChanged) {
-          setSyncState(fallbackSyncState);
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
         }
+        // Apply the fallback on the refresh path too (same document, new
+        // revision), not only when the selected document changed — otherwise a
+        // failed reload leaves stale sync status with no error surfaced.
+        console.error("Explorer: failed to load document sync state:", error);
+        setSyncState(fallbackSyncState);
       });
 
     return () => {

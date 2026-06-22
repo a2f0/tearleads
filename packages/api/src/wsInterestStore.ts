@@ -40,7 +40,7 @@ async function eachMember(
   }
 }
 
-function createWsInterestStore(deps: InterestStoreDeps) {
+export function createWsInterestStore(deps: InterestStoreDeps) {
   async function addMembers(
     key: string,
     containerIds: string[],
@@ -75,6 +75,10 @@ function createWsInterestStore(deps: InterestStoreDeps) {
       const key = interestKey(userId, sessionId);
       if (applied.kind === "remove") {
         await eachMember(applied.containerIds, (id) => deps.srem(key, id));
+        // SREM never re-arms expiry, so a session that only ever removes
+        // interest would let the remaining set decay and expire mid-session,
+        // silently dropping events for containers it still cares about.
+        await deps.expire(key, WS_INTEREST_TTL_SECONDS);
         return;
       }
       if (applied.kind === "replace") {

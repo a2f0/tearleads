@@ -24,7 +24,9 @@ export interface PutPrincipalStateInput extends PutPrincipalStateRequest {
   expectedPrincipalType: "group" | "organization";
 }
 
-function toPrincipalStateError(error: unknown): PrincipalPolicyError | null {
+export function toPrincipalStateError(
+  error: unknown,
+): PrincipalPolicyError | null {
   if (!(error instanceof Error)) {
     return null;
   }

@@ -407,8 +407,10 @@ async function appendAuditEntriesForNewDocumentUpdates(input: {
     const coveredAuditEntryHash = auditEntryHashByUpdateId.get(update.id);
     if (update.checkpointKind) {
       if (!coveredAuditEntryHash) {
-        throw new Error(
+        // Typed so it maps to 4xx instead of escaping toMutationError as a 500.
+        throw new DocumentMutationError(
           `Missing audit entry hash for checkpoint update ${update.id}`,
+          409,
         );
       }
       await maybeWriteDocumentAuditCheckpoint(input.executor, {

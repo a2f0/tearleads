@@ -66,6 +66,9 @@ function readableStreamToBlobObjectStream(
         const { done, value } = await reader.read();
         if (done) {
           controller.close();
+          // reader.cancel()/read-to-done do not release the lock; do it
+          // explicitly so the underlying stream isn't pinned by a live reader.
+          reader.releaseLock();
           return;
         }
 
@@ -84,8 +87,8 @@ function readableStreamToBlobObjectStream(
       }
     },
 
-    cancel(reason) {
-      return reader.cancel(reason);
+    async cancel(reason) {
+      await cancelReader(reader, reason);
     },
   });
 }
@@ -98,6 +101,10 @@ async function cancelReader(
     await reader.cancel(reason);
   } catch {
     // Preserve the original stream error.
+  } finally {
+    // cancel() does not release the reader lock; release it so the underlying
+    // stream isn't left pinned by a live reader.
+    reader.releaseLock();
   }
 }
 
@@ -126,6 +133,9 @@ function asyncIterableToStream(
         const { done, value: chunk } = await iterator.next();
         if (done) {
           controller.close();
+          // Mirror the error/cancel paths: release any resources the iterator
+          // holds via return() on normal completion too.
+          await closeAsyncIterator(iterator);
           return;
         }
 

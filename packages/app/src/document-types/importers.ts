@@ -68,9 +68,10 @@ function inferMimeType(file: File): string {
     return declaredMimeType;
   }
 
-  return (
-    MIME_BY_EXTENSION.get(getFileExtension(file.name)) ?? declaredMimeType ?? ""
-  );
+  // The declared type was rejected above (empty or application/octet-stream),
+  // so fall back to extension inference only — never re-introduce the
+  // unhelpful declared type for an unrecognized extension.
+  return MIME_BY_EXTENSION.get(getFileExtension(file.name)) ?? "";
 }
 
 function formatSourceLastModified(lastModified: number): string {

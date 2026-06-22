@@ -54,6 +54,8 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
+import { toPrincipalMemberEnvelopeError } from "../principals/putPrincipalMemberEnvelopes";
+import { toPrincipalStateError } from "../principals/putPrincipalState";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
 const INITIAL_ADMIN_GROUP_NAME = "Admins";
@@ -1155,22 +1157,34 @@ function toRegisterPrincipalPolicyError(
     return null;
   }
 
+  // Reuse the canonical principal-policy status mapping so registration emits
+  // the same 403/404/409/400 codes as putPrincipalState /
+  // putPrincipalMemberEnvelopes rather than collapsing everything into 400.
+  const principalPolicyError =
+    toPrincipalStateError(error) ?? toPrincipalMemberEnvelopeError(error);
+  if (principalPolicyError) {
+    return new RegistrationError(
+      principalPolicyError.message,
+      principalPolicyError.status,
+    );
+  }
+
   if (
-    error.message === "Invalid principal state signature" ||
+    error instanceof DocumentMutationError ||
+    error instanceof ContainerMutationError
+  ) {
+    return new RegistrationError(error.message, error.status);
+  }
+
+  // Any remaining principal-policy validation message (structural input
+  // checks the precise mappers above do not enumerate) stays a 400 client
+  // error rather than escaping as an opaque 500.
+  if (
     error.message.startsWith("Principal state ") ||
     error.message.startsWith("Principal member envelope") ||
-    error.message.startsWith("Principal member envelopes") ||
     error.message === "Principal epoch key conflict"
   ) {
     return new RegistrationError(error.message, 400);
-  }
-
-  if (error instanceof DocumentMutationError) {
-    return new RegistrationError(error.message, error.status);
-  }
-
-  if (error instanceof ContainerMutationError) {
-    return new RegistrationError(error.message, error.status);
   }
 
   return null;

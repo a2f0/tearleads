@@ -130,8 +130,8 @@
       "bytes": 40549
     },
     "packages/api/src/workflows/auth/registration.ts": {
-      "lines": 1230,
-      "bytes": 33675
+      "lines": 1244,
+      "bytes": 34321
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 636,
@@ -142,8 +142,8 @@
       "bytes": 16289
     },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
-      "lines": 883,
-      "bytes": 27574
+      "lines": 885,
+      "bytes": 27686
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 721,
