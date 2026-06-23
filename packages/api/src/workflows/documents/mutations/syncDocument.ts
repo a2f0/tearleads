@@ -543,7 +543,6 @@ function toSyncUpdate(
     partialEndVersionVector: update.partialEndVersionVector,
     createdAt: update.createdAt.toISOString(),
     writeHeader: writeHeaderRecord(writeHeader.header),
-    writeHeaderHash: writeHeader.headerHash,
   };
 }
 
@@ -614,22 +613,6 @@ async function listContentKeyBundlesForSyncResponse(input: {
   return [...bundleByEpoch.values()].sort(
     (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
   );
-}
-
-function getMissingUpdateEpochs(
-  updates: ReturnType<typeof toSyncUpdate>[],
-  currentAccessEpoch: number,
-): ("prior_epoch" | "current_epoch")[] {
-  const missingUpdateEpochs: ("prior_epoch" | "current_epoch")[] = [];
-
-  if (updates.some((update) => update.accessEpoch < currentAccessEpoch)) {
-    missingUpdateEpochs.push("prior_epoch");
-  }
-  if (updates.some((update) => update.accessEpoch === currentAccessEpoch)) {
-    missingUpdateEpochs.push("current_epoch");
-  }
-
-  return missingUpdateEpochs;
 }
 
 async function resolveSyncContentKeyBundle(input: {
@@ -832,10 +815,6 @@ export async function runDocumentSyncWorkflow(
       documentId: input.documentId,
       documentKekTargets: toDocumentKekTargetsResponse(
         transactionResult.currentTargets,
-      ),
-      missingUpdateEpochs: getMissingUpdateEpochs(
-        transactionResult.missingUpdates,
-        transactionResult.accessEpoch,
       ),
       updates: transactionResult.missingUpdates,
     };

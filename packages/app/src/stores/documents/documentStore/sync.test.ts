@@ -317,7 +317,6 @@ async function createDocumentSyncResponse(input: {
         partialEndVersionVector: update.partialEndVersionVector,
         createdAt: "2026-04-27T00:00:00.000Z",
         writeHeader: update.writeHeader,
-        writeHeaderHash: await computeWriteHeaderHash(writeHeader),
       };
     }),
   );
@@ -330,7 +329,6 @@ async function createDocumentSyncResponse(input: {
     contentKeyBundle: input.storedDocument.contentKeyBundle,
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
-    missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
     updates,
   };
 }

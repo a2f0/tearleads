@@ -138,8 +138,8 @@
       "bytes": 18997
     },
     "packages/api/src/workflows/documents/mutations/shared/records.ts": {
-      "lines": 560,
-      "bytes": 16289
+      "lines": 561,
+      "bytes": 16360
     },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
       "lines": 883,

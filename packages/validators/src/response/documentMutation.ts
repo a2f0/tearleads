@@ -72,7 +72,6 @@ export interface DocumentSyncUpdateResponse {
   partialEndVersionVector: string;
   createdAt: string;
   writeHeader: Record<string, unknown>;
-  writeHeaderHash: string;
 }
 
 export interface DocumentSyncResponse {
@@ -82,7 +81,6 @@ export interface DocumentSyncResponse {
   contentKeyBundles?: DocumentContentKeyBundleResponse[];
   documentId: string;
   documentKekTargets: DocumentKekTargetsResponse;
-  missingUpdateEpochs: ("prior_epoch" | "current_epoch")[];
   updates: DocumentSyncUpdateResponse[];
 }
 
@@ -95,10 +93,6 @@ export interface DocumentWriterProjectionResponse {
   documentKekTargets: DocumentKekTargetsResponse;
   contentKeyBundle: DocumentContentKeyBundleResponse;
   authorizingContainerPaths: ContainerWriterProjectionResponse[];
-}
-
-function isMissingUpdateEpoch(value: unknown) {
-  return value === "prior_epoch" || value === "current_epoch";
 }
 
 function isDocumentContentKeyTargetEnvelopeResponse(
@@ -177,9 +171,7 @@ function isDocumentSyncUpdateResponse(
     hasStringProperty(value, "partialStartVersionVector") &&
     hasStringProperty(value, "partialEndVersionVector") &&
     hasStringProperty(value, "createdAt") &&
-    isPlainObject(writeHeader) &&
-    hasStringProperty(value, "writeHeaderHash") &&
-    value.writeHeaderHash.length > 0
+    isPlainObject(writeHeader)
   );
 }
 
@@ -266,8 +258,6 @@ export function isDocumentSyncResponse(
         contentKeyBundles.every(isDocumentContentKeyBundleResponse))) &&
     hasStringProperty(value, "documentId") &&
     isDocumentKekTargetsResponse(documentKekTargets) &&
-    hasArrayProperty(value, "missingUpdateEpochs") &&
-    value.missingUpdateEpochs.every(isMissingUpdateEpoch) &&
     hasArrayProperty(value, "updates") &&
     value.updates.every(isDocumentSyncUpdateResponse)
   );

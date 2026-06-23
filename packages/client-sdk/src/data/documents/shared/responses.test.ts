@@ -133,7 +133,6 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
   const historicalResponse = await createSyncResponse(
     readOnlyMaterialized.plan,
     {
-      missingUpdateEpochs: ["current_epoch"],
       updates: [historicalUpdate],
     },
   );
@@ -184,7 +183,6 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
         writerProjection.contentKeyBundle,
         rotatedProjection.contentKeyBundle,
       ],
-      missingUpdateEpochs: ["current_epoch"],
       updates: [priorContentKeyUpdate],
     },
   );
@@ -230,16 +228,6 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
       acceptedOutgoingUpdateIds: ["550e8400-e29b-41d4-a716-446655440999"],
     }),
   ).rejects.toThrow("accepted update mismatch");
-
-  await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      updates: response.updates.map((update) => ({
-        ...update,
-        writeHeaderHash: "0".repeat(64),
-      })),
-    }),
-  ).rejects.toThrow("write header hash mismatch");
 
   await expect(
     persistedDocumentSyncStateFromResponse(plan, {
@@ -315,13 +303,6 @@ test("persistedDocumentSyncStateFromResponse rejects stale sync checkpoints", as
       commitLsn: "not-a-lsn",
     }),
   ).rejects.toThrow("commit LSN is invalid");
-
-  await expect(
-    persistedDocumentSyncStateFromResponse(plan, {
-      ...response,
-      missingUpdateEpochs: [],
-    }),
-  ).rejects.toThrow("missing update epochs mismatch");
 
   await expect(
     persistedDocumentSyncStateFromResponse(plan, {

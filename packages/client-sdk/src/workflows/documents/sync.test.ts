@@ -829,7 +829,6 @@ test("syncRemoteDocument reuses a writer projection to process persisted read-on
           },
           {
             acceptedOutgoingUpdateIds: [],
-            missingUpdateEpochs: ["current_epoch"],
             updates: [remoteUpdate],
           },
         );
@@ -986,7 +985,6 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
               writerProjection.contentKeyBundle,
               currentWriterProjection.contentKeyBundle,
             ],
-            missingUpdateEpochs: ["current_epoch"],
             updates: [historicalUpdate],
           },
         );
@@ -1085,7 +1083,6 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
                 writerProjection.contentKeyBundle,
                 currentWriterProjection.contentKeyBundle,
               ],
-              missingUpdateEpochs: ["current_epoch"],
               updates: [historicalUpdate],
             },
           ),
@@ -1187,7 +1184,6 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
                 writerProjection.contentKeyBundle,
                 currentWriterProjection.contentKeyBundle,
               ],
-              missingUpdateEpochs: ["current_epoch"],
               updates: [historicalUpdate],
             },
           ),

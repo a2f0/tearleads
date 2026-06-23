@@ -1027,7 +1027,6 @@ test("isDocumentSyncResponse", () => {
     contentKeyBundles: [createDocumentContentKeyBundleResponse()],
     documentId: "550e8400-e29b-41d4-a716-446655440001",
     documentKekTargets: createDocumentKekTargetsResponse(),
-    missingUpdateEpochs: ["current_epoch"],
     updates: [
       {
         accessEpoch: 1,
@@ -1039,18 +1038,11 @@ test("isDocumentSyncResponse", () => {
         partialEndVersionVector: '{"actor":1}',
         createdAt: new Date().toISOString(),
         writeHeader: { objectKind: "document" },
-        writeHeaderHash: "write-header-hash",
       },
     ],
   };
 
   expect(isDocumentSyncResponse(validResponse)).toBe(true);
-  expect(
-    isDocumentSyncResponse({
-      ...validResponse,
-      missingUpdateEpochs: ["unknown_epoch"],
-    }),
-  ).toBe(false);
   expect(
     isDocumentSyncResponse({
       ...validResponse,

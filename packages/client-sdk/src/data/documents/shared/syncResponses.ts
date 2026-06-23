@@ -3,7 +3,6 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
-  computeWriteHeaderHash,
   verifyWriteHeader,
   type WriteHeader,
 } from "@tearleads/crypto";
@@ -59,7 +58,7 @@ async function assertDocumentSyncResponseUpdateMatchesPlan(input: {
     update.writeHeader,
     "Document sync response write header",
   );
-  await assertDocumentSyncResponseUpdateHashes({ header, update });
+  await assertDocumentSyncResponseUpdateHashes({ update });
   assertDocumentSyncResponseUpdateContentKeyBundle({
     contentKeyBundlesByEpoch: input.contentKeyBundlesByEpoch,
     header,
@@ -104,14 +103,9 @@ function assertDocumentSyncResponseUpdateContentKeyBundle(input: {
 }
 
 async function assertDocumentSyncResponseUpdateHashes(input: {
-  header: WriteHeader;
   update: DocumentSyncResponse["updates"][number];
 }): Promise<void> {
-  const { header, update } = input;
-  const headerHash = await computeWriteHeaderHash(header);
-  if (headerHash !== update.writeHeaderHash) {
-    throw new Error("Document sync response write header hash mismatch");
-  }
+  const { update } = input;
   const ciphertextHash = await computeDocumentContentRecordCiphertextHash(
     update.encryptedData,
   );
@@ -243,7 +237,7 @@ async function assertDocumentSyncResponseWriteHeaderSignature(input: {
     header,
     writerPublicKey,
   });
-  if (!verified.ok || verified.value.headerHash !== update.writeHeaderHash) {
+  if (!verified.ok) {
     throw new Error("Document sync response write header signature mismatch");
   }
 }
@@ -285,48 +279,19 @@ function documentSyncManifestEpoch(plan: DocumentSyncPlan): number {
   );
 }
 
-function expectedDocumentMissingUpdateEpochs(
+// The server no longer echoes a missing-update-epoch summary; it was derived
+// from the per-update accessEpoch values already on the wire and the client
+// only recomputed-and-asserted-equal. The one load-bearing check is that no
+// returned update claims an accessEpoch newer than the current manifest epoch.
+function assertDocumentSyncAccessEpochsNotInFuture(
   plan: DocumentSyncPlan,
   response: DocumentSyncResponse,
-): DocumentSyncResponse["missingUpdateEpochs"] {
+): void {
   const currentAccessEpoch = documentSyncManifestEpoch(plan);
-  let hasPriorEpochUpdate = false;
-  let hasCurrentEpochUpdate = false;
-
   for (const update of response.updates) {
     if (update.accessEpoch > currentAccessEpoch) {
       throw new Error("Document sync response includes a future access epoch");
     }
-    if (update.accessEpoch < currentAccessEpoch) {
-      hasPriorEpochUpdate = true;
-    } else {
-      hasCurrentEpochUpdate = true;
-    }
-  }
-
-  const missingUpdateEpochs: DocumentSyncResponse["missingUpdateEpochs"] = [];
-  if (hasPriorEpochUpdate) {
-    missingUpdateEpochs.push("prior_epoch");
-  }
-  if (hasCurrentEpochUpdate) {
-    missingUpdateEpochs.push("current_epoch");
-  }
-
-  return missingUpdateEpochs;
-}
-
-function assertDocumentMissingUpdateEpochsMatchPlan(
-  plan: DocumentSyncPlan,
-  response: DocumentSyncResponse,
-): void {
-  const expected = expectedDocumentMissingUpdateEpochs(plan, response);
-  if (
-    response.missingUpdateEpochs.length !== expected.length ||
-    response.missingUpdateEpochs.some(
-      (epoch, index) => epoch !== expected[index],
-    )
-  ) {
-    throw new Error("Document sync response missing update epochs mismatch");
   }
 }
 
@@ -409,7 +374,7 @@ export async function persistedDocumentSyncStateFromResponse(
   }
   assertAcceptedOutgoingUpdateIdsMatchPlan(plan, response);
   assertDocumentSyncCommitCheckpointMatchesPlan(plan, response);
-  assertDocumentMissingUpdateEpochsMatchPlan(plan, response);
+  assertDocumentSyncAccessEpochsNotInFuture(plan, response);
 
   await Promise.all(
     response.updates.map((update) =>
