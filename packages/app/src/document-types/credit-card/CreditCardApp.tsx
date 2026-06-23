@@ -17,7 +17,7 @@ export function CreditCardDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind="credit_card"
     >
-      <CreditCard />
+      <CreditCard containerId={containerId ?? null} localId={localId} />
     </DocumentsProvider>
   );
 }

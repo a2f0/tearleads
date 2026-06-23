@@ -10,9 +10,16 @@ import {
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import {
+  type RuntimeSnapshot,
+  useTearleadsRuntime,
+} from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { useMiniAppBusActions } from "../bus";
+import {
+  ExplorerBlobPickProvider,
+  useExplorerBlobPick,
+} from "./blob-pick/ExplorerBlobPickProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";
@@ -38,6 +45,73 @@ function useOpenGrantGroupInOrgManager() {
       });
     },
     [openMiniApp],
+  );
+}
+
+type ExplorerModel = ReturnType<typeof useExplorerModel>;
+
+// Reads the blob-pick context (so it lives below ExplorerBlobPickProvider) and
+// renders the detail panel with the pick target + resolve/cancel handlers. The
+// document rendered inside the panel reads the same context to request a pick.
+function ExplorerDetailPanelWithBlobPick(params: {
+  appData: RuntimeSnapshot;
+  databaseError: boolean;
+  model: ExplorerModel;
+  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  onRetryDatabase: () => void;
+}) {
+  const { appData, databaseError, model, onOpenGrantGroup, onRetryDatabase } =
+    params;
+  const { cancelBlobPick, pickTarget, resolveBlobPick } = useExplorerBlobPick();
+
+  return (
+    <ExplorerDetailPanel
+      activateLinkedContainer={model.activateLinkedContainer}
+      blobPickTarget={pickTarget}
+      blobStore={appData.infra.blobStore}
+      databaseError={databaseError}
+      onRetryDatabase={onRetryDatabase}
+      canActivateSelectedDocument={model.canActivateSelectedDocument}
+      canLinkSelectedDocument={model.canLinkSelectedDocument}
+      canMoveSelectedDocument={model.canMoveSelectedDocument}
+      canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
+      contextTarget={model.contextMenuState.contextMenu?.id ?? null}
+      currentSigningFingerprint={appData.crypto.signingFingerprint}
+      currentUserId={appData.auth.userId}
+      documentListRevision={model.documentListRevision}
+      documentQueries={model.documentQueries}
+      domainScope={appData.state.domainScope}
+      importDroppedFiles={model.importDroppedFiles}
+      linkedContainerIds={model.linkedContainerIds}
+      loadBlobInfo={model.loadBlobInfo}
+      loadContainerInfo={model.loadContainerInfo}
+      loadDocumentInfo={model.loadDocumentInfo}
+      nodes={model.explorer.nodes}
+      online={appData.state.online}
+      onCancelBlobPick={cancelBlobPick}
+      onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
+      onItemContextMenu={model.contextMenuState.handleItemContextMenu}
+      onBackToSelectionRoute={model.routeState.showSelectionRoute}
+      onOpenGrantGroup={onOpenGrantGroup}
+      onPickBlob={resolveBlobPick}
+      openInlineDocument={model.openInlineDocument}
+      openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
+      openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
+      openLinkDocumentModal={model.modalState.openLinkDocumentModal}
+      openMoveDocumentModal={model.modalState.openMoveDocumentModal}
+      peerUserId={model.peerUserId}
+      ready={model.explorer.ready}
+      refreshError={model.refreshError}
+      route={model.routeState.route}
+      selectDocumentProjection={model.selectDocumentProjection}
+      selectedNode={model.selection.selectedNode}
+      selectedDocument={model.selection.selectedDocument}
+      setSelectedId={model.routeState.selectExplorerItem}
+      shareWithGroup={model.explorer.shareWithGroup}
+      shareWithUser={model.explorer.shareWithUser}
+      unlinkDocument={model.unlinkDocument}
+      visibleSystemSlots={model.explorer.visibleSystemSlots}
+    />
   );
 }
 
@@ -114,52 +188,18 @@ export function Explorer() {
           {model.modalState.backgroundActionError}
         </MiniAppStatus>
       )}
-      <ExplorerDetailPanel
-        activateLinkedContainer={model.activateLinkedContainer}
-        blobStore={appData.infra.blobStore}
-        databaseError={databaseError}
-        onRetryDatabase={retryDatabaseBoot}
-        canActivateSelectedDocument={model.canActivateSelectedDocument}
-        canLinkSelectedDocument={model.canLinkSelectedDocument}
-        canMoveSelectedDocument={model.canMoveSelectedDocument}
-        canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
-        contextTarget={model.contextMenuState.contextMenu?.id ?? null}
-        currentSigningFingerprint={appData.crypto.signingFingerprint}
-        currentUserId={appData.auth.userId}
-        documentListRevision={model.documentListRevision}
-        documentQueries={model.documentQueries}
-        domainScope={appData.state.domainScope}
-        importDroppedFiles={model.importDroppedFiles}
-        linkedContainerIds={model.linkedContainerIds}
-        loadBlobInfo={model.loadBlobInfo}
-        loadContainerInfo={model.loadContainerInfo}
-        loadDocumentInfo={model.loadDocumentInfo}
-        nodes={model.explorer.nodes}
-        online={appData.state.online}
-        onContainerContextMenu={
-          model.contextMenuState.handleContainerContextMenu
-        }
-        onItemContextMenu={model.contextMenuState.handleItemContextMenu}
-        onBackToSelectionRoute={model.routeState.showSelectionRoute}
-        onOpenGrantGroup={openGrantGroupInOrgManager}
-        openInlineDocument={model.openInlineDocument}
-        openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
-        openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
-        openLinkDocumentModal={model.modalState.openLinkDocumentModal}
-        openMoveDocumentModal={model.modalState.openMoveDocumentModal}
-        peerUserId={model.peerUserId}
-        ready={model.explorer.ready}
-        refreshError={model.refreshError}
-        route={model.routeState.route}
-        selectDocumentProjection={model.selectDocumentProjection}
-        selectedNode={model.selection.selectedNode}
-        selectedDocument={model.selection.selectedDocument}
-        setSelectedId={model.routeState.selectExplorerItem}
-        shareWithGroup={model.explorer.shareWithGroup}
-        shareWithUser={model.explorer.shareWithUser}
-        unlinkDocument={model.unlinkDocument}
-        visibleSystemSlots={model.explorer.visibleSystemSlots}
-      />
+      <ExplorerBlobPickProvider
+        openBlobBrowserRoute={openBlobBrowser}
+        returnToDocumentRoute={model.routeState.selectExplorerDocument}
+      >
+        <ExplorerDetailPanelWithBlobPick
+          appData={appData}
+          databaseError={databaseError}
+          model={model}
+          onOpenGrantGroup={openGrantGroupInOrgManager}
+          onRetryDatabase={retryDatabaseBoot}
+        />
+      </ExplorerBlobPickProvider>
       <ExplorerContextMenuLayer
         canDeleteSelectedDocument={model.canDeleteContextMenuDocument}
         canLinkSelectedDocument={model.canLinkContextMenuDocument}

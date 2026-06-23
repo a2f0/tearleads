@@ -35,6 +35,7 @@ import {
   EXPLORER_LABELS,
   getExplorerBlobBrowserDocumentCountLabel,
   getExplorerBlobBrowserReferenceCountLabel,
+  getExplorerBlobPickSubtitle,
 } from "../labels";
 import { compactId } from "./compactId";
 import { getBlobInfoColumns } from "./ExplorerBlobBrowserColumns";
@@ -52,6 +53,9 @@ function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
+  // When provided, rows that fail the predicate are shown but not selectable
+  // (pick mode: only image blobs bind to image slots).
+  isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isLoading: boolean;
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
@@ -86,35 +90,48 @@ function BlobInfoTable(params: {
           />
         ) : null}
         {params.rows.length > 0 ? (
-          params.rows.map((blob) => (
-            <MiniAppTableRow
-              className="explorer-blob-browser-table-row"
-              interactive
-              key={blob.key}
-              selected={params.activeBlob?.key === blob.key}
-            >
-              <MiniAppTableCell title={blob.blobId ?? blob.storageKey}>
-                <MiniAppTableActionButton
-                  className="explorer-blob-browser-row-button"
-                  onClick={() => params.onSelectBlob(blob)}
-                >
-                  {compactId(blob.blobId ?? blob.storageKey)}
-                </MiniAppTableActionButton>
-              </MiniAppTableCell>
-              <MiniAppTableCell>{blob.mimeType ?? "-"}</MiniAppTableCell>
-              <MiniAppTableCell>
-                {formatByteLength(blob.byteLength)}
-              </MiniAppTableCell>
-              <MiniAppTableCell>
-                {getExplorerBlobBrowserReferenceCountLabel(blob.referenceCount)}
-              </MiniAppTableCell>
-              <MiniAppTableCell title={getBlobChangedAt(blob) ?? undefined}>
-                {formatMiniAppDateTime(getBlobChangedAt(blob), {
-                  emptyFallback: "-",
-                })}
-              </MiniAppTableCell>
-            </MiniAppTableRow>
-          ))
+          params.rows.map((blob) => {
+            const selectable = params.isRowSelectable
+              ? params.isRowSelectable(blob)
+              : true;
+            return (
+              <MiniAppTableRow
+                className="explorer-blob-browser-table-row"
+                interactive
+                key={blob.key}
+                selected={params.activeBlob?.key === blob.key}
+              >
+                <MiniAppTableCell title={blob.blobId ?? blob.storageKey}>
+                  <MiniAppTableActionButton
+                    className="explorer-blob-browser-row-button"
+                    disabled={!selectable}
+                    onClick={() => params.onSelectBlob(blob)}
+                    title={
+                      selectable
+                        ? undefined
+                        : "Only image blobs can be attached."
+                    }
+                  >
+                    {compactId(blob.blobId ?? blob.storageKey)}
+                  </MiniAppTableActionButton>
+                </MiniAppTableCell>
+                <MiniAppTableCell>{blob.mimeType ?? "-"}</MiniAppTableCell>
+                <MiniAppTableCell>
+                  {formatByteLength(blob.byteLength)}
+                </MiniAppTableCell>
+                <MiniAppTableCell>
+                  {getExplorerBlobBrowserReferenceCountLabel(
+                    blob.referenceCount,
+                  )}
+                </MiniAppTableCell>
+                <MiniAppTableCell title={getBlobChangedAt(blob) ?? undefined}>
+                  {formatMiniAppDateTime(getBlobChangedAt(blob), {
+                    emptyFallback: "-",
+                  })}
+                </MiniAppTableCell>
+              </MiniAppTableRow>
+            );
+          })
         ) : params.isLoading ? (
           <MiniAppTableEmptyRow colSpan={columns.length}>
             {EXPLORER_LABELS.blobBrowserLoading}
@@ -341,9 +358,31 @@ export function BlobBrowserHeader(params: {
   );
 }
 
+export function BlobPickHeader(params: {
+  onCancel: () => void;
+  slotLabel: string;
+}) {
+  const { onCancel, slotLabel } = params;
+
+  return (
+    <MiniAppHeader>
+      <MiniAppHeaderCopy>
+        <strong>{EXPLORER_LABELS.blobPickTitle}</strong>
+        <span>{getExplorerBlobPickSubtitle(slotLabel)}</span>
+      </MiniAppHeaderCopy>
+      <MiniAppActions>
+        <MiniAppButton onClick={onCancel}>
+          {EXPLORER_LABELS.blobPickCancelAction}
+        </MiniAppButton>
+      </MiniAppActions>
+    </MiniAppHeader>
+  );
+}
+
 export function BlobBrowserListScreen(params: {
   blobInfo: BlobInfoListState;
   frameRef: (frame: HTMLDivElement | null) => void;
+  isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isWindowPending: boolean;
   onQueryChange: (value: string) => void;
   onSelectBlob: (blob: BlobInfo) => void;
@@ -369,6 +408,7 @@ export function BlobBrowserListScreen(params: {
           error={params.blobInfo.error}
           frameRef={params.frameRef}
           isLoading={params.blobInfo.isLoading || params.isWindowPending}
+          isRowSelectable={params.isRowSelectable}
           onSelectBlob={params.onSelectBlob}
           onSort={params.onSort}
           rowOffset={params.rowOffset}

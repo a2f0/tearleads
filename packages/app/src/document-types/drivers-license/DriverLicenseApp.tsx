@@ -17,7 +17,7 @@ export function DriverLicenseDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind="drivers_license"
     >
-      <DriverLicense />
+      <DriverLicense containerId={containerId ?? null} localId={localId} />
     </DocumentsProvider>
   );
 }

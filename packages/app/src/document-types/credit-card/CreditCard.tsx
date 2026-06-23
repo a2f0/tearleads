@@ -1,9 +1,5 @@
-import type { BlobInfoInput } from "@tearleads/client-sdk";
-import { useCallback, useId, useMemo } from "react";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+import { useId, useMemo } from "react";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -12,10 +8,8 @@ import {
   StructuredDocumentFields,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
-import {
-  useDocumentAttachmentSelection,
-  useDocumentBlobAttachmentSelection,
-} from "../shared/useDocumentAttachmentSelection";
+import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
+import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
 import {
   CREDIT_CARD_ATTACHMENT_SLOTS,
   type CreditCardDocumentFields,
@@ -106,9 +100,15 @@ const CREDIT_CARD_ATTACHMENT_COPY = {
   unavailable: "Card image attachments require a local key package.",
 };
 
-export function CreditCard() {
+const CREDIT_CARD_ATTACHMENT_SLOT_IDS = CREDIT_CARD_ATTACHMENT_SLOTS.map(
+  (slot) => slot.slotId,
+);
+
+export function CreditCard(params: {
+  containerId: string | null;
+  localId: string;
+}) {
   const { auth, infra, state } = useTearleadsRuntime();
-  const { containerContents } = useTearleads();
   const { isAuthenticated } = auth;
   const { blobStore } = infra;
   const { online } = state;
@@ -142,16 +142,14 @@ export function CreditCard() {
     errorMessage: "Failed to handle credit card attachment selection",
     setAttachment,
   });
-  const handleSelectedBlobAttachment = useDocumentBlobAttachmentSelection({
+  const blobPicker = useBlobPickAttachment({
     blobStore,
+    containerId: params.containerId,
     errorMessage: "Failed to handle credit card blob attachment selection",
+    localId: params.localId,
     setAttachment,
+    slotIds: CREDIT_CARD_ATTACHMENT_SLOT_IDS,
   });
-  const loadBlobInfo = useCallback(
-    (query?: BlobInfoInput | undefined) =>
-      containerContents.listBlobInfo(query),
-    [containerContents],
-  );
 
   return (
     <StructuredDocument
@@ -160,10 +158,7 @@ export function CreditCard() {
         <DocumentAttachmentSlots
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
-          blobPicker={{
-            loadBlobInfo,
-            onSelectedBlob: handleSelectedBlobAttachment,
-          }}
+          blobPicker={blobPicker}
           canAttach={canAttach}
           imageUrlBySlotId={imageUrlBySlotId}
           onSelectedAttachment={handleSelectedAttachment}
