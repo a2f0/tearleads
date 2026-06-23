@@ -1,0 +1,52 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import { blobs } from "@tearleads/api-shared/schema";
+import { eq } from "drizzle-orm";
+import { reviveBlobIfDereferenced } from "./persistence";
+
+async function insertBlob(input: {
+  readonly id: string;
+  readonly dereferencedAt: Date | null;
+}): Promise<void> {
+  await db.insert(blobs).values({
+    id: input.id,
+    storageKey: `blob-object:${input.id}`,
+    encryptedBytes: `encrypted:${input.id}`,
+    sha256: `sha256:${input.id}`,
+    byteLength: 1,
+    dereferencedAt: input.dereferencedAt,
+  });
+}
+
+async function readDereferencedAt(id: string): Promise<Date | null> {
+  const [row] = await db
+    .select({ dereferencedAt: blobs.dereferencedAt })
+    .from(blobs)
+    .where(eq(blobs.id, id))
+    .limit(1);
+  return row?.dereferencedAt ?? null;
+}
+
+test("reviveBlobIfDereferenced clears a soft-deleted blob's marker", async () => {
+  const blobId = crypto.randomUUID();
+  await insertBlob({ id: blobId, dereferencedAt: new Date() });
+
+  await db.transaction((tx) =>
+    reviveBlobIfDereferenced({ blobId, executor: tx }),
+  );
+
+  // A bind re-references the blob, so a prior purge's soft-delete is cleared and
+  // the GC sweep will not reclaim it.
+  expect(await readDereferencedAt(blobId)).toBeNull();
+});
+
+test("reviveBlobIfDereferenced is a no-op for a live blob", async () => {
+  const blobId = crypto.randomUUID();
+  await insertBlob({ id: blobId, dereferencedAt: null });
+
+  await db.transaction((tx) =>
+    reviveBlobIfDereferenced({ blobId, executor: tx }),
+  );
+
+  expect(await readDereferencedAt(blobId)).toBeNull();
+});

@@ -10,7 +10,7 @@ import type {
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import {
@@ -194,6 +194,20 @@ export async function promoteStagedBlobIfPresent(input: {
   await input.executor.delete(blobStages).where(eq(blobStages.id, stage.id));
 
   return { sha256: stage.sha256 };
+}
+
+// Clear a prior purge's soft-delete marker when a blob is (re)bound: the blob
+// is referenced again, so it must not be reclaimed by the GC sweep. Idempotent —
+// a no-op for a live (never-dereferenced) blob. This, together with retained
+// bytes on the purge side, makes a purge/bind race on a shared blob safe.
+export async function reviveBlobIfDereferenced(input: {
+  readonly blobId: string;
+  readonly executor: DatabaseTransaction;
+}): Promise<void> {
+  await input.executor
+    .update(blobs)
+    .set({ dereferencedAt: null })
+    .where(and(eq(blobs.id, input.blobId), isNotNull(blobs.dereferencedAt)));
 }
 
 export async function detachActiveSlotBinding(input: {

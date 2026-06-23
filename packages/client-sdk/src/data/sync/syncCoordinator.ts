@@ -67,6 +67,10 @@ const DESTROYED_DATABASE_CLIENT_MESSAGES = [
   "Database worker client has been destroyed.",
   "DB has been closed.",
 ] as const;
+// Backoff applied only when a failed pass left its own lane re-requested, to
+// keep a persistently-failing self-re-arming lane from tight-looping the pump
+// and starving the event loop. A transient failure that did not re-arm waits 0.
+const FAILED_LANE_REARM_BACKOFF_MS = 1000;
 
 type SyncLaneRunResult =
   | { status: "completed" }
@@ -146,7 +150,15 @@ async function runRequestedSyncLanes(
     try {
       runResult = await runSyncLane(lane);
     } catch (error: unknown) {
-      lane.requested = false;
+      // Do not clear lane.requested here. A lane's run() can arm a self
+      // follow-up (requestLaneSync) before it throws; the `requested` flag is
+      // owned by request/selection logic and the success path's finally
+      // deliberately leaves it untouched. Clearing it on throw would silently
+      // drop a queued structural follow-up — breaking the phase-ordering
+      // guarantee in docs/client-sync-ordering.md for any lane without an
+      // onUnexpectedError handler (e.g. the structural container-contents lane).
+      // The tight-loop risk a re-armed failure would create is handled by the
+      // backoff after the finally block below.
       runResult = { status: "failed", error };
       reportUnexpectedSyncLaneError(lane, error);
     } finally {
@@ -163,6 +175,15 @@ async function runRequestedSyncLanes(
         lane.lastError = null;
       }
       publishSyncCoordinatorSnapshot(coordinatorState);
+    }
+
+    // If the pass failed AND the lane is still requested (it re-armed itself, or
+    // was re-requested mid-pass), the next iteration would re-select it with no
+    // delay — a tight microtask loop for a persistently failing self-re-arming
+    // lane. Back off to yield the event loop. A failure that did not re-arm pays
+    // nothing, and a successful pass never reaches this.
+    if (runResult?.status === "failed" && lane.requested) {
+      await delay(FAILED_LANE_REARM_BACKOFF_MS);
     }
   }
 }

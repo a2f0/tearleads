@@ -34,6 +34,7 @@ async function markContainerContentsContainerCreateIntentAlreadySynced(input: {
 
   await state.persistence.markCreateIntentSynced(execSql, {
     containerId: intent.containerId,
+    expectedUpdatedAt: intent.updatedAt,
     remoteContainerId: containerState.container.id,
     remoteMetadataAccessStateHash,
     remoteMetadataDocumentId,
@@ -44,9 +45,10 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
   containerState: ContainerState;
   created: CreatedRemoteContainerState;
   host: ContainerCreateIntentSyncHost;
+  intent: ContainerCreateIntentSyncInput["intent"];
   state: ContainerCreateIntentSyncState;
 }) {
-  const { containerState, created, host, state } = input;
+  const { containerState, created, host, intent, state } = input;
   containerState.container = {
     ...containerState.container,
     createdAt: created.createdAt,
@@ -88,6 +90,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
 
   await state.persistence.markCreateIntentSynced(execSql, {
     containerId: containerState.container.id,
+    expectedUpdatedAt: intent.updatedAt,
     remoteContainerId: created.containerId,
     remoteMetadataAccessStateHash: created.accessManifestHash,
     remoteMetadataDocumentId: created.metadataDocumentId,
@@ -161,6 +164,7 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     containerState,
     created,
     host,
+    intent,
     state,
   });
   state.runtime.util.log(

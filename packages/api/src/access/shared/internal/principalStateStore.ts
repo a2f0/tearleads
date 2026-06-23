@@ -106,7 +106,7 @@ async function getPrincipalEpochKeyByEpoch(
   return row ?? null;
 }
 
-async function getPrincipalStatePayloadForState(
+export async function getPrincipalStatePayloadForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
@@ -127,7 +127,7 @@ async function getPrincipalStatePayloadForState(
   return row ?? null;
 }
 
-async function listProjectionMembersForState(
+export async function listProjectionMembersForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,

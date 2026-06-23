@@ -207,6 +207,10 @@ export interface ContainerContentsPersistence {
     execSql: ExecSql,
     input: {
       containerId: string;
+      // The intent row's updatedAt snapshotted when the pass listed it. The
+      // mark is a no-op if the row changed since (a user re-queued the intent
+      // across the create network await), so the re-queued intent stays pending.
+      expectedUpdatedAt: string;
       remoteContainerId: string;
       remoteMetadataAccessStateHash: string;
       remoteMetadataDocumentId: string;
@@ -214,7 +218,12 @@ export interface ContainerContentsPersistence {
   ) => Promise<void>;
   markMoveIntentSynced: (
     execSql: ExecSql,
-    containerId: string,
+    input: {
+      containerId: string;
+      // See markCreateIntentSynced: guards the delete against a move re-queued
+      // during the network round-trip so the new destination is not discarded.
+      expectedUpdatedAt: string;
+    },
   ) => Promise<void>;
 }
 
@@ -1237,19 +1246,27 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
           and(
             eq(containerCreateIntents.containerId, input.containerId),
             eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+            // Only mark synced if the row is still the one this pass consumed. A
+            // user re-queue across the create network await rewrites the row with
+            // a fresh updatedAt; that intent must stay pending for the next pass.
+            eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
           ),
         )
         .run();
     });
   },
-  async markMoveIntentSynced(execSql, containerId) {
+  async markMoveIntentSynced(execSql, input) {
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
       await db
         .delete(containerMoveIntents)
         .where(
           and(
-            eq(containerMoveIntents.containerId, containerId),
+            eq(containerMoveIntents.containerId, input.containerId),
             eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+            // Only clear the intent this pass consumed. If the user re-queued the
+            // move during the network round-trip, the row's updatedAt advanced
+            // and this delete no-ops, preserving the new destination for sync.
+            eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt),
           ),
         )
         .run();

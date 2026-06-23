@@ -159,7 +159,7 @@ async function loadCurrentPrincipalMemberRecipientsForState(
   };
 }
 
-async function listPrincipalMemberEnvelopesForState(
+export async function listPrincipalMemberEnvelopesForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,

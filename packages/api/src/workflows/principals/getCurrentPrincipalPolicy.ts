@@ -3,12 +3,12 @@ import type {
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { listCurrentPrincipalMemberEnvelopes } from "../../access/read/principalMemberEnvelopes";
+import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
 import {
   getCurrentPrincipalState,
-  getCurrentPrincipalStatePayload,
-  listCurrentPrincipalProjectionMembers,
+  getPrincipalStatePayloadForState,
   listPrincipalStateHistory,
+  listProjectionMembersForState,
   type StoredPrincipalProjectionMember,
 } from "../../access/read/principalStateStore";
 import {
@@ -42,17 +42,27 @@ export async function getCurrentPrincipalPolicyWithExecutor(
   if (!currentState) {
     throw new PrincipalPolicyError("Principal state not found", 404);
   }
-  const currentPayload = await getCurrentPrincipalStatePayload(
+  // Pin every dependent read to the version we just resolved. These reads run
+  // under READ COMMITTED (no isolation argument; this workflow can also be
+  // nested inside a container mutation transaction where forcing an isolation
+  // level is not possible), so re-resolving "current" per read would let a
+  // concurrent putPrincipalState advance the version mid-bundle and stitch a
+  // cross-version policy bundle. Keying every read off currentState.stateHash
+  // makes the bundle internally consistent regardless of concurrent commits.
+  const pinnedStateHash = currentState.stateHash;
+  const currentPayload = await getPrincipalStatePayloadForState(
     principalType,
     principalId,
+    pinnedStateHash,
     executor,
   );
   if (!currentPayload) {
     throw new PrincipalPolicyError("Principal state payload not found", 404);
   }
-  const currentProjection = await listCurrentPrincipalProjectionMembers(
+  const currentProjection = await listProjectionMembersForState(
     principalType,
     principalId,
+    pinnedStateHash,
     executor,
   );
   const stateHistory = await listPrincipalStateHistory(
@@ -61,9 +71,10 @@ export async function getCurrentPrincipalPolicyWithExecutor(
     executor,
   );
 
-  const currentMemberEnvelopes = await listCurrentPrincipalMemberEnvelopes(
+  const currentMemberEnvelopes = await listPrincipalMemberEnvelopesForState(
     principalType,
     principalId,
+    pinnedStateHash,
     executor,
   );
 
