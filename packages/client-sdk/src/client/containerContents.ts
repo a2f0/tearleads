@@ -225,6 +225,7 @@ class ContainerContentsService implements ContainerContents {
           note: moveDocumentLinkNote(input),
           replaceLinkedContainers: input.replaceLinkedContainers,
           runtime: documentLinks,
+          scheduleSync: () => this.openTree().requestSync(),
           setLinkedContainerIdsForDocument:
             input.setLinkedContainerIdsForDocument,
           targetContainerId: input.targetContainerId,

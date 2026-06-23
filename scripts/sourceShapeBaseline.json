@@ -222,12 +222,12 @@
       "bytes": 23123
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 586,
-      "bytes": 22748
+      "lines": 649,
+      "bytes": 25251
     },
     "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
-      "lines": 520,
-      "bytes": 17500
+      "lines": 544,
+      "bytes": 17670
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,

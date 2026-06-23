@@ -1,3 +1,4 @@
+import { readLinkedContainerIdsFromDocumentManifest } from "../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
@@ -38,12 +39,12 @@ interface ContainerDocumentLinkRuntime
 type MoveRemoteContainerDocumentStatus = "complete" | "partial";
 
 interface MoveRemoteContainerDocumentResult {
-  accessEpoch: number;
-  accessStateHash: string;
+  accessEpoch: number | null;
+  accessStateHash: string | null;
   linkedContainerIds: readonly string[];
   nextContainerId: string;
   queueBaselineAfterRelink: boolean;
-  remoteState: RemoteDocumentPersistedState;
+  remoteState: RemoteDocumentPersistedState | null;
   status: MoveRemoteContainerDocumentStatus;
 }
 
@@ -102,6 +103,22 @@ function containerDocumentMoveResult(input: {
     queueBaselineAfterRelink:
       input.queueBaselineAfterRelink ?? input.document.contentKeyRotated,
     remoteState: input.document.persistedState,
+    status: input.status,
+  };
+}
+
+function containerDocumentAlreadyMovedResult(input: {
+  linkedContainerIds: readonly string[];
+  nextContainerId: string;
+  status: MoveRemoteContainerDocumentStatus;
+}): MoveRemoteContainerDocumentResult {
+  return {
+    accessEpoch: null,
+    accessStateHash: null,
+    linkedContainerIds: input.linkedContainerIds,
+    nextContainerId: input.nextContainerId,
+    queueBaselineAfterRelink: false,
+    remoteState: null,
     status: input.status,
   };
 }
@@ -310,26 +327,41 @@ export async function moveRemoteContainerDocument(input: {
     runtime,
     targetContainerId,
   } = input;
-  const linkedDocument = await linkRemoteContainerDocument({
-    documentId,
-    noteId,
-    resolveProjectionUserKey,
-    runtime,
-    targetContainerId,
-  });
-  if (!linkedDocument) {
+  const writerProjection =
+    await runtime.apiClient.getDocumentWriterProjection(documentId);
+  if (!writerProjection) {
     return null;
+  }
+  const initialLinkedContainerIds =
+    readLinkedContainerIdsFromDocumentManifest(writerProjection);
+
+  let latestLinkedContainerIds: readonly string[] = initialLinkedContainerIds;
+  let latestDocument: RelinkRemoteDocumentResult | null = null;
+  let queueBaselineAfterRelink = false;
+  if (!initialLinkedContainerIds.includes(targetContainerId)) {
+    const linkedDocument = await linkRemoteContainerDocument({
+      documentId,
+      noteId,
+      resolveProjectionUserKey,
+      runtime,
+      targetContainerId,
+    });
+    if (!linkedDocument) {
+      return null;
+    }
+
+    latestDocument = linkedDocument;
+    latestLinkedContainerIds = linkedDocument.linkedContainerIds;
+    queueBaselineAfterRelink = linkedDocument.contentKeyRotated;
   }
 
   const unlinkContainerIds = resolveContainerDocumentMoveUnlinkIds({
     currentContainerId,
-    linkedContainerIds: linkedDocument.linkedContainerIds,
+    linkedContainerIds: latestLinkedContainerIds,
     replaceLinkedContainers,
     targetContainerId,
   });
 
-  let latestDocument = linkedDocument;
-  let queueBaselineAfterRelink = linkedDocument.contentKeyRotated;
   const failedUnlinkContainerIds: string[] = [];
   for (const unlinkContainerId of unlinkContainerIds) {
     const unlinkedDocument = await unlinkRemoteContainerDocument({
@@ -348,22 +380,30 @@ export async function moveRemoteContainerDocument(input: {
     }
 
     latestDocument = unlinkedDocument;
+    latestLinkedContainerIds = unlinkedDocument.linkedContainerIds;
     queueBaselineAfterRelink =
       queueBaselineAfterRelink || unlinkedDocument.contentKeyRotated;
   }
 
   const nextContainerId = resolveActiveDocumentContainerId(
-    latestDocument.linkedContainerIds,
+    latestLinkedContainerIds,
     targetContainerId,
   );
   if (!nextContainerId) {
     return null;
   }
 
-  return containerDocumentMoveResult({
-    document: latestDocument,
-    nextContainerId,
-    queueBaselineAfterRelink,
-    status: failedUnlinkContainerIds.length > 0 ? "partial" : "complete",
-  });
+  const status = failedUnlinkContainerIds.length > 0 ? "partial" : "complete";
+  return latestDocument
+    ? containerDocumentMoveResult({
+        document: latestDocument,
+        nextContainerId,
+        queueBaselineAfterRelink,
+        status,
+      })
+    : containerDocumentAlreadyMovedResult({
+        linkedContainerIds: latestLinkedContainerIds,
+        nextContainerId,
+        status,
+      });
 }

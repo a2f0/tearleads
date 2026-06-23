@@ -1,58 +1,26 @@
 import type { DocumentSummary } from "../../data/documentSummary";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
-import type { RelinkPersistedDocumentInput } from "../documents";
 import {
   linkRemoteContainerDocument,
-  moveRemoteContainerDocument,
-  type RemoteDocumentPersistedState,
   resolveActiveDocumentContainerId,
   unlinkRemoteContainerDocument,
 } from "./documentLinks";
+import { relinkContainerDocumentLocally } from "./documentLocalRelink";
+import { moveRemoteDocumentLinkLocally } from "./documentMoveIntent";
+import type {
+  DocumentStructuralMutationHost,
+  DocumentStructuralMutationRuntime,
+  SetLinkedContainerIdsForDocument,
+} from "./documentStructureTypes";
 
-type DocumentStructuralMutationResolver = Parameters<
-  typeof linkRemoteContainerDocument
->[0]["resolveProjectionUserKey"];
-type DocumentStructuralMutationRemoteRuntime = Parameters<
-  typeof linkRemoteContainerDocument
->[0]["runtime"];
-
-export type MergeDocumentSummary = (nextDocument: DocumentSummary) => void;
-export type SetLinkedContainerIdsForDocument = (
-  documentId: string,
-  linkedContainerIds: ReadonlyArray<string>,
-) => void;
-
-export type DocumentStructuralMutationRuntime =
-  DocumentStructuralMutationRemoteRuntime & {
-    resolveProjectionUserKey: DocumentStructuralMutationResolver;
-  };
-
-export interface DocumentStructuralMutationRelinkInput
-  extends RelinkPersistedDocumentInput {
-  contentKeyBundle?: string | null | undefined;
-  documentKekTargets?: string | null | undefined;
-  documentManifestBundle?: string | null | undefined;
-  queueBaselineAfterRelink?: boolean | undefined;
-}
-
-export interface DocumentStructuralMutationLocalStore<TRuntime> {
-  ensureInitialized: () => Promise<boolean>;
-  relink: (
-    input: DocumentStructuralMutationRelinkInput,
-  ) => Promise<DocumentSummary | null>;
-  requestSync: () => void;
-  updateRuntime: (runtime: TRuntime) => void;
-}
-
-export interface DocumentStructuralMutationHost<TRuntime> {
-  documentWorkflowRuntime: (containerId: string) => TRuntime;
-  mergeDocumentSummary: MergeDocumentSummary;
-  openDocumentStore: (input: {
-    containerId: string;
-    documentId: string | null;
-    localId: string;
-  }) => DocumentStructuralMutationLocalStore<TRuntime>;
-}
+export type {
+  DocumentStructuralMutationHost,
+  DocumentStructuralMutationLocalStore,
+  DocumentStructuralMutationRelinkInput,
+  DocumentStructuralMutationRuntime,
+  MergeDocumentSummary,
+  SetLinkedContainerIdsForDocument,
+} from "./documentStructureTypes";
 
 interface DocumentStructuralMutationInput<TRuntime> {
   host: DocumentStructuralMutationHost<TRuntime>;
@@ -105,56 +73,6 @@ async function openDocumentStoreForStructuralMutation<TRuntime>({
   }
 
   return documentStore;
-}
-
-async function relinkContainerDocumentLocally<TRuntime>(params: {
-  accessEpoch: number;
-  accessStateHash?: string | null | undefined;
-  currentDocumentStore: DocumentStructuralMutationLocalStore<TRuntime>;
-  host: DocumentStructuralMutationHost<TRuntime>;
-  note: DocumentSummary;
-  queueBaselineAfterRelink?: boolean | undefined;
-  remoteState?: RemoteDocumentPersistedState | undefined;
-  requestSync: boolean;
-  runtime: DocumentStructuralMutationRuntime;
-  targetContainerId: string;
-}) {
-  const {
-    accessEpoch,
-    accessStateHash,
-    currentDocumentStore,
-    host,
-    note,
-    queueBaselineAfterRelink,
-    remoteState,
-    requestSync,
-    runtime,
-    targetContainerId,
-  } = params;
-  const relinkedNote = await currentDocumentStore.relink({
-    accessEpoch,
-    ...(accessStateHash === undefined ? {} : { accessStateHash }),
-    containerId: targetContainerId,
-    ...remoteState,
-    documentId: note.documentId,
-    localId: note.id,
-    queueBaselineAfterRelink,
-  });
-  if (!relinkedNote) {
-    runtime.util.log(
-      `Container contents: note ${note.id} could not be relinked after a structural mutation`,
-    );
-    return null;
-  }
-
-  host.mergeDocumentSummary(relinkedNote);
-  currentDocumentStore.updateRuntime(
-    host.documentWorkflowRuntime(targetContainerId),
-  );
-  if (requestSync) {
-    currentDocumentStore.requestSync();
-  }
-  return relinkedNote;
 }
 
 function relinkDocumentAfterStructuralMutation<TRuntime>(
@@ -217,6 +135,7 @@ export async function moveDocumentLink<TRuntime>(params: {
   note: DocumentSummary;
   replaceLinkedContainers?: boolean | undefined;
   runtime: DocumentStructuralMutationRuntime;
+  scheduleSync?: (() => void) | undefined;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
   targetContainerId: string;
 }): Promise<{ linksChanged: boolean; note: DocumentSummary | null }> {
@@ -226,6 +145,7 @@ export async function moveDocumentLink<TRuntime>(params: {
     note,
     replaceLinkedContainers,
     runtime,
+    scheduleSync,
     setLinkedContainerIdsForDocument,
     targetContainerId,
   } = params;
@@ -256,47 +176,22 @@ export async function moveDocumentLink<TRuntime>(params: {
     return { linksChanged: false, note: null };
   }
 
-  const movedDocument = await moveRemoteContainerDocument({
-    currentContainerId: note.containerId,
-    documentId: note.documentId,
-    noteId: note.id,
+  const queuedMove = await moveRemoteDocumentLinkLocally({
+    currentDocumentStore,
+    expandNode,
+    host,
+    note: {
+      ...note,
+      documentId: note.documentId,
+      containerId: note.containerId,
+    },
     replaceLinkedContainers,
-    resolveProjectionUserKey: runtime.resolveProjectionUserKey,
     runtime,
+    scheduleSync,
+    setLinkedContainerIdsForDocument,
     targetContainerId,
   });
-  if (!movedDocument) {
-    return { linksChanged: false, note: null };
-  }
-  const { accessEpoch, linkedContainerIds, nextContainerId } = movedDocument;
-  setLinkedContainerIdsForDocument(note.documentId, linkedContainerIds);
-
-  const movedNote = await relinkDocumentAfterStructuralMutation({
-    accessEpoch,
-    accessStateHash: movedDocument.accessStateHash,
-    currentDocumentStore,
-    host,
-    note,
-    queueBaselineAfterRelink: movedDocument.queueBaselineAfterRelink,
-    runtime,
-    targetContainerId: nextContainerId,
-    remoteState: movedDocument.remoteState,
-  });
-  if (!movedNote) {
-    return { linksChanged: true, note: null };
-  }
-
-  expandNode(nextContainerId);
-  if (movedDocument.status === "partial") {
-    runtime.util.log(
-      `Container contents: partially moved note ${movedNote.id}; linked to ${nextContainerId} but still linked to ${note.containerId}`,
-    );
-  } else {
-    runtime.util.log(
-      `Container contents: moved note ${movedNote.id} to ${nextContainerId}`,
-    );
-  }
-  return { linksChanged: true, note: movedNote };
+  return queuedMove;
 }
 
 export async function addDocumentLink<TRuntime>(params: {

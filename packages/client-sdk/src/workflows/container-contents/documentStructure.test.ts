@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSummary } from "../../data/documentSummary";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
+import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   activateDocumentLink,
   canMutateDocumentLink,
@@ -12,7 +16,10 @@ import {
   moveDocumentLink,
 } from "./documentStructure";
 
-function createRuntime(logs: string[] = []): DocumentStructuralMutationRuntime {
+function createRuntime(
+  logs: string[] = [],
+  execSql: ExecSql = async () => [],
+): DocumentStructuralMutationRuntime {
   return {
     apiClient: {} as DocumentStructuralMutationRuntime["apiClient"],
     auth: {
@@ -25,11 +32,12 @@ function createRuntime(logs: string[] = []): DocumentStructuralMutationRuntime {
       signingFingerprint: null,
       signingKeyPair: null,
     },
+    getEncapsulationKey: async () => null,
     infra: {
       blobStore: null as never,
       dbStatus: "ready",
       documentProjectors: defaultDocumentProjectorRegistry,
-      execSql: async () => [],
+      execSql,
     },
     state: {
       containerId: null,
@@ -180,6 +188,108 @@ test("moveDocumentLink relinks local-only documents without remote mutation", as
   expect(logs).toEqual([
     "Container contents: moved local note note-1 to trash-container",
   ]);
+});
+
+test("moveDocumentLink queues synced document moves and applies the local projection", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-structure-queued-move",
+  );
+
+  try {
+    const logs: string[] = [];
+    const scheduledSyncs: string[] = [];
+    const expandedNodes: string[] = [];
+    const mergedDocuments: DocumentSummary[] = [];
+    const relinkInputs: DocumentStructuralMutationRelinkInput[] = [];
+    const linkedContainersByDocument = new Map<string, ReadonlyArray<string>>();
+    const host: DocumentStructuralMutationHost<string> = {
+      documentWorkflowRuntime: (containerId) => `runtime:${containerId}`,
+      mergeDocumentSummary: (document) => {
+        mergedDocuments.push(document);
+      },
+      openDocumentStore: () => ({
+        ensureInitialized: async () => true,
+        relink: async (input) => {
+          relinkInputs.push(input);
+          return {
+            id: input.localId,
+            containerId: input.containerId,
+            documentId: input.documentId,
+            title: "Queued move note",
+            updatedAt: "2026-05-09T00:00:02.000Z",
+          };
+        },
+        requestSync: () => {
+          throw new Error("Queued document moves use structural sync.");
+        },
+        updateRuntime: () => undefined,
+      }),
+    };
+    await sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
+      execSql,
+      "document-1",
+      ["container-1"],
+    );
+
+    const moved = await moveDocumentLink({
+      expandNode: (nodeId) => {
+        expandedNodes.push(nodeId);
+      },
+      host,
+      note: createNote(),
+      replaceLinkedContainers: true,
+      runtime: createRuntime(logs, execSql),
+      scheduleSync: () => {
+        scheduledSyncs.push("sync");
+      },
+      setLinkedContainerIdsForDocument: (documentId, containerIds) => {
+        linkedContainersByDocument.set(documentId, containerIds);
+      },
+      targetContainerId: "trash-container",
+    });
+
+    if (!moved.note) {
+      throw new Error("Expected queued move to return a moved note.");
+    }
+    expect(moved.note?.containerId).toBe("trash-container");
+    expect(relinkInputs).toEqual([
+      {
+        accessEpoch: 1,
+        containerId: "trash-container",
+        documentId: "document-1",
+        localId: "note-1",
+        queueBaselineAfterRelink: undefined,
+      },
+    ]);
+    expect(mergedDocuments).toEqual([moved.note]);
+    expect(expandedNodes).toEqual(["trash-container"]);
+    expect(scheduledSyncs).toEqual(["sync"]);
+    expect(linkedContainersByDocument.get("document-1")).toEqual([
+      "trash-container",
+    ]);
+    await expect(
+      sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(
+        execSql,
+        "document-1",
+      ),
+    ).resolves.toEqual(["trash-container"]);
+    await expect(
+      sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql),
+    ).resolves.toMatchObject([
+      {
+        documentId: "document-1",
+        localId: "note-1",
+        replaceLinkedContainers: true,
+        sourceContainerId: "container-1",
+        targetContainerId: "trash-container",
+      },
+    ]);
+    expect(logs).toEqual([
+      "Container contents: queued note note-1 move to trash-container",
+    ]);
+  } finally {
+    close();
+  }
 });
 
 test("activateDocumentLink relinks the local document without requesting remote sync", async () => {

@@ -63,10 +63,10 @@ test("document delete is enabled for local documents before authentication", () 
   ).toBe(true);
 });
 
-test("document delete is disabled for remote documents before authentication", () => {
+test("document delete is enabled for remote documents before authentication", () => {
   expect(
     getMutationState({ appData: deviceFirstRuntime }).canDeleteSelectedDocument,
-  ).toBe(false);
+  ).toBe(true);
 });
 
 test("document delete waits until trash can be resolved", () => {
@@ -248,15 +248,7 @@ test("moving out of trash is independent of the purge/delete trash gates", () =>
 // The two conditions that DO disable "move out of trash" — documenting the
 // real-world ways a user hits a greyed-out Move on a trashed item.
 
-// KNOWN INCONSISTENCY (not desired behavior we want to lock in): a *synced*
-// document move requires online + auth and has no offline-queue path, whereas a
-// folder/container move queues a moveIntent offline and reconciles on reconnect
-// (see moveContainer in client-sdk stores/container-contents/operations.ts) and
-// deleting a never-synced document relinks locally. So moving a synced document
-// out of trash silently fails offline even though the equivalent folder move
-// would succeed. If synced document moves gain an offline queued-relink path to
-// match containers, update this expectation to true.
-test("move out of trash is disabled while offline / unauthenticated (unlike delete)", () => {
+test("move out of trash is enabled while offline / unauthenticated", () => {
   const trashedDocument: DocumentSummary = {
     ...selectedDocument,
     containerId: TRASH_CONTAINER_ID,
@@ -268,9 +260,7 @@ test("move out of trash is disabled while offline / unauthenticated (unlike dele
     undefined,
     rulesContext,
   );
-  // Targets still compute (rules permit leaving trash)...
   expect(moveTargetOptions.length).toBeGreaterThan(0);
-  // ...but the mutate gate requires online + authenticated, so Move is off.
   expect(
     getMutationState({
       appData: deviceFirstRuntime,
@@ -278,7 +268,7 @@ test("move out of trash is disabled while offline / unauthenticated (unlike dele
       selectedDocumentMoveTargetOptions: moveTargetOptions,
       trashContainerId: TRASH_CONTAINER_ID,
     }).canMoveSelectedDocument,
-  ).toBe(false);
+  ).toBe(true);
 });
 
 test("move out of trash is disabled when the trash node is absent from the tree", () => {
