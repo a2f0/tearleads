@@ -238,15 +238,6 @@ async function saveLocalAttachmentRecords(
   }
 }
 
-function listAttachmentsMissingLocalBytes(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-): DocumentAttachment[] {
-  return getDocumentAttachments(currentDoc).filter(
-    (attachment) => !state.attachmentStorageKeyBySlotId[attachment.slotId],
-  );
-}
-
 export async function hydrateAttachmentBlobs(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -262,19 +253,18 @@ export async function hydrateAttachmentBlobs(
     return;
   }
 
-  const attachmentsMissingLocalBytes = listAttachmentsMissingLocalBytes(
-    state,
-    currentDoc,
-  );
-  if (attachmentsMissingLocalBytes.length === 0) {
+  const attachments = getDocumentAttachments(currentDoc);
+  if (attachments.length === 0) {
     return;
   }
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
     apiClient: state.runtime.apiClient,
-    attachments: attachmentsMissingLocalBytes,
+    attachments,
     documentId: currentRecord.documentId,
     execSql: state.runtime.infra.execSql,
+    localBlobIdBySlotId: state.attachmentBlobIdBySlotId,
+    localStorageKeyBySlotId: state.attachmentStorageKeyBySlotId,
     log: state.runtime.util.log,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,
@@ -284,11 +274,17 @@ export async function hydrateAttachmentBlobs(
   }
 
   const localAttachmentRecords: LocalAttachmentRecord[] = [];
+  const replacedStorageKeys: string[] = [];
   for (const hydratedBlob of hydratedBlobs) {
+    const previousStorageKey =
+      state.attachmentStorageKeyBySlotId[hydratedBlob.attachment.slotId];
     await state.runtime.infra.blobStore.writeBytes(
       hydratedBlob.storageKey,
       hydratedBlob.bytes,
     );
+    if (previousStorageKey && previousStorageKey !== hydratedBlob.storageKey) {
+      replacedStorageKeys.push(previousStorageKey);
+    }
     localAttachmentRecords.push({
       blobId: hydratedBlob.binding.blobId,
       byteLength: hydratedBlob.attachment.byteLength,
@@ -300,6 +296,11 @@ export async function hydrateAttachmentBlobs(
   }
 
   await saveLocalAttachmentRecords(state, localAttachmentRecords, currentDoc);
+  await Promise.allSettled(
+    replacedStorageKeys.map((storageKey) =>
+      state.runtime.infra.blobStore.deleteBytes(storageKey),
+    ),
+  );
 }
 
 export function upsertPendingAttachments(

@@ -212,6 +212,124 @@ test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment by
   expect(streamedChunks).toBeGreaterThan(1);
 });
 
+test("hydrateDocumentAttachmentBlobs skips locally current attachment bytes", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  let blobByteReads = 0;
+
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
+    apiClient: {
+      getBlobBytes: async () => {
+        blobByteReads += 1;
+        return null;
+      },
+      getDocumentWriterProjection: async () => fixture.writerProjection,
+      listDocumentAttachments: async () => [
+        {
+          bindingId: fixture.bindingId,
+          blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
+          slotId: fixture.attachment.slotId,
+        },
+      ],
+    },
+    attachments: [fixture.attachment],
+    documentId: fixture.writerProjection.documentId,
+    localBlobIdBySlotId: {
+      [fixture.attachment.slotId]: fixture.blobId,
+    },
+    localStorageKeyBySlotId: {
+      [fixture.attachment.slotId]: `blob-${fixture.blobId}`,
+    },
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    targetSecretKey: fixture.secretKey,
+  });
+
+  expect(hydratedBlobs).toEqual([]);
+  expect(blobByteReads).toBe(0);
+});
+
+test("hydrateDocumentAttachmentBlobs preserves pending local attachment bytes", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  let blobByteReads = 0;
+
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
+    apiClient: {
+      getBlobBytes: async () => {
+        blobByteReads += 1;
+        return null;
+      },
+      getDocumentWriterProjection: async () => fixture.writerProjection,
+      listDocumentAttachments: async () => [
+        {
+          bindingId: fixture.bindingId,
+          blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
+          slotId: fixture.attachment.slotId,
+        },
+      ],
+    },
+    attachments: [fixture.attachment],
+    documentId: fixture.writerProjection.documentId,
+    localBlobIdBySlotId: {
+      [fixture.attachment.slotId]: null,
+    },
+    localStorageKeyBySlotId: {
+      [fixture.attachment.slotId]: "local-pending-preview",
+    },
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    targetSecretKey: fixture.secretKey,
+  });
+
+  expect(hydratedBlobs).toEqual([]);
+  expect(blobByteReads).toBe(0);
+});
+
+test("hydrateDocumentAttachmentBlobs refreshes stale same-slot blob bytes", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  let streamedChunks = 0;
+
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
+    apiClient: {
+      getBlobBytes: async (blobId) =>
+        createBlobBytesResponse({
+          blobId,
+          encryptedBytes: fixture.stagedBlob.encryptedBytes,
+          onChunk: () => {
+            streamedChunks += 1;
+          },
+          sha256: fixture.stagedBlob.sha256,
+        }),
+      getDocumentWriterProjection: async () => fixture.writerProjection,
+      listDocumentAttachments: async () => [
+        {
+          bindingId: fixture.bindingId,
+          blobId: fixture.blobId,
+          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
+          slotId: fixture.attachment.slotId,
+        },
+      ],
+    },
+    attachments: [fixture.attachment],
+    documentId: fixture.writerProjection.documentId,
+    localBlobIdBySlotId: {
+      [fixture.attachment.slotId]: "stale-blob-id",
+    },
+    localStorageKeyBySlotId: {
+      [fixture.attachment.slotId]: "blob-stale-blob-id",
+    },
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    targetSecretKey: fixture.secretKey,
+  });
+  const [hydratedBlob] = hydratedBlobs ?? [];
+
+  expect(hydratedBlob?.binding.blobId).toBe(fixture.blobId);
+  expect(hydratedBlob?.storageKey).toBe(`blob-${fixture.blobId}`);
+  expect(Array.from(hydratedBlob?.bytes ?? [])).toEqual(
+    Array.from(fixture.bytes),
+  );
+  expect(streamedChunks).toBeGreaterThan(1);
+});
+
 test("decryptDocumentAttachmentBlob rejects bad writer projection signatures", async () => {
   const fixture = await createUploadedAttachmentFixture();
   const tamperedProjection = structuredClone(fixture.writerProjection);

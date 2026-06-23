@@ -32,6 +32,10 @@ interface DocumentAttachmentHydrationContext {
   apiClient: DocumentAttachmentHydrationApi;
   documentId: string;
   execSql?: ExecSql | undefined;
+  localBlobIdBySlotId?:
+    | Readonly<Record<string, string | null | undefined>>
+    | undefined;
+  localStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
   log?: ((message: string) => void) | undefined;
   logPrefix?: string | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -71,6 +75,28 @@ function isLoadedDocumentAttachmentBlob(
   loaded: LoadedDocumentAttachmentBlob | null,
 ): loaded is LoadedDocumentAttachmentBlob {
   return loaded !== null;
+}
+
+function shouldHydrateAttachment(input: {
+  attachment: DocumentAttachment;
+  binding: BlobAttachmentSummary;
+  localBlobIdBySlotId:
+    | Readonly<Record<string, string | null | undefined>>
+    | undefined;
+  localStorageKeyBySlotId:
+    | Readonly<Record<string, string | undefined>>
+    | undefined;
+}): boolean {
+  const slotId = input.attachment.slotId;
+  const localStorageKey = input.localStorageKeyBySlotId?.[slotId];
+  if (!localStorageKey) {
+    return true;
+  }
+
+  const localBlobId = input.localBlobIdBySlotId?.[slotId];
+  return (
+    typeof localBlobId === "string" && localBlobId !== input.binding.blobId
+  );
 }
 
 async function loadDocumentAttachmentBlob(
@@ -162,7 +188,15 @@ export async function hydrateDocumentAttachmentBlobs(
   const hydrationTargets: DocumentAttachmentHydrationTarget[] =
     input.attachments.flatMap((attachment) => {
       const binding = bindingBySlotId.get(attachment.slotId);
-      return binding ? [{ attachment, binding }] : [];
+      return binding &&
+        shouldHydrateAttachment({
+          attachment,
+          binding,
+          localBlobIdBySlotId: input.localBlobIdBySlotId,
+          localStorageKeyBySlotId: input.localStorageKeyBySlotId,
+        })
+        ? [{ attachment, binding }]
+        : [];
     });
   if (hydrationTargets.length === 0) {
     return [];

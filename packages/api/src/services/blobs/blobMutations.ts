@@ -18,6 +18,40 @@ import type { ApiServiceRuntime } from "../runtime";
 
 export { BlobMutationError } from "../../workflows/blobs/mutations";
 
+function listBlobKekTargetContainerIds(
+  blobKekTargets: BlobAttachmentBindResponse["blobKekTargets"],
+): string[] {
+  return [
+    ...new Set(
+      blobKekTargets.targets
+        .flatMap((target) => {
+          const containerId = Reflect.get(target, "containerId");
+          return typeof containerId === "string" ? [containerId] : [];
+        })
+        .sort(),
+    ),
+  ];
+}
+
+export function createAttachmentBindDocumentEvent(
+  response: Pick<BlobAttachmentBindResponse, "blobKekTargets" | "documentId">,
+): Record<string, unknown> {
+  return {
+    type: "document_update_created",
+    containerIds: listBlobKekTargetContainerIds(response.blobKekTargets),
+    documentId: response.documentId,
+  };
+}
+
+async function publishAttachmentBindDocumentEvent(
+  runtime: ApiServiceRuntime,
+  response: BlobAttachmentBindResponse,
+): Promise<void> {
+  await runtime.eventPublisher.publish(
+    createAttachmentBindDocumentEvent(response),
+  );
+}
+
 async function prevalidateMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: BindBlobAttachmentInput,
@@ -92,10 +126,12 @@ export async function bindBlobAttachment(
     input,
   );
 
-  return runBindBlobAttachmentWorkflow(runtime.db, {
+  const response = await runBindBlobAttachmentWorkflow(runtime.db, {
     ...input,
     prevalidatedMultipartStage,
   });
+  await publishAttachmentBindDocumentEvent(runtime, response);
+  return response;
 }
 
 export async function detachBlobAttachment(
