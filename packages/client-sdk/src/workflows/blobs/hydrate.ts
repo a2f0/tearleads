@@ -76,12 +76,6 @@ async function hasExpectedBlobSha256(
   return bytesToHex(blobDigest) === blob.sha256;
 }
 
-function isLoadedDocumentAttachmentBlob(
-  loaded: LoadedDocumentAttachmentBlob | null,
-): loaded is LoadedDocumentAttachmentBlob {
-  return loaded !== null;
-}
-
 function shouldHydrateAttachment(input: {
   attachment: DocumentAttachment;
   binding: BlobAttachmentSummary;
@@ -254,7 +248,7 @@ export async function hydrateDocumentAttachmentBlobs(
       ...input,
       hydrationTargets,
     }),
-  ).filter(isLoadedDocumentAttachmentBlob);
+  );
   if (loadedBlobs.length === 0) {
     return [];
   }
