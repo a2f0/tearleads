@@ -21,6 +21,7 @@ import {
   encodeMultipartBlobStageRecord,
   readMultipartBlobStageRecord,
 } from "../../utils/blobStageRecords";
+import { summarizeSha256Stream } from "../../utils/sha256";
 import type { ApiServiceRuntime } from "../runtime";
 
 type MultipartBlobStageStatus = 400 | 403 | 404 | 409 | 500;
@@ -408,6 +409,59 @@ async function markMultipartStageComplete(
     .where(eq(blobStages.id, stage.id));
 }
 
+// Fail closed unless the assembled object matches the stage's expected size and
+// digest, deleting the invalid object first. Shared by the first-attempt path
+// (validating the store's completion result) and the recovery path (validating
+// a surviving object), so recovery can never accept an object first-attempt
+// validation would reject.
+async function assertCompletedMultipartObjectMatches(
+  runtime: ApiServiceRuntime,
+  stage: LoadedMultipartBlobStage,
+  assembled: { readonly byteLength: number; readonly sha256: string },
+): Promise<void> {
+  if (assembled.byteLength !== stage.byteLength) {
+    await runtime.blobObjectStore.deleteObject(stage.record.storageKey);
+    throw new MultipartBlobStageError(
+      "Blob byteLength does not match multipart upload",
+      409,
+    );
+  }
+  if (assembled.sha256 !== stage.sha256) {
+    await runtime.blobObjectStore.deleteObject(stage.record.storageKey);
+    throw new MultipartBlobStageError(
+      "Blob sha256 does not match multipart upload",
+      409,
+    );
+  }
+}
+
+// Idempotent recovery for a retry after the object was assembled but the state
+// flip never committed (byte commit + row flip can't share a transaction). The
+// uploadId is consumed, so completeMultipartUpload throws not_found. If the
+// object survives, RE-VALIDATE its bytes before converging: a prior attempt may
+// have assembled a mismatched object and crashed before deleting it, so
+// existence alone must not bypass the size/digest check. Rethrows when the error
+// is not a recoverable not_found or no object is present.
+async function recoverCompletedMultipartStage(
+  runtime: ApiServiceRuntime,
+  stage: LoadedMultipartBlobStage,
+  error: unknown,
+): Promise<CompleteMultipartBlobStageResponse> {
+  if (!(error instanceof BlobObjectStoreError) || error.code !== "not_found") {
+    throw error;
+  }
+  const existing = await runtime.blobObjectStore.getObjectStream(
+    stage.record.storageKey,
+  );
+  if (!existing) {
+    throw error;
+  }
+  const assembled = await summarizeSha256Stream(existing);
+  await assertCompletedMultipartObjectMatches(runtime, stage, assembled);
+  await markMultipartStageComplete(runtime, stage);
+  return multipartStageCompleteResponse(stage);
+}
+
 export async function completeMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: AuthenticatedMultipartBlobStageInput &
@@ -435,42 +489,10 @@ export async function completeMultipartBlobStage(
         uploadId: stage.record.uploadId,
       });
     } catch (error) {
-      // completeMultipartUpload destroys the uploadId once it assembles the
-      // object, so a retry after a prior attempt assembled the bytes but
-      // crashed before markMultipartStageComplete committed (the byte commit and
-      // the row flip cannot share a transaction) hits not_found and would
-      // otherwise wedge the upload until the stage TTL expires. completeMultipart
-      // is the sole writer to this key and any sha/byteLength mismatch is deleted
-      // below, so a surviving object is an already-validated one: converge the
-      // still-pending record to complete instead of failing forever.
-      if (error instanceof BlobObjectStoreError && error.code === "not_found") {
-        const existing = await runtime.blobObjectStore.getObjectStream(
-          stage.record.storageKey,
-        );
-        if (existing) {
-          await existing.cancel();
-          await markMultipartStageComplete(runtime, stage);
-          return multipartStageCompleteResponse(stage);
-        }
-      }
-      throw error;
+      return await recoverCompletedMultipartStage(runtime, stage, error);
     }
 
-    if (completed.byteLength !== stage.byteLength) {
-      await runtime.blobObjectStore.deleteObject(stage.record.storageKey);
-      throw new MultipartBlobStageError(
-        "Blob byteLength does not match multipart upload",
-        409,
-      );
-    }
-    if (completed.sha256 !== stage.sha256) {
-      await runtime.blobObjectStore.deleteObject(stage.record.storageKey);
-      throw new MultipartBlobStageError(
-        "Blob sha256 does not match multipart upload",
-        409,
-      );
-    }
-
+    await assertCompletedMultipartObjectMatches(runtime, stage, completed);
     await markMultipartStageComplete(runtime, stage);
     return multipartStageCompleteResponse(stage);
   } catch (error) {
