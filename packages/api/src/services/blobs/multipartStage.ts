@@ -40,7 +40,7 @@ interface LoadedMultipartBlobStage {
   readonly sha256: string;
 }
 
-interface CleanupExpiredBlobStagesInput {
+export interface CleanupExpiredBlobStagesInput {
   readonly limit?: number | undefined;
   readonly now?: Date | undefined;
 }

@@ -17,7 +17,7 @@ import {
   encodeExternalBlobBytesRef,
   readMultipartBlobStageRecord,
 } from "../../../utils/blobStageRecords";
-import { nowExpression } from "../../../utils/sqlDialect";
+import { isSqliteApiDatabase, nowExpression } from "../../../utils/sqlDialect";
 import {
   BlobMutationError,
   type PrevalidatedMultipartBlobStage,
@@ -94,11 +94,20 @@ async function ensureBlobExists(input: {
   readonly blobId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
-  const [blob] = await input.executor
+  // FOR UPDATE on the existing blob row serializes this bind against the blob GC
+  // sweep, which locks the same row before hard-deleting a dereferenced blob.
+  // Holding the lock before the binding insert below means a concurrent reclaim
+  // either blocks until this bind commits (and then sees the blob referenced and
+  // revives it) or commits first (and this query then finds the blob gone and
+  // fails closed) — so a bind can never re-reference a blob being reclaimed.
+  const lockQuery = input.executor
     .select({ id: blobs.id })
     .from(blobs)
     .where(eq(blobs.id, input.blobId))
     .limit(1);
+  const [blob] = isSqliteApiDatabase()
+    ? await lockQuery
+    : await lockQuery.for("update");
   if (!blob) {
     throw new BlobMutationError("Blob not found", 404);
   }
