@@ -18,6 +18,7 @@ import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
+import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
@@ -91,10 +92,10 @@ interface ExplorerDetailPanelProps {
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
   blobStore: BlobStore;
-  canActivateSelectedDocument: boolean;
+  canActivateLinkedContainer: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
-  canUnlinkSelectedDocument: boolean;
+  canMutateDocumentLinks: boolean;
   // The open row context menu's target, so the container listing can keep the
   // right-clicked row highlighted while the menu is open (it does not select).
   contextTarget: ExplorerContextMenuTarget | null;
@@ -105,12 +106,14 @@ interface ExplorerDetailPanelProps {
   currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  documentSummaries: ReadonlyArray<DocumentSummary>;
   domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
-  linkedContainerIds: ReadonlyArray<string>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   // Pick mode for the blob-browser route: set when "Choose Blob" on a document
@@ -236,15 +239,29 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   }
 
   if (route.view === "document-info") {
+    const fallbackDocumentSummary =
+      selectedDocument?.id === route.localId
+        ? selectedDocument
+        : (getDocumentByLocalId(params.documentSummaries, route.localId) ??
+          null);
+
     return (
       <ExplorerDocumentInfoPanel
+        activateLinkedContainer={params.activateLinkedContainer}
+        canActivateLinkedContainer={params.canActivateLinkedContainer}
+        canMutateDocumentLinks={params.canMutateDocumentLinks}
         containerId={route.containerId}
-        documentTitle={selectedDocument?.title}
+        documentTitle={fallbackDocumentSummary?.title}
+        fallbackDocumentSummary={fallbackDocumentSummary}
+        linkedContainerIdsByDocumentId={params.linkedContainerIdsByDocumentId}
         loadDocumentInfo={params.loadDocumentInfo}
+        loadDocumentSummary={params.loadDocumentSummary}
         localId={route.localId}
         nodes={params.nodes}
         onBackToDocument={params.onBackToSelectionRoute}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
+        setSelectedId={params.setSelectedId}
+        unlinkDocument={params.unlinkDocument}
       />
     );
   }
@@ -256,14 +273,10 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   if (selectedDocument) {
     return (
       <ExplorerDocumentDetail
-        activateLinkedContainer={params.activateLinkedContainer}
-        canActivateSelectedDocument={params.canActivateSelectedDocument}
         canLinkSelectedDocument={params.canLinkSelectedDocument}
         canMoveSelectedDocument={params.canMoveSelectedDocument}
-        canUnlinkSelectedDocument={params.canUnlinkSelectedDocument}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
-        linkedContainerIds={params.linkedContainerIds}
         nodes={params.nodes}
         online={params.online}
         openLinkDocumentModal={params.openLinkDocumentModal}
@@ -272,7 +285,6 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         refreshError={params.refreshError}
         selectedDocument={selectedDocument}
         setSelectedId={params.setSelectedId}
-        unlinkDocument={params.unlinkDocument}
       />
     );
   }

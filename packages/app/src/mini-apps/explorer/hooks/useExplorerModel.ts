@@ -1,4 +1,7 @@
-import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
+import type {
+  ContainerDocumentQueries,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import { type ReactNode, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { getContactsContainerId } from "../../../stores/contacts/useContactsCriticalNodesBootstrap";
@@ -29,6 +32,7 @@ interface ExplorerModel {
   canLinkSelectedDocument: boolean;
   canMoveContextMenuDocument: boolean;
   canMoveSelectedDocument: boolean;
+  canMutateDocumentLinks: boolean;
   canPurgeContextMenuDocument: boolean;
   canPurgeSelectedDocument: boolean;
   canUnlinkSelectedDocument: boolean;
@@ -37,6 +41,7 @@ interface ExplorerModel {
   purgeDocument: ExplorerPanelState["purgeDocument"];
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  documentSummaries: ReadonlyArray<DocumentSummary>;
   explorer: ExplorerModelExplorer;
   handleRefresh: () => Promise<boolean>;
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
@@ -44,7 +49,8 @@ interface ExplorerModel {
   isRefreshing: boolean;
   loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
   loadDocumentInfo: ExplorerPanelState["loadDocumentInfo"];
-  linkedContainerIds: ReadonlyArray<string>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   modalState: ExplorerPanelState["modalState"];
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
@@ -117,6 +123,7 @@ export function useExplorerModel(
     });
   const {
     activateLinkedContainer,
+    canMutateDocumentLinks,
     contextMenuState,
     deleteDocument,
     importDroppedFiles,
@@ -182,6 +189,7 @@ export function useExplorerModel(
       contextMenuDocumentState.canLinkContextMenuDocument,
     canMoveContextMenuDocument:
       contextMenuDocumentState.canMoveContextMenuDocument,
+    canMutateDocumentLinks,
     canPurgeContextMenuDocument:
       contextMenuDocumentState.canPurgeContextMenuDocument,
     contextMenuState,
@@ -189,6 +197,7 @@ export function useExplorerModel(
     purgeDocument,
     documentListRevision,
     documentQueries,
+    documentSummaries,
     explorer,
     handleRefresh,
     importDroppedFiles,
@@ -196,7 +205,8 @@ export function useExplorerModel(
     isRefreshing,
     loadContainerInfo,
     loadDocumentInfo,
-    linkedContainerIds: selectedDocumentLinkedContainerIds,
+    loadDocumentSummary,
+    linkedContainerIdsByDocumentId,
     modalState,
     openInlineDocument,
     peerUserId,

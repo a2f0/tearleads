@@ -88,6 +88,7 @@ const explorerDroppedFileImportLabels: ExplorerDroppedFileImportLabels = {
 
 export interface ExplorerPanelState {
   activateLinkedContainer: ExplorerDocumentMutationAction;
+  canMutateDocumentLinks: boolean;
   contextMenuState: ExplorerContextMenuModel;
   deleteDocument: ExplorerDocumentMutationAction;
   importDroppedFiles: ImportExplorerDroppedFiles;
@@ -349,6 +350,7 @@ export function useExplorerPanelState(params: {
 
   return {
     activateLinkedContainer: selectedNoteStructuralState.activateLinkedDocument,
+    canMutateDocumentLinks: explorerDocumentLinks.canMutateDocumentLinks,
     contextMenuState,
     deleteDocument,
     importDroppedFiles,
