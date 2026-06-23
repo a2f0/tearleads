@@ -48,31 +48,44 @@ echo "Generating favicons from $SVG_SOURCE into $OUTPUT_DIR"
 cp "$SVG_SOURCE" "$OUTPUT_DIR/favicon.svg"
 echo "  Created $OUTPUT_DIR/favicon.svg"
 
-# Render the logo centered (with padding) on an opaque background at one size.
+# Render the logo centered (with padding) at one size. With opaque=true the
+# logo is flattened onto BACKGROUND_COLOR (required for the apple-touch icon,
+# which does not support transparency); otherwise transparency is preserved so
+# the icon adapts to light/dark browser tabs.
 render_png() {
   size=$1
   output=$2
+  opaque=${3:-false}
 
   logo_size=$((size * 80 / 100))
   density=$((logo_size * 72 / SVG_VIEWBOX))
 
-  $MAGICK_CMD -background none -density "$density" "$SVG_SOURCE" \
-    -resize "${logo_size}x${logo_size}" \
-    -background "$BACKGROUND_COLOR" -gravity center -extent "${size}x${size}" \
-    -alpha remove -alpha off \
-    -depth 8 -colorspace sRGB -type TrueColor \
-    "$output"
+  if [ "$opaque" = "true" ]; then
+    $MAGICK_CMD -background none -density "$density" "$SVG_SOURCE" \
+      -resize "${logo_size}x${logo_size}" \
+      -background "$BACKGROUND_COLOR" -gravity center -extent "${size}x${size}" \
+      -alpha remove -alpha off \
+      -depth 8 -colorspace sRGB -type TrueColor \
+      "$output"
+  else
+    $MAGICK_CMD -background none -density "$density" "$SVG_SOURCE" \
+      -resize "${logo_size}x${logo_size}" \
+      -background none -gravity center -extent "${size}x${size}" \
+      -depth 8 -colorspace sRGB -type TrueColorAlpha \
+      "$output"
+  fi
 }
 
-# Legacy multi-resolution ICO: render a crisp master, then pack 16/32/48.
+# Legacy multi-resolution ICO: render a crisp transparent master, then pack
+# 16/32/48 so the icon stays transparent (no white box in dark-mode tabs).
 ico_master="$OUTPUT_DIR/.favicon-master.png"
 render_png 256 "$ico_master"
 $MAGICK_CMD "$ico_master" -define icon:auto-resize=48,32,16 "$OUTPUT_DIR/favicon.ico"
 rm -f "$ico_master"
 echo "  Created $OUTPUT_DIR/favicon.ico (16/32/48)"
 
-# iOS / Safari home-screen icon (no transparency).
-render_png 180 "$OUTPUT_DIR/apple-touch-icon.png"
+# iOS / Safari home-screen icon (opaque; iOS does not support transparency).
+render_png 180 "$OUTPUT_DIR/apple-touch-icon.png" true
 echo "  Created $OUTPUT_DIR/apple-touch-icon.png (180x180)"
 
 echo "Done."

@@ -32,10 +32,10 @@ const file = process.env.FAVICON_INDEX;
 const html = await Bun.file(file).text();
 if (html.includes("/favicon.svg")) process.exit(0);
 const links =
-  "<link rel=\"icon\" href=\"/favicon.ico\" sizes=\"48x48\" />" +
+  "<link rel=\"icon\" href=\"/favicon.ico\" sizes=\"any\" />" +
   "<link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\" />" +
   "<link rel=\"apple-touch-icon\" href=\"/apple-touch-icon.png\" />";
-const out = html.replace("</head>", links + "</head>");
+const out = html.replace(/<\/head>/i, links + "</head>");
 if (out === html) throw new Error("No </head> found in " + file);
 await Bun.write(file, out);
 '
