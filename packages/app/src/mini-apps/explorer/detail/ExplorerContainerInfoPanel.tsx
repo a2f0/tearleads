@@ -133,7 +133,6 @@ function ContainerInfoRemoteStatus(params: {
   containerInfo: ContainerInfo | null;
   containerInfoError: string | null;
   isLoadingContainerInfo: boolean;
-  showNoRemoteInfo?: boolean | undefined;
 }) {
   if (params.isLoadingContainerInfo && !params.containerInfo) {
     return (
@@ -144,12 +143,6 @@ function ContainerInfoRemoteStatus(params: {
   if (params.containerInfoError) {
     return (
       <MiniAppStatus tone="error">{params.containerInfoError}</MiniAppStatus>
-    );
-  }
-
-  if (params.showNoRemoteInfo && !params.containerInfo?.remoteInfo) {
-    return (
-      <MiniAppStatus>{EXPLORER_LABELS.containerInfoNoRemoteInfo}</MiniAppStatus>
     );
   }
 
@@ -190,12 +183,11 @@ function ExplorerContainerInfoTabPanel(params: {
         />
       ) : null}
       {params.activeTab !== "general" && !remoteInfo ? (
-        <ContainerInfoRemoteStatus
-          containerInfo={params.containerInfo}
-          containerInfoError={params.containerInfoError}
-          isLoadingContainerInfo={params.isLoadingContainerInfo}
-          showNoRemoteInfo
-        />
+        params.isLoadingContainerInfo || params.containerInfoError ? null : (
+          <MiniAppStatus>
+            {EXPLORER_LABELS.containerInfoNoRemoteInfo}
+          </MiniAppStatus>
+        )
       ) : null}
       {params.activeTab === "sharing" && remoteInfo ? (
         <>
@@ -273,13 +265,11 @@ export function ExplorerContainerInfoPanel(params: Props) {
           idPrefix={tabIdPrefix}
           setActiveTab={setActiveTab}
         />
-        {activeTab === "general" ? (
-          <ContainerInfoRemoteStatus
-            containerInfo={containerInfo}
-            containerInfoError={containerInfoError}
-            isLoadingContainerInfo={isLoadingContainerInfo}
-          />
-        ) : null}
+        <ContainerInfoRemoteStatus
+          containerInfo={containerInfo}
+          containerInfoError={containerInfoError}
+          isLoadingContainerInfo={isLoadingContainerInfo}
+        />
         <ExplorerContainerInfoTabPanel
           activeTab={activeTab}
           containerId={params.containerId}
