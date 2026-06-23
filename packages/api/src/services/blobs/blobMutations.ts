@@ -21,16 +21,18 @@ export { BlobMutationError } from "../../workflows/blobs/mutations";
 function listBlobKekTargetContainerIds(
   blobKekTargets: BlobAttachmentBindResponse["blobKekTargets"],
 ): string[] {
-  return [
-    ...new Set(
-      blobKekTargets.targets
-        .flatMap((target) => {
-          const containerId = Reflect.get(target, "containerId");
-          return typeof containerId === "string" ? [containerId] : [];
-        })
-        .sort(),
-    ),
-  ];
+  const targets = Array.isArray(blobKekTargets?.targets)
+    ? blobKekTargets.targets
+    : [];
+  const containerIds = targets.flatMap((target) => {
+    const containerId =
+      typeof target === "object" && target !== null
+        ? Reflect.get(target, "containerId")
+        : null;
+    return typeof containerId === "string" ? [containerId] : [];
+  });
+
+  return [...new Set(containerIds)].sort();
 }
 
 export function createAttachmentBindDocumentEvent(

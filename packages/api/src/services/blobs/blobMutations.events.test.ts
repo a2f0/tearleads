@@ -9,6 +9,7 @@ test("attachment bind document events are scoped to sorted unique containers", (
       { containerId: "container-a" },
       { containerId: "container-b" },
       { ignored: true },
+      null,
     ],
   } as unknown as BlobAttachmentBindResponse["blobKekTargets"];
 
@@ -20,6 +21,19 @@ test("attachment bind document events are scoped to sorted unique containers", (
   ).toEqual({
     type: "document_update_created",
     containerIds: ["container-a", "container-b"],
+    documentId: "document-1",
+  });
+});
+
+test("attachment bind document events ignore malformed target lists", () => {
+  expect(
+    createAttachmentBindDocumentEvent({
+      blobKekTargets: {} as BlobAttachmentBindResponse["blobKekTargets"],
+      documentId: "document-1",
+    }),
+  ).toEqual({
+    type: "document_update_created",
+    containerIds: [],
     documentId: "document-1",
   });
 });

@@ -46,7 +46,10 @@ export function resolveRouteAppDeps({
       ? runtimeBase
       : {
           ...runtimeBase,
-          eventPublisher: { publish: resolvedPublish },
+          eventPublisher: {
+            ...runtimeBase.eventPublisher,
+            publish: resolvedPublish,
+          },
         };
   return {
     destroySession: destroySession ?? defaultDestroySession,

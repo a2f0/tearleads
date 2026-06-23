@@ -94,9 +94,7 @@ function shouldHydrateAttachment(input: {
   }
 
   const localBlobId = input.localBlobIdBySlotId?.[slotId];
-  return (
-    typeof localBlobId === "string" && localBlobId !== input.binding.blobId
-  );
+  return localBlobId !== null && localBlobId !== input.binding.blobId;
 }
 
 async function loadDocumentAttachmentBlob(

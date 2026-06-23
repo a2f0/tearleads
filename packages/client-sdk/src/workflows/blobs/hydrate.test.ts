@@ -166,31 +166,48 @@ async function createUploadedAttachmentFixture() {
   };
 }
 
+type UploadedAttachmentFixture = Awaited<
+  ReturnType<typeof createUploadedAttachmentFixture>
+>;
+type HydrationApi = Parameters<
+  typeof hydrateDocumentAttachmentBlobs
+>[0]["apiClient"];
+
+function createFixtureBinding(fixture: UploadedAttachmentFixture) {
+  return {
+    bindingId: fixture.bindingId,
+    blobId: fixture.blobId,
+    contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
+    slotId: fixture.attachment.slotId,
+  };
+}
+
+function createSingleAttachmentHydrationApi(
+  fixture: UploadedAttachmentFixture,
+  getBlobBytes: HydrationApi["getBlobBytes"],
+): HydrationApi {
+  return {
+    getBlobBytes,
+    getDocumentWriterProjection: async () => fixture.writerProjection,
+    listDocumentAttachments: async () => [createFixtureBinding(fixture)],
+  };
+}
+
 test("hydrateDocumentAttachmentBlobs downloads and decrypts remote attachment bytes", async () => {
   const fixture = await createUploadedAttachmentFixture();
   let streamedChunks = 0;
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: {
-      getBlobBytes: async (blobId) =>
-        createBlobBytesResponse({
-          blobId,
-          encryptedBytes: fixture.stagedBlob.encryptedBytes,
-          onChunk: () => {
-            streamedChunks += 1;
-          },
-          sha256: fixture.stagedBlob.sha256,
-        }),
-      getDocumentWriterProjection: async () => fixture.writerProjection,
-      listDocumentAttachments: async () => [
-        {
-          bindingId: fixture.bindingId,
-          blobId: fixture.blobId,
-          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
-          slotId: fixture.attachment.slotId,
+    apiClient: createSingleAttachmentHydrationApi(fixture, async (blobId) =>
+      createBlobBytesResponse({
+        blobId,
+        encryptedBytes: fixture.stagedBlob.encryptedBytes,
+        onChunk: () => {
+          streamedChunks += 1;
         },
-      ],
-    },
+        sha256: fixture.stagedBlob.sha256,
+      }),
+    ),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
@@ -217,21 +234,10 @@ test("hydrateDocumentAttachmentBlobs skips locally current attachment bytes", as
   let blobByteReads = 0;
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: {
-      getBlobBytes: async () => {
-        blobByteReads += 1;
-        return null;
-      },
-      getDocumentWriterProjection: async () => fixture.writerProjection,
-      listDocumentAttachments: async () => [
-        {
-          bindingId: fixture.bindingId,
-          blobId: fixture.blobId,
-          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
-          slotId: fixture.attachment.slotId,
-        },
-      ],
-    },
+    apiClient: createSingleAttachmentHydrationApi(fixture, async () => {
+      blobByteReads += 1;
+      return null;
+    }),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
     localBlobIdBySlotId: {
@@ -253,21 +259,10 @@ test("hydrateDocumentAttachmentBlobs preserves pending local attachment bytes", 
   let blobByteReads = 0;
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: {
-      getBlobBytes: async () => {
-        blobByteReads += 1;
-        return null;
-      },
-      getDocumentWriterProjection: async () => fixture.writerProjection,
-      listDocumentAttachments: async () => [
-        {
-          bindingId: fixture.bindingId,
-          blobId: fixture.blobId,
-          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
-          slotId: fixture.attachment.slotId,
-        },
-      ],
-    },
+    apiClient: createSingleAttachmentHydrationApi(fixture, async () => {
+      blobByteReads += 1;
+      return null;
+    }),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
     localBlobIdBySlotId: {
@@ -284,31 +279,51 @@ test("hydrateDocumentAttachmentBlobs preserves pending local attachment bytes", 
   expect(blobByteReads).toBe(0);
 });
 
+test("hydrateDocumentAttachmentBlobs refreshes unknown same-slot blob bytes", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  let streamedChunks = 0;
+
+  const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
+    apiClient: createSingleAttachmentHydrationApi(fixture, async (blobId) =>
+      createBlobBytesResponse({
+        blobId,
+        encryptedBytes: fixture.stagedBlob.encryptedBytes,
+        onChunk: () => {
+          streamedChunks += 1;
+        },
+        sha256: fixture.stagedBlob.sha256,
+      }),
+    ),
+    attachments: [fixture.attachment],
+    documentId: fixture.writerProjection.documentId,
+    localStorageKeyBySlotId: {
+      [fixture.attachment.slotId]: "blob-unknown",
+    },
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    targetSecretKey: fixture.secretKey,
+  });
+  const [hydratedBlob] = hydratedBlobs ?? [];
+
+  expect(hydratedBlob?.binding.blobId).toBe(fixture.blobId);
+  expect(hydratedBlob?.storageKey).toBe(`blob-${fixture.blobId}`);
+  expect(streamedChunks).toBeGreaterThan(1);
+});
+
 test("hydrateDocumentAttachmentBlobs refreshes stale same-slot blob bytes", async () => {
   const fixture = await createUploadedAttachmentFixture();
   let streamedChunks = 0;
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: {
-      getBlobBytes: async (blobId) =>
-        createBlobBytesResponse({
-          blobId,
-          encryptedBytes: fixture.stagedBlob.encryptedBytes,
-          onChunk: () => {
-            streamedChunks += 1;
-          },
-          sha256: fixture.stagedBlob.sha256,
-        }),
-      getDocumentWriterProjection: async () => fixture.writerProjection,
-      listDocumentAttachments: async () => [
-        {
-          bindingId: fixture.bindingId,
-          blobId: fixture.blobId,
-          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
-          slotId: fixture.attachment.slotId,
+    apiClient: createSingleAttachmentHydrationApi(fixture, async (blobId) =>
+      createBlobBytesResponse({
+        blobId,
+        encryptedBytes: fixture.stagedBlob.encryptedBytes,
+        onChunk: () => {
+          streamedChunks += 1;
         },
-      ],
-    },
+        sha256: fixture.stagedBlob.sha256,
+      }),
+    ),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
     localBlobIdBySlotId: {
@@ -409,25 +424,13 @@ test("hydrateDocumentAttachmentBlobs skips blobs with a digest mismatch", async 
   const logs: string[] = [];
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: {
-      getBlobBytes: async (blobId) =>
-        createBlobBytesResponse({
-          blobId,
-          encryptedBytes: fixture.stagedBlob.encryptedBytes,
-          sha256: "bad-sha256",
-        }),
-      getDocumentWriterProjection: async () => {
-        throw new Error("Unexpected writer projection lookup");
-      },
-      listDocumentAttachments: async () => [
-        {
-          bindingId: fixture.bindingId,
-          blobId: fixture.blobId,
-          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
-          slotId: fixture.attachment.slotId,
-        },
-      ],
-    },
+    apiClient: createSingleAttachmentHydrationApi(fixture, async (blobId) =>
+      createBlobBytesResponse({
+        blobId,
+        encryptedBytes: fixture.stagedBlob.encryptedBytes,
+        sha256: "bad-sha256",
+      }),
+    ),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
     log: (message) => logs.push(message),
@@ -446,26 +449,14 @@ test("hydrateDocumentAttachmentBlobs skips blobs with a byte length mismatch", a
   const logs: string[] = [];
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
-    apiClient: {
-      getBlobBytes: async (blobId) =>
-        createBlobBytesResponse({
-          blobId,
-          byteLength: fixture.stagedBlob.byteLength + 1,
-          encryptedBytes: fixture.stagedBlob.encryptedBytes,
-          sha256: fixture.stagedBlob.sha256,
-        }),
-      getDocumentWriterProjection: async () => {
-        throw new Error("Unexpected writer projection lookup");
-      },
-      listDocumentAttachments: async () => [
-        {
-          bindingId: fixture.bindingId,
-          blobId: fixture.blobId,
-          contentKeyBundle: fixture.uploaded.response.contentKeyBundle,
-          slotId: fixture.attachment.slotId,
-        },
-      ],
-    },
+    apiClient: createSingleAttachmentHydrationApi(fixture, async (blobId) =>
+      createBlobBytesResponse({
+        blobId,
+        byteLength: fixture.stagedBlob.byteLength + 1,
+        encryptedBytes: fixture.stagedBlob.encryptedBytes,
+        sha256: fixture.stagedBlob.sha256,
+      }),
+    ),
     attachments: [fixture.attachment],
     documentId: fixture.writerProjection.documentId,
     log: (message) => logs.push(message),
