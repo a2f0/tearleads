@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import { createDomainScope } from "../../data/domainScope";
 import {
-  didRegainContainerContentsSyncPrerequisites,
-  isDestroyedContainerContentsSyncRuntimeError,
-  registerContainerContentsSyncLane,
-} from "./syncLane";
+  didRegainSyncPrerequisites,
+  isDestroyedDatabaseClientError,
+  type SyncRuntimeStatus,
+} from "../../data/sync/syncCoordinator";
+import { registerContainerContentsSyncLane } from "./syncLane";
 
 function flushSyncLane() {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -32,8 +33,8 @@ test("registerContainerContentsSyncLane registers the container contents lane fo
   expect(calls).toEqual(["second"]);
 });
 
-test("didRegainContainerContentsSyncPrerequisites detects restored sync inputs", () => {
-  const runtime = {
+test("didRegainSyncPrerequisites detects restored sync inputs", () => {
+  const runtime: SyncRuntimeStatus = {
     auth: {
       isAuthenticated: false,
     },
@@ -45,11 +46,9 @@ test("didRegainContainerContentsSyncPrerequisites detects restored sync inputs",
     },
   };
 
-  expect(didRegainContainerContentsSyncPrerequisites(runtime, runtime)).toBe(
-    false,
-  );
+  expect(didRegainSyncPrerequisites(runtime, runtime)).toBe(false);
   expect(
-    didRegainContainerContentsSyncPrerequisites(runtime, {
+    didRegainSyncPrerequisites(runtime, {
       ...runtime,
       state: {
         online: true,
@@ -57,7 +56,7 @@ test("didRegainContainerContentsSyncPrerequisites detects restored sync inputs",
     }),
   ).toBe(true);
   expect(
-    didRegainContainerContentsSyncPrerequisites(runtime, {
+    didRegainSyncPrerequisites(runtime, {
       ...runtime,
       auth: {
         isAuthenticated: true,
@@ -65,7 +64,7 @@ test("didRegainContainerContentsSyncPrerequisites detects restored sync inputs",
     }),
   ).toBe(true);
   expect(
-    didRegainContainerContentsSyncPrerequisites(runtime, {
+    didRegainSyncPrerequisites(runtime, {
       ...runtime,
       crypto: {
         encapsulationKeyPair: {},
@@ -74,20 +73,16 @@ test("didRegainContainerContentsSyncPrerequisites detects restored sync inputs",
   ).toBe(true);
 });
 
-test("isDestroyedContainerContentsSyncRuntimeError follows wrapped database errors", () => {
+test("isDestroyedDatabaseClientError follows wrapped database errors", () => {
+  expect(isDestroyedDatabaseClientError(new Error("DB has been closed."))).toBe(
+    true,
+  );
   expect(
-    isDestroyedContainerContentsSyncRuntimeError(
-      new Error("DB has been closed."),
-    ),
-  ).toBe(true);
-  expect(
-    isDestroyedContainerContentsSyncRuntimeError(
+    isDestroyedDatabaseClientError(
       new Error("outer", {
         cause: new Error("Database worker client has been destroyed."),
       }),
     ),
   ).toBe(true);
-  expect(isDestroyedContainerContentsSyncRuntimeError(new Error("other"))).toBe(
-    false,
-  );
+  expect(isDestroyedDatabaseClientError(new Error("other"))).toBe(false);
 });

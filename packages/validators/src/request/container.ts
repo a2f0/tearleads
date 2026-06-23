@@ -8,21 +8,19 @@ import {
   isRecordArray,
 } from "../util";
 
-export interface ContainerManifestBundle extends AccessManifestBundleWire {}
-
 export interface ContainerMutationRequest {
   event: Record<string, unknown>;
   body: unknown;
   expectedManifestHash: string;
   manifest: Record<string, unknown>;
-  previousManifest?: ContainerManifestBundle | null;
-  previousContainerPath?: ContainerManifestBundle[];
-  parentContainerPath?: ContainerManifestBundle[];
-  destinationParentContainerPath?: ContainerManifestBundle[];
+  previousManifest?: AccessManifestBundleWire | null;
+  previousContainerPath?: AccessManifestBundleWire[];
+  parentContainerPath?: AccessManifestBundleWire[];
+  destinationParentContainerPath?: AccessManifestBundleWire[];
   principalPolicies?: Record<string, unknown>[];
   keyEpoch: Record<string, unknown>;
   wraps: Record<string, unknown>[];
-  containerManifestHistory?: ContainerManifestBundle[];
+  containerManifestHistory?: AccessManifestBundleWire[];
   parentKekState?: Record<string, unknown> | null;
   userRecipientKeys?: Record<string, unknown>[];
 }

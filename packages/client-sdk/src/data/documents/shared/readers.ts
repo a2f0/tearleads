@@ -115,12 +115,19 @@ export function targetKey(target: DocumentContentKeyTarget): string {
   ].join(":");
 }
 
+export function sortTargets<T>(
+  targets: readonly T[],
+  keyOf: (target: T) => string,
+): T[] {
+  return [...targets].sort((left, right) =>
+    keyOf(left).localeCompare(keyOf(right)),
+  );
+}
+
 export function sortDocumentTargets<T extends DocumentContentKeyTarget>(
   targets: readonly T[],
 ): T[] {
-  return [...targets].sort((left, right) =>
-    targetKey(left).localeCompare(targetKey(right)),
-  );
+  return sortTargets(targets, targetKey);
 }
 
 export function errorMessage(error: unknown): string {

@@ -9,7 +9,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type { ContainerManifestBundle } from "@tearleads/validators/request";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
@@ -67,7 +67,7 @@ export function getParentCreateContext(
 
 export function asContainerManifestBundle(
   bundle: ContainerWriterProjectionResponse["path"][number],
-): ContainerManifestBundle {
+): AccessManifestBundleWire {
   return readCanonicalManifestBundle(bundle, "Container manifest bundle");
 }
 

@@ -6,7 +6,7 @@ import {
   type DocumentsPersistence,
   defaultDocumentsPersistence,
   didDocumentProjectionKeyRuntimeChange,
-  didRegainDocumentSyncPrerequisites,
+  didRegainSyncPrerequisites,
 } from "../../workflows/documents";
 import {
   attachFilesToDocumentStore,
@@ -94,7 +94,7 @@ function updateDocumentStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainDocumentSyncPrerequisites(previousRuntime, state.runtime)
+    didRegainSyncPrerequisites(previousRuntime, state.runtime)
   ) {
     scheduleSync();
   }

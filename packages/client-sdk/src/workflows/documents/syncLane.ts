@@ -1,24 +1,16 @@
 import type { DomainScope } from "../../data/domainScope";
 import {
-  didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 
-export type DocumentSyncLane = SyncLane;
+export { sequenceUnchanged } from "../../data/sync/sequence";
+// Facade re-exports: document stores must reach these shared sync helpers
+// through this workflow boundary, not by importing data/sync directly.
+export { isDestroyedDatabaseClientError } from "../../data/sync/syncCoordinator";
 
-interface DocumentSyncPrerequisiteRuntime {
-  readonly auth: {
-    readonly isAuthenticated: boolean;
-  };
-  readonly crypto: {
-    readonly encapsulationKeyPair: unknown;
-  };
-  readonly state: {
-    readonly online: boolean;
-  };
-}
+export type DocumentSyncLane = SyncLane;
 
 export function registerDocumentSyncLane(input: {
   readonly domainScope: DomainScope;
@@ -34,18 +26,7 @@ export function registerDocumentSyncLane(input: {
       },
       phase: "document",
       run: input.run,
-      shouldIgnoreError: isDestroyedDocumentSyncRuntimeError,
+      shouldIgnoreError: isDestroyedDatabaseClientError,
     },
   );
-}
-
-export function didRegainDocumentSyncPrerequisites(
-  previousRuntime: DocumentSyncPrerequisiteRuntime,
-  nextRuntime: DocumentSyncPrerequisiteRuntime,
-): boolean {
-  return didRegainSyncPrerequisites(previousRuntime, nextRuntime);
-}
-
-export function isDestroyedDocumentSyncRuntimeError(error: unknown): boolean {
-  return isDestroyedDatabaseClientError(error);
 }

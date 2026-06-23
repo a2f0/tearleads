@@ -28,7 +28,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
-  ContainerManifestBundle,
+  AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import {
@@ -51,7 +51,7 @@ import { routeApp } from "../../routeApp";
 
 interface RootFixture {
   readonly adminPolicy: VerifiedPrincipalPolicy;
-  readonly bundle: ContainerManifestBundle;
+  readonly bundle: AccessManifestBundleWire;
   readonly kekState: VerifiedContainerKekState;
 }
 
@@ -61,7 +61,7 @@ async function registerAndAuthenticate(user: TestUser): Promise<void> {
 }
 
 function asVerifiedContainerManifest(
-  bundle: ContainerManifestBundle,
+  bundle: AccessManifestBundleWire,
 ): VerifiedContainerAccessManifest {
   return bundle as unknown as VerifiedContainerAccessManifest;
 }
@@ -128,7 +128,7 @@ async function bootstrapRoot(owner: TestUser): Promise<RootFixture> {
   );
   const verified = await verifyContainerKekState({
     containerManifest: asVerifiedContainerManifest(
-      bundle as unknown as ContainerManifestBundle,
+      bundle as unknown as AccessManifestBundleWire,
     ),
     keyEpoch,
     parentKekState: null,
@@ -144,7 +144,7 @@ async function bootstrapRoot(owner: TestUser): Promise<RootFixture> {
 
   return {
     adminPolicy,
-    bundle: bundle as unknown as ContainerManifestBundle,
+    bundle: bundle as unknown as AccessManifestBundleWire,
     kekState: verified.value,
   };
 }
@@ -220,7 +220,7 @@ async function createSignedContainerEvent(input: {
   readonly body: ContainerAccessEventBody;
   readonly objectId: string;
   readonly organizationId: string;
-  readonly parentPath: readonly ContainerManifestBundle[];
+  readonly parentPath: readonly AccessManifestBundleWire[];
   readonly signer: TestUser;
 }): Promise<VerifiedAccessEvent> {
   const event = await signAccessEvent(
@@ -261,7 +261,7 @@ async function createSignedContainerEvent(input: {
 async function createManifestBundle(
   state: ContainerAccessManifestState,
   event: VerifiedAccessEvent,
-): Promise<ContainerManifestBundle> {
+): Promise<AccessManifestBundleWire> {
   const manifest = await deriveContainerAccessManifest(state);
 
   return {
@@ -274,7 +274,7 @@ async function createManifestBundle(
 
 function createContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;
-  readonly manifest: ContainerManifestBundle;
+  readonly manifest: AccessManifestBundleWire;
   readonly parentKekState: VerifiedContainerKekState;
 }): ContainerKeyEpoch {
   const manifest = asVerifiedContainerManifest(input.manifest);
@@ -308,7 +308,7 @@ function createContainerKeyWrap(input: {
 }
 
 async function loadCurrentPrincipalPolicies(
-  path: readonly ContainerManifestBundle[],
+  path: readonly AccessManifestBundleWire[],
 ): Promise<VerifiedPrincipalPolicy[]> {
   const references = path.flatMap(
     (bundle) =>
@@ -328,7 +328,7 @@ async function loadCurrentPrincipalPolicies(
 
 async function buildChildCreateRequest(input: {
   readonly containerId: string;
-  readonly parent: ContainerManifestBundle;
+  readonly parent: AccessManifestBundleWire;
   readonly parentKekState: VerifiedContainerKekState;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly signer: TestUser;

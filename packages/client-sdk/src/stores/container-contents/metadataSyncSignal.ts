@@ -13,9 +13,11 @@
  * the queued id when that id's sequence is unchanged at pass end. The sequence
  * is tracked per metadata document id (not a single global counter) so a remote
  * event for an unrelated container does not block clearing this one. Mirrors
- * the document store's `canClearRemoteUpdateSignalAfterSync` (the document store
- * is single-document, so it needs only one counter).
+ * the document store's `remoteUpdateSignalSeq` clear (the document store is
+ * single-document, so it needs only one counter).
  */
+
+import { sequenceUnchanged } from "../../workflows/container-contents/syncLane";
 
 /** Read an id's current enqueue sequence, defaulting to 0 when never queued. */
 export function readMetadataSyncSeq(
@@ -33,13 +35,6 @@ export function bumpMetadataSyncSeq(
   seqById.set(id, readMetadataSyncSeq(seqById, id) + 1);
 }
 
-function canClearMetadataSyncQueueAfterSync(
-  currentSignalSeq: number,
-  consumedSignalSeq: number,
-): boolean {
-  return currentSignalSeq === consumedSignalSeq;
-}
-
 /**
  * Delete `id` from the needs-sync queue only if no remote event re-queued that
  * specific id since `consumedSeqById` was snapshotted at pass entry.
@@ -51,7 +46,7 @@ export function clearMetadataSyncQueueIfUnchanged(input: {
   id: string;
 }): void {
   if (
-    canClearMetadataSyncQueueAfterSync(
+    sequenceUnchanged(
       readMetadataSyncSeq(input.seqById, input.id),
       input.consumedSeqById.get(input.id) ?? 0,
     )

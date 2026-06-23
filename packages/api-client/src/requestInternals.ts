@@ -8,8 +8,8 @@ import { isPrincipalPolicyStaleErrorResponse } from "@tearleads/validators/respo
 import type {
   ListContainerDocumentsOptions,
   ListContainersOptions,
-} from "./routes/containers";
-import type { RequestBody } from "./types";
+  RequestBody,
+} from "./types";
 
 /**
  * True when a sync response advances the document's write material past what a

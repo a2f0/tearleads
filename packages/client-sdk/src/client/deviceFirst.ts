@@ -1,3 +1,4 @@
+import { isDestroyedDatabaseClientError } from "../data/sync/syncCoordinator";
 import type { ContainerContentsStoreOptions } from "../stores/container-contents";
 import {
   getOrCreateLocalProjectionStore,
@@ -16,7 +17,6 @@ import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
-import { isDestroyedContainerContentsSyncRuntimeError } from "../workflows/container-contents/syncLane";
 import type { ContainerContents } from "./containerContents";
 import type { InternalRuntime } from "./workflowRuntime";
 
@@ -154,7 +154,7 @@ class DeviceFirstService implements DeviceFirst {
       refreshTree: async () => {
         await store.getContainerStore().refresh();
       },
-      isIgnorableError: isDestroyedContainerContentsSyncRuntimeError,
+      isIgnorableError: isDestroyedDatabaseClientError,
     };
   }
 }

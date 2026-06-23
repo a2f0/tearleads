@@ -5,7 +5,7 @@ import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
 } from "@tearleads/crypto";
-import type { ContainerManifestBundle } from "@tearleads/validators/request";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { readCanonicalRecord } from "../../keyingCanonicalJson";
 
 function readRecordValue(
@@ -66,7 +66,7 @@ function readRecordVersion(
 export function readCanonicalManifestBundle(
   value: unknown,
   label: string,
-): ContainerManifestBundle {
+): AccessManifestBundleWire {
   const record = readCanonicalRecord(value, label);
   return {
     event: readCanonicalRecord(

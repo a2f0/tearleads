@@ -1,15 +1,19 @@
 import { encodeVersionVector, importUpdates } from "@tearleads/loro";
+import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
   type DocumentSyncLane,
   deletePersistedDocument,
-  isDestroyedDocumentSyncRuntimeError,
   type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
   syncRemoteDocument,
 } from "../../../workflows/documents";
+import {
+  isDestroyedDatabaseClientError,
+  sequenceUnchanged,
+} from "../../../workflows/documents/syncLane";
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
 import {
@@ -159,27 +163,13 @@ function shouldSkipCleanScheduledDocumentSync(input: {
 function getDocumentUpdateEventDetails(
   event: unknown,
 ): { documentId: string; updateIds: readonly string[] | null } | null {
-  if (
-    typeof event !== "object" ||
-    event === null ||
-    !("type" in event) ||
-    event.type !== "document_update_created" ||
-    !("documentId" in event) ||
-    typeof event.documentId !== "string"
-  ) {
+  if (!isDocumentUpdateCreatedEvent(event)) {
     return null;
   }
 
-  const updateIds =
-    "updateIds" in event &&
-    Array.isArray(event.updateIds) &&
-    event.updateIds.every((updateId) => typeof updateId === "string")
-      ? event.updateIds
-      : null;
-
   return {
     documentId: event.documentId,
-    updateIds,
+    updateIds: event.updateIds ?? null,
   };
 }
 
@@ -278,7 +268,7 @@ export function canClearRemoteUpdateSignalAfterSync(
   currentSignalSeq: number,
   consumedSignalSeq: number,
 ): boolean {
-  return currentSignalSeq === consumedSignalSeq;
+  return sequenceUnchanged(currentSignalSeq, consumedSignalSeq);
 }
 
 async function finalizeDocumentSync(
@@ -439,7 +429,7 @@ async function runScheduledSyncIteration(state: DocumentStoreState) {
     await runDocumentSyncPass(state);
     return true;
   } catch (error) {
-    if (isDestroyedDocumentSyncRuntimeError(error)) {
+    if (isDestroyedDatabaseClientError(error)) {
       return false;
     }
 

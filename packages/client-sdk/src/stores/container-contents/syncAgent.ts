@@ -26,7 +26,7 @@ import {
 } from "../../workflows/container-contents/runtime";
 import {
   type ContainerContentsSyncLane,
-  isDestroyedContainerContentsSyncRuntimeError,
+  isDestroyedDatabaseClientError,
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
@@ -201,7 +201,7 @@ function requestRemoteHydration(input: {
       appliedRemoteContainerChange = changedCount > 0;
     })
     .catch((error: unknown) => {
-      if (isDestroyedContainerContentsSyncRuntimeError(error)) {
+      if (isDestroyedDatabaseClientError(error)) {
         return;
       }
 
@@ -295,7 +295,7 @@ function ensureContainerContentsStoreInitialized(input: {
   }).catch((error: unknown) => {
     state.initializePromise = null;
 
-    if (isDestroyedContainerContentsSyncRuntimeError(error)) {
+    if (isDestroyedDatabaseClientError(error)) {
       return;
     }
 

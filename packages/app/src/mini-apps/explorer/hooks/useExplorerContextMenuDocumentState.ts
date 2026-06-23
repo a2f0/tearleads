@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerContainerRulesContext } from "../containerRules";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
+import { getDocumentByLocalId } from "../documentSummaries";
 import {
   getDocumentLinkedContainerIds,
   getDocumentLinkTargetOptions,
@@ -106,7 +107,7 @@ export function useExplorerContextMenuDocumentState(params: {
     () =>
       targetLocalId === null
         ? undefined
-        : documentSummaries.find((document) => document.id === targetLocalId),
+        : getDocumentByLocalId(documentSummaries, targetLocalId),
     [documentSummaries, targetLocalId],
   );
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =

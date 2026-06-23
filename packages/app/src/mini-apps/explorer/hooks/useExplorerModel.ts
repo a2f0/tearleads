@@ -1,7 +1,4 @@
-import type {
-  ContainerDocumentQueries,
-  DocumentSummary,
-} from "@tearleads/client-sdk";
+import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
 import { type ReactNode, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { getContactsContainerId } from "../../../stores/contacts/useContactsCriticalNodesBootstrap";
@@ -48,7 +45,6 @@ interface ExplorerModel {
   loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
   loadDocumentInfo: ExplorerPanelState["loadDocumentInfo"];
   linkedContainerIds: ReadonlyArray<string>;
-  mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   modalState: ExplorerPanelState["modalState"];
   openInlineDocument: ExplorerPanelState["openInlineDocument"];
   peerUserId: string | null;
@@ -201,7 +197,6 @@ export function useExplorerModel(
     loadContainerInfo,
     loadDocumentInfo,
     linkedContainerIds: selectedDocumentLinkedContainerIds,
-    mergeDocumentSummary,
     modalState,
     openInlineDocument,
     peerUserId,

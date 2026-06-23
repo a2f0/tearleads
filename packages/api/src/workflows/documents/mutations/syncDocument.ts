@@ -71,13 +71,18 @@ function documentUpdateByteLength(update: DocumentOutgoingUpdate): number {
   return Buffer.byteLength(update.encryptedData, "utf8");
 }
 
-async function ensureWritableDocument(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
-  readonly executor: DatabaseTransaction;
-  readonly userId: string;
-}): Promise<void> {
+type ContainerProjectionResolver = typeof resolveContainerWriterProjection;
+
+async function ensureDocumentAccess(
+  input: {
+    readonly currentTargets: Awaited<
+      ReturnType<typeof resolveCurrentDocumentKekTargets>
+    >;
+    readonly executor: DatabaseTransaction;
+    readonly userId: string;
+  },
+  resolver: ContainerProjectionResolver,
+): Promise<void> {
   const containerProjectionContext = createContainerWriterProjectionContext(
     input.executor,
   );
@@ -86,44 +91,7 @@ async function ensureWritableDocument(input: {
     input.currentTargets.targets.map((target) => target.containerId),
   )) {
     try {
-      await resolveContainerWriterProjection({
-        containerId,
-        context: containerProjectionContext,
-        executor: input.executor,
-        userId: input.userId,
-      });
-      return;
-    } catch (error) {
-      if (
-        error instanceof ContainerWriterProjectionError &&
-        error.status === 403
-      ) {
-        continue;
-      }
-
-      throw error;
-    }
-  }
-
-  throw new DocumentMutationError("Forbidden", 403);
-}
-
-async function ensureReadableDocument(input: {
-  readonly currentTargets: Awaited<
-    ReturnType<typeof resolveCurrentDocumentKekTargets>
-  >;
-  readonly executor: DatabaseTransaction;
-  readonly userId: string;
-}): Promise<void> {
-  const containerProjectionContext = createContainerWriterProjectionContext(
-    input.executor,
-  );
-
-  for (const containerId of new Set(
-    input.currentTargets.targets.map((target) => target.containerId),
-  )) {
-    try {
-      await resolveContainerReaderProjection({
+      await resolver({
         containerId,
         context: containerProjectionContext,
         executor: input.executor,
@@ -153,21 +121,20 @@ async function ensureSyncDocumentAccess(input: {
   readonly request: DocumentSyncRequest;
   readonly userId: string;
 }): Promise<void> {
-  if (input.request.outgoingUpdates.length > 0) {
-    await ensureWritableDocument({
+  // Empty sync requests only pull missing updates, so read access is enough.
+  const resolver =
+    input.request.outgoingUpdates.length > 0
+      ? resolveContainerWriterProjection
+      : resolveContainerReaderProjection;
+
+  await ensureDocumentAccess(
+    {
       currentTargets: input.currentTargets,
       executor: input.executor,
       userId: input.userId,
-    });
-    return;
-  }
-
-  // Empty sync requests only pull missing updates, so read access is enough.
-  await ensureReadableDocument({
-    currentTargets: input.currentTargets,
-    executor: input.executor,
-    userId: input.userId,
-  });
+    },
+    resolver,
+  );
 }
 
 async function verifyOutgoingWriteHeader(input: {
@@ -859,8 +826,8 @@ export async function runDocumentSyncWorkflow(
       contentKeyBundle: toContentKeyBundleResponse(
         transactionResult.contentKeyBundle,
       ),
-      contentKeyBundles: transactionResult.contentKeyBundles.map(
-        toContentKeyBundleResponse,
+      contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>
+        toContentKeyBundleResponse(bundle),
       ),
       documentId: input.documentId,
       documentKekTargets: toDocumentKekTargetsResponse(

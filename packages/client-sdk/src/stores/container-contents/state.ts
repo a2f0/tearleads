@@ -3,7 +3,7 @@ import {
   createContainerContentsProjectionUserKeyResolver,
   didContainerContentsProjectionKeyRuntimeChange,
 } from "../../workflows/container-contents/projectionKeys";
-import { didRegainContainerContentsSyncPrerequisites } from "../../workflows/container-contents/syncLane";
+import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
@@ -166,7 +166,7 @@ export function updateContainerContentsStoreRuntime(
   // dbStatus-loss branch above.
   if (
     state.snapshot.ready &&
-    didRegainContainerContentsSyncPrerequisites(previousRuntime, nextRuntime)
+    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
   ) {
     state.documentStoresNeedPriming = true;
   }
@@ -177,7 +177,7 @@ export function updateContainerContentsStoreRuntime(
 
   if (
     state.snapshot.ready &&
-    didRegainContainerContentsSyncPrerequisites(previousRuntime, nextRuntime)
+    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
   ) {
     syncAgent.scheduleRemoteHydration();
   }

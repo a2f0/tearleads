@@ -24,6 +24,7 @@ import {
 export { unwrapContainerKekPath } from "./containerKekPath";
 export {
   collectContainerKeksForDocumentSync,
+  unwrapDocumentContentKeyFromBundle,
   unwrapDocumentContentKeyFromWriterProjection,
   unwrapDocumentContentKeyTarget,
   wrapDocumentContentKeyForCreate,

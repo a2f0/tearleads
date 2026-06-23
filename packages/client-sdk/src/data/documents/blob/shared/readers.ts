@@ -10,6 +10,7 @@ import {
   assertOnlyRecordKeys,
   readRecordNumber,
   readRecordString,
+  sortTargets,
 } from "../../shared/readers";
 import type {
   BlobContentKeyTarget,
@@ -35,9 +36,7 @@ function targetKey(target: BlobContentKeyTarget): string {
 export function sortBlobTargets<T extends BlobContentKeyTarget>(
   targets: readonly T[],
 ): T[] {
-  return [...targets].sort((left, right) =>
-    targetKey(left).localeCompare(targetKey(right)),
-  );
+  return sortTargets(targets, targetKey);
 }
 
 export function readDocumentManifestIdentity(

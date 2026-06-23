@@ -1,3 +1,4 @@
+export type { AccessManifestBundleWire } from "../util/accessManifestBundle";
 export {
   type ChallengeRequest,
   isChallengeRequest,
@@ -9,7 +10,6 @@ export {
   type BlobAttachmentDetachRequest,
   type BlobContentKeyBundleRequest,
   type BlobContentKeyTargetEnvelopeRequest,
-  type BlobManifestBundleRequest,
   type BlobStagedBlobRequest,
   type CompleteMultipartBlobStageRequest,
   type InitiateMultipartBlobStageRequest,
@@ -24,7 +24,6 @@ export {
   type UploadMultipartBlobPartRequest,
 } from "./blob";
 export {
-  type ContainerManifestBundle,
   type ContainerMutationRequest,
   isContainerMutationRequest,
 } from "./container";
@@ -37,7 +36,6 @@ export {
   type DocumentContentKeyTargetEnvelope,
   type DocumentCreateRequest,
   type DocumentLinkSetMutationRequest,
-  type DocumentManifestBundle,
   type DocumentOutgoingUpdate,
   type DocumentSyncRequest,
   isDocumentContentKeyBundleRequest,

@@ -20,7 +20,7 @@ import {
 import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
-  isDestroyedDocumentSyncRuntimeError,
+  isDestroyedDatabaseClientError,
   loadPersistedDocumentStoreState,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
@@ -137,7 +137,7 @@ export function ensureDocumentStoreInitialized(
     (error: unknown) => {
       state.initializePromise = null;
 
-      if (isDestroyedDocumentSyncRuntimeError(error)) {
+      if (isDestroyedDatabaseClientError(error)) {
         return;
       }
 
@@ -157,7 +157,7 @@ export async function awaitInitializationForSync(state: DocumentStoreState) {
     await state.initializePromise;
     return true;
   } catch (error) {
-    if (isDestroyedDocumentSyncRuntimeError(error)) {
+    if (isDestroyedDatabaseClientError(error)) {
       return false;
     }
 

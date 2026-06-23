@@ -50,8 +50,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 872,
-      "bytes": 25775
+      "lines": 1415,
+      "bytes": 40608
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 562,
@@ -103,15 +103,15 @@
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
       "lines": 3489,
-      "bytes": 113920
+      "bytes": 113951
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1269,
-      "bytes": 42412
+      "bytes": 42423
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2550,
-      "bytes": 84229
+      "bytes": 84252
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1049,
@@ -243,7 +243,7 @@
     },
     "packages/client-sdk/src/workflows/containers/child/share.ts": {
       "lines": 766,
-      "bytes": 24142
+      "bytes": 24145
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1296,

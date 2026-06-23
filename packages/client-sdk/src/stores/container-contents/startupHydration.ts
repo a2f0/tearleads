@@ -3,7 +3,7 @@ import {
   createContainerParentSyncLane,
   loadContainerSyncLaneCheckRecords,
 } from "../../workflows/container-contents/containerPersistence";
-import { isDestroyedContainerContentsSyncRuntimeError } from "../../workflows/container-contents/syncLane";
+import { isDestroyedDatabaseClientError } from "../../workflows/container-contents/syncLane";
 
 const STARTUP_REMOTE_HYDRATION_FRESH_MS = 15 * 60_000;
 type StartupHydrationExecSql = Parameters<
@@ -73,7 +73,7 @@ async function getStaleStartupRemoteHydrationParentIds(
 }
 
 function reportStartupHydrationError(message: string, error: unknown) {
-  if (isDestroyedContainerContentsSyncRuntimeError(error)) {
+  if (isDestroyedDatabaseClientError(error)) {
     return;
   }
 

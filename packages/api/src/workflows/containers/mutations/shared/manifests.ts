@@ -9,7 +9,7 @@ import {
   verifyContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
-  ContainerManifestBundle,
+  AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
@@ -34,7 +34,7 @@ interface VerifyContainerManifestFromRequestArtifacts {
 }
 
 export async function assertContainerManifestBundleConsistent(
-  bundle: ContainerManifestBundle,
+  bundle: AccessManifestBundleWire,
   label: string,
 ): Promise<VerifiedContainerAccessManifest> {
   const verified = readVerifiedContainerManifest(bundle, label);
@@ -138,7 +138,7 @@ function assertContainerPathEdges(
 
 export async function assertCurrentContainerPath(
   context: ContainerMutationContext,
-  bundles: readonly ContainerManifestBundle[] | undefined,
+  bundles: readonly AccessManifestBundleWire[] | undefined,
   label: string,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (bundles === undefined) {
@@ -160,7 +160,7 @@ export async function assertCurrentContainerPath(
 }
 
 export async function assertHistoricalContainerManifestsConsistent(
-  bundles: readonly ContainerManifestBundle[] | undefined,
+  bundles: readonly AccessManifestBundleWire[] | undefined,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
   if (bundles === undefined) {
     return;

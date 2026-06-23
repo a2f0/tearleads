@@ -6,6 +6,10 @@ export {
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 export {
+  didRegainSyncPrerequisites,
+  isDestroyedDatabaseClientError,
+} from "../../data/sync/syncCoordinator";
+export {
   type BlobInfo,
   type BlobInfoAttachmentKind,
   type BlobInfoDocumentReference,

@@ -14,6 +14,13 @@ export interface BlobBytesResponse {
   readonly sha256: string;
 }
 
+export interface UploadMultipartBlobPartBytesRequest {
+  readonly byteLength: number;
+  readonly encryptedBytes: Blob | BufferSource;
+  readonly sha256: string;
+  readonly uploadId: string;
+}
+
 interface LoadedBlobBytesResponse extends BlobBytesResponse {
   readonly response: Response;
 }

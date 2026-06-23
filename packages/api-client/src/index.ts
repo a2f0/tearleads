@@ -2,7 +2,7 @@ export { ApiClient } from "./ApiClient";
 export type {
   BlobBytesResponse,
   UploadMultipartBlobPartBytesRequest,
-} from "./routes/blobs";
+} from "./routes/blobs/get";
 export type {
   HttpMethod,
   RequestFailure,

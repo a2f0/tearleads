@@ -11,9 +11,9 @@ import {
 import type { SyncLane, SyncLaneConfig } from "./syncLaneConfig";
 import type { DomainSyncSnapshot } from "./syncTelemetry";
 import {
+  compareSyncLaneOrder,
   createDomainSyncSnapshot,
   createSyncTimestamp,
-  getSyncLanePhaseRank,
 } from "./syncTelemetry";
 import type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
 import { beginUploadLane } from "./uploadLane";
@@ -29,7 +29,7 @@ export type {
 } from "./syncTelemetry";
 export type { UploadSyncLane, UploadSyncLaneOptions } from "./uploadLane";
 
-interface SyncRuntimeStatus {
+export interface SyncRuntimeStatus {
   crypto: {
     encapsulationKeyPair: unknown;
   };
@@ -67,18 +67,6 @@ const DESTROYED_DATABASE_CLIENT_MESSAGES = [
   "Database worker client has been destroyed.",
   "DB has been closed.",
 ] as const;
-
-function compareSyncLaneOrder(
-  left: SyncLaneState,
-  right: SyncLaneState,
-): number {
-  const phaseRank = getSyncLanePhaseRank(left) - getSyncLanePhaseRank(right);
-  if (phaseRank !== 0) {
-    return phaseRank;
-  }
-
-  return left.registrationIndex - right.registrationIndex;
-}
 
 type SyncLaneRunResult =
   | { status: "completed" }

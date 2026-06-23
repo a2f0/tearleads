@@ -11,7 +11,7 @@ import {
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
-import { isDestroyedContainerContentsSyncRuntimeError } from "../../workflows/container-contents/syncLane";
+import { isDestroyedDatabaseClientError } from "../../workflows/container-contents/syncLane";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
@@ -161,7 +161,7 @@ async function hydrateExistingSystemContainer(
       parentIds: existingRoot ? [null, existingRoot.container.id] : [null],
     });
   } catch (error) {
-    if (!isDestroyedContainerContentsSyncRuntimeError(error)) {
+    if (!isDestroyedDatabaseClientError(error)) {
       const reason = error instanceof Error ? error.message : String(error);
       state.runtime.util.log(
         `${getContainerContentsStoreLogLabel(state)}: remote probe for "${systemSlot}" failed (${reason}); creating it locally`,

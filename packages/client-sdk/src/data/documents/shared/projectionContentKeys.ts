@@ -9,6 +9,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import type { DocumentContentKeyTargetEnvelope } from "@tearleads/validators/request";
 import type {
   ContainerWriterProjectionResponse,
+  DocumentContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
@@ -137,20 +138,16 @@ export async function collectContainerKeksForDocumentSync(
   return keksByEpochId;
 }
 
-export async function unwrapDocumentContentKeyFromWriterProjection(
-  input: {
-    execSql?: ExecSql | undefined;
-    principalPolicyCache?: PrincipalPolicyCache | undefined;
-    secretKey: Uint8Array;
-    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
-    writerProjection: DocumentWriterProjectionResponse;
-  } & ProjectionVerificationOptions,
+export async function unwrapDocumentContentKeyFromBundle(
+  bundle: DocumentContentKeyBundleResponse,
+  containerKeksByEpochId: ReadonlyMap<string, Uint8Array>,
 ): Promise<Uint8Array> {
-  const keksByEpochId = await collectContainerKeksForDocumentSync(input);
   let contentKey: Uint8Array | null = null;
 
-  for (const envelope of input.writerProjection.contentKeyBundle.targets) {
-    const containerKek = keksByEpochId.get(envelope.containerKeyEpochId);
+  for (const envelope of bundle.targets) {
+    const containerKek = containerKeksByEpochId.get(
+      envelope.containerKeyEpochId,
+    );
     if (!containerKek) {
       continue;
     }
@@ -170,13 +167,28 @@ export async function unwrapDocumentContentKeyFromWriterProjection(
   }
 
   if (!contentKey) {
-    throw new Error(
-      `Document content key could not be unwrapped from any of ${input.writerProjection.contentKeyBundle.targets.length} target(s)`,
-    );
+    throw new Error("Document content key could not be unwrapped");
   }
   if (contentKey.byteLength !== 32) {
     throw new Error("Document content key must be 32 bytes");
   }
 
   return contentKey;
+}
+
+export async function unwrapDocumentContentKeyFromWriterProjection(
+  input: {
+    execSql?: ExecSql | undefined;
+    principalPolicyCache?: PrincipalPolicyCache | undefined;
+    secretKey: Uint8Array;
+    verifiedByHash?: Map<string, VerifiedContainerAccessManifest> | undefined;
+    writerProjection: DocumentWriterProjectionResponse;
+  } & ProjectionVerificationOptions,
+): Promise<Uint8Array> {
+  const keksByEpochId = await collectContainerKeksForDocumentSync(input);
+
+  return unwrapDocumentContentKeyFromBundle(
+    input.writerProjection.contentKeyBundle,
+    keksByEpochId,
+  );
 }

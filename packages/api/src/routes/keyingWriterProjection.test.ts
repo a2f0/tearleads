@@ -55,7 +55,7 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import type {
-  ContainerManifestBundle,
+  AccessManifestBundleWire,
   ContainerMutationRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
@@ -97,7 +97,7 @@ interface RootContainerFixture {
 }
 
 interface StoredRootFixture {
-  readonly bundle: ContainerManifestBundle;
+  readonly bundle: AccessManifestBundleWire;
   readonly kekState: VerifiedContainerKekState;
   readonly principalPolicies: readonly VerifiedPrincipalPolicy[];
 }
@@ -136,7 +136,7 @@ async function getRootContainerForUser(
 }
 
 function asVerifiedContainerManifest(
-  bundle: ContainerManifestBundle,
+  bundle: AccessManifestBundleWire,
 ): VerifiedContainerAccessManifest {
   return bundle as unknown as VerifiedContainerAccessManifest;
 }
@@ -185,7 +185,7 @@ async function createSignedAccessEvent(input: {
 }
 
 async function verifyKekState(input: {
-  readonly bundle: ContainerManifestBundle;
+  readonly bundle: AccessManifestBundleWire;
   readonly keyEpoch: ContainerKeyEpoch;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly userRecipientKeys?: readonly ContainerUserRecipientKey[];
@@ -260,7 +260,7 @@ function uniquePrincipalPolicies(
 }
 
 async function loadPrincipalPoliciesForContainerPath(
-  path: readonly ContainerManifestBundle[],
+  path: readonly AccessManifestBundleWire[],
 ): Promise<VerifiedPrincipalPolicy[]> {
   const principalPolicies = await Promise.all(
     path.flatMap((bundle) =>
@@ -279,7 +279,7 @@ async function loadPrincipalPoliciesForContainerPath(
 }
 
 async function loadPrincipalPoliciesForContainerPaths(
-  paths: readonly (readonly ContainerManifestBundle[])[],
+  paths: readonly (readonly AccessManifestBundleWire[])[],
 ): Promise<VerifiedPrincipalPolicy[]> {
   const principalPolicySets = await Promise.all(
     paths.map((path) => loadPrincipalPoliciesForContainerPath(path)),
@@ -353,14 +353,14 @@ async function bootstrapRoot(owner: TestUser): Promise<StoredRootFixture> {
     rootContainer.adminGroupId,
   );
   const kekState = await verifyKekState({
-    bundle: bundle as unknown as ContainerManifestBundle,
+    bundle: bundle as unknown as AccessManifestBundleWire,
     keyEpoch,
     principalPolicies: [adminPolicy],
     wraps,
   });
 
   return {
-    bundle: bundle as unknown as ContainerManifestBundle,
+    bundle: bundle as unknown as AccessManifestBundleWire,
     kekState,
     principalPolicies: [adminPolicy],
   };
@@ -368,8 +368,8 @@ async function bootstrapRoot(owner: TestUser): Promise<StoredRootFixture> {
 
 function accessManifestFromContainerResponse(
   response: ContainerMutationResponse,
-): ContainerManifestBundle {
-  return response.accessManifest as unknown as ContainerManifestBundle;
+): AccessManifestBundleWire {
+  return response.accessManifest as unknown as AccessManifestBundleWire;
 }
 
 function kekStateFromContainerResponse(
@@ -381,7 +381,7 @@ function kekStateFromContainerResponse(
 async function createContainerManifestBundle(
   state: ContainerAccessManifestState,
   event: VerifiedAccessEvent,
-): Promise<ContainerManifestBundle> {
+): Promise<AccessManifestBundleWire> {
   const manifest = await deriveContainerAccessManifest(state);
 
   return {
@@ -395,7 +395,7 @@ async function createContainerManifestBundle(
 function createContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;
   readonly keyEpoch: number;
-  readonly manifest: ContainerManifestBundle;
+  readonly manifest: AccessManifestBundleWire;
   readonly parentKekState: VerifiedContainerKekState;
 }): ContainerKeyEpoch {
   const verifiedManifest = asVerifiedContainerManifest(input.manifest);
@@ -414,7 +414,7 @@ function createContainerKeyEpoch(input: {
 function createRootContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;
   readonly keyEpoch: number;
-  readonly manifest: ContainerManifestBundle;
+  readonly manifest: AccessManifestBundleWire;
 }): ContainerKeyEpoch {
   const verifiedManifest = asVerifiedContainerManifest(input.manifest);
 
@@ -533,11 +533,11 @@ async function createChildContainer(input: {
 }
 
 async function buildContainerMoveRequest(input: {
-  readonly destinationParent: ContainerManifestBundle;
+  readonly destinationParent: AccessManifestBundleWire;
   readonly destinationParentKekState: VerifiedContainerKekState;
-  readonly destinationParentPath: readonly ContainerManifestBundle[];
-  readonly previous: ContainerManifestBundle;
-  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly destinationParentPath: readonly AccessManifestBundleWire[];
+  readonly previous: AccessManifestBundleWire;
+  readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
@@ -618,11 +618,11 @@ async function buildContainerMoveRequest(input: {
 }
 
 async function moveContainer(input: {
-  readonly destinationParent: ContainerManifestBundle;
+  readonly destinationParent: AccessManifestBundleWire;
   readonly destinationParentKekState: VerifiedContainerKekState;
-  readonly destinationParentPath: readonly ContainerManifestBundle[];
-  readonly previous: ContainerManifestBundle;
-  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly destinationParentPath: readonly AccessManifestBundleWire[];
+  readonly previous: AccessManifestBundleWire;
+  readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
 }): Promise<ContainerMutationResponse> {
@@ -833,7 +833,7 @@ async function countDocumentAuditRows(documentId: string, updateId: string) {
 }
 
 async function buildRootGrantRequest(input: {
-  readonly previous: ContainerManifestBundle;
+  readonly previous: AccessManifestBundleWire;
   readonly previousKekState: VerifiedContainerKekState;
   readonly accessLevel?: "read" | "write" | "admin";
   readonly recipient: TestUser;
@@ -914,7 +914,7 @@ async function buildRootGrantRequest(input: {
 }
 
 async function buildRootRevokeRequest(input: {
-  readonly previous: ContainerManifestBundle;
+  readonly previous: AccessManifestBundleWire;
   readonly previousKekState: VerifiedContainerKekState;
   readonly revokedUser: TestUser;
   readonly signer: TestUser;

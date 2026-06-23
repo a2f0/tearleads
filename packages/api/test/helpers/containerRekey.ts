@@ -19,18 +19,18 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type {
-  ContainerManifestBundle,
+  AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 
 interface ContainerRekeyFixture {
-  readonly bundle: ContainerManifestBundle | VerifiedContainerAccessManifest;
+  readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
   readonly kekState: VerifiedContainerKekState;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
 }
 
 interface BuiltContainerRekeyMutation {
-  readonly bundle: ContainerManifestBundle;
+  readonly bundle: AccessManifestBundleWire;
   readonly container: {
     readonly bundle: VerifiedContainerAccessManifest;
     readonly kekState: VerifiedContainerKekState;
@@ -41,14 +41,14 @@ interface BuiltContainerRekeyMutation {
 }
 
 function asVerifiedContainerManifest(
-  bundle: ContainerManifestBundle | VerifiedContainerAccessManifest,
+  bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest,
 ): VerifiedContainerAccessManifest {
   return bundle as unknown as VerifiedContainerAccessManifest;
 }
 
 function containerManifestBundle(
   manifest: VerifiedContainerAccessManifest,
-): ContainerManifestBundle {
+): AccessManifestBundleWire {
   return {
     event: manifest.event as unknown as Record<string, unknown>,
     manifest: manifest.manifest as unknown as Record<string, unknown>,
@@ -98,7 +98,7 @@ async function createSignedContainerRekeyEvent(input: {
 function createRootContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;
   readonly keyEpoch: number;
-  readonly manifest: ContainerManifestBundle;
+  readonly manifest: AccessManifestBundleWire;
 }): ContainerKeyEpoch {
   const manifest = asVerifiedContainerManifest(input.manifest);
 
@@ -188,7 +188,7 @@ export async function buildRootContainerRekeyMutation(input: {
   };
   const manifest = await deriveContainerAccessManifest(state);
   const manifestHash = await computeAccessManifestHash(manifest);
-  const bundle: ContainerManifestBundle = {
+  const bundle: AccessManifestBundleWire = {
     event: event as unknown as Record<string, unknown>,
     manifest: manifest as unknown as Record<string, unknown>,
     manifestHash,
