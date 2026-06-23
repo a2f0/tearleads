@@ -285,7 +285,6 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
     contentKeyBundle: mutationResponse.contentKeyBundle,
     documentId: mutationResponse.id,
     documentKekTargets: mutationResponse.documentKekTargets,
-    missingUpdateEpochs: [],
     updates: [],
   };
 }

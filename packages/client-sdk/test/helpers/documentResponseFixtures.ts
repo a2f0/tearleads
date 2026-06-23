@@ -5,7 +5,6 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
-  computeWriteHeaderHash,
   generateKemSeedAndKeyPair,
   signWriteHeader,
   type WriteHeader,
@@ -384,7 +383,6 @@ export async function createSyncResponse(
         partialEndVersionVector: update.partialEndVersionVector,
         createdAt: "2026-04-27T00:00:00.000Z",
         writeHeader: update.writeHeader,
-        writeHeaderHash: await computeWriteHeaderHash(writeHeader),
       };
     }),
   );
@@ -398,7 +396,6 @@ export async function createSyncResponse(
     contentKeyBundles: [plan.sourceContentKeyBundle],
     documentId: plan.documentId,
     documentKekTargets: plan.documentKekTargets,
-    missingUpdateEpochs: updates.length === 0 ? [] : ["current_epoch"],
     updates,
     ...overrides,
   };
@@ -458,6 +455,5 @@ export async function createSignedSyncResponseUpdate(input: {
     partialEndVersionVector,
     createdAt: "2026-04-27T00:00:00.000Z",
     writeHeader: writeHeader as unknown as Record<string, unknown>,
-    writeHeaderHash: await computeWriteHeaderHash(writeHeader),
   };
 }
