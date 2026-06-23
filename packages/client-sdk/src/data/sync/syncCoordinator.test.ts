@@ -215,11 +215,14 @@ test("structural self-follow-up survives a throw in the same pass", async () => 
     structuralLane.requestSync();
     documentLane.requestSync();
 
+    // Timeout exceeds FAILED_LANE_REARM_BACKOFF_MS: the re-armed structural
+    // follow-up retries after the backoff (it failed + re-armed), so the pass
+    // sequence completes ~1s later rather than immediately.
     expect(
       await waitForDomainSyncCoordinatorToSettle(domainScope, {
-        intervalMs: 1,
+        intervalMs: 5,
         quietMs: 0,
-        timeoutMs: 100,
+        timeoutMs: 5000,
       }),
     ).toBe(true);
   } finally {
@@ -228,6 +231,50 @@ test("structural self-follow-up survives a throw in the same pass", async () => 
 
   expect(calls).toEqual(["structural-1", "structural-2", "document"]);
   expect(structuralRunCount).toBe(2);
+});
+
+test("a failed lane that re-arms itself backs off and retries without tight-looping", async () => {
+  // The companion to the test above: a lane that arms a self-follow-up and then
+  // FAILS must still retry (the follow-up survives), but the retry must be
+  // backed off rather than re-selected in a tight microtask loop that would
+  // starve the event loop. Here the lane fails+re-arms once then succeeds; the
+  // test completing (not timing out) plus the second run proves termination.
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const calls: string[] = [];
+  let runCount = 0;
+  let requestSelfSync: () => void = () => {};
+  const originalConsoleError = console.error;
+  console.error = () => {};
+
+  try {
+    const flakyLane = coordinator.registerLane("flaky", {
+      phase: "structural",
+      run: async () => {
+        runCount += 1;
+        calls.push(`run-${runCount}`);
+        if (runCount === 1) {
+          requestSelfSync();
+          throw new Error("transient self-rearming failure");
+        }
+      },
+    });
+    requestSelfSync = flakyLane.requestSync;
+    flakyLane.requestSync();
+
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(domainScope, {
+        intervalMs: 5,
+        quietMs: 0,
+        timeoutMs: 5000,
+      }),
+    ).toBe(true);
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  expect(calls).toEqual(["run-1", "run-2"]);
+  expect(runCount).toBe(2);
 });
 
 test("unexpected lane errors do not abort queued sync work", async () => {
