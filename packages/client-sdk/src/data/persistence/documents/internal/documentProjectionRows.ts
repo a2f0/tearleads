@@ -7,6 +7,7 @@ import {
   type StoredDocumentKind,
 } from "../../../documents/documentKinds";
 import { documentProjection, documents } from "../../../sqlite/schema";
+import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";
 
 interface SelectedDocumentProjection {
@@ -65,6 +66,21 @@ export function mapDocumentSummary(
     documentId: row.documentId,
     title: getProjectionTitle(row),
     updatedAt: row.updatedAt,
+  };
+}
+
+export function toDocumentSummary(
+  record: StoredDocumentRecord,
+  updatedAt: string,
+): DocumentSummary {
+  return {
+    accessStateHash: record.accessStateHash ?? null,
+    id: record.id,
+    containerId: record.containerId,
+    documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,
+    documentId: record.documentId,
+    title: record.title ?? deriveDocumentTitle(record.text),
+    updatedAt,
   };
 }
 
