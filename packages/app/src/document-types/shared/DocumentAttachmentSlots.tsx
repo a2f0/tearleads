@@ -100,6 +100,7 @@ function DocumentAttachmentSlotCard(params: {
           <button
             aria-label={`Clear ${slot.label}`}
             className="structured-document-slot-button"
+            disabled={!canAttach}
             onClick={() => onClearAttachment(slot.slotId)}
             title={`Clear ${slot.label}`}
             type="button"

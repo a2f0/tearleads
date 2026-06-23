@@ -36,13 +36,14 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
 
 function renderAttachmentSlots(params?: {
   attachments?: ReadonlyArray<DocumentAttachment>;
+  canAttach?: boolean;
   onClearAttachment?: (slotId: string) => void;
 }) {
   return render(
     <DocumentAttachmentSlots
       attachmentStatusBySlotId={{}}
       attachments={params?.attachments ?? attachments}
-      canAttach={true}
+      canAttach={params?.canAttach ?? true}
       imageUrlBySlotId={{}}
       onClearAttachment={params?.onClearAttachment ?? (() => undefined)}
       onSelectedAttachment={() => undefined}
@@ -70,4 +71,23 @@ test("clear image buttons are hidden for empty slots", () => {
 
   expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
   expect(view.queryByRole("button", { name: "Clear Back Image" })).toBeNull();
+});
+
+test("clear image buttons are disabled when attachments cannot be changed", () => {
+  const view = renderAttachmentSlots({ canAttach: false });
+
+  expect(
+    (
+      view.getByRole("button", {
+        name: "Clear Front Image",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(
+    (
+      view.getByRole("button", {
+        name: "Clear Back Image",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
 });
