@@ -1,13 +1,17 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
+import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
+import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
+import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
 import { PdfDocumentApp } from "./pdf/PdfDocumentApp";
+import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 import {
   APP_DEFAULT_DOCUMENT_KIND,
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
@@ -49,6 +53,20 @@ export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
       kind: definition.kind,
     };
   });
+
+// File-backed kinds enter the workspace through upload, not the
+// "New Structured Document" picker, so they are excluded from creation.
+const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
+  IMAGE_DOCUMENT_KIND,
+  AUDIO_DOCUMENT_KIND,
+  PDF_DOCUMENT_KIND,
+  GENERIC_FILE_DOCUMENT_KIND,
+]);
+
+export const CREATABLE_DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
+  DOCUMENT_TYPE_DEFINITIONS.filter(
+    (definition) => !UPLOAD_ONLY_DOCUMENT_KINDS.has(definition.kind),
+  );
 
 const documentTypeDefinitionByKind = new Map(
   DOCUMENT_TYPE_DEFINITIONS.map((definition) => [definition.kind, definition]),

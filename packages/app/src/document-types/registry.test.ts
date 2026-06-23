@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./projectors";
 import {
+  CREATABLE_DOCUMENT_TYPE_DEFINITIONS,
   DOCUMENT_TYPE_DEFINITIONS,
   getDocumentTypeDefinition,
 } from "./registry";
@@ -37,4 +38,10 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("generic_file").createLabel).toBe(
     "New File",
   );
+});
+
+test("creatable document types exclude upload-only file kinds", () => {
+  expect(
+    CREATABLE_DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),
+  ).toEqual(["note", "contact", "drivers_license", "credit_card"]);
 });
