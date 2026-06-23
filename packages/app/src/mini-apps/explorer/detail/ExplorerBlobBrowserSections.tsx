@@ -35,13 +35,9 @@ import {
   EXPLORER_LABELS,
   getExplorerBlobBrowserDocumentCountLabel,
   getExplorerBlobBrowserReferenceCountLabel,
-  getExplorerDocumentInfoAttachmentKindLabel,
 } from "../labels";
 import { compactId } from "./compactId";
-import {
-  getBlobInfoColumns,
-  getBlobReferenceColumns,
-} from "./ExplorerBlobBrowserColumns";
+import { getBlobInfoColumns } from "./ExplorerBlobBrowserColumns";
 import {
   BLOB_BROWSER_ROW_HEIGHT,
   type BlobInfoListState,
@@ -50,6 +46,7 @@ import {
   isImageMimeType,
   useBlobPreview,
 } from "./ExplorerBlobBrowserState";
+import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";
 
 function BlobInfoTable(params: {
   activeBlob: BlobInfo | null;
@@ -279,84 +276,6 @@ function BlobPreviewSection(params: {
       <div className="explorer-blob-preview-frame">
         <BlobPreviewContent blob={params.blob} preview={preview} />
       </div>
-    </MiniAppInfoSection>
-  );
-}
-
-function BlobReferencesSection(params: {
-  blob: BlobInfo;
-  containerNamesById: ReadonlyMap<string, string>;
-  openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  selectDocumentProjection: (documentId: string, containerId: string) => void;
-}) {
-  const columns = useMemo(() => getBlobReferenceColumns(), []);
-
-  return (
-    <MiniAppInfoSection heading={EXPLORER_LABELS.blobBrowserReferencesHeading}>
-      <MiniAppTableFrame>
-        <MiniAppTable
-          aria-label={EXPLORER_LABELS.blobBrowserReferencesHeading}
-          columns={columns}
-        >
-          {params.blob.references.map((reference) => {
-            const containerName = reference.containerId
-              ? params.containerNamesById.get(reference.containerId)
-              : null;
-            const canOpenDocument = Boolean(reference.containerId);
-
-            return (
-              <MiniAppTableRow
-                key={`${reference.attachmentKind}:${reference.localId}:${reference.slotId}`}
-              >
-                <MiniAppTableCell title={reference.localId}>
-                  {reference.documentTitle ?? compactId(reference.localId)}
-                </MiniAppTableCell>
-                <MiniAppTableCell title={reference.containerId ?? undefined}>
-                  {containerName ?? compactId(reference.containerId)}
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  {getExplorerDocumentInfoAttachmentKindLabel(
-                    reference.attachmentKind,
-                  )}
-                </MiniAppTableCell>
-                <MiniAppTableCell title={reference.slotId}>
-                  {compactId(reference.slotId)}
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  <div className="explorer-blob-reference-actions">
-                    <MiniAppTableActionButton
-                      disabled={!canOpenDocument}
-                      onClick={() => {
-                        if (reference.containerId) {
-                          params.selectDocumentProjection(
-                            reference.localId,
-                            reference.containerId,
-                          );
-                        }
-                      }}
-                    >
-                      {EXPLORER_LABELS.blobBrowserOpenDocumentAction}
-                    </MiniAppTableActionButton>
-                    <MiniAppTableActionButton
-                      disabled={!canOpenDocument}
-                      onClick={() => {
-                        if (reference.containerId) {
-                          params.openDocumentInfoRoute(
-                            reference.localId,
-                            reference.containerId,
-                          );
-                        }
-                      }}
-                    >
-                      {EXPLORER_LABELS.blobBrowserDocumentInfoAction}
-                    </MiniAppTableActionButton>
-                  </div>
-                </MiniAppTableCell>
-              </MiniAppTableRow>
-            );
-          })}
-        </MiniAppTable>
-      </MiniAppTableFrame>
     </MiniAppInfoSection>
   );
 }

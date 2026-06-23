@@ -101,12 +101,12 @@ export function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
     {
       header: EXPLORER_LABELS.blobBrowserDocumentColumn,
       id: "document",
-      width: "38%",
+      width: "46%",
     },
     {
       header: EXPLORER_LABELS.documentInfoContainerColumn,
       id: "container",
-      width: "24%",
+      width: "28%",
     },
     {
       header: EXPLORER_LABELS.blobBrowserStateColumn,
@@ -116,11 +116,6 @@ export function getBlobReferenceColumns(): ReadonlyArray<MiniAppTableColumn> {
     {
       header: EXPLORER_LABELS.blobBrowserSlotColumn,
       id: "slot",
-      width: "8rem",
-    },
-    {
-      header: "",
-      id: "actions",
       width: "8rem",
     },
   ];

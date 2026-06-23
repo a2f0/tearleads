@@ -1,5 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobInfo, BlobInfoInput, BlobStore } from "@tearleads/client-sdk";
+import type {
+  BlobInfo,
+  BlobInfoDocumentReference,
+  BlobInfoInput,
+  BlobStore,
+} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -43,6 +49,28 @@ function createBlobStore(): BlobStore {
     deleteBytes: async () => undefined,
     readBytes: async () => null,
     writeBytes: async () => undefined,
+  };
+}
+
+function createBlobReference(
+  overrides: Partial<BlobInfoDocumentReference> = {},
+): BlobInfoDocumentReference {
+  return {
+    attachmentKind: "local",
+    blobId: "blob-1",
+    byteLength: 1,
+    containerId: "container-1",
+    createdAt: null,
+    documentId: "document-1",
+    documentKind: "note",
+    documentTitle: "Linked Note",
+    localId: "local-document-1",
+    mimeType: "text/plain",
+    name: "linked-note.txt",
+    slotId: "slot-1",
+    storageKey: "storage-1",
+    updatedAt: null,
+    ...overrides,
   };
 }
 
@@ -107,6 +135,80 @@ test("blob browser navigates between the list and detail screens", async () => {
     ).toBeTruthy();
   });
   expect(view.queryByText("Blob Metadata")).toBeNull();
+});
+
+test("blob browser document links open documents and expose get info from the row context menu", async () => {
+  const rows = createBlobRows(1);
+  const firstRow = rows[0];
+  if (!firstRow) {
+    throw new Error("Expected a blob row.");
+  }
+  rows[0] = {
+    ...firstRow,
+    references: [createBlobReference()],
+  };
+  const selectedDocuments: Array<[string, string]> = [];
+  const openedInfoRoutes: Array<[string, string]> = [];
+  const loadBlobInfo = async (): Promise<{
+    rows: BlobInfo[];
+    totalCount: number;
+  }> => ({
+    rows,
+    totalCount: rows.length,
+  });
+  const view = render(
+    <ExplorerBlobBrowserPanel
+      blobStore={createBlobStore()}
+      loadBlobInfo={loadBlobInfo}
+      nodes={[
+        {
+          id: "container-1",
+          kind: "container",
+          name: "Projects",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+      ]}
+      onBackToSelectionRoute={() => undefined}
+      openDocumentInfoRoute={(localId, containerId) => {
+        openedInfoRoutes.push([localId, containerId]);
+      }}
+      route={{ blobId: "blob-1", storageKey: null, view: "blob-browser" }}
+      selectDocumentProjection={(localId, containerId) => {
+        selectedDocuments.push([localId, containerId]);
+      }}
+    />,
+  );
+
+  const documentLink = await view.findByRole("button", {
+    name: "Linked Note",
+  });
+  expect(
+    documentLink.classList.contains("explorer-blob-reference-row-button"),
+  ).toBe(true);
+  const row = documentLink.closest("tr");
+  expect(row?.classList.contains("mini-app-table-row--interactive")).toBe(true);
+
+  fireEvent.click(documentLink);
+  expect(selectedDocuments).toEqual([["local-document-1", "container-1"]]);
+
+  fireEvent.contextMenu(row ?? documentLink, { clientX: 24, clientY: 32 });
+  await waitFor(() => {
+    expect(
+      document.body.querySelector<HTMLButtonElement>(".menu button")
+        ?.textContent,
+    ).toBe("Get Info");
+  });
+  const getInfo =
+    document.body.querySelector<HTMLButtonElement>(".menu button");
+  if (!getInfo) {
+    throw new Error("Expected the document-link context menu to open.");
+  }
+  expect(getInfo?.textContent).toBe("Get Info");
+  fireEvent.click(getInfo);
+
+  expect(openedInfoRoutes).toEqual([["local-document-1", "container-1"]]);
 });
 
 test("blob browser returns to the list from a deep-linked detail screen", async () => {
