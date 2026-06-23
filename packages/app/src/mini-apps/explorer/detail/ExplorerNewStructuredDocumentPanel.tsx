@@ -8,7 +8,7 @@ import {
   MiniAppSection,
   MiniAppSectionHeading,
 } from "../../../components/shared/MiniAppLayout";
-import { DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
+import { CREATABLE_DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/registry";
 import { EXPLORER_LABELS } from "../labels";
 
 interface Props {
@@ -46,7 +46,7 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
           {EXPLORER_LABELS.newStructuredDocumentDocumentTypeHeading}
         </MiniAppSectionHeading>
         <div className="explorer-document-type-grid">
-          {DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
+          {CREATABLE_DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
             <MiniAppButton
               block
               className="explorer-document-type-button"
