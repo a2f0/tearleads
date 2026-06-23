@@ -34,6 +34,10 @@ try {
     },
   });
   console.log(JSON.stringify(summary, null, 2));
+} catch (error) {
+  // Report failures so a cron/systemd run is detectable as failed.
+  console.error("Blob GC maintenance failed:", error);
+  process.exitCode = 1;
 } finally {
   await closeApiDatabase();
 }

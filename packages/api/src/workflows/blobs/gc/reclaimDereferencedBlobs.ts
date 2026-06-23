@@ -85,16 +85,20 @@ async function deleteBlobKeyRows(
   executor: DatabaseTransaction,
   blobId: string,
 ): Promise<void> {
-  const epochRows = await executor
-    .select({ id: blobContentKeyEpochs.id })
-    .from(blobContentKeyEpochs)
-    .where(eq(blobContentKeyEpochs.blobId, blobId));
-  const epochIds = epochRows.map((row) => row.id);
-  if (epochIds.length > 0) {
-    await executor
-      .delete(blobContentKeyTargets)
-      .where(inArray(blobContentKeyTargets.blobContentKeyEpochId, epochIds));
-  }
+  // Delete the per-epoch target envelopes via a subquery on the blob's epochs,
+  // then the epochs and write headers — one round-trip each, no client-side
+  // epoch-id fetch.
+  await executor
+    .delete(blobContentKeyTargets)
+    .where(
+      inArray(
+        blobContentKeyTargets.blobContentKeyEpochId,
+        executor
+          .select({ id: blobContentKeyEpochs.id })
+          .from(blobContentKeyEpochs)
+          .where(eq(blobContentKeyEpochs.blobId, blobId)),
+      ),
+    );
   await executor
     .delete(blobContentKeyEpochs)
     .where(eq(blobContentKeyEpochs.blobId, blobId));
