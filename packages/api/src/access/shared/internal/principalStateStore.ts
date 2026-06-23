@@ -806,29 +806,6 @@ export async function listPrincipalStateHistory(
   return history;
 }
 
-export async function getCurrentPrincipalStatePayload(
-  principalType: ManagedRecipientPrincipalType,
-  principalId: string,
-  executor: DatabaseSession,
-): Promise<StoredPrincipalStatePayload | null> {
-  const currentState = await getCurrentPrincipalState(
-    principalType,
-    principalId,
-    executor,
-  );
-
-  if (!currentState) {
-    return null;
-  }
-
-  return getPrincipalStatePayloadForState(
-    principalType,
-    principalId,
-    currentState.stateHash,
-    executor,
-  );
-}
-
 export async function listCurrentPrincipalProjectionMembers(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,

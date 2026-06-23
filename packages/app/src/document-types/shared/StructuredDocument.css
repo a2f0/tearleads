@@ -117,6 +117,10 @@
 }
 
 .structured-document-slot-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
   min-height: var(--control-height);
   padding: var(--control-padding-block) var(--control-padding-inline);
   border: var(--border);
