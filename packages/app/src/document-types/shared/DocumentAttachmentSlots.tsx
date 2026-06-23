@@ -1,3 +1,4 @@
+import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
@@ -22,6 +23,7 @@ function DocumentAttachmentSlotCard(params: {
   blobPicker: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
   imageUrl: string | undefined;
+  onClearAttachment: (slotId: string) => void;
   onSelectedFile: (fileList: FileList | null) => void;
   slot: DocumentAttachmentSlot;
   status: DocumentAttachmentStatus | undefined;
@@ -31,6 +33,7 @@ function DocumentAttachmentSlotCard(params: {
     blobPicker,
     canAttach,
     imageUrl,
+    onClearAttachment,
     onSelectedFile,
     slot,
     status,
@@ -93,6 +96,18 @@ function DocumentAttachmentSlotCard(params: {
             Choose Blob
           </button>
         ) : null}
+        {storedAttachment ? (
+          <button
+            aria-label={`Clear ${slot.label}`}
+            className="structured-document-slot-button"
+            onClick={() => onClearAttachment(slot.slotId)}
+            title={`Clear ${slot.label}`}
+            type="button"
+          >
+            <TrashIcon aria-hidden size={14} />
+            Clear Image
+          </button>
+        ) : null}
         {statusLabel ? (
           <span className="structured-document-slot-status">{statusLabel}</span>
         ) : null}
@@ -118,6 +133,7 @@ export function DocumentAttachmentSlots(params: {
   blobPicker?: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
   imageUrlBySlotId: Readonly<Record<string, string | undefined>>;
+  onClearAttachment: (slotId: string) => void;
   onSelectedAttachment: (slotId: string, fileList: FileList | null) => void;
   slots: ReadonlyArray<DocumentAttachmentSlot>;
 }) {
@@ -127,6 +143,7 @@ export function DocumentAttachmentSlots(params: {
     blobPicker,
     canAttach,
     imageUrlBySlotId,
+    onClearAttachment,
     onSelectedAttachment,
     slots,
   } = params;
@@ -139,6 +156,7 @@ export function DocumentAttachmentSlots(params: {
           blobPicker={blobPicker}
           canAttach={canAttach}
           imageUrl={imageUrlBySlotId[slot.slotId]}
+          onClearAttachment={onClearAttachment}
           onSelectedFile={(fileList) => {
             onSelectedAttachment(slot.slotId, fileList);
           }}

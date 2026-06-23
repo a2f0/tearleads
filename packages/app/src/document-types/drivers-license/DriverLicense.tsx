@@ -83,6 +83,7 @@ export function DriverLicense(params: {
     attachmentStorageKeyBySlotId,
     canAttach,
     ready,
+    removeAttachment,
     setAttachment,
     setStructuredFields,
     structuredFields,
@@ -124,6 +125,7 @@ export function DriverLicense(params: {
           blobPicker={blobPicker}
           canAttach={canAttach}
           imageUrlBySlotId={imageUrlBySlotId}
+          onClearAttachment={removeAttachment}
           onSelectedAttachment={handleSelectedAttachment}
           slots={DRIVER_LICENSE_ATTACHMENT_SLOTS}
         />

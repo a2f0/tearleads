@@ -118,6 +118,7 @@ export function CreditCard(params: {
     attachmentStorageKeyBySlotId,
     canAttach,
     ready,
+    removeAttachment,
     setAttachment,
     setStructuredFields,
     structuredFields,
@@ -161,6 +162,7 @@ export function CreditCard(params: {
           blobPicker={blobPicker}
           canAttach={canAttach}
           imageUrlBySlotId={imageUrlBySlotId}
+          onClearAttachment={removeAttachment}
           onSelectedAttachment={handleSelectedAttachment}
           slots={CREDIT_CARD_ATTACHMENT_SLOTS}
         />
