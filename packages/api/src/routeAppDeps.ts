@@ -39,12 +39,23 @@ export function resolveRouteAppDeps({
   requireAuth,
   runtime,
 }: RouteAppOverrides): ResolvedRouteAppDeps {
-  const resolvedRuntime = runtime ?? defaultApiServiceRuntime;
+  const runtimeBase = runtime ?? defaultApiServiceRuntime;
+  const resolvedPublish = publish ?? runtimeBase.eventPublisher.publish;
+  const resolvedRuntime =
+    publish === undefined
+      ? runtimeBase
+      : {
+          ...runtimeBase,
+          eventPublisher: {
+            ...runtimeBase.eventPublisher,
+            publish: resolvedPublish,
+          },
+        };
   return {
     destroySession: destroySession ?? defaultDestroySession,
     destroyUserSession: destroyUserSession ?? defaultDestroyUserSession,
     listUserSessions: listUserSessions ?? defaultListUserSessions,
-    publish: publish ?? resolvedRuntime.eventPublisher.publish,
+    publish: resolvedPublish,
     requireAuth: requireAuth ?? defaultRequireAuth,
     runtime: resolvedRuntime,
   };
