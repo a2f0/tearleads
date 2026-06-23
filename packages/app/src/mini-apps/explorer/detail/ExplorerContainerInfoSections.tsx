@@ -255,7 +255,7 @@ function ExplorerContainerInfoGrantList(params: {
   );
 }
 
-function ExplorerContainerInfoSecuritySection(params: {
+export function ExplorerContainerInfoSecuritySection(params: {
   containerNamesById: ReadonlyMap<string, string>;
   remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
 }) {
@@ -398,7 +398,7 @@ function ExplorerContainerInfoLocalDetails(params: {
   );
 }
 
-function ExplorerContainerInfoLocalSection(params: {
+export function ExplorerContainerInfoLocalSection(params: {
   containerId: string;
   containerInfo: ContainerInfo | null;
 }) {
@@ -416,7 +416,7 @@ function ExplorerContainerInfoLocalSection(params: {
   );
 }
 
-function ExplorerContainerInfoGroupShareSection(params: {
+export function ExplorerContainerInfoGroupShareSection(params: {
   draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
   isSubmitting: boolean;
@@ -493,7 +493,7 @@ function ExplorerContainerInfoGroupShareSection(params: {
   );
 }
 
-function ExplorerContainerInfoPeerShareSection(params: {
+export function ExplorerContainerInfoPeerShareSection(params: {
   isSubmitting: boolean;
   onShareWithPeer: () => void;
 }) {
@@ -514,105 +514,33 @@ function ExplorerContainerInfoPeerShareSection(params: {
   );
 }
 
-function ExplorerContainerInfoRemoteSections(params: {
+export function ExplorerContainerInfoPrincipalGrantsSection(params: {
   containerNamesById: ReadonlyMap<string, string>;
-  draftShareAccessLevel: ContainerShareAccessLevel;
-  draftShareGroupId: string;
-  isSubmitting: boolean;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
-  onShareWithPeer: () => void;
-  peerUserId: string | null;
   remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
-  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
-  setPanelError: (error: string | null) => void;
+  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
 }) {
-  const { peerUserId, remoteInfo } = params;
-
   return (
-    <>
-      <MiniAppInfoSection
-        heading={EXPLORER_LABELS.containerInfoPrincipalGrantsHeading}
-      >
-        <ExplorerContainerInfoGrantList
-          containerNamesById={params.containerNamesById}
-          containerInfo={remoteInfo}
-          onOpenGrantGroup={params.onOpenGrantGroup}
-        />
-      </MiniAppInfoSection>
-      <ExplorerContainerInfoSecuritySection
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.containerInfoPrincipalGrantsHeading}
+    >
+      <ExplorerContainerInfoGrantList
         containerNamesById={params.containerNamesById}
-        remoteInfo={remoteInfo}
+        containerInfo={params.remoteInfo}
+        onOpenGrantGroup={params.onOpenGrantGroup}
       />
-      <MiniAppInfoSection
-        heading={EXPLORER_LABELS.containerInfoSyncCursorsHeading}
-      >
-        <ExplorerContainerInfoSyncCursorList containerInfo={remoteInfo} />
-      </MiniAppInfoSection>
-      <ExplorerContainerInfoGroupShareSection {...params} />
-      {peerUserId ? (
-        <ExplorerContainerInfoPeerShareSection {...params} />
-      ) : null}
-    </>
+    </MiniAppInfoSection>
   );
 }
 
-export function ExplorerContainerInfoBody(params: {
-  containerNamesById: ReadonlyMap<string, string>;
-  containerId: string;
-  containerInfo: ContainerInfo | null;
-  containerInfoError: string | null;
-  draftShareAccessLevel: ContainerShareAccessLevel;
-  draftShareGroupId: string;
-  isLoadingContainerInfo: boolean;
-  isSubmitting: boolean;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
-  onShareWithPeer: () => void;
-  peerUserId: string | null;
-  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
-  setDraftShareGroupId: (value: string) => void;
-  setPanelError: (error: string | null) => void;
+export function ExplorerContainerInfoSyncCursorsSection(params: {
+  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
 }) {
-  const { containerId, containerInfo, containerInfoError } = params;
-  const localSection = (
-    <ExplorerContainerInfoLocalSection
-      containerId={containerId}
-      containerInfo={containerInfo}
-    />
-  );
-
-  if (params.isLoadingContainerInfo && !containerInfo) {
-    return (
-      <div className="explorer-info">
-        {localSection}
-        <MiniAppStatus>{EXPLORER_LABELS.containerInfoLoading}</MiniAppStatus>
-      </div>
-    );
-  }
-
-  if (containerInfoError) {
-    return (
-      <div className="explorer-info">
-        {localSection}
-        <MiniAppStatus tone="error">{containerInfoError}</MiniAppStatus>
-      </div>
-    );
-  }
-
-  if (!containerInfo) {
-    return <div className="explorer-info">{localSection}</div>;
-  }
-
   return (
-    <div className="explorer-info">
-      {localSection}
-      {containerInfo.remoteInfo ? (
-        <ExplorerContainerInfoRemoteSections
-          {...params}
-          remoteInfo={containerInfo.remoteInfo}
-        />
-      ) : null}
-    </div>
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.containerInfoSyncCursorsHeading}
+    >
+      <ExplorerContainerInfoSyncCursorList containerInfo={params.remoteInfo} />
+    </MiniAppInfoSection>
   );
 }
 
