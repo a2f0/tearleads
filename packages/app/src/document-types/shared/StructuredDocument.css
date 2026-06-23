@@ -89,8 +89,24 @@
 .structured-document-slot-placeholder {
   display: grid;
   place-items: center;
+  gap: var(--space-sm);
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
+}
+
+.structured-document-slot-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: var(--border-width) solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: structured-document-slot-spin 0.8s linear infinite;
+}
+
+@keyframes structured-document-slot-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .structured-document-slot-meta {

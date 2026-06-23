@@ -42,6 +42,7 @@ function DocumentAttachmentSlotCard(params: {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const statusLabel = getDocumentAttachmentStatusLabel(status);
+  const imageIsLoading = Boolean(storedAttachment && !imageUrl);
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     onSelectedFile(event.currentTarget.files);
@@ -63,8 +64,21 @@ function DocumentAttachmentSlotCard(params: {
           alt={storedAttachment?.name ?? slot.label}
         />
       ) : (
-        <div className="structured-document-slot-preview structured-document-slot-placeholder">
-          No image selected
+        <div
+          aria-busy={imageIsLoading || undefined}
+          className="structured-document-slot-preview structured-document-slot-placeholder"
+        >
+          {imageIsLoading ? (
+            <>
+              <span
+                className="structured-document-slot-spinner"
+                aria-hidden="true"
+              />
+              <span>Downloading image...</span>
+            </>
+          ) : (
+            "No image selected"
+          )}
         </div>
       )}
       <div className="structured-document-slot-meta">
