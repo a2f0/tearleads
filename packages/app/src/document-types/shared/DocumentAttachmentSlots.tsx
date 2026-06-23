@@ -1,233 +1,21 @@
 import type {
-  BlobInfo,
-  BlobInfoInput,
-  BlobInfoList,
   DocumentAttachment,
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
-import {
-  type ChangeEvent,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ChangeEvent, useId, useRef } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
-import { unknownErrorMessage } from "../../utils/unknownErrorMessage";
 import {
   type DocumentAttachmentSlot,
-  getDocumentAttachmentBlobName,
   getDocumentAttachmentStatusLabel,
   getLatestDocumentAttachmentBySlotId,
-  isImageDocumentAttachmentBlob,
 } from "./documentAttachmentUtils";
 
-const BLOB_PICKER_LIMIT = 100;
-
-interface DocumentAttachmentBlobPickerConfig {
-  loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
-  onSelectedBlob: (slotId: string, blob: BlobInfo) => Promise<void> | void;
-}
-
-interface BlobPickerListState {
-  error: string | null;
-  isLoading: boolean;
-  rows: ReadonlyArray<BlobInfo>;
-}
-
-function useDocumentAttachmentBlobPickerList(
-  loadBlobInfo: DocumentAttachmentBlobPickerConfig["loadBlobInfo"],
-  query: string,
-): BlobPickerListState {
-  const [state, setState] = useState<BlobPickerListState>({
-    error: null,
-    isLoading: false,
-    rows: [],
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    setState((current) => ({ ...current, error: null, isLoading: true }));
-
-    void loadBlobInfo({
-      limit: BLOB_PICKER_LIMIT,
-      query,
-      sort: {
-        direction: "desc",
-        key: "updated",
-      },
-    })
-      .then((result) => {
-        if (!cancelled) {
-          setState({
-            error: null,
-            isLoading: false,
-            rows: result.rows,
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setState({
-            error: unknownErrorMessage(error),
-            isLoading: false,
-            rows: [],
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadBlobInfo, query]);
-
-  return state;
-}
-
-function DocumentAttachmentBlobPickerResults(params: {
-  canAttach: boolean;
-  error: string | null;
-  imageRows: ReadonlyArray<BlobInfo>;
-  isLoading: boolean;
-  onSelectBlob: (blob: BlobInfo) => void;
-  selectingBlobKey: string | null;
-}) {
-  const {
-    canAttach,
-    error,
-    imageRows,
-    isLoading,
-    onSelectBlob,
-    selectingBlobKey,
-  } = params;
-
-  if (isLoading) {
-    return (
-      <span className="structured-document-blob-picker-status">
-        Loading blobs...
-      </span>
-    );
-  }
-
-  if (error) {
-    return (
-      <span className="structured-document-blob-picker-status structured-document-blob-picker-status--error">
-        {error}
-      </span>
-    );
-  }
-
-  if (imageRows.length === 0) {
-    return (
-      <span className="structured-document-blob-picker-status">
-        No image blobs found.
-      </span>
-    );
-  }
-
-  return imageRows.map((blob) => (
-    <button
-      className="structured-document-blob-picker-option"
-      disabled={!canAttach || selectingBlobKey !== null}
-      key={blob.key}
-      onClick={() => onSelectBlob(blob)}
-      title={blob.blobId ?? blob.storageKey}
-      type="button"
-    >
-      <span>{getDocumentAttachmentBlobName(blob)}</span>
-      <span>
-        {blob.mimeType ?? "image"}
-        {" - "}
-        {formatByteLength(blob.byteLength)}
-      </span>
-    </button>
-  ));
-}
-
-function DocumentAttachmentBlobPicker(params: {
-  blobPicker: DocumentAttachmentBlobPickerConfig;
-  canAttach: boolean;
-  onClose: () => void;
-  slot: DocumentAttachmentSlot;
-}) {
-  const { blobPicker, canAttach, onClose, slot } = params;
-  const { loadBlobInfo, onSelectedBlob } = blobPicker;
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectionError, setSelectionError] = useState<string | null>(null);
-  const [selectingBlobKey, setSelectingBlobKey] = useState<string | null>(null);
-  const state = useDocumentAttachmentBlobPickerList(
-    loadBlobInfo,
-    debouncedQuery,
-  );
-  const imageRows = useMemo(
-    () => state.rows.filter(isImageDocumentAttachmentBlob),
-    [state.rows],
-  );
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  async function handleSelectBlob(blob: BlobInfo) {
-    setSelectingBlobKey(blob.key);
-    setSelectionError(null);
-
-    try {
-      await onSelectedBlob(slot.slotId, blob);
-      onClose();
-    } catch (error) {
-      setSelectionError(unknownErrorMessage(error));
-    } finally {
-      setSelectingBlobKey(null);
-    }
-  }
-
-  return (
-    <div
-      aria-label={`Select blob for ${slot.label}`}
-      className="structured-document-blob-picker"
-      role="dialog"
-    >
-      <div className="structured-document-blob-picker-toolbar">
-        <input
-          aria-label={`Search image blobs for ${slot.label}`}
-          className="structured-document-blob-picker-search"
-          onChange={(event) => {
-            setQuery(event.currentTarget.value);
-          }}
-          placeholder="Search image blobs"
-          value={query}
-        />
-        <button
-          className="structured-document-slot-button"
-          onClick={onClose}
-          type="button"
-        >
-          Close
-        </button>
-      </div>
-      <div className="structured-document-blob-picker-results">
-        <DocumentAttachmentBlobPickerResults
-          canAttach={canAttach}
-          error={state.error}
-          imageRows={imageRows}
-          isLoading={state.isLoading}
-          onSelectBlob={(blob) => {
-            void handleSelectBlob(blob);
-          }}
-          selectingBlobKey={selectingBlobKey}
-        />
-      </div>
-      {selectionError ? (
-        <span className="structured-document-blob-picker-status structured-document-blob-picker-status--error">
-          {selectionError}
-        </span>
-      ) : null}
-    </div>
-  );
+// "Choose Blob" hands selection off to the Explorer's blob-browser panel (in
+// pick mode) rather than showing an inline list. The host passes a callback
+// that opens that panel for the given slot; the chosen blob is applied back on
+// the document once the panel routes here.
+export interface DocumentAttachmentBlobPickerConfig {
+  onRequestBlobPick: (slot: DocumentAttachmentSlot) => void;
 }
 
 function DocumentAttachmentSlotCard(params: {
@@ -250,7 +38,6 @@ function DocumentAttachmentSlotCard(params: {
   } = params;
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [blobPickerOpen, setBlobPickerOpen] = useState(false);
   const statusLabel = getDocumentAttachmentStatusLabel(status);
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
@@ -300,7 +87,7 @@ function DocumentAttachmentSlotCard(params: {
           <button
             className="structured-document-slot-button"
             disabled={!canAttach}
-            onClick={() => setBlobPickerOpen((isOpen) => !isOpen)}
+            onClick={() => blobPicker.onRequestBlobPick(slot)}
             type="button"
           >
             Choose Blob
@@ -310,14 +97,6 @@ function DocumentAttachmentSlotCard(params: {
           <span className="structured-document-slot-status">{statusLabel}</span>
         ) : null}
       </div>
-      {blobPicker && blobPickerOpen ? (
-        <DocumentAttachmentBlobPicker
-          blobPicker={blobPicker}
-          canAttach={canAttach}
-          onClose={() => setBlobPickerOpen(false)}
-          slot={slot}
-        />
-      ) : null}
       <input
         id={inputId}
         ref={inputRef}

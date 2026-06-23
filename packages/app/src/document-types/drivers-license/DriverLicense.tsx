@@ -1,9 +1,5 @@
-import type { BlobInfoInput } from "@tearleads/client-sdk";
-import { useCallback, useId, useMemo } from "react";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+import { useId, useMemo } from "react";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -12,10 +8,8 @@ import {
   StructuredDocumentFields,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
-import {
-  useDocumentAttachmentSelection,
-  useDocumentBlobAttachmentSelection,
-} from "../shared/useDocumentAttachmentSelection";
+import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
+import { useDocumentAttachmentSelection } from "../shared/useDocumentAttachmentSelection";
 import {
   DRIVER_LICENSE_ATTACHMENT_SLOTS,
   readDriverLicenseFields,
@@ -71,9 +65,15 @@ const DRIVER_LICENSE_ATTACHMENT_COPY = {
   unavailable: "Image attachments require a local key package.",
 };
 
-export function DriverLicense() {
+const DRIVER_LICENSE_ATTACHMENT_SLOT_IDS = DRIVER_LICENSE_ATTACHMENT_SLOTS.map(
+  (slot) => slot.slotId,
+);
+
+export function DriverLicense(params: {
+  containerId: string | null;
+  localId: string;
+}) {
   const { auth, infra, state } = useTearleadsRuntime();
-  const { containerContents } = useTearleads();
   const { isAuthenticated } = auth;
   const { blobStore } = infra;
   const { online } = state;
@@ -105,16 +105,14 @@ export function DriverLicense() {
     errorMessage: "Failed to handle driver's license attachment selection",
     setAttachment,
   });
-  const handleSelectedBlobAttachment = useDocumentBlobAttachmentSelection({
+  const blobPicker = useBlobPickAttachment({
     blobStore,
+    containerId: params.containerId,
     errorMessage: "Failed to handle driver's license blob attachment selection",
+    localId: params.localId,
     setAttachment,
+    slotIds: DRIVER_LICENSE_ATTACHMENT_SLOT_IDS,
   });
-  const loadBlobInfo = useCallback(
-    (query?: BlobInfoInput | undefined) =>
-      containerContents.listBlobInfo(query),
-    [containerContents],
-  );
 
   return (
     <StructuredDocument
@@ -123,10 +121,7 @@ export function DriverLicense() {
         <DocumentAttachmentSlots
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
-          blobPicker={{
-            loadBlobInfo,
-            onSelectedBlob: handleSelectedBlobAttachment,
-          }}
+          blobPicker={blobPicker}
           canAttach={canAttach}
           imageUrlBySlotId={imageUrlBySlotId}
           onSelectedAttachment={handleSelectedAttachment}

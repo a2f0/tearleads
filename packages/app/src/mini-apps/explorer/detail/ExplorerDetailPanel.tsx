@@ -1,4 +1,5 @@
 import type {
+  BlobInfo,
   BlobInfoInput,
   BlobInfoList,
   BlobStore,
@@ -15,6 +16,7 @@ import type {
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerRoute } from "../routes";
@@ -111,6 +113,11 @@ interface ExplorerDetailPanelProps {
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
+  // Pick mode for the blob-browser route: set when "Choose Blob" on a document
+  // routed here. onPickBlob resolves the pick; onCancelBlobPick abandons it.
+  blobPickTarget: ExplorerBlobPickTarget | null;
+  onCancelBlobPick: () => void;
+  onPickBlob: (blob: BlobInfo) => void;
   onContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
     containerId: string,
@@ -188,7 +195,10 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         loadBlobInfo={params.loadBlobInfo}
         nodes={params.nodes}
         onBackToSelectionRoute={params.onBackToSelectionRoute}
+        onCancelBlobPick={params.onCancelBlobPick}
+        onPickBlob={params.onPickBlob}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
+        pickTarget={params.blobPickTarget}
         route={route}
         selectDocumentProjection={params.selectDocumentProjection}
       />
