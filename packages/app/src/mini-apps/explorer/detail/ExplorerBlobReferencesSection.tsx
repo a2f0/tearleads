@@ -139,7 +139,8 @@ function BlobReferenceRow(params: {
         </MiniAppTableActionButton>
       </MiniAppTableCell>
       <MiniAppTableCell title={reference.containerId ?? undefined}>
-        {containerName ?? compactId(reference.containerId)}
+        {containerName ??
+          (reference.containerId ? compactId(reference.containerId) : "-")}
       </MiniAppTableCell>
       <MiniAppTableCell>
         {getExplorerDocumentInfoAttachmentKindLabel(reference.attachmentKind)}
