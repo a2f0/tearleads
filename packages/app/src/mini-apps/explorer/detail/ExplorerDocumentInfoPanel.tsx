@@ -262,7 +262,7 @@ function ExplorerDocumentInfoTabPanel(params: {
           localId={params.localId}
         />
       ) : null}
-      {params.activeTab === "links" && params.documentInfo ? (
+      {params.activeTab === "links" ? (
         <>
           {params.isLoadingDocumentSummary ? (
             <MiniAppStatus>{EXPLORER_LABELS.documentInfoLoading}</MiniAppStatus>
@@ -283,10 +283,12 @@ function ExplorerDocumentInfoTabPanel(params: {
             setSelectedId={params.setSelectedId}
             unlinkDocument={params.unlinkDocument}
           />
-          <ExplorerDocumentInfoAuthorizingContainersSection
-            containerNamesById={params.containerNamesById}
-            documentInfo={params.documentInfo}
-          />
+          {params.documentInfo ? (
+            <ExplorerDocumentInfoAuthorizingContainersSection
+              containerNamesById={params.containerNamesById}
+              documentInfo={params.documentInfo}
+            />
+          ) : null}
         </>
       ) : null}
       {params.activeTab === "blobs" && params.documentInfo ? (

@@ -261,6 +261,7 @@
 
 .explorer-info-tab {
   min-width: 5rem;
+  border: 1px solid transparent;
   border-bottom-color: transparent;
   margin-bottom: -1px;
 }
