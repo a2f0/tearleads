@@ -256,11 +256,13 @@ export function getExplorerDocumentInfoEpochLabel(value: number): string {
 }
 
 export function getExplorerDocumentInfoAttachmentKindLabel(
-  kind: "local" | "pending" | "remote",
+  kind: "local" | "local-remote" | "pending" | "remote",
 ): string {
   switch (kind) {
     case "local":
       return EXPLORER_LABELS.documentInfoAttachmentStateLocal;
+    case "local-remote":
+      return EXPLORER_LABELS.documentInfoAttachmentStateLocalRemote;
     case "pending":
       return EXPLORER_LABELS.documentInfoAttachmentStatePending;
     case "remote":

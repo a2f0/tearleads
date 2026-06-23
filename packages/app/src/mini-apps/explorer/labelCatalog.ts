@@ -117,6 +117,7 @@ export const EXPLORER_LABELS = {
   documentInfoAttachmentSizeColumn: "Size",
   documentInfoAttachmentSlotColumn: "Slot",
   documentInfoAttachmentStateLocal: "local",
+  documentInfoAttachmentStateLocalRemote: "local + remote",
   documentInfoAttachmentStatePending: "pending",
   documentInfoAttachmentStateRemote: "remote",
   documentInfoAttachmentTimeColumn: "Time",
