@@ -1,4 +1,4 @@
-import { type MouseEvent, useCallback, useState } from "react";
+import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
 import { MiniAppBusProvider } from "../../../mini-apps/bus";
 import { MINI_APPS } from "../../../mini-apps/registry";
 import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
@@ -6,6 +6,7 @@ import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
+import { RoutedPane } from "../../layout/routed/RoutedPane";
 import type { MenuPosition } from "../../shared/Menu";
 import { Window } from "../../window/Window";
 import {
@@ -80,16 +81,25 @@ function PaneInner({ className }: { className: string }) {
 export function Pane({
   className,
   navigationMode = "windowed",
+  routedVisible = false,
 }: {
   className: string;
   navigationMode?: AppNavigationMode | undefined;
+  // In routed mode only the single active pane shows the routed shell; the
+  // other (always-mounted, runtime-bearing) panes render no surface.
+  routedVisible?: boolean | undefined;
 }) {
+  // Swap only the leaf surface by mode; the provider stack above stays mounted
+  // so the pane's runtime is never torn down when the layout toggles.
+  let surface: ReactNode = <PaneInner className={className} />;
+  if (navigationMode === "routed") {
+    surface = routedVisible ? <RoutedPane /> : null;
+  }
+
   return (
     <WindowStateProvider>
       <AppNavigationProvider mode={navigationMode} miniApps={MINI_APPS}>
-        <MiniAppBusProvider>
-          <PaneInner className={className} />
-        </MiniAppBusProvider>
+        <MiniAppBusProvider>{surface}</MiniAppBusProvider>
       </AppNavigationProvider>
     </WindowStateProvider>
   );

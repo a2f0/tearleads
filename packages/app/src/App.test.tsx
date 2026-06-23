@@ -177,3 +177,79 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
 });
+
+test("switching navigation mode reuses the booted pane database instead of rebooting it", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+
+  class SilentWebSocket extends EventTarget {
+    constructor(_url: string | URL) {
+      super();
+    }
+
+    close() {}
+  }
+
+  // Count SQLite worker creations: a windowed<->routed toggle that tore the
+  // pane's provider subtree down and rebuilt it (the regressed behaviour) would
+  // create a second runtime. The fix keeps the PaneProvider mounted across the
+  // toggle, so exactly one runtime is ever created for the active pane.
+  let runtimeCreations = 0;
+
+  try {
+    Reflect.set(globalThis, "WebSocket", SilentWebSocket);
+
+    const view = render(
+      <App
+        hostConfig={
+          new AppHostConfig(
+            "http://localhost:3001",
+            "ws://localhost:3002",
+            () => {
+              runtimeCreations += 1;
+              return createSQLiteRuntime({ workerConstructor: MockWorker });
+            },
+          )
+        }
+      />,
+    );
+
+    const toggleNavigationMode = () =>
+      fireEvent.click(view.getByRole("button", { name: /Navigation mode/i }));
+
+    // Drive into routed mode (override cycle: auto -> windowed -> routed) and
+    // boot the single visible pane's database from the routed rail.
+    toggleNavigationMode();
+    toggleNavigationMode();
+    const generateButtons = view.getAllByRole("button", {
+      name: "Generate Key Pair",
+    });
+    const generate = generateButtons[generateButtons.length - 1];
+    if (!generate) {
+      throw new Error("Expected a routed generate-key action.");
+    }
+    fireEvent.click(generate);
+
+    await waitFor(() => {
+      expect(view.container.textContent ?? "").toMatch(
+        /sqlite worker:\s*ready/,
+      );
+    });
+    expect(runtimeCreations).toBe(1);
+
+    // Cross back to a windowed layout (override cycle: routed -> auto ->
+    // windowed). The active pane's worker must be the same one, not a reboot.
+    toggleNavigationMode();
+    toggleNavigationMode();
+
+    await waitFor(() => {
+      expect(view.container.textContent ?? "").toMatch(
+        /sqlite worker:\s*ready/,
+      );
+    });
+    expect(runtimeCreations).toBe(1);
+
+    view.unmount();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});

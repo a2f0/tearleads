@@ -1,5 +1,5 @@
 import { TearleadsFrame } from "@tearleads/ui";
-import { type MouseEvent, useCallback, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import {
   type NavigationModeOverride,
@@ -9,7 +9,6 @@ import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import type { MenuPosition } from "../shared/Menu";
 import { StartMenu } from "../shared/StartMenu";
 import "./Layout.css";
-import { RoutedWorkspace } from "./routed/RoutedWorkspace";
 import { Workspace } from "./workspace/Workspace";
 import {
   useWorkspace,
@@ -78,24 +77,35 @@ function LayoutInner({ hostConfig }: LayoutProps) {
     </div>
   );
 
-  if (navigationMode === "routed") {
-    return (
-      <TearleadsFrame className="layout layout--routed" footerEnd={modeToggle}>
-        <RoutedWorkspace
-          hostConfig={hostConfig}
-          navigationMode={navigationMode}
-        />
-      </TearleadsFrame>
-    );
-  }
+  // One tree for both modes. The windowed↔routed switch (driven by viewport
+  // resize across the breakpoint) only changes the frame chrome and each pane's
+  // leaf surface — never the structure of the runtime-owning PaneProvider
+  // subtrees — so React keeps those mounted and the SQLite worker / SDK client /
+  // websocket / keyring session survive the toggle instead of rebooting.
+  const routed = navigationMode === "routed";
+
+  // The start menu only exists in windowed chrome; drop any open instance when
+  // entering routed mode so it doesn't reappear if the viewport returns to
+  // windowed.
+  useEffect(() => {
+    if (routed) {
+      setMenu(null);
+    }
+  }, [routed]);
 
   return (
     <>
       <TearleadsFrame
-        className={split ? "layout layout--split" : "layout"}
-        footerEnd={footerEnd}
-        footerStart={footerStart}
-        headerActions={headerActions}
+        className={
+          routed
+            ? "layout layout--routed"
+            : split
+              ? "layout layout--split"
+              : "layout"
+        }
+        footerEnd={routed ? modeToggle : footerEnd}
+        footerStart={routed ? undefined : footerStart}
+        headerActions={routed ? undefined : headerActions}
       >
         {WORKSPACE_IDS.map((id) => (
           <Workspace
@@ -108,7 +118,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
           />
         ))}
       </TearleadsFrame>
-      {menu && <StartMenu position={menu} onClose={closeMenu} />}
+      {!routed && menu && <StartMenu position={menu} onClose={closeMenu} />}
     </>
   );
 }
