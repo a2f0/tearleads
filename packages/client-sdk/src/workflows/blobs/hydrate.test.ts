@@ -377,16 +377,19 @@ test("hydrateDocumentAttachmentBlobs reuses one writer projection for matched at
     ...fixture.attachment,
     slotId: "preview-copy",
   };
+  let blobByteReads = 0;
   let writerProjectionCalls = 0;
 
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
     apiClient: {
-      getBlobBytes: async (blobId) =>
-        createBlobBytesResponse({
+      getBlobBytes: async (blobId) => {
+        blobByteReads += 1;
+        return createBlobBytesResponse({
           blobId,
           encryptedBytes: fixture.stagedBlob.encryptedBytes,
           sha256: fixture.stagedBlob.sha256,
-        }),
+        });
+      },
       getDocumentWriterProjection: async () => {
         writerProjectionCalls += 1;
         return fixture.writerProjection;
@@ -412,6 +415,7 @@ test("hydrateDocumentAttachmentBlobs reuses one writer projection for matched at
     targetSecretKey: fixture.secretKey,
   });
 
+  expect(blobByteReads).toBe(1);
   expect(writerProjectionCalls).toBe(1);
   expect(hydratedBlobs?.map((blob) => blob.attachment.slotId)).toEqual([
     fixture.attachment.slotId,

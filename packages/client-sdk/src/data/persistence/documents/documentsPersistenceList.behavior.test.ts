@@ -257,7 +257,7 @@ test("upsertDiscoveredDocument uses the remote createdAt for a newly discovered 
       containerId: "shared-container",
       documentKind: "note",
       documentId: "remote-document",
-      title: "Untitled note",
+      title: "Syncing document...",
       updatedAt: "2026-04-06T12:00:00.000Z",
     });
 
@@ -270,7 +270,7 @@ test("upsertDiscoveredDocument uses the remote createdAt for a newly discovered 
         containerId: "shared-container",
         documentKind: "note",
         documentId: "remote-document",
-        title: "Untitled note",
+        title: "Syncing document...",
         updatedAt: "2026-04-06T12:00:00.000Z",
       },
     ]);

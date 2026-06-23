@@ -51,7 +51,6 @@ import {
 import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import {
-  deriveDocumentTitle,
   documentSummaryJoin,
   documentSummarySelection,
   getProjectionContainerId,
@@ -82,6 +81,7 @@ import type {
 } from "./types";
 
 const HIDDEN_DOCUMENT_SUMMARY_KINDS = ["organization_profile"];
+const DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE = "Syncing document...";
 const DEFAULT_DOCUMENT_SUMMARY_SORT: DocumentSummarySort = {
   direction: "desc",
   key: "updated",
@@ -236,7 +236,7 @@ async function upsertDiscoveredDocumentWithExec(
     documentId: input.documentId,
     documentKind: existingDocument?.documentKind ?? DEFAULT_DOCUMENT_KIND,
     text: existingDocument?.text ?? "",
-    title: existingDocument?.title ?? deriveDocumentTitle(""),
+    title: existingDocument?.title ?? DISCOVERED_DOCUMENT_PLACEHOLDER_TITLE,
     loroSnapshot: existingDocument?.loroSnapshot ?? "",
     accessEpoch: nextAccessEpoch,
     accessStateHash: resolvePersistedAccessStateHash(existingDocument, {

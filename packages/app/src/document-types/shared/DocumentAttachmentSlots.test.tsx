@@ -73,6 +73,24 @@ test("clear image buttons are hidden for empty slots", () => {
   expect(view.queryByRole("button", { name: "Clear Back Image" })).toBeNull();
 });
 
+test("shows downloading feedback when an attachment exists before its image bytes load", () => {
+  const view = renderAttachmentSlots({
+    attachments: [attachments[0] as DocumentAttachment],
+  });
+
+  const frontSlot = view
+    .getByText("Front Image")
+    .closest(".structured-document-slot");
+  expect(frontSlot?.textContent).toContain("Downloading image...");
+  expect(frontSlot?.textContent).not.toContain("No image selected");
+
+  const backSlot = view
+    .getByText("Back Image")
+    .closest(".structured-document-slot");
+  expect(backSlot?.textContent).toContain("No image selected");
+  expect(backSlot?.textContent).not.toContain("Downloading image...");
+});
+
 test("clear image buttons are disabled when attachments cannot be changed", () => {
   const view = renderAttachmentSlots({ canAttach: false });
 

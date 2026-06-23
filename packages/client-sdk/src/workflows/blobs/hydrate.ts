@@ -52,6 +52,11 @@ interface LoadedDocumentAttachmentBlob
   encryptedBytes: string;
 }
 
+interface LoadedDocumentAttachmentBlobBytes {
+  blobId: string;
+  encryptedBytes: string;
+}
+
 const TEXT_DECODER = new TextDecoder();
 
 async function readBlobStreamBytes(
@@ -69,12 +74,6 @@ async function hasExpectedBlobSha256(
   );
 
   return bytesToHex(blobDigest) === blob.sha256;
-}
-
-function isLoadedDocumentAttachmentBlob(
-  loaded: LoadedDocumentAttachmentBlob | null,
-): loaded is LoadedDocumentAttachmentBlob {
-  return loaded !== null;
 }
 
 function shouldHydrateAttachment(input: {
@@ -99,10 +98,9 @@ function shouldHydrateAttachment(input: {
 
 async function loadDocumentAttachmentBlob(
   input: DocumentAttachmentHydrationContext & {
-    attachment: DocumentAttachment;
     binding: BlobAttachmentSummary;
   },
-): Promise<LoadedDocumentAttachmentBlob | null> {
+): Promise<LoadedDocumentAttachmentBlobBytes | null> {
   const { apiClient, binding, log } = input;
   const logPrefix = input.logPrefix ?? "Documents";
   const blob = await apiClient.getBlobBytes(binding.blobId);
@@ -137,10 +135,54 @@ async function loadDocumentAttachmentBlob(
   }
 
   return {
-    attachment: input.attachment,
-    binding,
+    blobId: binding.blobId,
     encryptedBytes: TEXT_DECODER.decode(encryptedBytes),
   };
+}
+
+async function loadUniqueDocumentAttachmentBlobs(
+  input: DocumentAttachmentHydrationContext & {
+    hydrationTargets: ReadonlyArray<DocumentAttachmentHydrationTarget>;
+  },
+): Promise<ReadonlyMap<string, LoadedDocumentAttachmentBlobBytes>> {
+  const targetsByBlobId = new Map<string, DocumentAttachmentHydrationTarget>();
+  for (const target of input.hydrationTargets) {
+    if (!targetsByBlobId.has(target.binding.blobId)) {
+      targetsByBlobId.set(target.binding.blobId, target);
+    }
+  }
+
+  const loadedBlobs = await Promise.all(
+    Array.from(targetsByBlobId.values()).map((target) =>
+      loadDocumentAttachmentBlob({
+        ...input,
+        binding: target.binding,
+      }),
+    ),
+  );
+
+  return new Map(
+    loadedBlobs.flatMap((loaded) =>
+      loaded ? [[loaded.blobId, loaded] as const] : [],
+    ),
+  );
+}
+
+function applyLoadedBlobBytesToHydrationTargets(
+  hydrationTargets: ReadonlyArray<DocumentAttachmentHydrationTarget>,
+  loadedBlobsByBlobId: ReadonlyMap<string, LoadedDocumentAttachmentBlobBytes>,
+): LoadedDocumentAttachmentBlob[] {
+  return hydrationTargets.flatMap((target) => {
+    const loaded = loadedBlobsByBlobId.get(target.binding.blobId);
+    return loaded
+      ? [
+          {
+            ...target,
+            encryptedBytes: loaded.encryptedBytes,
+          },
+        ]
+      : [];
+  });
 }
 
 async function decryptLoadedDocumentAttachmentBlob(
@@ -200,16 +242,13 @@ export async function hydrateDocumentAttachmentBlobs(
     return [];
   }
 
-  const loadedBlobs = (
-    await Promise.all(
-      hydrationTargets.map((target) =>
-        loadDocumentAttachmentBlob({
-          ...input,
-          ...target,
-        }),
-      ),
-    )
-  ).filter(isLoadedDocumentAttachmentBlob);
+  const loadedBlobs = applyLoadedBlobBytesToHydrationTargets(
+    hydrationTargets,
+    await loadUniqueDocumentAttachmentBlobs({
+      ...input,
+      hydrationTargets,
+    }),
+  );
   if (loadedBlobs.length === 0) {
     return [];
   }
