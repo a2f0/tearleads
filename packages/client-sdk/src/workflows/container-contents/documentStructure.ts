@@ -15,7 +15,6 @@ import type {
 
 export type {
   DocumentStructuralMutationHost,
-  DocumentStructuralMutationLocalStore,
   DocumentStructuralMutationRelinkInput,
   DocumentStructuralMutationRuntime,
   MergeDocumentSummary,
