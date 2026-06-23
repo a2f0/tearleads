@@ -1,5 +1,5 @@
 import { TearleadsFrame } from "@tearleads/ui";
-import { type MouseEvent, useCallback, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import {
   type NavigationModeOverride,
@@ -83,6 +83,16 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   // subtrees — so React keeps those mounted and the SQLite worker / SDK client /
   // websocket / keyring session survive the toggle instead of rebooting.
   const routed = navigationMode === "routed";
+
+  // The start menu only exists in windowed chrome; drop any open instance when
+  // entering routed mode so it doesn't reappear if the viewport returns to
+  // windowed.
+  useEffect(() => {
+    if (routed) {
+      setMenu(null);
+    }
+  }, [routed]);
+
   return (
     <>
       <TearleadsFrame
