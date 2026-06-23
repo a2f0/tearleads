@@ -3,7 +3,10 @@ import { sql } from "drizzle-orm";
 import { isSqliteApiDatabase } from "../utils/sqlDialect";
 
 let sqliteCommitLsnValue = 0n;
-let sqliteCommitLsnSeeded = false;
+// Memoized so concurrent first calls all await the same seed query rather than a
+// boolean flag, which a second caller could pass before the async query
+// completed — emitting an unseeded (too-low) LSN during the startup window.
+let sqliteCommitLsnSeedPromise: Promise<void> | null = null;
 
 function formatWalLsn(value: bigint): string {
   const high = value >> 32n;
@@ -20,29 +23,28 @@ function formatWalLsn(value: bigint): string {
 // commitLsn clients retain, so MAX(created_at) is a safe lower-bound floor.
 // Best-effort: any failure falls back to the wall-clock counter. (Postgres uses
 // a real durable WAL LSN and is unaffected; this path is test/dev only.)
-async function ensureSqliteCommitLsnSeeded(
-  executor: DatabaseSession,
-): Promise<void> {
-  if (sqliteCommitLsnSeeded) {
-    return;
-  }
-  sqliteCommitLsnSeeded = true;
-  try {
-    const result = await executor.execute(
-      sql`select max(created_at) as "maxCreatedAt" from document_updates`,
-    );
-    const row = result.rows[0];
-    const maxCreatedAt =
-      row && typeof row === "object" ? Reflect.get(row, "maxCreatedAt") : null;
-    if (typeof maxCreatedAt === "number" && Number.isFinite(maxCreatedAt)) {
-      const seed = BigInt(Math.trunc(maxCreatedAt));
-      if (seed > sqliteCommitLsnValue) {
-        sqliteCommitLsnValue = seed;
+function ensureSqliteCommitLsnSeeded(executor: DatabaseSession): Promise<void> {
+  sqliteCommitLsnSeedPromise ??= (async () => {
+    try {
+      const result = await executor.execute(
+        sql`select max(created_at) as "maxCreatedAt" from document_updates`,
+      );
+      const row = result.rows[0];
+      const maxCreatedAt =
+        row && typeof row === "object"
+          ? Reflect.get(row, "maxCreatedAt")
+          : null;
+      if (typeof maxCreatedAt === "number" && Number.isFinite(maxCreatedAt)) {
+        const seed = BigInt(Math.trunc(maxCreatedAt));
+        if (seed > sqliteCommitLsnValue) {
+          sqliteCommitLsnValue = seed;
+        }
       }
+    } catch {
+      // Best-effort seed; the wall-clock counter remains the fallback.
     }
-  } catch {
-    // Best-effort seed; the wall-clock counter remains the fallback.
-  }
+  })();
+  return sqliteCommitLsnSeedPromise;
 }
 
 function readCurrentSqliteCommitLsn(): string {
