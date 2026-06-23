@@ -15,6 +15,7 @@ import {
   type BlobObjectReadStream,
   BlobObjectStoreError,
   type BlobObjectUploadPartBody,
+  type CompletedBlobObject,
 } from "../../adapters/blobObjectStore";
 import {
   encodeMultipartBlobStageRecord,
@@ -377,6 +378,36 @@ async function uploadMultipartBlobPartBody(
   }
 }
 
+function multipartStageCompleteResponse(
+  stage: LoadedMultipartBlobStage,
+): CompleteMultipartBlobStageResponse {
+  return {
+    byteLength: stage.byteLength,
+    expiresAt: stage.expiresAt.toISOString(),
+    sha256: stage.sha256,
+    stageId: stage.id,
+  };
+}
+
+// Flip the still-pending stage record to complete. This is a separate write
+// from the object-store byte commit and cannot share a transaction with it, so
+// completion convergence is retry-driven (see the recovery path below).
+async function markMultipartStageComplete(
+  runtime: ApiServiceRuntime,
+  stage: LoadedMultipartBlobStage,
+): Promise<void> {
+  await runtime.db
+    .update(blobStages)
+    .set({
+      encryptedBytes: encodeMultipartBlobStageRecord({
+        state: "complete",
+        storageKey: stage.record.storageKey,
+        uploadId: stage.record.uploadId,
+      }),
+    })
+    .where(eq(blobStages.id, stage.id));
+}
+
 export async function completeMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: AuthenticatedMultipartBlobStageInput &
@@ -385,27 +416,46 @@ export async function completeMultipartBlobStage(
   try {
     const stage = await loadMultipartBlobStage(runtime, input);
     if (stage.record.state === "complete") {
-      return {
-        byteLength: stage.byteLength,
-        expiresAt: stage.expiresAt.toISOString(),
-        sha256: stage.sha256,
-        stageId: stage.id,
-      };
+      return multipartStageCompleteResponse(stage);
     }
     assertUploadIdMatches({
       expectedUploadId: stage.record.uploadId,
       uploadId: input.uploadId,
     });
 
-    const completed = await runtime.blobObjectStore.completeMultipartUpload({
-      expected: {
-        byteLength: stage.byteLength,
-        sha256: stage.sha256,
-      },
-      key: stage.record.storageKey,
-      parts: input.parts,
-      uploadId: stage.record.uploadId,
-    });
+    let completed: CompletedBlobObject;
+    try {
+      completed = await runtime.blobObjectStore.completeMultipartUpload({
+        expected: {
+          byteLength: stage.byteLength,
+          sha256: stage.sha256,
+        },
+        key: stage.record.storageKey,
+        parts: input.parts,
+        uploadId: stage.record.uploadId,
+      });
+    } catch (error) {
+      // completeMultipartUpload destroys the uploadId once it assembles the
+      // object, so a retry after a prior attempt assembled the bytes but
+      // crashed before markMultipartStageComplete committed (the byte commit and
+      // the row flip cannot share a transaction) hits not_found and would
+      // otherwise wedge the upload until the stage TTL expires. completeMultipart
+      // is the sole writer to this key and any sha/byteLength mismatch is deleted
+      // below, so a surviving object is an already-validated one: converge the
+      // still-pending record to complete instead of failing forever.
+      if (error instanceof BlobObjectStoreError && error.code === "not_found") {
+        const existing = await runtime.blobObjectStore.getObjectStream(
+          stage.record.storageKey,
+        );
+        if (existing) {
+          await existing.cancel();
+          await markMultipartStageComplete(runtime, stage);
+          return multipartStageCompleteResponse(stage);
+        }
+      }
+      throw error;
+    }
+
     if (completed.byteLength !== stage.byteLength) {
       await runtime.blobObjectStore.deleteObject(stage.record.storageKey);
       throw new MultipartBlobStageError(
@@ -421,23 +471,8 @@ export async function completeMultipartBlobStage(
       );
     }
 
-    await runtime.db
-      .update(blobStages)
-      .set({
-        encryptedBytes: encodeMultipartBlobStageRecord({
-          state: "complete",
-          storageKey: stage.record.storageKey,
-          uploadId: stage.record.uploadId,
-        }),
-      })
-      .where(eq(blobStages.id, stage.id));
-
-    return {
-      byteLength: stage.byteLength,
-      expiresAt: stage.expiresAt.toISOString(),
-      sha256: stage.sha256,
-      stageId: stage.id,
-    };
+    await markMultipartStageComplete(runtime, stage);
+    return multipartStageCompleteResponse(stage);
   } catch (error) {
     const multipartError = toMultipartBlobStageError(error);
     if (multipartError) {

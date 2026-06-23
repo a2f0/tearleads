@@ -30,15 +30,26 @@ import {
  *   the purge scan cannot see) before any hard delete, and a bind that
  *   re-references the blob clears this back to `null`. Null while live.
  */
-export const blobs = pgTable("blobs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  storageKey: text("storage_key").notNull(),
-  encryptedBytes: text("encrypted_bytes").notNull(),
-  sha256: text("sha256").notNull(),
-  byteLength: integer("byte_length").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  dereferencedAt: timestamp("dereferenced_at"),
-});
+export const blobs = pgTable(
+  "blobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    storageKey: text("storage_key").notNull(),
+    encryptedBytes: text("encrypted_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    byteLength: integer("byte_length").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    dereferencedAt: timestamp("dereferenced_at"),
+  },
+  (table) => [
+    // One blob row per object-store key: a blob is 1:1 with its bytes (sharing
+    // across documents goes through attachment_bindings, not duplicate rows).
+    // This makes a second concurrent bind that aliases an already-consumed
+    // stage's storage key conflict and fail closed instead of creating two blob
+    // rows over one object (which would break storage-key GC reachability).
+    uniqueIndex("blobs_storage_key_idx").on(table.storageKey),
+  ],
+);
 
 /**
  * Temporary encrypted blob uploads awaiting attachment mutation.

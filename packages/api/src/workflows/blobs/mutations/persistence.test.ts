@@ -7,10 +7,11 @@ import { reviveBlobIfDereferenced } from "./persistence";
 async function insertBlob(input: {
   readonly id: string;
   readonly dereferencedAt: Date | null;
+  readonly storageKey?: string;
 }): Promise<void> {
   await db.insert(blobs).values({
     id: input.id,
-    storageKey: `blob-object:${input.id}`,
+    storageKey: input.storageKey ?? `blob-object:${input.id}`,
     encryptedBytes: `encrypted:${input.id}`,
     sha256: `sha256:${input.id}`,
     byteLength: 1,
@@ -49,4 +50,20 @@ test("reviveBlobIfDereferenced is a no-op for a live blob", async () => {
   );
 
   expect(await readDereferencedAt(blobId)).toBeNull();
+});
+
+test("a second blob row aliasing one object-store key is rejected (unique storage_key)", async () => {
+  // Two concurrent binds promoting the same stage to different blobIds would
+  // otherwise create two blob rows over one object key, breaking storage-key GC.
+  // The unique index makes the loser fail closed.
+  const storageKey = `blob-object:${crypto.randomUUID()}`;
+  await insertBlob({
+    id: crypto.randomUUID(),
+    dereferencedAt: null,
+    storageKey,
+  });
+
+  await expect(
+    insertBlob({ id: crypto.randomUUID(), dereferencedAt: null, storageKey }),
+  ).rejects.toThrow();
 });
