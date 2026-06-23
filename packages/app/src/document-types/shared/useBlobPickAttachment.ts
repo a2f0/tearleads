@@ -39,6 +39,9 @@ export function useBlobPickAttachment(params: {
   const requestBlobPick = blobPick?.requestBlobPick;
 
   // Apply any blob the picker routed back for one of this document's slots.
+  // Returning from the picker re-mounts the document (the document-selection
+  // route swaps it back in), so this effectively runs on remount; the deps keep
+  // it from re-running every render while still re-checking if they change.
   useEffect(() => {
     if (!consumeBlobPick) {
       return;
@@ -56,7 +59,7 @@ export function useBlobPickAttachment(params: {
     if (picked) {
       void handleSelectedBlobAttachment(picked.slotId, picked.blob);
     }
-  });
+  }, [consumeBlobPick, handleSelectedBlobAttachment, localId, slotIds]);
 
   const onRequestBlobPick = useCallback(
     (slot: DocumentAttachmentSlot) => {
