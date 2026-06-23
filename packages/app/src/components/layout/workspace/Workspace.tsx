@@ -70,6 +70,7 @@ export function Workspace({
           <Pane
             className={`pane pane-left${active ? "" : " pane-hidden"}`}
             navigationMode={navigationMode}
+            routedVisible={active}
           />
         </PaneProvider>
       </PaneSideProvider>
