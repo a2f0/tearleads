@@ -1,0 +1,1 @@
+ALTER TABLE `blobs` ADD `dereferenced_at` integer;

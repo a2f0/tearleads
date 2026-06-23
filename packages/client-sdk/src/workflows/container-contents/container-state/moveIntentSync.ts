@@ -35,13 +35,14 @@ async function recordPendingMoveIntentError(input: {
 
 async function markMoveIntentSynced(input: {
   containerId: string;
+  expectedUpdatedAt: string;
   state: ContainerMoveIntentSyncState;
 }) {
   const execSql = input.state.runtime.infra.execSql;
-  await input.state.persistence.markMoveIntentSynced(
-    execSql,
-    input.containerId,
-  );
+  await input.state.persistence.markMoveIntentSynced(execSql, {
+    containerId: input.containerId,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+  });
 }
 
 async function resolveMoveIntentLocalUpdatedAt(input: {
@@ -125,6 +126,7 @@ async function persistAcceptedMoveIntent(input: {
   };
   await markMoveIntentSynced({
     containerId: intent.containerId,
+    expectedUpdatedAt: intent.updatedAt,
     state,
   });
 }

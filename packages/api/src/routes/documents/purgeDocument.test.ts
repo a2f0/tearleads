@@ -983,7 +983,7 @@ test("DELETE /documents/:documentId returns 404 for an unknown document id", asy
   expect(await response.json()).toEqual({ error: "Document not found" });
 });
 
-test("DELETE /documents/:documentId reclaims an orphaned blob's object-store bytes", async () => {
+test("DELETE /documents/:documentId soft-deletes an orphaned blob and retains its bytes", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1009,26 +1009,33 @@ test("DELETE /documents/:documentId reclaims an orphaned blob's object-store byt
   expect(response.status).toBe(200);
   const purged = await response.json();
   expect(isDocumentPurgeResponse(purged)).toBe(true);
-  expect(purged.reclaimedBlobStorageKeys).toEqual([attachment.storageKey]);
+  // Bytes are retained for a later GC sweep, not reclaimed synchronously: a
+  // concurrent bind to a shared blob is a phantom this purge cannot see, so the
+  // irreversible byte deletion is deferred until reachability is re-checked.
+  expect(purged.reclaimedBlobStorageKeys).toEqual([]);
 
+  // The blob row survives, soft-deleted with dereferencedAt stamped.
   const blobRows = await db
-    .select({ id: blobs.id })
+    .select({ id: blobs.id, dereferencedAt: blobs.dereferencedAt })
     .from(blobs)
     .where(eq(blobs.id, attachment.blobId));
-  expect(blobRows).toHaveLength(0);
+  expect(blobRows).toHaveLength(1);
+  expect(blobRows[0]?.dereferencedAt).not.toBeNull();
 
+  // The purged document's own binding is gone.
   const bindingRows = await db
     .select({ id: attachmentBindings.id })
     .from(attachmentBindings)
     .where(eq(attachmentBindings.blobId, attachment.blobId));
   expect(bindingRows).toHaveLength(0);
 
+  // The encrypted bytes are still present in the object store.
   expect(
     await readBlobObjectText(
       defaultApiServiceRuntime.blobObjectStore,
       attachment.storageKey,
     ),
-  ).toBeNull();
+  ).not.toBeNull();
 });
 
 test("DELETE /documents/:documentId preserves a blob shared with another document", async () => {
@@ -1217,7 +1224,7 @@ test("DELETE /documents/:documentId preserves a blob another document references
 // a blob whose only remaining references are this document's own DETACHED
 // bindings (e.g. left behind by a replace) must be reclaimed on purge. The old
 // candidate set considered only ACTIVE bindings, so such blobs leaked forever.
-test("DELETE /documents/:documentId reclaims a blob referenced only by this document's detached binding", async () => {
+test("DELETE /documents/:documentId soft-deletes a blob referenced only by this document's detached binding", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1246,17 +1253,17 @@ test("DELETE /documents/:documentId reclaims a blob referenced only by this docu
   const purged = await response.json();
   expect(isDocumentPurgeResponse(purged)).toBe(true);
   // Both the replaced (detached) and current blobs were referenced only by this
-  // document, so both are reclaimed.
-  expect([...purged.reclaimedBlobStorageKeys].sort()).toEqual(
-    [replaced.storageKey, current.storageKey].sort(),
-  );
+  // document, so both are orphaned — soft-deleted with bytes retained, nothing
+  // reclaimed synchronously.
+  expect(purged.reclaimedBlobStorageKeys).toEqual([]);
 
   for (const blobId of [replaced.blobId, current.blobId]) {
     const blobRows = await db
-      .select({ id: blobs.id })
+      .select({ id: blobs.id, dereferencedAt: blobs.dereferencedAt })
       .from(blobs)
       .where(eq(blobs.id, blobId));
-    expect(blobRows).toHaveLength(0);
+    expect(blobRows).toHaveLength(1);
+    expect(blobRows[0]?.dereferencedAt).not.toBeNull();
   }
   for (const storageKey of [replaced.storageKey, current.storageKey]) {
     expect(
@@ -1264,6 +1271,6 @@ test("DELETE /documents/:documentId reclaims a blob referenced only by this docu
         defaultApiServiceRuntime.blobObjectStore,
         storageKey,
       ),
-    ).toBeNull();
+    ).not.toBeNull();
   }
 });

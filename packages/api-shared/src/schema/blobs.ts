@@ -24,6 +24,11 @@ import {
  * - `sha256`: SHA-256 digest of `encryptedBytes`.
  * - `byteLength`: Byte length of `encryptedBytes`.
  * - `createdAt`: Server-side promotion timestamp.
+ * - `dereferencedAt`: Set when a purge found this blob unreferenced by any other
+ *   document and soft-deleted it. The bytes are retained; a later GC sweep
+ *   re-checks reachability (a concurrent bind under READ COMMITTED is a phantom
+ *   the purge scan cannot see) before any hard delete, and a bind that
+ *   re-references the blob clears this back to `null`. Null while live.
  */
 export const blobs = pgTable("blobs", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -32,6 +37,7 @@ export const blobs = pgTable("blobs", {
   sha256: text("sha256").notNull(),
   byteLength: integer("byte_length").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  dereferencedAt: timestamp("dereferenced_at"),
 });
 
 /**

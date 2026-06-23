@@ -9,7 +9,6 @@ import {
   accessManifestHeads,
   accessManifests,
   attachmentBindings,
-  blobAuditObjects,
   blobs,
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
@@ -26,18 +25,12 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import type { DocumentPurgeResponse } from "@tearleads/validators/response";
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { readExternalBlobBytesRef } from "../../../utils/blobStageRecords";
+import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import {
   ContainerWriterProjectionError,
   resolveContainerAccessProjection,
 } from "../../containers/writerProjection";
 import { DocumentMutationError } from "./errors";
-
-type BlobByteDeletion = {
-  readonly blobId: string;
-  readonly storageKey: string;
-};
 
 function toDocumentMutationError(
   error: ContainerWriterProjectionError,
@@ -192,17 +185,20 @@ async function resolveBlobIdsReferencedByOtherDocuments(input: {
 }
 
 // Blobs can be shared: a single blob may be bound to several documents, and a
-// document's own history can hold detached bindings to a blob it replaced. We
-// may delete a blob's bytes only when purging this document removes the last
-// reference to that blob anywhere (across all documents, active or detached
-// bindings, and attachment audit history). Returns the storage keys safe to
-// delete from the object store.
-async function resolveReclaimableBlobBytes(input: {
+// document's own history can hold detached bindings to a blob it replaced.
+// Purging this document orphans a blob only when it removes the last reference
+// to that blob anywhere (across all documents, active or detached bindings, and
+// attachment audit history). Returns the ids of the blobs this purge orphans;
+// the caller soft-deletes them (retaining bytes) rather than hard-deleting,
+// because a concurrent bind to a shared blob is a phantom this scan cannot see
+// under READ COMMITTED — a later GC sweep re-checks reachability before
+// reclaiming any bytes.
+async function resolveOrphanedBlobIds(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
-}): Promise<BlobByteDeletion[]> {
+}): Promise<string[]> {
   // Candidates are every blob this document references, including via DETACHED
-  // bindings left behind by replace/detach — those are reclaimable once this
+  // bindings left behind by replace/detach — those become orphaned once this
   // document (their last referrer) is purged.
   const ownBindings = await input.executor
     .select({ blobId: attachmentBindings.blobId })
@@ -220,26 +216,7 @@ async function resolveReclaimableBlobBytes(input: {
     documentId: input.documentId,
     executor: input.executor,
   });
-  const orphanedBlobIds = candidateBlobIds.filter(
-    (blobId) => !referencedElsewhere.has(blobId),
-  );
-  if (orphanedBlobIds.length === 0) {
-    return [];
-  }
-
-  const blobRows = await input.executor
-    .select({ id: blobs.id, encryptedBytes: blobs.encryptedBytes })
-    .from(blobs)
-    .where(inArray(blobs.id, orphanedBlobIds));
-
-  return blobRows.flatMap((row) => {
-    const externalRef = readExternalBlobBytesRef(row.encryptedBytes);
-    // Legacy inline blobs store bytes in the row itself; deleting the row (done
-    // below) reclaims them, so there is no object-store key to delete.
-    return externalRef
-      ? [{ blobId: row.id, storageKey: externalRef.storageKey }]
-      : [];
-  });
+  return candidateBlobIds.filter((blobId) => !referencedElsewhere.has(blobId));
 }
 
 // Audit event detail tables reference documentAuditEntries(id); clear them
@@ -303,9 +280,14 @@ async function deleteDocumentContentRows(
     .where(eq(documentUpdates.documentId, documentId));
 }
 
-// Attachment bindings (active and detached history) for this document, then
-// any blob rows whose last active binding we just removed.
+// Attachment bindings (active and detached history) for this document, then a
+// soft-delete of any blob this purge orphaned. The blob rows, bytes, audit
+// objects, and key material are RETAINED — only `dereferencedAt` is stamped, so
+// a later GC sweep can re-check reachability (a bind racing this purge under
+// READ COMMITTED is invisible here) and hard-delete only truly-unreachable
+// blobs. `IS NULL` keeps an already-dereferenced blob's original timestamp.
 async function deleteDocumentAttachmentRows(input: {
+  readonly dereferencedAt: Date;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly orphanedBlobIds: readonly string[];
@@ -314,13 +296,15 @@ async function deleteDocumentAttachmentRows(input: {
     .delete(attachmentBindings)
     .where(eq(attachmentBindings.documentId, input.documentId));
   if (input.orphanedBlobIds.length > 0) {
-    const orphanedBlobIds = [...input.orphanedBlobIds];
     await input.executor
-      .delete(blobAuditObjects)
-      .where(inArray(blobAuditObjects.blobId, orphanedBlobIds));
-    await input.executor
-      .delete(blobs)
-      .where(inArray(blobs.id, orphanedBlobIds));
+      .update(blobs)
+      .set({ dereferencedAt: input.dereferencedAt })
+      .where(
+        and(
+          inArray(blobs.id, [...input.orphanedBlobIds]),
+          isNull(blobs.dereferencedAt),
+        ),
+      );
   }
 }
 
@@ -367,6 +351,7 @@ async function deleteDocumentAccessHistory(
 }
 
 async function deleteDocumentRows(input: {
+  readonly dereferencedAt: Date;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly orphanedBlobIds: readonly string[];
@@ -432,16 +417,17 @@ async function purgeDocumentWithExecutor(input: {
     userId: input.userId,
   });
 
-  const reclaimableBlobBytes = await resolveReclaimableBlobBytes({
+  const orphanedBlobIds = await resolveOrphanedBlobIds({
     documentId: input.documentId,
     executor: input.executor,
   });
   const purgedAt = new Date();
 
   await deleteDocumentRows({
+    dereferencedAt: purgedAt,
     documentId: input.documentId,
     executor: input.executor,
-    orphanedBlobIds: reclaimableBlobBytes.map((deletion) => deletion.blobId),
+    orphanedBlobIds,
   });
   await writePurgeTombstone({
     containerId,
@@ -450,21 +436,23 @@ async function purgeDocumentWithExecutor(input: {
     updatedAt: purgedAt,
   });
 
+  // Orphaned blobs are soft-deleted (bytes retained), so nothing is reclaimed
+  // synchronously; the GC sweep reclaims object-store bytes after re-checking
+  // reachability. Always empty until that sweep exists.
   return {
     documentId: input.documentId,
     purgedAt: purgedAt.toISOString(),
-    reclaimedBlobStorageKeys: reclaimableBlobBytes.map(
-      (deletion) => deletion.storageKey,
-    ),
+    reclaimedBlobStorageKeys: [],
   };
 }
 
 // Hard-deletes the document and its per-document rows in one transaction, and
-// returns the object-store keys for blobs that became fully orphaned. The
-// caller (service layer) deletes those bytes after commit — the workflow stays
-// on the database alone so it does not depend on the services layer. Because
-// byte deletion happens post-commit, a rollback never leaves dangling
-// references, and a later storage failure only leaks reclaimable bytes.
+// SOFT-deletes (stamps `dereferencedAt`, retaining bytes) any blob the purge
+// orphaned. Blob bytes are intentionally never reclaimed here: a bind racing
+// this purge under READ COMMITTED is a phantom the reachability scan cannot
+// see, so hard-deleting bytes synchronously could destroy a blob another
+// document just re-referenced. A GC sweep reclaims dereferenced blobs later
+// after re-checking reachability, so `reclaimedBlobStorageKeys` is empty.
 export async function runPurgeDocumentWorkflow(
   db: ApiDatabase,
   input: {

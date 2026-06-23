@@ -177,6 +177,59 @@ test("structural follow-up requests drain before document lanes", async () => {
   expect(calls).toEqual(["structural-1", "structural-2", "document"]);
 });
 
+test("structural self-follow-up survives a throw in the same pass", async () => {
+  // A no-onUnexpectedError lane (like the real container-contents structural
+  // lane) re-throws into the coordinator catch block. If that pass armed a
+  // self-follow-up before throwing, the follow-up must NOT be cleared — else
+  // queued structural work is dropped and document lanes run on a stale
+  // container topology (docs/client-sync-ordering.md). The existing tests cover
+  // self-follow-up and throw only separately; this is their combination.
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const calls: string[] = [];
+  let structuralRunCount = 0;
+  let requestStructuralSync: () => void = () => {};
+  const originalConsoleError = console.error;
+  console.error = () => {};
+
+  try {
+    const structuralLane = coordinator.registerLane("structural", {
+      phase: "structural",
+      run: async () => {
+        structuralRunCount += 1;
+        calls.push(`structural-${structuralRunCount}`);
+        if (structuralRunCount === 1) {
+          requestStructuralSync();
+          throw new Error("transient structural failure");
+        }
+      },
+    });
+    requestStructuralSync = structuralLane.requestSync;
+    const documentLane = coordinator.registerLane("document", {
+      phase: "document",
+      run: async () => {
+        calls.push("document");
+      },
+    });
+
+    structuralLane.requestSync();
+    documentLane.requestSync();
+
+    expect(
+      await waitForDomainSyncCoordinatorToSettle(domainScope, {
+        intervalMs: 1,
+        quietMs: 0,
+        timeoutMs: 100,
+      }),
+    ).toBe(true);
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  expect(calls).toEqual(["structural-1", "structural-2", "document"]);
+  expect(structuralRunCount).toBe(2);
+});
+
 test("unexpected lane errors do not abort queued sync work", async () => {
   const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);

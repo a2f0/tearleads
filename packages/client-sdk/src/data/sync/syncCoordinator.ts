@@ -146,7 +146,13 @@ async function runRequestedSyncLanes(
     try {
       runResult = await runSyncLane(lane);
     } catch (error: unknown) {
-      lane.requested = false;
+      // Do not clear lane.requested here. A lane's run() can arm a self
+      // follow-up (requestLaneSync) before it throws; the `requested` flag is
+      // owned by request/selection logic and the success path's finally
+      // deliberately leaves it untouched. Clearing it on throw would silently
+      // drop a queued structural follow-up — breaking the phase-ordering
+      // guarantee in docs/client-sync-ordering.md for any lane without an
+      // onUnexpectedError handler (e.g. the structural container-contents lane).
       runResult = { status: "failed", error };
       reportUnexpectedSyncLaneError(lane, error);
     } finally {

@@ -27,6 +27,7 @@ import {
   detachActiveSlotBinding,
   promoteStagedBlobIfPresent,
   requireSingleActiveAttachmentBindingForSlot,
+  reviveBlobIfDereferenced,
 } from "./persistence";
 import {
   type ResolvedBlobKekTargets,
@@ -167,6 +168,9 @@ async function bindBlobAttachmentTransaction(
   });
   await detachActiveSlotBinding({ activeBinding, executor: tx });
   await storeVerifiedAttachmentBindingInTransaction(verifiedBinding.value, tx);
+  // The blob now has an active binding again; clear any prior purge soft-delete
+  // so the GC sweep does not reclaim a blob this bind just re-referenced.
+  await reviveBlobIfDereferenced({ blobId: input.blobId, executor: tx });
   const contentKeyBundle = await storeBlobContentKeyBundleInTransaction(
     toStoredContentKeyBundleInput(input.blobId, input.request.contentKeyBundle),
     tx,

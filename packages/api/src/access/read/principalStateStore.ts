@@ -9,9 +9,11 @@ export {
   getCurrentPrincipalState,
   getCurrentPrincipalStatePayload,
   getCurrentPrincipalStates,
+  getPrincipalStatePayloadForState,
   getPrincipalStatesForReferences,
   listCurrentPrincipalProjectionMembers,
   listPrincipalProjectionMembersForStates,
   listPrincipalStateHistory,
+  listProjectionMembersForState,
   principalStateReferenceKey,
 } from "../shared/internal/principalStateStore";
