@@ -7,7 +7,6 @@ export {
   getCurrentPrincipalEpochKey,
   getCurrentPrincipalEpochKeys,
   getCurrentPrincipalState,
-  getCurrentPrincipalStatePayload,
   getCurrentPrincipalStates,
   getPrincipalStatePayloadForState,
   getPrincipalStatesForReferences,
