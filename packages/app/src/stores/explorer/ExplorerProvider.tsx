@@ -198,9 +198,13 @@ export function useExplorer(): ExplorerContextValue {
     }
 
     try {
+      // Delete-to-trash is device-first. If Trash is missing, create the local
+      // system container immediately and let the structural sync lane reconcile
+      // it before queued document moves replay.
       return await store.ensureSystemContainer(
         trashSystemSlot,
         EXPLORER_TRASH_CONTAINER_NAME,
+        { deferRemoteBootstrap: true },
       );
     } catch (error) {
       logError("Failed to ensure explorer trash container", error);

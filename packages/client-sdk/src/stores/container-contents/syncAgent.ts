@@ -3,6 +3,10 @@ import { syncPendingContainerMoveIntents } from "../../workflows/container-conte
 import { listContainerParentIdsForEventHydration } from "../../workflows/container-contents/containerEvents";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
+  type DocumentMoveIntentSyncHost,
+  syncPendingDocumentMoveIntents,
+} from "../../workflows/container-contents/documentMoveIntentSync";
+import {
   type ContainerDocumentPrimeHost,
   type ContainerDocumentPrimeStore,
   primeDocumentsForContainerSubtree,
@@ -119,6 +123,22 @@ function createContainerContentsStoreDocumentPrimeHost(
         state.runtime.state.domainScope,
         localId,
         runtime,
+        documentId,
+      ),
+  };
+}
+
+function createContainerContentsStoreDocumentMoveHost(
+  state: ContainerContentsStoreSyncState,
+): DocumentMoveIntentSyncHost<ContainerContentsStorePrimeDocumentRuntime> {
+  return {
+    documentWorkflowRuntime: (containerId) =>
+      createContainerContentsDocumentsRuntime(state.runtime, containerId),
+    openDocumentStore: ({ containerId, documentId, localId }) =>
+      openDocumentStore(
+        state.runtime.state.domainScope,
+        localId,
+        createContainerContentsDocumentsRuntime(state.runtime, containerId),
         documentId,
       ),
   };
@@ -389,6 +409,18 @@ async function runContainerContentsStoreSyncIteration(input: {
   if (movedContainerCount > 0) {
     state.documentStoresNeedPriming = true;
     host.updateSnapshot();
+    requestDomainDocumentSync(state.runtime.state.domainScope);
+    requestContainerContentsStoreSync(state);
+  }
+
+  // Document move intents live in the structural phase because they may target
+  // containers created locally in the same session, such as Trash. Running them
+  // here lets container create/move intents settle before document lanes sync.
+  const movedDocumentCount = await syncPendingDocumentMoveIntents({
+    host: createContainerContentsStoreDocumentMoveHost(state),
+    state,
+  });
+  if (movedDocumentCount > 0) {
     requestDomainDocumentSync(state.runtime.state.domainScope);
     requestContainerContentsStoreSync(state);
   }

@@ -77,7 +77,7 @@ function useMoveDocumentAction(params: {
       const canMoveDocument =
         existingDocument.documentId === null
           ? canMutateUnsyncedSelectedDocument(appData)
-          : canMutateSelectedDocument(appData);
+          : appData.infra.dbStatus === "ready";
       if (!canMoveDocument) {
         return null;
       }
