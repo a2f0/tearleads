@@ -189,6 +189,8 @@ purge_cloudflare_cache_for_hosts() {
       "https://${host}/"
       "https://${host}/index.html"
       "https://${host}/favicon.svg"
+      "https://${host}/favicon.ico"
+      "https://${host}/apple-touch-icon.png"
       "https://${host}/manifest.webmanifest"
     )
     if [[ "$host" == app.* ]]; then
