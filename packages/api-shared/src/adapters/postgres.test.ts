@@ -274,3 +274,74 @@ test("sqlite serializes direct writes against in-flight transactions", async () 
   ]);
   expect({ exitCode, stderr, stdout }).toMatchObject({ exitCode: 0 });
 }, 15_000);
+
+test("sqlite serializes direct update().set() against in-flight transactions", async () => {
+  const adapterUrl = new URL("./postgres.ts", import.meta.url).href;
+  // Regression for the missing `set` factory hop: a direct
+  // db.update(t).set(...) issued while a top-level transaction is suspended at
+  // its `await` must NOT run inside that transaction's begin/rollback window on
+  // the shared SQLite connection. The transaction writes row 2 then rolls back;
+  // concurrently a direct update of the committed row 1 fires during the yield.
+  // Row 2 must be gone and the row 1 update must survive as its own unit.
+  const script = `
+    const { createDefaultManagedApiDatabase } = await import(${JSON.stringify(adapterUrl)});
+    const { sql, eq } = await import("drizzle-orm");
+    const { sqliteTable, integer, text } = await import("drizzle-orm/sqlite-core");
+    const t = sqliteTable("t", {
+      id: integer("id").primaryKey(),
+      tag: text("tag"),
+    });
+    const managed = createDefaultManagedApiDatabase({
+      API_DATABASE: "sqlite",
+      API_SQLITE_PATH: ":memory:",
+      SQLITE_PATH: ":memory:",
+    });
+    const db = managed.db;
+    await db.execute(sql\`create table t (id integer primary key, tag text)\`);
+    await db.execute(sql\`insert into t (id, tag) values (1, 'base')\`);
+
+    let releaseDirect;
+    const directGate = new Promise((resolve) => { releaseDirect = resolve; });
+
+    const txPromise = db
+      .transaction(async (tx) => {
+        await tx.execute(sql\`insert into t (id, tag) values (2, 'tx')\`);
+        releaseDirect();
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        throw new Error("force rollback");
+      })
+      .catch(() => "rolled-back");
+
+    await directGate;
+    const directPromise = db.update(t).set({ tag: "direct" }).where(eq(t.id, 1));
+
+    await Promise.all([txPromise, directPromise]);
+
+    const result = await db.execute(sql\`select id, tag from t order by id\`);
+    const rows = result.rows;
+    if (rows.length !== 1 || rows[0].id !== 1 || rows[0].tag !== "direct") {
+      throw new Error(
+        "expected only row 1 tagged 'direct' to survive, got " + JSON.stringify(rows),
+      );
+    }
+    await managed.close();
+  `;
+  const child = Bun.spawn({
+    cmd: ["bun", "-e", script],
+    env: {
+      ...process.env,
+      API_DATABASE: "sqlite",
+      API_SQLITE_PATH: ":memory:",
+      SQLITE_PATH: ":memory:",
+    },
+    stderr: "pipe",
+    stdout: "pipe",
+  });
+
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
+  expect({ exitCode, stderr, stdout }).toMatchObject({ exitCode: 0 });
+}, 15_000);

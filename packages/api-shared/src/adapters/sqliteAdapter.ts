@@ -40,11 +40,11 @@ function attachSqliteExecute(
 
 // drizzle's query builders are lazy thenables: every builder (insert/update/
 // delete/execute result) ultimately funnels through `.execute()`, and `.then`
-// delegates to it. `db.insert(table)`/`db.select(...)` return a *factory* (whose
-// `.values(...)`/`.from(...)` produces the awaitable builder); the rest return
-// the awaitable builder directly. We exploit this to route the terminal
-// `.execute()` of every root-level statement through the same serialization
-// gate as transactions.
+// delegates to it. `db.insert(table)`/`db.select(...)`/`db.update(table)` return
+// a *factory* (whose `.values(...)`/`.from(...)`/`.set(...)` produces the
+// awaitable builder); the rest return the awaitable builder directly. We exploit
+// this to route the terminal `.execute()` of every root-level statement through
+// the same serialization gate as transactions.
 interface DrizzleExecutable {
   execute(...args: unknown[]): Promise<unknown>;
 }
@@ -61,7 +61,11 @@ function hasExecute(value: unknown): value is DrizzleExecutable {
   );
 }
 
-const FACTORY_HOP_METHODS = ["values", "from"] as const;
+// `values` = insert factory, `from` = select factory, `set` = update factory.
+// Without `set`, a root `db.update(t).set(...)` builder is never wrapped, so its
+// `.execute()` runs outside the serial queue and can interleave inside an
+// in-flight transaction's begin/rollback window on the shared connection.
+const FACTORY_HOP_METHODS = ["values", "from", "set"] as const;
 
 function factoryHop(
   value: unknown,
