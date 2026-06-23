@@ -106,8 +106,8 @@
       "bytes": 113951
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1269,
-      "bytes": 42423
+      "lines": 1276,
+      "bytes": 43030
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2550,
@@ -214,8 +214,8 @@
       "bytes": 38946
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1258,
-      "bytes": 37789
+      "lines": 1275,
+      "bytes": 38914
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
       "lines": 758,
