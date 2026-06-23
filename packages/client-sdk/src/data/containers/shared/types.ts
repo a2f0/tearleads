@@ -14,8 +14,8 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
+  AccessManifestBundleWire,
   ContainerCreateWithMetadataDocumentRequest,
-  ContainerManifestBundle,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -177,7 +177,7 @@ export interface ContainerSharePlan {
   keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
   manifestHash: string;
-  previousManifest: ContainerManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   recipientTarget: ContainerKekRecipientTarget;
   request: ContainerMutationRequest;
   state: ContainerAccessManifestState;
@@ -199,7 +199,7 @@ export interface ContainerRevokePlan {
   keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
   manifestHash: string;
-  previousManifest: ContainerManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   request: ContainerMutationRequest;
   state: ContainerAccessManifestState;
   userRecipientKeys: ContainerUserRecipientKey[];
@@ -220,7 +220,7 @@ export interface ContainerMovePlan {
   keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
   manifestHash: string;
-  previousManifest: ContainerManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   request: ContainerMutationRequest;
   state: ContainerAccessManifestState;
   wraps: ContainerKeyWrap[];

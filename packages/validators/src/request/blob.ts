@@ -39,8 +39,6 @@ export interface CompleteMultipartBlobStageRequest {
   uploadId: string;
 }
 
-export interface BlobManifestBundleRequest extends AccessManifestBundleWire {}
-
 export interface BlobContentKeyTargetEnvelopeRequest {
   bindingId: string;
   documentId: string;
@@ -66,7 +64,7 @@ export interface BlobStagedBlobRequest {
 export interface BlobAttachmentBindRequest {
   event: Record<string, unknown>;
   body: unknown;
-  documentManifest: BlobManifestBundleRequest;
+  documentManifest: AccessManifestBundleWire;
   authorizingContainerPaths: Record<string, unknown>[][];
   containerRekeys?: ContainerMutationRequest[];
   contentKeyBundle: BlobContentKeyBundleRequest;
@@ -76,7 +74,7 @@ export interface BlobAttachmentBindRequest {
 export interface BlobAttachmentDetachRequest {
   event: Record<string, unknown>;
   body: unknown;
-  documentManifest: BlobManifestBundleRequest;
+  documentManifest: AccessManifestBundleWire;
   authorizingContainerPaths: Record<string, unknown>[][];
   containerRekeys?: ContainerMutationRequest[];
 }

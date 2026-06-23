@@ -99,6 +99,21 @@ export interface DocumentStoreState {
   writerProjection: DocumentWriterProjectionResponse | null;
 }
 
+const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
+  attachments: [],
+  attachmentStatusBySlotId: {},
+  attachmentStorageKeyBySlotId: {},
+  canAttach: false,
+  documentId: null,
+  documentKind: DEFAULT_DOCUMENT_KIND,
+  fieldValidationIssues: [],
+  ready: false,
+  structuredFields: {},
+  text: "",
+  title: "",
+  syncing: false,
+};
+
 function shallowEqualRecord<Value>(
   left: Readonly<Record<string, Value>>,
   right: Readonly<Record<string, Value>>,
@@ -174,20 +189,7 @@ export function createDocumentStoreState(
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
     runtime: initialRuntime,
-    snapshot: {
-      attachments: [],
-      attachmentStatusBySlotId: {},
-      attachmentStorageKeyBySlotId: {},
-      canAttach: false,
-      documentId: null,
-      documentKind: DEFAULT_DOCUMENT_KIND,
-      fieldValidationIssues: [],
-      ready: false,
-      structuredFields: {},
-      text: "",
-      title: "",
-      syncing: false,
-    },
+    snapshot: { ...EMPTY_DOCUMENT_SNAPSHOT },
     syncLane: null,
     writeChain: Promise.resolve(),
     writerProjection: null,
@@ -237,7 +239,10 @@ export function setDocumentSnapshot(
   emitDocumentStore(state);
 }
 
-export function resetDocumentStore(state: DocumentStoreState) {
+function clearDocumentStoreState(
+  state: DocumentStoreState,
+  { initialized }: { initialized: boolean },
+) {
   state.doc = null;
   state.record = null;
   state.pendingAttachments = [];
@@ -247,52 +252,18 @@ export function resetDocumentStore(state: DocumentStoreState) {
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;
   state.writerProjection = null;
-  state.initialized = false;
+  state.initialized = initialized;
   state.initializePromise = null;
   state.writeChain = Promise.resolve();
-  setDocumentSnapshot(state, {
-    attachments: [],
-    attachmentStatusBySlotId: {},
-    attachmentStorageKeyBySlotId: {},
-    canAttach: false,
-    documentId: null,
-    documentKind: DEFAULT_DOCUMENT_KIND,
-    fieldValidationIssues: [],
-    ready: false,
-    structuredFields: {},
-    text: "",
-    title: "",
-    syncing: false,
-  });
+  setDocumentSnapshot(state, { ...EMPTY_DOCUMENT_SNAPSHOT });
+}
+
+export function resetDocumentStore(state: DocumentStoreState) {
+  clearDocumentStoreState(state, { initialized: false });
 }
 
 export function markDocumentStoreRemoved(state: DocumentStoreState) {
-  state.doc = null;
-  state.record = null;
-  state.pendingAttachments = [];
-  state.attachmentBlobIdBySlotId = {};
-  state.attachmentStorageKeyBySlotId = {};
-  state.locallyAcceptedUpdateIds = new Set();
-  state.remoteUpdatePending = false;
-  state.remoteUpdateSignalSeq = 0;
-  state.writerProjection = null;
-  state.initialized = true;
-  state.initializePromise = null;
-  state.writeChain = Promise.resolve();
-  setDocumentSnapshot(state, {
-    attachments: [],
-    attachmentStatusBySlotId: {},
-    attachmentStorageKeyBySlotId: {},
-    canAttach: false,
-    documentId: null,
-    documentKind: DEFAULT_DOCUMENT_KIND,
-    fieldValidationIssues: [],
-    ready: false,
-    structuredFields: {},
-    text: "",
-    title: "",
-    syncing: false,
-  });
+  clearDocumentStoreState(state, { initialized: true });
 }
 
 export function canAttachFiles(state: DocumentStoreState): boolean {

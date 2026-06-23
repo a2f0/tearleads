@@ -16,7 +16,7 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
-export type DocumentInfoRemoteMode = "always" | "if-synced" | "never";
+export type DocumentInfoRemoteMode = "if-synced" | "never";
 
 export interface DocumentInfoLocalDetails {
   accessEpoch: number | null;
@@ -98,25 +98,6 @@ interface DocumentInfoApi {
   listDocumentAttachments: (
     documentId: string,
   ) => Promise<ListDocumentAttachmentsResponse | null>;
-}
-
-interface LocalDocumentInfoRecord {
-  accessEpoch: number | null;
-  accessStateHash: string | null;
-  containerId: string | null;
-  documentId: string | null;
-  documentKind: StoredDocumentKind | null;
-  hasContentKeyBundle: boolean;
-  hasDocumentKekTargets: boolean;
-  hasDocumentManifestBundle: boolean;
-  lastCommitLsn: string | null;
-  localDocumentManifestHash: string | null;
-  localId: string;
-  pendingAttachmentByteLength: number;
-  pendingAttachmentCount: number;
-  pendingUpdateCount: number;
-  title: string | null;
-  updatedAt: string | null;
 }
 
 interface PendingAttachmentInfoRow {
@@ -270,7 +251,7 @@ async function loadLocalDocumentInfo(input: {
   localId: string;
 }): Promise<{
   attachments: DocumentInfoAttachment[];
-  local: LocalDocumentInfoRecord;
+  local: DocumentInfoLocalDetails;
 }> {
   const fallback = {
     attachments: [],
@@ -352,17 +333,10 @@ async function loadLocalDocumentInfo(input: {
 }
 
 function shouldLoadRemoteDocumentInfo(input: {
-  local: LocalDocumentInfoRecord;
+  local: DocumentInfoLocalDetails;
   remoteInfoMode: DocumentInfoRemoteMode;
 }): boolean {
-  switch (input.remoteInfoMode) {
-    case "always":
-      return Boolean(input.local.documentId);
-    case "if-synced":
-      return Boolean(input.local.documentId);
-    case "never":
-      return false;
-  }
+  return input.remoteInfoMode !== "never" && Boolean(input.local.documentId);
 }
 
 function mapAttachmentBinding(
@@ -447,7 +421,7 @@ export async function loadDocumentInfo(input: {
   if (
     !shouldLoadRemoteDocumentInfo({
       local,
-      remoteInfoMode: input.remoteInfoMode ?? "always",
+      remoteInfoMode: input.remoteInfoMode ?? "if-synced",
     }) ||
     !local.documentId
   ) {

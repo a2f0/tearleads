@@ -33,12 +33,11 @@ import {
   assertDocumentWriterProjectionConsistent,
   authorizingContainerPathRecords,
   collectContainerKeksForDocumentSync,
+  unwrapDocumentContentKeyFromBundle,
   unwrapDocumentContentKeyFromWriterProjection,
-  unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 import {
   assertDocumentManifestBundleConsistent,
-  assertEqualBytes,
   normalizeDocumentKekTargetResponse,
   readWriteHeader,
   serializeCanonical,
@@ -162,45 +161,6 @@ function syncResponseContentKeyBundlesByEpoch(
   return byEpoch;
 }
 
-async function unwrapDocumentContentKeyFromBundle(input: {
-  bundle: DocumentSyncResponse["contentKeyBundle"];
-  containerKeksByEpochId: ReadonlyMap<string, Uint8Array>;
-}): Promise<Uint8Array> {
-  let contentKey: Uint8Array | null = null;
-
-  for (const envelope of input.bundle.targets) {
-    const containerKek = input.containerKeksByEpochId.get(
-      envelope.containerKeyEpochId,
-    );
-    if (!containerKek) {
-      continue;
-    }
-
-    const unwrapped = await unwrapDocumentContentKeyTarget({
-      containerKek,
-      envelope,
-    });
-    if (contentKey) {
-      assertEqualBytes(
-        contentKey,
-        unwrapped,
-        "Document sync content-key bundle unwraps to conflicting keys",
-      );
-      continue;
-    }
-    contentKey = unwrapped;
-  }
-
-  if (!contentKey) {
-    throw new Error("Document sync content-key bundle could not be unwrapped");
-  }
-  if (contentKey.byteLength !== 32) {
-    throw new Error("Document sync content key must be 32 bytes");
-  }
-
-  return contentKey;
-}
-
 async function unwrapDocumentSyncResponseContentKeys(
   input: {
     currentContentKey: Uint8Array;
@@ -244,10 +204,7 @@ async function unwrapDocumentSyncResponseContentKeys(
     }
     contentKeysByEpoch.set(
       bundle.contentKeyEpoch,
-      await unwrapDocumentContentKeyFromBundle({
-        bundle,
-        containerKeksByEpochId,
-      }),
+      await unwrapDocumentContentKeyFromBundle(bundle, containerKeksByEpochId),
     );
   }
 
@@ -326,21 +283,10 @@ export async function buildMaterializedDocumentSyncPlan(
 }
 
 function contentKeyBundleForSyncRequest(
-  bundle: DocumentCreateResponse["contentKeyBundle"],
+  input: DocumentCreateResponse["contentKeyBundle"],
 ): NonNullable<DocumentSyncRequest["contentKeyBundle"]> {
-  return {
-    contentKeyEpoch: bundle.contentKeyEpoch,
-    linkSetManifestHash: bundle.linkSetManifestHash,
-    targetHash: bundle.targetHash,
-    targets: bundle.targets.map((target) => ({
-      containerId: target.containerId,
-      containerManifestHash: target.containerManifestHash,
-      containerKeyEpochId: target.containerKeyEpochId,
-      containerKeyEpoch: target.containerKeyEpoch,
-      wrappedKey: target.wrappedKey,
-      wrappingMetadata: target.wrappingMetadata,
-    })),
-  };
+  const { documentId: _omit, ...bundle } = input;
+  return bundle;
 }
 
 function settledPendingUpdateIdsFromSync(input: {
@@ -738,12 +684,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
 function manifestBundleForSyncRequest(
   bundle: DocumentCreateResponse["accessManifest"],
 ): NonNullable<DocumentSyncRequest["documentManifest"]> {
-  return {
-    event: bundle.event,
-    manifest: bundle.manifest,
-    manifestHash: bundle.manifestHash,
-    state: bundle.state,
-  };
+  return bundle;
 }
 
 async function resolveDocumentSyncIdentity(

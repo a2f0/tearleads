@@ -1,5 +1,5 @@
 import type { UploadMultipartBlobPartBytesRequest } from "@tearleads/api-client";
-import type { WriteHeader } from "@tearleads/crypto";
+import type { BlobContentKeyTarget, WriteHeader } from "@tearleads/crypto";
 import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
@@ -94,14 +94,7 @@ export interface BlobAttachmentDetachApi {
   ): Promise<DocumentWriterProjectionResponse | null>;
 }
 
-export interface BlobContentKeyTarget {
-  bindingId: string;
-  documentId: string;
-  containerId: string;
-  containerManifestHash: string;
-  containerKeyEpochId: string;
-  containerKeyEpoch: number;
-}
+export type { BlobContentKeyTarget };
 
 export interface BlobEncryptedBytesRecord {
   blobId: string;

@@ -1,24 +1,19 @@
 import type { DomainScope } from "../../data/domainScope";
 import {
-  didRegainSyncPrerequisites,
   getOrCreateDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 
-export type ContainerContentsSyncLane = SyncLane;
+export { sequenceUnchanged } from "../../data/sync/sequence";
+// Facade re-exports: container-contents stores must reach these shared sync
+// helpers through this workflow boundary, not by importing data/sync directly.
+export {
+  didRegainSyncPrerequisites,
+  isDestroyedDatabaseClientError,
+} from "../../data/sync/syncCoordinator";
 
-interface ContainerContentsSyncPrerequisiteRuntime {
-  readonly auth: {
-    readonly isAuthenticated: boolean;
-  };
-  readonly crypto: {
-    readonly encapsulationKeyPair: unknown;
-  };
-  readonly state: {
-    readonly online: boolean;
-  };
-}
+export type ContainerContentsSyncLane = SyncLane;
 
 export function registerContainerContentsSyncLane(input: {
   readonly domainScope: DomainScope;
@@ -30,20 +25,7 @@ export function registerContainerContentsSyncLane(input: {
       label: "Container contents",
       phase: "structural",
       run: input.run,
-      shouldIgnoreError: isDestroyedContainerContentsSyncRuntimeError,
+      shouldIgnoreError: isDestroyedDatabaseClientError,
     },
   );
-}
-
-export function didRegainContainerContentsSyncPrerequisites(
-  previousRuntime: ContainerContentsSyncPrerequisiteRuntime,
-  nextRuntime: ContainerContentsSyncPrerequisiteRuntime,
-): boolean {
-  return didRegainSyncPrerequisites(previousRuntime, nextRuntime);
-}
-
-export function isDestroyedContainerContentsSyncRuntimeError(
-  error: unknown,
-): boolean {
-  return isDestroyedDatabaseClientError(error);
 }

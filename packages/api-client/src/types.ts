@@ -1,7 +1,21 @@
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyBundleResponse,
+  SyncWatermark,
+} from "@tearleads/validators/response";
 
 export type HttpMethod = "DELETE" | "GET" | "POST" | "PUT";
 export type RequestBody = BodyInit;
+
+export interface ListContainersOptions {
+  limit?: number;
+  parentId?: string | null;
+  watermark?: SyncWatermark | null;
+}
+
+export interface ListContainerDocumentsOptions {
+  limit?: number;
+  watermark?: SyncWatermark | null;
+}
 
 export interface RequestResultOptions {
   readonly headers?: Record<string, string> | undefined;

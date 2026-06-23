@@ -195,7 +195,7 @@ export interface ContainerContents {
    *
    * Local details are available when SQLite is ready. Remote details are loaded
    * from the document writer projection according to `remoteInfoMode`; the
-   * default is `"always"`.
+   * default is `"if-synced"`.
    */
   loadDocumentInfo(input: DocumentInfoInput): Promise<DocumentInfo>;
 

@@ -525,6 +525,7 @@ export function assertSyncContentKeyBundleMatchesRequest(
 
 export function toContentKeyBundleResponse(
   bundle: StoredDocumentContentKeyBundle,
+  recordErrorFactory: (message: string) => Error = documentShapeError,
 ): DocumentContentKeyBundleResponse {
   return {
     documentId: bundle.documentId,
@@ -540,7 +541,7 @@ export function toContentKeyBundleResponse(
       wrappingMetadata: readProjectionRecord(
         target.wrappingMetadata,
         "Document content-key target wrapping metadata",
-        documentShapeError,
+        recordErrorFactory,
       ),
     })),
   };

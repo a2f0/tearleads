@@ -12,7 +12,7 @@ import {
   deriveContainerAccessManifest,
 } from "@tearleads/crypto";
 import type {
-  ContainerManifestBundle,
+  AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -93,7 +93,7 @@ function buildContainerMoveRequest(input: {
   keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
   manifestHash: string;
-  previousManifest: ContainerManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   wraps: readonly ContainerKeyWrap[];
@@ -250,7 +250,7 @@ function buildContainerMovePlanResult(input: {
   keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
   manifestHash: string;
-  previousManifest: ContainerManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   state: ContainerAccessManifestState;

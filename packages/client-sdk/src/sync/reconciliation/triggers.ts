@@ -1,3 +1,4 @@
+import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type { ReconciliationService } from "./service";
 
@@ -39,31 +40,6 @@ export function connectReconciliationTriggers(input: {
   });
 }
 
-function readDocumentUpdateContainerIds(
-  event: unknown,
-): ReadonlyArray<string> | "all" | null {
-  if (
-    typeof event !== "object" ||
-    event === null ||
-    !("type" in event) ||
-    event.type !== "document_update_created"
-  ) {
-    return null;
-  }
-
-  const containerIds = Reflect.get(event, "containerIds");
-  if (containerIds === undefined) {
-    // An update with no container scope could touch any container.
-    return "all";
-  }
-  if (!Array.isArray(containerIds)) {
-    return null;
-  }
-  return containerIds.filter(
-    (containerId): containerId is string => typeof containerId === "string",
-  );
-}
-
 /**
  * Translate a batch of server events into reconciler work. Containers named by
  * a `document_update_created` event are reconciled at active priority; an
@@ -78,15 +54,15 @@ export function enqueueReconciliationForEvents(input: {
   let needsIdleBackfill = false;
 
   for (const event of events) {
-    const containerIds = readDocumentUpdateContainerIds(event);
-    if (containerIds === null) {
+    if (!isDocumentUpdateCreatedEvent(event)) {
       continue;
     }
-    if (containerIds === "all") {
+    if (event.containerIds === undefined) {
+      // An update with no container scope could touch any container.
       needsIdleBackfill = true;
       continue;
     }
-    for (const containerId of containerIds) {
+    for (const containerId of event.containerIds) {
       if (knownContainerIds.includes(containerId)) {
         // Events signal fresh remote data, so force re-discovery even if this
         // container was already reconciled this session.

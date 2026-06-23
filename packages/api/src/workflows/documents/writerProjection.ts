@@ -6,13 +6,10 @@ import type {
   AccessManifest,
   DocumentLinkSetManifestState,
   KeyingCanonicalJson,
-  VerifiedAccessEvent,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWireResponse,
   ContainerWriterProjectionResponse,
-  DocumentContentKeyBundleResponse,
-  DocumentKekTargetsResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
@@ -22,7 +19,6 @@ import {
 } from "../../access/read/accessManifestStore";
 import {
   DocumentContentKeyBundleError,
-  type DocumentContentKeyTargetEnvelope,
   getLatestCurrentDocumentContentKeyBundle,
 } from "../../access/read/documentContentKeyStore";
 import {
@@ -47,6 +43,10 @@ import {
   createContainerWriterProjectionContext,
   resolveContainerReaderProjection,
 } from "../containers/writerProjection";
+import {
+  toContentKeyBundleResponse,
+  toDocumentKekTargetsResponse,
+} from "./mutations/shared/records";
 
 type DocumentWriterProjectionStatus = 403 | 404 | 409;
 
@@ -108,58 +108,14 @@ const readValue = readProjectionValue;
 const accessManifestRecord = projectionAccessManifestRecord;
 const verifiedAccessEventRecord = projectionVerifiedAccessEventRecord;
 
-function toAccessManifestBundleWireResponse(input: {
-  readonly event: VerifiedAccessEvent;
-  readonly manifest: AccessManifest;
-  readonly manifestHash: string;
-  readonly state: KeyingCanonicalJson;
-}): AccessManifestBundleWireResponse {
+function toAccessManifestBundleWireResponse(
+  input: NonNullable<Awaited<ReturnType<typeof getAccessManifestBundle>>>,
+): AccessManifestBundleWireResponse {
   return {
     event: verifiedAccessEventRecord(input.event),
     manifest: accessManifestRecord(input.manifest),
     manifestHash: input.manifestHash,
     state: readCanonicalRecord(input.state, "Document manifest state"),
-  };
-}
-
-function toDocumentKekTargetsResponse(
-  targets: Awaited<ReturnType<typeof resolveCurrentDocumentKekTargets>>,
-): DocumentKekTargetsResponse {
-  return {
-    documentId: targets.documentId,
-    linkSetManifestHash: targets.linkSetManifestHash,
-    linkedContainerManifestHashes: [...targets.linkedContainerManifestHashes],
-    linkedContainerKeyEpochIds: [...targets.linkedContainerKeyEpochIds],
-    targets: targets.targets.map((target) => ({ ...target })),
-    documentKeyTargetHash: targets.documentKeyTargetHash,
-  };
-}
-
-function toContentKeyBundleResponse(input: {
-  readonly bundle: {
-    readonly documentId: string;
-    readonly contentKeyEpoch: number;
-    readonly linkSetManifestHash: string;
-    readonly targetHash: string;
-    readonly targets: readonly DocumentContentKeyTargetEnvelope[];
-  };
-}): DocumentContentKeyBundleResponse {
-  return {
-    documentId: input.bundle.documentId,
-    contentKeyEpoch: input.bundle.contentKeyEpoch,
-    linkSetManifestHash: input.bundle.linkSetManifestHash,
-    targetHash: input.bundle.targetHash,
-    targets: input.bundle.targets.map((target) => ({
-      containerId: target.containerId,
-      containerManifestHash: target.containerManifestHash,
-      containerKeyEpochId: target.containerKeyEpochId,
-      containerKeyEpoch: target.containerKeyEpoch,
-      wrappedKey: target.wrappedKey,
-      wrappingMetadata: readCanonicalRecord(
-        target.wrappingMetadata,
-        "Document content-key target wrapping metadata",
-      ),
-    })),
   };
 }
 
@@ -216,12 +172,7 @@ async function loadCurrentDocumentManifestBundle(
     );
   }
 
-  return toAccessManifestBundleWireResponse({
-    event: bundle.event,
-    manifest: bundle.manifest,
-    manifestHash: bundle.manifestHash,
-    state: bundle.state,
-  });
+  return toAccessManifestBundleWireResponse(bundle);
 }
 
 interface LoadedProjectionManifestBundle {
@@ -248,12 +199,7 @@ async function loadProjectionManifestBundleByHash(
   }
 
   const loaded = {
-    bundle: toAccessManifestBundleWireResponse({
-      event: bundle.event,
-      manifest: bundle.manifest,
-      manifestHash: bundle.manifestHash,
-      state: bundle.state,
-    }),
+    bundle: toAccessManifestBundleWireResponse(bundle),
     objectKind: bundle.manifest.objectKind,
   };
   cache.set(manifestHash, loaded);
@@ -285,12 +231,7 @@ async function loadProjectionManifestBundlesByHash(input: {
       }
 
       input.cache.set(manifestHash, {
-        bundle: toAccessManifestBundleWireResponse({
-          event: bundle.event,
-          manifest: bundle.manifest,
-          manifestHash: bundle.manifestHash,
-          state: bundle.state,
-        }),
+        bundle: toAccessManifestBundleWireResponse(bundle),
         objectKind: bundle.manifest.objectKind,
       });
     }
@@ -699,7 +640,10 @@ async function resolveDocumentWriterProjection(input: {
     documentManifest,
     ...verificationMaterial,
     documentKekTargets: toDocumentKekTargetsResponse(documentKekTargets),
-    contentKeyBundle: toContentKeyBundleResponse({ bundle: contentKeyBundle }),
+    contentKeyBundle: toContentKeyBundleResponse(
+      contentKeyBundle,
+      projectionError,
+    ),
     authorizingContainerPaths,
   };
 }

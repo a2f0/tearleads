@@ -16,7 +16,7 @@ import {
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
-  ContainerManifestBundle,
+  AccessManifestBundleWire,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type {
@@ -193,7 +193,7 @@ function buildContainerShareRequest(input: {
   manifest: AccessManifest;
   manifestHash: string;
   parentKek: ContainerKekResponse | null;
-  previousManifest: ContainerManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   userRecipientKeys: readonly ContainerUserRecipientKey[];
@@ -256,7 +256,7 @@ function buildContainerSharePlanResult(input: {
   grant: ContainerDirectGrant;
   manifest: AccessManifest;
   manifestHash: string;
-  previousManifest: ContainerManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   previousProjection: ContainerWriterProjectionResponse;
   principalPolicies: readonly VerifiedPrincipalPolicy[];
   recipientTarget: ContainerKekRecipientTarget;

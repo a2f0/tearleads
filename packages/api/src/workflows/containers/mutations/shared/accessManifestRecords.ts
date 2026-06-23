@@ -9,7 +9,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { makeVerifiedContainerAccessManifest } from "@tearleads/crypto";
-import type { ContainerManifestBundle } from "@tearleads/validators/request";
+import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   readProjectionAccessManifest,
   readProjectionNullableString,
@@ -195,7 +195,7 @@ function accessManifestCheckpoint(input: {
 }
 
 export function readVerifiedContainerManifest(
-  bundle: ContainerManifestBundle,
+  bundle: AccessManifestBundleWire,
   label: string,
 ): VerifiedContainerAccessManifest {
   const manifest = readProjectionAccessManifest(

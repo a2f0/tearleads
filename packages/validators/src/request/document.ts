@@ -17,8 +17,6 @@ import {
   isOptionalContainerMutationRequestArray,
 } from "./container";
 
-export interface DocumentManifestBundle extends AccessManifestBundleWire {}
-
 export interface DocumentContentKeyTargetEnvelope {
   containerId: string;
   containerManifestHash: string;
@@ -40,7 +38,7 @@ export interface DocumentCreateRequest {
   body: unknown;
   expectedManifestHash: string;
   manifest: Record<string, unknown>;
-  previousManifest?: DocumentManifestBundle | null;
+  previousManifest?: AccessManifestBundleWire | null;
   targetContainerPath?: Record<string, unknown>[];
   authorizingContainerPaths?: Record<string, unknown>[][];
   containerRekeys?: ContainerMutationRequest[];
@@ -52,7 +50,7 @@ export interface DocumentLinkSetMutationRequest {
   body: unknown;
   expectedManifestHash: string;
   manifest: Record<string, unknown>;
-  previousManifest: DocumentManifestBundle;
+  previousManifest: AccessManifestBundleWire;
   targetContainerPath: Record<string, unknown>[];
   authorizingContainerPaths: Record<string, unknown>[][];
   containerRekeys?: ContainerMutationRequest[];
@@ -73,7 +71,7 @@ export interface DocumentSyncRequest {
   contentKeyBundle?: DocumentContentKeyBundleRequest;
   containerRekeys?: ContainerMutationRequest[];
   contentKeyEpoch: number;
-  documentManifest?: DocumentManifestBundle;
+  documentManifest?: AccessManifestBundleWire;
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
   authorizingContainerPaths?: Record<string, unknown>[][];

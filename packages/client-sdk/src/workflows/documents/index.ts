@@ -7,6 +7,10 @@ export type {
   DocumentCreateAuthor,
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
+export {
+  didRegainSyncPrerequisites,
+  isDestroyedDatabaseClientError,
+} from "../../data/sync/syncCoordinator";
 export { resolveDocumentCreateAuthor } from "./author";
 export {
   buildMaterializedDocumentCreatePlan,
@@ -61,8 +65,6 @@ export {
 } from "./sync";
 export {
   type DocumentSyncLane,
-  didRegainDocumentSyncPrerequisites,
-  isDestroyedDocumentSyncRuntimeError,
   registerDocumentSyncLane,
 } from "./syncLane";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";

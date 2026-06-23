@@ -1,5 +1,6 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getDocumentByLocalId } from "../documentSummaries";
 
 interface PendingSelectedDocument {
   containerId: string;
@@ -34,7 +35,7 @@ function useExplorerSelectedId(
       selectedId !== null && nodes.some((node) => node.id === selectedId);
     const selectedDocument =
       selectedId !== null
-        ? documentSummaries.find((note) => note.id === selectedId)
+        ? getDocumentByLocalId(documentSummaries, selectedId)
         : undefined;
     const selectedMatchesNote = selectedDocument !== undefined;
     const selectedMatchesPendingDocument =
@@ -138,7 +139,7 @@ export function useExplorerSelection(
   const selectedDocument = useMemo(
     () =>
       selectedId !== null
-        ? documentSummaries.find((note) => note.id === selectedId)
+        ? getDocumentByLocalId(documentSummaries, selectedId)
         : undefined,
     [documentSummaries, selectedId],
   );

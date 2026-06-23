@@ -53,7 +53,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
-  ContainerManifestBundle,
+  AccessManifestBundleWire,
   ContainerMutationRequest,
   DocumentCreateRequest,
 } from "@tearleads/validators/request";
@@ -87,7 +87,7 @@ interface RootContainerFixture {
 }
 
 interface StoredContainerFixture {
-  readonly bundle: ContainerManifestBundle;
+  readonly bundle: AccessManifestBundleWire;
   readonly kekState: VerifiedContainerKekState;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly userKey?: ContainerUserRecipientKey;
@@ -170,15 +170,15 @@ async function userRecipientKey(
 }
 
 function asVerifiedContainerManifest(
-  bundle: ContainerManifestBundle,
+  bundle: AccessManifestBundleWire,
 ): VerifiedContainerAccessManifest {
   return bundle as unknown as VerifiedContainerAccessManifest;
 }
 
 function accessManifestFromResponse(
   response: ContainerMutationResponse,
-): ContainerManifestBundle {
-  return response.accessManifest as unknown as ContainerManifestBundle;
+): AccessManifestBundleWire {
+  return response.accessManifest as unknown as AccessManifestBundleWire;
 }
 
 function kekStateFromResponse(
@@ -232,7 +232,7 @@ async function createSignedContainerEvent(input: {
 async function createManifestBundle(
   state: ContainerAccessManifestState,
   event: VerifiedAccessEvent,
-): Promise<ContainerManifestBundle> {
+): Promise<AccessManifestBundleWire> {
   const manifest = await deriveContainerAccessManifest(state);
 
   return {
@@ -246,7 +246,7 @@ async function createManifestBundle(
 function createContainerKeyEpoch(input: {
   readonly containerKeyEpochId: string;
   readonly keyEpoch: number;
-  readonly manifest: ContainerManifestBundle;
+  readonly manifest: AccessManifestBundleWire;
   readonly parentKekState: VerifiedContainerKekState | null;
 }): ContainerKeyEpoch {
   const verifiedManifest = asVerifiedContainerManifest(input.manifest);
@@ -284,8 +284,8 @@ function createContainerKeyWrap(input: {
 }
 
 async function verifyKekState(input: {
-  readonly bundle: ContainerManifestBundle;
-  readonly containerManifestHistory?: readonly ContainerManifestBundle[];
+  readonly bundle: AccessManifestBundleWire;
+  readonly containerManifestHistory?: readonly AccessManifestBundleWire[];
   readonly keyEpoch: ContainerKeyEpoch;
   readonly parentKekState?: VerifiedContainerKekState | null;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
@@ -469,14 +469,14 @@ async function bootstrapRoot(owner: TestUser): Promise<StoredContainerFixture> {
     rootContainer.adminGroupId,
   );
   const kekState = await verifyKekState({
-    bundle: bundle as unknown as ContainerManifestBundle,
+    bundle: bundle as unknown as AccessManifestBundleWire,
     keyEpoch,
     principalPolicies: [adminPolicy],
     wraps,
   });
 
   return {
-    bundle: bundle as unknown as ContainerManifestBundle,
+    bundle: bundle as unknown as AccessManifestBundleWire,
     kekState,
     principalPolicies: [adminPolicy],
   };
@@ -504,7 +504,7 @@ function uniquePrincipalPolicies(
 }
 
 async function loadPrincipalPoliciesForContainerPaths(
-  paths: readonly (readonly ContainerManifestBundle[])[],
+  paths: readonly (readonly AccessManifestBundleWire[])[],
 ): Promise<VerifiedPrincipalPolicy[]> {
   const principalPolicies = await Promise.all(
     paths.flatMap((path) =>
@@ -539,8 +539,8 @@ function userRecipientKeysFromKekTargets(
 async function buildCreateRequest(input: {
   readonly containerId: string;
   readonly dependencyManifestHashesOverride?: readonly string[];
-  readonly parent: ContainerManifestBundle;
-  readonly parentContainerPath?: readonly ContainerManifestBundle[];
+  readonly parent: AccessManifestBundleWire;
+  readonly parentContainerPath?: readonly AccessManifestBundleWire[];
   readonly parentKekState: VerifiedContainerKekState;
   readonly parentManifestHashOverride?: string;
   readonly signer: TestUser;
@@ -627,7 +627,7 @@ async function buildCreateRequest(input: {
 async function buildMetadataDocumentCreateRequest(input: {
   readonly containerId: string;
   readonly containerRequest: ContainerMutationRequest;
-  readonly parent: ContainerManifestBundle;
+  readonly parent: AccessManifestBundleWire;
   readonly signer: TestUser;
 }): Promise<DocumentCreateRequest> {
   const parentState = asVerifiedContainerManifest(input.parent).state;
@@ -640,7 +640,7 @@ async function buildMetadataDocumentCreateRequest(input: {
   const containerEventHash = await computeAccessEventHash(
     input.containerRequest.event as unknown as AccessEvent,
   );
-  const childBundle: ContainerManifestBundle = {
+  const childBundle: AccessManifestBundleWire = {
     event: {
       event: input.containerRequest.event,
       body: input.containerRequest.body,
@@ -735,8 +735,8 @@ async function buildMetadataDocumentCreateRequest(input: {
 
 async function buildGrantRequest(input: {
   readonly parentKekState: VerifiedContainerKekState;
-  readonly previous: ContainerManifestBundle;
-  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly previous: AccessManifestBundleWire;
+  readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly recipient: TestUser;
   readonly signer: TestUser;
@@ -818,10 +818,10 @@ async function buildGrantRequest(input: {
 
 async function buildGroupGrantRequest(input: {
   readonly accessLevel?: "admin" | "read" | "write";
-  readonly containerManifestHistory?: readonly ContainerManifestBundle[];
+  readonly containerManifestHistory?: readonly AccessManifestBundleWire[];
   readonly parentKekState: VerifiedContainerKekState | null;
-  readonly previous: ContainerManifestBundle;
-  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly previous: AccessManifestBundleWire;
+  readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly principalPolicies?: readonly VerifiedPrincipalPolicy[];
   readonly principalPolicy: VerifiedPrincipalPolicy;
@@ -920,8 +920,8 @@ async function buildGroupGrantRequest(input: {
 
 async function buildRevokeRequest(input: {
   readonly parentKekState: VerifiedContainerKekState | null;
-  readonly previous: ContainerManifestBundle;
-  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly previous: AccessManifestBundleWire;
+  readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly revokedGrant?: {
     readonly subjectId: string;
@@ -1019,8 +1019,8 @@ async function buildRevokeRequest(input: {
 
 async function buildRekeyRequest(input: {
   readonly parentKekState: VerifiedContainerKekState;
-  readonly previous: ContainerManifestBundle;
-  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly previous: AccessManifestBundleWire;
+  readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
@@ -1091,11 +1091,11 @@ async function buildRekeyRequest(input: {
 }
 
 async function buildMoveRequest(input: {
-  readonly destinationParent: ContainerManifestBundle;
+  readonly destinationParent: AccessManifestBundleWire;
   readonly destinationParentKekState: VerifiedContainerKekState;
-  readonly destinationParentPath: readonly ContainerManifestBundle[];
-  readonly previous: ContainerManifestBundle;
-  readonly previousContainerPath: readonly ContainerManifestBundle[];
+  readonly destinationParentPath: readonly AccessManifestBundleWire[];
+  readonly previous: AccessManifestBundleWire;
+  readonly previousContainerPath: readonly AccessManifestBundleWire[];
   readonly previousKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
 }): Promise<ContainerMutationRequest> {
@@ -1261,8 +1261,8 @@ async function expectMutationSuccess(
 
 async function createChild(input: {
   readonly containerId?: string;
-  readonly parent: ContainerManifestBundle;
-  readonly parentContainerPath?: readonly ContainerManifestBundle[];
+  readonly parent: AccessManifestBundleWire;
+  readonly parentContainerPath?: readonly AccessManifestBundleWire[];
   readonly parentKekState: VerifiedContainerKekState;
   readonly signer: TestUser;
 }): Promise<ContainerMutationResponse> {

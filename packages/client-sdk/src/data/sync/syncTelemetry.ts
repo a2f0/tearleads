@@ -83,17 +83,27 @@ const SYNC_LANE_PHASE_RANK: Record<SyncLanePhase, number> = {
   blob: 2,
 };
 
+/**
+ * Structural subset of a sync lane needed to order it: its phase and the
+ * registration index that breaks phase ties. Accepts both the coordinator's
+ * `SyncLaneState` and the telemetry `SyncLaneTelemetryState`.
+ */
+interface SyncLaneOrderInput {
+  config: { phase?: SyncLanePhase | undefined };
+  registrationIndex: number;
+}
+
 export function createSyncTimestamp(): string {
   return new Date().toISOString();
 }
 
-export function getSyncLanePhaseRank(state: SyncLaneTelemetryState): number {
+function getSyncLanePhaseRank(state: SyncLaneOrderInput): number {
   return SYNC_LANE_PHASE_RANK[state.config.phase ?? DEFAULT_SYNC_LANE_PHASE];
 }
 
-function compareSyncLaneOrder(
-  left: SyncLaneTelemetryState,
-  right: SyncLaneTelemetryState,
+export function compareSyncLaneOrder(
+  left: SyncLaneOrderInput,
+  right: SyncLaneOrderInput,
 ): number {
   const phaseRank = getSyncLanePhaseRank(left) - getSyncLanePhaseRank(right);
   if (phaseRank !== 0) {
