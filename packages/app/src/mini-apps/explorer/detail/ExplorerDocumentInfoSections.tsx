@@ -30,6 +30,82 @@ export type OpenBlobBrowserRoute = (input?: {
   storageKey?: string | null | undefined;
 }) => void;
 
+type DocumentInfoAttachment = DocumentInfo["attachments"][number];
+type DocumentInfoRemoteAttachmentBinding = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["activeAttachmentBindings"][number];
+
+interface LocalDocumentInfoAttachmentRow {
+  attachment: DocumentInfoAttachment;
+  remoteBinding: DocumentInfoRemoteAttachmentBinding | null;
+  state: "local" | "local-remote" | "pending";
+}
+
+interface RemoteDocumentInfoAttachmentRow {
+  binding: DocumentInfoRemoteAttachmentBinding;
+  state: "remote";
+}
+
+function getAttachmentRemoteBindingKey(input: {
+  blobId: string | null;
+  slotId: string;
+}): string | null {
+  return input.blobId ? `${input.slotId}\u0000${input.blobId}` : null;
+}
+
+function getExplorerDocumentInfoAttachmentRows(input: {
+  attachments: ReadonlyArray<DocumentInfoAttachment>;
+  remoteBindings: ReadonlyArray<DocumentInfoRemoteAttachmentBinding>;
+}): {
+  localRows: LocalDocumentInfoAttachmentRow[];
+  remoteRows: RemoteDocumentInfoAttachmentRow[];
+} {
+  const matchedRemoteBindingIds = new Set<string>();
+  const remoteBindingsByKey = new Map<
+    string,
+    DocumentInfoRemoteAttachmentBinding[]
+  >();
+
+  for (const binding of input.remoteBindings) {
+    const key = getAttachmentRemoteBindingKey(binding);
+    if (key) {
+      const bindings = remoteBindingsByKey.get(key);
+      if (bindings) {
+        bindings.push(binding);
+      } else {
+        remoteBindingsByKey.set(key, [binding]);
+      }
+    }
+  }
+
+  const localRows = input.attachments.map(
+    (attachment): LocalDocumentInfoAttachmentRow => {
+      const key =
+        attachment.attachmentKind === "local"
+          ? getAttachmentRemoteBindingKey(attachment)
+          : null;
+      const bindings = key ? remoteBindingsByKey.get(key) : null;
+      const remoteBinding = bindings?.shift() ?? null;
+      if (remoteBinding) {
+        matchedRemoteBindingIds.add(remoteBinding.bindingId);
+      }
+
+      return {
+        attachment,
+        remoteBinding: remoteBinding ?? null,
+        state: remoteBinding ? "local-remote" : attachment.attachmentKind,
+      };
+    },
+  );
+
+  return {
+    localRows,
+    remoteRows: input.remoteBindings
+      .filter((binding) => !matchedRemoteBindingIds.has(binding.bindingId))
+      .map((binding) => ({ binding, state: "remote" })),
+  };
+}
+
 function getDocumentTypeLabel(documentKind: StoredDocumentKind | null): string {
   return documentKind
     ? getStoredDocumentTypeLabel(
@@ -289,7 +365,11 @@ export function ExplorerDocumentInfoAttachmentsSection(params: {
 }) {
   const { attachments, remoteInfo } = params.documentInfo;
   const remoteBindings = remoteInfo?.activeAttachmentBindings ?? [];
-  const hasRows = attachments.length > 0 || remoteBindings.length > 0;
+  const { localRows, remoteRows } = getExplorerDocumentInfoAttachmentRows({
+    attachments,
+    remoteBindings,
+  });
+  const hasRows = localRows.length > 0 || remoteRows.length > 0;
 
   return (
     <MiniAppInfoSection
@@ -312,16 +392,15 @@ export function ExplorerDocumentInfoAttachmentsSection(params: {
             </tr>
           </thead>
           <tbody>
-            {attachments.map((attachment) => {
+            {localRows.map((row) => {
+              const { attachment, remoteBinding } = row;
               const time = attachment.createdAt ?? attachment.updatedAt;
               return (
                 <tr
-                  key={`${attachment.attachmentKind}:${attachment.slotId}:${attachment.storageKey}`}
+                  key={`${row.state}:${attachment.slotId}:${attachment.blobId ?? ""}:${attachment.storageKey}`}
                 >
-                  <td>
-                    {getExplorerDocumentInfoAttachmentKindLabel(
-                      attachment.attachmentKind,
-                    )}
+                  <td title={remoteBinding?.bindingId ?? undefined}>
+                    {getExplorerDocumentInfoAttachmentKindLabel(row.state)}
                   </td>
                   <td title={attachment.slotId}>
                     {compactId(attachment.slotId)}
@@ -340,7 +419,13 @@ export function ExplorerDocumentInfoAttachmentsSection(params: {
                       {compactId(attachment.blobId ?? attachment.storageKey)}
                     </MiniAppButton>
                   </td>
-                  <td title={attachment.storageKey}>
+                  <td
+                    title={
+                      remoteBinding
+                        ? `${attachment.storageKey} ${remoteBinding.bindingId}`
+                        : attachment.storageKey
+                    }
+                  >
                     {attachment.name ?? attachment.mimeType ?? "-"}
                   </td>
                   <td>{formatByteLength(attachment.byteLength)}</td>
@@ -350,9 +435,9 @@ export function ExplorerDocumentInfoAttachmentsSection(params: {
                 </tr>
               );
             })}
-            {remoteBindings.map((binding) => (
+            {remoteRows.map(({ binding, state }) => (
               <tr key={`remote:${binding.bindingId}`}>
-                <td>{getExplorerDocumentInfoAttachmentKindLabel("remote")}</td>
+                <td>{getExplorerDocumentInfoAttachmentKindLabel(state)}</td>
                 <td title={binding.slotId}>{compactId(binding.slotId)}</td>
                 <td title={binding.blobId}>
                   <MiniAppButton
