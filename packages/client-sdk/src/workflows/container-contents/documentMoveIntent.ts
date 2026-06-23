@@ -1,6 +1,7 @@
 import type { DocumentSummary } from "../../data/documentSummary";
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../data/documents/documentConstants";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { defaultDocumentsPersistence } from "../documents";
 import {
   listDocumentLinkedContainerIds,
   replaceDocumentLinks,
@@ -43,6 +44,20 @@ async function resolveOptimisticDocumentMoveLinks(input: {
     ),
     input.targetContainerId,
   ]);
+}
+
+async function resolveLocalMoveAccessEpoch(input: {
+  localId: string;
+  runtime: DocumentStructuralMutationRuntime;
+}): Promise<number> {
+  const existingDocument = await defaultDocumentsPersistence.loadDocument(
+    input.runtime.infra.execSql,
+    input.localId,
+  );
+  // The local relink must keep the document's current key epoch. Falling back
+  // is only for partially seeded local state; downgrading synced documents
+  // would make offline edits use stale access material.
+  return existingDocument?.accessEpoch ?? DEFAULT_DOCUMENT_ACCESS_EPOCH;
 }
 
 export async function moveRemoteDocumentLinkLocally<TRuntime>(params: {
@@ -92,7 +107,10 @@ export async function moveRemoteDocumentLinkLocally<TRuntime>(params: {
   );
 
   const movedNote = await relinkContainerDocumentLocally({
-    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
+    accessEpoch: await resolveLocalMoveAccessEpoch({
+      localId: note.id,
+      runtime,
+    }),
     currentDocumentStore,
     host,
     note,

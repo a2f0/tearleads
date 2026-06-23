@@ -6,6 +6,7 @@ import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { defaultDocumentsPersistence } from "../documents";
 import {
   activateDocumentLink,
   canMutateDocumentLink,
@@ -230,6 +231,22 @@ test("moveDocumentLink queues synced document moves and applies the local projec
       "document-1",
       ["container-1"],
     );
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await defaultDocumentsPersistence.saveDocument(execSql, {
+      accessEpoch: 7,
+      accessStateHash: "access-state-hash-7",
+      containerId: "container-1",
+      contentKeyBundle: null,
+      documentId: "document-1",
+      documentKekTargets: null,
+      documentKind: "note",
+      documentManifestBundle: null,
+      id: "note-1",
+      lastCommitLsn: null,
+      loroSnapshot: "",
+      text: "",
+      title: "Queued move note",
+    });
 
     const moved = await moveDocumentLink({
       expandNode: (nodeId) => {
@@ -254,7 +271,7 @@ test("moveDocumentLink queues synced document moves and applies the local projec
     expect(moved.note?.containerId).toBe("trash-container");
     expect(relinkInputs).toEqual([
       {
-        accessEpoch: 1,
+        accessEpoch: 7,
         containerId: "trash-container",
         documentId: "document-1",
         localId: "note-1",
