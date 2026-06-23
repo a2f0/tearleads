@@ -128,20 +128,13 @@ function DocumentInfoRow(params: {
   );
 }
 
-export function ExplorerDocumentInfoLocalSection(params: {
+export function ExplorerDocumentInfoGeneralSection(params: {
   containerName: string | null;
   documentInfo: DocumentInfo | null;
   localId: string;
 }) {
   const { containerName, documentInfo, localId } = params;
   const local = documentInfo?.local;
-  const bundleState = local
-    ? getExplorerDocumentInfoBundleStateLabel({
-        hasContentKeyBundle: local.hasContentKeyBundle,
-        hasDocumentKekTargets: local.hasDocumentKekTargets,
-        hasDocumentManifestBundle: local.hasDocumentManifestBundle,
-      })
-    : "-";
   const pendingChanges = local
     ? getExplorerDocumentInfoPendingChangesLabel({
         pendingAttachmentByteLength: local.pendingAttachmentByteLength,
@@ -151,9 +144,7 @@ export function ExplorerDocumentInfoLocalSection(params: {
     : "-";
 
   return (
-    <MiniAppInfoSection
-      heading={EXPLORER_LABELS.documentInfoLocalDetailsHeading}
-    >
+    <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoGeneralHeading}>
       <MiniAppInfoTable>
         <tbody>
           <DocumentInfoRow
@@ -185,6 +176,35 @@ export function ExplorerDocumentInfoLocalSection(params: {
               emptyFallback: "-",
             })}
           </DocumentInfoRow>
+          <DocumentInfoRow
+            label={EXPLORER_LABELS.documentInfoPendingChangesRow}
+          >
+            {pendingChanges}
+          </DocumentInfoRow>
+        </tbody>
+      </MiniAppInfoTable>
+    </MiniAppInfoSection>
+  );
+}
+
+export function ExplorerDocumentInfoLocalSecuritySection(params: {
+  documentInfo: DocumentInfo | null;
+}) {
+  const local = params.documentInfo?.local;
+  const bundleState = local
+    ? getExplorerDocumentInfoBundleStateLabel({
+        hasContentKeyBundle: local.hasContentKeyBundle,
+        hasDocumentKekTargets: local.hasDocumentKekTargets,
+        hasDocumentManifestBundle: local.hasDocumentManifestBundle,
+      })
+    : "-";
+
+  return (
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.documentInfoLocalSecurityHeading}
+    >
+      <MiniAppInfoTable>
+        <tbody>
           <DocumentInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
             {local?.accessEpoch ? String(local.accessEpoch) : "-"}
           </DocumentInfoRow>
@@ -208,11 +228,6 @@ export function ExplorerDocumentInfoLocalSection(params: {
           </DocumentInfoRow>
           <DocumentInfoRow label={EXPLORER_LABELS.documentInfoBundleStateRow}>
             {bundleState}
-          </DocumentInfoRow>
-          <DocumentInfoRow
-            label={EXPLORER_LABELS.documentInfoPendingChangesRow}
-          >
-            {pendingChanges}
           </DocumentInfoRow>
         </tbody>
       </MiniAppInfoTable>

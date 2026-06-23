@@ -71,21 +71,23 @@ function ExplorerDetailPanelWithBlobPick(params: {
       blobStore={appData.infra.blobStore}
       databaseError={databaseError}
       onRetryDatabase={onRetryDatabase}
-      canActivateSelectedDocument={model.canActivateSelectedDocument}
+      canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
       canLinkSelectedDocument={model.canLinkSelectedDocument}
       canMoveSelectedDocument={model.canMoveSelectedDocument}
-      canUnlinkSelectedDocument={model.canUnlinkSelectedDocument}
+      canMutateDocumentLinks={model.canMutateDocumentLinks}
       contextTarget={model.contextMenuState.contextMenu?.id ?? null}
       currentSigningFingerprint={appData.crypto.signingFingerprint}
       currentUserId={appData.auth.userId}
       documentListRevision={model.documentListRevision}
       documentQueries={model.documentQueries}
+      documentSummaries={model.documentSummaries}
       domainScope={appData.state.domainScope}
       importDroppedFiles={model.importDroppedFiles}
-      linkedContainerIds={model.linkedContainerIds}
+      linkedContainerIdsByDocumentId={model.linkedContainerIdsByDocumentId}
       loadBlobInfo={model.loadBlobInfo}
       loadContainerInfo={model.loadContainerInfo}
       loadDocumentInfo={model.loadDocumentInfo}
+      loadDocumentSummary={model.loadDocumentSummary}
       nodes={model.explorer.nodes}
       online={appData.state.online}
       onCancelBlobPick={cancelBlobPick}

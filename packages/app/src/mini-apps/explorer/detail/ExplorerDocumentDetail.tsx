@@ -23,7 +23,6 @@ import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/proj
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { EXPLORER_LABELS, getExplorerDocumentSubtitle } from "../labels";
-import { ExplorerLinkedContainerSection } from "./ExplorerLinkedContainers";
 
 export { getLinkedContainerDetails } from "./ExplorerLinkedContainers";
 
@@ -153,17 +152,10 @@ function useSelectedDocumentSyncState(params: {
 }
 
 export function ExplorerDocumentDetail(params: {
-  activateLinkedContainer: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
-  canActivateSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
-  canUnlinkSelectedDocument: boolean;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
-  linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   openLinkDocumentModal: (documentId: string) => void;
@@ -172,10 +164,6 @@ export function ExplorerDocumentDetail(params: {
   refreshError: string | null;
   selectedDocument: DocumentSummary;
   setSelectedId: (id: string | null) => void;
-  unlinkDocument: (
-    documentId: string,
-    removedContainerId: string,
-  ) => Promise<DocumentSummary | null>;
 }) {
   const selectedDocumentKind = getDocumentSummaryKind(params.selectedDocument);
   const selectedDocumentContainer = params.selectedDocument.containerId
@@ -232,16 +220,6 @@ export function ExplorerDocumentDetail(params: {
           {params.refreshError}
         </MiniAppStatus>
       ) : null}
-      <ExplorerLinkedContainerSection
-        activateLinkedContainer={params.activateLinkedContainer}
-        canActivateSelectedDocument={params.canActivateSelectedDocument}
-        canUnlinkSelectedDocument={params.canUnlinkSelectedDocument}
-        linkedContainerIds={params.linkedContainerIds}
-        nodes={params.nodes}
-        selectedDocument={params.selectedDocument}
-        setSelectedId={params.setSelectedId}
-        unlinkDocument={params.unlinkDocument}
-      />
       <div className="explorer-inline-note">
         <SelectedDocumentApp
           localId={params.selectedDocument.id}

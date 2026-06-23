@@ -2,6 +2,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useState } from "react";
 import {
   MiniAppButton,
+  MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
@@ -237,6 +238,7 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
 }
 
 export function ExplorerLinkedContainerSection(params: {
+  activeContainerId: string | null;
   activateLinkedContainer: (
     documentId: string,
     targetContainerId: string,
@@ -245,7 +247,7 @@ export function ExplorerLinkedContainerSection(params: {
   canUnlinkSelectedDocument: boolean;
   linkedContainerIds: ReadonlyArray<string>;
   nodes: ReadonlyArray<ContainerNode>;
-  selectedDocument: DocumentSummary;
+  selectedDocumentId: string;
   setSelectedId: (id: string | null) => void;
   unlinkDocument: (
     documentId: string,
@@ -253,12 +255,13 @@ export function ExplorerLinkedContainerSection(params: {
   ) => Promise<DocumentSummary | null>;
 }) {
   const {
+    activeContainerId,
     activateLinkedContainer,
     canActivateSelectedDocument,
     canUnlinkSelectedDocument,
     linkedContainerIds,
     nodes,
-    selectedDocument,
+    selectedDocumentId,
     setSelectedId,
     unlinkDocument,
   } = params;
@@ -272,36 +275,42 @@ export function ExplorerLinkedContainerSection(params: {
   const linkedContainers = getLinkedContainerDetails(
     nodes,
     linkedContainerIds,
-    selectedDocument.containerId,
+    activeContainerId,
   );
 
   return (
-    <div className="explorer-linked-container-section">
-      <strong>{EXPLORER_LABELS.linkedContainersHeading}</strong>
-      <ul className="explorer-linked-container-list">
-        {linkedContainers.map((linkedContainer) => (
-          <ExplorerLinkedContainerRow
-            activateLinkedContainer={activateLinkedContainer}
-            activatingContainerId={activatingContainerId}
-            canActivateSelectedDocument={canActivateSelectedDocument}
-            canUnlinkSelectedDocument={canUnlinkSelectedDocument}
-            key={linkedContainer.id}
-            linkedContainer={linkedContainer}
-            selectedDocumentId={selectedDocument.id}
-            setActionError={setActionError}
-            setActivatingContainerId={setActivatingContainerId}
-            setSelectedId={setSelectedId}
-            setUnlinkingContainerId={setUnlinkingContainerId}
-            unlinkingContainerId={unlinkingContainerId}
-            unlinkDocument={unlinkDocument}
-          />
-        ))}
-      </ul>
+    <MiniAppInfoSection
+      className="explorer-linked-container-section"
+      heading={EXPLORER_LABELS.linkedContainersHeading}
+    >
+      {linkedContainers.length === 0 ? (
+        <MiniAppStatus>{EXPLORER_LABELS.linkedContainersEmpty}</MiniAppStatus>
+      ) : (
+        <ul className="explorer-linked-container-list">
+          {linkedContainers.map((linkedContainer) => (
+            <ExplorerLinkedContainerRow
+              activateLinkedContainer={activateLinkedContainer}
+              activatingContainerId={activatingContainerId}
+              canActivateSelectedDocument={canActivateSelectedDocument}
+              canUnlinkSelectedDocument={canUnlinkSelectedDocument}
+              key={linkedContainer.id}
+              linkedContainer={linkedContainer}
+              selectedDocumentId={selectedDocumentId}
+              setActionError={setActionError}
+              setActivatingContainerId={setActivatingContainerId}
+              setSelectedId={setSelectedId}
+              setUnlinkingContainerId={setUnlinkingContainerId}
+              unlinkingContainerId={unlinkingContainerId}
+              unlinkDocument={unlinkDocument}
+            />
+          ))}
+        </ul>
+      )}
       {actionError ? (
         <MiniAppStatus as="span" tone="error">
           {actionError}
         </MiniAppStatus>
       ) : null}
-    </div>
+    </MiniAppInfoSection>
   );
 }
