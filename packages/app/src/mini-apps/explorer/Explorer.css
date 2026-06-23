@@ -63,6 +63,7 @@
 .explorer-inline-note {
   flex: 1;
   min-height: 0;
+  overflow: auto;
   border-top: var(--border);
   padding-top: var(--space-sm);
 }
