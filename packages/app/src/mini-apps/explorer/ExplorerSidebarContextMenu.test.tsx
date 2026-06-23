@@ -33,7 +33,6 @@ const documentQueries: ContainerDocumentQueries = {
   loadDocumentSyncState: async () => null,
   loadDocumentSummary: async () => null,
   listLinkedContainerIdsByDocumentIds: async () => new Map(),
-  replaceDocumentLinks: async () => undefined,
   replaceDocumentLinksBatch: async () => undefined,
   saveContainerDocumentWatermark: async () => undefined,
   upsertDiscoveredDocuments: async () => [],

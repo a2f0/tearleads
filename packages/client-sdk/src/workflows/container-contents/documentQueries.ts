@@ -92,10 +92,6 @@ export interface ContainerDocumentQueries {
   listLinkedContainerIdsByDocumentIds(
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
-  replaceDocumentLinks(
-    documentId: string,
-    linkedContainerIds: ReadonlyArray<string>,
-  ): Promise<void>;
   replaceDocumentLinksBatch(
     inputs: ReadonlyArray<ContainerDocumentLinkInput>,
   ): Promise<void>;
@@ -576,18 +572,6 @@ function loadContainerContentsContainerDocumentWatermark(
   );
 }
 
-function replaceDocumentLinks(
-  execSql: ExecSql,
-  documentId: string,
-  linkedContainerIds: ReadonlyArray<string>,
-): Promise<void> {
-  return sqlDocumentContainerProjectionPersistence.replaceDocumentLinks(
-    execSql,
-    documentId,
-    linkedContainerIds,
-  );
-}
-
 function replaceDocumentLinksBatch(
   execSql: ExecSql,
   inputs: ReadonlyArray<ContainerDocumentLinkInput>,
@@ -647,9 +631,6 @@ function createContainerDocumentQueries(
         execSql,
         documentIds,
       );
-    },
-    replaceDocumentLinks(documentId, linkedContainerIds) {
-      return replaceDocumentLinks(execSql, documentId, linkedContainerIds);
     },
     replaceDocumentLinksBatch(inputs) {
       return replaceDocumentLinksBatch(execSql, inputs);

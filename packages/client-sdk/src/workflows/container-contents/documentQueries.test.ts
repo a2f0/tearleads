@@ -251,9 +251,11 @@ test("listContainerItemWindow includes documents linked to the selected containe
       title: "Linked song",
       updatedAt: "2026-05-03T00:00:00.000Z",
     });
-    await readModel.replaceDocumentLinks("remote-shared-song", [
-      "private-container",
-      "shared-container",
+    await readModel.replaceDocumentLinksBatch([
+      {
+        documentId: "remote-shared-song",
+        containerIds: ["private-container", "shared-container"],
+      },
     ]);
 
     await expect(

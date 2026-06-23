@@ -60,6 +60,7 @@ import {
   getProjectionTitle,
   getProjectionUpdatedAt,
   mapDocumentSummary,
+  toDocumentSummary,
 } from "./internal/documentProjectionRows";
 import {
   getDocumentScope,
@@ -259,15 +260,7 @@ async function upsertDiscoveredDocumentWithExec(
     saveOptions,
   );
 
-  return {
-    accessStateHash: nextDocument.accessStateHash ?? null,
-    id: localId,
-    containerId: nextDocument.containerId,
-    documentKind: nextDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    documentId: nextDocument.documentId,
-    title: nextDocument.title ?? deriveDocumentTitle(nextDocument.text),
-    updatedAt,
-  };
+  return toDocumentSummary(nextDocument, updatedAt);
 }
 
 async function relinkPersistedDocumentWithExec(
@@ -311,15 +304,10 @@ async function relinkPersistedDocumentWithExec(
     .where(eq(documentProjection.localId, input.localId))
     .limit(1);
 
-  return {
-    accessStateHash: nextDocument.accessStateHash ?? null,
-    id: nextDocument.id,
-    containerId: nextDocument.containerId,
-    documentKind: nextDocument.documentKind ?? DEFAULT_DOCUMENT_KIND,
-    documentId: nextDocument.documentId,
-    title: nextDocument.title ?? deriveDocumentTitle(nextDocument.text),
-    updatedAt: getProjectionUpdatedAt(updatedAtRows[0]),
-  };
+  return toDocumentSummary(
+    nextDocument,
+    getProjectionUpdatedAt(updatedAtRows[0]),
+  );
 }
 
 export async function upsertDiscoveredDocuments(

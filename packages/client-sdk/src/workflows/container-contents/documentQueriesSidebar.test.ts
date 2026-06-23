@@ -117,9 +117,11 @@ test("listContainerDocumentSidebarWindow includes linked documents for a sidebar
       title: "Linked song",
       updatedAt: "2026-05-03T00:00:00.000Z",
     });
-    await readModel.replaceDocumentLinks("remote-shared-song", [
-      "private-container",
-      "shared-container",
+    await readModel.replaceDocumentLinksBatch([
+      {
+        documentId: "remote-shared-song",
+        containerIds: ["private-container", "shared-container"],
+      },
     ]);
 
     await expect(
@@ -243,9 +245,11 @@ test("listDocumentRuntimeTargetsForContainerSubtreeFromRuntime uses the runtime 
         linkedContainerIds: ["private-container", "shared-root"],
       },
     ]);
-    await readModel.replaceDocumentLinks("remote-document-1", [
-      "private-container",
-      "shared-root",
+    await readModel.replaceDocumentLinksBatch([
+      {
+        documentId: "remote-document-1",
+        containerIds: ["private-container", "shared-root"],
+      },
     ]);
 
     const targets =
@@ -310,16 +314,19 @@ test("primeDocumentsForContainerSubtree primes matching document stores", async 
         linkedContainerIds: ["unrelated-container"],
       },
     ]);
-    await readModel.replaceDocumentLinks("remote-document-1", [
-      "private-container",
-      "shared-child",
-    ]);
-    await readModel.replaceDocumentLinks("remote-document-2", [
-      "private-container-2",
-      "shared-child",
-    ]);
-    await readModel.replaceDocumentLinks("remote-document-3", [
-      "unrelated-container",
+    await readModel.replaceDocumentLinksBatch([
+      {
+        documentId: "remote-document-1",
+        containerIds: ["private-container", "shared-child"],
+      },
+      {
+        documentId: "remote-document-2",
+        containerIds: ["private-container-2", "shared-child"],
+      },
+      {
+        documentId: "remote-document-3",
+        containerIds: ["unrelated-container"],
+      },
     ]);
 
     const primedStores: Array<{
