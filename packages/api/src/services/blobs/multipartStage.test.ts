@@ -3,7 +3,10 @@ import { blobStages } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
-import { readMultipartBlobStageRecord } from "../../utils/blobStageRecords";
+import {
+  encodeMultipartBlobStageRecord,
+  readMultipartBlobStageRecord,
+} from "../../utils/blobStageRecords";
 import { sha256Hex } from "../../utils/sha256";
 import {
   cleanupExpiredBlobStages,
@@ -43,6 +46,129 @@ async function expectMultipartBlobStageError(
 
   throw new Error("Expected multipart blob stage to fail");
 }
+
+test("completeMultipartBlobStage recovers a pending record whose object was already assembled", async () => {
+  const runtime = createServiceTestRuntime();
+  const userId = crypto.randomUUID();
+  const encryptedBytes = "multipart-recovery-payload";
+  const initiated = await initiateMultipartBlobStage(runtime, {
+    ...(await createMultipartStageInput(encryptedBytes)),
+    userId,
+  });
+  const part = await uploadMultipartBlobPart(runtime, {
+    encryptedBytes,
+    partNumber: 1,
+    stageId: initiated.stageId,
+    uploadId: initiated.uploadId,
+    userId,
+  });
+  const completeArgs = {
+    parts: [{ etag: part.part.etag, partNumber: 1 }],
+    stageId: initiated.stageId,
+    uploadId: initiated.uploadId,
+    userId,
+  };
+
+  // First complete assembles the object and flips the record to complete.
+  await completeMultipartBlobStage(runtime, completeArgs);
+
+  // Simulate a crash after the object-store byte commit but before the state
+  // flip committed: the assembled object survives, but the record is still
+  // pending and the uploadId has already been consumed by the store.
+  const [row] = await runtime.db
+    .select({ encryptedBytes: blobStages.encryptedBytes })
+    .from(blobStages)
+    .where(eq(blobStages.id, initiated.stageId));
+  const record = readMultipartBlobStageRecord(row?.encryptedBytes ?? "");
+  if (!record) {
+    throw new Error("Expected a multipart stage record");
+  }
+  await runtime.db
+    .update(blobStages)
+    .set({
+      encryptedBytes: encodeMultipartBlobStageRecord({
+        state: "pending",
+        storageKey: record.storageKey,
+        uploadId: record.uploadId,
+      }),
+    })
+    .where(eq(blobStages.id, initiated.stageId));
+
+  // Retrying complete (uploadId now gone at the store) must converge to complete
+  // by recognizing the already-assembled object, not fail with 404.
+  const recovered = await completeMultipartBlobStage(runtime, completeArgs);
+  expect(recovered.stageId).toBe(initiated.stageId);
+  expect(recovered.sha256).toBe(initiated.sha256);
+
+  const [after] = await runtime.db
+    .select({ encryptedBytes: blobStages.encryptedBytes })
+    .from(blobStages)
+    .where(eq(blobStages.id, initiated.stageId));
+  expect(readMultipartBlobStageRecord(after?.encryptedBytes ?? "")?.state).toBe(
+    "complete",
+  );
+});
+
+test("completeMultipartBlobStage recovery fails closed when the surviving object does not match", async () => {
+  const runtime = createServiceTestRuntime();
+  const userId = crypto.randomUUID();
+  const encryptedBytes = "multipart-recovery-original";
+  const initiated = await initiateMultipartBlobStage(runtime, {
+    ...(await createMultipartStageInput(encryptedBytes)),
+    userId,
+  });
+  const part = await uploadMultipartBlobPart(runtime, {
+    encryptedBytes,
+    partNumber: 1,
+    stageId: initiated.stageId,
+    uploadId: initiated.uploadId,
+    userId,
+  });
+  const completeArgs = {
+    parts: [{ etag: part.part.etag, partNumber: 1 }],
+    stageId: initiated.stageId,
+    uploadId: initiated.uploadId,
+    userId,
+  };
+  await completeMultipartBlobStage(runtime, completeArgs);
+
+  // Simulate a prior attempt that assembled a MISMATCHED object and crashed
+  // before deleting it: overwrite the object's bytes and reset the record to
+  // pending (the uploadId is already consumed at the store).
+  const [row] = await runtime.db
+    .select({ encryptedBytes: blobStages.encryptedBytes })
+    .from(blobStages)
+    .where(eq(blobStages.id, initiated.stageId));
+  const record = readMultipartBlobStageRecord(row?.encryptedBytes ?? "");
+  if (!record) {
+    throw new Error("Expected a multipart stage record");
+  }
+  const mismatchedBytes = "totally-different-bytes";
+  await runtime.blobObjectStore.putObject({
+    bytes: mismatchedBytes,
+    key: record.storageKey,
+    sha256: await sha256Hex(mismatchedBytes),
+  });
+  await runtime.db
+    .update(blobStages)
+    .set({
+      encryptedBytes: encodeMultipartBlobStageRecord({
+        state: "pending",
+        storageKey: record.storageKey,
+        uploadId: record.uploadId,
+      }),
+    })
+    .where(eq(blobStages.id, initiated.stageId));
+
+  // Recovery must re-validate and reject the mismatched object, not accept it.
+  const failure = await expectMultipartBlobStageError(
+    completeMultipartBlobStage(runtime, completeArgs),
+  );
+  expect(failure.status).toBe(409);
+  expect(
+    await readBlobObjectText(runtime.blobObjectStore, record.storageKey),
+  ).toBeNull();
+});
 
 test("multipart blob stages upload resumable parts outside Postgres", async () => {
   const runtime = createServiceTestRuntime();

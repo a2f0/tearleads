@@ -27,6 +27,7 @@ import {
   canonicalJsonEquals,
   readKeyingCanonicalJson,
 } from "../../../utils/canonicalJson";
+import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
 import {
   accessEventDependencyHashes,
   accessManifestReferencedHeads,
@@ -731,6 +732,45 @@ export async function getCurrentAccessManifestHead(
   executor: DatabaseSession,
 ): Promise<StoredAccessManifestHead | null> {
   return loadCurrentAccessManifestHead(objectKind, objectId, executor);
+}
+
+// Acquire a shared row lock on the current access-manifest head rows for the
+// given objects. advanceAccessManifestHead advances a head via
+// insert(...).onConflictDoUpdate, which takes a row-exclusive lock on the
+// conflicting head row; a FOR SHARE lock here therefore blocks a concurrent
+// mutation that would advance any of these heads (e.g. a container.rekey) until
+// this transaction commits, while still letting independent readers/FOR SHARE
+// holders (e.g. other document syncs) proceed in parallel. The caller must hold
+// this through its validate->write window so the write cannot commit against an
+// epoch a rekey supersedes mid-transaction (READ COMMITTED write-skew). No-op on
+// sqlite, whose adapter serializes every transaction on one connection. Ids are
+// locked in a deterministic (sorted) order to avoid lock-ordering deadlocks.
+export async function lockAccessManifestHeadsForShare(
+  objectKind: AccessObjectKind,
+  objectIds: readonly string[],
+  executor: DatabaseSession,
+): Promise<void> {
+  const uniqueObjectIds = [...new Set(objectIds)].sort();
+  if (uniqueObjectIds.length === 0) {
+    return;
+  }
+
+  const lockQuery = executor
+    .select({ objectId: accessManifestHeads.objectId })
+    .from(accessManifestHeads)
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, objectKind),
+        inArray(accessManifestHeads.objectId, uniqueObjectIds),
+      ),
+    );
+
+  if (isSqliteApiDatabase()) {
+    await lockQuery;
+    return;
+  }
+
+  await lockQuery.for("share");
 }
 
 export async function getCurrentAccessManifestHeads(

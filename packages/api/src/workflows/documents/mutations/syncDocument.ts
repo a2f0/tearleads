@@ -18,6 +18,7 @@ import type {
 } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
+import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import {
   getDocumentContentKeyBundle,
   listDocumentContentWriteHeaders,
@@ -729,6 +730,23 @@ async function syncDocumentTransaction(input: {
     input.documentId,
     input.tx,
   );
+  // Serialize a content append against a concurrent container.rekey. Under the
+  // default READ COMMITTED isolation, a rekey that commits between the
+  // current-targets validation in resolveSyncContentKeyBundle below and the
+  // appendDocumentUpdates insert would let this write land under a superseded
+  // container key epoch — i.e. wrapped to the pre-rotation recipient set, which
+  // can include a just-revoked principal. Taking a FOR SHARE lock on the linked
+  // container access-manifest heads makes such a rekey block until this write
+  // commits (or, if it already committed, the stale-epoch check fails closed),
+  // while independent document syncs still run in parallel. Empty (read-only)
+  // syncs write no content and take no lock.
+  if (input.request.outgoingUpdates.length > 0) {
+    await lockAccessManifestHeadsForShare(
+      "container",
+      currentTargets.targets.map((target) => target.containerId),
+      input.tx,
+    );
+  }
   await ensureSyncDocumentAccess({
     currentTargets,
     executor: input.tx,

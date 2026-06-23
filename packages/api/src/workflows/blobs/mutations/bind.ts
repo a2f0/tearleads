@@ -7,6 +7,7 @@ import {
   verifyWriteHeader,
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
+import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { storeVerifiedAttachmentBindingInTransaction } from "../../../access/write/attachmentBindingStore";
 import {
   storeBlobContentKeyBundleInTransaction,
@@ -113,6 +114,24 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
   return verified.value.headerHash;
 }
 
+// Serialize the blob content-key write against a concurrent container.rekey on
+// any authorizing container — same hazard as document sync. Under READ COMMITTED
+// a rekey committing between the current blob-KEK-target resolution and the
+// content-key-bundle write would wrap the blob content key to a superseded
+// (pre-revocation) recipient set. FOR SHARE on the linked container heads blocks
+// such a rekey until this bind commits (or fails closed on a stale target hash
+// if the rekey already committed).
+async function lockBindAuthorizingContainersForShare(
+  proof: AttachmentAuthorizationProof,
+  tx: DatabaseTransaction,
+): Promise<void> {
+  await lockAccessManifestHeadsForShare(
+    "container",
+    proof.documentManifest.state.linkedContainerIds,
+    tx,
+  );
+}
+
 async function bindBlobAttachmentTransaction(
   input: BindBlobAttachmentInput & {
     readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
@@ -134,6 +153,7 @@ async function bindBlobAttachmentTransaction(
       request: input.request,
     }),
   ]);
+  await lockBindAuthorizingContainersForShare(proof, tx);
   const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
     documentId: bindBody.documentId,
     executor: tx,

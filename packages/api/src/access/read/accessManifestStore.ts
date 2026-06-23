@@ -5,4 +5,5 @@ export {
   getCurrentAccessManifestHeads,
   listAccessEventDependencyProjection,
   listAccessManifestPrincipalHeadProjection,
+  lockAccessManifestHeadsForShare,
 } from "../shared/internal/accessManifestStore";
