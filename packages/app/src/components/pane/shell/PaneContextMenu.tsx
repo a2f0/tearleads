@@ -21,8 +21,10 @@ export function PaneContextMenu({
   onClose,
   onGenerateKeyPair,
 }: PaneContextMenuProps) {
-  const { openFloatingWindow, openMiniApp, openUnlockWindow } =
-    usePaneWindowMenuActions({ onClose, position });
+  const { openMiniApp, openUnlockWindow } = usePaneWindowMenuActions({
+    onClose,
+    position,
+  });
   const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
 
   return (
@@ -35,7 +37,6 @@ export function PaneContextMenu({
             <MenuItem label="Unlock Database" onClick={openUnlockWindow} />
           )}
           {canLockPane && <MenuItem label="Lock" onClick={lockPane} />}
-          <MenuItem label="Open Floating Window" onClick={openFloatingWindow} />
           {MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
             <MenuItem
               key={appId}

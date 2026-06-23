@@ -140,6 +140,7 @@ test(
       clientY: 120,
     });
     expect(reloadedView.queryByText("Generate Key Pair")).toBeNull();
+    expect(reloadedView.queryByText("Open Floating Window")).toBeNull();
     expect(reloadedView.getByText("Open Notes")).toBeTruthy();
 
     reloadedView.unmount();

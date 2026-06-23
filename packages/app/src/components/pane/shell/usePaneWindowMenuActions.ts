@@ -18,11 +18,6 @@ export function usePaneWindowMenuActions({
   const { create } = useWindowActions();
   const { openMiniApp: openMiniAppRoute } = useAppNavigationActions();
 
-  const openFloatingWindow = useCallback(() => {
-    create("Window", position.x, position.y);
-    onClose();
-  }, [create, onClose, position]);
-
   const openUnlockWindow = useCallback(() => {
     create(
       "Unlock Database",
@@ -42,5 +37,5 @@ export function usePaneWindowMenuActions({
     [onClose, openMiniAppRoute, position],
   );
 
-  return { openFloatingWindow, openMiniApp, openUnlockWindow };
+  return { openMiniApp, openUnlockWindow };
 }
