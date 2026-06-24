@@ -187,6 +187,19 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
             },
           ];
         },
+        getDocumentEditAttribution: async () => ({
+          documentId: "document-1",
+          segments: [
+            {
+              peerId: "1",
+              startCounter: 0,
+              endCounter: 5,
+              writerUserId: "writer-1",
+              writerKeyFingerprint: "fp-1",
+              authorityKind: "direct",
+            },
+          ],
+        }),
       },
       execSql,
       localId: "local-document-1",
@@ -228,6 +241,15 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
       previousManifestHash: "previous-document-manifest-hash",
       referencedPrincipalCount: 1,
     });
+    expect(info.remoteInfo?.contributors).toEqual([
+      {
+        writerUserId: "writer-1",
+        writerKeyFingerprint: "fp-1",
+        opCount: 5,
+        hasDirectAuthority: true,
+        hasBaselineAuthority: false,
+      },
+    ]);
     expect(info.remoteInfo?.authorizingContainerPaths).toEqual([
       {
         containerId: "container-1",
@@ -274,6 +296,9 @@ test("loadDocumentInfo avoids remote calls for local-only documents", async () =
         },
         listDocumentAttachments: async () => {
           throw new Error("Unexpected attachment fetch.");
+        },
+        getDocumentEditAttribution: async () => {
+          throw new Error("Unexpected attribution fetch.");
         },
       },
       execSql,

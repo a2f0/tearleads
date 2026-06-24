@@ -19,6 +19,7 @@ import { compactId } from "./compactId";
 import {
   ExplorerDocumentInfoAttachmentsSection,
   ExplorerDocumentInfoAuthorizingContainersSection,
+  ExplorerDocumentInfoContributorsSection,
   ExplorerDocumentInfoGeneralSection,
   ExplorerDocumentInfoLocalSecuritySection,
   ExplorerDocumentInfoRemoteSecuritySection,
@@ -256,11 +257,16 @@ function ExplorerDocumentInfoTabPanel(params: {
       role="tabpanel"
     >
       {params.activeTab === "general" ? (
-        <ExplorerDocumentInfoGeneralSection
-          containerName={params.containerName}
-          documentInfo={params.documentInfo}
-          localId={params.localId}
-        />
+        <>
+          <ExplorerDocumentInfoGeneralSection
+            containerName={params.containerName}
+            documentInfo={params.documentInfo}
+            localId={params.localId}
+          />
+          <ExplorerDocumentInfoContributorsSection
+            documentInfo={params.documentInfo}
+          />
+        </>
       ) : null}
       {params.activeTab === "links" ? (
         <>

@@ -1,12 +1,17 @@
 import type {
   BlobAttachmentSummary,
   ContainerWriterProjectionResponse,
+  DocumentEditAttributionResponse,
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
+import {
+  type DocumentContributor,
+  summarizeDocumentContributors,
+} from "../../data/documents/editAttribution";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
   documentAttachmentBlobProjection,
@@ -71,6 +76,7 @@ export interface DocumentInfoRemoteDetails {
   contentKeyEpoch: number;
   contentKeyTargetCount: number;
   contentKeyTargetHash: string;
+  contributors: DocumentContributor[];
   currentManifestHash: string;
   documentContainerManifestHistoryCount: number;
   documentKekTargetCount: number;
@@ -92,6 +98,9 @@ export interface DocumentInfo {
 }
 
 interface DocumentInfoApi {
+  getDocumentEditAttribution: (
+    documentId: string,
+  ) => Promise<DocumentEditAttributionResponse | null>;
   getDocumentWriterProjection: (
     documentId: string,
   ) => Promise<DocumentWriterProjectionResponse | null>;
@@ -367,9 +376,10 @@ function mapAuthorizingContainerPath(
 
 function getDocumentInfoRemoteDetails(input: {
   attachmentBindings: ReadonlyArray<BlobAttachmentSummary>;
+  contributors: DocumentContributor[];
   projection: DocumentWriterProjectionResponse;
 }): DocumentInfoRemoteDetails {
-  const { attachmentBindings, projection } = input;
+  const { attachmentBindings, contributors, projection } = input;
   const manifestState = projection.documentManifest.state;
   const manifest = projection.documentManifest.manifest;
 
@@ -381,6 +391,7 @@ function getDocumentInfoRemoteDetails(input: {
     contentKeyEpoch: projection.contentKeyBundle.contentKeyEpoch,
     contentKeyTargetCount: projection.contentKeyBundle.targets.length,
     contentKeyTargetHash: projection.contentKeyBundle.targetHash,
+    contributors,
     currentManifestHash: projection.documentManifest.manifestHash,
     documentContainerManifestHistoryCount:
       projection.documentContainerManifestHistory?.length ?? 0,
@@ -428,9 +439,14 @@ export async function loadDocumentInfo(input: {
     return { attachments, local, remoteInfo: null };
   }
 
-  const [projection, attachmentBindings] = await Promise.all([
+  const [projection, attachmentBindings, attribution] = await Promise.all([
     input.apiClient.getDocumentWriterProjection(local.documentId),
     input.apiClient.listDocumentAttachments(local.documentId),
+    // Attribution is supplementary: a rejection (network/server) must not block
+    // the rest of the document-info load, so swallow it to null (no contributors).
+    input.apiClient
+      .getDocumentEditAttribution(local.documentId)
+      .catch(() => null),
   ]);
 
   if (!projection) {
@@ -444,6 +460,9 @@ export async function loadDocumentInfo(input: {
     local,
     remoteInfo: getDocumentInfoRemoteDetails({
       attachmentBindings: attachmentBindings ?? [],
+      contributors: attribution
+        ? summarizeDocumentContributors(attribution.segments)
+        : [],
       projection,
     }),
   };

@@ -3,7 +3,7 @@ import type { DocumentEditAttributionResponse } from "@tearleads/validators/resp
 export type DocumentEditAttributionSegment =
   DocumentEditAttributionResponse["segments"][number];
 
-interface DocumentContributor {
+export interface DocumentContributor {
   writerUserId: string;
   writerKeyFingerprint: string;
   /** Total Loro op counters attributed to this writer across the document. */
