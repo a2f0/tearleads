@@ -32,20 +32,40 @@ function getLockManager(): LockManagerLike | null {
   }
   return {
     request(name, options, callback) {
-      return Promise.resolve(
-        Reflect.apply(request, locks, [name, options, callback]),
-      );
+      try {
+        return Promise.resolve(
+          Reflect.apply(request, locks, [name, options, callback]),
+        );
+      } catch (error) {
+        return Promise.reject(error);
+      }
     },
   };
 }
 
+let defaultEnvironment: PeerSeedEnvironment | undefined;
+
 function defaultPeerSeedEnvironment(): PeerSeedEnvironment {
-  return {
-    deviceStorage: window.localStorage,
-    sessionStorage: window.sessionStorage,
-    locks: getLockManager(),
-  };
+  if (!defaultEnvironment) {
+    defaultEnvironment = {
+      deviceStorage: window.localStorage,
+      sessionStorage: window.sessionStorage,
+      locks: getLockManager(),
+    };
+  }
+  return defaultEnvironment;
 }
+
+// Per-environment, per-scope cache of the resolved seed. Repeated calls for the
+// same scope in a tab MUST return the same seed: the exclusive device-peer lock
+// is held by the first call for the tab's lifetime, so a fresh `ifAvailable`
+// request would see it already taken and fall back to a per-tab seed, defeating
+// the device-stable goal (e.g. every document shares the DOCUMENTS_APP_KIND
+// scope). Keyed by environment so injected test environments stay isolated.
+const seedCachesByEnvironment = new WeakMap<
+  PeerSeedEnvironment,
+  Map<string, Promise<string>>
+>();
 
 /**
  * Resolve to the device-stable seed only while this tab holds the exclusive
@@ -69,62 +89,90 @@ function resolveDevicePeerSeed(
         resolve(seed);
       }
     };
-    void locks
-      .request(lockName, { ifAvailable: true }, async (lock) => {
-        if (!lock) {
-          // Another tab already owns the device peer for this scope.
+    try {
+      void locks
+        .request(lockName, { ifAvailable: true }, async (lock) => {
+          if (!lock) {
+            // Another tab already owns the device peer for this scope.
+            settle(perTabSeed);
+            return;
+          }
+          settle(deviceSeed);
+          // Hold the lock for the tab's lifetime; the browser releases it on unload.
+          await new Promise<never>(() => {
+            // Intentionally never settled.
+          });
+        })
+        .catch(() => {
           settle(perTabSeed);
-          return;
-        }
-        settle(deviceSeed);
-        // Hold the lock for the tab's lifetime; the browser releases it on unload.
-        await new Promise<never>(() => {
-          // Intentionally never settled.
         });
-      })
-      .catch(() => {
-        settle(perTabSeed);
-      });
+    } catch {
+      // A synchronous throw from the lock manager must not crash document init.
+      settle(perTabSeed);
+    }
   });
 }
 
-export async function getScopedPeerSeed(
+async function computeScopedPeerSeed(
   scope: string,
-  environment?: PeerSeedEnvironment,
+  environment: PeerSeedEnvironment,
 ): Promise<string> {
   const deviceSeedKey = `tearleads.${scope}.device-seed`;
   const sessionPeerSeedKey = `tearleads.${scope}.session-peer-seed`;
 
-  let environmentValue: PeerSeedEnvironment;
   let deviceSeed: string;
   let perTabSeed: string;
   try {
-    environmentValue = environment ?? defaultPeerSeedEnvironment();
-    const existingDeviceSeed =
-      environmentValue.deviceStorage.getItem(deviceSeedKey);
+    const existingDeviceSeed = environment.deviceStorage.getItem(deviceSeedKey);
     deviceSeed = existingDeviceSeed ?? crypto.randomUUID();
     if (!existingDeviceSeed) {
-      environmentValue.deviceStorage.setItem(deviceSeedKey, deviceSeed);
+      environment.deviceStorage.setItem(deviceSeedKey, deviceSeed);
     }
 
     const existingSessionSeed =
-      environmentValue.sessionStorage.getItem(sessionPeerSeedKey);
+      environment.sessionStorage.getItem(sessionPeerSeedKey);
     const sessionSeed = existingSessionSeed ?? crypto.randomUUID();
     if (!existingSessionSeed) {
-      environmentValue.sessionStorage.setItem(sessionPeerSeedKey, sessionSeed);
+      environment.sessionStorage.setItem(sessionPeerSeedKey, sessionSeed);
     }
     perTabSeed = `${deviceSeed}:${sessionSeed}`;
   } catch {
     return crypto.randomUUID();
   }
 
-  if (!environmentValue.locks) {
+  if (!environment.locks) {
     return perTabSeed;
   }
   return resolveDevicePeerSeed(
-    environmentValue.locks,
+    environment.locks,
     `tearleads.${scope}.device-peer`,
     deviceSeed,
     perTabSeed,
   );
+}
+
+export function getScopedPeerSeed(
+  scope: string,
+  environment?: PeerSeedEnvironment,
+): Promise<string> {
+  let environmentValue: PeerSeedEnvironment;
+  try {
+    environmentValue = environment ?? defaultPeerSeedEnvironment();
+  } catch {
+    return Promise.resolve(crypto.randomUUID());
+  }
+
+  let cache = seedCachesByEnvironment.get(environmentValue);
+  if (!cache) {
+    cache = new Map<string, Promise<string>>();
+    seedCachesByEnvironment.set(environmentValue, cache);
+  }
+  const cached = cache.get(scope);
+  if (cached) {
+    return cached;
+  }
+
+  const seed = computeScopedPeerSeed(scope, environmentValue);
+  cache.set(scope, seed);
+  return seed;
 }

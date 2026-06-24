@@ -81,3 +81,22 @@ test("holds the device-peer lock for the tab lifetime when granted", async () =>
   await new Promise((resolve) => setTimeout(resolve, 10));
   expect(settled).toBe(false);
 });
+
+test("reuses one cached seed per scope rather than re-requesting the lock", async () => {
+  let requestCount = 0;
+  const locks: PeerSeedEnvironment["locks"] = {
+    request: (_name, _options, callback) => {
+      requestCount += 1;
+      return Promise.resolve(callback({}));
+    },
+  };
+  const environment = seededEnvironment(locks);
+  // Two documents in the same tab share the DOCUMENTS_APP_KIND-style scope; the
+  // held lock means a second request would fall back to a per-tab seed, so the
+  // resolved seed must be cached and the lock requested only once.
+  const first = await getScopedPeerSeed("docs", environment);
+  const second = await getScopedPeerSeed("docs", environment);
+  expect(first).toBe("DEVICE");
+  expect(second).toBe("DEVICE");
+  expect(requestCount).toBe(1);
+});
