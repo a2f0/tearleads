@@ -248,7 +248,7 @@ async function persistInitialDocumentBootstrap(
     localId: string;
   },
 ): Promise<void> {
-  const doc = await createDocument(getScopedPeerSeed(DOCUMENTS_APP_KIND));
+  const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
   importUpdates(doc, [input.initialUpdate]);
 
   await persistDocumentState({

@@ -15,9 +15,13 @@ export function getDefaultContainerName(parentId: string | null): string {
 }
 
 export async function createContainerMetadataDocument(
-  containerId: string,
+  _containerId: string,
 ): Promise<ContainerMetadataDocument> {
-  return createDocument(getScopedPeerSeed(`container-metadata:${containerId}`));
+  // A single static scope for all container-metadata docs: they are separate
+  // CRDTs, so they can share one device peer, and a per-container scope would
+  // hold a distinct device-peer lock (and cache entry) per container for the
+  // tab's lifetime, accumulating without bound as containers are browsed.
+  return createDocument(await getScopedPeerSeed("container-metadata"));
 }
 
 export async function createInitializedContainerMetadataDocument(

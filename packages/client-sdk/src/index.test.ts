@@ -198,6 +198,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "subscribeToContainerContentsStore",
   "subscribeToDomainSyncCoordinator",
   "subscribeToPersistedDocuments",
+  "summarizeDocumentContributors",
   "syncedContainerDocumentObjectSyncState",
   "unwrapContainerKekPath",
   "unwrapDocumentContentKeyTarget",
@@ -209,6 +210,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "waitForDomainSyncCoordinatorToSettle",
   "wrapEncryptedBlobStore",
   "writeStoredDocumentFields",
+  "writerByPeerId",
 ] as const;
 
 test("root entrypoint value surface matches the deliberate public contract", () => {
