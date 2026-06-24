@@ -11,8 +11,15 @@ const baseConfig = {
     },
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
-      // `test/preload.ts` is loaded by Bun from `bunfig.toml`.
-      entry: ["src/appTestRuntime.ts", "src/**/*.test.ts", "test/preload.ts"],
+      // `test/preload.ts` is loaded by Bun from `bunfig.toml`. `scripts/blobGc.ts`
+      // is a standalone operator entrypoint (cron/systemd), not wired via
+      // package.json, so it must be declared explicitly.
+      entry: [
+        "src/appTestRuntime.ts",
+        "src/**/*.test.ts",
+        "test/preload.ts",
+        "scripts/blobGc.ts",
+      ],
       project: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
     },
     "packages/api-client": {
