@@ -151,6 +151,12 @@ test("default API database trims the adapter kind", async () => {
   await database.close();
 }, 15_000);
 
+test("default API database requires explicit production adapter", () => {
+  expect(() =>
+    createDefaultManagedApiDatabase({ NODE_ENV: "production" }),
+  ).toThrow("API_DATABASE is required when NODE_ENV=production");
+});
+
 test("default API database supports sqlite migrations", async () => {
   const adapterUrl = new URL("./postgres.ts", import.meta.url).href;
   const schemaUrl = new URL("../schema.ts", import.meta.url).href;

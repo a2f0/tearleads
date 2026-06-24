@@ -29,7 +29,9 @@ bash "$REPO_ROOT/packages/api-cli/scripts/deployStagingApiCli.sh"
 
 echo "Deploying API executable to $SSH_TARGET:$REMOTE_BIN_PATH ..."
 ssh "$SSH_TARGET" mkdir -p "$REMOTE_BIN_PATH"
-rsync -avz "$REPO_ROOT/packages/api/dist/tearleads-api" \
+rsync -avz \
+  "$REPO_ROOT/packages/api/dist/tearleads-api" \
+  "$REPO_ROOT/packages/api/dist/tearleads-blob-gc" \
   "$SSH_TARGET:$REMOTE_BIN_PATH/"
 
 echo "Running database migrations..."

@@ -34,6 +34,12 @@ test("default blob object store uses memory when unconfigured", async () => {
   });
 });
 
+test("default blob object store requires explicit production configuration", () => {
+  expect(() =>
+    createDefaultBlobObjectStore({ NODE_ENV: "production" }),
+  ).toThrow("BLOB_OBJECT_STORE is required when NODE_ENV=production");
+});
+
 test("default blob object store rejects unknown adapters", () => {
   expect(() =>
     createDefaultBlobObjectStore({ BLOB_OBJECT_STORE: "postgres" }),
