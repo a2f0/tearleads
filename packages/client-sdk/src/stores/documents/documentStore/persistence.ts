@@ -1,4 +1,8 @@
-import { getTextValue } from "@tearleads/loro";
+import {
+  encodeVersionVector,
+  exportUpdatesSince,
+  getTextValue,
+} from "@tearleads/loro";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
@@ -126,6 +130,35 @@ export async function listPendingUpdates(
     localId: state.localId,
     persistence: state.persistence,
   });
+}
+
+/**
+ * Export the outgoing delta for the current edit. The base is `pendingBaseVersion`
+ * (the version through which ops are already durably enqueued or synced), NOT the
+ * live doc version, so any delta orphaned by a prior failed enqueue is folded back
+ * in here. In the success path the marker equals the pre-edit version, so this is
+ * identical to exporting "since the last edit".
+ */
+export function pendingDeltaSinceBase(
+  state: DocumentStoreState,
+  doc: DocumentState,
+): Uint8Array {
+  return exportUpdatesSince(
+    doc,
+    state.pendingBaseVersion ?? encodeVersionVector(doc),
+  );
+}
+
+/**
+ * Advance the durable marker to the doc's current version. Call this ONLY after
+ * an edit's delta has been durably enqueued and persisted, or after remote
+ * updates have been imported (those ops are already on the server).
+ */
+export function advancePendingBaseVersion(
+  state: DocumentStoreState,
+  doc: DocumentState,
+): void {
+  state.pendingBaseVersion = encodeVersionVector(doc);
 }
 
 export async function enqueuePendingUpdate(

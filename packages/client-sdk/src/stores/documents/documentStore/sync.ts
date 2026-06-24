@@ -17,6 +17,7 @@ import {
 import { requestDocumentStoreSync } from "../registry";
 import { awaitInitializationForSync } from "./initialization";
 import {
+  advancePendingBaseVersion,
   hydrateAttachmentBlobs,
   listPendingUpdates,
   persistDocument,
@@ -216,6 +217,9 @@ async function applyIncomingSyncedUpdates(
     currentDoc,
     syncAttempt.synced.decryptedUpdates.map((update) => update.updateData),
   );
+  // Remote ops are now in the doc and already on the server, so fold them into
+  // the durable marker; a later local edit must not re-export them as outgoing.
+  advancePendingBaseVersion(state, currentDoc);
 
   setReadySnapshot(state, currentDoc, true);
 }

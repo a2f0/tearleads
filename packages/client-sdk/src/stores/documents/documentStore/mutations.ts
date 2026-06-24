@@ -1,8 +1,4 @@
-import {
-  encodeVersionVector,
-  exportUpdatesSince,
-  getTextValue,
-} from "@tearleads/loro";
+import { getTextValue } from "@tearleads/loro";
 import {
   projectStoredDocumentState,
   type StoredDocumentKind,
@@ -11,7 +7,12 @@ import {
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentStructuredFieldPatch } from "../types";
 import { ensureDocumentStoreReady } from "./initialization";
-import { enqueuePendingUpdate, persistDocument } from "./persistence";
+import {
+  advancePendingBaseVersion,
+  enqueuePendingUpdate,
+  pendingDeltaSinceBase,
+  persistDocument,
+} from "./persistence";
 import { type DocumentStoreState, setDocumentSnapshot } from "./state";
 
 export async function setDocumentText(
@@ -56,12 +57,12 @@ export async function setDocumentText(
         return;
       }
 
-      const previousTextVersion = encodeVersionVector(state.doc);
       state.doc.getText("text").update(value);
-      const update = exportUpdatesSince(state.doc, previousTextVersion);
+      const update = pendingDeltaSinceBase(state, state.doc);
 
       await enqueuePendingUpdate(state, update);
       await persistDocument(state, state.doc, { text: value });
+      advancePendingBaseVersion(state, state.doc);
       requestDocumentStoreSync(state);
     })
     .catch((error: unknown) => {
@@ -119,20 +120,20 @@ export async function setDocumentStructuredFields(
         return;
       }
 
-      const previousVersion = encodeVersionVector(state.doc);
       writeStoredDocumentFields(
         state.doc,
         kind,
         patch,
         state.runtime.infra.documentProjectors,
       );
-      const update = exportUpdatesSince(state.doc, previousVersion);
+      const update = pendingDeltaSinceBase(state, state.doc);
       if (update.byteLength === 0) {
         return;
       }
 
       await enqueuePendingUpdate(state, update);
       await persistDocument(state, state.doc);
+      advancePendingBaseVersion(state, state.doc);
       requestDocumentStoreSync(state);
     })
     .catch((error: unknown) => {

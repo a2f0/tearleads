@@ -1,4 +1,3 @@
-import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
@@ -16,8 +15,10 @@ import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
 import { ensureDocumentStoreReady } from "./initialization";
 import {
+  advancePendingBaseVersion,
   deleteLocalAttachmentRecord,
   enqueuePendingUpdate,
+  pendingDeltaSinceBase,
   persistDocument,
   queuePendingAttachmentUpload,
   saveLocalAttachmentRecord,
@@ -179,9 +180,8 @@ async function persistAttachedFiles(
     state.localId,
     files,
   );
-  const previousVersion = encodeVersionVector(currentDoc);
   addDocumentAttachments(currentDoc, nextAttachments);
-  const attachmentUpdate = exportUpdatesSince(currentDoc, previousVersion);
+  const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
 
   await persistPendingAttachments(state, files, nextPendingAttachments);
 
@@ -190,6 +190,7 @@ async function persistAttachedFiles(
   }
   upsertPendingAttachments(state, nextPendingAttachments);
   await persistDocument(state, currentDoc);
+  advancePendingBaseVersion(state, currentDoc);
   logAttachedFiles(state, files.length);
   requestDocumentStoreSync(state);
 }
@@ -215,9 +216,8 @@ async function persistSlotAttachmentFile(
     name: file.name,
     slotId,
   };
-  const previousVersion = encodeVersionVector(currentDoc);
   addDocumentAttachments(currentDoc, [replacementAttachment]);
-  const attachmentUpdate = exportUpdatesSince(currentDoc, previousVersion);
+  const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
   if (attachmentUpdate.byteLength > 0) {
     await enqueuePendingUpdate(state, attachmentUpdate);
   }
@@ -234,6 +234,7 @@ async function persistSlotAttachmentFile(
   });
   await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
   await persistDocument(state, currentDoc);
+  advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(`Queued attachment ${file.name} for slot ${slotId}.`);
   requestDocumentStoreSync(state);
 }
@@ -292,9 +293,8 @@ async function persistRemovedAttachment(
   }
 
   const storageKey = state.attachmentStorageKeyBySlotId[slotId];
-  const previousVersion = encodeVersionVector(currentDoc);
   removeDocumentAttachment(currentDoc, slotId);
-  const attachmentUpdate = exportUpdatesSince(currentDoc, previousVersion);
+  const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
   if (attachmentUpdate.byteLength > 0) {
     await enqueuePendingUpdate(state, attachmentUpdate);
   }
@@ -308,6 +308,7 @@ async function persistRemovedAttachment(
   }
 
   await persistDocument(state, currentDoc);
+  advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(
     `Removed attachment ${existingAttachment.name} from document ${state.localId}.`,
   );

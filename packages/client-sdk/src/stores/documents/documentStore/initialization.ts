@@ -26,6 +26,7 @@ import {
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentStoreRelinkInput } from "../types";
 import {
+  advancePendingBaseVersion,
   enqueuePendingUpdate,
   persistDocument,
   saveDocumentRecord,
@@ -116,6 +117,9 @@ async function initializeDocumentStore(
   }
 
   state.doc = nextDoc;
+  // Seed the durable marker to the loaded doc version: every op in the snapshot
+  // is either already synced or sitting in the persisted pending queue.
+  advancePendingBaseVersion(state, nextDoc);
   state.initialized = true;
   state.initializePromise = null;
   scheduleSync();
@@ -223,6 +227,7 @@ export async function relinkDocumentStore(
       exportAllUpdates(state.doc),
       encodeVersionVector(state.doc),
     );
+    advancePendingBaseVersion(state, state.doc);
     requestDocumentStoreSync(state);
   }
   return {
