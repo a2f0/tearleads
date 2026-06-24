@@ -62,7 +62,7 @@ export function readApiCorsOrigins(
   if (configured) {
     return parseConfiguredApiCorsOrigins(configured);
   }
-  if (env.NODE_ENV === "production") {
+  if (env.NODE_ENV?.trim() === "production") {
     throw new Error("API_CORS_ORIGINS is required when NODE_ENV=production");
   }
 

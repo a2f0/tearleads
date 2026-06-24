@@ -1,7 +1,7 @@
 [Unit]
 Description=Tearleads Blob GC
-After=network.target postgresql.service redis-server.service{% if garage_enabled | default(false) | bool %} garage.service{% endif +%}
-Wants=postgresql.service redis-server.service{% if garage_enabled | default(false) | bool %} garage.service{% endif +%}
+After=network.target postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
+Wants=postgresql.service redis-server.service{{ ' garage.service' if garage_enabled | default(false) | bool else '' }}
 ConditionPathExists=/opt/tearleads/bin/tearleads-blob-gc
 
 [Service]

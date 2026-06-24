@@ -44,6 +44,9 @@ describe("createRouteApp", () => {
     expect(() => readApiCorsOrigins({ NODE_ENV: "production" })).toThrow(
       "API_CORS_ORIGINS is required when NODE_ENV=production",
     );
+    expect(() => readApiCorsOrigins({ NODE_ENV: "production " })).toThrow(
+      "API_CORS_ORIGINS is required when NODE_ENV=production",
+    );
   });
 
   test("parses configured CORS origins", () => {
