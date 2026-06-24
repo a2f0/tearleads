@@ -73,9 +73,12 @@ export interface DocumentAttributionSegment {
 export function listDocumentAttributionSegments(
   segments: readonly DocumentEditAttributionSegment[],
 ): DocumentAttributionSegment[] {
-  const ranges = segments
-    .filter((segment) => segment.endCounter > segment.startCounter)
-    .map((segment) => ({
+  const rangesByWriter = new Map<string, DocumentAttributionSegment[]>();
+  for (const segment of segments) {
+    if (segment.endCounter <= segment.startCounter) {
+      continue;
+    }
+    const range: DocumentAttributionSegment = {
       peerId: segment.peerId,
       startCounter: segment.startCounter,
       endCounter: segment.endCounter,
@@ -83,18 +86,24 @@ export function listDocumentAttributionSegments(
       writerUserId: segment.writerUserId,
       writerKeyFingerprint: segment.writerKeyFingerprint,
       authorityKind: segment.authorityKind,
-    }));
-  // Every surviving range's writer appears in the contributor summary (it credits
-  // any writer with an op-bearing range), so flat-mapping by contributor order
-  // keeps the drill-down aligned with the Contributors section and drops nothing.
+    };
+    const existing = rangesByWriter.get(segment.writerUserId);
+    if (existing) {
+      existing.push(range);
+    } else {
+      rangesByWriter.set(segment.writerUserId, [range]);
+    }
+  }
+  // summarizeDocumentContributors credits every writer with an op-bearing range,
+  // and rangesByWriter is grouped from those same ranges, so each contributor has
+  // a group here — flat-mapping by contributor order aligns the drill-down with
+  // the Contributors section and drops nothing.
   return summarizeDocumentContributors(segments).flatMap((contributor) =>
-    ranges
-      .filter((range) => range.writerUserId === contributor.writerUserId)
-      .sort(
-        (left, right) =>
-          left.startCounter - right.startCounter ||
-          left.peerId.localeCompare(right.peerId),
-      ),
+    (rangesByWriter.get(contributor.writerUserId) ?? []).sort(
+      (left, right) =>
+        left.startCounter - right.startCounter ||
+        left.peerId.localeCompare(right.peerId),
+    ),
   );
 }
 
