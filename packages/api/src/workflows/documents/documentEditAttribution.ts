@@ -47,46 +47,40 @@ async function loadUpdateAttributionMeta(
   documentId: string,
   executor: DatabaseSession,
 ): Promise<Map<string, UpdateAttributionMeta>> {
-  const [updates, headers, baselines] = await Promise.all([
-    executor
-      .select({ id: documentUpdates.id, sequence: documentUpdates.sequence })
-      .from(documentUpdates)
-      .where(eq(documentUpdates.documentId, documentId)),
-    executor
-      .select({
-        updateId: documentContentWriteHeaders.updateId,
-        header: documentContentWriteHeaders.header,
-      })
-      .from(documentContentWriteHeaders)
-      .where(eq(documentContentWriteHeaders.documentId, documentId)),
-    executor
-      .select({ baselineUpdateId: documentAuditCheckpoints.baselineUpdateId })
-      .from(documentAuditCheckpoints)
-      .where(
-        and(
-          eq(documentAuditCheckpoints.documentId, documentId),
-          eq(documentAuditCheckpoints.checkpointKind, "rotate_baseline"),
-        ),
+  // One query: the DB inner-joins each update to its (unique) write header and
+  // left-joins the rotate_baseline checkpoint that re-asserted it, if any. Both
+  // documentContentWriteHeaders.updateId and documentAuditCheckpoints
+  // .baselineUpdateId are unique, so this yields exactly one row per update — no
+  // fan-out — and offloads the join to the database instead of memory.
+  const rows = await executor
+    .select({
+      id: documentUpdates.id,
+      sequence: documentUpdates.sequence,
+      header: documentContentWriteHeaders.header,
+      baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
+    })
+    .from(documentUpdates)
+    .innerJoin(
+      documentContentWriteHeaders,
+      eq(documentContentWriteHeaders.updateId, documentUpdates.id),
+    )
+    .leftJoin(
+      documentAuditCheckpoints,
+      and(
+        eq(documentAuditCheckpoints.baselineUpdateId, documentUpdates.id),
+        eq(documentAuditCheckpoints.documentId, documentId),
+        eq(documentAuditCheckpoints.checkpointKind, "rotate_baseline"),
       ),
-  ]);
+    )
+    .where(eq(documentUpdates.documentId, documentId));
 
-  const sequenceByUpdateId = new Map(
-    updates.map((update) => [update.id, update.sequence]),
-  );
-  const baselineUpdateIds = new Set(
-    baselines.map((baseline) => baseline.baselineUpdateId),
-  );
   const meta = new Map<string, UpdateAttributionMeta>();
-  for (const { updateId, header } of headers) {
-    const sequence = sequenceByUpdateId.get(updateId);
-    if (sequence === undefined) {
-      continue;
-    }
-    meta.set(updateId, {
-      sequence,
-      writerUserId: header.writerUserId,
-      writerKeyFingerprint: header.writerKeyFingerprint,
-      isBaseline: baselineUpdateIds.has(updateId),
+  for (const row of rows) {
+    meta.set(row.id, {
+      sequence: row.sequence,
+      writerUserId: row.header.writerUserId,
+      writerKeyFingerprint: row.header.writerKeyFingerprint,
+      isBaseline: row.baselineUpdateId !== null,
     });
   }
 
