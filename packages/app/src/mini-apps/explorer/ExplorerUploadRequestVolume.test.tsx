@@ -34,7 +34,7 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  total: 6,
+  total: 7,
   byRequest: {
     // Create the image document shell, stage + bind its attachment blob, and
     // sync the document content twice (push update, then the post-binding
@@ -43,6 +43,7 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /blobs/stage": 1,
     "POST /blobs/:blobId/attachment-bindings": 1,
     "POST /documents/:documentId/sync": 2,
+    "GET /documents/:documentId/attachments": 1,
     // Device-first reconciliation re-discovers the active container once after
     // the new document lands so the explorer view reflects it.
     "GET /containers/:containerId/documents": 1,
