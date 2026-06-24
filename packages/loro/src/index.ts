@@ -17,13 +17,5 @@ export {
   type VersionVectorSpan,
   versionVectorsEqual,
 } from "./document";
-export {
-  decryptLoroUpdate,
-  encryptLoroUpdate,
-  parseEncryptedUpdate,
-  readEncryptedUpdateAccessEpoch,
-  type SerializedEncryptedUpdate,
-  serializeEnvelope,
-} from "./encryptedUpdate";
 export * from "./server";
 export * from "./shared";

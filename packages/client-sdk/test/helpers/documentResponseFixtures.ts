@@ -303,7 +303,7 @@ export async function createMaterializedSyncFixture() {
 
 export async function createPreparedUpdate(
   overrides: {
-    checkpointKind?: "fresh_baseline" | "rotate_baseline" | undefined;
+    checkpointKind?: "rotate_baseline" | undefined;
     ciphertextHash?: string | undefined;
     contentRecordId?: string | undefined;
     encryptedData?: string | undefined;

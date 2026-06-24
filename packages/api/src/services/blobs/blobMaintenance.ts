@@ -13,7 +13,7 @@ import {
 // rate limits.
 const OBJECT_DELETE_CONCURRENCY = 16;
 
-export interface ReclaimDereferencedBlobsSummary {
+interface ReclaimDereferencedBlobsSummary {
   readonly reclaimedCount: number;
   readonly revivedCount: number;
   readonly deletedObjectCount: number;
@@ -62,12 +62,12 @@ export async function reclaimDereferencedBlobs(
   };
 }
 
-export interface BlobMaintenanceInput {
+interface BlobMaintenanceInput {
   readonly dereferencedBlobs?: ReclaimDereferencedBlobsInput;
   readonly expiredStages?: CleanupExpiredBlobStagesInput;
 }
 
-export interface BlobMaintenanceSummary {
+interface BlobMaintenanceSummary {
   readonly dereferencedBlobs: ReclaimDereferencedBlobsSummary;
   readonly expiredStages: Awaited<ReturnType<typeof cleanupExpiredBlobStages>>;
 }

@@ -78,6 +78,16 @@ export interface DocumentStoreState {
   localId: string;
   listeners: Set<() => void>;
   pendingAttachments: PendingAttachmentRecord[];
+  /**
+   * Oplog version through which every op in `doc` is already durably enqueued as
+   * a pending update or synced from a remote peer. Outgoing deltas are exported
+   * from THIS version rather than the live `doc` version, and it only advances
+   * after an edit's enqueue+persist succeed. If a write mutates `doc` but its
+   * enqueue/persist throws, this marker stays put, so the next edit re-derives
+   * (recovers) the orphaned delta instead of silently dropping it from sync.
+   * `null` only before initialization sets it to the loaded doc's version.
+   */
+  pendingBaseVersion: string | null;
   persistence: DocumentsPersistence;
   record: DocumentRecord | null;
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
@@ -182,6 +192,7 @@ export function createDocumentStoreState(
     localId,
     listeners: new Set(),
     pendingAttachments: [],
+    pendingBaseVersion: null,
     persistence,
     record: null,
     resolveProjectionUserKey:
@@ -246,6 +257,7 @@ function clearDocumentStoreState(
   state.doc = null;
   state.record = null;
   state.pendingAttachments = [];
+  state.pendingBaseVersion = null;
   state.attachmentBlobIdBySlotId = {};
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();

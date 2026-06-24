@@ -29,7 +29,7 @@ export interface ReclaimDereferencedBlobsInput {
   readonly limit?: number;
 }
 
-export interface ReclaimDereferencedBlobsResult {
+interface ReclaimDereferencedBlobsResult {
   readonly reclaimedBlobIds: string[];
   readonly revivedBlobIds: string[];
   readonly reclaimedStorageKeys: string[];

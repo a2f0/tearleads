@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { getUpdateVersionVectors } from "@tearleads/loro";
+import { getUpdateVersionVectors, versionVectorsEqual } from "@tearleads/loro";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { PendingUpdateFields } from "./sqlite/documentPersistence";
 
@@ -33,6 +33,15 @@ export function createPendingUpdateFields(
 
   const { partialEndVersionVector, partialStartVersionVector } =
     getUpdateVersionVectors(update);
+
+  // A Loro delta that encodes no ops still serializes to a small non-empty blob
+  // (~22 bytes) with start == end version vectors, so the byteLength guard above
+  // does not catch it. Such an update produces zero spans server-side, which the
+  // frontier diff treats as permanently "missing" and re-sends to every reader
+  // on every sync forever. Drop it: a zero-span update carries nothing.
+  if (versionVectorsEqual(partialStartVersionVector, partialEndVersionVector)) {
+    return null;
+  }
 
   return {
     updateData: bytesToBase64(update),
