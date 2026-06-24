@@ -82,7 +82,13 @@ function getSortedTargetOptions(
     const labelOrder = left.label.localeCompare(right.label, undefined, {
       sensitivity: "base",
     });
-    return labelOrder === 0 ? left.id.localeCompare(right.id) : labelOrder;
+    if (labelOrder !== 0) {
+      return labelOrder;
+    }
+
+    // Container ids are only a hidden tie-breaker for duplicate visible names;
+    // code-point ordering is deterministic without locale collation overhead.
+    return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
   });
 
   return options;

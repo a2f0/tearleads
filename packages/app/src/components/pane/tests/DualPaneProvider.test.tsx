@@ -481,7 +481,7 @@ async function openContainerInfoSharingTab(pane: HTMLElement) {
   const sharingTab = await within(pane).findByRole("tab", {
     name: "Sharing",
   });
-  invariant(sharingTab instanceof HTMLButtonElement, "Expected sharing tab.");
+  invariant(sharingTab instanceof HTMLElement, "Expected sharing tab.");
   await interact(() => {
     fireEvent.click(sharingTab);
   });
