@@ -3,9 +3,12 @@ import {
   createDocument,
   derivePeerId,
   encodeVersionVector,
+  exportAllUpdates,
+  exportShallowSnapshot,
   exportUpdatesSince,
   getTextValue,
   getUpdateVersionVectors,
+  importSnapshot,
   importUpdates,
   listVersionVectorSpans,
 } from "./index";
@@ -57,4 +60,47 @@ test("listVersionVectorSpans extracts changed peer counter ranges", async () => 
   expect(secondSpans[0]?.endCounter).toBeGreaterThan(
     secondSpans[0]?.startCounter ?? 0,
   );
+});
+
+test("shallow snapshot round-trips state but stays bounded by state, not history", async () => {
+  const doc = await createDocument("author-seed");
+  const text = doc.getText("text");
+  // Churn: accumulate lots of history while the final state stays tiny.
+  for (let i = 0; i < 500; i++) {
+    text.insert(text.length, "scratch ");
+    doc.commit();
+    text.delete(text.length - 8, 8);
+    doc.commit();
+  }
+  text.insert(0, "kept");
+  doc.commit();
+
+  const full = exportAllUpdates(doc);
+  const shallow = exportShallowSnapshot(doc);
+  // History dwarfs state, so the shallow snapshot is dramatically smaller.
+  expect(shallow.length).toBeLessThan(full.length / 5);
+
+  const reloaded = await createDocument("author-seed");
+  importSnapshot(reloaded, shallow);
+  expect(getTextValue(reloaded)).toBe("kept");
+  expect(encodeVersionVector(reloaded)).toBe(encodeVersionVector(doc));
+});
+
+test("a peer delta applies on top of a reloaded shallow snapshot", async () => {
+  const author = await createDocument("author-seed");
+  author.getText("text").insert(0, "base");
+  author.commit();
+
+  // Reader reconstructs from the shallow snapshot (single import, not batch).
+  const reader = await createDocument("reader-seed");
+  importSnapshot(reader, exportShallowSnapshot(author));
+  expect(getTextValue(reader)).toBe("base");
+
+  // The author keeps editing; the delta since the snapshot still merges cleanly,
+  // proving trimmed history below the cut does not break forward convergence.
+  const since = encodeVersionVector(reader);
+  author.getText("text").insert(4, "+more");
+  author.commit();
+  importUpdates(reader, [exportUpdatesSince(author, since)]);
+  expect(getTextValue(reader)).toBe("base+more");
 });
