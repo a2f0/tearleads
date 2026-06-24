@@ -146,10 +146,19 @@ export function Explorer() {
   const openGrantGroupInOrgManager = useOpenGrantGroupInOrgManager();
   const activeContainerId = model.selection.activeContainerId;
   const openStructuredDocumentGrid = useCallback(() => {
-    if (activeContainerId) {
+    // The File menu bypasses the context menu, so repeat the same
+    // system-container creation gate before routing to the creation panel.
+    if (
+      activeContainerId &&
+      model.canCreateStructuredDocumentInActiveContainer
+    ) {
       model.routeState.openNewStructuredDocumentRoute(activeContainerId);
     }
-  }, [activeContainerId, model.routeState.openNewStructuredDocumentRoute]);
+  }, [
+    activeContainerId,
+    model.canCreateStructuredDocumentInActiveContainer,
+    model.routeState.openNewStructuredDocumentRoute,
+  ]);
   const openBlobBrowser = useCallback(() => {
     model.routeState.openBlobBrowserRoute();
   }, [model.routeState.openBlobBrowserRoute]);
@@ -157,7 +166,9 @@ export function Explorer() {
     model.routeState.openSyncLanesRoute();
   }, [model.routeState.openSyncLanesRoute]);
   useWindowFileMenuItem({
-    disabled: !model.explorer.ready || !activeContainerId,
+    disabled:
+      !model.explorer.ready ||
+      !model.canCreateStructuredDocumentInActiveContainer,
     id: "explorer-new-structured-document",
     label: EXPLORER_LABELS.newStructuredDocumentAction,
     onClick: openStructuredDocumentGrid,
@@ -203,6 +214,12 @@ export function Explorer() {
         />
       </ExplorerBlobPickProvider>
       <ExplorerContextMenuLayer
+        canCreateChildContextMenuNode={
+          model.contextMenuState.canCreateChildContextMenuNode
+        }
+        canCreateStructuredDocumentContextMenuNode={
+          model.contextMenuState.canCreateStructuredDocumentContextMenuNode
+        }
         canDeleteSelectedDocument={model.canDeleteContextMenuDocument}
         canLinkSelectedDocument={model.canLinkContextMenuDocument}
         canDeleteContextMenuNode={

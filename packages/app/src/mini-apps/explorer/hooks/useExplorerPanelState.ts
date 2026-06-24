@@ -55,6 +55,8 @@ import {
 } from "./useSelectedDocumentStructuralState";
 
 interface ExplorerContextMenuModel {
+  canCreateChildContextMenuNode: boolean;
+  canCreateStructuredDocumentContextMenuNode: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;

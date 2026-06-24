@@ -3,6 +3,8 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   canAddDocumentToContainerByRules,
+  canCreateChildContainerByRules,
+  canCreateStructuredDocumentInContainerByRules,
   canDeleteContainerByRules,
   canDeleteDocumentByRules,
   canLinkDocumentOutByRules,
@@ -106,8 +108,38 @@ test("the contacts and trash containers reject uploads", () => {
   expect(canUploadToContainerByRules(rulesContext, trashContainer)).toBe(false);
 });
 
+test("the contacts and trash containers reject direct child creation", () => {
+  expect(canCreateChildContainerByRules(rulesContext, contactsContainer)).toBe(
+    false,
+  );
+  expect(canCreateChildContainerByRules(rulesContext, trashContainer)).toBe(
+    false,
+  );
+});
+
+test("the contacts and trash containers reject direct structured document creation", () => {
+  expect(
+    canCreateStructuredDocumentInContainerByRules(
+      rulesContext,
+      contactsContainer,
+    ),
+  ).toBe(false);
+  expect(
+    canCreateStructuredDocumentInContainerByRules(rulesContext, trashContainer),
+  ).toBe(false);
+});
+
 test("plain user containers accept uploads", () => {
   expect(canUploadToContainerByRules(rulesContext, userContainer)).toBe(true);
+});
+
+test("plain user containers accept direct child and structured document creation", () => {
+  expect(canCreateChildContainerByRules(rulesContext, userContainer)).toBe(
+    true,
+  );
+  expect(
+    canCreateStructuredDocumentInContainerByRules(rulesContext, userContainer),
+  ).toBe(true);
 });
 
 test("uploads are gated by container id against the node list", () => {
@@ -238,6 +270,15 @@ test("a peer's shared contacts folder enforces contacts rules by name", () => {
     false,
   );
   expect(
+    canCreateChildContainerByRules(sharedRulesContext, sharedContacts),
+  ).toBe(false);
+  expect(
+    canCreateStructuredDocumentInContainerByRules(
+      sharedRulesContext,
+      sharedContacts,
+    ),
+  ).toBe(false);
+  expect(
     canAddDocumentToContainerByRules(
       sharedRulesContext,
       sharedContacts,
@@ -257,6 +298,15 @@ test("a peer's shared trash folder gets no system rules (trash is not shared)", 
   });
   expect(canMoveContainerByRules(sharedRulesContext, sharedTrash)).toBe(true);
   expect(canDeleteContainerByRules(sharedRulesContext, sharedTrash)).toBe(true);
+  expect(canCreateChildContainerByRules(sharedRulesContext, sharedTrash)).toBe(
+    true,
+  );
+  expect(
+    canCreateStructuredDocumentInContainerByRules(
+      sharedRulesContext,
+      sharedTrash,
+    ),
+  ).toBe(true);
 });
 
 test("a same-org folder named Contacts cannot spoof contacts rules", () => {

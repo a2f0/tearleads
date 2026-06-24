@@ -33,6 +33,8 @@ const rootNode: ContainerNode = {
 };
 
 function ExplorerContextMenuLayerHarness(params: {
+  canCreateChildContextMenuNode?: boolean;
+  canCreateStructuredDocumentContextMenuNode?: boolean;
   canDeleteSelectedDocument?: boolean;
   canPurgeSelectedDocument?: boolean;
   canUploadToContextMenuNode?: boolean;
@@ -52,6 +54,12 @@ function ExplorerContextMenuLayerHarness(params: {
 
   return (
     <ExplorerContextMenuLayer
+      canCreateChildContextMenuNode={
+        params.canCreateChildContextMenuNode ?? true
+      }
+      canCreateStructuredDocumentContextMenuNode={
+        params.canCreateStructuredDocumentContextMenuNode ?? true
+      }
       canDeleteContextMenuNode={false}
       canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
       canLinkSelectedDocument={false}
@@ -158,6 +166,26 @@ test("container context menu opens a new structured document in the target", () 
   expect(
     view.queryByRole("button", { name: "New Structured Document" }),
   ).toBeNull();
+});
+
+test("container context menu disables creation actions for protected containers", () => {
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      canCreateChildContextMenuNode={false}
+      canCreateStructuredDocumentContextMenuNode={false}
+      importDroppedFiles={noopImportDroppedFiles}
+    />,
+  );
+
+  const createChildButton = view.getByRole("button", {
+    name: "Create Child",
+  }) as HTMLButtonElement;
+  const structuredDocumentButton = view.getByRole("button", {
+    name: "New Structured Document",
+  }) as HTMLButtonElement;
+
+  expect(createChildButton.disabled).toBe(true);
+  expect(structuredDocumentButton.disabled).toBe(true);
 });
 
 test("document context menu deletes the selected document", async () => {

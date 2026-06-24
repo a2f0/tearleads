@@ -130,6 +130,32 @@ export function canUploadToContainerByRules(
   return resolveContainerRules(context, container)?.protectFromUpload !== true;
 }
 
+// Child containers are a structural mutation of the parent container. System
+// folders that are app-managed endpoints (Contacts, Trash) opt out so their
+// subtree stays reserved for app-owned content.
+export function canCreateChildContainerByRules(
+  context: ExplorerContainerRulesContext,
+  container: ContainerRulesNode | undefined,
+): boolean {
+  return (
+    resolveContainerRules(context, container)
+      ?.protectFromChildContainerCreation !== true
+  );
+}
+
+// Structured-document creation is separate from uploads and moves: it creates a
+// new local document directly in the target container, so system folders need
+// their own gate instead of relying on accepted inbound document kinds.
+export function canCreateStructuredDocumentInContainerByRules(
+  context: ExplorerContainerRulesContext,
+  container: ContainerRulesNode | undefined,
+): boolean {
+  return (
+    resolveContainerRules(context, container)
+      ?.protectFromStructuredDocumentCreation !== true
+  );
+}
+
 // Resolve a container by id from the explorer's node list and report whether it
 // accepts uploads. Used to gate every import path (context menu and
 // drag-and-drop) at a single chokepoint; an unknown id is treated as uploadable
