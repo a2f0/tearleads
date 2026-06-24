@@ -6,26 +6,7 @@ import type {
 
 import dependencyCruiserConfig from "../dependency-cruiser.config";
 
-export const dependencyCruiserEntryPoints = [
-  "packages/api-client/src",
-  "packages/api-cli/src",
-  "packages/api-shared/src",
-  "packages/api/src",
-  "packages/app-electrobun/src",
-  "packages/app-web/src",
-  "packages/app/src",
-  "packages/bob-and-alice/src",
-  "packages/client-sdk/src",
-  "packages/crypto/src",
-  "packages/encoding/src",
-  "packages/loro/src",
-  "packages/sqlite-instance/src",
-  "packages/sqlite-worker/src",
-  "packages/test-utils/src",
-  "packages/ui/src",
-  "packages/validators/src",
-  "packages/website/src",
-];
+export { dependencyCruiserEntryPoints } from "./dependencySourceRoots";
 
 export function createDependencyCruiserOptions(
   outputType: OutputType,

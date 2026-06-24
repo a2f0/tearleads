@@ -1,36 +1,32 @@
 import type { IConfiguration } from "dependency-cruiser";
 
+import {
+  allPackageSourceRoots,
+  dependencyCruiserIncludeOnly,
+  deploymentTargetSourceRoots,
+  packageSourceRoot as sourceRoot,
+} from "./scripts/dependencySourceRoots";
+
 type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 
 const testFilesPattern = "\\.test\\.[tj]sx?$";
-
-const sourceRoot = {
-  apiClient: "^packages/api-client/src/",
-  apiCli: "^packages/api-cli/src/",
-  apiShared: "^packages/api-shared/src/",
-  api: "^packages/api/src/",
-  appElectrobun: "^packages/app-electrobun/src/",
-  appWeb: "^packages/app-web/src/",
-  app: "^packages/app/src/",
-  bobAndAlice: "^packages/bob-and-alice/src/",
-  clientSdk: "^packages/client-sdk/src/",
-  crypto: "^packages/crypto/src/",
-  encoding: "^packages/encoding/src/",
-  loro: "^packages/loro/src/",
-  sqliteInstance: "^packages/sqlite-instance/src/",
-  sqliteWorker: "^packages/sqlite-worker/src/",
-  testUtils: "^packages/test-utils/src/",
-  ui: "^packages/ui/src/",
-  validators: "^packages/validators/src/",
-  website: "^packages/website/src/",
-} as const;
-
-const allPackageSourceRoots = Object.values(sourceRoot);
-const deploymentTargetSourceRoots = [
-  sourceRoot.appElectrobun,
-  sourceRoot.appWeb,
-  sourceRoot.website,
-];
+const noOrphanPathExemptionPattern = [
+  "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts|json)$",
+  "\\.d\\.(c|m)?ts$",
+  testFilesPattern,
+  "(^|/)tsconfig\\.json$",
+  "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
+  "^packages/api-cli/src/index\\.ts$",
+  "^packages/api-shared/src/index\\.ts$",
+  "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
+  "^packages/app-web/src/index\\.tsx$",
+  "^packages/app/src/test/",
+  "^packages/sqlite-instance/src/(assets|index)\\.ts$",
+  "^packages/sqlite-worker/src/assets\\.ts$",
+  "^packages/website/src/",
+]
+  .map((pattern) => `(?:${pattern})`)
+  .join("|");
 
 const appLayer = {
   data: `${sourceRoot.app}data/`,
@@ -157,21 +153,7 @@ const standardRules = [
       "A source module with no imports and no importers is usually dead or misplaced.",
     from: {
       orphan: true,
-      pathNot: [
-        "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts|json)$",
-        "\\.d\\.(c|m)?ts$",
-        testFilesPattern,
-        "(^|/)tsconfig\\.json$",
-        "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
-        "^packages/api-cli/src/index\\.ts$",
-        "^packages/api-shared/src/index\\.ts$",
-        "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
-        "^packages/app-web/src/index\\.tsx$",
-        "^packages/app/src/test/",
-        "^packages/sqlite-instance/src/(assets|index)\\.ts$",
-        "^packages/sqlite-worker/src/assets\\.ts$",
-        "^packages/website/src/",
-      ],
+      pathNot: noOrphanPathExemptionPattern,
     },
     to: {},
   },
@@ -596,6 +578,7 @@ const corePackageRules = [
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
         sourceRoot.clientSdk,
+        sourceRoot.codeAssist,
         sourceRoot.ui,
         sourceRoot.website,
       ],
@@ -620,6 +603,7 @@ const corePackageRules = [
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
         sourceRoot.clientSdk,
+        sourceRoot.codeAssist,
         sourceRoot.ui,
         sourceRoot.website,
       ],
@@ -643,6 +627,7 @@ const corePackageRules = [
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
         sourceRoot.clientSdk,
+        sourceRoot.codeAssist,
         sourceRoot.ui,
         sourceRoot.website,
       ],
@@ -698,9 +683,25 @@ const corePackageRules = [
         sourceRoot.appElectrobun,
         sourceRoot.appWeb,
         sourceRoot.clientSdk,
+        sourceRoot.codeAssist,
         sourceRoot.ui,
         sourceRoot.website,
       ],
+    },
+  },
+  {
+    name: "code-assist-does-not-depend-on-product-source-packages",
+    severity: "error",
+    comment:
+      "Code Assist is standalone repository automation and should not become a product, server, or shared package layer.",
+    from: {
+      path: sourceRoot.codeAssist,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: allPackageSourceRoots.filter(
+        (root) => root !== sourceRoot.codeAssist,
+      ),
     },
   },
   {
@@ -770,7 +771,7 @@ const uiRules = [
       pathNot: testFilesPattern,
     },
     to: {
-      path: [sourceRoot.app, sourceRoot.website],
+      path: [sourceRoot.app, ...deploymentTargetSourceRoots],
     },
   },
 ] satisfies ForbiddenRules;
@@ -805,8 +806,7 @@ const dependencyCruiserConfig = {
   options: {
     // Bun workspace subpath exports are checked separately in lintArchitecture.
     // Keep dependency-cruiser focused on source files whose paths it can resolve.
-    includeOnly:
-      "^packages/(api|api-client|api-cli|api-shared|app|app-electrobun|app-web|bob-and-alice|client-sdk|crypto|encoding|loro|sqlite-instance|sqlite-worker|test-utils|ui|validators|website)/src/",
+    includeOnly: dependencyCruiserIncludeOnly,
     tsPreCompilationDeps: "specify",
   },
 } satisfies IConfiguration;

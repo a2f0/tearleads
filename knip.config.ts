@@ -1,14 +1,31 @@
 import type { KnipConfig } from "knip";
 
-const baseConfig = {
+const strictConfigDefaults = {
   treatConfigHintsAsErrors: true,
+} as const;
+
+const rootToolingWorkspace = {
+  entry: [],
+  project: [],
+  ignoreDependencies: ["@commitlint/cli", "lint-staged"],
+  ignoreBinaries: ["ansible-lint", "shellcheck"],
+};
+
+const capacitorNativePluginDependencies = [
+  "@capacitor-community/sqlite",
+  "@capacitor/app",
+  "@capacitor/filesystem",
+  "@capacitor/ios",
+  "@capacitor/keyboard",
+  "@capacitor/share",
+  "@capawesome/capacitor-file-picker",
+  "@capgo/capacitor-native-biometric",
+];
+
+const baseConfig = {
+  ...strictConfigDefaults,
   workspaces: {
-    ".": {
-      entry: [],
-      project: [],
-      ignoreDependencies: ["@commitlint/cli", "lint-staged"],
-      ignoreBinaries: ["ansible-lint", "shellcheck"],
-    },
+    ".": rootToolingWorkspace,
     "packages/api": {
       // The package test script launches Bun from `scripts/testAllDatabases.ts`;
       // `test/preload.ts` is loaded by Bun from `bunfig.toml`. `scripts/blobGc.ts`
@@ -47,18 +64,9 @@ const baseConfig = {
       },
     },
     "packages/app-capacitor": {
-      entry: ["src/databaseWorker.ts"],
-      project: ["src/**/*.{ts,tsx}"],
-      ignoreDependencies: [
-        "@capacitor-community/sqlite",
-        "@capacitor/app",
-        "@capacitor/filesystem",
-        "@capacitor/ios",
-        "@capacitor/keyboard",
-        "@capacitor/share",
-        "@capawesome/capacitor-file-picker",
-        "@capgo/capacitor-native-biometric",
-      ],
+      entry: ["scripts/buildWorker.ts", "src/databaseWorker.ts"],
+      project: ["scripts/**/*.ts", "src/**/*.{ts,tsx}"],
+      ignoreDependencies: capacitorNativePluginDependencies,
     },
     "packages/app-electrobun": {
       entry: [
@@ -136,17 +144,12 @@ const baseConfig = {
 } satisfies KnipConfig;
 
 const productionConfig = {
-  treatConfigHintsAsErrors: true,
+  ...strictConfigDefaults,
   // Keep production entries broad enough to validate runtime dependency
   // declarations without letting test reachability hide production drift.
   // The default config above stays narrower for dead-file and export checks.
   workspaces: {
-    ".": {
-      entry: [],
-      project: [],
-      ignoreDependencies: ["@commitlint/cli", "lint-staged"],
-      ignoreBinaries: ["ansible-lint", "shellcheck"],
-    },
+    ".": rootToolingWorkspace,
     "packages/api": {
       entry: ["src/**/*.ts!", "!src/**/*.test.ts", "!src/appTestRuntime.ts"],
       project: [],
@@ -179,15 +182,8 @@ const productionConfig = {
       entry: ["capacitor.config.ts!", "src/**/*.{ts,tsx}!"],
       project: [],
       ignoreDependencies: [
-        "@capacitor-community/sqlite",
-        "@capacitor/app",
+        ...capacitorNativePluginDependencies,
         "@capacitor/core",
-        "@capacitor/filesystem",
-        "@capacitor/ios",
-        "@capacitor/keyboard",
-        "@capacitor/share",
-        "@capawesome/capacitor-file-picker",
-        "@capgo/capacitor-native-biometric",
       ],
     },
     "packages/app-electrobun": {
