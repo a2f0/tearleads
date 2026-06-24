@@ -74,6 +74,21 @@ export function exportAllUpdates(doc: LoroDoc): Uint8Array {
   return doc.export({ mode: "update" });
 }
 
+/**
+ * Export a state-only shallow snapshot at the current frontier: history before
+ * "now" is trimmed, so the blob is bounded by document STATE rather than by the
+ * full op history. Use this for the LOCAL persisted snapshot (it stays an order
+ * of magnitude smaller and stops growing per keystroke). Never put a shallow
+ * snapshot on the wire — peers reconstruct from updates, and it carries no
+ * replayable history below the cut.
+ */
+export function exportShallowSnapshot(doc: LoroDoc): Uint8Array {
+  return doc.export({
+    mode: "shallow-snapshot",
+    frontiers: doc.oplogFrontiers(),
+  });
+}
+
 export function exportUpdatesSince(
   doc: LoroDoc,
   encodedVersionVector?: string | null,
@@ -216,6 +231,25 @@ export function versionVectorsEqual(
 
 export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
   doc.importBatch(updates);
+}
+
+/**
+ * Load a (possibly shallow) snapshot blob into a document. Snapshots MUST go
+ * through a single `import()`, never `importBatch()`: importBatch silently drops
+ * a shallow snapshot when the target already holds state, whereas import()
+ * merges it correctly. A non-empty `pending` means the blob referenced ops we
+ * never received, so we fail loudly instead of silently loading a short document.
+ */
+export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
+  const status = doc.import(snapshot);
+  // Reject only a genuinely incomplete import: `pending` can be an empty
+  // VersionVector (size 0) rather than null when everything resolved, so test
+  // for at least one unresolved dependency instead of mere presence.
+  if (status.pending != null && status.pending.size > 0) {
+    throw new Error(
+      "importSnapshot received a snapshot with unresolved pending dependencies",
+    );
+  }
 }
 
 export function getTextValue(doc: LoroDoc, key = "text"): string {
