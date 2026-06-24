@@ -30,3 +30,7 @@ export {
   type ValidatedDocumentFields,
   writeStoredDocumentFields,
 } from "./data/documents/documentKinds";
+export {
+  summarizeDocumentContributors,
+  writerByPeerId,
+} from "./data/documents/editAttribution";

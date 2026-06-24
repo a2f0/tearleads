@@ -43,6 +43,7 @@ import {
   isDeleteOrganizationGroupResponse,
   isDestroySessionResponse,
   isDocumentCreateResponse,
+  isDocumentEditAttributionResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeResponse,
   isDocumentSyncResponse,
@@ -1027,6 +1028,14 @@ export class ApiClient {
           isDocumentWriterProjectionResponse,
           "GET",
         ),
+    );
+  }
+
+  getDocumentEditAttribution(documentId: string) {
+    return this.request(
+      `/documents/${pathSegment(documentId)}/attribution`,
+      isDocumentEditAttributionResponse,
+      "GET",
     );
   }
 

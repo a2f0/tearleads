@@ -11,6 +11,7 @@ import {
   isContainerWriterProjectionResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDocumentCreateResponse,
+  isDocumentEditAttributionResponse,
   isDocumentLinkSetMutationResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
@@ -293,6 +294,39 @@ test("isListDocumentAttachmentsResponse", () => {
     ]),
   ).toBe(false);
   expect(isListDocumentAttachmentsResponse(null)).toBe(false);
+});
+
+test("isDocumentEditAttributionResponse", () => {
+  const validSegment = {
+    peerId: "1",
+    startCounter: 0,
+    endCounter: 5,
+    writerUserId: "550e8400-e29b-41d4-a716-446655440010",
+    writerKeyFingerprint: "fingerprint-abc",
+    authorityKind: "direct",
+  };
+  const validResponse = {
+    documentId: "550e8400-e29b-41d4-a716-446655440000",
+    segments: [validSegment],
+  };
+
+  expect(isDocumentEditAttributionResponse(validResponse)).toBe(true);
+  expect(
+    isDocumentEditAttributionResponse({ ...validResponse, segments: [] }),
+  ).toBe(true);
+  expect(
+    isDocumentEditAttributionResponse({
+      ...validResponse,
+      segments: [{ ...validSegment, authorityKind: "guessed" }],
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentEditAttributionResponse({
+      ...validResponse,
+      segments: [{ ...validSegment, startCounter: "0" }],
+    }),
+  ).toBe(false);
+  expect(isDocumentEditAttributionResponse(null)).toBe(false);
 });
 
 test("isBlobAttachmentDetachResponse", () => {

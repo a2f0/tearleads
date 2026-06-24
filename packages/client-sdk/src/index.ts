@@ -197,6 +197,8 @@ export {
   readStoredDocumentState,
   readStringDocumentField,
   sameDocumentAttachments,
+  summarizeDocumentContributors,
+  writerByPeerId,
   writeStoredDocumentFields,
 } from "./documents";
 export type {

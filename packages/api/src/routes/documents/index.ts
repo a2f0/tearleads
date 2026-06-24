@@ -1,7 +1,14 @@
-import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
+import type {
+  DocumentEditAttributionResponse,
+  ListDocumentAttachmentsResponse,
+} from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import {
+  DocumentEditAttributionError,
+  documentEditAttribution,
+} from "../../services/documents/documentEditAttribution";
 import {
   ListDocumentAttachmentsError,
   listDocumentAttachments,
@@ -39,6 +46,30 @@ function addDocumentReadRoutes(
         );
       } catch (error) {
         if (error instanceof ListDocumentAttachmentsError) {
+          return c.json({ error: error.message }, error.status);
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  documentsRouter.get(
+    "/documents/:documentId/attribution",
+    requireAuth,
+    async (c) => {
+      const documentId = c.req.param("documentId");
+      const session = c.get("session");
+
+      try {
+        return c.json<DocumentEditAttributionResponse>(
+          await documentEditAttribution(runtime, {
+            documentId,
+            userId: session.userId,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof DocumentEditAttributionError) {
           return c.json({ error: error.message }, error.status);
         }
 
