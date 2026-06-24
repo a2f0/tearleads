@@ -134,7 +134,7 @@ export function useOrgManagerModel() {
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
   const selectedGrant = useMemo(
     () =>
-      grants?.grants.find(
+      grants?.grants?.find(
         (grant) =>
           selectedGrantRef &&
           grant.containerId === selectedGrantRef.containerId &&

@@ -123,6 +123,7 @@ export function GrantTable({
               key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
               onClick={openGrantDetailRoute}
               onKeyDown={handleGrantRowKeyDown}
+              role="button"
               tabIndex={0}
             >
               <MiniAppTableCell>
