@@ -235,6 +235,53 @@ export function ExplorerDocumentInfoLocalSecuritySection(params: {
   );
 }
 
+function formatContributorEdits(contributor: {
+  opCount: number;
+  hasDirectAuthority: boolean;
+}): string {
+  const edits = `${contributor.opCount} ${
+    contributor.opCount === 1
+      ? EXPLORER_LABELS.documentInfoContributorEditSingular
+      : EXPLORER_LABELS.documentInfoContributorEditPlural
+  }`;
+  // A contributor credited only via a rotate_baseline re-assertion is the first
+  // signed uploader of those ops, not a proven author — flag that distinction.
+  return contributor.hasDirectAuthority
+    ? edits
+    : `${edits} ${EXPLORER_LABELS.documentInfoContributorReasserted}`;
+}
+
+export function ExplorerDocumentInfoContributorsSection(params: {
+  documentInfo: DocumentInfo | null;
+}) {
+  const contributors = params.documentInfo?.remoteInfo?.contributors ?? [];
+  return (
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.documentInfoContributorsHeading}
+    >
+      {contributors.length === 0 ? (
+        <MiniAppStatus>
+          {EXPLORER_LABELS.documentInfoNoContributors}
+        </MiniAppStatus>
+      ) : (
+        <MiniAppInfoTable>
+          <tbody>
+            {contributors.map((contributor) => (
+              <DocumentInfoRow
+                key={contributor.writerKeyFingerprint}
+                label={compactId(contributor.writerKeyFingerprint)}
+                title={`${contributor.writerUserId} · ${contributor.writerKeyFingerprint}`}
+              >
+                {formatContributorEdits(contributor)}
+              </DocumentInfoRow>
+            ))}
+          </tbody>
+        </MiniAppInfoTable>
+      )}
+    </MiniAppInfoSection>
+  );
+}
+
 export function ExplorerDocumentInfoRemoteSecuritySection(params: {
   documentInfo: DocumentInfo;
 }) {

@@ -56,6 +56,15 @@ const documentInfo = {
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,
     contentKeyTargetHash: "content-key-target-hash",
+    contributors: [
+      {
+        writerUserId: "writer-1",
+        writerKeyFingerprint: "writer-fingerprint-1",
+        opCount: 7,
+        hasDirectAuthority: true,
+        hasBaselineAuthority: false,
+      },
+    ],
     currentManifestHash: "document-manifest-hash",
     documentContainerManifestHistoryCount: 0,
     documentKekTargetCount: 1,

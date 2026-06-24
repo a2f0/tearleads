@@ -17,6 +17,7 @@ function createRemoteInfo(
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,
     contentKeyTargetHash: "content-key-target-hash",
+    contributors: [],
     currentManifestHash: "document-manifest-hash",
     documentContainerManifestHistoryCount: 0,
     documentKekTargetCount: 1,
