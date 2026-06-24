@@ -22,6 +22,15 @@
   vertical-align: middle;
 }
 
+.mini-app-table-frame--compact .mini-app-table-row {
+  height: 2.25rem;
+}
+
+.mini-app-table-frame--compact .mini-app-table th,
+.mini-app-table-frame--compact .mini-app-table-cell {
+  padding: var(--info-table-cell-padding) var(--space-sm);
+}
+
 .mini-app-table th {
   font-weight: 700;
   opacity: var(--opacity-heading);

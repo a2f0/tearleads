@@ -14,7 +14,7 @@ import {
 } from "../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
@@ -75,7 +75,7 @@ export function GrantTable({
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   const virtualGrants = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: grants,
   });
 
@@ -87,9 +87,11 @@ export function GrantTable({
 
   return (
     <MiniAppTableFrame
-      className="mini-app-table-frame--virtual org-manager-virtual-table"
+      className="mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table"
       ref={virtualGrants.frameRef}
-      style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
+      style={getMiniAppVirtualFrameStyle(
+        MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+      )}
     >
       <MiniAppTable aria-label={label} columns={GRANT_TABLE_COLUMNS}>
         <MiniAppVirtualTableSpacerRow

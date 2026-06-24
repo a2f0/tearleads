@@ -279,11 +279,6 @@
   min-width: 0;
 }
 
-.explorer-item-table-wrap .mini-app-table-row,
-.explorer-blob-browser-table-wrap .mini-app-table-row {
-  height: 2.25rem;
-}
-
 /* The name-cell button keeps real button semantics, while its ::after overlay
    stretches its hit area across the whole row so any click on the row navigates.
    The row is the positioning context for that overlay. */
