@@ -218,9 +218,6 @@ async function persistSlotAttachmentFile(
   };
   addDocumentAttachments(currentDoc, [replacementAttachment]);
   const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
-  if (attachmentUpdate.byteLength > 0) {
-    await enqueuePendingUpdate(state, attachmentUpdate);
-  }
 
   const storageKey = `${state.localId}-${slotId}-${crypto.randomUUID()}`;
   await state.runtime.infra.blobStore.writeBytes(storageKey, file.bytes);
@@ -233,6 +230,12 @@ async function persistSlotAttachmentFile(
     storageKey,
   });
   await queuePendingAttachmentUpload(state, replacementAttachment, storageKey);
+  // Enqueue only after the blob is written and queued for upload, so we never
+  // advertise an attachment in the CRDT whose bytes are missing (matches
+  // persistAttachedFiles).
+  if (attachmentUpdate.byteLength > 0) {
+    await enqueuePendingUpdate(state, attachmentUpdate);
+  }
   await persistDocument(state, currentDoc);
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(`Queued attachment ${file.name} for slot ${slotId}.`);

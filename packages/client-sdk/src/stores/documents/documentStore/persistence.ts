@@ -138,15 +138,23 @@ export async function listPendingUpdates(
  * live doc version, so any delta orphaned by a prior failed enqueue is folded back
  * in here. In the success path the marker equals the pre-edit version, so this is
  * identical to exporting "since the last edit".
+ *
+ * Initialization sets `pendingBaseVersion` whenever it sets `doc`, and every
+ * caller checks `doc` first, so the marker is non-null here. Assert that rather
+ * than falling back to the live version: callers invoke this AFTER mutating the
+ * doc, so a live-version fallback would export an empty (post-mutation) delta and
+ * silently drop the edit.
  */
 export function pendingDeltaSinceBase(
   state: DocumentStoreState,
   doc: DocumentState,
 ): Uint8Array {
-  return exportUpdatesSince(
-    doc,
-    state.pendingBaseVersion ?? encodeVersionVector(doc),
-  );
+  if (state.pendingBaseVersion === null) {
+    throw new Error(
+      "pendingDeltaSinceBase requires an initialized pendingBaseVersion",
+    );
+  }
+  return exportUpdatesSince(doc, state.pendingBaseVersion);
 }
 
 /**
