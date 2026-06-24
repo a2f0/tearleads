@@ -20,6 +20,7 @@ import {
   ExplorerDocumentInfoAttachmentsSection,
   ExplorerDocumentInfoAuthorizingContainersSection,
   ExplorerDocumentInfoContributorsSection,
+  ExplorerDocumentInfoEditRangesSection,
   ExplorerDocumentInfoGeneralSection,
   ExplorerDocumentInfoLocalSecuritySection,
   ExplorerDocumentInfoRemoteSecuritySection,
@@ -264,6 +265,9 @@ function ExplorerDocumentInfoTabPanel(params: {
             localId={params.localId}
           />
           <ExplorerDocumentInfoContributorsSection
+            documentInfo={params.documentInfo}
+          />
+          <ExplorerDocumentInfoEditRangesSection
             documentInfo={params.documentInfo}
           />
         </>

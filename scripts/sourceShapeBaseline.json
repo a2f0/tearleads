@@ -178,8 +178,8 @@
       "bytes": 21465
     },
     "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentInfoSections.tsx": {
-      "lines": 532,
-      "bytes": 18460
+      "lines": 589,
+      "bytes": 20667
     },
     "packages/app/src/mini-apps/org-manager/DirectoryView.tsx": {
       "lines": 739,

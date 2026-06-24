@@ -51,6 +51,53 @@ export function summarizeDocumentContributors(
   );
 }
 
+export interface DocumentAttributionSegment {
+  peerId: string;
+  startCounter: number;
+  endCounter: number;
+  /** Loro op counters in this contiguous range (`endCounter - startCounter`). */
+  opCount: number;
+  writerUserId: string;
+  writerKeyFingerprint: string;
+  authorityKind: "direct" | "baseline";
+}
+
+/**
+ * Normalize attribution segments into the granular per-range list behind the
+ * contributor rollup: empty ranges dropped, each tagged with its op count, and
+ * ordered to mirror {@link summarizeDocumentContributors} (writers by total op
+ * count desc, then each writer's ranges in counter order). This is the
+ * drill-down detail — "who wrote which ranges, direct vs re-asserted" — that the
+ * `N edits` summary collapses away.
+ */
+export function listDocumentAttributionSegments(
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentAttributionSegment[] {
+  const ranges = segments
+    .filter((segment) => segment.endCounter > segment.startCounter)
+    .map((segment) => ({
+      peerId: segment.peerId,
+      startCounter: segment.startCounter,
+      endCounter: segment.endCounter,
+      opCount: segment.endCounter - segment.startCounter,
+      writerUserId: segment.writerUserId,
+      writerKeyFingerprint: segment.writerKeyFingerprint,
+      authorityKind: segment.authorityKind,
+    }));
+  // Every surviving range's writer appears in the contributor summary (it credits
+  // any writer with an op-bearing range), so flat-mapping by contributor order
+  // keeps the drill-down aligned with the Contributors section and drops nothing.
+  return summarizeDocumentContributors(segments).flatMap((contributor) =>
+    ranges
+      .filter((range) => range.writerUserId === contributor.writerUserId)
+      .sort(
+        (left, right) =>
+          left.startCounter - right.startCounter ||
+          left.peerId.localeCompare(right.peerId),
+      ),
+  );
+}
+
 interface PeerWriterAttribution {
   writerUserId: string;
   writerKeyFingerprint: string;

@@ -9,7 +9,9 @@ import { eq } from "drizzle-orm";
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import {
+  type DocumentAttributionSegment,
   type DocumentContributor,
+  listDocumentAttributionSegments,
   summarizeDocumentContributors,
 } from "../../data/documents/editAttribution";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
@@ -72,6 +74,7 @@ export interface DocumentInfoAuthorizingContainerPath {
 
 export interface DocumentInfoRemoteDetails {
   activeAttachmentBindings: DocumentInfoRemoteAttachmentBinding[];
+  attributionSegments: DocumentAttributionSegment[];
   authorizingContainerPaths: DocumentInfoAuthorizingContainerPath[];
   contentKeyEpoch: number;
   contentKeyTargetCount: number;
@@ -376,15 +379,18 @@ function mapAuthorizingContainerPath(
 
 function getDocumentInfoRemoteDetails(input: {
   attachmentBindings: ReadonlyArray<BlobAttachmentSummary>;
+  attributionSegments: DocumentAttributionSegment[];
   contributors: DocumentContributor[];
   projection: DocumentWriterProjectionResponse;
 }): DocumentInfoRemoteDetails {
-  const { attachmentBindings, contributors, projection } = input;
+  const { attachmentBindings, attributionSegments, contributors, projection } =
+    input;
   const manifestState = projection.documentManifest.state;
   const manifest = projection.documentManifest.manifest;
 
   return {
     activeAttachmentBindings: attachmentBindings.map(mapAttachmentBinding),
+    attributionSegments,
     authorizingContainerPaths: projection.authorizingContainerPaths.map(
       mapAuthorizingContainerPath,
     ),
@@ -455,14 +461,14 @@ export async function loadDocumentInfo(input: {
     );
   }
 
+  const attributionSegments = attribution?.segments ?? [];
   return {
     attachments,
     local,
     remoteInfo: getDocumentInfoRemoteDetails({
       attachmentBindings: attachmentBindings ?? [],
-      contributors: attribution
-        ? summarizeDocumentContributors(attribution.segments)
-        : [],
+      attributionSegments: listDocumentAttributionSegments(attributionSegments),
+      contributors: summarizeDocumentContributors(attributionSegments),
       projection,
     }),
   };

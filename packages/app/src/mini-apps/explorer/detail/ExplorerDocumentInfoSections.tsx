@@ -288,6 +288,63 @@ export function ExplorerDocumentInfoContributorsSection(params: {
   );
 }
 
+type DocumentInfoAttributionSegment = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["attributionSegments"][number];
+
+function getEditRangeAuthorityLabel(
+  authorityKind: DocumentInfoAttributionSegment["authorityKind"],
+): string {
+  return authorityKind === "direct"
+    ? EXPLORER_LABELS.documentInfoEditRangeAuthorityDirect
+    : EXPLORER_LABELS.documentInfoEditRangeAuthorityReasserted;
+}
+
+export function ExplorerDocumentInfoEditRangesSection(params: {
+  documentInfo: DocumentInfo | null;
+}) {
+  const remoteInfo = params.documentInfo?.remoteInfo;
+  const segments = remoteInfo?.attributionSegments ?? [];
+  // Granular drill-down behind the Contributors rollup. Hidden whenever there is
+  // nothing to drill into (local-only/unsynced doc, or no attributed ranges) —
+  // the Contributors section already carries the canonical empty state.
+  if (!remoteInfo || segments.length === 0) {
+    return null;
+  }
+  return (
+    <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoEditRangesHeading}>
+      <MiniAppInfoTable>
+        <thead>
+          <tr>
+            <th>{EXPLORER_LABELS.documentInfoEditRangeWriterColumn}</th>
+            <th>{EXPLORER_LABELS.documentInfoEditRangePeerColumn}</th>
+            <th>{EXPLORER_LABELS.documentInfoEditRangeRangeColumn}</th>
+            <th>{EXPLORER_LABELS.documentInfoEditRangeOpsColumn}</th>
+            <th>{EXPLORER_LABELS.documentInfoEditRangeAuthorityColumn}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {segments.map((segment) => (
+            <tr
+              key={`${segment.peerId}:${segment.startCounter}:${segment.endCounter}`}
+            >
+              <td
+                title={`${segment.writerUserId} · ${segment.writerKeyFingerprint}`}
+              >
+                {compactId(segment.writerKeyFingerprint)}
+              </td>
+              <td title={segment.peerId}>{compactId(segment.peerId)}</td>
+              <td>{`${segment.startCounter}–${segment.endCounter}`}</td>
+              <td>{String(segment.opCount)}</td>
+              <td>{getEditRangeAuthorityLabel(segment.authorityKind)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </MiniAppInfoTable>
+    </MiniAppInfoSection>
+  );
+}
+
 export function ExplorerDocumentInfoRemoteSecuritySection(params: {
   documentInfo: DocumentInfo;
 }) {
