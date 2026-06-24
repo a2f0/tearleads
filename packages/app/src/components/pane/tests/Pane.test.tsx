@@ -23,7 +23,7 @@ import {
 
 afterEach(cleanupPaneTestEnvironment);
 
-async function expectExplorerSystemContainerCreationMenuItemsDisabled(
+async function expectExplorerSystemContainerContextMenuItems(
   view: ReturnType<typeof renderPane>,
   explorerWindow: HTMLElement,
   containerName: "Contacts" | "Trash",
@@ -36,27 +36,30 @@ async function expectExplorerSystemContainerCreationMenuItemsDisabled(
     },
   );
 
-  const createChildItem = await view.findByRole("button", {
-    name: "Create Child",
-  });
-  const newStructuredDocumentItem = view.getByRole("button", {
-    name: "New Structured Document",
-  });
-  invariant(
-    createChildItem instanceof HTMLButtonElement,
-    "Expected Create Child menu item.",
-  );
-  invariant(
-    newStructuredDocumentItem instanceof HTMLButtonElement,
-    "Expected New Structured Document menu item.",
-  );
+  expect(
+    await view.findByRole("button", {
+      name: "Get Info",
+    }),
+  ).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Create Child" })).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: "New Structured Document",
+    }),
+  ).toBeNull();
+  expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Rename" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Move" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
 
-  expect(createChildItem.disabled).toBe(true);
-  expect(newStructuredDocumentItem.disabled).toBe(true);
+  const newContactItem = view.queryByRole("button", {
+    name: "New Contact",
+  });
+  expect(newContactItem !== null).toBe(containerName === "Contacts");
 
   fireEvent.mouseDown(document.body);
   await waitFor(() => {
-    expect(view.queryByRole("button", { name: "Create Child" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Get Info" })).toBeNull();
   });
 }
 
@@ -410,13 +413,13 @@ test(
 
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
 
-    await expectExplorerSystemContainerCreationMenuItemsDisabled(
+    await expectExplorerSystemContainerContextMenuItems(
       view,
       explorer,
       "Contacts",
     );
     await expectExplorerNewStructuredDocumentFileMenuDisabled(explorer);
-    await expectExplorerSystemContainerCreationMenuItemsDisabled(
+    await expectExplorerSystemContainerContextMenuItems(
       view,
       explorer,
       "Trash",

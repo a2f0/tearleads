@@ -100,6 +100,13 @@ function resolveContainerRules(
   return null;
 }
 
+export function hasContainerRules(
+  context: ExplorerContainerRulesContext,
+  container: ContainerRulesNode | undefined,
+): boolean {
+  return resolveContainerRules(context, container) !== null;
+}
+
 export function canMoveContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,

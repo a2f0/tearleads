@@ -24,6 +24,7 @@ import {
   type ExplorerContainerRulesContext,
 } from "../containerRules";
 import {
+  type ExplorerContainerContextMenuVariant,
   type ExplorerContextMenuState,
   useExplorerContextMenu,
 } from "../context-menu/ExplorerContextMenu";
@@ -62,6 +63,7 @@ interface ExplorerContextMenuModel {
   canRenameContextMenuNode: boolean;
   canUploadToContextMenuNode: boolean;
   closeContextMenu: () => void;
+  containerContextMenuVariant: ExplorerContainerContextMenuVariant;
   contextMenu: ExplorerContextMenuState | null;
   handleContainerContextMenu: (
     event: MouseEvent<HTMLElement>,

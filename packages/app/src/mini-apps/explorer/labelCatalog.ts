@@ -216,6 +216,7 @@ export const EXPLORER_LABELS = {
   linkedContainerMakeActiveAction: "Make Active",
   linkedContainersEmpty: "No linked containers.",
   linkedContainersHeading: "Linked Containers",
+  newContactAction: "New Contact",
   newStructuredDocumentAction: "New Structured Document",
   newStructuredDocumentDocumentTypeHeading: "Document Type",
   newStructuredDocumentRouteLabel: "New structured document",

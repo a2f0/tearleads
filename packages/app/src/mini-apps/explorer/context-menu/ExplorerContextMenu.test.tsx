@@ -4,12 +4,10 @@ import {
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { type MouseEvent, useRef, useState } from "react";
-import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import { cleanup, fireEvent, render } from "@testing-library/react";
+import { type MouseEvent, useRef } from "react";
 import { createExplorerContainerRulesContext } from "../containerRules";
 import {
-  ExplorerContextMenuLayer,
   type ExplorerContextMenuState,
   useExplorerContextMenu,
 } from "./ExplorerContextMenu";
@@ -32,254 +30,27 @@ const rootNode: ContainerNode = {
   syncState: syncedContainerDocumentObjectSyncState,
 };
 
-function ExplorerContextMenuLayerHarness(params: {
-  canCreateChildContextMenuNode?: boolean;
-  canCreateStructuredDocumentContextMenuNode?: boolean;
-  canDeleteSelectedDocument?: boolean;
-  canPurgeSelectedDocument?: boolean;
-  canUploadToContextMenuNode?: boolean;
-  contextMenu?: ExplorerContextMenuState | null;
-  deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
-  importDroppedFiles: ImportExplorerDroppedFiles;
-  openNewStructuredDocumentRoute?: (containerId: string) => void;
-  purgeDocument?: (localId: string, containerId: string) => Promise<unknown>;
-}) {
-  const [contextMenu, setContextMenu] =
-    useState<ExplorerContextMenuState | null>(
-      params.contextMenu ?? {
-        id: { kind: "container", containerId: rootNode.id },
-        position: { x: 12, y: 34 },
-      },
-    );
-
-  return (
-    <ExplorerContextMenuLayer
-      canCreateChildContextMenuNode={
-        params.canCreateChildContextMenuNode ?? true
-      }
-      canCreateStructuredDocumentContextMenuNode={
-        params.canCreateStructuredDocumentContextMenuNode ?? true
-      }
-      canDeleteContextMenuNode={false}
-      canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
-      canLinkSelectedDocument={false}
-      canMoveContextMenuNode={false}
-      canRenameContextMenuNode={false}
-      canUploadToContextMenuNode={params.canUploadToContextMenuNode ?? true}
-      canMoveSelectedDocument={false}
-      canPurgeSelectedDocument={params.canPurgeSelectedDocument ?? false}
-      closeContextMenu={() => setContextMenu(null)}
-      contextMenu={contextMenu}
-      deleteDocument={params.deleteDocument ?? (async () => null)}
-      importDroppedFiles={params.importDroppedFiles}
-      openContainerInfoRoute={() => {}}
-      openCreateChildModal={() => {}}
-      openDeleteModal={() => {}}
-      openDocumentInfoRoute={() => {}}
-      openLinkDocumentModal={() => {}}
-      openMoveDocumentModal={() => {}}
-      openMoveModal={() => {}}
-      openNewStructuredDocumentRoute={
-        params.openNewStructuredDocumentRoute ?? (() => {})
-      }
-      openRenameModal={() => {}}
-      purgeDocument={params.purgeDocument ?? (async () => null)}
-      selectContainer={() => {}}
-    />
-  );
-}
-
-test("container upload uses the target captured before opening the file picker", async () => {
-  const uploadedFiles = [
-    new File(["hello"], "hello.txt", { type: "text/plain" }),
-  ];
-  const imports: Array<{
-    containerId: string;
-    files: ReadonlyArray<File>;
-  }> = [];
-  const importDroppedFiles: ImportExplorerDroppedFiles = async (
-    containerId,
-    files,
-  ) => {
-    imports.push({ containerId, files });
-    return {
-      completedCount: files.length,
-      failedCount: 0,
-      importedCount: files.length,
-      importedDocuments: [],
-      totalCount: files.length,
-    };
-  };
-
-  const view = render(
-    <ExplorerContextMenuLayerHarness importDroppedFiles={importDroppedFiles} />,
-  );
-  const fileInput = view.container.querySelector<HTMLInputElement>(
-    "input.explorer-file-input",
-  );
-  expect(fileInput).toBeTruthy();
-  if (!fileInput) {
-    return;
-  }
-
-  fireEvent.click(view.getByRole("button", { name: "Upload" }));
-  fireEvent.change(fileInput, { target: { files: uploadedFiles } });
-
-  await waitFor(() => {
-    expect(imports).toHaveLength(1);
-  });
-  expect(imports[0]?.containerId).toBe(rootNode.id);
-  expect(imports[0]?.files).toEqual(uploadedFiles);
-  expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
-});
-
-test("container upload is disabled for upload-protected containers", () => {
-  const view = render(
-    <ExplorerContextMenuLayerHarness
-      canUploadToContextMenuNode={false}
-      importDroppedFiles={noopImportDroppedFiles}
-    />,
-  );
-
-  const uploadButton = view.getByRole("button", {
-    name: "Upload",
-  }) as HTMLButtonElement;
-  expect(uploadButton.disabled).toBe(true);
-});
-
-test("container context menu opens a new structured document in the target", () => {
-  const openedContainerIds: string[] = [];
-  const view = render(
-    <ExplorerContextMenuLayerHarness
-      importDroppedFiles={noopImportDroppedFiles}
-      openNewStructuredDocumentRoute={(containerId) =>
-        openedContainerIds.push(containerId)
-      }
-    />,
-  );
-
-  fireEvent.click(
-    view.getByRole("button", { name: "New Structured Document" }),
-  );
-
-  expect(openedContainerIds).toEqual([rootNode.id]);
-  expect(
-    view.queryByRole("button", { name: "New Structured Document" }),
-  ).toBeNull();
-});
-
-test("container context menu disables creation actions for protected containers", () => {
-  const view = render(
-    <ExplorerContextMenuLayerHarness
-      canCreateChildContextMenuNode={false}
-      canCreateStructuredDocumentContextMenuNode={false}
-      importDroppedFiles={noopImportDroppedFiles}
-    />,
-  );
-
-  const createChildButton = view.getByRole("button", {
-    name: "Create Child",
-  }) as HTMLButtonElement;
-  const structuredDocumentButton = view.getByRole("button", {
-    name: "New Structured Document",
-  }) as HTMLButtonElement;
-
-  expect(createChildButton.disabled).toBe(true);
-  expect(structuredDocumentButton.disabled).toBe(true);
-});
-
-test("document context menu deletes the selected document", async () => {
-  const deletes: Array<{ containerId: string; localId: string }> = [];
-  const importDroppedFiles: ImportExplorerDroppedFiles = async () => ({
-    completedCount: 0,
-    failedCount: 0,
-    importedCount: 0,
-    importedDocuments: [],
-    totalCount: 0,
-  });
-  const view = render(
-    <ExplorerContextMenuLayerHarness
-      canDeleteSelectedDocument
-      contextMenu={{
-        id: {
-          kind: "document",
-          containerId: rootNode.id,
-          localId: "document-1",
-        },
-        position: { x: 12, y: 34 },
-      }}
-      deleteDocument={async (localId, containerId) => {
-        deletes.push({ containerId, localId });
-        return null;
-      }}
-      importDroppedFiles={importDroppedFiles}
-    />,
-  );
-
-  fireEvent.click(view.getByRole("button", { name: "Delete" }));
-
-  await waitFor(() => {
-    expect(deletes).toEqual([
-      { containerId: rootNode.id, localId: "document-1" },
-    ]);
-  });
-  expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
-});
-
-const documentContextMenu: ExplorerContextMenuState = {
-  id: {
-    kind: "document",
-    containerId: rootNode.id,
-    localId: "document-1",
-  },
-  position: { x: 12, y: 34 },
+const contactsNode: ContainerNode = {
+  ...rootNode,
+  id: "contacts-container",
+  name: "Contacts",
+  parentId: rootNode.id,
+  systemSlot: "contacts-slot",
 };
 
-const noopImportDroppedFiles: ImportExplorerDroppedFiles = async () => ({
-  completedCount: 0,
-  failedCount: 0,
-  importedCount: 0,
-  importedDocuments: [],
-  totalCount: 0,
-});
+const trashNode: ContainerNode = {
+  ...rootNode,
+  id: "trash-container",
+  name: "Trash",
+  parentId: rootNode.id,
+  systemSlot: "trash-slot",
+};
 
-test("document context menu disables Delete Forever outside the trash", () => {
-  const view = render(
-    <ExplorerContextMenuLayerHarness
-      contextMenu={documentContextMenu}
-      importDroppedFiles={noopImportDroppedFiles}
-    />,
-  );
-
-  const purgeButton = view.getByRole("button", {
-    name: "Delete Forever",
-  }) as HTMLButtonElement;
-  expect(purgeButton).toBeTruthy();
-  expect(purgeButton.disabled).toBe(true);
-});
-
-test("document context menu purges the selected document forever", async () => {
-  const purges: Array<{ containerId: string; localId: string }> = [];
-  const view = render(
-    <ExplorerContextMenuLayerHarness
-      canPurgeSelectedDocument
-      contextMenu={documentContextMenu}
-      importDroppedFiles={noopImportDroppedFiles}
-      purgeDocument={async (localId, containerId) => {
-        purges.push({ containerId, localId });
-        return null;
-      }}
-    />,
-  );
-
-  fireEvent.click(view.getByRole("button", { name: "Delete Forever" }));
-
-  await waitFor(() => {
-    expect(purges).toEqual([
-      { containerId: rootNode.id, localId: "document-1" },
-    ]);
-  });
-  expect(view.queryByRole("button", { name: "Delete Forever" })).toBeNull();
+const systemRulesContext = createExplorerContainerRulesContext({
+  contactsContainerId: contactsNode.id,
+  contactsSystemSlot: "contacts-slot",
+  currentOrganizationId: null,
+  trashSystemSlot: "trash-slot",
 });
 
 const folderRow: ContainerItemRow = {
@@ -332,6 +103,60 @@ function ItemContextMenuHarness(params: {
     </button>
   );
 }
+
+function ContainerContextMenuVariantHarness(params: { nodeId: string }) {
+  const { containerContextMenuVariant, handleContainerContextMenu } =
+    useExplorerContextMenu(
+      [rootNode, contactsNode, trashNode],
+      () => {},
+      () => {},
+      systemRulesContext,
+    );
+
+  return (
+    <>
+      <button
+        type="button"
+        onContextMenu={(event: MouseEvent<HTMLButtonElement>) =>
+          handleContainerContextMenu(event, params.nodeId)
+        }
+      >
+        open
+      </button>
+      <output aria-label="Container context menu variant">
+        {containerContextMenuVariant}
+      </output>
+    </>
+  );
+}
+
+test("container context menu variant distinguishes contacts from other system containers", () => {
+  const contactsView = render(
+    <ContainerContextMenuVariantHarness nodeId={contactsNode.id} />,
+  );
+  fireEvent.contextMenu(contactsView.getByRole("button", { name: "open" }));
+  expect(
+    contactsView.getByLabelText("Container context menu variant").textContent,
+  ).toBe("contacts");
+  cleanup();
+
+  const trashView = render(
+    <ContainerContextMenuVariantHarness nodeId={trashNode.id} />,
+  );
+  fireEvent.contextMenu(trashView.getByRole("button", { name: "open" }));
+  expect(
+    trashView.getByLabelText("Container context menu variant").textContent,
+  ).toBe("system");
+  cleanup();
+
+  const rootView = render(
+    <ContainerContextMenuVariantHarness nodeId={rootNode.id} />,
+  );
+  fireEvent.contextMenu(rootView.getByRole("button", { name: "open" }));
+  expect(
+    rootView.getByLabelText("Container context menu variant").textContent,
+  ).toBe("default");
+});
 
 test("right-clicking a detail-pane row opens its menu without navigating", () => {
   for (const row of [folderRow, documentRow]) {

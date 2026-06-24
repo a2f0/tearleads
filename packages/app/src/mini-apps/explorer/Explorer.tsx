@@ -20,7 +20,7 @@ import {
   ExplorerBlobPickProvider,
   useExplorerBlobPick,
 } from "./blob-pick/ExplorerBlobPickProvider";
-import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenu";
+import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
@@ -165,6 +165,12 @@ export function Explorer() {
   const openSyncLanes = useCallback(() => {
     model.routeState.openSyncLanesRoute();
   }, [model.routeState.openSyncLanesRoute]);
+  const openNewContactDocument = useCallback(
+    (containerId: string) => {
+      model.openInlineDocument(containerId, "contact");
+    },
+    [model.openInlineDocument],
+  );
   useWindowFileMenuItem({
     disabled:
       !model.explorer.ready ||
@@ -220,6 +226,9 @@ export function Explorer() {
         canCreateStructuredDocumentContextMenuNode={
           model.contextMenuState.canCreateStructuredDocumentContextMenuNode
         }
+        containerContextMenuVariant={
+          model.contextMenuState.containerContextMenuVariant
+        }
         canDeleteSelectedDocument={model.canDeleteContextMenuDocument}
         canLinkSelectedDocument={model.canLinkContextMenuDocument}
         canDeleteContextMenuNode={
@@ -248,6 +257,7 @@ export function Explorer() {
         openNewStructuredDocumentRoute={
           model.routeState.openNewStructuredDocumentRoute
         }
+        openNewContactDocument={openNewContactDocument}
         openRenameModal={model.modalState.openRenameModal}
         purgeDocument={model.purgeDocument}
         selectContainer={model.routeState.selectExplorerItem}
