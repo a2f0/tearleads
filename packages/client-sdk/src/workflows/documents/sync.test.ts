@@ -123,7 +123,7 @@ test("buildDocumentSyncPlan signs document write headers with the current access
     minLsn: "0/16B6C50",
     outgoingUpdates: [
       await createPreparedUpdate({
-        checkpointKind: "fresh_baseline",
+        checkpointKind: "rotate_baseline",
         signedAt: "2026-04-27T00:00:01.000Z",
       }),
     ],

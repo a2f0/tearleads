@@ -64,7 +64,7 @@ async function createDocumentWithAuditHistory() {
   });
 
   const checkpointUpdate = {
-    checkpointKind: "fresh_baseline",
+    checkpointKind: "rotate_baseline",
     encryptedData: "encrypted-baseline-update",
     id: crypto.randomUUID(),
     partialEndVersionVector: "baseline-end-version-vector",

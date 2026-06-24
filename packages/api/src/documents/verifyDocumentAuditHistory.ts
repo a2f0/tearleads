@@ -326,10 +326,8 @@ async function verifyAuditEntries(input: {
 
 function isSupportedCheckpointKind(
   checkpointKind: string,
-): checkpointKind is "fresh_baseline" | "rotate_baseline" {
-  return (
-    checkpointKind === "fresh_baseline" || checkpointKind === "rotate_baseline"
-  );
+): checkpointKind is "rotate_baseline" {
+  return checkpointKind === "rotate_baseline";
 }
 
 function verifyCheckpointCoverage(input: {

@@ -230,9 +230,7 @@
       "name": "@tearleads/loro",
       "version": "0.1.0",
       "dependencies": {
-        "@tearleads/crypto": "workspace:*",
         "@tearleads/encoding": "workspace:*",
-        "@tearleads/validators": "workspace:*",
         "drizzle-orm": "0.45.1",
         "loro-crdt": "catalog:",
       },

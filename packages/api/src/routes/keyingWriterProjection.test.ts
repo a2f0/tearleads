@@ -794,7 +794,7 @@ async function createSignedDocumentSyncRequest(input: {
       localVersionVector: null,
       outgoingUpdates: [
         {
-          checkpointKind: "fresh_baseline",
+          checkpointKind: "rotate_baseline",
           encryptedData,
           id: updateId,
           partialStartVersionVector: vectors.partialStartVersionVector,
