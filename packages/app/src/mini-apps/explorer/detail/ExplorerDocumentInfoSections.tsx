@@ -254,7 +254,13 @@ function formatContributorEdits(contributor: {
 export function ExplorerDocumentInfoContributorsSection(params: {
   documentInfo: DocumentInfo | null;
 }) {
-  const contributors = params.documentInfo?.remoteInfo?.contributors ?? [];
+  const remoteInfo = params.documentInfo?.remoteInfo;
+  // Hide the section entirely for local-only/unsynced docs: we never fetched
+  // attribution, so showing an empty "no attribution" state would be misleading.
+  if (!remoteInfo) {
+    return null;
+  }
+  const contributors = remoteInfo.contributors;
   return (
     <MiniAppInfoSection
       heading={EXPLORER_LABELS.documentInfoContributorsHeading}

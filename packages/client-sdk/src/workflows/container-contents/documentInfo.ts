@@ -442,7 +442,11 @@ export async function loadDocumentInfo(input: {
   const [projection, attachmentBindings, attribution] = await Promise.all([
     input.apiClient.getDocumentWriterProjection(local.documentId),
     input.apiClient.listDocumentAttachments(local.documentId),
-    input.apiClient.getDocumentEditAttribution(local.documentId),
+    // Attribution is supplementary: a rejection (network/server) must not block
+    // the rest of the document-info load, so swallow it to null (no contributors).
+    input.apiClient
+      .getDocumentEditAttribution(local.documentId)
+      .catch(() => null),
   ]);
 
   if (!projection) {
