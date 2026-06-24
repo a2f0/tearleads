@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { exportAllUpdates, getTextValue } from "@tearleads/loro";
+import { exportShallowSnapshot, getTextValue } from "@tearleads/loro";
 import { createPendingUpdateFields } from "../../data/documentSync";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -35,7 +35,7 @@ export {
   sqlDocumentsPersistence as defaultDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
 
-type DocumentContentState = Parameters<typeof exportAllUpdates>[0];
+type DocumentContentState = Parameters<typeof exportShallowSnapshot>[0];
 type NullableDocumentRuntimeField =
   | "accessStateHash"
   | "lastCommitLsn"
@@ -172,7 +172,7 @@ function buildStoredDocumentRecord(input: {
         documentIdChanged,
       ),
       loroSnapshot:
-        patch.loroSnapshot ?? bytesToBase64(exportAllUpdates(currentDoc)),
+        patch.loroSnapshot ?? bytesToBase64(exportShallowSnapshot(currentDoc)),
       text: patch.text ?? getTextValue(currentDoc),
       title: patch.title ?? documentState.title,
     },

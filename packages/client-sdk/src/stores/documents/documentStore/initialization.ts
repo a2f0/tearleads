@@ -3,7 +3,8 @@ import {
   createDocument,
   encodeVersionVector,
   exportAllUpdates,
-  importUpdates,
+  exportShallowSnapshot,
+  importSnapshot,
 } from "@tearleads/loro";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import type { DocumentSummary } from "../../../data/documentSummary";
@@ -72,7 +73,7 @@ async function initializeDocumentStore(
   const existing = persistedState.document;
   if (existing) {
     if (existing.loroSnapshot.length > 0) {
-      importUpdates(nextDoc, [base64ToBytes(existing.loroSnapshot)]);
+      importSnapshot(nextDoc, base64ToBytes(existing.loroSnapshot));
     }
 
     state.record = existing;
@@ -98,7 +99,7 @@ async function initializeDocumentStore(
       documentKind: initialDocumentState.documentKind,
       text: initialDocumentState.text,
       title: initialDocumentState.title,
-      loroSnapshot: bytesToBase64(exportAllUpdates(nextDoc)),
+      loroSnapshot: bytesToBase64(exportShallowSnapshot(nextDoc)),
       accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
       accessStateHash: null,
       lastCommitLsn: null,
