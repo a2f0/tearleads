@@ -23,6 +23,65 @@ import {
 
 afterEach(cleanupPaneTestEnvironment);
 
+async function expectExplorerSystemContainerCreationMenuItemsDisabled(
+  view: ReturnType<typeof renderPane>,
+  explorerWindow: HTMLElement,
+  containerName: "Contacts" | "Trash",
+) {
+  fireEvent.contextMenu(
+    getExplorerContainerItem(explorerWindow, containerName),
+    {
+      clientX: 190,
+      clientY: 190,
+    },
+  );
+
+  const createChildItem = await view.findByRole("button", {
+    name: "Create Child",
+  });
+  const newStructuredDocumentItem = view.getByRole("button", {
+    name: "New Structured Document",
+  });
+  invariant(
+    createChildItem instanceof HTMLButtonElement,
+    "Expected Create Child menu item.",
+  );
+  invariant(
+    newStructuredDocumentItem instanceof HTMLButtonElement,
+    "Expected New Structured Document menu item.",
+  );
+
+  expect(createChildItem.disabled).toBe(true);
+  expect(newStructuredDocumentItem.disabled).toBe(true);
+
+  fireEvent.mouseDown(document.body);
+  await waitFor(() => {
+    expect(view.queryByRole("button", { name: "Create Child" })).toBeNull();
+  });
+}
+
+async function expectExplorerNewStructuredDocumentFileMenuDisabled(
+  explorerWindow: HTMLElement,
+) {
+  fireEvent.click(
+    within(explorerWindow).getByRole("menuitem", { name: "File" }),
+  );
+
+  const newStructuredDocumentItem = await within(explorerWindow).findByRole(
+    "menuitem",
+    { name: "New Structured Document" },
+  );
+  invariant(
+    newStructuredDocumentItem instanceof HTMLButtonElement,
+    "Expected New Structured Document file menu item.",
+  );
+  expect(newStructuredDocumentItem.disabled).toBe(true);
+
+  fireEvent.click(
+    within(explorerWindow).getByRole("menuitem", { name: "File" }),
+  );
+}
+
 test("pane menu manually controls the app network mode", async () => {
   const view = renderPane();
 
@@ -350,6 +409,19 @@ test(
     );
 
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+
+    await expectExplorerSystemContainerCreationMenuItemsDisabled(
+      view,
+      explorer,
+      "Contacts",
+    );
+    await expectExplorerNewStructuredDocumentFileMenuDisabled(explorer);
+    await expectExplorerSystemContainerCreationMenuItemsDisabled(
+      view,
+      explorer,
+      "Trash",
+    );
+    await expectExplorerNewStructuredDocumentFileMenuDisabled(explorer);
 
     view.unmount();
   },

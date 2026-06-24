@@ -14,6 +14,8 @@ import {
 } from "../../../components/shared/useContextMenuState";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import {
+  canCreateChildContainerByRules,
+  canCreateStructuredDocumentInContainerByRules,
   canDeleteContainerByRules,
   canRenameContainerByRules,
   canUploadToContainerByRules,
@@ -47,6 +49,44 @@ function isExplorerContainerContextMenu(
   contextMenu: ExplorerContextMenuState,
 ): contextMenu is ExplorerContainerContextMenuState {
   return contextMenu.id.kind === "container";
+}
+
+function getExplorerContextMenuNodeCapabilities(params: {
+  contextMenuNode: ContainerNode | undefined;
+  contextMenuNodeHasChildren: boolean;
+  contextMenuNodeMoveTargets: ReadonlyArray<unknown>;
+  rulesContext: ExplorerContainerRulesContext;
+}) {
+  const {
+    contextMenuNode,
+    contextMenuNodeHasChildren,
+    contextMenuNodeMoveTargets,
+    rulesContext,
+  } = params;
+
+  return {
+    canCreateChildContextMenuNode:
+      contextMenuNode !== undefined &&
+      canCreateChildContainerByRules(rulesContext, contextMenuNode),
+    canCreateStructuredDocumentContextMenuNode:
+      contextMenuNode !== undefined &&
+      canCreateStructuredDocumentInContainerByRules(
+        rulesContext,
+        contextMenuNode,
+      ),
+    canDeleteContextMenuNode:
+      contextMenuNode !== undefined &&
+      contextMenuNode.parentId !== null &&
+      !contextMenuNodeHasChildren &&
+      canDeleteContainerByRules(rulesContext, contextMenuNode),
+    canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
+    canRenameContextMenuNode:
+      contextMenuNode !== undefined &&
+      canRenameContainerByRules(rulesContext, contextMenuNode),
+    canUploadToContextMenuNode:
+      contextMenuNode !== undefined &&
+      canUploadToContainerByRules(rulesContext, contextMenuNode),
+  };
 }
 
 export function useExplorerContextMenu(
@@ -125,20 +165,15 @@ export function useExplorerContextMenu(
           ),
     [contextMenuNode, nodes, nodesById, rulesContext],
   );
+  const contextMenuNodeCapabilities = getExplorerContextMenuNodeCapabilities({
+    contextMenuNode,
+    contextMenuNodeHasChildren,
+    contextMenuNodeMoveTargets,
+    rulesContext,
+  });
 
   return {
-    canDeleteContextMenuNode:
-      contextMenuNode !== undefined &&
-      contextMenuNode.parentId !== null &&
-      !contextMenuNodeHasChildren &&
-      canDeleteContainerByRules(rulesContext, contextMenuNode),
-    canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
-    canRenameContextMenuNode:
-      contextMenuNode !== undefined &&
-      canRenameContainerByRules(rulesContext, contextMenuNode),
-    canUploadToContextMenuNode:
-      contextMenuNode !== undefined &&
-      canUploadToContainerByRules(rulesContext, contextMenuNode),
+    ...contextMenuNodeCapabilities,
     closeContextMenu,
     contextMenu,
     handleContainerContextMenu,
@@ -245,6 +280,8 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
 }
 
 interface ExplorerContainerContextMenuProps {
+  canCreateChildContextMenuNode: boolean;
+  canCreateStructuredDocumentContextMenuNode: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
@@ -264,6 +301,8 @@ function ExplorerContainerContextMenu(
   params: ExplorerContainerContextMenuProps,
 ) {
   const {
+    canCreateChildContextMenuNode,
+    canCreateStructuredDocumentContextMenuNode,
     canDeleteContextMenuNode,
     canMoveContextMenuNode,
     canRenameContextMenuNode,
@@ -288,6 +327,7 @@ function ExplorerContainerContextMenu(
     >
       <MenuItem
         label="Create Child"
+        disabled={!canCreateChildContextMenuNode}
         onClick={() => {
           closeContextMenu();
           openCreateChildModal(containerId);
@@ -295,6 +335,7 @@ function ExplorerContainerContextMenu(
       />
       <MenuItem
         label={EXPLORER_LABELS.newStructuredDocumentAction}
+        disabled={!canCreateStructuredDocumentContextMenuNode}
         onClick={() => {
           closeContextMenu();
           openNewStructuredDocumentRoute(containerId);
@@ -344,6 +385,8 @@ function ExplorerContainerContextMenu(
 }
 
 export function ExplorerContextMenuLayer(params: {
+  canCreateChildContextMenuNode: boolean;
+  canCreateStructuredDocumentContextMenuNode: boolean;
   canDeleteSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canDeleteContextMenuNode: boolean;

@@ -44,6 +44,13 @@ export interface UserSystemContainerRules {
   // populated by the app (e.g. trash receives deleted items, contacts receives
   // contact documents), never by direct user upload.
   readonly protectFromUpload: boolean;
+  // Block nesting user-created folders under this system container. Contacts
+  // and Trash are app-managed buckets; allowing children there would blur the
+  // boundary between system-owned content and normal user folders.
+  readonly protectFromChildContainerCreation: boolean;
+  // Block creating new structured documents directly inside this system
+  // container. Existing documents still follow the move/link rules below.
+  readonly protectFromStructuredDocumentCreation: boolean;
   // Restrict document kinds that may be linked or moved into this container.
   // `null` means the container accepts every document kind.
   readonly acceptedDocumentKinds: ReadonlyArray<StoredDocumentKind> | null;
@@ -77,6 +84,8 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectContentsFromLinking: false,
         protectSelfDocumentFromDelete: true,
         protectFromUpload: true,
+        protectFromChildContainerCreation: true,
+        protectFromStructuredDocumentCreation: true,
         acceptedDocumentKinds: ["contact"],
       },
       slotDefinition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
@@ -95,6 +104,8 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectContentsFromLinking: true,
         protectSelfDocumentFromDelete: false,
         protectFromUpload: true,
+        protectFromChildContainerCreation: true,
+        protectFromStructuredDocumentCreation: true,
         acceptedDocumentKinds: null,
       },
       slotDefinition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,

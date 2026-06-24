@@ -6,7 +6,10 @@ import { type ReactNode, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { getContactsContainerId } from "../../../stores/contacts/useContactsCriticalNodesBootstrap";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
-import { createExplorerContainerRulesContext } from "../containerRules";
+import {
+  canCreateStructuredDocumentInContainerByRules,
+  createExplorerContainerRulesContext,
+} from "../containerRules";
 import { buildExplorerTree } from "../ExplorerTree";
 import type {
   ExplorerDocumentMutationAction,
@@ -26,6 +29,7 @@ import type { ExplorerSelectionState } from "./useExplorerSelection";
 interface ExplorerModel {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   canActivateSelectedDocument: boolean;
+  canCreateStructuredDocumentInActiveContainer: boolean;
   canDeleteContextMenuDocument: boolean;
   canDeleteSelectedDocument: boolean;
   canLinkContextMenuDocument: boolean;
@@ -179,10 +183,24 @@ export function useExplorerModel(
     rulesContext,
     trashContainerId: explorer.trashContainerId,
   });
+  const activeContainerNode = useMemo(
+    () =>
+      selection.activeContainerId
+        ? explorer.nodes.find((node) => node.id === selection.activeContainerId)
+        : undefined,
+    [explorer.nodes, selection.activeContainerId],
+  );
+  const canCreateStructuredDocumentInActiveContainer =
+    selection.activeContainerId !== null &&
+    canCreateStructuredDocumentInContainerByRules(
+      rulesContext,
+      activeContainerNode,
+    );
 
   return {
     activateLinkedContainer,
     ...selectedDocumentMutationState,
+    canCreateStructuredDocumentInActiveContainer,
     canDeleteContextMenuDocument:
       contextMenuDocumentState.canDeleteContextMenuDocument,
     canLinkContextMenuDocument:
