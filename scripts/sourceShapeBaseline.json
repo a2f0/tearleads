@@ -58,8 +58,8 @@
       "bytes": 17876
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 846,
-      "bytes": 25339
+      "lines": 886,
+      "bytes": 26921
     },
     "packages/api/src/access/shared/internal/blobContentKeyStore.ts": {
       "lines": 775,
@@ -111,7 +111,7 @@
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2550,
-      "bytes": 84252
+      "bytes": 84253
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1049,
@@ -129,6 +129,10 @@
       "lines": 1330,
       "bytes": 40549
     },
+    "packages/api/src/services/blobs/multipartStage.ts": {
+      "lines": 505,
+      "bytes": 14749
+    },
     "packages/api/src/workflows/auth/registration.ts": {
       "lines": 1230,
       "bytes": 33675
@@ -143,7 +147,7 @@
     },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
       "lines": 883,
-      "bytes": 27607
+      "bytes": 27804
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 721,
