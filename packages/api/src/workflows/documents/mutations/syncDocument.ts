@@ -34,6 +34,7 @@ import { readCurrentCommitLsn } from "../../../documents/commitLsn";
 import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { maybeWriteDocumentAuditCheckpoint } from "../../../documents/documentAuditCheckpoints";
 import { appendDocumentUpdateAuditEntries } from "../../../documents/documentAuditEntries";
+import { selectServedSyncUpdateEntries } from "../../../documents/documentSyncBaselineRedirect";
 import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpans";
 import { listMissingDocumentUpdates } from "../../../documents/documentUpdateStore";
 import { uniqueSortedStrings } from "../../../utils/array";
@@ -689,8 +690,18 @@ async function listMissingSyncUpdatesWithBundles(input: {
     executor: input.executor,
     updates: missingUpdateRecords,
   });
+  // Redirect readers who are behind a content-key rotation to the current-epoch
+  // baseline instead of shipping pre-rotation updates they cannot decrypt (which
+  // would poison their all-or-nothing client decrypt). Safe: only drops older
+  // updates a readable baseline provably covers, else serves everything.
+  const servedUpdateEntries = await selectServedSyncUpdateEntries({
+    currentContentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
+    documentId: input.documentId,
+    entries: missingUpdateEntries,
+    executor: input.executor,
+  });
   const contentKeyBundles = await listContentKeyBundlesForSyncResponse({
-    contentKeyEpochs: missingUpdateEntries.map(
+    contentKeyEpochs: servedUpdateEntries.map(
       (entry) => entry.writeHeader.contentKeyEpoch,
     ),
     currentBundle: input.contentKeyBundle,
@@ -700,7 +711,7 @@ async function listMissingSyncUpdatesWithBundles(input: {
 
   return {
     contentKeyBundles,
-    missingUpdates: missingUpdateEntries.map((entry) => entry.update),
+    missingUpdates: servedUpdateEntries.map((entry) => entry.update),
   };
 }
 
