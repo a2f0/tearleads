@@ -50,7 +50,7 @@ export function ExplorerDocumentInfoAuthorizingContainersSection(params: {
                     {compactId(row.leafManifestHash)}
                   </div>
                   <code title={row.containerKeyEpochId ?? undefined}>
-                    {row.containerKeyEpoch
+                    {row.containerKeyEpoch != null
                       ? getExplorerDocumentInfoEpochLabel(row.containerKeyEpoch)
                       : "-"}
                   </code>

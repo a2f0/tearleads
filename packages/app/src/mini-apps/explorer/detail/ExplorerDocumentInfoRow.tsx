@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
+
 export function DocumentInfoRow(params: {
-  children: string;
+  children: ReactNode;
   label: string;
   title?: string | null | undefined;
 }) {

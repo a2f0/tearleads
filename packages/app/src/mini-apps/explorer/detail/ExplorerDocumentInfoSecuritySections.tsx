@@ -33,7 +33,7 @@ export function ExplorerDocumentInfoLocalSecuritySection(params: {
       <MiniAppInfoTable>
         <tbody>
           <DocumentInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
-            {local?.accessEpoch ? String(local.accessEpoch) : "-"}
+            {local?.accessEpoch != null ? String(local.accessEpoch) : "-"}
           </DocumentInfoRow>
           <DocumentInfoRow
             label={EXPLORER_LABELS.documentInfoAccessStateHashRow}
@@ -97,7 +97,9 @@ export function ExplorerDocumentInfoRemoteSecuritySection(params: {
             {compactId(remoteInfo.previousManifestHash)}
           </DocumentInfoRow>
           <DocumentInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
-            {remoteInfo.manifestEpoch ? String(remoteInfo.manifestEpoch) : "-"}
+            {remoteInfo.manifestEpoch != null
+              ? String(remoteInfo.manifestEpoch)
+              : "-"}
           </DocumentInfoRow>
           <DocumentInfoRow
             label={EXPLORER_LABELS.documentInfoDocumentManifestHistoryRow}
