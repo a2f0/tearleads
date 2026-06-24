@@ -36,6 +36,10 @@ export interface UserSystemContainerRules {
   // Block moving documents out of this container (e.g. contacts must stay in
   // the Contacts container). Documents may still be deleted (moved to trash).
   readonly protectContentsFromLeaving: boolean;
+  // Block creating additional links from documents while they live in this
+  // container. Trash uses this so a deleted item can only be restored/moved,
+  // not spread to new folders from the trash bin.
+  readonly protectContentsFromLinking: boolean;
   // Block uploading files directly into this container. System folders are
   // populated by the app (e.g. trash receives deleted items, contacts receives
   // contact documents), never by direct user upload.
@@ -70,6 +74,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromDelete: true,
         protectFromRename: true,
         protectContentsFromLeaving: true,
+        protectContentsFromLinking: false,
         protectSelfDocumentFromDelete: true,
         protectFromUpload: true,
         acceptedDocumentKinds: ["contact"],
@@ -87,6 +92,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         // Trash is a destination, not a home: items are expected to leave it
         // (restore) freely, so its contents are not pinned.
         protectContentsFromLeaving: false,
+        protectContentsFromLinking: true,
         protectSelfDocumentFromDelete: false,
         protectFromUpload: true,
         acceptedDocumentKinds: null,

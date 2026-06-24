@@ -1,6 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import {
   canAddDocumentToContainerByRules,
+  canLinkDocumentOutByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
   type ExplorerContainerRulesContext,
@@ -74,14 +75,21 @@ function getSortedTargetOptions(
 ): ReadonlyArray<MoveTargetOption> {
   const options = candidateNodes.map((candidateNode) => ({
     id: candidateNode.id,
-    label: `${candidateNode.name} (${candidateNode.id})`,
+    label: candidateNode.name,
   }));
 
-  options.sort((left, right) =>
-    left.label.localeCompare(right.label, undefined, {
+  options.sort((left, right) => {
+    const labelOrder = left.label.localeCompare(right.label, undefined, {
       sensitivity: "base",
-    }),
-  );
+    });
+    if (labelOrder !== 0) {
+      return labelOrder;
+    }
+
+    // Container ids are only a hidden tie-breaker for duplicate visible names;
+    // code-point ordering is deterministic without locale collation overhead.
+    return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+  });
 
   return options;
 }
@@ -191,6 +199,13 @@ export function getDocumentLinkTargetOptions(
 
   const currentContainer = nodesById.get(linkingDocument.containerId);
   if (!currentContainer) {
+    return [];
+  }
+
+  if (
+    rulesContext &&
+    !canLinkDocumentOutByRules(rulesContext, currentContainer)
+  ) {
     return [];
   }
 

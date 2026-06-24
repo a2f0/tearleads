@@ -323,9 +323,16 @@ export async function moveExplorerContainer(
     destinationSelect instanceof HTMLSelectElement,
     "Expected destination container select.",
   );
-  const destinationOption = Array.from(destinationSelect.options).find(
-    (option) => option.textContent?.startsWith(`${destinationName} (`),
+  // Explorer hides container ids in user-facing move labels; tests should
+  // exercise the same visible folder name a user selects from the dropdown.
+  const destinationOptions = Array.from(destinationSelect.options).filter(
+    (option) => option.textContent?.trim() === destinationName,
   );
+  invariant(
+    destinationOptions.length <= 1,
+    `Expected one destination option for "${destinationName}", found ${destinationOptions.length}.`,
+  );
+  const destinationOption = destinationOptions[0];
   invariant(
     destinationOption,
     `Expected destination option for "${destinationName}".`,

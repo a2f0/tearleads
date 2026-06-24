@@ -91,7 +91,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // ceiling here catches a reconnect storm, since each reconnect re-mints one.
     "POST /auth/ws-ticket": 3,
     "GET /containers/:containerId/writer-projection": 4,
-    "GET /documents/:documentId/attachments": 1,
+    // The owner and peer panes can each load attachment metadata once while
+    // settling the shared root view; keep the ceiling tight to catch loops.
+    "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/groups": 1,
     "POST /containers/with-metadata-document": 5,
   },
@@ -447,6 +449,7 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
   await interact(() => {
     fireEvent.click(getInfoButton);
   });
+  await openContainerInfoSharingTab(pane);
   const shareWithPeerButton = await screen.findByRole(
     "button",
     {
@@ -470,6 +473,21 @@ async function shareContainerWithPeer(pane: HTMLElement, name: string) {
         ),
     `Container share did not finish.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
+}
+
+async function openContainerInfoSharingTab(pane: HTMLElement) {
+  // Container info opens on General; these flows need the explicit Sharing tab
+  // so the test follows the same navigation a user performs before sharing.
+  const sharingTab = await within(pane).findByRole("tab", {
+    name: "Sharing",
+  });
+  invariant(sharingTab instanceof HTMLElement, "Expected sharing tab.");
+  await interact(() => {
+    fireEvent.click(sharingTab);
+  });
+  await waitFor(() => {
+    expect(sharingTab.getAttribute("aria-selected")).toBe("true");
+  });
 }
 
 async function clickShareWithPeer(pane: HTMLElement) {
@@ -506,6 +524,7 @@ async function shareContainerWithGroup(
   await interact(() => {
     fireEvent.click(getInfoButton);
   });
+  await openContainerInfoSharingTab(pane);
 
   const initialGroupSelect = await within(pane).findByLabelText("Group");
   invariant(
@@ -1277,9 +1296,16 @@ async function moveContainer(
   await waitFor(() => {
     expect(document.activeElement).toBe(destinationSelect);
   });
-  const destinationOption = Array.from(destinationSelect.options).find(
-    (option) => option.textContent?.startsWith(`${destinationName} (`),
+  // Explorer intentionally no longer exposes container ids in move labels, so
+  // this helper follows the real user-visible folder name.
+  const destinationOptions = Array.from(destinationSelect.options).filter(
+    (option) => option.textContent?.trim() === destinationName,
   );
+  invariant(
+    destinationOptions.length <= 1,
+    `Expected one destination option for "${destinationName}", found ${destinationOptions.length}.`,
+  );
+  const destinationOption = destinationOptions[0];
   invariant(
     destinationOption,
     `Expected destination option for "${destinationName}".`,
@@ -1728,6 +1754,7 @@ test(
       });
     });
     await openExplorerContainerInfo(leftPane, "/");
+    await openContainerInfoSharingTab(leftPane);
     const grantRow = await findExplorerInfoGrantRow(
       leftPane,
       sharedGroupId,

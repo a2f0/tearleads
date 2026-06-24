@@ -225,6 +225,7 @@ export function useExplorer(): ExplorerContextValue {
       reconciler,
       refresh: store.refresh,
       renameContainer: store.renameContainer,
+      requestSync: store.requestSync,
       shareWithGroup: store.shareWithGroup,
       shareWithUser: store.shareWithUser,
       nodes: getVisibleExplorerNodes(
