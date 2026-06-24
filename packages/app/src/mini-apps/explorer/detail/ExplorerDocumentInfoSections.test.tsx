@@ -2,7 +2,14 @@ import { afterEach, expect, test } from "bun:test";
 import type { DocumentInfo } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
-import { ExplorerDocumentInfoAttachmentsSection } from "./ExplorerDocumentInfoSections";
+import {
+  ExplorerDocumentInfoAttachmentsSection,
+  ExplorerDocumentInfoEditRangesSection,
+} from "./ExplorerDocumentInfoSections";
+
+type DocumentInfoAttributionSegment = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["attributionSegments"][number];
 
 afterEach(() => cleanup());
 
@@ -10,9 +17,11 @@ function createRemoteInfo(
   activeAttachmentBindings: NonNullable<
     DocumentInfo["remoteInfo"]
   >["activeAttachmentBindings"],
+  attributionSegments: ReadonlyArray<DocumentInfoAttributionSegment> = [],
 ): NonNullable<DocumentInfo["remoteInfo"]> {
   return {
     activeAttachmentBindings,
+    attributionSegments: [...attributionSegments],
     authorizingContainerPaths: [],
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,
@@ -209,4 +218,68 @@ test("document info attachment rows match duplicate bindings one-to-one", () => 
   expect(view.container.querySelectorAll("tbody tr")).toHaveLength(3);
   expect(view.getAllByText("local + remote")).toHaveLength(2);
   expect(view.getByText(/^remote$/)).toBeTruthy();
+});
+
+test("edit ranges section lists each attributed range with its authority", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo(
+      [],
+      [
+        {
+          peerId: "peer-1",
+          startCounter: 0,
+          endCounter: 5,
+          opCount: 5,
+          writerUserId: "writer-1",
+          writerKeyFingerprint: "fingerprint-1",
+          authorityKind: "direct",
+        },
+        {
+          peerId: "peer-2",
+          startCounter: 0,
+          endCounter: 3,
+          opCount: 3,
+          writerUserId: "writer-2",
+          writerKeyFingerprint: "fingerprint-2",
+          authorityKind: "baseline",
+        },
+      ],
+    ),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoEditRangesSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelectorAll("tbody tr")).toHaveLength(2);
+  expect(view.getByText("0–5")).toBeTruthy();
+  expect(view.getByText("Direct")).toBeTruthy();
+  expect(view.getByText("Re-asserted")).toBeTruthy();
+});
+
+test("edit ranges section is hidden when there are no attributed ranges", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([]),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoEditRangesSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector("table")).toBeNull();
+});
+
+test("edit ranges section is hidden for local-only documents", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: null,
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoEditRangesSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector("table")).toBeNull();
 });

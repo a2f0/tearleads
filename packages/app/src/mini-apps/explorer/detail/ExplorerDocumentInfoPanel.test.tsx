@@ -52,6 +52,17 @@ const documentInfo = {
   },
   remoteInfo: {
     activeAttachmentBindings: [],
+    attributionSegments: [
+      {
+        peerId: "peer-1",
+        startCounter: 0,
+        endCounter: 7,
+        opCount: 7,
+        writerUserId: "writer-1",
+        writerKeyFingerprint: "writer-fingerprint-1",
+        authorityKind: "direct",
+      },
+    ],
     authorizingContainerPaths: [],
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,

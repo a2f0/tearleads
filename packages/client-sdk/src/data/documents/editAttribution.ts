@@ -51,6 +51,62 @@ export function summarizeDocumentContributors(
   );
 }
 
+export interface DocumentAttributionSegment {
+  peerId: string;
+  startCounter: number;
+  endCounter: number;
+  /** Loro op counters in this contiguous range (`endCounter - startCounter`). */
+  opCount: number;
+  writerUserId: string;
+  writerKeyFingerprint: string;
+  authorityKind: "direct" | "baseline";
+}
+
+/**
+ * Normalize attribution segments into the granular per-range list behind the
+ * contributor rollup: empty ranges dropped, each tagged with its op count, and
+ * ordered to mirror {@link summarizeDocumentContributors} (writers by total op
+ * count desc, then each writer's ranges in counter order). This is the
+ * drill-down detail — "who wrote which ranges, direct vs re-asserted" — that the
+ * `N edits` summary collapses away.
+ */
+export function listDocumentAttributionSegments(
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentAttributionSegment[] {
+  const rangesByWriter = new Map<string, DocumentAttributionSegment[]>();
+  for (const segment of segments) {
+    if (segment.endCounter <= segment.startCounter) {
+      continue;
+    }
+    const range: DocumentAttributionSegment = {
+      peerId: segment.peerId,
+      startCounter: segment.startCounter,
+      endCounter: segment.endCounter,
+      opCount: segment.endCounter - segment.startCounter,
+      writerUserId: segment.writerUserId,
+      writerKeyFingerprint: segment.writerKeyFingerprint,
+      authorityKind: segment.authorityKind,
+    };
+    const existing = rangesByWriter.get(segment.writerUserId);
+    if (existing) {
+      existing.push(range);
+    } else {
+      rangesByWriter.set(segment.writerUserId, [range]);
+    }
+  }
+  // summarizeDocumentContributors credits every writer with an op-bearing range,
+  // and rangesByWriter is grouped from those same ranges, so each contributor has
+  // a group here — flat-mapping by contributor order aligns the drill-down with
+  // the Contributors section and drops nothing.
+  return summarizeDocumentContributors(segments).flatMap((contributor) =>
+    (rangesByWriter.get(contributor.writerUserId) ?? []).sort(
+      (left, right) =>
+        left.startCounter - right.startCounter ||
+        left.peerId.localeCompare(right.peerId),
+    ),
+  );
+}
+
 interface PeerWriterAttribution {
   writerUserId: string;
   writerKeyFingerprint: string;

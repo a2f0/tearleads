@@ -250,6 +250,17 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
         hasBaselineAuthority: false,
       },
     ]);
+    expect(info.remoteInfo?.attributionSegments).toEqual([
+      {
+        peerId: "1",
+        startCounter: 0,
+        endCounter: 5,
+        opCount: 5,
+        writerUserId: "writer-1",
+        writerKeyFingerprint: "fp-1",
+        authorityKind: "direct",
+      },
+    ]);
     expect(info.remoteInfo?.authorizingContainerPaths).toEqual([
       {
         containerId: "container-1",
