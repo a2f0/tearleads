@@ -7,32 +7,32 @@ import {
   createDependencyCruiserOptions,
   dependencyCruiserEntryPoints,
 } from "./dependencyCruiserConfig";
+import { packageSourcePath } from "./dependencySourceRoots";
 
+const appSrc = packageSourcePath.app;
+const sdkSrc = packageSourcePath.clientSdk;
 const appPresentationEntryPoints = [
-  "packages/app/src/components",
-  "packages/app/src/document-types",
-  "packages/app/src/mini-apps",
+  `${appSrc}/components`,
+  `${appSrc}/document-types`,
+  `${appSrc}/mini-apps`,
 ];
-const appDocumentTypesEntryPoints = ["packages/app/src/document-types"];
+const appDocumentTypesEntryPoints = [`${appSrc}/document-types`];
 const appDocumentProjectionSourcePaths = new Set([
-  "packages/app/src/document-types/projectors.ts",
+  `${appSrc}/document-types/projectors.ts`,
 ]);
-const appMiniAppBusSourcePath = "packages/app/src/mini-apps/bus.tsx";
-const appPaneProviderSourcePath =
-  "packages/app/src/components/pane/PaneProvider.tsx";
-const appTearleadsSubscriptionHelperPath =
-  "packages/app/src/providers/sdk/useTearleadsSubscription.ts";
-const appProductionSourceEntryPoints = ["packages/app/src"];
-const appTestSourceEntryPoints = ["packages/app/src"];
+const appMiniAppBusSourcePath = `${appSrc}/mini-apps/bus.tsx`;
+const appPaneProviderSourcePath = `${appSrc}/components/pane/PaneProvider.tsx`;
+const appTearleadsSubscriptionHelperPath = `${appSrc}/providers/sdk/useTearleadsSubscription.ts`;
+const appProductionSourceEntryPoints = [appSrc];
+const appTestSourceEntryPoints = [appSrc];
 const appTestHelperEntryPoints = ["packages/app/test/helpers"];
-const clientSdkSourceEntryPoints = ["packages/client-sdk/src"];
+const clientSdkSourceEntryPoints = [sdkSrc];
 const clientSdkTestHelperEntryPoints = ["packages/client-sdk/test/helpers"];
 const clientSdkPublicApiDocsPath = "docs/developer/client-sdk.md";
-const clientSdkClientFacadeIndexPath =
-  "packages/client-sdk/src/client/index.ts";
+const clientSdkClientFacadeIndexPath = `${sdkSrc}/client/index.ts`;
 const clientSdkPackageJsonPath = "packages/client-sdk/package.json";
-const clientSdkRootIndexPath = "packages/client-sdk/src/index.ts";
-const clientSdkWorkflowDocsPath = "packages/client-sdk/src/workflows/README.md";
+const clientSdkRootIndexPath = `${sdkSrc}/index.ts`;
+const clientSdkWorkflowDocsPath = `${sdkSrc}/workflows/README.md`;
 const clientSdkSupportedPackageExports = {
   ".": {
     default: "./dist/index.js",
