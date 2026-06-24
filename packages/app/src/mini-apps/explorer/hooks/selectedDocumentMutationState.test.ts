@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { createExplorerContainerRulesContext } from "../containerRules";
-import { getDocumentMoveTargetOptions } from "../targetOptions";
+import {
+  getDocumentLinkTargetOptions,
+  getDocumentMoveTargetOptions,
+} from "../targetOptions";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 
 const editableRuntime = {
@@ -195,6 +198,14 @@ const trashFlowNodes: ReadonlyArray<ContainerNode> = [
 ];
 
 function moveOutOfTrashState(trashedDocument: DocumentSummary) {
+  const linkTargetOptions = getDocumentLinkTargetOptions(
+    trashFlowNodes,
+    [trashedDocument],
+    trashedDocument.id,
+    [TRASH_CONTAINER_ID],
+    undefined,
+    rulesContext,
+  );
   const moveTargetOptions = getDocumentMoveTargetOptions(
     trashFlowNodes,
     [trashedDocument],
@@ -203,9 +214,11 @@ function moveOutOfTrashState(trashedDocument: DocumentSummary) {
     rulesContext,
   );
   return {
+    linkTargetOptions,
     moveTargetOptions,
     mutationState: getMutationState({
       selectedDocument: trashedDocument,
+      selectedDocumentLinkTargetOptions: linkTargetOptions,
       selectedDocumentMoveTargetOptions: moveTargetOptions,
       trashContainerId: TRASH_CONTAINER_ID,
     }),
@@ -228,6 +241,19 @@ test("a synced document in trash can be moved out (Move enabled, targets offered
   expect(optionIds).toContain("root-container");
 
   // The menu gate the UI actually reads must enable Move.
+  expect(mutationState.canMoveSelectedDocument).toBe(true);
+});
+
+test("a synced document in trash cannot be linked from toolbar or context-menu state", () => {
+  const trashedDocument: DocumentSummary = {
+    ...selectedDocument,
+    containerId: TRASH_CONTAINER_ID,
+  };
+  const { linkTargetOptions, mutationState } =
+    moveOutOfTrashState(trashedDocument);
+
+  expect(linkTargetOptions).toEqual([]);
+  expect(mutationState.canLinkSelectedDocument).toBe(false);
   expect(mutationState.canMoveSelectedDocument).toBe(true);
 });
 

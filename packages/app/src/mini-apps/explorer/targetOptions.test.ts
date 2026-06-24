@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { createExplorerContainerRulesContext } from "./containerRules";
-import { getDocumentMoveTargetOptions } from "./targetOptions";
+import {
+  getDocumentLinkTargetOptions,
+  getDocumentMoveTargetOptions,
+} from "./targetOptions";
 
 const CONTACTS_SLOT = "contacts-slot";
 const TRASH_SLOT = "trash-slot";
@@ -69,6 +72,44 @@ test("a document in trash can be moved out to another container", () => {
   expect(optionIds).not.toContain(CONTACTS_CONTAINER_ID);
   expect(optionIds).toContain("user-container");
   expect(optionIds).toContain("root-container");
+});
+
+test("a document in trash cannot be linked to another container", () => {
+  const trashedDocument = documentSummary({
+    id: "trashed-doc",
+    containerId: TRASH_CONTAINER_ID,
+    documentKind: "note",
+  });
+  const options = getDocumentLinkTargetOptions(
+    nodes,
+    [trashedDocument],
+    trashedDocument.id,
+    [TRASH_CONTAINER_ID],
+    undefined,
+    rulesContext,
+  );
+
+  expect(options).toEqual([]);
+});
+
+test("document move target labels show folder names without container ids", () => {
+  const trashedDocument = documentSummary({
+    id: "trashed-doc",
+    containerId: TRASH_CONTAINER_ID,
+    documentKind: "note",
+  });
+  const options = getDocumentMoveTargetOptions(
+    nodes,
+    [trashedDocument],
+    trashedDocument.id,
+    undefined,
+    rulesContext,
+  );
+
+  expect(options.find((option) => option.id === "user-container")).toEqual({
+    id: "user-container",
+    label: "Documents",
+  });
 });
 
 test("a contact in trash can be moved back into the contacts container", () => {

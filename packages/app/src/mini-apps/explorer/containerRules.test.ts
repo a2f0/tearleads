@@ -5,6 +5,7 @@ import {
   canAddDocumentToContainerByRules,
   canDeleteContainerByRules,
   canDeleteDocumentByRules,
+  canLinkDocumentOutByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
   canRenameContainerByRules,
@@ -138,6 +139,14 @@ test("contacts cannot be moved out of the contacts container", () => {
 
 test("items can be moved out of the trash container", () => {
   expect(canMoveDocumentOutByRules(rulesContext, trashContainer)).toBe(true);
+});
+
+test("items cannot be linked out of the trash container", () => {
+  expect(canLinkDocumentOutByRules(rulesContext, trashContainer)).toBe(false);
+});
+
+test("documents in plain containers can link out freely", () => {
+  expect(canLinkDocumentOutByRules(rulesContext, userContainer)).toBe(true);
 });
 
 test("documents in plain containers can move out freely", () => {
@@ -297,6 +306,9 @@ test("rules are disabled when the configuration flags are absent for a slot", ()
     true,
   );
   expect(canMoveDocumentOutByRules(rulesContext, unknownSlotContainer)).toBe(
+    true,
+  );
+  expect(canLinkDocumentOutByRules(rulesContext, unknownSlotContainer)).toBe(
     true,
   );
   expect(canUploadToContainerByRules(rulesContext, unknownSlotContainer)).toBe(

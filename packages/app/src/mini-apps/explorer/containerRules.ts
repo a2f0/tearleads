@@ -163,6 +163,16 @@ export function canMoveDocumentOutByRules(
   );
 }
 
+export function canLinkDocumentOutByRules(
+  context: ExplorerContainerRulesContext,
+  currentContainer: ContainerRulesNode | undefined,
+): boolean {
+  return (
+    resolveContainerRules(context, currentContainer)
+      ?.protectContentsFromLinking !== true
+  );
+}
+
 // A document may move or link into a destination container unless that
 // container restricts inbound documents by kind (e.g. Contacts accepts contacts
 // only). An unknown destination carries no system slot, so it remains
