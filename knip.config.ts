@@ -36,6 +36,7 @@ const baseConfig = {
         "src/**/*.test.ts",
         "test/preload.ts",
         "scripts/blobGc.ts",
+        "scripts/documentCompaction.ts",
       ],
       project: ["src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
     },
