@@ -242,7 +242,10 @@ export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
  */
 export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
   const status = doc.import(snapshot);
-  if (status.pending != null) {
+  // Reject only a genuinely incomplete import: `pending` can be an empty
+  // VersionVector (size 0) rather than null when everything resolved, so test
+  // for at least one unresolved dependency instead of mere presence.
+  if (status.pending != null && status.pending.size > 0) {
     throw new Error(
       "importSnapshot received a snapshot with unresolved pending dependencies",
     );
