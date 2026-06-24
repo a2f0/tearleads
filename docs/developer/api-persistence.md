@@ -6,9 +6,11 @@ The API defaults to in-memory persistence for local development and tests.
 
 Use `API_DATABASE` to select the database adapter:
 
-- `memory` or unset: in-memory PGlite with the API Drizzle migrations applied at startup.
+- `memory` or unset outside production: in-memory PGlite with the API Drizzle migrations applied at startup.
 - `postgres`: node-postgres with the API Drizzle migrations applied at startup.
 - `sqlite`: Bun's native SQLite driver with the API SQLite Drizzle migrations applied at startup.
+
+When `NODE_ENV=production`, `API_DATABASE` must be set explicitly.
 
 Postgres accepts either a connection URL:
 
@@ -69,8 +71,10 @@ The test runner prints elapsed time for each adapter.
 
 Use `BLOB_OBJECT_STORE` to select blob storage:
 
-- `memory` or unset: in-memory object store.
+- `memory` or unset outside production: in-memory object store.
 - `s3`: S3-compatible object store.
+
+When `NODE_ENV=production`, `BLOB_OBJECT_STORE` must be set explicitly.
 
 S3 env vars:
 

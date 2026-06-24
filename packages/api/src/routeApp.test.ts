@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "./middleware/session";
-import { createRouteApp, routeApp } from "./routeApp";
+import { createRouteApp, readApiCorsOrigins, routeApp } from "./routeApp";
 
 describe("GET /", () => {
   test("returns ok", async () => {
@@ -12,6 +12,50 @@ describe("GET /", () => {
 });
 
 describe("createRouteApp", () => {
+  test("allows configured production CORS origins", async () => {
+    const app = createRouteApp(
+      {},
+      { corsOrigins: ["https://app.example.test"] },
+    );
+
+    const response = await app.request("/", {
+      headers: { Origin: "https://app.example.test" },
+    });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://app.example.test",
+    );
+  });
+
+  test("does not emit CORS allow-origin for unconfigured origins", async () => {
+    const app = createRouteApp(
+      {},
+      { corsOrigins: ["https://app.example.test"] },
+    );
+
+    const response = await app.request("/", {
+      headers: { Origin: "https://attacker.example.test" },
+    });
+
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  test("requires explicit CORS origins in production", () => {
+    expect(() => readApiCorsOrigins({ NODE_ENV: "production" })).toThrow(
+      "API_CORS_ORIGINS is required when NODE_ENV=production",
+    );
+  });
+
+  test("parses configured CORS origins", () => {
+    expect(
+      readApiCorsOrigins({
+        API_CORS_ORIGINS:
+          "https://app.example.test, https://admin.example.test",
+        NODE_ENV: "production",
+      }),
+    ).toEqual(["https://app.example.test", "https://admin.example.test"]);
+  });
+
   test("uses the injected auth middleware for protected routes", async () => {
     const requireAuth: MiddlewareHandler<SessionEnv> = async (c) => {
       return c.json({ error: "blocked by injected auth" }, 418);

@@ -19,6 +19,7 @@ interface RuntimeEnv {
   readonly BLOB_OBJECT_STORE_S3_KEY_PREFIX?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_REGION?: string | undefined;
   readonly BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY?: string | undefined;
+  readonly NODE_ENV?: string | undefined;
   readonly [key: string]: string | undefined;
 }
 
@@ -71,7 +72,15 @@ function readRuntimeEnv(env: RuntimeEnv, key: string): string | undefined {
 }
 
 function readBlobObjectStoreKind(env: RuntimeEnv): BlobObjectStoreKind {
-  const value = readRuntimeEnv(env, "BLOB_OBJECT_STORE") ?? "memory";
+  const configuredValue = readRuntimeEnv(env, "BLOB_OBJECT_STORE");
+  if (!configuredValue) {
+    if (readRuntimeEnv(env, "NODE_ENV") === "production") {
+      throw new Error("BLOB_OBJECT_STORE is required when NODE_ENV=production");
+    }
+
+    return "memory";
+  }
+  const value = configuredValue;
   if (value === "memory" || value === "s3") {
     return value;
   }

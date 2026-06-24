@@ -1168,10 +1168,6 @@ function toRegisterPrincipalPolicyError(
     return new RegistrationError(error.message, error.status);
   }
 
-  if (/^Principal (?:state |member envelope)/u.test(error.message)) {
-    return new RegistrationError(error.message, 400);
-  }
-
   return null;
 }
 

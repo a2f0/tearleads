@@ -59,6 +59,7 @@
     blob_s3_access_key_id: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID') | default('', true) }}"
     blob_s3_secret_access_key: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY') | default('', true) }}"
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
+    api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default('https://app.' + (domain | default('tearleads.com', true)), true) }}"
     garage_s3_region: "{{ blob_s3_region }}"
     garage_default_access_key: "{{ blob_s3_access_key_id }}"
     garage_default_secret_key: "{{ blob_s3_secret_access_key }}"
@@ -305,6 +306,31 @@
         name: tearleads-api
         daemon_reload: true
         enabled: true
+
+    - name: Deploy blob GC systemd service
+      ansible.builtin.template:
+        src: etc/systemd/system/tearleads-blob-gc.service.j2
+        dest: /etc/systemd/system/tearleads-blob-gc.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Deploy blob GC systemd timer
+      ansible.builtin.template:
+        src: etc/systemd/system/tearleads-blob-gc.timer.j2
+        dest: /etc/systemd/system/tearleads-blob-gc.timer
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Enable blob GC systemd timer
+      ansible.builtin.systemd:
+        name: tearleads-blob-gc.timer
+        daemon_reload: true
+        enabled: true
+        state: started
 
     - name: Configure tearleads-code-assist
       ansible.builtin.import_tasks: tasks/codeAssist.yml
