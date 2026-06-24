@@ -1718,12 +1718,12 @@ test(
 );
 
 test(
-  "explorer grant rows open the org manager group route",
+  "grant row opens grant detail",
   async () => {
     useTestApiAppHandlers();
     const view = renderSinglePane();
     const leftPane = getPaneRoot(view, "left");
-    const groupName = "Grant Inspectors";
+    const groupName = "Inspectors";
 
     await waitForSinglePaneProvisioning(leftPane);
 
@@ -1767,7 +1767,9 @@ test(
     });
 
     await waitFor(() => {
-      expect(within(leftPane).getByLabelText("User ID")).toBeTruthy();
+      expect(
+        within(leftPane).getByText(ORG_MANAGER_LABELS.grantDetail),
+      ).toBeTruthy();
     });
     await waitForNoPostShareSyncFailures(
       [leftPane],

@@ -56,6 +56,8 @@ const detail: OrganizationUserDetail = {
   user: rosterUser,
 };
 
+const noopOpenGrantRoute = () => undefined;
+
 function ProfileDisplayNameReporter({
   displayName,
   onDisplayNameChange,
@@ -111,6 +113,7 @@ function DirectoryViewDisplayNameHarness({
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       renderRosterProfileEditor={({ onDisplayNameChange }) => (
@@ -152,6 +155,7 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       revokeGrant={() => undefined}
       selectedUserId={rosterUser.userId}
@@ -187,6 +191,7 @@ test("org manager roster view copies the selected user id", () => {
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       revokeGrant={() => undefined}
       selectedUserId={rosterUser.userId}
@@ -211,6 +216,7 @@ test("org manager roster view can render an editable encrypted profile editor", 
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       renderRosterProfileEditor={({ isEditing, user }) => (
         <span>
@@ -246,6 +252,7 @@ test("org manager roster view opens selected detail in edit mode from edit reque
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       renderRosterProfileEditor={({ isEditing, user }) => (
         <span>
@@ -302,6 +309,7 @@ test("org manager roster view labels unnamed self users as You", () => {
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       revokeGrant={() => undefined}
       selectedUserId={null}
@@ -324,6 +332,7 @@ test("org manager roster view hides user detail until a user is selected", () =>
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       revokeGrant={() => undefined}
       selectedUserId={null}
@@ -353,6 +362,7 @@ test("org manager roster view opens import user from whitespace below users", ()
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openDirectoryContextMenu={(event) => {
         event.preventDefault();
         directoryContextMenuCount += 1;
@@ -385,6 +395,7 @@ test("org manager roster view does not open import user from user rows", () => {
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openDirectoryContextMenu={() => {
         directoryContextMenuCount += 1;
       }}
@@ -411,6 +422,7 @@ test("org manager roster view opens row context menus from user rows", () => {
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openDirectoryContextMenu={() => {
         directoryContextMenuCount += 1;
       }}
@@ -448,6 +460,7 @@ test("org manager roster import dialog submits the user id draft", () => {
       loading={false}
       loadingUserDetail={false}
       mutating={false}
+      openGrantRoute={noopOpenGrantRoute}
       openGroupRoute={() => undefined}
       revokeGrant={() => undefined}
       selectedUserId={null}

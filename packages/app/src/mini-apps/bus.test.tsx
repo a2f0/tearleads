@@ -64,7 +64,9 @@ test("mini-app bus opens a target app and delivers route messages", async () => 
 
   function OrgManagerProbe() {
     useMiniAppMessage("org-manager", (message) => {
-      receivedGroupIds.push(message.groupId);
+      if (message.type === "open-group") {
+        receivedGroupIds.push(message.groupId);
+      }
     });
 
     return <div>Org Manager Ready</div>;
@@ -235,7 +237,9 @@ test("mini-app bus routes target apps without windows in routed mode", async () 
 
   function OrgManagerProbe() {
     useMiniAppMessage("org-manager", (message) => {
-      receivedGroupIds.push(message.groupId);
+      if (message.type === "open-group") {
+        receivedGroupIds.push(message.groupId);
+      }
     });
 
     return <div>Routed Org Manager Ready</div>;

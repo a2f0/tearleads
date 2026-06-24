@@ -27,6 +27,7 @@ import {
   isKeyboardActivationKey,
 } from "./display";
 import { ORG_MANAGER_LABELS } from "./labels";
+import type { OrgManagerGrantRouteRef } from "./routes";
 
 const GRANT_TABLE_COLUMNS = [
   {
@@ -63,7 +64,7 @@ export function GrantTable({
   grants,
   label,
   mutating,
-  openGroupRoute,
+  openGrantRoute,
   revokeGrant,
 }: {
   canRevokeGrants: boolean;
@@ -71,7 +72,7 @@ export function GrantTable({
   grants: ReadonlyArray<OrganizationContainerGrant>;
   label: string;
   mutating: boolean;
-  openGroupRoute: (groupId: string) => void;
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   const virtualGrants = useMiniAppVirtualRows({
@@ -99,27 +100,30 @@ export function GrantTable({
           height={virtualGrants.topPadding}
         />
         {virtualGrants.rows.map((grant) => {
-          const isGroupGrant = grant.subjectType === "group";
           const canRevokeGrant = canRevokeGrants && !grant.isBuiltin;
-          const openGrantGroupRoute = () => {
-            openGroupRoute(grant.subjectId);
+          const openGrantDetailRoute = () => {
+            openGrantRoute({
+              containerId: grant.containerId,
+              subjectId: grant.subjectId,
+              subjectType: grant.subjectType,
+            });
           };
           const handleGrantRowKeyDown = (
             event: KeyboardEvent<HTMLTableRowElement>,
           ) => {
             if (isKeyboardActivationKey(event.key)) {
               event.preventDefault();
-              openGrantGroupRoute();
+              openGrantDetailRoute();
             }
           };
 
           return (
             <MiniAppTableRow
-              interactive={isGroupGrant}
+              interactive
               key={`${grant.subjectType}:${grant.subjectId}:${grant.containerId}:${grant.accessLevel}`}
-              onClick={isGroupGrant ? openGrantGroupRoute : undefined}
-              onKeyDown={isGroupGrant ? handleGrantRowKeyDown : undefined}
-              tabIndex={isGroupGrant ? 0 : undefined}
+              onClick={openGrantDetailRoute}
+              onKeyDown={handleGrantRowKeyDown}
+              tabIndex={0}
             >
               <MiniAppTableCell>
                 <MiniAppTableText title={grant.subjectId}>

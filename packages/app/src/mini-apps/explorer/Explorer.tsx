@@ -28,19 +28,36 @@ import { ExplorerModalLayer } from "./modal/view";
 import type { MiniAppWindowPosition } from "./types";
 import "./Explorer.css";
 
-function useOpenGrantGroupInOrgManager() {
+interface ExplorerGrantOrgManagerTarget {
+  containerId: string;
+  subjectId: string;
+  subjectType: "group" | "organization" | "user";
+}
+
+function useOpenGrantInOrgManager() {
   const { openMiniApp } = useMiniAppBusActions();
 
   return useCallback(
-    (groupId: string, position?: MiniAppWindowPosition) => {
+    (
+      grant: ExplorerGrantOrgManagerTarget,
+      position?: MiniAppWindowPosition,
+    ) => {
       openMiniApp({
         appId: "org-manager",
         message: {
           appId: "org-manager",
-          groupId,
-          type: "open-group",
+          containerId: grant.containerId,
+          subjectId: grant.subjectId,
+          subjectType: grant.subjectType,
+          type: "open-grant",
         },
-        pathSegments: ["groups", groupId],
+        pathSegments: [
+          "grants",
+          "detail",
+          grant.subjectType,
+          grant.subjectId,
+          grant.containerId,
+        ],
         ...(position ? { position } : {}),
       });
     },
@@ -57,10 +74,13 @@ function ExplorerDetailPanelWithBlobPick(params: {
   appData: RuntimeSnapshot;
   databaseError: boolean;
   model: ExplorerModel;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  onOpenGrant: (
+    grant: ExplorerGrantOrgManagerTarget,
+    position?: MiniAppWindowPosition,
+  ) => void;
   onRetryDatabase: () => void;
 }) {
-  const { appData, databaseError, model, onOpenGrantGroup, onRetryDatabase } =
+  const { appData, databaseError, model, onOpenGrant, onRetryDatabase } =
     params;
   const { cancelBlobPick, pickTarget, resolveBlobPick } = useExplorerBlobPick();
 
@@ -94,7 +114,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
       onBackToSelectionRoute={model.routeState.showSelectionRoute}
-      onOpenGrantGroup={onOpenGrantGroup}
+      onOpenGrant={onOpenGrant}
       onPickBlob={resolveBlobPick}
       openInlineDocument={model.openInlineDocument}
       openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
@@ -143,7 +163,7 @@ export function Explorer() {
     peerUserId,
     retryDatabaseBoot,
   );
-  const openGrantGroupInOrgManager = useOpenGrantGroupInOrgManager();
+  const openGrantInOrgManager = useOpenGrantInOrgManager();
   const activeContainerId = model.selection.activeContainerId;
   const openStructuredDocumentGrid = useCallback(() => {
     // The File menu bypasses the context menu, so repeat the same
@@ -215,7 +235,7 @@ export function Explorer() {
           appData={appData}
           databaseError={databaseError}
           model={model}
-          onOpenGrantGroup={openGrantGroupInOrgManager}
+          onOpenGrant={openGrantInOrgManager}
           onRetryDatabase={retryDatabaseBoot}
         />
       </ExplorerBlobPickProvider>

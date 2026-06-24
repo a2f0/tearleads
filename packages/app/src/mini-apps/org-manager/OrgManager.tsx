@@ -72,6 +72,7 @@ function OrgManagerDirectoryContent({
       openRosterUserContextMenu={
         model.contextMenuState.handleRosterUserContextMenu
       }
+      openGrantRoute={model.openGrantRoute}
       openGroupRoute={model.openGroupRoute}
       profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       renderRosterProfileEditor={renderProfileEditor}
@@ -113,8 +114,12 @@ function OrgManagerContent({
         grants={model.grants}
         loading={model.loading}
         mutating={model.mutating}
+        openGrantRoute={model.openGrantRoute}
         openGroupRoute={model.openGroupRoute}
         revokeGrant={model.revokeGrant}
+        selectedGrant={model.selectedGrant}
+        selectedGrantRef={model.selectedGrantRef}
+        selectGrantRef={model.selectGrantRef}
       />
     );
   }

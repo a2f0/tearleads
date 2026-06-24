@@ -130,7 +130,14 @@ interface ExplorerDetailPanelProps {
     row: ContainerItemRow,
   ) => void;
   onBackToSelectionRoute: () => void;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  onOpenGrant: (
+    grant: {
+      containerId: string;
+      subjectId: string;
+      subjectType: "group" | "organization" | "user";
+    },
+    position?: MiniAppWindowPosition,
+  ) => void;
   // Re-attempts the SQLite worker boot after a failure (the Retry action).
   onRetryDatabase: () => void;
   openInlineDocument: (
@@ -230,7 +237,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         containerNamesById={containerNamesById}
         loadContainerInfo={params.loadContainerInfo}
         onBackToContainer={params.onBackToSelectionRoute}
-        onOpenGrantGroup={params.onOpenGrantGroup}
+        onOpenGrant={params.onOpenGrant}
         peerUserId={params.peerUserId}
         shareWithGroup={params.shareWithGroup}
         shareWithUser={params.shareWithUser}
