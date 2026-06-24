@@ -4,6 +4,7 @@ import {
   areOrgManagerRoutesEqual,
   DEFAULT_ORG_MANAGER_ROUTE,
   formatOrgManagerRouteSegments,
+  type OrgManagerGrantRouteRef,
   type OrgManagerRoute,
   type OrgManagerView,
   parseOrgManagerRouteSegments,
@@ -15,12 +16,85 @@ type OrgManagerGroupRouteTarget = {
 };
 
 interface OrgManagerRouteState {
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string | null) => void;
   route: OrgManagerRoute;
+  selectedGrantRef: OrgManagerGrantRouteRef | null;
   selectedGroupId: string | null;
   selectedGroupIdRef: { current: string | null };
+  setSelectedGrantRef: (grantRef: OrgManagerGrantRouteRef | null) => void;
   setSelectedGroupId: (groupId: string | null) => void;
   setView: (view: OrgManagerView) => void;
+}
+
+type SetOrgManagerRoute = (
+  nextRoute: OrgManagerRoute,
+  options?: { replace?: boolean | undefined },
+) => void;
+
+function useOrgManagerRouteActions(
+  routeRef: { current: OrgManagerRoute },
+  setRoute: SetOrgManagerRoute,
+) {
+  const setView = useCallback(
+    (view: OrgManagerView) => {
+      setRoute({ ...routeRef.current, selectedGrantRef: null, view });
+    },
+    [routeRef, setRoute],
+  );
+
+  const setSelectedGroupId = useCallback(
+    (groupId: string | null) => {
+      setRoute({
+        ...routeRef.current,
+        selectedGrantRef: null,
+        selectedGroupId: groupId,
+      });
+    },
+    [routeRef, setRoute],
+  );
+
+  const setSelectedGrantRef = useCallback(
+    (grantRef: OrgManagerGrantRouteRef | null) => {
+      setRoute({
+        ...routeRef.current,
+        selectedGrantRef: grantRef,
+        selectedGroupId: null,
+        view: "grants",
+      });
+    },
+    [routeRef, setRoute],
+  );
+
+  const openGroupRoute = useCallback(
+    (groupId: string | null) => {
+      setRoute({
+        selectedGrantRef: null,
+        selectedGroupId: groupId,
+        view: "groups",
+      });
+    },
+    [setRoute],
+  );
+
+  const openGrantRoute = useCallback(
+    (grantRef: OrgManagerGrantRouteRef) => {
+      setRoute({
+        selectedGrantRef: grantRef,
+        selectedGroupId: null,
+        view: "grants",
+      });
+    },
+    [setRoute],
+  );
+
+  return {
+    openGrantRoute,
+    openGroupRoute,
+    setSelectedGrantRef,
+    setSelectedGroupId,
+    setView,
+  };
 }
 
 export function useOrgManagerRoute(params: {
@@ -38,7 +112,7 @@ export function useOrgManagerRoute(params: {
   const routeRef = useRef(route);
   const selectedGroupIdRef = useRef(route.selectedGroupId);
 
-  const setRoute = useCallback(
+  const setRoute: SetOrgManagerRoute = useCallback(
     (
       nextRoute: OrgManagerRoute,
       options: { replace?: boolean | undefined } = {},
@@ -67,33 +141,13 @@ export function useOrgManagerRoute(params: {
     }
   }, [groups, route, setRoute]);
 
-  const setView = useCallback(
-    (view: OrgManagerView) => {
-      setRoute({ ...routeRef.current, view });
-    },
-    [setRoute],
-  );
-
-  const setSelectedGroupId = useCallback(
-    (groupId: string | null) => {
-      setRoute({ ...routeRef.current, selectedGroupId: groupId });
-    },
-    [setRoute],
-  );
-
-  const openGroupRoute = useCallback(
-    (groupId: string | null) => {
-      setRoute({ selectedGroupId: groupId, view: "groups" });
-    },
-    [setRoute],
-  );
+  const routeActions = useOrgManagerRouteActions(routeRef, setRoute);
 
   return {
-    openGroupRoute,
+    ...routeActions,
     route,
+    selectedGrantRef: route.selectedGrantRef,
     selectedGroupId: route.selectedGroupId,
     selectedGroupIdRef,
-    setSelectedGroupId,
-    setView,
   };
 }

@@ -33,7 +33,14 @@ interface Props {
   containerNamesById: ReadonlyMap<string, string>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   onBackToContainer: () => void;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  onOpenGrant: (
+    grant: {
+      containerId: string;
+      subjectId: string;
+      subjectType: "group" | "organization" | "user";
+    },
+    position?: MiniAppWindowPosition,
+  ) => void;
   peerUserId: string | null;
   shareWithGroup: (
     containerId: string,
@@ -160,7 +167,14 @@ function ExplorerContainerInfoTabPanel(params: {
   idPrefix: string;
   isLoadingContainerInfo: boolean;
   isSubmitting: boolean;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  onOpenGrant: (
+    grant: {
+      containerId: string;
+      subjectId: string;
+      subjectType: "group" | "organization" | "user";
+    },
+    position?: MiniAppWindowPosition,
+  ) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
   setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
@@ -194,7 +208,7 @@ function ExplorerContainerInfoTabPanel(params: {
           <ExplorerContainerInfoPrincipalGrantsSection
             containerNamesById={params.containerNamesById}
             remoteInfo={remoteInfo}
-            onOpenGrantGroup={params.onOpenGrantGroup}
+            onOpenGrant={params.onOpenGrant}
           />
           <ExplorerContainerInfoGroupShareSection
             draftShareAccessLevel={params.draftShareAccessLevel}
@@ -281,7 +295,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
           idPrefix={tabIdPrefix}
           isLoadingContainerInfo={isLoadingContainerInfo}
           isSubmitting={isSubmitting}
-          onOpenGrantGroup={params.onOpenGrantGroup}
+          onOpenGrant={params.onOpenGrant}
           onShareWithPeer={handleShareWithPeer}
           peerUserId={params.peerUserId}
           setDraftShareAccessLevel={setDraftShareAccessLevel}

@@ -75,10 +75,13 @@ export function useOrgManagerModel() {
   );
   const [memberGroupId, setMemberGroupId] = useState<string | null>(null);
   const {
+    openGrantRoute,
     openGroupRoute,
     route,
+    selectedGrantRef,
     selectedGroupId,
     selectedGroupIdRef,
+    setSelectedGrantRef: selectGrantRef,
     setSelectedGroupId: selectGroup,
     setView,
   } = useOrgManagerRoute({ groups });
@@ -125,10 +128,24 @@ export function useOrgManagerModel() {
     setProfileDisplayNamesByUserId(new Map());
   }, [appData.auth.organizationId]);
 
-  useOrgManagerRouteMessages(openGroupRoute);
+  useOrgManagerRouteMessages(openGroupRoute, openGrantRoute);
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
+  const selectedGrant = useMemo(() => {
+    if (!selectedGrantRef) {
+      return null;
+    }
+
+    return (
+      (grants?.grants ?? []).find(
+        (grant) =>
+          grant.containerId === selectedGrantRef.containerId &&
+          grant.subjectId === selectedGrantRef.subjectId &&
+          grant.subjectType === selectedGrantRef.subjectType,
+      ) ?? null
+    );
+  }, [grants?.grants, selectedGrantRef]);
   const selectedGroupIsMembersGroup =
     selectedGroup?.name === ORG_MANAGER_LABELS.members;
   const canCreateGroup = directory?.currentUser.isOrgAdmin ?? false;
@@ -1103,6 +1120,7 @@ export function useOrgManagerModel() {
     members,
     memberUserIds,
     mutating,
+    openGrantRoute,
     openGroupRoute,
     openCreateGroupDialog,
     openImportUserDialog,
@@ -1115,9 +1133,12 @@ export function useOrgManagerModel() {
     removeMember,
     revokeGrant,
     rosterProfileEditRequest: rosterActions.rosterProfileEditRequest,
+    selectedGrant,
+    selectedGrantRef,
     selectedGroup,
     selectedGroupId,
     selectedUserId,
+    selectGrantRef,
     selectGroup,
     selectUser: rosterActions.selectRosterUser,
     setAddUserId,

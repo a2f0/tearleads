@@ -1,8 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { GrantTable } from "./GrantTable";
 import { ORG_MANAGER_LABELS } from "./labels";
+import type { OrgManagerGrantRouteRef } from "./routes";
 
 afterEach(() => cleanup());
 
@@ -27,7 +28,10 @@ const grant: OrganizationContainerGrant = {
   userId: null,
 };
 
-function renderGrantTable(grants: ReadonlyArray<OrganizationContainerGrant>) {
+function renderGrantTable(
+  grants: ReadonlyArray<OrganizationContainerGrant>,
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void = () => undefined,
+) {
   return render(
     <GrantTable
       canRevokeGrants
@@ -35,7 +39,7 @@ function renderGrantTable(grants: ReadonlyArray<OrganizationContainerGrant>) {
       grants={grants}
       label={ORG_MANAGER_LABELS.grants}
       mutating={false}
-      openGroupRoute={() => undefined}
+      openGrantRoute={openGrantRoute}
       revokeGrant={() => undefined}
     />,
   );
@@ -59,4 +63,29 @@ test("org manager grant table keeps revoke action for custom grants", () => {
   expect(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.revoke }),
   ).toBeTruthy();
+});
+
+test("org manager grant table opens grant detail routes from rows", () => {
+  const openedGrantRefs: OrgManagerGrantRouteRef[] = [];
+  const userGrant = {
+    ...grant,
+    groupId: null,
+    groupName: null,
+    subjectId: "user-1",
+    subjectType: "user",
+    userId: "user-1",
+  } satisfies OrganizationContainerGrant;
+  const view = renderGrantTable([userGrant], (grantRef) => {
+    openedGrantRefs.push(grantRef);
+  });
+
+  fireEvent.click(view.getByText("user-1"));
+
+  expect(openedGrantRefs).toEqual([
+    {
+      containerId: "container-1",
+      subjectId: "user-1",
+      subjectType: "user",
+    },
+  ]);
 });

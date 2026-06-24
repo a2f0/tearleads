@@ -29,6 +29,13 @@ export type MiniAppMessage =
       appId: "org-manager";
       groupId: string;
       type: "open-group";
+    }
+  | {
+      appId: "org-manager";
+      containerId: string;
+      subjectId: string;
+      subjectType: "group" | "organization" | "user";
+      type: "open-grant";
     };
 
 export interface OpenMiniAppRequest {

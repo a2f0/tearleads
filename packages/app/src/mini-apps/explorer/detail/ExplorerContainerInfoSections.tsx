@@ -40,6 +40,12 @@ type ExplorerContainerInfoGrantRow = NonNullable<
   ContainerInfo["remoteInfo"]
 >["grantRows"][number];
 
+interface ExplorerContainerInfoGrantRouteTarget {
+  containerId: string;
+  subjectId: string;
+  subjectType: ExplorerContainerInfoGrantSubjectType;
+}
+
 const CONTAINER_INFO_PERMISSION_LABELS = {
   admin: EXPLORER_LABELS.containerInfoPermissionAdmin,
   read: EXPLORER_LABELS.containerInfoPermissionRead,
@@ -186,9 +192,12 @@ function ExplorerContainerInfoSyncCursorList(params: {
 function ExplorerContainerInfoGrantList(params: {
   containerNamesById: ReadonlyMap<string, string>;
   containerInfo: NonNullable<ContainerInfo["remoteInfo"]>;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  onOpenGrant: (
+    grant: ExplorerContainerInfoGrantRouteTarget,
+    position?: MiniAppWindowPosition,
+  ) => void;
 }) {
-  const { containerInfo, containerNamesById, onOpenGrantGroup } = params;
+  const { containerInfo, containerNamesById, onOpenGrant } = params;
   if (containerInfo.grantRows.length === 0) {
     return (
       <MiniAppStatus>{EXPLORER_LABELS.containerInfoNoGrants}</MiniAppStatus>
@@ -207,9 +216,15 @@ function ExplorerContainerInfoGrantList(params: {
       </thead>
       <tbody>
         {containerInfo.grantRows.map((grant) => {
-          const isGroupGrant = grant.subjectType === "group";
-          const openGrantGroupRoute = (position?: MiniAppWindowPosition) => {
-            onOpenGrantGroup(grant.subjectId, position);
+          const openGrantRoute = (position?: MiniAppWindowPosition) => {
+            onOpenGrant(
+              {
+                containerId: grant.sourceContainerId,
+                subjectId: grant.subjectId,
+                subjectType: grant.subjectType,
+              },
+              position,
+            );
           };
           const handleGrantRowKeyDown = (
             event: KeyboardEvent<HTMLTableRowElement>,
@@ -219,21 +234,17 @@ function ExplorerContainerInfoGrantList(params: {
             }
 
             event.preventDefault();
-            openGrantGroupRoute(getKeyboardEventPosition(event));
+            openGrantRoute(getKeyboardEventPosition(event));
           };
 
           return (
             <MiniAppInfoTableRow
-              interactive={isGroupGrant}
+              interactive
               key={`${grant.sourceContainerId}:${grant.subjectType}:${grant.subjectId}`}
-              onClick={
-                isGroupGrant
-                  ? (event) => openGrantGroupRoute(getMouseEventPosition(event))
-                  : undefined
-              }
-              onKeyDown={isGroupGrant ? handleGrantRowKeyDown : undefined}
-              role={isGroupGrant ? "button" : undefined}
-              tabIndex={isGroupGrant ? 0 : undefined}
+              onClick={(event) => openGrantRoute(getMouseEventPosition(event))}
+              onKeyDown={handleGrantRowKeyDown}
+              role="button"
+              tabIndex={0}
             >
               <td title={grant.subjectId}>
                 {principalLabel(
@@ -517,7 +528,10 @@ export function ExplorerContainerInfoPeerShareSection(params: {
 export function ExplorerContainerInfoPrincipalGrantsSection(params: {
   containerNamesById: ReadonlyMap<string, string>;
   remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
-  onOpenGrantGroup: (groupId: string, position?: MiniAppWindowPosition) => void;
+  onOpenGrant: (
+    grant: ExplorerContainerInfoGrantRouteTarget,
+    position?: MiniAppWindowPosition,
+  ) => void;
 }) {
   return (
     <MiniAppInfoSection
@@ -526,7 +540,7 @@ export function ExplorerContainerInfoPrincipalGrantsSection(params: {
       <ExplorerContainerInfoGrantList
         containerNamesById={params.containerNamesById}
         containerInfo={params.remoteInfo}
-        onOpenGrantGroup={params.onOpenGrantGroup}
+        onOpenGrant={params.onOpenGrant}
       />
     </MiniAppInfoSection>
   );

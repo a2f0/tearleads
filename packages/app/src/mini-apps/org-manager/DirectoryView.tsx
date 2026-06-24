@@ -57,9 +57,10 @@ import {
   EMPTY_PROFILE_DISPLAY_NAMES,
   isKeyboardActivationKey,
 } from "./display";
-import { GrantTable } from "./GrantTable";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { UserRosterMetadata } from "./RosterMetadata";
+import type { OrgManagerGrantRouteRef } from "./routes";
+import { UserGrantSections } from "./UserGrantSections";
 
 const DIRECTORY_TABLE_COLUMNS = [
   {
@@ -382,6 +383,7 @@ function UserDetailView({
   onDismiss,
   onRosterProfileDisplayNameChange,
   rosterProfileEditRequestKey,
+  openGrantRoute,
   openGroupRoute,
   profileDisplayName,
   renderRosterProfileEditor,
@@ -397,6 +399,7 @@ function UserDetailView({
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
   rosterProfileEditRequestKey?: number | null | undefined;
   mutating: boolean;
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
   profileDisplayName?: string | undefined;
   renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
@@ -511,48 +514,13 @@ function UserDetailView({
         </MiniAppSectionHeading>
         <UserGroups groups={detail.groups} openGroupRoute={openGroupRoute} />
       </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.userContainerLinks}
-        </MiniAppSectionHeading>
-        <GrantTable
-          canRevokeGrants={canRevokeGrants}
-          emptyLabel={ORG_MANAGER_LABELS.noUserContainerLinks}
-          grants={detail.grants.directGrants}
-          label={ORG_MANAGER_LABELS.userContainerLinks}
-          mutating={mutating}
-          openGroupRoute={openGroupRoute}
-          revokeGrant={revokeGrant}
-        />
-      </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.groupContainerLinks}
-        </MiniAppSectionHeading>
-        <GrantTable
-          canRevokeGrants={canRevokeGrants}
-          emptyLabel={ORG_MANAGER_LABELS.noGroupContainerLinks}
-          grants={detail.grants.groupGrants}
-          label={ORG_MANAGER_LABELS.groupContainerLinks}
-          mutating={mutating}
-          openGroupRoute={openGroupRoute}
-          revokeGrant={revokeGrant}
-        />
-      </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.organizationContainerLinks}
-        </MiniAppSectionHeading>
-        <GrantTable
-          canRevokeGrants={canRevokeGrants}
-          emptyLabel={ORG_MANAGER_LABELS.noOrganizationContainerLinks}
-          grants={detail.grants.organizationGrants}
-          label={ORG_MANAGER_LABELS.organizationContainerLinks}
-          mutating={mutating}
-          openGroupRoute={openGroupRoute}
-          revokeGrant={revokeGrant}
-        />
-      </MiniAppSection>
+      <UserGrantSections
+        canRevokeGrants={canRevokeGrants}
+        grants={detail.grants}
+        mutating={mutating}
+        openGrantRoute={openGrantRoute}
+        revokeGrant={revokeGrant}
+      />
     </>
   );
 }
@@ -617,6 +585,7 @@ export function DirectoryView({
   mutating,
   openDirectoryContextMenu,
   openRosterUserContextMenu,
+  openGrantRoute,
   openGroupRoute,
   profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
   renderRosterProfileEditor,
@@ -642,6 +611,7 @@ export function DirectoryView({
   mutating: boolean;
   openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
   openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
   profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
   renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
@@ -705,6 +675,7 @@ export function DirectoryView({
           mutating={mutating}
           onDismiss={() => selectUser(null)}
           onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
+          openGrantRoute={openGrantRoute}
           openGroupRoute={openGroupRoute}
           profileDisplayName={
             selectedUserId
