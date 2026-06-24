@@ -173,22 +173,6 @@
       "lines": 1156,
       "bytes": 32410
     },
-    "packages/app/src/mini-apps/explorer/detail/ExplorerContainerInfoSections.tsx": {
-      "lines": 680,
-      "bytes": 21465
-    },
-    "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentInfoSections.tsx": {
-      "lines": 589,
-      "bytes": 20667
-    },
-    "packages/app/src/mini-apps/org-manager/DirectoryView.tsx": {
-      "lines": 739,
-      "bytes": 21631
-    },
-    "packages/app/src/mini-apps/org-manager/GroupsView.tsx": {
-      "lines": 830,
-      "bytes": 23435
-    },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 1226,
       "bytes": 34998

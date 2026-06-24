@@ -18,14 +18,18 @@ import { getDocumentLinkedContainerIds } from "../targetOptions";
 import { compactId } from "./compactId";
 import {
   ExplorerDocumentInfoAttachmentsSection,
-  ExplorerDocumentInfoAuthorizingContainersSection,
+  type OpenBlobBrowserRoute,
+} from "./ExplorerDocumentInfoAttachmentsSection";
+import { ExplorerDocumentInfoAuthorizingContainersSection } from "./ExplorerDocumentInfoContainersSection";
+import {
   ExplorerDocumentInfoContributorsSection,
   ExplorerDocumentInfoEditRangesSection,
   ExplorerDocumentInfoGeneralSection,
+} from "./ExplorerDocumentInfoGeneralSections";
+import {
   ExplorerDocumentInfoLocalSecuritySection,
   ExplorerDocumentInfoRemoteSecuritySection,
-  type OpenBlobBrowserRoute,
-} from "./ExplorerDocumentInfoSections";
+} from "./ExplorerDocumentInfoSecuritySections";
 import { ExplorerLinkedContainerSection } from "./ExplorerLinkedContainers";
 
 type DocumentInfoTabId = "general" | "links" | "blobs" | "security";
