@@ -70,6 +70,49 @@ function isContainerDocumentSyncTombstone(
   );
 }
 
+export interface DocumentEditAttributionSegmentResponse {
+  peerId: string;
+  startCounter: number;
+  endCounter: number;
+  writerUserId: string;
+  writerKeyFingerprint: string;
+  authorityKind: "direct" | "baseline";
+}
+
+export interface DocumentEditAttributionResponse {
+  documentId: string;
+  segments: DocumentEditAttributionSegmentResponse[];
+}
+
+function isDocumentEditAttributionSegmentResponse(
+  value: unknown,
+): value is DocumentEditAttributionSegmentResponse {
+  const authorityKind = isPlainObject(value)
+    ? Reflect.get(value, "authorityKind")
+    : undefined;
+
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "peerId") &&
+    hasNumberProperty(value, "startCounter") &&
+    hasNumberProperty(value, "endCounter") &&
+    hasStringProperty(value, "writerUserId") &&
+    hasStringProperty(value, "writerKeyFingerprint") &&
+    (authorityKind === "direct" || authorityKind === "baseline")
+  );
+}
+
+export function isDocumentEditAttributionResponse(
+  value: unknown,
+): value is DocumentEditAttributionResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "documentId") &&
+    hasArrayProperty(value, "segments") &&
+    value.segments.every(isDocumentEditAttributionSegmentResponse)
+  );
+}
+
 export function isListContainerDocumentsResponse(
   value: unknown,
 ): value is ListContainerDocumentsResponse {

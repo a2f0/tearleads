@@ -65,6 +65,9 @@ export {
 export {
   type ContainerDocumentSummary,
   type ContainerDocumentSyncTombstone,
+  type DocumentEditAttributionResponse,
+  type DocumentEditAttributionSegmentResponse,
+  isDocumentEditAttributionResponse,
   isListContainerDocumentsResponse,
   type ListContainerDocumentsResponse,
 } from "./document";
