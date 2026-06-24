@@ -132,17 +132,20 @@ export function useOrgManagerModel() {
 
   const selectedGroup =
     groups.find((group) => group.groupId === selectedGroupId) ?? null;
-  const selectedGrant = useMemo(
-    () =>
-      grants?.grants?.find(
+  const selectedGrant = useMemo(() => {
+    if (!selectedGrantRef) {
+      return null;
+    }
+
+    return (
+      (grants?.grants ?? []).find(
         (grant) =>
-          selectedGrantRef &&
           grant.containerId === selectedGrantRef.containerId &&
           grant.subjectId === selectedGrantRef.subjectId &&
           grant.subjectType === selectedGrantRef.subjectType,
-      ) ?? null,
-    [grants?.grants, selectedGrantRef],
-  );
+      ) ?? null
+    );
+  }, [grants?.grants, selectedGrantRef]);
   const selectedGroupIsMembersGroup =
     selectedGroup?.name === ORG_MANAGER_LABELS.members;
   const canCreateGroup = directory?.currentUser.isOrgAdmin ?? false;
