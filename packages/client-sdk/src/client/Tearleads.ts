@@ -40,6 +40,11 @@ export interface ClientOptions {
   identityProvisioning?: "auto" | "manual" | undefined;
   logger?: Logger | undefined;
   online?: boolean | undefined;
+  /**
+   * Per-pane discriminator so documents in distinct panes derive distinct Loro
+   * peer ids (e.g. the pane's local identity namespace). Omit for single-pane.
+   */
+  peerScope?: string | undefined;
 }
 
 export class Tearleads {
@@ -127,6 +132,7 @@ export class Tearleads {
       log: this.log,
       logError: this.logError,
       network: this.network,
+      peerScope: options.peerScope ?? null,
       session: this.session,
     });
     this.runtime = runtime.publicRuntime;

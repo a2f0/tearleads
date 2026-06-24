@@ -28,6 +28,13 @@ export interface WorkflowRuntimeStateInput {
   readonly domainScope: DomainScope;
   readonly events: ReadonlyArray<unknown>;
   readonly online: boolean;
+  /**
+   * Per-pane CRDT peer-seed discriminator (e.g. the pane's local identity
+   * namespace). Documents in distinct panes must derive distinct Loro peer ids;
+   * absent/`null` means single-pane (bare scope). The document runtime factory
+   * always populates it; other runtimes and test fixtures may omit it.
+   */
+  readonly peerScope?: string | null;
 }
 
 export interface WorkflowRuntimeInfraInput {
