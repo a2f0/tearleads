@@ -17,7 +17,9 @@ export function getDefaultContainerName(parentId: string | null): string {
 export async function createContainerMetadataDocument(
   containerId: string,
 ): Promise<ContainerMetadataDocument> {
-  return createDocument(getScopedPeerSeed(`container-metadata:${containerId}`));
+  return createDocument(
+    await getScopedPeerSeed(`container-metadata:${containerId}`),
+  );
 }
 
 export async function createInitializedContainerMetadataDocument(

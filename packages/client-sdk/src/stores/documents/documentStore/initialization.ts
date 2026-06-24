@@ -36,7 +36,7 @@ import { type DocumentStoreState, setReadySnapshot } from "./state";
 
 async function createStoredDocument() {
   const createdDoc = await createDocument(
-    getScopedPeerSeed(DOCUMENTS_APP_KIND),
+    await getScopedPeerSeed(DOCUMENTS_APP_KIND),
   );
   ensureDocumentAttachmentStructure(createdDoc);
   return createdDoc;

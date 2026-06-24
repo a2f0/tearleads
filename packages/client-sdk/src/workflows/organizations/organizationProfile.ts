@@ -30,7 +30,7 @@ export async function createInitializedOrganizationProfileDocument(input: {
   readonly initialUpdate: Uint8Array;
   readonly snapshot: string;
 }> {
-  const doc = await createDocument(getScopedPeerSeed(DOCUMENTS_APP_KIND));
+  const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
   initializeStoredDocumentKind(doc, ORGANIZATION_PROFILE_DOCUMENT_KIND);
   writeStoredDocumentFields(
     doc,
