@@ -54,6 +54,7 @@ interface WorkflowRuntimeDependencies {
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
   network: Network;
+  peerScope?: string | null;
   session: Session;
 }
 
@@ -162,6 +163,7 @@ function createRuntimeInputFactory(
       domainScope: dependencies.getDomainScope(),
       events: dependencies.events.events,
       online: dependencies.network.online,
+      peerScope: dependencies.peerScope ?? null,
     });
     if (
       !util ||
@@ -298,7 +300,8 @@ function reuseWorkflowRuntimeState(
     current.containerId === next.containerId &&
     current.domainScope === next.domainScope &&
     current.events === next.events &&
-    current.online === next.online
+    current.online === next.online &&
+    current.peerScope === next.peerScope
     ? current
     : next;
 }

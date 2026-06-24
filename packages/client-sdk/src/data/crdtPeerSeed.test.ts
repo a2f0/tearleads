@@ -100,3 +100,29 @@ test("reuses one cached seed per scope rather than re-requesting the lock", asyn
   expect(second).toBe("DEVICE");
   expect(requestCount).toBe(1);
 });
+
+test("distinct (per-pane) scopes get distinct seeds and separate locks", async () => {
+  const requestedLockNames: string[] = [];
+  const locks: PeerSeedEnvironment["locks"] = {
+    request: (name, _options, callback) => {
+      requestedLockNames.push(name);
+      return Promise.resolve(callback({}));
+    },
+  };
+  // One tab (one environment), two pane-scoped seed scopes.
+  const environment: PeerSeedEnvironment = {
+    deviceStorage: memStorage(),
+    sessionStorage: memStorage(),
+    locks,
+  };
+  const left = await getScopedPeerSeed("documents:pane.left", environment);
+  const right = await getScopedPeerSeed("documents:pane.right", environment);
+
+  // Distinct device seeds → distinct Loro peer ids, and each pane acquires its
+  // OWN device-peer lock, so both can be device-stable without sharing a peer.
+  expect(left).not.toBe(right);
+  expect(requestedLockNames).toEqual([
+    "tearleads.documents:pane.left.device-peer",
+    "tearleads.documents:pane.right.device-peer",
+  ]);
+});

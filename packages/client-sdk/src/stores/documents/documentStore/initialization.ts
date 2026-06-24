@@ -34,10 +34,16 @@ import {
 } from "./persistence";
 import { type DocumentStoreState, setReadySnapshot } from "./state";
 
-async function createStoredDocument() {
-  const createdDoc = await createDocument(
-    await getScopedPeerSeed(DOCUMENTS_APP_KIND),
-  );
+async function createStoredDocument(state: DocumentStoreState) {
+  // Scope the peer seed per pane so two panes editing the same document derive
+  // distinct Loro peer ids (sharing one would corrupt the CRDT). A null
+  // peerScope (single-pane) keeps the bare scope, so the device-stable peer is
+  // unchanged for the common case.
+  const peerScope = state.runtime.state.peerScope;
+  const scope = peerScope
+    ? `${DOCUMENTS_APP_KIND}:${peerScope}`
+    : DOCUMENTS_APP_KIND;
+  const createdDoc = await createDocument(await getScopedPeerSeed(scope));
   ensureDocumentAttachmentStructure(createdDoc);
   return createdDoc;
 }
@@ -50,7 +56,7 @@ async function initializeDocumentStore(
     return;
   }
 
-  const nextDoc = await createStoredDocument();
+  const nextDoc = await createStoredDocument(state);
   const persistedState = await loadPersistedDocumentStoreState({
     execSql: state.runtime.infra.execSql,
     localId: state.localId,
