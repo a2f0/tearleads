@@ -267,7 +267,7 @@ test("isDocumentSyncRequest", () => {
     state: { documentId: "document-1" },
   };
   const validOutgoingUpdate = {
-    checkpointKind: "fresh_baseline" as const,
+    checkpointKind: "rotate_baseline" as const,
     id: "550e8400-e29b-41d4-a716-446655440111",
     encryptedData: "ciphertext",
     partialStartVersionVector: "{}",

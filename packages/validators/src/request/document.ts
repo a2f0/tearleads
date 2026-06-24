@@ -58,7 +58,7 @@ export interface DocumentLinkSetMutationRequest {
 }
 
 export interface DocumentOutgoingUpdate {
-  checkpointKind?: "fresh_baseline" | "rotate_baseline";
+  checkpointKind?: "rotate_baseline";
   id: string;
   encryptedData: string;
   partialStartVersionVector: string;
@@ -144,9 +144,7 @@ function isDocumentOutgoingUpdate(
     value.partialStartVersionVector.length > 0 &&
     hasStringProperty(value, "partialEndVersionVector") &&
     value.partialEndVersionVector.length > 0 &&
-    (checkpointKind === undefined ||
-      checkpointKind === "fresh_baseline" ||
-      checkpointKind === "rotate_baseline") &&
+    (checkpointKind === undefined || checkpointKind === "rotate_baseline") &&
     (sourceVersionVector === undefined ||
       hasStringProperty(value, "sourceVersionVector")) &&
     isPlainObject(writeHeader)
