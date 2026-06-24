@@ -43,8 +43,8 @@ import {
 } from "../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
+  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
-  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
   MiniAppVirtualList,
   MiniAppVirtualListFrame,
   MiniAppVirtualListRow,
@@ -134,7 +134,7 @@ function DirectoryTable({
 }) {
   const users = directory?.users ?? [];
   const virtualUsers = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: users,
   });
 
@@ -158,9 +158,11 @@ function DirectoryTable({
 
   return (
     <MiniAppTableFrame
-      className="mini-app-table-frame--virtual org-manager-virtual-table"
+      className="mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table"
       ref={virtualUsers.frameRef}
-      style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
+      style={getMiniAppVirtualFrameStyle(
+        MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
+      )}
     >
       <MiniAppTable
         aria-label={ORG_MANAGER_LABELS.directory}

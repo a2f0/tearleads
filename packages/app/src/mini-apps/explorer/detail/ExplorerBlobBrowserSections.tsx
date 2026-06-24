@@ -75,7 +75,7 @@ function BlobInfoTable(params: {
 
   return (
     <MiniAppTableFrame
-      className="explorer-blob-browser-table-wrap mini-app-table-frame--virtual"
+      className="explorer-blob-browser-table-wrap mini-app-table-frame--virtual mini-app-table-frame--compact"
       ref={params.frameRef}
       style={getMiniAppVirtualFrameStyle(BLOB_BROWSER_ROW_HEIGHT)}
     >

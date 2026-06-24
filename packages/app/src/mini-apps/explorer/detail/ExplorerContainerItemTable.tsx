@@ -399,6 +399,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       className={classNames(
         "explorer-item-table-wrap",
         "mini-app-table-frame--virtual",
+        "mini-app-table-frame--compact",
         dragActive && "explorer-item-table-wrap--drop-active",
       )}
       onDragEnter={handleDragEnter}
