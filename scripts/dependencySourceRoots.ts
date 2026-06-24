@@ -72,9 +72,10 @@ export const packageSourceRoot = {
   website: packageSourceRootPattern(packageSourcePath.website),
 } as const;
 
-export const allPackageSourceRoots = Object.values(packageSourceRoot);
+export const allPackageSourceRoots: readonly string[] =
+  Object.values(packageSourceRoot);
 
-export const deploymentTargetSourceRoots = [
+export const deploymentTargetSourceRoots: readonly string[] = [
   packageSourceRoot.appElectrobun,
   packageSourceRoot.appWeb,
   packageSourceRoot.website,
