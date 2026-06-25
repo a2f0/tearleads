@@ -41,9 +41,9 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   },
 };
 
-// "system-monitor" is intentionally omitted: it is launched from the home
-// pane's lower-right icon (SystemMonitorLauncherButton), which also handles
-// unpinning, rather than from the generic pane/app menu.
+// "system-monitor" is intentionally omitted from the windowed pane menu: there
+// it is launched from the footer's system tray (SystemMonitorLauncherButton),
+// which also handles unpinning, rather than from the generic pane/app menu.
 export const MINI_APP_MENU_ITEMS = [
   { appId: "backup-restore", label: "Open Backup / Restore" },
   { appId: "notes", label: "Open Notes" },
@@ -51,6 +51,18 @@ export const MINI_APP_MENU_ITEMS = [
   { appId: "explorer", label: "Open Explorer" },
   { appId: "identity-manager", label: "Open Identity Manager" },
   { appId: "org-manager", label: "Open Org Manager" },
+] satisfies ReadonlyArray<{
+  appId: MiniAppId;
+  label: string;
+}>;
+
+// The routed (mobile/tablet) layout has no footer tray, so it surfaces the
+// System Monitor alongside the other apps in its nav and home launcher. Routed
+// mode never mounts SystemMonitorProvider, so pinning is inert there and the
+// monitor simply opens as an ordinary routed app — no double-instance concern.
+export const ROUTED_MINI_APP_NAV_ITEMS = [
+  ...MINI_APP_MENU_ITEMS,
+  { appId: "system-monitor", label: "Open System Monitor" },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
   label: string;

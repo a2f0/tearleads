@@ -1,8 +1,18 @@
 .pane-footer {
   display: flex;
+  align-items: center;
   gap: var(--space-xs);
   padding: var(--space-md);
   background: var(--color-muted);
+}
+
+/* System tray: anchored to the trailing edge of the footer, opposite the Menu
+   button, mirroring the conventional desktop tray placement. */
+.pane-footer-tray {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .pane-footer-window {

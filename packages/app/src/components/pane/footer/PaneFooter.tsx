@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
 import type { MenuPosition } from "../../shared/Menu";
 import { PaneMenu } from "../../shared/PaneMenu";
@@ -7,7 +8,10 @@ import {
 } from "../../window/WindowStateProvider";
 import "./PaneFooter.css";
 
-export function PaneFooter() {
+// `tray` is the footer's right-aligned system tray — persistent launchers that
+// stay reachable regardless of which windows are open (currently the System
+// Monitor; more affordances will dock here over time).
+export function PaneFooter({ tray }: { tray?: ReactNode }) {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { windows } = useWindowStateData();
   const { restore } = useWindowActions();
@@ -38,6 +42,7 @@ export function PaneFooter() {
             {w.title}
           </button>
         ))}
+        {tray && <div className="pane-footer-tray">{tray}</div>}
       </div>
       {menu && <PaneMenu position={menu} onClose={closeMenu} />}
     </>

@@ -29,14 +29,10 @@
   overflow: auto;
 }
 
-/* Persistent launcher anchored to the lower-right of .pane-main. The high
-   z-index keeps it clickable above floating windows (which use small, run-time
-   incremented z-indexes). */
+/* Persistent launcher living in the pane footer's system tray
+   (.pane-footer-tray). A square icon button sized to the standard control
+   height so it sits flush with the footer's other affordances. */
 .system-monitor-launcher {
-  position: absolute;
-  right: var(--space-md);
-  bottom: var(--space-md);
-  z-index: 100;
   display: inline-flex;
   align-items: center;
   justify-content: center;

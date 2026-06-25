@@ -55,10 +55,9 @@ function PaneInner({ className }: { className: string }) {
           {windows.map((w) => (
             <Window key={w.id} windowId={w.id} />
           ))}
-          <SystemMonitorLauncherButton />
         </div>
+        <PaneFooter tray={<SystemMonitorLauncherButton />} />
       </SystemMonitorProvider>
-      <PaneFooter />
       {contextMenu && (
         <PaneContextMenu
           hasSigningKeyPair={hasSigningKeyPair}

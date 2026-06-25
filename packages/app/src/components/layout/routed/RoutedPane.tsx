@@ -7,7 +7,10 @@ import {
   useState,
 } from "react";
 import { LocalKeyringUnlockWindow } from "../../../mini-apps/LocalKeyringUnlockGate";
-import { MINI_APP_MENU_ITEMS, MINI_APPS } from "../../../mini-apps/registry";
+import {
+  MINI_APPS,
+  ROUTED_MINI_APP_NAV_ITEMS,
+} from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
   useAppNavigationActions,
@@ -58,7 +61,7 @@ function RoutedPaneHome() {
         <LocalKeyringUnlockWindow />
       ) : signingKeyPair ? (
         <div className="routed-pane-launcher">
-          {MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
+          {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId, label }) => (
             <MiniAppButton key={appId} onClick={() => openMiniApp({ appId })}>
               {label}
             </MiniAppButton>
