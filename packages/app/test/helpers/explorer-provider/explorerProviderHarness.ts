@@ -33,6 +33,13 @@ import {
   type TestRuntime,
 } from "./explorerProviderFixtures";
 
+function sortWrapRecipientKinds(wraps: ReadonlyArray<object>): string[] {
+  return wraps
+    .map((wrap) => Reflect.get(wrap, "recipientKind"))
+    .filter((kind): kind is string => typeof kind === "string")
+    .sort();
+}
+
 export function createExplorerContainerApiHarness(
   initialProjections: readonly ContainerWriterProjectionResponse[],
 ) {
@@ -98,10 +105,7 @@ export function createExplorerContainerApiHarness(
             "metadataDocumentId",
           ),
           parentId: response.parentId ?? "",
-          wrapRecipientKinds: request.wraps
-            .map((wrap) => Reflect.get(wrap, "recipientKind"))
-            .filter((kind): kind is string => typeof kind === "string")
-            .sort(),
+          wrapRecipientKinds: sortWrapRecipientKinds(request.wraps),
         });
         return response;
       },
@@ -137,10 +141,7 @@ export function createExplorerContainerApiHarness(
             "metadataDocumentId",
           ),
           parentId: container.parentId ?? "",
-          wrapRecipientKinds: request.container.wraps
-            .map((wrap) => Reflect.get(wrap, "recipientKind"))
-            .filter((kind): kind is string => typeof kind === "string")
-            .sort(),
+          wrapRecipientKinds: sortWrapRecipientKinds(request.container.wraps),
         });
         documentCreateCalls.push({
           containerId: readRequestString(
@@ -248,10 +249,7 @@ export function createExplorerContainerApiHarness(
           accessLevel: grant ? Reflect.get(grant, "accessLevel") : undefined,
           containerId,
           subjectId: grant ? Reflect.get(grant, "subjectId") : undefined,
-          wrapRecipientKinds: request.wraps
-            .map((wrap) => Reflect.get(wrap, "recipientKind"))
-            .filter((kind): kind is string => typeof kind === "string")
-            .sort(),
+          wrapRecipientKinds: sortWrapRecipientKinds(request.wraps),
         });
         return response;
       },
@@ -279,10 +277,7 @@ export function createExplorerContainerApiHarness(
         containerMoveCalls.push({
           containerId,
           parentId: response.parentId,
-          wrapRecipientKinds: request.wraps
-            .map((wrap) => Reflect.get(wrap, "recipientKind"))
-            .filter((kind): kind is string => typeof kind === "string")
-            .sort(),
+          wrapRecipientKinds: sortWrapRecipientKinds(request.wraps),
         });
         return response;
       },
