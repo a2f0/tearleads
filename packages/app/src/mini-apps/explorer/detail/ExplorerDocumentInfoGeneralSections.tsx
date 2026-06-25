@@ -142,6 +142,69 @@ export function ExplorerDocumentInfoContributorsSection(params: {
   );
 }
 
+function formatCharacterCount(count: number): string {
+  return `${count} ${
+    count === 1
+      ? EXPLORER_LABELS.documentInfoCharacterBlameCharacterSingular
+      : EXPLORER_LABELS.documentInfoCharacterBlameCharacterPlural
+  }`;
+}
+
+function formatBlameCharacters(writer: {
+  characterCount: number;
+  hasDirectAuthority: boolean;
+}): string {
+  const characters = formatCharacterCount(writer.characterCount);
+  // A writer credited only via a rotate_baseline re-assertion is the first signed
+  // uploader of those characters, not a proven author — flag that distinction.
+  return writer.hasDirectAuthority
+    ? characters
+    : `${characters} ${EXPLORER_LABELS.documentInfoContributorReasserted}`;
+}
+
+export function ExplorerDocumentInfoCharacterBlameSection(params: {
+  documentInfo: DocumentInfo | null;
+}) {
+  const blame = params.documentInfo?.remoteInfo?.characterBlame;
+  // Per-writer authorship of the CURRENT text — the live-character counterpart to
+  // the Contributors op-count rollup. Hidden when blame could not be computed (no
+  // local snapshot, too large to scan, or unreadable) or the document is empty.
+  // A document whose characters are all still unattributed (e.g. local edits the
+  // attribution feed has not caught up to) keeps the section, surfacing that count.
+  if (
+    !blame ||
+    (blame.writers.length === 0 && blame.unattributedCharacterCount === 0)
+  ) {
+    return null;
+  }
+  return (
+    <MiniAppInfoSection
+      heading={EXPLORER_LABELS.documentInfoCharacterBlameHeading}
+    >
+      <MiniAppInfoTable>
+        <tbody>
+          {blame.writers.map((writer) => (
+            <DocumentInfoRow
+              key={writer.writerKeyFingerprint}
+              label={compactId(writer.writerKeyFingerprint)}
+              title={`${writer.writerUserId} · ${writer.writerKeyFingerprint}`}
+            >
+              {formatBlameCharacters(writer)}
+            </DocumentInfoRow>
+          ))}
+          {blame.unattributedCharacterCount > 0 ? (
+            <DocumentInfoRow
+              label={EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
+            >
+              {formatCharacterCount(blame.unattributedCharacterCount)}
+            </DocumentInfoRow>
+          ) : null}
+        </tbody>
+      </MiniAppInfoTable>
+    </MiniAppInfoSection>
+  );
+}
+
 function getEditRangeAuthorityLabel(
   authorityKind: DocumentInfoAttributionSegment["authorityKind"],
 ): string {

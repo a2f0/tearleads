@@ -22,6 +22,7 @@ import {
 } from "./ExplorerDocumentInfoAttachmentsSection";
 import { ExplorerDocumentInfoAuthorizingContainersSection } from "./ExplorerDocumentInfoContainersSection";
 import {
+  ExplorerDocumentInfoCharacterBlameSection,
   ExplorerDocumentInfoContributorsSection,
   ExplorerDocumentInfoEditRangesSection,
   ExplorerDocumentInfoGeneralSection,
@@ -272,6 +273,9 @@ function ExplorerDocumentInfoTabPanel(params: {
             documentInfo={params.documentInfo}
           />
           <ExplorerDocumentInfoEditRangesSection
+            documentInfo={params.documentInfo}
+          />
+          <ExplorerDocumentInfoCharacterBlameSection
             documentInfo={params.documentInfo}
           />
         </>
