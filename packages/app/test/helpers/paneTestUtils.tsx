@@ -25,6 +25,10 @@ import { Pane } from "../../src/components/pane/Pane";
 import { PaneProvider } from "../../src/components/pane/PaneProvider";
 import { AppHostConfig } from "../../src/host/AppHostConfig";
 import {
+  saveSystemMonitorMode,
+  systemMonitorModeStorageKey,
+} from "../../src/mini-apps/system-monitor/systemMonitorMode";
+import {
   AppTestRuntimeScopeProbe,
   waitForAppTestRuntimeToSettle,
 } from "./appRuntimeIdle";
@@ -119,9 +123,22 @@ export function createDelayedLoadLocalKeyringFactory(
 
 export function renderPane({
   hostConfig = createTestHostConfig(),
+  // Default the System Monitor to pinned so its status + log render inline, as
+  // the home pane always did before the monitor was extracted. Most pane tests
+  // (and helpers like generateIdentityAndWaitForDb) assert on that inline
+  // status; the windowed launcher/pin behaviour is covered explicitly by
+  // SystemMonitor.test.tsx, which opts out with pinSystemMonitor: false.
+  pinSystemMonitor = true,
 }: {
   readonly hostConfig?: AppHostConfig | undefined;
+  readonly pinSystemMonitor?: boolean | undefined;
 } = {}): RenderResult {
+  // renderPane mounts the left pane; seed localStorage with the matching mode
+  // before render. cleanupPaneTestEnvironment() clears it after each test.
+  saveSystemMonitorMode(
+    systemMonitorModeStorageKey("left"),
+    pinSystemMonitor ? "pinned" : "windowed",
+  );
   return render(
     <DualPaneProvider>
       <PaneSideProvider side="left">

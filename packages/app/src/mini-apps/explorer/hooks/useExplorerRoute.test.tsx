@@ -50,6 +50,10 @@ const TEST_MINI_APPS = {
   },
   notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
   "org-manager": { createComponent: () => EmptyMiniApp, title: "Org Manager" },
+  "system-monitor": {
+    createComponent: () => EmptyMiniApp,
+    title: "System Monitor",
+  },
 } satisfies Readonly<Record<MiniAppId, MiniAppDefinition>>;
 
 afterEach(() => {

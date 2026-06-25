@@ -6,7 +6,8 @@ export type MiniAppId =
   | "explorer"
   | "identity-manager"
   | "notes"
-  | "org-manager";
+  | "org-manager"
+  | "system-monitor";
 
 export interface MiniAppDefinition {
   createComponent: () => ComponentType;

@@ -51,6 +51,10 @@ function createMiniApps(
       createComponent: () => orgManagerComponent,
       title: "Org Manager",
     },
+    "system-monitor": {
+      createComponent: () => EmptyMiniApp,
+      title: "System Monitor",
+    },
   };
 }
 

@@ -1,0 +1,53 @@
+/* Tab styling mirrors the Explorer info panels (.explorer-info-*) so the
+   System Monitor matches the established mini-app tab look. */
+.system-monitor-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  border-bottom: var(--border);
+}
+
+.system-monitor-tab {
+  min-width: 5rem;
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  margin-bottom: -1px;
+}
+
+.system-monitor-tab[aria-selected="true"] {
+  border-color: var(--color-dark);
+  border-bottom-color: var(--color-light);
+  background: var(--color-light);
+}
+
+.system-monitor-tab-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+
+/* Persistent launcher anchored to the lower-right of .pane-main. The high
+   z-index keeps it clickable above floating windows (which use small, run-time
+   incremented z-indexes). */
+.system-monitor-launcher {
+  position: absolute;
+  right: var(--space-md);
+  bottom: var(--space-md);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: var(--border-strong);
+  background: var(--color-light);
+  cursor: pointer;
+}
+
+.system-monitor-launcher:hover {
+  opacity: var(--opacity-muted);
+}
