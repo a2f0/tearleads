@@ -8,7 +8,7 @@ import {
 } from "../../components/shared/MiniAppRow";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { compactFingerprint } from "./display";
-import { ORG_MANAGER_LABELS } from "./labels";
+import { getOrgManagerAccountStatusLabel, ORG_MANAGER_LABELS } from "./labels";
 
 function formatNullableDate(value: string | null): string {
   return value ? formatMiniAppDate(value) : ORG_MANAGER_LABELS.none;
@@ -64,6 +64,10 @@ export function UserRosterMetadata({
         label={ORG_MANAGER_LABELS.signingKey}
         title={user.signingKeyFingerprint}
         value={compactFingerprint(user.signingKeyFingerprint)}
+      />
+      <RosterMetadataRow
+        label={ORG_MANAGER_LABELS.account}
+        value={getOrgManagerAccountStatusLabel(user.accountStatus)}
       />
       <RosterMetadataRow
         label={ORG_MANAGER_LABELS.joined}

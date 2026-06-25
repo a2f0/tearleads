@@ -418,6 +418,7 @@ test("organization manager responses", () => {
       currentUser: { isOrgAdmin: true },
       users: [
         {
+          accountStatus: "trialing",
           userId: "user-1",
           signingKeyFingerprint: "signing-fingerprint",
           signingPublicKey: "signing-key",
@@ -596,6 +597,7 @@ test("organization manager responses", () => {
     isOrganizationUserDetailResponse({
       organizationId: "org-1",
       user: {
+        accountStatus: "disabled",
         userId: "user-1",
         signingKeyFingerprint: "signing-fingerprint",
         signingPublicKey: "signing-key",

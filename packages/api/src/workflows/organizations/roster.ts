@@ -17,6 +17,7 @@ export function toOrganizationDirectoryUser(input: {
   readonly user: UserKeyRow;
 }): OrganizationDirectoryUserResponse {
   return {
+    accountStatus: input.user.accountStatus,
     userId: input.user.userId,
     signingKeyFingerprint: input.user.signingKeyFingerprint,
     signingPublicKey: input.user.signingPublicKey,
