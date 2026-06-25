@@ -1,8 +1,9 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { type AccountStatus, users } from "@tearleads/api-shared/schema";
 import { inArray } from "drizzle-orm";
 
 export interface UserKeyRow {
+  accountStatus: AccountStatus;
   userId: string;
   signingKeyFingerprint: string;
   signingPublicKey: string;
@@ -21,6 +22,7 @@ export async function loadUsersById(
 
   const rows = await executor
     .select({
+      accountStatus: users.accountStatus,
       userId: users.id,
       signingKeyFingerprint: users.fingerprint,
       signingPublicKey: users.signingPublicKey,

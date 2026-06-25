@@ -1,3 +1,5 @@
+import type { OrganizationDirectoryUser } from "@tearleads/client-sdk";
+
 export const ORG_MANAGER_LABELS = {
   add: "Add",
   addUser: "Add user",
@@ -7,6 +9,7 @@ export const ORG_MANAGER_LABELS = {
   accessRead: "Read",
   accessWrite: "Write",
   action: "Action",
+  account: "Account",
   active: "Active",
   back: "Back",
   builtIn: "Built-in",
@@ -111,6 +114,9 @@ export const ORG_MANAGER_LABELS = {
   subjectType: "Subject type",
   syncingOrganizationProfile: "Syncing organization profile...",
   syncingProfileDocument: "Syncing profile document...",
+  deleting: "Deleting",
+  purged: "Purged",
+  trial: "Free trial",
   uninitialized: "Uninitialized",
   updated: "Updated",
   usage: "Usage",
@@ -132,6 +138,25 @@ export const ORG_MANAGER_LABELS = {
   userId: "User ID",
   userNotFound: "User not found.",
 } as const;
+
+export function getOrgManagerAccountStatusLabel(
+  accountStatus: OrganizationDirectoryUser["accountStatus"],
+): string {
+  switch (accountStatus) {
+    case "trialing":
+      return ORG_MANAGER_LABELS.trial;
+    case "active":
+      return ORG_MANAGER_LABELS.active;
+    case "disabled":
+      return ORG_MANAGER_LABELS.disabled;
+    case "deleting":
+      return ORG_MANAGER_LABELS.deleting;
+    case "purged":
+      return ORG_MANAGER_LABELS.purged;
+    default:
+      return accountStatus;
+  }
+}
 
 export function getOrgManagerEpochLabel(keyEpoch: number): string {
   return `Epoch ${keyEpoch}`;

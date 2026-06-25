@@ -7,11 +7,13 @@ import {
   hasObjectProperty,
   hasStringProperty,
 } from "../util";
+import { type AccountStatus, isAccountStatus } from "./account";
 
 export type OrganizationRole = "member" | "admin";
 export type OrganizationRosterStatus = "active" | "disabled";
 
 export interface OrganizationDirectoryUserResponse {
+  accountStatus: AccountStatus;
   userId: string;
   signingKeyFingerprint: string;
   signingPublicKey: string;
@@ -190,6 +192,8 @@ export function isOrganizationDirectoryUserResponse(
 ): value is OrganizationDirectoryUserResponse {
   return (
     isPlainObject(value) &&
+    hasStringProperty(value, "accountStatus") &&
+    isAccountStatus(value.accountStatus) &&
     hasStringProperty(value, "userId") &&
     hasStringProperty(value, "signingKeyFingerprint") &&
     hasStringProperty(value, "signingPublicKey") &&

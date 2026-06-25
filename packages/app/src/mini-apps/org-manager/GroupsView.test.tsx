@@ -33,6 +33,7 @@ const customGroup: OrganizationGroupSummary = {
   name: "Operators",
 };
 const rosterUser = {
+  accountStatus: "active",
   createdAt: "2026-05-20T12:00:00.000Z",
   disabledAt: null,
   disabledByUserId: null,

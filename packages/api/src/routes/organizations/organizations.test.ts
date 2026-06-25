@@ -381,16 +381,13 @@ test("org manager routes keep disabled roster entries visible outside access gro
     "expected organization directory response",
   );
   expect(
-    directoryBody.users.map((user) => ({
-      disabledByUserId: user.disabledByUserId,
-      status: user.status,
-      userId: user.userId,
-    })),
-  ).toContainEqual({
-    disabledByUserId: actor.userId,
-    status: "disabled",
-    userId: disabledUser.userId,
-  });
+    directoryBody.users.map((user) => [
+      user.userId,
+      user.status,
+      user.accountStatus,
+      user.disabledByUserId,
+    ]),
+  ).toContainEqual([disabledUser.userId, "disabled", "trialing", actor.userId]);
 
   const detailResponse = await routeApp.request(
     `/organizations/${organizationId}/users/${disabledUser.userId}/detail`,

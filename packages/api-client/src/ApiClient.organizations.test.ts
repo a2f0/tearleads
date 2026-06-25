@@ -216,6 +216,7 @@ testApiClient(
           return HttpResponse.json({
             organizationId: "org-1",
             user: {
+              accountStatus: "trialing",
               userId: "user-1",
               signingKeyFingerprint: "signing-fingerprint",
               signingPublicKey: "signing-key",
@@ -268,6 +269,7 @@ testApiClient(
         }
         if (request.url.endsWith("/roster/user-1")) {
           return HttpResponse.json({
+            accountStatus: "trialing",
             userId: "user-1",
             signingKeyFingerprint: "signing-fingerprint",
             signingPublicKey: "signing-key",

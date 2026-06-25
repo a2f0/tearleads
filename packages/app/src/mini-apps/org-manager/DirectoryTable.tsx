@@ -20,7 +20,7 @@ import {
 } from "../../components/shared/MiniAppVirtual";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "./display";
-import { ORG_MANAGER_LABELS } from "./labels";
+import { getOrgManagerAccountStatusLabel, ORG_MANAGER_LABELS } from "./labels";
 
 export type DirectoryContextMenuHandler = (
   event: MouseEvent<HTMLElement>,
@@ -34,12 +34,17 @@ const DIRECTORY_TABLE_COLUMNS = [
   {
     id: "user",
     header: ORG_MANAGER_LABELS.user,
-    width: "48%",
+    width: "42%",
   },
   {
     id: "status",
     header: ORG_MANAGER_LABELS.status,
     width: "7rem",
+  },
+  {
+    id: "account",
+    header: ORG_MANAGER_LABELS.account,
+    width: "7.5rem",
   },
   {
     className: "org-manager-directory-joined-column",
@@ -170,6 +175,11 @@ export function DirectoryTable({
                   {user.status === "disabled"
                     ? ORG_MANAGER_LABELS.disabled
                     : ORG_MANAGER_LABELS.active}
+                </MiniAppTableText>
+              </MiniAppTableCell>
+              <MiniAppTableCell>
+                <MiniAppTableText>
+                  {getOrgManagerAccountStatusLabel(user.accountStatus)}
                 </MiniAppTableText>
               </MiniAppTableCell>
               <MiniAppTableCell className="org-manager-directory-joined-column">
