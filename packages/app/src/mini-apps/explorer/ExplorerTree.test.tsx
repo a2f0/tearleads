@@ -22,11 +22,11 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useExplorerSidebarPanel } from "./ExplorerTree";
 import {
   buildExplorerTree,
   getExplorerSidebarWindowRange,
-  useExplorerSidebarPanel,
-} from "./ExplorerTree";
+} from "./explorerTreeModel";
 
 const resizeObserverGlobal = globalThis as unknown as {
   ResizeObserver?: unknown;

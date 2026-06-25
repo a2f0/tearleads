@@ -10,7 +10,7 @@ import {
   canCreateStructuredDocumentInContainerByRules,
   createExplorerContainerRulesContext,
 } from "../containerRules";
-import { buildExplorerTree } from "../ExplorerTree";
+import { buildExplorerTree } from "../explorerTreeModel";
 import type {
   ExplorerDocumentMutationAction,
   ExplorerModelExplorer,

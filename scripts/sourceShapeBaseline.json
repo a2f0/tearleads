@@ -169,10 +169,6 @@
       "lines": 692,
       "bytes": 19306
     },
-    "packages/app/src/mini-apps/explorer/ExplorerTree.tsx": {
-      "lines": 1156,
-      "bytes": 32410
-    },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
       "lines": 1226,
       "bytes": 34998
@@ -325,9 +321,6 @@
     "packages/app/src/mini-apps/explorer/Explorer.tsx": {
       "biomeIgnore": 1
     },
-    "packages/app/src/mini-apps/explorer/ExplorerTree.tsx": {
-      "biomeIgnore": 1
-    },
     "packages/app/src/mini-apps/explorer/detail/ExplorerDetailPanel.tsx": {
       "biomeIgnore": 1
     },
@@ -335,6 +328,9 @@
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/explorer/hooks/useExplorerPanelState.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/explorer/useExplorerSidebarWindows.ts": {
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
