@@ -255,6 +255,7 @@ export function Explorer() {
           model.contextMenuState.canDeleteContextMenuNode
         }
         canMoveContextMenuNode={model.contextMenuState.canMoveContextMenuNode}
+        canPurgeContextMenuNode={model.contextMenuState.canPurgeContextMenuNode}
         canRenameContextMenuNode={
           model.contextMenuState.canRenameContextMenuNode
         }
@@ -278,6 +279,7 @@ export function Explorer() {
           model.routeState.openNewStructuredDocumentRoute
         }
         openNewContactDocument={openNewContactDocument}
+        openPurgeModal={model.modalState.openPurgeModal}
         openRenameModal={model.modalState.openRenameModal}
         purgeDocument={model.purgeDocument}
         selectContainer={model.routeState.selectExplorerItem}

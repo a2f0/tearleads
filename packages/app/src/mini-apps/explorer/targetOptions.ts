@@ -1,6 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import {
   canAddDocumentToContainerByRules,
+  canCreateChildContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
@@ -115,6 +116,17 @@ export function getMoveTargetOptions(
       if (
         candidateNode.id === movingNode.id ||
         candidateNode.organizationId !== movingNode.organizationId
+      ) {
+        return false;
+      }
+
+      // A destination that forbids child containers (e.g. Trash, Contacts) is
+      // not a valid move target — moving a folder into it would otherwise
+      // bypass protectFromChildContainerCreation, the same destination gate
+      // document moves already enforce via canAddDocumentToContainerByRules.
+      if (
+        rulesContext &&
+        !canCreateChildContainerByRules(rulesContext, candidateNode)
       ) {
         return false;
       }

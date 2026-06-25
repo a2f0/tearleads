@@ -8,6 +8,7 @@ import {
   getDocumentLinkTargetOptions,
   getDocumentMoveTargetOptions,
   getMoveTargetOptions,
+  type MoveTargetOption,
 } from "../targetOptions";
 import {
   type ExplorerModalSubmitParams,
@@ -169,6 +170,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
     moveDocument,
     nodes,
     peerUserId,
+    purgeContainer,
     renameContainer,
     setBackgroundActionError,
     setIsSubmittingModal,
@@ -202,6 +204,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
           moveDocument,
           nodes,
           peerUserId,
+          purgeContainer,
           renameContainer,
           setBackgroundActionError,
           setModalError,
@@ -229,6 +232,7 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
       moveDocument,
       nodes,
       peerUserId,
+      purgeContainer,
       renameContainer,
       setBackgroundActionError,
       setIsSubmittingModal,
@@ -305,6 +309,19 @@ export function useExplorerModalController(
     setModalError: modalState.setModalError,
   });
 
+  return buildExplorerModalController({
+    handleModalSubmit,
+    modalState,
+    moveTargetOptions,
+  });
+}
+
+function buildExplorerModalController(params: {
+  handleModalSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  modalState: ReturnType<typeof useExplorerModalState>;
+  moveTargetOptions: ReadonlyArray<MoveTargetOption>;
+}): ExplorerModalController {
+  const { handleModalSubmit, modalState, moveTargetOptions } = params;
   return {
     backgroundActionError: modalState.backgroundActionError,
     closeModal: modalState.closeModal,
@@ -321,6 +338,7 @@ export function useExplorerModalController(
     openLinkDocumentModal: modalState.openLinkDocumentModal,
     openMoveDocumentModal: modalState.openMoveDocumentModal,
     openMoveModal: modalState.openMoveModal,
+    openPurgeModal: modalState.openPurgeModal,
     openRenameModal: modalState.openRenameModal,
     openSharePeerModal: modalState.openSharePeerModal,
     setDraftName: modalState.setDraftName,

@@ -18,6 +18,7 @@ export interface ExplorerModelExplorer {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
+  purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
   renameContainer: (
     containerId: string,

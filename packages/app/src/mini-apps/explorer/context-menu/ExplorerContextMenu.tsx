@@ -4,6 +4,7 @@ import {
   type ContextMenuState,
   useContextMenuState,
 } from "../../../components/shared/useContextMenuState";
+import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
@@ -31,13 +32,17 @@ function getExplorerContextMenuNodeCapabilities(params: {
   contextMenuNode: ContainerNode | undefined;
   contextMenuNodeHasChildren: boolean;
   contextMenuNodeMoveTargets: ReadonlyArray<unknown>;
+  nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
+  trashContainerId: string | null;
 }) {
   const {
     contextMenuNode,
     contextMenuNodeHasChildren,
     contextMenuNodeMoveTargets,
+    nodes,
     rulesContext,
+    trashContainerId,
   } = params;
 
   return {
@@ -56,6 +61,21 @@ function getExplorerContextMenuNodeCapabilities(params: {
       !contextMenuNodeHasChildren &&
       canDeleteContainerByRules(rulesContext, contextMenuNode),
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
+    // "Delete Forever" is offered for a user folder that has been moved into
+    // trash (the root or a subfolder of it). The trash folder itself is a system
+    // container and is excluded by the system-slot guard, leaving only the user
+    // folders nested under trash — which is exactly what should be purgeable. A
+    // non-empty folder is still purgeable (the cascade tears it down), so there
+    // is no has-children gate here.
+    canPurgeContextMenuNode:
+      contextMenuNode !== undefined &&
+      contextMenuNode.parentId !== null &&
+      (contextMenuNode.systemSlot ?? null) === null &&
+      isExplorerContainerUnderTrash(
+        nodes,
+        contextMenuNode.id,
+        trashContainerId,
+      ),
     canRenameContextMenuNode:
       contextMenuNode !== undefined &&
       canRenameContainerByRules(rulesContext, contextMenuNode),
@@ -91,6 +111,7 @@ export function useExplorerContextMenu(
   selectContainer: (id: string | null) => void,
   selectDocumentProjection: (localId: string, containerId: string) => void,
   rulesContext: ExplorerContainerRulesContext,
+  trashContainerId: string | null,
 ) {
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<ExplorerContextMenuTarget>();
@@ -166,7 +187,9 @@ export function useExplorerContextMenu(
     contextMenuNode,
     contextMenuNodeHasChildren,
     contextMenuNodeMoveTargets,
+    nodes,
     rulesContext,
+    trashContainerId,
   });
 
   return {

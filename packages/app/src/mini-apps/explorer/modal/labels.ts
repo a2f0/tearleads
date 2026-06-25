@@ -16,6 +16,8 @@ export function getExplorerModalError(
       return "Failed to move container.";
     case "move-document":
       return "Failed to move document.";
+    case "purge":
+      return "Failed to delete container forever.";
     case "share-peer":
       return "Failed to share container with peer.";
   }
@@ -35,6 +37,8 @@ export function getExplorerModalLog(mode: ExplorerModalState["mode"]): string {
       return "Failed to move container:";
     case "move-document":
       return "Failed to move document:";
+    case "purge":
+      return "Failed to delete container forever:";
     case "share-peer":
       return "Failed to share container with peer:";
   }
@@ -50,6 +54,8 @@ export function getExplorerModalTitle(modalState: ExplorerModalState): string {
       return "Move Container";
     case "move-document":
       return "Move Document";
+    case "purge":
+      return "Delete Container Forever";
     case "share-peer":
       return "Share Container";
     case "rename":
@@ -73,6 +79,8 @@ export function getExplorerModalSubmitLabel(
         return "Move";
       case "move-document":
         return "Move";
+      case "purge":
+        return "Delete Forever";
       case "share-peer":
         return "Share";
       case "rename":
@@ -91,6 +99,8 @@ export function getExplorerModalSubmitLabel(
       return "Moving...";
     case "move-document":
       return "Moving...";
+    case "purge":
+      return "Deleting...";
     case "share-peer":
       return "Sharing...";
     case "rename":

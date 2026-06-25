@@ -14,6 +14,7 @@ import {
   shareContainerWithGroup,
   shareContainerWithUser,
 } from "./operations";
+import { purgeContainer } from "./purgeContainerOperation";
 import {
   createContainerContentsStoreState,
   subscribeToContainerContentsStore,
@@ -108,6 +109,16 @@ function createContainerContentsStoreEntry(
           .catch(() => null)
           .then(() => deleteContainer(state, containerId));
         return state.writeChain.then((deletedNode) => deletedNode !== null);
+      },
+      purgeContainer: (containerId: string) => {
+        // purgeContainer resolves to a boolean rather than a node, so capture
+        // its result on a side promise while still serializing it through the
+        // write chain (which only carries ContainerNode | null).
+        const purged = state.writeChain
+          .catch(() => null)
+          .then(() => purgeContainer(state, containerId));
+        state.writeChain = purged.then(() => null);
+        return purged;
       },
       ensureSystemContainer: (systemSlot, name, options) => {
         state.writeChain = state.writeChain

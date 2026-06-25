@@ -39,6 +39,7 @@ function createSubmitParams(
     moveDocument: async () => null,
     nodes: [containerNode],
     peerUserId: null,
+    purgeContainer: async () => false,
     renameContainer: async () => null,
     setBackgroundActionError: () => undefined,
     setModalError: () => undefined,
@@ -137,6 +138,62 @@ test("delete modal clears before the container delete resolves", async () => {
   await Promise.resolve();
 
   expect(calls).toEqual(["select:root-container", "clear"]);
+});
+
+test("purge modal clears before the container purge resolves and navigates to the parent", async () => {
+  const purgeDeferred = createDeferred<boolean>();
+  const calls: string[] = [];
+
+  await submitExplorerModalAction(
+    createSubmitParams({
+      clearModal: () => {
+        calls.push("clear");
+      },
+      modalState: { mode: "purge", nodeId: "container-1" },
+      purgeContainer: () => purgeDeferred.promise,
+      setSelectedId: (id) => {
+        calls.push(`select:${id}`);
+      },
+    }),
+  );
+
+  expect(calls).toEqual(["select:root-container", "clear"]);
+
+  purgeDeferred.resolve(true);
+  await purgeDeferred.promise;
+  await Promise.resolve();
+
+  expect(calls).toEqual(["select:root-container", "clear"]);
+});
+
+test("purge modal surfaces a background failure after closing", async () => {
+  const purgeDeferred = createDeferred<boolean>();
+  const backgroundErrors: Array<string | null> = [];
+  const previousConsoleError = console.error;
+  console.error = () => undefined;
+
+  try {
+    await submitExplorerModalAction(
+      createSubmitParams({
+        clearModal: () => undefined,
+        modalState: { mode: "purge", nodeId: "container-1" },
+        purgeContainer: () => purgeDeferred.promise,
+        setBackgroundActionError: (error) => {
+          backgroundErrors.push(error);
+        },
+      }),
+    );
+
+    expect(backgroundErrors).toEqual([]);
+
+    purgeDeferred.resolve(false);
+    await purgeDeferred.promise;
+    await Promise.resolve();
+
+    expect(backgroundErrors).toEqual(["Failed to delete container forever."]);
+  } finally {
+    console.error = previousConsoleError;
+  }
 });
 
 test("background modal failures are surfaced after the modal closes", async () => {

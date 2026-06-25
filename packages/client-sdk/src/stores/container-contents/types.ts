@@ -47,6 +47,7 @@ export interface ContainerContentsContextValue {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
+  purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
   requestSync: () => void;
   renameContainer: (
@@ -83,6 +84,7 @@ export interface ContainerContentsStore {
     containerId: string,
     parentId: string,
   ) => Promise<ContainerNode | null>;
+  purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
   requestSync: () => void;
   renameContainer: (

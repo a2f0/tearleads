@@ -65,6 +65,7 @@ function renderController(documentSummaries: ReadonlyArray<DocumentSummary>) {
       moveDocument: async () => null,
       nodes,
       peerUserId: null,
+      purgeContainer: async () => false,
       renameContainer: async () => null,
       rulesContext,
       setSelectedId: () => undefined,
