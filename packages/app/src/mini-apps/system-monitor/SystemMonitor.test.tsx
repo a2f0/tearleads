@@ -1,16 +1,55 @@
 import { afterEach, expect, test } from "bun:test";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
+  createTestHostConfig,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
 } from "../../../test/helpers/paneTestUtils";
+import {
+  DualPaneProvider,
+  PaneSideProvider,
+} from "../../components/pane/DualPaneProvider";
+import { Pane } from "../../components/pane/Pane";
+import { PaneProvider } from "../../components/pane/PaneProvider";
 import { systemMonitorModeStorageKey } from "./systemMonitorMode";
 
-afterEach(cleanupPaneTestEnvironment);
+afterEach(async () => {
+  await cleanupPaneTestEnvironment();
+  window.history.replaceState(null, "", "/");
+});
 
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
+
+function spyPushState(onPush: (url: string | URL | null | undefined) => void) {
+  const originalPushState = window.history.pushState;
+  window.history.pushState = function pushStateSpy(
+    data: unknown,
+    unused: string,
+    url?: string | URL | null,
+  ) {
+    onPush(url);
+    return originalPushState.call(window.history, data, unused, url);
+  };
+  return () => {
+    window.history.pushState = originalPushState;
+  };
+}
+
+function renderRoutedPane() {
+  window.history.replaceState(null, "", "/");
+
+  return render(
+    <DualPaneProvider>
+      <PaneSideProvider side="left">
+        <PaneProvider hostConfig={createTestHostConfig()}>
+          <Pane className="pane" navigationMode="routed" routedVisible />
+        </PaneProvider>
+      </PaneSideProvider>
+    </DualPaneProvider>,
+  );
+}
 
 test("home pane hides the monitor inline and exposes a launcher by default", () => {
   const view = renderPane({ pinSystemMonitor: false });
@@ -77,6 +116,42 @@ test("tabs follow the roving-tabindex pattern and arrow keys switch tabs", async
   });
 
   view.unmount();
+});
+
+test("routed system monitor launches from nav and tabs update the path", async () => {
+  const pushedUrls: Array<string | URL | null | undefined> = [];
+  const restorePushState = spyPushState((url) => pushedUrls.push(url));
+  const view = renderRoutedPane();
+
+  try {
+    fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
+
+    const logsTab = await view.findByRole("tab", { name: "Logs" });
+    expect(logsTab.getAttribute("aria-selected")).toBe("true");
+    expect(pushedUrls.at(-1)).toBe("/app/system-monitor");
+
+    fireEvent.click(view.getByRole("tab", { name: "Status" }));
+
+    await waitFor(() => {
+      expect(pushedUrls.at(-1)).toBe("/app/system-monitor/status");
+      expect(
+        view.getByRole("tab", { name: "Status" }).getAttribute("aria-selected"),
+      ).toBe("true");
+    });
+    expect(view.getByText(/sqlite worker:/)).toBeTruthy();
+
+    fireEvent.click(view.getByRole("tab", { name: "Logs" }));
+
+    await waitFor(() => {
+      expect(pushedUrls.at(-1)).toBe("/app/system-monitor");
+      expect(
+        view.getByRole("tab", { name: "Logs" }).getAttribute("aria-selected"),
+      ).toBe("true");
+    });
+  } finally {
+    restorePushState();
+    view.unmount();
+  }
 });
 
 test("pin to desktop closes the window, renders inline, and persists the choice", async () => {
