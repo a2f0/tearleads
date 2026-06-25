@@ -22,10 +22,21 @@ const quietLogger: TestLogger = {
   logError: () => undefined,
 };
 
+const account = {
+  disabledAt: null,
+  purgeAfter: null,
+  purgeStartedAt: null,
+  purgedAt: null,
+  remoteDataEpoch: 1,
+  status: "trialing" as const,
+  trialEndsAt: "2026-06-08T00:00:00.000Z",
+};
+
 type FakeSessionApi = Pick<
   ApiClient,
   | "authenticate"
   | "authenticateWithChallenge"
+  | "clearWriterProjectionCaches"
   | "destroySession"
   | "getAuthToken"
   | "listSessions"
@@ -51,6 +62,7 @@ function createApi(
   const api: FakeSessionApi = {
     authenticate: async () => null,
     authenticateWithChallenge: async () => null,
+    clearWriterProjectionCaches: () => undefined,
     destroySession: async () => null,
     getAuthToken: () => authToken,
     listSessions: async () => null,
@@ -128,6 +140,7 @@ describe("session", () => {
         );
 
         return {
+          account,
           challenge: "a".repeat(64),
           organizationId,
           rootContainerId,
@@ -159,6 +172,7 @@ describe("session", () => {
 
       expect(registerUserCalls).toBe(1);
       expect(result).toEqual({
+        account,
         challenge: "a".repeat(64),
         containerId,
         organizationId: expect.any(String),
@@ -220,6 +234,7 @@ describe("session", () => {
       authenticate: async () => {
         authenticateCalls += 1;
         return {
+          account,
           authenticated: true,
           organizationId: "org-1",
           token: "test-token",
@@ -238,6 +253,7 @@ describe("session", () => {
     expect(session.isAuthenticated).toBe(true);
     expect(session.organizationId).toBe("org-1");
     expect(session.userId).toBe("user-1");
+    expect(session.account).toEqual(account);
   });
 
   test("login fails when authentication returns no token", async () => {

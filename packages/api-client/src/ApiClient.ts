@@ -681,13 +681,7 @@ export class ApiClient {
       { retryOnSessionExpired: false },
     );
 
-    return response?.authenticated
-      ? {
-          organizationId: response.organizationId,
-          token: response.token,
-          userId: response.userId,
-        }
-      : null;
+    return response?.authenticated ? response : null;
   }
 
   getEncapsulationKey(userId: string) {

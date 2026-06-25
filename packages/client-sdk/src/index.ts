@@ -359,6 +359,7 @@ export {
   registerIdentity,
 } from "./workflows/registration";
 export type {
+  ClearRemoteSyncStateResult,
   DomainSyncCoordinator,
   DomainSyncSnapshot,
   SyncIdleOptions,
@@ -370,6 +371,7 @@ export type {
   SyncLaneStatus,
 } from "./workflows/sync";
 export {
+  clearRemoteSyncState,
   getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,

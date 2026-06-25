@@ -1,4 +1,5 @@
-import { pgTable, text, timestamp, uuid } from "./columns";
+import { integer, pgTable, text, timestamp, uuid } from "./columns";
+import type { AccountStatus } from "./shared";
 
 /**
  * Registered human users and their long-lived public key material.
@@ -21,6 +22,16 @@ import { pgTable, text, timestamp, uuid } from "./columns";
  *   value.
  * - `defaultOrganizationId`: Personal/default organization created during
  *   registration and used as the user's initial organization boundary.
+ * - `accountStatus`: Lifecycle state for paid-account enforcement. Trialing
+ *   and active accounts can use paid sync/org routes; disabled, deleting, and
+ *   purged accounts cannot.
+ * - `trialEndsAt`: Server-side timestamp when the initial free trial ends.
+ * - `disabledAt` / `purgeAfter`: Set when the account becomes disabled. The
+ *   purge job may delete remote account data after `purgeAfter`.
+ * - `purgeStartedAt` / `purgedAt`: Purge job progress markers. The user/key row
+ *   remains after purge so a later payment flow can reactivate the identity.
+ * - `remoteDataEpoch`: Monotonic generation for server-side sync data. It
+ *   increments after purge so clients can discard stale sync state.
  * - `createdAt`: Server-side registration timestamp.
  *
  * Indexes:
@@ -34,5 +45,15 @@ export const users = pgTable("users", {
   encapsulationPublicKey: text("encapsulation_public_key").notNull(),
   encapsulationKeyFingerprint: text("encapsulation_key_fingerprint").notNull(),
   defaultOrganizationId: uuid("default_organization_id").notNull(),
+  accountStatus: text("account_status")
+    .$type<AccountStatus>()
+    .default("trialing")
+    .notNull(),
+  trialEndsAt: timestamp("trial_ends_at").defaultNow().notNull(),
+  disabledAt: timestamp("disabled_at"),
+  purgeAfter: timestamp("purge_after"),
+  purgeStartedAt: timestamp("purge_started_at"),
+  purgedAt: timestamp("purged_at"),
+  remoteDataEpoch: integer("remote_data_epoch").default(1).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

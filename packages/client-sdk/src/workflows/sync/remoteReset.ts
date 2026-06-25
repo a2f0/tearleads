@@ -1,0 +1,403 @@
+import { base64ToBytes } from "@tearleads/encoding";
+import {
+  createDocument,
+  exportAllUpdates,
+  importSnapshot,
+} from "@tearleads/loro";
+import { createPendingUpdateFields } from "../../data/documentSync";
+import { getDocumentAttachments } from "../../data/documents/documentContent";
+import {
+  clientSqlTables,
+  containerCreateIntents,
+  containerMoveIntents,
+  containerSyncLaneChecks,
+  containerSyncWatermarks,
+  containers,
+  documentAttachmentBlobProjection,
+  documentContainerProjection,
+  documentMoveIntents,
+  documentPendingAttachments,
+  documentPendingUpdates,
+  documentProjection,
+  documents,
+  principalPolicies,
+} from "../../data/sqlite/schema";
+import {
+  type ClientSQLiteTransaction,
+  getClientSQLitePersistenceRuntime,
+} from "../../data/sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+
+const CONTAINER_CREATE_INTENT_TYPE = "container.create";
+
+interface ResetDocumentUpdate {
+  readonly appKind: string;
+  readonly localId: string;
+  readonly updateData: string;
+  readonly partialStartVersionVector: string;
+  readonly partialEndVersionVector: string;
+  readonly sourceVersionVector: string | null;
+}
+
+interface ResetAttachmentUpload {
+  readonly byteLength: number;
+  readonly localId: string;
+  readonly mimeType: string | null;
+  readonly name: string;
+  readonly slotId: string;
+  readonly storageKey: string;
+}
+
+interface ResetContainerRow {
+  readonly id: string | null;
+  readonly parentId: string | null;
+}
+
+interface RemoteSyncStateSnapshot {
+  readonly clearedContainerCreateIntentCount: number;
+  readonly clearedContainerMoveIntentCount: number;
+  readonly clearedDocumentMoveIntentCount: number;
+  readonly clearedPrincipalPolicyCount: number;
+  readonly clearedSyncCursorCount: number;
+  readonly containerRows: ResetContainerRow[];
+  readonly resetDocumentCount: number;
+}
+
+export interface ClearRemoteSyncStateResult {
+  readonly clearedContainerCreateIntentCount: number;
+  readonly clearedContainerMoveIntentCount: number;
+  readonly clearedDocumentMoveIntentCount: number;
+  readonly clearedPrincipalPolicyCount: number;
+  readonly clearedSyncCursorCount: number;
+  readonly queuedAttachmentUploadCount: number;
+  readonly queuedContainerCreateCount: number;
+  readonly queuedDocumentUpdateCount: number;
+  readonly resetContainerCount: number;
+  readonly resetDocumentCount: number;
+}
+
+async function buildResetUpdate(input: {
+  appKind: string;
+  localId: string;
+  loroSnapshot: string;
+}): Promise<ResetDocumentUpdate | null> {
+  const doc = await createDocument(
+    `remote-reset:${input.appKind}:${input.localId}`,
+  );
+  if (input.loroSnapshot.length > 0) {
+    importSnapshot(doc, base64ToBytes(input.loroSnapshot));
+  }
+
+  const fields = createPendingUpdateFields(exportAllUpdates(doc));
+  if (!fields) {
+    return null;
+  }
+
+  return {
+    appKind: input.appKind,
+    localId: input.localId,
+    updateData: fields.updateData,
+    partialStartVersionVector: fields.partialStartVersionVector,
+    partialEndVersionVector: fields.partialEndVersionVector,
+    sourceVersionVector: fields.sourceVersionVector ?? null,
+  };
+}
+
+async function buildDocumentAttachmentNameMap(input: {
+  localId: string;
+  loroSnapshot: string;
+}): Promise<Map<string, string>> {
+  const doc = await createDocument(`remote-reset-attachments:${input.localId}`);
+  if (input.loroSnapshot.length > 0) {
+    importSnapshot(doc, base64ToBytes(input.loroSnapshot));
+  }
+
+  return new Map(
+    getDocumentAttachments(doc).map((attachment) => [
+      attachment.slotId,
+      attachment.name,
+    ]),
+  );
+}
+
+async function buildResetPlans(execSql: ExecSql): Promise<{
+  readonly attachmentUploads: ResetAttachmentUpload[];
+  readonly documentUpdates: ResetDocumentUpdate[];
+}> {
+  const { db } = getClientSQLitePersistenceRuntime(execSql);
+  const documentRows = await db
+    .select({
+      appKind: documents.appKind,
+      localId: documents.localId,
+      loroSnapshot: documents.loroSnapshot,
+    })
+    .from(documents);
+  const attachmentRows = await db
+    .select({
+      byteLength: documentAttachmentBlobProjection.byteLength,
+      localId: documentAttachmentBlobProjection.localId,
+      mimeType: documentAttachmentBlobProjection.mimeType,
+      slotId: documentAttachmentBlobProjection.slotId,
+      storageKey: documentAttachmentBlobProjection.storageKey,
+    })
+    .from(documentAttachmentBlobProjection);
+  const documentByLocalId = new Map(
+    documentRows.map((row) => [row.localId, row]),
+  );
+  const documentUpdates = (
+    await Promise.all(documentRows.map((row) => buildResetUpdate(row)))
+  ).filter((row): row is ResetDocumentUpdate => row !== null);
+  const attachmentNameMaps = new Map<string, Map<string, string>>();
+  const attachmentLocalIds = [
+    ...new Set(attachmentRows.map((attachment) => attachment.localId)),
+  ];
+  await Promise.all(
+    attachmentLocalIds.map(async (localId) => {
+      const document = documentByLocalId.get(localId);
+      if (!document) {
+        return;
+      }
+      attachmentNameMaps.set(
+        localId,
+        await buildDocumentAttachmentNameMap(document),
+      );
+    }),
+  );
+
+  const attachmentUploads = attachmentRows.map((attachment) => ({
+    byteLength: attachment.byteLength,
+    localId: attachment.localId,
+    mimeType: attachment.mimeType,
+    name:
+      attachmentNameMaps.get(attachment.localId)?.get(attachment.slotId) ??
+      attachment.slotId,
+    slotId: attachment.slotId,
+    storageKey: attachment.storageKey,
+  }));
+
+  return { attachmentUploads, documentUpdates };
+}
+
+async function readRemoteSyncStateSnapshot(
+  tx: ClientSQLiteTransaction,
+): Promise<RemoteSyncStateSnapshot> {
+  const containerRows = await tx
+    .select({ id: containers.id, parentId: containers.parentId })
+    .from(containers);
+  const principalPolicyRows = await tx
+    .select({ principalId: principalPolicies.principalId })
+    .from(principalPolicies);
+  const documentMoveIntentRows = await tx
+    .select({ id: documentMoveIntents.id })
+    .from(documentMoveIntents);
+  const containerMoveIntentRows = await tx
+    .select({ id: containerMoveIntents.id })
+    .from(containerMoveIntents);
+  const containerCreateIntentRows = await tx
+    .select({ id: containerCreateIntents.id })
+    .from(containerCreateIntents);
+  const syncWatermarkRows = await tx
+    .select({ laneId: containerSyncWatermarks.laneId })
+    .from(containerSyncWatermarks);
+  const syncLaneCheckRows = await tx
+    .select({ laneId: containerSyncLaneChecks.laneId })
+    .from(containerSyncLaneChecks);
+  const documentRows = await tx
+    .select({ appKind: documents.appKind, localId: documents.localId })
+    .from(documents);
+
+  return {
+    clearedContainerCreateIntentCount: containerCreateIntentRows.length,
+    clearedContainerMoveIntentCount: containerMoveIntentRows.length,
+    clearedDocumentMoveIntentCount: documentMoveIntentRows.length,
+    clearedPrincipalPolicyCount: principalPolicyRows.length,
+    clearedSyncCursorCount: syncWatermarkRows.length + syncLaneCheckRows.length,
+    containerRows,
+    resetDocumentCount: documentRows.length,
+  };
+}
+
+async function clearRemoteDerivedRows(
+  tx: ClientSQLiteTransaction,
+): Promise<void> {
+  await tx.delete(principalPolicies).run();
+  await tx.delete(documentContainerProjection).run();
+  await tx.delete(documentMoveIntents).run();
+  await tx.delete(containerMoveIntents).run();
+  await tx.delete(containerSyncWatermarks).run();
+  await tx.delete(containerSyncLaneChecks).run();
+  await tx.delete(containerCreateIntents).run();
+  await tx.delete(documentPendingUpdates).run();
+}
+
+async function resetRemoteColumns(
+  tx: ClientSQLiteTransaction,
+  now: string,
+): Promise<void> {
+  await tx
+    .update(documents)
+    .set({
+      accessEpoch: 1,
+      accessStateHash: null,
+      contentKeyBundle: null,
+      documentId: null,
+      documentKekTargets: null,
+      documentManifestBundle: null,
+      lastCommitLsn: null,
+      updatedAt: now,
+    })
+    .run();
+  await tx.update(documentProjection).set({ documentId: null }).run();
+  await tx
+    .update(containers)
+    .set({
+      metadataDocumentId: null,
+      organizationId: "",
+      serverCreatedAt: null,
+      serverUpdatedAt: null,
+      localUpdatedAt: now,
+    })
+    .run();
+}
+
+async function queueResetDocumentUpdates(input: {
+  documentUpdates: readonly ResetDocumentUpdate[];
+  now: string;
+  tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  if (input.documentUpdates.length === 0) {
+    return;
+  }
+
+  await input.tx
+    .insert(documentPendingUpdates)
+    .values(
+      input.documentUpdates.map((update) => ({
+        id: crypto.randomUUID(),
+        appKind: update.appKind,
+        localId: update.localId,
+        updateData: update.updateData,
+        partialStartVersionVector: update.partialStartVersionVector,
+        partialEndVersionVector: update.partialEndVersionVector,
+        sourceVersionVector: update.sourceVersionVector,
+        createdAt: input.now,
+      })),
+    )
+    .run();
+}
+
+async function queueResetContainerCreates(input: {
+  containerRows: readonly ResetContainerRow[];
+  now: string;
+  tx: ClientSQLiteTransaction;
+}): Promise<number> {
+  const containerRows = input.containerRows.filter(
+    (
+      container,
+    ): container is ResetContainerRow & {
+      readonly id: string;
+      readonly parentId: string;
+    } => container.id !== null && container.parentId !== null,
+  );
+  if (containerRows.length === 0) {
+    return 0;
+  }
+
+  await input.tx
+    .insert(containerCreateIntents)
+    .values(
+      containerRows.map((container) => ({
+        id: crypto.randomUUID(),
+        containerId: container.id,
+        parentContainerId: container.parentId,
+        intentType: CONTAINER_CREATE_INTENT_TYPE,
+        syncStatus: "pending" as const,
+        remoteContainerId: null,
+        remoteMetadataAccessStateHash: null,
+        remoteMetadataDocumentId: null,
+        lastError: null,
+        createdAt: input.now,
+        updatedAt: input.now,
+      })),
+    )
+    .run();
+
+  return containerRows.length;
+}
+
+async function queueResetAttachmentUploads(input: {
+  attachmentUploads: readonly ResetAttachmentUpload[];
+  now: string;
+  tx: ClientSQLiteTransaction;
+}): Promise<void> {
+  if (input.attachmentUploads.length > 0) {
+    await input.tx
+      .insert(documentPendingAttachments)
+      .values(
+        input.attachmentUploads.map((attachment) => ({
+          byteLength: attachment.byteLength,
+          createdAt: input.now,
+          localId: attachment.localId,
+          mimeType: attachment.mimeType,
+          name: attachment.name,
+          slotId: attachment.slotId,
+          storageKey: attachment.storageKey,
+        })),
+      )
+      .onConflictDoNothing({
+        target: [
+          documentPendingAttachments.localId,
+          documentPendingAttachments.slotId,
+        ],
+      })
+      .run();
+  }
+
+  await input.tx.delete(documentAttachmentBlobProjection).run();
+}
+
+async function clearRemoteSyncStateInTransaction(input: {
+  plans: Awaited<ReturnType<typeof buildResetPlans>>;
+  tx: ClientSQLiteTransaction;
+}): Promise<ClearRemoteSyncStateResult> {
+  const now = new Date().toISOString();
+  const snapshot = await readRemoteSyncStateSnapshot(input.tx);
+  await clearRemoteDerivedRows(input.tx);
+  await resetRemoteColumns(input.tx, now);
+  await queueResetDocumentUpdates({
+    documentUpdates: input.plans.documentUpdates,
+    now,
+    tx: input.tx,
+  });
+  const queuedContainerCreateCount = await queueResetContainerCreates({
+    containerRows: snapshot.containerRows,
+    now,
+    tx: input.tx,
+  });
+  await queueResetAttachmentUploads({
+    attachmentUploads: input.plans.attachmentUploads,
+    now,
+    tx: input.tx,
+  });
+  const { containerRows, ...counts } = snapshot;
+
+  return {
+    ...counts,
+    queuedAttachmentUploadCount: input.plans.attachmentUploads.length,
+    queuedContainerCreateCount,
+    queuedDocumentUpdateCount: input.plans.documentUpdates.length,
+    resetContainerCount: containerRows.length,
+  };
+}
+
+export async function clearRemoteSyncState(
+  execSql: ExecSql,
+): Promise<ClearRemoteSyncStateResult> {
+  await ensureSqlTables(execSql, clientSqlTables);
+  const plans = await buildResetPlans(execSql);
+
+  return getClientSQLitePersistenceRuntime(execSql).transaction((tx) =>
+    clearRemoteSyncStateInTransaction({ plans, tx }),
+  );
+}

@@ -5,7 +5,12 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { Database, type Logger, Tearleads } from "./client";
+import {
+  Database,
+  type Logger,
+  type SessionSnapshot,
+  Tearleads,
+} from "./client";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import { loadContainers } from "./data/persistence/containers/containerPersistence";
 import type { DocumentProjectorDefinition } from "./documents";
@@ -820,13 +825,7 @@ describe("Tearleads", () => {
 
   test("notifies session and runtime subscribers from SDK state changes", () => {
     const sdk = new Tearleads({ logger: quietLogger, online: true });
-    const sessionSnapshots: Array<{
-      authToken: string | null;
-      containerId: string | null;
-      isAuthenticated: boolean;
-      organizationId: string | null;
-      userId: string | null;
-    }> = [];
+    const sessionSnapshots: SessionSnapshot[] = [];
     const runtimeVersions: number[] = [];
     const unsubscribeSession = sdk.session.subscribe(() => {
       sessionSnapshots.push(sdk.session.snapshot);
@@ -857,6 +856,7 @@ describe("Tearleads", () => {
     expect(sdk.runtime.input().state.containerId).toBe("container-1");
     expect(sessionSnapshots).toEqual([
       {
+        account: null,
         authToken: null,
         containerId: "container-1",
         isAuthenticated: false,
@@ -864,6 +864,7 @@ describe("Tearleads", () => {
         userId: "user-1",
       },
       {
+        account: null,
         authToken: "session-token",
         containerId: "container-1",
         isAuthenticated: true,

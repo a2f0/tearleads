@@ -8,6 +8,7 @@
     "db:generate": "bun run --cwd ../api-shared db:generate",
     "db:generate:sqlite": "bun run --cwd ../api-shared db:generate:sqlite",
     "db:migrate": "bun run --cwd ../api-cli migrate",
+    "account:purge": "bun scripts/accountPurge.ts",
     "dev": "bun --hot src/index.ts",
     "dev:postgres": "API_DATABASE=postgres bun --hot src/index.ts",
     "start": "bun src/index.ts",

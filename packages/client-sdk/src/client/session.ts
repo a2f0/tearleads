@@ -1,13 +1,19 @@
 import type { ApiClient } from "@tearleads/api-client";
+import type { AccountLifecycleResponse } from "@tearleads/validators/response";
 import type { DocumentProjectorRegistryInput } from "../data/documents/documentKinds";
 import {
   bootstrapRootContainer,
   registerIdentity as registerIdentityWorkflow,
 } from "../workflows/registration";
+import {
+  type ClearRemoteSyncStateResult,
+  clearRemoteSyncState as clearRemoteSyncStateWorkflow,
+} from "../workflows/sync";
 import type { Database } from "./database";
 import type { Identity } from "./identity";
 
 export interface SessionContext {
+  account?: AccountLifecycleResponse | null | undefined;
   authToken?: string | null | undefined;
   containerId?: string | null | undefined;
   isAuthenticated?: boolean | undefined;
@@ -16,6 +22,7 @@ export interface SessionContext {
 }
 
 export interface SessionSnapshot {
+  account: AccountLifecycleResponse | null;
   authToken: string | null;
   containerId: string | null;
   isAuthenticated: boolean;
@@ -35,6 +42,7 @@ interface SessionDependencies {
 }
 
 export interface SessionRegistrationResult {
+  readonly account: AccountLifecycleResponse;
   readonly challenge: string;
   readonly containerId: string;
   readonly organizationId: string;
@@ -52,6 +60,7 @@ export interface UserSession {
 }
 
 export interface Session {
+  readonly account: AccountLifecycleResponse | null;
   readonly authToken: string | null;
   readonly containerId: string | null;
   readonly isAuthenticated: boolean;
@@ -62,6 +71,7 @@ export interface Session {
     containerId: string;
     created: boolean;
   }>;
+  clearRemoteSyncState(): Promise<ClearRemoteSyncStateResult>;
   destroySession(sessionId: string): Promise<boolean>;
   listSessions(): Promise<UserSession[]>;
   login(challengeHex?: string | undefined): Promise<boolean>;
@@ -80,9 +90,25 @@ export function createSession(dependencies: SessionDependencies): Session {
   return new SessionService(dependencies);
 }
 
+function sameAccountLifecycle(
+  left: AccountLifecycleResponse | null,
+  right: AccountLifecycleResponse | null,
+): boolean {
+  return (
+    left?.status === right?.status &&
+    left?.trialEndsAt === right?.trialEndsAt &&
+    left?.disabledAt === right?.disabledAt &&
+    left?.purgeAfter === right?.purgeAfter &&
+    left?.purgeStartedAt === right?.purgeStartedAt &&
+    left?.purgedAt === right?.purgedAt &&
+    left?.remoteDataEpoch === right?.remoteDataEpoch
+  );
+}
+
 class SessionService implements Session {
   private readonly listeners = new Set<SessionListener>();
   private snapshotValue: SessionSnapshot = {
+    account: null,
     authToken: null,
     containerId: null,
     isAuthenticated: false,
@@ -91,6 +117,10 @@ class SessionService implements Session {
   };
 
   constructor(private readonly dependencies: SessionDependencies) {}
+
+  get account(): AccountLifecycleResponse | null {
+    return this.snapshotValue.account;
+  }
 
   get authToken(): string | null {
     return this.snapshotValue.authToken;
@@ -157,6 +187,16 @@ class SessionService implements Session {
     );
   }
 
+  async clearRemoteSyncState(): Promise<ClearRemoteSyncStateResult> {
+    const result = await clearRemoteSyncStateWorkflow(
+      this.dependencies.database.requireExecSql("clearRemoteSyncState"),
+    );
+    this.dependencies.api.clearWriterProjectionCaches();
+    this.setContext({ organizationId: null });
+    this.dependencies.log("Remote sync state cleared");
+    return result;
+  }
+
   async destroySession(sessionId: string): Promise<boolean> {
     const response = await this.dependencies.api.destroySession(sessionId);
     return response?.message === "ok";
@@ -187,12 +227,17 @@ class SessionService implements Session {
         );
 
     if (!authentication) {
-      this.setContext({ authToken: null, isAuthenticated: false });
+      this.setContext({
+        account: null,
+        authToken: null,
+        isAuthenticated: false,
+      });
       this.dependencies.log("Authentication failed");
       return false;
     }
 
     this.setContext({
+      account: authentication.account,
       authToken: authentication.token,
       isAuthenticated: true,
       organizationId: authentication.organizationId,
@@ -203,7 +248,7 @@ class SessionService implements Session {
   }
 
   logout(): void {
-    this.setContext({ authToken: null, isAuthenticated: false });
+    this.setContext({ account: null, authToken: null, isAuthenticated: false });
   }
 
   async logoutRemote(): Promise<boolean> {
@@ -274,12 +319,14 @@ class SessionService implements Session {
     }
 
     this.setContext({
+      account: response.account,
       containerId: response.rootContainerId,
       organizationId: response.organizationId,
       userId: response.userId,
     });
 
     return {
+      account: response.account,
       challenge: response.challenge,
       containerId: response.rootContainerId,
       organizationId: response.organizationId,
@@ -297,6 +344,10 @@ class SessionService implements Session {
 
   setContext(context: SessionContext): void {
     this.setSnapshot({
+      account:
+        "account" in context
+          ? (context.account ?? null)
+          : this.snapshotValue.account,
       authToken:
         "authToken" in context
           ? (context.authToken ?? null)
@@ -352,6 +403,7 @@ class SessionService implements Session {
     }
 
     if (
+      sameAccountLifecycle(previous.account, next.account) &&
       previous.authToken === next.authToken &&
       previous.containerId === next.containerId &&
       previous.isAuthenticated === next.isAuthenticated &&

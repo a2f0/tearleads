@@ -47,6 +47,16 @@ test("authenticates with a valid signature", async () => {
   expect(res.status).toBe(200);
   const body = await res.json();
   expect(body.authenticated).toBe(true);
+  expect(body.account).toEqual(
+    expect.objectContaining({
+      status: "trialing",
+      disabledAt: null,
+      purgeAfter: null,
+      purgeStartedAt: null,
+      purgedAt: null,
+      remoteDataEpoch: 1,
+    }),
+  );
   expect(typeof body.token).toBe("string");
   expect(body.organizationId).toBe(registrationBody.organizationId);
   expect(body.userId).toBe(registrationBody.userId);

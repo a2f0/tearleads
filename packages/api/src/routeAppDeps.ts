@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
+import { createRequirePaidAccount } from "./middleware/account";
 import {
   destroySession as defaultDestroySession,
   destroyUserSession as defaultDestroyUserSession,
@@ -18,10 +19,16 @@ export interface RouteAppOverrides {
   readonly listUserSessions?: typeof defaultListUserSessions;
   readonly publish?: (event: Record<string, unknown>) => Promise<void>;
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
+  readonly requirePaidAccount?: MiddlewareHandler<SessionEnv>;
   readonly runtime?: ApiServiceRuntime;
 }
 
-type ResolvedRouteAppDeps = Required<RouteAppOverrides>;
+type ResolvedRouteAppDeps = Required<
+  Omit<RouteAppOverrides, "requirePaidAccount">
+> & {
+  readonly requirePaidAuth: MiddlewareHandler<SessionEnv>;
+  readonly requirePaidAccount: MiddlewareHandler<SessionEnv>;
+};
 
 export const productionRouteAppOverrides: RouteAppOverrides = {
   destroySession: defaultDestroySession,
@@ -31,12 +38,26 @@ export const productionRouteAppOverrides: RouteAppOverrides = {
   runtime: defaultApiServiceRuntime,
 };
 
+function composeRequirePaidAuth(
+  requireAuth: MiddlewareHandler<SessionEnv>,
+  requirePaidAccount: MiddlewareHandler<SessionEnv>,
+): MiddlewareHandler<SessionEnv> {
+  return async (c, next) => {
+    let downstreamResponse: Response | undefined;
+    const authResponse = await requireAuth(c, async () => {
+      downstreamResponse = (await requirePaidAccount(c, next)) ?? undefined;
+    });
+    return authResponse ?? downstreamResponse;
+  };
+}
+
 export function resolveRouteAppDeps({
   destroySession,
   destroyUserSession,
   listUserSessions,
   publish,
   requireAuth,
+  requirePaidAccount,
   runtime,
 }: RouteAppOverrides): ResolvedRouteAppDeps {
   const runtimeBase = runtime ?? defaultApiServiceRuntime;
@@ -51,12 +72,21 @@ export function resolveRouteAppDeps({
             publish: resolvedPublish,
           },
         };
+  const resolvedRequireAuth = requireAuth ?? defaultRequireAuth;
+  const resolvedRequirePaidAccount =
+    requirePaidAccount ?? createRequirePaidAccount(resolvedRuntime);
+
   return {
     destroySession: destroySession ?? defaultDestroySession,
     destroyUserSession: destroyUserSession ?? defaultDestroyUserSession,
     listUserSessions: listUserSessions ?? defaultListUserSessions,
     publish: resolvedPublish,
-    requireAuth: requireAuth ?? defaultRequireAuth,
+    requireAuth: resolvedRequireAuth,
+    requirePaidAccount: resolvedRequirePaidAccount,
+    requirePaidAuth: composeRequirePaidAuth(
+      resolvedRequireAuth,
+      resolvedRequirePaidAccount,
+    ),
     runtime: resolvedRuntime,
   };
 }

@@ -46,6 +46,7 @@ export {
   principalStates,
 } from "./principalStates";
 export type {
+  AccountStatus,
   BlobAuditRetentionMode,
   ContainerSyncTombstoneReason,
   DocumentAttachmentAuditAction,
