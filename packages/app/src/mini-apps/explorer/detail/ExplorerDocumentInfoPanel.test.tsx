@@ -58,6 +58,8 @@ const documentInfo = {
         startCounter: 0,
         endCounter: 7,
         opCount: 7,
+        updateId: "update-1",
+        updateSequence: 1,
         writerUserId: "writer-1",
         writerKeyFingerprint: "writer-fingerprint-1",
         authorityKind: "direct",

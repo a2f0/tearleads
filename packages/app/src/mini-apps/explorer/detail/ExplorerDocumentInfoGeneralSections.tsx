@@ -170,6 +170,7 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
             <th>{EXPLORER_LABELS.documentInfoEditRangePeerColumn}</th>
             <th>{EXPLORER_LABELS.documentInfoEditRangeRangeColumn}</th>
             <th>{EXPLORER_LABELS.documentInfoEditRangeOpsColumn}</th>
+            <th>{EXPLORER_LABELS.documentInfoEditRangeUploadColumn}</th>
             <th>{EXPLORER_LABELS.documentInfoEditRangeAuthorityColumn}</th>
           </tr>
         </thead>
@@ -186,6 +187,7 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
               <td title={segment.peerId}>{compactId(segment.peerId)}</td>
               <td>{`${segment.startCounter}–${segment.endCounter}`}</td>
               <td>{String(segment.opCount)}</td>
+              <td title={segment.updateId}>{`#${segment.updateSequence}`}</td>
               <td>{getEditRangeAuthorityLabel(segment.authorityKind)}</td>
             </tr>
           ))}

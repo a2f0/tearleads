@@ -122,12 +122,19 @@ export async function runDocumentEditAttributionWorkflow(
   for (const span of spanRows) {
     const meta = metaByUpdateId.get(span.updateId);
     if (!meta) {
-      continue;
+      // Spans are written in the same transaction as their update and that
+      // update's write header (syncDocument.ts), and loadUpdateAttributionMeta
+      // inner-joins that header — so a span whose update has no meta is a
+      // database-integrity violation, never a tolerable state.
+      throw new Error(
+        `Attribution span references update ${span.updateId} with no write header.`,
+      );
     }
     attributionSpans.push({
       peerId: span.peerId,
       startCounter: span.startCounter,
       endCounter: span.endCounter,
+      updateId: span.updateId,
       sequence: meta.sequence,
       writerUserId: meta.writerUserId,
       writerKeyFingerprint: meta.writerKeyFingerprint,

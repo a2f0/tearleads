@@ -242,6 +242,8 @@ test("isDocumentEditAttributionResponse", () => {
     peerId: "1",
     startCounter: 0,
     endCounter: 5,
+    updateId: "550e8400-e29b-41d4-a716-446655440020",
+    updateSequence: 3,
     writerUserId: "550e8400-e29b-41d4-a716-446655440010",
     writerKeyFingerprint: "fingerprint-abc",
     authorityKind: "direct",
@@ -265,6 +267,18 @@ test("isDocumentEditAttributionResponse", () => {
     isDocumentEditAttributionResponse({
       ...validResponse,
       segments: [{ ...validSegment, startCounter: "0" }],
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentEditAttributionResponse({
+      ...validResponse,
+      segments: [{ ...validSegment, updateId: undefined }],
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentEditAttributionResponse({
+      ...validResponse,
+      segments: [{ ...validSegment, updateSequence: "3" }],
     }),
   ).toBe(false);
   expect(isDocumentEditAttributionResponse(null)).toBe(false);
