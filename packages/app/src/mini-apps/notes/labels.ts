@@ -1,5 +1,6 @@
 export const NOTES_LABELS = {
   attachButton: "Attach File",
+  deleteNoteAction: "Delete",
   emptyStateLoading: "Loading notes...",
   newNoteAction: "New Note",
   sidebarEmpty: "No notes.",

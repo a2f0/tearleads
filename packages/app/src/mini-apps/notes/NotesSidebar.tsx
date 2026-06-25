@@ -3,7 +3,7 @@ import {
   type DocumentSummary,
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
-import { useMemo } from "react";
+import { type MouseEvent, useMemo } from "react";
 import {
   MiniAppSidebar,
   MiniAppStatus,
@@ -24,6 +24,11 @@ import { NOTES_LABELS } from "./labels";
 import type { NotesSetSidebar } from "./types";
 
 interface NotesSidebarProps {
+  handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
+  handleNoteContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    noteId: string,
+  ) => void;
   notes: ReadonlyArray<DocumentSummary>;
   ready: boolean;
   selectNote: (noteId: string) => void;
@@ -34,7 +39,17 @@ function getNoteTitle(note: DocumentSummary): string {
   return note.title.trim() || getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND);
 }
 
+function isNotesSidebarAreaContextMenuTarget(
+  event: MouseEvent<HTMLElement>,
+): boolean {
+  return (
+    !(event.target instanceof Element) || !event.target.closest(".mini-app-row")
+  );
+}
+
 function NotesSidebar({
+  handleAreaContextMenu,
+  handleNoteContextMenu,
   notes,
   ready,
   selectNote,
@@ -46,7 +61,19 @@ function NotesSidebar({
   });
 
   return (
-    <MiniAppSidebar className="mini-app-sidebar--virtual">
+    <MiniAppSidebar
+      className="mini-app-sidebar--virtual"
+      onContextMenu={(event) => {
+        if (
+          event.defaultPrevented ||
+          !isNotesSidebarAreaContextMenuTarget(event)
+        ) {
+          return;
+        }
+
+        handleAreaContextMenu(event);
+      }}
+    >
       {!ready ? (
         <MiniAppStatus className="notes-sidebar-empty">
           {NOTES_LABELS.sidebarLoading}
@@ -68,6 +95,9 @@ function NotesSidebar({
               <MiniAppVirtualListRow key={note.id}>
                 <MiniAppRowButton
                   onClick={() => selectNote(note.id)}
+                  onContextMenu={(event) =>
+                    handleNoteContextMenu(event, note.id)
+                  }
                   selected={selectedNoteId === note.id}
                 >
                   <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
@@ -86,17 +116,34 @@ export function useNotesSidebarPanel(
     setSidebar: NotesSetSidebar;
   },
 ) {
-  const { notes, ready, selectNote, selectedNoteId, setSidebar } = params;
+  const {
+    handleAreaContextMenu,
+    handleNoteContextMenu,
+    notes,
+    ready,
+    selectNote,
+    selectedNoteId,
+    setSidebar,
+  } = params;
   const sidebar = useMemo(
     () => (
       <NotesSidebar
+        handleAreaContextMenu={handleAreaContextMenu}
+        handleNoteContextMenu={handleNoteContextMenu}
         notes={notes}
         ready={ready}
         selectNote={selectNote}
         selectedNoteId={selectedNoteId}
       />
     ),
-    [notes, ready, selectNote, selectedNoteId],
+    [
+      handleAreaContextMenu,
+      handleNoteContextMenu,
+      notes,
+      ready,
+      selectNote,
+      selectedNoteId,
+    ],
   );
 
   useRegisteredWindowSidebar({ setSidebar, sidebar });

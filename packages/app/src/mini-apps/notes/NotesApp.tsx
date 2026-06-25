@@ -5,6 +5,7 @@ import {
   DocumentsProvider,
 } from "../../stores/documents/DocumentsProvider";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
+import { NotesContextMenuLayer } from "./context-menu/NotesContextMenu";
 import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { NOTES_LABELS } from "./labels";
 import { Notes } from "./Notes";
@@ -43,21 +44,30 @@ function NotesApp(props: NotesAppProps) {
     priority: 100,
   });
 
-  if (!model.activeSelection) {
-    return <NotesEmptyState />;
-  }
-
   return (
-    <DocumentsProvider
-      localId={model.activeSelection.noteId}
-      {...(model.activeSelection.containerId === undefined
-        ? {}
-        : { containerId: model.activeSelection.containerId })}
-      {...(model.activeSelection.documentId === undefined
-        ? {}
-        : { documentId: model.activeSelection.documentId })}
-    >
-      <Notes registerRefreshMenuItem />
-    </DocumentsProvider>
+    <>
+      {model.activeSelection ? (
+        <DocumentsProvider
+          localId={model.activeSelection.noteId}
+          {...(model.activeSelection.containerId === undefined
+            ? {}
+            : { containerId: model.activeSelection.containerId })}
+          {...(model.activeSelection.documentId === undefined
+            ? {}
+            : { documentId: model.activeSelection.documentId })}
+        >
+          <Notes registerRefreshMenuItem />
+        </DocumentsProvider>
+      ) : (
+        <NotesEmptyState />
+      )}
+      <NotesContextMenuLayer
+        closeContextMenu={model.contextMenu.closeContextMenu}
+        contextMenu={model.contextMenu.contextMenu}
+        createNote={model.createNote}
+        deleteContextMenuNote={model.contextMenu.deleteContextMenuNote}
+        ready={model.ready}
+      />
+    </>
   );
 }

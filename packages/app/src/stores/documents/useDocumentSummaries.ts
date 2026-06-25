@@ -90,6 +90,22 @@ export function useDocumentSummaries({
     [documentKind],
   );
 
+  // Deletion is not delivered through the persisted-document subscription (that
+  // channel only carries merges), so drop the row from local state ourselves
+  // once the document is gone from the database.
+  const deleteSummary = useCallback(
+    async (localId: string): Promise<boolean> => {
+      const deleted = await tearleads.documents.delete(localId);
+      if (deleted) {
+        setSummaries((currentDocumentSummaries) =>
+          currentDocumentSummaries.filter((summary) => summary.id !== localId),
+        );
+      }
+      return deleted;
+    },
+    [tearleads],
+  );
+
   useEffect(() => {
     if (appData.infra.dbStatus !== "ready") {
       setSummaries([]);
@@ -147,6 +163,7 @@ export function useDocumentSummaries({
   );
 
   return {
+    deleteSummary,
     mergeSummary,
     ready,
     summaries: sortedSummaries,
