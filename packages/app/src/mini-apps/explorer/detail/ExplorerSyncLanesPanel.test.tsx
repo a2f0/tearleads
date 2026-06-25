@@ -3,7 +3,7 @@ import type {
   DomainSyncSnapshot,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import {
   ExplorerSyncLanesPanelView,
@@ -51,6 +51,22 @@ function createSnapshot(
   };
 }
 
+function renderSyncLanesPanel(input: {
+  onOpenLaneDetail?: ((laneKey: string) => void) | undefined;
+  selectedLaneKey?: string | null | undefined;
+  snapshot: DomainSyncSnapshot;
+}) {
+  return render(
+    createElement(ExplorerSyncLanesPanelView, {
+      onBackToSelectionRoute: () => undefined,
+      onBackToSyncLanesRoute: () => undefined,
+      onOpenLaneDetail: input.onOpenLaneDetail ?? (() => undefined),
+      selectedLaneKey: input.selectedLaneKey ?? null,
+      snapshot: input.snapshot,
+    }),
+  );
+}
+
 test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () => {
   const snapshot = createSnapshot([
     createLaneSnapshot({
@@ -76,12 +92,7 @@ test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () 
     }),
   ]);
 
-  const view = render(
-    createElement(ExplorerSyncLanesPanelView, {
-      onBackToSelectionRoute: () => undefined,
-      snapshot,
-    }),
-  );
+  const view = renderSyncLanesPanel({ snapshot });
 
   expect(view.getByText("Sync Lanes")).toBeTruthy();
   expect(view.getByText("Document local-1")).toBeTruthy();
@@ -93,6 +104,69 @@ test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () 
   expect(
     view.getAllByRole("progressbar")[0]?.getAttribute("aria-valuenow"),
   ).toBe("65");
+});
+
+test("ExplorerSyncLanesPanelView opens lane details from the responsive list", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+    }),
+  ]);
+  const openedLaneKeys: string[] = [];
+
+  const view = renderSyncLanesPanel({
+    onOpenLaneDetail: (laneKey) => {
+      openedLaneKeys.push(laneKey);
+    },
+    snapshot,
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: "Open lane detail: Document local-1",
+    }),
+  );
+
+  expect(openedLaneKeys).toEqual(["documents:local-1"]);
+});
+
+test("ExplorerSyncLanesPanelView renders lane detail metadata", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      errorCount: 1,
+      key: "documents:local-2",
+      label: "Document local-2",
+      lastAction: "failed",
+      lastCompletedAt: "2026-06-15T12:02:00.000Z",
+      lastError: "boom",
+      lastFailedAt: "2026-06-15T12:03:00.000Z",
+      lastRequestedAt: "2026-06-15T12:00:30.000Z",
+      lastStartedAt: "2026-06-15T12:01:00.000Z",
+      phase: "document",
+      registrationIndex: 4,
+      requestCount: 2,
+      requested: true,
+      runCount: 2,
+      status: "error",
+    }),
+  ]);
+
+  const view = renderSyncLanesPanel({
+    selectedLaneKey: "documents:local-2",
+    snapshot,
+  });
+
+  expect(view.getByText("Sync Lane Detail")).toBeTruthy();
+  expect(view.getByText("Lane Details")).toBeTruthy();
+  expect(view.getByText("Timing")).toBeTruthy();
+  expect(view.getByText("Coordinator")).toBeTruthy();
+  expect(view.getByText("documents:local-2")).toBeTruthy();
+  expect(view.getByText("4")).toBeTruthy();
+  expect(view.getByText("boom")).toBeTruthy();
+  expect(view.getByText("Pending Work")).toBeTruthy();
+  expect(view.getByText("Pump Active")).toBeTruthy();
 });
 
 test("ExplorerSyncLanesPanelView renders real multipart upload progress", () => {
@@ -115,12 +189,7 @@ test("ExplorerSyncLanesPanelView renders real multipart upload progress", () => 
     }),
   ]);
 
-  const view = render(
-    createElement(ExplorerSyncLanesPanelView, {
-      onBackToSelectionRoute: () => undefined,
-      snapshot,
-    }),
-  );
+  const view = renderSyncLanesPanel({ snapshot });
 
   expect(view.getByText("Upload report.pdf")).toBeTruthy();
   expect(view.getByText("Blob")).toBeTruthy();
@@ -132,12 +201,7 @@ test("ExplorerSyncLanesPanelView renders real multipart upload progress", () => 
 });
 
 test("ExplorerSyncLanesPanelView renders the empty state", () => {
-  const view = render(
-    createElement(ExplorerSyncLanesPanelView, {
-      onBackToSelectionRoute: () => undefined,
-      snapshot: createSnapshot([]),
-    }),
-  );
+  const view = renderSyncLanesPanel({ snapshot: createSnapshot([]) });
 
   expect(view.getByText("No sync lanes.")).toBeTruthy();
 });
