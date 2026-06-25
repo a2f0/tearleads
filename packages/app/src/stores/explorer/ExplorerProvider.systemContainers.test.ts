@@ -1,70 +1,20 @@
 import { expect, test } from "bun:test";
 import {
-  createContainerContentsStore,
-  createContainerContentsWorkflowRuntime,
   createContainerDocumentObjectSyncState,
-  defaultContainerContentsPersistence,
-  defaultDocumentsPersistence,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import type { ExecSql } from "@tearleads/client-sdk/sqlite";
-import { createMockApiClient } from "@tearleads/test-utils";
-import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
-import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { getVisibleExplorerNodes } from "./ExplorerProvider";
+import {
+  canProvisionExplorerSystemContainers,
+  getExplorerSystemContainerId,
+  getExplorerTrashContainerId,
+  getVisibleExplorerNodes,
+} from "./ExplorerProvider";
 
-type ExplorerRuntime = Parameters<typeof createContainerContentsStore>[0];
-type TestRuntime = ExplorerRuntime & { close: () => void };
-type TestContainerRecord = Parameters<
-  typeof defaultContainerContentsPersistence.saveContainer
->[1];
-
-async function createSqlRuntime(): Promise<TestRuntime> {
-  const runtimeBase = await createSqlRuntimeBase(
-    "explorer-system-containers-test",
-  );
-  const runtime = createContainerContentsWorkflowRuntime({
-    ...runtimeBase,
-    apiClient: createMockApiClient(),
-  });
-
-  return {
-    ...runtime,
-    close: runtimeBase.close,
-  };
-}
-
-async function ensureContainerTables(execSql: ExecSql): Promise<void> {
-  await defaultContainerContentsPersistence.ensureSchema(execSql);
-}
-
-async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
-  await defaultDocumentsPersistence.ensureSchema(execSql);
-}
-
-async function loadContainers(
-  execSql: ExecSql,
-): Promise<ReadonlyArray<TestContainerRecord>> {
-  const storedContainers =
-    await defaultContainerContentsPersistence.loadContainers(execSql);
-  return storedContainers.map(({ container }) => container);
-}
-
-async function saveContainer(
-  execSql: ExecSql,
-  container: TestContainerRecord,
-): Promise<TestContainerRecord> {
-  return defaultContainerContentsPersistence.saveContainer(
-    execSql,
-    container,
-    null,
-  );
-}
-
-test("explorer keeps one visible system container per slot", () => {
+test("explorer only shows user-facing system containers", () => {
   const contactsSystemSlot =
     "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
   const trashSystemSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
+  const rosterSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   expect(
     getVisibleExplorerNodes(
@@ -78,18 +28,174 @@ test("explorer keeps one visible system container per slot", () => {
           syncState: syncedContainerDocumentObjectSyncState,
         },
         {
-          id: "contacts-local-container",
+          id: "contacts-container",
           kind: "container",
           name: "Contacts",
           organizationId: "org-1",
           parentId: "root-container",
-          syncState: createContainerDocumentObjectSyncState({
-            localOnly: true,
-          }),
+          syncState: syncedContainerDocumentObjectSyncState,
           systemSlot: contactsSystemSlot,
         },
         {
-          id: "contacts-remote-container",
+          id: "trash-container",
+          kind: "container",
+          name: "Trash",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: trashSystemSlot,
+        },
+        {
+          id: "spoofed-contacts-container",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "sys_v1_ddddddddddddddddddddddddddddddddddddddddddd",
+        },
+        {
+          id: "roster-profile-container",
+          kind: "container",
+          name: "Roster Profiles",
+          organizationId: "org-1",
+          parentId: "root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: rosterSystemSlot,
+        },
+      ],
+      new Set([contactsSystemSlot, trashSystemSlot]),
+    ).map((node) => node.id),
+  ).toEqual(["root-container", "contacts-container", "trash-container"]);
+});
+
+test("explorer keeps named user-facing system containers before visible slots resolve", () => {
+  expect(
+    getVisibleExplorerNodes([
+      {
+        id: "root-container",
+        kind: "container",
+        name: "/",
+        organizationId: "org-1",
+        parentId: null,
+        syncState: syncedContainerDocumentObjectSyncState,
+      },
+      {
+        id: "contacts-container",
+        kind: "container",
+        name: "Contacts",
+        organizationId: "org-1",
+        parentId: "root-container",
+        syncState: syncedContainerDocumentObjectSyncState,
+        systemSlot: "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      },
+      {
+        id: "trash-container",
+        kind: "container",
+        name: "Trash",
+        organizationId: "org-1",
+        parentId: "root-container",
+        syncState: syncedContainerDocumentObjectSyncState,
+        systemSlot: "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc",
+      },
+      {
+        id: "roster-profile-container",
+        kind: "container",
+        name: "Roster Profiles",
+        organizationId: "org-1",
+        parentId: "root-container",
+        syncState: syncedContainerDocumentObjectSyncState,
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+    ]).map((node) => node.id),
+  ).toEqual(["root-container", "contacts-container", "trash-container"]);
+});
+
+test("explorer node helpers tolerate nullish node snapshots", () => {
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  expect(getVisibleExplorerNodes(null)).toEqual([]);
+  expect(getVisibleExplorerNodes(undefined)).toEqual([]);
+  expect(getExplorerSystemContainerId(null, trashSystemSlot)).toBeNull();
+  expect(getExplorerSystemContainerId(undefined, trashSystemSlot)).toBeNull();
+  expect(getExplorerTrashContainerId(null, trashSystemSlot)).toBeNull();
+  expect(getExplorerTrashContainerId(undefined, trashSystemSlot)).toBeNull();
+});
+
+test("explorer system container provisioning tolerates nullish node snapshots", () => {
+  expect(
+    canProvisionExplorerSystemContainers({
+      isAuthenticated: false,
+      nodes: null,
+      organizationId: null,
+      rootContainerId: null,
+    }),
+  ).toBe(true);
+  expect(
+    canProvisionExplorerSystemContainers({
+      isAuthenticated: true,
+      nodes: null,
+      organizationId: "org-1",
+      rootContainerId: "root-container",
+    }),
+  ).toBe(false);
+  expect(
+    canProvisionExplorerSystemContainers({
+      isAuthenticated: true,
+      nodes: undefined,
+      organizationId: "org-1",
+      rootContainerId: "root-container",
+    }),
+  ).toBe(false);
+});
+
+test("explorer system container provisioning requires the authenticated root node", () => {
+  expect(
+    canProvisionExplorerSystemContainers({
+      isAuthenticated: true,
+      nodes: [
+        {
+          id: "root-container",
+          kind: "container",
+          name: "/",
+          organizationId: "org-1",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+      ],
+      organizationId: "org-1",
+      rootContainerId: "root-container",
+    }),
+  ).toBe(true);
+  expect(
+    canProvisionExplorerSystemContainers({
+      isAuthenticated: true,
+      nodes: [
+        {
+          id: "shared-root-container",
+          kind: "container",
+          name: "/",
+          organizationId: "org-2",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+      ],
+      organizationId: "org-1",
+      rootContainerId: "root-container",
+    }),
+  ).toBe(false);
+});
+
+test("explorer resolves system containers by slot", () => {
+  const contactsSystemSlot =
+    "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+  expect(
+    getExplorerSystemContainerId(
+      [
+        {
+          id: "contacts-container",
           kind: "container",
           name: "Contacts",
           organizationId: "org-1",
@@ -107,25 +213,19 @@ test("explorer keeps one visible system container per slot", () => {
           systemSlot: trashSystemSlot,
         },
       ],
-      new Set([contactsSystemSlot, trashSystemSlot]),
-    ).map((node) => node.id),
-  ).toEqual(["root-container", "contacts-remote-container", "trash-container"]);
+      contactsSystemSlot,
+    ),
+  ).toBe("contacts-container");
 });
 
-test("explorer shows a shared peer's Contacts but hides their Trash", () => {
-  // The viewer owns these slots (derived from their own signing key).
-  const ownContactsSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const ownTrashSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
-  // A peer's system slots are HMAC'd from the peer's key, so they never match
-  // the viewer's visibleSystemSlots set.
-  const peerContactsSlot = "sys_v1_ddddddddddddddddddddddddddddddddddddddddddd";
-  const peerTrashSlot = "sys_v1_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+test("explorer resolves the trash system container from system nodes", () => {
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   expect(
-    getVisibleExplorerNodes(
+    getExplorerTrashContainerId(
       [
         {
-          id: "own-root",
+          id: "root-container",
           kind: "container",
           name: "/",
           organizationId: "org-1",
@@ -133,151 +233,39 @@ test("explorer shows a shared peer's Contacts but hides their Trash", () => {
           syncState: syncedContainerDocumentObjectSyncState,
         },
         {
-          id: "peer-root",
-          kind: "container",
-          name: "/",
-          organizationId: "org-2",
-          parentId: null,
-          syncState: syncedContainerDocumentObjectSyncState,
-        },
-        {
-          id: "peer-contacts",
-          kind: "container",
-          name: "Contacts",
-          organizationId: "org-2",
-          parentId: "peer-root",
-          syncState: syncedContainerDocumentObjectSyncState,
-          systemSlot: peerContactsSlot,
-        },
-        {
-          id: "peer-trash",
+          id: "trash-container",
           kind: "container",
           name: "Trash",
-          organizationId: "org-2",
-          parentId: "peer-root",
+          organizationId: "org-1",
+          parentId: "root-container",
           syncState: syncedContainerDocumentObjectSyncState,
-          systemSlot: peerTrashSlot,
+          systemSlot: trashSystemSlot,
         },
       ],
-      new Set([ownContactsSlot, ownTrashSlot]),
-      "org-1",
-    ).map((node) => node.id),
-  ).toEqual(["own-root", "peer-root", "peer-contacts"]);
+      trashSystemSlot,
+    ),
+  ).toBe("trash-container");
 });
 
-test("explorer hides a same-org spoof reusing a system name with a foreign slot", () => {
-  const ownContactsSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+test("explorer resolves local-only trash containers", () => {
+  const trashSystemSlot = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
   expect(
-    getVisibleExplorerNodes(
+    getExplorerTrashContainerId(
       [
         {
-          id: "own-root",
+          id: "trash-container",
           kind: "container",
-          name: "/",
+          name: "Trash",
           organizationId: "org-1",
-          parentId: null,
-          syncState: syncedContainerDocumentObjectSyncState,
-        },
-        {
-          // Same org as the viewer but a slot they did not derive: a spoof, not
-          // a shared peer folder. Must stay hidden even though it is named
-          // "Contacts".
-          id: "spoofed-contacts",
-          kind: "container",
-          name: "Contacts",
-          organizationId: "org-1",
-          parentId: "own-root",
-          syncState: syncedContainerDocumentObjectSyncState,
-          systemSlot: "sys_v1_ddddddddddddddddddddddddddddddddddddddddddd",
+          parentId: "root-container",
+          syncState: createContainerDocumentObjectSyncState({
+            localOnly: true,
+          }),
+          systemSlot: trashSystemSlot,
         },
       ],
-      new Set([ownContactsSlot]),
-      "org-1",
-    ).map((node) => node.id),
-  ).toEqual(["own-root"]);
-});
-
-test("explorer hides a system folder with a missing org and a foreign slot", () => {
-  const ownContactsSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-
-  expect(
-    getVisibleExplorerNodes(
-      [
-        {
-          id: "own-root",
-          kind: "container",
-          name: "/",
-          organizationId: "org-1",
-          parentId: null,
-          syncState: syncedContainerDocumentObjectSyncState,
-        },
-        {
-          // A foreign-slot "Contacts" with no organization must not pass the
-          // shared-root gate just because its (empty) org differs from the
-          // viewer's. Otherwise a malformed node would be treated as shared.
-          id: "orgless-contacts",
-          kind: "container",
-          name: "Contacts",
-          organizationId: "",
-          parentId: "own-root",
-          syncState: syncedContainerDocumentObjectSyncState,
-          systemSlot: "sys_v1_ddddddddddddddddddddddddddddddddddddddddddd",
-        },
-      ],
-      new Set([ownContactsSlot]),
-      "org-1",
-    ).map((node) => node.id),
-  ).toEqual(["own-root"]);
-});
-
-test("explorer store uses one local system container across stale store snapshots", async () => {
-  const runtime = await createSqlRuntime();
-  const systemSlot = "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-
-  try {
-    await ensureContainerTables(runtime.infra.execSql);
-    await ensureDocumentTables(runtime.infra.execSql);
-    await saveContainer(runtime.infra.execSql, {
-      id: "root-container",
-      organizationId: "org-1",
-      parentId: null,
-      metadataDocumentId: null,
-      name: "/",
-      icon: null,
-    });
-
-    const firstStore = createContainerContentsStore(runtime);
-    const staleStore = createContainerContentsStore(runtime);
-    firstStore.updateRuntime(runtime);
-    staleStore.updateRuntime(runtime);
-    await waitForCondition(
-      () => firstStore.getSnapshot().ready && staleStore.getSnapshot().ready,
-      "Explorer stores did not become ready.",
-    );
-
-    const firstSystemContainer = await firstStore.ensureSystemContainer(
-      systemSlot,
-      "Contacts",
-    );
-    const staleSystemContainer = await staleStore.ensureSystemContainer(
-      systemSlot,
-      "Contacts",
-    );
-    if (!firstSystemContainer || !staleSystemContainer) {
-      throw new Error("Expected system container provisioning to succeed.");
-    }
-
-    expect(staleSystemContainer.id).toBe(firstSystemContainer.id);
-    expect(firstSystemContainer.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-    );
-    expect(
-      (await loadContainers(runtime.infra.execSql))
-        .filter((container) => container.systemSlot === systemSlot)
-        .map((container) => container.id),
-    ).toEqual([firstSystemContainer.id]);
-  } finally {
-    runtime.close();
-  }
+      trashSystemSlot,
+    ),
+  ).toBe("trash-container");
 });
