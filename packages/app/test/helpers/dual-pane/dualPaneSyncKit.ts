@@ -1,0 +1,194 @@
+import { expect } from "bun:test";
+import { act } from "react";
+import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
+import {
+  type ProxiedApiRequest,
+  requestPath,
+  summarizeProxiedApiRequests,
+  truncateText,
+} from "../dualPaneRequestSummary";
+import { listProxiedApiRequests } from "../mswServer";
+import { waitForCondition } from "../waitForCondition";
+import {
+  DUAL_PANE_TEST_TIMEOUT_MS,
+  POST_SHARE_NETWORK_IDLE_QUIET_MS,
+  POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+} from "./dualPaneCore";
+
+const RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES = [
+  "Document KEK targets are stale",
+  "Document content-key bundle is stale",
+  "Document write authorization manifest does not match sync request",
+] as const;
+
+interface BlobAttachmentBindingJson {
+  bindingId?: unknown;
+  blobId?: unknown;
+}
+
+function parseBlobAttachmentBindingJson(
+  body: string,
+): BlobAttachmentBindingJson | null {
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    return typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+      ? (parsed as BlobAttachmentBindingJson)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function isSuccessfulBlobAttachmentBinding(
+  request: ProxiedApiRequest,
+): boolean {
+  if (
+    request.method !== "POST" ||
+    request.status !== 200 ||
+    !/^\/blobs\/[^/]+\/attachment-bindings$/u.test(requestPath(request.url))
+  ) {
+    return false;
+  }
+
+  const response = parseBlobAttachmentBindingJson(request.responseBody);
+  return (
+    typeof response?.blobId === "string" &&
+    typeof response.bindingId === "string"
+  );
+}
+
+export async function waitForRemoteAttachmentBlob() {
+  await waitForCondition(
+    () => listProxiedApiRequests().some(isSuccessfulBlobAttachmentBinding),
+    `Note attachment blob was not uploaded before sharing.\nrequests=\n${summarizeProxiedApiRequests()}`,
+    DUAL_PANE_TEST_TIMEOUT_MS,
+  );
+}
+
+function isRetryableDocumentSyncStaleFailure(
+  request: ProxiedApiRequest,
+): boolean {
+  const responseBody = request.responseBody;
+  return (
+    request.method === "POST" &&
+    request.status === 409 &&
+    /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)) &&
+    (RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((message) =>
+      responseBody.includes(message),
+    ) ||
+      (responseBody.includes("authorizingContainerPaths") &&
+        responseBody.includes("is stale")) ||
+      (responseBody.includes("targetContainerPath") &&
+        responseBody.includes("is stale")))
+  );
+}
+
+export function isDocumentWriterProjectionStaleContentBundleFailure(
+  request: ProxiedApiRequest,
+): boolean {
+  return (
+    request.method === "GET" &&
+    request.status === 409 &&
+    /^\/documents\/[^/]+\/writer-projection$/u.test(requestPath(request.url)) &&
+    request.responseBody.includes("Document content-key bundle is stale")
+  );
+}
+
+function hasLaterSuccessfulRetry(
+  requests: readonly ProxiedApiRequest[],
+  failedRequestIndex: number,
+): boolean {
+  const failedRequest = requests[failedRequestIndex];
+  if (!failedRequest) {
+    return false;
+  }
+
+  return requests
+    .slice(failedRequestIndex + 1)
+    .some(
+      (request) =>
+        request.method === failedRequest.method &&
+        request.url === failedRequest.url &&
+        request.status >= 200 &&
+        request.status < 400,
+    );
+}
+
+function listUnresolvedPostShareFailures(
+  requests: readonly ProxiedApiRequest[],
+): ProxiedApiRequest[] {
+  return requests.filter((request, index) => {
+    if (request.status < 400) {
+      return false;
+    }
+    if (
+      isRetryableDocumentSyncStaleFailure(request) &&
+      hasLaterSuccessfulRetry(requests, index)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+export function listPaneErrorLines(panes: readonly HTMLElement[]): string[] {
+  return panes.flatMap((pane) => {
+    const text = pane.textContent ?? "";
+    return text
+      .split(/(?=\[\d{1,2}:\d{2}:\d{2})/u)
+      .filter((line) => line.includes("ERROR:"))
+      .map(truncateText);
+  });
+}
+
+export async function waitForNoPostShareSyncFailures(
+  panes: readonly HTMLElement[],
+  requestStartIndex: number,
+) {
+  const startedAt = Date.now();
+  let unresolvedFailures: readonly ProxiedApiRequest[] = [];
+  while (Date.now() - startedAt < POST_SHARE_SYNC_SETTLE_TIMEOUT_MS) {
+    const remainingTimeoutMs = Math.max(
+      0,
+      POST_SHARE_SYNC_SETTLE_TIMEOUT_MS - (Date.now() - startedAt),
+    );
+
+    let runtimeSettled = false;
+    await act(async () => {
+      runtimeSettled = await waitForAppTestRuntimeToSettle({
+        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+        timeoutMs: remainingTimeoutMs,
+      });
+    });
+
+    const postShareRequests = listProxiedApiRequests().slice(requestStartIndex);
+    const paneErrors = listPaneErrorLines(panes);
+    unresolvedFailures = listUnresolvedPostShareFailures(postShareRequests);
+
+    expect(
+      unresolvedFailures.filter(
+        (request) => !isRetryableDocumentSyncStaleFailure(request),
+      ),
+      `Unexpected post-share API failures.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+    ).toEqual([]);
+    expect(
+      paneErrors,
+      `Unexpected post-share pane errors.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
+    ).toEqual([]);
+
+    if (unresolvedFailures.length === 0) {
+      return;
+    }
+    if (!runtimeSettled) {
+      break;
+    }
+  }
+
+  expect(
+    unresolvedFailures,
+    `Unresolved post-share sync failures.\nrequests=\n${summarizeProxiedApiRequests(listProxiedApiRequests().slice(requestStartIndex))}`,
+  ).toEqual([]);
+}
