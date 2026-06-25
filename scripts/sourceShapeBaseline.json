@@ -169,10 +169,6 @@
       "lines": 692,
       "bytes": 19306
     },
-    "packages/app/src/stores/documents/documentStore/sync.test.ts": {
-      "lines": 2418,
-      "bytes": 73930
-    },
     "packages/app/src/stores/explorer/ExplorerProvider.test.ts": {
       "lines": 4545,
       "bytes": 143432
