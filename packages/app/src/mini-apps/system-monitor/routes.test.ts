@@ -10,6 +10,6 @@ test("system monitor route segments cover logs and status tabs", () => {
   expect(parseSystemMonitorRouteSegments(["status"])).toBe("status");
   expect(parseSystemMonitorRouteSegments(["unknown"])).toBe("logs");
 
-  expect(formatSystemMonitorRouteSegments("logs")).toEqual(["logs"]);
+  expect(formatSystemMonitorRouteSegments("logs")).toEqual([]);
   expect(formatSystemMonitorRouteSegments("status")).toEqual(["status"]);
 });

@@ -143,7 +143,7 @@ test("routed system monitor launches from nav and tabs update the path", async (
     fireEvent.click(view.getByRole("tab", { name: "Logs" }));
 
     await waitFor(() => {
-      expect(pushedUrls.at(-1)).toBe("/app/system-monitor/logs");
+      expect(pushedUrls.at(-1)).toBe("/app/system-monitor");
       expect(
         view.getByRole("tab", { name: "Logs" }).getAttribute("aria-selected"),
       ).toBe("true");

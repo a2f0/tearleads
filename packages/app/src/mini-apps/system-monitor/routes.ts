@@ -14,5 +14,5 @@ export function parseSystemMonitorRouteSegments(
 export function formatSystemMonitorRouteSegments(
   tab: SystemMonitorTabId,
 ): ReadonlyArray<string> {
-  return [tab];
+  return tab === DEFAULT_SYSTEM_MONITOR_TAB ? [] : [tab];
 }
