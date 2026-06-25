@@ -50,6 +50,35 @@ test("launcher opens a window with Logs and Status tabs", async () => {
   view.unmount();
 });
 
+test("tabs follow the roving-tabindex pattern and arrow keys switch tabs", async () => {
+  const view = renderPane({ pinSystemMonitor: false });
+
+  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  const logsTab = await view.findByRole("tab", { name: "Logs" });
+  const statusTab = view.getByRole("tab", { name: "Status" });
+
+  // Only the active tab is in the tab order.
+  expect(logsTab.getAttribute("tabindex")).toBe("0");
+  expect(statusTab.getAttribute("tabindex")).toBe("-1");
+
+  fireEvent.keyDown(logsTab, { key: "ArrowRight" });
+
+  await waitFor(() => {
+    expect(statusTab.getAttribute("aria-selected")).toBe("true");
+    expect(statusTab.getAttribute("tabindex")).toBe("0");
+    expect(logsTab.getAttribute("tabindex")).toBe("-1");
+  });
+  expect(view.getByText(/sqlite worker:/)).toBeTruthy();
+
+  // ArrowLeft wraps back to the first tab.
+  fireEvent.keyDown(statusTab, { key: "ArrowLeft" });
+  await waitFor(() => {
+    expect(logsTab.getAttribute("aria-selected")).toBe("true");
+  });
+
+  view.unmount();
+});
+
 test("pin to desktop closes the window, renders inline, and persists the choice", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
