@@ -110,8 +110,8 @@
       "bytes": 43030
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2550,
-      "bytes": 84253
+      "lines": 1952,
+      "bytes": 64422
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1049,
@@ -156,6 +156,10 @@
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
       "bytes": 20923
+    },
+    "packages/api/test/helpers/keyingWriterProjectionKit.ts": {
+      "lines": 646,
+      "bytes": 21455
     },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1098,
