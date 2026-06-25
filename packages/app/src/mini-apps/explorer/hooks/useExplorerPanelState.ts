@@ -28,8 +28,8 @@ import {
   type ExplorerContextMenuState,
   useExplorerContextMenu,
 } from "../context-menu/ExplorerContextMenu";
-import type { ExplorerTreeEntry } from "../ExplorerTree";
 import { useExplorerSidebarPanel } from "../ExplorerTree";
+import type { ExplorerTreeEntry } from "../explorerTreeModel";
 import {
   EXPLORER_LABELS,
   getExplorerDroppedFileImportFailureLog,

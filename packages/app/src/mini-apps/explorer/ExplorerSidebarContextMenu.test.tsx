@@ -12,7 +12,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { buildExplorerTree, useExplorerSidebarPanel } from "./ExplorerTree";
+import { useExplorerSidebarPanel } from "./ExplorerTree";
+import { buildExplorerTree } from "./explorerTreeModel";
 
 afterEach(() => cleanup());
 

@@ -6,7 +6,7 @@ import {
   type ExplorerSidebarDocumentWindowState,
   getExplorerSidebarRowsInRange,
 } from "./ExplorerSidebarRows";
-import { buildExplorerTree } from "./ExplorerTree";
+import { buildExplorerTree } from "./explorerTreeModel";
 import { EXPLORER_LABELS } from "./labels";
 
 function loadedEmptyWindow(): ExplorerSidebarDocumentWindowState {
