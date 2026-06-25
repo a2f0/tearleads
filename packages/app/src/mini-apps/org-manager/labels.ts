@@ -1,3 +1,5 @@
+import type { OrganizationDirectoryUser } from "@tearleads/client-sdk";
+
 export const ORG_MANAGER_LABELS = {
   add: "Add",
   addUser: "Add user",
@@ -138,7 +140,7 @@ export const ORG_MANAGER_LABELS = {
 } as const;
 
 export function getOrgManagerAccountStatusLabel(
-  accountStatus: "trialing" | "active" | "disabled" | "deleting" | "purged",
+  accountStatus: OrganizationDirectoryUser["accountStatus"],
 ): string {
   switch (accountStatus) {
     case "trialing":
