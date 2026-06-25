@@ -118,6 +118,44 @@ interface PeerWriterAttribution {
   writerKeyFingerprint: string;
 }
 
+interface OpIdAttribution {
+  writerUserId: string;
+  writerKeyFingerprint: string;
+  authorityKind: "direct" | "baseline";
+}
+
+/**
+ * Resolve a single Loro op id `(peerId, counter)` — e.g. one character's op id
+ * from `listTextCharOpIds` — to the writer authoritatively credited with it, by
+ * intersecting it against the attribution segments. This is the character-level
+ * counterpart to the per-range drill-down: unlike {@link writerByPeerId} it is
+ * exact even when a peer is split across writers by a re-assertion, because it
+ * matches the specific counter rather than the whole peer. Segments are
+ * non-overlapping, so the first covering segment is the only one. Returns null
+ * when no segment covers the op id — e.g. a locally authored op whose span the
+ * attribution feed has not delivered yet.
+ */
+export function resolveOpIdAttribution(
+  segments: readonly DocumentEditAttributionSegment[],
+  peerId: string,
+  counter: number,
+): OpIdAttribution | null {
+  for (const segment of segments) {
+    if (
+      segment.peerId === peerId &&
+      counter >= segment.startCounter &&
+      counter < segment.endCounter
+    ) {
+      return {
+        writerUserId: segment.writerUserId,
+        writerKeyFingerprint: segment.writerKeyFingerprint,
+        authorityKind: segment.authorityKind,
+      };
+    }
+  }
+  return null;
+}
+
 /**
  * Map each Loro peer to its writer, for character-level blame: `getEditorOf(pos)`
  * returns a `PeerID`, and this resolves it to a writer. A peer is normally

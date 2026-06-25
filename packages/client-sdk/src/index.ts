@@ -196,6 +196,7 @@ export {
   projectStoredDocumentState,
   readStoredDocumentState,
   readStringDocumentField,
+  resolveOpIdAttribution,
   sameDocumentAttachments,
   summarizeDocumentContributors,
   writerByPeerId,

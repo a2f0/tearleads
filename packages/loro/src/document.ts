@@ -255,3 +255,43 @@ export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
 export function getTextValue(doc: LoroDoc, key = "text"): string {
   return doc.getText(key).toString();
 }
+
+export interface TextCharOpId {
+  /** Peer of the op that inserted this character. */
+  peerId: `${number}`;
+  /** Counter of that op — identifies the character within the peer's stream. */
+  counter: number;
+}
+
+/**
+ * Per-character op-id attribution for a LoroText container's prose. Returns one
+ * `(peerId, counter)` per Unicode code point — the op that inserted that
+ * character — in document order; the array length equals the code-point count
+ * (`[...text].length`). This is the client-side primitive for character-level
+ * "blame": each op id resolves to a writer by intersecting it against the
+ * document's edit-attribution segments.
+ *
+ * One Loro op (one counter) is one code point, but an astral character (emoji,
+ * etc.) spans two UTF-16 units. We therefore iterate code points and index
+ * `getCursor` by each code point's LAST UTF-16 unit: a leading high-surrogate
+ * position yields no cursor (so iterating raw UTF-16 units would throw on prose
+ * that opens with an emoji), but the low/last unit always resolves to the
+ * inserting op — and using one position per code point avoids double-counting
+ * the two halves of a surrogate pair.
+ */
+export function listTextCharOpIds(doc: LoroDoc, key = "text"): TextCharOpId[] {
+  const text = doc.getText(key);
+  const opIds: TextCharOpId[] = [];
+  let utf16End = 0;
+  for (const char of text.toString()) {
+    utf16End += char.length;
+    const opId = text.getCursor(utf16End - 1, 1)?.pos();
+    if (opId === undefined) {
+      throw new Error(
+        `LoroText "${key}" code point ending at UTF-16 index ${utf16End - 1} has no op id.`,
+      );
+    }
+    opIds.push({ peerId: opId.peer, counter: opId.counter });
+  }
+  return opIds;
+}

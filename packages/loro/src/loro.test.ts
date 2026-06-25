@@ -10,6 +10,7 @@ import {
   getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
+  listTextCharOpIds,
   listVersionVectorSpans,
 } from "./index";
 
@@ -103,4 +104,54 @@ test("a peer delta applies on top of a reloaded shallow snapshot", async () => {
   author.commit();
   importUpdates(reader, [exportUpdatesSince(author, since)]);
   expect(getTextValue(reader)).toBe("base+more");
+});
+
+test("listTextCharOpIds maps each character to its inserting op id", async () => {
+  const alice = await createDocument("alice-seed");
+  const bob = await createDocument("bob-seed");
+  const alicePeer = await derivePeerId("alice-seed");
+  const bobPeer = await derivePeerId("bob-seed");
+
+  const base = encodeVersionVector(alice);
+  alice.getText("text").update("hello");
+  importUpdates(bob, [exportUpdatesSince(alice, base)]);
+  // bob inserts in the middle; alice's original op counters are preserved, so
+  // each character stays blamed to the op that actually inserted it.
+  bob.getText("text").insert(2, "XY");
+  bob.commit();
+
+  expect(getTextValue(bob)).toBe("heXYllo");
+  expect(listTextCharOpIds(bob)).toEqual([
+    { peerId: alicePeer, counter: 0 }, // h
+    { peerId: alicePeer, counter: 1 }, // e
+    { peerId: bobPeer, counter: 0 }, // X
+    { peerId: bobPeer, counter: 1 }, // Y
+    { peerId: alicePeer, counter: 2 }, // l
+    { peerId: alicePeer, counter: 3 }, // l
+    { peerId: alicePeer, counter: 4 }, // o
+  ]);
+});
+
+test("listTextCharOpIds returns an empty array for empty prose", async () => {
+  const doc = await createDocument("blank-seed");
+  expect(listTextCharOpIds(doc)).toEqual([]);
+});
+
+test("listTextCharOpIds yields one op id per code point for astral characters", async () => {
+  const doc = await createDocument("emoji-seed");
+  const peerId = await derivePeerId("emoji-seed");
+  // Prose that opens with an emoji and embeds a ZWJ family + skin-tone sequence:
+  // each code point is one Loro op, but several span two UTF-16 units. Blame must
+  // stay one op id per code point (no crash on the leading surrogate, no
+  // double-counting of surrogate halves).
+  const value = "😀a👨‍👧b👍🏽";
+  doc.getText("text").update(value);
+  doc.commit();
+
+  const opIds = listTextCharOpIds(doc);
+  expect(opIds).toHaveLength([...value].length);
+  // Counters run 0..n in code-point order, all from the single authoring peer.
+  expect(opIds).toEqual(
+    [...value].map((_char, index) => ({ peerId, counter: index })),
+  );
 });

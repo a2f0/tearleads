@@ -13,9 +13,11 @@ export {
   getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
+  listTextCharOpIds,
   listVersionVectorSpans,
   mergeVersionVectors,
   satisfiesVersionVector,
+  type TextCharOpId,
   type VersionVectorSpan,
   versionVectorsEqual,
 } from "./document";
