@@ -45,6 +45,7 @@ export interface PersistedDocumentRecord {
 }
 export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  preserveSnapshotText?: boolean | undefined;
 }
 export interface DocumentSyncAttempt {
   outgoingUpdateCount: number;

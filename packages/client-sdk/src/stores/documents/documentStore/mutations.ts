@@ -6,7 +6,10 @@ import {
 } from "../../../data/documents/documentKinds";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentStructuredFieldPatch } from "../types";
-import { ensureDocumentStoreReady } from "./initialization";
+import {
+  ensureDocumentStoreInitialized,
+  ensureDocumentStoreReady,
+} from "./initialization";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
@@ -15,15 +18,10 @@ import {
 } from "./persistence";
 import { type DocumentStoreState, setDocumentSnapshot } from "./state";
 
-export async function setDocumentText(
+function publishDocumentTextSnapshot(
   state: DocumentStoreState,
-  scheduleSync: () => void,
   value: string,
-): Promise<void> {
-  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
-    return;
-  }
-
+): void {
   setDocumentSnapshot(state, {
     attachments: state.snapshot.attachments,
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
@@ -45,7 +43,12 @@ export async function setDocumentText(
     ).title,
     syncing: state.snapshot.syncing,
   });
+}
 
+function queueDocumentTextWrite(
+  state: DocumentStoreState,
+  value: string,
+): Promise<void> {
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
@@ -61,7 +64,12 @@ export async function setDocumentText(
       const update = pendingDeltaSinceBase(state, state.doc);
 
       await enqueuePendingUpdate(state, update);
-      await persistDocument(state, state.doc, { text: value });
+      await persistDocument(
+        state,
+        state.doc,
+        { text: value },
+        { preserveSnapshotText: true },
+      );
       advancePendingBaseVersion(state, state.doc);
       requestDocumentStoreSync(state);
     })
@@ -69,6 +77,28 @@ export async function setDocumentText(
       console.error("Failed to persist document changes:", error);
     });
   return state.writeChain;
+}
+
+export function setDocumentText(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  value: string,
+): Promise<void> {
+  ensureDocumentStoreInitialized(state, scheduleSync);
+
+  if (!state.initialized || !state.doc) {
+    return ensureDocumentStoreReady(state, scheduleSync).then((ready) => {
+      if (!ready || !state.doc) {
+        return;
+      }
+
+      publishDocumentTextSnapshot(state, value);
+      return queueDocumentTextWrite(state, value);
+    });
+  }
+
+  publishDocumentTextSnapshot(state, value);
+  return queueDocumentTextWrite(state, value);
 }
 
 export async function setDocumentStructuredFields(

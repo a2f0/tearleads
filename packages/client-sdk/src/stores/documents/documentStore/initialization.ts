@@ -83,7 +83,6 @@ async function initializeDocumentStore(
     }
 
     state.record = existing;
-    setReadySnapshot(state, nextDoc, false);
   } else {
     initializeStoredDocumentKind(
       nextDoc,
@@ -120,7 +119,6 @@ async function initializeDocumentStore(
     ) {
       await enqueuePendingUpdate(state, exportAllUpdates(nextDoc));
     }
-    setReadySnapshot(state, nextDoc, false);
   }
 
   state.doc = nextDoc;
@@ -129,6 +127,7 @@ async function initializeDocumentStore(
   advancePendingBaseVersion(state, nextDoc);
   state.initialized = true;
   state.initializePromise = null;
+  setReadySnapshot(state, nextDoc, false);
   scheduleSync();
 }
 
