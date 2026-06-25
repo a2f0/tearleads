@@ -14,11 +14,16 @@ import {
 } from "../../components/shared/MiniAppLayout";
 import { useCurrentWindow } from "../../components/window/CurrentWindowContext";
 import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
+import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import "./SystemMonitor.css";
+import {
+  DEFAULT_SYSTEM_MONITOR_TAB,
+  formatSystemMonitorRouteSegments,
+  parseSystemMonitorRouteSegments,
+  type SystemMonitorTabId,
+} from "./routes";
 import { SystemMonitorLog } from "./SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
-
-type SystemMonitorTabId = "logs" | "status";
 
 const SYSTEM_MONITOR_TABS: ReadonlyArray<{
   id: SystemMonitorTabId;
@@ -106,10 +111,28 @@ function SystemMonitorTabs({
 }
 
 export function SystemMonitorApp() {
-  const [activeTab, setActiveTab] = useState<SystemMonitorTabId>("logs");
+  const { isRouted, pathSegments, setPathSegments } =
+    useMiniAppRouteSegments("system-monitor");
+  const [localActiveTab, setLocalActiveTab] = useState<SystemMonitorTabId>(
+    DEFAULT_SYSTEM_MONITOR_TAB,
+  );
+  const activeTab = isRouted
+    ? parseSystemMonitorRouteSegments(pathSegments)
+    : localActiveTab;
   const idPrefix = useId();
   const { canPin, pinToDesktop } = useSystemMonitor();
   const currentWindow = useCurrentWindow();
+  const setActiveTab = useCallback(
+    (nextTab: SystemMonitorTabId) => {
+      if (isRouted) {
+        setPathSegments(formatSystemMonitorRouteSegments(nextTab));
+        return;
+      }
+
+      setLocalActiveTab(nextTab);
+    },
+    [isRouted, setPathSegments],
+  );
 
   const handlePin = useCallback(() => {
     pinToDesktop();
