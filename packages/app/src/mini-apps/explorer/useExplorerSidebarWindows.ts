@@ -54,7 +54,7 @@ export function useExplorerSidebarDocumentWindows(params: {
   );
   const expandedContainerIds = useMemo(
     () => listExpandedExplorerTreeContainerIds(treeEntries, collapsedIds),
-    [collapsedIds, collapsedIdsKey, treeEntries],
+    [collapsedIdsKey, treeEntries],
   );
   const expandedContainerIdsKey = expandedContainerIds.join("\u0000");
   const expandedContainerIdsRef = useRef(expandedContainerIds);
@@ -215,7 +215,7 @@ export function useExplorerSidebarDocumentWindows(params: {
 
       return changed ? nextWindows : currentWindows;
     });
-  }, [nodes, ready, validContainerIdsKey]);
+  }, [ready, validContainerIdsKey]);
 
   useEffect(() => {
     if (!ready) {
