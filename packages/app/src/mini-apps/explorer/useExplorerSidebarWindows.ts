@@ -201,7 +201,9 @@ export function useExplorerSidebarDocumentWindows(params: {
       return;
     }
 
-    const validContainerIds = new Set(nodes.map((node) => node.id));
+    const validContainerIds = new Set(
+      validContainerIdsKey ? validContainerIdsKey.split("\u0000") : [],
+    );
     setDocumentWindowsByContainerId((currentWindows) => {
       let changed = false;
       const nextWindows = new Map<string, ExplorerSidebarDocumentWindowState>();
