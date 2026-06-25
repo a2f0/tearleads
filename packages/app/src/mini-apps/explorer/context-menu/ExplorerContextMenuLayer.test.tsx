@@ -36,6 +36,7 @@ function ExplorerContextMenuLayerHarness(params: {
   canCreateChildContextMenuNode?: boolean;
   canCreateStructuredDocumentContextMenuNode?: boolean;
   canDeleteSelectedDocument?: boolean;
+  canPurgeContextMenuNode?: boolean;
   canPurgeSelectedDocument?: boolean;
   canUploadToContextMenuNode?: boolean;
   containerContextMenuVariant?: ExplorerContainerContextMenuVariant;
@@ -45,6 +46,7 @@ function ExplorerContextMenuLayerHarness(params: {
   openContainerInfoRoute?: (containerId: string) => void;
   openNewContactDocument?: (containerId: string) => void;
   openNewStructuredDocumentRoute?: (containerId: string) => void;
+  openPurgeModal?: (containerId: string) => void;
   purgeDocument?: (localId: string, containerId: string) => Promise<unknown>;
 }) {
   const [contextMenu, setContextMenu] =
@@ -70,6 +72,7 @@ function ExplorerContextMenuLayerHarness(params: {
       canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
       canLinkSelectedDocument={false}
       canMoveContextMenuNode={false}
+      canPurgeContextMenuNode={params.canPurgeContextMenuNode ?? false}
       canRenameContextMenuNode={false}
       canUploadToContextMenuNode={params.canUploadToContextMenuNode ?? true}
       canMoveSelectedDocument={false}
@@ -89,6 +92,7 @@ function ExplorerContextMenuLayerHarness(params: {
       openNewStructuredDocumentRoute={
         params.openNewStructuredDocumentRoute ?? (() => {})
       }
+      openPurgeModal={params.openPurgeModal ?? (() => {})}
       openRenameModal={() => {}}
       purgeDocument={params.purgeDocument ?? (async () => null)}
       selectContainer={() => {}}
@@ -224,6 +228,40 @@ test("container context menu disables creation actions for protected containers"
 
   expect(createChildButton.disabled).toBe(true);
   expect(structuredDocumentButton.disabled).toBe(true);
+});
+
+test("container context menu hides Delete Forever for non-purgeable folders", () => {
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      importDroppedFiles={noopImportDroppedFiles}
+    />,
+  );
+
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentPurgeAction,
+    }),
+  ).toBeNull();
+});
+
+test("container context menu purges a folder under trash via Delete Forever", () => {
+  const purgedContainerIds: string[] = [];
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      canPurgeContextMenuNode
+      importDroppedFiles={noopImportDroppedFiles}
+      openPurgeModal={(containerId) => purgedContainerIds.push(containerId)}
+    />,
+  );
+
+  fireEvent.click(
+    view.getByRole("button", { name: EXPLORER_LABELS.documentPurgeAction }),
+  );
+
+  expect(purgedContainerIds).toEqual([rootNode.id]);
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.documentPurgeAction }),
+  ).toBeNull();
 });
 
 test("contacts container context menu only shows get info and new contact", () => {

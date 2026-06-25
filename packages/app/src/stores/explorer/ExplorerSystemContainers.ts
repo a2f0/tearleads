@@ -164,6 +164,38 @@ export function canResolveExplorerTrashContainer(
   return trashSystemSlot !== null;
 }
 
+// Whether `containerId` is the trash root itself or any descendant of it. The
+// trash system slot only ever lands on the root trash node, so a document or
+// folder nested in a user-created subfolder of trash is still "in trash" even
+// though its immediate container id never equals `trashContainerId`. Walking
+// `parentId` up to the root (guarding against a cyclic chain) is what lets the
+// purge UI treat the whole trash subtree as purgeable, not just the root.
+export function isExplorerContainerUnderTrash(
+  nodes: ReadonlyArray<ContainerNode> | null | undefined,
+  containerId: string | null,
+  trashContainerId: string | null,
+): boolean {
+  if (!containerId || !trashContainerId || !nodes) {
+    return false;
+  }
+
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  let currentId: string | null = containerId;
+  while (currentId !== null) {
+    if (currentId === trashContainerId) {
+      return true;
+    }
+    if (visited.has(currentId)) {
+      return false;
+    }
+    visited.add(currentId);
+    currentId = nodesById.get(currentId)?.parentId ?? null;
+  }
+
+  return false;
+}
+
 function findExplorerSystemContainerSlot(
   systemContainers: ReadonlyArray<ExplorerSystemContainer>,
   kind: UserSystemContainerKind,

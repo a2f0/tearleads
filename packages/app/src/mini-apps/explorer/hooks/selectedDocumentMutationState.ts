@@ -1,5 +1,6 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canDeleteDocumentByRules,
   type ExplorerContainerRulesContext,
@@ -13,6 +14,7 @@ export function getSelectedDocumentMutationState(params: {
     state: Pick<RuntimeSnapshot["state"], "online">;
   };
   canResolveTrashContainer: boolean;
+  nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
   selectedDocument: DocumentSummary | undefined;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
@@ -23,6 +25,7 @@ export function getSelectedDocumentMutationState(params: {
   const {
     appData,
     canResolveTrashContainer,
+    nodes,
     rulesContext,
     selectedDocument,
     selectedDocumentLinkTargetOptions,
@@ -60,7 +63,13 @@ export function getSelectedDocumentMutationState(params: {
       canResolveTrashContainer &&
       selectedDocument !== undefined &&
       selectedDocument.containerId !== null &&
-      selectedDocument.containerId === trashContainerId,
+      // Purge applies anywhere under trash, not only at the trash root: a
+      // document parked in a user-created subfolder of trash is still trashed.
+      isExplorerContainerUnderTrash(
+        nodes,
+        selectedDocument.containerId,
+        trashContainerId,
+      ),
     canUnlinkSelectedDocument:
       canMutateSelectedDocument &&
       selectedDocumentLinkedContainerIds.length > 1,

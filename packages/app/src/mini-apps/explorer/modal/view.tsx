@@ -49,6 +49,16 @@ function ExplorerModalBody(params: {
     return <MiniAppStatus>Delete this container?</MiniAppStatus>;
   }
 
+  if (modalState.mode === "purge") {
+    return (
+      <MiniAppStatus>
+        Permanently delete this folder and everything inside it? Documents also
+        kept in another folder are removed from here but preserved there. This
+        cannot be undone.
+      </MiniAppStatus>
+    );
+  }
+
   if (modalState.mode === "share-peer") {
     return (
       <MiniAppStatus>

@@ -46,6 +46,15 @@ const trashNode: ContainerNode = {
   systemSlot: "trash-slot",
 };
 
+// A user folder that has been moved into Trash. Carries no system slot of its
+// own, so it is a purge candidate while the Trash bin itself is not.
+const trashChildNode: ContainerNode = {
+  ...rootNode,
+  id: "trashed-folder",
+  name: "Trashed Folder",
+  parentId: trashNode.id,
+};
+
 const systemRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: contactsNode.id,
   contactsSystemSlot: "contacts-slot",
@@ -86,6 +95,7 @@ function ItemContextMenuHarness(params: {
     (id) => navigations.push(id),
     (localId, containerId) => navigations.push(`${containerId}/${localId}`),
     emptyRulesContext,
+    null,
   );
 
   if (contextMenu && !openedTargets.includes(contextMenu.id)) {
@@ -105,13 +115,17 @@ function ItemContextMenuHarness(params: {
 }
 
 function ContainerContextMenuVariantHarness(params: { nodeId: string }) {
-  const { containerContextMenuVariant, handleContainerContextMenu } =
-    useExplorerContextMenu(
-      [rootNode, contactsNode, trashNode],
-      () => {},
-      () => {},
-      systemRulesContext,
-    );
+  const {
+    canPurgeContextMenuNode,
+    containerContextMenuVariant,
+    handleContainerContextMenu,
+  } = useExplorerContextMenu(
+    [rootNode, contactsNode, trashNode, trashChildNode],
+    () => {},
+    () => {},
+    systemRulesContext,
+    trashNode.id,
+  );
 
   return (
     <>
@@ -125,6 +139,9 @@ function ContainerContextMenuVariantHarness(params: { nodeId: string }) {
       </button>
       <output aria-label="Container context menu variant">
         {containerContextMenuVariant}
+      </output>
+      <output aria-label="Can purge context menu node">
+        {String(canPurgeContextMenuNode)}
       </output>
     </>
   );
@@ -156,6 +173,37 @@ test("container context menu variant distinguishes contacts from other system co
   expect(
     rootView.getByLabelText("Container context menu variant").textContent,
   ).toBe("default");
+});
+
+test("container purge gate offers Delete Forever only for a user folder under trash", () => {
+  // A user folder nested in Trash is purgeable...
+  const trashedView = render(
+    <ContainerContextMenuVariantHarness nodeId={trashChildNode.id} />,
+  );
+  fireEvent.contextMenu(trashedView.getByRole("button", { name: "open" }));
+  expect(
+    trashedView.getByLabelText("Can purge context menu node").textContent,
+  ).toBe("true");
+  cleanup();
+
+  // ...but the Trash bin itself (a system container) is not.
+  const trashView = render(
+    <ContainerContextMenuVariantHarness nodeId={trashNode.id} />,
+  );
+  fireEvent.contextMenu(trashView.getByRole("button", { name: "open" }));
+  expect(
+    trashView.getByLabelText("Can purge context menu node").textContent,
+  ).toBe("false");
+  cleanup();
+
+  // ...and a normal folder outside trash is not.
+  const contactsView = render(
+    <ContainerContextMenuVariantHarness nodeId={contactsNode.id} />,
+  );
+  fireEvent.contextMenu(contactsView.getByRole("button", { name: "open" }));
+  expect(
+    contactsView.getByLabelText("Can purge context menu node").textContent,
+  ).toBe("false");
 });
 
 test("right-clicking a detail-pane row opens its menu without navigating", () => {

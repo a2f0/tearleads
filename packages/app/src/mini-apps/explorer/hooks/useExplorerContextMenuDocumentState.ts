@@ -123,6 +123,7 @@ export function useExplorerContextMenuDocumentState(params: {
       getSelectedDocumentMutationState({
         appData,
         canResolveTrashContainer,
+        nodes,
         rulesContext,
         selectedDocument: targetDocument,
         selectedDocumentLinkTargetOptions: linkTargetOptions,
@@ -136,6 +137,7 @@ export function useExplorerContextMenuDocumentState(params: {
       linkTargetOptions,
       linkedContainerIds,
       moveTargetOptions,
+      nodes,
       rulesContext,
       targetDocument,
       trashContainerId,

@@ -14,6 +14,7 @@ import { useExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
 import { useExplorerDocumentInfoLoader } from "../../../stores/explorer/documentInfo";
 import { useExplorerDocumentLinks } from "../../../stores/explorer/documentRuntime";
+import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   type ExplorerDroppedFileImportLabels,
   type ImportExplorerDroppedFiles,
@@ -60,6 +61,7 @@ interface ExplorerContextMenuModel {
   canCreateStructuredDocumentContextMenuNode: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
+  canPurgeContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
   canUploadToContextMenuNode: boolean;
   closeContextMenu: () => void;
@@ -201,6 +203,7 @@ export function useExplorerPanelState(params: {
     routeState.selectExplorerItem,
     selectDocumentProjection,
     rulesContext,
+    explorer.trashContainerId,
   );
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
@@ -281,7 +284,18 @@ export function useExplorerPanelState(params: {
         const trashContainerId =
           explorer.trashContainerId ??
           (await explorer.ensureTrashContainer())?.id;
-        if (!trashContainerId || trashContainerId === currentContainerId) {
+        // No-op when the document already lives anywhere under trash (the root
+        // or a user-created subfolder of it). Without the subtree check, deleting
+        // a document inside a trash subfolder would re-home it to the trash root
+        // instead of leaving it in place for the user to purge there.
+        if (
+          !trashContainerId ||
+          isExplorerContainerUnderTrash(
+            explorer.nodes,
+            currentContainerId,
+            trashContainerId,
+          )
+        ) {
           return null;
         }
 
@@ -306,6 +320,7 @@ export function useExplorerPanelState(params: {
     [
       appData.util.logError,
       explorer.ensureTrashContainer,
+      explorer.nodes,
       explorer.trashContainerId,
       routeState.selectExplorerItem,
       selectedNoteStructuralState.moveDocument,
@@ -315,11 +330,15 @@ export function useExplorerPanelState(params: {
     async (documentId: string, currentContainerId: string) => {
       try {
         // Purge is the inverse of "move to trash": it only permanently destroys
-        // a document that is already in the trash container. The server enforces
-        // the cardinality/authorization gate; this is the usability guard.
+        // a document that is already in trash — the root or any subfolder of it.
+        // The server enforces the cardinality/authorization gate; this is the
+        // usability guard.
         if (
-          !explorer.trashContainerId ||
-          currentContainerId !== explorer.trashContainerId
+          !isExplorerContainerUnderTrash(
+            explorer.nodes,
+            currentContainerId,
+            explorer.trashContainerId,
+          )
         ) {
           return null;
         }
@@ -345,6 +364,7 @@ export function useExplorerPanelState(params: {
     [
       appData.util.logError,
       bumpDocumentListRevision,
+      explorer.nodes,
       explorer.trashContainerId,
       onDocumentLinksChanged,
       routeState.selectExplorerItem,

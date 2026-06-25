@@ -27,6 +27,7 @@ export interface ExplorerModalSubmitParams {
   ) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
+  purgeContainer: (containerId: string) => Promise<boolean>;
   renameContainer: (
     containerId: string,
     name: string,
@@ -58,6 +59,41 @@ function submitExplorerDeleteModal(params: {
   void deleteContainer(modalState.nodeId)
     .then((deleted) => {
       if (deleted) {
+        return;
+      }
+
+      const message = getExplorerModalError(modalState.mode);
+      setBackgroundActionError(message);
+      console.error(message);
+    })
+    .catch((error: unknown) => {
+      setBackgroundActionError(getExplorerModalError(modalState.mode));
+      console.error(getExplorerModalLog(modalState.mode), error);
+    });
+  clearModal();
+}
+
+function submitExplorerPurgeModal(params: {
+  clearModal: () => void;
+  modalState: { mode: "purge"; nodeId: string };
+  nodes: ReadonlyArray<ContainerNode>;
+  purgeContainer: (containerId: string) => Promise<boolean>;
+  setBackgroundActionError: (error: string | null) => void;
+  setSelectedId: (id: string | null) => void;
+}) {
+  const {
+    clearModal,
+    modalState,
+    nodes,
+    purgeContainer,
+    setBackgroundActionError,
+    setSelectedId,
+  } = params;
+  const purgingNode = nodes.find((node) => node.id === modalState.nodeId);
+  setSelectedId(purgingNode?.parentId ?? null);
+  void purgeContainer(modalState.nodeId)
+    .then((purged) => {
+      if (purged) {
         return;
       }
 
@@ -247,6 +283,7 @@ async function submitExplorerNonNameModal(params: {
     | { mode: "link-document"; documentLocalId: string }
     | { mode: "move"; nodeId: string }
     | { mode: "move-document"; documentLocalId: string }
+    | { mode: "purge"; nodeId: string }
     | { mode: "share-peer"; nodeId: string };
   moveContainer: (
     containerId: string,
@@ -258,6 +295,7 @@ async function submitExplorerNonNameModal(params: {
   ) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
+  purgeContainer: (containerId: string) => Promise<boolean>;
   setBackgroundActionError: (error: string | null) => void;
   setModalError: (error: string | null) => void;
   setSelectedId: (id: string | null) => void;
@@ -270,6 +308,16 @@ async function submitExplorerNonNameModal(params: {
         deleteContainer: params.deleteContainer,
         modalState: params.modalState,
         nodes: params.nodes,
+        setBackgroundActionError: params.setBackgroundActionError,
+        setSelectedId: params.setSelectedId,
+      });
+      return;
+    case "purge":
+      submitExplorerPurgeModal({
+        clearModal: params.clearModal,
+        modalState: params.modalState,
+        nodes: params.nodes,
+        purgeContainer: params.purgeContainer,
         setBackgroundActionError: params.setBackgroundActionError,
         setSelectedId: params.setSelectedId,
       });
@@ -343,6 +391,7 @@ export async function submitExplorerModalAction(
     moveDocument: params.moveDocument,
     nodes: params.nodes,
     peerUserId: params.peerUserId,
+    purgeContainer: params.purgeContainer,
     setBackgroundActionError: params.setBackgroundActionError,
     setModalError: params.setModalError,
     setSelectedId: params.setSelectedId,

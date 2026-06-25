@@ -35,6 +35,46 @@ const rulesContext = createExplorerContainerRulesContext({
   trashSystemSlot: "trash-slot",
 });
 
+// Default node tree used by the purge/delete gate tests. The gate resolves
+// "is this container under trash" by walking parentId, so a "trash" root and a
+// "trash-subfolder" nested under it must exist as nodes for the equality-free
+// gate to evaluate. `source-container` stays outside trash.
+const gateNodes: ReadonlyArray<ContainerNode> = [
+  {
+    id: "root",
+    kind: "container",
+    name: "/",
+    organizationId: "org-1",
+    parentId: null,
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+  {
+    id: "trash",
+    kind: "container",
+    name: "Trash",
+    organizationId: "org-1",
+    parentId: "root",
+    systemSlot: "trash-slot",
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+  {
+    id: "trash-subfolder",
+    kind: "container",
+    name: "Subfolder",
+    organizationId: "org-1",
+    parentId: "trash",
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+  {
+    id: "source-container",
+    kind: "container",
+    name: "Source",
+    organizationId: "org-1",
+    parentId: "root",
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+];
+
 function getMutationState(
   overrides: Partial<
     Parameters<typeof getSelectedDocumentMutationState>[0]
@@ -43,6 +83,7 @@ function getMutationState(
   return getSelectedDocumentMutationState({
     appData: editableRuntime,
     canResolveTrashContainer: true,
+    nodes: gateNodes,
     rulesContext,
     selectedDocument,
     selectedDocumentLinkedContainerIds: ["source-container"],
@@ -124,6 +165,33 @@ test("document purge is enabled for documents already in trash", () => {
 test("document purge is disabled for documents outside trash", () => {
   expect(
     getMutationState({ trashContainerId: "trash" }).canPurgeSelectedDocument,
+  ).toBe(false);
+});
+
+test("document purge is enabled for documents in a subfolder of trash", () => {
+  // Regression: the gate used to require containerId === trashContainerId
+  // (the trash root). A document parked in a user-created subfolder of trash
+  // must still be purgeable.
+  expect(
+    getMutationState({
+      selectedDocument: {
+        ...selectedDocument,
+        containerId: "trash-subfolder",
+      },
+      trashContainerId: "trash",
+    }).canPurgeSelectedDocument,
+  ).toBe(true);
+});
+
+test("document purge stays disabled for a document in a non-trash subtree", () => {
+  expect(
+    getMutationState({
+      selectedDocument: {
+        ...selectedDocument,
+        containerId: "source-container",
+      },
+      trashContainerId: "trash",
+    }).canPurgeSelectedDocument,
   ).toBe(false);
 });
 
@@ -217,6 +285,7 @@ function moveOutOfTrashState(trashedDocument: DocumentSummary) {
     linkTargetOptions,
     moveTargetOptions,
     mutationState: getMutationState({
+      nodes: trashFlowNodes,
       selectedDocument: trashedDocument,
       selectedDocumentLinkTargetOptions: linkTargetOptions,
       selectedDocumentMoveTargetOptions: moveTargetOptions,
@@ -290,6 +359,7 @@ test("move out of trash is enabled while offline / unauthenticated", () => {
   expect(
     getMutationState({
       appData: deviceFirstRuntime,
+      nodes: trashFlowNodes,
       selectedDocument: trashedDocument,
       selectedDocumentMoveTargetOptions: moveTargetOptions,
       trashContainerId: TRASH_CONTAINER_ID,
@@ -316,6 +386,7 @@ test("move out of trash is disabled when the trash node is absent from the tree"
   expect(moveTargetOptions).toEqual([]);
   expect(
     getMutationState({
+      nodes: trashFlowNodes,
       selectedDocument: trashedDocument,
       selectedDocumentMoveTargetOptions: moveTargetOptions,
       trashContainerId: TRASH_CONTAINER_ID,

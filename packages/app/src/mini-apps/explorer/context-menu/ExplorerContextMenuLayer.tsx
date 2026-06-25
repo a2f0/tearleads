@@ -131,6 +131,7 @@ interface ExplorerContainerContextMenuProps {
   canCreateStructuredDocumentContextMenuNode: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
+  canPurgeContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
   canUploadToContextMenuNode: boolean;
   closeContextMenu: () => void;
@@ -143,6 +144,7 @@ interface ExplorerContainerContextMenuProps {
   openContainerInfoRoute: (containerId: string) => void;
   openMoveModal: (containerId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
+  openPurgeModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
 }
 
@@ -222,6 +224,7 @@ function ExplorerStandardContainerContextMenu(
     canCreateStructuredDocumentContextMenuNode,
     canDeleteContextMenuNode,
     canMoveContextMenuNode,
+    canPurgeContextMenuNode,
     canRenameContextMenuNode,
     canUploadToContextMenuNode,
     closeContextMenu,
@@ -233,6 +236,7 @@ function ExplorerStandardContainerContextMenu(
     openContainerInfoRoute,
     openMoveModal,
     openNewStructuredDocumentRoute,
+    openPurgeModal,
     openRenameModal,
   } = params;
   const containerId = contextMenu.id.containerId;
@@ -291,6 +295,16 @@ function ExplorerStandardContainerContextMenu(
         disabled={!canDeleteContextMenuNode}
         onSelect={() => openDeleteModal(containerId)}
       />
+      <ExplorerOptionalContainerMenuItem
+        closeContextMenu={closeContextMenu}
+        // Always hide when not purgeable: "Delete Forever" is meaningful only
+        // for a folder under trash, so it must never appear (even greyed) on a
+        // normal folder, regardless of the menu variant.
+        hideWhenDisabled
+        label={EXPLORER_LABELS.documentPurgeAction}
+        disabled={!canPurgeContextMenuNode}
+        onSelect={() => openPurgeModal(containerId)}
+      />
     </Menu>
   );
 }
@@ -320,6 +334,7 @@ export function ExplorerContextMenuLayer(params: {
   canLinkSelectedDocument: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
+  canPurgeContextMenuNode: boolean;
   canRenameContextMenuNode: boolean;
   canUploadToContextMenuNode: boolean;
   canMoveSelectedDocument: boolean;
@@ -337,6 +352,7 @@ export function ExplorerContextMenuLayer(params: {
   openMoveModal: (containerId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
+  openPurgeModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
   purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
   selectContainer: (containerId: string) => void;

@@ -166,6 +166,7 @@ export function useExplorerModel(
   const selectedDocumentMutationState = getSelectedDocumentMutationState({
     appData,
     canResolveTrashContainer: explorer.canResolveTrashContainer,
+    nodes: explorer.nodes,
     rulesContext,
     selectedDocument: selection.selectedDocument,
     selectedDocumentLinkTargetOptions,

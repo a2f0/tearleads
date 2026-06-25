@@ -25,6 +25,7 @@ export interface ExplorerDocumentModalState {
   openLinkDocumentModal: (documentLocalId: string) => void;
   openMoveDocumentModal: (documentLocalId: string) => void;
   openMoveModal: (nodeId: string) => void;
+  openPurgeModal: (nodeId: string) => void;
   openRenameModal: (nodeId: string) => void;
   openSharePeerModal: (nodeId: string) => void;
   setDraftName: Dispatch<SetStateAction<string>>;
@@ -69,6 +70,7 @@ export function useExplorerDocumentModalState(params: {
     documentSummaries,
     linkedContainerIdsByDocumentId,
     peerUserId,
+    purgeContainer: explorer.purgeContainer,
     renameContainer: explorer.renameContainer,
     rulesContext,
     setSelectedId,

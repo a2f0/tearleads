@@ -9,6 +9,7 @@ export type ExplorerModalState =
   | { mode: "link-document"; documentLocalId: string }
   | { mode: "move"; nodeId: string }
   | { mode: "move-document"; documentLocalId: string }
+  | { mode: "purge"; nodeId: string }
   | { mode: "rename"; nodeId: string }
   | { mode: "share-peer"; nodeId: string };
 
@@ -34,6 +35,7 @@ export interface ExplorerModalControllerParams {
   ) => Promise<DocumentSummary | null>;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
+  purgeContainer: (containerId: string) => Promise<boolean>;
   renameContainer: (
     containerId: string,
     name: string,
@@ -63,6 +65,7 @@ export interface ExplorerModalController {
   openLinkDocumentModal: (documentLocalId: string) => void;
   openMoveDocumentModal: (documentLocalId: string) => void;
   openMoveModal: (nodeId: string) => void;
+  openPurgeModal: (nodeId: string) => void;
   openRenameModal: (nodeId: string) => void;
   openSharePeerModal: (nodeId: string) => void;
   setDraftName: Dispatch<SetStateAction<string>>;
