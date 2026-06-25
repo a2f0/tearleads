@@ -77,43 +77,36 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
           );
         }}
       />
-      <MenuItem
+      <ExplorerOptionalMenuItem
+        closeContextMenu={closeContextMenu}
         label={EXPLORER_LABELS.documentLinkAction}
         disabled={!canLinkSelectedDocument}
-        onClick={() => {
-          closeContextMenu();
-          openLinkDocumentModal(contextMenu.id.localId);
-        }}
+        onSelect={() => openLinkDocumentModal(contextMenu.id.localId)}
       />
-      <MenuItem
+      <ExplorerOptionalMenuItem
+        closeContextMenu={closeContextMenu}
         label={EXPLORER_LABELS.documentMoveAction}
         disabled={!canMoveSelectedDocument}
-        onClick={() => {
-          closeContextMenu();
-          openMoveDocumentModal(contextMenu.id.localId);
-        }}
+        onSelect={() => openMoveDocumentModal(contextMenu.id.localId)}
       />
-      <MenuItem
+      <ExplorerOptionalMenuItem
+        closeContextMenu={closeContextMenu}
         label={EXPLORER_LABELS.documentDeleteAction}
         disabled={!canDeleteSelectedDocument}
-        onClick={() => {
-          closeContextMenu();
+        onSelect={() =>
           void deleteDocument(
             contextMenu.id.localId,
             contextMenu.id.containerId,
-          );
-        }}
+          )
+        }
       />
-      <MenuItem
+      <ExplorerOptionalMenuItem
+        closeContextMenu={closeContextMenu}
         label={EXPLORER_LABELS.documentPurgeAction}
         disabled={!canPurgeSelectedDocument}
-        onClick={() => {
-          closeContextMenu();
-          void purgeDocument(
-            contextMenu.id.localId,
-            contextMenu.id.containerId,
-          );
-        }}
+        onSelect={() =>
+          void purgeDocument(contextMenu.id.localId, contextMenu.id.containerId)
+        }
       />
       <MenuItem
         label={EXPLORER_LABELS.documentBackToContainerAction}
@@ -191,23 +184,20 @@ function ExplorerContactsContainerContextMenu(
   );
 }
 
-function ExplorerOptionalContainerMenuItem(params: {
+function ExplorerOptionalMenuItem(params: {
   closeContextMenu: () => void;
   disabled: boolean;
-  hideWhenDisabled: boolean;
   label: string;
   onSelect: () => void;
 }) {
-  const { closeContextMenu, disabled, hideWhenDisabled, label, onSelect } =
-    params;
-  if (hideWhenDisabled && disabled) {
+  const { closeContextMenu, disabled, label, onSelect } = params;
+  if (disabled) {
     return null;
   }
 
   return (
     <MenuItem
       label={label}
-      disabled={disabled}
       onClick={() => {
         closeContextMenu();
         onSelect();
@@ -229,7 +219,6 @@ function ExplorerStandardContainerContextMenu(
     canUploadToContextMenuNode,
     closeContextMenu,
     contextMenu,
-    containerContextMenuVariant,
     triggerUpload,
     openCreateChildModal,
     openDeleteModal,
@@ -240,11 +229,7 @@ function ExplorerStandardContainerContextMenu(
     openRenameModal,
   } = params;
   const containerId = contextMenu.id.containerId;
-  const hideUnavailableActions = containerContextMenuVariant === "system";
-  const optionalActionProps = {
-    closeContextMenu,
-    hideWhenDisabled: hideUnavailableActions,
-  };
+  const optionalActionProps = { closeContextMenu };
 
   return (
     <Menu
@@ -252,31 +237,31 @@ function ExplorerStandardContainerContextMenu(
       onClose={closeContextMenu}
       direction="down"
     >
-      <ExplorerOptionalContainerMenuItem
+      <ExplorerOptionalMenuItem
         {...optionalActionProps}
         label="Create Child"
         disabled={!canCreateChildContextMenuNode}
         onSelect={() => openCreateChildModal(containerId)}
       />
-      <ExplorerOptionalContainerMenuItem
+      <ExplorerOptionalMenuItem
         {...optionalActionProps}
         label={EXPLORER_LABELS.newStructuredDocumentAction}
         disabled={!canCreateStructuredDocumentContextMenuNode}
         onSelect={() => openNewStructuredDocumentRoute(containerId)}
       />
-      <ExplorerOptionalContainerMenuItem
+      <ExplorerOptionalMenuItem
         {...optionalActionProps}
         label="Upload"
         disabled={!canUploadToContextMenuNode}
         onSelect={() => triggerUpload(containerId)}
       />
-      <ExplorerOptionalContainerMenuItem
+      <ExplorerOptionalMenuItem
         {...optionalActionProps}
         label="Rename"
         disabled={!canRenameContextMenuNode}
         onSelect={() => openRenameModal(containerId)}
       />
-      <ExplorerOptionalContainerMenuItem
+      <ExplorerOptionalMenuItem
         {...optionalActionProps}
         label="Move"
         disabled={!canMoveContextMenuNode}
@@ -289,18 +274,14 @@ function ExplorerStandardContainerContextMenu(
           openContainerInfoRoute(containerId);
         }}
       />
-      <ExplorerOptionalContainerMenuItem
+      <ExplorerOptionalMenuItem
         {...optionalActionProps}
         label="Delete"
         disabled={!canDeleteContextMenuNode}
         onSelect={() => openDeleteModal(containerId)}
       />
-      <ExplorerOptionalContainerMenuItem
+      <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
-        // Always hide when not purgeable: "Delete Forever" is meaningful only
-        // for a folder under trash, so it must never appear (even greyed) on a
-        // normal folder, regardless of the menu variant.
-        hideWhenDisabled
         label={EXPLORER_LABELS.documentPurgeAction}
         disabled={!canPurgeContextMenuNode}
         onSelect={() => openPurgeModal(containerId)}
