@@ -60,7 +60,7 @@ export function useEnsureRosterProfileDocument(
           : currentUserDetail,
       );
     },
-    [],
+    [setDirectory, setUserDetail],
   );
 
   useEffect(() => {
@@ -116,6 +116,9 @@ export function useEnsureRosterProfileDocument(
     orgManagerActions,
     canUpdateSelectedRosterEntry,
     selectedRosterUser,
+    selectedUserIdRef,
+    setError,
+    setMutating,
     updateRosterUserState,
   ]);
 }

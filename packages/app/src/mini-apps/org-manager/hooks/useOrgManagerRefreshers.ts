@@ -33,10 +33,10 @@ interface OrgManagerRefreshersParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
   canLoadAuthenticatedOrgData: boolean;
   orgManagerActions: ReturnType<typeof useOrgManagerActions>;
+  resetSelectedRosterUser: () => void;
   selectGroup: (groupId: string | null) => void;
   selectedGroupIdRef: { current: string | null };
   selectedUserIdRef: { current: string | null };
-  selectRosterUser: (userId: string | null) => void;
   skippedGroupDetailsEffectRef: { current: { groupId: string | null } | null };
   setDataUsage: Dispatch<SetStateAction<OrganizationDataUsage | null>>;
   setDirectory: Dispatch<SetStateAction<OrganizationDirectory | null>>;
@@ -70,10 +70,10 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     appData,
     canLoadAuthenticatedOrgData,
     orgManagerActions,
+    resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
     selectedUserIdRef,
-    selectRosterUser,
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,
@@ -106,10 +106,10 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
     setProfileDisplayNamesByUserId(new Map());
     setIsCreateGroupDialogOpen(false);
     setIsImportUserDialogOpen(false);
-    selectRosterUser(null);
+    resetSelectedRosterUser();
     selectGroup(null);
   }, [
-    selectRosterUser,
+    resetSelectedRosterUser,
     selectGroup,
     setDataUsage,
     setDirectory,

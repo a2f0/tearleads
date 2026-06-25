@@ -141,6 +141,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     openGroupRoute,
     orgManagerActions,
     refreshDirectoryAndGroups,
+    setError,
+    setGroupNameDraft,
+    setIsCreateGroupDialogOpen,
+    setMutating,
   ]);
 
   const deleteGroup = useCallback(
@@ -181,6 +185,12 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       refreshSelectedUserDetail,
       selectGroup,
       selectedGroupIdRef,
+      selectedUserIdRef,
+      setError,
+      setGroupContainers,
+      setGroupPolicyHistory,
+      setMembers,
+      setMutating,
     ],
   );
 
@@ -263,6 +273,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     refreshSelectedUserDetail,
     selectUser,
     setOrgManagerView,
+    setError,
+    setImportUserIdDraft,
+    setIsImportUserDialogOpen,
+    setMutating,
   ]);
 
   const addUser = useCallback(async () => {
@@ -331,6 +345,10 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     refreshSelectedUserDetail,
     selectedGroupIsMembersGroup,
     selectedGroupId,
+    selectedUserIdRef,
+    setAddUserId,
+    setError,
+    setMutating,
   ]);
 
   const removeMember = useCallback(
@@ -380,6 +398,9 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       refreshSelectedGroupDetails,
       refreshSelectedUserDetail,
       selectedGroupId,
+      selectedUserIdRef,
+      setError,
+      setMutating,
     ],
   );
 
@@ -408,7 +429,14 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
         setMutating(false);
       }
     },
-    [orgManagerActions],
+    [
+      orgManagerActions,
+      setError,
+      setGrants,
+      setGroupContainers,
+      setMutating,
+      setUserDetail,
+    ],
   );
 
   return {

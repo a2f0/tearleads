@@ -248,6 +248,10 @@ export function useOrgManagerModel() {
     selectedRosterUser,
     setOrgManagerView,
   });
+  const resetSelectedRosterUser = useCallback(() => {
+    rosterActions.clearRosterProfileEditRequest();
+    selectUser(null);
+  }, [rosterActions.clearRosterProfileEditRequest, selectUser]);
 
   const {
     refreshDirectoryAndGroups,
@@ -258,10 +262,10 @@ export function useOrgManagerModel() {
     appData,
     canLoadAuthenticatedOrgData,
     orgManagerActions,
+    resetSelectedRosterUser,
     selectGroup,
     selectedGroupIdRef,
     selectedUserIdRef,
-    selectRosterUser: rosterActions.selectRosterUser,
     skippedGroupDetailsEffectRef,
     setDataUsage,
     setDirectory,

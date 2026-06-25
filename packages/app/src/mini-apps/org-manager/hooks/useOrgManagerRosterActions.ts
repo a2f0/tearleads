@@ -7,7 +7,7 @@ import type { OpenMiniAppRequest } from "../../types";
 import type { OrgManagerContextMenuState } from "../context-menu/OrgManagerContextMenu";
 import type { OrgManagerView } from "../routes";
 
-export function useOrgManagerRosterActions(input: {
+interface OrgManagerRosterActionsInput {
   authUserId: string | null;
   contextMenu: OrgManagerContextMenuState | null;
   directory: OrganizationDirectory | null;
@@ -15,7 +15,20 @@ export function useOrgManagerRosterActions(input: {
   selectUser: (userId: string | null) => void;
   selectedRosterUser: Pick<OrganizationDirectoryUser, "userId"> | null;
   setOrgManagerView: (view: OrgManagerView) => void;
-}) {
+}
+
+function contextMenuRosterUserId(
+  contextMenu: OrgManagerContextMenuState | null,
+) {
+  return typeof contextMenu?.id === "object" &&
+    contextMenu.id.kind === "directory-user"
+    ? contextMenu.id.userId
+    : null;
+}
+
+export function useOrgManagerRosterActions(
+  input: OrgManagerRosterActionsInput,
+) {
   const {
     authUserId,
     contextMenu,
@@ -36,28 +49,26 @@ export function useOrgManagerRosterActions(input: {
       Boolean(directory?.currentUser.isOrgAdmin || userId === authUserId),
     [authUserId, directory?.currentUser.isOrgAdmin],
   );
-  const contextMenuRosterUserId =
-    typeof contextMenu?.id === "object" &&
-    contextMenu.id.kind === "directory-user"
-      ? contextMenu.id.userId
-      : null;
+  const contextMenuUserId = contextMenuRosterUserId(contextMenu);
   const canEditContextMenuRosterUser = Boolean(
-    contextMenuRosterUserId &&
-      directory?.users.some(
-        (user) => user.userId === contextMenuRosterUserId,
-      ) &&
-      canUpdateRosterUser(contextMenuRosterUserId),
+    contextMenuUserId &&
+      directory?.users.some((user) => user.userId === contextMenuUserId) &&
+      canUpdateRosterUser(contextMenuUserId),
   );
   const canUpdateSelectedRosterEntry = Boolean(
     selectedRosterUser && canUpdateRosterUser(selectedRosterUser.userId),
   );
 
+  const clearRosterProfileEditRequest = useCallback(() => {
+    setRosterProfileEditRequest(null);
+  }, []);
+
   const selectRosterUser = useCallback(
     (userId: string | null) => {
-      setRosterProfileEditRequest(null);
+      clearRosterProfileEditRequest();
       selectUser(userId);
     },
-    [selectUser],
+    [clearRosterProfileEditRequest, selectUser],
   );
 
   const openRosterUser = useCallback(
@@ -101,6 +112,7 @@ export function useOrgManagerRosterActions(input: {
     canEditContextMenuRosterUser,
     canUpdateSelectedRosterEntry,
     canUpdateRosterUser,
+    clearRosterProfileEditRequest,
     importRosterUserIntoContacts,
     openRosterUser,
     openRosterUserForEditing,
