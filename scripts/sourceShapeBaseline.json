@@ -169,10 +169,6 @@
       "lines": 692,
       "bytes": 19306
     },
-    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 1226,
-      "bytes": 34998
-    },
     "packages/app/src/stores/documents/documentStore/sync.test.ts": {
       "lines": 2418,
       "bytes": 73930
@@ -334,6 +330,15 @@
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerMutations.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerProfileDisplayNames.ts": {
+      "biomeIgnore": 1
+    },
+    "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerRefreshers.ts": {
       "biomeIgnore": 1
     },
     "packages/app-web/src/index.tsx": {
