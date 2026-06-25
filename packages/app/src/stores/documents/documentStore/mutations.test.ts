@@ -6,6 +6,95 @@ import {
 } from "../../../../test/helpers/documentStoreFixtures";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 
+interface Deferred<T> {
+  promise: Promise<T>;
+  reject: (reason?: unknown) => void;
+  resolve: (value: T | PromiseLike<T>) => void;
+}
+
+function createDeferred<T = void>(): Deferred<T> {
+  let resolve: Deferred<T>["resolve"] | null = null;
+  let reject: Deferred<T>["reject"] | null = null;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve;
+    reject = innerReject;
+  });
+
+  if (!resolve || !reject) {
+    throw new Error("Failed to create deferred.");
+  }
+
+  return { promise, reject, resolve };
+}
+
+test("document store publishes text edits synchronously for controlled editors", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore("sync-note", runtime, persistence);
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Document store did not become ready.",
+  );
+
+  const write = store.setText("typed draft");
+
+  expect(store.getSnapshot().text).toBe("typed draft");
+
+  await write;
+  expect(persistence.getState().document?.text).toBe("typed draft");
+});
+
+test("document store does not replay intermediate persisted text during queued edits", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore("queued-note", runtime, persistence);
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Document store did not become ready.",
+  );
+
+  const originalSaveDocument = persistence.saveDocument;
+  const releaseFirstEditSave = createDeferred();
+  const releaseSecondEditSave = createDeferred();
+  let editSaveCount = 0;
+
+  persistence.saveDocument = async (...args) => {
+    editSaveCount += 1;
+    if (editSaveCount === 1) {
+      await releaseFirstEditSave.promise;
+    } else if (editSaveCount === 2) {
+      await releaseSecondEditSave.promise;
+    }
+
+    return originalSaveDocument(...args);
+  };
+
+  const firstWrite = store.setText("a");
+  const secondWrite = store.setText("ab");
+
+  expect(store.getSnapshot().text).toBe("ab");
+
+  releaseFirstEditSave.resolve();
+  await waitForCondition(
+    () => editSaveCount === 2,
+    "Second queued text save did not start.",
+  );
+
+  expect(store.getSnapshot().text).toBe("ab");
+
+  releaseSecondEditSave.resolve();
+  await Promise.all([firstWrite, secondWrite]);
+
+  expect(store.getSnapshot().text).toBe("ab");
+  expect(persistence.getState().document?.text).toBe("ab");
+});
+
 test("document store persists structured field edits as Loro updates", async () => {
   const persistence = createDocumentStorePersistence();
   const runtime = createDocumentStoreRuntime();

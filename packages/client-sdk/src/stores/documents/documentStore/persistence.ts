@@ -117,7 +117,9 @@ export async function persistDocument(
     state,
     currentDoc,
     state.snapshot.syncing,
-    persistedRecord.record.text,
+    options.preserveSnapshotText
+      ? state.snapshot.text
+      : persistedRecord.record.text,
   );
   return persistedRecord;
 }
