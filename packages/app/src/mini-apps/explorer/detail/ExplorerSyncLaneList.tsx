@@ -20,7 +20,7 @@ const SYNC_LANE_LIST_COLUMNS = [
 
 function ExplorerSyncLaneListHeader() {
   return (
-    <div aria-hidden className="explorer-sync-lane-list-head">
+    <div className="explorer-sync-lane-list-head">
       {SYNC_LANE_LIST_COLUMNS.map((column) => (
         <span key={column.id}>{column.label}</span>
       ))}

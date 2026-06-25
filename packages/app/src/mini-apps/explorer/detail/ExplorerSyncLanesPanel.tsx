@@ -75,7 +75,7 @@ export function ExplorerSyncLanesPanelView(params: {
               : EXPLORER_LABELS.syncLanesTitle}
           </strong>
           <span>
-            {showingLaneDetail
+            {selectedLaneKey !== null
               ? getSyncLaneDetailSubtitle(snapshot, selectedLaneKey)
               : formatMiniAppDateTime(snapshot.updatedAt, {
                   emptyFallback: "-",
@@ -96,7 +96,7 @@ export function ExplorerSyncLanesPanelView(params: {
           </MiniAppButton>
         </MiniAppActions>
       </MiniAppHeader>
-      {showingLaneDetail ? (
+      {selectedLaneKey !== null ? (
         <ExplorerSyncLaneDetail laneKey={selectedLaneKey} snapshot={snapshot} />
       ) : (
         <>

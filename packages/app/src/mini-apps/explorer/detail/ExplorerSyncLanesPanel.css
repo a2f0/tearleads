@@ -184,6 +184,11 @@
   min-width: 0;
 }
 
+.explorer-sync-lane-detail-grid td,
+.explorer-sync-lane-detail-grid code {
+  overflow-wrap: anywhere;
+}
+
 .explorer-sync-lane-detail-grid .mini-app-info-section {
   min-width: 0;
 }
