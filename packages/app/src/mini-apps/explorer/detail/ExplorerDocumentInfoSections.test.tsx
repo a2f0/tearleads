@@ -2,10 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import type { DocumentInfo } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
-import {
-  ExplorerDocumentInfoAttachmentsSection,
-  ExplorerDocumentInfoEditRangesSection,
-} from "./ExplorerDocumentInfoSections";
+import { ExplorerDocumentInfoAttachmentsSection } from "./ExplorerDocumentInfoAttachmentsSection";
+import { ExplorerDocumentInfoEditRangesSection } from "./ExplorerDocumentInfoGeneralSections";
 
 type DocumentInfoAttributionSegment = NonNullable<
   DocumentInfo["remoteInfo"]

@@ -12,19 +12,21 @@ import { EXPLORER_LABELS } from "../labels";
 import type { MiniAppWindowPosition } from "../types";
 import {
   ExplorerContainerInfoActions,
-  ExplorerContainerInfoGroupShareSection,
   ExplorerContainerInfoHeader,
-  ExplorerContainerInfoLocalSection,
+} from "./ExplorerContainerInfoChrome";
+import { ExplorerContainerInfoLocalSection } from "./ExplorerContainerInfoLocalSection";
+import { ExplorerContainerInfoSecuritySection } from "./ExplorerContainerInfoSecuritySection";
+import {
+  ExplorerContainerInfoGroupShareSection,
   ExplorerContainerInfoPeerShareSection,
   ExplorerContainerInfoPrincipalGrantsSection,
-  ExplorerContainerInfoSecuritySection,
-  ExplorerContainerInfoSyncCursorsSection,
-} from "./ExplorerContainerInfoSections";
+} from "./ExplorerContainerInfoSharingSections";
 import {
   useExplorerContainerInfo,
   useExplorerContainerInfoGroupShare,
   useExplorerContainerInfoPeerShare,
 } from "./ExplorerContainerInfoState";
+import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
 
 interface Props {
   containerId: string;
