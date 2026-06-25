@@ -10,6 +10,7 @@ import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import {
   type DocumentAttributionSegment,
+  type DocumentCharacterBlameSummary,
   type DocumentContributor,
   listDocumentAttributionSegments,
   summarizeDocumentContributors,
@@ -22,6 +23,7 @@ import {
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { computeCharacterBlame } from "./documentCharacterBlame";
 
 export type DocumentInfoRemoteMode = "if-synced" | "never";
 
@@ -76,6 +78,12 @@ export interface DocumentInfoRemoteDetails {
   activeAttachmentBindings: DocumentInfoRemoteAttachmentBinding[];
   attributionSegments: DocumentAttributionSegment[];
   authorizingContainerPaths: DocumentInfoAuthorizingContainerPath[];
+  /**
+   * Per-writer live-character blame, or `null` when it could not be computed —
+   * the document has no local snapshot, the snapshot is too large to extract
+   * op ids from cheaply, or the snapshot was unreadable.
+   */
+  characterBlame: DocumentCharacterBlameSummary | null;
   contentKeyEpoch: number;
   contentKeyTargetCount: number;
   contentKeyTargetHash: string;
@@ -264,9 +272,11 @@ async function loadLocalDocumentInfo(input: {
 }): Promise<{
   attachments: DocumentInfoAttachment[];
   local: DocumentInfoLocalDetails;
+  loroSnapshot: string | null;
 }> {
   const fallback = {
     attachments: [],
+    loroSnapshot: null,
     local: {
       accessEpoch: null,
       accessStateHash: null,
@@ -318,6 +328,7 @@ async function loadLocalDocumentInfo(input: {
 
   return {
     attachments,
+    loroSnapshot: document.loroSnapshot,
     local: {
       accessEpoch: document.accessEpoch,
       accessStateHash: document.accessStateHash ?? null,
@@ -380,11 +391,17 @@ function mapAuthorizingContainerPath(
 function getDocumentInfoRemoteDetails(input: {
   attachmentBindings: ReadonlyArray<BlobAttachmentSummary>;
   attributionSegments: DocumentAttributionSegment[];
+  characterBlame: DocumentCharacterBlameSummary | null;
   contributors: DocumentContributor[];
   projection: DocumentWriterProjectionResponse;
 }): DocumentInfoRemoteDetails {
-  const { attachmentBindings, attributionSegments, contributors, projection } =
-    input;
+  const {
+    attachmentBindings,
+    attributionSegments,
+    characterBlame,
+    contributors,
+    projection,
+  } = input;
   const manifestState = projection.documentManifest.state;
   const manifest = projection.documentManifest.manifest;
 
@@ -394,6 +411,7 @@ function getDocumentInfoRemoteDetails(input: {
     authorizingContainerPaths: projection.authorizingContainerPaths.map(
       mapAuthorizingContainerPath,
     ),
+    characterBlame,
     contentKeyEpoch: projection.contentKeyBundle.contentKeyEpoch,
     contentKeyTargetCount: projection.contentKeyBundle.targets.length,
     contentKeyTargetHash: projection.contentKeyBundle.targetHash,
@@ -430,7 +448,7 @@ export async function loadDocumentInfo(input: {
   localId: string;
   remoteInfoMode?: DocumentInfoRemoteMode | undefined;
 }): Promise<DocumentInfo> {
-  const { attachments, local } = await loadLocalDocumentInfo({
+  const { attachments, local, loroSnapshot } = await loadLocalDocumentInfo({
     execSql: input.execSql ?? null,
     localId: input.localId,
   });
@@ -468,6 +486,7 @@ export async function loadDocumentInfo(input: {
     remoteInfo: getDocumentInfoRemoteDetails({
       attachmentBindings: attachmentBindings ?? [],
       attributionSegments: listDocumentAttributionSegments(attributionSegments),
+      characterBlame: computeCharacterBlame(loroSnapshot, attributionSegments),
       contributors: summarizeDocumentContributors(attributionSegments),
       projection,
     }),

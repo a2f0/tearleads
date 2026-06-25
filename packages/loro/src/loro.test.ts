@@ -10,6 +10,7 @@ import {
   getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
+  listSnapshotCharOpIds,
   listTextCharOpIds,
   listVersionVectorSpans,
 } from "./index";
@@ -154,4 +155,35 @@ test("listTextCharOpIds yields one op id per code point for astral characters", 
   expect(opIds).toEqual(
     [...value].map((_char, index) => ({ peerId, counter: index })),
   );
+});
+
+test("listSnapshotCharOpIds reconstructs op ids from a shallow snapshot", async () => {
+  const alice = await createDocument("alice-seed");
+  const bob = await createDocument("bob-seed");
+  const alicePeer = await derivePeerId("alice-seed");
+  const bobPeer = await derivePeerId("bob-seed");
+
+  const base = encodeVersionVector(alice);
+  alice.getText("text").update("hello");
+  importUpdates(bob, [exportUpdatesSince(alice, base)]);
+  bob.getText("text").insert(2, "XY");
+  bob.commit();
+
+  // A persisted shallow snapshot trims history but keeps current state, so reading
+  // blame off a rebuilt doc must match reading it off the live doc — including the
+  // original per-peer authorship of every surviving character.
+  const snapshot = exportShallowSnapshot(bob);
+  const opIds = listSnapshotCharOpIds(snapshot, 100);
+  expect(opIds).toEqual(listTextCharOpIds(bob));
+  expect(opIds).toEqual([
+    { peerId: alicePeer, counter: 0 },
+    { peerId: alicePeer, counter: 1 },
+    { peerId: bobPeer, counter: 0 },
+    { peerId: bobPeer, counter: 1 },
+    { peerId: alicePeer, counter: 2 },
+    { peerId: alicePeer, counter: 3 },
+    { peerId: alicePeer, counter: 4 },
+  ]);
+  // "heXYllo" is 7 chars; a tighter cap refuses the O(n²) extraction.
+  expect(listSnapshotCharOpIds(snapshot, 6)).toBeNull();
 });

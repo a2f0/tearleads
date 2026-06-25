@@ -3,6 +3,7 @@ import {
   type DocumentEditAttributionSegment,
   listDocumentAttributionSegments,
   resolveOpIdAttribution,
+  summarizeCharacterBlame,
   summarizeDocumentContributors,
   writerByPeerId,
 } from "./editAttribution";
@@ -275,4 +276,104 @@ test("resolveOpIdAttribution returns null for an op id no segment covers", () =>
   expect(resolveOpIdAttribution(segments, "1", 9)).toBeNull(); // counter past the range
   expect(resolveOpIdAttribution(segments, "2", 0)).toBeNull(); // peer not attributed
   expect(resolveOpIdAttribution([], "1", 0)).toBeNull(); // no segments at all
+});
+
+test("summarizeCharacterBlame counts live characters per writer with totals", () => {
+  const segments = [
+    segment({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 3,
+      writerUserId: "alice",
+    }),
+    segment({
+      peerId: "1",
+      startCounter: 3,
+      endCounter: 6,
+      writerUserId: "bob",
+    }),
+    segment({
+      peerId: "2",
+      startCounter: 0,
+      endCounter: 4,
+      writerUserId: "carol",
+      authorityKind: "baseline",
+    }),
+  ];
+  const summary = summarizeCharacterBlame(
+    [
+      { peerId: "1", counter: 0 }, // alice
+      { peerId: "1", counter: 1 }, // alice
+      { peerId: "2", counter: 0 }, // carol (baseline)
+      { peerId: "1", counter: 5 }, // bob
+      { peerId: "9", counter: 0 }, // no segment covers peer 9 -> unattributed
+    ],
+    segments,
+  );
+  expect(summary).toEqual({
+    writers: [
+      {
+        writerUserId: "alice",
+        writerKeyFingerprint: "fp-alice",
+        characterCount: 2,
+        hasDirectAuthority: true,
+        hasBaselineAuthority: false,
+      },
+      {
+        writerUserId: "bob",
+        writerKeyFingerprint: "fp-bob",
+        characterCount: 1,
+        hasDirectAuthority: true,
+        hasBaselineAuthority: false,
+      },
+      {
+        writerUserId: "carol",
+        writerKeyFingerprint: "fp-carol",
+        characterCount: 1,
+        hasDirectAuthority: false,
+        hasBaselineAuthority: true,
+      },
+    ],
+    totalCharacterCount: 5,
+    unattributedCharacterCount: 1,
+  });
+});
+
+test("summarizeCharacterBlame flags a writer credited both directly and via baseline", () => {
+  const [writer] = summarizeCharacterBlame(
+    [
+      { peerId: "1", counter: 0 },
+      { peerId: "5", counter: 0 },
+    ],
+    [
+      segment({
+        peerId: "1",
+        startCounter: 0,
+        endCounter: 1,
+        writerUserId: "alice",
+      }),
+      segment({
+        peerId: "5",
+        startCounter: 0,
+        endCounter: 1,
+        writerUserId: "alice",
+        authorityKind: "baseline",
+      }),
+    ],
+  ).writers;
+  expect(writer).toEqual({
+    writerUserId: "alice",
+    writerKeyFingerprint: "fp-alice",
+    characterCount: 2,
+    hasDirectAuthority: true,
+    hasBaselineAuthority: true,
+  });
+});
+
+test("summarizeCharacterBlame returns an empty summary for empty input", () => {
+  expect(summarizeCharacterBlame([], [])).toEqual({
+    writers: [],
+    totalCharacterCount: 0,
+    unattributedCharacterCount: 0,
+  });
 });

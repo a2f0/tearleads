@@ -185,3 +185,116 @@ export function writerByPeerId(
   }
   return byPeer;
 }
+
+export interface DocumentCharacterBlame {
+  writerUserId: string;
+  writerKeyFingerprint: string;
+  /** Characters (code points) currently in the document attributed to this writer. */
+  characterCount: number;
+  /** At least one of this writer's live characters is an ordinary (direct) edit. */
+  hasDirectAuthority: boolean;
+  /** At least one is credited only via a rotate_baseline re-assertion. */
+  hasBaselineAuthority: boolean;
+}
+
+export interface DocumentCharacterBlameSummary {
+  /** Per-writer breakdown, ordered by `characterCount` desc. */
+  writers: DocumentCharacterBlame[];
+  /** Total characters (code points) currently in the document. */
+  totalCharacterCount: number;
+  /**
+   * Characters no attribution segment covers — typically local edits not yet
+   * reflected in the (remote) attribution feed.
+   */
+  unattributedCharacterCount: number;
+}
+
+/**
+ * Build a reusable resolver that maps an op id `(peerId, counter)` to its writer,
+ * indexing the segments by peer once up front. This turns a whole-document blame
+ * sweep over N characters from O(N·M) (a full segment scan per character) into
+ * roughly O(N) — prefer it over repeated {@link resolveOpIdAttribution} when
+ * resolving many op ids against the same segments.
+ */
+function createOpIdResolver(
+  segments: readonly DocumentEditAttributionSegment[],
+): (peerId: string, counter: number) => OpIdAttribution | null {
+  const segmentsByPeer = new Map<string, DocumentEditAttributionSegment[]>();
+  for (const segment of segments) {
+    const existing = segmentsByPeer.get(segment.peerId);
+    if (existing) {
+      existing.push(segment);
+    } else {
+      segmentsByPeer.set(segment.peerId, [segment]);
+    }
+  }
+  return (peerId, counter) => {
+    const peerSegments = segmentsByPeer.get(peerId);
+    if (!peerSegments) {
+      return null;
+    }
+    for (const segment of peerSegments) {
+      if (counter >= segment.startCounter && counter < segment.endCounter) {
+        return {
+          writerUserId: segment.writerUserId,
+          writerKeyFingerprint: segment.writerKeyFingerprint,
+          authorityKind: segment.authorityKind,
+        };
+      }
+    }
+    return null;
+  };
+}
+
+/**
+ * Roll up per-character "blame" for the current document: resolve each character's
+ * Loro op id (from `listSnapshotCharOpIds` / `listTextCharOpIds`, in document
+ * order) to its authoritative writer, then count live characters per writer.
+ * Unlike {@link summarizeDocumentContributors} — which sums op *counters* (every
+ * op ever, including superseded/deleted) — this counts the characters actually
+ * present now, so it answers "who wrote how much of the text as it stands".
+ * Characters no segment covers are tallied separately.
+ */
+export function summarizeCharacterBlame(
+  charOpIds: ReadonlyArray<{
+    readonly peerId: string;
+    readonly counter: number;
+  }>,
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentCharacterBlameSummary {
+  const byWriter = new Map<string, DocumentCharacterBlame>();
+  let unattributedCharacterCount = 0;
+  const resolveOpId = createOpIdResolver(segments);
+  for (const { peerId, counter } of charOpIds) {
+    const attribution = resolveOpId(peerId, counter);
+    if (!attribution) {
+      unattributedCharacterCount += 1;
+      continue;
+    }
+    const existing = byWriter.get(attribution.writerUserId);
+    if (existing) {
+      existing.characterCount += 1;
+      existing.hasDirectAuthority ||= attribution.authorityKind === "direct";
+      existing.hasBaselineAuthority ||=
+        attribution.authorityKind === "baseline";
+      continue;
+    }
+    byWriter.set(attribution.writerUserId, {
+      writerUserId: attribution.writerUserId,
+      writerKeyFingerprint: attribution.writerKeyFingerprint,
+      characterCount: 1,
+      hasDirectAuthority: attribution.authorityKind === "direct",
+      hasBaselineAuthority: attribution.authorityKind === "baseline",
+    });
+  }
+  const writers = [...byWriter.values()].sort(
+    (left, right) =>
+      right.characterCount - left.characterCount ||
+      left.writerUserId.localeCompare(right.writerUserId),
+  );
+  return {
+    writers,
+    totalCharacterCount: charOpIds.length,
+    unattributedCharacterCount,
+  };
+}

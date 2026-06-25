@@ -1,4 +1,10 @@
 import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import {
+  createDocument,
+  derivePeerId,
+  exportShallowSnapshot,
+} from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   BlobContentKeyBundleResponse,
@@ -265,6 +271,8 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
         authorityKind: "direct",
       },
     ]);
+    // No local Loro snapshot was persisted, so blame can't be computed.
+    expect(info.remoteInfo?.characterBlame).toBeNull();
     expect(info.remoteInfo?.authorizingContainerPaths).toEqual([
       {
         containerId: "container-1",
@@ -324,6 +332,160 @@ test("loadDocumentInfo avoids remote calls for local-only documents", async () =
     expect(info.local.documentId).toBeNull();
     expect(info.remoteInfo).toBeNull();
     expect(projectionCallCount).toBe(0);
+  } finally {
+    close();
+  }
+});
+
+test("loadDocumentInfo blames live characters using the persisted snapshot", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-info-blame-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    // Persist a real shallow snapshot of "hello" (5 code points, counters 0..4
+    // from one peer), then attribute its counters across two writers via the
+    // remote segments — so the rebuilt op ids must blame 3 chars to writer-1 and
+    // 2 (baseline) to writer-2.
+    const doc = await createDocument("writer-seed");
+    const peerId = await derivePeerId("writer-seed");
+    doc.getText("text").update("hello");
+    doc.commit();
+
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: "document-access-state-hash",
+        containerId: "container-1",
+        contentKeyBundle: "{}",
+        documentId: "document-1",
+        documentKekTargets: "{}",
+        documentKind: "note",
+        documentManifestBundle: JSON.stringify({
+          manifestHash: "local-document-manifest-hash",
+        }),
+        id: "local-document-1",
+        lastCommitLsn: "commit-lsn-1",
+        loroSnapshot: bytesToBase64(exportShallowSnapshot(doc)),
+        text: "hello",
+        title: "Hello",
+      },
+      { updatedAt: "2026-05-18T10:00:00.000Z" },
+    );
+
+    const info = await loadDocumentInfo({
+      apiClient: {
+        getDocumentWriterProjection: async () =>
+          createDocumentWriterProjection(),
+        listDocumentAttachments: async () => [],
+        getDocumentEditAttribution: async () => ({
+          documentId: "document-1",
+          segments: [
+            {
+              peerId,
+              startCounter: 0,
+              endCounter: 3,
+              updateId: "update-1",
+              updateSequence: 1,
+              writerUserId: "writer-1",
+              writerKeyFingerprint: "fp-1",
+              authorityKind: "direct",
+            },
+            {
+              peerId,
+              startCounter: 3,
+              endCounter: 5,
+              updateId: "update-2",
+              updateSequence: 2,
+              writerUserId: "writer-2",
+              writerKeyFingerprint: "fp-2",
+              authorityKind: "baseline",
+            },
+          ],
+        }),
+      },
+      execSql,
+      localId: "local-document-1",
+      remoteInfoMode: "if-synced",
+    });
+
+    expect(info.remoteInfo?.characterBlame).toEqual({
+      writers: [
+        {
+          writerUserId: "writer-1",
+          writerKeyFingerprint: "fp-1",
+          characterCount: 3,
+          hasDirectAuthority: true,
+          hasBaselineAuthority: false,
+        },
+        {
+          writerUserId: "writer-2",
+          writerKeyFingerprint: "fp-2",
+          characterCount: 2,
+          hasDirectAuthority: false,
+          hasBaselineAuthority: true,
+        },
+      ],
+      totalCharacterCount: 5,
+      unattributedCharacterCount: 0,
+    });
+  } finally {
+    close();
+  }
+});
+
+test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-info-corrupt-snapshot-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    // A corrupt/garbage persisted snapshot must not blank the whole Info panel —
+    // blame degrades to null while the rest of remoteInfo still loads.
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: "document-access-state-hash",
+        containerId: "container-1",
+        contentKeyBundle: "{}",
+        documentId: "document-1",
+        documentKekTargets: "{}",
+        documentKind: "note",
+        documentManifestBundle: JSON.stringify({
+          manifestHash: "local-document-manifest-hash",
+        }),
+        id: "local-document-1",
+        lastCommitLsn: "commit-lsn-1",
+        loroSnapshot: "!!!not-valid-base64-or-loro!!!",
+        text: "hello",
+        title: "Hello",
+      },
+      { updatedAt: "2026-05-18T10:00:00.000Z" },
+    );
+
+    const info = await loadDocumentInfo({
+      apiClient: {
+        getDocumentWriterProjection: async () =>
+          createDocumentWriterProjection(),
+        listDocumentAttachments: async () => [],
+        getDocumentEditAttribution: async () => ({
+          documentId: "document-1",
+          segments: [],
+        }),
+      },
+      execSql,
+      localId: "local-document-1",
+      remoteInfoMode: "if-synced",
+    });
+
+    expect(info.remoteInfo).not.toBeNull();
+    expect(info.remoteInfo?.characterBlame).toBeNull();
+    expect(info.remoteInfo?.contentKeyEpoch).toBe(2);
   } finally {
     close();
   }

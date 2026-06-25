@@ -13,6 +13,7 @@ export {
   getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
+  listSnapshotCharOpIds,
   listTextCharOpIds,
   listVersionVectorSpans,
   mergeVersionVectors,
