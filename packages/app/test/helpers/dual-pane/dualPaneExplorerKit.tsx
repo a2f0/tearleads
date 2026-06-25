@@ -45,7 +45,7 @@ async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
     fireEvent.click(within(pane).getByRole("menuitem", { name: "File" }));
   });
   const newStructuredDocumentItem = within(pane).getByRole("menuitem", {
-    name: "New Structured Document",
+    name: "New Document",
   });
   await interact(() => {
     fireEvent.click(newStructuredDocumentItem);
@@ -63,7 +63,7 @@ export async function createChildContainer(pane: HTMLElement, name: string) {
     });
   });
   const createChildButton = screen.getByRole("button", {
-    name: "Create Child",
+    name: "Create Child Folder",
   });
   await interact(() => {
     fireEvent.click(createChildButton);

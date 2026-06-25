@@ -20,9 +20,7 @@ import {
   useMiniAppRouteSegments,
 } from "./AppNavigationProvider";
 
-function EmptyMiniApp() {
-  return null;
-}
+const EmptyMiniApp = () => null;
 
 function ContactsRouteProbe() {
   const { pathSegments, setPathSegments } = useMiniAppRouteSegments("contacts");

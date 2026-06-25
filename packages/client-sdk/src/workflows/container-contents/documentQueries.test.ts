@@ -219,6 +219,96 @@ test("listContainerItemWindow includes allowlisted system container rows", async
   }
 });
 
+test("listContainerItemWindow includes shared system container rows by foreign name", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-shared-system-container-items",
+  );
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+    const runtime = { infra: { execSql } };
+    const readModel = createContainerDocumentQueriesFromRuntime(runtime);
+
+    await saveTestContainer({
+      execSql,
+      id: "shared-root-container",
+      name: "Shared Root",
+      organizationId: "owner-org",
+      parentId: null,
+      timestamp: "2026-05-01T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "archive-container",
+      name: "Archive",
+      organizationId: "owner-org",
+      parentId: "shared-root-container",
+      timestamp: "2026-05-02T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "peer-contacts-container",
+      name: "Contacts",
+      organizationId: "owner-org",
+      parentId: "shared-root-container",
+      systemSlot: "owner-contacts-slot",
+      timestamp: "2026-05-03T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "peer-trash-container",
+      name: "Trash",
+      organizationId: "owner-org",
+      parentId: "shared-root-container",
+      systemSlot: "owner-trash-slot",
+      timestamp: "2026-05-04T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "peer-roster-profile-container",
+      name: "Roster Profiles",
+      organizationId: "owner-org",
+      parentId: "shared-root-container",
+      systemSlot: "owner-roster-slot",
+      timestamp: "2026-05-05T00:00:00.000Z",
+    });
+    await saveTestContainer({
+      execSql,
+      id: "same-org-trash-spoof",
+      name: "Trash",
+      organizationId: "viewer-org",
+      parentId: "shared-root-container",
+      systemSlot: "same-org-spoof-slot",
+      timestamp: "2026-05-06T00:00:00.000Z",
+    });
+
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "shared-root-container",
+        currentOrganizationId: "viewer-org",
+        limit: 10,
+        offset: 0,
+        sort: { direction: "asc", key: "name" },
+        visibleForeignSystemContainerNames: ["Contacts", "Trash"],
+        visibleSystemSlots: ["viewer-contacts-slot", "viewer-trash-slot"],
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 3,
+      rows: [
+        { id: "archive-container", itemKind: "container", name: "Archive" },
+        {
+          id: "peer-contacts-container",
+          itemKind: "container",
+          name: "Contacts",
+        },
+        { id: "peer-trash-container", itemKind: "container", name: "Trash" },
+      ],
+    });
+  } finally {
+    close();
+  }
+});
+
 test("listContainerItemWindow includes documents linked to the selected container", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-linked-container-item-window",

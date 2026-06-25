@@ -16,6 +16,10 @@ import {
 import { Pane } from "../../../src/components/pane/Pane";
 import { PaneProvider } from "../../../src/components/pane/PaneProvider";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
+import {
+  saveSystemMonitorMode,
+  systemMonitorModeStorageKey,
+} from "../../../src/mini-apps/system-monitor/systemMonitorMode";
 import { useCryptoSession } from "../../../src/providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../src/providers/db/DatabaseProvider";
 import { useIdentity } from "../../../src/providers/identity/IdentityProvider";
@@ -78,6 +82,8 @@ function PaneAutoProvisioner() {
 
 export function renderDualPane(): ReturnType<typeof render> {
   const hostConfig = createTestHostConfig();
+  saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
+  saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
 
   return render(
     <DualPaneProvider>
@@ -105,6 +111,7 @@ export function renderSinglePane({
   autoProvision?: boolean;
 } = {}): ReturnType<typeof render> {
   const hostConfig = createTestHostConfig();
+  saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
 
   return render(
     <DualPaneProvider>
@@ -132,10 +139,14 @@ export function queryExplorerItemTable(root: HTMLElement): HTMLElement | null {
   return within(root).queryByRole("table", { name: /^Items in /u });
 }
 
+const PANE_USER_ID_PATTERN =
+  /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
+const PANE_SESSION_PATTERN = /session:\s*(?!none\b)\S+/u;
+const PANE_PEER_USER_ID_PATTERN =
+  /peerUserId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
+
 export function getPaneUserId(pane: HTMLElement): string {
-  const match = pane.textContent?.match(
-    /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u,
-  );
+  const match = pane.textContent?.match(PANE_USER_ID_PATTERN);
   invariant(match?.[1] && match[1] !== "none", "Expected pane user id.");
   return match[1];
 }
@@ -234,8 +245,8 @@ export async function selectContainerAndWaitForItemTable(
 export async function waitForSinglePaneProvisioning(pane: HTMLElement) {
   await waitForCondition(
     () =>
-      !pane.textContent?.includes("userId: none") &&
-      !pane.textContent?.includes("session: none"),
+      PANE_USER_ID_PATTERN.test(pane.textContent ?? "") &&
+      PANE_SESSION_PATTERN.test(pane.textContent ?? ""),
     "Left pane identity did not finish provisioning.",
     DUAL_PANE_TEST_TIMEOUT_MS,
   );
@@ -246,13 +257,18 @@ export async function waitForDualPaneProvisioning(
   rightPane: HTMLElement,
 ) {
   await waitForCondition(
-    () =>
-      !leftPane.textContent?.includes("userId: none") &&
-      !leftPane.textContent?.includes("session: none") &&
-      !rightPane.textContent?.includes("userId: none") &&
-      !rightPane.textContent?.includes("session: none") &&
-      !leftPane.textContent?.includes("peerUserId: none") &&
-      !rightPane.textContent?.includes("peerUserId: none"),
+    () => {
+      const leftText = leftPane.textContent ?? "";
+      const rightText = rightPane.textContent ?? "";
+      return (
+        PANE_USER_ID_PATTERN.test(leftText) &&
+        PANE_SESSION_PATTERN.test(leftText) &&
+        PANE_PEER_USER_ID_PATTERN.test(leftText) &&
+        PANE_USER_ID_PATTERN.test(rightText) &&
+        PANE_SESSION_PATTERN.test(rightText) &&
+        PANE_PEER_USER_ID_PATTERN.test(rightText)
+      );
+    },
     "Dual pane identities did not finish provisioning.",
     DUAL_PANE_TEST_TIMEOUT_MS,
   );

@@ -102,6 +102,7 @@ interface ExplorerDetailPanelProps {
   // True when the local SQLite database failed to start; gates the whole panel
   // on an explicit boot error + Retry instead of an endless "Loading...".
   databaseError: boolean;
+  currentOrganizationId: string | null | undefined;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
@@ -318,6 +319,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
       <ExplorerContainerDetail
         containerNodes={params.nodes}
         contextTarget={params.contextTarget}
+        currentOrganizationId={params.currentOrganizationId}
         currentSigningFingerprint={params.currentSigningFingerprint}
         currentUserId={params.currentUserId}
         documentListRevision={params.documentListRevision}

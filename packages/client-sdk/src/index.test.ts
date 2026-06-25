@@ -190,6 +190,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "removeOrganizationGroupUser",
   "replaceDocumentLinks",
   "requestDomainDocumentSync",
+  "resolveOpIdAttribution",
   "revokeOrganizationContainerGrant",
   "revokeRemoteContainer",
   "rootContainerWriterProjectionFromCreatePlan",

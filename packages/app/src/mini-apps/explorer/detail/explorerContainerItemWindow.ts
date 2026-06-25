@@ -7,9 +7,14 @@ import type {
 } from "@tearleads/client-sdk";
 import { useEffect, useMemo, useState } from "react";
 import { MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT } from "../../../components/shared/MiniAppVirtual";
+import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../stores/systemContainers";
 
 export const EXPLORER_VIRTUAL_ROW_HEIGHT =
   MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT;
+
+const EXPLORER_SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = Array.from(
+  SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
+);
 
 export function getNextExplorerItemSort(
   currentSort: ContainerItemSort,
@@ -48,6 +53,7 @@ interface ExplorerContainerItemWindowParams {
   // The current container nodes; its reference changes whenever the container
   // tree is rebuilt, which is used purely as a refetch signal (not read).
   containerNodes: ReadonlyArray<ContainerNode>;
+  currentOrganizationId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   enabled: boolean;
@@ -78,10 +84,9 @@ export function useExplorerContainerItemWindow(
     // effect runs) shows "Loading..." instead of flashing the empty message.
     isLoading: enabled,
   }));
-  const serializedSystemSlots = useMemo(
-    () => Array.from(visibleSystemSlots).sort().join("\u0000"),
-    [visibleSystemSlots],
-  );
+  const serializedSystemSlots = Array.from(visibleSystemSlots)
+    .sort()
+    .join("\u0000");
   // Refetch only when the selected container's own child sub-containers change
   // (id/name/sync), not when any container elsewhere in the tree does. Documents
   // are tracked separately via `documentListRevision`.
@@ -113,9 +118,12 @@ export function useExplorerContainerItemWindow(
     void documentQueries
       .listContainerItemWindow({
         containerId: selectedNode.id,
+        currentOrganizationId: params.currentOrganizationId,
         limit,
         offset,
         sort: { direction: sortDirection, key: sortKey },
+        visibleForeignSystemContainerNames:
+          EXPLORER_SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
         visibleSystemSlots: Array.from(visibleSystemSlots),
       })
       .then((window) => {
@@ -148,6 +156,7 @@ export function useExplorerContainerItemWindow(
     };
   }, [
     childContainerSignature,
+    params.currentOrganizationId,
     documentListRevision,
     documentQueries,
     enabled,

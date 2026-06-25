@@ -1,3 +1,4 @@
+import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerModalState } from "./types";
 
 export function getExplorerModalError(
@@ -61,7 +62,7 @@ export function getExplorerModalTitle(modalState: ExplorerModalState): string {
     case "rename":
       return "Rename Container";
     case "create-child":
-      return "Create Child";
+      return EXPLORER_LABELS.createChildFolderAction;
   }
 }
 

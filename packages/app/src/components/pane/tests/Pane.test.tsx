@@ -41,10 +41,12 @@ async function expectExplorerSystemContainerContextMenuItems(
       name: "Get Info",
     }),
   ).toBeTruthy();
-  expect(view.queryByRole("button", { name: "Create Child" })).toBeNull();
+  expect(
+    view.queryByRole("button", { name: "Create Child Folder" }),
+  ).toBeNull();
   expect(
     view.queryByRole("button", {
-      name: "New Structured Document",
+      name: "New Document",
     }),
   ).toBeNull();
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
@@ -72,11 +74,11 @@ async function expectExplorerNewStructuredDocumentFileMenuDisabled(
 
   const newStructuredDocumentItem = await within(explorerWindow).findByRole(
     "menuitem",
-    { name: "New Structured Document" },
+    { name: "New Document" },
   );
   invariant(
     newStructuredDocumentItem instanceof HTMLButtonElement,
-    "Expected New Structured Document file menu item.",
+    "Expected New Document file menu item.",
   );
   expect(newStructuredDocumentItem.disabled).toBe(true);
 

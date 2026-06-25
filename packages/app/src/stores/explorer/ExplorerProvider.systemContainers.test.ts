@@ -69,6 +69,69 @@ test("explorer only shows user-facing system containers", () => {
   ).toEqual(["root-container", "contacts-container", "trash-container"]);
 });
 
+test("explorer shows shared user-facing system containers by name", () => {
+  const contactsSystemSlot =
+    "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const trashSystemSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
+
+  expect(
+    getVisibleExplorerNodes(
+      [
+        {
+          id: "shared-root-container",
+          kind: "container",
+          name: "Shared Root",
+          organizationId: "owner-org",
+          parentId: null,
+          syncState: syncedContainerDocumentObjectSyncState,
+        },
+        {
+          id: "peer-contacts-container",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "owner-org",
+          parentId: "shared-root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "owner-contacts-slot",
+        },
+        {
+          id: "peer-trash-container",
+          kind: "container",
+          name: "Trash",
+          organizationId: "owner-org",
+          parentId: "shared-root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "owner-trash-slot",
+        },
+        {
+          id: "peer-roster-profile-container",
+          kind: "container",
+          name: "Roster Profiles",
+          organizationId: "owner-org",
+          parentId: "shared-root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "owner-roster-slot",
+        },
+        {
+          id: "same-org-trash-spoof",
+          kind: "container",
+          name: "Trash",
+          organizationId: "viewer-org",
+          parentId: "shared-root-container",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: "same-org-spoof-slot",
+        },
+      ],
+      new Set([contactsSystemSlot, trashSystemSlot]),
+      "viewer-org",
+    ).map((node) => node.id),
+  ).toEqual([
+    "shared-root-container",
+    "peer-contacts-container",
+    "peer-trash-container",
+  ]);
+});
+
 test("explorer keeps named user-facing system containers before visible slots resolve", () => {
   expect(
     getVisibleExplorerNodes([

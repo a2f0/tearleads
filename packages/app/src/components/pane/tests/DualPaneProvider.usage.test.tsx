@@ -23,6 +23,10 @@ import { createTestHostConfig } from "../../../../test/helpers/paneTestUtils";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { useRegisterCurrentIdentity } from "../../../identity/useRegisterCurrentIdentity";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
+import {
+  saveSystemMonitorMode,
+  systemMonitorModeStorageKey,
+} from "../../../mini-apps/system-monitor/systemMonitorMode";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
@@ -34,6 +38,9 @@ const ORG_MANAGER_USAGE_TEST_TIMEOUT_MS = 20_000;
 const BOOTSTRAP_SYNC_SETTLE_TIMEOUT_MS = 6_000;
 const NETWORK_IDLE_QUIET_MS = 25;
 const MAX_REQUEST_SUMMARY_BODY_LENGTH = 500;
+const PANE_USER_ID_PATTERN =
+  /userId:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/u;
+const PANE_SESSION_PATTERN = /session:\s*(?!none\b)\S+/u;
 
 afterEach(async () => {
   cleanup();
@@ -89,6 +96,7 @@ function PaneAutoProvisioner() {
 
 function renderSinglePane() {
   const hostConfig = createTestHostConfig();
+  saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
 
   return render(
     <DualPaneProvider>
@@ -112,8 +120,8 @@ function getPaneRoot(view: ReturnType<typeof renderSinglePane>): HTMLElement {
 async function waitForSinglePaneProvisioning(pane: HTMLElement) {
   await waitForCondition(
     () =>
-      !pane.textContent?.includes("userId: none") &&
-      !pane.textContent?.includes("session: none"),
+      PANE_USER_ID_PATTERN.test(pane.textContent ?? "") &&
+      PANE_SESSION_PATTERN.test(pane.textContent ?? ""),
     "Left pane identity did not finish provisioning.",
   );
 }

@@ -239,7 +239,7 @@ function ExplorerStandardContainerContextMenu(
     >
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
-        label="Create Child"
+        label={EXPLORER_LABELS.createChildFolderAction}
         disabled={!canCreateChildContextMenuNode}
         onSelect={() => openCreateChildModal(containerId)}
       />

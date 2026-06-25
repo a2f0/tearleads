@@ -67,7 +67,7 @@ interface UserSystemContainerDefinition {
   // Whether this system folder stays visible when its parent root is shared
   // with another user. A peer's system slots are HMAC'd from the owner's key,
   // so they never match the viewer's own slots — the explorer falls back to the
-  // container name to decide. Contacts are meant to be shared; Trash is private.
+  // container name to decide for shared system folders.
   readonly visibleWhenShared: boolean;
 }
 
@@ -109,7 +109,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         acceptedDocumentKinds: null,
       },
       slotDefinition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,
-      visibleWhenShared: false,
+      visibleWhenShared: true,
     },
   ];
 
@@ -125,8 +125,7 @@ export const SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = new Set(
 // Rules for the shareable system folders keyed by their name. A peer's system
 // folder carries the owner's opaque HMAC slot, so its rules cannot be resolved
 // by slot on the viewer's side — they are resolved by name instead (see
-// resolveContainerRules). Only `visibleWhenShared` folders are included, so a
-// peer's Trash never inherits system rules.
+// resolveContainerRules). Only `visibleWhenShared` folders are included.
 const SHARED_SYSTEM_CONTAINER_RULES_BY_NAME = new Map(
   USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
     (definition) => definition.visibleWhenShared,
@@ -145,8 +144,7 @@ export function getUserSystemContainerRulesByKind(
 
 // Resolve the rules for a shareable system folder by its name. Used for a peer's
 // system folder under a shared root, whose owner-derived slot the viewer cannot
-// match. Returns null for non-system names and for folders that are not shared
-// (e.g. Trash).
+// match. Returns null for non-system names and for folders that are not shared.
 export function getSharedSystemContainerRulesByName(
   name: string,
 ): UserSystemContainerRules | null {

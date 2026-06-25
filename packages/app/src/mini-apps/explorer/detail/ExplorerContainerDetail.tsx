@@ -52,6 +52,7 @@ function ExplorerContainerDetailHeader(params: {
 interface ExplorerContainerDetailProps {
   containerNodes: ReadonlyArray<ContainerNode>;
   contextTarget: ExplorerContextMenuTarget | null;
+  currentOrganizationId: string | null | undefined;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   documentListRevision: number;
@@ -77,6 +78,7 @@ function useExplorerContainerItems(
   params: Pick<
     ExplorerContainerDetailProps,
     | "containerNodes"
+    | "currentOrganizationId"
     | "documentListRevision"
     | "documentQueries"
     | "selectedNode"
