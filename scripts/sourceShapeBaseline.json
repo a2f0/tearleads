@@ -161,10 +161,6 @@
       "lines": 1098,
       "bytes": 36324
     },
-    "packages/app/src/components/pane/tests/DualPaneProvider.test.tsx": {
-      "lines": 1945,
-      "bytes": 58518
-    },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 692,
       "bytes": 19306
