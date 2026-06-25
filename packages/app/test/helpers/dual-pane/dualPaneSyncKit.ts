@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { act } from "react";
+import { act } from "@testing-library/react";
 import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
 import {
   type ProxiedApiRequest,

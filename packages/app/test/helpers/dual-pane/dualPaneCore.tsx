@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -7,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
-import { act, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   DualPaneProvider,
   PaneSideProvider,
