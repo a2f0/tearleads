@@ -13,8 +13,33 @@ async function generateKeyPair(page: Page, pane: Locator): Promise<void> {
   await page.getByRole("button", { name: "Generate Key Pair" }).click();
 }
 
+async function showSystemMonitorTab(
+  pane: Locator,
+  tabName: "Logs" | "Status",
+): Promise<void> {
+  if ((await pane.getByRole("tab", { name: "Logs" }).count()) === 0) {
+    await pane.getByRole("button", { name: "System Monitor" }).click();
+  }
+
+  const tab = pane.getByRole("tab", { name: tabName });
+  await expect(tab).toBeVisible();
+  if ((await tab.getAttribute("aria-selected")) !== "true") {
+    await tab.click();
+  }
+}
+
+async function paneStatus(pane: Locator): Promise<Locator> {
+  await showSystemMonitorTab(pane, "Status");
+  return pane.locator(".pane-content").first();
+}
+
+async function paneLogs(pane: Locator): Promise<Locator> {
+  await showSystemMonitorTab(pane, "Logs");
+  return pane.locator(".pane-log").first();
+}
+
 async function waitForPaneBooted(pane: Locator): Promise<void> {
-  const status = pane.locator(".pane-content");
+  const status = await paneStatus(pane);
   await expect(status).toContainText(SQLITE_READY_PATTERN, {
     timeout: 30_000,
   });
@@ -22,7 +47,7 @@ async function waitForPaneBooted(pane: Locator): Promise<void> {
 }
 
 async function panePublicKey(pane: Locator): Promise<string> {
-  const statusText = await pane.locator(".pane-content").innerText();
+  const statusText = await (await paneStatus(pane)).innerText();
   const match = PUBLIC_KEY_PATTERN.exec(statusText);
   if (!match?.[1]) {
     throw new Error(`Pane status did not include a public key: ${statusText}`);
@@ -35,10 +60,9 @@ test("page loads", async ({ page }) => {
 
   await expect(page).toHaveTitle("App");
   const firstVisiblePane = visiblePane(page);
+  const logs = await paneLogs(firstVisiblePane);
   await expect(
-    firstVisiblePane.getByText(
-      "Generate a key pair from the pane menu to boot this pane.",
-    ),
+    logs.getByText("Generate a key pair from the pane menu to boot this pane."),
   ).toBeVisible();
   await generateKeyPair(page, firstVisiblePane);
 
@@ -68,7 +92,7 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
   await generateKeyPair(page, pane);
   await waitForPaneBooted(pane);
   await expect(
-    pane.getByText("Local identity key package persisted"),
+    (await paneLogs(pane)).getByText("Local identity key package persisted"),
   ).toBeVisible({ timeout: 20_000 });
   const publicKey = await panePublicKey(pane);
 
@@ -76,19 +100,20 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
 
   const reloadedPane = visiblePane(page, "left");
   await waitForPaneBooted(reloadedPane);
-  await expect(reloadedPane.locator(".pane-content")).toContainText(
+  await expect(await paneStatus(reloadedPane)).toContainText(
     `publicKey: ${publicKey}`,
   );
+  const reloadedLogs = await paneLogs(reloadedPane);
   await expect(
-    reloadedPane.getByText("Local identity key package restored"),
+    reloadedLogs.getByText("Local identity key package restored"),
   ).toBeVisible({ timeout: 20_000 });
   await expect(
-    reloadedPane.getByText(
+    reloadedLogs.getByText(
       /Database characteristics \(pre-migration\): \d+ table\(s\), \d+ row\(s\) total/u,
     ),
   ).toBeVisible({ timeout: 20_000 });
   await expect(
-    reloadedPane.getByText(
+    reloadedLogs.getByText(
       "Database characteristics (pre-migration): no tables",
     ),
   ).toHaveCount(0);
@@ -110,10 +135,12 @@ test("same persisted identity can boot in two tabs", async ({
 
   const secondPane = visiblePane(secondPage, "left");
   await waitForPaneBooted(secondPane);
-  await expect(secondPane.locator(".pane-content")).toContainText(
+  await expect(await paneStatus(secondPane)).toContainText(
     `publicKey: ${publicKey}`,
   );
   await expect(
-    secondPane.getByText("Local identity key package restored"),
+    (await paneLogs(secondPane)).getByText(
+      "Local identity key package restored",
+    ),
   ).toBeVisible({ timeout: 20_000 });
 });

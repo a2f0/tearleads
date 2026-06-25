@@ -220,7 +220,11 @@ test("container context menu hides creation actions for protected containers", (
     />,
   );
 
-  expect(view.queryByRole("button", { name: "Create Child" })).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.createChildFolderAction,
+    }),
+  ).toBeNull();
   expect(
     view.queryByRole("button", {
       name: EXPLORER_LABELS.newStructuredDocumentAction,
@@ -331,7 +335,11 @@ test("system container context menu hides unavailable actions", () => {
   expect(
     view.getAllByRole("button").map((button) => button.textContent),
   ).toEqual([EXPLORER_LABELS.documentInfoGetInfoAction]);
-  expect(view.queryByRole("button", { name: "Create Child" })).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.createChildFolderAction,
+    }),
+  ).toBeNull();
   expect(
     view.queryByRole("button", {
       name: EXPLORER_LABELS.newStructuredDocumentAction,

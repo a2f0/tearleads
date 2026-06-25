@@ -80,7 +80,7 @@ function WindowFileMenuHarness({ onCreate }: { onCreate: () => void }) {
     function FileMenuWindow() {
       useWindowFileMenuItem({
         id: "test-new-structured-document",
-        label: "New Structured Document",
+        label: "New Document",
         onClick: onCreate,
       });
       return <div>File menu content</div>;
@@ -377,10 +377,10 @@ test("registered file action appears in the file menu", async () => {
   fireEvent.click(view.getByText("File"));
 
   await waitFor(() => {
-    expect(view.getByText("New Structured Document")).toBeTruthy();
+    expect(view.getByText("New Document")).toBeTruthy();
   });
 
-  fireEvent.click(view.getByText("New Structured Document"));
+  fireEvent.click(view.getByText("New Document"));
 
   expect(createCount).toBe(1);
 });

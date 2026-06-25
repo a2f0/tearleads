@@ -82,23 +82,44 @@ export function getContainerContentsDocumentPendingStateCtes(): string {
   `;
 }
 
+interface ContainerSystemFilterCounts {
+  visibleForeignSystemContainerNameCount: number;
+  visibleSystemSlotCount: number;
+}
+
+function getContainerDisplayNameSql(): string {
+  return "COALESCE(cp.display_name, CASE WHEN c.parent_id IS NULL THEN '/' ELSE 'Untitled' END)";
+}
+
 function getContainerContentsContainerSystemSlotFilter(
-  visibleSystemSlotCount: number,
+  counts: ContainerSystemFilterCounts,
 ): string {
-  if (visibleSystemSlotCount <= 0) {
-    return "c.system_slot IS NULL";
+  const clauses = ["c.system_slot IS NULL"];
+
+  if (counts.visibleSystemSlotCount > 0) {
+    const visibleSystemSlotBindMarkers = Array.from(
+      { length: counts.visibleSystemSlotCount },
+      () => "?",
+    ).join(", ");
+    clauses.push(`c.system_slot IN (${visibleSystemSlotBindMarkers})`);
   }
 
-  const visibleSystemSlotBindMarkers = Array.from(
-    { length: visibleSystemSlotCount },
-    () => "?",
-  ).join(", ");
+  if (counts.visibleForeignSystemContainerNameCount > 0) {
+    const visibleSystemNameBindMarkers = Array.from(
+      { length: counts.visibleForeignSystemContainerNameCount },
+      () => "?",
+    ).join(", ");
+    clauses.push(
+      `(c.organization_id != '' AND c.organization_id != ? AND ${getContainerDisplayNameSql()} IN (${visibleSystemNameBindMarkers}))`,
+    );
+  }
 
-  return `(c.system_slot IS NULL OR c.system_slot IN (${visibleSystemSlotBindMarkers}))`;
+  return `(${clauses.join(" OR ")})`;
 }
 
 export function getContainerContentsContainerItemsBaseSql(
   visibleSystemSlotCount = 0,
+  visibleForeignSystemContainerNameCount = 0,
 ): string {
   return `
     WITH ${getContainerContentsDocumentPendingStateCtes()},
@@ -134,10 +155,7 @@ export function getContainerContentsContainerItemsBaseSql(
         0 AS pending_attachment_count,
         0 AS pending_attachment_bytes,
         create_intent.last_error AS sync_last_error,
-        COALESCE(
-          cp.display_name,
-          CASE WHEN c.parent_id IS NULL THEN '/' ELSE 'Untitled' END
-        ) AS name,
+        ${getContainerDisplayNameSql()} AS name,
         'folder' AS type_sort,
         COALESCE(c.server_created_at, c.local_created_at) AS created_at,
         COALESCE(c.server_updated_at, c.local_updated_at) AS updated_at
@@ -148,7 +166,10 @@ export function getContainerContentsContainerItemsBaseSql(
       LEFT JOIN pending_container_create_intents create_intent
         ON create_intent.container_id = c.id
       WHERE c.parent_id = ?
-        AND ${getContainerContentsContainerSystemSlotFilter(visibleSystemSlotCount)}
+        AND ${getContainerContentsContainerSystemSlotFilter({
+          visibleForeignSystemContainerNameCount,
+          visibleSystemSlotCount,
+        })}
 
       UNION ALL
 

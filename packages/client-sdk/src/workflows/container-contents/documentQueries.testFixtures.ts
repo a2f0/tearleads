@@ -7,6 +7,7 @@ export async function saveTestContainer(input: {
   >[0];
   id: string;
   name: string;
+  organizationId?: string | undefined;
   parentId: string | null;
   systemSlot?: string | null;
   timestamp: string;
@@ -18,7 +19,7 @@ export async function saveTestContainer(input: {
       id: input.id,
       metadataDocumentId: null,
       name: input.name,
-      organizationId: "org-1",
+      organizationId: input.organizationId ?? "org-1",
       parentId: input.parentId,
       systemSlot: input.systemSlot ?? null,
     },

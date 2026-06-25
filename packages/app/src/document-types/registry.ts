@@ -55,7 +55,7 @@ export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
   });
 
 // File-backed kinds enter the workspace through upload, not the
-// "New Structured Document" picker, so they are excluded from creation.
+// "New Document" picker, so they are excluded from creation.
 const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
   IMAGE_DOCUMENT_KIND,
   AUDIO_DOCUMENT_KIND,

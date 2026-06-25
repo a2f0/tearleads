@@ -287,26 +287,35 @@ test("a peer's shared contacts folder enforces contacts rules by name", () => {
   ).toBe(false);
 });
 
-test("a peer's shared trash folder gets no system rules (trash is not shared)", () => {
-  // Trash is not in the shared-visible set, so the name fallback never resolves
-  // rules for it under a foreign org — it behaves like a plain container.
+test("a peer's shared trash folder enforces trash rules by name", () => {
+  // The owner's HMAC slot does not match the viewer's, so slot resolution
+  // misses; the foreign-org + system-name fallback applies the trash rules.
   const sharedTrash = containerNode({
     id: "peer-trash",
     name: "Trash",
     organizationId: FOREIGN_ORG_ID,
     systemSlot: "owner-trash-slot",
   });
-  expect(canMoveContainerByRules(sharedRulesContext, sharedTrash)).toBe(true);
-  expect(canDeleteContainerByRules(sharedRulesContext, sharedTrash)).toBe(true);
+  expect(canMoveContainerByRules(sharedRulesContext, sharedTrash)).toBe(false);
+  expect(canDeleteContainerByRules(sharedRulesContext, sharedTrash)).toBe(
+    false,
+  );
+  expect(canUploadToContainerByRules(sharedRulesContext, sharedTrash)).toBe(
+    false,
+  );
   expect(canCreateChildContainerByRules(sharedRulesContext, sharedTrash)).toBe(
-    true,
+    false,
   );
   expect(
     canCreateStructuredDocumentInContainerByRules(
       sharedRulesContext,
       sharedTrash,
     ),
-  ).toBe(true);
+  ).toBe(false);
+  expect(canMoveDocumentOutByRules(sharedRulesContext, sharedTrash)).toBe(true);
+  expect(canLinkDocumentOutByRules(sharedRulesContext, sharedTrash)).toBe(
+    false,
+  );
 });
 
 test("a same-org folder named Contacts cannot spoof contacts rules", () => {

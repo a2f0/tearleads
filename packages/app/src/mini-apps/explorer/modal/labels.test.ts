@@ -22,7 +22,7 @@ const modalFixtures: ReadonlyArray<{
     state: { mode: "create-child", nodeId: "container-1" },
     submitLabel: "Create",
     submittingLabel: "Creating...",
-    title: "Create Child",
+    title: "Create Child Folder",
   },
   {
     error: "Failed to rename container.",

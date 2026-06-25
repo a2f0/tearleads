@@ -96,6 +96,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       canMoveSelectedDocument={model.canMoveSelectedDocument}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
       contextTarget={model.contextMenuState.contextMenu?.id ?? null}
+      currentOrganizationId={appData.auth.organizationId}
       currentSigningFingerprint={appData.crypto.signingFingerprint}
       currentUserId={appData.auth.userId}
       documentListRevision={model.documentListRevision}

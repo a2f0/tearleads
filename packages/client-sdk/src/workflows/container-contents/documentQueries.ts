@@ -66,6 +66,16 @@ export type ContainerDocumentSidebarWindow =
   ContainerDocumentSidebarWindowContract;
 export type ContainerItemWindow = ContainerItemWindowContract;
 
+interface ListContainerItemWindowInput {
+  containerId: string;
+  currentOrganizationId?: string | null | undefined;
+  limit: number;
+  offset: number;
+  sort: ContainerItemSort;
+  visibleForeignSystemContainerNames?: ReadonlyArray<string> | undefined;
+  visibleSystemSlots?: ReadonlyArray<ContainerSystemSlot> | undefined;
+}
+
 export interface ContainerDocumentQueries {
   applyContainerDocumentTombstones(
     tombstones: ReadonlyArray<ContainerDocumentTombstone>,
@@ -75,13 +85,9 @@ export interface ContainerDocumentQueries {
     limit: number;
     offset: number;
   }): Promise<ContainerDocumentSidebarWindow>;
-  listContainerItemWindow(input: {
-    containerId: string;
-    limit: number;
-    offset: number;
-    sort: ContainerItemSort;
-    visibleSystemSlots?: ReadonlyArray<ContainerSystemSlot> | undefined;
-  }): Promise<ContainerItemWindow>;
+  listContainerItemWindow(
+    input: ListContainerItemWindowInput,
+  ): Promise<ContainerItemWindow>;
   loadDocumentSyncState(
     localId: string,
   ): Promise<ContainerDocumentObjectSyncState | null>;
@@ -181,13 +187,7 @@ async function listContainerContentsDocumentSummariesByContainerIdsOrDocumentIds
 
 async function listContainerItemWindow(
   execSql: ExecSql,
-  input: {
-    containerId: string;
-    limit: number;
-    offset: number;
-    sort: ContainerItemSort;
-    visibleSystemSlots?: ReadonlyArray<ContainerSystemSlot> | undefined;
-  },
+  input: ListContainerItemWindowInput,
 ): Promise<ContainerItemWindow> {
   await ensureContainerTables(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
@@ -198,14 +198,22 @@ async function listContainerItemWindow(
   const visibleSystemSlots = Array.from(
     new Set(input.visibleSystemSlots ?? []),
   );
+  const currentOrganizationId = input.currentOrganizationId || null;
+  const visibleForeignSystemContainerNames = currentOrganizationId
+    ? Array.from(new Set(input.visibleForeignSystemContainerNames ?? []))
+    : [];
   const bind = [
     input.containerId,
     ...visibleSystemSlots,
+    ...(visibleForeignSystemContainerNames.length > 0
+      ? [currentOrganizationId, ...visibleForeignSystemContainerNames]
+      : []),
     input.containerId,
     input.containerId,
   ];
   const baseSql = getContainerContentsContainerItemsBaseSql(
     visibleSystemSlots.length,
+    visibleForeignSystemContainerNames.length,
   );
   const countRows = await execSql(
     `SELECT COUNT(*) AS total_count FROM (${baseSql})`,

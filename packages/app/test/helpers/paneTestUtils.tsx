@@ -37,7 +37,6 @@ import { listProxiedApiRequests, resetMockServer, wsUrl } from "./mswServer";
 import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 
 export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
-
 export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
 export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
 
@@ -123,18 +122,11 @@ export function createDelayedLoadLocalKeyringFactory(
 
 export function renderPane({
   hostConfig = createTestHostConfig(),
-  // Default the System Monitor to pinned so its status + log render inline, as
-  // the home pane always did before the monitor was extracted. Most pane tests
-  // (and helpers like generateIdentityAndWaitForDb) assert on that inline
-  // status; the windowed launcher/pin behaviour is covered explicitly by
-  // SystemMonitor.test.tsx, which opts out with pinSystemMonitor: false.
   pinSystemMonitor = true,
 }: {
   readonly hostConfig?: AppHostConfig | undefined;
   readonly pinSystemMonitor?: boolean | undefined;
 } = {}): RenderResult {
-  // renderPane mounts the left pane; seed localStorage with the matching mode
-  // before render. cleanupPaneTestEnvironment() clears it after each test.
   saveSystemMonitorMode(
     systemMonitorModeStorageKey("left"),
     pinSystemMonitor ? "pinned" : "windowed",
@@ -167,15 +159,16 @@ export async function openExplorer(view: ReturnType<typeof renderPane>) {
   });
 
   invariant(explorerWindow, "explorer window not found");
-  const readyExplorerWindow = explorerWindow;
 
   await waitFor(() => {
     expect(
-      within(readyExplorerWindow).getByRole("table", { name: "Items in /" }),
+      within(explorerWindow as HTMLDivElement).getByRole("table", {
+        name: "Items in /",
+      }),
     ).toBeTruthy();
   });
 
-  return readyExplorerWindow;
+  return explorerWindow as HTMLDivElement;
 }
 
 export async function openExplorerNewStructuredDocumentRoute(
@@ -186,7 +179,7 @@ export async function openExplorerNewStructuredDocumentRoute(
   const newStructuredDocumentItem = await within(explorerWindow).findByRole(
     "menuitem",
     {
-      name: "New Structured Document",
+      name: "New Document",
     },
   );
   fireEvent.click(newStructuredDocumentItem);
@@ -217,20 +210,17 @@ export async function openNotes(view: ReturnType<typeof renderPane>) {
     expect(notesWindow).toBeTruthy();
   });
 
-  if (!notesWindow) {
-    throw new Error("notes window not found");
-  }
-  const readyNotesWindow: HTMLDivElement = notesWindow;
+  invariant(notesWindow, "notes window not found");
 
   await waitFor(() => {
     expect(
-      readyNotesWindow.querySelector<HTMLTextAreaElement>(
+      (notesWindow as HTMLDivElement).querySelector<HTMLTextAreaElement>(
         "textarea.note-document-editor",
       ),
     ).toBeTruthy();
   });
 
-  return readyNotesWindow;
+  return notesWindow as HTMLDivElement;
 }
 
 export async function openContacts(view: ReturnType<typeof renderPane>) {
@@ -302,7 +292,7 @@ export async function createExplorerChildContainer(
     clientX: 180,
     clientY: 180,
   });
-  fireEvent.click(view.getByRole("button", { name: "Create Child" }));
+  fireEvent.click(view.getByRole("button", { name: "Create Child Folder" }));
 
   const containerNameInput = view.getByLabelText("Container name");
   invariant(
@@ -340,8 +330,6 @@ export async function moveExplorerContainer(
     destinationSelect instanceof HTMLSelectElement,
     "Expected destination container select.",
   );
-  // Explorer hides container ids in user-facing move labels; tests should
-  // exercise the same visible folder name a user selects from the dropdown.
   const destinationOptions = Array.from(destinationSelect.options).filter(
     (option) => option.textContent?.trim() === destinationName,
   );
@@ -396,9 +384,7 @@ export function summarizeProxiedApiRequests(): string {
             const ids = Reflect.get(parsed, "acceptedOutgoingUpdateIds");
             return ` accepted=${Array.isArray(ids) ? ids.length : "?"}`;
           }
-        } catch {
-          // fall through to status-only summary
-        }
+        } catch {}
         return "";
       })();
       return `${request.method} ${path} ${request.status}${response}`;
@@ -453,8 +439,7 @@ export function getPaneStatusText(view: ReturnType<typeof renderPane>): string {
 }
 
 export function getPanePublicKey(view: ReturnType<typeof renderPane>): string {
-  const statusText = getPaneStatusText(view);
-  const match = publicKeyStatusPattern.exec(statusText);
+  const match = publicKeyStatusPattern.exec(getPaneStatusText(view));
   invariant(match?.[1], "Expected pane public key.");
   return match[1];
 }
