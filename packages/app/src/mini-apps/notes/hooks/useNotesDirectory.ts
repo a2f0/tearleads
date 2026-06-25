@@ -48,21 +48,16 @@ function resolveSelectedNoteId(
   return nextNotes[0]?.id ?? DEFAULT_DOCUMENT_ID;
 }
 
-export function useNotesDirectory({
-  explicitSelection,
-  selectNoteRoute,
-}: NotesDirectoryInput) {
+// Keeps the in-memory note selection valid as the database comes online and the
+// note list changes (e.g. a note is created or deleted out from under it).
+function useSyncSelectedNote(input: {
+  explicitNoteId: string | null;
+  notes: ReadonlyArray<DocumentSummary>;
+  ready: boolean;
+  selectNoteRoute: SelectNoteRoute;
+}) {
   const appData = useTearleadsRuntime();
-  const explicitNoteId = explicitSelection?.noteId ?? null;
-  const {
-    mergeSummary: mergeNoteSummary,
-    ready,
-    summaries: notes,
-  } = useDocumentSummaries({
-    documentKind: DEFAULT_DOCUMENT_KIND,
-    loadErrorMessage: "Notes: failed to load notes.",
-    sortSummaries: compareNoteSummaries,
-  });
+  const { explicitNoteId, notes, ready, selectNoteRoute } = input;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
     explicitNoteId,
   );
@@ -107,6 +102,32 @@ export function useNotesDirectory({
     selectNoteRoute,
   ]);
 
+  return { selectedNoteId, setSelectedNoteId };
+}
+
+export function useNotesDirectory({
+  explicitSelection,
+  selectNoteRoute,
+}: NotesDirectoryInput) {
+  const appData = useTearleadsRuntime();
+  const explicitNoteId = explicitSelection?.noteId ?? null;
+  const {
+    deleteSummary: deleteNoteSummary,
+    mergeSummary: mergeNoteSummary,
+    ready,
+    summaries: notes,
+  } = useDocumentSummaries({
+    documentKind: DEFAULT_DOCUMENT_KIND,
+    loadErrorMessage: "Notes: failed to load notes.",
+    sortSummaries: compareNoteSummaries,
+  });
+  const { selectedNoteId, setSelectedNoteId } = useSyncSelectedNote({
+    explicitNoteId,
+    notes,
+    ready,
+    selectNoteRoute,
+  });
+
   const createNote = useCallback(() => {
     const noteId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
@@ -133,8 +154,26 @@ export function useNotesDirectory({
     [selectNoteRoute],
   );
 
+  const deleteNote = useCallback(
+    async (noteId: string) => {
+      const deleted = await deleteNoteSummary(noteId);
+      if (!deleted || selectedNoteId !== noteId) {
+        return;
+      }
+
+      // The deleted note was selected; fall back to the next note in the list,
+      // or the default blank note when nothing else remains.
+      const nextNoteId =
+        notes.find((note) => note.id !== noteId)?.id ?? DEFAULT_DOCUMENT_ID;
+      setSelectedNoteId(nextNoteId);
+      selectNoteRoute({ noteId: nextNoteId }, { replace: true });
+    },
+    [deleteNoteSummary, notes, selectedNoteId, selectNoteRoute],
+  );
+
   return {
     createNote,
+    deleteNote,
     notes,
     ready,
     selectedNoteId,

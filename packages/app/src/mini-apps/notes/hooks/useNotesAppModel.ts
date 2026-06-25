@@ -1,5 +1,9 @@
 import { useCallback } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import {
+  type NotesContextMenuModel,
+  useNotesContextMenu,
+} from "../context-menu/NotesContextMenu";
 import { useNotesSidebarPanel } from "../NotesSidebar";
 import { formatNotesRouteSegments, parseNotesRouteSegments } from "../routes";
 import type {
@@ -13,6 +17,7 @@ import { useNotesDirectory } from "./useNotesDirectory";
 
 interface NotesAppModel {
   activeSelection: ActiveNoteSelection | null;
+  contextMenu: NotesContextMenuModel;
   createNote: () => void;
   ready: boolean;
 }
@@ -44,15 +49,18 @@ export function useNotesAppModel(
   setSidebar: NotesSetSidebar,
 ): NotesAppModel {
   const { explicitSelection, selectNoteRoute } = useNotesRouteState(props);
-  const { createNote, notes, ready, selectedNoteId, selectNote } =
+  const { createNote, deleteNote, notes, ready, selectedNoteId, selectNote } =
     useNotesDirectory({ explicitSelection, selectNoteRoute });
   const activeSelection = useActiveNoteSelection({
     explicitSelection,
     notes,
     selectedNoteId,
   });
+  const contextMenu = useNotesContextMenu({ deleteNote });
 
   useNotesSidebarPanel({
+    handleAreaContextMenu: contextMenu.handleAreaContextMenu,
+    handleNoteContextMenu: contextMenu.handleNoteContextMenu,
     notes,
     ready,
     selectNote,
@@ -60,5 +68,5 @@ export function useNotesAppModel(
     setSidebar,
   });
 
-  return { activeSelection, createNote, ready };
+  return { activeSelection, contextMenu, createNote, ready };
 }

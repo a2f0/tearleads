@@ -3,7 +3,14 @@ import {
   type DocumentSummary,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -60,6 +67,53 @@ function mergeDocumentSummary(
       );
 }
 
+function useDocumentSummaryMutations(input: {
+  documentKind: StoredDocumentKind | undefined;
+  setSummaries: Dispatch<SetStateAction<ReadonlyArray<DocumentSummary>>>;
+}) {
+  const appData = useTearleadsRuntime();
+  const tearleads = useTearleads();
+  const { documentKind, setSummaries } = input;
+
+  const mergeSummary = useCallback(
+    (nextDocumentSummary: DocumentSummary) => {
+      setSummaries((currentDocumentSummaries) =>
+        mergeDocumentSummary(
+          currentDocumentSummaries,
+          nextDocumentSummary,
+          documentKind,
+        ),
+      );
+    },
+    [documentKind, setSummaries],
+  );
+
+  // Deletion is not delivered through the persisted-document subscription (that
+  // channel only carries merges), so drop the row from local state ourselves
+  // once the document is gone from the database.
+  const deleteSummary = useCallback(
+    async (localId: string): Promise<boolean> => {
+      try {
+        const deleted = await tearleads.documents.delete(localId);
+        if (deleted) {
+          setSummaries((currentDocumentSummaries) =>
+            currentDocumentSummaries.filter(
+              (summary) => summary.id !== localId,
+            ),
+          );
+        }
+        return deleted;
+      } catch (error) {
+        appData.util.logError("Failed to delete document summary.", error);
+        return false;
+      }
+    },
+    [appData.util.logError, setSummaries, tearleads],
+  );
+
+  return { deleteSummary, mergeSummary };
+}
+
 export function useDocumentSummaries({
   documentKind,
   loadErrorMessage,
@@ -77,18 +131,10 @@ export function useDocumentSummaries({
       ? appData.state.containerId
       : subscriptionContainerId;
 
-  const mergeSummary = useCallback(
-    (nextDocumentSummary: DocumentSummary) => {
-      setSummaries((currentDocumentSummaries) =>
-        mergeDocumentSummary(
-          currentDocumentSummaries,
-          nextDocumentSummary,
-          documentKind,
-        ),
-      );
-    },
-    [documentKind],
-  );
+  const { deleteSummary, mergeSummary } = useDocumentSummaryMutations({
+    documentKind,
+    setSummaries,
+  });
 
   useEffect(() => {
     if (appData.infra.dbStatus !== "ready") {
@@ -147,6 +193,7 @@ export function useDocumentSummaries({
   );
 
   return {
+    deleteSummary,
     mergeSummary,
     ready,
     summaries: sortedSummaries,
