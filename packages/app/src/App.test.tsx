@@ -10,9 +10,23 @@ import {
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
 import { AppHostConfig } from "./host/AppHostConfig";
+import {
+  saveSystemMonitorMode,
+  systemMonitorModeStorageKey,
+} from "./mini-apps/system-monitor/systemMonitorMode";
+
+// In windowed mode the System Monitor (worker status + boot log) defaults to a
+// closed window. These full-app smoke tests assert on that inline status, so
+// pin the monitor for both pane sides before rendering.
+function pinWindowedSystemMonitors() {
+  for (const side of ["left", "right"] as const) {
+    saveSystemMonitorMode(systemMonitorModeStorageKey(side), "pinned");
+  }
+}
 
 afterEach(() => {
   cleanup();
+  globalThis.localStorage.clear();
 });
 
 test("renders App", async () => {
@@ -29,6 +43,7 @@ test("renders App", async () => {
   try {
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);
 
+    pinWindowedSystemMonitors();
     const view = render(
       <App
         hostConfig={
@@ -198,6 +213,7 @@ test("switching navigation mode reuses the booted pane database instead of reboo
   try {
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);
 
+    pinWindowedSystemMonitors();
     const view = render(
       <App
         hostConfig={

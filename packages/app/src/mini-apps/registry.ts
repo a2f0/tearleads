@@ -4,6 +4,7 @@ import { ExplorerApp } from "./explorer/ExplorerApp";
 import { IdentityManagerApp } from "./identity-manager/IdentityManagerApp";
 import { createNotesWindowComponent } from "./notes/NotesApp";
 import { OrgManagerApp } from "./org-manager/OrgManagerApp";
+import { SystemMonitorApp } from "./system-monitor/SystemMonitorApp";
 import type { MiniAppDefinition, MiniAppId } from "./types";
 
 export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
@@ -33,8 +34,16 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     createComponent: () => OrgManagerApp,
     title: "Org Manager",
   },
+  "system-monitor": {
+    createComponent: () => SystemMonitorApp,
+    initialShowSidebar: false,
+    title: "System Monitor",
+  },
 };
 
+// "system-monitor" is intentionally omitted: it is launched from the home
+// pane's lower-right icon (SystemMonitorLauncherButton), which also handles
+// unpinning, rather than from the generic pane/app menu.
 export const MINI_APP_MENU_ITEMS = [
   { appId: "backup-restore", label: "Open Backup / Restore" },
   { appId: "notes", label: "Open Notes" },
