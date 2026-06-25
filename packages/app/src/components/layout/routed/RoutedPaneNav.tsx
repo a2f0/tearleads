@@ -1,5 +1,8 @@
 import { type MouseEvent as ReactMouseEvent, useCallback } from "react";
-import { MINI_APP_MENU_ITEMS, MINI_APPS } from "../../../mini-apps/registry";
+import {
+  MINI_APPS,
+  ROUTED_MINI_APP_NAV_ITEMS,
+} from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
@@ -96,7 +99,7 @@ function RoutedPaneNavPanel({
           activeAppId={activeAppId}
           onNavigate={onNavigate}
         />
-        {MINI_APP_MENU_ITEMS.map(({ appId }) => (
+        {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId }) => (
           <RoutedPaneNavLink
             key={appId}
             activeAppId={activeAppId}

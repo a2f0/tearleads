@@ -1,4 +1,4 @@
-import { GaugeIcon } from "@phosphor-icons/react/dist/csr/Gauge";
+import { PulseIcon } from "@phosphor-icons/react/dist/csr/Pulse";
 import { useCallback } from "react";
 import { useMiniAppBusActions } from "../bus";
 import "./SystemMonitor.css";
@@ -6,9 +6,9 @@ import { useSystemMonitor } from "./SystemMonitorProvider";
 
 const SYSTEM_MONITOR_LABEL = "System Monitor";
 
-// The persistent lower-right affordance on the home pane. Clicking it brings up
-// the monitor window; if the monitor is currently pinned inline it first pops
-// back out to a window so there is only ever one visible instance.
+// The persistent system-tray affordance in the pane footer. Clicking it brings
+// up the monitor window; if the monitor is currently pinned inline it first
+// pops back out to a window so there is only ever one visible instance.
 export function SystemMonitorLauncherButton() {
   const { openMiniApp } = useMiniAppBusActions();
   const { isPinned, unpinToWindow } = useSystemMonitor();
@@ -28,7 +28,7 @@ export function SystemMonitorLauncherButton() {
       type="button"
       onClick={handleClick}
     >
-      <GaugeIcon aria-hidden focusable={false} size={20} />
+      <PulseIcon aria-hidden focusable={false} size={20} />
     </button>
   );
 }
