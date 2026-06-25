@@ -144,7 +144,7 @@ test("container upload uses the target captured before opening the file picker",
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
 });
 
-test("container upload is disabled for upload-protected containers", () => {
+test("container upload is hidden for upload-protected containers", () => {
   const view = render(
     <ExplorerContextMenuLayerHarness
       canUploadToContextMenuNode={false}
@@ -152,10 +152,7 @@ test("container upload is disabled for upload-protected containers", () => {
     />,
   );
 
-  const uploadButton = view.getByRole("button", {
-    name: "Upload",
-  }) as HTMLButtonElement;
-  expect(uploadButton.disabled).toBe(true);
+  expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
 });
 
 test("container upload handles rejected import promises", async () => {
@@ -201,16 +198,20 @@ test("container context menu opens a new structured document in the target", () 
   );
 
   fireEvent.click(
-    view.getByRole("button", { name: "New Structured Document" }),
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.newStructuredDocumentAction,
+    }),
   );
 
   expect(openedContainerIds).toEqual([rootNode.id]);
   expect(
-    view.queryByRole("button", { name: "New Structured Document" }),
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.newStructuredDocumentAction,
+    }),
   ).toBeNull();
 });
 
-test("container context menu disables creation actions for protected containers", () => {
+test("container context menu hides creation actions for protected containers", () => {
   const view = render(
     <ExplorerContextMenuLayerHarness
       canCreateChildContextMenuNode={false}
@@ -219,15 +220,12 @@ test("container context menu disables creation actions for protected containers"
     />,
   );
 
-  const createChildButton = view.getByRole("button", {
-    name: "Create Child",
-  }) as HTMLButtonElement;
-  const structuredDocumentButton = view.getByRole("button", {
-    name: "New Structured Document",
-  }) as HTMLButtonElement;
-
-  expect(createChildButton.disabled).toBe(true);
-  expect(structuredDocumentButton.disabled).toBe(true);
+  expect(view.queryByRole("button", { name: "Create Child" })).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.newStructuredDocumentAction,
+    }),
+  ).toBeNull();
 });
 
 test("container context menu hides Delete Forever for non-purgeable folders", () => {
@@ -373,14 +371,22 @@ test("document context menu deletes the selected document", async () => {
     />,
   );
 
-  fireEvent.click(view.getByRole("button", { name: "Delete" }));
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentDeleteAction,
+    }),
+  );
 
   await waitFor(() => {
     expect(deletes).toEqual([
       { containerId: rootNode.id, localId: "document-1" },
     ]);
   });
-  expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentDeleteAction,
+    }),
+  ).toBeNull();
 });
 
 const documentContextMenu: ExplorerContextMenuState = {
@@ -392,7 +398,7 @@ const documentContextMenu: ExplorerContextMenuState = {
   position: { x: 12, y: 34 },
 };
 
-test("document context menu disables Delete Forever outside the trash", () => {
+test("document context menu hides unavailable actions", () => {
   const view = render(
     <ExplorerContextMenuLayerHarness
       contextMenu={documentContextMenu}
@@ -400,11 +406,30 @@ test("document context menu disables Delete Forever outside the trash", () => {
     />,
   );
 
-  const purgeButton = view.getByRole("button", {
-    name: "Delete Forever",
-  }) as HTMLButtonElement;
-  expect(purgeButton).toBeTruthy();
-  expect(purgeButton.disabled).toBe(true);
+  expect(
+    view.getAllByRole("button").map((button) => button.textContent),
+  ).toEqual([
+    EXPLORER_LABELS.documentInfoGetInfoAction,
+    EXPLORER_LABELS.documentBackToContainerAction,
+  ]);
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentLinkAction,
+    }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentMoveAction,
+    }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentDeleteAction,
+    }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.documentPurgeAction }),
+  ).toBeNull();
 });
 
 test("document context menu purges the selected document forever", async () => {
@@ -421,12 +446,25 @@ test("document context menu purges the selected document forever", async () => {
     />,
   );
 
-  fireEvent.click(view.getByRole("button", { name: "Delete Forever" }));
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentDeleteAction,
+    }),
+  ).toBeNull();
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentPurgeAction,
+    }),
+  );
 
   await waitFor(() => {
     expect(purges).toEqual([
       { containerId: rootNode.id, localId: "document-1" },
     ]);
   });
-  expect(view.queryByRole("button", { name: "Delete Forever" })).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentPurgeAction,
+    }),
+  ).toBeNull();
 });
