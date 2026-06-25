@@ -106,7 +106,15 @@ export async function syncPendingAttachments(
     return { completed: false, nextRecord: currentRecord };
   }
 
-  setReadySnapshot(state, currentDoc, state.snapshot.syncing);
+  if (currentDoc === state.doc) {
+    setReadySnapshot(
+      state,
+      currentDoc,
+      state.snapshot.syncing,
+      state.snapshot.text,
+      state.snapshot.structuredFields,
+    );
+  }
 
   return { completed: true, nextRecord: currentRecord };
 }
