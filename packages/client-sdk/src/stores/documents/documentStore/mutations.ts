@@ -79,39 +79,14 @@ function queueDocumentTextWrite(
   return state.writeChain;
 }
 
-export function setDocumentText(
+function publishDocumentStructuredFieldSnapshot(
   state: DocumentStoreState,
-  scheduleSync: () => void,
-  value: string,
-): Promise<void> {
-  ensureDocumentStoreInitialized(state, scheduleSync);
-
-  if (!state.initialized || !state.doc) {
-    return ensureDocumentStoreReady(state, scheduleSync).then((ready) => {
-      if (!ready || !state.doc) {
-        return;
-      }
-
-      publishDocumentTextSnapshot(state, value);
-      return queueDocumentTextWrite(state, value);
-    });
-  }
-
-  publishDocumentTextSnapshot(state, value);
-  return queueDocumentTextWrite(state, value);
-}
-
-export async function setDocumentStructuredFields(
-  state: DocumentStoreState,
-  scheduleSync: () => void,
   kind: Exclude<StoredDocumentKind, "note">,
   patch: DocumentStructuredFieldPatch,
-): Promise<void> {
-  if (!(await ensureDocumentStoreReady(state, scheduleSync)) || !state.doc) {
-    return;
-  }
-
-  const nextStructuredFields = { ...state.snapshot.structuredFields };
+): void {
+  const nextStructuredFields: Record<string, unknown> = {
+    ...state.snapshot.structuredFields,
+  };
   for (const [field, value] of Object.entries(patch)) {
     if (value === undefined) {
       delete nextStructuredFields[field];
@@ -142,7 +117,13 @@ export async function setDocumentStructuredFields(
     title: projectedState.title,
     syncing: state.snapshot.syncing,
   });
+}
 
+function queueDocumentStructuredFieldWrite(
+  state: DocumentStoreState,
+  kind: Exclude<StoredDocumentKind, "note">,
+  patch: DocumentStructuredFieldPatch,
+): Promise<void> {
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
@@ -162,7 +143,15 @@ export async function setDocumentStructuredFields(
       }
 
       await enqueuePendingUpdate(state, update);
-      await persistDocument(state, state.doc);
+      await persistDocument(
+        state,
+        state.doc,
+        {},
+        {
+          preserveSnapshotStructuredFields: true,
+          preserveSnapshotText: true,
+        },
+      );
       advancePendingBaseVersion(state, state.doc);
       requestDocumentStoreSync(state);
     })
@@ -170,4 +159,49 @@ export async function setDocumentStructuredFields(
       console.error("Failed to persist structured document changes:", error);
     });
   return state.writeChain;
+}
+
+export function setDocumentText(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  value: string,
+): Promise<void> {
+  ensureDocumentStoreInitialized(state, scheduleSync);
+
+  if (!state.initialized || !state.doc) {
+    return ensureDocumentStoreReady(state, scheduleSync).then((ready) => {
+      if (!ready || !state.doc) {
+        return;
+      }
+
+      publishDocumentTextSnapshot(state, value);
+      return queueDocumentTextWrite(state, value);
+    });
+  }
+
+  publishDocumentTextSnapshot(state, value);
+  return queueDocumentTextWrite(state, value);
+}
+
+export function setDocumentStructuredFields(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  kind: Exclude<StoredDocumentKind, "note">,
+  patch: DocumentStructuredFieldPatch,
+): Promise<void> {
+  ensureDocumentStoreInitialized(state, scheduleSync);
+
+  if (!state.initialized || !state.doc) {
+    return ensureDocumentStoreReady(state, scheduleSync).then((ready) => {
+      if (!ready || !state.doc) {
+        return;
+      }
+
+      publishDocumentStructuredFieldSnapshot(state, kind, patch);
+      return queueDocumentStructuredFieldWrite(state, kind, patch);
+    });
+  }
+
+  publishDocumentStructuredFieldSnapshot(state, kind, patch);
+  return queueDocumentStructuredFieldWrite(state, kind, patch);
 }

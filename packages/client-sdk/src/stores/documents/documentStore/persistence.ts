@@ -1,8 +1,4 @@
-import {
-  encodeVersionVector,
-  exportUpdatesSince,
-  getTextValue,
-} from "@tearleads/loro";
+import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
@@ -120,6 +116,9 @@ export async function persistDocument(
     options.preserveSnapshotText
       ? state.snapshot.text
       : persistedRecord.record.text,
+    options.preserveSnapshotStructuredFields
+      ? state.snapshot.structuredFields
+      : undefined,
   );
   return persistedRecord;
 }
@@ -222,12 +221,13 @@ export async function deleteLocalAttachmentRecord(
     state.attachmentBlobIdBySlotId = nextBlobIds;
   }
 
-  if (currentDoc) {
+  if (currentDoc && currentDoc === state.doc) {
     setReadySnapshot(
       state,
       currentDoc,
       state.snapshot.syncing,
-      currentDoc === state.doc ? state.snapshot.text : getTextValue(currentDoc),
+      state.snapshot.text,
+      state.snapshot.structuredFields,
     );
   }
 }
@@ -271,12 +271,13 @@ async function saveLocalAttachmentRecords(
     ),
   };
 
-  if (currentDoc) {
+  if (currentDoc && currentDoc === state.doc) {
     setReadySnapshot(
       state,
       currentDoc,
       state.snapshot.syncing,
-      currentDoc === state.doc ? state.snapshot.text : getTextValue(currentDoc),
+      state.snapshot.text,
+      state.snapshot.structuredFields,
     );
   }
 }

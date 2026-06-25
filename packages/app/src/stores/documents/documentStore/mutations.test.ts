@@ -95,6 +95,115 @@ test("document store does not replay intermediate persisted text during queued e
   expect(persistence.getState().document?.text).toBe("ab");
 });
 
+test("document store publishes structured field edits synchronously for controlled editors", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore(
+    "sync-structured-card",
+    runtime,
+    persistence,
+    null,
+    "",
+    "credit_card",
+  );
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Structured document store did not become ready.",
+  );
+
+  const write = store.setStructuredFields("credit_card", {
+    cardNumber: "4111 1111 1111 5678",
+  });
+
+  expect(store.getSnapshot()).toMatchObject({
+    structuredFields: {
+      cardNumber: "4111 1111 1111 5678",
+    },
+    title: "Credit Card ending in 5678",
+  });
+
+  await write;
+  expect(persistence.getState().document).toMatchObject({
+    title: "Credit Card ending in 5678",
+  });
+});
+
+test("document store does not replay intermediate structured fields during queued edits", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore(
+    "queued-structured-card",
+    runtime,
+    persistence,
+    null,
+    "",
+    "credit_card",
+  );
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Structured document store did not become ready.",
+  );
+
+  const originalSaveDocument = persistence.saveDocument;
+  const releaseFirstEditSave = createDeferred();
+  const releaseSecondEditSave = createDeferred();
+  let editSaveCount = 0;
+
+  persistence.saveDocument = async (...args) => {
+    editSaveCount += 1;
+    if (editSaveCount === 1) {
+      await releaseFirstEditSave.promise;
+    } else if (editSaveCount === 2) {
+      await releaseSecondEditSave.promise;
+    }
+
+    return originalSaveDocument(...args);
+  };
+
+  const firstWrite = store.setStructuredFields("credit_card", {
+    cardNumber: "4111",
+  });
+  const secondWrite = store.setStructuredFields("credit_card", {
+    cardNumber: "4112",
+  });
+
+  expect(store.getSnapshot()).toMatchObject({
+    structuredFields: {
+      cardNumber: "4112",
+    },
+  });
+
+  releaseFirstEditSave.resolve();
+  await waitForCondition(
+    () => editSaveCount === 2,
+    "Second queued structured field save did not start.",
+  );
+
+  expect(store.getSnapshot()).toMatchObject({
+    structuredFields: {
+      cardNumber: "4112",
+    },
+  });
+
+  releaseSecondEditSave.resolve();
+  await Promise.all([firstWrite, secondWrite]);
+
+  expect(store.getSnapshot()).toMatchObject({
+    structuredFields: {
+      cardNumber: "4112",
+    },
+  });
+  expect(persistence.getState().document).toMatchObject({
+    title: "Credit Card ending in 4112",
+  });
+});
+
 test("document store persists structured field edits as Loro updates", async () => {
   const persistence = createDocumentStorePersistence();
   const runtime = createDocumentStoreRuntime();

@@ -45,6 +45,7 @@ export interface PersistedDocumentRecord {
 }
 export interface SaveDocumentRecordOptions {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
+  preserveSnapshotStructuredFields?: boolean | undefined;
   preserveSnapshotText?: boolean | undefined;
 }
 export interface DocumentSyncAttempt {
@@ -332,6 +333,7 @@ export function setReadySnapshot(
   currentDoc: DocumentState,
   syncing: boolean,
   textOverride?: string,
+  structuredFieldsOverride?: DocumentSnapshot["structuredFields"],
 ) {
   const attachments = getSnapshotAttachments(state, currentDoc);
   const documentState = readStoredDocumentState(
@@ -339,6 +341,19 @@ export function setReadySnapshot(
     state.runtime.infra.documentProjectors,
   );
   const text = textOverride ?? documentState.text;
+  const structuredFields =
+    structuredFieldsOverride ?? documentState.structuredFields;
+  const projectedState =
+    textOverride === undefined && structuredFieldsOverride === undefined
+      ? documentState
+      : projectStoredDocumentState(
+          {
+            documentKind: documentState.documentKind,
+            structuredFields,
+            text,
+          },
+          state.runtime.infra.documentProjectors,
+        );
 
   setDocumentSnapshot(state, {
     attachments,
@@ -346,22 +361,12 @@ export function setReadySnapshot(
     attachmentStorageKeyBySlotId: getAttachmentStorageKeys(state, attachments),
     canAttach: canAttachFiles(state),
     documentId: state.record?.documentId ?? null,
-    documentKind: documentState.documentKind,
-    fieldValidationIssues: documentState.fieldValidationIssues,
+    documentKind: projectedState.documentKind,
+    fieldValidationIssues: projectedState.fieldValidationIssues,
     ready: true,
-    structuredFields: documentState.structuredFields,
+    structuredFields: projectedState.structuredFields,
     text,
-    title:
-      textOverride === undefined
-        ? documentState.title
-        : projectStoredDocumentState(
-            {
-              documentKind: documentState.documentKind,
-              structuredFields: documentState.structuredFields,
-              text,
-            },
-            state.runtime.infra.documentProjectors,
-          ).title,
+    title: projectedState.title,
     syncing,
   });
 }
