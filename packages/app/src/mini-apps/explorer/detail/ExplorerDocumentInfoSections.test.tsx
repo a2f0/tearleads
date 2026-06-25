@@ -3,11 +3,18 @@ import type { DocumentInfo } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
 import { ExplorerDocumentInfoAttachmentsSection } from "./ExplorerDocumentInfoAttachmentsSection";
-import { ExplorerDocumentInfoEditRangesSection } from "./ExplorerDocumentInfoGeneralSections";
+import {
+  ExplorerDocumentInfoCharacterBlameSection,
+  ExplorerDocumentInfoEditRangesSection,
+} from "./ExplorerDocumentInfoGeneralSections";
 
 type DocumentInfoAttributionSegment = NonNullable<
   DocumentInfo["remoteInfo"]
 >["attributionSegments"][number];
+
+type DocumentInfoCharacterBlame = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["characterBlame"];
 
 afterEach(() => cleanup());
 
@@ -16,16 +23,17 @@ function createRemoteInfo(
     DocumentInfo["remoteInfo"]
   >["activeAttachmentBindings"],
   attributionSegments: ReadonlyArray<DocumentInfoAttributionSegment> = [],
+  characterBlame: DocumentInfoCharacterBlame = {
+    writers: [],
+    totalCharacterCount: 0,
+    unattributedCharacterCount: 0,
+  },
 ): NonNullable<DocumentInfo["remoteInfo"]> {
   return {
     activeAttachmentBindings,
     attributionSegments: [...attributionSegments],
     authorizingContainerPaths: [],
-    characterBlame: {
-      writers: [],
-      totalCharacterCount: 0,
-      unattributedCharacterCount: 0,
-    },
+    characterBlame,
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,
     contentKeyTargetHash: "content-key-target-hash",
@@ -338,6 +346,73 @@ test("edit ranges section is hidden for local-only documents", () => {
 
   const view = render(
     createElement(ExplorerDocumentInfoEditRangesSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector("table")).toBeNull();
+});
+
+test("character blame section lists live-character counts per writer", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], {
+      writers: [
+        {
+          writerUserId: "writer-1",
+          writerKeyFingerprint: "fingerprint-1",
+          characterCount: 8,
+          hasDirectAuthority: true,
+          hasBaselineAuthority: false,
+        },
+        {
+          writerUserId: "writer-2",
+          writerKeyFingerprint: "fingerprint-2",
+          characterCount: 3,
+          hasDirectAuthority: false,
+          hasBaselineAuthority: true,
+        },
+      ],
+      totalCharacterCount: 13,
+      unattributedCharacterCount: 2,
+    }),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoCharacterBlameSection, { documentInfo }),
+  );
+
+  expect(view.getByText("8 characters")).toBeTruthy();
+  // A baseline-only writer is flagged re-asserted.
+  expect(view.getByText("3 characters (re-asserted)")).toBeTruthy();
+  // Characters no segment covers get their own row.
+  expect(view.getByText("Unattributed")).toBeTruthy();
+  expect(view.getByText("2 characters")).toBeTruthy();
+});
+
+test("character blame section is hidden when blame is unavailable", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], null),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoCharacterBlameSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector("table")).toBeNull();
+});
+
+test("character blame section is hidden when no writer is attributed", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], {
+      writers: [],
+      totalCharacterCount: 0,
+      unattributedCharacterCount: 0,
+    }),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoCharacterBlameSection, { documentInfo }),
   );
 
   expect(view.container.querySelector("table")).toBeNull();
