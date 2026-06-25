@@ -53,9 +53,12 @@ export function collectSubtreeLeafFirst(
 
   const ordered: ContainerState[] = [];
   const enqueued = new Set<string>([rootContainerId]);
+  // Read through the queue with a head index rather than shift(): shift() is
+  // O(N) per call, which would make the whole walk O(N^2); a moving index keeps
+  // each dequeue O(1).
   const queue = [rootContainerId];
-  while (queue.length > 0) {
-    const containerId = queue.shift();
+  for (let head = 0; head < queue.length; head++) {
+    const containerId = queue[head];
     if (containerId === undefined) {
       continue;
     }
