@@ -285,7 +285,11 @@ export function listTextCharOpIds(doc: LoroDoc, key = "text"): TextCharOpId[] {
   let utf16End = 0;
   for (const char of text.toString()) {
     utf16End += char.length;
-    const opId = text.getCursor(utf16End - 1, 1)?.pos();
+    // getCursor mints a WASM-backed Cursor each call; free it immediately after
+    // reading its op id so a long document does not pile up cursors on the heap.
+    const cursor = text.getCursor(utf16End - 1, 1);
+    const opId = cursor?.pos();
+    cursor?.free();
     if (opId === undefined) {
       throw new Error(
         `LoroText "${key}" code point ending at UTF-16 index ${utf16End - 1} has no op id.`,
@@ -314,9 +318,15 @@ export function listSnapshotCharOpIds(
   key = "text",
 ): TextCharOpId[] | null {
   const doc = new LoroDoc();
-  importSnapshot(doc, snapshot);
-  if (doc.getText(key).length > maxCharacters) {
-    return null;
+  try {
+    importSnapshot(doc, snapshot);
+    if (doc.getText(key).length > maxCharacters) {
+      return null;
+    }
+    return listTextCharOpIds(doc, key);
+  } finally {
+    // The throwaway doc is WASM-backed and never returned — free it immediately
+    // rather than waiting for GC, since blame rebuilds one per Info-panel load.
+    doc.free();
   }
-  return listTextCharOpIds(doc, key);
 }

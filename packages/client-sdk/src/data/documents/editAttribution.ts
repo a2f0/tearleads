@@ -210,13 +210,50 @@ export interface DocumentCharacterBlameSummary {
 }
 
 /**
+ * Build a reusable resolver that maps an op id `(peerId, counter)` to its writer,
+ * indexing the segments by peer once up front. This turns a whole-document blame
+ * sweep over N characters from O(N·M) (a full segment scan per character) into
+ * roughly O(N) — prefer it over repeated {@link resolveOpIdAttribution} when
+ * resolving many op ids against the same segments.
+ */
+function createOpIdResolver(
+  segments: readonly DocumentEditAttributionSegment[],
+): (peerId: string, counter: number) => OpIdAttribution | null {
+  const segmentsByPeer = new Map<string, DocumentEditAttributionSegment[]>();
+  for (const segment of segments) {
+    const existing = segmentsByPeer.get(segment.peerId);
+    if (existing) {
+      existing.push(segment);
+    } else {
+      segmentsByPeer.set(segment.peerId, [segment]);
+    }
+  }
+  return (peerId, counter) => {
+    const peerSegments = segmentsByPeer.get(peerId);
+    if (!peerSegments) {
+      return null;
+    }
+    for (const segment of peerSegments) {
+      if (counter >= segment.startCounter && counter < segment.endCounter) {
+        return {
+          writerUserId: segment.writerUserId,
+          writerKeyFingerprint: segment.writerKeyFingerprint,
+          authorityKind: segment.authorityKind,
+        };
+      }
+    }
+    return null;
+  };
+}
+
+/**
  * Roll up per-character "blame" for the current document: resolve each character's
  * Loro op id (from `listSnapshotCharOpIds` / `listTextCharOpIds`, in document
- * order) to its authoritative writer via {@link resolveOpIdAttribution}, then
- * count live characters per writer. Unlike {@link summarizeDocumentContributors}
- * — which sums op *counters* (every op ever, including superseded/deleted) — this
- * counts the characters actually present now, so it answers "who wrote how much of
- * the text as it stands". Characters no segment covers are tallied separately.
+ * order) to its authoritative writer, then count live characters per writer.
+ * Unlike {@link summarizeDocumentContributors} — which sums op *counters* (every
+ * op ever, including superseded/deleted) — this counts the characters actually
+ * present now, so it answers "who wrote how much of the text as it stands".
+ * Characters no segment covers are tallied separately.
  */
 export function summarizeCharacterBlame(
   charOpIds: ReadonlyArray<{
@@ -227,8 +264,9 @@ export function summarizeCharacterBlame(
 ): DocumentCharacterBlameSummary {
   const byWriter = new Map<string, DocumentCharacterBlame>();
   let unattributedCharacterCount = 0;
+  const resolveOpId = createOpIdResolver(segments);
   for (const { peerId, counter } of charOpIds) {
-    const attribution = resolveOpIdAttribution(segments, peerId, counter);
+    const attribution = resolveOpId(peerId, counter);
     if (!attribution) {
       unattributedCharacterCount += 1;
       continue;
