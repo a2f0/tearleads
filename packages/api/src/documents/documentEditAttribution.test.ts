@@ -12,6 +12,7 @@ function span(
     >,
 ): AttributionSpanInput {
   return {
+    updateId: `u-${overrides.sequence}`,
     writerKeyFingerprint: `fp-${overrides.writerUserId}`,
     isBaseline: false,
     ...overrides,
@@ -33,6 +34,8 @@ test("attributes a single span to its writer", () => {
       peerId: "1",
       startCounter: 0,
       endCounter: 5,
+      updateId: "u-1",
+      updateSequence: 1,
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -66,6 +69,8 @@ test("the earliest-received span wins where two updates cover the same op", () =
       peerId: "1",
       startCounter: 0,
       endCounter: 3,
+      updateId: "u-1",
+      updateSequence: 1,
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -74,6 +79,8 @@ test("the earliest-received span wins where two updates cover the same op", () =
       peerId: "1",
       startCounter: 3,
       endCounter: 10,
+      updateId: "u-9",
+      updateSequence: 9,
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       authorityKind: "baseline",
@@ -107,6 +114,8 @@ test("mis-attribution guard: a re-asserting batch never overrides the original a
       peerId: "2",
       startCounter: 0,
       endCounter: 4,
+      updateId: "u-2",
+      updateSequence: 2,
       writerUserId: "carol",
       writerKeyFingerprint: "fp-carol",
       authorityKind: "direct",
@@ -114,7 +123,10 @@ test("mis-attribution guard: a re-asserting batch never overrides the original a
   ]);
 });
 
-test("coalesces contiguous same-writer segments and splits on writer change", () => {
+test("keeps a separate segment per upload, even contiguous same-writer ranges", () => {
+  // alice edits peer-1 in two distinct uploads (seq 1 then seq 2); their ranges
+  // are contiguous and by the same writer, but each must stay its own segment so
+  // the per-upload drill-down can attribute every range to its signed batch.
   const segments = resolveEditAttribution([
     span({
       peerId: "1",
@@ -142,7 +154,19 @@ test("coalesces contiguous same-writer segments and splits on writer change", ()
     {
       peerId: "1",
       startCounter: 0,
+      endCounter: 2,
+      updateId: "u-1",
+      updateSequence: 1,
+      writerUserId: "alice",
+      writerKeyFingerprint: "fp-alice",
+      authorityKind: "direct",
+    },
+    {
+      peerId: "1",
+      startCounter: 2,
       endCounter: 4,
+      updateId: "u-2",
+      updateSequence: 2,
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -151,6 +175,8 @@ test("coalesces contiguous same-writer segments and splits on writer change", ()
       peerId: "1",
       startCounter: 4,
       endCounter: 6,
+      updateId: "u-3",
+      updateSequence: 3,
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       authorityKind: "direct",
@@ -208,6 +234,8 @@ test("a baseline that introduces a peer the server never saw narrowly is marked 
       peerId: "7",
       startCounter: 0,
       endCounter: 8,
+      updateId: "u-3",
+      updateSequence: 3,
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       authorityKind: "baseline",

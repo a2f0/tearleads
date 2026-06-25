@@ -128,6 +128,7 @@ export async function runDocumentEditAttributionWorkflow(
       peerId: span.peerId,
       startCounter: span.startCounter,
       endCounter: span.endCounter,
+      updateId: span.updateId,
       sequence: meta.sequence,
       writerUserId: meta.writerUserId,
       writerKeyFingerprint: meta.writerKeyFingerprint,

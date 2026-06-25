@@ -57,6 +57,10 @@ export interface DocumentAttributionSegment {
   endCounter: number;
   /** Loro op counters in this contiguous range (`endCounter - startCounter`). */
   opCount: number;
+  /** The signed upload (`document_updates.id`) that delivered this range. */
+  updateId: string;
+  /** Server receive order of that upload (`document_updates.sequence`). */
+  updateSequence: number;
   writerUserId: string;
   writerKeyFingerprint: string;
   authorityKind: "direct" | "baseline";
@@ -83,6 +87,8 @@ export function listDocumentAttributionSegments(
       startCounter: segment.startCounter,
       endCounter: segment.endCounter,
       opCount: segment.endCounter - segment.startCounter,
+      updateId: segment.updateId,
+      updateSequence: segment.updateSequence,
       writerUserId: segment.writerUserId,
       writerKeyFingerprint: segment.writerKeyFingerprint,
       authorityKind: segment.authorityKind,

@@ -27,6 +27,8 @@ export interface AttributionSpanInput {
   readonly peerId: string;
   readonly startCounter: number;
   readonly endCounter: number;
+  /** The signed update (document_updates.id) that delivered this span. */
+  readonly updateId: string;
   /** Server receive order of the covering update (document_updates.sequence). */
   readonly sequence: number;
   readonly writerUserId: string;
@@ -39,6 +41,10 @@ export interface DocumentEditAttributionSegment {
   readonly peerId: string;
   readonly startCounter: number;
   readonly endCounter: number;
+  /** The signed update (document_updates.id) that first delivered this range. */
+  readonly updateId: string;
+  /** Server receive order of that update (document_updates.sequence). */
+  readonly updateSequence: number;
   readonly writerUserId: string;
   readonly writerKeyFingerprint: string;
   readonly authorityKind: EditAttributionAuthorityKind;
@@ -108,48 +114,37 @@ function claimedIntervalsForPeer(
   return claimed.sort((left, right) => left.start - right.start);
 }
 
-function canCoalesce(
-  previous: DocumentEditAttributionSegment | undefined,
-  peerId: string,
-  interval: ClaimedInterval,
-  authorityKind: EditAttributionAuthorityKind,
-): previous is DocumentEditAttributionSegment {
-  return (
-    previous !== undefined &&
-    previous.peerId === peerId &&
-    previous.endCounter === interval.start &&
-    previous.writerUserId === interval.span.writerUserId &&
-    previous.writerKeyFingerprint === interval.span.writerKeyFingerprint &&
-    previous.authorityKind === authorityKind
-  );
-}
-
+// One segment per claimed interval — never coalesced. Adjacent same-peer
+// intervals only ever come from DIFFERENT updates: document_update_spans is
+// unique on (updateId, peerId) (document_update_spans_update_peer_idx), so a
+// single update contributes at most one span per peer, and a span's claimed
+// remainders against earlier spans are pairwise non-contiguous. Merging adjacent
+// intervals would therefore always merge across uploads — exactly the per-upload
+// provenance this drill-down exists to keep.
 function appendInterval(
   segments: DocumentEditAttributionSegment[],
   peerId: string,
   interval: ClaimedInterval,
 ): void {
-  const authorityKind = authorityKindFor(interval.span);
-  const previous = segments[segments.length - 1];
-  if (canCoalesce(previous, peerId, interval, authorityKind)) {
-    segments[segments.length - 1] = { ...previous, endCounter: interval.end };
-    return;
-  }
   segments.push({
     peerId,
     startCounter: interval.start,
     endCounter: interval.end,
+    updateId: interval.span.updateId,
+    updateSequence: interval.span.sequence,
     writerUserId: interval.span.writerUserId,
     writerKeyFingerprint: interval.span.writerKeyFingerprint,
-    authorityKind,
+    authorityKind: authorityKindFor(interval.span),
   });
 }
 
 /**
  * Resolve op spans into non-overlapping attribution segments. Pure: the same
  * input always yields the same segments. Each (peer,counter) is credited to the
- * earliest-sequence span that covered it; contiguous counters with identical
- * (writer, authorityKind) are coalesced.
+ * earliest-sequence span that covered it, and each resulting segment carries the
+ * single signed upload (updateId/updateSequence) that first delivered it — the
+ * per-upload provenance behind the contributor rollup. Segments are NOT coalesced
+ * across uploads; a writer who edited a peer in two batches yields two segments.
  */
 export function resolveEditAttribution(
   spans: readonly AttributionSpanInput[],

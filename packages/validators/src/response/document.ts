@@ -74,6 +74,8 @@ export interface DocumentEditAttributionSegmentResponse {
   peerId: string;
   startCounter: number;
   endCounter: number;
+  updateId: string;
+  updateSequence: number;
   writerUserId: string;
   writerKeyFingerprint: string;
   authorityKind: "direct" | "baseline";
@@ -96,6 +98,8 @@ function isDocumentEditAttributionSegmentResponse(
     hasStringProperty(value, "peerId") &&
     hasNumberProperty(value, "startCounter") &&
     hasNumberProperty(value, "endCounter") &&
+    hasStringProperty(value, "updateId") &&
+    hasNumberProperty(value, "updateSequence") &&
     hasStringProperty(value, "writerUserId") &&
     hasStringProperty(value, "writerKeyFingerprint") &&
     (authorityKind === "direct" || authorityKind === "baseline")

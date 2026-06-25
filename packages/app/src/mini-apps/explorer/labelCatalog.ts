@@ -152,6 +152,7 @@ export const EXPLORER_LABELS = {
   documentInfoEditRangePeerColumn: "Peer",
   documentInfoEditRangeRangeColumn: "Range",
   documentInfoEditRangeOpsColumn: "Ops",
+  documentInfoEditRangeUploadColumn: "Upload",
   documentInfoEditRangeAuthorityColumn: "Authority",
   documentInfoEditRangeAuthorityDirect: "Direct",
   documentInfoEditRangeAuthorityReasserted: "Re-asserted",

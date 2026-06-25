@@ -229,6 +229,8 @@ test("edit ranges section lists each attributed range with its authority", () =>
           startCounter: 0,
           endCounter: 5,
           opCount: 5,
+          updateId: "update-aaaa",
+          updateSequence: 4,
           writerUserId: "writer-1",
           writerKeyFingerprint: "fingerprint-1",
           authorityKind: "direct",
@@ -238,6 +240,8 @@ test("edit ranges section lists each attributed range with its authority", () =>
           startCounter: 0,
           endCounter: 3,
           opCount: 3,
+          updateId: "update-bbbb",
+          updateSequence: 9,
           writerUserId: "writer-2",
           writerKeyFingerprint: "fingerprint-2",
           authorityKind: "baseline",
@@ -254,6 +258,58 @@ test("edit ranges section lists each attributed range with its authority", () =>
   expect(view.getByText("0–5")).toBeTruthy();
   expect(view.getByText("Direct")).toBeTruthy();
   expect(view.getByText("Re-asserted")).toBeTruthy();
+  // Each range names the signed upload that delivered it: a "#sequence" label
+  // with the full update id on hover.
+  const upload = view.getByText("#4");
+  expect(upload).toBeTruthy();
+  expect(upload.getAttribute("title")).toBe("update-aaaa");
+  expect(view.getByText("#9")).toBeTruthy();
+});
+
+test("edit ranges section keeps one row per upload for the same writer/peer", () => {
+  // The point of the per-upload drill-down: contiguous ranges by the same writer
+  // on the same peer are no longer coalesced, so each signed upload gets its own
+  // row even when nothing else distinguishes them.
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo(
+      [],
+      [
+        {
+          peerId: "peer-1",
+          startCounter: 0,
+          endCounter: 2,
+          opCount: 2,
+          updateId: "update-first",
+          updateSequence: 1,
+          writerUserId: "writer-1",
+          writerKeyFingerprint: "fingerprint-1",
+          authorityKind: "direct",
+        },
+        {
+          peerId: "peer-1",
+          startCounter: 2,
+          endCounter: 4,
+          opCount: 2,
+          updateId: "update-second",
+          updateSequence: 2,
+          writerUserId: "writer-1",
+          writerKeyFingerprint: "fingerprint-1",
+          authorityKind: "direct",
+        },
+      ],
+    ),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoEditRangesSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelectorAll("tbody tr")).toHaveLength(2);
+  const first = view.getByText("#1");
+  const second = view.getByText("#2");
+  expect(first.getAttribute("title")).toBe("update-first");
+  expect(second.getAttribute("title")).toBe("update-second");
 });
 
 test("edit ranges section is hidden when there are no attributed ranges", () => {
