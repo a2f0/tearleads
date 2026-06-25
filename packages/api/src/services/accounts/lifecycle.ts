@@ -1,6 +1,6 @@
 import type { AccountStatus } from "@tearleads/api-shared/schema";
 import { users } from "@tearleads/api-shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   type AccountLifecycle,
   DISABLED_ACCOUNT_PURGE_GRACE_MS,
@@ -82,7 +82,7 @@ export async function resolveAccountLifecycle(
       disabledAt,
       purgeAfter,
     })
-    .where(eq(users.id, userId))
+    .where(and(eq(users.id, userId), eq(users.accountStatus, "trialing")))
     .returning({
       accountStatus: users.accountStatus,
       disabledAt: users.disabledAt,
@@ -94,7 +94,7 @@ export async function resolveAccountLifecycle(
     });
 
   if (!updated) {
-    throw new AccountLifecycleError("Account not found", 404);
+    return loadAccountLifecycle(runtime, userId);
   }
 
   return accountLifecycleFromUser(updated);

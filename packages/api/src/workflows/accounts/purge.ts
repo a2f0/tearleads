@@ -45,13 +45,6 @@ async function purgeClaimedAccount(
       userId: claim.userId,
     });
 
-    await deleteBlobRows({ blobIds: scope.blobIds, executor: tx });
-    await tx.delete(blobStages).where(eq(blobStages.ownerUserId, claim.userId));
-    await deleteDocumentRows({
-      documentIds: scope.documentIds,
-      executor: tx,
-      updateIds: scope.updateIds,
-    });
     await deleteAccessRows({
       eventHashes: scope.eventHashes,
       executor: tx,
@@ -62,6 +55,13 @@ async function purgeClaimedAccount(
       containerIds: scope.containerIds,
       executor: tx,
       organizationId: claim.organizationId,
+    });
+    await deleteBlobRows({ blobIds: scope.blobIds, executor: tx });
+    await tx.delete(blobStages).where(eq(blobStages.ownerUserId, claim.userId));
+    await deleteDocumentRows({
+      documentIds: scope.documentIds,
+      executor: tx,
+      updateIds: scope.updateIds,
     });
     await deletePrincipalRows({
       executor: tx,

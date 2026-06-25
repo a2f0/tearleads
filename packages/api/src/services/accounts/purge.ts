@@ -39,7 +39,11 @@ export async function runAccountPurgeMaintenance(
         try {
           await runtime.blobObjectStore.deleteObject(key);
           deletedObjectCount += 1;
-        } catch {
+        } catch (error) {
+          console.error("Failed to delete purged account blob object:", {
+            error,
+            key,
+          });
           failedObjectCleanupCount += 1;
         }
       }),
@@ -68,7 +72,13 @@ export async function runAccountPurgeMaintenance(
             await runtime.blobObjectStore.deleteObject(stage.storageKey);
             deletedObjectCount += 1;
           }
-        } catch {
+        } catch (error) {
+          console.error("Failed to clean up purged account multipart object:", {
+            error,
+            key: stage.storageKey,
+            state: stage.state,
+            uploadId: stage.uploadId,
+          });
           failedObjectCleanupCount += 1;
         }
       }),

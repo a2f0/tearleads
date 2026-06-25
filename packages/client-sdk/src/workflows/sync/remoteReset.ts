@@ -149,17 +149,21 @@ async function buildResetPlans(execSql: ExecSql): Promise<{
     await Promise.all(documentRows.map((row) => buildResetUpdate(row)))
   ).filter((row): row is ResetDocumentUpdate => row !== null);
   const attachmentNameMaps = new Map<string, Map<string, string>>();
-
-  for (const attachment of attachmentRows) {
-    const document = documentByLocalId.get(attachment.localId);
-    if (!document || attachmentNameMaps.has(attachment.localId)) {
-      continue;
-    }
-    attachmentNameMaps.set(
-      attachment.localId,
-      await buildDocumentAttachmentNameMap(document),
-    );
-  }
+  const attachmentLocalIds = [
+    ...new Set(attachmentRows.map((attachment) => attachment.localId)),
+  ];
+  await Promise.all(
+    attachmentLocalIds.map(async (localId) => {
+      const document = documentByLocalId.get(localId);
+      if (!document) {
+        return;
+      }
+      attachmentNameMaps.set(
+        localId,
+        await buildDocumentAttachmentNameMap(document),
+      );
+    }),
+  );
 
   const attachmentUploads = attachmentRows.map((attachment) => ({
     byteLength: attachment.byteLength,
@@ -262,10 +266,14 @@ async function queueResetDocumentUpdates(input: {
   now: string;
   tx: ClientSQLiteTransaction;
 }): Promise<void> {
-  for (const update of input.documentUpdates) {
-    await input.tx
-      .insert(documentPendingUpdates)
-      .values({
+  if (input.documentUpdates.length === 0) {
+    return;
+  }
+
+  await input.tx
+    .insert(documentPendingUpdates)
+    .values(
+      input.documentUpdates.map((update) => ({
         id: crypto.randomUUID(),
         appKind: update.appKind,
         localId: update.localId,
@@ -274,9 +282,9 @@ async function queueResetDocumentUpdates(input: {
         partialEndVersionVector: update.partialEndVersionVector,
         sourceVersionVector: update.sourceVersionVector,
         createdAt: input.now,
-      })
-      .run();
-  }
+      })),
+    )
+    .run();
 }
 
 async function queueResetContainerCreates(input: {
@@ -284,30 +292,38 @@ async function queueResetContainerCreates(input: {
   now: string;
   tx: ClientSQLiteTransaction;
 }): Promise<number> {
-  let count = 0;
-  for (const container of input.containerRows) {
-    if (!container.id || !container.parentId) {
-      continue;
-    }
-    await input.tx
-      .insert(containerCreateIntents)
-      .values({
+  const containerRows = input.containerRows.filter(
+    (
+      container,
+    ): container is ResetContainerRow & {
+      readonly id: string;
+      readonly parentId: string;
+    } => container.id !== null && container.parentId !== null,
+  );
+  if (containerRows.length === 0) {
+    return 0;
+  }
+
+  await input.tx
+    .insert(containerCreateIntents)
+    .values(
+      containerRows.map((container) => ({
         id: crypto.randomUUID(),
         containerId: container.id,
         parentContainerId: container.parentId,
         intentType: CONTAINER_CREATE_INTENT_TYPE,
-        syncStatus: "pending",
+        syncStatus: "pending" as const,
         remoteContainerId: null,
         remoteMetadataAccessStateHash: null,
         remoteMetadataDocumentId: null,
         lastError: null,
         createdAt: input.now,
         updatedAt: input.now,
-      })
-      .run();
-    count += 1;
-  }
-  return count;
+      })),
+    )
+    .run();
+
+  return containerRows.length;
 }
 
 async function queueResetAttachmentUploads(input: {
@@ -315,18 +331,20 @@ async function queueResetAttachmentUploads(input: {
   now: string;
   tx: ClientSQLiteTransaction;
 }): Promise<void> {
-  for (const attachment of input.attachmentUploads) {
+  if (input.attachmentUploads.length > 0) {
     await input.tx
       .insert(documentPendingAttachments)
-      .values({
-        byteLength: attachment.byteLength,
-        createdAt: input.now,
-        localId: attachment.localId,
-        mimeType: attachment.mimeType,
-        name: attachment.name,
-        slotId: attachment.slotId,
-        storageKey: attachment.storageKey,
-      })
+      .values(
+        input.attachmentUploads.map((attachment) => ({
+          byteLength: attachment.byteLength,
+          createdAt: input.now,
+          localId: attachment.localId,
+          mimeType: attachment.mimeType,
+          name: attachment.name,
+          slotId: attachment.slotId,
+          storageKey: attachment.storageKey,
+        })),
+      )
       .onConflictDoNothing({
         target: [
           documentPendingAttachments.localId,
@@ -335,6 +353,7 @@ async function queueResetAttachmentUploads(input: {
       })
       .run();
   }
+
   await input.tx.delete(documentAttachmentBlobProjection).run();
 }
 
