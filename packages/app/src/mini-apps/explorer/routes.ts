@@ -4,6 +4,7 @@ export type ExplorerRoute =
   | { view: "selection" }
   | { view: "blob-browser"; blobId: string | null; storageKey: string | null }
   | { view: "sync-lanes" }
+  | { view: "sync-lane-detail"; laneKey: string }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-selection"; containerId: string; localId: string }
@@ -85,6 +86,17 @@ function parseExplorerContainerRoute(
   return { route: DEFAULT_EXPLORER_ROUTE, selectedId: containerId };
 }
 
+function parseExplorerSyncRoute(
+  pathSegments: ReadonlyArray<string>,
+): ExplorerRouteSnapshot {
+  const [, second, third] = pathSegments;
+  if (second === "lanes" && third) {
+    return { route: { laneKey: third, view: "sync-lane-detail" } };
+  }
+
+  return { route: { view: "sync-lanes" } };
+}
+
 export function parseExplorerRouteSegments(
   pathSegments: ReadonlyArray<string>,
 ): ExplorerRouteSnapshot {
@@ -103,7 +115,7 @@ export function parseExplorerRouteSegments(
   }
 
   if (first === "sync") {
-    return { route: { view: "sync-lanes" } };
+    return parseExplorerSyncRoute(pathSegments);
   }
 
   if (first === "containers") {
@@ -135,6 +147,10 @@ export function formatExplorerRouteSegments(
     return ["sync"];
   }
 
+  if (route.view === "sync-lane-detail") {
+    return ["sync", "lanes", route.laneKey];
+  }
+
   if (route.view === "container-info") {
     return ["containers", route.containerId, "info"];
   }
@@ -163,6 +179,10 @@ export function isExplorerRouteAvailable(
   }
 
   if (route.view === "sync-lanes") {
+    return true;
+  }
+
+  if (route.view === "sync-lane-detail") {
     return true;
   }
 

@@ -130,6 +130,8 @@ interface ExplorerDetailPanelProps {
     row: ContainerItemRow,
   ) => void;
   onBackToSelectionRoute: () => void;
+  onOpenSyncLaneDetailRoute: (laneKey: string) => void;
+  onBackToSyncLanesRoute: () => void;
   onOpenGrant: (
     grant: {
       containerId: string;
@@ -220,6 +222,21 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
       <ExplorerSyncLanesPanel
         domainScope={params.domainScope}
         onBackToSelectionRoute={params.onBackToSelectionRoute}
+        onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
+        onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
+        selectedLaneKey={null}
+      />
+    );
+  }
+
+  if (route.view === "sync-lane-detail") {
+    return (
+      <ExplorerSyncLanesPanel
+        domainScope={params.domainScope}
+        onBackToSelectionRoute={params.onBackToSelectionRoute}
+        onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
+        onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
+        selectedLaneKey={route.laneKey}
       />
     );
   }

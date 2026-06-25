@@ -20,6 +20,7 @@ export interface ExplorerRouteState {
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openNewStructuredDocumentRoute: (containerId: string) => void;
+  openSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: () => void;
   selectExplorerDocument: (localId: string, containerId: string) => void;
   selectExplorerItem: (id: string | null) => void;
@@ -167,6 +168,13 @@ function useExplorerRouteActions(params: {
     setRoute({ view: "sync-lanes" }, undefined);
   }, [setRoute]);
 
+  const openSyncLaneDetailRoute = useCallback(
+    (laneKey: string) => {
+      setRoute({ laneKey, view: "sync-lane-detail" }, undefined);
+    },
+    [setRoute],
+  );
+
   const openContainerInfoRoute = useCallback(
     (containerId: string) => {
       setSelectedId(containerId);
@@ -195,6 +203,7 @@ function useExplorerRouteActions(params: {
     openContainerInfoRoute,
     openDocumentInfoRoute,
     openNewStructuredDocumentRoute,
+    openSyncLaneDetailRoute,
     openSyncLanesRoute,
     route,
     selectExplorerDocument,

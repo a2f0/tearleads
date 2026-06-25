@@ -114,7 +114,9 @@ function ExplorerDetailPanelWithBlobPick(params: {
       onContainerContextMenu={model.contextMenuState.handleContainerContextMenu}
       onItemContextMenu={model.contextMenuState.handleItemContextMenu}
       onBackToSelectionRoute={model.routeState.showSelectionRoute}
+      onBackToSyncLanesRoute={model.routeState.openSyncLanesRoute}
       onOpenGrant={onOpenGrant}
+      onOpenSyncLaneDetailRoute={model.routeState.openSyncLaneDetailRoute}
       onPickBlob={resolveBlobPick}
       openInlineDocument={model.openInlineDocument}
       openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
