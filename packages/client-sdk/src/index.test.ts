@@ -4,6 +4,7 @@ import {
   type BlobInfoInput,
   type ContainerDocumentObjectSyncState,
   type ContainerDocumentQueriesLinkInput,
+  clearRemoteSyncState,
   createBrowserLocalKeyring,
   createContainerDocumentObjectSyncState,
   createDocumentProjectorRegistry,
@@ -45,6 +46,7 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(queriesLink.containerIds).toEqual(["container-1"]);
   expect(DEFAULT_DOCUMENT_KIND).toBe("note");
   expect(createDocumentProjectorRegistry).toBeFunction();
+  expect(clearRemoteSyncState).toBeFunction();
   expect(createEncryptedBlobStore).toBeFunction();
   expect(createEncryptedOpfsBlobStore).toBeFunction();
   expect(createBrowserLocalKeyring).toBeFunction();
@@ -97,6 +99,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "buildRootContainerCreatePlan",
   "buildRosterProfileDocumentPatch",
   "cacheReferencedPrincipalPolicies",
+  "clearRemoteSyncState",
   "createBlobStore",
   "createBrowserLocalKeyring",
   "createContainerContentsDocumentsRuntime",

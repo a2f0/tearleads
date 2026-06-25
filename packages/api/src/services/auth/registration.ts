@@ -7,11 +7,13 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
+import { serializeAccountLifecycle } from "../../accounts/lifecycle";
 import {
   isDuplicateRegistrationFingerprintError,
   RegistrationError,
   runRegistrationWorkflow,
 } from "../../workflows/auth/registration";
+import { resolveAccountLifecycle } from "../accounts/lifecycle";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { isDuplicateRegistrationFingerprintError, RegistrationError };
@@ -62,6 +64,9 @@ export async function registerUser(
 
   return {
     userId: result.userId,
+    account: serializeAccountLifecycle(
+      await resolveAccountLifecycle(runtime, result.userId),
+    ),
     organizationId: result.organizationId,
     rootContainerId: result.rootContainerId,
     rootMetadataDocumentId: result.rootMetadataDocumentId,

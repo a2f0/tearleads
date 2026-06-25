@@ -23,6 +23,9 @@ function createAuthenticatedTestApp(
       });
       return next();
     }),
+    requirePaidAccount: createMiddleware<SessionEnv>(async (_c, next) =>
+      next(),
+    ),
     runtime,
   });
 }

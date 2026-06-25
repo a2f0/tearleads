@@ -5,7 +5,10 @@ import {
   verify,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import type { AccountLifecycleResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { serializeAccountLifecycle } from "../../accounts/lifecycle";
+import { resolveAccountLifecycle } from "../accounts/lifecycle";
 import type { ApiServiceRuntime } from "../runtime";
 
 interface VerifyChallengeInput {
@@ -15,6 +18,7 @@ interface VerifyChallengeInput {
 }
 
 interface VerifyChallengeResult {
+  account: AccountLifecycleResponse;
   organizationId: string;
   token: string;
   userId: string;
@@ -93,6 +97,9 @@ export async function verifyChallenge(
   });
 
   return {
+    account: serializeAccountLifecycle(
+      await resolveAccountLifecycle(runtime, user.id),
+    ),
     organizationId: user.defaultOrganizationId,
     token,
     userId: user.id,

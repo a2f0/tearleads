@@ -134,8 +134,8 @@
       "bytes": 14749
     },
     "packages/api/src/workflows/auth/registration.ts": {
-      "lines": 1230,
-      "bytes": 33675
+      "lines": 1231,
+      "bytes": 33704
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 644,
@@ -186,8 +186,8 @@
       "bytes": 143432
     },
     "packages/app/test/helpers/mswServer.ts": {
-      "lines": 959,
-      "bytes": 28055
+      "lines": 982,
+      "bytes": 28590
     },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 979,

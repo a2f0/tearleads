@@ -3,6 +3,12 @@ export {
   isAccessManifestBundleWireResponse,
 } from "../util";
 export {
+  type AccountLifecycleResponse,
+  type AccountStatus,
+  isAccountLifecycleResponse,
+  isAccountStatus,
+} from "./account";
+export {
   type ChallengeErrorResponse,
   type ChallengeResponse,
   type DestroySessionResponse,

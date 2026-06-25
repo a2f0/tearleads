@@ -32,11 +32,9 @@ import {
   isOrganizationUserDetailResponse,
   isPrincipalPolicyBundleResponse,
   isPrincipalStateResponse,
-  isRegistrationResponse,
   isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
   isUserSessionResponse,
-  isVerifyResponse,
 } from "./index";
 
 const VALID_CHALLENGE = "a".repeat(64);
@@ -46,29 +44,6 @@ test("isHealthResponse", () => {
   expect(isHealthResponse({ message: 123 })).toBe(false);
   expect(isHealthResponse({})).toBe(false);
   expect(isHealthResponse(null)).toBe(false);
-});
-
-test("isRegistrationResponse", () => {
-  expect(
-    isRegistrationResponse({
-      userId: "abc-123",
-      organizationId: "org-456",
-      rootContainerId: "ctr-789",
-      rootMetadataDocumentId: "doc-root",
-      rootMetadataAccessEpoch: 1,
-      rootMetadataAccessStateHash: "root-access-state-hash",
-      rootMetadataDocument: createDocumentCreateResponse(),
-      challenge: VALID_CHALLENGE,
-    }),
-  ).toBe(true);
-  expect(
-    isRegistrationResponse({
-      userId: "abc-123",
-      challenge: VALID_CHALLENGE,
-    }),
-  ).toBe(false);
-  expect(isRegistrationResponse({})).toBe(false);
-  expect(isRegistrationResponse(null)).toBe(false);
 });
 
 test("isChallengeResponse", () => {
@@ -84,40 +59,6 @@ test("isChallengeErrorResponse", () => {
   expect(isChallengeErrorResponse({ error: 123 })).toBe(false);
   expect(isChallengeErrorResponse({})).toBe(false);
   expect(isChallengeErrorResponse(null)).toBe(false);
-});
-
-test("isVerifyResponse", () => {
-  expect(isVerifyResponse({ authenticated: true })).toBe(false);
-  expect(
-    isVerifyResponse({
-      authenticated: true,
-      organizationId: "org-1",
-      token: "abc123",
-      userId: "user-1",
-    }),
-  ).toBe(true);
-  expect(isVerifyResponse({ authenticated: true, token: "abc123" })).toBe(
-    false,
-  );
-  expect(isVerifyResponse({ authenticated: false, error: "bad sig" })).toBe(
-    true,
-  );
-  expect(isVerifyResponse({ authenticated: false })).toBe(true);
-  expect(isVerifyResponse({ authenticated: false, token: "abc123" })).toBe(
-    false,
-  );
-  expect(isVerifyResponse({ authenticated: "yes" })).toBe(false);
-  expect(isVerifyResponse({ authenticated: true, token: 123 })).toBe(false);
-  expect(isVerifyResponse({ authenticated: true, error: 123 })).toBe(false);
-  expect(
-    isVerifyResponse({
-      authenticated: false,
-      organizationId: "org-1",
-      userId: "user-1",
-    }),
-  ).toBe(false);
-  expect(isVerifyResponse({})).toBe(false);
-  expect(isVerifyResponse(null)).toBe(false);
 });
 
 test("session responses", () => {

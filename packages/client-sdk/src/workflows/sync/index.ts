@@ -21,3 +21,7 @@ export {
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "../../data/sync/syncCoordinator";
+export {
+  type ClearRemoteSyncStateResult,
+  clearRemoteSyncState,
+} from "./remoteReset";

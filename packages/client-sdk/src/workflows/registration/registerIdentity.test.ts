@@ -28,6 +28,16 @@ import {
   registerIdentity,
 } from "./registerIdentity";
 
+const account = {
+  disabledAt: null,
+  purgeAfter: null,
+  purgeStartedAt: null,
+  purgedAt: null,
+  remoteDataEpoch: 1,
+  status: "trialing" as const,
+  trialEndsAt: "2026-06-08T00:00:00.000Z",
+};
+
 interface CapturedRegistrationRequest {
   userId: string;
   organizationId: string;
@@ -179,6 +189,7 @@ test("registerIdentity submits the registration request and persists the local b
       );
 
       return {
+        account,
         userId,
         organizationId,
         rootContainerId,
@@ -433,6 +444,7 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
       );
 
       return {
+        account,
         userId,
         organizationId,
         rootContainerId,
