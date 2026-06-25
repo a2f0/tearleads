@@ -38,14 +38,20 @@ def preferred_android_device_serial(serials)
   serials.find { |serial| serial.start_with?('emulator-') } || serials.first
 end
 
-def android_gradle_path
-  gradle_path = ENV.fetch('PATH', '')
-                   .split(File::PATH_SEPARATOR)
-                   .map { |path| File.join(path, 'gradle') }
-                   .find { |path| File.file?(path) && File.executable?(path) }
-  return gradle_path unless gradle_path.nil?
+def android_gradle_command
+  gradle_path = File.join(ANDROID_DIR, 'gradlew')
+  wrapper_jar_path = File.join(ANDROID_DIR, 'gradle/wrapper/gradle-wrapper.jar')
+  if File.file?(gradle_path) && File.executable?(gradle_path) && File.file?(wrapper_jar_path)
+    return Shellwords.escape(gradle_path)
+  end
 
-  UI.user_error!('Gradle is not installed. Run `mise install` from the repo root.')
+  return 'mise exec -- gradle' if system('mise', '--version', out: File::NULL, err: File::NULL)
+
+  UI.user_error!('Gradle is unavailable. Run `mise install` from the repo root.')
+end
+
+def run_android_gradle(task)
+  sh("#{android_gradle_command} #{Shellwords.escape(task)} -p #{Shellwords.escape(ANDROID_DIR)}")
 end
 
 def resolve_android_device_serial
@@ -89,11 +95,7 @@ platform :android do
   lane :build_debug do
     sh('bun run build')
     sh('bun run cap:sync:debug android')
-    gradle(
-      gradle_path: android_gradle_path,
-      project_dir: './android',
-      task: 'assembleDebug'
-    )
+    run_android_gradle('assembleDebug')
   end
 
   desc 'Build release APK'
@@ -101,11 +103,7 @@ platform :android do
     sh('bun run build')
     sh('bun run cap:sync:release android')
     ensure_release_capacitor_sync!
-    gradle(
-      gradle_path: android_gradle_path,
-      project_dir: './android',
-      task: 'assembleRelease'
-    )
+    run_android_gradle('assembleRelease')
   end
 
   desc 'Install debug APK on a connected Android device'
@@ -136,11 +134,11 @@ platform :android do
 
   desc 'Run Android unit tests'
   lane :test do
-    gradle(gradle_path: android_gradle_path, project_dir: './android', task: 'test')
+    run_android_gradle('test')
   end
 
   desc 'Clean Android build artifacts'
   lane :clean do
-    gradle(gradle_path: android_gradle_path, project_dir: './android', task: 'clean')
+    run_android_gradle('clean')
   end
 end
