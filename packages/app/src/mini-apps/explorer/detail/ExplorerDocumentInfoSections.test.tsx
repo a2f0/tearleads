@@ -21,6 +21,11 @@ function createRemoteInfo(
     activeAttachmentBindings,
     attributionSegments: [...attributionSegments],
     authorizingContainerPaths: [],
+    characterBlame: {
+      writers: [],
+      totalCharacterCount: 0,
+      unattributedCharacterCount: 0,
+    },
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,
     contentKeyTargetHash: "content-key-target-hash",

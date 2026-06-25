@@ -185,3 +185,78 @@ export function writerByPeerId(
   }
   return byPeer;
 }
+
+export interface DocumentCharacterBlame {
+  writerUserId: string;
+  writerKeyFingerprint: string;
+  /** Characters (code points) currently in the document attributed to this writer. */
+  characterCount: number;
+  /** At least one of this writer's live characters is an ordinary (direct) edit. */
+  hasDirectAuthority: boolean;
+  /** At least one is credited only via a rotate_baseline re-assertion. */
+  hasBaselineAuthority: boolean;
+}
+
+export interface DocumentCharacterBlameSummary {
+  /** Per-writer breakdown, ordered by `characterCount` desc. */
+  writers: DocumentCharacterBlame[];
+  /** Total characters (code points) currently in the document. */
+  totalCharacterCount: number;
+  /**
+   * Characters no attribution segment covers — typically local edits not yet
+   * reflected in the (remote) attribution feed.
+   */
+  unattributedCharacterCount: number;
+}
+
+/**
+ * Roll up per-character "blame" for the current document: resolve each character's
+ * Loro op id (from `listSnapshotCharOpIds` / `listTextCharOpIds`, in document
+ * order) to its authoritative writer via {@link resolveOpIdAttribution}, then
+ * count live characters per writer. Unlike {@link summarizeDocumentContributors}
+ * — which sums op *counters* (every op ever, including superseded/deleted) — this
+ * counts the characters actually present now, so it answers "who wrote how much of
+ * the text as it stands". Characters no segment covers are tallied separately.
+ */
+export function summarizeCharacterBlame(
+  charOpIds: ReadonlyArray<{
+    readonly peerId: string;
+    readonly counter: number;
+  }>,
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentCharacterBlameSummary {
+  const byWriter = new Map<string, DocumentCharacterBlame>();
+  let unattributedCharacterCount = 0;
+  for (const { peerId, counter } of charOpIds) {
+    const attribution = resolveOpIdAttribution(segments, peerId, counter);
+    if (!attribution) {
+      unattributedCharacterCount += 1;
+      continue;
+    }
+    const existing = byWriter.get(attribution.writerUserId);
+    if (existing) {
+      existing.characterCount += 1;
+      existing.hasDirectAuthority ||= attribution.authorityKind === "direct";
+      existing.hasBaselineAuthority ||=
+        attribution.authorityKind === "baseline";
+      continue;
+    }
+    byWriter.set(attribution.writerUserId, {
+      writerUserId: attribution.writerUserId,
+      writerKeyFingerprint: attribution.writerKeyFingerprint,
+      characterCount: 1,
+      hasDirectAuthority: attribution.authorityKind === "direct",
+      hasBaselineAuthority: attribution.authorityKind === "baseline",
+    });
+  }
+  const writers = [...byWriter.values()].sort(
+    (left, right) =>
+      right.characterCount - left.characterCount ||
+      left.writerUserId.localeCompare(right.writerUserId),
+  );
+  return {
+    writers,
+    totalCharacterCount: charOpIds.length,
+    unattributedCharacterCount,
+  };
+}

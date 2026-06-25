@@ -52,6 +52,11 @@ const documentInfo = {
   },
   remoteInfo: {
     activeAttachmentBindings: [],
+    characterBlame: {
+      writers: [],
+      totalCharacterCount: 0,
+      unattributedCharacterCount: 0,
+    },
     attributionSegments: [
       {
         peerId: "peer-1",

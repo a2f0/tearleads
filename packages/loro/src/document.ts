@@ -295,3 +295,28 @@ export function listTextCharOpIds(doc: LoroDoc, key = "text"): TextCharOpId[] {
   }
   return opIds;
 }
+
+/**
+ * {@link listTextCharOpIds} for a persisted snapshot blob, without opening an
+ * editor: rebuilds a throwaway read-only `LoroDoc` from the (possibly shallow)
+ * snapshot and reads each character's op id. A shallow snapshot trims op history
+ * but preserves the inserting op id of every character still present, so blame is
+ * exact. The doc is only read, never edited, so no peer id is set.
+ *
+ * `listTextCharOpIds` is O(n²) — `getCursor()` is O(n) per code point — so prose
+ * longer than `maxCharacters` (UTF-16 length) returns `null` ("skipped, too
+ * large", distinct from `[]` for an empty document) rather than blocking the
+ * caller. A durable fix would need a bulk op-id traversal or an off-thread worker.
+ */
+export function listSnapshotCharOpIds(
+  snapshot: Uint8Array,
+  maxCharacters: number,
+  key = "text",
+): TextCharOpId[] | null {
+  const doc = new LoroDoc();
+  importSnapshot(doc, snapshot);
+  if (doc.getText(key).length > maxCharacters) {
+    return null;
+  }
+  return listTextCharOpIds(doc, key);
+}
