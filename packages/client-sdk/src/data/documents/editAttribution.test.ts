@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type DocumentEditAttributionSegment,
   listDocumentAttributionSegments,
+  resolveOpIdAttribution,
   summarizeDocumentContributors,
   writerByPeerId,
 } from "./editAttribution";
@@ -213,4 +214,65 @@ test("writerByPeerId marks a peer split across writers as ambiguous (null)", () 
     }),
   ]);
   expect(byPeer.get("1")).toBeNull();
+});
+
+test("resolveOpIdAttribution credits the segment covering a split peer's op id", () => {
+  const segments = [
+    segment({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 3,
+      writerUserId: "alice",
+    }),
+    segment({
+      peerId: "1",
+      startCounter: 3,
+      endCounter: 6,
+      writerUserId: "bob",
+    }),
+  ];
+  // peer 1 is split across writers, so coarse writerByPeerId is ambiguous (null)
+  // — but matching the exact counter still resolves each character precisely.
+  expect(writerByPeerId(segments).get("1")).toBeNull();
+  expect(resolveOpIdAttribution(segments, "1", 0)).toEqual({
+    writerUserId: "alice",
+    writerKeyFingerprint: "fp-alice",
+    authorityKind: "direct",
+  });
+  expect(resolveOpIdAttribution(segments, "1", 4)).toEqual({
+    writerUserId: "bob",
+    writerKeyFingerprint: "fp-bob",
+    authorityKind: "direct",
+  });
+});
+
+test("resolveOpIdAttribution treats ranges as half-open and carries authorityKind", () => {
+  const segments = [
+    segment({
+      peerId: "9",
+      startCounter: 2,
+      endCounter: 5,
+      writerUserId: "carol",
+      authorityKind: "baseline",
+    }),
+  ];
+  expect(resolveOpIdAttribution(segments, "9", 2)?.authorityKind).toBe(
+    "baseline",
+  ); // startCounter is inclusive
+  expect(resolveOpIdAttribution(segments, "9", 4)?.writerUserId).toBe("carol");
+  expect(resolveOpIdAttribution(segments, "9", 5)).toBeNull(); // endCounter is exclusive
+});
+
+test("resolveOpIdAttribution returns null for an op id no segment covers", () => {
+  const segments = [
+    segment({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 3,
+      writerUserId: "alice",
+    }),
+  ];
+  expect(resolveOpIdAttribution(segments, "1", 9)).toBeNull(); // counter past the range
+  expect(resolveOpIdAttribution(segments, "2", 0)).toBeNull(); // peer not attributed
+  expect(resolveOpIdAttribution([], "1", 0)).toBeNull(); // no segments at all
 });

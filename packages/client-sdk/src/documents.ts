@@ -31,6 +31,7 @@ export {
   writeStoredDocumentFields,
 } from "./data/documents/documentKinds";
 export {
+  resolveOpIdAttribution,
   summarizeDocumentContributors,
   writerByPeerId,
 } from "./data/documents/editAttribution";
