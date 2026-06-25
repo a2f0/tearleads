@@ -3,6 +3,7 @@
 // the copy stays consistent across the two surfaces.
 
 export const NOTE_DOCUMENT_LABELS = {
+  attachments: "Attachments",
   attachmentsEmpty: "No attachments yet.",
   attachmentSyncing: "Syncing attachment.",
   editor: "Notes editor",

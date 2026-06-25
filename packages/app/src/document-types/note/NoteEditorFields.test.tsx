@@ -79,6 +79,55 @@ test("lists attachments with their byte size", () => {
   expect(view.queryByText("No attachments yet.")).toBeNull();
 });
 
+test("groups attachments and editor inside the shared scroll area", () => {
+  const view = renderNoteEditorFields({ attachments: [attachment] });
+
+  const scrollArea = view.container.querySelector(".note-document-scroll");
+  expect(scrollArea).toBeTruthy();
+  expect(scrollArea?.querySelector(".note-document-dropzone")).toBeTruthy();
+  expect(scrollArea?.querySelector(".note-document-editor")).toBeTruthy();
+});
+
+test("uses a fieldset dropzone when attachments are interactive", () => {
+  const view = renderNoteEditorFields({ attachments: [attachment] });
+
+  const dropzone = view.container.querySelector(".note-document-dropzone");
+  expect(dropzone?.tagName).toBe("FIELDSET");
+});
+
+test("auto-sizes the editor to its content height", () => {
+  const view = renderNoteEditorFields({ text: "first line" });
+  const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
+  Object.defineProperty(editor, "scrollHeight", {
+    configurable: true,
+    value: 240,
+  });
+
+  view.rerender(
+    <NoteEditorFields
+      attachments={[]}
+      attachmentStatusBySlotId={{}}
+      canAttach={true}
+      dragActive={false}
+      fileInputId="note-file-input"
+      fileInputRef={createRef<HTMLInputElement>()}
+      handleDragEnter={noop}
+      handleDragLeave={noop}
+      handleDragOver={noop}
+      handleDrop={noop}
+      handleRemoveAttachment={noop}
+      handleSelectedFiles={noop}
+      imageUrlBySlotId={{}}
+      ready={true}
+      setText={noop}
+      syncing={false}
+      text={"first line\nsecond line"}
+    />,
+  );
+
+  expect(editor.style.height).toBe("240px");
+});
+
 test("removing an attachment forwards its slot id", () => {
   const removedSlots: string[] = [];
   const view = renderNoteEditorFields({

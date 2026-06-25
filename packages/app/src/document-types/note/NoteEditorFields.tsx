@@ -3,12 +3,20 @@ import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
-import type { ChangeEvent, DragEvent, ReactNode, RefObject } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type ReactNode,
+  type RefObject,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { classNames } from "../../components/shared/classNames";
 import { formatByteLength } from "../../utils/formatByteLength";
 import "./NoteDocument.css";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
+type NoteDropzoneElement = HTMLFieldSetElement | HTMLLabelElement;
 type NoteAttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
 type NoteAttachmentStatusBySlotId = Readonly<
   Record<string, DocumentAttachmentStatus>
@@ -82,6 +90,22 @@ function NoteAttachmentItem({
   );
 }
 
+function useAutosizeTextarea(text: string) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const editor = ref.current;
+    if (!editor) {
+      return;
+    }
+
+    editor.style.height = "auto";
+    editor.style.height = `${editor.scrollHeight}px`;
+  }, [text]);
+
+  return ref;
+}
+
 // Shared note editor + attachments presentation used by both the notes
 // mini-app and the explorer's note document renderer. It is intentionally
 // unaware of how a note is stored: callers pass the editor text plus an
@@ -115,10 +139,10 @@ export function NoteEditorFields({
   dragActive: boolean;
   fileInputId: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
-  handleDragEnter: (event: DragEvent<HTMLLabelElement>) => void;
-  handleDragLeave: (event: DragEvent<HTMLLabelElement>) => void;
-  handleDragOver: (event: DragEvent<HTMLLabelElement>) => void;
-  handleDrop: (event: DragEvent<HTMLLabelElement>) => void;
+  handleDragEnter: (event: DragEvent<NoteDropzoneElement>) => void;
+  handleDragLeave: (event: DragEvent<NoteDropzoneElement>) => void;
+  handleDragOver: (event: DragEvent<NoteDropzoneElement>) => void;
+  handleDrop: (event: DragEvent<NoteDropzoneElement>) => void;
   handleRemoveAttachment: (slotId: string) => void;
   handleSelectedFiles: NoteHandleSelectedFiles;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
@@ -128,6 +152,13 @@ export function NoteEditorFields({
   text: string;
   toolbar?: ReactNode | undefined;
 }) {
+  const editorRef = useAutosizeTextarea(text);
+  const dropzoneClassName = classNames(
+    "note-document-dropzone",
+    dragActive && "note-document-dropzone--active",
+    !canAttach && "note-document-dropzone--disabled",
+  );
+
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     handleSelectedFiles(event.currentTarget.files);
     event.currentTarget.value = "";
@@ -136,53 +167,61 @@ export function NoteEditorFields({
   return (
     <>
       {toolbar}
-      <label
-        htmlFor={fileInputId}
-        className={classNames(
-          "note-document-dropzone",
-          dragActive && "note-document-dropzone--active",
-          !canAttach && "note-document-dropzone--disabled",
-        )}
-        onDragEnter={handleDragEnter}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
+      <div className="note-document-scroll">
         {attachments.length === 0 ? (
-          <div className="note-document-dropzone-empty">
-            {NOTE_DOCUMENT_LABELS.attachmentsEmpty}
-          </div>
+          <label
+            htmlFor={fileInputId}
+            className={dropzoneClassName}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <div className="note-document-dropzone-empty">
+              {NOTE_DOCUMENT_LABELS.attachmentsEmpty}
+            </div>
+          </label>
         ) : (
-          <ul className="note-document-attachments">
-            {attachments.map((attachment) => (
-              <NoteAttachmentItem
-                key={attachment.slotId}
-                attachment={attachment}
-                canRemove={canAttach}
-                imageUrl={imageUrlBySlotId[attachment.slotId]}
-                onRemoveAttachment={handleRemoveAttachment}
-                status={attachmentStatusBySlotId[attachment.slotId]}
-              />
-            ))}
-          </ul>
+          <fieldset
+            aria-label={NOTE_DOCUMENT_LABELS.attachments}
+            className={dropzoneClassName}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <ul className="note-document-attachments">
+              {attachments.map((attachment) => (
+                <NoteAttachmentItem
+                  key={attachment.slotId}
+                  attachment={attachment}
+                  canRemove={canAttach}
+                  imageUrl={imageUrlBySlotId[attachment.slotId]}
+                  onRemoveAttachment={handleRemoveAttachment}
+                  status={attachmentStatusBySlotId[attachment.slotId]}
+                />
+              ))}
+            </ul>
+          </fieldset>
         )}
-      </label>
-      <textarea
-        className="note-document-editor"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder={
-          ready
-            ? NOTE_DOCUMENT_LABELS.editorReadyPlaceholder
-            : NOTE_DOCUMENT_LABELS.editorLoadingPlaceholder
-        }
-        disabled={!ready}
-        aria-label={
-          syncing
-            ? NOTE_DOCUMENT_LABELS.editorSyncing
-            : NOTE_DOCUMENT_LABELS.editor
-        }
-      />
+        <textarea
+          ref={editorRef}
+          className="note-document-editor"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder={
+            ready
+              ? NOTE_DOCUMENT_LABELS.editorReadyPlaceholder
+              : NOTE_DOCUMENT_LABELS.editorLoadingPlaceholder
+          }
+          disabled={!ready}
+          aria-label={
+            syncing
+              ? NOTE_DOCUMENT_LABELS.editorSyncing
+              : NOTE_DOCUMENT_LABELS.editor
+          }
+        />
+      </div>
       <input
         id={fileInputId}
         ref={fileInputRef}

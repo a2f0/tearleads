@@ -22,6 +22,7 @@ type NoteAttachmentStatusBySlotId = Readonly<
   Record<string, DocumentAttachmentStatus>
 >;
 type NoteAttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
+type NoteDropzoneElement = HTMLFieldSetElement | HTMLLabelElement;
 
 interface NoteEditorFieldsModel {
   attachments: ReadonlyArray<DocumentAttachment>;
@@ -30,10 +31,10 @@ interface NoteEditorFieldsModel {
   dragActive: boolean;
   fileInputId: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
-  handleDragEnter: (event: DragEvent<HTMLLabelElement>) => void;
-  handleDragLeave: (event: DragEvent<HTMLLabelElement>) => void;
-  handleDragOver: (event: DragEvent<HTMLLabelElement>) => void;
-  handleDrop: (event: DragEvent<HTMLLabelElement>) => void;
+  handleDragEnter: (event: DragEvent<NoteDropzoneElement>) => void;
+  handleDragLeave: (event: DragEvent<NoteDropzoneElement>) => void;
+  handleDragOver: (event: DragEvent<NoteDropzoneElement>) => void;
+  handleDrop: (event: DragEvent<NoteDropzoneElement>) => void;
   handleRemoveAttachment: (slotId: string) => void;
   handleSelectedFiles: (fileList: FileList | null) => void;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
@@ -50,7 +51,7 @@ function useNoteDropzone(
   const [dragActive, setDragActive] = useState(false);
 
   const activateDropzone = useCallback(
-    (event: DragEvent<HTMLLabelElement>) => {
+    (event: DragEvent<NoteDropzoneElement>) => {
       if (!canAttach) {
         return;
       }
@@ -61,13 +62,16 @@ function useNoteDropzone(
     [canAttach],
   );
 
-  const handleDragLeave = useCallback((event: DragEvent<HTMLLabelElement>) => {
-    event.preventDefault();
-    setDragActive(false);
-  }, []);
+  const handleDragLeave = useCallback(
+    (event: DragEvent<NoteDropzoneElement>) => {
+      event.preventDefault();
+      setDragActive(false);
+    },
+    [],
+  );
 
   const handleDrop = useCallback(
-    (event: DragEvent<HTMLLabelElement>) => {
+    (event: DragEvent<NoteDropzoneElement>) => {
       event.preventDefault();
       setDragActive(false);
       if (!canAttach) {
