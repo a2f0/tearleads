@@ -401,7 +401,7 @@ test("character blame section is hidden when blame is unavailable", () => {
   expect(view.container.querySelector("table")).toBeNull();
 });
 
-test("character blame section is hidden when no writer is attributed", () => {
+test("character blame section is hidden for an empty document", () => {
   const documentInfo = createDocumentInfo({
     attachments: [],
     remoteInfo: createRemoteInfo([], [], {
@@ -416,4 +416,24 @@ test("character blame section is hidden when no writer is attributed", () => {
   );
 
   expect(view.container.querySelector("table")).toBeNull();
+});
+
+test("character blame section shows unattributed-only text", () => {
+  // The document has characters but the attribution feed covers none of them yet
+  // — surface the unattributed count rather than hiding the section.
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], {
+      writers: [],
+      totalCharacterCount: 4,
+      unattributedCharacterCount: 4,
+    }),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoCharacterBlameSection, { documentInfo }),
+  );
+
+  expect(view.getByText("Unattributed")).toBeTruthy();
+  expect(view.getByText("4 characters")).toBeTruthy();
 });

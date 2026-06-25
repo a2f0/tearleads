@@ -168,8 +168,13 @@ export function ExplorerDocumentInfoCharacterBlameSection(params: {
   const blame = params.documentInfo?.remoteInfo?.characterBlame;
   // Per-writer authorship of the CURRENT text — the live-character counterpart to
   // the Contributors op-count rollup. Hidden when blame could not be computed (no
-  // local snapshot, too large to scan, or unreadable) or nothing is attributed.
-  if (!blame || blame.writers.length === 0) {
+  // local snapshot, too large to scan, or unreadable) or the document is empty.
+  // A document whose characters are all still unattributed (e.g. local edits the
+  // attribution feed has not caught up to) keeps the section, surfacing that count.
+  if (
+    !blame ||
+    (blame.writers.length === 0 && blame.unattributedCharacterCount === 0)
+  ) {
     return null;
   }
   return (
