@@ -27,7 +27,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
     hostConfig.navigationMode,
     modeOverride,
   );
-  const [split, setSplit] = useState(true);
+  const [split, setSplit] = useState(hostConfig.profile.defaultSplit);
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const { activeWorkspace, setActiveWorkspace } = useWorkspace();
 

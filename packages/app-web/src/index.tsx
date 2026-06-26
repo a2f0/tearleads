@@ -1,5 +1,6 @@
 import { renderApp } from "app/client";
-import { AppHostConfig } from "app/host/AppHostConfig";
+import { createAppHostConfig } from "app/host/AppHostConfig";
+import { createDemoAppHostConfig } from "app-demo";
 import { createRoot } from "react-dom/client";
 
 const elem = document.getElementById("root");
@@ -11,8 +12,13 @@ const apiBaseUrl =
   process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 const wsUrl =
   process.env.BUN_PUBLIC_WS_URL ?? apiBaseUrl.replace(/^http/, "ws");
+const appVariant =
+  process.env.BUN_PUBLIC_APP_VARIANT === "demo" ? "demo" : "app";
 
-const hostConfig = new AppHostConfig(apiBaseUrl, wsUrl);
+const hostConfig =
+  appVariant === "demo"
+    ? createDemoAppHostConfig({ apiBaseUrl, wsUrl })
+    : createAppHostConfig({ apiBaseUrl, wsUrl });
 
 if (import.meta.hot) {
   import.meta.hot.data.root ??= createRoot(elem);

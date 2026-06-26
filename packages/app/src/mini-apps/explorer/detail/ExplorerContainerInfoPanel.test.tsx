@@ -104,6 +104,7 @@ function renderContainerInfoPanel(
       containerName: "Documents",
       containerNamesById: new Map([["container-1", "Documents"]]),
       containerSyncStatus: "synced",
+      canShareWithPeer: true,
       loadContainerInfo:
         input.loadContainerInfo ?? (async () => createContainerInfo()),
       onBackToContainer: () => undefined,

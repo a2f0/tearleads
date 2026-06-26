@@ -69,17 +69,23 @@ test("page loads", async ({ page }) => {
   await waitForPaneBooted(firstVisiblePane);
 });
 
-test("both visible panes can boot persistent SQLite", async ({ page }) => {
+test("split panes share the same persistent SQLite runtime", async ({
+  page,
+}) => {
   await page.goto("/");
 
   const leftPane = visiblePane(page, "left");
-  const rightPane = visiblePane(page, "right");
-
   await generateKeyPair(page, leftPane);
   await waitForPaneBooted(leftPane);
+  const leftPublicKey = await panePublicKey(leftPane);
 
-  await generateKeyPair(page, rightPane);
+  await page.getByRole("button", { name: "Split" }).click();
+
+  const rightPane = visiblePane(page, "right");
   await waitForPaneBooted(rightPane);
+  await expect(await paneStatus(rightPane)).toContainText(
+    `publicKey: ${leftPublicKey}`,
+  );
 });
 
 test("SQLite tables survive a hard reload", async ({ page }) => {

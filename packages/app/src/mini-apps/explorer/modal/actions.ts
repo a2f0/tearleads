@@ -25,6 +25,7 @@ export interface ExplorerModalSubmitParams {
     documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  canShareWithPeer: boolean;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
   purgeContainer: (containerId: string) => Promise<boolean>;
@@ -144,14 +145,26 @@ async function submitExplorerMoveModal(params: {
 }
 
 async function submitExplorerShareModal(params: {
+  canShareWithPeer: boolean;
   clearModal: () => void;
   modalState: { mode: "share-peer"; nodeId: string };
   peerUserId: string | null;
   setModalError: (error: string | null) => void;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
 }) {
-  const { clearModal, modalState, peerUserId, setModalError, shareWithUser } =
-    params;
+  const {
+    canShareWithPeer,
+    clearModal,
+    modalState,
+    peerUserId,
+    setModalError,
+    shareWithUser,
+  } = params;
+  if (!canShareWithPeer) {
+    setModalError("Peer sharing is not available.");
+    return;
+  }
+
   if (!peerUserId) {
     setModalError("No peer user is available.");
     return;
@@ -293,6 +306,7 @@ async function submitExplorerNonNameModal(params: {
     documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  canShareWithPeer: boolean;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
   purgeContainer: (containerId: string) => Promise<boolean>;
@@ -347,6 +361,7 @@ async function submitExplorerNonNameModal(params: {
       return;
     case "share-peer":
       await submitExplorerShareModal({
+        canShareWithPeer: params.canShareWithPeer,
         clearModal: params.clearModal,
         modalState: params.modalState,
         peerUserId: params.peerUserId,
@@ -389,6 +404,7 @@ export async function submitExplorerModalAction(
     modalState: params.modalState,
     moveContainer: params.moveContainer,
     moveDocument: params.moveDocument,
+    canShareWithPeer: params.canShareWithPeer,
     nodes: params.nodes,
     peerUserId: params.peerUserId,
     purgeContainer: params.purgeContainer,

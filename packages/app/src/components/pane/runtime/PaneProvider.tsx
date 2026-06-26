@@ -19,6 +19,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
     disableLocalIdentityPersistence,
     localIdentityNamespace,
     navigationMode,
+    profile,
     storagePersistence,
     wsUrl,
   } = hostConfig;
@@ -37,6 +38,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
         disableLocalIdentityPersistence,
         navigationMode,
         storagePersistence,
+        profile,
       ),
     // localIdentityNamespace and side are intentionally omitted: they only feed
     // paneLocalIdentityNamespace (above), which is itself a dependency.
@@ -48,6 +50,7 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
       disableLocalIdentityPersistence,
       navigationMode,
       paneLocalIdentityNamespace,
+      profile,
       storagePersistence,
       wsUrl,
     ],
@@ -57,5 +60,14 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
     <AppRuntimeProvider hostConfig={paneHostConfig}>
       {children}
     </AppRuntimeProvider>
+  );
+}
+
+export function SharedPaneProvider({
+  children,
+  hostConfig,
+}: PaneProviderProps) {
+  return (
+    <AppRuntimeProvider hostConfig={hostConfig}>{children}</AppRuntimeProvider>
   );
 }

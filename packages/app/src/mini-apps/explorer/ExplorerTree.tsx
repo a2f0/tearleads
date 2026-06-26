@@ -15,10 +15,7 @@ import {
 } from "../../components/shared/MiniAppLayout";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
-import type {
-  ExplorerSidebarDocumentWindowState,
-  ExplorerSidebarVirtualRow,
-} from "./ExplorerSidebarRows";
+import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
 import {
   type ExplorerSidebarRowProps,
   ExplorerSidebarVirtualTree,
@@ -150,19 +147,9 @@ interface ExplorerSidebarPanelParams {
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }
 
-interface ExplorerSidebarProps extends ExplorerSidebarPanelParams {
-  documentWindowsByContainerId: ReadonlyMap<
-    string,
-    ExplorerSidebarDocumentWindowState
-  >;
-  requestDocumentWindow: (
-    containerId: string,
-    offset: number,
-    limit: number,
-  ) => void;
-}
-
-function ExplorerSidebar(props: ExplorerSidebarProps) {
+function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
+  const { documentWindowsByContainerId, requestDocumentWindow } =
+    useExplorerSidebarDocumentWindows(props);
   const {
     frameRef,
     offset: sidebarOffset,
@@ -171,7 +158,7 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
   } = useExplorerSidebarVisibleRows({
     collapsedIds: props.collapsedIds,
     currentOrganizationId: props.currentOrganizationId,
-    documentWindowsByContainerId: props.documentWindowsByContainerId,
+    documentWindowsByContainerId,
     treeEntries: props.treeEntries,
   });
   const blankContextMenuContainerId = useMemo(() => {
@@ -183,9 +170,9 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
     return ownedRoot?.node.id ?? props.treeEntries[0]?.node.id ?? null;
   }, [props.currentOrganizationId, props.treeEntries]);
   const retryDocumentWindow = useExplorerSidebarDocumentWindowLoader({
-    documentWindowsByContainerId: props.documentWindowsByContainerId,
+    documentWindowsByContainerId,
     ready: props.ready,
-    requestDocumentWindow: props.requestDocumentWindow,
+    requestDocumentWindow,
     rows: visibleSidebarRows,
   });
 
@@ -197,7 +184,7 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
       currentUserId={props.currentUserId}
       databaseError={props.databaseError}
       depth={0}
-      documentWindowsByContainerId={props.documentWindowsByContainerId}
+      documentWindowsByContainerId={documentWindowsByContainerId}
       frameRef={frameRef}
       nodesLength={props.nodes.length}
       offset={sidebarOffset}
@@ -218,16 +205,8 @@ function ExplorerSidebar(props: ExplorerSidebarProps) {
 }
 
 export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
-  const { documentWindowsByContainerId, requestDocumentWindow } =
-    useExplorerSidebarDocumentWindows(params);
   const sidebar = useMemo(
-    () => (
-      <ExplorerSidebar
-        {...params}
-        documentWindowsByContainerId={documentWindowsByContainerId}
-        requestDocumentWindow={requestDocumentWindow}
-      />
-    ),
+    () => <ExplorerSidebar {...params} />,
     [
       params.activeContainerId,
       params.collapsedIds,
@@ -250,8 +229,6 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.setSidebar,
       params.toggleCollapsed,
       params.treeEntries,
-      documentWindowsByContainerId,
-      requestDocumentWindow,
     ],
   );
 

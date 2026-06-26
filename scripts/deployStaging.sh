@@ -6,7 +6,7 @@
 #   2. ansible playbook (server configuration)
 #   3. API deploy (executable deploy, migrations, service restart)
 #   4. Website deploy (build, rsync to /var/www, nginx reload)
-#   5. App-web deploy (build, source sync, deps, service restart)
+#   5. App-web deploy (build normal + demo static bundles, sync, nginx reload)
 #
 # Pass --skip-infra to skip terraform and ansible (steps 1-2) and deploy only
 # the application artifacts.

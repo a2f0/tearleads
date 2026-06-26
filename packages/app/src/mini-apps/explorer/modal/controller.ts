@@ -75,6 +75,7 @@ function useExplorerModalEffects(params: {
 }
 
 function useExplorerModalState(
+  canShareWithPeer: boolean,
   nodes: ReadonlyArray<ContainerNode>,
   documentSummaries: ReadonlyArray<DocumentSummary>,
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
@@ -109,6 +110,7 @@ function useExplorerModalState(
     }
   }, [clearModal, isSubmittingModal]);
   const openers = useExplorerModalOpeners({
+    canShareWithPeer,
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes,
@@ -155,8 +157,11 @@ interface ExplorerModalSubmitControllerParams
   setBackgroundActionError: (error: string | null) => void;
 }
 
-function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
+function useExplorerModalActionParams(
+  params: ExplorerModalSubmitControllerParams,
+): ExplorerModalSubmitParams {
   const {
+    canShareWithPeer,
     clearModal,
     createChild,
     deleteContainer,
@@ -179,46 +184,30 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
     shareWithUser,
   } = params;
 
-  return useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
-      event.preventDefault();
-      if (!modalState || isSubmittingModal) {
-        return;
-      }
-
-      setModalError(null);
-      setBackgroundActionError(null);
-      setIsSubmittingModal(true);
-
-      try {
-        await submitExplorerModalAction({
-          clearModal,
-          createChild,
-          deleteContainer,
-          draftName,
-          draftTargetContainerId,
-          expandNode,
-          linkDocument,
-          modalState,
-          moveContainer,
-          moveDocument,
-          nodes,
-          peerUserId,
-          purgeContainer,
-          renameContainer,
-          setBackgroundActionError,
-          setModalError,
-          setSelectedId,
-          shareWithUser,
-        });
-      } catch (error: unknown) {
-        console.error(getExplorerModalLog(modalState.mode), error);
-        setModalError(getExplorerModalError(modalState.mode));
-      } finally {
-        setIsSubmittingModal(false);
-      }
-    },
+  return useMemo(
+    () => ({
+      canShareWithPeer,
+      clearModal,
+      createChild,
+      deleteContainer,
+      draftName,
+      draftTargetContainerId,
+      expandNode,
+      linkDocument,
+      modalState,
+      moveContainer,
+      moveDocument,
+      nodes,
+      peerUserId,
+      purgeContainer,
+      renameContainer,
+      setBackgroundActionError,
+      setModalError,
+      setSelectedId,
+      shareWithUser,
+    }),
     [
+      canShareWithPeer,
       clearModal,
       createChild,
       deleteContainer,
@@ -243,10 +232,52 @@ function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
   );
 }
 
+function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
+  const submitParams = useExplorerModalActionParams(params);
+  const {
+    isSubmittingModal,
+    modalState,
+    setBackgroundActionError,
+    setIsSubmittingModal,
+    setModalError,
+  } = params;
+
+  return useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!modalState || isSubmittingModal) {
+        return;
+      }
+
+      setModalError(null);
+      setBackgroundActionError(null);
+      setIsSubmittingModal(true);
+
+      try {
+        await submitExplorerModalAction(submitParams);
+      } catch (error: unknown) {
+        console.error(getExplorerModalLog(modalState.mode), error);
+        setModalError(getExplorerModalError(modalState.mode));
+      } finally {
+        setIsSubmittingModal(false);
+      }
+    },
+    [
+      isSubmittingModal,
+      modalState,
+      setBackgroundActionError,
+      setIsSubmittingModal,
+      setModalError,
+      submitParams,
+    ],
+  );
+}
+
 export function useExplorerModalController(
   params: ExplorerModalControllerParams,
 ): ExplorerModalController {
   const modalState = useExplorerModalState(
+    params.canShareWithPeer,
     params.nodes,
     params.documentSummaries,
     params.linkedContainerIdsByDocumentId,

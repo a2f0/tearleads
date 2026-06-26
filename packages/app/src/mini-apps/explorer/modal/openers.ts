@@ -233,6 +233,7 @@ function useExplorerLinkDocumentModalOpener(params: {
 }
 
 export function useExplorerModalOpeners(params: {
+  canShareWithPeer: boolean;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -244,6 +245,7 @@ export function useExplorerModalOpeners(params: {
   targetLookups: ExplorerTargetLookups;
 }) {
   const {
+    canShareWithPeer,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
@@ -305,12 +307,22 @@ export function useExplorerModalOpeners(params: {
 
   const openSharePeerModal = useCallback(
     (containerId: string) => {
+      if (!canShareWithPeer) {
+        return;
+      }
+
       setModalState({ mode: "share-peer", nodeId: containerId });
       setModalError(null);
       setDraftName("");
       setDraftTargetContainerId("");
     },
-    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
+    [
+      canShareWithPeer,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+    ],
   );
 
   return {

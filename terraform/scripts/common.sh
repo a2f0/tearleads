@@ -193,7 +193,7 @@ purge_cloudflare_cache_for_hosts() {
       "https://${host}/apple-touch-icon.png"
       "https://${host}/manifest.webmanifest"
     )
-    if [[ "$host" == app.* ]]; then
+    if [[ "$host" == app.* || "$host" == demo.* ]]; then
       files+=(
         "https://${host}/sw.js"
         "https://${host}/registerSW.js"

@@ -39,7 +39,6 @@ import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyrin
 export { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
 export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
 export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
-
 export async function cleanupPaneTestEnvironment(): Promise<void> {
   cleanup();
   globalThis.localStorage.clear();
@@ -50,6 +49,7 @@ export function createTestHostConfig(
   options: {
     readonly createLocalKeyring?: (() => LocalKeyring) | null | undefined;
     readonly localIdentityNamespace?: string | undefined;
+    readonly profile?: AppHostConfig["profile"] | undefined;
     readonly workerConstructor?: CreateSQLiteRuntimeOptions["workerConstructor"];
   } = {},
 ) {
@@ -69,9 +69,11 @@ export function createTestHostConfig(
     options.localIdentityNamespace,
     createLocalKeyring,
     options.localIdentityNamespace === undefined,
+    undefined,
+    undefined,
+    options.profile,
   );
 }
-
 function createDeferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   const promise = new Promise<T>((promiseResolve) => {
@@ -80,7 +82,6 @@ function createDeferred<T = void>() {
 
   return { promise, resolve };
 }
-
 function closestHtmlDivElement(
   element: Element | null | undefined,
   selector: string,
@@ -88,7 +89,6 @@ function closestHtmlDivElement(
   const closestElement = element?.closest(selector);
   return closestElement instanceof HTMLDivElement ? closestElement : null;
 }
-
 export function createDelayedLoadLocalKeyringFactory(
   createBaseLocalKeyring: () => LocalKeyring,
 ) {
@@ -142,7 +142,6 @@ export function renderPane({
     </DualPaneProvider>,
   );
 }
-
 export async function openExplorer(view: ReturnType<typeof renderPane>) {
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,

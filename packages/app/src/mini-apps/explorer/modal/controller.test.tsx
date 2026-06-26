@@ -60,6 +60,7 @@ function renderController(documentSummaries: ReadonlyArray<DocumentSummary>) {
       documentSummaries,
       expandNode: () => undefined,
       linkDocument: async () => null,
+      canShareWithPeer: true,
       linkedContainerIdsByDocumentId: new Map(),
       moveContainer: async () => null,
       moveDocument: async () => null,

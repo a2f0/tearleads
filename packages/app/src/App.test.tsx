@@ -9,7 +9,10 @@ import {
 } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
-import { AppHostConfig } from "./host/AppHostConfig";
+import {
+  createAppHostConfig,
+  DEMO_APP_HOST_PROFILE,
+} from "./host/AppHostConfig";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -22,6 +25,25 @@ function pinWindowedSystemMonitors() {
   for (const side of ["left", "right"] as const) {
     saveSystemMonitorMode(systemMonitorModeStorageKey(side), "pinned");
   }
+}
+
+type TestAppHostConfigOptions = Partial<
+  Pick<
+    Parameters<typeof createAppHostConfig>[0],
+    "createSQLiteRuntime" | "navigationMode" | "profile"
+  >
+>;
+
+function createTestAppHostConfig(options: TestAppHostConfigOptions = {}) {
+  return createAppHostConfig({
+    apiBaseUrl: "http://localhost:3001",
+    createSQLiteRuntime: () =>
+      createSQLiteRuntime({
+        workerConstructor: MockWorker,
+      }),
+    wsUrl: "ws://localhost:3002",
+    ...options,
+  });
 }
 
 afterEach(() => {
@@ -44,20 +66,7 @@ test("renders App", async () => {
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);
 
     pinWindowedSystemMonitors();
-    const view = render(
-      <App
-        hostConfig={
-          new AppHostConfig(
-            "http://localhost:3001",
-            "ws://localhost:3002",
-            () =>
-              createSQLiteRuntime({
-                workerConstructor: MockWorker,
-              }),
-          )
-        }
-      />,
-    );
+    const view = render(<App hostConfig={createTestAppHostConfig()} />);
 
     expect(
       view.getAllByText(/sqlite worker: idle/).length,
@@ -79,6 +88,30 @@ test("renders App", async () => {
   }
 });
 
+test("normal App starts unsplit", () => {
+  const view = render(<App hostConfig={createTestAppHostConfig()} />);
+
+  const frame = view.container.querySelector(".tearleads-frame.layout");
+  expect(frame?.classList.contains("layout--split")).toBe(false);
+  expect(view.getByRole("button", { name: "Split" })).toBeTruthy();
+  view.unmount();
+});
+
+test("demo App starts split", () => {
+  const view = render(
+    <App
+      hostConfig={createTestAppHostConfig({
+        profile: DEMO_APP_HOST_PROFILE,
+      })}
+    />,
+  );
+
+  const frame = view.container.querySelector(".tearleads-frame.layout");
+  expect(frame?.classList.contains("layout--split")).toBe(true);
+  expect(view.getByRole("button", { name: "Unsplit" })).toBeTruthy();
+  view.unmount();
+});
+
 test("routed App home can generate a pane key pair from shell chrome", async () => {
   const originalWebSocket = globalThis.WebSocket;
 
@@ -95,21 +128,9 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
 
     const view = render(
       <App
-        hostConfig={
-          new AppHostConfig(
-            "http://localhost:3001",
-            "ws://localhost:3002",
-            () =>
-              createSQLiteRuntime({
-                workerConstructor: MockWorker,
-              }),
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            "routed",
-          )
-        }
+        hostConfig={createTestAppHostConfig({
+          navigationMode: "routed",
+        })}
       />,
     );
 
@@ -216,16 +237,12 @@ test("switching navigation mode reuses the booted pane database instead of reboo
     pinWindowedSystemMonitors();
     const view = render(
       <App
-        hostConfig={
-          new AppHostConfig(
-            "http://localhost:3001",
-            "ws://localhost:3002",
-            () => {
-              runtimeCreations += 1;
-              return createSQLiteRuntime({ workerConstructor: MockWorker });
-            },
-          )
-        }
+        hostConfig={createTestAppHostConfig({
+          createSQLiteRuntime: () => {
+            runtimeCreations += 1;
+            return createSQLiteRuntime({ workerConstructor: MockWorker });
+          },
+        })}
       />,
     );
 
