@@ -21,14 +21,20 @@ import type { OrganizationRosterStatus } from "./shared";
  *   profile fields such as customizable display name.
  * - `createdAt`: Server-side insertion timestamp.
  */
-export const organizations = pgTable("organizations", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  adminGroupId: uuid("admin_group_id").notNull(),
-  memberGroupId: uuid("member_group_id").notNull(),
-  name: text("name").notNull(),
-  profileDocumentId: uuid("profile_document_id"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const organizations = pgTable(
+  "organizations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    adminGroupId: uuid("admin_group_id").notNull(),
+    memberGroupId: uuid("member_group_id").notNull(),
+    name: text("name").notNull(),
+    profileDocumentId: uuid("profile_document_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("organizations_profile_document_idx").on(table.profileDocumentId),
+  ],
+);
 
 /**
  * Organization roster lifecycle and encrypted profile binding rows.

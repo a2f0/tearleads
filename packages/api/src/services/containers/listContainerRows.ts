@@ -4,7 +4,6 @@ import {
   accessManifests,
   containers,
   principalMembershipProjection,
-  principalStates,
 } from "@tearleads/api-shared/schema";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
@@ -14,6 +13,7 @@ import {
   readDateValue,
   textExpression,
 } from "../../utils/sqlDialect";
+import { currentPrincipalStateHashSql } from "../../workflows/principals/currentPrincipalStateSql";
 import type { ApiServiceRuntime } from "../runtime";
 import { watermarkPredicate } from "./syncPaging";
 
@@ -103,45 +103,30 @@ export async function listAccessibleContainersForUser(input: {
   readonly watermark: SyncWatermark | null;
 }): Promise<AccessibleContainerRow[]> {
   const result = await input.runtime.db.execute(sql`
-    with recursive current_principal_states as (
-      select principal_type, principal_id, state_hash
-      from (
-        select
-          principal_type,
-          principal_id,
-          state_hash,
-          row_number() over (
-            partition by principal_type, principal_id
-            order by version desc
-          ) as rn
-        from ${principalStates}
-      ) ranked_principal_states
-      where rn = 1
-    ),
-    reachable_principals as (
+    with recursive reachable_principals as (
       select
-        cps.principal_type,
-        cps.principal_id
-      from current_principal_states cps
-      inner join ${principalMembershipProjection} pmp
-        on pmp.principal_type = cps.principal_type
-        and pmp.principal_id = cps.principal_id
-        and pmp.state_hash = cps.state_hash
+        pmp.principal_type,
+        pmp.principal_id
+      from ${principalMembershipProjection} pmp
       where
         pmp.member_principal_type = ${"user"}
         and pmp.member_principal_id = ${input.userId}
+        and pmp.state_hash = ${currentPrincipalStateHashSql({
+          principalId: sql`pmp.principal_id`,
+          principalType: sql`pmp.principal_type`,
+        })}
       union
       select
-        cps.principal_type,
-        cps.principal_id
-      from current_principal_states cps
-      inner join ${principalMembershipProjection} pmp
-        on pmp.principal_type = cps.principal_type
-        and pmp.principal_id = cps.principal_id
-        and pmp.state_hash = cps.state_hash
+        pmp.principal_type,
+        pmp.principal_id
+      from ${principalMembershipProjection} pmp
       inner join reachable_principals rp
         on pmp.member_principal_type = rp.principal_type
         and pmp.member_principal_id = rp.principal_id
+      where pmp.state_hash = ${currentPrincipalStateHashSql({
+        principalId: sql`pmp.principal_id`,
+        principalType: sql`pmp.principal_type`,
+      })}
     ),
     target_parent_path as (
       select

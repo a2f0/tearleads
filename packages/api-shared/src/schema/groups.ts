@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "./columns";
+import { index, pgTable, text, timestamp, uuid } from "./columns";
 
 /**
  * Basic group catalog rows.
@@ -15,9 +15,19 @@ import { pgTable, text, timestamp, uuid } from "./columns";
  * - `name`: Human-readable group name.
  * - `createdAt`: Server-side insertion timestamp.
  */
-export const groups = pgTable("groups", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  organizationId: uuid("organization_id"),
-  name: text("name").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const groups = pgTable(
+  "groups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id"),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("groups_organization_name_idx").on(
+      table.organizationId,
+      table.name,
+      table.id,
+    ),
+  ],
+);

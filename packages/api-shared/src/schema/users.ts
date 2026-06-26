@@ -1,4 +1,4 @@
-import { integer, pgTable, text, timestamp, uuid } from "./columns";
+import { index, integer, pgTable, text, timestamp, uuid } from "./columns";
 import type { AccountStatus } from "./shared";
 
 /**
@@ -38,22 +38,40 @@ import type { AccountStatus } from "./shared";
  * - `users_fingerprint_unique` enforces one signing key fingerprint per user
  *   and gives auth challenge verification an indexed `fingerprint` lookup.
  */
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  fingerprint: text("fingerprint").notNull().unique(),
-  signingPublicKey: text("signing_public_key").notNull(),
-  encapsulationPublicKey: text("encapsulation_public_key").notNull(),
-  encapsulationKeyFingerprint: text("encapsulation_key_fingerprint").notNull(),
-  defaultOrganizationId: uuid("default_organization_id").notNull(),
-  accountStatus: text("account_status")
-    .$type<AccountStatus>()
-    .default("trialing")
-    .notNull(),
-  trialEndsAt: timestamp("trial_ends_at").defaultNow().notNull(),
-  disabledAt: timestamp("disabled_at"),
-  purgeAfter: timestamp("purge_after"),
-  purgeStartedAt: timestamp("purge_started_at"),
-  purgedAt: timestamp("purged_at"),
-  remoteDataEpoch: integer("remote_data_epoch").default(1).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    fingerprint: text("fingerprint").notNull().unique(),
+    signingPublicKey: text("signing_public_key").notNull(),
+    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+    encapsulationKeyFingerprint: text(
+      "encapsulation_key_fingerprint",
+    ).notNull(),
+    defaultOrganizationId: uuid("default_organization_id").notNull(),
+    accountStatus: text("account_status")
+      .$type<AccountStatus>()
+      .default("trialing")
+      .notNull(),
+    trialEndsAt: timestamp("trial_ends_at").defaultNow().notNull(),
+    disabledAt: timestamp("disabled_at"),
+    purgeAfter: timestamp("purge_after"),
+    purgeStartedAt: timestamp("purge_started_at"),
+    purgedAt: timestamp("purged_at"),
+    remoteDataEpoch: integer("remote_data_epoch").default(1).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("users_trial_expiry_idx").on(
+      table.accountStatus,
+      table.trialEndsAt,
+      table.id,
+    ),
+    index("users_purge_candidates_idx").on(
+      table.accountStatus,
+      table.purgeAfter,
+      table.purgeStartedAt,
+      table.id,
+    ),
+  ],
+);

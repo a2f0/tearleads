@@ -256,6 +256,11 @@ export const accessManifestDocumentLinkProjection = pgTable(
     index("access_manifest_document_link_manifest_idx").on(table.manifestHash),
     index("access_manifest_document_link_document_idx").on(table.documentId),
     index("access_manifest_document_link_container_idx").on(table.containerId),
+    index("access_manifest_document_link_container_manifest_idx").on(
+      table.containerId,
+      table.manifestHash,
+      table.documentId,
+    ),
     uniqueIndex("access_manifest_document_link_unique_idx").on(
       table.manifestHash,
       table.containerId,
@@ -289,8 +294,18 @@ export const accessManifestContainerGrantProjection = pgTable(
       table.subjectType,
       table.subjectId,
     ),
+    index("access_manifest_container_grant_subject_manifest_idx").on(
+      table.subjectType,
+      table.subjectId,
+      table.manifestHash,
+      table.containerId,
+    ),
     index("access_manifest_container_grant_container_idx").on(
       table.containerId,
+    ),
+    index("access_manifest_container_grant_container_manifest_idx").on(
+      table.containerId,
+      table.manifestHash,
     ),
     uniqueIndex("access_manifest_container_grant_unique_idx").on(
       table.manifestHash,

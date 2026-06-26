@@ -188,6 +188,10 @@ export const blobContentWriteHeaders = pgTable(
       table.blobId,
       table.contentKeyEpoch,
     ),
+    index("blob_content_write_headers_organization_blob_idx").on(
+      table.organizationId,
+      table.blobId,
+    ),
     uniqueIndex("blob_content_write_headers_header_hash_idx").on(
       table.headerHash,
     ),

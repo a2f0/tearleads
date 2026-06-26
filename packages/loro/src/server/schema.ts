@@ -22,18 +22,27 @@ export const documents = pgTable(
   ],
 );
 
-export const documentUpdates = pgTable("document_updates", {
-  sequence: integer("sequence").generatedAlwaysAsIdentity().primaryKey(),
-  id: uuid("id").notNull().unique(),
-  documentId: uuid("document_id").notNull(),
-  accessEpoch: integer("access_epoch").notNull(),
-  authorFingerprint: text("author_fingerprint").notNull(),
-  encryptedData: text("encrypted_data").notNull(),
-  byteLength: integer("byte_length").notNull(),
-  partialStartVersionVector: text("partial_start_version_vector").notNull(),
-  partialEndVersionVector: text("partial_end_version_vector").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const documentUpdates = pgTable(
+  "document_updates",
+  {
+    sequence: integer("sequence").generatedAlwaysAsIdentity().primaryKey(),
+    id: uuid("id").notNull().unique(),
+    documentId: uuid("document_id").notNull(),
+    accessEpoch: integer("access_epoch").notNull(),
+    authorFingerprint: text("author_fingerprint").notNull(),
+    encryptedData: text("encrypted_data").notNull(),
+    byteLength: integer("byte_length").notNull(),
+    partialStartVersionVector: text("partial_start_version_vector").notNull(),
+    partialEndVersionVector: text("partial_end_version_vector").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("document_updates_document_sequence_idx").on(
+      table.documentId,
+      table.sequence,
+    ),
+  ],
+);
 
 export const documentUpdateSpans = pgTable(
   "document_update_spans",

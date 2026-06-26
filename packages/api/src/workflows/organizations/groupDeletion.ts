@@ -9,7 +9,7 @@ import {
   principalStates,
 } from "@tearleads/api-shared/schema";
 import { and, eq, sql } from "drizzle-orm";
-import { intExpression } from "../../utils/sqlDialect";
+import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 import { listOrganizationContainerGrantRows } from "./containerGrants";
 import { OrganizationManagerError } from "./errors";
 
@@ -19,69 +19,25 @@ interface OrganizationGroupMutationInput {
   organizationId: string;
 }
 
-interface ReferenceCountRow {
-  readonly referenceCount?: unknown;
-}
-
-function readReferenceCount(row: unknown): number {
-  if (!isReferenceCountRow(row)) {
-    throw new Error("Unexpected organization group reference row shape");
-  }
-
-  const referenceCount = row.referenceCount;
-  if (typeof referenceCount === "number" && Number.isInteger(referenceCount)) {
-    return referenceCount;
-  }
-  if (typeof referenceCount === "string" && referenceCount.length > 0) {
-    const parsedReferenceCount = Number(referenceCount);
-    if (Number.isInteger(parsedReferenceCount)) {
-      return parsedReferenceCount;
-    }
-  }
-
-  throw new Error("Unexpected organization group reference row shape");
-}
-
-function isReferenceCountRow(value: unknown): value is ReferenceCountRow {
-  return value !== null && typeof value === "object";
-}
-
 async function hasCurrentPrincipalReferences(input: {
   executor: DatabaseSession;
   groupId: string;
 }): Promise<boolean> {
   const result = await input.executor.execute(sql`
-    with current_managed_principal_states as (
-      select
-        principal_type,
-        principal_id,
-        state_hash
-      from (
-        select
-          principal_type,
-          principal_id,
-          state_hash,
-          row_number() over (
-            partition by principal_type, principal_id
-            order by version desc
-          ) as rn
-        from ${principalStates}
-        where principal_type in (${"group"}, ${"organization"})
-      ) ranked_principal_states
-      where rn = 1
-    )
-    select ${intExpression(sql`count(*)`)} as "referenceCount"
+    select 1
     from ${principalMembershipProjection} pmp
-    inner join current_managed_principal_states current_state
-      on current_state.principal_type = pmp.principal_type
-      and current_state.principal_id = pmp.principal_id
-      and current_state.state_hash = pmp.state_hash
     where
-      pmp.member_principal_type = ${"group"}
+      pmp.principal_type in (${"group"}, ${"organization"})
+      and pmp.member_principal_type = ${"group"}
       and pmp.member_principal_id = ${input.groupId}
+      and pmp.state_hash = ${currentPrincipalStateHashSql({
+        principalId: sql`pmp.principal_id`,
+        principalType: sql`pmp.principal_type`,
+      })}
+    limit 1
   `);
 
-  return readReferenceCount(result.rows[0]) > 0;
+  return result.rows.length > 0;
 }
 
 export async function requireDeletableOrganizationGroup(
