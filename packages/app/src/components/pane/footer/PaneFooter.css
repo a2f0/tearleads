@@ -6,10 +6,17 @@
   background: var(--color-muted);
 }
 
-/* System tray: anchored to the trailing edge of the footer, opposite the Menu
-   button, mirroring the conventional desktop tray placement. */
-.pane-footer-tray {
+/* Trailing cluster: anchored to the trailing edge of the footer, opposite the
+   Menu button. Holds the workspace switcher and the system tray together. */
+.pane-footer-end {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* System tray, mirroring the conventional desktop tray placement. */
+.pane-footer-tray {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
