@@ -27,6 +27,13 @@ interface WorkspacePaneProps {
   split: boolean;
 }
 
+interface WorkspacePanesProps {
+  active: boolean;
+  hostConfig: AppHostConfig;
+  navigationMode: AppNavigationMode;
+  split: boolean;
+}
+
 function createWorkspaceHostConfig({
   hostConfig,
   workspaceId,
@@ -68,12 +75,7 @@ function WorkspacePane(props: WorkspacePaneProps) {
   );
 }
 
-function IsolatedWorkspacePanes(props: {
-  active: boolean;
-  hostConfig: AppHostConfig;
-  navigationMode: AppNavigationMode;
-  split: boolean;
-}) {
+function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
   const { active, hostConfig, navigationMode, split } = props;
 
   return (
@@ -102,13 +104,12 @@ function IsolatedWorkspacePanes(props: {
   );
 }
 
-function SharedWorkspacePanes(props: {
-  active: boolean;
-  hostConfig: AppHostConfig;
-  navigationMode: AppNavigationMode;
-  split: boolean;
-}) {
-  const { active, hostConfig, navigationMode, split } = props;
+// The regular app is single-pane: it never splits, so there is only the left
+// pane. SharedPaneProvider keeps the pane on the workspace runtime (and its
+// persistence namespace) directly, without the per-side `.left`/`.right` split
+// that the isolated peer panes use.
+function SingleWorkspacePane(props: WorkspacePanesProps) {
+  const { active, hostConfig, navigationMode } = props;
 
   return (
     <SharedPaneProvider hostConfig={hostConfig}>
@@ -116,13 +117,7 @@ function SharedWorkspacePanes(props: {
         active={active}
         navigationMode={navigationMode}
         side="left"
-        split={split}
-      />
-      <WorkspacePane
-        active={active}
-        navigationMode={navigationMode}
-        side="right"
-        split={split}
+        split={false}
       />
     </SharedPaneProvider>
   );
@@ -136,7 +131,7 @@ export function Workspace(props: WorkspaceProps) {
   const WorkspacePanes =
     workspaceHostConfig.profile.paneRuntimePolicy === "isolated"
       ? IsolatedWorkspacePanes
-      : SharedWorkspacePanes;
+      : SingleWorkspacePane;
 
   return (
     <DualPaneProvider
