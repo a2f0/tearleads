@@ -12,9 +12,7 @@ function noop() {
 
 type NoteEditorFieldsProps = Parameters<typeof NoteEditorFields>[0];
 
-function renderNoteEditorFields(
-  overrides: Partial<NoteEditorFieldsProps> = {},
-) {
+function buildNoteEditorFields(overrides: Partial<NoteEditorFieldsProps> = {}) {
   const props: NoteEditorFieldsProps = {
     attachments: [],
     attachmentStatusBySlotId: {},
@@ -36,7 +34,13 @@ function renderNoteEditorFields(
     ...overrides,
   };
 
-  return render(<NoteEditorFields {...props} />);
+  return <NoteEditorFields {...props} />;
+}
+
+function renderNoteEditorFields(
+  overrides: Partial<NoteEditorFieldsProps> = {},
+) {
+  return render(buildNoteEditorFields(overrides));
 }
 
 const attachment: DocumentAttachment = {
@@ -184,4 +188,57 @@ test("editor is disabled until the document is ready", () => {
 
   const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
   expect(editor.disabled).toBe(true);
+});
+
+test("preserves the caret when text changes externally before it", () => {
+  const view = renderNoteEditorFields({ text: "hello world" });
+  const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
+
+  editor.focus();
+  editor.setSelectionRange(5, 5);
+  fireEvent.select(editor);
+
+  // A remote merge inserts "XX" at the start while the caret sits after
+  // "hello". The caret must shift right by the two inserted characters instead
+  // of snapping to the end of the rewritten value.
+  view.rerender(buildNoteEditorFields({ text: "XXhello world" }));
+
+  expect(editor.value).toBe("XXhello world");
+  expect(editor.selectionStart).toBe(7);
+  expect(editor.selectionEnd).toBe(7);
+});
+
+test("leaves the caret in place when external text is appended after it", () => {
+  const view = renderNoteEditorFields({ text: "hello world" });
+  const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
+
+  editor.focus();
+  editor.setSelectionRange(5, 5);
+  fireEvent.select(editor);
+
+  // An insert entirely after the caret must not move it.
+  view.rerender(buildNoteEditorFields({ text: "hello world!!" }));
+
+  expect(editor.value).toBe("hello world!!");
+  expect(editor.selectionStart).toBe(5);
+});
+
+test("does not remap the caret for the user's own edits", () => {
+  const changes: string[] = [];
+  const view = renderNoteEditorFields({
+    text: "hello",
+    setText: (next) => changes.push(next),
+  });
+  const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
+
+  editor.focus();
+  // The user types "X" at the end; onChange reports the new value and caret.
+  fireEvent.change(editor, {
+    target: { value: "helloX", selectionStart: 6, selectionEnd: 6 },
+  });
+  // The parent echoes the optimistic value straight back (synchronous publish).
+  view.rerender(buildNoteEditorFields({ text: "helloX", setText: noop }));
+
+  expect(changes).toEqual(["helloX"]);
+  expect(editor.selectionStart).toBe(6);
 });

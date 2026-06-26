@@ -221,6 +221,22 @@ async function applyIncomingSyncedUpdates(
   // the durable marker; a later local edit must not re-export them as outgoing.
   advancePendingBaseVersion(state, currentDoc);
 
+  // Surface the merged text/fields only when the user is not mid-edit. While
+  // local writes are in flight the doc can lag the latest keystroke, so reading
+  // it here would regress the controlled editor and jump the caret; preserve the
+  // optimistic snapshot instead. The merged remote text still surfaces on the
+  // trailing coalesced pass once typing drains (pendingLocalWrites back to 0).
+  if (state.pendingLocalWrites > 0) {
+    setReadySnapshot(
+      state,
+      currentDoc,
+      true,
+      state.snapshot.text,
+      state.snapshot.structuredFields,
+    );
+    return;
+  }
+
   setReadySnapshot(state, currentDoc, true);
 }
 
@@ -281,12 +297,21 @@ async function finalizeDocumentSync(
   currentRecord: DocumentRecord,
   syncAttempt: DocumentSyncAttempt,
   consumedRemoteUpdateSignalSeq: number,
+  sentUpdateIds: readonly string[],
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
 
   await applyIncomingSyncedUpdates(state, currentDoc, syncAttempt);
-  for (const updateId of synced.response.acceptedOutgoingUpdateIds) {
-    state.locallyAcceptedUpdateIds.add(updateId);
+  // The sent IDs were pre-registered as self-authored before the network call so
+  // the redis echo can never beat us. Reconcile against what the server actually
+  // accepted: an ID we sent but the server did not accept will never be echoed,
+  // so drop it to keep locallyAcceptedUpdateIds from leaking. Accepted IDs (a
+  // subset of what we sent) stay registered until their echo consumes them.
+  const acceptedOutgoing = new Set(synced.response.acceptedOutgoingUpdateIds);
+  for (const sentUpdateId of sentUpdateIds) {
+    if (!acceptedOutgoing.has(sentUpdateId)) {
+      state.locallyAcceptedUpdateIds.delete(sentUpdateId);
+    }
   }
   state.writerProjection = resolveSyncedDocumentWriterProjection(state, synced);
 
@@ -300,6 +325,15 @@ async function finalizeDocumentSync(
     },
     {
       acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
+      // This is a BACKGROUND metadata persist (commit LSN, accepted-update
+      // bookkeeping), not a content change: any genuinely-new remote text was
+      // already folded into the snapshot by applyIncomingSyncedUpdates above.
+      // Re-deriving text/structured fields from the doc here is exactly what let
+      // a sync pass republish a stale CRDT read over an in-flight optimistic
+      // keystroke — regressing the controlled editor value and jumping the
+      // caret. Preserve the live snapshot so the latest keystroke always wins.
+      preserveSnapshotStructuredFields: true,
+      preserveSnapshotText: true,
     },
   );
   // Clear the remote-update signal ONLY if no new remote event arrived while
@@ -357,6 +391,17 @@ async function syncDocumentState(
     return nextRemoteRecord;
   }
 
+  // Pre-register the IDs we are about to send so the author's OWN
+  // `document_update_created` echo (fanned back over redis) is always classified
+  // as self-authored and never re-arms a redundant sync. Registering here, BEFORE
+  // the network await, closes the race where the echo lands before
+  // finalizeDocumentSync records the server-confirmed accepted IDs — the gap that
+  // turned every fast keystroke into an extra self-triggered sync pass.
+  const sentUpdateIds = pendingUpdates.map((pendingUpdate) => pendingUpdate.id);
+  for (const sentUpdateId of sentUpdateIds) {
+    state.locallyAcceptedUpdateIds.add(sentUpdateId);
+  }
+
   const syncAttempt = await requestRemoteDocumentSync({
     state,
     currentDoc,
@@ -376,6 +421,7 @@ async function syncDocumentState(
     nextRemoteRecord,
     syncAttempt,
     consumedRemoteUpdateSignalSeq,
+    sentUpdateIds,
   );
 }
 
