@@ -93,16 +93,18 @@ else
     --auto-approve
 fi
 
-# Resolve SSH_TARGET once so sub-scripts can reuse it
+# Resolve SSH_TARGET once (honoring a pre-set value) so sub-scripts reuse it
 # shellcheck source=../terraform/scripts/common.sh
 # shellcheck disable=SC1091
 . "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env prod
 validate_aws_env
-STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"
-BACKEND_CONFIG="$(get_backend_config)"
-terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
-SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
+if [ -z "${SSH_TARGET:-}" ]; then
+  STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"
+  BACKEND_CONFIG="$(get_backend_config)"
+  terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
+  SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
+fi
 export SSH_TARGET
 
 if [[ "$SKIP_INFRA" == true ]]; then
