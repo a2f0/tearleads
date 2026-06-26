@@ -45,6 +45,7 @@ export function useConfirmedLogoutDialog() {
   const { log, logError } = useLog();
   const [busy, setBusy] = useState(false);
   const dialog = useLogoutConfirmationDialogState();
+  const { closeLogoutDialog } = dialog;
 
   const confirmLogout = useCallback(
     (options: LogoutOptions) => {
@@ -62,11 +63,11 @@ export function useConfirmedLogoutDialog() {
         signingFingerprint,
       }).finally(() => {
         setBusy(false);
-        dialog.closeLogoutDialog();
+        closeLogoutDialog();
       });
     },
     [
-      dialog,
+      closeLogoutDialog,
       log,
       logError,
       purgeWorker,
