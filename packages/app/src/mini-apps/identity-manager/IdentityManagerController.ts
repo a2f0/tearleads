@@ -1,5 +1,10 @@
-import { purgeOpfsBlobStore, type UserSession } from "@tearleads/client-sdk";
+import type { UserSession } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type LogoutOptions,
+  runConfirmedLogout,
+  useLogoutConfirmationDialogState,
+} from "../../components/shared/useLogoutConfirmation";
 import {
   useBackupKeyPackageAction,
   useRestoreKeyPackageAction,
@@ -28,36 +33,6 @@ import { useIdentityManagerRefreshMenu } from "./IdentityManagerRefreshMenu";
 type DatabaseContextValue = ReturnType<typeof useDatabase>;
 type LogContextValue = ReturnType<typeof useLog>;
 type SdkClient = ReturnType<typeof useTearleads>;
-
-interface LogoutOptions {
-  readonly keepLocalData: boolean;
-}
-
-/**
- * Destroy this device's local persistence for the session: the SQLite database
- * (OPFS-backed) and the OPFS blob store keyed on the signing fingerprint. Used
- * when the user logs out without keeping local data. Best-effort: failures are
- * logged but never block the logout itself.
- */
-async function destroyLocalSessionData(input: {
-  logError: LogContextValue["logError"];
-  purgeWorker: DatabaseContextValue["purgeWorker"];
-  signingFingerprint: string | null;
-}): Promise<void> {
-  try {
-    await input.purgeWorker();
-  } catch (error: unknown) {
-    input.logError("Failed to wipe local database", error);
-  }
-
-  if (input.signingFingerprint) {
-    try {
-      await purgeOpfsBlobStore(input.signingFingerprint);
-    } catch (error: unknown) {
-      input.logError("Failed to wipe local blob store", error);
-    }
-  }
-}
 
 function useIdentityManagerSessionList({
   canManageSessions,
@@ -149,28 +124,20 @@ function useIdentityManagerSessionMutations({
       setMutatingSessionId(CURRENT_SESSION_MUTATION_ID);
       setSessionError(null);
       try {
-        const loggedOut = await tearleads.session.logoutRemote();
-        if (!loggedOut) {
-          setSessionError("Could not log out remote session.");
-          return;
-        }
-
-        log("Logged out");
-      } catch (error: unknown) {
-        logError("Failed to log out", error);
-        setSessionError("Could not log out remote session.");
+        await runConfirmedLogout({
+          keepLocalData,
+          log,
+          logError,
+          logout,
+          onAfterLocalLogout: clearSessions,
+          onRemoteLogoutFailure: () => {
+            setSessionError("Could not log out remote session.");
+          },
+          purgeWorker,
+          session: tearleads.session,
+          signingFingerprint,
+        });
       } finally {
-        logout();
-        clearSessions();
-        // Destroy local persistence only after the session is torn down, so no
-        // store re-reads the SQLite database mid-wipe.
-        if (!keepLocalData) {
-          await destroyLocalSessionData({
-            logError,
-            purgeWorker,
-            signingFingerprint,
-          });
-        }
         setMutatingSessionId(null);
       }
     },
@@ -224,27 +191,6 @@ function useIdentityManagerSessionMutations({
   );
 
   return { endSession, logoutCurrentSession, mutatingSessionId };
-}
-
-/**
- * Owns the logout-confirmation dialog's open state. Kept independent of the
- * session-mutations hook (which consumes `requestLogout`) so there is no
- * construction cycle: the main hook wires confirmation to the mutations'
- * `logoutCurrentSession`. `requestLogout` is stable, so it is safe to pass into
- * the mutations hook.
- */
-function useIdentityManagerLogoutDialog() {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const requestLogout = useCallback(() => {
-    setIsOpen(true);
-  }, []);
-
-  const closeLogoutDialog = useCallback(() => {
-    setIsOpen(false);
-  }, []);
-
-  return { closeLogoutDialog, isOpen, requestLogout };
 }
 
 function useIdentityManagerIdentityMutations({
@@ -332,7 +278,7 @@ function useIdentityManagerLogout(input: {
   signingFingerprint: string | null;
   tearleads: SdkClient;
 }) {
-  const logoutDialog = useIdentityManagerLogoutDialog();
+  const logoutDialog = useLogoutConfirmationDialogState();
   const sessionMutations = useIdentityManagerSessionMutations({
     ...input,
     requestCurrentSessionLogout: logoutDialog.requestLogout,

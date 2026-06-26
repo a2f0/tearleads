@@ -13,9 +13,11 @@ import { MenuItem } from "./MenuItem";
 export function PaneSystemMenuItems({
   onClose,
   onOpenUnlock,
+  onRequestLogout,
 }: {
   onClose: () => void;
   onOpenUnlock: () => void;
+  onRequestLogout: () => void;
 }) {
   return (
     <>
@@ -23,7 +25,10 @@ export function PaneSystemMenuItems({
       <PaneNetworkMenuItems onClose={onClose} />
       <PaneUnlockMenuItem onClose={onClose} onOpenUnlock={onOpenUnlock} />
       <PaneKeyMenuItems onClose={onClose} />
-      <PaneSessionMenuItems onClose={onClose} />
+      <PaneSessionMenuItems
+        onClose={onClose}
+        onRequestLogout={onRequestLogout}
+      />
     </>
   );
 }
@@ -167,8 +172,14 @@ function PaneKeyMenuItems({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PaneSessionMenuItems({ onClose }: { onClose: () => void }) {
-  const { isAuthenticated, login, logout, userId } = useCryptoSession();
+function PaneSessionMenuItems({
+  onClose,
+  onRequestLogout,
+}: {
+  onClose: () => void;
+  onRequestLogout: () => void;
+}) {
+  const { isAuthenticated, login, userId } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
   const { canRegisterCurrentIdentity, registerCurrentIdentity } =
     useRegisterCurrentIdentity();
@@ -179,7 +190,7 @@ function PaneSessionMenuItems({ onClose }: { onClose: () => void }) {
         <MenuItem
           label="Logout"
           onClick={() => {
-            logout();
+            onRequestLogout();
             onClose();
           }}
         />

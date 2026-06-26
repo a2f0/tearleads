@@ -269,7 +269,7 @@ test(
 );
 
 test(
-  "logged-in pane menu can log out",
+  "logged-in pane menu confirms before logout",
   async () => {
     const view = renderPane();
 
@@ -286,6 +286,16 @@ test(
     expect(view.getByText("Logout")).toBeTruthy();
 
     fireEvent.click(view.getByText("Logout"));
+
+    expect(view.getByRole("dialog")).toBeTruthy();
+    const checkbox = view.getByRole("checkbox") as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    expect(checkbox.classList.contains("logout-confirmation-checkbox")).toBe(
+      true,
+    );
+    expect(view.queryByText(/session: none/)).toBeNull();
+
+    fireEvent.click(view.getByRole("button", { name: "Log Out" }));
 
     await waitFor(() => {
       expect(view.getByText(/session: none/)).toBeTruthy();

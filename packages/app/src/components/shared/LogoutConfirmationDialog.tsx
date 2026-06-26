@@ -5,9 +5,11 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
-} from "../../components/shared/MiniAppLayout";
+} from "./MiniAppLayout";
+import type { LogoutOptions } from "./useLogoutConfirmation";
+import "./LogoutConfirmationDialog.css";
 
-interface IdentityManagerLogoutDialogProps {
+interface LogoutConfirmationDialogProps {
   readonly isOpen: boolean;
   readonly busy: boolean;
   readonly onCancel: () => void;
@@ -15,19 +17,20 @@ interface IdentityManagerLogoutDialogProps {
    * Confirm logout. `keepLocalData` is the checkbox state: when `false` the
    * session's SQLite database and OPFS blob store are destroyed.
    */
-  readonly onConfirm: (input: { keepLocalData: boolean }) => void;
+  readonly onConfirm: (input: LogoutOptions) => void;
 }
 
-export function IdentityManagerLogoutDialog({
+export function LogoutConfirmationDialog({
   busy,
   isOpen,
   onCancel,
   onConfirm,
-}: IdentityManagerLogoutDialogProps) {
+}: LogoutConfirmationDialogProps) {
   // Default to keeping local data so the destructive path is always an explicit
   // opt-out, never the accidental default.
   const [keepLocalData, setKeepLocalData] = useState(true);
   const checkboxId = useId();
+  const titleId = useId();
 
   if (!isOpen) {
     return null;
@@ -43,22 +46,23 @@ export function IdentityManagerLogoutDialog({
   };
 
   return (
-    <MiniAppModalBackdrop role="presentation">
+    <MiniAppModalBackdrop
+      className="logout-confirmation-dialog-backdrop"
+      role="presentation"
+    >
       <MiniAppModalPanel
         role="dialog"
-        aria-labelledby="identity-manager-logout-title"
+        aria-labelledby={titleId}
         aria-modal="true"
       >
         <MiniAppModalForm onSubmit={handleSubmit}>
-          <h2 id="identity-manager-logout-title">Log out</h2>
+          <h2 id={titleId}>Log out</h2>
           <p>Log out of this session?</p>
-          <label
-            className="identity-manager-logout-keep-data"
-            htmlFor={checkboxId}
-          >
+          <label className="logout-confirmation-keep-data" htmlFor={checkboxId}>
             <input
               id={checkboxId}
               checked={keepLocalData}
+              className="logout-confirmation-checkbox"
               disabled={busy}
               type="checkbox"
               onChange={(event) => setKeepLocalData(event.target.checked)}
@@ -66,7 +70,7 @@ export function IdentityManagerLogoutDialog({
             <span>Keep local data on this device</span>
           </label>
           {!keepLocalData && (
-            <p className="identity-manager-logout-warning">
+            <p className="logout-confirmation-warning">
               This device's local database and stored files will be permanently
               destroyed.
             </p>

@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
+import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
 import { PaneMenu } from "../../shared/PaneMenu";
+import { useConfirmedLogoutDialog } from "../../shared/useLogoutConfirmation";
 import {
   useWindowActions,
   useWindowStateData,
@@ -13,6 +15,7 @@ import "./PaneFooter.css";
 // Monitor; more affordances will dock here over time).
 export function PaneFooter({ tray }: { tray?: ReactNode }) {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
+  const logoutDialog = useConfirmedLogoutDialog();
   const { windows } = useWindowStateData();
   const { restore } = useWindowActions();
   const minimizedWindows = useMemo(
@@ -44,7 +47,21 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
         ))}
         {tray && <div className="pane-footer-tray">{tray}</div>}
       </div>
-      {menu && <PaneMenu position={menu} onClose={closeMenu} />}
+      {menu && (
+        <PaneMenu
+          position={menu}
+          onClose={closeMenu}
+          onRequestLogout={logoutDialog.requestLogout}
+        />
+      )}
+      {logoutDialog.isOpen && (
+        <LogoutConfirmationDialog
+          busy={logoutDialog.busy}
+          isOpen={logoutDialog.isOpen}
+          onCancel={logoutDialog.closeLogoutDialog}
+          onConfirm={logoutDialog.confirmLogout}
+        />
+      )}
     </>
   );
 }

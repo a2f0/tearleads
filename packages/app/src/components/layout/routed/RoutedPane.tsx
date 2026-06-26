@@ -27,8 +27,10 @@ import { useRegisterUserId } from "../../pane/DualPaneProvider";
 import { useBootPaneLogEntries } from "../../pane/log/useBootPaneLogEntries";
 import { PaneLog } from "../../pane/PaneLog";
 import { PaneStatus } from "../../pane/PaneStatus";
+import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
 import { MiniAppButton } from "../../shared/MiniAppLayout";
+import { useConfirmedLogoutDialog } from "../../shared/useLogoutConfirmation";
 import {
   useWindowFileMenuItems,
   useWindowViewMenuItems,
@@ -202,6 +204,7 @@ function RoutedPaneSurface({
 }) {
   const tier = useRoutedLayoutTier();
   const { sidebar } = useWindowSidebar();
+  const logoutDialog = useConfirmedLogoutDialog();
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
 
@@ -259,6 +262,7 @@ function RoutedPaneSurface({
         menuItems={menuItems}
         onCloseDrawer={closeDrawer}
         onOpenUnlock={onOpenUnlock}
+        onRequestLogout={logoutDialog.requestLogout}
         tier={tier}
       />
       {sidebarVisible && (
@@ -275,6 +279,14 @@ function RoutedPaneSurface({
           <RoutedPaneHome />
         )}
       </main>
+      {logoutDialog.isOpen && (
+        <LogoutConfirmationDialog
+          busy={logoutDialog.busy}
+          isOpen={logoutDialog.isOpen}
+          onCancel={logoutDialog.closeLogoutDialog}
+          onConfirm={logoutDialog.confirmLogout}
+        />
+      )}
     </section>
   );
 }
