@@ -20,6 +20,10 @@ import {
 import { useReleaseRuntimeOnPageHide } from "./useReleaseRuntimeOnPageHide";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
+interface SQLiteRuntimeRelease {
+  readonly promise: Promise<void>;
+  readonly runtime: SQLiteRuntime;
+}
 
 export interface DatabaseContextValue {
   id: string | null;
@@ -42,7 +46,7 @@ function destroyRuntime(
   runtimeRef: RefObject<SQLiteRuntime | null>,
   bootingRef: RefObject<boolean>,
   currentDbNameRef: RefObject<string | null>,
-  runtimeReleaseRef: RefObject<Promise<void> | null>,
+  runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>,
   tearleads: Tearleads,
   nextStatus: SQLiteRuntimeStatus,
 ) {
@@ -50,9 +54,10 @@ function destroyRuntime(
   if (runtime) {
     runtimeRef.current = null;
     const release = releaseSQLiteRuntime(runtime);
-    runtimeReleaseRef.current = release;
+    const runtimeRelease = { promise: release, runtime };
+    runtimeReleaseRef.current = runtimeRelease;
     void release.then(() => {
-      if (runtimeReleaseRef.current === release) {
+      if (runtimeReleaseRef.current === runtimeRelease) {
         runtimeReleaseRef.current = null;
       }
     });
@@ -139,7 +144,7 @@ function useDestroySQLiteRuntime(params: {
   runtimeRef: RefObject<SQLiteRuntime | null>;
   bootingRef: RefObject<boolean>;
   currentDbNameRef: RefObject<string | null>;
-  runtimeReleaseRef: RefObject<Promise<void> | null>;
+  runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>;
   tearleads: Tearleads;
 }) {
   const {
@@ -221,7 +226,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   log: (message: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
-  runtimeReleaseRef: RefObject<Promise<void> | null>;
+  runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   targetDbNameRef: RefObject<string>;
   tearleads: Tearleads;
@@ -290,7 +295,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       }
 
       targetDbNameRef.current = nextDbName;
-      const pendingRelease = runtimeReleaseRef.current;
+      const pendingRelease = runtimeReleaseRef.current?.promise ?? null;
       if (pendingRelease) {
         void pendingRelease.then(() => {
           if (!mountedRef.current) {
@@ -428,7 +433,7 @@ export function useManagedSQLiteRuntime(
   const targetDbNameRef = useRef(dbName);
   const currentDbNameRef = useRef<string | null>(null);
   const killedRef = useRef(false);
-  const runtimeReleaseRef = useRef<Promise<void> | null>(null);
+  const runtimeReleaseRef = useRef<SQLiteRuntimeRelease | null>(null);
   const destroyCurrentRuntime = useDestroySQLiteRuntime({
     runtimeRef,
     bootingRef,
@@ -474,7 +479,7 @@ export function useManagedSQLiteRuntime(
     currentDbNameRef,
     destroyCurrentRuntime,
   );
-  useReleaseRuntimeOnPageHide(runtimeRef);
+  useReleaseRuntimeOnPageHide(runtimeRef, runtimeReleaseRef);
 
   return {
     id: snapshot.id,

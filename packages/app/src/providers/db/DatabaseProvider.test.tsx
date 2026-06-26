@@ -129,6 +129,7 @@ function createRestartSensitiveSQLiteRuntimeFactory() {
       createCount += 1;
       const runtimeId = `restart-sensitive-${createCount}`;
       let initialized = false;
+      let terminated = false;
       const client: SQLiteRuntime["client"] = {
         close: async () => {
           closeCount += 1;
@@ -163,20 +164,28 @@ function createRestartSensitiveSQLiteRuntimeFactory() {
         },
         ping: async () => ({ ok: true, message: "pong" }),
       };
+      const terminate = () => {
+        if (terminated) {
+          return;
+        }
+
+        terminated = true;
+        client.destroy();
+      };
 
       return {
         client,
         deleteData: async () => {
           await client.delete();
-          client.destroy();
+          terminate();
         },
         destroy: () => {
           void client.close().finally(() => {
-            client.destroy();
+            terminate();
           });
         },
         id: runtimeId,
-        terminateNow: () => client.destroy(),
+        terminateNow: terminate,
       };
     },
     getStats: () => ({ closeCount, createCount, initCount, terminateCount }),
@@ -204,10 +213,18 @@ function DatabaseProbe({
 function renderDatabaseProvider(props: {
   readonly createLocalKeyring?: () => LocalKeyring;
   readonly createSQLiteRuntime: CreateSQLiteRuntimeFn;
-  readonly onControls: (controls: DatabaseControls) => void;
   readonly storagePersistence?: StoragePersistencePolicy;
 }) {
   const originalWebSocket = globalThis.WebSocket;
+  const controlsReady = createDeferred();
+  let controls: DatabaseControls | null = null;
+  const getControls = () => {
+    if (!controls) {
+      throw new Error("Database controls were not rendered.");
+    }
+
+    return controls;
+  };
   Reflect.set(globalThis, "WebSocket", SilentWebSocket);
   const view = render(
     <AppHostConfigProvider
@@ -229,7 +246,12 @@ function renderDatabaseProvider(props: {
         <LogProvider>
           <TearleadsProvider>
             <DatabaseProvider>
-              <DatabaseProbe onControls={props.onControls} />
+              <DatabaseProbe
+                onControls={(nextControls) => {
+                  controls = nextControls;
+                  controlsReady.resolve();
+                }}
+              />
             </DatabaseProvider>
           </TearleadsProvider>
         </LogProvider>
@@ -238,6 +260,8 @@ function renderDatabaseProvider(props: {
   );
 
   return {
+    controlsReady,
+    getControls,
     unmount: () => {
       view.unmount();
       Reflect.set(globalThis, "WebSocket", originalWebSocket);
@@ -247,31 +271,18 @@ function renderDatabaseProvider(props: {
 
 test("ensureIdentityReady retries a failed identity database initialization", async () => {
   const runtimeFactory = createRetryableSQLiteRuntimeFactory();
-  const controlsReady = createDeferred();
-  let controls: DatabaseControls | null = null;
-  const getControls = () => {
-    if (!controls) {
-      throw new Error("Database controls were not rendered.");
-    }
-
-    return controls;
-  };
   const originalConsoleError = console.error;
   const view = renderDatabaseProvider({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
-    onControls: (nextControls) => {
-      controls = nextControls;
-      controlsReady.resolve();
-    },
   });
 
   try {
     console.error = () => {};
-    await controlsReady.promise;
+    await view.controlsReady.promise;
     let firstError: unknown;
     await act(async () => {
       try {
-        await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+        await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
       } catch (error: unknown) {
         firstError = error;
       }
@@ -281,14 +292,14 @@ test("ensureIdentityReady retries a failed identity database initialization", as
       "SQLite database failed to initialize.",
     );
     await waitFor(() => {
-      expect(getControls().status).toBe("error");
+      expect(view.getControls().status).toBe("error");
     });
 
     await act(async () => {
-      await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+      await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
     });
     await waitFor(() => {
-      expect(getControls().status).toBe("ready");
+      expect(view.getControls().status).toBe("ready");
     });
 
     expect(runtimeFactory.getStats()).toEqual({
@@ -304,41 +315,28 @@ test("ensureIdentityReady retries a failed identity database initialization", as
 
 test("spawnWorker waits for a killed identity worker to release SQLite", async () => {
   const runtimeFactory = createRestartSensitiveSQLiteRuntimeFactory();
-  const controlsReady = createDeferred();
-  let controls: DatabaseControls | null = null;
-  const getControls = () => {
-    if (!controls) {
-      throw new Error("Database controls were not rendered.");
-    }
-
-    return controls;
-  };
   const view = renderDatabaseProvider({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
-    onControls: (nextControls) => {
-      controls = nextControls;
-      controlsReady.resolve();
-    },
   });
 
   try {
-    await controlsReady.promise;
+    await view.controlsReady.promise;
     await act(async () => {
-      await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+      await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
     });
     await waitFor(() => {
-      expect(getControls().status).toBe("ready");
+      expect(view.getControls().status).toBe("ready");
     });
 
     act(() => {
-      getControls().killWorker();
+      view.getControls().killWorker();
     });
     await waitFor(() => {
-      expect(getControls().status).toBe("terminated");
+      expect(view.getControls().status).toBe("terminated");
     });
 
     act(() => {
-      getControls().spawnWorker();
+      view.getControls().spawnWorker();
     });
     expect(runtimeFactory.getStats()).toEqual({
       closeCount: 1,
@@ -349,11 +347,11 @@ test("spawnWorker waits for a killed identity worker to release SQLite", async (
 
     await act(async () => {
       runtimeFactory.releaseClose();
-      await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+      await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
       await Promise.resolve();
     });
     await waitFor(() => {
-      expect(getControls().status).toBe("ready");
+      expect(view.getControls().status).toBe("ready");
     });
 
     expect(runtimeFactory.getStats()).toEqual({
@@ -369,43 +367,80 @@ test("spawnWorker waits for a killed identity worker to release SQLite", async (
   }
 });
 
-test("queued spawnWorker after kill is abandoned when provider unmounts", async () => {
+test("pagehide terminates a killed worker while graceful release is pending", async () => {
   const runtimeFactory = createRestartSensitiveSQLiteRuntimeFactory();
-  const controlsReady = createDeferred();
-  let controls: DatabaseControls | null = null;
-  let unmounted = false;
-  const getControls = () => {
-    if (!controls) {
-      throw new Error("Database controls were not rendered.");
-    }
-
-    return controls;
-  };
   const view = renderDatabaseProvider({
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
-    onControls: (nextControls) => {
-      controls = nextControls;
-      controlsReady.resolve();
-    },
   });
 
   try {
-    await controlsReady.promise;
+    await view.controlsReady.promise;
     await act(async () => {
-      await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+      await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
     });
     await waitFor(() => {
-      expect(getControls().status).toBe("ready");
+      expect(view.getControls().status).toBe("ready");
     });
 
     act(() => {
-      getControls().killWorker();
+      view.getControls().killWorker();
     });
     await waitFor(() => {
-      expect(getControls().status).toBe("terminated");
+      expect(view.getControls().status).toBe("terminated");
+    });
+    expect(runtimeFactory.getStats()).toEqual({
+      closeCount: 1,
+      createCount: 1,
+      initCount: 1,
+      terminateCount: 0,
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+
+    expect(runtimeFactory.getStats()).toEqual({
+      closeCount: 1,
+      createCount: 1,
+      initCount: 1,
+      terminateCount: 1,
+    });
+
+    await act(async () => {
+      runtimeFactory.releaseClose();
+      await Promise.resolve();
+    });
+  } finally {
+    await act(async () => {
+      view.unmount();
+    });
+  }
+});
+
+test("queued spawnWorker after kill is abandoned when provider unmounts", async () => {
+  const runtimeFactory = createRestartSensitiveSQLiteRuntimeFactory();
+  let unmounted = false;
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+    });
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("ready");
+    });
+
+    act(() => {
+      view.getControls().killWorker();
+    });
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("terminated");
     });
     act(() => {
-      getControls().spawnWorker();
+      view.getControls().spawnWorker();
     });
 
     await act(async () => {
@@ -431,22 +466,16 @@ test("queued spawnWorker after kill is abandoned when provider unmounts", async 
 
 test("the storage persistence policy and keyring cipher key thread into init", async () => {
   const runtimeFactory = createRecordingSQLiteRuntimeFactory();
-  const controlsReady = createDeferred();
-  let controls: DatabaseControls | null = null;
   const view = renderDatabaseProvider({
     createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
     createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
-    onControls: (nextControls) => {
-      controls = nextControls;
-      controlsReady.resolve();
-    },
     storagePersistence: PERSISTENT_STORAGE_POLICY,
   });
 
   try {
-    await controlsReady.promise;
+    await view.controlsReady.promise;
     await act(async () => {
-      await (controls as DatabaseControls | null)?.ensureReady();
+      await view.getControls().ensureReady();
     });
 
     await waitFor(() => {

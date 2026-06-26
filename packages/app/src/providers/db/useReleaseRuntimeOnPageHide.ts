@@ -15,10 +15,14 @@ import { type RefObject, useEffect } from "react";
 // We terminate the worker *synchronously* here rather than going through the
 // async graceful close: an unload handler has no time to await a worker
 // round-trip, and terminating the worker thread releases its OPFS handles
-// promptly. The worker-side install retry remains the backstop for the residual
-// race where even this does not land before the new page boots.
+// promptly. This also covers a killed worker whose graceful close is still
+// pending: runtimeRef has already been cleared so the user can spawn a fresh
+// worker after release, but a hard reload still needs to tear down the old
+// runtime immediately. The worker-side install retry remains the backstop for
+// the residual race where even this does not land before the new page boots.
 export function useReleaseRuntimeOnPageHide(
   runtimeRef: RefObject<SQLiteRuntime | null>,
+  runtimeReleaseRef?: RefObject<{ readonly runtime: SQLiteRuntime } | null>,
 ) {
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -26,7 +30,12 @@ export function useReleaseRuntimeOnPageHide(
     }
 
     const handlePageHide = () => {
-      runtimeRef.current?.terminateNow();
+      const activeRuntime = runtimeRef.current;
+      const releasingRuntime = runtimeReleaseRef?.current?.runtime ?? null;
+      activeRuntime?.terminateNow();
+      if (releasingRuntime && releasingRuntime !== activeRuntime) {
+        releasingRuntime.terminateNow();
+      }
     };
     // If the page is restored from the back-forward cache, the worker we
     // terminated on `pagehide` is gone and the client is destroyed — the app
@@ -44,5 +53,5 @@ export function useReleaseRuntimeOnPageHide(
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [runtimeRef]);
+  }, [runtimeRef, runtimeReleaseRef]);
 }

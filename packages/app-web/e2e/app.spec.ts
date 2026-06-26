@@ -13,6 +13,11 @@ async function generateKeyPair(page: Page, pane: Locator): Promise<void> {
   await page.getByRole("button", { name: "Generate Key Pair" }).click();
 }
 
+async function killWorker(page: Page, pane: Locator): Promise<void> {
+  await pane.getByRole("button", { name: "Menu" }).click();
+  await page.getByRole("button", { name: "Kill Worker" }).click();
+}
+
 async function showSystemMonitorTab(
   pane: Locator,
   tabName: "Logs" | "Status",
@@ -104,6 +109,24 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
       "Database characteristics (pre-migration): no tables",
     ),
   ).toHaveCount(0);
+});
+
+test("killed worker does not poison a hard reload", async ({ page }) => {
+  await page.goto("/");
+
+  const pane = visiblePane(page, "left");
+  await generateKeyPair(page, pane);
+  await waitForPaneBooted(pane);
+  const publicKey = await panePublicKey(pane);
+
+  await killWorker(page, pane);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  const reloadedPane = visiblePane(page, "left");
+  await waitForPaneBooted(reloadedPane);
+  await expect(await paneStatus(reloadedPane)).toContainText(
+    `publicKey: ${publicKey}`,
+  );
 });
 
 test("same persisted identity can boot in two tabs", async ({
