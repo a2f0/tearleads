@@ -13,10 +13,12 @@ import { MenuItem } from "./MenuItem";
 export function PaneSystemMenuItems({
   onClose,
   onOpenUnlock,
+  onRequestDestroyKeyPackage,
   onRequestLogout,
 }: {
   onClose: () => void;
   onOpenUnlock: () => void;
+  onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
 }) {
   return (
@@ -24,7 +26,10 @@ export function PaneSystemMenuItems({
       <PaneWorkerMenuItems onClose={onClose} />
       <PaneNetworkMenuItems onClose={onClose} />
       <PaneUnlockMenuItem onClose={onClose} onOpenUnlock={onOpenUnlock} />
-      <PaneKeyMenuItems onClose={onClose} />
+      <PaneKeyMenuItems
+        onClose={onClose}
+        onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
+      />
       <PaneSessionMenuItems
         onClose={onClose}
         onRequestLogout={onRequestLogout}
@@ -122,15 +127,20 @@ function PaneUnlockMenuItem({
   );
 }
 
-function PaneKeyMenuItems({ onClose }: { onClose: () => void }) {
+function PaneKeyMenuItems({
+  onClose,
+  onRequestDestroyKeyPackage,
+}: {
+  onClose: () => void;
+  onRequestDestroyKeyPackage: () => void;
+}) {
   const backupKeyPackage = useBackupKeyPackageAction({ onComplete: onClose });
   const {
     handleRestoreFileChange,
     handleRestoreKeyPackageClick,
     restoreFileInputRef,
   } = useRestoreKeyPackageAction({ onComplete: onClose });
-  const { destroyKey, encapsulationKeyPair, generateKey, signingKeyPair } =
-    useIdentity();
+  const { encapsulationKeyPair, generateKey, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
 
   return (
@@ -163,7 +173,7 @@ function PaneKeyMenuItems({ onClose }: { onClose: () => void }) {
         <MenuItem
           label="Destroy Key Pair"
           onClick={() => {
-            destroyKey();
+            onRequestDestroyKeyPackage();
             onClose();
           }}
         />

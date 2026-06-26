@@ -12,6 +12,7 @@ import {
 } from "@testing-library/react";
 import { type PropsWithChildren, useEffect } from "react";
 import { MockWorker } from "../../../test/helpers/mockWorker";
+import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { AppHostConfig } from "../../host/AppHostConfig";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
@@ -233,6 +234,69 @@ test("identity detail copies the authenticated user id", async () => {
     } finally {
       tearleads.session.listSessions = originalListSessions;
     }
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
+test("identity manager confirms before destroying a key package", async () => {
+  const originalWebSocket = globalThis.WebSocket;
+  const tearleadsRef: { current: Tearleads | null } = { current: null };
+
+  try {
+    Reflect.set(globalThis, "WebSocket", TestWebSocket);
+    const view = render(
+      <IdentityManagerTestRuntime
+        onTearleadsReady={(sdk) => {
+          tearleadsRef.current = sdk;
+        }}
+      >
+        <IdentityManager />
+      </IdentityManagerTestRuntime>,
+    );
+
+    await waitFor(() => {
+      expect(tearleadsRef.current).toBeTruthy();
+    });
+
+    const tearleads = tearleadsRef.current;
+    if (!tearleads) {
+      throw new Error("Expected Tearleads SDK to be available after render.");
+    }
+
+    await act(async () => {
+      await tearleads.identity.setKeyPairs({
+        encapsulationKeyPair: null,
+        signingKeyPair: generateSigningSeedAndKeyPair(),
+      });
+    });
+
+    const destroyRequestButton = await view.findByRole("button", {
+      name: "Destroy Key Pair",
+    });
+    fireEvent.click(destroyRequestButton);
+
+    expect(view.getByRole("dialog")).toBeTruthy();
+    expect(view.getByText(/non-recoverable operation/u)).toBeTruthy();
+
+    const destroyButton = view.getByRole("button", {
+      name: "Destroy Key Package",
+    }) as HTMLButtonElement;
+    expect(destroyButton.disabled).toBe(true);
+
+    fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+      target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
+    });
+    expect(destroyButton.disabled).toBe(false);
+
+    fireEvent.click(destroyButton);
+
+    await waitFor(() => {
+      expect(view.getByText("No key pair")).toBeTruthy();
+      expect(
+        view.queryByRole("button", { name: "Destroy Key Pair" }),
+      ).toBeNull();
+    });
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
