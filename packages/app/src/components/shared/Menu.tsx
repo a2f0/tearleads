@@ -10,6 +10,12 @@ import { createPortal } from "react-dom";
 import "./Menu.css";
 
 const MENU_VIEWPORT_MARGIN_PX = 8;
+const MEASUREMENT_MENU_STYLE: CSSProperties = {
+  left: MENU_VIEWPORT_MARGIN_PX,
+  pointerEvents: "none",
+  top: MENU_VIEWPORT_MARGIN_PX,
+  visibility: "hidden",
+};
 const useBrowserLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
@@ -57,15 +63,6 @@ function createInitialMenuPlacement(
     maxWidth: undefined,
     measured: false,
     top: position.y,
-  };
-}
-
-function createMeasurementMenuStyle(): CSSProperties {
-  return {
-    left: MENU_VIEWPORT_MARGIN_PX,
-    pointerEvents: "none",
-    top: MENU_VIEWPORT_MARGIN_PX,
-    visibility: "hidden",
   };
 }
 
@@ -185,7 +182,7 @@ export function Menu({
           maxWidth: placement.maxWidth,
           top: placement.top,
         }
-      : createMeasurementMenuStyle();
+      : MEASUREMENT_MENU_STYLE;
 
   const menu = (
     <div ref={menuRef} className="menu" style={menuStyle}>
