@@ -79,15 +79,27 @@ function ExplorerRouteSelectionHarness() {
       </button>
       <button
         type="button"
-        onClick={() => {
-          selection.selectDocument("you-contact", "contacts-container");
-          routeState.selectExplorerDocument(
-            "you-contact",
-            "contacts-container",
-          );
-        }}
+        onClick={() =>
+          routeState.selectExplorerDocument("you-contact", "contacts-container")
+        }
       >
         You
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          routeState.openDocumentInfoRoute("you-contact", "contacts-container")
+        }
+      >
+        You Info
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          routeState.selectExplorerDocument("you-contact", "contacts-container")
+        }
+      >
+        Back To You
       </button>
       <div data-testid="selected-id">{selection.selectedId}</div>
       <div data-testid="active-container">{selection.activeContainerId}</div>
@@ -96,11 +108,11 @@ function ExplorerRouteSelectionHarness() {
   );
 }
 
-function renderExplorerRouteSelectionHarness() {
+function renderExplorerRouteSelectionHarness(mode: "routed" | "windowed") {
   window.history.replaceState(null, "", "/app/explorer");
   return render(
     <WindowStateProvider>
-      <AppNavigationProvider mode="routed" miniApps={TEST_MINI_APPS}>
+      <AppNavigationProvider mode={mode} miniApps={TEST_MINI_APPS}>
         <ExplorerRouteSelectionHarness />
       </AppNavigationProvider>
     </WindowStateProvider>,
@@ -108,7 +120,7 @@ function renderExplorerRouteSelectionHarness() {
 }
 
 test("document route sync preserves pending sidebar document selection", async () => {
-  const view = renderExplorerRouteSelectionHarness();
+  const view = renderExplorerRouteSelectionHarness("routed");
 
   await waitFor(() => {
     expect(view.getByTestId("selected-id").textContent).toBe("root-container");
@@ -138,4 +150,51 @@ test("document route sync preserves pending sidebar document selection", async (
       "contacts-container",
     );
   });
+});
+
+async function expectDocumentInfoBackRestoresDocumentSelection(
+  mode: "routed" | "windowed",
+) {
+  const view = renderExplorerRouteSelectionHarness(mode);
+
+  await waitFor(() => {
+    expect(view.getByTestId("selected-id").textContent).toBe("root-container");
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Contacts" }));
+
+  await waitFor(() => {
+    expect(view.getByTestId("selected-id").textContent).toBe(
+      "contacts-container",
+    );
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "You Info" }));
+
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe("document-info");
+    expect(view.getByTestId("selected-id").textContent).toBe(
+      "contacts-container",
+    );
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Back To You" }));
+
+  await waitFor(() => {
+    expect(view.getByTestId("route-view").textContent).toBe(
+      "document-selection",
+    );
+    expect(view.getByTestId("selected-id").textContent).toBe("you-contact");
+    expect(view.getByTestId("active-container").textContent).toBe(
+      "contacts-container",
+    );
+  });
+}
+
+test("document info back restores the document route in routed mode", async () => {
+  await expectDocumentInfoBackRestoresDocumentSelection("routed");
+});
+
+test("document info back restores the document route in windowed mode", async () => {
+  await expectDocumentInfoBackRestoresDocumentSelection("windowed");
 });

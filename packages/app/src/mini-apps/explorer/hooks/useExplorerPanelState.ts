@@ -187,10 +187,9 @@ export function useExplorerPanelState(params: {
   });
   const selectDocument = useCallback(
     (documentId: string, containerId: string) => {
-      selection.selectDocument(documentId, containerId);
       routeState.selectExplorerDocument(documentId, containerId);
     },
-    [routeState.selectExplorerDocument, selection.selectDocument],
+    [routeState.selectExplorerDocument],
   );
   const selectDocumentProjection = useSelectDocumentProjection({
     activateLinkedDocument: selectedNoteStructuralState.activateLinkedDocument,

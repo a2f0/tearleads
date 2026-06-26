@@ -115,10 +115,11 @@ function useAvailableExplorerRoute(params: {
 
 function useExplorerRouteActions(params: {
   route: ExplorerRoute;
+  selectDocument: (id: string, containerId: string) => void;
   setRoute: ExplorerRouteSetter;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { route, setRoute, setSelectedId } = params;
+  const { route, selectDocument, setRoute, setSelectedId } = params;
   const showSelectionRoute = useCallback(() => {
     setRoute(DEFAULT_EXPLORER_ROUTE);
   }, [setRoute]);
@@ -133,6 +134,7 @@ function useExplorerRouteActions(params: {
 
   const selectExplorerDocument = useCallback(
     (localId: string, containerId: string) => {
+      selectDocument(localId, containerId);
       setRoute(
         {
           containerId,
@@ -142,7 +144,7 @@ function useExplorerRouteActions(params: {
         localId,
       );
     },
-    [setRoute],
+    [selectDocument, setRoute],
   );
 
   const openBlobBrowserRoute = useCallback(
@@ -229,6 +231,7 @@ export function useExplorerRoute(params: {
   useAvailableExplorerRoute({ nodes, route, setRoute });
   const actions = useExplorerRouteActions({
     route,
+    selectDocument,
     setRoute,
     setSelectedId,
   });

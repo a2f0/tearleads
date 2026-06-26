@@ -283,7 +283,9 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         loadDocumentSummary={params.loadDocumentSummary}
         localId={route.localId}
         nodes={params.nodes}
-        onBackToDocument={params.onBackToSelectionRoute}
+        onBackToDocument={() => {
+          params.selectDocumentProjection(route.localId, route.containerId);
+        }}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
         setSelectedId={params.setSelectedId}
         unlinkDocument={params.unlinkDocument}
