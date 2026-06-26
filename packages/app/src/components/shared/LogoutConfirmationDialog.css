@@ -1,0 +1,53 @@
+.logout-confirmation-dialog-backdrop {
+  z-index: 2000;
+}
+
+.logout-confirmation-keep-data {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.logout-confirmation-checkbox {
+  appearance: none;
+  display: grid;
+  flex: 0 0 1rem;
+  place-content: center;
+  width: 1rem;
+  height: 1rem;
+  box-sizing: border-box;
+  margin: 0;
+  border: var(--border-strong);
+  background: var(--color-light);
+  color: var(--color-dark);
+  cursor: pointer;
+}
+
+.logout-confirmation-checkbox::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  transform: scale(0);
+  background: currentColor;
+}
+
+.logout-confirmation-checkbox:checked::before {
+  transform: scale(1);
+}
+
+.logout-confirmation-checkbox:focus-visible {
+  outline: var(--border-width) solid currentColor;
+  outline-offset: 2px;
+}
+
+.logout-confirmation-checkbox:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.logout-confirmation-warning {
+  margin: 0;
+  color: var(--color-danger, #b00020);
+  font-size: var(--font-size-sm);
+}

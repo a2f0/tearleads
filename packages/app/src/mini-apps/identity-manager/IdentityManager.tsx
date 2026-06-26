@@ -1,5 +1,6 @@
 import type { UserSession } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
+import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -32,7 +33,6 @@ import {
 } from "./IdentityManagerActionToolbar";
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { useIdentityManager } from "./IdentityManagerController";
-import { IdentityManagerLogoutDialog } from "./IdentityManagerLogoutDialog";
 import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
 
 const SESSION_TABLE_COLUMNS = [
@@ -396,7 +396,7 @@ function IdentityManagerLayout({
         // Mount only while open so the dialog's keep-local-data checkbox resets
         // to its safe default (checked) on every open — a cancelled "wipe"
         // choice must not silently persist into the next logout.
-        <IdentityManagerLogoutDialog
+        <LogoutConfirmationDialog
           busy={logoutBusy}
           isOpen={logoutDialog.isOpen}
           onCancel={logoutDialog.closeLogoutDialog}

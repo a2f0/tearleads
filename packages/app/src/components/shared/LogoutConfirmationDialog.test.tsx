@@ -1,16 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { IdentityManagerLogoutDialog } from "./IdentityManagerLogoutDialog";
+import { LogoutConfirmationDialog } from "./LogoutConfirmationDialog";
 
 afterEach(() => cleanup());
 
 function renderDialog(
-  overrides: Partial<Parameters<typeof IdentityManagerLogoutDialog>[0]> = {},
+  overrides: Partial<Parameters<typeof LogoutConfirmationDialog>[0]> = {},
 ) {
   const confirmCalls: Array<{ keepLocalData: boolean }> = [];
   let cancelCount = 0;
   const view = render(
-    <IdentityManagerLogoutDialog
+    <LogoutConfirmationDialog
       busy={false}
       isOpen
       onCancel={() => {
@@ -25,7 +25,7 @@ function renderDialog(
 
 test("does not render when closed", () => {
   const view = render(
-    <IdentityManagerLogoutDialog
+    <LogoutConfirmationDialog
       busy={false}
       isOpen={false}
       onCancel={() => {}}
@@ -40,6 +40,9 @@ test("keeps local data by default and confirms with keepLocalData true", () => {
 
   const checkbox = view.getByRole("checkbox") as HTMLInputElement;
   expect(checkbox.checked).toBe(true);
+  expect(checkbox.classList.contains("logout-confirmation-checkbox")).toBe(
+    true,
+  );
   // The destructive warning is hidden while data is kept.
   expect(view.queryByText(/permanently destroyed/u)).toBeNull();
 

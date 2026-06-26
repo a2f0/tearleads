@@ -86,11 +86,13 @@ function RoutedPaneNavPanel({
   menuItems,
   onNavigate,
   onOpenUnlock,
+  onRequestLogout,
 }: {
   activeAppId: MiniAppId | null;
   menuItems: ReadonlyArray<WindowMenuItem>;
   onNavigate: () => void;
   onOpenUnlock: () => void;
+  onRequestLogout: () => void;
 }) {
   return (
     <div className="routed-pane-nav-panel">
@@ -109,7 +111,11 @@ function RoutedPaneNavPanel({
         ))}
       </nav>
       <div className="routed-pane-nav-section">
-        <PaneSystemMenuItems onClose={onNavigate} onOpenUnlock={onOpenUnlock} />
+        <PaneSystemMenuItems
+          onClose={onNavigate}
+          onOpenUnlock={onOpenUnlock}
+          onRequestLogout={onRequestLogout}
+        />
       </div>
       {menuItems.length > 0 && (
         <div className="routed-pane-nav-section">
@@ -143,6 +149,7 @@ export function RoutedPaneNav({
   menuItems,
   onCloseDrawer,
   onOpenUnlock,
+  onRequestLogout,
   tier,
 }: {
   activeAppId: MiniAppId | null;
@@ -150,6 +157,7 @@ export function RoutedPaneNav({
   menuItems: ReadonlyArray<WindowMenuItem>;
   onCloseDrawer: () => void;
   onOpenUnlock: () => void;
+  onRequestLogout: () => void;
   tier: RoutedLayoutTier;
 }) {
   const panel = (
@@ -158,6 +166,7 @@ export function RoutedPaneNav({
       menuItems={menuItems}
       onNavigate={onCloseDrawer}
       onOpenUnlock={onOpenUnlock}
+      onRequestLogout={onRequestLogout}
     />
   );
 
