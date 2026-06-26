@@ -28,7 +28,8 @@ BACKEND_CONFIG="$(get_backend_config)"
 terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
 
 # Resolve hostname, username, and domain from terraform outputs
-SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
+# (honor a pre-set SSH_TARGET exported by the parent deploy script)
+SSH_TARGET="${SSH_TARGET:-$(resolve_stack_ssh_target "$STACK_DIR")}"
 HOSTNAME="${SSH_TARGET#*@}"
 USERNAME="${SSH_TARGET%@*}"
 DOMAIN="${TF_VAR_domain:-}"
