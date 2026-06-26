@@ -157,29 +157,119 @@ interface ExplorerModalSubmitControllerParams
   setBackgroundActionError: (error: string | null) => void;
 }
 
+function useExplorerModalActionParams(
+  params: ExplorerModalSubmitControllerParams,
+): ExplorerModalSubmitParams {
+  const {
+    canShareWithPeer,
+    clearModal,
+    createChild,
+    deleteContainer,
+    draftName,
+    draftTargetContainerId,
+    expandNode,
+    isSubmittingModal,
+    linkDocument,
+    modalState,
+    moveContainer,
+    moveDocument,
+    nodes,
+    peerUserId,
+    purgeContainer,
+    renameContainer,
+    setBackgroundActionError,
+    setIsSubmittingModal,
+    setModalError,
+    setSelectedId,
+    shareWithUser,
+  } = params;
+
+  return useMemo(
+    () => ({
+      canShareWithPeer,
+      clearModal,
+      createChild,
+      deleteContainer,
+      draftName,
+      draftTargetContainerId,
+      expandNode,
+      linkDocument,
+      modalState,
+      moveContainer,
+      moveDocument,
+      nodes,
+      peerUserId,
+      purgeContainer,
+      renameContainer,
+      setBackgroundActionError,
+      setModalError,
+      setSelectedId,
+      shareWithUser,
+    }),
+    [
+      canShareWithPeer,
+      clearModal,
+      createChild,
+      deleteContainer,
+      draftName,
+      draftTargetContainerId,
+      expandNode,
+      isSubmittingModal,
+      linkDocument,
+      modalState,
+      moveContainer,
+      moveDocument,
+      nodes,
+      peerUserId,
+      purgeContainer,
+      renameContainer,
+      setBackgroundActionError,
+      setIsSubmittingModal,
+      setModalError,
+      setSelectedId,
+      shareWithUser,
+    ],
+  );
+}
+
 function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
+  const submitParams = useExplorerModalActionParams(params);
+  const {
+    isSubmittingModal,
+    modalState,
+    setBackgroundActionError,
+    setIsSubmittingModal,
+    setModalError,
+  } = params;
+
   return useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      const modalState = params.modalState;
-      if (!modalState || params.isSubmittingModal) {
+      if (!modalState || isSubmittingModal) {
         return;
       }
 
-      params.setModalError(null);
-      params.setBackgroundActionError(null);
-      params.setIsSubmittingModal(true);
+      setModalError(null);
+      setBackgroundActionError(null);
+      setIsSubmittingModal(true);
 
       try {
-        await submitExplorerModalAction(params);
+        await submitExplorerModalAction(submitParams);
       } catch (error: unknown) {
         console.error(getExplorerModalLog(modalState.mode), error);
-        params.setModalError(getExplorerModalError(modalState.mode));
+        setModalError(getExplorerModalError(modalState.mode));
       } finally {
-        params.setIsSubmittingModal(false);
+        setIsSubmittingModal(false);
       }
     },
-    [params],
+    [
+      isSubmittingModal,
+      modalState,
+      setBackgroundActionError,
+      setIsSubmittingModal,
+      setModalError,
+      submitParams,
+    ],
   );
 }
 
