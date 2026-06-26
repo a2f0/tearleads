@@ -20,6 +20,16 @@ interface LayoutProps {
   hostConfig: AppHostConfig;
 }
 
+// When the panes are peers (demo profile: isolated runtimes that register each
+// other's user ids), the second pane is the peer, so the toggle reads as
+// showing/hiding that peer rather than a generic split/unsplit.
+function splitToggleLabel(peerPanes: boolean, split: boolean): string {
+  if (peerPanes) {
+    return split ? "Hide Peer" : "Show Peer";
+  }
+  return split ? "Unsplit" : "Split";
+}
+
 function LayoutInner({ hostConfig }: LayoutProps) {
   const [modeOverride, setModeOverride] =
     useState<NavigationModeOverride>(null);
@@ -36,13 +46,17 @@ function LayoutInner({ hostConfig }: LayoutProps) {
     setMenu({ x: e.clientX, y: e.clientY });
   }, []);
   const closeMenu = useCallback(() => setMenu(null), []);
+  const splitLabel = splitToggleLabel(
+    hostConfig.profile.features.panePeerUserIds,
+    split,
+  );
   const headerActions = (
     <button
       className="tearleads-action-button"
       type="button"
       onClick={toggleSplit}
     >
-      {split ? "Unsplit" : "Split"}
+      {splitLabel}
     </button>
   );
   const footerStart = (
