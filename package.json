@@ -46,6 +46,7 @@
     "report:dependencies:archi": "bun scripts/reportDependencyGraph.ts --format archi",
     "report:dependencies:json": "bun scripts/reportDependencyGraph.ts --format json",
     "report:dependencies:mermaid": "bun scripts/reportDependencyGraph.ts --format mermaid",
+    "report:lines": "bun scripts/countLines.ts",
     "test:bun": "bun run --filter='@tearleads/sqlite-instance' build && bun run --filter='@tearleads/client-sdk' build && bun run --filter='*' --sequential test",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
