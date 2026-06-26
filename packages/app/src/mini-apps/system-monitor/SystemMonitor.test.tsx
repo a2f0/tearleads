@@ -160,6 +160,26 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
   fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
   await view.findByRole("tab", { name: "Logs" });
   expect(view.container.querySelector(".window")).not.toBeNull();
+  expect(view.container.querySelector(".system-monitor-toolbar")).toBeNull();
+  expect(
+    view.container.querySelectorAll(".window-titlebar-buttons > button"),
+  ).toHaveLength(4);
+  expect(
+    view
+      .getByRole("button", { name: "Pin to Desktop" })
+      .closest(".window-titlebar-buttons"),
+  ).not.toBeNull();
+
+  fireEvent.click(view.getByRole("menuitem", { name: "File" }));
+  await waitFor(() => {
+    expect(view.getByRole("menuitem", { name: "Close" })).toBeTruthy();
+  });
+  expect(view.queryByRole("menuitem", { name: "Pin to Desktop" })).toBeNull();
+
+  fireEvent.click(view.getByRole("menuitem", { name: "View" }));
+  await waitFor(() => {
+    expect(view.getByRole("menuitem", { name: "Pin to Desktop" })).toBeTruthy();
+  });
 
   fireEvent.click(view.getByRole("button", { name: "Pin to Desktop" }));
 
