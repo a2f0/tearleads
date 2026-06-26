@@ -15,6 +15,7 @@ import {
 } from "../../../src/components/pane/DualPaneProvider";
 import { Pane } from "../../../src/components/pane/Pane";
 import { PaneProvider } from "../../../src/components/pane/PaneProvider";
+import { DEMO_APP_HOST_PROFILE } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import {
   saveSystemMonitorMode,
@@ -81,7 +82,7 @@ function PaneAutoProvisioner() {
 }
 
 export function renderDualPane(): ReturnType<typeof render> {
-  const hostConfig = createTestHostConfig();
+  const hostConfig = createTestHostConfig({ profile: DEMO_APP_HOST_PROFILE });
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
   saveSystemMonitorMode(systemMonitorModeStorageKey("right"), "pinned");
 

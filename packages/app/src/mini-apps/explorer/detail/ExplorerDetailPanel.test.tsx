@@ -56,6 +56,7 @@ function createBaseExplorerDetailPanelProps(
     canLinkSelectedDocument: true,
     canMoveSelectedDocument: true,
     canMutateDocumentLinks: true,
+    canShareWithPeer: true,
     contextTarget: null,
     currentOrganizationId: "org-1",
     currentSigningFingerprint: "fingerprint-1",

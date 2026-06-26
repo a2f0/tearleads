@@ -34,6 +34,7 @@ function createSubmitParams(
     draftTargetContainerId: "",
     expandNode: () => undefined,
     linkDocument: async () => null,
+    canShareWithPeer: true,
     modalState: null,
     moveContainer: async () => null,
     moveDocument: async () => null,

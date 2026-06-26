@@ -62,6 +62,7 @@
     "packages/api-cli",
     "packages/api-shared",
     "packages/app",
+    "packages/app-demo",
     "packages/app-web",
     "packages/app-capacitor",
     "packages/app-electrobun",

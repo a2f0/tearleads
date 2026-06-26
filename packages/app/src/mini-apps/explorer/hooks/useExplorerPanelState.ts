@@ -130,6 +130,7 @@ export function useExplorerPanelState(params: {
   onDocumentLinksChanged: () => void;
   // Re-attempts the SQLite worker boot; forwarded to the sidebar tree's gate.
   onRetryDatabase: () => void;
+  canShareWithPeer: boolean;
   peerUserId: string | null;
   rulesContext: ExplorerContainerRulesContext;
   selection: ExplorerSelectionState;
@@ -153,6 +154,7 @@ export function useExplorerPanelState(params: {
     documentSummaries,
     onDocumentLinksChanged,
     onRetryDatabase,
+    canShareWithPeer,
     peerUserId,
     rulesContext,
     selection,
@@ -236,6 +238,7 @@ export function useExplorerPanelState(params: {
     moveDocument: selectedNoteStructuralState.moveDocument,
     documentSummaries,
     linkedContainerIdsByDocumentId,
+    canShareWithPeer,
     peerUserId,
     rulesContext,
     setSelectedId: routeState.selectExplorerItem,

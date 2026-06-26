@@ -23,6 +23,11 @@
     postgres_host: "127.0.0.1"
     redis_bind: "127.0.0.1"
     domain: "{{ lookup('env', 'TF_VAR_domain') | default('', true) }}"
+    app_hostname: "app.{{ domain | default('tearleads.com', true) }}"
+    app_demo_hostnames_env: "{{ lookup('env', 'APP_DEMO_HOSTNAMES') | default('', true) }}"
+    app_demo_hostnames_default:
+      - "demo.{{ domain | default('tearleads.com', true) }}"
+    app_demo_hostnames: "{{ app_demo_hostnames_env.split(',') | map('trim') | reject('equalto', '') | list if app_demo_hostnames_env != '' else app_demo_hostnames_default }}"
     cloudflare_tunnel_token: "{{ lookup('env', 'CLOUDFLARE_TUNNEL_TOKEN') | default('', true) }}"
     server_user: "{{ lookup('env', 'TF_VAR_server_username') | default('deploy', true) }}"
     bun_path: "/home/{{ server_user }}/.bun/bin/bun"
@@ -59,7 +64,8 @@
     blob_s3_access_key_id: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID') | default('', true) }}"
     blob_s3_secret_access_key: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY') | default('', true) }}"
     blob_s3_key_prefix: "{{ lookup('env', 'BLOB_OBJECT_STORE_S3_KEY_PREFIX') | default('', true) }}"
-    api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default('https://app.' + (domain | default('tearleads.com', true)), true) }}"
+    api_default_cors_origins: "{{ ([app_hostname] + app_demo_hostnames) | map('regex_replace', '^(.*)$', 'https://\\1') | join(',') }}"
+    api_cors_origins: "{{ lookup('env', 'API_CORS_ORIGINS') | default(api_default_cors_origins, true) }}"
     garage_s3_region: "{{ blob_s3_region }}"
     garage_default_access_key: "{{ blob_s3_access_key_id }}"
     garage_default_secret_key: "{{ blob_s3_secret_access_key }}"
@@ -149,6 +155,14 @@
     - name: Create app-web directory
       ansible.builtin.file:
         path: /var/www/app-web
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
+    - name: Create app-demo directory
+      ansible.builtin.file:
+        path: /var/www/app-demo
         state: directory
         owner: www-data
         group: www-data

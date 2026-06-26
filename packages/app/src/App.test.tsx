@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
-import { AppHostConfig } from "./host/AppHostConfig";
+import { AppHostConfig, DEMO_APP_HOST_PROFILE } from "./host/AppHostConfig";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -77,6 +77,54 @@ test("renders App", async () => {
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
+});
+
+test("normal App starts unsplit", () => {
+  const view = render(
+    <App
+      hostConfig={
+        new AppHostConfig("http://localhost:3001", "ws://localhost:3002", () =>
+          createSQLiteRuntime({
+            workerConstructor: MockWorker,
+          }),
+        )
+      }
+    />,
+  );
+
+  const frame = view.container.querySelector(".tearleads-frame.layout");
+  expect(frame?.classList.contains("layout--split")).toBe(false);
+  expect(view.getByRole("button", { name: "Split" })).toBeTruthy();
+  view.unmount();
+});
+
+test("demo App starts split", () => {
+  const view = render(
+    <App
+      hostConfig={
+        new AppHostConfig(
+          "http://localhost:3001",
+          "ws://localhost:3002",
+          () =>
+            createSQLiteRuntime({
+              workerConstructor: MockWorker,
+            }),
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          DEMO_APP_HOST_PROFILE,
+        )
+      }
+    />,
+  );
+
+  const frame = view.container.querySelector(".tearleads-frame.layout");
+  expect(frame?.classList.contains("layout--split")).toBe(true);
+  expect(view.getByRole("button", { name: "Unsplit" })).toBeTruthy();
+  view.unmount();
 });
 
 test("routed App home can generate a pane key pair from shell chrome", async () => {

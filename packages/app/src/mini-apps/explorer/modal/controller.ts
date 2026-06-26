@@ -75,6 +75,7 @@ function useExplorerModalEffects(params: {
 }
 
 function useExplorerModalState(
+  canShareWithPeer: boolean,
   nodes: ReadonlyArray<ContainerNode>,
   documentSummaries: ReadonlyArray<DocumentSummary>,
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>,
@@ -109,6 +110,7 @@ function useExplorerModalState(
     }
   }, [clearModal, isSubmittingModal]);
   const openers = useExplorerModalOpeners({
+    canShareWithPeer,
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes,
@@ -156,90 +158,28 @@ interface ExplorerModalSubmitControllerParams
 }
 
 function useExplorerModalSubmit(params: ExplorerModalSubmitControllerParams) {
-  const {
-    clearModal,
-    createChild,
-    deleteContainer,
-    draftName,
-    draftTargetContainerId,
-    expandNode,
-    isSubmittingModal,
-    linkDocument,
-    modalState,
-    moveContainer,
-    moveDocument,
-    nodes,
-    peerUserId,
-    purgeContainer,
-    renameContainer,
-    setBackgroundActionError,
-    setIsSubmittingModal,
-    setModalError,
-    setSelectedId,
-    shareWithUser,
-  } = params;
-
   return useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!modalState || isSubmittingModal) {
+      const modalState = params.modalState;
+      if (!modalState || params.isSubmittingModal) {
         return;
       }
 
-      setModalError(null);
-      setBackgroundActionError(null);
-      setIsSubmittingModal(true);
+      params.setModalError(null);
+      params.setBackgroundActionError(null);
+      params.setIsSubmittingModal(true);
 
       try {
-        await submitExplorerModalAction({
-          clearModal,
-          createChild,
-          deleteContainer,
-          draftName,
-          draftTargetContainerId,
-          expandNode,
-          linkDocument,
-          modalState,
-          moveContainer,
-          moveDocument,
-          nodes,
-          peerUserId,
-          purgeContainer,
-          renameContainer,
-          setBackgroundActionError,
-          setModalError,
-          setSelectedId,
-          shareWithUser,
-        });
+        await submitExplorerModalAction(params);
       } catch (error: unknown) {
         console.error(getExplorerModalLog(modalState.mode), error);
-        setModalError(getExplorerModalError(modalState.mode));
+        params.setModalError(getExplorerModalError(modalState.mode));
       } finally {
-        setIsSubmittingModal(false);
+        params.setIsSubmittingModal(false);
       }
     },
-    [
-      clearModal,
-      createChild,
-      deleteContainer,
-      draftName,
-      draftTargetContainerId,
-      expandNode,
-      isSubmittingModal,
-      linkDocument,
-      modalState,
-      moveContainer,
-      moveDocument,
-      nodes,
-      peerUserId,
-      purgeContainer,
-      renameContainer,
-      setBackgroundActionError,
-      setIsSubmittingModal,
-      setModalError,
-      setSelectedId,
-      shareWithUser,
-    ],
+    [params],
   );
 }
 
@@ -247,6 +187,7 @@ export function useExplorerModalController(
   params: ExplorerModalControllerParams,
 ): ExplorerModalController {
   const modalState = useExplorerModalState(
+    params.canShareWithPeer,
     params.nodes,
     params.documentSummaries,
     params.linkedContainerIdsByDocumentId,

@@ -10,6 +10,7 @@ import {
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
+import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import {
   type RuntimeSnapshot,
   useTearleadsRuntime,
@@ -95,6 +96,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       canLinkSelectedDocument={model.canLinkSelectedDocument}
       canMoveSelectedDocument={model.canMoveSelectedDocument}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
+      canShareWithPeer={model.canShareWithPeer}
       contextTarget={model.contextMenuState.contextMenu?.id ?? null}
       currentOrganizationId={appData.auth.organizationId}
       currentSigningFingerprint={appData.crypto.signingFingerprint}
@@ -143,6 +145,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 export function Explorer() {
   const appData = useTearleadsRuntime();
+  const hostConfig = useAppHostConfig();
   const explorer = useExplorer();
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
@@ -163,6 +166,7 @@ export function Explorer() {
     appData,
     explorer,
     setSidebar,
+    hostConfig.profile.features.explorerPeerSharing,
     peerUserId,
     retryDatabaseBoot,
   );

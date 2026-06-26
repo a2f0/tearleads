@@ -33,6 +33,7 @@ export interface ExplorerModalControllerParams {
     documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  canShareWithPeer: boolean;
   nodes: ReadonlyArray<ContainerNode>;
   peerUserId: string | null;
   purgeContainer: (containerId: string) => Promise<boolean>;

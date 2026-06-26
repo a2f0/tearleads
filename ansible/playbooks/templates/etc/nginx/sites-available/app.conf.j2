@@ -1,10 +1,11 @@
 # {{ ansible_managed }}
 # Static application server block for {{ domain | default('tearleads.com') }}
 
+{% macro static_app_server(hostnames, root_path) -%}
 server {
   listen 80;
   listen [::]:80;
-  server_name app.{{ domain | default('tearleads.com') }};
+  server_name {{ hostnames | join(' ') }};
 
   {% if certbot_ssl | default(false) %}
   listen 443 ssl;
@@ -15,7 +16,7 @@ server {
   ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
   {% endif %}
 
-  root /var/www/app-web;
+  root {{ root_path }};
   index index.html;
 
   location = /index.html {
@@ -49,3 +50,7 @@ server {
     add_header Cache-Control "public, max-age=31536000, immutable";
   }
 }
+{%- endmacro %}
+
+{{ static_app_server([app_hostname | default('app.' + (domain | default('tearleads.com')))], '/var/www/app-web') }}
+{{ static_app_server(app_demo_hostnames | default(['demo.' + (domain | default('tearleads.com'))]), '/var/www/app-demo') }}

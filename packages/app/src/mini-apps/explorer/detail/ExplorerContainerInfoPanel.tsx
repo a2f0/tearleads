@@ -33,6 +33,7 @@ interface Props {
   containerName: string | undefined;
   containerSyncStatus: string | null;
   containerNamesById: ReadonlyMap<string, string>;
+  canShareWithPeer: boolean;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   onBackToContainer: () => void;
   onOpenGrant: (
@@ -158,12 +159,62 @@ function ContainerInfoRemoteStatus(params: {
   return null;
 }
 
+function ExplorerContainerInfoSharingSections(params: {
+  containerNamesById: ReadonlyMap<string, string>;
+  canShareWithPeer: boolean;
+  draftShareAccessLevel: ContainerShareAccessLevel;
+  draftShareGroupId: string;
+  isSubmitting: boolean;
+  onOpenGrant: (
+    grant: {
+      containerId: string;
+      subjectId: string;
+      subjectType: "group" | "organization" | "user";
+    },
+    position?: MiniAppWindowPosition,
+  ) => void;
+  onShareWithPeer: () => void;
+  peerUserId: string | null;
+  remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>;
+  setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
+  setDraftShareGroupId: (value: string) => void;
+  setPanelError: (error: string | null) => void;
+}) {
+  const showPeerShare = params.canShareWithPeer && params.peerUserId !== null;
+
+  return (
+    <>
+      <ExplorerContainerInfoPrincipalGrantsSection
+        containerNamesById={params.containerNamesById}
+        remoteInfo={params.remoteInfo}
+        onOpenGrant={params.onOpenGrant}
+      />
+      <ExplorerContainerInfoGroupShareSection
+        draftShareAccessLevel={params.draftShareAccessLevel}
+        draftShareGroupId={params.draftShareGroupId}
+        isSubmitting={params.isSubmitting}
+        remoteInfo={params.remoteInfo}
+        setDraftShareAccessLevel={params.setDraftShareAccessLevel}
+        setDraftShareGroupId={params.setDraftShareGroupId}
+        setPanelError={params.setPanelError}
+      />
+      {showPeerShare ? (
+        <ExplorerContainerInfoPeerShareSection
+          isSubmitting={params.isSubmitting}
+          onShareWithPeer={params.onShareWithPeer}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function ExplorerContainerInfoTabPanel(params: {
   activeTab: ContainerInfoTabId;
   containerId: string;
   containerInfo: ContainerInfo | null;
   containerInfoError: string | null;
   containerNamesById: ReadonlyMap<string, string>;
+  canShareWithPeer: boolean;
   draftShareAccessLevel: ContainerShareAccessLevel;
   draftShareGroupId: string;
   idPrefix: string;
@@ -206,28 +257,20 @@ function ExplorerContainerInfoTabPanel(params: {
         )
       ) : null}
       {params.activeTab === "sharing" && remoteInfo ? (
-        <>
-          <ExplorerContainerInfoPrincipalGrantsSection
-            containerNamesById={params.containerNamesById}
-            remoteInfo={remoteInfo}
-            onOpenGrant={params.onOpenGrant}
-          />
-          <ExplorerContainerInfoGroupShareSection
-            draftShareAccessLevel={params.draftShareAccessLevel}
-            draftShareGroupId={params.draftShareGroupId}
-            isSubmitting={params.isSubmitting}
-            remoteInfo={remoteInfo}
-            setDraftShareAccessLevel={params.setDraftShareAccessLevel}
-            setDraftShareGroupId={params.setDraftShareGroupId}
-            setPanelError={params.setPanelError}
-          />
-          {params.peerUserId ? (
-            <ExplorerContainerInfoPeerShareSection
-              isSubmitting={params.isSubmitting}
-              onShareWithPeer={params.onShareWithPeer}
-            />
-          ) : null}
-        </>
+        <ExplorerContainerInfoSharingSections
+          containerNamesById={params.containerNamesById}
+          canShareWithPeer={params.canShareWithPeer}
+          draftShareAccessLevel={params.draftShareAccessLevel}
+          draftShareGroupId={params.draftShareGroupId}
+          isSubmitting={params.isSubmitting}
+          remoteInfo={remoteInfo}
+          onOpenGrant={params.onOpenGrant}
+          onShareWithPeer={params.onShareWithPeer}
+          peerUserId={params.peerUserId}
+          setDraftShareAccessLevel={params.setDraftShareAccessLevel}
+          setDraftShareGroupId={params.setDraftShareGroupId}
+          setPanelError={params.setPanelError}
+        />
       ) : null}
       {params.activeTab === "security" && remoteInfo ? (
         <ExplorerContainerInfoSecuritySection
@@ -292,6 +335,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
           containerInfo={containerInfo}
           containerInfoError={containerInfoError}
           containerNamesById={params.containerNamesById}
+          canShareWithPeer={params.canShareWithPeer}
           draftShareAccessLevel={draftShareAccessLevel}
           draftShareGroupId={draftShareGroupId}
           idPrefix={tabIdPrefix}

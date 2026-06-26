@@ -34,7 +34,7 @@ import {
   createAuthor,
   createProjection,
   fixtureHash,
-} from "./documentFixtures";
+} from "./documentFixturePrimitives";
 
 export function createResponse(
   plan: DocumentCreatePlan,

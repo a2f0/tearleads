@@ -205,6 +205,10 @@
       "lines": 544,
       "bytes": 17670
     },
+    "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
+      "lines": 532,
+      "bytes": 16364
+    },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
       "bytes": 30465

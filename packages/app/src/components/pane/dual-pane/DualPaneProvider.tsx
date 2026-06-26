@@ -2,13 +2,26 @@ import { type PropsWithChildren, useMemo, useState } from "react";
 
 import { DualPaneContext } from "./context";
 
-export function DualPaneProvider({ children }: PropsWithChildren) {
+interface DualPaneProviderProps extends PropsWithChildren {
+  peerUserIdsEnabled?: boolean | undefined;
+}
+
+export function DualPaneProvider({
+  children,
+  peerUserIdsEnabled = true,
+}: DualPaneProviderProps) {
   const [leftUserId, setLeftUserId] = useState<string | null>(null);
   const [rightUserId, setRightUserId] = useState<string | null>(null);
 
   const value = useMemo(
-    () => ({ leftUserId, rightUserId, setLeftUserId, setRightUserId }),
-    [leftUserId, rightUserId],
+    () => ({
+      leftUserId,
+      peerUserIdsEnabled,
+      rightUserId,
+      setLeftUserId,
+      setRightUserId,
+    }),
+    [leftUserId, peerUserIdsEnabled, rightUserId],
   );
 
   return (

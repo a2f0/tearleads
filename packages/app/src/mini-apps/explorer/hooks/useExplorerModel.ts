@@ -39,6 +39,7 @@ interface ExplorerModel {
   canMutateDocumentLinks: boolean;
   canPurgeContextMenuDocument: boolean;
   canPurgeSelectedDocument: boolean;
+  canShareWithPeer: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
@@ -70,6 +71,7 @@ export function useExplorerModel(
   appData: RuntimeSnapshot,
   explorer: ExplorerModelExplorer,
   setSidebar: (sidebar: ReactNode | null) => void,
+  canShareWithPeer: boolean,
   peerUserId: string | null,
   // Re-attempts the SQLite worker boot; threaded to the sidebar tree's gate so a
   // boot failure surfaces a Retry there too (the detail panel gets it directly).
@@ -156,6 +158,7 @@ export function useExplorerModel(
     documentListRevision,
     onDocumentLinksChanged: handleDocumentLinksChanged,
     onRetryDatabase,
+    canShareWithPeer,
     peerUserId,
     rulesContext,
     selection,
@@ -211,6 +214,7 @@ export function useExplorerModel(
     canMutateDocumentLinks,
     canPurgeContextMenuDocument:
       contextMenuDocumentState.canPurgeContextMenuDocument,
+    canShareWithPeer,
     contextMenuState,
     deleteDocument,
     purgeDocument,

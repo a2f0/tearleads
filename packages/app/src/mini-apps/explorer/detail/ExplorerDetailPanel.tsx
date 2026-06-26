@@ -96,6 +96,7 @@ interface ExplorerDetailPanelProps {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canMutateDocumentLinks: boolean;
+  canShareWithPeer: boolean;
   // The open row context menu's target, so the container listing can keep the
   // right-clicked row highlighted while the menu is open (it does not select).
   contextTarget: ExplorerContextMenuTarget | null;
@@ -253,6 +254,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         containerName={infoNode?.name}
         containerSyncStatus={infoNode?.syncState.status ?? null}
         containerNamesById={containerNamesById}
+        canShareWithPeer={params.canShareWithPeer}
         loadContainerInfo={params.loadContainerInfo}
         onBackToContainer={params.onBackToSelectionRoute}
         onOpenGrant={params.onOpenGrant}

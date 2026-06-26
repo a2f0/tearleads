@@ -14,6 +14,12 @@ variable "domain" {
   type        = string
 }
 
+variable "extra_demo_domains" {
+  description = "Additional Cloudflare zone names that should route demo.<domain> to this server."
+  type        = list(string)
+  default     = []
+}
+
 variable "server_location" {
   description = "Hetzner server location"
   type        = string
