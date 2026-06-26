@@ -57,6 +57,38 @@ function mockMenuSize(input: { height: number; width: number }): void {
     };
 }
 
+function mockMenuSizeByMeasurementLeft(input: {
+  edgeWidth: number;
+  fullWidth: number;
+  height: number;
+  shrinkAtLeft: number;
+}): void {
+  HTMLElement.prototype.getBoundingClientRect =
+    function getBoundingClientRect() {
+      if (this instanceof HTMLElement && this.classList.contains("menu")) {
+        const measuredLeft = Number.parseFloat(this.style.left || "0");
+        const width =
+          measuredLeft >= input.shrinkAtLeft
+            ? input.edgeWidth
+            : input.fullWidth;
+
+        return {
+          bottom: input.height,
+          height: input.height,
+          left: measuredLeft,
+          right: measuredLeft + width,
+          toJSON: () => ({}),
+          top: 0,
+          width,
+          x: measuredLeft,
+          y: 0,
+        };
+      }
+
+      return originalGetBoundingClientRect.call(this);
+    };
+}
+
 test("renders into document.body so nested menus escape parent stacking contexts", () => {
   const view = render(
     <div data-testid="host">
@@ -91,6 +123,30 @@ test("keeps upward-opening menus visible at the top of the viewport", async () =
     expect(menu?.style.top).toBe("8px");
     expect(menu?.style.left).toBe("24px");
     expect(menu?.style.visibility).toBe("");
+  });
+});
+
+test("measures menus away from edge anchors so labels keep their full width", async () => {
+  setViewportSize({ height: 600, width: 800 });
+  mockMenuSizeByMeasurementLeft({
+    edgeWidth: 42,
+    fullWidth: 220,
+    height: 120,
+    shrinkAtLeft: 700,
+  });
+
+  render(
+    <Menu direction="down" position={{ x: 790, y: 200 }} onClose={() => {}}>
+      <MenuItem label="Move Forward Without Wrapping" onClick={() => {}} />
+    </Menu>,
+  );
+
+  const menu = document.body.querySelector<HTMLElement>(".menu");
+  expect(menu).toBeTruthy();
+  await waitFor(() => {
+    expect(menu?.style.left).toBe("572px");
+    expect(menu?.style.top).toBe("200px");
+    expect(menu?.style.maxWidth).toBe("784px");
   });
 });
 

@@ -60,6 +60,15 @@ function createInitialMenuPlacement(
   };
 }
 
+function createMeasurementMenuStyle(): CSSProperties {
+  return {
+    left: MENU_VIEWPORT_MARGIN_PX,
+    pointerEvents: "none",
+    top: MENU_VIEWPORT_MARGIN_PX,
+    visibility: "hidden",
+  };
+}
+
 function placeMenuInViewport(input: {
   direction: "up" | "down";
   height: number;
@@ -176,11 +185,7 @@ export function Menu({
           maxWidth: placement.maxWidth,
           top: placement.top,
         }
-      : {
-          left: position.x,
-          top: position.y,
-          visibility: "hidden",
-        };
+      : createMeasurementMenuStyle();
 
   const menu = (
     <div ref={menuRef} className="menu" style={menuStyle}>
