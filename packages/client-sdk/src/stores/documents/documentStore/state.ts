@@ -90,6 +90,18 @@ export interface DocumentStoreState {
    * `null` only before initialization sets it to the loaded doc's version.
    */
   pendingBaseVersion: string | null;
+  /**
+   * Count of local text/structured writes that have been queued onto
+   * `writeChain` but have not yet drained. Incremented synchronously when a write
+   * is enqueued and decremented when it settles. While this is > 0 the user is
+   * actively editing, so a concurrent sync pass MUST NOT republish doc- or
+   * server-derived text/structured fields over the live optimistic snapshot: the
+   * doc can momentarily lag the latest keystroke, and re-deriving from it would
+   * regress the controlled editor value and jump the caret. Remote merges are
+   * still imported into the doc; they only surface in the snapshot once typing is
+   * quiescent (counter back to 0) on a trailing coalesced pass.
+   */
+  pendingLocalWrites: number;
   persistence: DocumentsPersistence;
   record: DocumentRecord | null;
   resolveProjectionUserKey: DocumentProjectionUserKeyResolver;
@@ -195,6 +207,7 @@ export function createDocumentStoreState(
     listeners: new Set(),
     pendingAttachments: [],
     pendingBaseVersion: null,
+    pendingLocalWrites: 0,
     persistence,
     record: null,
     resolveProjectionUserKey:
@@ -260,6 +273,7 @@ function clearDocumentStoreState(
   state.record = null;
   state.pendingAttachments = [];
   state.pendingBaseVersion = null;
+  state.pendingLocalWrites = 0;
   state.attachmentBlobIdBySlotId = {};
   state.attachmentStorageKeyBySlotId = {};
   state.locallyAcceptedUpdateIds = new Set();

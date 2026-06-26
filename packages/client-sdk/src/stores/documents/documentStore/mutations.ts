@@ -49,6 +49,10 @@ function queueDocumentTextWrite(
   state: DocumentStoreState,
   value: string,
 ): Promise<void> {
+  // Mark a local edit as in flight SYNCHRONOUSLY, before chaining, so a sync
+  // pass that runs during this burst sees pendingLocalWrites > 0 and preserves
+  // the optimistic snapshot instead of regressing it to a stale doc read.
+  state.pendingLocalWrites += 1;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
@@ -75,6 +79,14 @@ function queueDocumentTextWrite(
     })
     .catch((error: unknown) => {
       console.error("Failed to persist document changes:", error);
+    })
+    // Always decrement, even on the value-equality short-circuit or a throw, so
+    // the counter can never stick non-zero and permanently suppress remote text.
+    // Clamp at 0: clearDocumentStoreState resets the counter to 0 while writes
+    // may still be in flight, and their trailing settle must not drive it
+    // negative (which would read as "quiescent" mid-edit on the next write).
+    .finally(() => {
+      state.pendingLocalWrites = Math.max(0, state.pendingLocalWrites - 1);
     });
   return state.writeChain;
 }
@@ -124,6 +136,9 @@ function queueDocumentStructuredFieldWrite(
   kind: Exclude<StoredDocumentKind, "note">,
   patch: DocumentStructuredFieldPatch,
 ): Promise<void> {
+  // See queueDocumentTextWrite: gate sync-lane text/field republish on the same
+  // in-flight-write counter so structured edits get the identical protection.
+  state.pendingLocalWrites += 1;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
@@ -157,6 +172,11 @@ function queueDocumentStructuredFieldWrite(
     })
     .catch((error: unknown) => {
       console.error("Failed to persist structured document changes:", error);
+    })
+    // Clamp at 0 — see queueDocumentTextWrite: a reset mid-write must not drive
+    // the counter negative.
+    .finally(() => {
+      state.pendingLocalWrites = Math.max(0, state.pendingLocalWrites - 1);
     });
   return state.writeChain;
 }

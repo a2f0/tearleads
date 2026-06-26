@@ -8,6 +8,8 @@ import {
   type DragEvent,
   type ReactNode,
   type RefObject,
+  type SyntheticEvent,
+  useCallback,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -90,8 +92,101 @@ function NoteAttachmentItem({
   );
 }
 
-function useAutosizeTextarea(text: string) {
+interface CaretSelection {
+  start: number;
+  end: number;
+}
+
+// Map a caret offset from `oldValue` coordinates into `newValue` coordinates by
+// diffing the common prefix and suffix. A single-region edit (the overwhelmingly
+// common case for a CRDT merge) maps exactly: a caret before the change stays
+// put, a caret after it shifts by the length delta, and a caret inside the
+// replaced span clamps to the end of the unchanged prefix. Never worse than the
+// browser's default (snap-to-end).
+function remapCaret(oldValue: string, newValue: string, caret: number): number {
+  const maxPrefix = Math.min(oldValue.length, newValue.length);
+  let prefix = 0;
+  while (prefix < maxPrefix && oldValue[prefix] === newValue[prefix]) {
+    prefix += 1;
+  }
+  if (caret <= prefix) {
+    return caret;
+  }
+
+  let suffix = 0;
+  const maxSuffix = Math.min(
+    oldValue.length - prefix,
+    newValue.length - prefix,
+  );
+  while (
+    suffix < maxSuffix &&
+    oldValue[oldValue.length - 1 - suffix] ===
+      newValue[newValue.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+  if (caret >= oldValue.length - suffix) {
+    return caret + (newValue.length - oldValue.length);
+  }
+
+  return Math.min(prefix, newValue.length);
+}
+
+// Drives the note textarea: keeps it autosized AND preserves the caret when the
+// `text` value changes from a NON-local source (a remote CRDT merge or a sync
+// republish). A controlled <textarea> whose value is rewritten by React snaps
+// the caret to the end; for the user's own keystrokes that is invisible (the
+// optimistic value already matches the DOM), but an external change mid-edit
+// would otherwise jump the caret and scramble subsequent input. We distinguish
+// the two by flagging local edits and only remapping the caret for external
+// ones, skipping entirely during IME composition.
+function useNoteEditorTextarea(text: string, setText: (value: string) => void) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const lastValueRef = useRef(text);
+  const selectionRef = useRef<CaretSelection>({
+    start: text.length,
+    end: text.length,
+  });
+  const localEditRef = useRef(false);
+  const composingRef = useRef(false);
+
+  const captureSelection = useCallback((target: HTMLTextAreaElement) => {
+    selectionRef.current = {
+      start: target.selectionStart ?? target.value.length,
+      end: target.selectionEnd ?? target.value.length,
+    };
+  }, []);
+
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      captureSelection(event.currentTarget);
+      localEditRef.current = true;
+      setText(event.currentTarget.value);
+    },
+    [captureSelection, setText],
+  );
+
+  const handleSelect = useCallback(
+    (event: SyntheticEvent<HTMLTextAreaElement>) => {
+      if (composingRef.current) {
+        return;
+      }
+      captureSelection(event.currentTarget);
+    },
+    [captureSelection],
+  );
+
+  const handleCompositionStart = useCallback(() => {
+    composingRef.current = true;
+  }, []);
+
+  const handleCompositionEnd = useCallback(
+    (event: SyntheticEvent<HTMLTextAreaElement>) => {
+      composingRef.current = false;
+      captureSelection(event.currentTarget);
+    },
+    [captureSelection],
+  );
 
   useLayoutEffect(() => {
     const editor = ref.current;
@@ -99,11 +194,40 @@ function useAutosizeTextarea(text: string) {
       return;
     }
 
+    if (
+      !localEditRef.current &&
+      !composingRef.current &&
+      text !== lastValueRef.current &&
+      document.activeElement === editor
+    ) {
+      const start = remapCaret(
+        lastValueRef.current,
+        text,
+        selectionRef.current.start,
+      );
+      const end = remapCaret(
+        lastValueRef.current,
+        text,
+        selectionRef.current.end,
+      );
+      editor.setSelectionRange(start, end);
+      selectionRef.current = { start, end };
+    }
+
+    localEditRef.current = false;
+    lastValueRef.current = text;
+
     editor.style.height = "auto";
     editor.style.height = `${editor.scrollHeight}px`;
   }, [text]);
 
-  return ref;
+  return {
+    ref,
+    handleChange,
+    handleSelect,
+    handleCompositionStart,
+    handleCompositionEnd,
+  };
 }
 
 // Shared note editor + attachments presentation used by both the notes
@@ -152,7 +276,13 @@ export function NoteEditorFields({
   text: string;
   toolbar?: ReactNode | undefined;
 }) {
-  const editorRef = useAutosizeTextarea(text);
+  const {
+    ref: editorRef,
+    handleChange: handleEditorChange,
+    handleSelect: handleEditorSelect,
+    handleCompositionStart: handleEditorCompositionStart,
+    handleCompositionEnd: handleEditorCompositionEnd,
+  } = useNoteEditorTextarea(text, setText);
   const dropzoneClassName = classNames(
     "note-document-dropzone",
     dragActive && "note-document-dropzone--active",
@@ -208,7 +338,10 @@ export function NoteEditorFields({
           ref={editorRef}
           className="note-document-editor"
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={handleEditorChange}
+          onSelect={handleEditorSelect}
+          onCompositionStart={handleEditorCompositionStart}
+          onCompositionEnd={handleEditorCompositionEnd}
           placeholder={
             ready
               ? NOTE_DOCUMENT_LABELS.editorReadyPlaceholder
