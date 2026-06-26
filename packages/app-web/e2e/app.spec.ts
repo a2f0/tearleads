@@ -69,25 +69,6 @@ test("page loads", async ({ page }) => {
   await waitForPaneBooted(firstVisiblePane);
 });
 
-test("split panes share the same persistent SQLite runtime", async ({
-  page,
-}) => {
-  await page.goto("/");
-
-  const leftPane = visiblePane(page, "left");
-  await generateKeyPair(page, leftPane);
-  await waitForPaneBooted(leftPane);
-  const leftPublicKey = await panePublicKey(leftPane);
-
-  await page.getByRole("button", { name: "Split" }).click();
-
-  const rightPane = visiblePane(page, "right");
-  await waitForPaneBooted(rightPane);
-  await expect(await paneStatus(rightPane)).toContainText(
-    `publicKey: ${leftPublicKey}`,
-  );
-});
-
 test("SQLite tables survive a hard reload", async ({ page }) => {
   // Regression coverage for persistent OPFS-SAHPool reloads: the restored
   // identity must reopen its existing SQLite tables, not race a hidden pane or

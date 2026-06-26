@@ -8,6 +8,10 @@ import {
 
 export const WORKSPACE_IDS = [1, 2] as const;
 
+// Profiles that run a single environment (e.g. the demo's side-by-side peers)
+// mount just one workspace, so the switcher has nothing to switch and hides.
+export const SINGLE_WORKSPACE_IDS = [WORKSPACE_IDS[0]] as const;
+
 type WorkspaceId = (typeof WORKSPACE_IDS)[number];
 
 export function localIdentityNamespaceForWorkspace(
@@ -25,18 +29,22 @@ export function localIdentityNamespaceForWorkspace(
 interface WorkspaceContextValue {
   activeWorkspace: WorkspaceId;
   setActiveWorkspace: (workspace: WorkspaceId) => void;
+  workspaceIds: readonly WorkspaceId[];
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-export function WorkspaceProvider({ children }: PropsWithChildren) {
+export function WorkspaceProvider({
+  children,
+  workspaceIds = WORKSPACE_IDS,
+}: PropsWithChildren<{ workspaceIds?: readonly WorkspaceId[] }>) {
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceId>(
-    WORKSPACE_IDS[0],
+    workspaceIds[0] ?? WORKSPACE_IDS[0],
   );
 
   const value = useMemo(
-    () => ({ activeWorkspace, setActiveWorkspace }),
-    [activeWorkspace],
+    () => ({ activeWorkspace, setActiveWorkspace, workspaceIds }),
+    [activeWorkspace, workspaceIds],
   );
 
   return (
@@ -46,8 +54,14 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
   );
 }
 
+// Non-throwing accessor for chrome (e.g. the workspace switcher) that can render
+// inside a pane shown standalone — outside any WorkspaceProvider — in tests.
+export function useOptionalWorkspace(): WorkspaceContextValue | null {
+  return useContext(WorkspaceContext);
+}
+
 export function useWorkspace(): WorkspaceContextValue {
-  const ctx = useContext(WorkspaceContext);
+  const ctx = useOptionalWorkspace();
   if (!ctx) {
     throw new Error("useWorkspace must be used within a WorkspaceProvider.");
   }
