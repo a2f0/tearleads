@@ -82,6 +82,7 @@ function useWindowActions(
   moveForward: (id: string) => void,
   fileMenuItems: WindowMenuItem[],
   viewMenuItems: WindowMenuItem[],
+  hasSidebar: boolean,
 ) {
   const [maximized, setMaximized] = useState(false);
   const [showStatusBar, setShowStatusBar] = useState(true);
@@ -133,15 +134,20 @@ function useWindowActions(
             label: `${showStatusBar ? "Hide" : "Show"} Status Bar`,
             onClick: toggleStatusBar,
           },
-          {
-            id: "toggle-sidebar",
-            label: `${showSidebar ? "Hide" : "Show"} Sidebar`,
-            onClick: toggleSidebar,
-          },
+          ...(hasSidebar
+            ? [
+                {
+                  id: "toggle-sidebar",
+                  label: `${showSidebar ? "Hide" : "Show"} Sidebar`,
+                  onClick: toggleSidebar,
+                },
+              ]
+            : []),
         ],
       },
     ],
     [
+      hasSidebar,
       handleClose,
       fileMenuItems,
       showSidebar,
@@ -186,6 +192,31 @@ function getWindowStyle(
   };
 }
 
+function useWindowStatusMessage() {
+  const [statusText, setStatusText] = useState("");
+  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showStatusMessage = useCallback((message: string) => {
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current);
+    }
+    setStatusText(message);
+    statusTimeoutRef.current = setTimeout(() => {
+      setStatusText("");
+      statusTimeoutRef.current = null;
+    }, WINDOW_STATUS_MESSAGE_DURATION_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return { showStatusMessage, statusText };
+}
+
 function WindowResizeHandles({
   handleResizeMouseDown,
 }: {
@@ -211,14 +242,16 @@ function WindowInner({
 }: WindowInnerProps) {
   return (
     <WindowMenuProvider>
-      <WindowInnerContent
-        entry={entry}
-        close={close}
-        minimize={minimize}
-        moveForward={moveForward}
-        moveBackward={moveBackward}
-        bringToFront={bringToFront}
-      />
+      <WindowSidebarProvider>
+        <WindowInnerContent
+          entry={entry}
+          close={close}
+          minimize={minimize}
+          moveForward={moveForward}
+          moveBackward={moveBackward}
+          bringToFront={bringToFront}
+        />
+      </WindowSidebarProvider>
     </WindowMenuProvider>
   );
 }
@@ -236,6 +269,9 @@ function WindowInnerContent({
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
   const titleBarActions = useWindowTitleBarActions();
+  const { sidebar } = useWindowSidebar();
+  const hasSidebar =
+    sidebar !== null && sidebar !== undefined && sidebar !== false;
   const {
     handleClose,
     handleMaximize,
@@ -255,40 +291,14 @@ function WindowInnerContent({
     moveForward,
     fileMenuItems,
     viewMenuItems,
+    hasSidebar,
   );
   const { handleMouseDown, handleResizeMouseDown, position, size } =
     useWindowGeometry(entry, maximized, windowRef);
-  const [statusText, setStatusText] = useState("");
-  const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mountedRef = useRef(true);
+  const { showStatusMessage, statusText } = useWindowStatusMessage();
   const handleWindowMouseDown = useCallback(() => {
     bringToFront(entry.id);
   }, [bringToFront, entry.id]);
-  const showStatusMessage = useCallback((message: string) => {
-    if (!mountedRef.current) {
-      return;
-    }
-    if (statusTimeoutRef.current) {
-      clearTimeout(statusTimeoutRef.current);
-    }
-    setStatusText(message);
-    statusTimeoutRef.current = setTimeout(() => {
-      if (!mountedRef.current) {
-        return;
-      }
-      setStatusText("");
-      statusTimeoutRef.current = null;
-    }, WINDOW_STATUS_MESSAGE_DURATION_MS);
-  }, []);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      if (statusTimeoutRef.current) {
-        clearTimeout(statusTimeoutRef.current);
-      }
-    };
-  }, []);
   const style = getWindowStyle(maximized, position, size, zIndex);
 
   if (minimized) {
@@ -313,19 +323,17 @@ function WindowInnerContent({
         onMoveBackward={handleMoveBackward}
       />
       <WindowMenuBar menus={menus} />
-      <WindowSidebarProvider>
-        <CurrentWindowProvider
-          close={handleClose}
-          id={entry.id}
-          showStatusMessage={showStatusMessage}
-        >
-          <WindowBodyWithSidebar showSidebar={showSidebar}>
-            <WindowMiniAppRouteBoundary entry={entry}>
-              {Component && <Component />}
-            </WindowMiniAppRouteBoundary>
-          </WindowBodyWithSidebar>
-        </CurrentWindowProvider>
-      </WindowSidebarProvider>
+      <CurrentWindowProvider
+        close={handleClose}
+        id={entry.id}
+        showStatusMessage={showStatusMessage}
+      >
+        <WindowBodyWithSidebar showSidebar={showSidebar}>
+          <WindowMiniAppRouteBoundary entry={entry}>
+            {Component && <Component />}
+          </WindowMiniAppRouteBoundary>
+        </WindowBodyWithSidebar>
+      </CurrentWindowProvider>
       {showStatusBar && <WindowStatusBar text={statusText} />}
       {!maximized && (
         <WindowResizeHandles handleResizeMouseDown={handleResizeMouseDown} />
