@@ -1,0 +1,15 @@
+.workspace-switcher {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.workspace-button {
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+}
+
+.workspace-button.workspace-button--active {
+  background: var(--color-light);
+  color: var(--color-dark);
+}

@@ -3,7 +3,6 @@
   grid-template:
     "header header" auto
     "left   left" 1fr
-    "footer footer" auto
     / 1fr 1fr;
   height: 100vh;
 }
@@ -12,7 +11,6 @@
   grid-template:
     "header header" auto
     "left   right" 1fr
-    "footer footer" auto
     / 1fr 1fr;
 }
 
@@ -20,28 +18,11 @@
   grid-template:
     "header" auto
     "left" 1fr
-    "footer" auto
     / minmax(0, 1fr);
-}
-
-.workspace-switcher {
-  display: flex;
-  gap: var(--footer-gap);
 }
 
 .nav-mode-toggle {
   padding: 0 var(--space-sm);
   border-style: dashed;
   white-space: nowrap;
-}
-
-.workspace-button {
-  width: var(--control-height);
-  height: var(--control-height);
-  padding: 0;
-}
-
-.workspace-button.workspace-button--active {
-  background: var(--color-light);
-  color: var(--color-dark);
 }

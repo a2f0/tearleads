@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
+import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
 import { PaneMenu } from "../../shared/PaneMenu";
@@ -35,6 +36,7 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
         <button type="button" onClick={handleClick}>
           Menu
         </button>
+        <WorkspaceSwitcher />
         {minimizedWindows.map((w) => (
           <button
             key={w.id}

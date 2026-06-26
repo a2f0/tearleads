@@ -85,12 +85,14 @@ test("renders App", async () => {
   }
 });
 
-test("normal App starts unsplit", () => {
+test("normal App is single-pane with no split toggle", () => {
   const view = render(<App hostConfig={createTestAppHostConfig()} />);
 
   const frame = view.container.querySelector(".tearleads-frame.layout");
   expect(frame?.classList.contains("layout--split")).toBe(false);
-  expect(view.getByRole("button", { name: "Split" })).toBeTruthy();
+  // The regular app never splits, so there is no split/peer toggle in chrome.
+  expect(view.queryByRole("button", { name: "Split" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
   view.unmount();
 });
 
