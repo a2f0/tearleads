@@ -1,8 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import {
-  principalMembershipProjection,
-  principalStates,
-} from "@tearleads/api-shared/schema";
+import { principalMembershipProjection } from "@tearleads/api-shared/schema";
 import type {
   ContainerDirectGrant,
   ReferencedPrincipalHead,
@@ -10,6 +7,7 @@ import type {
 } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
+import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 
 interface ContainerPathUserIds {
   readonly allUserIds: readonly string[];
@@ -112,24 +110,6 @@ async function userIdsForManagedGrantReferences(input: {
         sql`, `,
       )}
     ),
-    current_principal_states as (
-      select
-        principal_type,
-        principal_id,
-        state_hash
-      from (
-        select
-          principal_type,
-          principal_id,
-          state_hash,
-          row_number() over (
-            partition by principal_type, principal_id
-            order by version desc
-          ) as rn
-        from ${principalStates}
-      ) ranked_principal_states
-      where rn = 1
-    ),
     reachable_members as (
       select
         referenced_principals.principal_type as root_principal_type,
@@ -150,13 +130,13 @@ async function userIdsForManagedGrantReferences(input: {
         nested_members.member_principal_type,
         nested_members.member_principal_id
       from reachable_members reachable
-      inner join current_principal_states nested_state
-        on nested_state.principal_type = reachable.member_principal_type
-        and nested_state.principal_id = reachable.member_principal_id
       inner join ${principalMembershipProjection} nested_members
-        on nested_members.principal_type = nested_state.principal_type
-        and nested_members.principal_id = nested_state.principal_id
-        and nested_members.state_hash = nested_state.state_hash
+        on nested_members.principal_type = reachable.member_principal_type
+        and nested_members.principal_id = reachable.member_principal_id
+        and nested_members.state_hash = ${currentPrincipalStateHashSql({
+          principalId: sql`nested_members.principal_id`,
+          principalType: sql`nested_members.principal_type`,
+        })}
       where reachable.member_principal_type <> ${"user"}
     )
     select distinct

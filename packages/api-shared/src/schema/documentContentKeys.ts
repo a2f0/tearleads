@@ -204,6 +204,10 @@ export const documentContentWriteHeaders = pgTable(
       table.documentId,
       table.contentKeyEpoch,
     ),
+    index("document_content_write_headers_organization_update_idx").on(
+      table.organizationId,
+      table.updateId,
+    ),
     uniqueIndex("document_content_write_headers_header_hash_idx").on(
       table.headerHash,
     ),

@@ -268,6 +268,13 @@ export const principalMembershipProjection = pgTable(
       table.memberPrincipalType,
       table.memberPrincipalId,
     ),
+    index("principal_membership_projection_member_state_idx").on(
+      table.memberPrincipalType,
+      table.memberPrincipalId,
+      table.principalType,
+      table.principalId,
+      table.stateHash,
+    ),
     uniqueIndex("principal_membership_projection_state_member_idx").on(
       table.principalType,
       table.principalId,

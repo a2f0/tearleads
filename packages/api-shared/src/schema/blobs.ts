@@ -48,6 +48,9 @@ export const blobs = pgTable(
     // stage's storage key conflict and fail closed instead of creating two blob
     // rows over one object (which would break storage-key GC reachability).
     uniqueIndex("blobs_storage_key_idx").on(table.storageKey),
+    index("blobs_dereferenced_at_idx")
+      .on(table.dereferencedAt)
+      .where(sql`${table.dereferencedAt} is not null`),
   ],
 );
 
@@ -69,15 +72,21 @@ export const blobs = pgTable(
  * - `expiresAt`: Expiration timestamp after which promotion is rejected.
  * - `createdAt`: Server-side staging timestamp.
  */
-export const blobStages = pgTable("blob_stages", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  ownerUserId: uuid("owner_user_id").notNull(),
-  encryptedBytes: text("encrypted_bytes").notNull(),
-  sha256: text("sha256").notNull(),
-  byteLength: integer("byte_length").notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const blobStages = pgTable(
+  "blob_stages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerUserId: uuid("owner_user_id").notNull(),
+    encryptedBytes: text("encrypted_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    byteLength: integer("byte_length").notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("blob_stages_expires_at_idx").on(table.expiresAt, table.id),
+  ],
+);
 
 /**
  * Materialized attachment bindings between documents, slots, and blobs.

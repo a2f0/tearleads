@@ -29,6 +29,13 @@
       "when": 1782338325725,
       "tag": "0003_yellow_swordsman",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782465979128,
+      "tag": "0004_yellow_spectrum",
+      "breakpoints": true
     }
   ]
 }
