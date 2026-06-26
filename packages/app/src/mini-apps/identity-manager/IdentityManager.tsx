@@ -1,5 +1,6 @@
 import type { UserSession } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
+import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
 import {
   MiniAppButton,
@@ -333,6 +334,7 @@ function IdentityManagerLayout({
   identity,
   identityMutations,
   identityState,
+  isDestroyKeyPackageDialogOpen,
   localKeyringLocked,
   logoutBusy,
   logoutDialog,
@@ -364,7 +366,7 @@ function IdentityManagerLayout({
             canRestoreKeyPackage: !localKeyringLocked,
             generateKey: identity.generateKey,
             handleAuthenticate: identityMutations.authenticate,
-            handleDestroyKeyPair: identityMutations.destroyKeyPair,
+            handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
             handleLogoutCurrentSession: logoutDialog.requestLogout,
             handleRegisterIdentity: identityMutations.handleRegisterIdentity,
             handleRestoreKeyPackageClick,
@@ -392,6 +394,13 @@ function IdentityManagerLayout({
           sessions={sessionList.sessions}
         />
       </main>
+      {isDestroyKeyPackageDialogOpen && (
+        <DestroyKeyPackageConfirmationDialog
+          isOpen={isDestroyKeyPackageDialogOpen}
+          onCancel={identityMutations.closeDestroyKeyPackageDialog}
+          onConfirm={identityMutations.confirmDestroyKeyPackage}
+        />
+      )}
       {logoutDialog.isOpen && (
         // Mount only while open so the dialog's keep-local-data checkbox resets
         // to its safe default (checked) on every open — a cancelled "wipe"

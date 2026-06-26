@@ -14,6 +14,7 @@ import {
   renderPane,
   waitForPersistedPaneLocalIdentity,
 } from "../../../../test/helpers/paneTestUtils";
+import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../shared/DestroyKeyPackageConfirmationDialog";
 
 afterEach(cleanupPaneTestEnvironment);
 
@@ -348,6 +349,10 @@ test(
 
     fireEvent.click(view.getByText("Menu"));
     fireEvent.click(view.getByText("Destroy Key Pair"));
+    fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+      target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Destroy Key Package" }));
 
     await waitFor(() => {
       expect(view.getByText(/userId: none/)).toBeTruthy();
@@ -373,6 +378,10 @@ test(
 
     fireEvent.click(view.getByText("Menu"));
     fireEvent.click(view.getByText("Destroy Key Pair"));
+    fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+      target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Destroy Key Package" }));
 
     await generateIdentityAndWaitForDb(view);
     const secondPublicKey = getPanePublicKey(view);

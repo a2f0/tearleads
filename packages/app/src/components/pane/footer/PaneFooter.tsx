@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
+import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
+import { DestroyKeyPackageConfirmationDialog } from "../../shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
 import { PaneMenu } from "../../shared/PaneMenu";
+import { useDestroyKeyPackageConfirmation } from "../../shared/useDestroyKeyPackageConfirmation";
 import { useConfirmedLogoutDialog } from "../../shared/useLogoutConfirmation";
 import {
   useWindowActions,
@@ -17,6 +20,8 @@ import "./PaneFooter.css";
 export function PaneFooter({ tray }: { tray?: ReactNode }) {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const logoutDialog = useConfirmedLogoutDialog();
+  const { destroyKey } = useIdentity();
+  const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const { windows } = useWindowStateData();
   const { restore } = useWindowActions();
   const minimizedWindows = useMemo(
@@ -53,7 +58,17 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
         <PaneMenu
           position={menu}
           onClose={closeMenu}
+          onRequestDestroyKeyPackage={
+            destroyKeyPackageDialog.requestDestroyKeyPackage
+          }
           onRequestLogout={logoutDialog.requestLogout}
+        />
+      )}
+      {destroyKeyPackageDialog.isOpen && (
+        <DestroyKeyPackageConfirmationDialog
+          isOpen={destroyKeyPackageDialog.isOpen}
+          onCancel={destroyKeyPackageDialog.closeDestroyKeyPackageDialog}
+          onConfirm={destroyKeyPackageDialog.confirmDestroyKeyPackage}
         />
       )}
       {logoutDialog.isOpen && (

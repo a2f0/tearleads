@@ -27,9 +27,11 @@ import { useRegisterUserId } from "../../pane/DualPaneProvider";
 import { useBootPaneLogEntries } from "../../pane/log/useBootPaneLogEntries";
 import { PaneLog } from "../../pane/PaneLog";
 import { PaneStatus } from "../../pane/PaneStatus";
+import { DestroyKeyPackageConfirmationDialog } from "../../shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../shared/LogoutConfirmationDialog";
 import type { MenuPosition } from "../../shared/Menu";
 import { MiniAppButton } from "../../shared/MiniAppLayout";
+import { useDestroyKeyPackageConfirmation } from "../../shared/useDestroyKeyPackageConfirmation";
 import { useConfirmedLogoutDialog } from "../../shared/useLogoutConfirmation";
 import {
   useWindowFileMenuItems,
@@ -44,6 +46,10 @@ import "./RoutedPane.css";
 import { RoutedPaneNav } from "./RoutedPaneNav";
 
 const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
+
+function invertBoolean(value: boolean): boolean {
+  return !value;
+}
 
 function RoutedPaneHome() {
   const { openMiniApp } = useAppNavigationActions();
@@ -205,6 +211,8 @@ function RoutedPaneSurface({
   const tier = useRoutedLayoutTier();
   const { sidebar } = useWindowSidebar();
   const logoutDialog = useConfirmedLogoutDialog();
+  const { destroyKey } = useIdentity();
+  const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
 
@@ -215,22 +223,17 @@ function RoutedPaneSurface({
     [fileMenuItems, viewMenuItems],
   );
 
-  // On tablet the sidebar is a persistent rail column; on mobile it is an
-  // overlay. Either way `sidebarExpanded` tracks the app's preference.
   const [sidebarExpanded, setSidebarExpanded] = useState(() =>
     activeAppId ? (MINI_APPS[activeAppId].initialShowSidebar ?? true) : true,
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const toggleSidebar = useCallback(
-    () => setSidebarExpanded((current) => !current),
+    () => setSidebarExpanded(invertBoolean),
     [],
   );
   const closeSidebar = useCallback(() => setSidebarExpanded(false), []);
-  const toggleDrawer = useCallback(
-    () => setDrawerOpen((current) => !current),
-    [],
-  );
+  const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   // The drawer is mobile-only; collapse it whenever we land on the tablet rail.
@@ -262,6 +265,9 @@ function RoutedPaneSurface({
         menuItems={menuItems}
         onCloseDrawer={closeDrawer}
         onOpenUnlock={onOpenUnlock}
+        onRequestDestroyKeyPackage={
+          destroyKeyPackageDialog.requestDestroyKeyPackage
+        }
         onRequestLogout={logoutDialog.requestLogout}
         tier={tier}
       />
@@ -279,6 +285,13 @@ function RoutedPaneSurface({
           <RoutedPaneHome />
         )}
       </main>
+      {destroyKeyPackageDialog.isOpen && (
+        <DestroyKeyPackageConfirmationDialog
+          isOpen={destroyKeyPackageDialog.isOpen}
+          onCancel={destroyKeyPackageDialog.closeDestroyKeyPackageDialog}
+          onConfirm={destroyKeyPackageDialog.confirmDestroyKeyPackage}
+        />
+      )}
       {logoutDialog.isOpen && (
         <LogoutConfirmationDialog
           busy={logoutDialog.busy}

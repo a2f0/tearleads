@@ -15,6 +15,7 @@ import {
 } from "../../../src/components/pane/DualPaneProvider";
 import { Pane } from "../../../src/components/pane/Pane";
 import { PaneProvider } from "../../../src/components/pane/PaneProvider";
+import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../src/components/shared/DestroyKeyPackageConfirmationDialog";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import {
@@ -350,6 +351,19 @@ export async function destroyPaneKeyPackage(pane: HTMLElement) {
   });
   await interact(() => {
     fireEvent.click(destroyButton);
+  });
+  const confirmationInput = screen.getByLabelText(
+    /Type confirm delete to continue/u,
+  );
+  await interact(() => {
+    fireEvent.change(confirmationInput, {
+      target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
+    });
+  });
+  await interact(() => {
+    fireEvent.click(
+      screen.getByRole("button", { name: "Destroy Key Package" }),
+    );
   });
 
   await waitForCondition(
