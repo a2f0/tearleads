@@ -22,12 +22,16 @@ const TEST_SIGNING_FINGERPRINT =
   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 type DatabaseControls = ReturnType<typeof useDatabase>;
+interface Deferred<T = void> {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+}
 
 afterEach(() => {
   cleanup();
 });
 
-function createDeferred<T = void>() {
+function createDeferred<T = void>(): Deferred<T> {
   let resolve!: (value: T | PromiseLike<T>) => void;
   const promise = new Promise<T>((promiseResolve) => {
     resolve = promiseResolve;
@@ -109,6 +113,78 @@ function createRecordingSQLiteRuntimeFactory() {
       };
     },
     getInitOptions: () => initOptions,
+  };
+}
+
+function createRestartSensitiveSQLiteRuntimeFactory() {
+  let createCount = 0;
+  let initCount = 0;
+  let closeCount = 0;
+  let terminateCount = 0;
+  let databaseLocked = false;
+  let pendingClose: Deferred | null = null;
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      const runtimeId = `restart-sensitive-${createCount}`;
+      let initialized = false;
+      const client: SQLiteRuntime["client"] = {
+        close: async () => {
+          closeCount += 1;
+          if (!initialized) {
+            return { ok: true };
+          }
+
+          const close = createDeferred();
+          pendingClose = close;
+          await close.promise;
+          return { ok: true };
+        },
+        delete: async () => {
+          databaseLocked = false;
+          pendingClose?.resolve();
+          pendingClose = null;
+          return { ok: true };
+        },
+        destroy() {
+          terminateCount += 1;
+        },
+        exec: async () => ({ ok: true, rows: [] }),
+        init: async () => {
+          initCount += 1;
+          if (databaseLocked) {
+            throw new Error("database is still closing");
+          }
+
+          databaseLocked = true;
+          initialized = true;
+          return { ok: true };
+        },
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return {
+        client,
+        deleteData: async () => {
+          await client.delete();
+          client.destroy();
+        },
+        destroy: () => {
+          void client.close().finally(() => {
+            client.destroy();
+          });
+        },
+        id: runtimeId,
+        terminateNow: () => client.destroy(),
+      };
+    },
+    getStats: () => ({ closeCount, createCount, initCount, terminateCount }),
+    releaseClose: () => {
+      databaseLocked = false;
+      pendingClose?.resolve();
+      pendingClose = null;
+    },
   };
 }
 
@@ -223,6 +299,133 @@ test("ensureIdentityReady retries a failed identity database initialization", as
   } finally {
     console.error = originalConsoleError;
     view.unmount();
+  }
+});
+
+test("spawnWorker waits for a killed identity worker to release SQLite", async () => {
+  const runtimeFactory = createRestartSensitiveSQLiteRuntimeFactory();
+  const controlsReady = createDeferred();
+  let controls: DatabaseControls | null = null;
+  const getControls = () => {
+    if (!controls) {
+      throw new Error("Database controls were not rendered.");
+    }
+
+    return controls;
+  };
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    onControls: (nextControls) => {
+      controls = nextControls;
+      controlsReady.resolve();
+    },
+  });
+
+  try {
+    await controlsReady.promise;
+    await act(async () => {
+      await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+    });
+    await waitFor(() => {
+      expect(getControls().status).toBe("ready");
+    });
+
+    act(() => {
+      getControls().killWorker();
+    });
+    await waitFor(() => {
+      expect(getControls().status).toBe("terminated");
+    });
+
+    act(() => {
+      getControls().spawnWorker();
+    });
+    expect(runtimeFactory.getStats()).toEqual({
+      closeCount: 1,
+      createCount: 1,
+      initCount: 1,
+      terminateCount: 0,
+    });
+
+    await act(async () => {
+      runtimeFactory.releaseClose();
+      await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(getControls().status).toBe("ready");
+    });
+
+    expect(runtimeFactory.getStats()).toEqual({
+      closeCount: 1,
+      createCount: 2,
+      initCount: 2,
+      terminateCount: 1,
+    });
+  } finally {
+    await act(async () => {
+      view.unmount();
+    });
+  }
+});
+
+test("queued spawnWorker after kill is abandoned when provider unmounts", async () => {
+  const runtimeFactory = createRestartSensitiveSQLiteRuntimeFactory();
+  const controlsReady = createDeferred();
+  let controls: DatabaseControls | null = null;
+  let unmounted = false;
+  const getControls = () => {
+    if (!controls) {
+      throw new Error("Database controls were not rendered.");
+    }
+
+    return controls;
+  };
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    onControls: (nextControls) => {
+      controls = nextControls;
+      controlsReady.resolve();
+    },
+  });
+
+  try {
+    await controlsReady.promise;
+    await act(async () => {
+      await getControls().ensureIdentityReady(TEST_SIGNING_FINGERPRINT);
+    });
+    await waitFor(() => {
+      expect(getControls().status).toBe("ready");
+    });
+
+    act(() => {
+      getControls().killWorker();
+    });
+    await waitFor(() => {
+      expect(getControls().status).toBe("terminated");
+    });
+    act(() => {
+      getControls().spawnWorker();
+    });
+
+    await act(async () => {
+      view.unmount();
+      unmounted = true;
+      runtimeFactory.releaseClose();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(runtimeFactory.getStats()).toEqual({
+      closeCount: 1,
+      createCount: 1,
+      initCount: 1,
+      terminateCount: 1,
+    });
+  } finally {
+    if (!unmounted) {
+      view.unmount();
+    }
   }
 });
 
