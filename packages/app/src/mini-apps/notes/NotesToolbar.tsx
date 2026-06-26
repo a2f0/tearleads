@@ -22,7 +22,7 @@ export function NotesToolbar({
   ready,
 }: NotesToolbarProps) {
   return (
-    <MiniAppToolbar className="notes-toolbar">
+    <MiniAppToolbar className="notes-toolbar" wrap>
       <MiniAppButton
         onClick={() => fileInputRef.current?.click()}
         disabled={!ready || !canAttach}
