@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Configure the staging server
 #
-# Loads .secrets/root.env + .secrets/staging.env +
-# .secrets/staging.garage.env, resolves the server hostname and username from
-# Terraform outputs, and runs the Ansible server playbook.
+# Loads .secrets/root.env + .secrets/staging.env + .secrets/staging.garage.env,
+# resolves the server hostname and username from Terraform outputs, and runs
+# the Ansible server playbook.
 
 set -euo pipefail
 
@@ -33,6 +33,12 @@ HOSTNAME="${SSH_TARGET#*@}"
 USERNAME="${SSH_TARGET%@*}"
 DOMAIN="${TF_VAR_domain:-}"
 TUNNEL_TOKEN=$(terraform -chdir="$STACK_DIR" output -raw tunnel_token 2>/dev/null) || true
+
+if [[ "$SSH_TARGET" != *@* || -z "$HOSTNAME" || -z "$USERNAME" ]]; then
+  echo "ERROR: Could not parse hostname or username from resolved SSH target." >&2
+  echo "       Resolved target: $SSH_TARGET" >&2
+  exit 1
+fi
 
 if [ -z "$TUNNEL_TOKEN" ]; then
   echo "ERROR: Could not resolve Cloudflare tunnel token from terraform outputs." >&2

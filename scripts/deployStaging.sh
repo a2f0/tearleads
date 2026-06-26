@@ -7,10 +7,43 @@
 #   3. API deploy (executable deploy, migrations, service restart)
 #   4. Website deploy (build, rsync to /var/www, nginx reload)
 #   5. App-web deploy (build, source sync, deps, service restart)
+#
+# Pass --skip-infra to skip terraform and ansible (steps 1-2) and deploy only
+# the application artifacts.
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+SKIP_INFRA=false
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--skip-infra]
+
+Options:
+  --skip-infra  Skip terraform and ansible; deploy application artifacts only.
+  -h, --help    Show this help and exit.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-infra)
+      SKIP_INFRA=true
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
 
 DEPLOY_START="$SECONDS"
 STEP_TIMINGS=()
@@ -32,6 +65,13 @@ run_step() {
   echo ""
 }
 
+skip_step() {
+  local label="$1"
+  echo "--- [$label] skipped (--skip-infra) ---"
+  STEP_TIMINGS+=("$(printf '%-12s %s' "$label" "skipped")")
+  echo ""
+}
+
 print_timing_summary() {
   echo "--- Timing summary ---"
   local row
@@ -45,10 +85,32 @@ print_timing_summary() {
 echo "=== Tearleads Staging Deployment ==="
 echo ""
 
-run_step "terraform" \
-  "${REPO_ROOT}/terraform/stacks/staging/server/scripts/apply.sh" \
-  --auto-approve
-run_step "ansible" "${REPO_ROOT}/ansible/scripts/run-server-staging.sh"
+if [[ "$SKIP_INFRA" == true ]]; then
+  skip_step "terraform"
+else
+  run_step "terraform" \
+    "${REPO_ROOT}/terraform/stacks/staging/server/scripts/apply.sh" \
+    --auto-approve
+fi
+
+# Resolve SSH_TARGET once so sub-scripts can reuse it
+# shellcheck source=../terraform/scripts/common.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/terraform/scripts/common.sh"
+load_secrets_env staging
+validate_aws_env
+STACK_DIR="$REPO_ROOT/terraform/stacks/staging/server"
+BACKEND_CONFIG="$(get_backend_config)"
+terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
+SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
+export SSH_TARGET
+
+if [[ "$SKIP_INFRA" == true ]]; then
+  skip_step "ansible"
+else
+  run_step "ansible" "${REPO_ROOT}/ansible/scripts/run-server-staging.sh"
+fi
+
 run_step "api" "${REPO_ROOT}/packages/api/scripts/deployStagingApi.sh"
 run_step "website" "${REPO_ROOT}/packages/website/scripts/deployStagingWebsite.sh"
 run_step "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployStagingAppWeb.sh"

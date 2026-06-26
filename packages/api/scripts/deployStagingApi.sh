@@ -15,11 +15,14 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 load_secrets_env staging
 validate_aws_env
 
-STACK_DIR="$REPO_ROOT/terraform/stacks/staging/server"
-BACKEND_CONFIG="$(get_backend_config)"
-terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
+if [ -z "${SSH_TARGET:-}" ]; then
+  STACK_DIR="$REPO_ROOT/terraform/stacks/staging/server"
+  BACKEND_CONFIG="$(get_backend_config)"
+  terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
+  SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
+fi
+export SSH_TARGET
 
-SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
 REMOTE_BIN_PATH="/opt/tearleads/bin"
 
 echo "Building API executable..."
