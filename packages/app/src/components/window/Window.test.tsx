@@ -457,4 +457,12 @@ test("window hides sidebar chrome until sidebar content is registered", async ()
   });
 
   expect(view.container.querySelector(".window-sidebar-layout")).toBeNull();
+
+  fireEvent.click(view.getByText("View"));
+
+  await waitFor(() => {
+    expect(view.getByText("Hide Status Bar")).toBeTruthy();
+  });
+  expect(view.queryByText("Show Sidebar")).toBeNull();
+  expect(view.queryByText("Hide Sidebar")).toBeNull();
 });
