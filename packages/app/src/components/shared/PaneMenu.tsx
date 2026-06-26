@@ -7,10 +7,12 @@ import { PaneSystemMenuItems } from "./PaneSystemMenuItems";
 export function PaneMenu({
   position,
   onClose,
+  onRequestDestroyKeyPackage,
   onRequestLogout,
 }: {
   position: MenuPosition;
   onClose: () => void;
+  onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
 }) {
   const { create } = useWindowActions();
@@ -26,6 +28,7 @@ export function PaneMenu({
       <PaneSystemMenuItems
         onClose={onClose}
         onOpenUnlock={openUnlockWindow}
+        onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
         onRequestLogout={onRequestLogout}
       />
     </Menu>

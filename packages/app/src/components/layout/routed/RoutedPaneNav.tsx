@@ -86,12 +86,14 @@ function RoutedPaneNavPanel({
   menuItems,
   onNavigate,
   onOpenUnlock,
+  onRequestDestroyKeyPackage,
   onRequestLogout,
 }: {
   activeAppId: MiniAppId | null;
   menuItems: ReadonlyArray<WindowMenuItem>;
   onNavigate: () => void;
   onOpenUnlock: () => void;
+  onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
 }) {
   return (
@@ -114,6 +116,7 @@ function RoutedPaneNavPanel({
         <PaneSystemMenuItems
           onClose={onNavigate}
           onOpenUnlock={onOpenUnlock}
+          onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
           onRequestLogout={onRequestLogout}
         />
       </div>
@@ -149,6 +152,7 @@ export function RoutedPaneNav({
   menuItems,
   onCloseDrawer,
   onOpenUnlock,
+  onRequestDestroyKeyPackage,
   onRequestLogout,
   tier,
 }: {
@@ -157,6 +161,7 @@ export function RoutedPaneNav({
   menuItems: ReadonlyArray<WindowMenuItem>;
   onCloseDrawer: () => void;
   onOpenUnlock: () => void;
+  onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
   tier: RoutedLayoutTier;
 }) {
@@ -166,6 +171,7 @@ export function RoutedPaneNav({
       menuItems={menuItems}
       onNavigate={onCloseDrawer}
       onOpenUnlock={onOpenUnlock}
+      onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
       onRequestLogout={onRequestLogout}
     />
   );

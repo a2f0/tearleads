@@ -212,6 +212,8 @@ function useIdentityManagerIdentityMutations({
 }) {
   const [identityError, setIdentityError] = useState<string | null>(null);
   const [identityBusy, setIdentityBusy] = useState<IdentityBusyState>(null);
+  const [isDestroyKeyPackageDialogOpen, setDestroyKeyPackageDialogOpen] =
+    useState(false);
 
   const handleRegisterIdentity = useCallback(async () => {
     setIdentityBusy("register");
@@ -245,20 +247,32 @@ function useIdentityManagerIdentityMutations({
     }
   }, [logError, login]);
 
-  const destroyKeyPair = useCallback(() => {
+  const requestDestroyKeyPackage = useCallback(() => {
+    setDestroyKeyPackageDialogOpen(true);
+  }, []);
+
+  const closeDestroyKeyPackageDialog = useCallback(() => {
+    setDestroyKeyPackageDialogOpen(false);
+  }, []);
+
+  const confirmDestroyKeyPackage = useCallback(() => {
     logout();
     destroyKey();
     clearSessions();
     setIdentityError(null);
     clearSessionError();
+    setDestroyKeyPackageDialogOpen(false);
   }, [clearSessionError, clearSessions, destroyKey, logout]);
 
   return {
     authenticate,
-    destroyKeyPair,
+    closeDestroyKeyPackageDialog,
+    confirmDestroyKeyPackage,
     handleRegisterIdentity,
     identityBusy,
     identityError,
+    isDestroyKeyPackageDialogOpen,
+    requestDestroyKeyPackage,
   };
 }
 
@@ -392,6 +406,8 @@ export function useIdentityManager() {
     identity,
     identityMutations,
     identityState,
+    isDestroyKeyPackageDialogOpen:
+      identityMutations.isDestroyKeyPackageDialogOpen,
     localKeyringLocked: localKeyringLock.isLocked,
     logoutBusy,
     logoutDialog,
