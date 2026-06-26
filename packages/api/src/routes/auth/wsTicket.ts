@@ -1,10 +1,8 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
-import {
-  issueWebSocketTicket,
-  type WebSocketTicketIdentity,
-} from "../../wsTicket";
+import type { WebSocketTicketIdentity } from "../../wsIdentity";
+import { issueWebSocketTicket } from "../../wsTicket";
 
 interface WsTicketRouteDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;

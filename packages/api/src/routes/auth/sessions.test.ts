@@ -121,6 +121,15 @@ test("lists active sessions for the current user without exposing bearer tokens"
   ).toBe(true);
 });
 
+test("rejects malformed bearer session tokens before lookup", async () => {
+  const res = await routeApp.request("/auth/sessions", {
+    headers: { Authorization: "Bearer not-a-session-token" },
+  });
+
+  expect(res.status).toBe(401);
+  expect(await res.json()).toEqual({ error: "Unauthorized" });
+});
+
 test("records IP activity for active sessions", async () => {
   const user = await registerTestUser();
   const token = await authenticate(user, {

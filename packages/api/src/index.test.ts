@@ -1,7 +1,14 @@
 import { expect, test } from "bun:test";
 import { createRouteRequestBindings, resolveWebSocketUpgrade } from "./index";
-import type { WebSocketTicketIdentity } from "./wsTicket";
-import { issueWebSocketTicket } from "./wsTicket";
+import type { WebSocketTicketIdentity } from "./wsIdentity";
+import {
+  createWebSocketTicketConsumer,
+  issueWebSocketTicket,
+} from "./wsTicket";
+
+const TEST_SESSION_ID =
+  "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440001";
 
 function websocketUpgradeRequest(ticket?: string): Request {
   const url = new URL("http://localhost:3001/events");
@@ -68,18 +75,23 @@ test("rejects a websocket upgrade with an unknown ticket", async () => {
 
 test("upgrades with a valid ticket, binds identity, and consumes it", async () => {
   const identity: WebSocketTicketIdentity = {
-    sessionId: "session-upgrade",
-    userId: "user-upgrade",
+    sessionId: TEST_SESSION_ID,
+    userId: TEST_USER_ID,
   };
   const ticket = await issueWebSocketTicket(identity);
+  const consume = createWebSocketTicketConsumer(async () => true);
 
   let boundData: unknown;
-  const res = await resolveWebSocketUpgrade(websocketUpgradeRequest(ticket), {
-    upgrade(_req, options) {
-      boundData = options?.data;
-      return true;
+  const res = await resolveWebSocketUpgrade(
+    websocketUpgradeRequest(ticket),
+    {
+      upgrade(_req, options) {
+        boundData = options?.data;
+        return true;
+      },
     },
-  });
+    consume,
+  );
 
   expect(res).toBeUndefined();
   expect(boundData).toEqual(identity);
@@ -94,6 +106,7 @@ test("upgrades with a valid ticket, binds identity, and consumes it", async () =
         return true;
       },
     },
+    consume,
   );
   expect(replay?.status).toBe(401);
   expect(replayUpgradeCalled).toBe(false);
@@ -101,15 +114,20 @@ test("upgrades with a valid ticket, binds identity, and consumes it", async () =
 
 test("returns 400 when the upgrade itself fails", async () => {
   const ticket = await issueWebSocketTicket({
-    sessionId: "session-fail",
-    userId: "user-fail",
+    sessionId: TEST_SESSION_ID,
+    userId: TEST_USER_ID,
   });
+  const consume = createWebSocketTicketConsumer(async () => true);
 
-  const res = await resolveWebSocketUpgrade(websocketUpgradeRequest(ticket), {
-    upgrade() {
-      return false;
+  const res = await resolveWebSocketUpgrade(
+    websocketUpgradeRequest(ticket),
+    {
+      upgrade() {
+        return false;
+      },
     },
-  });
+    consume,
+  );
 
   expect(res?.status).toBe(400);
 });
