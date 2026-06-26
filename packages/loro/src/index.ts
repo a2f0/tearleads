@@ -22,5 +22,4 @@ export {
   type VersionVectorSpan,
   versionVectorsEqual,
 } from "./document";
-export * from "./server";
 export * from "./shared";
