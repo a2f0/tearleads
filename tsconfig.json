@@ -6,7 +6,6 @@
     { "path": "packages/api-cli" },
     { "path": "packages/api-shared" },
     { "path": "packages/app" },
-    { "path": "packages/app-demo" },
     { "path": "packages/app-web" },
     { "path": "packages/app-electrobun" },
     { "path": "packages/bob-and-alice" },

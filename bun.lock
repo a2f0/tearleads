@@ -135,16 +135,6 @@
         "vite-plugin-wasm": "3.6.0",
       },
     },
-    "packages/app-demo": {
-      "name": "app-demo",
-      "version": "0.1.0",
-      "dependencies": {
-        "app": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "catalog:",
-      },
-    },
     "packages/app-electrobun": {
       "name": "app-electrobun",
       "version": "0.0.1",
@@ -169,7 +159,6 @@
       "dependencies": {
         "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
-        "app-demo": "workspace:*",
         "react-dom": "catalog:react",
       },
       "devDependencies": {
@@ -1081,8 +1070,6 @@
     "app": ["app@workspace:packages/app"],
 
     "app-capacitor": ["app-capacitor@workspace:packages/app-capacitor"],
-
-    "app-demo": ["app-demo@workspace:packages/app-demo"],
 
     "app-electrobun": ["app-electrobun@workspace:packages/app-electrobun"],
 

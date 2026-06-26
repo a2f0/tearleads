@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AppHostConfig } from "../../../host/AppHostConfig";
+import type { AppHostConfig } from "../../../host/AppHostConfig";
 import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
 import {
   DualPaneProvider,
@@ -34,21 +34,12 @@ function createWorkspaceHostConfig({
   hostConfig: AppHostConfig;
   workspaceId: (typeof WORKSPACE_IDS)[number];
 }): AppHostConfig {
-  return new AppHostConfig(
-    hostConfig.apiBaseUrl,
-    hostConfig.wsUrl,
-    hostConfig.createSQLiteRuntime,
-    hostConfig.createBlobStore,
-    localIdentityNamespaceForWorkspace(
+  return hostConfig.withOverrides({
+    localIdentityNamespace: localIdentityNamespaceForWorkspace(
       hostConfig.localIdentityNamespace,
       workspaceId,
     ),
-    hostConfig.createLocalKeyring,
-    hostConfig.disableLocalIdentityPersistence,
-    hostConfig.navigationMode,
-    hostConfig.storagePersistence,
-    hostConfig.profile,
-  );
+  });
 }
 
 function PaneSurface({

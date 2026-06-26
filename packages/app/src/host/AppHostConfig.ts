@@ -8,7 +8,6 @@ import type { AppNavigationMode } from "../navigation/AppNavigationMode";
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 export type CreateLocalKeyringFn = () => LocalKeyring;
 
-export type AppHostVariant = "app" | "demo";
 export type PaneRuntimePolicy = "shared" | "isolated";
 
 export interface AppHostFeatureFlags {
@@ -20,28 +19,55 @@ export interface AppHostProfile {
   readonly defaultSplit: boolean;
   readonly features: AppHostFeatureFlags;
   readonly paneRuntimePolicy: PaneRuntimePolicy;
-  readonly variant: AppHostVariant;
 }
 
-export const APP_HOST_PROFILE = {
-  defaultSplit: false,
-  features: {
-    explorerPeerSharing: false,
-    panePeerUserIds: false,
+// Registry of named host profiles. The registry key IS the variant id, so
+// adding a product variant is a single entry here — no new package, no union to
+// widen, no env branch to extend. Selection happens via resolveAppHostProfile.
+export const APP_HOST_PROFILES = {
+  app: {
+    defaultSplit: false,
+    features: {
+      explorerPeerSharing: false,
+      panePeerUserIds: false,
+    },
+    paneRuntimePolicy: "shared",
   },
-  paneRuntimePolicy: "shared",
-  variant: "app",
-} satisfies AppHostProfile;
+  demo: {
+    defaultSplit: true,
+    features: {
+      explorerPeerSharing: true,
+      panePeerUserIds: true,
+    },
+    paneRuntimePolicy: "isolated",
+  },
+} satisfies Record<string, AppHostProfile>;
 
-export const DEMO_APP_HOST_PROFILE = {
-  defaultSplit: true,
-  features: {
-    explorerPeerSharing: true,
-    panePeerUserIds: true,
-  },
-  paneRuntimePolicy: "isolated",
-  variant: "demo",
-} satisfies AppHostProfile;
+type AppHostVariant = keyof typeof APP_HOST_PROFILES;
+
+const DEFAULT_APP_HOST_PROFILE: AppHostProfile = APP_HOST_PROFILES.app;
+
+function isKnownAppHostVariant(variant: string): variant is AppHostVariant {
+  return Object.hasOwn(APP_HOST_PROFILES, variant);
+}
+
+/**
+ * Resolves a host profile from a variant id (e.g. `BUN_PUBLIC_APP_VARIANT`). An
+ * unset variant falls back to the default `app` profile; an unknown variant
+ * throws rather than silently degrading, so a misconfigured deploy fails loudly
+ * instead of shipping the wrong variant to a domain.
+ */
+export function resolveAppHostProfile(
+  variant: string | undefined,
+): AppHostProfile {
+  if (variant === undefined) {
+    return DEFAULT_APP_HOST_PROFILE;
+  }
+  if (!isKnownAppHostVariant(variant)) {
+    throw new Error(`Unknown app host variant: ${variant}`);
+  }
+  return APP_HOST_PROFILES[variant];
+}
 
 export interface AppHostConfigOptions {
   readonly apiBaseUrl: string;
@@ -73,8 +99,30 @@ export class AppHostConfig {
      * have OPFS can pass `PERSISTENT_STORAGE_POLICY` explicitly.
      */
     readonly storagePersistence?: StoragePersistencePolicy | undefined,
-    readonly profile: AppHostProfile = APP_HOST_PROFILE,
+    readonly profile: AppHostProfile = DEFAULT_APP_HOST_PROFILE,
   ) {}
+
+  /**
+   * Returns a copy with the given fields patched. Uses key-presence semantics
+   * (the spread copies an explicit `undefined`, clearing the field) so a caller
+   * can reset e.g. `localIdentityNamespace` to undefined. Replaces the ad-hoc
+   * positional re-construction that clone sites would otherwise repeat.
+   */
+  withOverrides(overrides: Partial<AppHostConfigOptions>): AppHostConfig {
+    return createAppHostConfig({
+      apiBaseUrl: this.apiBaseUrl,
+      wsUrl: this.wsUrl,
+      createSQLiteRuntime: this.createSQLiteRuntime,
+      createBlobStore: this.createBlobStore,
+      localIdentityNamespace: this.localIdentityNamespace,
+      createLocalKeyring: this.createLocalKeyring,
+      disableLocalIdentityPersistence: this.disableLocalIdentityPersistence,
+      navigationMode: this.navigationMode,
+      storagePersistence: this.storagePersistence,
+      profile: this.profile,
+      ...overrides,
+    });
+  }
 }
 
 export function createAppHostConfig(

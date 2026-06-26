@@ -16,7 +16,7 @@ const noOrphanPathExemptionPattern = [
   testFilesPattern,
   "(^|/)tsconfig\\.json$",
   "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
-  "^packages/(api-cli|api-shared|app-demo)/src/index\\.ts$",
+  "^packages/(api-cli|api-shared)/src/index\\.ts$",
   "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
   "^packages/app-web/src/index\\.tsx$",
   "^packages/app/src/test/",
