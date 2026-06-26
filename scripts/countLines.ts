@@ -47,12 +47,28 @@ if (typeof result.status === "number" && result.status !== 0) {
 }
 
 const output = typeof result.stdout === "string" ? result.stdout : "";
-const data: Record<string, unknown> = JSON.parse(output);
-
-const formatter = new Intl.NumberFormat("en-US");
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
+
+const parseTokeiOutput = (value: string): Record<string, unknown> => {
+  try {
+    const parsed = JSON.parse(value);
+    if (isRecord(parsed)) {
+      return parsed;
+    }
+
+    console.error("Error parsing tokei output: output is not a JSON object");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error parsing tokei output: ${message}`);
+  }
+
+  process.exit(1);
+};
+
+const data = parseTokeiOutput(output);
+const formatter = new Intl.NumberFormat("en-US");
 
 const isTestFile = (filePath: string): boolean => {
   const normalizedPath = filePath.replaceAll("\\", "/");
@@ -62,7 +78,7 @@ const isTestFile = (filePath: string): boolean => {
   return (
     pathSegments.some((segment) =>
       ["__tests__", "e2e", "test", "tests"].includes(segment),
-    ) || /\.(?:bench|spec|test)\.[^.]+$/u.test(basename)
+    ) || /(?:^|\.)(?:bench|spec|test)\.[^.]+$/u.test(basename)
   );
 };
 
