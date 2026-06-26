@@ -9,10 +9,7 @@ import {
 } from "@testing-library/react";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
-import {
-  createAppHostConfig,
-  DEMO_APP_HOST_PROFILE,
-} from "./host/AppHostConfig";
+import { APP_HOST_PROFILES, createAppHostConfig } from "./host/AppHostConfig";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
@@ -101,7 +98,7 @@ test("demo App starts split", () => {
   const view = render(
     <App
       hostConfig={createTestAppHostConfig({
-        profile: DEMO_APP_HOST_PROFILE,
+        profile: APP_HOST_PROFILES.demo,
       })}
     />,
   );

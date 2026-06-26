@@ -19,7 +19,6 @@
   "dependencies": {
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
-    "app-demo": "workspace:*",
     "react-dom": "catalog:react"
   },
   "devDependencies": {
