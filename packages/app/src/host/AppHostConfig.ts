@@ -53,14 +53,15 @@ function isKnownAppHostVariant(variant: string): variant is AppHostVariant {
 
 /**
  * Resolves a host profile from a variant id (e.g. `BUN_PUBLIC_APP_VARIANT`). An
- * unset variant falls back to the default `app` profile; an unknown variant
- * throws rather than silently degrading, so a misconfigured deploy fails loudly
- * instead of shipping the wrong variant to a domain.
+ * unset variant — `undefined`, or the empty string some bundlers emit for an
+ * unset env var — falls back to the default `app` profile; an unknown non-empty
+ * variant throws rather than silently degrading, so a misconfigured deploy fails
+ * loudly instead of shipping the wrong variant to a domain.
  */
 export function resolveAppHostProfile(
   variant: string | undefined,
 ): AppHostProfile {
-  if (variant === undefined) {
+  if (variant === undefined || variant === "") {
     return DEFAULT_APP_HOST_PROFILE;
   }
   if (!isKnownAppHostVariant(variant)) {
