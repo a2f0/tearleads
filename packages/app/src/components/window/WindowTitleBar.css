@@ -26,7 +26,11 @@
 
 .window-close,
 .window-maximize,
-.window-minimize {
+.window-minimize,
+.window-titlebar-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 var(--space-xs);
   border: none;
   background: none;
@@ -37,6 +41,12 @@
 
 .window-close:hover,
 .window-maximize:hover,
-.window-minimize:hover {
+.window-minimize:hover,
+.window-titlebar-action:hover {
+  opacity: var(--opacity-muted);
+}
+
+.window-titlebar-action:disabled {
+  cursor: not-allowed;
   opacity: var(--opacity-muted);
 }

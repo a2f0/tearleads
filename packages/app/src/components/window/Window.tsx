@@ -19,6 +19,7 @@ import { WindowBody } from "./WindowBody";
 import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
 import {
   useWindowFileMenuItems,
+  useWindowTitleBarActions,
   useWindowViewMenuItems,
   WindowMenuProvider,
 } from "./WindowMenuContext";
@@ -234,6 +235,7 @@ function WindowInnerContent({
   const windowRef = useRef<HTMLDivElement>(null);
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
+  const titleBarActions = useWindowTitleBarActions();
   const {
     handleClose,
     handleMaximize,
@@ -302,6 +304,7 @@ function WindowInnerContent({
     >
       <WindowTitleBar
         title={title}
+        actions={titleBarActions}
         onMouseDown={handleMouseDown}
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}

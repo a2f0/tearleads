@@ -10,10 +10,12 @@ import { PaneStatus } from "../../components/pane/PaneStatus";
 import {
   MiniAppButton,
   MiniAppRoot,
-  MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
 import { useCurrentWindow } from "../../components/window/CurrentWindowContext";
-import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
+import {
+  useWindowTitleBarAction,
+  useWindowViewMenuItem,
+} from "../../components/window/WindowMenuContext";
 import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
 import "./SystemMonitor.css";
 import {
@@ -139,9 +141,9 @@ export function SystemMonitorApp() {
     currentWindow?.close();
   }, [pinToDesktop, currentWindow]);
 
-  // Surface the same action in the window's File menu, but only where pinning
+  // Surface the same action in the window's View menu and title bar, but only where pinning
   // is meaningful (the windowed home pane that mounts SystemMonitorProvider).
-  // Memoized so the menu item keeps a stable identity across renders.
+  // Memoized so the registrations keep a stable identity across renders.
   const pinMenuItem = useMemo(
     () =>
       canPin
@@ -153,17 +155,23 @@ export function SystemMonitorApp() {
         : null,
     [canPin, handlePin],
   );
-  useWindowFileMenuItem(pinMenuItem);
+  const pinTitleBarAction = useMemo(
+    () =>
+      canPin
+        ? {
+            icon: <PushPinIcon aria-hidden size={14} />,
+            id: "system-monitor-pin",
+            label: PIN_TO_DESKTOP_LABEL,
+            onClick: handlePin,
+          }
+        : null,
+    [canPin, handlePin],
+  );
+  useWindowViewMenuItem(pinMenuItem);
+  useWindowTitleBarAction(pinTitleBarAction);
 
   return (
     <MiniAppRoot className="system-monitor">
-      {canPin ? (
-        <MiniAppToolbar className="system-monitor-toolbar">
-          <MiniAppButton onClick={handlePin}>
-            <PushPinIcon aria-hidden size={16} /> {PIN_TO_DESKTOP_LABEL}
-          </MiniAppButton>
-        </MiniAppToolbar>
-      ) : null}
       <SystemMonitorTabs
         activeTab={activeTab}
         idPrefix={idPrefix}
