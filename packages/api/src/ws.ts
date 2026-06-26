@@ -2,8 +2,11 @@ import type { ServerWebSocket } from "bun";
 import { addListener } from "./adapters/redisPubSub";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
-import type { AppliedInterest } from "./wsRouting";
-import { WsEventRouter } from "./wsRouting";
+import {
+  type AppliedInterest,
+  MAX_CLIENT_MESSAGE_BYTES,
+  WsEventRouter,
+} from "./wsRouting";
 
 const router = new WsEventRouter();
 
@@ -63,6 +66,7 @@ async function hydrateSocketInterest(
 }
 
 export const websocket = {
+  maxPayloadLength: MAX_CLIENT_MESSAGE_BYTES,
   async open(ws: ServerWebSocket<WebSocketTicketIdentity>) {
     router.open(ws);
     await hydrateSocketInterest(ws);

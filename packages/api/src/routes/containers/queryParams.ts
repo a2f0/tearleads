@@ -6,7 +6,12 @@ export function parseOptionalInteger(
   if (value === undefined) {
     return undefined;
   }
-  return Number(value);
+  if (!/^\d+$/u.test(value)) {
+    return Number.NaN;
+  }
+
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : Number.NaN;
 }
 
 export function parseOptionalParentId(

@@ -34,8 +34,12 @@ export async function resolveWebSocketUpgrade(
 ): Promise<Response | undefined> {
   // Fall back to a base so a relative req.url (mock/test envs) parses instead
   // of throwing; the base is ignored for the absolute URLs Bun provides.
-  const ticket =
-    new URL(req.url, "http://localhost").searchParams.get("ticket") ?? "";
+  const url = new URL(req.url, "http://localhost");
+  if (url.pathname !== "/events") {
+    return new Response("WebSocket endpoint not found", { status: 404 });
+  }
+
+  const ticket = url.searchParams.get("ticket") ?? "";
   const identity = await consume(ticket);
   if (!identity) {
     return new Response("WebSocket ticket required", { status: 401 });
