@@ -10,8 +10,8 @@ const TEST_SESSION_ID =
   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440001";
 
-function websocketUpgradeRequest(ticket?: string): Request {
-  const url = new URL("http://localhost:3001/events");
+function websocketUpgradeRequest(ticket?: string, path = "/events"): Request {
+  const url = new URL(`http://localhost:3001${path}`);
   if (ticket !== undefined) {
     url.searchParams.set("ticket", ticket);
   }
@@ -70,6 +70,28 @@ test("rejects a websocket upgrade with an unknown ticket", async () => {
   );
 
   expect(res?.status).toBe(401);
+  expect(upgradeCalled).toBe(false);
+});
+
+test("rejects websocket upgrades on non-events paths without consuming tickets", async () => {
+  let consumeCalled = false;
+  let upgradeCalled = false;
+  const res = await resolveWebSocketUpgrade(
+    websocketUpgradeRequest("ticket-on-wrong-path", "/not-events"),
+    {
+      upgrade() {
+        upgradeCalled = true;
+        return true;
+      },
+    },
+    async () => {
+      consumeCalled = true;
+      return { sessionId: TEST_SESSION_ID, userId: TEST_USER_ID };
+    },
+  );
+
+  expect(res?.status).toBe(404);
+  expect(consumeCalled).toBe(false);
   expect(upgradeCalled).toBe(false);
 });
 

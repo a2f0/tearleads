@@ -62,11 +62,6 @@ function createRequestValidator<T>(isRequest: (value: unknown) => value is T) {
   };
 }
 
-function parsePositiveInteger(value: string): number | null {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
 function parseSafePositiveInteger(value: string | null): number | null {
   if (value === null || !/^\d+$/u.test(value)) {
     return null;
@@ -83,7 +78,7 @@ function validatePartRouteParams(
   const partNumber = readStringProperty(value, "partNumber");
   const stageId = readStringProperty(value, "stageId");
   const parsedPartNumber =
-    partNumber !== null ? parsePositiveInteger(partNumber) : null;
+    partNumber !== null ? parseSafePositiveInteger(partNumber) : null;
   if (stageId === null || !isUuidString(stageId) || parsedPartNumber === null) {
     return c.json({ error: "Invalid request" }, 400);
   }

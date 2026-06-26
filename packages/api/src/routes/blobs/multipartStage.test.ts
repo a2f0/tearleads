@@ -132,3 +132,21 @@ test("multipart blob stage routes support resumable upload completion", async ()
     stageId: initiated.stageId,
   });
 });
+
+test("multipart part routes reject unsafe integer part numbers", async () => {
+  const app = createAuthenticatedTestApp(crypto.randomUUID());
+  const response = await app.request(
+    `/blobs/stages/multipart/${crypto.randomUUID()}/parts/9007199254740993`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        encryptedBytes: "part-bytes",
+        uploadId: crypto.randomUUID(),
+      }),
+    },
+  );
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toEqual({ error: "Invalid request" });
+});

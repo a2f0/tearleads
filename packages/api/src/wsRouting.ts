@@ -1,4 +1,5 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { isUuidV4String } from "@tearleads/validators/util";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 
 /**
@@ -26,6 +27,8 @@ const RESYNC_REQUIRED = "resync_required";
 const SESSION_REVOKED = "session_revoked";
 const SESSION_REVOKED_CLOSE_CODE = 1008;
 const SESSION_REVOKED_CLOSE_REASON = "Session revoked";
+export const MAX_CLIENT_MESSAGE_BYTES = 1_000_000;
+const MAX_INTEREST_CONTAINER_IDS = 10_000;
 
 /**
  * The interest change a client message applied, returned to the impure shell so
@@ -45,7 +48,26 @@ interface InterestEviction {
   readonly containerId: string;
 }
 
-function readStringArray(value: unknown): string[] {
+function readContainerIdArray(value: unknown): string[] | null {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value) || value.length > MAX_INTEREST_CONTAINER_IDS) {
+    return null;
+  }
+
+  const containerIds: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !isUuidV4String(entry)) {
+      return null;
+    }
+    containerIds.push(entry);
+  }
+
+  return containerIds;
+}
+
+function readEventStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter(
         (entry): entry is string =>
@@ -66,7 +88,7 @@ function readStringField(value: unknown): string | null {
  */
 function eventContainerIds(event: Record<string, unknown>): string[] {
   const containerIds = new Set(
-    readStringArray(Reflect.get(event, "containerIds")),
+    readEventStringArray(Reflect.get(event, "containerIds")),
   );
   for (const key of ["containerId", "parentId", "previousParentId"]) {
     const value = readStringField(Reflect.get(event, key));
@@ -138,11 +160,16 @@ export class WsEventRouter {
   }
 
   handleClientMessage(ws: WsConnection, rawMessage: string): AppliedInterest {
-    const parsed = parseJsonObject(rawMessage);
+    const parsed = parseClientJsonObject(rawMessage);
     if (!parsed) {
       return null;
     }
-    const containerIds = readStringArray(Reflect.get(parsed, "containerIds"));
+    const containerIds = readContainerIdArray(
+      Reflect.get(parsed, "containerIds"),
+    );
+    if (!containerIds) {
+      return null;
+    }
     switch (Reflect.get(parsed, "type")) {
       case KNOWN_CONTAINERS_REPLACE:
         this.replaceInterest(ws, containerIds);
@@ -348,4 +375,13 @@ function parseJsonObject(rawMessage: string): Record<string, unknown> | null {
     return null;
   }
   return isPlainObject(parsed) ? parsed : null;
+}
+
+function parseClientJsonObject(
+  rawMessage: string,
+): Record<string, unknown> | null {
+  if (rawMessage.length > MAX_CLIENT_MESSAGE_BYTES) {
+    return null;
+  }
+  return parseJsonObject(rawMessage);
 }

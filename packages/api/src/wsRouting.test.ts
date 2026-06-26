@@ -1,6 +1,16 @@
 import { expect, test } from "bun:test";
 import { type WsConnection, WsEventRouter } from "./wsRouting";
 
+const C1 = "00000000-0000-4000-8000-000000000001";
+const C2 = "00000000-0000-4000-8000-000000000002";
+const CHILD = "00000000-0000-4000-8000-000000000003";
+const LIVE = "00000000-0000-4000-8000-000000000004";
+const PARENT = "00000000-0000-4000-8000-000000000005";
+const PERSISTED = "00000000-0000-4000-8000-000000000006";
+const SHARED = "00000000-0000-4000-8000-000000000007";
+const X = "00000000-0000-4000-8000-000000000008";
+const Y = "00000000-0000-4000-8000-000000000009";
+
 interface FakeSocket extends WsConnection {
   readonly closed: Array<{
     code: number | undefined;
@@ -47,14 +57,14 @@ test("delivers a document event only to sockets interested in its containers", (
 
   router.handleClientMessage(
     alice,
-    JSON.stringify({ type: "known_containers", containerIds: ["c1", "c2"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [C1, C2] }),
   );
   router.handleClientMessage(
     bob,
-    JSON.stringify({ type: "known_containers", containerIds: ["c2"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [C2] }),
   );
 
-  const event = documentEvent(["c1"]);
+  const event = documentEvent([C1]);
   router.routeServerEvent(event);
 
   // Only alice declared interest in c1.
@@ -70,15 +80,15 @@ test("delivers a shared-container event to every interested socket once", () => 
   router.open(bob);
   router.handleClientMessage(
     alice,
-    JSON.stringify({ type: "known_containers", containerIds: ["shared"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [SHARED] }),
   );
   router.handleClientMessage(
     bob,
-    JSON.stringify({ type: "known_containers", containerIds: ["shared"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [SHARED] }),
   );
 
   // Two containers on the event, both mapping to the same socket -> one send.
-  const event = documentEvent(["shared", "shared"]);
+  const event = documentEvent([SHARED, SHARED]);
   router.routeServerEvent(event);
 
   expect(alice.sent).toEqual([event]);
@@ -91,14 +101,14 @@ test("routes container events by container, parent, and previous parent", () => 
   router.open(parentWatcher);
   router.handleClientMessage(
     parentWatcher,
-    JSON.stringify({ type: "known_containers", containerIds: ["parent"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [PARENT] }),
   );
 
   const event = JSON.stringify({
     type: "container_mutation_created",
-    containerId: "child",
+    containerId: CHILD,
     eventType: "container.create",
-    parentId: "parent",
+    parentId: PARENT,
     updatedAt: "2026-06-22T00:00:00.000Z",
   });
   router.routeServerEvent(event);
@@ -135,19 +145,19 @@ test("applies interest add/remove deltas", () => {
 
   router.handleClientMessage(
     alice,
-    JSON.stringify({ type: "known_containers.add", containerIds: ["c1"] }),
+    JSON.stringify({ type: "known_containers.add", containerIds: [C1] }),
   );
-  router.routeServerEvent(documentEvent(["c1"]));
+  router.routeServerEvent(documentEvent([C1]));
   expect(alice.sent).toHaveLength(1);
 
   router.handleClientMessage(
     alice,
-    JSON.stringify({ type: "known_containers.remove", containerIds: ["c1"] }),
+    JSON.stringify({ type: "known_containers.remove", containerIds: [C1] }),
   );
-  router.routeServerEvent(documentEvent(["c1"]));
+  router.routeServerEvent(documentEvent([C1]));
   // No new delivery after the container was dropped from interest.
   expect(alice.sent).toHaveLength(1);
-  expect(router.interestedSocketCount("c1")).toBe(0);
+  expect(router.interestedSocketCount(C1)).toBe(0);
 });
 
 test("drops a closed socket from all routing", () => {
@@ -156,14 +166,14 @@ test("drops a closed socket from all routing", () => {
   router.open(alice);
   router.handleClientMessage(
     alice,
-    JSON.stringify({ type: "known_containers", containerIds: ["c1"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
 
   router.close(alice);
-  router.routeServerEvent(documentEvent(["c1"]));
+  router.routeServerEvent(documentEvent([C1]));
 
   expect(alice.sent).toEqual([]);
-  expect(router.interestedSocketCount("c1")).toBe(0);
+  expect(router.interestedSocketCount(C1)).toBe(0);
 });
 
 test("reports the applied interest change back to the caller", () => {
@@ -174,21 +184,21 @@ test("reports the applied interest change back to the caller", () => {
   expect(
     router.handleClientMessage(
       alice,
-      JSON.stringify({ type: "known_containers", containerIds: ["c1"] }),
+      JSON.stringify({ type: "known_containers", containerIds: [C1] }),
     ),
-  ).toEqual({ kind: "replace", containerIds: ["c1"] });
+  ).toEqual({ kind: "replace", containerIds: [C1] });
   expect(
     router.handleClientMessage(
       alice,
-      JSON.stringify({ type: "known_containers.add", containerIds: ["c2"] }),
+      JSON.stringify({ type: "known_containers.add", containerIds: [C2] }),
     ),
-  ).toEqual({ kind: "add", containerIds: ["c2"] });
+  ).toEqual({ kind: "add", containerIds: [C2] });
   expect(
     router.handleClientMessage(
       alice,
-      JSON.stringify({ type: "known_containers.remove", containerIds: ["c1"] }),
+      JSON.stringify({ type: "known_containers.remove", containerIds: [C1] }),
     ),
-  ).toEqual({ kind: "remove", containerIds: ["c1"] });
+  ).toEqual({ kind: "remove", containerIds: [C1] });
   expect(router.handleClientMessage(alice, "not json")).toBeNull();
   expect(
     router.handleClientMessage(alice, JSON.stringify({ type: "other" })),
@@ -202,12 +212,12 @@ test("hydrateInterest seeds a reconnecting socket's interest", () => {
 
   // Reconnect: the server restores interest from its persisted set, no client
   // re-declaration needed.
-  router.hydrateInterest(alice, ["c1", "c2"]);
-  router.routeServerEvent(documentEvent(["c2"]));
+  router.hydrateInterest(alice, [C1, C2]);
+  router.routeServerEvent(documentEvent([C2]));
 
   expect(alice.sent).toHaveLength(1);
-  expect(router.interestedSocketCount("c1")).toBe(1);
-  expect(router.interestedSocketCount("c2")).toBe(1);
+  expect(router.interestedSocketCount(C1)).toBe(1);
+  expect(router.interestedSocketCount(C2)).toBe(1);
 });
 
 test("hydrateInterest preserves interest declared during the open window", () => {
@@ -219,12 +229,12 @@ test("hydrateInterest preserves interest declared during the open window", () =>
   // pending; that just-declared interest must survive hydration.
   router.handleClientMessage(
     alice,
-    JSON.stringify({ type: "known_containers.add", containerIds: ["live"] }),
+    JSON.stringify({ type: "known_containers.add", containerIds: [LIVE] }),
   );
-  router.hydrateInterest(alice, ["persisted"]);
+  router.hydrateInterest(alice, [PERSISTED]);
 
-  expect(router.interestedSocketCount("live")).toBe(1);
-  expect(router.interestedSocketCount("persisted")).toBe(1);
+  expect(router.interestedSocketCount(LIVE)).toBe(1);
+  expect(router.interestedSocketCount(PERSISTED)).toBe(1);
 });
 
 test("access_changed evicts interest and tells interested sockets to resync", () => {
@@ -235,33 +245,33 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
   router.open(bob);
   router.handleClientMessage(
     alice,
-    JSON.stringify({ type: "known_containers", containerIds: ["x", "y"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [X, Y] }),
   );
   router.handleClientMessage(
     bob,
-    JSON.stringify({ type: "known_containers", containerIds: ["x"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [X] }),
   );
 
   const evictions = router.routeServerEvent(
-    JSON.stringify({ type: "access_changed", containerId: "x" }),
+    JSON.stringify({ type: "access_changed", containerId: X }),
   );
 
-  const resync = JSON.stringify({ containerId: "x", type: "resync_required" });
+  const resync = JSON.stringify({ containerId: X, type: "resync_required" });
   // Both sockets interested in x are told to resync, and x is dropped from
   // their interest so no further x events reach them until they re-declare.
   expect(alice.sent).toEqual([resync]);
   expect(bob.sent).toEqual([resync]);
-  expect(router.interestedSocketCount("x")).toBe(0);
+  expect(router.interestedSocketCount(X)).toBe(0);
   // Unaffected interest (y) is untouched.
-  expect(router.interestedSocketCount("y")).toBe(1);
+  expect(router.interestedSocketCount(Y)).toBe(1);
   // The evictions are returned so the shell drops them from the persisted set,
   // or a reconnect would restore the just-revoked interest.
   expect(evictions).toEqual([
-    { containerId: "x", sessionId: "alice-session", userId: "alice" },
-    { containerId: "x", sessionId: "bob-session", userId: "bob" },
+    { containerId: X, sessionId: "alice-session", userId: "alice" },
+    { containerId: X, sessionId: "bob-session", userId: "bob" },
   ]);
 
-  router.routeServerEvent(documentEvent(["x"]));
+  router.routeServerEvent(documentEvent([X]));
   // No document delivery after eviction.
   expect(alice.sent).toEqual([resync]);
 });
@@ -276,7 +286,7 @@ test("session_revoked closes only sockets for that session", () => {
   router.open(bob);
   router.handleClientMessage(
     aliceA,
-    JSON.stringify({ type: "known_containers", containerIds: ["c1"] }),
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
   );
 
   router.routeServerEvent(
@@ -290,9 +300,9 @@ test("session_revoked closes only sockets for that session", () => {
   expect(aliceA.closed).toEqual([{ code: 1008, reason: "Session revoked" }]);
   expect(aliceB.closed).toEqual([]);
   expect(bob.closed).toEqual([]);
-  expect(router.interestedSocketCount("c1")).toBe(0);
+  expect(router.interestedSocketCount(C1)).toBe(0);
 
-  router.routeServerEvent(documentEvent(["c1"]));
+  router.routeServerEvent(documentEvent([C1]));
   expect(aliceA.sent).toEqual([]);
 });
 
@@ -306,4 +316,37 @@ test("ignores malformed client messages and unscoped events", () => {
   router.routeServerEvent(JSON.stringify({ type: "mystery" }));
 
   expect(alice.sent).toEqual([]);
+});
+
+test("rejects malformed and oversized client interest declarations", () => {
+  const router = new WsEventRouter();
+  const alice = fakeSocket("alice");
+  router.open(alice);
+
+  expect(
+    router.handleClientMessage(
+      alice,
+      JSON.stringify({
+        type: "known_containers",
+        containerIds: [C1, "not-a-container-id"],
+      }),
+    ),
+  ).toBeNull();
+  expect(router.interestedSocketCount(C1)).toBe(0);
+
+  expect(
+    router.handleClientMessage(
+      alice,
+      JSON.stringify({
+        type: "known_containers",
+        containerIds: Array.from(
+          { length: 10_001 },
+          () => "00000000-0000-4000-8000-000000000010",
+        ),
+      }),
+    ),
+  ).toBeNull();
+  expect(
+    router.interestedSocketCount("00000000-0000-4000-8000-000000000010"),
+  ).toBe(0);
 });
