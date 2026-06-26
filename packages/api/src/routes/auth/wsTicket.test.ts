@@ -53,7 +53,7 @@ test("mints a single-use ticket bound to the authenticated session", async () =>
 
   const body = await res.json();
   invariant(typeof body.ticket === "string", "expected ticket string");
-  expect(body.ticket.length).toBeGreaterThan(0);
+  expect(body.ticket).toMatch(/^[0-9a-f]{64}$/);
 
   const identity = await consumeWebSocketTicket(body.ticket);
   expect(identity).not.toBeNull();

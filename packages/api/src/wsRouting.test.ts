@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { type WsConnection, WsEventRouter } from "./wsRouting";
 
 interface FakeSocket extends WsConnection {
+  readonly closed: Array<{
+    code: number | undefined;
+    reason: string | undefined;
+  }>;
   readonly sent: string[];
 }
 
@@ -9,9 +13,14 @@ function fakeSocket(
   userId: string,
   sessionId = `${userId}-session`,
 ): FakeSocket {
+  const closed: FakeSocket["closed"] = [];
   const sent: string[] = [];
   return {
     data: { sessionId, userId },
+    closed,
+    close(code?: number, reason?: string) {
+      closed.push({ code, reason });
+    },
     sent,
     send(message: string) {
       sent.push(message);
@@ -255,6 +264,36 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
   router.routeServerEvent(documentEvent(["x"]));
   // No document delivery after eviction.
   expect(alice.sent).toEqual([resync]);
+});
+
+test("session_revoked closes only sockets for that session", () => {
+  const router = new WsEventRouter();
+  const aliceA = fakeSocket("alice", "alice-a");
+  const aliceB = fakeSocket("alice", "alice-b");
+  const bob = fakeSocket("bob", "alice-a");
+  router.open(aliceA);
+  router.open(aliceB);
+  router.open(bob);
+  router.handleClientMessage(
+    aliceA,
+    JSON.stringify({ type: "known_containers", containerIds: ["c1"] }),
+  );
+
+  router.routeServerEvent(
+    JSON.stringify({
+      type: "session_revoked",
+      userId: "alice",
+      sessionId: "alice-a",
+    }),
+  );
+
+  expect(aliceA.closed).toEqual([{ code: 1008, reason: "Session revoked" }]);
+  expect(aliceB.closed).toEqual([]);
+  expect(bob.closed).toEqual([]);
+  expect(router.interestedSocketCount("c1")).toBe(0);
+
+  router.routeServerEvent(documentEvent(["c1"]));
+  expect(aliceA.sent).toEqual([]);
 });
 
 test("ignores malformed client messages and unscoped events", () => {

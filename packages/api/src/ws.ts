@@ -1,9 +1,9 @@
 import type { ServerWebSocket } from "bun";
 import { addListener } from "./adapters/redisPubSub";
+import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { wsInterestStore } from "./wsInterestStore";
 import type { AppliedInterest } from "./wsRouting";
 import { WsEventRouter } from "./wsRouting";
-import type { WebSocketTicketIdentity } from "./wsTicket";
 
 const router = new WsEventRouter();
 

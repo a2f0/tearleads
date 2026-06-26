@@ -5,10 +5,8 @@ import {
 import type { RouteRequestBindings } from "./requestContext";
 import { routeApp } from "./routeApp";
 import { websocket } from "./ws";
-import {
-  consumeWebSocketTicket,
-  type WebSocketTicketIdentity,
-} from "./wsTicket";
+import type { WebSocketTicketIdentity } from "./wsIdentity";
+import { consumeWebSocketTicket } from "./wsTicket";
 
 if (getDefaultApiDatabaseKind() === "memory") {
   await initializeApiDatabase();

@@ -1,5 +1,5 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
-import type { WebSocketTicketIdentity } from "./wsTicket";
+import type { WebSocketTicketIdentity } from "./wsIdentity";
 
 /**
  * The subset of a Bun `ServerWebSocket` the router needs: the authenticated
@@ -8,6 +8,7 @@ import type { WebSocketTicketIdentity } from "./wsTicket";
  */
 export interface WsConnection {
   readonly data: WebSocketTicketIdentity;
+  close?(code?: number, reason?: string): unknown;
   send(message: string): unknown;
 }
 
@@ -22,6 +23,9 @@ const KNOWN_CONTAINERS_REMOVE = "known_containers.remove";
 // router control event) and are told to over HTTP (router -> client).
 const ACCESS_CHANGED = "access_changed";
 const RESYNC_REQUIRED = "resync_required";
+const SESSION_REVOKED = "session_revoked";
+const SESSION_REVOKED_CLOSE_CODE = 1008;
+const SESSION_REVOKED_CLOSE_REASON = "Session revoked";
 
 /**
  * The interest change a client message applied, returned to the impure shell so
@@ -108,11 +112,13 @@ function removeFromIndex<K>(
  * client payload unchanged. Socket handles never leave the process.
  */
 export class WsEventRouter {
+  private readonly socketsBySessionKey = new Map<string, Set<WsConnection>>();
   private readonly socketsByUserId = new Map<string, Set<WsConnection>>();
   private readonly socketsByContainerId = new Map<string, Set<WsConnection>>();
   private readonly interestBySocket = new Map<WsConnection, Set<string>>();
 
   open(ws: WsConnection): void {
+    addToIndex(this.socketsBySessionKey, socketSessionKey(ws), ws);
     addToIndex(this.socketsByUserId, ws.data.userId, ws);
     if (!this.interestBySocket.has(ws)) {
       this.interestBySocket.set(ws, new Set());
@@ -120,6 +126,7 @@ export class WsEventRouter {
   }
 
   close(ws: WsConnection): void {
+    removeFromIndex(this.socketsBySessionKey, socketSessionKey(ws), ws);
     removeFromIndex(this.socketsByUserId, ws.data.userId, ws);
     const interest = this.interestBySocket.get(ws);
     if (interest) {
@@ -175,6 +182,10 @@ export class WsEventRouter {
     if (!event) {
       return [];
     }
+    if (Reflect.get(event, "type") === SESSION_REVOKED) {
+      this.handleSessionRevoked(event);
+      return [];
+    }
     if (Reflect.get(event, "type") === ACCESS_CHANGED) {
       return this.handleAccessChanged(event);
     }
@@ -217,6 +228,24 @@ export class WsEventRouter {
       });
     }
     return evictions;
+  }
+
+  private handleSessionRevoked(event: Record<string, unknown>): void {
+    const sessionId = readStringField(Reflect.get(event, "sessionId"));
+    const userId = readStringField(Reflect.get(event, "userId"));
+    if (!sessionId || !userId) {
+      return;
+    }
+
+    const sockets = this.socketsBySessionKey.get(sessionKey(userId, sessionId));
+    if (!sockets) {
+      return;
+    }
+
+    for (const ws of [...sockets]) {
+      closeSafely(ws, SESSION_REVOKED_CLOSE_CODE, SESSION_REVOKED_CLOSE_REASON);
+      this.close(ws);
+    }
   }
 
   // Test/diagnostics: number of sockets currently interested in a container.
@@ -284,6 +313,22 @@ export class WsEventRouter {
         removeFromIndex(this.socketsByContainerId, containerId, ws);
       }
     }
+  }
+}
+
+function sessionKey(userId: string, sessionId: string): string {
+  return `${userId}:${sessionId}`;
+}
+
+function socketSessionKey(ws: WsConnection): string {
+  return sessionKey(ws.data.userId, ws.data.sessionId);
+}
+
+function closeSafely(ws: WsConnection, code: number, reason: string): void {
+  try {
+    ws.close?.(code, reason);
+  } catch {
+    // A broken/closing socket must not block revocation for the others.
   }
 }
 

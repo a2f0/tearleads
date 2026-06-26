@@ -11,8 +11,9 @@ import {
   srem,
   sscanMembers,
 } from "../adapters/redis";
+import { notifySessionRevoked } from "../sessionRevocation";
 import type { SessionCreateInput, SessionData } from "../validators/session";
-import { isSessionData } from "../validators/session";
+import { isSessionData, isSessionId } from "../validators/session";
 
 const SESSION_TTL_SECONDS = 86400;
 const SESSION_ID_PREFIX = "session-id:";
@@ -36,6 +37,7 @@ type SessionStoreSet = (
   ttlSeconds?: number,
 ) => Promise<void>;
 type SessionStoreSetKeepTtl = (key: string, value: string) => Promise<void>;
+type SessionRevocationNotifier = (session: SessionData) => Promise<void>;
 
 export interface SessionEnv {
   Variables: {
@@ -73,7 +75,8 @@ function extractToken(c: Context): string | null {
   if (!header?.startsWith("Bearer ")) {
     return null;
   }
-  return header.slice(7);
+  const token = header.slice(7);
+  return isSessionId(token) ? token : null;
 }
 
 function normalizeRequestIpAddress(
@@ -213,6 +216,7 @@ function parseSessionData(raw: string): SessionData | null {
 async function destroySessionToken(input: {
   deleteSession: SessionStoreDelete;
   getSession: SessionStoreGet;
+  notifyRevoked: SessionRevocationNotifier | undefined;
   removeSetMember: SessionStoreRemoveSetMember;
   token: string;
 }): Promise<void> {
@@ -230,12 +234,20 @@ async function destroySessionToken(input: {
 
   await input.deleteSession(sessionIdKey(session.id));
   await input.removeSetMember(userSessionsKey(session.userId), session.id);
+  if (input.notifyRevoked) {
+    try {
+      await input.notifyRevoked(session);
+    } catch (error) {
+      console.error("Failed to notify session revocation:", error);
+    }
+  }
 }
 
 export function createDestroySession(
   getSession: SessionStoreGet,
   deleteSession: SessionStoreDelete,
   removeSetMember: SessionStoreRemoveSetMember,
+  notifyRevoked?: SessionRevocationNotifier,
 ) {
   return async (c: Context): Promise<void> => {
     const token = extractToken(c);
@@ -243,6 +255,7 @@ export function createDestroySession(
       await destroySessionToken({
         deleteSession,
         getSession,
+        notifyRevoked,
         removeSetMember,
         token,
       });
@@ -250,7 +263,12 @@ export function createDestroySession(
   };
 }
 
-export const destroySession = createDestroySession(get, del, srem);
+export const destroySession = createDestroySession(
+  get,
+  del,
+  srem,
+  notifySessionRevoked,
+);
 
 export function createRequireAuth(
   getSession: SessionStoreGet,
@@ -370,10 +388,33 @@ export function createListUserSessions(
 
 export const listUserSessions = createListUserSessions(get, srem, sscanMembers);
 
+export function createIsLiveUserSession(getSession: SessionStoreGet) {
+  return async (input: {
+    sessionId: string;
+    userId: string;
+  }): Promise<boolean> => {
+    const token = await getSession(sessionIdKey(input.sessionId));
+    if (!token) {
+      return false;
+    }
+
+    const raw = await getSession(sessionKey(token));
+    if (!raw) {
+      return false;
+    }
+
+    const data = parseSessionData(raw);
+    return data?.id === input.sessionId && data.userId === input.userId;
+  };
+}
+
+export const isLiveUserSession = createIsLiveUserSession(get);
+
 export function createDestroyUserSession(
   getSession: SessionStoreGet,
   deleteSession: SessionStoreDelete,
   removeSetMember: SessionStoreRemoveSetMember,
+  notifyRevoked?: SessionRevocationNotifier,
 ) {
   return async (input: {
     sessionId: string;
@@ -406,6 +447,7 @@ export function createDestroyUserSession(
     await destroySessionToken({
       deleteSession,
       getSession,
+      notifyRevoked,
       removeSetMember,
       token,
     });
@@ -413,7 +455,12 @@ export function createDestroyUserSession(
   };
 }
 
-export const destroyUserSession = createDestroyUserSession(get, del, srem);
+export const destroyUserSession = createDestroyUserSession(
+  get,
+  del,
+  srem,
+  notifySessionRevoked,
+);
 
 export function createSessionTokenIssuer(
   setSession: SessionStoreSet,

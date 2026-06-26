@@ -6,6 +6,7 @@ import type {
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv, UserSessionSummary } from "../../middleware/session";
+import { isSessionId } from "../../validators/session";
 
 export interface SessionsRouteDeps {
   readonly destroyUserSession: (input: {
@@ -29,10 +30,6 @@ function toSessionResponse(session: UserSessionSummary): UserSessionResponse {
     lastActiveIp: session.lastActiveIp,
     signingKeyFingerprint: session.fingerprint,
   };
-}
-
-function isSessionId(value: string): boolean {
-  return /^[0-9a-f]{64}$/.test(value);
 }
 
 export function createSessionsRoute({
