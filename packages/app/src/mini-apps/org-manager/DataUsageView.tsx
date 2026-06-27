@@ -68,16 +68,6 @@ export function DataUsageView({
           {ORG_MANAGER_LABELS.organizationDataUsage}
         </MiniAppSectionHeading>
         <UsageMetric
-          byteLength={dataUsage.totalByteLength}
-          detail={ORG_MANAGER_LABELS.usageData}
-          label={ORG_MANAGER_LABELS.usageTotal}
-        />
-      </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.usageDocuments}
-        </MiniAppSectionHeading>
-        <UsageMetric
           byteLength={dataUsage.documents.byteLength}
           detail={`${getUsageCountLabel(
             dataUsage.documents.documentCount,
@@ -90,11 +80,6 @@ export function DataUsageView({
           )}`}
           label={ORG_MANAGER_LABELS.usageDocuments}
         />
-      </MiniAppSection>
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          {ORG_MANAGER_LABELS.usageBlobs}
-        </MiniAppSectionHeading>
         <UsageMetric
           byteLength={dataUsage.blobs.byteLength}
           detail={getUsageCountLabel(
@@ -103,6 +88,11 @@ export function DataUsageView({
             ORG_MANAGER_LABELS.usageBlobsUnit,
           )}
           label={ORG_MANAGER_LABELS.usageBlobs}
+        />
+        <UsageMetric
+          byteLength={dataUsage.totalByteLength}
+          detail={ORG_MANAGER_LABELS.usageData}
+          label={ORG_MANAGER_LABELS.usageTotal}
         />
       </MiniAppSection>
     </div>
