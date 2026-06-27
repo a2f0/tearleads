@@ -32,6 +32,7 @@ import {
   AppTestRuntimeScopeProbe,
   waitForAppTestRuntimeToSettle,
 } from "./appRuntimeIdle";
+import { resolveTestHostProfile } from "./manualIdentityProfile";
 import { MockWorker } from "./mockWorker";
 import { listProxiedApiRequests, resetMockServer, wsUrl } from "./mswServer";
 import { createSharedMemoryLocalKeyringFactory } from "./sharedMemoryLocalKeyring";
@@ -47,6 +48,7 @@ export async function cleanupPaneTestEnvironment(): Promise<void> {
 
 export function createTestHostConfig(
   options: {
+    readonly autoProvisionIdentity?: boolean | undefined;
     readonly createLocalKeyring?: (() => LocalKeyring) | null | undefined;
     readonly localIdentityNamespace?: string | undefined;
     readonly profile?: AppHostConfig["profile"] | undefined;
@@ -57,7 +59,6 @@ export function createTestHostConfig(
     options.createLocalKeyring === null
       ? undefined
       : (options.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory());
-
   return new AppHostConfig(
     "http://localhost:3001",
     wsUrl,
@@ -71,7 +72,7 @@ export function createTestHostConfig(
     options.localIdentityNamespace === undefined,
     undefined,
     undefined,
-    options.profile,
+    resolveTestHostProfile(options),
   );
 }
 function createDeferred<T = void>() {

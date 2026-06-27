@@ -7,7 +7,6 @@ import {
   useContext,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
@@ -18,9 +17,9 @@ import {
   useDestroyKey,
   useGenerateKey,
   useLocalIdentityPersistence,
+  useLocalIdentityRestore,
   usePersistLocalIdentity,
   useRestoreKeyPackage,
-  useRestoreLocalIdentity,
 } from "./localIdentityPersistence";
 
 export interface IdentityContextValue {
@@ -28,6 +27,20 @@ export interface IdentityContextValue {
   destroyKey: () => void;
   exportKeyPackage: () => Promise<IdentityKeyPackage>;
   generateKey: () => void;
+  /**
+   * Whether the user has explicitly destroyed the identity this session. The
+   * autopilot stops auto-generating once this is set, so "Destroy Key Pair"
+   * actually leaves the app keyless instead of being immediately re-provisioned;
+   * it resets on reload (a fresh boot auto-provisions again).
+   */
+  identityDestroyed: boolean;
+  /**
+   * Whether the initial attempt to restore a persisted local identity has
+   * settled. `false` until the first restore finishes (or there is nothing to
+   * restore); consumers like the identity autopilot wait for this so they do
+   * not generate a fresh identity over one that is still loading.
+   */
+  localIdentityRestoreSettled: boolean;
   localIdentityRestoredFingerprint: string | null;
   restoreKeyPackage: (keyPackage: unknown) => Promise<void>;
   signingFingerprint: string | null;
@@ -46,10 +59,6 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   const localKeyringLock = useLocalKeyringLock();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
-  const [
-    localIdentityRestoredFingerprint,
-    setLocalIdentityRestoredFingerprint,
-  ] = useState<string | null>(null);
   const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
   const localPersistence = useLocalIdentityPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,
@@ -58,11 +67,13 @@ export function IdentityProvider({ children }: PropsWithChildren) {
       : (hostConfig.localIdentityNamespace ?? null),
   });
 
-  useRestoreLocalIdentity({
+  const {
+    restoredFingerprint: localIdentityRestoredFingerprint,
+    restoreSettled: localIdentityRestoreSettled,
+  } = useLocalIdentityRestore({
     generationIdRef,
     generationInFlight,
     localPersistence,
-    onRestored: setLocalIdentityRestoredFingerprint,
     signingKeyPair: snapshot.signingKeyPair,
     tearleads,
   });
@@ -78,7 +89,7 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     persistLocalIdentity,
     tearleads,
   });
-  const destroyKey = useDestroyKey({
+  const { destroyKey, identityDestroyed } = useDestroyKey({
     clearDatabase,
     generationIdRef,
     generationInFlight,
@@ -103,6 +114,8 @@ export function IdentityProvider({ children }: PropsWithChildren) {
       destroyKey,
       exportKeyPackage,
       generateKey,
+      identityDestroyed,
+      localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
       restoreKeyPackage,
       signingFingerprint: snapshot.signingFingerprint,
@@ -112,6 +125,8 @@ export function IdentityProvider({ children }: PropsWithChildren) {
       destroyKey,
       exportKeyPackage,
       generateKey,
+      identityDestroyed,
+      localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
       restoreKeyPackage,
       snapshot.encapsulationKeyPair,

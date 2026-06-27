@@ -6,9 +6,15 @@ import { usePaneSide } from "../DualPaneProvider";
 
 interface PaneProviderProps extends PropsWithChildren {
   hostConfig: AppHostConfig;
+  /** Forwarded to the runtime's identity autopilot; see AppRuntimeProvider. */
+  autoProvisionEnabled?: boolean | undefined;
 }
 
-export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
+export function PaneProvider({
+  autoProvisionEnabled,
+  children,
+  hostConfig,
+}: PaneProviderProps) {
   const side = usePaneSide();
   const { disableLocalIdentityPersistence, localIdentityNamespace } =
     hostConfig;
@@ -24,17 +30,26 @@ export function PaneProvider({ children, hostConfig }: PaneProviderProps) {
   );
 
   return (
-    <AppRuntimeProvider hostConfig={paneHostConfig}>
+    <AppRuntimeProvider
+      autoProvisionEnabled={autoProvisionEnabled}
+      hostConfig={paneHostConfig}
+    >
       {children}
     </AppRuntimeProvider>
   );
 }
 
 export function SharedPaneProvider({
+  autoProvisionEnabled,
   children,
   hostConfig,
 }: PaneProviderProps) {
   return (
-    <AppRuntimeProvider hostConfig={hostConfig}>{children}</AppRuntimeProvider>
+    <AppRuntimeProvider
+      autoProvisionEnabled={autoProvisionEnabled}
+      hostConfig={hostConfig}
+    >
+      {children}
+    </AppRuntimeProvider>
   );
 }

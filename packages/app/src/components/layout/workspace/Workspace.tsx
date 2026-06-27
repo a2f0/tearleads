@@ -81,7 +81,7 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
   return (
     <>
       <PaneSideProvider side="left">
-        <PaneProvider hostConfig={hostConfig}>
+        <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
           <PaneSurface
             active={active}
             navigationMode={navigationMode}
@@ -91,7 +91,7 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
         </PaneProvider>
       </PaneSideProvider>
       <PaneSideProvider side="right">
-        <PaneProvider hostConfig={hostConfig}>
+        <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
           <PaneSurface
             active={active}
             navigationMode={navigationMode}
@@ -112,7 +112,7 @@ function SingleWorkspacePane(props: WorkspacePanesProps) {
   const { active, hostConfig, navigationMode } = props;
 
   return (
-    <SharedPaneProvider hostConfig={hostConfig}>
+    <SharedPaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
       <WorkspacePane
         active={active}
         navigationMode={navigationMode}
