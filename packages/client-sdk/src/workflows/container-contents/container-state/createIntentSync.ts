@@ -168,14 +168,21 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     // resurrect a container the user removed. The local delete already cascaded
     // away this create intent (see deleteContainer), so there is nothing to mark
     // synced — discard the now-orphaned remote container we created instead.
-    await deleteRemoteContainer({
+    // deleteRemoteContainer resolves false (not throws) when the server rejects
+    // the delete, so log both the false result and any thrown error.
+    const discardFailure = await deleteRemoteContainer({
       containerId: created.containerId,
       runtime: state.runtime,
-    }).catch((error: unknown) => {
+    }).then(
+      (deleted) => (deleted ? null : "the server rejected the delete"),
+      (error: unknown) =>
+        error instanceof Error ? error.message : String(error),
+    );
+    if (discardFailure !== null) {
       state.runtime.util.log(
-        `Container contents: failed to discard orphaned remote container ${created.containerId} after local delete: ${error instanceof Error ? error.message : String(error)}`,
+        `Container contents: failed to discard orphaned remote container ${created.containerId} after local delete: ${discardFailure}`,
       );
-    });
+    }
     return "failed";
   }
 
