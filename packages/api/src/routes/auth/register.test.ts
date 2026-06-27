@@ -62,12 +62,10 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
   expect(decodeKey(stored)).toEqual(keyArray);
 });
 
-test("POST /auth/register creates a user in postgres", async () => {
+test("POST /auth/register creates a user with the source IP", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  const keyArray = Array.from(signingPublicKey);
-  const encapsulationFingerprint = await toFingerprint(publicKey);
   fingerprint = await toFingerprint(signingPublicKey);
 
   const res = await submitRegistration(
@@ -82,8 +80,9 @@ test("POST /auth/register creates a user in postgres", async () => {
 
   invariant(user, "expected user to exist in postgres");
   expect(user.fingerprint).toBe(fingerprint);
-  expect(decodeKey(user.signingPublicKey)).toEqual(keyArray);
-  expect(user.encapsulationKeyFingerprint).toBe(encapsulationFingerprint);
+  expect(decodeKey(user.signingPublicKey)).toEqual([...signingPublicKey]);
+  expect(user.encapsulationKeyFingerprint).toBe(await toFingerprint(publicKey));
+  expect(user.registrationSourceIpAddress).toBe("198.51.100.10");
 });
 
 test("POST /auth/register creates reserved admin and member groups in postgres", async () => {

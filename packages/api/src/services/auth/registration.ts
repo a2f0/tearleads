@@ -38,6 +38,9 @@ async function issueRegistrationChallenge(
 export async function registerUser(
   runtime: ApiServiceRuntime,
   input: RegistrationRequest,
+  options: {
+    readonly sourceIpAddress?: string | null | undefined;
+  } = {},
 ): Promise<RegistrationResponse> {
   const signingKeyBytes = new Uint8Array(input.signingPublicKey);
   const encapsulationKeyBytes = new Uint8Array(input.encapsulationPublicKey);
@@ -48,6 +51,7 @@ export async function registerUser(
     encapsulationFingerprint,
     encapsulationKeyBytes,
     fingerprint,
+    ip: options.sourceIpAddress ?? null,
     signingKeyBytes,
   });
   const challengeHex = await issueRegistrationChallenge(

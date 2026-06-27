@@ -36,6 +36,13 @@
       "when": 1782465979128,
       "tag": "0004_yellow_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782522234841,
+      "tag": "0005_pale_hellcat",
+      "breakpoints": true
     }
   ]
 }
