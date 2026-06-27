@@ -111,12 +111,12 @@ async function listRemoteContainerIdsWithPendingStructuralIntents(input: {
   remoteContainers: ReadonlyArray<RemoteContainer>;
   state: RemoteContainerHydrationState;
 }): Promise<Set<string>> {
+  if (input.remoteContainers.length === 0) {
+    return new Set();
+  }
   const remoteContainerIds = new Set(
     input.remoteContainers.map((remoteContainer) => remoteContainer.id),
   );
-  if (remoteContainerIds.size === 0) {
-    return new Set();
-  }
 
   const execSql = input.state.runtime.infra.execSql;
   const [pendingCreateIntents, pendingMoveIntents] = await Promise.all([
@@ -124,7 +124,12 @@ async function listRemoteContainerIdsWithPendingStructuralIntents(input: {
     input.state.persistence.listPendingMoveIntents(execSql),
   ]);
   const containerIdsWithPendingStructuralIntents = new Set<string>();
-  for (const intent of [...pendingCreateIntents, ...pendingMoveIntents]) {
+  for (const intent of pendingCreateIntents) {
+    if (remoteContainerIds.has(intent.containerId)) {
+      containerIdsWithPendingStructuralIntents.add(intent.containerId);
+    }
+  }
+  for (const intent of pendingMoveIntents) {
     if (remoteContainerIds.has(intent.containerId)) {
       containerIdsWithPendingStructuralIntents.add(intent.containerId);
     }

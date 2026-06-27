@@ -171,7 +171,11 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     await deleteRemoteContainer({
       containerId: created.containerId,
       runtime: state.runtime,
-    }).catch(() => undefined);
+    }).catch((error: unknown) => {
+      state.runtime.util.log(
+        `Container contents: failed to discard orphaned remote container ${created.containerId} after local delete: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
     return "failed";
   }
 
