@@ -39,7 +39,11 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
   return (
     <>
       <div className="pane-footer">
-        <button type="button" onClick={handleClick}>
+        <button
+          type="button"
+          className="tearleads-action-button pane-footer-menu-button"
+          onClick={handleClick}
+        >
           Menu
         </button>
         {minimizedWindows.map((w) => (

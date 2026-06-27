@@ -6,6 +6,16 @@
   background: var(--color-muted);
 }
 
+.pane-footer-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height);
+  padding: 0 var(--space-md);
+  font-weight: 400;
+  line-height: 1;
+}
+
 /* Trailing cluster: anchored to the trailing edge of the footer, opposite the
    Menu button. Holds the workspace switcher and the system tray together. */
 .pane-footer-end {
