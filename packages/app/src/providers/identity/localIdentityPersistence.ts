@@ -10,7 +10,13 @@ import {
   type SigningKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { type MutableRefObject, useCallback, useEffect, useMemo } from "react";
+import {
+  type MutableRefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 import {
   decryptLocalIdentityKeyPackage,
@@ -154,11 +160,24 @@ async function restorePersistedLocalIdentity(input: {
   }
 }
 
-export function useRestoreLocalIdentity(input: {
+function useRestoreLocalIdentity(input: {
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly localPersistence: LocalIdentityPersistence | null;
   readonly onRestored: (signingFingerprint: string | null) => void;
+  /**
+   * Reports the persistence source the restore attempt has settled for, once it
+   * finishes (with or without a persisted identity) — or immediately when there
+   * is nothing to restore. Reporting the *source* (rather than a bare boolean)
+   * lets the caller tell "settled for the current source" from "settled for a
+   * stale source", so a source change (e.g. the keychain unlocking and a
+   * persisted identity appearing) is not mistaken for already-settled. The
+   * autopilot waits for the current source to settle before auto-generating, so
+   * a persisted identity is restored rather than overwritten.
+   */
+  readonly onSettled?:
+    | ((settledSource: LocalIdentityPersistence | null) => void)
+    | undefined;
   readonly signingKeyPair: SigningKeyPair | null;
   readonly tearleads: Tearleads;
 }): void {
@@ -167,12 +186,16 @@ export function useRestoreLocalIdentity(input: {
     generationInFlight,
     localPersistence,
     onRestored,
+    onSettled,
     signingKeyPair,
     tearleads,
   } = input;
 
   useEffect(() => {
-    if (!localPersistence || signingKeyPair) {
+    if (signingKeyPair || !localPersistence) {
+      // Either an identity is already loaded, or there is no persisted source to
+      // restore from — nothing to wait on.
+      onSettled?.(localPersistence);
       return;
     }
 
@@ -184,9 +207,18 @@ export function useRestoreLocalIdentity(input: {
       localPersistence,
       onRestored,
       tearleads,
-    }).catch((error: unknown) => {
-      tearleads.logError("Failed to restore local identity key package", error);
-    });
+    })
+      .catch((error: unknown) => {
+        tearleads.logError(
+          "Failed to restore local identity key package",
+          error,
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          onSettled?.(localPersistence);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -196,9 +228,51 @@ export function useRestoreLocalIdentity(input: {
     generationInFlight,
     localPersistence,
     onRestored,
+    onSettled,
     signingKeyPair,
     tearleads,
   ]);
+}
+
+/**
+ * Owns the restore-tracking state and runs {@link useRestoreLocalIdentity},
+ * exposing both the restored fingerprint and whether the restore attempt has
+ * settled. Keeps that bookkeeping out of {@link IdentityProvider}.
+ */
+export function useLocalIdentityRestore(input: {
+  readonly generationIdRef: MutableRefObject<number>;
+  readonly generationInFlight: MutableRefObject<boolean>;
+  readonly localPersistence: LocalIdentityPersistence | null;
+  readonly signingKeyPair: SigningKeyPair | null;
+  readonly tearleads: Tearleads;
+}): {
+  readonly restoredFingerprint: string | null;
+  readonly restoreSettled: boolean;
+} {
+  const [restoredFingerprint, setRestoredFingerprint] = useState<string | null>(
+    null,
+  );
+  // The source the restore has settled for. Starts as a sentinel (`undefined`)
+  // distinct from every real source — including `null` (no source) — so the
+  // derived `restoreSettled` is false until the first restore actually runs.
+  const [settledSource, setSettledSource] = useState<
+    LocalIdentityPersistence | null | undefined
+  >(undefined);
+
+  useRestoreLocalIdentity({
+    ...input,
+    onRestored: setRestoredFingerprint,
+    onSettled: setSettledSource,
+  });
+
+  return {
+    restoredFingerprint,
+    // Settled only once the restore has run for the *current* source. When the
+    // source changes (e.g. the keychain unlocks and a persisted identity
+    // appears) this is false until that source's restore settles, so the
+    // autopilot cannot generate a fresh identity over one about to be restored.
+    restoreSettled: settledSource === input.localPersistence,
+  };
 }
 
 async function persistLocalIdentityKeyPackage(input: {
@@ -344,7 +418,16 @@ export function useDestroyKey(input: {
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly localPersistence: LocalIdentityPersistence | null;
   readonly tearleads: Tearleads;
-}): () => void {
+}): {
+  readonly destroyKey: () => void;
+  /**
+   * Whether the user has explicitly destroyed the identity this session — set
+   * synchronously by {@link destroyKey}. The autopilot reads it to leave the
+   * app keyless after a destroy instead of immediately re-provisioning; it
+   * resets on reload because the provider remounts.
+   */
+  readonly identityDestroyed: boolean;
+} {
   const {
     clearDatabase,
     generationIdRef,
@@ -352,10 +435,12 @@ export function useDestroyKey(input: {
     localPersistence,
     tearleads,
   } = input;
+  const [identityDestroyed, setIdentityDestroyed] = useState(false);
 
-  return useCallback(() => {
+  const destroyKey = useCallback(() => {
     generationIdRef.current += 1;
     generationInFlight.current = false;
+    setIdentityDestroyed(true);
     tearleads.identity.destroy();
     clearDatabase();
     void deletePersistedLocalIdentity(localPersistence).catch(
@@ -373,6 +458,8 @@ export function useDestroyKey(input: {
     localPersistence,
     tearleads,
   ]);
+
+  return { destroyKey, identityDestroyed };
 }
 
 export function useRestoreKeyPackage(input: {

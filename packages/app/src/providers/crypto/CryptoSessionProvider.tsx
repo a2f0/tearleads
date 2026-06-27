@@ -30,6 +30,14 @@ export interface CryptoSessionContextValue {
   containerId: string | null;
   authToken: string | null;
   isAuthenticated: boolean;
+  /**
+   * Whether the attempt to restore a persisted crypto session for the current
+   * identity has settled — `false` while a restore is in flight, `true` once it
+   * finishes (or there is no persisted session). The identity autopilot waits
+   * for this before auto-registering so a returning user's restored session is
+   * used instead of registering a duplicate one on every reload.
+   */
+  sessionRestoreSettled: boolean;
   setUserId: (id: string | null) => void;
   setOrganizationId: (id: string | null) => void;
   setContainerId: (id: string | null) => void;
@@ -173,8 +181,13 @@ function useRestorePersistedSession(input: {
       clearInFlightFingerprint();
       return;
     }
+    if (!localPersistence) {
+      // No persisted session source: the restore attempt is trivially settled.
+      setCheckedFingerprint(signingFingerprint);
+      clearInFlightFingerprint();
+      return;
+    }
     if (
-      !localPersistence ||
       checkedFingerprint === signingFingerprint ||
       inFlightFingerprint.current === signingFingerprint
     ) {
@@ -193,11 +206,14 @@ function useRestorePersistedSession(input: {
           return;
         }
         clearInFlightFingerprint();
-        setCheckedFingerprint(signingFingerprint);
+        // Apply the restored session before marking the restore settled so a
+        // consumer reacting to `sessionRestoreSettled` already sees the restored
+        // userId (and does not, e.g., auto-register over a live session).
         if (persistedSession) {
           tearleads.session.setContext(persistedSession);
           log("Restored persisted crypto session");
         }
+        setCheckedFingerprint(signingFingerprint);
       })
       .catch((error: unknown) => {
         if (cancelled) {
@@ -385,6 +401,8 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     signingFingerprint,
   });
   const { login, loginWithChallenge, logout } = useCryptoAuthActions(tearleads);
+  const sessionRestoreSettled =
+    checkedPersistedSessionFingerprint === signingFingerprint;
 
   return (
     <CryptoSessionContext.Provider
@@ -394,6 +412,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
         containerId: sessionState.containerId,
         authToken: sessionState.authToken,
         isAuthenticated: sessionState.isAuthenticated,
+        sessionRestoreSettled,
         setUserId: sessionState.setUserId,
         setOrganizationId: sessionState.setOrganizationId,
         setContainerId: sessionState.setContainerId,

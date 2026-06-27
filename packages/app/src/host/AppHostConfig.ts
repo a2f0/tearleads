@@ -11,6 +11,20 @@ export type CreateLocalKeyringFn = () => LocalKeyring;
 export type PaneRuntimePolicy = "shared" | "isolated";
 
 export interface AppHostFeatureFlags {
+  /**
+   * Derive an identity key pair (signing + encapsulation keys) automatically on
+   * boot when none exists, instead of waiting for the user to click "Generate
+   * Key Pair". Gated on the local keychain being unlocked and the initial
+   * persisted-identity restore having settled, so a returning user's stored
+   * identity is restored rather than clobbered by a freshly generated one.
+   */
+  readonly autoGenerateIdentity: boolean;
+  /**
+   * Register the current identity automatically as soon as it is registerable
+   * (key pair present, root container bootstrapped, not yet registered),
+   * provisioning the org and logging the user in without a manual "Register".
+   */
+  readonly autoRegisterIdentity: boolean;
   readonly explorerPeerSharing: boolean;
   readonly panePeerUserIds: boolean;
 }
@@ -28,6 +42,8 @@ export const APP_HOST_PROFILES = {
   app: {
     defaultSplit: false,
     features: {
+      autoGenerateIdentity: true,
+      autoRegisterIdentity: true,
       explorerPeerSharing: false,
       panePeerUserIds: false,
     },
@@ -36,6 +52,8 @@ export const APP_HOST_PROFILES = {
   demo: {
     defaultSplit: true,
     features: {
+      autoGenerateIdentity: true,
+      autoRegisterIdentity: true,
       explorerPeerSharing: true,
       panePeerUserIds: true,
     },

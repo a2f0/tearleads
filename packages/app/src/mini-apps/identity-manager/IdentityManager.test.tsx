@@ -11,9 +11,10 @@ import {
   within,
 } from "@testing-library/react";
 import { type PropsWithChildren, useEffect } from "react";
+import { withManualIdentity } from "../../../test/helpers/manualIdentityProfile";
 import { MockWorker } from "../../../test/helpers/mockWorker";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
-import { AppHostConfig } from "../../host/AppHostConfig";
+import { APP_HOST_PROFILES, AppHostConfig } from "../../host/AppHostConfig";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { IdentityManager } from "./IdentityManager";
@@ -41,6 +42,8 @@ class TestWebSocket extends EventTarget {
   close() {}
 }
 
+// These tests drive the manual identity flow (Generate Key Pair / Register), so
+// disable the boot-time autopilot that would otherwise provision first.
 const TEST_HOST_CONFIG = new AppHostConfig(
   "http://api.example.test",
   "ws://events.example.test",
@@ -48,7 +51,7 @@ const TEST_HOST_CONFIG = new AppHostConfig(
     createSQLiteRuntime({
       workerConstructor: MockWorker,
     }),
-);
+).withOverrides({ profile: withManualIdentity(APP_HOST_PROFILES.app) });
 
 function TearleadsProbe({
   onReady,

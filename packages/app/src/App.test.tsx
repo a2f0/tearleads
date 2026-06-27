@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { withManualIdentity } from "../test/helpers/manualIdentityProfile";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
 import { APP_HOST_PROFILES, createAppHostConfig } from "./host/AppHostConfig";
@@ -29,15 +30,24 @@ type TestAppHostConfigOptions = Partial<
     Parameters<typeof createAppHostConfig>[0],
     "createSQLiteRuntime" | "navigationMode" | "profile"
   >
->;
+> & {
+  // Keep the profile's identity autopilot on. Defaults to off so these smoke
+  // tests drive the manual generate/register flow without it provisioning first.
+  readonly autoProvisionIdentity?: boolean | undefined;
+};
 
-function createTestAppHostConfig(options: TestAppHostConfigOptions = {}) {
+function createTestAppHostConfig({
+  autoProvisionIdentity = false,
+  profile = APP_HOST_PROFILES.app,
+  ...options
+}: TestAppHostConfigOptions = {}) {
   return createAppHostConfig({
     apiBaseUrl: "http://localhost:3001",
     createSQLiteRuntime: () =>
       createSQLiteRuntime({
         workerConstructor: MockWorker,
       }),
+    profile: autoProvisionIdentity ? profile : withManualIdentity(profile),
     wsUrl: "ws://localhost:3002",
     ...options,
   });
