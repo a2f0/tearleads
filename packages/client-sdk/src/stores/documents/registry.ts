@@ -141,6 +141,7 @@ export function createDocumentStoreFacade(
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       targetStore.replaceAttachment(slotId, file),
+    requestRemoteSync: () => targetStore.requestRemoteSync(),
     requestSync: () => targetStore.requestSync(),
     relink: (input) => targetStore.relink(input),
     rebindTo: (store) => connectTarget(store),

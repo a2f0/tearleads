@@ -79,6 +79,8 @@ export interface DocumentStore {
   removeAttachment: (slotId: string) => void;
   setAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
   replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) => void;
+  /** Pull remote document updates even when no websocket event marked it dirty. */
+  requestRemoteSync: () => void;
   requestSync: () => void;
   relink: (input: DocumentStoreRelinkInput) => Promise<DocumentSummary | null>;
   setStructuredFields: (

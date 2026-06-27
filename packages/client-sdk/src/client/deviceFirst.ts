@@ -151,6 +151,21 @@ class DeviceFirstService implements DeviceFirst {
         };
       },
       applyReconciled: (delta) => store.applyReconciled(delta),
+      requestDocumentContentPull: (documents) => {
+        const documentLinks = containerContents.documentLinks();
+        for (const document of documents) {
+          if (!document.containerId || !document.documentId) {
+            continue;
+          }
+          documentLinks
+            .openDocument({
+              containerId: document.containerId,
+              documentId: document.documentId,
+              localId: document.id,
+            })
+            .requestRemoteSync();
+        }
+      },
       refreshTree: async () => {
         await store.getContainerStore().refresh();
       },
