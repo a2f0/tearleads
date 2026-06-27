@@ -52,7 +52,8 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
           <button
             key={w.id}
             type="button"
-            className="pane-footer-window"
+            className="tearleads-action-button pane-footer-window"
+            title={w.title}
             onClick={() => restore(w.id)}
           >
             {w.title}
