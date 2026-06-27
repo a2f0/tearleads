@@ -1,5 +1,6 @@
 import { isDestroyedDatabaseClientError } from "../data/sync/syncCoordinator";
 import type { ContainerContentsStoreOptions } from "../stores/container-contents";
+import { requestRegisteredDocumentRemoteSync } from "../stores/documents/registry";
 import {
   getOrCreateLocalProjectionStore,
   type LocalProjectionReconciledDelta,
@@ -151,6 +152,18 @@ class DeviceFirstService implements DeviceFirst {
         };
       },
       applyReconciled: (delta) => store.applyReconciled(delta),
+      requestDocumentContentPull: (documents) => {
+        for (const document of documents) {
+          if (!document.documentId) {
+            continue;
+          }
+          requestRegisteredDocumentRemoteSync(
+            domainScope,
+            document.id,
+            document.documentId,
+          );
+        }
+      },
       refreshTree: async () => {
         await store.getContainerStore().refresh();
       },

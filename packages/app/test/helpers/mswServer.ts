@@ -20,10 +20,12 @@ import type {
 import { sql } from "drizzle-orm";
 import { HttpResponse, http, ws } from "msw";
 import { setupServer } from "msw/node";
+import { createMswEventRouter, type MswSocketClient } from "./mswEventRouter";
 
 export const wsUrl = "ws://localhost:3002";
 
 const eventsSocket = ws.link(wsUrl);
+const eventRouter = createMswEventRouter(eventsSocket);
 const proxiedApiRequests: Array<{
   authorization: string | null;
   method: string;
@@ -393,10 +395,7 @@ async function createRootMetadataDocumentResponse(
 
 const server = setupServer(
   eventsSocket.addEventListener("connection", ({ client }) => {
-    // Mirror the real server: send the reconnect interest baseline (empty in the
-    // mock) so the client starts declaring container interest. The mock then
-    // broadcasts every event to all clients regardless of interest.
-    client.send(JSON.stringify({ type: "interest_state", containerIds: [] }));
+    eventRouter.handleConnection(client as MswSocketClient);
   }),
   http.post("http://localhost:3001/auth/register", async ({ request }) => {
     const requestBody = await request.json().catch(() => null);
@@ -717,7 +716,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     const keyValueStore = createInMemoryKeyValueStore();
     const eventPublisher = {
       publish: async (event: Record<string, unknown>) => {
-        eventsSocket.broadcast(JSON.stringify(event));
+        eventRouter.publish(event);
       },
     };
     const runtime = {
@@ -897,6 +896,7 @@ export async function resetMockServer(
   activeProxiedApiRequestCount = 0;
   mockAuthContext = null;
   mockEncapsulationKeysByUserId.clear();
+  eventRouter.clear();
   proxiedApiRequests.length = 0;
   server.resetHandlers();
 }

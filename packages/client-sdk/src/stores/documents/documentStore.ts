@@ -100,6 +100,15 @@ function updateDocumentStoreRuntime(
   }
 }
 
+function requestRemoteDocumentStoreSync(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+): void {
+  state.remoteUpdatePending = true;
+  state.remoteUpdateSignalSeq += 1;
+  scheduleSync();
+}
+
 function createBackingDocumentStore(
   localId: string,
   initialRuntime: DocumentsRuntime,
@@ -134,6 +143,8 @@ function createBackingDocumentStore(
       setAttachmentInDocumentStore(state, scheduleSync, slotId, file),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
+    requestRemoteSync: () =>
+      requestRemoteDocumentStoreSync(state, scheduleSync),
     requestSync: () => scheduleSync(),
     relink: (input) => relinkDocumentStore(state, input, scheduleSync),
     setStructuredFields: (kind, patch) =>

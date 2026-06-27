@@ -325,6 +325,61 @@ test("document store skips clean read-only syncs until a remote update event arr
   ]);
 });
 
+test("document store forced remote sync pulls a clean remote document without an event", async () => {
+  const persistence = createDocumentsPersistence();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const syncDocumentCalls: Array<{
+    minLsn: string | null;
+    outgoingUpdateCount: number;
+  }> = [];
+  const runtime = await createSyncRuntime(
+    encapsulationKeyPair,
+    "root-container",
+    {
+      syncCalls: syncDocumentCalls,
+    },
+  );
+  const store = createDocumentStore("forced-clean-sync", runtime, persistence);
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Forced clean sync store did not become ready.",
+  );
+
+  store.setText("hello");
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 1 &&
+      persistence.getState().pendingUpdates.length === 0 &&
+      persistence.getState().document?.lastCommitLsn === "0/10" &&
+      !store.getSnapshot().syncing,
+    "Initial forced-clean-sync document write did not settle.",
+  );
+
+  store.requestRemoteSync();
+
+  await waitForCondition(
+    () =>
+      syncDocumentCalls.length === 2 &&
+      persistence.getState().document?.lastCommitLsn === "0/20" &&
+      !store.getSnapshot().syncing,
+    "Forced remote sync did not perform a clean read-only document pull.",
+  );
+
+  expect(syncDocumentCalls).toEqual([
+    {
+      minLsn: null,
+      outgoingUpdateCount: 1,
+    },
+    {
+      minLsn: "0/10",
+      outgoingUpdateCount: 0,
+    },
+  ]);
+});
+
 test("document store ignores update events for locally accepted writes", async () => {
   const persistence = createDocumentsPersistence();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

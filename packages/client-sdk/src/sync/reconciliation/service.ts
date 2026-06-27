@@ -1,3 +1,4 @@
+import type { DocumentSummary } from "../../data/documentSummary";
 import type { DomainScope } from "../../data/domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
@@ -34,6 +35,10 @@ export interface ReconciliationHost {
   ) => Promise<LocalProjectionReconciledDelta>;
   /** Push a reconciled delta into the local projection store. */
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
+  /** Force a document body pull for documents refreshed without an event. */
+  requestDocumentContentPull?: (
+    documents: ReadonlyArray<DocumentSummary>,
+  ) => void;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
   /** True if the destroyed-db error should be swallowed rather than surfaced. */
@@ -77,11 +82,15 @@ interface ReconciliationState {
 async function reconcileOneContainer(
   host: ReconciliationHost,
   containerId: string,
+  options: { forceDocumentContentPull?: boolean } = {},
 ): Promise<void> {
   try {
     await host.discoverContainerDocuments(containerId);
     const delta = await host.loadContainerDelta(containerId);
     host.applyReconciled(delta);
+    if (options.forceDocumentContentPull) {
+      host.requestDocumentContentPull?.(delta.documentSummaries);
+    }
   } catch (error) {
     if (host.isIgnorableError(error)) {
       return;
@@ -106,7 +115,9 @@ async function sweepKnownContainers(
   let firstError: unknown;
   for (const containerId of knownIds) {
     try {
-      await reconcileOneContainer(host, containerId);
+      await reconcileOneContainer(host, containerId, {
+        forceDocumentContentPull: true,
+      });
     } catch (error) {
       if (!host.isIgnorableError(error) && firstError === undefined) {
         firstError = error;
