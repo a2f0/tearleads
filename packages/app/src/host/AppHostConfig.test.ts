@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { APP_HOST_PROFILES, resolveAppHostProfile } from "./AppHostConfig";
+import {
+  APP_HOST_PROFILES,
+  resolveAppHostProfile,
+  resolveEventsWebSocketUrl,
+} from "./AppHostConfig";
 
 test("resolveAppHostProfile returns the app profile when the variant is unset", () => {
   expect(resolveAppHostProfile(undefined)).toBe(APP_HOST_PROFILES.app);
@@ -31,4 +35,31 @@ test("resolveAppHostProfile throws on an unknown variant id", () => {
   expect(() => resolveAppHostProfile("notes")).toThrow(
     "Unknown app host variant: notes",
   );
+});
+
+test("resolveEventsWebSocketUrl derives the events path from the API URL", () => {
+  expect(resolveEventsWebSocketUrl("https://api.tearleads.com")).toBe(
+    "wss://api.tearleads.com/events",
+  );
+  expect(resolveEventsWebSocketUrl("http://localhost:3001")).toBe(
+    "ws://localhost:3001/events",
+  );
+});
+
+test("resolveEventsWebSocketUrl normalizes explicit root websocket URLs", () => {
+  expect(
+    resolveEventsWebSocketUrl(
+      "https://api.tearleads.com",
+      "wss://api.tearleads.com",
+    ),
+  ).toBe("wss://api.tearleads.com/events");
+});
+
+test("resolveEventsWebSocketUrl preserves explicit websocket paths", () => {
+  expect(
+    resolveEventsWebSocketUrl(
+      "https://api.tearleads.com",
+      "wss://events.tearleads.com/socket",
+    ),
+  ).toBe("wss://events.tearleads.com/socket");
 });

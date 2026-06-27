@@ -160,3 +160,15 @@ export function createAppHostConfig(
     options.profile,
   );
 }
+
+export function resolveEventsWebSocketUrl(
+  apiBaseUrl: string,
+  configuredWsUrl?: string | undefined,
+): string {
+  const rawWsUrl = configuredWsUrl ?? apiBaseUrl.replace(/^http/iu, "ws");
+  const url = new URL(rawWsUrl);
+  if (url.pathname === "" || url.pathname === "/") {
+    url.pathname = "/events";
+  }
+  return url.toString();
+}

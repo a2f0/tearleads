@@ -95,6 +95,30 @@ test("rejects websocket upgrades on non-events paths without consuming tickets",
   expect(upgradeCalled).toBe(false);
 });
 
+test("upgrades legacy root websocket path with a valid ticket", async () => {
+  const identity: WebSocketTicketIdentity = {
+    sessionId: TEST_SESSION_ID,
+    userId: TEST_USER_ID,
+  };
+  const ticket = await issueWebSocketTicket(identity);
+  const consume = createWebSocketTicketConsumer(async () => true);
+
+  let boundData: unknown;
+  const res = await resolveWebSocketUpgrade(
+    websocketUpgradeRequest(ticket, "/"),
+    {
+      upgrade(_req, options) {
+        boundData = options?.data;
+        return true;
+      },
+    },
+    consume,
+  );
+
+  expect(res).toBeUndefined();
+  expect(boundData).toEqual(identity);
+});
+
 test("upgrades with a valid ticket, binds identity, and consumes it", async () => {
   const identity: WebSocketTicketIdentity = {
     sessionId: TEST_SESSION_ID,
