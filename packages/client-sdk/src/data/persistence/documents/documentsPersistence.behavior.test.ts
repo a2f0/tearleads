@@ -6,7 +6,7 @@ const emptyDocumentState = {
   contentKeyBundle: null,
   documentKekTargets: null,
   documentManifestBundle: null,
-  effectiveAccessLevel: "admin" as const,
+  effectiveAccessLevel: "read" as const,
 };
 
 test("concurrent document saves are serialized on a shared SQLite connection", async () => {
@@ -94,7 +94,7 @@ test("upsertDiscoveredDocument reuses an existing local note bound to the remote
       containerId: "shared-container",
       documentKind: "note",
       documentId: "remote-document",
-      effectiveAccessLevel: "admin",
+      effectiveAccessLevel: "read",
       title: "Existing local note",
       updatedAt: "2026-04-05T00:00:00.000Z",
     });
@@ -278,7 +278,7 @@ test("upsertDiscoveredDocument preserves the active local container when another
       containerId: "container-a",
       documentKind: "note",
       documentId: "remote-document",
-      effectiveAccessLevel: "admin",
+      effectiveAccessLevel: "read",
       title: "Existing local note",
       updatedAt: "2026-04-05T01:00:00.000Z",
     });
@@ -343,7 +343,7 @@ test("relinkPersistedDocument updates the stored container and clears stale bund
       containerId: "container-b",
       documentKind: "note",
       documentId: "remote-document",
-      effectiveAccessLevel: "admin",
+      effectiveAccessLevel: "read",
       title: "Existing local note",
       updatedAt: "2026-04-05T02:00:00.000Z",
     });

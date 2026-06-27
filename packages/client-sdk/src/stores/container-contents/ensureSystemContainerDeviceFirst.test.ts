@@ -78,6 +78,7 @@ async function seedLocalRootContainer(execSql: ExecSql): Promise<void> {
     {
       icon: null,
       id: ROOT_CONTAINER_ID,
+      effectiveAccessLevel: "admin",
       metadataDocumentId: "device-first-root-metadata-document",
       name: "/",
       organizationId: "org-1",

@@ -25,6 +25,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
     await ensureDocumentTables(runtime.infra.execSql);
     await saveContainer(runtime.infra.execSql, {
       id: "root-container",
+      effectiveAccessLevel: "admin",
       organizationId: "org-1",
       parentId: null,
       metadataDocumentId: null,

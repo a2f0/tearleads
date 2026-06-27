@@ -91,6 +91,7 @@ async function seedContainerWithDocument(
   await defaultContainerContentsPersistence.saveContainer(
     execSql,
     {
+      effectiveAccessLevel: "admin",
       icon: null,
       id: input.containerId,
       metadataDocumentId: `${input.containerId}-metadata`,

@@ -213,6 +213,7 @@ test("loadContainerInfo returns local details without network for unsynced conta
     await ensureContainerTables(execSql);
     await saveContainer(execSql, {
       id: "root-container",
+      effectiveAccessLevel: "admin",
       organizationId: "org-1",
       parentId: null,
       metadataDocumentId: null,

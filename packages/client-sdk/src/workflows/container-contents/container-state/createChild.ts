@@ -126,6 +126,8 @@ async function buildRemoteContainerContentsChildContainerState(input: {
   return {
     container: {
       id: created.containerId,
+      // The creator owns a newly-created container until the server reconciles.
+      effectiveAccessLevel: "admin",
       organizationId: created.organizationId,
       parentId: created.parentId,
       metadataDocumentId: created.metadataDocumentId,
@@ -161,6 +163,7 @@ function buildLocalContainerContentsChildContainerState(input: {
   return {
     container: {
       id: childId,
+      effectiveAccessLevel: "admin",
       organizationId: parentState.container.organizationId,
       parentId: parentState.container.id,
       metadataDocumentId: null,

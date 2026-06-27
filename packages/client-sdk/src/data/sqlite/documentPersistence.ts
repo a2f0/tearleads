@@ -6,7 +6,7 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   await ensureSqlColumns(execSql, "documents", [
     {
       name: "effective_access_level",
-      definition: "\"effective_access_level\" TEXT NOT NULL DEFAULT 'admin'",
+      definition: "\"effective_access_level\" TEXT NOT NULL DEFAULT 'read'",
     },
   ]);
 }

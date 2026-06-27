@@ -209,6 +209,7 @@ test("container contents store publishes cached containers before startup hydrat
       {
         icon: null,
         id: "cached-root",
+        effectiveAccessLevel: "admin",
         metadataDocumentId: "cached-root-metadata-document",
         name: "/",
         organizationId: "org-1",
@@ -317,6 +318,7 @@ test("refresh re-lists the root lane unwatermarked to surface a newly shared roo
       {
         icon: null,
         id: "peer-root",
+        effectiveAccessLevel: "admin",
         metadataDocumentId: "peer-root-metadata-document",
         name: "/",
         organizationId: "org-1",

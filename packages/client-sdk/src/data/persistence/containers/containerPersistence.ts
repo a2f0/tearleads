@@ -54,7 +54,7 @@ export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlColumns(execSql, "containers", [
     {
       name: "effective_access_level",
-      definition: "\"effective_access_level\" TEXT NOT NULL DEFAULT 'admin'",
+      definition: "\"effective_access_level\" TEXT NOT NULL DEFAULT 'read'",
     },
   ]);
 }

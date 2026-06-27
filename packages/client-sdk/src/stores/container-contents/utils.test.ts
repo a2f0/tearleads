@@ -10,6 +10,7 @@ async function createContainerState(
     container: {
       icon: input.icon,
       id: input.id,
+      effectiveAccessLevel: "admin",
       metadataDocumentId: "metadata-document",
       name: "Documents",
       organizationId: "org-1",

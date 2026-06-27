@@ -24,6 +24,7 @@ test("containerContents container saves display server timestamps separately fro
       execSql,
       {
         id: "container-1",
+        effectiveAccessLevel: "admin",
         organizationId: "org-1",
         parentId: null,
         metadataDocumentId: null,
@@ -63,6 +64,7 @@ test("container display name lookup only returns requested local containers", as
       execSql,
       {
         id: "container-1",
+        effectiveAccessLevel: "admin",
         organizationId: "org-1",
         parentId: null,
         metadataDocumentId: null,
@@ -75,6 +77,7 @@ test("container display name lookup only returns requested local containers", as
       execSql,
       {
         id: "container-2",
+        effectiveAccessLevel: "admin",
         organizationId: "org-1",
         parentId: null,
         metadataDocumentId: null,
@@ -168,6 +171,7 @@ test("containerContents system container reconciliation adopts local rows into t
       execSql,
       {
         id: "remote-system",
+        effectiveAccessLevel: "admin",
         organizationId: "remote-org",
         parentId: "remote-root",
         metadataDocumentId: "remote-system",
@@ -181,6 +185,7 @@ test("containerContents system container reconciliation adopts local rows into t
       execSql,
       {
         id: "local-system",
+        effectiveAccessLevel: "admin",
         organizationId: "local-org",
         parentId: "local-root",
         metadataDocumentId: null,
@@ -197,6 +202,7 @@ test("containerContents system container reconciliation adopts local rows into t
       execSql,
       {
         id: "local-child",
+        effectiveAccessLevel: "admin",
         organizationId: "local-org",
         parentId: "local-system",
         metadataDocumentId: null,
