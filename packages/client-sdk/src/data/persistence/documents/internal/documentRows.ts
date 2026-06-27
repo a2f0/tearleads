@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { normalizeEffectiveAccessLevel } from "../../../accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import {
   type DocumentRecord as BaseDocumentRecord,
@@ -66,7 +67,9 @@ function toDocumentRecordRow(input: {
     loroSnapshot: document.loroSnapshot,
     accessEpoch: document.accessEpoch,
     accessStateHash: document.accessStateHash ?? null,
-    effectiveAccessLevel: document.effectiveAccessLevel ?? "admin",
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      document.effectiveAccessLevel,
+    ),
     lastCommitLsn: document.lastCommitLsn ?? null,
     documentManifestBundle: document.documentManifestBundle ?? null,
     contentKeyBundle: document.contentKeyBundle ?? null,

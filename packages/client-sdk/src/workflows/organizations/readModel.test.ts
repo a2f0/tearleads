@@ -303,6 +303,7 @@ test("organization read models include local container display names", async () 
     await ensureContainerTables(execSql);
     await saveContainer(execSql, {
       id: "container-1",
+      effectiveAccessLevel: "admin",
       organizationId,
       parentId: null,
       metadataDocumentId: null,

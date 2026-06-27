@@ -160,6 +160,7 @@ test("shareContainerState treats an existing matching user grant as an idempoten
     const containerState: ContainerState = {
       container: {
         id: containerId,
+        effectiveAccessLevel: "admin",
         organizationId: author.organizationId,
         parentId: null,
         metadataDocumentId: "stale-metadata-document",
@@ -283,6 +284,7 @@ test("shareContainerState reuses the idempotency projection for a new user share
     const containerState: ContainerState = {
       container: {
         id: containerId,
+        effectiveAccessLevel: "admin",
         organizationId: author.organizationId,
         parentId: null,
         metadataDocumentId: `${containerId}-metadata-document`,

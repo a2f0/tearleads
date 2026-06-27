@@ -33,6 +33,7 @@ async function bootstrapRootContainerFromExecSql(
     const containerId = crypto.randomUUID();
     await saveContainer(lockedExecSql, {
       id: containerId,
+      effectiveAccessLevel: "admin",
       organizationId: "",
       parentId: null,
       metadataDocumentId: null,

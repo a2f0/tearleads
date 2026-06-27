@@ -17,6 +17,7 @@ export async function saveTestContainer(input: {
     {
       icon: null,
       id: input.id,
+      effectiveAccessLevel: "admin",
       metadataDocumentId: null,
       name: input.name,
       organizationId: input.organizationId ?? "org-1",

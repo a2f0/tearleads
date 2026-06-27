@@ -27,6 +27,7 @@ function createContainerRecord(
   input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
 ): ContainerRecord {
   return {
+    effectiveAccessLevel: "admin",
     icon: null,
     metadataDocumentId: null,
     name: "Stored container",

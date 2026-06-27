@@ -133,6 +133,7 @@ async function persistRootContainerBootstrap(
     execSql,
     {
       id: input.containerId,
+      effectiveAccessLevel: "admin",
       organizationId: input.organizationId,
       parentId: null,
       metadataDocumentId: input.rootMetadataDocumentId,
@@ -172,6 +173,7 @@ async function persistRosterProfileContainerBootstrap(
     execSql,
     {
       id: rosterProfileContainer.containerId,
+      effectiveAccessLevel: "admin",
       organizationId: input.organizationId,
       parentId: input.containerId,
       metadataDocumentId: rosterProfileContainer.metadataDocumentId,

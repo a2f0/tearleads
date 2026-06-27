@@ -29,6 +29,7 @@ function remoteContainerState(input: {
   return {
     container: {
       id: input.id,
+      effectiveAccessLevel: "admin",
       icon: null,
       metadataDocumentId: `metadata-${input.id}`,
       name: input.id,

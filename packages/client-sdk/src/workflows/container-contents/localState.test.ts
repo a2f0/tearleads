@@ -40,6 +40,7 @@ function createContainerRecord(
   input: Partial<ContainerRecord> & Pick<ContainerRecord, "id" | "parentId">,
 ): ContainerRecord {
   return {
+    effectiveAccessLevel: "admin",
     icon: null,
     metadataDocumentId: null,
     name: "Stored container",
@@ -138,6 +139,7 @@ async function saveSyncedStoredContainer(input: {
     {
       icon: null,
       id: input.id,
+      effectiveAccessLevel: "admin",
       metadataDocumentId,
       name: input.storedName,
       organizationId: "org-1",
