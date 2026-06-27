@@ -104,6 +104,29 @@ export function requestDocumentStoreSync(state: {
   state.syncLane?.requestSync();
 }
 
+export function requestRegisteredDocumentRemoteSync(
+  domainScope: DomainScope,
+  localId: string,
+  documentId: string | null,
+): boolean {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  if (!registry) {
+    return false;
+  }
+
+  const store = registry.storesByKey.get(
+    resolveDocumentStoreKey(registry, localId, documentId),
+  );
+  if (!store) {
+    return false;
+  }
+
+  // Explicit refresh uses this path to recover missed websocket invalidations
+  // without instantiating every unopened document discovered in the container.
+  store.requestRemoteSync();
+  return true;
+}
+
 export function createDocumentStoreFacade(
   initialStore: DocumentStore,
 ): DocumentStoreFacade {
