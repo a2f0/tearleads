@@ -129,6 +129,14 @@ export interface ContainerContentsPersistence {
   listPendingMoveIntents: (
     execSql: ExecSql,
   ) => Promise<ContainerMoveIntentRecord[]>;
+  // Every move intent that has not yet synced, regardless of syncStatus —
+  // a blocked move (destination parent not synced yet) is still unsynced.
+  // Synced moves are deleted, so any surviving row qualifies. Use this where a
+  // 'pending'-only view would miss blocked intents (e.g. hydration must not
+  // revert a blocked local move's parent to the server value).
+  listUnsyncedMoveIntents: (
+    execSql: ExecSql,
+  ) => Promise<ContainerMoveIntentRecord[]>;
   listContainerIdsWithPendingUpdates: (
     execSql: ExecSql,
     containerIds: ReadonlyArray<string>,
@@ -962,6 +970,31 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
           eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
         ),
       )
+      .orderBy(asc(containerMoveIntents.createdAt));
+
+    return rows.map((row) => mapContainerMoveIntentRecord(row));
+  },
+
+  async listUnsyncedMoveIntents(execSql) {
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    // No syncStatus filter: synced moves are deleted (see markMoveIntentSynced),
+    // so every surviving row is unsynced — including 'blocked' ones whose
+    // destination parent has not synced yet.
+    const rows = await db
+      .select({
+        id: containerMoveIntents.id,
+        containerId: containerMoveIntents.containerId,
+        parentContainerId: containerMoveIntents.parentContainerId,
+        previousParentContainerId:
+          containerMoveIntents.previousParentContainerId,
+        syncStatus: containerMoveIntents.syncStatus,
+        lastError: containerMoveIntents.lastError,
+        lastAttemptedAt: containerMoveIntents.lastAttemptedAt,
+        createdAt: containerMoveIntents.createdAt,
+        updatedAt: containerMoveIntents.updatedAt,
+      })
+      .from(containerMoveIntents)
+      .where(eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE))
       .orderBy(asc(containerMoveIntents.createdAt));
 
     return rows.map((row) => mapContainerMoveIntentRecord(row));

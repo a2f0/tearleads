@@ -74,6 +74,9 @@ function createContainerContentsPersistence(input: {
     async listPendingMoveIntents() {
       return [];
     },
+    async listUnsyncedMoveIntents() {
+      return [];
+    },
     async listContainerIdsWithPendingUpdates() {
       return [];
     },
