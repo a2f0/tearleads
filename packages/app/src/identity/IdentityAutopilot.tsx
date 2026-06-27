@@ -3,6 +3,7 @@ import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
+import { useLog } from "../providers/logging/LogProvider";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 /**
@@ -35,6 +36,7 @@ function useAutoProvisionIdentity(enabled: boolean): void {
   const { sessionRestoreSettled } = useCryptoSession();
   const { canRegisterCurrentIdentity, registerCurrentIdentity } =
     useRegisterCurrentIdentity();
+  const { logError } = useLog();
   const registrationInFlight = useRef(false);
 
   useEffect(() => {
@@ -84,13 +86,21 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     // re-render while the request is outstanding) from firing a second
     // registration; on success canRegisterCurrentIdentity flips false.
     registrationInFlight.current = true;
-    void registerCurrentIdentity().finally(() => {
-      registrationInFlight.current = false;
-    });
+    void registerCurrentIdentity()
+      .catch((error: unknown) => {
+        // No UI surface here (unlike the manual Identity Manager flow), so log
+        // and swallow to avoid an unhandled rejection; the manual Register
+        // action remains available as a fallback.
+        logError("Failed to auto-register identity", error);
+      })
+      .finally(() => {
+        registrationInFlight.current = false;
+      });
   }, [
     canRegisterCurrentIdentity,
     enabled,
     features.autoRegisterIdentity,
+    logError,
     registerCurrentIdentity,
     sessionRestoreSettled,
   ]);
