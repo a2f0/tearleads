@@ -1,5 +1,5 @@
 import type { ContainerState } from "../remoteHydration";
-import { createRemoteContainer } from "./remote";
+import { createRemoteContainer, deleteRemoteContainer } from "./remote";
 import type {
   ContainerCreateIntentSyncHost,
   ContainerCreateIntentSyncInput,
@@ -157,6 +157,21 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
       intent.containerId,
       "Remote container create was rejected or unavailable",
     );
+    return "failed";
+  }
+
+  if (!state.containersById.has(intent.containerId)) {
+    // The container was deleted locally while its remote create was in flight:
+    // frontend writes run on the store's write chain, outside this sync lane, so
+    // a delete can land between the createRemoteContainer await above and the
+    // persist below. Re-inserting the container's just-deleted rows here would
+    // resurrect a container the user removed. The local delete already cascaded
+    // away this create intent (see deleteContainer), so there is nothing to mark
+    // synced — discard the now-orphaned remote container we created instead.
+    await deleteRemoteContainer({
+      containerId: created.containerId,
+      runtime: state.runtime,
+    }).catch(() => undefined);
     return "failed";
   }
 
