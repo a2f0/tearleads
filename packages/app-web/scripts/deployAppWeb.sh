@@ -75,7 +75,7 @@ build_app_web() {
   (cd "$APP_WEB_DIR" && \
     BUN_PUBLIC_APP_VARIANT="$variant" \
     BUN_PUBLIC_API_BASE_URL="https://api.${DOMAIN}" \
-    BUN_PUBLIC_WS_URL="wss://api.${DOMAIN}" \
+    BUN_PUBLIC_WS_URL="wss://api.${DOMAIN}/events" \
     bun run build)
 }
 

@@ -2,6 +2,7 @@ import { renderApp } from "app/client";
 import {
   createAppHostConfig,
   resolveAppHostProfile,
+  resolveEventsWebSocketUrl,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
 
@@ -12,8 +13,10 @@ if (!elem) {
 
 const apiBaseUrl =
   process.env.BUN_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
-const wsUrl =
-  process.env.BUN_PUBLIC_WS_URL ?? apiBaseUrl.replace(/^http/, "ws");
+const wsUrl = resolveEventsWebSocketUrl(
+  apiBaseUrl,
+  process.env.BUN_PUBLIC_WS_URL,
+);
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
