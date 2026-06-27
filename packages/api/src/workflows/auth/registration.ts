@@ -58,9 +58,8 @@ import { syncOrganizationRosterFromMemberReachability } from "../organizations/r
 import { toPrincipalPolicyError } from "../principals/shared";
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
-const INITIAL_ADMIN_GROUP_NAME = "Admins";
-const INITIAL_MEMBER_GROUP_NAME = "Members";
-
+const ADMIN_GROUP_NAME = "Admins";
+const MEMBER_GROUP_NAME = "Members";
 export class RegistrationError extends Error {
   constructor(
     message: string,
@@ -73,7 +72,6 @@ export class RegistrationError extends Error {
 function registerShapeError(message: string): RegistrationError {
   return new RegistrationError(message, 400);
 }
-
 function isKekRecipientKind(
   value: unknown,
 ): value is ContainerKeyWrap["recipientKind"] {
@@ -134,6 +132,7 @@ async function createRegisteredUser(
     encapsulationFingerprint: string;
     encapsulationKeyBytes: Uint8Array;
     fingerprint: string;
+    ip: string | null;
     organizationId: string;
     userId: string;
     signingKeyBytes: Uint8Array;
@@ -148,6 +147,7 @@ async function createRegisteredUser(
       encapsulationPublicKey: bytesToBase64(input.encapsulationKeyBytes),
       encapsulationKeyFingerprint: input.encapsulationFingerprint,
       defaultOrganizationId: input.organizationId,
+      registrationSourceIpAddress: input.ip,
       ...createTrialAccountFields(),
     })
     .onConflictDoNothing({ target: users.fingerprint })
@@ -235,7 +235,7 @@ function validateInitialAdminGroupInput(
   const { groupId, initialGroupPolicy } = input.initialAdminGroup;
   const { memberEnvelopes, projection, state } = initialGroupPolicy;
 
-  if (input.initialAdminGroup.name.trim() !== INITIAL_ADMIN_GROUP_NAME) {
+  if (input.initialAdminGroup.name.trim() !== ADMIN_GROUP_NAME) {
     throw new RegistrationError("initialAdminGroup name must be Admins", 400);
   }
 
@@ -312,7 +312,7 @@ function validateInitialMemberGroupInput(
     );
   }
 
-  if (input.initialMemberGroup.name.trim() !== INITIAL_MEMBER_GROUP_NAME) {
+  if (input.initialMemberGroup.name.trim() !== MEMBER_GROUP_NAME) {
     throw new RegistrationError("initialMemberGroup name must be Members", 400);
   }
 
@@ -423,7 +423,7 @@ async function createInitialAdminGroup(
     .values({
       id: input.initialAdminGroup.groupId,
       organizationId,
-      name: INITIAL_ADMIN_GROUP_NAME,
+      name: ADMIN_GROUP_NAME,
     })
     .returning({ id: groups.id });
 
@@ -444,7 +444,7 @@ async function createInitialMemberGroup(
     .values({
       id: input.initialMemberGroup.groupId,
       organizationId,
-      name: INITIAL_MEMBER_GROUP_NAME,
+      name: MEMBER_GROUP_NAME,
     })
     .returning({ id: groups.id });
 
@@ -1074,6 +1074,7 @@ async function runRegistrationTransaction(
   encapsulationFingerprint: string,
   signingKeyBytes: Uint8Array,
   encapsulationKeyBytes: Uint8Array,
+  ip: string | null,
 ) {
   return db.transaction(async (tx) => {
     const org = await createPersonalOrganization(tx, {
@@ -1090,6 +1091,7 @@ async function runRegistrationTransaction(
       encapsulationFingerprint,
       encapsulationKeyBytes,
       fingerprint,
+      ip,
       organizationId: org.id,
       userId: input.userId,
       signingKeyBytes,
@@ -1180,6 +1182,7 @@ export async function runRegistrationWorkflow(
     readonly encapsulationFingerprint: string;
     readonly encapsulationKeyBytes: Uint8Array;
     readonly fingerprint: string;
+    readonly ip: string | null;
     readonly signingKeyBytes: Uint8Array;
   },
 ) {
@@ -1207,6 +1210,7 @@ export async function runRegistrationWorkflow(
       keyMaterial.encapsulationFingerprint,
       keyMaterial.signingKeyBytes,
       keyMaterial.encapsulationKeyBytes,
+      keyMaterial.ip,
     );
   } catch (error) {
     const registerPrincipalPolicyError = toRegisterPrincipalPolicyError(error);

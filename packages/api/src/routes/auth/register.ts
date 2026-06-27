@@ -2,6 +2,7 @@ import { isRegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { validator } from "hono/validator";
+import { readRequestIpAddress } from "../../middleware/session";
 import {
   isDuplicateRegistrationFingerprintError,
   RegistrationError,
@@ -23,7 +24,9 @@ export function createRegisterRoute(runtime: ApiServiceRuntime) {
     async (c) => {
       try {
         return c.json<RegistrationResponse>(
-          await registerUser(runtime, c.req.valid("json")),
+          await registerUser(runtime, c.req.valid("json"), {
+            sourceIpAddress: readRequestIpAddress(c),
+          }),
         );
       } catch (error) {
         if (isDuplicateRegistrationFingerprintError(error)) {

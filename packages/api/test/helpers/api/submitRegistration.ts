@@ -86,7 +86,10 @@ export async function submitRegistration(
 ): Promise<Response> {
   return routeApp.request("/auth/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "cf-connecting-ip": "198.51.100.10",
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify(
       await createRegistrationRequestBody(
         signingPublicKey,

@@ -22,6 +22,9 @@ import type { AccountStatus } from "./shared";
  *   value.
  * - `defaultOrganizationId`: Personal/default organization created during
  *   registration and used as the user's initial organization boundary.
+ * - `registrationSourceIpAddress`: Best-effort source IP observed on the
+ *   registration request. It is nullable when registration is created outside
+ *   an HTTP request or no usable client IP metadata is available.
  * - `accountStatus`: Lifecycle state for paid-account enforcement. Trialing
  *   and active accounts can use paid sync/org routes; disabled, deleting, and
  *   purged accounts cannot.
@@ -49,6 +52,7 @@ export const users = pgTable(
       "encapsulation_key_fingerprint",
     ).notNull(),
     defaultOrganizationId: uuid("default_organization_id").notNull(),
+    registrationSourceIpAddress: text("registration_source_ip_address"),
     accountStatus: text("account_status")
       .$type<AccountStatus>()
       .default("trialing")
