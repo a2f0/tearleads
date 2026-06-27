@@ -71,7 +71,7 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
     params;
   const creationNode = nodes.find((node) => node.id === route.containerId);
 
-  if (!creationNode || creationNode.effectiveAccessLevel === "read") {
+  if (!creationNode || !canWriteContainerNode(creationNode)) {
     return <ExplorerEmptyDetail nodes={nodes} ready={ready} />;
   }
 
