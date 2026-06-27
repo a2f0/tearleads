@@ -71,7 +71,6 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     () => tearleads.containerContents.openTree({ logLabel: "Explorer" }),
     [runtime.state.domainScope, tearleads],
   );
-  const snapshot = useTearleadsExternalStoreSnapshot(store);
   // Device-first read view (instant local tree + summaries) and the background
   // reconciler that patches it. Both share the mutation store's domain scope,
   // so reads and writes stay coherent.
@@ -82,12 +81,8 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   });
   const { contactsSystemSlot, trashSystemSlot, visibleSystemSlots } =
     useExplorerSystemProvisioning({
-      nodes: snapshot.nodes,
       signingPrivateKey:
         runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
-      organizationId: runtime.auth.organizationId,
-      rootContainerId: runtime.state.containerId,
-      isAuthenticated: runtime.auth.isAuthenticated,
       logError: tearleads.logError,
     });
   const contextValue = useMemo(

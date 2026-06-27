@@ -127,6 +127,11 @@ test(
       hostConfig: createTestHostConfig({ autoProvisionIdentity: true }),
     });
 
+    // Registration is gated on system bootstrap completing (IdentityAutopilot
+    // only registers once ensureBootstrapped() resolves completed), so a
+    // registered session is itself evidence that bootstrap ran first — the
+    // system containers and self contact asserted below already existed before
+    // any mini-app was opened.
     await waitForRegisteredSession(view);
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
 

@@ -85,7 +85,15 @@ function useAutoProvisionIdentity(enabled: boolean): void {
       // Wait for the persisted-session restore so a returning user's session is
       // adopted instead of being re-registered as a duplicate on every reload.
       !sessionRestoreSettled ||
-      systemBootstrapStatus === "waiting"
+      // Bootstrap is a precondition for registration. While it is still
+      // settling ("waiting") there is nothing to register against yet; after a
+      // failed run ("error") retrying immediately would hot-loop, since a failed
+      // ensureBootstrapped() flips status running->error and re-fires this
+      // effect. In both cases wait for a later input/status change (e.g. the
+      // runtime advancing, prerequisites arriving) to re-arm bootstrap rather
+      // than spinning here. The manual Register action remains as a fallback.
+      systemBootstrapStatus === "waiting" ||
+      systemBootstrapStatus === "error"
     ) {
       return;
     }
@@ -99,8 +107,16 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     // registration; on success canRegisterCurrentIdentity flips false.
     registrationInFlight.current = true;
     void ensureBootstrapped()
-      .then(() => {
-        if (!currentRegistrationRef.current.canRegisterCurrentIdentity) {
+      .then((result) => {
+        // System bootstrap is a hard precondition: only register once the
+        // system containers and self contact are in place. ensureBootstrapped
+        // never rejects, so a failed/incomplete run resolves with
+        // completed: false — skip registration and let a later status/input
+        // change re-arm this effect to retry bootstrap (and then register).
+        if (
+          !result.completed ||
+          !currentRegistrationRef.current.canRegisterCurrentIdentity
+        ) {
           return false;
         }
 

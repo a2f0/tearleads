@@ -6,13 +6,20 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
-function referencedPrincipalPolicyKey(
+/**
+ * Cache key for a referenced principal policy. The in-memory principal-policy
+ * cache is populated and read from several call sites; they must agree on this
+ * format byte-for-byte or a populated entry looks uncached (extra warm fetches)
+ * — so this is the single source of truth, imported rather than re-declared.
+ */
+export function referencedPrincipalPolicyKey(
   reference: ReferencedPrincipalHead,
 ): string {
   return `${reference.principalType}:${reference.principalId}:${reference.version}:${reference.stateHash}`;
 }
 
-function principalPolicyBundleStates(
+/** Flatten a bundle's previous + current states into one chain for matching. */
+export function principalPolicyBundleStates(
   bundle: PrincipalPolicyBundleResponse,
 ): PrincipalPolicyBundleResponse["currentState"][] {
   return [
@@ -21,7 +28,7 @@ function principalPolicyBundleStates(
   ];
 }
 
-function principalPolicyBundleContainsReference(
+export function principalPolicyBundleContainsReference(
   bundle: PrincipalPolicyBundleResponse,
   reference: ReferencedPrincipalHead,
 ): boolean {

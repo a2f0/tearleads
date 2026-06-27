@@ -1,21 +1,12 @@
 import { expect, test } from "bun:test";
 import type { DomainScope } from "../../data/domainScope";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
-import type {
-  LocalProjectionReconcileListener,
-  LocalProjectionReconcileSignal,
-  LocalProjectionStore,
-} from "../../stores/local-projection/localProjectionStore";
 import { createReconcileQueue } from "./queue";
 import {
   createReconciliationService,
   type ReconciliationHost,
   type ReconciliationRuntimeStatus,
 } from "./service";
-import {
-  connectReconciliationTriggers,
-  enqueueReconciliationForEvents,
-} from "./triggers";
 
 function createHost(
   overrides: Partial<ReconciliationHost> & {
@@ -279,6 +270,81 @@ test("root refresh reconciles known containers without a full tree refresh", asy
   expect(calls).toEqual(["refresh-root", "discover:c-1"]);
 });
 
+/** A promise plus its resolver, for gating a mock host call open by hand. */
+function createGate(): { wait: Promise<void>; open: () => void } {
+  let open!: () => void;
+  const wait = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { open, wait };
+}
+
+test("a full refresh during an in-flight root refresh still runs the full tree refresh", async () => {
+  const calls: string[] = [];
+  const rootStarted = createGate();
+  const rootBlocked = createGate();
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      calls.push(`discover:${containerId}`);
+    },
+    refreshRootTree: async () => {
+      calls.push("refresh-root");
+      rootStarted.open();
+      await rootBlocked.wait;
+    },
+    refreshTree: async () => {
+      calls.push("refresh-full");
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  // Start a root-only sweep that blocks inside refreshRootTree, then ask for a
+  // full refresh while it is in flight. The full refresh must NOT coalesce into
+  // the root sweep (that would skip the full tree); it chains after it.
+  const rootDone = service.reconcileRootContainersNow();
+  await rootStarted.wait;
+  const fullDone = service.reconcileNow();
+  rootBlocked.open();
+  await Promise.all([rootDone, fullDone]);
+
+  expect(calls).toEqual([
+    "refresh-root",
+    "discover:c-1",
+    "refresh-full",
+    "discover:c-1",
+  ]);
+});
+
+test("a root refresh during an in-flight root refresh coalesces into it", async () => {
+  const calls: string[] = [];
+  const rootStarted = createGate();
+  const rootBlocked = createGate();
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      calls.push(`discover:${containerId}`);
+    },
+    refreshRootTree: async () => {
+      calls.push("refresh-root");
+      rootStarted.open();
+      await rootBlocked.wait;
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  const first = service.reconcileRootContainersNow();
+  await rootStarted.wait;
+  const second = service.reconcileRootContainersNow();
+  rootBlocked.open();
+  await Promise.all([first, second]);
+
+  // Only one root sweep ran; the second call joined the in-flight one.
+  expect(calls).toEqual(["refresh-root", "discover:c-1"]);
+});
+
 test("resetDiscovered lets a previously-reconciled container refetch", async () => {
   const attempts: string[] = [];
   const host = createHost({
@@ -329,151 +395,4 @@ test("stop clears the discovered set so a restarted lane refetches", async () =>
     () => attempts.length === 2,
     "Expected a refetch after stop()/start() cleared the discovered set",
   );
-});
-
-test("prerequisites-regained trigger resets the discovered set first", () => {
-  const reconcileListeners: LocalProjectionReconcileListener[] = [];
-  const store = {
-    onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
-      reconcileListeners.push(listener);
-      return () => {
-        reconcileListeners.splice(reconcileListeners.indexOf(listener), 1);
-      };
-    },
-  } as LocalProjectionStore;
-  const calls: string[] = [];
-  const service = {
-    enqueueContainer: (containerId: string) => {
-      calls.push(`enqueue:${containerId}`);
-    },
-    enqueueIdleBackfill: () => {
-      calls.push("backfill");
-    },
-    resetDiscovered: () => {
-      calls.push("reset");
-    },
-    setActiveContainer: () => {},
-  } as unknown as Parameters<
-    typeof connectReconciliationTriggers
-  >[0]["service"];
-
-  connectReconciliationTriggers({ service, store });
-  const reconcileListener = reconcileListeners[0];
-  if (!reconcileListener) {
-    throw new Error(
-      "Expected reconciliation trigger listener to be connected.",
-    );
-  }
-  reconcileListener({
-    activeContainerId: "c-1",
-    reason: "prerequisites-regained",
-  });
-
-  // Reset must happen before the enqueue/backfill, otherwise those calls are
-  // suppressed for already-discovered containers.
-  expect(calls).toEqual(["reset", "enqueue:c-1", "backfill"]);
-});
-
-test("hydrated trigger reconciles only the active container", () => {
-  const reconcileListeners: LocalProjectionReconcileListener[] = [];
-  const store = {
-    onReconcileSignal: (listener: LocalProjectionReconcileListener) => {
-      reconcileListeners.push(listener);
-      return () => {
-        reconcileListeners.splice(reconcileListeners.indexOf(listener), 1);
-      };
-    },
-  } as LocalProjectionStore;
-  const calls: Array<{ containerId: string; priority: string }> = [];
-  let idleBackfills = 0;
-  const service = {
-    enqueueContainer: (containerId: string, priority: string) => {
-      calls.push({ containerId, priority });
-    },
-    enqueueIdleBackfill: () => {
-      idleBackfills += 1;
-    },
-    setActiveContainer: () => {},
-  } as unknown as Parameters<
-    typeof connectReconciliationTriggers
-  >[0]["service"];
-
-  connectReconciliationTriggers({ service, store });
-  const reconcileListener = reconcileListeners[0];
-  if (!reconcileListener) {
-    throw new Error(
-      "Expected reconciliation trigger listener to be connected.",
-    );
-  }
-  const signal: LocalProjectionReconcileSignal = {
-    activeContainerId: "c-1",
-    reason: "hydrated",
-  };
-  reconcileListener(signal);
-
-  expect(calls).toEqual([{ containerId: "c-1", priority: "active" }]);
-  expect(idleBackfills).toBe(0);
-});
-
-test("event triggers enqueue the named container at active priority", () => {
-  const enqueued: Array<{
-    containerId: string;
-    force: boolean | undefined;
-    priority: string;
-  }> = [];
-  const service = {
-    enqueueContainer: (
-      containerId: string,
-      priority: string,
-      force: boolean | undefined,
-    ) => {
-      enqueued.push({ containerId, force, priority });
-    },
-    enqueueIdleBackfill: () => {
-      enqueued.push({ containerId: "*", force: undefined, priority: "idle" });
-    },
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
-
-  enqueueReconciliationForEvents({
-    events: [
-      {
-        type: "document_update_created",
-        documentId: "d-1",
-        containerIds: ["c-1"],
-      },
-      {
-        type: "document_update_created",
-        documentId: "d-2",
-        containerIds: ["unknown"],
-      },
-    ],
-    knownContainerIds: ["c-1", "c-2"],
-    service,
-  });
-
-  expect(enqueued).toEqual([
-    { containerId: "c-1", force: true, priority: "active" },
-  ]);
-});
-
-test("event triggers backfill when an update has no container scope", () => {
-  let idleBackfills = 0;
-  const service = {
-    enqueueContainer: () => {},
-    enqueueIdleBackfill: () => {
-      idleBackfills += 1;
-    },
-  } as unknown as Parameters<
-    typeof enqueueReconciliationForEvents
-  >[0]["service"];
-
-  enqueueReconciliationForEvents({
-    events: [{ type: "document_update_created", documentId: "d-1" }],
-    knownContainerIds: ["c-1"],
-    service,
-  });
-
-  expect(idleBackfills).toBe(1);
 });

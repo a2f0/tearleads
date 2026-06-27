@@ -1,8 +1,6 @@
-import type { ContainerNode } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useMemo } from "react";
 import {
-  canProvisionExplorerSystemContainers,
   findContactsSystemContainerSlot,
   findTrashSystemContainerSlot,
   getExplorerVisibleSystemSlots,
@@ -11,7 +9,6 @@ import {
 
 interface ExplorerSystemProvisioning {
   contactsSystemSlot: ContainerSystemSlot | null;
-  shouldProvisionSystemContainers: boolean;
   trashSystemSlot: ContainerSystemSlot | null;
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
@@ -22,11 +19,7 @@ interface ExplorerSystemProvisioning {
  * bootstrapper so mini-apps do not race each other.
  */
 export function useExplorerSystemProvisioning(input: {
-  nodes: ReadonlyArray<ContainerNode>;
   signingPrivateKey: Uint8Array | null;
-  organizationId: string | null;
-  rootContainerId: string | null;
-  isAuthenticated: boolean;
   logError: (message: string | Error, cause?: unknown) => void;
 }): ExplorerSystemProvisioning {
   const systemContainers = useExplorerSystemContainerSlots({
@@ -39,25 +32,9 @@ export function useExplorerSystemProvisioning(input: {
     () => getExplorerVisibleSystemSlots(systemContainers),
     [systemContainers],
   );
-  const shouldProvisionSystemContainers = useMemo(
-    () =>
-      canProvisionExplorerSystemContainers({
-        isAuthenticated: input.isAuthenticated,
-        nodes: input.nodes,
-        organizationId: input.organizationId,
-        rootContainerId: input.rootContainerId,
-      }),
-    [
-      input.isAuthenticated,
-      input.organizationId,
-      input.rootContainerId,
-      input.nodes,
-    ],
-  );
 
   return {
     contactsSystemSlot,
-    shouldProvisionSystemContainers,
     trashSystemSlot,
     visibleSystemSlots,
   };
