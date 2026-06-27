@@ -93,6 +93,7 @@ async function withReadyStore(
   listContainers: ReturnType<typeof createMockApiClient>["listContainers"],
   body: (
     store: ReturnType<typeof createContainerContentsStore>,
+    execSql: ExecSql,
   ) => Promise<void>,
   options: {
     apiClientOverrides?: Partial<ReturnType<typeof createMockApiClient>>;
@@ -125,7 +126,7 @@ async function withReadyStore(
       ROOT_CONTAINER_ID,
     );
 
-    await body(store);
+    await body(store, execSql);
   } finally {
     close();
   }
@@ -238,6 +239,58 @@ test("ensureSystemContainer can defer remote bootstrap for non-blocking startup"
         },
       },
       writerReady: true,
+    },
+  );
+});
+
+test("ensureSystemContainer can defer remote sync until a later ensure promotes it", async () => {
+  await withReadyStore(
+    false,
+    async () => null,
+    async (store, execSql) => {
+      const bootstrapped = await store.ensureSystemContainer(
+        TEST_SYSTEM_SLOT,
+        "Contacts",
+        {
+          deferRemoteBootstrap: true,
+          deferRemoteSync: true,
+          skipAdvancedManagedRoot: true,
+        },
+      );
+
+      expect(bootstrapped).not.toBeNull();
+      expect(
+        await defaultContainerContentsPersistence.listPendingCreateIntents(
+          execSql,
+        ),
+      ).toHaveLength(0);
+      expect(
+        await defaultContainerContentsPersistence.listPendingUpdates(
+          execSql,
+          bootstrapped?.id ?? "",
+        ),
+      ).toHaveLength(0);
+
+      await store.ensureSystemContainer(TEST_SYSTEM_SLOT, "Contacts", {
+        deferRemoteBootstrap: true,
+        skipAdvancedManagedRoot: true,
+      });
+      await store.ensureSystemContainer(TEST_SYSTEM_SLOT, "Contacts", {
+        deferRemoteBootstrap: true,
+        skipAdvancedManagedRoot: true,
+      });
+
+      expect(
+        await defaultContainerContentsPersistence.listPendingCreateIntents(
+          execSql,
+        ),
+      ).toHaveLength(1);
+      expect(
+        await defaultContainerContentsPersistence.listPendingUpdates(
+          execSql,
+          bootstrapped?.id ?? "",
+        ),
+      ).toHaveLength(1);
     },
   );
 });

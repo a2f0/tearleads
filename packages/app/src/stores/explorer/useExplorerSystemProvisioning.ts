@@ -1,16 +1,11 @@
-import type {
-  ContainerContentsStore,
-  ContainerNode,
-} from "@tearleads/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useMemo } from "react";
 import {
   canProvisionExplorerSystemContainers,
   findContactsSystemContainerSlot,
   findTrashSystemContainerSlot,
-  getExplorerOwnedSystemContainers,
   getExplorerVisibleSystemSlots,
-  useEnsureExplorerSystemContainers,
   useExplorerSystemContainerSlots,
 } from "./ExplorerSystemContainers";
 
@@ -22,13 +17,11 @@ interface ExplorerSystemProvisioning {
 }
 
 /**
- * Derive the explorer's system-container slots and run the provisioning
- * effects (trash/contacts) for the current container tree. Extracted from the
- * provider so its body stays focused on wiring the device-first view.
+ * Derive the explorer's system-container slots for visibility and rules.
+ * Actual system container creation is owned by the runtime-level system
+ * bootstrapper so mini-apps do not race each other.
  */
 export function useExplorerSystemProvisioning(input: {
-  store: ContainerContentsStore;
-  ready: boolean;
   nodes: ReadonlyArray<ContainerNode>;
   signingPrivateKey: Uint8Array | null;
   organizationId: string | null;
@@ -46,10 +39,6 @@ export function useExplorerSystemProvisioning(input: {
     () => getExplorerVisibleSystemSlots(systemContainers),
     [systemContainers],
   );
-  const explorerSystemContainers = useMemo(
-    () => getExplorerOwnedSystemContainers(systemContainers),
-    [systemContainers],
-  );
   const shouldProvisionSystemContainers = useMemo(
     () =>
       canProvisionExplorerSystemContainers({
@@ -65,15 +54,6 @@ export function useExplorerSystemProvisioning(input: {
       input.nodes,
     ],
   );
-
-  useEnsureExplorerSystemContainers({
-    containerContentsReady: input.ready,
-    containerContentsStore: input.store,
-    logError: input.logError,
-    nodes: input.nodes,
-    shouldProvisionSystemContainers,
-    systemContainers: explorerSystemContainers,
-  });
 
   return {
     contactsSystemSlot,

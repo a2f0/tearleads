@@ -1,7 +1,7 @@
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { isDestroyedDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
+import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 
@@ -109,7 +109,7 @@ export function useExplorerInteractionState(params: {
       .reconcileNow()
       .then(() => true)
       .catch((error: unknown) => {
-        if (!isDestroyedDatabaseWorkerError(error)) {
+        if (!isIgnorableDatabaseWorkerError(error)) {
           console.error("Failed to refresh explorer:", error);
           setRefreshError("Failed to refresh explorer.");
         }
@@ -126,5 +126,14 @@ export function useExplorerInteractionState(params: {
     return refreshPromise;
   }, [reconciler]);
 
-  return { handleRefresh, isRefreshing, refreshError };
+  const handleOpenCatchup = useCallback((): Promise<void> => {
+    return reconciler.reconcileRootContainersNow().catch((error: unknown) => {
+      if (!isIgnorableDatabaseWorkerError(error)) {
+        console.error("Failed to refresh explorer:", error);
+        setRefreshError("Failed to refresh explorer.");
+      }
+    });
+  }, [reconciler]);
+
+  return { handleOpenCatchup, handleRefresh, isRefreshing, refreshError };
 }

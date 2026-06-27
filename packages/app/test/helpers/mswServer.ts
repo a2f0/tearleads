@@ -12,7 +12,6 @@ import type {
   DestroySessionResponse,
   DocumentContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
-  ListContainersResponse,
   ListSessionsResponse,
   RegistrationResponse,
   VerifyResponse,
@@ -393,6 +392,14 @@ async function createRootMetadataDocumentResponse(
   };
 }
 
+const emptyListResponse = () =>
+  HttpResponse.json({
+    hasMore: false,
+    items: [],
+    nextWatermark: null,
+    tombstones: [],
+  });
+
 const server = setupServer(
   eventsSocket.addEventListener("connection", ({ client }) => {
     eventRouter.handleConnection(client as MswSocketClient);
@@ -468,14 +475,11 @@ const server = setupServer(
   http.post("http://localhost:3001/auth/ws-ticket", () => {
     return HttpResponse.json({ ticket: randomHex(32) });
   }),
-  http.get("http://localhost:3001/containers", () => {
-    return HttpResponse.json<ListContainersResponse>({
-      hasMore: false,
-      items: [],
-      nextWatermark: null,
-      tombstones: [],
-    });
-  }),
+  http.get("http://localhost:3001/containers", emptyListResponse),
+  http.get(
+    "http://localhost:3001/containers/:containerId/documents",
+    emptyListResponse,
+  ),
   http.get(
     "http://localhost:3001/containers/:containerId/writer-projection",
     () => {
@@ -913,11 +917,7 @@ export function listProxiedApiRequests(): ReadonlyArray<{
 }
 
 function toHeadersObject(headers: Headers): Record<string, string> {
-  const nextHeaders: Record<string, string> = {};
-  headers.forEach((value, key) => {
-    nextHeaders[key] = value;
-  });
-  return nextHeaders;
+  return Object.fromEntries(headers as unknown as Iterable<[string, string]>);
 }
 
 async function proxyRequestToApiApp(

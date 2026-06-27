@@ -167,6 +167,9 @@ class DeviceFirstService implements DeviceFirst {
       refreshTree: async () => {
         await store.getContainerStore().refresh();
       },
+      refreshRootTree: async () => {
+        await store.getContainerStore().refreshRootLane();
+      },
       isIgnorableError: isDestroyedDatabaseClientError,
     };
   }

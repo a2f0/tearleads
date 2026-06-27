@@ -248,16 +248,16 @@ test(
       });
     });
 
-    // This is the org-manager-only bootstrap baseline. Usage counts synced
-    // document update rows, not every document shell created by registration:
-    // opening Org Manager syncs the root "/" metadata document, the "Roster
-    // Profiles" container metadata document, and the current user's roster
-    // profile document used for display names. The organization profile document
-    // and user-facing system documents are created or synced by their own views,
-    // so they are intentionally outside this baseline.
+    // This is the org-manager-plus-system-bootstrap baseline. Usage counts
+    // synced document update rows, not every document shell created by
+    // registration: early system bootstrapping adds one metadata update before
+    // opening Org Manager syncs the root "/", the "Roster Profiles" container
+    // metadata document, and the current user's roster profile document used for
+    // display names. The organization profile document is still created or
+    // synced by its own view, so it is intentionally outside this baseline.
     await waitForCondition(
       () => {
-        if (pane.textContent?.includes("3 documents, 3 updates")) {
+        if (pane.textContent?.includes("3 documents, 4 updates")) {
           return true;
         }
 

@@ -19,11 +19,6 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
-import {
-  getContactsContainerId,
-  useContactsCriticalNodesBootstrap,
-} from "../contacts/useContactsCriticalNodesBootstrap";
-import { useContactsStoreForContainer } from "../contacts/useContactsStoreForContainer";
 import { useContainerContentsDeviceFirst } from "../device-first/useContainerContentsDeviceFirst";
 import { EXPLORER_TRASH_CONTAINER_NAME } from "../systemContainers";
 import {
@@ -65,27 +60,6 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
 
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
 
-function useExplorerContactsCriticalNodesBootstrap(input: {
-  contactsSystemSlot: ContainerSystemSlot | null;
-  containerContentsReady: boolean;
-  containerContentsStore: ContainerContentsStore;
-  nodes: ReadonlyArray<ContainerNode>;
-}): void {
-  const contactsContainerId = useMemo(
-    () => getContactsContainerId(input.nodes, input.contactsSystemSlot),
-    [input.contactsSystemSlot, input.nodes],
-  );
-  const contactsStore = useContactsStoreForContainer(contactsContainerId);
-
-  useContactsCriticalNodesBootstrap({
-    contactsContainerId,
-    contactsStore,
-    contactsSystemSlot: input.contactsSystemSlot,
-    containerContentsReady: input.containerContentsReady,
-    containerContentsStore: input.containerContentsStore,
-  });
-}
-
 export function ExplorerProvider({ children }: PropsWithChildren) {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
@@ -106,21 +80,16 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     events: appData.state.events,
     logLabel: "Explorer",
   });
-  const {
-    contactsSystemSlot,
-    shouldProvisionSystemContainers,
-    trashSystemSlot,
-    visibleSystemSlots,
-  } = useExplorerSystemProvisioning({
-    store,
-    ready: snapshot.ready,
-    nodes: snapshot.nodes,
-    signingPrivateKey: runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
-    organizationId: runtime.auth.organizationId,
-    rootContainerId: runtime.state.containerId,
-    isAuthenticated: runtime.auth.isAuthenticated,
-    logError: tearleads.logError,
-  });
+  const { contactsSystemSlot, trashSystemSlot, visibleSystemSlots } =
+    useExplorerSystemProvisioning({
+      nodes: snapshot.nodes,
+      signingPrivateKey:
+        runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
+      organizationId: runtime.auth.organizationId,
+      rootContainerId: runtime.state.containerId,
+      isAuthenticated: runtime.auth.isAuthenticated,
+      logError: tearleads.logError,
+    });
   const contextValue = useMemo(
     () => ({
       contactsSystemSlot,
@@ -145,15 +114,12 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
+    if (runtime.infra.dbStatus === "ready" && !runtime.state.containerId) {
+      return;
+    }
+
     store.updateRuntime(runtime);
   }, [store, runtime]);
-
-  useExplorerContactsCriticalNodesBootstrap({
-    contactsSystemSlot,
-    containerContentsReady: snapshot.ready && shouldProvisionSystemContainers,
-    containerContentsStore: store,
-    nodes: snapshot.nodes,
-  });
 
   return (
     <ExplorerContext.Provider value={contextValue}>
@@ -225,6 +191,7 @@ export function useExplorer(): ExplorerContextValue {
       purgeContainer: store.purgeContainer,
       reconciler,
       refresh: store.refresh,
+      refreshRootLane: store.refreshRootLane,
       renameContainer: store.renameContainer,
       requestSync: store.requestSync,
       shareWithGroup: store.shareWithGroup,

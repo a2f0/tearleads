@@ -8,6 +8,7 @@ import { IdentityProvider } from "./identity/IdentityProvider";
 import { LocalKeyringLockProvider } from "./local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "./logging/LogProvider";
 import { TearleadsProvider } from "./sdk/TearleadsProvider";
+import { SystemBootstrapProvider } from "./system-bootstrap/SystemBootstrapProvider";
 
 interface AppRuntimeProviderProps extends PropsWithChildren {
   hostConfig: AppHostConfig;
@@ -32,8 +33,10 @@ export function AppRuntimeProvider({
             <DatabaseProvider>
               <IdentityProvider>
                 <CryptoSessionProvider>
-                  <IdentityAutopilot enabled={autoProvisionEnabled} />
-                  {children}
+                  <SystemBootstrapProvider enabled={autoProvisionEnabled}>
+                    <IdentityAutopilot enabled={autoProvisionEnabled} />
+                    {children}
+                  </SystemBootstrapProvider>
                 </CryptoSessionProvider>
               </IdentityProvider>
             </DatabaseProvider>

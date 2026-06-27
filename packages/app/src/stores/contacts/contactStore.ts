@@ -47,6 +47,7 @@ function hasContactsContainerRuntime(state: ContactsStoreState): boolean {
 function ensureContactDocumentStore(
   state: ContactsStoreState,
   contactId: string,
+  options: { readonly deferRemoteSync?: boolean | undefined } = {},
 ): DocumentStore {
   const existing = state.contactDocumentStoresById.get(contactId);
   if (existing) {
@@ -57,9 +58,9 @@ function ensureContactDocumentStore(
   const store = state.runtime.openDocumentStore({
     containerId: state.runtime.documents.state.containerId,
     documentId: null,
-    initialDocumentKind: "contact",
     initialText: "",
     localId: contactId,
+    ...(options.deferRemoteSync ? {} : { initialDocumentKind: "contact" }),
   });
   const unsubscribe = store.subscribe(() => {
     const entry = contactEntryFromDocumentStore(contactId, store);
@@ -142,8 +143,9 @@ async function writeContactPatch(
   state: ContactsStoreState,
   contactId: string,
   patch: ContactEntryPatch,
+  options: { readonly deferRemoteSync?: boolean | undefined } = {},
 ): Promise<void> {
-  const store = ensureContactDocumentStore(state, contactId);
+  const store = ensureContactDocumentStore(state, contactId, options);
   const snapshot = store.getSnapshot();
   if (snapshot.ready && !snapshot.canWrite) {
     return;
@@ -152,6 +154,7 @@ async function writeContactPatch(
   await store.setStructuredFields(
     "contact",
     contactEntryToStructuredFieldPatch(patch),
+    { deferRemoteSync: options.deferRemoteSync },
   );
   const entry = contactEntryFromDocumentStore(contactId, store);
   if (entry) {
@@ -257,17 +260,26 @@ async function ensureSelfContactFromRuntime(
     return null;
   }
   const current = isSelfContactCurrent(existingContact, identity);
+  const deferRemoteSync =
+    typeof input !== "string" && input.deferRemoteSync === true;
 
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      if (!current) {
+      if (!current || !deferRemoteSync) {
         await removeDuplicateSelfContacts(state, contactId, identity);
-        await writeContactPatch(state, contactId, {
-          encapsulationPublicKey: identity.encapsulationPublicKey,
-          isSelf: true,
-          userId: identity.userId,
-        });
+        await writeContactPatch(
+          state,
+          contactId,
+          {
+            encapsulationPublicKey: identity.encapsulationPublicKey,
+            isSelf: true,
+            userId: identity.userId,
+          },
+          {
+            deferRemoteSync,
+          },
+        );
         return;
       }
       await removeDuplicateSelfContacts(state, contactId, identity);

@@ -17,6 +17,10 @@ import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
 } from "./syncAgent";
+import {
+  hasAdvancedManagedPrincipalReference,
+  promoteExistingLocalSystemContainerSync,
+} from "./systemContainerPromotion";
 import type {
   ContainerContentsShareAccessLevel,
   ContainerContentsStoreState,
@@ -135,16 +139,6 @@ function findRootContainerState(
   return null;
 }
 
-function hasAdvancedManagedPrincipalReference(
-  containerState: ContainerState,
-): boolean {
-  return (
-    containerState.metadataReferencedPrincipals?.some(
-      (principal) => principal.version > 1,
-    ) ?? false
-  );
-}
-
 // Best-effort remote probe for an already-existing system container. System
 // containers only live under the root, so this probes the root lanes (not a
 // full-tree refresh). Device-first: a network failure must not abort
@@ -190,6 +184,14 @@ export async function ensureSystemContainer(
 
   const existing = findSystemContainerState(state, systemSlot);
   if (existing) {
+    await promoteExistingLocalSystemContainerSync({
+      containerState: existing,
+      logLabel: getContainerContentsStoreLogLabel(state),
+      options,
+      rootState: findRootContainerState(state),
+      state,
+      syncAgent,
+    });
     return toContainerNode(existing);
   }
 
@@ -232,6 +234,7 @@ export async function ensureSystemContainer(
     name: trimmedName,
     parentState: rootState,
     persistence: state.persistence,
+    queueRemoteSync: !options.deferRemoteSync,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });

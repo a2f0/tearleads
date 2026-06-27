@@ -3,6 +3,7 @@ import type { ContactEntry } from "../../document-types/contact/contactDocumentM
 const SELF_CONTACT_ID_PREFIX = "self_contact_v1_";
 
 export interface EnsureSelfContactInput {
+  readonly deferRemoteSync?: boolean | null | undefined;
   readonly encapsulationPublicKey?: string | null | undefined;
   readonly localId?: string | null | undefined;
   readonly userId?: string | null | undefined;

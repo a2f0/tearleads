@@ -50,6 +50,7 @@ export interface ContainerContentsContextValue {
   ) => Promise<ContainerNode | null>;
   purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
+  refreshRootLane: () => Promise<boolean>;
   requestSync: () => void;
   renameContainer: (
     containerId: string,
@@ -87,6 +88,7 @@ export interface ContainerContentsStore {
   ) => Promise<ContainerNode | null>;
   purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
+  refreshRootLane: () => Promise<boolean>;
   requestSync: () => void;
   renameContainer: (
     containerId: string,
@@ -111,6 +113,10 @@ export interface EnsureSystemContainerOptions {
   // For local-first bootstrap paths where slow remote I/O must not block the
   // caller from creating the deterministic local system container.
   deferRemoteBootstrap?: boolean | undefined;
+  // Create the deterministic local system container without queuing the remote
+  // create. A later ensureSystemContainer call without this flag promotes the
+  // local slot into the sync queue.
+  deferRemoteSync?: boolean | undefined;
 }
 
 export interface ContainerContentsStoreState

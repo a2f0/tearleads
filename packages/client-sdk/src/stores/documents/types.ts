@@ -19,6 +19,10 @@ export type DocumentStructuredFieldPatch = Readonly<
   Record<string, string | undefined>
 >;
 
+export interface DocumentMutationOptions {
+  deferRemoteSync?: boolean | undefined;
+}
+
 export interface DocumentAttachmentUpload {
   bytes: BlobBytes;
   name: string;
@@ -47,6 +51,7 @@ export interface DocumentContextValue {
   setStructuredFields: (
     kind: Exclude<StoredDocumentKind, "note">,
     patch: DocumentStructuredFieldPatch,
+    options?: DocumentMutationOptions | undefined,
   ) => Promise<void>;
   structuredFields: Readonly<Record<string, string>>;
   text: string;
@@ -86,6 +91,7 @@ export interface DocumentStore {
   setStructuredFields: (
     kind: Exclude<StoredDocumentKind, "note">,
     patch: DocumentStructuredFieldPatch,
+    options?: DocumentMutationOptions | undefined,
   ) => Promise<void>;
   setText: (value: string) => Promise<void>;
   subscribe: (listener: () => void) => () => void;

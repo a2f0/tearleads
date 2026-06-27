@@ -27,6 +27,37 @@ import {
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
 
+function predecessorBundleFromSuccessor(
+  bundle: PrincipalPolicyBundleResponse,
+): PrincipalPolicyBundleResponse {
+  const previous = bundle.previousStates[0];
+  if (!previous) {
+    throw new Error("Expected successor bundle to include previous state.");
+  }
+
+  return {
+    currentMemberEnvelopes: {
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      epoch: previous.state.keyEpoch,
+      envelopes: [],
+    },
+    currentPayload: {
+      principalType: previous.state.principalType,
+      principalId: previous.state.principalId,
+      stateHash: previous.state.stateHash,
+      cipherSuite: "aes-256-gcm",
+      ciphertext: "cached-previous-ciphertext",
+      ciphertextHash: previous.state.payloadCiphertextHash,
+      createdAt: previous.state.createdAt,
+    },
+    currentProjection: previous.projection,
+    currentState: previous.state,
+    previousStates: [],
+  };
+}
+
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
@@ -64,6 +95,41 @@ test("principal policy sync caches a verified referenced principal bundle and sk
     });
 
     expect(getCurrentPrincipalPolicyCallCount).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync fetches a newer referenced state when an older bundle is cached", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle, signerKeyResponse } =
+      await createSuccessorPrincipalPolicyBundle();
+    await ensurePrincipalPolicyTables(execSql);
+    await savePrincipalPolicyBundle(
+      execSql,
+      predecessorBundleFromSuccessor(bundle),
+      "2026-04-08T00:00:30.000Z",
+    );
+    let getCurrentPrincipalPolicyCallCount = 0;
+
+    await cacheReferencedPolicies({
+      execSql,
+      getCurrentPrincipalPolicy: async () => {
+        getCurrentPrincipalPolicyCallCount += 1;
+        return bundle;
+      },
+      getEncapsulationKey: async () => signerKeyResponse,
+      references: [referencedPrincipalStateFromBundle(bundle)],
+    });
+
+    expect(getCurrentPrincipalPolicyCallCount).toBe(1);
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toEqual(bundle);
   } finally {
     close();
   }

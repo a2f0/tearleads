@@ -23,6 +23,44 @@ export type { RefreshAllContainerDocumentsFromApiOptions } from "./documentDisco
 const CONTAINER_PARENT_DISCOVERY_CONCURRENCY = 4;
 const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
 
+function isUnavailableContainerDocumentLane(
+  failure: Awaited<
+    ReturnType<
+      NonNullable<ContainerDocumentDiscoveryApi["listContainerDocumentsResult"]>
+    >
+  >,
+): boolean {
+  return !failure.ok && failure.status === 404;
+}
+
+async function listContainerDocumentsFromApi(
+  apiClient: Pick<
+    ContainerDocumentDiscoveryApi,
+    "listContainerDocuments" | "listContainerDocumentsResult"
+  >,
+  containerId: string,
+  options?: Parameters<
+    ContainerDocumentDiscoveryApi["listContainerDocuments"]
+  >[1],
+): ReturnType<ContainerDocumentDiscoveryApi["listContainerDocuments"]> {
+  if (apiClient.listContainerDocumentsResult) {
+    const result = await apiClient.listContainerDocumentsResult(
+      containerId,
+      options,
+      { reportErrors: false },
+    );
+    if (result.ok) {
+      return result.data;
+    }
+    if (!isUnavailableContainerDocumentLane(result)) {
+      result.report();
+    }
+    return null;
+  }
+
+  return apiClient.listContainerDocuments(containerId, options);
+}
+
 async function listAllContainerDocuments(input: {
   containerId: string;
   loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
@@ -268,13 +306,13 @@ export function discoverContainerDocumentsFromApi({
 }: Omit<DiscoverContainerDocumentsOptions, "listContainerDocuments"> & {
   readonly apiClient: Pick<
     ContainerDocumentDiscoveryApi,
-    "listContainerDocuments"
+    "listContainerDocuments" | "listContainerDocumentsResult"
   >;
 }): Promise<ReadonlyArray<DocumentSummary> | null> {
   return discoverContainerDocuments({
     ...input,
     listContainerDocuments: (containerId, options) =>
-      apiClient.listContainerDocuments(containerId, options),
+      listContainerDocumentsFromApi(apiClient, containerId, options),
   });
 }
 
@@ -369,7 +407,7 @@ export function refreshAllContainerDocumentsFromApi({
   return refreshAllContainerDocuments({
     ...input,
     listContainerDocuments: (containerId, options) =>
-      apiClient.listContainerDocuments(containerId, options),
+      listContainerDocumentsFromApi(apiClient, containerId, options),
     listContainers: (options) => apiClient.listContainers(options),
   });
 }

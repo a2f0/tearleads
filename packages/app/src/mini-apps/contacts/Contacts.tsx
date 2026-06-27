@@ -2,12 +2,21 @@ import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
 import { ContactsDetailPanel } from "./detail/ContactsDetailPanel";
 import { useContactsModel } from "./hooks/useContactsModel";
 import { CONTACTS_LABELS } from "./labels";
 
 export function Contacts() {
+  return (
+    <SystemBootstrapGate message="Bootstrapping contacts...">
+      <ContactsContent />
+    </SystemBootstrapGate>
+  );
+}
+
+function ContactsContent() {
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
   const model = useContactsModel(setSidebar, peerUserId);

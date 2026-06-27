@@ -182,6 +182,7 @@ export async function createChildContainerState(input: {
   name: string;
   parentState: ContainerState;
   persistence: ContainerContentsPersistence;
+  queueRemoteSync?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<CreatedChildContainerState | null> {
@@ -191,6 +192,7 @@ export async function createChildContainerState(input: {
     name,
     parentState,
     persistence,
+    queueRemoteSync = true,
     resolveProjectionUserKey,
     runtime,
   } = input;
@@ -240,7 +242,9 @@ export async function createChildContainerState(input: {
       trimmedName,
     });
   const createIntent =
-    !containerState.record.documentId && containerState.container.parentId
+    queueRemoteSync &&
+    !containerState.record.documentId &&
+    containerState.container.parentId
       ? { parentContainerId: containerState.container.parentId }
       : undefined;
   const execSql = runtime.infra.execSql;
@@ -253,8 +257,9 @@ export async function createChildContainerState(input: {
   );
 
   const shouldRequestSync =
-    !containerState.record.documentId ||
-    Boolean(containerState.record.contentKeyBundle);
+    queueRemoteSync &&
+    (!containerState.record.documentId ||
+      Boolean(containerState.record.contentKeyBundle));
   if (shouldRequestSync) {
     await enqueuePendingContainerUpdate(execSql, persistence, {
       containerId: containerState.container.id,

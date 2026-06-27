@@ -1,4 +1,4 @@
-import type { UserKey } from "@tearleads/client-sdk";
+import type { Tearleads, UserKey } from "@tearleads/client-sdk";
 import { toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { useEffect, useMemo } from "react";
@@ -65,15 +65,8 @@ function useContactsRuntime(
     () => tearleads.documents.workflowRuntime(contactsContainerId),
     [appData, contactsContainerId, tearleads],
   );
-  return useMemo<ContactsRuntime>(
-    () => ({
-      deleteDocument: (localId) => tearleads.documents.delete(localId),
-      documents: documentsRuntime,
-      openDocumentStore: (input) =>
-        tearleads.documents.open(input, {
-          workflowRuntime: documentsRuntime,
-        }),
-    }),
+  return useMemo(
+    () => createContactsRuntimeForContainer(tearleads, documentsRuntime),
     [documentsRuntime, tearleads],
   );
 }
@@ -88,7 +81,7 @@ function useContactsStore(runtime: ContactsRuntime): ContactsStore {
 
 function createContactsStore(
   runtime: ContactsRuntime,
-  tearleads: ReturnType<typeof useTearleads>,
+  tearleads: Tearleads,
 ): ContactsStore {
   return getOrCreateContactsStore(
     runtime.documents.state.domainScope,
@@ -105,4 +98,25 @@ function createContactsStore(
       logError: tearleads.logError,
     },
   );
+}
+
+export function createContactsRuntimeForContainer(
+  tearleads: Tearleads,
+  documentsRuntime: ContactsRuntime["documents"],
+): ContactsRuntime {
+  return {
+    deleteDocument: (localId) => tearleads.documents.delete(localId),
+    documents: documentsRuntime,
+    openDocumentStore: (input) =>
+      tearleads.documents.open(input, {
+        workflowRuntime: documentsRuntime,
+      }),
+  };
+}
+
+export function getOrCreateContactsStoreForRuntime(
+  tearleads: Tearleads,
+  runtime: ContactsRuntime,
+): ContactsStore {
+  return createContactsStore(runtime, tearleads);
 }

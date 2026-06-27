@@ -46,6 +46,7 @@ function createHost(
     }),
     applyReconciled: () => {},
     refreshTree: async () => {},
+    refreshRootTree: async () => {},
     isIgnorableError: () => false,
     ...overrides,
   };
@@ -254,6 +255,28 @@ test("service retries a container that failed during explicit refresh", async ()
     () => attempts.length === 2,
     "Expected passive retry after the refresh failure",
   );
+});
+
+test("root refresh reconciles known containers without a full tree refresh", async () => {
+  const calls: string[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    discoverContainerDocuments: async (containerId) => {
+      calls.push(`discover:${containerId}`);
+    },
+    refreshRootTree: async () => {
+      calls.push("refresh-root");
+    },
+    refreshTree: async () => {
+      calls.push("refresh-full");
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+
+  await service.reconcileRootContainersNow();
+
+  expect(calls).toEqual(["refresh-root", "discover:c-1"]);
 });
 
 test("resetDiscovered lets a previously-reconciled container refetch", async () => {
