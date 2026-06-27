@@ -1182,7 +1182,7 @@ export async function runRegistrationWorkflow(
     readonly encapsulationFingerprint: string;
     readonly encapsulationKeyBytes: Uint8Array;
     readonly fingerprint: string;
-    readonly ip: string | null;
+    readonly ip?: string | null;
     readonly signingKeyBytes: Uint8Array;
   },
 ) {
@@ -1210,7 +1210,7 @@ export async function runRegistrationWorkflow(
       keyMaterial.encapsulationFingerprint,
       keyMaterial.signingKeyBytes,
       keyMaterial.encapsulationKeyBytes,
-      keyMaterial.ip,
+      keyMaterial.ip ?? null,
     );
   } catch (error) {
     const registerPrincipalPolicyError = toRegisterPrincipalPolicyError(error);
