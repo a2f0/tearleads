@@ -104,9 +104,11 @@ function resolveRemoteContainerHydrationLocalUpdatedAt(input: {
 // owned by its structural-intent lane until that lane reconciles, so inbound
 // hydration must not revert parentId to the server value nor collapse
 // localUpdatedAt — doing so silently undoes a queued move and falsely reads
-// "synced". Pending *metadata* updates are handled separately
-// (listRemoteContainerIdsWithPendingMetadataUpdates); these live in dedicated
-// create/move intent tables that that query does not cover.
+// "synced". Move intents are read via listUnsyncedMoveIntents (not the
+// 'pending'-only list) so a blocked move — one whose destination parent has not
+// synced yet, the common boot-time case — is protected too. Pending *metadata*
+// updates are handled separately (listRemoteContainerIdsWithPendingMetadataUpdates);
+// these live in dedicated create/move intent tables that that query does not cover.
 async function listRemoteContainerIdsWithPendingStructuralIntents(input: {
   remoteContainers: ReadonlyArray<RemoteContainer>;
   state: RemoteContainerHydrationState;
@@ -119,9 +121,9 @@ async function listRemoteContainerIdsWithPendingStructuralIntents(input: {
   );
 
   const execSql = input.state.runtime.infra.execSql;
-  const [pendingCreateIntents, pendingMoveIntents] = await Promise.all([
+  const [pendingCreateIntents, unsyncedMoveIntents] = await Promise.all([
     input.state.persistence.listPendingCreateIntents(execSql),
-    input.state.persistence.listPendingMoveIntents(execSql),
+    input.state.persistence.listUnsyncedMoveIntents(execSql),
   ]);
   const containerIdsWithPendingStructuralIntents = new Set<string>();
   for (const intent of pendingCreateIntents) {
@@ -129,7 +131,7 @@ async function listRemoteContainerIdsWithPendingStructuralIntents(input: {
       containerIdsWithPendingStructuralIntents.add(intent.containerId);
     }
   }
-  for (const intent of pendingMoveIntents) {
+  for (const intent of unsyncedMoveIntents) {
     if (remoteContainerIds.has(intent.containerId)) {
       containerIdsWithPendingStructuralIntents.add(intent.containerId);
     }
@@ -955,8 +957,13 @@ export async function hydrateRemoteContainers(input: {
 
   if (changedCount > 0) {
     host.updateSnapshot();
+    // changedCount is the number of containers reconciled against the server
+    // this pass (upserts + tombstone removals), not a count of field-level
+    // edits — an idempotent re-pull of already-current containers still counts.
+    // Phrase it as "hydrated from the server" so the log does not read as the
+    // server having mutated data.
     state.runtime.util.log(
-      `Container contents: applied ${changedCount} remote container change(s)`,
+      `Container contents: hydrated ${changedCount} remote container(s) from the server`,
     );
   }
   return changedCount;
