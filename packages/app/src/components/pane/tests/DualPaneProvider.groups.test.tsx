@@ -45,6 +45,7 @@ import {
   requestPath,
   summarizeProxiedApiRequests,
 } from "../../../../test/helpers/dualPaneRequestSummary";
+import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
   listProxiedApiRequests,
   resetMockServer,
@@ -172,6 +173,76 @@ test(
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       peerEditRequestStartIndex,
+    );
+  },
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+);
+
+test(
+  "manual explorer refresh pulls a missed Admins-granted peer document update",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+    const initialNoteText = "Owner admin-shared note";
+    const editedNoteText = "Peer two edited admin-shared note without event";
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
+    await openExplorer(leftPane);
+    await createNoteInContainer(leftPane, "/", initialNoteText);
+    await waitForSelectedNoteText(
+      leftPane,
+      initialNoteText,
+      "Owner note editor did not show the created note.",
+    );
+
+    await openExplorer(rightPane);
+    await waitForExplorerNoteVisible(rightPane, initialNoteText);
+    await selectExplorerNoteByName(rightPane, initialNoteText);
+    await waitForSelectedNoteText(
+      rightPane,
+      initialNoteText,
+      "Peer note editor did not open the Admins-granted note.",
+    );
+
+    // Simulate the owner missing the websocket invalidation for the peer's
+    // committed edit. Manual refresh should still be able to pull the document
+    // body over HTTP, so this test isolates the non-websocket recovery path.
+    const droppedDocumentUpdates = dropNextMswServerEventWhere(
+      (event) => Reflect.get(event, "type") === "document_update_created",
+    );
+    const peerEditRequestStartIndex = listProxiedApiRequests().length;
+    await editSelectedNoteText(rightPane, editedNoteText);
+    await waitForCondition(
+      () =>
+        listProxiedApiRequests()
+          .slice(peerEditRequestStartIndex)
+          .some(
+            (request) =>
+              request.method === "POST" &&
+              request.status === 200 &&
+              /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)),
+          ),
+      `Peer edit did not complete a successful document sync.\nrequests=\n${summarizeProxiedApiRequests(
+        listProxiedApiRequests().slice(peerEditRequestStartIndex),
+      )}`,
+      15_000,
+    );
+    await waitForCondition(
+      () => droppedDocumentUpdates() === 1,
+      "Peer edit did not publish a dropped document_update_created event.",
+      1_000,
+    );
+
+    await clickExplorerRefresh(leftPane);
+    await waitForSelectedNoteText(
+      leftPane,
+      editedNoteText,
+      "Owner manual refresh did not pull the peer edit after the websocket event was missed.",
+      12_000,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,

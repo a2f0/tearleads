@@ -6,6 +6,37 @@ export interface MswSocketClient {
   send: (data: string) => void;
 }
 
+type MswServerEventPredicate = (event: Record<string, unknown>) => boolean;
+
+interface MswEventDropRule {
+  droppedCount: number;
+  predicate: MswServerEventPredicate;
+  remainingCount: number;
+}
+
+const eventDropRules: MswEventDropRule[] = [];
+
+/**
+ * Test-only fault injection for the MSW websocket router.
+ *
+ * The production sync contract must tolerate a missed websocket invalidation:
+ * websocket events are hints to pull, not the durable source of document data.
+ * Regression tests use this hook to drop one matching server event after the
+ * writer has successfully committed over HTTP, then assert an explicit refresh
+ * or open path can still recover the committed remote state.
+ */
+export function dropNextMswServerEventWhere(
+  predicate: MswServerEventPredicate,
+): () => number {
+  const rule: MswEventDropRule = {
+    droppedCount: 0,
+    predicate,
+    remainingCount: 1,
+  };
+  eventDropRules.push(rule);
+  return () => rule.droppedCount;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -55,6 +86,24 @@ function readEventContainerIds(event: Record<string, unknown>): string[] {
     }
   }
   return [...containerIds];
+}
+
+function shouldDropServerEvent(event: Record<string, unknown>): boolean {
+  // Evaluate before access_changed/document routing so a test can suppress the
+  // exact server event it is modeling as missed by the websocket transport.
+  for (const [index, rule] of eventDropRules.entries()) {
+    if (!rule.predicate(event)) {
+      continue;
+    }
+    rule.droppedCount += 1;
+    rule.remainingCount -= 1;
+    if (rule.remainingCount <= 0) {
+      eventDropRules.splice(index, 1);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 export function createMswEventRouter(eventsSocket: {
@@ -126,6 +175,7 @@ export function createMswEventRouter(eventsSocket: {
 
   return {
     clear: () => {
+      eventDropRules.length = 0;
       socketInterestByClient.clear();
     },
     handleConnection: (client: MswSocketClient) => {
@@ -140,6 +190,10 @@ export function createMswEventRouter(eventsSocket: {
       client.send(JSON.stringify({ type: "interest_state", containerIds: [] }));
     },
     publish: (event: Record<string, unknown>) => {
+      if (shouldDropServerEvent(event)) {
+        return;
+      }
+
       if (Reflect.get(event, "type") === "access_changed") {
         handleAccessChangedEvent(event);
         return;
