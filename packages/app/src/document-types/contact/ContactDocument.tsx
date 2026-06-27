@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -30,12 +30,14 @@ function toContactFieldValues(
 function ContactDocumentFields({
   isEditing,
   ready,
+  canWrite,
   setEditing,
   setStructuredFields,
   values,
 }: {
   isEditing: boolean;
   ready: boolean;
+  canWrite: boolean;
   setEditing: (editing: boolean) => void;
   setStructuredFields: ContactStructuredFieldSetter;
   values: ContactFieldValues;
@@ -43,16 +45,21 @@ function ContactDocumentFields({
   return (
     <div className="contact-document-fields">
       <MiniAppActions>
-        <MiniAppButton disabled={!ready} onClick={() => setEditing(!isEditing)}>
+        <MiniAppButton
+          disabled={!ready || !canWrite}
+          onClick={() => setEditing(!isEditing)}
+        >
           {isEditing ? "Done" : "Edit"}
         </MiniAppButton>
       </MiniAppActions>
       <ContactFields
-        disabled={!ready}
-        isEditing={isEditing}
-        onFieldCommit={(key, value) =>
-          setStructuredFields("contact", { [key]: value })
-        }
+        disabled={!ready || !canWrite}
+        isEditing={isEditing && canWrite}
+        onFieldCommit={(key, value) => {
+          if (canWrite) {
+            setStructuredFields("contact", { [key]: value });
+          }
+        }}
         values={values}
       />
     </div>
@@ -63,9 +70,14 @@ export function ContactDocument() {
   const { auth, state } = useTearleadsRuntime();
   const { isAuthenticated } = auth;
   const { online } = state;
-  const { ready, setStructuredFields, structuredFields, syncing } =
+  const { canWrite, ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
   const [isEditing, setIsEditing] = useState(false);
+  useEffect(() => {
+    if (!canWrite) {
+      setIsEditing(false);
+    }
+  }, [canWrite]);
   const values = useMemo(
     () => toContactFieldValues(readContactFields(structuredFields)),
     [structuredFields],
@@ -84,6 +96,7 @@ export function ContactDocument() {
         <ContactDocumentFields
           isEditing={isEditing}
           ready={ready}
+          canWrite={canWrite}
           setEditing={setIsEditing}
           setStructuredFields={setStructuredFields}
           values={values}

@@ -34,6 +34,7 @@ interface ReloadExplorerContainerInfoOptions {
 }
 
 interface ExplorerContainerInfoShareParams {
+  canShareContainer: boolean;
   containerId: string;
   isSubmitting: boolean;
   reloadContainerInfo: ReloadExplorerContainerInfo;
@@ -354,6 +355,7 @@ export function useExplorerContainerInfoGroupShare(
   params: ExplorerContainerInfoGroupShareParams,
 ) {
   const {
+    canShareContainer,
     containerId,
     draftShareAccessLevel,
     draftShareGroupId,
@@ -367,7 +369,7 @@ export function useExplorerContainerInfoGroupShare(
   return useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (isSubmitting) {
+      if (isSubmitting || !canShareContainer) {
         return;
       }
 
@@ -407,6 +409,7 @@ export function useExplorerContainerInfoGroupShare(
       }
     },
     [
+      canShareContainer,
       containerId,
       draftShareAccessLevel,
       draftShareGroupId,
@@ -423,6 +426,7 @@ export function useExplorerContainerInfoPeerShare(
   params: ExplorerContainerInfoPeerShareParams,
 ) {
   const {
+    canShareContainer,
     containerId,
     isSubmitting,
     peerUserId,
@@ -433,7 +437,7 @@ export function useExplorerContainerInfoPeerShare(
   } = params;
 
   return useCallback(async () => {
-    if (isSubmitting || !peerUserId) {
+    if (isSubmitting || !peerUserId || !canShareContainer) {
       return;
     }
 
@@ -460,6 +464,7 @@ export function useExplorerContainerInfoPeerShare(
       setIsSubmitting(false);
     }
   }, [
+    canShareContainer,
     containerId,
     isSubmitting,
     peerUserId,

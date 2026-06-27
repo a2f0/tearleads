@@ -31,16 +31,19 @@ test("linked container details preserve order, names, fallback labels, and activ
     ),
   ).toEqual([
     {
+      canWrite: true,
       id: "archive-container",
       isActive: false,
       label: "Archive",
     },
     {
+      canWrite: false,
       id: "missing-container",
       isActive: false,
       label: "missing-container",
     },
     {
+      canWrite: true,
       id: "root-container",
       isActive: true,
       label: "Root",
@@ -67,6 +70,7 @@ test("linked container details preserve first matching node names", () => {
     ),
   ).toEqual([
     {
+      canWrite: true,
       id: "root-container",
       isActive: false,
       label: "Root",

@@ -1,4 +1,8 @@
 import { and, eq } from "drizzle-orm";
+import {
+  DEFAULT_EFFECTIVE_ACCESS_LEVEL,
+  normalizeEffectiveAccessLevel,
+} from "../accessLevel";
 import type {
   DocumentRecord,
   DocumentScope,
@@ -16,6 +20,9 @@ export function mapSelectedDocumentRecord(
     documentId: row.documentId,
     loroSnapshot: row.loroSnapshot,
     accessEpoch: row.accessEpoch,
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      row.effectiveAccessLevel,
+    ),
     lastCommitLsn: row.lastCommitLsn,
     contentKeyBundle: row.contentKeyBundle,
     documentKekTargets: row.documentKekTargets,
@@ -42,6 +49,8 @@ function toDocumentRow(input: {
     loroSnapshot: record.loroSnapshot,
     accessEpoch: record.accessEpoch,
     accessStateHash: record.accessStateHash ?? null,
+    effectiveAccessLevel:
+      record.effectiveAccessLevel ?? DEFAULT_EFFECTIVE_ACCESS_LEVEL,
     lastCommitLsn: record.lastCommitLsn ?? null,
     documentManifestBundle: record.documentManifestBundle ?? null,
     contentKeyBundle: record.contentKeyBundle ?? null,
@@ -62,6 +71,7 @@ export async function loadDocumentRecord(
       loroSnapshot: documents.loroSnapshot,
       accessEpoch: documents.accessEpoch,
       accessStateHash: documents.accessStateHash,
+      effectiveAccessLevel: documents.effectiveAccessLevel,
       lastCommitLsn: documents.lastCommitLsn,
       documentManifestBundle: documents.documentManifestBundle,
       contentKeyBundle: documents.contentKeyBundle,

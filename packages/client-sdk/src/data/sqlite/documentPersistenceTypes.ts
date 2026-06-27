@@ -1,9 +1,12 @@
+import type { ContainerAccessLevel } from "@tearleads/crypto";
+
 export interface DocumentRecord {
   id: string;
   documentId: string | null;
   loroSnapshot: string;
   accessEpoch: number;
   accessStateHash?: string | null;
+  effectiveAccessLevel?: ContainerAccessLevel | null;
   lastCommitLsn?: string | null;
   contentKeyBundle?: string | null;
   documentKekTargets?: string | null;
@@ -32,6 +35,7 @@ export interface SelectedDocumentRecordRow {
   loroSnapshot: string;
   accessEpoch: number;
   accessStateHash: string | null;
+  effectiveAccessLevel: string | null;
   lastCommitLsn: string | null;
   contentKeyBundle: string | null;
   documentKekTargets: string | null;

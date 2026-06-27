@@ -4,6 +4,7 @@ import type {
 } from "../../document-types/contact/contactDocumentModel";
 
 export interface ContactsContextValue {
+  canWrite: boolean;
   createContact: (patch: ContactEntryPatch) => Promise<string | null>;
   entries: ReadonlyArray<ContactEntry>;
   importKey: (userId: string) => Promise<string | null>;

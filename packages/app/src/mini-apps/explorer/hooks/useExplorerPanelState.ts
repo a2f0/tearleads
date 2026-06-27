@@ -58,6 +58,7 @@ import {
 
 interface ExplorerContextMenuModel {
   canCreateChildContextMenuNode: boolean;
+  canCreateContactContextMenuNode: boolean;
   canCreateStructuredDocumentContextMenuNode: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;

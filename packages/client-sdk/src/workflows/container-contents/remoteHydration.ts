@@ -54,6 +54,7 @@ function applyRemoteContainerTimestamps(
   return {
     ...container,
     createdAt: remoteContainer.createdAt,
+    effectiveAccessLevel: remoteContainer.effectiveAccessLevel,
     serverCreatedAt: remoteContainer.createdAt,
     serverUpdatedAt: remoteContainer.updatedAt,
     updatedAt: remoteContainer.updatedAt,
@@ -197,6 +198,7 @@ async function insertRemoteContainerState(input: {
     container: applyRemoteContainerTimestamps(
       {
         id: remoteContainer.id,
+        effectiveAccessLevel: remoteContainer.effectiveAccessLevel,
         organizationId: remoteContainer.organizationId,
         parentId: remoteContainer.parentId,
         metadataDocumentId: remoteContainer.metadataDocumentId,

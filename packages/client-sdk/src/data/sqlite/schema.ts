@@ -8,14 +8,14 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
+const accessLevelColumn = "effective_access_level";
+
 /**
  * Durable Loro-backed document records shared by app features.
  *
- * This table stores the encrypted document runtime state for multiple local app
- * domains. `appKind` namespaces records for documents and container
- * metadata so the same persistence helpers can manage all Loro documents.
- * User-facing list data is projected into feature-specific read models such as
- * `documentProjection` and `containerProjection`.
+ * This table stores encrypted document runtime state for multiple app domains.
+ * `appKind` namespaces records for documents and container metadata. User-facing
+ * list data is projected into feature-specific read models.
  *
  * Columns:
  * - `appKind`: Local domain namespace for the row, such as `documents` or
@@ -51,6 +51,7 @@ export const documents = sqliteTable(
     loroSnapshot: text("loro_snapshot").notNull(),
     accessEpoch: integer("access_epoch").notNull().default(1),
     accessStateHash: text("access_state_hash"),
+    effectiveAccessLevel: text(accessLevelColumn).notNull().default("admin"),
     lastCommitLsn: text("last_commit_lsn"),
     documentManifestBundle: text("document_manifest_bundle"),
     contentKeyBundle: text("content_key_bundle"),
@@ -156,10 +157,8 @@ export const principalPolicies = sqliteTable(
 /**
  * Materialized local container tree.
  *
- * Container rows describe the structural container tree and the document that
- * stores encrypted container metadata. Display fields are kept in
- * `containerProjection`; the Loro metadata document itself is stored in
- * `documents` under the container-metadata app kind.
+ * Container rows describe the tree and its encrypted metadata document. Display
+ * fields are kept in `containerProjection`; metadata rows live in `documents`.
  *
  * Columns:
  * - `id`: Stable local/server container id.
@@ -185,6 +184,7 @@ export const containers = sqliteTable(
     parentId: text("parent_id"),
     metadataDocumentId: text("metadata_document_id"),
     systemSlot: text("system_slot"),
+    effectiveAccessLevel: text(accessLevelColumn).notNull().default("admin"),
     localCreatedAt: text("local_created_at").notNull(),
     localUpdatedAt: text("local_updated_at").notNull(),
     serverCreatedAt: text("server_created_at"),

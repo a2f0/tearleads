@@ -273,6 +273,7 @@ export async function moveRemoteContainer(input: {
 
   return {
     createdAt: moved.response.createdAt,
+    effectiveAccessLevel: "admin",
     id: moved.response.containerId,
     organizationId: moved.response.organizationId,
     parentId: moved.response.parentId,

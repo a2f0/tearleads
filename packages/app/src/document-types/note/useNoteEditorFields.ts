@@ -39,6 +39,7 @@ interface NoteEditorFieldsModel {
   handleSelectedFiles: (fileList: FileList | null) => void;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   ready: boolean;
+  readOnly: boolean;
   setText: (text: string) => void;
   syncing: boolean;
   text: string;
@@ -140,6 +141,7 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     attachmentStorageKeyBySlotId,
     attachFiles,
     canAttach,
+    canWrite,
     ready,
     removeAttachment,
     setText,
@@ -184,6 +186,7 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,
+      readOnly: !canWrite,
       setText,
       syncing,
       text,
@@ -202,6 +205,7 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
       handleSelectedFiles,
       imageUrlBySlotId,
       ready,
+      canWrite,
       setText,
       syncing,
       text,

@@ -13,6 +13,7 @@ import {
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
+import { canWriteDocumentSummary } from "../containerRules";
 import { EXPLORER_LABELS } from "../labels";
 import { getDocumentLinkedContainerIds } from "../targetOptions";
 import { compactId } from "./compactId";
@@ -370,6 +371,7 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     params.canActivateLinkedContainer && hasRemoteDocument;
   const canUnlinkDocumentLink =
     params.canMutateDocumentLinks &&
+    canWriteDocumentSummary(documentSummary) &&
     hasRemoteDocument &&
     linkedContainerIds.length > 1;
 

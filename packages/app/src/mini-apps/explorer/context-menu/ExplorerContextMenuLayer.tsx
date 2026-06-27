@@ -121,6 +121,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
 
 interface ExplorerContainerContextMenuProps {
   canCreateChildContextMenuNode: boolean;
+  canCreateContactContextMenuNode: boolean;
   canCreateStructuredDocumentContextMenuNode: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
@@ -143,6 +144,7 @@ interface ExplorerContainerContextMenuProps {
 
 type ExplorerContactsContainerContextMenuProps = Pick<
   ExplorerContainerContextMenuProps,
+  | "canCreateContactContextMenuNode"
   | "closeContextMenu"
   | "contextMenu"
   | "openContainerInfoRoute"
@@ -153,6 +155,7 @@ function ExplorerContactsContainerContextMenu(
   params: ExplorerContactsContainerContextMenuProps,
 ) {
   const {
+    canCreateContactContextMenuNode,
     closeContextMenu,
     contextMenu,
     openContainerInfoRoute,
@@ -175,6 +178,7 @@ function ExplorerContactsContainerContextMenu(
       />
       <MenuItem
         label={EXPLORER_LABELS.newContactAction}
+        disabled={!canCreateContactContextMenuNode}
         onClick={() => {
           closeContextMenu();
           openNewContactDocument(containerId);
@@ -297,6 +301,7 @@ function ExplorerContainerContextMenu(
     return (
       <ExplorerContactsContainerContextMenu
         closeContextMenu={params.closeContextMenu}
+        canCreateContactContextMenuNode={params.canCreateContactContextMenuNode}
         contextMenu={params.contextMenu}
         openContainerInfoRoute={params.openContainerInfoRoute}
         openNewContactDocument={params.openNewContactDocument}
@@ -309,6 +314,7 @@ function ExplorerContainerContextMenu(
 
 export function ExplorerContextMenuLayer(params: {
   canCreateChildContextMenuNode: boolean;
+  canCreateContactContextMenuNode: boolean;
   canCreateStructuredDocumentContextMenuNode: boolean;
   containerContextMenuVariant: ExplorerContainerContextMenuVariant;
   canDeleteSelectedDocument: boolean;

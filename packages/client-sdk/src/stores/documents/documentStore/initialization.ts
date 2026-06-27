@@ -6,6 +6,7 @@ import {
   exportShallowSnapshot,
   importSnapshot,
 } from "@tearleads/loro";
+import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { getScopedPeerSeed } from "../../../data/crdtPeerSeed";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import {
@@ -107,6 +108,7 @@ async function initializeDocumentStore(
       loroSnapshot: bytesToBase64(exportShallowSnapshot(nextDoc)),
       accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
       accessStateHash: null,
+      effectiveAccessLevel: "admin",
       lastCommitLsn: null,
       contentKeyBundle: null,
       documentKekTargets: null,
@@ -238,6 +240,9 @@ export async function relinkDocumentStore(
   }
   return {
     accessStateHash: nextRecord.accessStateHash ?? null,
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      nextRecord.effectiveAccessLevel,
+    ),
     id: nextRecord.id,
     containerId: nextRecord.containerId,
     documentKind: nextRecord.documentKind ?? DEFAULT_DOCUMENT_KIND,

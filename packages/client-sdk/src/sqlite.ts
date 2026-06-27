@@ -60,6 +60,7 @@ export function createSQLiteRuntimeFromWorker(
 
 export { purgeOpfsSqliteDatabase } from "@tearleads/sqlite-worker/purge-opfs-database";
 export type { DatabasePersistenceMode } from "@tearleads/sqlite-worker/types";
+export { clientSQLiteSchema } from "./data/sqlite/schema";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,
   type ClientSQLitePersistenceRuntime as SQLitePersistenceRuntime,
@@ -71,6 +72,7 @@ export {
   defineSqlTableSchema,
   type ExecSql,
   type ExecSqlClientLike,
+  ensureSqlColumns,
   ensureSqlTables,
   runSerializedSqlMutation,
   type SqlArrayRow,

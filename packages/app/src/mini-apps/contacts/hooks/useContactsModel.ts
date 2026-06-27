@@ -30,6 +30,7 @@ import type { ContactEntries } from "../types";
 interface ContactsModel {
   canCreate: boolean;
   canImport: boolean;
+  canWrite: boolean;
   contextMenuState: ContactsContextMenuModel;
   createDraftContact: () => Promise<void>;
   draftFirstName: string;
@@ -50,21 +51,6 @@ interface ContactsModel {
   setDraftUserId: Dispatch<SetStateAction<string>>;
   showSelectionRoute: () => void;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
-}
-
-interface ContactDraftModel {
-  canCreate: boolean;
-  canImport: boolean;
-  createDraftContact: () => Promise<void>;
-  draftFirstName: string;
-  draftLastName: string;
-  draftNickname: string;
-  draftUserId: string;
-  importDraftContact: () => Promise<void>;
-  setDraftFirstName: Dispatch<SetStateAction<string>>;
-  setDraftLastName: Dispatch<SetStateAction<string>>;
-  setDraftNickname: Dispatch<SetStateAction<string>>;
-  setDraftUserId: Dispatch<SetStateAction<string>>;
 }
 
 function useContactsRouteState() {
@@ -202,37 +188,48 @@ function usePeerUserIdDraft(
   }, [openImportContactRoute, peerUserId, setDraftUserId]);
 }
 
-function useContactDrafts(input: {
+function hasContactNameDraft(params: {
+  firstName: string;
+  lastName: string;
+  nickname: string;
+}): boolean {
+  return (
+    params.nickname.trim().length > 0 ||
+    params.firstName.trim().length > 0 ||
+    params.lastName.trim().length > 0
+  );
+}
+
+function useCreateDraftContact(input: {
+  canCreate: boolean;
   createContact: ReturnType<typeof useContacts>["createContact"];
-  importKey: ReturnType<typeof useContacts>["importKey"];
-  isAuthenticated: boolean;
+  draftFirstName: string;
+  draftLastName: string;
+  draftNickname: string;
+  isSubmittingRef: { current: boolean };
   logError: ReturnType<typeof useLog>["logError"];
-  ready: boolean;
+  setDraftFirstName: Dispatch<SetStateAction<string>>;
+  setDraftLastName: Dispatch<SetStateAction<string>>;
+  setDraftNickname: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
   setSelectedContactId: (contactId: string) => void;
-}): ContactDraftModel {
+}) {
   const {
+    canCreate,
     createContact,
-    importKey,
-    isAuthenticated,
+    draftFirstName,
+    draftLastName,
+    draftNickname,
+    isSubmittingRef,
     logError,
-    ready,
+    setDraftFirstName,
+    setDraftLastName,
+    setDraftNickname,
+    setIsSubmitting,
     setSelectedContactId,
   } = input;
-  const [draftFirstName, setDraftFirstName] = useState("");
-  const [draftLastName, setDraftLastName] = useState("");
-  const [draftNickname, setDraftNickname] = useState("");
-  const [draftUserId, setDraftUserId] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isSubmittingRef = useRef(false);
-  const canCreate =
-    !isSubmitting &&
-    ready &&
-    (draftNickname.trim().length > 0 ||
-      draftFirstName.trim().length > 0 ||
-      draftLastName.trim().length > 0);
-  const canImport =
-    !isSubmitting && ready && isAuthenticated && draftUserId.trim().length > 0;
-  const createDraftContact = useCallback(async () => {
+
+  return useCallback(async () => {
     if (!canCreate || isSubmittingRef.current) {
       return;
     }
@@ -263,10 +260,38 @@ function useContactDrafts(input: {
     draftFirstName,
     draftLastName,
     draftNickname,
+    isSubmittingRef,
     logError,
+    setDraftFirstName,
+    setDraftLastName,
+    setDraftNickname,
+    setIsSubmitting,
     setSelectedContactId,
   ]);
-  const importDraftContact = useCallback(async () => {
+}
+
+function useImportDraftContact(input: {
+  canImport: boolean;
+  draftUserId: string;
+  importKey: ReturnType<typeof useContacts>["importKey"];
+  isSubmittingRef: { current: boolean };
+  logError: ReturnType<typeof useLog>["logError"];
+  setDraftUserId: Dispatch<SetStateAction<string>>;
+  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  setSelectedContactId: (contactId: string) => void;
+}) {
+  const {
+    canImport,
+    draftUserId,
+    importKey,
+    isSubmittingRef,
+    logError,
+    setDraftUserId,
+    setIsSubmitting,
+    setSelectedContactId,
+  } = input;
+
+  return useCallback(async () => {
     if (!canImport || isSubmittingRef.current) {
       return;
     }
@@ -285,7 +310,82 @@ function useContactDrafts(input: {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [canImport, draftUserId, importKey, logError, setSelectedContactId]);
+  }, [
+    canImport,
+    draftUserId,
+    importKey,
+    isSubmittingRef,
+    logError,
+    setDraftUserId,
+    setIsSubmitting,
+    setSelectedContactId,
+  ]);
+}
+
+function useContactDrafts(input: {
+  canWrite: boolean;
+  createContact: ReturnType<typeof useContacts>["createContact"];
+  importKey: ReturnType<typeof useContacts>["importKey"];
+  isAuthenticated: boolean;
+  logError: ReturnType<typeof useLog>["logError"];
+  ready: boolean;
+  setSelectedContactId: (contactId: string) => void;
+}) {
+  const {
+    canWrite,
+    createContact,
+    importKey,
+    isAuthenticated,
+    logError,
+    ready,
+    setSelectedContactId,
+  } = input;
+  const [draftFirstName, setDraftFirstName] = useState("");
+  const [draftLastName, setDraftLastName] = useState("");
+  const [draftNickname, setDraftNickname] = useState("");
+  const [draftUserId, setDraftUserId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const canCreate =
+    !isSubmitting &&
+    canWrite &&
+    ready &&
+    hasContactNameDraft({
+      firstName: draftFirstName,
+      lastName: draftLastName,
+      nickname: draftNickname,
+    });
+  const canImport =
+    !isSubmitting &&
+    canWrite &&
+    ready &&
+    isAuthenticated &&
+    draftUserId.trim().length > 0;
+
+  const createDraftContact = useCreateDraftContact({
+    canCreate,
+    createContact,
+    draftFirstName,
+    draftLastName,
+    draftNickname,
+    isSubmittingRef,
+    logError,
+    setDraftFirstName,
+    setDraftLastName,
+    setDraftNickname,
+    setIsSubmitting,
+    setSelectedContactId,
+  });
+  const importDraftContact = useImportDraftContact({
+    canImport,
+    draftUserId,
+    importKey,
+    isSubmittingRef,
+    logError,
+    setDraftUserId,
+    setIsSubmitting,
+    setSelectedContactId,
+  });
 
   return {
     canCreate,
@@ -310,6 +410,7 @@ export function useContactsModel(
   const appData = useTearleadsRuntime();
   const {
     createContact,
+    canWrite,
     entries,
     importKey,
     ready,
@@ -321,6 +422,7 @@ export function useContactsModel(
   const routeState = useContactsRouteState();
   const selectionState = useContactsSelectionState(routeState);
   const drafts = useContactDrafts({
+    canWrite,
     createContact,
     importKey,
     isAuthenticated,
@@ -330,6 +432,7 @@ export function useContactsModel(
   });
 
   const contextMenuState = useContactsContextMenu({
+    canWrite,
     entries,
     removeContact,
     selectedContactId: selectionState.selectedContactId,
@@ -375,6 +478,7 @@ export function useContactsModel(
   return {
     contextMenuState,
     ...drafts,
+    canWrite,
     entries,
     isAuthenticated,
     openImportContactRoute: routeState.openImportContactRoute,

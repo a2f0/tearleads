@@ -1,8 +1,13 @@
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import {
   type ContainerSystemSlot,
   isContainerSystemSlot,
 } from "@tearleads/validators/containerSystemSlot";
 import { asc, eq, inArray, sql } from "drizzle-orm";
+import {
+  DEFAULT_EFFECTIVE_ACCESS_LEVEL,
+  normalizeEffectiveAccessLevel,
+} from "../../accessLevel";
 import {
   containerProjection,
   containers,
@@ -12,10 +17,15 @@ import {
   type ClientSQLiteTransaction,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import {
+  type ExecSql,
+  ensureSqlColumns,
+  ensureSqlTables,
+} from "../../sqlite/sqlSchema";
 
 export interface ContainerRecord {
   createdAt?: string | null;
+  effectiveAccessLevel?: ContainerAccessLevel | null;
   id: string;
   organizationId: string;
   parentId: string | null;
@@ -41,9 +51,16 @@ interface ContainerRecordWithTimestampDefaults extends ContainerRecord {
 
 export async function ensureContainerTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, containerTables);
+  await ensureSqlColumns(execSql, "containers", [
+    {
+      name: "effective_access_level",
+      definition: "\"effective_access_level\" TEXT NOT NULL DEFAULT 'admin'",
+    },
+  ]);
 }
 
 interface SelectedContainerRecord {
+  effectiveAccessLevel: string | null;
   id: string | null;
   organizationId: string;
   parentId: string | null;
@@ -98,6 +115,9 @@ function mapSelectedContainerRecord(
     : null;
 
   return toDisplayContainerRecord({
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      row.effectiveAccessLevel,
+    ),
     id: String(row.id ?? ""),
     organizationId: row.organizationId,
     parentId: row.parentId,
@@ -120,6 +140,8 @@ export async function saveContainerRows(input: {
   const { record, tx, localUpdatedAt } = input;
   const nextRecord = applyContainerTimestampDefaults(record, localUpdatedAt);
   const containerRow = {
+    effectiveAccessLevel:
+      nextRecord.effectiveAccessLevel ?? DEFAULT_EFFECTIVE_ACCESS_LEVEL,
     id: nextRecord.id,
     organizationId: nextRecord.organizationId,
     parentId: nextRecord.parentId,
@@ -140,6 +162,7 @@ export async function saveContainerRows(input: {
         parentId: containerRow.parentId,
         metadataDocumentId: containerRow.metadataDocumentId,
         systemSlot: containerRow.systemSlot,
+        effectiveAccessLevel: containerRow.effectiveAccessLevel,
         localUpdatedAt: containerRow.localUpdatedAt,
         serverCreatedAt:
           record.serverCreatedAt === undefined
@@ -181,6 +204,7 @@ export async function loadContainers(
   )`;
   const rows = await db
     .select({
+      effectiveAccessLevel: containers.effectiveAccessLevel,
       id: containers.id,
       organizationId: containers.organizationId,
       parentId: containers.parentId,

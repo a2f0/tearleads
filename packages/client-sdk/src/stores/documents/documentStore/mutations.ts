@@ -16,7 +16,11 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import { type DocumentStoreState, setDocumentSnapshot } from "./state";
+import {
+  canWriteDocument,
+  type DocumentStoreState,
+  setDocumentSnapshot,
+} from "./state";
 
 function publishDocumentTextSnapshot(
   state: DocumentStoreState,
@@ -27,8 +31,10 @@ function publishDocumentTextSnapshot(
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
+    canWrite: state.snapshot.canWrite,
     documentId: state.snapshot.documentId,
     documentKind: state.snapshot.documentKind,
+    effectiveAccessLevel: state.snapshot.effectiveAccessLevel,
     fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
     structuredFields: state.snapshot.structuredFields,
@@ -56,7 +62,7 @@ function queueDocumentTextWrite(
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      if (!state.doc) {
+      if (!state.doc || !canWriteDocument(state)) {
         return;
       }
 
@@ -120,8 +126,10 @@ function publishDocumentStructuredFieldSnapshot(
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
+    canWrite: state.snapshot.canWrite,
     documentId: state.snapshot.documentId,
     documentKind: projectedState.documentKind,
+    effectiveAccessLevel: state.snapshot.effectiveAccessLevel,
     fieldValidationIssues: projectedState.fieldValidationIssues,
     ready: state.snapshot.ready,
     structuredFields: projectedState.structuredFields,
@@ -142,7 +150,7 @@ function queueDocumentStructuredFieldWrite(
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
-      if (!state.doc) {
+      if (!state.doc || !canWriteDocument(state)) {
         return;
       }
 
@@ -190,13 +198,17 @@ export function setDocumentText(
 
   if (!state.initialized || !state.doc) {
     return ensureDocumentStoreReady(state, scheduleSync).then((ready) => {
-      if (!ready || !state.doc) {
+      if (!ready || !state.doc || !canWriteDocument(state)) {
         return;
       }
 
       publishDocumentTextSnapshot(state, value);
       return queueDocumentTextWrite(state, value);
     });
+  }
+
+  if (!canWriteDocument(state)) {
+    return Promise.resolve();
   }
 
   publishDocumentTextSnapshot(state, value);
@@ -213,13 +225,17 @@ export function setDocumentStructuredFields(
 
   if (!state.initialized || !state.doc) {
     return ensureDocumentStoreReady(state, scheduleSync).then((ready) => {
-      if (!ready || !state.doc) {
+      if (!ready || !state.doc || !canWriteDocument(state)) {
         return;
       }
 
       publishDocumentStructuredFieldSnapshot(state, kind, patch);
       return queueDocumentStructuredFieldWrite(state, kind, patch);
     });
+  }
+
+  if (!canWriteDocument(state)) {
+    return Promise.resolve();
   }
 
   publishDocumentStructuredFieldSnapshot(state, kind, patch);

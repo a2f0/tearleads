@@ -244,6 +244,10 @@ async function upsertDiscoveredDocumentWithExec(
       accessStateHash: input.accessStateHash,
       documentId: input.documentId,
     }),
+    effectiveAccessLevel:
+      input.effectiveAccessLevel ??
+      existingDocument?.effectiveAccessLevel ??
+      null,
     ...resolvePersistedDocumentRuntimeState(existingDocument, {
       accessEpoch: nextAccessEpoch,
       documentId: input.documentId,

@@ -250,6 +250,9 @@ export function Explorer() {
         canCreateChildContextMenuNode={
           model.contextMenuState.canCreateChildContextMenuNode
         }
+        canCreateContactContextMenuNode={
+          model.contextMenuState.canCreateContactContextMenuNode
+        }
         canCreateStructuredDocumentContextMenuNode={
           model.contextMenuState.canCreateStructuredDocumentContextMenuNode
         }

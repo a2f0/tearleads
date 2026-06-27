@@ -168,6 +168,7 @@ test("loadDocumentSummary loads a single document projection by local id", async
       containerId: "root-container",
       documentId: "remote-song-1",
       documentKind: "note",
+      effectiveAccessLevel: "admin",
       id: "song-1",
       title: "Song 1",
       updatedAt: "2026-05-03T00:00:00.000Z",

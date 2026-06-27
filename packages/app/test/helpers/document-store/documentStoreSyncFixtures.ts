@@ -85,6 +85,7 @@ export function createListedContainers(
       {
         createdAt: updatedAt,
         depth: 0,
+        effectiveAccessLevel: "admin",
         id: containerId,
         metadataAccessEpoch: 1,
         metadataAccessStateHash,

@@ -12,14 +12,14 @@ export function Contacts() {
   const peerUserId = usePeerUserId();
   const model = useContactsModel(setSidebar, peerUserId);
   useWindowFileMenuItem({
-    disabled: !model.ready,
+    disabled: !model.ready || !model.canWrite,
     id: "contacts-new-contact",
     label: CONTACTS_LABELS.newContactAction,
     onClick: model.openNewContactRoute,
     priority: 100,
   });
   useWindowFileMenuItem({
-    disabled: !model.ready,
+    disabled: !model.ready || !model.canWrite,
     id: "contacts-import-contact",
     label: CONTACTS_LABELS.importContactAction,
     onClick: model.openImportContactRoute,
@@ -61,6 +61,7 @@ export function Contacts() {
         openImportContactRoute={model.openImportContactRoute}
         openNewContactRoute={model.openNewContactRoute}
         ready={model.ready}
+        canWrite={model.canWrite}
         removeContextMenuContact={
           model.contextMenuState.removeContextMenuContact
         }

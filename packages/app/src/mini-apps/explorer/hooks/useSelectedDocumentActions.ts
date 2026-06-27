@@ -17,6 +17,10 @@ import {
 } from "../../../stores/explorer/documentLinks";
 import {
   canAddDocumentToContainerByRules,
+  canLinkDocumentOutByRules,
+  canMoveDocumentOutByRules,
+  canWriteContainerNode,
+  canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
 } from "../containerRules";
 import { getDocumentByLocalId } from "../documentSummaries";
@@ -71,7 +75,18 @@ function useMoveDocumentAction(params: {
         loadDocumentSummary,
         documentId,
       });
-      if (!existingDocument) {
+      if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
+        return null;
+      }
+      const currentContainer =
+        existingDocument.containerId === null
+          ? undefined
+          : nodes.find((node) => node.id === existingDocument.containerId);
+      if (
+        existingDocument.containerId !== null &&
+        (!canWriteContainerNode(currentContainer) ||
+          !canMoveDocumentOutByRules(rulesContext, currentContainer))
+      ) {
         return null;
       }
       const canMoveDocument =
@@ -129,8 +144,9 @@ function usePurgeDocumentAction(params: {
   appData: ContainerDocumentLinks;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
+  nodes: ReadonlyArray<ContainerNode>;
 }) {
-  const { appData, documentSummaries, loadDocumentSummary } = params;
+  const { appData, documentSummaries, loadDocumentSummary, nodes } = params;
 
   return useCallback(
     async (documentId: string) => {
@@ -139,7 +155,15 @@ function usePurgeDocumentAction(params: {
         loadDocumentSummary,
         documentId,
       });
-      if (!existingDocument) {
+      if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
+        return null;
+      }
+      if (
+        existingDocument.containerId !== null &&
+        !canWriteContainerNode(
+          nodes.find((node) => node.id === existingDocument.containerId),
+        )
+      ) {
         return null;
       }
 
@@ -156,7 +180,7 @@ function usePurgeDocumentAction(params: {
 
       return purgeExplorerNote({ appData, note: existingDocument });
     },
-    [appData, documentSummaries, loadDocumentSummary],
+    [appData, documentSummaries, loadDocumentSummary, nodes],
   );
 }
 
@@ -192,7 +216,18 @@ function useLinkDocumentAction(params: {
         loadDocumentSummary,
         documentId,
       });
-      if (!existingDocument) {
+      if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
+        return null;
+      }
+      const currentContainer =
+        existingDocument.containerId === null
+          ? undefined
+          : nodes.find((node) => node.id === existingDocument.containerId);
+      if (
+        existingDocument.containerId !== null &&
+        (!canWriteContainerNode(currentContainer) ||
+          !canLinkDocumentOutByRules(rulesContext, currentContainer))
+      ) {
         return null;
       }
       const targetContainer = nodes.find(
@@ -240,6 +275,7 @@ function useUnlinkDocumentAction(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
+  nodes: ReadonlyArray<ContainerNode>;
   onDocumentLinksChanged: () => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -248,6 +284,7 @@ function useUnlinkDocumentAction(params: {
     documentSummaries,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
   } = params;
@@ -263,7 +300,14 @@ function useUnlinkDocumentAction(params: {
         loadDocumentSummary,
         documentId,
       });
-      if (!existingDocument) {
+      if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
+        return null;
+      }
+      if (
+        !canWriteContainerNode(
+          nodes.find((node) => node.id === removedContainerId),
+        )
+      ) {
         return null;
       }
 
@@ -285,6 +329,7 @@ function useUnlinkDocumentAction(params: {
       documentSummaries,
       loadDocumentSummary,
       mergeDocumentSummary,
+      nodes,
       onDocumentLinksChanged,
       setLinkedContainerIdsForDocument,
     ],
@@ -368,6 +413,7 @@ export function useSelectedDocumentActions(params: {
     appData,
     documentSummaries,
     loadDocumentSummary,
+    nodes,
   });
   const activateLinkedDocument = useActivateLinkedDocumentAction({
     appData,
@@ -390,6 +436,7 @@ export function useSelectedDocumentActions(params: {
     documentSummaries,
     loadDocumentSummary,
     mergeDocumentSummary,
+    nodes,
     onDocumentLinksChanged,
     setLinkedContainerIdsForDocument,
   });

@@ -648,6 +648,7 @@ describe("Tearleads", () => {
             containerId: "container-1",
             documentId: null,
             documentKind: "note",
+            effectiveAccessLevel: "admin",
             id: "note-1",
             title: "Note title",
             updatedAt: "2026-05-24T12:00:00.000Z",
@@ -719,6 +720,7 @@ describe("Tearleads", () => {
             containerId: "container-1",
             documentId: null,
             documentKind: "note",
+            effectiveAccessLevel: "admin",
             id: "note-m",
             title: "Middle",
             updatedAt: "2026-05-24T10:00:00.000Z",
@@ -728,6 +730,7 @@ describe("Tearleads", () => {
             containerId: "container-1",
             documentId: null,
             documentKind: "note",
+            effectiveAccessLevel: "admin",
             id: "note-z",
             title: "Zebra",
             updatedAt: "2026-05-24T12:00:00.000Z",
@@ -745,10 +748,10 @@ describe("Tearleads", () => {
       "tearleads-documents-list-schema-cache-test",
     );
     try {
-      let createTableStatementCount = 0;
+      let createStatementCount = 0;
       const observedExecSql = createObservedExecSql(execSql, (sql) => {
         if (sql.startsWith("CREATE TABLE IF NOT EXISTS")) {
-          createTableStatementCount += 1;
+          createStatementCount += 1;
         }
       });
       const sdk = new Tearleads({
@@ -758,21 +761,17 @@ describe("Tearleads", () => {
         },
         logger: quietLogger,
       });
-
       expect(await sdk.documents.list()).toEqual({
         rows: [],
         totalCount: 0,
       });
-      const firstCallCreateTableStatementCount = createTableStatementCount;
-      expect(firstCallCreateTableStatementCount).toBeGreaterThan(0);
-
+      const firstCreateCount = createStatementCount;
+      expect(firstCreateCount).toBeGreaterThan(0);
       expect(await sdk.documents.list()).toEqual({
         rows: [],
         totalCount: 0,
       });
-      expect(createTableStatementCount).toBe(
-        firstCallCreateTableStatementCount,
-      );
+      expect(createStatementCount).toBe(firstCreateCount);
     } finally {
       close();
     }
@@ -814,6 +813,7 @@ describe("Tearleads", () => {
         containerId: "container-1",
         documentId: "document-1",
         documentKind: "note",
+        effectiveAccessLevel: "admin",
         id: "note-1",
         title: "Note title",
         updatedAt: "2026-05-24T12:00:00.000Z",

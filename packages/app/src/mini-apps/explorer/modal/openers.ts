@@ -1,6 +1,12 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback } from "react";
-import type { ExplorerContainerRulesContext } from "../containerRules";
+import {
+  canCreateChildContainerByRules,
+  canDeleteContainerByRules,
+  canRenameContainerByRules,
+  canWriteContainerNode,
+  type ExplorerContainerRulesContext,
+} from "../containerRules";
 import {
   type ExplorerTargetLookups,
   getDocumentLinkedContainerIds,
@@ -50,6 +56,33 @@ function openExplorerTargetModal(params: {
   setModalError(null);
   setDraftName("");
   setDraftTargetContainerId(targetOptions[0]?.id ?? "");
+}
+
+function openExplorerSimpleModal(params: {
+  draftName?: string;
+  nextModalState: ExplorerModalState;
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+}) {
+  params.setModalState(params.nextModalState);
+  params.setModalError(null);
+  params.setDraftName(params.draftName ?? "");
+  params.setDraftTargetContainerId("");
+}
+
+interface ExplorerModalOpenersParams {
+  canShareWithPeer: boolean;
+  documentSummaries: ReadonlyArray<DocumentSummary>;
+  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
+  nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
+  setDraftName: (value: string) => void;
+  setDraftTargetContainerId: (value: string) => void;
+  setModalError: (error: string | null) => void;
+  setModalState: (state: ExplorerModalState | null) => void;
+  targetLookups: ExplorerTargetLookups;
 }
 
 function useExplorerTargetModalOpeners(params: {
@@ -232,49 +265,162 @@ function useExplorerLinkDocumentModalOpener(params: {
   );
 }
 
-export function useExplorerModalOpeners(params: {
-  canShareWithPeer: boolean;
-  documentSummaries: ReadonlyArray<DocumentSummary>;
-  linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  nodes: ReadonlyArray<ContainerNode>;
+interface ExplorerContainerModalOpenerParams {
   rulesContext: ExplorerContainerRulesContext;
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
   setModalState: (state: ExplorerModalState | null) => void;
   targetLookups: ExplorerTargetLookups;
-}) {
+}
+
+function useExplorerCreateChildModalOpener(
+  params: ExplorerContainerModalOpenerParams,
+) {
   const {
-    canShareWithPeer,
+    rulesContext,
     setDraftName,
     setDraftTargetContainerId,
     setModalError,
     setModalState,
     targetLookups,
   } = params;
-  const targetOpeners = useExplorerTargetModalOpeners(params);
 
-  const openCreateChildModal = useCallback(
+  return useCallback(
     (parentId: string) => {
-      setModalState({ mode: "create-child", nodeId: parentId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId("");
-    },
-    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
-  );
-
-  const openRenameModal = useCallback(
-    (containerId: string) => {
-      const container = targetLookups.nodesById.get(containerId);
-      if (!container) {
+      if (
+        !canCreateChildContainerByRules(
+          rulesContext,
+          targetLookups.nodesById.get(parentId),
+        )
+      ) {
         return;
       }
 
-      setModalState({ mode: "rename", nodeId: containerId });
-      setModalError(null);
-      setDraftName(container.name);
-      setDraftTargetContainerId("");
+      openExplorerSimpleModal({
+        nextModalState: { mode: "create-child", nodeId: parentId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+      });
+    },
+    [
+      rulesContext,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+      targetLookups,
+    ],
+  );
+}
+
+function useExplorerRenameModalOpener(
+  params: ExplorerContainerModalOpenerParams,
+) {
+  const {
+    rulesContext,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetLookups,
+  } = params;
+
+  return useCallback(
+    (containerId: string) => {
+      const container = targetLookups.nodesById.get(containerId);
+      if (!container || !canRenameContainerByRules(rulesContext, container)) {
+        return;
+      }
+
+      openExplorerSimpleModal({
+        draftName: container.name,
+        nextModalState: { mode: "rename", nodeId: containerId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+      });
+    },
+    [
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+      targetLookups,
+      rulesContext,
+    ],
+  );
+}
+
+function useExplorerDeleteModalOpener(
+  params: ExplorerContainerModalOpenerParams,
+) {
+  const {
+    rulesContext,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetLookups,
+  } = params;
+
+  return useCallback(
+    (containerId: string) => {
+      if (
+        !canDeleteContainerByRules(
+          rulesContext,
+          targetLookups.nodesById.get(containerId),
+        )
+      ) {
+        return;
+      }
+
+      openExplorerSimpleModal({
+        nextModalState: { mode: "delete", nodeId: containerId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+      });
+    },
+    [
+      rulesContext,
+      setDraftName,
+      setDraftTargetContainerId,
+      setModalError,
+      setModalState,
+      targetLookups,
+    ],
+  );
+}
+
+function useExplorerPurgeModalOpener(
+  params: ExplorerContainerModalOpenerParams,
+) {
+  const {
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetLookups,
+  } = params;
+
+  return useCallback(
+    (containerId: string) => {
+      if (!canWriteContainerNode(targetLookups.nodesById.get(containerId))) {
+        return;
+      }
+
+      openExplorerSimpleModal({
+        nextModalState: { mode: "purge", nodeId: containerId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+      });
     },
     [
       setDraftName,
@@ -284,37 +430,36 @@ export function useExplorerModalOpeners(params: {
       targetLookups,
     ],
   );
+}
 
-  const openDeleteModal = useCallback(
-    (containerId: string) => {
-      setModalState({ mode: "delete", nodeId: containerId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId("");
-    },
-    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
-  );
+function useExplorerSharePeerModalOpener(
+  params: ExplorerContainerModalOpenerParams & { canShareWithPeer: boolean },
+) {
+  const {
+    canShareWithPeer,
+    setDraftName,
+    setDraftTargetContainerId,
+    setModalError,
+    setModalState,
+    targetLookups,
+  } = params;
 
-  const openPurgeModal = useCallback(
+  return useCallback(
     (containerId: string) => {
-      setModalState({ mode: "purge", nodeId: containerId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId("");
-    },
-    [setDraftName, setDraftTargetContainerId, setModalError, setModalState],
-  );
-
-  const openSharePeerModal = useCallback(
-    (containerId: string) => {
-      if (!canShareWithPeer) {
+      if (
+        !canShareWithPeer ||
+        !canWriteContainerNode(targetLookups.nodesById.get(containerId))
+      ) {
         return;
       }
 
-      setModalState({ mode: "share-peer", nodeId: containerId });
-      setModalError(null);
-      setDraftName("");
-      setDraftTargetContainerId("");
+      openExplorerSimpleModal({
+        nextModalState: { mode: "share-peer", nodeId: containerId },
+        setDraftName,
+        setDraftTargetContainerId,
+        setModalError,
+        setModalState,
+      });
     },
     [
       canShareWithPeer,
@@ -322,8 +467,18 @@ export function useExplorerModalOpeners(params: {
       setDraftTargetContainerId,
       setModalError,
       setModalState,
+      targetLookups,
     ],
   );
+}
+
+export function useExplorerModalOpeners(params: ExplorerModalOpenersParams) {
+  const targetOpeners = useExplorerTargetModalOpeners(params);
+  const openCreateChildModal = useExplorerCreateChildModalOpener(params);
+  const openRenameModal = useExplorerRenameModalOpener(params);
+  const openDeleteModal = useExplorerDeleteModalOpener(params);
+  const openPurgeModal = useExplorerPurgeModalOpener(params);
+  const openSharePeerModal = useExplorerSharePeerModalOpener(params);
 
   return {
     ...targetOpeners,

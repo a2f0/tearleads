@@ -1,3 +1,4 @@
+import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
@@ -213,6 +214,12 @@ export function mapContainerContentsDocumentSummaryRow(
     accessStateHash: readContainerContentsContainerItemNullableString(
       row,
       "access_state_hash",
+    ),
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      readContainerContentsContainerItemNullableString(
+        row,
+        "effective_access_level",
+      ),
     ),
     id: localId,
     containerId: readContainerContentsContainerItemNullableString(

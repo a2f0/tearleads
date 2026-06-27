@@ -5,6 +5,10 @@ import {
   hasStringProperty,
 } from "../util";
 import {
+  type EffectiveAccessLevel,
+  isEffectiveAccessLevel,
+} from "./accessLevel";
+import {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
 } from "./principal";
@@ -14,6 +18,7 @@ export interface ContainerDocumentSummary {
   createdAt: string;
   currentAccessEpoch: number;
   currentAccessStateHash: string;
+  effectiveAccessLevel: EffectiveAccessLevel;
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];
@@ -49,6 +54,7 @@ function isContainerDocumentSummary(
     hasNumberProperty(value, "currentAccessEpoch") &&
     typeof currentAccessStateHash === "string" &&
     currentAccessStateHash.length > 0 &&
+    isEffectiveAccessLevel(Reflect.get(value, "effectiveAccessLevel")) &&
     hasStringProperty(value, "id") &&
     hasArrayProperty(value, "linkedContainerIds") &&
     value.linkedContainerIds.every((entry) => typeof entry === "string") &&

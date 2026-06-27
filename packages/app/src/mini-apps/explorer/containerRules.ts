@@ -64,8 +64,20 @@ export function createExplorerContainerRulesContext(
 // same-org container is resolved purely by slot.
 type ContainerRulesNode = Pick<
   ContainerNode,
-  "systemSlot" | "name" | "organizationId"
+  "effectiveAccessLevel" | "systemSlot" | "name" | "organizationId"
 >;
+
+export function canWriteContainerNode(
+  container: Pick<ContainerNode, "effectiveAccessLevel"> | null | undefined,
+): boolean {
+  return container != null && container.effectiveAccessLevel !== "read";
+}
+
+export function canWriteDocumentSummary(
+  document: Pick<DocumentSummary, "effectiveAccessLevel"> | null | undefined,
+): boolean {
+  return document != null && document.effectiveAccessLevel !== "read";
+}
 
 function resolveContainerRules(
   context: ExplorerContainerRulesContext,
@@ -111,21 +123,30 @@ export function canMoveContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return resolveContainerRules(context, container)?.protectFromMove !== true;
+  return (
+    canWriteContainerNode(container) &&
+    resolveContainerRules(context, container)?.protectFromMove !== true
+  );
 }
 
 export function canDeleteContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return resolveContainerRules(context, container)?.protectFromDelete !== true;
+  return (
+    canWriteContainerNode(container) &&
+    resolveContainerRules(context, container)?.protectFromDelete !== true
+  );
 }
 
 export function canRenameContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return resolveContainerRules(context, container)?.protectFromRename !== true;
+  return (
+    canWriteContainerNode(container) &&
+    resolveContainerRules(context, container)?.protectFromRename !== true
+  );
 }
 
 // Files may be uploaded into a container unless it is a protected system folder
@@ -134,7 +155,10 @@ export function canUploadToContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return resolveContainerRules(context, container)?.protectFromUpload !== true;
+  return (
+    canWriteContainerNode(container) &&
+    resolveContainerRules(context, container)?.protectFromUpload !== true
+  );
 }
 
 // Child containers are a structural mutation of the parent container. System
@@ -145,6 +169,7 @@ export function canCreateChildContainerByRules(
   container: ContainerRulesNode | undefined,
 ): boolean {
   return (
+    canWriteContainerNode(container) &&
     resolveContainerRules(context, container)
       ?.protectFromChildContainerCreation !== true
   );
@@ -158,6 +183,7 @@ export function canCreateStructuredDocumentInContainerByRules(
   container: ContainerRulesNode | undefined,
 ): boolean {
   return (
+    canWriteContainerNode(container) &&
     resolveContainerRules(context, container)
       ?.protectFromStructuredDocumentCreation !== true
   );
@@ -165,8 +191,8 @@ export function canCreateStructuredDocumentInContainerByRules(
 
 // Resolve a container by id from the explorer's node list and report whether it
 // accepts uploads. Used to gate every import path (context menu and
-// drag-and-drop) at a single chokepoint; an unknown id is treated as uploadable
-// since it carries no system slot.
+// drag-and-drop) at a single chokepoint; an unknown id fails closed because its
+// effective write access cannot be proven.
 export function canUploadToContainerIdByRules(
   context: ExplorerContainerRulesContext,
   nodes: ReadonlyArray<Pick<ContainerNode, "id"> & ContainerRulesNode>,
@@ -191,6 +217,7 @@ export function canMoveDocumentOutByRules(
   currentContainer: ContainerRulesNode | undefined,
 ): boolean {
   return (
+    canWriteContainerNode(currentContainer) &&
     resolveContainerRules(context, currentContainer)
       ?.protectContentsFromLeaving !== true
   );
@@ -201,6 +228,7 @@ export function canLinkDocumentOutByRules(
   currentContainer: ContainerRulesNode | undefined,
 ): boolean {
   return (
+    canWriteContainerNode(currentContainer) &&
     resolveContainerRules(context, currentContainer)
       ?.protectContentsFromLinking !== true
   );
@@ -208,8 +236,8 @@ export function canLinkDocumentOutByRules(
 
 // A document may move or link into a destination container unless that
 // container restricts inbound documents by kind (e.g. Contacts accepts contacts
-// only). An unknown destination carries no system slot, so it remains
-// permissive like the other rule helpers.
+// only). An unknown destination fails closed because its effective write access
+// cannot be proven.
 export function canAddDocumentToContainerByRules(
   context: ExplorerContainerRulesContext,
   destinationContainer: ContainerRulesNode | undefined,
@@ -218,6 +246,10 @@ export function canAddDocumentToContainerByRules(
   const acceptedDocumentKinds =
     resolveContainerRules(context, destinationContainer)
       ?.acceptedDocumentKinds ?? null;
+  if (!canWriteContainerNode(destinationContainer)) {
+    return false;
+  }
+
   if (acceptedDocumentKinds === null) {
     return true;
   }

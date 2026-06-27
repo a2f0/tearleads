@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { normalizeEffectiveAccessLevel } from "../../../accessLevel";
 import type { DocumentSummary } from "../../../documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import {
@@ -19,6 +20,7 @@ interface SelectedDocumentProjection {
   title: string;
   updatedAt: string;
   accessStateHash: string | null;
+  effectiveAccessLevel: string | null;
 }
 
 interface SelectedDocumentProjectionDetail {
@@ -44,6 +46,7 @@ export const documentSummarySelection = {
   title: documentProjection.title,
   updatedAt: documentProjection.updatedAt,
   accessStateHash: documents.accessStateHash,
+  effectiveAccessLevel: documents.effectiveAccessLevel,
 };
 
 export const documentSummaryJoin = and(
@@ -60,6 +63,9 @@ export function mapDocumentSummary(
 ): DocumentSummary {
   return {
     accessStateHash: row.accessStateHash,
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      row.effectiveAccessLevel,
+    ),
     id: row.localId ?? "",
     containerId: row.containerId,
     documentKind: row.documentKind,
@@ -75,6 +81,9 @@ export function toDocumentSummary(
 ): DocumentSummary {
   return {
     accessStateHash: record.accessStateHash ?? null,
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      record.effectiveAccessLevel,
+    ),
     id: record.id,
     containerId: record.containerId,
     documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,

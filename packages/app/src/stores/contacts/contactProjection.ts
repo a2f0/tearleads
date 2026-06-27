@@ -1,10 +1,15 @@
-import { getDocumentClientProjectionTables } from "@tearleads/client-sdk";
 import {
+  DOCUMENTS_APP_KIND,
+  defaultDocumentsPersistence,
+  getDocumentClientProjectionTables,
+} from "@tearleads/client-sdk";
+import {
+  clientSQLiteSchema,
   type ExecSql,
   ensureSqlTables,
   getSQLitePersistenceRuntime,
 } from "@tearleads/client-sdk/sqlite";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { contactProjection } from "../../document-projectors/contactClientProjection";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
@@ -21,10 +26,13 @@ function ensureContactProjectionSchema(execSql: ExecSql): Promise<void> {
     return existingPromise;
   }
 
-  const promise = ensureSqlTables(
-    execSql,
-    getDocumentClientProjectionTables(APP_DOCUMENT_PROJECTOR_DEFINITIONS),
-  ).catch((error: unknown) => {
+  const promise = (async () => {
+    await defaultDocumentsPersistence.ensureSchema(execSql);
+    await ensureSqlTables(
+      execSql,
+      getDocumentClientProjectionTables(APP_DOCUMENT_PROJECTOR_DEFINITIONS),
+    );
+  })().catch((error: unknown) => {
     contactProjectionSchemaPromises.delete(execSql);
     throw error;
   });
@@ -41,6 +49,7 @@ export async function loadProjectedContacts(
   const rows = await db
     .select({
       encapsulationPublicKey: contactProjection.encapsulationPublicKey,
+      effectiveAccessLevel: clientSQLiteSchema.documents.effectiveAccessLevel,
       firstName: contactProjection.firstName,
       isSelf: contactProjection.isSelf,
       lastName: contactProjection.lastName,
@@ -49,9 +58,17 @@ export async function loadProjectedContacts(
       userId: contactProjection.userId,
     })
     .from(contactProjection)
+    .leftJoin(
+      clientSQLiteSchema.documents,
+      and(
+        eq(clientSQLiteSchema.documents.appKind, DOCUMENTS_APP_KIND),
+        eq(clientSQLiteSchema.documents.localId, contactProjection.localId),
+      ),
+    )
     .where(eq(contactProjection.containerId, containerId));
 
   return rows.map((row) => ({
+    canWrite: row.effectiveAccessLevel !== "read",
     encapsulationPublicKey: normalizeProjectionNullableText(
       row.encapsulationPublicKey,
     ),

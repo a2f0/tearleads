@@ -370,6 +370,7 @@ test("explorer store refreshes remote containers on demand after initialization"
               {
                 createdAt: "2026-05-05T00:00:00.000Z",
                 depth: 0,
+                effectiveAccessLevel: "admin",
                 id: "shared-root-container",
                 metadataAccessEpoch: 1,
                 metadataAccessStateHash: "shared-root-access-state-hash-1",

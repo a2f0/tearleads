@@ -1,3 +1,4 @@
+import { normalizeEffectiveAccessLevel } from "../../data/accessLevel";
 import type { ContainerRecord } from "../../workflows/container-contents/containerPersistence";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type { ContainerState } from "./syncAgent";
@@ -18,6 +19,9 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
   const { container, record } = containerState;
   const systemSlot = container.systemSlot ?? null;
   const node: ContainerNode = {
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      container.effectiveAccessLevel,
+    ),
     id: container.id,
     kind: "container",
     metadataDocumentId: container.metadataDocumentId ?? record.documentId,

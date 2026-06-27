@@ -1,3 +1,4 @@
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type { BlobBytes } from "../../data/blobContracts";
 import type { DocumentSummary } from "../../data/documentSummary";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
@@ -32,8 +33,10 @@ export interface DocumentContextValue {
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   canAttach: boolean;
+  canWrite: boolean;
   documentId: string | null;
   documentKind: StoredDocumentKind;
+  effectiveAccessLevel: ContainerAccessLevel;
   fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
   requestSync: () => void;
@@ -57,8 +60,10 @@ export interface DocumentSnapshot {
   attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
   canAttach: boolean;
+  canWrite: boolean;
   documentId: string | null;
   documentKind: StoredDocumentKind;
+  effectiveAccessLevel: ContainerAccessLevel;
   fieldValidationIssues: ReadonlyArray<DocumentFieldValidationIssue>;
   ready: boolean;
   structuredFields: Readonly<Record<string, string>>;

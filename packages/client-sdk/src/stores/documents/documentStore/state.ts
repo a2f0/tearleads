@@ -1,5 +1,9 @@
 import type { createDocument } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  canWriteEffectiveAccessLevel,
+  normalizeEffectiveAccessLevel,
+} from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
@@ -128,8 +132,10 @@ const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   attachmentStatusBySlotId: {},
   attachmentStorageKeyBySlotId: {},
   canAttach: false,
+  canWrite: true,
   documentId: null,
   documentKind: DEFAULT_DOCUMENT_KIND,
+  effectiveAccessLevel: "admin",
   fieldValidationIssues: [],
   ready: false,
   structuredFields: {},
@@ -243,8 +249,10 @@ export function setDocumentSnapshot(
       next.attachmentStorageKeyBySlotId,
     ) &&
     state.snapshot.canAttach === next.canAttach &&
+    state.snapshot.canWrite === next.canWrite &&
     state.snapshot.documentId === next.documentId &&
     state.snapshot.documentKind === next.documentKind &&
+    state.snapshot.effectiveAccessLevel === next.effectiveAccessLevel &&
     sameValidationIssues(
       state.snapshot.fieldValidationIssues,
       next.fieldValidationIssues,
@@ -296,9 +304,14 @@ export function markDocumentStoreRemoved(state: DocumentStoreState) {
 
 export function canAttachFiles(state: DocumentStoreState): boolean {
   return (
+    canWriteDocument(state) &&
     state.runtime.infra.dbStatus === "ready" &&
     !!state.runtime.crypto.encapsulationKeyPair
   );
+}
+
+export function canWriteDocument(state: DocumentStoreState): boolean {
+  return canWriteEffectiveAccessLevel(state.record?.effectiveAccessLevel);
 }
 
 function getSnapshotAttachments(
@@ -374,8 +387,12 @@ export function setReadySnapshot(
     attachmentStatusBySlotId: getAttachmentStatuses(state, attachments),
     attachmentStorageKeyBySlotId: getAttachmentStorageKeys(state, attachments),
     canAttach: canAttachFiles(state),
+    canWrite: canWriteDocument(state),
     documentId: state.record?.documentId ?? null,
     documentKind: projectedState.documentKind,
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      state.record?.effectiveAccessLevel,
+    ),
     fieldValidationIssues: projectedState.fieldValidationIssues,
     ready: true,
     structuredFields: projectedState.structuredFields,
@@ -394,8 +411,10 @@ export function setDocumentSyncing(
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: state.snapshot.canAttach,
+    canWrite: state.snapshot.canWrite,
     documentId: state.snapshot.documentId,
     documentKind: state.snapshot.documentKind,
+    effectiveAccessLevel: state.snapshot.effectiveAccessLevel,
     fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
     structuredFields: state.snapshot.structuredFields,
@@ -415,8 +434,12 @@ export function refreshAttachabilitySnapshot(state: DocumentStoreState) {
     attachmentStatusBySlotId: state.snapshot.attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId: state.snapshot.attachmentStorageKeyBySlotId,
     canAttach: canAttachFiles(state),
+    canWrite: canWriteDocument(state),
     documentId: state.snapshot.documentId,
     documentKind: state.snapshot.documentKind,
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      state.record?.effectiveAccessLevel,
+    ),
     fieldValidationIssues: state.snapshot.fieldValidationIssues,
     ready: state.snapshot.ready,
     structuredFields: state.snapshot.structuredFields,

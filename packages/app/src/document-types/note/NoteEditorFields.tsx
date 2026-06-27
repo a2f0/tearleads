@@ -252,6 +252,7 @@ export function NoteEditorFields({
   handleSelectedFiles,
   imageUrlBySlotId,
   ready,
+  readOnly,
   setText,
   syncing,
   text,
@@ -271,6 +272,7 @@ export function NoteEditorFields({
   handleSelectedFiles: NoteHandleSelectedFiles;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
   ready: boolean;
+  readOnly: boolean;
   setText: (text: string) => void;
   syncing: boolean;
   text: string;
@@ -286,10 +288,15 @@ export function NoteEditorFields({
   const dropzoneClassName = classNames(
     "note-document-dropzone",
     dragActive && "note-document-dropzone--active",
-    !canAttach && "note-document-dropzone--disabled",
+    (!canAttach || readOnly) && "note-document-dropzone--disabled",
   );
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
+    if (readOnly) {
+      event.currentTarget.value = "";
+      return;
+    }
+
     handleSelectedFiles(event.currentTarget.files);
     event.currentTarget.value = "";
   }
@@ -300,7 +307,7 @@ export function NoteEditorFields({
       <div className="note-document-scroll">
         {attachments.length === 0 ? (
           <label
-            htmlFor={fileInputId}
+            htmlFor={canAttach && !readOnly ? fileInputId : undefined}
             className={dropzoneClassName}
             onDragEnter={handleDragEnter}
             onDragOver={handleDragOver}
@@ -325,7 +332,7 @@ export function NoteEditorFields({
                 <NoteAttachmentItem
                   key={attachment.slotId}
                   attachment={attachment}
-                  canRemove={canAttach}
+                  canRemove={canAttach && !readOnly}
                   imageUrl={imageUrlBySlotId[attachment.slotId]}
                   onRemoveAttachment={handleRemoveAttachment}
                   status={attachmentStatusBySlotId[attachment.slotId]}
@@ -338,7 +345,7 @@ export function NoteEditorFields({
           ref={editorRef}
           className="note-document-editor"
           value={text}
-          onChange={handleEditorChange}
+          onChange={readOnly ? undefined : handleEditorChange}
           onSelect={handleEditorSelect}
           onCompositionStart={handleEditorCompositionStart}
           onCompositionEnd={handleEditorCompositionEnd}
@@ -348,10 +355,13 @@ export function NoteEditorFields({
               : NOTE_DOCUMENT_LABELS.editorLoadingPlaceholder
           }
           disabled={!ready}
+          readOnly={readOnly}
           aria-label={
-            syncing
-              ? NOTE_DOCUMENT_LABELS.editorSyncing
-              : NOTE_DOCUMENT_LABELS.editor
+            readOnly
+              ? NOTE_DOCUMENT_LABELS.editorReadOnly
+              : syncing
+                ? NOTE_DOCUMENT_LABELS.editorSyncing
+                : NOTE_DOCUMENT_LABELS.editor
           }
         />
       </div>
@@ -361,7 +371,7 @@ export function NoteEditorFields({
         className="note-document-file-input"
         type="file"
         multiple
-        disabled={!ready || !canAttach}
+        disabled={!ready || !canAttach || readOnly}
         onChange={handleInputChange}
       />
     </>

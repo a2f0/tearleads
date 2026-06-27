@@ -290,7 +290,8 @@ async function loadContainerContentsDocumentSummary(
         d.document_kind AS document_kind,
         d.title AS title,
         d.updated_at AS updated_at,
-        stored.access_state_hash AS access_state_hash
+        stored.access_state_hash AS access_state_hash,
+        stored.effective_access_level AS effective_access_level
       FROM document_projection d
       LEFT JOIN documents stored
         ON stored.app_kind = 'documents'

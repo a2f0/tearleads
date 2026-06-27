@@ -62,6 +62,7 @@ function ExplorerContextMenuLayerHarness(params: {
       canCreateChildContextMenuNode={
         params.canCreateChildContextMenuNode ?? true
       }
+      canCreateContactContextMenuNode={true}
       canCreateStructuredDocumentContextMenuNode={
         params.canCreateStructuredDocumentContextMenuNode ?? true
       }

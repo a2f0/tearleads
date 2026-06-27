@@ -28,6 +28,7 @@ function buildNoteEditorFields(overrides: Partial<NoteEditorFieldsProps> = {}) {
     handleSelectedFiles: noop,
     imageUrlBySlotId: {},
     ready: true,
+    readOnly: false,
     setText: noop,
     syncing: false,
     text: "",
@@ -123,6 +124,7 @@ test("auto-sizes the editor to its content height", () => {
       handleSelectedFiles={noop}
       imageUrlBySlotId={{}}
       ready={true}
+      readOnly={false}
       setText={noop}
       syncing={false}
       text={"first line\nsecond line"}

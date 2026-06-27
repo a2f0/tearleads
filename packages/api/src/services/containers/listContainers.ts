@@ -235,6 +235,7 @@ async function resolveVisibleContainerSummaries(input: {
       ...(systemSlot ? { systemSlot } : {}),
       createdAt: containerRow.createdAt,
       depth: containerRow.depth,
+      effectiveAccessLevel: accessResult.value.accessLevel,
       id: containerRow.id,
       metadataAccessEpoch: containerRow.metadataAccessEpoch,
       metadataAccessStateHash: containerRow.metadataAccessStateHash,
