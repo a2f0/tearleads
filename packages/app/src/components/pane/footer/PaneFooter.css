@@ -34,9 +34,12 @@
 }
 
 .pane-footer-window {
+  display: inline-block;
   min-width: 0;
   max-width: 12rem;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
   white-space: nowrap;
+  line-height: var(--control-height);
 }
