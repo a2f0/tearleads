@@ -13,4 +13,8 @@ export {
   unavailableExecSql,
 } from "./sqlExec";
 export type { SqlTableSchema } from "./sqlTableSchema";
-export { defineSqlTableSchema, ensureSqlTables } from "./sqlTableSchema";
+export {
+  defineSqlTableSchema,
+  ensureSqlColumns,
+  ensureSqlTables,
+} from "./sqlTableSchema";

@@ -17,6 +17,7 @@ import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
+import { canWriteContainerNode } from "../containerRules";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
@@ -70,7 +71,7 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
     params;
   const creationNode = nodes.find((node) => node.id === route.containerId);
 
-  if (!creationNode) {
+  if (!creationNode || creationNode.effectiveAccessLevel === "read") {
     return <ExplorerEmptyDetail nodes={nodes} ready={ready} />;
   }
 
@@ -254,6 +255,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         containerName={infoNode?.name}
         containerSyncStatus={infoNode?.syncState.status ?? null}
         containerNamesById={containerNamesById}
+        canShareContainer={canWriteContainerNode(infoNode)}
         canShareWithPeer={params.canShareWithPeer}
         loadContainerInfo={params.loadContainerInfo}
         onBackToContainer={params.onBackToSelectionRoute}

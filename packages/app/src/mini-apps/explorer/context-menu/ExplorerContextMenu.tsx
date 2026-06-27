@@ -11,6 +11,7 @@ import {
   canDeleteContainerByRules,
   canRenameContainerByRules,
   canUploadToContainerByRules,
+  canWriteContainerNode,
   type ExplorerContainerRulesContext,
   hasContainerRules,
 } from "../containerRules";
@@ -55,6 +56,7 @@ function getExplorerContextMenuNodeCapabilities(params: {
         rulesContext,
         contextMenuNode,
       ),
+    canCreateContactContextMenuNode: canWriteContainerNode(contextMenuNode),
     canDeleteContextMenuNode:
       contextMenuNode !== undefined &&
       contextMenuNode.parentId !== null &&
@@ -71,6 +73,7 @@ function getExplorerContextMenuNodeCapabilities(params: {
       contextMenuNode !== undefined &&
       contextMenuNode.parentId !== null &&
       (contextMenuNode.systemSlot ?? null) === null &&
+      canWriteContainerNode(contextMenuNode) &&
       isExplorerContainerUnderTrash(
         nodes,
         contextMenuNode.id,

@@ -155,12 +155,12 @@ test("uploads are gated by container id against the node list", () => {
   ).toBe(true);
 });
 
-test("an unknown container id is treated as uploadable", () => {
-  // A drop targeting an id that is not in the node list carries no system slot,
-  // so it falls through to the permissive default rather than blocking.
+test("an unknown container id is not treated as uploadable", () => {
+  // A drop targeting an id that is not in the node list has no known effective
+  // write permission, so it fails closed.
   expect(
     canUploadToContainerIdByRules(rulesContext, [trashContainer], "missing-id"),
-  ).toBe(true);
+  ).toBe(false);
 });
 
 test("contacts cannot be moved out of the contacts container", () => {

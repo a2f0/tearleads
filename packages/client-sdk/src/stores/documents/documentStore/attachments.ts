@@ -24,7 +24,11 @@ import {
   saveLocalAttachmentRecord,
   upsertPendingAttachments,
 } from "./persistence";
-import { canAttachFiles, type DocumentStoreState } from "./state";
+import {
+  canAttachFiles,
+  canWriteDocument,
+  type DocumentStoreState,
+} from "./state";
 
 function buildPendingAttachments(
   localId: string,
@@ -335,7 +339,7 @@ export async function attachFilesToDocumentStore(
     return;
   }
 
-  if (!ready || !state.doc) {
+  if (!ready || !state.doc || !canWriteDocument(state)) {
     return;
   }
 
@@ -361,7 +365,7 @@ export async function removeAttachmentFromDocumentStore(
     return;
   }
 
-  if (!ready || !state.doc) {
+  if (!ready || !state.doc || !canWriteDocument(state)) {
     return;
   }
 
@@ -388,7 +392,7 @@ export async function replaceAttachmentInDocumentStore(
     return;
   }
 
-  if (!ready || !state.doc) {
+  if (!ready || !state.doc || !canWriteDocument(state)) {
     return;
   }
 

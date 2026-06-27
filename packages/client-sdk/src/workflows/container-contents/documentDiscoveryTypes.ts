@@ -1,4 +1,5 @@
 import type {
+  EffectiveAccessLevel,
   ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
@@ -11,6 +12,7 @@ export interface ListedContainerDocument {
   createdAt: string;
   currentAccessEpoch: number;
   currentAccessStateHash: string;
+  effectiveAccessLevel?: EffectiveAccessLevel | undefined;
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals?: ReferencedPrincipalStateResponse[];

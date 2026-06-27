@@ -3,6 +3,8 @@ import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canDeleteDocumentByRules,
+  canWriteContainerNode,
+  canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
 } from "../containerRules";
 import type { MoveTargetOption } from "../targetOptions";
@@ -35,16 +37,29 @@ export function getSelectedDocumentMutationState(params: {
   } = params;
   const canActivateSelectedDocument =
     appData.infra.dbStatus === "ready" && !!selectedDocument?.documentId;
+  const selectedDocumentContainer =
+    selectedDocument?.containerId === null || selectedDocument === undefined
+      ? undefined
+      : nodes.find((node) => node.id === selectedDocument.containerId);
+  const selectedDocumentWritable = canWriteDocumentSummary(selectedDocument);
+  const selectedDocumentContainerWritable =
+    selectedDocument?.containerId === null ||
+    canWriteContainerNode(selectedDocumentContainer);
   const canMutateSelectedDocument =
     canActivateSelectedDocument &&
+    selectedDocumentWritable &&
     appData.auth.isAuthenticated &&
     appData.state.online;
   const canMutateUnsyncedSelectedDocument =
-    appData.infra.dbStatus === "ready" && selectedDocument?.documentId === null;
+    appData.infra.dbStatus === "ready" &&
+    selectedDocument?.documentId === null &&
+    selectedDocumentWritable;
   const canMoveOrDeleteSelectedDocument =
     appData.infra.dbStatus === "ready" &&
     selectedDocument !== undefined &&
-    selectedDocument.containerId !== null;
+    selectedDocument.containerId !== null &&
+    selectedDocumentWritable &&
+    selectedDocumentContainerWritable;
 
   return {
     canActivateSelectedDocument,
@@ -63,6 +78,8 @@ export function getSelectedDocumentMutationState(params: {
       canResolveTrashContainer &&
       selectedDocument !== undefined &&
       selectedDocument.containerId !== null &&
+      selectedDocumentWritable &&
+      selectedDocumentContainerWritable &&
       // Purge applies anywhere under trash, not only at the trash root: a
       // document parked in a user-created subfolder of trash is still trashed.
       isExplorerContainerUnderTrash(

@@ -21,6 +21,7 @@ export interface ContainerContentsStoreOptions {
 export interface ContainerNode {
   systemSlot?: ContainerSystemSlot | null;
   createdAt?: string | null;
+  effectiveAccessLevel?: ContainerAccessLevel | undefined;
   id: string;
   icon?: string | null;
   metadataDocumentId?: string | null;

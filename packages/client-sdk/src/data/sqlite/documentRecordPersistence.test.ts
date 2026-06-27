@@ -55,6 +55,7 @@ test("document records persist runtime columns", async () => {
       accessEpoch: 2,
       accessStateHash: "access-hash-1",
       documentId: "remote-document-1",
+      effectiveAccessLevel: "admin",
       id: "local-document-1",
       lastCommitLsn: "0/10",
       loroSnapshot: "snapshot-1",

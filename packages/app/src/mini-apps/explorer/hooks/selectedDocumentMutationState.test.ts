@@ -73,6 +73,15 @@ const gateNodes: ReadonlyArray<ContainerNode> = [
     parentId: "root",
     syncState: syncedContainerDocumentObjectSyncState,
   },
+  {
+    id: "contacts-container",
+    kind: "container",
+    name: "Contacts",
+    organizationId: "org-1",
+    parentId: "root",
+    systemSlot: "contacts-slot",
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
 ];
 
 function getMutationState(

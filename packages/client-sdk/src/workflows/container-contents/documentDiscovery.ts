@@ -237,6 +237,7 @@ export async function discoverContainerDocuments({
       containerId,
       createdAt: document.createdAt,
       documentId: document.id,
+      effectiveAccessLevel: document.effectiveAccessLevel,
       linkedContainerIds: document.linkedContainerIds,
     })),
   );

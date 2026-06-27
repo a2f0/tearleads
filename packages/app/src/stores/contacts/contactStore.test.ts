@@ -226,6 +226,7 @@ test("contacts store imports self keys without a synthetic nickname", async () =
     );
 
     expect(store.getSnapshot().entries).toContainEqual({
+      canWrite: true,
       encapsulationPublicKey: selfKey.encapsulationPublicKey,
       firstName: "",
       id: selfKey.userId,
@@ -302,6 +303,7 @@ test("contacts store ensures self contact from deterministic local identity", as
     expect(registeredContactId).toBe(selfContactId);
 
     expect(store.getSnapshot().entries).toContainEqual({
+      canWrite: true,
       encapsulationPublicKey: selfKey.encapsulationPublicKey,
       firstName: "",
       id: selfContactId,

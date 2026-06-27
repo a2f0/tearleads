@@ -6,6 +6,7 @@ import {
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import { MiniAppRow } from "../../../components/shared/MiniAppRow";
+import { canWriteContainerNode } from "../containerRules";
 import {
   EXPLORER_LABELS,
   getExplorerActivateLinkedContainerError,
@@ -16,6 +17,7 @@ import {
 } from "../labels";
 
 interface LinkedContainerDetail {
+  canWrite: boolean;
   id: string;
   isActive: boolean;
   label: string;
@@ -38,6 +40,7 @@ export function getLinkedContainerDetails(
 
     return {
       id: linkedContainerId,
+      canWrite: canWriteContainerNode(linkedContainer),
       isActive: linkedContainerId === activeContainerId,
       label: linkedContainer?.name ?? linkedContainerId,
     };
@@ -162,6 +165,8 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
   } = params;
   const actionBusy =
     activatingContainerId !== null || unlinkingContainerId !== null;
+  const canUnlinkLinkedContainer =
+    canUnlinkSelectedDocument && linkedContainer.canWrite;
 
   return (
     <MiniAppRow
@@ -213,7 +218,7 @@ function ExplorerLinkedContainerRow(params: ExplorerLinkedContainerRowParams) {
           aria-label={getExplorerDetachLinkedContainerLabel(
             linkedContainer.label,
           )}
-          disabled={!canUnlinkSelectedDocument || actionBusy}
+          disabled={!canUnlinkLinkedContainer || actionBusy}
           onClick={() => {
             if (actionBusy) {
               return;

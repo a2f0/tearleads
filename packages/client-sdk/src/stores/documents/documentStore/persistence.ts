@@ -1,4 +1,5 @@
 import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
+import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import type { DocumentSummary } from "../../../data/documentSummary";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
@@ -38,6 +39,9 @@ function documentSummaryFromRecord(
 ): DocumentSummary {
   return {
     accessStateHash: record.accessStateHash ?? null,
+    effectiveAccessLevel: normalizeEffectiveAccessLevel(
+      record.effectiveAccessLevel,
+    ),
     id: record.id,
     containerId: record.containerId,
     documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,

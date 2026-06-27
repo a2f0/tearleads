@@ -43,6 +43,7 @@ export function Notes({
         handleSelectedFiles={model.handleSelectedFiles}
         imageUrlBySlotId={model.imageUrlBySlotId}
         ready={model.ready}
+        readOnly={model.readOnly}
         setText={model.setText}
         syncing={model.syncing}
         text={model.text}

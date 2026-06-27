@@ -31,6 +31,7 @@ export type ContainerMetadataDocumentState = Awaited<
 export type RemoteContainer = Pick<
   ContainerSummary,
   | "createdAt"
+  | "effectiveAccessLevel"
   | "systemSlot"
   | "id"
   | "metadataAccessEpoch"

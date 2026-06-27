@@ -20,7 +20,14 @@ import {
 } from "./useContactsCriticalNodesBootstrap";
 import { useContactsStoreForContainer } from "./useContactsStoreForContainer";
 
-const ContactsContext = createContext<ContactsStore | null>(null);
+interface ContactsProviderContextValue {
+  canWrite: boolean;
+  store: ContactsStore;
+}
+
+const ContactsContext = createContext<ContactsProviderContextValue | null>(
+  null,
+);
 
 export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
@@ -58,7 +65,23 @@ export function ContactsProvider({ children }: PropsWithChildren) {
       contactsSystemSlot,
     );
   }, [contactsSystemSlot, containerContentsSnapshot.nodes]);
+  const contactsContainer = useMemo(
+    () =>
+      contactsContainerId
+        ? (containerContentsSnapshot.nodes.find(
+            (node) => node.id === contactsContainerId,
+          ) ?? null)
+        : null,
+    [contactsContainerId, containerContentsSnapshot.nodes],
+  );
+  const canWrite = Boolean(
+    contactsContainer && contactsContainer.effectiveAccessLevel !== "read",
+  );
   const store = useContactsStoreForContainer(contactsContainerId);
+  const contextValue = useMemo<ContactsProviderContextValue>(
+    () => ({ canWrite, store }),
+    [canWrite, store],
+  );
 
   useEffect(() => {
     if (!hasRootContainerId) {
@@ -79,22 +102,24 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   });
 
   return (
-    <ContactsContext.Provider value={store}>
+    <ContactsContext.Provider value={contextValue}>
       {children}
     </ContactsContext.Provider>
   );
 }
 
 export function useContacts(): ContactsContextValue {
-  const store = useContext(ContactsContext);
-  if (!store) {
+  const contextValue = useContext(ContactsContext);
+  if (!contextValue) {
     throw new Error("useContacts must be used within a ContactsProvider.");
   }
+  const { canWrite, store } = contextValue;
 
   const snapshot = useTearleadsExternalStoreSnapshot(store);
 
   return useMemo(
     () => ({
+      canWrite,
       createContact: store.createContact,
       entries: snapshot.entries,
       importKey: store.importKey,
@@ -102,6 +127,6 @@ export function useContacts(): ContactsContextValue {
       removeContact: store.removeContact,
       updateContact: store.updateContact,
     }),
-    [snapshot, store],
+    [canWrite, snapshot, store],
   );
 }

@@ -152,6 +152,10 @@ function buildStoredDocumentRecord(input: {
         securityContextChanged,
       ),
       documentId: nextDocumentId,
+      effectiveAccessLevel:
+        patch.effectiveAccessLevel ??
+        currentRecord?.effectiveAccessLevel ??
+        null,
       documentKekTargets: resolveNullableDocumentRuntimeField(
         patch,
         "documentKekTargets",

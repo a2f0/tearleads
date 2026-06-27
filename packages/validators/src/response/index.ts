@@ -3,6 +3,10 @@ export {
   isAccessManifestBundleWireResponse,
 } from "../util";
 export {
+  type EffectiveAccessLevel,
+  isEffectiveAccessLevel,
+} from "./accessLevel";
+export {
   type AccountLifecycleResponse,
   type AccountStatus,
   isAccountLifecycleResponse,

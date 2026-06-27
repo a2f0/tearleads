@@ -1,4 +1,8 @@
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import {
+  maxEffectiveAccessLevel,
+  normalizeEffectiveAccessLevel,
+} from "../../data/accessLevel";
 import type { DiscoveredDocumentInput } from "../../data/documentSummary";
 import type {
   ContainerDocumentTombstone,
@@ -54,6 +58,10 @@ function mergeDiscoveredDocumentInputs(
         ? current.createdAt
         : next.createdAt,
     documentId: current.documentId,
+    effectiveAccessLevel: maxEffectiveAccessLevel(
+      normalizeEffectiveAccessLevel(current.effectiveAccessLevel),
+      normalizeEffectiveAccessLevel(next.effectiveAccessLevel),
+    ),
     linkedContainerIds: uniqueSortedStrings([
       current.containerId,
       next.containerId,
@@ -83,6 +91,9 @@ export function collectDiscoveredDocumentInputs(
         containerId,
         createdAt: document.createdAt,
         documentId: document.id,
+        effectiveAccessLevel: normalizeEffectiveAccessLevel(
+          document.effectiveAccessLevel,
+        ),
         linkedContainerIds: uniqueSortedStrings([
           containerId,
           ...document.linkedContainerIds,

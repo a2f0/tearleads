@@ -42,6 +42,7 @@ export function sameContactEntry(
 ): boolean {
   return (
     left.id === right.id &&
+    (left.canWrite !== false) === (right.canWrite !== false) &&
     left.firstName === right.firstName &&
     left.lastName === right.lastName &&
     left.nickname === right.nickname &&

@@ -60,5 +60,6 @@ export function contactEntryFromDocumentStore(
   return contactFieldsToEntry(
     contactId,
     readContactFields(snapshot.structuredFields),
+    { canWrite: snapshot.canWrite },
   );
 }

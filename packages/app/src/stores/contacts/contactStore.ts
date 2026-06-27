@@ -1,20 +1,23 @@
 import type { DocumentStore, DomainScope } from "@tearleads/client-sdk";
 import {
-  type ContactEntry,
   type ContactEntryPatch,
   contactEntryToStructuredFieldPatch,
 } from "../../document-types/contact/contactDocumentModel";
 import { loadProjectedContacts } from "./contactProjection";
-import { sameContactEntry, sortContactEntries } from "./contactSnapshot";
+import { sortContactEntries } from "./contactSnapshot";
 import {
   contactEntryFromDocumentStore,
   findContactByUserId,
   findSelfContact,
   getUserKeyForSelfContact,
 } from "./contactStoreLookup";
+import {
+  removeContactEntry,
+  setContactsSnapshot,
+  upsertContactEntry,
+} from "./contactStoreSnapshotMutations";
 import type {
   ContactsRuntime,
-  ContactsSnapshot,
   ContactsStore,
   ContactsStoreDependencies,
   ContactsStoreState,
@@ -35,72 +38,6 @@ export type { ContactsRuntime, ContactsStore, EnsureSelfContactInput };
 export { getSelfContactLocalId };
 
 const contactsStoresByScope = new WeakMap<DomainScope, ContactsStore>();
-
-function setContactsSnapshot(
-  state: ContactsStoreState,
-  next: ContactsSnapshot,
-): void {
-  if (
-    state.snapshot.ready === next.ready &&
-    state.snapshot.entries.length === next.entries.length &&
-    state.snapshot.entries.every((entry, index) => {
-      const nextEntry = next.entries[index];
-      return nextEntry && sameContactEntry(entry, nextEntry);
-    })
-  ) {
-    return;
-  }
-
-  state.snapshot = next;
-  for (const listener of state.listeners) {
-    listener();
-  }
-}
-
-function flushContactsSnapshot(state: ContactsStoreState): void {
-  state.pendingSnapshotFlush = false;
-  setContactsSnapshot(state, {
-    entries: sortContactEntries([...state.entriesById.values()]),
-    ready: true,
-  });
-}
-
-function scheduleContactsSnapshotFlush(state: ContactsStoreState): void {
-  if (state.pendingSnapshotFlush) {
-    return;
-  }
-
-  state.pendingSnapshotFlush = true;
-  queueMicrotask(() => {
-    if (state.pendingSnapshotFlush) {
-      flushContactsSnapshot(state);
-    }
-  });
-}
-
-function upsertContactEntry(
-  state: ContactsStoreState,
-  entry: ContactEntry,
-): void {
-  const existingEntry = state.entriesById.get(entry.id);
-  if (existingEntry && sameContactEntry(existingEntry, entry)) {
-    return;
-  }
-
-  state.entriesById.set(entry.id, entry);
-  scheduleContactsSnapshotFlush(state);
-}
-
-function removeContactEntry(
-  state: ContactsStoreState,
-  contactId: string,
-): void {
-  if (!state.entriesById.delete(contactId)) {
-    return;
-  }
-
-  scheduleContactsSnapshotFlush(state);
-}
 
 function hasContactsContainerRuntime(state: ContactsStoreState): boolean {
   const containerId = state.runtime.documents.state.containerId;
@@ -207,6 +144,11 @@ async function writeContactPatch(
   patch: ContactEntryPatch,
 ): Promise<void> {
   const store = ensureContactDocumentStore(state, contactId);
+  const snapshot = store.getSnapshot();
+  if (snapshot.ready && !snapshot.canWrite) {
+    return;
+  }
+
   await store.setStructuredFields(
     "contact",
     contactEntryToStructuredFieldPatch(patch),
@@ -215,6 +157,19 @@ async function writeContactPatch(
   if (entry) {
     upsertContactEntry(state, entry);
   }
+}
+
+function canWriteContactEntry(
+  state: ContactsStoreState,
+  contactId: string,
+): boolean {
+  const entry = state.entriesById.get(contactId);
+  if (entry && entry.canWrite === false) {
+    return false;
+  }
+
+  const trackedStore = state.contactDocumentStoresById.get(contactId);
+  return trackedStore ? trackedStore.store.getSnapshot().canWrite : true;
 }
 
 async function createContactFromRuntime(
@@ -335,7 +290,8 @@ async function updateContactFromRuntime(
   await waitForContactsInitialization(state);
   if (
     state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state)
+    !hasContactsContainerRuntime(state) ||
+    !canWriteContactEntry(state, contactId)
   ) {
     return;
   }
@@ -404,7 +360,8 @@ async function removeContactFromRuntime(
   await waitForContactsInitialization(state);
   if (
     state.runtime.documents.infra.dbStatus !== "ready" ||
-    !hasContactsContainerRuntime(state)
+    !hasContactsContainerRuntime(state) ||
+    !canWriteContactEntry(state, contactId)
   ) {
     return;
   }

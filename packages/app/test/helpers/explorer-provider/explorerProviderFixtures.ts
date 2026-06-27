@@ -58,12 +58,16 @@ type TestSaveContainerOptions = Parameters<
 export const TEST_SYNC_TIMESTAMP = "2026-05-05T00:00:00.000Z";
 
 export function listedContainer(
-  overrides: Omit<ContainerSummary, "createdAt" | "depth" | "updatedAt"> &
+  overrides: Omit<
+    ContainerSummary,
+    "createdAt" | "depth" | "effectiveAccessLevel" | "updatedAt"
+  > &
     Partial<Pick<ContainerSummary, "createdAt" | "depth" | "updatedAt">>,
 ): ContainerSummary {
   return {
     createdAt: TEST_SYNC_TIMESTAMP,
     depth: overrides.parentId === null ? 0 : 1,
+    effectiveAccessLevel: "admin",
     updatedAt: TEST_SYNC_TIMESTAMP,
     ...overrides,
   };

@@ -307,6 +307,7 @@ test("isListContainersResponse", () => {
         {
           createdAt: new Date().toISOString(),
           depth: 0,
+          effectiveAccessLevel: "admin",
           id: "ctr-root",
           organizationId: "org-123",
           parentId: null,
@@ -379,6 +380,7 @@ test("isListContainerDocumentsResponse", () => {
           createdAt: new Date().toISOString(),
           currentAccessEpoch: 2,
           currentAccessStateHash: "access-state-hash",
+          effectiveAccessLevel: "write",
           id: "doc-123",
           linkedContainerIds: ["ctr-root"],
           referencedPrincipals: [

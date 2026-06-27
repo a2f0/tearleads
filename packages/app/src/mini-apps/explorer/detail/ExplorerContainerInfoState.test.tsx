@@ -371,6 +371,7 @@ test("useExplorerContainerInfoGroupShare requires a draft group", async () => {
   const shareCalls: string[] = [];
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
+      canShareContainer: true,
       containerId: "container-1",
       draftShareAccessLevel: "write",
       draftShareGroupId: "",
@@ -406,6 +407,7 @@ test("useExplorerContainerInfoGroupShare reloads with an optimistic grant", asyn
   }> = [];
   const view = renderHook(() =>
     useExplorerContainerInfoGroupShare({
+      canShareContainer: true,
       containerId: "container-1",
       draftShareAccessLevel: "admin",
       draftShareGroupId: "group-1",

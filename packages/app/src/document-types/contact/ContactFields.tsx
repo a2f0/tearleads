@@ -72,7 +72,7 @@ function ContactEditFieldRow({
   const inputId = useId();
   const [localValue, setLocalValue] = useSyncedFieldValue(value);
   const commitOnBlur = () => {
-    if (localValue !== value) {
+    if (!disabled && localValue !== value) {
       onCommit(localValue);
     }
   };

@@ -17,10 +17,7 @@ import {
   refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
 
-type CapturedDiscoveredDocumentInput = Omit<
-  DiscoveredDocumentInput,
-  "accessStateHash"
-> & {
+type CapturedInput = Omit<DiscoveredDocumentInput, "accessStateHash"> & {
   accessStateHash: string;
 };
 
@@ -61,10 +58,9 @@ const nullContainerDocumentWatermarks = {
   loadContainerDocumentWatermark: async () => null,
   saveContainerDocumentWatermark: async () => {},
 };
-
-function captureDiscoveredDocumentInputs(
+function captureInputs(
   inputs: ReadonlyArray<DiscoveredDocumentInput>,
-): CapturedDiscoveredDocumentInput[] {
+): CapturedInput[] {
   return inputs.map((input) => {
     if (
       typeof input.accessStateHash !== "string" ||
@@ -90,9 +86,8 @@ test("unknown document update events trigger rediscovery for shared container no
       documentId: string;
     }>
   > = [];
-  const upsertDiscoveredDocumentsCalls: Array<
-    ReadonlyArray<CapturedDiscoveredDocumentInput>
-  > = [];
+  const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
+    [];
   const knownDocumentIds = new Set<string>();
   const events = [
     {
@@ -137,7 +132,7 @@ test("unknown document update events trigger rediscovery for shared container no
       replaceDocumentLinksBatchCalls.push(inputs);
     },
     upsertDiscoveredDocuments: async (inputs) => {
-      const capturedInputs = captureDiscoveredDocumentInputs(inputs);
+      const capturedInputs = captureInputs(inputs);
       upsertDiscoveredDocumentsCalls.push(capturedInputs);
       const summaries: DocumentSummary[] = capturedInputs.map((input) => ({
         id: `document-${input.documentId}`,
@@ -482,9 +477,8 @@ test("manual refresh can discover documents across all visible containers", asyn
       documentId: string;
     }>
   > = [];
-  const upsertDiscoveredDocumentsCalls: Array<
-    ReadonlyArray<CapturedDiscoveredDocumentInput>
-  > = [];
+  const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
+    [];
   const discovered = await discoverAllContainerDocuments({
     ...nullContainerDocumentWatermarks,
     cacheReferencedPrincipalPolicies: async (references) => {
@@ -543,7 +537,7 @@ test("manual refresh can discover documents across all visible containers", asyn
     },
     upsertDiscoveredDocuments: async (inputs) => {
       applyOrder.push("upsert-documents");
-      const capturedInputs = captureDiscoveredDocumentInputs(inputs);
+      const capturedInputs = captureInputs(inputs);
       upsertDiscoveredDocumentsCalls.push(capturedInputs);
       return capturedInputs.map<DocumentSummary>((input) => ({
         id: `document-${input.documentId}`,
@@ -554,7 +548,6 @@ test("manual refresh can discover documents across all visible containers", asyn
       }));
     },
   });
-
   expect(listContainerDocumentsCalls).toEqual(["container-a", "container-b"]);
   expect(applyOrder).toEqual(["upsert-documents", "replace-links"]);
   expect(replaceDocumentLinksBatchCalls).toEqual([
@@ -577,6 +570,7 @@ test("manual refresh can discover documents across all visible containers", asyn
         containerId: "container-a",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "document-a",
+        effectiveAccessLevel: "admin",
         linkedContainerIds: ["container-a"],
       },
       {
@@ -585,6 +579,7 @@ test("manual refresh can discover documents across all visible containers", asyn
         containerId: "container-b",
         createdAt: "2026-04-06T12:05:00.000Z",
         documentId: "document-b",
+        effectiveAccessLevel: "admin",
         linkedContainerIds: ["container-b"],
       },
     ],
@@ -645,9 +640,8 @@ test("manual refresh deduplicates principal references and document inputs", asy
       documentId: string;
     }>
   > = [];
-  const upsertDiscoveredDocumentsCalls: Array<
-    ReadonlyArray<CapturedDiscoveredDocumentInput>
-  > = [];
+  const upsertDiscoveredDocumentsCalls: Array<ReadonlyArray<CapturedInput>> =
+    [];
 
   await discoverAllContainerDocuments({
     ...nullContainerDocumentWatermarks,
@@ -671,12 +665,11 @@ test("manual refresh deduplicates principal references and document inputs", asy
       replaceDocumentLinksBatchCalls.push(inputs);
     },
     upsertDiscoveredDocuments: async (inputs) => {
-      const capturedInputs = captureDiscoveredDocumentInputs(inputs);
+      const capturedInputs = captureInputs(inputs);
       upsertDiscoveredDocumentsCalls.push(capturedInputs);
       return [];
     },
   });
-
   expect(cachedPrincipalReferences).toEqual([[referencedPrincipal]]);
   expect(replaceDocumentLinksBatchCalls).toEqual([
     [
@@ -694,6 +687,7 @@ test("manual refresh deduplicates principal references and document inputs", asy
         containerId: "container-a",
         createdAt: "2026-04-06T12:00:00.000Z",
         documentId: "shared-document",
+        effectiveAccessLevel: "admin",
         linkedContainerIds: ["container-a", "container-b"],
       },
     ],

@@ -5,6 +5,7 @@ import {
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
+  canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
 } from "./containerRules";
 
@@ -160,7 +161,10 @@ export function getDocumentMoveTargetOptions(
   );
   const nodesById = getNodesById(nodes, lookups);
   const movingDocument = documentSummariesById.get(documentLocalId);
-  if (!movingDocument?.containerId) {
+  if (
+    !movingDocument?.containerId ||
+    !canWriteDocumentSummary(movingDocument)
+  ) {
     return [];
   }
 
@@ -205,7 +209,10 @@ export function getDocumentLinkTargetOptions(
   );
   const nodesById = getNodesById(nodes, lookups);
   const linkingDocument = documentSummariesById.get(documentLocalId);
-  if (!linkingDocument?.containerId) {
+  if (
+    !linkingDocument?.containerId ||
+    !canWriteDocumentSummary(linkingDocument)
+  ) {
     return [];
   }
 

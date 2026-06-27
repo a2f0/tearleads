@@ -26,6 +26,7 @@ function ContactsContextMenuLayerHarness(params: {
   return (
     <ContactsContextMenuLayer
       canRemoveContextMenuContact={params.canRemoveContextMenuContact ?? true}
+      canWrite={true}
       closeContextMenu={() => setContextMenu(null)}
       contextMenu={contextMenu}
       openImportContactRoute={
@@ -42,6 +43,7 @@ function ContactsContextMenuLayerHarness(params: {
 
 function ContactsContextMenuModelHarness(params: { entries: ContactEntry[] }) {
   const model = useContactsContextMenu({
+    canWrite: true,
     entries: params.entries,
     removeContact: async () => undefined,
     selectedContactId: null,

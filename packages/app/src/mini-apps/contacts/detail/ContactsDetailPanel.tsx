@@ -57,10 +57,16 @@ function ContactsSelectionState({
   const selectedEntry = entries.find((entry) => entry.id === selectedContactId);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const isEditing = editingContactId === selectedEntry?.id;
+  const canEditSelectedEntry = ready && selectedEntry?.canWrite !== false;
 
   useEffect(() => {
     setEditingContactId(null);
   }, [selectedEntry?.id]);
+  useEffect(() => {
+    if (!canEditSelectedEntry) {
+      setEditingContactId(null);
+    }
+  }, [canEditSelectedEntry]);
 
   if (!selectedEntry) {
     return (
@@ -78,6 +84,7 @@ function ContactsSelectionState({
     <MiniAppPanel key={selectedEntry.id} variant="framed">
       <MiniAppActions>
         <MiniAppButton
+          disabled={!canEditSelectedEntry}
           onClick={() =>
             setEditingContactId(isEditing ? null : selectedEntry.id)
           }
@@ -86,10 +93,13 @@ function ContactsSelectionState({
         </MiniAppButton>
       </MiniAppActions>
       <ContactFields
-        isEditing={isEditing}
-        onFieldCommit={(key, value) =>
-          updateContact(selectedEntry.id, toContactEntryPatch(key, value))
-        }
+        disabled={!canEditSelectedEntry}
+        isEditing={isEditing && canEditSelectedEntry}
+        onFieldCommit={(key, value) => {
+          if (canEditSelectedEntry) {
+            updateContact(selectedEntry.id, toContactEntryPatch(key, value));
+          }
+        }}
         values={toContactFieldValues(selectedEntry)}
       />
     </MiniAppPanel>

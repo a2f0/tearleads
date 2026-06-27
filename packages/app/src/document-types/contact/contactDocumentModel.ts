@@ -4,6 +4,7 @@ import {
 } from "./contactDocumentDefinition";
 
 export interface ContactEntry {
+  canWrite?: boolean | undefined;
   encapsulationPublicKey: string | null;
   firstName: string;
   id: string;
@@ -43,6 +44,7 @@ function readSelfField(value: string): boolean {
 export function contactFieldsToEntry(
   id: string,
   fields: ContactDocumentFields,
+  options: { canWrite?: boolean | undefined } = {},
 ): ContactEntry {
   const userId = normalizeOptionalString(fields.userId);
   const encapsulationPublicKey = normalizeOptionalString(
@@ -50,6 +52,7 @@ export function contactFieldsToEntry(
   );
 
   return {
+    canWrite: options.canWrite ?? true,
     encapsulationPublicKey:
       encapsulationPublicKey.length > 0 ? encapsulationPublicKey : null,
     firstName: fields.firstName.trim(),

@@ -282,6 +282,7 @@ function sharedRootSummary(): ListContainersResponse {
       {
         createdAt: "2026-06-19T00:00:00.000Z",
         depth: 0,
+        effectiveAccessLevel: "admin",
         id: "owner-root",
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "owner-root-access-hash",

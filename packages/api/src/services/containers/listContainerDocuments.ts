@@ -7,6 +7,7 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
+import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type {
   ContainerDocumentSummary,
   ContainerDocumentSyncTombstone,
@@ -15,10 +16,15 @@ import type {
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { textExpression } from "../../utils/sqlDialect";
+import type {
+  ContainerAccessProjection,
+  ContainerWriterProjectionContext,
+} from "../../workflows/containers/writerProjection";
 import {
   collectReferencedPrincipalsFromContainerAccess,
   KeyingReadAccessError,
   resolveReadableContainerAccess,
+  resolveReadableContainerAccessBatch,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 import {
@@ -26,6 +32,7 @@ import {
   normalizeSyncWatermark,
   watermarkPredicate,
 } from "./syncPaging";
+import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainerDocumentsOptions {
   readonly limit?: number | undefined;
@@ -58,10 +65,12 @@ async function requireReadableContainer(
   runtime: ApiServiceRuntime,
   containerId: string,
   userId: string,
+  context?: ContainerWriterProjectionContext,
 ) {
   try {
     return await resolveReadableContainerAccess({
       containerId,
+      ...(context ? { context } : {}),
       executor: runtime.db,
       userId,
     });
@@ -71,6 +80,93 @@ async function requireReadableContainer(
     }
     throw error;
   }
+}
+
+const ACCESS_LEVEL_RANK: Record<ContainerAccessLevel, number> = {
+  read: 1,
+  write: 2,
+  admin: 3,
+};
+
+function maxAccessLevel(
+  current: ContainerAccessLevel | null,
+  incoming: ContainerAccessLevel,
+): ContainerAccessLevel {
+  if (
+    current === null ||
+    ACCESS_LEVEL_RANK[incoming] > ACCESS_LEVEL_RANK[current]
+  ) {
+    return incoming;
+  }
+
+  return current;
+}
+
+async function resolveDocumentContainerAccessById(input: {
+  readonly containerAccess: ContainerAccessProjection;
+  readonly containerId: string;
+  readonly context: ContainerWriterProjectionContext;
+  readonly linkedContainerIdsByManifestHash: ReadonlyMap<
+    string,
+    readonly string[]
+  >;
+  readonly runtime: ApiServiceRuntime;
+  readonly userId: string;
+}): Promise<Map<string, ContainerAccessProjection>> {
+  const accessByContainerId = new Map<string, ContainerAccessProjection>([
+    [input.containerId, input.containerAccess],
+  ]);
+  const containerIds = Array.from(
+    new Set(Array.from(input.linkedContainerIdsByManifestHash.values()).flat()),
+  ).filter((containerId) => containerId !== input.containerId);
+  if (containerIds.length === 0) {
+    return accessByContainerId;
+  }
+
+  const accessResults = await resolveReadableContainerAccessBatch({
+    containerIds,
+    context: input.context,
+    executor: input.runtime.db,
+    userId: input.userId,
+  });
+
+  for (const [containerId, result] of accessResults) {
+    if (result.status === "fulfilled") {
+      accessByContainerId.set(containerId, result.value);
+      continue;
+    }
+    if (result.reason.status === 403 || result.reason.status === 404) {
+      continue;
+    }
+
+    throw result.reason;
+  }
+
+  return accessByContainerId;
+}
+
+function documentAccessPaths(input: {
+  readonly accessByContainerId: ReadonlyMap<string, ContainerAccessProjection>;
+  readonly fallbackAccess: ContainerAccessProjection;
+  readonly linkedContainerIds: readonly string[];
+}): ContainerAccessProjection[] {
+  const accessPaths = input.linkedContainerIds.flatMap((containerId) => {
+    const access = input.accessByContainerId.get(containerId);
+    return access ? [access] : [];
+  });
+
+  return accessPaths.length > 0 ? accessPaths : [input.fallbackAccess];
+}
+
+function effectiveDocumentAccessLevel(
+  accessPaths: readonly ContainerAccessProjection[],
+): ContainerAccessLevel {
+  return (
+    accessPaths.reduce<ContainerAccessLevel | null>(
+      (current, accessPath) => maxAccessLevel(current, accessPath.accessLevel),
+      null,
+    ) ?? "read"
+  );
 }
 
 async function loadCurrentContainerDocumentRows(input: {
@@ -228,14 +324,14 @@ function documentChangeWatermark(
 }
 
 async function buildListContainerDocumentsResponse(input: {
+  readonly containerAccess: ContainerAccessProjection;
   readonly containerId: string;
+  readonly context: ContainerWriterProjectionContext;
   readonly documentRows: readonly ContainerDocumentRow[];
   readonly limit: number;
-  readonly referencedPrincipals: ReturnType<
-    typeof collectReferencedPrincipalsFromContainerAccess
-  >;
   readonly runtime: ApiServiceRuntime;
   readonly tombstoneRows: readonly ContainerDocumentTombstoneRow[];
+  readonly userId: string;
   readonly watermark: SyncWatermark | null;
 }): Promise<ListContainerDocumentsResponse> {
   const linkedContainerIdsByManifestHash =
@@ -243,18 +339,37 @@ async function buildListContainerDocumentsResponse(input: {
       input.runtime,
       input.documentRows.map((row) => row.manifestHash),
     );
+  const accessByContainerId = await resolveDocumentContainerAccessById({
+    containerAccess: input.containerAccess,
+    containerId: input.containerId,
+    context: input.context,
+    linkedContainerIdsByManifestHash,
+    runtime: input.runtime,
+    userId: input.userId,
+  });
   const items: ContainerDocumentSummary[] = input.documentRows
     .slice(0, input.limit)
-    .map((documentRow) => ({
-      createdAt: documentRow.createdAt.toISOString(),
-      currentAccessEpoch: documentRow.manifestEpoch,
-      currentAccessStateHash: documentRow.manifestHash,
-      id: documentRow.documentId,
-      linkedContainerIds:
-        linkedContainerIdsByManifestHash.get(documentRow.manifestHash) ?? [],
-      referencedPrincipals: input.referencedPrincipals,
-      updatedAt: documentRow.updatedAt.toISOString(),
-    }));
+    .map((documentRow) => {
+      const linkedContainerIds =
+        linkedContainerIdsByManifestHash.get(documentRow.manifestHash) ?? [];
+      const accessPaths = documentAccessPaths({
+        accessByContainerId,
+        fallbackAccess: input.containerAccess,
+        linkedContainerIds,
+      });
+
+      return {
+        createdAt: documentRow.createdAt.toISOString(),
+        currentAccessEpoch: documentRow.manifestEpoch,
+        currentAccessStateHash: documentRow.manifestHash,
+        effectiveAccessLevel: effectiveDocumentAccessLevel(accessPaths),
+        id: documentRow.documentId,
+        linkedContainerIds,
+        referencedPrincipals:
+          collectReferencedPrincipalsFromContainerAccess(accessPaths),
+        updatedAt: documentRow.updatedAt.toISOString(),
+      };
+    });
   const tombstones: ContainerDocumentSyncTombstone[] = input.tombstoneRows
     .slice(0, input.limit)
     .map((row) => ({
@@ -310,10 +425,12 @@ export async function listContainerDocuments(
     () => new ListContainerDocumentsError("Invalid watermark", 400),
   );
 
+  const context = createContainerWriterProjectionContext(runtime.db);
   const containerAccess = await requireReadableContainer(
     runtime,
     containerId,
     userId,
+    context,
   );
   const [documentRows, tombstoneRows] = await Promise.all([
     loadCurrentContainerDocumentRows({
@@ -329,17 +446,15 @@ export async function listContainerDocuments(
       watermark,
     }),
   ]);
-  const referencedPrincipals = collectReferencedPrincipalsFromContainerAccess([
-    containerAccess,
-  ]);
-
   return buildListContainerDocumentsResponse({
+    containerAccess,
     containerId,
+    context,
     documentRows,
     limit,
-    referencedPrincipals,
     runtime,
     tombstoneRows,
+    userId,
     watermark,
   });
 }

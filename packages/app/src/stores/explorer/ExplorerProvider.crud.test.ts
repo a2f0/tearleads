@@ -44,6 +44,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
       nodes: [
         {
           createdAt: expect.any(String),
+          effectiveAccessLevel: "admin",
           id: "root-container",
           kind: "container",
           metadataDocumentId: null,

@@ -11,6 +11,10 @@ import {
   isRecordArray,
 } from "../util";
 import {
+  type EffectiveAccessLevel,
+  isEffectiveAccessLevel,
+} from "./accessLevel";
+import {
   isReferencedPrincipalStateResponse,
   type ReferencedPrincipalStateResponse,
 } from "./principal";
@@ -62,6 +66,7 @@ export interface ContainerSummary {
   systemSlot?: ContainerSystemSlot | null;
   createdAt: string;
   depth: number;
+  effectiveAccessLevel: EffectiveAccessLevel;
   id: string;
   organizationId: string;
   parentId: string | null;
@@ -105,6 +110,7 @@ function isContainerSummary(value: unknown): value is ContainerSummary {
     hasNumberProperty(value, "depth") &&
     Number.isInteger(value.depth) &&
     value.depth >= 0 &&
+    isEffectiveAccessLevel(Reflect.get(value, "effectiveAccessLevel")) &&
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "organizationId") &&
     hasNullableStringProperty(value, "parentId") &&

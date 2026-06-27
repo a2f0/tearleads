@@ -28,13 +28,19 @@ export interface ContactsContextMenuModel {
 }
 
 export function useContactsContextMenu(params: {
+  canWrite: boolean;
   entries: ContactEntries;
   removeContact: (contactId: string) => Promise<void>;
   selectedContactId: string | null;
   setSelectedContactId: (contactId: string | null) => void;
 }): ContactsContextMenuModel {
-  const { entries, removeContact, selectedContactId, setSelectedContactId } =
-    params;
+  const {
+    canWrite,
+    entries,
+    removeContact,
+    selectedContactId,
+    setSelectedContactId,
+  } = params;
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<ContactsContextMenuTarget>();
   const entriesById = useMemo(
@@ -60,13 +66,20 @@ export function useContactsContextMenu(params: {
     contextMenu?.id.kind === "contact"
       ? entriesById.get(contextMenu.id.contactId)
       : undefined;
-  const canRemoveContextMenuContact =
-    contextMenu?.id.kind === "contact" &&
-    contextMenuEntry !== undefined &&
-    !contextMenuEntry.isSelf;
+  const canRemoveContextMenuContact = Boolean(
+    canWrite &&
+      contextMenu?.id.kind === "contact" &&
+      contextMenuEntry !== undefined &&
+      contextMenuEntry?.canWrite !== false &&
+      !contextMenuEntry.isSelf,
+  );
 
   const removeContextMenuContact = useCallback(async () => {
-    if (!contextMenu || contextMenu.id.kind !== "contact") {
+    if (
+      !contextMenu ||
+      contextMenu.id.kind !== "contact" ||
+      !canRemoveContextMenuContact
+    ) {
       return;
     }
 
@@ -78,6 +91,7 @@ export function useContactsContextMenu(params: {
     await removeContact(contactId);
   }, [
     closeContextMenu,
+    canRemoveContextMenuContact,
     contextMenu,
     removeContact,
     selectedContactId,
@@ -96,6 +110,7 @@ export function useContactsContextMenu(params: {
 
 export function ContactsContextMenuLayer(params: {
   canRemoveContextMenuContact: boolean;
+  canWrite: boolean;
   closeContextMenu: () => void;
   contextMenu: ContactsContextMenuState | null;
   openImportContactRoute: () => void;
@@ -105,6 +120,7 @@ export function ContactsContextMenuLayer(params: {
 }) {
   const {
     canRemoveContextMenuContact,
+    canWrite,
     closeContextMenu,
     contextMenu,
     openImportContactRoute,
@@ -127,7 +143,7 @@ export function ContactsContextMenuLayer(params: {
         <>
           <MenuItem
             label={CONTACTS_LABELS.newContactAction}
-            disabled={!ready}
+            disabled={!ready || !canWrite}
             onClick={() => {
               closeContextMenu();
               openNewContactRoute();
@@ -135,7 +151,7 @@ export function ContactsContextMenuLayer(params: {
           />
           <MenuItem
             label={CONTACTS_LABELS.importContactAction}
-            disabled={!ready}
+            disabled={!ready || !canWrite}
             onClick={() => {
               closeContextMenu();
               openImportContactRoute();
