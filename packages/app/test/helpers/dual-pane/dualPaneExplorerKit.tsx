@@ -41,12 +41,18 @@ export async function openExplorer(pane: HTMLElement) {
 }
 
 async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
+  const explorerWindow = getExplorerWindowRoot(pane);
   await interact(() => {
-    fireEvent.click(within(pane).getByRole("menuitem", { name: "File" }));
+    fireEvent.click(
+      within(explorerWindow).getByRole("menuitem", { name: "File" }),
+    );
   });
-  const newStructuredDocumentItem = within(pane).getByRole("menuitem", {
-    name: "New Document",
-  });
+  const newStructuredDocumentItem = within(explorerWindow).getByRole(
+    "menuitem",
+    {
+      name: "New Document",
+    },
+  );
   await interact(() => {
     fireEvent.click(newStructuredDocumentItem);
   });
@@ -255,6 +261,79 @@ export async function waitForSharedNoteVisible(pane: HTMLElement) {
   await waitForCondition(
     () => getExplorerSidebarItemsByName(pane, SHARED_NOTE_TITLE).length > 0,
     `Peer did not discover shared note "${SHARED_NOTE_TITLE}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+  );
+}
+
+export async function waitForExplorerNoteVisible(
+  pane: HTMLElement,
+  title: string,
+) {
+  await waitForCondition(
+    () =>
+      getExplorerSidebarItemsByName(pane, title).some((button) =>
+        button.classList.contains("explorer-sidebar-item--note"),
+      ),
+    `Explorer did not discover note "${title}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+  );
+}
+
+function getNoteEditor(pane: HTMLElement): HTMLTextAreaElement {
+  const editor = within(pane).getByRole("textbox", {
+    name: /Notes editor/u,
+  });
+  invariant(
+    editor instanceof HTMLTextAreaElement,
+    "Expected notes editor textarea.",
+  );
+  return editor;
+}
+
+export async function selectExplorerNoteByName(
+  pane: HTMLElement,
+  title: string,
+) {
+  await waitForExplorerNoteVisible(pane, title);
+  const noteItem = getExplorerSidebarItemsByName(pane, title).find((button) =>
+    button.classList.contains("explorer-sidebar-item--note"),
+  );
+  invariant(noteItem, `Expected explorer note item "${title}".`);
+  await interact(() => {
+    fireEvent.click(noteItem);
+  });
+  await waitFor(() => {
+    expect(getNoteEditor(pane)).toBeTruthy();
+  });
+}
+
+export async function editSelectedNoteText(pane: HTMLElement, text: string) {
+  const editor = await within(pane).findByRole("textbox", {
+    name: /Notes editor/u,
+  });
+  invariant(
+    editor instanceof HTMLTextAreaElement,
+    "Expected notes editor textarea.",
+  );
+
+  await interact(() => {
+    fireEvent.change(editor, {
+      target: { value: text },
+    });
+  });
+  await waitFor(() => {
+    expect(editor.value).toBe(text);
+  });
+}
+
+export async function waitForSelectedNoteText(
+  pane: HTMLElement,
+  text: string,
+  message: string,
+  timeoutMs = 15_000,
+) {
+  await waitForCondition(
+    () => getNoteEditor(pane).value === text,
+    `${message}\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+    timeoutMs,
   );
 }
 

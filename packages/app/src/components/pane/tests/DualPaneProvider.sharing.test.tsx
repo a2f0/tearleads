@@ -73,12 +73,18 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // each event-scoped container once. These are cheap watermark deltas;
     // discovery on the open critical path is unchanged/lower.
     "GET /containers/:containerId/documents": 9,
-    "GET /containers": 22,
+    // The test WebSocket harness now mirrors production routing: an
+    // access_changed event evicts interested sockets, then each still-authorized
+    // pane rechecks the tree before re-declaring interest. This root share has
+    // two extra cheap container-list deltas from that access recheck path.
+    "GET /containers": 24,
     "GET /auth/encapsulation-key/:userId": 2,
     // One websocket auth ticket per pane (each opens one events socket). A tight
     // ceiling here catches a reconnect storm, since each reconnect re-mints one.
     "POST /auth/ws-ticket": 3,
-    "GET /containers/:containerId/writer-projection": 4,
+    // Access rechecks can refetch the root writer projection once before the
+    // socket re-declares interest.
+    "GET /containers/:containerId/writer-projection": 5,
     // The owner and peer panes can each load attachment metadata once while
     // settling the shared root view; keep the ceiling tight to catch loops.
     "GET /documents/:documentId/attachments": 2,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
-import { startContainerInterestDeclaration } from "./TearleadsProvider";
+import { startContainerInterestDeclaration } from "./serverEventsBinding";
 
 function createFakeStore(initialIds: string[]) {
   let ids = initialIds;
@@ -90,6 +90,26 @@ test("re-declares an invalidated container on the next tree change", () => {
   expect(sent).toEqual([]);
 
   fakeStore.setNodes(["a", "b"]);
+  expect(JSON.parse(sent[0] ?? "null")).toEqual({
+    type: "known_containers.add",
+    containerIds: ["b"],
+  });
+});
+
+test("re-declares an invalidated container after an unchanged access recheck", () => {
+  const fakeStore = createFakeStore(["a", "b"]);
+  const { sent, ws } = fakeSocket(WebSocket.OPEN);
+
+  const handle = startContainerInterestDeclaration(
+    tearleadsWithStore(() => fakeStore.store),
+    ws,
+    new Set(["a", "b"]),
+  );
+  expect(sent).toEqual([]);
+
+  handle.invalidate("b");
+  handle.sync();
+
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
     type: "known_containers.add",
     containerIds: ["b"],
