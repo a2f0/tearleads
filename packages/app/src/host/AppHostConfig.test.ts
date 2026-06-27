@@ -1,9 +1,29 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import {
   APP_HOST_PROFILES,
   resolveAppHostProfile,
   resolveEventsWebSocketUrl,
 } from "./AppHostConfig";
+
+const originalLocation = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "location",
+);
+
+function setLocationHref(href: string): void {
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    value: { href },
+  });
+}
+
+afterEach(() => {
+  if (originalLocation) {
+    Object.defineProperty(globalThis, "location", originalLocation);
+  } else {
+    Reflect.deleteProperty(globalThis, "location");
+  }
+});
 
 test("resolveAppHostProfile returns the app profile when the variant is unset", () => {
   expect(resolveAppHostProfile(undefined)).toBe(APP_HOST_PROFILES.app);
@@ -44,6 +64,20 @@ test("resolveEventsWebSocketUrl derives the events path from the API URL", () =>
   expect(resolveEventsWebSocketUrl("http://localhost:3001")).toBe(
     "ws://localhost:3001/events",
   );
+  expect(resolveEventsWebSocketUrl("https://tearleads.com/api")).toBe(
+    "wss://tearleads.com/api/events",
+  );
+  expect(resolveEventsWebSocketUrl("https://tearleads.com/api/")).toBe(
+    "wss://tearleads.com/api/events",
+  );
+});
+
+test("resolveEventsWebSocketUrl derives relative API URLs from the current location", () => {
+  setLocationHref("https://app.tearleads.test/workspace");
+
+  expect(resolveEventsWebSocketUrl("/api")).toBe(
+    "wss://app.tearleads.test/api/events",
+  );
 });
 
 test("resolveEventsWebSocketUrl normalizes explicit root websocket URLs", () => {
@@ -62,4 +96,12 @@ test("resolveEventsWebSocketUrl preserves explicit websocket paths", () => {
       "wss://events.tearleads.com/socket",
     ),
   ).toBe("wss://events.tearleads.com/socket");
+});
+
+test("resolveEventsWebSocketUrl preserves explicit relative websocket paths", () => {
+  setLocationHref("https://app.tearleads.test/workspace");
+
+  expect(resolveEventsWebSocketUrl("/api", "/ws")).toBe(
+    "wss://app.tearleads.test/ws",
+  );
 });

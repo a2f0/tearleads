@@ -165,10 +165,18 @@ export function resolveEventsWebSocketUrl(
   apiBaseUrl: string,
   configuredWsUrl?: string | undefined,
 ): string {
-  const rawWsUrl = configuredWsUrl ?? apiBaseUrl.replace(/^http/iu, "ws");
-  const url = new URL(rawWsUrl);
-  if (url.pathname === "" || url.pathname === "/") {
-    url.pathname = "/events";
+  const currentLocationHref = globalThis.location?.href ?? "http://localhost/";
+  const base = currentLocationHref.replace(/^http/iu, "ws");
+
+  if (configuredWsUrl) {
+    const url = new URL(configuredWsUrl, base);
+    if (url.pathname === "" || url.pathname === "/") {
+      url.pathname = "/events";
+    }
+    return url.toString();
   }
+
+  const url = new URL(apiBaseUrl.replace(/^http/iu, "ws"), base);
+  url.pathname = `${url.pathname.replace(/\/$/u, "")}/events`;
   return url.toString();
 }
