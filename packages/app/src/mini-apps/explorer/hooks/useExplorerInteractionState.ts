@@ -94,46 +94,63 @@ export function useExplorerInteractionState(params: {
     view,
   ]);
 
+  return useExplorerRefreshActions(reconciler);
+}
+
+/**
+ * Manual refresh and open catch-up both drive the reconciler's full-sweep
+ * entry points, which share one in-flight sweep at the service layer. Route
+ * them through one in-flight ref here too so the Refresh menu item is disabled
+ * (via isRefreshing) for the whole sweep — a manual refresh cannot start while
+ * an auto catch-up is still running, and vice versa.
+ */
+function useExplorerRefreshActions(
+  reconciler: ExplorerModelExplorer["reconciler"],
+) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const refreshPromiseRef = useRef<Promise<boolean> | null>(null);
 
-  const handleRefresh = useCallback((): Promise<boolean> => {
-    if (refreshPromiseRef.current) {
-      return refreshPromiseRef.current;
-    }
-
-    setRefreshError(null);
-    setIsRefreshing(true);
-    const refreshPromise = reconciler
-      .reconcileNow()
-      .then(() => true)
-      .catch((error: unknown) => {
-        if (!isIgnorableDatabaseWorkerError(error)) {
-          console.error("Failed to refresh explorer:", error);
-          setRefreshError("Failed to refresh explorer.");
-        }
-        return false;
-      })
-      .finally(() => {
-        if (refreshPromiseRef.current === refreshPromise) {
-          refreshPromiseRef.current = null;
-          setIsRefreshing(false);
-        }
-      });
-
-    refreshPromiseRef.current = refreshPromise;
-    return refreshPromise;
-  }, [reconciler]);
-
-  const handleOpenCatchup = useCallback((): Promise<void> => {
-    return reconciler.reconcileRootContainersNow().catch((error: unknown) => {
-      if (!isIgnorableDatabaseWorkerError(error)) {
-        console.error("Failed to refresh explorer:", error);
-        setRefreshError("Failed to refresh explorer.");
+  const runSweep = useCallback(
+    (sweep: () => Promise<void>): Promise<boolean> => {
+      if (refreshPromiseRef.current) {
+        return refreshPromiseRef.current;
       }
-    });
-  }, [reconciler]);
+
+      setRefreshError(null);
+      setIsRefreshing(true);
+      const refreshPromise = sweep()
+        .then(() => true)
+        .catch((error: unknown) => {
+          if (!isIgnorableDatabaseWorkerError(error)) {
+            console.error("Failed to refresh explorer:", error);
+            setRefreshError("Failed to refresh explorer.");
+          }
+          return false;
+        })
+        .finally(() => {
+          if (refreshPromiseRef.current === refreshPromise) {
+            refreshPromiseRef.current = null;
+            setIsRefreshing(false);
+          }
+        });
+
+      refreshPromiseRef.current = refreshPromise;
+      return refreshPromise;
+    },
+    [],
+  );
+
+  const handleRefresh = useCallback(
+    (): Promise<boolean> => runSweep(() => reconciler.reconcileNow()),
+    [reconciler, runSweep],
+  );
+
+  const handleOpenCatchup = useCallback(
+    (): Promise<boolean> =>
+      runSweep(() => reconciler.reconcileRootContainersNow()),
+    [reconciler, runSweep],
+  );
 
   return { handleOpenCatchup, handleRefresh, isRefreshing, refreshError };
 }

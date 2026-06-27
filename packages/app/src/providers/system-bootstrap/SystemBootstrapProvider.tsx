@@ -114,6 +114,7 @@ function findExistingSystemContainer(
 }
 
 async function ensureSystemContainer(input: {
+  readonly isAuthenticated: boolean;
   readonly store: ContainerContentsStore;
   readonly systemContainer: UserSystemContainer;
 }): Promise<ContainerNode | null> {
@@ -122,6 +123,20 @@ async function ensureSystemContainer(input: {
     input.systemContainer,
   );
   if (existing) {
+    // The slot already exists. If it was created device-first (local-only) and
+    // we are now authenticated, promote it into remote sync so every system
+    // container (Trash included, not just Contacts) reaches the server without
+    // requiring the user to open it. ensureSystemContainer without
+    // deferRemoteSync routes the existing slot through
+    // promoteExistingLocalSystemContainerSync; the call is idempotent once the
+    // container has a remote create intent, so a non-local-only slot is a no-op.
+    if (input.isAuthenticated && existing.syncState.status === "local-only") {
+      return input.store.ensureSystemContainer(
+        input.systemContainer.systemSlot,
+        input.systemContainer.name,
+        { skipAdvancedManagedRoot: true },
+      );
+    }
     return existing;
   }
 
@@ -195,9 +210,11 @@ async function runSystemBootstrap(
   input: SystemBootstrapRunInput,
 ): Promise<boolean> {
   let contactsContainer: ContainerNode | null = null;
+  const isAuthenticated = input.appData.auth.isAuthenticated;
 
   for (const systemContainer of input.systemContainers) {
     const ensuredContainer = await ensureSystemContainer({
+      isAuthenticated,
       store: input.containerContentsStore,
       systemContainer,
     });
@@ -248,13 +265,11 @@ function useSystemBootstrapInput(input: {
   const appData = useTearleadsRuntime();
   const signingPrivateKey =
     appData.crypto.signingKeyPair?.signingPrivateKey ?? null;
-  const hasContactsSystemContainer = Boolean(
-    findUserSystemContainer(input.systemContainers, "contacts"),
-  );
   const contactsSystemContainer = findUserSystemContainer(
     input.systemContainers,
     "contacts",
   );
+  const hasContactsSystemContainer = contactsSystemContainer !== null;
   const contactsContainer = contactsSystemContainer
     ? findExplorerSystemNode(
         input.storeNodes,

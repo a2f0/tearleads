@@ -48,7 +48,7 @@ interface ExplorerModel {
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   explorer: ExplorerModelExplorer;
-  handleOpenCatchup: () => Promise<void>;
+  handleOpenCatchup: () => Promise<boolean>;
   handleRefresh: () => Promise<boolean>;
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
   loadBlobInfo: ExplorerPanelState["loadBlobInfo"];

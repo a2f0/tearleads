@@ -80,6 +80,15 @@ interface ReconciliationState {
   forcedContainerIds: Set<string>;
   lane: SyncLane | null;
   queue: ReconcileQueue;
+  /**
+   * In-flight full-sweep promise. {@link reconcileKnownContainersAfterRefresh}
+   * clears the queue/forced set and mutates the discovered set non-atomically,
+   * so two overlapping sweeps (e.g. the open catch-up racing a manual refresh)
+   * would tear each other's shared state. Callers share one promise instead: a
+   * second concurrent request awaits the in-flight sweep rather than starting a
+   * second one underneath it.
+   */
+  refreshPromise: Promise<void> | null;
 }
 
 async function reconcileOneContainer(
@@ -189,6 +198,32 @@ async function reconcileKnownContainersAfterRefresh(input: {
   }
 }
 
+// Serialize the full-sweep entry points (reconcileNow /
+// reconcileRootContainersNow) so they never run concurrently over the shared
+// state. A second caller while a sweep is in flight joins it instead of
+// clearing the queue/discovered set underneath the first.
+function reconcileKnownContainersSingleFlight(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  refreshTree: () => Promise<void>,
+): Promise<void> {
+  if (state.refreshPromise) {
+    return state.refreshPromise;
+  }
+
+  const refreshPromise = reconcileKnownContainersAfterRefresh({
+    host,
+    refreshTree,
+    state,
+  }).finally(() => {
+    if (state.refreshPromise === refreshPromise) {
+      state.refreshPromise = null;
+    }
+  });
+  state.refreshPromise = refreshPromise;
+  return refreshPromise;
+}
+
 export function createReconciliationService(
   host: ReconciliationHost,
 ): ReconciliationService {
@@ -199,6 +234,7 @@ export function createReconciliationService(
     forcedContainerIds: new Set(),
     lane: null,
     queue: createReconcileQueue(),
+    refreshPromise: null,
   };
 
   const scheduleDrain = () => {
@@ -281,21 +317,14 @@ export function createReconciliationService(
       state.discoveredContainerIds.clear();
     },
     reconcileRootContainersNow: () =>
-      reconcileKnownContainersAfterRefresh({
-        host,
-        refreshTree: host.refreshRootTree,
-        state,
-      }),
+      reconcileKnownContainersSingleFlight(host, state, host.refreshRootTree),
     reconcileNow: () =>
-      reconcileKnownContainersAfterRefresh({
-        host,
-        refreshTree: host.refreshTree,
-        state,
-      }),
+      reconcileKnownContainersSingleFlight(host, state, host.refreshTree),
     stop: () => {
       state.active = false;
       state.queue.clear();
       state.forcedContainerIds.clear();
+      state.refreshPromise = null;
       // Drop the per-session discovered suppression cache too: a stopped
       // reconciler is being torn down (scope/identity change) or paused across
       // a prerequisite loss, after which every container must be re-validated.

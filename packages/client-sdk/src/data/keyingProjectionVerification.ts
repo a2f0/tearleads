@@ -22,7 +22,11 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
-import { filterUncachedPrincipalPolicyReferences } from "./keyingProjectionVerification/principalPolicyCache";
+import {
+  filterUncachedPrincipalPolicyReferences,
+  principalPolicyBundleStates,
+  referencedPrincipalPolicyKey,
+} from "./keyingProjectionVerification/principalPolicyCache";
 import {
   readAccessEvent,
   readAccessManifest,
@@ -64,25 +68,10 @@ export function requireProjectionUserKeyResolver(
 
 export type PrincipalPolicyCache = Map<string, VerifiedPrincipalPolicy>;
 
-function referencedPrincipalPolicyKey(
-  reference: ReferencedPrincipalHead,
-): string {
-  return `${reference.principalType}:${reference.principalId}:${reference.version}:${reference.stateHash}`;
-}
-
 function principalPolicyReferenceLabel(
   reference: ReferencedPrincipalHead,
 ): string {
   return `${reference.principalType}:${reference.principalId}@${reference.version}`;
-}
-
-function principalPolicyBundleStates(
-  bundle: PrincipalPolicyBundleResponse,
-): PrincipalPolicyBundleResponse["currentState"][] {
-  return [
-    ...bundle.previousStates.map((entry) => entry.state),
-    bundle.currentState,
-  ];
 }
 
 async function collectPrincipalPolicySignerPublicKeys(input: {
