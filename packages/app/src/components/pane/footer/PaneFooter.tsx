@@ -42,6 +42,8 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
         <button
           type="button"
           className="tearleads-action-button pane-footer-menu-button"
+          aria-haspopup="menu"
+          aria-expanded={menu !== null}
           onClick={handleClick}
         >
           Menu
