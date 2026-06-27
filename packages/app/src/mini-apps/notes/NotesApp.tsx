@@ -5,6 +5,7 @@ import {
   DocumentsProvider,
 } from "../../stores/documents/DocumentsProvider";
 import { LocalKeyringUnlockGate } from "../LocalKeyringUnlockGate";
+import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { NotesContextMenuLayer } from "./context-menu/NotesContextMenu";
 import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { NOTES_LABELS } from "./labels";
@@ -34,6 +35,14 @@ export function createNotesWindowComponent({
 }
 
 function NotesApp(props: NotesAppProps) {
+  return (
+    <SystemBootstrapGate message="Bootstrapping workspace...">
+      <NotesAppContent {...props} />
+    </SystemBootstrapGate>
+  );
+}
+
+function NotesAppContent(props: NotesAppProps) {
   const { setSidebar } = useWindowSidebar();
   const model = useNotesAppModel(props, setSidebar);
   useWindowFileMenuItem({

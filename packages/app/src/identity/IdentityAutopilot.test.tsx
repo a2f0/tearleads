@@ -1,12 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { AppTestRuntimeScopeProbe } from "../../test/helpers/appRuntimeIdle";
 import {
   cleanupPaneTestEnvironment,
   createSharedMemoryLocalKeyringFactory,
   createTestHostConfig,
+  getExplorerContainerItem,
   getPanePublicKey,
   getPaneStatusText,
+  openContacts,
+  openExplorer,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
@@ -112,6 +115,40 @@ test(
 
     // Drain registration's follow-on sync before teardown destroys the worker.
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
+    view.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
+);
+
+test(
+  "autopilot bootstraps system containers before mini-app launch",
+  async () => {
+    const view = renderPane({
+      hostConfig: createTestHostConfig({ autoProvisionIdentity: true }),
+    });
+
+    await waitForRegisteredSession(view);
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+
+    const explorer = await openExplorer(view);
+    await waitFor(
+      () => {
+        expect(getExplorerContainerItem(explorer, "Contacts")).toBeTruthy();
+        expect(getExplorerContainerItem(explorer, "Trash")).toBeTruthy();
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
+    const contactsWindow = await openContacts(view);
+    await waitFor(
+      () => {
+        expect(
+          within(contactsWindow).getAllByRole("button", { name: "You" }),
+        ).toHaveLength(1);
+      },
+      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
+    );
+
     view.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,

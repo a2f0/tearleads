@@ -2,9 +2,9 @@ import type {
   ContainerDocumentQueries,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { getContactsContainerId } from "../../../stores/contacts/useContactsCriticalNodesBootstrap";
+import { getContactsContainerId } from "../../../stores/contacts/contactsSystemSlot";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
 import {
   canCreateStructuredDocumentInContainerByRules,
@@ -48,6 +48,7 @@ interface ExplorerModel {
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   explorer: ExplorerModelExplorer;
+  handleOpenCatchup: () => Promise<void>;
   handleRefresh: () => Promise<boolean>;
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
   loadBlobInfo: ExplorerPanelState["loadBlobInfo"];
@@ -119,7 +120,7 @@ export function useExplorerModel(
       explorer.trashSystemSlot,
     ],
   );
-  const { handleRefresh, isRefreshing, refreshError } =
+  const { handleOpenCatchup, handleRefresh, isRefreshing, refreshError } =
     useExplorerInteractionState({
       activeContainerId: selection.activeContainerId,
       appData,
@@ -194,6 +195,33 @@ export function useExplorerModel(
         : undefined,
     [explorer.nodes, selection.activeContainerId],
   );
+  useEffect(() => {
+    const node = activeContainerNode;
+    const activeSystemSlot = node?.systemSlot ?? null;
+    if (
+      !appData.auth.isAuthenticated ||
+      !activeSystemSlot ||
+      !node ||
+      node.syncState.status !== "local-only" ||
+      (activeSystemSlot !== explorer.contactsSystemSlot &&
+        activeSystemSlot !== explorer.trashSystemSlot)
+    ) {
+      return;
+    }
+
+    void explorer
+      .ensureSystemContainer(activeSystemSlot, node.name, {
+        deferRemoteBootstrap: true,
+        skipAdvancedManagedRoot: true,
+      })
+      .catch(() => undefined);
+  }, [
+    activeContainerNode,
+    appData.auth.isAuthenticated,
+    explorer.contactsSystemSlot,
+    explorer.ensureSystemContainer,
+    explorer.trashSystemSlot,
+  ]);
   const canCreateStructuredDocumentInActiveContainer =
     selection.activeContainerId !== null &&
     canCreateStructuredDocumentInContainerByRules(
@@ -222,6 +250,7 @@ export function useExplorerModel(
     documentQueries,
     documentSummaries,
     explorer,
+    handleOpenCatchup,
     handleRefresh,
     importDroppedFiles,
     loadBlobInfo,

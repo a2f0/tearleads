@@ -45,6 +45,22 @@ export interface ContainerDocumentDiscoveryApi {
     containerId: string,
     options?: { watermark?: SyncWatermark | null },
   ) => Promise<ListContainerDocumentsResponse | null>;
+  readonly listContainerDocumentsResult?: (
+    containerId: string,
+    options?: { watermark?: SyncWatermark | null },
+    requestOptions?: { reportErrors?: boolean | undefined },
+  ) => Promise<
+    | {
+        readonly data: ListContainerDocumentsResponse;
+        readonly ok: true;
+      }
+    | {
+        readonly message: string;
+        readonly ok: false;
+        readonly report: () => void;
+        readonly status: number | null;
+      }
+  >;
   readonly listContainers: (options: {
     parentId: string | null;
     watermark?: SyncWatermark | null;
@@ -116,6 +132,6 @@ export interface RefreshAllContainerDocumentsFromApiOptions
   > {
   readonly apiClient: Pick<
     ContainerDocumentDiscoveryApi,
-    "listContainerDocuments" | "listContainers"
+    "listContainerDocuments" | "listContainerDocumentsResult" | "listContainers"
   >;
 }

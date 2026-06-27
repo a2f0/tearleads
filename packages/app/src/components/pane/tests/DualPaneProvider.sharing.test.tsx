@@ -70,15 +70,19 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /documents/:documentId/sync": 37,
     // Device-first reconciliation re-checks the active container on both open
     // and explicit refresh, and forced server-event reconciliation now rechecks
-    // each event-scoped container once. These are cheap watermark deltas;
-    // discovery on the open critical path is unchanged/lower.
-    "GET /containers/:containerId/documents": 9,
+    // each event-scoped container once. Early bootstrap can also race a shared
+    // child before it is remotely visible, adding one quiet 404 + retry.
+    "GET /containers/:containerId/documents": 11,
     // The test WebSocket harness now mirrors production routing: an
     // access_changed event evicts interested sockets, then each still-authorized
-    // pane rechecks the tree before re-declaring interest. This root share has
-    // two extra cheap container-list deltas from that access recheck path.
-    "GET /containers": 24,
-    "GET /auth/encapsulation-key/:userId": 2,
+    // pane rechecks the tree before re-declaring interest. Early bootstrap can
+    // add two cheap parent-lane deltas while document discovery catches up.
+    "GET /containers": 26,
+    // Device-first bootstrap can leave the explorer store on a pre-root runtime
+    // briefly, so projection verification may resolve each pane's public user
+    // key remotely once per workflow surface during the share handoff. Keep
+    // this capped at two exact path hits per user to catch fetch loops.
+    "GET /auth/encapsulation-key/:userId": 4,
     // One websocket auth ticket per pane (each opens one events socket). A tight
     // ceiling here catches a reconnect storm, since each reconnect re-mints one.
     "POST /auth/ws-ticket": 3,

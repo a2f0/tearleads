@@ -170,8 +170,8 @@ export function createDocumentStoreFacade(
     rebindTo: (store) => connectTarget(store),
     setAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
       targetStore.setAttachment(slotId, file),
-    setStructuredFields: (kind, patch) =>
-      targetStore.setStructuredFields(kind, patch),
+    setStructuredFields: (kind, patch, options) =>
+      targetStore.setStructuredFields(kind, patch, options),
     setText: (value: string) => targetStore.setText(value),
     subscribe: (listener: () => void) => {
       listeners.add(listener);

@@ -2,6 +2,8 @@ import type {
   ContainerSystemSlotDefinition,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
+import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 
 export const CONTACTS_CONTAINER_NAME = "Contacts";
 export const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
@@ -69,6 +71,12 @@ interface UserSystemContainerDefinition {
   // so they never match the viewer's own slots — the explorer falls back to the
   // container name to decide for shared system folders.
   readonly visibleWhenShared: boolean;
+}
+
+export interface UserSystemContainer {
+  readonly kind: UserSystemContainerKind;
+  readonly name: string;
+  readonly systemSlot: ContainerSystemSlot;
 }
 
 export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefinition[] =
@@ -139,6 +147,31 @@ export function getUserSystemContainerRulesByKind(
     USER_SYSTEM_CONTAINER_DEFINITIONS.find(
       (definition) => definition.kind === kind,
     )?.rules ?? null
+  );
+}
+
+export async function deriveUserSystemContainers(
+  signingPrivateKey: Uint8Array,
+): Promise<ReadonlyArray<UserSystemContainer>> {
+  return Promise.all(
+    USER_SYSTEM_CONTAINER_DEFINITIONS.map(async (definition) => ({
+      kind: definition.kind,
+      name: definition.name,
+      systemSlot: await deriveContainerSystemSlot({
+        definition: definition.slotDefinition,
+        secretKey: signingPrivateKey,
+      }),
+    })),
+  );
+}
+
+export function findUserSystemContainer(
+  systemContainers: ReadonlyArray<UserSystemContainer>,
+  kind: UserSystemContainerKind,
+): UserSystemContainer | null {
+  return (
+    systemContainers.find((systemContainer) => systemContainer.kind === kind) ??
+    null
   );
 }
 

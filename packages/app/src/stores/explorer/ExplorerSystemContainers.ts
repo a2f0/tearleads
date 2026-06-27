@@ -1,23 +1,17 @@
 import type {
   ContainerContentsContextValue,
-  ContainerContentsStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  deriveUserSystemContainers,
+  findUserSystemContainer,
   isUnderForeignSharedRoot,
   SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
   USER_SYSTEM_CONTAINER_DEFINITIONS,
-  type UserSystemContainerKind,
+  type UserSystemContainer,
 } from "../systemContainers";
-
-interface ExplorerSystemContainer {
-  kind: UserSystemContainerKind;
-  name: string;
-  systemSlot: ContainerSystemSlot;
-}
 
 const USER_SYSTEM_CONTAINER_NAMES = new Set(
   USER_SYSTEM_CONTAINER_DEFINITIONS.map((definition) => definition.name),
@@ -197,49 +191,38 @@ export function isExplorerContainerUnderTrash(
 }
 
 function findExplorerSystemContainerSlot(
-  systemContainers: ReadonlyArray<ExplorerSystemContainer>,
-  kind: UserSystemContainerKind,
+  systemContainers: ReadonlyArray<UserSystemContainer>,
+  kind: UserSystemContainer["kind"],
 ): ContainerSystemSlot | null {
-  return (
-    systemContainers.find((systemContainer) => systemContainer.kind === kind)
-      ?.systemSlot ?? null
-  );
+  return findUserSystemContainer(systemContainers, kind)?.systemSlot ?? null;
 }
 
 export function findContactsSystemContainerSlot(
-  systemContainers: ReadonlyArray<ExplorerSystemContainer>,
+  systemContainers: ReadonlyArray<UserSystemContainer>,
 ): ContainerSystemSlot | null {
   return findExplorerSystemContainerSlot(systemContainers, "contacts");
 }
 
 export function findTrashSystemContainerSlot(
-  systemContainers: ReadonlyArray<ExplorerSystemContainer>,
+  systemContainers: ReadonlyArray<UserSystemContainer>,
 ): ContainerSystemSlot | null {
   return findExplorerSystemContainerSlot(systemContainers, "trash");
 }
 
 export function getExplorerVisibleSystemSlots(
-  systemContainers: ReadonlyArray<ExplorerSystemContainer>,
+  systemContainers: ReadonlyArray<UserSystemContainer>,
 ): ReadonlySet<ContainerSystemSlot> {
   return new Set(
     systemContainers.map((systemContainer) => systemContainer.systemSlot),
   );
 }
 
-export function getExplorerOwnedSystemContainers(
-  systemContainers: ReadonlyArray<ExplorerSystemContainer>,
-): ReadonlyArray<ExplorerSystemContainer> {
-  return systemContainers.filter(
-    (systemContainer) => systemContainer.kind !== "contacts",
-  );
-}
-
 export function useExplorerSystemContainerSlots(input: {
   logError: (message: string | Error, cause?: unknown) => void;
   signingPrivateKey: Uint8Array | null;
-}): ReadonlyArray<ExplorerSystemContainer> {
+}): ReadonlyArray<UserSystemContainer> {
   const [systemContainers, setSystemContainers] = useState<
-    ReadonlyArray<ExplorerSystemContainer>
+    ReadonlyArray<UserSystemContainer>
   >([]);
 
   useEffect(() => {
@@ -250,16 +233,7 @@ export function useExplorerSystemContainerSlots(input: {
 
     const signingPrivateKey = input.signingPrivateKey;
     let cancelled = false;
-    void Promise.all(
-      USER_SYSTEM_CONTAINER_DEFINITIONS.map(async (definition) => ({
-        kind: definition.kind,
-        name: definition.name,
-        systemSlot: await deriveContainerSystemSlot({
-          definition: definition.slotDefinition,
-          secretKey: signingPrivateKey,
-        }),
-      })),
-    )
+    void deriveUserSystemContainers(signingPrivateKey)
       .then((nextSystemContainers) => {
         if (!cancelled) {
           setSystemContainers(nextSystemContainers);
@@ -278,82 +252,6 @@ export function useExplorerSystemContainerSlots(input: {
   }, [input.logError, input.signingPrivateKey]);
 
   return systemContainers;
-}
-
-export function useEnsureExplorerSystemContainers(input: {
-  containerContentsReady: boolean;
-  containerContentsStore: Pick<ContainerContentsStore, "ensureSystemContainer">;
-  logError: (message: string | Error, cause?: unknown) => void;
-  nodes: ReadonlyArray<ContainerNode>;
-  shouldProvisionSystemContainers: boolean;
-  systemContainers: ReadonlyArray<ExplorerSystemContainer>;
-}): void {
-  const inFlightSystemSlotsRef = useRef(new Set<ContainerSystemSlot>());
-
-  useEffect(() => {
-    if (
-      !input.containerContentsReady ||
-      !input.shouldProvisionSystemContainers ||
-      input.systemContainers.length === 0
-    ) {
-      return;
-    }
-
-    const existingSystemSlots = new Set(
-      input.nodes.flatMap((node) => {
-        const systemSlot = node.systemSlot ?? null;
-        return systemSlot ? [systemSlot] : [];
-      }),
-    );
-    const missingSystemContainers = input.systemContainers.filter(
-      (systemContainer) =>
-        !existingSystemSlots.has(systemContainer.systemSlot) &&
-        !inFlightSystemSlotsRef.current.has(systemContainer.systemSlot),
-    );
-    if (missingSystemContainers.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-    const provisionMissingSystemContainers = () => {
-      for (const systemContainer of missingSystemContainers) {
-        inFlightSystemSlotsRef.current.add(systemContainer.systemSlot);
-        void input.containerContentsStore
-          .ensureSystemContainer(
-            systemContainer.systemSlot,
-            systemContainer.name,
-            { skipAdvancedManagedRoot: true },
-          )
-          .catch((error) => {
-            if (!cancelled) {
-              input.logError(
-                `Failed to provision explorer ${systemContainer.name} system container`,
-                error,
-              );
-            }
-          })
-          .finally(() => {
-            inFlightSystemSlotsRef.current.delete(systemContainer.systemSlot);
-          });
-      }
-    };
-    const provisionTimer = window.setTimeout(
-      provisionMissingSystemContainers,
-      100,
-    );
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(provisionTimer);
-    };
-  }, [
-    input.containerContentsReady,
-    input.containerContentsStore,
-    input.logError,
-    input.nodes,
-    input.shouldProvisionSystemContainers,
-    input.systemContainers,
-  ]);
 }
 
 export function canProvisionExplorerSystemContainers(input: {

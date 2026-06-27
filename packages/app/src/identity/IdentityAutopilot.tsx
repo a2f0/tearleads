@@ -4,6 +4,7 @@ import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
+import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 /**
@@ -36,8 +37,18 @@ function useAutoProvisionIdentity(enabled: boolean): void {
   const { sessionRestoreSettled } = useCryptoSession();
   const { canRegisterCurrentIdentity, registerCurrentIdentity } =
     useRegisterCurrentIdentity();
+  const { ensureBootstrapped, status: systemBootstrapStatus } =
+    useSystemBootstrap();
   const { logError } = useLog();
   const registrationInFlight = useRef(false);
+  const currentRegistrationRef = useRef({
+    canRegisterCurrentIdentity,
+    registerCurrentIdentity,
+  });
+  currentRegistrationRef.current = {
+    canRegisterCurrentIdentity,
+    registerCurrentIdentity,
+  };
 
   useEffect(() => {
     if (
@@ -73,7 +84,8 @@ function useAutoProvisionIdentity(enabled: boolean): void {
       !canRegisterCurrentIdentity ||
       // Wait for the persisted-session restore so a returning user's session is
       // adopted instead of being re-registered as a duplicate on every reload.
-      !sessionRestoreSettled
+      !sessionRestoreSettled ||
+      systemBootstrapStatus === "waiting"
     ) {
       return;
     }
@@ -86,7 +98,14 @@ function useAutoProvisionIdentity(enabled: boolean): void {
     // re-render while the request is outstanding) from firing a second
     // registration; on success canRegisterCurrentIdentity flips false.
     registrationInFlight.current = true;
-    void registerCurrentIdentity()
+    void ensureBootstrapped()
+      .then(() => {
+        if (!currentRegistrationRef.current.canRegisterCurrentIdentity) {
+          return false;
+        }
+
+        return currentRegistrationRef.current.registerCurrentIdentity();
+      })
       .catch((error: unknown) => {
         // No UI surface here (unlike the manual Identity Manager flow), so log
         // and swallow to avoid an unhandled rejection; the manual Register
@@ -99,10 +118,11 @@ function useAutoProvisionIdentity(enabled: boolean): void {
   }, [
     canRegisterCurrentIdentity,
     enabled,
+    ensureBootstrapped,
     features.autoRegisterIdentity,
     logError,
-    registerCurrentIdentity,
     sessionRestoreSettled,
+    systemBootstrapStatus,
   ]);
 }
 

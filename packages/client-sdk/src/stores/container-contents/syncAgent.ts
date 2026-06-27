@@ -40,6 +40,10 @@ import {
   readMetadataSyncSeq,
 } from "./metadataSyncSignal";
 import {
+  refreshAllRemoteHydration,
+  refreshRootRemoteHydration,
+} from "./remoteHydrationRefresh";
+import {
   hasStartupContainerSyncWork,
   scheduleStaleStartupRemoteHydration,
 } from "./startupHydration";
@@ -83,6 +87,7 @@ export interface ContainerContentsStoreSyncAgent {
   ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
   primeDocumentsForSharedSubtree: (rootContainerId: string) => Promise<void>;
   refresh: () => Promise<boolean>;
+  refreshRootLane: () => Promise<boolean>;
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;
     parentIds?: ReadonlyArray<string | null> | undefined;
@@ -241,15 +246,6 @@ function requestRemoteHydration(input: {
     });
 
   return state.remoteHydrationPromise;
-}
-
-function queueAllRemoteHydrationParentIds(
-  state: ContainerContentsStoreSyncState,
-) {
-  state.containerParentIdsNeedingHydration.add(null);
-  for (const containerId of state.containersById.keys()) {
-    state.containerParentIdsNeedingHydration.add(containerId);
-  }
 }
 
 async function initializeContainerContentsStore(input: {
@@ -465,6 +461,12 @@ export function createContainerContentsStoreSyncAgent(input: {
         scheduleSync,
         state,
       });
+  const requestRefreshHydration = (options: {
+    followDiscoveredParentLanes?: boolean | undefined;
+    parentIds?: ReadonlyArray<string | null> | undefined;
+    resetRootLaneWatermark?: boolean | undefined;
+    scheduleSyncAfterHydration?: boolean | undefined;
+  }) => requestRemoteHydration({ ...options, host, scheduleSync, state });
 
   return {
     ensureInitialized: () =>
@@ -508,33 +510,16 @@ export function createContainerContentsStoreSyncAgent(input: {
     ingestRemoteContainer,
     primeDocumentsForSharedSubtree: (rootContainerId: string) =>
       primeDocumentsForSharedSubtree(state, rootContainerId),
-    refresh: () => {
-      if (
-        state.runtime.infra.dbStatus !== "ready" ||
-        !state.initialized ||
-        !state.runtime.auth.isAuthenticated ||
-        !state.runtime.state.online
-      ) {
-        return Promise.resolve(false);
-      }
-
-      if (state.remoteHydrationPromise) {
-        queueAllRemoteHydrationParentIds(state);
-      }
-
-      // An explicit refresh always re-lists the root discovery lane from the
-      // start. A grant that makes a new top-level container reachable (e.g.
-      // joining a group) does not bump that container's updatedAt, so a
-      // persisted watermark would hide it from the resume page forever.
-      return requestRemoteHydration({
-        followDiscoveredParentLanes: true,
-        host,
-        resetRootLaneWatermark: true,
-        scheduleSyncAfterHydration: true,
-        scheduleSync,
+    refresh: () =>
+      refreshAllRemoteHydration({
+        requestHydration: requestRefreshHydration,
         state,
-      }).then(() => true);
-    },
+      }),
+    refreshRootLane: () =>
+      refreshRootRemoteHydration({
+        requestHydration: requestRefreshHydration,
+        state,
+      }),
     requestRemoteHydration: requestHydration,
     scheduleRemoteHydration: () => {
       void requestHydration();

@@ -41,6 +41,8 @@ export interface ReconciliationHost {
   ) => void;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
+  /** Refresh only the top-level root lane from the server. */
+  refreshRootTree: () => Promise<void>;
   /** True if the destroyed-db error should be swallowed rather than surfaced. */
   isIgnorableError: (error: unknown) => boolean;
 }
@@ -62,6 +64,7 @@ export interface ReconciliationService {
    * may have changed remotely while this client could not reach the server.
    */
   resetDiscovered: () => void;
+  reconcileRootContainersNow: () => Promise<void>;
   reconcileNow: () => Promise<void>;
   stop: () => void;
 }
@@ -164,6 +167,28 @@ async function runReconcileLane(
   }
 }
 
+async function reconcileKnownContainersAfterRefresh(input: {
+  host: ReconciliationHost;
+  refreshTree: () => Promise<void>;
+  state: ReconciliationState;
+}): Promise<void> {
+  const { host, refreshTree, state } = input;
+  if (!canReconcile(host.getRuntimeStatus())) {
+    return;
+  }
+
+  state.queue.clear();
+  state.forcedContainerIds.clear();
+  try {
+    await refreshTree();
+    await sweepKnownContainers(host, state);
+  } catch (error) {
+    if (!host.isIgnorableError(error)) {
+      throw error;
+    }
+  }
+}
+
 export function createReconciliationService(
   host: ReconciliationHost,
 ): ReconciliationService {
@@ -255,24 +280,18 @@ export function createReconciliationService(
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
     },
-    reconcileNow: async () => {
-      if (!canReconcile(host.getRuntimeStatus())) {
-        return;
-      }
-      // Explicit refresh: refresh the tree, then re-discover every known
-      // container exactly once via a single path (not the background lane and a
-      // separate bulk sweep), so each container is fetched once.
-      state.queue.clear();
-      state.forcedContainerIds.clear();
-      try {
-        await host.refreshTree();
-        await sweepKnownContainers(host, state);
-      } catch (error) {
-        if (!host.isIgnorableError(error)) {
-          throw error;
-        }
-      }
-    },
+    reconcileRootContainersNow: () =>
+      reconcileKnownContainersAfterRefresh({
+        host,
+        refreshTree: host.refreshRootTree,
+        state,
+      }),
+    reconcileNow: () =>
+      reconcileKnownContainersAfterRefresh({
+        host,
+        refreshTree: host.refreshTree,
+        state,
+      }),
     stop: () => {
       state.active = false;
       state.queue.clear();

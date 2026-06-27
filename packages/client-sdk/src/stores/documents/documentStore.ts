@@ -147,8 +147,8 @@ function createBackingDocumentStore(
       requestRemoteDocumentStoreSync(state, scheduleSync),
     requestSync: () => scheduleSync(),
     relink: (input) => relinkDocumentStore(state, input, scheduleSync),
-    setStructuredFields: (kind, patch) =>
-      setDocumentStructuredFields(state, scheduleSync, kind, patch),
+    setStructuredFields: (kind, patch, options) =>
+      setDocumentStructuredFields(state, scheduleSync, kind, patch, options),
     setText: (value: string) => setDocumentText(state, scheduleSync, value),
     subscribe: (listener: () => void) =>
       subscribeToDocumentStore(state, listener),

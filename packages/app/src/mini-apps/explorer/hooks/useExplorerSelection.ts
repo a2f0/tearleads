@@ -7,6 +7,12 @@ interface PendingSelectedDocument {
   id: string;
 }
 
+function getDefaultSelectedNode(
+  nodes: ReadonlyArray<ContainerNode>,
+): ContainerNode | undefined {
+  return nodes.find((node) => node.parentId === null) ?? nodes[0];
+}
+
 function useExplorerSelectedId(
   nodes: ReadonlyArray<ContainerNode>,
   documentSummaries: ReadonlyArray<DocumentSummary>,
@@ -53,7 +59,7 @@ function useExplorerSelectedId(
         !selectedMatchesNote &&
         !selectedMatchesPendingDocument)
     ) {
-      selectItem(nodes[0]?.id ?? null);
+      selectItem(getDefaultSelectedNode(nodes)?.id ?? null);
     }
   }, [
     documentSummaries,
@@ -133,7 +139,7 @@ export function useExplorerSelection(
     () =>
       selectedId !== null
         ? nodes.find((node) => node.id === selectedId)
-        : undefined,
+        : getDefaultSelectedNode(nodes),
     [nodes, selectedId],
   );
   const selectedDocument = useMemo(

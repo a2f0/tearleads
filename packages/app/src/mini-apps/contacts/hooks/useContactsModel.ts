@@ -150,15 +150,18 @@ function useContactsSelectionState(
 function useSelectInitialSelfContact(input: {
   entries: ContactEntries;
   ready: boolean;
+  route: ContactsRoute;
   selectedContactId: string | null;
   setSelectedContactId: (contactId: string) => void;
 }) {
-  const { entries, ready, selectedContactId, setSelectedContactId } = input;
+  const { entries, ready, route, selectedContactId, setSelectedContactId } =
+    input;
   const selectedInitialSelfRef = useRef(false);
 
   useEffect(() => {
     if (
       !ready ||
+      route !== "selection" ||
       selectedInitialSelfRef.current ||
       selectedContactId !== null
     ) {
@@ -172,7 +175,7 @@ function useSelectInitialSelfContact(input: {
 
     selectedInitialSelfRef.current = true;
     setSelectedContactId(selfEntry.id);
-  }, [entries, ready, selectedContactId, setSelectedContactId]);
+  }, [entries, ready, route, selectedContactId, setSelectedContactId]);
 }
 
 function usePeerUserIdDraft(
@@ -442,6 +445,7 @@ export function useContactsModel(
   useSelectInitialSelfContact({
     entries,
     ready,
+    route: routeState.route,
     selectedContactId: selectionState.selectedContactId,
     setSelectedContactId: selectionState.setSelectedContactId,
   });

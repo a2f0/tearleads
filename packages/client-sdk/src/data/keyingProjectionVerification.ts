@@ -22,6 +22,7 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
+import { filterUncachedPrincipalPolicyReferences } from "./keyingProjectionVerification/principalPolicyCache";
 import {
   readAccessEvent,
   readAccessManifest,
@@ -255,7 +256,7 @@ async function collectReferencedPrincipalPolicies(input: {
   // path that references several uncached policies makes a single round of
   // requests rather than one per reference.
   if (input.warmReferencedPrincipalPolicies && input.execSql) {
-    const uncached = await filterUncachedReferences({
+    const uncached = await filterUncachedPrincipalPolicyReferences({
       execSql: input.execSql,
       principalPolicyCache: input.principalPolicyCache,
       references,
@@ -276,33 +277,6 @@ async function collectReferencedPrincipalPolicies(input: {
         warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
       }),
     ),
-  );
-}
-
-// Identify which referenced policies are absent from both the in-memory cache
-// and local storage, so the warmer fetches only what is genuinely missing.
-async function filterUncachedReferences(input: {
-  execSql: ExecSql;
-  principalPolicyCache: PrincipalPolicyCache;
-  references: readonly ReferencedPrincipalHead[];
-}): Promise<ReferencedPrincipalHead[]> {
-  const results = await Promise.all(
-    input.references.map(async (reference) => {
-      if (
-        input.principalPolicyCache.has(referencedPrincipalPolicyKey(reference))
-      ) {
-        return null;
-      }
-      const bundle = await loadPrincipalPolicyBundle(
-        input.execSql,
-        reference.principalType,
-        reference.principalId,
-      );
-      return bundle ? null : reference;
-    }),
-  );
-  return results.filter(
-    (reference): reference is ReferencedPrincipalHead => reference !== null,
   );
 }
 

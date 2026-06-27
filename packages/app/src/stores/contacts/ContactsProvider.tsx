@@ -11,13 +11,13 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useContainerContentsDeviceFirst } from "../device-first/useContainerContentsDeviceFirst";
+import { CONTACTS_CONTAINER_NAME } from "../systemContainers";
 import type { ContactsStore } from "./contactStore";
-import type { ContactsContextValue } from "./types";
 import {
   getContactsContainerId,
-  useContactsCriticalNodesBootstrap,
   useContactsSystemSlot,
-} from "./useContactsCriticalNodesBootstrap";
+} from "./contactsSystemSlot";
+import type { ContactsContextValue } from "./types";
 import { useContactsStoreForContainer } from "./useContactsStoreForContainer";
 
 interface ContactsProviderContextValue {
@@ -46,9 +46,8 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
-  // Device-first seam: instant local tree reads plus the background reconciler,
-  // which routes server events instead of any render-driven discovery effect.
-  // The store (above) is still used for tree reads + system-container mutations.
+  // Device-first read view: server events patch the local tree without
+  // render-driven bootstrap work in this mini-app.
   useContainerContentsDeviceFirst({
     events: appData.state.events,
     logLabel: "Contacts",
@@ -91,15 +90,32 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     containerContentsStore.updateRuntime(containerContentsRuntime);
   }, [containerContentsRuntime, containerContentsStore, hasRootContainerId]);
 
-  useContactsCriticalNodesBootstrap({
-    contactsContainerId,
-    contactsStore: store,
+  useEffect(() => {
+    if (
+      !hasRootContainerId ||
+      !containerContentsRuntime.auth.isAuthenticated ||
+      !containerContentsSnapshot.ready ||
+      !contactsSystemSlot
+    ) {
+      return;
+    }
+
+    void containerContentsStore
+      .ensureSystemContainer(contactsSystemSlot, CONTACTS_CONTAINER_NAME, {
+        deferRemoteBootstrap: true,
+        skipAdvancedManagedRoot: true,
+      })
+      .catch((error: unknown) => {
+        tearleads.logError("Failed to queue contacts system container", error);
+      });
+  }, [
     contactsSystemSlot,
-    containerContentsReady:
-      hasRootContainerId && containerContentsSnapshot.ready,
+    containerContentsRuntime.auth.isAuthenticated,
+    containerContentsSnapshot.ready,
     containerContentsStore,
-    deferRemoteBootstrap: true,
-  });
+    hasRootContainerId,
+    tearleads.logError,
+  ]);
 
   return (
     <ContactsContext.Provider value={contextValue}>

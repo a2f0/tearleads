@@ -5,7 +5,10 @@ import {
   writeStoredDocumentFields,
 } from "../../../data/documents/documentKinds";
 import { requestDocumentStoreSync } from "../registry";
-import type { DocumentStructuredFieldPatch } from "../types";
+import type {
+  DocumentMutationOptions,
+  DocumentStructuredFieldPatch,
+} from "../types";
 import {
   ensureDocumentStoreInitialized,
   ensureDocumentStoreReady,
@@ -143,6 +146,7 @@ function queueDocumentStructuredFieldWrite(
   state: DocumentStoreState,
   kind: Exclude<StoredDocumentKind, "note">,
   patch: DocumentStructuredFieldPatch,
+  options: DocumentMutationOptions = {},
 ): Promise<void> {
   // See queueDocumentTextWrite: gate sync-lane text/field republish on the same
   // in-flight-write counter so structured edits get the identical protection.
@@ -165,7 +169,9 @@ function queueDocumentStructuredFieldWrite(
         return;
       }
 
-      await enqueuePendingUpdate(state, update);
+      if (!options.deferRemoteSync) {
+        await enqueuePendingUpdate(state, update);
+      }
       await persistDocument(
         state,
         state.doc,
@@ -175,8 +181,10 @@ function queueDocumentStructuredFieldWrite(
           preserveSnapshotText: true,
         },
       );
-      advancePendingBaseVersion(state, state.doc);
-      requestDocumentStoreSync(state);
+      if (!options.deferRemoteSync) {
+        advancePendingBaseVersion(state, state.doc);
+        requestDocumentStoreSync(state);
+      }
     })
     .catch((error: unknown) => {
       console.error("Failed to persist structured document changes:", error);
@@ -220,6 +228,7 @@ export function setDocumentStructuredFields(
   scheduleSync: () => void,
   kind: Exclude<StoredDocumentKind, "note">,
   patch: DocumentStructuredFieldPatch,
+  options: DocumentMutationOptions = {},
 ): Promise<void> {
   ensureDocumentStoreInitialized(state, scheduleSync);
 
@@ -230,7 +239,7 @@ export function setDocumentStructuredFields(
       }
 
       publishDocumentStructuredFieldSnapshot(state, kind, patch);
-      return queueDocumentStructuredFieldWrite(state, kind, patch);
+      return queueDocumentStructuredFieldWrite(state, kind, patch, options);
     });
   }
 
@@ -239,5 +248,5 @@ export function setDocumentStructuredFields(
   }
 
   publishDocumentStructuredFieldSnapshot(state, kind, patch);
-  return queueDocumentStructuredFieldWrite(state, kind, patch);
+  return queueDocumentStructuredFieldWrite(state, kind, patch, options);
 }

@@ -101,6 +101,7 @@ import {
 import {
   appendOptionalWatermark,
   appendQuery,
+  containerDocsPath,
 } from "./routes/containers/queryParams";
 import { pathSegment } from "./routes/path";
 import type {
@@ -1151,22 +1152,26 @@ export class ApiClient {
     return dedupedRequest(
       this.containerDocumentListRequestsByKey,
       listContainerDocumentsRequestKey(containerId, options),
-      () => {
-        const params = new URLSearchParams();
-        appendOptionalWatermark(params, options?.watermark);
-        if (options?.limit !== undefined) {
-          params.set("limit", String(options.limit));
-        }
-
-        return this.request<ListContainerDocumentsResponse>(
-          appendQuery(
-            `/containers/${pathSegment(containerId)}/documents`,
-            params,
-          ),
+      () =>
+        this.request<ListContainerDocumentsResponse>(
+          containerDocsPath(containerId, options),
           isListContainerDocumentsResponse,
           "GET",
-        );
-      },
+        ),
+    );
+  }
+
+  listContainerDocumentsResult(
+    containerId: string,
+    options?: ListContainerDocumentsOptions,
+    requestOptions: RequestResultOptions = {},
+  ): Promise<RequestResult<ListContainerDocumentsResponse>> {
+    return this.makeRequestResult(
+      containerDocsPath(containerId, options),
+      isListContainerDocumentsResponse,
+      "GET",
+      undefined,
+      requestOptions,
     );
   }
 

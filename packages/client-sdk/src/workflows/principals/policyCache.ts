@@ -13,6 +13,7 @@ import {
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../../data/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { dedupeReferencedPrincipalStates } from "./policyCacheReferences";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
@@ -60,21 +61,6 @@ function referenceFromPrincipalPolicyBundle(
     stateHash: bundle.currentState.stateHash,
     keyFingerprint: bundle.currentState.keyFingerprint,
   };
-}
-
-function dedupeReferencedPrincipals(
-  references: ReadonlyArray<ReferencedPrincipalStateResponse>,
-): ReferencedPrincipalStateResponse[] {
-  const referencesByPrincipal = new Map<
-    string,
-    ReferencedPrincipalStateResponse
-  >();
-
-  for (const reference of references) {
-    referencesByPrincipal.set(getReferencedPrincipalKey(reference), reference);
-  }
-
-  return Array.from(referencesByPrincipal.values());
 }
 
 function dedupePrincipalPolicyBundles(
@@ -402,7 +388,7 @@ export async function cacheReferencedPrincipalPolicies({
 
   try {
     await ensurePrincipalPolicyTables(execSql);
-    const uniqueReferences = dedupeReferencedPrincipals(references);
+    const uniqueReferences = dedupeReferencedPrincipalStates(references);
     let externalAdminSignerUserIds: Promise<readonly string[]> | null = null;
     const loadExternalAdminSignerUserIds = () => {
       externalAdminSignerUserIds ??= loadOrganizationExternalAdminSignerUserIds(

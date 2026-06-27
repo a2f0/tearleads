@@ -14,6 +14,14 @@ export interface ExplorerModelExplorer {
   ) => Promise<ContainerNode | null>;
   deleteContainer: (containerId: string) => Promise<boolean>;
   ensureTrashContainer: () => Promise<ContainerNode | null>;
+  ensureSystemContainer: (
+    systemSlot: NonNullable<ContainerNode["systemSlot"]>,
+    name: string,
+    options?: {
+      deferRemoteBootstrap?: boolean | undefined;
+      skipAdvancedManagedRoot?: boolean | undefined;
+    },
+  ) => Promise<ContainerNode | null>;
   moveContainer: (
     containerId: string,
     parentId: string,

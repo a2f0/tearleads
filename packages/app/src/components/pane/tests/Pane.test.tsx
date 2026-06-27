@@ -192,8 +192,7 @@ test("contacts windows in the same pane share live contact document state", asyn
   invariant(importContactMenuItem, "import contact menu item not found");
   fireEvent.click(importContactMenuItem);
 
-  const firstInput =
-    await within(firstContactsApp).findByLabelText("Contact user ID");
+  const firstInput = await view.findByLabelText("Contact user ID");
   invariant(firstInput, "contact input not found");
 
   fireEvent.change(firstInput, {
@@ -245,7 +244,7 @@ test("contacts windows in the same pane share live contact document state", asyn
 });
 
 test(
-  "contacts app provisions one self contact before login",
+  "system bootstrap provisions one self contact before login",
   async () => {
     const view = renderPane();
 
@@ -322,7 +321,7 @@ test(
 );
 
 test(
-  "explorer provisions the self contact without opening contacts first",
+  "system bootstrap provisions the self contact without opening contacts first",
   async () => {
     useTestApiAppHandlers();
     const view = renderPane();

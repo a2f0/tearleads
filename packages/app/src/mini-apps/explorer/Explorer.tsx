@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import {
   MiniAppRoot,
@@ -17,6 +17,7 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { useMiniAppBusActions } from "../bus";
+import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import {
   ExplorerBlobPickProvider,
   useExplorerBlobPick,
@@ -142,8 +143,16 @@ function ExplorerDetailPanelWithBlobPick(params: {
   );
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 export function Explorer() {
+  return (
+    <SystemBootstrapGate message="Bootstrapping workspace...">
+      <ExplorerContent />
+    </SystemBootstrapGate>
+  );
+}
+
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
+function ExplorerContent() {
   const appData = useTearleadsRuntime();
   const hostConfig = useAppHostConfig();
   const explorer = useExplorer();
@@ -170,6 +179,30 @@ export function Explorer() {
     peerUserId,
     retryDatabaseBoot,
   );
+  const openCatchupCheckedRef = useRef(false);
+  useEffect(() => {
+    if (
+      openCatchupCheckedRef.current ||
+      !appData.auth.isAuthenticated ||
+      appData.infra.dbStatus !== "ready" ||
+      !model.explorer.ready
+    ) {
+      return;
+    }
+
+    if (appData.state.events.length === 0) {
+      return;
+    }
+
+    openCatchupCheckedRef.current = true;
+    void model.handleOpenCatchup();
+  }, [
+    appData.auth.isAuthenticated,
+    appData.infra.dbStatus,
+    appData.state.events.length,
+    model.explorer.ready,
+    model.handleOpenCatchup,
+  ]);
   const openGrantInOrgManager = useOpenGrantInOrgManager();
   const activeContainerId = model.selection.activeContainerId;
   const openStructuredDocumentGrid = useCallback(() => {
