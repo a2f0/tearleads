@@ -138,6 +138,39 @@ async function seedMetadataDocumentWriterProjection(input: {
   );
 }
 
+/**
+ * Prime the new container's writer projection from the create plan the client
+ * just authored, so the first write under it (a child folder, a document)
+ * resolves locally instead of a cold `GET writer-projection`. Only primed when
+ * the locally-built projection matches what the server created — the create
+ * response echoes the container id and manifest head — so a mismatch skips the
+ * seed and the next write falls back to a fetch (same fail-closed contract as
+ * the metadata-document seed). Priming is safe for writes: the server still
+ * validates every mutation, so a projection that later goes stale (rekey/share/
+ * move evict it) just yields a rejected write that retries with a fresh fetch.
+ */
+function seedChildContainerWriterProjection(input: {
+  readonly childProjection: ContainerWriterProjectionResponse;
+  readonly response: ContainerCreateWithMetadataDocumentResponse;
+  readonly runtime: ContainerWorkflowRuntime;
+}): void {
+  const createdManifestHash =
+    input.response.container.manifestHead.manifestHash;
+  const projectedManifestHash = input.childProjection.path.at(-1)?.manifestHash;
+  if (
+    input.childProjection.containerId !==
+      input.response.container.containerId ||
+    projectedManifestHash !== createdManifestHash
+  ) {
+    return;
+  }
+
+  input.runtime.apiClient.primeContainerWriterProjection(
+    input.response.container.containerId,
+    input.childProjection,
+  );
+}
+
 async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   readonly author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
   readonly containerId: string;
@@ -214,6 +247,11 @@ async function createRemoteContainerWithMetadataDocumentAttempt(input: {
   await seedMetadataDocumentWriterProjection({
     childProjection,
     execSql,
+    response,
+    runtime: input.runtime,
+  });
+  seedChildContainerWriterProjection({
+    childProjection,
     response,
     runtime: input.runtime,
   });

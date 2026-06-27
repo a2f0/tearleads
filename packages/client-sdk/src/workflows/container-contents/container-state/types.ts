@@ -45,6 +45,10 @@ export type ContainerWorkflowApi = Parameters<
           status: number | null;
         }
     >;
+    primeContainerWriterProjection(
+      containerId: string,
+      projection: ContainerWriterProjectionResponse,
+    ): void;
     getEncapsulationKey(
       userId: string,
     ): Promise<EncapsulationKeyResponse | null>;
