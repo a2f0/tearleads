@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
+  generateIdentityAndWaitForDb,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
 } from "../../../test/helpers/paneTestUtils";
@@ -12,7 +13,10 @@ import {
 } from "../../components/pane/DualPaneProvider";
 import { Pane } from "../../components/pane/Pane";
 import { PaneProvider } from "../../components/pane/PaneProvider";
-import { systemMonitorModeStorageKey } from "./systemMonitorMode";
+import {
+  systemMonitorDeveloperModeStorageKey,
+  systemMonitorModeStorageKey,
+} from "./systemMonitorMode";
 
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
@@ -21,6 +25,15 @@ afterEach(async () => {
 
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
+const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
+const DEVELOPER_MENU_ITEM_LABELS = [
+  "Kill Worker",
+  "Force Online",
+  "Force Offline",
+  "Backup Key Package",
+  "Restore Key Package",
+  "Destroy Key Pair",
+] as const;
 
 function spyPushState(onPush: (url: string | URL | null | undefined) => void) {
   const originalPushState = window.history.pushState;
@@ -49,6 +62,26 @@ function renderRoutedPane() {
       </PaneSideProvider>
     </DualPaneProvider>,
   );
+}
+
+function closePaneMenu() {
+  fireEvent.mouseDown(document.body);
+}
+
+function expectPaneDeveloperMenuItems(
+  view: ReturnType<typeof renderPane>,
+  visible: boolean,
+) {
+  fireEvent.click(view.getByText("Menu"));
+  for (const label of DEVELOPER_MENU_ITEM_LABELS) {
+    const item = view.queryByRole("button", { name: label });
+    if (visible) {
+      expect(item).toBeTruthy();
+    } else {
+      expect(item).toBeNull();
+    }
+  }
+  closePaneMenu();
 }
 
 test("home pane hides the monitor inline and exposes a launcher by default", () => {
@@ -224,6 +257,34 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
   });
   expect(view.getByText(/sqlite worker:/)).toBeTruthy();
   expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("pinned");
+
+  view.unmount();
+});
+
+test("developer mode toggles from the monitor View menu and gates pane commands", async () => {
+  const view = renderPane({ pinSystemMonitor: true });
+
+  await generateIdentityAndWaitForDb(view);
+  expectPaneDeveloperMenuItems(view, false);
+  expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBeNull();
+
+  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  await view.findByRole("tab", { name: "Logs" });
+  fireEvent.click(view.getByRole("menuitem", { name: "View" }));
+  fireEvent.click(
+    await view.findByRole("menuitem", { name: "Enable Developer Mode" }),
+  );
+
+  expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("enabled");
+  expectPaneDeveloperMenuItems(view, true);
+
+  fireEvent.click(view.getByRole("menuitem", { name: "View" }));
+  fireEvent.click(
+    await view.findByRole("menuitem", { name: "Disable Developer Mode" }),
+  );
+
+  expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("disabled");
+  expectPaneDeveloperMenuItems(view, false);
 
   view.unmount();
 });

@@ -19,7 +19,9 @@ import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../src/components
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
 import {
+  saveSystemMonitorDeveloperMode,
   saveSystemMonitorMode,
+  systemMonitorDeveloperModeStorageKey,
   systemMonitorModeStorageKey,
 } from "../../../src/mini-apps/system-monitor/systemMonitorMode";
 import { useCryptoSession } from "../../../src/providers/crypto/CryptoSessionProvider";
@@ -109,11 +111,17 @@ export function renderDualPane(): ReturnType<typeof render> {
 
 export function renderSinglePane({
   autoProvision = true,
+  developerMode = false,
 }: {
   autoProvision?: boolean;
+  developerMode?: boolean;
 } = {}): ReturnType<typeof render> {
   const hostConfig = createTestHostConfig();
   saveSystemMonitorMode(systemMonitorModeStorageKey("left"), "pinned");
+  saveSystemMonitorDeveloperMode(
+    systemMonitorDeveloperModeStorageKey(),
+    developerMode ? "enabled" : "disabled",
+  );
 
   return render(
     <DualPaneProvider>

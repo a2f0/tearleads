@@ -88,6 +88,7 @@ function RoutedPaneNavPanel({
   onOpenUnlock,
   onRequestDestroyKeyPackage,
   onRequestLogout,
+  showDeveloperControls,
 }: {
   activeAppId: MiniAppId | null;
   menuItems: ReadonlyArray<WindowMenuItem>;
@@ -95,6 +96,7 @@ function RoutedPaneNavPanel({
   onOpenUnlock: () => void;
   onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
+  showDeveloperControls: boolean;
 }) {
   return (
     <div className="routed-pane-nav-panel">
@@ -118,6 +120,7 @@ function RoutedPaneNavPanel({
           onOpenUnlock={onOpenUnlock}
           onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
           onRequestLogout={onRequestLogout}
+          showDeveloperControls={showDeveloperControls}
         />
       </div>
       {menuItems.length > 0 && (
@@ -154,6 +157,7 @@ export function RoutedPaneNav({
   onOpenUnlock,
   onRequestDestroyKeyPackage,
   onRequestLogout,
+  showDeveloperControls,
   tier,
 }: {
   activeAppId: MiniAppId | null;
@@ -163,6 +167,7 @@ export function RoutedPaneNav({
   onOpenUnlock: () => void;
   onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
+  showDeveloperControls: boolean;
   tier: RoutedLayoutTier;
 }) {
   const panel = (
@@ -173,6 +178,7 @@ export function RoutedPaneNav({
       onOpenUnlock={onOpenUnlock}
       onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
       onRequestLogout={onRequestLogout}
+      showDeveloperControls={showDeveloperControls}
     />
   );
 

@@ -9,11 +9,13 @@ export function PaneMenu({
   onClose,
   onRequestDestroyKeyPackage,
   onRequestLogout,
+  showDeveloperControls,
 }: {
   position: MenuPosition;
   onClose: () => void;
   onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
+  showDeveloperControls: boolean;
 }) {
   const { create } = useWindowActions();
   const { x, y } = position;
@@ -30,6 +32,7 @@ export function PaneMenu({
         onOpenUnlock={openUnlockWindow}
         onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
         onRequestLogout={onRequestLogout}
+        showDeveloperControls={showDeveloperControls}
       />
     </Menu>
   );

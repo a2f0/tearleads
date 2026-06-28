@@ -214,6 +214,7 @@ function RoutedPaneSurface({
   const { sidebar } = useWindowSidebar();
   const logoutDialog = useConfirmedLogoutDialog();
   const { destroyKey } = useIdentity();
+  const { isDeveloperMode } = useSystemMonitor();
   const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
@@ -271,6 +272,7 @@ function RoutedPaneSurface({
           destroyKeyPackageDialog.requestDestroyKeyPackage
         }
         onRequestLogout={logoutDialog.requestLogout}
+        showDeveloperControls={isDeveloperMode}
         tier={tier}
       />
       {sidebarVisible && (
