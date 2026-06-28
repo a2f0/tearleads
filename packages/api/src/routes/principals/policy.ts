@@ -53,22 +53,26 @@ async function publishMembershipShareNotifications(
   publish: PrincipalPolicyRouteDeps["publish"],
   storedEnvelopes: CurrentPrincipalMemberEnvelopesResponse,
 ): Promise<void> {
-  for (const envelope of storedEnvelopes.envelopes) {
-    if (envelope.memberPrincipalType !== "user") {
-      continue;
-    }
-    try {
-      await publish({
-        type: "shared_with_you",
-        userId: envelope.memberPrincipalId,
-      });
-    } catch (error) {
-      console.error(
-        "Failed to publish membership shared_with_you notification:",
-        error,
-      );
-    }
-  }
+  // Publish concurrently: the per-member notifications are independent, so
+  // awaiting them in series would add each socket's publish latency to the
+  // response time of a large group's update.
+  await Promise.all(
+    storedEnvelopes.envelopes
+      .filter((envelope) => envelope.memberPrincipalType === "user")
+      .map(async (envelope) => {
+        try {
+          await publish({
+            type: "shared_with_you",
+            userId: envelope.memberPrincipalId,
+          });
+        } catch (error) {
+          console.error(
+            "Failed to publish membership shared_with_you notification:",
+            error,
+          );
+        }
+      }),
+  );
 }
 
 function getPrincipalRouteParams(input: {
