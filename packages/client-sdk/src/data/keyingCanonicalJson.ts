@@ -104,12 +104,3 @@ export function readCanonicalRecords(
     readCanonicalRecord(value, `${label}[${index}]`),
   );
 }
-
-export function readCanonicalRecordPaths(
-  paths: readonly (readonly unknown[])[],
-  label: string,
-): Record<string, unknown>[][] {
-  return paths.map((path, index) =>
-    readCanonicalRecords(path, `${label}[${index}]`),
-  );
-}

@@ -6,7 +6,7 @@ export { DocumentMutationError } from "./errors";
 export { runDocumentLinkSetMutationWorkflow } from "./mutateDocumentLinkSet";
 export { runPurgeDocumentWorkflow } from "./purgeDocument";
 export {
-  assertCurrentContainerPathGroups,
+  assertCurrentContainerPathRefGroups,
   assertDocumentManifestBundleConsistent,
   loadSignerPublicKey,
 } from "./shared/verification";

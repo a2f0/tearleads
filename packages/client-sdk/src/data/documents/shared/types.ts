@@ -195,7 +195,7 @@ export interface MaterializedDocumentLinkSetMutationPlan {
 }
 
 export interface DocumentLinkSetEventPlan {
-  authorizingContainerPaths: Record<string, unknown>[][];
+  authorizingContainerPathRefs: ContainerManifestRef[][];
   body: DocumentLinkSetMutationBody;
   event: AccessEvent;
   eventHash: string;

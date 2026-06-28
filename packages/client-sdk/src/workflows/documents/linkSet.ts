@@ -18,10 +18,10 @@ import { buildDocumentLinkSetEventPlan } from "../../data/documents/shared/event
 import {
   assertDocumentWriterProjectionConsistent,
   collectContainerKeksForDocumentSync,
+  containerPathRefs,
   currentDocumentTargets,
   deriveDocumentTargetFromProjection,
   mergeTargetEnvelopes,
-  projectionPathRecords,
   readLinkedContainerIdsFromDocumentManifest,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyFromWriterProjection,
@@ -276,8 +276,10 @@ async function buildDocumentLinkSetMutationPlan({
       expectedManifestHash: manifestHash,
       manifest: readCanonicalRecord(manifest, "Document link-set manifest"),
       previousManifest: writerProjection.documentManifest,
-      targetContainerPath: projectionPathRecords(targetContainerProjection),
-      authorizingContainerPaths: eventPlan.authorizingContainerPaths,
+      targetContainerPathRefs: containerPathRefs(
+        targetContainerProjection.path,
+      ),
+      authorizingContainerPathRefs: eventPlan.authorizingContainerPathRefs,
       contentKeyBundle: {
         contentKeyEpoch,
         linkSetManifestHash: manifestHash,

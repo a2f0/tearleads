@@ -13,10 +13,10 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import {
   readCanonicalJson,
   readCanonicalRecord,
-  readCanonicalRecords,
 } from "../../keyingCanonicalJson";
 import {
-  authorizingContainerPathRecordsForLinkSet,
+  authorizingContainerPathRefsForLinkSet,
+  containerPathRefs,
   deriveDocumentCreateTargets,
   mergeTargetEnvelopes,
 } from "./projection";
@@ -107,10 +107,7 @@ export async function buildDocumentCreatePlan({
       expectedManifestHash: manifestHash,
       manifest: readCanonicalRecord(manifest, "Document create manifest"),
       previousManifest: null,
-      targetContainerPath: readCanonicalRecords(
-        containerProjection.path,
-        "Document create target container path",
-      ),
+      targetContainerPathRefs: containerPathRefs(containerProjection.path),
       contentKeyBundle: {
         contentKeyEpoch,
         linkSetManifestHash: manifestHash,
@@ -146,15 +143,15 @@ export async function buildDocumentLinkSetEventPlan(input: {
   const bodyHash = await computeAccessEventBodyHash(
     readCanonicalJson(body, "Document link-set body"),
   );
-  const authorizingContainerPaths = authorizingContainerPathRecordsForLinkSet({
+  const authorizingContainerPathRefs = authorizingContainerPathRefsForLinkSet({
     operation: input.operation,
     targetContainerId: input.targetState.target.containerId,
     writerProjection: input.writerProjection,
   });
   const dependencyManifestHashes = uniqueSortedStrings([
     input.targetState.target.containerManifestHash,
-    ...authorizingContainerPaths
-      .map((path) => Reflect.get(path.at(-1) ?? {}, "manifestHash"))
+    ...authorizingContainerPathRefs
+      .map((path) => path.at(-1)?.manifestHash)
       .filter((hash): hash is string => typeof hash === "string"),
   ]);
   const unsignedEvent: UnsignedAccessEvent = {
@@ -179,7 +176,7 @@ export async function buildDocumentLinkSetEventPlan(input: {
   const eventHash = await computeAccessEventHash(event);
 
   return {
-    authorizingContainerPaths,
+    authorizingContainerPathRefs,
     body,
     event,
     eventHash,

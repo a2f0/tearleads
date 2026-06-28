@@ -536,8 +536,13 @@ async function buildBindRequest(input: {
     event: event.event as unknown as Record<string, unknown>,
     body,
     documentManifest: manifestRequest(input.document.bundle),
-    authorizingContainerPaths: [
-      [input.container.bundle as unknown as Record<string, unknown>],
+    authorizingContainerPathRefs: [
+      [
+        {
+          containerId: input.container.bundle.state.containerId,
+          manifestHash: input.container.bundle.manifestHash,
+        },
+      ],
     ],
     contentKeyBundle: {
       contentKeyEpoch: 1,
@@ -602,8 +607,13 @@ async function buildDetachRequest(input: {
     event: event.event as unknown as Record<string, unknown>,
     body,
     documentManifest: manifestRequest(input.document.bundle),
-    authorizingContainerPaths: [
-      [input.container.bundle as unknown as Record<string, unknown>],
+    authorizingContainerPathRefs: [
+      [
+        {
+          containerId: input.container.bundle.state.containerId,
+          manifestHash: input.container.bundle.manifestHash,
+        },
+      ],
     ],
   };
 }

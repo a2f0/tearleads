@@ -40,9 +40,8 @@ test("buildDocumentCreatePlan signs an initial document link manifest from a con
     plan.manifestHash,
   );
   expect(plan.request.contentKeyBundle.targetHash).toBe(plan.targetHash);
-  const targetPathManifestHash = plan.request.targetContainerPath?.[0]
-    ? Reflect.get(plan.request.targetContainerPath[0], "manifestHash")
-    : undefined;
+  const targetPathManifestHash =
+    plan.request.targetContainerPathRefs?.[0]?.manifestHash;
   expect(targetPathManifestHash).toBe(target.containerManifestHash);
   expect(plan.request.contentKeyBundle.targets).toEqual([
     {

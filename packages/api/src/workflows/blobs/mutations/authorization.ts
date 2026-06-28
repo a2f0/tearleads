@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
-  assertCurrentContainerPathGroups,
+  assertCurrentContainerPathRefGroups,
   assertDocumentManifestBundleConsistent,
 } from "../../documents/mutations";
 import { loadPrincipalPoliciesForContainerPaths } from "../../principals/principalPolicyProjection";
@@ -109,10 +109,10 @@ export async function verifyAttachmentAuthorizationProof(input: {
       input.request.documentManifest,
       "documentManifest",
     ),
-    assertCurrentContainerPathGroups(
+    assertCurrentContainerPathRefGroups(
       input.executor,
-      input.request.authorizingContainerPaths,
-      "authorizingContainerPaths",
+      input.request.authorizingContainerPathRefs,
+      "authorizingContainerPathRefs",
     ),
   ]);
   await assertDocumentManifestCurrent({

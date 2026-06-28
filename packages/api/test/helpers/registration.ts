@@ -966,10 +966,10 @@ async function createRootMetadataDocumentRequest(input: {
     expectedManifestHash: manifestHash,
     manifest: toWireRecord(manifest, "root metadata document request manifest"),
     previousManifest: null,
-    targetContainerPath: toWireRecords(
-      input.containerProjection.path,
-      "root metadata document target container path",
-    ),
+    targetContainerPathRefs: input.containerProjection.path.map((bundle) => ({
+      containerId: (bundle.state as { containerId: string }).containerId,
+      manifestHash: bundle.manifestHash,
+    })),
     contentKeyBundle: {
       contentKeyEpoch: 1,
       linkSetManifestHash: manifestHash,

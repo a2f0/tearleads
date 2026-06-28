@@ -65,7 +65,7 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
     signerUserId: author.signerUserId,
     signedAt: "2026-04-27T00:00:00.000Z",
   });
-  expect(submittedRequest.authorizingContainerPaths).toHaveLength(1);
+  expect(submittedRequest.authorizingContainerPathRefs).toHaveLength(1);
   const detachEvent = submittedRequest.event as {
     dependencyManifestHashes: readonly string[];
   };

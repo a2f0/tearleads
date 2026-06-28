@@ -443,8 +443,11 @@ export async function createDocumentRequest(input: {
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPath: [
-      input.root.bundle as unknown as Record<string, unknown>,
+    targetContainerPathRefs: [
+      {
+        containerId: input.root.kekState.containerId,
+        manifestHash: input.root.bundle.manifestHash,
+      },
     ],
     contentKeyBundle: {
       contentKeyEpoch: 1,

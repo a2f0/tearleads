@@ -10,7 +10,6 @@ import type {
   BlobContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalRecordPaths } from "../../../keyingCanonicalJson";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { unwrapContainerKekPath } from "../../shared/projection";
 import { assertEqualBytes } from "../../shared/readers";
@@ -129,17 +128,6 @@ async function unwrapBlobContentKeyTarget(input: {
       ciphertext: base64ToBytes(input.envelope.wrappedKey),
     },
     input.containerKek,
-  );
-}
-
-export function authorizingContainerPathRecords(
-  writerProjection: DocumentWriterProjectionResponse,
-): Record<string, unknown>[][] {
-  return readCanonicalRecordPaths(
-    writerProjection.authorizingContainerPaths.map(
-      (projection) => projection.path,
-    ),
-    "Blob authorizing container paths",
   );
 }
 
