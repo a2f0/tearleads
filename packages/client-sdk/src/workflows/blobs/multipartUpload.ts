@@ -1,4 +1,8 @@
-import type { MultipartBlobStagePart } from "@tearleads/validators/response";
+import type {
+  InitiateMultipartBlobStageResponse,
+  MultipartBlobStagePart,
+  MultipartBlobStageStatusResponse,
+} from "@tearleads/validators/response";
 import type {
   BlobAttachmentApi,
   MultipartUploadProgressListener,
@@ -11,6 +15,7 @@ import {
 
 const TEXT_ENCODER = new TextEncoder();
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
+const MAX_MULTIPART_UPLOAD_PARTS = 10_000;
 
 interface MultipartPartCommit {
   readonly etag: string;
@@ -24,6 +29,10 @@ interface MultipartPartUploadTask {
   readonly partNumber: number;
 }
 
+interface ApiFailureReporter {
+  getLastRequestFailure?: () => { readonly message: string } | null;
+}
+
 function isAsciiString(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const charCode = value.charCodeAt(index);
@@ -33,6 +42,31 @@ function isAsciiString(value: string): boolean {
   }
 
   return true;
+}
+
+function isApiFailureReporter(
+  apiClient: BlobAttachmentApi,
+): apiClient is BlobAttachmentApi & ApiFailureReporter {
+  return typeof Reflect.get(apiClient, "getLastRequestFailure") === "function";
+}
+
+function describeLastApiFailure(apiClient: BlobAttachmentApi): string | null {
+  if (!isApiFailureReporter(apiClient)) {
+    return null;
+  }
+
+  const failure = apiClient.getLastRequestFailure?.();
+  return failure?.message ?? null;
+}
+
+function multipartApiFailureMessage(input: {
+  readonly apiClient: BlobAttachmentApi;
+  readonly fallback: string;
+}): string {
+  const failure = describeLastApiFailure(input.apiClient);
+  return failure
+    ? `${input.fallback} Last API failure: ${failure}`
+    : input.fallback;
 }
 
 export function splitEncryptedBytesIntoParts(
@@ -99,7 +133,7 @@ async function uploadMultipartPartTasks(input: {
   readonly stageId: string;
   readonly tasks: readonly MultipartPartUploadTask[];
   readonly uploadId: string;
-}): Promise<boolean> {
+}): Promise<void> {
   let failed = false;
   let nextTaskIndex = 0;
 
@@ -129,7 +163,12 @@ async function uploadMultipartPartTasks(input: {
             );
         if (!uploaded) {
           failed = true;
-          return;
+          throw new Error(
+            multipartApiFailureMessage({
+              apiClient: input.apiClient,
+              fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
+            }),
+          );
         }
 
         input.completeParts[task.partIndex] = {
@@ -148,8 +187,6 @@ async function uploadMultipartPartTasks(input: {
 
   const workerCount = Math.min(input.concurrency, input.tasks.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
-
-  return !failed;
 }
 
 async function uploadMultipartPartBytes(input: {
@@ -186,6 +223,12 @@ function uploadedPartsByPartNumber(
   parts: readonly MultipartBlobStagePart[],
 ): ReadonlyMap<number, MultipartBlobStagePart> {
   return new Map(parts.map((part) => [part.partNumber, part]));
+}
+
+function isMultipartStageStatus(
+  stage: InitiateMultipartBlobStageResponse | MultipartBlobStageStatusResponse,
+): stage is MultipartBlobStageStatusResponse {
+  return "completed" in stage && typeof stage.completed === "boolean";
 }
 
 interface MultipartUploadProgressState {
@@ -250,6 +293,60 @@ function planMultipartParts(input: {
   return { completeParts, progress, uploadTasks };
 }
 
+async function resolveMultipartStageStatus(input: {
+  readonly apiClient: MultipartBlobAttachmentApi;
+  readonly byteLength: number;
+  readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
+  readonly sha256: string;
+}): Promise<MultipartBlobStageStatusResponse> {
+  const stage =
+    input.multipart.existingStage ??
+    (await input.apiClient.initiateMultipartBlobStage({
+      byteLength: input.byteLength,
+      sha256: input.sha256,
+    }));
+  if (!stage) {
+    throw new Error(
+      multipartApiFailureMessage({
+        apiClient: input.apiClient,
+        fallback: `Multipart blob stage initiation failed for ${input.byteLength.toLocaleString()} bytes.`,
+      }),
+    );
+  }
+
+  const refreshedStage = input.multipart.existingStage
+    ? await input.apiClient.getMultipartBlobStage(stage.stageId)
+    : null;
+  if (input.multipart.existingStage && !refreshedStage) {
+    throw new Error(
+      multipartApiFailureMessage({
+        apiClient: input.apiClient,
+        fallback: `Multipart blob stage status refresh failed for stage ${stage.stageId}.`,
+      }),
+    );
+  }
+
+  return (
+    refreshedStage ??
+    (isMultipartStageStatus(stage)
+      ? stage
+      : {
+          ...stage,
+          completed: false,
+        })
+  );
+}
+
+function assertMultipartPartLimit(parts: readonly string[]): void {
+  if (parts.length <= MAX_MULTIPART_UPLOAD_PARTS) {
+    return;
+  }
+
+  throw new Error(
+    `Multipart blob upload would require ${parts.length.toLocaleString()} parts; the maximum is ${MAX_MULTIPART_UPLOAD_PARTS.toLocaleString()}. Increase the multipart part size.`,
+  );
+}
+
 export async function stageMultipartBlobAttachment(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly byteLength: number;
@@ -259,27 +356,12 @@ export async function stageMultipartBlobAttachment(input: {
   readonly sha256: string;
 }): Promise<string | null> {
   const apiClient = requireMultipartBlobAttachmentApi(input.apiClient);
-  const stage =
-    input.multipart.existingStage ??
-    (await apiClient.initiateMultipartBlobStage({
-      byteLength: input.byteLength,
-      sha256: input.sha256,
-    }));
-  if (!stage) {
-    return null;
-  }
-
-  const refreshedStage = input.multipart.existingStage
-    ? await apiClient.getMultipartBlobStage(stage.stageId)
-    : null;
-  const status =
-    refreshedStage ??
-    ("completed" in stage
-      ? stage
-      : {
-          ...stage,
-          completed: false,
-        });
+  const status = await resolveMultipartStageStatus({
+    apiClient,
+    byteLength: input.byteLength,
+    multipart: input.multipart,
+    sha256: input.sha256,
+  });
   if (status.completed) {
     return status.stageId;
   }
@@ -288,6 +370,7 @@ export async function stageMultipartBlobAttachment(input: {
     input.encryptedBytes,
     input.multipart.partSize,
   );
+  assertMultipartPartLimit(encryptedParts);
   const { completeParts, progress, uploadTasks } = planMultipartParts({
     encryptedParts,
     uploadedParts: uploadedPartsByPartNumber(status.uploadedParts),
@@ -303,7 +386,7 @@ export async function stageMultipartBlobAttachment(input: {
   };
   reportMultipartProgress();
 
-  const uploaded = await uploadMultipartPartTasks({
+  await uploadMultipartPartTasks({
     apiClient,
     completeParts,
     concurrency: normalizeMultipartUploadConcurrency(
@@ -314,22 +397,29 @@ export async function stageMultipartBlobAttachment(input: {
       progress.bytesUploaded += task.byteLength;
       reportMultipartProgress();
     },
-    stageId: stage.stageId,
+    stageId: status.stageId,
     tasks: uploadTasks,
-    uploadId: stage.uploadId,
+    uploadId: status.uploadId,
   });
-  if (!uploaded) {
-    return null;
-  }
   const committedParts = completeParts.filter(isMultipartPartCommit);
   if (committedParts.length !== encryptedParts.length) {
-    return null;
+    throw new Error(
+      `Multipart blob upload incomplete for stage ${status.stageId}: committed ${committedParts.length.toLocaleString()} of ${encryptedParts.length.toLocaleString()} parts.`,
+    );
   }
 
-  const completed = await apiClient.completeMultipartBlobStage(stage.stageId, {
+  const completed = await apiClient.completeMultipartBlobStage(status.stageId, {
     parts: committedParts,
-    uploadId: stage.uploadId,
+    uploadId: status.uploadId,
   });
+  if (!completed) {
+    throw new Error(
+      multipartApiFailureMessage({
+        apiClient,
+        fallback: `Multipart blob stage completion failed for stage ${status.stageId} with ${committedParts.length.toLocaleString()} committed parts.`,
+      }),
+    );
+  }
 
-  return completed?.stageId ?? null;
+  return completed.stageId;
 }

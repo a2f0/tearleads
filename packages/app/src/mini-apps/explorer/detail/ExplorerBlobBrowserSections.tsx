@@ -3,6 +3,7 @@ import type {
   BlobInfoSort,
   BlobInfoSortKey,
   BlobStore,
+  DomainSyncSnapshot,
 } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import {
@@ -47,6 +48,7 @@ import {
   isImageMimeType,
   useBlobPreview,
 } from "./ExplorerBlobBrowserState";
+import { BlobBrowserSyncStatus } from "./ExplorerBlobBrowserSyncStatus";
 import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";
 
 function BlobInfoTable(params: {
@@ -303,6 +305,7 @@ export function BlobDetail(params: {
   containerNamesById: ReadonlyMap<string, string>;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
+  syncSnapshot: DomainSyncSnapshot;
 }) {
   const preview = useBlobPreview({
     blob: params.blob,
@@ -319,6 +322,7 @@ export function BlobDetail(params: {
 
   return (
     <MiniAppPanel className="explorer-blob-browser-detail">
+      <BlobBrowserSyncStatus snapshot={params.syncSnapshot} />
       <BlobMetadataSection blob={params.blob} preview={preview} />
       <BlobPreviewSection blob={params.blob} preview={preview} />
       <BlobReferencesSection
@@ -391,6 +395,7 @@ export function BlobBrowserListScreen(params: {
   rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
   sort: BlobInfoSort;
+  syncSnapshot: DomainSyncSnapshot;
 }) {
   return (
     <>
@@ -403,6 +408,7 @@ export function BlobBrowserListScreen(params: {
         />
       </MiniAppToolbar>
       <div className="explorer-blob-browser-screen">
+        <BlobBrowserSyncStatus snapshot={params.syncSnapshot} />
         <BlobInfoTable
           activeBlob={null}
           error={params.blobInfo.error}

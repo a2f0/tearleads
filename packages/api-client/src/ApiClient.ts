@@ -145,9 +145,6 @@ export class ApiClient {
     string,
     Promise<ListContainersResponse | null>
   >();
-  // Persistent (cachedRequest-backed) caches retain one entry per unique id
-  // read, so they are bounded to cap memory on a long-lived client. The list
-  // caches above use dedupedRequest, which self-evicts in finally().
   private readonly containerWriterProjectionRequestsByContainerId =
     new BoundedCache<Promise<ContainerWriterProjectionResponse | null>>();
   private readonly documentWriterProjectionRequestsByDocumentId =
@@ -157,6 +154,7 @@ export class ApiClient {
   private readonly encapsulationKeyRequestsByUserId = new BoundedCache<
     Promise<EncapsulationKeyResponse | null>
   >();
+  private lastRequestFailure: RequestFailure | null = null;
   private readonly organizationGroupRequestsByOrganizationId = new BoundedCache<
     Promise<ListOrganizationGroupsResponse | null>
   >();
@@ -165,9 +163,6 @@ export class ApiClient {
 
   constructor(baseUrl?: string | null) {
     this.baseUrl = normalizeApiBaseUrl(baseUrl);
-    // bindPrototypeMethods binds every prototype method (including the transport
-    // methods below) to this instance, so the detached `this.request` /
-    // `this.responseRequest` function references stay bound.
     bindPrototypeMethods(this, ApiClient.prototype);
     this.request = this.makeRequest;
     this.responseRequest = Object.assign(this.makeResponseRequest, {
@@ -246,6 +241,7 @@ export class ApiClient {
         ? { stalePrincipalPolicies: input.stalePrincipalPolicies }
         : {}),
     };
+    this.lastRequestFailure = failure;
 
     if (input.reportErrors) {
       failure.report();
@@ -589,6 +585,10 @@ export class ApiClient {
 
   getAuthToken(): string | null {
     return this.authToken;
+  }
+
+  getLastRequestFailure(): RequestFailure | null {
+    return this.lastRequestFailure;
   }
 
   /**

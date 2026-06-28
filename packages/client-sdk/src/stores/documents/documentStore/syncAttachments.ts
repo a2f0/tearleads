@@ -33,6 +33,12 @@ interface DetachedAttachmentMarker {
   storageKey: string;
 }
 
+interface AttachmentUploadLaneReporter {
+  complete: () => void;
+  fail: (error: unknown) => void;
+  onMultipartProgress: MultipartUploadProgressListener;
+}
+
 export async function syncPendingAttachments(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
@@ -310,8 +316,10 @@ async function syncPendingAttachmentUpload(input: {
     return false;
   }
 
-  const { laneRef: uploadLaneRef, onMultipartProgress } =
-    createAttachmentUploadLaneReporter({ pendingAttachment, state });
+  const uploadLane = createAttachmentUploadLaneReporter({
+    pendingAttachment,
+    state,
+  });
 
   const writerProjection =
     state.writerProjection?.documentId === input.remoteDocumentId
@@ -326,26 +334,24 @@ async function syncPendingAttachmentUpload(input: {
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
-    onMultipartProgress,
+    onMultipartProgress: uploadLane.onMultipartProgress,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
   };
-  let uploaded = await uploadDocumentAttachment({
-    ...baseUploadInput,
-    writerProjection: writerProjection ?? undefined,
+  const uploadAttempt = await uploadAttachmentWithWriterProjectionRetry({
+    baseUploadInput,
+    state,
+    writerProjection,
   });
-  if (!uploaded && writerProjection) {
-    // The stale writer projection was rejected; retry once without it.
-    state.writerProjection = null;
-    uploaded = await uploadDocumentAttachment(baseUploadInput);
-  }
+  const { error: uploadError, uploaded } = uploadAttempt;
   if (!uploaded) {
-    uploadLaneRef.current?.fail(
-      new Error(
-        `Attachment upload failed for slot ${pendingAttachment.slotId}.`,
-      ),
-    );
+    reportAttachmentUploadFailure({
+      error: uploadError,
+      pendingAttachment,
+      state,
+      uploadLane,
+    });
     return false;
   }
 
@@ -369,31 +375,104 @@ async function syncPendingAttachmentUpload(input: {
     slotId: pendingAttachment.slotId,
   });
   state.writerProjection = uploaded.writerProjection;
-  uploadLaneRef.current?.complete();
+  uploadLane.complete();
   state.runtime.util.log(
     `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
   );
   return true;
 }
 
+async function uploadAttachmentWithWriterProjectionRetry(input: {
+  baseUploadInput: Parameters<typeof uploadDocumentAttachment>[0];
+  state: DocumentStoreState;
+  writerProjection: DocumentStoreState["writerProjection"];
+}): Promise<{
+  error: unknown;
+  uploaded: Awaited<ReturnType<typeof uploadDocumentAttachment>>;
+}> {
+  let uploadError: unknown;
+  let uploaded = await tryUploadDocumentAttachment({
+    input: {
+      ...input.baseUploadInput,
+      writerProjection: input.writerProjection ?? undefined,
+    },
+    onError: (error) => {
+      uploadError = error;
+    },
+  });
+  if (!uploaded && input.writerProjection && uploadError === undefined) {
+    // The stale writer projection was rejected; retry once without it.
+    input.state.writerProjection = null;
+    uploaded = await tryUploadDocumentAttachment({
+      input: input.baseUploadInput,
+      onError: (error) => {
+        uploadError = error;
+      },
+    });
+  }
+
+  return { error: uploadError, uploaded };
+}
+
+function reportAttachmentUploadFailure(input: {
+  error: unknown;
+  pendingAttachment: PendingAttachmentRecord;
+  state: DocumentStoreState;
+  uploadLane: AttachmentUploadLaneReporter;
+}): void {
+  const error = createAttachmentUploadFailedError(
+    input.pendingAttachment,
+    input.error,
+  );
+  input.uploadLane.fail(error);
+  input.state.runtime.util.log(`Documents: ${error.message}`);
+}
+
+async function tryUploadDocumentAttachment(input: {
+  input: Parameters<typeof uploadDocumentAttachment>[0];
+  onError: (error: unknown) => void;
+}): ReturnType<typeof uploadDocumentAttachment> {
+  try {
+    return await uploadDocumentAttachment(input.input);
+  } catch (error) {
+    input.onError(error);
+    return null;
+  }
+}
+
 function getAttachmentUploadLaneLabel(name: string | null | undefined): string {
   return name ? `Upload ${name}` : "Attachment upload";
 }
 
-// Surfaces a multipart upload as its own lane in the sync visualizer. The lane
-// is created lazily on the first progress event, so single-shot uploads (below
-// the multipart threshold) stay laneless. The holder keeps the lane reference
-// visible to the caller despite being assigned inside the progress callback.
+function getAttachmentUploadFailureTarget(
+  pendingAttachment: PendingAttachmentRecord,
+): string {
+  return pendingAttachment.name
+    ? `${pendingAttachment.name} (slot ${pendingAttachment.slotId})`
+    : `slot ${pendingAttachment.slotId}`;
+}
+
+function createAttachmentUploadFailedError(
+  pendingAttachment: PendingAttachmentRecord,
+  cause: unknown,
+): Error {
+  const error = new Error(
+    `Attachment upload failed for ${getAttachmentUploadFailureTarget(pendingAttachment)}.`,
+  );
+  if (cause !== undefined) Reflect.set(error, "cause", cause);
+
+  return error;
+}
+
+// Surfaces multipart uploads as sync lanes, forcing lane creation on failure.
 function createAttachmentUploadLaneReporter(input: {
   pendingAttachment: PendingAttachmentRecord;
   state: DocumentStoreState;
-}): {
-  laneRef: { current: UploadSyncLane | null };
-  onMultipartProgress: MultipartUploadProgressListener;
-} {
+}): AttachmentUploadLaneReporter {
   const { pendingAttachment, state } = input;
   const laneRef: { current: UploadSyncLane | null } = { current: null };
-  const onMultipartProgress: MultipartUploadProgressListener = (progress) => {
+
+  const ensureLane = (): UploadSyncLane => {
     if (!laneRef.current) {
       laneRef.current = beginDomainSyncUploadLane(
         state.runtime.state.domainScope,
@@ -401,8 +480,21 @@ function createAttachmentUploadLaneReporter(input: {
         { label: getAttachmentUploadLaneLabel(pendingAttachment.name) },
       );
     }
-    laneRef.current.reportProgress(progress);
+
+    return laneRef.current;
   };
 
-  return { laneRef, onMultipartProgress };
+  const onMultipartProgress: MultipartUploadProgressListener = (progress) => {
+    ensureLane().reportProgress(progress);
+  };
+
+  return {
+    complete() {
+      laneRef.current?.complete();
+    },
+    fail(error: unknown) {
+      ensureLane().fail(error);
+    },
+    onMultipartProgress,
+  };
 }

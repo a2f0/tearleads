@@ -33,6 +33,8 @@ export const EXPLORER_LABELS = {
   blobBrowserStateColumn: "State",
   blobBrowserStorageKeyColumn: "Storage",
   blobBrowserStorageKeyRow: "Storage Key",
+  blobBrowserSyncHeading: "Sync Status",
+  blobBrowserSyncIdle: "No active sync work.",
   blobBrowserTextTruncated: "Preview truncated.",
   blobBrowserTitle: "Blob Browser",
   blobBrowserUpdatedColumn: "Updated",
