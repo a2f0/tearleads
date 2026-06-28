@@ -1,6 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { packageSourcePath } from "./dependencySourceRoots";
+import {
+  packageSourcePath,
+  productionSourceFilePattern,
+  testFilePattern,
+} from "./dependencySourceRoots";
 
 /**
  * A subsystem is a DESCRIPTIVE proper noun for a vertical slice (or a horizontal
@@ -559,9 +563,6 @@ export function subsystemsForFile(filePath: string): Subsystem[] {
     ),
   );
 }
-
-const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
-const testFilePattern = /\.test\.[tj]sx?$/;
 
 async function listProductionSourceFiles(dirPath: string): Promise<string[]> {
   const entries = await readdir(dirPath, { withFileTypes: true });

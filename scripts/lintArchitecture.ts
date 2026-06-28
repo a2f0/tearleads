@@ -7,7 +7,11 @@ import {
   createDependencyCruiserOptions,
   dependencyCruiserEntryPoints,
 } from "./dependencyCruiserConfig";
-import { packageSourcePath } from "./dependencySourceRoots";
+import {
+  packageSourcePath,
+  productionSourceFilePattern,
+  testFilePattern,
+} from "./dependencySourceRoots";
 import {
   findSubsystemCoverageViolations,
   findSubsystemDocsViolations,
@@ -65,8 +69,6 @@ const clientSdkRootAllowedReExports = new Set([
   "./stores/documents",
   ...clientSdkRootWorkflowFacadeReExports,
 ]);
-const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
-const testFilePattern = /\.test\.[tj]sx?$/;
 const directSyncExternalStorePattern = /\buseSyncExternalStore\b/;
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
 const clientSdkPrefixedFacadeAliasPattern =
@@ -826,33 +828,20 @@ function isAppTestHelperImport(specifier: string): boolean {
   return /(?:^|\/)test\/helpers(?:\/|$)/.test(specifier);
 }
 
-function isClientSdkDataImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/data" ||
-    specifier.startsWith("@tearleads/client-sdk/data/")
-  );
+// Matches an import of a `@tearleads/client-sdk/<subpath>` package subpath
+// (the subpath entry itself or anything beneath it).
+function clientSdkSubpathImport(
+  subpath: string,
+): (specifier: string) => boolean {
+  const entry = `@tearleads/client-sdk/${subpath}`;
+  return (specifier) =>
+    specifier === entry || specifier.startsWith(`${entry}/`);
 }
 
-function isClientSdkDocumentsImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/documents" ||
-    specifier.startsWith("@tearleads/client-sdk/documents/")
-  );
-}
-
-function isClientSdkWorkflowImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/workflows" ||
-    specifier.startsWith("@tearleads/client-sdk/workflows/")
-  );
-}
-
-function isClientSdkStoreImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/stores" ||
-    specifier.startsWith("@tearleads/client-sdk/stores/")
-  );
-}
+const isClientSdkDataImport = clientSdkSubpathImport("data");
+const isClientSdkDocumentsImport = clientSdkSubpathImport("documents");
+const isClientSdkWorkflowImport = clientSdkSubpathImport("workflows");
+const isClientSdkStoreImport = clientSdkSubpathImport("stores");
 
 function isClientSdkStoreOrWorkflowImport(specifier: string): boolean {
   return (

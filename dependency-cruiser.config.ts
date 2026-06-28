@@ -5,11 +5,14 @@ import {
   dependencyCruiserIncludeOnly,
   deploymentTargetSourceRoots,
   packageSourceRoot as sourceRoot,
+  testFilePattern,
 } from "./scripts/dependencySourceRoots";
 
 type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 
-const testFilesPattern = "\\.test\\.[tj]sx?$";
+// dependency-cruiser rule paths are regex-source strings, so use the `.source`
+// of the shared test-file regex rather than restating the pattern.
+const testFilesPattern = testFilePattern.source;
 const noOrphanPathExemptionPattern = [
   "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts|json)$",
   "\\.d\\.(c|m)?ts$",
