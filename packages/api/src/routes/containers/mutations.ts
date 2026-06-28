@@ -138,6 +138,31 @@ function readContainerMutationPreviousParentId(
   return readPreviousParentIdFromManifest(request.previousManifest);
 }
 
+// A grant to a single user names its recipient in the request body. That
+// recipient hasn't declared interest in this container yet (they don't know it
+// exists), so the container-scoped access_changed below never reaches them; the
+// recipient id lets us additionally route a user-scoped resync to their own
+// sockets. Group/organization grants fan out to members and are left to the
+// next manual/periodic resync.
+function readGrantUserRecipientId(
+  request: ContainerMutationRequest,
+): string | null {
+  if (!isPlainObject(request.body)) {
+    return null;
+  }
+  const grant = readRecordValue(request.body, "grant");
+  if (!isPlainObject(grant)) {
+    return null;
+  }
+  const subjectType = readRecordValue(grant, "subjectType");
+  const subjectId = readRecordValue(grant, "subjectId");
+  return subjectType === "user" &&
+    typeof subjectId === "string" &&
+    subjectId.length > 0
+    ? subjectId
+    : null;
+}
+
 async function publishContainerMutationCreated(input: {
   readonly expectedEventType: AccessEventType;
   readonly publish: ContainerMutationsRouteDeps["publish"];
@@ -170,6 +195,21 @@ async function publishContainerMutationCreated(input: {
       type: "access_changed",
       containerId: input.response.containerId,
     });
+  }
+
+  // access_changed only reaches sockets already interested in this container. A
+  // brand-new share is for a container the recipient hasn't declared interest
+  // in (they don't know it exists yet), so it would otherwise stay invisible
+  // until they manually refresh. A scopeless, user-scoped event routes to that
+  // user's own sockets and tells their client to re-list root containers.
+  if (eventType === "container.grant") {
+    const recipientUserId = readGrantUserRecipientId(input.request);
+    if (recipientUserId) {
+      await input.publish({
+        type: "shared_with_you",
+        userId: recipientUserId,
+      });
+    }
   }
 }
 

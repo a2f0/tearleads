@@ -34,6 +34,13 @@ function readResyncRequiredContainerId(value: unknown): string | null {
     : null;
 }
 
+// The server's "a container was just shared with you" signal. It carries no
+// container id (the recipient does not know the container yet, so it is routed
+// by user, not interest); the client reacts by re-listing root containers.
+function isSharedWithYouEvent(value: unknown): boolean {
+  return isServerEvent(value) && value.type === "shared_with_you";
+}
+
 // Force a fresh access check + tree re-list for a container the server flagged.
 // HTTP is the source of access truth: a now-unauthorized container drops out of
 // the tree (and interest); a still-authorized one is re-validated.
@@ -59,11 +66,24 @@ async function resyncContainerAccess(
   await Promise.allSettled(resyncTasks);
 }
 
+// Re-list the user's root containers so a newly shared container appears without
+// a manual refresh. The share has no node in the local tree to target yet, so
+// this drives the root lane (the same sweep Explorer runs on open) rather than
+// resyncContainerAccess's single-container path.
+async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
+  try {
+    await tearleads.deviceFirst.reconciler().reconcileRootContainersNow();
+  } catch {
+    // Runtime not ready; the next reconnect or manual refresh re-lists roots.
+  }
+}
+
 function routeIncomingWsMessage(
   rawData: string,
   handlers: {
     onInterestState: (baseline: string[]) => void;
     onResyncRequired: (containerId: string) => void;
+    onSharedWithYou: () => void;
     onServerEvent: (event: { type: string; [key: string]: unknown }) => void;
   },
 ): void {
@@ -82,6 +102,10 @@ function routeIncomingWsMessage(
   const resyncContainerId = readResyncRequiredContainerId(data);
   if (resyncContainerId !== null) {
     handlers.onResyncRequired(resyncContainerId);
+    return;
+  }
+  if (isSharedWithYouEvent(data)) {
+    handlers.onSharedWithYou();
     return;
   }
   if (isServerEvent(data)) {
@@ -236,6 +260,9 @@ export function useServerEventsBinding(
             void resyncContainerAccess(tearleads, containerId).finally(() => {
               handle?.sync();
             });
+          },
+          onSharedWithYou: () => {
+            void resyncRootContainers(tearleads);
           },
           onServerEvent: (data) => {
             tearleads.events.push({ ...data, id: String(nextEventId++) });
