@@ -57,6 +57,24 @@ const clientSdkLayer = {
   workflows: `${sourceRoot.clientSdk}workflows/`,
 } as const;
 
+// Leaf-level support/test packages that higher layers build on. Everything NOT
+// in this list is a product/server/deployment package, so a newly added
+// top-level package is denied to lower layers by default rather than silently
+// escaping the leaf-package import rules.
+const leafSupportSourceRoots = [
+  sourceRoot.crypto,
+  sourceRoot.loro,
+  sourceRoot.encoding,
+  sourceRoot.validators,
+  sourceRoot.sqliteInstance,
+  sourceRoot.sqliteWorker,
+  sourceRoot.bobAndAlice,
+  sourceRoot.testUtils,
+];
+const productAndServerSourceRoots = allPackageSourceRoots.filter(
+  (root) => !leafSupportSourceRoots.includes(root),
+);
+
 const standardRules = [
   {
     name: "no-circular",
@@ -417,19 +435,7 @@ const corePackageRules = [
       pathNot: testFilesPattern,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiClient,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      path: productAndServerSourceRoots,
     },
   },
   {
@@ -442,19 +448,7 @@ const corePackageRules = [
       pathNot: testFilesPattern,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiClient,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      path: productAndServerSourceRoots,
     },
   },
   {
@@ -467,18 +461,11 @@ const corePackageRules = [
       pathNot: testFilesPattern,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      // api-client may share protocol contracts but not import itself's runtime;
+      // every other product/server package is off-limits.
+      path: productAndServerSourceRoots.filter(
+        (root) => root !== sourceRoot.apiClient,
+      ),
     },
   },
   {
@@ -523,18 +510,11 @@ const corePackageRules = [
       path: sourceRoot.testUtils,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      // Shared test utilities may compose protocol/client/storage helpers
+      // (including api-client) but not product shells or server internals.
+      path: productAndServerSourceRoots.filter(
+        (root) => root !== sourceRoot.apiClient,
+      ),
     },
   },
   {
