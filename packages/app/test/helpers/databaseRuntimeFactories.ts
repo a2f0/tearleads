@@ -166,6 +166,41 @@ export function createRestartSensitiveSQLiteRuntimeFactory() {
   };
 }
 
+// An unreadable database whose wipe (deleteData) also fails — recovery must
+// surface an error instead of hanging in a booting state.
+export function createUnreadableUnwipeableSQLiteRuntimeFactory() {
+  let createCount = 0;
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      const client: SQLiteRuntime["client"] = {
+        close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
+        destroy() {},
+        exec: async () => {
+          throw new Error(
+            "SQLITE_NOTADB: sqlite3 result code 26: file is not a database",
+          );
+        },
+        init: async () => ({ ok: true }),
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return {
+        client,
+        deleteData: async () => {
+          throw new Error("planned wipe failure");
+        },
+        destroy: () => client.destroy(),
+        id: `unwipeable-${createCount}`,
+        terminateNow: () => client.destroy(),
+      };
+    },
+    getStats: () => ({ createCount }),
+  };
+}
+
 // First runtime simulates a persisted database encrypted under a now-lost key:
 // init succeeds but the page-1 readability probe fails with SQLITE_NOTADB. The
 // recovery should wipe it (deleteData) and the recreated runtime should boot.

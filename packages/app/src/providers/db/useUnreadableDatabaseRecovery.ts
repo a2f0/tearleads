@@ -42,9 +42,20 @@ export function useUnreadableDatabaseRecovery(params: {
       }
 
       recoveredDbNamesRef.current.add(unreadableDbName);
-      void purgeCurrentRuntime().then(() => {
-        spawnRuntimeForDbName.current(unreadableDbName);
-      });
+      // If the wipe itself fails (file-system or worker error), surface an error
+      // instead of leaving the app wedged in a booting state with no recreate.
+      void purgeCurrentRuntime()
+        .then(() => {
+          spawnRuntimeForDbName.current(unreadableDbName);
+        })
+        .catch((error: unknown) => {
+          log(
+            `Failed to wipe the unreadable database; surfacing error: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+          destroyCurrentRuntime("error");
+        });
     },
     [destroyCurrentRuntime, log, purgeCurrentRuntime, spawnRuntimeForDbName],
   );

@@ -12,6 +12,7 @@ import {
   createRestartSensitiveSQLiteRuntimeFactory,
   createRetryableSQLiteRuntimeFactory,
   createUnreadableThenHealedSQLiteRuntimeFactory,
+  createUnreadableUnwipeableSQLiteRuntimeFactory,
 } from "../../../test/helpers/databaseRuntimeFactories";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import {
@@ -337,6 +338,30 @@ test("wipes and recreates a persisted database that is unreadable with the resol
       createCount: 2,
       deleteDataCount: 1,
     });
+  } finally {
+    view.unmount();
+  }
+});
+
+test("surfaces an error when an unreadable database cannot be wiped", async () => {
+  const runtimeFactory = createUnreadableUnwipeableSQLiteRuntimeFactory();
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    storagePersistence: PERSISTENT_STORAGE_POLICY,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    act(() => {
+      view.getControls().spawnWorker();
+    });
+
+    // Boot hits SQLITE_NOTADB, recovery tries to wipe, the wipe fails: the runtime
+    // must settle to "error" rather than hang, and must not loop creating workers.
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("error");
+    });
+    expect(runtimeFactory.getStats().createCount).toBe(1);
   } finally {
     view.unmount();
   }

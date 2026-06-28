@@ -43,13 +43,22 @@ export async function bootSQLiteRuntime(
     // a fresh root and is the primary cause of a later key/db desync
     // (SQLITE_NOTADB). Best-effort: warn but do not block boot when durability is
     // unavailable or denied, so we never brick a browser that refuses persist().
-    const result = await requestPersistentStorage({
-      databasePersistence: persistence,
-      requestPersistentStorage: true,
-    });
-    if (result !== "persisted") {
+    try {
+      const result = await requestPersistentStorage({
+        databasePersistence: persistence,
+        requestPersistentStorage: true,
+      });
+      if (result !== "persisted") {
+        log(
+          `Warning: durable storage not granted (${result}); local data and its encryption keyring may be evicted.`,
+        );
+      }
+    } catch (error) {
+      // Best-effort: a failed durability request must never block boot.
       log(
-        `Warning: durable storage not granted (${result}); local data and its encryption keyring may be evicted.`,
+        `Warning: failed to request durable storage: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
   }
