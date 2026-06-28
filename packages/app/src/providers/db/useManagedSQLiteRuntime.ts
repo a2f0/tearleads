@@ -18,6 +18,7 @@ import {
   startSQLiteRuntimeBoot,
 } from "./sqliteRuntimeLifecycle";
 import { useReleaseRuntimeOnPageHide } from "./useReleaseRuntimeOnPageHide";
+import { useUnreadableDatabaseRecovery } from "./useUnreadableDatabaseRecovery";
 
 type SQLiteRuntimeStatus = DatabaseStatus;
 interface SQLiteRuntimeRelease {
@@ -224,6 +225,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
   currentDbNameRef: RefObject<string | null>;
   killedRef: RefObject<boolean>;
   log: (message: string) => void;
+  onUnreadableDatabase: (dbName: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
   runtimeReleaseRef: RefObject<SQLiteRuntimeRelease | null>;
@@ -237,6 +239,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
     currentDbNameRef,
     killedRef,
     log,
+    onUnreadableDatabase,
     persistence,
     resolveCipherKey,
     runtimeReleaseRef,
@@ -266,6 +269,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
         killedRef,
         log,
         nextDbName,
+        onUnreadableDatabase,
         persistence,
         resolveCipherKey,
         runtimeRef,
@@ -279,7 +283,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
       currentDbNameRef,
       killedRef,
       log,
-      mountedRef,
+      onUnreadableDatabase,
       persistence,
       resolveCipherKey,
       runtimeRef,
@@ -315,14 +319,7 @@ function useSpawnSQLiteRuntimeForDbName(params: {
 
       spawnRuntime(nextDbName);
     },
-    [
-      bootingRef,
-      mountedRef,
-      runtimeRef,
-      runtimeReleaseRef,
-      spawnRuntime,
-      targetDbNameRef,
-    ],
+    [bootingRef, runtimeRef, runtimeReleaseRef, spawnRuntime, targetDbNameRef],
   );
 }
 
@@ -434,6 +431,9 @@ export function useManagedSQLiteRuntime(
   const currentDbNameRef = useRef<string | null>(null);
   const killedRef = useRef(false);
   const runtimeReleaseRef = useRef<SQLiteRuntimeRelease | null>(null);
+  // Spawn is indirected through a ref to break the cycle with recovery: spawn
+  // needs the unreadable-database handler, and the handler needs spawn.
+  const spawnRuntimeRef = useRef<(dbName: string) => void>(() => {});
   const destroyCurrentRuntime = useDestroySQLiteRuntime({
     runtimeRef,
     bootingRef,
@@ -448,12 +448,19 @@ export function useManagedSQLiteRuntime(
     targetDbNameRef,
     tearleads,
   });
+  const onUnreadableDatabase = useUnreadableDatabaseRecovery({
+    destroyCurrentRuntime,
+    log,
+    purgeCurrentRuntime,
+    spawnRuntimeForDbName: spawnRuntimeRef,
+  });
   const spawnRuntimeForDbName = useSpawnSQLiteRuntimeForDbName({
     bootingRef,
     createSQLiteRuntime,
     currentDbNameRef,
     killedRef,
     log,
+    onUnreadableDatabase,
     persistence: persistencePolicy.databasePersistence,
     resolveCipherKey,
     runtimeReleaseRef,
@@ -461,6 +468,9 @@ export function useManagedSQLiteRuntime(
     targetDbNameRef,
     tearleads,
   });
+  useEffect(() => {
+    spawnRuntimeRef.current = spawnRuntimeForDbName;
+  }, [spawnRuntimeForDbName]);
   const controls = useSQLiteRuntimeControls({
     currentDbNameRef,
     destroyCurrentRuntime,

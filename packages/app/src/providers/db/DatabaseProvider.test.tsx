@@ -2,11 +2,18 @@ import { afterEach, expect, test } from "bun:test";
 import type { LocalKeyring } from "@tearleads/client-sdk";
 import {
   PERSISTENT_STORAGE_POLICY,
-  type SQLiteRuntime,
   type StoragePersistencePolicy,
 } from "@tearleads/client-sdk/sqlite";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
+import {
+  createDeferred,
+  createRecordingSQLiteRuntimeFactory,
+  createRestartSensitiveSQLiteRuntimeFactory,
+  createRetryableSQLiteRuntimeFactory,
+  createUnreadableThenHealedSQLiteRuntimeFactory,
+  createUnreadableUnwipeableSQLiteRuntimeFactory,
+} from "../../../test/helpers/databaseRuntimeFactories";
 import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
 import {
   AppHostConfig,
@@ -22,23 +29,10 @@ const TEST_SIGNING_FINGERPRINT =
   "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 type DatabaseControls = ReturnType<typeof useDatabase>;
-interface Deferred<T = void> {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-}
 
 afterEach(() => {
   cleanup();
 });
-
-function createDeferred<T = void>(): Deferred<T> {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  const promise = new Promise<T>((promiseResolve) => {
-    resolve = promiseResolve;
-  });
-
-  return { promise, resolve };
-}
 
 class SilentWebSocket extends EventTarget {
   constructor(_url: string | URL) {
@@ -46,155 +40,6 @@ class SilentWebSocket extends EventTarget {
   }
 
   close() {}
-}
-
-function createRetryableSQLiteRuntimeFactory() {
-  let createCount = 0;
-  let initCount = 0;
-  let destroyCount = 0;
-
-  return {
-    createSQLiteRuntime: (): SQLiteRuntime => {
-      createCount += 1;
-      const runtimeId = `runtime-${createCount}`;
-      const client: SQLiteRuntime["client"] = {
-        close: async () => ({ ok: true }),
-        delete: async () => ({ ok: true }),
-        destroy() {
-          destroyCount += 1;
-        },
-        exec: async () => ({ ok: true, rows: [] }),
-        init: async () => {
-          initCount += 1;
-          if (initCount === 1) {
-            throw new Error("planned sqlite init failure");
-          }
-
-          return { ok: true };
-        },
-        ping: async () => ({ ok: true, message: "pong" }),
-      };
-
-      return {
-        client,
-        deleteData: async () => client.destroy(),
-        destroy: () => client.destroy(),
-        id: runtimeId,
-        terminateNow: () => client.destroy(),
-      };
-    },
-    getStats: () => ({ createCount, destroyCount, initCount }),
-  };
-}
-
-function createRecordingSQLiteRuntimeFactory() {
-  const initOptions: Array<Parameters<SQLiteRuntime["client"]["init"]>[0]> = [];
-
-  return {
-    createSQLiteRuntime: (): SQLiteRuntime => {
-      const client: SQLiteRuntime["client"] = {
-        close: async () => ({ ok: true }),
-        delete: async () => ({ ok: true }),
-        destroy() {},
-        exec: async () => ({ ok: true, rows: [] }),
-        init: async (options) => {
-          initOptions.push(options);
-          return { ok: true };
-        },
-        ping: async () => ({ ok: true, message: "pong" }),
-      };
-
-      return {
-        client,
-        deleteData: async () => client.destroy(),
-        destroy: () => client.destroy(),
-        id: "recording",
-        terminateNow: () => client.destroy(),
-      };
-    },
-    getInitOptions: () => initOptions,
-  };
-}
-
-function createRestartSensitiveSQLiteRuntimeFactory() {
-  let createCount = 0;
-  let initCount = 0;
-  let closeCount = 0;
-  let terminateCount = 0;
-  let databaseLocked = false;
-  let pendingClose: Deferred | null = null;
-
-  return {
-    createSQLiteRuntime: (): SQLiteRuntime => {
-      createCount += 1;
-      const runtimeId = `restart-sensitive-${createCount}`;
-      let initialized = false;
-      let terminated = false;
-      const client: SQLiteRuntime["client"] = {
-        close: async () => {
-          closeCount += 1;
-          if (!initialized) {
-            return { ok: true };
-          }
-
-          const close = createDeferred();
-          pendingClose = close;
-          await close.promise;
-          return { ok: true };
-        },
-        delete: async () => {
-          databaseLocked = false;
-          pendingClose?.resolve();
-          pendingClose = null;
-          return { ok: true };
-        },
-        destroy() {
-          terminateCount += 1;
-        },
-        exec: async () => ({ ok: true, rows: [] }),
-        init: async () => {
-          initCount += 1;
-          if (databaseLocked) {
-            throw new Error("database is still closing");
-          }
-
-          databaseLocked = true;
-          initialized = true;
-          return { ok: true };
-        },
-        ping: async () => ({ ok: true, message: "pong" }),
-      };
-      const terminate = () => {
-        if (terminated) {
-          return;
-        }
-
-        terminated = true;
-        client.destroy();
-      };
-
-      return {
-        client,
-        deleteData: async () => {
-          await client.delete();
-          terminate();
-        },
-        destroy: () => {
-          void client.close().finally(() => {
-            terminate();
-          });
-        },
-        id: runtimeId,
-        terminateNow: terminate,
-      };
-    },
-    getStats: () => ({ closeCount, createCount, initCount, terminateCount }),
-    releaseClose: () => {
-      databaseLocked = false;
-      pendingClose?.resolve();
-      pendingClose = null;
-    },
-  };
 }
 
 function DatabaseProbe({
@@ -215,6 +60,12 @@ function renderDatabaseProvider(props: {
   readonly createSQLiteRuntime: CreateSQLiteRuntimeFn;
   readonly storagePersistence?: StoragePersistencePolicy;
 }) {
+  // The persistent SQLite database is always encrypted with a keyring-derived key
+  // (there is no development-key fallback), so a keyring must be present for boot
+  // to resolve a cipher key. Default to a shared-memory keyring, matching a real
+  // IndexedDB-capable browser; individual tests can still pass their own.
+  const createLocalKeyring =
+    props.createLocalKeyring ?? createSharedMemoryLocalKeyringFactory();
   const originalWebSocket = globalThis.WebSocket;
   const controlsReady = createDeferred();
   let controls: DatabaseControls | null = null;
@@ -235,7 +86,7 @@ function renderDatabaseProvider(props: {
           props.createSQLiteRuntime,
           undefined,
           undefined,
-          props.createLocalKeyring,
+          createLocalKeyring,
           undefined,
           undefined,
           props.storagePersistence,
@@ -461,6 +312,58 @@ test("queued spawnWorker after kill is abandoned when provider unmounts", async 
     if (!unmounted) {
       view.unmount();
     }
+  }
+});
+
+test("wipes and recreates a persisted database that is unreadable with the resolved key", async () => {
+  const runtimeFactory = createUnreadableThenHealedSQLiteRuntimeFactory();
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    storagePersistence: PERSISTENT_STORAGE_POLICY,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureReady();
+    });
+
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("ready");
+    });
+
+    // The first (unreadable) database was wiped exactly once, then a fresh
+    // runtime was created and booted successfully.
+    expect(runtimeFactory.getStats()).toEqual({
+      createCount: 2,
+      deleteDataCount: 1,
+    });
+  } finally {
+    view.unmount();
+  }
+});
+
+test("surfaces an error when an unreadable database cannot be wiped", async () => {
+  const runtimeFactory = createUnreadableUnwipeableSQLiteRuntimeFactory();
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    storagePersistence: PERSISTENT_STORAGE_POLICY,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    act(() => {
+      view.getControls().spawnWorker();
+    });
+
+    // Boot hits SQLITE_NOTADB, recovery tries to wipe, the wipe fails: the runtime
+    // must settle to "error" rather than hang, and must not loop creating workers.
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("error");
+    });
+    expect(runtimeFactory.getStats().createCount).toBe(1);
+  } finally {
+    view.unmount();
   }
 });
 
