@@ -114,21 +114,22 @@ function isContainerManifestRef(value: unknown): value is ContainerManifestRef {
   );
 }
 
+// A container path (root→leaf chain) must carry at least one manifest
+// reference; an empty path authorizes nothing and is never legitimately built.
 function isContainerManifestRefArray(
   value: unknown,
 ): value is ContainerManifestRef[] {
-  return Array.isArray(value) && value.every(isContainerManifestRef);
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(isContainerManifestRef)
+  );
 }
 
 export function isContainerManifestRefArrayArray(
   value: unknown,
 ): value is ContainerManifestRef[][] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (group) => Array.isArray(group) && group.every(isContainerManifestRef),
-    )
-  );
+  return Array.isArray(value) && value.every(isContainerManifestRefArray);
 }
 
 function isDocumentContentKeyTargetEnvelope(
