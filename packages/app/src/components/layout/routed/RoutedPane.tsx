@@ -11,6 +11,7 @@ import {
   MINI_APPS,
   ROUTED_MINI_APP_NAV_ITEMS,
 } from "../../../mini-apps/registry";
+import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
   useAppNavigationActions,
@@ -54,6 +55,7 @@ function invertBoolean(value: boolean): boolean {
 function RoutedPaneHome() {
   const { openMiniApp } = useAppNavigationActions();
   const { generateKey, signingKeyPair } = useIdentity();
+  const { isPinned } = useSystemMonitor();
   const localKeyringLock = useLocalKeyringLock();
   const paneLocked = localKeyringLock.isLocked && !signingKeyPair;
   const trailingLogEntries = useBootPaneLogEntries({
@@ -64,7 +66,7 @@ function RoutedPaneHome() {
 
   return (
     <div className="routed-pane-home">
-      <PaneStatus />
+      {isPinned && <PaneStatus />}
       {paneLocked ? (
         <LocalKeyringUnlockWindow />
       ) : signingKeyPair ? (
@@ -80,7 +82,7 @@ function RoutedPaneHome() {
           <MiniAppButton onClick={generateKey}>Generate Key Pair</MiniAppButton>
         </div>
       )}
-      <PaneLog trailingEntries={trailingLogEntries} />
+      {isPinned && <PaneLog trailingEntries={trailingLogEntries} />}
     </div>
   );
 }

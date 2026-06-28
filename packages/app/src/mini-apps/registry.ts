@@ -57,9 +57,9 @@ export const MINI_APP_MENU_ITEMS = [
 }>;
 
 // The routed (mobile/tablet) layout has no footer tray, so it surfaces the
-// System Monitor alongside the other apps in its nav and home launcher. Routed
-// mode never mounts SystemMonitorProvider, so pinning is inert there and the
-// monitor simply opens as an ordinary routed app — no double-instance concern.
+// System Monitor alongside the other apps in its nav and home launcher. Its
+// pin action persists the same pane-level mode and renders the monitor on the
+// routed home screen only after the user requests it.
 export const ROUTED_MINI_APP_NAV_ITEMS = [
   ...MINI_APP_MENU_ITEMS,
   { appId: "system-monitor", label: "Open System Monitor" },

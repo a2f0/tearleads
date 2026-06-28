@@ -13,10 +13,15 @@ import {
 } from "../../components/shared/MiniAppLayout";
 import { useCurrentWindow } from "../../components/window/CurrentWindowContext";
 import {
+  useWindowFileMenuItem,
   useWindowTitleBarAction,
   useWindowViewMenuItem,
 } from "../../components/window/WindowMenuContext";
-import { useMiniAppRouteSegments } from "../../navigation/AppNavigationProvider";
+import {
+  useAppNavigationActions,
+  useAppNavigationState,
+  useMiniAppRouteSegments,
+} from "../../navigation/AppNavigationProvider";
 import "./SystemMonitor.css";
 import {
   DEFAULT_SYSTEM_MONITOR_TAB,
@@ -36,6 +41,7 @@ const SYSTEM_MONITOR_TABS: ReadonlyArray<{
 ];
 
 const PIN_TO_DESKTOP_LABEL = "Pin to Desktop";
+const PIN_TO_HOME_SCREEN_LABEL = "Pin to Home Screen";
 
 // Roving tabindex per the WAI-ARIA tab pattern: only the active tab is in the
 // tab order; arrow/Home/End keys move focus (and selection) between tabs.
@@ -124,6 +130,9 @@ export function SystemMonitorApp() {
   const idPrefix = useId();
   const { canPin, pinToDesktop } = useSystemMonitor();
   const currentWindow = useCurrentWindow();
+  const { navigateHome } = useAppNavigationActions();
+  const { mode: navigationMode } = useAppNavigationState();
+  const isRoutedShell = navigationMode === "routed";
   const setActiveTab = useCallback(
     (nextTab: SystemMonitorTabId) => {
       if (isRouted) {
@@ -138,26 +147,45 @@ export function SystemMonitorApp() {
 
   const handlePin = useCallback(() => {
     pinToDesktop();
-    currentWindow?.close();
-  }, [pinToDesktop, currentWindow]);
+    if (isRoutedShell) {
+      navigateHome();
+      return;
+    }
 
-  // Surface the same action in the window's View menu and title bar, but only where pinning
-  // is meaningful (the windowed home pane that mounts SystemMonitorProvider).
+    currentWindow?.close();
+  }, [currentWindow, isRoutedShell, navigateHome, pinToDesktop]);
+
+  const pinLabel = isRoutedShell
+    ? PIN_TO_HOME_SCREEN_LABEL
+    : PIN_TO_DESKTOP_LABEL;
+
+  // Surface the pin action only where a pane-level SystemMonitorProvider is
+  // mounted. Windowed mode keeps the existing View/title-bar action; routed
+  // mode exposes the equivalent home-screen action through the File actions
+  // surfaced by the routed rail/drawer.
   // Memoized so the registrations keep a stable identity across renders.
   const pinMenuItem = useMemo(
     () =>
       canPin
         ? {
             id: "system-monitor-pin",
-            label: PIN_TO_DESKTOP_LABEL,
+            label: pinLabel,
             onClick: handlePin,
           }
         : null,
-    [canPin, handlePin],
+    [canPin, handlePin, pinLabel],
+  );
+  const pinFileMenuItem = useMemo(
+    () => (isRoutedShell ? pinMenuItem : null),
+    [isRoutedShell, pinMenuItem],
+  );
+  const pinViewMenuItem = useMemo(
+    () => (isRoutedShell ? null : pinMenuItem),
+    [isRoutedShell, pinMenuItem],
   );
   const pinTitleBarAction = useMemo(
     () =>
-      canPin
+      canPin && !isRoutedShell
         ? {
             icon: <PushPinIcon aria-hidden size={14} />,
             id: "system-monitor-pin",
@@ -165,9 +193,10 @@ export function SystemMonitorApp() {
             onClick: handlePin,
           }
         : null,
-    [canPin, handlePin],
+    [canPin, handlePin, isRoutedShell],
   );
-  useWindowViewMenuItem(pinMenuItem);
+  useWindowFileMenuItem(pinFileMenuItem);
+  useWindowViewMenuItem(pinViewMenuItem);
   useWindowTitleBarAction(pinTitleBarAction);
 
   return (
