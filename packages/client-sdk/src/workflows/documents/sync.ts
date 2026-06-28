@@ -681,12 +681,6 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(input: {
   }
 }
 
-function manifestBundleForSyncRequest(
-  bundle: DocumentCreateResponse["accessManifest"],
-): NonNullable<DocumentSyncRequest["documentManifest"]> {
-  return bundle;
-}
-
 async function resolveDocumentSyncIdentity(
   input: BuildDocumentSyncPlanInput,
 ): Promise<{
@@ -932,9 +926,6 @@ export async function buildDocumentSyncPlan(
     ...(outgoingUpdates.length === 0
       ? {}
       : {
-          documentManifest: manifestBundleForSyncRequest(
-            input.documentManifest,
-          ),
           authorizingContainerPathRefs: normalizeAuthorizingContainerPathRefs(
             input.authorizingContainerPathRefs,
           ),

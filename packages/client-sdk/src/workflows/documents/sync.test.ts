@@ -131,7 +131,9 @@ test("buildDocumentSyncPlan signs document write headers with the current access
   });
 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
-  expect(plan.request.documentManifest?.manifestHash).toBe(
+  // The signed manifest bundle is no longer echoed; the server resolves it from
+  // its own store via this hash.
+  expect(plan.request.expectedLinkSetManifestHash).toBe(
     createResponse.accessManifest.manifestHash,
   );
   expect(plan.request.contentKeyBundle?.targetHash).toBe(
@@ -182,7 +184,6 @@ test("buildDocumentSyncPlan omits write-only fields for read-only syncs", async 
 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
   expect(plan.request.outgoingUpdates).toEqual([]);
-  expect(plan.request.documentManifest).toBeUndefined();
   expect(plan.request.authorizingContainerPathRefs).toBeUndefined();
   expect(plan.request.contentKeyBundle).toBeUndefined();
 });

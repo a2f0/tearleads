@@ -355,7 +355,6 @@ async function createSignedDocumentSyncRequest(input: {
     updateId,
     request: {
       contentKeyEpoch: input.created.contentKeyBundle.contentKeyEpoch,
-      documentManifest: input.created.accessManifest,
       expectedLinkSetManifestHash:
         input.created.contentKeyBundle.linkSetManifestHash,
       expectedTargetHash: input.created.contentKeyBundle.targetHash,
@@ -1344,6 +1343,28 @@ test("POST /documents/:documentId/sync rejects a stale authorizing path ref afte
   const response = await postDocumentSync(created.id, owner, {
     ...request,
     authorizingContainerPathRefs: [[rootAuthorizingPathRef(root)]],
+  });
+  expect(response.status).toBe(409);
+});
+
+test("POST /documents/:documentId/sync rejects a stale expectedLinkSetManifestHash with 409", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  // The server resolves the document's link-set manifest from its own store and
+  // pins it to the current head; a stale/forged expected hash (not the current
+  // head) must be rejected rather than authorizing against a different link-set.
+  const response = await postDocumentSync(created.id, owner, {
+    ...request,
+    expectedLinkSetManifestHash: "f".repeat(64),
   });
   expect(response.status).toBe(409);
 });
