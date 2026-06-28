@@ -105,6 +105,7 @@ export type {
   LocalSecretContext,
   LocalStorageLocalKeyringManifestStoreOptions,
   NormalizedLocalKeyringScope,
+  OpfsLocalKeyringManifestStoreOptions,
   UnwrapLocalSecretInput,
   WrapLocalSecretInput,
   WrappedLocalSecretEnvelope,
@@ -115,11 +116,13 @@ export type {
 } from "./localKeyring";
 export {
   createBrowserLocalKeyring,
+  createBrowserLocalKeyringManifestStore,
   createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
   createLocalStorageLocalKeyringManifestStore,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
+  createOpfsLocalKeyringManifestStore,
   createWebViewLocalKeyring,
   decodeLocalKeyringSqliteKey,
   encodeLocalKeyringSqliteKey,

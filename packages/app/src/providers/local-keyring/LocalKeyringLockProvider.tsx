@@ -1,4 +1,4 @@
-import { createLocalStorageLocalKeyringManifestStore } from "@tearleads/client-sdk";
+import { createBrowserLocalKeyringManifestStore } from "@tearleads/client-sdk";
 import {
   createContext,
   type Dispatch,
@@ -55,8 +55,7 @@ function useLocalKeyringLockEnvironment(): LocalKeyringLockEnvironment {
     ? (localIdentityNamespace ?? DEFAULT_PIN_CODE_CONFIG_NAMESPACE)
     : null;
   const manifestStore = useMemo(
-    () =>
-      canManagePinCode ? createLocalStorageLocalKeyringManifestStore() : null,
+    () => (canManagePinCode ? createBrowserLocalKeyringManifestStore() : null),
     [canManagePinCode],
   );
   const scopes = useMemo(
