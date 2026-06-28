@@ -159,6 +159,10 @@ export function useContainerContentsDeviceFirst(input: {
   // Drive runtime updates from an effect — never during render — so the view's
   // synchronous emit cannot setState in a child while the provider renders.
   useEffect(() => {
+    if (runtime.infra.dbStatus === "ready" && !runtime.state.containerId) {
+      return;
+    }
+
     view.updateRuntime(runtime);
   }, [runtime, view]);
 

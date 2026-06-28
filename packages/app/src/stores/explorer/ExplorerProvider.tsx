@@ -14,12 +14,9 @@ import {
   useEffect,
   useMemo,
 } from "react";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../providers/sdk/TearleadsProvider";
+import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
-import { useContainerContentsDeviceFirst } from "../device-first/useContainerContentsDeviceFirst";
+import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
 import { EXPLORER_TRASH_CONTAINER_NAME } from "../systemContainers";
 import {
   canResolveExplorerTrashContainer,
@@ -61,24 +58,12 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
 
 export function ExplorerProvider({ children }: PropsWithChildren) {
-  const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
-  const runtime = useMemo(
-    () => tearleads.containerContents.workflowRuntime(),
-    [appData, tearleads],
-  );
+  const { reconciler, runtime, view } = useDeviceFirstContainerContents();
   const store = useMemo(
     () => tearleads.containerContents.openTree({ logLabel: "Explorer" }),
     [runtime.state.domainScope, tearleads],
   );
-  // Device-first read view (instant local tree + summaries) and the background
-  // reconciler that patches it. Both share the mutation store's domain scope,
-  // so reads and writes stay coherent.
-  const { reconciler, view } = useContainerContentsDeviceFirst({
-    runtime,
-    events: appData.state.events,
-    logLabel: "Explorer",
-  });
   const { contactsSystemSlot, trashSystemSlot, visibleSystemSlots } =
     useExplorerSystemProvisioning({
       signingPrivateKey:

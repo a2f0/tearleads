@@ -10,7 +10,6 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
-import { useContainerContentsDeviceFirst } from "../device-first/useContainerContentsDeviceFirst";
 import { CONTACTS_CONTAINER_NAME } from "../systemContainers";
 import type { ContactsStore } from "./contactStore";
 import {
@@ -46,13 +45,6 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
-  // Device-first read view: server events patch the local tree without
-  // render-driven bootstrap work in this mini-app.
-  useContainerContentsDeviceFirst({
-    events: appData.state.events,
-    logLabel: "Contacts",
-    runtime: containerContentsRuntime,
-  });
   const contactsSystemSlot = useContactsSystemSlot({
     logError: tearleads.logError,
     signingPrivateKey:
