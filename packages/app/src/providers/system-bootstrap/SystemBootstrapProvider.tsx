@@ -52,6 +52,11 @@ interface SystemBootstrapContextValue {
 
 interface SystemBootstrapState {
   readonly error: unknown;
+  // Latches once the first provisioning run for this scope completes. The gate
+  // (isBootstrapping) only blanks the mini-app for that initial run; later
+  // re-runs triggered by a converging container's syncState change must not
+  // unmount an already-hydrated Explorer back to a loading screen.
+  readonly hasCompleted: boolean;
   readonly status: SystemBootstrapStatus;
 }
 
@@ -245,8 +250,18 @@ function createSystemBootstrapTargetKey(input: {
     input.appData.state.containerId ?? "root",
     input.appData.auth.organizationId ?? "local-org",
     input.appData.auth.userId ?? "local-user",
+    // Key on the contacts container identity plus only the local-only vs remote
+    // distinction that actually changes what bootstrap does: ensureSelfContact
+    // upgrades the self contact with its remote identity once the container
+    // leaves local-only. Keying on the raw syncState.status would re-key on every
+    // badge transition (local-only -> syncing -> synced) and re-run an idempotent
+    // bootstrap for no benefit.
     input.contactsContainer
-      ? `${input.contactsContainer.id}:${input.contactsContainer.syncState.status}`
+      ? `${input.contactsContainer.id}:${
+          input.contactsContainer.syncState.status === "local-only"
+            ? "local-only"
+            : "remote"
+        }`
       : "missing-contacts",
     input.systemContainers
       .map((systemContainer) => systemContainer.systemSlot)
@@ -329,11 +344,20 @@ function useSystemBootstrapController(input: {
 }): SystemBootstrapContextValue {
   const [state, setState] = useState<SystemBootstrapState>({
     error: null,
+    hasCompleted: false,
     status: input.enabled ? "waiting" : "idle",
   });
   const completedTargetKeyRef = useRef<string | null>(null);
   const inFlightRef = useRef<Promise<SystemBootstrapResult> | null>(null);
   const latestInputRef = useRef<SystemBootstrapRunInput | null>(null);
+  // Merge a status transition over the prior state so latched fields (hasCompleted)
+  // survive re-runs unless a transition explicitly resets them; clears the error
+  // by default since every non-error transition leaves the error state.
+  const applyState = useCallback(
+    (next: Partial<SystemBootstrapState> & { status: SystemBootstrapStatus }) =>
+      setState((previous) => ({ ...previous, error: null, ...next })),
+    [],
+  );
 
   useEffect(() => {
     latestInputRef.current = input.bootstrapInput;
@@ -354,12 +378,12 @@ function useSystemBootstrapController(input: {
           continue;
         }
 
-        setState({ error: null, status: "running" });
+        applyState({ status: "running" });
         const bootstrapPromise = runSystemBootstrap(nextInput)
           .then((completed): SystemBootstrapResult => {
             if (completed) {
               completedTargetKeyRef.current = nextInput.targetKey;
-              setState({ error: null, status: "ready" });
+              applyState({ hasCompleted: true, status: "ready" });
               // The structural sync lane (create/promote intents) advancing a
               // container to synced does not by itself re-hydrate the in-memory
               // tree from the server, so an already-open Explorer keeps
@@ -375,12 +399,12 @@ function useSystemBootstrapController(input: {
               return { completed: true };
             }
 
-            setState({ error: null, status: "waiting" });
+            applyState({ status: "waiting" });
             return { completed: false };
           })
           .catch((error: unknown): SystemBootstrapResult => {
             input.logError("Failed to bootstrap system containers", error);
-            setState({ error, status: "error" });
+            applyState({ error, status: "error" });
             return { completed: false, error };
           })
           .finally(() => {
@@ -392,34 +416,37 @@ function useSystemBootstrapController(input: {
         inFlightRef.current = bootstrapPromise;
         return bootstrapPromise;
       }
-    }, [input.logError]);
+    }, [applyState, input.logError]);
 
   useEffect(() => {
     if (!input.enabled) {
       completedTargetKeyRef.current = null;
       latestInputRef.current = null;
-      setState({ error: null, status: "idle" });
+      applyState({ hasCompleted: false, status: "idle" });
       return;
     }
     if (!input.bootstrapInput) {
       if (!inFlightRef.current) {
-        setState({ error: null, status: "waiting" });
+        applyState({ status: "waiting" });
       }
       return;
     }
     if (completedTargetKeyRef.current === input.bootstrapInput.targetKey) {
-      setState({ error: null, status: "ready" });
+      applyState({ hasCompleted: true, status: "ready" });
       return;
     }
 
     void ensureBootstrapped();
-  }, [ensureBootstrapped, input.bootstrapInput, input.enabled]);
+  }, [applyState, ensureBootstrapped, input.bootstrapInput, input.enabled]);
 
   return useMemo(
     () => ({
       ensureBootstrapped,
       error: state.error,
-      isBootstrapping: state.status === "running",
+      // Only the first provisioning run gates the UI. Re-runs after a completed
+      // bootstrap (e.g. a container converging local-only -> synced re-keys the
+      // target) reconcile in the background without blanking an open mini-app.
+      isBootstrapping: state.status === "running" && !state.hasCompleted,
       status: state.status,
     }),
     [ensureBootstrapped, state],
