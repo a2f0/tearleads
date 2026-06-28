@@ -117,7 +117,7 @@ function toRootRelativePath(path: string): string {
 function resolveCheckoutPath(path: string): string {
   const resolvedPath = resolve(rootDir, path);
   if (
-    resolvedPath !== rootDir &&
+    resolvedPath === rootDir ||
     !resolvedPath.startsWith(`${rootDir}${sep}`)
   ) {
     throw new Error(`Refusing to clean path outside checkout: ${path}`);
@@ -128,7 +128,7 @@ function resolveCheckoutPath(path: string): string {
 
 function parentPathContainsTarget(
   path: string,
-  targetPaths: Set<string>,
+  targetPaths: ReadonlyMap<string, unknown>,
 ): boolean {
   let currentPath = dirname(path);
 
@@ -166,7 +166,7 @@ async function collectGeneratedTargets(
   currentDir: string,
   targets: Map<string, CleanupTarget>,
 ): Promise<void> {
-  if (parentPathContainsTarget(currentDir, new Set(targets.keys()))) {
+  if (parentPathContainsTarget(currentDir, targets)) {
     return;
   }
 
@@ -270,7 +270,7 @@ async function collectCleanupTargets(
   }
 
   return Array.from(targets.values()).filter(
-    (target) => !parentPathContainsTarget(target.path, new Set(targets.keys())),
+    (target) => !parentPathContainsTarget(target.path, targets),
   );
 }
 
