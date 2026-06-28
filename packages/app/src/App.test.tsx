@@ -7,14 +7,23 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { useEffect } from "react";
 import { withManualIdentity } from "../test/helpers/manualIdentityProfile";
 import { MockWorker } from "../test/helpers/mockWorker";
 import { App } from "./App";
+import {
+  DualPaneProvider,
+  PaneSideProvider,
+} from "./components/pane/DualPaneProvider";
+import { Pane } from "./components/pane/Pane";
+import { PaneProvider } from "./components/pane/PaneProvider";
 import { APP_HOST_PROFILES, createAppHostConfig } from "./host/AppHostConfig";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
 } from "./mini-apps/system-monitor/systemMonitorMode";
+import type { AppNavigationMode } from "./navigation/AppNavigationMode";
+import { useDeviceFirstContainerContents } from "./stores/device-first/DeviceFirstProvider";
 
 // In windowed mode the System Monitor (worker status + boot log) defaults to a
 // closed window. These full-app smoke tests assert on that inline status, so
@@ -51,6 +60,61 @@ function createTestAppHostConfig({
     wsUrl: "ws://localhost:3002",
     ...options,
   });
+}
+
+interface DeviceFirstIdentitySnapshot {
+  reconciler: unknown;
+  view: unknown;
+}
+
+function DeviceFirstIdentityProbe({
+  onSnapshot,
+  onUnmount,
+}: {
+  onSnapshot: (snapshot: DeviceFirstIdentitySnapshot) => void;
+  onUnmount: () => void;
+}) {
+  const { reconciler, view } = useDeviceFirstContainerContents();
+
+  useEffect(() => {
+    return onUnmount;
+  }, [onUnmount]);
+
+  useEffect(() => {
+    onSnapshot({ reconciler, view });
+  }, [onSnapshot, reconciler, view]);
+
+  return null;
+}
+
+function PaneNavigationHarness({
+  hostConfig,
+  navigationMode,
+  onDeviceFirstSnapshot,
+  onDeviceFirstUnmount,
+}: {
+  hostConfig: ReturnType<typeof createTestAppHostConfig>;
+  navigationMode: AppNavigationMode;
+  onDeviceFirstSnapshot: (snapshot: DeviceFirstIdentitySnapshot) => void;
+  onDeviceFirstUnmount: () => void;
+}) {
+  return (
+    <DualPaneProvider>
+      <PaneSideProvider side="left">
+        <PaneProvider hostConfig={hostConfig}>
+          <DeviceFirstIdentityProbe
+            onSnapshot={onDeviceFirstSnapshot}
+            onUnmount={onDeviceFirstUnmount}
+          />
+          <Pane
+            className="pane"
+            navigationMode={navigationMode}
+            routedVisible
+          />
+        </PaneProvider>
+      </PaneSideProvider>
+    </DualPaneProvider>
+  );
 }
 
 afterEach(() => {
@@ -299,4 +363,63 @@ test("switching navigation mode reuses the booted pane database instead of reboo
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
+});
+
+test("device-first sync binding survives windowed and routed layout switches", async () => {
+  const hostConfig = createTestAppHostConfig();
+  const snapshots: DeviceFirstIdentitySnapshot[] = [];
+  const captureSnapshot = (snapshot: DeviceFirstIdentitySnapshot) => {
+    snapshots.push(snapshot);
+  };
+  let unmounts = 0;
+  const captureUnmount = () => {
+    unmounts += 1;
+  };
+  const view = render(
+    <PaneNavigationHarness
+      hostConfig={hostConfig}
+      navigationMode="windowed"
+      onDeviceFirstSnapshot={captureSnapshot}
+      onDeviceFirstUnmount={captureUnmount}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(snapshots.length).toBeGreaterThan(0);
+  });
+  const firstSnapshot = snapshots.at(-1);
+  if (!firstSnapshot) {
+    throw new Error("Expected the device-first binding to mount.");
+  }
+
+  view.rerender(
+    <PaneNavigationHarness
+      hostConfig={hostConfig}
+      navigationMode="routed"
+      onDeviceFirstSnapshot={captureSnapshot}
+      onDeviceFirstUnmount={captureUnmount}
+    />,
+  );
+  await waitFor(() => {
+    expect(snapshots.at(-1)?.view).toBe(firstSnapshot.view);
+    expect(snapshots.at(-1)?.reconciler).toBe(firstSnapshot.reconciler);
+  });
+  expect(unmounts).toBe(0);
+
+  view.rerender(
+    <PaneNavigationHarness
+      hostConfig={hostConfig}
+      navigationMode="windowed"
+      onDeviceFirstSnapshot={captureSnapshot}
+      onDeviceFirstUnmount={captureUnmount}
+    />,
+  );
+  await waitFor(() => {
+    expect(snapshots.at(-1)?.view).toBe(firstSnapshot.view);
+    expect(snapshots.at(-1)?.reconciler).toBe(firstSnapshot.reconciler);
+  });
+  expect(unmounts).toBe(0);
+
+  view.unmount();
+  expect(unmounts).toBe(1);
 });

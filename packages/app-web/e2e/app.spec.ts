@@ -10,7 +10,28 @@ function visiblePane(page: Page, side?: "left" | "right"): Locator {
 
 async function generateKeyPair(page: Page, pane: Locator): Promise<void> {
   await pane.getByRole("button", { name: "Menu" }).click();
-  await page.getByRole("button", { name: "Generate Key Pair" }).click();
+  const generatedKeyAction = page
+    .getByRole("button", {
+      name: "Destroy Key Pair",
+    })
+    .first();
+  if (await generatedKeyAction.isVisible().catch(() => false)) {
+    return;
+  }
+
+  const generateKeyAction = page
+    .getByRole("button", {
+      name: "Generate Key Pair",
+    })
+    .first();
+  try {
+    await generateKeyAction.click({ timeout: 5_000 });
+  } catch (error) {
+    if (await generatedKeyAction.isVisible().catch(() => false)) {
+      return;
+    }
+    throw error;
+  }
 }
 
 async function killWorker(page: Page, pane: Locator): Promise<void> {

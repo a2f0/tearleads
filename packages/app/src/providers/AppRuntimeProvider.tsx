@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from "react";
 import type { AppHostConfig } from "../host/AppHostConfig";
 import { IdentityAutopilot } from "../identity/IdentityAutopilot";
+import { DeviceFirstProvider } from "../stores/device-first/DeviceFirstProvider";
 import { CryptoSessionProvider } from "./crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "./db/DatabaseProvider";
 import { AppHostConfigProvider } from "./host/AppHostConfigProvider";
@@ -33,10 +34,12 @@ export function AppRuntimeProvider({
             <DatabaseProvider>
               <IdentityProvider>
                 <CryptoSessionProvider>
-                  <SystemBootstrapProvider enabled={autoProvisionEnabled}>
-                    <IdentityAutopilot enabled={autoProvisionEnabled} />
-                    {children}
-                  </SystemBootstrapProvider>
+                  <DeviceFirstProvider>
+                    <SystemBootstrapProvider enabled={autoProvisionEnabled}>
+                      <IdentityAutopilot enabled={autoProvisionEnabled} />
+                      {children}
+                    </SystemBootstrapProvider>
+                  </DeviceFirstProvider>
                 </CryptoSessionProvider>
               </IdentityProvider>
             </DatabaseProvider>
