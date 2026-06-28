@@ -1111,6 +1111,33 @@ export class ApiClient {
     );
   }
 
+  /**
+   * Container counterpart of {@link primeDocumentWriterProjection}: seed the
+   * container writer-projection cache from a create the client just authored so
+   * the next write under that container (a child folder, a document) resolves
+   * locally instead of a cold `GET /containers/:containerId/writer-projection`.
+   * The seed is the same material a fresh fetch returns — the create plan's
+   * authorizing path and container KEKs — validated by the caller against the
+   * create response before priming. No-op when a fetch is in flight or the slot
+   * is already primed, so it never clobbers a newer entry. The existing
+   * invalidation (share/revoke/rekey/move/delete -> clearWriterProjectionCaches)
+   * evicts a primed projection that later goes stale exactly as it evicts a
+   * fetched one, so a subsequent write on stale access still fails closed and
+   * retries with a fresh projection.
+   */
+  primeContainerWriterProjection(
+    containerId: string,
+    projection: ContainerWriterProjectionResponse,
+  ): void {
+    if (this.containerWriterProjectionRequestsByContainerId.has(containerId)) {
+      return;
+    }
+    this.containerWriterProjectionRequestsByContainerId.set(
+      containerId,
+      Promise.resolve(projection),
+    );
+  }
+
   linkDocument(documentId: string, input: DocumentLinkSetMutationRequest) {
     return this.request(
       `/documents/${pathSegment(documentId)}/link`,
