@@ -25,13 +25,16 @@ term relates to plane / layer / lane / facade.
 - The `subsystem-registry-matches-docs` check keeps the table below in lockstep
   with the manifest.
 
-Rolled out package by package. Registered today: `packages/api`.
+Rolled out package by package. Registered: `packages/api`,
+`packages/client-sdk`, `packages/app`.
 
 ## Registry
 
 <!-- subsystems:start -->
 
-| Subsystem | Owns | Public seam | Source paths (under `packages/api/src/`) |
+### API — `packages/api/src/`
+
+| Subsystem | Owns | Public seam | Source paths |
 | --- | --- | --- | --- |
 | **Containers** | Container CRUD, grant/revoke/rekey/move, accessible-container listing with sync paging, and writer-projection access resolution. | `routes/containers` via `createContainerRouter`; `services/containers` facade | `routes/containers/`, `services/containers/`, `workflows/containers/` |
 | **Documents** | Document update storage, spans/prune/compaction, commit LSN, audit entries/checkpoints/hash history, sync baseline redirect, and edit attribution. | `routes/documents`; `services/documents` facade | `routes/documents/`, `services/documents/`, `workflows/documents/`, `documents/` |
@@ -46,6 +49,46 @@ Rolled out package by package. Registered today: `packages/api`.
 | **Service Runtime & Composition Root** | The HTTP composition root: Hono app assembly, the `ApiServiceRuntime` dependency object, the test override seam, and the server entry point. | `routeApp.ts` / `routeAppDeps.ts`; `ApiServiceRuntime` from `services/runtime.ts` | `routeApp.ts`, `routeAppDeps.ts`, `index.ts`, `appTestRuntime.ts`, `services/runtime.ts`, `routes/health.ts` |
 | **Infrastructure Adapters** | Effectful infrastructure boundaries other than blob storage: Redis key/value and pub/sub, plus the in-memory Redis used for tests and dev. | `adapters/redis.ts`, `adapters/redisPubSub.ts` (closed over by factories) | `adapters/redis.ts`, `adapters/redisPubSub.ts`, `adapters/inMemoryRedis.ts` |
 | **Shared Utilities** | Package-neutral helpers reused across subsystems: array helpers, canonical JSON, SHA-256, SQL dialect, and UUID generation. | `utils/*` direct import | `utils/array.ts`, `utils/canonicalJson.ts`, `utils/sha256.ts`, `utils/sqlDialect.ts`, `utils/uuid.ts` |
+
+### Client SDK — `packages/client-sdk/src/`
+
+| Subsystem | Owns | Public seam | Source paths |
+| --- | --- | --- | --- |
+| **Document Store & Sync** | Client-side document open/list/delete, the per-scope document store, document workflow operations, persisted-document registry, and document summary/sync contracts. | `tearleads.documents` facade; `workflows/documents` | `workflows/documents/`, `data/documents/`, `stores/documents/`, `client/documents.ts`, `documents.ts`, `data/documentSummary.ts`, `data/documentSync.ts` |
+| **Container Contents** | Container tree projections, container metadata documents, document discovery/links/queries, blob info, and sync-state read models for product UI. | `tearleads.containerContents` facade; `workflows/container-contents` | `workflows/container-contents/`, `stores/container-contents/`, `client/containerContents.ts`, `client/containerContentsTypes.ts` |
+| **Container Data** | Client-side container CRUD/share workflow operations and the local container persistence shape. | `workflows/containers` | `workflows/containers/`, `data/containers/` |
+| **Client Blob Storage** | Active blob store selection (ephemeral vs identity-namespaced), OPFS/memory byte stores, encrypted envelopes, and blob workflow operations. | `tearleads.blobs` facade; `workflows/blobs`; `blobContracts` | `workflows/blobs/`, `data/blobs/`, `client/blobs.ts`, `data/blobContracts.ts`, `data/blobEnvelope.ts` |
+| **Organization Read Models** | Org directory/groups/grants/usage/user-detail read models and roster/profile mutation helpers for the client. | `tearleads.organizations` facade; `workflows/organizations` | `workflows/organizations/`, `client/organizations.ts` |
+| **Principal Policy (client)** | Client-side principal policy workflow operations, admin-signer resolution, and principal-policy crypto helpers. | `workflows/principals` | `workflows/principals/`, `data/principalPolicyAdminSigners.ts`, `data/principalPolicyCrypto.ts` |
+| **Client Registration** | Identity registration and the initial organization/root-container bootstrap performed from the client. | `workflows/registration` | `workflows/registration/` |
+| **Sync Engine** | The per-`DomainScope` sync coordinator (lanes, phases, coalescing), device-first local projection + background reconciliation, and the scope/peer-seed primitives that drive cache invalidation. | `tearleads.deviceFirst` facade; sync workflow facade snapshots | `workflows/sync/`, `data/sync/`, `sync/`, `stores/local-projection/`, `client/deviceFirst.ts`, `data/crdtPeerSeed.ts`, `data/domainScope.ts` |
+| **Identity & Session** | Signing/encapsulation keypairs and fingerprint, identity generation/bootstrap, auth token + login/logout/register, and the user's signing-key listing. | `tearleads.identity` / `tearleads.session` facades | `client/identity.ts`, `client/identityKeyPackage.ts`, `client/session.ts`, `client/userKeys.ts` |
+| **Local Keyring** | The on-device keyring (manifest storage, scopes, sessions) and its PIN-code unlock support. | `createLocalKeyring` / `createBrowserLocalKeyring` exports | `client/localKeyring.ts`, `client/localKeyringPinCode.ts`, `client/localKeyringPinCodeSupport.ts` |
+| **SQLite Runtime** | The local SQLite executor, Drizzle schema, transaction serialization, and the `@tearleads/client-sdk/sqlite` public worker-runtime entry point. | `@tearleads/client-sdk/sqlite` subpath; `data/sqlite` | `data/sqlite/`, `sqlite.ts` |
+| **Local Persistence** | Domain-specific SQLite read/write modules that take an explicit `ExecSql` executor (containers, container-contents, documents, principal policy). | `data/persistence` (consumed by workflows with `ExecSql` threaded in) | `data/persistence/` |
+| **Keying Verification** | Client-side cryptographic verification of server writer/access-manifest/link-set projections, canonical-record decode, and access-level helpers. | `data/keyingProjectionVerification` facade | `data/keyingProjectionVerification/`, `data/keyingProjectionVerification.ts`, `data/keyingCanonicalJson.ts`, `data/accessLevel.ts` |
+| **SDK Runtime & Composition Root** | The `Tearleads` facade that wires every SDK subsystem object, the runtime-snapshot projector, the SQLite database handle, the events/network state, logging, and the package root entry point. | `new Tearleads(options)`; the package root index | `client/Tearleads.ts`, `client/index.ts`, `client/workflowRuntime.ts`, `client/database.ts`, `client/events.ts`, `client/network.ts`, `client/logger.ts`, `index.ts`, `workflows/runtimeInput.ts` |
+
+### App — `packages/app/src/`
+
+| Subsystem | Owns | Public seam | Source paths |
+| --- | --- | --- | --- |
+| **Explorer** | The container/document explorer mini-app: tree, detail panels, sidebar windows, attribution, and its presentation store. | `mini-apps/explorer`; `stores/explorer` | `mini-apps/explorer/`, `stores/explorer/` |
+| **Notes** | The notes mini-app: note editor, sidebar/context menus, and note presentation. | `mini-apps/notes` | `mini-apps/notes/` |
+| **Contacts** | The contacts mini-app: contact list/detail UI and its presentation store. | `mini-apps/contacts`; `stores/contacts` | `mini-apps/contacts/`, `stores/contacts/` |
+| **Org Manager** | The organization-management mini-app: directory, groups, grants, roster, and its presentation store. | `mini-apps/org-manager`; `stores/org-manager` | `mini-apps/org-manager/`, `stores/org-manager/` |
+| **Identity Manager** | The identity-management mini-app: device keys, key-package backup, and identity UI. | `mini-apps/identity-manager` | `mini-apps/identity-manager/` |
+| **System Monitor** | The system-monitor mini-app: runtime/sync/storage telemetry surfaces. | `mini-apps/system-monitor` | `mini-apps/system-monitor/` |
+| **Backup & Restore** | The backup-and-restore mini-app: export/import of on-device state. | `mini-apps/backup-restore` | `mini-apps/backup-restore/` |
+| **Mini-App Platform** | The window/mini-app host: app windows, the SDK-independent message bus, the mini-app registry, and the bootstrap/unlock gates. | `mini-apps/registry`; `mini-apps/bus` | `mini-apps/AppWindow.tsx`, `mini-apps/bus.tsx`, `mini-apps/LocalKeyringUnlockGate.tsx`, `mini-apps/registry.ts`, `mini-apps/SystemBootstrapGate.tsx`, `mini-apps/types.ts` |
+| **Document Types** | Shared document-type building blocks (note, contact, image, pdf, audio, file, cards) plus the type registry, importers, and projector definitions consumed by mini-apps. | `document-types/registry`; `document-types/projectors` | `document-types/` |
+| **Document Projectors** | App-side client projections that derive structured document state (contact, credit-card, driver-license) for the projector registry. | `document-projectors/appDocumentProjectors` | `document-projectors/` |
+| **App Shell & Components** | Reusable presentation: layout, pane, window, mini-app chrome, and shared components. | `components/*` | `components/` |
+| **App Providers & Runtime** | The app composition root: the React provider stack (SDK, db, crypto, identity, events, host, local-keyring, logging, system-bootstrap), host config, and the app entry point. | `providers/AppRuntimeProvider`; `App.tsx` | `providers/`, `host/`, `App.tsx`, `client.tsx` |
+| **Navigation** | App navigation: routed path navigation, history, mode/breakpoints, and mini-app route segments. | `navigation/AppNavigationProvider` | `navigation/` |
+| **App Identity Provisioning** | App-level identity bootstrap: the identity autopilot, key-package backup, and current-identity registration hooks. | `identity/IdentityAutopilot`; `identity/useRegisterCurrentIdentity` | `identity/` |
+| **App Document & Device State** | App-side domain state machines for documents and device-first projection, plus the system-containers store. | `stores/documents`; `stores/device-first` | `stores/documents/`, `stores/device-first/`, `stores/systemContainers.ts` |
+| **App Utilities** | App-neutral presentation helpers: byte-length and date formatting, and error-message normalization. | `utils/*` direct import | `utils/formatByteLength.ts`, `utils/formatMiniAppDate.ts`, `utils/unknownErrorMessage.ts` |
 
 <!-- subsystems:end -->
 
