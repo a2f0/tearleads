@@ -30,7 +30,10 @@ interface MultipartPartUploadTask {
 }
 
 interface ApiFailureReporter {
-  getLastRequestFailure?: () => { readonly message: string } | null;
+  getRequestFailure?: (input: {
+    method: "DELETE" | "GET" | "POST" | "PUT";
+    path: string;
+  }) => { readonly message: string } | null;
 }
 
 function isAsciiString(value: string): boolean {
@@ -47,23 +50,46 @@ function isAsciiString(value: string): boolean {
 function isApiFailureReporter(
   apiClient: BlobAttachmentApi,
 ): apiClient is BlobAttachmentApi & ApiFailureReporter {
-  return typeof Reflect.get(apiClient, "getLastRequestFailure") === "function";
+  return typeof Reflect.get(apiClient, "getRequestFailure") === "function";
 }
 
-function describeLastApiFailure(apiClient: BlobAttachmentApi): string | null {
+function pathSegment(value: number | string): string {
+  return encodeURIComponent(String(value));
+}
+
+function multipartStagePath(stageId: string): string {
+  return `/blobs/stages/multipart/${pathSegment(stageId)}`;
+}
+
+function multipartPartPath(input: {
+  readonly partNumber: number;
+  readonly stageId: string;
+  readonly uploadBytes: boolean;
+}): string {
+  const basePath = `${multipartStagePath(input.stageId)}/parts/${pathSegment(input.partNumber)}`;
+  return input.uploadBytes ? `${basePath}/bytes` : basePath;
+}
+
+function describeRequestFailure(
+  apiClient: BlobAttachmentApi,
+  request: Parameters<NonNullable<ApiFailureReporter["getRequestFailure"]>>[0],
+): string | null {
   if (!isApiFailureReporter(apiClient)) {
     return null;
   }
 
-  const failure = apiClient.getLastRequestFailure?.();
+  const failure = apiClient.getRequestFailure?.(request);
   return failure?.message ?? null;
 }
 
 function multipartApiFailureMessage(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly fallback: string;
+  readonly request: Parameters<
+    NonNullable<ApiFailureReporter["getRequestFailure"]>
+  >[0];
 }): string {
-  const failure = describeLastApiFailure(input.apiClient);
+  const failure = describeRequestFailure(input.apiClient, input.request);
   return failure
     ? `${input.fallback} Last API failure: ${failure}`
     : input.fallback;
@@ -146,7 +172,10 @@ async function uploadMultipartPartTasks(input: {
       }
 
       try {
-        const uploaded = input.apiClient.uploadMultipartBlobPartBytes
+        const uploadBytes = Boolean(
+          input.apiClient.uploadMultipartBlobPartBytes,
+        );
+        const uploaded = uploadBytes
           ? await uploadMultipartPartBytes({
               apiClient: input.apiClient,
               stageId: input.stageId,
@@ -167,6 +196,14 @@ async function uploadMultipartPartTasks(input: {
             multipartApiFailureMessage({
               apiClient: input.apiClient,
               fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
+              request: {
+                method: "PUT",
+                path: multipartPartPath({
+                  partNumber: task.partNumber,
+                  stageId: input.stageId,
+                  uploadBytes,
+                }),
+              },
             }),
           );
         }
@@ -310,6 +347,7 @@ async function resolveMultipartStageStatus(input: {
       multipartApiFailureMessage({
         apiClient: input.apiClient,
         fallback: `Multipart blob stage initiation failed for ${input.byteLength.toLocaleString()} bytes.`,
+        request: { method: "POST", path: "/blobs/stages/multipart" },
       }),
     );
   }
@@ -322,6 +360,7 @@ async function resolveMultipartStageStatus(input: {
       multipartApiFailureMessage({
         apiClient: input.apiClient,
         fallback: `Multipart blob stage status refresh failed for stage ${stage.stageId}.`,
+        request: { method: "GET", path: multipartStagePath(stage.stageId) },
       }),
     );
   }
@@ -417,6 +456,10 @@ export async function stageMultipartBlobAttachment(input: {
       multipartApiFailureMessage({
         apiClient,
         fallback: `Multipart blob stage completion failed for stage ${status.stageId} with ${committedParts.length.toLocaleString()} committed parts.`,
+        request: {
+          method: "POST",
+          path: `${multipartStagePath(status.stageId)}/complete`,
+        },
       }),
     );
   }

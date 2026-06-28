@@ -178,7 +178,12 @@ testApiClient(
         uploadId: "upload-1",
       }),
     ).resolves.toBeNull();
-    expect(client.getLastRequestFailure()?.message).toBe(
+    expect(
+      client.getRequestFailure({
+        method: "PUT",
+        path: "/blobs/stages/multipart/stage-1/parts/2/bytes",
+      })?.message,
+    ).toBe(
       "PUT /blobs/stages/multipart/stage-1/parts/2/bytes: 409 Conflict: Blob sha256 does not match multipart upload",
     );
   },

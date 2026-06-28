@@ -92,6 +92,7 @@ import {
   listContainerDocumentsRequestKey,
   listContainersRequestKey,
   normalizeApiBaseUrl,
+  requestFailureKey,
 } from "./requestInternals";
 import {
   getBlob,
@@ -154,10 +155,10 @@ export class ApiClient {
   private readonly encapsulationKeyRequestsByUserId = new BoundedCache<
     Promise<EncapsulationKeyResponse | null>
   >();
-  private lastRequestFailure: RequestFailure | null = null;
   private readonly organizationGroupRequestsByOrganizationId = new BoundedCache<
     Promise<ListOrganizationGroupsResponse | null>
   >();
+  private readonly requestFailuresByKey = new Map<string, RequestFailure>();
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
 
@@ -241,7 +242,10 @@ export class ApiClient {
         ? { stalePrincipalPolicies: input.stalePrincipalPolicies }
         : {}),
     };
-    this.lastRequestFailure = failure;
+    this.requestFailuresByKey.set(
+      requestFailureKey({ method: input.method, path: input.path }),
+      failure,
+    );
 
     if (input.reportErrors) {
       failure.report();
@@ -322,6 +326,7 @@ export class ApiClient {
 
     const { response } = responseResult;
     if (response.ok) {
+      this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
       return { data: response, ok: true };
     }
 
@@ -346,6 +351,7 @@ export class ApiClient {
         return retryResult;
       }
       if (retryResult.response.ok) {
+        this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
         return { data: retryResult.response, ok: true };
       }
 
@@ -469,9 +475,6 @@ export class ApiClient {
     try {
       refreshed = (await this.onSessionExpired?.()) ?? false;
     } catch (error: unknown) {
-      // A throw means re-auth failed: do not replay, but surface it so a failing
-      // silent re-login is diagnosable rather than only a downstream 401. Respect
-      // the caller's reportErrors opt-out, like every other failure on this path.
       if (input.options.reportErrors ?? true) {
         this.onError?.(`Session refresh failed: ${errorMessage(error)}`);
       }
@@ -587,15 +590,10 @@ export class ApiClient {
     return this.authToken;
   }
 
-  getLastRequestFailure(): RequestFailure | null {
-    return this.lastRequestFailure;
+  getRequestFailure(input: { method: HttpMethod; path: string }) {
+    return this.requestFailuresByKey.get(requestFailureKey(input)) ?? null;
   }
 
-  /**
-   * Mint a single-use websocket ticket via the authenticated HTTP session, so
-   * the (header-less) websocket handshake can authenticate by query param.
-   * Returns null when unauthenticated or the request fails.
-   */
   async requestWebSocketTicket(): Promise<string | null> {
     const response = await this.request(
       "/auth/ws-ticket",

@@ -400,7 +400,7 @@ async function uploadAttachmentWithWriterProjectionRetry(input: {
       uploadError = error;
     },
   });
-  if (!uploaded && input.writerProjection && uploadError === undefined) {
+  if (!uploaded && input.writerProjection) {
     // The stale writer projection was rejected; retry once without it.
     input.state.writerProjection = null;
     uploaded = await tryUploadDocumentAttachment({
