@@ -1,0 +1,138 @@
+import type { ServerWebSocket } from "bun";
+import { addListener } from "./adapters/redisPubSub";
+import type { WebSocketTicketIdentity } from "./wsIdentity";
+import { wsInterestStore } from "./wsInterestStore";
+import {
+  type AppliedInterest,
+  MAX_CLIENT_MESSAGE_BYTES,
+  WsEventRouter,
+} from "./wsRouting";
+
+type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
+type Subscribe = typeof addListener;
+
+interface RealtimeGatewayDeps {
+  readonly interestStore?: InterestStore;
+  readonly router?: WsEventRouter;
+  readonly subscribe?: Subscribe;
+}
+
+function messageToString(message: string | Buffer): string {
+  return typeof message === "string" ? message : message.toString("utf8");
+}
+
+/**
+ * The realtime sync gateway owns the in-memory socket/interest router, the
+ * per-session interest write serialization, and the Redis pub/sub subscription.
+ * Constructing it has no side effects; the subscription opens only when
+ * `start()` is called, so importing this module never connects to Redis. The
+ * gateway is constructed and started once at the composition root (index.ts),
+ * the same place the HTTP app is assembled — there is no second, import-time
+ * composition root. Deps default to production singletons and are injectable for
+ * tests.
+ */
+export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
+  const router = deps.router ?? new WsEventRouter();
+  const interestStore = deps.interestStore ?? wsInterestStore;
+  const subscribe = deps.subscribe ?? addListener;
+
+  // Serialize interest writes per session so out-of-order persistence can't
+  // corrupt the set — e.g. a `replace` (which deletes the key) must not land
+  // after a later `add`. Routing still happens synchronously in the router; only
+  // the Redis mirror is chained, so persistence never adds routing latency.
+  const interestWriteChains = new Map<string, Promise<void>>();
+  let unsubscribe: (() => void) | undefined;
+
+  function persistInterestInOrder(
+    userId: string,
+    sessionId: string,
+    applied: AppliedInterest,
+  ): void {
+    const sessionKey = `${userId}:${sessionId}`;
+    const chain = (interestWriteChains.get(sessionKey) ?? Promise.resolve())
+      .then(() => interestStore.apply(userId, sessionId, applied))
+      .catch((error: unknown) => {
+        console.error("Failed to persist websocket interest:", error);
+      });
+    interestWriteChains.set(sessionKey, chain);
+    void chain.finally(() => {
+      if (interestWriteChains.get(sessionKey) === chain) {
+        interestWriteChains.delete(sessionKey);
+      }
+    });
+  }
+
+  /**
+   * Hydrate the reconnecting socket's interest from its persisted set and tell
+   * the client the baseline the server already holds, so it can send only deltas
+   * instead of re-declaring its whole known set. Always sends `interest_state`
+   * (empty on a fresh session or on a load failure) so the client has a single,
+   * reliable signal to start declaring against.
+   */
+  async function hydrateSocketInterest(
+    ws: ServerWebSocket<WebSocketTicketIdentity>,
+  ): Promise<void> {
+    let containerIds: string[] = [];
+    try {
+      containerIds = await interestStore.load(
+        ws.data.userId,
+        ws.data.sessionId,
+      );
+      if (containerIds.length > 0) {
+        router.hydrateInterest(ws, containerIds);
+      }
+    } catch (error) {
+      console.error("Failed to hydrate websocket interest:", error);
+      containerIds = [];
+    }
+    ws.send(JSON.stringify({ type: "interest_state", containerIds }));
+  }
+
+  const websocket = {
+    maxPayloadLength: MAX_CLIENT_MESSAGE_BYTES,
+    async open(ws: ServerWebSocket<WebSocketTicketIdentity>) {
+      router.open(ws);
+      await hydrateSocketInterest(ws);
+    },
+    close(ws: ServerWebSocket<WebSocketTicketIdentity>) {
+      // Interest is intentionally NOT cleared here: it persists (TTL-bounded) so
+      // a reconnect on the same session hydrates it. A re-login uses a new
+      // session key; abandoned interest self-expires.
+      router.close(ws);
+    },
+    message(
+      ws: ServerWebSocket<WebSocketTicketIdentity>,
+      message: string | Buffer,
+    ) {
+      const applied = router.handleClientMessage(ws, messageToString(message));
+      if (applied) {
+        persistInterestInOrder(ws.data.userId, ws.data.sessionId, applied);
+      }
+    },
+  };
+
+  // Redis pub/sub fans every event to every API process; this process routes
+  // each event only to its locally-connected sockets that declared interest. An
+  // access change drops interest locally; mirror that into the persisted set so
+  // a reconnect does not restore it before the client re-checks access.
+  function start(): void {
+    if (unsubscribe) {
+      return;
+    }
+    unsubscribe = subscribe((message) => {
+      for (const eviction of router.routeServerEvent(message)) {
+        persistInterestInOrder(eviction.userId, eviction.sessionId, {
+          containerIds: [eviction.containerId],
+          kind: "remove",
+        });
+      }
+    });
+  }
+
+  function stop(): void {
+    unsubscribe?.();
+    unsubscribe = undefined;
+  }
+
+  return { start, stop, websocket };
+}

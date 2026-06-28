@@ -142,9 +142,9 @@ export const subsystems: readonly Subsystem[] = [
     package: "api",
     responsibility:
       "Process-local fan-out of Redis pub/sub events to interested sockets: the WS lifecycle, interest index, Redis interest mirror, and upgrade tickets.",
-    seam: "ws.ts websocket handler wired into the Bun server by index.ts",
+    seam: "createRealtimeGateway, assembled and started by index.ts",
     paths: [
-      `${api}/ws.ts`,
+      `${api}/realtimeGateway.ts`,
       `${api}/wsRouting.ts`,
       `${api}/wsInterestStore.ts`,
       `${api}/wsTicket.ts`,
