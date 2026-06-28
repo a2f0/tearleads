@@ -67,6 +67,19 @@ export interface DocumentOutgoingUpdate {
   writeHeader: Record<string, unknown>;
 }
 
+/**
+ * A reference to a container access manifest the server already stores, in lieu
+ * of re-embedding the full signed manifest bundle. The server resolves the full
+ * manifest from its own store by `manifestHash` and pins it to the container's
+ * current head, so the reference carries the same authority as the full bundle
+ * without the multi-KB signature. `containerId` is advisory: the server keys the
+ * head lookup off the resolved bundle's own containerId and rejects a mismatch.
+ */
+export interface ContainerManifestRef {
+  containerId: string;
+  manifestHash: string;
+}
+
 export interface DocumentSyncRequest {
   contentKeyBundle?: DocumentContentKeyBundleRequest;
   containerRekeys?: ContainerMutationRequest[];
@@ -74,7 +87,11 @@ export interface DocumentSyncRequest {
   documentManifest?: AccessManifestBundleWire;
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
-  authorizingContainerPaths?: Record<string, unknown>[][];
+  // Container access manifests authorizing the write, as hash references the
+  // server resolves from its own store. Required when there are outgoing
+  // updates. (The server already holds these manifests; re-embedding the full
+  // signed bundles would only bloat every write.)
+  authorizingContainerPathRefs?: ContainerManifestRef[][];
   localVersionVector: string | null;
   minLsn?: string;
   outgoingUpdates: DocumentOutgoingUpdate[];
@@ -82,6 +99,27 @@ export interface DocumentSyncRequest {
 
 function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+function isContainerManifestRef(value: unknown): value is ContainerManifestRef {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "containerId") &&
+    value.containerId.length > 0 &&
+    hasStringProperty(value, "manifestHash") &&
+    value.manifestHash.length > 0
+  );
+}
+
+export function isContainerManifestRefArrayArray(
+  value: unknown,
+): value is ContainerManifestRef[][] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (group) => Array.isArray(group) && group.every(isContainerManifestRef),
+    )
+  );
 }
 
 function isDocumentContentKeyTargetEnvelope(
@@ -236,8 +274,8 @@ export function isDocumentLinkSetMutationRequest(
 export function isDocumentSyncRequest(
   value: unknown,
 ): value is DocumentSyncRequest {
-  const authorizingContainerPaths = isPlainObject(value)
-    ? Reflect.get(value, "authorizingContainerPaths")
+  const authorizingContainerPathRefs = isPlainObject(value)
+    ? Reflect.get(value, "authorizingContainerPathRefs")
     : undefined;
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
@@ -278,9 +316,9 @@ export function isDocumentSyncRequest(
     value.expectedLinkSetManifestHash.length > 0 &&
     hasStringProperty(value, "expectedTargetHash") &&
     value.expectedTargetHash.length > 0 &&
-    (authorizingContainerPaths === undefined
+    (authorizingContainerPathRefs === undefined
       ? !hasOutgoingUpdates
-      : isRecordArrayArray(authorizingContainerPaths)) &&
+      : isContainerManifestRefArrayArray(authorizingContainerPathRefs)) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
     (!hasContainerRekeys || hasOutgoingUpdates) &&
     isNullableString(Reflect.get(value, "localVersionVector")) &&

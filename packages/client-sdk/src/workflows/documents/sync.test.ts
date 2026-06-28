@@ -28,7 +28,7 @@ import {
   createResponse,
   createSyncFixture,
   createSyncResponse,
-  projectionPathRecords,
+  projectionPathRefs,
 } from "../../../test/helpers/documentFixtures";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -115,7 +115,7 @@ test("buildDocumentSyncPlan signs document write headers with the current access
     await createSyncFixture();
   const plan = await buildDocumentSyncPlan({
     author,
-    authorizingContainerPaths: [projectionPathRecords(projection)],
+    authorizingContainerPathRefs: [projectionPathRefs(projection)],
     contentKeyBundle: createResponse.contentKeyBundle,
     documentKekTargets: createResponse.documentKekTargets,
     documentManifest: createResponse.accessManifest,
@@ -138,10 +138,7 @@ test("buildDocumentSyncPlan signs document write headers with the current access
     createResponse.contentKeyBundle.targetHash,
   );
   expect(
-    Reflect.get(
-      plan.request.authorizingContainerPaths?.[0]?.[0] ?? {},
-      "manifestHash",
-    ),
+    plan.request.authorizingContainerPathRefs?.[0]?.[0]?.manifestHash,
   ).toBe(projection.path[0]?.manifestHash);
   const update = plan.request.outgoingUpdates[0];
   if (!update) {
@@ -186,7 +183,7 @@ test("buildDocumentSyncPlan omits write-only fields for read-only syncs", async 
   expect(isDocumentSyncRequest(plan.request)).toBe(true);
   expect(plan.request.outgoingUpdates).toEqual([]);
   expect(plan.request.documentManifest).toBeUndefined();
-  expect(plan.request.authorizingContainerPaths).toBeUndefined();
+  expect(plan.request.authorizingContainerPathRefs).toBeUndefined();
   expect(plan.request.contentKeyBundle).toBeUndefined();
 });
 
@@ -196,7 +193,7 @@ test("buildDocumentSyncPlan rejects manifest bundles whose state does not derive
   await expect(
     buildDocumentSyncPlan({
       author,
-      authorizingContainerPaths: [projectionPathRecords(projection)],
+      authorizingContainerPathRefs: [projectionPathRefs(projection)],
       contentKeyBundle: createResponse.contentKeyBundle,
       documentKekTargets: createResponse.documentKekTargets,
       documentManifest: {
@@ -222,7 +219,7 @@ test("buildDocumentSyncPlan rejects malformed manifest event envelopes before ha
   await expect(
     buildDocumentSyncPlan({
       author,
-      authorizingContainerPaths: [projectionPathRecords(projection)],
+      authorizingContainerPathRefs: [projectionPathRefs(projection)],
       contentKeyBundle: createResponse.contentKeyBundle,
       documentKekTargets: createResponse.documentKekTargets,
       documentManifest: {
@@ -247,7 +244,7 @@ test("buildDocumentSyncPlan rejects deeply nested non-canonical manifest records
   await expect(
     buildDocumentSyncPlan({
       author,
-      authorizingContainerPaths: [projectionPathRecords(projection)],
+      authorizingContainerPathRefs: [projectionPathRefs(projection)],
       contentKeyBundle: createResponse.contentKeyBundle,
       documentKekTargets: createResponse.documentKekTargets,
       documentManifest: {
@@ -276,7 +273,7 @@ test("buildDocumentSyncPlan rejects duplicate content record domains before sign
   await expect(
     buildDocumentSyncPlan({
       author,
-      authorizingContainerPaths: [projectionPathRecords(projection)],
+      authorizingContainerPathRefs: [projectionPathRefs(projection)],
       contentKeyBundle: createResponse.contentKeyBundle,
       documentKekTargets: createResponse.documentKekTargets,
       documentManifest: createResponse.accessManifest,
@@ -1239,7 +1236,7 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
         submittedRequests.push(request);
 
         if (submittedRequests.length === 1) {
-          const message = `POST /documents/${documentId}/sync: 409 Conflict: authorizingContainerPaths[0][0] is stale`;
+          const message = `POST /documents/${documentId}/sync: 409 Conflict: authorizingContainerPathRefs[0][0] is stale`;
           return {
             message,
             ok: false,
@@ -1284,9 +1281,6 @@ test("syncRemoteDocument replans once after a stale document sync conflict", asy
   expect(submittedRequests).toHaveLength(2);
   expect(reportedErrors).toEqual([]);
   expect(
-    Reflect.get(
-      submittedRequests[1]?.authorizingContainerPaths?.[0]?.[0] ?? {},
-      "manifestHash",
-    ),
+    submittedRequests[1]?.authorizingContainerPathRefs?.[0]?.[0]?.manifestHash,
   ).toBe(projection.path[0]?.manifestHash);
 });

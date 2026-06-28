@@ -121,9 +121,6 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
   expect(projectionRequestCount).toBe(2);
   expect(submittedRequests).toHaveLength(1);
   expect(
-    Reflect.get(
-      submittedRequests[0]?.authorizingContainerPaths?.[0]?.[0] ?? {},
-      "manifestHash",
-    ),
+    submittedRequests[0]?.authorizingContainerPathRefs?.[0]?.[0]?.manifestHash,
   ).toBe(projection.path[0]?.manifestHash);
 });

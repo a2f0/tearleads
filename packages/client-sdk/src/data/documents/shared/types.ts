@@ -8,6 +8,7 @@ import type {
   WriteHeader,
 } from "@tearleads/crypto";
 import type {
+  ContainerManifestRef,
   DocumentContentKeyTargetEnvelope,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
@@ -269,7 +270,7 @@ export interface DecryptedDocumentSyncUpdate {
 
 export interface BuildDocumentSyncPlanInput {
   author: DocumentCreateAuthor;
-  authorizingContainerPaths?: readonly (readonly Record<string, unknown>[])[];
+  authorizingContainerPathRefs?: readonly (readonly ContainerManifestRef[])[];
   contentKeyBundle: DocumentCreateResponse["contentKeyBundle"];
   documentId?: string | undefined;
   documentKekTargets: DocumentSyncResponse["documentKekTargets"];

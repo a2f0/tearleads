@@ -413,7 +413,7 @@ export function isRetryableDocumentSyncConflict(
     RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((message) =>
       failure.message.includes(message),
     ) ||
-    (failure.message.includes("authorizingContainerPaths") &&
+    (failure.message.includes("authorizingContainerPath") &&
       failure.message.includes("is stale")) ||
     (failure.message.includes("targetContainerPath") &&
       failure.message.includes("is stale"))
