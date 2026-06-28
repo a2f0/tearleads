@@ -6,7 +6,7 @@
   "scripts": {
     "build:client-sdk": "bun run --cwd ../client-sdk build",
     "pree2e": "bun run build:client-sdk",
-    "e2e": "playwright test",
+    "e2e": "env -u NO_COLOR -u FORCE_COLOR playwright test",
     "test:e2e": "bun run e2e",
     "predev": "bun run build:client-sdk",
     "dev": "bun --hot src/servers/devServer.ts",

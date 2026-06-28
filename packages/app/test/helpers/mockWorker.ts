@@ -11,9 +11,45 @@ import { handleRequest } from "@tearleads/sqlite-worker/worker-core";
 type TestDatabase = InstanceType<
   Awaited<ReturnType<typeof loadSqlite3>>["oo1"]["DB"]
 >;
+type TestSqlite3 = Awaited<ReturnType<typeof loadSqlite3>>;
+
+let sqlite3ForTestPromise: Promise<TestSqlite3> | null = null;
+
+async function loadSqlite3ForTest() {
+  if (sqlite3ForTestPromise) {
+    return sqlite3ForTestPromise;
+  }
+
+  const originalConsoleWarn = console.warn;
+  sqlite3ForTestPromise = (async () => {
+    console.warn = (...args: unknown[]) => {
+      const isExpectedMainThreadOpfsWarning =
+        args[0] === "Ignoring inability to install OPFS sqlite3_vfs:" &&
+        String(args[1]).includes(
+          "The OPFS sqlite3_vfs cannot run in the main thread",
+        );
+      if (isExpectedMainThreadOpfsWarning) {
+        return;
+      }
+
+      originalConsoleWarn(...args);
+    };
+
+    try {
+      return await loadSqlite3();
+    } finally {
+      console.warn = originalConsoleWarn;
+    }
+  })().catch((error: unknown) => {
+    sqlite3ForTestPromise = null;
+    throw error;
+  });
+
+  return sqlite3ForTestPromise;
+}
 
 async function initTestDatabase(): Promise<TestDatabase> {
-  const sqlite3 = await loadSqlite3();
+  const sqlite3 = await loadSqlite3ForTest();
 
   // App integration tests exercise worker protocol and SQL behavior, not
   // encrypted on-disk persistence, so an isolated in-memory database is enough.
@@ -38,29 +74,40 @@ export class MockWorker extends EventTarget {
 
   postMessage(message: WorkerRequest) {
     queueMicrotask(async () => {
-      const response = (await handleRequest(message, {
-        onInit: async (_options) => {
-          if (this.db) {
-            throw new Error("Database has already been initialized.");
-          }
+      let response: WorkerResponse;
+      try {
+        response = await handleRequest(message, {
+          onInit: async (_options) => {
+            if (this.db) {
+              throw new Error("Database has already been initialized.");
+            }
 
-          this.db = await initTestDatabase();
-        },
-        onExec: async (options) => {
-          if (!this.db) {
-            throw new Error("Database has not been initialized.");
-          }
+            this.db = await initTestDatabase();
+          },
+          onExec: async (options) => {
+            if (!this.db) {
+              throw new Error("Database has not been initialized.");
+            }
 
-          return execDatabaseStatement(this.db, options);
-        },
-        // Mirror the real worker's graceful close so the runtime's close→terminate
-        // teardown path is exercised in app tests too. The in-memory test db has no
-        // OPFS handles to release; closing it is the meaningful part.
-        onClose: () => {
-          this.db?.close();
-          this.db = null;
-        },
-      })) satisfies WorkerResponse;
+            return execDatabaseStatement(this.db, options);
+          },
+          // Mirror the real worker's graceful close so the runtime's close→terminate
+          // teardown path is exercised in app tests too. The in-memory test db has no
+          // OPFS handles to release; closing it is the meaningful part.
+          onClose: () => {
+            this.db?.close();
+            this.db = null;
+          },
+        });
+      } catch (error) {
+        response = {
+          id: message.id,
+          result: {
+            ok: false,
+            message: error instanceof Error ? error.message : String(error),
+          },
+        };
+      }
 
       this.dispatchEvent(
         new MessageEvent<WorkerResponse>("message", {

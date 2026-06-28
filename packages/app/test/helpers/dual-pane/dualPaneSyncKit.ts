@@ -80,6 +80,8 @@ function isRetryableDocumentSyncStaleFailure(
     ) ||
       (responseBody.includes("authorizingContainerPaths") &&
         responseBody.includes("is stale")) ||
+      (responseBody.includes("authorizingContainerPathRefs") &&
+        responseBody.includes("is stale")) ||
       (responseBody.includes("targetContainerPath") &&
         responseBody.includes("is stale")))
   );

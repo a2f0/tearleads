@@ -63,6 +63,31 @@ async function waitFor(
   throw new Error(message);
 }
 
+function silenceExpectedTransientDiscoveryError(): () => void {
+  const originalConsoleError = console.error;
+  let expectedErrorCount = 0;
+
+  console.error = (...args: unknown[]) => {
+    const isExpectedDiscoveryFailure =
+      args[0] === "Device-first reconciliation failed:" &&
+      args.some(
+        (arg) =>
+          arg instanceof Error && arg.message === "transient discovery failure",
+      );
+    if (isExpectedDiscoveryFailure) {
+      expectedErrorCount += 1;
+      return;
+    }
+
+    originalConsoleError(...args);
+  };
+
+  return () => {
+    console.error = originalConsoleError;
+    expect(expectedErrorCount).toBe(1);
+  };
+}
+
 test("reconcile queue serves active priority before idle", () => {
   const queue = createReconcileQueue();
   queue.enqueue("idle-1", "idle");
@@ -166,34 +191,40 @@ test("service applies the reconciled delta for each container", async () => {
 });
 
 test("service retries a container after a failed reconciliation", async () => {
+  const restoreConsoleError = silenceExpectedTransientDiscoveryError();
   const attempts: string[] = [];
   let failNext = true;
-  const host = createHost({
-    knownContainerIds: ["c-1"],
-    discoverContainerDocuments: async (containerId) => {
-      attempts.push(containerId);
-      if (failNext) {
-        failNext = false;
-        throw new Error("transient discovery failure");
-      }
-    },
-  });
-  const service = createReconciliationService(host);
-  service.start();
 
-  // First attempt fails; the container must not be permanently marked
-  // discovered, so a fresh enqueue retries it.
-  service.enqueueContainer("c-1", "active");
-  await waitFor(
-    () => attempts.length === 1,
-    "Expected the first (failing) attempt",
-  );
+  try {
+    const host = createHost({
+      knownContainerIds: ["c-1"],
+      discoverContainerDocuments: async (containerId) => {
+        attempts.push(containerId);
+        if (failNext) {
+          failNext = false;
+          throw new Error("transient discovery failure");
+        }
+      },
+    });
+    const service = createReconciliationService(host);
+    service.start();
 
-  service.enqueueContainer("c-1", "active");
-  await waitFor(
-    () => attempts.length === 2,
-    "Expected a retry after the failed reconciliation",
-  );
+    // First attempt fails; the container must not be permanently marked
+    // discovered, so a fresh enqueue retries it.
+    service.enqueueContainer("c-1", "active");
+    await waitFor(
+      () => attempts.length === 1,
+      "Expected the first (failing) attempt",
+    );
+
+    service.enqueueContainer("c-1", "active");
+    await waitFor(
+      () => attempts.length === 2,
+      "Expected a retry after the failed reconciliation",
+    );
+  } finally {
+    restoreConsoleError();
+  }
 });
 
 test("service force-reconciles a discovered container", async () => {

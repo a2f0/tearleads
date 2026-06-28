@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-  execDatabaseStatement,
-  initDatabase,
-} from "@tearleads/sqlite-worker/load-sqlite3";
+import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
+import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { eq, sql } from "drizzle-orm";
 import { ensureDocumentTables } from "./documentPersistence";
 import { documents } from "./schema";
@@ -16,7 +14,7 @@ async function createTestRuntime(key: string): Promise<{
   close: () => void;
   runtime: ClientSQLitePersistenceRuntime;
 }> {
-  const db = await initDatabase({
+  const db = await initTestSqliteDatabase({
     dbName: `/${crypto.randomUUID()}.db`,
     cipher: "chacha20",
     key,

@@ -21,6 +21,8 @@ test("isDestroyedDatabaseClientError follows wrapped error causes", () => {
       }),
     ),
   ).toBe(true);
+  const unavailable = new Error("Database client is unavailable.");
+  expect(isDestroyedDatabaseClientError(unavailable)).toBe(true);
 });
 
 test("waitForDomainSyncCoordinatorToSettle waits for running lanes", async () => {
