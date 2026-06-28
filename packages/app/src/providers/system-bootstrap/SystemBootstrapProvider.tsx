@@ -381,6 +381,13 @@ function useSystemBootstrapController(input: {
         applyState({ status: "running" });
         const bootstrapPromise = runSystemBootstrap(nextInput)
           .then((completed): SystemBootstrapResult => {
+            // A newer input superseded this run while it was in flight (a
+            // convergence re-key, or the controller was disabled). Let the
+            // effect that changed it drive the next transition rather than
+            // clobbering state — including the disabled "idle" reset — here.
+            if (latestInputRef.current !== nextInput) {
+              return { completed: false, skipped: true };
+            }
             if (completed) {
               completedTargetKeyRef.current = nextInput.targetKey;
               applyState({ hasCompleted: true, status: "ready" });
@@ -403,6 +410,9 @@ function useSystemBootstrapController(input: {
             return { completed: false };
           })
           .catch((error: unknown): SystemBootstrapResult => {
+            if (latestInputRef.current !== nextInput) {
+              return { completed: false, error };
+            }
             input.logError("Failed to bootstrap system containers", error);
             applyState({ error, status: "error" });
             return { completed: false, error };
