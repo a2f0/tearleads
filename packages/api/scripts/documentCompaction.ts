@@ -6,7 +6,7 @@
 //   [--limit <n>]
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
 import { runDocumentCompaction } from "../src/services/documents/documentCompaction";
-import { defaultApiServiceRuntime } from "../src/services/runtime";
+import { getDefaultApiServiceRuntime } from "../src/services/runtime";
 
 function readNumericFlag(
   args: readonly string[],
@@ -24,7 +24,7 @@ const args = process.argv.slice(2);
 const limit = readNumericFlag(args, "--limit");
 
 try {
-  const summary = await runDocumentCompaction(defaultApiServiceRuntime, {
+  const summary = await runDocumentCompaction(getDefaultApiServiceRuntime(), {
     ...(limit !== undefined ? { limit } : {}),
   });
   console.log(JSON.stringify(summary, null, 2));

@@ -5,7 +5,7 @@
 //   [--grace-ms <n>] [--limit <n>]
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
 import { runBlobMaintenance } from "../src/services/blobs/blobMaintenance";
-import { defaultApiServiceRuntime } from "../src/services/runtime";
+import { getDefaultApiServiceRuntime } from "../src/services/runtime";
 
 function readNumericFlag(
   args: readonly string[],
@@ -24,7 +24,7 @@ const gracePeriodMs = readNumericFlag(args, "--grace-ms");
 const limit = readNumericFlag(args, "--limit");
 
 try {
-  const summary = await runBlobMaintenance(defaultApiServiceRuntime, {
+  const summary = await runBlobMaintenance(getDefaultApiServiceRuntime(), {
     dereferencedBlobs: {
       ...(gracePeriodMs !== undefined ? { gracePeriodMs } : {}),
       ...(limit !== undefined ? { limit } : {}),

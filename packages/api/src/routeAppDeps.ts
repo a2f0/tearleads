@@ -9,7 +9,7 @@ import {
 } from "./middleware/session";
 import {
   type ApiServiceRuntime,
-  defaultApiServiceRuntime,
+  getDefaultApiServiceRuntime,
 } from "./services/runtime";
 
 // Test seam
@@ -30,12 +30,14 @@ type ResolvedRouteAppDeps = Required<
   readonly requirePaidAccount: MiddlewareHandler<SessionEnv>;
 };
 
+// `runtime` is intentionally omitted: resolveRouteAppDeps falls back to the
+// lazily-built default, so neither importing this module nor reading these
+// overrides constructs the blob object store until the app is assembled.
 export const productionRouteAppOverrides: RouteAppOverrides = {
   destroySession: defaultDestroySession,
   destroyUserSession: defaultDestroyUserSession,
   listUserSessions: defaultListUserSessions,
   requireAuth: defaultRequireAuth,
-  runtime: defaultApiServiceRuntime,
 };
 
 function composeRequirePaidAuth(
@@ -60,7 +62,7 @@ export function resolveRouteAppDeps({
   requirePaidAccount,
   runtime,
 }: RouteAppOverrides): ResolvedRouteAppDeps {
-  const runtimeBase = runtime ?? defaultApiServiceRuntime;
+  const runtimeBase = runtime ?? getDefaultApiServiceRuntime();
   const resolvedPublish = publish ?? runtimeBase.eventPublisher.publish;
   const resolvedRuntime =
     publish === undefined

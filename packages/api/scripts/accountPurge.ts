@@ -4,7 +4,7 @@
 // Usage: API_DATABASE=postgres bun packages/api/scripts/accountPurge.ts [--limit <n>]
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
 import { runAccountPurgeMaintenance } from "../src/services/accounts/purge";
-import { defaultApiServiceRuntime } from "../src/services/runtime";
+import { getDefaultApiServiceRuntime } from "../src/services/runtime";
 
 function readNumericFlag(
   args: readonly string[],
@@ -22,9 +22,12 @@ const args = process.argv.slice(2);
 const limit = readNumericFlag(args, "--limit");
 
 try {
-  const summary = await runAccountPurgeMaintenance(defaultApiServiceRuntime, {
-    ...(limit !== undefined ? { limit } : {}),
-  });
+  const summary = await runAccountPurgeMaintenance(
+    getDefaultApiServiceRuntime(),
+    {
+      ...(limit !== undefined ? { limit } : {}),
+    },
+  );
   console.log(JSON.stringify(summary, null, 2));
 } catch (error) {
   console.error("Account purge failed:", error);
