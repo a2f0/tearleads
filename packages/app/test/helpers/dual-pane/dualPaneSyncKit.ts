@@ -78,7 +78,7 @@ function isRetryableDocumentSyncStaleFailure(
     (RETRYABLE_DOCUMENT_SYNC_CONFLICT_MESSAGES.some((message) =>
       responseBody.includes(message),
     ) ||
-      (responseBody.includes("authorizingContainerPaths") &&
+      (responseBody.includes("authorizingContainerPath") &&
         responseBody.includes("is stale")) ||
       (responseBody.includes("targetContainerPath") &&
         responseBody.includes("is stale")))
