@@ -181,9 +181,13 @@
       "lines": 979,
       "bytes": 30751
     },
+    "packages/client-sdk/src/client/localKeyring.test.ts": {
+      "lines": 512,
+      "bytes": 17270
+    },
     "packages/client-sdk/src/client/localKeyring.ts": {
-      "lines": 1246,
-      "bytes": 37406
+      "lines": 1381,
+      "bytes": 42935
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,

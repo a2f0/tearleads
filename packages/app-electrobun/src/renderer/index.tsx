@@ -1,17 +1,8 @@
+import { createWebViewLocalKeyring } from "@tearleads/client-sdk";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
-import {
-  APP_HOST_PROFILES,
-  type AppHostProfile,
-  createAppHostConfig,
-} from "app/host/AppHostConfig";
+import { APP_HOST_PROFILES, createAppHostConfig } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
-
-declare global {
-  interface Window {
-    readonly __TEARLEADS_ELECTROBUN_DEV__?: boolean;
-  }
-}
 
 function createElectrobunSQLiteRuntime() {
   const workerUrl =
@@ -27,34 +18,21 @@ function createElectrobunSQLiteRuntime() {
   });
 }
 
-function withManualIdentity(profile: AppHostProfile): AppHostProfile {
-  return {
-    ...profile,
-    features: {
-      ...profile.features,
-      autoGenerateIdentity: false,
-      autoRegisterIdentity: false,
-    },
-  };
-}
-
 const elem = document.getElementById("root");
 if (!elem) {
   throw new Error("Root element not found");
 }
 
-const profile =
-  window.__TEARLEADS_ELECTROBUN_DEV__ === true
-    ? // Boot-time identity autopilot currently trips a native Electrobun/Bun
-      // segfault in dev. Keep the shell usable while that crash path is isolated.
-      withManualIdentity(APP_HOST_PROFILES.app)
-    : APP_HOST_PROFILES.app;
-
 renderApp(createRoot(elem), {
   hostConfig: createAppHostConfig({
     apiBaseUrl: "http://localhost:3001",
+    // WKWebView cannot structured-clone a non-extractable CryptoKey into
+    // IndexedDB (the default browser keyring) without keychain access, which an
+    // unsigned dev app lacks; use the raw-bytes WebView keyring so keyring init
+    // (SQLite cipher key, identity persistence, crypto session) works on boot.
+    createLocalKeyring: () => createWebViewLocalKeyring(),
     createSQLiteRuntime: createElectrobunSQLiteRuntime,
-    profile,
+    profile: APP_HOST_PROFILES.app,
     wsUrl: "ws://localhost:3001",
   }),
 });

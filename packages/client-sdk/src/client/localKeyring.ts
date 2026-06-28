@@ -113,9 +113,27 @@ export interface LocalStorageLocalKeyringManifestStoreOptions {
   readonly storage?: LocalKeyringManifestStorage | undefined;
 }
 
+/**
+ * How the AES-GCM wrapping key is stored in IndexedDB.
+ *
+ * - `"crypto-key"` (default): persist the live, non-extractable {@link CryptoKey}
+ *   object via structured clone. The key material can never be read back out of
+ *   IndexedDB, only used — the strongest option, and what browsers support.
+ * - `"raw-bytes"`: persist the exported raw key bytes and re-import them on read.
+ *   The key is therefore extractable and readable by anything with IndexedDB
+ *   access, so this is strictly weaker. It exists for WKWebView-based shells
+ *   (Electrobun/Capacitor) where structured-cloning a CryptoKey requires writing
+ *   a "WebCrypto master key" to the macOS keychain — which fails with
+ *   `errSecInteractionNotAllowed` (-25308) in an unsigned app and throws
+ *   `DataCloneError`, taking down keyring init (and, on some WebKit builds,
+ *   crashing the WebContent process).
+ */
+export type WrappingKeyMaterialStorage = "crypto-key" | "raw-bytes";
+
 export interface IndexedDbWrappingKeyKeystoreOptions {
   readonly databaseName?: string | undefined;
   readonly indexedDB?: IDBFactory | undefined;
+  readonly keyMaterialStorage?: WrappingKeyMaterialStorage | undefined;
   readonly objectStoreName?: string | undefined;
   readonly provider?: string | undefined;
 }
@@ -123,6 +141,7 @@ export interface IndexedDbWrappingKeyKeystoreOptions {
 export interface BrowserLocalKeyringOptions {
   readonly databaseName?: string | undefined;
   readonly indexedDB?: IDBFactory | undefined;
+  readonly keyMaterialStorage?: WrappingKeyMaterialStorage | undefined;
   readonly manifestStorage?: LocalKeyringManifestStorage | undefined;
   readonly manifestStoragePrefix?: string | undefined;
   readonly objectStoreName?: string | undefined;
@@ -132,6 +151,9 @@ export interface BrowserLocalKeyringOptions {
 
 const TEXT_ENCODER = new TextEncoder();
 const LOCAL_ROOT_KEY_BYTES = 32;
+const WRAPPING_KEY_BYTES = 32;
+const DEFAULT_WRAPPING_KEY_MATERIAL_STORAGE: WrappingKeyMaterialStorage =
+  "crypto-key";
 const AES_GCM_IV_BYTES = 12;
 const AES_GCM_WRAPPING_ALGORITHM = "aes-256-gcm";
 const BROWSER_INDEXED_DB_PROVIDER = "browser-indexeddb";
@@ -548,8 +570,13 @@ class LocalStorageLocalKeyringManifestStore
 
 interface IndexedDbWrappingKeyRecord {
   readonly createdAt: string;
-  readonly key: CryptoKey;
+  // Exactly one of `key` / `keyMaterial` is set, per the keystore's
+  // keyMaterialStorage mode. `key` holds a live non-extractable CryptoKey;
+  // `keyMaterial` holds exported raw AES-GCM bytes for WebView shells that
+  // cannot structured-clone a CryptoKey (see WrappingKeyMaterialStorage).
+  readonly key?: CryptoKey;
   readonly keyId: string;
+  readonly keyMaterial?: Uint8Array;
   readonly provider: string;
 }
 
@@ -635,8 +662,46 @@ function assertAesGcmWrappingCryptoKey(key: CryptoKey): void {
   }
 }
 
+function readWrappingKeyMaterial(value: unknown): Uint8Array {
+  const bytes =
+    value instanceof Uint8Array
+      ? value
+      : value instanceof ArrayBuffer
+        ? new Uint8Array(value)
+        : null;
+  if (!bytes || bytes.byteLength !== WRAPPING_KEY_BYTES) {
+    throw new Error(
+      "IndexedDB wrapping key material must be 32 raw AES-256 bytes.",
+    );
+  }
+  return bytes;
+}
+
+// Re-import the persisted raw bytes as a non-extractable runtime key: the bytes
+// at rest are extractable (that is the cost of the "raw-bytes" mode), but the
+// in-memory CryptoKey handed to encrypt/decrypt stays non-extractable. The
+// temporary copy is wiped once WebCrypto has imported it so the raw key material
+// does not linger in memory.
+async function importRawWrappingKey(
+  keyMaterial: Uint8Array,
+): Promise<CryptoKey> {
+  const keyBytes = copyBytes(keyMaterial);
+  try {
+    return await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { length: 256, name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"],
+    );
+  } finally {
+    keyBytes.fill(0);
+  }
+}
+
 function readIndexedDbWrappingKeyRecord(input: {
   readonly keyId: string;
+  readonly keyMaterialStorage: WrappingKeyMaterialStorage;
   readonly provider: string;
   readonly value: unknown;
 }): IndexedDbWrappingKeyRecord {
@@ -650,6 +715,14 @@ function readIndexedDbWrappingKeyRecord(input: {
     throw new Error("IndexedDB wrapping key provider does not match.");
   }
   const createdAt = readString(record, "createdAt");
+  if (input.keyMaterialStorage === "raw-bytes") {
+    return {
+      createdAt,
+      keyId,
+      keyMaterial: readWrappingKeyMaterial(record.get("keyMaterial")),
+      provider,
+    };
+  }
   const key = record.get("key");
   if (!isCryptoKey(key)) {
     throw new Error("IndexedDB wrapping key record is missing its CryptoKey.");
@@ -671,12 +744,15 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
   readonly provider: string;
   private readonly databaseName: string;
   private readonly indexedDB: IDBFactory;
+  private readonly keyMaterialStorage: WrappingKeyMaterialStorage;
   private readonly objectStoreName: string;
   private databasePromise: Promise<IDBDatabase> | null = null;
 
   constructor(options: IndexedDbWrappingKeyKeystoreOptions | undefined) {
     this.databaseName = options?.databaseName ?? BROWSER_KEYRING_DATABASE_NAME;
     this.indexedDB = options?.indexedDB ?? getDefaultIndexedDbFactory();
+    this.keyMaterialStorage =
+      options?.keyMaterialStorage ?? DEFAULT_WRAPPING_KEY_MATERIAL_STORAGE;
     this.objectStoreName =
       options?.objectStoreName ?? BROWSER_WRAPPING_KEYS_STORE_NAME;
     this.provider = options?.provider ?? BROWSER_INDEXED_DB_PROVIDER;
@@ -699,20 +775,14 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
       return { keyId, provider: this.provider };
     }
 
-    const key = await crypto.subtle.generateKey(
-      { length: 256, name: "AES-GCM" },
-      false,
-      ["encrypt", "decrypt"],
-    );
-    assertAesGcmWrappingCryptoKey(key);
-
+    const record: IndexedDbWrappingKeyRecord = {
+      createdAt: new Date().toISOString(),
+      keyId,
+      provider: this.provider,
+      ...(await this.createWrappingKeyMaterial()),
+    };
     try {
-      await this.addStoredKey({
-        createdAt: new Date().toISOString(),
-        key,
-        keyId,
-        provider: this.provider,
-      });
+      await this.addStoredKey(record);
     } catch (error) {
       if (!hasErrorName(error, "ConstraintError")) {
         throw error;
@@ -721,6 +791,10 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
       if (!racedKey) {
         throw error;
       }
+    } finally {
+      // IndexedDB serializes the value when add() is called, so the freshly
+      // generated raw key bytes can be wiped from memory once the write settles.
+      record.keyMaterial?.fill(0);
     }
 
     return { keyId, provider: this.provider };
@@ -807,6 +881,34 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
     };
   }
 
+  // Mints fresh wrapping-key material in whichever shape this keystore persists:
+  // a live non-extractable CryptoKey ("crypto-key"), or exported raw AES-256
+  // bytes ("raw-bytes") for WebView shells that cannot structured-clone a
+  // CryptoKey into IndexedDB.
+  private async createWrappingKeyMaterial(): Promise<
+    Pick<IndexedDbWrappingKeyRecord, "key" | "keyMaterial">
+  > {
+    if (this.keyMaterialStorage === "raw-bytes") {
+      const key = await crypto.subtle.generateKey(
+        { length: 256, name: "AES-GCM" },
+        true,
+        ["encrypt", "decrypt"],
+      );
+      const keyMaterial = new Uint8Array(
+        await crypto.subtle.exportKey("raw", key),
+      );
+      return { keyMaterial: readWrappingKeyMaterial(keyMaterial) };
+    }
+
+    const key = await crypto.subtle.generateKey(
+      { length: 256, name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"],
+    );
+    assertAesGcmWrappingCryptoKey(key);
+    return { key };
+  }
+
   private addStoredKey(
     record: IndexedDbWrappingKeyRecord,
   ): Promise<IDBValidKey> {
@@ -823,11 +925,23 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
       return null;
     }
 
-    return readIndexedDbWrappingKeyRecord({
+    const parsed = readIndexedDbWrappingKeyRecord({
       keyId,
+      keyMaterialStorage: this.keyMaterialStorage,
       provider: this.provider,
       value: record,
-    }).key;
+    });
+    if (parsed.key) {
+      return parsed.key;
+    }
+
+    // Wipe the raw bytes read out of IndexedDB once they have been imported.
+    const keyMaterial = readWrappingKeyMaterial(parsed.keyMaterial);
+    try {
+      return await importRawWrappingKey(keyMaterial);
+    } finally {
+      keyMaterial.fill(0);
+    }
   }
 
   private async openDatabase(): Promise<IDBDatabase> {
@@ -1204,6 +1318,7 @@ export function createBrowserLocalKeyring(
     keystore: createIndexedDbWrappingKeyKeystore({
       databaseName: options.databaseName,
       indexedDB: options.indexedDB,
+      keyMaterialStorage: options.keyMaterialStorage,
       objectStoreName: options.objectStoreName,
       provider: options.provider,
     }),
@@ -1212,6 +1327,26 @@ export function createBrowserLocalKeyring(
       storage: options.manifestStorage,
     }),
     now: options.now,
+  });
+}
+
+/**
+ * Browser local keyring tuned for WKWebView-based desktop/mobile shells
+ * (Electrobun, Capacitor). Identical to {@link createBrowserLocalKeyring} except
+ * the IndexedDB wrapping key is persisted as raw exported bytes instead of a live
+ * CryptoKey object. WKWebView serializes a CryptoKey by writing a "WebCrypto
+ * master key" to the macOS keychain, which fails with `errSecInteractionNotAllowed`
+ * (-25308) in an unsigned app and aborts the IndexedDB write (and can crash the
+ * WebContent process). Persisting raw bytes avoids the keychain entirely, at the
+ * cost of an extractable wrapping key at rest — acceptable for a local shell whose
+ * IndexedDB is already only reachable by the signed-in OS user.
+ */
+export function createWebViewLocalKeyring(
+  options: BrowserLocalKeyringOptions = {},
+): LocalKeyring {
+  return createBrowserLocalKeyring({
+    ...options,
+    keyMaterialStorage: options.keyMaterialStorage ?? "raw-bytes",
   });
 }
 

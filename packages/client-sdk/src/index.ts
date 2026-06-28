@@ -123,6 +123,7 @@ export type {
   WrappedLocalSecretFormat,
   WrappingKeyHandle,
   WrappingKeyKeystore,
+  WrappingKeyMaterialStorage,
 } from "./client";
 export {
   type BlobStoreFactory,
@@ -138,6 +139,7 @@ export {
   createMemoryWrappingKeyKeystore,
   createPinCodeBrowserLocalKeyring,
   createPinCodeWrappingKeyKeystore,
+  createWebViewLocalKeyring,
   Database,
   DEFAULT_DOCUMENT_ID,
   decodeLocalKeyringSqliteKey,
