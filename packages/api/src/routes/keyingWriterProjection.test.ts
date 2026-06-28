@@ -42,6 +42,7 @@ import {
 } from "@tearleads/loro";
 import type {
   AccessManifestBundleWire,
+  ContainerManifestRef,
   ContainerMutationRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
@@ -358,8 +359,13 @@ async function createSignedDocumentSyncRequest(input: {
       expectedLinkSetManifestHash:
         input.created.contentKeyBundle.linkSetManifestHash,
       expectedTargetHash: input.created.contentKeyBundle.targetHash,
-      authorizingContainerPaths: [
-        [input.root.bundle as unknown as Record<string, unknown>],
+      authorizingContainerPathRefs: [
+        [
+          {
+            containerId: input.root.kekState.containerId,
+            manifestHash: input.root.bundle.manifestHash,
+          },
+        ],
       ],
       localVersionVector: null,
       outgoingUpdates: [
@@ -1216,6 +1222,130 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
     isValid: true,
     updateEventCount: 1,
   });
+});
+
+function rootAuthorizingPathRef(root: StoredRootFixture): ContainerManifestRef {
+  return {
+    containerId: root.kekState.containerId,
+    manifestHash: root.bundle.manifestHash,
+  };
+}
+
+async function postDocumentSync(
+  documentId: string,
+  owner: TestUser,
+  request: DocumentSyncRequest,
+): Promise<Response> {
+  return routeApp.request(`/documents/${documentId}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+}
+
+test("POST /documents/:documentId/sync rejects an unknown authorizing path ref with 404", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  const response = await postDocumentSync(created.id, owner, {
+    ...request,
+    authorizingContainerPathRefs: [
+      [
+        {
+          containerId: root.kekState.containerId,
+          manifestHash: "f".repeat(64),
+        },
+      ],
+    ],
+  });
+  expect(response.status).toBe(404);
+});
+
+test("POST /documents/:documentId/sync rejects an authorizing path ref whose containerId does not match the resolved manifest with 400", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+
+  // A real, current manifestHash for the root, but a foreign containerId. The
+  // server keys the head lookup off the resolved manifest's own containerId and
+  // must reject the mismatch rather than authorize against the wrong container.
+  const response = await postDocumentSync(created.id, owner, {
+    ...request,
+    authorizingContainerPathRefs: [
+      [
+        {
+          containerId: crypto.randomUUID(),
+          manifestHash: root.bundle.manifestHash,
+        },
+      ],
+    ],
+  });
+  expect(response.status).toBe(400);
+});
+
+test("POST /documents/:documentId/sync rejects a stale authorizing path ref after the container head advances with 409", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+
+  // Advance the root container's head past root.bundle.manifestHash. The old
+  // manifest stays stored (resolvable by hash) but is no longer the head, so a
+  // ref to it must be rejected as stale — without this pin a writer could replay
+  // a manifest from an epoch where they held since-revoked access.
+  const rootRekey = await buildRootContainerRekeyMutation({
+    previous: root,
+    signer: owner,
+  });
+  const rekeyDocument = await createDocumentRequest({
+    owner,
+    root: {
+      bundle: rootRekey.bundle,
+      kekState: rootRekey.kekState,
+      principalPolicies: root.principalPolicies,
+    },
+  });
+  rekeyDocument.containerRekeys = [rootRekey.request];
+  const rekeyResponse = await routeApp.request("/documents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(rekeyDocument),
+  });
+  expect(rekeyResponse.status).toBe(200);
+
+  const { request } = await createSignedDocumentSyncRequest({
+    created,
+    owner,
+    root,
+  });
+  // The request's refs point at the now-stale pre-rekey root manifest hash.
+  const response = await postDocumentSync(created.id, owner, {
+    ...request,
+    authorizingContainerPathRefs: [[rootAuthorizingPathRef(root)]],
+  });
+  expect(response.status).toBe(409);
 });
 
 test("POST /documents/:documentId/sync returns content-key bundles for historical updates", async () => {

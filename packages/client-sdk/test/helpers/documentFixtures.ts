@@ -23,7 +23,7 @@ export {
   createSyncFixture,
   createSyncResponse,
   getOnlyTarget,
-  projectionPathRecords,
+  projectionPathRefs,
 } from "./documentResponseFixtures";
 
 interface DeepNonCanonicalRecord {

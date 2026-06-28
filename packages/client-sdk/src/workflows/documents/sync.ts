@@ -8,8 +8,8 @@ import {
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type {
+  ContainerManifestRef,
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
@@ -31,7 +31,7 @@ import {
 } from "../../data/documents/shared/crypto";
 import {
   assertDocumentWriterProjectionConsistent,
-  authorizingContainerPathRecords,
+  authorizingContainerPathRefs,
   collectContainerKeksForDocumentSync,
   unwrapDocumentContentKeyFromBundle,
   unwrapDocumentContentKeyFromWriterProjection,
@@ -263,7 +263,7 @@ export async function buildMaterializedDocumentSyncPlan(
       ...input.author,
       organizationId: manifestIdentity.organizationId,
     },
-    authorizingContainerPaths: authorizingContainerPathRecords(
+    authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.writerProjection,
     ),
     contentKeyBundle: input.writerProjection.contentKeyBundle,
@@ -754,27 +754,20 @@ async function resolveDocumentSyncIdentity(
   };
 }
 
-function normalizeAuthorizingContainerPaths(
-  paths: readonly (readonly Record<string, unknown>[])[] | undefined,
-): Record<string, unknown>[][] {
-  if (!paths || paths.length === 0) {
-    throw new Error("Document sync write authorization paths are missing");
+function normalizeAuthorizingContainerPathRefs(
+  refs: readonly (readonly ContainerManifestRef[])[] | undefined,
+): ContainerManifestRef[][] {
+  if (!refs || refs.length === 0) {
+    throw new Error("Document sync write authorization path refs are missing");
   }
 
-  return paths.map((path, pathIndex) => {
+  return refs.map((path, pathIndex) => {
     if (path.length === 0) {
       throw new Error(
         `Document sync write authorization path[${pathIndex}] is empty`,
       );
     }
-    return path.map((bundle, bundleIndex) => {
-      if (!isPlainRecord(bundle)) {
-        throw new Error(
-          `Document sync write authorization path[${pathIndex}][${bundleIndex}] is invalid`,
-        );
-      }
-      return bundle;
-    });
+    return [...path];
   });
 }
 
@@ -942,8 +935,8 @@ export async function buildDocumentSyncPlan(
           documentManifest: manifestBundleForSyncRequest(
             input.documentManifest,
           ),
-          authorizingContainerPaths: normalizeAuthorizingContainerPaths(
-            input.authorizingContainerPaths,
+          authorizingContainerPathRefs: normalizeAuthorizingContainerPathRefs(
+            input.authorizingContainerPathRefs,
           ),
         }),
     expectedLinkSetManifestHash,

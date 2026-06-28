@@ -12,6 +12,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type {
+  ContainerManifestRef,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
 } from "@tearleads/validators/request";
@@ -358,12 +359,15 @@ export function createPendingUpdateRecord(
   };
 }
 
-export function projectionPathRecords(
+export function projectionPathRefs(
   projection: ContainerWriterProjectionResponse,
-): Record<string, unknown>[] {
-  return projection.path.map(
-    (bundle) => bundle as unknown as Record<string, unknown>,
-  );
+): ContainerManifestRef[] {
+  return projection.path.map((bundle) => ({
+    containerId: String(
+      (bundle.state as { containerId?: unknown }).containerId,
+    ),
+    manifestHash: bundle.manifestHash,
+  }));
 }
 
 export async function createSyncResponse(

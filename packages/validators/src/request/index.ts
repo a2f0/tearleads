@@ -32,12 +32,14 @@ export {
   isContainerCreateWithMetadataDocumentRequest,
 } from "./containerMetadata";
 export {
+  type ContainerManifestRef,
   type DocumentContentKeyBundleRequest,
   type DocumentContentKeyTargetEnvelope,
   type DocumentCreateRequest,
   type DocumentLinkSetMutationRequest,
   type DocumentOutgoingUpdate,
   type DocumentSyncRequest,
+  isContainerManifestRefArrayArray,
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,

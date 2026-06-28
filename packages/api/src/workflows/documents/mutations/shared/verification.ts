@@ -17,12 +17,16 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import type {
+  ContainerManifestRef,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import { getCurrentAccessManifestHeads } from "../../../../access/read/accessManifestStore";
+import {
+  getAccessManifestBundles,
+  getCurrentAccessManifestHeads,
+} from "../../../../access/read/accessManifestStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
 import {
   readProjectionAccessEvent,
@@ -32,6 +36,10 @@ import {
   canonicalJsonEquals,
   readKeyingCanonicalJson,
 } from "../../../../utils/canonicalJson";
+import {
+  toManifestBundleResponse,
+  toVerifiedContainerManifest,
+} from "../../../containers/writerProjection/records";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
 import { DocumentMutationError, documentShapeError } from "../errors";
 import type { DocumentWriteAuthorizationProof } from "../types";
@@ -223,6 +231,92 @@ export async function assertCurrentContainerPathGroups(
   return verifiedGroups;
 }
 
+/**
+ * Resolve {containerId, manifestHash} reference groups to verified container
+ * access manifests using the server's OWN stored bundles (never client-supplied
+ * bytes), with the SAME current-head pin the full-bundle path enforces. Each
+ * stored bundle was verified when it was committed, and the head pin proves the
+ * referenced manifest is the container's current access state.
+ *
+ * Resolution is batched into one bundle fetch and one head fetch for the whole
+ * request rather than two roundtrips per reference.
+ */
+async function assertCurrentContainerPathRefGroups(
+  executor: DatabaseSession,
+  groups: readonly (readonly ContainerManifestRef[])[],
+  label: string,
+): Promise<VerifiedContainerAccessManifest[][]> {
+  const flatRefs = groups.flatMap((group, groupIndex) =>
+    group.map((ref, index) => ({
+      ref,
+      refLabel: `${label}[${groupIndex}][${index}]`,
+    })),
+  );
+
+  // Resolve every referenced manifest from the trusted store in one batch.
+  const storedBundles = await getAccessManifestBundles(
+    flatRefs.map(({ ref }) => ref.manifestHash),
+    executor,
+  );
+
+  const resolved = flatRefs.map(({ ref, refLabel }) => {
+    const stored = storedBundles.get(ref.manifestHash);
+    if (!stored || stored.manifest.objectKind !== "container") {
+      throw new DocumentMutationError(`${refLabel} head missing`, 404);
+    }
+
+    // Build the verified manifest from the trusted store via the same
+    // conversion the writer projection uses for stored bundles.
+    const manifest = toVerifiedContainerManifest(
+      toManifestBundleResponse(stored),
+    );
+
+    // The client-supplied containerId is advisory; the head lookup below is
+    // keyed off the resolved bundle's authoritative containerId. Reject a
+    // mismatch first so a confused reference cannot authorize against a
+    // different container.
+    if (ref.containerId !== manifest.state.containerId) {
+      throw new DocumentMutationError(
+        `${refLabel} container id does not match the referenced manifest`,
+        400,
+      );
+    }
+
+    return { manifest, refLabel };
+  });
+
+  // Freshness pin — identical in strength to the full-bundle path
+  // (assertCurrentContainerPath). Without it a writer could replay a
+  // stale-but-stored manifest hash from an epoch in which they held
+  // since-revoked access (privilege escalation). Batched into one head fetch.
+  const heads = await getCurrentAccessManifestHeads(
+    "container",
+    resolved.map(({ manifest }) => manifest.state.containerId),
+    executor,
+  );
+
+  const verifiedFlat = resolved.map(({ manifest, refLabel }) => {
+    const head = heads.get(manifest.state.containerId);
+    if (!head) {
+      throw new DocumentMutationError(`${refLabel} head missing`, 404);
+    }
+    if (head.manifestHash !== manifest.manifestHash) {
+      throw new DocumentMutationError(`${refLabel} is stale`, 409);
+    }
+    return manifest;
+  });
+
+  // Reshape the flat verified manifests back into the original group structure.
+  const verifiedGroups: VerifiedContainerAccessManifest[][] = [];
+  let cursor = 0;
+  for (const group of groups) {
+    verifiedGroups.push(verifiedFlat.slice(cursor, cursor + group.length));
+    cursor += group.length;
+  }
+
+  return verifiedGroups;
+}
+
 export async function verifyDocumentManifestFromRequest(input: {
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
@@ -346,7 +440,7 @@ export async function verifySyncWriteAuthorizationProof(input: {
       400,
     );
   }
-  if (!input.request.authorizingContainerPaths) {
+  if (!input.request.authorizingContainerPathRefs) {
     throw new DocumentMutationError(
       "Document write authorization paths are required",
       400,
@@ -367,10 +461,10 @@ export async function verifySyncWriteAuthorizationProof(input: {
     );
   }
 
-  const authorizingContainerPaths = await assertCurrentContainerPathGroups(
+  const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
     input.executor,
-    input.request.authorizingContainerPaths,
-    "authorizingContainerPaths",
+    input.request.authorizingContainerPathRefs,
+    "authorizingContainerPathRefs",
   );
   if (!authorizingContainerPaths || authorizingContainerPaths.length === 0) {
     throw new DocumentMutationError(
