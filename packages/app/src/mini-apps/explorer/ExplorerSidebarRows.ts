@@ -94,10 +94,13 @@ function getExplorerSidebarRootGroups(params: {
   const ownedEntries: ExplorerSidebarTreeEntry[] = [];
   const sharedEntries: ExplorerSidebarTreeEntry[] = [];
   for (const entry of entries) {
-    if (entry.node.organizationId === currentOrganizationId) {
-      ownedEntries.push(entry);
-    } else {
+    if (
+      entry.node.organizationId &&
+      entry.node.organizationId !== currentOrganizationId
+    ) {
       sharedEntries.push(entry);
+    } else {
+      ownedEntries.push(entry);
     }
   }
 

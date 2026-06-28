@@ -69,3 +69,36 @@ test("explorer sidebar groups containers shared from another organization", () =
     ),
   ).toEqual(["Zulu", EXPLORER_LABELS.sharedWithMeSection, "Alpha", "Beta"]);
 });
+
+test("explorer sidebar does not show shared section for bootstrap nodes without organization ids", () => {
+  const nodes: ContainerNode[] = [
+    {
+      id: "bootstrap-container",
+      kind: "container",
+      name: "Loading Root",
+      organizationId: "",
+      parentId: null,
+      syncState: syncedContainerDocumentObjectSyncState,
+    },
+  ];
+  const sections = buildExplorerSidebarSections({
+    collapsedIds: new Set(),
+    currentOrganizationId: "org-1",
+    documentWindowsByContainerId: new Map(
+      nodes.map((node) => [node.id, loadedEmptyWindow()]),
+    ),
+    entries: buildExplorerTree(nodes),
+  });
+  const rows = getExplorerSidebarRowsInRange({
+    collapsedIds: new Set(),
+    limit: 10,
+    offset: 0,
+    sections,
+  });
+
+  expect(rows.map((row) => row.kind)).toEqual(["container"]);
+  const firstRow = rows[0];
+  expect(firstRow?.kind === "container" ? firstRow.entry.node.name : null).toBe(
+    "Loading Root",
+  );
+});
