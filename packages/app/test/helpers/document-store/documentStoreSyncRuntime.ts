@@ -111,13 +111,14 @@ export async function documentWorkflowRuntimePatch(input: {
         if (request.stagedBlob && !stagedBlob) {
           return null;
         }
-        await input.onBindBlobAttachment?.(blobId, request);
         if (!storedDocument) {
           return null;
         }
+        const boundDocument = storedDocument;
+        await input.onBindBlobAttachment?.(blobId, request);
         const responseFixture = await createDocumentAttachmentBindResponse({
           blobId,
-          documentManifest: storedDocument.accessManifest,
+          documentManifest: boundDocument.accessManifest,
           request,
         });
         const response =
