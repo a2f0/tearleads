@@ -275,7 +275,6 @@ async function buildDocumentLinkSetMutationPlan({
       body: readCanonicalRecord(eventPlan.body, "Document link-set body"),
       expectedManifestHash: manifestHash,
       manifest: readCanonicalRecord(manifest, "Document link-set manifest"),
-      previousManifest: writerProjection.documentManifest,
       targetContainerPathRefs: containerPathRefs(
         targetContainerProjection.path,
       ),

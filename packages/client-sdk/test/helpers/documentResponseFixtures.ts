@@ -145,26 +145,14 @@ export async function createLinkSetResponseFromRequest(
   const manifest = request.manifest as Record<string, unknown>;
   const event = request.event as unknown as AccessEvent;
   const eventHash = await computeAccessEventHash(event);
-  const targetContainerId = String(Reflect.get(body, "containerId"));
-  const previousLinkedContainerIds = (
-    Reflect.get(request.previousManifest.state, "linkedContainerIds") as
-      | unknown[]
-      | undefined
-  )
-    ?.filter(
-      (containerId): containerId is string => typeof containerId === "string",
-    )
-    .sort();
-  if (!previousLinkedContainerIds) {
-    throw new Error("Expected previous linked container ids");
-  }
-
-  const linkedContainerIds =
-    Reflect.get(body, "eventType") === "document.link"
-      ? [...new Set([...previousLinkedContainerIds, targetContainerId])].sort()
-      : previousLinkedContainerIds.filter(
-          (containerId) => containerId !== targetContainerId,
-        );
+  // The server no longer receives the previous manifest bundle; the new
+  // link-set is exactly the content-key target set, and the prior head hash is
+  // carried by the signed event.
+  const linkedContainerIds = [
+    ...new Set(
+      request.contentKeyBundle.targets.map((target) => target.containerId),
+    ),
+  ].sort();
   const targets = request.contentKeyBundle.targets.map((target) => ({
     containerId: target.containerId,
     containerManifestHash: target.containerManifestHash,
@@ -187,7 +175,9 @@ export async function createLinkSetResponseFromRequest(
         documentId,
         organizationId: String(Reflect.get(manifest, "organizationId")),
         epoch: Number(Reflect.get(manifest, "epoch")),
-        previousManifestHash: request.previousManifest.manifestHash,
+        previousManifestHash: String(
+          Reflect.get(request.event, "previousManifestHash"),
+        ),
         eventHash,
         linkedContainerIds,
       },

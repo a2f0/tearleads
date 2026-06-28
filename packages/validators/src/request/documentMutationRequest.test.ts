@@ -30,16 +30,6 @@ function createBlobContentKeyBundle(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createBlobManifestBundle(overrides: Record<string, unknown> = {}) {
-  return {
-    event: { eventId: "event-1" },
-    manifest: { version: 1 },
-    manifestHash: "document-link-set-hash",
-    state: { documentId: "document-1" },
-    ...overrides,
-  };
-}
-
 function createContainerMutationRequest(
   overrides: Record<string, unknown> = {},
 ) {
@@ -72,7 +62,6 @@ test("isBlobAttachmentBindRequest", () => {
   const validRequest = {
     event: { eventType: "attachment.bind" },
     body: { eventType: "attachment.bind" },
-    documentManifest: createBlobManifestBundle(),
     authorizingContainerPathRefs: [
       [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
     ],
@@ -110,7 +99,6 @@ test("isBlobAttachmentDetachRequest", () => {
   const validRequest = {
     event: { eventType: "attachment.detach" },
     body: { eventType: "attachment.detach" },
-    documentManifest: createBlobManifestBundle(),
     authorizingContainerPathRefs: [
       [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
     ],
@@ -231,12 +219,6 @@ test("isDocumentLinkSetMutationRequest", () => {
     body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
     expectedManifestHash: "manifest-hash",
     manifest: { objectType: "document", objectId: "doc-1" },
-    previousManifest: {
-      event: { eventId: "event-1" },
-      manifest: { version: 1 },
-      manifestHash: "previous-manifest-hash",
-      state: { documentId: "doc-1" },
-    },
     targetContainerPathRefs: [
       { containerId: "container-1", manifestHash: "container-manifest-hash" },
     ],
@@ -248,12 +230,6 @@ test("isDocumentLinkSetMutationRequest", () => {
   };
 
   expect(isDocumentLinkSetMutationRequest(validRequest)).toBe(true);
-  expect(
-    isDocumentLinkSetMutationRequest({
-      ...validRequest,
-      previousManifest: null,
-    }),
-  ).toBe(false);
   expect(
     isDocumentLinkSetMutationRequest({
       ...validRequest,

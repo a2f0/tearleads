@@ -591,7 +591,6 @@ async function buildDocumentLinkRequest(input: {
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    previousManifest: input.createdDocument.accessManifest,
     targetContainerPathRefs: [
       {
         containerId: input.root.kekState.containerId,

@@ -51,7 +51,6 @@ function blobAttachmentDetachRequest(input: {
   return {
     event: input.event,
     body: input.body,
-    documentManifest: input.writerProjection.documentManifest,
     authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.writerProjection,
     ),

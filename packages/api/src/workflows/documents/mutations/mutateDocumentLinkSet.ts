@@ -20,7 +20,7 @@ import {
   toStoredContentKeyBundleInput,
 } from "./shared/records";
 import {
-  assertDocumentManifestBundleConsistent,
+  loadCurrentDocumentManifest,
   verifyDocumentEvent,
   verifyDocumentLinkSetMutationManifestFromRequest,
 } from "./shared/verification";
@@ -56,13 +56,14 @@ async function mutateDocumentLinkSetWithExecutor(input: {
       requests: input.request.containerRekeys,
       userId: input.userId,
     });
-    const previousManifest = await assertDocumentManifestBundleConsistent(
-      input.request.previousManifest,
-      "previousManifest",
+    const previousManifest = await loadCurrentDocumentManifest(
+      input.documentId,
+      input.executor,
     );
     const manifest = await verifyDocumentLinkSetMutationManifestFromRequest({
       event,
       executor: input.executor,
+      previousManifest,
       request: input.request,
     });
 

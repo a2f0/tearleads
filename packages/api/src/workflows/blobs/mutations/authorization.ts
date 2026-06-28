@@ -1,5 +1,4 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { documents } from "@tearleads/api-shared/schema";
 import type {
   AccessEvent,
   VerifiedContainerAccessManifest,
@@ -10,12 +9,10 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
-import { getCurrentAccessManifestHead } from "../../../access/read/accessManifestStore";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   assertCurrentContainerPathRefGroups,
-  assertDocumentManifestBundleConsistent,
+  loadCurrentDocumentManifest,
 } from "../../documents/mutations";
 import { loadPrincipalPoliciesForContainerPaths } from "../../principals/principalPolicyProjection";
 import {
@@ -61,65 +58,19 @@ function assertAttachmentEventSession(input: {
   }
 }
 
-async function assertDocumentManifestCurrent(input: {
-  readonly documentId: string;
-  readonly executor: DatabaseTransaction;
-  readonly manifest: VerifiedDocumentLinkSetManifest;
-}): Promise<void> {
-  if (
-    input.manifest.state.documentId !== input.documentId ||
-    input.manifest.manifest.objectKind !== "document" ||
-    input.manifest.manifest.objectId !== input.documentId
-  ) {
-    throw new BlobMutationError(
-      "Attachment document manifest does not match body",
-      409,
-    );
-  }
-
-  const [document] = await input.executor
-    .select({ id: documents.id })
-    .from(documents)
-    .where(eq(documents.id, input.documentId))
-    .limit(1);
-  if (!document) {
-    throw new BlobMutationError("Document not found", 404);
-  }
-
-  const head = await getCurrentAccessManifestHead(
-    "document",
-    input.documentId,
-    input.executor,
-  );
-  if (!head) {
-    throw new BlobMutationError("Document link-set manifest head missing", 404);
-  }
-  if (head.manifestHash !== input.manifest.manifestHash) {
-    throw new BlobMutationError("Document link-set manifest is stale", 409);
-  }
-}
-
 export async function verifyAttachmentAuthorizationProof(input: {
   readonly bodyDocumentId: string;
   readonly executor: DatabaseTransaction;
   readonly request: BlobAttachmentBindRequest | BlobAttachmentDetachRequest;
 }): Promise<AttachmentAuthorizationProof> {
   const [documentManifest, authorizingContainerPaths] = await Promise.all([
-    assertDocumentManifestBundleConsistent(
-      input.request.documentManifest,
-      "documentManifest",
-    ),
+    loadCurrentDocumentManifest(input.bodyDocumentId, input.executor),
     assertCurrentContainerPathRefGroups(
       input.executor,
       input.request.authorizingContainerPathRefs,
       "authorizingContainerPathRefs",
     ),
   ]);
-  await assertDocumentManifestCurrent({
-    documentId: input.bodyDocumentId,
-    executor: input.executor,
-    manifest: documentManifest,
-  });
 
   if (!authorizingContainerPaths || authorizingContainerPaths.length === 0) {
     throw new BlobMutationError(

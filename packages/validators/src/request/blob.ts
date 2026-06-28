@@ -1,11 +1,9 @@
 import { isPlainObject } from "../isPlainObject";
 import {
-  type AccessManifestBundleWire,
   hasArrayProperty,
   hasNumberProperty,
   hasPositiveIntegerProperty,
   hasStringProperty,
-  isAccessManifestBundleWire,
 } from "../util";
 import {
   type ContainerMutationRequest,
@@ -67,7 +65,9 @@ export interface BlobStagedBlobRequest {
 export interface BlobAttachmentBindRequest {
   event: Record<string, unknown>;
   body: unknown;
-  documentManifest: AccessManifestBundleWire;
+  // The attachment's document link-set manifest is the document's current head;
+  // the server resolves it from its own store (the signed write header pins
+  // freshness), so the writer no longer echoes the bundle back.
   authorizingContainerPathRefs: ContainerManifestRef[][];
   containerRekeys?: ContainerMutationRequest[];
   contentKeyBundle: BlobContentKeyBundleRequest;
@@ -77,7 +77,6 @@ export interface BlobAttachmentBindRequest {
 export interface BlobAttachmentDetachRequest {
   event: Record<string, unknown>;
   body: unknown;
-  documentManifest: AccessManifestBundleWire;
   authorizingContainerPathRefs: ContainerManifestRef[][];
   containerRekeys?: ContainerMutationRequest[];
 }
@@ -202,9 +201,6 @@ export function isBlobAttachmentBindRequest(
 ): value is BlobAttachmentBindRequest {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
-  const documentManifest = isPlainObject(value)
-    ? Reflect.get(value, "documentManifest")
-    : undefined;
   const authorizingContainerPathRefs = isPlainObject(value)
     ? Reflect.get(value, "authorizingContainerPathRefs")
     : undefined;
@@ -223,7 +219,6 @@ export function isBlobAttachmentBindRequest(
     isPlainObject(event) &&
     Reflect.has(value, "body") &&
     body !== undefined &&
-    isAccessManifestBundleWire(documentManifest) &&
     isContainerManifestRefArrayArray(authorizingContainerPathRefs) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
     isBlobContentKeyBundleRequest(contentKeyBundle) &&
@@ -236,9 +231,6 @@ export function isBlobAttachmentDetachRequest(
 ): value is BlobAttachmentDetachRequest {
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
-  const documentManifest = isPlainObject(value)
-    ? Reflect.get(value, "documentManifest")
-    : undefined;
   const authorizingContainerPathRefs = isPlainObject(value)
     ? Reflect.get(value, "authorizingContainerPathRefs")
     : undefined;
@@ -251,7 +243,6 @@ export function isBlobAttachmentDetachRequest(
     isPlainObject(event) &&
     Reflect.has(value, "body") &&
     body !== undefined &&
-    isAccessManifestBundleWire(documentManifest) &&
     isContainerManifestRefArrayArray(authorizingContainerPathRefs) &&
     isOptionalContainerMutationRequestArray(containerRekeys)
   );
