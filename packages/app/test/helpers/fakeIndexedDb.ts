@@ -1,3 +1,8 @@
+interface FakeIndexedDbStore {
+  readonly keyPath: string;
+  readonly records: Map<string, unknown>;
+}
+
 interface FakeIndexedDbTransaction {
   activeRequestCount: number;
   completed: boolean;
@@ -68,35 +73,48 @@ function createFakeIndexedDbRequest<T>(
   return request as unknown as IDBRequest<T>;
 }
 
+function recordKey(store: FakeIndexedDbStore, value: unknown): string {
+  return String((value as Record<string, unknown>)[store.keyPath]);
+}
+
 function createFakeIndexedDbObjectStore(
-  records: Map<string, unknown>,
+  store: FakeIndexedDbStore,
   transaction: FakeIndexedDbTransaction,
 ): IDBObjectStore {
   return {
     add: (value: unknown) =>
       createFakeIndexedDbRequest(() => {
-        const keyId = String((value as { readonly keyId: unknown }).keyId);
-        if (records.has(keyId)) {
+        const key = recordKey(store, value);
+        if (store.records.has(key)) {
           throw createFakeIndexedDbError(
             "ConstraintError",
             "IndexedDB record already exists.",
           );
         }
-        records.set(keyId, value);
-        return keyId;
+        store.records.set(key, value);
+        return key;
+      }, transaction),
+    put: (value: unknown) =>
+      createFakeIndexedDbRequest(() => {
+        const key = recordKey(store, value);
+        store.records.set(key, value);
+        return key;
       }, transaction),
     delete: (key: IDBValidKey) =>
       createFakeIndexedDbRequest(() => {
-        records.delete(String(key));
+        store.records.delete(String(key));
         return undefined;
       }, transaction),
     get: (key: IDBValidKey) =>
-      createFakeIndexedDbRequest(() => records.get(String(key)), transaction),
+      createFakeIndexedDbRequest(
+        () => store.records.get(String(key)),
+        transaction,
+      ),
   } as unknown as IDBObjectStore;
 }
 
 function createFakeIndexedDbTransactionState(
-  records: Map<string, unknown>,
+  store: FakeIndexedDbStore,
 ): FakeIndexedDbTransaction {
   const transaction: FakeIndexedDbTransaction = {
     activeRequestCount: 0,
@@ -105,31 +123,34 @@ function createFakeIndexedDbTransactionState(
     onabort: null,
     oncomplete: null,
     onerror: null,
-    objectStore: () => createFakeIndexedDbObjectStore(records, transaction),
+    objectStore: () => createFakeIndexedDbObjectStore(store, transaction),
   };
 
   return transaction;
 }
 
 function createFakeIndexedDbTransaction(
-  records: Map<string, unknown>,
+  store: FakeIndexedDbStore,
 ): IDBTransaction {
   return createFakeIndexedDbTransactionState(
-    records,
+    store,
   ) as unknown as IDBTransaction;
 }
 
 function createFakeIndexedDbDatabase(
-  stores: Map<string, Map<string, unknown>>,
+  stores: Map<string, FakeIndexedDbStore>,
 ): IDBDatabase {
   return {
     close: () => undefined,
-    createObjectStore: (name: string) => {
-      const records = new Map<string, unknown>();
-      stores.set(name, records);
+    createObjectStore: (name: string, options?: { keyPath?: string }) => {
+      const store: FakeIndexedDbStore = {
+        keyPath: options?.keyPath ?? "keyId",
+        records: new Map<string, unknown>(),
+      };
+      stores.set(name, store);
       return createFakeIndexedDbObjectStore(
-        records,
-        createFakeIndexedDbTransactionState(records),
+        store,
+        createFakeIndexedDbTransactionState(store),
       );
     },
     objectStoreNames: {
@@ -138,18 +159,18 @@ function createFakeIndexedDbDatabase(
     onversionchange: null,
     transaction: (name: string | Iterable<string>) => {
       const storeName = typeof name === "string" ? name : Array.from(name)[0];
-      const records = storeName ? stores.get(storeName) : undefined;
-      if (!records) {
+      const store = storeName ? stores.get(storeName) : undefined;
+      if (!store) {
         throw new Error("Fake IndexedDB object store does not exist.");
       }
 
-      return createFakeIndexedDbTransaction(records);
+      return createFakeIndexedDbTransaction(store);
     },
   } as unknown as IDBDatabase;
 }
 
 export function createFakeIndexedDb(): IDBFactory {
-  const databases = new Map<string, Map<string, Map<string, unknown>>>();
+  const databases = new Map<string, Map<string, FakeIndexedDbStore>>();
 
   return {
     open: (name: string) => {

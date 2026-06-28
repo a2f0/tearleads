@@ -142,9 +142,7 @@ export interface BrowserLocalKeyringOptions {
   readonly databaseName?: string | undefined;
   readonly indexedDB?: IDBFactory | undefined;
   readonly keyMaterialStorage?: WrappingKeyMaterialStorage | undefined;
-  /** OPFS directory for the manifest store (defaults when persisting to OPFS). */
-  readonly manifestDirectory?: string | undefined;
-  /** Explicit manifest store; overrides the default OPFS/localStorage selection. */
+  /** Explicit manifest store; overrides the default IndexedDB/localStorage selection. */
   readonly manifestStore?: LocalKeyringManifestStore | undefined;
   /** localStorage-backed manifest storage (forces the localStorage store). */
   readonly manifestStorage?: LocalKeyringManifestStorage | undefined;
@@ -574,120 +572,142 @@ class LocalStorageLocalKeyringManifestStore
 }
 
 /**
- * OPFS directory (under the origin's private file system root) that holds one
- * manifest file per keyring scope. Keep it distinct from the SQLite SAHPool
- * directory so the two never contend on the same files.
+ * IndexedDB database/store holding one manifest record per keyring scope, kept
+ * separate from the wrapping-key database so the two never coordinate versions.
  */
-const OPFS_LOCAL_KEYRING_DIRECTORY = "tearleads-local-keyring";
+const BROWSER_KEYRING_MANIFEST_DATABASE_NAME =
+  "tearleads-local-keyring-manifests";
+const BROWSER_KEYRING_MANIFEST_STORE_NAME = "manifests";
 
-export interface OpfsLocalKeyringManifestStoreOptions {
-  readonly directory?: string | undefined;
-  /** Injectable OPFS root resolver (defaults to navigator.storage.getDirectory). */
-  readonly getDirectory?:
-    | (() => Promise<FileSystemDirectoryHandle>)
-    | undefined;
+export interface IndexedDbLocalKeyringManifestStoreOptions {
+  readonly databaseName?: string | undefined;
+  readonly indexedDB?: IDBFactory | undefined;
+  readonly objectStoreName?: string | undefined;
 }
 
-function isOpfsAvailable(): boolean {
+function isIndexedDbAvailable(): boolean {
+  // Require a usable factory, not merely a defined global: test environments stub
+  // `indexedDB` with a non-functional placeholder, and a real persistent database
+  // (which needs a working IndexedDB anyway) is the only place this store runs.
   return (
-    typeof navigator === "object" &&
-    navigator !== null &&
-    typeof navigator.storage === "object" &&
-    navigator.storage !== null &&
-    typeof navigator.storage.getDirectory === "function"
+    typeof globalThis.indexedDB === "object" &&
+    globalThis.indexedDB !== null &&
+    typeof globalThis.indexedDB.open === "function"
   );
 }
 
-function getDefaultOpfsRoot(): Promise<FileSystemDirectoryHandle> {
-  if (!isOpfsAvailable()) {
-    return Promise.reject(
-      new Error("OPFS is unavailable for the local keyring manifest store."),
+function getDefaultIndexedDb(): IDBFactory {
+  if (!isIndexedDbAvailable()) {
+    throw new Error(
+      "Browser local keyring manifest storage requires IndexedDB.",
     );
   }
-  return navigator.storage.getDirectory();
+  return globalThis.indexedDB;
 }
 
-function isOpfsNotFoundError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "NotFoundError";
+function readManifestRecordValue(record: unknown): string | null {
+  if (typeof record !== "object" || record === null) {
+    return null;
+  }
+  const manifest = Reflect.get(record, "manifest");
+  return typeof manifest === "string" ? manifest : null;
 }
 
 /**
- * Persists keyring manifests as OPFS files, co-located with the persistent
- * OPFS-SAHPool SQLite database. The point is shared eviction fate: the manifest
- * holds the wrapped root key that derives the database's cipher key, so storing
- * it in localStorage (evicted far more aggressively than OPFS — e.g. Safari ITP's
- * script-writable-storage cap) lets the keyring be lost while the encrypted
- * database survives, minting a fresh root on the next boot and yielding
- * SQLITE_NOTADB. In OPFS the manifest and database are evicted together (a clean
- * reset) or survive together. Writes use createWritable(), which commits the new
- * file atomically, so a manifest is never left half-written.
+ * Persists keyring manifests in IndexedDB, where the wrapping key already lives.
+ * The point is shared eviction fate: the manifest holds the wrapped root key that
+ * derives the database's cipher key, so storing it in localStorage (evicted far
+ * more aggressively — e.g. Safari ITP's script-writable-storage cap) lets the
+ * keyring be lost while the OPFS-persisted, encrypted database survives, minting a
+ * fresh root on the next boot and yielding SQLITE_NOTADB. IndexedDB shares the
+ * origin's storage bucket with OPFS, so the manifest and database are evicted
+ * together (a clean reset) or survive together — and unlike main-thread OPFS file
+ * writes (unsupported on WebKit), IndexedDB works in every context the keyring
+ * runs in.
  */
-class OpfsLocalKeyringManifestStore implements LocalKeyringManifestStore {
-  private readonly directory: string;
-  private readonly getDirectory: () => Promise<FileSystemDirectoryHandle>;
+class IndexedDbLocalKeyringManifestStore implements LocalKeyringManifestStore {
+  private readonly databaseName: string;
+  private readonly objectStoreName: string;
+  private readonly indexedDB: IDBFactory;
+  private databasePromise: Promise<IDBDatabase> | null = null;
 
-  constructor(options: OpfsLocalKeyringManifestStoreOptions = {}) {
-    this.directory = options.directory ?? OPFS_LOCAL_KEYRING_DIRECTORY;
-    this.getDirectory = options.getDirectory ?? getDefaultOpfsRoot;
+  constructor(options: IndexedDbLocalKeyringManifestStoreOptions = {}) {
+    this.databaseName =
+      options.databaseName ?? BROWSER_KEYRING_MANIFEST_DATABASE_NAME;
+    this.objectStoreName =
+      options.objectStoreName ?? BROWSER_KEYRING_MANIFEST_STORE_NAME;
+    assertNonEmptyString(this.databaseName, "IndexedDB database name");
+    assertNonEmptyString(this.objectStoreName, "IndexedDB object store name");
+    this.indexedDB = options.indexedDB ?? getDefaultIndexedDb();
   }
 
   async deleteManifest(scope: LocalKeyringScope): Promise<void> {
-    try {
-      const directory = await this.manifestDirectory(false);
-      await directory.removeEntry(this.fileName(scope));
-    } catch (error) {
-      if (!isOpfsNotFoundError(error)) {
-        throw error;
-      }
-    }
+    await this.write((store) => store.delete(localKeyringScopeKey(scope)));
   }
 
   async loadManifest(
     scope: LocalKeyringScope,
   ): Promise<LocalKeyringManifest | null> {
-    try {
-      const directory = await this.manifestDirectory(false);
-      const handle = await directory.getFileHandle(this.fileName(scope));
-      const serialized = await (await handle.getFile()).text();
-      return serialized ? parseLocalKeyringManifest(serialized) : null;
-    } catch (error) {
-      if (isOpfsNotFoundError(error)) {
-        return null;
-      }
-      throw error;
-    }
+    const record = await this.read(localKeyringScopeKey(scope));
+    const serialized = readManifestRecordValue(record);
+    return serialized ? parseLocalKeyringManifest(serialized) : null;
   }
 
   async saveManifest(manifest: LocalKeyringManifest): Promise<void> {
-    const directory = await this.manifestDirectory(true);
-    const handle = await directory.getFileHandle(
-      this.fileName(manifest.scope),
-      {
-        create: true,
-      },
+    await this.write((store) =>
+      store.put({
+        scopeKey: localKeyringScopeKey(manifest.scope),
+        manifest: serializeLocalKeyringManifest(manifest),
+      }),
     );
-    const writable = await handle.createWritable();
-    try {
-      await writable.write(serializeLocalKeyringManifest(manifest));
-      await writable.close();
-    } catch (error) {
-      // Discard the half-written temp file so a failed write never commits a
-      // partial (and thus unparseable) manifest.
-      await writable.abort().catch(() => undefined);
-      throw error;
+  }
+
+  private async read(scopeKey: string): Promise<unknown> {
+    const database = await this.openDatabase();
+    const transaction = database.transaction(this.objectStoreName, "readonly");
+    const store = transaction.objectStore(this.objectStoreName);
+    return runIndexedDbRequest(transaction, store.get(scopeKey));
+  }
+
+  private async write<T>(
+    operation: (store: IDBObjectStore) => IDBRequest<T>,
+  ): Promise<T> {
+    const database = await this.openDatabase();
+    const transaction = database.transaction(this.objectStoreName, "readwrite");
+    const store = transaction.objectStore(this.objectStoreName);
+    return runIndexedDbRequest(transaction, operation(store));
+  }
+
+  private async openDatabase(): Promise<IDBDatabase> {
+    if (this.databasePromise) {
+      return this.databasePromise;
     }
-  }
 
-  private async manifestDirectory(
-    create: boolean,
-  ): Promise<FileSystemDirectoryHandle> {
-    const root = await this.getDirectory();
-    return root.getDirectoryHandle(this.directory, { create });
-  }
+    this.databasePromise = new Promise((resolve, reject) => {
+      const request = this.indexedDB.open(this.databaseName, 1);
+      request.onerror = () => {
+        this.databasePromise = null;
+        reject(request.error ?? new Error("IndexedDB open failed."));
+      };
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains(this.objectStoreName)) {
+          database.createObjectStore(this.objectStoreName, {
+            keyPath: "scopeKey",
+          });
+        }
+      };
+      request.onsuccess = () => {
+        const database = request.result;
+        database.onversionchange = () => {
+          database.close();
+          this.databasePromise = null;
+        };
+        resolve(database);
+      };
+    });
 
-  private fileName(scope: LocalKeyringScope): string {
-    // Encode the scope key so it is always a valid, collision-free OPFS file name.
-    return `${encodeURIComponent(localKeyringScopeKey(scope))}.json`;
+    return this.databasePromise;
   }
 }
 
@@ -1453,7 +1473,7 @@ export function createBrowserLocalKeyring(
             storage: options.manifestStorage,
           })
         : createBrowserLocalKeyringManifestStore({
-            directory: options.manifestDirectory,
+            indexedDB: options.indexedDB,
             prefix: options.manifestStoragePrefix,
           })),
     now: options.now,
@@ -1492,29 +1512,30 @@ export function createLocalStorageLocalKeyringManifestStore(
   return new LocalStorageLocalKeyringManifestStore(options);
 }
 
-export function createOpfsLocalKeyringManifestStore(
-  options: OpfsLocalKeyringManifestStoreOptions = {},
+export function createIndexedDbLocalKeyringManifestStore(
+  options: IndexedDbLocalKeyringManifestStoreOptions = {},
 ): LocalKeyringManifestStore {
-  return new OpfsLocalKeyringManifestStore(options);
+  return new IndexedDbLocalKeyringManifestStore(options);
 }
 
 /**
- * Selects the manifest store for a browser keyring: OPFS when available (so the
- * manifest shares the persistent SQLite database's eviction fate — the fix for
- * the cipher-key/database desync that produced SQLITE_NOTADB), otherwise
- * localStorage. Falling back to localStorage is safe precisely where OPFS is
- * absent: there is no OPFS-persisted database to desync from in that case.
+ * Selects the manifest store for a browser keyring: IndexedDB when available (so
+ * the manifest shares the OPFS-persisted database's eviction bucket — the fix for
+ * the cipher-key/database desync that produced SQLITE_NOTADB — and lives where the
+ * wrapping key already does), otherwise localStorage. Falling back to localStorage
+ * is safe precisely where IndexedDB is absent: there is no persistent database to
+ * desync from in that case.
  */
 export function createBrowserLocalKeyringManifestStore(
   options: {
-    readonly directory?: string | undefined;
+    readonly indexedDB?: IDBFactory | undefined;
     readonly prefix?: string | undefined;
     readonly storage?: LocalKeyringManifestStorage | undefined;
   } = {},
 ): LocalKeyringManifestStore {
-  if (isOpfsAvailable()) {
-    return createOpfsLocalKeyringManifestStore({
-      directory: options.directory,
+  if (options.indexedDB || isIndexedDbAvailable()) {
+    return createIndexedDbLocalKeyringManifestStore({
+      indexedDB: options.indexedDB,
     });
   }
   return createLocalStorageLocalKeyringManifestStore({
