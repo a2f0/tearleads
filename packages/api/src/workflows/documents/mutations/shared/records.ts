@@ -1,15 +1,10 @@
 import type {
   AccessManifest,
   AccessManifestCheckpoint,
-  ContainerAccessLevel,
-  ContainerAccessManifestState,
-  ContainerDirectGrant,
-  ContainerGrantSubjectType,
   ContentObjectKind,
   ContentRecordEncryptionSuite,
   DocumentLinkSetManifestState,
   VerifiedAccessEvent,
-  VerifiedContainerAccessManifest,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   WriteHeader,
@@ -17,7 +12,6 @@ import type {
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   makeVerifiedAccessEvent,
-  makeVerifiedContainerAccessManifest,
   makeVerifiedDocumentKekTargets,
   makeVerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
@@ -46,7 +40,6 @@ import {
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
   readProjectionRecord,
-  readProjectionReferencedPrincipalHeads,
   readProjectionString,
   readProjectionStringArray,
   readProjectionValue,
@@ -54,16 +47,6 @@ import {
   readProjectionVersion,
 } from "../../../../keyingProjectionRecords";
 import { DocumentMutationError, documentShapeError } from "../errors";
-
-function isContainerAccessLevel(value: unknown): value is ContainerAccessLevel {
-  return value === "admin" || value === "read" || value === "write";
-}
-
-function isContainerGrantSubjectType(
-  value: unknown,
-): value is ContainerGrantSubjectType {
-  return value === "group" || value === "organization" || value === "user";
-}
 
 function isContentObjectKind(value: unknown): value is ContentObjectKind {
   return value === "blob" || value === "document";
@@ -73,121 +56,6 @@ function isContentRecordEncryptionSuite(
   value: unknown,
 ): value is ContentRecordEncryptionSuite {
   return value === CONTENT_RECORD_ENCRYPTION_SUITE;
-}
-
-function readContainerDirectGrant(
-  value: unknown,
-  label: string,
-): ContainerDirectGrant {
-  const record = readProjectionPlainRecord(value, label, documentShapeError);
-  const accessLevel = readProjectionValue(record, "accessLevel");
-  const subjectType = readProjectionValue(record, "subjectType");
-
-  if (!isContainerAccessLevel(accessLevel)) {
-    throw documentShapeError(`${label}.accessLevel is invalid`);
-  }
-  if (!isContainerGrantSubjectType(subjectType)) {
-    throw documentShapeError(`${label}.subjectType is invalid`);
-  }
-
-  return {
-    accessLevel,
-    subjectId: readProjectionString(
-      record,
-      "subjectId",
-      label,
-      documentShapeError,
-    ),
-    subjectType,
-  };
-}
-
-function readContainerDirectGrants(
-  value: unknown,
-  label: string,
-): ContainerDirectGrant[] {
-  if (!Array.isArray(value)) {
-    throw documentShapeError(`${label} is invalid`);
-  }
-
-  return value.map((entry, index) =>
-    readContainerDirectGrant(entry, `${label}[${index}]`),
-  );
-}
-
-function readContainerAccessState(
-  value: unknown,
-  label: string,
-): ContainerAccessManifestState {
-  const record = readProjectionPlainRecord(value, label, documentShapeError);
-  readProjectionVersion(record, label, documentShapeError);
-
-  return {
-    version: 1,
-    containerId: readProjectionString(
-      record,
-      "containerId",
-      label,
-      documentShapeError,
-    ),
-    organizationId: readProjectionString(
-      record,
-      "organizationId",
-      label,
-      documentShapeError,
-    ),
-    epoch: readProjectionPositiveInteger(
-      record,
-      "epoch",
-      label,
-      documentShapeError,
-    ),
-    previousManifestHash: readProjectionNullableString(
-      record,
-      "previousManifestHash",
-      label,
-      documentShapeError,
-    ),
-    eventHash: readProjectionString(
-      record,
-      "eventHash",
-      label,
-      documentShapeError,
-    ),
-    parentContainerId: readProjectionNullableString(
-      record,
-      "parentContainerId",
-      label,
-      documentShapeError,
-    ),
-    parentManifestHash: readProjectionNullableString(
-      record,
-      "parentManifestHash",
-      label,
-      documentShapeError,
-    ),
-    metadataDocumentId: readProjectionString(
-      record,
-      "metadataDocumentId",
-      label,
-      documentShapeError,
-    ),
-    containerKeyEpochId: readProjectionNullableString(
-      record,
-      "containerKeyEpochId",
-      label,
-      documentShapeError,
-    ),
-    directGrants: readContainerDirectGrants(
-      readProjectionValue(record, "directGrants"),
-      `${label}.directGrants`,
-    ),
-    referencedPrincipalHeads: readProjectionReferencedPrincipalHeads(
-      readProjectionValue(record, "referencedPrincipalHeads"),
-      `${label}.referencedPrincipalHeads`,
-      documentShapeError,
-    ),
-  };
 }
 
 function readDocumentLinkSetState(
@@ -262,41 +130,6 @@ function accessManifestCheckpoint(input: {
     epoch: input.manifest.epoch,
     manifestHash: input.manifestHash,
   };
-}
-
-export function readVerifiedContainerManifest(
-  value: unknown,
-  label: string,
-): VerifiedContainerAccessManifest {
-  const record = readProjectionPlainRecord(value, label, documentShapeError);
-  const manifest = readProjectionAccessManifest(
-    readProjectionValue(record, "manifest"),
-    `${label}.manifest`,
-    documentShapeError,
-  );
-  const manifestHash = readProjectionString(
-    record,
-    "manifestHash",
-    label,
-    documentShapeError,
-  );
-  return makeVerifiedContainerAccessManifest({
-    event: readProjectionVerifiedAccessEvent(
-      readProjectionValue(record, "event"),
-      `${label}.event`,
-      documentShapeError,
-    ),
-    manifest,
-    manifestHash,
-    state: readContainerAccessState(
-      readProjectionValue(record, "state"),
-      `${label}.state`,
-    ),
-    checkpoint: accessManifestCheckpoint({
-      manifest,
-      manifestHash,
-    }),
-  });
 }
 
 export function readVerifiedDocumentManifest(

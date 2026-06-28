@@ -5,10 +5,6 @@ import {
   hasPositiveIntegerProperty,
   hasStringProperty,
   isAccessManifestBundleWire,
-  isOptionalRecordArray,
-  isOptionalRecordArrayArray,
-  isRecordArray,
-  isRecordArrayArray,
   isUuidV4String,
   isWalLsnString,
 } from "../util";
@@ -39,8 +35,11 @@ export interface DocumentCreateRequest {
   expectedManifestHash: string;
   manifest: Record<string, unknown>;
   previousManifest?: AccessManifestBundleWire | null;
-  targetContainerPath?: Record<string, unknown>[];
-  authorizingContainerPaths?: Record<string, unknown>[][];
+  // Container access manifests authorizing the write, as hash references the
+  // server resolves from its own store (it already holds these committed
+  // containers — see ContainerManifestRef).
+  targetContainerPathRefs?: ContainerManifestRef[];
+  authorizingContainerPathRefs?: ContainerManifestRef[][];
   containerRekeys?: ContainerMutationRequest[];
   contentKeyBundle: DocumentContentKeyBundleRequest;
 }
@@ -51,8 +50,10 @@ export interface DocumentLinkSetMutationRequest {
   expectedManifestHash: string;
   manifest: Record<string, unknown>;
   previousManifest: AccessManifestBundleWire;
-  targetContainerPath: Record<string, unknown>[];
-  authorizingContainerPaths: Record<string, unknown>[][];
+  // Container access manifests authorizing the write, as hash references the
+  // server resolves from its own store.
+  targetContainerPathRefs: ContainerManifestRef[];
+  authorizingContainerPathRefs: ContainerManifestRef[][];
   containerRekeys?: ContainerMutationRequest[];
   contentKeyBundle: DocumentContentKeyBundleRequest;
 }
@@ -111,6 +112,12 @@ function isContainerManifestRef(value: unknown): value is ContainerManifestRef {
     hasStringProperty(value, "manifestHash") &&
     value.manifestHash.length > 0
   );
+}
+
+function isContainerManifestRefArray(
+  value: unknown,
+): value is ContainerManifestRef[] {
+  return Array.isArray(value) && value.every(isContainerManifestRef);
 }
 
 export function isContainerManifestRefArrayArray(
@@ -202,11 +209,11 @@ export function isDocumentCreateRequest(
   const manifest = isPlainObject(value)
     ? Reflect.get(value, "manifest")
     : undefined;
-  const targetContainerPath = isPlainObject(value)
-    ? Reflect.get(value, "targetContainerPath")
+  const targetContainerPathRefs = isPlainObject(value)
+    ? Reflect.get(value, "targetContainerPathRefs")
     : undefined;
-  const authorizingContainerPaths = isPlainObject(value)
-    ? Reflect.get(value, "authorizingContainerPaths")
+  const authorizingContainerPathRefs = isPlainObject(value)
+    ? Reflect.get(value, "authorizingContainerPathRefs")
     : undefined;
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
@@ -226,8 +233,10 @@ export function isDocumentCreateRequest(
     (previousManifest === undefined ||
       previousManifest === null ||
       isAccessManifestBundleWire(previousManifest)) &&
-    isOptionalRecordArray(targetContainerPath) &&
-    isOptionalRecordArrayArray(authorizingContainerPaths) &&
+    (targetContainerPathRefs === undefined ||
+      isContainerManifestRefArray(targetContainerPathRefs)) &&
+    (authorizingContainerPathRefs === undefined ||
+      isContainerManifestRefArrayArray(authorizingContainerPathRefs)) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
     isDocumentContentKeyBundleRequest(contentKeyBundle)
   );
@@ -244,11 +253,11 @@ export function isDocumentLinkSetMutationRequest(
   const manifest = isPlainObject(value)
     ? Reflect.get(value, "manifest")
     : undefined;
-  const targetContainerPath = isPlainObject(value)
-    ? Reflect.get(value, "targetContainerPath")
+  const targetContainerPathRefs = isPlainObject(value)
+    ? Reflect.get(value, "targetContainerPathRefs")
     : undefined;
-  const authorizingContainerPaths = isPlainObject(value)
-    ? Reflect.get(value, "authorizingContainerPaths")
+  const authorizingContainerPathRefs = isPlainObject(value)
+    ? Reflect.get(value, "authorizingContainerPathRefs")
     : undefined;
   const contentKeyBundle = isPlainObject(value)
     ? Reflect.get(value, "contentKeyBundle")
@@ -266,8 +275,8 @@ export function isDocumentLinkSetMutationRequest(
     value.expectedManifestHash.length > 0 &&
     isPlainObject(manifest) &&
     isAccessManifestBundleWire(previousManifest) &&
-    isRecordArray(targetContainerPath) &&
-    isRecordArrayArray(authorizingContainerPaths) &&
+    isContainerManifestRefArray(targetContainerPathRefs) &&
+    isContainerManifestRefArrayArray(authorizingContainerPathRefs) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&
     isDocumentContentKeyBundleRequest(contentKeyBundle)
   );

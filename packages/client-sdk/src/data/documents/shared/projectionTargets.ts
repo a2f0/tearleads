@@ -8,7 +8,6 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalRecords } from "../../keyingCanonicalJson";
 import {
   normalizeDocumentKekTargetResponse,
   readManifestContainerId,
@@ -91,12 +90,6 @@ export function mergeTargetEnvelopes(
   });
 }
 
-export function projectionPathRecords(
-  projection: ContainerWriterProjectionResponse,
-): Record<string, unknown>[] {
-  return readCanonicalRecords(projection.path, "Document projection path");
-}
-
 function projectionLeafContainerId(
   projection: ContainerWriterProjectionResponse,
 ): string | null {
@@ -167,11 +160,37 @@ export function currentDocumentTargets(
   return targets;
 }
 
-export function authorizingContainerPathRecordsForLinkSet(input: {
+/**
+ * Reduce a single container path (root→leaf chain) to {containerId,
+ * manifestHash} references. The server already stores each manifest and resolves
+ * it from its own store, so a write echoes only the hashes instead of
+ * re-embedding the full signed bundles it received in the writer projection.
+ */
+export function containerPathRefs(
+  path: ContainerWriterProjectionResponse["path"],
+): ContainerManifestRef[] {
+  return path.map((bundle) => {
+    const containerId = readManifestContainerId(bundle);
+    if (!containerId) {
+      throw new Error("Container path manifest is missing a container id");
+    }
+    return { containerId, manifestHash: bundle.manifestHash };
+  });
+}
+
+export function authorizingContainerPathRefs(
+  writerProjection: DocumentWriterProjectionResponse,
+): ContainerManifestRef[][] {
+  return writerProjection.authorizingContainerPaths.map((projection) =>
+    containerPathRefs(projection.path),
+  );
+}
+
+export function authorizingContainerPathRefsForLinkSet(input: {
   operation: DocumentLinkSetMutationOperation;
   targetContainerId: string;
   writerProjection: DocumentWriterProjectionResponse;
-}): Record<string, unknown>[][] {
+}): ContainerManifestRef[][] {
   const paths = input.writerProjection.authorizingContainerPaths.filter(
     (projection) =>
       input.operation === "link" ||
@@ -181,27 +200,5 @@ export function authorizingContainerPathRecordsForLinkSet(input: {
     throw new Error("Document link-set authorizing paths are missing");
   }
 
-  return paths.map(projectionPathRecords);
-}
-
-/**
- * Reduce the authorizing container paths to {containerId, manifestHash}
- * references. The server already stores each manifest and resolves it from its
- * own store, so a write echoes only the hashes instead of re-embedding the full
- * signed bundles it just received in the writer projection.
- */
-export function authorizingContainerPathRefs(
-  writerProjection: DocumentWriterProjectionResponse,
-): ContainerManifestRef[][] {
-  return writerProjection.authorizingContainerPaths.map((projection) =>
-    projection.path.map((bundle) => {
-      const containerId = readManifestContainerId(bundle);
-      if (!containerId) {
-        throw new Error(
-          "Authorizing container path manifest is missing a container id",
-        );
-      }
-      return { containerId, manifestHash: bundle.manifestHash };
-    }),
-  );
+  return paths.map((projection) => containerPathRefs(projection.path));
 }

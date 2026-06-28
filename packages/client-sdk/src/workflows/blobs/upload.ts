@@ -19,7 +19,6 @@ import {
   signBlobAttachmentWriteHeader,
 } from "../../data/documents/blob/shared/events";
 import {
-  authorizingContainerPathRecords,
   deriveBlobTargetsFromDocumentProjection,
   wrapBlobContentKey,
 } from "../../data/documents/blob/shared/projection";
@@ -32,7 +31,10 @@ import type {
   UploadDocumentAttachmentInput,
   UploadDocumentAttachmentResult,
 } from "../../data/documents/blob/shared/types";
-import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
+import {
+  assertDocumentWriterProjectionConsistent,
+  authorizingContainerPathRefs,
+} from "../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import {
   type DocumentCreateAuthor,
@@ -158,7 +160,7 @@ function blobAttachmentBindRequest(input: {
     event: readCanonicalRecord(input.event, "Blob attachment bind event"),
     body: readCanonicalRecord(input.body, "Blob attachment bind body"),
     documentManifest: input.material.writerProjection.documentManifest,
-    authorizingContainerPaths: authorizingContainerPathRecords(
+    authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.material.writerProjection,
     ),
     contentKeyBundle: input.material.contentKeyBundle,

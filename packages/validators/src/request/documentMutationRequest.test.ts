@@ -73,7 +73,9 @@ test("isBlobAttachmentBindRequest", () => {
     event: { eventType: "attachment.bind" },
     body: { eventType: "attachment.bind" },
     documentManifest: createBlobManifestBundle(),
-    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
+    ],
     containerRekeys: [createContainerMutationRequest()],
     contentKeyBundle: createBlobContentKeyBundle(),
     stagedBlob: {
@@ -109,7 +111,9 @@ test("isBlobAttachmentDetachRequest", () => {
     event: { eventType: "attachment.detach" },
     body: { eventType: "attachment.detach" },
     documentManifest: createBlobManifestBundle(),
-    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
+    ],
     containerRekeys: [createContainerMutationRequest()],
   };
 
@@ -117,7 +121,9 @@ test("isBlobAttachmentDetachRequest", () => {
   expect(
     isBlobAttachmentDetachRequest({
       ...validRequest,
-      authorizingContainerPaths: [{ containerId: "container-1" }],
+      authorizingContainerPathRefs: [
+        { containerId: "container-1", manifestHash: "container-manifest-hash" },
+      ],
     }),
   ).toBe(false);
   expect(
@@ -153,8 +159,12 @@ test("isDocumentCreateRequest", () => {
     expectedManifestHash: "manifest-hash",
     manifest: { objectType: "document", objectId: "doc-1" },
     previousManifest: null,
-    targetContainerPath: [{ containerId: "container-1" }],
-    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+    targetContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "container-manifest-hash" },
+    ],
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
+    ],
     containerRekeys: [createContainerMutationRequest()],
     contentKeyBundle: createDocumentContentKeyBundle(),
   };
@@ -192,7 +202,9 @@ test("isContainerCreateWithMetadataDocumentRequest", () => {
       expectedManifestHash: "manifest-hash",
       manifest: { objectType: "document", objectId: "doc-1" },
       previousManifest: null,
-      targetContainerPath: [{ containerId: "container-1" }],
+      targetContainerPathRefs: [
+        { containerId: "container-1", manifestHash: "container-manifest-hash" },
+      ],
       contentKeyBundle: createDocumentContentKeyBundle(),
     },
   };
@@ -225,8 +237,12 @@ test("isDocumentLinkSetMutationRequest", () => {
       manifestHash: "previous-manifest-hash",
       state: { documentId: "doc-1" },
     },
-    targetContainerPath: [{ containerId: "container-1" }],
-    authorizingContainerPaths: [[{ containerId: "container-1" }]],
+    targetContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "container-manifest-hash" },
+    ],
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
+    ],
     containerRekeys: [createContainerMutationRequest()],
     contentKeyBundle: createDocumentContentKeyBundle(),
   };
@@ -241,13 +257,15 @@ test("isDocumentLinkSetMutationRequest", () => {
   expect(
     isDocumentLinkSetMutationRequest({
       ...validRequest,
-      targetContainerPath: undefined,
+      targetContainerPathRefs: undefined,
     }),
   ).toBe(false);
   expect(
     isDocumentLinkSetMutationRequest({
       ...validRequest,
-      authorizingContainerPaths: [{ containerId: "container-1" }],
+      authorizingContainerPathRefs: [
+        { containerId: "container-1", manifestHash: "container-manifest-hash" },
+      ],
     }),
   ).toBe(false);
   expect(
@@ -260,12 +278,6 @@ test("isDocumentLinkSetMutationRequest", () => {
 });
 
 test("isDocumentSyncRequest", () => {
-  const documentManifest = {
-    event: { eventId: "event-1" },
-    manifest: { version: 1 },
-    manifestHash: "document-link-set-hash",
-    state: { documentId: "document-1" },
-  };
   const validOutgoingUpdate = {
     checkpointKind: "rotate_baseline" as const,
     id: "550e8400-e29b-41d4-a716-446655440111",
@@ -276,19 +288,11 @@ test("isDocumentSyncRequest", () => {
     writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
   };
   const validRequest = {
-    authorizingContainerPaths: [
-      [
-        {
-          event: { eventId: "container-event-1" },
-          manifest: { version: 1 },
-          manifestHash: "container-manifest-hash",
-          state: { containerId: "container-1" },
-        },
-      ],
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
     ],
     containerRekeys: [createContainerMutationRequest()],
     contentKeyEpoch: 1,
-    documentManifest,
     expectedLinkSetManifestHash: "document-link-set-hash",
     expectedTargetHash: "target-hash",
     localVersionVector: null,
@@ -300,20 +304,13 @@ test("isDocumentSyncRequest", () => {
   expect(
     isDocumentSyncRequest({
       ...validRequest,
-      documentManifest: undefined,
+      authorizingContainerPathRefs: undefined,
     }),
   ).toBe(false);
   expect(
     isDocumentSyncRequest({
       ...validRequest,
-      authorizingContainerPaths: undefined,
-    }),
-  ).toBe(false);
-  expect(
-    isDocumentSyncRequest({
-      ...validRequest,
-      documentManifest: undefined,
-      authorizingContainerPaths: undefined,
+      authorizingContainerPathRefs: undefined,
       containerRekeys: undefined,
       outgoingUpdates: [],
     }),
@@ -321,8 +318,7 @@ test("isDocumentSyncRequest", () => {
   expect(
     isDocumentSyncRequest({
       ...validRequest,
-      documentManifest: undefined,
-      authorizingContainerPaths: undefined,
+      authorizingContainerPathRefs: undefined,
       outgoingUpdates: [],
     }),
   ).toBe(false);

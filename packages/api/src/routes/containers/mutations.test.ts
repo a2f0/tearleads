@@ -714,9 +714,15 @@ async function buildMetadataDocumentCreateRequest(input: {
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
     previousManifest: null,
-    targetContainerPath: [
-      input.parent as unknown as Record<string, unknown>,
-      childBundle as unknown as Record<string, unknown>,
+    targetContainerPathRefs: [
+      {
+        containerId: parentState.containerId,
+        manifestHash: input.parent.manifestHash,
+      },
+      {
+        containerId: target.containerId,
+        manifestHash: childBundle.manifestHash,
+      },
     ],
     contentKeyBundle: {
       contentKeyEpoch: 1,

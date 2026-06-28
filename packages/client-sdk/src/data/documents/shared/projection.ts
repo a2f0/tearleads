@@ -30,13 +30,13 @@ export {
   wrapDocumentContentKeyForCreate,
 } from "./projectionContentKeys";
 export {
-  authorizingContainerPathRecordsForLinkSet,
   authorizingContainerPathRefs,
+  authorizingContainerPathRefsForLinkSet,
+  containerPathRefs,
   currentDocumentTargets,
   deriveDocumentCreateTargets,
   deriveDocumentTargetFromProjection,
   mergeTargetEnvelopes,
-  projectionPathRecords,
   readLinkedContainerIdsFromDocumentManifest,
 } from "./projectionTargets";
 

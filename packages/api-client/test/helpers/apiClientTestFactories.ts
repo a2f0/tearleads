@@ -110,8 +110,12 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
       manifestHash: "previous-document-manifest-hash",
       state: { documentId: "document-1" },
     },
-    targetContainerPath: [{ manifestHash: "container-manifest-hash" }],
-    authorizingContainerPaths: [[{ manifestHash: "container-manifest-hash" }]],
+    targetContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "container-manifest-hash" },
+    ],
+    authorizingContainerPathRefs: [
+      [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
+    ],
     contentKeyBundle: {
       contentKeyEpoch: 1,
       linkSetManifestHash: "document-manifest-hash",
@@ -184,7 +188,9 @@ export function createDocumentCreateRequest(): DocumentCreateRequest {
     expectedManifestHash: "document-manifest-hash",
     manifest: { objectKind: "document" },
     previousManifest: null,
-    targetContainerPath: [{ manifestHash: "container-manifest-hash" }],
+    targetContainerPathRefs: [
+      { containerId: "container-1", manifestHash: "container-manifest-hash" },
+    ],
     contentKeyBundle: {
       contentKeyEpoch: 1,
       linkSetManifestHash: "document-manifest-hash",
@@ -291,7 +297,7 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
 
 export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
   return {
-    authorizingContainerPaths: [],
+    authorizingContainerPathRefs: [],
     body: {},
     contentKeyBundle: {
       contentKeyEpoch: 1,
@@ -321,7 +327,7 @@ export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
 
 export function createBlobAttachmentDetachRequest(): BlobAttachmentDetachRequest {
   return {
-    authorizingContainerPaths: [],
+    authorizingContainerPathRefs: [],
     body: {},
     documentManifest: {
       event: {},

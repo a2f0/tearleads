@@ -134,7 +134,9 @@ test("isRegistrationRequest", () => {
       expectedManifestHash: "document-manifest-hash",
       manifest: { objectKind: "document" },
       previousManifest: null,
-      targetContainerPath: [{ containerId: "container-1" }],
+      targetContainerPathRefs: [
+        { containerId: "container-1", manifestHash: "container-manifest-hash" },
+      ],
       contentKeyBundle: createDocumentContentKeyBundle(),
     },
     ...overrides,

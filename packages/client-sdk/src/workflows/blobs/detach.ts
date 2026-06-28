@@ -1,17 +1,17 @@
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { signBlobAttachmentDetachEvent } from "../../data/documents/blob/shared/events";
-import {
-  authorizingContainerPathRecords,
-  deriveBlobTargetsFromDocumentProjection,
-} from "../../data/documents/blob/shared/projection";
+import { deriveBlobTargetsFromDocumentProjection } from "../../data/documents/blob/shared/projection";
 import { readDocumentManifestIdentity } from "../../data/documents/blob/shared/readers";
 import { assertBlobAttachmentDetachResponse } from "../../data/documents/blob/shared/responses";
 import type {
   DetachDocumentAttachmentInput,
   DetachDocumentAttachmentResult,
 } from "../../data/documents/blob/shared/types";
-import { assertDocumentWriterProjectionConsistent } from "../../data/documents/shared/projection";
+import {
+  assertDocumentWriterProjectionConsistent,
+  authorizingContainerPathRefs,
+} from "../../data/documents/shared/projection";
 import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
@@ -52,7 +52,7 @@ function blobAttachmentDetachRequest(input: {
     event: input.event,
     body: input.body,
     documentManifest: input.writerProjection.documentManifest,
-    authorizingContainerPaths: authorizingContainerPathRecords(
+    authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.writerProjection,
     ),
   };

@@ -485,8 +485,11 @@ async function createDocumentRequest(input: {
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    targetContainerPath: [
-      input.root.bundle as unknown as Record<string, unknown>,
+    targetContainerPathRefs: [
+      {
+        containerId: input.root.kekState.containerId,
+        manifestHash: input.root.bundle.manifestHash,
+      },
     ],
     contentKeyBundle: {
       contentKeyEpoch: 1,
@@ -589,12 +592,23 @@ async function buildDocumentLinkRequest(input: {
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
     previousManifest: input.createdDocument.accessManifest,
-    targetContainerPath: [
-      input.root.bundle as unknown as Record<string, unknown>,
-      childBundle as unknown as Record<string, unknown>,
+    targetContainerPathRefs: [
+      {
+        containerId: input.root.kekState.containerId,
+        manifestHash: input.root.bundle.manifestHash,
+      },
+      {
+        containerId: input.child.containerId,
+        manifestHash: childBundle.manifestHash,
+      },
     ],
-    authorizingContainerPaths: [
-      [input.root.bundle as unknown as Record<string, unknown>],
+    authorizingContainerPathRefs: [
+      [
+        {
+          containerId: input.root.kekState.containerId,
+          manifestHash: input.root.bundle.manifestHash,
+        },
+      ],
     ],
     contentKeyBundle: {
       contentKeyEpoch: input.createdDocument.contentKeyBundle.contentKeyEpoch,

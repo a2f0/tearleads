@@ -10,7 +10,6 @@ import type {
 } from "@tearleads/crypto";
 import {
   computeAccessManifestHash,
-  deriveContainerAccessManifest,
   deriveDocumentLinkSetManifest,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
@@ -44,7 +43,6 @@ import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/prin
 import { DocumentMutationError, documentShapeError } from "../errors";
 import type { DocumentWriteAuthorizationProof } from "../types";
 import {
-  readVerifiedContainerManifest,
   readVerifiedDocumentManifest,
   verifiedDocumentKekTargetsFromResolved,
 } from "./records";
@@ -121,31 +119,6 @@ export async function verifyDocumentEvent(input: {
   return verifiedEvent.value;
 }
 
-async function assertContainerManifestBundleConsistent(
-  bundle: unknown,
-  label: string,
-): Promise<VerifiedContainerAccessManifest> {
-  const verified = readVerifiedContainerManifest(bundle, label);
-  const derivedManifest = await deriveContainerAccessManifest(verified.state);
-  const derivedManifestHash = await computeAccessManifestHash(derivedManifest);
-  const suppliedManifestHash = await computeAccessManifestHash(
-    verified.manifest,
-  );
-
-  if (
-    verified.manifestHash !== derivedManifestHash ||
-    verified.manifestHash !== suppliedManifestHash ||
-    !canonicalJsonEquals(derivedManifest, verified.manifest)
-  ) {
-    throw new DocumentMutationError(
-      `${label} manifest bundle is not self-consistent`,
-      409,
-    );
-  }
-
-  return verified;
-}
-
 export async function assertDocumentManifestBundleConsistent(
   bundle: unknown,
   label: string,
@@ -171,88 +144,23 @@ export async function assertDocumentManifestBundleConsistent(
   return verified;
 }
 
-async function assertCurrentContainerPath(
-  executor: DatabaseSession,
-  bundles: readonly unknown[] | undefined,
-  label: string,
-): Promise<VerifiedContainerAccessManifest[] | undefined> {
-  if (bundles === undefined) {
-    return undefined;
-  }
-
-  const path: VerifiedContainerAccessManifest[] = [];
-  for (const [index, bundle] of bundles.entries()) {
-    const manifest = await assertContainerManifestBundleConsistent(
-      bundle,
-      `${label}[${index}]`,
-    );
-    path.push(manifest);
-  }
-
-  const heads = await getCurrentAccessManifestHeads(
-    "container",
-    path.map((manifest) => manifest.state.containerId),
-    executor,
-  );
-
-  for (const [index, manifest] of path.entries()) {
-    const head = heads.get(manifest.state.containerId);
-    if (!head) {
-      throw new DocumentMutationError(`${label}[${index}] head missing`, 404);
-    }
-    if (head.manifestHash !== manifest.manifestHash) {
-      throw new DocumentMutationError(`${label}[${index}] is stale`, 409);
-    }
-  }
-
-  return path;
-}
-
-export async function assertCurrentContainerPathGroups(
-  executor: DatabaseSession,
-  groups: readonly (readonly unknown[])[] | undefined,
-  label: string,
-): Promise<VerifiedContainerAccessManifest[][] | undefined> {
-  if (groups === undefined) {
-    return undefined;
-  }
-
-  const verifiedGroups: VerifiedContainerAccessManifest[][] = [];
-  for (const [index, group] of groups.entries()) {
-    verifiedGroups.push(
-      (await assertCurrentContainerPath(
-        executor,
-        group,
-        `${label}[${index}]`,
-      )) ?? [],
-    );
-  }
-
-  return verifiedGroups;
-}
-
 /**
- * Resolve {containerId, manifestHash} reference groups to verified container
- * access manifests using the server's OWN stored bundles (never client-supplied
- * bytes), with the SAME current-head pin the full-bundle path enforces. Each
- * stored bundle was verified when it was committed, and the head pin proves the
- * referenced manifest is the container's current access state.
+ * Resolve a flat list of {containerId, manifestHash} references to verified
+ * container access manifests using the server's OWN stored bundles (never
+ * client-supplied bytes), with the SAME current-head pin the full-bundle path
+ * enforces. Each stored bundle was verified when it was committed, and the head
+ * pin proves the referenced manifest is the container's current access state.
  *
  * Resolution is batched into one bundle fetch and one head fetch for the whole
- * request rather than two roundtrips per reference.
+ * request rather than two roundtrips per reference. Order is preserved.
  */
-async function assertCurrentContainerPathRefGroups(
+async function resolveCurrentContainerManifestRefs(
   executor: DatabaseSession,
-  groups: readonly (readonly ContainerManifestRef[])[],
-  label: string,
-): Promise<VerifiedContainerAccessManifest[][]> {
-  const flatRefs = groups.flatMap((group, groupIndex) =>
-    group.map((ref, index) => ({
-      ref,
-      refLabel: `${label}[${groupIndex}][${index}]`,
-    })),
-  );
-
+  flatRefs: readonly {
+    readonly ref: ContainerManifestRef;
+    readonly refLabel: string;
+  }[],
+): Promise<VerifiedContainerAccessManifest[]> {
   // Resolve every referenced manifest from the trusted store in one batch.
   const storedBundles = await getAccessManifestBundles(
     flatRefs.map(({ ref }) => ref.manifestHash),
@@ -295,7 +203,7 @@ async function assertCurrentContainerPathRefGroups(
     executor,
   );
 
-  const verifiedFlat = resolved.map(({ manifest, refLabel }) => {
+  return resolved.map(({ manifest, refLabel }) => {
     const head = heads.get(manifest.state.containerId);
     if (!head) {
       throw new DocumentMutationError(`${refLabel} head missing`, 404);
@@ -305,6 +213,31 @@ async function assertCurrentContainerPathRefGroups(
     }
     return manifest;
   });
+}
+
+/**
+ * Resolve groups of container manifest references (an authorizing-paths set).
+ */
+export async function assertCurrentContainerPathRefGroups(
+  executor: DatabaseSession,
+  groups: readonly (readonly ContainerManifestRef[])[] | undefined,
+  label: string,
+): Promise<VerifiedContainerAccessManifest[][] | undefined> {
+  if (groups === undefined) {
+    return undefined;
+  }
+
+  const flatRefs = groups.flatMap((group, groupIndex) =>
+    group.map((ref, index) => ({
+      ref,
+      refLabel: `${label}[${groupIndex}][${index}]`,
+    })),
+  );
+
+  const verifiedFlat = await resolveCurrentContainerManifestRefs(
+    executor,
+    flatRefs,
+  );
 
   // Reshape the flat verified manifests back into the original group structure.
   const verifiedGroups: VerifiedContainerAccessManifest[][] = [];
@@ -317,21 +250,40 @@ async function assertCurrentContainerPathRefGroups(
   return verifiedGroups;
 }
 
+/**
+ * Single-path variant of assertCurrentContainerPathRefGroups (same store
+ * resolution, containerId check, and head pin) for endpoints whose authorizing
+ * path is a single container chain, e.g. a create/link-set targetContainerPath.
+ */
+async function assertCurrentContainerPathRefs(
+  executor: DatabaseSession,
+  refs: readonly ContainerManifestRef[] | undefined,
+  label: string,
+): Promise<VerifiedContainerAccessManifest[] | undefined> {
+  if (refs === undefined) {
+    return undefined;
+  }
+  return resolveCurrentContainerManifestRefs(
+    executor,
+    refs.map((ref, index) => ({ ref, refLabel: `${label}[${index}]` })),
+  );
+}
+
 export async function verifyDocumentManifestFromRequest(input: {
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentCreateRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const [targetContainerPath, authorizingContainerPaths] = await Promise.all([
-    assertCurrentContainerPath(
+    assertCurrentContainerPathRefs(
       input.executor,
-      input.request.targetContainerPath,
-      "targetContainerPath",
+      input.request.targetContainerPathRefs,
+      "targetContainerPathRefs",
     ),
-    assertCurrentContainerPathGroups(
+    assertCurrentContainerPathRefGroups(
       input.executor,
-      input.request.authorizingContainerPaths,
-      "authorizingContainerPaths",
+      input.request.authorizingContainerPathRefs,
+      "authorizingContainerPathRefs",
     ),
   ]);
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
@@ -378,15 +330,15 @@ export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
 }): Promise<VerifiedDocumentLinkSetManifest> {
   const [targetContainerPath, authorizingContainerPaths, previousManifest] =
     await Promise.all([
-      assertCurrentContainerPath(
+      assertCurrentContainerPathRefs(
         input.executor,
-        input.request.targetContainerPath,
-        "targetContainerPath",
+        input.request.targetContainerPathRefs,
+        "targetContainerPathRefs",
       ),
-      assertCurrentContainerPathGroups(
+      assertCurrentContainerPathRefGroups(
         input.executor,
-        input.request.authorizingContainerPaths,
-        "authorizingContainerPaths",
+        input.request.authorizingContainerPathRefs,
+        "authorizingContainerPathRefs",
       ),
       assertDocumentManifestBundleConsistent(
         input.request.previousManifest,
