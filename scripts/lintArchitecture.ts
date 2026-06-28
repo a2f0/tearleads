@@ -11,6 +11,7 @@ import { packageSourcePath } from "./dependencySourceRoots";
 import {
   findSubsystemCoverageViolations,
   findSubsystemDocsViolations,
+  miniAppNames,
 } from "./subsystems";
 
 const appSrc = packageSourcePath.app;
@@ -865,13 +866,19 @@ function isUnsupportedClientSdkRootReExport(specifier: string): boolean {
   );
 }
 
+// A sibling import of a concrete mini-app (e.g. `./explorer`). Built from the
+// registry's mini-app list so it covers every mini-app on disk and cannot drift
+// the way the previous hand-maintained alternation did (it had missed
+// system-monitor and backup-restore).
+const appMiniAppSiblingImportPattern = new RegExp(
+  `^\\./(?:${miniAppNames.join("|")})(?:/|$)`,
+);
+
 function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
   return (
     specifier.startsWith("@tearleads/") ||
     /^\.\.\/(?:providers|stores|document-types)(?:\/|$)/.test(specifier) ||
-    /^\.\/(?:contacts|explorer|identity-manager|notes|org-manager)(?:\/|$)/.test(
-      specifier,
-    )
+    appMiniAppSiblingImportPattern.test(specifier)
   );
 }
 

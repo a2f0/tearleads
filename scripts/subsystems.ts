@@ -535,6 +535,22 @@ export const registeredSubsystemSourcePaths: readonly string[] = [
   packageSourcePath.app,
 ];
 
+/**
+ * Product mini-app directory names, derived from the app subsystem rows so the
+ * list cannot drift from what is on disk: the coverage check guarantees every
+ * `mini-apps/<name>/` directory is claimed by a subsystem, so a newly added
+ * mini-app appears here automatically. Consumed by `lintArchitecture.ts` to
+ * build the mini-app bus boundary check.
+ */
+export const miniAppNames: readonly string[] = [
+  ...new Set(
+    subsystems
+      .flatMap((subsystem) => subsystem.paths)
+      .map((path) => /\/mini-apps\/([^/]+)\/$/.exec(path)?.[1])
+      .filter((name): name is string => name !== undefined),
+  ),
+].sort();
+
 /** Subsystems that own the given production source file (ideally exactly one). */
 export function subsystemsForFile(filePath: string): Subsystem[] {
   return subsystems.filter((subsystem) =>
