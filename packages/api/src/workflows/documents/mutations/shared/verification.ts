@@ -423,6 +423,49 @@ export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
   return result.value;
 }
 
+/**
+ * Resolve the document's CURRENT link-set manifest from the server's own store —
+ * the writer no longer echoes the signed bundle back. The client identifies it by
+ * expectedLinkSetManifestHash, which must equal the document's current link-set
+ * head; currentTargets.linkSetManifestHash IS that head (resolved from the stored
+ * document head), so a mismatch is a stale write (409) — the same
+ * optimistic-concurrency pin the content-key path enforces. The resolved manifest
+ * is therefore always the current head, built from trusted stored bytes, and
+ * feeds the same downstream authorization the client bundle used to.
+ */
+async function resolveCurrentDocumentManifestForWrite(input: {
+  readonly currentTargets: Awaited<
+    ReturnType<typeof resolveCurrentDocumentKekTargets>
+  >;
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly request: DocumentSyncRequest;
+}): Promise<VerifiedDocumentLinkSetManifest> {
+  const headManifestHash = input.currentTargets.linkSetManifestHash;
+  if (input.request.expectedLinkSetManifestHash !== headManifestHash) {
+    throw new DocumentMutationError(
+      "Document link-set manifest hash is stale",
+      409,
+    );
+  }
+
+  const stored = (
+    await getAccessManifestBundles([headManifestHash], input.executor)
+  ).get(headManifestHash);
+  if (!stored || stored.manifest.objectKind !== "document") {
+    // The head is referenced by the resolved current targets, so it must exist
+    // as a document manifest; a miss here is store corruption, not a client error.
+    throw new Error(
+      `Document ${input.documentId} link-set head ${headManifestHash} is missing from the access manifest store`,
+    );
+  }
+
+  return readVerifiedDocumentManifest(
+    toManifestBundleResponse(stored),
+    "documentManifest",
+  );
+}
+
 export async function verifySyncWriteAuthorizationProof(input: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
@@ -434,12 +477,6 @@ export async function verifySyncWriteAuthorizationProof(input: {
   if (input.request.outgoingUpdates.length === 0) {
     return null;
   }
-  if (!input.request.documentManifest) {
-    throw new DocumentMutationError(
-      "Document write authorization proof is required",
-      400,
-    );
-  }
   if (!input.request.authorizingContainerPathRefs) {
     throw new DocumentMutationError(
       "Document write authorization paths are required",
@@ -447,19 +484,7 @@ export async function verifySyncWriteAuthorizationProof(input: {
     );
   }
 
-  const documentManifest = await assertDocumentManifestBundleConsistent(
-    input.request.documentManifest,
-    "documentManifest",
-  );
-  if (
-    documentManifest.state.documentId !== input.documentId ||
-    documentManifest.manifestHash !== input.request.expectedLinkSetManifestHash
-  ) {
-    throw new DocumentMutationError(
-      "Document write authorization manifest does not match sync request",
-      409,
-    );
-  }
+  const documentManifest = await resolveCurrentDocumentManifestForWrite(input);
 
   const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
     input.executor,

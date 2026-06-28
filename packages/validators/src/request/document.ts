@@ -84,7 +84,9 @@ export interface DocumentSyncRequest {
   contentKeyBundle?: DocumentContentKeyBundleRequest;
   containerRekeys?: ContainerMutationRequest[];
   contentKeyEpoch: number;
-  documentManifest?: AccessManifestBundleWire;
+  // The document's current link-set manifest is identified by
+  // expectedLinkSetManifestHash; the server resolves the full manifest from its
+  // own store rather than having the writer echo the signed bundle back.
   expectedLinkSetManifestHash: string;
   expectedTargetHash: string;
   // Container access manifests authorizing the write, as hash references the
@@ -283,9 +285,6 @@ export function isDocumentSyncRequest(
   const containerRekeys = isPlainObject(value)
     ? Reflect.get(value, "containerRekeys")
     : undefined;
-  const documentManifest = isPlainObject(value)
-    ? Reflect.get(value, "documentManifest")
-    : undefined;
   const minLsn = isPlainObject(value)
     ? Reflect.get(value, "minLsn")
     : undefined;
@@ -308,9 +307,6 @@ export function isDocumentSyncRequest(
     isPlainObject(value) &&
     (contentKeyBundle === undefined ||
       isDocumentContentKeyBundleRequest(contentKeyBundle)) &&
-    (documentManifest === undefined
-      ? !hasOutgoingUpdates
-      : isAccessManifestBundleWire(documentManifest)) &&
     hasPositiveIntegerProperty(value, "contentKeyEpoch") &&
     hasStringProperty(value, "expectedLinkSetManifestHash") &&
     value.expectedLinkSetManifestHash.length > 0 &&
