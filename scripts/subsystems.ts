@@ -550,7 +550,12 @@ export const miniAppNames: readonly string[] = [
   ...new Set(
     subsystems
       .flatMap((subsystem) => subsystem.paths)
-      .map((path) => /\/mini-apps\/([^/]+)\/$/.exec(path)?.[1])
+      // Match the first dir segment under mini-apps/ anywhere in the path (not
+      // anchored at the end), so a future nested subsystem path like
+      // mini-apps/explorer/detail/ still yields "explorer" rather than silently
+      // dropping it. Exact files (mini-apps/bus.tsx) lack the trailing slash and
+      // are correctly ignored.
+      .map((path) => /\/mini-apps\/([^/]+)\//.exec(path)?.[1])
       .filter((name): name is string => name !== undefined),
   ),
 ].sort();
