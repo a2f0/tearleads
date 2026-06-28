@@ -318,6 +318,10 @@ function uniqueSortedStrings(values: readonly string[]): string[] {
 
 export async function createDocumentAttachmentBindResponse(input: {
   blobId: string;
+  // The bind request no longer echoes the document link-set manifest (the server
+  // resolves it from its own store), so callers pass the document's current
+  // manifest explicitly for the projection this fixture builds.
+  documentManifest: DocumentCreateResponse["accessManifest"];
   request: BlobAttachmentBindRequest;
 }) {
   const body = input.request.body as Record<string, unknown>;
@@ -351,10 +355,10 @@ export async function createDocumentAttachmentBindResponse(input: {
     blobKekTargets: {
       blobId: input.blobId,
       organizationId: String(
-        Reflect.get(input.request.documentManifest.state, "organizationId"),
+        Reflect.get(input.documentManifest.state, "organizationId"),
       ),
       activeBindingIds: [bindingId],
-      documentManifestHashes: [input.request.documentManifest.manifestHash],
+      documentManifestHashes: [input.documentManifest.manifestHash],
       linkedContainerManifestHashes: uniqueSortedStrings(
         targets.map((target) => target.containerManifestHash),
       ),
@@ -367,10 +371,10 @@ export async function createDocumentAttachmentBindResponse(input: {
         version: 1,
         blobId: input.blobId,
         organizationId: String(
-          Reflect.get(input.request.documentManifest.state, "organizationId"),
+          Reflect.get(input.documentManifest.state, "organizationId"),
         ),
         activeBindingIds: [bindingId],
-        documentManifestHashes: [input.request.documentManifest.manifestHash],
+        documentManifestHashes: [input.documentManifest.manifestHash],
         linkedContainerManifestHashes: uniqueSortedStrings(
           targets.map((target) => target.containerManifestHash),
         ),

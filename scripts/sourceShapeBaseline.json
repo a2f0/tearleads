@@ -102,16 +102,16 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3489,
-      "bytes": 113951
+      "lines": 3495,
+      "bytes": 114058
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1276,
-      "bytes": 43030
+      "lines": 1289,
+      "bytes": 43277
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2103,
-      "bytes": 69212
+      "lines": 2136,
+      "bytes": 69913
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1049,
@@ -141,14 +141,6 @@
       "lines": 644,
       "bytes": 18997
     },
-    "packages/api/src/workflows/documents/mutations/shared/records.ts": {
-      "lines": 561,
-      "bytes": 16360
-    },
-    "packages/api/src/workflows/documents/mutations/shared/verification.ts": {
-      "lines": 513,
-      "bytes": 16345
-    },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
       "lines": 883,
       "bytes": 27804
@@ -162,16 +154,20 @@
       "bytes": 20923
     },
     "packages/api/test/helpers/keyingWriterProjectionKit.ts": {
-      "lines": 646,
-      "bytes": 21455
+      "lines": 649,
+      "bytes": 21521
     },
     "packages/api/test/helpers/registration.ts": {
       "lines": 1098,
-      "bytes": 36324
+      "bytes": 36388
     },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 692,
       "bytes": 19306
+    },
+    "packages/app/src/providers/system-bootstrap/SystemBootstrapProvider.tsx": {
+      "lines": 529,
+      "bytes": 17234
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 982,
