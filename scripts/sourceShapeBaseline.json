@@ -34,8 +34,8 @@
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": {
-      "lines": 641,
-      "bytes": 18336
+      "lines": 658,
+      "bytes": 18865
     },
     "docs/glossary.md": {
       "lines": 506,
@@ -290,8 +290,8 @@
       "bytes": 33792
     },
     "scripts/lintArchitecture.ts": {
-      "lines": 1176,
-      "bytes": 38429
+      "lines": 1164,
+      "bytes": 37828
     },
     "scripts/subsystems.ts": {
       "lines": 687,

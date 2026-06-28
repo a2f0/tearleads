@@ -620,12 +620,29 @@ const websiteRules = [
   },
 ] satisfies ForbiddenRules;
 
+const appRules = [
+  {
+    name: "app-document-types-do-not-import-mini-apps",
+    severity: "error",
+    comment:
+      "Document types are shared building blocks for mini-apps; mini-apps should import from document-types, not the reverse. Lift shared UI down into document-types/ and have the mini-app consume it.",
+    from: {
+      path: `${sourceRoot.app}document-types/`,
+      pathNot: testFilesPattern,
+    },
+    to: {
+      path: `${sourceRoot.app}mini-apps/`,
+    },
+  },
+] satisfies ForbiddenRules;
+
 const dependencyCruiserConfig = {
   forbidden: [
     ...standardRules,
     ...apiRules,
     ...apiPackageBoundaryRules,
     ...clientSdkRules,
+    ...appRules,
     ...corePackageRules,
     ...uiRules,
     ...websiteRules,
