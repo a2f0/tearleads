@@ -16,9 +16,9 @@ import {
 } from "./systemMonitorMode";
 
 interface SystemMonitorContextValue {
-  // canPin is true only when a real provider is mounted (the windowed home
-  // pane). It stays false for the default context value so the windowed app
-  // can render harmlessly in routed mode, where pinning has no meaning.
+  // canPin is true only when a real pane-level provider is mounted. It stays
+  // false for the default context value so isolated renders do not persist
+  // monitor placement.
   canPin: boolean;
   isPinned: boolean;
   mode: SystemMonitorMode;

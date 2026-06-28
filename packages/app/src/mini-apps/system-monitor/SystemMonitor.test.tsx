@@ -154,6 +154,40 @@ test("routed system monitor launches from nav and tabs update the path", async (
   }
 });
 
+test("routed home pins the monitor only after the System Monitor pin action", async () => {
+  const pushedUrls: Array<string | URL | null | undefined> = [];
+  const restorePushState = spyPushState((url) => pushedUrls.push(url));
+  const view = renderRoutedPane();
+
+  try {
+    expect(view.queryByText(/sqlite worker:/)).toBeNull();
+    expect(view.container.querySelector(".pane-log")).toBeNull();
+    expect(
+      view.queryByRole("button", { name: "Pin to Home Screen" }),
+    ).toBeNull();
+
+    fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
+    expect(await view.findByRole("tab", { name: "Logs" })).toBeTruthy();
+
+    fireEvent.click(
+      await view.findByRole("button", { name: "Pin to Home Screen" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
+      ).toBe("page");
+      expect(view.getByText(/sqlite worker:/)).toBeTruthy();
+      expect(view.container.querySelector(".pane-log")).not.toBeNull();
+    });
+    expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("pinned");
+    expect(pushedUrls.at(-1)).toBe("/");
+  } finally {
+    restorePushState();
+    view.unmount();
+  }
+});
+
 test("pin to desktop closes the window, renders inline, and persists the choice", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 

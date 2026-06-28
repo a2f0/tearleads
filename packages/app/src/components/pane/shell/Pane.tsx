@@ -86,7 +86,11 @@ export function Pane({
   // so the pane's runtime is never torn down when the layout toggles.
   let surface: ReactNode = <PaneInner className={className} />;
   if (navigationMode === "routed") {
-    surface = routedVisible ? <RoutedPane /> : null;
+    surface = routedVisible ? (
+      <SystemMonitorProvider>
+        <RoutedPane />
+      </SystemMonitorProvider>
+    ) : null;
   }
 
   return (

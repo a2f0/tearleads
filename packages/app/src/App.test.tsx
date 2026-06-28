@@ -153,8 +153,9 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     expect(view.queryByRole("button", { name: "Pane" })).toBeNull();
     expect(view.queryByRole("button", { name: "Menu" })).toBeNull();
     expect(
-      view.getByText(/Generate a key pair to boot this pane\./),
-    ).toBeTruthy();
+      view.queryByText(/Generate a key pair to boot this pane\./),
+    ).toBeNull();
+    expect(view.queryByText(/sqlite worker:/)).toBeNull();
     expect(
       view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
     ).toBe("page");
@@ -172,9 +173,9 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     fireEvent.click(generateKeyPairButton);
 
     await waitFor(() => {
-      const statusText = view.container.textContent ?? "";
-      expect(statusText).toMatch(/sqlite worker:\s*ready/);
-      expect(statusText).toMatch(/publicKey:\s*[0-9a-f]{64}/u);
+      expect(
+        view.getByRole("button", { name: "Destroy Key Pair" }),
+      ).toBeTruthy();
     });
 
     fireEvent.click(view.getByRole("link", { name: "Contacts" }));
