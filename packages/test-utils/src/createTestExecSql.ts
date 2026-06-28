@@ -3,6 +3,44 @@ import {
   initDatabase,
 } from "@tearleads/sqlite-worker/load-sqlite3";
 
+let expectedSqliteWarningSuppressionDepth = 0;
+let originalConsoleWarn: typeof console.warn | null = null;
+
+function isExpectedMainThreadOpfsWarning(args: readonly unknown[]): boolean {
+  return (
+    args[0] === "Ignoring inability to install OPFS sqlite3_vfs:" &&
+    String(args[1]).includes(
+      "The OPFS sqlite3_vfs cannot run in the main thread",
+    )
+  );
+}
+
+async function withExpectedSqliteWarningsSuppressed<T>(
+  run: () => Promise<T>,
+): Promise<T> {
+  if (expectedSqliteWarningSuppressionDepth === 0) {
+    originalConsoleWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      if (isExpectedMainThreadOpfsWarning(args)) {
+        return;
+      }
+
+      originalConsoleWarn?.(...args);
+    };
+  }
+  expectedSqliteWarningSuppressionDepth += 1;
+
+  try {
+    return await run();
+  } finally {
+    expectedSqliteWarningSuppressionDepth -= 1;
+    if (expectedSqliteWarningSuppressionDepth === 0 && originalConsoleWarn) {
+      console.warn = originalConsoleWarn;
+      originalConsoleWarn = null;
+    }
+  }
+}
+
 type TestSqlRowValue = string | number | null;
 type TestSqlRow = Record<string, TestSqlRowValue>;
 type TestSqlArrayRow = TestSqlRowValue[];
@@ -67,11 +105,17 @@ function createTestExecSqlAdapter(client: {
   return execSql;
 }
 
+export async function initTestSqliteDatabase(
+  options: Parameters<typeof initDatabase>[0],
+): ReturnType<typeof initDatabase> {
+  return withExpectedSqliteWarningsSuppressed(() => initDatabase(options));
+}
+
 export async function createTestExecSql(key: string): Promise<{
   close: () => void;
   execSql: TestExecSql;
 }> {
-  const db = await initDatabase({
+  const db = await initTestSqliteDatabase({
     dbName: `/${crypto.randomUUID()}.db`,
     cipher: "chacha20",
     key,

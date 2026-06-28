@@ -463,12 +463,15 @@ export function SystemBootstrapProvider({
   });
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     if (runtime.infra.dbStatus === "ready" && !runtime.state.containerId) {
       return;
     }
 
     store.updateRuntime(runtime);
-  }, [store, runtime]);
+  }, [enabled, store, runtime]);
 
   return (
     <SystemBootstrapContext.Provider value={contextValue}>

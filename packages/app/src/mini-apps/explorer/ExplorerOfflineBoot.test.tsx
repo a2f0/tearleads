@@ -44,6 +44,32 @@ async function openExplorerWindow(
   return explorerWindow;
 }
 
+function silenceExpectedOfflineBootConsoleError(): () => void {
+  const originalConsoleError = console.error;
+  let expectedErrorCount = 0;
+
+  console.error = (...args: unknown[]) => {
+    const isExpectedOfflineBootFailure =
+      args[0] === "Failed to initialize database worker:" &&
+      args.some(
+        (arg) =>
+          arg instanceof Error &&
+          arg.message.includes("simulated offline boot failure"),
+      );
+    if (isExpectedOfflineBootFailure) {
+      expectedErrorCount += 1;
+      return;
+    }
+
+    originalConsoleError(...args);
+  };
+
+  return () => {
+    console.error = originalConsoleError;
+    expect(expectedErrorCount).toBeGreaterThan(0);
+  };
+}
+
 // Verifies the offline boot-failure UX. On a reload with no network, the local
 // identity restores from storage (which needs no network), but the SQLite worker
 // cannot boot because the separately-fetched `sqlite3.wasm` asset is unavailable
@@ -55,75 +81,80 @@ async function openExplorerWindow(
 test(
   "explorer surfaces a database error with retry (not an endless spinner) when the worker fails to boot offline",
   async () => {
+    const restoreConsoleError = silenceExpectedOfflineBootConsoleError();
     useTestApiAppHandlers();
-    // One shared keyring instance so the persisted identity from phase 1 can be
-    // decrypted when it is restored in phase 2.
-    const createLocalKeyring = createSharedMemoryLocalKeyringFactory();
+    try {
+      // One shared keyring instance so the persisted identity from phase 1 can be
+      // decrypted when it is restored in phase 2.
+      const createLocalKeyring = createSharedMemoryLocalKeyringFactory();
 
-    // Phase 1 — a healthy online session that persists a local identity.
-    const online = renderPane({
-      hostConfig: createTestHostConfig({
-        createLocalKeyring,
-        localIdentityNamespace: OFFLINE_NAMESPACE,
-      }),
-    });
-    await generateIdentityAndWaitForDb(online);
-    await waitForPersistedPaneLocalIdentity(OFFLINE_NAMESPACE);
-    online.unmount();
+      // Phase 1 — a healthy online session that persists a local identity.
+      const online = renderPane({
+        hostConfig: createTestHostConfig({
+          createLocalKeyring,
+          localIdentityNamespace: OFFLINE_NAMESPACE,
+        }),
+      });
+      await generateIdentityAndWaitForDb(online);
+      await waitForPersistedPaneLocalIdentity(OFFLINE_NAMESPACE);
+      online.unmount();
 
-    // Phase 2 — simulate an offline reload: same identity storage + keyring, but
-    // the SQLite worker cannot boot.
-    const offline = renderPane({
-      hostConfig: createTestHostConfig({
-        createLocalKeyring,
-        localIdentityNamespace: OFFLINE_NAMESPACE,
-        workerConstructor: FailingInitMockWorker,
-      }),
-    });
+      // Phase 2 — simulate an offline reload: same identity storage + keyring, but
+      // the SQLite worker cannot boot.
+      const offline = renderPane({
+        hostConfig: createTestHostConfig({
+          createLocalKeyring,
+          localIdentityNamespace: OFFLINE_NAMESPACE,
+          workerConstructor: FailingInitMockWorker,
+        }),
+      });
 
-    // The identity restores from storage with no network, but the DB boot fails.
-    await waitFor(
-      () => {
-        const status = getPaneStatusText(offline);
-        expect(status).toMatch(/publicKey:\s*[0-9a-f]/);
-        expect(status).toMatch(/sqlite worker:\s*error/);
-      },
-      { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-    );
-
-    const explorerWindow = await openExplorerWindow(offline);
-
-    // The boot error is surfaced with a Retry (in both the detail panel and the
-    // sidebar tree) instead of an indistinguishable, never-ending "Loading...".
-    await waitFor(() => {
-      expect(explorerWindow.textContent).toContain(
-        "Couldn't open the local database.",
+      // The identity restores from storage with no network, but the DB boot fails.
+      await waitFor(
+        () => {
+          const status = getPaneStatusText(offline);
+          expect(status).toMatch(/publicKey:\s*[0-9a-f]/);
+          expect(status).toMatch(/sqlite worker:\s*error/);
+        },
+        { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
       );
-    });
-    expect(
-      within(explorerWindow).getAllByRole("button", { name: "Retry" }).length,
-    ).toBeGreaterThan(0);
-    expect(explorerWindow.textContent).not.toContain("Loading...");
-    // And it never falsely reaches the ready-but-empty "No containers." state.
-    expect(explorerWindow.textContent).not.toContain("No containers.");
 
-    // Retrying re-attempts the boot; with a permanently-failing worker it returns
-    // to the same surfaced error and never silently hangs.
-    const [retryButton] = within(explorerWindow).getAllByRole("button", {
-      name: "Retry",
-    });
-    if (!retryButton) {
-      throw new Error("expected a Retry button");
+      const explorerWindow = await openExplorerWindow(offline);
+
+      // The boot error is surfaced with a Retry (in both the detail panel and the
+      // sidebar tree) instead of an indistinguishable, never-ending "Loading...".
+      await waitFor(() => {
+        expect(explorerWindow.textContent).toContain(
+          "Couldn't open the local database.",
+        );
+      });
+      expect(
+        within(explorerWindow).getAllByRole("button", { name: "Retry" }).length,
+      ).toBeGreaterThan(0);
+      expect(explorerWindow.textContent).not.toContain("Loading...");
+      // And it never falsely reaches the ready-but-empty "No containers." state.
+      expect(explorerWindow.textContent).not.toContain("No containers.");
+
+      // Retrying re-attempts the boot; with a permanently-failing worker it returns
+      // to the same surfaced error and never silently hangs.
+      const [retryButton] = within(explorerWindow).getAllByRole("button", {
+        name: "Retry",
+      });
+      if (!retryButton) {
+        throw new Error("expected a Retry button");
+      }
+      fireEvent.click(retryButton);
+      await waitFor(() => {
+        expect(getPaneStatusText(offline)).toMatch(/sqlite worker:\s*error/);
+        expect(explorerWindow.textContent).toContain(
+          "Couldn't open the local database.",
+        );
+      });
+
+      offline.unmount();
+    } finally {
+      restoreConsoleError();
     }
-    fireEvent.click(retryButton);
-    await waitFor(() => {
-      expect(getPaneStatusText(offline)).toMatch(/sqlite worker:\s*error/);
-      expect(explorerWindow.textContent).toContain(
-        "Couldn't open the local database.",
-      );
-    });
-
-    offline.unmount();
   },
   PANE_ASYNC_TEST_TIMEOUT_MS,
 );

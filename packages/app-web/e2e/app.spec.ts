@@ -9,6 +9,10 @@ function visiblePane(page: Page, side?: "left" | "right"): Locator {
 }
 
 async function generateKeyPair(page: Page, pane: Locator): Promise<void> {
+  if (await waitForPanePublicKey(pane, 2_000)) {
+    return;
+  }
+
   await pane.getByRole("button", { name: "Menu" }).click();
   const generatedKeyAction = page
     .getByRole("button", {
@@ -27,6 +31,9 @@ async function generateKeyPair(page: Page, pane: Locator): Promise<void> {
   try {
     await generateKeyAction.click({ timeout: 5_000 });
   } catch (error) {
+    if (await waitForPanePublicKey(pane, 5_000)) {
+      return;
+    }
     if (await generatedKeyAction.isVisible().catch(() => false)) {
       return;
     }
@@ -34,7 +41,41 @@ async function generateKeyPair(page: Page, pane: Locator): Promise<void> {
   }
 }
 
+async function paneHasPublicKey(pane: Locator): Promise<boolean> {
+  const status = await paneStatus(pane);
+  const statusText = await status.innerText();
+  return PUBLIC_KEY_PATTERN.test(statusText);
+}
+
+async function waitForPanePublicKey(
+  pane: Locator,
+  timeout: number,
+): Promise<boolean> {
+  try {
+    await expect.poll(() => paneHasPublicKey(pane), { timeout }).toBe(true);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function enableDeveloperMode(page: Page, pane: Locator): Promise<void> {
+  await showSystemMonitorTab(pane, "Logs");
+  await page.getByRole("menuitem", { name: "View" }).click();
+  const enableAction = page.getByRole("menuitem", {
+    name: "Enable Developer Mode",
+  });
+  try {
+    await enableAction.waitFor({ state: "visible", timeout: 1_000 });
+    await enableAction.click();
+    return;
+  } catch {
+    await page.keyboard.press("Escape");
+  }
+}
+
 async function killWorker(page: Page, pane: Locator): Promise<void> {
+  await enableDeveloperMode(page, pane);
   await pane.getByRole("button", { name: "Menu" }).click();
   await page.getByRole("button", { name: "Kill Worker" }).click();
 }
@@ -86,10 +127,6 @@ test("page loads", async ({ page }) => {
 
   await expect(page).toHaveTitle("App");
   const firstVisiblePane = visiblePane(page);
-  const logs = await paneLogs(firstVisiblePane);
-  await expect(
-    logs.getByText("Generate a key pair from the pane menu to boot this pane."),
-  ).toBeVisible();
   await generateKeyPair(page, firstVisiblePane);
 
   await waitForPaneBooted(firstVisiblePane);

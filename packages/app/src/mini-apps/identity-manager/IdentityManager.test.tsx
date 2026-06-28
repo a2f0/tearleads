@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads, UserSession } from "@tearleads/client-sdk";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
@@ -13,6 +13,7 @@ import {
 import { type PropsWithChildren, useEffect } from "react";
 import { withManualIdentity } from "../../../test/helpers/manualIdentityProfile";
 import { MockWorker } from "../../../test/helpers/mockWorker";
+import "../../../test/helpers/mswServer";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { APP_HOST_PROFILES, AppHostConfig } from "../../host/AppHostConfig";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
@@ -45,7 +46,7 @@ class TestWebSocket extends EventTarget {
 // These tests drive the manual identity flow (Generate Key Pair / Register), so
 // disable the boot-time autopilot that would otherwise provision first.
 const TEST_HOST_CONFIG = new AppHostConfig(
-  "http://api.example.test",
+  "http://localhost:3001",
   "ws://events.example.test",
   () =>
     createSQLiteRuntime({
@@ -72,7 +73,10 @@ function IdentityManagerTestRuntime({
   onTearleadsReady,
 }: PropsWithChildren<{ onTearleadsReady: (tearleads: Tearleads) => void }>) {
   return (
-    <AppRuntimeProvider hostConfig={TEST_HOST_CONFIG}>
+    <AppRuntimeProvider
+      autoProvisionEnabled={false}
+      hostConfig={TEST_HOST_CONFIG}
+    >
       <TearleadsProbe onReady={onTearleadsReady} />
       {children}
     </AppRuntimeProvider>
@@ -131,6 +135,7 @@ test("active sessions render last IP and session IP history", async () => {
 
     const originalListSessions = tearleads.session.listSessions;
     try {
+      spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
       tearleads.session.listSessions = async () => [ACTIVE_SESSION];
       await act(async () => {
         await tearleads.identity.setKeyPairs({
@@ -204,6 +209,7 @@ test("identity detail copies the authenticated user id", async () => {
 
     const originalListSessions = tearleads.session.listSessions;
     try {
+      spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
       tearleads.session.listSessions = async () => [];
       await act(async () => {
         tearleads.session.setContext({

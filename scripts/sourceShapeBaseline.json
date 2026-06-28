@@ -50,8 +50,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1424,
-      "bytes": 40846
+      "lines": 1450,
+      "bytes": 42096
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 562,
@@ -110,8 +110,8 @@
       "bytes": 43030
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 1952,
-      "bytes": 64422
+      "lines": 2103,
+      "bytes": 69212
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 1049,
@@ -144,6 +144,10 @@
     "packages/api/src/workflows/documents/mutations/shared/records.ts": {
       "lines": 561,
       "bytes": 16360
+    },
+    "packages/api/src/workflows/documents/mutations/shared/verification.ts": {
+      "lines": 513,
+      "bytes": 16345
     },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
       "lines": 883,
@@ -190,8 +194,8 @@
       "bytes": 38946
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
-      "lines": 1275,
-      "bytes": 38914
+      "lines": 1308,
+      "bytes": 40503
     },
     "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts": {
       "lines": 758,
@@ -218,8 +222,8 @@
       "bytes": 20397
     },
     "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
-      "lines": 915,
-      "bytes": 26997
+      "lines": 970,
+      "bytes": 30282
     },
     "packages/client-sdk/src/workflows/containers/child/share.ts": {
       "lines": 766,

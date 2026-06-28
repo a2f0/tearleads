@@ -64,6 +64,7 @@ const DEFAULT_SYNC_IDLE_INTERVAL_MS = 10;
 const DEFAULT_SYNC_IDLE_QUIET_MS = 0;
 const DEFAULT_SYNC_IDLE_TIMEOUT_MS = 500;
 const DESTROYED_DATABASE_CLIENT_MESSAGES = [
+  "Database client is unavailable.",
   "Database worker client has been destroyed.",
   "DB has been closed.",
 ] as const;
