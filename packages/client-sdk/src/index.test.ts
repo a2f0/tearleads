@@ -18,6 +18,7 @@ import {
   createMemoryWrappingKeyKeystore,
   createPinCodeBrowserLocalKeyring,
   createPinCodeWrappingKeyKeystore,
+  createWebViewLocalKeyring,
   DEFAULT_DOCUMENT_KIND,
   type DocumentAttachmentUpload,
   getDocumentClientProjectionTables,
@@ -57,6 +58,7 @@ test("root entrypoint exposes public facade symbols", () => {
   expect(createMemoryWrappingKeyKeystore).toBeFunction();
   expect(createPinCodeBrowserLocalKeyring).toBeFunction();
   expect(createPinCodeWrappingKeyKeystore).toBeFunction();
+  expect(createWebViewLocalKeyring).toBeFunction();
   expect(isPinCodeWrappedLocalSecretEnvelope).toBeFunction();
   expect(getDocumentClientProjectionTables).toBeFunction();
   expect(createMemoryBlobStore).toBeFunction();
@@ -134,6 +136,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "createPinCodeWrappingKeyKeystore",
   "createRemoteContainer",
   "createRemoteDocument",
+  "createWebViewLocalKeyring",
   "decodeLocalKeyringSqliteKey",
   "decryptDocumentAttachmentBlob",
   "defaultContainerContentsPersistence",

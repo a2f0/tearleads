@@ -23,6 +23,23 @@ function getPackageSourcePath(
   return fileURLToPath(new URL(moduleRelativeUrl, import.meta.url));
 }
 
+// Resolve the SQLite WASM binary's real path. getSqliteWasmAssetUrl() resolves
+// relative to @tearleads/sqlite-instance's module URL, which is correct from
+// source but breaks in the dev build: Electrobun inlines this file into the
+// app bundle, so the asset URL points at <bundle>/dist/jswasm/sqlite3.wasm,
+// which does not exist. Serving that missing file as a streaming Bun.file
+// response hangs the worker's WebAssembly.instantiateStreaming (and wedges the
+// dev server). In dev, resolve it from the workspace source like the renderer
+// and worker entrypoints; otherwise fall back to the packaged asset URL.
+function getSqliteWasmFilePath(): string {
+  const packageDir = process.env[packageDirEnvName];
+  if (packageDir) {
+    return resolve(packageDir, "../sqlite-instance/dist/jswasm/sqlite3.wasm");
+  }
+
+  return fileURLToPath(getSqliteWasmAssetUrl());
+}
+
 async function isRegularFile(path: string) {
   try {
     return (await stat(path)).isFile();
@@ -128,7 +145,11 @@ async function createDevServerConfig() {
 
   const workerScript = workerBuild.outputs[0];
 
-  const sqliteWasm = Bun.file(getSqliteWasmAssetUrl());
+  // Read the WASM into memory once. Beyond avoiding a per-request file open,
+  // this makes a missing/misresolved binary fail fast at startup rather than
+  // hanging every /sqlite3.wasm request (a streaming Bun.file of a nonexistent
+  // path never completes).
+  const sqliteWasm = await Bun.file(getSqliteWasmFilePath()).arrayBuffer();
 
   const webOutputs = new Map(
     webBuild.outputs.map((output) => [
@@ -141,12 +162,6 @@ async function createDevServerConfig() {
   if (!indexOutput) {
     throw new Error("Missing built index.html response");
   }
-  // Packaged Electrobun also serves the renderer over http://127.0.0.1, so the
-  // renderer needs an explicit dev marker instead of checking protocol/origin.
-  const devIndexHtml = (await indexOutput.text()).replace(
-    /<\/head>/iu,
-    "<script>globalThis.__TEARLEADS_ELECTROBUN_DEV__ = true;</script></head>",
-  );
 
   return {
     fetch(req: Request) {
@@ -165,12 +180,6 @@ async function createDevServerConfig() {
       }
 
       const webOutput = webOutputs.get(pathname) ?? indexOutput;
-      if (webOutput === indexOutput) {
-        return new Response(devIndexHtml, {
-          headers: { "Content-Type": webOutput.type },
-        });
-      }
-
       return new Response(webOutput, {
         headers: { "Content-Type": webOutput.type },
       });

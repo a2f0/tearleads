@@ -111,6 +111,7 @@ export type {
   WrappedLocalSecretFormat,
   WrappingKeyHandle,
   WrappingKeyKeystore,
+  WrappingKeyMaterialStorage,
 } from "./localKeyring";
 export {
   createBrowserLocalKeyring,
@@ -119,6 +120,7 @@ export {
   createLocalStorageLocalKeyringManifestStore,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
+  createWebViewLocalKeyring,
   decodeLocalKeyringSqliteKey,
   encodeLocalKeyringSqliteKey,
   LOCAL_KEYRING_MANIFEST_FORMAT,

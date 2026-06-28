@@ -4,6 +4,7 @@ import {
   createLocalKeyring,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
+  createWebViewLocalKeyring,
   decodeLocalKeyringSqliteKey,
   type LocalKeyringManifest,
   type LocalKeyringManifestStorage,
@@ -78,9 +79,19 @@ function createFakeIndexedDbRequest<T>(
   return request as unknown as IDBRequest<T>;
 }
 
+function recordContainsCryptoKey(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof CryptoKey !== "undefined" &&
+    (value as { readonly key?: unknown }).key instanceof CryptoKey
+  );
+}
+
 function createFakeIndexedDbObjectStore(
   records: Map<string, unknown>,
   transaction: FakeIndexedDbTransaction,
+  rejectCryptoKeyValues = false,
 ): IDBObjectStore {
   return {
     add: (value: unknown) =>
@@ -90,6 +101,14 @@ function createFakeIndexedDbObjectStore(
           throw createFakeIndexedDbError(
             "ConstraintError",
             "IndexedDB record already exists.",
+          );
+        }
+        // Mirror WKWebView, which cannot structured-clone a CryptoKey into
+        // IndexedDB without keychain access (errSecInteractionNotAllowed).
+        if (rejectCryptoKeyValues && recordContainsCryptoKey(value)) {
+          throw createFakeIndexedDbError(
+            "DataCloneError",
+            "The object can not be cloned.",
           );
         }
         records.set(keyId, value);
@@ -107,13 +126,19 @@ function createFakeIndexedDbObjectStore(
 
 function createFakeIndexedDbTransaction(
   records: Map<string, unknown>,
+  rejectCryptoKeyValues = false,
 ): IDBTransaction {
   const transaction: FakeIndexedDbTransaction = {
     error: null,
     onabort: null,
     oncomplete: null,
     onerror: null,
-    objectStore: () => createFakeIndexedDbObjectStore(records, transaction),
+    objectStore: () =>
+      createFakeIndexedDbObjectStore(
+        records,
+        transaction,
+        rejectCryptoKeyValues,
+      ),
   };
 
   return transaction as unknown as IDBTransaction;
@@ -121,6 +146,7 @@ function createFakeIndexedDbTransaction(
 
 function createFakeIndexedDbDatabase(
   stores: Map<string, Map<string, unknown>>,
+  rejectCryptoKeyValues = false,
 ): IDBDatabase {
   return {
     close: () => undefined,
@@ -131,7 +157,9 @@ function createFakeIndexedDbDatabase(
         records,
         createFakeIndexedDbTransaction(
           records,
+          rejectCryptoKeyValues,
         ) as unknown as FakeIndexedDbTransaction,
+        rejectCryptoKeyValues,
       );
     },
     objectStoreNames: {
@@ -145,18 +173,24 @@ function createFakeIndexedDbDatabase(
         throw new Error("Fake IndexedDB object store does not exist.");
       }
 
-      return createFakeIndexedDbTransaction(records);
+      return createFakeIndexedDbTransaction(records, rejectCryptoKeyValues);
     },
   } as unknown as IDBDatabase;
 }
 
 interface FakeIndexedDbOptions {
   readonly failOpenCount?: number | undefined;
+  /**
+   * Reject `add`s of records that carry a live CryptoKey, the way WKWebView
+   * fails to structured-clone a non-extractable CryptoKey into IndexedDB.
+   */
+  readonly rejectCryptoKeyValues?: boolean | undefined;
 }
 
 function createFakeIndexedDb(options: FakeIndexedDbOptions = {}): IDBFactory {
   const databases = new Map<string, Map<string, Map<string, unknown>>>();
   let remainingOpenFailures = options.failOpenCount ?? 0;
+  const rejectCryptoKeyValues = options.rejectCryptoKeyValues ?? false;
 
   return {
     open: (name: string) => {
@@ -187,7 +221,10 @@ function createFakeIndexedDb(options: FakeIndexedDbOptions = {}): IDBFactory {
           stores = new Map();
           databases.set(name, stores);
         }
-        request.result = createFakeIndexedDbDatabase(stores);
+        request.result = createFakeIndexedDbDatabase(
+          stores,
+          rejectCryptoKeyValues,
+        );
         if (needsUpgrade) {
           request.onupgradeneeded?.({} as IDBVersionChangeEvent);
         }
@@ -250,6 +287,44 @@ test("browser local keyring persists manifests and non-extractable wrapping keys
   expect(reopened).not.toBeNull();
   if (!reopened) {
     throw new Error("Expected reopened browser local keyring session");
+  }
+  expect(reopened.sqliteKey).toBe(session.sqliteKey);
+  expect(reopened.blobStoreKey).toEqual(session.blobStoreKey);
+  expect(reopened.identityPersistenceKey).toEqual(
+    session.identityPersistenceKey,
+  );
+});
+
+test("default browser local keyring fails when IndexedDB cannot clone a CryptoKey", async () => {
+  // WKWebView (e.g. an unsigned Electrobun dev app) cannot structured-clone a
+  // non-extractable CryptoKey into IndexedDB without keychain access.
+  const indexedDB = createFakeIndexedDb({ rejectCryptoKeyValues: true });
+  const manifestStorage = createTestManifestStorage();
+  const keyring = createBrowserLocalKeyring({ indexedDB, manifestStorage });
+
+  await expect(keyring.getOrCreateSession(scope)).rejects.toThrow(
+    "can not be cloned",
+  );
+});
+
+test("WebView local keyring persists raw key bytes and reloads without CryptoKey cloning", async () => {
+  const indexedDB = createFakeIndexedDb({ rejectCryptoKeyValues: true });
+  const manifestStorage = createTestManifestStorage();
+  const keyring = createWebViewLocalKeyring({ indexedDB, manifestStorage });
+
+  // Round-trips through the same IndexedDB that rejects CryptoKey values, so the
+  // wrapping key must be persisted as raw bytes rather than a CryptoKey object.
+  const session = await keyring.getOrCreateSession(scope);
+  expect(decodeLocalKeyringSqliteKey(session.sqliteKey)).toHaveLength(32);
+
+  const reopened = await createWebViewLocalKeyring({
+    indexedDB,
+    manifestStorage,
+  }).loadSession(scope);
+
+  expect(reopened).not.toBeNull();
+  if (!reopened) {
+    throw new Error("Expected reopened WebView local keyring session");
   }
   expect(reopened.sqliteKey).toBe(session.sqliteKey);
   expect(reopened.blobStoreKey).toEqual(session.blobStoreKey);
