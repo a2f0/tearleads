@@ -71,6 +71,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/services/blobs/`,
       `${api}/workflows/blobs/`,
       `${api}/adapters/blobObjectStore.ts`,
+      `${api}/adapters/defaultBlobObjectStore.ts`,
       `${api}/adapters/s3BlobObjectStore.ts`,
       `${api}/adapters/s3BlobObjectStreams.ts`,
       `${api}/utils/blobStageRecords.ts`,
