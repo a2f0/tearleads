@@ -49,7 +49,9 @@ export interface DocumentLinkSetMutationRequest {
   body: unknown;
   expectedManifestHash: string;
   manifest: Record<string, unknown>;
-  previousManifest: AccessManifestBundleWire;
+  // The prior link-set manifest is the document's current head; the server
+  // resolves it from its own store (the signed event's previousManifestHash pins
+  // freshness), so the writer no longer echoes the bundle back.
   // Container access manifests authorizing the write, as hash references the
   // server resolves from its own store.
   targetContainerPathRefs: ContainerManifestRef[];
@@ -246,9 +248,6 @@ export function isDocumentCreateRequest(
 export function isDocumentLinkSetMutationRequest(
   value: unknown,
 ): value is DocumentLinkSetMutationRequest {
-  const previousManifest = isPlainObject(value)
-    ? Reflect.get(value, "previousManifest")
-    : undefined;
   const event = isPlainObject(value) ? Reflect.get(value, "event") : undefined;
   const body = isPlainObject(value) ? Reflect.get(value, "body") : undefined;
   const manifest = isPlainObject(value)
@@ -275,7 +274,6 @@ export function isDocumentLinkSetMutationRequest(
     hasStringProperty(value, "expectedManifestHash") &&
     value.expectedManifestHash.length > 0 &&
     isPlainObject(manifest) &&
-    isAccessManifestBundleWire(previousManifest) &&
     isContainerManifestRefArray(targetContainerPathRefs) &&
     isContainerManifestRefArrayArray(authorizingContainerPathRefs) &&
     isOptionalContainerMutationRequestArray(containerRekeys) &&

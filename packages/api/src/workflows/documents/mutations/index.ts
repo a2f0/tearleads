@@ -7,7 +7,7 @@ export { runDocumentLinkSetMutationWorkflow } from "./mutateDocumentLinkSet";
 export { runPurgeDocumentWorkflow } from "./purgeDocument";
 export {
   assertCurrentContainerPathRefGroups,
-  assertDocumentManifestBundleConsistent,
+  loadCurrentDocumentManifest,
   loadSignerPublicKey,
 } from "./shared/verification";
 export { runDocumentSyncWorkflow } from "./syncDocument";

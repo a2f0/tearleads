@@ -393,17 +393,6 @@ async function stageMultipartEncryptedBlob(
   return { ...staged, sha256 };
 }
 
-function manifestRequest(
-  manifest: VerifiedDocumentLinkSetManifest,
-): BlobAttachmentBindRequest["documentManifest"] {
-  return {
-    event: manifest.event.event as unknown as Record<string, unknown>,
-    manifest: manifest.manifest as unknown as Record<string, unknown>,
-    manifestHash: manifest.manifestHash,
-    state: manifest.state as unknown as Record<string, unknown>,
-  };
-}
-
 function contentKeyTargets(
   targets: VerifiedBlobKekTargets,
 ): BlobAttachmentBindRequest["contentKeyBundle"]["targets"] {
@@ -535,7 +524,6 @@ async function buildBindRequest(input: {
   const request: BlobAttachmentBindRequest = {
     event: event.event as unknown as Record<string, unknown>,
     body,
-    documentManifest: manifestRequest(input.document.bundle),
     authorizingContainerPathRefs: [
       [
         {
@@ -606,7 +594,6 @@ async function buildDetachRequest(input: {
   return {
     event: event.event as unknown as Record<string, unknown>,
     body,
-    documentManifest: manifestRequest(input.document.bundle),
     authorizingContainerPathRefs: [
       [
         {

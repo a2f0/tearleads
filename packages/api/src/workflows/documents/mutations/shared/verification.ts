@@ -24,6 +24,7 @@ import type {
 import { eq } from "drizzle-orm";
 import {
   getAccessManifestBundles,
+  getCurrentAccessManifestHead,
   getCurrentAccessManifestHeads,
 } from "../../../../access/read/accessManifestStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
@@ -119,7 +120,7 @@ export async function verifyDocumentEvent(input: {
   return verifiedEvent.value;
 }
 
-export async function assertDocumentManifestBundleConsistent(
+async function assertDocumentManifestBundleConsistent(
   bundle: unknown,
   label: string,
 ): Promise<VerifiedDocumentLinkSetManifest> {
@@ -326,25 +327,21 @@ export async function verifyDocumentManifestFromRequest(input: {
 export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
+  readonly previousManifest: VerifiedDocumentLinkSetManifest;
   readonly request: DocumentLinkSetMutationRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
-  const [targetContainerPath, authorizingContainerPaths, previousManifest] =
-    await Promise.all([
-      assertCurrentContainerPathRefs(
-        input.executor,
-        input.request.targetContainerPathRefs,
-        "targetContainerPathRefs",
-      ),
-      assertCurrentContainerPathRefGroups(
-        input.executor,
-        input.request.authorizingContainerPathRefs,
-        "authorizingContainerPathRefs",
-      ),
-      assertDocumentManifestBundleConsistent(
-        input.request.previousManifest,
-        "previousManifest",
-      ),
-    ]);
+  const [targetContainerPath, authorizingContainerPaths] = await Promise.all([
+    assertCurrentContainerPathRefs(
+      input.executor,
+      input.request.targetContainerPathRefs,
+      "targetContainerPathRefs",
+    ),
+    assertCurrentContainerPathRefGroups(
+      input.executor,
+      input.request.authorizingContainerPathRefs,
+      "authorizingContainerPathRefs",
+    ),
+  ]);
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
     [
@@ -360,7 +357,7 @@ export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
       "Document manifest",
       documentShapeError,
     ),
-    previousManifest,
+    previousManifest: input.previousManifest,
     principalPolicies,
     ...(targetContainerPath !== undefined ? { targetContainerPath } : {}),
     ...(authorizingContainerPaths !== undefined
@@ -376,20 +373,60 @@ export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
 }
 
 /**
- * Resolve the document's CURRENT link-set manifest from the server's own store —
- * the writer no longer echoes the signed bundle back. The client identifies it by
- * expectedLinkSetManifestHash, which must equal the document's current link-set
- * head; currentTargets.linkSetManifestHash IS that head (resolved from the stored
- * document head), so a mismatch is a stale write (409) — the same
- * optimistic-concurrency pin the content-key path enforces. The resolved manifest
- * is therefore always the current head, built from trusted stored bytes, and
- * feeds the same downstream authorization the client bundle used to.
+ * Resolve a document link-set manifest from the server's OWN store by hash and
+ * rebuild the verified manifest. The stored bundle was verified at commit time;
+ * a miss is store corruption (the hash always comes from a current head or an
+ * already-pinned client token), not a client error.
+ */
+async function resolveStoredDocumentManifest(
+  manifestHash: string,
+  executor: DatabaseSession,
+): Promise<VerifiedDocumentLinkSetManifest> {
+  const stored = (await getAccessManifestBundles([manifestHash], executor)).get(
+    manifestHash,
+  );
+  if (!stored || stored.manifest.objectKind !== "document") {
+    throw new Error(
+      `Document link-set manifest ${manifestHash} is missing from the access manifest store`,
+    );
+  }
+  return readVerifiedDocumentManifest(
+    toManifestBundleResponse(stored),
+    "documentManifest",
+  );
+}
+
+/**
+ * Resolve a document's CURRENT link-set manifest (its head) from the store. The
+ * writer no longer echoes the signed bundle back; freshness is enforced by the
+ * signed event / write-header the caller verifies against this manifest's hash —
+ * a stale client signed against a superseded head is rejected there (link-set:
+ * event.previousManifestHash; blob: write-header accessManifestHash).
+ */
+export async function loadCurrentDocumentManifest(
+  documentId: string,
+  executor: DatabaseSession,
+): Promise<VerifiedDocumentLinkSetManifest> {
+  const head = await getCurrentAccessManifestHead(
+    "document",
+    documentId,
+    executor,
+  );
+  if (!head) {
+    throw new DocumentMutationError("Document manifest head missing", 404);
+  }
+  return resolveStoredDocumentManifest(head.manifestHash, executor);
+}
+
+/**
+ * Sync-path variant: the current head hash is already in currentTargets, and the
+ * client supplies expectedLinkSetManifestHash which must equal it (409 stale) as
+ * an explicit optimistic-concurrency pin, the same one the content-key path uses.
  */
 async function resolveCurrentDocumentManifestForWrite(input: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
-  readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly request: DocumentSyncRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
@@ -400,22 +437,7 @@ async function resolveCurrentDocumentManifestForWrite(input: {
       409,
     );
   }
-
-  const stored = (
-    await getAccessManifestBundles([headManifestHash], input.executor)
-  ).get(headManifestHash);
-  if (!stored || stored.manifest.objectKind !== "document") {
-    // The head is referenced by the resolved current targets, so it must exist
-    // as a document manifest; a miss here is store corruption, not a client error.
-    throw new Error(
-      `Document ${input.documentId} link-set head ${headManifestHash} is missing from the access manifest store`,
-    );
-  }
-
-  return readVerifiedDocumentManifest(
-    toManifestBundleResponse(stored),
-    "documentManifest",
-  );
+  return resolveStoredDocumentManifest(headManifestHash, input.executor);
 }
 
 export async function verifySyncWriteAuthorizationProof(input: {

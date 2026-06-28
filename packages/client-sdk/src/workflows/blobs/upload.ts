@@ -159,7 +159,6 @@ function blobAttachmentBindRequest(input: {
   return {
     event: readCanonicalRecord(input.event, "Blob attachment bind event"),
     body: readCanonicalRecord(input.body, "Blob attachment bind body"),
-    documentManifest: input.material.writerProjection.documentManifest,
     authorizingContainerPathRefs: authorizingContainerPathRefs(
       input.material.writerProjection,
     ),

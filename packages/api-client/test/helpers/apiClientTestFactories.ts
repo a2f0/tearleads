@@ -104,12 +104,6 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
     body: { eventType: "document.link" },
     expectedManifestHash: "document-manifest-hash",
     manifest: { objectKind: "document" },
-    previousManifest: {
-      event: { eventType: "document.link" },
-      manifest: { objectKind: "document" },
-      manifestHash: "previous-document-manifest-hash",
-      state: { documentId: "document-1" },
-    },
     targetContainerPathRefs: [
       { containerId: "container-1", manifestHash: "container-manifest-hash" },
     ],
@@ -315,12 +309,6 @@ export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
         },
       ],
     },
-    documentManifest: {
-      event: {},
-      manifest: {},
-      manifestHash: "blob-manifest-hash",
-      state: {},
-    },
     event: {},
   };
 }
@@ -329,12 +317,6 @@ export function createBlobAttachmentDetachRequest(): BlobAttachmentDetachRequest
   return {
     authorizingContainerPathRefs: [],
     body: {},
-    documentManifest: {
-      event: {},
-      manifest: {},
-      manifestHash: "blob-manifest-hash",
-      state: {},
-    },
     event: {},
   };
 }

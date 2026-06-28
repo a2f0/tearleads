@@ -562,7 +562,6 @@ async function buildDocumentLinkRequest(input: {
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    previousManifest: input.createdDocument.accessManifest,
     targetContainerPathRefs: [
       {
         containerId: input.root.kekState.containerId,
@@ -657,7 +656,6 @@ async function buildDocumentUnlinkRequest(input: {
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    previousManifest: input.linkedDocument.accessManifest,
     targetContainerPathRefs: [
       {
         containerId: input.root.kekState.containerId,
@@ -1936,8 +1934,12 @@ test("POST /documents/:documentId/link rejects stale previous manifests", async 
   );
 
   expect(staleResponse.status).toBe(409);
+  // The server resolves the previous manifest from the current head, so a stale
+  // link is rejected at the signed-event chain check (event.previousManifestHash
+  // no longer matches the advanced head) rather than the downstream head pin.
   expect(await staleResponse.json()).toEqual({
-    error: "Document manifest is stale",
+    error:
+      "document access event previous manifest does not match supplied previous manifest",
   });
 });
 
@@ -2093,7 +2095,6 @@ test("POST /documents/:documentId/unlink rejects removing the final signed link"
     body: body as unknown as Record<string, unknown>,
     expectedManifestHash: createdDocument.accessManifest.manifestHash,
     manifest: createdDocument.accessManifest.manifest,
-    previousManifest: createdDocument.accessManifest,
     targetContainerPathRefs: [
       {
         containerId: root.kekState.containerId,
