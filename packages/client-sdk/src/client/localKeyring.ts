@@ -1454,6 +1454,7 @@ export function createBrowserLocalKeyring(
           })
         : createBrowserLocalKeyringManifestStore({
             directory: options.manifestDirectory,
+            prefix: options.manifestStoragePrefix,
           })),
     now: options.now,
   });
