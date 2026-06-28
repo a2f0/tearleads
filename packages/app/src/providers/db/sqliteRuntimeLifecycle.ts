@@ -10,6 +10,24 @@ import type { ResolveSqliteCipherKey } from "./sqliteCipherKey";
 type SQLiteRuntimeStatus = DatabaseStatus;
 const SQLITE_RUNTIME_RELEASE_TIMEOUT_MS = 1_000;
 
+/**
+ * Whether a boot error is "the persisted database could not be decrypted with the
+ * resolved cipher key" — i.e. SQLite result code 26 (`SQLITE_NOTADB`, "file is
+ * not a database"). On an encrypted OPFS database this means a key/keyring desync
+ * (e.g. the keyring's localStorage manifest was evicted while the OPFS db file
+ * survived, so a fresh root was minted): the on-disk ciphertext can never be
+ * recovered with the current key. We treat it as a signal to wipe and recreate
+ * rather than a permanent boot failure.
+ */
+function isUnreadableDatabaseError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("SQLITE_NOTADB") ||
+    message.includes("file is not a database") ||
+    /result code 26\b/.test(message)
+  );
+}
+
 export function releaseSQLiteRuntime(runtime: SQLiteRuntime): Promise<void> {
   return new Promise((resolve) => {
     let settled = false;
@@ -96,6 +114,13 @@ interface StartSQLiteRuntimeBootParams {
   killedRef: RefObject<boolean>;
   log: (message: string) => void;
   nextDbName: string;
+  /**
+   * Invoked when a *persistent* database fails to boot because its on-disk bytes
+   * cannot be decrypted with the resolved key (see {@link isUnreadableDatabaseError}).
+   * The handler owns the resulting status (it wipes + recreates), so this boot
+   * does not flip to "error". Omitted for in-memory runtimes (never key-mismatched).
+   */
+  onUnreadableDatabase?: (dbName: string) => void;
   persistence: DatabasePersistenceMode;
   resolveCipherKey: ResolveSqliteCipherKey;
   runtimeRef: RefObject<SQLiteRuntime | null>;
@@ -111,6 +136,7 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
     killedRef,
     log,
     nextDbName,
+    onUnreadableDatabase,
     persistence,
     resolveCipherKey,
     runtimeRef,
@@ -150,6 +176,27 @@ export function startSQLiteRuntimeBoot(params: StartSQLiteRuntimeBootParams) {
         });
       })
       .catch((error) => {
+        // A persisted db that cannot be decrypted with the resolved key is not a
+        // retryable boot flake — the ciphertext is unrecoverable without the lost
+        // key. Hand off to recovery (wipe + recreate once), which owns the status,
+        // instead of flipping to "error" (which would flash an error in the UI and
+        // strand the user on an unreadable database forever).
+        if (
+          runtimeRef.current === runtime &&
+          persistence !== "memory" &&
+          onUnreadableDatabase &&
+          isUnreadableDatabaseError(error)
+        ) {
+          bootingRef.current = false;
+          log(
+            `Database is unreadable with the resolved cipher key (${
+              error instanceof Error ? error.message : String(error)
+            }); wiping and recreating ${nextDbName}.`,
+          );
+          onUnreadableDatabase(nextDbName);
+          return;
+        }
+
         failSQLiteRuntimeBoot({
           runtime,
           runtimeRef,

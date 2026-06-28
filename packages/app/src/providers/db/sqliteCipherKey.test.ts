@@ -1,30 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import type { LocalKeyring, LocalKeyringSession } from "@tearleads/client-sdk";
 import { createSqliteCipherKeyResolver } from "./sqliteCipherKey";
-
-const originalLocation = Object.getOwnPropertyDescriptor(
-  globalThis,
-  "location",
-);
-
-function setHostname(hostname: string | undefined): void {
-  if (hostname === undefined) {
-    Reflect.deleteProperty(globalThis, "location");
-    return;
-  }
-  Object.defineProperty(globalThis, "location", {
-    configurable: true,
-    value: { hostname },
-  });
-}
-
-afterEach(() => {
-  if (originalLocation) {
-    Object.defineProperty(globalThis, "location", originalLocation);
-  } else {
-    Reflect.deleteProperty(globalThis, "location");
-  }
-});
 
 function createStubKeyring(sqliteKey: string): {
   keyring: () => LocalKeyring;
@@ -78,20 +54,10 @@ test("throws a clear error when the keyring yields no session", async () => {
   await expect(resolve()).rejects.toThrow(/keyring session/i);
 });
 
-test("falls back to the development key on local-development hosts", async () => {
-  setHostname("localhost");
-  const resolve = createSqliteCipherKeyResolver(undefined);
-  expect(await resolve()).toBe("development-key");
-});
-
-test("refuses the development fallback outside local development", async () => {
-  setHostname("app.example.com");
-  const resolve = createSqliteCipherKeyResolver(undefined);
-  await expect(resolve()).rejects.toThrow(/local keyring is required/i);
-});
-
-test("refuses the development fallback when there is no location", async () => {
-  setHostname(undefined);
+test("fails hard when no keyring is available (no development-key fallback)", async () => {
+  // No keyring => no key. We must NOT silently encrypt with a development key
+  // (which would later fail to decrypt once a keyring exists) and must NOT
+  // downgrade to an in-memory database. Fail loudly instead.
   const resolve = createSqliteCipherKeyResolver(undefined);
   await expect(resolve()).rejects.toThrow(/local keyring is required/i);
 });

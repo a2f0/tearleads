@@ -1,0 +1,210 @@
+import type { SQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+
+interface Deferred<T = void> {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+}
+
+export function createDeferred<T = void>(): Deferred<T> {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+
+  return { promise, resolve };
+}
+
+/** Fails its first init, then succeeds — exercises boot retry after a failure. */
+export function createRetryableSQLiteRuntimeFactory() {
+  let createCount = 0;
+  let initCount = 0;
+  let destroyCount = 0;
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      const runtimeId = `runtime-${createCount}`;
+      const client: SQLiteRuntime["client"] = {
+        close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
+        destroy() {
+          destroyCount += 1;
+        },
+        exec: async () => ({ ok: true, rows: [] }),
+        init: async () => {
+          initCount += 1;
+          if (initCount === 1) {
+            throw new Error("planned sqlite init failure");
+          }
+
+          return { ok: true };
+        },
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return {
+        client,
+        deleteData: async () => client.destroy(),
+        destroy: () => client.destroy(),
+        id: runtimeId,
+        terminateNow: () => client.destroy(),
+      };
+    },
+    getStats: () => ({ createCount, destroyCount, initCount }),
+  };
+}
+
+/** Records the options each init() is called with (cipher key, persistence). */
+export function createRecordingSQLiteRuntimeFactory() {
+  const initOptions: Array<Parameters<SQLiteRuntime["client"]["init"]>[0]> = [];
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      const client: SQLiteRuntime["client"] = {
+        close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
+        destroy() {},
+        exec: async () => ({ ok: true, rows: [] }),
+        init: async (options) => {
+          initOptions.push(options);
+          return { ok: true };
+        },
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return {
+        client,
+        deleteData: async () => client.destroy(),
+        destroy: () => client.destroy(),
+        id: "recording",
+        terminateNow: () => client.destroy(),
+      };
+    },
+    getInitOptions: () => initOptions,
+  };
+}
+
+/** Models a close that blocks until delete()/releaseClose() — for kill/respawn. */
+export function createRestartSensitiveSQLiteRuntimeFactory() {
+  let createCount = 0;
+  let initCount = 0;
+  let closeCount = 0;
+  let terminateCount = 0;
+  let databaseLocked = false;
+  let pendingClose: Deferred | null = null;
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      const runtimeId = `restart-sensitive-${createCount}`;
+      let initialized = false;
+      let terminated = false;
+      const client: SQLiteRuntime["client"] = {
+        close: async () => {
+          closeCount += 1;
+          if (!initialized) {
+            return { ok: true };
+          }
+
+          const close = createDeferred();
+          pendingClose = close;
+          await close.promise;
+          return { ok: true };
+        },
+        delete: async () => {
+          databaseLocked = false;
+          pendingClose?.resolve();
+          pendingClose = null;
+          return { ok: true };
+        },
+        destroy() {
+          terminateCount += 1;
+        },
+        exec: async () => ({ ok: true, rows: [] }),
+        init: async () => {
+          initCount += 1;
+          if (databaseLocked) {
+            throw new Error("database is still closing");
+          }
+
+          databaseLocked = true;
+          initialized = true;
+          return { ok: true };
+        },
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+      const terminate = () => {
+        if (terminated) {
+          return;
+        }
+
+        terminated = true;
+        client.destroy();
+      };
+
+      return {
+        client,
+        deleteData: async () => {
+          await client.delete();
+          terminate();
+        },
+        destroy: () => {
+          void client.close().finally(() => {
+            terminate();
+          });
+        },
+        id: runtimeId,
+        terminateNow: terminate,
+      };
+    },
+    getStats: () => ({ closeCount, createCount, initCount, terminateCount }),
+    releaseClose: () => {
+      databaseLocked = false;
+      pendingClose?.resolve();
+      pendingClose = null;
+    },
+  };
+}
+
+// First runtime simulates a persisted database encrypted under a now-lost key:
+// init succeeds but the page-1 readability probe fails with SQLITE_NOTADB. The
+// recovery should wipe it (deleteData) and the recreated runtime should boot.
+export function createUnreadableThenHealedSQLiteRuntimeFactory() {
+  let createCount = 0;
+  let deleteDataCount = 0;
+
+  return {
+    createSQLiteRuntime: (): SQLiteRuntime => {
+      createCount += 1;
+      const unreadable = createCount === 1;
+      const client: SQLiteRuntime["client"] = {
+        close: async () => ({ ok: true }),
+        delete: async () => ({ ok: true }),
+        destroy() {},
+        exec: async () => {
+          if (unreadable) {
+            throw new Error(
+              "SQLITE_NOTADB: sqlite3 result code 26: file is not a database",
+            );
+          }
+
+          return { ok: true, rows: [] };
+        },
+        init: async () => ({ ok: true }),
+        ping: async () => ({ ok: true, message: "pong" }),
+      };
+
+      return {
+        client,
+        deleteData: async () => {
+          deleteDataCount += 1;
+          client.destroy();
+        },
+        destroy: () => client.destroy(),
+        id: `heal-${createCount}`,
+        terminateNow: () => client.destroy(),
+      };
+    },
+    getStats: () => ({ createCount, deleteDataCount }),
+  };
+}
