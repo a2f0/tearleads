@@ -2,6 +2,10 @@ import { TearleadsFrame } from "@tearleads/ui";
 import { useCallback, useState } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import {
+  SystemMonitorDeveloperModeProvider,
+  useSystemMonitorDeveloperMode,
+} from "../../mini-apps/system-monitor/systemMonitorDeveloperMode";
+import {
   type NavigationModeOverride,
   NavigationModeToggle,
 } from "../../navigation/NavigationModeToggle";
@@ -22,9 +26,10 @@ interface LayoutProps {
 function LayoutInner({ hostConfig }: LayoutProps) {
   const [modeOverride, setModeOverride] =
     useState<NavigationModeOverride>(null);
+  const { isDeveloperMode } = useSystemMonitorDeveloperMode();
   const navigationMode = useAppNavigationMode(
     hostConfig.navigationMode,
-    modeOverride,
+    isDeveloperMode ? modeOverride : null,
   );
   const [split, setSplit] = useState(hostConfig.profile.defaultSplit);
   const { activeWorkspace, workspaceIds } = useWorkspace();
@@ -46,11 +51,13 @@ function LayoutInner({ hostConfig }: LayoutProps) {
           {split ? "Hide Peer" : "Show Peer"}
         </button>
       )}
-      <NavigationModeToggle
-        override={modeOverride}
-        resolvedMode={navigationMode}
-        onChange={setModeOverride}
-      />
+      {isDeveloperMode && (
+        <NavigationModeToggle
+          override={modeOverride}
+          resolvedMode={navigationMode}
+          onChange={setModeOverride}
+        />
+      )}
     </>
   );
 
@@ -90,8 +97,10 @@ export function Layout({ hostConfig }: LayoutProps) {
     : WORKSPACE_IDS;
 
   return (
-    <WorkspaceProvider workspaceIds={workspaceIds}>
-      <LayoutInner hostConfig={hostConfig} />
-    </WorkspaceProvider>
+    <SystemMonitorDeveloperModeProvider>
+      <WorkspaceProvider workspaceIds={workspaceIds}>
+        <LayoutInner hostConfig={hostConfig} />
+      </WorkspaceProvider>
+    </SystemMonitorDeveloperModeProvider>
   );
 }

@@ -42,6 +42,8 @@ const SYSTEM_MONITOR_TABS: ReadonlyArray<{
 
 const PIN_TO_DESKTOP_LABEL = "Pin to Desktop";
 const PIN_TO_HOME_SCREEN_LABEL = "Pin to Home Screen";
+const ENABLE_DEVELOPER_MODE_LABEL = "Enable Developer Mode";
+const DISABLE_DEVELOPER_MODE_LABEL = "Disable Developer Mode";
 
 // Roving tabindex per the WAI-ARIA tab pattern: only the active tab is in the
 // tab order; arrow/Home/End keys move focus (and selection) between tabs.
@@ -118,32 +120,13 @@ function SystemMonitorTabs({
   );
 }
 
-export function SystemMonitorApp() {
-  const { isRouted, pathSegments, setPathSegments } =
-    useMiniAppRouteSegments("system-monitor");
-  const [localActiveTab, setLocalActiveTab] = useState<SystemMonitorTabId>(
-    DEFAULT_SYSTEM_MONITOR_TAB,
-  );
-  const activeTab = isRouted
-    ? parseSystemMonitorRouteSegments(pathSegments)
-    : localActiveTab;
-  const idPrefix = useId();
-  const { canPin, pinToDesktop } = useSystemMonitor();
+function useSystemMonitorChromeActions() {
+  const { canPin, isDeveloperMode, pinToDesktop, toggleDeveloperMode } =
+    useSystemMonitor();
   const currentWindow = useCurrentWindow();
   const { navigateHome } = useAppNavigationActions();
   const { mode: navigationMode } = useAppNavigationState();
   const isRoutedShell = navigationMode === "routed";
-  const setActiveTab = useCallback(
-    (nextTab: SystemMonitorTabId) => {
-      if (isRouted) {
-        setPathSegments(formatSystemMonitorRouteSegments(nextTab));
-        return;
-      }
-
-      setLocalActiveTab(nextTab);
-    },
-    [isRouted, setPathSegments],
-  );
 
   const handlePin = useCallback(() => {
     pinToDesktop();
@@ -183,6 +166,20 @@ export function SystemMonitorApp() {
     () => (isRoutedShell ? null : pinMenuItem),
     [isRoutedShell, pinMenuItem],
   );
+  const developerModeViewMenuItem = useMemo(
+    () =>
+      canPin
+        ? {
+            id: "system-monitor-developer-mode",
+            label: isDeveloperMode
+              ? DISABLE_DEVELOPER_MODE_LABEL
+              : ENABLE_DEVELOPER_MODE_LABEL,
+            onClick: toggleDeveloperMode,
+            priority: -10,
+          }
+        : null,
+    [canPin, isDeveloperMode, toggleDeveloperMode],
+  );
   const pinTitleBarAction = useMemo(
     () =>
       canPin && !isRoutedShell
@@ -197,7 +194,32 @@ export function SystemMonitorApp() {
   );
   useWindowFileMenuItem(pinFileMenuItem);
   useWindowViewMenuItem(pinViewMenuItem);
+  useWindowViewMenuItem(developerModeViewMenuItem);
   useWindowTitleBarAction(pinTitleBarAction);
+}
+
+export function SystemMonitorApp() {
+  const { isRouted, pathSegments, setPathSegments } =
+    useMiniAppRouteSegments("system-monitor");
+  const [localActiveTab, setLocalActiveTab] = useState<SystemMonitorTabId>(
+    DEFAULT_SYSTEM_MONITOR_TAB,
+  );
+  const activeTab = isRouted
+    ? parseSystemMonitorRouteSegments(pathSegments)
+    : localActiveTab;
+  const idPrefix = useId();
+  const setActiveTab = useCallback(
+    (nextTab: SystemMonitorTabId) => {
+      if (isRouted) {
+        setPathSegments(formatSystemMonitorRouteSegments(nextTab));
+        return;
+      }
+
+      setLocalActiveTab(nextTab);
+    },
+    [isRouted, setPathSegments],
+  );
+  useSystemMonitorChromeActions();
 
   return (
     <MiniAppRoot className="system-monitor">

@@ -8,6 +8,11 @@ import {
 } from "react";
 import { usePaneSide } from "../../components/pane/dual-pane/usePaneSide";
 import {
+  SystemMonitorDeveloperModeContext,
+  SystemMonitorDeveloperModeProvider,
+  useSystemMonitorDeveloperMode,
+} from "./systemMonitorDeveloperMode";
+import {
   DEFAULT_SYSTEM_MONITOR_MODE,
   loadSystemMonitorMode,
   type SystemMonitorMode,
@@ -20,26 +25,32 @@ interface SystemMonitorContextValue {
   // false for the default context value so isolated renders do not persist
   // monitor placement.
   canPin: boolean;
+  isDeveloperMode: boolean;
   isPinned: boolean;
   mode: SystemMonitorMode;
   pinToDesktop: () => void;
+  toggleDeveloperMode: () => void;
   unpinToWindow: () => void;
 }
 
 const SystemMonitorContext = createContext<SystemMonitorContextValue>({
   canPin: false,
+  isDeveloperMode: false,
   isPinned: false,
   mode: DEFAULT_SYSTEM_MONITOR_MODE,
   pinToDesktop: () => {},
+  toggleDeveloperMode: () => {},
   unpinToWindow: () => {},
 });
 
-export function SystemMonitorProvider({ children }: PropsWithChildren) {
+function SystemMonitorProviderInner({ children }: PropsWithChildren) {
   const side = usePaneSide();
   const storageKey = useMemo(() => systemMonitorModeStorageKey(side), [side]);
   const [mode, setMode] = useState<SystemMonitorMode>(() =>
     loadSystemMonitorMode(storageKey),
   );
+  const { isDeveloperMode, toggleDeveloperMode } =
+    useSystemMonitorDeveloperMode();
 
   // Persist on the user's action only — never on mount — so a fresh load
   // leaves storage untouched until the monitor is actually pinned/unpinned.
@@ -55,12 +66,14 @@ export function SystemMonitorProvider({ children }: PropsWithChildren) {
   const value = useMemo<SystemMonitorContextValue>(
     () => ({
       canPin: true,
+      isDeveloperMode,
       isPinned: mode === "pinned",
       mode,
       pinToDesktop,
+      toggleDeveloperMode,
       unpinToWindow,
     }),
-    [mode, pinToDesktop, unpinToWindow],
+    [isDeveloperMode, mode, pinToDesktop, toggleDeveloperMode, unpinToWindow],
   );
 
   return (
@@ -68,6 +81,20 @@ export function SystemMonitorProvider({ children }: PropsWithChildren) {
       {children}
     </SystemMonitorContext.Provider>
   );
+}
+
+export function SystemMonitorProvider({ children }: PropsWithChildren) {
+  const developerModeContext = useContext(SystemMonitorDeveloperModeContext);
+
+  if (!developerModeContext) {
+    return (
+      <SystemMonitorDeveloperModeProvider>
+        <SystemMonitorProviderInner>{children}</SystemMonitorProviderInner>
+      </SystemMonitorDeveloperModeProvider>
+    );
+  }
+
+  return <SystemMonitorProviderInner>{children}</SystemMonitorProviderInner>;
 }
 
 export function useSystemMonitor(): SystemMonitorContextValue {

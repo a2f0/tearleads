@@ -15,18 +15,27 @@ export function PaneSystemMenuItems({
   onOpenUnlock,
   onRequestDestroyKeyPackage,
   onRequestLogout,
+  showDeveloperControls,
 }: {
   onClose: () => void;
   onOpenUnlock: () => void;
   onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
+  showDeveloperControls: boolean;
 }) {
   return (
     <>
-      <PaneWorkerMenuItems onClose={onClose} />
-      <PaneNetworkMenuItems onClose={onClose} />
+      <PaneWorkerMenuItems
+        showDeveloperControls={showDeveloperControls}
+        onClose={onClose}
+      />
+      <PaneNetworkMenuItems
+        showDeveloperControls={showDeveloperControls}
+        onClose={onClose}
+      />
       <PaneUnlockMenuItem onClose={onClose} onOpenUnlock={onOpenUnlock} />
       <PaneKeyMenuItems
+        showDeveloperControls={showDeveloperControls}
         onClose={onClose}
         onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
       />
@@ -38,12 +47,18 @@ export function PaneSystemMenuItems({
   );
 }
 
-function PaneNetworkMenuItems({ onClose }: { onClose: () => void }) {
+function PaneNetworkMenuItems({
+  onClose,
+  showDeveloperControls,
+}: {
+  onClose: () => void;
+  showDeveloperControls: boolean;
+}) {
   const { mode, setNetworkMode } = useNetworkState();
 
   return (
     <>
-      {mode !== "online" && (
+      {showDeveloperControls && mode !== "online" && (
         <MenuItem
           label="Force Online"
           onClick={() => {
@@ -52,7 +67,7 @@ function PaneNetworkMenuItems({ onClose }: { onClose: () => void }) {
           }}
         />
       )}
-      {mode !== "offline" && (
+      {showDeveloperControls && mode !== "offline" && (
         <MenuItem
           label="Force Offline"
           onClick={() => {
@@ -74,14 +89,20 @@ function PaneNetworkMenuItems({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PaneWorkerMenuItems({ onClose }: { onClose: () => void }) {
+function PaneWorkerMenuItems({
+  onClose,
+  showDeveloperControls,
+}: {
+  onClose: () => void;
+  showDeveloperControls: boolean;
+}) {
   const { killWorker, spawnWorker, status } = useDatabase();
   const { signingKeyPair } = useIdentity();
   const isTerminated = status === "terminated";
 
   return (
     <>
-      {signingKeyPair && !isTerminated && (
+      {showDeveloperControls && signingKeyPair && !isTerminated && (
         <MenuItem
           label="Kill Worker"
           onClick={() => {
@@ -130,9 +151,11 @@ function PaneUnlockMenuItem({
 function PaneKeyMenuItems({
   onClose,
   onRequestDestroyKeyPackage,
+  showDeveloperControls,
 }: {
   onClose: () => void;
   onRequestDestroyKeyPackage: () => void;
+  showDeveloperControls: boolean;
 }) {
   const backupKeyPackage = useBackupKeyPackageAction({ onComplete: onClose });
   const {
@@ -145,14 +168,16 @@ function PaneKeyMenuItems({
 
   return (
     <>
-      <input
-        ref={restoreFileInputRef}
-        aria-label="Restore Key Package File"
-        type="file"
-        accept="application/json,.json"
-        hidden
-        onChange={handleRestoreFileChange}
-      />
+      {showDeveloperControls && (
+        <input
+          ref={restoreFileInputRef}
+          aria-label="Restore Key Package File"
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={handleRestoreFileChange}
+        />
+      )}
       {!signingKeyPair && !localKeyringLock.isLocked && (
         <MenuItem
           label="Generate Key Pair"
@@ -162,14 +187,16 @@ function PaneKeyMenuItems({
           }}
         />
       )}
-      {signingKeyPair && encapsulationKeyPair && (
+      {showDeveloperControls && signingKeyPair && encapsulationKeyPair && (
         <MenuItem label="Backup Key Package" onClick={backupKeyPackage} />
       )}
-      <MenuItem
-        label="Restore Key Package"
-        onClick={handleRestoreKeyPackageClick}
-      />
-      {signingKeyPair && (
+      {showDeveloperControls && (
+        <MenuItem
+          label="Restore Key Package"
+          onClick={handleRestoreKeyPackageClick}
+        />
+      )}
+      {showDeveloperControls && signingKeyPair && (
         <MenuItem
           label="Destroy Key Pair"
           onClick={() => {

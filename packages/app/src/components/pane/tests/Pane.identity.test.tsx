@@ -14,6 +14,7 @@ import {
   renderPane,
   waitForPersistedPaneLocalIdentity,
 } from "../../../../test/helpers/paneTestUtils";
+import { enableSystemMonitorDeveloperMode } from "../../../../test/helpers/systemMonitorTestPreferences";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../shared/DestroyKeyPackageConfirmationDialog";
 
 afterEach(cleanupPaneTestEnvironment);
@@ -283,7 +284,7 @@ test(
     });
 
     fireEvent.click(view.getByText("Menu"));
-    expect(view.getByText("Destroy Key Pair")).toBeTruthy();
+    expect(view.queryByText("Destroy Key Pair")).toBeNull();
     expect(view.getByText("Logout")).toBeTruthy();
 
     fireEvent.click(view.getByText("Logout"));
@@ -338,6 +339,7 @@ test(
 test(
   "userId resets to none when key pair is destroyed",
   async () => {
+    enableSystemMonitorDeveloperMode();
     const view = renderPane();
 
     await generateIdentityAndWaitForDb(view);
@@ -366,6 +368,7 @@ test(
 test(
   "pane menu can generate a new key pair after destroying the current key pair",
   async () => {
+    enableSystemMonitorDeveloperMode();
     const view = renderPane({
       hostConfig: createTestHostConfig({
         localIdentityNamespace: `test-pane-regenerate-${crypto.randomUUID()}`,

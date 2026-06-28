@@ -10,6 +10,7 @@ import {
 import { useEffect } from "react";
 import { withManualIdentity } from "../test/helpers/manualIdentityProfile";
 import { MockWorker } from "../test/helpers/mockWorker";
+import { enableSystemMonitorDeveloperMode } from "../test/helpers/systemMonitorTestPreferences";
 import { App } from "./App";
 import {
   DualPaneProvider,
@@ -167,6 +168,7 @@ test("normal App is single-pane with no split toggle", () => {
   // The regular app never splits, so there is no split/peer toggle in chrome.
   expect(view.queryByRole("button", { name: "Split" })).toBeNull();
   expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
+  expect(view.queryByRole("button", { name: /Navigation mode/i })).toBeNull();
   view.unmount();
 });
 
@@ -226,8 +228,8 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
 
     // System actions live directly in the rail — no popover to open first.
     expect(
-      view.getByRole("button", { name: "Restore Key Package" }),
-    ).toBeTruthy();
+      view.queryByRole("button", { name: "Restore Key Package" }),
+    ).toBeNull();
     const generateKeyPairButton = view.getAllByRole("button", {
       name: "Generate Key Pair",
     })[1];
@@ -237,9 +239,10 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     fireEvent.click(generateKeyPairButton);
 
     await waitFor(() => {
+      expect(view.getByRole("button", { name: "Open Contacts" })).toBeTruthy();
       expect(
-        view.getByRole("button", { name: "Destroy Key Pair" }),
-      ).toBeTruthy();
+        view.queryByRole("button", { name: "Destroy Key Pair" }),
+      ).toBeNull();
     });
 
     fireEvent.click(view.getByRole("link", { name: "Contacts" }));
@@ -283,8 +286,8 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
       expect(view.queryByRole("button", { name: "Hide Sidebar" })).toBeNull();
     });
 
-    // Destroy Key Pair is also inline in the rail now that a key pair exists.
-    expect(view.getByRole("button", { name: "Destroy Key Pair" })).toBeTruthy();
+    // Developer-only key destruction stays hidden from normal users.
+    expect(view.queryByRole("button", { name: "Destroy Key Pair" })).toBeNull();
 
     view.unmount();
   } finally {
@@ -312,6 +315,7 @@ test("switching navigation mode reuses the booted pane database instead of reboo
   try {
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);
 
+    enableSystemMonitorDeveloperMode();
     pinWindowedSystemMonitors();
     const view = render(
       <App

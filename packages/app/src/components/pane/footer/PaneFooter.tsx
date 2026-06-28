@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
+import { useSystemMonitor } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { WorkspaceSwitcher } from "../../layout/workspace/WorkspaceSwitcher";
 import { DestroyKeyPackageConfirmationDialog } from "../../shared/DestroyKeyPackageConfirmationDialog";
@@ -22,6 +23,7 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
   const [menu, setMenu] = useState<MenuPosition | null>(null);
   const logoutDialog = useConfirmedLogoutDialog();
   const { destroyKey } = useIdentity();
+  const { isDeveloperMode } = useSystemMonitor();
   const destroyKeyPackageDialog = useDestroyKeyPackageConfirmation(destroyKey);
   const { windows } = useWindowStateData();
   const { restore } = useWindowActions();
@@ -72,6 +74,7 @@ export function PaneFooter({ tray }: { tray?: ReactNode }) {
             destroyKeyPackageDialog.requestDestroyKeyPackage
           }
           onRequestLogout={logoutDialog.requestLogout}
+          showDeveloperControls={isDeveloperMode}
         />
       )}
       {destroyKeyPackageDialog.isOpen && (

@@ -16,6 +16,7 @@ import {
   waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
+import { enableSystemMonitorDeveloperMode } from "../../test/helpers/systemMonitorTestPreferences";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -227,6 +228,7 @@ test("autopilot stays idle when the profile opts out", async () => {
 test(
   "autopilot does not re-provision after an explicit destroy",
   async () => {
+    enableSystemMonitorDeveloperMode();
     const view = renderPane({
       hostConfig: createTestHostConfig({ autoProvisionIdentity: true }),
     });

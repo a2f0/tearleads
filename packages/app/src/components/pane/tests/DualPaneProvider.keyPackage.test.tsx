@@ -32,7 +32,10 @@ test(
   "pane menu backs up and restores a registered key package",
   async () => {
     useTestApiAppHandlers();
-    const view = renderSinglePane({ autoProvision: false });
+    const view = renderSinglePane({
+      autoProvision: false,
+      developerMode: true,
+    });
     const pane = getPaneRoot(view, "left");
 
     await provisionPaneFromMenu(pane);

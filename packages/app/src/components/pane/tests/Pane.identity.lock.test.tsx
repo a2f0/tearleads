@@ -101,7 +101,7 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
     expect(unlockDatabaseItem).toBeTruthy();
     expect(view.queryByLabelText("PIN code")).toBeNull();
     expect(view.queryByText("Generate Key Pair")).toBeNull();
-    expect(view.getByText("Restore Key Package")).toBeTruthy();
+    expect(view.queryByText("Restore Key Package")).toBeNull();
 
     fireEvent.click(unlockDatabaseItem);
 

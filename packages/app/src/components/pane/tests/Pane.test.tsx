@@ -20,6 +20,7 @@ import {
   summarizeProxiedApiRequests,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import { enableSystemMonitorDeveloperMode } from "../../../../test/helpers/systemMonitorTestPreferences";
 
 afterEach(cleanupPaneTestEnvironment);
 
@@ -88,6 +89,7 @@ async function expectExplorerNewStructuredDocumentFileMenuDisabled(
 }
 
 test("pane menu manually controls the app network mode", async () => {
+  enableSystemMonitorDeveloperMode();
   const view = renderPane();
 
   fireEvent(window, new Event("online"));
