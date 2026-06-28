@@ -70,9 +70,21 @@ const clientSdkRootAllowedReExports = new Set([
   ...clientSdkRootWorkflowFacadeReExports,
 ]);
 const directSyncExternalStorePattern = /\buseSyncExternalStore\b/;
+// Flags raw SQL-executor handles threaded through presentation code. Coupled to
+// the `ExecSql`/`execSql` names by design: if those symbols are renamed this
+// check silently stops matching, so rename in lockstep.
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
+// Forbids prefixed compatibility aliases (`... as TearleadsFoo`) on the SDK root
+// facade. Scanned line by line, so a rare multiline `as\n  TearleadsFoo` would
+// slip through — acceptable since the codebase keeps aliases on one line.
 const clientSdkPrefixedFacadeAliasPattern =
   /\bas\s+(?:Tearleads[A-Z][A-Za-z0-9_]*|TEARLEADS_[A-Z0-9_]+)/;
+// A deliberately-curated substring heuristic that keeps product/app-window
+// vocabulary out of SDK source. It is intentionally a *subset* of the mini-apps
+// (the words most likely to leak); it is NOT derived from miniAppNames because
+// matching every mini-app word (e.g. "notes", "contacts", "identity") would
+// false-positive on unrelated SDK identifiers. As a substring match it can also
+// over-match inside larger identifiers — a known, accepted limitation.
 const clientSdkProductUiVocabularyPattern =
   /\b(?:Explorer|MiniApp|OrgManager|explorer|mini-apps?|org-manager)/;
 

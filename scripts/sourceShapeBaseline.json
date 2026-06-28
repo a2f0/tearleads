@@ -290,8 +290,8 @@
       "bytes": 33792
     },
     "scripts/lintArchitecture.ts": {
-      "lines": 1164,
-      "bytes": 37505
+      "lines": 1176,
+      "bytes": 38429
     },
     "scripts/subsystems.ts": {
       "lines": 682,
