@@ -24,7 +24,7 @@ import type {
 } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import {
-  getAccessManifestBundle,
+  getAccessManifestBundles,
   getCurrentAccessManifestHeads,
 } from "../../../../access/read/accessManifestStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
@@ -232,76 +232,86 @@ export async function assertCurrentContainerPathGroups(
 }
 
 /**
- * Resolve a {containerId, manifestHash} reference to a verified container access
- * manifest using the server's OWN stored bundle (never client-supplied bytes),
- * with the SAME current-head pin the full-bundle path enforces. This is the
- * trust-equivalent of assertCurrentContainerPath for a hash reference: the
+ * Resolve {containerId, manifestHash} reference groups to verified container
+ * access manifests using the server's OWN stored bundles (never client-supplied
+ * bytes), with the SAME current-head pin the full-bundle path enforces. Each
  * stored bundle was verified when it was committed, and the head pin proves the
  * referenced manifest is the container's current access state.
+ *
+ * Resolution is batched into one bundle fetch and one head fetch for the whole
+ * request rather than two roundtrips per reference.
  */
-async function assertCurrentContainerManifestByRef(
-  executor: DatabaseSession,
-  ref: ContainerManifestRef,
-  label: string,
-): Promise<VerifiedContainerAccessManifest> {
-  const stored = await getAccessManifestBundle(ref.manifestHash, executor);
-  if (!stored || stored.manifest.objectKind !== "container") {
-    throw new DocumentMutationError(`${label} head missing`, 404);
-  }
-
-  // Build the verified manifest from the trusted store via the same conversion
-  // the writer projection uses for stored bundles.
-  const verified = toVerifiedContainerManifest(
-    toManifestBundleResponse(stored),
-  );
-
-  // The client-supplied containerId is advisory; the head lookup is keyed off
-  // the resolved bundle's authoritative containerId. Reject a mismatch so a
-  // confused reference cannot silently authorize against a different container.
-  if (ref.containerId !== verified.state.containerId) {
-    throw new DocumentMutationError(
-      `${label} container id does not match the referenced manifest`,
-      400,
-    );
-  }
-
-  // Freshness pin — identical to the full-bundle path (assertCurrentContainerPath).
-  // Without it a writer could replay a stale-but-stored manifest hash from an
-  // epoch in which they held since-revoked access (privilege escalation).
-  const heads = await getCurrentAccessManifestHeads(
-    "container",
-    [verified.state.containerId],
-    executor,
-  );
-  const head = heads.get(verified.state.containerId);
-  if (!head) {
-    throw new DocumentMutationError(`${label} head missing`, 404);
-  }
-  if (head.manifestHash !== verified.manifestHash) {
-    throw new DocumentMutationError(`${label} is stale`, 409);
-  }
-
-  return verified;
-}
-
 async function assertCurrentContainerPathRefGroups(
   executor: DatabaseSession,
   groups: readonly (readonly ContainerManifestRef[])[],
   label: string,
 ): Promise<VerifiedContainerAccessManifest[][]> {
-  const verifiedGroups: VerifiedContainerAccessManifest[][] = [];
-  for (const [groupIndex, group] of groups.entries()) {
-    const verifiedPath: VerifiedContainerAccessManifest[] = [];
-    for (const [index, ref] of group.entries()) {
-      verifiedPath.push(
-        await assertCurrentContainerManifestByRef(
-          executor,
-          ref,
-          `${label}[${groupIndex}][${index}]`,
-        ),
+  const flatRefs = groups.flatMap((group, groupIndex) =>
+    group.map((ref, index) => ({
+      ref,
+      refLabel: `${label}[${groupIndex}][${index}]`,
+    })),
+  );
+
+  // Resolve every referenced manifest from the trusted store in one batch.
+  const storedBundles = await getAccessManifestBundles(
+    flatRefs.map(({ ref }) => ref.manifestHash),
+    executor,
+  );
+
+  const resolved = flatRefs.map(({ ref, refLabel }) => {
+    const stored = storedBundles.get(ref.manifestHash);
+    if (!stored || stored.manifest.objectKind !== "container") {
+      throw new DocumentMutationError(`${refLabel} head missing`, 404);
+    }
+
+    // Build the verified manifest from the trusted store via the same
+    // conversion the writer projection uses for stored bundles.
+    const manifest = toVerifiedContainerManifest(
+      toManifestBundleResponse(stored),
+    );
+
+    // The client-supplied containerId is advisory; the head lookup below is
+    // keyed off the resolved bundle's authoritative containerId. Reject a
+    // mismatch first so a confused reference cannot authorize against a
+    // different container.
+    if (ref.containerId !== manifest.state.containerId) {
+      throw new DocumentMutationError(
+        `${refLabel} container id does not match the referenced manifest`,
+        400,
       );
     }
-    verifiedGroups.push(verifiedPath);
+
+    return { manifest, refLabel };
+  });
+
+  // Freshness pin — identical in strength to the full-bundle path
+  // (assertCurrentContainerPath). Without it a writer could replay a
+  // stale-but-stored manifest hash from an epoch in which they held
+  // since-revoked access (privilege escalation). Batched into one head fetch.
+  const heads = await getCurrentAccessManifestHeads(
+    "container",
+    resolved.map(({ manifest }) => manifest.state.containerId),
+    executor,
+  );
+
+  const verifiedFlat = resolved.map(({ manifest, refLabel }) => {
+    const head = heads.get(manifest.state.containerId);
+    if (!head) {
+      throw new DocumentMutationError(`${refLabel} head missing`, 404);
+    }
+    if (head.manifestHash !== manifest.manifestHash) {
+      throw new DocumentMutationError(`${refLabel} is stale`, 409);
+    }
+    return manifest;
+  });
+
+  // Reshape the flat verified manifests back into the original group structure.
+  const verifiedGroups: VerifiedContainerAccessManifest[][] = [];
+  let cursor = 0;
+  for (const group of groups) {
+    verifiedGroups.push(verifiedFlat.slice(cursor, cursor + group.length));
+    cursor += group.length;
   }
 
   return verifiedGroups;
