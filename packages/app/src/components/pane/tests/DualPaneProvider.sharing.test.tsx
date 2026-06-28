@@ -302,15 +302,17 @@ test(
     );
     requestPhaseStartIndex = listProxiedApiRequests().length;
 
-    const postRefreshRequestStartIndex = listProxiedApiRequests().length;
-    await clickExplorerRefresh(rightPane);
+    const postDiscoveryRequestStartIndex = listProxiedApiRequests().length;
+    // The recipient pane re-lists its root containers automatically when the
+    // share arrives (serverEventsBinding handles the "shared_with_you" event),
+    // so the shared note surfaces without a manual refresh.
     await waitForSharedNoteVisible(rightPane);
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
-      postRefreshRequestStartIndex,
+      postDiscoveryRequestStartIndex,
     );
     profileProxiedApiRequests(
-      "right refresh + shared note settle",
+      "auto-discover shared note settle",
       requestPhaseStartIndex,
     );
 

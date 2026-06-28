@@ -34,6 +34,13 @@ function readResyncRequiredContainerId(value: unknown): string | null {
     : null;
 }
 
+// The server's "a container was just shared with you" signal. It carries no
+// container id (the recipient does not know the container yet, so it is routed
+// by user, not interest); the client reacts by re-listing root containers.
+function isSharedWithYouEvent(value: unknown): boolean {
+  return isServerEvent(value) && value.type === "shared_with_you";
+}
+
 // Force a fresh access check + tree re-list for a container the server flagged.
 // HTTP is the source of access truth: a now-unauthorized container drops out of
 // the tree (and interest); a still-authorized one is re-validated.
@@ -59,11 +66,55 @@ async function resyncContainerAccess(
   await Promise.allSettled(resyncTasks);
 }
 
+// Tracks an in-flight root re-list per Tearleads instance (dual-pane gives each
+// pane its own instance) so a burst of "shared_with_you" events coalesces into a
+// single sweep plus at most one trailing sweep, instead of firing concurrently.
+const activeRootResyncByInstance = new WeakMap<
+  Tearleads,
+  { readonly promise: Promise<void>; pending: boolean }
+>();
+
+// Re-list the user's root containers so a newly shared container appears without
+// a manual refresh. The share has no node in the local tree to target yet, so
+// this drives the root lane (the same sweep Explorer runs on open) rather than
+// resyncContainerAccess's single-container path.
+//
+// The reconciler already single-flights concurrent sweeps, so this never issues
+// redundant parallel re-lists; the coalescing here additionally schedules one
+// trailing sweep when events land while a sweep is in flight, so a share whose
+// grant commits after the active sweep already fetched the root list is still
+// picked up rather than waiting for the next event or manual refresh.
+async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
+  const active = activeRootResyncByInstance.get(tearleads);
+  if (active) {
+    active.pending = true;
+    return active.promise;
+  }
+
+  const runSweep = async (): Promise<void> => {
+    try {
+      await tearleads.deviceFirst.reconciler().reconcileRootContainersNow();
+    } catch {
+      // Runtime not ready; the next reconnect or manual refresh re-lists roots.
+    }
+  };
+
+  const state = { pending: false, promise: runSweep() };
+  activeRootResyncByInstance.set(tearleads, state);
+  await state.promise;
+  activeRootResyncByInstance.delete(tearleads);
+
+  if (state.pending) {
+    await resyncRootContainers(tearleads);
+  }
+}
+
 function routeIncomingWsMessage(
   rawData: string,
   handlers: {
     onInterestState: (baseline: string[]) => void;
     onResyncRequired: (containerId: string) => void;
+    onSharedWithYou: () => void;
     onServerEvent: (event: { type: string; [key: string]: unknown }) => void;
   },
 ): void {
@@ -82,6 +133,10 @@ function routeIncomingWsMessage(
   const resyncContainerId = readResyncRequiredContainerId(data);
   if (resyncContainerId !== null) {
     handlers.onResyncRequired(resyncContainerId);
+    return;
+  }
+  if (isSharedWithYouEvent(data)) {
+    handlers.onSharedWithYou();
     return;
   }
   if (isServerEvent(data)) {
@@ -236,6 +291,9 @@ export function useServerEventsBinding(
             void resyncContainerAccess(tearleads, containerId).finally(() => {
               handle?.sync();
             });
+          },
+          onSharedWithYou: () => {
+            void resyncRootContainers(tearleads);
           },
           onServerEvent: (data) => {
             tearleads.events.push({ ...data, id: String(nextEventId++) });
