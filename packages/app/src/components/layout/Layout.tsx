@@ -39,6 +39,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   // toggle shows/hides it. The regular app is single-pane and has no toggle.
   const peerPanes = hostConfig.profile.features.panePeerUserIds;
   const routed = navigationMode === "routed";
+  const demoPeerSplit = peerPanes && split && !routed;
 
   const headerActions = (
     <>
@@ -71,9 +72,11 @@ function LayoutInner({ hostConfig }: LayoutProps) {
       className={
         routed
           ? "layout layout--routed"
-          : split
-            ? "layout layout--split"
-            : "layout"
+          : demoPeerSplit
+            ? "layout layout--split layout--demo-peer-split"
+            : split
+              ? "layout layout--split"
+              : "layout"
       }
       headerActions={headerActions}
     >

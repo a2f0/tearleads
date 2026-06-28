@@ -22,6 +22,7 @@ interface WorkspaceProps {
 
 interface WorkspacePaneProps {
   active: boolean;
+  desktopLabel?: string | undefined;
   navigationMode: AppNavigationMode;
   side: "left" | "right";
   split: boolean;
@@ -51,6 +52,7 @@ function createWorkspaceHostConfig({
 
 function PaneSurface({
   active,
+  desktopLabel,
   navigationMode,
   side,
   split,
@@ -61,6 +63,7 @@ function PaneSurface({
   return (
     <Pane
       className={className}
+      desktopLabel={desktopLabel}
       navigationMode={navigationMode}
       routedVisible={isLeft ? active : undefined}
     />
@@ -77,6 +80,10 @@ function WorkspacePane(props: WorkspacePaneProps) {
 
 function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
   const { active, hostConfig, navigationMode, split } = props;
+  const showPeerDesktopLabels =
+    split &&
+    navigationMode !== "routed" &&
+    hostConfig.profile.features.panePeerUserIds;
 
   return (
     <>
@@ -84,6 +91,7 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
         <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
           <PaneSurface
             active={active}
+            desktopLabel={showPeerDesktopLabels ? "Peer 1" : undefined}
             navigationMode={navigationMode}
             side="left"
             split={split}
@@ -94,6 +102,7 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
         <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
           <PaneSurface
             active={active}
+            desktopLabel={showPeerDesktopLabels ? "Peer 2" : undefined}
             navigationMode={navigationMode}
             side="right"
             split={split}

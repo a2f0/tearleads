@@ -169,6 +169,8 @@ test("normal App is single-pane with no split toggle", () => {
   expect(view.queryByRole("button", { name: "Split" })).toBeNull();
   expect(view.queryByRole("button", { name: "Show Peer" })).toBeNull();
   expect(view.queryByRole("button", { name: /Navigation mode/i })).toBeNull();
+  expect(view.queryByText("Peer 1")).toBeNull();
+  expect(view.queryByText("Peer 2")).toBeNull();
   view.unmount();
 });
 
@@ -183,10 +185,16 @@ test("demo App starts split", () => {
 
   const frame = view.container.querySelector(".tearleads-frame.layout");
   expect(frame?.classList.contains("layout--split")).toBe(true);
+  expect(frame?.classList.contains("layout--demo-peer-split")).toBe(true);
+  expect(view.getByText("Peer 1")).toBeTruthy();
+  expect(view.getByText("Peer 2")).toBeTruthy();
   // The demo's panes are peers, so the split toggle reads as hiding/showing the
   // peer rather than a generic split/unsplit.
   const toggle = view.getByRole("button", { name: "Hide Peer" });
   fireEvent.click(toggle);
+  expect(frame?.classList.contains("layout--demo-peer-split")).toBe(false);
+  expect(view.queryByText("Peer 1")).toBeNull();
+  expect(view.queryByText("Peer 2")).toBeNull();
   expect(view.getByRole("button", { name: "Show Peer" })).toBeTruthy();
   view.unmount();
 });
