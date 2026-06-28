@@ -5,18 +5,20 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 import { createPrincipalPolicyRoute } from "./policy";
 
 interface PrincipalsRouterDeps {
+  readonly publish: (event: Record<string, unknown>) => Promise<void>;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
 }
 
 export function createPrincipalsRouter({
+  publish,
   requireAuth,
   runtime,
 }: PrincipalsRouterDeps) {
   const principalsRouter = new Hono();
   principalsRouter.route(
     "/",
-    createPrincipalPolicyRoute({ requireAuth, runtime }),
+    createPrincipalPolicyRoute({ publish, requireAuth, runtime }),
   );
   return principalsRouter;
 }

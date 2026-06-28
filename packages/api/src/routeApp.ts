@@ -142,6 +142,7 @@ export function createRouteApp(
   routeApp.route(
     "/",
     createPrincipalsRouter({
+      publish: resolvedPublish,
       requireAuth: resolvedRequirePaidAuth,
       runtime: resolvedRuntime,
     }),
