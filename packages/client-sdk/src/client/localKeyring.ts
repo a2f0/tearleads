@@ -142,6 +142,11 @@ export interface BrowserLocalKeyringOptions {
   readonly databaseName?: string | undefined;
   readonly indexedDB?: IDBFactory | undefined;
   readonly keyMaterialStorage?: WrappingKeyMaterialStorage | undefined;
+  /** OPFS directory for the manifest store (defaults when persisting to OPFS). */
+  readonly manifestDirectory?: string | undefined;
+  /** Explicit manifest store; overrides the default OPFS/localStorage selection. */
+  readonly manifestStore?: LocalKeyringManifestStore | undefined;
+  /** localStorage-backed manifest storage (forces the localStorage store). */
   readonly manifestStorage?: LocalKeyringManifestStorage | undefined;
   readonly manifestStoragePrefix?: string | undefined;
   readonly objectStoreName?: string | undefined;
@@ -565,6 +570,124 @@ class LocalStorageLocalKeyringManifestStore
 
   private storageKey(scope: LocalKeyringScope): string {
     return `${this.prefix}${localKeyringScopeKey(scope)}`;
+  }
+}
+
+/**
+ * OPFS directory (under the origin's private file system root) that holds one
+ * manifest file per keyring scope. Keep it distinct from the SQLite SAHPool
+ * directory so the two never contend on the same files.
+ */
+const OPFS_LOCAL_KEYRING_DIRECTORY = "tearleads-local-keyring";
+
+export interface OpfsLocalKeyringManifestStoreOptions {
+  readonly directory?: string | undefined;
+  /** Injectable OPFS root resolver (defaults to navigator.storage.getDirectory). */
+  readonly getDirectory?:
+    | (() => Promise<FileSystemDirectoryHandle>)
+    | undefined;
+}
+
+function isOpfsAvailable(): boolean {
+  return (
+    typeof navigator === "object" &&
+    navigator !== null &&
+    typeof navigator.storage === "object" &&
+    navigator.storage !== null &&
+    typeof navigator.storage.getDirectory === "function"
+  );
+}
+
+function getDefaultOpfsRoot(): Promise<FileSystemDirectoryHandle> {
+  if (!isOpfsAvailable()) {
+    return Promise.reject(
+      new Error("OPFS is unavailable for the local keyring manifest store."),
+    );
+  }
+  return navigator.storage.getDirectory();
+}
+
+function isOpfsNotFoundError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "NotFoundError";
+}
+
+/**
+ * Persists keyring manifests as OPFS files, co-located with the persistent
+ * OPFS-SAHPool SQLite database. The point is shared eviction fate: the manifest
+ * holds the wrapped root key that derives the database's cipher key, so storing
+ * it in localStorage (evicted far more aggressively than OPFS — e.g. Safari ITP's
+ * script-writable-storage cap) lets the keyring be lost while the encrypted
+ * database survives, minting a fresh root on the next boot and yielding
+ * SQLITE_NOTADB. In OPFS the manifest and database are evicted together (a clean
+ * reset) or survive together. Writes use createWritable(), which commits the new
+ * file atomically, so a manifest is never left half-written.
+ */
+class OpfsLocalKeyringManifestStore implements LocalKeyringManifestStore {
+  private readonly directory: string;
+  private readonly getDirectory: () => Promise<FileSystemDirectoryHandle>;
+
+  constructor(options: OpfsLocalKeyringManifestStoreOptions = {}) {
+    this.directory = options.directory ?? OPFS_LOCAL_KEYRING_DIRECTORY;
+    this.getDirectory = options.getDirectory ?? getDefaultOpfsRoot;
+  }
+
+  async deleteManifest(scope: LocalKeyringScope): Promise<void> {
+    try {
+      const directory = await this.manifestDirectory(false);
+      await directory.removeEntry(this.fileName(scope));
+    } catch (error) {
+      if (!isOpfsNotFoundError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  async loadManifest(
+    scope: LocalKeyringScope,
+  ): Promise<LocalKeyringManifest | null> {
+    try {
+      const directory = await this.manifestDirectory(false);
+      const handle = await directory.getFileHandle(this.fileName(scope));
+      const serialized = await (await handle.getFile()).text();
+      return serialized ? parseLocalKeyringManifest(serialized) : null;
+    } catch (error) {
+      if (isOpfsNotFoundError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async saveManifest(manifest: LocalKeyringManifest): Promise<void> {
+    const directory = await this.manifestDirectory(true);
+    const handle = await directory.getFileHandle(
+      this.fileName(manifest.scope),
+      {
+        create: true,
+      },
+    );
+    const writable = await handle.createWritable();
+    try {
+      await writable.write(serializeLocalKeyringManifest(manifest));
+      await writable.close();
+    } catch (error) {
+      // Discard the half-written temp file so a failed write never commits a
+      // partial (and thus unparseable) manifest.
+      await writable.abort().catch(() => undefined);
+      throw error;
+    }
+  }
+
+  private async manifestDirectory(
+    create: boolean,
+  ): Promise<FileSystemDirectoryHandle> {
+    const root = await this.getDirectory();
+    return root.getDirectoryHandle(this.directory, { create });
+  }
+
+  private fileName(scope: LocalKeyringScope): string {
+    // Encode the scope key so it is always a valid, collision-free OPFS file name.
+    return `${encodeURIComponent(localKeyringScopeKey(scope))}.json`;
   }
 }
 
@@ -1322,10 +1445,17 @@ export function createBrowserLocalKeyring(
       objectStoreName: options.objectStoreName,
       provider: options.provider,
     }),
-    manifestStore: createLocalStorageLocalKeyringManifestStore({
-      prefix: options.manifestStoragePrefix,
-      storage: options.manifestStorage,
-    }),
+    manifestStore:
+      options.manifestStore ??
+      (options.manifestStorage
+        ? createLocalStorageLocalKeyringManifestStore({
+            prefix: options.manifestStoragePrefix,
+            storage: options.manifestStorage,
+          })
+        : createBrowserLocalKeyringManifestStore({
+            directory: options.manifestDirectory,
+            prefix: options.manifestStoragePrefix,
+          })),
     now: options.now,
   });
 }
@@ -1360,6 +1490,37 @@ export function createLocalStorageLocalKeyringManifestStore(
   options: LocalStorageLocalKeyringManifestStoreOptions = {},
 ): LocalKeyringManifestStore {
   return new LocalStorageLocalKeyringManifestStore(options);
+}
+
+export function createOpfsLocalKeyringManifestStore(
+  options: OpfsLocalKeyringManifestStoreOptions = {},
+): LocalKeyringManifestStore {
+  return new OpfsLocalKeyringManifestStore(options);
+}
+
+/**
+ * Selects the manifest store for a browser keyring: OPFS when available (so the
+ * manifest shares the persistent SQLite database's eviction fate — the fix for
+ * the cipher-key/database desync that produced SQLITE_NOTADB), otherwise
+ * localStorage. Falling back to localStorage is safe precisely where OPFS is
+ * absent: there is no OPFS-persisted database to desync from in that case.
+ */
+export function createBrowserLocalKeyringManifestStore(
+  options: {
+    readonly directory?: string | undefined;
+    readonly prefix?: string | undefined;
+    readonly storage?: LocalKeyringManifestStorage | undefined;
+  } = {},
+): LocalKeyringManifestStore {
+  if (isOpfsAvailable()) {
+    return createOpfsLocalKeyringManifestStore({
+      directory: options.directory,
+    });
+  }
+  return createLocalStorageLocalKeyringManifestStore({
+    prefix: options.prefix,
+    storage: options.storage,
+  });
 }
 
 export function createMemoryLocalKeyringManifestStore(): LocalKeyringManifestStore {
