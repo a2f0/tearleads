@@ -7,6 +7,9 @@ import { BrowserWindow } from "electrobun/bun";
 
 const packageDirEnvName = "TEARLEADS_ELECTROBUN_PACKAGE_DIR";
 const isDev = process.env.NODE_ENV !== "production";
+// Keep Electrobun off app-web's default :3000 origin so stale app-web service
+// workers cannot control the desktop dev renderer.
+const devServerPort = 3002;
 
 function getPackageSourcePath(
   packageRelativePath: string,
@@ -95,9 +98,12 @@ async function createDevServerConfig() {
     "src/renderer/databaseWorker.ts",
     "../renderer/databaseWorker.ts",
   );
+  // Build the desktop renderer directly in dev. Reusing app-web's entrypoint
+  // also reuses app-web's service-worker assumptions, which can affect the
+  // desktop shell when stale :3000 browser state exists.
   const webEntrypoint = getPackageSourcePath(
-    "../app-web/src/index.html",
-    "../../../app-web/src/index.html",
+    "src/renderer/index.html",
+    "../renderer/index.html",
   );
 
   const webBuild = await Bun.build({
@@ -135,6 +141,12 @@ async function createDevServerConfig() {
   if (!indexOutput) {
     throw new Error("Missing built index.html response");
   }
+  // Packaged Electrobun also serves the renderer over http://127.0.0.1, so the
+  // renderer needs an explicit dev marker instead of checking protocol/origin.
+  const devIndexHtml = (await indexOutput.text()).replace(
+    /<\/head>/iu,
+    "<script>globalThis.__TEARLEADS_ELECTROBUN_DEV__ = true;</script></head>",
+  );
 
   return {
     fetch(req: Request) {
@@ -153,6 +165,12 @@ async function createDevServerConfig() {
       }
 
       const webOutput = webOutputs.get(pathname) ?? indexOutput;
+      if (webOutput === indexOutput) {
+        return new Response(devIndexHtml, {
+          headers: { "Content-Type": webOutput.type },
+        });
+      }
+
       return new Response(webOutput, {
         headers: { "Content-Type": webOutput.type },
       });
@@ -162,7 +180,7 @@ async function createDevServerConfig() {
 
 const appServer = serve({
   hostname: "127.0.0.1",
-  port: isDev ? 3000 : 0,
+  port: isDev ? devServerPort : 0,
   ...(isDev ? await createDevServerConfig() : createPackagedServerConfig()),
   ...(isDev
     ? {
