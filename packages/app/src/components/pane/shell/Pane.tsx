@@ -21,7 +21,13 @@ import { PaneFooter } from "../PaneFooter";
 import "./Pane.css";
 import { PaneContextMenu } from "./PaneContextMenu";
 
-function PaneInner({ className }: { className: string }) {
+function PaneInner({
+  className,
+  desktopLabel,
+}: {
+  className: string;
+  desktopLabel?: string | undefined;
+}) {
   const { userId } = useCryptoSession();
   const { generateKey, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
@@ -51,6 +57,11 @@ function PaneInner({ className }: { className: string }) {
     >
       <SystemMonitorProvider>
         <div className="pane-main">
+          {desktopLabel && (
+            <div aria-hidden="true" className="pane-desktop-label">
+              {desktopLabel}
+            </div>
+          )}
           <SystemMonitorPinned />
           {windows.map((w) => (
             <Window key={w.id} windowId={w.id} />
@@ -73,10 +84,12 @@ function PaneInner({ className }: { className: string }) {
 
 export function Pane({
   className,
+  desktopLabel,
   navigationMode = "windowed",
   routedVisible = false,
 }: {
   className: string;
+  desktopLabel?: string | undefined;
   navigationMode?: AppNavigationMode | undefined;
   // In routed mode only the single active pane shows the routed shell; the
   // other (always-mounted, runtime-bearing) panes render no surface.
@@ -84,7 +97,9 @@ export function Pane({
 }) {
   // Swap only the leaf surface by mode; the provider stack above stays mounted
   // so the pane's runtime is never torn down when the layout toggles.
-  let surface: ReactNode = <PaneInner className={className} />;
+  let surface: ReactNode = (
+    <PaneInner className={className} desktopLabel={desktopLabel} />
+  );
   if (navigationMode === "routed") {
     surface = routedVisible ? (
       <SystemMonitorProvider>
