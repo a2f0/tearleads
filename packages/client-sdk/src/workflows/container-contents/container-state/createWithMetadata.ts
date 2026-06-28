@@ -155,9 +155,13 @@ function seedChildContainerWriterProjection(input: {
   readonly runtime: ContainerWorkflowRuntime;
 }): void {
   const createdManifestHash =
-    input.response.container.manifestHead.manifestHash;
+    input.response.container.manifestHead?.manifestHash;
   const projectedManifestHash = input.childProjection.path.at(-1)?.manifestHash;
+  // Both hashes must be present and equal, or two undefined hashes would compare
+  // equal and prime an empty/invalid projection.
   if (
+    !createdManifestHash ||
+    !projectedManifestHash ||
     input.childProjection.containerId !==
       input.response.container.containerId ||
     projectedManifestHash !== createdManifestHash
