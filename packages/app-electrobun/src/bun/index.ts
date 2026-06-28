@@ -144,7 +144,7 @@ async function createDevServerConfig() {
   // Packaged Electrobun also serves the renderer over http://127.0.0.1, so the
   // renderer needs an explicit dev marker instead of checking protocol/origin.
   const devIndexHtml = (await indexOutput.text()).replace(
-    "</head>",
+    /<\/head>/iu,
     "<script>globalThis.__TEARLEADS_ELECTROBUN_DEV__ = true;</script></head>",
   );
 
