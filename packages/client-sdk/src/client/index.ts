@@ -92,6 +92,7 @@ export {
 } from "./identityKeyPackage";
 export type {
   BrowserLocalKeyringOptions,
+  IndexedDbLocalKeyringManifestStoreOptions,
   IndexedDbWrappingKeyKeystoreOptions,
   LocalKeyPurpose,
   LocalKeyring,
@@ -105,7 +106,6 @@ export type {
   LocalSecretContext,
   LocalStorageLocalKeyringManifestStoreOptions,
   NormalizedLocalKeyringScope,
-  OpfsLocalKeyringManifestStoreOptions,
   UnwrapLocalSecretInput,
   WrapLocalSecretInput,
   WrappedLocalSecretEnvelope,
@@ -117,12 +117,12 @@ export type {
 export {
   createBrowserLocalKeyring,
   createBrowserLocalKeyringManifestStore,
+  createIndexedDbLocalKeyringManifestStore,
   createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
   createLocalStorageLocalKeyringManifestStore,
   createMemoryLocalKeyringManifestStore,
   createMemoryWrappingKeyKeystore,
-  createOpfsLocalKeyringManifestStore,
   createWebViewLocalKeyring,
   decodeLocalKeyringSqliteKey,
   encodeLocalKeyringSqliteKey,

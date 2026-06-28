@@ -1,6 +1,7 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   type BrowserLocalKeyringOptions,
+  createBrowserLocalKeyringManifestStore,
   createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
   createLocalStorageLocalKeyringManifestStore,
@@ -236,10 +237,20 @@ export function createPinCodeBrowserLocalKeyring(
       pinCode: options.pinCode,
       provider: options.pinCodeProvider,
     }),
-    manifestStore: createLocalStorageLocalKeyringManifestStore({
-      prefix: options.manifestStoragePrefix,
-      storage: options.manifestStorage,
-    }),
+    // Use the same manifest backend as the non-PIN browser keyring and the lock
+    // provider, so a PIN-wrapped manifest is written where every reader looks for
+    // it (IndexedDB when available, else localStorage).
+    manifestStore:
+      options.manifestStore ??
+      (options.manifestStorage
+        ? createLocalStorageLocalKeyringManifestStore({
+            prefix: options.manifestStoragePrefix,
+            storage: options.manifestStorage,
+          })
+        : createBrowserLocalKeyringManifestStore({
+            indexedDB: options.indexedDB,
+            prefix: options.manifestStoragePrefix,
+          })),
     now: options.now,
   });
 }
