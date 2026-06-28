@@ -2,15 +2,21 @@ import {
   getDefaultApiDatabaseKind,
   initializeApiDatabase,
 } from "@tearleads/api-shared/postgres";
+import { createRealtimeGateway } from "./realtimeGateway";
 import type { RouteRequestBindings } from "./requestContext";
 import { routeApp } from "./routeApp";
-import { websocket } from "./ws";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
 import { consumeWebSocketTicket } from "./wsTicket";
 
 if (getDefaultApiDatabaseKind() === "memory") {
   await initializeApiDatabase();
 }
+
+// The realtime gateway is the second half of this composition root: build it
+// once here, alongside the HTTP app, and open its Redis subscription explicitly.
+// Constructing it is side-effect free; start() is what subscribes.
+const realtimeGateway = createRealtimeGateway();
+realtimeGateway.start();
 
 interface ApiServer {
   requestIP(req: Request): { address: string } | null;
@@ -76,6 +82,6 @@ const server = {
     }
     return routeApp.fetch(req, createRouteRequestBindings(req, server));
   },
-  websocket,
+  websocket: realtimeGateway.websocket,
 };
 export default server;

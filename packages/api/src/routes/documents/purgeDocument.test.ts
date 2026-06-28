@@ -72,7 +72,7 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import { routeApp } from "../../routeApp";
-import { defaultApiServiceRuntime } from "../../services/runtime";
+import { getDefaultApiServiceRuntime } from "../../services/runtime";
 import { encodeExternalBlobBytesRef } from "../../utils/blobStageRecords";
 
 // ---------------------------------------------------------------------------
@@ -669,7 +669,7 @@ async function putBlobObjectBytes(
   storageKey: string,
   bytes: string,
 ): Promise<void> {
-  const store = defaultApiServiceRuntime.blobObjectStore;
+  const store = getDefaultApiServiceRuntime().blobObjectStore;
   const { uploadId } = await store.createMultipartUpload({ key: storageKey });
   const part = await store.uploadPart({
     key: storageKey,
@@ -1009,7 +1009,7 @@ test("DELETE /documents/:documentId soft-deletes an orphaned blob and retains it
 
   expect(
     await readBlobObjectText(
-      defaultApiServiceRuntime.blobObjectStore,
+      getDefaultApiServiceRuntime().blobObjectStore,
       attachment.storageKey,
     ),
   ).not.toBeNull();
@@ -1045,7 +1045,7 @@ test("DELETE /documents/:documentId soft-deletes an orphaned blob and retains it
   // The encrypted bytes are still present in the object store.
   expect(
     await readBlobObjectText(
-      defaultApiServiceRuntime.blobObjectStore,
+      getDefaultApiServiceRuntime().blobObjectStore,
       attachment.storageKey,
     ),
   ).not.toBeNull();
@@ -1105,7 +1105,7 @@ test("DELETE /documents/:documentId preserves a blob shared with another documen
 
   expect(
     await readBlobObjectText(
-      defaultApiServiceRuntime.blobObjectStore,
+      getDefaultApiServiceRuntime().blobObjectStore,
       shared.storageKey,
     ),
   ).not.toBeNull();
@@ -1227,7 +1227,7 @@ test("DELETE /documents/:documentId preserves a blob another document references
 
   expect(
     await readBlobObjectText(
-      defaultApiServiceRuntime.blobObjectStore,
+      getDefaultApiServiceRuntime().blobObjectStore,
       shared.storageKey,
     ),
   ).not.toBeNull();
@@ -1281,7 +1281,7 @@ test("DELETE /documents/:documentId soft-deletes a blob referenced only by this 
   for (const storageKey of [replaced.storageKey, current.storageKey]) {
     expect(
       await readBlobObjectText(
-        defaultApiServiceRuntime.blobObjectStore,
+        getDefaultApiServiceRuntime().blobObjectStore,
         storageKey,
       ),
     ).not.toBeNull();

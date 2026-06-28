@@ -39,6 +39,49 @@ Use `bun run lint:source-shape -- --staged` before committing and `bun run lint:
 - Support packages must not import `packages/api`, `packages/app`, `packages/app-web`, `packages/app-electrobun`, `packages/client-sdk`, or `packages/website` implementation code unless an architecture rule explicitly allows it.
 - Package-private source paths stay private unless they are exported in `package.json` and documented as public API.
 
+## Subsystems
+
+A **subsystem** is a stable proper noun for a slice of the system a developer
+reasons about as one unit (e.g. `Containers`, `Realtime Sync`, `Access Plane &
+Keying`). Use it in PRs and review to say where a feature lives and who owns it.
+
+A subsystem is **descriptive, not a new enforcement axis**. It indexes paths
+that already exist and may deliberately span several layers (`Containers` covers
+its routes, its service facade, and its transaction-orchestration workflows).
+Import direction stays enforced by the lanes/layers/planes in
+`dependency-cruiser.config.ts`. The registry lives in `scripts/subsystems.ts`
+and `docs/SUBSYSTEMS.md`; `bun run lint:architecture` fails if a production file
+maps to zero or more than one subsystem, or if the manifest and docs drift.
+Registered today: `packages/api`.
+
+### Boundary vocabulary axes
+
+These are distinct axes — do not conflate them:
+
+- **Lane** — a package (`packages/<name>/src`); the coarsest ownership boundary.
+- **Layer** — an intra-package directional tier (api `routes -> services ->
+  workflows -> access`; app/SDK `data -> workflows -> stores -> presentation`).
+- **Plane** — the api access read/write/shared split; a domain model, not a tree
+  layout (see `docs/api-architecture.md`).
+- **Facade** — a package's stable public seam (api `services/`, SDK
+  `workflows/`, the `read/*.ts` + `write/*.ts` files).
+- **Subsystem** — a vertical (or platform) slice's proper noun, layered
+  descriptively over the above.
+
+### Overloaded nouns (same word, different layer per package)
+
+Three layer nouns mean different things depending on the package; read them by
+their package, not the bare word:
+
+- **workflow** — api: the _low_ transaction-orchestration layer **below**
+  services. client-sdk: the _top_ public domain-operations facade. Opposite ends
+  of the two stacks; the name is kept on both by decision.
+- **store** — app: a React/UI state container. client-sdk: a headless,
+  React-free state machine. api `access`: a low-level persistence sink.
+- **runtime** — api `ApiServiceRuntime`: an infrastructure-injection dependency
+  object. client-sdk: live client state + the workflow context value. app
+  `AppRuntimeProvider`: the React provider aggregate.
+
 ## Generated And Build Output
 
 Do not edit generated or build output directly:

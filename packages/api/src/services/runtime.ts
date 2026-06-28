@@ -214,11 +214,26 @@ export function createDefaultBlobObjectStore(
   );
 }
 
-export const defaultApiServiceRuntime: ApiServiceRuntime = {
-  blobObjectStore: createDefaultBlobObjectStore(),
-  blobObjectStoreKind: readBlobObjectStoreKind(process.env),
-  db,
-  eventPublisher: { publish },
-  keyValueStore: { del, get, getdel, set },
-  sessionTokenIssuer: { createSession },
-};
+function buildDefaultApiServiceRuntime(): ApiServiceRuntime {
+  return {
+    blobObjectStore: createDefaultBlobObjectStore(),
+    blobObjectStoreKind: readBlobObjectStoreKind(process.env),
+    db,
+    eventPublisher: { publish },
+    keyValueStore: { del, get, getdel, set },
+    sessionTokenIssuer: { createSession },
+  };
+}
+
+let memoizedDefaultApiServiceRuntime: ApiServiceRuntime | undefined;
+
+/**
+ * The process-wide default runtime, built on first use rather than at module
+ * import — so importing this module (for its types, `createDefaultBlobObjectStore`,
+ * or `createSession`) does not construct an S3 client or read blob-store env.
+ * The build happens once at composition-root assembly and is shared thereafter.
+ */
+export function getDefaultApiServiceRuntime(): ApiServiceRuntime {
+  memoizedDefaultApiServiceRuntime ??= buildDefaultApiServiceRuntime();
+  return memoizedDefaultApiServiceRuntime;
+}
