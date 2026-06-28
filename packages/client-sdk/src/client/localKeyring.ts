@@ -679,15 +679,24 @@ function readWrappingKeyMaterial(value: unknown): Uint8Array {
 
 // Re-import the persisted raw bytes as a non-extractable runtime key: the bytes
 // at rest are extractable (that is the cost of the "raw-bytes" mode), but the
-// in-memory CryptoKey handed to encrypt/decrypt stays non-extractable.
-function importRawWrappingKey(keyMaterial: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    copyBytes(keyMaterial),
-    { length: 256, name: "AES-GCM" },
-    false,
-    ["encrypt", "decrypt"],
-  );
+// in-memory CryptoKey handed to encrypt/decrypt stays non-extractable. The
+// temporary copy is wiped once WebCrypto has imported it so the raw key material
+// does not linger in memory.
+async function importRawWrappingKey(
+  keyMaterial: Uint8Array,
+): Promise<CryptoKey> {
+  const keyBytes = copyBytes(keyMaterial);
+  try {
+    return await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { length: 256, name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"],
+    );
+  } finally {
+    keyBytes.fill(0);
+  }
 }
 
 function readIndexedDbWrappingKeyRecord(input: {
@@ -766,13 +775,14 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
       return { keyId, provider: this.provider };
     }
 
+    const record: IndexedDbWrappingKeyRecord = {
+      createdAt: new Date().toISOString(),
+      keyId,
+      provider: this.provider,
+      ...(await this.createWrappingKeyMaterial()),
+    };
     try {
-      await this.addStoredKey({
-        createdAt: new Date().toISOString(),
-        keyId,
-        provider: this.provider,
-        ...(await this.createWrappingKeyMaterial()),
-      });
+      await this.addStoredKey(record);
     } catch (error) {
       if (!hasErrorName(error, "ConstraintError")) {
         throw error;
@@ -781,6 +791,10 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
       if (!racedKey) {
         throw error;
       }
+    } finally {
+      // IndexedDB serializes the value when add() is called, so the freshly
+      // generated raw key bytes can be wiped from memory once the write settles.
+      record.keyMaterial?.fill(0);
     }
 
     return { keyId, provider: this.provider };
@@ -917,7 +931,17 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
       provider: this.provider,
       value: record,
     });
-    return parsed.key ?? importRawWrappingKey(parsed.keyMaterial as Uint8Array);
+    if (parsed.key) {
+      return parsed.key;
+    }
+
+    // Wipe the raw bytes read out of IndexedDB once they have been imported.
+    const keyMaterial = readWrappingKeyMaterial(parsed.keyMaterial);
+    try {
+      return await importRawWrappingKey(keyMaterial);
+    } finally {
+      keyMaterial.fill(0);
+    }
   }
 
   private async openDatabase(): Promise<IDBDatabase> {

@@ -111,7 +111,9 @@ function createFakeIndexedDbObjectStore(
             "The object can not be cloned.",
           );
         }
-        records.set(keyId, value);
+        // Real IndexedDB serializes the value on write, so the store is
+        // independent of the caller's buffers (which the keyring may wipe).
+        records.set(keyId, structuredClone(value));
         return keyId;
       }, transaction),
     delete: (key: IDBValidKey) =>
@@ -120,7 +122,11 @@ function createFakeIndexedDbObjectStore(
         return undefined;
       }, transaction),
     get: (key: IDBValidKey) =>
-      createFakeIndexedDbRequest(() => records.get(String(key)), transaction),
+      createFakeIndexedDbRequest(() => {
+        const stored = records.get(String(key));
+        // Return an independent copy, as IndexedDB does for each read.
+        return stored === undefined ? undefined : structuredClone(stored);
+      }, transaction),
   } as unknown as IDBObjectStore;
 }
 
