@@ -65,6 +65,19 @@ test("failed upload lanes surface the error", () => {
   expect(failed?.errorCount).toBe(1);
 });
 
+test("failed upload lanes include nested causes", () => {
+  const domainScope = createDomainScope();
+  const lane = beginDomainSyncUploadLane(domainScope, "blob-upload:slot-2b");
+  const error = new Error("Attachment upload failed for archive.zip.");
+  Reflect.set(error, "cause", new Error("Multipart part 2 rejected"));
+
+  lane.fail(error);
+
+  expect(findLane(domainScope, "blob-upload:slot-2b")?.lastError).toBe(
+    "Attachment upload failed for archive.zip. Caused by: Multipart part 2 rejected",
+  );
+});
+
 test("upload lanes are ignored by the coordinator pump", async () => {
   const domainScope = createDomainScope();
   const lane = beginDomainSyncUploadLane(domainScope, "blob-upload:slot-3");

@@ -1,39 +1,20 @@
 import type { DomainScope, DomainSyncSnapshot } from "@tearleads/client-sdk";
 import {
-  getDomainSyncCoordinatorSnapshot,
-  subscribeToDomainSyncCoordinator,
-} from "@tearleads/client-sdk";
-import { useCallback } from "react";
-import {
   MiniAppActions,
   MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
 } from "../../../components/shared/MiniAppLayout";
-import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../labels";
 import { ExplorerSyncLaneDetail } from "./ExplorerSyncLaneDetail";
 import { ExplorerSyncLaneList } from "./ExplorerSyncLaneList";
 import { ExplorerSyncLaneOverview } from "./ExplorerSyncLaneShared";
+import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 import "./ExplorerSyncLanesPanel.css";
 
 export { getExplorerSyncLaneProgress } from "./ExplorerSyncLaneUtils";
-
-function useDomainSyncSnapshot(domainScope: DomainScope): DomainSyncSnapshot {
-  const subscribe = useCallback(
-    (listener: () => void) =>
-      subscribeToDomainSyncCoordinator(domainScope, listener),
-    [domainScope],
-  );
-  const getSnapshot = useCallback(
-    () => getDomainSyncCoordinatorSnapshot(domainScope),
-    [domainScope],
-  );
-
-  return useTearleadsExternalValue(subscribe, getSnapshot);
-}
 
 function getSyncLaneDetailSubtitle(
   snapshot: DomainSyncSnapshot,

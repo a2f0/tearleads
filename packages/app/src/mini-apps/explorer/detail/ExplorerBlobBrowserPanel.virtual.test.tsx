@@ -5,7 +5,11 @@ import type {
   BlobInfoInput,
   BlobStore,
 } from "@tearleads/client-sdk";
-import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import {
+  createDomainScope,
+  getOrCreateDomainSyncCoordinator,
+  syncedContainerDocumentObjectSyncState,
+} from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -89,6 +93,7 @@ test("blob browser navigates between the list and detail screens", async () => {
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
+      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       onBackToSelectionRoute={() => undefined}
@@ -159,6 +164,7 @@ test("blob browser document links open documents and expose get info from the ro
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
+      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[
         {
@@ -227,6 +233,7 @@ test("blob browser returns to the list from a deep-linked detail screen", async 
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
+      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       onBackToSelectionRoute={() => undefined}
@@ -269,6 +276,7 @@ test("blob browser requests a new blob window when the table scrolls", async () 
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
+      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       onBackToSelectionRoute={() => undefined}
@@ -337,6 +345,7 @@ test("blob browser keeps current rows visible while the next scroll window loads
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
+      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       onBackToSelectionRoute={() => undefined}
@@ -401,6 +410,7 @@ test("blob browser resets the blob window when sorting changes", async () => {
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
+      domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
       onBackToSelectionRoute={() => undefined}
@@ -448,4 +458,38 @@ test("blob browser resets the blob window when sorting changes", async () => {
       totalCount: rows.length,
     });
   });
+});
+
+test("blob browser renders upload sync status", async () => {
+  const rows = createBlobRows(1);
+  const domainScope = createDomainScope();
+  const lane = getOrCreateDomainSyncCoordinator(domainScope).beginUploadLane(
+    "blob-upload:slot-zip",
+    {
+      label: "Upload archive.zip",
+    },
+  );
+  lane.reportProgress({
+    bytesTotal: 40 * 1024 * 1024,
+    bytesUploaded: 8 * 1024 * 1024,
+    partsCompleted: 1,
+    partsTotal: 5,
+  });
+
+  const view = render(
+    <ExplorerBlobBrowserPanel
+      blobStore={createBlobStore()}
+      domainScope={domainScope}
+      loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
+      nodes={[]}
+      onBackToSelectionRoute={() => undefined}
+      openDocumentInfoRoute={() => undefined}
+      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      selectDocumentProjection={() => undefined}
+    />,
+  );
+
+  expect(await view.findByText("Sync Status")).toBeTruthy();
+  expect(view.getByText("Upload archive.zip")).toBeTruthy();
+  expect(view.getByText(/1\/5 parts/u)).toBeTruthy();
 });

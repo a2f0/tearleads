@@ -4,6 +4,7 @@ import type {
   BlobInfoList,
   BlobStore,
   ContainerNode,
+  DomainScope,
 } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { MiniAppPanel } from "../../../components/shared/MiniAppLayout";
@@ -20,9 +21,11 @@ import {
   getContainerNameById,
   useBlobBrowserData,
 } from "./ExplorerBlobBrowserState";
+import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 
 interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
+  domainScope: DomainScope;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToSelectionRoute: () => void;
@@ -56,6 +59,7 @@ export function ExplorerBlobBrowserPanel(
     loadBlobInfo: params.loadBlobInfo,
     route: params.route,
   });
+  const syncSnapshot = useDomainSyncSnapshot(params.domainScope);
   const containerNamesById = useMemo(
     () => getContainerNameById(params.nodes),
     [params.nodes],
@@ -93,6 +97,7 @@ export function ExplorerBlobBrowserPanel(
             containerNamesById={containerNamesById}
             openDocumentInfoRoute={params.openDocumentInfoRoute}
             selectDocumentProjection={params.selectDocumentProjection}
+            syncSnapshot={syncSnapshot}
           />
         </div>
       ) : (
@@ -117,6 +122,7 @@ export function ExplorerBlobBrowserPanel(
           rowOffset={rowOffset}
           rows={rows}
           sort={sort}
+          syncSnapshot={syncSnapshot}
         />
       )}
     </MiniAppPanel>

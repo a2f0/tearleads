@@ -207,6 +207,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
     return (
       <ExplorerBlobBrowserPanel
         blobStore={params.blobStore}
+        domainScope={params.domainScope}
         loadBlobInfo={params.loadBlobInfo}
         nodes={params.nodes}
         onBackToSelectionRoute={params.onBackToSelectionRoute}

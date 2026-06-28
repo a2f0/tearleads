@@ -56,6 +56,10 @@ export interface BlobAttachmentApi {
     input: BlobAttachmentBindRequest,
   ): Promise<BlobAttachmentBindResponse | null>;
   clearWriterProjectionCaches?(): void;
+  getRequestFailure?(input: {
+    method: "DELETE" | "GET" | "POST" | "PUT";
+    path: string;
+  }): { readonly message: string } | null;
   completeMultipartBlobStage?(
     stageId: string,
     input: CompleteMultipartBlobStageRequest,

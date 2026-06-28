@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { splitEncryptedBytesIntoParts } from "./multipartUpload";
+import {
+  splitEncryptedBytesIntoParts,
+  stageMultipartBlobAttachment,
+} from "./multipartUpload";
 
 describe("splitEncryptedBytesIntoParts", () => {
   test("returns no parts for an empty payload", () => {
@@ -51,6 +54,77 @@ describe("splitEncryptedBytesIntoParts", () => {
     );
     expect(() => splitEncryptedBytesIntoParts("😀", 8)).toThrow(
       "Multipart blob payload must be ASCII",
+    );
+  });
+});
+
+describe("stageMultipartBlobAttachment", () => {
+  test("surfaces the failed multipart part number", async () => {
+    await expect(
+      stageMultipartBlobAttachment({
+        apiClient: {
+          bindBlobAttachment: async () => null,
+          completeMultipartBlobStage: async () => null,
+          getDocumentWriterProjection: async () => null,
+          getMultipartBlobStage: async () => null,
+          initiateMultipartBlobStage: async () => ({
+            byteLength: 6,
+            expiresAt: "2026-04-27T01:00:00.000Z",
+            sha256: "sha256",
+            stageId: "stage-failed-part",
+            uploadedParts: [],
+            uploadId: "upload-failed-part",
+          }),
+          stageBlob: async () => null,
+          uploadMultipartBlobPart: async (_stageId, partNumber, input) =>
+            partNumber === 1
+              ? {
+                  part: {
+                    byteLength: input.encryptedBytes.length,
+                    etag: "etag-1",
+                    partNumber,
+                  },
+                  stageId: "stage-failed-part",
+                  uploadId: input.uploadId,
+                }
+              : null,
+        },
+        byteLength: 6,
+        encryptedBytes: "abcdef",
+        multipart: { partSize: 3 },
+        sha256: "sha256",
+      }),
+    ).rejects.toThrow(
+      "Multipart blob part 2 upload failed for stage stage-failed-part.",
+    );
+  });
+
+  test("rejects multipart plans that exceed the object store part limit", async () => {
+    await expect(
+      stageMultipartBlobAttachment({
+        apiClient: {
+          bindBlobAttachment: async () => null,
+          completeMultipartBlobStage: async () => null,
+          getDocumentWriterProjection: async () => null,
+          getMultipartBlobStage: async () => null,
+          initiateMultipartBlobStage: async () => ({
+            byteLength: 10_001,
+            expiresAt: "2026-04-27T01:00:00.000Z",
+            sha256: "sha256",
+            stageId: "stage-too-many-parts",
+            uploadedParts: [],
+            uploadId: "upload-too-many-parts",
+          }),
+          stageBlob: async () => null,
+          uploadMultipartBlobPart: async () => null,
+        },
+        byteLength: 10_001,
+        encryptedBytes: "a".repeat(10_001),
+        multipart: { partSize: 1 },
+        sha256: "sha256",
+      }),
+    ).rejects.toThrow(
+      "Multipart blob upload would require 10,001 parts; the maximum is 10,000.",
     );
   });
 });

@@ -101,6 +101,13 @@ export function hasHeader(
   );
 }
 
+export function requestFailureKey(input: {
+  method: string;
+  path: string;
+}): string {
+  return `${input.method}\u0000${input.path}`;
+}
+
 function syncWatermarkRequestKey(
   watermark: SyncWatermark | null | undefined,
 ): string {

@@ -92,6 +92,7 @@ import {
   listContainerDocumentsRequestKey,
   listContainersRequestKey,
   normalizeApiBaseUrl,
+  requestFailureKey,
 } from "./requestInternals";
 import {
   getBlob,
@@ -145,9 +146,6 @@ export class ApiClient {
     string,
     Promise<ListContainersResponse | null>
   >();
-  // Persistent (cachedRequest-backed) caches retain one entry per unique id
-  // read, so they are bounded to cap memory on a long-lived client. The list
-  // caches above use dedupedRequest, which self-evicts in finally().
   private readonly containerWriterProjectionRequestsByContainerId =
     new BoundedCache<Promise<ContainerWriterProjectionResponse | null>>();
   private readonly documentWriterProjectionRequestsByDocumentId =
@@ -160,14 +158,12 @@ export class ApiClient {
   private readonly organizationGroupRequestsByOrganizationId = new BoundedCache<
     Promise<ListOrganizationGroupsResponse | null>
   >();
+  private readonly requestFailuresByKey = new Map<string, RequestFailure>();
   private readonly request: RequestFn;
   private readonly responseRequest: ResponseRequestFn;
 
   constructor(baseUrl?: string | null) {
     this.baseUrl = normalizeApiBaseUrl(baseUrl);
-    // bindPrototypeMethods binds every prototype method (including the transport
-    // methods below) to this instance, so the detached `this.request` /
-    // `this.responseRequest` function references stay bound.
     bindPrototypeMethods(this, ApiClient.prototype);
     this.request = this.makeRequest;
     this.responseRequest = Object.assign(this.makeResponseRequest, {
@@ -246,6 +242,10 @@ export class ApiClient {
         ? { stalePrincipalPolicies: input.stalePrincipalPolicies }
         : {}),
     };
+    this.requestFailuresByKey.set(
+      requestFailureKey({ method: input.method, path: input.path }),
+      failure,
+    );
 
     if (input.reportErrors) {
       failure.report();
@@ -326,6 +326,7 @@ export class ApiClient {
 
     const { response } = responseResult;
     if (response.ok) {
+      this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
       return { data: response, ok: true };
     }
 
@@ -350,6 +351,7 @@ export class ApiClient {
         return retryResult;
       }
       if (retryResult.response.ok) {
+        this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
         return { data: retryResult.response, ok: true };
       }
 
@@ -473,9 +475,6 @@ export class ApiClient {
     try {
       refreshed = (await this.onSessionExpired?.()) ?? false;
     } catch (error: unknown) {
-      // A throw means re-auth failed: do not replay, but surface it so a failing
-      // silent re-login is diagnosable rather than only a downstream 401. Respect
-      // the caller's reportErrors opt-out, like every other failure on this path.
       if (input.options.reportErrors ?? true) {
         this.onError?.(`Session refresh failed: ${errorMessage(error)}`);
       }
@@ -591,11 +590,10 @@ export class ApiClient {
     return this.authToken;
   }
 
-  /**
-   * Mint a single-use websocket ticket via the authenticated HTTP session, so
-   * the (header-less) websocket handshake can authenticate by query param.
-   * Returns null when unauthenticated or the request fails.
-   */
+  getRequestFailure(input: { method: HttpMethod; path: string }) {
+    return this.requestFailuresByKey.get(requestFailureKey(input)) ?? null;
+  }
+
   async requestWebSocketTicket(): Promise<string | null> {
     const response = await this.request(
       "/auth/ws-ticket",

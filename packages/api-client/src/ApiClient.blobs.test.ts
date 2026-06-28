@@ -152,6 +152,43 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   expect(calls[3]?.contentType).toBe("application/octet-stream");
 });
 
+testApiClient(
+  "retains the latest multipart request failure detail",
+  async () => {
+    server.use(
+      http.put(
+        `${apiBaseUrl}/blobs/stages/multipart/stage-1/parts/2/bytes`,
+        () =>
+          HttpResponse.json(
+            { error: "Blob sha256 does not match multipart upload" },
+            { status: 409, statusText: "Conflict" },
+          ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const encryptedPartBytes = new TextEncoder().encode("part-2");
+
+    await expect(
+      client.uploadMultipartBlobPartBytes("stage-1", 2, {
+        byteLength: encryptedPartBytes.byteLength,
+        encryptedBytes: encryptedPartBytes,
+        sha256:
+          "2bb41b3bc344d2a5c1f31d662d86d78d7e98198b1eef7be3209d4f85da4ef14d",
+        uploadId: "upload-1",
+      }),
+    ).resolves.toBeNull();
+    expect(
+      client.getRequestFailure({
+        method: "PUT",
+        path: "/blobs/stages/multipart/stage-1/parts/2/bytes",
+      })?.message,
+    ).toBe(
+      "PUT /blobs/stages/multipart/stage-1/parts/2/bytes: 409 Conflict: Blob sha256 does not match multipart upload",
+    );
+  },
+);
+
 testApiClient("streams blob downloads from the bytes route", async () => {
   const calls: CapturedHttpCall[] = [];
   server.use(

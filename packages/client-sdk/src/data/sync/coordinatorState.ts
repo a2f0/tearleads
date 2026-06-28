@@ -33,8 +33,45 @@ export interface DomainSyncCoordinatorState {
   snapshot: DomainSyncSnapshot;
 }
 
+function describeSingleSyncLaneError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function readErrorCause(error: unknown): unknown {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+
+  return Reflect.get(error, "cause");
+}
+
 export function describeSyncLaneError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  const messages: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+
+  while (current !== undefined && current !== null && !seen.has(current)) {
+    seen.add(current);
+    const message = describeSingleSyncLaneError(current);
+    if (message.length > 0) {
+      messages.push(message);
+    }
+    current = readErrorCause(current);
+  }
+
+  return messages.length > 0 ? messages.join(" Caused by: ") : String(error);
 }
 
 // Observational upload lanes never enter the pump, so their run is never
