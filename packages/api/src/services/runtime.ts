@@ -1,27 +1,14 @@
-import { S3Client, type S3ClientConfig } from "@aws-sdk/client-s3";
 import { db } from "@tearleads/api-shared/postgres";
+import type { BlobObjectStore } from "../adapters/blobObjectStore";
 import {
-  type BlobObjectStore,
-  createMemoryBlobObjectStore,
-} from "../adapters/blobObjectStore";
+  type BlobObjectStoreKind,
+  createDefaultBlobObjectStore,
+  readBlobObjectStoreKind,
+} from "../adapters/defaultBlobObjectStore";
 import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
-import { createS3BlobObjectStore } from "../adapters/s3BlobObjectStore";
 import { createSession } from "../middleware/session";
 import type { SessionCreateInput } from "../validators/session";
-
-interface RuntimeEnv {
-  readonly BLOB_OBJECT_STORE?: string | undefined;
-  readonly BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID?: string | undefined;
-  readonly BLOB_OBJECT_STORE_S3_BUCKET?: string | undefined;
-  readonly BLOB_OBJECT_STORE_S3_ENDPOINT?: string | undefined;
-  readonly BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE?: string | undefined;
-  readonly BLOB_OBJECT_STORE_S3_KEY_PREFIX?: string | undefined;
-  readonly BLOB_OBJECT_STORE_S3_REGION?: string | undefined;
-  readonly BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY?: string | undefined;
-  readonly NODE_ENV?: string | undefined;
-  readonly [key: string]: string | undefined;
-}
 
 export interface KeyValueStore {
   del: (key: string) => Promise<void>;
@@ -47,173 +34,6 @@ export interface ApiServiceRuntime {
   sessionTokenIssuer: SessionTokenIssuer;
 }
 
-export type BlobObjectStoreKind = "memory" | "s3";
-
-function requireRuntimeEnv(
-  env: RuntimeEnv,
-  key: string,
-  message: string,
-): string {
-  const value = readRuntimeEnv(env, key);
-  if (!value) {
-    throw new Error(message);
-  }
-
-  return value;
-}
-
-function readRuntimeEnv(env: RuntimeEnv, key: string): string | undefined {
-  const value = env[key];
-  if (value && value.trim().length > 0) {
-    return value.trim();
-  }
-
-  return undefined;
-}
-
-function readBlobObjectStoreKind(env: RuntimeEnv): BlobObjectStoreKind {
-  const configuredValue = readRuntimeEnv(env, "BLOB_OBJECT_STORE");
-  if (!configuredValue) {
-    if (readRuntimeEnv(env, "NODE_ENV") === "production") {
-      throw new Error("BLOB_OBJECT_STORE is required when NODE_ENV=production");
-    }
-
-    return "memory";
-  }
-  const value = configuredValue;
-  if (value === "memory" || value === "s3") {
-    return value;
-  }
-
-  throw new Error(`Unsupported BLOB_OBJECT_STORE value: ${value}`);
-}
-
-function readBooleanEnv(value: string | undefined): boolean | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === "1" || value.toLowerCase() === "true") {
-    return true;
-  }
-  if (value === "0" || value.toLowerCase() === "false") {
-    return false;
-  }
-
-  throw new Error(`Invalid boolean environment value: ${value}`);
-}
-
-function readBlobObjectStoreKeyPrefix(env: RuntimeEnv): string | undefined {
-  const value = readRuntimeEnv(env, "BLOB_OBJECT_STORE_S3_KEY_PREFIX");
-  if (!value) {
-    return undefined;
-  }
-
-  const normalized = value.replace(/^\/+|\/+$/g, "");
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function prefixBlobObjectKey(prefix: string, key: string): string {
-  return `${prefix}/${key}`;
-}
-
-function createPrefixedBlobObjectStore(
-  store: BlobObjectStore,
-  prefix: string | undefined,
-): BlobObjectStore {
-  if (!prefix) {
-    return store;
-  }
-
-  return {
-    abortMultipartUpload: (input) =>
-      store.abortMultipartUpload({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-    completeMultipartUpload: (input) =>
-      store.completeMultipartUpload({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-    createMultipartUpload: (input) =>
-      store.createMultipartUpload({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-    deleteObject: (key) => store.deleteObject(prefixBlobObjectKey(prefix, key)),
-    getObjectStream: (key) =>
-      store.getObjectStream(prefixBlobObjectKey(prefix, key)),
-    listParts: (input) =>
-      store.listParts({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-    putObject: (input) =>
-      store.putObject({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-    uploadPart: (input) =>
-      store.uploadPart({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-  };
-}
-
-export function createDefaultBlobObjectStore(
-  env: RuntimeEnv = process.env,
-): BlobObjectStore {
-  const kind = readBlobObjectStoreKind(env);
-  if (kind === "memory") {
-    return createMemoryBlobObjectStore();
-  }
-  const bucket = requireRuntimeEnv(
-    env,
-    "BLOB_OBJECT_STORE_S3_BUCKET",
-    "BLOB_OBJECT_STORE_S3_BUCKET is required when BLOB_OBJECT_STORE=s3",
-  );
-  const clientConfig: S3ClientConfig = {
-    region: requireRuntimeEnv(
-      env,
-      "BLOB_OBJECT_STORE_S3_REGION",
-      "BLOB_OBJECT_STORE_S3_REGION is required when BLOB_OBJECT_STORE=s3",
-    ),
-  };
-  const endpoint = readRuntimeEnv(env, "BLOB_OBJECT_STORE_S3_ENDPOINT");
-  if (endpoint !== undefined) {
-    clientConfig.endpoint = endpoint;
-  }
-  const forcePathStyle = readBooleanEnv(
-    readRuntimeEnv(env, "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE"),
-  );
-  if (forcePathStyle !== undefined) {
-    clientConfig.forcePathStyle = forcePathStyle;
-  }
-  const accessKeyId = readRuntimeEnv(env, "BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID");
-  const secretAccessKey = readRuntimeEnv(
-    env,
-    "BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY",
-  );
-  if (accessKeyId || secretAccessKey) {
-    if (!accessKeyId || !secretAccessKey) {
-      throw new Error(
-        "Both BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID and BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY are required when either is set",
-      );
-    }
-
-    clientConfig.credentials = { accessKeyId, secretAccessKey };
-  }
-
-  return createPrefixedBlobObjectStore(
-    createS3BlobObjectStore({
-      bucket,
-      client: new S3Client(clientConfig),
-    }),
-    readBlobObjectStoreKeyPrefix(env),
-  );
-}
-
 function buildDefaultApiServiceRuntime(): ApiServiceRuntime {
   return {
     blobObjectStore: createDefaultBlobObjectStore(),
@@ -229,9 +49,9 @@ let memoizedDefaultApiServiceRuntime: ApiServiceRuntime | undefined;
 
 /**
  * The process-wide default runtime, built on first use rather than at module
- * import — so importing this module (for its types, `createDefaultBlobObjectStore`,
- * or `createSession`) does not construct an S3 client or read blob-store env.
- * The build happens once at composition-root assembly and is shared thereafter.
+ * import — so importing this module (for its types or `createSession`) does not
+ * construct an S3 client or read blob-store env. The build happens once at
+ * composition-root assembly and is shared thereafter.
  */
 export function getDefaultApiServiceRuntime(): ApiServiceRuntime {
   memoizedDefaultApiServiceRuntime ??= buildDefaultApiServiceRuntime();

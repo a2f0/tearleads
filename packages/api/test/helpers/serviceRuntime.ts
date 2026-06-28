@@ -14,10 +14,8 @@ import {
   type BlobObjectStore,
   createMemoryBlobObjectStore,
 } from "../../src/adapters/blobObjectStore";
-import type {
-  ApiServiceRuntime,
-  BlobObjectStoreKind,
-} from "../../src/services/runtime";
+import type { BlobObjectStoreKind } from "../../src/adapters/defaultBlobObjectStore";
+import type { ApiServiceRuntime } from "../../src/services/runtime";
 import {
   createInitialAdminGroupRequest,
   createInitialMemberGroupRequest,
