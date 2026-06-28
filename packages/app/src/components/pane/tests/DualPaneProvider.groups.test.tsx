@@ -117,6 +117,54 @@ test(
 );
 
 test(
+  "peer explorer auto-surfaces an Admins-granted root without a manual refresh",
+  async () => {
+    useTestApiAppHandlers();
+    const view = renderDualPane();
+    const leftPane = getPaneRoot(view, "left");
+    const rightPane = getPaneRoot(view, "right");
+
+    await waitForDualPaneProvisioning(leftPane, rightPane);
+
+    // Open the peer explorer BEFORE the membership change so the only thing that
+    // can surface the Admins-granted root is the incoming shared_with_you event
+    // driving an automatic root re-list. Opening it after the add would mask the
+    // event with the explorer's own one-shot open catch-up sweep, and a manual
+    // refresh is exactly the crutch this fix removes.
+    await openExplorer(rightPane);
+    // Settle the peer's open catch-up first so the pre-add baseline is stable and
+    // a still-in-flight sweep cannot pick up the membership after the add.
+    await act(async () => {
+      await waitForAppTestRuntimeToSettle({
+        apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
+        timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
+      });
+    });
+    // The peer starts with only its own provisioned roots; access control keeps
+    // the owner's Admins-granted root out of this list until the peer joins.
+    const baselineRootCount = listExplorerContainerItems(rightPane).length;
+
+    const postAdminAddRequestStartIndex = listProxiedApiRequests().length;
+    await addPeerToAdminsGroup(leftPane, getPaneUserId(rightPane));
+
+    // No clickExplorerRefresh / refreshUntil here: the member-envelopes write
+    // publishes a user-scoped shared_with_you, so the peer re-lists root
+    // containers automatically and the Admins-granted root appears on its own.
+    // Without the publish the peer issues no root re-list at all and this count
+    // never grows (verified by disabling the publish).
+    await waitForCondition(
+      () => listExplorerContainerItems(rightPane).length > baselineRootCount,
+      `Peer explorer did not auto-surface the Admins-granted root after the membership add (baseline=${baselineRootCount}). Expected shared_with_you to drive an automatic root re-list without a manual refresh.`,
+    );
+    await waitForNoPostShareSyncFailures(
+      [leftPane, rightPane],
+      postAdminAddRequestStartIndex,
+    );
+  },
+  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+);
+
+test(
   "dual panes replicate a peer edit to an Admins-granted note",
   async () => {
     useTestApiAppHandlers();
