@@ -103,8 +103,7 @@ test("unbooted pane context menu can generate a key pair", async () => {
   });
 
   await waitFor(() => {
-    const statusText =
-      view.container.querySelector(".pane-content")?.textContent ?? "";
+    const statusText = getPaneStatusText(view);
     expect(statusText).toMatch(/sqlite worker:\s*ready/);
     expect(statusText).toMatch(/publicKey:\s*[0-9a-f]{64}/u);
   });
@@ -164,7 +163,7 @@ test(
     await waitForPersistedPaneLocalIdentity(localIdentityNamespace);
     const userId = await registerAndWaitForUserId(view);
     await waitFor(() => {
-      expect(view.queryByText(/session: none/)).toBeNull();
+      expect(getPaneStatusText(view)).not.toMatch(/session:\s*none/);
     });
     await waitForPersistedPaneCryptoSession(localIdentityNamespace);
     view.unmount();
@@ -252,13 +251,13 @@ test(
   async () => {
     const view = renderPane();
 
-    expect(view.getByText(/userId: none/)).toBeTruthy();
+    expect(getPaneStatusText(view)).toMatch(/userId:\s*none/);
 
     await generateIdentityAndWaitForDb(view);
     const userId = await registerAndWaitForUserId(view);
 
     await waitFor(() => {
-      expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
+      expect(getPaneStatusText(view)).toContain(`userId: ${userId}`);
     });
 
     fireEvent.click(view.getByText("Menu"));
@@ -279,8 +278,8 @@ test(
     const userId = await registerAndWaitForUserId(view);
 
     await waitFor(() => {
-      expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
-      expect(view.queryByText(/session: none/)).toBeNull();
+      expect(getPaneStatusText(view)).toContain(`userId: ${userId}`);
+      expect(getPaneStatusText(view)).not.toMatch(/session:\s*none/);
     });
 
     fireEvent.click(view.getByText("Menu"));
@@ -295,13 +294,13 @@ test(
     expect(checkbox.classList.contains("logout-confirmation-checkbox")).toBe(
       true,
     );
-    expect(view.queryByText(/session: none/)).toBeNull();
+    expect(getPaneStatusText(view)).not.toMatch(/session:\s*none/);
 
     fireEvent.click(view.getByRole("button", { name: "Log Out" }));
 
     await waitFor(() => {
-      expect(view.getByText(/session: none/)).toBeTruthy();
-      expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
+      expect(getPaneStatusText(view)).toMatch(/session:\s*none/);
+      expect(getPaneStatusText(view)).toContain(`userId: ${userId}`);
     });
 
     view.unmount();
@@ -346,7 +345,7 @@ test(
     const userId = await registerAndWaitForUserId(view);
 
     await waitFor(() => {
-      expect(view.getByText(new RegExp(`userId: ${userId}`))).toBeTruthy();
+      expect(getPaneStatusText(view)).toContain(`userId: ${userId}`);
     });
 
     fireEvent.click(view.getByText("Menu"));
@@ -357,7 +356,7 @@ test(
     fireEvent.click(view.getByRole("button", { name: "Destroy Key Package" }));
 
     await waitFor(() => {
-      expect(view.getByText(/userId: none/)).toBeTruthy();
+      expect(getPaneStatusText(view)).toMatch(/userId:\s*none/);
     });
 
     view.unmount();

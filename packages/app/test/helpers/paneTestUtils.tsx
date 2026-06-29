@@ -431,11 +431,36 @@ export async function waitForPersistedPaneLocalIdentity(
   );
 }
 
+// The status pane renders a shared MiniAppInfoTable (bold label cell + value
+// cell), so flatten each row back to a "label: value" line for the text-based
+// assertions. Falls back to raw text content for any non-table pane content.
+export function flattenPaneStatusText(paneContent: Element): string {
+  const rows = paneContent.querySelectorAll(".mini-app-info-table tr");
+  if (rows.length === 0) {
+    return paneContent.textContent ?? "";
+  }
+  return Array.from(rows)
+    .map((row) => {
+      const label = row.querySelector("th")?.textContent ?? "";
+      const value = row.querySelector("td")?.textContent ?? "";
+      return `${label}: ${value}`;
+    })
+    .join("\n");
+}
+
 export function getPaneStatusText(view: ReturnType<typeof renderPane>): string {
   const paneContent =
     view.container.querySelector(".pane-content") ??
     view.baseElement.querySelector(".pane-content");
-  return paneContent?.textContent ?? "";
+  return paneContent ? flattenPaneStatusText(paneContent) : "";
+}
+
+export function getAllPaneStatusTexts(
+  view: ReturnType<typeof renderPane>,
+): string[] {
+  return Array.from(view.baseElement.querySelectorAll(".pane-content")).map(
+    flattenPaneStatusText,
+  );
 }
 
 export function getPanePublicKey(view: ReturnType<typeof renderPane>): string {

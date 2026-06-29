@@ -42,9 +42,7 @@ async function generateKeyPair(page: Page, pane: Locator): Promise<void> {
 }
 
 async function paneHasPublicKey(pane: Locator): Promise<boolean> {
-  const status = await paneStatus(pane);
-  const statusText = await status.innerText();
-  return PUBLIC_KEY_PATTERN.test(statusText);
+  return PUBLIC_KEY_PATTERN.test(await paneStatusText(pane));
 }
 
 async function waitForPanePublicKey(
@@ -100,21 +98,41 @@ async function paneStatus(pane: Locator): Promise<Locator> {
   return pane.locator(".pane-content").first();
 }
 
+// The status pane renders a MiniAppInfoTable (bold label cell + value cell), so
+// flatten each row back to a "label: value" line for the text-based patterns.
+async function paneStatusText(pane: Locator): Promise<string> {
+  const status = await paneStatus(pane);
+  return status.evaluate((element) => {
+    const rows = element.querySelectorAll(".mini-app-info-table tr");
+    if (rows.length === 0) {
+      return element.textContent ?? "";
+    }
+    return Array.from(rows)
+      .map((row) => {
+        const label = row.querySelector("th")?.textContent ?? "";
+        const value = row.querySelector("td")?.textContent ?? "";
+        return `${label}: ${value}`;
+      })
+      .join("\n");
+  });
+}
+
 async function paneLogs(pane: Locator): Promise<Locator> {
   await showSystemMonitorTab(pane, "Logs");
   return pane.locator(".pane-log").first();
 }
 
 async function waitForPaneBooted(pane: Locator): Promise<void> {
-  const status = await paneStatus(pane);
-  await expect(status).toContainText(SQLITE_READY_PATTERN, {
-    timeout: 30_000,
-  });
-  await expect(status).toContainText(PUBLIC_KEY_PATTERN, { timeout: 30_000 });
+  await expect
+    .poll(() => paneStatusText(pane), { timeout: 30_000 })
+    .toMatch(SQLITE_READY_PATTERN);
+  await expect
+    .poll(() => paneStatusText(pane), { timeout: 30_000 })
+    .toMatch(PUBLIC_KEY_PATTERN);
 }
 
 async function panePublicKey(pane: Locator): Promise<string> {
-  const statusText = await (await paneStatus(pane)).innerText();
+  const statusText = await paneStatusText(pane);
   const match = PUBLIC_KEY_PATTERN.exec(statusText);
   if (!match?.[1]) {
     throw new Error(`Pane status did not include a public key: ${statusText}`);
@@ -150,9 +168,9 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
 
   const reloadedPane = visiblePane(page, "left");
   await waitForPaneBooted(reloadedPane);
-  await expect(await paneStatus(reloadedPane)).toContainText(
-    `publicKey: ${publicKey}`,
-  );
+  await expect
+    .poll(() => paneStatusText(reloadedPane))
+    .toContain(`publicKey: ${publicKey}`);
   const reloadedLogs = await paneLogs(reloadedPane);
   await expect(
     reloadedLogs.getByText("Local identity key package restored"),
@@ -182,9 +200,9 @@ test("killed worker does not poison a hard reload", async ({ page }) => {
 
   const reloadedPane = visiblePane(page, "left");
   await waitForPaneBooted(reloadedPane);
-  await expect(await paneStatus(reloadedPane)).toContainText(
-    `publicKey: ${publicKey}`,
-  );
+  await expect
+    .poll(() => paneStatusText(reloadedPane))
+    .toContain(`publicKey: ${publicKey}`);
 });
 
 test("same persisted identity can boot in two tabs", async ({
@@ -203,9 +221,9 @@ test("same persisted identity can boot in two tabs", async ({
 
   const secondPane = visiblePane(secondPage, "left");
   await waitForPaneBooted(secondPane);
-  await expect(await paneStatus(secondPane)).toContainText(
-    `publicKey: ${publicKey}`,
-  );
+  await expect
+    .poll(() => paneStatusText(secondPane))
+    .toContain(`publicKey: ${publicKey}`);
   await expect(
     (await paneLogs(secondPane)).getByText(
       "Local identity key package restored",

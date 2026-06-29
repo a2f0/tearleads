@@ -127,6 +127,23 @@ export const MiniAppInfoTableRow = forwardRef<
   );
 });
 
+export function MiniAppInfoRow({
+  children,
+  label,
+  title,
+}: {
+  children: ReactNode;
+  label: ReactNode;
+  title?: string | null | undefined;
+}) {
+  return (
+    <tr>
+      <th>{label}</th>
+      <td title={title ?? undefined}>{children}</td>
+    </tr>
+  );
+}
+
 export const MiniAppTableRow = forwardRef<
   HTMLTableRowElement,
   MiniAppTableRowProps

@@ -3,7 +3,10 @@ import {
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
+import {
+  MiniAppInfoRow,
+  MiniAppInfoTable,
+} from "../../../components/shared/MiniAppTable";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoBundleStateLabel,
@@ -12,7 +15,6 @@ import {
   getExplorerDocumentInfoTargetCountsLabel,
 } from "../labels";
 import { compactId } from "./compactId";
-import { DocumentInfoRow } from "./ExplorerDocumentInfoRow";
 
 export function ExplorerDocumentInfoLocalSecuritySection(params: {
   documentInfo: DocumentInfo | null;
@@ -32,30 +34,30 @@ export function ExplorerDocumentInfoLocalSecuritySection(params: {
     >
       <MiniAppInfoTable>
         <tbody>
-          <DocumentInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
+          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
             {local?.accessEpoch != null ? String(local.accessEpoch) : "-"}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoAccessStateHashRow}
             title={local?.accessStateHash}
           >
             {compactId(local?.accessStateHash)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoLastCommitRow}
             title={local?.lastCommitLsn}
           >
             {compactId(local?.lastCommitLsn)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoLocalManifestHashRow}
             title={local?.localDocumentManifestHash}
           >
             {compactId(local?.localDocumentManifestHash)}
-          </DocumentInfoRow>
-          <DocumentInfoRow label={EXPLORER_LABELS.documentInfoBundleStateRow}>
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoBundleStateRow}>
             {bundleState}
-          </DocumentInfoRow>
+          </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>
     </MiniAppInfoSection>
@@ -84,24 +86,24 @@ export function ExplorerDocumentInfoRemoteSecuritySection(params: {
     >
       <MiniAppInfoTable>
         <tbody>
-          <DocumentInfoRow
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoCurrentManifestHashRow}
             title={remoteInfo.currentManifestHash}
           >
             {compactId(remoteInfo.currentManifestHash)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoPreviousManifestHashRow}
             title={remoteInfo.previousManifestHash}
           >
             {compactId(remoteInfo.previousManifestHash)}
-          </DocumentInfoRow>
-          <DocumentInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoAccessEpochRow}>
             {remoteInfo.manifestEpoch != null
               ? String(remoteInfo.manifestEpoch)
               : "-"}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoDocumentManifestHistoryRow}
           >
             {getExplorerDocumentInfoManifestHistoryLabel({
@@ -110,8 +112,8 @@ export function ExplorerDocumentInfoRemoteSecuritySection(params: {
               documentManifestHistoryCount:
                 remoteInfo.documentManifestHistoryCount,
             })}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoLinkedContainersRow}
           >
             {getExplorerDocumentInfoLinkedContainersLabel({
@@ -120,30 +122,30 @@ export function ExplorerDocumentInfoRemoteSecuritySection(params: {
               linkedContainerManifestCount:
                 remoteInfo.linkedContainerManifestCount,
             })}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoContentKeyEpochRow}
           >
             {String(remoteInfo.contentKeyEpoch)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoContentKeyHashRow}
             title={remoteInfo.contentKeyTargetHash}
           >
             {compactId(remoteInfo.contentKeyTargetHash)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoDocumentKeyHashRow}
             title={remoteInfo.documentKeyTargetHash}
           >
             {compactId(remoteInfo.documentKeyTargetHash)}
-          </DocumentInfoRow>
-          <DocumentInfoRow label={EXPLORER_LABELS.documentInfoTargetCountRow}>
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoTargetCountRow}>
             {getExplorerDocumentInfoTargetCountsLabel({
               contentKeyTargetCount: remoteInfo.contentKeyTargetCount,
               documentKekTargetCount: remoteInfo.documentKekTargetCount,
             })}
-          </DocumentInfoRow>
+          </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>
     </MiniAppInfoSection>
