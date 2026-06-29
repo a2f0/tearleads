@@ -1,6 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { packageSourcePath } from "./dependencySourceRoots";
+import {
+  packageSourcePath,
+  productionSourceFilePattern,
+  testFilePattern,
+} from "./dependencySourceRoots";
 
 /**
  * A subsystem is a DESCRIPTIVE proper noun for a vertical slice (or a horizontal
@@ -535,6 +539,27 @@ export const registeredSubsystemSourcePaths: readonly string[] = [
   packageSourcePath.app,
 ];
 
+/**
+ * Product mini-app directory names, derived from the app subsystem rows so the
+ * list cannot drift from what is on disk: the coverage check guarantees every
+ * `mini-apps/<name>/` directory is claimed by a subsystem, so a newly added
+ * mini-app appears here automatically. Consumed by `lintArchitecture.ts` to
+ * build the mini-app bus boundary check.
+ */
+export const miniAppNames: readonly string[] = [
+  ...new Set(
+    subsystems
+      .flatMap((subsystem) => subsystem.paths)
+      // Match the first dir segment under mini-apps/ anywhere in the path (not
+      // anchored at the end), so a future nested subsystem path like
+      // mini-apps/explorer/detail/ still yields "explorer" rather than silently
+      // dropping it. Exact files (mini-apps/bus.tsx) lack the trailing slash and
+      // are correctly ignored.
+      .map((path) => /\/mini-apps\/([^/]+)\//.exec(path)?.[1])
+      .filter((name): name is string => name !== undefined),
+  ),
+].sort();
+
 /** Subsystems that own the given production source file (ideally exactly one). */
 export function subsystemsForFile(filePath: string): Subsystem[] {
   return subsystems.filter((subsystem) =>
@@ -543,9 +568,6 @@ export function subsystemsForFile(filePath: string): Subsystem[] {
     ),
   );
 }
-
-const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
-const testFilePattern = /\.test\.[tj]sx?$/;
 
 async function listProductionSourceFiles(dirPath: string): Promise<string[]> {
   const entries = await readdir(dirPath, { withFileTypes: true });

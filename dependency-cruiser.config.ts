@@ -5,11 +5,14 @@ import {
   dependencyCruiserIncludeOnly,
   deploymentTargetSourceRoots,
   packageSourceRoot as sourceRoot,
+  testFilePattern,
 } from "./scripts/dependencySourceRoots";
 
 type ForbiddenRules = NonNullable<IConfiguration["forbidden"]>;
 
-const testFilesPattern = "\\.test\\.[tj]sx?$";
+// dependency-cruiser rule paths are regex-source strings, so use the `.source`
+// of the shared test-file regex rather than restating the pattern.
+const testFilesPattern = testFilePattern.source;
 const noOrphanPathExemptionPattern = [
   "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts|json)$",
   "\\.d\\.(c|m)?ts$",
@@ -26,40 +29,6 @@ const noOrphanPathExemptionPattern = [
 ]
   .map((pattern) => `(?:${pattern})`)
   .join("|");
-
-const appLayer = {
-  data: `${sourceRoot.app}data/`,
-  persistence: `${sourceRoot.app}data/persistence/`,
-  sqlite: `${sourceRoot.app}data/sqlite/`,
-  blobStorage: `${sourceRoot.app}data/blobs/`,
-  contactData: `${sourceRoot.app}data/contacts/`,
-  sync: `${sourceRoot.app}data/sync/`,
-  workflows: `${sourceRoot.app}workflows/`,
-  stores: `${sourceRoot.app}stores/`,
-  shellProviders: `${sourceRoot.app}providers/`,
-  sharedHelpers: `${sourceRoot.app}data/(containers|documents)(/blob)?/shared/`,
-} as const;
-
-const appPresentation = [
-  `${sourceRoot.app}components/`,
-  `${sourceRoot.app}document-types/`,
-  `${sourceRoot.app}mini-apps/`,
-];
-const appReactRuntime = [
-  `${sourceRoot.app}identity/`,
-  appLayer.shellProviders,
-  appLayer.stores,
-];
-const appUpperLayers = [...appPresentation, ...appReactRuntime];
-const appStorageInternals = [
-  appLayer.persistence,
-  appLayer.sqlite,
-  appLayer.blobStorage,
-  appLayer.contactData,
-  appLayer.sync,
-];
-const appRootSqlProvider =
-  "^packages/app/src/providers/data/AppDataProvider\\.tsx$";
 
 const apiLayer = {
   access: `${sourceRoot.api}access/`,
@@ -87,6 +56,24 @@ const clientSdkLayer = {
   stores: `${sourceRoot.clientSdk}stores/`,
   workflows: `${sourceRoot.clientSdk}workflows/`,
 } as const;
+
+// Leaf-level support/test packages that higher layers build on. Everything NOT
+// in this list is a product/server/deployment package, so a newly added
+// top-level package is denied to lower layers by default rather than silently
+// escaping the leaf-package import rules.
+const leafSupportSourceRoots = [
+  sourceRoot.crypto,
+  sourceRoot.loro,
+  sourceRoot.encoding,
+  sourceRoot.validators,
+  sourceRoot.sqliteInstance,
+  sourceRoot.sqliteWorker,
+  sourceRoot.bobAndAlice,
+  sourceRoot.testUtils,
+];
+const productAndServerSourceRoots = allPackageSourceRoots.filter(
+  (root) => !leafSupportSourceRoots.includes(root),
+);
 
 const standardRules = [
   {
@@ -333,126 +320,6 @@ const apiPackageBoundaryRules = [
   },
 ] satisfies ForbiddenRules;
 
-const appRules = [
-  {
-    name: "app-data-does-not-depend-on-upper-layers",
-    severity: "error",
-    comment:
-      "Production app data modules are low-level stores, contracts, and layer-neutral helpers; they must not depend on React runtime, presentation, or workflow modules, including type-only contracts.",
-    from: {
-      path: appLayer.data,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: [...appUpperLayers, appLayer.workflows],
-    },
-  },
-  {
-    name: "app-workflows-do-not-depend-on-react-runtime",
-    severity: "error",
-    comment:
-      "App workflows own multi-step local/remote orchestration below stores and providers, so they must not depend back on React runtime or presentation modules, including type-only contracts.",
-    from: {
-      path: appLayer.workflows,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: appUpperLayers,
-    },
-  },
-  {
-    name: "app-presentation-does-not-import-workflows-directly",
-    severity: "error",
-    comment:
-      "Production app presentation should go through stores or providers so workflow orchestration and workflow-owned contracts stay outside components and hooks, including type-only contracts.",
-    from: {
-      path: appPresentation,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: appLayer.workflows,
-    },
-  },
-  {
-    name: "app-presentation-does-not-import-storage-directly",
-    severity: "error",
-    comment:
-      "Production app presentation should go through stores or providers instead of importing persistence stores, SQLite internals, blob storage internals, or contact data internals directly, including type-only contracts.",
-    from: {
-      path: appPresentation,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: appStorageInternals,
-    },
-  },
-  {
-    name: "app-presentation-does-not-import-domain-shared-helpers",
-    severity: "error",
-    comment:
-      "Production app presentation should use stores/providers or neutral data contracts instead of importing document/container shared helper internals directly, including type-only contracts.",
-    from: {
-      path: appPresentation,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: appLayer.sharedHelpers,
-    },
-  },
-  {
-    name: "app-react-runtime-does-not-import-persistence-directly",
-    severity: "error",
-    comment:
-      "Production app providers, identity runtime, and stores should consume domain workflow facades instead of importing low-level persistence stores directly, including type-only contracts.",
-    from: {
-      path: appReactRuntime,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: appLayer.persistence,
-    },
-  },
-  {
-    name: "app-react-runtime-does-not-import-sqlite-directly",
-    severity: "error",
-    comment:
-      "Production app providers, identity runtime, and stores should not import SQLite internals directly; the root app data provider owns executor construction.",
-    from: {
-      path: appReactRuntime,
-      pathNot: `${testFilesPattern}|${appRootSqlProvider}`,
-    },
-    to: {
-      path: appLayer.sqlite,
-    },
-  },
-  {
-    name: "app-react-runtime-does-not-import-blob-storage-directly",
-    severity: "error",
-    comment:
-      "Production app providers, identity runtime, and stores should consume the blob workflow facade instead of importing blob storage internals directly.",
-    from: {
-      path: appReactRuntime,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: appLayer.blobStorage,
-    },
-  },
-  {
-    name: "app-react-runtime-does-not-import-contact-data-directly",
-    severity: "error",
-    comment:
-      "Production app providers, identity runtime, and stores should consume the contacts workflow facade instead of importing contact data internals directly.",
-    from: {
-      path: appReactRuntime,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: appLayer.contactData,
-    },
-  },
-] satisfies ForbiddenRules;
-
 const clientSdkRules = [
   {
     name: "client-sdk-does-not-depend-on-app",
@@ -568,19 +435,7 @@ const corePackageRules = [
       pathNot: testFilesPattern,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiClient,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      path: productAndServerSourceRoots,
     },
   },
   {
@@ -593,19 +448,7 @@ const corePackageRules = [
       pathNot: testFilesPattern,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiClient,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      path: productAndServerSourceRoots,
     },
   },
   {
@@ -618,18 +461,11 @@ const corePackageRules = [
       pathNot: testFilesPattern,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      // api-client may share protocol contracts but not import itself's runtime;
+      // every other product/server package is off-limits.
+      path: productAndServerSourceRoots.filter(
+        (root) => root !== sourceRoot.apiClient,
+      ),
     },
   },
   {
@@ -674,18 +510,11 @@ const corePackageRules = [
       path: sourceRoot.testUtils,
     },
     to: {
-      path: [
-        sourceRoot.api,
-        sourceRoot.apiCli,
-        sourceRoot.apiShared,
-        sourceRoot.app,
-        sourceRoot.appElectrobun,
-        sourceRoot.appWeb,
-        sourceRoot.clientSdk,
-        sourceRoot.codeAssist,
-        sourceRoot.ui,
-        sourceRoot.website,
-      ],
+      // Shared test utilities may compose protocol/client/storage helpers
+      // (including api-client) but not product shells or server internals.
+      path: productAndServerSourceRoots.filter(
+        (root) => root !== sourceRoot.apiClient,
+      ),
     },
   },
   {
@@ -796,7 +625,6 @@ const dependencyCruiserConfig = {
     ...standardRules,
     ...apiRules,
     ...apiPackageBoundaryRules,
-    ...appRules,
     ...clientSdkRules,
     ...corePackageRules,
     ...uiRules,

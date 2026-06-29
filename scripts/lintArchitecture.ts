@@ -7,10 +7,15 @@ import {
   createDependencyCruiserOptions,
   dependencyCruiserEntryPoints,
 } from "./dependencyCruiserConfig";
-import { packageSourcePath } from "./dependencySourceRoots";
+import {
+  packageSourcePath,
+  productionSourceFilePattern,
+  testFilePattern,
+} from "./dependencySourceRoots";
 import {
   findSubsystemCoverageViolations,
   findSubsystemDocsViolations,
+  miniAppNames,
 } from "./subsystems";
 
 const appSrc = packageSourcePath.app;
@@ -64,12 +69,22 @@ const clientSdkRootAllowedReExports = new Set([
   "./stores/documents",
   ...clientSdkRootWorkflowFacadeReExports,
 ]);
-const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
-const testFilePattern = /\.test\.[tj]sx?$/;
 const directSyncExternalStorePattern = /\buseSyncExternalStore\b/;
+// Flags raw SQL-executor handles threaded through presentation code. Coupled to
+// the `ExecSql`/`execSql` names by design: if those symbols are renamed this
+// check silently stops matching, so rename in lockstep.
 const rawSqlExecutorPattern = /\b(?:ExecSql|execSql)\b/;
+// Forbids prefixed compatibility aliases (`... as TearleadsFoo`) on the SDK root
+// facade. Scanned line by line, so a rare multiline `as\n  TearleadsFoo` would
+// slip through — acceptable since the codebase keeps aliases on one line.
 const clientSdkPrefixedFacadeAliasPattern =
   /\bas\s+(?:Tearleads[A-Z][A-Za-z0-9_]*|TEARLEADS_[A-Z0-9_]+)/;
+// A deliberately-curated substring heuristic that keeps product/app-window
+// vocabulary out of SDK source. It is intentionally a *subset* of the mini-apps
+// (the words most likely to leak); it is NOT derived from miniAppNames because
+// matching every mini-app word (e.g. "notes", "contacts", "identity") would
+// false-positive on unrelated SDK identifiers. As a substring match it can also
+// over-match inside larger identifiers — a known, accepted limitation.
 const clientSdkProductUiVocabularyPattern =
   /\b(?:Explorer|MiniApp|OrgManager|explorer|mini-apps?|org-manager)/;
 
@@ -825,33 +840,20 @@ function isAppTestHelperImport(specifier: string): boolean {
   return /(?:^|\/)test\/helpers(?:\/|$)/.test(specifier);
 }
 
-function isClientSdkDataImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/data" ||
-    specifier.startsWith("@tearleads/client-sdk/data/")
-  );
+// Matches an import of a `@tearleads/client-sdk/<subpath>` package subpath
+// (the subpath entry itself or anything beneath it).
+function clientSdkSubpathImport(
+  subpath: string,
+): (specifier: string) => boolean {
+  const entry = `@tearleads/client-sdk/${subpath}`;
+  return (specifier) =>
+    specifier === entry || specifier.startsWith(`${entry}/`);
 }
 
-function isClientSdkDocumentsImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/documents" ||
-    specifier.startsWith("@tearleads/client-sdk/documents/")
-  );
-}
-
-function isClientSdkWorkflowImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/workflows" ||
-    specifier.startsWith("@tearleads/client-sdk/workflows/")
-  );
-}
-
-function isClientSdkStoreImport(specifier: string): boolean {
-  return (
-    specifier === "@tearleads/client-sdk/stores" ||
-    specifier.startsWith("@tearleads/client-sdk/stores/")
-  );
-}
+const isClientSdkDataImport = clientSdkSubpathImport("data");
+const isClientSdkDocumentsImport = clientSdkSubpathImport("documents");
+const isClientSdkWorkflowImport = clientSdkSubpathImport("workflows");
+const isClientSdkStoreImport = clientSdkSubpathImport("stores");
 
 function isClientSdkStoreOrWorkflowImport(specifier: string): boolean {
   return (
@@ -865,13 +867,19 @@ function isUnsupportedClientSdkRootReExport(specifier: string): boolean {
   );
 }
 
+// A sibling import of a concrete mini-app (e.g. `./explorer`). Built from the
+// registry's mini-app list so it covers every mini-app on disk and cannot drift
+// the way the previous hand-maintained alternation did (it had missed
+// system-monitor and backup-restore).
+const appMiniAppSiblingImportPattern = new RegExp(
+  `^\\./(?:${miniAppNames.join("|")})(?:/|$)`,
+);
+
 function isAppMiniAppBusBoundaryImport(specifier: string): boolean {
   return (
     specifier.startsWith("@tearleads/") ||
     /^\.\.\/(?:providers|stores|document-types)(?:\/|$)/.test(specifier) ||
-    /^\.\/(?:contacts|explorer|identity-manager|notes|org-manager)(?:\/|$)/.test(
-      specifier,
-    )
+    appMiniAppSiblingImportPattern.test(specifier)
   );
 }
 

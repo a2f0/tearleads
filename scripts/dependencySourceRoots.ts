@@ -28,6 +28,13 @@ function packageSourceRootPattern(sourcePath: string): string {
   return `^${sourcePath}/`;
 }
 
+// Shared file-name patterns. Single source of truth for the architecture lint
+// harness (scripts/lintArchitecture.ts), the subsystem manifest
+// (scripts/subsystems.ts), and the dependency-cruiser config (which consumes the
+// `.source` string form).
+export const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
+export const testFilePattern = /\.test\.[tj]sx?$/;
+
 export const packageSourcePath = {
   api: packageSourceEntryPoint("api"),
   apiClient: packageSourceEntryPoint("api-client"),
@@ -50,27 +57,12 @@ export const packageSourcePath = {
   website: packageSourceEntryPoint("website"),
 } as const;
 
-export const packageSourceRoot = {
-  api: packageSourceRootPattern(packageSourcePath.api),
-  apiClient: packageSourceRootPattern(packageSourcePath.apiClient),
-  apiCli: packageSourceRootPattern(packageSourcePath.apiCli),
-  apiShared: packageSourceRootPattern(packageSourcePath.apiShared),
-  app: packageSourceRootPattern(packageSourcePath.app),
-  appElectrobun: packageSourceRootPattern(packageSourcePath.appElectrobun),
-  appWeb: packageSourceRootPattern(packageSourcePath.appWeb),
-  bobAndAlice: packageSourceRootPattern(packageSourcePath.bobAndAlice),
-  clientSdk: packageSourceRootPattern(packageSourcePath.clientSdk),
-  codeAssist: packageSourceRootPattern(packageSourcePath.codeAssist),
-  crypto: packageSourceRootPattern(packageSourcePath.crypto),
-  encoding: packageSourceRootPattern(packageSourcePath.encoding),
-  loro: packageSourceRootPattern(packageSourcePath.loro),
-  sqliteInstance: packageSourceRootPattern(packageSourcePath.sqliteInstance),
-  sqliteWorker: packageSourceRootPattern(packageSourcePath.sqliteWorker),
-  testUtils: packageSourceRootPattern(packageSourcePath.testUtils),
-  ui: packageSourceRootPattern(packageSourcePath.ui),
-  validators: packageSourceRootPattern(packageSourcePath.validators),
-  website: packageSourceRootPattern(packageSourcePath.website),
-} as const;
+export const packageSourceRoot = Object.fromEntries(
+  Object.entries(packageSourcePath).map(([key, sourcePath]) => [
+    key,
+    packageSourceRootPattern(sourcePath),
+  ]),
+) as { readonly [Key in keyof typeof packageSourcePath]: string };
 
 export const allPackageSourceRoots: readonly string[] =
   Object.values(packageSourceRoot);
