@@ -259,6 +259,14 @@ export class WsEventRouter {
     if (Reflect.get(event, "type") === ACCESS_CHANGED) {
       return this.handleAccessChanged(event);
     }
+    // Resolve recipients before touching `origin`. Redis fans every event to
+    // every API process, but most processes hold no socket interested in a
+    // given event's containers; returning early there skips the origin parse
+    // and re-serialization below entirely on the common no-recipient path.
+    const recipients = this.recipientsForEvent(event);
+    if (recipients.size === 0) {
+      return [];
+    }
     // The authoring session is identified by `origin` (added by the publisher
     // on the HTTP sync path). We skip that exact socket so the author does not
     // receive its own update echoed back over its own connection. Matching is
@@ -280,7 +288,7 @@ export class WsEventRouter {
     const clientMessage = Reflect.has(event, "origin")
       ? stripOrigin(event)
       : rawMessage;
-    for (const ws of this.recipientsForEvent(event)) {
+    for (const ws of recipients) {
       if (origin && isSameSession(ws, origin)) {
         continue;
       }
