@@ -52,6 +52,27 @@ function invertBoolean(value: boolean): boolean {
   return !value;
 }
 
+/**
+ * Whether a freshly mounted routed mini-app shows its sidebar.
+ *
+ * On mobile the sidebar is a dismissable overlay (dialog + scrim), so it must
+ * never open on its own when an app loads — it starts collapsed and the user
+ * reveals it from the app bar. The tablet rail honours each app's configured
+ * {@link MiniAppDefinition.initialShowSidebar} default (defaulting to shown).
+ */
+export function initialRoutedSidebarExpanded(
+  tier: RoutedLayoutTier,
+  activeAppId: MiniAppId | null,
+): boolean {
+  if (tier === "mobile") {
+    return false;
+  }
+
+  return activeAppId
+    ? (MINI_APPS[activeAppId].initialShowSidebar ?? true)
+    : true;
+}
+
 function RoutedPaneHome() {
   const { openMiniApp } = useAppNavigationActions();
   const { generateKey, signingKeyPair } = useIdentity();
@@ -199,6 +220,32 @@ function RoutedPaneSidebar({
   );
 }
 
+// Reset the tier-specific overlays when the layout crosses the breakpoint
+// (resize / rotation): the nav drawer only exists on mobile, and the expanded
+// sidebar becomes a full-screen dialog on mobile, so neither should linger open
+// into a tier where it would cover or no longer fit the content.
+function useCollapseOverlaysOnTierChange({
+  closeDrawer,
+  closeSidebar,
+  tier,
+}: {
+  closeDrawer: () => void;
+  closeSidebar: () => void;
+  tier: RoutedLayoutTier;
+}) {
+  useEffect(() => {
+    if (tier === "tablet") {
+      closeDrawer();
+    }
+  }, [tier, closeDrawer]);
+
+  useEffect(() => {
+    if (tier === "mobile") {
+      closeSidebar();
+    }
+  }, [tier, closeSidebar]);
+}
+
 function RoutedPaneSurface({
   activeAppId,
   ActiveMiniApp,
@@ -227,7 +274,7 @@ function RoutedPaneSurface({
   );
 
   const [sidebarExpanded, setSidebarExpanded] = useState(() =>
-    activeAppId ? (MINI_APPS[activeAppId].initialShowSidebar ?? true) : true,
+    initialRoutedSidebarExpanded(tier, activeAppId),
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -239,12 +286,7 @@ function RoutedPaneSurface({
   const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  // The drawer is mobile-only; collapse it whenever we land on the tablet rail.
-  useEffect(() => {
-    if (tier === "tablet") {
-      setDrawerOpen(false);
-    }
-  }, [tier]);
+  useCollapseOverlaysOnTierChange({ closeDrawer, closeSidebar, tier });
 
   const sidebarVisible = hasSidebar && sidebarExpanded;
 
