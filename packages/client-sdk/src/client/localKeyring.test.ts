@@ -339,27 +339,21 @@ test("WebView local keyring persists raw key bytes and reloads without CryptoKey
   );
 });
 
-test("WebView local keyring reloads existing browser CryptoKey records", async () => {
+test("WebView local keyring rejects legacy browser CryptoKey records with migration guidance", async () => {
   const indexedDB = createFakeIndexedDb();
   const manifestStorage = createTestManifestStorage();
-  const session = await createBrowserLocalKeyring({
+
+  await createBrowserLocalKeyring({
     indexedDB,
     manifestStorage,
   }).getOrCreateSession(scope);
 
-  const reopened = await createWebViewLocalKeyring({
-    indexedDB,
-    manifestStorage,
-  }).loadSession(scope);
-
-  expect(reopened).not.toBeNull();
-  if (!reopened) {
-    throw new Error("Expected reopened WebView local keyring session");
-  }
-  expect(reopened.sqliteKey).toBe(session.sqliteKey);
-  expect(reopened.blobStoreKey).toEqual(session.blobStoreKey);
-  expect(reopened.identityPersistenceKey).toEqual(
-    session.identityPersistenceKey,
+  await expect(
+    createWebViewLocalKeyring({ indexedDB, manifestStorage }).loadSession(
+      scope,
+    ),
+  ).rejects.toThrow(
+    "Raw-bytes local keyrings cannot load legacy CryptoKey wrapping key records",
   );
 });
 

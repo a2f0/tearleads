@@ -858,8 +858,19 @@ function readIndexedDbWrappingKeyRecord(input: {
     throw new Error("IndexedDB wrapping key provider does not match.");
   }
   const createdAt = readString(record, "createdAt");
-  const keyMaterial = record.get("keyMaterial");
-  if (input.keyMaterialStorage === "raw-bytes" && keyMaterial !== undefined) {
+  if (input.keyMaterialStorage === "raw-bytes") {
+    const keyMaterial = record.get("keyMaterial");
+    if (keyMaterial === undefined) {
+      if (isCryptoKey(record.get("key"))) {
+        throw new Error(
+          "Raw-bytes local keyrings cannot load legacy CryptoKey wrapping key records. " +
+            "Delete the local keyring session or provision the WebView keyring before creating local identity data.",
+        );
+      }
+      throw new Error(
+        "IndexedDB wrapping key record is missing its raw key material.",
+      );
+    }
     return {
       createdAt,
       keyId,
@@ -868,17 +879,12 @@ function readIndexedDbWrappingKeyRecord(input: {
     };
   }
   const key = record.get("key");
-  if (isCryptoKey(key)) {
-    assertAesGcmWrappingCryptoKey(key);
-    return { createdAt, key, keyId, provider };
+  if (!isCryptoKey(key)) {
+    throw new Error("IndexedDB wrapping key record is missing its CryptoKey.");
   }
-  if (input.keyMaterialStorage === "raw-bytes") {
-    throw new Error(
-      "IndexedDB wrapping key record is missing its raw key material or CryptoKey.",
-    );
-  }
+  assertAesGcmWrappingCryptoKey(key);
 
-  throw new Error("IndexedDB wrapping key record is missing its CryptoKey.");
+  return { createdAt, key, keyId, provider };
 }
 
 function getDefaultIndexedDbFactory(): IDBFactory {
