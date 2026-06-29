@@ -1,9 +1,8 @@
-import { getDocumentAttachments } from "../../../data/documents/documentContent";
+import { markOriginatedDocuments } from "../../../sync/reconciliation";
 import {
   type MultipartUploadProgressListener,
   uploadDocumentAttachment,
 } from "../../../workflows/blobs";
-import { detachDocumentAttachment } from "../../../workflows/blobs/detach";
 import {
   type DocumentRecord,
   type PendingAttachmentRecord,
@@ -14,7 +13,6 @@ import {
   type UploadSyncLane,
 } from "../../../workflows/sync";
 import {
-  deleteLocalAttachmentRecord,
   deletePendingAttachment,
   saveLocalAttachmentRecord,
 } from "./persistence";
@@ -27,11 +25,6 @@ import {
   setReadySnapshot,
 } from "./state";
 import { ensureRemoteDocument } from "./syncShared";
-
-interface DetachedAttachmentMarker {
-  slotId: string;
-  storageKey: string;
-}
 
 interface AttachmentUploadLaneReporter {
   complete: () => void;
@@ -112,6 +105,13 @@ export async function syncPendingAttachments(
     return { completed: false, nextRecord: currentRecord };
   }
 
+  // Only record the origination once a write actually landed: the server echoes
+  // a document_update_created for it, and this lets the reconciler skip
+  // re-discovering a delta we already have locally rather than cycling its lane
+  // per uploaded file. Marking here (not before the loop) avoids a dangling id
+  // that would suppress the next genuine remote update if every upload failed.
+  markOriginatedDocuments(state.runtime.state.domainScope, [remoteDocumentId]);
+
   if (currentDoc === state.doc) {
     setReadySnapshot(
       state,
@@ -123,142 +123,6 @@ export async function syncPendingAttachments(
   }
 
   return { completed: true, nextRecord: currentRecord };
-}
-
-export async function syncDetachedAttachmentBindings(
-  state: DocumentStoreState,
-  nextRecord: DocumentRecord,
-): Promise<PendingMutationSyncResult> {
-  const currentDoc = state.doc;
-  if (!currentDoc) {
-    return { completed: false, nextRecord };
-  }
-
-  const detachedMarkers = listDetachedAttachmentMarkers(state, currentDoc);
-  if (detachedMarkers.length === 0) {
-    return { completed: false, nextRecord };
-  }
-
-  if (!nextRecord.documentId) {
-    await cleanupDetachedAttachmentMarkers(state, currentDoc, detachedMarkers);
-    return { completed: true, nextRecord };
-  }
-
-  const remoteBindings = await state.runtime.apiClient.listDocumentAttachments(
-    nextRecord.documentId,
-  );
-  if (!remoteBindings) {
-    return { completed: false, nextRecord };
-  }
-
-  let completed = false;
-  const activeBindingBySlotId = new Map(
-    remoteBindings.map((binding) => [binding.slotId, binding]),
-  );
-
-  for (const marker of detachedMarkers) {
-    const activeBinding = activeBindingBySlotId.get(marker.slotId);
-    if (activeBinding) {
-      const detached = await syncDetachedAttachmentBinding({
-        binding: activeBinding,
-        remoteDocumentId: nextRecord.documentId,
-        state,
-      });
-      if (!detached) {
-        return { completed, nextRecord };
-      }
-    }
-
-    await cleanupDetachedAttachmentMarker(state, currentDoc, marker);
-    completed = true;
-  }
-
-  return { completed, nextRecord };
-}
-
-function listDetachedAttachmentMarkers(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-): DetachedAttachmentMarker[] {
-  const currentSlotIds = new Set(
-    getDocumentAttachments(currentDoc).map((attachment) => attachment.slotId),
-  );
-
-  return Object.entries(state.attachmentStorageKeyBySlotId).flatMap(
-    ([slotId, storageKey]) =>
-      currentSlotIds.has(slotId) ? [] : [{ slotId, storageKey }],
-  );
-}
-
-async function cleanupDetachedAttachmentMarkers(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  markers: readonly DetachedAttachmentMarker[],
-) {
-  for (const marker of markers) {
-    await cleanupDetachedAttachmentMarker(state, currentDoc, marker);
-  }
-}
-
-async function cleanupDetachedAttachmentMarker(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  marker: DetachedAttachmentMarker,
-) {
-  await deleteLocalAttachmentRecord(
-    state,
-    marker.slotId,
-    marker.storageKey,
-    currentDoc,
-  );
-  await state.runtime.infra.blobStore.deleteBytes(marker.storageKey);
-}
-
-async function syncDetachedAttachmentBinding(input: {
-  binding: DocumentAttachmentBinding;
-  remoteDocumentId: string;
-  state: DocumentStoreState;
-}): Promise<boolean> {
-  const { binding, state } = input;
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  if (!author) {
-    state.runtime.util.log(
-      "Documents: skipped attachment detach because the writer context is unavailable.",
-    );
-    return false;
-  }
-
-  const writerProjection =
-    state.writerProjection?.documentId === input.remoteDocumentId
-      ? state.writerProjection
-      : null;
-  const baseDetachInput = {
-    apiClient: state.runtime.apiClient,
-    author,
-    bindingId: binding.bindingId,
-    blobId: binding.blobId,
-    documentId: input.remoteDocumentId,
-    execSql: state.runtime.infra.execSql,
-    resolveProjectionUserKey: state.resolveProjectionUserKey,
-    slotId: binding.slotId,
-  };
-  let detached = await detachDocumentAttachment({
-    ...baseDetachInput,
-    writerProjection: writerProjection ?? undefined,
-  });
-  if (!detached && writerProjection) {
-    state.writerProjection = null;
-    detached = await detachDocumentAttachment(baseDetachInput);
-  }
-  if (!detached) {
-    return false;
-  }
-
-  state.writerProjection = detached.writerProjection;
-  state.runtime.util.log(
-    `Detached attachment ${binding.slotId} from document ${input.remoteDocumentId}.`,
-  );
-  return true;
 }
 
 function isNewPendingAttachmentSlot(

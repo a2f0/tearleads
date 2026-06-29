@@ -1,5 +1,7 @@
 import { isDocumentUpdateCreatedEvent } from "../../data/documentSync";
+import type { DomainScope } from "../../data/domainScope";
 import type { LocalProjectionStore } from "../../stores/local-projection";
+import { consumeOriginatedDocument } from "./originatedDocuments";
 import type { ReconciliationService } from "./service";
 
 /**
@@ -44,17 +46,31 @@ export function connectReconciliationTriggers(input: {
  * Translate a batch of server events into reconciler work. Containers named by
  * a `document_update_created` event are reconciled at active priority; an
  * unscoped update triggers an idle backfill across known containers.
+ *
+ * `domainScope`, when provided, suppresses self-echoes: a `document_update_created`
+ * whose documentId this client just originated (created/uploaded) is dropped
+ * once, since reconciling it would only re-fetch a delta the client already has.
+ * See {@link consumeOriginatedDocument}.
  */
 export function enqueueReconciliationForEvents(input: {
+  domainScope?: DomainScope;
   events: ReadonlyArray<unknown>;
   knownContainerIds: ReadonlyArray<string>;
   service: ReconciliationService;
 }): void {
-  const { events, knownContainerIds, service } = input;
+  const { domainScope, events, knownContainerIds, service } = input;
   let needsIdleBackfill = false;
 
   for (const event of events) {
     if (!isDocumentUpdateCreatedEvent(event)) {
+      continue;
+    }
+    // Self-echo of this client's own create/upload: consume the origination and
+    // skip. Single-use, so a genuine later remote change still reconciles.
+    if (
+      domainScope !== undefined &&
+      consumeOriginatedDocument(domainScope, event.documentId)
+    ) {
       continue;
     }
     if (event.containerIds === undefined) {

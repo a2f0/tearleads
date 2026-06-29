@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
+import { createDomainScope } from "../../data/domainScope";
 import type {
   LocalProjectionReconcileListener,
   LocalProjectionReconcileSignal,
   LocalProjectionStore,
 } from "../../stores/local-projection/localProjectionStore";
+import { markOriginatedDocuments } from "./originatedDocuments";
 import {
   connectReconciliationTriggers,
   enqueueReconciliationForEvents,
@@ -134,6 +136,79 @@ test("event triggers enqueue the named container at active priority", () => {
   expect(enqueued).toEqual([
     { containerId: "c-1", force: true, priority: "active" },
   ]);
+});
+
+test("event triggers skip self-echoes of originated documents", () => {
+  const enqueued: string[] = [];
+  const service = {
+    enqueueContainer: (containerId: string) => {
+      enqueued.push(containerId);
+    },
+    enqueueIdleBackfill: () => {
+      enqueued.push("*");
+    },
+  } as unknown as Parameters<
+    typeof enqueueReconciliationForEvents
+  >[0]["service"];
+  const domainScope = createDomainScope();
+  markOriginatedDocuments(domainScope, ["d-self"]);
+
+  enqueueReconciliationForEvents({
+    domainScope,
+    events: [
+      {
+        type: "document_update_created",
+        documentId: "d-self",
+        containerIds: ["c-1"],
+      },
+      {
+        type: "document_update_created",
+        documentId: "d-other",
+        containerIds: ["c-1"],
+      },
+    ],
+    knownContainerIds: ["c-1"],
+    service,
+  });
+
+  // The self-echo is dropped; the genuinely-remote document still enqueues.
+  expect(enqueued).toEqual(["c-1"]);
+});
+
+test("self-echo suppression is single-use", () => {
+  const enqueued: string[] = [];
+  const service = {
+    enqueueContainer: (containerId: string) => {
+      enqueued.push(containerId);
+    },
+    enqueueIdleBackfill: () => {},
+  } as unknown as Parameters<
+    typeof enqueueReconciliationForEvents
+  >[0]["service"];
+  const domainScope = createDomainScope();
+  markOriginatedDocuments(domainScope, ["d-1"]);
+  const event = {
+    type: "document_update_created",
+    documentId: "d-1",
+    containerIds: ["c-1"],
+  };
+
+  // First echo consumes the origination and is suppressed.
+  enqueueReconciliationForEvents({
+    domainScope,
+    events: [event],
+    knownContainerIds: ["c-1"],
+    service,
+  });
+  // A later genuine remote change to the same document is no longer suppressed.
+  enqueueReconciliationForEvents({
+    domainScope,
+    events: [event],
+    knownContainerIds: ["c-1"],
+    service,
+  });
+
+  expect(enqueued).toEqual(["c-1"]);
 });
 
 test("event triggers backfill when an update has no container scope", () => {

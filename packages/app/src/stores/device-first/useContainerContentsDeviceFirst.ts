@@ -207,11 +207,12 @@ export function useContainerContentsDeviceFirst(input: {
       return;
     }
     enqueueReconciliationForEvents({
+      domainScope,
       events: pendingEvents,
       knownContainerIds,
       service: reconciler,
     });
-  }, [events, knownContainerIds, reconciler, view]);
+  }, [domainScope, events, knownContainerIds, reconciler, view]);
 
   return { reconciler, view };
 }

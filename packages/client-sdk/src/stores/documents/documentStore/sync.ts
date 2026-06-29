@@ -31,10 +31,8 @@ import {
   setDocumentSyncing,
   setReadySnapshot,
 } from "./state";
-import {
-  syncDetachedAttachmentBindings,
-  syncPendingAttachments,
-} from "./syncAttachments";
+import { syncPendingAttachments } from "./syncAttachments";
+import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
 import { ensureRemoteDocument } from "./syncShared";
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
@@ -135,7 +133,7 @@ async function deleteUpstreamDeletedDocument(state: DocumentStoreState) {
   });
   markDocumentStoreRemoved(state);
   state.runtime.util.log(
-    `Documents: removed local document ${state.localId} because the remote document was deleted.`,
+    `Documents: removed local document ${state.localId} after remote deletion.`,
   );
 }
 
@@ -392,11 +390,11 @@ async function syncDocumentState(
   }
 
   // Pre-register the IDs we are about to send so the author's OWN
-  // `document_update_created` echo (fanned back over redis) is always classified
-  // as self-authored and never re-arms a redundant sync. Registering here, BEFORE
-  // the network await, closes the race where the echo lands before
-  // finalizeDocumentSync records the server-confirmed accepted IDs — the gap that
-  // turned every fast keystroke into an extra self-triggered sync pass.
+  // `document_update_created` echo (fanned back over redis) is classified as
+  // self-authored and never re-arms a redundant sync. Registering BEFORE the
+  // network await closes the race where the echo lands before
+  // finalizeDocumentSync records the accepted IDs — the gap that turned every
+  // fast keystroke into an extra self-triggered sync.
   const sentUpdateIds = pendingUpdates.map((pendingUpdate) => pendingUpdate.id);
   for (const sentUpdateId of sentUpdateIds) {
     state.locallyAcceptedUpdateIds.add(sentUpdateId);

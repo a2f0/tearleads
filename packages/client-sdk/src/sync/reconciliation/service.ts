@@ -5,6 +5,7 @@ import {
   type SyncLane,
 } from "../../data/sync/syncCoordinator";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
+import { clearOriginatedDocuments } from "./originatedDocuments";
 import {
   createReconcileQueue,
   type ReconcilePriority,
@@ -374,6 +375,9 @@ export function createReconciliationService(
       // reconciler is being torn down (scope/identity change) or paused across
       // a prerequisite loss, after which every container must be re-validated.
       state.discoveredContainerIds.clear();
+      // Drop pending self-echo originations too — they are session-scoped and a
+      // teardown invalidates them.
+      clearOriginatedDocuments(host.domainScope);
     },
   };
 }
