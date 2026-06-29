@@ -12,15 +12,28 @@ REPO_ROOT="$(CDPATH='' cd -- "$PACKAGE_DIR/../.." && pwd)"
 # electrobun's own derivation, falling back to the config defaults otherwise.
 APP_IDENTIFIER="com.tearleads.app"
 APP_CHANNEL="dev"
-VERSION_JSON="$PACKAGE_DIR/build/dev-linux-x64/Tearleads-dev/Resources/version.json"
-if [ -f "$VERSION_JSON" ]; then
+# The build dir is dev-<platform>-<arch> and the bundle layout differs by OS
+# (Linux: <name>/Resources/...; macOS: <name>.app/Contents/Resources/...), so
+# glob across both rather than hardcoding one platform.
+VERSION_JSON=""
+for candidate in \
+  "$PACKAGE_DIR"/build/dev-*/Tearleads-dev/Resources/version.json \
+  "$PACKAGE_DIR"/build/dev-*/Tearleads-dev.app/Contents/Resources/version.json; do
+  if [ -f "$candidate" ]; then
+    VERSION_JSON="$candidate"
+    break
+  fi
+done
+if [ -n "$VERSION_JSON" ]; then
+  # Parse with bun (this is a Bun project) rather than sed, which is fragile on
+  # JSON. A read failure leaves the field empty and the default stands.
   PARSED_IDENTIFIER="$(
-    sed -n 's/.*"identifier"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-      "$VERSION_JSON"
+    VERSION_JSON_PATH="$VERSION_JSON" bun -e \
+      'try { process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.env.VERSION_JSON_PATH, "utf8")).identifier ?? "")) } catch {}'
   )"
   PARSED_CHANNEL="$(
-    sed -n 's/.*"channel"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-      "$VERSION_JSON"
+    VERSION_JSON_PATH="$VERSION_JSON" bun -e \
+      'try { process.stdout.write(String(JSON.parse(require("fs").readFileSync(process.env.VERSION_JSON_PATH, "utf8")).channel ?? "")) } catch {}'
   )"
   [ -n "$PARSED_IDENTIFIER" ] && APP_IDENTIFIER="$PARSED_IDENTIFIER"
   [ -n "$PARSED_CHANNEL" ] && APP_CHANNEL="$PARSED_CHANNEL"
@@ -52,6 +65,12 @@ cache_dir() {
 }
 
 reset_app_data() {
+  # Guard against an empty identifier/channel: without this an empty segment
+  # would collapse the target to the base app-support/cache dir and rm -rf it.
+  if [ -z "$APP_IDENTIFIER" ] || [ -z "$APP_CHANNEL" ]; then
+    echo "Error: empty app identifier/channel; aborting reset to avoid deleting the base data dir." >&2
+    exit 1
+  fi
   user_data="$(app_data_dir)/$APP_IDENTIFIER/$APP_CHANNEL"
   user_cache="$(cache_dir)/$APP_IDENTIFIER/$APP_CHANNEL"
   echo "Resetting dev app data (OPFS, IndexedDB, localStorage):"
@@ -71,18 +90,17 @@ build_workspace_deps() {
 
 # Pull a position-independent --reset out of the args before the command parse,
 # so `dev --reset` and `--reset dev` both work and the flag is never forwarded
-# to electrobun.
+# to electrobun. Filter the positional params in place so quoting/word-splitting
+# of the remaining args (e.g. ones containing spaces) is preserved.
 RESET=0
-ARGS=""
 for arg in "$@"; do
+  shift
   if [ "$arg" = "--reset" ]; then
     RESET=1
     continue
   fi
-  ARGS="$ARGS $arg"
+  set -- "$@" "$arg"
 done
-# shellcheck disable=SC2086
-set -- $ARGS
 
 if [ "$#" -eq 0 ]; then
   set -- dev
