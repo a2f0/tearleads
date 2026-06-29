@@ -1,5 +1,8 @@
 import { createWebViewLocalKeyring } from "@tearleads/client-sdk";
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
+import {
+  createSQLiteRuntime,
+  PERSISTENT_STORAGE_POLICY,
+} from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import { APP_HOST_PROFILES, createAppHostConfig } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
@@ -33,6 +36,10 @@ renderApp(createRoot(elem), {
     createLocalKeyring: () => createWebViewLocalKeyring(),
     createSQLiteRuntime: createElectrobunSQLiteRuntime,
     profile: APP_HOST_PROFILES.app,
+    // Electrobun has OPFS in its worker, but WKWebView does not expose
+    // navigator.storage.getDirectory on the renderer main thread. The default
+    // auto-detect path would fall back to ephemeral memory storage.
+    storagePersistence: PERSISTENT_STORAGE_POLICY,
     wsUrl: "ws://localhost:3001",
   }),
 });

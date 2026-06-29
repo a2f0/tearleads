@@ -13,7 +13,9 @@ function isDatabaseTransaction(
   executor: DatabaseSession,
 ): executor is DatabaseTransaction {
   return (
-    typeof (executor as Partial<DatabaseTransaction>).rollback === "function"
+    typeof executor === "object" &&
+    executor !== null &&
+    typeof Reflect.get(executor, "rollback") === "function"
   );
 }
 
