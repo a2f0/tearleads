@@ -145,14 +145,15 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
     userId: input.userId,
   });
-  const [signingPublicKey, proof] = await Promise.all([
-    loadSignerPublicKey(tx, input),
-    verifyAttachmentAuthorizationProof({
-      bodyDocumentId: bindBody.documentId,
-      executor: tx,
-      request: input.request,
-    }),
-  ]);
+  // Run sequentially: both queries share the single transaction
+  // connection, so issuing them concurrently only trips pg's
+  // already-executing-query deprecation without any real parallelism.
+  const signingPublicKey = await loadSignerPublicKey(tx, input);
+  const proof = await verifyAttachmentAuthorizationProof({
+    bodyDocumentId: bindBody.documentId,
+    executor: tx,
+    request: input.request,
+  });
   await lockBindAuthorizingContainersForShare(proof, tx);
   const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
     documentId: bindBody.documentId,

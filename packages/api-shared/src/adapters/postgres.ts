@@ -17,6 +17,8 @@ import type {
 
 const { Pool } = pg;
 
+export { gatherWithExecutor } from "./executor";
+
 export type {
   ApiDatabase,
   ApiDatabaseKind,

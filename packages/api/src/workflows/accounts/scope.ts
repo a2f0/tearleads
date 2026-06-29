@@ -208,10 +208,15 @@ export async function loadOrganizationScope(input: {
     executor,
     organizationId,
   });
-  const [blobIds, updateIds] = await Promise.all([
-    loadOrganizationBlobIds({ documentIds, executor, organizationId }),
-    loadDocumentUpdateIds({ documentIds, executor }),
-  ]);
+  // Run sequentially: the purge scope is loaded inside a transaction, so both
+  // reads share one pinned connection. Concurrent issue only trips pg's
+  // already-executing-query deprecation without buying any parallelism.
+  const blobIds = await loadOrganizationBlobIds({
+    documentIds,
+    executor,
+    organizationId,
+  });
+  const updateIds = await loadDocumentUpdateIds({ documentIds, executor });
 
   return {
     ...base,

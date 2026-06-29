@@ -38,14 +38,15 @@ export async function runDetachBlobAttachmentWorkflow(
         request: input.request,
         userId: input.userId,
       });
-      const [signingPublicKey, proof] = await Promise.all([
-        loadSignerPublicKey(tx, input),
-        verifyAttachmentAuthorizationProof({
-          bodyDocumentId: detachBody.documentId,
-          executor: tx,
-          request: input.request,
-        }),
-      ]);
+      // Run sequentially: both queries share the single transaction
+      // connection, so issuing them concurrently only trips pg's
+      // already-executing-query deprecation without any real parallelism.
+      const signingPublicKey = await loadSignerPublicKey(tx, input);
+      const proof = await verifyAttachmentAuthorizationProof({
+        bodyDocumentId: detachBody.documentId,
+        executor: tx,
+        request: input.request,
+      });
       const verifiedDetach = await verifyAttachmentDetachEvent({
         authorizingContainerPaths: proof.authorizingContainerPaths,
         body: readKeyingCanonicalJson(

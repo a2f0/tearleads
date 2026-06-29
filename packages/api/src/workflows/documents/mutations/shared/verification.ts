@@ -275,18 +275,19 @@ export async function verifyDocumentManifestFromRequest(input: {
   readonly executor: DatabaseTransaction;
   readonly request: DocumentCreateRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
-  const [targetContainerPath, authorizingContainerPaths] = await Promise.all([
-    assertCurrentContainerPathRefs(
-      input.executor,
-      input.request.targetContainerPathRefs,
-      "targetContainerPathRefs",
-    ),
-    assertCurrentContainerPathRefGroups(
-      input.executor,
-      input.request.authorizingContainerPathRefs,
-      "authorizingContainerPathRefs",
-    ),
-  ]);
+  // Run sequentially: this verification runs inside a transaction, so both
+  // reads share one pinned connection. Concurrent issue only trips pg's
+  // already-executing-query deprecation without buying any parallelism.
+  const targetContainerPath = await assertCurrentContainerPathRefs(
+    input.executor,
+    input.request.targetContainerPathRefs,
+    "targetContainerPathRefs",
+  );
+  const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
+    input.executor,
+    input.request.authorizingContainerPathRefs,
+    "authorizingContainerPathRefs",
+  );
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
     [
@@ -330,18 +331,19 @@ export async function verifyDocumentLinkSetMutationManifestFromRequest(input: {
   readonly previousManifest: VerifiedDocumentLinkSetManifest;
   readonly request: DocumentLinkSetMutationRequest;
 }): Promise<VerifiedDocumentLinkSetManifest> {
-  const [targetContainerPath, authorizingContainerPaths] = await Promise.all([
-    assertCurrentContainerPathRefs(
-      input.executor,
-      input.request.targetContainerPathRefs,
-      "targetContainerPathRefs",
-    ),
-    assertCurrentContainerPathRefGroups(
-      input.executor,
-      input.request.authorizingContainerPathRefs,
-      "authorizingContainerPathRefs",
-    ),
-  ]);
+  // Run sequentially: this verification runs inside a transaction, so both
+  // reads share one pinned connection. Concurrent issue only trips pg's
+  // already-executing-query deprecation without buying any parallelism.
+  const targetContainerPath = await assertCurrentContainerPathRefs(
+    input.executor,
+    input.request.targetContainerPathRefs,
+    "targetContainerPathRefs",
+  );
+  const authorizingContainerPaths = await assertCurrentContainerPathRefGroups(
+    input.executor,
+    input.request.authorizingContainerPathRefs,
+    "authorizingContainerPathRefs",
+  );
   const principalPolicies = await loadPrincipalPoliciesForContainerPaths(
     input.executor,
     [

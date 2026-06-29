@@ -2,6 +2,7 @@ import type {
   ApiDatabase,
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
   ContainerAccessLevel,
   VerifiedPrincipalPolicy,
@@ -129,8 +130,10 @@ export async function resolveContainerAccessProjectionBatch(input: {
   const results = new Map<string, ContainerAccessProjectionResult>();
   const accessPaths = new Map<string, ContainerAccessPath>();
 
-  const pathResults = await Promise.all(
-    containerIds.map(async (containerId) => {
+  const pathResults = await gatherWithExecutor(
+    context.executor,
+    containerIds,
+    async (containerId) => {
       try {
         return {
           accessPath: await loadContainerAccessPath(context, containerId),
@@ -143,7 +146,7 @@ export async function resolveContainerAccessProjectionBatch(input: {
         }
         throw error;
       }
-    }),
+    },
   );
 
   for (const pathResult of pathResults) {
