@@ -136,6 +136,39 @@ test("strips origin from the payload forwarded to clients", () => {
   ]);
 });
 
+test("strips a malformed origin to prevent session id leaks", () => {
+  const router = new WsEventRouter();
+  const reader = fakeSocket("bob");
+  router.open(reader);
+  router.handleClientMessage(
+    reader,
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
+  );
+
+  // A partial origin (sessionId present, userId missing) is not a valid
+  // identity, so it excludes nobody — but the sessionId is still in the
+  // payload and must not reach clients. Stripping keys on origin's presence,
+  // not on whether it parsed, so the field is removed regardless.
+  router.routeServerEvent(
+    JSON.stringify({
+      type: "document_update_created",
+      containerIds: [C1],
+      documentId: "doc-1",
+      updateIds: ["update-1"],
+      origin: { sessionId: "sensitive-session-id" },
+    }),
+  );
+
+  expect(reader.sent).toEqual([
+    JSON.stringify({
+      type: "document_update_created",
+      containerIds: [C1],
+      documentId: "doc-1",
+      updateIds: ["update-1"],
+    }),
+  ]);
+});
+
 test("delivers to every interested socket when no origin is tagged", () => {
   const router = new WsEventRouter();
   // An untagged event (e.g. attachment-bind, or pre-origin events) excludes

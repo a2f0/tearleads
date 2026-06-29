@@ -270,11 +270,16 @@ export class WsEventRouter {
     // events, or any event published before this field existed) means "exclude
     // nobody" — every interested socket gets it, preserving old behavior.
     const origin = readOrigin(event);
-    // `rawMessage` carries `origin` (which includes a sensitive sessionId).
-    // Strip it before sending so the per-session identifier never reaches
-    // clients and the on-the-wire payload stays the minimal client shape this
-    // router promises. Only re-serialize when an origin is actually present.
-    const clientMessage = origin ? stripOrigin(event) : rawMessage;
+    // `rawMessage` carries `origin`, which includes a sensitive sessionId.
+    // Strip it on PRESENCE of the key, not on whether it parsed into a valid
+    // identity: a malformed origin (e.g. a sessionId with no userId) makes
+    // readOrigin return null but the sessionId is still in the payload, so
+    // gating the strip on `origin` would forward `rawMessage` and leak it.
+    // Stripping is about not exposing the field; exclusion below is what needs
+    // a valid identity.
+    const clientMessage = Reflect.has(event, "origin")
+      ? stripOrigin(event)
+      : rawMessage;
     for (const ws of this.recipientsForEvent(event)) {
       if (origin && isSameSession(ws, origin)) {
         continue;
