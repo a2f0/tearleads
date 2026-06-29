@@ -224,10 +224,16 @@ export async function relinkDocumentStore(
     patch.documentManifestBundle = input.documentManifestBundle;
   }
 
+  // Relink rewrites access/identity metadata, not content. If it lands while the
+  // user is mid-edit, re-deriving text/structured fields from the (possibly
+  // lagging) doc would republish a stale read over the live optimistic snapshot
+  // and drop in-flight keystrokes; preserve the snapshot like the keystroke and
+  // sync persists do.
   const { record: nextRecord, updatedAt } = await persistDocument(
     state,
     state.doc,
     patch,
+    { preserveSnapshotStructuredFields: true, preserveSnapshotText: true },
   );
   if (input.queueBaselineAfterRelink) {
     await enqueuePendingUpdate(

@@ -193,7 +193,14 @@ async function persistAttachedFiles(
     await enqueuePendingUpdate(state, attachmentUpdate);
   }
   upsertPendingAttachments(state, nextPendingAttachments);
-  await persistDocument(state, currentDoc);
+  // This persist changes attachments, not prose. setReadySnapshot always
+  // re-derives attachments from the doc, but preserve the text/structured
+  // fields so an attach that overlaps an in-flight keystroke does not republish
+  // a stale doc read over the live optimistic editor value.
+  await persistDocument(state, currentDoc, undefined, {
+    preserveSnapshotStructuredFields: true,
+    preserveSnapshotText: true,
+  });
   advancePendingBaseVersion(state, currentDoc);
   logAttachedFiles(state, files.length);
   requestDocumentStoreSync(state);
@@ -240,7 +247,12 @@ async function persistSlotAttachmentFile(
   if (attachmentUpdate.byteLength > 0) {
     await enqueuePendingUpdate(state, attachmentUpdate);
   }
-  await persistDocument(state, currentDoc);
+  // Preserve the optimistic text/structured fields (see persistAttachedFiles):
+  // a slot replacement overlapping a keystroke must not regress the editor.
+  await persistDocument(state, currentDoc, undefined, {
+    preserveSnapshotStructuredFields: true,
+    preserveSnapshotText: true,
+  });
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(`Queued attachment ${file.name} for slot ${slotId}.`);
   requestDocumentStoreSync(state);
@@ -314,7 +326,12 @@ async function persistRemovedAttachment(
     }
   }
 
-  await persistDocument(state, currentDoc);
+  // Preserve the optimistic text/structured fields (see persistAttachedFiles):
+  // removing an attachment while typing must not regress the editor.
+  await persistDocument(state, currentDoc, undefined, {
+    preserveSnapshotStructuredFields: true,
+    preserveSnapshotText: true,
+  });
   advancePendingBaseVersion(state, currentDoc);
   state.runtime.util.log(
     `Removed attachment ${existingAttachment.name} from document ${state.localId}.`,
