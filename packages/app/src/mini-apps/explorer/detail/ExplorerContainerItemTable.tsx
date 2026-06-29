@@ -231,21 +231,21 @@ function ExplorerContainerItemTableRow(params: {
       <MiniAppTableCell>
         {getExplorerContainerItemTypeLabel(row)}
       </MiniAppTableCell>
-      {compact ? null : (
-        <MiniAppTableCell>
-          <ExplorerSyncStateBadge
-            online={online}
-            showSynced
-            syncState={row.syncState}
-          />
-        </MiniAppTableCell>
-      )}
-      {compact ? null : (
-        <MiniAppTableCell title={row.createdAt ?? undefined}>
-          {formatMiniAppDateTime(row.createdAt, {
-            emptyFallback: EXPLORER_LABELS.unknownDate,
-          })}
-        </MiniAppTableCell>
+      {!compact && (
+        <>
+          <MiniAppTableCell>
+            <ExplorerSyncStateBadge
+              online={online}
+              showSynced
+              syncState={row.syncState}
+            />
+          </MiniAppTableCell>
+          <MiniAppTableCell title={row.createdAt ?? undefined}>
+            {formatMiniAppDateTime(row.createdAt, {
+              emptyFallback: EXPLORER_LABELS.unknownDate,
+            })}
+          </MiniAppTableCell>
+        </>
       )}
       <MiniAppTableCell title={row.updatedAt ?? undefined}>
         {formatMiniAppDateTime(row.updatedAt, {
