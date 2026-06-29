@@ -360,11 +360,13 @@ that need custom storage can use `createIndexedDbWrappingKeyKeystore(...)` and
 
 WKWebView-based shells that cannot structured-clone `CryptoKey` objects into
 IndexedDB can use `createWebViewLocalKeyring()`. It uses the same manifest and
-wrapping-key ids as `createBrowserLocalKeyring()`, reads existing browser
-`CryptoKey` records during migration, and writes new wrapping keys as raw
-AES-256 bytes to avoid the WebKit keychain clone path. That raw-byte storage is
-weaker at rest, so browser hosts should keep the default
-`createBrowserLocalKeyring()` wiring when `CryptoKey` cloning works.
+wrapping-key ids as `createBrowserLocalKeyring()`, but writes new wrapping keys
+as raw AES-256 bytes to avoid the WebKit keychain clone path. It does not
+migrate existing browser `CryptoKey` records; provision WebView hosts with
+raw-byte storage before creating local identity data or recreate incompatible
+local keyring data. Raw-byte storage is weaker at rest, so browser hosts should
+keep the default `createBrowserLocalKeyring()` wiring when `CryptoKey` cloning
+works.
 
 `createPinCodeBrowserLocalKeyring({ pinCode })` enables opt-in PIN
 locking.
