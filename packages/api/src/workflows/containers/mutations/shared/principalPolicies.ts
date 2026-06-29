@@ -1,11 +1,11 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalProjectionMember,
   ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { makeVerifiedPrincipalPolicy } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,
@@ -192,14 +192,15 @@ async function stalePrincipalPolicyError(input: {
     policiesToFetch.push(policy);
   }
 
-  const principalPolicies: PrincipalPolicyBundleResponse[] = await Promise.all(
-    policiesToFetch.map((policy) =>
+  const principalPolicies = await gatherWithExecutor(
+    input.executor,
+    policiesToFetch,
+    (policy) =>
       getCurrentPrincipalPolicyWithExecutor(
         input.executor,
         policy.principalType,
         policy.principalId,
       ),
-    ),
   );
 
   return new ContainerMutationError(input.message, 409, {
@@ -293,11 +294,9 @@ export async function assertPrincipalPoliciesCurrent(
   }
 
   const referencedPrincipalHeads = options.referencedPrincipalHeads ?? [];
-  return Promise.all(
-    principalPolicies.map((policy) =>
-      principalPolicyNeedsStoredHistory(policy, referencedPrincipalHeads)
-        ? loadPrincipalPolicyWithStoredHistory(executor, policy)
-        : Promise.resolve(policy),
-    ),
+  return gatherWithExecutor(executor, principalPolicies, async (policy) =>
+    principalPolicyNeedsStoredHistory(policy, referencedPrincipalHeads)
+      ? loadPrincipalPolicyWithStoredHistory(executor, policy)
+      : policy,
   );
 }

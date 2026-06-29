@@ -2,6 +2,7 @@ import type {
   ApiDatabase,
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
   AccessManifest,
   DocumentLinkSetManifestState,
@@ -532,32 +533,30 @@ async function resolveAuthorizingContainerPaths(input: {
   readonly executor: DatabaseSession;
   readonly userId: string;
 }) {
-  const results = await Promise.all(
-    input.containerIds.map(
-      async (
-        containerId,
-      ): Promise<ContainerWriterProjectionResponse | null> => {
-        try {
-          // Document sync also uses this projection for read-only pulls. Mutations
-          // still verify write access before accepting document updates.
-          return await resolveContainerReaderProjection({
-            containerId,
-            context: input.context,
-            executor: input.executor,
-            userId: input.userId,
-          });
-        } catch (error) {
-          if (
-            error instanceof ContainerWriterProjectionError &&
-            error.status === 403
-          ) {
-            return null;
-          }
-
-          throw error;
+  const results = await gatherWithExecutor(
+    input.executor,
+    input.containerIds,
+    async (containerId): Promise<ContainerWriterProjectionResponse | null> => {
+      try {
+        // Document sync also uses this projection for read-only pulls. Mutations
+        // still verify write access before accepting document updates.
+        return await resolveContainerReaderProjection({
+          containerId,
+          context: input.context,
+          executor: input.executor,
+          userId: input.userId,
+        });
+      } catch (error) {
+        if (
+          error instanceof ContainerWriterProjectionError &&
+          error.status === 403
+        ) {
+          return null;
         }
-      },
-    ),
+
+        throw error;
+      }
+    },
   );
   const authorizingPaths = results.filter(
     (path): path is ContainerWriterProjectionResponse => path !== null,
@@ -590,15 +589,19 @@ async function resolveDocumentWriterProjection(input: {
     ReturnType<typeof resolveAuthorizingContainerPaths>
   >;
   try {
-    [documentKekTargets, authorizingContainerPaths] = await Promise.all([
-      resolveCurrentDocumentKekTargets(input.documentId, input.executor),
-      resolveAuthorizingContainerPaths({
-        containerIds: documentState.linkedContainerIds,
-        context: containerProjectionContext,
-        executor: input.executor,
-        userId: input.userId,
-      }),
-    ]);
+    // Run sequentially: this projection always executes inside a transaction,
+    // so both reads share one pinned connection. Issuing them concurrently
+    // only trips pg's already-executing-query deprecation without parallelism.
+    documentKekTargets = await resolveCurrentDocumentKekTargets(
+      input.documentId,
+      input.executor,
+    );
+    authorizingContainerPaths = await resolveAuthorizingContainerPaths({
+      containerIds: documentState.linkedContainerIds,
+      context: containerProjectionContext,
+      executor: input.executor,
+      userId: input.userId,
+    });
   } catch (error) {
     if (error instanceof DocumentKekTargetError) {
       throw new DocumentWriterProjectionError(error.message, error.status);

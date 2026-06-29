@@ -1,4 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import { attachmentBindings } from "@tearleads/api-shared/schema";
 import type { ListDocumentAttachmentsResponse } from "@tearleads/validators/response";
 import { and, eq, isNull } from "drizzle-orm";
@@ -92,10 +93,10 @@ export async function runListDocumentAttachmentsWorkflow(
       ),
     );
 
-  const contentKeyBundleEntries = await Promise.all(
-    [...new Set(rows.map((row) => row.blobId))]
-      .sort()
-      .map((blobId) => loadCurrentBlobContentKeyBundleEntry(blobId, executor)),
+  const contentKeyBundleEntries = await gatherWithExecutor(
+    executor,
+    [...new Set(rows.map((row) => row.blobId))].sort(),
+    (blobId) => loadCurrentBlobContentKeyBundleEntry(blobId, executor),
   );
   const contentKeyBundleByBlobId = new Map<
     string,

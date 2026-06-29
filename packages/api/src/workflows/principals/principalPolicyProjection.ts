@@ -1,4 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import type {
   PrincipalProjectionMember,
   ReferencedPrincipalHead,
@@ -186,8 +187,10 @@ export async function loadPrincipalPoliciesForContainerPaths(
       }
     }
 
-    const resolvedPolicies = await Promise.all(
-      Array.from(currentStates.values()).map(async (currentState) => {
+    const resolvedPolicies = await gatherWithExecutor(
+      executor,
+      Array.from(currentStates.values()),
+      async (currentState) => {
         const history = await listPrincipalStateHistory(
           currentState.principalType,
           currentState.principalId,
@@ -214,7 +217,7 @@ export async function loadPrincipalPoliciesForContainerPaths(
         return principalPolicyFromStored({
           history,
         });
-      }),
+      },
     );
 
     policies.push(...resolvedPolicies);

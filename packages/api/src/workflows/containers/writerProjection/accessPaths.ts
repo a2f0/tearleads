@@ -1,4 +1,5 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import { gatherWithExecutor } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
 import type {
   ContainerAccessLevel,
@@ -164,8 +165,8 @@ export async function loadContainerAccessPath(
   containerId: string,
 ): Promise<ContainerAccessPath> {
   const pathRows = await loadContainerPath(context, containerId);
-  const path = await Promise.all(
-    pathRows.map((row) => loadCurrentContainerManifestBundle(context, row.id)),
+  const path = await gatherWithExecutor(context.executor, pathRows, (row) =>
+    loadCurrentContainerManifestBundle(context, row.id),
   );
 
   return {
