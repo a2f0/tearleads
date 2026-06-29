@@ -10,6 +10,7 @@ import {
   type RefObject,
   type SyntheticEvent,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -140,7 +141,12 @@ function remapCaret(oldValue: string, newValue: string, caret: number): number {
 // would otherwise jump the caret and scramble subsequent input. We distinguish
 // the two by flagging local edits and only remapping the caret for external
 // ones, skipping entirely during IME composition.
-function useNoteEditorTextarea(text: string, setText: (value: string) => void) {
+function useNoteEditorTextarea(
+  text: string,
+  setText: (value: string) => void,
+  ready: boolean,
+  readOnly: boolean,
+) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const lastValueRef = useRef(text);
   const selectionRef = useRef<CaretSelection>({
@@ -221,6 +227,8 @@ function useNoteEditorTextarea(text: string, setText: (value: string) => void) {
     editor.style.height = `${editor.scrollHeight}px`;
   }, [text]);
 
+  useAutoFocusEditorOnReady(ref, ready, readOnly);
+
   return {
     ref,
     handleChange,
@@ -228,6 +236,38 @@ function useNoteEditorTextarea(text: string, setText: (value: string) => void) {
     handleCompositionStart,
     handleCompositionEnd,
   };
+}
+
+// Move focus into the editor body the moment a note becomes ready — whether it
+// was just created or loaded from storage — so the user can start typing
+// without first clicking it. Each note is backed by a fresh documents-store
+// snapshot that starts `ready: false` and flips to `true` once loaded, so this
+// false→true edge fires for new notes, opened notes, and in-place switches
+// between notes (the shared editor stays mounted while only the store swaps).
+// The caret lands at the end of any existing text — a no-op for an empty new
+// note — matching the "keep writing" expectation of a notes editor. Read-only
+// notes are skipped: there is nothing to type and grabbing focus would be
+// surprising.
+function useAutoFocusEditorOnReady(
+  ref: RefObject<HTMLTextAreaElement | null>,
+  ready: boolean,
+  readOnly: boolean,
+) {
+  const wasReadyRef = useRef(false);
+
+  useEffect(() => {
+    const becameReady = ready && !wasReadyRef.current;
+    wasReadyRef.current = ready;
+
+    const editor = ref.current;
+    if (!editor || !becameReady || readOnly) {
+      return;
+    }
+
+    editor.focus();
+    const caret = editor.value.length;
+    editor.setSelectionRange(caret, caret);
+  }, [ready, readOnly, ref]);
 }
 
 // Shared note editor + attachments presentation used by both the notes
@@ -284,7 +324,7 @@ export function NoteEditorFields({
     handleSelect: handleEditorSelect,
     handleCompositionStart: handleEditorCompositionStart,
     handleCompositionEnd: handleEditorCompositionEnd,
-  } = useNoteEditorTextarea(text, setText);
+  } = useNoteEditorTextarea(text, setText, ready, readOnly);
   const dropzoneClassName = classNames(
     "note-document-dropzone",
     dragActive && "note-document-dropzone--active",
