@@ -72,6 +72,120 @@ test("delivers a document event only to sockets interested in its containers", (
   expect(bob.sent).toEqual([]);
 });
 
+test("excludes the authoring session's own socket from its update echo", () => {
+  const router = new WsEventRouter();
+  // Two sessions of the same user, both interested in c1.
+  const authorTab = fakeSocket("alice", "alice-tab-a");
+  const otherTab = fakeSocket("alice", "alice-tab-b");
+  router.open(authorTab);
+  router.open(otherTab);
+  router.handleClientMessage(
+    authorTab,
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
+  );
+  router.handleClientMessage(
+    otherTab,
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
+  );
+
+  router.routeServerEvent(
+    JSON.stringify({
+      type: "document_update_created",
+      containerIds: [C1],
+      documentId: "doc-1",
+      updateIds: ["update-1"],
+      origin: { sessionId: "alice-tab-a", userId: "alice" },
+    }),
+  );
+
+  // The authoring socket gets nothing back; its other tab still syncs.
+  expect(authorTab.sent).toEqual([]);
+  expect(otherTab.sent).toHaveLength(1);
+});
+
+test("strips origin from the payload forwarded to clients", () => {
+  const router = new WsEventRouter();
+  const reader = fakeSocket("bob");
+  router.open(reader);
+  router.handleClientMessage(
+    reader,
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
+  );
+
+  router.routeServerEvent(
+    JSON.stringify({
+      type: "document_update_created",
+      containerIds: [C1],
+      documentId: "doc-1",
+      updateIds: ["update-1"],
+      origin: { sessionId: "alice-tab-a", userId: "alice" },
+    }),
+  );
+
+  // The reader is not the author, so it receives the event — but the internal
+  // origin (and its sensitive sessionId) is stripped before it goes out. The
+  // router re-serializes the remaining fields in their original order, so the
+  // forwarded payload is exactly the event minus `origin`.
+  expect(reader.sent).toEqual([
+    JSON.stringify({
+      type: "document_update_created",
+      containerIds: [C1],
+      documentId: "doc-1",
+      updateIds: ["update-1"],
+    }),
+  ]);
+});
+
+test("strips a malformed origin to prevent session id leaks", () => {
+  const router = new WsEventRouter();
+  const reader = fakeSocket("bob");
+  router.open(reader);
+  router.handleClientMessage(
+    reader,
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
+  );
+
+  // A partial origin (sessionId present, userId missing) is not a valid
+  // identity, so it excludes nobody — but the sessionId is still in the
+  // payload and must not reach clients. Stripping keys on origin's presence,
+  // not on whether it parsed, so the field is removed regardless.
+  router.routeServerEvent(
+    JSON.stringify({
+      type: "document_update_created",
+      containerIds: [C1],
+      documentId: "doc-1",
+      updateIds: ["update-1"],
+      origin: { sessionId: "sensitive-session-id" },
+    }),
+  );
+
+  expect(reader.sent).toEqual([
+    JSON.stringify({
+      type: "document_update_created",
+      containerIds: [C1],
+      documentId: "doc-1",
+      updateIds: ["update-1"],
+    }),
+  ]);
+});
+
+test("delivers to every interested socket when no origin is tagged", () => {
+  const router = new WsEventRouter();
+  // An untagged event (e.g. attachment-bind, or pre-origin events) excludes
+  // nobody — the author's own socket included — preserving prior behavior.
+  const author = fakeSocket("alice");
+  router.open(author);
+  router.handleClientMessage(
+    author,
+    JSON.stringify({ type: "known_containers", containerIds: [C1] }),
+  );
+
+  const event = documentEvent([C1]);
+  router.routeServerEvent(event);
+
+  expect(author.sent).toEqual([event]);
+});
+
 test("delivers a shared-container event to every interested socket once", () => {
   const router = new WsEventRouter();
   const alice = fakeSocket("alice");

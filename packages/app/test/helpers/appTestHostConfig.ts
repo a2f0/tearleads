@@ -20,7 +20,7 @@ export function pinWindowedSystemMonitors() {
   }
 }
 
-export type TestAppHostConfigOptions = Partial<
+type TestAppHostConfigOptions = Partial<
   Pick<
     Parameters<typeof createAppHostConfig>[0],
     "createSQLiteRuntime" | "navigationMode" | "profile"

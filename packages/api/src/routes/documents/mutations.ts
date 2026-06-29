@@ -162,6 +162,12 @@ async function respondWithDocumentSync(
         ),
         documentId,
         updateIds: result.acceptedOutgoingUpdateIds,
+        // Tag the event with the session that authored these updates so the ws
+        // router can skip echoing them back over this session's own socket.
+        // session.id is the same value the ws ticket is minted from, so it
+        // matches that connection's identity. The router strips `origin` before
+        // forwarding, so it never reaches any client.
+        origin: { sessionId: session.id, userId: session.userId },
       });
     }
 
