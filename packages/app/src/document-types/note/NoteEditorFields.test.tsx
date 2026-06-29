@@ -192,6 +192,49 @@ test("editor is disabled until the document is ready", () => {
   expect(editor.disabled).toBe(true);
 });
 
+test("focuses the editor body when the note becomes ready", () => {
+  const view = renderNoteEditorFields({ ready: false, text: "loaded note" });
+  const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
+  expect(document.activeElement).not.toBe(editor);
+
+  view.rerender(buildNoteEditorFields({ ready: true, text: "loaded note" }));
+
+  expect(document.activeElement).toBe(editor);
+  // Caret lands at the end so the user can keep writing immediately.
+  expect(editor.selectionStart).toBe("loaded note".length);
+  expect(editor.selectionEnd).toBe("loaded note".length);
+});
+
+test("focuses the editor body when a ready note mounts", () => {
+  const view = renderNoteEditorFields({ ready: true });
+  const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
+
+  expect(document.activeElement).toBe(editor);
+});
+
+test("does not focus a read-only note", () => {
+  const view = renderNoteEditorFields({ ready: false, readOnly: true });
+  const editor = view.container.querySelector(
+    ".note-document-editor",
+  ) as HTMLTextAreaElement;
+
+  view.rerender(buildNoteEditorFields({ ready: true, readOnly: true }));
+
+  expect(document.activeElement).not.toBe(editor);
+});
+
+test("focuses when a ready note becomes writable", () => {
+  const view = renderNoteEditorFields({ ready: true, readOnly: true });
+  const editor = view.getByLabelText(
+    "Notes editor read only",
+  ) as HTMLTextAreaElement;
+  expect(document.activeElement).not.toBe(editor);
+
+  view.rerender(buildNoteEditorFields({ ready: true, readOnly: false }));
+
+  expect(document.activeElement).toBe(editor);
+});
+
 test("preserves the caret when text changes externally before it", () => {
   const view = renderNoteEditorFields({ text: "hello world" });
   const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
