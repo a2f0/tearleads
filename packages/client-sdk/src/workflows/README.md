@@ -38,9 +38,10 @@ The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async
 keyring provider.
 
-Local keyring and PIN-code wrapping helpers are client-facade exports rather
-than workflow facades. Keep platform keychain composition in `client/*` so
-workflow modules stay focused on domain operations.
+Local keyring variants, including WebView and PIN-code wrapping helpers, are
+client-facade exports rather than workflow facades. Keep platform keychain
+composition in `client/*` so workflow modules stay focused on domain
+operations.
 
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.

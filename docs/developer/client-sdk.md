@@ -330,6 +330,7 @@ management:
 import {
   createBrowserLocalKeyring,
   createLocalKeyring,
+  createWebViewLocalKeyring,
 } from "@tearleads/client-sdk";
 
 const keyring = createLocalKeyring({
@@ -356,6 +357,14 @@ IndexedDB. The wrapped account-root secret and the browser `CryptoKey` survive
 same-origin app restarts; `keyring.deleteSession(scope)` removes both. Hosts
 that need custom storage can use `createIndexedDbWrappingKeyKeystore(...)` and
 `createLocalStorageLocalKeyringManifestStore(...)` separately.
+
+WKWebView-based shells that cannot structured-clone `CryptoKey` objects into
+IndexedDB can use `createWebViewLocalKeyring()`. It uses the same manifest and
+wrapping-key ids as `createBrowserLocalKeyring()`, reads existing browser
+`CryptoKey` records during migration, and writes new wrapping keys as raw
+AES-256 bytes to avoid the WebKit keychain clone path. That raw-byte storage is
+weaker at rest, so browser hosts should keep the default
+`createBrowserLocalKeyring()` wiring when `CryptoKey` cloning works.
 
 `createPinCodeBrowserLocalKeyring({ pinCode })` enables opt-in PIN
 locking.

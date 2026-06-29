@@ -37,6 +37,10 @@
       "lines": 658,
       "bytes": 18865
     },
+    "docs/developer/client-sdk.md": {
+      "lines": 472,
+      "bytes": 20416
+    },
     "docs/glossary.md": {
       "lines": 506,
       "bytes": 18158
@@ -178,12 +182,12 @@
       "bytes": 30751
     },
     "packages/client-sdk/src/client/localKeyring.test.ts": {
-      "lines": 512,
-      "bytes": 17270
+      "lines": 536,
+      "bytes": 18035
     },
     "packages/client-sdk/src/client/localKeyring.ts": {
-      "lines": 1563,
-      "bytes": 49917
+      "lines": 1569,
+      "bytes": 50149
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 1041,
