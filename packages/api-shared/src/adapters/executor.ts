@@ -12,9 +12,7 @@ import type { DatabaseSession, DatabaseTransaction } from "./types";
 function isDatabaseTransaction(
   executor: DatabaseSession,
 ): executor is DatabaseTransaction {
-  return (
-    typeof (executor as Partial<DatabaseTransaction>).rollback === "function"
-  );
+  return typeof Reflect.get(executor, "rollback") === "function";
 }
 
 /**
