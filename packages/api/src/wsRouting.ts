@@ -99,6 +99,49 @@ function eventContainerIds(event: Record<string, unknown>): string[] {
   return [...containerIds];
 }
 
+/**
+ * The authoring session an event came from, if the publisher tagged it. Read
+ * defensively (events arrive as untrusted JSON over redis): a malformed or
+ * partial `origin` yields null, which the router treats as "exclude nobody".
+ */
+function readOrigin(
+  event: Record<string, unknown>,
+): WebSocketTicketIdentity | null {
+  const origin = Reflect.get(event, "origin");
+  if (!isPlainObject(origin)) {
+    return null;
+  }
+  const userId = readStringField(Reflect.get(origin, "userId"));
+  const sessionId = readStringField(Reflect.get(origin, "sessionId"));
+  return userId && sessionId ? { sessionId, userId } : null;
+}
+
+/**
+ * Re-serialize the event without its `origin` field. `origin` is internal
+ * server-to-server routing data — it carries a per-session identifier that must
+ * not leak to clients, and clients have no use for it. Done with a destructuring
+ * rest rather than `delete` to avoid mutating the parsed event the caller still
+ * holds.
+ */
+function stripOrigin(event: Record<string, unknown>): string {
+  const { origin: _origin, ...rest } = event;
+  return JSON.stringify(rest);
+}
+
+/**
+ * Whether this socket is the exact authoring session named by `origin`. Matched
+ * on (userId, sessionId) so it is independent of which process the socket lives
+ * on and which process published the event.
+ */
+function isSameSession(
+  ws: WsConnection,
+  origin: WebSocketTicketIdentity,
+): boolean {
+  return (
+    ws.data.userId === origin.userId && ws.data.sessionId === origin.sessionId
+  );
+}
+
 function addToIndex<K>(
   index: Map<K, Set<WsConnection>>,
   key: K,
@@ -216,8 +259,27 @@ export class WsEventRouter {
     if (Reflect.get(event, "type") === ACCESS_CHANGED) {
       return this.handleAccessChanged(event);
     }
+    // The authoring session is identified by `origin` (added by the publisher
+    // on the HTTP sync path). We skip that exact socket so the author does not
+    // receive its own update echoed back over its own connection. Matching is
+    // on (userId, sessionId) — globally unique — NOT a socket handle, so it
+    // works even though redis fanned this event in from another API process and
+    // the authoring socket may be connected here. Per-SESSION, never per-user:
+    // the author's other devices/tabs are distinct sessions and must still
+    // receive the event so they sync. Absent `origin` (e.g. attachment-bind
+    // events, or any event published before this field existed) means "exclude
+    // nobody" — every interested socket gets it, preserving old behavior.
+    const origin = readOrigin(event);
+    // `rawMessage` carries `origin` (which includes a sensitive sessionId).
+    // Strip it before sending so the per-session identifier never reaches
+    // clients and the on-the-wire payload stays the minimal client shape this
+    // router promises. Only re-serialize when an origin is actually present.
+    const clientMessage = origin ? stripOrigin(event) : rawMessage;
     for (const ws of this.recipientsForEvent(event)) {
-      sendSafely(ws, rawMessage);
+      if (origin && isSameSession(ws, origin)) {
+        continue;
+      }
+      sendSafely(ws, clientMessage);
     }
     return [];
   }
