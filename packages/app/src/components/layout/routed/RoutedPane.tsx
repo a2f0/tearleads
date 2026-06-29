@@ -220,6 +220,32 @@ function RoutedPaneSidebar({
   );
 }
 
+// Reset the tier-specific overlays when the layout crosses the breakpoint
+// (resize / rotation): the nav drawer only exists on mobile, and the expanded
+// sidebar becomes a full-screen dialog on mobile, so neither should linger open
+// into a tier where it would cover or no longer fit the content.
+function useCollapseOverlaysOnTierChange({
+  closeDrawer,
+  closeSidebar,
+  tier,
+}: {
+  closeDrawer: () => void;
+  closeSidebar: () => void;
+  tier: RoutedLayoutTier;
+}) {
+  useEffect(() => {
+    if (tier === "tablet") {
+      closeDrawer();
+    }
+  }, [tier, closeDrawer]);
+
+  useEffect(() => {
+    if (tier === "mobile") {
+      closeSidebar();
+    }
+  }, [tier, closeSidebar]);
+}
+
 function RoutedPaneSurface({
   activeAppId,
   ActiveMiniApp,
@@ -260,12 +286,7 @@ function RoutedPaneSurface({
   const toggleDrawer = useCallback(() => setDrawerOpen(invertBoolean), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  // The drawer is mobile-only; collapse it whenever we land on the tablet rail.
-  useEffect(() => {
-    if (tier === "tablet") {
-      setDrawerOpen(false);
-    }
-  }, [tier]);
+  useCollapseOverlaysOnTierChange({ closeDrawer, closeSidebar, tier });
 
   const sidebarVisible = hasSidebar && sidebarExpanded;
 
