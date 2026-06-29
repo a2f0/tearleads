@@ -14,4 +14,4 @@ echo "Building with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
 bun run build
 bun run cap:sync
-bun run cap:run:ios
+exec bun run cap:run:ios
