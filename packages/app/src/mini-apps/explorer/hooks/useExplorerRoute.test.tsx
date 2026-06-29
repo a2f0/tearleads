@@ -37,6 +37,11 @@ function EmptyMiniApp() {
   return null;
 }
 
+// Stable reference so the route-restoration effect's dependency is constant
+// across renders. These hook-level tests assert selection/route wiring via the
+// pending-selection mechanism, not summary loading, so a no-op suffices.
+const noopLoadDocumentSummary = () => Promise.resolve(null);
+
 const TEST_MINI_APPS = {
   "backup-restore": {
     createComponent: () => EmptyMiniApp,
@@ -64,6 +69,7 @@ afterEach(() => {
 function ExplorerRouteSelectionHarness() {
   const selection = useExplorerSelection(nodes, []);
   const routeState = useExplorerRoute({
+    loadDocumentSummary: noopLoadDocumentSummary,
     nodes,
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,

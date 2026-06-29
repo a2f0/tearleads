@@ -63,12 +63,18 @@ function useExplorerRouteBinding() {
 
 function useExplorerRouteSelectionEffect(params: {
   appRouteIsRouted: boolean;
+  loadDocumentSummary: (localId: string) => Promise<unknown>;
   parsedAppRoute: ExplorerRouteSnapshot | null;
   selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }) {
-  const { appRouteIsRouted, parsedAppRoute, selectDocument, setSelectedId } =
-    params;
+  const {
+    appRouteIsRouted,
+    loadDocumentSummary,
+    parsedAppRoute,
+    selectDocument,
+    setSelectedId,
+  } = params;
   const route = parsedAppRoute?.route;
   const documentSelectionContainerId =
     route?.view === "document-selection" ? route.containerId : null;
@@ -82,6 +88,14 @@ function useExplorerRouteSelectionEffect(params: {
 
     if (documentSelectionContainerId && documentSelectionLocalId) {
       selectDocument(documentSelectionLocalId, documentSelectionContainerId);
+      // selectDocument only marks the document selected (pending). When the
+      // route is restored into a freshly mounted Explorer — e.g. crossing the
+      // windowed/routed breakpoint or a workspace round trip remounts the
+      // pane — the new view starts with no loaded summaries, so load the
+      // document too. Otherwise the pending selection never resolves and the
+      // detail pane is stranded on "Select a container." loadDocumentSummary
+      // no-ops until the database is ready and merges on success.
+      void loadDocumentSummary(documentSelectionLocalId);
       return;
     }
 
@@ -94,6 +108,7 @@ function useExplorerRouteSelectionEffect(params: {
     appRouteIsRouted,
     documentSelectionContainerId,
     documentSelectionLocalId,
+    loadDocumentSummary,
     selectDocument,
     selectedId,
     setSelectedId,
@@ -215,15 +230,17 @@ function useExplorerRouteActions(params: {
 }
 
 export function useExplorerRoute(params: {
+  loadDocumentSummary: (localId: string) => Promise<unknown>;
   nodes: ReadonlyArray<ContainerNode>;
   selectDocument: (id: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
 }): ExplorerRouteState {
-  const { nodes, selectDocument, setSelectedId } = params;
+  const { loadDocumentSummary, nodes, selectDocument, setSelectedId } = params;
   const { appRoute, parsedAppRoute, route, setRoute } =
     useExplorerRouteBinding();
   useExplorerRouteSelectionEffect({
     appRouteIsRouted: appRoute.isRouted,
+    loadDocumentSummary,
     parsedAppRoute,
     selectDocument,
     setSelectedId,
