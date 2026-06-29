@@ -10,6 +10,7 @@ import invariant from "invariant";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
+  flattenPaneStatusText,
 } from "../../../test/helpers/paneTestUtils";
 import { enableSystemMonitorDeveloperMode } from "../../../test/helpers/systemMonitorTestPreferences";
 import { App } from "../../App";
@@ -87,7 +88,7 @@ test(
 
     await waitFor(
       () => {
-        expect(visiblePane(view).textContent ?? "").toMatch(
+        expect(flattenPaneStatusText(visiblePane(view))).toMatch(
           /userId:\s*[0-9a-f]{8}-/u,
         );
       },

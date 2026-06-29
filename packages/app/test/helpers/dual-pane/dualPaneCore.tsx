@@ -29,7 +29,7 @@ import { useDatabase } from "../../../src/providers/db/DatabaseProvider";
 import { useIdentity } from "../../../src/providers/identity/IdentityProvider";
 import { AppTestRuntimeScopeProbe } from "../appRuntimeIdle";
 import { truncateText } from "../dualPaneRequestSummary";
-import { createTestHostConfig } from "../paneTestUtils";
+import { createTestHostConfig, flattenPaneStatusText } from "../paneTestUtils";
 import { waitForCondition } from "../waitForCondition";
 
 export const DUAL_PANE_TEST_TIMEOUT_MS = 20_000;
@@ -156,7 +156,7 @@ const PANE_PEER_USER_ID_PATTERN =
   /peerUserId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 
 export function getPaneUserId(pane: HTMLElement): string {
-  const match = pane.textContent?.match(PANE_USER_ID_PATTERN);
+  const match = flattenPaneStatusText(pane).match(PANE_USER_ID_PATTERN);
   invariant(match?.[1] && match[1] !== "none", "Expected pane user id.");
   return match[1];
 }
@@ -254,9 +254,12 @@ export async function selectContainerAndWaitForItemTable(
 
 export async function waitForSinglePaneProvisioning(pane: HTMLElement) {
   await waitForCondition(
-    () =>
-      PANE_USER_ID_PATTERN.test(pane.textContent ?? "") &&
-      PANE_SESSION_PATTERN.test(pane.textContent ?? ""),
+    () => {
+      const status = flattenPaneStatusText(pane);
+      return (
+        PANE_USER_ID_PATTERN.test(status) && PANE_SESSION_PATTERN.test(status)
+      );
+    },
     "Left pane identity did not finish provisioning.",
     DUAL_PANE_TEST_TIMEOUT_MS,
   );
@@ -268,8 +271,8 @@ export async function waitForDualPaneProvisioning(
 ) {
   await waitForCondition(
     () => {
-      const leftText = leftPane.textContent ?? "";
-      const rightText = rightPane.textContent ?? "";
+      const leftText = flattenPaneStatusText(leftPane);
+      const rightText = flattenPaneStatusText(rightPane);
       return (
         PANE_USER_ID_PATTERN.test(leftText) &&
         PANE_SESSION_PATTERN.test(leftText) &&
@@ -296,7 +299,7 @@ export async function provisionPaneFromMenu(pane: HTMLElement) {
   });
 
   await waitFor(() => {
-    expect(within(pane).getByText(/sqlite worker: ready/)).toBeTruthy();
+    expect(flattenPaneStatusText(pane)).toMatch(/sqlite worker:\s*ready/);
   });
 
   await interact(() => {
@@ -374,12 +377,12 @@ export async function destroyPaneKeyPackage(pane: HTMLElement) {
     );
   });
 
-  await waitForCondition(
-    () =>
-      (pane.textContent?.includes("userId: none") ?? false) &&
-      (pane.textContent?.includes("sqlite worker: idle") ?? false),
-    "Pane did not clear local identity state after key destruction.",
-  );
+  await waitForCondition(() => {
+    const status = flattenPaneStatusText(pane);
+    return (
+      status.includes("userId: none") && status.includes("sqlite worker: idle")
+    );
+  }, "Pane did not clear local identity state after key destruction.");
 }
 
 export async function restorePaneKeyPackageBackup(
@@ -408,6 +411,6 @@ export async function restorePaneKeyPackageBackup(
 
   await waitForSinglePaneProvisioning(pane);
   await waitFor(() => {
-    expect(within(pane).getByText(/sqlite worker: ready/)).toBeTruthy();
+    expect(flattenPaneStatusText(pane)).toMatch(/sqlite worker:\s*ready/);
   });
 }

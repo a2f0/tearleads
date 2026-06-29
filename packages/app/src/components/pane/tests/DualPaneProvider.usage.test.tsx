@@ -19,7 +19,10 @@ import {
   resetMockServer,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
-import { createTestHostConfig } from "../../../../test/helpers/paneTestUtils";
+import {
+  createTestHostConfig,
+  flattenPaneStatusText,
+} from "../../../../test/helpers/paneTestUtils";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { useRegisterCurrentIdentity } from "../../../identity/useRegisterCurrentIdentity";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
@@ -118,12 +121,12 @@ function getPaneRoot(view: ReturnType<typeof renderSinglePane>): HTMLElement {
 }
 
 async function waitForSinglePaneProvisioning(pane: HTMLElement) {
-  await waitForCondition(
-    () =>
-      PANE_USER_ID_PATTERN.test(pane.textContent ?? "") &&
-      PANE_SESSION_PATTERN.test(pane.textContent ?? ""),
-    "Left pane identity did not finish provisioning.",
-  );
+  await waitForCondition(() => {
+    const status = flattenPaneStatusText(pane);
+    return (
+      PANE_USER_ID_PATTERN.test(status) && PANE_SESSION_PATTERN.test(status)
+    );
+  }, "Left pane identity did not finish provisioning.");
 }
 
 async function openOrgManager(pane: HTMLElement) {

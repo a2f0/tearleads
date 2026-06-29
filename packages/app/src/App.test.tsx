@@ -13,6 +13,7 @@ import {
   pinWindowedSystemMonitors,
 } from "../test/helpers/appTestHostConfig";
 import { MockWorker } from "../test/helpers/mockWorker";
+import { getAllPaneStatusTexts } from "../test/helpers/paneTestUtils";
 import { enableSystemMonitorDeveloperMode } from "../test/helpers/systemMonitorTestPreferences";
 import { App } from "./App";
 import {
@@ -102,8 +103,10 @@ test("renders App", async () => {
     const view = render(<App hostConfig={createTestAppHostConfig()} />);
 
     expect(
-      view.getAllByText(/sqlite worker: idle/).length,
-    ).toBeGreaterThanOrEqual(1);
+      getAllPaneStatusTexts(view).some((text) =>
+        /sqlite worker:\s*idle/.test(text),
+      ),
+    ).toBe(true);
     expect(
       view.getAllByText(
         /Generate a key pair from the pane menu to boot this pane\./,
@@ -151,7 +154,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     expect(
       view.queryByText(/Generate a key pair to boot this pane\./),
     ).toBeNull();
-    expect(view.queryByText(/sqlite worker:/)).toBeNull();
+    expect(view.queryByText("sqlite worker")).toBeNull();
     expect(
       view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
     ).toBe("page");
@@ -275,9 +278,11 @@ test("switching navigation mode reuses the booted pane database instead of reboo
     fireEvent.click(generate);
 
     await waitFor(() => {
-      expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:\s*ready/,
-      );
+      expect(
+        getAllPaneStatusTexts(view).some((text) =>
+          /sqlite worker:\s*ready/.test(text),
+        ),
+      ).toBe(true);
     });
     expect(runtimeCreations).toBe(1);
 
@@ -287,9 +292,11 @@ test("switching navigation mode reuses the booted pane database instead of reboo
     toggleNavigationMode();
 
     await waitFor(() => {
-      expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:\s*ready/,
-      );
+      expect(
+        getAllPaneStatusTexts(view).some((text) =>
+          /sqlite worker:\s*ready/.test(text),
+        ),
+      ).toBe(true);
     });
     expect(runtimeCreations).toBe(1);
 

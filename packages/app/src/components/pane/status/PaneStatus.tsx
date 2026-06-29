@@ -1,4 +1,8 @@
 import { isUserEvent } from "@tearleads/validators/event";
+import {
+  MiniAppInfoRow,
+  MiniAppInfoTable,
+} from "../../../components/shared/MiniAppTable";
 import { useNetworkState } from "../../../providers/api/useNetworkState";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
@@ -13,34 +17,42 @@ export function PaneStatus() {
   const { events, connected } = useEvents();
   const { mode, online } = useNetworkState();
   const peerUserId = usePeerUserId();
-  const networkModeLabel = mode === "automatic" ? "" : " (manual)";
+  const networkLabel = `${online ? "online" : "offline"}${
+    mode === "automatic" ? "" : " (manual)"
+  }`;
 
   return (
     <div className="pane-content">
-      sqlite worker: {status}
-      <br />
-      id: {id}
-      <br />
-      publicKey: {signingFingerprint ?? "none"}
-      <br />
-      userId: {userId ?? "none"}
-      <br />
-      peerUserId: {peerUserId ?? "none"}
-      <br />
-      session: {authToken ? authToken.slice(0, 32) : "none"}
-      <br />
-      network: {online ? "online" : "offline"}
-      {networkModeLabel}
-      <br />
-      ws: {connected ? "connected" : "disconnected"}
-      <br />
-      events: {events.length === 0 ? "none" : ""}
-      {events.map((e) => (
-        <div key={e.id}>
-          {e.type}
-          {isUserEvent(e) ? ` (${e.userId})` : ""}
-        </div>
-      ))}
+      <MiniAppInfoTable>
+        <tbody>
+          <MiniAppInfoRow label="sqlite worker">{status}</MiniAppInfoRow>
+          <MiniAppInfoRow label="id">{id}</MiniAppInfoRow>
+          <MiniAppInfoRow label="publicKey">
+            {signingFingerprint ?? "none"}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label="userId">{userId ?? "none"}</MiniAppInfoRow>
+          <MiniAppInfoRow label="peerUserId">
+            {peerUserId ?? "none"}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label="session">
+            {authToken ? `${authToken.slice(0, 6)}...` : "none"}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label="network">{networkLabel}</MiniAppInfoRow>
+          <MiniAppInfoRow label="ws">
+            {connected ? "connected" : "disconnected"}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label="events">
+            {events.length === 0
+              ? "none"
+              : events.map((e) => (
+                  <div key={e.id}>
+                    {e.type}
+                    {isUserEvent(e) ? ` (${e.userId})` : ""}
+                  </div>
+                ))}
+          </MiniAppInfoRow>
+        </tbody>
+      </MiniAppInfoTable>
     </div>
   );
 }

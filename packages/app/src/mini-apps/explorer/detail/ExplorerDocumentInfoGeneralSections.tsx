@@ -7,7 +7,10 @@ import {
   MiniAppInfoSection,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
+import {
+  MiniAppInfoRow,
+  MiniAppInfoTable,
+} from "../../../components/shared/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
@@ -15,7 +18,6 @@ import {
   getExplorerDocumentInfoPendingChangesLabel,
 } from "../labels";
 import { compactId } from "./compactId";
-import { DocumentInfoRow } from "./ExplorerDocumentInfoRow";
 
 type DocumentInfoAttributionSegment = NonNullable<
   DocumentInfo["remoteInfo"]
@@ -49,40 +51,38 @@ export function ExplorerDocumentInfoGeneralSection(params: {
     <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoGeneralHeading}>
       <MiniAppInfoTable>
         <tbody>
-          <DocumentInfoRow
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoIdRow}
             title={localId}
           >
             {compactId(localId)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoDocumentIdRow}
             title={local?.documentId}
           >
             {compactId(local?.documentId)}
-          </DocumentInfoRow>
-          <DocumentInfoRow label={EXPLORER_LABELS.documentInfoTypeRow}>
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoTypeRow}>
             {getDocumentTypeLabel(local?.documentKind ?? null)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoContainerRow}
             title={local?.containerId}
           >
             {containerName ?? compactId(local?.containerId)}
-          </DocumentInfoRow>
-          <DocumentInfoRow
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
             label={EXPLORER_LABELS.documentInfoUpdatedRow}
             title={local?.updatedAt}
           >
             {formatMiniAppDateTime(local?.updatedAt ?? null, {
               emptyFallback: "-",
             })}
-          </DocumentInfoRow>
-          <DocumentInfoRow
-            label={EXPLORER_LABELS.documentInfoPendingChangesRow}
-          >
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.documentInfoPendingChangesRow}>
             {pendingChanges}
-          </DocumentInfoRow>
+          </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>
     </MiniAppInfoSection>
@@ -127,13 +127,13 @@ export function ExplorerDocumentInfoContributorsSection(params: {
         <MiniAppInfoTable>
           <tbody>
             {contributors.map((contributor) => (
-              <DocumentInfoRow
+              <MiniAppInfoRow
                 key={contributor.writerKeyFingerprint}
                 label={compactId(contributor.writerKeyFingerprint)}
                 title={`${contributor.writerUserId} · ${contributor.writerKeyFingerprint}`}
               >
                 {formatContributorEdits(contributor)}
-              </DocumentInfoRow>
+              </MiniAppInfoRow>
             ))}
           </tbody>
         </MiniAppInfoTable>
@@ -184,20 +184,20 @@ export function ExplorerDocumentInfoCharacterBlameSection(params: {
       <MiniAppInfoTable>
         <tbody>
           {blame.writers.map((writer) => (
-            <DocumentInfoRow
+            <MiniAppInfoRow
               key={writer.writerKeyFingerprint}
               label={compactId(writer.writerKeyFingerprint)}
               title={`${writer.writerUserId} · ${writer.writerKeyFingerprint}`}
             >
               {formatBlameCharacters(writer)}
-            </DocumentInfoRow>
+            </MiniAppInfoRow>
           ))}
           {blame.unattributedCharacterCount > 0 ? (
-            <DocumentInfoRow
+            <MiniAppInfoRow
               label={EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
             >
               {formatCharacterCount(blame.unattributedCharacterCount)}
-            </DocumentInfoRow>
+            </MiniAppInfoRow>
           ) : null}
         </tbody>
       </MiniAppInfoTable>
