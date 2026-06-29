@@ -35,7 +35,7 @@ export function PaneStatus() {
             {peerUserId ?? "none"}
           </MiniAppInfoRow>
           <MiniAppInfoRow label="session">
-            {authToken ? authToken.slice(0, 32) : "none"}
+            {authToken ? `${authToken.slice(0, 6)}...` : "none"}
           </MiniAppInfoRow>
           <MiniAppInfoRow label="network">{networkLabel}</MiniAppInfoRow>
           <MiniAppInfoRow label="ws">

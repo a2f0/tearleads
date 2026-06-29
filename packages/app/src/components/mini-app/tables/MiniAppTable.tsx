@@ -138,7 +138,7 @@ export function MiniAppInfoRow({
 }) {
   return (
     <tr>
-      <th>{label}</th>
+      <th scope="row">{label}</th>
       <td title={title ?? undefined}>{children}</td>
     </tr>
   );

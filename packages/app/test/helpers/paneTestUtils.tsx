@@ -441,8 +441,8 @@ export function flattenPaneStatusText(paneContent: Element): string {
   }
   return Array.from(rows)
     .map((row) => {
-      const label = row.querySelector("th")?.textContent ?? "";
-      const value = row.querySelector("td")?.textContent ?? "";
+      const label = row.querySelector("th")?.textContent?.trim() ?? "";
+      const value = row.querySelector("td")?.textContent?.trim() ?? "";
       return `${label}: ${value}`;
     })
     .join("\n");
