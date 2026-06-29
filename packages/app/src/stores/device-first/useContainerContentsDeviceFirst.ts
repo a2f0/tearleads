@@ -41,6 +41,17 @@ function reconciliationEventKey(event: unknown, index: number): string {
  * routed into the reconciler. Events are matched per known container, and
  * skipped when their document is already present in that container's cached
  * summaries, so reopening or re-rendering never re-enqueues the same work.
+ *
+ * `linkedContainerIdsByDocumentId` is the local projection's reverse index of
+ * which containers each remote document is already linked to. It suppresses
+ * self-echoes: when this client uploads a document, the server echoes a
+ * `document_update_created` carrying the remote documentId, but the per-container
+ * summary's `documentId` lags behind (it only populates after the document
+ * syncs), so the summary check alone misses it and the reconciliation lane
+ * needlessly re-discovers the container once per uploaded file. The check is
+ * per-container — it only skips a container the document is ALREADY linked to —
+ * so a genuine new link of a known document into a different container is still
+ * reconciled.
  */
 export function takePendingReconciliationEvents(input: {
   events: ReadonlyArray<unknown>;
@@ -49,9 +60,17 @@ export function takePendingReconciliationEvents(input: {
     ReadonlyArray<DocumentSummary>
   >;
   knownContainerIds: ReadonlyArray<string>;
+  linkedContainerIdsByDocumentId?: ReadonlyMap<string, ReadonlyArray<string>>;
   processedEventKeys: Set<string>;
 }): ReadonlyArray<unknown> {
   const knownContainerIds = new Set(input.knownContainerIds);
+  const isDocumentLinkedToContainer = (
+    documentId: string,
+    containerId: string,
+  ): boolean =>
+    input.linkedContainerIdsByDocumentId
+      ?.get(documentId)
+      ?.includes(containerId) ?? false;
   const documentIdSetsByContainerId = new Map<string, ReadonlySet<string>>();
   const getDocumentIdSet = (containerId: string): ReadonlySet<string> => {
     const cached = documentIdSetsByContainerId.get(containerId);
@@ -95,7 +114,11 @@ export function takePendingReconciliationEvents(input: {
             knownContainerIds.has(containerId) &&
             !(
               typeof event.documentId === "string" &&
-              getDocumentIdSet(containerId).has(event.documentId)
+              // Already present in this container's summaries, or — covering the
+              // self-echo window where the summary's documentId still lags —
+              // already linked to this container in the reverse index.
+              (getDocumentIdSet(containerId).has(event.documentId) ||
+                isDocumentLinkedToContainer(event.documentId, containerId))
             ) &&
             !input.processedEventKeys.has(`${eventKey}:${containerId}`),
         ),
@@ -170,11 +193,14 @@ export function useContainerContentsDeviceFirst(input: {
     if (events.length === 0) {
       return;
     }
+    const viewSnapshot = view.getSnapshot();
     const pendingEvents = takePendingReconciliationEvents({
       documentSummariesByContainerId:
-        view.getSnapshot().documentSummariesByContainerId,
+        viewSnapshot.documentSummariesByContainerId,
       events,
       knownContainerIds,
+      linkedContainerIdsByDocumentId:
+        viewSnapshot.linkedContainerIdsByDocumentId,
       processedEventKeys: processedEventKeysRef.current,
     });
     if (pendingEvents.length === 0) {
