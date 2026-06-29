@@ -89,8 +89,12 @@ test("document store preserves a replacement queued during attachment upload", a
   const storedBytes = await runtime.infra.blobStore.readBytes(
     localAttachment.storageKey,
   );
+  const documentId = persistence.getState().document?.documentId;
+  if (!documentId) {
+    throw new Error("Expected a remote document after replacement upload.");
+  }
   expect(attachmentBinds).toHaveLength(2);
-  expect(listDocumentAttachmentsCalls).toHaveLength(1);
+  expect(new Set(listDocumentAttachmentsCalls)).toEqual(new Set([documentId]));
   expect(persistence.getState().pendingAttachments).toHaveLength(0);
   expect(store.getSnapshot().attachments[0]?.name).toBe("replacement.png");
   expect(new TextDecoder().decode(storedBytes ?? new Uint8Array())).toBe(

@@ -22,12 +22,19 @@ async function assertDatabaseReadable(
   await execSql("SELECT count(*) FROM sqlite_master");
 }
 
-function describeBootError(error: unknown): string {
+function describeBootError(
+  error: unknown,
+  visited = new Set<unknown>(),
+): string {
   if (error instanceof Error) {
+    if (visited.has(error)) {
+      return "[Circular Error]";
+    }
+    visited.add(error);
     const cause =
       error.cause === undefined
         ? ""
-        : ` (cause: ${describeBootError(error.cause)})`;
+        : ` (cause: ${describeBootError(error.cause, visited)})`;
     return `${error.name}: ${error.message}${cause}`;
   }
   return String(error);

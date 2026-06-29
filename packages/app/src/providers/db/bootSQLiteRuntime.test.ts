@@ -66,3 +66,26 @@ test("bootSQLiteRuntime logs SQLite client init failures with causes", async () 
     "Failed to initialize SQLite client: Error: worker rejected init (cause: Error: SQLITE_NOTADB)",
   );
 });
+
+test("bootSQLiteRuntime logs circular error causes without overflowing", async () => {
+  const logs: string[] = [];
+  const failure = new Error("key unavailable");
+  failure.cause = failure;
+  const runtime = createRuntime(async () => ({ ok: true }));
+
+  await expect(
+    bootSQLiteRuntime(
+      runtime,
+      "test-db",
+      "memory",
+      async () => {
+        throw failure;
+      },
+      (message) => logs.push(message),
+    ),
+  ).rejects.toBe(failure);
+
+  expect(logs).toContain(
+    "Failed to resolve SQLite cipher key: Error: key unavailable (cause: [Circular Error])",
+  );
+});
