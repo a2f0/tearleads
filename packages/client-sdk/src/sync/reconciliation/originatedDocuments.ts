@@ -54,5 +54,7 @@ export function consumeOriginatedDocument(
 
 /** Drop all originated ids for a scope (reconciler stop / identity teardown). */
 export function clearOriginatedDocuments(scope: DomainScope): void {
-  originatedDocumentIdsByScope.get(scope)?.clear();
+  // Delete the whole entry so the Set can be collected immediately rather than
+  // lingering empty for the lifetime of the DomainScope.
+  originatedDocumentIdsByScope.delete(scope);
 }

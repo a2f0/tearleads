@@ -56,10 +56,6 @@ export async function syncPendingAttachments(
     return { completed: false, nextRecord };
   }
   const remoteDocumentId = currentRecord.documentId;
-  // The server will echo a document_update_created for this write; record the
-  // origination so the reconciler skips re-discovering a delta we already have
-  // locally, rather than cycling its lane once per uploaded file.
-  markOriginatedDocuments(state.runtime.state.domainScope, [remoteDocumentId]);
 
   const activeBindingBySlotId = new Map<string, DocumentAttachmentBinding>();
   let fetchedRemoteBindings = false;
@@ -108,6 +104,13 @@ export async function syncPendingAttachments(
   if (completedSlotIds.size === 0) {
     return { completed: false, nextRecord: currentRecord };
   }
+
+  // Only record the origination once a write actually landed: the server echoes
+  // a document_update_created for it, and this lets the reconciler skip
+  // re-discovering a delta we already have locally rather than cycling its lane
+  // per uploaded file. Marking here (not before the loop) avoids a dangling id
+  // that would suppress the next genuine remote update if every upload failed.
+  markOriginatedDocuments(state.runtime.state.domainScope, [remoteDocumentId]);
 
   if (currentDoc === state.doc) {
     setReadySnapshot(
