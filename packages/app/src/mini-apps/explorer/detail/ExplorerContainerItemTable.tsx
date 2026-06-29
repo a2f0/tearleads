@@ -22,6 +22,7 @@ import {
   MiniAppVirtualTableSpacerRow,
 } from "../../../components/shared/MiniAppVirtual";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
+import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { getViewerRelativeContactDocumentLabel } from "../../../stores/contacts/contactLabels";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
@@ -66,10 +67,11 @@ function ExplorerSortableTableHeader(params: {
 }
 
 function getExplorerItemTableColumns(params: {
+  compact: boolean;
   onSort: (key: ContainerItemSortKey) => void;
   sort: ContainerItemSort;
 }): ReadonlyArray<MiniAppTableColumn> {
-  const { onSort, sort } = params;
+  const { compact, onSort, sort } = params;
   const sortableHeader = (key: ContainerItemSortKey, label: string) => (
     <ExplorerSortableTableHeader
       activeDirection={sort.key === key ? sort.direction : null}
@@ -77,19 +79,36 @@ function getExplorerItemTableColumns(params: {
       onClick={() => onSort(key)}
     />
   );
+  const nameColumn: MiniAppTableColumn = {
+    id: "name",
+    header: EXPLORER_LABELS.itemNameColumn,
+    // On the phone-tier layout the name leads and flexes to fill whatever
+    // space the trimmed columns leave; on wider layouts it keeps a fixed share.
+    width: compact ? undefined : "40%",
+  };
+  const typeColumn: MiniAppTableColumn = {
+    ariaSort: getSortAria(sort, "type"),
+    id: "type",
+    header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
+    width: compact ? "6rem" : "8rem",
+  };
+  const modifiedColumn: MiniAppTableColumn = {
+    ariaSort: getSortAria(sort, "modified"),
+    id: "modified",
+    header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
+    width: compact ? "10rem" : "11rem",
+  };
+
+  // Phone-tier explorer drops the sync-status and date-created columns so the
+  // file name leads and the rest fits without a horizontal scroll. Keep this in
+  // sync with the cells rendered in ExplorerContainerItemTableRow.
+  if (compact) {
+    return [nameColumn, typeColumn, modifiedColumn];
+  }
 
   return [
-    {
-      id: "name",
-      header: EXPLORER_LABELS.itemNameColumn,
-      width: "40%",
-    },
-    {
-      ariaSort: getSortAria(sort, "type"),
-      id: "type",
-      header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
-      width: "8rem",
-    },
+    nameColumn,
+    typeColumn,
     {
       id: "sync",
       header: EXPLORER_LABELS.itemSyncColumn,
@@ -101,12 +120,7 @@ function getExplorerItemTableColumns(params: {
       header: sortableHeader("created", EXPLORER_LABELS.dateCreatedColumn),
       width: "11rem",
     },
-    {
-      ariaSort: getSortAria(sort, "modified"),
-      id: "modified",
-      header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
-      width: "11rem",
-    },
+    modifiedColumn,
   ];
 }
 
@@ -152,6 +166,7 @@ function isExplorerContainerItemContextTarget(
 }
 
 function ExplorerContainerItemTableRow(params: {
+  compact: boolean;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   online: boolean;
@@ -165,6 +180,7 @@ function ExplorerContainerItemTableRow(params: {
   setSelectedId: (id: string | null) => void;
 }) {
   const {
+    compact,
     currentSigningFingerprint,
     currentUserId,
     online,
@@ -215,18 +231,22 @@ function ExplorerContainerItemTableRow(params: {
       <MiniAppTableCell>
         {getExplorerContainerItemTypeLabel(row)}
       </MiniAppTableCell>
-      <MiniAppTableCell>
-        <ExplorerSyncStateBadge
-          online={online}
-          showSynced
-          syncState={row.syncState}
-        />
-      </MiniAppTableCell>
-      <MiniAppTableCell title={row.createdAt ?? undefined}>
-        {formatMiniAppDateTime(row.createdAt, {
-          emptyFallback: EXPLORER_LABELS.unknownDate,
-        })}
-      </MiniAppTableCell>
+      {compact ? null : (
+        <MiniAppTableCell>
+          <ExplorerSyncStateBadge
+            online={online}
+            showSynced
+            syncState={row.syncState}
+          />
+        </MiniAppTableCell>
+      )}
+      {compact ? null : (
+        <MiniAppTableCell title={row.createdAt ?? undefined}>
+          {formatMiniAppDateTime(row.createdAt, {
+            emptyFallback: EXPLORER_LABELS.unknownDate,
+          })}
+        </MiniAppTableCell>
+      )}
       <MiniAppTableCell title={row.updatedAt ?? undefined}>
         {formatMiniAppDateTime(row.updatedAt, {
           emptyFallback: EXPLORER_LABELS.unknownDate,
@@ -249,6 +269,7 @@ function isExplorerItemTableBlankContextTarget(
 
 function ExplorerContainerItemTableBody(params: {
   columns: ReadonlyArray<MiniAppTableColumn>;
+  compact: boolean;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -267,6 +288,7 @@ function ExplorerContainerItemTableBody(params: {
 }) {
   const {
     columns,
+    compact,
     contextTarget,
     currentSigningFingerprint,
     currentUserId,
@@ -297,6 +319,7 @@ function ExplorerContainerItemTableBody(params: {
         rows.map((row) => (
           <ExplorerContainerItemTableRow
             key={getExplorerContainerItemRowKey(row)}
+            compact={compact}
             currentSigningFingerprint={currentSigningFingerprint}
             currentUserId={currentUserId}
             online={online}
@@ -388,9 +411,10 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     sort,
     totalCount,
   } = params;
+  const compact = useRoutedLayoutTier() === "mobile";
   const columns = useMemo(
-    () => getExplorerItemTableColumns({ onSort, sort }),
-    [onSort, sort],
+    () => getExplorerItemTableColumns({ compact, onSort, sort }),
+    [compact, onSort, sort],
   );
 
   return (
@@ -420,6 +444,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       >
         <ExplorerContainerItemTableBody
           columns={columns}
+          compact={compact}
           contextTarget={contextTarget}
           currentSigningFingerprint={currentSigningFingerprint}
           currentUserId={currentUserId}
