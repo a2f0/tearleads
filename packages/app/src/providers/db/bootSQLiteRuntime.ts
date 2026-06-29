@@ -22,6 +22,17 @@ async function assertDatabaseReadable(
   await execSql("SELECT count(*) FROM sqlite_master");
 }
 
+function describeBootError(error: unknown): string {
+  if (error instanceof Error) {
+    const cause =
+      error.cause === undefined
+        ? ""
+        : ` (cause: ${describeBootError(error.cause)})`;
+    return `${error.name}: ${error.message}${cause}`;
+  }
+  return String(error);
+}
+
 // Opens the SQLite database for the given name and applies the cipher key, then
 // reports the mounted database's shape before migrations create/alter tables.
 export async function bootSQLiteRuntime(
@@ -63,20 +74,37 @@ export async function bootSQLiteRuntime(
     }
   }
 
-  const key = await resolveCipherKey();
-  await runtime.client.init({
-    dbName,
-    cipher: "chacha20",
-    key,
-    persistence,
-  });
+  let key: string;
+  try {
+    key = await resolveCipherKey();
+  } catch (error) {
+    log(`Failed to resolve SQLite cipher key: ${describeBootError(error)}`);
+    throw error;
+  }
+
+  try {
+    await runtime.client.init({
+      dbName,
+      cipher: "chacha20",
+      key,
+      persistence,
+    });
+  } catch (error) {
+    log(`Failed to initialize SQLite client: ${describeBootError(error)}`);
+    throw error;
+  }
 
   // Persistent databases decrypt their existing on-disk bytes with the resolved
   // key; verify they are readable before declaring boot a success so a key
   // mismatch is recoverable rather than fatal-later. In-memory databases are
   // freshly created and cannot be key-mismatched, so skip the probe.
   if (persistence !== "memory") {
-    await assertDatabaseReadable(runtime.client);
+    try {
+      await assertDatabaseReadable(runtime.client);
+    } catch (error) {
+      log(`Failed to verify SQLite database: ${describeBootError(error)}`);
+      throw error;
+    }
   }
 
   // Report the mounted database's shape before migrations create/alter tables.
