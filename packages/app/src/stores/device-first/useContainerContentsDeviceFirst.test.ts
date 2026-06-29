@@ -84,6 +84,53 @@ test("reconciliation events skip documents already known in a container", () => 
   ).toEqual([{ ...event, containerIds: ["c-2"] }]);
 });
 
+test("reconciliation events skip documents already linked to the container", () => {
+  // Self-echo of this client's own upload: the document is already linked to the
+  // container in the reverse index, but the container summary's documentId has
+  // not caught up yet, so only the link check can suppress it. Without this the
+  // reconciliation lane cycles once per uploaded file.
+  const processedEventKeys = new Set<string>();
+  const event = {
+    containerIds: ["c-1"],
+    documentId: "doc-1",
+    id: "event-1",
+    type: "document_update_created",
+  };
+
+  expect(
+    takePendingReconciliationEvents({
+      documentSummariesByContainerId: new Map([["c-1", []]]),
+      events: [event],
+      knownContainerIds: ["c-1"],
+      linkedContainerIdsByDocumentId: new Map([["doc-1", ["c-1"]]]),
+      processedEventKeys,
+    }),
+  ).toEqual([]);
+  // Suppressed without consuming a processed key, so the same id stays skippable.
+  expect(processedEventKeys.size).toBe(0);
+});
+
+test("reconciliation events still process a known document linked into a new container", () => {
+  // doc-1 is known and linked to c-1, but the event links it into c-2 — that is
+  // genuine new data for c-2 and must not be suppressed by the link check.
+  const processedEventKeys = new Set<string>();
+  const event = {
+    containerIds: ["c-1", "c-2"],
+    documentId: "doc-1",
+    id: "event-1",
+    type: "document_update_created",
+  };
+
+  expect(
+    takePendingReconciliationEvents({
+      events: [event],
+      knownContainerIds: ["c-1", "c-2"],
+      linkedContainerIdsByDocumentId: new Map([["doc-1", ["c-1"]]]),
+      processedEventKeys,
+    }),
+  ).toEqual([{ ...event, containerIds: ["c-2"] }]);
+});
+
 test("reconciliation events only inspect summaries for touched containers", () => {
   const processedEventKeys = new Set<string>();
   const event = {
