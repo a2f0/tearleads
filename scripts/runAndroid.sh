@@ -1,8 +1,8 @@
 #!/bin/sh
-set -e
+set -eu
 
-SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
-cd "$SCRIPT_DIR/../packages/app-capacitor"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
+cd "$SCRIPT_DIR/../packages/app-capacitor" || exit 1
 
 # The Gradle wrapper jar is binary, so it is gitignored rather than committed.
 # Regenerate it from the mise-pinned Gradle when missing. The version comes from
