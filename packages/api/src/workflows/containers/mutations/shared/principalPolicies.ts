@@ -294,9 +294,9 @@ export async function assertPrincipalPoliciesCurrent(
   }
 
   const referencedPrincipalHeads = options.referencedPrincipalHeads ?? [];
-  return gatherWithExecutor(executor, principalPolicies, (policy) =>
+  return gatherWithExecutor(executor, principalPolicies, async (policy) =>
     principalPolicyNeedsStoredHistory(policy, referencedPrincipalHeads)
       ? loadPrincipalPolicyWithStoredHistory(executor, policy)
-      : Promise.resolve(policy),
+      : policy,
   );
 }
