@@ -52,6 +52,27 @@ function invertBoolean(value: boolean): boolean {
   return !value;
 }
 
+/**
+ * Whether a freshly mounted routed mini-app shows its sidebar.
+ *
+ * On mobile the sidebar is a dismissable overlay (dialog + scrim), so it must
+ * never open on its own when an app loads — it starts collapsed and the user
+ * reveals it from the app bar. The tablet rail honours each app's configured
+ * {@link MiniAppDefinition.initialShowSidebar} default (defaulting to shown).
+ */
+export function initialRoutedSidebarExpanded(
+  tier: RoutedLayoutTier,
+  activeAppId: MiniAppId | null,
+): boolean {
+  if (tier === "mobile") {
+    return false;
+  }
+
+  return activeAppId
+    ? (MINI_APPS[activeAppId].initialShowSidebar ?? true)
+    : true;
+}
+
 function RoutedPaneHome() {
   const { openMiniApp } = useAppNavigationActions();
   const { generateKey, signingKeyPair } = useIdentity();
@@ -227,7 +248,7 @@ function RoutedPaneSurface({
   );
 
   const [sidebarExpanded, setSidebarExpanded] = useState(() =>
-    activeAppId ? (MINI_APPS[activeAppId].initialShowSidebar ?? true) : true,
+    initialRoutedSidebarExpanded(tier, activeAppId),
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
 
