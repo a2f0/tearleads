@@ -235,22 +235,24 @@ test("an unclean worker termination never corrupts page 1 into SQLITE_NOTADB", a
       dbName,
       `crash-probe-${probeIndex}`,
     );
-    const probeDb = openEncrypted(s, probePool, dbName, key);
+    let probeDb: Database | null = null;
     let integrity: unknown;
     let notADb = false;
     try {
+      probeDb = openEncrypted(s, probePool, dbName, key);
       integrity = probeDb.selectValue("PRAGMA integrity_check");
       probeDb.selectValue("SELECT count(*) FROM sqlite_master");
     } catch (error) {
       notADb = isNotADbError(error);
       integrity = error instanceof Error ? error.message : String(error);
+    } finally {
+      closeAndPause(probeDb, probePool.poolUtil);
     }
-    closeAndPause(probeDb, probePool.poolUtil);
 
     expect(notADb).toBe(false);
     expect(integrity).toBe("ok");
   }
-});
+}, 20_000);
 
 test("a second worker cannot install a pool over a directory whose handles are held", async () => {
   installOpfsMemoryShim();

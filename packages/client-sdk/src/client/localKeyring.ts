@@ -858,21 +858,27 @@ function readIndexedDbWrappingKeyRecord(input: {
     throw new Error("IndexedDB wrapping key provider does not match.");
   }
   const createdAt = readString(record, "createdAt");
-  if (input.keyMaterialStorage === "raw-bytes") {
+  const keyMaterial = record.get("keyMaterial");
+  if (input.keyMaterialStorage === "raw-bytes" && keyMaterial !== undefined) {
     return {
       createdAt,
       keyId,
-      keyMaterial: readWrappingKeyMaterial(record.get("keyMaterial")),
+      keyMaterial: readWrappingKeyMaterial(keyMaterial),
       provider,
     };
   }
   const key = record.get("key");
-  if (!isCryptoKey(key)) {
-    throw new Error("IndexedDB wrapping key record is missing its CryptoKey.");
+  if (isCryptoKey(key)) {
+    assertAesGcmWrappingCryptoKey(key);
+    return { createdAt, key, keyId, provider };
   }
-  assertAesGcmWrappingCryptoKey(key);
+  if (input.keyMaterialStorage === "raw-bytes") {
+    throw new Error(
+      "IndexedDB wrapping key record is missing its raw key material or CryptoKey.",
+    );
+  }
 
-  return { createdAt, key, keyId, provider };
+  throw new Error("IndexedDB wrapping key record is missing its CryptoKey.");
 }
 
 function getDefaultIndexedDbFactory(): IDBFactory {

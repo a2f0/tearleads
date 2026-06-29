@@ -10,6 +10,7 @@ import {
 import { useEffect } from "react";
 import { withManualIdentity } from "../test/helpers/manualIdentityProfile";
 import { MockWorker } from "../test/helpers/mockWorker";
+import { createSharedMemoryLocalKeyringFactory } from "../test/helpers/sharedMemoryLocalKeyring";
 import { enableSystemMonitorDeveloperMode } from "../test/helpers/systemMonitorTestPreferences";
 import { App } from "./App";
 import {
@@ -53,6 +54,7 @@ function createTestAppHostConfig({
 }: TestAppHostConfigOptions = {}) {
   return createAppHostConfig({
     apiBaseUrl: "http://localhost:3001",
+    createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
     createSQLiteRuntime: () =>
       createSQLiteRuntime({
         workerConstructor: MockWorker,

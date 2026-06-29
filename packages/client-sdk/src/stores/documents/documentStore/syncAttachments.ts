@@ -1,4 +1,4 @@
-import { markOriginatedDocuments } from "../../../sync/reconciliation";
+import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
 import {
   type MultipartUploadProgressListener,
   uploadDocumentAttachment,
