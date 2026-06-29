@@ -171,6 +171,7 @@ export function useExplorerPanelState(params: {
   const loadBlobInfo = useExplorerBlobInfoLoader({ appData });
   const loadDocumentInfo = useExplorerDocumentInfoLoader({ appData });
   const routeState = useExplorerRoute({
+    loadDocumentSummary,
     nodes: explorer.nodes,
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,
