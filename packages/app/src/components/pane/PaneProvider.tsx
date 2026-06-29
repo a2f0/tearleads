@@ -1,1 +1,1 @@
-export { PaneProvider, SharedPaneProvider } from "./runtime/PaneProvider";
+export { PaneProvider } from "./runtime/PaneProvider";

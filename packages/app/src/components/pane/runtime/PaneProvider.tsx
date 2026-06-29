@@ -38,18 +38,3 @@ export function PaneProvider({
     </AppRuntimeProvider>
   );
 }
-
-export function SharedPaneProvider({
-  autoProvisionEnabled,
-  children,
-  hostConfig,
-}: PaneProviderProps) {
-  return (
-    <AppRuntimeProvider
-      autoProvisionEnabled={autoProvisionEnabled}
-      hostConfig={hostConfig}
-    >
-      {children}
-    </AppRuntimeProvider>
-  );
-}

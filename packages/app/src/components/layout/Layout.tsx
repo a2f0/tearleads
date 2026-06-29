@@ -1,5 +1,5 @@
 import { TearleadsFrame } from "@tearleads/ui";
-import { useCallback, useState } from "react";
+import { type PropsWithChildren, useCallback, useState } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import {
   SystemMonitorDeveloperModeProvider,
@@ -10,6 +10,7 @@ import {
   NavigationModeToggle,
 } from "../../navigation/NavigationModeToggle";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
+import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import "./Layout.css";
 import { Workspace } from "./workspace/Workspace";
 import {
@@ -21,6 +22,23 @@ import {
 
 interface LayoutProps {
   hostConfig: AppHostConfig;
+}
+
+// The shared policy mounts ONE runtime (identity + SQLite db) above every
+// workspace, so all workspaces are the same user on the same local database and
+// switching never tears the db down. The isolated (demo) policy keeps a runtime
+// per workspace (see Workspace), so it passes the workspaces through unwrapped.
+function WorkspaceRuntimeHost({
+  children,
+  hostConfig,
+}: PropsWithChildren<{ hostConfig: AppHostConfig }>) {
+  if (hostConfig.profile.paneRuntimePolicy === "isolated") {
+    return <>{children}</>;
+  }
+
+  return (
+    <AppRuntimeProvider hostConfig={hostConfig}>{children}</AppRuntimeProvider>
+  );
 }
 
 function LayoutInner({ hostConfig }: LayoutProps) {
@@ -80,16 +98,18 @@ function LayoutInner({ hostConfig }: LayoutProps) {
       }
       headerActions={headerActions}
     >
-      {workspaceIds.map((id) => (
-        <Workspace
-          key={id}
-          hostConfig={hostConfig}
-          active={activeWorkspace === id}
-          navigationMode={navigationMode}
-          split={split}
-          workspaceId={id}
-        />
-      ))}
+      <WorkspaceRuntimeHost hostConfig={hostConfig}>
+        {workspaceIds.map((id) => (
+          <Workspace
+            key={id}
+            hostConfig={hostConfig}
+            active={activeWorkspace === id}
+            navigationMode={navigationMode}
+            split={split}
+            workspaceId={id}
+          />
+        ))}
+      </WorkspaceRuntimeHost>
     </TearleadsFrame>
   );
 }
