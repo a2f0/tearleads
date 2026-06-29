@@ -223,6 +223,18 @@ test("does not focus a read-only note", () => {
   expect(document.activeElement).not.toBe(editor);
 });
 
+test("focuses when a ready note becomes writable", () => {
+  const view = renderNoteEditorFields({ ready: true, readOnly: true });
+  const editor = view.getByLabelText(
+    "Notes editor read only",
+  ) as HTMLTextAreaElement;
+  expect(document.activeElement).not.toBe(editor);
+
+  view.rerender(buildNoteEditorFields({ ready: true, readOnly: false }));
+
+  expect(document.activeElement).toBe(editor);
+});
+
 test("preserves the caret when text changes externally before it", () => {
   const view = renderNoteEditorFields({ text: "hello world" });
   const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;

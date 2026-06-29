@@ -238,29 +238,31 @@ function useNoteEditorTextarea(
   };
 }
 
-// Move focus into the editor body the moment a note becomes ready — whether it
-// was just created or loaded from storage — so the user can start typing
-// without first clicking it. Each note is backed by a fresh documents-store
-// snapshot that starts `ready: false` and flips to `true` once loaded, so this
-// false→true edge fires for new notes, opened notes, and in-place switches
-// between notes (the shared editor stays mounted while only the store swaps).
-// The caret lands at the end of any existing text — a no-op for an empty new
-// note — matching the "keep writing" expectation of a notes editor. Read-only
-// notes are skipped: there is nothing to type and grabbing focus would be
-// surprising.
+// Move focus into the editor body the moment a note becomes editable — whether
+// it was just created, loaded from storage, or had write access resolve in — so
+// the user can start typing without first clicking it. Each note is backed by a
+// fresh documents-store snapshot that starts not-ready and flips to ready once
+// loaded, so this focusable false→true edge fires for new notes, opened notes,
+// and in-place switches between notes (the shared editor stays mounted while
+// only the store swaps). The caret lands at the end of any existing text — a
+// no-op for an empty new note — matching the "keep writing" expectation of a
+// notes editor. We track the combined focusable state rather than `ready` alone
+// so a note that loads read-only and later becomes writable still gets focused;
+// a note that never becomes writable is left untouched.
 function useAutoFocusEditorOnReady(
   ref: RefObject<HTMLTextAreaElement | null>,
   ready: boolean,
   readOnly: boolean,
 ) {
-  const wasReadyRef = useRef(false);
+  const wasFocusableRef = useRef(false);
 
   useEffect(() => {
-    const becameReady = ready && !wasReadyRef.current;
-    wasReadyRef.current = ready;
+    const focusable = ready && !readOnly;
+    const becameFocusable = focusable && !wasFocusableRef.current;
+    wasFocusableRef.current = focusable;
 
     const editor = ref.current;
-    if (!editor || !becameReady || readOnly) {
+    if (!editor || !becameFocusable) {
       return;
     }
 
