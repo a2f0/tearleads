@@ -211,7 +211,7 @@ export function useContainerContentsDeviceFirst(input: {
       knownContainerIds,
       service: reconciler,
     });
-  }, [events, knownContainerIds, reconciler]);
+  }, [events, knownContainerIds, reconciler, view]);
 
   return { reconciler, view };
 }
