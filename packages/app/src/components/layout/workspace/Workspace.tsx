@@ -6,7 +6,7 @@ import {
   PaneSideProvider,
 } from "../../pane/DualPaneProvider";
 import { Pane } from "../../pane/Pane";
-import { PaneProvider, SharedPaneProvider } from "../../pane/PaneProvider";
+import { PaneProvider } from "../../pane/PaneProvider";
 import {
   localIdentityNamespaceForWorkspace,
   type WORKSPACE_IDS,
@@ -70,14 +70,6 @@ function PaneSurface({
   );
 }
 
-function WorkspacePane(props: WorkspacePaneProps) {
-  return (
-    <PaneSideProvider side={props.side}>
-      <PaneSurface {...props} />
-    </PaneSideProvider>
-  );
-}
-
 function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
   const { active, hostConfig, navigationMode, split } = props;
   const showPeerDesktopLabels =
@@ -114,39 +106,61 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
 }
 
 // The regular app is single-pane: it never splits, so there is only the left
-// pane. SharedPaneProvider keeps the pane on the workspace runtime (and its
-// persistence namespace) directly, without the per-side `.left`/`.right` split
-// that the isolated peer panes use.
-function SingleWorkspacePane(props: WorkspacePanesProps) {
-  const { active, hostConfig, navigationMode } = props;
+// pane. In the shared policy every workspace is the *same* user looking at the
+// same local data, so the runtime (identity + SQLite db) is mounted once above
+// all workspaces by WorkspaceRuntimeHost (see Layout); each workspace here is
+// just an alternate view that reuses it. That keeps both workspaces on one
+// identity/db and means switching never tears the runtime down — it only flips
+// which view is visible. Per-pane view state (open windows, route) lives in Pane.
+function SharedWorkspaceView(props: WorkspacePanesProps) {
+  const { active, navigationMode } = props;
 
   return (
-    <SharedPaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
-      <WorkspacePane
+    <PaneSideProvider side="left">
+      <PaneSurface
         active={active}
         navigationMode={navigationMode}
         side="left"
         split={false}
       />
-    </SharedPaneProvider>
+    </PaneSideProvider>
   );
 }
 
 export function Workspace(props: WorkspaceProps) {
   const { active, hostConfig, navigationMode, split, workspaceId } = props;
+  // The isolated (demo) policy keeps a runtime per workspace, so it still scopes
+  // the namespace by workspace id. The shared policy reuses the hoisted runtime
+  // and must NOT re-scope, or it would mint a second identity/db per workspace.
+  const isolated = hostConfig.profile.paneRuntimePolicy === "isolated";
   const workspaceHostConfig = useMemo(() => {
-    return createWorkspaceHostConfig({ hostConfig, workspaceId });
-  }, [hostConfig, workspaceId]);
-  const WorkspacePanes =
-    workspaceHostConfig.profile.paneRuntimePolicy === "isolated"
-      ? IsolatedWorkspacePanes
-      : SingleWorkspacePane;
+    return isolated
+      ? createWorkspaceHostConfig({ hostConfig, workspaceId })
+      : hostConfig;
+  }, [hostConfig, isolated, workspaceId]);
+
+  if (!isolated) {
+    return (
+      <DualPaneProvider
+        peerUserIdsEnabled={
+          workspaceHostConfig.profile.features.panePeerUserIds
+        }
+      >
+        <SharedWorkspaceView
+          active={active}
+          hostConfig={workspaceHostConfig}
+          navigationMode={navigationMode}
+          split={split}
+        />
+      </DualPaneProvider>
+    );
+  }
 
   return (
     <DualPaneProvider
       peerUserIdsEnabled={workspaceHostConfig.profile.features.panePeerUserIds}
     >
-      <WorkspacePanes
+      <IsolatedWorkspacePanes
         active={active}
         hostConfig={workspaceHostConfig}
         navigationMode={navigationMode}
