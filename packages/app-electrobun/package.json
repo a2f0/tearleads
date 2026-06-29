@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "sh scripts/runElectronbun.sh dev",
+    "dev:reset": "sh scripts/runElectronbun.sh dev --reset",
     "dev:watch": "sh scripts/runElectronbun.sh dev --watch",
     "build": "sh scripts/buildElectrobun.sh",
     "build:dev": "sh scripts/buildElectrobun.sh --env dev"
@@ -13,7 +14,7 @@
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "react-dom": "catalog:react",
-    "electrobun": "latest"
+    "electrobun": "1.18.1"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
