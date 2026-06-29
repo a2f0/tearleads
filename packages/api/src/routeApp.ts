@@ -24,7 +24,13 @@ interface ApiCorsEnv {
   readonly NODE_ENV?: string | undefined;
 }
 
-const API_CORS_ALLOW_HEADERS = ["Authorization", "Content-Type"];
+const API_CORS_ALLOW_HEADERS = [
+  "Authorization",
+  "Content-Type",
+  "X-Tearleads-Blob-Part-Byte-Length",
+  "X-Tearleads-Blob-Part-Sha256",
+  "X-Tearleads-Blob-Upload-Id",
+];
 const API_CORS_ALLOW_METHODS = [
   "DELETE",
   "GET",

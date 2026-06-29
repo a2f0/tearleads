@@ -31,6 +31,32 @@ describe("createRouteApp", () => {
     );
   });
 
+  test("allows the multipart blob part headers in CORS preflight", async () => {
+    const app = createRouteApp(
+      {},
+      { corsOrigins: ["https://app.example.test"] },
+    );
+
+    const response = await app.request(
+      "/blobs/stages/multipart/35069150-b8c1-4052-8003-9780f080aa08/parts/2/bytes",
+      {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://app.example.test",
+          "Access-Control-Request-Method": "PUT",
+          "Access-Control-Request-Headers":
+            "x-tearleads-blob-part-byte-length, x-tearleads-blob-part-sha256, x-tearleads-blob-upload-id",
+        },
+      },
+    );
+
+    const allowHeaders =
+      response.headers.get("Access-Control-Allow-Headers")?.toLowerCase() ?? "";
+    expect(allowHeaders).toContain("x-tearleads-blob-part-byte-length");
+    expect(allowHeaders).toContain("x-tearleads-blob-part-sha256");
+    expect(allowHeaders).toContain("x-tearleads-blob-upload-id");
+  });
+
   test("does not emit CORS allow-origin for unconfigured origins", async () => {
     const app = createRouteApp(
       {},
