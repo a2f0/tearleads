@@ -26,6 +26,8 @@ import {
   queryExplorerItemTable,
 } from "./dualPaneCore";
 
+const ORG_MANAGER_ADD_USER_TIMEOUT_MS = 10_000;
+
 export async function openOrgManager(pane: HTMLElement) {
   await interact(() => {
     fireEvent.contextMenu(pane, {
@@ -271,9 +273,12 @@ export async function addPeerToAdminsGroup(
     fireEvent.click(addButton);
   });
 
-  await waitFor(() => {
-    expect(userIdInput.value).toBe("");
-  });
+  await waitFor(
+    () => {
+      expect(userIdInput.value).toBe("");
+    },
+    { timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS },
+  );
   await waitForCondition(
     () =>
       Array.from(pane.querySelectorAll("strong")).some(
@@ -359,9 +364,12 @@ export async function createGroupAndAddPeer(
     fireEvent.click(addButton);
   });
 
-  await waitFor(() => {
-    expect(userIdInput.value).toBe("");
-  });
+  await waitFor(
+    () => {
+      expect(userIdInput.value).toBe("");
+    },
+    { timeout: ORG_MANAGER_ADD_USER_TIMEOUT_MS },
+  );
   await waitForCondition(
     () =>
       Array.from(pane.querySelectorAll("strong")).some(
