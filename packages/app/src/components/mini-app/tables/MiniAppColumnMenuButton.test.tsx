@@ -45,3 +45,33 @@ test("column menu shows on/off state for each toggleable column", () => {
 
   expect(toggledColumns).toEqual(["created"]);
 });
+
+test("column menu button does not bubble clicks to parent headers", () => {
+  let parentClickCount = 0;
+  const view = render(
+    <table>
+      <thead>
+        <tr>
+          <th
+            onClick={() => parentClickCount++}
+            onKeyDown={() => undefined}
+            scope="col"
+            tabIndex={0}
+          >
+            <MiniAppColumnMenuButton
+              ariaLabel="Columns"
+              hiddenColumns={new Set<string>()}
+              options={[{ id: "type", label: "Type" }]}
+              stateLabels={{ off: "Off", on: "On" }}
+              toggleColumn={() => undefined}
+            />
+          </th>
+        </tr>
+      </thead>
+    </table>,
+  );
+
+  fireEvent.click(view.getByRole("button", { name: "Columns" }));
+
+  expect(parentClickCount).toBe(0);
+});

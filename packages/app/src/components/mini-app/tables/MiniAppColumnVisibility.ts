@@ -86,13 +86,40 @@ export function saveMiniAppHiddenColumns<ColumnId extends string>({
 export function useMiniAppColumnVisibility<ColumnId extends string>(
   options: MiniAppColumnVisibilityStorageOptions<ColumnId>,
 ): MiniAppColumnVisibility<ColumnId> {
+  const { defaultHiddenColumnIds, storageKey, toggleableColumnIds } = options;
+  const [loadedStorageKey, setLoadedStorageKey] = useState(storageKey);
   const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<ColumnId>>(
-    () => loadMiniAppHiddenColumns(options),
+    () =>
+      loadMiniAppHiddenColumns({
+        defaultHiddenColumnIds,
+        storageKey,
+        toggleableColumnIds,
+      }),
   );
   const toggleableColumnIdSet = useMemo(
-    () => new Set(options.toggleableColumnIds),
-    [options.toggleableColumnIds],
+    () => new Set(toggleableColumnIds),
+    [toggleableColumnIds],
   );
+
+  useEffect(() => {
+    if (loadedStorageKey === storageKey) {
+      return;
+    }
+
+    setHiddenColumns(
+      loadMiniAppHiddenColumns({
+        defaultHiddenColumnIds,
+        storageKey,
+        toggleableColumnIds,
+      }),
+    );
+    setLoadedStorageKey(storageKey);
+  }, [
+    defaultHiddenColumnIds,
+    loadedStorageKey,
+    storageKey,
+    toggleableColumnIds,
+  ]);
 
   const toggleColumn = useCallback(
     (id: ColumnId) => {
@@ -118,11 +145,14 @@ export function useMiniAppColumnVisibility<ColumnId extends string>(
       isInitialRenderRef.current = false;
       return;
     }
+    if (loadedStorageKey !== storageKey) {
+      return;
+    }
     saveMiniAppHiddenColumns({
       hiddenColumns,
-      storageKey: options.storageKey,
+      storageKey,
     });
-  }, [hiddenColumns, options.storageKey]);
+  }, [hiddenColumns, loadedStorageKey, storageKey]);
 
   return { hiddenColumns, toggleColumn };
 }

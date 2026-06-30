@@ -32,6 +32,7 @@ export function MiniAppColumnMenuButton<ColumnId extends string>({
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
   const openMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
     setMenuPosition({ x: rect.left, y: rect.bottom });
   };
