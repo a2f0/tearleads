@@ -203,7 +203,7 @@
     },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,
-      "bytes": 38946
+      "bytes": 39373
     },
     "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts": {
       "lines": 1308,
@@ -214,8 +214,8 @@
       "bytes": 23123
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 649,
-      "bytes": 25251
+      "lines": 727,
+      "bytes": 28003
     },
     "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
       "lines": 544,

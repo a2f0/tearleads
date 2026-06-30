@@ -22,6 +22,7 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { readCanonicalJson, readCanonicalRecord } from "./keyingCanonicalJson";
+import { enforceAccessManifestCheckpoints } from "./keyingProjectionVerification/accessManifestCheckpointEnforcement";
 import {
   filterUncachedPrincipalPolicyReferences,
   principalPolicyBundleStates,
@@ -38,6 +39,10 @@ import {
   readRecordString,
   readRecordValue,
 } from "./keyingProjectionVerification/readers";
+import {
+  loadPrincipalPolicyCheckpoint,
+  savePrincipalPolicyCheckpoint,
+} from "./persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "./persistence/principalPolicyPersistence";
 import {
   verifyOrganizationAdminSignerUserIds,
@@ -204,6 +209,11 @@ async function verifyReferencedPrincipalPolicy(input: {
     label: `Principal policy ${referenceLabel}`,
     resolveUserKey: input.resolveUserKey,
   });
+  const localCheckpoint = await loadPrincipalPolicyCheckpoint(
+    input.execSql,
+    input.reference.principalType,
+    input.reference.principalId,
+  );
   const verified =
     await verifyPrincipalPolicyBundleWithExternalOrganizationAdmins({
       bundle,
@@ -214,7 +224,7 @@ async function verifyReferencedPrincipalPolicy(input: {
           organizationId: input.organizationId,
           resolveUserKey: input.resolveUserKey,
         }),
-      localCheckpoint: null,
+      localCheckpoint,
       signerPublicKeys,
     });
   if (!verified.ok) {
@@ -223,6 +233,15 @@ async function verifyReferencedPrincipalPolicy(input: {
     );
   }
 
+  // Advance the anti-rollback pin only after the bundle verifies cleanly. The
+  // bundle carries its own state chain, so the crypto layer has already
+  // confirmed it extends `localCheckpoint` (or hard-failed on rollback /
+  // equivocation / stale predecessor).
+  await savePrincipalPolicyCheckpoint(
+    input.execSql,
+    verified.value.checkpoint,
+    new Date().toISOString(),
+  );
   input.principalPolicyCache.set(cacheKey, verified.value);
   return verified.value;
 }
@@ -801,6 +820,14 @@ export async function verifyContainerWriterProjection(input: {
     verifiedKekStates.push(verifiedKekState);
   }
 
+  // Every path element is its container's head epoch; KEK histories are older
+  // epochs that serve as predecessors. Enforce + advance the anti-rollback
+  // pins before returning so a rolled-back/equivocal path refuses key unwrap.
+  await enforceAccessManifestCheckpoints({
+    execSql: input.execSql,
+    verifiedManifests: [...verifiedByHash.values()],
+  });
+
   return verifiedPath;
 }
 
@@ -1116,7 +1143,7 @@ export async function verifyDocumentWriterProjection(input: {
     });
   }
 
-  return verifyDocumentManifestBundle({
+  const headManifest = await verifyDocumentManifestBundle({
     bundle: input.projection.documentManifest,
     bundlesByHash,
     containerPathByManifestHash,
@@ -1126,4 +1153,14 @@ export async function verifyDocumentWriterProjection(input: {
     resolveUserKey: input.resolveUserKey,
     verifiedByHash,
   });
+
+  // Enforce + advance the pin for the document only. The authorizing container
+  // paths are referenced at the epoch the document was bound to, which is not
+  // necessarily the container's head, so they are not checkpointed here.
+  await enforceAccessManifestCheckpoints({
+    execSql: input.execSql,
+    verifiedManifests: [...verifiedByHash.values()],
+  });
+
+  return headManifest;
 }

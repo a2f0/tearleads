@@ -155,6 +155,76 @@ export const principalPolicies = sqliteTable(
 );
 
 /**
+ * Anti-rollback pin for verified access manifests.
+ *
+ * Records the highest access-manifest epoch this client has verified for each
+ * object, so a later projection that serves an older epoch (rollback) or a
+ * conflicting manifest at the same epoch (equivocation) is detected before any
+ * key is unwrapped. Updated monotonically after a projection verifies cleanly.
+ *
+ * Columns:
+ * - `objectKind`: Access object kind (`container`, `document`, ...).
+ * - `organizationId`: Organization boundary that owns the object.
+ * - `objectId`: Stable object id.
+ * - `epoch`: Highest verified manifest epoch.
+ * - `manifestHash`: Manifest hash pinned at that epoch.
+ * - `updatedAt`: Local timestamp for the pin.
+ *
+ * Indexes:
+ * - `(objectKind, organizationId, objectId)` is the primary key and gives one
+ *   pin per object.
+ */
+export const accessManifestCheckpoints = sqliteTable(
+  "access_manifest_checkpoints",
+  {
+    objectKind: text("object_kind").notNull(),
+    organizationId: text("organization_id").notNull(),
+    objectId: text("object_id").notNull(),
+    epoch: integer("epoch").notNull(),
+    manifestHash: text("manifest_hash").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.objectKind, table.organizationId, table.objectId],
+    }),
+  ],
+);
+
+/**
+ * Anti-rollback pin for verified principal policies.
+ *
+ * Records the highest principal-policy state version this client has verified
+ * for each managed principal, so a later bundle that regresses (rollback) or
+ * conflicts at the same version (equivocation) is detected before its grants
+ * are trusted. Updated monotonically after a projection verifies cleanly.
+ *
+ * Columns:
+ * - `principalType`: Managed principal kind (`group`, `organization`).
+ * - `principalId`: Stable principal id.
+ * - `version`: Highest verified state version.
+ * - `stateHash`: State hash pinned at that version.
+ * - `updatedAt`: Local timestamp for the pin.
+ *
+ * Indexes:
+ * - `(principalType, principalId)` is the primary key and gives one pin per
+ *   managed principal.
+ */
+export const principalPolicyCheckpoints = sqliteTable(
+  "principal_policy_checkpoints",
+  {
+    principalType: text("principal_type").notNull(),
+    principalId: text("principal_id").notNull(),
+    version: integer("version").notNull(),
+    stateHash: text("state_hash").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.principalType, table.principalId] }),
+  ],
+);
+
+/**
  * Materialized local container tree.
  *
  * Container rows describe the tree and its encrypted metadata document. Display
@@ -588,6 +658,11 @@ export const principalPolicyTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(principalPolicies),
 ];
 
+export const keyingCheckpointTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(accessManifestCheckpoints),
+  defineSqlTableSchema(principalPolicyCheckpoints),
+];
+
 export const containerTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containers),
   defineSqlTableSchema(containerProjection),
@@ -622,6 +697,7 @@ export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
 export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentTables,
   ...principalPolicyTables,
+  ...keyingCheckpointTables,
   ...containerTables,
   ...documentContainerProjectionTables,
   ...documentMoveIntentTables,
@@ -635,6 +711,8 @@ export const clientSQLiteSchema = {
   documents,
   documentPendingUpdates,
   principalPolicies,
+  accessManifestCheckpoints,
+  principalPolicyCheckpoints,
   containers,
   containerProjection,
   documentContainerProjection,
