@@ -319,12 +319,16 @@ export interface DocumentBlameRange {
  * read-only "blame" view: walk the prose code points in order, resolve each to
  * its writer (via the same per-peer index as {@link summarizeCharacterBlame}),
  * and merge each maximal run of code points sharing a `(writerUserId,
- * authorityKind)` into one range carrying its joined text. Adjacent code points
- * by the same writer but with different authority (direct vs re-asserted) split
- * into separate runs so the view can flag the distinction; a run no segment
- * covers gets `writerUserId: null` (a locally authored span the attribution feed
- * has not delivered yet). Each run is homogeneous, so "who wrote this phrase" is
- * exact down to the character — finer than the per-line or per-writer rollups.
+ * writerKeyFingerprint, authorityKind)` into one range carrying its joined text.
+ * The fingerprint is part of the key — a single user can sign with more than one
+ * key (multiple devices, a rotation), and the run's color/tooltip resolve from
+ * the fingerprint, so two adjacent runs by the same user but different keys must
+ * stay separate to attribute each precisely. Adjacent code points by the same
+ * writer but with different authority (direct vs re-asserted) likewise split so
+ * the view can flag the distinction; a run no segment covers gets
+ * `writerUserId: null` (a locally authored span the attribution feed has not
+ * delivered yet). Each run is homogeneous, so "who wrote this phrase" is exact
+ * down to the character — finer than the per-line or per-writer rollups.
  */
 export function summarizeBlameRanges(
   source: {
@@ -344,11 +348,13 @@ export function summarizeBlameRanges(
     const opId = opIds[index];
     const attribution = opId ? resolveOpId(opId.peerId, opId.counter) : null;
     const writerUserId = attribution?.writerUserId ?? null;
+    const writerKeyFingerprint = attribution?.writerKeyFingerprint ?? null;
     const authorityKind = attribution?.authorityKind ?? null;
     const codePoint = codePoints[index] ?? "";
     if (
       current &&
       current.writerUserId === writerUserId &&
+      current.writerKeyFingerprint === writerKeyFingerprint &&
       current.authorityKind === authorityKind
     ) {
       current.endIndex = index + 1;
@@ -360,7 +366,7 @@ export function summarizeBlameRanges(
       endIndex: index + 1,
       text: codePoint,
       writerUserId,
-      writerKeyFingerprint: attribution?.writerKeyFingerprint ?? null,
+      writerKeyFingerprint,
       authorityKind,
     };
     ranges.push(current);

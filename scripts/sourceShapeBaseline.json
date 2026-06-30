@@ -201,6 +201,10 @@
       "lines": 1041,
       "bytes": 36102
     },
+    "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
+      "lines": 512,
+      "bytes": 12946
+    },
     "packages/client-sdk/src/data/keyingProjectionVerification.ts": {
       "lines": 1166,
       "bytes": 39373

@@ -473,6 +473,40 @@ test("summarizeBlameRanges splits the same writer across direct and re-asserted 
   ]);
 });
 
+test("summarizeBlameRanges splits the same user across distinct signing keys", () => {
+  // One writerUserId, two signing keys (two devices / a rotation). The run's
+  // color and tooltip resolve from the fingerprint, so adjacent runs by
+  // different keys of the same user must not merge into one mis-attributed run.
+  const ranges = summarizeBlameRanges(
+    blameSource([
+      ["a", "1", 0],
+      ["b", "2", 0],
+    ]),
+    [
+      segment({
+        peerId: "1",
+        startCounter: 0,
+        endCounter: 1,
+        writerUserId: "alice",
+        writerKeyFingerprint: "fp-key-1",
+      }),
+      segment({
+        peerId: "2",
+        startCounter: 0,
+        endCounter: 1,
+        writerUserId: "alice",
+        writerKeyFingerprint: "fp-key-2",
+      }),
+    ],
+  );
+  expect(
+    ranges.map((range) => [range.text, range.writerKeyFingerprint]),
+  ).toEqual([
+    ["a", "fp-key-1"],
+    ["b", "fp-key-2"],
+  ]);
+});
+
 test("summarizeBlameRanges returns no runs for empty prose", () => {
   expect(summarizeBlameRanges(blameSource([]), [])).toEqual([]);
 });
