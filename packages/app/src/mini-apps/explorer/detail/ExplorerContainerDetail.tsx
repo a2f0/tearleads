@@ -152,7 +152,6 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
     <MiniAppPanel
       className="explorer-detail explorer-detail--container"
       key={selectedNode.id}
-      variant="framed"
     >
       <ExplorerContainerDetailHeader
         columnVisibility={columnVisibility}

@@ -406,7 +406,6 @@ export function ExplorerDocumentInfoPanel(params: Props) {
       className="explorer-detail explorer-detail--document-info"
       key={params.localId}
       scroll
-      variant="framed"
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>

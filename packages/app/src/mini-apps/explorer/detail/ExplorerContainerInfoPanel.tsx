@@ -321,7 +321,6 @@ export function ExplorerContainerInfoPanel(params: Props) {
       key={params.containerId}
       onSubmit={handleShareWithGroup}
       scroll
-      variant="framed"
     >
       <ExplorerContainerInfoHeader
         containerId={params.containerId}

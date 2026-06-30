@@ -7,6 +7,7 @@ import {
   TOGGLEABLE_COLUMN_IDS,
 } from "./explorerItemColumnIds";
 import type { ExplorerColumnVisibility } from "./useExplorerColumnVisibility";
+import "./ExplorerColumnsMenuButton.css";
 
 function getExplorerColumnLabel(id: ExplorerItemColumnId): string {
   switch (id) {
@@ -64,10 +65,18 @@ export function ExplorerColumnsMenuButton(params: ExplorerColumnVisibility) {
               <label className="explorer-columns-menu-item" key={id}>
                 <input
                   checked={!hiddenColumns.has(id)}
+                  className="explorer-columns-menu-checkbox"
                   onChange={() => toggleColumn(id)}
                   type="checkbox"
                 />
-                {getExplorerColumnLabel(id)}
+                <span className="explorer-columns-menu-label">
+                  {getExplorerColumnLabel(id)}
+                </span>
+                <span className="explorer-columns-menu-state">
+                  {hiddenColumns.has(id)
+                    ? EXPLORER_LABELS.columnsMenuStateOff
+                    : EXPLORER_LABELS.columnsMenuStateOn}
+                </span>
               </label>
             ))}
           </fieldset>
