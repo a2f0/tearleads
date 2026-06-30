@@ -298,3 +298,82 @@ export function summarizeCharacterBlame(
     unattributedCharacterCount,
   };
 }
+
+export interface DocumentBlameRange {
+  /** Code-point start index (inclusive) of this run in the current text. */
+  startIndex: number;
+  /** Code-point end index (exclusive). */
+  endIndex: number;
+  /** The run's prose — the code points `[startIndex, endIndex)` joined. */
+  text: string;
+  /** Writer credited with the whole run, or null when no segment covers it. */
+  writerUserId: string | null;
+  /** null when the run is unattributed. */
+  writerKeyFingerprint: string | null;
+  /** "baseline" marks a run credited only via a rotate_baseline re-assertion; null when unattributed. */
+  authorityKind: "direct" | "baseline" | null;
+}
+
+/**
+ * Coalesce the document's per-character blame into contiguous runs for the
+ * read-only "blame" view: walk the prose code points in order, resolve each to
+ * its writer (via the same per-peer index as {@link summarizeCharacterBlame}),
+ * and merge each maximal run of code points sharing a `(writerUserId,
+ * writerKeyFingerprint, authorityKind)` into one range carrying its joined text.
+ * The fingerprint is part of the key — a single user can sign with more than one
+ * key (multiple devices, a rotation), and the run's color/tooltip resolve from
+ * the fingerprint, so two adjacent runs by the same user but different keys must
+ * stay separate to attribute each precisely. Adjacent code points by the same
+ * writer but with different authority (direct vs re-asserted) likewise split so
+ * the view can flag the distinction; a run no segment covers gets
+ * `writerUserId: null` (a locally authored span the attribution feed has not
+ * delivered yet). Each run is homogeneous, so "who wrote this phrase" is exact
+ * down to the character — finer than the per-line or per-writer rollups.
+ */
+export function summarizeBlameRanges(
+  source: {
+    readonly codePoints: readonly string[];
+    readonly opIds: ReadonlyArray<{
+      readonly peerId: string;
+      readonly counter: number;
+    }>;
+  },
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentBlameRange[] {
+  const { codePoints, opIds } = source;
+  const resolveOpId = createOpIdResolver(segments);
+  const ranges: DocumentBlameRange[] = [];
+  let current: DocumentBlameRange | null = null;
+  for (let index = 0; index < codePoints.length; index += 1) {
+    const opId = opIds[index];
+    const attribution = opId ? resolveOpId(opId.peerId, opId.counter) : null;
+    const writerUserId = attribution?.writerUserId ?? null;
+    const writerKeyFingerprint = attribution?.writerKeyFingerprint ?? null;
+    const authorityKind = attribution?.authorityKind ?? null;
+    if (
+      current &&
+      current.writerUserId === writerUserId &&
+      current.writerKeyFingerprint === writerKeyFingerprint &&
+      current.authorityKind === authorityKind
+    ) {
+      current.endIndex = index + 1;
+      continue;
+    }
+    current = {
+      startIndex: index,
+      endIndex: index + 1,
+      text: "",
+      writerUserId,
+      writerKeyFingerprint,
+      authorityKind,
+    };
+    ranges.push(current);
+  }
+  // Fill each run's prose in one slice from the source code points — derived
+  // from the run's indices rather than accumulated per character, so total work
+  // stays O(n) regardless of how long a single run grows.
+  for (const range of ranges) {
+    range.text = codePoints.slice(range.startIndex, range.endIndex).join("");
+  }
+  return ranges;
+}

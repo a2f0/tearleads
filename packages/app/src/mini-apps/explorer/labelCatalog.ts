@@ -140,6 +140,9 @@ export const EXPLORER_LABELS = {
   documentInfoBundleContentKey: "content key",
   documentInfoBundleDocumentKek: "document KEK",
   documentInfoBundleManifest: "manifest",
+  documentInfoBlameHeading: "Blame",
+  documentInfoBlameUnattributedTitle:
+    "Not yet attributed (local or unsynced edit)",
   documentInfoBundleStateRow: "Runtime Bundles",
   documentInfoCharacterBlameCharacterPlural: "characters",
   documentInfoCharacterBlameCharacterSingular: "character",

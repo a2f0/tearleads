@@ -3,6 +3,7 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import type { CSSProperties } from "react";
 import {
   MiniAppInfoSection,
   MiniAppStatus,
@@ -18,6 +19,7 @@ import {
   getExplorerDocumentInfoPendingChangesLabel,
 } from "../labels";
 import { compactId } from "./compactId";
+import "./ExplorerDocumentInfoBlame.css";
 
 type DocumentInfoAttributionSegment = NonNullable<
   DocumentInfo["remoteInfo"]
@@ -201,6 +203,131 @@ export function ExplorerDocumentInfoCharacterBlameSection(params: {
           ) : null}
         </tbody>
       </MiniAppInfoTable>
+    </MiniAppInfoSection>
+  );
+}
+
+type DocumentInfoBlameRange = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["blameRanges"];
+
+// Deterministic hue per signing identity so the same writer keeps one color
+// across the prose and the legend (and across renders). A plain rolling hash of
+// the fingerprint is enough — we only need stable, well-spread hues, not crypto.
+function blameHue(writerKeyFingerprint: string): number {
+  let hash = 0;
+  for (let index = 0; index < writerKeyFingerprint.length; index += 1) {
+    hash = (hash * 31 + writerKeyFingerprint.charCodeAt(index)) | 0;
+  }
+  return ((hash % 360) + 360) % 360;
+}
+
+// Translucent fill + underline so the tint reads on either theme without
+// fighting the editor text color.
+function blameRunStyle(writerKeyFingerprint: string): CSSProperties {
+  const hue = blameHue(writerKeyFingerprint);
+  return {
+    backgroundColor: `hsla(${hue}, 70%, 55%, 0.28)`,
+    borderBottom: `2px solid hsla(${hue}, 70%, 50%, 0.85)`,
+  };
+}
+
+function blameSwatchStyle(writerKeyFingerprint: string): CSSProperties {
+  return {
+    backgroundColor: `hsla(${blameHue(writerKeyFingerprint)}, 70%, 50%, 0.85)`,
+  };
+}
+
+function blameRunTitle(
+  range: NonNullable<DocumentInfoBlameRange>[number],
+): string {
+  if (!range.writerUserId || !range.writerKeyFingerprint) {
+    return EXPLORER_LABELS.documentInfoBlameUnattributedTitle;
+  }
+  const identity = `${range.writerUserId} · ${range.writerKeyFingerprint}`;
+  // A run credited only via a rotate_baseline re-assertion is the first signed
+  // uploader of that span, not a proven author — carry the same caveat the
+  // Contributors/Character Blame rows show.
+  return range.authorityKind === "baseline"
+    ? `${identity} ${EXPLORER_LABELS.documentInfoContributorReasserted}`
+    : identity;
+}
+
+export function ExplorerDocumentInfoBlameSection(params: {
+  documentInfo: DocumentInfo | null;
+}) {
+  const ranges = params.documentInfo?.remoteInfo?.blameRanges;
+  // The current prose tinted by who wrote each run — the per-range counterpart to
+  // the per-writer Character Blame rollup. Hidden when ranges could not be
+  // computed (no local snapshot, too large to scan, or unreadable) or the
+  // document is empty; an all-unattributed document keeps the section (every run
+  // renders neutral), surfacing that the attribution feed has not caught up.
+  if (!ranges || ranges.length === 0) {
+    return null;
+  }
+  const legend: Array<{ writerKeyFingerprint: string; writerUserId: string }> =
+    [];
+  const seenWriters = new Set<string>();
+  let hasUnattributed = false;
+  for (const range of ranges) {
+    if (!range.writerKeyFingerprint || !range.writerUserId) {
+      hasUnattributed = true;
+      continue;
+    }
+    if (!seenWriters.has(range.writerKeyFingerprint)) {
+      seenWriters.add(range.writerKeyFingerprint);
+      legend.push({
+        writerKeyFingerprint: range.writerKeyFingerprint,
+        writerUserId: range.writerUserId,
+      });
+    }
+  }
+  return (
+    <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoBlameHeading}>
+      <div className="explorer-blame-prose">
+        {ranges.map((range) => (
+          <span
+            className={
+              range.writerKeyFingerprint
+                ? "explorer-blame-run"
+                : "explorer-blame-run explorer-blame-run--unattributed"
+            }
+            key={`${range.startIndex}-${range.endIndex}`}
+            style={
+              range.writerKeyFingerprint
+                ? blameRunStyle(range.writerKeyFingerprint)
+                : undefined
+            }
+            title={blameRunTitle(range)}
+          >
+            {range.text}
+          </span>
+        ))}
+      </div>
+      <ul className="explorer-blame-legend">
+        {legend.map((writer) => (
+          <li
+            className="explorer-blame-legend-item"
+            key={writer.writerKeyFingerprint}
+            title={`${writer.writerUserId} · ${writer.writerKeyFingerprint}`}
+          >
+            <span
+              className="explorer-blame-swatch"
+              style={blameSwatchStyle(writer.writerKeyFingerprint)}
+            />
+            {compactId(writer.writerKeyFingerprint)}
+          </li>
+        ))}
+        {hasUnattributed ? (
+          <li
+            className="explorer-blame-legend-item"
+            title={EXPLORER_LABELS.documentInfoBlameUnattributedTitle}
+          >
+            <span className="explorer-blame-swatch explorer-blame-swatch--unattributed" />
+            {EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
+          </li>
+        ) : null}
+      </ul>
     </MiniAppInfoSection>
   );
 }

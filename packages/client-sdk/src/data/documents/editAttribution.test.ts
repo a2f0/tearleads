@@ -3,10 +3,21 @@ import {
   type DocumentEditAttributionSegment,
   listDocumentAttributionSegments,
   resolveOpIdAttribution,
+  summarizeBlameRanges,
   summarizeCharacterBlame,
   summarizeDocumentContributors,
   writerByPeerId,
 } from "./editAttribution";
+
+function blameSource(pairs: ReadonlyArray<[string, string, number]>): {
+  codePoints: string[];
+  opIds: Array<{ peerId: string; counter: number }>;
+} {
+  return {
+    codePoints: pairs.map(([codePoint]) => codePoint),
+    opIds: pairs.map(([, peerId, counter]) => ({ peerId, counter })),
+  };
+}
 
 function segment(
   overrides: Partial<DocumentEditAttributionSegment> &
@@ -376,4 +387,126 @@ test("summarizeCharacterBlame returns an empty summary for empty input", () => {
     totalCharacterCount: 0,
     unattributedCharacterCount: 0,
   });
+});
+
+test("summarizeBlameRanges coalesces consecutive same-writer code points into runs", () => {
+  const segments = [
+    segment({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 2,
+      writerUserId: "alice",
+    }),
+    segment({
+      peerId: "1",
+      startCounter: 2,
+      endCounter: 4,
+      writerUserId: "bob",
+    }),
+  ];
+  const ranges = summarizeBlameRanges(
+    blameSource([
+      ["H", "1", 0], // alice
+      ["i", "1", 1], // alice
+      ["B", "1", 2], // bob
+      ["o", "1", 3], // bob
+      ["?", "9", 0], // no segment covers peer 9 -> unattributed
+    ]),
+    segments,
+  );
+  expect(ranges).toEqual([
+    {
+      startIndex: 0,
+      endIndex: 2,
+      text: "Hi",
+      writerUserId: "alice",
+      writerKeyFingerprint: "fp-alice",
+      authorityKind: "direct",
+    },
+    {
+      startIndex: 2,
+      endIndex: 4,
+      text: "Bo",
+      writerUserId: "bob",
+      writerKeyFingerprint: "fp-bob",
+      authorityKind: "direct",
+    },
+    {
+      startIndex: 4,
+      endIndex: 5,
+      text: "?",
+      writerUserId: null,
+      writerKeyFingerprint: null,
+      authorityKind: null,
+    },
+  ]);
+});
+
+test("summarizeBlameRanges splits the same writer across direct and re-asserted runs", () => {
+  // One writer, but a re-assertion split the peer's counters: the run boundary
+  // must fall at the authority change so the view can flag the re-asserted span.
+  const ranges = summarizeBlameRanges(
+    blameSource([
+      ["a", "1", 0],
+      ["b", "1", 1],
+      ["c", "1", 2],
+    ]),
+    [
+      segment({
+        peerId: "1",
+        startCounter: 0,
+        endCounter: 2,
+        writerUserId: "alice",
+      }),
+      segment({
+        peerId: "1",
+        startCounter: 2,
+        endCounter: 3,
+        writerUserId: "alice",
+        authorityKind: "baseline",
+      }),
+    ],
+  );
+  expect(ranges.map((range) => [range.text, range.authorityKind])).toEqual([
+    ["ab", "direct"],
+    ["c", "baseline"],
+  ]);
+});
+
+test("summarizeBlameRanges splits the same user across distinct signing keys", () => {
+  // One writerUserId, two signing keys (two devices / a rotation). The run's
+  // color and tooltip resolve from the fingerprint, so adjacent runs by
+  // different keys of the same user must not merge into one mis-attributed run.
+  const ranges = summarizeBlameRanges(
+    blameSource([
+      ["a", "1", 0],
+      ["b", "2", 0],
+    ]),
+    [
+      segment({
+        peerId: "1",
+        startCounter: 0,
+        endCounter: 1,
+        writerUserId: "alice",
+        writerKeyFingerprint: "fp-key-1",
+      }),
+      segment({
+        peerId: "2",
+        startCounter: 0,
+        endCounter: 1,
+        writerUserId: "alice",
+        writerKeyFingerprint: "fp-key-2",
+      }),
+    ],
+  );
+  expect(
+    ranges.map((range) => [range.text, range.writerKeyFingerprint]),
+  ).toEqual([
+    ["a", "fp-key-1"],
+    ["b", "fp-key-2"],
+  ]);
+});
+
+test("summarizeBlameRanges returns no runs for empty prose", () => {
+  expect(summarizeBlameRanges(blameSource([]), [])).toEqual([]);
 });

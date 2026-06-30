@@ -10,6 +10,7 @@ import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
 import {
   type DocumentAttributionSegment,
+  type DocumentBlameRange,
   type DocumentCharacterBlameSummary,
   type DocumentContributor,
   listDocumentAttributionSegments,
@@ -23,7 +24,7 @@ import {
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { computeCharacterBlame } from "./documentCharacterBlame";
+import { computeDocumentBlame } from "./documentCharacterBlame";
 
 export type DocumentInfoRemoteMode = "if-synced" | "never";
 
@@ -78,6 +79,12 @@ export interface DocumentInfoRemoteDetails {
   activeAttachmentBindings: DocumentInfoRemoteAttachmentBinding[];
   attributionSegments: DocumentAttributionSegment[];
   authorizingContainerPaths: DocumentInfoAuthorizingContainerPath[];
+  /**
+   * Contiguous per-writer runs of the current prose — the read-only "blame"
+   * view that tints each phrase by who wrote it. Shares its `null` conditions
+   * (and its single snapshot reconstruction) with {@link characterBlame}.
+   */
+  blameRanges: DocumentBlameRange[] | null;
   /**
    * Per-writer live-character blame, or `null` when it could not be computed —
    * the document has no local snapshot, the snapshot is too large to extract
@@ -391,6 +398,7 @@ function mapAuthorizingContainerPath(
 function getDocumentInfoRemoteDetails(input: {
   attachmentBindings: ReadonlyArray<BlobAttachmentSummary>;
   attributionSegments: DocumentAttributionSegment[];
+  blameRanges: DocumentBlameRange[] | null;
   characterBlame: DocumentCharacterBlameSummary | null;
   contributors: DocumentContributor[];
   projection: DocumentWriterProjectionResponse;
@@ -398,6 +406,7 @@ function getDocumentInfoRemoteDetails(input: {
   const {
     attachmentBindings,
     attributionSegments,
+    blameRanges,
     characterBlame,
     contributors,
     projection,
@@ -411,6 +420,7 @@ function getDocumentInfoRemoteDetails(input: {
     authorizingContainerPaths: projection.authorizingContainerPaths.map(
       mapAuthorizingContainerPath,
     ),
+    blameRanges,
     characterBlame,
     contentKeyEpoch: projection.contentKeyBundle.contentKeyEpoch,
     contentKeyTargetCount: projection.contentKeyBundle.targets.length,
@@ -480,13 +490,15 @@ export async function loadDocumentInfo(input: {
   }
 
   const attributionSegments = attribution?.segments ?? [];
+  const blame = computeDocumentBlame(loroSnapshot, attributionSegments);
   return {
     attachments,
     local,
     remoteInfo: getDocumentInfoRemoteDetails({
       attachmentBindings: attachmentBindings ?? [],
       attributionSegments: listDocumentAttributionSegments(attributionSegments),
-      characterBlame: computeCharacterBlame(loroSnapshot, attributionSegments),
+      blameRanges: blame?.blameRanges ?? null,
+      characterBlame: blame?.characterBlame ?? null,
       contributors: summarizeDocumentContributors(attributionSegments),
       projection,
     }),
