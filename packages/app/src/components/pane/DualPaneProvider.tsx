@@ -3,5 +3,6 @@ export {
   PaneSideProvider,
   usePaneSide,
   usePeerUserId,
+  usePeerUserIdsEnabled,
   useRegisterUserId,
 } from "./dual-pane";

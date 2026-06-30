@@ -1,4 +1,3 @@
-import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
@@ -18,8 +17,7 @@ export function Contacts() {
 
 function ContactsContent() {
   const { setSidebar } = useWindowSidebar();
-  const peerUserId = usePeerUserId();
-  const model = useContactsModel(setSidebar, peerUserId);
+  const model = useContactsModel(setSidebar);
   useWindowFileMenuItem({
     disabled: !model.ready || !model.canWrite,
     id: "contacts-new-contact",

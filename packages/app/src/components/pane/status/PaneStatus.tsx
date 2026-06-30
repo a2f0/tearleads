@@ -8,7 +8,7 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
 import { useEvents } from "../../../providers/events/useEvents";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { usePeerUserId } from "../DualPaneProvider";
+import { usePeerUserId, usePeerUserIdsEnabled } from "../DualPaneProvider";
 
 export function PaneStatus() {
   const { id, status } = useDatabase();
@@ -17,6 +17,7 @@ export function PaneStatus() {
   const { events, connected } = useEvents();
   const { mode, online } = useNetworkState();
   const peerUserId = usePeerUserId();
+  const peerUserIdsEnabled = usePeerUserIdsEnabled();
   const networkLabel = `${online ? "online" : "offline"}${
     mode === "automatic" ? "" : " (manual)"
   }`;
@@ -31,9 +32,11 @@ export function PaneStatus() {
             {signingFingerprint ?? "none"}
           </MiniAppInfoRow>
           <MiniAppInfoRow label="userId">{userId ?? "none"}</MiniAppInfoRow>
-          <MiniAppInfoRow label="peerUserId">
-            {peerUserId ?? "none"}
-          </MiniAppInfoRow>
+          {peerUserIdsEnabled ? (
+            <MiniAppInfoRow label="peerUserId">
+              {peerUserId ?? "none"}
+            </MiniAppInfoRow>
+          ) : null}
           <MiniAppInfoRow label="session">
             {authToken ? `${authToken.slice(0, 6)}...` : "none"}
           </MiniAppInfoRow>
