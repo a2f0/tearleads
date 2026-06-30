@@ -10,6 +10,7 @@ import {
   getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
+  listSnapshotCharBlameSource,
   listSnapshotCharOpIds,
   listTextCharOpIds,
   listVersionVectorSpans,
@@ -184,6 +185,37 @@ test("listSnapshotCharOpIds reconstructs op ids from a shallow snapshot", async 
     { peerId: alicePeer, counter: 3 },
     { peerId: alicePeer, counter: 4 },
   ]);
-  // "heXYllo" is 7 chars; a tighter cap refuses the O(n²) extraction.
+  // "heXYllo" is 7 chars; a tighter cap refuses to scan oversized prose.
   expect(listSnapshotCharOpIds(snapshot, 6)).toBeNull();
+});
+
+test("listSnapshotCharBlameSource returns aligned code points and op ids", async () => {
+  const alice = await createDocument("alice-seed");
+  const bob = await createDocument("bob-seed");
+  const alicePeer = await derivePeerId("alice-seed");
+  const bobPeer = await derivePeerId("bob-seed");
+
+  const base = encodeVersionVector(alice);
+  alice.getText("text").update("hello");
+  importUpdates(bob, [exportUpdatesSince(alice, base)]);
+  bob.getText("text").insert(2, "XY");
+  bob.commit();
+
+  const snapshot = exportShallowSnapshot(bob);
+  const source = listSnapshotCharBlameSource(snapshot, 100);
+  // The code points reconstruct the current prose, one entry per op id, so the
+  // per-range blame view can render the text it blames from a single pass.
+  expect(source?.codePoints.join("")).toBe("heXYllo");
+  expect(source?.opIds).toEqual(listSnapshotCharOpIds(snapshot, 100) ?? []);
+  expect(source?.opIds).toEqual([
+    { peerId: alicePeer, counter: 0 },
+    { peerId: alicePeer, counter: 1 },
+    { peerId: bobPeer, counter: 0 },
+    { peerId: bobPeer, counter: 1 },
+    { peerId: alicePeer, counter: 2 },
+    { peerId: alicePeer, counter: 3 },
+    { peerId: alicePeer, counter: 4 },
+  ]);
+  // Same soft cap as listSnapshotCharOpIds.
+  expect(listSnapshotCharBlameSource(snapshot, 6)).toBeNull();
 });

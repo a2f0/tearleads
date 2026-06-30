@@ -4,6 +4,7 @@ import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
 import { ExplorerDocumentInfoAttachmentsSection } from "./ExplorerDocumentInfoAttachmentsSection";
 import {
+  ExplorerDocumentInfoBlameSection,
   ExplorerDocumentInfoCharacterBlameSection,
   ExplorerDocumentInfoEditRangesSection,
 } from "./ExplorerDocumentInfoGeneralSections";
@@ -15,6 +16,10 @@ type DocumentInfoAttributionSegment = NonNullable<
 type DocumentInfoCharacterBlame = NonNullable<
   DocumentInfo["remoteInfo"]
 >["characterBlame"];
+
+type DocumentInfoBlameRanges = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["blameRanges"];
 
 afterEach(() => cleanup());
 
@@ -28,11 +33,13 @@ function createRemoteInfo(
     totalCharacterCount: 0,
     unattributedCharacterCount: 0,
   },
+  blameRanges: DocumentInfoBlameRanges = [],
 ): NonNullable<DocumentInfo["remoteInfo"]> {
   return {
     activeAttachmentBindings,
     attributionSegments: [...attributionSegments],
     authorizingContainerPaths: [],
+    blameRanges,
     characterBlame,
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,
@@ -436,4 +443,113 @@ test("character blame section shows unattributed-only text", () => {
 
   expect(view.getByText("Unattributed")).toBeTruthy();
   expect(view.getByText("4 characters")).toBeTruthy();
+});
+
+test("blame section renders prose runs tinted per writer with a legend", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], undefined, [
+      {
+        startIndex: 0,
+        endIndex: 2,
+        text: "Hi",
+        writerUserId: "alice",
+        writerKeyFingerprint: "fp-alice",
+        authorityKind: "direct",
+      },
+      {
+        startIndex: 2,
+        endIndex: 8,
+        text: " there",
+        writerUserId: "bob",
+        writerKeyFingerprint: "fp-bob",
+        authorityKind: "direct",
+      },
+    ]),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoBlameSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector(".explorer-blame-prose")).toBeTruthy();
+  expect(view.getByText("Hi")).toBeTruthy();
+  expect(view.getByText("there")).toBeTruthy();
+  // The writer's signing identity is carried on each run's tooltip; the legend
+  // repeats it, so the identity appears more than once.
+  expect(view.getAllByTitle("alice · fp-alice").length).toBeGreaterThan(0);
+  expect(view.getAllByTitle("bob · fp-bob").length).toBeGreaterThan(0);
+});
+
+test("blame section flags a re-asserted run on its tooltip", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], undefined, [
+      {
+        startIndex: 0,
+        endIndex: 4,
+        text: "base",
+        writerUserId: "alice",
+        writerKeyFingerprint: "fp-alice",
+        authorityKind: "baseline",
+      },
+    ]),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoBlameSection, { documentInfo }),
+  );
+
+  expect(view.getByText("base").getAttribute("title")).toBe(
+    "alice · fp-alice (re-asserted)",
+  );
+});
+
+test("blame section renders an unattributed run with its legend entry", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], undefined, [
+      {
+        startIndex: 0,
+        endIndex: 5,
+        text: "draft",
+        writerUserId: null,
+        writerKeyFingerprint: null,
+        authorityKind: null,
+      },
+    ]),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoBlameSection, { documentInfo }),
+  );
+
+  expect(view.getByText("draft")).toBeTruthy();
+  expect(view.getByText("Unattributed")).toBeTruthy();
+});
+
+test("blame section is hidden when ranges are unavailable", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], undefined, null),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoBlameSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector(".explorer-blame-prose")).toBeNull();
+});
+
+test("blame section is hidden for an empty document", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], undefined, []),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoBlameSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector(".explorer-blame-prose")).toBeNull();
 });

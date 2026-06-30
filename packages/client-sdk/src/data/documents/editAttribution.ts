@@ -298,3 +298,72 @@ export function summarizeCharacterBlame(
     unattributedCharacterCount,
   };
 }
+
+export interface DocumentBlameRange {
+  /** Code-point start index (inclusive) of this run in the current text. */
+  startIndex: number;
+  /** Code-point end index (exclusive). */
+  endIndex: number;
+  /** The run's prose — the code points `[startIndex, endIndex)` joined. */
+  text: string;
+  /** Writer credited with the whole run, or null when no segment covers it. */
+  writerUserId: string | null;
+  /** null when the run is unattributed. */
+  writerKeyFingerprint: string | null;
+  /** "baseline" marks a run credited only via a rotate_baseline re-assertion; null when unattributed. */
+  authorityKind: "direct" | "baseline" | null;
+}
+
+/**
+ * Coalesce the document's per-character blame into contiguous runs for the
+ * read-only "blame" view: walk the prose code points in order, resolve each to
+ * its writer (via the same per-peer index as {@link summarizeCharacterBlame}),
+ * and merge each maximal run of code points sharing a `(writerUserId,
+ * authorityKind)` into one range carrying its joined text. Adjacent code points
+ * by the same writer but with different authority (direct vs re-asserted) split
+ * into separate runs so the view can flag the distinction; a run no segment
+ * covers gets `writerUserId: null` (a locally authored span the attribution feed
+ * has not delivered yet). Each run is homogeneous, so "who wrote this phrase" is
+ * exact down to the character — finer than the per-line or per-writer rollups.
+ */
+export function summarizeBlameRanges(
+  source: {
+    readonly codePoints: readonly string[];
+    readonly opIds: ReadonlyArray<{
+      readonly peerId: string;
+      readonly counter: number;
+    }>;
+  },
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentBlameRange[] {
+  const { codePoints, opIds } = source;
+  const resolveOpId = createOpIdResolver(segments);
+  const ranges: DocumentBlameRange[] = [];
+  let current: DocumentBlameRange | null = null;
+  for (let index = 0; index < codePoints.length; index += 1) {
+    const opId = opIds[index];
+    const attribution = opId ? resolveOpId(opId.peerId, opId.counter) : null;
+    const writerUserId = attribution?.writerUserId ?? null;
+    const authorityKind = attribution?.authorityKind ?? null;
+    const codePoint = codePoints[index] ?? "";
+    if (
+      current &&
+      current.writerUserId === writerUserId &&
+      current.authorityKind === authorityKind
+    ) {
+      current.endIndex = index + 1;
+      current.text += codePoint;
+      continue;
+    }
+    current = {
+      startIndex: index,
+      endIndex: index + 1,
+      text: codePoint,
+      writerUserId,
+      writerKeyFingerprint: attribution?.writerKeyFingerprint ?? null,
+      authorityKind,
+    };
+    ranges.push(current);
+  }
+  return ranges;
+}

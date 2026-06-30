@@ -273,6 +273,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
     ]);
     // No local Loro snapshot was persisted, so blame can't be computed.
     expect(info.remoteInfo?.characterBlame).toBeNull();
+    expect(info.remoteInfo?.blameRanges).toBeNull();
     expect(info.remoteInfo?.authorizingContainerPaths).toEqual([
       {
         containerId: "container-1",
@@ -432,6 +433,26 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
       totalCharacterCount: 5,
       unattributedCharacterCount: 0,
     });
+    // The same single reconstruction also yields the coalesced per-writer runs of
+    // the prose ("hel" by writer-1, "lo" re-asserted to writer-2).
+    expect(info.remoteInfo?.blameRanges).toEqual([
+      {
+        startIndex: 0,
+        endIndex: 3,
+        text: "hel",
+        writerUserId: "writer-1",
+        writerKeyFingerprint: "fp-1",
+        authorityKind: "direct",
+      },
+      {
+        startIndex: 3,
+        endIndex: 5,
+        text: "lo",
+        writerUserId: "writer-2",
+        writerKeyFingerprint: "fp-2",
+        authorityKind: "baseline",
+      },
+    ]);
   } finally {
     close();
   }
@@ -485,6 +506,7 @@ test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async
 
     expect(info.remoteInfo).not.toBeNull();
     expect(info.remoteInfo?.characterBlame).toBeNull();
+    expect(info.remoteInfo?.blameRanges).toBeNull();
     expect(info.remoteInfo?.contentKeyEpoch).toBe(2);
   } finally {
     close();

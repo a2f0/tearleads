@@ -169,6 +169,10 @@
       "lines": 692,
       "bytes": 19306
     },
+    "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentInfoSections.test.tsx": {
+      "lines": 555,
+      "bytes": 16074
+    },
     "packages/app/src/providers/system-bootstrap/SystemBootstrapProvider.tsx": {
       "lines": 529,
       "bytes": 17234
@@ -224,6 +228,14 @@
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
       "bytes": 30465
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
+      "lines": 514,
+      "bytes": 15684
+    },
+    "packages/client-sdk/src/workflows/container-contents/documentInfo.ts": {
+      "lines": 506,
+      "bytes": 15971
     },
     "packages/client-sdk/src/workflows/container-contents/documentQueries.ts": {
       "lines": 670,
