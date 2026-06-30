@@ -56,10 +56,10 @@ export function ExplorerColumnsMenuButton(params: ExplorerColumnVisibility) {
           onClose={() => setMenuPosition(null)}
           position={menuPosition}
         >
-          <fieldset
-            aria-label={EXPLORER_LABELS.columnsMenuButton}
-            className="explorer-columns-menu-list"
-          >
+          <fieldset className="explorer-columns-menu-list">
+            <legend className="explorer-columns-menu-legend">
+              {EXPLORER_LABELS.columnsMenuButton}
+            </legend>
             {TOGGLEABLE_COLUMN_IDS.map((id) => (
               <label className="explorer-columns-menu-item" key={id}>
                 <input

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadHiddenExplorerColumns,
   saveHiddenExplorerColumns,
@@ -15,6 +15,7 @@ export function useExplorerColumnVisibility(): ExplorerColumnVisibility {
     ReadonlySet<ExplorerItemColumnId>
   >(loadHiddenExplorerColumns);
 
+  // Keep the state updater pure; persist as an effect instead.
   const toggleColumn = useCallback((id: ExplorerItemColumnId) => {
     setHiddenColumns((current) => {
       const next = new Set(current);
@@ -23,10 +24,20 @@ export function useExplorerColumnVisibility(): ExplorerColumnVisibility {
       } else {
         next.add(id);
       }
-      saveHiddenExplorerColumns(next);
       return next;
     });
   }, []);
+
+  // The detail panel remounts per container, so skip persisting the value just
+  // loaded from storage and only write real user changes back.
+  const isInitialRenderRef = useRef(true);
+  useEffect(() => {
+    if (isInitialRenderRef.current) {
+      isInitialRenderRef.current = false;
+      return;
+    }
+    saveHiddenExplorerColumns(hiddenColumns);
+  }, [hiddenColumns]);
 
   return { hiddenColumns, toggleColumn };
 }

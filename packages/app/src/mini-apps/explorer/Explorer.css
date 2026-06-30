@@ -58,6 +58,20 @@
   min-inline-size: 0;
 }
 
+/* The "Columns" trigger already names this group visually; the legend keeps the
+   fieldset semantically complete for screen readers without repeating it. */
+.explorer-columns-menu-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .explorer-columns-menu-item {
   display: flex;
   align-items: center;
