@@ -17,26 +17,21 @@ import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextM
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
 import { EXPLORER_LABELS } from "../labels";
-import { ExplorerColumnsMenuButton } from "./ExplorerColumnsMenuButton";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
   EXPLORER_VIRTUAL_ROW_HEIGHT,
   getNextExplorerItemSort,
   useExplorerContainerItemWindow,
 } from "./explorerContainerItemWindow";
-import {
-  type ExplorerColumnVisibility,
-  useExplorerColumnVisibility,
-} from "./useExplorerColumnVisibility";
+import { useExplorerColumnVisibility } from "./useExplorerColumnVisibility";
 
 export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 
 function ExplorerContainerDetailHeader(params: {
-  columnVisibility: ExplorerColumnVisibility;
   online: boolean;
   selectedNode: ContainerNode;
 }) {
-  const { columnVisibility, online, selectedNode } = params;
+  const { online, selectedNode } = params;
 
   return (
     <MiniAppHeader>
@@ -51,10 +46,6 @@ function ExplorerContainerDetailHeader(params: {
         </div>
         <span>{EXPLORER_LABELS.folderType}</span>
       </MiniAppHeaderCopy>
-      <ExplorerColumnsMenuButton
-        hiddenColumns={columnVisibility.hiddenColumns}
-        toggleColumn={columnVisibility.toggleColumn}
-      />
     </MiniAppHeader>
   );
 }
@@ -154,7 +145,6 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
       key={selectedNode.id}
     >
       <ExplorerContainerDetailHeader
-        columnVisibility={columnVisibility}
         online={online}
         selectedNode={selectedNode}
       />
@@ -195,6 +185,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         selectDocumentProjection={selectDocumentProjection}
         setSelectedId={setSelectedId}
         sort={sort}
+        toggleColumn={columnVisibility.toggleColumn}
         totalCount={itemWindow.totalCount}
       />
     </MiniAppPanel>

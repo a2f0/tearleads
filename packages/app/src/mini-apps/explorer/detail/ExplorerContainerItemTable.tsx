@@ -7,6 +7,9 @@ import type {
 import { type DragEvent, type MouseEvent, useMemo } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
+  addMiniAppTableHeaderAction,
+  MiniAppColumnMenuButton,
+  type MiniAppColumnMenuOption,
   MiniAppTable,
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
@@ -23,6 +26,7 @@ import { EXPLORER_VIRTUAL_ROW_HEIGHT } from "./explorerContainerItemWindow";
 import {
   type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
+  TOGGLEABLE_COLUMN_IDS,
 } from "./explorerItemColumnIds";
 import {
   type ExplorerItemCellContext,
@@ -35,6 +39,28 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
     ? `container:${row.id}`
     : `document:${row.localId}:${row.containerId}`;
 }
+
+function getExplorerItemColumnLabel(id: ExplorerItemColumnId): string {
+  switch (id) {
+    case "name":
+      return EXPLORER_LABELS.itemNameColumn;
+    case "type":
+      return EXPLORER_LABELS.itemTypeColumn;
+    case "created":
+      return EXPLORER_LABELS.dateCreatedColumn;
+    case "modified":
+      return EXPLORER_LABELS.dateModifiedColumn;
+    case "sync":
+      return EXPLORER_LABELS.itemSyncColumn;
+  }
+}
+
+const EXPLORER_COLUMN_MENU_OPTIONS: ReadonlyArray<
+  MiniAppColumnMenuOption<ExplorerItemColumnId>
+> = TOGGLEABLE_COLUMN_IDS.map((id) => ({
+  id,
+  label: getExplorerItemColumnLabel(id),
+}));
 
 // The row right-clicked into the context menu stays highlighted while the menu
 // is open: opening the menu does not move the selection (that would navigate the
@@ -233,7 +259,42 @@ interface ItemTableProps {
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   sort: ContainerItemSort;
+  toggleColumn: (id: ExplorerItemColumnId) => void;
   totalCount: number;
+}
+
+function useExplorerContainerItemTableColumns({
+  hiddenColumns,
+  onSort,
+  sort,
+  toggleColumn,
+}: Pick<ItemTableProps, "hiddenColumns" | "onSort" | "sort" | "toggleColumn">) {
+  const compact = useRoutedLayoutTier() === "mobile";
+  const columnIds = useMemo(
+    () => getVisibleExplorerItemColumnIds({ compact, hiddenColumns }),
+    [compact, hiddenColumns],
+  );
+  const columns = useMemo(
+    () =>
+      addMiniAppTableHeaderAction(
+        getExplorerItemTableColumns({ compact, hiddenColumns, onSort, sort }),
+        compact ? null : (
+          <MiniAppColumnMenuButton
+            ariaLabel={EXPLORER_LABELS.columnsMenuButton}
+            hiddenColumns={hiddenColumns}
+            options={EXPLORER_COLUMN_MENU_OPTIONS}
+            stateLabels={{
+              off: EXPLORER_LABELS.columnsMenuStateOff,
+              on: EXPLORER_LABELS.columnsMenuStateOn,
+            }}
+            toggleColumn={toggleColumn}
+          />
+        ),
+      ),
+    [compact, hiddenColumns, onSort, sort, toggleColumn],
+  );
+
+  return { columnIds, columns };
 }
 
 export function ExplorerContainerItemTable(params: ItemTableProps) {
@@ -261,17 +322,15 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     selectDocumentProjection,
     setSelectedId,
     sort,
+    toggleColumn,
     totalCount,
   } = params;
-  const compact = useRoutedLayoutTier() === "mobile";
-  const columnIds = useMemo(
-    () => getVisibleExplorerItemColumnIds({ compact, hiddenColumns }),
-    [compact, hiddenColumns],
-  );
-  const columns = useMemo(
-    () => getExplorerItemTableColumns({ compact, hiddenColumns, onSort, sort }),
-    [compact, hiddenColumns, onSort, sort],
-  );
+  const { columnIds, columns } = useExplorerContainerItemTableColumns({
+    hiddenColumns,
+    onSort,
+    sort,
+    toggleColumn,
+  });
 
   return (
     <MiniAppTableFrame

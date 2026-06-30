@@ -2,15 +2,25 @@ import type {
   OrganizationDirectory,
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
-import type { KeyboardEvent, MouseEvent } from "react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useMemo,
+} from "react";
 import { MiniAppStatus } from "../../components/shared/MiniAppLayout";
 import {
+  addMiniAppTableHeaderAction,
+  getVisibleMiniAppTableColumnIds,
+  MiniAppColumnMenuButton,
+  type MiniAppColumnMenuOption,
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
+  useMiniAppColumnVisibility,
 } from "../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -18,6 +28,7 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
+import { useRoutedLayoutTier } from "../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "./display";
 import { getOrgManagerAccountStatusLabel, ORG_MANAGER_LABELS } from "./labels";
@@ -29,6 +40,28 @@ export type RosterUserContextMenuHandler = (
   event: MouseEvent<HTMLElement>,
   userId: string,
 ) => void;
+
+type DirectoryTableColumnId = "user" | "status" | "account" | "joined";
+
+const DIRECTORY_TABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
+  "user",
+  "status",
+  "account",
+  "joined",
+];
+const DIRECTORY_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
+  "status",
+  "account",
+  "joined",
+];
+const EMPTY_DIRECTORY_HIDDEN_COLUMNS = new Set<DirectoryTableColumnId>();
+const DIRECTORY_COLUMN_MENU_OPTIONS: ReadonlyArray<
+  MiniAppColumnMenuOption<DirectoryTableColumnId>
+> = [
+  { id: "status", label: ORG_MANAGER_LABELS.status },
+  { id: "account", label: ORG_MANAGER_LABELS.account },
+  { id: "joined", label: ORG_MANAGER_LABELS.joined },
+];
 
 const DIRECTORY_TABLE_COLUMNS = [
   {
@@ -52,7 +85,7 @@ const DIRECTORY_TABLE_COLUMNS = [
     header: ORG_MANAGER_LABELS.joined,
     width: "8rem",
   },
-] satisfies ReadonlyArray<MiniAppTableColumn>;
+] satisfies ReadonlyArray<MiniAppTableColumn & { id: DirectoryTableColumnId }>;
 
 function getDirectoryUserDisplayName(
   user: Pick<OrganizationDirectoryUser, "isSelf" | "userId">,
@@ -78,6 +111,105 @@ function isDirectoryAreaContextMenuTarget(
   );
 }
 
+function renderDirectoryUserCell(
+  columnId: DirectoryTableColumnId,
+  params: {
+    profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+    user: OrganizationDirectoryUser;
+  },
+): ReactNode {
+  const { profileDisplayNamesByUserId, user } = params;
+  switch (columnId) {
+    case "user":
+      return (
+        <MiniAppTableCell key="user">
+          <MiniAppTableText title={user.userId}>
+            {getDirectoryUserDisplayName(user, profileDisplayNamesByUserId)}
+          </MiniAppTableText>
+        </MiniAppTableCell>
+      );
+    case "status":
+      return (
+        <MiniAppTableCell key="status">
+          <MiniAppTableText>
+            {user.status === "disabled"
+              ? ORG_MANAGER_LABELS.disabled
+              : ORG_MANAGER_LABELS.active}
+          </MiniAppTableText>
+        </MiniAppTableCell>
+      );
+    case "account":
+      return (
+        <MiniAppTableCell key="account">
+          <MiniAppTableText>
+            {getOrgManagerAccountStatusLabel(user.accountStatus)}
+          </MiniAppTableText>
+        </MiniAppTableCell>
+      );
+    case "joined":
+      return (
+        <MiniAppTableCell
+          className="org-manager-directory-joined-column"
+          key="joined"
+        >
+          <MiniAppTableText title={user.joinedAt}>
+            {formatMiniAppDate(user.joinedAt)}
+          </MiniAppTableText>
+        </MiniAppTableCell>
+      );
+  }
+}
+
+function useDirectoryTableColumns(): {
+  columns: ReadonlyArray<MiniAppTableColumn>;
+  visibleColumnIds: ReadonlyArray<DirectoryTableColumnId>;
+} {
+  const compact = useRoutedLayoutTier() === "mobile";
+  const columnVisibility = useMiniAppColumnVisibility<DirectoryTableColumnId>({
+    storageKey: "tearleads.org-manager.directory:hidden-columns",
+    toggleableColumnIds: DIRECTORY_TOGGLEABLE_COLUMN_IDS,
+  });
+  const appliedHiddenColumns = compact
+    ? EMPTY_DIRECTORY_HIDDEN_COLUMNS
+    : columnVisibility.hiddenColumns;
+  const visibleColumnIds = useMemo(
+    () =>
+      getVisibleMiniAppTableColumnIds(
+        DIRECTORY_TABLE_COLUMN_IDS,
+        appliedHiddenColumns,
+      ),
+    [appliedHiddenColumns],
+  );
+  const columns = useMemo(
+    () =>
+      addMiniAppTableHeaderAction(
+        DIRECTORY_TABLE_COLUMNS.filter(
+          (column) => !appliedHiddenColumns.has(column.id),
+        ),
+        compact ? null : (
+          <MiniAppColumnMenuButton
+            ariaLabel={ORG_MANAGER_LABELS.columns}
+            hiddenColumns={columnVisibility.hiddenColumns}
+            options={DIRECTORY_COLUMN_MENU_OPTIONS}
+            stateLabels={{
+              off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+              on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+            }}
+            toggleColumn={columnVisibility.toggleColumn}
+          />
+        ),
+      ),
+    [
+      appliedHiddenColumns,
+      columnVisibility.hiddenColumns,
+      columnVisibility.toggleColumn,
+      compact,
+    ],
+  );
+
+  return { columns, visibleColumnIds };
+}
+
 export function DirectoryTable({
   directory,
   loading,
@@ -98,6 +230,7 @@ export function DirectoryTable({
     rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: users,
   });
+  const { columns, visibleColumnIds } = useDirectoryTableColumns();
 
   if (!directory) {
     return (
@@ -125,12 +258,9 @@ export function DirectoryTable({
         MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
       )}
     >
-      <MiniAppTable
-        aria-label={ORG_MANAGER_LABELS.directory}
-        columns={DIRECTORY_TABLE_COLUMNS}
-      >
+      <MiniAppTable aria-label={ORG_MANAGER_LABELS.directory} columns={columns}>
         <MiniAppVirtualTableSpacerRow
-          colSpan={DIRECTORY_TABLE_COLUMNS.length}
+          colSpan={visibleColumnIds.length}
           height={virtualUsers.topPadding}
         />
         {virtualUsers.rows.map((user) => {
@@ -162,36 +292,17 @@ export function DirectoryTable({
               selected={isSelected}
               tabIndex={selectUser ? 0 : undefined}
             >
-              <MiniAppTableCell>
-                <MiniAppTableText title={user.userId}>
-                  {getDirectoryUserDisplayName(
-                    user,
-                    profileDisplayNamesByUserId,
-                  )}
-                </MiniAppTableText>
-              </MiniAppTableCell>
-              <MiniAppTableCell>
-                <MiniAppTableText>
-                  {user.status === "disabled"
-                    ? ORG_MANAGER_LABELS.disabled
-                    : ORG_MANAGER_LABELS.active}
-                </MiniAppTableText>
-              </MiniAppTableCell>
-              <MiniAppTableCell>
-                <MiniAppTableText>
-                  {getOrgManagerAccountStatusLabel(user.accountStatus)}
-                </MiniAppTableText>
-              </MiniAppTableCell>
-              <MiniAppTableCell className="org-manager-directory-joined-column">
-                <MiniAppTableText title={user.joinedAt}>
-                  {formatMiniAppDate(user.joinedAt)}
-                </MiniAppTableText>
-              </MiniAppTableCell>
+              {visibleColumnIds.map((columnId) =>
+                renderDirectoryUserCell(columnId, {
+                  profileDisplayNamesByUserId,
+                  user,
+                }),
+              )}
             </MiniAppTableRow>
           );
         })}
         <MiniAppVirtualTableSpacerRow
-          colSpan={DIRECTORY_TABLE_COLUMNS.length}
+          colSpan={visibleColumnIds.length}
           height={virtualUsers.bottomPadding}
         />
       </MiniAppTable>

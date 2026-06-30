@@ -33,15 +33,6 @@ export const TOGGLEABLE_COLUMN_IDS: ReadonlyArray<ExplorerItemColumnId> = [
   "sync",
 ];
 
-export function isToggleableExplorerItemColumnId(
-  value: unknown,
-): value is ExplorerItemColumnId {
-  return (
-    typeof value === "string" &&
-    TOGGLEABLE_COLUMN_IDS.some((columnId) => columnId === value)
-  );
-}
-
 export function getVisibleExplorerItemColumnIds(params: {
   compact: boolean;
   hiddenColumns: ReadonlySet<ExplorerItemColumnId>;

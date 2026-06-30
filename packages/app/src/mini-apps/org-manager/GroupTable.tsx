@@ -1,13 +1,23 @@
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
-import type { KeyboardEvent, MouseEvent } from "react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+  useMemo,
+} from "react";
 import { MiniAppStatus } from "../../components/shared/MiniAppLayout";
 import {
+  addMiniAppTableHeaderAction,
+  getVisibleMiniAppTableColumnIds,
+  MiniAppColumnMenuButton,
+  type MiniAppColumnMenuOption,
   MiniAppTable,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
+  useMiniAppColumnVisibility,
 } from "../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -15,9 +25,32 @@ import {
   MiniAppVirtualTableSpacerRow,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
+import { useRoutedLayoutTier } from "../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { isKeyboardActivationKey } from "./display";
 import { getOrgManagerMemberCountLabel, ORG_MANAGER_LABELS } from "./labels";
+
+type GroupTableColumnId = "group" | "members" | "status" | "created";
+
+const GROUP_TABLE_COLUMN_IDS: ReadonlyArray<GroupTableColumnId> = [
+  "group",
+  "members",
+  "status",
+  "created",
+];
+const GROUP_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<GroupTableColumnId> = [
+  "members",
+  "status",
+  "created",
+];
+const EMPTY_GROUP_HIDDEN_COLUMNS = new Set<GroupTableColumnId>();
+const GROUP_COLUMN_MENU_OPTIONS: ReadonlyArray<
+  MiniAppColumnMenuOption<GroupTableColumnId>
+> = [
+  { id: "members", label: ORG_MANAGER_LABELS.members },
+  { id: "status", label: ORG_MANAGER_LABELS.status },
+  { id: "created", label: ORG_MANAGER_LABELS.created },
+];
 
 const GROUP_TABLE_COLUMNS = [
   {
@@ -41,7 +74,102 @@ const GROUP_TABLE_COLUMNS = [
     header: ORG_MANAGER_LABELS.created,
     width: "8rem",
   },
-] satisfies ReadonlyArray<MiniAppTableColumn>;
+] satisfies ReadonlyArray<MiniAppTableColumn & { id: GroupTableColumnId }>;
+
+function renderGroupCell(
+  columnId: GroupTableColumnId,
+  group: OrganizationGroupSummary,
+): ReactNode {
+  switch (columnId) {
+    case "group":
+      return (
+        <MiniAppTableCell key="group">
+          <MiniAppTableText title={group.groupId}>
+            {group.name}
+          </MiniAppTableText>
+        </MiniAppTableCell>
+      );
+    case "members":
+      return (
+        <MiniAppTableCell key="members">
+          <MiniAppTableText>
+            {group.currentState
+              ? getOrgManagerMemberCountLabel(group.currentState.memberCount)
+              : ORG_MANAGER_LABELS.uninitialized}
+          </MiniAppTableText>
+        </MiniAppTableCell>
+      );
+    case "status":
+      return (
+        <MiniAppTableCell key="status">
+          {group.isBuiltin ? (
+            <MiniAppTableText>{ORG_MANAGER_LABELS.builtIn}</MiniAppTableText>
+          ) : null}
+        </MiniAppTableCell>
+      );
+    case "created":
+      return (
+        <MiniAppTableCell
+          className="org-manager-group-created-column"
+          key="created"
+        >
+          <MiniAppTableText title={group.createdAt}>
+            {formatMiniAppDate(group.createdAt)}
+          </MiniAppTableText>
+        </MiniAppTableCell>
+      );
+  }
+}
+
+function useGroupTableColumns(): {
+  columns: ReadonlyArray<MiniAppTableColumn>;
+  visibleColumnIds: ReadonlyArray<GroupTableColumnId>;
+} {
+  const compact = useRoutedLayoutTier() === "mobile";
+  const columnVisibility = useMiniAppColumnVisibility<GroupTableColumnId>({
+    storageKey: "tearleads.org-manager.groups:hidden-columns",
+    toggleableColumnIds: GROUP_TOGGLEABLE_COLUMN_IDS,
+  });
+  const appliedHiddenColumns = compact
+    ? EMPTY_GROUP_HIDDEN_COLUMNS
+    : columnVisibility.hiddenColumns;
+  const visibleColumnIds = useMemo(
+    () =>
+      getVisibleMiniAppTableColumnIds(
+        GROUP_TABLE_COLUMN_IDS,
+        appliedHiddenColumns,
+      ),
+    [appliedHiddenColumns],
+  );
+  const columns = useMemo(
+    () =>
+      addMiniAppTableHeaderAction(
+        GROUP_TABLE_COLUMNS.filter(
+          (column) => !appliedHiddenColumns.has(column.id),
+        ),
+        compact ? null : (
+          <MiniAppColumnMenuButton
+            ariaLabel={ORG_MANAGER_LABELS.columns}
+            hiddenColumns={columnVisibility.hiddenColumns}
+            options={GROUP_COLUMN_MENU_OPTIONS}
+            stateLabels={{
+              off: ORG_MANAGER_LABELS.columnsMenuStateOff,
+              on: ORG_MANAGER_LABELS.columnsMenuStateOn,
+            }}
+            toggleColumn={columnVisibility.toggleColumn}
+          />
+        ),
+      ),
+    [
+      appliedHiddenColumns,
+      columnVisibility.hiddenColumns,
+      columnVisibility.toggleColumn,
+      compact,
+    ],
+  );
+
+  return { columns, visibleColumnIds };
+}
 
 function GroupTable({
   groups,
@@ -61,6 +189,7 @@ function GroupTable({
     rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: groups,
   });
+  const { columns, visibleColumnIds } = useGroupTableColumns();
 
   if (groups.length === 0) {
     return (
@@ -85,12 +214,9 @@ function GroupTable({
         MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
       )}
     >
-      <MiniAppTable
-        aria-label={ORG_MANAGER_LABELS.groups}
-        columns={GROUP_TABLE_COLUMNS}
-      >
+      <MiniAppTable aria-label={ORG_MANAGER_LABELS.groups} columns={columns}>
         <MiniAppVirtualTableSpacerRow
-          colSpan={GROUP_TABLE_COLUMNS.length}
+          colSpan={visibleColumnIds.length}
           height={virtualGroups.topPadding}
         />
         {virtualGroups.rows.map((group) => {
@@ -118,37 +244,14 @@ function GroupTable({
               selected={isSelected}
               tabIndex={0}
             >
-              <MiniAppTableCell>
-                <MiniAppTableText title={group.groupId}>
-                  {group.name}
-                </MiniAppTableText>
-              </MiniAppTableCell>
-              <MiniAppTableCell>
-                <MiniAppTableText>
-                  {group.currentState
-                    ? getOrgManagerMemberCountLabel(
-                        group.currentState.memberCount,
-                      )
-                    : ORG_MANAGER_LABELS.uninitialized}
-                </MiniAppTableText>
-              </MiniAppTableCell>
-              <MiniAppTableCell>
-                {group.isBuiltin ? (
-                  <MiniAppTableText>
-                    {ORG_MANAGER_LABELS.builtIn}
-                  </MiniAppTableText>
-                ) : null}
-              </MiniAppTableCell>
-              <MiniAppTableCell className="org-manager-group-created-column">
-                <MiniAppTableText title={group.createdAt}>
-                  {formatMiniAppDate(group.createdAt)}
-                </MiniAppTableText>
-              </MiniAppTableCell>
+              {visibleColumnIds.map((columnId) =>
+                renderGroupCell(columnId, group),
+              )}
             </MiniAppTableRow>
           );
         })}
         <MiniAppVirtualTableSpacerRow
-          colSpan={GROUP_TABLE_COLUMNS.length}
+          colSpan={visibleColumnIds.length}
           height={virtualGroups.bottomPadding}
         />
       </MiniAppTable>

@@ -1,6 +1,5 @@
 import { encodeVersionVector, importUpdates } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
-import { shouldReArmAfterOutgoingSettlement } from "../../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
@@ -9,6 +8,7 @@ import {
   type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
+  shouldReArmAfterOutgoingSettlement,
   syncRemoteDocument,
 } from "../../../workflows/documents";
 import {
