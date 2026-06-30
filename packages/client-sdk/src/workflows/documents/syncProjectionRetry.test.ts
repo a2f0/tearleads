@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  generateKemSeedAndKeyPair,
+  KeyingVerificationError,
+} from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
@@ -11,6 +14,7 @@ import {
 } from "../../../test/helpers/documentFixtures";
 import { buildMaterializedDocumentCreatePlan } from "./create";
 import { buildMaterializedDocumentSyncPlan, syncRemoteDocument } from "./sync";
+import { retrySyncPlan } from "./syncFailures";
 
 test("syncRemoteDocument refetches writer projection after a stale container KEK unwrap", async () => {
   const {
@@ -123,4 +127,56 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
   expect(
     submittedRequests[0]?.authorizingContainerPathRefs?.[0]?.[0]?.manifestHash,
   ).toBe(projection.path[0]?.manifestHash);
+});
+
+test("retrySyncPlan refetches a fresh projection after a rollback verification error", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  // Distinct reference standing in for a stale, pre-share cached projection
+  // whose manifest epoch is now older than a checkpoint we already recorded.
+  const staleProjection: DocumentWriterProjectionResponse = {
+    ...writerProjection,
+  };
+  const pendingUpdates = [createPendingUpdateRecord()];
+  let clearCount = 0;
+  let buildCount = 0;
+
+  const planned = await retrySyncPlan({
+    apiClient: {
+      clearWriterProjectionCaches: () => {
+        clearCount += 1;
+      },
+      getDocumentWriterProjection: async (documentId) =>
+        documentId === writerProjection.documentId ? writerProjection : null,
+      syncDocument: async () => {
+        throw new Error("syncDocument is unused by retrySyncPlan");
+      },
+    },
+    buildWithProjection: async (projection) => {
+      buildCount += 1;
+      if (projection === staleProjection) {
+        throw new KeyingVerificationError(
+          "rollback",
+          "access manifest is older than the local checkpoint",
+        );
+      }
+
+      return buildMaterializedDocumentSyncPlan({
+        author,
+        localVersionVector: null,
+        pendingUpdates,
+        resolveProjectionUserKey,
+        targetSecretKey: secretKey,
+        writerProjection: projection,
+      });
+    },
+    documentId: writerProjection.documentId,
+    writerProjection: staleProjection,
+  });
+
+  // The rollback drops the stale projection, refetches the current one, and
+  // rebuilds with it — converging instead of surfacing a hard failure.
+  expect(clearCount).toBe(1);
+  expect(buildCount).toBe(2);
+  expect(planned?.[1]).toBe(writerProjection);
 });
