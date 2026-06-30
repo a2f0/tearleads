@@ -258,6 +258,30 @@ export function canAddDocumentToContainerByRules(
   return acceptedDocumentKinds.includes(documentKind);
 }
 
+// A document may LINK into a destination only if it could also move there AND the
+// destination accepts inbound links. This is stricter than
+// canAddDocumentToContainerByRules (which the move path uses): a move-only system
+// folder such as Trash accepts moves — deleting a document moves it there — but
+// rejects links, so it must be filtered out of the link-target dropdown. Keeping
+// the kind/write check in canAddDocumentToContainerByRules means link and move
+// stay in sync on everything except this inbound-link gate.
+export function canLinkDocumentIntoContainerByRules(
+  context: ExplorerContainerRulesContext,
+  destinationContainer: ContainerRulesNode | undefined,
+  document: Pick<DocumentSummary, "documentKind"> | undefined,
+): boolean {
+  if (
+    !canAddDocumentToContainerByRules(context, destinationContainer, document)
+  ) {
+    return false;
+  }
+
+  return (
+    resolveContainerRules(context, destinationContainer)
+      ?.protectFromInboundLinks !== true
+  );
+}
+
 // The builtin self ("You") contact is protected from deletion when the Contacts
 // container's rules say so.
 export function canDeleteDocumentByRules(

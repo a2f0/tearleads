@@ -56,6 +56,15 @@ export interface UserSystemContainerRules {
   // Restrict document kinds that may be linked or moved into this container.
   // `null` means the container accepts every document kind.
   readonly acceptedDocumentKinds: ReadonlyArray<StoredDocumentKind> | null;
+  // Block creating a link INTO this container, while still allowing a move into
+  // it. A move relocates a document's single home; a link adds an additional
+  // home. Trash is a move-only destination — deleting a document moves it here —
+  // so it opts out of inbound links: you can move something to the Trash, but
+  // you cannot link it there. This is the inbound counterpart to
+  // `protectContentsFromLinking` (which blocks linking a container's contents
+  // OUT). Independent of `acceptedDocumentKinds`, which gates both moves and
+  // links by kind.
+  readonly protectFromInboundLinks: boolean;
   // Block deleting the builtin self ("You") contact that lives in this
   // container. Only meaningful for the contacts container.
   readonly protectSelfDocumentFromDelete: boolean;
@@ -95,6 +104,9 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromChildContainerCreation: true,
         protectFromStructuredDocumentCreation: true,
         acceptedDocumentKinds: ["contact"],
+        // Contacts accepts inbound contact links (gated by acceptedDocumentKinds
+        // above); only Trash is move-only.
+        protectFromInboundLinks: false,
       },
       slotDefinition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
       visibleWhenShared: true,
@@ -115,6 +127,10 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromChildContainerCreation: true,
         protectFromStructuredDocumentCreation: true,
         acceptedDocumentKinds: null,
+        // Trash is a move-only destination: a document reaches it by being
+        // deleted (moved), never by being linked. Blocking inbound links keeps
+        // it out of the link-target dropdown while it stays a valid move target.
+        protectFromInboundLinks: true,
       },
       slotDefinition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,
       visibleWhenShared: true,

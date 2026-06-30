@@ -17,6 +17,7 @@ import {
 } from "../../../stores/explorer/documentLinks";
 import {
   canAddDocumentToContainerByRules,
+  canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveDocumentOutByRules,
   canWriteContainerNode,
@@ -233,9 +234,12 @@ function useLinkDocumentAction(params: {
       const targetContainer = nodes.find(
         (node) => node.id === targetContainerId,
       );
+      // Enforce the same inbound-link rule the link-target dropdown applies, so a
+      // move-only system folder such as Trash can never be linked into even if a
+      // stale/forged target id reaches this action.
       if (
         !targetContainer ||
-        !canAddDocumentToContainerByRules(
+        !canLinkDocumentIntoContainerByRules(
           rulesContext,
           targetContainer,
           existingDocument,
