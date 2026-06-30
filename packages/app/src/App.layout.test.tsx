@@ -88,7 +88,7 @@ test("switching workspaces shares one identity database instead of booting a sec
 
     await waitFor(() => {
       expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:\s*ready/,
+        /sqlite worker:?\s*ready/,
       );
     });
     expect(runtimeCreations).toBe(1);
@@ -108,7 +108,7 @@ test("switching workspaces shares one identity database instead of booting a sec
 
     await waitFor(() => {
       expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:\s*ready/,
+        /sqlite worker:?\s*ready/,
       );
     });
     expect(runtimeCreations).toBe(1);
@@ -118,10 +118,68 @@ test("switching workspaces shares one identity database instead of booting a sec
 
     await waitFor(() => {
       expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:\s*ready/,
+        /sqlite worker:?\s*ready/,
       );
     });
     expect(runtimeCreations).toBe(1);
+
+    view.unmount();
+  } finally {
+    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
+test("the shared runtime persists the local identity under a stable namespace", async () => {
+  // Regression: the shared-policy runtime is hoisted above the workspaces
+  // (WorkspaceRuntimeHost) with the root host config, whose
+  // localIdentityNamespace is undefined. With no namespace,
+  // useLocalIdentityPersistence returns null, so the identity is never persisted
+  // and cannot survive a reload — the failure the e2e "SQLite tables survive a
+  // hard reload" / "same persisted identity can boot in two tabs" tests caught.
+  // The shared runtime must fall back to a stable namespace; this pins that
+  // without needing the browser.
+  const originalWebSocket = globalThis.WebSocket;
+
+  class SilentWebSocket extends EventTarget {
+    constructor(_url: string | URL) {
+      super();
+    }
+
+    close() {}
+  }
+
+  // LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX + the shared namespace (see
+  // localIdentityPersistence.ts and Layout's
+  // SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE).
+  const sharedIdentityStorageKey =
+    "tearleads.local-identity-key-package:tearleads.app";
+
+  try {
+    Reflect.set(globalThis, "WebSocket", SilentWebSocket);
+
+    pinWindowedSystemMonitors();
+    const view = render(
+      <App
+        hostConfig={createTestAppHostConfig({ autoProvisionIdentity: true })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(view.container.textContent ?? "").toMatch(
+        /sqlite worker:?\s*ready/,
+      );
+    });
+
+    // The autopilot generates an identity and persists its key package under the
+    // shared namespace. Without the namespace fix this key is never written.
+    await waitFor(
+      () => {
+        expect(
+          globalThis.localStorage.getItem(sharedIdentityStorageKey),
+        ).not.toBeNull();
+      },
+      { timeout: 5_000 },
+    );
 
     view.unmount();
   } finally {
