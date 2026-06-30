@@ -32,6 +32,17 @@ interface AttachmentUploadLaneReporter {
   onMultipartProgress: MultipartUploadProgressListener;
 }
 
+// Result of attempting one pending attachment upload:
+// - "uploaded": bytes landed on the server; settle the slot.
+// - "retry": a transient failure (network, missing writer context, upload
+//   error); keep the row and stop the pass so it is retried next time.
+// - "dropped": the local bytes are gone, so the upload can NEVER succeed; the
+//   row is removed so it stops blocking the document. A pending attachment whose
+//   bytes were evicted/rolled-away would otherwise wedge the whole document's
+//   sync forever (runDocumentSyncPass bails while pendingAttachments is
+//   non-empty), with no way to clear it.
+type PendingAttachmentUploadOutcome = "uploaded" | "retry" | "dropped";
+
 export async function syncPendingAttachments(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
@@ -81,24 +92,30 @@ export async function syncPendingAttachments(
       }
     }
 
-    const uploaded = await syncPendingAttachmentUpload({
+    const outcome = await syncPendingAttachmentUpload({
       activeBindingBySlotId,
       encapsulationKeyPair,
       pendingAttachment,
       remoteDocumentId,
       state,
     });
-    if (!uploaded) {
+    if (outcome === "retry") {
       return {
         completed: completedSlotIds.size > 0,
         nextRecord: currentRecord,
       };
     }
 
-    completedSlotIds.add(pendingAttachment.slotId);
+    // "uploaded" or "dropped": the row is gone (uploaded successfully, or
+    // discarded because its local bytes were missing). Either way remove it from
+    // the in-memory queue and keep draining; only a real upload counts as
+    // completed work.
     state.pendingAttachments = state.pendingAttachments.filter(
       (attachment) => attachment !== pendingAttachment,
     );
+    if (outcome === "uploaded") {
+      completedSlotIds.add(pendingAttachment.slotId);
+    }
   }
 
   if (completedSlotIds.size === 0) {
@@ -160,16 +177,26 @@ async function syncPendingAttachmentUpload(input: {
   pendingAttachment: PendingAttachmentRecord;
   remoteDocumentId: string;
   state: DocumentStoreState;
-}): Promise<boolean> {
+}): Promise<PendingAttachmentUploadOutcome> {
   const { pendingAttachment, state } = input;
   const bytes = await state.runtime.infra.blobStore.readBytes(
     pendingAttachment.storageKey,
   );
   if (!bytes) {
+    // The local bytes are gone (rollback that deleted bytes but left the row, or
+    // OPFS eviction), so this upload can never succeed. Drop the row instead of
+    // returning a retry: leaving it would early-return runDocumentSyncPass on
+    // every pass and block ALL of this document's CRDT sync forever, surviving
+    // restarts, with no way to clear it.
     state.runtime.util.log(
-      `Documents: pending attachment ${pendingAttachment.slotId} is missing local bytes.`,
+      `Documents: dropping pending attachment ${pendingAttachment.slotId}; local bytes are missing and it can no longer be uploaded.`,
     );
-    return false;
+    await deletePendingAttachment(
+      state,
+      pendingAttachment.slotId,
+      pendingAttachment.storageKey,
+    );
+    return "dropped";
   }
 
   const author = resolveDocumentCreateAuthor(state.runtime);
@@ -177,7 +204,7 @@ async function syncPendingAttachmentUpload(input: {
     state.runtime.util.log(
       "Documents: skipped attachment upload because the writer context is unavailable.",
     );
-    return false;
+    return "retry";
   }
 
   const uploadLane = createAttachmentUploadLaneReporter({
@@ -216,7 +243,7 @@ async function syncPendingAttachmentUpload(input: {
       state,
       uploadLane,
     });
-    return false;
+    return "retry";
   }
 
   await saveLocalAttachmentRecord(state, {
@@ -243,7 +270,7 @@ async function syncPendingAttachmentUpload(input: {
   state.runtime.util.log(
     `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
   );
-  return true;
+  return "uploaded";
 }
 
 async function uploadAttachmentWithWriterProjectionRetry(input: {
