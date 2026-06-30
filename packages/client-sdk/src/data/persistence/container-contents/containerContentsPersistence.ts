@@ -978,8 +978,8 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   async listUnsyncedMoveIntents(execSql) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     // No syncStatus filter: synced moves are deleted (see markMoveIntentSynced),
-    // so every surviving row is unsynced — including 'blocked' ones whose
-    // destination parent has not synced yet.
+    // so every surviving row is unsynced, including 'blocked' ones, which
+    // hydration must still not revert.
     const rows = await db
       .select({
         id: containerMoveIntents.id,

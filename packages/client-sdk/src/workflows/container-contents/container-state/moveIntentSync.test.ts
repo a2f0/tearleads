@@ -39,9 +39,92 @@ function remoteContainerState(input: {
   };
 }
 
+// A container that exists locally but has not synced remotely yet: no remote
+// metadata (documentId / accessStateHash / metadataDocumentId), so
+// hasRemoteContainerMetadataState is false for it.
+function localOnlyContainerState(input: {
+  id: string;
+  parentId: string | null;
+}): ContainerState {
+  const synced = remoteContainerState(input);
+  return {
+    ...synced,
+    container: { ...synced.container, metadataDocumentId: "" },
+    record: { ...synced.record, accessStateHash: "", documentId: "" },
+  };
+}
+
+function createMoveIntentSyncState(input: {
+  containersById: Map<string, ContainerState>;
+  persistence: ContainerMoveIntentSyncState["persistence"];
+}): ContainerMoveIntentSyncState {
+  const execSql: ExecSql = async () => [];
+  return {
+    containersById: input.containersById,
+    persistence: input.persistence,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      apiClient: {
+        getContainerWriterProjection: () => {
+          throw new Error("projection unavailable");
+        },
+      } as unknown as ContainerMoveIntentSyncState["runtime"]["apiClient"],
+      auth: {
+        isAuthenticated: true,
+        organizationId: "organization",
+        userId: "user",
+      },
+      crypto: {
+        encapsulationKeyPair: {
+          secretKey: new Uint8Array(32),
+        } as ContainerMoveIntentSyncState["runtime"]["crypto"]["encapsulationKeyPair"],
+        signingFingerprint: "signing-fingerprint",
+        signingKeyPair: {
+          signingPrivateKey: new Uint8Array(32),
+        } as ContainerMoveIntentSyncState["runtime"]["crypto"]["signingKeyPair"],
+      },
+      getEncapsulationKey: async () => null,
+      infra: {
+        blobStore:
+          {} as ContainerMoveIntentSyncState["runtime"]["infra"]["blobStore"],
+        dbStatus: "ready",
+        documentProjectors:
+          {} as ContainerMoveIntentSyncState["runtime"]["infra"]["documentProjectors"],
+        execSql,
+      },
+      state: {
+        containerId: "root",
+        domainScope: createDomainScope(),
+        events: [],
+        online: true,
+      },
+      util: {
+        cacheReferencedPrincipalPolicies: async () => {},
+        log: () => {},
+      },
+    },
+  };
+}
+
+function moveIntentRecord(
+  input: Partial<ContainerMoveIntentRecord> & { containerId: string },
+): ContainerMoveIntentRecord {
+  return {
+    createdAt: "2026-05-31T00:00:00.000Z",
+    id: `intent-${input.containerId}`,
+    intentType: "container.move",
+    lastAttemptedAt: null,
+    lastError: null,
+    parentContainerId: "parent",
+    previousParentContainerId: "root",
+    syncStatus: "pending",
+    updatedAt: "2026-05-31T00:00:00.000Z",
+    ...input,
+  };
+}
+
 test("pending container move sync records per-intent failures and continues", async () => {
   const errors: MoveIntentError[] = [];
-  const execSql: ExecSql = async () => [];
   const parentState = remoteContainerState({
     id: "parent",
     parentId: "root",
@@ -64,30 +147,8 @@ test("pending container move sync records per-intent failures and continues", as
     ["parent", parentState],
   ]);
   const pendingIntents: ContainerMoveIntentRecord[] = [
-    {
-      containerId: "child-a",
-      createdAt: "2026-05-31T00:00:00.000Z",
-      id: "intent-a",
-      intentType: "container.move",
-      lastAttemptedAt: null,
-      lastError: null,
-      parentContainerId: "parent",
-      previousParentContainerId: "root",
-      syncStatus: "pending",
-      updatedAt: "2026-05-31T00:00:00.000Z",
-    },
-    {
-      containerId: "child-b",
-      createdAt: "2026-05-31T00:00:00.000Z",
-      id: "intent-b",
-      intentType: "container.move",
-      lastAttemptedAt: null,
-      lastError: null,
-      parentContainerId: "parent",
-      previousParentContainerId: "root",
-      syncStatus: "pending",
-      updatedAt: "2026-05-31T00:00:00.000Z",
-    },
+    moveIntentRecord({ containerId: "child-a", id: "intent-a" }),
+    moveIntentRecord({ containerId: "child-b", id: "intent-b" }),
   ];
   const persistence: ContainerMoveIntentSyncState["persistence"] = {
     ...defaultContainerContentsPersistence,
@@ -104,51 +165,7 @@ test("pending container move sync records per-intent failures and continues", as
       },
       updateSnapshot: () => {},
     },
-    state: {
-      containersById,
-      persistence,
-      resolveProjectionUserKey: async () => null,
-      runtime: {
-        apiClient: {
-          getContainerWriterProjection: () => {
-            throw new Error("projection unavailable");
-          },
-        } as unknown as ContainerMoveIntentSyncState["runtime"]["apiClient"],
-        auth: {
-          isAuthenticated: true,
-          organizationId: "organization",
-          userId: "user",
-        },
-        crypto: {
-          encapsulationKeyPair: {
-            secretKey: new Uint8Array(32),
-          } as ContainerMoveIntentSyncState["runtime"]["crypto"]["encapsulationKeyPair"],
-          signingFingerprint: "signing-fingerprint",
-          signingKeyPair: {
-            signingPrivateKey: new Uint8Array(32),
-          } as ContainerMoveIntentSyncState["runtime"]["crypto"]["signingKeyPair"],
-        },
-        getEncapsulationKey: async () => null,
-        infra: {
-          blobStore:
-            {} as ContainerMoveIntentSyncState["runtime"]["infra"]["blobStore"],
-          dbStatus: "ready",
-          documentProjectors:
-            {} as ContainerMoveIntentSyncState["runtime"]["infra"]["documentProjectors"],
-          execSql,
-        },
-        state: {
-          containerId: "root",
-          domainScope: createDomainScope(),
-          events: [],
-          online: true,
-        },
-        util: {
-          cacheReferencedPrincipalPolicies: async () => {},
-          log: () => {},
-        },
-      },
-    },
+    state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
   expect(movedCount).toBe(0);
@@ -160,4 +177,45 @@ test("pending container move sync records per-intent failures and continues", as
     "Failed to sync container move: projection unavailable",
     "Failed to sync container move: projection unavailable",
   ]);
+});
+
+test("a move whose source is not synced yet stays pending and retryable", async () => {
+  // Regression: source-not-synced used to record blocked:true, which dropped the
+  // intent from listPendingMoveIntents permanently — so a move attempted before
+  // its source's create landed (e.g. a transient create failure on the same
+  // pass) never propagated, even after the source finished syncing. It must stay
+  // 'pending' (not 'blocked') and retry, like the destination-not-synced case.
+  const errors: MoveIntentError[] = [];
+  const containersById = new Map([
+    // Source exists locally but has no remote metadata yet.
+    ["child-a", localOnlyContainerState({ id: "child-a", parentId: "root" })],
+    ["parent", remoteContainerState({ id: "parent", parentId: "root" })],
+  ]);
+  const persistence: ContainerMoveIntentSyncState["persistence"] = {
+    ...defaultContainerContentsPersistence,
+    listPendingMoveIntents: async () => [
+      moveIntentRecord({ containerId: "child-a", id: "intent-a" }),
+    ],
+    recordMoveIntentError: async (_execSql, error) => {
+      errors.push(error);
+    },
+  };
+
+  const movedCount = await syncPendingContainerMoveIntents({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("unexpected persist");
+      },
+      updateSnapshot: () => {},
+    },
+    state: createMoveIntentSyncState({ containersById, persistence }),
+  });
+
+  expect(movedCount).toBe(0);
+  expect(errors).toHaveLength(1);
+  expect(errors[0]?.containerId).toBe("child-a");
+  expect(errors[0]?.message).toBe("Container move source is not synced yet");
+  // Must NOT be blocked: a blocked intent is excluded from listPendingMoveIntents
+  // and can never flip back, so the move would never retry.
+  expect(errors[0]?.blocked).toBeFalsy();
 });

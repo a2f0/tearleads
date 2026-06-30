@@ -158,13 +158,19 @@ async function trySyncPendingContainerMoveIntent(
     return "failed";
   }
   if (!hasRemoteContainerMetadataState(containerState)) {
+    // Source not synced yet is TRANSIENT, exactly like the destination case
+    // below: the source's own create intent syncs first (createIntentSync runs
+    // before moveIntentSync in a pass), but if that create fails on this pass
+    // the source still lacks remote metadata here. Keep the intent 'pending'
+    // (not 'blocked') so it retries once the create lands — marking it 'blocked'
+    // dropped it from listPendingMoveIntents permanently, so the move never
+    // propagated even after the source finished syncing.
     await recordPendingMoveIntentError({
-      blocked: true,
       containerId: intent.containerId,
-      message: "Container move source is not synced",
+      message: "Container move source is not synced yet",
       state,
     });
-    return "failed";
+    return "blocked";
   }
   if (!hasRemoteContainerMetadataState(parentState)) {
     await recordPendingMoveIntentError({
