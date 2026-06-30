@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
   TOGGLEABLE_COLUMN_IDS,
 } from "./explorerItemColumnIds";
@@ -25,8 +26,7 @@ test("wide layout drops hidden columns but keeps order and the Name column", () 
   expect(
     getVisibleExplorerItemColumnIds({
       compact: false,
-      // biome-ignore lint/suspicious/noExplicitAny: exercising the guard with an off-list id.
-      hiddenColumns: new Set(["name", "type", "sync"] as any),
+      hiddenColumns: new Set<ExplorerItemColumnId>(["name", "type", "sync"]),
     }),
   ).toEqual(["name", "created", "modified"]);
 });
