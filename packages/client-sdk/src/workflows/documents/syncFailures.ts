@@ -1,3 +1,4 @@
+import { KeyingVerificationError } from "@tearleads/crypto";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -42,6 +43,15 @@ type DocumentSyncAttemptSubmission =
   | FailedDocumentSyncAction;
 
 function shouldRetrySyncWithFreshWriterProjection(error: unknown): boolean {
+  // A cached writer projection older than a checkpoint we already recorded
+  // ("rollback") — typical right after a peer shared/rotated a linked
+  // container — is resolved by refetching the current projection. The refetch
+  // is safe: it cannot bypass the anti-rollback check, because a genuinely
+  // rolled-back server response re-throws on the rebuilt plan.
+  if (error instanceof KeyingVerificationError && error.code === "rollback") {
+    return true;
+  }
+
   return (
     error instanceof Error &&
     error.message.startsWith(
