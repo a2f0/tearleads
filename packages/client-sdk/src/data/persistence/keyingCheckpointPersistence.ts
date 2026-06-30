@@ -84,6 +84,27 @@ export async function saveAccessManifestCheckpoint(
   };
 
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    // Never regress the pin. Concurrent or out-of-order projection
+    // verifications must not lower a previously recorded epoch, which would
+    // silently weaken rollback detection. The read and write run inside the
+    // serialized mutation, so they are atomic against other writers.
+    const existing = await db
+      .select({ epoch: accessManifestCheckpoints.epoch })
+      .from(accessManifestCheckpoints)
+      .where(
+        and(
+          eq(accessManifestCheckpoints.objectKind, checkpoint.objectKind),
+          eq(
+            accessManifestCheckpoints.organizationId,
+            checkpoint.organizationId,
+          ),
+          eq(accessManifestCheckpoints.objectId, checkpoint.objectId),
+        ),
+      )
+      .limit(1);
+    if (existing[0] && existing[0].epoch >= checkpoint.epoch) {
+      return;
+    }
     await db
       .insert(accessManifestCheckpoints)
       .values(nextRow)
@@ -151,6 +172,24 @@ export async function savePrincipalPolicyCheckpoint(
   };
 
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
+    // Never regress the pin (see saveAccessManifestCheckpoint): a slower or
+    // out-of-order verification must not lower a previously recorded version.
+    const existing = await db
+      .select({ version: principalPolicyCheckpoints.version })
+      .from(principalPolicyCheckpoints)
+      .where(
+        and(
+          eq(
+            principalPolicyCheckpoints.principalType,
+            checkpoint.principalType,
+          ),
+          eq(principalPolicyCheckpoints.principalId, checkpoint.principalId),
+        ),
+      )
+      .limit(1);
+    if (existing[0] && existing[0].version >= checkpoint.version) {
+      return;
+    }
     await db
       .insert(principalPolicyCheckpoints)
       .values(nextRow)
