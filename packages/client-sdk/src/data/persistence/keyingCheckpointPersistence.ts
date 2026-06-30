@@ -21,9 +21,10 @@ function isManagedPrincipalKind(value: string): value is ManagedPrincipalKind {
   return value === "group" || value === "organization";
 }
 
-export async function ensureKeyingCheckpointTables(
-  execSql: ExecSql,
-): Promise<void> {
+// Lazily create the checkpoint tables on first access. Every load/save below
+// calls this, so the tables exist on demand; it is intentionally module-private
+// (no caller outside this file needs it, and exporting it tripped knip).
+async function ensureKeyingCheckpointTables(execSql: ExecSql): Promise<void> {
   await ensureSqlTables(execSql, keyingCheckpointTables);
 }
 
