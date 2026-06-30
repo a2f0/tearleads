@@ -46,7 +46,6 @@ export function ExplorerSyncLanesPanelView(params: {
     <MiniAppPanel
       className="explorer-detail explorer-detail--sync-lanes"
       scroll
-      variant="framed"
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>

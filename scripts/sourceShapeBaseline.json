@@ -165,10 +165,6 @@
       "lines": 1098,
       "bytes": 36388
     },
-    "packages/app/src/mini-apps/explorer/Explorer.css": {
-      "lines": 510,
-      "bytes": 9507
-    },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 692,
       "bytes": 19306

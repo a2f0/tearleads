@@ -183,7 +183,6 @@ export function ExplorerDocumentDetail(params: {
     <MiniAppPanel
       className="explorer-detail explorer-detail--note"
       key={params.selectedDocument.id}
-      variant="framed"
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>

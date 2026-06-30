@@ -81,7 +81,7 @@ function ContactsSelectionState({
   }
 
   return (
-    <MiniAppPanel key={selectedEntry.id} variant="framed">
+    <MiniAppPanel key={selectedEntry.id}>
       <MiniAppActions>
         <MiniAppButton
           disabled={!canEditSelectedEntry}
@@ -135,7 +135,6 @@ function ContactsNewContactPanel(params: {
         event.preventDefault();
         void createDraftContact();
       }}
-      variant="framed"
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>
@@ -203,7 +202,6 @@ function ContactsImportContactPanel(params: {
         event.preventDefault();
         void importDraftContact();
       }}
-      variant="framed"
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>

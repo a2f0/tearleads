@@ -25,7 +25,6 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
       className="explorer-detail explorer-detail--new-structured-document"
       key={selectedNode.id}
       scroll
-      variant="framed"
     >
       <MiniAppHeader>
         <MiniAppHeaderCopy>

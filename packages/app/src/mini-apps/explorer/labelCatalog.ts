@@ -43,6 +43,8 @@ export const EXPLORER_LABELS = {
   blobPickSubtitlePrefix: "Choose an image blob for",
   blobPickTitle: "Choose Blob",
   columnsMenuButton: "Columns",
+  columnsMenuStateOff: "Off",
+  columnsMenuStateOn: "On",
   containerInfoChooseGroupError: "Choose a group.",
   containerInfoCreatedRow: "Created",
   containerInfoCursorColumn: "Cursor",

@@ -74,7 +74,6 @@ export function ExplorerBlobBrowserPanel(
     <MiniAppPanel
       className="explorer-detail explorer-detail--blob-browser"
       key={`${params.route.blobId ?? ""}:${params.route.storageKey ?? ""}`}
-      variant="framed"
     >
       {isPicking && params.pickTarget ? (
         <BlobPickHeader
