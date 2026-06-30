@@ -243,6 +243,7 @@ export const EXPLORER_LABELS = {
   syncLanesCompleteMetric: "Complete",
   syncLanesCoordinatorHeading: "Coordinator",
   syncLanesCountsColumn: "Counts",
+  syncLanesSyncNowAction: "Sync now",
   syncLanesDetailTitle: "Sync Lane Detail",
   syncLanesDocumentPhase: "Document",
   syncLanesErrorMetric: "Errors",

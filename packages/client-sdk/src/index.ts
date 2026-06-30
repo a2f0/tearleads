@@ -381,6 +381,7 @@ export {
   getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
+  requestAllDomainSyncLanes,
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "./workflows/sync";

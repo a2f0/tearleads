@@ -56,6 +56,10 @@ export interface DomainSyncCoordinator {
   dispose: () => void;
   getSnapshot: () => DomainSyncSnapshot;
   registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
+  // Re-request every registered lane — a manual "sync now" that re-drives work
+  // stranded by a transient failure that left the lanes idle (no re-arm fires
+  // until an edit, a remote event, an online/auth regain, or a restart).
+  requestAllLanes: () => void;
   hasPendingWork: () => boolean;
   subscribe: (listener: () => void) => () => void;
   waitForIdle: (options?: SyncIdleOptions) => Promise<boolean>;
@@ -357,6 +361,11 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         requestSync: () => requestLaneSync(coordinatorState, nextLane),
       };
     },
+    requestAllLanes() {
+      for (const lane of coordinatorState.lanes.values()) {
+        requestLaneSync(coordinatorState, lane);
+      }
+    },
     subscribe(listener: () => void) {
       coordinatorState.listeners.add(listener);
       return () => {
@@ -386,6 +395,13 @@ export function hasDomainSyncCoordinatorPendingWork(
   domainScope: DomainScope,
 ): boolean {
   return coordinatorsByScope.get(domainScope)?.hasPendingWork() ?? false;
+}
+
+// Re-request every registered lane for a scope: a user-driven "sync now" that
+// retries work stranded by a transient failure. A no-op when no coordinator
+// exists yet (nothing has been synced) or it has been disposed.
+export function requestAllDomainSyncLanes(domainScope: DomainScope): void {
+  coordinatorsByScope.get(domainScope)?.requestAllLanes();
 }
 
 // Force-stop the coordinator for a scope and drop it from the registry, so a

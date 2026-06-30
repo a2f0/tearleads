@@ -194,6 +194,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "registerIdentity",
   "removeOrganizationGroupUser",
   "replaceDocumentLinks",
+  "requestAllDomainSyncLanes",
   "requestDomainDocumentSync",
   "resolveOpIdAttribution",
   "revokeOrganizationContainerGrant",

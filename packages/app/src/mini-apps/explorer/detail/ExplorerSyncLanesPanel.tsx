@@ -1,4 +1,9 @@
-import type { DomainScope, DomainSyncSnapshot } from "@tearleads/client-sdk";
+import {
+  type DomainScope,
+  type DomainSyncSnapshot,
+  requestAllDomainSyncLanes,
+} from "@tearleads/client-sdk";
+import { useCallback } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -30,6 +35,7 @@ export function ExplorerSyncLanesPanelView(params: {
   onBackToSelectionRoute: () => void;
   onBackToSyncLanesRoute: () => void;
   onOpenLaneDetail: (laneKey: string) => void;
+  onSyncNow: () => void;
   selectedLaneKey: string | null;
   snapshot: DomainSyncSnapshot;
 }) {
@@ -37,6 +43,7 @@ export function ExplorerSyncLanesPanelView(params: {
     onBackToSelectionRoute,
     onBackToSyncLanesRoute,
     onOpenLaneDetail,
+    onSyncNow,
     selectedLaneKey,
     snapshot,
   } = params;
@@ -63,6 +70,11 @@ export function ExplorerSyncLanesPanelView(params: {
           </span>
         </MiniAppHeaderCopy>
         <MiniAppActions>
+          {showingLaneDetail ? null : (
+            <MiniAppButton onClick={onSyncNow}>
+              {EXPLORER_LABELS.syncLanesSyncNowAction}
+            </MiniAppButton>
+          )}
           <MiniAppButton
             onClick={
               showingLaneDetail
@@ -99,12 +111,18 @@ export function ExplorerSyncLanesPanel(params: {
   selectedLaneKey: string | null;
 }) {
   const snapshot = useDomainSyncSnapshot(params.domainScope);
+  const { domainScope } = params;
+  const handleSyncNow = useCallback(
+    () => requestAllDomainSyncLanes(domainScope),
+    [domainScope],
+  );
 
   return (
     <ExplorerSyncLanesPanelView
       onBackToSelectionRoute={params.onBackToSelectionRoute}
       onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
       onOpenLaneDetail={params.onOpenLaneDetail}
+      onSyncNow={handleSyncNow}
       selectedLaneKey={params.selectedLaneKey}
       snapshot={snapshot}
     />

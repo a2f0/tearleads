@@ -18,6 +18,7 @@ export {
   getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
+  requestAllDomainSyncLanes,
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "../../data/sync/syncCoordinator";
