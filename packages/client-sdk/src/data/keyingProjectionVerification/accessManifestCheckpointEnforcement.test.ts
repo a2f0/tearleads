@@ -219,6 +219,27 @@ test("two distinct manifests at the head epoch are rejected as in-projection equ
   }
 });
 
+test("a fork at a historical (non-head) epoch is rejected even on first sight", async () => {
+  const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
+  try {
+    // No pin yet, so the crypto checkpoint verifier is a no-op; the conflict at
+    // epoch 2 (below the head) must still be caught.
+    await expect(
+      enforceAccessManifestCheckpoints({
+        execSql,
+        verifiedManifests: [
+          manifestDouble({ epoch: 4, hash: "h4", prev: "h3" }),
+          manifestDouble({ epoch: 2, hash: "h2", prev: "h1" }),
+          manifestDouble({ epoch: 2, hash: "h2-alt", prev: "h1" }),
+          manifestDouble({ epoch: 3, hash: "h3", prev: "h2" }),
+        ],
+      }),
+    ).rejects.toThrow(/equivocates at epoch 2/);
+  } finally {
+    close();
+  }
+});
+
 test("each object is pinned independently within one projection", async () => {
   const { close, execSql } = await createTestExecSql("checkpoint-enforce-test");
   try {

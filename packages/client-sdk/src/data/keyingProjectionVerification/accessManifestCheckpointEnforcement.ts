@@ -71,16 +71,22 @@ export async function enforceAccessManifestCheckpoints(input: {
     }
 
     const headEpoch = head.checkpoint.epoch;
-    if (
-      sorted.some(
-        (manifest) =>
-          manifest.checkpoint.epoch === headEpoch &&
-          manifest.manifestHash !== head.manifestHash,
-      )
-    ) {
-      throw new Error(
-        `Access manifest projection equivocates at epoch ${headEpoch} for ${head.checkpoint.objectKind} ${head.checkpoint.objectId}`,
-      );
+    // Equivocation can appear at any epoch, not just the head: a malicious
+    // projection could fork an older epoch. `sorted` is ascending by epoch and
+    // deduped by hash, so any two entries sharing an epoch are a conflict.
+    for (let index = 0; index < sorted.length - 1; index += 1) {
+      const current = sorted[index];
+      const next = sorted[index + 1];
+      if (
+        current &&
+        next &&
+        current.checkpoint.epoch === next.checkpoint.epoch &&
+        current.manifestHash !== next.manifestHash
+      ) {
+        throw new Error(
+          `Access manifest projection equivocates at epoch ${current.checkpoint.epoch} for ${head.checkpoint.objectKind} ${head.checkpoint.objectId}`,
+        );
+      }
     }
 
     const localCheckpoint = await loadAccessManifestCheckpoint(
