@@ -2,6 +2,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import {
   canAddDocumentToContainerByRules,
   canCreateChildContainerByRules,
+  canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
@@ -234,8 +235,11 @@ export function getDocumentLinkTargetOptions(
       (candidateNode) =>
         candidateNode.organizationId === currentContainer.organizationId &&
         !linkedContainerIdSet.has(candidateNode.id) &&
+        // Link targets use the inbound-link gate, not the move gate, so a
+        // move-only system folder such as Trash is excluded: you can move a
+        // document to the Trash but never link it there.
         (rulesContext === undefined ||
-          canAddDocumentToContainerByRules(
+          canLinkDocumentIntoContainerByRules(
             rulesContext,
             candidateNode,
             linkingDocument,

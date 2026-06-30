@@ -7,6 +7,7 @@ import {
   canCreateStructuredDocumentInContainerByRules,
   canDeleteContainerByRules,
   canDeleteDocumentByRules,
+  canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
   canMoveDocumentOutByRules,
@@ -209,6 +210,39 @@ test("trash and plain containers accept every document kind", () => {
   ).toBe(true);
   expect(
     canAddDocumentToContainerByRules(rulesContext, userContainer, note),
+  ).toBe(true);
+});
+
+test("the trash rejects inbound links even though it accepts moves", () => {
+  const note = documentSummary({ id: "note-1", documentKind: "note" });
+  // The trash is a move-only destination: canAddDocumentToContainerByRules (the
+  // move gate) accepts it, but the inbound-link gate must reject it so a link
+  // cannot target the trash.
+  expect(
+    canAddDocumentToContainerByRules(rulesContext, trashContainer, note),
+  ).toBe(true);
+  expect(
+    canLinkDocumentIntoContainerByRules(rulesContext, trashContainer, note),
+  ).toBe(false);
+});
+
+test("plain containers and contacts accept inbound links by kind", () => {
+  const note = documentSummary({ id: "note-1", documentKind: "note" });
+  const contact = documentSummary({ id: "contact-1", documentKind: "contact" });
+  // Plain folders accept any inbound link; contacts still enforces its
+  // accepted-kind rule (a note cannot link in, a contact can).
+  expect(
+    canLinkDocumentIntoContainerByRules(rulesContext, userContainer, note),
+  ).toBe(true);
+  expect(
+    canLinkDocumentIntoContainerByRules(rulesContext, contactsContainer, note),
+  ).toBe(false);
+  expect(
+    canLinkDocumentIntoContainerByRules(
+      rulesContext,
+      contactsContainer,
+      contact,
+    ),
   ).toBe(true);
 });
 

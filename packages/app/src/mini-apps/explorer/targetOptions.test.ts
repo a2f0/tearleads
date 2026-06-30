@@ -92,6 +92,53 @@ test("a document in trash cannot be linked to another container", () => {
   expect(options).toEqual([]);
 });
 
+test("the trash container is not offered as a link target", () => {
+  // The trash is a move-only system folder: a document reaches it by deletion,
+  // never by linking. Linking a document that lives in a plain container must
+  // therefore exclude the trash from the destination list, even though that same
+  // document CAN be moved to the trash (see the move-target test below).
+  const userDocument = documentSummary({
+    id: "user-doc",
+    containerId: "user-container",
+    documentKind: "note",
+  });
+  const options = getDocumentLinkTargetOptions(
+    nodes,
+    [userDocument],
+    userDocument.id,
+    ["user-container"],
+    undefined,
+    rulesContext,
+  );
+  const optionIds = options.map((option) => option.id);
+
+  expect(optionIds).not.toContain(TRASH_CONTAINER_ID);
+  // A plain sibling container is still a valid link target.
+  expect(optionIds).toContain("root-container");
+});
+
+test("a contact can be linked out of contacts but not into the trash", () => {
+  // Mirrors the reported repro: right-clicking a contact and choosing "Link"
+  // must not list the trash, while ordinary folders remain available.
+  const contactDocument = documentSummary({
+    id: "contact-doc",
+    containerId: CONTACTS_CONTAINER_ID,
+    documentKind: "contact",
+  });
+  const options = getDocumentLinkTargetOptions(
+    nodes,
+    [contactDocument],
+    contactDocument.id,
+    [CONTACTS_CONTAINER_ID],
+    undefined,
+    rulesContext,
+  );
+  const optionIds = options.map((option) => option.id);
+
+  expect(optionIds).not.toContain(TRASH_CONTAINER_ID);
+  expect(optionIds).toContain("user-container");
+});
+
 test("document move target labels show folder names without container ids", () => {
   const trashedDocument = documentSummary({
     id: "trashed-doc",
