@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type AnyVerifiedAccessManifest,
+  type KeyingVerificationCode,
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -47,7 +48,7 @@ function manifestDouble(input: {
 
 async function expectCheckpointCode(
   run: () => Promise<unknown>,
-  code: string,
+  code: KeyingVerificationCode,
 ): Promise<void> {
   let thrown: unknown;
   try {
