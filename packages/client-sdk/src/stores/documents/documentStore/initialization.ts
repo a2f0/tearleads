@@ -13,7 +13,12 @@ import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,
 } from "../../../data/documents/documentConstants";
-import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
+import {
+  addDocumentAttachments,
+  type DocumentAttachment,
+  ensureDocumentAttachmentStructure,
+  getDocumentAttachments,
+} from "../../../data/documents/documentContent";
 import {
   initializeStoredDocumentKind,
   projectStoredDocumentState,
@@ -30,6 +35,7 @@ import type { DocumentStoreRelinkInput } from "../types";
 import {
   advancePendingBaseVersion,
   enqueuePendingUpdate,
+  pendingDeltaSinceBase,
   persistDocument,
   saveDocumentRecord,
 } from "./persistence";
@@ -47,6 +53,68 @@ async function createStoredDocument(state: DocumentStoreState) {
   const createdDoc = await createDocument(await getScopedPeerSeed(scope));
   ensureDocumentAttachmentStructure(createdDoc);
   return createdDoc;
+}
+
+// Re-derive any attachment slot that lives in a durable pending-upload row but
+// is missing (or stale) in the loaded snapshot. The attach write path persists
+// the blob bytes + pending-attachment row BEFORE it enqueues the slot's CRDT op
+// and persists the snapshot, so a crash in that window leaves bytes+row durable
+// but the slot gone from the document — the attachment would otherwise silently
+// disappear on restart while its bytes upload to a binding nothing references
+// (and a slot replace would keep stale metadata). Because the pending row still
+// carries the slot's name/byteLength/mimeType and the bytes are on disk, we can
+// rebuild the slot exactly and let the normal sync upload it. Runs on init only;
+// a no-op when every pending attachment already matches a slot.
+async function recoverDroppedAttachmentSlots(
+  state: DocumentStoreState,
+  doc: DocumentStoreState["doc"],
+): Promise<void> {
+  if (!doc || state.pendingAttachments.length === 0) {
+    return;
+  }
+
+  const existingBySlotId = new Map(
+    getDocumentAttachments(doc).map((attachment) => [
+      attachment.slotId,
+      attachment,
+    ]),
+  );
+  const recovered: DocumentAttachment[] = [];
+  for (const pending of state.pendingAttachments) {
+    const mimeType = pending.mimeType ?? null;
+    const existing = existingBySlotId.get(pending.slotId);
+    if (
+      existing &&
+      existing.name === pending.name &&
+      existing.byteLength === pending.byteLength &&
+      existing.mimeType === mimeType
+    ) {
+      continue;
+    }
+    recovered.push({
+      byteLength: pending.byteLength,
+      mimeType,
+      name: pending.name,
+      slotId: pending.slotId,
+    });
+  }
+  if (recovered.length === 0) {
+    return;
+  }
+
+  addDocumentAttachments(doc, recovered);
+  const update = pendingDeltaSinceBase(state, doc);
+  if (update.byteLength > 0) {
+    await enqueuePendingUpdate(state, update);
+  }
+  await persistDocument(state, doc, undefined, {
+    preserveSnapshotStructuredFields: true,
+    preserveSnapshotText: true,
+  });
+  advancePendingBaseVersion(state, doc);
+  state.runtime.util.log(
+    `Documents: recovered ${recovered.length} attachment slot(s) from pending uploads after an interrupted write.`,
+  );
 }
 
 async function initializeDocumentStore(
@@ -127,6 +195,11 @@ async function initializeDocumentStore(
   // Seed the durable marker to the loaded doc version: every op in the snapshot
   // is either already synced or sitting in the persisted pending queue.
   advancePendingBaseVersion(state, nextDoc);
+  // Heal attachment slots lost to an interrupted attach write before marking
+  // ready, so the recovered slots are in the snapshot the editor first renders
+  // and are queued for sync. recoverDroppedAttachmentSlots advances the marker
+  // again for whatever it re-derives.
+  await recoverDroppedAttachmentSlots(state, nextDoc);
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, nextDoc, false);
