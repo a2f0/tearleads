@@ -1,5 +1,6 @@
 import { afterAll } from "bun:test";
 import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
@@ -12,9 +13,10 @@ const BUILT_WORKSPACE_DEPS = [
 function newestMtimeMs(dir: string): number {
   let newest = 0;
   for (const entry of readdirSync(dir, { recursive: true })) {
-    const mtimeMs = statSync(`${dir}/${entry}`).mtimeMs;
-    if (mtimeMs > newest) {
-      newest = mtimeMs;
+    const stats = statSync(join(dir, entry));
+    // Only files: a directory's mtime bumps on unrelated metadata churn.
+    if (stats.isFile() && stats.mtimeMs > newest) {
+      newest = stats.mtimeMs;
     }
   }
   return newest;
@@ -44,7 +46,7 @@ function assertBuiltWorkspaceDepsFresh(): void {
 
     let srcNewest: number;
     try {
-      srcNewest = newestMtimeMs(`${base}src`);
+      srcNewest = newestMtimeMs(join(base, "src"));
     } catch {
       // Unexpected layout — don't let the freshness guard itself break the run;
       // turbo/CI build before tests regardless.
@@ -53,7 +55,7 @@ function assertBuiltWorkspaceDepsFresh(): void {
 
     let distNewest: number;
     try {
-      distNewest = newestMtimeMs(`${base}dist`);
+      distNewest = newestMtimeMs(join(base, "dist"));
     } catch {
       throw new Error(staleDepMessage(dep.name, "its built output is missing"));
     }
