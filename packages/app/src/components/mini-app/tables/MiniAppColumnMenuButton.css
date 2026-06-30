@@ -10,7 +10,7 @@
   width: 1.5rem;
   height: 1.5rem;
   padding: 0;
-  border: var(--border);
+  border: none;
   background: none;
   color: inherit;
   line-height: 1;
