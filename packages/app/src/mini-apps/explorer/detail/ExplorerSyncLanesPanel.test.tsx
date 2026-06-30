@@ -156,6 +156,33 @@ test("ExplorerSyncLanesPanelView triggers a manual sync from the list view", () 
   expect(syncNowCount).toBe(1);
 });
 
+test("ExplorerSyncLanesPanelView disables the manual sync action while syncing", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+      running: true,
+      status: "running",
+    }),
+  ]);
+  let syncNowCount = 0;
+
+  const view = renderSyncLanesPanel({
+    onSyncNow: () => {
+      syncNowCount += 1;
+    },
+    snapshot,
+  });
+
+  const button = view.getByRole("button", {
+    name: "Sync now",
+  }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.click(button);
+  expect(syncNowCount).toBe(0);
+});
+
 test("ExplorerSyncLanesPanelView hides the manual sync action in lane detail", () => {
   const snapshot = createSnapshot([
     createLaneSnapshot({

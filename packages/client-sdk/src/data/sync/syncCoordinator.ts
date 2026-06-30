@@ -241,6 +241,14 @@ function scheduleCoordinatorPump(coordinatorState: DomainSyncCoordinatorState) {
     });
 }
 
+function markLaneRequested(lane: SyncLaneState, requestedAt: string): void {
+  lane.requested = true;
+  lane.requestCount += 1;
+  lane.lastAction = "requested";
+  lane.lastActionAt = requestedAt;
+  lane.lastRequestedAt = requestedAt;
+}
+
 function requestLaneSync(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
@@ -248,11 +256,7 @@ function requestLaneSync(
   if (coordinatorState.disposed) {
     return;
   }
-  lane.requested = true;
-  lane.requestCount += 1;
-  lane.lastAction = "requested";
-  lane.lastActionAt = createSyncTimestamp();
-  lane.lastRequestedAt = lane.lastActionAt;
+  markLaneRequested(lane, createSyncTimestamp());
   publishSyncCoordinatorSnapshot(coordinatorState);
   scheduleCoordinatorPump(coordinatorState);
 }
@@ -362,9 +366,18 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       };
     },
     requestAllLanes() {
-      for (const lane of coordinatorState.lanes.values()) {
-        requestLaneSync(coordinatorState, lane);
+      if (coordinatorState.disposed || coordinatorState.lanes.size === 0) {
+        return;
       }
+      // Mark every lane requested, then publish the snapshot and schedule the
+      // pump ONCE — re-requesting per lane via requestLaneSync would emit one
+      // snapshot notification (and React re-render) per lane.
+      const requestedAt = createSyncTimestamp();
+      for (const lane of coordinatorState.lanes.values()) {
+        markLaneRequested(lane, requestedAt);
+      }
+      publishSyncCoordinatorSnapshot(coordinatorState);
+      scheduleCoordinatorPump(coordinatorState);
     },
     subscribe(listener: () => void) {
       coordinatorState.listeners.add(listener);

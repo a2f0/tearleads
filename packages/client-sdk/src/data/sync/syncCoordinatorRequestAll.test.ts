@@ -50,3 +50,27 @@ test("requestAllDomainSyncLanes is a no-op for a scope with no coordinator", () 
   // one.
   expect(() => requestAllDomainSyncLanes(createDomainScope())).not.toThrow();
 });
+
+test("requestAllDomainSyncLanes publishes the snapshot once for a batch", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  coordinator.registerLane("lane-a", { run: async () => {} });
+  coordinator.registerLane("lane-b", { run: async () => {} });
+  coordinator.registerLane("lane-c", { run: async () => {} });
+
+  let notifications = 0;
+  const unsubscribe = coordinator.subscribe(() => {
+    notifications += 1;
+  });
+
+  requestAllDomainSyncLanes(domainScope);
+
+  // One synchronous snapshot publish for the whole batch, not one per lane.
+  expect(notifications).toBe(1);
+
+  unsubscribe();
+  await waitForDomainSyncCoordinatorToSettle(domainScope, {
+    quietMs: 0,
+    timeoutMs: 1_000,
+  });
+});

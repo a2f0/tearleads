@@ -71,7 +71,12 @@ export function ExplorerSyncLanesPanelView(params: {
         </MiniAppHeaderCopy>
         <MiniAppActions>
           {showingLaneDetail ? null : (
-            <MiniAppButton onClick={onSyncNow}>
+            // Disabled while a sync is already in flight: re-requesting then is
+            // redundant, and the disabled state signals work is in progress.
+            <MiniAppButton
+              disabled={snapshot.hasPendingWork}
+              onClick={onSyncNow}
+            >
               {EXPLORER_LABELS.syncLanesSyncNowAction}
             </MiniAppButton>
           )}
