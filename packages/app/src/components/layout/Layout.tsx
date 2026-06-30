@@ -41,20 +41,23 @@ function WorkspaceRuntimeHost({
   // shared runtime here must do the equivalent or local identity persistence is
   // disabled: useLocalIdentityPersistence returns null for an undefined
   // namespace, so the identity (and database) would be regenerated on every
-  // reload instead of restored. Hosts leave localIdentityNamespace undefined, so
-  // fall back to a stable app-wide namespace; honor disableLocalIdentityPersistence
-  // by leaving it unset, exactly as PaneProvider does.
-  const sharedHostConfig = useMemo(
-    () =>
-      hostConfig.disableLocalIdentityPersistence
-        ? hostConfig
-        : hostConfig.withOverrides({
-            localIdentityNamespace:
-              hostConfig.localIdentityNamespace ??
-              SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE,
-          }),
-    [hostConfig],
-  );
+  // reload instead of restored. Only fall back to the stable app-wide namespace
+  // for the shared policy when the host left it unset; honor
+  // disableLocalIdentityPersistence by leaving it unset, exactly as PaneProvider
+  // does. The isolated policy never reads this (it returns children below), so
+  // skip the override work for it too.
+  const sharedHostConfig = useMemo(() => {
+    if (
+      hostConfig.profile.paneRuntimePolicy === "isolated" ||
+      hostConfig.disableLocalIdentityPersistence ||
+      hostConfig.localIdentityNamespace != null
+    ) {
+      return hostConfig;
+    }
+    return hostConfig.withOverrides({
+      localIdentityNamespace: SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE,
+    });
+  }, [hostConfig]);
 
   if (hostConfig.profile.paneRuntimePolicy === "isolated") {
     return <>{children}</>;

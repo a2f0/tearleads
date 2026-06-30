@@ -14,6 +14,16 @@ afterEach(() => {
   globalThis.localStorage.clear();
 });
 
+// A no-op WebSocket so the runtime's event socket never reaches the network in
+// these full-app smoke tests (registration/sync run offline here).
+class SilentWebSocket extends EventTarget {
+  constructor(_url: string | URL) {
+    super();
+  }
+
+  close() {}
+}
+
 test("normal App is single-pane with no split toggle", () => {
   const view = render(<App hostConfig={createTestAppHostConfig()} />);
 
@@ -55,14 +65,6 @@ test("demo App starts split", () => {
 
 test("switching workspaces shares one identity database instead of booting a second", async () => {
   const originalWebSocket = globalThis.WebSocket;
-
-  class SilentWebSocket extends EventTarget {
-    constructor(_url: string | URL) {
-      super();
-    }
-
-    close() {}
-  }
 
   // The regular (shared-policy) app mounts both workspaces concurrently as two
   // views of the *same* user. A single runtime is hoisted above them, so the
@@ -139,14 +141,6 @@ test("the shared runtime persists the local identity under a stable namespace", 
   // The shared runtime must fall back to a stable namespace; this pins that
   // without needing the browser.
   const originalWebSocket = globalThis.WebSocket;
-
-  class SilentWebSocket extends EventTarget {
-    constructor(_url: string | URL) {
-      super();
-    }
-
-    close() {}
-  }
 
   // LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX + the shared namespace (see
   // localIdentityPersistence.ts and Layout's
