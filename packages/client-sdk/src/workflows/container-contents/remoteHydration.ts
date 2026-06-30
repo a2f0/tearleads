@@ -38,6 +38,7 @@ import type {
   RemoteContainerIngestQueue,
   SaveContainerOptions,
 } from "./remoteHydration/types";
+import { describeRemoteContainerHydration } from "./remoteHydrationLog";
 
 export type {
   ContainerState,
@@ -933,6 +934,7 @@ export async function hydrateRemoteContainers(input: {
   }
 
   const seenContainerIds = new Set<string>();
+  const containerIdsBeforeHydration = new Set(state.containersById.keys());
   const childIdsByParentId = createContainerChildIndex(state.containersById);
   const { lanes, queueParentLane } = createContainerParentHydrationQueue({
     containerIds: state.containersById.keys(),
@@ -957,13 +959,14 @@ export async function hydrateRemoteContainers(input: {
 
   if (changedCount > 0) {
     host.updateSnapshot();
-    // changedCount is the number of containers reconciled against the server
-    // this pass (upserts + tombstone removals), not a count of field-level
-    // edits — an idempotent re-pull of already-current containers still counts.
-    // Phrase it as "hydrated from the server" so the log does not read as the
-    // server having mutated data.
+    let insertedCount = 0;
+    for (const containerId of seenContainerIds) {
+      if (!containerIdsBeforeHydration.has(containerId)) {
+        insertedCount++;
+      }
+    }
     state.runtime.util.log(
-      `Container contents: hydrated ${changedCount} remote container(s) from the server`,
+      describeRemoteContainerHydration({ changedCount, insertedCount }),
     );
   }
   return changedCount;
