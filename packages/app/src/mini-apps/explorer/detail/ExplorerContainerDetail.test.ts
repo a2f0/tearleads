@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
 import { getNextExplorerItemSort } from "./ExplorerContainerDetail";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
+import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 
 afterEach(() => cleanup());
 
@@ -96,6 +97,7 @@ function renderContainerItemTable(
       handleDragLeave: () => undefined,
       handleDragOver: () => undefined,
       handleDrop: () => undefined,
+      hiddenColumns: new Set<ExplorerItemColumnId>(),
       isImporting: false,
       isLoading: false,
       online: true,

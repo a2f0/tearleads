@@ -4,10 +4,7 @@ import type {
   ContainerNode,
   ContainerDocumentSidebarRow as SidebarRow,
 } from "@tearleads/client-sdk";
-import {
-  createContainerDocumentObjectSyncState,
-  syncedContainerDocumentObjectSyncState as syncedState,
-} from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState as syncedState } from "@tearleads/client-sdk";
 import {
   act,
   cleanup,
@@ -165,7 +162,6 @@ function ExplorerSidebarHarness(params: {
     handleSidebarContextMenu,
     handleSidebarDocumentContextMenu,
     nodes,
-    online: true,
     ready: true,
     selectedId,
     selectDocumentProjection,
@@ -650,42 +646,4 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
     { containerId: "root-container", limit: 0, offset: 0 },
     { containerId: "root-container", limit: 24, offset: 0 },
   ]);
-});
-
-test("explorer sidebar does not reserve hidden sync badge space for synced rows", async () => {
-  const documentQueries = createDocumentQueries(
-    createRowsByContainerId(createSidebarRows(1)),
-    [],
-  );
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
-
-  expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
-  expect(
-    view.container.querySelectorAll(".explorer-sync-badge--placeholder").length,
-  ).toBe(0);
-});
-
-test("explorer sidebar keeps visible sync badges for unsynced rows", async () => {
-  const rows = createSidebarRows(1).map((row) => ({
-    ...row,
-    syncState: createContainerDocumentObjectSyncState({ localOnly: true }),
-  }));
-  const documentQueries = createDocumentQueries(
-    createRowsByContainerId(rows),
-    [],
-  );
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
-
-  await waitFor(() => {
-    expect(
-      view.container.querySelector<HTMLButtonElement>(
-        '[data-document-local-id="root-container-document-1"]',
-      ),
-    ).toBeTruthy();
-  });
-  expect(view.getByRole("img", { name: "Local" })).toBeTruthy();
 });

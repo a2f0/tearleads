@@ -82,7 +82,6 @@ function SidebarContextMenuHarness(params: {
     handleSidebarContextMenu,
     handleSidebarDocumentContextMenu,
     nodes,
-    online: true,
     ready: true,
     selectedId,
     selectDocumentProjection,

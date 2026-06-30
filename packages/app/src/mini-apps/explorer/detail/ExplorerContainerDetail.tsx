@@ -17,20 +17,26 @@ import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextM
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { useExplorerContainerFileDropTarget } from "../hooks/useExplorerContainerFileDropTarget";
 import { EXPLORER_LABELS } from "../labels";
+import { ExplorerColumnsMenuButton } from "./ExplorerColumnsMenuButton";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
   EXPLORER_VIRTUAL_ROW_HEIGHT,
   getNextExplorerItemSort,
   useExplorerContainerItemWindow,
 } from "./explorerContainerItemWindow";
+import {
+  type ExplorerColumnVisibility,
+  useExplorerColumnVisibility,
+} from "./useExplorerColumnVisibility";
 
 export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 
 function ExplorerContainerDetailHeader(params: {
+  columnVisibility: ExplorerColumnVisibility;
   online: boolean;
   selectedNode: ContainerNode;
 }) {
-  const { online, selectedNode } = params;
+  const { columnVisibility, online, selectedNode } = params;
 
   return (
     <MiniAppHeader>
@@ -45,6 +51,10 @@ function ExplorerContainerDetailHeader(params: {
         </div>
         <span>{EXPLORER_LABELS.folderType}</span>
       </MiniAppHeaderCopy>
+      <ExplorerColumnsMenuButton
+        hiddenColumns={columnVisibility.hiddenColumns}
+        toggleColumn={columnVisibility.toggleColumn}
+      />
     </MiniAppHeader>
   );
 }
@@ -132,6 +142,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
   } = params;
   const { frameRef, handleSort, itemWindow, rowOffset, rows, sort } =
     useExplorerContainerItems(params);
+  const columnVisibility = useExplorerColumnVisibility();
   const fileDropTarget = useExplorerContainerFileDropTarget({
     importDroppedFiles,
     selectedNode,
@@ -144,6 +155,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
       variant="framed"
     >
       <ExplorerContainerDetailHeader
+        columnVisibility={columnVisibility}
         online={online}
         selectedNode={selectedNode}
       />
@@ -171,6 +183,7 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         handleDragLeave={fileDropTarget.handleDragLeave}
         handleDragOver={fileDropTarget.handleDragOver}
         handleDrop={fileDropTarget.handleDrop}
+        hiddenColumns={columnVisibility.hiddenColumns}
         isImporting={fileDropTarget.isImporting}
         isLoading={itemWindow.isLoading}
         online={online}

@@ -98,7 +98,6 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
             onSelectContainer={props.onSelectContainer}
             onSelectDocument={props.onSelectDocument}
             onToggleCollapsed={props.onToggleCollapsed}
-            online={props.online}
             rows={props.rows}
             selectedId={props.selectedId}
             totalRows={props.totalRows}
@@ -142,7 +141,6 @@ interface ExplorerSidebarPanelParams {
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   setSidebar: (sidebar: ReactNode | null) => void;
-  online: boolean;
   toggleCollapsed: (nodeId: string) => void;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }
@@ -195,7 +193,6 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
       onSelectContainer={props.setSelectedId}
       onSelectDocument={props.selectDocumentProjection}
       onToggleCollapsed={props.toggleCollapsed}
-      online={props.online}
       ready={props.ready}
       rows={visibleSidebarRows}
       selectedId={props.selectedId}
@@ -220,7 +217,6 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.handleSidebarContextMenu,
       params.handleSidebarDocumentContextMenu,
       params.nodes,
-      params.online,
       params.onRetryDatabase,
       params.ready,
       params.selectedId,
