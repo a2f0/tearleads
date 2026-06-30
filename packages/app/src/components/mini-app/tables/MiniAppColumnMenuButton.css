@@ -1,20 +1,28 @@
-.explorer-columns-menu {
+.mini-app-column-menu {
+  display: inline-flex;
+  justify-content: flex-end;
   flex: 0 0 auto;
 }
 
-.explorer-columns-menu-button {
-  padding: var(--space-2xs) var(--space-sm);
+.mini-app-column-menu-button {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
   border: var(--border);
   background: none;
-  font-size: var(--font-size-sm);
+  color: inherit;
+  line-height: 1;
   cursor: pointer;
 }
 
-.explorer-columns-menu-button:hover {
+.mini-app-column-menu-button:hover,
+.mini-app-column-menu-button[aria-expanded="true"] {
   background: var(--color-muted);
 }
 
-.explorer-columns-menu-list {
+.mini-app-column-menu-list {
   display: flex;
   flex-direction: column;
   margin: 0;
@@ -23,9 +31,7 @@
   min-inline-size: 0;
 }
 
-/* The "Columns" trigger already names this group visually; the legend keeps the
-   fieldset semantically complete for screen readers without repeating it. */
-.explorer-columns-menu-legend {
+.mini-app-column-menu-legend {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -37,7 +43,7 @@
   white-space: nowrap;
 }
 
-.explorer-columns-menu-item {
+.mini-app-column-menu-item {
   display: grid;
   grid-template-columns: 0.9rem minmax(0, 1fr) auto;
   align-items: center;
@@ -48,11 +54,11 @@
   cursor: pointer;
 }
 
-.explorer-columns-menu-item:hover {
+.mini-app-column-menu-item:hover {
   background: var(--color-muted);
 }
 
-.explorer-columns-menu-checkbox {
+.mini-app-column-menu-checkbox {
   -webkit-appearance: none;
   appearance: none;
   display: grid;
@@ -64,16 +70,16 @@
   background: transparent;
 }
 
-.explorer-columns-menu-checkbox:checked {
+.mini-app-column-menu-checkbox:checked {
   background: var(--color-dark);
 }
 
-.explorer-columns-menu-checkbox:focus-visible {
+.mini-app-column-menu-checkbox:focus-visible {
   outline: var(--border-width) solid var(--color-dark);
   outline-offset: 1px;
 }
 
-.explorer-columns-menu-checkbox:checked::after {
+.mini-app-column-menu-checkbox:checked::after {
   content: "";
   width: 0.25rem;
   height: 0.5rem;
@@ -82,13 +88,13 @@
   transform: rotate(45deg);
 }
 
-.explorer-columns-menu-label {
+.mini-app-column-menu-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.explorer-columns-menu-state {
+.mini-app-column-menu-state {
   font-size: var(--font-size-xs);
   opacity: var(--opacity-muted);
 }

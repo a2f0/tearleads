@@ -5,7 +5,10 @@ import { GrantTable } from "./GrantTable";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerGrantRouteRef } from "./routes";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  globalThis.localStorage.clear();
+});
 
 const grant: OrganizationContainerGrant = {
   accessLevel: "admin",
@@ -63,6 +66,27 @@ test("org manager grant table keeps revoke action for custom grants", () => {
   expect(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.revoke }),
   ).toBeTruthy();
+});
+
+test("org manager grant table toggles optional columns", () => {
+  const view = renderGrantTable([grant]);
+
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.columns }),
+  );
+  fireEvent.click(
+    view.getByRole("checkbox", {
+      name: `${ORG_MANAGER_LABELS.updated} ${ORG_MANAGER_LABELS.columnsMenuStateOn}`,
+    }),
+  );
+
+  const table = view.getByRole("table", { name: ORG_MANAGER_LABELS.grants });
+  const headerText = Array.from(table.querySelectorAll("thead th")).map(
+    (header) => header.textContent,
+  );
+
+  expect(headerText).not.toContain(ORG_MANAGER_LABELS.updated);
+  expect(table.textContent).toContain(ORG_MANAGER_LABELS.builtIn);
 });
 
 test("org manager grant table opens grant detail routes from rows", () => {

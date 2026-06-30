@@ -6,6 +6,7 @@ import {
 } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
+import { EXPLORER_LABELS } from "../labels";
 import { getNextExplorerItemSort } from "./ExplorerContainerDetail";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
@@ -110,6 +111,7 @@ function renderContainerItemTable(
       selectDocumentProjection: () => undefined,
       setSelectedId: () => undefined,
       sort: { direction: "asc", key: "name" },
+      toggleColumn: () => undefined,
       totalCount: 0,
       ...overrides,
     }),
@@ -163,6 +165,18 @@ test("container item table opens the selected container context menu from blank 
 
   expect(defaultAllowed).toBe(false);
   expect(containerIds).toEqual(["root-container"]);
+});
+
+test("container item table places the columns menu in the last header", () => {
+  const view = renderContainerItemTable({
+    hiddenColumns: new Set<ExplorerItemColumnId>(["sync"]),
+  });
+  const headerCells = Array.from(view.container.querySelectorAll("thead th"));
+  const columnsButton = view.getByRole("button", {
+    name: EXPLORER_LABELS.columnsMenuButton,
+  });
+
+  expect(headerCells.at(-1)?.contains(columnsButton)).toBe(true);
 });
 
 test("container item table opens the context menu from the empty row", () => {

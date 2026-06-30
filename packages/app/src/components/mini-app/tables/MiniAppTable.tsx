@@ -28,6 +28,11 @@ export type MiniAppTableEmptyRowProps = HTMLAttributes<HTMLTableRowElement> & {
   colSpan: number;
 };
 
+type MiniAppTableHeaderContentProps = HTMLAttributes<HTMLSpanElement> & {
+  action: ReactNode;
+  children: ReactNode;
+};
+
 type MiniAppTableTextProps = HTMLAttributes<HTMLSpanElement> & {
   muted?: boolean | undefined;
   truncate?: boolean | undefined;
@@ -91,6 +96,46 @@ export const MiniAppTable = forwardRef<HTMLTableElement, MiniAppTableProps>(
     );
   },
 );
+
+function MiniAppTableHeaderContent({
+  action,
+  children,
+  className,
+  ...props
+}: MiniAppTableHeaderContentProps) {
+  return (
+    <span
+      {...props}
+      className={classNames("mini-app-table-header-content", className)}
+    >
+      <span className="mini-app-table-header-label">{children}</span>
+      {action}
+    </span>
+  );
+}
+
+export function addMiniAppTableHeaderAction(
+  columns: ReadonlyArray<MiniAppTableColumn>,
+  action: ReactNode,
+): ReadonlyArray<MiniAppTableColumn> {
+  if (!action || columns.length === 0) {
+    return columns;
+  }
+
+  const actionColumnIndex = columns.length - 1;
+  return columns.map((column, index) =>
+    index === actionColumnIndex
+      ? {
+          ...column,
+          header: (
+            <MiniAppTableHeaderContent action={action}>
+              {column.header}
+            </MiniAppTableHeaderContent>
+          ),
+        }
+      : column,
+  );
+}
 
 export const MiniAppInfoTable = forwardRef<
   HTMLTableElement,

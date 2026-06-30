@@ -36,6 +36,22 @@
   opacity: var(--opacity-heading);
 }
 
+.mini-app-table-header-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  min-width: 0;
+}
+
+.mini-app-table-header-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mini-app-table tbody .mini-app-table-row:last-child .mini-app-table-cell {
   border-bottom: none;
 }
