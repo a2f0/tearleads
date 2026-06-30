@@ -1,5 +1,6 @@
 import { encodeVersionVector, importUpdates } from "@tearleads/loro";
 import { isDocumentUpdateCreatedEvent } from "../../../data/documentSync";
+import { shouldReArmAfterOutgoingSettlement } from "../../../data/sync/outgoingUpdateSettlement";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRecord,
@@ -348,7 +349,12 @@ async function finalizeDocumentSync(
     state.remoteUpdatePending = false;
   }
 
-  if (syncAttempt.outgoingUpdateCount > synced.settledPendingUpdateIds.length) {
+  if (
+    shouldReArmAfterOutgoingSettlement({
+      outgoingUpdateCount: syncAttempt.outgoingUpdateCount,
+      settledUpdateCount: synced.settledPendingUpdateIds.length,
+    })
+  ) {
     requestDocumentStoreSync(state);
   }
 
