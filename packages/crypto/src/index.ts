@@ -190,6 +190,7 @@ export {
   signTransparencyTreeHead,
   signWriteHeader,
   verifyAccessManifest,
+  verifyAccessManifestLocalCheckpoint,
   verifyAttachmentBindingEvent,
   verifyAttachmentDetachEvent,
   verifyContainerAccessManifest,
