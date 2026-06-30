@@ -178,13 +178,23 @@ async function runRequestedSyncLanes(
       publishSyncCoordinatorSnapshot(coordinatorState);
     }
 
-    // If the pass failed AND the lane is still requested (it re-armed itself, or
-    // was re-requested mid-pass), the next iteration would re-select it with no
-    // delay — a tight microtask loop for a persistently failing self-re-arming
-    // lane. Back off to yield the event loop. A failure that did not re-arm pays
-    // nothing, and a successful pass never reaches this.
-    if (runResult?.status === "failed" && lane.requested) {
-      await delay(FAILED_LANE_REARM_BACKOFF_MS);
+    // If the just-run lane is STILL requested it re-armed itself (or was
+    // re-requested for itself mid-pass), and the next iteration would re-select
+    // it. The loop's only other await — runSyncLane — yields a MICROTASK, not a
+    // macrotask, so a lane that re-arms on microtask-resolving work (a local
+    // success that schedules a follow-up, or a failure) would spin the pump
+    // forever WITHOUT ever yielding the event loop, starving the macrotask/timer
+    // phase (e.g. a test's setTimeout-based timeout, a waitFor poll, the idle
+    // poller). Yield a macrotask before re-selecting it: a full backoff for a
+    // persistently failing lane, and a single macrotask tick for a success-path
+    // self-re-arm. A re-arm that targets a DIFFERENT lane leaves this lane's
+    // `requested` false, so normal multi-lane throughput pays nothing, and
+    // selectNextRequestedLane still re-sorts by phase after the yield, so the
+    // structural-before-document phase ordering is preserved.
+    if (lane.requested) {
+      await delay(
+        runResult?.status === "failed" ? FAILED_LANE_REARM_BACKOFF_MS : 0,
+      );
     }
   }
 }
