@@ -1,4 +1,8 @@
-import { isDestroyedDatabaseClientError } from "../data/sync/syncCoordinator";
+import type { DomainScope } from "../data/domainScope";
+import {
+  disposeDomainSyncCoordinator,
+  isDestroyedDatabaseClientError,
+} from "../data/sync/syncCoordinator";
 import type { ContainerContentsStoreOptions } from "../stores/container-contents";
 import { requestRegisteredDocumentRemoteSync } from "../stores/documents/registry";
 import {
@@ -53,8 +57,12 @@ interface DeviceFirstScopeEntry {
 }
 
 class DeviceFirstService implements DeviceFirst {
-  private readonly entriesByScope = new WeakMap<
-    object,
+  // A real Map (not WeakMap) so dispose() can iterate every scope seen this
+  // session. A running reconciler holds event subscriptions that keep an idle,
+  // stale-scope service (and its scope) reachable anyway, so WeakMap bought no
+  // GC here; the entries are released explicitly on dispose().
+  private readonly entriesByScope = new Map<
+    DomainScope,
     DeviceFirstScopeEntry
   >();
 
@@ -74,17 +82,16 @@ class DeviceFirstService implements DeviceFirst {
   }
 
   dispose(): void {
-    // Stop only an already-created reconciler; never spin one up just to tear
-    // it down. The coordinator pump that runs the reconciler's lane is
-    // force-stopped separately via disposeDomainSyncCoordinator.
-    const domainScope = this.workflowRuntime().state.domainScope;
-    const entry = this.entriesByScope.get(domainScope);
-    if (!entry) {
-      return;
+    // Stop every reconciler created this session — not just the current
+    // scope's. A scope change (e.g. anonymous -> authenticated) leaves the old
+    // scope's reconciler subscribed and its coordinator pump live; tear them
+    // all down. Force-stop each scope's coordinator (which runs the reconciler
+    // lane) alongside stopping the service.
+    for (const [domainScope, entry] of this.entriesByScope) {
+      entry.service.stop();
+      disposeDomainSyncCoordinator(domainScope);
     }
-
-    entry.service.stop();
-    this.entriesByScope.delete(domainScope);
+    this.entriesByScope.clear();
   }
 
   private workflowRuntime(): ContainerContentsWorkflowRuntime {

@@ -118,6 +118,10 @@ function useBrowserNetworkBinding(tearleads: Tearleads): void {
   }, [tearleads]);
 }
 
+// `tearleads` is created once per provider via useState and never changes, so
+// the only thing that re-runs this effect is a remount of the same instance —
+// the effect dependency cannot carry a different instance, so there is no
+// instance-swap path to dispose here.
 function useTearleadsDisposeOnUnmount(tearleads: Tearleads): void {
   const disposeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

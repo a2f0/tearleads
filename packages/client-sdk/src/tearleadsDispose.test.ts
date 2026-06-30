@@ -1,4 +1,8 @@
 import { expect, test } from "bun:test";
+import {
+  generateKemSeedAndKeyPair,
+  generateSigningSeedAndKeyPair,
+} from "@tearleads/crypto";
 import { type Logger, Tearleads } from "./client";
 import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
 
@@ -32,4 +36,45 @@ test("dispose() force-stops the active scope's coordinator and drops it", async 
   // It was dropped from the registry: the same scope now yields a fresh
   // coordinator (the React-remount path), not the disposed one.
   expect(getOrCreateDomainSyncCoordinator(scope)).not.toBe(coordinator);
+});
+
+test("dispose() tears down reconcilers/coordinators across all scopes", async () => {
+  const sdk = new Tearleads({ logger: quietLogger, online: false });
+  sdk.deviceFirst.reconciler();
+  const scopeA = sdk.domainScope;
+  const coordinatorA = getOrCreateDomainSyncCoordinator(scopeA);
+
+  // Rotate the domain scope (anonymous -> authenticated) and create a second
+  // reconciler so dispose() must tear down more than the current scope.
+  await sdk.identity.setKeyPairs({
+    encapsulationKeyPair: generateKemSeedAndKeyPair(),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+  });
+  sdk.deviceFirst.reconciler();
+  const scopeB = sdk.domainScope;
+  expect(scopeB).not.toBe(scopeA);
+  const coordinatorB = getOrCreateDomainSyncCoordinator(scopeB);
+
+  let ranA = 0;
+  let ranB = 0;
+  const laneA = coordinatorA.registerLane("probe-a", {
+    run: async () => {
+      ranA += 1;
+    },
+  });
+  const laneB = coordinatorB.registerLane("probe-b", {
+    run: async () => {
+      ranB += 1;
+    },
+  });
+
+  sdk.dispose();
+
+  laneA.requestSync();
+  laneB.requestSync();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(ranA).toBe(0);
+  expect(ranB).toBe(0);
+  expect(getOrCreateDomainSyncCoordinator(scopeA)).not.toBe(coordinatorA);
+  expect(getOrCreateDomainSyncCoordinator(scopeB)).not.toBe(coordinatorB);
 });

@@ -306,7 +306,11 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
       for (const lane of coordinatorState.lanes.values()) {
         lane.requested = false;
       }
+      // Publish the final settled snapshot, then release listener closures:
+      // the coordinator is dropped from the registry and a remount subscribes
+      // to a fresh one.
       publishSyncCoordinatorSnapshot(coordinatorState);
+      coordinatorState.listeners.clear();
     },
     getSnapshot() {
       return coordinatorState.snapshot;
