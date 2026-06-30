@@ -41,6 +41,31 @@ export function mergeSingleDocumentSummaryList(
   return nextDocumentSummaries;
 }
 
+// Fold a coalesced burst of tracked subscription deltas into the listed
+// summaries. Like the immediate tracked path, it only updates documents already
+// in the list (never appends) and returns the same array reference when nothing
+// changed, so consumers re-render only on a real change.
+export function applyTrackedDocumentSummaryUpdates(
+  currentDocumentSummaries: ReadonlyArray<DocumentSummary>,
+  updates: ReadonlyArray<DocumentSummary>,
+): ReadonlyArray<DocumentSummary> {
+  let nextDocumentSummaries = currentDocumentSummaries;
+  for (const nextDocument of updates) {
+    if (
+      nextDocumentSummaries.some(
+        (currentDocument) => currentDocument.id === nextDocument.id,
+      )
+    ) {
+      nextDocumentSummaries = mergeSingleDocumentSummaryList(
+        nextDocumentSummaries,
+        nextDocument,
+      );
+    }
+  }
+
+  return nextDocumentSummaries;
+}
+
 export function getRequestedDocumentIds(
   documentSummaries: ReadonlyArray<DocumentSummary>,
 ): ReadonlyArray<string> {

@@ -224,7 +224,6 @@ export function useExplorerPanelState(params: {
       contextMenuState.handleSidebarDocumentContextMenu,
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
-    online: appData.state.online,
     onRetryDatabase,
     ready: explorer.ready,
     selectedId: selection.selectedId,

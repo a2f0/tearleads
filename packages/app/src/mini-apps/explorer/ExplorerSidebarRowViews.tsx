@@ -1,9 +1,6 @@
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
-import type {
-  ContainerDocumentSidebarRow,
-  ContainerNode,
-} from "@tearleads/client-sdk";
+import type { ContainerDocumentSidebarRow } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import {
   MiniAppRow,
@@ -17,7 +14,6 @@ import {
   type ExplorerSidebarVirtualRow,
   getLoadedExplorerSidebarDocumentRow,
 } from "./ExplorerSidebarRows";
-import { ExplorerSyncStateBadge } from "./ExplorerSyncStateBadge";
 import {
   EXPLORER_SIDEBAR_ROW_HEIGHT,
   type ExplorerTreeEntry,
@@ -42,24 +38,7 @@ export interface ExplorerSidebarRowProps {
   onSelectDocument: (documentId: string, containerId: string) => void;
   onRetryDocumentWindow: (containerId: string, offset: number) => void;
   onToggleCollapsed: (id: string) => void;
-  online: boolean;
   selectedId: string | null;
-}
-
-function ExplorerSidebarItemLabel(params: {
-  children: string;
-  online: boolean;
-  syncState: ContainerNode["syncState"];
-}) {
-  return (
-    <>
-      <MiniAppRowText>{params.children}</MiniAppRowText>
-      <ExplorerSyncStateBadge
-        online={params.online}
-        syncState={params.syncState}
-      />
-    </>
-  );
 }
 
 function getExplorerSidebarRowStyle(depth: number): {
@@ -118,12 +97,7 @@ function ExplorerTreeDocumentRow(
           props.activeContainerId === row.containerId
         }
       >
-        <ExplorerSidebarItemLabel
-          online={props.online}
-          syncState={row.syncState}
-        >
-          {title}
-        </ExplorerSidebarItemLabel>
+        <MiniAppRowText>{title}</MiniAppRowText>
       </MiniAppRowButton>
     </div>
   );
@@ -177,7 +151,6 @@ function ExplorerTreeContainerRow(
     onContextMenu,
     onSelectContainer,
     onToggleCollapsed,
-    online,
     selectedId,
   } = props;
   const hasChildren = entry.children.length > 0;
@@ -231,12 +204,7 @@ function ExplorerTreeContainerRow(
           size={16}
           weight="regular"
         />
-        <ExplorerSidebarItemLabel
-          online={online}
-          syncState={entry.node.syncState}
-        >
-          {entry.node.name}
-        </ExplorerSidebarItemLabel>
+        <MiniAppRowText>{entry.node.name}</MiniAppRowText>
       </MiniAppRowButton>
     </div>
   );

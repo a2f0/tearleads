@@ -33,6 +33,58 @@
   display: block;
 }
 
+.explorer-columns-menu {
+  flex: 0 0 auto;
+}
+
+.explorer-columns-menu-button {
+  padding: var(--space-2xs) var(--space-sm);
+  border: var(--border);
+  background: none;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.explorer-columns-menu-button:hover {
+  background: var(--color-muted);
+}
+
+.explorer-columns-menu-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-inline-size: 0;
+}
+
+/* The "Columns" trigger already names this group visually; the legend keeps the
+   fieldset semantically complete for screen readers without repeating it. */
+.explorer-columns-menu-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.explorer-columns-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.explorer-columns-menu-item:hover {
+  background: var(--color-muted);
+}
+
 .explorer-item-table-wrap {
   flex: 1;
 }
@@ -202,11 +254,6 @@
   width: 4rem;
   min-width: 2.75rem;
   max-width: none;
-}
-
-.explorer-sidebar-item .explorer-sync-badge {
-  max-width: 2.5rem;
-  padding: 0 var(--space-2xs);
 }
 
 .explorer-sync-badge--placeholder {

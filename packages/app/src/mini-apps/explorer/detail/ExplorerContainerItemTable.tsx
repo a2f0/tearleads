@@ -1,139 +1,34 @@
 import type {
   ContainerItemRow,
   ContainerItemSort,
-  ContainerItemSortDirection,
   ContainerItemSortKey,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import { type DragEvent, type MouseEvent, useMemo } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import {
   MiniAppTable,
-  MiniAppTableCell,
-  type MiniAppTableColumn,
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
   MiniAppTableRow,
-  MiniAppTableText,
 } from "../../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
   MiniAppVirtualTableSpacerRow,
 } from "../../../components/shared/MiniAppVirtual";
-import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
-import { getViewerRelativeContactDocumentLabel } from "../../../stores/contacts/contactLabels";
-import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
-import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../labels";
 import { EXPLORER_VIRTUAL_ROW_HEIGHT } from "./explorerContainerItemWindow";
-
-function getSortAria(
-  sort: ContainerItemSort,
-  key: ContainerItemSortKey,
-): MiniAppTableColumn["ariaSort"] {
-  if (sort.key !== key) {
-    return "none";
-  }
-
-  return sort.direction === "asc" ? "ascending" : "descending";
-}
-
-function ExplorerSortableTableHeader(params: {
-  activeDirection: ContainerItemSortDirection | null;
-  label: string;
-  onClick: () => void;
-}) {
-  const { activeDirection, label, onClick } = params;
-
-  return (
-    <button
-      type="button"
-      className="explorer-table-sort-button"
-      onClick={onClick}
-    >
-      <span>{label}</span>
-      <span aria-hidden="true" className="explorer-table-sort-indicator">
-        {activeDirection === "asc"
-          ? "^"
-          : activeDirection === "desc"
-            ? "v"
-            : ""}
-      </span>
-    </button>
-  );
-}
-
-function getExplorerItemTableColumns(params: {
-  compact: boolean;
-  onSort: (key: ContainerItemSortKey) => void;
-  sort: ContainerItemSort;
-}): ReadonlyArray<MiniAppTableColumn> {
-  const { compact, onSort, sort } = params;
-  const sortableHeader = (key: ContainerItemSortKey, label: string) => (
-    <ExplorerSortableTableHeader
-      activeDirection={sort.key === key ? sort.direction : null}
-      label={label}
-      onClick={() => onSort(key)}
-    />
-  );
-  const nameColumn: MiniAppTableColumn = {
-    id: "name",
-    header: EXPLORER_LABELS.itemNameColumn,
-    // On the phone-tier layout the name leads and flexes to fill whatever
-    // space the trimmed columns leave; on wider layouts it keeps a fixed share.
-    width: compact ? undefined : "40%",
-  };
-  const typeColumn: MiniAppTableColumn = {
-    ariaSort: getSortAria(sort, "type"),
-    id: "type",
-    header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
-    width: compact ? "6rem" : "8rem",
-  };
-  const modifiedColumn: MiniAppTableColumn = {
-    ariaSort: getSortAria(sort, "modified"),
-    id: "modified",
-    header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
-    width: compact ? "10rem" : "11rem",
-  };
-
-  // Phone-tier explorer drops the sync-status and date-created columns so the
-  // file name leads and the rest fits without a horizontal scroll. Keep this in
-  // sync with the cells rendered in ExplorerContainerItemTableRow.
-  if (compact) {
-    return [nameColumn, typeColumn, modifiedColumn];
-  }
-
-  return [
-    nameColumn,
-    typeColumn,
-    {
-      id: "sync",
-      header: EXPLORER_LABELS.itemSyncColumn,
-      width: "7rem",
-    },
-    {
-      ariaSort: getSortAria(sort, "created"),
-      id: "created",
-      header: sortableHeader("created", EXPLORER_LABELS.dateCreatedColumn),
-      width: "11rem",
-    },
-    modifiedColumn,
-  ];
-}
-
-function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
-  if (row.itemKind === "container") {
-    return EXPLORER_LABELS.folderType;
-  }
-
-  return getStoredDocumentTypeLabel(
-    row.documentKind,
-    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-  );
-}
+import {
+  type ExplorerItemColumnId,
+  getVisibleExplorerItemColumnIds,
+} from "./explorerItemColumnIds";
+import {
+  type ExplorerItemCellContext,
+  getExplorerItemTableColumns,
+  renderExplorerItemCell,
+} from "./explorerItemTableColumns";
 
 function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
   return row.itemKind === "container"
@@ -166,7 +61,7 @@ function isExplorerContainerItemContextTarget(
 }
 
 function ExplorerContainerItemTableRow(params: {
-  compact: boolean;
+  columnIds: ReadonlyArray<ExplorerItemColumnId>;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   online: boolean;
@@ -180,7 +75,7 @@ function ExplorerContainerItemTableRow(params: {
   setSelectedId: (id: string | null) => void;
 }) {
   const {
-    compact,
+    columnIds,
     currentSigningFingerprint,
     currentUserId,
     online,
@@ -190,28 +85,15 @@ function ExplorerContainerItemTableRow(params: {
     selectDocumentProjection,
     setSelectedId,
   } = params;
-  const name =
-    row.itemKind === "document"
-      ? getViewerRelativeContactDocumentLabel({
-          currentSigningFingerprint,
-          currentUserId,
-          documentKind: row.documentKind,
-          fallbackLabel: row.name,
-          localId: row.localId,
-        })
-      : row.name;
-  const openItem = () => {
-    if (row.itemKind === "container") {
-      setSelectedId(row.id);
-      return;
-    }
-
-    selectDocumentProjection(row.localId, row.containerId);
+  const cellContext: ExplorerItemCellContext = {
+    currentSigningFingerprint,
+    currentUserId,
+    online,
+    row,
+    selectDocumentProjection,
+    setSelectedId,
   };
 
-  // Keep standard table-row semantics: a native button in the name cell carries
-  // the click/keyboard behaviour, and a CSS ::after overlay (see Explorer.css)
-  // stretches its hit area across the whole row so the entire row is clickable.
   return (
     <MiniAppTableRow
       className="explorer-item-table-row"
@@ -219,39 +101,9 @@ function ExplorerContainerItemTableRow(params: {
       onContextMenu={(event) => onItemContextMenu(event, row)}
       selected={selected}
     >
-      <MiniAppTableCell>
-        <button
-          className="explorer-item-row-button"
-          onClick={openItem}
-          type="button"
-        >
-          <MiniAppTableText title={name}>{name}</MiniAppTableText>
-        </button>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        {getExplorerContainerItemTypeLabel(row)}
-      </MiniAppTableCell>
-      {!compact && (
-        <>
-          <MiniAppTableCell>
-            <ExplorerSyncStateBadge
-              online={online}
-              showSynced
-              syncState={row.syncState}
-            />
-          </MiniAppTableCell>
-          <MiniAppTableCell title={row.createdAt ?? undefined}>
-            {formatMiniAppDateTime(row.createdAt, {
-              emptyFallback: EXPLORER_LABELS.unknownDate,
-            })}
-          </MiniAppTableCell>
-        </>
+      {columnIds.map((columnId) =>
+        renderExplorerItemCell(columnId, cellContext),
       )}
-      <MiniAppTableCell title={row.updatedAt ?? undefined}>
-        {formatMiniAppDateTime(row.updatedAt, {
-          emptyFallback: EXPLORER_LABELS.unknownDate,
-        })}
-      </MiniAppTableCell>
     </MiniAppTableRow>
   );
 }
@@ -268,8 +120,7 @@ function isExplorerItemTableBlankContextTarget(
 }
 
 function ExplorerContainerItemTableBody(params: {
-  columns: ReadonlyArray<MiniAppTableColumn>;
-  compact: boolean;
+  columnIds: ReadonlyArray<ExplorerItemColumnId>;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
@@ -287,8 +138,7 @@ function ExplorerContainerItemTableBody(params: {
   totalCount: number;
 }) {
   const {
-    columns,
-    compact,
+    columnIds,
     contextTarget,
     currentSigningFingerprint,
     currentUserId,
@@ -311,7 +161,7 @@ function ExplorerContainerItemTableBody(params: {
     <>
       {topPadding > 0 ? (
         <MiniAppVirtualTableSpacerRow
-          colSpan={columns.length}
+          colSpan={columnIds.length}
           height={topPadding}
         />
       ) : null}
@@ -319,7 +169,7 @@ function ExplorerContainerItemTableBody(params: {
         rows.map((row) => (
           <ExplorerContainerItemTableRow
             key={getExplorerContainerItemRowKey(row)}
-            compact={compact}
+            columnIds={columnIds}
             currentSigningFingerprint={currentSigningFingerprint}
             currentUserId={currentUserId}
             online={online}
@@ -331,21 +181,21 @@ function ExplorerContainerItemTableBody(params: {
           />
         ))
       ) : isLoading ? (
-        <MiniAppTableEmptyRow colSpan={columns.length}>
+        <MiniAppTableEmptyRow colSpan={columnIds.length}>
           Loading...
         </MiniAppTableEmptyRow>
       ) : error ? (
-        <MiniAppTableEmptyRow colSpan={columns.length}>
+        <MiniAppTableEmptyRow colSpan={columnIds.length}>
           {error}
         </MiniAppTableEmptyRow>
       ) : totalCount === 0 ? (
-        <MiniAppTableEmptyRow colSpan={columns.length}>
+        <MiniAppTableEmptyRow colSpan={columnIds.length}>
           {EXPLORER_LABELS.itemTableEmpty}
         </MiniAppTableEmptyRow>
       ) : null}
       {bottomPadding > 0 ? (
         <MiniAppVirtualTableSpacerRow
-          colSpan={columns.length}
+          colSpan={columnIds.length}
           height={bottomPadding}
         />
       ) : null}
@@ -364,6 +214,7 @@ interface ItemTableProps {
   handleDragLeave: (event: DragEvent<HTMLElement>) => void;
   handleDragOver: (event: DragEvent<HTMLElement>) => void;
   handleDrop: (event: DragEvent<HTMLElement>) => void;
+  hiddenColumns: ReadonlySet<ExplorerItemColumnId>;
   isImporting: boolean;
   isLoading: boolean;
   online: boolean;
@@ -397,6 +248,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     handleDragLeave,
     handleDragOver,
     handleDrop,
+    hiddenColumns,
     isImporting,
     isLoading,
     online,
@@ -412,9 +264,13 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     totalCount,
   } = params;
   const compact = useRoutedLayoutTier() === "mobile";
+  const columnIds = useMemo(
+    () => getVisibleExplorerItemColumnIds({ compact, hiddenColumns }),
+    [compact, hiddenColumns],
+  );
   const columns = useMemo(
-    () => getExplorerItemTableColumns({ compact, onSort, sort }),
-    [compact, onSort, sort],
+    () => getExplorerItemTableColumns({ compact, hiddenColumns, onSort, sort }),
+    [compact, hiddenColumns, onSort, sort],
   );
 
   return (
@@ -443,8 +299,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
         columns={columns}
       >
         <ExplorerContainerItemTableBody
-          columns={columns}
-          compact={compact}
+          columnIds={columnIds}
           contextTarget={contextTarget}
           currentSigningFingerprint={currentSigningFingerprint}
           currentUserId={currentUserId}
