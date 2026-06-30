@@ -350,7 +350,6 @@ export function summarizeBlameRanges(
     const writerUserId = attribution?.writerUserId ?? null;
     const writerKeyFingerprint = attribution?.writerKeyFingerprint ?? null;
     const authorityKind = attribution?.authorityKind ?? null;
-    const codePoint = codePoints[index] ?? "";
     if (
       current &&
       current.writerUserId === writerUserId &&
@@ -358,18 +357,23 @@ export function summarizeBlameRanges(
       current.authorityKind === authorityKind
     ) {
       current.endIndex = index + 1;
-      current.text += codePoint;
       continue;
     }
     current = {
       startIndex: index,
       endIndex: index + 1,
-      text: codePoint,
+      text: "",
       writerUserId,
       writerKeyFingerprint,
       authorityKind,
     };
     ranges.push(current);
+  }
+  // Fill each run's prose in one slice from the source code points — derived
+  // from the run's indices rather than accumulated per character, so total work
+  // stays O(n) regardless of how long a single run grows.
+  for (const range of ranges) {
+    range.text = codePoints.slice(range.startIndex, range.endIndex).join("");
   }
   return ranges;
 }
