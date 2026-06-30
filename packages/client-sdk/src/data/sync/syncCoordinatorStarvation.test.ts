@@ -18,8 +18,10 @@ test("the pump yields a macrotask when a lane re-arms-and-completes", async () =
   const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   // Bounded so this test can never itself hang on the unfixed code; the bug is
-  // detected by WHEN the macrotask runs, not by a true infinite loop.
-  const REARM_LIMIT = 200;
+  // detected by WHEN the macrotask runs, not by a true infinite loop. Kept above
+  // the pump's SYNC_PUMP_MACROTASK_YIELD_INTERVAL so the post-fix yield is
+  // observable while staying small for fast, non-flaky CI.
+  const REARM_LIMIT = 50;
   let runCount = 0;
   let runCountWhenMacrotaskFired = -1;
   let requestSelf: () => void = () => {};
@@ -60,4 +62,58 @@ test("the pump yields a macrotask when a lane re-arms-and-completes", async () =
   // macrotask yield it fires at runCount === 1.
   expect(runCountWhenMacrotaskFired).toBeGreaterThanOrEqual(0);
   expect(runCountWhenMacrotaskFired).toBeLessThan(REARM_LIMIT);
+});
+
+test("the pump yields a macrotask during a multi-lane mutual re-arm loop", async () => {
+  // A guard keyed only on the just-run lane re-arming ITSELF would miss this:
+  // lane A re-arms lane B and lane B re-arms lane A, so neither lane's own
+  // `requested` flag is ever set when its run finishes, yet the pump still spins
+  // on microtasks across the two lanes. The interval-based yield must cover this
+  // mutual case too.
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  const TOTAL_LIMIT = 50;
+  let totalRuns = 0;
+  let totalRunsWhenMacrotaskFired = -1;
+  let requestA: () => void = () => {};
+  let requestB: () => void = () => {};
+
+  const laneA = coordinator.registerLane("mutual-a", {
+    run: async () => {
+      totalRuns += 1;
+      // A re-arms B (a DIFFERENT lane), never itself.
+      if (totalRuns < TOTAL_LIMIT) {
+        requestB();
+      }
+    },
+  });
+  const laneB = coordinator.registerLane("mutual-b", {
+    run: async () => {
+      totalRuns += 1;
+      // B re-arms A.
+      if (totalRuns < TOTAL_LIMIT) {
+        requestA();
+      }
+    },
+  });
+  requestA = laneA.requestSync;
+  requestB = laneB.requestSync;
+
+  setTimeout(() => {
+    totalRunsWhenMacrotaskFired = totalRuns;
+  }, 0);
+
+  laneA.requestSync();
+
+  expect(
+    await waitForDomainSyncCoordinatorToSettle(domainScope, {
+      intervalMs: 5,
+      quietMs: 0,
+      timeoutMs: 5_000,
+    }),
+  ).toBe(true);
+
+  expect(totalRuns).toBe(TOTAL_LIMIT);
+  expect(totalRunsWhenMacrotaskFired).toBeGreaterThanOrEqual(0);
+  expect(totalRunsWhenMacrotaskFired).toBeLessThan(TOTAL_LIMIT);
 });

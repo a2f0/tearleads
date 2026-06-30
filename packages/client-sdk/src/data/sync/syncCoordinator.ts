@@ -72,6 +72,12 @@ const DESTROYED_DATABASE_CLIENT_MESSAGES = [
 // keep a persistently-failing self-re-arming lane from tight-looping the pump
 // and starving the event loop. A transient failure that did not re-arm waits 0.
 const FAILED_LANE_REARM_BACKOFF_MS = 1000;
+// The pump yields a macrotask after this many consecutive lane runs even on the
+// success path, so a run of lanes that keep re-arming (a single lane re-arming
+// itself, or several lanes re-arming each other) can never starve the event
+// loop. Comfortably above a normal multi-lane convergence burst so steady-state
+// sync pays no extra macrotask hops.
+const SYNC_PUMP_MACROTASK_YIELD_INTERVAL = 16;
 
 type SyncLaneRunResult =
   | { status: "completed" }
@@ -134,6 +140,7 @@ function selectNextRequestedLane(
 async function runRequestedSyncLanes(
   coordinatorState: DomainSyncCoordinatorState,
 ): Promise<void> {
+  let runsSinceMacrotaskYield = 0;
   while (true) {
     const lane = selectNextRequestedLane(coordinatorState.lanes.values());
     if (!lane) {
@@ -178,23 +185,27 @@ async function runRequestedSyncLanes(
       publishSyncCoordinatorSnapshot(coordinatorState);
     }
 
-    // If the just-run lane is STILL requested it re-armed itself (or was
-    // re-requested for itself mid-pass), and the next iteration would re-select
-    // it. The loop's only other await — runSyncLane — yields a MICROTASK, not a
-    // macrotask, so a lane that re-arms on microtask-resolving work (a local
-    // success that schedules a follow-up, or a failure) would spin the pump
-    // forever WITHOUT ever yielding the event loop, starving the macrotask/timer
-    // phase (e.g. a test's setTimeout-based timeout, a waitFor poll, the idle
-    // poller). Yield a macrotask before re-selecting it: a full backoff for a
-    // persistently failing lane, and a single macrotask tick for a success-path
-    // self-re-arm. A re-arm that targets a DIFFERENT lane leaves this lane's
-    // `requested` false, so normal multi-lane throughput pays nothing, and
-    // selectNextRequestedLane still re-sorts by phase after the yield, so the
-    // structural-before-document phase ordering is preserved.
-    if (lane.requested) {
-      await delay(
-        runResult?.status === "failed" ? FAILED_LANE_REARM_BACKOFF_MS : 0,
-      );
+    runsSinceMacrotaskYield += 1;
+
+    if (runResult?.status === "failed" && lane.requested) {
+      // A persistently failing lane that re-armed itself backs off before it can
+      // run again, so it cannot tight-loop. delay() is a setTimeout (macrotask),
+      // so this also yields the event loop.
+      await delay(FAILED_LANE_REARM_BACKOFF_MS);
+      runsSinceMacrotaskYield = 0;
+    } else if (runsSinceMacrotaskYield >= SYNC_PUMP_MACROTASK_YIELD_INTERVAL) {
+      // Event-loop starvation guard. The loop's only other await — runSyncLane —
+      // yields a MICROTASK, not a macrotask, so a run of lanes that keep re-arming
+      // would spin this while(true) forever WITHOUT reaching the macrotask/timer
+      // phase, starving setTimeout-based test timeouts, waitFor polls, and the
+      // idle poller. This covers BOTH a single lane re-arming ITSELF and several
+      // lanes re-arming each OTHER (where no single lane's `requested` stays set):
+      // yield a macrotask every SYNC_PUMP_MACROTASK_YIELD_INTERVAL runs regardless
+      // of which lane was requested. selectNextRequestedLane re-sorts by phase
+      // after the yield, so structural-before-document ordering is preserved, and
+      // the interval keeps normal (quickly-settling) multi-lane bursts yield-free.
+      await delay(0);
+      runsSinceMacrotaskYield = 0;
     }
   }
 }
