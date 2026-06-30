@@ -959,9 +959,12 @@ export async function hydrateRemoteContainers(input: {
 
   if (changedCount > 0) {
     host.updateSnapshot();
-    const insertedCount = Array.from(seenContainerIds).filter(
-      (containerId) => !containerIdsBeforeHydration.has(containerId),
-    ).length;
+    let insertedCount = 0;
+    for (const containerId of seenContainerIds) {
+      if (!containerIdsBeforeHydration.has(containerId)) {
+        insertedCount++;
+      }
+    }
     state.runtime.util.log(
       describeRemoteContainerHydration({ changedCount, insertedCount }),
     );
