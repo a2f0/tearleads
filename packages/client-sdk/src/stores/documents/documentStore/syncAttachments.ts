@@ -116,6 +116,20 @@ export async function syncPendingAttachments(
     if (outcome === "uploaded") {
       completedSlotIds.add(pendingAttachment.slotId);
     }
+    // Republish progressively so a settled attachment drops its "syncing" badge
+    // (derived from state.pendingAttachments) right away — otherwise a later
+    // attachment that returns "retry", or a pass that drops everything without a
+    // successful upload, would return before the end-of-loop publish and leave
+    // an already-removed attachment stuck "syncing" in the UI.
+    if (currentDoc === state.doc) {
+      setReadySnapshot(
+        state,
+        currentDoc,
+        state.snapshot.syncing,
+        state.snapshot.text,
+        state.snapshot.structuredFields,
+      );
+    }
   }
 
   if (completedSlotIds.size === 0) {
@@ -129,16 +143,8 @@ export async function syncPendingAttachments(
   // that would suppress the next genuine remote update if every upload failed.
   markOriginatedDocuments(state.runtime.state.domainScope, [remoteDocumentId]);
 
-  if (currentDoc === state.doc) {
-    setReadySnapshot(
-      state,
-      currentDoc,
-      state.snapshot.syncing,
-      state.snapshot.text,
-      state.snapshot.structuredFields,
-    );
-  }
-
+  // The snapshot was already republished progressively inside the loop as each
+  // attachment settled, so there is nothing left to publish here.
   return { completed: true, nextRecord: currentRecord };
 }
 
