@@ -26,6 +26,10 @@ export interface SyncLaneState {
 }
 
 export interface DomainSyncCoordinatorState {
+  // Set by dispose(): the pump force-stops at its next loop check and no new
+  // pump can be scheduled, so a coordinator cannot run after its runtime/React
+  // tree unmounts.
+  disposed: boolean;
   lanes: Map<string, SyncLaneState>;
   listeners: Set<() => void>;
   nextRegistrationIndex: number;

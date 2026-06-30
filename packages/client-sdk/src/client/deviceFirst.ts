@@ -35,6 +35,8 @@ export interface DeviceFirst {
   ): LocalProjectionView;
   /** Handle to the background reconciliation service for the current scope. */
   reconciler(): ReconciliationService;
+  /** Stop the current scope's reconciler (if one was created) on teardown. */
+  dispose(): void;
 }
 
 export function createDeviceFirst(
@@ -69,6 +71,20 @@ class DeviceFirstService implements DeviceFirst {
 
   reconciler(): ReconciliationService {
     return this.getOrCreateEntry().service;
+  }
+
+  dispose(): void {
+    // Stop only an already-created reconciler; never spin one up just to tear
+    // it down. The coordinator pump that runs the reconciler's lane is
+    // force-stopped separately via disposeDomainSyncCoordinator.
+    const domainScope = this.workflowRuntime().state.domainScope;
+    const entry = this.entriesByScope.get(domainScope);
+    if (!entry) {
+      return;
+    }
+
+    entry.service.stop();
+    this.entriesByScope.delete(domainScope);
   }
 
   private workflowRuntime(): ContainerContentsWorkflowRuntime {
