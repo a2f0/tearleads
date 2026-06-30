@@ -56,6 +56,10 @@ export interface DomainSyncCoordinator {
   dispose: () => void;
   getSnapshot: () => DomainSyncSnapshot;
   registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
+  // Re-request every registered lane — a manual "sync now" that re-drives work
+  // stranded by a transient failure that left the lanes idle (no re-arm fires
+  // until an edit, a remote event, an online/auth regain, or a restart).
+  requestAllLanes: () => void;
   hasPendingWork: () => boolean;
   subscribe: (listener: () => void) => () => void;
   waitForIdle: (options?: SyncIdleOptions) => Promise<boolean>;
@@ -237,6 +241,14 @@ function scheduleCoordinatorPump(coordinatorState: DomainSyncCoordinatorState) {
     });
 }
 
+function markLaneRequested(lane: SyncLaneState, requestedAt: string): void {
+  lane.requested = true;
+  lane.requestCount += 1;
+  lane.lastAction = "requested";
+  lane.lastActionAt = requestedAt;
+  lane.lastRequestedAt = requestedAt;
+}
+
 function requestLaneSync(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
@@ -244,11 +256,7 @@ function requestLaneSync(
   if (coordinatorState.disposed) {
     return;
   }
-  lane.requested = true;
-  lane.requestCount += 1;
-  lane.lastAction = "requested";
-  lane.lastActionAt = createSyncTimestamp();
-  lane.lastRequestedAt = lane.lastActionAt;
+  markLaneRequested(lane, createSyncTimestamp());
   publishSyncCoordinatorSnapshot(coordinatorState);
   scheduleCoordinatorPump(coordinatorState);
 }
@@ -357,6 +365,20 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
         requestSync: () => requestLaneSync(coordinatorState, nextLane),
       };
     },
+    requestAllLanes() {
+      if (coordinatorState.disposed || coordinatorState.lanes.size === 0) {
+        return;
+      }
+      // Mark every lane requested, then publish the snapshot and schedule the
+      // pump ONCE — re-requesting per lane via requestLaneSync would emit one
+      // snapshot notification (and React re-render) per lane.
+      const requestedAt = createSyncTimestamp();
+      for (const lane of coordinatorState.lanes.values()) {
+        markLaneRequested(lane, requestedAt);
+      }
+      publishSyncCoordinatorSnapshot(coordinatorState);
+      scheduleCoordinatorPump(coordinatorState);
+    },
     subscribe(listener: () => void) {
       coordinatorState.listeners.add(listener);
       return () => {
@@ -386,6 +408,13 @@ export function hasDomainSyncCoordinatorPendingWork(
   domainScope: DomainScope,
 ): boolean {
   return coordinatorsByScope.get(domainScope)?.hasPendingWork() ?? false;
+}
+
+// Re-request every registered lane for a scope: a user-driven "sync now" that
+// retries work stranded by a transient failure. A no-op when no coordinator
+// exists yet (nothing has been synced) or it has been disposed.
+export function requestAllDomainSyncLanes(domainScope: DomainScope): void {
+  coordinatorsByScope.get(domainScope)?.requestAllLanes();
 }
 
 // Force-stop the coordinator for a scope and drop it from the registry, so a

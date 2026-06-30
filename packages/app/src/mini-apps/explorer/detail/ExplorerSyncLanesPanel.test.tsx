@@ -53,6 +53,7 @@ function createSnapshot(
 
 function renderSyncLanesPanel(input: {
   onOpenLaneDetail?: ((laneKey: string) => void) | undefined;
+  onSyncNow?: (() => void) | undefined;
   selectedLaneKey?: string | null | undefined;
   snapshot: DomainSyncSnapshot;
 }) {
@@ -61,6 +62,7 @@ function renderSyncLanesPanel(input: {
       onBackToSelectionRoute: () => undefined,
       onBackToSyncLanesRoute: () => undefined,
       onOpenLaneDetail: input.onOpenLaneDetail ?? (() => undefined),
+      onSyncNow: input.onSyncNow ?? (() => undefined),
       selectedLaneKey: input.selectedLaneKey ?? null,
       snapshot: input.snapshot,
     }),
@@ -130,6 +132,72 @@ test("ExplorerSyncLanesPanelView opens lane details from the responsive list", (
   );
 
   expect(openedLaneKeys).toEqual(["documents:local-1"]);
+});
+
+test("ExplorerSyncLanesPanelView triggers a manual sync from the list view", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+    }),
+  ]);
+  let syncNowCount = 0;
+
+  const view = renderSyncLanesPanel({
+    onSyncNow: () => {
+      syncNowCount += 1;
+    },
+    snapshot,
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Sync now" }));
+
+  expect(syncNowCount).toBe(1);
+});
+
+test("ExplorerSyncLanesPanelView disables the manual sync action while syncing", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+      running: true,
+      status: "running",
+    }),
+  ]);
+  let syncNowCount = 0;
+
+  const view = renderSyncLanesPanel({
+    onSyncNow: () => {
+      syncNowCount += 1;
+    },
+    snapshot,
+  });
+
+  const button = view.getByRole("button", {
+    name: "Sync now",
+  }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.click(button);
+  expect(syncNowCount).toBe(0);
+});
+
+test("ExplorerSyncLanesPanelView hides the manual sync action in lane detail", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+    }),
+  ]);
+
+  const view = renderSyncLanesPanel({
+    selectedLaneKey: "documents:local-1",
+    snapshot,
+  });
+
+  expect(view.queryByRole("button", { name: "Sync now" })).toBeNull();
 });
 
 test("ExplorerSyncLanesPanelView renders lane detail metadata", () => {
