@@ -6,6 +6,7 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
+import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
 import { type BlobStoreFactory, Blobs } from "./blobs";
 import {
   type ContainerContents,
@@ -186,6 +187,19 @@ export class Tearleads {
     }
 
     return this.domainScopeValue;
+  }
+
+  /**
+   * Tear down background work for the active domain scope: stop the reconciler
+   * and force-stop the sync coordinator pump, then drop the coordinator from
+   * its registry. Hosts call this from unmount/cleanup so a pump cannot outlive
+   * the React tree that created it. A later access for the same scope rebuilds
+   * fresh state.
+   */
+  dispose(): void {
+    const domainScope = this.domainScope;
+    this.deviceFirst.dispose();
+    disposeDomainSyncCoordinator(domainScope);
   }
 
   private loginAfterSessionExpired(): Promise<boolean> {

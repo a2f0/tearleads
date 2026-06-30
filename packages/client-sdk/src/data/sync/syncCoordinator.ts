@@ -52,6 +52,8 @@ export interface DomainSyncCoordinator {
     key: string,
     options?: UploadSyncLaneOptions,
   ) => UploadSyncLane;
+  // Force-stop the pump, drop all queued lane work, and refuse further runs.
+  dispose: () => void;
   getSnapshot: () => DomainSyncSnapshot;
   registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
   hasPendingWork: () => boolean;
@@ -142,6 +144,11 @@ async function runRequestedSyncLanes(
 ): Promise<void> {
   let runsSinceMacrotaskYield = 0;
   while (true) {
+    // Force-stop: dispose() can fire while a lane run is mid-await. Bail before
+    // selecting another lane so a disposed coordinator cannot keep pumping.
+    if (coordinatorState.disposed) {
+      return;
+    }
     const lane = selectNextRequestedLane(coordinatorState.lanes.values());
     if (!lane) {
       return;
@@ -211,7 +218,7 @@ async function runRequestedSyncLanes(
 }
 
 function scheduleCoordinatorPump(coordinatorState: DomainSyncCoordinatorState) {
-  if (coordinatorState.pump) {
+  if (coordinatorState.pump || coordinatorState.disposed) {
     return;
   }
 
@@ -221,7 +228,10 @@ function scheduleCoordinatorPump(coordinatorState: DomainSyncCoordinatorState) {
       coordinatorState.pump = null;
       publishSyncCoordinatorSnapshot(coordinatorState);
 
-      if (hasRequestedLaneWork(coordinatorState.lanes.values())) {
+      if (
+        !coordinatorState.disposed &&
+        hasRequestedLaneWork(coordinatorState.lanes.values())
+      ) {
         scheduleCoordinatorPump(coordinatorState);
       }
     });
@@ -231,6 +241,9 @@ function requestLaneSync(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
 ) {
+  if (coordinatorState.disposed) {
+    return;
+  }
   lane.requested = true;
   lane.requestCount += 1;
   lane.lastAction = "requested";
@@ -270,6 +283,7 @@ async function waitForIdleLanes(
 
 function createDomainSyncCoordinator(): DomainSyncCoordinator {
   const coordinatorState: DomainSyncCoordinatorState = {
+    disposed: false,
     lanes: new Map<string, SyncLaneState>(),
     listeners: new Set(),
     nextRegistrationIndex: 0,
@@ -284,6 +298,19 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
   return {
     beginUploadLane(key: string, options: UploadSyncLaneOptions = {}) {
       return beginUploadLane(coordinatorState, key, options);
+    },
+    dispose() {
+      coordinatorState.disposed = true;
+      // Drop queued work so waitForIdle reports settled immediately and a
+      // lane left re-requested by an in-flight run does not survive teardown.
+      for (const lane of coordinatorState.lanes.values()) {
+        lane.requested = false;
+      }
+      // Publish the final settled snapshot, then release listener closures:
+      // the coordinator is dropped from the registry and a remount subscribes
+      // to a fresh one.
+      publishSyncCoordinatorSnapshot(coordinatorState);
+      coordinatorState.listeners.clear();
     },
     getSnapshot() {
       return coordinatorState.snapshot;
@@ -359,6 +386,19 @@ export function hasDomainSyncCoordinatorPendingWork(
   domainScope: DomainScope,
 ): boolean {
   return coordinatorsByScope.get(domainScope)?.hasPendingWork() ?? false;
+}
+
+// Force-stop the coordinator for a scope and drop it from the registry, so a
+// pump cannot outlive the runtime/React tree that created it. A later
+// getOrCreate for the same scope builds a fresh coordinator.
+export function disposeDomainSyncCoordinator(domainScope: DomainScope): void {
+  const coordinator = coordinatorsByScope.get(domainScope);
+  if (!coordinator) {
+    return;
+  }
+
+  coordinator.dispose();
+  coordinatorsByScope.delete(domainScope);
 }
 
 export function getDomainSyncCoordinatorSnapshot(

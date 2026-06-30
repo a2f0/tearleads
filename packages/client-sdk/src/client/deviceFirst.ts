@@ -1,4 +1,8 @@
-import { isDestroyedDatabaseClientError } from "../data/sync/syncCoordinator";
+import type { DomainScope } from "../data/domainScope";
+import {
+  disposeDomainSyncCoordinator,
+  isDestroyedDatabaseClientError,
+} from "../data/sync/syncCoordinator";
 import type { ContainerContentsStoreOptions } from "../stores/container-contents";
 import { requestRegisteredDocumentRemoteSync } from "../stores/documents/registry";
 import {
@@ -35,6 +39,8 @@ export interface DeviceFirst {
   ): LocalProjectionView;
   /** Handle to the background reconciliation service for the current scope. */
   reconciler(): ReconciliationService;
+  /** Stop the current scope's reconciler (if one was created) on teardown. */
+  dispose(): void;
 }
 
 export function createDeviceFirst(
@@ -51,8 +57,12 @@ interface DeviceFirstScopeEntry {
 }
 
 class DeviceFirstService implements DeviceFirst {
-  private readonly entriesByScope = new WeakMap<
-    object,
+  // A real Map (not WeakMap) so dispose() can iterate every scope seen this
+  // session. A running reconciler holds event subscriptions that keep an idle,
+  // stale-scope service (and its scope) reachable anyway, so WeakMap bought no
+  // GC here; the entries are released explicitly on dispose().
+  private readonly entriesByScope = new Map<
+    DomainScope,
     DeviceFirstScopeEntry
   >();
 
@@ -69,6 +79,19 @@ class DeviceFirstService implements DeviceFirst {
 
   reconciler(): ReconciliationService {
     return this.getOrCreateEntry().service;
+  }
+
+  dispose(): void {
+    // Stop every reconciler created this session — not just the current
+    // scope's. A scope change (e.g. anonymous -> authenticated) leaves the old
+    // scope's reconciler subscribed and its coordinator pump live; tear them
+    // all down. Force-stop each scope's coordinator (which runs the reconciler
+    // lane) alongside stopping the service.
+    for (const [domainScope, entry] of this.entriesByScope) {
+      entry.service.stop();
+      disposeDomainSyncCoordinator(domainScope);
+    }
+    this.entriesByScope.clear();
   }
 
   private workflowRuntime(): ContainerContentsWorkflowRuntime {

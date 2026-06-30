@@ -12,6 +12,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
@@ -117,6 +118,34 @@ function useBrowserNetworkBinding(tearleads: Tearleads): void {
   }, [tearleads]);
 }
 
+// `tearleads` is created once per provider via useState and never changes, so
+// the only thing that re-runs this effect is a remount of the same instance —
+// the effect dependency cannot carry a different instance, so there is no
+// instance-swap path to dispose here.
+function useTearleadsDisposeOnUnmount(tearleads: Tearleads): void {
+  const disposeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // A remount (including StrictMode's dev double-invoke) re-runs this setup
+    // and cancels a dispose queued by the previous cleanup: the tree is alive,
+    // so the SDK and its sync coordinator must keep running.
+    if (disposeTimerRef.current !== null) {
+      clearTimeout(disposeTimerRef.current);
+      disposeTimerRef.current = null;
+    }
+
+    return () => {
+      // Defer to a macrotask. StrictMode unmounts then immediately remounts in
+      // the same tick, which cancels this; a real unmount has no remount, so the
+      // deferred dispose fires and the coordinator pump cannot outlive the tree.
+      disposeTimerRef.current = setTimeout(() => {
+        disposeTimerRef.current = null;
+        tearleads.dispose();
+      }, 0);
+    };
+  }, [tearleads]);
+}
+
 function useNetworkTransitionLog(tearleads: Tearleads): void {
   const { log } = useLog();
 
@@ -192,6 +221,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
 
   useBrowserNetworkBinding(tearleads);
   useNetworkTransitionLog(tearleads);
+  useTearleadsDisposeOnUnmount(tearleads);
   useServerEventsBinding(
     tearleads,
     hostConfig.wsUrl,

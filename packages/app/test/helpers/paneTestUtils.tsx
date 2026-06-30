@@ -42,6 +42,11 @@ export const PANE_ASYNC_TEST_TIMEOUT_MS = 15_000;
 export const PANE_LONG_ASYNC_TEST_TIMEOUT_MS = 30_000;
 export async function cleanupPaneTestEnvironment(): Promise<void> {
   cleanup();
+  // cleanup() unmounts the tree, which queues TearleadsProvider's deferred
+  // dispose (a macrotask, so StrictMode remounts can cancel it). Flush that
+  // macrotask here so the sync coordinator pump is force-stopped and dropped
+  // before the next test — no spinning pump can bleed across tests.
+  await new Promise((resolve) => setTimeout(resolve, 0));
   globalThis.localStorage.clear();
   await resetMockServer();
 }
