@@ -56,6 +56,17 @@ test("an attachment slot lost to an interrupted write is recovered on init", asy
   });
 
   const store = createDocumentStore(localId, runtime, persistence);
+  // Capture every published snapshot to catch a transient empty-content flash:
+  // the recovery persist must derive the snapshot from the loaded doc, not
+  // preserve the still-empty initial snapshot, or it would publish a ready
+  // snapshot with empty text over the real content during init.
+  const readyTexts: string[] = [];
+  store.subscribe(() => {
+    const snapshot = store.getSnapshot();
+    if (snapshot.ready) {
+      readyTexts.push(snapshot.text);
+    }
+  });
   store.updateRuntime(runtime);
 
   await waitForCondition(
@@ -70,4 +81,7 @@ test("an attachment slot lost to an interrupted write is recovered on init", asy
   expect(attachments[0]?.slotId).toBe(slotId);
   expect(attachments[0]?.name).toBe("recovered.png");
   expect(attachments[0]?.byteLength).toBe(15);
+  expect(store.getSnapshot().text).toBe("note text");
+  // No ready snapshot ever published empty content over the loaded text.
+  expect(readyTexts).not.toContain("");
 });

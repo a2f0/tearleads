@@ -107,10 +107,12 @@ async function recoverDroppedAttachmentSlots(
   if (update.byteLength > 0) {
     await enqueuePendingUpdate(state, update);
   }
-  await persistDocument(state, doc, undefined, {
-    preserveSnapshotStructuredFields: true,
-    preserveSnapshotText: true,
-  });
+  // Derive the snapshot from the loaded doc (do NOT preserve the snapshot). This
+  // runs during init, before the store is ready, so state.snapshot is still the
+  // empty initial snapshot — preserving it would publish a ready snapshot with
+  // empty text/structured fields (a flash of empty content) over the real loaded
+  // content. There is no in-flight user edit to protect here.
+  await persistDocument(state, doc);
   advancePendingBaseVersion(state, doc);
   state.runtime.util.log(
     `Documents: recovered ${recovered.length} attachment slot(s) from pending uploads after an interrupted write.`,
