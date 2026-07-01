@@ -243,15 +243,15 @@ function ExplorerStandardContainerContextMenu(
     >
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
-        label={EXPLORER_LABELS.createChildFolderAction}
-        disabled={!canCreateChildContextMenuNode}
-        onSelect={() => openCreateChildModal(containerId)}
-      />
-      <ExplorerOptionalMenuItem
-        {...optionalActionProps}
         label={EXPLORER_LABELS.newStructuredDocumentAction}
         disabled={!canCreateStructuredDocumentContextMenuNode}
         onSelect={() => openNewStructuredDocumentRoute(containerId)}
+      />
+      <ExplorerOptionalMenuItem
+        {...optionalActionProps}
+        label={EXPLORER_LABELS.createChildFolderAction}
+        disabled={!canCreateChildContextMenuNode}
+        onSelect={() => openCreateChildModal(containerId)}
       />
       <ExplorerOptionalMenuItem
         {...optionalActionProps}

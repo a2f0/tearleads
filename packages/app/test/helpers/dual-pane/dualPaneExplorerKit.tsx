@@ -57,7 +57,7 @@ async function openExplorerNewStructuredDocumentRoute(pane: HTMLElement) {
     fireEvent.click(newStructuredDocumentItem);
   });
   await waitFor(() => {
-    expect(within(pane).getByRole("button", { name: "New Note" })).toBeTruthy();
+    expect(within(pane).getByRole("button", { name: "Note" })).toBeTruthy();
   });
 }
 
@@ -108,7 +108,7 @@ export async function createNoteWithAttachment(pane: HTMLElement) {
   });
   await openExplorerNewStructuredDocumentRoute(pane);
   const newNoteButton = await within(pane).findByRole("button", {
-    name: "New Note",
+    name: "Note",
   });
   await interact(() => {
     fireEvent.click(newNoteButton);
@@ -171,7 +171,7 @@ export async function createNoteInContainer(
   await selectContainerAndWaitForItemTable(pane, containerName);
   await openExplorerNewStructuredDocumentRoute(pane);
   const newNoteButton = await within(pane).findByRole("button", {
-    name: "New Note",
+    name: "Note",
   });
   await interact(() => {
     fireEvent.click(newNoteButton);

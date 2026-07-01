@@ -1,3 +1,4 @@
+import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
 import {
   deriveFileDocumentTitle,
   readFileDocumentFieldsFromRecord,
@@ -9,7 +10,8 @@ const GENERIC_FILE_DOCUMENT_UNTITLED_TITLE = "Untitled file";
 
 export const genericFileDocumentProjectorDefinition: AppDocumentProjectorDefinition =
   {
-    createLabel: "New File",
+    createIcon: FileIcon,
+    createLabel: "File",
     kind: GENERIC_FILE_DOCUMENT_KIND,
     label: "file",
     project: ({ structuredFields }) => {

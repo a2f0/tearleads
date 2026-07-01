@@ -45,16 +45,20 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
           {EXPLORER_LABELS.newStructuredDocumentDocumentTypeHeading}
         </MiniAppSectionHeading>
         <div className="explorer-document-type-grid">
-          {CREATABLE_DOCUMENT_TYPE_DEFINITIONS.map((definition) => (
-            <MiniAppButton
-              block
-              className="explorer-document-type-button"
-              key={definition.kind}
-              onClick={() => onCreateDocument(definition.kind)}
-            >
-              {definition.createLabel}
-            </MiniAppButton>
-          ))}
+          {CREATABLE_DOCUMENT_TYPE_DEFINITIONS.map((definition) => {
+            const DocumentTypeIcon = definition.createIcon;
+            return (
+              <MiniAppButton
+                block
+                className="explorer-document-type-button"
+                key={definition.kind}
+                onClick={() => onCreateDocument(definition.kind)}
+              >
+                <DocumentTypeIcon aria-hidden size={20} />
+                {definition.createLabel}
+              </MiniAppButton>
+            );
+          })}
         </div>
       </MiniAppSection>
     </MiniAppPanel>

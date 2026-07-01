@@ -1,3 +1,4 @@
+import { ImageIcon } from "@phosphor-icons/react/dist/csr/Image";
 import {
   deriveFileDocumentTitle,
   readImageDocumentFieldsFromRecord,
@@ -9,7 +10,8 @@ const IMAGE_DOCUMENT_UNTITLED_TITLE = "Untitled image";
 
 export const imageDocumentProjectorDefinition: AppDocumentProjectorDefinition =
   {
-    createLabel: "New Image",
+    createIcon: ImageIcon,
+    createLabel: "Image",
     kind: IMAGE_DOCUMENT_KIND,
     label: "image",
     project: ({ structuredFields }) => {

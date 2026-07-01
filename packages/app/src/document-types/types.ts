@@ -1,3 +1,4 @@
+import type { Icon } from "@phosphor-icons/react";
 import type { DocumentProjectorDefinition } from "@tearleads/client-sdk";
 
 export interface DocumentTypeAppProps {
@@ -8,5 +9,6 @@ export interface DocumentTypeAppProps {
 
 export interface AppDocumentProjectorDefinition
   extends DocumentProjectorDefinition {
+  createIcon: Icon;
   createLabel: string;
 }

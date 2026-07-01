@@ -191,7 +191,7 @@ export async function openExplorerNewStructuredDocumentRoute(
 
   await waitFor(() => {
     expect(
-      within(explorerWindow).getByRole("button", { name: "New Note" }),
+      within(explorerWindow).getByRole("button", { name: "Note" }),
     ).toBeTruthy();
   });
 }

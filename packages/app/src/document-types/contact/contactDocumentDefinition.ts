@@ -1,3 +1,4 @@
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
@@ -51,7 +52,8 @@ export function readContactFieldsFromRecord(
 
 export const contactDocumentProjectorDefinition: AppDocumentProjectorDefinition =
   {
-    createLabel: "New Contact",
+    createIcon: AddressBookIcon,
+    createLabel: "Contact",
     kind: "contact",
     label: "contact",
     project: ({ structuredFields }) => {

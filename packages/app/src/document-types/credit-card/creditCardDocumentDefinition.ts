@@ -1,3 +1,4 @@
+import { CreditCardIcon } from "@phosphor-icons/react/dist/csr/CreditCard";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
@@ -64,7 +65,8 @@ export function readCreditCardFieldsFromRecord(
 
 export const creditCardDocumentProjectorDefinition: AppDocumentProjectorDefinition =
   {
-    createLabel: "New Credit Card",
+    createIcon: CreditCardIcon,
+    createLabel: "Credit Card",
     kind: "credit_card",
     label: "credit card",
     project: ({ structuredFields }) => {
