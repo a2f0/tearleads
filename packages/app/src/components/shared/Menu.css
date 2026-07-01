@@ -11,6 +11,9 @@
 }
 
 .menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   border: none;
   background: none;

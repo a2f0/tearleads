@@ -37,9 +37,10 @@ export function PaneContextMenu({
             <MenuItem label="Unlock Database" onClick={openUnlockWindow} />
           )}
           {canLockPane && <MenuItem label="Lock" onClick={lockPane} />}
-          {MINI_APP_MENU_ITEMS.map(({ appId, label }) => (
+          {MINI_APP_MENU_ITEMS.map(({ appId, icon, label }) => (
             <MenuItem
               key={appId}
+              icon={icon}
               label={label}
               onClick={() => openMiniApp(appId)}
             />
