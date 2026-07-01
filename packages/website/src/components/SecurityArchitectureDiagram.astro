@@ -15,7 +15,7 @@
     aria-hidden="true"
     class="security-diagram security-diagram--wide"
     focusable="false"
-    viewBox="0 0 960 700"
+    viewBox="0 0 960 608"
     xmlns="http://www.w3.org/2000/svg"
   >
     <defs>
@@ -33,7 +33,7 @@
       <filter
         color-interpolation-filters="sRGB"
         filterUnits="userSpaceOnUse"
-        height="668"
+        height="576"
         id="security-shadow"
         width="936"
         x="12"
@@ -50,11 +50,11 @@
     </defs>
 
     <!-- frame -->
-    <rect fill="#f7f7f7" height="660" rx="16" width="920" x="20" y="20"></rect>
+    <rect fill="#f7f7f7" height="568" rx="16" width="920" x="20" y="20"></rect>
     <rect
       fill="#ffffff"
       filter="url(#security-shadow)"
-      height="636"
+      height="544"
       rx="12"
       width="896"
       x="32"
@@ -212,29 +212,6 @@
       <tspan dy="24" x="592">Sync keeps devices current</tspan>
       <tspan dy="22" x="592">without content-key access.</tspan>
     </text>
-
-    <!-- footer callouts -->
-    <g class="security-diagram-callout">
-      <rect height="64" rx="10" width="266" x="56" y="580"></rect>
-      <text x="80" y="608">
-        <tspan class="security-diagram-callout-title" x="80">Device-only keys</tspan>
-        <tspan dy="22" x="80">Session keys stay client-side.</tspan>
-      </text>
-    </g>
-    <g class="security-diagram-callout">
-      <rect height="64" rx="10" width="266" x="347" y="580"></rect>
-      <text x="371" y="608">
-        <tspan class="security-diagram-callout-title" x="371">Encrypted persistence</tspan>
-        <tspan dy="22" x="371">Local bytes persist encrypted.</tspan>
-      </text>
-    </g>
-    <g class="security-diagram-callout">
-      <rect height="64" rx="10" width="266" x="638" y="580"></rect>
-      <text x="662" y="608">
-        <tspan class="security-diagram-callout-title" x="662">Ciphertext-only service</tspan>
-        <tspan dy="22" x="662">The server stores what it cannot read.</tspan>
-      </text>
-    </g>
   </svg>
 
   <svg
@@ -374,4 +351,21 @@
       <tspan dy="22" x="66">metadata without content keys</tspan>
     </text>
   </svg>
+
+  <ul class="security-diagram-callouts">
+    <li class="security-diagram-callout">
+      <p class="security-diagram-callout-title">Device-only keys</p>
+      <p class="security-diagram-callout-body">Session keys stay client-side.</p>
+    </li>
+    <li class="security-diagram-callout">
+      <p class="security-diagram-callout-title">Encrypted persistence</p>
+      <p class="security-diagram-callout-body">Local bytes persist encrypted.</p>
+    </li>
+    <li class="security-diagram-callout">
+      <p class="security-diagram-callout-title">Ciphertext-only service</p>
+      <p class="security-diagram-callout-body">
+        The server stores what it cannot read.
+      </p>
+    </li>
+  </ul>
 </figure>

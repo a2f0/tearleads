@@ -137,6 +137,7 @@
   width: 100%;
   height: auto;
   color: #111111;
+  font-family: var(--tearleads-font-family);
 }
 
 .security-diagram--mobile {
@@ -159,7 +160,6 @@
 .security-diagram-body {
   fill: #444444;
   font-size: 15px;
-  line-height: 1.4;
 }
 
 .security-diagram-token rect {
@@ -173,19 +173,44 @@
   text-anchor: middle;
 }
 
-.security-diagram-callout rect {
-  fill: #ffffff;
-  stroke: #d6d6d6;
-}
-
-.security-diagram-callout text {
-  fill: #444444;
-  font-size: 14px;
-}
-
+/* "Server boundary" label rendered inside the SVG. */
 .security-diagram-callout-title {
   fill: #111111;
   font-weight: 800;
+}
+
+/* Key takeaways rendered as real HTML so they are readable by screen
+   readers and search engines and present on every breakpoint. */
+.security-diagram-callouts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.security-diagram-callout {
+  min-width: 0;
+  padding: 16px 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.security-diagram-callout .security-diagram-callout-title {
+  margin: 0;
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.security-diagram-callout-body {
+  margin: 6px 0 0;
+  color: #45534e;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .pricing-grid {
@@ -246,6 +271,10 @@
   }
 
   .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .security-diagram-callouts {
     grid-template-columns: 1fr;
   }
 
