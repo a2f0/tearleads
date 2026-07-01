@@ -116,7 +116,7 @@ export type DocumentProjectorRegistryInput =
   | ReadonlyArray<DocumentProjectorDefinition>;
 
 const DOCUMENT_METADATA_MAP_KEY = "metadata";
-const DOCUMENT_FIELDS_MAP_KEY = "fields";
+export const DOCUMENT_FIELDS_MAP_KEY = "fields";
 const DOCUMENT_KIND_KEY = "kind";
 const DOCUMENT_SCHEMA_VERSION_KEY = "schemaVersion";
 const STRUCTURED_DOCUMENT_SCHEMA_VERSION = 1;

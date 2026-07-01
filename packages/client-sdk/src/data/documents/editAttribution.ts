@@ -377,3 +377,41 @@ export function summarizeBlameRanges(
   }
   return ranges;
 }
+
+export interface DocumentFieldBlame {
+  /** The structured field's map key (e.g. `firstName`, `cardNumber`). */
+  fieldKey: string;
+  /** Writer credited with the last edit, or null when unresolved. */
+  writerUserId: string | null;
+  /** null when unresolved. */
+  writerKeyFingerprint: string | null;
+}
+
+/**
+ * Per-field "blame" for a structured document (contact, card, license): resolve
+ * the peer that last set each field — from `listSnapshotFieldEditors` — to a
+ * writer. Unlike the character path, a field carries only its last-editor peer
+ * (no op counter), so this resolves peer-level via {@link writerByPeerId}: a
+ * field whose peer no segment covers, or whose peer a re-assertion split across
+ * writers (ambiguous), is left unattributed (`writerUserId: null`) rather than
+ * guessed. Fields are returned sorted by key for a stable display order.
+ */
+export function summarizeFieldBlame(
+  fieldEditors: ReadonlyArray<{
+    readonly key: string;
+    readonly peerId: string | null;
+  }>,
+  segments: readonly DocumentEditAttributionSegment[],
+): DocumentFieldBlame[] {
+  const byPeer = writerByPeerId(segments);
+  return fieldEditors
+    .map(({ key, peerId }) => {
+      const writer = peerId === null ? null : (byPeer.get(peerId) ?? null);
+      return {
+        fieldKey: key,
+        writerUserId: writer?.writerUserId ?? null,
+        writerKeyFingerprint: writer?.writerKeyFingerprint ?? null,
+      };
+    })
+    .sort((left, right) => left.fieldKey.localeCompare(right.fieldKey));
+}

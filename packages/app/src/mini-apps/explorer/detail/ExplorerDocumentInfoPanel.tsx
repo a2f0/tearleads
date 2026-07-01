@@ -27,6 +27,7 @@ import {
   ExplorerDocumentInfoCharacterBlameSection,
   ExplorerDocumentInfoContributorsSection,
   ExplorerDocumentInfoEditRangesSection,
+  ExplorerDocumentInfoFieldBlameSection,
   ExplorerDocumentInfoGeneralSection,
 } from "./ExplorerDocumentInfoGeneralSections";
 import {
@@ -281,6 +282,9 @@ function ExplorerDocumentInfoTabPanel(params: {
             documentInfo={params.documentInfo}
           />
           <ExplorerDocumentInfoBlameSection
+            documentInfo={params.documentInfo}
+          />
+          <ExplorerDocumentInfoFieldBlameSection
             documentInfo={params.documentInfo}
           />
         </>

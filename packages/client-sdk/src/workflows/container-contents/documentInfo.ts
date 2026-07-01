@@ -13,6 +13,7 @@ import {
   type DocumentBlameRange,
   type DocumentCharacterBlameSummary,
   type DocumentContributor,
+  type DocumentFieldBlame,
   listDocumentAttributionSegments,
   summarizeDocumentContributors,
 } from "../../data/documents/editAttribution";
@@ -25,6 +26,7 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { computeDocumentBlame } from "./documentCharacterBlame";
+import { computeFieldBlame } from "./documentFieldBlame";
 
 export type DocumentInfoRemoteMode = "if-synced" | "never";
 
@@ -91,6 +93,11 @@ export interface DocumentInfoRemoteDetails {
    * op ids from cheaply, or the snapshot was unreadable.
    */
   characterBlame: DocumentCharacterBlameSummary | null;
+  /**
+   * Per-field blame for a structured document (who last set each field), or
+   * `null` when it could not be computed. A note yields `[]` (no fields).
+   */
+  fieldBlame: DocumentFieldBlame[] | null;
   contentKeyEpoch: number;
   contentKeyTargetCount: number;
   contentKeyTargetHash: string;
@@ -401,6 +408,7 @@ function getDocumentInfoRemoteDetails(input: {
   blameRanges: DocumentBlameRange[] | null;
   characterBlame: DocumentCharacterBlameSummary | null;
   contributors: DocumentContributor[];
+  fieldBlame: DocumentFieldBlame[] | null;
   projection: DocumentWriterProjectionResponse;
 }): DocumentInfoRemoteDetails {
   const {
@@ -409,6 +417,7 @@ function getDocumentInfoRemoteDetails(input: {
     blameRanges,
     characterBlame,
     contributors,
+    fieldBlame,
     projection,
   } = input;
   const manifestState = projection.documentManifest.state;
@@ -422,6 +431,7 @@ function getDocumentInfoRemoteDetails(input: {
     ),
     blameRanges,
     characterBlame,
+    fieldBlame,
     contentKeyEpoch: projection.contentKeyBundle.contentKeyEpoch,
     contentKeyTargetCount: projection.contentKeyBundle.targets.length,
     contentKeyTargetHash: projection.contentKeyBundle.targetHash,
@@ -500,6 +510,7 @@ export async function loadDocumentInfo(input: {
       blameRanges: blame?.blameRanges ?? null,
       characterBlame: blame?.characterBlame ?? null,
       contributors: summarizeDocumentContributors(attributionSegments),
+      fieldBlame: computeFieldBlame(loroSnapshot, attributionSegments),
       projection,
     }),
   };

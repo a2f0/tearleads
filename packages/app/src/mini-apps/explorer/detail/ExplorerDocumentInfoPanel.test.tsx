@@ -53,6 +53,7 @@ const documentInfo = {
   remoteInfo: {
     activeAttachmentBindings: [],
     blameRanges: [],
+    fieldBlame: [],
     characterBlame: {
       writers: [],
       totalCharacterCount: 0,
