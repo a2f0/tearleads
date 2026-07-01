@@ -224,20 +224,6 @@ function blameHueForIndex(index: number): number {
   return Math.round((index * BLAME_GOLDEN_ANGLE) % 360);
 }
 
-// First-appearance order -> hue, shared by the prose runs and the legend so a
-// writer reads as a single color in both.
-function blameHuesByWriter(
-  ranges: NonNullable<DocumentInfoBlameRange>,
-): Map<string, number> {
-  const hues = new Map<string, number>();
-  for (const range of ranges) {
-    if (range.writerKeyFingerprint && !hues.has(range.writerKeyFingerprint)) {
-      hues.set(range.writerKeyFingerprint, blameHueForIndex(hues.size));
-    }
-  }
-  return hues;
-}
-
 // Translucent fill + underline so the tint reads on either theme without
 // fighting the editor text color.
 function blameRunStyle(hue: number): CSSProperties {
@@ -280,13 +266,23 @@ export function ExplorerDocumentInfoBlameSection(params: {
   if (!ranges || ranges.length === 0) {
     return null;
   }
-  const hues = blameHuesByWriter(ranges);
   const legend: Array<{ writerKeyFingerprint: string; writerUserId: string }> =
     [];
+  const hues = new Map<string, number>();
   const seenWriters = new Set<string>();
   let hasUnattributed = false;
   for (const range of ranges) {
-    if (!range.writerKeyFingerprint || !range.writerUserId) {
+    if (!range.writerKeyFingerprint) {
+      hasUnattributed = true;
+      continue;
+    }
+    // Prose runs color on fingerprint alone, so give every fingerprinted run a
+    // hue — stepped by the golden angle in first-appearance order so the writers
+    // present stay well separated and each keeps one color across prose + legend.
+    if (!hues.has(range.writerKeyFingerprint)) {
+      hues.set(range.writerKeyFingerprint, blameHueForIndex(hues.size));
+    }
+    if (!range.writerUserId) {
       hasUnattributed = true;
       continue;
     }
