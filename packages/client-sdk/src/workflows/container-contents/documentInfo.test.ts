@@ -274,6 +274,7 @@ test("loadDocumentInfo reads local runtime, attachment, blob, and remote securit
     // No local Loro snapshot was persisted, so blame can't be computed.
     expect(info.remoteInfo?.characterBlame).toBeNull();
     expect(info.remoteInfo?.blameRanges).toBeNull();
+    expect(info.remoteInfo?.fieldBlame).toBeNull();
     expect(info.remoteInfo?.authorizingContainerPaths).toEqual([
       {
         containerId: "container-1",
@@ -458,6 +459,89 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
   }
 });
 
+test("loadDocumentInfo blames structured-document fields using the snapshot", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "containerContents-document-field-blame-test",
+  );
+
+  try {
+    await sqlDocumentsPersistence.ensureSchema(execSql);
+
+    // A structured document keeps its fields in a LoroMap; blame resolves each
+    // field's last-editor peer to a writer (no prose, so character blame is empty).
+    const doc = await createDocument("writer-seed");
+    const peerId = await derivePeerId("writer-seed");
+    doc.getMap("fields").set("firstName", "Ada");
+    doc.getMap("fields").set("lastName", "Lovelace");
+    doc.commit();
+
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: "document-access-state-hash",
+        containerId: "container-1",
+        contentKeyBundle: "{}",
+        documentId: "document-1",
+        documentKekTargets: "{}",
+        documentKind: "contact",
+        documentManifestBundle: JSON.stringify({
+          manifestHash: "local-document-manifest-hash",
+        }),
+        id: "local-document-1",
+        lastCommitLsn: "commit-lsn-1",
+        loroSnapshot: bytesToBase64(exportShallowSnapshot(doc)),
+        text: "",
+        title: "Ada Lovelace",
+      },
+      { updatedAt: "2026-05-18T10:00:00.000Z" },
+    );
+
+    const info = await loadDocumentInfo({
+      apiClient: {
+        getDocumentWriterProjection: async () =>
+          createDocumentWriterProjection(),
+        listDocumentAttachments: async () => [],
+        getDocumentEditAttribution: async () => ({
+          documentId: "document-1",
+          segments: [
+            {
+              peerId,
+              startCounter: 0,
+              endCounter: 10,
+              updateId: "update-1",
+              updateSequence: 1,
+              writerUserId: "writer-1",
+              writerKeyFingerprint: "fp-1",
+              authorityKind: "direct",
+            },
+          ],
+        }),
+      },
+      execSql,
+      localId: "local-document-1",
+      remoteInfoMode: "if-synced",
+    });
+
+    expect(info.remoteInfo?.fieldBlame).toEqual([
+      {
+        fieldKey: "firstName",
+        writerUserId: "writer-1",
+        writerKeyFingerprint: "fp-1",
+      },
+      {
+        fieldKey: "lastName",
+        writerUserId: "writer-1",
+        writerKeyFingerprint: "fp-1",
+      },
+    ]);
+    // No prose, so the character/range blame is empty rather than null.
+    expect(info.remoteInfo?.blameRanges).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
 test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async () => {
   const { close, execSql } = await createTestExecSql(
     "containerContents-document-info-corrupt-snapshot-test",
@@ -507,6 +591,7 @@ test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async
     expect(info.remoteInfo).not.toBeNull();
     expect(info.remoteInfo?.characterBlame).toBeNull();
     expect(info.remoteInfo?.blameRanges).toBeNull();
+    expect(info.remoteInfo?.fieldBlame).toBeNull();
     expect(info.remoteInfo?.contentKeyEpoch).toBe(2);
   } finally {
     close();

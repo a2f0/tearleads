@@ -332,6 +332,56 @@ export function ExplorerDocumentInfoBlameSection(params: {
   );
 }
 
+// camelCase / snake_case / kebab-case field key -> Title Case words for display
+// (firstName -> "First Name", card_number -> "Card Number").
+function humanizeFieldKey(fieldKey: string): string {
+  const words = fieldKey
+    .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+    .split(/[\s_-]+/u)
+    .filter((word) => word.length > 0);
+  return words.length > 0
+    ? words
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    : fieldKey;
+}
+
+export function ExplorerDocumentInfoFieldBlameSection(params: {
+  documentInfo: DocumentInfo | null;
+}) {
+  const fieldBlame = params.documentInfo?.remoteInfo?.fieldBlame;
+  // Who last set each field of a structured document (contact, card, license) —
+  // the per-field counterpart to prose blame. Hidden when it could not be
+  // computed or the document has no fields (e.g. a note, whose prose is covered
+  // by the Blame section instead).
+  if (!fieldBlame || fieldBlame.length === 0) {
+    return null;
+  }
+  return (
+    <MiniAppInfoSection heading={EXPLORER_LABELS.documentInfoFieldBlameHeading}>
+      <MiniAppInfoTable>
+        <tbody>
+          {fieldBlame.map((field) => (
+            <MiniAppInfoRow
+              key={field.fieldKey}
+              label={humanizeFieldKey(field.fieldKey)}
+              title={
+                field.writerUserId && field.writerKeyFingerprint
+                  ? `${field.writerUserId} · ${field.writerKeyFingerprint}`
+                  : undefined
+              }
+            >
+              {field.writerKeyFingerprint
+                ? compactId(field.writerKeyFingerprint)
+                : EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
+            </MiniAppInfoRow>
+          ))}
+        </tbody>
+      </MiniAppInfoTable>
+    </MiniAppInfoSection>
+  );
+}
+
 function getEditRangeAuthorityLabel(
   authorityKind: DocumentInfoAttributionSegment["authorityKind"],
 ): string {

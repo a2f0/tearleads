@@ -6,6 +6,7 @@ import {
   summarizeBlameRanges,
   summarizeCharacterBlame,
   summarizeDocumentContributors,
+  summarizeFieldBlame,
   writerByPeerId,
 } from "./editAttribution";
 
@@ -509,4 +510,71 @@ test("summarizeBlameRanges splits the same user across distinct signing keys", (
 
 test("summarizeBlameRanges returns no runs for empty prose", () => {
   expect(summarizeBlameRanges(blameSource([]), [])).toEqual([]);
+});
+
+test("summarizeFieldBlame resolves each field's last editor, sorted by key", () => {
+  const segments = [
+    segment({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 5,
+      writerUserId: "alice",
+    }),
+    segment({
+      peerId: "2",
+      startCounter: 0,
+      endCounter: 5,
+      writerUserId: "bob",
+    }),
+  ];
+  expect(
+    summarizeFieldBlame(
+      [
+        { key: "lastName", peerId: "2" },
+        { key: "firstName", peerId: "1" },
+        { key: "nickname", peerId: "9" }, // no segment covers peer 9
+      ],
+      segments,
+    ),
+  ).toEqual([
+    {
+      fieldKey: "firstName",
+      writerUserId: "alice",
+      writerKeyFingerprint: "fp-alice",
+    },
+    {
+      fieldKey: "lastName",
+      writerUserId: "bob",
+      writerKeyFingerprint: "fp-bob",
+    },
+    { fieldKey: "nickname", writerUserId: null, writerKeyFingerprint: null },
+  ]);
+});
+
+test("summarizeFieldBlame leaves an ambiguous split peer unattributed", () => {
+  // A re-assertion split peer 1 across writers; a field carries only its peer
+  // (no counter), so it is left unattributed rather than guessed.
+  const segments = [
+    segment({
+      peerId: "1",
+      startCounter: 0,
+      endCounter: 3,
+      writerUserId: "alice",
+    }),
+    segment({
+      peerId: "1",
+      startCounter: 3,
+      endCounter: 6,
+      writerUserId: "bob",
+    }),
+  ];
+  expect(summarizeFieldBlame([{ key: "note", peerId: "1" }], segments)).toEqual(
+    [{ fieldKey: "note", writerUserId: null, writerKeyFingerprint: null }],
+  );
+});
+
+test("summarizeFieldBlame leaves a field with no editor peer unattributed", () => {
+  expect(summarizeFieldBlame([{ key: "note", peerId: null }], [])).toEqual([
+    { fieldKey: "note", writerUserId: null, writerKeyFingerprint: null },
+  ]);
 });

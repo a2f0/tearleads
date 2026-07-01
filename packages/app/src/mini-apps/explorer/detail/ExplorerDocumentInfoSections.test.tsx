@@ -7,6 +7,7 @@ import {
   ExplorerDocumentInfoBlameSection,
   ExplorerDocumentInfoCharacterBlameSection,
   ExplorerDocumentInfoEditRangesSection,
+  ExplorerDocumentInfoFieldBlameSection,
 } from "./ExplorerDocumentInfoGeneralSections";
 
 type DocumentInfoAttributionSegment = NonNullable<
@@ -21,6 +22,10 @@ type DocumentInfoBlameRanges = NonNullable<
   DocumentInfo["remoteInfo"]
 >["blameRanges"];
 
+type DocumentInfoFieldBlame = NonNullable<
+  DocumentInfo["remoteInfo"]
+>["fieldBlame"];
+
 afterEach(() => cleanup());
 
 function createRemoteInfo(
@@ -34,6 +39,7 @@ function createRemoteInfo(
     unattributedCharacterCount: 0,
   },
   blameRanges: DocumentInfoBlameRanges = [],
+  fieldBlame: DocumentInfoFieldBlame = [],
 ): NonNullable<DocumentInfo["remoteInfo"]> {
   return {
     activeAttachmentBindings,
@@ -41,6 +47,7 @@ function createRemoteInfo(
     authorizingContainerPaths: [],
     blameRanges,
     characterBlame,
+    fieldBlame,
     contentKeyEpoch: 1,
     contentKeyTargetCount: 1,
     contentKeyTargetHash: "content-key-target-hash",
@@ -552,4 +559,65 @@ test("blame section is hidden for an empty document", () => {
   );
 
   expect(view.container.querySelector(".explorer-blame-prose")).toBeNull();
+});
+
+test("field blame section renders each field's writer with an unattributed row", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo(
+      [],
+      [],
+      undefined,
+      [],
+      [
+        {
+          fieldKey: "firstName",
+          writerUserId: "alice",
+          writerKeyFingerprint: "fp-alice",
+        },
+        {
+          fieldKey: "lastName",
+          writerUserId: null,
+          writerKeyFingerprint: null,
+        },
+      ],
+    ),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoFieldBlameSection, { documentInfo }),
+  );
+
+  // Field keys are humanized for display; the writer identity is on the value
+  // cell's tooltip, and an unresolved field shows the Unattributed label.
+  expect(view.getByText("First Name")).toBeTruthy();
+  expect(view.getByText("Last Name")).toBeTruthy();
+  expect(view.getByTitle("alice · fp-alice")).toBeTruthy();
+  expect(view.getByText("Unattributed")).toBeTruthy();
+});
+
+test("field blame section is hidden when field blame is unavailable", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], undefined, [], null),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoFieldBlameSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector("table")).toBeNull();
+});
+
+test("field blame section is hidden for a document with no fields", () => {
+  const documentInfo = createDocumentInfo({
+    attachments: [],
+    remoteInfo: createRemoteInfo([], [], undefined, [], []),
+  });
+
+  const view = render(
+    createElement(ExplorerDocumentInfoFieldBlameSection, { documentInfo }),
+  );
+
+  expect(view.container.querySelector("table")).toBeNull();
 });

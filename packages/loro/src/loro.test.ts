@@ -12,6 +12,7 @@ import {
   importUpdates,
   listSnapshotCharBlameSource,
   listSnapshotCharOpIds,
+  listSnapshotFieldEditors,
   listTextCharOpIds,
   listVersionVectorSpans,
 } from "./index";
@@ -218,4 +219,38 @@ test("listSnapshotCharBlameSource returns aligned code points and op ids", async
   ]);
   // Same soft cap as listSnapshotCharOpIds.
   expect(listSnapshotCharBlameSource(snapshot, 6)).toBeNull();
+});
+
+test("listSnapshotFieldEditors names the last editor of each field", async () => {
+  const alice = await createDocument("alice-seed");
+  const bob = await createDocument("bob-seed");
+  const alicePeer = await derivePeerId("alice-seed");
+  const bobPeer = await derivePeerId("bob-seed");
+
+  const base = encodeVersionVector(alice);
+  alice.getMap("fields").set("firstName", "Ada");
+  alice.getMap("fields").set("lastName", "Lovelace");
+  alice.commit();
+  importUpdates(bob, [exportUpdatesSince(alice, base)]);
+  // bob overwrites lastName; the field's last-writer-wins register keeps bob's
+  // peer while firstName stays credited to alice.
+  bob.getMap("fields").set("lastName", "Byron");
+  bob.commit();
+
+  // Reads identically off a rebuilt shallow snapshot as off the live doc.
+  expect(
+    listSnapshotFieldEditors(exportShallowSnapshot(bob), "fields"),
+  ).toEqual([
+    { key: "firstName", peerId: alicePeer },
+    { key: "lastName", peerId: bobPeer },
+  ]);
+});
+
+test("listSnapshotFieldEditors returns an empty array when the map is absent", async () => {
+  const doc = await createDocument("blank-seed");
+  doc.getText("text").update("just prose");
+  doc.commit();
+  expect(
+    listSnapshotFieldEditors(exportShallowSnapshot(doc), "fields"),
+  ).toEqual([]);
 });

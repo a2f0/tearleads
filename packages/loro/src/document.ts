@@ -366,3 +366,38 @@ export function listSnapshotCharBlameSource(
     doc.free();
   }
 }
+
+export interface FieldEditor {
+  /** The map key (e.g. `firstName`, `cardNumber`) of a structured document field. */
+  key: string;
+  /** Peer of the op that last set this field, or null if none is recorded. */
+  peerId: `${number}` | null;
+}
+
+/**
+ * The structured-document counterpart to {@link listSnapshotCharBlameSource}:
+ * for a persisted snapshot, name the peer that last wrote each key of a LoroMap
+ * (the document's `fields` map). Structured documents (contacts, cards, licenses)
+ * store each field as a `LoroMap` entry — a last-writer-wins register that keeps
+ * the setting op's peer, which `getLastEditor` reads and a shallow snapshot
+ * preserves. That peer resolves to a writer via the same attribution segments,
+ * giving per-field "blame". Fields carry only the peer (no op counter), so
+ * resolution is peer-level. A note (or any document without this map) yields an
+ * empty array. Reconstructing the small map is cheap, so there is no size cap.
+ */
+export function listSnapshotFieldEditors(
+  snapshot: Uint8Array,
+  mapKey: string,
+): FieldEditor[] {
+  const doc = new LoroDoc();
+  try {
+    importSnapshot(doc, snapshot);
+    const map = doc.getMap(mapKey);
+    return map.keys().map((key) => ({
+      key,
+      peerId: map.getLastEditor(key) ?? null,
+    }));
+  } finally {
+    doc.free();
+  }
+}

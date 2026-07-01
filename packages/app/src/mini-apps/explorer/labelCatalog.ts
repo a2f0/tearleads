@@ -178,6 +178,7 @@ export const EXPLORER_LABELS = {
   documentInfoDocumentManifestCountOther: "document manifests",
   documentInfoDocumentManifestHistoryRow: "Document Manifest History",
   documentInfoEpochPrefix: "epoch",
+  documentInfoFieldBlameHeading: "Field Blame",
   documentInfoGetInfoAction: "Get Info",
   documentInfoBlobsTab: "Blobs",
   documentInfoGeneralHeading: "General Details",
