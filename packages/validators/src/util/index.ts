@@ -14,6 +14,15 @@ export {
   type SerializedKeyEnvelope,
 } from "./keyEnvelope";
 export {
+  isKeyPackageBackupCredentialWire,
+  isKeyPackageBackupEnvelopeWire,
+  KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE,
+  KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT,
+  KEY_PACKAGE_BACKUP_KDF_SUITE,
+  type KeyPackageBackupCredentialWire,
+  type KeyPackageBackupEnvelopeWire,
+} from "./keyPackageBackup";
+export {
   hasArrayProperty,
   hasBooleanProperty,
   hasNonEmptyStringProperty,

@@ -2,7 +2,9 @@ export type { AccessManifestBundleWire } from "../util/accessManifestBundle";
 export {
   type ChallengeRequest,
   isChallengeRequest,
+  isPutKeyPackageBackupRequest,
   isVerifyRequest,
+  type PutKeyPackageBackupRequest,
   type VerifyRequest,
 } from "./auth";
 export {

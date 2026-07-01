@@ -55,6 +55,7 @@ export type {
   IdentitySnapshot,
   IndexedDbLocalKeyringManifestStoreOptions,
   IndexedDbWrappingKeyKeystoreOptions,
+  KeyPackageBackups,
   LinkDocumentToContainerInput,
   ListDocumentsInput,
   LocalKeyPurpose,

@@ -3,17 +3,26 @@ import {
   MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
 
-export type IdentityBusyState = "authenticate" | "register" | null;
+export type IdentityBusyState =
+  | "authenticate"
+  | "passkey-backup"
+  | "passkey-restore"
+  | "register"
+  | null;
 
 export interface IdentityActionToolbarProps {
   readonly backupKeyPackage: () => Promise<void>;
   readonly canAuthenticate: boolean;
   readonly canExportKeyPackage: boolean;
   readonly canGenerateKey: boolean;
+  readonly canPasskeyBackupKeyPackage: boolean;
+  readonly canPasskeyRestoreKeyPackage: boolean;
   readonly canRegisterCurrentIdentity: boolean;
   readonly canRestoreKeyPackage: boolean;
   readonly generateKey: () => void;
   readonly handleAuthenticate: () => Promise<void>;
+  readonly handlePasskeyBackupKeyPackage: () => Promise<void>;
+  readonly handlePasskeyRestoreKeyPackage: () => Promise<void>;
   readonly handleDestroyKeyPair: () => void;
   readonly handleLogoutCurrentSession: () => void;
   readonly handleRegisterIdentity: () => Promise<void>;
@@ -29,10 +38,14 @@ export function IdentityActionToolbar({
   canAuthenticate,
   canExportKeyPackage,
   canGenerateKey,
+  canPasskeyBackupKeyPackage,
+  canPasskeyRestoreKeyPackage,
   canRegisterCurrentIdentity,
   canRestoreKeyPackage,
   generateKey,
   handleAuthenticate,
+  handlePasskeyBackupKeyPackage,
+  handlePasskeyRestoreKeyPackage,
   handleDestroyKeyPair,
   handleLogoutCurrentSession,
   handleRegisterIdentity,
@@ -48,13 +61,35 @@ export function IdentityActionToolbar({
         <MiniAppButton onClick={generateKey}>Generate Key Pair</MiniAppButton>
       )}
       {canExportKeyPackage && (
-        <MiniAppButton onClick={() => void backupKeyPackage()}>
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={() => void backupKeyPackage()}
+        >
           Backup Key Package
         </MiniAppButton>
       )}
+      {canPasskeyBackupKeyPackage && (
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={() => void handlePasskeyBackupKeyPackage()}
+        >
+          Backup to Passkey
+        </MiniAppButton>
+      )}
       {canRestoreKeyPackage && (
-        <MiniAppButton onClick={handleRestoreKeyPackageClick}>
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={handleRestoreKeyPackageClick}
+        >
           Restore Key Package
+        </MiniAppButton>
+      )}
+      {canPasskeyRestoreKeyPackage && (
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={() => void handlePasskeyRestoreKeyPackage()}
+        >
+          Restore from Passkey
         </MiniAppButton>
       )}
       {canRegisterCurrentIdentity && (

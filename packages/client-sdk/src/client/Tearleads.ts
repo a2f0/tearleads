@@ -21,6 +21,10 @@ import {
   type Identity,
   type IdentityOptions,
 } from "./identity";
+import {
+  createKeyPackageBackups,
+  type KeyPackageBackups,
+} from "./keyPackageBackups";
 import { type Logger, logErrorToConsole } from "./logger";
 import { Network } from "./network";
 import { createOrganizations, type Organizations } from "./organizations";
@@ -56,6 +60,7 @@ export class Tearleads {
   readonly events: Events;
   readonly containerContents: ContainerContents;
   readonly identity: Identity;
+  readonly keyPackageBackups: KeyPackageBackups;
   readonly network: Network;
   readonly organizations: Organizations;
   readonly runtime: Runtime;
@@ -113,6 +118,7 @@ export class Tearleads {
         getUserId: () => session?.userId ?? null,
       },
     );
+    this.keyPackageBackups = createKeyPackageBackups(this.apiClient);
     session = createSession({
       api: this.apiClient,
       database: this.database,

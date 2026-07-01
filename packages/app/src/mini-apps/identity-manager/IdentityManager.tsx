@@ -64,6 +64,8 @@ function IdentitySection({
   identityState,
   isAuthenticated,
   organizationId,
+  passkeyBackupError,
+  passkeyBackupStatus,
   signingFingerprint,
   userId,
 }: {
@@ -73,6 +75,8 @@ function IdentitySection({
   identityState: string;
   isAuthenticated: boolean;
   organizationId: string | null;
+  passkeyBackupError: string | null;
+  passkeyBackupStatus: string | null;
   signingFingerprint: string | null;
   userId: string | null;
 }) {
@@ -84,6 +88,12 @@ function IdentitySection({
       </MiniAppSectionHeading>
       {identityError && (
         <MiniAppStatus tone="error">{identityError}</MiniAppStatus>
+      )}
+      {passkeyBackupError && (
+        <MiniAppStatus tone="error">{passkeyBackupError}</MiniAppStatus>
+      )}
+      {passkeyBackupStatus && (
+        <MiniAppStatus>{passkeyBackupStatus}</MiniAppStatus>
       )}
       <dl className="identity-manager-details">
         <IdentityDetail label="Signing Key" value={signingFingerprint} />
@@ -122,12 +132,22 @@ function getIdentitySectionActions({
     canAuthenticate,
     canExportKeyPackage,
     canGenerateKey: !localKeyringLocked,
+    canPasskeyBackupKeyPackage:
+      identityMutations.passkeyBackupSupported &&
+      canExportKeyPackage &&
+      session.isAuthenticated,
+    canPasskeyRestoreKeyPackage:
+      identityMutations.passkeyBackupSupported && !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
     canRestoreKeyPackage: !localKeyringLocked,
     generateKey: identity.generateKey,
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
     handleLogoutCurrentSession: logoutDialog.requestLogout,
+    handlePasskeyBackupKeyPackage:
+      identityMutations.handlePasskeyBackupKeyPackage,
+    handlePasskeyRestoreKeyPackage:
+      identityMutations.handlePasskeyRestoreKeyPackage,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
     handleRestoreKeyPackageClick,
     hasSigningKeyPair: identity.signingKeyPair !== null,
@@ -163,6 +183,8 @@ function IdentityManagerPrimaryScreen({
         identityState={identityState}
         isAuthenticated={session.isAuthenticated}
         organizationId={session.organizationId}
+        passkeyBackupError={identityMutations.passkeyBackupError}
+        passkeyBackupStatus={identityMutations.passkeyBackupStatus}
         signingFingerprint={identity.signingFingerprint}
         userId={session.userId}
       />

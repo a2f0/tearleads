@@ -314,11 +314,12 @@ export const subsystems: readonly Subsystem[] = [
     name: "Identity & Session",
     package: "client-sdk",
     responsibility:
-      "Signing/encapsulation keypairs and fingerprint, identity generation/bootstrap, auth token + login/logout/register, and the user's signing-key listing.",
-    seam: "tearleads.identity / tearleads.session facades",
+      "Identity keypairs, auth context, remote encrypted backups, and user signing-key lookup.",
+    seam: "tearleads.identity/session/keyPackageBackups facades",
     paths: [
       `${sdk}/client/identity.ts`,
       `${sdk}/client/identityKeyPackage.ts`,
+      `${sdk}/client/keyPackageBackups.ts`,
       `${sdk}/client/session.ts`,
       `${sdk}/client/userKeys.ts`,
     ],
