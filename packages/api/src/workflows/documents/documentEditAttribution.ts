@@ -101,16 +101,20 @@ export async function computeDocumentEditAttribution(
   documentId: string,
   executor: DatabaseSession,
 ): Promise<DocumentEditAttributionResult> {
-  const metaByUpdateId = await loadUpdateAttributionMeta(documentId, executor);
-  const spanRows = await executor
-    .select({
-      updateId: documentUpdateSpans.updateId,
-      peerId: documentUpdateSpans.peerId,
-      startCounter: documentUpdateSpans.startCounter,
-      endCounter: documentUpdateSpans.endCounter,
-    })
-    .from(documentUpdateSpans)
-    .where(eq(documentUpdateSpans.documentId, documentId));
+  // The write-header meta and the span rows are independent reads — load them in
+  // one round-trip's worth of wall time instead of two sequential ones.
+  const [metaByUpdateId, spanRows] = await Promise.all([
+    loadUpdateAttributionMeta(documentId, executor),
+    executor
+      .select({
+        updateId: documentUpdateSpans.updateId,
+        peerId: documentUpdateSpans.peerId,
+        startCounter: documentUpdateSpans.startCounter,
+        endCounter: documentUpdateSpans.endCounter,
+      })
+      .from(documentUpdateSpans)
+      .where(eq(documentUpdateSpans.documentId, documentId)),
+  ]);
 
   const attributionSpans: AttributionSpanInput[] = [];
   for (const span of spanRows) {
