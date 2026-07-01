@@ -15,6 +15,7 @@ export {
 export { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 export { purgeOpfsBlobStore } from "../../data/blobs/opfsBlobStore";
 export type {
+  MultipartStageResolvedListener,
   MultipartUploadProgress,
   MultipartUploadProgressListener,
 } from "../../data/documents/blob/shared/types";

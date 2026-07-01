@@ -23,6 +23,7 @@ import {
   deleteDocumentPendingUpdates,
   deleteDocumentRecord,
   enqueueDocumentPendingUpdate,
+  ensureDocumentPendingAttachmentColumns,
   ensureDocumentTables,
   findLocalIdByDocumentId,
   listDocumentPendingUpdates,
@@ -93,6 +94,7 @@ export type {
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
+  PendingAttachmentUploadIdentity,
   PendingUpdateInsert,
   PendingUpdateRecord,
   RelinkPersistedDocumentInput,
@@ -424,6 +426,7 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       await ensureDocumentTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, documentProjectionTables);
+      await ensureDocumentPendingAttachmentColumns(lockedExecSql);
       await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     });
   },
@@ -603,6 +606,12 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         mimeType: documentPendingAttachments.mimeType,
         storageKey: documentPendingAttachments.storageKey,
         byteLength: documentPendingAttachments.byteLength,
+        uploadBlobId: documentPendingAttachments.uploadBlobId,
+        uploadContentKey: documentPendingAttachments.uploadContentKey,
+        uploadIv: documentPendingAttachments.uploadIv,
+        uploadContentKeyEpoch: documentPendingAttachments.uploadContentKeyEpoch,
+        uploadPartSize: documentPendingAttachments.uploadPartSize,
+        uploadStageId: documentPendingAttachments.uploadStageId,
       })
       .from(documentPendingAttachments)
       .where(eq(documentPendingAttachments.localId, localId))
@@ -690,6 +699,12 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
         storageKey: attachment.storageKey,
         byteLength: attachment.byteLength,
         createdAt,
+        uploadBlobId: attachment.upload?.blobId ?? null,
+        uploadContentKey: attachment.upload?.contentKey ?? null,
+        uploadIv: attachment.upload?.iv ?? null,
+        uploadContentKeyEpoch: attachment.upload?.contentKeyEpoch ?? null,
+        uploadPartSize: attachment.upload?.partSize ?? null,
+        uploadStageId: attachment.upload?.stageId ?? null,
       };
       await db
         .insert(documentPendingAttachments)
@@ -704,6 +719,12 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
             mimeType: attachmentRow.mimeType,
             storageKey: attachmentRow.storageKey,
             byteLength: attachmentRow.byteLength,
+            uploadBlobId: attachmentRow.uploadBlobId,
+            uploadContentKey: attachmentRow.uploadContentKey,
+            uploadIv: attachmentRow.uploadIv,
+            uploadContentKeyEpoch: attachmentRow.uploadContentKeyEpoch,
+            uploadPartSize: attachmentRow.uploadPartSize,
+            uploadStageId: attachmentRow.uploadStageId,
           },
         })
         .run();

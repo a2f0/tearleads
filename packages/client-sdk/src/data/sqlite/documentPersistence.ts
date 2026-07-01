@@ -15,6 +15,27 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
   ]);
 }
 
+/**
+ * Additive column migrations for `document_pending_attachments`, applied wherever
+ * `documentProjectionTables` is ensured (the table lives in that set, not
+ * `documentTables`). Idempotent: `ensureSqlColumns` only adds missing columns.
+ */
+export async function ensureDocumentPendingAttachmentColumns(
+  execSql: ExecSql,
+): Promise<void> {
+  await ensureSqlColumns(execSql, "document_pending_attachments", [
+    { name: "upload_blob_id", definition: '"upload_blob_id" TEXT' },
+    { name: "upload_content_key", definition: '"upload_content_key" TEXT' },
+    { name: "upload_iv", definition: '"upload_iv" TEXT' },
+    {
+      name: "upload_content_key_epoch",
+      definition: '"upload_content_key_epoch" INTEGER',
+    },
+    { name: "upload_part_size", definition: '"upload_part_size" INTEGER' },
+    { name: "upload_stage_id", definition: '"upload_stage_id" TEXT' },
+  ]);
+}
+
 export {
   deleteDocumentPendingUpdate,
   deleteDocumentPendingUpdates,

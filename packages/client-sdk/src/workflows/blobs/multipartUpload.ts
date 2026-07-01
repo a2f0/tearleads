@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/validators/response";
 import type {
   BlobAttachmentApi,
+  MultipartStageResolvedListener,
   MultipartUploadProgressListener,
   UploadDocumentAttachmentInput,
 } from "../../data/documents/blob/shared/types";
@@ -336,12 +337,22 @@ async function resolveMultipartStageStatus(input: {
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
   readonly sha256: string;
 }): Promise<MultipartBlobStageStatusResponse> {
-  const stage =
-    input.multipart.existingStage ??
-    (await input.apiClient.initiateMultipartBlobStage({
-      byteLength: input.byteLength,
-      sha256: input.sha256,
-    }));
+  const resumeStageId = input.multipart.resumeStageId;
+  if (resumeStageId) {
+    const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId);
+    // Only resume when the stage still exists AND was opened for the same bytes.
+    // A sha256 mismatch means the upload no longer reproduces the staged content
+    // (or the stage was recycled), so opening a fresh stage is safer than
+    // uploading parts that could never assemble to the staged hash.
+    if (resumed && resumed.sha256 === input.sha256) {
+      return resumed;
+    }
+  }
+
+  const stage = await input.apiClient.initiateMultipartBlobStage({
+    byteLength: input.byteLength,
+    sha256: input.sha256,
+  });
   if (!stage) {
     throw new Error(
       multipartApiFailureMessage({
@@ -352,28 +363,12 @@ async function resolveMultipartStageStatus(input: {
     );
   }
 
-  const refreshedStage = input.multipart.existingStage
-    ? await input.apiClient.getMultipartBlobStage(stage.stageId)
-    : null;
-  if (input.multipart.existingStage && !refreshedStage) {
-    throw new Error(
-      multipartApiFailureMessage({
-        apiClient: input.apiClient,
-        fallback: `Multipart blob stage status refresh failed for stage ${stage.stageId}.`,
-        request: { method: "GET", path: multipartStagePath(stage.stageId) },
-      }),
-    );
-  }
-
-  return (
-    refreshedStage ??
-    (isMultipartStageStatus(stage)
-      ? stage
-      : {
-          ...stage,
-          completed: false,
-        })
-  );
+  return isMultipartStageStatus(stage)
+    ? stage
+    : {
+        ...stage,
+        completed: false,
+      };
 }
 
 function assertMultipartPartLimit(parts: readonly string[]): void {
@@ -392,6 +387,7 @@ export async function stageMultipartBlobAttachment(input: {
   readonly encryptedBytes: string;
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
   readonly onMultipartProgress?: MultipartUploadProgressListener | undefined;
+  readonly onStageResolved?: MultipartStageResolvedListener | undefined;
   readonly sha256: string;
 }): Promise<string | null> {
   const apiClient = requireMultipartBlobAttachmentApi(input.apiClient);
@@ -400,6 +396,12 @@ export async function stageMultipartBlobAttachment(input: {
     byteLength: input.byteLength,
     multipart: input.multipart,
     sha256: input.sha256,
+  });
+  // Surface the stage id before any parts upload so the caller can persist it;
+  // an upload interrupted mid-flight can then resume this same stage.
+  await input.onStageResolved?.({
+    partSize: input.multipart.partSize,
+    stageId: status.stageId,
   });
   if (status.completed) {
     return status.stageId;

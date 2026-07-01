@@ -1,11 +1,15 @@
+import { createAesGcmIv } from "@tearleads/crypto";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
 import {
+  type MultipartStageResolvedListener,
   type MultipartUploadProgressListener,
   uploadDocumentAttachment,
 } from "../../../workflows/blobs";
 import {
   type DocumentRecord,
   type PendingAttachmentRecord,
+  type PendingAttachmentUploadIdentity,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
 import {
@@ -15,6 +19,7 @@ import {
 import {
   deletePendingAttachment,
   saveLocalAttachmentRecord,
+  savePendingAttachmentUpload,
 } from "./persistence";
 import {
   type DocumentAttachmentBinding,
@@ -148,6 +153,115 @@ export async function syncPendingAttachments(
   return { completed: true, nextRecord: currentRecord };
 }
 
+function createPendingUploadIdentity(): PendingAttachmentUploadIdentity {
+  // Generated once and persisted before the first upload attempt. Reusing these
+  // on a retry makes the encryption byte-identical (same sha256), so the
+  // multipart stage recorded in `stageId` can be resumed rather than orphaned.
+  return {
+    blobId: crypto.randomUUID(),
+    contentKey: bytesToBase64(crypto.getRandomValues(new Uint8Array(32))),
+    contentKeyEpoch: 1,
+    iv: bytesToBase64(createAesGcmIv()),
+    partSize: null,
+    stageId: null,
+  };
+}
+
+interface AttachmentUploadResume {
+  readonly blobId: string;
+  readonly contentKey: Uint8Array;
+  readonly contentKeyEpoch: number;
+  readonly iv: Uint8Array;
+  readonly multipart: { partSize: number; resumeStageId: string } | undefined;
+  readonly onStageResolved: MultipartStageResolvedListener;
+}
+
+/**
+ * Resolve the upload inputs for a pending attachment so a retry reuses the same
+ * identity: mint-and-persist one on the first attempt, and reuse (resuming the
+ * recorded multipart stage) thereafter. The identity is attached to and mutated
+ * on the pending record in place, so the sync loop keeps tracking it by
+ * reference and still drops it after a settled upload.
+ */
+async function resolveAttachmentUploadResume(
+  state: DocumentStoreState,
+  pendingAttachment: PendingAttachmentRecord,
+): Promise<AttachmentUploadResume> {
+  const uploadIdentity =
+    pendingAttachment.upload ?? createPendingUploadIdentity();
+  if (pendingAttachment.upload !== uploadIdentity) {
+    pendingAttachment.upload = uploadIdentity;
+    await savePendingAttachmentUpload(state, pendingAttachment);
+  }
+
+  const multipart =
+    uploadIdentity.stageId !== null && uploadIdentity.partSize !== null
+      ? {
+          partSize: uploadIdentity.partSize,
+          resumeStageId: uploadIdentity.stageId,
+        }
+      : undefined;
+
+  const onStageResolved: MultipartStageResolvedListener = async ({
+    partSize,
+    stageId,
+  }) => {
+    if (
+      uploadIdentity.stageId === stageId &&
+      uploadIdentity.partSize === partSize
+    ) {
+      return;
+    }
+    uploadIdentity.partSize = partSize;
+    uploadIdentity.stageId = stageId;
+    await savePendingAttachmentUpload(state, pendingAttachment);
+  };
+
+  return {
+    blobId: uploadIdentity.blobId,
+    contentKey: base64ToBytes(uploadIdentity.contentKey),
+    contentKeyEpoch: uploadIdentity.contentKeyEpoch,
+    iv: base64ToBytes(uploadIdentity.iv),
+    multipart,
+    onStageResolved,
+  };
+}
+
+async function settleUploadedAttachment(input: {
+  activeBindingBySlotId: Map<string, DocumentAttachmentBinding>;
+  pendingAttachment: PendingAttachmentRecord;
+  remoteDocumentId: string;
+  state: DocumentStoreState;
+  uploaded: NonNullable<Awaited<ReturnType<typeof uploadDocumentAttachment>>>;
+  uploadLane: AttachmentUploadLaneReporter;
+}): Promise<void> {
+  const { pendingAttachment, state, uploaded } = input;
+  await saveLocalAttachmentRecord(state, {
+    blobId: uploaded.blobId,
+    byteLength: pendingAttachment.byteLength,
+    localId: state.localId,
+    mimeType: pendingAttachment.mimeType,
+    slotId: pendingAttachment.slotId,
+    storageKey: pendingAttachment.storageKey,
+  });
+  await deletePendingAttachment(
+    state,
+    pendingAttachment.slotId,
+    pendingAttachment.storageKey,
+  );
+  input.activeBindingBySlotId.set(pendingAttachment.slotId, {
+    bindingId: uploaded.bindingId,
+    blobId: uploaded.blobId,
+    contentKeyBundle: uploaded.response.contentKeyBundle,
+    slotId: pendingAttachment.slotId,
+  });
+  state.writerProjection = uploaded.writerProjection;
+  input.uploadLane.complete();
+  state.runtime.util.log(
+    `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
+  );
+}
+
 function isNewPendingAttachmentSlot(
   state: DocumentStoreState,
   pendingAttachment: PendingAttachmentRecord,
@@ -222,16 +336,25 @@ async function syncPendingAttachmentUpload(input: {
     state.writerProjection?.documentId === input.remoteDocumentId
       ? state.writerProjection
       : null;
+
+  const resume = await resolveAttachmentUploadResume(state, pendingAttachment);
+
   const baseUploadInput = {
     apiClient: state.runtime.apiClient,
     author,
+    blobId: resume.blobId,
     bytes,
+    contentKey: resume.contentKey,
+    contentKeyEpoch: resume.contentKeyEpoch,
     documentId: input.remoteDocumentId,
     execSql: state.runtime.infra.execSql,
     expectedBindingId:
       input.activeBindingBySlotId.get(pendingAttachment.slotId)?.bindingId ??
       null,
+    iv: resume.iv,
+    multipart: resume.multipart,
     onMultipartProgress: uploadLane.onMultipartProgress,
+    onStageResolved: resume.onStageResolved,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     targetSecretKey: input.encapsulationKeyPair.secretKey,
@@ -252,30 +375,14 @@ async function syncPendingAttachmentUpload(input: {
     return "retry";
   }
 
-  await saveLocalAttachmentRecord(state, {
-    blobId: uploaded.blobId,
-    byteLength: pendingAttachment.byteLength,
-    localId: state.localId,
-    mimeType: pendingAttachment.mimeType,
-    slotId: pendingAttachment.slotId,
-    storageKey: pendingAttachment.storageKey,
-  });
-  await deletePendingAttachment(
+  await settleUploadedAttachment({
+    activeBindingBySlotId: input.activeBindingBySlotId,
+    pendingAttachment,
+    remoteDocumentId: input.remoteDocumentId,
     state,
-    pendingAttachment.slotId,
-    pendingAttachment.storageKey,
-  );
-  input.activeBindingBySlotId.set(pendingAttachment.slotId, {
-    bindingId: uploaded.bindingId,
-    blobId: uploaded.blobId,
-    contentKeyBundle: uploaded.response.contentKeyBundle,
-    slotId: pendingAttachment.slotId,
+    uploaded,
+    uploadLane,
   });
-  state.writerProjection = uploaded.writerProjection;
-  uploadLane.complete();
-  state.runtime.util.log(
-    `Uploaded attachment ${pendingAttachment.name} for document ${input.remoteDocumentId}.`,
-  );
   return "uploaded";
 }
 

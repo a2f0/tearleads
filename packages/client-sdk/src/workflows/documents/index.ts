@@ -35,6 +35,7 @@ export {
   listPendingDocumentUpdates,
   loadPersistedDocumentStoreState,
   type PendingAttachmentRecord,
+  type PendingAttachmentUploadIdentity,
   type PendingUpdateInsert,
   type PendingUpdateRecord,
   persistDocumentState,
