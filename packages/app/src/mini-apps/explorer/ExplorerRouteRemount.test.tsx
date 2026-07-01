@@ -103,7 +103,7 @@ test(
     fireEvent.click(
       await within(explorer).findByRole("menuitem", { name: "New Document" }),
     );
-    fireEvent.click(within(explorer).getByRole("button", { name: "New Note" }));
+    fireEvent.click(within(explorer).getByRole("button", { name: "Note" }));
     const editor = await within(explorer).findByRole("textbox", {
       name: /Notes editor/,
     });

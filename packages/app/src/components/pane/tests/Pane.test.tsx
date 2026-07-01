@@ -364,9 +364,7 @@ test("explorer exposes structured document creation from the file menu", async (
 
   const explorer = await openExplorer(view);
 
-  expect(
-    within(explorer).queryByRole("button", { name: "New Note" }),
-  ).toBeNull();
+  expect(within(explorer).queryByRole("button", { name: "Note" })).toBeNull();
 
   await openExplorerNewStructuredDocumentRoute(explorer);
 
@@ -379,9 +377,7 @@ test("explorer exposes structured document creation from the file menu", async (
       within(explorer).getByRole("table", { name: "Items in /" }),
     ).toBeTruthy();
   });
-  expect(
-    within(explorer).queryByRole("button", { name: "New Note" }),
-  ).toBeNull();
+  expect(within(explorer).queryByRole("button", { name: "Note" })).toBeNull();
 
   view.unmount();
 });

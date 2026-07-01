@@ -1,3 +1,4 @@
+import { NoteIcon } from "@phosphor-icons/react/dist/csr/Note";
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
 
@@ -24,7 +25,8 @@ function deriveNoteTitle(text: string): string {
 }
 
 export const noteDocumentProjectorDefinition: AppDocumentProjectorDefinition = {
-  createLabel: "New Note",
+  createIcon: NoteIcon,
+  createLabel: "Note",
   kind: APP_DEFAULT_DOCUMENT_KIND,
   label: "note",
   project: ({ text }) => ({

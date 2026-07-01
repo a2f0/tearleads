@@ -1,3 +1,4 @@
+import { FilePdfIcon } from "@phosphor-icons/react/dist/csr/FilePdf";
 import {
   deriveFileDocumentTitle,
   readPdfDocumentFieldsFromRecord,
@@ -8,7 +9,8 @@ export const PDF_DOCUMENT_KIND = "pdf";
 const PDF_DOCUMENT_UNTITLED_TITLE = "Untitled PDF";
 
 export const pdfDocumentProjectorDefinition: AppDocumentProjectorDefinition = {
-  createLabel: "New PDF",
+  createIcon: FilePdfIcon,
+  createLabel: "PDF",
   kind: PDF_DOCUMENT_KIND,
   label: "PDF",
   project: ({ structuredFields }) => {

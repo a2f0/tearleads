@@ -1,3 +1,4 @@
+import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/IdentificationCard";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
@@ -73,7 +74,8 @@ export function readDriverLicenseFieldsFromRecord(
 
 export const driverLicenseDocumentProjectorDefinition: AppDocumentProjectorDefinition =
   {
-    createLabel: "New Driver's License",
+    createIcon: IdentificationCardIcon,
+    createLabel: "Driver's License",
     kind: "drivers_license",
     label: "driver's license",
     project: ({ structuredFields }) => {

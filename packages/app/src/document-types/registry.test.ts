@@ -24,20 +24,24 @@ test("document type registry covers the supported inline document kinds", () => 
   ).toEqual(
     APP_DOCUMENT_PROJECTOR_DEFINITIONS.map((definition) => definition.kind),
   );
-  expect(getDocumentTypeDefinition("note").createLabel).toBe("New Note");
-  expect(getDocumentTypeDefinition("contact").createLabel).toBe("New Contact");
+  expect(getDocumentTypeDefinition("note").createLabel).toBe("Note");
+  expect(getDocumentTypeDefinition("contact").createLabel).toBe("Contact");
   expect(getDocumentTypeDefinition("drivers_license").createLabel).toBe(
-    "New Driver's License",
+    "Driver's License",
   );
   expect(getDocumentTypeDefinition("credit_card").createLabel).toBe(
-    "New Credit Card",
+    "Credit Card",
   );
-  expect(getDocumentTypeDefinition("image").createLabel).toBe("New Image");
-  expect(getDocumentTypeDefinition("audio").createLabel).toBe("New Audio");
-  expect(getDocumentTypeDefinition("pdf").createLabel).toBe("New PDF");
-  expect(getDocumentTypeDefinition("generic_file").createLabel).toBe(
-    "New File",
-  );
+  expect(getDocumentTypeDefinition("image").createLabel).toBe("Image");
+  expect(getDocumentTypeDefinition("audio").createLabel).toBe("Audio");
+  expect(getDocumentTypeDefinition("pdf").createLabel).toBe("PDF");
+  expect(getDocumentTypeDefinition("generic_file").createLabel).toBe("File");
+});
+
+test("every document type provides a create icon", () => {
+  for (const definition of DOCUMENT_TYPE_DEFINITIONS) {
+    expect(definition.createIcon).toBeDefined();
+  }
 });
 
 test("creatable document types exclude upload-only file kinds", () => {

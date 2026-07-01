@@ -1,3 +1,4 @@
+import type { Icon } from "@phosphor-icons/react";
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
@@ -20,6 +21,7 @@ import type { DocumentTypeAppProps } from "./types";
 
 interface DocumentTypeDefinition {
   App: ComponentType<DocumentTypeAppProps>;
+  createIcon: Icon;
   createLabel: string;
   kind: StoredDocumentKind;
 }
@@ -49,6 +51,7 @@ export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
 
     return {
       App,
+      createIcon: definition.createIcon,
       createLabel: definition.createLabel,
       kind: definition.kind,
     };
