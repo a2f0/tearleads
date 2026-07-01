@@ -1,3 +1,11 @@
+import type { Icon } from "@phosphor-icons/react";
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
+import { ArchiveIcon } from "@phosphor-icons/react/dist/csr/Archive";
+import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
+import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
+import { GaugeIcon } from "@phosphor-icons/react/dist/csr/Gauge";
+import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/IdentificationCard";
+import { NoteIcon } from "@phosphor-icons/react/dist/csr/Note";
 import { BackupRestoreApp } from "./backup-restore/BackupRestoreApp";
 import { ContactsApp } from "./contacts/ContactsApp";
 import { ExplorerApp } from "./explorer/ExplorerApp";
@@ -45,14 +53,23 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
 // it is launched from the footer's system tray (SystemMonitorLauncherButton),
 // which also handles unpinning, rather than from the generic pane/app menu.
 export const MINI_APP_MENU_ITEMS = [
-  { appId: "backup-restore", label: "Open Backup / Restore" },
-  { appId: "notes", label: "Open Notes" },
-  { appId: "contacts", label: "Open Contacts" },
-  { appId: "explorer", label: "Open Explorer" },
-  { appId: "identity-manager", label: "Open Identity Manager" },
-  { appId: "org-manager", label: "Open Org Manager" },
+  { appId: "explorer", icon: FolderIcon, label: "Open Explorer" },
+  { appId: "contacts", icon: AddressBookIcon, label: "Open Contacts" },
+  { appId: "org-manager", icon: BuildingsIcon, label: "Open Org Manager" },
+  { appId: "notes", icon: NoteIcon, label: "Open Notes" },
+  {
+    appId: "identity-manager",
+    icon: IdentificationCardIcon,
+    label: "Open Identity Manager",
+  },
+  {
+    appId: "backup-restore",
+    icon: ArchiveIcon,
+    label: "Open Backup / Restore",
+  },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
+  icon: Icon;
   label: string;
 }>;
 
@@ -62,8 +79,9 @@ export const MINI_APP_MENU_ITEMS = [
 // routed home screen only after the user requests it.
 export const ROUTED_MINI_APP_NAV_ITEMS = [
   ...MINI_APP_MENU_ITEMS,
-  { appId: "system-monitor", label: "Open System Monitor" },
+  { appId: "system-monitor", icon: GaugeIcon, label: "Open System Monitor" },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
+  icon: Icon;
   label: string;
 }>;
