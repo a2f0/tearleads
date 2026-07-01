@@ -194,9 +194,19 @@ async function initializeDocumentStore(
   }
 
   state.doc = nextDoc;
-  // Seed the durable marker to the loaded doc version: every op in the snapshot
-  // is either already synced or sitting in the persisted pending queue.
-  advancePendingBaseVersion(state, nextDoc);
+  // Restore the durable outgoing-delta marker. Re-seeding it to the loaded
+  // snapshot version would move it PAST any device-first `deferRemoteSync` op
+  // (persisted into the snapshot but deliberately left un-enqueued and behind
+  // the marker), permanently dropping that op from sync across a restart. When a
+  // marker was persisted, restore it so the next edit still re-derives the
+  // deferred delta. Only seed to the loaded version for rows that never
+  // persisted one (freshly created here, or pre-migration).
+  const persistedMarker = existing?.pendingBaseVersion ?? null;
+  if (persistedMarker !== null) {
+    state.pendingBaseVersion = persistedMarker;
+  } else {
+    advancePendingBaseVersion(state, nextDoc);
+  }
   // Heal attachment slots lost to an interrupted attach write before marking
   // ready, so the recovered slots are in the snapshot the editor first renders
   // and are queued for sync. recoverDroppedAttachmentSlots advances the marker

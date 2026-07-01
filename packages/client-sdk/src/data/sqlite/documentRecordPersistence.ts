@@ -33,6 +33,12 @@ export function mapSelectedDocumentRecord(
     record.accessStateHash = row.accessStateHash;
   }
 
+  // Only surface the marker when one was persisted, so a row that never stored
+  // one keeps its prior shape (and init falls through to seeding it).
+  if (row.pendingBaseVersion !== null) {
+    record.pendingBaseVersion = row.pendingBaseVersion;
+  }
+
   return record;
 }
 
@@ -55,6 +61,12 @@ function toDocumentRow(input: {
     documentManifestBundle: record.documentManifestBundle ?? null,
     contentKeyBundle: record.contentKeyBundle ?? null,
     documentKekTargets: record.documentKekTargets ?? null,
+    // Only touch the outgoing-delta marker when the caller manages it. Callers
+    // that leave it undefined (e.g. discovery upserts) must not clobber a marker
+    // a device-first deferRemoteSync write persisted on this row.
+    ...(record.pendingBaseVersion === undefined
+      ? {}
+      : { pendingBaseVersion: record.pendingBaseVersion }),
     updatedAt,
   };
 }
@@ -76,6 +88,7 @@ export async function loadDocumentRecord(
       documentManifestBundle: documents.documentManifestBundle,
       contentKeyBundle: documents.contentKeyBundle,
       documentKekTargets: documents.documentKekTargets,
+      pendingBaseVersion: documents.pendingBaseVersion,
     })
     .from(documents)
     .where(

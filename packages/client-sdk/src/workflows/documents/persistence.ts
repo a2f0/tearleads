@@ -177,6 +177,15 @@ function buildStoredDocumentRecord(input: {
       ),
       loroSnapshot:
         patch.loroSnapshot ?? bytesToBase64(exportShallowSnapshot(currentDoc)),
+      // Carry the outgoing-delta marker the store injects into the patch, so it
+      // is persisted alongside the snapshot it describes. A patched value is
+      // authoritative (including an explicit null); only an absent key falls
+      // back to the existing marker, so a caller that does not manage the marker
+      // never drops it.
+      pendingBaseVersion:
+        patch.pendingBaseVersion !== undefined
+          ? patch.pendingBaseVersion
+          : (currentRecord?.pendingBaseVersion ?? null),
       text: patch.text ?? getTextValue(currentDoc),
       title: patch.title ?? documentState.title,
     },
