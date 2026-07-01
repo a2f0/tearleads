@@ -3,6 +3,8 @@
   --color-muted: #eee;
   --color-dark: #333;
   --color-light: #fff;
+  --color-danger: #b00020;
+  --color-hairline: rgb(51 51 51 / 18%);
 
   --tearleads-background: #f7f8f5;
   --tearleads-border: #d6ddd2;
@@ -17,7 +19,7 @@
   --tearleads-font-family: monospace;
   --font-size-2xs: 0.72rem;
   --font-size-xs: 0.75rem;
-  --font-size-sm: 0.9em;
+  --font-size-sm: 0.9rem;
   --font-size-md: 1rem;
   --font-size-lg: 1.15rem;
 
@@ -45,6 +47,23 @@
   --control-padding-block: var(--space-sm);
   --control-padding-inline: var(--space-md);
 
+  /* === Rows & tables === */
+  /* A deliberate row-height rhythm for list/table density. The roomy,
+     compact-table, and sidebar values mirror the pixel constants in
+     MiniAppVirtual.tsx (48 / 36 / 28px) so non-virtualized rows match the
+     virtualized layout math — keep them in sync. */
+  --mini-app-row-height: 1.5rem;
+  --mini-app-row-height-compact: 1.45rem;
+  --mini-app-row-height-header: 1.75rem;
+  --mini-app-row-height-roomy: 3rem;
+  --mini-app-table-row-height-compact: 2.25rem;
+  --explorer-sidebar-row-height: 1.75rem;
+  --mini-app-virtual-max-height: min(28rem, 70vh);
+  --mini-app-detail-label-width: 7rem;
+
+  /* === Menus === */
+  --menu-item-padding: var(--space-sm) var(--space-md);
+
   /* === Borders === */
   --border-width: 1px;
   --border: var(--border-width) solid currentColor;
@@ -53,6 +72,10 @@
 
   /* === Overlays === */
   --overlay-background: rgb(0 0 0 / 35%);
+  --modal-width: 22rem;
+
+  /* === Motion === */
+  --transition: 0.18s ease;
 
   /* === Window chrome === */
   --window-bar-block-padding: var(--space-xs);
@@ -161,6 +184,7 @@ textarea {
 
 .tearleads-action-button {
   min-height: var(--control-height);
+  padding: var(--control-padding-block) var(--control-padding-inline);
   border: var(--border);
   background: transparent;
   color: inherit;

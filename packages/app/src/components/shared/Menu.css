@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--menu-item-padding);
   border: none;
   background: none;
   text-align: left;
@@ -23,8 +23,14 @@
   cursor: pointer;
 }
 
-.menu button:hover {
+.menu button:hover:not(:disabled),
+.menu button:focus-visible:not(:disabled) {
   background: var(--color-muted);
+}
+
+.menu button:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
 }
 
 .menu-item-icon {

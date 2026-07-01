@@ -6,6 +6,14 @@
   background: var(--color-muted);
 }
 
+/* On the muted footer surface the frame's default #fff hover is nearly
+   invisible; use the standard dark invert (and pair keyboard focus). */
+.pane-footer .tearleads-action-button:hover,
+.pane-footer .tearleads-action-button:focus-visible {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
 .pane-footer-menu-button,
 .pane-footer-window {
   display: inline-flex;

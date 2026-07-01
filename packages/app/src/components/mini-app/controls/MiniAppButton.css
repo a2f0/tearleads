@@ -9,7 +9,8 @@
   cursor: pointer;
 }
 
-.mini-app-button:hover:not(:disabled) {
+.mini-app-button:hover:not(:disabled),
+.mini-app-button:focus-visible:not(:disabled) {
   background: var(--color-dark);
   color: var(--color-light);
 }

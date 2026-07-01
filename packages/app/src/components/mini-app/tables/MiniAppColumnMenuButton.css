@@ -10,7 +10,7 @@
   width: 1.5rem;
   height: 1.5rem;
   padding: 0;
-  border: 1px solid transparent;
+  border: var(--border-width) solid transparent;
   background: none;
   color: inherit;
   line-height: 1;
@@ -20,6 +20,11 @@
 .mini-app-column-menu-button:hover,
 .mini-app-column-menu-button[aria-expanded="true"] {
   background: var(--color-muted);
+}
+
+.mini-app-column-menu-button:focus-visible {
+  outline: var(--border-width) solid var(--color-dark);
+  outline-offset: var(--border-width);
 }
 
 .mini-app-column-menu-list {
@@ -54,7 +59,8 @@
   cursor: pointer;
 }
 
-.mini-app-column-menu-item:hover {
+.mini-app-column-menu-item:hover,
+.mini-app-column-menu-item:focus-within {
   background: var(--color-muted);
 }
 

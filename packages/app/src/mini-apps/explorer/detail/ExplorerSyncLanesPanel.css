@@ -178,8 +178,13 @@
 }
 
 .explorer-sync-lane-detail-grid {
+  --explorer-detail-col: 18rem;
+
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  grid-template-columns: repeat(
+      auto-fit,
+      minmax(var(--explorer-detail-col), 1fr)
+    );
   gap: var(--space-md);
   min-width: 0;
 }
@@ -194,7 +199,7 @@
 }
 
 .explorer-sync-lane-detail-grid .explorer-sync-lane-progress-stack {
-  width: min(18rem, 100%);
+  width: min(var(--explorer-detail-col), 100%);
 }
 
 @media (max-width: 860px) {
@@ -216,7 +221,10 @@
 
   .explorer-sync-lane-list-cell {
     display: grid;
-    grid-template-columns: minmax(7rem, 38%) minmax(0, 1fr);
+    grid-template-columns: minmax(var(--mini-app-detail-label-width), 38%) minmax(
+        0,
+        1fr
+      );
     align-items: center;
     gap: var(--space-sm);
   }

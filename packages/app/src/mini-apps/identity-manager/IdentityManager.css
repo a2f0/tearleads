@@ -12,7 +12,10 @@
 
 .identity-manager-details {
   display: grid;
-  grid-template-columns: minmax(7rem, max-content) minmax(0, 1fr);
+  grid-template-columns: minmax(var(--mini-app-detail-label-width), max-content) minmax(
+      0,
+      1fr
+    );
   gap: var(--space-sm) var(--space-md);
   margin: 0;
   min-width: 0;
@@ -56,7 +59,7 @@
 
 .identity-manager-session-table {
   min-height: 8rem;
-  max-height: min(28rem, 70vh);
+  max-height: var(--mini-app-virtual-max-height);
 }
 
 .identity-manager-session-table .mini-app-table {

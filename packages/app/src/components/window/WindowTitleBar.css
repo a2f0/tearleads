@@ -42,8 +42,20 @@
 .window-close:hover,
 .window-maximize:hover,
 .window-minimize:hover,
-.window-titlebar-action:hover {
+.window-titlebar-action:hover,
+.window-close:focus-visible,
+.window-maximize:focus-visible,
+.window-minimize:focus-visible,
+.window-titlebar-action:focus-visible {
   opacity: var(--opacity-muted);
+}
+
+.window-close:focus-visible,
+.window-maximize:focus-visible,
+.window-minimize:focus-visible,
+.window-titlebar-action:focus-visible {
+  outline: var(--border-width) solid var(--color-light);
+  outline-offset: calc(-1 * var(--border-width));
 }
 
 .window-titlebar-action:disabled {

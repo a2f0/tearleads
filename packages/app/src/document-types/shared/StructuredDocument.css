@@ -146,7 +146,8 @@
   cursor: pointer;
 }
 
-.structured-document-slot-button:hover:not(:disabled) {
+.structured-document-slot-button:hover:not(:disabled),
+.structured-document-slot-button:focus-visible:not(:disabled) {
   background: var(--color-dark);
   color: var(--color-light);
 }

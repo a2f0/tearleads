@@ -88,7 +88,8 @@
   cursor: pointer;
 }
 
-.routed-pane-appbar button:hover:not(:disabled) {
+.routed-pane-appbar button:hover:not(:disabled),
+.routed-pane-appbar button:focus-visible:not(:disabled) {
   background: var(--color-dark);
   color: var(--color-light);
 }
@@ -149,9 +150,12 @@
 }
 
 .routed-pane-nav-link:hover,
+.routed-pane-nav-link:focus-visible,
 .routed-pane-nav-link--active,
 .routed-pane-nav-action:hover:not(:disabled),
-.routed-pane-nav-section > button:hover:not(:disabled) {
+.routed-pane-nav-action:focus-visible:not(:disabled),
+.routed-pane-nav-section > button:hover:not(:disabled),
+.routed-pane-nav-section > button:focus-visible:not(:disabled) {
   background: var(--color-dark);
   color: var(--color-light);
 }
@@ -186,6 +190,11 @@
   cursor: pointer;
 }
 
+.routed-pane-scrim:focus-visible {
+  outline: var(--border-strong);
+  outline-offset: calc(-2 * var(--border-width));
+}
+
 .routed-pane-drawer {
   position: absolute;
   inset-block: 0;
@@ -201,7 +210,7 @@
      visible through the slide-out so the animation still plays. */
   visibility: hidden;
   transition:
-    transform 0.18s ease,
+    transform var(--transition),
     visibility 0s linear 0.18s;
 }
 
@@ -209,7 +218,7 @@
   transform: translateX(0);
   visibility: visible;
   transition:
-    transform 0.18s ease,
+    transform var(--transition),
     visibility 0s;
 }
 
@@ -257,7 +266,7 @@
 .routed-pane-launcher {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--footer-gap);
+  gap: var(--space-sm);
   padding: var(--space-md);
 }
 
