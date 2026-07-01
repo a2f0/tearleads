@@ -1,14 +1,32 @@
 ---
-import { TearleadsFrame } from "@tearleads/ui";
-import { StaticStatus } from "../components/StaticStatus";
+import { PricingTiers } from "../components/PricingTiers";
+import { SiteFrame } from "../components/SiteFrame";
 import "../styles/global.css";
 
 const isStaging = import.meta.env.PUBLIC_ENVIRONMENT === "staging";
+const appUrl = isStaging
+  ? "https://app.tearleads.de"
+  : "https://app.tearleads.com";
 
-const statusItems = [
-  { label: "Framework", value: "Astro + React" },
-  { label: "Output", value: "Static HTML" },
-  { label: "Dev port", value: "4322" },
+const pricingTiers = [
+  {
+    name: "Free Forever",
+    price: "$0",
+    description:
+      "A local-first workspace for your notes, contacts, and files. Yours to keep, at no cost, forever.",
+  },
+  {
+    name: "Sync",
+    price: "Coming soon",
+    description:
+      "Keep every workspace in sync across all of your devices, encrypted end to end.",
+  },
+  {
+    name: "Sharing",
+    price: "Coming soon",
+    description:
+      "Share containers and collaborate with others, with fine-grained control over who sees what.",
+  },
 ];
 ---
 
@@ -19,7 +37,7 @@ const statusItems = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Tearleads website workspace, built as a fast static site."
+      content="Tearleads is a local-first workspace for your notes, contacts, and files."
     />
     <title>Tearleads</title>
     <link rel="icon" href="/favicon.ico" sizes="any" />
@@ -28,18 +46,43 @@ const statusItems = [
     {isStaging && <meta name="robots" content="noindex" />}
   </head>
   <body>
-    <TearleadsFrame brandHref="/" footerEnd="Static HTML">
+    <SiteFrame appUrl={appUrl}>
       <main class="website-main">
         <section class="intro" aria-labelledby="page-title">
-          <p class="eyebrow">Website workspace</p>
+          <p class="eyebrow">Local-first workspace</p>
           <h1 id="page-title">Tearleads</h1>
           <p class="lede">
-            A static-first site package is ready for product pages, docs, and
-            public-facing content.
+            Keep your notes, contacts, and files in one place — local-first,
+            synced across your devices, and shared on your terms.
           </p>
-          <StaticStatus items={statusItems} />
+        </section>
+
+        <section
+          id="how-it-works"
+          class="section"
+          aria-labelledby="how-it-works-title"
+        >
+          <h2 id="how-it-works-title">How it works</h2>
+          <p class="section-lede">
+            Everything lives locally on your device first, so the app is fast
+            and works offline. When you're ready, sync keeps your workspaces up
+            to date everywhere, and sharing lets you bring others in.
+          </p>
+        </section>
+
+        <section id="pricing" class="section" aria-labelledby="pricing-title">
+          <h2 id="pricing-title">Pricing</h2>
+          <PricingTiers tiers={pricingTiers} />
+        </section>
+
+        <section id="features" class="section" aria-labelledby="features-title">
+          <h2 id="features-title">Features</h2>
+          <p class="section-lede">
+            A window-based workspace with notes, contacts, and file storage,
+            built to stay fast, private, and yours.
+          </p>
         </section>
       </main>
-    </TearleadsFrame>
+    </SiteFrame>
   </body>
 </html>

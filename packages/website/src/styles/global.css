@@ -4,16 +4,48 @@
     "Segoe UI", sans-serif;
 }
 
-.website-main {
-  grid-area: main;
-  display: grid;
-  min-height: 0;
-  place-items: center;
-  padding: 48px 24px;
+/* Primary navigation lives in the TearleadsFrame header (dark background),
+   so links inherit the light header text color. */
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
 }
 
-.intro {
-  width: min(100%, 840px);
+.site-nav-link {
+  color: inherit;
+  font-size: var(--font-size-md);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-nav-link:hover,
+.site-nav-link:focus-visible {
+  text-decoration: underline;
+}
+
+.site-app-button {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-sm);
+  padding: var(--control-padding-block) var(--control-padding-inline);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.website-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 72px;
+  min-height: 0;
+  padding: 64px 24px;
+}
+
+.intro,
+.section {
+  width: min(100%, 960px);
 }
 
 .eyebrow {
@@ -40,45 +72,74 @@
   line-height: 1.5;
 }
 
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 40px 0 0;
-  padding: 0;
+.section h2 {
+  margin: 0;
+  color: #101614;
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  line-height: 1.1;
 }
 
-.status-item {
+.section-lede {
+  max-width: 640px;
+  margin: 16px 0 0;
+  color: #45534e;
+  font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+  line-height: 1.5;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pricing-tier {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  padding: 18px;
+  padding: 24px;
   border: 1px solid #d6ddd2;
   border-radius: 8px;
   background: #ffffff;
 }
 
-.status-item dt {
-  margin: 0 0 8px;
-  color: #61716b;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.status-item dd {
+.pricing-tier-name {
   margin: 0;
   color: #18211f;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.pricing-tier-price {
+  margin: 8px 0 0;
+  color: #3f6d54;
   font-size: 1rem;
   font-weight: 700;
+}
+
+.pricing-tier-description {
+  margin: 16px 0 0;
+  color: #45534e;
+  font-size: 0.95rem;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 @media (max-width: 700px) {
-  .website-main {
-    place-items: start;
-    padding: 36px 18px;
+  .site-nav {
+    display: none;
   }
 
-  .status-grid {
+  .website-main {
+    align-items: stretch;
+    gap: 48px;
+    padding: 40px 18px;
+  }
+
+  .pricing-grid {
     grid-template-columns: 1fr;
   }
 }
