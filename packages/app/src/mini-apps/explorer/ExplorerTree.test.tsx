@@ -284,7 +284,7 @@ test("explorer sidebar scroll requests windows for each folder independently", a
   ).toBe(false);
 });
 
-test("explorer sidebar renders Phosphor folder icons for containers", async () => {
+test("explorer sidebar renders configured Phosphor icons for containers", async () => {
   const childNodes: ContainerNode[] = [
     ...defaultNodes,
     {
@@ -296,11 +296,21 @@ test("explorer sidebar renders Phosphor folder icons for containers", async () =
       parentId: "root-container",
       syncState: syncedState,
     },
+    {
+      id: "trash-container",
+      icon: "trash",
+      kind: "container",
+      name: "Trash",
+      organizationId: "org-1",
+      parentId: "root-container",
+      syncState: syncedState,
+    },
   ];
   const documentQueries = createDocumentQueries(
     new Map([
       ["child-container", []],
       ["root-container", []],
+      ["trash-container", []],
     ]),
     [],
   );
@@ -319,6 +329,11 @@ test("explorer sidebar renders Phosphor folder icons for containers", async () =
   const childIcon = childButton.querySelector(".explorer-folder-icon");
   expect(childIcon?.getAttribute("data-container-icon")).toBe("folder");
   expect(childIcon?.getAttribute("data-icon")).toBe("folder");
+
+  const trashButton = await view.findByRole("button", { name: "Trash" });
+  const trashIcon = trashButton.querySelector(".explorer-folder-icon");
+  expect(trashIcon?.getAttribute("data-container-icon")).toBe("trash");
+  expect(trashIcon?.getAttribute("data-icon")).toBe("trash");
 
   view.unmount();
 

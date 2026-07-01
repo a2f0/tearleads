@@ -115,6 +115,7 @@ export function mapContainerItemRow(
         "created_at",
       ),
       id: readContainerContentsContainerItemString(row, "item_id"),
+      icon: readContainerContentsContainerItemNullableString(row, "icon"),
       itemKind: "container",
       name: readContainerContentsContainerItemString(row, "name"),
       syncState: readContainerDocumentObjectSyncState(row, {

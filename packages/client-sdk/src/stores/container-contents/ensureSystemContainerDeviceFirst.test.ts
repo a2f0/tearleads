@@ -243,6 +243,32 @@ test("ensureSystemContainer can defer remote bootstrap for non-blocking startup"
   );
 });
 
+test("ensureSystemContainer creates configured metadata icons", async () => {
+  await withReadyStore(
+    false,
+    async () => null,
+    async (store, execSql) => {
+      const node = await store.ensureSystemContainer(
+        TEST_SYSTEM_SLOT,
+        "Trash",
+        {
+          deferRemoteBootstrap: true,
+          icon: "trash",
+          skipAdvancedManagedRoot: true,
+        },
+      );
+      const storedContainers =
+        await defaultContainerContentsPersistence.loadContainers(execSql);
+      const storedSystemContainer = storedContainers.find(
+        (storedContainer) => storedContainer.container.id === node?.id,
+      );
+
+      expect(node?.icon).toBe("trash");
+      expect(storedSystemContainer?.container.icon).toBe("trash");
+    },
+  );
+});
+
 test("ensureSystemContainer can defer remote sync until a later ensure promotes it", async () => {
   await withReadyStore(
     false,

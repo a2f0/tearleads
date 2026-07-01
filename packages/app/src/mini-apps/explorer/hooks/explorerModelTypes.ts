@@ -19,6 +19,7 @@ export interface ExplorerModelExplorer {
     name: string,
     options?: {
       deferRemoteBootstrap?: boolean | undefined;
+      icon?: string | null | undefined;
       skipAdvancedManagedRoot?: boolean | undefined;
     },
   ) => Promise<ContainerNode | null>;

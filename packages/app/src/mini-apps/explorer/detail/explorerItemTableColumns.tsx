@@ -1,5 +1,4 @@
 import type { Icon } from "@phosphor-icons/react";
-import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import type {
   ContainerItemRow,
   ContainerItemSort,
@@ -18,6 +17,7 @@ import { getDocumentTypeIcon } from "../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../stores/contacts/contactLabels";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
+import { getExplorerContainerIcon } from "../explorerContainerIcons";
 import { EXPLORER_LABELS } from "../labels";
 import {
   type ExplorerItemColumnId,
@@ -165,20 +165,37 @@ function getExplorerContainerItemName(ctx: ExplorerItemCellContext): string {
   });
 }
 
-// A folder glyph for containers, otherwise the document kind's shared icon
+// A configured glyph for containers, otherwise the document kind's shared icon
 // (the same mapping the "New Document" picker uses).
-function getExplorerItemIcon(row: ContainerItemRow): Icon {
+function getExplorerItemIcon(row: ContainerItemRow): {
+  containerIcon: string | null;
+  Icon: Icon;
+  name: string;
+} {
   if (row.itemKind === "container") {
-    return FolderIcon;
+    const containerIcon = getExplorerContainerIcon({
+      icon: row.icon,
+      isOpen: false,
+    });
+    return {
+      containerIcon: containerIcon.containerIcon,
+      Icon: containerIcon.Component,
+      name: containerIcon.name,
+    };
   }
 
-  return getDocumentTypeIcon(row.documentKind);
+  return {
+    containerIcon: null,
+    Icon: getDocumentTypeIcon(row.documentKind),
+    name: row.documentKind,
+  };
 }
 
 function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
   const { row } = ctx;
   const name = getExplorerContainerItemName(ctx);
-  const ItemIcon = getExplorerItemIcon(row);
+  const itemIcon = getExplorerItemIcon(row);
+  const ItemIcon = itemIcon.Icon;
   const openItem = () => {
     if (row.itemKind === "container") {
       ctx.setSelectedId(row.id);
@@ -202,6 +219,8 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
           <ItemIcon
             aria-hidden="true"
             className="explorer-item-icon"
+            data-container-icon={itemIcon.containerIcon ?? undefined}
+            data-icon={itemIcon.name}
             focusable="false"
             size={16}
             weight="regular"

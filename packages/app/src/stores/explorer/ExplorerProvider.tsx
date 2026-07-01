@@ -17,7 +17,10 @@ import {
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
-import { EXPLORER_TRASH_CONTAINER_NAME } from "../systemContainers";
+import {
+  EXPLORER_TRASH_CONTAINER_ICON,
+  EXPLORER_TRASH_CONTAINER_NAME,
+} from "../systemContainers";
 import {
   canResolveExplorerTrashContainer,
   findExplorerSystemNode,
@@ -56,6 +59,21 @@ interface ExplorerContextValue extends ContainerContentsContextValue {
 }
 
 const ExplorerContext = createContext<ExplorerContextModel | null>(null);
+const EXPLORER_TRASH_CONTAINER_ENSURE_OPTIONS = {
+  deferRemoteBootstrap: true,
+  icon: EXPLORER_TRASH_CONTAINER_ICON,
+} as const;
+
+function ensureExplorerTrashContainer(
+  store: ContainerContentsStore,
+  trashSystemSlot: ContainerSystemSlot,
+): Promise<ContainerNode | null> {
+  return store.ensureSystemContainer(
+    trashSystemSlot,
+    EXPLORER_TRASH_CONTAINER_NAME,
+    EXPLORER_TRASH_CONTAINER_ENSURE_OPTIONS,
+  );
+}
 
 export function ExplorerProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
@@ -147,11 +165,7 @@ export function useExplorer(): ExplorerContextValue {
       // Delete-to-trash is device-first. If Trash is missing, create the local
       // system container immediately and let the structural sync lane reconcile
       // it before queued document moves replay.
-      return await store.ensureSystemContainer(
-        trashSystemSlot,
-        EXPLORER_TRASH_CONTAINER_NAME,
-        { deferRemoteBootstrap: true },
-      );
+      return await ensureExplorerTrashContainer(store, trashSystemSlot);
     } catch (error) {
       logError("Failed to ensure explorer trash container", error);
       return null;

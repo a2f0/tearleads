@@ -15,6 +15,7 @@ export const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefin
   };
 
 export const EXPLORER_TRASH_CONTAINER_NAME = "Trash";
+export const EXPLORER_TRASH_CONTAINER_ICON = "trash";
 const EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
   {
     namespace: "tearleads.explorer",
@@ -71,6 +72,7 @@ export interface UserSystemContainerRules {
 }
 
 interface UserSystemContainerDefinition {
+  readonly icon: string | null;
   readonly kind: UserSystemContainerKind;
   readonly name: string;
   readonly rules: UserSystemContainerRules;
@@ -83,6 +85,7 @@ interface UserSystemContainerDefinition {
 }
 
 export interface UserSystemContainer {
+  readonly icon: string | null;
   readonly kind: UserSystemContainerKind;
   readonly name: string;
   readonly systemSlot: ContainerSystemSlot;
@@ -91,6 +94,7 @@ export interface UserSystemContainer {
 export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefinition[] =
   [
     {
+      icon: null,
       kind: "contacts",
       name: CONTACTS_CONTAINER_NAME,
       rules: {
@@ -112,6 +116,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
       visibleWhenShared: true,
     },
     {
+      icon: EXPLORER_TRASH_CONTAINER_ICON,
       kind: "trash",
       name: EXPLORER_TRASH_CONTAINER_NAME,
       rules: {
@@ -171,6 +176,7 @@ export async function deriveUserSystemContainers(
 ): Promise<ReadonlyArray<UserSystemContainer>> {
   return Promise.all(
     USER_SYSTEM_CONTAINER_DEFINITIONS.map(async (definition) => ({
+      icon: definition.icon,
       kind: definition.kind,
       name: definition.name,
       systemSlot: await deriveContainerSystemSlot({

@@ -23,6 +23,7 @@ export type ContainerItemRow =
   | {
       createdAt: string | null;
       id: string;
+      icon?: string | null;
       itemKind: "container";
       name: string;
       syncState: ContainerDocumentObjectSyncState;

@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useMemo } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { getContactsContainerId } from "../../../stores/contacts/contactsSystemSlot";
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
+import { EXPLORER_TRASH_CONTAINER_ICON } from "../../../stores/systemContainers";
 import {
   canCreateStructuredDocumentInContainerByRules,
   createExplorerContainerRulesContext,
@@ -214,6 +215,9 @@ export function useExplorerModel(
     void explorer
       .ensureSystemContainer(activeSystemSlot, node.name, {
         deferRemoteBootstrap: true,
+        ...(activeSystemSlot === explorer.trashSystemSlot
+          ? { icon: EXPLORER_TRASH_CONTAINER_ICON }
+          : {}),
         skipAdvancedManagedRoot: true,
       })
       .catch(() => undefined);

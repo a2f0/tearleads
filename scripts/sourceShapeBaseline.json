@@ -173,10 +173,6 @@
       "lines": 623,
       "bytes": 18029
     },
-    "packages/app/src/providers/system-bootstrap/SystemBootstrapProvider.tsx": {
-      "lines": 529,
-      "bytes": 17234
-    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 982,
       "bytes": 28590

@@ -31,6 +31,16 @@ const archiveRow: ContainerItemRow = {
   updatedAt: null,
 };
 
+const trashRow: ContainerItemRow = {
+  createdAt: null,
+  icon: "trash",
+  id: "trash-container",
+  itemKind: "container",
+  name: "Trash",
+  syncState: syncedContainerDocumentObjectSyncState,
+  updatedAt: null,
+};
+
 const noteRow: ContainerItemRow = {
   containerId: "root-container",
   createdAt: null,
@@ -314,6 +324,23 @@ test("container item table labels only the current self contact as You", () => {
   expect(view.getByRole("button", { name: "You" })).toBeTruthy();
   expect(view.getByRole("button", { name: "Local Admin" })).toBeTruthy();
   expect(view.getByRole("button", { name: "owner-user-id" })).toBeTruthy();
+});
+
+test("container item table renders configured container icons", () => {
+  const view = renderContainerItemTable({
+    rows: [archiveRow, trashRow],
+    totalCount: 2,
+  });
+  const archiveIcon = view
+    .getByRole("button", { name: "Archive" })
+    .querySelector(".explorer-item-icon");
+  const trashIcon = view
+    .getByRole("button", { name: "Trash" })
+    .querySelector(".explorer-item-icon");
+
+  expect(archiveIcon?.getAttribute("data-icon")).toBe("folder");
+  expect(trashIcon?.getAttribute("data-container-icon")).toBe("trash");
+  expect(trashIcon?.getAttribute("data-icon")).toBe("trash");
 });
 
 test("container item table navigates when an item row is clicked", () => {

@@ -5,6 +5,7 @@ export async function saveTestContainer(input: {
   execSql: Parameters<
     typeof defaultContainerContentsPersistence.saveContainer
   >[0];
+  icon?: string | null;
   id: string;
   name: string;
   organizationId?: string | undefined;
@@ -15,7 +16,7 @@ export async function saveTestContainer(input: {
   await defaultContainerContentsPersistence.saveContainer(
     input.execSql,
     {
-      icon: null,
+      icon: input.icon ?? null,
       id: input.id,
       effectiveAccessLevel: "admin",
       metadataDocumentId: null,
