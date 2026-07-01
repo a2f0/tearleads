@@ -13,7 +13,15 @@ export function MenuItem({
 }) {
   return (
     <button type="button" disabled={disabled} onClick={onClick}>
-      {IconComponent && <IconComponent aria-hidden size={16} />}
+      {IconComponent && (
+        <IconComponent
+          aria-hidden="true"
+          className="menu-item-icon"
+          focusable="false"
+          size={16}
+          weight="regular"
+        />
+      )}
       {label}
     </button>
   );

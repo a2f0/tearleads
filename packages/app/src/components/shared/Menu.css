@@ -27,3 +27,8 @@
 .menu button:hover {
   background: var(--color-muted);
 }
+
+.menu-item-icon {
+  flex: 0 0 auto;
+  opacity: var(--opacity-icon);
+}
