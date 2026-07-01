@@ -11,12 +11,13 @@ import {
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
 } from "../../workflows/container-contents/metadata";
-import { isDestroyedDatabaseClientError } from "../../workflows/container-contents/syncLane";
 import { updateContainerContentsSnapshot } from "./state";
 import type {
   ContainerContentsStoreSyncAgent,
   ContainerState,
 } from "./syncAgent";
+import { probeExistingSystemContainer } from "./systemContainerHydration";
+import { applySystemContainerIcon } from "./systemContainerIcon";
 import {
   hasAdvancedManagedPrincipalReference,
   promoteExistingLocalSystemContainerSync,
@@ -139,31 +140,31 @@ function findRootContainerState(
   return null;
 }
 
-// Best-effort remote probe for an already-existing system container. System
-// containers only live under the root, so this probes the root lanes (not a
-// full-tree refresh). Device-first: a network failure must not abort
-// provisioning, or a caller that waits on this container never observes it —
-// the caller falls through to a local create whose intent reconciles later.
-async function hydrateExistingSystemContainer(
+async function updateExistingSystemContainer(
   state: ContainerContentsStoreState,
   syncAgent: ContainerContentsStoreSyncAgent,
-  systemSlot: ContainerSystemSlot,
+  existing: ContainerState,
+  options: EnsureSystemContainerOptions,
 ) {
-  const existingRoot = findRootContainerState(state);
-  try {
-    await syncAgent.requestRemoteHydration({
-      parentIds: existingRoot ? [null, existingRoot.container.id] : [null],
+  if (Object.hasOwn(options, "icon")) {
+    await applySystemContainerIcon({
+      containerState: existing,
+      icon: options.icon,
+      persistIcon: async (containerState, icon) => {
+        await persistContainerState(state, containerState, { icon });
+      },
+      state,
+      syncAgent,
     });
-  } catch (error) {
-    if (!isDestroyedDatabaseClientError(error)) {
-      const reason = error instanceof Error ? error.message : String(error);
-      state.runtime.util.log(
-        `${getContainerContentsStoreLogLabel(state)}: remote probe for "${systemSlot}" failed (${reason}); creating it locally`,
-      );
-    }
   }
-  const hydrated = findSystemContainerState(state, systemSlot);
-  return hydrated ? toContainerNode(hydrated) : null;
+  await promoteExistingLocalSystemContainerSync({
+    containerState: existing,
+    logLabel: getContainerContentsStoreLogLabel(state),
+    options,
+    rootState: findRootContainerState(state),
+    state,
+    syncAgent,
+  });
 }
 
 export async function ensureSystemContainer(
@@ -184,14 +185,7 @@ export async function ensureSystemContainer(
 
   const existing = findSystemContainerState(state, systemSlot);
   if (existing) {
-    await promoteExistingLocalSystemContainerSync({
-      containerState: existing,
-      logLabel: getContainerContentsStoreLogLabel(state),
-      options,
-      rootState: findRootContainerState(state),
-      state,
-      syncAgent,
-    });
+    await updateExistingSystemContainer(state, syncAgent, existing, options);
     return toContainerNode(existing);
   }
 
@@ -201,13 +195,16 @@ export async function ensureSystemContainer(
     state.runtime.state.online &&
     allowSynchronousRemoteBootstrap
   ) {
-    const hydrated = await hydrateExistingSystemContainer(
+    await probeExistingSystemContainer({
+      logLabel: getContainerContentsStoreLogLabel(state),
+      rootState: findRootContainerState(state),
       state,
       syncAgent,
       systemSlot,
-    );
+    });
+    const hydrated = findSystemContainerState(state, systemSlot);
     if (hydrated) {
-      return hydrated;
+      return toContainerNode(hydrated);
     }
   }
 
@@ -231,6 +228,7 @@ export async function ensureSystemContainer(
       allowSynchronousRemoteBootstrap &&
       state.runtime.auth.isAuthenticated &&
       Boolean(state.runtime.crypto.encapsulationKeyPair),
+    icon: options.icon,
     name: trimmedName,
     parentState: rootState,
     persistence: state.persistence,

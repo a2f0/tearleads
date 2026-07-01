@@ -109,6 +109,7 @@ export interface ContainerContentsStore {
 }
 
 export interface EnsureSystemContainerOptions {
+  icon?: string | null | undefined;
   skipAdvancedManagedRoot?: boolean | undefined;
   // For local-first bootstrap paths where slow remote I/O must not block the
   // caller from creating the deterministic local system container.

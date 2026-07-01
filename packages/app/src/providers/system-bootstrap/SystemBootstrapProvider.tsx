@@ -34,6 +34,7 @@ import {
 import type { RuntimeSnapshot } from "../sdk/TearleadsProvider";
 import { useTearleads, useTearleadsRuntime } from "../sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { ensureSystemBootstrapContainer } from "./systemContainerBootstrap";
 
 type SystemBootstrapStatus = "idle" | "waiting" | "running" | "ready" | "error";
 
@@ -108,54 +109,6 @@ function useUserSystemContainers(input: {
   return systemContainers;
 }
 
-function findExistingSystemContainer(
-  store: ContainerContentsStore,
-  systemContainer: UserSystemContainer,
-): ContainerNode | null {
-  return findExplorerSystemNode(
-    store.getSnapshot().nodes,
-    systemContainer.systemSlot,
-  );
-}
-
-async function ensureSystemContainer(input: {
-  readonly isAuthenticated: boolean;
-  readonly store: ContainerContentsStore;
-  readonly systemContainer: UserSystemContainer;
-}): Promise<ContainerNode | null> {
-  const existing = findExistingSystemContainer(
-    input.store,
-    input.systemContainer,
-  );
-  if (existing) {
-    // The slot already exists. If it was created device-first (local-only) and
-    // we are now authenticated, promote it into remote sync so every system
-    // container (Trash included, not just Contacts) reaches the server without
-    // requiring the user to open it. ensureSystemContainer without
-    // deferRemoteSync routes the existing slot through
-    // promoteExistingLocalSystemContainerSync; the call is idempotent once the
-    // container has a remote create intent, so a non-local-only slot is a no-op.
-    if (input.isAuthenticated && existing.syncState.status === "local-only") {
-      return input.store.ensureSystemContainer(
-        input.systemContainer.systemSlot,
-        input.systemContainer.name,
-        { skipAdvancedManagedRoot: true },
-      );
-    }
-    return existing;
-  }
-
-  return input.store.ensureSystemContainer(
-    input.systemContainer.systemSlot,
-    input.systemContainer.name,
-    {
-      deferRemoteBootstrap: true,
-      deferRemoteSync: true,
-      skipAdvancedManagedRoot: true,
-    },
-  );
-}
-
 function getSelfContactInput(input: {
   readonly appData: RuntimeSnapshot;
   readonly includeRemoteIdentity: boolean;
@@ -218,7 +171,7 @@ async function runSystemBootstrap(
   const isAuthenticated = input.appData.auth.isAuthenticated;
 
   for (const systemContainer of input.systemContainers) {
-    const ensuredContainer = await ensureSystemContainer({
+    const ensuredContainer = await ensureSystemBootstrapContainer({
       isAuthenticated,
       store: input.containerContentsStore,
       systemContainer,
@@ -264,7 +217,10 @@ function createSystemBootstrapTargetKey(input: {
         }`
       : "missing-contacts",
     input.systemContainers
-      .map((systemContainer) => systemContainer.systemSlot)
+      .map(
+        (systemContainer) =>
+          `${systemContainer.systemSlot}:${systemContainer.icon ?? ""}`,
+      )
       .join(","),
   ].join(":");
 }

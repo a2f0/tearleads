@@ -326,6 +326,7 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
         {
           createdAt: syncedAt,
           id: "child-container",
+          icon: null,
           itemKind: "container",
           name: "Synced child",
           syncState: syncedContainerDocumentObjectSyncState,

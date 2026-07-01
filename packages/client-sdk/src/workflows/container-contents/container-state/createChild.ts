@@ -47,6 +47,7 @@ async function createChildContainerId(
 
 async function buildRemoteContainerContentsChildContainerState(input: {
   childId: string;
+  icon: string | null;
   systemSlot?: ContainerSystemSlot | null | undefined;
   doc: ContainerMetadataDocumentState;
   initialRecord: DocumentRecord;
@@ -57,6 +58,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
 }): Promise<ContainerState | null> {
   const {
     childId,
+    icon,
     systemSlot,
     doc,
     initialRecord,
@@ -96,7 +98,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
       metadataDocumentId: created.metadataDocumentId,
       systemSlot: created.systemSlot ?? systemSlot ?? null,
       name: trimmedName,
-      icon: null,
+      icon,
       createdAt: created.createdAt,
       serverCreatedAt: created.createdAt,
       serverUpdatedAt: created.updatedAt,
@@ -114,14 +116,22 @@ async function buildRemoteContainerContentsChildContainerState(input: {
 
 function buildLocalContainerContentsChildContainerState(input: {
   childId: string;
+  icon: string | null;
   systemSlot?: ContainerSystemSlot | null | undefined;
   doc: ContainerMetadataDocumentState;
   initialRecord: DocumentRecord;
   parentState: ContainerState;
   trimmedName: string;
 }): ContainerState {
-  const { systemSlot, childId, doc, initialRecord, parentState, trimmedName } =
-    input;
+  const {
+    systemSlot,
+    childId,
+    doc,
+    icon,
+    initialRecord,
+    parentState,
+    trimmedName,
+  } = input;
 
   return {
     container: {
@@ -132,7 +142,7 @@ function buildLocalContainerContentsChildContainerState(input: {
       metadataDocumentId: null,
       systemSlot: systemSlot ?? null,
       name: trimmedName,
-      icon: null,
+      icon,
     },
     doc,
     record: initialRecord,
@@ -142,6 +152,7 @@ function buildLocalContainerContentsChildContainerState(input: {
 export async function createChildContainerState(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   createRemote: boolean;
+  icon?: string | null | undefined;
   name: string;
   parentState: ContainerState;
   persistence: ContainerContentsPersistence;
@@ -164,10 +175,11 @@ export async function createChildContainerState(input: {
     return null;
   }
 
+  const icon = input.icon?.trim() || null;
   const childId = await createChildContainerId(systemSlot);
   const { doc, initialUpdate } =
     await createInitializedContainerMetadataDocument(childId, {
-      icon: null,
+      icon,
       name: trimmedName,
     });
   const initialRecord: DocumentRecord = {
@@ -185,6 +197,7 @@ export async function createChildContainerState(input: {
   const remoteChildState = createRemote
     ? await buildRemoteContainerContentsChildContainerState({
         childId,
+        icon,
         systemSlot,
         doc,
         initialRecord,
@@ -198,6 +211,7 @@ export async function createChildContainerState(input: {
     remoteChildState ??
     buildLocalContainerContentsChildContainerState({
       childId,
+      icon,
       systemSlot,
       doc,
       initialRecord,

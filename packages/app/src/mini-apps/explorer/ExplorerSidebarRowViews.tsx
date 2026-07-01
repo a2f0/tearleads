@@ -1,5 +1,3 @@
-import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
-import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
 import type { ContainerDocumentSidebarRow } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import {
@@ -14,6 +12,7 @@ import {
   type ExplorerSidebarVirtualRow,
   getLoadedExplorerSidebarDocumentRow,
 } from "./ExplorerSidebarRows";
+import { getExplorerContainerIcon } from "./explorerContainerIcons";
 import {
   EXPLORER_SIDEBAR_ROW_HEIGHT,
   type ExplorerTreeEntry,
@@ -46,19 +45,6 @@ function getExplorerSidebarRowStyle(depth: number): {
 } {
   return {
     paddingLeft: `calc(var(--padding) / 2 + (var(--padding) * ${depth}))`,
-  };
-}
-
-function getExplorerFolderIcon(params: {
-  icon: string | null | undefined;
-  isOpen: boolean;
-}) {
-  const iconName = params.isOpen ? "folder-open" : "folder";
-
-  return {
-    Component: params.isOpen ? FolderOpenIcon : FolderIcon,
-    containerIcon: params.icon?.trim() || "folder",
-    name: iconName,
   };
 }
 
@@ -158,7 +144,7 @@ function ExplorerTreeContainerRow(
   const isOpen =
     !isCollapsed &&
     (isSelected || props.activeContainerId === entry.node.id || hasChildren);
-  const folderIcon = getExplorerFolderIcon({
+  const folderIcon = getExplorerContainerIcon({
     icon: entry.node.icon,
     isOpen,
   });

@@ -183,6 +183,7 @@ test("listContainerItemWindow includes allowlisted system container rows", async
     });
     await saveTestContainer({
       execSql,
+      icon: "trash",
       id: "trash-container",
       name: "Trash",
       parentId: "root-container",
@@ -211,7 +212,12 @@ test("listContainerItemWindow includes allowlisted system container rows", async
       rows: [
         { id: "archive-container", itemKind: "container", name: "Archive" },
         { id: "contacts-container", itemKind: "container", name: "Contacts" },
-        { id: "trash-container", itemKind: "container", name: "Trash" },
+        {
+          icon: "trash",
+          id: "trash-container",
+          itemKind: "container",
+          name: "Trash",
+        },
       ],
     });
   } finally {
