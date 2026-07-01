@@ -59,8 +59,10 @@
 .structured-document-slot {
   display: grid;
   gap: var(--space-sm);
+  min-width: 0;
   padding: var(--panel-padding);
   border: var(--border);
+  overflow: hidden;
 }
 
 .structured-document-slot-copy {
@@ -76,14 +78,18 @@
 .structured-document-slot-preview {
   /* standard ID-1 card format */
   aspect-ratio: 1.58 / 1;
+  box-sizing: border-box;
+  display: block;
+  min-width: 0;
   width: 100%;
+  max-width: 100%;
   border: var(--border-width) dashed currentColor;
   background: linear-gradient(
     135deg,
     color-mix(in srgb, currentColor 6%, transparent),
     transparent
   );
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .structured-document-slot-placeholder {
