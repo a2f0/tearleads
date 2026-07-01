@@ -244,6 +244,11 @@ export async function createRemoteDocument(input: {
     if (adopted) {
       return adopted;
     }
+    // A conflict is the expected, benign outcome of an idempotent retry after a
+    // lost create response. If adoption cannot complete yet (e.g. the writer
+    // projection fetch failed transiently), do not surface the conflict as a UI
+    // error — the sync engine retries and adopts it on a later tick.
+    return null;
   }
 
   submission.report?.();

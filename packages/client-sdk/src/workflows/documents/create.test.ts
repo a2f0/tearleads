@@ -270,6 +270,58 @@ test("createRemoteDocument adopts an existing remote document when a retry with 
   });
 });
 
+test("createRemoteDocument does not report a conflict when adoption fails transiently", async () => {
+  const { author, signingPublicKey } = await createAuthor();
+  const keyPair = generateKemSeedAndKeyPair();
+  const projection = await createContainerWriterProjectionFixture({
+    containerId: "remote-container",
+    encapsulationPublicKey: keyPair.publicKey,
+    organizationId: author.organizationId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  });
+  let reported = false;
+  const adopted = await createRemoteDocument({
+    apiClient: {
+      createDocument: async () => null,
+      // Every submit 409s (the first attempt already committed remotely).
+      createDocumentResult: async () => ({
+        message:
+          "POST /documents: 409 Conflict: Document manifest already exists",
+        ok: false as const,
+        report: () => {
+          reported = true;
+        },
+        status: 409,
+      }),
+      getContainerWriterProjection: async (containerId: string) =>
+        containerId === projection.containerId ? projection : null,
+      // Adoption cannot complete: the writer-projection fetch fails transiently.
+      getDocumentWriterProjection: async () => null,
+      primeDocumentWriterProjection: () => {},
+    },
+    author,
+    containerId: projection.containerId,
+    documentId: "document-stable",
+    resolveProjectionUserKey: async (userId: string) =>
+      userId === author.signerUserId
+        ? {
+            encapsulationPublicKey: keyPair.publicKey,
+            signingPublicKey,
+            userId,
+          }
+        : null,
+    signedAt: "2026-04-27T00:00:00.000Z",
+    targetSecretKey: keyPair.secretKey,
+  });
+
+  // The conflict is expected during an idempotent retry; failing to adopt it yet
+  // must not surface as a UI error — the sync engine retries on a later tick.
+  expect(adopted).toBeNull();
+  expect(reported).toBe(false);
+});
+
 test("createRemoteDocument rejects substituted KEK material before submitting", async () => {
   const parent = await createParentProjection();
   const tamperedProjection = await substituteFirstProjectionUserWrapMaterial({
