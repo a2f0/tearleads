@@ -36,6 +36,7 @@ export {
   documentContainerLinks,
 } from "./documentLinks";
 export { groups } from "./groups";
+export { keyPackageBackups } from "./keyPackageBackups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
 export { organizationRosterEntries, organizations } from "./organizations";
 export {

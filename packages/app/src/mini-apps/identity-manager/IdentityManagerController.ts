@@ -7,6 +7,7 @@ import {
 } from "../../components/shared/useLogoutConfirmation";
 import {
   useBackupKeyPackageAction,
+  usePasskeyKeyPackageBackupActions,
   useRestoreKeyPackageAction,
 } from "../../identity/useKeyPackageActions";
 import {
@@ -200,6 +201,7 @@ function useIdentityManagerIdentityMutations({
   logError,
   logout,
   login,
+  passkeyBackup,
   registerCurrentIdentity,
 }: {
   clearSessionError: () => void;
@@ -208,6 +210,7 @@ function useIdentityManagerIdentityMutations({
   logError: LogContextValue["logError"];
   logout: CryptoSessionContextValue["logout"];
   login: CryptoSessionContextValue["login"];
+  passkeyBackup: ReturnType<typeof usePasskeyKeyPackageBackupActions>;
   registerCurrentIdentity: () => Promise<boolean>;
 }) {
   const [identityError, setIdentityError] = useState<string | null>(null);
@@ -247,6 +250,26 @@ function useIdentityManagerIdentityMutations({
     }
   }, [logError, login]);
 
+  const handlePasskeyBackupKeyPackage = useCallback(async () => {
+    setIdentityBusy("passkey-backup");
+    setIdentityError(null);
+    try {
+      await passkeyBackup.backupToPasskey();
+    } finally {
+      setIdentityBusy(null);
+    }
+  }, [passkeyBackup]);
+
+  const handlePasskeyRestoreKeyPackage = useCallback(async () => {
+    setIdentityBusy("passkey-restore");
+    setIdentityError(null);
+    try {
+      await passkeyBackup.restoreFromPasskey();
+    } finally {
+      setIdentityBusy(null);
+    }
+  }, [passkeyBackup]);
+
   const requestDestroyKeyPackage = useCallback(() => {
     setDestroyKeyPackageDialogOpen(true);
   }, []);
@@ -268,10 +291,14 @@ function useIdentityManagerIdentityMutations({
     authenticate,
     closeDestroyKeyPackageDialog,
     confirmDestroyKeyPackage,
+    handlePasskeyBackupKeyPackage,
+    handlePasskeyRestoreKeyPackage,
     handleRegisterIdentity,
     identityBusy,
     identityError,
     isDestroyKeyPackageDialogOpen,
+    passkeyBackupError: passkeyBackup.error,
+    passkeyBackupStatus: passkeyBackup.status,
     requestDestroyKeyPackage,
   };
 }
@@ -347,6 +374,7 @@ export function useIdentityManager() {
     useRegisterCurrentIdentity();
   const backupKeyPackage = useBackupKeyPackageAction();
   const restoreKeyPackage = useRestoreKeyPackageAction();
+  const passkeyBackup = usePasskeyKeyPackageBackupActions();
   const { purgeWorker } = useDatabase();
   const {
     canAuthenticate,
@@ -386,6 +414,7 @@ export function useIdentityManager() {
     logError,
     logout: session.logout,
     login: session.login,
+    passkeyBackup,
     registerCurrentIdentity: registration.registerCurrentIdentity,
   });
   useIdentityManagerRefreshMenu({

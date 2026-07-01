@@ -5,13 +5,13 @@ import type {
 } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 
-interface AppKeyPackageSession {
+export interface AppKeyPackageSession {
   readonly containerId: string;
   readonly organizationId: string;
   readonly userId: string;
 }
 
-type AppKeyPackage = IdentityKeyPackage & {
+export type AppKeyPackage = IdentityKeyPackage & {
   readonly session?: AppKeyPackageSession;
 };
 

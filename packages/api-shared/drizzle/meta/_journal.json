@@ -43,6 +43,13 @@
       "when": 1782522234841,
       "tag": "0005_pale_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782927152979,
+      "tag": "0006_tranquil_zuras",
+      "breakpoints": true
     }
   ]
 }

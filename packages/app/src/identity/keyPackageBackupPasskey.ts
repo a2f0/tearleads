@@ -1,0 +1,499 @@
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { PutKeyPackageBackupRequest } from "@tearleads/validators/request";
+import type { KeyPackageBackupResponse } from "@tearleads/validators/response";
+import {
+  KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE,
+  KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT,
+  KEY_PACKAGE_BACKUP_KDF_SUITE,
+} from "@tearleads/validators/util";
+import type { AppKeyPackage } from "./keyPackageBackup";
+
+const TEXT_ENCODER = new TextEncoder();
+const TEXT_DECODER = new TextDecoder();
+const AES_GCM_IV_BYTES = 12;
+const BACKUP_VERSION = 1;
+const PRF_SALT_VERSION = 1;
+
+interface PrfExtensionResults {
+  readonly enabled?: boolean | undefined;
+  readonly results?:
+    | {
+        readonly first?: BufferSource | undefined;
+      }
+    | undefined;
+}
+
+interface PasskeyPublicKeyCredential {
+  readonly rawId: ArrayBuffer;
+  readonly response: unknown;
+  readonly prf: () => PrfExtensionResults | undefined;
+}
+
+interface PasskeyAttestationMetadata {
+  readonly publicKey: ArrayBuffer;
+  readonly publicKeyAlgorithm: number;
+  readonly transports: readonly string[];
+}
+
+interface AssociatedDataInput {
+  readonly backupId: string;
+  readonly backupVersion: number;
+  readonly credentialId: string;
+  readonly encryptionSuite: typeof KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE;
+  readonly format: typeof KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT;
+  readonly kdfSuite: typeof KEY_PACKAGE_BACKUP_KDF_SUITE;
+  readonly prfSaltVersion: 1;
+  readonly signingKeyFingerprint: string;
+}
+
+function asArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+function randomBytes(byteLength: number): Uint8Array<ArrayBuffer> {
+  return crypto.getRandomValues(new Uint8Array(byteLength));
+}
+
+function concatBytes(parts: readonly Uint8Array[]): Uint8Array<ArrayBuffer> {
+  const byteLength = parts.reduce((sum, part) => sum + part.byteLength, 0);
+  const combined = new Uint8Array(byteLength);
+  let offset = 0;
+
+  for (const part of parts) {
+    combined.set(part, offset);
+    offset += part.byteLength;
+  }
+
+  return combined;
+}
+
+async function sha256(bytes: Uint8Array): Promise<Uint8Array<ArrayBuffer>> {
+  return new Uint8Array(
+    await crypto.subtle.digest("SHA-256", asArrayBufferBytes(bytes)),
+  );
+}
+
+function requirePasskeyBackupSupport(): void {
+  if (!isPasskeyKeyPackageBackupSupported()) {
+    throw new Error(
+      "Passkey PRF key package backups require a secure browser with WebAuthn PRF support.",
+    );
+  }
+}
+
+function readPublicKeyCredential(
+  credential: Credential | null,
+  label: string,
+): PasskeyPublicKeyCredential {
+  const rawId = credential ? Reflect.get(credential, "rawId") : null;
+  const response = credential ? Reflect.get(credential, "response") : null;
+  const getClientExtensionResults = credential
+    ? Reflect.get(credential, "getClientExtensionResults")
+    : null;
+  if (
+    !credential ||
+    credential.type !== "public-key" ||
+    !(rawId instanceof ArrayBuffer) ||
+    typeof getClientExtensionResults !== "function"
+  ) {
+    throw new Error(`${label} did not return a public-key credential.`);
+  }
+
+  return {
+    rawId,
+    response,
+    prf: () =>
+      readPrfExtensionResults(getClientExtensionResults.call(credential)),
+  };
+}
+
+function readAttestationMetadata(
+  response: unknown,
+): PasskeyAttestationMetadata {
+  const getPublicKey =
+    response && typeof response === "object"
+      ? Reflect.get(response, "getPublicKey")
+      : null;
+  const getPublicKeyAlgorithm =
+    response && typeof response === "object"
+      ? Reflect.get(response, "getPublicKeyAlgorithm")
+      : null;
+  if (
+    !response ||
+    typeof getPublicKey !== "function" ||
+    typeof getPublicKeyAlgorithm !== "function"
+  ) {
+    throw new Error(
+      "Passkey backup credential did not expose public credential metadata.",
+    );
+  }
+
+  const publicKey = getPublicKey.call(response);
+  const publicKeyAlgorithm = getPublicKeyAlgorithm.call(response);
+  if (!(publicKey instanceof ArrayBuffer)) {
+    throw new Error("Passkey credential public key is unavailable.");
+  }
+  if (!Number.isInteger(publicKeyAlgorithm)) {
+    throw new Error("Passkey credential public key algorithm is invalid.");
+  }
+
+  return {
+    publicKey,
+    publicKeyAlgorithm,
+    transports: readCredentialTransports(response),
+  };
+}
+
+function readCredentialTransports(response: object): string[] {
+  const getTransports = Reflect.get(response, "getTransports");
+  if (typeof getTransports !== "function") {
+    return [];
+  }
+
+  const transports = getTransports.call(response);
+  if (!Array.isArray(transports)) {
+    return [];
+  }
+
+  return transports.filter(
+    (transport) => typeof transport === "string" && transport.length > 0,
+  );
+}
+
+function bytesFromBufferSource(source: BufferSource): Uint8Array<ArrayBuffer> {
+  if (source instanceof ArrayBuffer) {
+    return new Uint8Array(source.slice(0));
+  }
+
+  return asArrayBufferBytes(
+    new Uint8Array(source.buffer, source.byteOffset, source.byteLength),
+  );
+}
+
+function isBufferSource(value: unknown): value is BufferSource {
+  return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+}
+
+function readPrfExtensionResults(
+  value: unknown,
+): PrfExtensionResults | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const prf = Reflect.get(value, "prf");
+  if (!prf || typeof prf !== "object") {
+    return undefined;
+  }
+
+  const enabled = Reflect.get(prf, "enabled");
+  const results = Reflect.get(prf, "results");
+  const first =
+    results && typeof results === "object"
+      ? Reflect.get(results, "first")
+      : null;
+
+  return {
+    ...(typeof enabled === "boolean" ? { enabled } : {}),
+    ...(isBufferSource(first) ? { results: { first } } : {}),
+  };
+}
+
+function backupAssociatedData(
+  input: AssociatedDataInput,
+): Uint8Array<ArrayBuffer> {
+  return asArrayBufferBytes(
+    TEXT_ENCODER.encode(
+      JSON.stringify({
+        backupId: input.backupId,
+        backupVersion: input.backupVersion,
+        credentialId: input.credentialId,
+        encryptionSuite: input.encryptionSuite,
+        format: input.format,
+        kdfSuite: input.kdfSuite,
+        prfSaltVersion: input.prfSaltVersion,
+        signingKeyFingerprint: input.signingKeyFingerprint,
+      }),
+    ),
+  );
+}
+
+async function createPrfSalt(
+  backupId: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  return sha256(
+    concatBytes([
+      TEXT_ENCODER.encode(
+        `tearleads.passkey-key-package-backup.prf-salt.v1:${backupId}:`,
+      ),
+      randomBytes(32),
+    ]),
+  );
+}
+
+async function deriveBackupWrappingKey(input: {
+  readonly backupId: string;
+  readonly credentialId: string;
+  readonly prfOutput: Uint8Array;
+  readonly signingKeyFingerprint: string;
+}): Promise<Uint8Array<ArrayBuffer>> {
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    asArrayBufferBytes(input.prfOutput),
+    "HKDF",
+    false,
+    ["deriveBits"],
+  );
+  const salt = await sha256(
+    TEXT_ENCODER.encode(
+      [
+        "tearleads.passkey-key-package-backup.hkdf-salt.v1",
+        input.backupId,
+        input.credentialId,
+        input.signingKeyFingerprint,
+      ].join("\0"),
+    ),
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      hash: "SHA-256",
+      info: TEXT_ENCODER.encode(
+        "tearleads.passkey-key-package-backup.wrapping-key.v1",
+      ),
+      name: "HKDF",
+      salt,
+    },
+    keyMaterial,
+    256,
+  );
+
+  return new Uint8Array(bits);
+}
+
+async function importAesGcmKey(
+  keyBytes: Uint8Array,
+  usage: "decrypt" | "encrypt",
+): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "raw",
+    asArrayBufferBytes(keyBytes),
+    { name: "AES-GCM" },
+    false,
+    [usage],
+  );
+}
+
+async function createPasskeyCredential(input: {
+  readonly prfSalt: Uint8Array;
+  readonly signingKeyFingerprint: string;
+}): Promise<PutKeyPackageBackupRequest["credential"]> {
+  const publicKey = {
+    authenticatorSelection: {
+      requireResidentKey: true,
+      residentKey: "required",
+      userVerification: "required",
+    },
+    challenge: randomBytes(32),
+    extensions: {
+      prf: {
+        eval: {
+          first: asArrayBufferBytes(input.prfSalt),
+        },
+      },
+    },
+    pubKeyCredParams: [
+      { alg: -7, type: "public-key" },
+      { alg: -257, type: "public-key" },
+    ],
+    rp: { name: "Tearleads" },
+    timeout: 120_000,
+    user: {
+      displayName: "Tearleads identity backup",
+      id: randomBytes(32),
+      name: `tearleads-${input.signingKeyFingerprint.slice(0, 24)}`,
+    },
+  } satisfies PublicKeyCredentialCreationOptions;
+  const credential = readPublicKeyCredential(
+    await navigator.credentials.create({ publicKey }),
+    "Passkey creation",
+  );
+  const prf = credential.prf();
+  if (prf?.enabled !== true) {
+    throw new Error("This passkey does not support WebAuthn PRF.");
+  }
+
+  const metadata = readAttestationMetadata(credential.response);
+
+  return {
+    id: bytesToBase64(new Uint8Array(credential.rawId)),
+    publicKey: bytesToBase64(new Uint8Array(metadata.publicKey)),
+    publicKeyAlgorithm: metadata.publicKeyAlgorithm,
+    transports: metadata.transports,
+    type: "public-key",
+  };
+}
+
+async function requestPasskeyPrfOutput(input: {
+  readonly credentialId: string;
+  readonly prfSalt: Uint8Array;
+}): Promise<Uint8Array<ArrayBuffer>> {
+  const publicKey = {
+    allowCredentials: [
+      {
+        id: asArrayBufferBytes(base64ToBytes(input.credentialId)),
+        type: "public-key",
+      },
+    ],
+    challenge: randomBytes(32),
+    extensions: {
+      prf: {
+        eval: {
+          first: asArrayBufferBytes(input.prfSalt),
+        },
+      },
+    },
+    timeout: 120_000,
+    userVerification: "required",
+  } satisfies PublicKeyCredentialRequestOptions;
+  const credential = readPublicKeyCredential(
+    await navigator.credentials.get({ publicKey }),
+    "Passkey assertion",
+  );
+  const first = credential.prf()?.results?.first;
+  if (!first) {
+    throw new Error("Passkey PRF output is unavailable.");
+  }
+
+  return bytesFromBufferSource(first);
+}
+
+export function isPasskeyKeyPackageBackupSupported(): boolean {
+  return (
+    typeof window === "object" &&
+    window.isSecureContext !== false &&
+    typeof PublicKeyCredential === "function" &&
+    typeof navigator === "object" &&
+    typeof navigator.credentials?.create === "function" &&
+    typeof navigator.credentials.get === "function" &&
+    typeof crypto === "object" &&
+    typeof crypto.subtle === "object"
+  );
+}
+
+export async function createPasskeyProtectedKeyPackageBackup(input: {
+  readonly keyPackage: AppKeyPackage;
+  readonly signingKeyFingerprint: string;
+}): Promise<PutKeyPackageBackupRequest> {
+  requirePasskeyBackupSupport();
+  const backupId = crypto.randomUUID();
+  const prfSalt = await createPrfSalt(backupId);
+  const credential = await createPasskeyCredential({
+    prfSalt,
+    signingKeyFingerprint: input.signingKeyFingerprint,
+  });
+  const prfOutput = await requestPasskeyPrfOutput({
+    credentialId: credential.id,
+    prfSalt,
+  });
+  const wrappingKey = await deriveBackupWrappingKey({
+    backupId,
+    credentialId: credential.id,
+    prfOutput,
+    signingKeyFingerprint: input.signingKeyFingerprint,
+  });
+  const associatedData = backupAssociatedData({
+    backupId,
+    backupVersion: BACKUP_VERSION,
+    credentialId: credential.id,
+    encryptionSuite: KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE,
+    format: KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT,
+    kdfSuite: KEY_PACKAGE_BACKUP_KDF_SUITE,
+    prfSaltVersion: PRF_SALT_VERSION,
+    signingKeyFingerprint: input.signingKeyFingerprint,
+  });
+  const iv = randomBytes(AES_GCM_IV_BYTES);
+  const key = await importAesGcmKey(wrappingKey, "encrypt");
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt(
+      {
+        additionalData: associatedData,
+        iv,
+        name: "AES-GCM",
+      },
+      key,
+      TEXT_ENCODER.encode(JSON.stringify(input.keyPackage)),
+    ),
+  );
+
+  return {
+    backupId,
+    backupVersion: BACKUP_VERSION,
+    credential,
+    envelope: {
+      ciphertext: bytesToBase64(ciphertext),
+      encryptionSuite: KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE,
+      format: KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT,
+      iv: bytesToBase64(iv),
+      version: 1,
+    },
+    kdfSuite: KEY_PACKAGE_BACKUP_KDF_SUITE,
+    prfSalt: bytesToBase64(prfSalt),
+    prfSaltVersion: PRF_SALT_VERSION,
+    signingKeyFingerprint: input.signingKeyFingerprint,
+  };
+}
+
+export async function discoverPasskeyKeyPackageBackupCredentialId(): Promise<string> {
+  requirePasskeyBackupSupport();
+  const publicKey = {
+    challenge: randomBytes(32),
+    timeout: 120_000,
+    userVerification: "required",
+  } satisfies PublicKeyCredentialRequestOptions;
+  const credential = readPublicKeyCredential(
+    await navigator.credentials.get({ publicKey }),
+    "Passkey discovery",
+  );
+
+  return bytesToBase64(new Uint8Array(credential.rawId));
+}
+
+export async function decryptPasskeyProtectedKeyPackageBackup(
+  backup: KeyPackageBackupResponse,
+): Promise<unknown> {
+  requirePasskeyBackupSupport();
+  const prfSalt = base64ToBytes(backup.prfSalt);
+  const prfOutput = await requestPasskeyPrfOutput({
+    credentialId: backup.credential.id,
+    prfSalt,
+  });
+  const wrappingKey = await deriveBackupWrappingKey({
+    backupId: backup.backupId,
+    credentialId: backup.credential.id,
+    prfOutput,
+    signingKeyFingerprint: backup.signingKeyFingerprint,
+  });
+  const key = await importAesGcmKey(wrappingKey, "decrypt");
+  const plaintext = await crypto.subtle.decrypt(
+    {
+      additionalData: backupAssociatedData({
+        backupId: backup.backupId,
+        backupVersion: backup.backupVersion,
+        credentialId: backup.credential.id,
+        encryptionSuite: backup.envelope.encryptionSuite,
+        format: backup.envelope.format,
+        kdfSuite: backup.kdfSuite,
+        prfSaltVersion: backup.prfSaltVersion,
+        signingKeyFingerprint: backup.signingKeyFingerprint,
+      }),
+      iv: asArrayBufferBytes(base64ToBytes(backup.envelope.iv)),
+      name: "AES-GCM",
+    },
+    key,
+    asArrayBufferBytes(base64ToBytes(backup.envelope.ciphertext)),
+  );
+
+  return JSON.parse(TEXT_DECODER.decode(plaintext));
+}

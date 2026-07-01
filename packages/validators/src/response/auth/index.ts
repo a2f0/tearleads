@@ -9,6 +9,14 @@ export {
   isEncapsulationKeyResponse,
 } from "./encapsulationKey";
 export {
+  type DeleteKeyPackageBackupResponse,
+  isDeleteKeyPackageBackupResponse,
+  isKeyPackageBackupResponse,
+  isListKeyPackageBackupsResponse,
+  type KeyPackageBackupResponse,
+  type ListKeyPackageBackupsResponse,
+} from "./keyPackageBackup";
+export {
   type DestroySessionResponse,
   isDestroySessionResponse,
   isListSessionsResponse,

@@ -83,14 +83,14 @@ const tearleads = new Tearleads({
 const { rootContainerId } = await tearleads.identity.generate();
 ```
 
-The instance intentionally groups client capabilities by responsibility:
-
+Client capabilities
 | Namespace | Owns |
 | --- | --- |
 | `tearleads.database` | SQLite client and `ExecSql` executor |
 | `tearleads.identity` | signing and encapsulation key pairs |
 | `tearleads.blobs` | local blob byte storage |
 | `tearleads.session` | registration, auth token, and user/org/container context |
+| `tearleads.keyPackageBackups` | encrypted backups |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |

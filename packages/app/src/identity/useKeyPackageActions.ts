@@ -1,7 +1,8 @@
-import { type ChangeEvent, useCallback, useRef } from "react";
+import { type ChangeEvent, useCallback, useRef, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLog } from "../providers/logging/LogProvider";
+import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import {
   createAppKeyPackageBackup,
   createKeyPackageFileName,
@@ -9,6 +10,12 @@ import {
   parseKeyPackageFileText,
   readAppKeyPackageSession,
 } from "./keyPackageBackup";
+import {
+  createPasskeyProtectedKeyPackageBackup,
+  decryptPasskeyProtectedKeyPackageBackup,
+  discoverPasskeyKeyPackageBackupCredentialId,
+  isPasskeyKeyPackageBackupSupported,
+} from "./keyPackageBackupPasskey";
 
 interface KeyPackageActionOptions {
   readonly onComplete?: (() => void) | undefined;
@@ -113,5 +120,176 @@ export function useRestoreKeyPackageAction({
     handleRestoreFileChange,
     handleRestoreKeyPackageClick,
     restoreFileInputRef,
+  };
+}
+
+type PasskeyBackupBusyState = "backup" | "restore" | null;
+type CryptoSessionState = ReturnType<typeof useCryptoSession>;
+type IdentityState = ReturnType<typeof useIdentity>;
+type LogState = ReturnType<typeof useLog>;
+type TearleadsClient = ReturnType<typeof useTearleads>;
+
+interface PasskeyBackupOperationState {
+  readonly setBusy: (value: PasskeyBackupBusyState) => void;
+  readonly setError: (value: string | null) => void;
+  readonly setStatus: (value: string | null) => void;
+}
+
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Operation failed.";
+}
+
+function clearPasskeyOperationState(state: PasskeyBackupOperationState): void {
+  state.setError(null);
+  state.setStatus(null);
+}
+
+function usePasskeyBackupToPasskeyAction(input: {
+  readonly exportKeyPackage: IdentityState["exportKeyPackage"];
+  readonly log: LogState["log"];
+  readonly logError: LogState["logError"];
+  readonly session: Pick<
+    CryptoSessionState,
+    "containerId" | "organizationId" | "userId"
+  >;
+  readonly signingFingerprint: string | null;
+  readonly state: PasskeyBackupOperationState;
+  readonly supported: boolean;
+  readonly tearleads: TearleadsClient;
+}) {
+  return useCallback(async () => {
+    input.state.setBusy("backup");
+    clearPasskeyOperationState(input.state);
+    try {
+      if (!input.supported) {
+        throw new Error(
+          "Passkey PRF backups are not supported in this browser.",
+        );
+      }
+      if (!input.signingFingerprint) {
+        throw new Error("A signing key is required before creating a backup.");
+      }
+
+      const keyPackage = await createAppKeyPackageBackup({
+        identity: { exportKeyPackage: input.exportKeyPackage },
+        session: input.session,
+      });
+      const backup = await createPasskeyProtectedKeyPackageBackup({
+        keyPackage,
+        signingKeyFingerprint: input.signingFingerprint,
+      });
+      const stored = await input.tearleads.keyPackageBackups.put(backup);
+      if (!stored) {
+        throw new Error("Could not store passkey backup.");
+      }
+
+      input.state.setStatus("Passkey backup saved.");
+      input.log("Passkey key package backup saved");
+    } catch (operationError: unknown) {
+      input.logError(
+        "Failed to save passkey key package backup",
+        operationError,
+      );
+      input.state.setError(readErrorMessage(operationError));
+    } finally {
+      input.state.setBusy(null);
+    }
+  }, [input]);
+}
+
+function usePasskeyRestoreFromPasskeyAction(input: {
+  readonly log: LogState["log"];
+  readonly logError: LogState["logError"];
+  readonly restoreKeyPackage: IdentityState["restoreKeyPackage"];
+  readonly session: Pick<
+    CryptoSessionState,
+    "login" | "setContainerId" | "setOrganizationId" | "setUserId"
+  >;
+  readonly state: PasskeyBackupOperationState;
+  readonly supported: boolean;
+  readonly tearleads: TearleadsClient;
+}) {
+  return useCallback(async () => {
+    input.state.setBusy("restore");
+    clearPasskeyOperationState(input.state);
+    try {
+      if (!input.supported) {
+        throw new Error(
+          "Passkey PRF backups are not supported in this browser.",
+        );
+      }
+
+      const credentialId = await discoverPasskeyKeyPackageBackupCredentialId();
+      const backup =
+        await input.tearleads.keyPackageBackups.getByCredentialId(credentialId);
+      if (!backup) {
+        throw new Error(
+          "No key package backup is registered for this passkey.",
+        );
+      }
+
+      const keyPackage = await decryptPasskeyProtectedKeyPackageBackup(backup);
+      await input.restoreKeyPackage(keyPackage);
+
+      const session = readAppKeyPackageSession(keyPackage);
+      if (session) {
+        input.session.setContainerId(session.containerId);
+        input.session.setOrganizationId(session.organizationId);
+        input.session.setUserId(session.userId);
+        await input.session.login();
+      }
+
+      input.state.setStatus("Passkey backup restored.");
+      input.log("Passkey key package backup restored");
+    } catch (operationError: unknown) {
+      input.logError(
+        "Failed to restore passkey key package backup",
+        operationError,
+      );
+      input.state.setError(readErrorMessage(operationError));
+    } finally {
+      input.state.setBusy(null);
+    }
+  }, [input]);
+}
+
+export function usePasskeyKeyPackageBackupActions() {
+  const tearleads = useTearleads();
+  const session = useCryptoSession();
+  const { exportKeyPackage, restoreKeyPackage, signingFingerprint } =
+    useIdentity();
+  const { log, logError } = useLog();
+  const [busy, setBusy] = useState<PasskeyBackupBusyState>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const state = { setBusy, setError, setStatus };
+  const supported = isPasskeyKeyPackageBackupSupported();
+  const backupToPasskey = usePasskeyBackupToPasskeyAction({
+    exportKeyPackage,
+    log,
+    logError,
+    session,
+    signingFingerprint,
+    state,
+    supported,
+    tearleads,
+  });
+  const restoreFromPasskey = usePasskeyRestoreFromPasskeyAction({
+    log,
+    logError,
+    restoreKeyPackage,
+    session,
+    state,
+    supported,
+    tearleads,
+  });
+
+  return {
+    backupToPasskey,
+    busy,
+    error,
+    restoreFromPasskey,
+    status,
+    supported,
   };
 }

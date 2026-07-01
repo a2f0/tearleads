@@ -11,6 +11,7 @@ import type {
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
+  PutKeyPackageBackupRequest,
   PutPrincipalMemberEnvelopesRequest,
   PutPrincipalStateRequest,
   RegistrationRequest,
@@ -41,6 +42,7 @@ import {
   isContainerWriterProjectionResponse,
   isCreateOrganizationGroupResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
+  isDeleteKeyPackageBackupResponse,
   isDeleteOrganizationGroupResponse,
   isDestroySessionResponse,
   isDocumentCreateResponse,
@@ -52,9 +54,11 @@ import {
   isEncapsulationKeyResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
+  isKeyPackageBackupResponse,
   isListContainerDocumentsResponse,
   isListContainersResponse,
   isListDocumentAttachmentsResponse,
+  isListKeyPackageBackupsResponse,
   isListOrganizationGroupsResponse,
   isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
@@ -72,6 +76,7 @@ import {
   isStageBlobResponse,
   isUploadMultipartBlobPartResponse,
   isVerifyResponse,
+  type KeyPackageBackupResponse,
   type ListContainerDocumentsResponse,
   type ListContainersResponse,
   type ListDocumentAttachmentsResponse,
@@ -691,6 +696,43 @@ export class ApiClient {
         isEncapsulationKeyResponse,
         "GET",
       ),
+    );
+  }
+
+  putKeyPackageBackup(input: PutKeyPackageBackupRequest) {
+    return this.request(
+      `/auth/key-package-backups/${pathSegment(input.backupId)}`,
+      isKeyPackageBackupResponse,
+      "PUT",
+      JSON.stringify(input),
+    );
+  }
+
+  listKeyPackageBackups() {
+    return this.request(
+      "/auth/key-package-backups",
+      isListKeyPackageBackupsResponse,
+      "GET",
+    );
+  }
+
+  getKeyPackageBackupByCredentialId(
+    credentialId: string,
+  ): Promise<KeyPackageBackupResponse | null> {
+    return this.request(
+      `/auth/key-package-backups/by-credential/${pathSegment(credentialId)}`,
+      isKeyPackageBackupResponse,
+      "GET",
+      undefined,
+      { retryOnSessionExpired: false },
+    );
+  }
+
+  deleteKeyPackageBackup(backupId: string) {
+    return this.request(
+      `/auth/key-package-backups/${pathSegment(backupId)}`,
+      isDeleteKeyPackageBackupResponse,
+      "DELETE",
     );
   }
 

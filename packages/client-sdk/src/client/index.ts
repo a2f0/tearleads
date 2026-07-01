@@ -90,6 +90,7 @@ export {
   IDENTITY_KEY_PACKAGE_FORMAT,
   type IdentityKeyPackage,
 } from "./identityKeyPackage";
+export type { KeyPackageBackups } from "./keyPackageBackups";
 export type {
   BrowserLocalKeyringOptions,
   IndexedDbLocalKeyringManifestStoreOptions,
