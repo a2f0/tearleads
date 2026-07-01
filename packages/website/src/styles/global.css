@@ -116,6 +116,78 @@
   line-height: 1.5;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip: rect(0 0 0 0);
+}
+
+.security-diagram-figure {
+  margin: 32px 0 0;
+}
+
+.security-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: #111111;
+}
+
+.security-diagram--mobile {
+  display: none;
+}
+
+.security-diagram-eyebrow {
+  fill: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.security-diagram-title {
+  fill: #111111;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.security-diagram-body {
+  fill: #444444;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.security-diagram-token rect {
+  fill: #e8e8e8;
+}
+
+.security-diagram-token text {
+  fill: #303030;
+  font-size: 12px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.security-diagram-callout rect {
+  fill: #ffffff;
+  stroke: #d6d6d6;
+}
+
+.security-diagram-callout text {
+  fill: #444444;
+  font-size: 14px;
+}
+
+.security-diagram-callout-title {
+  fill: #111111;
+  font-weight: 800;
+}
+
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -175,5 +247,13 @@
 
   .pricing-grid {
     grid-template-columns: 1fr;
+  }
+
+  .security-diagram--wide {
+    display: none;
+  }
+
+  .security-diagram--mobile {
+    display: block;
   }
 }

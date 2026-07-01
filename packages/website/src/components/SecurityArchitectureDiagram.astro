@@ -1,0 +1,377 @@
+<figure
+  aria-labelledby="security-diagram-summary"
+  class="security-diagram-figure"
+>
+  <figcaption
+    class="visually-hidden"
+    id="security-diagram-summary"
+  >
+    Security architecture diagram showing optional PIN unlock, a local keyring,
+    encrypted local SQLite and blob storage in OPFS, and ciphertext-only sync to
+    the Data Persistence API.
+  </figcaption>
+
+  <svg
+    aria-hidden="true"
+    class="security-diagram security-diagram--wide"
+    focusable="false"
+    viewBox="0 0 960 700"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <defs>
+      <marker
+        id="security-arrow"
+        markerHeight="8"
+        markerWidth="8"
+        orient="auto"
+        refX="7"
+        refY="4"
+        viewBox="0 0 8 8"
+      >
+        <path d="M 0 0 L 8 4 L 0 8 z" fill="#5f6770"></path>
+      </marker>
+      <filter
+        color-interpolation-filters="sRGB"
+        filterUnits="userSpaceOnUse"
+        height="668"
+        id="security-shadow"
+        width="936"
+        x="12"
+        y="16"
+      >
+        <feDropShadow
+          dx="0"
+          dy="10"
+          flood-color="#111111"
+          flood-opacity="0.08"
+          stdDeviation="12"
+        ></feDropShadow>
+      </filter>
+    </defs>
+
+    <!-- frame -->
+    <rect fill="#f7f7f7" height="660" rx="16" width="920" x="20" y="20"></rect>
+    <rect
+      fill="#ffffff"
+      filter="url(#security-shadow)"
+      height="636"
+      rx="12"
+      width="896"
+      x="32"
+      y="32"
+    ></rect>
+
+    <!-- YOUR DEVICE panel -->
+    <rect
+      fill="#fafafa"
+      height="316"
+      rx="12"
+      stroke="#e2e2e2"
+      width="848"
+      x="56"
+      y="56"
+    ></rect>
+    <text class="security-diagram-eyebrow" x="80" y="90">
+      YOUR DEVICE
+    </text>
+
+    <!-- Unlock card -->
+    <rect
+      fill="#ffffff"
+      height="216"
+      rx="10"
+      stroke="#e0e0e0"
+      width="240"
+      x="80"
+      y="112"
+    ></rect>
+    <g transform="translate(104 136)">
+      <rect fill="#eeeeee" height="40" rx="10" width="40"></rect>
+      <circle cx="16" cy="20" fill="none" r="6" stroke="#555555" stroke-width="3"></circle>
+      <path d="M 22 20 H 32" stroke="#555555" stroke-linecap="round" stroke-width="4"></path>
+      <path d="M 28 20 V 27 M 32 20 V 25" stroke="#555555" stroke-linecap="round" stroke-width="3"></path>
+    </g>
+    <text class="security-diagram-title" x="104" y="212">
+      Unlock
+    </text>
+    <text class="security-diagram-body" x="104" y="244">
+      <tspan x="104">Browser or OS</tspan>
+      <tspan dy="22" x="104">wrapping key</tspan>
+      <tspan dy="22" x="104">Optional PIN lock</tspan>
+    </text>
+
+    <!-- Local keyring card -->
+    <rect
+      fill="#ffffff"
+      height="216"
+      rx="10"
+      stroke="#e0e0e0"
+      width="240"
+      x="360"
+      y="112"
+    ></rect>
+    <g transform="translate(384 136)">
+      <rect fill="#eeeeee" height="40" rx="10" width="40"></rect>
+      <path d="M 13 20 H 27 M 20 13 V 27" stroke="#555555" stroke-linecap="round" stroke-width="3"></path>
+      <path d="M 12 30 H 28" stroke="#555555" stroke-linecap="round" stroke-width="3"></path>
+    </g>
+    <text class="security-diagram-title" x="384" y="212">
+      Local keyring
+    </text>
+    <text class="security-diagram-body" x="384" y="244">
+      <tspan x="384">Wrapped account root</tspan>
+      <tspan dy="22" x="384">derives session keys</tspan>
+    </text>
+    <g class="security-diagram-token">
+      <rect height="26" rx="13" width="66" x="384" y="288"></rect>
+      <text x="417" y="306">SQLite</text>
+    </g>
+    <g class="security-diagram-token">
+      <rect height="26" rx="13" width="54" x="458" y="288"></rect>
+      <text x="485" y="306">Blob</text>
+    </g>
+    <g class="security-diagram-token">
+      <rect height="26" rx="13" width="70" x="520" y="288"></rect>
+      <text x="555" y="306">Identity</text>
+    </g>
+
+    <!-- Encrypted data card -->
+    <rect
+      fill="#ffffff"
+      height="216"
+      rx="10"
+      stroke="#e0e0e0"
+      width="240"
+      x="640"
+      y="112"
+    ></rect>
+    <g transform="translate(664 136)">
+      <rect fill="#eeeeee" height="40" rx="10" width="40"></rect>
+      <path d="M 13 21 C 13 15 16 11 20 11 C 24 11 27 15 27 21" fill="none" stroke="#555555" stroke-width="3"></path>
+      <rect fill="none" height="13" rx="2" stroke="#555555" stroke-width="3" width="20" x="10" y="20"></rect>
+    </g>
+    <text class="security-diagram-title" x="664" y="212">
+      Encrypted data
+    </text>
+    <text class="security-diagram-body" x="664" y="244">
+      <tspan x="664">SQLite / SQLCipher</tspan>
+      <tspan dy="22" x="664">Blob store AES-GCM</tspan>
+      <tspan dy="22" x="664">OPFS persistence</tspan>
+    </text>
+
+    <!-- flow arrows between cards -->
+    <path
+      d="M 320 220 H 356"
+      marker-end="url(#security-arrow)"
+      stroke="#5f6770"
+      stroke-width="3"
+    ></path>
+    <path
+      d="M 600 220 H 636"
+      marker-end="url(#security-arrow)"
+      stroke="#5f6770"
+      stroke-width="3"
+    ></path>
+
+    <!-- arrow down into the API panel -->
+    <path
+      d="M 760 372 V 424"
+      marker-end="url(#security-arrow)"
+      stroke="#5f6770"
+      stroke-dasharray="7 6"
+      stroke-width="3"
+    ></path>
+
+    <!-- DATA PERSISTENCE API panel -->
+    <rect
+      fill="#f5f5f5"
+      height="136"
+      rx="12"
+      stroke="#e2e2e2"
+      width="848"
+      x="56"
+      y="436"
+    ></rect>
+    <text class="security-diagram-eyebrow" x="80" y="470">
+      DATA PERSISTENCE API
+    </text>
+    <g transform="translate(80 492)">
+      <rect fill="#eeeeee" height="40" rx="10" width="40"></rect>
+      <path d="M 11 15 H 29 M 11 20 H 29 M 11 25 H 29" stroke="#555555" stroke-linecap="round" stroke-width="3"></path>
+    </g>
+    <text class="security-diagram-title" x="136" y="504">
+      Ciphertext-only sync
+    </text>
+    <text class="security-diagram-body" x="136" y="532">
+      <tspan x="136">Stores ciphertext and signed metadata</tspan>
+      <tspan dy="22" x="136">without holding content keys.</tspan>
+    </text>
+    <line stroke="#e2e2e2" stroke-width="1" x1="560" x2="560" y1="474" y2="546"></line>
+    <text class="security-diagram-body" x="592" y="500">
+      <tspan class="security-diagram-callout-title" x="592">Server boundary</tspan>
+      <tspan dy="24" x="592">Sync keeps devices current</tspan>
+      <tspan dy="22" x="592">without content-key access.</tspan>
+    </text>
+
+    <!-- footer callouts -->
+    <g class="security-diagram-callout">
+      <rect height="64" rx="10" width="266" x="56" y="580"></rect>
+      <text x="80" y="608">
+        <tspan class="security-diagram-callout-title" x="80">Device-only keys</tspan>
+        <tspan dy="22" x="80">Session keys stay client-side.</tspan>
+      </text>
+    </g>
+    <g class="security-diagram-callout">
+      <rect height="64" rx="10" width="266" x="347" y="580"></rect>
+      <text x="371" y="608">
+        <tspan class="security-diagram-callout-title" x="371">Encrypted persistence</tspan>
+        <tspan dy="22" x="371">Local bytes persist encrypted.</tspan>
+      </text>
+    </g>
+    <g class="security-diagram-callout">
+      <rect height="64" rx="10" width="266" x="638" y="580"></rect>
+      <text x="662" y="608">
+        <tspan class="security-diagram-callout-title" x="662">Ciphertext-only service</tspan>
+        <tspan dy="22" x="662">The server stores what it cannot read.</tspan>
+      </text>
+    </g>
+  </svg>
+
+  <svg
+    aria-hidden="true"
+    class="security-diagram security-diagram--mobile"
+    focusable="false"
+    viewBox="0 0 360 812"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <defs>
+      <marker
+        id="security-arrow-mobile"
+        markerHeight="8"
+        markerWidth="8"
+        orient="auto"
+        refX="7"
+        refY="4"
+        viewBox="0 0 8 8"
+      >
+        <path d="M 0 0 L 8 4 L 0 8 z" fill="#5f6770"></path>
+      </marker>
+    </defs>
+
+    <rect fill="#f7f7f7" height="800" rx="16" width="340" x="10" y="6"></rect>
+    <rect fill="#ffffff" height="776" rx="12" stroke="#e2e2e2" width="316" x="22" y="18"></rect>
+
+    <text class="security-diagram-eyebrow" x="42" y="54">
+      YOUR DEVICE
+    </text>
+
+    <!-- Unlock -->
+    <rect
+      fill="#fafafa"
+      height="120"
+      rx="10"
+      stroke="#e0e0e0"
+      width="276"
+      x="42"
+      y="72"
+    ></rect>
+    <text class="security-diagram-title" x="66" y="110">
+      Unlock
+    </text>
+    <text class="security-diagram-body" x="66" y="140">
+      <tspan x="66">Browser or OS wrapping key</tspan>
+      <tspan dy="22" x="66">Optional PIN lock</tspan>
+    </text>
+
+    <path
+      d="M 180 200 V 230"
+      marker-end="url(#security-arrow-mobile)"
+      stroke="#5f6770"
+      stroke-width="3"
+    ></path>
+
+    <!-- Local keyring -->
+    <rect
+      fill="#fafafa"
+      height="148"
+      rx="10"
+      stroke="#e0e0e0"
+      width="276"
+      x="42"
+      y="242"
+    ></rect>
+    <text class="security-diagram-title" x="66" y="280">
+      Local keyring
+    </text>
+    <text class="security-diagram-body" x="66" y="310">
+      <tspan x="66">Wrapped account root derives</tspan>
+      <tspan dy="22" x="66">SQLite, blob, and identity keys</tspan>
+    </text>
+    <g class="security-diagram-token">
+      <rect height="26" rx="13" width="66" x="66" y="350"></rect>
+      <text x="99" y="368">SQLite</text>
+    </g>
+    <g class="security-diagram-token">
+      <rect height="26" rx="13" width="54" x="140" y="350"></rect>
+      <text x="167" y="368">Blob</text>
+    </g>
+    <g class="security-diagram-token">
+      <rect height="26" rx="13" width="70" x="202" y="350"></rect>
+      <text x="237" y="368">Identity</text>
+    </g>
+
+    <path
+      d="M 180 398 V 428"
+      marker-end="url(#security-arrow-mobile)"
+      stroke="#5f6770"
+      stroke-width="3"
+    ></path>
+
+    <!-- Encrypted data -->
+    <rect
+      fill="#fafafa"
+      height="148"
+      rx="10"
+      stroke="#e0e0e0"
+      width="276"
+      x="42"
+      y="440"
+    ></rect>
+    <text class="security-diagram-title" x="66" y="478">
+      Encrypted data
+    </text>
+    <text class="security-diagram-body" x="66" y="508">
+      <tspan x="66">SQLite / SQLCipher in OPFS</tspan>
+      <tspan dy="22" x="66">Encrypted blob store in OPFS</tspan>
+      <tspan dy="22" x="66">Persistent bytes stay encrypted</tspan>
+    </text>
+
+    <path
+      d="M 180 596 V 626"
+      marker-end="url(#security-arrow-mobile)"
+      stroke="#5f6770"
+      stroke-dasharray="7 6"
+      stroke-width="3"
+    ></path>
+
+    <text class="security-diagram-eyebrow" x="42" y="662">
+      DATA PERSISTENCE API
+    </text>
+    <rect
+      fill="#f5f5f5"
+      height="94"
+      rx="10"
+      stroke="#e0e0e0"
+      width="276"
+      x="42"
+      y="680"
+    ></rect>
+    <text class="security-diagram-title" x="66" y="718">
+      Ciphertext-only sync
+    </text>
+    <text class="security-diagram-body" x="66" y="748">
+      <tspan x="66">Stores ciphertext and signed</tspan>
+      <tspan dy="22" x="66">metadata without content keys</tspan>
+    </text>
+  </svg>
+</figure>
