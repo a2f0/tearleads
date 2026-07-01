@@ -144,16 +144,8 @@ test("contacts windows in the same pane share live contact document state", asyn
   await generateIdentityAndWaitForDb(view);
   await registerAndWaitForUserId(view);
 
-  fireEvent.contextMenu(view.getByRole("application"), {
-    clientX: 120,
-    clientY: 120,
-  });
-  fireEvent.click(view.getByRole("button", { name: "Contacts" }));
-  fireEvent.contextMenu(view.getByRole("application"), {
-    clientX: 160,
-    clientY: 160,
-  });
-  fireEvent.click(view.getByRole("button", { name: "Contacts" }));
+  await openContacts(view);
+  await openContacts(view);
 
   await waitFor(() => {
     const contactsApps = Array.from(

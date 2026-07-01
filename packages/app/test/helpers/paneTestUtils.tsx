@@ -151,7 +151,7 @@ export function renderPane({
 // Clicks a mini-app launcher entry inside the open pane context menu. Scoped to
 // the menu so the query does not collide with same-named buttons elsewhere in
 // the pane (e.g. an Explorer window listing a "Contacts" system container).
-function clickPaneAppMenuItem(
+export function clickPaneAppMenuItem(
   view: ReturnType<typeof renderPane>,
   name: string,
 ) {

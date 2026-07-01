@@ -9,6 +9,7 @@ import {
 import invariant from "invariant";
 import {
   cleanupPaneTestEnvironment,
+  clickPaneAppMenuItem,
   createTestHostConfig,
   flattenPaneStatusText,
 } from "../../../test/helpers/paneTestUtils";
@@ -54,7 +55,7 @@ async function openExplorerInPane(
   pane: HTMLElement,
 ): Promise<HTMLDivElement> {
   fireEvent.contextMenu(pane, { clientX: 120, clientY: 120 });
-  fireEvent.click(view.getByRole("button", { name: "Explorer" }));
+  clickPaneAppMenuItem(view, "Explorer");
 
   let explorerWindow: HTMLDivElement | null = null;
   await waitFor(() => {

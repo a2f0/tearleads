@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
+  clickPaneAppMenuItem,
   createDelayedLoadLocalKeyringFactory,
   createSharedMemoryLocalKeyringFactory,
   createTestHostConfig,
@@ -320,7 +321,7 @@ test(
       clientX: 120,
       clientY: 120,
     });
-    fireEvent.click(view.getByRole("button", { name: "Identity Manager" }));
+    clickPaneAppMenuItem(view, "Identity Manager");
 
     await waitFor(() => {
       expect(view.getByText("Identity Manager")).toBeTruthy();
