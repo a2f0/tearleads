@@ -4,6 +4,15 @@
     "Segoe UI", sans-serif;
 }
 
+/* The header keeps its full-width dark background, but its inner content
+   (brand + nav + App button) is constrained to the same centered column as
+   the page content: max 960px wide with the 24px inset used by .website-main.
+   The inline padding matches that column's left edge:
+   max(24px, (100vw - 960px) / 2). */
+.tearleads-header {
+  padding-inline: max(24px, calc((100% - 960px) / 2));
+}
+
 /* Primary navigation lives in the TearleadsFrame header (dark background),
    so links inherit the light header text color. */
 .site-nav {
@@ -129,6 +138,10 @@
 }
 
 @media (max-width: 700px) {
+  .tearleads-header {
+    padding-inline: 18px;
+  }
+
   .site-nav {
     display: none;
   }
