@@ -299,10 +299,13 @@ function useIdentityManagerIdentityMutations({
     identityBusy,
     identityError,
     isDestroyKeyPackageDialogOpen,
+    passkeyBackupAuthenticatorAttachment: passkeyBackup.authenticatorAttachment,
     passkeyBackupError: passkeyBackup.error,
     passkeyBackupStatus: passkeyBackup.status,
     passkeyBackupSupported: passkeyBackup.supported,
     requestDestroyKeyPackage,
+    setPasskeyBackupAuthenticatorAttachment:
+      passkeyBackup.setAuthenticatorAttachment,
   };
 }
 

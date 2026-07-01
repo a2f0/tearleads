@@ -15,7 +15,14 @@ import {
   decryptPasskeyProtectedKeyPackageBackup,
   discoverPasskeyKeyPackageBackupCredentialId,
   isPasskeyKeyPackageBackupSupported,
+  type PasskeyAuthenticatorAttachment,
 } from "./keyPackageBackupPasskey";
+
+// "automatic" leaves authenticatorAttachment unset so the browser picks the
+// authenticator UI; the explicit modes pin platform vs security-key/phone.
+export type PasskeyAuthenticatorAttachmentMode =
+  | PasskeyAuthenticatorAttachment
+  | "automatic";
 
 interface KeyPackageActionOptions {
   readonly onComplete?: (() => void) | undefined;
@@ -140,6 +147,7 @@ function readErrorMessage(error: unknown): string {
 }
 
 function usePasskeyBackupToPasskeyAction({
+  authenticatorAttachment,
   exportKeyPackage,
   log,
   logError,
@@ -149,6 +157,7 @@ function usePasskeyBackupToPasskeyAction({
   supported,
   tearleads,
 }: {
+  readonly authenticatorAttachment: PasskeyAuthenticatorAttachment | undefined;
   readonly exportKeyPackage: IdentityState["exportKeyPackage"];
   readonly log: LogState["log"];
   readonly logError: LogState["logError"];
@@ -183,6 +192,7 @@ function usePasskeyBackupToPasskeyAction({
         session: { containerId, organizationId, userId },
       });
       const backup = await createPasskeyProtectedKeyPackageBackup({
+        authenticatorAttachment,
         keyPackage,
         signingKeyFingerprint: signingFingerprint,
       });
@@ -200,6 +210,7 @@ function usePasskeyBackupToPasskeyAction({
       setBusy(null);
     }
   }, [
+    authenticatorAttachment,
     containerId,
     exportKeyPackage,
     log,
@@ -302,9 +313,15 @@ export function usePasskeyKeyPackageBackupActions() {
   const [busy, setBusy] = useState<PasskeyBackupBusyState>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [authenticatorAttachment, setAuthenticatorAttachment] =
+    useState<PasskeyAuthenticatorAttachmentMode>("automatic");
   const state = { setBusy, setError, setStatus };
   const supported = isPasskeyKeyPackageBackupSupported();
   const backupToPasskey = usePasskeyBackupToPasskeyAction({
+    authenticatorAttachment:
+      authenticatorAttachment === "automatic"
+        ? undefined
+        : authenticatorAttachment,
     exportKeyPackage,
     log,
     logError,
@@ -325,10 +342,12 @@ export function usePasskeyKeyPackageBackupActions() {
   });
 
   return {
+    authenticatorAttachment,
     backupToPasskey,
     busy,
     error,
     restoreFromPasskey,
+    setAuthenticatorAttachment,
     status,
     supported,
   };

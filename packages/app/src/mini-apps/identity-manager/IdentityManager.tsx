@@ -154,6 +154,10 @@ function getIdentitySectionActions({
     identityBusy: identityMutations.identityBusy,
     isAuthenticated: session.isAuthenticated,
     mutatingSessionId: sessionMutations.mutatingSessionId,
+    onPasskeyAuthenticatorAttachmentChange:
+      identityMutations.setPasskeyBackupAuthenticatorAttachment,
+    passkeyAuthenticatorAttachment:
+      identityMutations.passkeyBackupAuthenticatorAttachment,
   };
 }
 
