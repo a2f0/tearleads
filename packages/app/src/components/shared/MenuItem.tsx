@@ -22,7 +22,7 @@ export function MenuItem({
           weight="regular"
         />
       )}
-      {label}
+      <span className="menu-item-label">{label}</span>
     </button>
   );
 }

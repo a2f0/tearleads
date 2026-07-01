@@ -1,3 +1,5 @@
+import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
+import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/registry";
 import type { MenuPosition } from "../../shared/Menu";
 import { Menu } from "../../shared/Menu";
@@ -34,9 +36,15 @@ export function PaneContextMenu({
       ) : (
         <>
           {paneLocked && (
-            <MenuItem label="Unlock Database" onClick={openUnlockWindow} />
+            <MenuItem
+              icon={LockOpenIcon}
+              label="Unlock Database"
+              onClick={openUnlockWindow}
+            />
           )}
-          {canLockPane && <MenuItem label="Lock" onClick={lockPane} />}
+          {canLockPane && (
+            <MenuItem icon={LockIcon} label="Lock" onClick={lockPane} />
+          )}
           {MINI_APP_MENU_ITEMS.map(({ appId, icon, label }) => (
             <MenuItem
               key={appId}
