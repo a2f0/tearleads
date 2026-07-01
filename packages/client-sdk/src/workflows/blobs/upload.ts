@@ -27,6 +27,7 @@ import { assertBlobAttachmentBindResponse } from "../../data/documents/blob/shar
 import type {
   BlobAttachmentApi,
   BlobAttachmentMaterial,
+  MultipartStageResolvedListener,
   MultipartUploadProgressListener,
   UploadDocumentAttachmentInput,
   UploadDocumentAttachmentResult,
@@ -57,6 +58,7 @@ async function buildBlobAttachmentMaterial(
     contentKeyEpoch: number;
     documentId: string;
     execSql?: ExecSql | undefined;
+    iv?: Uint8Array | undefined;
     targetSecretKey: Uint8Array;
     writerProjection?: UploadDocumentAttachmentInput["writerProjection"];
   } & ProjectionVerificationOptions,
@@ -100,6 +102,7 @@ async function buildBlobAttachmentMaterial(
     bytes: input.bytes,
     contentKey: input.contentKey,
     contentKeyBundle,
+    iv: input.iv,
     organizationId: manifestIdentity.organizationId,
   });
   const blobAccessManifestHash = await computeBlobAccessManifestHash({
@@ -182,6 +185,7 @@ async function stageAndBindBlobAttachment(input: {
   material: BlobAttachmentMaterial;
   multipart: UploadDocumentAttachmentInput["multipart"];
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
+  onStageResolved?: MultipartStageResolvedListener | undefined;
   signedAt: string;
   slotId: string;
 }): Promise<{
@@ -227,6 +231,7 @@ async function stageAndBindBlobAttachment(input: {
         multipart,
         byteLength: input.material.encrypted.byteLength,
         onMultipartProgress: input.onMultipartProgress,
+        onStageResolved: input.onStageResolved,
         sha256: input.material.encrypted.sha256,
       })
     : await stageLegacyBlobAttachment({
@@ -306,8 +311,10 @@ export async function uploadDocumentAttachment({
   eventId = crypto.randomUUID(),
   execSql,
   expectedBindingId,
+  iv,
   multipart,
   onMultipartProgress,
+  onStageResolved,
   resolveProjectionUserKey,
   signedAt = new Date().toISOString(),
   slotId,
@@ -334,6 +341,7 @@ export async function uploadDocumentAttachment({
       contentKeyEpoch,
       documentId,
       execSql,
+      iv,
       resolveProjectionUserKey: resolveProjectionUserKeyForUpload,
       targetSecretKey,
       writerProjection: freshWriterProjection,
@@ -368,6 +376,7 @@ export async function uploadDocumentAttachment({
     material,
     multipart,
     onMultipartProgress,
+    onStageResolved,
     signedAt,
     slotId,
   });

@@ -25,6 +25,7 @@ export type {
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
+  PendingAttachmentUploadIdentity,
   PendingUpdateInsert,
   PendingUpdateRecord,
   RelinkPersistedDocumentInput,

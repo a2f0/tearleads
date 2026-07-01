@@ -149,6 +149,17 @@ export type MultipartUploadProgressListener = (
   progress: MultipartUploadProgress,
 ) => void;
 
+/**
+ * Fires once a multipart stage has been opened (or resumed) for an upload, with
+ * the stage id and part size the upload will use. Callers persist these so a
+ * later attempt (next sync pass or after a restart) can resume the same server
+ * stage instead of opening a new one and orphaning the partial upload.
+ */
+export type MultipartStageResolvedListener = (input: {
+  readonly partSize: number;
+  readonly stageId: string;
+}) => void | Promise<void>;
+
 export interface UploadDocumentAttachmentInput {
   apiClient: BlobAttachmentApi;
   author: DocumentCreateAuthor;
@@ -161,8 +172,12 @@ export interface UploadDocumentAttachmentInput {
   eventId?: string | undefined;
   execSql?: ExecSql | undefined;
   expectedBindingId: string | null;
+  // A persisted IV so a resumed upload re-encrypts to byte-identical bytes (and
+  // therefore the same sha256 the stage was opened with). Defaults to fresh.
+  iv?: Uint8Array | undefined;
   multipart?: MultipartBlobUploadOptions | undefined;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
+  onStageResolved?: MultipartStageResolvedListener | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
@@ -171,11 +186,11 @@ export interface UploadDocumentAttachmentInput {
 }
 
 export interface MultipartBlobUploadOptions {
-  readonly existingStage?:
-    | InitiateMultipartBlobStageResponse
-    | MultipartBlobStageStatusResponse
-    | undefined;
   readonly partSize: number;
+  // The id of a previously opened stage to resume. When set, the upload refetches
+  // that stage and skips parts the server already has instead of opening a new
+  // one; if the stage is gone (expired), it falls back to a fresh stage.
+  readonly resumeStageId?: string | undefined;
   readonly uploadConcurrency?: number | undefined;
 }
 

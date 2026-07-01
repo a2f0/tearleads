@@ -141,6 +141,12 @@ export async function encryptBlobBytes(input: {
   bytes: BlobBytes;
   contentKey: Uint8Array;
   contentKeyBundle: BlobContentKeyBundleRequest;
+  // A caller-provided IV makes the ciphertext byte-identical across attempts.
+  // Every other input to the encryption is already deterministic (derived from
+  // blobId/contentKey/contentKeyEpoch/organizationId), so reusing the IV lets a
+  // resumed upload reproduce the same bytes — and therefore the same sha256 the
+  // multipart stage was opened with. Defaults to a fresh IV for one-shot uploads.
+  iv?: Uint8Array | undefined;
   organizationId: string;
 }): Promise<BlobEncryptedBytes> {
   const contentRecordId = input.blobId;
@@ -170,12 +176,12 @@ export async function encryptBlobBytes(input: {
     organizationId: input.organizationId,
     usage: "encrypt",
   });
-  const iv = createAesGcmIv();
+  const iv = input.iv ?? createAesGcmIv();
   const ciphertext = new Uint8Array(
     await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
-        iv,
+        iv: asWebCryptoBytes(iv),
         additionalData: contentRecordAdditionalDataBytes({
           blobId: input.blobId,
           contentKeyEpoch,
