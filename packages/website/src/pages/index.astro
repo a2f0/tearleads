@@ -1,12 +1,8 @@
 ---
 import { PricingTiers } from "../components/PricingTiers";
 import { SiteFrame } from "../components/SiteFrame";
+import { appUrl, isStaging } from "../config";
 import "../styles/global.css";
-
-const isStaging = import.meta.env.PUBLIC_ENVIRONMENT === "staging";
-const appUrl = isStaging
-  ? "https://app.tearleads.de"
-  : "https://app.tearleads.com";
 
 const pricingTiers = [
   {

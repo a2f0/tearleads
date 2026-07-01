@@ -4,12 +4,13 @@
     "Segoe UI", sans-serif;
 }
 
-/* The header keeps its full-width dark background, but its inner content
-   (brand + nav + App button) is constrained to the same centered column as
-   the page content: max 960px wide with the 24px inset used by .website-main.
-   The inline padding matches that column's left edge:
+/* The header and footer keep their full-width dark backgrounds, but their inner
+   content is constrained to the same centered column as the page content: max
+   960px wide with the 24px inset used by .website-main. The inline padding
+   matches that column's left edge:
    max(24px, (100% - 960px) / 2). */
-.tearleads-header {
+.tearleads-header,
+.tearleads-footer {
   padding-inline: max(24px, (100% - 960px) / 2);
 }
 
@@ -40,6 +41,26 @@
   padding: var(--control-padding-block) var(--control-padding-inline);
   text-decoration: none;
   white-space: nowrap;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+}
+
+.site-footer-link {
+  color: inherit;
+  font-size: var(--font-size-md);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-footer-link:hover,
+.site-footer-link:focus-visible {
+  text-decoration: underline;
 }
 
 .website-main {
@@ -138,12 +159,17 @@
 }
 
 @media (max-width: 700px) {
-  .tearleads-header {
+  .tearleads-header,
+  .tearleads-footer {
     padding-inline: 18px;
   }
 
   .site-nav {
     display: none;
+  }
+
+  .site-footer-links {
+    justify-content: center;
   }
 
   .website-main {
