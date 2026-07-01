@@ -7,9 +7,9 @@ interface SiteFrameProps {
 
 const NAV_ITEMS: readonly { readonly href: string; readonly label: string }[] =
   [
-    { href: "#how-it-works", label: "How it works" },
-    { href: "#pricing", label: "Pricing" },
-    { href: "#features", label: "Features" },
+    { href: "/#how-it-works", label: "How it works" },
+    { href: "/#pricing", label: "Pricing" },
+    { href: "/#features", label: "Features" },
   ];
 
 export function SiteFrame({
