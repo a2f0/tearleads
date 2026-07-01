@@ -4,6 +4,7 @@ import { FailingInitMockWorker } from "../../../test/helpers/mockWorker";
 import { useTestApiAppHandlers } from "../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
+  clickPaneAppMenuItem,
   createSharedMemoryLocalKeyringFactory,
   createTestHostConfig,
   generateIdentityAndWaitForDb,
@@ -27,7 +28,7 @@ async function openExplorerWindow(
     clientX: 120,
     clientY: 120,
   });
-  fireEvent.click(view.getByText("Open Explorer"));
+  clickPaneAppMenuItem(view, "Explorer");
 
   let explorerWindow: HTMLDivElement | null = null;
   await waitFor(() => {

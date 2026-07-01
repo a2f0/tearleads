@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
+  clickPaneAppMenuItem,
   createDelayedLoadLocalKeyringFactory,
   createSharedMemoryLocalKeyringFactory,
   createTestHostConfig,
@@ -96,7 +97,7 @@ test("unbooted pane context menu can generate a key pair", async () => {
   });
 
   expect(view.getByText("Generate Key Pair")).toBeTruthy();
-  expect(view.queryByText("Open Notes")).toBeNull();
+  expect(view.queryByRole("button", { name: "Notes" })).toBeNull();
 
   await act(async () => {
     fireEvent.click(view.getByText("Generate Key Pair"));
@@ -142,7 +143,7 @@ test(
     });
     expect(reloadedView.queryByText("Generate Key Pair")).toBeNull();
     expect(reloadedView.queryByText("Open Floating Window")).toBeNull();
-    expect(reloadedView.getByText("Open Notes")).toBeTruthy();
+    expect(reloadedView.getByRole("button", { name: "Notes" })).toBeTruthy();
 
     reloadedView.unmount();
   },
@@ -320,7 +321,7 @@ test(
       clientX: 120,
       clientY: 120,
     });
-    fireEvent.click(view.getByText("Open Identity Manager"));
+    clickPaneAppMenuItem(view, "Identity Manager");
 
     await waitFor(() => {
       expect(view.getByText("Identity Manager")).toBeTruthy();

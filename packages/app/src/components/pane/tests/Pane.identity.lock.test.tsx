@@ -9,6 +9,7 @@ import { fireEvent, waitFor, within } from "@testing-library/react";
 import { createFakeIndexedDb } from "../../../../test/helpers/fakeIndexedDb";
 import {
   cleanupPaneTestEnvironment,
+  clickPaneAppMenuItem,
   createTestHostConfig,
   renderPane,
 } from "../../../../test/helpers/paneTestUtils";
@@ -124,7 +125,7 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
       clientX: 120,
       clientY: 120,
     });
-    fireEvent.click(view.getByText("Open Contacts"));
+    clickPaneAppMenuItem(view, "Contacts");
 
     await waitFor(() => {
       expect(view.getAllByText("Local keychain locked").length).toBeGreaterThan(

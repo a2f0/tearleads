@@ -172,7 +172,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     fireEvent.click(generateKeyPairButton);
 
     await waitFor(() => {
-      expect(view.getByRole("button", { name: "Open Contacts" })).toBeTruthy();
+      expect(view.getByRole("button", { name: "Contacts" })).toBeTruthy();
       expect(
         view.queryByRole("button", { name: "Destroy Key Pair" }),
       ).toBeNull();

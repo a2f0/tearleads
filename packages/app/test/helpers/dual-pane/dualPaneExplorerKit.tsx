@@ -29,7 +29,7 @@ export async function openExplorer(pane: HTMLElement) {
     });
   });
   const openExplorerButton = screen.getByRole("button", {
-    name: "Open Explorer",
+    name: "Explorer",
   });
   await interact(() => {
     fireEvent.click(openExplorerButton);

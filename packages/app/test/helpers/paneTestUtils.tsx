@@ -148,12 +148,24 @@ export function renderPane({
     </DualPaneProvider>,
   );
 }
+// Clicks a mini-app launcher entry inside the open pane context menu. Scoped to
+// the menu so the query does not collide with same-named buttons elsewhere in
+// the pane (e.g. an Explorer window listing a "Contacts" system container).
+export function clickPaneAppMenuItem(
+  view: ReturnType<typeof renderPane>,
+  name: string,
+) {
+  const menu = view.baseElement.querySelector<HTMLElement>(".menu");
+  invariant(menu, "pane context menu not found");
+  fireEvent.click(within(menu).getByRole("button", { name }));
+}
+
 export async function openExplorer(view: ReturnType<typeof renderPane>) {
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 120,
     clientY: 120,
   });
-  fireEvent.click(view.getByText("Open Explorer"));
+  clickPaneAppMenuItem(view, "Explorer");
 
   let explorerWindow: HTMLDivElement | null = null;
   await waitFor(() => {
@@ -204,7 +216,7 @@ export async function openNotes(view: ReturnType<typeof renderPane>) {
     clientX: 160,
     clientY: 160,
   });
-  fireEvent.click(view.getByText("Open Notes"));
+  clickPaneAppMenuItem(view, "Notes");
 
   let notesWindow: HTMLDivElement | null = null;
   await waitFor(() => {
@@ -236,7 +248,7 @@ export async function openContacts(view: ReturnType<typeof renderPane>) {
     clientX: 120,
     clientY: 120,
   });
-  fireEvent.click(view.getByText("Open Contacts"));
+  clickPaneAppMenuItem(view, "Contacts");
 
   let contactsWindow: HTMLDivElement | null = null;
   await waitFor(() => {
