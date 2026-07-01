@@ -91,9 +91,8 @@ function backupPath(backupId: string): string {
 }
 
 function credentialPath(credentialId: string): string {
-  return `/auth/key-package-backups/by-credential/${encodeURIComponent(
-    credentialId,
-  )}`;
+  const params = new URLSearchParams({ credentialId });
+  return `/auth/key-package-backups/by-credential?${params.toString()}`;
 }
 
 async function putBackup(

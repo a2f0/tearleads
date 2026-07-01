@@ -157,29 +157,17 @@ export async function deleteKeyPackageBackup(
   userId: string,
   backupId: string,
 ): Promise<void> {
-  const [row] = await runtime.db
-    .select({
-      id: keyPackageBackups.id,
-    })
-    .from(keyPackageBackups)
-    .where(
-      and(
-        eq(keyPackageBackups.id, backupId),
-        eq(keyPackageBackups.userId, userId),
-      ),
-    )
-    .limit(1);
-
-  if (!row) {
-    throw new KeyPackageBackupError("Backup not found", 404);
-  }
-
-  await runtime.db
+  const [deletedRow] = await runtime.db
     .delete(keyPackageBackups)
     .where(
       and(
         eq(keyPackageBackups.id, backupId),
         eq(keyPackageBackups.userId, userId),
       ),
-    );
+    )
+    .returning({ id: keyPackageBackups.id });
+
+  if (!deletedRow) {
+    throw new KeyPackageBackupError("Backup not found", 404);
+  }
 }

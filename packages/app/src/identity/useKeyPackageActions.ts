@@ -139,12 +139,16 @@ function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Operation failed.";
 }
 
-function clearPasskeyOperationState(state: PasskeyBackupOperationState): void {
-  state.setError(null);
-  state.setStatus(null);
-}
-
-function usePasskeyBackupToPasskeyAction(input: {
+function usePasskeyBackupToPasskeyAction({
+  exportKeyPackage,
+  log,
+  logError,
+  session,
+  signingFingerprint,
+  state,
+  supported,
+  tearleads,
+}: {
   readonly exportKeyPackage: IdentityState["exportKeyPackage"];
   readonly log: LogState["log"];
   readonly logError: LogState["logError"];
@@ -157,47 +161,69 @@ function usePasskeyBackupToPasskeyAction(input: {
   readonly supported: boolean;
   readonly tearleads: TearleadsClient;
 }) {
+  const { containerId, organizationId, userId } = session;
+  const { setBusy, setError, setStatus } = state;
+
   return useCallback(async () => {
-    input.state.setBusy("backup");
-    clearPasskeyOperationState(input.state);
+    setBusy("backup");
+    setError(null);
+    setStatus(null);
     try {
-      if (!input.supported) {
+      if (!supported) {
         throw new Error(
           "Passkey PRF backups are not supported in this browser.",
         );
       }
-      if (!input.signingFingerprint) {
+      if (!signingFingerprint) {
         throw new Error("A signing key is required before creating a backup.");
       }
 
       const keyPackage = await createAppKeyPackageBackup({
-        identity: { exportKeyPackage: input.exportKeyPackage },
-        session: input.session,
+        identity: { exportKeyPackage },
+        session: { containerId, organizationId, userId },
       });
       const backup = await createPasskeyProtectedKeyPackageBackup({
         keyPackage,
-        signingKeyFingerprint: input.signingFingerprint,
+        signingKeyFingerprint: signingFingerprint,
       });
-      const stored = await input.tearleads.keyPackageBackups.put(backup);
+      const stored = await tearleads.keyPackageBackups.put(backup);
       if (!stored) {
         throw new Error("Could not store passkey backup.");
       }
 
-      input.state.setStatus("Passkey backup saved.");
-      input.log("Passkey key package backup saved");
+      setStatus("Passkey backup saved.");
+      log("Passkey key package backup saved");
     } catch (operationError: unknown) {
-      input.logError(
-        "Failed to save passkey key package backup",
-        operationError,
-      );
-      input.state.setError(readErrorMessage(operationError));
+      logError("Failed to save passkey key package backup", operationError);
+      setError(readErrorMessage(operationError));
     } finally {
-      input.state.setBusy(null);
+      setBusy(null);
     }
-  }, [input]);
+  }, [
+    containerId,
+    exportKeyPackage,
+    log,
+    logError,
+    organizationId,
+    setBusy,
+    setError,
+    setStatus,
+    signingFingerprint,
+    supported,
+    tearleads,
+    userId,
+  ]);
 }
 
-function usePasskeyRestoreFromPasskeyAction(input: {
+function usePasskeyRestoreFromPasskeyAction({
+  log,
+  logError,
+  restoreKeyPackage,
+  session,
+  state,
+  supported,
+  tearleads,
+}: {
   readonly log: LogState["log"];
   readonly logError: LogState["logError"];
   readonly restoreKeyPackage: IdentityState["restoreKeyPackage"];
@@ -209,11 +235,15 @@ function usePasskeyRestoreFromPasskeyAction(input: {
   readonly supported: boolean;
   readonly tearleads: TearleadsClient;
 }) {
+  const { login, setContainerId, setOrganizationId, setUserId } = session;
+  const { setBusy, setError, setStatus } = state;
+
   return useCallback(async () => {
-    input.state.setBusy("restore");
-    clearPasskeyOperationState(input.state);
+    setBusy("restore");
+    setError(null);
+    setStatus(null);
     try {
-      if (!input.supported) {
+      if (!supported) {
         throw new Error(
           "Passkey PRF backups are not supported in this browser.",
         );
@@ -221,7 +251,7 @@ function usePasskeyRestoreFromPasskeyAction(input: {
 
       const credentialId = await discoverPasskeyKeyPackageBackupCredentialId();
       const backup =
-        await input.tearleads.keyPackageBackups.getByCredentialId(credentialId);
+        await tearleads.keyPackageBackups.getByCredentialId(credentialId);
       if (!backup) {
         throw new Error(
           "No key package backup is registered for this passkey.",
@@ -229,28 +259,38 @@ function usePasskeyRestoreFromPasskeyAction(input: {
       }
 
       const keyPackage = await decryptPasskeyProtectedKeyPackageBackup(backup);
-      await input.restoreKeyPackage(keyPackage);
+      await restoreKeyPackage(keyPackage);
 
-      const session = readAppKeyPackageSession(keyPackage);
-      if (session) {
-        input.session.setContainerId(session.containerId);
-        input.session.setOrganizationId(session.organizationId);
-        input.session.setUserId(session.userId);
-        await input.session.login();
+      const parsedSession = readAppKeyPackageSession(keyPackage);
+      if (parsedSession) {
+        setContainerId(parsedSession.containerId);
+        setOrganizationId(parsedSession.organizationId);
+        setUserId(parsedSession.userId);
+        await login();
       }
 
-      input.state.setStatus("Passkey backup restored.");
-      input.log("Passkey key package backup restored");
+      setStatus("Passkey backup restored.");
+      log("Passkey key package backup restored");
     } catch (operationError: unknown) {
-      input.logError(
-        "Failed to restore passkey key package backup",
-        operationError,
-      );
-      input.state.setError(readErrorMessage(operationError));
+      logError("Failed to restore passkey key package backup", operationError);
+      setError(readErrorMessage(operationError));
     } finally {
-      input.state.setBusy(null);
+      setBusy(null);
     }
-  }, [input]);
+  }, [
+    log,
+    logError,
+    login,
+    restoreKeyPackage,
+    setBusy,
+    setContainerId,
+    setError,
+    setOrganizationId,
+    setStatus,
+    setUserId,
+    supported,
+    tearleads,
+  ]);
 }
 
 export function usePasskeyKeyPackageBackupActions() {

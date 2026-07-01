@@ -60,19 +60,31 @@ function fakeCredential(prfResults?: {
       getTransports: () => ["internal"],
     },
     getClientExtensionResults: () => ({
-      prf: prfResults ? { results: prfResults } : { enabled: true },
+      prf: prfResults
+        ? { enabled: true, results: prfResults }
+        : { enabled: true },
     }),
     type: "public-key",
   } as unknown as Credential;
 }
 
-function installWebAuthnMock(output: Uint8Array = prfOutput): void {
+function installWebAuthnMock(
+  output: Uint8Array = prfOutput,
+  options: { readonly createPrfOutput?: boolean } = {},
+): { readonly getCallCount: () => number } {
+  let getCallCount = 0;
   defineGlobal("window", { isSecureContext: true });
   defineGlobal("PublicKeyCredential", function PublicKeyCredential() {});
   defineGlobal("navigator", {
     credentials: {
-      create: async () => fakeCredential(),
+      create: async () =>
+        fakeCredential(
+          options.createPrfOutput === false
+            ? undefined
+            : { first: arrayBuffer(output) },
+        ),
       get: async (options: CredentialRequestOptions) => {
+        getCallCount += 1;
         const publicKey = options.publicKey as
           | (PublicKeyCredentialRequestOptions & {
               extensions?: {
@@ -91,6 +103,7 @@ function installWebAuthnMock(output: Uint8Array = prfOutput): void {
       },
     },
   });
+  return { getCallCount: () => getCallCount };
 }
 
 function testKeyPackage(): AppKeyPackage {
@@ -144,6 +157,28 @@ test("passkey key package backup encrypts and decrypts locally", async () => {
   expect(request.credential.id).toBe(bytesToBase64(credentialIdBytes));
   expect(request.envelope.ciphertext).not.toContain("signing-private-key");
   expect(decrypted).toEqual(testKeyPackage());
+});
+
+test("passkey key package backup reuses creation PRF output", async () => {
+  const webAuthn = installWebAuthnMock();
+
+  await createPasskeyProtectedKeyPackageBackup({
+    keyPackage: testKeyPackage(),
+    signingKeyFingerprint: "a".repeat(64),
+  });
+
+  expect(webAuthn.getCallCount()).toBe(0);
+});
+
+test("passkey key package backup falls back when creation omits PRF output", async () => {
+  const webAuthn = installWebAuthnMock(prfOutput, { createPrfOutput: false });
+
+  await createPasskeyProtectedKeyPackageBackup({
+    keyPackage: testKeyPackage(),
+    signingKeyFingerprint: "a".repeat(64),
+  });
+
+  expect(webAuthn.getCallCount()).toBe(1);
 });
 
 test("passkey key package backup discovers the credential id", async () => {

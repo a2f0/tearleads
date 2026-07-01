@@ -720,7 +720,7 @@ export class ApiClient {
     credentialId: string,
   ): Promise<KeyPackageBackupResponse | null> {
     return this.request(
-      `/auth/key-package-backups/by-credential/${pathSegment(credentialId)}`,
+      `/auth/key-package-backups/by-credential?credentialId=${pathSegment(credentialId)}`,
       isKeyPackageBackupResponse,
       "GET",
       undefined,

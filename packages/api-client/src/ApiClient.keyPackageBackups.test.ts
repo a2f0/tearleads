@@ -70,7 +70,7 @@ testApiClient("uses key package backup routes", async () => {
     {
       authorization: "Bearer abc",
       body: null,
-      input: `${apiBaseUrl}/auth/key-package-backups/by-credential/credential%2Fid%20with%20space`,
+      input: `${apiBaseUrl}/auth/key-package-backups/by-credential?credentialId=credential%2Fid%20with%20space`,
       method: "GET",
     },
     {

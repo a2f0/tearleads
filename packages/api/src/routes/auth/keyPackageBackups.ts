@@ -49,25 +49,22 @@ export function createKeyPackageBackupsRoute({
     return c.json<ListKeyPackageBackupsResponse>({ backups });
   });
 
-  route.get(
-    "/auth/key-package-backups/by-credential/:credentialId",
-    async (c) => {
-      const credentialId = c.req.param("credentialId");
-      if (!credentialId) {
-        return c.json({ error: "Credential id is required" }, 400);
-      }
+  route.get("/auth/key-package-backups/by-credential", async (c) => {
+    const credentialId = c.req.query("credentialId");
+    if (!credentialId) {
+      return c.json({ error: "Credential id is required" }, 400);
+    }
 
-      const backup = await getKeyPackageBackupByCredentialId(
-        runtime,
-        credentialId,
-      );
-      if (!backup) {
-        return c.json({ error: "Backup not found" }, 404);
-      }
+    const backup = await getKeyPackageBackupByCredentialId(
+      runtime,
+      credentialId,
+    );
+    if (!backup) {
+      return c.json({ error: "Backup not found" }, 404);
+    }
 
-      return c.json<KeyPackageBackupResponse>(backup);
-    },
-  );
+    return c.json<KeyPackageBackupResponse>(backup);
+  });
 
   route.put(
     "/auth/key-package-backups/:backupId",

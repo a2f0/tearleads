@@ -250,25 +250,27 @@ function useIdentityManagerIdentityMutations({
     }
   }, [logError, login]);
 
+  const { backupToPasskey, restoreFromPasskey } = passkeyBackup;
+
   const handlePasskeyBackupKeyPackage = useCallback(async () => {
     setIdentityBusy("passkey-backup");
     setIdentityError(null);
     try {
-      await passkeyBackup.backupToPasskey();
+      await backupToPasskey();
     } finally {
       setIdentityBusy(null);
     }
-  }, [passkeyBackup]);
+  }, [backupToPasskey]);
 
   const handlePasskeyRestoreKeyPackage = useCallback(async () => {
     setIdentityBusy("passkey-restore");
     setIdentityError(null);
     try {
-      await passkeyBackup.restoreFromPasskey();
+      await restoreFromPasskey();
     } finally {
       setIdentityBusy(null);
     }
-  }, [passkeyBackup]);
+  }, [restoreFromPasskey]);
 
   const requestDestroyKeyPackage = useCallback(() => {
     setDestroyKeyPackageDialogOpen(true);
