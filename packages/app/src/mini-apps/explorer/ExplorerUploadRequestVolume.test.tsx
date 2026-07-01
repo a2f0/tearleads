@@ -4,6 +4,7 @@ import {
   createTinySvgImageFile,
   uploadExplorerFile,
 } from "../../../test/helpers/explorerUpload";
+import { registerAndWaitForUserId } from "../../../test/helpers/identityPaneTestUtils";
 import {
   listProxiedApiRequests,
   useTestApiAppHandlers,
@@ -13,7 +14,6 @@ import {
   generateIdentityAndWaitForDb,
   openExplorer,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
-  registerAndWaitForUserId,
   renderPane,
   waitForPaneRuntimeToSettle,
 } from "../../../test/helpers/paneTestUtils";

@@ -44,6 +44,35 @@ export async function interact(operation: () => void): Promise<void> {
   });
 }
 
+function clickOpenPaneMenuItem(name: string) {
+  const menu = document.body.querySelector<HTMLElement>(".menu");
+  invariant(menu, "pane menu not found");
+  fireEvent.click(within(menu).getByRole("button", { name }));
+}
+
+async function openIdentityManagerForPane(
+  pane: HTMLElement,
+): Promise<HTMLElement> {
+  const existing = pane.querySelector<HTMLElement>(".identity-manager");
+  if (existing) {
+    return existing;
+  }
+
+  await interact(() => {
+    fireEvent.click(within(pane).getByText("Menu"));
+  });
+  await interact(() => {
+    clickOpenPaneMenuItem("Identity Manager");
+  });
+  const identityManager = await waitFor(() => {
+    const app = pane.querySelector<HTMLElement>(".identity-manager");
+    expect(app).toBeTruthy();
+    return app;
+  });
+  invariant(identityManager, "identity manager not found");
+  return identityManager;
+}
+
 function PaneAutoProvisioner() {
   const { status } = useDatabase();
   const { containerId, userId } = useCryptoSession();
@@ -291,25 +320,19 @@ export async function provisionPaneFromMenu(pane: HTMLElement) {
   await interact(() => {
     fireEvent.click(within(pane).getByText("Menu"));
   });
-  const generateButton = screen.getByRole("button", {
-    name: "Generate Key Pair",
-  });
   await interact(() => {
-    fireEvent.click(generateButton);
+    clickOpenPaneMenuItem("Generate Key Pair");
   });
 
   await waitFor(() => {
     expect(flattenPaneStatusText(pane)).toMatch(/sqlite worker:\s*ready/);
   });
 
+  const identityManager = await openIdentityManagerForPane(pane);
   await interact(() => {
-    fireEvent.click(within(pane).getByText("Menu"));
-  });
-  const registerButton = screen.getByRole("button", {
-    name: "Register",
-  });
-  await interact(() => {
-    fireEvent.click(registerButton);
+    fireEvent.click(
+      within(identityManager).getByRole("button", { name: "Register" }),
+    );
   });
 
   await waitForSinglePaneProvisioning(pane);
@@ -331,10 +354,8 @@ export async function downloadPaneKeyPackageBackup(
     URL.revokeObjectURL = (() => undefined) as typeof URL.revokeObjectURL;
     HTMLAnchorElement.prototype.click = () => undefined;
 
-    await interact(() => {
-      fireEvent.click(within(pane).getByText("Menu"));
-    });
-    const backupButton = screen.getByRole("button", {
+    const identityManager = await openIdentityManagerForPane(pane);
+    const backupButton = within(identityManager).getByRole("button", {
       name: "Backup Key Package",
     });
     await interact(() => {
@@ -354,10 +375,8 @@ export async function downloadPaneKeyPackageBackup(
 }
 
 export async function destroyPaneKeyPackage(pane: HTMLElement) {
-  await interact(() => {
-    fireEvent.click(within(pane).getByText("Menu"));
-  });
-  const destroyButton = screen.getByRole("button", {
+  const identityManager = await openIdentityManagerForPane(pane);
+  const destroyButton = within(identityManager).getByRole("button", {
     name: "Destroy Key Pair",
   });
   await interact(() => {
@@ -389,11 +408,11 @@ export async function restorePaneKeyPackageBackup(
   pane: HTMLElement,
   backupJson: string,
 ) {
-  await interact(() => {
-    fireEvent.click(within(pane).getByText("Menu"));
-  });
-  const fileInput = screen.getByLabelText("Restore Key Package File");
-  const restoreButton = screen.getByRole("button", {
+  const identityManager = await openIdentityManagerForPane(pane);
+  const fileInput = within(identityManager).getByLabelText(
+    "Identity Manager Restore Key Package File",
+  );
+  const restoreButton = within(identityManager).getByRole("button", {
     name: "Restore Key Package",
   });
   await interact(() => {

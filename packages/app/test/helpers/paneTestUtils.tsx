@@ -425,8 +425,6 @@ export async function waitForPaneRuntimeToSettle(
   ).toBe(true);
 }
 
-const userIdStatusPattern =
-  /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 const publicKeyStatusPattern = /publicKey:\s*([0-9a-f]+)/u;
 const LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX =
   "tearleads.local-identity-key-package:";
@@ -493,7 +491,11 @@ export async function generateIdentityAndWaitForDb(
     fireEvent.click(view.getByText("Menu"));
   });
   await act(async () => {
-    fireEvent.click(view.getByText("Generate Key Pair"));
+    const menu = view.baseElement.querySelector<HTMLElement>(".menu");
+    invariant(menu, "pane menu not found");
+    fireEvent.click(
+      within(menu).getByRole("button", { name: "Generate Key Pair" }),
+    );
   });
 
   await waitFor(
@@ -512,31 +514,4 @@ export async function generateIdentityAndWaitForDb(
     },
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
   );
-}
-
-export async function registerAndWaitForUserId(
-  view: ReturnType<typeof renderPane>,
-): Promise<string> {
-  fireEvent.click(view.getByText("Menu"));
-  await waitFor(() => {
-    expect(view.getByText("Register")).toBeTruthy();
-    expect(view.getByText("Login")).toBeTruthy();
-  });
-  fireEvent.click(view.getByText("Register"));
-
-  let userId = "";
-  await waitFor(
-    () => {
-      const statusText = getPaneStatusText(view);
-      const match = userIdStatusPattern.exec(statusText);
-      expect(match).toBeTruthy();
-      userId = match?.[1] ?? "";
-    },
-    { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },
-  );
-  await waitFor(() => {
-    expect(view.queryByText("Register")).toBeNull();
-  });
-
-  return userId;
 }

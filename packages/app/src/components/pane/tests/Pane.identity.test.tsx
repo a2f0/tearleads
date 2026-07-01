@@ -1,5 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import { act, fireEvent, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
+import {
+  openIdentityManagerFromPane,
+  registerAndWaitForUserId,
+} from "../../../../test/helpers/identityPaneTestUtils";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -11,7 +15,6 @@ import {
   getPaneStatusText,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
-  registerAndWaitForUserId,
   renderPane,
   waitForPersistedPaneLocalIdentity,
 } from "../../../../test/helpers/paneTestUtils";
@@ -73,6 +76,13 @@ function rejectAuthVerifyRequests(): {
 
   globalThis.fetch = rejectAuthVerifyFetch;
   return { getCallCount: () => callCount, restore: restoreFetch };
+}
+
+function confirmDestroyKeyPackage(view: ReturnType<typeof renderPane>) {
+  fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
+    target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Destroy Key Package" }));
 }
 
 test("renders the boot prompt in the pane log", () => {
@@ -271,7 +281,7 @@ test(
 );
 
 test(
-  "logged-in pane menu confirms before logout",
+  "logged-in pane menu omits logout while identity manager can log out",
   async () => {
     const view = renderPane();
 
@@ -284,20 +294,31 @@ test(
     });
 
     fireEvent.click(view.getByText("Menu"));
-    expect(view.queryByText("Destroy Key Pair")).toBeNull();
-    expect(view.getByText("Logout")).toBeTruthy();
+    expect(view.queryByRole("button", { name: "Logout" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Destroy Key Pair" })).toBeNull();
+    expect(view.getByRole("button", { name: "Explorer" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Notes" })).toBeTruthy();
 
-    fireEvent.click(view.getByText("Logout"));
+    const identityManagerWindow = await openIdentityManagerFromPane(view);
+    const identityToolbar =
+      identityManagerWindow.querySelector<HTMLElement>(".mini-app-toolbar");
+    if (!identityToolbar) {
+      throw new Error("Expected Identity Manager toolbar.");
+    }
+    fireEvent.click(
+      within(identityToolbar).getByRole("button", { name: "Log Out" }),
+    );
 
-    expect(view.getByRole("dialog")).toBeTruthy();
-    const checkbox = view.getByRole("checkbox") as HTMLInputElement;
+    const dialog = view.getByRole("dialog");
+    expect(dialog).toBeTruthy();
+    const checkbox = within(dialog).getByRole("checkbox") as HTMLInputElement;
     expect(checkbox.checked).toBe(true);
     expect(checkbox.classList.contains("logout-confirmation-checkbox")).toBe(
       true,
     );
     expect(getPaneStatusText(view)).not.toMatch(/session:\s*none/);
 
-    fireEvent.click(view.getByRole("button", { name: "Log Out" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Log Out" }));
 
     await waitFor(() => {
       expect(getPaneStatusText(view)).toMatch(/session:\s*none/);
@@ -349,12 +370,13 @@ test(
       expect(getPaneStatusText(view)).toContain(`userId: ${userId}`);
     });
 
-    fireEvent.click(view.getByText("Menu"));
-    fireEvent.click(view.getByText("Destroy Key Pair"));
-    fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
-      target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
-    });
-    fireEvent.click(view.getByRole("button", { name: "Destroy Key Package" }));
+    const identityManagerWindow = await openIdentityManagerFromPane(view);
+    fireEvent.click(
+      within(identityManagerWindow).getByRole("button", {
+        name: "Destroy Key Pair",
+      }),
+    );
+    confirmDestroyKeyPackage(view);
 
     await waitFor(() => {
       expect(getPaneStatusText(view)).toMatch(/userId:\s*none/);
@@ -379,12 +401,13 @@ test(
     const firstPublicKey = getPanePublicKey(view);
     await registerAndWaitForUserId(view);
 
-    fireEvent.click(view.getByText("Menu"));
-    fireEvent.click(view.getByText("Destroy Key Pair"));
-    fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
-      target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
-    });
-    fireEvent.click(view.getByRole("button", { name: "Destroy Key Package" }));
+    const identityManagerWindow = await openIdentityManagerFromPane(view);
+    fireEvent.click(
+      within(identityManagerWindow).getByRole("button", {
+        name: "Destroy Key Pair",
+      }),
+    );
+    confirmDestroyKeyPackage(view);
 
     await generateIdentityAndWaitForDb(view);
     const secondPublicKey = getPanePublicKey(view);

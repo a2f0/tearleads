@@ -3,7 +3,6 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
-  generateIdentityAndWaitForDb,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
 } from "../../../test/helpers/paneTestUtils";
@@ -26,13 +25,10 @@ afterEach(async () => {
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
 const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
-const DEVELOPER_MENU_ITEM_LABELS = [
-  "Kill Worker",
+const ROUTED_DEVELOPER_MENU_ITEM_LABELS = [
   "Force Online",
   "Force Offline",
-  "Backup Key Package",
   "Restore Key Package",
-  "Destroy Key Pair",
 ] as const;
 
 function spyPushState(onPush: (url: string | URL | null | undefined) => void) {
@@ -64,16 +60,11 @@ function renderRoutedPane() {
   );
 }
 
-function closePaneMenu() {
-  fireEvent.mouseDown(document.body);
-}
-
-function expectPaneDeveloperMenuItems(
+function expectRoutedDeveloperMenuItems(
   view: ReturnType<typeof renderPane>,
   visible: boolean,
 ) {
-  fireEvent.click(view.getByText("Menu"));
-  for (const label of DEVELOPER_MENU_ITEM_LABELS) {
+  for (const label of ROUTED_DEVELOPER_MENU_ITEM_LABELS) {
     const item = view.queryByRole("button", { name: label });
     if (visible) {
       expect(item).toBeTruthy();
@@ -81,7 +72,6 @@ function expectPaneDeveloperMenuItems(
       expect(item).toBeNull();
     }
   }
-  closePaneMenu();
 }
 
 test("home pane hides the monitor inline and exposes a launcher by default", () => {
@@ -261,30 +251,27 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
   view.unmount();
 });
 
-test("developer mode toggles from the monitor View menu and gates pane commands", async () => {
-  const view = renderPane({ pinSystemMonitor: true });
+test("developer mode toggles from the routed monitor menu and gates pane commands", async () => {
+  const view = renderRoutedPane();
 
-  await generateIdentityAndWaitForDb(view);
-  expectPaneDeveloperMenuItems(view, false);
+  fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
+  await view.findByRole("tab", { name: "Logs" });
+  expectRoutedDeveloperMenuItems(view, false);
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBeNull();
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
-  await view.findByRole("tab", { name: "Logs" });
-  fireEvent.click(view.getByRole("menuitem", { name: "View" }));
   fireEvent.click(
-    await view.findByRole("menuitem", { name: "Enable Developer Mode" }),
+    await view.findByRole("button", { name: "Enable Developer Mode" }),
   );
 
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("enabled");
-  expectPaneDeveloperMenuItems(view, true);
+  expectRoutedDeveloperMenuItems(view, true);
 
-  fireEvent.click(view.getByRole("menuitem", { name: "View" }));
   fireEvent.click(
-    await view.findByRole("menuitem", { name: "Disable Developer Mode" }),
+    await view.findByRole("button", { name: "Disable Developer Mode" }),
   );
 
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("disabled");
-  expectPaneDeveloperMenuItems(view, false);
+  expectRoutedDeveloperMenuItems(view, false);
 
   view.unmount();
 });

@@ -74,7 +74,12 @@ async function enableDeveloperMode(page: Page, pane: Locator): Promise<void> {
 
 async function killWorker(page: Page, pane: Locator): Promise<void> {
   await enableDeveloperMode(page, pane);
-  await pane.getByRole("button", { name: "Menu" }).click();
+  const navigationModeToggle = page.getByRole("button", {
+    name: /Navigation mode:/u,
+  });
+  await navigationModeToggle.click();
+  await navigationModeToggle.click();
+  await expect(page.locator(".routed-pane")).toBeVisible();
   await page.getByRole("button", { name: "Kill Worker" }).click();
 }
 

@@ -1,13 +1,6 @@
-import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
-import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
-import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
-import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/registry";
 import type { MenuPosition } from "../../shared/Menu";
 import { Menu } from "../../shared/Menu";
-import { MenuItem } from "../../shared/MenuItem";
-
-import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
-import { usePaneWindowMenuActions } from "./usePaneWindowMenuActions";
+import { PaneContextMenuItems } from "./PaneContextMenuItems";
 
 interface PaneContextMenuProps {
   hasSigningKeyPair: boolean;
@@ -24,42 +17,15 @@ export function PaneContextMenu({
   onClose,
   onGenerateKeyPair,
 }: PaneContextMenuProps) {
-  const { openMiniApp, openUnlockWindow } = usePaneWindowMenuActions({
-    onClose,
-    position,
-  });
-  const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
-
   return (
     <Menu position={position} onClose={onClose}>
-      {!hasSigningKeyPair && !paneLocked ? (
-        <MenuItem
-          icon={KeyIcon}
-          label="Generate Key Pair"
-          onClick={onGenerateKeyPair}
-        />
-      ) : (
-        <>
-          {paneLocked && (
-            <MenuItem
-              icon={LockOpenIcon}
-              label="Unlock Database"
-              onClick={openUnlockWindow}
-            />
-          )}
-          {canLockPane && (
-            <MenuItem icon={LockIcon} label="Lock" onClick={lockPane} />
-          )}
-          {MINI_APP_MENU_ITEMS.map(({ appId, icon, label }) => (
-            <MenuItem
-              key={appId}
-              icon={icon}
-              label={label}
-              onClick={() => openMiniApp(appId)}
-            />
-          ))}
-        </>
-      )}
+      <PaneContextMenuItems
+        hasSigningKeyPair={hasSigningKeyPair}
+        paneLocked={paneLocked}
+        position={position}
+        onClose={onClose}
+        onGenerateKeyPair={onGenerateKeyPair}
+      />
     </Menu>
   );
 }

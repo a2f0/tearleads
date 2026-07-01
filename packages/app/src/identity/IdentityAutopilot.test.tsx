@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { AppTestRuntimeScopeProbe } from "../../test/helpers/appRuntimeIdle";
+import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
 import {
   cleanupPaneTestEnvironment,
   createSharedMemoryLocalKeyringFactory,
@@ -16,7 +17,6 @@ import {
   waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
-import { enableSystemMonitorDeveloperMode } from "../../test/helpers/systemMonitorTestPreferences";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -228,7 +228,6 @@ test("autopilot stays idle when the profile opts out", async () => {
 test(
   "autopilot does not re-provision after an explicit destroy",
   async () => {
-    enableSystemMonitorDeveloperMode();
     const view = renderPane({
       hostConfig: createTestHostConfig({ autoProvisionIdentity: true }),
     });
@@ -243,9 +242,13 @@ test(
     await waitForRegisteredSession(view);
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
 
-    // Explicitly destroy the key pair via the pane menu + confirmation.
-    fireEvent.click(view.getByText("Menu"));
-    fireEvent.click(view.getByText("Destroy Key Pair"));
+    // Explicitly destroy the key pair via Identity Manager + confirmation.
+    const identityManagerWindow = await openIdentityManagerFromPane(view);
+    fireEvent.click(
+      within(identityManagerWindow).getByRole("button", {
+        name: "Destroy Key Pair",
+      }),
+    );
     fireEvent.change(view.getByLabelText(/Type confirm delete to continue/u), {
       target: { value: DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE },
     });
