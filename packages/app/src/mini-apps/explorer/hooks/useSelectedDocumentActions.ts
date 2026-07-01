@@ -19,7 +19,9 @@ import {
   canAddDocumentToContainerByRules,
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
+  canMoveDocumentByRules,
   canMoveDocumentOutByRules,
+  canPurgeDocumentByRules,
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
@@ -83,10 +85,13 @@ function useMoveDocumentAction(params: {
         existingDocument.containerId === null
           ? undefined
           : nodes.find((node) => node.id === existingDocument.containerId);
+      // Refuse to relocate the pinned self contact (a Move to Trash would delete
+      // it), then honor the source container's own move rules.
       if (
-        existingDocument.containerId !== null &&
-        (!canWriteContainerNode(currentContainer) ||
-          !canMoveDocumentOutByRules(rulesContext, currentContainer))
+        !canMoveDocumentByRules(rulesContext, existingDocument) ||
+        (existingDocument.containerId !== null &&
+          (!canWriteContainerNode(currentContainer) ||
+            !canMoveDocumentOutByRules(rulesContext, currentContainer)))
       ) {
         return null;
       }
@@ -146,8 +151,15 @@ function usePurgeDocumentAction(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
+  rulesContext: ExplorerContainerRulesContext;
 }) {
-  const { appData, documentSummaries, loadDocumentSummary, nodes } = params;
+  const {
+    appData,
+    documentSummaries,
+    loadDocumentSummary,
+    nodes,
+    rulesContext,
+  } = params;
 
   return useCallback(
     async (documentId: string) => {
@@ -157,6 +169,11 @@ function usePurgeDocumentAction(params: {
         documentId,
       });
       if (!existingDocument || !canWriteDocumentSummary(existingDocument)) {
+        return null;
+      }
+      // The pinned self contact can never be purged, even if it is already
+      // parked under Trash — purge destroys the document server-side by id.
+      if (!canPurgeDocumentByRules(rulesContext, existingDocument)) {
         return null;
       }
       if (
@@ -181,7 +198,7 @@ function usePurgeDocumentAction(params: {
 
       return purgeExplorerNote({ appData, note: existingDocument });
     },
-    [appData, documentSummaries, loadDocumentSummary, nodes],
+    [appData, documentSummaries, loadDocumentSummary, nodes, rulesContext],
   );
 }
 
@@ -418,6 +435,7 @@ export function useSelectedDocumentActions(params: {
     documentSummaries,
     loadDocumentSummary,
     nodes,
+    rulesContext,
   });
   const activateLinkedDocument = useActivateLinkedDocumentAction({
     appData,

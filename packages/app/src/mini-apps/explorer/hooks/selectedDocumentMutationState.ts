@@ -3,6 +3,7 @@ import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canDeleteDocumentByRules,
+  canPurgeDocumentByRules,
   canWriteContainerNode,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
@@ -80,6 +81,7 @@ export function getSelectedDocumentMutationState(params: {
       selectedDocument.containerId !== null &&
       selectedDocumentWritable &&
       selectedDocumentContainerWritable &&
+      canPurgeDocumentByRules(rulesContext, selectedDocument) &&
       // Purge applies anywhere under trash, not only at the trash root: a
       // document parked in a user-created subfolder of trash is still trashed.
       isExplorerContainerUnderTrash(

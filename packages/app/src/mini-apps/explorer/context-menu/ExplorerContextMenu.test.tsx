@@ -18,6 +18,7 @@ const emptyRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: null,
   contactsSystemSlot: null,
   currentOrganizationId: null,
+  currentSigningFingerprint: null,
   trashSystemSlot: null,
 });
 
@@ -59,6 +60,7 @@ const systemRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: contactsNode.id,
   contactsSystemSlot: "contacts-slot",
   currentOrganizationId: null,
+  currentSigningFingerprint: null,
   trashSystemSlot: "trash-slot",
 });
 

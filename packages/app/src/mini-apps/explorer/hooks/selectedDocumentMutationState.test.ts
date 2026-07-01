@@ -32,6 +32,9 @@ const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: "contacts-container",
   contactsSystemSlot: "contacts-slot",
   currentOrganizationId: null,
+  // The viewer's self-contact id derives from this fingerprint, so
+  // "self_contact_v1_fingerprint" is the viewer's own "You" contact.
+  currentSigningFingerprint: "fingerprint",
   trashSystemSlot: "trash-slot",
 });
 
@@ -150,6 +153,24 @@ test("document delete is disabled for the self contact in the contacts container
   ).toBe(false);
 });
 
+test("document delete is disabled for the self contact linked into another container", () => {
+  // Linking the self contact into a user container surfaces it there with that
+  // container's id, but it must stay undeletable so only unlink is offered.
+  expect(
+    getMutationState({
+      selectedDocument: {
+        ...selectedDocument,
+        containerId: "source-container",
+        id: "self_contact_v1_fingerprint",
+      },
+      selectedDocumentLinkedContainerIds: [
+        "contacts-container",
+        "source-container",
+      ],
+    }).canDeleteSelectedDocument,
+  ).toBe(false);
+});
+
 test("document delete stays enabled for non-self contacts in the contacts container", () => {
   expect(
     getMutationState({
@@ -169,6 +190,21 @@ test("document purge is enabled for documents already in trash", () => {
       trashContainerId: "trash",
     }).canPurgeSelectedDocument,
   ).toBe(true);
+});
+
+test("document purge is disabled for the self contact even when under trash", () => {
+  // Defense in depth: a self contact that somehow reached Trash must not be
+  // purgeable, since purge destroys the document server-side by id.
+  expect(
+    getMutationState({
+      selectedDocument: {
+        ...selectedDocument,
+        containerId: "trash",
+        id: "self_contact_v1_fingerprint",
+      },
+      trashContainerId: "trash",
+    }).canPurgeSelectedDocument,
+  ).toBe(false);
 });
 
 test("document purge is disabled for documents outside trash", () => {

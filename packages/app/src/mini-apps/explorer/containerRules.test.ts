@@ -10,7 +10,9 @@ import {
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
+  canMoveDocumentByRules,
   canMoveDocumentOutByRules,
+  canPurgeDocumentByRules,
   canRenameContainerByRules,
   canUploadToContainerByRules,
   canUploadToContainerIdByRules,
@@ -21,11 +23,15 @@ import {
 const CONTACTS_SLOT = "contacts-slot";
 const TRASH_SLOT = "trash-slot";
 const CONTACTS_CONTAINER_ID = "contacts-container";
+// The viewer's self-contact id is derived from this fingerprint, so the id
+// "self_contact_v1_abc" is the viewer's own "You" contact.
+const SELF_SIGNING_FINGERPRINT = "abc";
 
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
+  currentSigningFingerprint: SELF_SIGNING_FINGERPRINT,
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -39,6 +45,7 @@ const sharedRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: VIEWER_ORG_ID,
+  currentSigningFingerprint: SELF_SIGNING_FINGERPRINT,
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -264,7 +271,10 @@ test("non-self contacts can be deleted", () => {
   ).toBe(true);
 });
 
-test("a self-contact-shaped id outside the contacts container is not protected", () => {
+test("the self contact stays protected when viewed via a link in another container", () => {
+  // The self contact can be linked into a user container, where its summary
+  // carries that container's id rather than the contacts container's. Deletion
+  // must still be blocked so the only structural action available is unlink.
   expect(
     canDeleteDocumentByRules(
       rulesContext,
@@ -273,13 +283,74 @@ test("a self-contact-shaped id outside the contacts container is not protected",
         containerId: "user-container",
       }),
     ),
+  ).toBe(false);
+});
+
+test("a peer's self contact is not protected from the viewer's deletion", () => {
+  // A different signing fingerprint yields a different self-contact id, so a
+  // peer's "You" contact surfaced in a shared container is not treated as the
+  // viewer's own and can be removed from view.
+  expect(
+    canDeleteDocumentByRules(
+      rulesContext,
+      documentSummary({
+        id: "self_contact_v1_peer",
+        containerId: "user-container",
+      }),
+    ),
   ).toBe(true);
 });
 
-test("isSelfContactDocument matches the deterministic self-contact id prefix", () => {
-  expect(isSelfContactDocument({ id: "self_contact_v1_abc" })).toBe(true);
-  expect(isSelfContactDocument({ id: "local-contact-2" })).toBe(false);
-  expect(isSelfContactDocument(undefined)).toBe(false);
+test("the self contact cannot be moved or purged, from any container", () => {
+  // Move and purge share the delete guard's identity check: "delete" is a move
+  // to Trash and a trashed doc can be purged, so all three must be blocked for
+  // the self contact wherever it is viewed.
+  for (const containerId of [CONTACTS_CONTAINER_ID, "user-container"]) {
+    const selfContact = documentSummary({
+      id: "self_contact_v1_abc",
+      containerId,
+    });
+    expect(canMoveDocumentByRules(rulesContext, selfContact)).toBe(false);
+    expect(canPurgeDocumentByRules(rulesContext, selfContact)).toBe(false);
+  }
+});
+
+test("non-self documents can be moved and purged", () => {
+  const peerSelfContact = documentSummary({
+    id: "self_contact_v1_peer",
+    containerId: "user-container",
+  });
+  const normalDocument = documentSummary({ id: "local-contact-2" });
+  expect(canMoveDocumentByRules(rulesContext, peerSelfContact)).toBe(true);
+  expect(canPurgeDocumentByRules(rulesContext, peerSelfContact)).toBe(true);
+  expect(canMoveDocumentByRules(rulesContext, normalDocument)).toBe(true);
+  expect(canPurgeDocumentByRules(rulesContext, normalDocument)).toBe(true);
+  expect(canMoveDocumentByRules(rulesContext, undefined)).toBe(true);
+  expect(canPurgeDocumentByRules(rulesContext, undefined)).toBe(true);
+});
+
+test("isSelfContactDocument matches only the viewer's own self-contact id", () => {
+  expect(
+    isSelfContactDocument(
+      { id: "self_contact_v1_abc" },
+      SELF_SIGNING_FINGERPRINT,
+    ),
+  ).toBe(true);
+  expect(
+    isSelfContactDocument(
+      { id: "self_contact_v1_peer" },
+      SELF_SIGNING_FINGERPRINT,
+    ),
+  ).toBe(false);
+  expect(
+    isSelfContactDocument({ id: "local-contact-2" }, SELF_SIGNING_FINGERPRINT),
+  ).toBe(false);
+  expect(isSelfContactDocument(undefined, SELF_SIGNING_FINGERPRINT)).toBe(
+    false,
+  );
+  expect(isSelfContactDocument({ id: "self_contact_v1_abc" }, null)).toBe(
+    false,
+  );
 });
 
 test("a peer's shared contacts folder enforces contacts rules by name", () => {

@@ -16,6 +16,7 @@ const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
   currentOrganizationId: null,
+  currentSigningFingerprint: null,
   trashSystemSlot: TRASH_SLOT,
 });
 
@@ -187,6 +188,33 @@ test("a contact cannot be moved out of the contacts container", () => {
     contactDocument.id,
     undefined,
     rulesContext,
+  );
+
+  expect(options).toEqual([]);
+});
+
+test("the self contact cannot be moved out of a linked user container", () => {
+  // Viewed via a link the self contact carries the user container's id, so the
+  // container pin does not apply; the identity guard must still yield no move
+  // targets — otherwise it could be moved to Trash, a delete-equivalent that
+  // bypasses the self-contact delete protection.
+  const selfContactRulesContext = createExplorerContainerRulesContext({
+    contactsContainerId: CONTACTS_CONTAINER_ID,
+    contactsSystemSlot: CONTACTS_SLOT,
+    currentOrganizationId: null,
+    currentSigningFingerprint: "abc",
+    trashSystemSlot: TRASH_SLOT,
+  });
+  const linkedSelfContact = documentSummary({
+    id: "self_contact_v1_abc",
+    containerId: "user-container",
+  });
+  const options = getDocumentMoveTargetOptions(
+    nodes,
+    [linkedSelfContact],
+    linkedSelfContact.id,
+    undefined,
+    selfContactRulesContext,
   );
 
   expect(options).toEqual([]);
