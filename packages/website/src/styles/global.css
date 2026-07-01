@@ -94,6 +94,13 @@
   line-height: 1.5;
 }
 
+.section h1 {
+  margin: 0;
+  color: #101614;
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1.1;
+}
+
 .section h2 {
   margin: 0;
   color: #101614;
