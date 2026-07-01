@@ -2,7 +2,6 @@ import type { UserSession } from "@tearleads/client-sdk";
 import {
   MiniAppActions,
   MiniAppButton,
-  MiniAppClipboardButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppSection,
@@ -19,25 +18,14 @@ import {
   sessionIsMutating,
 } from "./IdentityManagerSessionDisplay";
 
-function SessionDetailValue({
-  copyLabel,
-  title,
-  value,
-}: {
-  copyLabel?: string | undefined;
-  title?: string | null | undefined;
-  value: string | null | undefined;
-}) {
+function SessionDetailValue({ value }: { value: string | null | undefined }) {
   if (!value) {
     return <span>None</span>;
   }
 
   return (
     <span className="identity-manager-session-detail-value">
-      <span title={title ?? value}>{value}</span>
-      {copyLabel ? (
-        <MiniAppClipboardButton label={copyLabel} value={value} />
-      ) : null}
+      <span title={value}>{value}</span>
     </span>
   );
 }
@@ -119,16 +107,10 @@ export function SessionDetailSection({
             label="Signing Key"
             title={session.signingKeyFingerprint}
           >
-            <SessionDetailValue
-              copyLabel="Copy signing key"
-              value={session.signingKeyFingerprint}
-            />
+            <SessionDetailValue value={session.signingKeyFingerprint} />
           </MiniAppInfoRow>
           <MiniAppInfoRow label="Session ID" title={session.id}>
-            <SessionDetailValue
-              copyLabel="Copy session ID"
-              value={session.id}
-            />
+            <SessionDetailValue value={session.id} />
           </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>

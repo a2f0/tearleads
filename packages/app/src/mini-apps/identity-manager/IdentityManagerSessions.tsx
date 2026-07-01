@@ -1,5 +1,4 @@
 import type { UserSession } from "@tearleads/client-sdk";
-import { useEffect, useState } from "react";
 import {
   MiniAppButton,
   MiniAppSection,
@@ -18,7 +17,6 @@ import {
 import { useContextMenuState } from "../../components/shared/useContextMenuState";
 import { useSessionTableColumns } from "./IdentityManagerSessionColumns";
 import { SessionContextMenu } from "./IdentityManagerSessionContextMenu";
-import { SessionDetailSection } from "./IdentityManagerSessionDetail";
 import { SessionTableBody } from "./IdentityManagerSessionTable";
 
 export function SessionsSection({
@@ -26,6 +24,7 @@ export function SessionsSection({
   handleEndSession,
   loadingSessions,
   mutatingSessionId,
+  onOpenSessionDetail,
   refreshSessions,
   sessionError,
   sessions,
@@ -34,34 +33,21 @@ export function SessionsSection({
   handleEndSession: (session: UserSession) => Promise<void>;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
+  onOpenSessionDetail: (sessionId: string) => void;
   refreshSessions: () => Promise<void>;
   sessionError: string | null;
   sessions: ReadonlyArray<UserSession>;
 }) {
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
-    null,
-  );
   const { columns, visibleColumnIds } = useSessionTableColumns();
   const virtualSessions = useMiniAppVirtualRows({
     rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
     rows: sessions,
   });
   const contextMenuState = useContextMenuState<string>();
-  const selectedSession =
-    sessions.find((session) => session.id === selectedSessionId) ?? null;
   const contextMenuSession =
     sessions.find(
       (session) => session.id === contextMenuState.contextMenu?.id,
     ) ?? null;
-
-  useEffect(() => {
-    if (
-      selectedSessionId !== null &&
-      !sessions.some((session) => session.id === selectedSessionId)
-    ) {
-      setSelectedSessionId(null);
-    }
-  }, [selectedSessionId, sessions]);
 
   return (
     <>
@@ -97,11 +83,9 @@ export function SessionsSection({
                 handleEndSession={handleEndSession}
                 loadingSessions={loadingSessions}
                 mutatingSessionId={mutatingSessionId}
-                onOpenSessionDetail={setSelectedSessionId}
+                onOpenSessionDetail={onOpenSessionDetail}
                 openSessionContextMenu={contextMenuState.openContextMenu}
-                selectedSessionId={
-                  selectedSessionId ?? contextMenuState.contextMenu?.id ?? null
-                }
+                selectedSessionId={contextMenuState.contextMenu?.id ?? null}
                 sessionCount={sessions.length}
                 sessions={virtualSessions.rows}
                 topPadding={virtualSessions.topPadding}
@@ -111,19 +95,11 @@ export function SessionsSection({
           </MiniAppTableFrame>
         )}
       </MiniAppSection>
-      {canManageSessions && selectedSession ? (
-        <SessionDetailSection
-          handleEndSession={handleEndSession}
-          mutatingSessionId={mutatingSessionId}
-          onBack={() => setSelectedSessionId(null)}
-          session={selectedSession}
-        />
-      ) : null}
       <SessionContextMenu
         closeContextMenu={contextMenuState.closeContextMenu}
         handleEndSession={handleEndSession}
         mutatingSessionId={mutatingSessionId}
-        onOpenSessionDetail={setSelectedSessionId}
+        onOpenSessionDetail={onOpenSessionDetail}
         position={contextMenuState.contextMenu?.position ?? null}
         session={contextMenuSession}
       />

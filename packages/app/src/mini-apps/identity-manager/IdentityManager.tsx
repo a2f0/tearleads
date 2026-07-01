@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
 import {
@@ -15,7 +15,10 @@ import {
 } from "./IdentityManagerActionToolbar";
 import { useIdentityManager } from "./IdentityManagerController";
 import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
+import { SessionDetailSection } from "./IdentityManagerSessionDetail";
 import { SessionsSection } from "./IdentityManagerSessions";
+
+type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
 
 function compactIdentifier(value: string | null | undefined): string {
   if (!value) {
@@ -101,27 +104,114 @@ function IdentitySection({
   );
 }
 
-function IdentityManagerLayout({
+function getIdentitySectionActions({
   backupKeyPackage,
   canAuthenticate,
   canExportKeyPackage,
-  canManageSessions,
-  handleRestoreFileChange,
   handleRestoreKeyPackageClick,
   identity,
   identityMutations,
-  identityState,
-  isDestroyKeyPackageDialogOpen,
   localKeyringLocked,
-  logoutBusy,
   logoutDialog,
-  onConfirmLogout,
   registration,
-  restoreFileInputRef,
   session,
-  sessionList,
   sessionMutations,
-}: ReturnType<typeof useIdentityManager>) {
+}: IdentityManagerModel): IdentityActionToolbarProps {
+  return {
+    backupKeyPackage,
+    canAuthenticate,
+    canExportKeyPackage,
+    canGenerateKey: !localKeyringLocked,
+    canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
+    canRestoreKeyPackage: !localKeyringLocked,
+    generateKey: identity.generateKey,
+    handleAuthenticate: identityMutations.authenticate,
+    handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
+    handleLogoutCurrentSession: logoutDialog.requestLogout,
+    handleRegisterIdentity: identityMutations.handleRegisterIdentity,
+    handleRestoreKeyPackageClick,
+    hasSigningKeyPair: identity.signingKeyPair !== null,
+    identityBusy: identityMutations.identityBusy,
+    isAuthenticated: session.isAuthenticated,
+    mutatingSessionId: sessionMutations.mutatingSessionId,
+  };
+}
+
+function IdentityManagerPrimaryScreen({
+  model,
+  onOpenSessionDetail,
+}: {
+  model: IdentityManagerModel;
+  onOpenSessionDetail: (sessionId: string) => void;
+}) {
+  const {
+    canManageSessions,
+    identity,
+    identityMutations,
+    identityState,
+    session,
+    sessionList,
+    sessionMutations,
+  } = model;
+
+  return (
+    <>
+      <IdentitySection
+        actions={getIdentitySectionActions(model)}
+        containerId={session.containerId}
+        identityError={identityMutations.identityError}
+        identityState={identityState}
+        isAuthenticated={session.isAuthenticated}
+        organizationId={session.organizationId}
+        signingFingerprint={identity.signingFingerprint}
+        userId={session.userId}
+      />
+      <IdentityManagerPinCodeSection />
+      <SessionsSection
+        canManageSessions={canManageSessions}
+        handleEndSession={sessionMutations.endSession}
+        loadingSessions={sessionList.loadingSessions}
+        mutatingSessionId={sessionMutations.mutatingSessionId}
+        onOpenSessionDetail={onOpenSessionDetail}
+        refreshSessions={sessionList.refreshSessions}
+        sessionError={sessionList.sessionError}
+        sessions={sessionList.sessions}
+      />
+    </>
+  );
+}
+
+function IdentityManagerLayout(model: IdentityManagerModel) {
+  const {
+    canManageSessions,
+    handleRestoreFileChange,
+    identityMutations,
+    isDestroyKeyPackageDialogOpen,
+    logoutBusy,
+    logoutDialog,
+    onConfirmLogout,
+    restoreFileInputRef,
+    sessionList,
+    sessionMutations,
+  } = model;
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null,
+  );
+  const selectedSession =
+    sessionList.sessions.find(
+      (candidate) => candidate.id === selectedSessionId,
+    ) ?? null;
+  const hasSelectedSession = selectedSession !== null;
+
+  useEffect(() => {
+    if (
+      selectedSessionId !== null &&
+      (!canManageSessions || !hasSelectedSession)
+    ) {
+      setSelectedSessionId(null);
+    }
+  }, [canManageSessions, hasSelectedSession, selectedSessionId]);
+
   return (
     <MiniAppRoot className="identity-manager">
       <input
@@ -133,43 +223,19 @@ function IdentityManagerLayout({
         onChange={handleRestoreFileChange}
       />
       <main className="identity-manager-main">
-        <IdentitySection
-          actions={{
-            backupKeyPackage,
-            canAuthenticate,
-            canExportKeyPackage,
-            canGenerateKey: !localKeyringLocked,
-            canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
-            canRestoreKeyPackage: !localKeyringLocked,
-            generateKey: identity.generateKey,
-            handleAuthenticate: identityMutations.authenticate,
-            handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
-            handleLogoutCurrentSession: logoutDialog.requestLogout,
-            handleRegisterIdentity: identityMutations.handleRegisterIdentity,
-            handleRestoreKeyPackageClick,
-            hasSigningKeyPair: identity.signingKeyPair !== null,
-            identityBusy: identityMutations.identityBusy,
-            isAuthenticated: session.isAuthenticated,
-            mutatingSessionId: sessionMutations.mutatingSessionId,
-          }}
-          containerId={session.containerId}
-          identityError={identityMutations.identityError}
-          identityState={identityState}
-          isAuthenticated={session.isAuthenticated}
-          organizationId={session.organizationId}
-          signingFingerprint={identity.signingFingerprint}
-          userId={session.userId}
-        />
-        <IdentityManagerPinCodeSection />
-        <SessionsSection
-          canManageSessions={canManageSessions}
-          handleEndSession={sessionMutations.endSession}
-          loadingSessions={sessionList.loadingSessions}
-          mutatingSessionId={sessionMutations.mutatingSessionId}
-          refreshSessions={sessionList.refreshSessions}
-          sessionError={sessionList.sessionError}
-          sessions={sessionList.sessions}
-        />
+        {canManageSessions && selectedSession ? (
+          <SessionDetailSection
+            handleEndSession={sessionMutations.endSession}
+            mutatingSessionId={sessionMutations.mutatingSessionId}
+            onBack={() => setSelectedSessionId(null)}
+            session={selectedSession}
+          />
+        ) : (
+          <IdentityManagerPrimaryScreen
+            model={model}
+            onOpenSessionDetail={setSelectedSessionId}
+          />
+        )}
       </main>
       {isDestroyKeyPackageDialogOpen && (
         <DestroyKeyPackageConfirmationDialog
