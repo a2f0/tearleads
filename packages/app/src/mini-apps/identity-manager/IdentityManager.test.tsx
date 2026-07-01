@@ -30,6 +30,16 @@ const ACTIVE_SESSION: UserSession = {
   signingKeyFingerprint: "b".repeat(64),
 };
 
+const REMOTE_SESSION: UserSession = {
+  createdAt: "2026-05-27T11:00:00.000Z",
+  id: "c".repeat(64),
+  ipAddresses: ["192.0.2.44"],
+  isCurrent: false,
+  lastActiveAt: "2026-05-27T11:10:00.000Z",
+  lastActiveIp: "192.0.2.44",
+  signingKeyFingerprint: "d".repeat(64),
+};
+
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
   Navigator.prototype,
   "clipboard",
@@ -85,6 +95,7 @@ function IdentityManagerTestRuntime({
 
 afterEach(() => {
   cleanup();
+  globalThis.localStorage?.clear();
   if (originalClipboardDescriptor) {
     Object.defineProperty(
       Navigator.prototype,
@@ -110,74 +121,198 @@ function installClipboardWriteMock(): string[] {
   return writes;
 }
 
-test("active sessions render last IP and session IP history", async () => {
+async function renderAuthenticatedIdentityManagerWithSessions(
+  sessions: ReadonlyArray<UserSession>,
+) {
   const originalWebSocket = globalThis.WebSocket;
   const tearleadsRef: { current: Tearleads | null } = { current: null };
+  Reflect.set(globalThis, "WebSocket", TestWebSocket);
+  const view = render(
+    <IdentityManagerTestRuntime
+      onTearleadsReady={(sdk) => {
+        tearleadsRef.current = sdk;
+      }}
+    >
+      <IdentityManager />
+    </IdentityManagerTestRuntime>,
+  );
+
+  await waitFor(() => {
+    expect(tearleadsRef.current).toBeTruthy();
+  });
+
+  const tearleads = tearleadsRef.current;
+  if (!tearleads) {
+    throw new Error("Expected Tearleads SDK to be available after render.");
+  }
+
+  const originalListSessions = tearleads.session.listSessions;
+  spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
+  tearleads.session.listSessions = async () => [...sessions];
+  await act(async () => {
+    await tearleads.identity.setKeyPairs({
+      encapsulationKeyPair: null,
+      signingFingerprint: "b".repeat(64),
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+    });
+    tearleads.session.setContext({
+      authToken: "test-token",
+      containerId: "container-1",
+      isAuthenticated: true,
+      organizationId: "org-1",
+      userId: "user-1",
+    });
+  });
+
+  view.rerender(
+    <IdentityManagerTestRuntime
+      onTearleadsReady={(sdk) => {
+        tearleadsRef.current = sdk;
+      }}
+    >
+      <IdentityManager />
+    </IdentityManagerTestRuntime>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByRole("table")).toBeTruthy();
+  });
+
+  return {
+    restore: () => {
+      tearleads.session.listSessions = originalListSessions;
+      Reflect.set(globalThis, "WebSocket", originalWebSocket);
+    },
+    tearleads,
+    view,
+  };
+}
+
+test("active sessions hide diagnostic columns by default and expose the columns menu", async () => {
+  const { restore, view } =
+    await renderAuthenticatedIdentityManagerWithSessions([ACTIVE_SESSION]);
 
   try {
-    Reflect.set(globalThis, "WebSocket", TestWebSocket);
-    const view = render(
-      <IdentityManagerTestRuntime
-        onTearleadsReady={(sdk) => {
-          tearleadsRef.current = sdk;
-        }}
-      />,
+    const table = view.getByRole("table");
+    expect(
+      within(table).getByRole("columnheader", { name: "Last IP" }),
+    ).toBeTruthy();
+    expect(
+      within(table).queryByRole("columnheader", { name: "IPs" }),
+    ).toBeNull();
+    expect(
+      within(table).queryByRole("columnheader", { name: "Created" }),
+    ).toBeNull();
+    expect(
+      within(table).queryByRole("columnheader", { name: "Signing Key" }),
+    ).toBeNull();
+    expect(
+      within(table).queryByRole("columnheader", { name: "Session ID" }),
+    ).toBeNull();
+    expect(within(table).getByText("203.0.113.9")).toBeTruthy();
+    expect(within(table).queryByText("198.51.100.10, +1")).toBeNull();
+
+    fireEvent.click(view.getByRole("button", { name: "Columns" }));
+
+    const fullIpListToggle = view.getByRole("checkbox", {
+      name: "Full IP List Off",
+    });
+    expect((fullIpListToggle as HTMLInputElement).checked).toBe(false);
+    expect(
+      (
+        view.getByRole("checkbox", {
+          name: "Created Off",
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
+    expect(
+      (
+        view.getByRole("checkbox", {
+          name: "Signing Key Off",
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
+    expect(
+      (
+        view.getByRole("checkbox", {
+          name: "Session ID Off",
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(false);
+
+    fireEvent.click(fullIpListToggle);
+
+    expect(
+      within(table).getByRole("columnheader", { name: "IPs" }),
+    ).toBeTruthy();
+    expect(within(table).getByText("198.51.100.10, +1")).toBeTruthy();
+  } finally {
+    restore();
+  }
+});
+
+test("session rows open details and expose context menu actions", async () => {
+  const { restore, tearleads, view } =
+    await renderAuthenticatedIdentityManagerWithSessions([
+      ACTIVE_SESSION,
+      REMOTE_SESSION,
+    ]);
+  const originalDestroySession = tearleads.session.destroySession;
+  const destroyedSessionIds: string[] = [];
+
+  try {
+    tearleads.session.destroySession = async (sessionId) => {
+      destroyedSessionIds.push(sessionId);
+      return true;
+    };
+    const getMenuButton = (label: string) => {
+      const button = Array.from(
+        view.baseElement.querySelectorAll("button"),
+      ).find(
+        (candidate) =>
+          candidate.querySelector(".menu-item-label")?.textContent === label,
+      );
+      if (!(button instanceof HTMLButtonElement)) {
+        throw new Error(`Expected menu button: ${label}`);
+      }
+      return button;
+    };
+    const table = view.getByRole("table");
+
+    fireEvent.click(within(table).getByText("203.0.113.9"));
+
+    expect(view.getByText("Current Session")).toBeTruthy();
+    expect(view.getByText(ACTIVE_SESSION.id)).toBeTruthy();
+    expect(view.getByText(ACTIVE_SESSION.signingKeyFingerprint)).toBeTruthy();
+    expect(view.getByText("198.51.100.10")).toBeTruthy();
+
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    expect(view.queryByText("Current Session")).toBeNull();
+
+    fireEvent.contextMenu(within(table).getByText("192.0.2.44"), {
+      clientX: 12,
+      clientY: 34,
+    });
+    expect(view.baseElement.querySelectorAll(".menu-item-icon")).toHaveLength(
+      2,
     );
+    fireEvent.click(getMenuButton("Get Info"));
+
+    expect(view.getByText("Active Session")).toBeTruthy();
+    expect(view.getByText(REMOTE_SESSION.id)).toBeTruthy();
+
+    fireEvent.contextMenu(within(table).getByText("192.0.2.44"), {
+      clientX: 12,
+      clientY: 34,
+    });
+    fireEvent.click(getMenuButton("Log Out Session"));
 
     await waitFor(() => {
-      expect(tearleadsRef.current).toBeTruthy();
+      expect(destroyedSessionIds).toEqual([REMOTE_SESSION.id]);
     });
-
-    const tearleads = tearleadsRef.current;
-    if (!tearleads) {
-      throw new Error("Expected Tearleads SDK to be available after render.");
-    }
-
-    const originalListSessions = tearleads.session.listSessions;
-    try {
-      spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
-      tearleads.session.listSessions = async () => [ACTIVE_SESSION];
-      await act(async () => {
-        await tearleads.identity.setKeyPairs({
-          encapsulationKeyPair: null,
-          signingFingerprint: "b".repeat(64),
-          signingKeyPair: generateSigningSeedAndKeyPair(),
-        });
-        tearleads.session.setContext({
-          authToken: "test-token",
-          containerId: "container-1",
-          isAuthenticated: true,
-          organizationId: "org-1",
-          userId: "user-1",
-        });
-      });
-
-      view.rerender(
-        <IdentityManagerTestRuntime
-          onTearleadsReady={(sdk) => {
-            tearleadsRef.current = sdk;
-          }}
-        >
-          <IdentityManager />
-        </IdentityManagerTestRuntime>,
-      );
-
-      await waitFor(() => {
-        const table = view.getByRole("table");
-        expect(
-          within(table).getByRole("columnheader", { name: "Last IP" }),
-        ).toBeTruthy();
-        expect(
-          within(table).getByRole("columnheader", { name: "IPs" }),
-        ).toBeTruthy();
-        expect(within(table).getByText("203.0.113.9")).toBeTruthy();
-        expect(within(table).getByText("198.51.100.10, +1")).toBeTruthy();
-      });
-    } finally {
-      tearleads.session.listSessions = originalListSessions;
-    }
   } finally {
-    Reflect.set(globalThis, "WebSocket", originalWebSocket);
+    tearleads.session.destroySession = originalDestroySession;
+    restore();
   }
 });
 
@@ -193,9 +328,7 @@ test("identity detail copies the authenticated user id", async () => {
         onTearleadsReady={(sdk) => {
           tearleadsRef.current = sdk;
         }}
-      >
-        <IdentityManager />
-      </IdentityManagerTestRuntime>,
+      />,
     );
 
     await waitFor(() => {

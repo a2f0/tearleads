@@ -1,51 +1,21 @@
-import type { UserSession } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
 import {
-  MiniAppButton,
   MiniAppClipboardButton,
   MiniAppRoot,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
-import {
-  MiniAppTable,
-  MiniAppTableActionButton,
-  MiniAppTableCell,
-  type MiniAppTableColumn,
-  MiniAppTableEmptyRow,
-  MiniAppTableFrame,
-  MiniAppTableRow,
-  MiniAppTableText,
-} from "../../components/shared/MiniAppTable";
-import {
-  getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
-  MiniAppVirtualTableSpacerRow,
-  useMiniAppVirtualRows,
-} from "../../components/shared/MiniAppVirtual";
-import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import "./IdentityManager.css";
 import {
   IdentityActionToolbar,
   type IdentityActionToolbarProps,
 } from "./IdentityManagerActionToolbar";
-import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { useIdentityManager } from "./IdentityManagerController";
 import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
-
-const SESSION_TABLE_COLUMNS = [
-  { header: "Status", id: "status", width: "6.5rem" },
-  { header: "Last Active", id: "last-active", width: "10rem" },
-  { header: "Last IP", id: "last-ip", width: "9rem" },
-  { header: "IPs", id: "ip-addresses", width: "7rem" },
-  { header: "Created", id: "created", width: "10rem" },
-  { header: "Signing Key", id: "signing-key" },
-  { header: "Session ID", id: "session-id" },
-  { header: "", id: "action", width: "7.5rem" },
-] satisfies ReadonlyArray<MiniAppTableColumn>;
+import { SessionsSection } from "./IdentityManagerSessions";
 
 function compactIdentifier(value: string | null | undefined): string {
   if (!value) {
@@ -82,26 +52,6 @@ function IdentityDetail({
       </dd>
     </>
   );
-}
-
-function getSessionMutationLabel(session: UserSession): string {
-  return session.isCurrent ? "Log Out" : "Revoke";
-}
-
-function formatSessionIpAddresses(ipAddresses: ReadonlyArray<string>): string {
-  if (ipAddresses.length === 0) {
-    return "None";
-  }
-  const [firstIpAddress] = ipAddresses;
-  if (ipAddresses.length === 1) {
-    return compactIdentifier(firstIpAddress);
-  }
-
-  return `${compactIdentifier(firstIpAddress)}, +${ipAddresses.length - 1}`;
-}
-
-function sessionIpAddressesTitle(ipAddresses: ReadonlyArray<string>): string {
-  return ipAddresses.length === 0 ? "No recorded IPs" : ipAddresses.join(", ");
 }
 
 function IdentitySection({
@@ -147,179 +97,6 @@ function IdentitySection({
         <dd>{isAuthenticated ? "Authenticated" : "Signed out"}</dd>
       </dl>
       <IdentityActionToolbar {...actions} />
-    </MiniAppSection>
-  );
-}
-
-function SessionTableRow({
-  handleEndSession,
-  mutatingSessionId,
-  session,
-}: {
-  handleEndSession: (session: UserSession) => Promise<void>;
-  mutatingSessionId: string | null;
-  session: UserSession;
-}) {
-  const rowIsMutating =
-    mutatingSessionId === session.id ||
-    (session.isCurrent && mutatingSessionId === CURRENT_SESSION_MUTATION_ID);
-
-  return (
-    <MiniAppTableRow>
-      <MiniAppTableCell>
-        <MiniAppTableText>
-          {session.isCurrent ? "Current" : "Active"}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText truncate={false}>
-          {formatMiniAppDateTime(session.lastActiveAt)}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText title={session.lastActiveIp ?? "No recorded IP"}>
-          {session.lastActiveIp ?? "None"}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText title={sessionIpAddressesTitle(session.ipAddresses)}>
-          {formatSessionIpAddresses(session.ipAddresses)}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText truncate={false}>
-          {formatMiniAppDateTime(session.createdAt)}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText title={session.signingKeyFingerprint}>
-          {compactIdentifier(session.signingKeyFingerprint)}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText title={session.id}>
-          {compactIdentifier(session.id)}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableActionButton
-          disabled={mutatingSessionId !== null}
-          onClick={() => void handleEndSession(session)}
-        >
-          {rowIsMutating ? "Working..." : getSessionMutationLabel(session)}
-        </MiniAppTableActionButton>
-      </MiniAppTableCell>
-    </MiniAppTableRow>
-  );
-}
-
-function SessionTableBody({
-  bottomPadding,
-  handleEndSession,
-  loadingSessions,
-  mutatingSessionId,
-  sessionCount,
-  sessions,
-  topPadding,
-}: {
-  bottomPadding: number;
-  handleEndSession: (session: UserSession) => Promise<void>;
-  loadingSessions: boolean;
-  mutatingSessionId: string | null;
-  sessionCount: number;
-  sessions: ReadonlyArray<UserSession>;
-  topPadding: number;
-}) {
-  if (sessionCount === 0) {
-    return (
-      <MiniAppTableEmptyRow colSpan={SESSION_TABLE_COLUMNS.length}>
-        {loadingSessions ? "Loading sessions..." : "No active sessions."}
-      </MiniAppTableEmptyRow>
-    );
-  }
-
-  return (
-    <>
-      <MiniAppVirtualTableSpacerRow
-        colSpan={SESSION_TABLE_COLUMNS.length}
-        height={topPadding}
-      />
-      {sessions.map((session) => (
-        <SessionTableRow
-          handleEndSession={handleEndSession}
-          key={session.id}
-          mutatingSessionId={mutatingSessionId}
-          session={session}
-        />
-      ))}
-      <MiniAppVirtualTableSpacerRow
-        colSpan={SESSION_TABLE_COLUMNS.length}
-        height={bottomPadding}
-      />
-    </>
-  );
-}
-
-function SessionsSection({
-  canManageSessions,
-  handleEndSession,
-  loadingSessions,
-  mutatingSessionId,
-  refreshSessions,
-  sessionError,
-  sessions,
-}: {
-  canManageSessions: boolean;
-  handleEndSession: (session: UserSession) => Promise<void>;
-  loadingSessions: boolean;
-  mutatingSessionId: string | null;
-  refreshSessions: () => Promise<void>;
-  sessionError: string | null;
-  sessions: ReadonlyArray<UserSession>;
-}) {
-  const virtualSessions = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
-    rows: sessions,
-  });
-
-  return (
-    <MiniAppSection className="identity-manager-sessions">
-      <MiniAppSectionHeading>
-        <h2>Active Sessions</h2>
-        {canManageSessions && (
-          <MiniAppButton
-            disabled={loadingSessions || mutatingSessionId !== null}
-            variant="ghost"
-            onClick={() => void refreshSessions()}
-          >
-            Refresh
-          </MiniAppButton>
-        )}
-      </MiniAppSectionHeading>
-      {sessionError && (
-        <MiniAppStatus tone="error">{sessionError}</MiniAppStatus>
-      )}
-      {!canManageSessions ? (
-        <MiniAppStatus>Login to manage sessions.</MiniAppStatus>
-      ) : (
-        <MiniAppTableFrame
-          className="identity-manager-session-table mini-app-table-frame--virtual"
-          ref={virtualSessions.frameRef}
-          style={getMiniAppVirtualFrameStyle(MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT)}
-        >
-          <MiniAppTable columns={SESSION_TABLE_COLUMNS}>
-            <SessionTableBody
-              bottomPadding={virtualSessions.bottomPadding}
-              handleEndSession={handleEndSession}
-              loadingSessions={loadingSessions}
-              mutatingSessionId={mutatingSessionId}
-              sessionCount={sessions.length}
-              sessions={virtualSessions.rows}
-              topPadding={virtualSessions.topPadding}
-            />
-          </MiniAppTable>
-        </MiniAppTableFrame>
-      )}
     </MiniAppSection>
   );
 }
