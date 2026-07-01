@@ -1,3 +1,15 @@
+import type { Icon } from "@phosphor-icons/react";
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
+import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutCardinal";
+import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
+import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
+import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
+import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
+import { LinkSimpleIcon } from "@phosphor-icons/react/dist/csr/LinkSimple";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
+import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
+import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
+import { WarningCircleIcon } from "@phosphor-icons/react/dist/csr/WarningCircle";
 import type { ReactNode } from "react";
 import { useCallback, useRef } from "react";
 import { Menu } from "../../../components/shared/Menu";
@@ -68,6 +80,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
       direction="down"
     >
       <MenuItem
+        icon={InfoIcon}
         label={EXPLORER_LABELS.documentInfoGetInfoAction}
         onClick={() => {
           closeContextMenu();
@@ -79,18 +92,21 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
+        icon={LinkSimpleIcon}
         label={EXPLORER_LABELS.documentLinkAction}
         disabled={!canLinkSelectedDocument}
         onSelect={() => openLinkDocumentModal(contextMenu.id.localId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
+        icon={ArrowsOutCardinalIcon}
         label={EXPLORER_LABELS.documentMoveAction}
         disabled={!canMoveSelectedDocument}
         onSelect={() => openMoveDocumentModal(contextMenu.id.localId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
+        icon={TrashIcon}
         label={EXPLORER_LABELS.documentDeleteAction}
         disabled={!canDeleteSelectedDocument}
         onSelect={() =>
@@ -102,6 +118,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
+        icon={WarningCircleIcon}
         label={EXPLORER_LABELS.documentPurgeAction}
         disabled={!canPurgeSelectedDocument}
         onSelect={() =>
@@ -109,6 +126,7 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         }
       />
       <MenuItem
+        icon={FolderOpenIcon}
         label={EXPLORER_LABELS.documentBackToContainerAction}
         onClick={() => {
           closeContextMenu();
@@ -170,6 +188,7 @@ function ExplorerContactsContainerContextMenu(
       direction="down"
     >
       <MenuItem
+        icon={InfoIcon}
         label={EXPLORER_LABELS.documentInfoGetInfoAction}
         onClick={() => {
           closeContextMenu();
@@ -177,6 +196,7 @@ function ExplorerContactsContainerContextMenu(
         }}
       />
       <MenuItem
+        icon={AddressBookIcon}
         label={EXPLORER_LABELS.newContactAction}
         disabled={!canCreateContactContextMenuNode}
         onClick={() => {
@@ -191,16 +211,18 @@ function ExplorerContactsContainerContextMenu(
 function ExplorerOptionalMenuItem(params: {
   closeContextMenu: () => void;
   disabled: boolean;
+  icon: Icon;
   label: string;
   onSelect: () => void;
 }) {
-  const { closeContextMenu, disabled, label, onSelect } = params;
+  const { closeContextMenu, disabled, icon, label, onSelect } = params;
   if (disabled) {
     return null;
   }
 
   return (
     <MenuItem
+      icon={icon}
       label={label}
       onClick={() => {
         closeContextMenu();
@@ -243,35 +265,41 @@ function ExplorerStandardContainerContextMenu(
     >
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
+        icon={FilePlusIcon}
         label={EXPLORER_LABELS.newStructuredDocumentAction}
         disabled={!canCreateStructuredDocumentContextMenuNode}
         onSelect={() => openNewStructuredDocumentRoute(containerId)}
       />
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
+        icon={FolderPlusIcon}
         label={EXPLORER_LABELS.createChildFolderAction}
         disabled={!canCreateChildContextMenuNode}
         onSelect={() => openCreateChildModal(containerId)}
       />
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
+        icon={UploadSimpleIcon}
         label="Upload"
         disabled={!canUploadToContextMenuNode}
         onSelect={() => triggerUpload(containerId)}
       />
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
+        icon={PencilSimpleIcon}
         label="Rename"
         disabled={!canRenameContextMenuNode}
         onSelect={() => openRenameModal(containerId)}
       />
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
+        icon={ArrowsOutCardinalIcon}
         label="Move"
         disabled={!canMoveContextMenuNode}
         onSelect={() => openMoveModal(containerId)}
       />
       <MenuItem
+        icon={InfoIcon}
         label={EXPLORER_LABELS.documentInfoGetInfoAction}
         onClick={() => {
           closeContextMenu();
@@ -280,12 +308,14 @@ function ExplorerStandardContainerContextMenu(
       />
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
+        icon={TrashIcon}
         label="Delete"
         disabled={!canDeleteContextMenuNode}
         onSelect={() => openDeleteModal(containerId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
+        icon={WarningCircleIcon}
         label={EXPLORER_LABELS.documentPurgeAction}
         disabled={!canPurgeContextMenuNode}
         onSelect={() => openPurgeModal(containerId)}

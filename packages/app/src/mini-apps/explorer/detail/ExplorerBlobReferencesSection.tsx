@@ -1,3 +1,4 @@
+import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import type {
   BlobInfo,
   BlobInfoDocumentReference,
@@ -81,6 +82,7 @@ function BlobReferenceContextMenu(params: {
       position={params.contextMenu.position}
     >
       <MenuItem
+        icon={InfoIcon}
         label={EXPLORER_LABELS.documentInfoGetInfoAction}
         onClick={() => {
           params.closeContextMenu();

@@ -1,3 +1,6 @@
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
+import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
+import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { type MouseEvent, useCallback, useMemo } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
@@ -142,6 +145,7 @@ export function ContactsContextMenuLayer(params: {
       {contextMenu.id.kind === "area" ? (
         <>
           <MenuItem
+            icon={AddressBookIcon}
             label={CONTACTS_LABELS.newContactAction}
             disabled={!ready || !canWrite}
             onClick={() => {
@@ -150,6 +154,7 @@ export function ContactsContextMenuLayer(params: {
             }}
           />
           <MenuItem
+            icon={UserPlusIcon}
             label={CONTACTS_LABELS.importContactAction}
             disabled={!ready || !canWrite}
             onClick={() => {
@@ -160,6 +165,7 @@ export function ContactsContextMenuLayer(params: {
         </>
       ) : (
         <MenuItem
+          icon={UserMinusIcon}
           label="Remove"
           disabled={!canRemoveContextMenuContact}
           onClick={() => {
