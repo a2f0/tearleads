@@ -1,3 +1,5 @@
+import { ArrowDownIcon } from "@phosphor-icons/react/dist/csr/ArrowDown";
+import { ArrowUpIcon } from "@phosphor-icons/react/dist/csr/ArrowUp";
 import { type ReactNode, useCallback, useState } from "react";
 import type { MenuPosition } from "../shared/Menu";
 import { Menu } from "../shared/Menu";
@@ -87,6 +89,7 @@ export function WindowTitleBar({
           direction="down"
         >
           <MenuItem
+            icon={ArrowUpIcon}
             label="Move Forward"
             onClick={() => {
               onMoveForward();
@@ -94,6 +97,7 @@ export function WindowTitleBar({
             }}
           />
           <MenuItem
+            icon={ArrowDownIcon}
             label="Move Backward"
             onClick={() => {
               onMoveBackward();

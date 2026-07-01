@@ -1,3 +1,8 @@
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
+import { UserFocusIcon } from "@phosphor-icons/react/dist/csr/UserFocus";
+import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
+import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
 import { type MouseEvent, useCallback } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
@@ -91,6 +96,7 @@ export function OrgManagerContextMenuLayer(params: {
         direction="down"
       >
         <MenuItem
+          icon={UserFocusIcon}
           label={ORG_MANAGER_LABELS.openRosterEntryAction}
           disabled={loading || mutating}
           onClick={() => {
@@ -99,6 +105,7 @@ export function OrgManagerContextMenuLayer(params: {
           }}
         />
         <MenuItem
+          icon={PencilSimpleIcon}
           label={ORG_MANAGER_LABELS.editRosterEntryAction}
           disabled={!canEditContextMenuRosterUser || loading || mutating}
           onClick={() => {
@@ -107,6 +114,7 @@ export function OrgManagerContextMenuLayer(params: {
           }}
         />
         <MenuItem
+          icon={AddressBookIcon}
           label={ORG_MANAGER_LABELS.importRosterEntryIntoContactsAction}
           disabled={loading || mutating}
           onClick={() => {
@@ -126,6 +134,7 @@ export function OrgManagerContextMenuLayer(params: {
     >
       {contextMenu.id === "directory" ? (
         <MenuItem
+          icon={UserPlusIcon}
           label={ORG_MANAGER_LABELS.importUserAction}
           disabled={!canImportRosterUser || loading || mutating}
           onClick={() => {
@@ -135,6 +144,7 @@ export function OrgManagerContextMenuLayer(params: {
         />
       ) : (
         <MenuItem
+          icon={UsersThreeIcon}
           label={ORG_MANAGER_LABELS.newGroupAction}
           disabled={!canCreateGroup || loading || mutating}
           onClick={() => {

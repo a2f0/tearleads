@@ -1,3 +1,4 @@
+import { KeyIcon } from "@phosphor-icons/react/dist/csr/Key";
 import { LockIcon } from "@phosphor-icons/react/dist/csr/Lock";
 import { LockOpenIcon } from "@phosphor-icons/react/dist/csr/LockOpen";
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/registry";
@@ -32,7 +33,11 @@ export function PaneContextMenu({
   return (
     <Menu position={position} onClose={onClose}>
       {!hasSigningKeyPair && !paneLocked ? (
-        <MenuItem label="Generate Key Pair" onClick={onGenerateKeyPair} />
+        <MenuItem
+          icon={KeyIcon}
+          label="Generate Key Pair"
+          onClick={onGenerateKeyPair}
+        />
       ) : (
         <>
           {paneLocked && (

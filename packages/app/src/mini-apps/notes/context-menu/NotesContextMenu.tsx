@@ -1,3 +1,5 @@
+import { NotePencilIcon } from "@phosphor-icons/react/dist/csr/NotePencil";
+import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { type MouseEvent, useCallback } from "react";
 import { Menu } from "../../../components/shared/Menu";
 import { MenuItem } from "../../../components/shared/MenuItem";
@@ -91,6 +93,7 @@ export function NotesContextMenuLayer(params: {
     >
       {contextMenu.id.kind === "area" ? (
         <MenuItem
+          icon={NotePencilIcon}
           label={NOTES_LABELS.newNoteAction}
           disabled={!ready}
           onClick={() => {
@@ -100,6 +103,7 @@ export function NotesContextMenuLayer(params: {
         />
       ) : (
         <MenuItem
+          icon={TrashIcon}
           label={NOTES_LABELS.deleteNoteAction}
           onClick={() => {
             void deleteContextMenuNote();
