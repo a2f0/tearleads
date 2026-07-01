@@ -300,14 +300,14 @@ test(
     expect(view.getByRole("button", { name: "Notes" })).toBeTruthy();
 
     const identityManagerWindow = await openIdentityManagerFromPane(view);
-    const identityToolbar =
-      identityManagerWindow.querySelector<HTMLElement>(".mini-app-toolbar");
-    if (!identityToolbar) {
-      throw new Error("Expected Identity Manager toolbar.");
+    const identityLogoutButton = within(identityManagerWindow).getAllByRole(
+      "button",
+      { name: "Log Out" },
+    )[0];
+    if (!identityLogoutButton) {
+      throw new Error("Expected Identity Manager log out button.");
     }
-    fireEvent.click(
-      within(identityToolbar).getByRole("button", { name: "Log Out" }),
-    );
+    fireEvent.click(identityLogoutButton);
 
     const dialog = view.getByRole("dialog");
     expect(dialog).toBeTruthy();
