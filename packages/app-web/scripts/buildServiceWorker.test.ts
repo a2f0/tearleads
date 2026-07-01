@@ -61,6 +61,8 @@ test("buildServiceWorker generates the offline precache contract", async () => {
     expect(result.serviceWorkerSource).toContain(
       'const APP_SHELL_URL = "/index.html";',
     );
+    expect(result.serviceWorkerSource).toContain("self.skipWaiting();");
+    expect(result.serviceWorkerSource).toContain("self.clients.claim()");
     expect(result.serviceWorkerSource).toContain(
       "url.origin !== self.location.origin",
     );

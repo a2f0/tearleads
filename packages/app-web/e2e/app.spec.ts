@@ -146,6 +146,14 @@ async function panePublicKey(pane: Locator): Promise<string> {
 }
 
 test("page loads", async ({ page }) => {
+  const sqliteWarnings: string[] = [];
+  page.on("console", (message) => {
+    const text = message.text();
+    if (text.includes("Ignoring inability to install OPFS sqlite3_vfs:")) {
+      sqliteWarnings.push(text);
+    }
+  });
+
   await page.goto("/");
 
   await expect(page).toHaveTitle("App");
@@ -153,6 +161,7 @@ test("page loads", async ({ page }) => {
   await generateKeyPair(page, firstVisiblePane);
 
   await waitForPaneBooted(firstVisiblePane);
+  expect(sqliteWarnings).toEqual([]);
 });
 
 test("SQLite tables survive a hard reload", async ({ page }) => {

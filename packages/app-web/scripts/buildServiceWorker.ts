@@ -100,6 +100,7 @@ const PRECACHE_URLS = ${JSON.stringify(params.precacheUrls)};
 const APP_SHELL_URL = "/index.html";
 
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)),
   );
@@ -115,7 +116,8 @@ self.addEventListener("activate", (event) => {
             .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
             .map((key) => caches.delete(key)),
         ),
-      ),
+      )
+      .then(() => self.clients.claim()),
   );
 });
 
