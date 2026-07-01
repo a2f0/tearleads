@@ -131,9 +131,30 @@ export interface DocumentCreateApi {
   createDocument(
     input: DocumentCreateRequest,
   ): Promise<DocumentCreateResponse | null>;
+  // Result-returning variant used by the idempotent-create adopt path so an
+  // expected "manifest already exists" conflict can be inspected (and not
+  // reported as a UI error) instead of collapsing to null. Optional so simple
+  // test doubles need only implement `createDocument`.
+  createDocumentResult?(
+    input: DocumentCreateRequest,
+    options?: DocumentSyncRequestResultOptions | undefined,
+  ): Promise<
+    | {
+        readonly data: DocumentCreateResponse;
+        readonly ok: true;
+      }
+    | DocumentSyncSubmitFailure
+  >;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
+  // Needed to adopt an existing remote document on a create conflict: the
+  // committed manifest, content-key bundle and KEK targets are refetched here
+  // (the create response that carried them was lost). Optional for the same
+  // reason as `createDocumentResult`.
+  getDocumentWriterProjection?(
+    documentId: string,
+  ): Promise<DocumentWriterProjectionResponse | null>;
   clearWriterProjectionCaches?(): void;
   primeDocumentWriterProjection(
     documentId: string,
@@ -145,8 +166,13 @@ export interface CreateRemoteDocumentResult {
   contentKey: Uint8Array;
   documentId: string;
   persistedState: PersistedDocumentCreateState;
-  plan: DocumentCreatePlan;
-  response: DocumentCreateResponse;
+  // `plan` and `response` are absent when the result was adopted from an
+  // existing remote document on a create conflict: there is no fresh create
+  // response, and the local plan does not match the committed manifest (the
+  // first attempt used a different content key). Consumers read only
+  // documentId/writerProjection/persistedState.
+  plan?: DocumentCreatePlan | undefined;
+  response?: DocumentCreateResponse | undefined;
   writerProjection: DocumentWriterProjectionResponse;
 }
 

@@ -1,3 +1,4 @@
+import { deriveStableDocumentId } from "../../../data/documents/shared/stableDocumentId";
 import {
   createRemoteDocument,
   type DocumentRecord,
@@ -39,6 +40,10 @@ export async function ensureRemoteDocument(
     apiClient: state.runtime.apiClient,
     author,
     containerId: state.runtime.state.containerId,
+    // Derive the remote id from the stable local id so a retry after a lost
+    // create response re-sends the same id and adopts the existing remote
+    // document instead of creating a duplicate.
+    documentId: await deriveStableDocumentId(state.localId),
     execSql: state.runtime.infra.execSql,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     targetSecretKey: encapsulationKeyPair.secretKey,

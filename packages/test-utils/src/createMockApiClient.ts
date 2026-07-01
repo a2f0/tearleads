@@ -123,6 +123,26 @@ export function createMockApiClient(
     };
   }
 
+  // The idempotent-create adopt path submits via createDocumentResult so an
+  // expected conflict can be inspected without being reported. Mirror the
+  // (possibly overridden) createDocument stub so doubles need only set the
+  // plain method.
+  if (!overrides.createDocumentResult) {
+    apiClient.createDocumentResult = async (input) => {
+      const data = await apiClient.createDocument(input);
+      if (data) {
+        return { data, ok: true };
+      }
+
+      const path = "/documents";
+      return mockRequestFailure({
+        message: `POST ${path}: mock createDocument returned null`,
+        method: "POST",
+        path,
+      });
+    };
+  }
+
   if (!overrides.syncDocumentResult) {
     apiClient.syncDocumentResult = async (documentId, input) => {
       const data = await apiClient.syncDocument(documentId, input);

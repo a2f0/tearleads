@@ -1,11 +1,23 @@
 import type {
+  VerifiedContainerAccessManifest,
+  VerifiedPrincipalPolicy,
+} from "@tearleads/crypto";
+import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { buildDocumentCreatePlan } from "../../data/documents/shared/events";
-import { wrapDocumentContentKeyForCreate } from "../../data/documents/shared/projection";
-import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
+import {
+  assertDocumentWriterProjectionConsistent,
+  unwrapDocumentContentKeyFromWriterProjection,
+  wrapDocumentContentKeyForCreate,
+} from "../../data/documents/shared/projection";
+import {
+  persistedDocumentCreateStateFromResponse,
+  persistedDocumentCreateStateFromWriterProjection,
+} from "../../data/documents/shared/responses";
 import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,
@@ -17,6 +29,7 @@ import { projectionVerificationOptions } from "../../data/documents/shared/types
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { isDocumentManifestAlreadyExistsConflict } from "./syncFailures";
 
 export async function buildMaterializedDocumentCreatePlan(
   input: {
@@ -183,31 +196,141 @@ export async function createRemoteDocument(input: {
     return null;
   }
 
-  const response = await input.apiClient.createDocument(
+  const submission = await submitDocumentCreate(
+    input.apiClient,
     createPlan.materializedPlan.plan.request,
   );
-  if (!response) {
+  if (submission.ok) {
+    const response = submission.data;
+    const persistedState = persistedDocumentCreateStateFromResponse(
+      createPlan.materializedPlan.plan,
+      response,
+    );
+    const writerProjection = documentWriterProjectionFromCreateResponse({
+      containerProjection: createPlan.containerProjection,
+      response,
+    });
+    // Seed the projection the create response already gave us so the first read
+    // after create (sync, blob attach, container-contents hydration) resolves
+    // locally instead of a cold GET writer-projection.
+    input.apiClient.primeDocumentWriterProjection(
+      response.id,
+      writerProjection,
+    );
+
+    return {
+      contentKey: createPlan.materializedPlan.contentKey,
+      documentId: response.id,
+      persistedState,
+      plan: createPlan.materializedPlan.plan,
+      response,
+      writerProjection,
+    };
+  }
+
+  // A stable documentId means a retry after a lost create response re-submits
+  // the same id; the server then reports the manifest already exists. That is
+  // not a failure — the first attempt committed. Adopt the existing remote
+  // document instead of leaking a duplicate. Requires the stable id we sent, so
+  // we can fetch its projection back.
+  if (input.documentId && isDocumentManifestAlreadyExistsConflict(submission)) {
+    const adopted = await adoptExistingRemoteDocument({
+      apiClient: input.apiClient,
+      documentId: input.documentId,
+      execSql: input.execSql,
+      resolveProjectionUserKey,
+      targetSecretKey: input.targetSecretKey,
+    });
+    if (adopted) {
+      return adopted;
+    }
+  }
+
+  submission.report?.();
+  return null;
+}
+
+type DocumentCreateSubmission =
+  | {
+      readonly data: DocumentCreateResponse;
+      readonly ok: true;
+    }
+  | {
+      readonly message: string;
+      readonly ok: false;
+      readonly report?: (() => void) | undefined;
+      readonly status: number | null;
+    };
+
+async function submitDocumentCreate(
+  apiClient: DocumentCreateApi,
+  request: DocumentCreateRequest,
+): Promise<DocumentCreateSubmission> {
+  // Prefer the result-returning variant so an expected create conflict can be
+  // inspected without being reported as a UI error. Fall back to the plain
+  // method for simple test doubles; that path cannot adopt (it surfaces a null
+  // without a status) and preserves the pre-existing behavior.
+  if (apiClient.createDocumentResult) {
+    return apiClient.createDocumentResult(request, { reportErrors: false });
+  }
+  const response = await apiClient.createDocument(request);
+  return response
+    ? { data: response, ok: true }
+    : { message: "", ok: false, status: null };
+}
+
+/**
+ * Adopts an already-committed remote document after a create conflict: refetch
+ * its writer projection, recover the content key from it (the key generated for
+ * this attempt is not what the committed manifest wraps, and is gone after a
+ * restart), and rebuild the persisted create-state. Returns null if the
+ * projection cannot be fetched yet, so the caller falls back to reporting.
+ */
+async function adoptExistingRemoteDocument(
+  input: {
+    apiClient: DocumentCreateApi;
+    documentId: string;
+    execSql?: ExecSql | undefined;
+    targetSecretKey: Uint8Array;
+  } & ProjectionVerificationOptions,
+): Promise<CreateRemoteDocumentResult | null> {
+  if (!input.apiClient.getDocumentWriterProjection) {
     return null;
   }
-  const persistedState = persistedDocumentCreateStateFromResponse(
-    createPlan.materializedPlan.plan,
-    response,
+  const writerProjection = await input.apiClient.getDocumentWriterProjection(
+    input.documentId,
   );
-  const writerProjection = documentWriterProjectionFromCreateResponse({
-    containerProjection: createPlan.containerProjection,
-    response,
+  if (!writerProjection) {
+    return null;
+  }
+
+  const verifiedByHash = new Map<string, VerifiedContainerAccessManifest>();
+  const principalPolicyCache = new Map<string, VerifiedPrincipalPolicy>();
+  await assertDocumentWriterProjectionConsistent(writerProjection, {
+    execSql: input.execSql,
+    principalPolicyCache,
+    verifiedByHash,
+    ...projectionVerificationOptions(input),
   });
-  // Seed the projection the create response already gave us so the first read
-  // after create (sync, blob attach, container-contents hydration) resolves
-  // locally instead of a cold GET writer-projection.
-  input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
+  const contentKey = await unwrapDocumentContentKeyFromWriterProjection({
+    execSql: input.execSql,
+    principalPolicyCache,
+    secretKey: input.targetSecretKey,
+    verifiedByHash,
+    writerProjection,
+    ...projectionVerificationOptions(input),
+  });
+
+  input.apiClient.primeDocumentWriterProjection(
+    writerProjection.documentId,
+    writerProjection,
+  );
 
   return {
-    contentKey: createPlan.materializedPlan.contentKey,
-    documentId: response.id,
-    persistedState,
-    plan: createPlan.materializedPlan.plan,
-    response,
+    contentKey,
+    documentId: writerProjection.documentId,
+    persistedState:
+      persistedDocumentCreateStateFromWriterProjection(writerProjection),
     writerProjection,
   };
 }
