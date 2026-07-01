@@ -23,7 +23,8 @@
 }
 
 .mini-app-table-frame--compact .mini-app-table-row {
-  height: 2.25rem;
+  /* Keep in sync with MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT (36px). */
+  height: var(--mini-app-table-row-height-compact);
 }
 
 .mini-app-table-frame--compact .mini-app-table th,
@@ -62,7 +63,7 @@
 
 .mini-app-table-row--selected .mini-app-table-cell,
 .mini-app-table-row--interactive:hover .mini-app-table-cell,
-.mini-app-table-row--interactive:focus .mini-app-table-cell {
+.mini-app-table-row--interactive:focus-visible .mini-app-table-cell {
   background: var(--color-dark);
   color: var(--color-light);
 }
@@ -103,7 +104,8 @@
   cursor: pointer;
 }
 
-.mini-app-table-action:hover:not(:disabled) {
+.mini-app-table-action:hover:not(:disabled),
+.mini-app-table-action:focus-visible:not(:disabled) {
   text-decoration: underline;
 }
 
@@ -127,7 +129,7 @@
 }
 
 .mini-app-info-table th {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .mini-app-info-table code {
@@ -140,7 +142,7 @@
 }
 
 .mini-app-info-table-row--interactive:hover td,
-.mini-app-info-table-row--interactive:focus td {
+.mini-app-info-table-row--interactive:focus-visible td {
   background: var(--color-dark);
   color: var(--color-light);
 }

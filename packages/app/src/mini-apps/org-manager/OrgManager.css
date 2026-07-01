@@ -33,7 +33,7 @@
 
 .org-manager-virtual-table,
 .org-manager-virtual-list {
-  max-height: min(28rem, 70vh);
+  max-height: var(--mini-app-virtual-max-height);
 }
 
 .org-manager-form-toolbar {

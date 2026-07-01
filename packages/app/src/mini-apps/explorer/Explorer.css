@@ -1,5 +1,8 @@
 .explorer {
   position: relative;
+  /* Shared size for the small tree/sort glyphs; component-local, off the
+     global scale on purpose. */
+  --explorer-glyph-size: 0.65rem;
 }
 
 .explorer-detail--container,
@@ -210,7 +213,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 0.65rem;
+  width: var(--explorer-glyph-size);
   height: 1rem;
   flex-shrink: 0;
 }
@@ -223,15 +226,16 @@
   cursor: pointer;
 }
 
-.explorer-node-toggle:hover {
+.explorer-node-toggle:hover,
+.explorer-node-toggle:focus-visible {
   opacity: var(--opacity-subtle);
 }
 
 .explorer-node-icon {
   opacity: var(--opacity-icon);
-  font-size: 0.65rem;
+  font-size: var(--explorer-glyph-size);
   line-height: 1;
-  transition: transform 120ms ease;
+  transition: transform var(--transition);
 }
 
 .explorer-node-icon--expanded {
@@ -253,9 +257,9 @@
 
 .explorer-info-tab {
   min-width: 5rem;
-  border: 1px solid transparent;
+  border: var(--border-width) solid transparent;
   border-bottom-color: transparent;
-  margin-bottom: -1px;
+  margin-bottom: calc(-1 * var(--border-width));
 }
 
 .explorer-info-tab[aria-selected="true"] {
@@ -339,13 +343,14 @@
   display: inline;
 }
 
-.explorer-table-sort-button:hover {
+.explorer-table-sort-button:hover,
+.explorer-table-sort-button:focus-visible {
   text-decoration: underline;
 }
 
 .explorer-table-sort-indicator {
   flex-shrink: 0;
-  width: 0.65rem;
+  width: var(--explorer-glyph-size);
   opacity: var(--opacity-muted);
   text-align: center;
 }
@@ -455,7 +460,7 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: monospace;
+  font-family: var(--tearleads-font-family);
   font-size: var(--font-size-sm);
   line-height: 1.45;
 }

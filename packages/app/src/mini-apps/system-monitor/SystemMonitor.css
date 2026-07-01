@@ -9,9 +9,9 @@
 
 .system-monitor-tab {
   min-width: 5rem;
-  border: 1px solid transparent;
+  border: var(--border-width) solid transparent;
   border-bottom-color: transparent;
-  margin-bottom: -1px;
+  margin-bottom: calc(-1 * var(--border-width));
 }
 
 .system-monitor-tab[aria-selected="true"] {
@@ -44,6 +44,8 @@
   cursor: pointer;
 }
 
-.system-monitor-launcher:hover {
-  opacity: var(--opacity-muted);
+.system-monitor-launcher:hover,
+.system-monitor-launcher:focus-visible {
+  background: var(--color-dark);
+  color: var(--color-light);
 }

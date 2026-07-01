@@ -16,6 +16,7 @@
 }
 
 .window-menubar-trigger:hover,
+.window-menubar-trigger:focus-visible,
 .window-menubar-trigger--active {
   background: var(--color-dark);
   color: var(--color-light);
@@ -34,7 +35,7 @@
 }
 
 .window-menubar-dropdown button {
-  padding: var(--window-bar-padding);
+  padding: var(--menu-item-padding);
   border: none;
   background: none;
   text-align: left;
@@ -42,7 +43,8 @@
   cursor: pointer;
 }
 
-.window-menubar-dropdown button:hover:not(:disabled) {
+.window-menubar-dropdown button:hover:not(:disabled),
+.window-menubar-dropdown button:focus-visible:not(:disabled) {
   background: var(--color-muted);
 }
 

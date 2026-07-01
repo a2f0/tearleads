@@ -4,7 +4,7 @@
 
 .destroy-key-package-confirmation-warning {
   margin: 0;
-  color: var(--color-danger, #b00020);
+  color: var(--color-danger);
   font-size: var(--font-size-sm);
 }
 
