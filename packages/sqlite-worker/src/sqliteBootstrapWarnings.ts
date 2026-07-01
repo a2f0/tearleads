@@ -1,5 +1,4 @@
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
-import sqlite3InitModule from "@tearleads/sqlite-instance/jswasm/sqlite3.mjs";
 
 const AUTO_OPFS_VFS_WARNING = "Ignoring inability to install OPFS sqlite3_vfs:";
 const AUTO_OPFS_VFS_IGNORED_REASONS = [
@@ -64,6 +63,9 @@ export async function loadSqlite3WithFilteredWarnings(): Promise<Sqlite3Static> 
   Reflect.set(globalThis, "sqlite3ApiConfig", filteredConfig);
 
   try {
+    const { default: sqlite3InitModule } = await import(
+      "@tearleads/sqlite-instance/jswasm/sqlite3.mjs"
+    );
     return await sqlite3InitModule();
   } finally {
     // The SQLite bootstrap deletes sqlite3ApiConfig after consuming it. Restore
