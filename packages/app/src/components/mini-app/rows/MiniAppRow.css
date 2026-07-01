@@ -83,5 +83,9 @@
 }
 
 .mini-app-row-text--muted {
+  /* Keep an explicit size so the muted modifier stays self-describing
+     rather than relying on an ancestor .mini-app-row for its size. The
+     em->rem fix on --font-size-sm already removes the old nesting compound. */
+  font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
 }
