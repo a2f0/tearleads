@@ -211,30 +211,31 @@ type DocumentInfoBlameRange = NonNullable<
   DocumentInfo["remoteInfo"]
 >["blameRanges"];
 
-// Deterministic hue per signing identity so the same writer keeps one color
-// across the prose and the legend (and across renders). A plain rolling hash of
-// the fingerprint is enough — we only need stable, well-spread hues, not crypto.
-function blameHue(writerKeyFingerprint: string): number {
-  let hash = 0;
-  for (let index = 0; index < writerKeyFingerprint.length; index += 1) {
-    hash = (hash * 31 + writerKeyFingerprint.charCodeAt(index)) | 0;
-  }
-  return ((hash % 360) + 360) % 360;
+// Hashing each fingerprint to a hue in isolation gives no guarantee that the two
+// or three writers actually on screen land on *contrasting* colors — two
+// unrelated identities can hash to nearly the same hue (e.g. both green). Instead
+// we assign hues by first-appearance order and step by the golden angle, so the
+// writers present always get well-separated colors while each keeps one stable
+// color across the prose and the legend. Golden-angle stepping also leaves
+// earlier writers' colors put as later writers append.
+const BLAME_GOLDEN_ANGLE = 137.508;
+
+function blameHueForIndex(index: number): number {
+  return Math.round((index * BLAME_GOLDEN_ANGLE) % 360);
 }
 
 // Translucent fill + underline so the tint reads on either theme without
 // fighting the editor text color.
-function blameRunStyle(writerKeyFingerprint: string): CSSProperties {
-  const hue = blameHue(writerKeyFingerprint);
+function blameRunStyle(hue: number): CSSProperties {
   return {
     backgroundColor: `hsla(${hue}, 70%, 55%, 0.28)`,
     borderBottom: `2px solid hsla(${hue}, 70%, 50%, 0.85)`,
   };
 }
 
-function blameSwatchStyle(writerKeyFingerprint: string): CSSProperties {
+function blameSwatchStyle(hue: number): CSSProperties {
   return {
-    backgroundColor: `hsla(${blameHue(writerKeyFingerprint)}, 70%, 50%, 0.85)`,
+    backgroundColor: `hsla(${hue}, 70%, 50%, 0.85)`,
   };
 }
 
@@ -267,10 +268,21 @@ export function ExplorerDocumentInfoBlameSection(params: {
   }
   const legend: Array<{ writerKeyFingerprint: string; writerUserId: string }> =
     [];
+  const hues = new Map<string, number>();
   const seenWriters = new Set<string>();
   let hasUnattributed = false;
   for (const range of ranges) {
-    if (!range.writerKeyFingerprint || !range.writerUserId) {
+    if (!range.writerKeyFingerprint) {
+      hasUnattributed = true;
+      continue;
+    }
+    // Prose runs color on fingerprint alone, so give every fingerprinted run a
+    // hue — stepped by the golden angle in first-appearance order so the writers
+    // present stay well separated and each keeps one color across prose + legend.
+    if (!hues.has(range.writerKeyFingerprint)) {
+      hues.set(range.writerKeyFingerprint, blameHueForIndex(hues.size));
+    }
+    if (!range.writerUserId) {
       hasUnattributed = true;
       continue;
     }
@@ -295,7 +307,7 @@ export function ExplorerDocumentInfoBlameSection(params: {
             key={`${range.startIndex}-${range.endIndex}`}
             style={
               range.writerKeyFingerprint
-                ? blameRunStyle(range.writerKeyFingerprint)
+                ? blameRunStyle(hues.get(range.writerKeyFingerprint) ?? 0)
                 : undefined
             }
             title={blameRunTitle(range)}
@@ -313,7 +325,9 @@ export function ExplorerDocumentInfoBlameSection(params: {
           >
             <span
               className="explorer-blame-swatch"
-              style={blameSwatchStyle(writer.writerKeyFingerprint)}
+              style={blameSwatchStyle(
+                hues.get(writer.writerKeyFingerprint) ?? 0,
+              )}
             />
             {compactId(writer.writerKeyFingerprint)}
           </li>
