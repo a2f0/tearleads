@@ -27,7 +27,7 @@ async function openExplorerWindow(
     clientX: 120,
     clientY: 120,
   });
-  fireEvent.click(view.getByText("Open Explorer"));
+  fireEvent.click(view.getByRole("button", { name: "Explorer" }));
 
   let explorerWindow: HTMLDivElement | null = null;
   await waitFor(() => {

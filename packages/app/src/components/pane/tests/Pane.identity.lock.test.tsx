@@ -124,7 +124,7 @@ test("locked browser-managed pane menu offers unlock instead of key generation",
       clientX: 120,
       clientY: 120,
     });
-    fireEvent.click(view.getByText("Open Contacts"));
+    fireEvent.click(view.getByRole("button", { name: "Contacts" }));
 
     await waitFor(() => {
       expect(view.getAllByText("Local keychain locked").length).toBeGreaterThan(

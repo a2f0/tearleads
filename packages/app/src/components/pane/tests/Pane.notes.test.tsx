@@ -22,12 +22,12 @@ test("notes windows in the same pane share live note state", async () => {
     clientX: 120,
     clientY: 120,
   });
-  fireEvent.click(view.getByText("Open Notes"));
+  fireEvent.click(view.getByRole("button", { name: "Notes" }));
   fireEvent.contextMenu(view.getByRole("application"), {
     clientX: 160,
     clientY: 160,
   });
-  fireEvent.click(view.getByText("Open Notes"));
+  fireEvent.click(view.getByRole("button", { name: "Notes" }));
 
   await waitFor(() => {
     const editors = Array.from(

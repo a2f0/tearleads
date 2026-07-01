@@ -36,7 +36,7 @@ export async function openOrgManager(pane: HTMLElement) {
     });
   });
   const openOrgManagerButton = screen.getByRole("button", {
-    name: "Open Org Manager",
+    name: "Org Manager",
   });
   await interact(() => {
     fireEvent.click(openOrgManagerButton);

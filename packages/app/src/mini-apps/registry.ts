@@ -53,19 +53,19 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
 // it is launched from the footer's system tray (SystemMonitorLauncherButton),
 // which also handles unpinning, rather than from the generic pane/app menu.
 export const MINI_APP_MENU_ITEMS = [
-  { appId: "explorer", icon: FolderIcon, label: "Open Explorer" },
-  { appId: "contacts", icon: AddressBookIcon, label: "Open Contacts" },
-  { appId: "org-manager", icon: BuildingsIcon, label: "Open Org Manager" },
-  { appId: "notes", icon: NoteIcon, label: "Open Notes" },
+  { appId: "explorer", icon: FolderIcon, label: "Explorer" },
+  { appId: "contacts", icon: AddressBookIcon, label: "Contacts" },
+  { appId: "org-manager", icon: BuildingsIcon, label: "Org Manager" },
+  { appId: "notes", icon: NoteIcon, label: "Notes" },
   {
     appId: "identity-manager",
     icon: IdentificationCardIcon,
-    label: "Open Identity Manager",
+    label: "Identity Manager",
   },
   {
     appId: "backup-restore",
     icon: ArchiveIcon,
-    label: "Open Backup / Restore",
+    label: "Backup / Restore",
   },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
@@ -79,7 +79,7 @@ export const MINI_APP_MENU_ITEMS = [
 // routed home screen only after the user requests it.
 export const ROUTED_MINI_APP_NAV_ITEMS = [
   ...MINI_APP_MENU_ITEMS,
-  { appId: "system-monitor", icon: GaugeIcon, label: "Open System Monitor" },
+  { appId: "system-monitor", icon: GaugeIcon, label: "System Monitor" },
 ] satisfies ReadonlyArray<{
   appId: MiniAppId;
   icon: Icon;
