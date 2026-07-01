@@ -146,7 +146,7 @@ async function updateExistingSystemContainer(
   existing: ContainerState,
   options: EnsureSystemContainerOptions,
 ) {
-  if (Object.hasOwn(options, "icon")) {
+  if ("icon" in options) {
     await applySystemContainerIcon({
       containerState: existing,
       icon: options.icon,
