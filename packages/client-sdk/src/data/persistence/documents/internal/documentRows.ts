@@ -42,6 +42,7 @@ async function loadDocumentRecordInTransaction(input: {
       documentManifestBundle: documents.documentManifestBundle,
       contentKeyBundle: documents.contentKeyBundle,
       documentKekTargets: documents.documentKekTargets,
+      pendingBaseVersion: documents.pendingBaseVersion,
     })
     .from(documents)
     .where(
@@ -74,6 +75,12 @@ function toDocumentRecordRow(input: {
     documentManifestBundle: document.documentManifestBundle ?? null,
     contentKeyBundle: document.contentKeyBundle ?? null,
     documentKekTargets: document.documentKekTargets ?? null,
+    // Only touch the outgoing-delta marker when the caller manages it. Callers
+    // that leave it undefined (e.g. discovery upserts, registration bootstrap)
+    // must not clobber a marker a device-first deferRemoteSync write persisted.
+    ...(document.pendingBaseVersion === undefined
+      ? {}
+      : { pendingBaseVersion: document.pendingBaseVersion }),
     updatedAt,
   };
 }

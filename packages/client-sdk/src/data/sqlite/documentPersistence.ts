@@ -8,6 +8,10 @@ export async function ensureDocumentTables(execSql: ExecSql): Promise<void> {
       name: "effective_access_level",
       definition: "\"effective_access_level\" TEXT NOT NULL DEFAULT 'read'",
     },
+    {
+      name: "pending_base_version",
+      definition: '"pending_base_version" TEXT',
+    },
   ]);
 }
 

@@ -11,6 +11,7 @@ export interface DocumentRecord {
   contentKeyBundle?: string | null;
   documentKekTargets?: string | null;
   documentManifestBundle?: string | null;
+  pendingBaseVersion?: string | null;
 }
 
 export interface PendingUpdateFields {
@@ -40,6 +41,7 @@ export interface SelectedDocumentRecordRow {
   contentKeyBundle: string | null;
   documentKekTargets: string | null;
   documentManifestBundle: string | null;
+  pendingBaseVersion: string | null;
 }
 
 export interface SelectedPendingUpdateRow {

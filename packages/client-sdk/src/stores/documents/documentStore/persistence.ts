@@ -75,7 +75,12 @@ export async function saveDocumentRecord(
     documentProjectors: state.runtime.infra.documentProjectors,
     execSql: state.runtime.infra.execSql,
     localId: state.localId,
-    patch,
+    // Persist the durable outgoing-delta marker with every snapshot write so a
+    // restart restores it (see initializeDocumentStore). A device-first
+    // deferRemoteSync write leaves it BEHIND the snapshot version on purpose;
+    // capturing state.pendingBaseVersion here is what lets the next edit
+    // re-derive that deferred op after a restart instead of dropping it.
+    patch: { ...patch, pendingBaseVersion: state.pendingBaseVersion },
     persistence: state.persistence,
   });
   const { record: nextRecord, updatedAt } = persistedDocumentState;

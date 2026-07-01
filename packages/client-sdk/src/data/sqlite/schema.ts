@@ -35,6 +35,10 @@ const accessLevelColumn = "effective_access_level";
  * - `contentKeyBundle`: Serialized content-key material needed to open the
  *   local document.
  * - `documentKekTargets`: Serialized KEK target state for document key wraps.
+ * - `pendingBaseVersion`: Encoded oplog version through which every op in
+ *   `loroSnapshot` is already enqueued or synced. Persisted so a restart
+ *   restores the outgoing-delta marker instead of re-seeding it past a
+ *   device-first `deferRemoteSync` write's un-advanced op. `null` when unset.
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -56,6 +60,7 @@ export const documents = sqliteTable(
     documentManifestBundle: text("document_manifest_bundle"),
     contentKeyBundle: text("content_key_bundle"),
     documentKekTargets: text("document_kek_targets"),
+    pendingBaseVersion: text("pending_base_version"),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
