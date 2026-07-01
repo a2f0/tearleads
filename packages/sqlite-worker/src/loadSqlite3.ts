@@ -1,6 +1,6 @@
 import type { Sqlite3Static } from "@tearleads/sqlite-instance";
-import sqlite3InitModule from "@tearleads/sqlite-instance/jswasm/sqlite3.mjs";
 import { runWithBunFetchLock } from "./bunFetchLock";
+import { loadSqlite3WithFilteredWarnings } from "./sqliteBootstrapWarnings";
 import type {
   DatabasePersistenceMode,
   DatabaseWorkerInitOptions,
@@ -171,7 +171,7 @@ export async function loadSqlite3(): Promise<Sqlite3Static> {
 
   if (!sqlite3Promise) {
     sqlite3Promise = runWithBunFetchLock(async () => {
-      const instance = await sqlite3InitModule();
+      const instance = await loadSqlite3WithFilteredWarnings();
       sqlite3 = instance;
       return instance;
     });
