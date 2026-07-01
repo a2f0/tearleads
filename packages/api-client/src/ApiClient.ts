@@ -26,6 +26,7 @@ import {
   type ContainerDeleteResponse,
   type ContainerMutationResponse,
   type ContainerWriterProjectionResponse,
+  type DocumentCreateResponse,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
   type EncapsulationKeyResponse,
@@ -880,6 +881,19 @@ export class ApiClient {
       isDocumentCreateResponse,
       "POST",
       JSON.stringify(input),
+    );
+  }
+
+  createDocumentResult(
+    input: DocumentCreateRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<DocumentCreateResponse>> {
+    return this.makeRequestResult(
+      "/documents",
+      isDocumentCreateResponse,
+      "POST",
+      JSON.stringify(input),
+      options,
     );
   }
 

@@ -70,6 +70,22 @@ function isRecoverableDocumentUpdateIdConflict(
   );
 }
 
+/**
+ * A create submitted with a stable documentId whose first attempt already
+ * committed server-side comes back as this 409 (see the server's
+ * `assertCreateCanAdvanceDocumentHead`). It is not a failure — the caller adopts
+ * the existing remote document instead of creating a duplicate.
+ */
+export function isDocumentManifestAlreadyExistsConflict(failure: {
+  readonly message: string;
+  readonly status: number | null;
+}): boolean {
+  return (
+    failure.status === 409 &&
+    failure.message.includes("Document manifest already exists")
+  );
+}
+
 function canRetryDocumentSyncConflict(input: {
   attempt: number;
   failure: DocumentSyncSubmitFailure;

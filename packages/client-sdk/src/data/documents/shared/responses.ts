@@ -2,6 +2,7 @@ import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObj
 import type {
   DocumentCreateResponse,
   DocumentLinkSetMutationResponse,
+  DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
   readRecordString,
@@ -128,6 +129,24 @@ export function persistedDocumentCreateStateFromResponse(
     contentKeyBundle: serializeState(response.contentKeyBundle),
     documentKekTargets: serializeState(response.documentKekTargets),
     documentManifestBundle: serializeState(response.accessManifest),
+  };
+}
+
+/**
+ * Builds the persisted create-state from a fetched writer projection, for the
+ * idempotent-create adopt path where the original create response (which
+ * `persistedDocumentCreateStateFromResponse` consumes) was lost. The projection
+ * carries the same committed manifest, content-key bundle and KEK targets — the
+ * caller must verify it with `assertDocumentWriterProjectionConsistent` first.
+ */
+export function persistedDocumentCreateStateFromWriterProjection(
+  writerProjection: DocumentWriterProjectionResponse,
+): PersistedDocumentCreateState {
+  return {
+    documentId: writerProjection.documentId,
+    contentKeyBundle: serializeState(writerProjection.contentKeyBundle),
+    documentKekTargets: serializeState(writerProjection.documentKekTargets),
+    documentManifestBundle: serializeState(writerProjection.documentManifest),
   };
 }
 

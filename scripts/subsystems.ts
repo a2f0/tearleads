@@ -355,13 +355,14 @@ export const subsystems: readonly Subsystem[] = [
     name: "Keying Verification",
     package: "client-sdk",
     responsibility:
-      "Client-side cryptographic verification of server writer/access-manifest/link-set projections, canonical-record decode, and access-level helpers.",
+      "Client-side cryptographic verification of server writer/access-manifest/link-set projections, canonical-record decode, access-level helpers, and stable resource-id derivation.",
     seam: "data/keyingProjectionVerification facade",
     paths: [
       `${sdk}/data/keyingProjectionVerification/`,
       `${sdk}/data/keyingProjectionVerification.ts`,
       `${sdk}/data/keyingCanonicalJson.ts`,
       `${sdk}/data/accessLevel.ts`,
+      `${sdk}/data/stableUuid.ts`,
     ],
   },
   {
