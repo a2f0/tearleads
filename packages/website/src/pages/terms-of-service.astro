@@ -1,0 +1,36 @@
+---
+import { SiteFrame } from "../components/SiteFrame";
+import "../styles/global.css";
+
+const isStaging = import.meta.env.PUBLIC_ENVIRONMENT === "staging";
+const appUrl = isStaging
+  ? "https://app.tearleads.de"
+  : "https://app.tearleads.com";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Tearleads terms of service." />
+    <title>Terms of Service | Tearleads</title>
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    {isStaging && <meta name="robots" content="noindex" />}
+  </head>
+  <body>
+    <SiteFrame appUrl={appUrl}>
+      <main class="website-main">
+        <article class="section" aria-labelledby="page-title">
+          <p class="eyebrow">Legal</p>
+          <h1 id="page-title">Terms of Service</h1>
+          <p class="section-lede">
+            The Tearleads terms of service will be published here.
+          </p>
+        </article>
+      </main>
+    </SiteFrame>
+  </body>
+</html>
