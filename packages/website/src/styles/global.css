@@ -168,6 +168,10 @@
     display: none;
   }
 
+  .site-footer-links {
+    justify-content: center;
+  }
+
   .website-main {
     align-items: stretch;
     gap: 48px;
