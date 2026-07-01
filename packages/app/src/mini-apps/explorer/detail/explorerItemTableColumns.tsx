@@ -1,3 +1,5 @@
+import type { Icon } from "@phosphor-icons/react";
+import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import type {
   ContainerItemRow,
   ContainerItemSort,
@@ -12,6 +14,7 @@ import {
   MiniAppTableText,
 } from "../../../components/shared/MiniAppTable";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
+import { getDocumentTypeIcon } from "../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../stores/contacts/contactLabels";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
@@ -162,9 +165,20 @@ function getExplorerContainerItemName(ctx: ExplorerItemCellContext): string {
   });
 }
 
+// A folder glyph for containers, otherwise the document kind's shared icon
+// (the same mapping the "New Document" picker uses).
+function getExplorerItemIcon(row: ContainerItemRow): Icon {
+  if (row.itemKind === "container") {
+    return FolderIcon;
+  }
+
+  return getDocumentTypeIcon(row.documentKind);
+}
+
 function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
   const { row } = ctx;
   const name = getExplorerContainerItemName(ctx);
+  const ItemIcon = getExplorerItemIcon(row);
   const openItem = () => {
     if (row.itemKind === "container") {
       ctx.setSelectedId(row.id);
@@ -184,7 +198,16 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
         onClick={openItem}
         type="button"
       >
-        <MiniAppTableText title={name}>{name}</MiniAppTableText>
+        <span className="explorer-item-name">
+          <ItemIcon
+            aria-hidden="true"
+            className="explorer-item-icon"
+            focusable="false"
+            size={16}
+            weight="regular"
+          />
+          <MiniAppTableText title={name}>{name}</MiniAppTableText>
+        </span>
       </button>
     </MiniAppTableCell>
   );

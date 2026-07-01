@@ -1,4 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
+import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
@@ -84,4 +85,11 @@ export function getDocumentTypeDefinition(
   }
 
   return definition;
+}
+
+// The icon representing a document kind, shared by the "New Document" picker
+// and the explorer item list. Falls back to a generic file icon for kinds
+// without a registered definition so callers never have to guard.
+export function getDocumentTypeIcon(kind: StoredDocumentKind): Icon {
+  return documentTypeDefinitionByKind.get(kind)?.createIcon ?? FileIcon;
 }

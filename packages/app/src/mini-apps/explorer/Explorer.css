@@ -298,6 +298,18 @@
   cursor: pointer;
 }
 
+.explorer-item-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.explorer-item-icon {
+  flex: 0 0 auto;
+  opacity: var(--opacity-icon);
+}
+
 .explorer-item-row-button::after,
 .explorer-blob-browser-row-button::after,
 .explorer-blob-reference-row-button::after {
