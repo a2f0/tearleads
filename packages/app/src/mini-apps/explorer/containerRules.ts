@@ -4,7 +4,7 @@ import {
   type DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { isSelfContactLocalId } from "../../stores/contacts/selfContact";
+import { isCurrentSelfContactLocalId } from "../../stores/contacts/selfContact";
 import {
   getSharedSystemContainerRulesByName,
   getUserSystemContainerRulesByKind,
@@ -22,6 +22,7 @@ export interface ExplorerContainerRulesContext {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
+  currentSigningFingerprint: string | null;
   rulesBySystemSlot: ReadonlyMap<ContainerSystemSlot, UserSystemContainerRules>;
 }
 
@@ -29,6 +30,7 @@ interface ExplorerContainerRulesInput {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
+  currentSigningFingerprint: string | null;
   trashSystemSlot: ContainerSystemSlot | null;
 }
 
@@ -55,6 +57,7 @@ export function createExplorerContainerRulesContext(
     contactsContainerId: input.contactsContainerId,
     contactsSystemSlot: input.contactsSystemSlot,
     currentOrganizationId: input.currentOrganizationId,
+    currentSigningFingerprint: input.currentSigningFingerprint,
     rulesBySystemSlot,
   };
 }
@@ -204,10 +207,18 @@ export function canUploadToContainerIdByRules(
   );
 }
 
+// A document is the viewer's own "You" contact when its local id matches the
+// self-contact id derived from the viewer's own signing fingerprint. Matching
+// the exact id — not merely the shared self-contact prefix — means a peer's
+// self contact surfaced in a shared container is never mistaken for the
+// viewer's own, and the match holds wherever the contact is viewed from.
 export function isSelfContactDocument(
   document: Pick<DocumentSummary, "id"> | undefined,
+  signingFingerprint: string | null | undefined,
 ): boolean {
-  return document ? isSelfContactLocalId(document.id) : false;
+  return document
+    ? isCurrentSelfContactLocalId(document.id, signingFingerprint)
+    : false;
 }
 
 // A document may move out of its current container unless that container pins
@@ -282,26 +293,54 @@ export function canLinkDocumentIntoContainerByRules(
   );
 }
 
-// The builtin self ("You") contact is protected from deletion when the Contacts
-// container's rules say so.
+// The viewer's own self ("You") contact is pinned when the Contacts container's
+// rules say so: it may be linked into and unlinked from other containers, but
+// never deleted, moved, or purged. The guard follows the contact by identity,
+// not by which container it happens to be viewed from — a document surfaces
+// under each container it is linked into carrying that container's id, so a
+// container-scoped check would miss the linked view. Delete, move, and purge
+// share this one predicate because they are equivalent destructive routes:
+// "delete" is a move to Trash, and a move into Trash re-enables purge, so
+// guarding only delete would leave the self contact destroyable via Move.
+function isPinnedSelfContact(
+  context: ExplorerContainerRulesContext,
+  document: Pick<DocumentSummary, "id"> | undefined,
+): boolean {
+  if (!isSelfContactDocument(document, context.currentSigningFingerprint)) {
+    return false;
+  }
+  const contactsRules = context.contactsSystemSlot
+    ? context.rulesBySystemSlot.get(context.contactsSystemSlot)
+    : null;
+  return contactsRules?.protectSelfDocumentFromDelete === true;
+}
+
+// A document may be deleted (moved to Trash) unless it is the pinned self
+// contact.
 export function canDeleteDocumentByRules(
   context: ExplorerContainerRulesContext,
-  document: Pick<DocumentSummary, "id" | "containerId"> | undefined,
+  document: Pick<DocumentSummary, "id"> | undefined,
 ): boolean {
-  if (!document) {
-    return true;
-  }
+  return !isPinnedSelfContact(context, document);
+}
 
-  if (
-    isSelfContactDocument(document) &&
-    context.contactsContainerId !== null &&
-    document.containerId === context.contactsContainerId
-  ) {
-    const contactsRules = context.contactsSystemSlot
-      ? context.rulesBySystemSlot.get(context.contactsSystemSlot)
-      : null;
-    return contactsRules?.protectSelfDocumentFromDelete !== true;
-  }
+// A document may be relocated to another container unless it is the pinned self
+// contact. Enforced on top of the container-level move rules so the self
+// contact cannot be moved out of a container it is merely linked into — most
+// dangerously into Trash, the delete-equivalent route.
+export function canMoveDocumentByRules(
+  context: ExplorerContainerRulesContext,
+  document: Pick<DocumentSummary, "id"> | undefined,
+): boolean {
+  return !isPinnedSelfContact(context, document);
+}
 
-  return true;
+// A document may be permanently purged unless it is the pinned self contact.
+// Defense in depth on the destructive operation itself, in case a self contact
+// is already parked under Trash from before this guard existed.
+export function canPurgeDocumentByRules(
+  context: ExplorerContainerRulesContext,
+  document: Pick<DocumentSummary, "id"> | undefined,
+): boolean {
+  return !isPinnedSelfContact(context, document);
 }

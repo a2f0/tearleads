@@ -111,10 +111,12 @@ export function useExplorerModel(
         contactsContainerId,
         contactsSystemSlot: explorer.contactsSystemSlot,
         currentOrganizationId: appData.auth.organizationId ?? null,
+        currentSigningFingerprint: appData.crypto.signingFingerprint,
         trashSystemSlot: explorer.trashSystemSlot,
       }),
     [
       appData.auth.organizationId,
+      appData.crypto.signingFingerprint,
       contactsContainerId,
       explorer.contactsSystemSlot,
       explorer.trashSystemSlot,

@@ -5,6 +5,7 @@ import {
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
+  canMoveDocumentByRules,
   canMoveDocumentOutByRules,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
@@ -166,6 +167,14 @@ export function getDocumentMoveTargetOptions(
     !movingDocument?.containerId ||
     !canWriteDocumentSummary(movingDocument)
   ) {
+    return [];
+  }
+
+  // The pinned self contact is never relocatable, from any container it is
+  // viewed in. Without this, a self contact linked into a plain user container
+  // could be "moved" to Trash — a delete-equivalent that bypasses the
+  // delete-protection guard and re-enables purge.
+  if (rulesContext && !canMoveDocumentByRules(rulesContext, movingDocument)) {
     return [];
   }
 
