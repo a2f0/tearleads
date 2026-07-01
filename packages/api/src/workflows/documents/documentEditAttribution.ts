@@ -87,36 +87,34 @@ async function loadUpdateAttributionMeta(
   return meta;
 }
 
-export async function runDocumentEditAttributionWorkflow(
+/**
+ * Load a document's attribution spans and their signing write headers from the
+ * DB and resolve them into segments — the read-access-independent core of
+ * {@link runDocumentEditAttributionWorkflow}, which authorizes the caller and
+ * then delegates here. Kept a separate export so the DB → segment mapping (and
+ * that it survives a rotate_baseline payload prune, which clears
+ * `encryptedData` but leaves the spans and write header intact) can be
+ * exercised without standing up the keying/access-manifest stack the
+ * authorization gate requires.
+ */
+export async function computeDocumentEditAttribution(
+  documentId: string,
   executor: DatabaseSession,
-  input: DocumentEditAttributionWorkflowInput,
 ): Promise<DocumentEditAttributionResult> {
-  try {
-    await resolveReadableDocumentAccess({
-      documentId: input.documentId,
-      executor,
-      userId: input.userId,
-    });
-  } catch (error) {
-    if (error instanceof KeyingReadAccessError) {
-      throw new DocumentEditAttributionError(error.message, error.status);
-    }
-    throw error;
-  }
-
-  const metaByUpdateId = await loadUpdateAttributionMeta(
-    input.documentId,
-    executor,
-  );
-  const spanRows = await executor
-    .select({
-      updateId: documentUpdateSpans.updateId,
-      peerId: documentUpdateSpans.peerId,
-      startCounter: documentUpdateSpans.startCounter,
-      endCounter: documentUpdateSpans.endCounter,
-    })
-    .from(documentUpdateSpans)
-    .where(eq(documentUpdateSpans.documentId, input.documentId));
+  // The write-header meta and the span rows are independent reads — load them in
+  // one round-trip's worth of wall time instead of two sequential ones.
+  const [metaByUpdateId, spanRows] = await Promise.all([
+    loadUpdateAttributionMeta(documentId, executor),
+    executor
+      .select({
+        updateId: documentUpdateSpans.updateId,
+        peerId: documentUpdateSpans.peerId,
+        startCounter: documentUpdateSpans.startCounter,
+        endCounter: documentUpdateSpans.endCounter,
+      })
+      .from(documentUpdateSpans)
+      .where(eq(documentUpdateSpans.documentId, documentId)),
+  ]);
 
   const attributionSpans: AttributionSpanInput[] = [];
   for (const span of spanRows) {
@@ -143,7 +141,27 @@ export async function runDocumentEditAttributionWorkflow(
   }
 
   return {
-    documentId: input.documentId,
+    documentId,
     segments: resolveEditAttribution(attributionSpans),
   };
+}
+
+export async function runDocumentEditAttributionWorkflow(
+  executor: DatabaseSession,
+  input: DocumentEditAttributionWorkflowInput,
+): Promise<DocumentEditAttributionResult> {
+  try {
+    await resolveReadableDocumentAccess({
+      documentId: input.documentId,
+      executor,
+      userId: input.userId,
+    });
+  } catch (error) {
+    if (error instanceof KeyingReadAccessError) {
+      throw new DocumentEditAttributionError(error.message, error.status);
+    }
+    throw error;
+  }
+
+  return computeDocumentEditAttribution(input.documentId, executor);
 }

@@ -1,0 +1,213 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  documentAuditCheckpoints,
+  documentContentWriteHeaders,
+  documents,
+  documentUpdateSpans,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
+import type {
+  ContentRecordEncryptionSuite,
+  WriteHeader,
+} from "@tearleads/crypto";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import { eq } from "drizzle-orm";
+import { computeDocumentEditAttribution } from "./documentEditAttribution";
+import { runPruneDominatedUpdatesWorkflow } from "./gc/pruneDominatedUpdates";
+
+// `early` ⊂ `late` on the same peer: the baseline's frontier (`late`) provably
+// dominates alice's pre-rotation update (`early`), so the prune gate clears it.
+async function buildVersions() {
+  const doc = await createDocument("attribution-it-seed");
+  const text = doc.getText("text");
+  text.insert(0, "a");
+  doc.commit();
+  const early = encodeVersionVector(doc);
+  text.insert(1, "bcdefghij");
+  doc.commit();
+  const late = encodeVersionVector(doc);
+  return { early, late };
+}
+
+// One signed update + its write header. `sequence` is a generated identity, so
+// insert order fixes server-receive order: alice (called first) precedes the
+// baseline, which is what makes earliest-span-wins credit alice, not the
+// re-asserter. Mirrors the seed shape in pruneDominatedUpdates.test.ts.
+async function insertUpdate(input: {
+  documentId: string;
+  contentKeyEpoch: number;
+  encryptedData: string;
+  partialEndVersionVector: string;
+  writerUserId: string;
+  writerKeyFingerprint: string;
+}): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.insert(documentUpdates).values({
+    accessEpoch: 1,
+    authorFingerprint: input.writerKeyFingerprint,
+    byteLength: new TextEncoder().encode(input.encryptedData).byteLength,
+    documentId: input.documentId,
+    encryptedData: input.encryptedData,
+    id,
+    partialEndVersionVector: input.partialEndVersionVector,
+    partialStartVersionVector: "start",
+  });
+  await db.insert(documentContentWriteHeaders).values({
+    accessManifestHash: "manifest",
+    contentKeyEpoch: input.contentKeyEpoch,
+    contentRecordId: `record-${id}`,
+    documentId: input.documentId,
+    encryptionSuite: "suite" as ContentRecordEncryptionSuite,
+    // Attribution reads only these two fields off the header JSON.
+    header: {
+      writerUserId: input.writerUserId,
+      writerKeyFingerprint: input.writerKeyFingerprint,
+    } as WriteHeader,
+    headerHash: `header-hash-${id}`,
+    nonceDomainHash: `nonce-${id}`,
+    organizationId: crypto.randomUUID(),
+    targetHash: `target-${id}`,
+    updateId: id,
+  });
+  return id;
+}
+
+async function insertSpan(input: {
+  documentId: string;
+  updateId: string;
+  peerId: string;
+  startCounter: number;
+  endCounter: number;
+}): Promise<void> {
+  await db.insert(documentUpdateSpans).values(input);
+}
+
+// The fields that must hold across the prune; `updateSequence` is a generated
+// identity, so it is asserted only via the before/after deep-equality below.
+function attributionShape(
+  result: Awaited<ReturnType<typeof computeDocumentEditAttribution>>,
+) {
+  return result.segments.map((segment) => ({
+    peerId: segment.peerId,
+    startCounter: segment.startCounter,
+    endCounter: segment.endCounter,
+    updateId: segment.updateId,
+    writerUserId: segment.writerUserId,
+    writerKeyFingerprint: segment.writerKeyFingerprint,
+    authorityKind: segment.authorityKind,
+  }));
+}
+
+// The full chain the individual unit tests (earliest-span-wins, prune
+// domination) never exercise together: alice edits → bob rotates the content
+// key and uploads a rotate_baseline re-asserting the peer from 0 → the GC prunes
+// alice's now-dominated payload → attribution is recomputed. Blame must be
+// identical before and after the prune, because prune clears only the encrypted
+// payload and leaves the attribution spans + write header intact.
+test("attribution survives a rotate_baseline payload prune", async () => {
+  const { early, late } = await buildVersions();
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: "attribution-creator" })
+    .returning({ id: documents.id });
+  if (!document) {
+    throw new Error("Failed to create document");
+  }
+  const documentId = document.id;
+
+  // alice's incremental pre-rotation update first delivered peer-1 ops [0,3).
+  const aliceUpdateId = await insertUpdate({
+    contentKeyEpoch: 1,
+    documentId,
+    encryptedData: "alice-pre-rotation-payload",
+    partialEndVersionVector: early,
+    writerKeyFingerprint: "fp-alice",
+    writerUserId: "alice",
+  });
+  await insertSpan({
+    documentId,
+    endCounter: 3,
+    peerId: "1",
+    startCounter: 0,
+    updateId: aliceUpdateId,
+  });
+
+  // bob rotates the key (new epoch) and uploads a rotate_baseline that
+  // re-asserts the whole peer [0,10) at a later server sequence.
+  const baselineUpdateId = await insertUpdate({
+    contentKeyEpoch: 2,
+    documentId,
+    encryptedData: "bob-baseline-payload",
+    partialEndVersionVector: late,
+    writerKeyFingerprint: "fp-bob",
+    writerUserId: "bob",
+  });
+  await insertSpan({
+    documentId,
+    endCounter: 10,
+    peerId: "1",
+    startCounter: 0,
+    updateId: baselineUpdateId,
+  });
+  await db.insert(documentAuditCheckpoints).values({
+    accessEpoch: 1,
+    accessManifestHash: "manifest",
+    actorFingerprint: "fp-bob",
+    // A uuid column; attribution reads writerUserId off the write-header JSON,
+    // not the checkpoint actor, so this is independent of the "bob" writer.
+    actorUserId: crypto.randomUUID(),
+    baselineUpdateId,
+    checkpointHash: "checkpoint-hash",
+    checkpointKind: "rotate_baseline",
+    documentId,
+    sourceVersionVector: late,
+  });
+
+  // Earliest-span-wins: alice keeps [0,3) as a direct edit under her own key;
+  // only the genuinely-new [3,10) the baseline first delivered is credited to
+  // bob, flagged "baseline" (a re-assertion, not proof of authorship).
+  const expected: ReturnType<typeof attributionShape> = [
+    {
+      authorityKind: "direct",
+      endCounter: 3,
+      peerId: "1",
+      startCounter: 0,
+      updateId: aliceUpdateId,
+      writerKeyFingerprint: "fp-alice",
+      writerUserId: "alice",
+    },
+    {
+      authorityKind: "baseline",
+      endCounter: 10,
+      peerId: "1",
+      startCounter: 3,
+      updateId: baselineUpdateId,
+      writerKeyFingerprint: "fp-bob",
+      writerUserId: "bob",
+    },
+  ];
+
+  const before = await computeDocumentEditAttribution(documentId, db);
+  expect(attributionShape(before)).toEqual(expected);
+
+  // Collapse the frontier: clear the payload of every pre-rotation update the
+  // baseline dominates.
+  const prune = await runPruneDominatedUpdatesWorkflow(db, {
+    documentIds: [documentId],
+  });
+  expect(prune.prunedUpdateCount).toBe(1);
+
+  // alice's payload is gone...
+  const [alice] = await db
+    .select({ encryptedData: documentUpdates.encryptedData })
+    .from(documentUpdates)
+    .where(eq(documentUpdates.id, aliceUpdateId));
+  expect(alice?.encryptedData).toBe("");
+
+  // ...but her span survives, so recomputing yields the same segments: her
+  // [0,3) stays alice/direct rather than being swept into bob's baseline.
+  const after = await computeDocumentEditAttribution(documentId, db);
+  expect(attributionShape(after)).toEqual(expected);
+  expect(after).toEqual(before);
+});
