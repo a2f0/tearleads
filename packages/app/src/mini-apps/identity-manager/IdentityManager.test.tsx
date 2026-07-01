@@ -278,6 +278,13 @@ test("session rows open details and expose context menu actions", async () => {
       return button;
     };
     const table = view.getByRole("table");
+    const getSessionRow = (text: string) => {
+      const row = within(table).getByText(text).closest("tr");
+      if (!(row instanceof HTMLTableRowElement)) {
+        throw new Error(`Expected session row for: ${text}`);
+      }
+      return row;
+    };
 
     fireEvent.click(within(table).getByText("203.0.113.9"));
 
@@ -289,10 +296,22 @@ test("session rows open details and expose context menu actions", async () => {
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     expect(view.queryByText("Current Session")).toBeNull();
 
-    fireEvent.contextMenu(within(table).getByText("192.0.2.44"), {
+    const remoteRow = getSessionRow("192.0.2.44");
+    fireEvent.keyDown(
+      within(remoteRow).getByRole("button", { name: "Revoke" }),
+      {
+        key: "Enter",
+      },
+    );
+    expect(view.queryByText("Active Session")).toBeNull();
+    expect(destroyedSessionIds).toEqual([]);
+
+    fireEvent.contextMenu(remoteRow, {
       clientX: 12,
       clientY: 34,
     });
+    expect(view.queryByText("Active Session")).toBeNull();
+    expect(remoteRow.getAttribute("aria-selected")).toBe("true");
     expect(view.baseElement.querySelectorAll(".menu-item-icon")).toHaveLength(
       2,
     );
@@ -301,7 +320,7 @@ test("session rows open details and expose context menu actions", async () => {
     expect(view.getByText("Active Session")).toBeTruthy();
     expect(view.getByText(REMOTE_SESSION.id)).toBeTruthy();
 
-    fireEvent.contextMenu(within(table).getByText("192.0.2.44"), {
+    fireEvent.contextMenu(remoteRow, {
       clientX: 12,
       clientY: 34,
     });

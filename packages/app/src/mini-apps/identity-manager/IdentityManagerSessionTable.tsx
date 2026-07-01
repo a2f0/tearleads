@@ -131,6 +131,10 @@ function SessionTableRow({
       return;
     }
 
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
     event.preventDefault();
     openSessionDetail();
   };

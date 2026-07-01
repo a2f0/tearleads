@@ -26,8 +26,12 @@ function SessionDetailValue({
 }: {
   copyLabel?: string | undefined;
   title?: string | null | undefined;
-  value: string;
+  value: string | null | undefined;
 }) {
+  if (!value) {
+    return <span>None</span>;
+  }
+
   return (
     <span className="identity-manager-session-detail-value">
       <span title={title ?? value}>{value}</span>

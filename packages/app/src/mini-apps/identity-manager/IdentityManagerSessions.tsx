@@ -46,9 +46,7 @@ export function SessionsSection({
     rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
     rows: sessions,
   });
-  const contextMenuState = useContextMenuState<string>({
-    onOpen: setSelectedSessionId,
-  });
+  const contextMenuState = useContextMenuState<string>();
   const selectedSession =
     sessions.find((session) => session.id === selectedSessionId) ?? null;
   const contextMenuSession =
@@ -101,7 +99,9 @@ export function SessionsSection({
                 mutatingSessionId={mutatingSessionId}
                 onOpenSessionDetail={setSelectedSessionId}
                 openSessionContextMenu={contextMenuState.openContextMenu}
-                selectedSessionId={selectedSessionId}
+                selectedSessionId={
+                  selectedSessionId ?? contextMenuState.contextMenu?.id ?? null
+                }
                 sessionCount={sessions.length}
                 sessions={virtualSessions.rows}
                 topPadding={virtualSessions.topPadding}
