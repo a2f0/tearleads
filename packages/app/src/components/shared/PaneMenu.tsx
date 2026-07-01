@@ -1,38 +1,33 @@
 import { useCallback } from "react";
-import { LocalKeyringUnlockWindow } from "../../mini-apps/LocalKeyringUnlockGate";
-import { useWindowActions } from "../window/WindowStateProvider";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
+import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
+import { PaneContextMenuItems } from "../pane/shell/PaneContextMenuItems";
 import { Menu, type MenuPosition } from "./Menu";
-import { PaneSystemMenuItems } from "./PaneSystemMenuItems";
 
 export function PaneMenu({
   position,
   onClose,
-  onRequestDestroyKeyPackage,
-  onRequestLogout,
-  showDeveloperControls,
 }: {
   position: MenuPosition;
   onClose: () => void;
-  onRequestDestroyKeyPackage: () => void;
-  onRequestLogout: () => void;
-  showDeveloperControls: boolean;
 }) {
-  const { create } = useWindowActions();
-  const { x, y } = position;
-  const openUnlockWindow = useCallback(() => {
-    create("Unlock Database", x, y, LocalKeyringUnlockWindow, {
-      initialShowSidebar: false,
-    });
-  }, [create, x, y]);
+  const { generateKey, signingKeyPair } = useIdentity();
+  const localKeyringLock = useLocalKeyringLock();
+  const hasSigningKeyPair = signingKeyPair !== null;
+  const paneLocked = localKeyringLock.isLocked && !hasSigningKeyPair;
+  const generateKeyPair = useCallback(() => {
+    generateKey();
+    onClose();
+  }, [generateKey, onClose]);
 
   return (
     <Menu position={position} onClose={onClose}>
-      <PaneSystemMenuItems
+      <PaneContextMenuItems
+        hasSigningKeyPair={hasSigningKeyPair}
+        paneLocked={paneLocked}
+        position={position}
         onClose={onClose}
-        onOpenUnlock={openUnlockWindow}
-        onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
-        onRequestLogout={onRequestLogout}
-        showDeveloperControls={showDeveloperControls}
+        onGenerateKeyPair={generateKeyPair}
       />
     </Menu>
   );

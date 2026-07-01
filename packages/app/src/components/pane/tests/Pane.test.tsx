@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
+import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneTestUtils";
 import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
@@ -15,14 +16,24 @@ import {
   openExplorerNewStructuredDocumentRoute,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
-  registerAndWaitForUserId,
   renderPane,
   summarizeProxiedApiRequests,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
 import { enableSystemMonitorDeveloperMode } from "../../../../test/helpers/systemMonitorTestPreferences";
 
 afterEach(cleanupPaneTestEnvironment);
+
+async function openRoutedSystemMonitorStatus(
+  view: ReturnType<typeof renderPane>,
+) {
+  fireEvent.click(view.getByRole("link", { name: "System Monitor" }));
+  fireEvent.click(await view.findByRole("tab", { name: "Status" }));
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:/);
+  });
+}
 
 async function expectExplorerSystemContainerContextMenuItems(
   view: ReturnType<typeof renderPane>,
@@ -88,16 +99,16 @@ async function expectExplorerNewStructuredDocumentFileMenuDisabled(
   );
 }
 
-test("pane menu manually controls the app network mode", async () => {
+test("routed system menu manually controls the app network mode", async () => {
   enableSystemMonitorDeveloperMode();
-  const view = renderPane();
+  const view = renderRoutedPane();
+  await openRoutedSystemMonitorStatus(view);
 
   fireEvent(window, new Event("online"));
   await waitFor(() => {
     expect(getPaneStatusText(view)).toMatch(/network:\s*online/);
   });
 
-  fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByRole("button", { name: "Force Online" }));
 
   await waitFor(() => {
@@ -107,7 +118,6 @@ test("pane menu manually controls the app network mode", async () => {
   fireEvent(window, new Event("offline"));
   expect(getPaneStatusText(view)).toMatch(/network:\s*online \(manual\)/);
 
-  fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByRole("button", { name: "Use Automatic Network" }));
 
   await waitFor(() => {
@@ -117,7 +127,6 @@ test("pane menu manually controls the app network mode", async () => {
     );
   });
 
-  fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByRole("button", { name: "Force Offline" }));
 
   await waitFor(() => {
@@ -127,7 +136,6 @@ test("pane menu manually controls the app network mode", async () => {
   fireEvent(window, new Event("online"));
   expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
 
-  fireEvent.click(view.getByText("Menu"));
   fireEvent.click(view.getByRole("button", { name: "Use Automatic Network" }));
 
   await waitFor(() => {
