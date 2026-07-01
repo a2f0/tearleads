@@ -60,5 +60,34 @@
 }
 
 .identity-manager-session-table .mini-app-table {
-  min-width: 62rem;
+  min-width: 34rem;
+}
+
+.identity-manager-session-detail {
+  min-width: 0;
+}
+
+.identity-manager-session-detail-header {
+  min-width: 0;
+}
+
+.identity-manager-session-detail-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.identity-manager-session-detail-value > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-manager-session-ip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
 }
