@@ -21,6 +21,8 @@ const BACKUP_VERSION = 1;
 const ENVELOPE_VERSION = 1;
 const PRF_SALT_VERSION = 1;
 
+export type PasskeyAuthenticatorAttachment = "cross-platform" | "platform";
+
 interface CreatedPasskeyCredential {
   readonly credential: PutKeyPackageBackupRequest["credential"];
   readonly prfOutput: Uint8Array<ArrayBuffer> | null;
@@ -161,11 +163,18 @@ async function importAesGcmKey(
 }
 
 async function createPasskeyCredential(input: {
+  readonly authenticatorAttachment?: PasskeyAuthenticatorAttachment | undefined;
   readonly prfSalt: Uint8Array;
   readonly signingKeyFingerprint: string;
 }): Promise<CreatedPasskeyCredential> {
   const publicKey = {
     authenticatorSelection: {
+      // authenticatorAttachment is intentionally optional: when unset the
+      // browser chooses the authenticator UI (platform vs security key vs
+      // cross-device QR), which is why the prompt differs across browsers.
+      ...(input.authenticatorAttachment
+        ? { authenticatorAttachment: input.authenticatorAttachment }
+        : {}),
       requireResidentKey: true,
       residentKey: "required",
       userVerification: "required",
@@ -262,6 +271,7 @@ export function isPasskeyKeyPackageBackupSupported(): boolean {
 }
 
 export async function createPasskeyProtectedKeyPackageBackup(input: {
+  readonly authenticatorAttachment?: PasskeyAuthenticatorAttachment | undefined;
   readonly keyPackage: AppKeyPackage;
   readonly signingKeyFingerprint: string;
 }): Promise<PutKeyPackageBackupRequest> {
@@ -270,6 +280,7 @@ export async function createPasskeyProtectedKeyPackageBackup(input: {
   const prfSalt = await createPrfSalt(backupId);
   const { credential, prfOutput: maybePrfOutput } =
     await createPasskeyCredential({
+      authenticatorAttachment: input.authenticatorAttachment,
       prfSalt,
       signingKeyFingerprint: input.signingKeyFingerprint,
     });

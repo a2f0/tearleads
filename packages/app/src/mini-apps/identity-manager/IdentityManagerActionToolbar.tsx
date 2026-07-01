@@ -1,7 +1,10 @@
 import {
   MiniAppButton,
+  MiniAppField,
+  MiniAppSelect,
   MiniAppToolbar,
 } from "../../components/shared/MiniAppLayout";
+import type { PasskeyAuthenticatorAttachmentMode } from "../../identity/useKeyPackageActions";
 
 export type IdentityBusyState =
   | "authenticate"
@@ -31,6 +34,18 @@ export interface IdentityActionToolbarProps {
   readonly identityBusy: IdentityBusyState;
   readonly isAuthenticated: boolean;
   readonly mutatingSessionId: string | null;
+  readonly onPasskeyAuthenticatorAttachmentChange: (
+    mode: PasskeyAuthenticatorAttachmentMode,
+  ) => void;
+  readonly passkeyAuthenticatorAttachment: PasskeyAuthenticatorAttachmentMode;
+}
+
+function isPasskeyAuthenticatorAttachmentMode(
+  value: string,
+): value is PasskeyAuthenticatorAttachmentMode {
+  return (
+    value === "automatic" || value === "cross-platform" || value === "platform"
+  );
 }
 
 export function IdentityActionToolbar({
@@ -54,6 +69,8 @@ export function IdentityActionToolbar({
   identityBusy,
   isAuthenticated,
   mutatingSessionId,
+  onPasskeyAuthenticatorAttachmentChange,
+  passkeyAuthenticatorAttachment,
 }: IdentityActionToolbarProps) {
   return (
     <MiniAppToolbar wrap>
@@ -67,6 +84,25 @@ export function IdentityActionToolbar({
         >
           Backup Key Package
         </MiniAppButton>
+      )}
+      {canPasskeyBackupKeyPackage && (
+        <MiniAppField>
+          Passkey authenticator
+          <MiniAppSelect
+            disabled={identityBusy !== null}
+            onChange={(event) => {
+              const mode = event.currentTarget.value;
+              if (isPasskeyAuthenticatorAttachmentMode(mode)) {
+                onPasskeyAuthenticatorAttachmentChange(mode);
+              }
+            }}
+            value={passkeyAuthenticatorAttachment}
+          >
+            <option value="automatic">Automatic (browser default)</option>
+            <option value="platform">Platform (this device)</option>
+            <option value="cross-platform">Security key / phone</option>
+          </MiniAppSelect>
+        </MiniAppField>
       )}
       {canPasskeyBackupKeyPackage && (
         <MiniAppButton
