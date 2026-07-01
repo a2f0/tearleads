@@ -39,7 +39,7 @@ export function SiteFrame({
   return (
     <TearleadsFrame
       brandHref="/"
-      footerEnd={<FooterLinks />}
+      footerStart={<FooterLinks />}
       headerActions={
         <>
           <nav aria-label="Primary" className="site-nav">
