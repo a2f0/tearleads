@@ -116,6 +116,103 @@
   line-height: 1.5;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip: rect(0 0 0 0);
+}
+
+.security-diagram-figure {
+  margin: 32px 0 0;
+}
+
+.security-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: #111111;
+  font-family: var(--tearleads-font-family);
+}
+
+.security-diagram--mobile {
+  display: none;
+}
+
+.security-diagram-eyebrow {
+  fill: #6b6b6b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.security-diagram-title {
+  fill: #111111;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.security-diagram-body {
+  fill: #444444;
+  font-size: 15px;
+}
+
+.security-diagram-token rect {
+  fill: #e8e8e8;
+}
+
+.security-diagram-token text {
+  fill: #303030;
+  font-size: 12px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+/* "Server boundary" label rendered inside the SVG. */
+.security-diagram-callout-title {
+  fill: #111111;
+  font-weight: 800;
+}
+
+/* Key takeaways rendered as real HTML so they are readable by screen
+   readers and search engines and present on every breakpoint. */
+.security-diagram-callouts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.security-diagram-callout {
+  min-width: 0;
+  padding: 16px 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.security-diagram-callout .security-diagram-callout-title {
+  margin: 0;
+  color: #111111;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.security-diagram-callout-body {
+  margin: 6px 0 0;
+  color: #45534e;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -175,5 +272,17 @@
 
   .pricing-grid {
     grid-template-columns: 1fr;
+  }
+
+  .security-diagram-callouts {
+    grid-template-columns: 1fr;
+  }
+
+  .security-diagram--wide {
+    display: none;
+  }
+
+  .security-diagram--mobile {
+    display: block;
   }
 }
