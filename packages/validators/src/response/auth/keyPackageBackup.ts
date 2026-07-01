@@ -23,7 +23,6 @@ export interface KeyPackageBackupResponse {
   readonly prfSaltVersion: 1;
   readonly signingKeyFingerprint: string;
   readonly updatedAt: string;
-  readonly userId: string;
 }
 
 export interface ListKeyPackageBackupsResponse {
@@ -40,7 +39,6 @@ export function isKeyPackageBackupResponse(
   return (
     isPlainObject(value) &&
     hasNonEmptyStringProperty(value, "backupId") &&
-    hasNonEmptyStringProperty(value, "userId") &&
     hasNonEmptyStringProperty(value, "signingKeyFingerprint") &&
     hasPropertyValue(value, "kdfSuite", KEY_PACKAGE_BACKUP_KDF_SUITE) &&
     hasNonEmptyStringProperty(value, "prfSalt") &&

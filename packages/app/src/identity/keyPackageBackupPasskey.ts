@@ -18,6 +18,7 @@ const TEXT_ENCODER = new TextEncoder();
 const TEXT_DECODER = new TextDecoder();
 const AES_GCM_IV_BYTES = 12;
 const BACKUP_VERSION = 1;
+const ENVELOPE_VERSION = 1;
 const PRF_SALT_VERSION = 1;
 
 interface CreatedPasskeyCredential {
@@ -29,7 +30,11 @@ interface AssociatedDataInput {
   readonly backupId: string;
   readonly backupVersion: number;
   readonly credentialId: string;
+  readonly credentialPublicKey: string;
+  readonly credentialPublicKeyAlgorithm: number;
+  readonly credentialTransports: readonly string[];
   readonly encryptionSuite: typeof KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE;
+  readonly envelopeVersion: number;
   readonly format: typeof KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT;
   readonly kdfSuite: typeof KEY_PACKAGE_BACKUP_KDF_SUITE;
   readonly prfSaltVersion: 1;
@@ -76,7 +81,11 @@ function backupAssociatedData(
         backupId: input.backupId,
         backupVersion: input.backupVersion,
         credentialId: input.credentialId,
+        credentialPublicKey: input.credentialPublicKey,
+        credentialPublicKeyAlgorithm: input.credentialPublicKeyAlgorithm,
+        credentialTransports: input.credentialTransports,
         encryptionSuite: input.encryptionSuite,
+        envelopeVersion: input.envelopeVersion,
         format: input.format,
         kdfSuite: input.kdfSuite,
         prfSaltVersion: input.prfSaltVersion,
@@ -280,7 +289,11 @@ export async function createPasskeyProtectedKeyPackageBackup(input: {
     backupId,
     backupVersion: BACKUP_VERSION,
     credentialId: credential.id,
+    credentialPublicKey: credential.publicKey,
+    credentialPublicKeyAlgorithm: credential.publicKeyAlgorithm,
+    credentialTransports: credential.transports,
     encryptionSuite: KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE,
+    envelopeVersion: ENVELOPE_VERSION,
     format: KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT,
     kdfSuite: KEY_PACKAGE_BACKUP_KDF_SUITE,
     prfSaltVersion: PRF_SALT_VERSION,
@@ -309,7 +322,7 @@ export async function createPasskeyProtectedKeyPackageBackup(input: {
       encryptionSuite: KEY_PACKAGE_BACKUP_ENCRYPTION_SUITE,
       format: KEY_PACKAGE_BACKUP_ENVELOPE_FORMAT,
       iv: bytesToBase64(iv),
-      version: 1,
+      version: ENVELOPE_VERSION,
     },
     kdfSuite: KEY_PACKAGE_BACKUP_KDF_SUITE,
     prfSalt: bytesToBase64(prfSalt),
@@ -355,7 +368,11 @@ export async function decryptPasskeyProtectedKeyPackageBackup(
         backupId: backup.backupId,
         backupVersion: backup.backupVersion,
         credentialId: backup.credential.id,
+        credentialPublicKey: backup.credential.publicKey,
+        credentialPublicKeyAlgorithm: backup.credential.publicKeyAlgorithm,
+        credentialTransports: backup.credential.transports,
         encryptionSuite: backup.envelope.encryptionSuite,
+        envelopeVersion: backup.envelope.version,
         format: backup.envelope.format,
         kdfSuite: backup.kdfSuite,
         prfSaltVersion: backup.prfSaltVersion,

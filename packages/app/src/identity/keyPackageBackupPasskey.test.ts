@@ -135,7 +135,6 @@ function responseFromRequest(
     ...request,
     createdAt: "2026-06-01T12:00:00.000Z",
     updatedAt: "2026-06-01T12:00:00.000Z",
-    userId: "user-1",
   };
 }
 
@@ -201,6 +200,47 @@ test("passkey key package backup fails when associated data changes", async () =
     decryptPasskeyProtectedKeyPackageBackup({
       ...response,
       signingKeyFingerprint: "b".repeat(64),
+    }),
+  ).rejects.toThrow();
+});
+
+test("passkey key package backup fails when a non-key associated-data field is tampered", async () => {
+  installWebAuthnMock();
+  const request = await createPasskeyProtectedKeyPackageBackup({
+    keyPackage: testKeyPackage(),
+    signingKeyFingerprint: "a".repeat(64),
+  });
+  const response = responseFromRequest(request);
+
+  // backupVersion is bound into the AES-GCM associated data but not into the
+  // HKDF wrapping-key derivation, so tampering it must trip the auth tag rather
+  // than silently derive a matching key.
+  await expect(
+    decryptPasskeyProtectedKeyPackageBackup({
+      ...response,
+      backupVersion: response.backupVersion + 1,
+    }),
+  ).rejects.toThrow();
+});
+
+test("passkey key package backup fails when server-stored credential metadata is tampered", async () => {
+  installWebAuthnMock();
+  const request = await createPasskeyProtectedKeyPackageBackup({
+    keyPackage: testKeyPackage(),
+    signingKeyFingerprint: "a".repeat(64),
+  });
+  const response = responseFromRequest(request);
+
+  // The credential public key is server-stored metadata the client never uses
+  // to decrypt; binding it into the associated data ensures a malicious server
+  // cannot swap it undetectably.
+  await expect(
+    decryptPasskeyProtectedKeyPackageBackup({
+      ...response,
+      credential: {
+        ...response.credential,
+        publicKey: bytesToBase64(new Uint8Array([9, 9, 9, 9])),
+      },
     }),
   ).rejects.toThrow();
 });

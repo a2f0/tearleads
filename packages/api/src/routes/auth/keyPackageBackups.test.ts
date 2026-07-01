@@ -178,6 +178,37 @@ test("deletes only backups owned by the authenticated user", async () => {
   expect(credentialRes.status).toBe(404);
 });
 
+test("does not delete another user's key package backup", async () => {
+  const owner = await registerAndAuthenticate();
+  const attacker = await registerAndAuthenticate();
+  const request = backupRequest({ signingKeyFingerprint: owner.fingerprint });
+  expect((await putBackup(owner.token, request)).status).toBe(200);
+
+  const deleteRes = await routeApp.request(backupPath(request.backupId), {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${attacker.token}` },
+  });
+  expect(deleteRes.status).toBe(404);
+
+  const credentialRes = await routeApp.request(
+    credentialPath(request.credential.id),
+  );
+  expect(credentialRes.status).toBe(200);
+});
+
+test("rejects reusing a credential across the same user's backups", async () => {
+  const user = await registerAndAuthenticate();
+  const first = backupRequest({ signingKeyFingerprint: user.fingerprint });
+  expect((await putBackup(user.token, first)).status).toBe(200);
+
+  const second = backupRequest({
+    credentialId: first.credential.id,
+    signingKeyFingerprint: user.fingerprint,
+  });
+  const secondRes = await putBackup(user.token, second);
+  expect(secondRes.status).toBe(409);
+});
+
 test("rejects cross-user key package backup overwrite attempts", async () => {
   const firstUser = await registerAndAuthenticate();
   const secondUser = await registerAndAuthenticate();

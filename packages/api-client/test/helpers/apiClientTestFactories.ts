@@ -478,7 +478,6 @@ export function createKeyPackageBackupResponse(
     ...request,
     createdAt: "2026-06-01T12:00:00.000Z",
     updatedAt: "2026-06-01T12:00:00.000Z",
-    userId: "user-1",
   };
 }
 

@@ -61,7 +61,10 @@ export function IdentityActionToolbar({
         <MiniAppButton onClick={generateKey}>Generate Key Pair</MiniAppButton>
       )}
       {canExportKeyPackage && (
-        <MiniAppButton onClick={() => void backupKeyPackage()}>
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={() => void backupKeyPackage()}
+        >
           Backup Key Package
         </MiniAppButton>
       )}
@@ -74,7 +77,10 @@ export function IdentityActionToolbar({
         </MiniAppButton>
       )}
       {canRestoreKeyPackage && (
-        <MiniAppButton onClick={handleRestoreKeyPackageClick}>
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={handleRestoreKeyPackageClick}
+        >
           Restore Key Package
         </MiniAppButton>
       )}

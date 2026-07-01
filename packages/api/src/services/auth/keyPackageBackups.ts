@@ -21,7 +21,6 @@ function serializeKeyPackageBackupRow(
 ): KeyPackageBackupResponse {
   return {
     backupId: row.id,
-    userId: row.userId,
     signingKeyFingerprint: row.signingKeyFingerprint,
     credential: row.credential,
     prfSalt: row.prfSalt,

@@ -301,6 +301,7 @@ function useIdentityManagerIdentityMutations({
     isDestroyKeyPackageDialogOpen,
     passkeyBackupError: passkeyBackup.error,
     passkeyBackupStatus: passkeyBackup.status,
+    passkeyBackupSupported: passkeyBackup.supported,
     requestDestroyKeyPackage,
   };
 }

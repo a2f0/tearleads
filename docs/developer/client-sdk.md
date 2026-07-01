@@ -83,7 +83,8 @@ const tearleads = new Tearleads({
 const { rootContainerId } = await tearleads.identity.generate();
 ```
 
-Client capabilities
+Client capabilities:
+
 | Namespace | Owns |
 | --- | --- |
 | `tearleads.database` | SQLite client and `ExecSql` executor |

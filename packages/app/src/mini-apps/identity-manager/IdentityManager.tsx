@@ -132,8 +132,12 @@ function getIdentitySectionActions({
     canAuthenticate,
     canExportKeyPackage,
     canGenerateKey: !localKeyringLocked,
-    canPasskeyBackupKeyPackage: canExportKeyPackage && session.isAuthenticated,
-    canPasskeyRestoreKeyPackage: !localKeyringLocked,
+    canPasskeyBackupKeyPackage:
+      identityMutations.passkeyBackupSupported &&
+      canExportKeyPackage &&
+      session.isAuthenticated,
+    canPasskeyRestoreKeyPackage:
+      identityMutations.passkeyBackupSupported && !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
     canRestoreKeyPackage: !localKeyringLocked,
     generateKey: identity.generateKey,
