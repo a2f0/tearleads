@@ -13,6 +13,22 @@ function registerServiceWorker(): Promise<ServiceWorkerRegistration> {
   return navigator.serviceWorker.register(SERVICE_WORKER_URL);
 }
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T | null> {
+  let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timeoutId = globalThis.setTimeout(() => resolve(null), timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId !== undefined) {
+      globalThis.clearTimeout(timeoutId);
+    }
+  });
+}
+
 function waitForWorkerActivation(
   worker: ServiceWorker | null,
   timeoutMs: number,
@@ -53,10 +69,15 @@ function waitForWorkerActivation(
 
 async function updateControllingServiceWorker(): Promise<void> {
   try {
-    const registration = await registerServiceWorker();
-    const updatedRegistration = await registration.update();
+    const registration = await withTimeout(
+      registerServiceWorker(),
+      CONTROLLED_UPDATE_TIMEOUT_MS,
+    );
+    const updatedRegistration = registration
+      ? await withTimeout(registration.update(), CONTROLLED_UPDATE_TIMEOUT_MS)
+      : null;
     await waitForWorkerActivation(
-      updatedRegistration.installing ?? updatedRegistration.waiting,
+      updatedRegistration?.installing ?? updatedRegistration?.waiting ?? null,
       CONTROLLED_UPDATE_TIMEOUT_MS,
     );
   } catch {
