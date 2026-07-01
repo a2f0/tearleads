@@ -300,14 +300,15 @@ test(
     expect(view.getByRole("button", { name: "Notes" })).toBeTruthy();
 
     const identityManagerWindow = await openIdentityManagerFromPane(view);
-    const identityLogoutButton = within(identityManagerWindow).getAllByRole(
-      "button",
-      { name: "Log Out" },
-    )[0];
-    if (!identityLogoutButton) {
-      throw new Error("Expected Identity Manager log out button.");
+    const identitySection = within(identityManagerWindow)
+      .getByRole("heading", { name: "Identity" })
+      .closest("section");
+    if (!identitySection) {
+      throw new Error("Expected Identity Manager identity section.");
     }
-    fireEvent.click(identityLogoutButton);
+    fireEvent.click(
+      within(identitySection).getByRole("button", { name: "Log Out" }),
+    );
 
     const dialog = view.getByRole("dialog");
     expect(dialog).toBeTruthy();
