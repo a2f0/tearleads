@@ -8,9 +8,9 @@
    (brand + nav + App button) is constrained to the same centered column as
    the page content: max 960px wide with the 24px inset used by .website-main.
    The inline padding matches that column's left edge:
-   max(24px, (100vw - 960px) / 2). */
+   max(24px, (100% - 960px) / 2). */
 .tearleads-header {
-  padding-inline: max(24px, calc((100% - 960px) / 2));
+  padding-inline: max(24px, (100% - 960px) / 2);
 }
 
 /* Primary navigation lives in the TearleadsFrame header (dark background),
