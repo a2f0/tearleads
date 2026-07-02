@@ -15,22 +15,61 @@ import {
   MiniAppToolbar,
 } from "../components/shared/MiniAppLayout";
 import { useCurrentWindow } from "../components/window/CurrentWindowContext";
+import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import "./LocalKeyringUnlockGate.css";
+
+type MiniAppAccessGateState = "loading" | "ready" | "setup" | "unlock";
+
+export function resolveMiniAppAccessGateState({
+  hasSigningKeyPair,
+  isLocked,
+  localIdentityRestoreSettled,
+}: {
+  hasSigningKeyPair: boolean;
+  isLocked: boolean;
+  localIdentityRestoreSettled: boolean;
+}): MiniAppAccessGateState {
+  if (isLocked) {
+    return "unlock";
+  }
+
+  if (!localIdentityRestoreSettled) {
+    return "loading";
+  }
+
+  return hasSigningKeyPair ? "ready" : "setup";
+}
 
 export function LocalKeyringUnlockGate({
   appName,
   children,
 }: PropsWithChildren<{ appName: string }>) {
   const lock = useLocalKeyringLock();
+  const { generateKey, localIdentityRestoreSettled, signingKeyPair } =
+    useIdentity();
+  const gateState = resolveMiniAppAccessGateState({
+    hasSigningKeyPair: signingKeyPair !== null,
+    isLocked: lock.isLocked,
+    localIdentityRestoreSettled,
+  });
 
-  if (!lock.isLocked) {
+  if (gateState === "ready") {
     return children;
   }
 
   return (
     <MiniAppRoot centered className="local-keyring-unlock-gate">
-      <LocalKeyringUnlockPanel appName={appName} />
+      {gateState === "unlock" ? (
+        <LocalKeyringUnlockPanel appName={appName} />
+      ) : gateState === "loading" ? (
+        <LocalIdentityLoadingPanel />
+      ) : (
+        <LocalIdentitySetupPanel
+          appName={appName}
+          onGenerateKey={generateKey}
+        />
+      )}
     </MiniAppRoot>
   );
 }
@@ -62,6 +101,37 @@ export function LocalKeyringUnlockWindow() {
         </MiniAppPanel>
       )}
     </MiniAppRoot>
+  );
+}
+
+function LocalIdentityLoadingPanel() {
+  return (
+    <MiniAppPanel className="local-keyring-unlock-gate-panel">
+      <div className="local-keyring-unlock-copy">
+        <h2>Loading local keys</h2>
+        <p>Checking for a saved local key package.</p>
+      </div>
+    </MiniAppPanel>
+  );
+}
+
+function LocalIdentitySetupPanel({
+  appName,
+  onGenerateKey,
+}: {
+  appName: string;
+  onGenerateKey: () => void;
+}) {
+  return (
+    <MiniAppPanel className="local-keyring-unlock-gate-panel">
+      <div className="local-keyring-unlock-copy">
+        <h2>Local keys required</h2>
+        <p>Generate a local key pair to open {appName}.</p>
+      </div>
+      <MiniAppToolbar>
+        <MiniAppButton onClick={onGenerateKey}>Generate Key Pair</MiniAppButton>
+      </MiniAppToolbar>
+    </MiniAppPanel>
   );
 }
 
