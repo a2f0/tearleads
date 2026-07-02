@@ -10,7 +10,9 @@ export interface ContactEntry {
   id: string;
   isSelf: boolean;
   lastName: string;
-  nickname: string;
+  // Nullable: a contact may simply have no nickname. Consumers must treat an
+  // absent nickname the same as an empty one (e.g. `(entry.nickname ?? "")`).
+  nickname: string | null;
   userId: string | null;
 }
 
@@ -24,7 +26,7 @@ export interface ContactEntryPatch {
 }
 
 export function getContactDisplayName(entry: ContactEntry): string {
-  const nickname = entry.nickname.trim();
+  const nickname = (entry.nickname ?? "").trim();
   if (nickname.length > 0) {
     return nickname;
   }

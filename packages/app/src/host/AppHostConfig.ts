@@ -27,6 +27,16 @@ export interface AppHostFeatureFlags {
   readonly autoRegisterIdentity: boolean;
   readonly explorerPeerSharing: boolean;
   readonly panePeerUserIds: boolean;
+  /**
+   * Seed friendly peer identities on boot: auto-import the opposite pane's peer
+   * as a contact (nicknamed by its peer label), name the self "You" contact and
+   * the bootstrapped personal org after the pane's peer label ("Peer 1"/"Peer
+   * 2" / "Peer 1's Org"). Demo-only sugar so the two-pane demo reads as two
+   * named people rather than raw key fingerprints; the regular app leaves this
+   * off and keeps the neutral "Personal Org" / "You" defaults and the manual
+   * contact-import flow.
+   */
+  readonly seedPeerIdentities: boolean;
 }
 
 export interface AppHostProfile {
@@ -46,6 +56,7 @@ export const APP_HOST_PROFILES = {
       autoRegisterIdentity: true,
       explorerPeerSharing: false,
       panePeerUserIds: false,
+      seedPeerIdentities: false,
     },
     paneRuntimePolicy: "shared",
   },
@@ -56,6 +67,7 @@ export const APP_HOST_PROFILES = {
       autoRegisterIdentity: true,
       explorerPeerSharing: true,
       panePeerUserIds: true,
+      seedPeerIdentities: true,
     },
     paneRuntimePolicy: "isolated",
   },
