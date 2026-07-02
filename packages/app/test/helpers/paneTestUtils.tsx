@@ -494,7 +494,7 @@ export async function generateIdentityAndWaitForDb(
   await waitFor(
     () => {
       const statusText = getPaneStatusText(view);
-      expect(statusText).toMatch(/sqlite worker:\s*ready/);
+      expect(statusText).toMatch(/(?:sqlite worker|SQLite Worker):\s*ready/);
       expect(statusText).toMatch(publicKeyStatusPattern);
     },
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },

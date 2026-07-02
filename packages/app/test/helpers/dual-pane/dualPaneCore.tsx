@@ -192,10 +192,10 @@ export function queryExplorerItemTable(root: HTMLElement): HTMLElement | null {
 }
 
 const PANE_USER_ID_PATTERN =
-  /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
-const PANE_SESSION_PATTERN = /session:\s*(?!none\b)\S+/u;
+  /(?:userId|User ID):\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
+const PANE_SESSION_PATTERN = /(?:session|Session):\s*(?!none\b)\S+/u;
 const PANE_PEER_USER_ID_PATTERN =
-  /peerUserId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
+  /(?:peerUserId|Peer User ID):\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 
 export function getPaneUserId(pane: HTMLElement): string {
   const match = flattenPaneStatusText(pane).match(PANE_USER_ID_PATTERN);
@@ -338,7 +338,9 @@ export async function provisionPaneFromMenu(pane: HTMLElement) {
   });
 
   await waitFor(() => {
-    expect(flattenPaneStatusText(pane)).toMatch(/sqlite worker:\s*ready/);
+    expect(flattenPaneStatusText(pane)).toMatch(
+      /(?:sqlite worker|SQLite Worker):\s*ready/,
+    );
   });
 
   const identityManager = await openIdentityManagerForPane(pane);
@@ -412,7 +414,9 @@ export async function destroyPaneKeyPackage(pane: HTMLElement) {
   await waitForCondition(() => {
     const status = flattenPaneStatusText(pane);
     return (
-      status.includes("userId: none") && status.includes("sqlite worker: idle")
+      (status.includes("userId: none") || status.includes("User ID: none")) &&
+      (status.includes("sqlite worker: idle") ||
+        status.includes("SQLite Worker: idle"))
     );
   }, "Pane did not clear local identity state after key destruction.");
 }
@@ -443,6 +447,8 @@ export async function restorePaneKeyPackageBackup(
 
   await waitForSinglePaneProvisioning(pane);
   await waitFor(() => {
-    expect(flattenPaneStatusText(pane)).toMatch(/sqlite worker:\s*ready/);
+    expect(flattenPaneStatusText(pane)).toMatch(
+      /(?:sqlite worker|SQLite Worker):\s*ready/,
+    );
   });
 }
