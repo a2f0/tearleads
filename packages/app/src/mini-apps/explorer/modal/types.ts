@@ -72,5 +72,5 @@ export interface ExplorerModalController {
   setDraftName: Dispatch<SetStateAction<string>>;
   setDraftTargetContainerId: Dispatch<SetStateAction<string>>;
   setModalError: Dispatch<SetStateAction<string | null>>;
-  targetSelectRef: RefObject<HTMLSelectElement | null>;
+  targetSelectRef: RefObject<HTMLButtonElement | null>;
 }

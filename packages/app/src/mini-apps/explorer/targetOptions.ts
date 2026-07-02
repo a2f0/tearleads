@@ -13,6 +13,7 @@ import {
 
 export interface MoveTargetOption {
   id: string;
+  icon: string | null | undefined;
   label: string;
 }
 
@@ -79,6 +80,7 @@ function getSortedTargetOptions(
 ): ReadonlyArray<MoveTargetOption> {
   const options = candidateNodes.map((candidateNode) => ({
     id: candidateNode.id,
+    icon: candidateNode.icon,
     label: candidateNode.name,
   }));
 

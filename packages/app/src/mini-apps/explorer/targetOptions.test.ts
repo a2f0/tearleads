@@ -37,7 +37,7 @@ const nodes: ReadonlyArray<ContainerNode> = [
   containerNode({ id: "root-container", name: "/", parentId: null }),
   containerNode({ id: CONTACTS_CONTAINER_ID, systemSlot: CONTACTS_SLOT }),
   containerNode({ id: TRASH_CONTAINER_ID, systemSlot: TRASH_SLOT }),
-  containerNode({ id: "user-container", name: "Documents" }),
+  containerNode({ id: "user-container", icon: "folder", name: "Documents" }),
 ];
 
 function documentSummary(
@@ -140,7 +140,7 @@ test("a contact can be linked out of contacts but not into the trash", () => {
   expect(optionIds).toContain("user-container");
 });
 
-test("document move target labels show folder names without container ids", () => {
+test("document move target options carry folder names and icons", () => {
   const trashedDocument = documentSummary({
     id: "trashed-doc",
     containerId: TRASH_CONTAINER_ID,
@@ -156,6 +156,7 @@ test("document move target labels show folder names without container ids", () =
 
   expect(options.find((option) => option.id === "user-container")).toEqual({
     id: "user-container",
+    icon: "folder",
     label: "Documents",
   });
 });

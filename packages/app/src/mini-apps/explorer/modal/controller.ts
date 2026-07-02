@@ -27,7 +27,7 @@ function useExplorerModalEffects(params: {
   isSubmittingModal: boolean;
   modalState: ExplorerModalState | null;
   nameInputRef: RefObject<HTMLInputElement | null>;
-  targetSelectRef: RefObject<HTMLSelectElement | null>;
+  targetSelectRef: RefObject<HTMLButtonElement | null>;
 }) {
   const {
     closeModal,
@@ -90,7 +90,7 @@ function useExplorerModalState(
   const [draftName, setDraftName] = useState("");
   const [draftTargetContainerId, setDraftTargetContainerId] = useState("");
   const nameInputRef = useRef<HTMLInputElement>(null);
-  const targetSelectRef = useRef<HTMLSelectElement>(null);
+  const targetSelectRef = useRef<HTMLButtonElement>(null);
   const targetLookups = useMemo(
     () => createExplorerTargetLookups(nodes, documentSummaries),
     [documentSummaries, nodes],
