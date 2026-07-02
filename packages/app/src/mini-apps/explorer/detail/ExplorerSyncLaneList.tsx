@@ -15,6 +15,7 @@ import {
   MiniAppTableText,
   useMiniAppColumnVisibility,
 } from "../../../components/shared/MiniAppTable";
+import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
 import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../labels";
 import {
   ExplorerSyncLaneLastAction,
@@ -37,6 +38,15 @@ const SYNC_LANE_LIST_COLUMN_IDS: ReadonlyArray<SyncLaneListColumnId> = [
   "progress",
   "last-action",
   "counts",
+  "status",
+];
+
+// Phone-tier list keeps a trimmed, fixed set so the lane leads and the row fits
+// without a horizontal scroll: the label identifies the lane and the status
+// badge conveys its state. Everything else lives one tap away in the lane
+// detail view. Column-visibility preferences do not apply here.
+const SYNC_LANE_COMPACT_COLUMN_IDS: ReadonlyArray<SyncLaneListColumnId> = [
+  "lane",
   "status",
 ];
 
@@ -75,22 +85,32 @@ const SYNC_LANE_COLUMN_MENU_OPTIONS: ReadonlyArray<
   label: getSyncLaneListColumnLabel(id),
 }));
 
-function getVisibleSyncLaneColumnIds(
-  hiddenColumns: ReadonlySet<SyncLaneListColumnId>,
-): ReadonlyArray<SyncLaneListColumnId> {
+function getVisibleSyncLaneColumnIds(params: {
+  compact: boolean;
+  hiddenColumns: ReadonlySet<SyncLaneListColumnId>;
+}): ReadonlyArray<SyncLaneListColumnId> {
+  if (params.compact) {
+    return SYNC_LANE_COMPACT_COLUMN_IDS;
+  }
+
   return getVisibleMiniAppTableColumnIds(
     SYNC_LANE_LIST_COLUMN_IDS,
-    hiddenColumns,
+    params.hiddenColumns,
   );
 }
 
-function buildSyncLaneColumn(id: SyncLaneListColumnId): MiniAppTableColumn {
+function buildSyncLaneColumn(
+  id: SyncLaneListColumnId,
+  compact: boolean,
+): MiniAppTableColumn {
   switch (id) {
     case "lane":
       return {
         header: getSyncLaneListColumnLabel(id),
         id,
-        width: "32%",
+        // On the phone tier the lane is one of only two columns, so let it take
+        // the remaining width instead of the wide-layout 32% share.
+        width: compact ? undefined : "32%",
       };
     case "phase":
       return {
@@ -198,30 +218,40 @@ export function ExplorerSyncLaneList(params: {
   lanes: ReadonlyArray<SyncLaneSnapshot>;
   onOpenLaneDetail: (laneKey: string) => void;
 }) {
+  const compact = useRoutedLayoutTier() === "mobile";
   const columnVisibility = useMiniAppColumnVisibility<SyncLaneListColumnId>({
     storageKey: SYNC_LANE_COLUMN_STORAGE_KEY,
     toggleableColumnIds: SYNC_LANE_TOGGLEABLE_COLUMN_IDS,
   });
   const visibleColumnIds = useMemo(
-    () => getVisibleSyncLaneColumnIds(columnVisibility.hiddenColumns),
-    [columnVisibility.hiddenColumns],
+    () =>
+      getVisibleSyncLaneColumnIds({
+        compact,
+        hiddenColumns: columnVisibility.hiddenColumns,
+      }),
+    [compact, columnVisibility.hiddenColumns],
   );
   const columns = useMemo(
     () =>
       addMiniAppTableHeaderAction(
-        visibleColumnIds.map(buildSyncLaneColumn),
-        <MiniAppColumnMenuButton
-          ariaLabel={EXPLORER_LABELS.columnsMenuButton}
-          hiddenColumns={columnVisibility.hiddenColumns}
-          options={SYNC_LANE_COLUMN_MENU_OPTIONS}
-          stateLabels={{
-            off: EXPLORER_LABELS.columnsMenuStateOff,
-            on: EXPLORER_LABELS.columnsMenuStateOn,
-          }}
-          toggleColumn={columnVisibility.toggleColumn}
-        />,
+        visibleColumnIds.map((id) => buildSyncLaneColumn(id, compact)),
+        // The column menu only toggles the wide-layout columns, which the
+        // compact tier drops entirely, so hide it there.
+        compact ? null : (
+          <MiniAppColumnMenuButton
+            ariaLabel={EXPLORER_LABELS.columnsMenuButton}
+            hiddenColumns={columnVisibility.hiddenColumns}
+            options={SYNC_LANE_COLUMN_MENU_OPTIONS}
+            stateLabels={{
+              off: EXPLORER_LABELS.columnsMenuStateOff,
+              on: EXPLORER_LABELS.columnsMenuStateOn,
+            }}
+            toggleColumn={columnVisibility.toggleColumn}
+          />
+        ),
       ),
     [
+      compact,
       columnVisibility.hiddenColumns,
       columnVisibility.toggleColumn,
       visibleColumnIds,

@@ -72,6 +72,32 @@ function renderSyncLanesPanel(input: {
   );
 }
 
+// The compact list keys off `useRoutedLayoutTier`, which reads the
+// `(min-width: 760px)` media query. Force it to the phone tier for the duration
+// of the render so the effect that tracks the breakpoint also sees a miss.
+function renderSyncLanesPanelOnPhone(input: {
+  onOpenLaneDetail?: ((laneKey: string) => void) | undefined;
+  snapshot: DomainSyncSnapshot;
+}) {
+  const originalMatchMedia = window.matchMedia;
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+
+  try {
+    return renderSyncLanesPanel(input);
+  } finally {
+    window.matchMedia = originalMatchMedia;
+  }
+}
+
 test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () => {
   const snapshot = createSnapshot([
     createLaneSnapshot({
@@ -122,6 +148,62 @@ test("ExplorerSyncLanesPanelView opens lane details from the responsive list", (
   const openedLaneKeys: string[] = [];
 
   const view = renderSyncLanesPanel({
+    onOpenLaneDetail: (laneKey) => {
+      openedLaneKeys.push(laneKey);
+    },
+    snapshot,
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: "Open lane detail: Document local-1",
+    }),
+  );
+
+  expect(openedLaneKeys).toEqual(["documents:local-1"]);
+});
+
+test("ExplorerSyncLanesPanelView trims the list to lane and status on phones", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      lastAction: "started",
+      phase: "document",
+      requestCount: 1,
+      runCount: 1,
+      running: true,
+      status: "running",
+    }),
+  ]);
+
+  const view = renderSyncLanesPanelOnPhone({ snapshot });
+
+  const headerCells = Array.from(view.container.querySelectorAll("thead th"));
+  expect(headerCells.map((cell) => cell.textContent)).toEqual([
+    "Lane",
+    "Status",
+  ]);
+  // The lane stays identifiable and the status still reads at a glance...
+  expect(view.getByText("Document local-1")).toBeTruthy();
+  expect(view.getAllByText("Running").length).toBeGreaterThan(0);
+  // ...while the wide-only detail columns and their column menu fall away.
+  expect(view.queryByText("1 request, 1 run, 0 errors")).toBeNull();
+  expect(view.queryByRole("progressbar")).toBeNull();
+  expect(view.queryByRole("button", { name: "Columns" })).toBeNull();
+});
+
+test("ExplorerSyncLanesPanelView opens lane details from the compact list", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+    }),
+  ]);
+  const openedLaneKeys: string[] = [];
+
+  const view = renderSyncLanesPanelOnPhone({
     onOpenLaneDetail: (laneKey) => {
       openedLaneKeys.push(laneKey);
     },
