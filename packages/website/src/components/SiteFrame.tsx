@@ -1,4 +1,4 @@
-import { TearleadsFrame } from "@tearleads/ui";
+import { TearleadsFrame, TearleadsLogo } from "@tearleads/ui";
 import type { PropsWithChildren } from "react";
 
 interface SiteFrameProps {
@@ -7,10 +7,10 @@ interface SiteFrameProps {
 
 const NAV_ITEMS: readonly { readonly href: string; readonly label: string }[] =
   [
-    { href: "/#how-it-works", label: "How it works" },
+    { href: "/how-it-works", label: "How it works" },
     { href: "/security", label: "Security" },
-    { href: "/#pricing", label: "Pricing" },
-    { href: "/#features", label: "Features" },
+    { href: "/pricing", label: "Pricing" },
+    { href: "/features", label: "Features" },
   ];
 
 const FOOTER_ITEMS: readonly {
@@ -40,6 +40,7 @@ export function SiteFrame({
   return (
     <TearleadsFrame
       brandHref="/"
+      brandLogo={<TearleadsLogo />}
       footerStart={<FooterLinks />}
       headerActions={
         <>
