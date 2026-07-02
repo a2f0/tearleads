@@ -189,8 +189,10 @@ const ROSTER_SEED_RETRY_MS = 2000;
 // Headless seeder: once this pane is authenticated with its personal org and the
 // peer's user id is known, adds the peer to the pane's own member group so the
 // peer appears on the pane's roster. Retries a bounded number of times while the
-// preconditions (directory, member list, peer key) settle; a settled/in-flight
-// guard keeps it idempotent and never issues overlapping writes.
+// preconditions (directory, member list, peer key) settle. Idempotent by
+// construction — each attempt re-checks membership and settles once the peer is
+// on the roster — and the `active` flag cancels a superseded effect run so only
+// the latest retry loop stays live.
 function DemoPeerRosterSeeder({
   enabled,
 }: {
@@ -201,7 +203,6 @@ function DemoPeerRosterSeeder({
   const { organizations } = useTearleads();
   const { logError } = useLog();
   const settledRef = useRef(false);
-  const inFlightRef = useRef(false);
 
   // The signing/encapsulation material and resolved org/user id the member-group
   // policy write needs (mirrors the org-manager `canImportRosterUser` gate).
@@ -228,17 +229,15 @@ function DemoPeerRosterSeeder({
     let attempts = 0;
 
     const attempt = async (): Promise<void> => {
-      if (!active || settledRef.current || inFlightRef.current) {
+      if (!active || settledRef.current) {
         return;
       }
 
-      inFlightRef.current = true;
       const settled = await attemptPeerRosterSeed(
         organizations,
         peerUserId,
         logError,
       );
-      inFlightRef.current = false;
       if (!active) {
         return;
       }
