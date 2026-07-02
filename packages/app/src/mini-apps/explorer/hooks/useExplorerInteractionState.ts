@@ -1,9 +1,34 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  DocumentSummary,
+  LocalProjectionView,
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
+
+// Priming a discovered document opens its store in the SDK's module-level cache,
+// which lives above the routed-pane remount boundary. Tracking which summary-list
+// instances have already been primed in a per-mount ref re-primed every document
+// each time the compact/mobile breakpoint remounted Explorer. Key the tracking by
+// the persistent projection view instead, so it survives those remounts and
+// rotates automatically when the domain scope (and its view) changes.
+const primedSummaryListsByView = new WeakMap<
+  LocalProjectionView,
+  WeakSet<ReadonlyArray<unknown>>
+>();
+
+function primedSummaryListsForView(
+  view: LocalProjectionView,
+): WeakSet<ReadonlyArray<unknown>> {
+  let primed = primedSummaryListsByView.get(view);
+  if (!primed) {
+    primed = new WeakSet();
+    primedSummaryListsByView.set(view, primed);
+  }
+  return primed;
+}
 
 /**
  * Device-first interaction state for the explorer.
@@ -42,32 +67,29 @@ export function useExplorerInteractionState(params: {
   // changes, surface the active container's summaries into the explorer view
   // model and bump the document link projection so the sidebar/table re-read
   // their windows from SQLite. This replaces the old render-driven discovery.
-  const primedSummaryListsRef = useRef(new WeakSet<ReadonlyArray<unknown>>());
   const lastActiveSummariesRef = useRef<ReadonlyArray<DocumentSummary> | null>(
     null,
   );
-  // Reset the per-view priming/merge tracking when the view (domain scope)
-  // rotates, so the new scope's documents prime even if old state lingers.
+  // Reset the per-mount active-summaries tracking when the view (domain scope)
+  // rotates, so the new scope's summaries re-merge into the view model. Primed
+  // document stores are tracked per view (module scope) and need no reset here.
   const lastViewRef = useRef(view);
   if (lastViewRef.current !== view) {
     lastViewRef.current = view;
-    primedSummaryListsRef.current = new WeakSet();
     lastActiveSummariesRef.current = null;
   }
   useEffect(() => {
+    const primedSummaryLists = primedSummaryListsForView(view);
     const applyFromView = () => {
       const summariesMap = view.getSnapshot().documentSummariesByContainerId;
 
       // Prime document stores for every container whose summaries are new, so
       // discovered documents sync their content (and titles) even when they
       // land outside the active container. Each summary-list instance is primed
-      // once; the local projection only swaps the list when it changes.
+      // once per view; the local projection only swaps the list when it changes.
       for (const summaries of summariesMap.values()) {
-        if (
-          summaries.length > 0 &&
-          !primedSummaryListsRef.current.has(summaries)
-        ) {
-          primedSummaryListsRef.current.add(summaries);
+        if (summaries.length > 0 && !primedSummaryLists.has(summaries)) {
+          primedSummaryLists.add(summaries);
           primeDiscoveredDocuments(summaries);
         }
       }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from "react";
+import type { DomainScope } from "@tearleads/client-sdk";
+import { useCallback, useEffect } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import {
   MiniAppRoot,
@@ -30,6 +31,15 @@ import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
 import type { MiniAppWindowPosition } from "./types";
 import "./Explorer.css";
+
+// Auto catch-up performs a watermark-resetting root-tree re-list; it only needs
+// to run once per domain scope (identity/database), not once per mount. Tracking
+// completion in a per-mount ref re-fired the sweep every time the compact/mobile
+// breakpoint remounted Explorer. A module-level WeakSet keyed by the domain-scope
+// object survives those remounts and rotates automatically when the scope object
+// changes on a real identity/database switch — the previous scope is then GC'd, so
+// the new one catches up afresh.
+const catchupCompletedScopes = new WeakSet<DomainScope>();
 
 interface ExplorerGrantOrgManagerTarget {
   containerId: string;
@@ -180,10 +190,10 @@ function ExplorerContent() {
     peerUserId,
     retryDatabaseBoot,
   );
-  const openCatchupCheckedRef = useRef(false);
+  const catchupScope = appData.state.domainScope;
   useEffect(() => {
     if (
-      openCatchupCheckedRef.current ||
+      catchupCompletedScopes.has(catchupScope) ||
       !appData.auth.isAuthenticated ||
       appData.infra.dbStatus !== "ready" ||
       !model.explorer.ready
@@ -195,12 +205,13 @@ function ExplorerContent() {
       return;
     }
 
-    openCatchupCheckedRef.current = true;
+    catchupCompletedScopes.add(catchupScope);
     void model.handleOpenCatchup();
   }, [
     appData.auth.isAuthenticated,
     appData.infra.dbStatus,
     appData.state.events.length,
+    catchupScope,
     model.explorer.ready,
     model.handleOpenCatchup,
   ]);
