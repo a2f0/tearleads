@@ -1,20 +1,9 @@
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import {
-  type MouseEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import type { MenuPosition } from "../../../components/shared/Menu";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useContextMenuState } from "../../../components/shared/useContextMenuState";
 import { downloadBytesAsFile } from "../../../utils/downloadFile";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import { EXPLORER_LABELS } from "../labels";
-
-interface BlobContextMenuState {
-  blob: BlobInfo;
-  position: MenuPosition;
-}
 
 // Blobs frequently carry no name, so fall back to the blob id / storage key for
 // the downloaded file's name.
@@ -42,44 +31,32 @@ async function downloadBlobBytes(input: {
   return true;
 }
 
-// Owns the blob-browser row context menu: the right-click position + target
-// blob, the download action, and the inline message shown when a download
-// cannot complete (bytes missing locally or a read failure).
+// Owns the blob-browser row context menu: the target blob (via the shared
+// context-menu state), the download action, and the inline message shown when a
+// download cannot complete (bytes missing locally or a read failure).
 export function useBlobBrowserContextMenu(params: {
   blobStore: BlobStore;
   query: string;
   selectedBlob: BlobInfo | null;
 }) {
   const { blobStore, query, selectedBlob } = params;
-  const [contextMenu, setContextMenu] = useState<BlobContextMenuState | null>(
-    null,
-  );
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
   // Monotonic id of the most recently started download. A slower earlier read
   // that resolves after a newer one must not overwrite the newer one's status.
   const downloadRequestRef = useRef(0);
+  const clearDownloadMessage = useCallback(() => setDownloadMessage(null), []);
+
+  // Reuse the shared context-menu state so a row right-click both suppresses the
+  // native menu and stops bubbling to the pane's own context menu. Opening the
+  // menu also clears any prior download note.
+  const { closeContextMenu, contextMenu, openContextMenu } =
+    useContextMenuState<BlobInfo>({ onOpen: clearDownloadMessage });
 
   // A stale download message must not linger once the user moves on, so clear
   // it when the search query or the selected blob changes.
   useEffect(() => {
-    setDownloadMessage(null);
-  }, [query, selectedBlob]);
-
-  const openContextMenu = useCallback(
-    (event: MouseEvent<HTMLElement>, blob: BlobInfo) => {
-      event.preventDefault();
-      setDownloadMessage(null);
-      setContextMenu({
-        blob,
-        position: { x: event.clientX, y: event.clientY },
-      });
-    },
-    [],
-  );
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null);
-  }, []);
+    clearDownloadMessage();
+  }, [query, selectedBlob, clearDownloadMessage]);
 
   const downloadBlob = useCallback(
     (blob: BlobInfo) => {
