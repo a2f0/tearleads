@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { initialRoutedSidebarExpanded, menuPositionBelow } from "./RoutedPane";
+import {
+  initialRoutedSidebarExpanded,
+  menuPositionBelow,
+  resolveRoutedActiveMiniAppId,
+} from "./RoutedPane";
 
 function fakeButton(rect: { left: number; bottom: number }): HTMLElement {
   return {
@@ -48,4 +52,14 @@ test("tablet honours each mini-app's configured sidebar default", () => {
   // system-monitor opts out of the default-shown rail.
   expect(initialRoutedSidebarExpanded("tablet", "system-monitor")).toBe(false);
   expect(initialRoutedSidebarExpanded("tablet", null)).toBe(true);
+});
+
+test("mobile root route opens explorer as the compact home screen", () => {
+  expect(resolveRoutedActiveMiniAppId("mobile", null)).toBe("explorer");
+  expect(resolveRoutedActiveMiniAppId("mobile", "contacts")).toBe("contacts");
+});
+
+test("tablet root route keeps the routed home launcher", () => {
+  expect(resolveRoutedActiveMiniAppId("tablet", null)).toBeNull();
+  expect(resolveRoutedActiveMiniAppId("tablet", "contacts")).toBe("contacts");
 });
