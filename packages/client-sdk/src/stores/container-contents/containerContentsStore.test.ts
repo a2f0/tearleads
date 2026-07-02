@@ -301,6 +301,114 @@ function sharedRootSummary(): ListContainersResponse {
   };
 }
 
+function sharedRootChildSummary(): ListContainersResponse {
+  return {
+    hasMore: false,
+    items: [
+      {
+        createdAt: "2026-06-19T00:00:00.000Z",
+        depth: 1,
+        effectiveAccessLevel: "admin",
+        id: "owner-child",
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "owner-child-access-hash",
+        metadataDocumentId: "owner-child-metadata-document",
+        organizationId: "org-2",
+        parentId: "owner-root",
+        updatedAt: "2026-06-19T00:00:00.000Z",
+      },
+    ],
+    nextWatermark: {
+      id: "owner-child",
+      updatedAt: "2026-06-19T00:00:00.000Z",
+    },
+    tombstones: [],
+  };
+}
+
+test("root-lane refresh follows a newly discovered shared root into its children", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-root-lane-hydrates-shared-children-test",
+  );
+  const domainScope = {} as DomainScope;
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    // Warm cache: the peer already has their own root locally with a freshly
+    // checked, watermarked root lane — the same cache-first startup posture as the
+    // sibling test above.
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        icon: null,
+        id: "peer-root",
+        effectiveAccessLevel: "admin",
+        metadataDocumentId: "peer-root-metadata-document",
+        name: "/",
+        organizationId: "org-1",
+        parentId: null,
+      },
+      null,
+    );
+    await markContainerSyncLaneChecked(
+      execSql,
+      createContainerParentSyncLane(null),
+    );
+    await saveContainerSyncWatermark(
+      execSql,
+      createContainerParentSyncLane(null),
+      { id: "peer-root", updatedAt: "2026-06-20T00:00:00.000Z" },
+    );
+
+    // The server returns the owner's root on the unwatermarked null lane, and the
+    // owner's child (a system folder, say) when that root's child lane is probed.
+    const childLaneParentIds: Array<string | null | undefined> = [];
+    const runtime = createSqlTestRuntime({
+      apiClient: createMockApiClient({
+        listContainers: async ({ parentId, watermark } = {}) => {
+          if (parentId === "owner-root") {
+            childLaneParentIds.push(parentId);
+            return watermark
+              ? emptyListContainersResponse()
+              : sharedRootChildSummary();
+          }
+          if (parentId !== null && parentId !== undefined) {
+            return emptyListContainersResponse();
+          }
+          return watermark
+            ? emptyListContainersResponse()
+            : sharedRootSummary();
+        },
+      }),
+      domainScope,
+      execSql,
+    });
+    const store = createContainerContentsStore(runtime);
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    // refreshRootLane is the AUTOMATIC path (shared_with_you websocket event,
+    // startup catch-up): followDiscoveredParentLanes is false, so before the fix it
+    // surfaced owner-root but never listed its children. It must now recurse into a
+    // freshly discovered root so its already-remote children appear without a
+    // manual View -> Refresh.
+    await store.refreshRootLane();
+
+    await waitForCondition(
+      () => store.getSnapshot().nodes.some((node) => node.id === "owner-child"),
+      "Root-lane refresh did not hydrate the shared root's children.",
+    );
+    expect(childLaneParentIds).toContain("owner-root");
+  } finally {
+    close();
+  }
+});
+
 test("refresh re-lists the root lane unwatermarked to surface a newly shared root", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-contents-store-refresh-discovers-shared-root-test",
