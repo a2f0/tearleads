@@ -40,6 +40,7 @@ test("explorer target select renders folder icons in the trigger and dropdown", 
   fireEvent.click(trigger);
 
   const trashOption = view.getByRole("option", { name: "Trash" });
+  expect(trashOption.getAttribute("tabindex")).toBe("-1");
   expect(
     trashOption
       .querySelector(".explorer-target-select-icon")
@@ -55,4 +56,39 @@ test("explorer target select renders folder icons in the trigger and dropdown", 
 
   expect(changes).toEqual(["trash-container"]);
   expect(view.queryByRole("listbox")).toBeNull();
+});
+
+test("explorer target select scrolls keyboard-highlighted options into view", () => {
+  const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+  const scrollCalls: Array<boolean | ScrollIntoViewOptions | undefined> = [];
+  HTMLElement.prototype.scrollIntoView = (
+    options?: boolean | ScrollIntoViewOptions,
+  ) => {
+    scrollCalls.push(options);
+  };
+
+  try {
+    const view = render(
+      <ExplorerTargetSelect
+        ariaLabel="Destination container"
+        disabled={false}
+        onChange={() => undefined}
+        options={targetOptions}
+        selectRef={createRef<HTMLButtonElement>()}
+        value="archive-container"
+      />,
+    );
+
+    const trigger = view.getByRole("combobox", {
+      name: "Destination container",
+    });
+    fireEvent.click(trigger);
+
+    scrollCalls.length = 0;
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+
+    expect(scrollCalls).toContainEqual({ block: "nearest" });
+  } finally {
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  }
 });

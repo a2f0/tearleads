@@ -1,4 +1,5 @@
 import { CaretDownIcon } from "@phosphor-icons/react/dist/csr/CaretDown";
+import { useEffect, useRef } from "react";
 import { classNames } from "../../../components/shared/classNames";
 import { MiniAppButton } from "../../../components/shared/MiniAppLayout";
 import { getExplorerContainerIcon } from "../explorerContainerIcons";
@@ -101,8 +102,17 @@ function ExplorerTargetSelectOption(params: {
   option: MoveTargetOption;
   selected: boolean;
 }) {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (params.highlighted) {
+      ref.current?.scrollIntoView?.({ block: "nearest" });
+    }
+  }, [params.highlighted]);
+
   return (
     <button
+      ref={ref}
       aria-selected={params.selected}
       className="explorer-target-select-option"
       data-highlighted={params.highlighted || undefined}
@@ -111,6 +121,7 @@ function ExplorerTargetSelectOption(params: {
       onMouseDown={(event) => event.preventDefault()}
       onMouseEnter={params.onHighlight}
       role="option"
+      tabIndex={-1}
       type="button"
     >
       <ExplorerTargetOptionIcon
