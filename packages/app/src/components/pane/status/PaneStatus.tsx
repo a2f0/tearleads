@@ -10,6 +10,20 @@ import { useEvents } from "../../../providers/events/useEvents";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { usePeerUserId, usePeerUserIdsEnabled } from "../DualPaneProvider";
 
+// Human-readable labels for the raw status keys, so the UI shows
+// "Web Socket" instead of "ws", "Public Key" instead of "publicKey", etc.
+const STATUS_LABELS = {
+  sqliteWorker: "SQLite Worker",
+  id: "ID",
+  publicKey: "Public Key",
+  userId: "User ID",
+  peerUserId: "Peer User ID",
+  session: "Session",
+  network: "Network",
+  ws: "Web Socket",
+  events: "Events",
+} as const;
+
 export function PaneStatus() {
   const { id, status } = useDatabase();
   const { userId, authToken } = useCryptoSession();
@@ -26,25 +40,31 @@ export function PaneStatus() {
     <div className="pane-content">
       <MiniAppInfoTable>
         <tbody>
-          <MiniAppInfoRow label="sqlite worker">{status}</MiniAppInfoRow>
-          <MiniAppInfoRow label="id">{id}</MiniAppInfoRow>
-          <MiniAppInfoRow label="publicKey">
+          <MiniAppInfoRow label={STATUS_LABELS.sqliteWorker}>
+            {status}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={STATUS_LABELS.id}>{id}</MiniAppInfoRow>
+          <MiniAppInfoRow label={STATUS_LABELS.publicKey}>
             {signingFingerprint ?? "none"}
           </MiniAppInfoRow>
-          <MiniAppInfoRow label="userId">{userId ?? "none"}</MiniAppInfoRow>
+          <MiniAppInfoRow label={STATUS_LABELS.userId}>
+            {userId ?? "none"}
+          </MiniAppInfoRow>
           {peerUserIdsEnabled ? (
-            <MiniAppInfoRow label="peerUserId">
+            <MiniAppInfoRow label={STATUS_LABELS.peerUserId}>
               {peerUserId ?? "none"}
             </MiniAppInfoRow>
           ) : null}
-          <MiniAppInfoRow label="session">
+          <MiniAppInfoRow label={STATUS_LABELS.session}>
             {authToken ? `${authToken.slice(0, 6)}...` : "none"}
           </MiniAppInfoRow>
-          <MiniAppInfoRow label="network">{networkLabel}</MiniAppInfoRow>
-          <MiniAppInfoRow label="ws">
+          <MiniAppInfoRow label={STATUS_LABELS.network}>
+            {networkLabel}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={STATUS_LABELS.ws}>
             {connected ? "connected" : "disconnected"}
           </MiniAppInfoRow>
-          <MiniAppInfoRow label="events">
+          <MiniAppInfoRow label={STATUS_LABELS.events}>
             {events.length === 0
               ? "none"
               : events.map((e) => (
