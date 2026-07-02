@@ -136,16 +136,45 @@ textarea {
   padding: var(--space-md);
   background: var(--tearleads-header-background);
   color: var(--tearleads-header-text);
+
+  /* The default logo greys (#555/#999) are near-invisible on the dark header
+     background. Drive the mark from the header text color instead, keeping the
+     two-tone contrast by dimming the "T" slightly. */
+  --tearleads-logo-primary: var(--tearleads-header-text);
+  --tearleads-logo-secondary: color-mix(
+    in srgb,
+    var(--tearleads-header-text) 70%,
+    transparent
+  );
 }
 
 .tearleads-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   min-width: 0;
   color: inherit;
   text-decoration: none;
 }
 
-.tearleads-brand-mark {
+.tearleads-brand-logo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.tearleads-brand-logo svg,
+.tearleads-brand-logo img {
+  /* The mark is square. Fix height and derive width via aspect-ratio rather
+     than width: auto — an auto-width SVG in a flex container collapses to 0 in
+     some WebKit versions. Height-only overrides (e.g. global.css) then scale
+     the width automatically. */
   display: block;
+  aspect-ratio: 1 / 1;
+  height: 1.75rem;
+}
+
+.tearleads-brand-mark {
   overflow: hidden;
   font-weight: 700;
   text-overflow: ellipsis;

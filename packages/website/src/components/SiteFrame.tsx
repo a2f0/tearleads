@@ -1,16 +1,17 @@
-import { TearleadsFrame } from "@tearleads/ui";
+import { TearleadsFrame, TearleadsLogo } from "@tearleads/ui";
 import type { PropsWithChildren } from "react";
 
 interface SiteFrameProps {
   readonly appUrl: string;
+  readonly pathname?: string | undefined;
 }
 
 const NAV_ITEMS: readonly { readonly href: string; readonly label: string }[] =
   [
-    { href: "/#how-it-works", label: "How it works" },
+    { href: "/how-it-works", label: "How it works" },
     { href: "/security", label: "Security" },
-    { href: "/#pricing", label: "Pricing" },
-    { href: "/#features", label: "Features" },
+    { href: "/pricing", label: "Pricing" },
+    { href: "/features", label: "Features" },
   ];
 
 const FOOTER_ITEMS: readonly {
@@ -36,16 +37,23 @@ function FooterLinks() {
 export function SiteFrame({
   appUrl,
   children,
+  pathname,
 }: PropsWithChildren<SiteFrameProps>) {
   return (
     <TearleadsFrame
       brandHref="/"
+      brandLogo={<TearleadsLogo />}
       footerStart={<FooterLinks />}
       headerActions={
         <>
           <nav aria-label="Primary" className="site-nav">
             {NAV_ITEMS.map((item) => (
-              <a className="site-nav-link" href={item.href} key={item.href}>
+              <a
+                aria-current={pathname === item.href ? "page" : undefined}
+                className="site-nav-link"
+                href={item.href}
+                key={item.href}
+              >
                 {item.label}
               </a>
             ))}

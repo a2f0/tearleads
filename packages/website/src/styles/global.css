@@ -14,6 +14,17 @@
   padding-inline: max(24px, (100% - 960px) / 2);
 }
 
+/* The brand wordmark next to the logo, enlarged from the shared default. */
+.tearleads-brand-mark {
+  font-size: 1.5rem;
+}
+
+/* Keep the logo mark proportional to the enlarged wordmark. */
+.tearleads-brand-logo svg,
+.tearleads-brand-logo img {
+  height: 2rem;
+}
+
 /* Primary navigation lives in the TearleadsFrame header (dark background),
    so links inherit the light header text color. */
 .site-nav {
@@ -24,7 +35,7 @@
 
 .site-nav-link {
   color: inherit;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -82,8 +93,8 @@
   margin: 0;
   max-width: 720px;
   color: #101614;
-  font-size: clamp(3rem, 12vw, 7rem);
-  line-height: 0.95;
+  font-size: clamp(2.25rem, 7vw, 4rem);
+  line-height: 1;
 }
 
 .lede {

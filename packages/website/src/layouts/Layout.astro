@@ -1,0 +1,37 @@
+---
+import { SiteFrame } from "../components/SiteFrame";
+import { appUrl, isStaging } from "../config";
+import "../styles/global.css";
+
+interface Props {
+  readonly title: string;
+  readonly description: string;
+}
+
+const { description, title } = Astro.props;
+// Nav hrefs have no trailing slash (e.g. "/pricing"), but Astro.url.pathname
+// can include one ("/pricing/") depending on trailing-slash config. Normalize
+// so aria-current matching in SiteFrame is reliable in dev and in the build.
+const rawPathname = Astro.url.pathname;
+const pathname =
+  rawPathname.length > 1 ? rawPathname.replace(/\/$/, "") : rawPathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    {isStaging && <meta name="robots" content="noindex" />}
+  </head>
+  <body>
+    <SiteFrame appUrl={appUrl} pathname={pathname}>
+      <slot />
+    </SiteFrame>
+  </body>
+</html>

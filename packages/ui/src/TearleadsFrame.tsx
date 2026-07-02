@@ -6,14 +6,21 @@ export interface TearleadsHeaderProps {
   readonly actions?: ReactNode;
   readonly brandHref?: string | undefined;
   readonly brandLabel?: string | undefined;
+  readonly brandLogo?: ReactNode;
 }
 
 export function TearleadsHeader({
   actions,
   brandHref,
   brandLabel = "Tearleads",
+  brandLogo,
 }: TearleadsHeaderProps) {
-  const brand = <span className="tearleads-brand-mark">{brandLabel}</span>;
+  const brand = (
+    <>
+      {brandLogo && <span className="tearleads-brand-logo">{brandLogo}</span>}
+      <span className="tearleads-brand-mark">{brandLabel}</span>
+    </>
+  );
 
   return (
     <header className="tearleads-header">
@@ -50,6 +57,7 @@ export function TearleadsFooter({ end, start }: TearleadsFooterProps) {
 export interface TearleadsFrameProps extends PropsWithChildren {
   readonly brandHref?: string | undefined;
   readonly brandLabel?: string | undefined;
+  readonly brandLogo?: ReactNode;
   readonly className?: string | undefined;
   readonly footerEnd?: ReactNode;
   readonly footerStart?: ReactNode;
@@ -59,6 +67,7 @@ export interface TearleadsFrameProps extends PropsWithChildren {
 export function TearleadsFrame({
   brandHref,
   brandLabel,
+  brandLogo,
   children,
   className,
   footerEnd,
@@ -71,6 +80,7 @@ export function TearleadsFrame({
         actions={headerActions}
         brandHref={brandHref}
         brandLabel={brandLabel}
+        brandLogo={brandLogo}
       />
       {children}
       <TearleadsFooter end={footerEnd} start={footerStart} />

@@ -1,31 +1,14 @@
 ---
-import { SiteFrame } from "../components/SiteFrame";
-import { appUrl, isStaging } from "../config";
-import "../styles/global.css";
+import Layout from "../layouts/Layout.astro";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Tearleads privacy policy." />
-    <title>Privacy Policy | Tearleads</title>
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    {isStaging && <meta name="robots" content="noindex" />}
-  </head>
-  <body>
-    <SiteFrame appUrl={appUrl}>
-      <main class="website-main">
-        <article class="section" aria-labelledby="page-title">
-          <h1 id="page-title">Privacy Policy</h1>
-          <p class="section-lede">
-            The Tearleads privacy policy will be published here.
-          </p>
-        </article>
-      </main>
-    </SiteFrame>
-  </body>
-</html>
+<Layout title="Privacy Policy | Tearleads" description="Tearleads privacy policy.">
+  <main class="website-main">
+    <article class="section" aria-labelledby="page-title">
+      <h1 id="page-title">Privacy Policy</h1>
+      <p class="section-lede">
+        The Tearleads privacy policy will be published here.
+      </p>
+    </article>
+  </main>
+</Layout>
