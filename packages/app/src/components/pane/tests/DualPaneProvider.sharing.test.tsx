@@ -71,8 +71,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // Device-first reconciliation re-checks the active container on both open
     // and explicit refresh, and forced server-event reconciliation now rechecks
     // each event-scoped container once. Early bootstrap can also race a shared
-    // child before it is remotely visible, adding one quiet 404 + retry.
-    "GET /containers/:containerId/documents": 11,
+    // child before it is remotely visible, adding one quiet 404 + retry. The
+    // authenticated system-container promotion pass moves Contacts/Trash from
+    // local-only to remote, so reconciliation now also lists each promoted
+    // container's documents once (observed 13); keep a small headroom.
+    "GET /containers/:containerId/documents": 14,
     // The test WebSocket harness now mirrors production routing: an
     // access_changed event evicts interested sockets, then each still-authorized
     // pane rechecks the tree before re-declaring interest. Early bootstrap can

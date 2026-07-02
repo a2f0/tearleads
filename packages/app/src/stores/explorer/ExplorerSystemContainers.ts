@@ -6,6 +6,7 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import { useEffect, useState } from "react";
 import {
   deriveUserSystemContainers,
+  EXPLORER_TRASH_CONTAINER_NAME,
   findUserSystemContainer,
   isUnderForeignSharedRoot,
   SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
@@ -150,6 +151,90 @@ export function getExplorerTrashDeleteTargetId(
   trashSystemSlot: ContainerSystemSlot | null,
 ): string | null {
   return getExplorerTrashContainerId(nodes, trashSystemSlot);
+}
+
+// Find the "Trash" system folder that belongs to another organization's shared
+// root. The owner's trash carries an opaque per-owner HMAC systemSlot the viewer
+// cannot derive, so — exactly like the shared-folder visibility classifier — it
+// is matched by name plus the presence of *some* systemSlot. Requiring the node
+// to be a direct child of that org's root (parentId === the org root) keeps a
+// same-name user folder nested elsewhere in the tree from being mistaken for the
+// org Trash.
+function findForeignOrgTrashContainerId(
+  nodes: ReadonlyArray<ContainerNode> | null | undefined,
+  organizationId: string,
+): string | null {
+  if (!nodes) {
+    return null;
+  }
+
+  const orgRoot = nodes.find(
+    (node) => node.parentId === null && node.organizationId === organizationId,
+  );
+  if (!orgRoot) {
+    return null;
+  }
+
+  return (
+    nodes.find(
+      (node) =>
+        node.parentId === orgRoot.id &&
+        node.organizationId === organizationId &&
+        node.name === EXPLORER_TRASH_CONTAINER_NAME &&
+        (node.systemSlot ?? null) !== null,
+    )?.id ?? null
+  );
+}
+
+interface ExplorerDeleteTrashResolution {
+  // Whether the caller may lazily create the viewer's OWN Trash when none is
+  // resolved. Only true for the viewer's own organization: a foreign org's Trash
+  // is never substituted with the viewer's personal Trash (that cross-org
+  // mis-homing is the bug this resolution fixes), so an absent foreign Trash must
+  // abort the delete rather than fall back.
+  canFallBackToOwnTrash: boolean;
+  trashContainerId: string | null;
+}
+
+// Resolve the Trash a document/folder living in `containerId` should be deleted
+// into, making delete/purge org-aware. The viewer only ever holds one derived
+// trash slot (their own), so without this a document under another org's shared
+// root would be moved into the viewer's PERSONAL Trash — a cross-org re-home.
+// When `containerId` sits under a foreign shared root we instead target the
+// "Trash" system folder under THAT org's root; otherwise we resolve the viewer's
+// own Trash by slot (precise and spoof-proof, since the viewer can derive it).
+export function resolveExplorerDeleteTrashTarget(input: {
+  containerId: string | null;
+  currentOrganizationId: string | null | undefined;
+  nodes: ReadonlyArray<ContainerNode> | null | undefined;
+  trashSystemSlot: ContainerSystemSlot | null;
+}): ExplorerDeleteTrashResolution {
+  const { containerId, currentOrganizationId, nodes, trashSystemSlot } = input;
+  const containerNode =
+    containerId != null
+      ? (nodes?.find((node) => node.id === containerId) ?? null)
+      : null;
+
+  if (
+    containerNode &&
+    isUnderForeignSharedRoot({
+      currentOrganizationId,
+      organizationId: containerNode.organizationId,
+    })
+  ) {
+    return {
+      canFallBackToOwnTrash: false,
+      trashContainerId: findForeignOrgTrashContainerId(
+        nodes,
+        containerNode.organizationId,
+      ),
+    };
+  }
+
+  return {
+    canFallBackToOwnTrash: true,
+    trashContainerId: getExplorerTrashDeleteTargetId(nodes, trashSystemSlot),
+  };
 }
 
 export function canResolveExplorerTrashContainer(

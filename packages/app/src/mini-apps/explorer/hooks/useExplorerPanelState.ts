@@ -14,7 +14,10 @@ import { useExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
 import { useExplorerDocumentInfoLoader } from "../../../stores/explorer/documentInfo";
 import { useExplorerDocumentLinks } from "../../../stores/explorer/documentRuntime";
-import { isExplorerContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
+import {
+  isExplorerContainerUnderTrash,
+  resolveExplorerDeleteTrashTarget,
+} from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   type ExplorerDroppedFileImportLabels,
   type ImportExplorerDroppedFiles,
@@ -284,9 +287,23 @@ export function useExplorerPanelState(params: {
   const deleteDocument = useCallback(
     async (documentId: string, currentContainerId: string) => {
       try {
+        // Resolve the Trash for the document's OWN organization, not a single
+        // global one. A document under another org's shared root must land in
+        // that org's Trash — never the viewer's personal Trash. Only the viewer's
+        // own Trash may be lazily created (device-first); a foreign org's Trash is
+        // never substituted, so an absent one aborts the delete rather than
+        // mis-homing the document across orgs.
+        const trashResolution = resolveExplorerDeleteTrashTarget({
+          containerId: currentContainerId,
+          currentOrganizationId: appData.auth.organizationId,
+          nodes: explorer.nodes,
+          trashSystemSlot: explorer.trashSystemSlot,
+        });
         const trashContainerId =
-          explorer.trashContainerId ??
-          (await explorer.ensureTrashContainer())?.id;
+          trashResolution.trashContainerId ??
+          (trashResolution.canFallBackToOwnTrash
+            ? (await explorer.ensureTrashContainer())?.id
+            : undefined);
         // No-op when the document already lives anywhere under trash (the root
         // or a user-created subfolder of it). Without the subtree check, deleting
         // a document inside a trash subfolder would re-home it to the trash root
@@ -321,10 +338,11 @@ export function useExplorerPanelState(params: {
       }
     },
     [
+      appData.auth.organizationId,
       appData.util.logError,
       explorer.ensureTrashContainer,
       explorer.nodes,
-      explorer.trashContainerId,
+      explorer.trashSystemSlot,
       routeState.selectExplorerItem,
       selectedNoteStructuralState.moveDocument,
     ],
@@ -334,13 +352,21 @@ export function useExplorerPanelState(params: {
       try {
         // Purge is the inverse of "move to trash": it only permanently destroys
         // a document that is already in trash — the root or any subfolder of it.
-        // The server enforces the cardinality/authorization gate; this is the
-        // usability guard.
+        // Resolve the document's OWN org Trash (not the single global viewer one)
+        // so an item under a foreign shared org's Trash is still recognized as
+        // purgeable. The server enforces the cardinality/authorization gate; this
+        // is the usability guard.
+        const { trashContainerId } = resolveExplorerDeleteTrashTarget({
+          containerId: currentContainerId,
+          currentOrganizationId: appData.auth.organizationId,
+          nodes: explorer.nodes,
+          trashSystemSlot: explorer.trashSystemSlot,
+        });
         if (
           !isExplorerContainerUnderTrash(
             explorer.nodes,
             currentContainerId,
-            explorer.trashContainerId,
+            trashContainerId,
           )
         ) {
           return null;
@@ -365,10 +391,11 @@ export function useExplorerPanelState(params: {
       }
     },
     [
+      appData.auth.organizationId,
       appData.util.logError,
       bumpDocumentListRevision,
       explorer.nodes,
-      explorer.trashContainerId,
+      explorer.trashSystemSlot,
       onDocumentLinksChanged,
       routeState.selectExplorerItem,
       selectedNoteStructuralState.purgeDocument,
