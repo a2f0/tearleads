@@ -14,6 +14,7 @@ export const CONTACTS_LABELS = {
   newContactAction: "New Contact",
   nicknameField: "Nickname",
   publicKeyField: "Public key",
+  removeContactAction: "Move to Trash",
   selectState: "Select a contact.",
   unauthenticatedImportState: "Authenticate before importing peer keys.",
   userIdField: "Tearleads user ID",

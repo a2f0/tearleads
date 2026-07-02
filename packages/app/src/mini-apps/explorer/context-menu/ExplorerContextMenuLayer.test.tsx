@@ -349,7 +349,11 @@ test("system container context menu hides unavailable actions", () => {
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
   expect(view.queryByRole("button", { name: "Rename" })).toBeNull();
   expect(view.queryByRole("button", { name: "Move" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.containerMoveToTrashAction,
+    }),
+  ).toBeNull();
 });
 
 test("document context menu deletes the selected document", async () => {

@@ -166,7 +166,7 @@ export function ContactsContextMenuLayer(params: {
       ) : (
         <MenuItem
           icon={UserMinusIcon}
-          label="Remove"
+          label={CONTACTS_LABELS.removeContactAction}
           disabled={!canRemoveContextMenuContact}
           onClick={() => {
             void removeContextMenuContact();

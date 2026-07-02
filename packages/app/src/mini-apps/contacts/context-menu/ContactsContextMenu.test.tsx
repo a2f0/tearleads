@@ -123,7 +123,9 @@ test("contacts row context menu removes contacts", () => {
     />,
   );
 
-  fireEvent.click(view.getByRole("button", { name: "Remove" }));
+  fireEvent.click(
+    view.getByRole("button", { name: CONTACTS_LABELS.removeContactAction }),
+  );
 
   expect(removeContactCount).toBe(1);
 });
@@ -140,8 +142,11 @@ test("contacts row context menu disables remove without a contact entry", () => 
   );
 
   expect(
-    (view.getByRole("button", { name: "Remove" }) as HTMLButtonElement)
-      .disabled,
+    (
+      view.getByRole("button", {
+        name: CONTACTS_LABELS.removeContactAction,
+      }) as HTMLButtonElement
+    ).disabled,
   ).toBe(true);
 });
 
