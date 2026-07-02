@@ -67,6 +67,15 @@ const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
   GENERIC_FILE_DOCUMENT_KIND,
 ]);
 
+// A file-backed document carries its uploaded bytes as an attachment, so it is
+// the only family for which "Download" is meaningful (notes, contacts, cards
+// have no blob to save).
+export function isFileBackedDocumentKind(
+  kind: StoredDocumentKind | null,
+): boolean {
+  return kind !== null && UPLOAD_ONLY_DOCUMENT_KINDS.has(kind);
+}
+
 export const CREATABLE_DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
   DOCUMENT_TYPE_DEFINITIONS.filter(
     (definition) => !UPLOAD_ONLY_DOCUMENT_KINDS.has(definition.kind),

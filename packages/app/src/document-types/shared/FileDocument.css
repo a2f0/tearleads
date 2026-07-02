@@ -1,0 +1,11 @@
+.file-document-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* The rename input sits inside a row stack; stretch it to the row width so it
+   reads as an editable field rather than a narrow inline box. */
+.file-document-fields .mini-app-input {
+  width: 100%;
+}

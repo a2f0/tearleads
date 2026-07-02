@@ -36,12 +36,14 @@ function ExplorerContextMenuLayerHarness(params: {
   canCreateChildContextMenuNode?: boolean;
   canCreateStructuredDocumentContextMenuNode?: boolean;
   canDeleteSelectedDocument?: boolean;
+  canDownloadSelectedDocument?: boolean;
   canPurgeContextMenuNode?: boolean;
   canPurgeSelectedDocument?: boolean;
   canUploadToContextMenuNode?: boolean;
   containerContextMenuVariant?: ExplorerContainerContextMenuVariant;
   contextMenu?: ExplorerContextMenuState | null;
   deleteDocument?: (localId: string, containerId: string) => Promise<unknown>;
+  downloadDocument?: (localId: string) => void;
   importDroppedFiles: ImportExplorerDroppedFiles;
   openContainerInfoRoute?: (containerId: string) => void;
   openNewContactDocument?: (containerId: string) => void;
@@ -71,6 +73,7 @@ function ExplorerContextMenuLayerHarness(params: {
       }
       canDeleteContextMenuNode={false}
       canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
+      canDownloadSelectedDocument={params.canDownloadSelectedDocument ?? false}
       canLinkSelectedDocument={false}
       canMoveContextMenuNode={false}
       canPurgeContextMenuNode={params.canPurgeContextMenuNode ?? false}
@@ -81,6 +84,7 @@ function ExplorerContextMenuLayerHarness(params: {
       closeContextMenu={() => setContextMenu(null)}
       contextMenu={contextMenu}
       deleteDocument={params.deleteDocument ?? (async () => null)}
+      downloadDocument={params.downloadDocument ?? (() => {})}
       importDroppedFiles={params.importDroppedFiles}
       openContainerInfoRoute={params.openContainerInfoRoute ?? (() => {})}
       openCreateChildModal={() => {}}
@@ -443,6 +447,23 @@ test("document context menu hides unavailable actions", () => {
   expect(
     view.queryByRole("button", { name: EXPLORER_LABELS.documentPurgeAction }),
   ).toBeNull();
+});
+
+// Download's disabled/hidden case is covered by "hides unavailable actions".
+test("document context menu downloads a file-backed document", () => {
+  const downloads: string[] = [];
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      canDownloadSelectedDocument
+      contextMenu={documentContextMenu}
+      downloadDocument={(localId) => downloads.push(localId)}
+      importDroppedFiles={noopImportDroppedFiles}
+    />,
+  );
+  fireEvent.click(
+    view.getByRole("button", { name: EXPLORER_LABELS.documentDownloadAction }),
+  );
+  expect(downloads).toEqual(["document-1"]);
 });
 
 test("document context menu purges the selected document forever", async () => {

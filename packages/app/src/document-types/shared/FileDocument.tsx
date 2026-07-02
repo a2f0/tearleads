@@ -1,13 +1,27 @@
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import { useId, useMemo } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  MiniAppActions,
+  MiniAppButton,
+  MiniAppInput,
+  MiniAppStatus,
+} from "../../components/shared/MiniAppLayout";
+import {
+  MiniAppRow,
+  MiniAppRowStack,
+  MiniAppRowText,
+} from "../../components/shared/MiniAppRow";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
+import "./FileDocument.css";
 import {
-  StructuredDocument,
-  StructuredDocumentField,
-  StructuredDocumentFields,
-} from "./StructuredDocument";
+  downloadResolvedAttachment,
+  resolveDownloadableAttachment,
+} from "./fileDownload";
+import { StructuredDocument } from "./StructuredDocument";
+
+const FILE_DOCUMENT_EMPTY_VALUE = "—";
 
 interface FileDocumentField {
   label: string;
@@ -25,28 +39,77 @@ function formatStoredByteLength(value: string): string {
     : value;
 }
 
-function FileDocumentFields(params: {
-  fields: ReadonlyArray<FileDocumentField>;
+// A metadata field is rendered, never an input: size, MIME type, and the like
+// are derived from the uploaded bytes and are not user-editable.
+function FileDocumentReadRow(params: FileDocumentField) {
+  const trimmed = params.value.trim();
+  return (
+    <MiniAppRow density="roomy">
+      <MiniAppRowStack>
+        <strong>{params.label}</strong>
+        <MiniAppRowText muted title={trimmed.length > 0 ? trimmed : undefined}>
+          {trimmed.length > 0 ? params.value : FILE_DOCUMENT_EMPTY_VALUE}
+        </MiniAppRowText>
+      </MiniAppRowStack>
+    </MiniAppRow>
+  );
+}
+
+// The file name is the one editable field — renaming a file is renaming its
+// document. In view mode it renders like every other row; in edit mode the row
+// swaps its value text for an input that commits the rename on blur.
+function FileDocumentNameRow(params: {
+  disabled: boolean;
+  isEditing: boolean;
+  label: string;
+  onCommit: (value: string) => void;
+  value: string;
 }) {
-  const baseInputId = useId();
+  const { disabled, isEditing, label, onCommit, value } = params;
+  const inputId = useId();
+  const [localValue, setLocalValue] = useState(value);
+  // Re-sync on toggle too, so re-entering edit always opens on the canonical
+  // name (and a reverted empty edit does not linger).
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value, isEditing]);
+
+  if (!isEditing) {
+    return <FileDocumentReadRow label={label} value={value} />;
+  }
+
+  const commit = () => {
+    const trimmed = localValue.trim();
+    // A file must keep a name: an empty/whitespace rename reverts rather than
+    // wiping the title to the "Untitled file" fallback.
+    if (!disabled && trimmed !== "" && trimmed !== value) {
+      onCommit(trimmed);
+    } else {
+      setLocalValue(value);
+    }
+  };
 
   return (
-    <StructuredDocumentFields>
-      {params.fields.map((field) => {
-        const inputId = `${baseInputId}-${field.label
-          .toLowerCase()
-          .replaceAll(/\W+/gu, "-")}`;
-        return (
-          <StructuredDocumentField
-            key={field.label}
-            inputId={inputId}
-            label={field.label}
-          >
-            <input id={inputId} value={field.value} readOnly />
-          </StructuredDocumentField>
-        );
-      })}
-    </StructuredDocumentFields>
+    <MiniAppRow density="roomy">
+      <MiniAppRowStack>
+        <label htmlFor={inputId}>
+          <strong>{label}</strong>
+        </label>
+        <MiniAppInput
+          id={inputId}
+          aria-label={label}
+          disabled={disabled}
+          value={localValue}
+          onChange={(event) => setLocalValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
+          onBlur={commit}
+        />
+      </MiniAppRowStack>
+    </MiniAppRow>
   );
 }
 
@@ -97,51 +160,180 @@ function FileDocumentAttachments(params: {
   );
 }
 
+export function FileDocumentFields(params: {
+  canWrite: boolean;
+  downloadDisabled: boolean;
+  downloadError: string | null;
+  editDisabled: boolean;
+  fileName: string;
+  isEditing: boolean;
+  onCommitFileName: (value: string) => void;
+  onDownload: () => void;
+  onToggleEditing: () => void;
+  readFields: ReadonlyArray<FileDocumentField>;
+}) {
+  return (
+    <div className="file-document-fields">
+      <MiniAppActions>
+        <MiniAppButton
+          disabled={params.editDisabled}
+          onClick={params.onToggleEditing}
+        >
+          {params.isEditing ? "Done" : "Edit"}
+        </MiniAppButton>
+        <MiniAppButton
+          disabled={params.downloadDisabled}
+          onClick={params.onDownload}
+        >
+          Download
+        </MiniAppButton>
+      </MiniAppActions>
+      {params.downloadError ? (
+        <MiniAppStatus as="span" tone="error">
+          {params.downloadError}
+        </MiniAppStatus>
+      ) : null}
+      <FileDocumentNameRow
+        disabled={!params.canWrite}
+        isEditing={params.isEditing}
+        label="File Name"
+        onCommit={params.onCommitFileName}
+        value={params.fileName}
+      />
+      {params.readFields.map((field) => (
+        <FileDocumentReadRow
+          key={field.label}
+          label={field.label}
+          value={field.value}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Derives everything the file view renders from the document store + runtime:
+// the read-only metadata rows, the rename commit, the download handler, and the
+// edit/download enablement. Kept as a hook so the component stays a thin shell.
+function useFileDocument(params: {
+  extraFieldLabels: Readonly<Record<string, string>>;
+  title: string;
+}) {
+  const { extraFieldLabels, title } = params;
+  const { auth, infra, state } = useTearleadsRuntime();
+  const {
+    attachments,
+    attachmentStorageKeyBySlotId,
+    canAttach,
+    canWrite,
+    documentKind,
+    ready,
+    setStructuredFields,
+    structuredFields,
+    syncing,
+  } = useDocument();
+  const [isEditing, setIsEditing] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  // A read-only file (a peer's document, or a transient not-ready state) must
+  // never sit in edit mode.
+  useEffect(() => {
+    if (!ready || !canWrite) {
+      setIsEditing(false);
+    }
+  }, [canWrite, ready]);
+
+  const { fileName = "" } = structuredFields;
+  const readFields = useMemo<FileDocumentField[]>(() => {
+    const {
+      byteLength = "",
+      mimeType = "",
+      sourceLastModified = "",
+    } = structuredFields;
+    const output: FileDocumentField[] = [
+      { label: "MIME Type", value: mimeType },
+      { label: "Size", value: formatStoredByteLength(byteLength) },
+      { label: "Source Modified", value: sourceLastModified },
+    ];
+
+    for (const [field, label] of Object.entries(extraFieldLabels)) {
+      output.push({ label, value: structuredFields[field] ?? "" });
+    }
+
+    return output;
+  }, [extraFieldLabels, structuredFields]);
+
+  const downloadable = useMemo(
+    () =>
+      resolveDownloadableAttachment(attachments, attachmentStorageKeyBySlotId),
+    [attachments, attachmentStorageKeyBySlotId],
+  );
+
+  const commitFileName = useCallback(
+    (value: string) => {
+      // documentKind is a file kind here (never "note"): the guard asserts that
+      // and satisfies setStructuredFields' non-note signature.
+      if (canWrite && documentKind !== "note") {
+        void setStructuredFields(documentKind, { fileName: value });
+      }
+    },
+    [canWrite, documentKind, setStructuredFields],
+  );
+
+  const handleDownload = useCallback(() => {
+    if (!downloadable) {
+      return;
+    }
+    setDownloadError(null);
+    void downloadResolvedAttachment({
+      attachment: downloadable,
+      blobStore: infra.blobStore,
+      fallbackFileName: fileName.trim() || title,
+    })
+      .then((succeeded) => {
+        if (!succeeded) {
+          setDownloadError(
+            "This file's contents haven't downloaded to this device yet.",
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        // A blob-store read can fail (corrupt/unreadable local bytes); surface
+        // it instead of leaving an unhandled rejection.
+        console.error("Failed to download attachment:", error);
+        setDownloadError("Couldn't download this file.");
+      });
+  }, [downloadable, fileName, infra.blobStore, title]);
+
+  const toggleEditing = useCallback(
+    () => setIsEditing((editing) => !editing),
+    [],
+  );
+
+  return {
+    attachments,
+    canAttach,
+    canWrite,
+    commitFileName,
+    downloadError,
+    downloadable,
+    fileName,
+    handleDownload,
+    isAuthenticated: auth.isAuthenticated,
+    isEditing,
+    online: state.online,
+    readFields,
+    ready,
+    syncing,
+    toggleEditing,
+  };
+}
+
 export function FileDocument(params: {
   extraFieldLabels?: Readonly<Record<string, string>> | undefined;
   title: string;
 }) {
   const { extraFieldLabels = {}, title } = params;
-  const { auth, state } = useTearleadsRuntime();
-  const { isAuthenticated } = auth;
-  const { online } = state;
-  const { attachments, canAttach, ready, structuredFields, syncing } =
-    useDocument();
-  const fields = useMemo<FileDocumentField[]>(() => {
-    const {
-      byteLength = "",
-      fileName = "",
-      mimeType = "",
-      sourceLastModified = "",
-    } = structuredFields;
-    const output: FileDocumentField[] = [
-      {
-        label: "File Name",
-        value: fileName,
-      },
-      {
-        label: "MIME Type",
-        value: mimeType,
-      },
-      {
-        label: "Size",
-        value: formatStoredByteLength(byteLength),
-      },
-      {
-        label: "Source Modified",
-        value: sourceLastModified,
-      },
-    ];
-
-    for (const [field, label] of Object.entries(extraFieldLabels)) {
-      output.push({
-        label,
-        value: structuredFields[field] ?? "",
-      });
-    }
-
-    return output;
-  }, [extraFieldLabels, structuredFields]);
+  const model = useFileDocument({ extraFieldLabels, title });
 
   return (
     <StructuredDocument
@@ -150,13 +342,26 @@ export function FileDocument(params: {
         localOnly: "File attachment is stored locally and syncs when online.",
         unavailable: "File attachments require a local key package.",
       }}
-      attachments={<FileDocumentAttachments attachments={attachments} />}
-      canAttach={canAttach}
-      fields={<FileDocumentFields fields={fields} />}
-      isAuthenticated={isAuthenticated}
-      online={online}
-      ready={ready}
-      syncing={syncing}
+      attachments={<FileDocumentAttachments attachments={model.attachments} />}
+      canAttach={model.canAttach}
+      fields={
+        <FileDocumentFields
+          canWrite={model.canWrite}
+          downloadDisabled={model.downloadable === null}
+          downloadError={model.downloadError}
+          editDisabled={!model.ready || !model.canWrite}
+          fileName={model.fileName}
+          isEditing={model.isEditing}
+          onCommitFileName={model.commitFileName}
+          onDownload={model.handleDownload}
+          onToggleEditing={model.toggleEditing}
+          readFields={model.readFields}
+        />
+      }
+      isAuthenticated={model.isAuthenticated}
+      online={model.online}
+      ready={model.ready}
+      syncing={model.syncing}
       title={title}
     />
   );
