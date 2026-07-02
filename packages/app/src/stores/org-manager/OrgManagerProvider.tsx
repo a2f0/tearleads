@@ -101,9 +101,28 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     [containerContentsRuntime.state.domainScope, tearleads],
   );
 
+  // The container-contents store is a singleton shared per domain scope with
+  // SystemBootstrapProvider, which owns its early lifecycle. This provider is a
+  // consumer: every action it exposes is auth-gated and only runs once a root
+  // container exists, so it must not touch the store before then.
+  const hasRootContainerId = Boolean(
+    containerContentsRuntime.state.containerId,
+  );
+
   useEffect(() => {
+    // Defer to SystemBootstrapProvider until a root container exists (matches
+    // ContactsProvider). updateRuntime kicks off the store's one-shot
+    // initialization; pre-initializing it against a null root permanently
+    // strands the tree (ensureInitialized never re-runs once the real root
+    // appears), which leaves system bootstrap stuck "waiting" and blocks
+    // auto-registration. The demo peer bootstrap mounts this provider before
+    // login, so an unguarded call would hang the whole app.
+    if (!hasRootContainerId) {
+      return;
+    }
+
     containerContentsStore.updateRuntime(containerContentsRuntime);
-  }, [containerContentsRuntime, containerContentsStore]);
+  }, [containerContentsRuntime, containerContentsStore, hasRootContainerId]);
 
   const createGroup = useCallback(
     (name: string) => organizations.createGroup(name),
