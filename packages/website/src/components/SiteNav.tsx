@@ -29,6 +29,7 @@ export function SiteNav({ pathname }: SiteNavProps) {
   const [mounted, setMounted] = useState(false);
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -42,6 +43,9 @@ export function SiteNav({ pathname }: SiteNavProps) {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
+        // Closing hides the panel, so the focused link would drop focus to
+        // <body>. Return focus to the toggle for keyboard/screen-reader users.
+        toggleRef.current?.focus();
       }
     }
 
@@ -92,6 +96,7 @@ export function SiteNav({ pathname }: SiteNavProps) {
           aria-label={open ? "Close menu" : "Open menu"}
           className="site-nav-toggle"
           onClick={() => setOpen((value) => !value)}
+          ref={toggleRef}
           type="button"
         >
           <span aria-hidden="true" className="site-nav-toggle-bars" />
