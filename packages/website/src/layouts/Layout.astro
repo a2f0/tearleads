@@ -30,7 +30,7 @@ const pathname =
     {isStaging && <meta name="robots" content="noindex" />}
   </head>
   <body>
-    <SiteFrame appUrl={appUrl} client:load pathname={pathname}>
+    <SiteFrame appUrl={appUrl} client:media="(max-width: 700px)" pathname={pathname}>
       <slot />
     </SiteFrame>
   </body>
