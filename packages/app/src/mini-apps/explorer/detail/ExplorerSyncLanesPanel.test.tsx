@@ -10,8 +10,12 @@ import {
   getExplorerSyncLaneProgress,
 } from "./ExplorerSyncLanesPanel";
 
+let restorePhoneMatchMedia: (() => void) | null = null;
+
 afterEach(() => {
   cleanup();
+  restorePhoneMatchMedia?.();
+  restorePhoneMatchMedia = null;
   globalThis.localStorage.clear();
 });
 
@@ -73,13 +77,14 @@ function renderSyncLanesPanel(input: {
 }
 
 // The compact list keys off `useRoutedLayoutTier`, which reads the
-// `(min-width: 760px)` media query. Force it to the phone tier for the duration
-// of the render so the effect that tracks the breakpoint also sees a miss.
-function renderSyncLanesPanelOnPhone(input: {
-  onOpenLaneDetail?: ((laneKey: string) => void) | undefined;
-  snapshot: DomainSyncSnapshot;
-}) {
+// `(min-width: 760px)` media query. Force it to a phone-tier miss and leave the
+// stub installed so later interactions and async re-renders keep resolving to
+// the compact list; `afterEach` tears it down via the returned restore.
+function stubPhoneMatchMedia() {
   const originalMatchMedia = window.matchMedia;
+  restorePhoneMatchMedia = () => {
+    window.matchMedia = originalMatchMedia;
+  };
   window.matchMedia = ((query: string) => ({
     matches: false,
     media: query,
@@ -90,12 +95,14 @@ function renderSyncLanesPanelOnPhone(input: {
     removeListener: () => undefined,
     dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia;
+}
 
-  try {
-    return renderSyncLanesPanel(input);
-  } finally {
-    window.matchMedia = originalMatchMedia;
-  }
+function renderSyncLanesPanelOnPhone(input: {
+  onOpenLaneDetail?: ((laneKey: string) => void) | undefined;
+  snapshot: DomainSyncSnapshot;
+}) {
+  stubPhoneMatchMedia();
+  return renderSyncLanesPanel(input);
 }
 
 test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () => {
