@@ -1,5 +1,6 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useMemo } from "react";
+import { isFileBackedDocumentKind } from "../../../document-types/registry";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerContainerRulesContext } from "../containerRules";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
@@ -13,6 +14,7 @@ import { getSelectedDocumentMutationState } from "./selectedDocumentMutationStat
 
 interface ExplorerContextMenuDocumentState {
   canDeleteContextMenuDocument: boolean;
+  canDownloadContextMenuDocument: boolean;
   canLinkContextMenuDocument: boolean;
   canMoveContextMenuDocument: boolean;
   canPurgeContextMenuDocument: boolean;
@@ -146,6 +148,11 @@ export function useExplorerContextMenuDocumentState(params: {
 
   return {
     canDeleteContextMenuDocument: mutationState.canDeleteSelectedDocument,
+    // Download only needs the file's local bytes, so it is gated on a ready
+    // database and a file-backed kind — not on write access or being online.
+    canDownloadContextMenuDocument:
+      appData.infra.dbStatus === "ready" &&
+      isFileBackedDocumentKind(targetDocument?.documentKind ?? null),
     canLinkContextMenuDocument: mutationState.canLinkSelectedDocument,
     canMoveContextMenuDocument: mutationState.canMoveSelectedDocument,
     canPurgeContextMenuDocument: mutationState.canPurgeSelectedDocument,

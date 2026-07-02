@@ -1,6 +1,7 @@
 import type { Icon } from "@phosphor-icons/react";
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutCardinal";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
 import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
 import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
@@ -44,12 +45,14 @@ function isExplorerContainerContextMenu(
 
 interface ExplorerDocumentContextMenuProps {
   canDeleteSelectedDocument: boolean;
+  canDownloadSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canPurgeSelectedDocument: boolean;
   closeContextMenu: () => void;
   contextMenu: ExplorerDocumentContextMenuState;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
+  downloadDocument: (localId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openLinkDocumentModal: (localId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
@@ -60,12 +63,14 @@ interface ExplorerDocumentContextMenuProps {
 function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
   const {
     canDeleteSelectedDocument,
+    canDownloadSelectedDocument,
     canLinkSelectedDocument,
     canMoveSelectedDocument,
     canPurgeSelectedDocument,
     closeContextMenu,
     contextMenu,
     deleteDocument,
+    downloadDocument,
     openDocumentInfoRoute,
     openLinkDocumentModal,
     openMoveDocumentModal,
@@ -89,6 +94,13 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
             contextMenu.id.containerId,
           );
         }}
+      />
+      <ExplorerOptionalMenuItem
+        closeContextMenu={closeContextMenu}
+        icon={DownloadSimpleIcon}
+        label={EXPLORER_LABELS.documentDownloadAction}
+        disabled={!canDownloadSelectedDocument}
+        onSelect={() => downloadDocument(contextMenu.id.localId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
@@ -348,6 +360,7 @@ export function ExplorerContextMenuLayer(params: {
   canCreateStructuredDocumentContextMenuNode: boolean;
   containerContextMenuVariant: ExplorerContainerContextMenuVariant;
   canDeleteSelectedDocument: boolean;
+  canDownloadSelectedDocument: boolean;
   canLinkSelectedDocument: boolean;
   canDeleteContextMenuNode: boolean;
   canMoveContextMenuNode: boolean;
@@ -359,6 +372,7 @@ export function ExplorerContextMenuLayer(params: {
   closeContextMenu: () => void;
   contextMenu: ExplorerContextMenuState | null;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
+  downloadDocument: (localId: string) => void;
   importDroppedFiles: ImportExplorerDroppedFiles;
   openCreateChildModal: (containerId: string) => void;
   openDeleteModal: (containerId: string) => void;

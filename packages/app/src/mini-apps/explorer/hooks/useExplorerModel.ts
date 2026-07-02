@@ -33,6 +33,7 @@ interface ExplorerModel {
   canCreateStructuredDocumentInActiveContainer: boolean;
   canDeleteContextMenuDocument: boolean;
   canDeleteSelectedDocument: boolean;
+  canDownloadContextMenuDocument: boolean;
   canLinkContextMenuDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveContextMenuDocument: boolean;
@@ -241,6 +242,8 @@ export function useExplorerModel(
     canCreateStructuredDocumentInActiveContainer,
     canDeleteContextMenuDocument:
       contextMenuDocumentState.canDeleteContextMenuDocument,
+    canDownloadContextMenuDocument:
+      contextMenuDocumentState.canDownloadContextMenuDocument,
     canLinkContextMenuDocument:
       contextMenuDocumentState.canLinkContextMenuDocument,
     canMoveContextMenuDocument:

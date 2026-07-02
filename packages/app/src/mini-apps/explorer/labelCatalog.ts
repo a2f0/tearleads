@@ -119,6 +119,7 @@ export const EXPLORER_LABELS = {
   dateModifiedColumn: "Date modified",
   documentBackToContainerAction: "Back to Container",
   documentDeleteAction: "Move to Trash",
+  documentDownloadAction: "Download",
   documentInfoAccessEpochRow: "Access Epoch",
   documentInfoAccessStateHashRow: "Access State Hash",
   documentInfoAttachmentBlobColumn: "Blob",
