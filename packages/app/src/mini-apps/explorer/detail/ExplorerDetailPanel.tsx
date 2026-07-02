@@ -210,6 +210,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         domainScope={params.domainScope}
         loadBlobInfo={params.loadBlobInfo}
         nodes={params.nodes}
+        online={params.online}
         onBackToSelectionRoute={params.onBackToSelectionRoute}
         onCancelBlobPick={params.onCancelBlobPick}
         onPickBlob={params.onPickBlob}

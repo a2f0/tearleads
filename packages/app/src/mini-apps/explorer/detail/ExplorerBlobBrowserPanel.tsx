@@ -21,7 +21,6 @@ import {
   getContainerNameById,
   useBlobBrowserData,
 } from "./ExplorerBlobBrowserState";
-import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 
 interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
@@ -30,6 +29,7 @@ interface ExplorerBlobBrowserPanelProps {
   nodes: ReadonlyArray<ContainerNode>;
   onBackToSelectionRoute: () => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  online: boolean;
   // When set, the panel runs in pick mode: rows resolve the pick (instead of
   // opening blob detail) and the list is filtered to image blobs.
   pickTarget?: ExplorerBlobPickTarget | null | undefined;
@@ -59,7 +59,6 @@ export function ExplorerBlobBrowserPanel(
     loadBlobInfo: params.loadBlobInfo,
     route: params.route,
   });
-  const syncSnapshot = useDomainSyncSnapshot(params.domainScope);
   const containerNamesById = useMemo(
     () => getContainerNameById(params.nodes),
     [params.nodes],
@@ -96,7 +95,6 @@ export function ExplorerBlobBrowserPanel(
             containerNamesById={containerNamesById}
             openDocumentInfoRoute={params.openDocumentInfoRoute}
             selectDocumentProjection={params.selectDocumentProjection}
-            syncSnapshot={syncSnapshot}
           />
         </div>
       ) : (
@@ -117,11 +115,11 @@ export function ExplorerBlobBrowserPanel(
               : handleSelectBlob
           }
           onSort={handleSort}
+          online={params.online}
           query={query}
           rowOffset={rowOffset}
           rows={rows}
           sort={sort}
-          syncSnapshot={syncSnapshot}
         />
       )}
     </MiniAppPanel>

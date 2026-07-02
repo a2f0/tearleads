@@ -10,7 +10,10 @@ import {
   getExplorerSyncLaneProgress,
 } from "./ExplorerSyncLanesPanel";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  globalThis.localStorage.clear();
+});
 
 const updatedAt = "2026-06-15T12:00:00.000Z";
 
@@ -132,6 +135,29 @@ test("ExplorerSyncLanesPanelView opens lane details from the responsive list", (
   );
 
   expect(openedLaneKeys).toEqual(["documents:local-1"]);
+});
+
+test("ExplorerSyncLanesPanelView places the column menu in the rightmost status header", () => {
+  const snapshot = createSnapshot([
+    createLaneSnapshot({
+      key: "documents:local-1",
+      label: "Document local-1",
+      phase: "document",
+      status: "running",
+    }),
+  ]);
+
+  const view = renderSyncLanesPanel({ snapshot });
+  const headerCells = Array.from(view.container.querySelectorAll("thead th"));
+  const columnsButton = view.getByRole("button", { name: "Columns" });
+
+  expect(headerCells.at(-1)?.textContent).toContain("Status");
+  expect(headerCells.at(-1)?.contains(columnsButton)).toBe(true);
+
+  fireEvent.click(columnsButton);
+  fireEvent.click(view.getByRole("checkbox", { name: /Progress/u }));
+
+  expect(view.queryByRole("progressbar")).toBeNull();
 });
 
 test("ExplorerSyncLanesPanelView triggers a manual sync from the list view", () => {

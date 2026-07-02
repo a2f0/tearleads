@@ -7,7 +7,6 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   createDomainScope,
-  getOrCreateDomainSyncCoordinator,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import {
@@ -96,6 +95,7 @@ test("blob browser navigates between the list and detail screens", async () => {
       domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
+      online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null, view: "blob-browser" }}
@@ -176,6 +176,7 @@ test("blob browser document links open documents and expose get info from the ro
           syncState: syncedContainerDocumentObjectSyncState,
         },
       ]}
+      online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={(localId, containerId) => {
         openedInfoRoutes.push([localId, containerId]);
@@ -236,6 +237,7 @@ test("blob browser returns to the list from a deep-linked detail screen", async 
       domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
+      online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: "blob-2", storageKey: null, view: "blob-browser" }}
@@ -279,6 +281,7 @@ test("blob browser requests a new blob window when the table scrolls", async () 
       domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
+      online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null, view: "blob-browser" }}
@@ -348,6 +351,7 @@ test("blob browser keeps current rows visible while the next scroll window loads
       domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
+      online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null, view: "blob-browser" }}
@@ -413,6 +417,7 @@ test("blob browser resets the blob window when sorting changes", async () => {
       domainScope={createDomainScope()}
       loadBlobInfo={loadBlobInfo}
       nodes={[]}
+      online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null, view: "blob-browser" }}
@@ -460,28 +465,25 @@ test("blob browser resets the blob window when sorting changes", async () => {
   });
 });
 
-test("blob browser renders upload sync status", async () => {
+test("blob browser renders row sync badges in the rightmost column", async () => {
   const rows = createBlobRows(1);
-  const domainScope = createDomainScope();
-  const lane = getOrCreateDomainSyncCoordinator(domainScope).beginUploadLane(
-    "blob-upload:slot-zip",
-    {
-      label: "Upload archive.zip",
-    },
-  );
-  lane.reportProgress({
-    bytesTotal: 40 * 1024 * 1024,
-    bytesUploaded: 8 * 1024 * 1024,
-    partsCompleted: 1,
-    partsTotal: 5,
-  });
+  const firstRow = rows[0] as BlobInfo;
+  rows[0] = {
+    ...firstRow,
+    blobId: null,
+    key: "storage:storage-1",
+    references: [
+      createBlobReference({ attachmentKind: "pending", blobId: null }),
+    ],
+  };
 
   const view = render(
     <ExplorerBlobBrowserPanel
       blobStore={createBlobStore()}
-      domainScope={domainScope}
+      domainScope={createDomainScope()}
       loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
       nodes={[]}
+      online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       route={{ blobId: null, storageKey: null, view: "blob-browser" }}
@@ -489,7 +491,10 @@ test("blob browser renders upload sync status", async () => {
     />,
   );
 
-  expect(await view.findByText("Sync Status")).toBeTruthy();
-  expect(view.getByText("Upload archive.zip")).toBeTruthy();
-  expect(view.getByText(/1\/5 parts/u)).toBeTruthy();
+  expect(await view.findByRole("img", { name: /1 blob/u })).toBeTruthy();
+  expect(view.queryByText("Sync Status")).toBeNull();
+  const headerCells = Array.from(view.container.querySelectorAll("thead th"));
+  const lastHeader = headerCells.at(-1);
+  expect(lastHeader?.textContent).toContain("Sync");
+  expect(lastHeader?.querySelector("button")?.title).toBe("Columns");
 });
