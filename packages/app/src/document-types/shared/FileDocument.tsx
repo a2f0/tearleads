@@ -68,13 +68,26 @@ function FileDocumentNameRow(params: {
   const { disabled, isEditing, label, onCommit, value } = params;
   const inputId = useId();
   const [localValue, setLocalValue] = useState(value);
+  // Re-sync on toggle too, so re-entering edit always opens on the canonical
+  // name (and a reverted empty edit does not linger).
   useEffect(() => {
     setLocalValue(value);
-  }, [value]);
+  }, [value, isEditing]);
 
   if (!isEditing) {
     return <FileDocumentReadRow label={label} value={value} />;
   }
+
+  const commit = () => {
+    const trimmed = localValue.trim();
+    // A file must keep a name: an empty/whitespace rename reverts rather than
+    // wiping the title to the "Untitled file" fallback.
+    if (!disabled && trimmed !== "" && trimmed !== value) {
+      onCommit(trimmed);
+    } else {
+      setLocalValue(value);
+    }
+  };
 
   return (
     <MiniAppRow density="roomy">
@@ -88,11 +101,12 @@ function FileDocumentNameRow(params: {
           disabled={disabled}
           value={localValue}
           onChange={(event) => setLocalValue(event.target.value)}
-          onBlur={() => {
-            if (!disabled && localValue !== value) {
-              onCommit(localValue);
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
             }
           }}
+          onBlur={commit}
         />
       </MiniAppRowStack>
     </MiniAppRow>
@@ -274,13 +288,20 @@ function useFileDocument(params: {
       attachment: downloadable,
       blobStore: infra.blobStore,
       fallbackFileName: fileName.trim() || title,
-    }).then((succeeded) => {
-      if (!succeeded) {
-        setDownloadError(
-          "This file's contents haven't downloaded to this device yet.",
-        );
-      }
-    });
+    })
+      .then((succeeded) => {
+        if (!succeeded) {
+          setDownloadError(
+            "This file's contents haven't downloaded to this device yet.",
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        // A blob-store read can fail (corrupt/unreadable local bytes); surface
+        // it instead of leaving an unhandled rejection.
+        console.error("Failed to download attachment:", error);
+        setDownloadError("Couldn't download this file.");
+      });
   }, [downloadable, fileName, infra.blobStore, title]);
 
   const toggleEditing = useCallback(

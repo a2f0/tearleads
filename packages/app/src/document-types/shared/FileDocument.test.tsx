@@ -61,10 +61,41 @@ test("committing a renamed file fires onCommitFileName on blur", () => {
   });
 
   const nameInput = view.getByLabelText("File Name");
-  fireEvent.change(nameInput, { target: { value: "renamed.png" } });
+  fireEvent.change(nameInput, { target: { value: "  renamed.png  " } });
   fireEvent.blur(nameInput);
 
+  // The committed value is trimmed.
   expect(commits).toEqual(["renamed.png"]);
+});
+
+test("pressing Enter commits the rename", () => {
+  const commits: string[] = [];
+  const view = renderFields({
+    isEditing: true,
+    onCommitFileName: (value) => commits.push(value),
+  });
+
+  const nameInput = view.getByLabelText("File Name");
+  nameInput.focus();
+  fireEvent.change(nameInput, { target: { value: "renamed.png" } });
+  fireEvent.keyDown(nameInput, { key: "Enter" });
+
+  expect(commits).toEqual(["renamed.png"]);
+});
+
+test("an empty rename reverts instead of committing", () => {
+  const commits: string[] = [];
+  const view = renderFields({
+    isEditing: true,
+    onCommitFileName: (value) => commits.push(value),
+  });
+
+  const nameInput = view.getByLabelText("File Name") as HTMLInputElement;
+  fireEvent.change(nameInput, { target: { value: "   " } });
+  fireEvent.blur(nameInput);
+
+  expect(commits).toEqual([]);
+  expect(nameInput.value).toBe("report.png");
 });
 
 test("download button invokes onDownload and disables when unavailable", () => {

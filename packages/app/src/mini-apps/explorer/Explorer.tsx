@@ -241,22 +241,29 @@ function ExplorerContent() {
       // only local state when offline, so a context-menu download never blocks
       // on the network.
       void (async () => {
-        const info = await loadDocumentInfo(localId);
-        const attachment = [...info.attachments]
-          .reverse()
-          .find((candidate) => candidate.storageKey.length > 0);
-        if (!attachment) {
-          return;
+        try {
+          const info = await loadDocumentInfo(localId);
+          const attachment = [...info.attachments]
+            .reverse()
+            .find((candidate) => candidate.storageKey.length > 0);
+          if (!attachment) {
+            return;
+          }
+          await downloadResolvedAttachment({
+            attachment: {
+              mimeType: attachment.mimeType,
+              name: attachment.name,
+              storageKey: attachment.storageKey,
+            },
+            blobStore,
+            fallbackFileName: attachment.name?.trim() || localId,
+          });
+        } catch (error) {
+          // A failed info load / blob read must not surface as an unhandled
+          // rejection; the detail-pane Download button carries the visible
+          // error affordance for the same failure.
+          console.error("Failed to download document:", error);
         }
-        await downloadResolvedAttachment({
-          attachment: {
-            mimeType: attachment.mimeType,
-            name: attachment.name,
-            storageKey: attachment.storageKey,
-          },
-          blobStore,
-          fallbackFileName: attachment.name?.trim() || localId,
-        });
       })();
     },
     [blobStore, loadDocumentInfo],
