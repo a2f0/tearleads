@@ -12,14 +12,35 @@ interface SiteNavProps {
   readonly pathname?: string | undefined;
 }
 
+interface NavLinksProps {
+  readonly pathname?: string | undefined;
+  readonly onNavigate: () => void;
+}
+
+/** The link list, rendered once inline and once in the dropdown panel. */
+function NavLinks({ pathname, onNavigate }: NavLinksProps) {
+  return NAV_ITEMS.map((item) => (
+    <a
+      aria-current={pathname === item.href ? "page" : undefined}
+      className="site-nav-link"
+      href={item.href}
+      key={item.href}
+      onClick={onNavigate}
+    >
+      {item.label}
+    </a>
+  ));
+}
+
 /**
  * Primary site navigation. On wide viewports the links render inline; on narrow
  * viewports (see the .site-nav* rules in global.css) the inline list is hidden
  * and a hamburger toggles an expanding panel of the same links.
  *
- * This is hydrated as an island (SiteFrame is rendered with client:load) so the
- * toggle state, Escape-to-close, and outside-click-to-close all work. With no
- * JS the inline list is still present in the HTML, so the links remain usable.
+ * The layout hydrates this as its own island (slot="nav" with client:media) so
+ * the toggle state, Escape-to-close, and outside-click-to-close work on mobile
+ * while the rest of the page stays static. Without JS the inline list is still
+ * in the HTML and the toggle is never rendered, so the links remain usable.
  */
 export function SiteNav({ pathname }: SiteNavProps) {
   const [open, setOpen] = useState(false);
@@ -65,20 +86,7 @@ export function SiteNav({ pathname }: SiteNavProps) {
     };
   }, [open]);
 
-  // Rendered in two places (inline nav + dropdown panel); build fresh element
-  // instances each time rather than reusing one array across both trees.
-  const renderLinks = () =>
-    NAV_ITEMS.map((item) => (
-      <a
-        aria-current={pathname === item.href ? "page" : undefined}
-        className="site-nav-link"
-        href={item.href}
-        key={item.href}
-        onClick={() => setOpen(false)}
-      >
-        {item.label}
-      </a>
-    ));
+  const closeMenu = () => setOpen(false);
 
   return (
     <div
@@ -87,7 +95,7 @@ export function SiteNav({ pathname }: SiteNavProps) {
       ref={containerRef}
     >
       <nav aria-label="Primary" className="site-nav">
-        {renderLinks()}
+        <NavLinks onNavigate={closeMenu} pathname={pathname} />
       </nav>
       {mounted && (
         <button
@@ -109,7 +117,7 @@ export function SiteNav({ pathname }: SiteNavProps) {
         id={panelId}
         hidden={!open}
       >
-        {renderLinks()}
+        <NavLinks onNavigate={closeMenu} pathname={pathname} />
       </nav>
     </div>
   );

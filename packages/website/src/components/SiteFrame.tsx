@@ -1,10 +1,12 @@
 import { TearleadsFrame, TearleadsLogo } from "@tearleads/ui";
-import type { PropsWithChildren } from "react";
-import { SiteNav } from "./SiteNav";
+import type { PropsWithChildren, ReactNode } from "react";
 
 interface SiteFrameProps {
   readonly appUrl: string;
-  readonly pathname?: string | undefined;
+  // The primary nav, supplied by the layout as its own hydrated island (a
+  // Astro slot="nav"), so only the nav ships client JS and the frame — header,
+  // footer, and slotted page content — stays fully static.
+  readonly nav?: ReactNode;
 }
 
 const FOOTER_ITEMS: readonly {
@@ -30,7 +32,7 @@ function FooterLinks() {
 export function SiteFrame({
   appUrl,
   children,
-  pathname,
+  nav,
 }: PropsWithChildren<SiteFrameProps>) {
   return (
     <TearleadsFrame
@@ -39,7 +41,7 @@ export function SiteFrame({
       footerStart={<FooterLinks />}
       headerActions={
         <>
-          <SiteNav pathname={pathname} />
+          {nav}
           <a className="tearleads-action-button site-app-button" href={appUrl}>
             App
           </a>
