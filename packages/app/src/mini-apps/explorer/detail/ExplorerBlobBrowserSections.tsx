@@ -1,9 +1,13 @@
+import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import type {
   BlobInfo,
   BlobInfoSort,
   BlobInfoSortKey,
   BlobStore,
 } from "@tearleads/client-sdk";
+import type { MouseEvent } from "react";
+import { Menu, type MenuPosition } from "../../../components/shared/Menu";
+import { MenuItem } from "../../../components/shared/MenuItem";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -255,10 +259,14 @@ export function BlobPickHeader(params: {
 
 export function BlobBrowserListScreen(params: {
   blobInfo: BlobInfoListState;
+  downloadMessage?: string | null | undefined;
   frameRef: (frame: HTMLDivElement | null) => void;
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isWindowPending: boolean;
   onQueryChange: (value: string) => void;
+  onRowContextMenu?:
+    | ((event: MouseEvent<HTMLElement>, blob: BlobInfo) => void)
+    | undefined;
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
   online: boolean;
@@ -277,6 +285,9 @@ export function BlobBrowserListScreen(params: {
           value={params.query}
         />
       </MiniAppToolbar>
+      {params.downloadMessage ? (
+        <MiniAppStatus tone="error">{params.downloadMessage}</MiniAppStatus>
+      ) : null}
       <div className="explorer-blob-browser-screen">
         <BlobInfoTable
           activeBlob={null}
@@ -285,6 +296,7 @@ export function BlobBrowserListScreen(params: {
           isLoading={params.blobInfo.isLoading || params.isWindowPending}
           isRowSelectable={params.isRowSelectable}
           online={params.online}
+          onRowContextMenu={params.onRowContextMenu}
           onSelectBlob={params.onSelectBlob}
           onSort={params.onSort}
           rowOffset={params.rowOffset}
@@ -294,5 +306,27 @@ export function BlobBrowserListScreen(params: {
         />
       </div>
     </>
+  );
+}
+
+export function BlobBrowserRowContextMenu(params: {
+  blob: BlobInfo;
+  onClose: () => void;
+  onDownload: (blob: BlobInfo) => void;
+  position: MenuPosition;
+}) {
+  const { blob, onClose, onDownload, position } = params;
+
+  return (
+    <Menu direction="down" onClose={onClose} position={position}>
+      <MenuItem
+        icon={DownloadSimpleIcon}
+        label={EXPLORER_LABELS.blobBrowserDownloadAction}
+        onClick={() => {
+          onClose();
+          onDownload(blob);
+        }}
+      />
+    </Menu>
   );
 }
