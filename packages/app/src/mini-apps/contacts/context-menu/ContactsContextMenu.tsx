@@ -145,6 +145,12 @@ export function ContactsContextMenuLayer(params: {
     return null;
   }
 
+  const clipboard =
+    typeof navigator !== "undefined" ? navigator.clipboard : undefined;
+  const canCopyContextMenuContactUserId = Boolean(
+    contextMenuContactUserId && clipboard,
+  );
+
   return (
     <Menu
       position={contextMenu.position}
@@ -174,15 +180,15 @@ export function ContactsContextMenuLayer(params: {
         </>
       ) : (
         <>
-          {contextMenuContactUserId && (
+          {canCopyContextMenuContactUserId && contextMenuContactUserId && (
             <MenuItem
               icon={ClipboardIcon}
               label={CONTACTS_LABELS.copyUserIdAction}
               onClick={() => {
                 closeContextMenu();
-                if (typeof navigator !== "undefined" && navigator.clipboard) {
-                  void navigator.clipboard.writeText(contextMenuContactUserId);
-                }
+                void clipboard
+                  ?.writeText(contextMenuContactUserId)
+                  .catch(() => undefined);
               }}
             />
           )}

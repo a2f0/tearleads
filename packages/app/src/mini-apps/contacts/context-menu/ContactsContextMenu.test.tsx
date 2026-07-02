@@ -207,6 +207,27 @@ test("contacts row context menu hides copy without a contact user id", () => {
   ).toBeNull();
 });
 
+test("contacts row context menu hides copy without clipboard access", () => {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: undefined,
+  });
+
+  const view = render(
+    <ContactsContextMenuLayerHarness
+      contextMenu={{
+        id: { contactId: "ada", kind: "contact" },
+        position: { x: 12, y: 34 },
+      }}
+      contextMenuContactUserId="ada-user"
+    />,
+  );
+
+  expect(
+    view.queryByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+  ).toBeNull();
+});
+
 test("contacts row context menu disables remove without a contact entry", () => {
   const view = render(
     <ContactsContextMenuLayerHarness
