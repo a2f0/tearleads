@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import type { MiniAppId } from "../../../mini-apps/types";
 import {
   initialRoutedSidebarExpanded,
   menuPositionBelow,
@@ -54,17 +55,21 @@ test("tablet honours each mini-app's configured sidebar default", () => {
   expect(initialRoutedSidebarExpanded("tablet", null)).toBe(true);
 });
 
-test("mobile root route opens explorer as the compact home screen when authenticated", () => {
-  expect(resolveRoutedActiveMiniAppId("mobile", null, true)).toBe("explorer");
-  expect(resolveRoutedActiveMiniAppId("mobile", null, false)).toBeNull();
-  expect(resolveRoutedActiveMiniAppId("mobile", "contacts", true)).toBe(
-    "contacts",
-  );
+test("mobile root route opens explorer as the compact home screen", () => {
+  expect(resolveRoutedActiveMiniAppId("mobile", null)).toBe("explorer");
+  expect(resolveRoutedActiveMiniAppId("mobile", "contacts")).toBe("contacts");
 });
 
 test("tablet root route keeps the routed home launcher", () => {
-  expect(resolveRoutedActiveMiniAppId("tablet", null, true)).toBeNull();
-  expect(resolveRoutedActiveMiniAppId("tablet", "contacts", true)).toBe(
-    "contacts",
+  expect(resolveRoutedActiveMiniAppId("tablet", null)).toBeNull();
+  expect(resolveRoutedActiveMiniAppId("tablet", "contacts")).toBe("contacts");
+});
+
+test("invalid route app ids fall back without indexing missing mini-apps", () => {
+  const legacyRouteAppId = "legacy-app" as MiniAppId;
+
+  expect(resolveRoutedActiveMiniAppId("mobile", legacyRouteAppId)).toBe(
+    "explorer",
   );
+  expect(resolveRoutedActiveMiniAppId("tablet", legacyRouteAppId)).toBeNull();
 });

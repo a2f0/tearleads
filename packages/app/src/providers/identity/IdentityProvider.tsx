@@ -26,7 +26,7 @@ export interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: () => void;
   exportKeyPackage: () => Promise<IdentityKeyPackage>;
-  generateKey: () => void;
+  generateKey: () => Promise<boolean>;
   /**
    * Whether the user has explicitly destroyed the identity this session. The
    * autopilot stops auto-generating once this is set, so "Destroy Key Pair"
