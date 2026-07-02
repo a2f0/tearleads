@@ -3,9 +3,7 @@ import type {
   BlobInfoSort,
   BlobInfoSortKey,
   BlobStore,
-  DomainSyncSnapshot,
 } from "@tearleads/client-sdk";
-import { useMemo } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -17,19 +15,7 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../../../components/shared/MiniAppLayout";
-import {
-  MiniAppInfoTable,
-  MiniAppTable,
-  MiniAppTableActionButton,
-  MiniAppTableCell,
-  MiniAppTableEmptyRow,
-  MiniAppTableFrame,
-  MiniAppTableRow,
-} from "../../../components/shared/MiniAppTable";
-import {
-  getMiniAppVirtualFrameStyle,
-  MiniAppVirtualTableSpacerRow,
-} from "../../../components/shared/MiniAppVirtual";
+import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
@@ -39,129 +25,15 @@ import {
   getExplorerBlobPickSubtitle,
 } from "../labels";
 import { compactId } from "./compactId";
-import { getBlobInfoColumns } from "./ExplorerBlobBrowserColumns";
 import {
-  BLOB_BROWSER_ROW_HEIGHT,
   type BlobInfoListState,
   type BlobPreviewState,
   getBlobChangedAt,
   isImageMimeType,
   useBlobPreview,
 } from "./ExplorerBlobBrowserState";
-import { BlobBrowserSyncStatus } from "./ExplorerBlobBrowserSyncStatus";
+import { BlobInfoTable } from "./ExplorerBlobInfoTable";
 import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";
-
-function BlobInfoTable(params: {
-  activeBlob: BlobInfo | null;
-  error: string | null;
-  frameRef: (frame: HTMLDivElement | null) => void;
-  // When provided, rows that fail the predicate are shown but not selectable
-  // (pick mode: only image blobs bind to image slots).
-  isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
-  isLoading: boolean;
-  onSelectBlob: (blob: BlobInfo) => void;
-  onSort: (key: BlobInfoSortKey) => void;
-  rowOffset: number;
-  rows: ReadonlyArray<BlobInfo>;
-  sort: BlobInfoSort;
-  totalCount: number;
-}) {
-  const columns = useMemo(
-    () => getBlobInfoColumns({ onSort: params.onSort, sort: params.sort }),
-    [params.onSort, params.sort],
-  );
-  const topPadding = params.rowOffset * BLOB_BROWSER_ROW_HEIGHT;
-  const bottomPadding =
-    Math.max(0, params.totalCount - params.rowOffset - params.rows.length) *
-    BLOB_BROWSER_ROW_HEIGHT;
-
-  return (
-    <MiniAppTableFrame
-      className="explorer-blob-browser-table-wrap mini-app-table-frame--virtual mini-app-table-frame--compact"
-      ref={params.frameRef}
-      style={getMiniAppVirtualFrameStyle(BLOB_BROWSER_ROW_HEIGHT)}
-    >
-      <MiniAppTable
-        aria-label={EXPLORER_LABELS.blobBrowserTitle}
-        columns={columns}
-      >
-        {topPadding > 0 ? (
-          <MiniAppVirtualTableSpacerRow
-            colSpan={columns.length}
-            height={topPadding}
-          />
-        ) : null}
-        {params.rows.length > 0 ? (
-          params.rows.map((blob) => {
-            const selectable = params.isRowSelectable
-              ? params.isRowSelectable(blob)
-              : true;
-            return (
-              <MiniAppTableRow
-                className="explorer-blob-browser-table-row"
-                interactive
-                key={blob.key}
-                selected={params.activeBlob?.key === blob.key}
-              >
-                <MiniAppTableCell title={blob.blobId ?? blob.storageKey}>
-                  <MiniAppTableActionButton
-                    className="explorer-blob-browser-row-button"
-                    disabled={!selectable}
-                    onClick={() => params.onSelectBlob(blob)}
-                    title={
-                      selectable
-                        ? undefined
-                        : "Only image blobs can be attached."
-                    }
-                  >
-                    {compactId(blob.blobId ?? blob.storageKey)}
-                  </MiniAppTableActionButton>
-                </MiniAppTableCell>
-                <MiniAppTableCell>{blob.mimeType ?? "-"}</MiniAppTableCell>
-                <MiniAppTableCell>
-                  {formatByteLength(blob.byteLength)}
-                </MiniAppTableCell>
-                <MiniAppTableCell>
-                  {getExplorerBlobBrowserReferenceCountLabel(
-                    blob.referenceCount,
-                  )}
-                </MiniAppTableCell>
-                <MiniAppTableCell title={getBlobChangedAt(blob) ?? undefined}>
-                  {formatMiniAppDateTime(getBlobChangedAt(blob), {
-                    emptyFallback: "-",
-                  })}
-                </MiniAppTableCell>
-              </MiniAppTableRow>
-            );
-          })
-        ) : params.isLoading ? (
-          <MiniAppTableEmptyRow colSpan={columns.length}>
-            {EXPLORER_LABELS.blobBrowserLoading}
-          </MiniAppTableEmptyRow>
-        ) : params.error ? (
-          <MiniAppTableEmptyRow colSpan={columns.length}>
-            {params.error}
-          </MiniAppTableEmptyRow>
-        ) : (
-          <MiniAppTableEmptyRow colSpan={columns.length}>
-            {EXPLORER_LABELS.blobBrowserEmpty}
-          </MiniAppTableEmptyRow>
-        )}
-        {bottomPadding > 0 ? (
-          <MiniAppVirtualTableSpacerRow
-            colSpan={columns.length}
-            height={bottomPadding}
-          />
-        ) : null}
-      </MiniAppTable>
-      {params.totalCount > params.rows.length ? (
-        <MiniAppStatus as="span">
-          {params.rows.length}/{params.totalCount}
-        </MiniAppStatus>
-      ) : null}
-    </MiniAppTableFrame>
-  );
-}
 
 function BlobMetadataSection(params: {
   blob: BlobInfo;
@@ -305,7 +177,6 @@ export function BlobDetail(params: {
   containerNamesById: ReadonlyMap<string, string>;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
-  syncSnapshot: DomainSyncSnapshot;
 }) {
   const preview = useBlobPreview({
     blob: params.blob,
@@ -322,7 +193,6 @@ export function BlobDetail(params: {
 
   return (
     <MiniAppPanel className="explorer-blob-browser-detail">
-      <BlobBrowserSyncStatus snapshot={params.syncSnapshot} />
       <BlobMetadataSection blob={params.blob} preview={preview} />
       <BlobPreviewSection blob={params.blob} preview={preview} />
       <BlobReferencesSection
@@ -391,11 +261,11 @@ export function BlobBrowserListScreen(params: {
   onQueryChange: (value: string) => void;
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
+  online: boolean;
   query: string;
   rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
   sort: BlobInfoSort;
-  syncSnapshot: DomainSyncSnapshot;
 }) {
   return (
     <>
@@ -408,13 +278,13 @@ export function BlobBrowserListScreen(params: {
         />
       </MiniAppToolbar>
       <div className="explorer-blob-browser-screen">
-        <BlobBrowserSyncStatus snapshot={params.syncSnapshot} />
         <BlobInfoTable
           activeBlob={null}
           error={params.blobInfo.error}
           frameRef={params.frameRef}
           isLoading={params.blobInfo.isLoading || params.isWindowPending}
           isRowSelectable={params.isRowSelectable}
+          online={params.online}
           onSelectBlob={params.onSelectBlob}
           onSort={params.onSort}
           rowOffset={params.rowOffset}

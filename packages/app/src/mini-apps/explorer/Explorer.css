@@ -377,61 +377,8 @@
   gap: var(--space-md);
 }
 
-.explorer-blob-browser-sync-status {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.explorer-blob-browser-sync-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  font-size: var(--font-size-sm);
-  opacity: var(--opacity-subtle);
-}
-
-.explorer-blob-browser-sync-lanes {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  border: var(--border);
-}
-
-.explorer-blob-browser-sync-row {
-  display: grid;
-  grid-template-columns: minmax(8rem, 1fr) minmax(5rem, auto) minmax(10rem, 1fr);
-  align-items: center;
-  gap: var(--space-sm);
-  min-width: 0;
-  padding: var(--space-sm);
-  border-bottom: var(--border);
-}
-
-.explorer-blob-browser-sync-row:last-child {
-  border-bottom: 0;
-}
-
-.explorer-blob-browser-sync-name {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
-  min-width: 0;
-}
-
-.explorer-blob-browser-sync-name > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.explorer-blob-browser-sync-name code {
-  overflow-wrap: anywhere;
-  font-size: var(--font-size-xs);
-  opacity: var(--opacity-muted);
+.explorer-blob-browser-sync-cell .explorer-sync-badge {
+  max-width: 100%;
 }
 
 .explorer-blob-browser-preview-actions {
@@ -463,10 +410,4 @@
   font-family: var(--tearleads-font-family);
   font-size: var(--font-size-sm);
   line-height: 1.45;
-}
-
-@media (max-width: 720px) {
-  .explorer-blob-browser-sync-row {
-    grid-template-columns: 1fr;
-  }
 }
