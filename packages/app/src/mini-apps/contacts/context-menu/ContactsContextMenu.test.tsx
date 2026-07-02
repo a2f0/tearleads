@@ -10,10 +10,37 @@ import {
   useContactsContextMenu,
 } from "./ContactsContextMenu";
 
-afterEach(() => cleanup());
+const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
+  navigator,
+  "clipboard",
+);
+
+afterEach(() => {
+  cleanup();
+  if (originalClipboardDescriptor) {
+    Object.defineProperty(navigator, "clipboard", originalClipboardDescriptor);
+  } else {
+    delete (navigator as { clipboard?: Clipboard }).clipboard;
+  }
+});
+
+function installClipboardWriteMock(): string[] {
+  const writes: string[] = [];
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: {
+      writeText: (value: string) => {
+        writes.push(value);
+        return Promise.resolve();
+      },
+    },
+  });
+  return writes;
+}
 
 function ContactsContextMenuLayerHarness(params: {
   canRemoveContextMenuContact?: boolean | undefined;
+  contextMenuContactUserId?: string | null | undefined;
   contextMenu: ContactsContextMenuState;
   openImportContactRoute?: (() => void) | undefined;
   openNewContactRoute?: (() => void) | undefined;
@@ -28,6 +55,7 @@ function ContactsContextMenuLayerHarness(params: {
       canRemoveContextMenuContact={params.canRemoveContextMenuContact ?? true}
       canWrite={true}
       closeContextMenu={() => setContextMenu(null)}
+      contextMenuContactUserId={params.contextMenuContactUserId ?? null}
       contextMenu={contextMenu}
       openImportContactRoute={
         params.openImportContactRoute ?? (() => undefined)
@@ -55,6 +83,14 @@ function ContactsContextMenuModelHarness(params: { entries: ContactEntry[] }) {
       <button
         type="button"
         onContextMenu={(event: ReactMouseEvent<HTMLElement>) =>
+          model.handleSidebarContextMenu(event, "ada")
+        }
+      >
+        Ada contact
+      </button>
+      <button
+        type="button"
+        onContextMenu={(event: ReactMouseEvent<HTMLElement>) =>
           model.handleSidebarContextMenu(event, "missing")
         }
       >
@@ -62,6 +98,9 @@ function ContactsContextMenuModelHarness(params: { entries: ContactEntry[] }) {
       </button>
       <output aria-label="Can remove contact">
         {model.canRemoveContextMenuContact ? "yes" : "no"}
+      </output>
+      <output aria-label="Context menu user ID">
+        {model.contextMenuContactUserId ?? "none"}
       </output>
     </>
   );
@@ -130,6 +169,65 @@ test("contacts row context menu removes contacts", () => {
   expect(removeContactCount).toBe(1);
 });
 
+test("contacts row context menu copies contact user ids", () => {
+  const clipboardWrites = installClipboardWriteMock();
+  const view = render(
+    <ContactsContextMenuLayerHarness
+      contextMenu={{
+        id: { contactId: "ada", kind: "contact" },
+        position: { x: 12, y: 34 },
+      }}
+      contextMenuContactUserId="ada-user"
+    />,
+  );
+
+  fireEvent.click(
+    view.getByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+  );
+
+  expect(clipboardWrites).toEqual(["ada-user"]);
+  expect(
+    view.queryByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+  ).toBeNull();
+});
+
+test("contacts row context menu hides copy without a contact user id", () => {
+  const view = render(
+    <ContactsContextMenuLayerHarness
+      contextMenu={{
+        id: { contactId: "ada", kind: "contact" },
+        position: { x: 12, y: 34 },
+      }}
+      contextMenuContactUserId={null}
+    />,
+  );
+
+  expect(
+    view.queryByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+  ).toBeNull();
+});
+
+test("contacts row context menu hides copy without clipboard access", () => {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: undefined,
+  });
+
+  const view = render(
+    <ContactsContextMenuLayerHarness
+      contextMenu={{
+        id: { contactId: "ada", kind: "contact" },
+        position: { x: 12, y: 34 },
+      }}
+      contextMenuContactUserId="ada-user"
+    />,
+  );
+
+  expect(
+    view.queryByRole("button", { name: CONTACTS_LABELS.copyUserIdAction }),
+  ).toBeNull();
+});
+
 test("contacts row context menu disables remove without a contact entry", () => {
   const view = render(
     <ContactsContextMenuLayerHarness
@@ -157,5 +255,31 @@ test("contacts context menu model disables remove for stale contact ids", async 
 
   await waitFor(() => {
     expect(view.getByLabelText("Can remove contact").textContent).toBe("no");
+  });
+});
+
+test("contacts context menu model exposes contact user ids", async () => {
+  const view = render(
+    <ContactsContextMenuModelHarness
+      entries={[
+        {
+          encapsulationPublicKey: null,
+          firstName: "Ada",
+          id: "ada",
+          isSelf: false,
+          lastName: "Lovelace",
+          nickname: null,
+          userId: "ada-user",
+        },
+      ]}
+    />,
+  );
+
+  fireEvent.contextMenu(view.getByRole("button", { name: "Ada contact" }));
+
+  await waitFor(() => {
+    expect(view.getByLabelText("Context menu user ID").textContent).toBe(
+      "ada-user",
+    );
   });
 });
