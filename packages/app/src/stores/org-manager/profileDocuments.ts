@@ -104,6 +104,7 @@ function waitForRemoteDocumentId(
 export async function createRosterProfileDocument(input: {
   containerId: string;
   documents: Documents;
+  nickname?: string | undefined;
   organizationId: string;
   user: OrganizationDirectoryUser;
 }): Promise<string | null> {
@@ -116,10 +117,10 @@ export async function createRosterProfileDocument(input: {
     }),
   });
 
-  await store.setStructuredFields(
-    "contact",
-    buildRosterProfileDocumentPatch(input.user),
-  );
+  await store.setStructuredFields("contact", {
+    ...buildRosterProfileDocumentPatch(input.user),
+    ...(input.nickname ? { nickname: input.nickname } : {}),
+  });
   if (!store.getSnapshot().ready) {
     return null;
   }

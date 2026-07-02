@@ -29,6 +29,12 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     seedPeerIdentities && paneSide
       ? `${selfPaneLabel(paneSide)}'s Org`
       : undefined;
+  // Demo-only: label this pane's own roster entry "Peer 1 (You)" instead of the
+  // neutral "You" default, matching the peer-labeled self contact.
+  const rosterProfileNickname =
+    seedPeerIdentities && paneSide
+      ? `${selfPaneLabel(paneSide)} (You)`
+      : undefined;
 
   const canRegisterCurrentIdentity =
     signingKeyPair !== null &&
@@ -44,6 +50,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
 
     const response = await tearleads.session.registerIdentity({
       organizationProfileName,
+      rosterProfileNickname,
     });
     if (!response) {
       return false;
@@ -54,6 +61,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     canRegisterCurrentIdentity,
     loginWithChallenge,
     organizationProfileName,
+    rosterProfileNickname,
     tearleads,
   ]);
 

@@ -13,6 +13,11 @@ const CONTAINER_SYSTEM_SLOT_PREFIX = "sys_v1_";
 export const ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME = "Roster Profiles";
 export const ROSTER_PROFILE_DOCUMENT_KIND = "contact";
 
+// The self roster-profile nickname seeded at registration when the caller does
+// not override it. The demo host passes each pane's peer-labeled self name
+// instead (e.g. "Peer 1 (You)").
+export const DEFAULT_ROSTER_PROFILE_SELF_NICKNAME = "You";
+
 function toBase64Url(bytes: Uint8Array): string {
   return bytesToBase64(bytes)
     .replace(/\+/g, "-")

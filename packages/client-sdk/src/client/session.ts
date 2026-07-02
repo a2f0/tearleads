@@ -56,6 +56,12 @@ export interface RegisterIdentityOptions {
    * pane's peer-labeled org name ("Peer 1's Org").
    */
   readonly organizationProfileName?: string | undefined;
+  /**
+   * Overrides the seeded self roster-profile nickname. Optional; when omitted
+   * the default ("You") is used. The demo host passes each pane's peer-labeled
+   * self name ("Peer 1 (You)").
+   */
+  readonly rosterProfileNickname?: string | undefined;
 }
 
 export interface UserSession {
@@ -320,6 +326,7 @@ class SessionService implements Session {
         log: this.dependencies.log,
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
+        rosterProfileNickname: options?.rosterProfileNickname,
         signingKeyPair,
       });
     } catch (error: unknown) {

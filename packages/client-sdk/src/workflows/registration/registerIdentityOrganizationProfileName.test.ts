@@ -19,6 +19,7 @@ import { readStoredDocumentState } from "../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { readOrganizationProfileName } from "../organizations/organizationProfile";
+import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import { registerIdentity } from "./registerIdentity";
 
 const account = {
@@ -161,4 +162,55 @@ test("registerIdentity names the personal org from organizationProfileName", asy
       "Peer 2's Org",
     ),
   ).toBe("Peer 2's Org");
+});
+
+async function registerAndReadRosterNickname(
+  label: string,
+  rosterProfileNickname?: string,
+): Promise<string | null> {
+  const { close, execSql } = await createTestExecSql(label);
+  try {
+    const response = await registerIdentity({
+      apiClient: registrationApi,
+      containerId: crypto.randomUUID(),
+      dbClient: createDbClient(execSql),
+      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      ...(rosterProfileNickname ? { rosterProfileNickname } : {}),
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+    });
+    if (!response) {
+      throw new Error("Expected a registration response");
+    }
+    const rosterProfileDocument = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      getRosterProfileDocumentLocalId({
+        organizationId: response.organizationId,
+        userId: response.userId,
+      }),
+    );
+    if (!rosterProfileDocument) {
+      throw new Error("Expected persisted roster profile document");
+    }
+    const doc = await createDocument(label);
+    importUpdates(doc, [base64ToBytes(rosterProfileDocument.loroSnapshot)]);
+    const { nickname } = readStoredDocumentState(doc).structuredFields;
+    return typeof nickname === "string" ? nickname : null;
+  } finally {
+    close();
+  }
+}
+
+test('registerIdentity defaults the self roster nickname to "You"', async () => {
+  expect(
+    await registerAndReadRosterNickname("registration-roster-nickname-default"),
+  ).toBe("You");
+});
+
+test("registerIdentity names the self roster entry from rosterProfileNickname", async () => {
+  expect(
+    await registerAndReadRosterNickname(
+      "registration-roster-nickname-override",
+      "Peer 1 (You)",
+    ),
+  ).toBe("Peer 1 (You)");
 });
