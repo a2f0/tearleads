@@ -27,6 +27,10 @@
 
 /* Primary navigation lives in the TearleadsFrame header (dark background),
    so links inherit the light header text color. */
+.site-nav-root {
+  display: contents;
+}
+
 .site-nav {
   display: flex;
   align-items: center;
@@ -43,6 +47,16 @@
 .site-nav-link:hover,
 .site-nav-link:focus-visible {
   text-decoration: underline;
+}
+
+/* The hamburger toggle and its dropdown panel are for narrow viewports only;
+   hidden on desktop where the inline .site-nav is shown instead. */
+.site-nav-toggle {
+  display: none;
+}
+
+.site-nav-panel {
+  display: none;
 }
 
 .site-app-button {
@@ -271,8 +285,103 @@
     padding-inline: 18px;
   }
 
-  .site-nav {
+  /* Swap the inline links for a hamburger + dropdown panel, but only once the
+     nav island has hydrated (it sets data-js on the root). Without JS the
+     toggle is never rendered and the inline links stay visible — scrolling
+     horizontally if needed — so the nav remains usable. */
+  .site-nav-root[data-js] .site-nav {
     display: none;
+  }
+
+  /* Pre-hydration / no-JS fallback: the inline links wrap to fit. This makes
+     the header taller until the nav island hydrates and swaps in the hamburger.
+     A one-line scrolling nav would avoid that shift, but it can't be contained
+     without a page-wide horizontal scrollbar unless .tearleads-header-actions
+     (owned by @tearleads/ui) is width-constrained — out of scope here — so we
+     accept the brief pre-hydration height change, which client:media makes
+     near-instant on real mobile devices. */
+  .site-nav {
+    flex-wrap: wrap;
+  }
+
+  .site-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Match the App button's control height and give a comfortable touch
+       target (min ~44px) rather than the bare 2rem icon box. */
+    width: 44px;
+    height: 44px;
+    min-height: var(--control-height);
+    padding: 0;
+    border: var(--border);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .site-nav-toggle:hover,
+  .site-nav-toggle:focus-visible {
+    background: var(--tearleads-header-text);
+    color: var(--tearleads-header-background);
+  }
+
+  /* Three-bar icon drawn with currentColor so it inverts on hover/focus. */
+  .site-nav-toggle-bars,
+  .site-nav-toggle-bars::before,
+  .site-nav-toggle-bars::after {
+    display: block;
+    width: 1.1rem;
+    height: 2px;
+    background: currentColor;
+  }
+
+  .site-nav-toggle-bars {
+    position: relative;
+  }
+
+  .site-nav-toggle-bars::before,
+  .site-nav-toggle-bars::after {
+    position: absolute;
+    left: 0;
+    content: "";
+  }
+
+  .site-nav-toggle-bars::before {
+    top: -6px;
+  }
+
+  .site-nav-toggle-bars::after {
+    top: 6px;
+  }
+
+  /* The expanded panel drops below the header, full width, matching the dark
+     header chrome. It is toggled via the [hidden] attribute in SiteNav. */
+  .site-nav-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-sm) 18px var(--space-md);
+    background: var(--tearleads-header-background);
+    border-top: 1px solid var(--color-hairline);
+  }
+
+  .site-nav-panel[hidden] {
+    display: none;
+  }
+
+  .site-nav-panel .site-nav-link {
+    padding: var(--space-sm) 0;
+    font-size: var(--font-size-lg);
+  }
+
+  /* The header is the positioning context for the absolute dropdown. */
+  .tearleads-header {
+    position: relative;
   }
 
   .website-main {

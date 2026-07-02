@@ -137,14 +137,16 @@ textarea {
   background: var(--tearleads-header-background);
   color: var(--tearleads-header-text);
 
-  /* The default logo greys (#555/#999) are near-invisible on the dark header
-     background. Drive the mark from the header text color instead, keeping the
-     two-tone contrast by dimming the "T" slightly. */
-  --tearleads-logo-primary: var(--tearleads-header-text);
-  --tearleads-logo-secondary: color-mix(
+  /* The default logo greys (#555/#999) are near-invisible on the dark header.
+     Remap both tones into the light range while preserving the source
+     hierarchy — the "T" (secondary) is the brighter glyph, the "L:" (primary)
+     a dimmer solid grey. Mixing toward the header background (not transparent)
+     keeps the dimmer tone a clean opaque grey rather than a muddy blend. */
+  --tearleads-logo-secondary: var(--tearleads-header-text);
+  --tearleads-logo-primary: color-mix(
     in srgb,
-    var(--tearleads-header-text) 70%,
-    transparent
+    var(--tearleads-header-text) 62%,
+    var(--tearleads-header-background)
   );
 }
 
@@ -165,13 +167,16 @@ textarea {
 
 .tearleads-brand-logo svg,
 .tearleads-brand-logo img {
-  /* The mark is square. Fix height and derive width via aspect-ratio rather
-     than width: auto — an auto-width SVG in a flex container collapses to 0 in
-     some WebKit versions. Height-only overrides (e.g. global.css) then scale
-     the width automatically. */
+  /* The mark is square. width: auto overrides the SVG's intrinsic 33x33
+     attributes so height drives the size and height-only overrides (e.g.
+     global.css) scale the width automatically; aspect-ratio keeps it square
+     and guards against the WebKit bug where an auto-width SVG in a flex
+     container can collapse to zero. (The intrinsic attributes remain as a
+     fallback size if the mark is ever used outside this container.) */
   display: block;
-  aspect-ratio: 1 / 1;
+  width: auto;
   height: 1.75rem;
+  aspect-ratio: 1 / 1;
 }
 
 .tearleads-brand-mark {

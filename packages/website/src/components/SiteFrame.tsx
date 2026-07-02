@@ -1,18 +1,13 @@
 import { TearleadsFrame, TearleadsLogo } from "@tearleads/ui";
-import type { PropsWithChildren } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 
 interface SiteFrameProps {
   readonly appUrl: string;
-  readonly pathname?: string | undefined;
+  // The primary nav, supplied by the layout as its own hydrated island (a
+  // Astro slot="nav"), so only the nav ships client JS and the frame — header,
+  // footer, and slotted page content — stays fully static.
+  readonly nav?: ReactNode;
 }
-
-const NAV_ITEMS: readonly { readonly href: string; readonly label: string }[] =
-  [
-    { href: "/how-it-works", label: "How it works" },
-    { href: "/security", label: "Security" },
-    { href: "/pricing", label: "Pricing" },
-    { href: "/features", label: "Features" },
-  ];
 
 const FOOTER_ITEMS: readonly {
   readonly href: string;
@@ -37,7 +32,7 @@ function FooterLinks() {
 export function SiteFrame({
   appUrl,
   children,
-  pathname,
+  nav,
 }: PropsWithChildren<SiteFrameProps>) {
   return (
     <TearleadsFrame
@@ -46,18 +41,7 @@ export function SiteFrame({
       footerStart={<FooterLinks />}
       headerActions={
         <>
-          <nav aria-label="Primary" className="site-nav">
-            {NAV_ITEMS.map((item) => (
-              <a
-                aria-current={pathname === item.href ? "page" : undefined}
-                className="site-nav-link"
-                href={item.href}
-                key={item.href}
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
+          {nav}
           <a className="tearleads-action-button site-app-button" href={appUrl}>
             App
           </a>
