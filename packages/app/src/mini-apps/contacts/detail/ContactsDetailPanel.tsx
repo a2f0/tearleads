@@ -31,7 +31,7 @@ function toContactFieldValues(entry: SelectedContactEntry): ContactFieldValues {
     encapsulationPublicKey: entry.encapsulationPublicKey ?? "",
     firstName: entry.firstName,
     lastName: entry.lastName,
-    nickname: entry.nickname,
+    nickname: entry.nickname ?? "",
     userId: entry.userId ?? "",
   };
 }

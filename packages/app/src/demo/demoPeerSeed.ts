@@ -30,12 +30,37 @@ export interface DemoPeerSeedInput {
   readonly side: PaneSide;
 }
 
+// The in-flight key for a peer import. Exposed so the executor can tell whether
+// a contact is mid-import (importKey has already added it, still unnamed) before
+// it issues a redundant nickname write the import itself is about to make.
+export function importPeerActionKey(userId: string): string {
+  return `import-peer:${userId}`;
+}
+
 // A stable identity for an action so the executor can guard against issuing the
 // same write twice while an earlier attempt is still in flight.
 export function demoPeerSeedActionKey(action: DemoPeerSeedAction): string {
   return action.kind === "import-peer"
-    ? `import-peer:${action.userId}`
+    ? importPeerActionKey(action.userId)
     : `set-nickname:${action.contactId}:${action.nickname}`;
+}
+
+// Suppress a set-nickname whose target contact is mid-import: importKey has
+// already inserted the (still unnamed) contact, so planDemoPeerSeed emits a
+// nickname write for it, but the in-flight import will set that same nickname
+// itself. Skipping here avoids a redundant, racing write.
+export function isSupersededByPendingImport(
+  action: DemoPeerSeedAction,
+  entries: ContactEntries,
+  pendingActions: ReadonlySet<string>,
+): boolean {
+  if (action.kind !== "set-nickname") {
+    return false;
+  }
+  const contact = entries.find((entry) => entry.id === action.contactId);
+  return Boolean(
+    contact?.userId && pendingActions.has(importPeerActionKey(contact.userId)),
+  );
 }
 
 /**
@@ -55,7 +80,7 @@ export function planDemoPeerSeed(
 
   // Behavior 2: name this pane's own "You" contact after its peer label.
   const selfEntry = input.entries.find((entry) => entry.isSelf);
-  if (selfEntry && selfEntry.nickname.trim().length === 0) {
+  if (selfEntry && (selfEntry.nickname ?? "").trim().length === 0) {
     actions.push({
       kind: "set-nickname",
       contactId: selfEntry.id,
@@ -77,7 +102,7 @@ export function planDemoPeerSeed(
         nickname: peerLabel,
         userId: input.peerUserId,
       });
-    } else if (existingPeer.nickname.trim().length === 0) {
+    } else if ((existingPeer.nickname ?? "").trim().length === 0) {
       actions.push({
         kind: "set-nickname",
         contactId: existingPeer.id,

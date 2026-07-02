@@ -14,7 +14,7 @@ function compareNullableContactText(
 }
 
 function getContactSortName(entry: ContactEntry): string {
-  const nickname = entry.nickname.trim();
+  const nickname = (entry.nickname ?? "").trim();
   if (nickname.length > 0) {
     return nickname;
   }

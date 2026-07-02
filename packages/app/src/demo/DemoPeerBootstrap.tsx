@@ -12,6 +12,7 @@ import {
 import {
   type DemoPeerSeedAction,
   demoPeerSeedActionKey,
+  isSupersededByPendingImport,
   planDemoPeerSeed,
 } from "./demoPeerSeed";
 
@@ -64,7 +65,10 @@ function DemoPeerContactSeeder({
     });
     for (const action of actions) {
       const key = demoPeerSeedActionKey(action);
-      if (pendingActionsRef.current.has(key)) {
+      if (
+        pendingActionsRef.current.has(key) ||
+        isSupersededByPendingImport(action, entries, pendingActionsRef.current)
+      ) {
         continue;
       }
 
