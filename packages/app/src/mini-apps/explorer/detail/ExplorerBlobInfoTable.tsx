@@ -5,7 +5,7 @@ import {
   type ContainerDocumentObjectSyncState,
   createContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
-import { useMemo } from "react";
+import { type MouseEvent, useMemo } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import {
   addMiniAppTableHeaderAction,
@@ -141,6 +141,9 @@ function BlobInfoTableContent(params: {
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isLoading: boolean;
   online: boolean;
+  onRowContextMenu?:
+    | ((event: MouseEvent<HTMLElement>, blob: BlobInfo) => void)
+    | undefined;
   onSelectBlob: (blob: BlobInfo) => void;
   rowOffset: number;
   rows: ReadonlyArray<BlobInfo>;
@@ -170,6 +173,11 @@ function BlobInfoTableContent(params: {
               className="explorer-blob-browser-table-row"
               interactive
               key={blob.key}
+              onContextMenu={
+                params.onRowContextMenu
+                  ? (event) => params.onRowContextMenu?.(event, blob)
+                  : undefined
+              }
               selected={params.activeBlob?.key === blob.key}
             >
               {params.visibleColumnIds.map((columnId) =>
@@ -216,6 +224,9 @@ export function BlobInfoTable(params: {
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isLoading: boolean;
   online: boolean;
+  onRowContextMenu?:
+    | ((event: MouseEvent<HTMLElement>, blob: BlobInfo) => void)
+    | undefined;
   onSelectBlob: (blob: BlobInfo) => void;
   onSort: (key: BlobInfoSortKey) => void;
   rowOffset: number;
@@ -271,6 +282,7 @@ export function BlobInfoTable(params: {
           isLoading={params.isLoading}
           isRowSelectable={params.isRowSelectable}
           online={params.online}
+          onRowContextMenu={params.onRowContextMenu}
           onSelectBlob={params.onSelectBlob}
           rowOffset={params.rowOffset}
           rows={params.rows}

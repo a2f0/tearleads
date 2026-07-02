@@ -10,6 +10,7 @@ export const EXPLORER_LABELS = {
   blobBrowserDocumentCountOne: "document",
   blobBrowserDocumentCountOther: "documents",
   blobBrowserDocumentInfoAction: "Info",
+  blobBrowserDownloadAction: "Download",
   blobBrowserEmpty: "No blobs.",
   blobBrowserIdRow: "Blob ID",
   blobBrowserLoading: "Loading...",

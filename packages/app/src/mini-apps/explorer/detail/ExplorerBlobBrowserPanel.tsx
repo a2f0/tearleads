@@ -13,6 +13,7 @@ import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvid
 import {
   BlobBrowserHeader,
   BlobBrowserListScreen,
+  BlobBrowserRowContextMenu,
   BlobDetail,
   BlobPickHeader,
 } from "./ExplorerBlobBrowserSections";
@@ -21,6 +22,9 @@ import {
   getContainerNameById,
   useBlobBrowserData,
 } from "./ExplorerBlobBrowserState";
+import { useBlobBrowserContextMenu } from "./useBlobBrowserContextMenu";
+
+type BlobBrowserData = ReturnType<typeof useBlobBrowserData>;
 
 interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
@@ -39,23 +43,113 @@ interface ExplorerBlobBrowserPanelProps {
   selectDocumentProjection: (documentId: string, containerId: string) => void;
 }
 
+// Pick mode: choose an image blob for a document slot. Only image blobs bind to
+// image slots, so non-image rows are shown but not selectable, and a row click
+// resolves the pick rather than opening blob detail.
+function BlobBrowserPickScreen(params: {
+  data: BlobBrowserData;
+  onCancel: () => void;
+  online: boolean;
+  onPickBlob: ((blob: BlobInfo) => void) | undefined;
+  slotLabel: string;
+}) {
+  const { data } = params;
+
+  return (
+    <>
+      <BlobPickHeader onCancel={params.onCancel} slotLabel={params.slotLabel} />
+      <BlobBrowserListScreen
+        blobInfo={data.blobInfo}
+        frameRef={data.frameRef}
+        // Filtering non-image rows out of the windowed list would desync the
+        // virtual-scroll padding from the total count, so disable instead.
+        isRowSelectable={isImageDocumentAttachmentBlob}
+        isWindowPending={data.isWindowPending}
+        onQueryChange={data.handleQueryChange}
+        onSelectBlob={params.onPickBlob ?? data.handleSelectBlob}
+        onSort={data.handleSort}
+        online={params.online}
+        query={data.query}
+        rowOffset={data.rowOffset}
+        rows={data.rows}
+        sort={data.sort}
+      />
+    </>
+  );
+}
+
+// Browse mode: view blob metadata/preview, and right-click (or long-press) a row
+// to download the blob's local bytes.
+function BlobBrowserBrowseScreen(params: {
+  blobStore: BlobStore;
+  containerNamesById: ReadonlyMap<string, string>;
+  data: BlobBrowserData;
+  onBackToSelectionRoute: () => void;
+  online: boolean;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  selectDocumentProjection: (documentId: string, containerId: string) => void;
+}) {
+  const { data } = params;
+  const {
+    closeContextMenu,
+    contextMenu,
+    downloadBlob,
+    downloadMessage,
+    openContextMenu,
+  } = useBlobBrowserContextMenu({ blobStore: params.blobStore });
+  const isDetailScreen = data.selectedBlob !== null;
+
+  return (
+    <>
+      <BlobBrowserHeader
+        onBack={
+          isDetailScreen ? data.handleBackToList : params.onBackToSelectionRoute
+        }
+        selectedBlob={data.selectedBlob}
+      />
+      {isDetailScreen ? (
+        <div className="explorer-blob-browser-screen">
+          <BlobDetail
+            blob={data.selectedBlob}
+            blobStore={params.blobStore}
+            containerNamesById={params.containerNamesById}
+            openDocumentInfoRoute={params.openDocumentInfoRoute}
+            selectDocumentProjection={params.selectDocumentProjection}
+          />
+        </div>
+      ) : (
+        <BlobBrowserListScreen
+          blobInfo={data.blobInfo}
+          downloadMessage={downloadMessage}
+          frameRef={data.frameRef}
+          isWindowPending={data.isWindowPending}
+          onQueryChange={data.handleQueryChange}
+          onRowContextMenu={openContextMenu}
+          onSelectBlob={data.handleSelectBlob}
+          onSort={data.handleSort}
+          online={params.online}
+          query={data.query}
+          rowOffset={data.rowOffset}
+          rows={data.rows}
+          sort={data.sort}
+        />
+      )}
+      {contextMenu ? (
+        <BlobBrowserRowContextMenu
+          blob={contextMenu.blob}
+          onClose={closeContextMenu}
+          onDownload={downloadBlob}
+          position={contextMenu.position}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function ExplorerBlobBrowserPanel(
   params: ExplorerBlobBrowserPanelProps,
 ) {
-  const {
-    blobInfo,
-    frameRef,
-    handleBackToList,
-    handleQueryChange,
-    handleSelectBlob,
-    handleSort,
-    isWindowPending,
-    query,
-    rowOffset,
-    rows,
-    selectedBlob,
-    sort,
-  } = useBlobBrowserData({
+  const data = useBlobBrowserData({
     loadBlobInfo: params.loadBlobInfo,
     route: params.route,
   });
@@ -63,63 +157,29 @@ export function ExplorerBlobBrowserPanel(
     () => getContainerNameById(params.nodes),
     [params.nodes],
   );
-  const isPicking = Boolean(params.pickTarget);
-  // In pick mode the detail screen is never shown — a row click resolves the
-  // pick straight away — so honour the route-driven detail screen only when
-  // browsing normally.
-  const isDetailScreen = !isPicking && selectedBlob !== null;
 
   return (
     <MiniAppPanel
       className="explorer-detail explorer-detail--blob-browser"
       key={`${params.route.blobId ?? ""}:${params.route.storageKey ?? ""}`}
     >
-      {isPicking && params.pickTarget ? (
-        <BlobPickHeader
+      {params.pickTarget ? (
+        <BlobBrowserPickScreen
+          data={data}
           onCancel={params.onCancelBlobPick ?? params.onBackToSelectionRoute}
+          online={params.online}
+          onPickBlob={params.onPickBlob}
           slotLabel={params.pickTarget.slotLabel}
         />
       ) : (
-        <BlobBrowserHeader
-          onBack={
-            isDetailScreen ? handleBackToList : params.onBackToSelectionRoute
-          }
-          selectedBlob={selectedBlob}
-        />
-      )}
-      {isDetailScreen ? (
-        <div className="explorer-blob-browser-screen">
-          <BlobDetail
-            blob={selectedBlob}
-            blobStore={params.blobStore}
-            containerNamesById={containerNamesById}
-            openDocumentInfoRoute={params.openDocumentInfoRoute}
-            selectDocumentProjection={params.selectDocumentProjection}
-          />
-        </div>
-      ) : (
-        <BlobBrowserListScreen
-          blobInfo={blobInfo}
-          frameRef={frameRef}
-          // Only image blobs bind to image slots, so in pick mode non-image rows
-          // are shown but not pickable. Filtering them out of the windowed list
-          // would desync the virtual-scroll padding from the total count.
-          isRowSelectable={
-            isPicking ? isImageDocumentAttachmentBlob : undefined
-          }
-          isWindowPending={isWindowPending}
-          onQueryChange={handleQueryChange}
-          onSelectBlob={
-            isPicking && params.onPickBlob
-              ? params.onPickBlob
-              : handleSelectBlob
-          }
-          onSort={handleSort}
+        <BlobBrowserBrowseScreen
+          blobStore={params.blobStore}
+          containerNamesById={containerNamesById}
+          data={data}
+          onBackToSelectionRoute={params.onBackToSelectionRoute}
           online={params.online}
-          query={query}
-          rowOffset={rowOffset}
-          rows={rows}
-          sort={sort}
+          openDocumentInfoRoute={params.openDocumentInfoRoute}
+          selectDocumentProjection={params.selectDocumentProjection}
         />
       )}
     </MiniAppPanel>
