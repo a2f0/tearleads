@@ -120,8 +120,27 @@ function LocalIdentitySetupPanel({
   onGenerateKey,
 }: {
   appName: string;
-  onGenerateKey: () => void;
+  onGenerateKey: () => Promise<boolean>;
 }) {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const generateKey = () => {
+    if (isGenerating) {
+      return;
+    }
+
+    setIsGenerating(true);
+    void onGenerateKey()
+      .then((started) => {
+        if (!started) {
+          setIsGenerating(false);
+        }
+      })
+      .catch(() => {
+        setIsGenerating(false);
+      });
+  };
+
   return (
     <MiniAppPanel className="local-keyring-unlock-gate-panel">
       <div className="local-keyring-unlock-copy">
@@ -129,7 +148,9 @@ function LocalIdentitySetupPanel({
         <p>Generate a local key pair to open {appName}.</p>
       </div>
       <MiniAppToolbar>
-        <MiniAppButton onClick={onGenerateKey}>Generate Key Pair</MiniAppButton>
+        <MiniAppButton disabled={isGenerating} onClick={generateKey}>
+          {isGenerating ? "Generating..." : "Generate Key Pair"}
+        </MiniAppButton>
       </MiniAppToolbar>
     </MiniAppPanel>
   );

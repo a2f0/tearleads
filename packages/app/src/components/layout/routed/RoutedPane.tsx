@@ -78,7 +78,14 @@ export function resolveRoutedActiveMiniAppId(
   tier: RoutedLayoutTier,
   routeAppId: MiniAppId | null,
 ): MiniAppId | null {
-  return routeAppId ?? (tier === "mobile" ? MOBILE_ROOT_MINI_APP_ID : null);
+  const routeAppRegistered =
+    routeAppId !== null && Object.hasOwn(MINI_APPS, routeAppId);
+
+  if (routeAppRegistered) {
+    return routeAppId;
+  }
+
+  return tier === "mobile" ? MOBILE_ROOT_MINI_APP_ID : null;
 }
 
 function RoutedPaneHome() {

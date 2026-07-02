@@ -346,7 +346,7 @@ export function useGenerateKey(input: {
     shouldPersist?: () => boolean,
   ) => Promise<void>;
   readonly tearleads: Tearleads;
-}): () => void {
+}): () => Promise<boolean> {
   const {
     ensureIdentityDatabaseReady,
     generationIdRef,
@@ -355,15 +355,16 @@ export function useGenerateKey(input: {
     tearleads,
   } = input;
 
-  return useCallback(() => {
+  return useCallback(async () => {
     if (generationInFlight.current) {
-      return;
+      return false;
     }
 
     const generationId = generationIdRef.current + 1;
     generationIdRef.current = generationId;
     generationInFlight.current = true;
-    void (async () => {
+
+    try {
       const signingKeyPair = generateSigningSeedAndKeyPair();
       const encapsulationKeyPair = generateKemSeedAndKeyPair();
       const signingFingerprint = await toFingerprint(
@@ -371,7 +372,7 @@ export function useGenerateKey(input: {
       );
       await ensureIdentityDatabaseReady(signingFingerprint);
       if (generationIdRef.current !== generationId) {
-        return;
+        return false;
       }
 
       await tearleads.identity.setKeyPairs({
@@ -380,7 +381,7 @@ export function useGenerateKey(input: {
       });
       await tearleads.session.bootstrapLocalRootContainer();
       if (generationIdRef.current !== generationId) {
-        return;
+        return false;
       }
 
       generationInFlight.current = false;
@@ -392,9 +393,11 @@ export function useGenerateKey(input: {
           error,
         );
       });
-    })().catch((error: unknown) => {
+
+      return true;
+    } catch (error) {
       if (generationIdRef.current !== generationId) {
-        return;
+        return false;
       }
 
       generationInFlight.current = false;
@@ -402,7 +405,8 @@ export function useGenerateKey(input: {
         tearleads.identity.destroy();
       }
       tearleads.logError("Failed to generate identity keys", error);
-    });
+      return false;
+    }
   }, [
     ensureIdentityDatabaseReady,
     generationIdRef,
