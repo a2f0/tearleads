@@ -3,6 +3,7 @@ import type { PropsWithChildren } from "react";
 
 interface SiteFrameProps {
   readonly appUrl: string;
+  readonly pathname?: string | undefined;
 }
 
 const NAV_ITEMS: readonly { readonly href: string; readonly label: string }[] =
@@ -36,6 +37,7 @@ function FooterLinks() {
 export function SiteFrame({
   appUrl,
   children,
+  pathname,
 }: PropsWithChildren<SiteFrameProps>) {
   return (
     <TearleadsFrame
@@ -46,7 +48,12 @@ export function SiteFrame({
         <>
           <nav aria-label="Primary" className="site-nav">
             {NAV_ITEMS.map((item) => (
-              <a className="site-nav-link" href={item.href} key={item.href}>
+              <a
+                aria-current={pathname === item.href ? "page" : undefined}
+                className="site-nav-link"
+                href={item.href}
+                key={item.href}
+              >
                 {item.label}
               </a>
             ))}

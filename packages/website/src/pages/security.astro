@@ -1,38 +1,21 @@
 ---
 import SecurityArchitectureDiagram from "../components/SecurityArchitectureDiagram.astro";
-import { SiteFrame } from "../components/SiteFrame";
-import { appUrl, isStaging } from "../config";
-import "../styles/global.css";
+import Layout from "../layouts/Layout.astro";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="How Tearleads keeps local keys and encrypted storage on your device, syncing only ciphertext and signed metadata."
-    />
-    <title>Security architecture | Tearleads</title>
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    {isStaging && <meta name="robots" content="noindex" />}
-  </head>
-  <body>
-    <SiteFrame appUrl={appUrl}>
-      <main class="website-main">
-        <article class="section" aria-labelledby="page-title">
-          <h1 id="page-title">Security architecture</h1>
-          <p class="section-lede">
-            Tearleads keeps local keys and encrypted storage on your device.
-            Sync moves ciphertext and signed metadata so the service can keep
-            devices up to date without holding content keys.
-          </p>
-          <SecurityArchitectureDiagram />
-        </article>
-      </main>
-    </SiteFrame>
-  </body>
-</html>
+<Layout
+  title="Security architecture | Tearleads"
+  description="How Tearleads keeps local keys and encrypted storage on your device, syncing only ciphertext and signed metadata."
+>
+  <main class="website-main">
+    <article class="section" aria-labelledby="page-title">
+      <h1 id="page-title">Security architecture</h1>
+      <p class="section-lede">
+        Tearleads keeps local keys and encrypted storage on your device.
+        Sync moves ciphertext and signed metadata so the service can keep
+        devices up to date without holding content keys.
+      </p>
+      <SecurityArchitectureDiagram />
+    </article>
+  </main>
+</Layout>
