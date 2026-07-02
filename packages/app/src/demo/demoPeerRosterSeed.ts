@@ -1,5 +1,6 @@
 import type {
   OrganizationDirectory,
+  OrganizationDirectoryAndGroups,
   OrganizationDirectoryUser,
   OrganizationGroupMember,
   OrganizationGroupMembers,
@@ -163,4 +164,98 @@ export function planDemoPeerRosterSeed(input: {
     memberGroupId,
     peerUserId,
   };
+}
+
+// The org-manager actions the demo roster seeder drives. Declared structurally
+// (rather than importing the provider type) so the orchestration below stays
+// unit-testable with a fake and free of a store dependency.
+export interface DemoRosterSeedActions {
+  readonly addUserToGroup: (
+    groupId: string,
+    targetUser: OrganizationUserRecipient,
+    currentUsers: ReadonlyArray<OrganizationUserRecipient>,
+    canAdministerOrganization: boolean,
+  ) => Promise<unknown>;
+  readonly ensureRosterProfileDocument: (
+    user: OrganizationDirectoryUser,
+    nickname?: string | undefined,
+  ) => Promise<OrganizationDirectoryUser | null>;
+  readonly importUserById: (
+    userId: string,
+  ) => Promise<OrganizationUserRecipient | null>;
+  readonly loadDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
+  readonly loadGroupDetails: (
+    groupId: string,
+  ) => Promise<{ readonly members: OrganizationGroupMembers | null }>;
+}
+
+/**
+ * Drives the two roster writes the demo owes for the peer, one phase per call so
+ * the caller's bounded retry advances it as server state settles:
+ *  1. add the peer to this pane's member group (surfaces them on the roster), and
+ *  2. give the peer's roster entry a friendly nickname profile document.
+ *
+ * Returns whether the seed is settled: `true` once the peer is on the roster and
+ * has a profile document, `false` while org/peer state is not ready yet (the add
+ * has not synced, the peer key is not queryable, ...) so the caller retries.
+ */
+export async function seedPeerRosterEntry(
+  actions: DemoRosterSeedActions,
+  peerUserId: string,
+  peerNickname: string,
+): Promise<boolean> {
+  const directoryAndGroups = await actions.loadDirectoryAndGroups();
+  const directory = directoryAndGroups?.directory ?? null;
+  const memberGroupId = directoryAndGroups?.memberGroupId ?? null;
+  if (!directory || !memberGroupId) {
+    return false;
+  }
+
+  // Phase 1: ensure the peer is an active roster member.
+  if (!isPeerOnRoster(directory, peerUserId)) {
+    const { members } = await actions.loadGroupDetails(memberGroupId);
+    if (!members) {
+      // Without the authoritative member list the policy re-encryption could
+      // omit existing members; wait and retry rather than risk locking them out.
+      return false;
+    }
+    const plan = planDemoPeerRosterSeed({
+      directory,
+      memberGroupId,
+      members,
+      peerUserId,
+    });
+    if (plan.kind === "add-to-member-group") {
+      const targetUser =
+        plan.existingRecipient ?? (await actions.importUserById(peerUserId));
+      if (!targetUser) {
+        return false;
+      }
+      await actions.addUserToGroup(
+        plan.memberGroupId,
+        targetUser,
+        plan.currentUsers,
+        plan.canAdministerOrganization,
+      );
+    }
+    // The membership write (or a prior one) has not surfaced in this directory
+    // snapshot yet; retry so the next attempt can seed the profile nickname.
+    return false;
+  }
+
+  // Phase 2: give the peer's roster entry a nickname profile document.
+  const peerUser =
+    directory.users.find((user) => user.userId === peerUserId) ?? null;
+  if (!peerUser) {
+    return false;
+  }
+  if (peerUser.profileDocumentId) {
+    return true;
+  }
+
+  const updated = await actions.ensureRosterProfileDocument(
+    peerUser,
+    peerNickname,
+  );
+  return Boolean(updated?.profileDocumentId);
 }

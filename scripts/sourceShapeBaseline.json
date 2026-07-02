@@ -266,8 +266,8 @@
       "bytes": 31765
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
-      "lines": 671,
-      "bytes": 23298
+      "lines": 681,
+      "bytes": 23772
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 732,

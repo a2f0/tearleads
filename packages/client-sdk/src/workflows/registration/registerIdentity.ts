@@ -47,6 +47,7 @@ import {
 } from "../organizations/principalPolicy";
 import {
   createInitializedRosterProfileDocument,
+  DEFAULT_ROSTER_PROFILE_SELF_NICKNAME,
   deriveOrganizationRosterProfileContainerSystemSlot,
   getRosterProfileDocumentLocalId,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
@@ -131,6 +132,12 @@ export interface RegisterIdentityInput {
    * DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME} (demo: "Peer 1's Org").
    */
   organizationProfileName?: string | undefined;
+  /**
+   * Overrides the seeded self roster-profile nickname; defaults to {@link
+   * DEFAULT_ROSTER_PROFILE_SELF_NICKNAME} ("You"). The demo host passes each
+   * pane's peer-labeled self name ("Peer 1 (You)").
+   */
+  rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
 }
 
@@ -463,6 +470,7 @@ async function buildInitialRosterProfileBootstrap(input: {
   encapsulationPublicKey: Uint8Array;
   initialAdminGroup: CreateOrganizationGroupRequest;
   organizationProfileName?: string | undefined;
+  rosterProfileNickname?: string | undefined;
   rootContainer: InitialRootContainerCreatePlan;
   rootContainerProjection: InitialRootContainerProjection;
   targetSecretKey: Uint8Array;
@@ -534,7 +542,8 @@ async function buildInitialRosterProfileBootstrap(input: {
   const rosterProfile = await createInitializedRosterProfileDocument({
     encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
     isSelf: true,
-    nickname: "You",
+    nickname:
+      input.rosterProfileNickname ?? DEFAULT_ROSTER_PROFILE_SELF_NICKNAME,
     userId: input.author.signerUserId,
   });
   return {
@@ -628,6 +637,7 @@ export async function registerIdentity(
     encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
     initialAdminGroup,
     organizationProfileName: input.organizationProfileName,
+    rosterProfileNickname: input.rosterProfileNickname,
     rootContainer,
     rootContainerProjection,
     targetSecretKey: input.encapsulationKeyPair.secretKey,

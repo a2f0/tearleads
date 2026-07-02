@@ -1,21 +1,23 @@
 import { useEffect, useRef } from "react";
 import {
+  peerPaneLabel,
   usePaneSide,
   usePeerUserId,
 } from "../components/pane/DualPaneProvider";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../providers/sdk/TearleadsProvider";
+import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";
 import {
   ContactsProvider,
   useContacts,
 } from "../stores/contacts/ContactsProvider";
 import {
-  isPeerOnRoster,
-  planDemoPeerRosterSeed,
+  OrgManagerProvider,
+  useOrgManagerActions,
+} from "../stores/org-manager/OrgManagerProvider";
+import {
+  type DemoRosterSeedActions,
+  seedPeerRosterEntry,
   shouldAttemptRosterSeed,
 } from "./demoPeerRosterSeed";
 import {
@@ -40,62 +42,6 @@ async function runDemoPeerSeedAction(
   if (contactId) {
     await contacts.updateContact(contactId, { nickname: action.nickname });
   }
-}
-
-// Adds the peer to this pane's own organization roster by adding them to the
-// builtin member group (the server derives roster entries from member-group
-// reachability — there is no direct add-roster-entry API). Returns whether the
-// seed is settled: `true` once the peer is on the roster or the add lands,
-// `false` when org/peer state is not ready yet so the caller retries later.
-async function seedPeerRosterEntry(
-  organizations: Pick<
-    ReturnType<typeof useTearleads>["organizations"],
-    | "addUserToGroup"
-    | "importUserById"
-    | "loadDirectoryAndGroups"
-    | "loadGroupDetails"
-  >,
-  peerUserId: string,
-): Promise<boolean> {
-  const directoryAndGroups = await organizations.loadDirectoryAndGroups();
-  const directory = directoryAndGroups?.directory ?? null;
-  const memberGroupId = directoryAndGroups?.memberGroupId ?? null;
-  if (!directory || !memberGroupId) {
-    return false;
-  }
-  if (isPeerOnRoster(directory, peerUserId)) {
-    return true;
-  }
-
-  const { members } = await organizations.loadGroupDetails(memberGroupId);
-  if (!members) {
-    // Without the authoritative member list the policy re-encryption could omit
-    // existing members; wait and retry rather than risk locking them out.
-    return false;
-  }
-  const plan = planDemoPeerRosterSeed({
-    directory,
-    memberGroupId,
-    members,
-    peerUserId,
-  });
-  if (plan.kind === "idle") {
-    return true;
-  }
-
-  const targetUser =
-    plan.existingRecipient ?? (await organizations.importUserById(peerUserId));
-  if (!targetUser) {
-    return false;
-  }
-
-  await organizations.addUserToGroup({
-    canAdministerOrganization: plan.canAdministerOrganization,
-    currentUsers: plan.currentUsers,
-    groupId: plan.memberGroupId,
-    targetUser,
-  });
-  return true;
 }
 
 // Headless seeder: watches the shared contacts store and issues the friendly
@@ -165,12 +111,13 @@ function DemoPeerContactSeeder({
 // One roster-seed attempt, with failures folded into a `false` (not-settled)
 // result so the retry loop can treat errors and unmet preconditions alike.
 async function attemptPeerRosterSeed(
-  organizations: Parameters<typeof seedPeerRosterEntry>[0],
+  actions: DemoRosterSeedActions,
   peerUserId: string,
+  peerNickname: string,
   logError: (message: string, error: unknown) => void,
 ): Promise<boolean> {
   try {
-    return await seedPeerRosterEntry(organizations, peerUserId);
+    return await seedPeerRosterEntry(actions, peerUserId, peerNickname);
   } catch (error) {
     logError("Demo peer bootstrap: failed to seed peer roster entry.", error);
     return false;
@@ -188,21 +135,27 @@ const ROSTER_SEED_RETRY_MS = 2000;
 
 // Headless seeder: once this pane is authenticated with its personal org and the
 // peer's user id is known, adds the peer to the pane's own member group so the
-// peer appears on the pane's roster. Retries a bounded number of times while the
-// preconditions (directory, member list, peer key) settle. Idempotent by
-// construction — each attempt re-checks membership and settles once the peer is
-// on the roster — and the `active` flag cancels a superseded effect run so only
-// the latest retry loop stays live.
+// peer appears on the pane's roster and gives the peer's roster entry a friendly
+// nickname ("Peer 2"). Retries a bounded number of times while the preconditions
+// (directory, member list, peer key, roster sync) settle. Idempotent by
+// construction — each attempt re-checks state and settles once the peer is on
+// the roster with a profile document — and the `active` flag cancels a
+// superseded effect run so only the latest retry loop stays live.
 function DemoPeerRosterSeeder({
   enabled,
 }: {
   readonly enabled: boolean;
 }): null {
+  const side = usePaneSide();
   const peerUserId = usePeerUserId();
   const runtime = useTearleadsRuntime();
-  const { organizations } = useTearleads();
+  const orgManagerActions = useOrgManagerActions();
   const { logError } = useLog();
-  const settledRef = useRef(false);
+  // Holds the peer id whose roster seed has settled, so a changed peer (a
+  // re-registered or switched identity) is treated as unsettled and re-seeded
+  // rather than skipped.
+  const settledPeerRef = useRef<string | null>(null);
+  const peerNickname = peerPaneLabel(side);
 
   // The signing/encapsulation material and resolved org/user id the member-group
   // policy write needs (mirrors the org-manager `canImportRosterUser` gate).
@@ -220,7 +173,12 @@ function DemoPeerRosterSeeder({
   });
 
   useEffect(() => {
-    if (!enabled || settledRef.current || !canSeedRoster || !peerUserId) {
+    if (
+      !enabled ||
+      settledPeerRef.current === peerUserId ||
+      !canSeedRoster ||
+      !peerUserId
+    ) {
       return;
     }
 
@@ -229,26 +187,31 @@ function DemoPeerRosterSeeder({
     let attempts = 0;
 
     const attempt = async (): Promise<void> => {
-      if (!active || settledRef.current) {
+      if (!active || settledPeerRef.current === peerUserId) {
         return;
       }
 
       const settled = await attemptPeerRosterSeed(
-        organizations,
+        orgManagerActions,
         peerUserId,
+        peerNickname,
         logError,
       );
       if (!active) {
         return;
       }
       if (settled) {
-        settledRef.current = true;
+        settledPeerRef.current = peerUserId;
         return;
       }
 
       attempts += 1;
       if (attempts < ROSTER_SEED_MAX_ATTEMPTS) {
         retryTimer = setTimeout(() => void attempt(), ROSTER_SEED_RETRY_MS);
+      } else {
+        logError(
+          `Demo peer bootstrap: gave up seeding the peer roster entry after ${ROSTER_SEED_MAX_ATTEMPTS} attempts.`,
+        );
       }
     };
 
@@ -259,7 +222,14 @@ function DemoPeerRosterSeeder({
         clearTimeout(retryTimer);
       }
     };
-  }, [canSeedRoster, enabled, logError, organizations, peerUserId]);
+  }, [
+    canSeedRoster,
+    enabled,
+    logError,
+    orgManagerActions,
+    peerNickname,
+    peerUserId,
+  ]);
 
   return null;
 }
@@ -268,10 +238,10 @@ function DemoPeerRosterSeeder({
  * Demo-only friendly peer bootstrap. Mounted (gated on the
  * {@link AppHostFeatureFlags.seedPeerIdentities} host flag) inside each pane's
  * runtime so it can auto-import the opposite pane's peer contact, name the self
- * "You" contact after the pane's peer label, and add the peer to the pane's own
- * organization roster. The contact seeder provides its own ContactsProvider so
- * the seeding runs whether or not the user ever opens the Contacts mini-app; the
- * roster seeder talks to the SDK organizations service directly.
+ * contact after the pane's peer label, and add the peer to the pane's own
+ * organization roster with a friendly nickname. Each seeder provides its own
+ * store context (ContactsProvider / OrgManagerProvider) so the seeding runs
+ * whether or not the user ever opens the corresponding mini-app.
  */
 export function DemoPeerBootstrap({
   enabled = true,
@@ -283,7 +253,9 @@ export function DemoPeerBootstrap({
       <ContactsProvider>
         <DemoPeerContactSeeder enabled={enabled} />
       </ContactsProvider>
-      <DemoPeerRosterSeeder enabled={enabled} />
+      <OrgManagerProvider>
+        <DemoPeerRosterSeeder enabled={enabled} />
+      </OrgManagerProvider>
     </>
   );
 }

@@ -51,6 +51,7 @@ interface OrgManagerContextValue {
   ) => Promise<DeleteOrganizationGroupResponse | null>;
   ensureRosterProfileDocument: (
     user: OrganizationDirectoryUser,
+    nickname?: string | undefined,
   ) => Promise<OrganizationDirectoryUser | null>;
   ensureOrganizationProfileDocument: (
     profileDocumentId: string | null,
@@ -239,7 +240,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
   ]);
 
   const ensureRosterProfileDocument = useCallback(
-    async (user: OrganizationDirectoryUser) => {
+    async (user: OrganizationDirectoryUser, nickname?: string) => {
       if (user.profileDocumentId) {
         return user;
       }
@@ -255,6 +256,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       const profileDocumentId = await createRosterProfileDocument({
         containerId: ensuredContainer.id,
         documents,
+        nickname,
         organizationId: runtime.auth.organizationId,
         user,
       });
