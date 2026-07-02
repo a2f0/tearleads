@@ -9,7 +9,7 @@ import {
 } from "./paneTestUtils";
 
 const userIdStatusPattern =
-  /userId:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
+  /(?:userId|User ID):\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/u;
 
 export async function openIdentityManagerFromPane(
   view: ReturnType<typeof renderPane>,

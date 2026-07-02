@@ -356,34 +356,29 @@ export async function moveContainer(
   });
 
   const dialog = screen.getByRole("dialog");
-  const destinationSelect = within(dialog).getByLabelText(
-    "Destination container",
-  );
+  const destinationSelect = within(dialog).getByRole("combobox", {
+    name: "Destination container",
+  });
   invariant(
-    destinationSelect instanceof HTMLSelectElement,
-    "Expected destination container select.",
+    destinationSelect instanceof HTMLButtonElement,
+    "Expected destination container dropdown.",
   );
   await waitFor(() => {
     expect(document.activeElement).toBe(destinationSelect);
   });
-  // Explorer intentionally no longer exposes container ids in move labels, so
-  // this helper follows the real user-visible folder name.
-  const destinationOptions = Array.from(destinationSelect.options).filter(
-    (option) => option.textContent?.trim() === destinationName,
-  );
-  invariant(
-    destinationOptions.length <= 1,
-    `Expected one destination option for "${destinationName}", found ${destinationOptions.length}.`,
-  );
-  const destinationOption = destinationOptions[0];
-  invariant(
-    destinationOption,
-    `Expected destination option for "${destinationName}".`,
-  );
   await interact(() => {
-    fireEvent.change(destinationSelect, {
-      target: { value: destinationOption.value },
-    });
+    fireEvent.click(destinationSelect);
+  });
+  const destinationOption = await within(dialog).findByRole("option", {
+    name: destinationName,
+  });
+  await interact(() => {
+    fireEvent.click(destinationOption);
+  });
+  await waitFor(() => {
+    expect(destinationSelect.textContent).toContain(destinationName);
+  });
+  await interact(() => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
   });
 

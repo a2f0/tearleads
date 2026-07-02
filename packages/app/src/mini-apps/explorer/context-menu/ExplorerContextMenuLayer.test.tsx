@@ -362,13 +362,6 @@ test("system container context menu hides unavailable actions", () => {
 
 test("document context menu deletes the selected document", async () => {
   const deletes: Array<{ containerId: string; localId: string }> = [];
-  const importDroppedFiles: ImportExplorerDroppedFiles = async () => ({
-    completedCount: 0,
-    failedCount: 0,
-    importedCount: 0,
-    importedDocuments: [],
-    totalCount: 0,
-  });
   const view = render(
     <ExplorerContextMenuLayerHarness
       canDeleteSelectedDocument
@@ -384,7 +377,7 @@ test("document context menu deletes the selected document", async () => {
         deletes.push({ containerId, localId });
         return null;
       }}
-      importDroppedFiles={importDroppedFiles}
+      importDroppedFiles={noopImportDroppedFiles}
     />,
   );
 

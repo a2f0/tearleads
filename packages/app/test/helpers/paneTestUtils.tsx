@@ -340,28 +340,21 @@ export async function moveExplorerContainer(
   fireEvent.click(view.getByRole("button", { name: "Move" }));
 
   const dialog = view.getByRole("dialog");
-  const destinationSelect = within(dialog).getByLabelText(
-    "Destination container",
-  );
+  const destinationSelect = within(dialog).getByRole("combobox", {
+    name: "Destination container",
+  });
   invariant(
-    destinationSelect instanceof HTMLSelectElement,
-    "Expected destination container select.",
-  );
-  const destinationOptions = Array.from(destinationSelect.options).filter(
-    (option) => option.textContent?.trim() === destinationName,
-  );
-  invariant(
-    destinationOptions.length <= 1,
-    `Expected one destination option for "${destinationName}", found ${destinationOptions.length}.`,
-  );
-  const destinationOption = destinationOptions[0];
-  invariant(
-    destinationOption,
-    `Expected destination option for "${destinationName}".`,
+    destinationSelect instanceof HTMLButtonElement,
+    "Expected destination container dropdown.",
   );
 
-  fireEvent.change(destinationSelect, {
-    target: { value: destinationOption.value },
+  fireEvent.click(destinationSelect);
+  const destinationOption = await within(dialog).findByRole("option", {
+    name: destinationName,
+  });
+  fireEvent.click(destinationOption);
+  await waitFor(() => {
+    expect(destinationSelect.textContent).toContain(destinationName);
   });
   fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
 
@@ -501,7 +494,7 @@ export async function generateIdentityAndWaitForDb(
   await waitFor(
     () => {
       const statusText = getPaneStatusText(view);
-      expect(statusText).toMatch(/sqlite worker:\s*ready/);
+      expect(statusText).toMatch(/(?:sqlite worker|SQLite Worker):\s*ready/);
       expect(statusText).toMatch(publicKeyStatusPattern);
     },
     { timeout: PANE_ASYNC_TEST_TIMEOUT_MS },

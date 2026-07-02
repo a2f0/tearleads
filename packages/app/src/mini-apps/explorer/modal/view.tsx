@@ -7,10 +7,10 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalPanel,
-  MiniAppSelect,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import type { MoveTargetOption } from "../targetOptions";
+import { ExplorerTargetSelect } from "./ExplorerTargetSelect";
 import {
   getExplorerModalSubmitLabel,
   getExplorerModalTitle,
@@ -29,7 +29,7 @@ function ExplorerModalBody(params: {
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
-  targetSelectRef: RefObject<HTMLSelectElement | null>;
+  targetSelectRef: RefObject<HTMLButtonElement | null>;
 }) {
   const {
     draftName,
@@ -75,25 +75,20 @@ function ExplorerModalBody(params: {
     modalState.mode === "move-document"
   ) {
     return (
-      <MiniAppField>
+      <div className="mini-app-field">
         <span>Destination</span>
-        <MiniAppSelect
-          ref={targetSelectRef}
-          aria-label="Destination container"
+        <ExplorerTargetSelect
+          ariaLabel="Destination container"
           disabled={isSubmittingModal}
-          value={draftTargetContainerId}
-          onChange={(event) => {
+          onChange={(value) => {
             setModalError(null);
-            setDraftTargetContainerId(event.target.value);
+            setDraftTargetContainerId(value);
           }}
-        >
-          {moveTargetOptions.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </MiniAppSelect>
-      </MiniAppField>
+          options={moveTargetOptions}
+          selectRef={targetSelectRef}
+          value={draftTargetContainerId}
+        />
+      </div>
     );
   }
 
@@ -166,7 +161,7 @@ export function ExplorerModalLayer(params: {
   setDraftName: (value: string) => void;
   setDraftTargetContainerId: (value: string) => void;
   setModalError: (error: string | null) => void;
-  targetSelectRef: RefObject<HTMLSelectElement | null>;
+  targetSelectRef: RefObject<HTMLButtonElement | null>;
 }) {
   const {
     closeModal,

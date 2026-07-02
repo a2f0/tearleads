@@ -158,8 +158,6 @@ test("memberGroupRecipients dedupes directory and member users by id", () => {
     encapsulationPublicKey: "member-pub",
     encapsulationKeyFingerprint: "member-fp",
   });
-  // Same user present both in the directory and in the member group: the
-  // directory recipient must win and appear once.
   const overlap = member({
     memberPrincipalId: "self",
     encapsulationPublicKey: "stale-pub",
@@ -279,8 +277,6 @@ test("planDemoPeerRosterSeed plans an import-and-add when the peer is unknown", 
 
 test("planDemoPeerRosterSeed reuses a directory recipient for a known-but-unseeded peer", () => {
   const self = directoryUser({ userId: "self", isSelf: true });
-  // The peer is in the directory (e.g. disabled) but not an active roster user
-  // and not yet a member-group member, so it must still be added.
   const peer = directoryUser({
     userId: "peer",
     status: "disabled",
