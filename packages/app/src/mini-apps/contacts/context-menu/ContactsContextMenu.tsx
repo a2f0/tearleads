@@ -1,4 +1,5 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
+import { ClipboardIcon } from "@phosphor-icons/react/dist/csr/Clipboard";
 import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
 import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { type MouseEvent, useCallback, useMemo } from "react";
@@ -21,6 +22,7 @@ export type ContactsContextMenuState =
 export interface ContactsContextMenuModel {
   canRemoveContextMenuContact: boolean;
   closeContextMenu: () => void;
+  contextMenuContactUserId: string | null;
   contextMenu: ContactsContextMenuState | null;
   handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
   handleSidebarContextMenu: (
@@ -76,6 +78,10 @@ export function useContactsContextMenu(params: {
       contextMenuEntry?.canWrite !== false &&
       !contextMenuEntry.isSelf,
   );
+  const contextMenuContactUserId =
+    contextMenu?.id.kind === "contact"
+      ? (contextMenuEntry?.userId ?? null)
+      : null;
 
   const removeContextMenuContact = useCallback(async () => {
     if (
@@ -104,6 +110,7 @@ export function useContactsContextMenu(params: {
   return {
     canRemoveContextMenuContact,
     closeContextMenu,
+    contextMenuContactUserId,
     contextMenu,
     handleAreaContextMenu,
     handleSidebarContextMenu,
@@ -115,6 +122,7 @@ export function ContactsContextMenuLayer(params: {
   canRemoveContextMenuContact: boolean;
   canWrite: boolean;
   closeContextMenu: () => void;
+  contextMenuContactUserId: string | null;
   contextMenu: ContactsContextMenuState | null;
   openImportContactRoute: () => void;
   openNewContactRoute: () => void;
@@ -125,6 +133,7 @@ export function ContactsContextMenuLayer(params: {
     canRemoveContextMenuContact,
     canWrite,
     closeContextMenu,
+    contextMenuContactUserId,
     contextMenu,
     openImportContactRoute,
     openNewContactRoute,
@@ -164,14 +173,28 @@ export function ContactsContextMenuLayer(params: {
           />
         </>
       ) : (
-        <MenuItem
-          icon={UserMinusIcon}
-          label={CONTACTS_LABELS.removeContactAction}
-          disabled={!canRemoveContextMenuContact}
-          onClick={() => {
-            void removeContextMenuContact();
-          }}
-        />
+        <>
+          {contextMenuContactUserId && (
+            <MenuItem
+              icon={ClipboardIcon}
+              label={CONTACTS_LABELS.copyUserIdAction}
+              onClick={() => {
+                closeContextMenu();
+                if (typeof navigator !== "undefined" && navigator.clipboard) {
+                  void navigator.clipboard.writeText(contextMenuContactUserId);
+                }
+              }}
+            />
+          )}
+          <MenuItem
+            icon={UserMinusIcon}
+            label={CONTACTS_LABELS.removeContactAction}
+            disabled={!canRemoveContextMenuContact}
+            onClick={() => {
+              void removeContextMenuContact();
+            }}
+          />
+        </>
       )}
     </Menu>
   );

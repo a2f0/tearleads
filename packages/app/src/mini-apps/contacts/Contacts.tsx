@@ -64,6 +64,9 @@ function ContactsContent() {
           model.contextMenuState.canRemoveContextMenuContact
         }
         closeContextMenu={model.contextMenuState.closeContextMenu}
+        contextMenuContactUserId={
+          model.contextMenuState.contextMenuContactUserId
+        }
         contextMenu={model.contextMenuState.contextMenu}
         openImportContactRoute={model.openImportContactRoute}
         openNewContactRoute={model.openNewContactRoute}
