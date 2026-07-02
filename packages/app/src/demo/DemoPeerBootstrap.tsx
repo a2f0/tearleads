@@ -151,7 +151,10 @@ function DemoPeerRosterSeeder({
   const runtime = useTearleadsRuntime();
   const orgManagerActions = useOrgManagerActions();
   const { logError } = useLog();
-  const settledRef = useRef(false);
+  // Holds the peer id whose roster seed has settled, so a changed peer (a
+  // re-registered or switched identity) is treated as unsettled and re-seeded
+  // rather than skipped.
+  const settledPeerRef = useRef<string | null>(null);
   const peerNickname = peerPaneLabel(side);
 
   // The signing/encapsulation material and resolved org/user id the member-group
@@ -170,7 +173,12 @@ function DemoPeerRosterSeeder({
   });
 
   useEffect(() => {
-    if (!enabled || settledRef.current || !canSeedRoster || !peerUserId) {
+    if (
+      !enabled ||
+      settledPeerRef.current === peerUserId ||
+      !canSeedRoster ||
+      !peerUserId
+    ) {
       return;
     }
 
@@ -179,7 +187,7 @@ function DemoPeerRosterSeeder({
     let attempts = 0;
 
     const attempt = async (): Promise<void> => {
-      if (!active || settledRef.current) {
+      if (!active || settledPeerRef.current === peerUserId) {
         return;
       }
 
@@ -193,7 +201,7 @@ function DemoPeerRosterSeeder({
         return;
       }
       if (settled) {
-        settledRef.current = true;
+        settledPeerRef.current = peerUserId;
         return;
       }
 
