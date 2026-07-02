@@ -9,6 +9,7 @@ import {
   getExplorerTrashContainerId,
   getVisibleExplorerNodes,
 } from "./ExplorerProvider";
+import { resolveExplorerDeleteTrashTarget } from "./ExplorerSystemContainers";
 
 test("explorer only shows user-facing system containers", () => {
   const contactsSystemSlot =
@@ -331,4 +332,99 @@ test("explorer resolves local-only trash containers", () => {
       trashSystemSlot,
     ),
   ).toBe("trash-container");
+});
+
+// Org-aware delete-to-trash resolution: a document under a foreign shared root
+// must target THAT org's Trash, not the viewer's own Trash.
+const VIEWER_ORG = "viewer-org";
+const OWNER_ORG = "owner-org";
+const VIEWER_TRASH_SLOT = "sys_v1_viewer_trash";
+const viewerTreeNodes = [
+  {
+    id: "viewer-root",
+    kind: "container" as const,
+    name: "/",
+    organizationId: VIEWER_ORG,
+    parentId: null,
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+  {
+    id: "viewer-trash",
+    kind: "container" as const,
+    name: "Trash",
+    organizationId: VIEWER_ORG,
+    parentId: "viewer-root",
+    syncState: syncedContainerDocumentObjectSyncState,
+    systemSlot: VIEWER_TRASH_SLOT,
+  },
+  {
+    id: "viewer-folder",
+    kind: "container" as const,
+    name: "Notes",
+    organizationId: VIEWER_ORG,
+    parentId: "viewer-root",
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+  {
+    id: "owner-root",
+    kind: "container" as const,
+    name: "/",
+    organizationId: OWNER_ORG,
+    parentId: null,
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+  {
+    id: "owner-trash",
+    kind: "container" as const,
+    name: "Trash",
+    organizationId: OWNER_ORG,
+    parentId: "owner-root",
+    syncState: syncedContainerDocumentObjectSyncState,
+    // A peer's Trash carries the owner's opaque per-owner HMAC slot.
+    systemSlot: "sys_v1_owner_trash_hmac",
+  },
+  {
+    id: "owner-folder",
+    kind: "container" as const,
+    name: "Shared",
+    organizationId: OWNER_ORG,
+    parentId: "owner-root",
+    syncState: syncedContainerDocumentObjectSyncState,
+  },
+];
+
+test("delete resolves the viewer's own Trash for an own-org container", () => {
+  expect(
+    resolveExplorerDeleteTrashTarget({
+      containerId: "viewer-folder",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: viewerTreeNodes,
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+    }),
+  ).toEqual({ canFallBackToOwnTrash: true, trashContainerId: "viewer-trash" });
+});
+
+test("delete resolves the foreign org's Trash for a shared-root container", () => {
+  expect(
+    resolveExplorerDeleteTrashTarget({
+      containerId: "owner-folder",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: viewerTreeNodes,
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+    }),
+  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: "owner-trash" });
+});
+
+test("delete never falls back to the viewer's Trash when a foreign Trash is absent", () => {
+  const withoutOwnerTrash = viewerTreeNodes.filter(
+    (node) => node.id !== "owner-trash",
+  );
+  expect(
+    resolveExplorerDeleteTrashTarget({
+      containerId: "owner-folder",
+      currentOrganizationId: VIEWER_ORG,
+      nodes: withoutOwnerTrash,
+      trashSystemSlot: VIEWER_TRASH_SLOT,
+    }),
+  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: null });
 });

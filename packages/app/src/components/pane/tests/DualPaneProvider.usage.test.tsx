@@ -253,14 +253,25 @@ test(
 
     // This is the org-manager-plus-system-bootstrap baseline. Usage counts
     // synced document update rows, not every document shell created by
-    // registration: early system bootstrapping adds one metadata update before
-    // opening Org Manager syncs the root "/", the "Roster Profiles" container
-    // metadata document, and the current user's roster profile document used for
-    // display names. The organization profile document is still created or
-    // synced by its own view, so it is intentionally outside this baseline.
+    // registration. Six documents / seven updates decompose as:
+    //   1. root "/"                     (2 updates: one early bootstrap
+    //                                     metadata update, then the root sync)
+    //   2. "Roster Profiles" container metadata document          (1 update)
+    //   3. current user's roster profile document (display names) (1 update)
+    //   4. Contacts system container metadata document            (1 update)
+    //   5. Trash system container metadata document               (1 update)
+    //   6. self-contact document inside Contacts                  (1 update)
+    // Documents 4-6 are contributed by the post-auth promotion pass: the
+    // built-in Contacts/Trash system containers are created device-first
+    // LOCAL-ONLY, and once the runtime is authenticated they are promoted to
+    // remote sync so a peer granted the root can see them. Promoting Contacts
+    // to remote also re-runs the self-contact bootstrap with the remote
+    // identity, so the self contact leaves local-only and syncs too. The
+    // organization profile document is still created or synced by its own
+    // view, so it is intentionally outside this baseline.
     await waitForCondition(
       () => {
-        if (pane.textContent?.includes("3 documents, 4 updates")) {
+        if (pane.textContent?.includes("6 documents, 7 updates")) {
           return true;
         }
 
