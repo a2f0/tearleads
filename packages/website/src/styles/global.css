@@ -287,12 +287,19 @@
 
   /* Swap the inline links for a hamburger + dropdown panel, but only once the
      nav island has hydrated (it sets data-js on the root). Without JS the
-     toggle is never rendered and the inline links stay visible — wrapping to
-     fit — so the nav remains usable. */
+     toggle is never rendered and the inline links stay visible — scrolling
+     horizontally if needed — so the nav remains usable. */
   .site-nav-root[data-js] .site-nav {
     display: none;
   }
 
+  /* Pre-hydration / no-JS fallback: the inline links wrap to fit. This makes
+     the header taller until the nav island hydrates and swaps in the hamburger.
+     A one-line scrolling nav would avoid that shift, but it can't be contained
+     without a page-wide horizontal scrollbar unless .tearleads-header-actions
+     (owned by @tearleads/ui) is width-constrained — out of scope here — so we
+     accept the brief pre-hydration height change, which client:media makes
+     near-instant on real mobile devices. */
   .site-nav {
     flex-wrap: wrap;
   }

@@ -68,13 +68,21 @@ export function SiteNav({ pathname }: SiteNavProps) {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setOpen(false);
-        // Closing hides the panel, so the focused link would drop focus to
-        // <body>. Return focus to the toggle for keyboard/screen-reader users.
-        toggleRef.current?.focus();
+        // Closing hides the panel, so a focused link would drop focus to
+        // <body>. Return focus to the toggle — but only if focus was inside the
+        // nav, so we don't yank it from elsewhere on the page.
+        if (containerRef.current?.contains(document.activeElement)) {
+          toggleRef.current?.focus();
+        }
       }
     }
 
     function onPointerDown(event: PointerEvent) {
+      // Only a primary (left/touch) press should dismiss; ignore right/middle
+      // clicks so a context menu doesn't also close the nav.
+      if (event.button !== 0) {
+        return;
+      }
       const container = containerRef.current;
       const target = event.target;
       if (container && target instanceof Node && !container.contains(target)) {
