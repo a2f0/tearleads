@@ -106,6 +106,27 @@ test("right-click download reports when local bytes are unavailable", async () =
   );
 });
 
+test("changing the search query clears a stale download message", async () => {
+  const view = renderBrowsePanel(
+    createBlobStore({ readBytes: async () => null }),
+  );
+
+  await openRowContextMenu(view, "blob-1");
+  fireEvent.click(await view.findByText("Download"));
+  await waitFor(() =>
+    expect(view.getByText("Local bytes are unavailable.")).toBeTruthy(),
+  );
+
+  fireEvent.change(
+    view.getByLabelText("Search blobs, storage keys, documents, or slots"),
+    { target: { value: "blob-2" } },
+  );
+
+  await waitFor(() =>
+    expect(view.queryByText("Local bytes are unavailable.")).toBeNull(),
+  );
+});
+
 const PICK_TARGET: ExplorerBlobPickTarget = {
   containerId: "container-1",
   localId: "local-document-1",

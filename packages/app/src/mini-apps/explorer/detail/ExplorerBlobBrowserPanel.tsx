@@ -96,7 +96,11 @@ function BlobBrowserBrowseScreen(params: {
     downloadBlob,
     downloadMessage,
     openContextMenu,
-  } = useBlobBrowserContextMenu({ blobStore: params.blobStore });
+  } = useBlobBrowserContextMenu({
+    blobStore: params.blobStore,
+    query: data.query,
+    selectedBlob: data.selectedBlob,
+  });
   const isDetailScreen = data.selectedBlob !== null;
 
   return (

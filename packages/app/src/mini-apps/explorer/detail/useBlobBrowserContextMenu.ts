@@ -1,5 +1,11 @@
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
-import { type MouseEvent, useCallback, useState } from "react";
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import type { MenuPosition } from "../../../components/shared/Menu";
 import { downloadBytesAsFile } from "../../../utils/downloadFile";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
@@ -39,12 +45,25 @@ async function downloadBlobBytes(input: {
 // Owns the blob-browser row context menu: the right-click position + target
 // blob, the download action, and the inline message shown when a download
 // cannot complete (bytes missing locally or a read failure).
-export function useBlobBrowserContextMenu(params: { blobStore: BlobStore }) {
-  const { blobStore } = params;
+export function useBlobBrowserContextMenu(params: {
+  blobStore: BlobStore;
+  query: string;
+  selectedBlob: BlobInfo | null;
+}) {
+  const { blobStore, query, selectedBlob } = params;
   const [contextMenu, setContextMenu] = useState<BlobContextMenuState | null>(
     null,
   );
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+  // Monotonic id of the most recently started download. A slower earlier read
+  // that resolves after a newer one must not overwrite the newer one's status.
+  const downloadRequestRef = useRef(0);
+
+  // A stale download message must not linger once the user moves on, so clear
+  // it when the search query or the selected blob changes.
+  useEffect(() => {
+    setDownloadMessage(null);
+  }, [query, selectedBlob]);
 
   const openContextMenu = useCallback(
     (event: MouseEvent<HTMLElement>, blob: BlobInfo) => {
@@ -64,15 +83,21 @@ export function useBlobBrowserContextMenu(params: { blobStore: BlobStore }) {
 
   const downloadBlob = useCallback(
     (blob: BlobInfo) => {
+      downloadRequestRef.current += 1;
+      const requestId = downloadRequestRef.current;
       void (async () => {
         try {
           const downloaded = await downloadBlobBytes({ blob, blobStore });
-          setDownloadMessage(
-            downloaded ? null : EXPLORER_LABELS.blobBrowserLocalBytesMissing,
-          );
+          if (downloadRequestRef.current === requestId) {
+            setDownloadMessage(
+              downloaded ? null : EXPLORER_LABELS.blobBrowserLocalBytesMissing,
+            );
+          }
         } catch (error) {
           // A failed blob read must not surface as an unhandled rejection.
-          setDownloadMessage(unknownErrorMessage(error));
+          if (downloadRequestRef.current === requestId) {
+            setDownloadMessage(unknownErrorMessage(error));
+          }
         }
       })();
     },
