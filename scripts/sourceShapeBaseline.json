@@ -246,8 +246,8 @@
       "bytes": 20397
     },
     "packages/client-sdk/src/workflows/container-contents/remoteHydration.ts": {
-      "lines": 973,
-      "bytes": 30282
+      "lines": 986,
+      "bytes": 31123
     },
     "packages/client-sdk/src/workflows/containers/child/share.ts": {
       "lines": 766,
