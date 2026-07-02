@@ -1,4 +1,5 @@
 import type { SyncLaneSnapshot } from "@tearleads/client-sdk";
+import { useMemo } from "react";
 import {
   addMiniAppTableHeaderAction,
   getVisibleMiniAppTableColumnIds,
@@ -201,21 +202,30 @@ export function ExplorerSyncLaneList(params: {
     storageKey: SYNC_LANE_COLUMN_STORAGE_KEY,
     toggleableColumnIds: SYNC_LANE_TOGGLEABLE_COLUMN_IDS,
   });
-  const visibleColumnIds = getVisibleSyncLaneColumnIds(
-    columnVisibility.hiddenColumns,
+  const visibleColumnIds = useMemo(
+    () => getVisibleSyncLaneColumnIds(columnVisibility.hiddenColumns),
+    [columnVisibility.hiddenColumns],
   );
-  const columns = addMiniAppTableHeaderAction(
-    visibleColumnIds.map(buildSyncLaneColumn),
-    <MiniAppColumnMenuButton
-      ariaLabel={EXPLORER_LABELS.columnsMenuButton}
-      hiddenColumns={columnVisibility.hiddenColumns}
-      options={SYNC_LANE_COLUMN_MENU_OPTIONS}
-      stateLabels={{
-        off: EXPLORER_LABELS.columnsMenuStateOff,
-        on: EXPLORER_LABELS.columnsMenuStateOn,
-      }}
-      toggleColumn={columnVisibility.toggleColumn}
-    />,
+  const columns = useMemo(
+    () =>
+      addMiniAppTableHeaderAction(
+        visibleColumnIds.map(buildSyncLaneColumn),
+        <MiniAppColumnMenuButton
+          ariaLabel={EXPLORER_LABELS.columnsMenuButton}
+          hiddenColumns={columnVisibility.hiddenColumns}
+          options={SYNC_LANE_COLUMN_MENU_OPTIONS}
+          stateLabels={{
+            off: EXPLORER_LABELS.columnsMenuStateOff,
+            on: EXPLORER_LABELS.columnsMenuStateOn,
+          }}
+          toggleColumn={columnVisibility.toggleColumn}
+        />,
+      ),
+    [
+      columnVisibility.hiddenColumns,
+      columnVisibility.toggleColumn,
+      visibleColumnIds,
+    ],
   );
 
   return (
