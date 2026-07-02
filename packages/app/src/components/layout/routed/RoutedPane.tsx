@@ -77,8 +77,12 @@ export function initialRoutedSidebarExpanded(
 export function resolveRoutedActiveMiniAppId(
   tier: RoutedLayoutTier,
   routeAppId: MiniAppId | null,
+  hasSigningKeyPair: boolean,
 ): MiniAppId | null {
-  return routeAppId ?? (tier === "mobile" ? MOBILE_ROOT_MINI_APP_ID : null);
+  return (
+    routeAppId ??
+    (tier === "mobile" && hasSigningKeyPair ? MOBILE_ROOT_MINI_APP_ID : null)
+  );
 }
 
 function RoutedPaneHome() {
@@ -399,8 +403,13 @@ export function RoutedPane() {
   const {
     route: { appId },
   } = useAppNavigationState();
+  const { signingKeyPair } = useIdentity();
   useRegisterUserId(userId);
-  const activeAppId = resolveRoutedActiveMiniAppId(tier, appId);
+  const activeAppId = resolveRoutedActiveMiniAppId(
+    tier,
+    appId,
+    signingKeyPair !== null,
+  );
   const ActiveMiniApp = useMemo(
     () => (activeAppId ? MINI_APPS[activeAppId].createComponent() : null),
     [activeAppId],
