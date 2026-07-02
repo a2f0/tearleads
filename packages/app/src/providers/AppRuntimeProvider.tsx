@@ -1,4 +1,5 @@
 import type { PropsWithChildren } from "react";
+import { DemoPeerBootstrap } from "../demo/DemoPeerBootstrap";
 import type { AppHostConfig } from "../host/AppHostConfig";
 import { IdentityAutopilot } from "../identity/IdentityAutopilot";
 import { DeviceFirstProvider } from "../stores/device-first/DeviceFirstProvider";
@@ -37,6 +38,9 @@ export function AppRuntimeProvider({
                   <DeviceFirstProvider>
                     <SystemBootstrapProvider enabled={autoProvisionEnabled}>
                       <IdentityAutopilot enabled={autoProvisionEnabled} />
+                      {hostConfig.profile.features.seedPeerIdentities && (
+                        <DemoPeerBootstrap enabled={autoProvisionEnabled} />
+                      )}
                       {children}
                     </SystemBootstrapProvider>
                   </DeviceFirstProvider>

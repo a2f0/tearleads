@@ -504,9 +504,9 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Identity Provisioning",
     package: "app",
     responsibility:
-      "App-level identity bootstrap: the identity autopilot, key-package backup, and current-identity registration hooks.",
-    seam: "identity/IdentityAutopilot; identity/useRegisterCurrentIdentity",
-    paths: [`${app}/identity/`],
+      "App-level identity bootstrap: the identity autopilot, key-package backup, current-identity registration hooks, and the demo-only friendly peer bootstrap (auto-imported peer contact plus peer-labeled self/org names).",
+    seam: "identity/IdentityAutopilot; identity/useRegisterCurrentIdentity; demo/DemoPeerBootstrap",
+    paths: [`${app}/identity/`, `${app}/demo/`],
   },
   {
     name: "App Document & Device State",

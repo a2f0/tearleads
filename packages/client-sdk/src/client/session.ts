@@ -49,6 +49,15 @@ export interface SessionRegistrationResult {
   readonly userId: string;
 }
 
+export interface RegisterIdentityOptions {
+  /**
+   * Overrides the seeded personal-organization profile name. Optional; when
+   * omitted the default personal-org name is used. The demo host passes each
+   * pane's peer-labeled org name ("Peer 1's Org").
+   */
+  readonly organizationProfileName?: string | undefined;
+}
+
 export interface UserSession {
   readonly createdAt: string;
   readonly id: string;
@@ -77,7 +86,9 @@ export interface Session {
   login(challengeHex?: string | undefined): Promise<boolean>;
   logout(): void;
   logoutRemote(): Promise<boolean>;
-  registerIdentity(): Promise<SessionRegistrationResult | null>;
+  registerIdentity(
+    options?: RegisterIdentityOptions,
+  ): Promise<SessionRegistrationResult | null>;
   setAuthToken(authToken: string | null): void;
   setContainerId(containerId: string | null): void;
   setContext(context: SessionContext): void;
@@ -264,7 +275,9 @@ class SessionService implements Session {
     }
   }
 
-  async registerIdentity(): Promise<SessionRegistrationResult | null> {
+  async registerIdentity(
+    options?: RegisterIdentityOptions,
+  ): Promise<SessionRegistrationResult | null> {
     const containerId = this.containerId;
     if (!containerId) {
       this.dependencies.log(
@@ -306,6 +319,7 @@ class SessionService implements Session {
         encapsulationKeyPair,
         log: this.dependencies.log,
         logError: this.dependencies.logError,
+        organizationProfileName: options?.organizationProfileName,
         signingKeyPair,
       });
     } catch (error: unknown) {

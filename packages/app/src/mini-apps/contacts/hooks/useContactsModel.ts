@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { usePeerUserId } from "../../../components/pane/DualPaneProvider";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
@@ -177,23 +176,6 @@ function useSelectInitialSelfContact(input: {
     selectedInitialSelfRef.current = true;
     setSelectedContactId(selfEntry.id);
   }, [entries, ready, route, selectedContactId, setSelectedContactId]);
-}
-
-// Auto-populates the import draft with the peer's user id. This is a demo-only
-// affordance (the peer concept only exists when the `panePeerUserIds` host
-// profile flag is on); `usePeerUserId` returns null in the normal app, so the
-// effect is inert there and the concept stays contained to this hook.
-function usePeerUserIdDraft(
-  openImportContactRoute: () => void,
-  setDraftUserId: Dispatch<SetStateAction<string>>,
-) {
-  const peerUserId = usePeerUserId();
-  useEffect(() => {
-    if (peerUserId) {
-      openImportContactRoute();
-      setDraftUserId((currentId) => (currentId ? currentId : peerUserId));
-    }
-  }, [openImportContactRoute, peerUserId, setDraftUserId]);
 }
 
 function hasContactNameDraft(params: {
@@ -453,7 +435,6 @@ export function useContactsModel(
     selectedContactId: selectionState.selectedContactId,
     setSelectedContactId: selectionState.setSelectedContactId,
   });
-  usePeerUserIdDraft(routeState.openImportContactRoute, drafts.setDraftUserId);
   useMiniAppMessage(
     "contacts",
     useCallback(

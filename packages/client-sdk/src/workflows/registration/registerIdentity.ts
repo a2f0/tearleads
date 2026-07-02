@@ -126,6 +126,11 @@ export interface RegisterIdentityInput {
   encapsulationKeyPair: EncapsulationKeyPair;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
+  /**
+   * Overrides the seeded personal-org profile name; defaults to {@link
+   * DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME} (demo: "Peer 1's Org").
+   */
+  organizationProfileName?: string | undefined;
   signingKeyPair: SigningKeyPair;
 }
 
@@ -457,6 +462,7 @@ async function buildInitialRosterProfileBootstrap(input: {
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
   encapsulationPublicKey: Uint8Array;
   initialAdminGroup: CreateOrganizationGroupRequest;
+  organizationProfileName?: string | undefined;
   rootContainer: InitialRootContainerCreatePlan;
   rootContainerProjection: InitialRootContainerProjection;
   targetSecretKey: Uint8Array;
@@ -521,7 +527,9 @@ async function buildInitialRosterProfileBootstrap(input: {
     },
   );
   const orgProfile = await createInitializedOrganizationProfileDocument({
-    name: DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+    name:
+      input.organizationProfileName ??
+      DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
   });
   const rosterProfile = await createInitializedRosterProfileDocument({
     encapsulationPublicKey: bytesToBase64(input.encapsulationPublicKey),
@@ -589,14 +597,8 @@ export async function registerIdentity(
     signingKeyPair: input.signingKeyPair,
   });
   const author = resolveDocumentCreateAuthor({
-    auth: {
-      organizationId,
-      userId: newUserId,
-    },
-    crypto: {
-      signingFingerprint,
-      signingKeyPair: input.signingKeyPair,
-    },
+    auth: { organizationId, userId: newUserId },
+    crypto: { signingFingerprint, signingKeyPair: input.signingKeyPair },
   });
   if (!author) {
     throw new Error(
@@ -625,6 +627,7 @@ export async function registerIdentity(
     author,
     encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
     initialAdminGroup,
+    organizationProfileName: input.organizationProfileName,
     rootContainer,
     rootContainerProjection,
     targetSecretKey: input.encapsulationKeyPair.secretKey,

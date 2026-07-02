@@ -49,6 +49,13 @@ test("app and demo profiles auto-provision identities", () => {
   }
 });
 
+test("only the demo profile seeds friendly peer identities", () => {
+  // The friendly peer bootstrap (auto-imported peer contact, "Peer N" self /
+  // org names) is demo-only sugar; the regular app keeps the neutral defaults.
+  expect(APP_HOST_PROFILES.app.features.seedPeerIdentities).toBe(false);
+  expect(APP_HOST_PROFILES.demo.features.seedPeerIdentities).toBe(true);
+});
+
 test("resolveAppHostProfile throws on an unknown variant id", () => {
   // Fail closed: a misconfigured variant must surface loudly rather than
   // silently shipping the wrong profile to a domain.

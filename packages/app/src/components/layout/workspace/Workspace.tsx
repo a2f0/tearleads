@@ -4,6 +4,7 @@ import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
 import {
   DualPaneProvider,
   PaneSideProvider,
+  selfPaneLabel,
 } from "../../pane/DualPaneProvider";
 import { Pane } from "../../pane/Pane";
 import { PaneProvider } from "../../pane/PaneProvider";
@@ -83,7 +84,9 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
         <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
           <PaneSurface
             active={active}
-            desktopLabel={showPeerDesktopLabels ? "Peer 1" : undefined}
+            desktopLabel={
+              showPeerDesktopLabels ? selfPaneLabel("left") : undefined
+            }
             navigationMode={navigationMode}
             side="left"
             split={split}
@@ -94,7 +97,9 @@ function IsolatedWorkspacePanes(props: WorkspacePanesProps) {
         <PaneProvider autoProvisionEnabled={active} hostConfig={hostConfig}>
           <PaneSurface
             active={active}
-            desktopLabel={showPeerDesktopLabels ? "Peer 2" : undefined}
+            desktopLabel={
+              showPeerDesktopLabels ? selfPaneLabel("right") : undefined
+            }
             navigationMode={navigationMode}
             side="right"
             split={split}
