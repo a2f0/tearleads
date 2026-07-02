@@ -64,7 +64,7 @@ async function expectExplorerSystemContainerContextMenuItems(
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
   expect(view.queryByRole("button", { name: "Rename" })).toBeNull();
   expect(view.queryByRole("button", { name: "Move" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Delete" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Move to Trash" })).toBeNull();
 
   const newContactItem = view.queryByRole("button", {
     name: "New Contact",

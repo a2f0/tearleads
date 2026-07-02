@@ -309,7 +309,7 @@ function ExplorerStandardContainerContextMenu(
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
         icon={TrashIcon}
-        label="Delete"
+        label={EXPLORER_LABELS.containerMoveToTrashAction}
         disabled={!canDeleteContextMenuNode}
         onSelect={() => openDeleteModal(containerId)}
       />
