@@ -15,4 +15,6 @@ REPO_ROOT="$(cd "$PACKAGE_DIR/../.." && pwd)"
 SVG_SOURCE="$REPO_ROOT/packages/ui/assets/logo.svg"
 OUTPUT_DIR="$PACKAGE_DIR/public"
 
-exec "$REPO_ROOT/scripts/buildFaviconImages.sh" "$SVG_SOURCE" "$OUTPUT_DIR"
+# Invoke via sh (like package.json calls this script) so it works even if the
+# executable bit is not preserved on checkout.
+exec sh "$REPO_ROOT/scripts/buildFaviconImages.sh" "$SVG_SOURCE" "$OUTPUT_DIR"
