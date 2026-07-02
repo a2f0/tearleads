@@ -167,11 +167,12 @@ textarea {
 
 .tearleads-brand-logo svg,
 .tearleads-brand-logo img {
-  /* The mark is square. The SVG carries no width/height attributes (only a
-     viewBox), so height plus aspect-ratio fully govern its size and height-only
-     overrides (e.g. global.css) scale the width automatically. aspect-ratio
-     also guards against the WebKit bug where an auto-width SVG in a flex
-     container can collapse to zero. */
+  /* The mark is square. width: auto overrides the SVG's intrinsic 33x33
+     attributes so height drives the size and height-only overrides (e.g.
+     global.css) scale the width automatically; aspect-ratio keeps it square
+     and guards against the WebKit bug where an auto-width SVG in a flex
+     container can collapse to zero. (The intrinsic attributes remain as a
+     fallback size if the mark is ever used outside this container.) */
   display: block;
   width: auto;
   height: 1.75rem;

@@ -19,17 +19,21 @@ interface NavLinksProps {
 
 /** The link list, rendered once inline and once in the dropdown panel. */
 function NavLinks({ pathname, onNavigate }: NavLinksProps) {
-  return NAV_ITEMS.map((item) => (
-    <a
-      aria-current={pathname === item.href ? "page" : undefined}
-      className="site-nav-link"
-      href={item.href}
-      key={item.href}
-      onClick={onNavigate}
-    >
-      {item.label}
-    </a>
-  ));
+  return (
+    <>
+      {NAV_ITEMS.map((item) => (
+        <a
+          aria-current={pathname === item.href ? "page" : undefined}
+          className="site-nav-link"
+          href={item.href}
+          key={item.href}
+          onClick={onNavigate}
+        >
+          {item.label}
+        </a>
+      ))}
+    </>
+  );
 }
 
 /**
