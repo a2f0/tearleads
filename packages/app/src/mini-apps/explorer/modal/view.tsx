@@ -75,7 +75,7 @@ function ExplorerModalBody(params: {
     modalState.mode === "move-document"
   ) {
     return (
-      <MiniAppField>
+      <div className="mini-app-field">
         <span>Destination</span>
         <ExplorerTargetSelect
           ariaLabel="Destination container"
@@ -88,7 +88,7 @@ function ExplorerModalBody(params: {
           selectRef={targetSelectRef}
           value={draftTargetContainerId}
         />
-      </MiniAppField>
+      </div>
     );
   }
 

@@ -349,9 +349,13 @@ export async function moveExplorerContainer(
   );
 
   fireEvent.click(destinationSelect);
-  fireEvent.click(
-    within(dialog).getByRole("option", { name: destinationName }),
-  );
+  const destinationOption = await within(dialog).findByRole("option", {
+    name: destinationName,
+  });
+  fireEvent.click(destinationOption);
+  await waitFor(() => {
+    expect(destinationSelect.textContent).toContain(destinationName);
+  });
   fireEvent.click(within(dialog).getByRole("button", { name: "Move" }));
 
   await waitFor(() => {
