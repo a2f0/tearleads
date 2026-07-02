@@ -4,6 +4,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 
+// The app suite boots the real API runtime in-process (see mswServer.ts), which
+// otherwise opens a live node-redis connection to :6379. Mirror
+// packages/api/test/preload.ts and route those calls through the in-memory Redis
+// adapter (kv + sets + pub/sub) so the suite needs no Redis server — CI provisions
+// none. `??=` leaves an explicit `API_REDIS=…` override in place.
+process.env.API_REDIS ??= "memory";
+
 // Workspace deps the app suite imports through their *built* `dist` (their
 // package exports resolve to dist, never source). Relative to this preload.
 const BUILT_WORKSPACE_DEPS = [
