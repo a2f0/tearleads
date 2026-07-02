@@ -165,8 +165,12 @@ textarea {
 
 .tearleads-brand-logo svg,
 .tearleads-brand-logo img {
+  /* The mark is square. Fix height and derive width via aspect-ratio rather
+     than width: auto — an auto-width SVG in a flex container collapses to 0 in
+     some WebKit versions. Height-only overrides (e.g. global.css) then scale
+     the width automatically. */
   display: block;
-  width: auto;
+  aspect-ratio: 1 / 1;
   height: 1.75rem;
 }
 
