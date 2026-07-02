@@ -539,10 +539,14 @@ export function SystemBootstrapProvider({
           promotingSystemSlotsRef.current.delete(slot);
         });
     }
+    // Narrow to the two snapshot fields this effect actually reads (ready guard +
+    // nodes lookup) rather than the whole snapshot object, so it does not re-run on
+    // every unrelated store update.
   }, [
     enabled,
     appData.auth.isAuthenticated,
-    snapshot,
+    snapshot.ready,
+    snapshot.nodes,
     systemContainers,
     store,
     tearleads.logError,
