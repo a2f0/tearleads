@@ -1,7 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
 import type { BlobBytes, BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
@@ -125,6 +131,36 @@ test("changing the search query clears a stale download message", async () => {
   await waitFor(() =>
     expect(view.queryByText("Local bytes are unavailable.")).toBeNull(),
   );
+});
+
+test("a download resolving after a query change shows no stale message", async () => {
+  // Hold the read open so it resolves only after the user has moved on.
+  let resolveRead: ((value: BlobBytes | null) => void) | null = null;
+  const blobStore = createBlobStore({
+    readBytes: () =>
+      new Promise<BlobBytes | null>((resolve) => {
+        resolveRead = resolve;
+      }),
+  });
+  const view = renderBrowsePanel(blobStore);
+
+  await openRowContextMenu(view, "blob-1");
+  fireEvent.click(await view.findByText("Download"));
+
+  // User searches away while the read is still pending.
+  fireEvent.change(
+    view.getByLabelText("Search blobs, storage keys, documents, or slots"),
+    { target: { value: "blob-2" } },
+  );
+
+  // The read now fails; its result belongs to a superseded download and must
+  // not resurface the "unavailable" message.
+  await act(async () => {
+    resolveRead?.(null);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  expect(view.queryByText("Local bytes are unavailable.")).toBeNull();
 });
 
 test("right-click opens the menu without bubbling to the pane menu", async () => {

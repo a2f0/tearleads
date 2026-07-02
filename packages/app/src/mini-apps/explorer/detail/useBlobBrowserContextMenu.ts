@@ -53,9 +53,12 @@ export function useBlobBrowserContextMenu(params: {
     useContextMenuState<BlobInfo>({ onOpen: clearDownloadMessage });
 
   // A stale download message must not linger once the user moves on, so clear
-  // it when the search query or the selected blob changes.
+  // it when the search query or the selected blob changes. Bumping the request
+  // id also invalidates any in-flight download so its late result cannot
+  // re-show a message after the user has navigated away.
   useEffect(() => {
     clearDownloadMessage();
+    downloadRequestRef.current += 1;
   }, [query, selectedBlob, clearDownloadMessage]);
 
   const downloadBlob = useCallback(
