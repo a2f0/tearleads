@@ -140,7 +140,7 @@ function BlobBrowserBrowseScreen(params: {
       )}
       {contextMenu ? (
         <BlobBrowserRowContextMenu
-          blob={contextMenu.blob}
+          blob={contextMenu.id}
           onClose={closeContextMenu}
           onDownload={downloadBlob}
           position={contextMenu.position}
