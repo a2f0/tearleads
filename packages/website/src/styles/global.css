@@ -20,7 +20,8 @@
 }
 
 /* Keep the logo mark proportional to the enlarged wordmark. */
-.tearleads-brand-logo svg {
+.tearleads-brand-logo svg,
+.tearleads-brand-logo img {
   height: 2rem;
 }
 

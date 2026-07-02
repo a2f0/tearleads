@@ -136,6 +136,16 @@ textarea {
   padding: var(--space-md);
   background: var(--tearleads-header-background);
   color: var(--tearleads-header-text);
+
+  /* The default logo greys (#555/#999) are near-invisible on the dark header
+     background. Drive the mark from the header text color instead, keeping the
+     two-tone contrast by dimming the "T" slightly. */
+  --tearleads-logo-primary: var(--tearleads-header-text);
+  --tearleads-logo-secondary: color-mix(
+    in srgb,
+    var(--tearleads-header-text) 70%,
+    transparent
+  );
 }
 
 .tearleads-brand {
