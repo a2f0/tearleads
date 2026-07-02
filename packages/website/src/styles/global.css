@@ -285,9 +285,16 @@
     padding-inline: 18px;
   }
 
-  /* Swap the inline links for a hamburger + dropdown panel. */
-  .site-nav {
+  /* Swap the inline links for a hamburger + dropdown panel, but only once the
+     nav island has hydrated (it sets data-js on the root). Without JS the
+     toggle is never rendered and the inline links stay visible — wrapping to
+     fit — so the nav remains usable. */
+  .site-nav-root[data-js] .site-nav {
     display: none;
+  }
+
+  .site-nav {
+    flex-wrap: wrap;
   }
 
   .site-nav-toggle {

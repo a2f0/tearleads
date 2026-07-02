@@ -23,8 +23,16 @@ interface SiteNavProps {
  */
 export function SiteNav({ pathname }: SiteNavProps) {
   const [open, setOpen] = useState(false);
+  // False until the island hydrates. The hamburger only works with JS, so it is
+  // rendered only once mounted; without JS the inline links stay visible (see
+  // the [data-js] rules in global.css) and no dead toggle is shown.
+  const [mounted, setMounted] = useState(false);
   const panelId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -53,33 +61,42 @@ export function SiteNav({ pathname }: SiteNavProps) {
     };
   }, [open]);
 
-  const links = NAV_ITEMS.map((item) => (
-    <a
-      aria-current={pathname === item.href ? "page" : undefined}
-      className="site-nav-link"
-      href={item.href}
-      key={item.href}
-      onClick={() => setOpen(false)}
-    >
-      {item.label}
-    </a>
-  ));
+  // Rendered in two places (inline nav + dropdown panel); build fresh element
+  // instances each time rather than reusing one array across both trees.
+  const renderLinks = () =>
+    NAV_ITEMS.map((item) => (
+      <a
+        aria-current={pathname === item.href ? "page" : undefined}
+        className="site-nav-link"
+        href={item.href}
+        key={item.href}
+        onClick={() => setOpen(false)}
+      >
+        {item.label}
+      </a>
+    ));
 
   return (
-    <div className="site-nav-root" ref={containerRef}>
+    <div
+      className="site-nav-root"
+      data-js={mounted || undefined}
+      ref={containerRef}
+    >
       <nav aria-label="Primary" className="site-nav">
-        {links}
+        {renderLinks()}
       </nav>
-      <button
-        aria-controls={panelId}
-        aria-expanded={open}
-        aria-label={open ? "Close menu" : "Open menu"}
-        className="site-nav-toggle"
-        onClick={() => setOpen((value) => !value)}
-        type="button"
-      >
-        <span aria-hidden="true" className="site-nav-toggle-bars" />
-      </button>
+      {mounted && (
+        <button
+          aria-controls={panelId}
+          aria-expanded={open}
+          aria-label={open ? "Close menu" : "Open menu"}
+          className="site-nav-toggle"
+          onClick={() => setOpen((value) => !value)}
+          type="button"
+        >
+          <span aria-hidden="true" className="site-nav-toggle-bars" />
+        </button>
+      )}
       <nav
         aria-label="Primary"
         className="site-nav-panel"
@@ -87,7 +104,7 @@ export function SiteNav({ pathname }: SiteNavProps) {
         id={panelId}
         hidden={!open}
       >
-        {links}
+        {renderLinks()}
       </nav>
     </div>
   );
