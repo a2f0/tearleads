@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "images": "sh scripts/buildWebImages.sh",
+    "predev": "sh scripts/buildWebImages.sh",
     "dev": "astro dev",
-    "build": "astro build && sh scripts/buildWebImages.sh",
+    "prebuild": "sh scripts/buildWebImages.sh",
+    "build": "astro build",
     "preview": "astro preview"
   },
   "dependencies": {
