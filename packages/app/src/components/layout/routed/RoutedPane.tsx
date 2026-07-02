@@ -47,6 +47,7 @@ import "./RoutedPane.css";
 import { RoutedPaneNav } from "./RoutedPaneNav";
 
 const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
+const MOBILE_ROOT_MINI_APP_ID: MiniAppId = "explorer";
 
 function invertBoolean(value: boolean): boolean {
   return !value;
@@ -71,6 +72,17 @@ export function initialRoutedSidebarExpanded(
   return activeAppId
     ? (MINI_APPS[activeAppId].initialShowSidebar ?? true)
     : true;
+}
+
+export function resolveRoutedActiveMiniAppId(
+  tier: RoutedLayoutTier,
+  routeAppId: MiniAppId | null,
+  hasSigningKeyPair: boolean,
+): MiniAppId | null {
+  return (
+    routeAppId ??
+    (tier === "mobile" && hasSigningKeyPair ? MOBILE_ROOT_MINI_APP_ID : null)
+  );
 }
 
 function RoutedPaneHome() {
@@ -251,13 +263,14 @@ function RoutedPaneSurface({
   ActiveMiniApp,
   showUnlockPanel,
   onOpenUnlock,
+  tier,
 }: {
   activeAppId: MiniAppId | null;
   ActiveMiniApp: ComponentType | null;
   showUnlockPanel: boolean;
   onOpenUnlock: () => void;
+  tier: RoutedLayoutTier;
 }) {
-  const tier = useRoutedLayoutTier();
   const { sidebar } = useWindowSidebar();
   const logoutDialog = useConfirmedLogoutDialog();
   const { destroyKey } = useIdentity();
@@ -353,9 +366,11 @@ function RoutedPaneSurface({
 function RoutedPaneWithRegistries({
   activeAppId,
   ActiveMiniApp,
+  tier,
 }: {
   activeAppId: MiniAppId | null;
   ActiveMiniApp: ComponentType | null;
+  tier: RoutedLayoutTier;
 }) {
   const localKeyringLock = useLocalKeyringLock();
   const [showUnlockPanel, setShowUnlockPanel] = useState(false);
@@ -374,6 +389,7 @@ function RoutedPaneWithRegistries({
           activeAppId={activeAppId}
           ActiveMiniApp={ActiveMiniApp}
           showUnlockPanel={showUnlockPanel}
+          tier={tier}
           onOpenUnlock={openUnlockPanel}
         />
       </WindowSidebarProvider>
@@ -383,20 +399,28 @@ function RoutedPaneWithRegistries({
 
 export function RoutedPane() {
   const { userId } = useCryptoSession();
+  const tier = useRoutedLayoutTier();
   const {
     route: { appId },
   } = useAppNavigationState();
+  const { signingKeyPair } = useIdentity();
   useRegisterUserId(userId);
+  const activeAppId = resolveRoutedActiveMiniAppId(
+    tier,
+    appId,
+    signingKeyPair !== null,
+  );
   const ActiveMiniApp = useMemo(
-    () => (appId ? MINI_APPS[appId].createComponent() : null),
-    [appId],
+    () => (activeAppId ? MINI_APPS[activeAppId].createComponent() : null),
+    [activeAppId],
   );
 
   return (
     <RoutedPaneWithRegistries
-      key={appId ?? "home"}
-      activeAppId={appId}
+      key={activeAppId ?? "home"}
+      activeAppId={activeAppId}
       ActiveMiniApp={ActiveMiniApp}
+      tier={tier}
     />
   );
 }
