@@ -16,6 +16,11 @@ import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import "./FileDocument.css";
 import {
+  type FileDocumentImagePreview,
+  FileDocumentImagePreviewPanel,
+  useFileDocumentImagePreview,
+} from "./FileDocumentPreview";
+import {
   downloadResolvedAttachment,
   resolveDownloadableAttachment,
 } from "./fileDownload";
@@ -132,8 +137,9 @@ function FileAttachmentRow(params: { attachment: DocumentAttachment }) {
   );
 }
 
-function FileDocumentAttachments(params: {
+export function FileDocumentAttachments(params: {
   attachments: ReadonlyArray<DocumentAttachment>;
+  imagePreview: FileDocumentImagePreview | null;
 }) {
   if (params.attachments.length === 0) {
     return (
@@ -149,13 +155,18 @@ function FileDocumentAttachments(params: {
   }
 
   return (
-    <div className="structured-document-attachments">
-      {params.attachments.map((attachment) => (
-        <FileAttachmentRow
-          key={`${attachment.slotId}:${attachment.name}`}
-          attachment={attachment}
-        />
-      ))}
+    <div className="file-document-attachments">
+      {params.imagePreview ? (
+        <FileDocumentImagePreviewPanel preview={params.imagePreview} />
+      ) : null}
+      <div className="structured-document-attachments">
+        {params.attachments.map((attachment) => (
+          <FileAttachmentRow
+            key={`${attachment.slotId}:${attachment.name}`}
+            attachment={attachment}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -211,6 +222,31 @@ export function FileDocumentFields(params: {
   );
 }
 
+function useFileDocumentReadFields(params: {
+  extraFieldLabels: Readonly<Record<string, string>>;
+  structuredFields: Readonly<Record<string, string>>;
+}): FileDocumentField[] {
+  const { extraFieldLabels, structuredFields } = params;
+  return useMemo<FileDocumentField[]>(() => {
+    const {
+      byteLength = "",
+      mimeType = "",
+      sourceLastModified = "",
+    } = structuredFields;
+    const output: FileDocumentField[] = [
+      { label: "MIME Type", value: mimeType },
+      { label: "Size", value: formatStoredByteLength(byteLength) },
+      { label: "Source Modified", value: sourceLastModified },
+    ];
+
+    for (const [field, label] of Object.entries(extraFieldLabels)) {
+      output.push({ label, value: structuredFields[field] ?? "" });
+    }
+
+    return output;
+  }, [extraFieldLabels, structuredFields]);
+}
+
 // Derives everything the file view renders from the document store + runtime:
 // the read-only metadata rows, the rename commit, the download handler, and the
 // edit/download enablement. Kept as a hook so the component stays a thin shell.
@@ -243,30 +279,21 @@ function useFileDocument(params: {
   }, [canWrite, ready]);
 
   const { fileName = "" } = structuredFields;
-  const readFields = useMemo<FileDocumentField[]>(() => {
-    const {
-      byteLength = "",
-      mimeType = "",
-      sourceLastModified = "",
-    } = structuredFields;
-    const output: FileDocumentField[] = [
-      { label: "MIME Type", value: mimeType },
-      { label: "Size", value: formatStoredByteLength(byteLength) },
-      { label: "Source Modified", value: sourceLastModified },
-    ];
-
-    for (const [field, label] of Object.entries(extraFieldLabels)) {
-      output.push({ label, value: structuredFields[field] ?? "" });
-    }
-
-    return output;
-  }, [extraFieldLabels, structuredFields]);
+  const readFields = useFileDocumentReadFields({
+    extraFieldLabels,
+    structuredFields,
+  });
 
   const downloadable = useMemo(
     () =>
       resolveDownloadableAttachment(attachments, attachmentStorageKeyBySlotId),
     [attachments, attachmentStorageKeyBySlotId],
   );
+  const imagePreview = useFileDocumentImagePreview({
+    attachments,
+    attachmentStorageKeyBySlotId,
+    blobStore: infra.blobStore,
+  });
 
   const commitFileName = useCallback(
     (value: string) => {
@@ -318,6 +345,7 @@ function useFileDocument(params: {
     downloadable,
     fileName,
     handleDownload,
+    imagePreview,
     isAuthenticated: auth.isAuthenticated,
     isEditing,
     online: state.online,
@@ -342,7 +370,12 @@ export function FileDocument(params: {
         localOnly: "File attachment is stored locally and syncs when online.",
         unavailable: "File attachments require a local key package.",
       }}
-      attachments={<FileDocumentAttachments attachments={model.attachments} />}
+      attachments={
+        <FileDocumentAttachments
+          attachments={model.attachments}
+          imagePreview={model.imagePreview}
+        />
+      }
       canAttach={model.canAttach}
       fields={
         <FileDocumentFields

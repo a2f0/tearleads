@@ -1,6 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
+import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { FileDocumentFields } from "./FileDocument";
+import { FileDocumentAttachments, FileDocumentFields } from "./FileDocument";
+import {
+  isRenderableFileDocumentImageMimeType,
+  resolveFileDocumentImagePreview,
+} from "./FileDocumentPreview";
 
 afterEach(cleanup);
 
@@ -9,6 +14,24 @@ const readFields = [
   { label: "Size", value: "1.2 kB" },
   { label: "Source Modified", value: "" },
 ];
+const pngAttachment: DocumentAttachment = {
+  byteLength: 1024,
+  mimeType: "image/png",
+  name: "logo.png",
+  slotId: "png-slot",
+};
+const svgAttachment: DocumentAttachment = {
+  byteLength: 2048,
+  mimeType: "image/svg+xml",
+  name: "mark.svg",
+  slotId: "svg-slot",
+};
+const jpegAttachment: DocumentAttachment = {
+  byteLength: 4096,
+  mimeType: "image/jpeg",
+  name: "photo.jpeg",
+  slotId: "jpeg-slot",
+};
 
 function renderFields(
   overrides: Partial<Parameters<typeof FileDocumentFields>[0]> = {},
@@ -124,4 +147,60 @@ test("surfaces a download error message", () => {
       "This file's contents haven't downloaded to this device yet.",
     ),
   ).toBeTruthy();
+});
+
+test("detects the image MIME types the file document can preview", () => {
+  expect(isRenderableFileDocumentImageMimeType("image/png")).toBe(true);
+  expect(isRenderableFileDocumentImageMimeType("image/svg+xml")).toBe(true);
+  expect(
+    isRenderableFileDocumentImageMimeType("image/svg+xml; charset=utf-8"),
+  ).toBe(true);
+  expect(isRenderableFileDocumentImageMimeType("image/jpeg")).toBe(false);
+  expect(isRenderableFileDocumentImageMimeType(null)).toBe(false);
+});
+
+test("resolves the latest local PNG or SVG attachment for preview", () => {
+  const preview = resolveFileDocumentImagePreview({
+    attachments: [pngAttachment, svgAttachment],
+    attachmentStorageKeyBySlotId: {
+      "png-slot": "local-png",
+      "svg-slot": "local-svg",
+    },
+    imageUrlBySlotId: { "svg-slot": "blob:svg-preview" },
+  });
+
+  expect(preview).toEqual({
+    attachment: svgAttachment,
+    imageUrl: "blob:svg-preview",
+  });
+});
+
+test("does not preview unsupported image attachment types", () => {
+  const preview = resolveFileDocumentImagePreview({
+    attachments: [pngAttachment, jpegAttachment],
+    attachmentStorageKeyBySlotId: {
+      "jpeg-slot": "local-jpeg",
+      "png-slot": "local-png",
+    },
+    imageUrlBySlotId: { "png-slot": "blob:png-preview" },
+  });
+
+  expect(preview).toBeNull();
+});
+
+test("renders a file image preview when a preview URL is available", () => {
+  const view = render(
+    <FileDocumentAttachments
+      attachments={[pngAttachment]}
+      imagePreview={{
+        attachment: pngAttachment,
+        imageUrl: "blob:png-preview",
+      }}
+    />,
+  );
+
+  const image = view.getByRole("img", { name: "logo.png" });
+  expect(image.getAttribute("src")).toBe("blob:png-preview");
+  expect(view.getByText("logo.png")).toBeTruthy();
+  expect(view.getByText("1.0 KB")).toBeTruthy();
 });
