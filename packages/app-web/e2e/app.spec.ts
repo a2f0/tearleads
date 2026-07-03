@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-const SQLITE_READY_PATTERN = /sqlite worker:\s*ready/u;
-const PUBLIC_KEY_PATTERN = /publicKey:\s*([0-9a-f]{64})/u;
+const SQLITE_READY_PATTERN = /SQLite Worker:\s*ready/u;
+const PUBLIC_KEY_PATTERN = /Public Key:\s*([0-9a-f]{64})/u;
 
 function visiblePane(page: Page, side?: "left" | "right"): Locator {
   const sideClass = side ? `.pane-${side}` : "";
@@ -184,7 +184,7 @@ test("SQLite tables survive a hard reload", async ({ page }) => {
   await waitForPaneBooted(reloadedPane);
   await expect
     .poll(() => paneStatusText(reloadedPane))
-    .toContain(`publicKey: ${publicKey}`);
+    .toContain(`Public Key: ${publicKey}`);
   const reloadedLogs = await paneLogs(reloadedPane);
   await expect(
     reloadedLogs.getByText("Local identity key package restored"),
@@ -216,7 +216,7 @@ test("killed worker does not poison a hard reload", async ({ page }) => {
   await waitForPaneBooted(reloadedPane);
   await expect
     .poll(() => paneStatusText(reloadedPane))
-    .toContain(`publicKey: ${publicKey}`);
+    .toContain(`Public Key: ${publicKey}`);
 });
 
 test("same persisted identity can boot in two tabs", async ({
@@ -237,7 +237,7 @@ test("same persisted identity can boot in two tabs", async ({
   await waitForPaneBooted(secondPane);
   await expect
     .poll(() => paneStatusText(secondPane))
-    .toContain(`publicKey: ${publicKey}`);
+    .toContain(`Public Key: ${publicKey}`);
   await expect(
     (await paneLogs(secondPane)).getByText(
       "Local identity key package restored",

@@ -14,6 +14,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "contact",
     "drivers_license",
     "credit_card",
+    "passport",
     "image",
     "audio",
     "pdf",
@@ -32,6 +33,7 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("credit_card").createLabel).toBe(
     "Credit Card",
   );
+  expect(getDocumentTypeDefinition("passport").createLabel).toBe("Passport");
   expect(getDocumentTypeDefinition("image").createLabel).toBe("Image");
   expect(getDocumentTypeDefinition("audio").createLabel).toBe("Audio");
   expect(getDocumentTypeDefinition("pdf").createLabel).toBe("PDF");
@@ -47,5 +49,5 @@ test("every document type provides a create icon", () => {
 test("creatable document types exclude upload-only file kinds", () => {
   expect(
     CREATABLE_DOCUMENT_TYPE_DEFINITIONS.map((definition) => definition.kind),
-  ).toEqual(["note", "contact", "drivers_license", "credit_card"]);
+  ).toEqual(["note", "contact", "drivers_license", "credit_card", "passport"]);
 });

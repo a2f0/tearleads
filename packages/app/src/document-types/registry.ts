@@ -12,6 +12,7 @@ import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDe
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
+import { PassportDocumentApp } from "./passport/PassportApp";
 import { PdfDocumentApp } from "./pdf/PdfDocumentApp";
 import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 import {
@@ -35,6 +36,7 @@ const documentTypeAppsByKind = new Map<
   ["contact", ContactDocumentApp],
   ["drivers_license", DriverLicenseDocumentApp],
   ["credit_card", CreditCardDocumentApp],
+  ["passport", PassportDocumentApp],
   ["image", ImageDocumentApp],
   ["audio", AudioDocumentApp],
   ["pdf", PdfDocumentApp],

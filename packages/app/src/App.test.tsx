@@ -154,7 +154,7 @@ test("routed App home can generate a pane key pair from shell chrome", async () 
     expect(
       view.queryByText(/Generate a key pair to boot this pane\./),
     ).toBeNull();
-    expect(view.queryByText("sqlite worker")).toBeNull();
+    expect(view.queryByText(/SQLite Worker/i)).toBeNull();
     expect(
       view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
     ).toBe("page");

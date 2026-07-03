@@ -84,3 +84,43 @@ test("document store seeds initial structured document kind before first persist
   });
   expect(persistence.getState().pendingUpdates).toHaveLength(1);
 });
+
+test("document store seeds initial passport fields before first persistence", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore(
+    "initial-passport",
+    runtime,
+    persistence,
+    null,
+    "",
+    "passport",
+  );
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Passport document store did not become ready.",
+  );
+
+  expect(store.getSnapshot()).toMatchObject({
+    documentKind: "passport",
+    fieldValidationIssues: [],
+    ready: true,
+    structuredFields: {
+      expirationDate: "",
+      fullName: "",
+      issuingCountry: "",
+      passportNumber: "",
+    },
+    text: "",
+    title: "Untitled passport",
+  });
+  expect(persistence.getState().document).toMatchObject({
+    documentKind: "passport",
+    text: "",
+    title: "Untitled passport",
+  });
+  expect(persistence.getState().pendingUpdates).toHaveLength(1);
+});

@@ -196,6 +196,16 @@ test("explorer sync retries failed parent lane batches without advancing their w
   let store: ReturnType<typeof createExplorerStore> | null = null;
 
   try {
+    await defaultExplorerPersistence.ensureSchema(runtime.infra.execSql);
+    await saveContainer(runtime.infra.execSql, {
+      id: "local-cache-placeholder",
+      organizationId: "org-1",
+      parentId: null,
+      metadataDocumentId: null,
+      name: "Local Cache",
+      icon: null,
+    });
+
     const createdStore = createExplorerStore(runtime);
     store = createdStore;
     createdStore.updateRuntime(runtime);
