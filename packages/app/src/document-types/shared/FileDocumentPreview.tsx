@@ -81,8 +81,12 @@ export function useFileDocumentImagePreview(params: {
       }),
     [attachments, attachmentStorageKeyBySlotId],
   );
+  const previewAttachments = useMemo(
+    () => (imagePreviewCandidate ? [imagePreviewCandidate.attachment] : []),
+    [imagePreviewCandidate],
+  );
   const imageUrlBySlotId = useAttachmentImageUrls(
-    imagePreviewCandidate ? [imagePreviewCandidate.attachment] : [],
+    previewAttachments,
     attachmentStorageKeyBySlotId,
     blobStore,
   );
