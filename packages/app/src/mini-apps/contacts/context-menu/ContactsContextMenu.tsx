@@ -75,7 +75,7 @@ export function useContactsContextMenu(params: {
     canWrite &&
       contextMenu?.id.kind === "contact" &&
       contextMenuEntry !== undefined &&
-      contextMenuEntry?.canWrite !== false &&
+      contextMenuEntry.canWrite !== false &&
       !contextMenuEntry.isSelf,
   );
   const contextMenuContactUserId =

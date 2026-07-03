@@ -125,11 +125,7 @@ export function DirectoryView({
           onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
           openGrantRoute={openGrantRoute}
           openGroupRoute={openGroupRoute}
-          profileDisplayName={
-            selectedUserId
-              ? profileDisplayNamesByUserId.get(selectedUserId)
-              : undefined
-          }
+          profileDisplayName={profileDisplayNamesByUserId.get(selectedUserId)}
           renderRosterProfileEditor={renderRosterProfileEditor}
           revokeGrant={revokeGrant}
           rosterProfileEditRequestKey={

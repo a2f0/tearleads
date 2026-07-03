@@ -240,10 +240,6 @@ function PaneSessionMenuItems({
             label="Register"
             onClick={async () => {
               onClose();
-              if (!canRegisterCurrentIdentity) {
-                return;
-              }
-
               await registerCurrentIdentity();
             }}
           />

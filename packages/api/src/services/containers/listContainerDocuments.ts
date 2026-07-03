@@ -293,7 +293,7 @@ async function loadLinkedContainerIdsByManifestHash(
 function documentChangeUpdatedAt(
   change: ContainerDocumentSummary | ContainerDocumentSyncTombstone,
 ): string {
-  return change.updatedAt ?? "";
+  return change.updatedAt;
 }
 
 function documentChangeId(
