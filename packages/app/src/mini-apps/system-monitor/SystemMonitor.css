@@ -29,6 +29,43 @@
   overflow: auto;
 }
 
+.system-monitor-feature-flags {
+  padding: var(--space-md);
+}
+
+.system-monitor-feature-flag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-height: var(--control-height);
+  padding: var(--space-sm) 0;
+  border-bottom: var(--border);
+  font-size: var(--font-size-sm);
+}
+
+.system-monitor-feature-flag-name {
+  min-width: 0;
+  font-weight: 700;
+}
+
+.system-monitor-feature-flag-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.system-monitor-feature-flag-state {
+  opacity: var(--opacity-subtle);
+}
+
+.system-monitor-feature-flag-switch {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-dark);
+}
+
 /* Persistent launcher living in the pane footer's system tray
    (.pane-footer-tray). A square icon button sized to the standard control
    height so it sits flush with the footer's other affordances. */

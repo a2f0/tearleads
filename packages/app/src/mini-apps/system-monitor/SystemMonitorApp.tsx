@@ -29,16 +29,50 @@ import {
   parseSystemMonitorRouteSegments,
   type SystemMonitorTabId,
 } from "./routes";
+import { SystemMonitorFeatureFlags } from "./SystemMonitorFeatureFlags";
 import { SystemMonitorLog } from "./SystemMonitorLog";
 import { useSystemMonitor } from "./SystemMonitorProvider";
 
-const SYSTEM_MONITOR_TABS: ReadonlyArray<{
+interface SystemMonitorTab {
   id: SystemMonitorTabId;
   label: string;
-}> = [
+}
+
+const BASE_SYSTEM_MONITOR_TABS: ReadonlyArray<SystemMonitorTab> = [
   { id: "logs", label: "Logs" },
   { id: "status", label: "Status" },
 ];
+
+const DEVELOPER_SYSTEM_MONITOR_TABS: ReadonlyArray<SystemMonitorTab> = [
+  ...BASE_SYSTEM_MONITOR_TABS,
+  { id: "feature-flags", label: "Feature Flags" },
+];
+
+function getSystemMonitorTabs(
+  isDeveloperMode: boolean,
+): ReadonlyArray<SystemMonitorTab> {
+  return isDeveloperMode
+    ? DEVELOPER_SYSTEM_MONITOR_TABS
+    : BASE_SYSTEM_MONITOR_TABS;
+}
+
+function isVisibleSystemMonitorTab(
+  tabId: SystemMonitorTabId,
+  tabs: ReadonlyArray<SystemMonitorTab>,
+): boolean {
+  return tabs.some((tab) => tab.id === tabId);
+}
+
+function renderSystemMonitorTabPanel(activeTab: SystemMonitorTabId) {
+  switch (activeTab) {
+    case "feature-flags":
+      return <SystemMonitorFeatureFlags />;
+    case "status":
+      return <PaneStatus />;
+    case "logs":
+      return <SystemMonitorLog />;
+  }
+}
 
 const PIN_TO_DESKTOP_LABEL = "Pin to Desktop";
 const PIN_TO_HOME_SCREEN_LABEL = "Pin to Home Screen";
@@ -51,17 +85,17 @@ function SystemMonitorTabs({
   activeTab,
   idPrefix,
   onSelect,
+  tabs,
 }: {
   activeTab: SystemMonitorTabId;
   idPrefix: string;
   onSelect: (tab: SystemMonitorTabId) => void;
+  tabs: ReadonlyArray<SystemMonitorTab>;
 }) {
   const handleTabKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-      const lastIndex = SYSTEM_MONITOR_TABS.length - 1;
-      const currentIndex = SYSTEM_MONITOR_TABS.findIndex(
-        (tab) => tab.id === activeTab,
-      );
+      const lastIndex = tabs.length - 1;
+      const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
       let nextIndex: number;
       switch (event.key) {
         case "ArrowRight":
@@ -81,7 +115,7 @@ function SystemMonitorTabs({
         default:
           return;
       }
-      const nextTab = SYSTEM_MONITOR_TABS[nextIndex];
+      const nextTab = tabs[nextIndex];
       if (!nextTab) {
         return;
       }
@@ -89,7 +123,7 @@ function SystemMonitorTabs({
       onSelect(nextTab.id);
       document.getElementById(`${idPrefix}-${nextTab.id}-tab`)?.focus();
     },
-    [activeTab, idPrefix, onSelect],
+    [activeTab, idPrefix, onSelect, tabs],
   );
 
   return (
@@ -98,7 +132,7 @@ function SystemMonitorTabs({
       className="system-monitor-tabs"
       role="tablist"
     >
-      {SYSTEM_MONITOR_TABS.map((tab) => (
+      {tabs.map((tab) => (
         <MiniAppButton
           aria-controls={`${idPrefix}-${tab.id}-panel`}
           aria-selected={activeTab === tab.id}
@@ -201,12 +235,17 @@ function useSystemMonitorChromeActions() {
 export function SystemMonitorApp() {
   const { isRouted, pathSegments, setPathSegments } =
     useMiniAppRouteSegments("system-monitor");
+  const { isDeveloperMode } = useSystemMonitor();
+  const visibleTabs = getSystemMonitorTabs(isDeveloperMode);
   const [localActiveTab, setLocalActiveTab] = useState<SystemMonitorTabId>(
     DEFAULT_SYSTEM_MONITOR_TAB,
   );
-  const activeTab = isRouted
+  const requestedActiveTab = isRouted
     ? parseSystemMonitorRouteSegments(pathSegments)
     : localActiveTab;
+  const activeTab = isVisibleSystemMonitorTab(requestedActiveTab, visibleTabs)
+    ? requestedActiveTab
+    : DEFAULT_SYSTEM_MONITOR_TAB;
   const idPrefix = useId();
   const setActiveTab = useCallback(
     (nextTab: SystemMonitorTabId) => {
@@ -227,6 +266,7 @@ export function SystemMonitorApp() {
         activeTab={activeTab}
         idPrefix={idPrefix}
         onSelect={setActiveTab}
+        tabs={visibleTabs}
       />
       <div
         aria-labelledby={`${idPrefix}-${activeTab}-tab`}
@@ -234,7 +274,7 @@ export function SystemMonitorApp() {
         id={`${idPrefix}-${activeTab}-panel`}
         role="tabpanel"
       >
-        {activeTab === "logs" ? <SystemMonitorLog /> : <PaneStatus />}
+        {renderSystemMonitorTabPanel(activeTab)}
       </div>
     </MiniAppRoot>
   );

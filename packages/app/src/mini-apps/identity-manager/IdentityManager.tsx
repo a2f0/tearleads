@@ -8,6 +8,7 @@ import {
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
+import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import "./IdentityManager.css";
 import {
   IdentityActionToolbar,
@@ -114,30 +115,36 @@ function IdentitySection({
   );
 }
 
-function getIdentitySectionActions({
-  backupKeyPackage,
-  canAuthenticate,
-  canExportKeyPackage,
-  handleRestoreKeyPackageClick,
-  identity,
-  identityMutations,
-  localKeyringLocked,
-  logoutDialog,
-  registration,
-  session,
-  sessionMutations,
-}: IdentityManagerModel): IdentityActionToolbarProps {
+function getIdentitySectionActions(
+  {
+    backupKeyPackage,
+    canAuthenticate,
+    canExportKeyPackage,
+    handleRestoreKeyPackageClick,
+    identity,
+    identityMutations,
+    localKeyringLocked,
+    logoutDialog,
+    registration,
+    session,
+    sessionMutations,
+  }: IdentityManagerModel,
+  passkeysEnabled: boolean,
+): IdentityActionToolbarProps {
   return {
     backupKeyPackage,
     canAuthenticate,
     canExportKeyPackage,
     canGenerateKey: !localKeyringLocked,
     canPasskeyBackupKeyPackage:
+      passkeysEnabled &&
       identityMutations.passkeyBackupSupported &&
       canExportKeyPackage &&
       session.isAuthenticated,
     canPasskeyRestoreKeyPackage:
-      identityMutations.passkeyBackupSupported && !localKeyringLocked,
+      passkeysEnabled &&
+      identityMutations.passkeyBackupSupported &&
+      !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
     canRestoreKeyPackage: !localKeyringLocked,
     generateKey: identity.generateKey,
@@ -177,11 +184,12 @@ function IdentityManagerPrimaryScreen({
     sessionList,
     sessionMutations,
   } = model;
+  const { passkeysEnabled } = useAppFeatureFlags();
 
   return (
     <>
       <IdentitySection
-        actions={getIdentitySectionActions(model)}
+        actions={getIdentitySectionActions(model, passkeysEnabled)}
         containerId={session.containerId}
         identityError={identityMutations.identityError}
         identityState={identityState}

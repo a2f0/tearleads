@@ -11,6 +11,7 @@ import {
 } from "../../navigation/NavigationModeToggle";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
+import { AppFeatureFlagsProvider } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import "./Layout.css";
 import { Workspace } from "./workspace/Workspace";
 import {
@@ -150,9 +151,11 @@ export function Layout({ hostConfig }: LayoutProps) {
 
   return (
     <SystemMonitorDeveloperModeProvider>
-      <WorkspaceProvider workspaceIds={workspaceIds}>
-        <LayoutInner hostConfig={hostConfig} />
-      </WorkspaceProvider>
+      <AppFeatureFlagsProvider>
+        <WorkspaceProvider workspaceIds={workspaceIds}>
+          <LayoutInner hostConfig={hostConfig} />
+        </WorkspaceProvider>
+      </AppFeatureFlagsProvider>
     </SystemMonitorDeveloperModeProvider>
   );
 }

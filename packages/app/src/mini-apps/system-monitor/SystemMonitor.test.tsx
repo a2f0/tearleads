@@ -12,6 +12,7 @@ import {
 } from "../../components/pane/DualPaneProvider";
 import { Pane } from "../../components/pane/Pane";
 import { PaneProvider } from "../../components/pane/PaneProvider";
+import { appFeatureFlagStorageKey } from "../../providers/feature-flags/appFeatureFlags";
 import {
   systemMonitorDeveloperModeStorageKey,
   systemMonitorModeStorageKey,
@@ -25,6 +26,7 @@ afterEach(async () => {
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
 const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
+const PASSKEYS_FEATURE_FLAG_KEY = appFeatureFlagStorageKey("passkeys");
 const ROUTED_DEVELOPER_MENU_ITEM_LABELS = [
   "Force Online",
   "Force Offline",
@@ -74,6 +76,14 @@ function expectRoutedDeveloperMenuItems(
   }
 }
 
+async function clickWindowViewMenuItem(
+  view: ReturnType<typeof renderPane>,
+  name: string,
+) {
+  fireEvent.click(view.getByRole("menuitem", { name: "View" }));
+  fireEvent.click(await view.findByRole("menuitem", { name }));
+}
+
 test("home pane hides the monitor inline and exposes a launcher by default", () => {
   const view = renderPane({ pinSystemMonitor: false });
 
@@ -94,6 +104,7 @@ test("launcher opens a window with Logs and Status tabs", async () => {
   const logsTab = await view.findByRole("tab", { name: "Logs" });
   expect(logsTab.getAttribute("aria-selected")).toBe("true");
   expect(view.getByRole("tab", { name: "Status" })).toBeTruthy();
+  expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
 
   // Logs tab is active first; the boot prompt shows, status does not.
   expect(
@@ -272,6 +283,44 @@ test("developer mode toggles from the routed monitor menu and gates pane command
 
   expect(globalThis.localStorage.getItem(DEVELOPER_MODE_KEY)).toBe("disabled");
   expectRoutedDeveloperMenuItems(view, false);
+
+  view.unmount();
+});
+
+test("feature flags tab is developer-only and toggles passkeys", async () => {
+  const view = renderPane({ pinSystemMonitor: false });
+
+  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  await view.findByRole("tab", { name: "Logs" });
+  expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
+  expect(globalThis.localStorage.getItem(PASSKEYS_FEATURE_FLAG_KEY)).toBeNull();
+
+  await clickWindowViewMenuItem(view, "Enable Developer Mode");
+
+  const featureFlagsTab = await view.findByRole("tab", {
+    name: "Feature Flags",
+  });
+  fireEvent.click(featureFlagsTab);
+
+  const passkeysToggle = view.getByRole("switch", {
+    name: "Enable passkeys",
+  }) as HTMLInputElement;
+  expect(passkeysToggle.checked).toBe(false);
+  expect(view.getByText("Disabled")).toBeTruthy();
+
+  fireEvent.click(passkeysToggle);
+
+  await waitFor(() => {
+    expect(passkeysToggle.checked).toBe(true);
+    expect(globalThis.localStorage.getItem(PASSKEYS_FEATURE_FLAG_KEY)).toBe(
+      "enabled",
+    );
+    expect(view.getByText("Enabled")).toBeTruthy();
+  });
+
+  await clickWindowViewMenuItem(view, "Disable Developer Mode");
+
+  expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
 
   view.unmount();
 });
