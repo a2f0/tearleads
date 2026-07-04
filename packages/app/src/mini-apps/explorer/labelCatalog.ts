@@ -223,6 +223,8 @@ export const EXPLORER_LABELS = {
   fileImportGenericFailure: "Failed to import files.",
   fileImportStoreNotReady: "Document store was not ready.",
   folderType: "Folder",
+  itemActionsButtonPrefix: "Actions for",
+  itemActionsColumn: "Actions",
   itemNameColumn: "Name",
   itemSyncColumn: "Sync",
   itemTableEmpty: "No items.",

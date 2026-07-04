@@ -1,4 +1,5 @@
 export type ExplorerItemColumnId =
+  | "actions"
   | "name"
   | "type"
   | "created"
@@ -23,6 +24,7 @@ const COMPACT_COLUMN_ORDER: ReadonlyArray<ExplorerItemColumnId> = [
   "name",
   "type",
   "modified",
+  "actions",
 ];
 
 // Columns the user can show/hide. Name is structural and always visible.

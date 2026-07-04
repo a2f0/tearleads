@@ -1,4 +1,5 @@
 import type { Icon } from "@phosphor-icons/react";
+import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
 import type {
   ContainerItemRow,
   ContainerItemSort,
@@ -6,7 +7,7 @@ import type {
   ContainerItemSortKey,
 } from "@tearleads/client-sdk";
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import {
   MiniAppTableCell,
   type MiniAppTableColumn,
@@ -80,6 +81,17 @@ function buildExplorerItemColumn(
   );
 
   switch (id) {
+    case "actions":
+      return {
+        className: "explorer-item-actions-column",
+        header: (
+          <span className="explorer-item-actions-heading">
+            {EXPLORER_LABELS.itemActionsColumn}
+          </span>
+        ),
+        id,
+        width: "2.25rem",
+      };
     case "name":
       return {
         id,
@@ -93,7 +105,7 @@ function buildExplorerItemColumn(
         ariaSort: getSortAria(sort, "type"),
         id,
         header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
-        width: compact ? "6rem" : "8rem",
+        width: compact ? "5.5rem" : "8rem",
       };
     case "created":
       return {
@@ -107,7 +119,7 @@ function buildExplorerItemColumn(
         ariaSort: getSortAria(sort, "modified"),
         id,
         header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
-        width: compact ? "10rem" : "11rem",
+        width: compact ? "8rem" : "11rem",
       };
     case "sync":
       return {
@@ -147,6 +159,10 @@ export interface ExplorerItemCellContext {
   online: boolean;
   row: ContainerItemRow;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
+  onItemContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    row: ContainerItemRow,
+  ) => void;
   setSelectedId: (id: string | null) => void;
 }
 
@@ -232,6 +248,26 @@ function ExplorerItemNameCell(ctx: ExplorerItemCellContext): ReactNode {
   );
 }
 
+function ExplorerItemActionsCell(ctx: ExplorerItemCellContext): ReactNode {
+  const { row } = ctx;
+  const name = getExplorerContainerItemName(ctx);
+
+  return (
+    <MiniAppTableCell className="explorer-item-actions-cell" key="actions">
+      <button
+        aria-haspopup="menu"
+        aria-label={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${name}`}
+        className="explorer-item-actions-button"
+        onClick={(event) => ctx.onItemContextMenu(event, row)}
+        title={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${name}`}
+        type="button"
+      >
+        <DotsThreeVerticalIcon aria-hidden="true" size={18} />
+      </button>
+    </MiniAppTableCell>
+  );
+}
+
 // Returns the cell for one column id. Driven by the same visible-column-id list
 // as the header columns so the two never desync. The returned element carries a
 // stable key so callers can map directly over the column ids.
@@ -241,6 +277,8 @@ export function renderExplorerItemCell(
 ): ReactNode {
   const { row } = ctx;
   switch (columnId) {
+    case "actions":
+      return ExplorerItemActionsCell(ctx);
     case "name":
       return ExplorerItemNameCell(ctx);
     case "type":

@@ -11,7 +11,47 @@ import { getNextExplorerItemSort } from "./ExplorerContainerDetail";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 
-afterEach(() => cleanup());
+const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis.window ?? {},
+  "matchMedia",
+);
+
+afterEach(() => {
+  cleanup();
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (originalMatchMediaDescriptor) {
+    Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
+    return;
+  }
+
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: undefined,
+  });
+});
+
+function mockRoutedLayoutTier(tier: "mobile" | "tablet") {
+  if (typeof window === "undefined") {
+    throw new Error("Expected a DOM window.");
+  }
+
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      addEventListener: () => undefined,
+      addListener: () => undefined,
+      dispatchEvent: () => false,
+      matches: tier === "tablet",
+      media: query,
+      onchange: null,
+      removeEventListener: () => undefined,
+      removeListener: () => undefined,
+    }),
+  });
+}
 
 const selectedNode: ContainerNode = {
   id: "root-container",
@@ -263,6 +303,32 @@ test("container item table opens the per-item context menu from an item row", ()
   fireEvent.contextMenu(itemRow);
 
   expect(rows).toEqual([archiveRow]);
+});
+
+test("mobile container item table opens the per-item context menu from the actions button", () => {
+  mockRoutedLayoutTier("mobile");
+  const rows: ContainerItemRow[] = [];
+  const selectedIds: Array<string | null> = [];
+  const view = renderContainerItemTable({
+    onItemContextMenu: (event, row) => {
+      event.preventDefault();
+      event.stopPropagation();
+      rows.push(row);
+    },
+    rows: [archiveRow],
+    setSelectedId: (id) => {
+      selectedIds.push(id);
+    },
+    totalCount: 1,
+  });
+  const actionsButton = view.getByRole("button", {
+    name: `${EXPLORER_LABELS.itemActionsButtonPrefix} ${archiveRow.name}`,
+  });
+
+  fireEvent.click(actionsButton);
+
+  expect(rows).toEqual([archiveRow]);
+  expect(selectedIds).toEqual([]);
 });
 
 test("container item table highlights the row matching the open context menu", () => {
