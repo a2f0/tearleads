@@ -41,12 +41,10 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
     saveAppFeatureFlag(appFeatureFlagStorageKey("passkeys"), nextMode);
   }, []);
   const togglePasskeys = useCallback(() => {
-    setPasskeysMode((currentMode) => {
-      const nextMode = currentMode === "enabled" ? "disabled" : "enabled";
-      saveAppFeatureFlag(appFeatureFlagStorageKey("passkeys"), nextMode);
-      return nextMode;
-    });
-  }, []);
+    const nextMode = passkeysMode === "enabled" ? "disabled" : "enabled";
+    setPasskeysMode(nextMode);
+    saveAppFeatureFlag(appFeatureFlagStorageKey("passkeys"), nextMode);
+  }, [passkeysMode]);
 
   return useMemo(
     () => ({
