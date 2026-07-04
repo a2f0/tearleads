@@ -20,8 +20,16 @@ import {
 } from "./envFileDocumentDefinition";
 import "./EnvFile.css";
 
+let localVariableIdCounter = 0;
+
 function createLocalVariableId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `env-${Date.now()}`;
+  const randomId = globalThis.crypto?.randomUUID?.();
+  if (randomId) {
+    return randomId;
+  }
+
+  localVariableIdCounter += 1;
+  return `env-${Date.now()}-${localVariableIdCounter}`;
 }
 
 function createBlankVariable(): EnvFileVariable {
