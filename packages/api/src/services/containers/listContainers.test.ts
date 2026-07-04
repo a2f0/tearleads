@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { containers, organizations, users } from "@tearleads/api-shared/schema";
+import {
+  containers,
+  organizationBilling,
+  organizations,
+  users,
+} from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
@@ -242,6 +247,9 @@ test("listContainers admits users added by current managed grants when they exte
     memberGroupId,
     name: "Manifest Reference Test",
   });
+  await db
+    .insert(organizationBilling)
+    .values({ organizationId, status: "active" });
   await db.insert(users).values({
     id: owner.userId,
     fingerprint: owner.fingerprint,
@@ -317,6 +325,9 @@ test("listContainers keeps valid containers when a sibling candidate uses a hist
     memberGroupId,
     name: "Mixed Batch Manifest Reference Test",
   });
+  await db
+    .insert(organizationBilling)
+    .values({ organizationId, status: "active" });
   await db.insert(users).values({
     id: owner.userId,
     fingerprint: owner.fingerprint,

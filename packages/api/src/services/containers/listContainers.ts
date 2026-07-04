@@ -1,4 +1,7 @@
-import { containerSyncTombstones } from "@tearleads/api-shared/schema";
+import {
+  containerSyncTombstones,
+  organizationBilling,
+} from "@tearleads/api-shared/schema";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerSummary,
@@ -7,7 +10,8 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
-import { type SQL, sql } from "drizzle-orm";
+import { inArray, type SQL, sql } from "drizzle-orm";
+import { organizationCanSync } from "../../billing/organizationBilling";
 import { textExpression } from "../../utils/sqlDialect";
 import {
   collectReferencedPrincipalsFromContainerAccess,
@@ -278,6 +282,31 @@ function buildListContainersResponse(input: {
   };
 }
 
+async function filterSyncableContainerRows(
+  runtime: ApiServiceRuntime,
+  rows: readonly AccessibleContainerRow[],
+): Promise<AccessibleContainerRow[]> {
+  const organizationIds = [...new Set(rows.map((row) => row.organizationId))];
+  if (organizationIds.length === 0) {
+    return [...rows];
+  }
+
+  const billingRows = await runtime.db
+    .select({
+      organizationId: organizationBilling.organizationId,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(inArray(organizationBilling.organizationId, organizationIds));
+  const syncableOrganizationIds = new Set(
+    billingRows
+      .filter((billing) => organizationCanSync(billing.status))
+      .map((billing) => billing.organizationId),
+  );
+
+  return rows.filter((row) => syncableOrganizationIds.has(row.organizationId));
+}
+
 export async function listContainers(
   runtime: ApiServiceRuntime,
   userId: string,
@@ -293,7 +322,7 @@ export async function listContainers(
     () => new ListContainersError("Invalid watermark", 400),
   );
 
-  const [containerRows, tombstoneRows] = await Promise.all([
+  const [accessibleContainerRows, tombstoneRows] = await Promise.all([
     listAccessibleContainersForUser({
       limit,
       parentId,
@@ -303,6 +332,13 @@ export async function listContainers(
     }),
     listContainerTombstones({ limit, parentId, runtime, userId, watermark }),
   ]);
+  // Sync is per-organization: containers owned by an organization that cannot
+  // sync (local/lapsed billing) are excluded from the pull, just as they cannot
+  // be written.
+  const containerRows = await filterSyncableContainerRows(
+    runtime,
+    accessibleContainerRows,
+  );
   const pageSelection = selectContainerPage({
     containerRows,
     limit,

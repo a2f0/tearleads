@@ -96,6 +96,19 @@ export const subsystems: readonly Subsystem[] = [
     ],
   },
   {
+    name: "Billing",
+    package: "api",
+    responsibility:
+      "Per-organization billing lifecycle (local/trial/active), the free-sync trial, and the sync-eligibility gate that fronts server sync.",
+    seam: "routes/billing via createBillingRouter; services/billing facade",
+    paths: [
+      `${api}/billing/`,
+      `${api}/routes/billing/`,
+      `${api}/services/billing/`,
+      `${api}/workflows/billing/`,
+    ],
+  },
+  {
     name: "Principals",
     package: "api",
     responsibility:

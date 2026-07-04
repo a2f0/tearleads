@@ -1,8 +1,10 @@
 import type { ApiDatabase } from "@tearleads/api-shared/postgres";
 import { verifyAttachmentDetachEvent } from "@tearleads/crypto";
 import type { BlobAttachmentDetachResponse } from "@tearleads/validators/response";
+import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
+import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
 import {
@@ -81,6 +83,12 @@ export async function runDetachBlobAttachmentWorkflow(
         documentId: verifiedDetach.value.documentId,
         linkedContainerIds: proof.documentManifest.state.linkedContainerIds,
       });
+
+      const { organizationId } = await resolveCurrentDocumentKekTargets(
+        verifiedDetach.value.documentId,
+        tx,
+      );
+      await assertOrganizationCanSync(tx, organizationId);
 
       return {
         bindingId: verifiedDetach.value.bindingId,

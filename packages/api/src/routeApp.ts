@@ -1,17 +1,20 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import {
   productionRouteAppOverrides,
   type RouteAppOverrides,
   resolveRouteAppDeps,
 } from "./routeAppDeps";
 import { createAuthRouter } from "./routes/auth";
+import { createBillingRouter } from "./routes/billing";
 import { createBlobsRouter } from "./routes/blobs";
 import { createContainersRouter } from "./routes/containers";
 import { createDocumentsRouter } from "./routes/documents";
 import { createHealthRoute } from "./routes/health";
 import { createOrganizationsRouter } from "./routes/organizations";
 import { createPrincipalsRouter } from "./routes/principals";
+import { OrganizationSyncDisabledError } from "./workflows/billing/organizationBilling";
 
 type ApiCorsOrigins = "*" | readonly string[];
 
@@ -140,6 +143,13 @@ export function createRouteApp(
   routeApp.route("/", createHealthRoute());
   routeApp.route(
     "/",
+    createBillingRouter({
+      requireAuth: resolvedRequireAuth,
+      runtime: resolvedRuntime,
+    }),
+  );
+  routeApp.route(
+    "/",
     createOrganizationsRouter({
       requireAuth: resolvedRequirePaidAuth,
       runtime: resolvedRuntime,
@@ -153,6 +163,23 @@ export function createRouteApp(
       runtime: resolvedRuntime,
     }),
   );
+
+  // Sync writes that target an organization which cannot sync throw
+  // OrganizationSyncDisabledError deep in their workflows; surface it uniformly
+  // as 402 rather than letting it fall through to a 500.
+  routeApp.onError((error, c) => {
+    if (error instanceof OrganizationSyncDisabledError) {
+      return c.json(
+        { error: error.message, organizationId: error.organizationId },
+        402,
+      );
+    }
+    if (error instanceof HTTPException) {
+      return error.getResponse();
+    }
+    console.error(error);
+    return c.json({ error: "Internal Server Error" }, 500);
+  });
 
   return routeApp;
 }

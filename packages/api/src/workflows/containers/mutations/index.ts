@@ -1,5 +1,6 @@
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { createContainer } from "./createContainer";
 import { ContainerMutationError, toMutationError } from "./errors";
 import { grantContainerAccess } from "./grantContainerAccess";
@@ -82,12 +83,16 @@ export async function runContainerMutationWorkflow(
   input: MutateContainerInput,
 ): Promise<ContainerMutationResponse> {
   try {
-    return await db.transaction((tx) =>
-      mutateContainerByEventType({
+    return await db.transaction(async (tx) => {
+      const response = await mutateContainerByEventType({
         ...input,
         executor: tx,
-      }),
-    );
+      });
+      // Public mutation boundary (registration bootstraps its own org via the
+      // lower-level handlers directly, so it is not gated here).
+      await assertOrganizationCanSync(tx, response.organizationId);
+      return response;
+    });
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {

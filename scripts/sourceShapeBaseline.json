@@ -106,8 +106,8 @@
       "bytes": 18631
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3495,
-      "bytes": 114058
+      "lines": 3567,
+      "bytes": 116421
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
       "lines": 1289,
@@ -138,8 +138,8 @@
       "bytes": 14749
     },
     "packages/api/src/workflows/auth/registration.ts": {
-      "lines": 1231,
-      "bytes": 33704
+      "lines": 1244,
+      "bytes": 34058
     },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 644,
@@ -174,8 +174,8 @@
       "bytes": 18029
     },
     "packages/app/test/helpers/mswServer.ts": {
-      "lines": 982,
-      "bytes": 28590
+      "lines": 1020,
+      "bytes": 29885
     },
     "packages/app/test/helpers/paneTestUtils.tsx": {
       "lines": 530,
@@ -314,8 +314,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 689,
-      "bytes": 24419
+      "lines": 702,
+      "bytes": 24854
     }
   },
   "categories": {
