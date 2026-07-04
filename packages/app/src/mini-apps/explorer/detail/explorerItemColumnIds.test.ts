@@ -37,7 +37,7 @@ test("compact layout uses a fixed trimmed set and ignores hidden preferences", (
       compact: true,
       hiddenColumns: new Set(["type", "modified"]),
     }),
-  ).toEqual(["name", "type", "modified"]);
+  ).toEqual(["name", "type", "modified", "actions"]);
 });
 
 test("Name is not user-toggleable", () => {

@@ -33,6 +33,7 @@ import {
   getExplorerItemTableColumns,
   renderExplorerItemCell,
 } from "./explorerItemTableColumns";
+import "./ExplorerContainerItemTable.css";
 
 function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
   return row.itemKind === "container"
@@ -42,6 +43,8 @@ function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
 
 function getExplorerItemColumnLabel(id: ExplorerItemColumnId): string {
   switch (id) {
+    case "actions":
+      return EXPLORER_LABELS.itemActionsColumn;
     case "name":
       return EXPLORER_LABELS.itemNameColumn;
     case "type":
@@ -115,6 +118,7 @@ function ExplorerContainerItemTableRow(params: {
     currentSigningFingerprint,
     currentUserId,
     online,
+    onItemContextMenu,
     row,
     selectDocumentProjection,
     setSelectedId,
