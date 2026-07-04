@@ -55,10 +55,6 @@ export function toMutationError(error: unknown): ContainerMutationError | null {
     );
   }
 
-  if (!(error instanceof Error)) {
-    return null;
-  }
-
   return null;
 }
 

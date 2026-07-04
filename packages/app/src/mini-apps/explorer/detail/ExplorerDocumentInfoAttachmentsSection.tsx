@@ -80,7 +80,7 @@ function getExplorerDocumentInfoAttachmentRows(input: {
 
       return {
         attachment,
-        remoteBinding: remoteBinding ?? null,
+        remoteBinding,
         state: remoteBinding ? "local-remote" : attachment.attachmentKind,
       };
     },

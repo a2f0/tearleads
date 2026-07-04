@@ -68,7 +68,7 @@ export function upsertContainerInfoGrant(
     return info;
   }
 
-  const existingGrants = info.remoteInfo.grants ?? [];
+  const existingGrants = info.remoteInfo.grants;
   const existingGrantIndex = existingGrants.findIndex(
     (candidate) =>
       candidate.subjectType === grant.subjectType &&
@@ -85,7 +85,7 @@ export function upsertContainerInfoGrant(
     inherited: false,
     sourceContainerId: containerId,
   };
-  const existingGrantRows = info.remoteInfo.grantRows ?? [];
+  const existingGrantRows = info.remoteInfo.grantRows;
   const existingGrantRowIndex = existingGrantRows.findIndex(
     (candidate) =>
       !candidate.inherited &&
@@ -116,12 +116,12 @@ export function getContainerInfoShareableGroups(
   remoteInfo: NonNullable<ContainerInfo["remoteInfo"]>,
 ): ExplorerContainerInfoGroup[] {
   const directlyGrantedGroupIds = new Set(
-    (remoteInfo.grants ?? []).flatMap((grant) =>
+    remoteInfo.grants.flatMap((grant) =>
       grant.subjectType === "group" ? [grant.subjectId] : [],
     ),
   );
 
-  return (remoteInfo.groups ?? []).filter(
+  return remoteInfo.groups.filter(
     (group) =>
       group.currentState && !directlyGrantedGroupIds.has(group.groupId),
   );
