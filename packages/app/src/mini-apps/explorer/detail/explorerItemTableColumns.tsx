@@ -258,7 +258,10 @@ function ExplorerItemActionsCell(ctx: ExplorerItemCellContext): ReactNode {
         aria-haspopup="menu"
         aria-label={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${name}`}
         className="explorer-item-actions-button"
-        onClick={(event) => ctx.onItemContextMenu(event, row)}
+        onClick={(event) => {
+          event.stopPropagation();
+          ctx.onItemContextMenu(event, row);
+        }}
         title={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${name}`}
         type="button"
       >
