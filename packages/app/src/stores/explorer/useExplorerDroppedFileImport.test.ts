@@ -78,6 +78,12 @@ function createSummary(
   };
 }
 
+function readVariablesJson(
+  structuredFields: Readonly<{ variablesJson?: string }> | undefined,
+): string {
+  return structuredFields?.variablesJson ?? "";
+}
+
 function createImportStoreFactory(createdStores: CreatedImportStore[]) {
   return ({
     containerId,
@@ -329,6 +335,56 @@ test("dropped file import creates file document types with original attachments"
     ["b", "i", "n"],
     ["j", "p", "e", "g"],
     ["p", "d", "f"],
+  ]);
+});
+
+test("dropped file import creates env file documents without attachments", async () => {
+  const createdStores: CreatedImportStore[] = [];
+  let nextLocalId = 0;
+
+  const result = await importExplorerDroppedFiles({
+    containerId: "folder-1",
+    createDocumentStore: createImportStoreFactory(createdStores),
+    createLocalId: () => `local-${++nextLocalId}`,
+    files: [
+      createFile(".env", "API_TOKEN=secret\nexport DEBUG=true", {
+        type: "text/plain",
+      }),
+    ],
+    labels: testImportLabels,
+    loadDocumentSummary: async () => null,
+    mergeDocumentSummary: () => undefined,
+  });
+
+  expect(result.importedCount).toBe(1);
+  expect(result.failedCount).toBe(0);
+  expect(result.importedDocuments[0]).toMatchObject({
+    documentKind: "env_file",
+    title: ".env",
+  });
+  expect(createdStores).toHaveLength(1);
+  expect(createdStores[0]).toMatchObject({
+    attachments: [],
+    initialDocumentKind: "env_file",
+    initialText: "",
+    structuredFieldKind: "env_file",
+    structuredFields: {
+      fileName: ".env",
+    },
+  });
+  expect(
+    JSON.parse(readVariablesJson(createdStores[0]?.structuredFields)),
+  ).toEqual([
+    {
+      id: "env-1-api_token",
+      key: "API_TOKEN",
+      value: "secret",
+    },
+    {
+      id: "env-2-debug",
+      key: "DEBUG",
+      value: "true",
+    },
   ]);
 });
 

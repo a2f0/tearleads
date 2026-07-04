@@ -7,6 +7,7 @@ import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
+import { EnvFileDocumentApp } from "./env-file/EnvFileApp";
 import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
@@ -37,6 +38,7 @@ const documentTypeAppsByKind = new Map<
   ["drivers_license", DriverLicenseDocumentApp],
   ["credit_card", CreditCardDocumentApp],
   ["passport", PassportDocumentApp],
+  ["env_file", EnvFileDocumentApp],
   ["image", ImageDocumentApp],
   ["audio", AudioDocumentApp],
   ["pdf", PdfDocumentApp],
@@ -70,8 +72,8 @@ const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
 ]);
 
 // A file-backed document carries its uploaded bytes as an attachment, so it is
-// the only family for which "Download" is meaningful (notes, contacts, cards
-// have no blob to save).
+// the only family for which "Download" is meaningful (notes, contacts, cards,
+// and env files have no blob to save).
 export function isFileBackedDocumentKind(
   kind: StoredDocumentKind | null,
 ): boolean {
