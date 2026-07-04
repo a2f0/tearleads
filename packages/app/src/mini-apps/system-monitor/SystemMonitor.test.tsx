@@ -156,6 +156,41 @@ test("right-clicking the system monitor controls network mode", async () => {
   view.unmount();
 });
 
+test("right-clicking selected system monitor text keeps the browser menu", async () => {
+  const view = renderPane({ pinSystemMonitor: false });
+  const originalGetSelection = window.getSelection;
+
+  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  await view.findByRole("tab", { name: "Logs" });
+
+  const systemMonitor =
+    view.container.querySelector<HTMLElement>(".system-monitor");
+  if (!systemMonitor) {
+    throw new Error("Expected System Monitor app root.");
+  }
+
+  Object.defineProperty(window, "getSelection", {
+    configurable: true,
+    value: () =>
+      ({
+        toString: () => "selected monitor text",
+      }) as Selection,
+  });
+
+  try {
+    expect(
+      fireEvent.contextMenu(systemMonitor, { clientX: 30, clientY: 30 }),
+    ).toBe(true);
+    expect(view.queryByRole("button", { name: "Force Offline" })).toBeNull();
+  } finally {
+    Object.defineProperty(window, "getSelection", {
+      configurable: true,
+      value: originalGetSelection,
+    });
+    view.unmount();
+  }
+});
+
 test("tabs follow the roving-tabindex pattern and arrow keys switch tabs", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
