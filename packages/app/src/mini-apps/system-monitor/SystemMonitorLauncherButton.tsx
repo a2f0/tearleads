@@ -1,5 +1,6 @@
 import { PulseIcon } from "@phosphor-icons/react/dist/csr/Pulse";
 import { useCallback } from "react";
+import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useMiniAppBusActions } from "../bus";
 import "./SystemMonitor.css";
 import { useSystemMonitor } from "./SystemMonitorProvider";
@@ -12,6 +13,7 @@ const SYSTEM_MONITOR_LABEL = "System Monitor";
 export function SystemMonitorLauncherButton() {
   const { openMiniApp } = useMiniAppBusActions();
   const { isPinned, unpinToWindow } = useSystemMonitor();
+  const networkContextMenu = useNetworkModeContextMenu();
 
   const handleClick = useCallback(() => {
     if (isPinned) {
@@ -21,14 +23,18 @@ export function SystemMonitorLauncherButton() {
   }, [isPinned, openMiniApp, unpinToWindow]);
 
   return (
-    <button
-      aria-label={SYSTEM_MONITOR_LABEL}
-      className="system-monitor-launcher"
-      title={SYSTEM_MONITOR_LABEL}
-      type="button"
-      onClick={handleClick}
-    >
-      <PulseIcon aria-hidden focusable={false} size={20} />
-    </button>
+    <>
+      <button
+        aria-label={SYSTEM_MONITOR_LABEL}
+        className="system-monitor-launcher"
+        title={SYSTEM_MONITOR_LABEL}
+        type="button"
+        onClick={handleClick}
+        onContextMenu={networkContextMenu.handleContextMenu}
+      >
+        <PulseIcon aria-hidden focusable={false} size={20} />
+      </button>
+      {networkContextMenu.contextMenu}
+    </>
   );
 }

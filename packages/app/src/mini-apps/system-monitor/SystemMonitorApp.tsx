@@ -11,6 +11,7 @@ import {
   MiniAppButton,
   MiniAppRoot,
 } from "../../components/shared/MiniAppLayout";
+import { useNetworkModeContextMenu } from "../../components/shared/NetworkModeContextMenu";
 import { useCurrentWindow } from "../../components/window/CurrentWindowContext";
 import {
   useWindowFileMenuItem,
@@ -258,10 +259,14 @@ export function SystemMonitorApp() {
     },
     [isRouted, setPathSegments],
   );
+  const networkContextMenu = useNetworkModeContextMenu();
   useSystemMonitorChromeActions();
 
   return (
-    <MiniAppRoot className="system-monitor">
+    <MiniAppRoot
+      className="system-monitor"
+      onContextMenu={networkContextMenu.handleContextMenu}
+    >
       <SystemMonitorTabs
         activeTab={activeTab}
         idPrefix={idPrefix}
@@ -276,6 +281,7 @@ export function SystemMonitorApp() {
       >
         {renderSystemMonitorTabPanel(activeTab)}
       </div>
+      {networkContextMenu.contextMenu}
     </MiniAppRoot>
   );
 }
