@@ -7,6 +7,7 @@ import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemM
 import type { AppNavigationMode } from "../../../navigation/AppNavigationMode";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
+import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { RoutedPane } from "../../layout/routed/RoutedPane";
@@ -109,10 +110,12 @@ export function Pane({
   }
 
   return (
-    <WindowStateProvider>
-      <AppNavigationProvider mode={navigationMode} miniApps={MINI_APPS}>
-        <MiniAppBusProvider>{surface}</MiniAppBusProvider>
-      </AppNavigationProvider>
-    </WindowStateProvider>
+    <AppFeatureFlagsProvider>
+      <WindowStateProvider>
+        <AppNavigationProvider mode={navigationMode} miniApps={MINI_APPS}>
+          <MiniAppBusProvider>{surface}</MiniAppBusProvider>
+        </AppNavigationProvider>
+      </WindowStateProvider>
+    </AppFeatureFlagsProvider>
   );
 }
