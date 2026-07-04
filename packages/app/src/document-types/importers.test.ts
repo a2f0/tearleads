@@ -66,6 +66,9 @@ test("file importers classify by extension when MIME type is unavailable", () =>
     getDocumentFileImporter(createFile("app.env.local", "x")).documentKind,
   ).toBe("env_file");
   expect(
+    getDocumentFileImporter(createFile("my.env.file.txt", "x")).documentKind,
+  ).toBe("note");
+  expect(
     getDocumentFileImporter(createFile("archive.bin", "x")).documentKind,
   ).toBe("generic_file");
 });

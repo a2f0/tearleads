@@ -300,7 +300,7 @@ function isEnvFileName(fileName: string): boolean {
     normalized === ".env" ||
     normalized.startsWith(".env.") ||
     normalized.endsWith(".env") ||
-    normalized.includes(".env.")
+    /\.env\.[a-z0-9-_]+$/u.test(normalized)
   );
 }
 
