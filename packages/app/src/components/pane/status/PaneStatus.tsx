@@ -3,6 +3,7 @@ import {
   MiniAppInfoRow,
   MiniAppInfoTable,
 } from "../../../components/shared/MiniAppTable";
+import { useNetworkModeContextMenu } from "../../../components/shared/NetworkModeContextMenu";
 import { useNetworkState } from "../../../providers/api/useNetworkState";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
@@ -30,6 +31,7 @@ export function PaneStatus() {
   const { signingFingerprint } = useIdentity();
   const { events, connected } = useEvents();
   const { mode, online } = useNetworkState();
+  const networkContextMenu = useNetworkModeContextMenu();
   const peerUserId = usePeerUserId();
   const peerUserIdsEnabled = usePeerUserIdsEnabled();
   const networkLabel = `${online ? "online" : "offline"}${
@@ -37,7 +39,11 @@ export function PaneStatus() {
   }`;
 
   return (
-    <div className="pane-content">
+    <section
+      aria-label="System status"
+      className="pane-content"
+      onContextMenu={networkContextMenu.handleContextMenu}
+    >
       <MiniAppInfoTable>
         <tbody>
           <MiniAppInfoRow label={STATUS_LABELS.sqliteWorker}>
@@ -76,6 +82,7 @@ export function PaneStatus() {
           </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>
-    </div>
+      {networkContextMenu.contextMenu}
+    </section>
   );
 }

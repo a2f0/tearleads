@@ -3,6 +3,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
+  getPaneStatusText,
   PANE_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
 } from "../../../test/helpers/paneTestUtils";
@@ -118,6 +119,38 @@ test("launcher opens a window with Logs and Status tabs", async () => {
 
   await waitFor(() => {
     expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
+  });
+
+  view.unmount();
+});
+
+test("right-clicking the system monitor controls network mode", async () => {
+  const view = renderPane({ pinSystemMonitor: false });
+
+  fireEvent.contextMenu(view.getByRole("button", { name: "System Monitor" }), {
+    clientX: 20,
+    clientY: 20,
+  });
+  fireEvent.click(await view.findByRole("button", { name: "Force Offline" }));
+
+  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  fireEvent.click(await view.findByRole("tab", { name: "Status" }));
+
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
+  });
+
+  const systemMonitor =
+    view.container.querySelector<HTMLElement>(".system-monitor");
+  if (!systemMonitor) {
+    throw new Error("Expected System Monitor app root.");
+  }
+
+  fireEvent.contextMenu(systemMonitor, { clientX: 30, clientY: 30 });
+  fireEvent.click(await view.findByRole("button", { name: "Force Online" }));
+
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*online \(manual\)/);
   });
 
   view.unmount();

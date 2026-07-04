@@ -3,12 +3,12 @@ import {
   useRestoreKeyPackageAction,
 } from "../../identity/useKeyPackageActions";
 import { useRegisterCurrentIdentity } from "../../identity/useRegisterCurrentIdentity";
-import { useNetworkState } from "../../providers/api/useNetworkState";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import { MenuItem } from "./MenuItem";
+import { NetworkModeMenuItems } from "./NetworkModeMenuItems";
 
 export function PaneSystemMenuItems({
   onClose,
@@ -54,38 +54,11 @@ function PaneNetworkMenuItems({
   onClose: () => void;
   showDeveloperControls: boolean;
 }) {
-  const { mode, setNetworkMode } = useNetworkState();
-
   return (
-    <>
-      {showDeveloperControls && mode !== "online" && (
-        <MenuItem
-          label="Force Online"
-          onClick={() => {
-            setNetworkMode("online");
-            onClose();
-          }}
-        />
-      )}
-      {showDeveloperControls && mode !== "offline" && (
-        <MenuItem
-          label="Force Offline"
-          onClick={() => {
-            setNetworkMode("offline");
-            onClose();
-          }}
-        />
-      )}
-      {mode !== "automatic" && (
-        <MenuItem
-          label="Use Automatic Network"
-          onClick={() => {
-            setNetworkMode("automatic");
-            onClose();
-          }}
-        />
-      )}
-    </>
+    <NetworkModeMenuItems
+      showManualModeControls={showDeveloperControls}
+      onClose={onClose}
+    />
   );
 }
 
