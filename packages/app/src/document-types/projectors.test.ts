@@ -16,6 +16,7 @@ import {
 import { readContactFieldsFromRecord } from "./contact/contactDocumentDefinition";
 import { readCreditCardFieldsFromRecord } from "./credit-card/creditCardDocumentDefinition";
 import { readDriverLicenseFieldsFromRecord } from "./drivers-license/driverLicenseDocumentDefinition";
+import { readPassportFieldsFromRecord } from "./passport/passportDocumentDefinition";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./projectors";
 
 function initializeStoredDocumentKind(
@@ -54,6 +55,12 @@ function readDriverLicenseDocument(doc: StructuredDocumentShape) {
 
 function readCreditCardDocument(doc: StructuredDocumentShape) {
   return readCreditCardFieldsFromRecord(
+    readStoredDocumentState(doc).structuredFields,
+  );
+}
+
+function readPassportDocument(doc: StructuredDocumentShape) {
+  return readPassportFieldsFromRecord(
     readStoredDocumentState(doc).structuredFields,
   );
 }
@@ -124,6 +131,32 @@ test("credit card fields are stored as first-class Loro state", async () => {
   expect(readStoredDocumentState(doc)).toMatchObject({
     documentKind: "credit_card",
     title: "Credit Card ending in 1234",
+  });
+});
+
+test("passport fields are stored as first-class Loro state", async () => {
+  const doc = await createDocument("passport-fields");
+
+  initializeStoredDocumentKind(doc, "passport");
+  writeStoredDocumentFields(doc, "passport", {
+    expirationDate: "2030-05-01",
+    fullName: "Ada Lovelace",
+    issuingCountry: "United States",
+    passportNumber: "P1234567",
+  });
+
+  expect(readPassportDocument(doc)).toEqual({
+    fields: {
+      expirationDate: "2030-05-01",
+      fullName: "Ada Lovelace",
+      issuingCountry: "United States",
+      passportNumber: "P1234567",
+    },
+    issues: [],
+  });
+  expect(readStoredDocumentState(doc)).toMatchObject({
+    documentKind: "passport",
+    title: "Passport P1234567",
   });
 });
 
@@ -431,6 +464,27 @@ test("expiration date validation reports malformed remote field values", async (
         field: "expirationDate",
         message: "Expected a card expiration month in YYYY-MM format.",
         value: "2030-13",
+      },
+    ],
+  });
+
+  const passport = await createDocument("invalid-passport");
+  writeStoredDocumentFields(passport, "passport", {
+    expirationDate: "2030-02-31",
+  });
+
+  expect(readPassportDocument(passport)).toEqual({
+    fields: {
+      expirationDate: "2030-02-31",
+      fullName: "",
+      issuingCountry: "",
+      passportNumber: "",
+    },
+    issues: [
+      {
+        field: "expirationDate",
+        message: "Expected a calendar date in YYYY-MM-DD format.",
+        value: "2030-02-31",
       },
     ],
   });

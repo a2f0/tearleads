@@ -439,9 +439,23 @@ export async function waitForPersistedPaneLocalIdentity(
   );
 }
 
-// The status pane renders a shared MiniAppInfoTable (bold label cell + value
-// cell), so flatten each row back to a "label: value" line for the text-based
-// assertions. Falls back to raw text content for any non-table pane content.
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  Events: "events",
+  ID: "id",
+  Network: "network",
+  "Peer User ID": "peerUserId",
+  "Public Key": "publicKey",
+  "SQLite Worker": "sqlite worker",
+  Session: "session",
+  "User ID": "userId",
+  "Web Socket": "webSocket",
+};
+
+function getStatusLabelKey(label: string): string {
+  return STATUS_LABEL_KEYS[label] ?? label;
+}
+
+// Flatten the rendered status table back to stable assertion keys.
 export function flattenPaneStatusText(paneContent: Element): string {
   const rows = paneContent.querySelectorAll(".mini-app-info-table tr");
   if (rows.length === 0) {
@@ -451,7 +465,7 @@ export function flattenPaneStatusText(paneContent: Element): string {
     .map((row) => {
       const label = row.querySelector("th")?.textContent?.trim() ?? "";
       const value = row.querySelector("td")?.textContent?.trim() ?? "";
-      return `${label}: ${value}`;
+      return `${getStatusLabelKey(label)}: ${value}`;
     })
     .join("\n");
 }

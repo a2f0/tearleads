@@ -90,7 +90,7 @@ test("switching workspaces shares one identity database instead of booting a sec
 
     await waitFor(() => {
       expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:?\s*ready/,
+        /sqlite worker:?\s*ready/i,
       );
     });
     expect(runtimeCreations).toBe(1);
@@ -110,7 +110,7 @@ test("switching workspaces shares one identity database instead of booting a sec
 
     await waitFor(() => {
       expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:?\s*ready/,
+        /sqlite worker:?\s*ready/i,
       );
     });
     expect(runtimeCreations).toBe(1);
@@ -120,7 +120,7 @@ test("switching workspaces shares one identity database instead of booting a sec
 
     await waitFor(() => {
       expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:?\s*ready/,
+        /sqlite worker:?\s*ready/i,
       );
     });
     expect(runtimeCreations).toBe(1);
@@ -160,7 +160,7 @@ test("the shared runtime persists the local identity under a stable namespace", 
 
     await waitFor(() => {
       expect(view.container.textContent ?? "").toMatch(
-        /sqlite worker:?\s*ready/,
+        /sqlite worker:?\s*ready/i,
       );
     });
 

@@ -101,12 +101,12 @@ test("launcher opens a window with Logs and Status tabs", async () => {
       /Generate a key pair from the pane menu to boot this pane\./,
     ),
   ).toBeTruthy();
-  expect(view.queryByText(/sqlite worker/)).toBeNull();
+  expect(view.queryByText(/SQLite Worker/i)).toBeNull();
 
   fireEvent.click(view.getByRole("tab", { name: "Status" }));
 
   await waitFor(() => {
-    expect(view.getByText(/sqlite worker/)).toBeTruthy();
+    expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
   });
 
   view.unmount();
@@ -130,7 +130,7 @@ test("tabs follow the roving-tabindex pattern and arrow keys switch tabs", async
     expect(statusTab.getAttribute("tabindex")).toBe("0");
     expect(logsTab.getAttribute("tabindex")).toBe("-1");
   });
-  expect(view.getByText(/sqlite worker/)).toBeTruthy();
+  expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
 
   // ArrowLeft wraps back to the first tab.
   fireEvent.keyDown(statusTab, { key: "ArrowLeft" });
@@ -161,7 +161,7 @@ test("routed system monitor launches from nav and tabs update the path", async (
         view.getByRole("tab", { name: "Status" }).getAttribute("aria-selected"),
       ).toBe("true");
     });
-    expect(view.getByText(/sqlite worker/)).toBeTruthy();
+    expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
 
     fireEvent.click(view.getByRole("tab", { name: "Logs" }));
 
@@ -183,7 +183,7 @@ test("routed home pins the monitor only after the System Monitor pin action", as
   const view = renderRoutedPane();
 
   try {
-    expect(view.queryByText(/sqlite worker/)).toBeNull();
+    expect(view.queryByText(/SQLite Worker/i)).toBeNull();
     expect(view.container.querySelector(".pane-log")).toBeNull();
     expect(
       view.queryByRole("button", { name: "Pin to Home Screen" }),
@@ -200,7 +200,7 @@ test("routed home pins the monitor only after the System Monitor pin action", as
       expect(
         view.getByRole("link", { name: "Home" }).getAttribute("aria-current"),
       ).toBe("page");
-      expect(view.getByText(/sqlite worker/)).toBeTruthy();
+      expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
       expect(view.container.querySelector(".pane-log")).not.toBeNull();
     });
     expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("pinned");
@@ -245,7 +245,7 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
     expect(view.container.querySelector(".window")).toBeNull();
     expect(view.container.querySelector(".pane-content")).not.toBeNull();
   });
-  expect(view.getByText(/sqlite worker/)).toBeTruthy();
+  expect(view.getByText(/SQLite Worker/i)).toBeTruthy();
   expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("pinned");
 
   view.unmount();

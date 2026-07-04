@@ -5,11 +5,13 @@ import { driverLicenseDocumentProjectorDefinition } from "../document-types/driv
 import { genericFileDocumentProjectorDefinition } from "../document-types/generic-file/genericFileDocumentDefinition";
 import { imageDocumentProjectorDefinition } from "../document-types/image/imageDocumentDefinition";
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
+import { passportDocumentProjectorDefinition } from "../document-types/passport/passportDocumentDefinition";
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
 import type { AppDocumentProjectorDefinition } from "../document-types/types";
 import { contactClientProjection } from "./contactClientProjection";
 import { creditCardClientProjection } from "./creditCardClientProjection";
 import { driverLicenseClientProjection } from "./driverLicenseClientProjection";
+import { passportClientProjection } from "./passportClientProjection";
 
 export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjectorDefinition> =
   [
@@ -25,6 +27,10 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
     {
       ...creditCardDocumentProjectorDefinition,
       clientProjection: creditCardClientProjection,
+    },
+    {
+      ...passportDocumentProjectorDefinition,
+      clientProjection: passportClientProjection,
     },
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,
