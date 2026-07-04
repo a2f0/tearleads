@@ -24,9 +24,9 @@ function getAttachmentCopy(params: {
 }
 
 export function StructuredDocument(params: {
-  attachmentCopy: StructuredDocumentAttachmentCopy;
-  attachments: ReactNode;
-  canAttach: boolean;
+  attachmentCopy?: StructuredDocumentAttachmentCopy | undefined;
+  attachments?: ReactNode;
+  canAttach?: boolean | undefined;
   fields: ReactNode;
   isAuthenticated: boolean;
   online: boolean;
@@ -37,7 +37,7 @@ export function StructuredDocument(params: {
   const {
     attachmentCopy,
     attachments,
-    canAttach,
+    canAttach = false,
     fields,
     isAuthenticated,
     online,
@@ -55,17 +55,19 @@ export function StructuredDocument(params: {
             {!ready ? "Loading..." : syncing ? "Syncing..." : "Ready"}
           </span>
         </div>
-        <span className="structured-document-status">
-          {getAttachmentCopy({
-            attachmentCopy,
-            canAttach,
-            isAuthenticated,
-            online,
-          })}
-        </span>
+        {attachmentCopy ? (
+          <span className="structured-document-status">
+            {getAttachmentCopy({
+              attachmentCopy,
+              canAttach,
+              isAuthenticated,
+              online,
+            })}
+          </span>
+        ) : null}
       </div>
       {fields}
-      {attachments}
+      {attachments ?? null}
     </div>
   );
 }

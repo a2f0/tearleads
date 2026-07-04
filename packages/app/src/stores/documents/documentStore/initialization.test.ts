@@ -124,3 +124,41 @@ test("document store seeds initial passport fields before first persistence", as
   });
   expect(persistence.getState().pendingUpdates).toHaveLength(1);
 });
+
+test("document store seeds initial env file fields before first persistence", async () => {
+  const persistence = createDocumentStorePersistence();
+  const runtime = createDocumentStoreRuntime();
+  const store = createDocumentStore(
+    "initial-env-file",
+    runtime,
+    persistence,
+    null,
+    "",
+    "env_file",
+  );
+
+  store.updateRuntime(runtime);
+
+  await waitForCondition(
+    () => store.getSnapshot().ready,
+    "Env file document store did not become ready.",
+  );
+
+  expect(store.getSnapshot()).toMatchObject({
+    documentKind: "env_file",
+    fieldValidationIssues: [],
+    ready: true,
+    structuredFields: {
+      fileName: "",
+      variablesJson: "[]",
+    },
+    text: "",
+    title: "Untitled .env file",
+  });
+  expect(persistence.getState().document).toMatchObject({
+    documentKind: "env_file",
+    text: "",
+    title: "Untitled .env file",
+  });
+  expect(persistence.getState().pendingUpdates).toHaveLength(1);
+});

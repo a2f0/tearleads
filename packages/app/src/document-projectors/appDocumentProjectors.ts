@@ -2,6 +2,7 @@ import { audioDocumentProjectorDefinition } from "../document-types/audio/audioD
 import { contactDocumentProjectorDefinition } from "../document-types/contact/contactDocumentDefinition";
 import { creditCardDocumentProjectorDefinition } from "../document-types/credit-card/creditCardDocumentDefinition";
 import { driverLicenseDocumentProjectorDefinition } from "../document-types/drivers-license/driverLicenseDocumentDefinition";
+import { envFileDocumentProjectorDefinition } from "../document-types/env-file/envFileDocumentDefinition";
 import { genericFileDocumentProjectorDefinition } from "../document-types/generic-file/genericFileDocumentDefinition";
 import { imageDocumentProjectorDefinition } from "../document-types/image/imageDocumentDefinition";
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
@@ -32,6 +33,7 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
       ...passportDocumentProjectorDefinition,
       clientProjection: passportClientProjection,
     },
+    envFileDocumentProjectorDefinition,
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,
     pdfDocumentProjectorDefinition,

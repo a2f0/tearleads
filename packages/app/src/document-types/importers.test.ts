@@ -18,6 +18,12 @@ function createFile(
   });
 }
 
+function readVariablesJson(
+  structuredFields: Readonly<{ variablesJson?: string }>,
+): string {
+  return structuredFields.variablesJson ?? "";
+}
+
 test("file importers classify by MIME type before extension", () => {
   expect(
     getDocumentFileImporter(
@@ -54,6 +60,9 @@ test("file importers classify by extension when MIME type is unavailable", () =>
     getDocumentFileImporter(createFile("contacts.csv", "x")).documentKind,
   ).toBe("note");
   expect(
+    getDocumentFileImporter(createFile(".env.local", "x")).documentKind,
+  ).toBe("env_file");
+  expect(
     getDocumentFileImporter(createFile("archive.bin", "x")).documentKind,
   ).toBe("generic_file");
 });
@@ -73,6 +82,49 @@ test("text files import as note text without attachments", async () => {
     initialText: "name,email\nAda,ada@example.test",
     structuredFields: {},
   });
+});
+
+test("env files import as key value documents before text MIME handling", async () => {
+  const file = createFile(
+    ".env.local",
+    [
+      "API_URL=https://api.example.test",
+      "export DEBUG=true",
+      "# ignored",
+      'QUOTED="hello world"',
+    ].join("\n"),
+    { type: "text/plain" },
+  );
+  const importer = getDocumentFileImporter(file);
+
+  const result = await importer.importFile(file);
+
+  expect(importer.maxByteLength).toBe(TEXT_FILE_IMPORT_MAX_BYTES);
+  expect(result).toMatchObject({
+    attachment: null,
+    documentKind: "env_file",
+    initialText: "",
+    structuredFields: {
+      fileName: ".env.local",
+    },
+  });
+  expect(JSON.parse(readVariablesJson(result.structuredFields))).toEqual([
+    {
+      id: "env-1-api_url",
+      key: "API_URL",
+      value: "https://api.example.test",
+    },
+    {
+      id: "env-2-debug",
+      key: "DEBUG",
+      value: "true",
+    },
+    {
+      id: "env-4-quoted",
+      key: "QUOTED",
+      value: "hello world",
+    },
+  ]);
 });
 
 test("binary file importers attach original bytes and stable metadata", async () => {

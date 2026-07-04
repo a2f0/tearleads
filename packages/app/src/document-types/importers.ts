@@ -3,6 +3,11 @@ import type {
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
+import {
+  ENV_FILE_DOCUMENT_KIND,
+  parseEnvFileText,
+  serializeEnvFileVariables,
+} from "./env-file/envFileDocumentDefinition";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
 import { APP_DEFAULT_DOCUMENT_KIND } from "./note/noteDocumentDefinition";
@@ -180,6 +185,22 @@ const noteFileImporter: DocumentFileImporter = {
   maxByteLength: TEXT_FILE_IMPORT_MAX_BYTES,
 };
 
+const envFileImporter: DocumentFileImporter = {
+  documentKind: ENV_FILE_DOCUMENT_KIND,
+  importFile: async (file) => ({
+    attachment: null,
+    documentKind: ENV_FILE_DOCUMENT_KIND,
+    initialText: "",
+    structuredFields: {
+      fileName: file.name,
+      variablesJson: serializeEnvFileVariables(
+        parseEnvFileText(await file.text()),
+      ),
+    },
+  }),
+  maxByteLength: TEXT_FILE_IMPORT_MAX_BYTES,
+};
+
 const imageFileImporter: DocumentFileImporter = {
   documentKind: IMAGE_DOCUMENT_KIND,
   importFile: async (file) => ({
@@ -273,7 +294,20 @@ function getImporterForExtension(
   return null;
 }
 
+function isEnvFileName(fileName: string): boolean {
+  const normalized = fileName.trim().toLowerCase();
+  return (
+    normalized === ".env" ||
+    normalized.startsWith(".env.") ||
+    normalized.endsWith(".env")
+  );
+}
+
 export function getDocumentFileImporter(file: File): DocumentFileImporter {
+  if (isEnvFileName(file.name)) {
+    return envFileImporter;
+  }
+
   const mimeImporter = getImporterForMimeType(normalizeMimeType(file.type));
   if (mimeImporter) {
     return mimeImporter;
