@@ -353,6 +353,22 @@ test("explorer sidebar renders configured Phosphor icons for containers", async 
   expect(collapsedRootIcon?.getAttribute("data-icon")).toBe("folder");
 });
 
+test("explorer sidebar renders document type icons for documents", async () => {
+  const documentQueries = createDocumentQueries(
+    createRowsByContainerId(createSidebarRows(1)),
+    [],
+  );
+  const view = render(
+    <ExplorerSidebarHarness documentQueries={documentQueries} />,
+  );
+
+  const documentButton = await view.findByRole("button", {
+    name: "Document 1",
+  });
+  const documentIcon = documentButton.querySelector(".explorer-document-icon");
+  expect(documentIcon?.getAttribute("data-icon")).toBe("note");
+});
+
 test("explorer sidebar ignores stale document windows during fast scrolling", async () => {
   const rows = createSidebarRows(90);
   const calls: WindowCall[] = [];
