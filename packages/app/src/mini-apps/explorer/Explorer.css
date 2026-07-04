@@ -140,7 +140,8 @@
   gap: var(--space-xs);
 }
 
-.explorer-folder-icon {
+.explorer-folder-icon,
+.explorer-document-icon {
   flex: 0 0 auto;
   opacity: var(--opacity-icon);
 }

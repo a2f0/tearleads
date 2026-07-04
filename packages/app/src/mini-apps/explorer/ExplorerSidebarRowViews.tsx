@@ -6,6 +6,7 @@ import {
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import { MiniAppVirtualBlockSpacer } from "../../components/shared/MiniAppVirtual";
+import { getDocumentTypeIcon } from "../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../stores/contacts/contactLabels";
 import {
   type ExplorerSidebarDocumentWindowState,
@@ -64,6 +65,7 @@ function ExplorerTreeDocumentRow(
     fallbackLabel: row.title,
     localId: row.localId,
   });
+  const DocumentGlyph = getDocumentTypeIcon(row.documentKind);
 
   return (
     <div
@@ -83,6 +85,14 @@ function ExplorerTreeDocumentRow(
           props.activeContainerId === row.containerId
         }
       >
+        <DocumentGlyph
+          aria-hidden="true"
+          className="explorer-document-icon"
+          data-icon={row.documentKind}
+          focusable="false"
+          size={16}
+          weight="regular"
+        />
         <MiniAppRowText>{title}</MiniAppRowText>
       </MiniAppRowButton>
     </div>
