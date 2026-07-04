@@ -67,7 +67,7 @@ export function resolveProjectionVerifier(
       label,
     );
   }
-  if (input.trustedLocalProjection) {
+  if (input.trustedLocalProjection === true) {
     return null;
   }
 
@@ -82,7 +82,7 @@ export function projectionVerificationOptions(
   if (input.resolveProjectionUserKey) {
     return { resolveProjectionUserKey: input.resolveProjectionUserKey };
   }
-  if (input.trustedLocalProjection) {
+  if (input.trustedLocalProjection === true) {
     return { trustedLocalProjection: true };
   }
 
