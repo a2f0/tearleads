@@ -3,7 +3,7 @@ import {
   type OrganizationBillingView,
   resolveOrganizationBillingView,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 
@@ -30,24 +30,37 @@ export function useOrganizationBilling(
   const [billing, setBilling] = useState<OrganizationBilling | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Monotonic request token: only the latest in-flight fetch may commit state,
+  // so an older response resolving late cannot clobber newer billing data.
+  const requestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     if (!organizationId) {
       setBilling(null);
+      setLoading(false);
+      setError(null);
       return;
     }
     setLoading(true);
     setError(null);
     try {
       const next = await tearleads.organizations.loadBilling();
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       setBilling(next);
       if (!next) {
         setError(ORG_MANAGER_LABELS.failedLoadBilling);
       }
     } catch {
-      setError(ORG_MANAGER_LABELS.failedLoadBilling);
+      if (requestId === requestIdRef.current) {
+        setError(ORG_MANAGER_LABELS.failedLoadBilling);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [organizationId, tearleads]);
 
@@ -71,11 +84,12 @@ export function useOrganizationBilling(
     }
   }, [tearleads]);
 
-  const view = useMemo<OrganizationBillingView | null>(
-    () =>
-      billing ? resolveOrganizationBillingView(billing, Date.now()) : null,
-    [billing],
-  );
+  // Derived per render (not memoized) so `Date.now()` stays fresh — the trial
+  // countdown and sync gating must reflect the current time, and
+  // `resolveOrganizationBillingView` is cheap enough to recompute each render.
+  const view: OrganizationBillingView | null = billing
+    ? resolveOrganizationBillingView(billing, Date.now())
+    : null;
 
   return { billing, view, loading, error, refresh, startTrial };
 }
