@@ -135,6 +135,25 @@ export function BillingProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { organizationId } = useCryptoSession();
   const value = useOrganizationBillingState(tearleads, organizationId);
+  const { refresh } = value;
+
+  // When a sync write is rejected for payment (HTTP 402), refetch billing so the
+  // banner flips to the sync-paused state without waiting for a remount. Ignore
+  // blocks for a different org than the active one; an unknown org (null) still
+  // refetches, since the active org is the usual sync target.
+  useEffect(
+    () =>
+      tearleads.syncBillingGate.subscribe((blockedOrganizationId) => {
+        if (
+          blockedOrganizationId === null ||
+          blockedOrganizationId === organizationId
+        ) {
+          void refresh();
+        }
+      }),
+    [organizationId, refresh, tearleads],
+  );
+
   return (
     <OrganizationBillingContext.Provider value={value}>
       {children}

@@ -199,6 +199,10 @@ export type {
   UserSession,
 } from "./session";
 export {
+  SyncBillingGate,
+  type SyncBillingGateListener,
+} from "./syncBillingGate";
+export {
   type ClientDatabaseOptions,
   type ClientOptions,
   Tearleads,

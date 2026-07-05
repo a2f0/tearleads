@@ -493,3 +493,49 @@ test("errorMessage extracts a message across realms and falls back", () => {
   expect(errorMessage("plain string")).toBe("plain string");
   expect(errorMessage(null)).toBe("null");
 });
+
+testApiClient(
+  "invokes the payment-required handler with the org id on a 402",
+  async () => {
+    server.use(
+      http.get(`${apiBaseUrl}/auth/encapsulation-key/:userId`, () =>
+        HttpResponse.json(
+          { error: "Organization cannot sync", organizationId: "org-42" },
+          { status: 402, statusText: "Payment Required" },
+        ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const blockedOrgs: (string | null)[] = [];
+    client.setOnPaymentRequired((organizationId) => {
+      blockedOrgs.push(organizationId);
+    });
+
+    await expect(client.getEncapsulationKey("user-1")).resolves.toBeNull();
+    expect(blockedOrgs).toEqual(["org-42"]);
+  },
+);
+
+testApiClient(
+  "passes a null org id when the 402 body omits organizationId",
+  async () => {
+    server.use(
+      http.get(`${apiBaseUrl}/auth/encapsulation-key/:userId`, () =>
+        HttpResponse.json(
+          { error: "Payment required" },
+          { status: 402, statusText: "Payment Required" },
+        ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const blockedOrgs: (string | null)[] = [];
+    client.setOnPaymentRequired((organizationId) => {
+      blockedOrgs.push(organizationId);
+    });
+
+    await client.getEncapsulationKey("user-1");
+    expect(blockedOrgs).toEqual([null]);
+  },
+);

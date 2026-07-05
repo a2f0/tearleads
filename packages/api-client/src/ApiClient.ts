@@ -133,6 +133,7 @@ const BLOB_PART_SHA256_HEADER = "X-Tearleads-Blob-Part-Sha256";
 const BLOB_PART_UPLOAD_ID_HEADER = "X-Tearleads-Blob-Upload-Id";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
+type PaymentRequiredHandler = (organizationId: string | null) => void;
 
 function isWebSocketTicketResponse(
   value: unknown,
@@ -147,6 +148,7 @@ export class ApiClient {
   private onNetworkError: (() => void) | null = null;
   private onNetworkSuccess: (() => void) | null = null;
   private onSessionExpired: ExpiredHandler | null = null;
+  private onPaymentRequired: PaymentRequiredHandler | null = null;
   private readonly containerDocumentListRequestsByKey = new Map<
     string,
     Promise<ListContainerDocumentsResponse | null>
@@ -448,6 +450,13 @@ export class ApiClient {
     readonly response: Response;
   }): RequestFailure {
     const reportErrors = input.options.reportErrors ?? true;
+    if (input.response.status === 402) {
+      // A sync write was rejected because its target org cannot sync; surface
+      // the billing block so the app can prompt the user (org id from the body).
+      this.onPaymentRequired?.(
+        input.errorDescription.paymentRequiredOrganizationId ?? null,
+      );
+    }
     return this.requestFailure({
       kind: "http",
       message: `${input.method} ${input.path}: ${input.response.status} ${input.response.statusText}${input.errorDescription.detail}`,
@@ -585,6 +594,10 @@ export class ApiClient {
 
   setOnSessionExpired(handler: ExpiredHandler | null): void {
     this.onSessionExpired = handler;
+  }
+
+  setOnPaymentRequired(handler: PaymentRequiredHandler | null): void {
+    this.onPaymentRequired = handler;
   }
 
   setAuthToken(token: string | null): void {

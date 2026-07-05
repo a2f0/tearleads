@@ -4,7 +4,10 @@ import type {
   PrincipalPolicyBundleResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
-import { isPrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
+import {
+  isPaymentRequiredErrorResponse,
+  isPrincipalPolicyStaleErrorResponse,
+} from "@tearleads/validators/response";
 import type {
   ListContainerDocumentsOptions,
   ListContainersOptions,
@@ -62,6 +65,8 @@ export interface ErrorResponseDescription {
   readonly detail: string;
   readonly error: string | null;
   readonly stalePrincipalPolicies?: PrincipalPolicyBundleResponse[] | undefined;
+  /** Set on a 402 body — the organization whose billing blocked the sync write. */
+  readonly paymentRequiredOrganizationId?: string | undefined;
 }
 
 export function bindPrototypeMethods(
@@ -236,6 +241,11 @@ export async function describeErrorResponse(
         // failed write repairable; preserve them on the typed failure object.
         ...(isPrincipalPolicyStaleErrorResponse(parsed)
           ? { stalePrincipalPolicies: parsed.principalPolicies }
+          : {}),
+        // Sync-write 402s carry the target org so the client can surface a
+        // billing prompt; preserve it for the payment-required handler.
+        ...(isPaymentRequiredErrorResponse(parsed)
+          ? { paymentRequiredOrganizationId: parsed.organizationId }
           : {}),
       };
     }

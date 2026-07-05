@@ -146,9 +146,11 @@ export {
   isOrganizationBillingProvider,
   isOrganizationBillingResponse,
   isOrganizationBillingStatus,
+  isPaymentRequiredErrorResponse,
   type OrganizationBillingProvider,
   type OrganizationBillingResponse,
   type OrganizationBillingStatus,
+  type PaymentRequiredErrorResponse,
 } from "./organizationBilling";
 export {
   type CreateOrganizationResponse,
