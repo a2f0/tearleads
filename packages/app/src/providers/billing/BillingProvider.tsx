@@ -159,11 +159,14 @@ export function BillingProvider({ children }: PropsWithChildren) {
   // rejected 402 write leaves its sync lane idle with no auto-resume, so
   // re-drive every lane to flush the stranded writes, then reset the gate so a
   // later lapse re-signals instead of being coalesced against the stale value.
-  const canSync = billing
-    ? resolveOrganizationBillingView(billing, Date.now()).canSync
-    : false;
+  // Keyed on `billing` (not a derived `canSync`) so any refetch that shows the
+  // org syncable clears a stale block, even when `canSync` never toggled — e.g.
+  // a transient 402 whose refetch still reports the org as active.
   useEffect(() => {
-    if (!canSync) {
+    const view = billing
+      ? resolveOrganizationBillingView(billing, Date.now())
+      : null;
+    if (!view?.canSync) {
       return;
     }
     const gate = tearleads.syncBillingGate;
@@ -171,7 +174,7 @@ export function BillingProvider({ children }: PropsWithChildren) {
       requestAllDomainSyncLanes(tearleads.domainScope);
     }
     gate.clearBlock();
-  }, [canSync, tearleads]);
+  }, [billing, tearleads]);
 
   return (
     <OrganizationBillingContext.Provider value={value}>
