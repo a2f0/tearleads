@@ -19,6 +19,7 @@ import {
  * database label is only a coarse placeholder.
  */
 const ADDITIONAL_ORGANIZATION_OPTIONS: ProvisionOrganizationOptions = {
+  initialBilling: "local",
   organizationName: "Organization",
 };
 

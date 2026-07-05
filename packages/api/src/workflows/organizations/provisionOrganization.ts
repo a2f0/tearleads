@@ -30,7 +30,6 @@ import { storeVerifiedAccessManifestInTransaction } from "../../access/write/acc
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
-import { createLocalBillingFields } from "../../billing/organizationBilling";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
@@ -54,6 +53,10 @@ import {
   DocumentMutationError,
 } from "../documents/mutations";
 import { toPrincipalPolicyError } from "../principals/shared";
+import {
+  createInitialOrganizationBillingFields,
+  type InitialOrganizationBilling,
+} from "./initialBilling";
 import { syncOrganizationRosterFromMemberReachability } from "./roster";
 
 const ADMIN_GROUP_NAME = "Admins";
@@ -118,16 +121,6 @@ async function createOrganizationRow(
     throw new Error("Failed to create organization");
   }
   return org;
-}
-
-async function createOrganizationLocalBilling(
-  tx: DatabaseTransaction,
-  organizationId: string,
-) {
-  await tx.insert(organizationBilling).values({
-    organizationId,
-    ...createLocalBillingFields(),
-  });
 }
 
 async function createRootContainer(
@@ -1097,6 +1090,7 @@ async function createInitialOrganizationProfileDocument(
 }
 
 export interface ProvisionOrganizationOptions {
+  readonly initialBilling: InitialOrganizationBilling;
   /**
    * Server-side plaintext organization label. The real display name lives in
    * the encrypted organization profile document; this is only a coarse label.
@@ -1163,7 +1157,7 @@ export function validateOrganizationProvisioningInput(
 
 /**
  * Bootstraps a fresh organization from the client-signed provisioning
- * artifacts, inside the caller's transaction: the organization row + local
+ * artifacts, inside the caller's transaction: the organization row + initial
  * billing, the root container and its verified access manifest/KEK state, the
  * admin/member group policies, the initial roster, builtin grants, and the
  * optional roster/organization profile documents. The founding admin
@@ -1183,7 +1177,10 @@ export async function provisionOrganizationInTransaction(
     organizationId: input.organizationId,
     name: options.organizationName,
   });
-  await createOrganizationLocalBilling(tx, org.id);
+  await tx.insert(organizationBilling).values({
+    organizationId: org.id,
+    ...createInitialOrganizationBillingFields(options.initialBilling),
+  });
   const container = await createRootContainer(
     tx,
     input.rootContainerId,

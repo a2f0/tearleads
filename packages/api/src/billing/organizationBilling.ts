@@ -18,10 +18,8 @@ export interface OrganizationBilling {
 }
 
 /**
- * Billing fields for a freshly provisioned organization. Every organization —
- * including the personal one created at registration — starts `local`: free and
- * on-device only, no server sync, no trial consumed. A trial only begins when the
- * owner opts into sync (see {@link createTrialBillingFields}).
+ * Billing fields for an organization that should remain local-only: free,
+ * on-device only, no server sync, and no trial consumed.
  */
 export function createLocalBillingFields(): {
   readonly status: OrganizationBillingStatus;

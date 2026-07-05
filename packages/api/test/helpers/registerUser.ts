@@ -3,7 +3,6 @@ import { toFingerprint } from "@tearleads/crypto";
 import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { submitRegistration } from "./api";
-import { enableTestOrganizationSync } from "./organizationBilling";
 
 export async function registerUser(user: TestUser): Promise<string> {
   user.fingerprint = await toFingerprint(user.signing.signingPublicKey);
@@ -21,6 +20,5 @@ export async function registerUser(user: TestUser): Promise<string> {
   invariant(isRegistrationResponse(body), "expected register response");
   user.userId = body.userId;
   user.rootContainerId = body.rootContainerId;
-  await enableTestOrganizationSync(body.organizationId);
   return body.challenge;
 }
