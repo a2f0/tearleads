@@ -1,7 +1,6 @@
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
 import { registerUser } from "../../src/services/auth/registration";
-import { enableTestOrganizationSync } from "./organizationBilling";
 import {
   createRegistrationRequest,
   createServiceTestRuntime,
@@ -15,7 +14,6 @@ export async function registerServiceUser() {
     await createRegistrationRequest(user),
   );
   const fingerprint = await toFingerprint(user.signing.signingPublicKey);
-  await enableTestOrganizationSync(registration.organizationId);
 
   return { fingerprint, registration, user };
 }

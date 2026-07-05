@@ -75,6 +75,7 @@ export async function runRegistrationWorkflow(
   try {
     const provisioned = await db.transaction((tx) =>
       provisionOrganizationInTransaction(tx, input, signer, {
+        initialBilling: "trial",
         organizationName: PERSONAL_ORGANIZATION_NAME,
         onOrganizationRootCreated: async (organizationId) => {
           await createRegisteredUser(tx, {
