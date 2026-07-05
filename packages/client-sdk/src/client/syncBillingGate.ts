@@ -22,12 +22,31 @@ export class SyncBillingGate {
     return this.blockedOrganizationIdValue ?? null;
   }
 
+  /**
+   * Whether a block is currently in effect — true even when the block carries an
+   * unknown/omitted org (`null`), which `blockedOrganizationId` cannot distinguish
+   * from the never-signalled state.
+   */
+  get isBlocked(): boolean {
+    return this.blockedOrganizationIdValue !== undefined;
+  }
+
   notifyPaymentRequired(organizationId: string | null): void {
     if (this.blockedOrganizationIdValue === organizationId) {
       return;
     }
     this.blockedOrganizationIdValue = organizationId;
     this.notifyListeners();
+  }
+
+  /**
+   * Reset the gate after billing recovers (the org can sync again), so a later
+   * block re-signals instead of being coalesced against the stale value. Does
+   * not notify subscribers: recovery is already reflected by the billing
+   * refetch that observed it, and notifying would trigger a redundant refetch.
+   */
+  clearBlock(): void {
+    this.blockedOrganizationIdValue = undefined;
   }
 
   private notifyListeners(): void {
