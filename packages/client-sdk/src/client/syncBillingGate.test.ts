@@ -17,6 +17,19 @@ test("notifies subscribers with the blocked org on the first 402", () => {
   expect(gate.blockedOrganizationId).toBe("org-1");
 });
 
+test("notifies on a first block with an unknown (null) org id", () => {
+  const gate = new SyncBillingGate();
+  const seen: (string | null)[] = [];
+  gate.subscribe((organizationId) => seen.push(organizationId));
+
+  // A 402 whose body omits the org id notifies with null; the fresh gate must
+  // not coalesce this against its initial state.
+  gate.notifyPaymentRequired(null);
+
+  expect(seen).toEqual([null]);
+  expect(gate.blockedOrganizationId).toBe(null);
+});
+
 test("coalesces repeated 402s for the same org into a single notify", () => {
   const gate = new SyncBillingGate();
   const seen: (string | null)[] = [];

@@ -13,10 +13,13 @@ export type SyncBillingGateListener = (organizationId: string | null) => void;
  */
 export class SyncBillingGate {
   private readonly listeners = new Set<SyncBillingGateListener>();
-  private blockedOrganizationIdValue: string | null = null;
+  // `undefined` is the "never signalled" sentinel, distinct from a `null` org
+  // id (a 402 whose body omitted the org) — so the first `null` notification is
+  // still a change and reaches subscribers instead of being coalesced away.
+  private blockedOrganizationIdValue: string | null | undefined;
 
   get blockedOrganizationId(): string | null {
-    return this.blockedOrganizationIdValue;
+    return this.blockedOrganizationIdValue ?? null;
   }
 
   notifyPaymentRequired(organizationId: string | null): void {
@@ -28,7 +31,7 @@ export class SyncBillingGate {
   }
 
   private notifyListeners(): void {
-    const organizationId = this.blockedOrganizationIdValue;
+    const organizationId = this.blockedOrganizationIdValue ?? null;
     for (const listener of this.listeners) {
       try {
         listener(organizationId);
