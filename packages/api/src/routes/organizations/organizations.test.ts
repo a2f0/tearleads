@@ -39,6 +39,7 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
@@ -859,6 +860,26 @@ test("org manager routes allow organization members to read but reserve mutation
     },
   );
   expect(organizationProfileResponse.status).toBe(403);
+});
+
+test("org manager routes require sync-enabled organization billing", async () => {
+  const actor = createTestUser();
+  const organizationId = await registerAndAuthenticate(actor);
+  await setTestOrganizationBillingLocal(organizationId);
+
+  const response = await routeApp.request(
+    `/organizations/${organizationId}/directory`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${actor.token}` },
+    },
+  );
+
+  expect(response.status).toBe(402);
+  expect(await response.json()).toEqual({
+    error: "Organization sync is not active",
+    organizationId,
+  });
 });
 
 test("org manager routes let admins create empty externally-administered groups", async () => {

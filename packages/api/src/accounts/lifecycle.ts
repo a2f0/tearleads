@@ -26,10 +26,6 @@ export function createTrialAccountFields(now: Date = new Date()): {
   };
 }
 
-export function accountCanUsePaidFeatures(status: AccountStatus): boolean {
-  return status === "active" || status === "trialing";
-}
-
 export function serializeAccountLifecycle(
   account: AccountLifecycle,
 ): AccountLifecycleResponse {

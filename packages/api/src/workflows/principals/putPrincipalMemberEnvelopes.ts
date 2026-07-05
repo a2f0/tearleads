@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import { isUserReachableThroughCurrentGroup } from "../organizations/access";
+import { assertPrincipalOrganizationCanSync } from "./organizationSync";
 import {
   PrincipalPolicyError,
   toCurrentPrincipalMemberEnvelopesResponse,
@@ -146,6 +147,11 @@ export async function runPutPrincipalMemberEnvelopesWorkflow(
     // unconditionally replaces every existing envelope, so an unauthorized
     // caller reaching it would already be able to destroy key material.
     await assertRequesterMayWritePrincipalEnvelopes(input, tx);
+    await assertPrincipalOrganizationCanSync(
+      tx,
+      input.principalType,
+      input.principalId,
+    );
 
     try {
       const storedEnvelopes =

@@ -5,6 +5,7 @@ import type {
 import { organizations } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
@@ -58,6 +59,7 @@ export async function runListOrganizationDirectoryWorkflow(
       organizationId,
       userId: sessionUserId,
     });
+    await assertOrganizationCanSync(tx, organizationId);
     const organization = await loadMemberGroupId({
       executor: tx,
       organizationId,

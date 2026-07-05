@@ -7,6 +7,7 @@ import {
   containerMetadataDocuments,
   containers,
   groups,
+  organizationBilling,
   organizationRosterEntries,
   organizations,
   users,
@@ -32,6 +33,7 @@ import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
 import { createTrialAccountFields } from "../../accounts/lifecycle";
+import { createLocalBillingFields } from "../../billing/organizationBilling";
 import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
@@ -104,6 +106,16 @@ async function createPersonalOrganization(
     throw new Error("Failed to create organization");
   }
   return org;
+}
+
+async function createOrganizationLocalBilling(
+  tx: DatabaseTransaction,
+  organizationId: string,
+) {
+  await tx.insert(organizationBilling).values({
+    organizationId,
+    ...createLocalBillingFields(),
+  });
 }
 
 async function createRootContainer(
@@ -1082,6 +1094,7 @@ async function runRegistrationTransaction(
       memberGroupId: input.initialMemberGroup.groupId,
       organizationId: input.organizationId,
     });
+    await createOrganizationLocalBilling(tx, org.id);
     const container = await createRootContainer(
       tx,
       input.rootContainerId,

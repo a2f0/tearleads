@@ -8,6 +8,7 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import {
   asContainerWriterProjectionError,
   buildContainerAccessProjection,
@@ -111,10 +112,21 @@ export async function resolveContainerAccessProjection(input: {
   const context =
     input.context ?? createContainerWriterProjectionContext(input.executor);
 
-  return resolveSingleContainerAccessProjection({
+  const projection = await resolveSingleContainerAccessProjection({
     ...input,
     context,
   });
+  // Single-container access resolution is the shared choke point for sync reads
+  // and for writes that authorize against an existing container (document sync,
+  // container delete, document purge, blob attachment). Gate the owning
+  // organization's sync billing here. (List/pull uses the batch resolver, which
+  // filters non-syncable organizations separately; the manifest-verified
+  // create paths gate at their own workflow boundary.)
+  const organizationId = projection.verifiedPath.at(-1)?.state.organizationId;
+  if (organizationId !== undefined) {
+    await assertOrganizationCanSync(input.executor, organizationId);
+  }
+  return projection;
 }
 
 export async function resolveContainerAccessProjectionBatch(input: {

@@ -4,8 +4,10 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import type { DocumentLinkSetMutationResponse } from "@tearleads/validators/response";
+import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
+import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { toMutationError } from "./errors";
 import {
@@ -113,16 +115,22 @@ export async function runDocumentLinkSetMutationWorkflow(
   input: MutateDocumentLinkSetInput,
 ): Promise<DocumentLinkSetMutationResponse> {
   try {
-    return await db.transaction((tx) =>
-      mutateDocumentLinkSetWithExecutor({
+    return await db.transaction(async (tx) => {
+      const result = await mutateDocumentLinkSetWithExecutor({
         documentId: input.documentId,
         eventType: input.eventType,
         executor: tx,
         fingerprint: input.fingerprint,
         request: input.request,
         userId: input.userId,
-      }),
-    );
+      });
+      const { organizationId } = await resolveCurrentDocumentKekTargets(
+        input.documentId,
+        tx,
+      );
+      await assertOrganizationCanSync(tx, organizationId);
+      return result;
+    });
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {

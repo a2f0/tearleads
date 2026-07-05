@@ -93,6 +93,7 @@ const testProcessState = getOrCreateTestProcessState();
 
 interface TestApiApp {
   fetch: (request: Request) => Promise<Response>;
+  enableOrganizationSync: (organizationId: string) => Promise<void>;
 }
 
 function randomHex(bytes: number): string {
@@ -674,6 +675,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
         createRouteApp,
         createSessionTokenIssuer,
         db,
+        enableTestOrganizationSync,
       },
     ] = await Promise.all([
       import(apiPostgresAdapterModuleUrl),
@@ -713,6 +715,11 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     }
     if (!db) {
       throw new Error("API app test runtime module missing db export.");
+    }
+    if (typeof enableTestOrganizationSync !== "function") {
+      throw new Error(
+        "API app test runtime module missing enableTestOrganizationSync export.",
+      );
     }
 
     await initializeApiDatabase();
@@ -761,6 +768,8 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     });
 
     return {
+      enableOrganizationSync: (organizationId: string) =>
+        enableTestOrganizationSync(organizationId),
       fetch: (request: Request) => routeApp.fetch(request),
     };
   })();
@@ -920,6 +929,21 @@ function toHeadersObject(headers: Headers): Record<string, string> {
   return Object.fromEntries(headers as unknown as Iterable<[string, string]>);
 }
 
+function extractRegisteredOrganizationId(responseBody: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(responseBody);
+    if (isRecord(parsed)) {
+      const organizationId = Reflect.get(parsed, "organizationId");
+      if (isNonEmptyString(organizationId)) {
+        return organizationId;
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 async function proxyRequestToApiApp(
   request: Request,
   options: TestApiAppHandlerOptions = {},
@@ -948,6 +972,20 @@ async function proxyRequestToApiApp(
     }
 
     const responseBody = await response.text();
+    // Registration provisions the new personal organization with `local`
+    // billing, which the per-organization sync gate blocks. Enable sync for it
+    // so app integration tests exercise the post-onboarding synced state, the
+    // same default the api package's registration helpers apply.
+    if (
+      request.method === "POST" &&
+      new URL(request.url).pathname === "/auth/register" &&
+      response.status === 200
+    ) {
+      const organizationId = extractRegisteredOrganizationId(responseBody);
+      if (organizationId) {
+        await apiApp.enableOrganizationSync(organizationId);
+      }
+    }
     proxiedApiRequests.push({
       authorization: request.headers.get("authorization"),
       method: request.method,

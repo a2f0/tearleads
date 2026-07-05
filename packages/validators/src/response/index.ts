@@ -149,6 +149,14 @@ export {
   type OrganizationUserDetailResponse,
 } from "./organization";
 export {
+  isOrganizationBillingProvider,
+  isOrganizationBillingResponse,
+  isOrganizationBillingStatus,
+  type OrganizationBillingProvider,
+  type OrganizationBillingResponse,
+  type OrganizationBillingStatus,
+} from "./organizationBilling";
+export {
   type CurrentPrincipalMemberEnvelopesResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,

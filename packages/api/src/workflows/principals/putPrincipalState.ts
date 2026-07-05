@@ -17,6 +17,7 @@ import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
 import { persistPrincipalPolicyAccessLossTombstones } from "./accessLossTombstones";
+import { assertPrincipalOrganizationCanSync } from "./organizationSync";
 import {
   PrincipalPolicyError,
   toPrincipalStateError,
@@ -224,6 +225,13 @@ export async function runPutPrincipalStateWorkflow(
           authorizeExternalAdminSigner: (authorization) =>
             isOrgAdminAuthorizedPrincipalPolicySigner(tx, input, authorization),
         },
+      );
+      // Gate after authorization so an unauthorized signer still gets the
+      // authorization error, not a billing error.
+      await assertPrincipalOrganizationCanSync(
+        tx,
+        input.state.principalType,
+        input.state.principalId,
       );
       await persistPrincipalPolicyAccessLossTombstones({
         currentState: nextState,

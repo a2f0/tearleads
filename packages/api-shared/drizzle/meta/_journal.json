@@ -50,6 +50,13 @@
       "when": 1782927152979,
       "tag": "0006_tranquil_zuras",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783199294310,
+      "tag": "0007_tranquil_black_crow",
+      "breakpoints": true
     }
   ]
 }

@@ -38,7 +38,11 @@ export {
 export { groups } from "./groups";
 export { keyPackageBackups } from "./keyPackageBackups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
-export { organizationRosterEntries, organizations } from "./organizations";
+export {
+  organizationBilling,
+  organizationRosterEntries,
+  organizations,
+} from "./organizations";
 export {
   principalEpochKeys,
   principalMemberEnvelopes,
@@ -51,6 +55,8 @@ export type {
   BlobAuditRetentionMode,
   ContainerSyncTombstoneReason,
   DocumentAttachmentAuditAction,
+  OrganizationBillingProvider,
+  OrganizationBillingStatus,
   OrganizationRosterStatus,
 } from "./shared";
 export { users } from "./users";

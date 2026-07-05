@@ -96,6 +96,19 @@ export const subsystems: readonly Subsystem[] = [
     ],
   },
   {
+    name: "Billing",
+    package: "api",
+    responsibility:
+      "Per-organization billing lifecycle (local/trial/active), the free-sync trial, and the sync-eligibility gate that fronts server sync.",
+    seam: "routes/billing via createBillingRouter; services/billing facade",
+    paths: [
+      `${api}/billing/`,
+      `${api}/routes/billing/`,
+      `${api}/services/billing/`,
+      `${api}/workflows/billing/`,
+    ],
+  },
+  {
     name: "Principals",
     package: "api",
     responsibility:
@@ -123,13 +136,12 @@ export const subsystems: readonly Subsystem[] = [
     name: "Accounts",
     package: "api",
     responsibility:
-      "Account lifecycle and paid-account tier gating used to authorize billed routes.",
-    seam: "services/accounts facade; requirePaidAccount middleware",
+      "Account lifecycle state and account remote-data retention/purge workflows.",
+    seam: "services/accounts facade",
     paths: [
       `${api}/services/accounts/`,
       `${api}/workflows/accounts/`,
       `${api}/accounts/`,
-      `${api}/middleware/account.ts`,
     ],
   },
   {

@@ -11,4 +11,13 @@ export type DocumentAttachmentAuditAction =
   | "replace"
   | "detach"
   | "rewrap";
+export type OrganizationBillingProvider = "revenuecat";
+export type OrganizationBillingStatus =
+  | "local"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "disabled"
+  | "deleting"
+  | "purged";
 export type OrganizationRosterStatus = "active" | "disabled";
