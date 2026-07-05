@@ -158,6 +158,8 @@
       "name": "app-web",
       "version": "0.1.0",
       "dependencies": {
+        "@revenuecat/purchases-js": "1.47.0",
+        "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
         "react-dom": "catalog:react",
@@ -847,6 +849,8 @@
     "@redis/time-series": ["@redis/time-series@5.11.0", "", { "peerDependencies": { "@redis/client": "^5.11.0" } }, "sha512-TWFeOcU4xkj0DkndnOyhtxvX1KWD+78UHT3XX3x3XRBUGWeQrKo3jqzDsZwxbggUgf9yLJr/akFHXru66X5UQA=="],
 
     "@revenuecat/purchases-capacitor": ["@revenuecat/purchases-capacitor@13.2.1", "", { "dependencies": { "@revenuecat/purchases-typescript-internal-esm": "18.18.0" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-NruMHWdDjt4lxteHumHU0h+H1v33/5esl6BQeb3Gd20dLyrvwCltnwNWh4eNymdBjfV5IwYmBJ7o8jPOBljTrA=="],
+
+    "@revenuecat/purchases-js": ["@revenuecat/purchases-js@1.47.0", "", {}, "sha512-bytRHMnz4LKSeZLNE4crLo6FjbS2f80iJO+P4ZJ6U+qMJNMtWTkURVufCM3tHszVizhLtW8JYe8TdbLNADhiEQ=="],
 
     "@revenuecat/purchases-typescript-internal-esm": ["@revenuecat/purchases-typescript-internal-esm@18.18.0", "", {}, "sha512-MmjlKtFESIMpb3TGt2xGyQKVBwIII3GQ5jA5Zh3AAF5oSebQ4DR84ds2y4YMV8TsoCgCZvHP4wJN+oHp3I09Iw=="],
 

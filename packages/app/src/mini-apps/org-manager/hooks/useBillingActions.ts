@@ -62,22 +62,26 @@ export function useBillingActions({
       return;
     }
     let cancelled = false;
-    void purchases
-      .listSyncOptions()
-      .then((next) => {
+    void (async () => {
+      try {
+        if (userId === null) {
+          return;
+        }
+        await purchases.identify({ userId });
+        const next = await purchases.listSyncOptions();
         if (!cancelled) {
           setOptions(next);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setOptions([]);
         }
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [canSubscribe, purchases]);
+  }, [canSubscribe, purchases, userId]);
 
   const startTrial = useCallback(() => {
     setBusy("trial");

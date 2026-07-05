@@ -17,6 +17,8 @@
     "test": "bun test scripts --max-concurrency=1"
   },
   "dependencies": {
+    "@revenuecat/purchases-js": "1.47.0",
+    "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
     "react-dom": "catalog:react"

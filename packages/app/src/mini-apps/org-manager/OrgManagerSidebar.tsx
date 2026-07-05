@@ -52,9 +52,7 @@ function OrgManagerSwitcherSection({
       ))}
       <MiniAppRowButton
         disabled={switcher.creating}
-        onClick={() => {
-          void switcher.createOrganization();
-        }}
+        onClick={switcher.openCreateOrganizationDialog}
       >
         <MiniAppRowText>
           {switcher.creating

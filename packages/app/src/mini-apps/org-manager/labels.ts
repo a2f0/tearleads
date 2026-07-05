@@ -19,8 +19,7 @@ export const ORG_MANAGER_LABELS = {
   billingLocal: "Local only",
   billingNoOptions: "No subscription options are available right now.",
   billingPastDue: "Payment past due",
-  billingPurchaseUnavailable:
-    "Purchases aren't available on this platform. Use the mobile app to subscribe.",
+  billingPurchaseUnavailable: "Purchases aren't available right now.",
   billingPurged: "Remote data purged",
   billingRestore: "Restore purchases",
   billingRestoring: "Restoring...",
@@ -66,6 +65,7 @@ export const ORG_MANAGER_LABELS = {
   failedLoadGroupMembers: "Failed to load group members.",
   failedLoadUserDetail: "Failed to load user detail.",
   failedCreateProfileDocument: "Failed to create profile document.",
+  failedCreateOrganization: "Failed to create organization.",
   failedUpdateRosterEntry: "Failed to update roster entry.",
   firstName: "First name",
   grants: "Grants",
