@@ -125,6 +125,41 @@ test("startTrial stores the returned billing and reports success", async () => {
   expect(result.current.error).toBe(null);
 });
 
+test("ignores a startTrial result superseded by a newer request", async () => {
+  const local = billing({ status: "local", trialEndsAt: null });
+  const started = billing({ status: "trialing" });
+  let resolveTrial: ((value: OrganizationBilling) => void) | null = null;
+  const startTrial = mock(
+    () =>
+      new Promise<OrganizationBilling>((resolve) => {
+        resolveTrial = resolve;
+      }),
+  );
+  const client = makeClient(() => Promise.resolve(local), startTrial);
+  const { result } = renderHook(() =>
+    useOrganizationBillingState(client, "org-1"),
+  );
+  await waitFor(() => expect(result.current.billing).toEqual(local));
+
+  // Start a trial (its promise stays in flight)...
+  let trialResult!: Promise<boolean>;
+  act(() => {
+    trialResult = result.current.startTrial();
+  });
+  // ...then a newer refresh bumps the request token, superseding the trial.
+  await act(async () => {
+    await result.current.refresh();
+  });
+  // Resolving the stale trial now must not commit its result.
+  await act(async () => {
+    resolveTrial?.(started);
+  });
+  const ok = await trialResult;
+
+  expect(ok).toBe(false);
+  expect(result.current.billing).toEqual(local);
+});
+
 test("startTrial reports failure and sets an error when it returns null", async () => {
   const local = billing({ status: "local", trialEndsAt: null });
   const client = makeClient(

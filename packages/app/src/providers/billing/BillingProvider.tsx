@@ -87,12 +87,21 @@ export function useOrganizationBillingState(
 
   useEffect(() => {
     void refresh();
+    // Invalidate any in-flight request on unmount / active-org change so a late
+    // response cannot commit state after this effect has torn down.
+    return () => {
+      requestIdRef.current++;
+    };
   }, [refresh]);
 
   const startTrial = useCallback(async (): Promise<boolean> => {
+    const requestId = ++requestIdRef.current;
     setError(null);
     try {
       const next = await client.organizations.startTrial();
+      if (requestId !== requestIdRef.current) {
+        return false;
+      }
       if (next) {
         setBilling(next);
         return true;
@@ -101,7 +110,9 @@ export function useOrganizationBillingState(
       return false;
     } catch (trialError) {
       console.error("Failed to start the free trial:", trialError);
-      setError(BILLING_LABELS.failedStartTrial);
+      if (requestId === requestIdRef.current) {
+        setError(BILLING_LABELS.failedStartTrial);
+      }
       return false;
     }
   }, [client]);
