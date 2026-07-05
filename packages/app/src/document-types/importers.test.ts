@@ -40,6 +40,11 @@ test("file importers classify by MIME type before extension", () => {
       createFile("contacts.bin", "name,email", { type: "text/csv" }),
     ).documentKind,
   ).toBe("note");
+  expect(
+    getDocumentFileImporter(
+      createFile("config.bin", "{}", { type: "application/json" }),
+    ).documentKind,
+  ).toBe("json_file");
 });
 
 test("file importers classify by extension when MIME type is unavailable", () => {
@@ -59,6 +64,9 @@ test("file importers classify by extension when MIME type is unavailable", () =>
   expect(
     getDocumentFileImporter(createFile("contacts.csv", "x")).documentKind,
   ).toBe("note");
+  expect(
+    getDocumentFileImporter(createFile("config.json", "x")).documentKind,
+  ).toBe("json_file");
   expect(
     getDocumentFileImporter(createFile(".env.local", "x")).documentKind,
   ).toBe("env_file");
@@ -87,6 +95,26 @@ test("text files import as note text without attachments", async () => {
     documentKind: "note",
     initialText: "name,email\nAda,ada@example.test",
     structuredFields: {},
+  });
+});
+
+test("JSON files import as raw text with a filename title field", async () => {
+  const jsonText = '{\n  "enabled": true\n}';
+  const file = createFile("config.json", jsonText, {
+    type: "application/json",
+  });
+  const importer = getDocumentFileImporter(file);
+
+  const result = await importer.importFile(file);
+
+  expect(importer.maxByteLength).toBe(TEXT_FILE_IMPORT_MAX_BYTES);
+  expect(result).toEqual({
+    attachment: null,
+    documentKind: "json_file",
+    initialText: jsonText,
+    structuredFields: {
+      fileName: "config.json",
+    },
   });
 });
 

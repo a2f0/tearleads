@@ -5,6 +5,7 @@ import { driverLicenseDocumentProjectorDefinition } from "../document-types/driv
 import { envFileDocumentProjectorDefinition } from "../document-types/env-file/envFileDocumentDefinition";
 import { genericFileDocumentProjectorDefinition } from "../document-types/generic-file/genericFileDocumentDefinition";
 import { imageDocumentProjectorDefinition } from "../document-types/image/imageDocumentDefinition";
+import { jsonFileDocumentProjectorDefinition } from "../document-types/json-file/jsonFileDocumentDefinition";
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
 import { passportDocumentProjectorDefinition } from "../document-types/passport/passportDocumentDefinition";
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
@@ -34,6 +35,7 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
       clientProjection: passportClientProjection,
     },
     envFileDocumentProjectorDefinition,
+    jsonFileDocumentProjectorDefinition,
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,
     pdfDocumentProjectorDefinition,
