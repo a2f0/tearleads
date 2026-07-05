@@ -8,7 +8,7 @@ import {
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import {
   classifyRevenueCatEvent,
   type RevenueCatBillingTransition,
@@ -66,6 +66,28 @@ async function loadBillingProviderCustomerId(
   return row;
 }
 
+async function hasNewerAppliedEvent(
+  executor: DatabaseSession,
+  organizationId: string,
+  event: RevenueCatWebhookEvent,
+): Promise<boolean> {
+  const [newer] = await executor
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(
+      and(
+        eq(revenuecatWebhookEvents.organizationId, organizationId),
+        eq(revenuecatWebhookEvents.outcome, "applied"),
+        gt(
+          revenuecatWebhookEvents.eventTimestamp,
+          new Date(event.event_timestamp_ms),
+        ),
+      ),
+    )
+    .limit(1);
+  return newer !== undefined;
+}
+
 /**
  * Read-only reason the event should NOT be applied, or null when it should.
  * Runs before the idempotency claim so the recorded outcome is accurate and no
@@ -87,6 +109,14 @@ async function resolveIgnoredReason(
   const billing = await loadBillingProviderCustomerId(executor, organizationId);
   if (!billing) {
     return "Unknown organization";
+  }
+
+  // Reject stale, out-of-order deliveries: if a newer event has already been
+  // *applied* to this org, do not let this older event overwrite it (e.g. a
+  // retried EXPIRATION arriving after the RENEWAL that superseded it). Only
+  // applied events count, so an ignored/test event can never block a real one.
+  if (await hasNewerAppliedEvent(executor, organizationId, event)) {
+    return "A newer billing event has already been applied";
   }
 
   // Binding a new RevenueCat customer to an org requires the buyer to be an
@@ -139,7 +169,7 @@ export async function runRevenueCatWebhookWorkflow(
         appUserId: event.app_user_id,
         organizationId,
         outcome: ignoredReason ? "ignored" : "applied",
-        eventTimestampMs: String(event.event_timestamp_ms),
+        eventTimestamp: new Date(event.event_timestamp_ms),
       })
       .onConflictDoNothing({ target: revenuecatWebhookEvents.eventId })
       .returning({ id: revenuecatWebhookEvents.id });

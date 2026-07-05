@@ -5,7 +5,7 @@ CREATE TABLE `revenuecat_webhook_events` (
 	`app_user_id` text NOT NULL,
 	`organization_id` text,
 	`outcome` text NOT NULL,
-	`event_timestamp_ms` text,
+	`event_timestamp` integer NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint

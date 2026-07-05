@@ -5,7 +5,7 @@ CREATE TABLE "revenuecat_webhook_events" (
 	"app_user_id" text NOT NULL,
 	"organization_id" uuid,
 	"outcome" text NOT NULL,
-	"event_timestamp_ms" text,
+	"event_timestamp" timestamp NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

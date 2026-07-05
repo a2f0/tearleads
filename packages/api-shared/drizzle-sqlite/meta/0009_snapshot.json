@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1128b424-293c-4e92-83ef-22fb25dee793",
+  "id": "dab412a7-8b51-4361-9fa0-1c68774ab24a",
   "prevId": "4378d6bc-1904-4b78-98e0-b87cbfb82ec2",
   "tables": {
     "access_event_dependency_projection": {
@@ -3863,11 +3863,11 @@
           "notNull": true,
           "autoincrement": false
         },
-        "event_timestamp_ms": {
-          "name": "event_timestamp_ms",
-          "type": "text",
+        "event_timestamp": {
+          "name": "event_timestamp",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "created_at": {

@@ -1,5 +1,5 @@
 {
-  "id": "b4ca81ce-8729-4b5f-ad5b-9972726651dc",
+  "id": "ad9427a9-4faf-4c45-b1cb-b205f08b77d4",
   "prevId": "55254881-a689-4f0c-8068-5334c94164ea",
   "version": "7",
   "dialect": "postgresql",
@@ -5459,11 +5459,11 @@
           "primaryKey": false,
           "notNull": true
         },
-        "event_timestamp_ms": {
-          "name": "event_timestamp_ms",
-          "type": "text",
+        "event_timestamp": {
+          "name": "event_timestamp",
+          "type": "timestamp",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",

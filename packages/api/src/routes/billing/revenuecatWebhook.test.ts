@@ -42,6 +42,7 @@ interface WebhookEventInput {
   appUserId: string;
   entitlementIds?: string[];
   eventId?: string;
+  eventTimestampMs?: number;
   expirationAtMs?: number | null;
   organizationId: string;
   type: string;
@@ -53,7 +54,7 @@ function webhookBody(input: WebhookEventInput): string {
     event: {
       app_user_id: input.appUserId,
       entitlement_ids: input.entitlementIds ?? ["sync"],
-      event_timestamp_ms: Date.now(),
+      event_timestamp_ms: input.eventTimestampMs ?? Date.now(),
       expiration_at_ms:
         input.expirationAtMs === undefined
           ? Date.now() + THIRTY_DAYS_MS
@@ -248,6 +249,71 @@ test("a cancellation leaves an active subscription untouched", async () => {
 
   const billing = await readBilling(organizationId);
   expect(billing.status).toBe("active");
+});
+
+test("a stale out-of-order event does not overwrite newer applied billing", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+  const newer = Date.now();
+
+  const purchase = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      eventTimestampMs: newer,
+      organizationId,
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+  expect(await purchase.json()).toEqual({ received: true, outcome: "applied" });
+
+  // An EXPIRATION emitted BEFORE the purchase (retried late) must not disable
+  // the freshly-activated org.
+  const staleExpiration = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      eventTimestampMs: newer - 60_000,
+      organizationId,
+      type: "EXPIRATION",
+    }),
+  );
+  expect(await staleExpiration.json()).toEqual({
+    received: true,
+    outcome: "ignored",
+  });
+
+  expect((await readBilling(organizationId)).status).toBe("active");
+});
+
+test("a newer event still applies after an older one", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+  const base = Date.now();
+
+  await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      eventTimestampMs: base,
+      organizationId,
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  const laterExpiration = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      eventTimestampMs: base + 60_000,
+      organizationId,
+      type: "EXPIRATION",
+    }),
+  );
+  expect(await laterExpiration.json()).toEqual({
+    received: true,
+    outcome: "applied",
+  });
+
+  expect((await readBilling(organizationId)).status).toBe("disabled");
 });
 
 test("the webhook fails closed when the shared secret is not configured", async () => {

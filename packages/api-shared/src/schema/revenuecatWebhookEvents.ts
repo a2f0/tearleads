@@ -19,7 +19,9 @@ import { index, pgTable, text, timestamp, uniqueIndex, uuid } from "./columns";
  * - `organizationId`: Organization the event was applied to, resolved from the
  *   `orgId` subscriber attribute. Null when the event carried no resolvable org.
  * - `outcome`: How the handler dispositioned the event (`applied`/`ignored`).
- * - `eventTimestampMs`: Provider-reported event time, retained for auditing.
+ * - `eventTimestamp`: Provider-reported event time. Used to reject stale,
+ *   out-of-order deliveries: a transition is not applied when a newer event has
+ *   already been applied to the same organization.
  * - `createdAt`: Server-side insertion timestamp.
  */
 export const revenuecatWebhookEvents = pgTable(
@@ -31,7 +33,7 @@ export const revenuecatWebhookEvents = pgTable(
     appUserId: text("app_user_id").notNull(),
     organizationId: uuid("organization_id"),
     outcome: text("outcome").notNull(),
-    eventTimestampMs: text("event_timestamp_ms"),
+    eventTimestamp: timestamp("event_timestamp").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
