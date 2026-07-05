@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { EnvFileFields } from "./EnvFile";
 import {
+  ENV_FILE_VARIABLE_NAME_PATTERN,
   type EnvFileDocumentFields,
   type EnvFileVariable,
   serializeEnvFileVariables,
@@ -103,6 +104,71 @@ test("edits file name and variable values through structured field patches", () 
       value: "false",
     },
   ]);
+});
+
+test("exposes POSIX key validation without blocking editable drafts", () => {
+  const patches: Array<Record<string, string>> = [];
+  const view = renderEnvFileFields({
+    onChange: (patch) => patches.push(patch),
+  });
+  const keyInput = view.getByLabelText(
+    "Env variable 1 key",
+  ) as HTMLInputElement;
+
+  expect(keyInput.pattern).toBe(ENV_FILE_VARIABLE_NAME_PATTERN);
+
+  fireEvent.change(keyInput, {
+    target: { value: "PUBLIC API URL" },
+  });
+  fireEvent.change(keyInput, {
+    target: { value: "1PUBLIC_API_URL" },
+  });
+  fireEvent.change(keyInput, {
+    target: { value: "PUBLIC_API_URL" },
+  });
+
+  expect(parseVariablePatch(patches[0])).toEqual([
+    {
+      id: "env-1-api-url",
+      key: "PUBLIC API URL",
+      value: "https://api.example.test",
+    },
+    variables[1] as EnvFileVariable,
+  ]);
+  expect(parseVariablePatch(patches[1])).toEqual([
+    {
+      id: "env-1-api-url",
+      key: "1PUBLIC_API_URL",
+      value: "https://api.example.test",
+    },
+    variables[1] as EnvFileVariable,
+  ]);
+  expect(parseVariablePatch(patches[2])).toEqual([
+    {
+      id: "env-1-api-url",
+      key: "PUBLIC_API_URL",
+      value: "https://api.example.test",
+    },
+    variables[1] as EnvFileVariable,
+  ]);
+});
+
+test("marks existing malformed variable keys invalid", () => {
+  const view = renderEnvFileFields({
+    fields: createFields({
+      variables: [
+        {
+          id: "env-1-bad",
+          key: "BAD KEY",
+          value: "bad",
+        },
+      ],
+    }),
+  });
+
+  expect(
+    view.getByLabelText("Env variable 1 key").getAttribute("aria-invalid"),
+  ).toBe("true");
 });
 
 test("adds and removes variable rows", () => {
