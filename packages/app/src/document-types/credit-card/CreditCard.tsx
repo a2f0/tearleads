@@ -4,8 +4,11 @@ import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
+  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
+  StructuredDocumentReadFields,
+  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
@@ -16,7 +19,28 @@ import {
   readCreditCardFields,
 } from "./creditCardDocument";
 
-function CreditCardFields(params: {
+type CreditCardStructuredFieldSetter = ReturnType<
+  typeof useDocument
+>["setStructuredFields"];
+
+const CREDIT_CARD_REDACTED_NUMBER = "**** **** ****";
+const CREDIT_CARD_REDACTED_CVV = "***";
+
+function formatMaskedCardNumber(cardNumber: string | null | undefined): string {
+  const digits = (cardNumber ?? "").replaceAll(/\D/gu, "");
+  if (digits.length === 0) {
+    return "None";
+  }
+
+  return `${CREDIT_CARD_REDACTED_NUMBER} ${digits.slice(-4)}`;
+}
+
+function formatMaskedCvv(cvvCode: string | null | undefined): string {
+  return (cvvCode ?? "").trim().length > 0 ? CREDIT_CARD_REDACTED_CVV : "None";
+}
+
+export function CreditCardFields(params: {
+  disabled?: boolean | undefined;
   fields: CreditCardDocumentFields;
   inputIds: {
     cardNumber: string;
@@ -24,10 +48,39 @@ function CreditCardFields(params: {
     expirationDate: string;
     nameOnCard: string;
   };
+  isEditing: boolean;
   onChange: (patch: Partial<CreditCardDocumentFields>) => void;
   ready: boolean;
 }) {
-  const { fields, inputIds, onChange, ready } = params;
+  const {
+    disabled = false,
+    fields,
+    inputIds,
+    isEditing,
+    onChange,
+    ready,
+  } = params;
+
+  if (!isEditing) {
+    return (
+      <StructuredDocumentReadFields
+        fields={[
+          {
+            displayValue: formatMaskedCardNumber(fields.cardNumber),
+            label: "Card Number",
+            value: fields.cardNumber,
+          },
+          { label: "Name on Card", value: fields.nameOnCard },
+          { label: "Expiration Date", value: fields.expirationDate },
+          {
+            displayValue: formatMaskedCvv(fields.cvvCode),
+            label: "CVV Code",
+            value: fields.cvvCode,
+          },
+        ]}
+      />
+    );
+  }
 
   return (
     <StructuredDocumentFields>
@@ -42,7 +95,7 @@ function CreditCardFields(params: {
           value={fields.cardNumber}
           onChange={(event) => onChange({ cardNumber: event.target.value })}
           placeholder={ready ? "4111 1111 1111 1111" : "Loading..."}
-          disabled={!ready}
+          disabled={disabled}
           autoComplete="cc-number"
           inputMode="numeric"
         />
@@ -57,7 +110,7 @@ function CreditCardFields(params: {
           value={fields.nameOnCard}
           onChange={(event) => onChange({ nameOnCard: event.target.value })}
           placeholder={ready ? "Ada Lovelace" : "Loading..."}
-          disabled={!ready}
+          disabled={disabled}
           autoComplete="cc-name"
         />
       </StructuredDocumentField>
@@ -71,7 +124,7 @@ function CreditCardFields(params: {
           type="month"
           value={fields.expirationDate}
           onChange={(event) => onChange({ expirationDate: event.target.value })}
-          disabled={!ready}
+          disabled={disabled}
           autoComplete="cc-exp"
         />
       </StructuredDocumentField>
@@ -82,7 +135,7 @@ function CreditCardFields(params: {
           value={fields.cvvCode}
           onChange={(event) => onChange({ cvvCode: event.target.value })}
           placeholder={ready ? "123" : "Loading..."}
-          disabled={!ready}
+          disabled={disabled}
           autoComplete="cc-csc"
           inputMode="numeric"
           maxLength={4}
@@ -90,6 +143,43 @@ function CreditCardFields(params: {
         />
       </StructuredDocumentField>
     </StructuredDocumentFields>
+  );
+}
+
+function CreditCardDocumentFieldsPane(params: {
+  canWrite: boolean;
+  fields: CreditCardDocumentFields;
+  inputIds: {
+    cardNumber: string;
+    cvvCode: string;
+    expirationDate: string;
+    nameOnCard: string;
+  };
+  isEditing: boolean;
+  ready: boolean;
+  setEditing: (editing: boolean) => void;
+  setStructuredFields: CreditCardStructuredFieldSetter;
+}) {
+  return (
+    <>
+      <StructuredDocumentEditActions
+        disabled={!params.ready || !params.canWrite}
+        isEditing={params.isEditing}
+        onToggleEditing={() => params.setEditing(!params.isEditing)}
+      />
+      <CreditCardFields
+        disabled={!params.ready || !params.canWrite}
+        fields={params.fields}
+        inputIds={params.inputIds}
+        isEditing={params.isEditing && params.canWrite}
+        onChange={(patch) => {
+          if (params.canWrite) {
+            params.setStructuredFields("credit_card", patch);
+          }
+        }}
+        ready={params.ready}
+      />
+    </>
   );
 }
 
@@ -117,6 +207,7 @@ export function CreditCard(params: {
     attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId,
     canAttach,
+    canWrite,
     ready,
     removeAttachment,
     setAttachment,
@@ -128,6 +219,7 @@ export function CreditCard(params: {
     () => readCreditCardFields(structuredFields),
     [structuredFields],
   );
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
   const inputIds = {
     cardNumber: useId(),
     cvvCode: useId(),
@@ -160,7 +252,7 @@ export function CreditCard(params: {
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
           blobPicker={blobPicker}
-          canAttach={canAttach}
+          canAttach={canAttach && isEditing && canWrite}
           imageUrlBySlotId={imageUrlBySlotId}
           onClearAttachment={removeAttachment}
           onSelectedAttachment={handleSelectedAttachment}
@@ -169,13 +261,14 @@ export function CreditCard(params: {
       }
       canAttach={canAttach}
       fields={
-        <CreditCardFields
+        <CreditCardDocumentFieldsPane
+          canWrite={canWrite}
           fields={fields}
           inputIds={inputIds}
-          onChange={(patch) => {
-            setStructuredFields("credit_card", patch);
-          }}
+          isEditing={isEditing}
           ready={ready}
+          setEditing={setIsEditing}
+          setStructuredFields={setStructuredFields}
         />
       }
       isAuthenticated={isAuthenticated}

@@ -4,8 +4,11 @@ import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
+  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
+  StructuredDocumentReadFields,
+  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
@@ -16,16 +19,40 @@ import {
 } from "./driverLicenseDocument";
 import type { DriverLicenseDocumentFields } from "./driverLicenseDocumentDefinition";
 
-function DriverLicenseFields(params: {
+type DriverLicenseStructuredFieldSetter = ReturnType<
+  typeof useDocument
+>["setStructuredFields"];
+
+export function DriverLicenseFields(params: {
+  disabled?: boolean | undefined;
   fields: DriverLicenseDocumentFields;
   inputIds: {
     expirationDate: string;
     licenseId: string;
   };
+  isEditing: boolean;
   onChange: (patch: Partial<DriverLicenseDocumentFields>) => void;
   ready: boolean;
 }) {
-  const { fields, inputIds, onChange, ready } = params;
+  const {
+    disabled = false,
+    fields,
+    inputIds,
+    isEditing,
+    onChange,
+    ready,
+  } = params;
+
+  if (!isEditing) {
+    return (
+      <StructuredDocumentReadFields
+        fields={[
+          { label: "License ID Number", value: fields.licenseId },
+          { label: "Expiration Date", value: fields.expirationDate },
+        ]}
+      />
+    );
+  }
 
   return (
     <StructuredDocumentFields>
@@ -39,7 +66,7 @@ function DriverLicenseFields(params: {
           value={fields.licenseId}
           onChange={(event) => onChange({ licenseId: event.target.value })}
           placeholder={ready ? "DL-1234567" : "Loading..."}
-          disabled={!ready}
+          disabled={disabled}
         />
       </StructuredDocumentField>
       <StructuredDocumentField
@@ -52,10 +79,45 @@ function DriverLicenseFields(params: {
           type="date"
           value={fields.expirationDate}
           onChange={(event) => onChange({ expirationDate: event.target.value })}
-          disabled={!ready}
+          disabled={disabled}
         />
       </StructuredDocumentField>
     </StructuredDocumentFields>
+  );
+}
+
+function DriverLicenseDocumentFieldsPane(params: {
+  canWrite: boolean;
+  fields: DriverLicenseDocumentFields;
+  inputIds: {
+    expirationDate: string;
+    licenseId: string;
+  };
+  isEditing: boolean;
+  ready: boolean;
+  setEditing: (editing: boolean) => void;
+  setStructuredFields: DriverLicenseStructuredFieldSetter;
+}) {
+  return (
+    <>
+      <StructuredDocumentEditActions
+        disabled={!params.ready || !params.canWrite}
+        isEditing={params.isEditing}
+        onToggleEditing={() => params.setEditing(!params.isEditing)}
+      />
+      <DriverLicenseFields
+        disabled={!params.ready || !params.canWrite}
+        fields={params.fields}
+        inputIds={params.inputIds}
+        isEditing={params.isEditing && params.canWrite}
+        onChange={(patch) => {
+          if (params.canWrite) {
+            params.setStructuredFields("drivers_license", patch);
+          }
+        }}
+        ready={params.ready}
+      />
+    </>
   );
 }
 
@@ -82,6 +144,7 @@ export function DriverLicense(params: {
     attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId,
     canAttach,
+    canWrite,
     ready,
     removeAttachment,
     setAttachment,
@@ -93,6 +156,7 @@ export function DriverLicense(params: {
     () => readDriverLicenseFields(structuredFields),
     [structuredFields],
   );
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
   const inputIds = {
     expirationDate: useId(),
     licenseId: useId(),
@@ -123,7 +187,7 @@ export function DriverLicense(params: {
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
           blobPicker={blobPicker}
-          canAttach={canAttach}
+          canAttach={canAttach && isEditing && canWrite}
           imageUrlBySlotId={imageUrlBySlotId}
           onClearAttachment={removeAttachment}
           onSelectedAttachment={handleSelectedAttachment}
@@ -132,13 +196,14 @@ export function DriverLicense(params: {
       }
       canAttach={canAttach}
       fields={
-        <DriverLicenseFields
+        <DriverLicenseDocumentFieldsPane
+          canWrite={canWrite}
           fields={fields}
           inputIds={inputIds}
-          onChange={(patch) => {
-            setStructuredFields("drivers_license", patch);
-          }}
+          isEditing={isEditing}
           ready={ready}
+          setEditing={setIsEditing}
+          setStructuredFields={setStructuredFields}
         />
       }
       isAuthenticated={isAuthenticated}

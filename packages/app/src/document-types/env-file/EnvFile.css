@@ -35,6 +35,39 @@
   min-width: 0;
 }
 
+.env-file-variable-read-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.8fr) minmax(12rem, 1fr) auto;
+  gap: var(--space-sm);
+  align-items: center;
+  min-width: 0;
+  padding: var(--space-sm);
+  border: var(--border);
+  font-size: var(--font-size-sm);
+}
+
+.env-file-variable-read-cell {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.env-file-variable-read-value {
+  overflow: hidden;
+  font-family:
+    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
+    monospace;
+  opacity: var(--opacity-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.env-file-variable-read-index {
+  min-width: var(--control-height);
+  opacity: var(--opacity-muted);
+  text-align: end;
+}
+
 .env-file-variable-field {
   display: grid;
   gap: var(--space-xs);
@@ -113,6 +146,14 @@
     grid-template-columns: 1fr;
     padding-bottom: var(--space-sm);
     border-bottom: var(--border);
+  }
+
+  .env-file-variable-read-row {
+    grid-template-columns: 1fr;
+  }
+
+  .env-file-variable-read-index {
+    display: none;
   }
 
   .env-file-variable-row:last-child {

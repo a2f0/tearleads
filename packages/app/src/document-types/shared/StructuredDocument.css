@@ -20,6 +20,12 @@
   opacity: var(--opacity-muted);
 }
 
+.structured-document-read-fields {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
 .structured-document-fields {
   display: grid;
   gap: var(--space-md);
