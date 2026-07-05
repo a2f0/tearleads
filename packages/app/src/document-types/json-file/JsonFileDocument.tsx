@@ -1,4 +1,12 @@
-import { useId, useMemo } from "react";
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -16,15 +24,97 @@ import {
 import "./JsonFileDocument.css";
 
 type JsonFilePatch = Record<string, string>;
+const JSON_TEXT_COMMIT_DEBOUNCE_MS = 250;
+
+function useDebouncedJsonText(params: {
+  controlsDisabled: boolean;
+  onChangeText: (value: string) => void;
+  text: string;
+}) {
+  const { controlsDisabled, onChangeText, text } = params;
+  const [draftText, setDraftText] = useState(text);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestDraftRef = useRef(text);
+  const committedTextRef = useRef(text);
+  const onChangeTextRef = useRef(onChangeText);
+  const canCommitRef = useRef(!controlsDisabled);
+
+  onChangeTextRef.current = onChangeText;
+  canCommitRef.current = !controlsDisabled;
+
+  const clearPendingCommit = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const commitDraft = useCallback(
+    (value: string) => {
+      clearPendingCommit();
+      if (!canCommitRef.current || value === committedTextRef.current) {
+        return;
+      }
+
+      committedTextRef.current = value;
+      onChangeTextRef.current(value);
+    },
+    [clearPendingCommit],
+  );
+
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      const nextText = event.currentTarget.value;
+      latestDraftRef.current = nextText;
+      setDraftText(nextText);
+      clearPendingCommit();
+      timeoutRef.current = setTimeout(() => {
+        commitDraft(nextText);
+      }, JSON_TEXT_COMMIT_DEBOUNCE_MS);
+    },
+    [clearPendingCommit, commitDraft],
+  );
+
+  const handleBlur = useCallback(() => {
+    commitDraft(latestDraftRef.current);
+  }, [commitDraft]);
+
+  useEffect(() => {
+    if (text === committedTextRef.current) {
+      return;
+    }
+
+    clearPendingCommit();
+    committedTextRef.current = text;
+    latestDraftRef.current = text;
+    setDraftText(text);
+  }, [clearPendingCommit, text]);
+
+  useEffect(
+    () => () => {
+      clearPendingCommit();
+      if (
+        canCommitRef.current &&
+        latestDraftRef.current !== committedTextRef.current
+      ) {
+        onChangeTextRef.current(latestDraftRef.current);
+      }
+    },
+    [clearPendingCommit],
+  );
+
+  return { draftText, handleBlur, handleChange };
+}
 
 function JsonFileReadFields(params: {
   fields: ReturnType<typeof readJsonFileFields>;
   text: string;
 }) {
+  const fileName = params.fields.fileName ?? "";
   return (
     <div className="json-file-document-fields">
       <StructuredDocumentReadFields
-        fields={[{ label: "File Name", value: params.fields.fileName }]}
+        fields={[{ label: "File Name", value: fileName }]}
       />
       <section className="json-file-content-section">
         <strong>Content</strong>
@@ -48,6 +138,13 @@ function JsonFileEditFields(params: {
   ready: boolean;
   text: string;
 }) {
+  const fileName = params.fields.fileName ?? "";
+  const { draftText, handleBlur, handleChange } = useDebouncedJsonText({
+    controlsDisabled: params.controlsDisabled,
+    onChangeText: params.onChangeText,
+    text: params.text,
+  });
+
   return (
     <div className="json-file-document-fields">
       <StructuredDocumentFields>
@@ -58,7 +155,7 @@ function JsonFileEditFields(params: {
           <input
             id={params.fileNameInputId}
             aria-label="JSON file name"
-            value={params.fields.fileName}
+            value={fileName}
             onChange={(event) =>
               params.onChangeFields({ fileName: event.target.value })
             }
@@ -76,8 +173,9 @@ function JsonFileEditFields(params: {
         <textarea
           id={params.contentInputId}
           aria-label="JSON content"
-          value={params.text}
-          onChange={(event) => params.onChangeText(event.target.value)}
+          value={draftText}
+          onChange={handleChange}
+          onBlur={handleBlur}
           placeholder={params.ready ? "{}" : "Loading..."}
           disabled={params.controlsDisabled}
           autoCapitalize="off"
@@ -98,7 +196,7 @@ export function JsonFileFields(params: {
   onChangeFields: (patch: JsonFilePatch) => void;
   onChangeText: (value: string) => void;
   ready: boolean;
-  text: string;
+  text: string | null | undefined;
 }) {
   const {
     contentInputId,
@@ -112,9 +210,10 @@ export function JsonFileFields(params: {
     text,
   } = params;
   const controlsDisabled = disabled || !ready;
+  const safeText = text ?? "";
 
   if (!isEditing) {
-    return <JsonFileReadFields fields={fields} text={text} />;
+    return <JsonFileReadFields fields={fields} text={safeText} />;
   }
 
   return (
@@ -126,7 +225,7 @@ export function JsonFileFields(params: {
       onChangeFields={onChangeFields}
       onChangeText={onChangeText}
       ready={ready}
-      text={text}
+      text={safeText}
     />
   );
 }
@@ -145,7 +244,7 @@ export function JsonFileDocument() {
     text,
   } = useDocument();
   const fields = useMemo(
-    () => readJsonFileFields(structuredFields),
+    () => readJsonFileFields(structuredFields ?? {}),
     [structuredFields],
   );
   const fileNameInputId = useId();

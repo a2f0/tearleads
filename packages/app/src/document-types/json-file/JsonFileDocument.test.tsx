@@ -38,6 +38,17 @@ test("read mode shows the file name and raw JSON without editable inputs", () =>
   expect(view.queryByLabelText("JSON content")).toBeNull();
 });
 
+test("read mode tolerates missing loading values", () => {
+  const view = renderJsonFileFields({
+    fields: { fileName: undefined as unknown as string },
+    text: undefined,
+  });
+
+  expect(view.getByText("No JSON content")).toBeTruthy();
+  expect(view.queryByLabelText("JSON file name")).toBeNull();
+  expect(view.queryByLabelText("JSON content")).toBeNull();
+});
+
 test("edit mode renames the JSON file without changing content", () => {
   const fieldPatches: Array<Record<string, string>> = [];
   const textChanges: string[] = [];
@@ -66,10 +77,16 @@ test("edit mode updates raw JSON content independently", () => {
     onChangeText: (value) => textChanges.push(value),
   });
 
-  fireEvent.change(view.getByLabelText("JSON content"), {
+  const contentInput = view.getByLabelText("JSON content");
+  fireEvent.change(contentInput, {
     target: { value: '{"renamed":true}' },
   });
 
   expect(fieldPatches).toEqual([]);
+  expect(textChanges).toEqual([]);
+  expect((contentInput as HTMLTextAreaElement).value).toBe('{"renamed":true}');
+
+  fireEvent.blur(contentInput);
+
   expect(textChanges).toEqual(['{"renamed":true}']);
 });

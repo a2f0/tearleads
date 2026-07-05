@@ -14,7 +14,7 @@ export interface JsonFileDocumentFields {
 }
 
 function deriveJsonFileTitle(fields: JsonFileDocumentFields): string {
-  return fields.fileName.trim() || JSON_FILE_UNTITLED_TITLE;
+  return (fields.fileName ?? "").trim() || JSON_FILE_UNTITLED_TITLE;
 }
 
 function readJsonFileFieldsFromRecord(
