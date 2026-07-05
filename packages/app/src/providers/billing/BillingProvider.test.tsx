@@ -30,7 +30,7 @@ function makeClient(
   return { organizations: { loadBilling, startTrial } };
 }
 
-test("loads billing for the active org and derives the view", async () => {
+test("loads billing for the active org", async () => {
   const snapshot = billing({ status: "trialing" });
   const loadBilling = mock(() => Promise.resolve(snapshot));
   const client = makeClient(loadBilling);
@@ -40,7 +40,6 @@ test("loads billing for the active org and derives the view", async () => {
 
   await waitFor(() => expect(result.current.billing).toEqual(snapshot));
   expect(loadBilling).toHaveBeenCalledTimes(1);
-  expect(result.current.view?.isTrialing).toBe(true);
   expect(result.current.loading).toBe(false);
   expect(result.current.error).toBe(null);
 });
@@ -104,7 +103,6 @@ test("ignores a stale response when the active org changes mid-flight", async ()
   });
 
   expect(result.current.billing).toEqual(orgB);
-  expect(result.current.view?.isActive).toBe(true);
 });
 
 test("startTrial stores the returned billing and reports success", async () => {

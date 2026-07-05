@@ -34,17 +34,20 @@ export function BillingBannerView({
   if (!view) {
     return null;
   }
-  if (view.isTrialing && view.trialDaysRemaining !== null) {
-    return (
-      <div className="billing-banner billing-banner--info" role="status">
-        {getBillingTrialBannerLabel(view.trialDaysRemaining)}
-      </div>
-    );
-  }
+  // A warning takes precedence over the trial countdown. These are mutually
+  // exclusive today (isTrialing implies canSync implies !needsAttention), but
+  // checking needsAttention first keeps the urgent state winning regardless.
   if (view.needsAttention) {
     return (
       <div className="billing-banner billing-banner--warning" role="alert">
         {needsAttentionMessage(view.status)}
+      </div>
+    );
+  }
+  if (view.isTrialing && view.trialDaysRemaining !== null) {
+    return (
+      <div className="billing-banner billing-banner--info" role="status">
+        {getBillingTrialBannerLabel(view.trialDaysRemaining)}
       </div>
     );
   }

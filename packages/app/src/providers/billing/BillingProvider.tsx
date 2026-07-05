@@ -9,6 +9,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -16,10 +17,9 @@ import { useCryptoSession } from "../crypto/CryptoSessionProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { BILLING_LABELS } from "./billingLabels";
 
+/** Stable billing snapshot shared via context; the derived view lives in the hook. */
 interface OrganizationBillingContextValue {
   readonly billing: OrganizationBilling | null;
-  /** Derived display/gating view (`null` until billing loads). */
-  readonly view: OrganizationBillingView | null;
   readonly loading: boolean;
   readonly error: string | null;
   readonly refresh: () => Promise<void>;
@@ -38,8 +38,10 @@ interface BillingClient {
 /**
  * Dependency-injected core of the billing provider. Billing methods on the SDK
  * facade operate on the active organization, so `organizationId` is used only to
- * re-fetch when the active org changes. Exported for direct hook testing without
- * the full SDK/session provider stack.
+ * re-fetch when the active org changes. The returned value is memoized so this
+ * root-level context reference stays stable across unrelated re-renders — only a
+ * real billing/loading/error change churns it. Exported for direct hook testing
+ * without the full SDK/session provider stack.
  */
 export function useOrganizationBillingState(
   client: BillingClient,
@@ -71,7 +73,8 @@ export function useOrganizationBillingState(
       if (!next) {
         setError(BILLING_LABELS.failedLoadBilling);
       }
-    } catch {
+    } catch (loadError) {
+      console.error("Failed to load organization billing:", loadError);
       if (requestId === requestIdRef.current) {
         setError(BILLING_LABELS.failedLoadBilling);
       }
@@ -96,20 +99,17 @@ export function useOrganizationBillingState(
       }
       setError(BILLING_LABELS.failedStartTrial);
       return false;
-    } catch {
+    } catch (trialError) {
+      console.error("Failed to start the free trial:", trialError);
       setError(BILLING_LABELS.failedStartTrial);
       return false;
     }
   }, [client]);
 
-  // Derived per render (not memoized) so `Date.now()` stays fresh — the trial
-  // countdown and sync gating must reflect the current time, and
-  // `resolveOrganizationBillingView` is cheap enough to recompute each render.
-  const view: OrganizationBillingView | null = billing
-    ? resolveOrganizationBillingView(billing, Date.now())
-    : null;
-
-  return { billing, view, loading, error, refresh, startTrial };
+  return useMemo(
+    () => ({ billing, loading, error, refresh, startTrial }),
+    [billing, loading, error, refresh, startTrial],
+  );
 }
 
 const OrganizationBillingContext =
@@ -131,12 +131,23 @@ export function BillingProvider({ children }: PropsWithChildren) {
   );
 }
 
-export function useOrganizationBilling(): OrganizationBillingContextValue {
+/** The shared snapshot plus a per-render `view` derived with a fresh `Date.now()`. */
+interface OrganizationBillingSnapshot extends OrganizationBillingContextValue {
+  readonly view: OrganizationBillingView | null;
+}
+
+export function useOrganizationBilling(): OrganizationBillingSnapshot {
   const context = useContext(OrganizationBillingContext);
   if (!context) {
     throw new Error(
       "useOrganizationBilling must be used within a BillingProvider.",
     );
   }
-  return context;
+  // Derived here — not stored in the (memoized) context value and not memoized on
+  // `billing` — so `Date.now()` stays fresh for the trial countdown and sync
+  // gating, while the context reference above remains stable.
+  const view = context.billing
+    ? resolveOrganizationBillingView(context.billing, Date.now())
+    : null;
+  return { ...context, view };
 }
