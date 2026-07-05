@@ -6,9 +6,11 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { createOrganization } from "./createOrganization";
 import { listLocalOrganizations } from "./listLocalOrganizations";
+import { getOrganizationProfileDocumentLocalId } from "./organizationProfile";
 
 function createClient(execSql: ExecSql): ExecSqlClientLike {
   return {
@@ -64,6 +66,49 @@ test("listLocalOrganizations returns one entry per provisioned org with its name
       acme?.rootContainerId,
     );
     expect(byId.get(globex?.organizationId ?? "")?.name).toBe("Globex");
+  } finally {
+    close();
+  }
+});
+
+test("listLocalOrganizations tolerates a corrupt organization profile", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const { close, execSql } = await createTestExecSql(
+    "organizations-list-local-corrupt-test",
+  );
+  const dbClient = createClient(execSql);
+
+  try {
+    const created = await createOrganization({
+      apiClient: { createOrganization: respondToOrganizationProvisioning },
+      dbClient,
+      encapsulationKeyPair,
+      organizationProfileName: "Acme",
+      signingKeyPair,
+      userId: crypto.randomUUID(),
+    });
+    if (!created) {
+      throw new Error("Expected the organization to be created");
+    }
+
+    const localId = getOrganizationProfileDocumentLocalId({
+      organizationId: created.organizationId,
+    });
+    const record = await sqlDocumentsPersistence.loadDocument(execSql, localId);
+    if (!record) {
+      throw new Error("Expected the organization profile document");
+    }
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      ...record,
+      loroSnapshot: "not-a-valid-loro-snapshot",
+    });
+
+    const organizations = await listLocalOrganizations({ execSql });
+
+    expect(organizations).toHaveLength(1);
+    expect(organizations[0]?.organizationId).toBe(created.organizationId);
+    expect(organizations[0]?.name).toBeNull();
   } finally {
     close();
   }

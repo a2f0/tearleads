@@ -28,19 +28,27 @@ async function readLocalOrganizationName(
   execSql: ExecSql,
   organizationId: string,
 ): Promise<string | null> {
-  const record = await sqlDocumentsPersistence.loadDocument(
-    execSql,
-    getOrganizationProfileDocumentLocalId({ organizationId }),
-  );
-  if (!record?.loroSnapshot) {
+  // A single corrupt or unparseable profile document must not break the whole
+  // list — fall back to a null (unnamed) organization instead.
+  try {
+    const record = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      getOrganizationProfileDocumentLocalId({ organizationId }),
+    );
+    if (!record?.loroSnapshot) {
+      return null;
+    }
+
+    const doc = await createDocument(
+      await getScopedPeerSeed(DOCUMENTS_APP_KIND),
+    );
+    importUpdates(doc, [base64ToBytes(record.loroSnapshot)]);
+    return readOrganizationProfileName(
+      readStoredDocumentState(doc).structuredFields,
+    );
+  } catch {
     return null;
   }
-
-  const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
-  importUpdates(doc, [base64ToBytes(record.loroSnapshot)]);
-  return readOrganizationProfileName(
-    readStoredDocumentState(doc).structuredFields,
-  );
 }
 
 /**

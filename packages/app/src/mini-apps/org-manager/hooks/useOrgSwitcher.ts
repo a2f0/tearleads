@@ -57,7 +57,7 @@ export function useOrgSwitcher({
     return () => {
       cancelled = true;
     };
-  }, [enabled, tearleads, activeOrganizationId]);
+  }, [enabled, tearleads]);
 
   const selectOrganization = useCallback(
     (organizationId: string) => {
@@ -76,6 +76,8 @@ export function useOrgSwitcher({
       if (result) {
         tearleads.session.setOrganizationId(result.organizationId);
       }
+    } catch (error) {
+      console.error("Failed to create organization:", error);
     } finally {
       setCreating(false);
     }
