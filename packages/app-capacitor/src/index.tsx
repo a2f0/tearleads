@@ -1,10 +1,11 @@
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
-  AppHostConfig,
+  createAppHostConfig,
   resolveEventsWebSocketUrl,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { createCapacitorPurchases } from "./capacitorPurchases";
 
 function createCapacitorSQLiteRuntime() {
   const workerUrl = "./worker.js";
@@ -22,14 +23,11 @@ const wsUrl = resolveEventsWebSocketUrl(
 );
 
 renderApp(createRoot(elem), {
-  hostConfig: new AppHostConfig(
+  hostConfig: createAppHostConfig({
     apiBaseUrl,
+    createPurchases: createCapacitorPurchases,
+    createSQLiteRuntime: createCapacitorSQLiteRuntime,
+    navigationMode: "routed",
     wsUrl,
-    createCapacitorSQLiteRuntime,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    "routed",
-  ),
+  }),
 });

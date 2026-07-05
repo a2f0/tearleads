@@ -1,0 +1,204 @@
+/**
+ * Client purchases capability for org **sync** billing.
+ *
+ * Sync is the single paid feature; a purchase is made on behalf of an
+ * organization and ultimately drives the server RevenueCat webhook, which grants
+ * the org's sync entitlement. This module keeps the capability provider-agnostic:
+ * the {@link PurchasesCapability} interface is what the app consumes, the
+ * injectable {@link RevenueCatBackend} is the minimal native surface a platform
+ * shell wires up (e.g. `@revenuecat/purchases-capacitor`), and
+ * {@link createUnavailablePurchases} is the stub for platforms without an
+ * in-app-purchase provider.
+ */
+
+/** A purchasable sync subscription option, shaped for display in billing UI. */
+export interface SyncSubscriptionOption {
+  /** Provider package identifier, passed back to {@link PurchasesCapability.purchaseSync}. */
+  readonly packageId: string;
+  /** Underlying store product identifier. */
+  readonly productId: string;
+  readonly title: string;
+  readonly description: string;
+  /** Localized, display-ready price (e.g. "$4.99"). */
+  readonly priceLabel: string;
+}
+
+/** Outcome of a completed sync purchase. */
+export interface SyncPurchaseResult {
+  /** Whether the buyer now holds the sync entitlement. */
+  readonly syncEntitlementActive: boolean;
+}
+
+/**
+ * The purchases surface the app consumes. A platform either provides a real
+ * implementation (Capacitor / Web Billing) or the {@link createUnavailablePurchases}
+ * stub; callers gate purchase UI on {@link isAvailable}.
+ */
+export interface PurchasesCapability {
+  /** False when purchasing is not supported on this platform (the stub). */
+  readonly isAvailable: boolean;
+  /** Identify the buyer to the provider; the App User ID is the buyer's user id. */
+  identify(input: { userId: string }): Promise<void>;
+  /** Forget the identified buyer (e.g. on sign-out). */
+  reset(): Promise<void>;
+  /** Sync subscription options available to purchase. */
+  listSyncOptions(): Promise<SyncSubscriptionOption[]>;
+  /** Purchase sync for one organization, binding the purchase to that org. */
+  purchaseSync(input: {
+    organizationId: string;
+    packageId: string;
+  }): Promise<SyncPurchaseResult>;
+  /** Restore prior purchases (e.g. on a new device). */
+  restore(): Promise<void>;
+  /** Whether the identified buyer currently holds the sync entitlement. */
+  hasActiveSyncEntitlement(): Promise<boolean>;
+}
+
+/** Thrown when a purchase is attempted on a platform without a purchases provider. */
+export class PurchasesUnavailableError extends Error {
+  constructor(message = "Purchases are not available on this platform") {
+    super(message);
+    this.name = "PurchasesUnavailableError";
+  }
+}
+
+/** A normalized purchasable package as returned by {@link RevenueCatBackend.getOfferings}. */
+export interface RevenueCatPackage {
+  readonly identifier: string;
+  readonly productIdentifier: string;
+  readonly title: string;
+  readonly description: string;
+  readonly priceString: string;
+}
+
+/** Normalized RevenueCat customer state — only the active entitlement ids are consumed. */
+export interface RevenueCatCustomerInfo {
+  readonly activeEntitlementIds: readonly string[];
+}
+
+/**
+ * The minimal RevenueCat surface a platform shell adapts from its native SDK.
+ * Keeping it normalized (plain ids/strings, no native types) lets the mapping in
+ * {@link createRevenueCatPurchases} be unit-tested with a fake backend and keeps
+ * `@tearleads/client-sdk` free of any provider dependency.
+ */
+export interface RevenueCatBackend {
+  configure(input: { apiKey: string; appUserId?: string }): Promise<void>;
+  logIn(input: { appUserId: string }): Promise<void>;
+  logOut(): Promise<void>;
+  setAttributes(attributes: Record<string, string | null>): Promise<void>;
+  getCurrentPackages(): Promise<RevenueCatPackage[]>;
+  purchasePackage(input: {
+    packageId: string;
+  }): Promise<RevenueCatCustomerInfo>;
+  getCustomerInfo(): Promise<RevenueCatCustomerInfo>;
+  restorePurchases(): Promise<RevenueCatCustomerInfo>;
+}
+
+export interface RevenueCatPurchasesConfig {
+  /** Provider SDK API key for this platform. */
+  readonly apiKey: string;
+  /** Entitlement id that grants sync (e.g. "sync"). */
+  readonly syncEntitlementId: string;
+  /**
+   * Subscriber attribute key that binds a purchase to an organization. The
+   * server webhook reads this to resolve the org being paid for. Defaults to
+   * "orgId".
+   */
+  readonly organizationAttributeKey?: string;
+}
+
+const DEFAULT_ORGANIZATION_ATTRIBUTE_KEY = "orgId";
+
+/**
+ * Adapts a {@link RevenueCatBackend} into a {@link PurchasesCapability}. The
+ * provider is configured lazily and exactly once (the first call that needs it),
+ * so constructing the capability never touches the native SDK on its own.
+ */
+export function createRevenueCatPurchases(
+  backend: RevenueCatBackend,
+  config: RevenueCatPurchasesConfig,
+): PurchasesCapability {
+  const organizationAttributeKey =
+    config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
+  let configured: Promise<void> | undefined;
+  const ensureConfigured = (): Promise<void> => {
+    configured ??= backend.configure({ apiKey: config.apiKey });
+    return configured;
+  };
+  const holdsSyncEntitlement = (info: RevenueCatCustomerInfo): boolean =>
+    info.activeEntitlementIds.includes(config.syncEntitlementId);
+
+  return {
+    isAvailable: true,
+    async identify(input) {
+      await ensureConfigured();
+      await backend.logIn({ appUserId: input.userId });
+    },
+    async reset() {
+      await ensureConfigured();
+      await backend.logOut();
+    },
+    async listSyncOptions() {
+      await ensureConfigured();
+      const packages = await backend.getCurrentPackages();
+      return packages.map((entry) => ({
+        packageId: entry.identifier,
+        productId: entry.productIdentifier,
+        title: entry.title,
+        description: entry.description,
+        priceLabel: entry.priceString,
+      }));
+    },
+    async purchaseSync(input) {
+      await ensureConfigured();
+      // Bind the purchase to the org BEFORE buying so the resulting provider
+      // event carries the organization attribute the webhook resolves against.
+      await backend.setAttributes({
+        [organizationAttributeKey]: input.organizationId,
+      });
+      const info = await backend.purchasePackage({
+        packageId: input.packageId,
+      });
+      return { syncEntitlementActive: holdsSyncEntitlement(info) };
+    },
+    async restore() {
+      await ensureConfigured();
+      await backend.restorePurchases();
+    },
+    async hasActiveSyncEntitlement() {
+      await ensureConfigured();
+      return holdsSyncEntitlement(await backend.getCustomerInfo());
+    },
+  };
+}
+
+/**
+ * The no-op purchases capability for platforms without an in-app-purchase
+ * provider (web/desktop until Web Billing lands, or a Capacitor web preview).
+ * Read methods degrade quietly (no options, no entitlement) so callers can query
+ * safely; only an actual purchase attempt throws.
+ */
+export function createUnavailablePurchases(): PurchasesCapability {
+  return {
+    isAvailable: false,
+    identify() {
+      return Promise.resolve();
+    },
+    reset() {
+      return Promise.resolve();
+    },
+    listSyncOptions() {
+      return Promise.resolve([]);
+    },
+    purchaseSync() {
+      return Promise.reject(new PurchasesUnavailableError());
+    },
+    restore() {
+      return Promise.resolve();
+    },
+    hasActiveSyncEntitlement() {
+      return Promise.resolve(false);
+    },
+  };
+}
