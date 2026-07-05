@@ -16,6 +16,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "credit_card",
     "passport",
     "env_file",
+    "json_file",
     "image",
     "audio",
     "pdf",
@@ -36,6 +37,7 @@ test("document type registry covers the supported inline document kinds", () => 
   );
   expect(getDocumentTypeDefinition("passport").createLabel).toBe("Passport");
   expect(getDocumentTypeDefinition("env_file").createLabel).toBe(".env File");
+  expect(getDocumentTypeDefinition("json_file").createLabel).toBe("JSON File");
   expect(getDocumentTypeDefinition("image").createLabel).toBe("Image");
   expect(getDocumentTypeDefinition("audio").createLabel).toBe("Audio");
   expect(getDocumentTypeDefinition("pdf").createLabel).toBe("PDF");

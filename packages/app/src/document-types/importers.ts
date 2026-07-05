@@ -10,6 +10,7 @@ import {
 } from "./env-file/envFileDocumentDefinition";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
+import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";
 import { APP_DEFAULT_DOCUMENT_KIND } from "./note/noteDocumentDefinition";
 import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
 
@@ -47,7 +48,7 @@ const MIME_BY_EXTENSION = new Map<string, string>([
   ["webp", "image/webp"],
 ]);
 
-const TEXT_EXTENSIONS = new Set(["csv", "json", "md", "txt"]);
+const TEXT_EXTENSIONS = new Set(["csv", "md", "txt"]);
 const IMAGE_EXTENSIONS = new Set(["gif", "jpeg", "jpg", "png", "svg", "webp"]);
 const AUDIO_EXTENSIONS = new Set(["m4a", "mp3", "ogg", "wav"]);
 
@@ -201,6 +202,19 @@ const envFileImporter: DocumentFileImporter = {
   maxByteLength: TEXT_FILE_IMPORT_MAX_BYTES,
 };
 
+const jsonFileImporter: DocumentFileImporter = {
+  documentKind: JSON_FILE_DOCUMENT_KIND,
+  importFile: async (file) => ({
+    attachment: null,
+    documentKind: JSON_FILE_DOCUMENT_KIND,
+    initialText: await file.text(),
+    structuredFields: {
+      fileName: file.name,
+    },
+  }),
+  maxByteLength: TEXT_FILE_IMPORT_MAX_BYTES,
+};
+
 const imageFileImporter: DocumentFileImporter = {
   documentKind: IMAGE_DOCUMENT_KIND,
   importFile: async (file) => ({
@@ -255,11 +269,10 @@ const genericFileImporter: DocumentFileImporter = {
 };
 
 function getImporterForMimeType(mimeType: string): DocumentFileImporter | null {
-  if (
-    mimeType.startsWith("text/") ||
-    mimeType === "application/json" ||
-    mimeType === "application/csv"
-  ) {
+  if (mimeType === "application/json" || mimeType.endsWith("+json")) {
+    return jsonFileImporter;
+  }
+  if (mimeType.startsWith("text/") || mimeType === "application/csv") {
     return noteFileImporter;
   }
   if (mimeType.startsWith("image/")) {
@@ -278,6 +291,9 @@ function getImporterForMimeType(mimeType: string): DocumentFileImporter | null {
 function getImporterForExtension(
   extension: string,
 ): DocumentFileImporter | null {
+  if (extension === "json") {
+    return jsonFileImporter;
+  }
   if (TEXT_EXTENSIONS.has(extension)) {
     return noteFileImporter;
   }

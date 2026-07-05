@@ -12,6 +12,8 @@ import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
+import { JsonFileDocumentApp } from "./json-file/JsonFileDocumentApp";
+import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
 import { PassportDocumentApp } from "./passport/PassportApp";
 import { PdfDocumentApp } from "./pdf/PdfDocumentApp";
@@ -39,6 +41,7 @@ const documentTypeAppsByKind = new Map<
   ["credit_card", CreditCardDocumentApp],
   ["passport", PassportDocumentApp],
   ["env_file", EnvFileDocumentApp],
+  ["json_file", JsonFileDocumentApp],
   ["image", ImageDocumentApp],
   ["audio", AudioDocumentApp],
   ["pdf", PdfDocumentApp],
@@ -65,6 +68,7 @@ export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
 // File-backed kinds enter the workspace through upload, not the
 // "New Document" picker, so they are excluded from creation.
 const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
+  JSON_FILE_DOCUMENT_KIND,
   IMAGE_DOCUMENT_KIND,
   AUDIO_DOCUMENT_KIND,
   PDF_DOCUMENT_KIND,
@@ -73,11 +77,18 @@ const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
 
 // A file-backed document carries its uploaded bytes as an attachment, so it is
 // the only family for which "Download" is meaningful (notes, contacts, cards,
-// and env files have no blob to save).
+// JSON, and env files have no blob to save).
+const FILE_BACKED_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
+  IMAGE_DOCUMENT_KIND,
+  AUDIO_DOCUMENT_KIND,
+  PDF_DOCUMENT_KIND,
+  GENERIC_FILE_DOCUMENT_KIND,
+]);
+
 export function isFileBackedDocumentKind(
   kind: StoredDocumentKind | null,
 ): boolean {
-  return kind !== null && UPLOAD_ONLY_DOCUMENT_KINDS.has(kind);
+  return kind !== null && FILE_BACKED_DOCUMENT_KINDS.has(kind);
 }
 
 export const CREATABLE_DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
