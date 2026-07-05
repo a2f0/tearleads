@@ -5,10 +5,6 @@ import {
   isAuthChallengeHexString,
 } from "../util";
 import {
-  type AccountLifecycleResponse,
-  isAccountLifecycleResponse,
-} from "./account";
-import {
   type ContainerCreateWithMetadataDocumentResponse,
   isContainerCreateWithMetadataDocumentResponse,
 } from "./containerMetadata";
@@ -19,7 +15,6 @@ import {
 
 export interface RegistrationResponse {
   userId: string;
-  account: AccountLifecycleResponse;
   organizationId: string;
   rootContainerId: string;
   rootMetadataDocumentId: string;
@@ -43,7 +38,6 @@ export function isRegistrationResponse(
   return (
     isPlainObject(value) &&
     hasStringProperty(value, "userId") &&
-    isAccountLifecycleResponse(Reflect.get(value, "account")) &&
     hasStringProperty(value, "organizationId") &&
     hasStringProperty(value, "rootContainerId") &&
     hasStringProperty(value, "rootMetadataDocumentId") &&

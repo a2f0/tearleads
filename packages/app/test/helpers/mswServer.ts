@@ -8,7 +8,6 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type {
-  AccountLifecycleResponse,
   DestroySessionResponse,
   DocumentContentKeyTargetEnvelopeResponse,
   EncapsulationKeyResponse,
@@ -107,24 +106,11 @@ const mockEncapsulationKeysByUserId = new Map<
   Promise<EncapsulationKeyResponse>
 >();
 interface MockAuthContext {
-  account: AccountLifecycleResponse;
   organizationId: string;
   userId: string;
 }
 
 let mockAuthContext: MockAuthContext | null = null;
-
-function createMockAccountLifecycle(): AccountLifecycleResponse {
-  return {
-    status: "trialing",
-    trialEndsAt: "2026-05-29T10:00:00.000Z",
-    disabledAt: null,
-    purgeAfter: null,
-    purgeStartedAt: null,
-    purgedAt: null,
-    remoteDataEpoch: 1,
-  };
-}
 
 function getMockEncapsulationKeyResponse(
   userId: string,
@@ -414,13 +400,11 @@ const server = setupServer(
       ? Reflect.get(requestBody, "rootContainerId")
       : null;
     const context = {
-      account: createMockAccountLifecycle(),
       organizationId: crypto.randomUUID(),
       userId: crypto.randomUUID(),
     };
     mockAuthContext = context;
     return HttpResponse.json<RegistrationResponse>({
-      account: context.account,
       userId: context.userId,
       organizationId: context.organizationId,
       rootContainerId:
@@ -439,13 +423,11 @@ const server = setupServer(
   ),
   http.post("http://localhost:3001/auth/verify", () => {
     const context = mockAuthContext ?? {
-      account: createMockAccountLifecycle(),
       organizationId: crypto.randomUUID(),
       userId: crypto.randomUUID(),
     };
     mockAuthContext = context;
     return HttpResponse.json<VerifyResponse>({
-      account: context.account,
       authenticated: true,
       organizationId: context.organizationId,
       token: randomHex(64),

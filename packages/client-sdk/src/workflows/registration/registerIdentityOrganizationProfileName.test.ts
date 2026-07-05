@@ -22,16 +22,6 @@ import { readOrganizationProfileName } from "../organizations/organizationProfil
 import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
 import { registerIdentity } from "./registerIdentity";
 
-const account = {
-  disabledAt: null,
-  purgeAfter: null,
-  purgeStartedAt: null,
-  purgedAt: null,
-  remoteDataEpoch: 1,
-  status: "trialing" as const,
-  trialEndsAt: "2026-06-08T00:00:00.000Z",
-};
-
 function createDbClient(execSql: ExecSql): ExecSqlClientLike {
   return {
     async exec({ bind, rowMode, sql }) {
@@ -89,7 +79,6 @@ const registrationApi = {
       initialOrganizationProfileDocument,
     );
     return {
-      account,
       userId,
       organizationId,
       rootContainerId,

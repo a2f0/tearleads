@@ -1,5 +1,4 @@
-import { index, integer, pgTable, text, timestamp, uuid } from "./columns";
-import type { AccountStatus } from "./shared";
+import { pgTable, text, timestamp, uuid } from "./columns";
 
 /**
  * Registered human users and their long-lived public key material.
@@ -9,6 +8,9 @@ import type { AccountStatus } from "./shared";
  * resolve the user's default personal organization/root container context.
  * Private keys never live in this table; only public keys and fingerprints are
  * stored.
+ *
+ * Billing is per-organization (`organization_billing`), not per-user; this
+ * table carries no account/trial lifecycle state.
  *
  * Columns:
  * - `id`: Stable server-side user id.
@@ -25,57 +27,19 @@ import type { AccountStatus } from "./shared";
  * - `registrationSourceIpAddress`: Best-effort source IP observed on the
  *   registration request. It is nullable when registration is created outside
  *   an HTTP request or no usable client IP metadata is available.
- * - `accountStatus`: Lifecycle state for paid-account enforcement. Trialing
- *   and active accounts can use paid sync/org routes; disabled, deleting, and
- *   purged accounts cannot.
- * - `trialEndsAt`: Server-side timestamp when the initial free trial ends.
- * - `disabledAt` / `purgeAfter`: Set when the account becomes disabled. The
- *   purge job may delete remote account data after `purgeAfter`.
- * - `purgeStartedAt` / `purgedAt`: Purge job progress markers. The user/key row
- *   remains after purge so a later payment flow can reactivate the identity.
- * - `remoteDataEpoch`: Monotonic generation for server-side sync data. It
- *   increments after purge so clients can discard stale sync state.
  * - `createdAt`: Server-side registration timestamp.
  *
  * Indexes:
  * - `users_fingerprint_unique` enforces one signing key fingerprint per user
  *   and gives auth challenge verification an indexed `fingerprint` lookup.
  */
-export const users = pgTable(
-  "users",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    fingerprint: text("fingerprint").notNull().unique(),
-    signingPublicKey: text("signing_public_key").notNull(),
-    encapsulationPublicKey: text("encapsulation_public_key").notNull(),
-    encapsulationKeyFingerprint: text(
-      "encapsulation_key_fingerprint",
-    ).notNull(),
-    defaultOrganizationId: uuid("default_organization_id").notNull(),
-    registrationSourceIpAddress: text("registration_source_ip_address"),
-    accountStatus: text("account_status")
-      .$type<AccountStatus>()
-      .default("trialing")
-      .notNull(),
-    trialEndsAt: timestamp("trial_ends_at").defaultNow().notNull(),
-    disabledAt: timestamp("disabled_at"),
-    purgeAfter: timestamp("purge_after"),
-    purgeStartedAt: timestamp("purge_started_at"),
-    purgedAt: timestamp("purged_at"),
-    remoteDataEpoch: integer("remote_data_epoch").default(1).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("users_trial_expiry_idx").on(
-      table.accountStatus,
-      table.trialEndsAt,
-      table.id,
-    ),
-    index("users_purge_candidates_idx").on(
-      table.accountStatus,
-      table.purgeAfter,
-      table.purgeStartedAt,
-      table.id,
-    ),
-  ],
-);
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  fingerprint: text("fingerprint").notNull().unique(),
+  signingPublicKey: text("signing_public_key").notNull(),
+  encapsulationPublicKey: text("encapsulation_public_key").notNull(),
+  encapsulationKeyFingerprint: text("encapsulation_key_fingerprint").notNull(),
+  defaultOrganizationId: uuid("default_organization_id").notNull(),
+  registrationSourceIpAddress: text("registration_source_ip_address"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

@@ -1,15 +1,6 @@
 import { expect, test } from "bun:test";
 import { isRegistrationResponse, isVerifyResponse } from "./index";
 
-const VALID_ACCOUNT = {
-  disabledAt: null,
-  purgeAfter: null,
-  purgeStartedAt: null,
-  purgedAt: null,
-  remoteDataEpoch: 1,
-  status: "trialing",
-  trialEndsAt: "2026-06-08T00:00:00.000Z",
-};
 const VALID_CHALLENGE = "a".repeat(64);
 
 function createDocumentCreateResponse() {
@@ -56,7 +47,6 @@ function createDocumentCreateResponse() {
 test("isRegistrationResponse", () => {
   expect(
     isRegistrationResponse({
-      account: VALID_ACCOUNT,
       userId: "abc-123",
       organizationId: "org-456",
       rootContainerId: "ctr-789",
@@ -81,7 +71,6 @@ test("isVerifyResponse", () => {
   expect(isVerifyResponse({ authenticated: true })).toBe(false);
   expect(
     isVerifyResponse({
-      account: VALID_ACCOUNT,
       authenticated: true,
       organizationId: "org-1",
       token: "abc123",

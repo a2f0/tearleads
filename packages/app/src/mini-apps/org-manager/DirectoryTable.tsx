@@ -31,7 +31,7 @@ import {
 import { useRoutedLayoutTier } from "../../navigation/useRoutedLayoutTier";
 import { formatMiniAppDate } from "../../utils/formatMiniAppDate";
 import { compactFingerprint, isKeyboardActivationKey } from "./display";
-import { getOrgManagerAccountStatusLabel, ORG_MANAGER_LABELS } from "./labels";
+import { ORG_MANAGER_LABELS } from "./labels";
 
 export type DirectoryContextMenuHandler = (
   event: MouseEvent<HTMLElement>,
@@ -41,17 +41,15 @@ export type RosterUserContextMenuHandler = (
   userId: string,
 ) => void;
 
-type DirectoryTableColumnId = "user" | "status" | "account" | "joined";
+type DirectoryTableColumnId = "user" | "status" | "joined";
 
 const DIRECTORY_TABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
   "user",
   "status",
-  "account",
   "joined",
 ];
 const DIRECTORY_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<DirectoryTableColumnId> = [
   "status",
-  "account",
   "joined",
 ];
 const EMPTY_DIRECTORY_HIDDEN_COLUMNS = new Set<DirectoryTableColumnId>();
@@ -59,7 +57,6 @@ const DIRECTORY_COLUMN_MENU_OPTIONS: ReadonlyArray<
   MiniAppColumnMenuOption<DirectoryTableColumnId>
 > = [
   { id: "status", label: ORG_MANAGER_LABELS.status },
-  { id: "account", label: ORG_MANAGER_LABELS.account },
   { id: "joined", label: ORG_MANAGER_LABELS.joined },
 ];
 
@@ -73,11 +70,6 @@ const DIRECTORY_TABLE_COLUMNS = [
     id: "status",
     header: ORG_MANAGER_LABELS.status,
     width: "7rem",
-  },
-  {
-    id: "account",
-    header: ORG_MANAGER_LABELS.account,
-    width: "7.5rem",
   },
   {
     className: "org-manager-directory-joined-column",
@@ -135,14 +127,6 @@ function renderDirectoryUserCell(
             {user.status === "disabled"
               ? ORG_MANAGER_LABELS.disabled
               : ORG_MANAGER_LABELS.active}
-          </MiniAppTableText>
-        </MiniAppTableCell>
-      );
-    case "account":
-      return (
-        <MiniAppTableCell key="account">
-          <MiniAppTableText>
-            {getOrgManagerAccountStatusLabel(user.accountStatus)}
           </MiniAppTableText>
         </MiniAppTableCell>
       );

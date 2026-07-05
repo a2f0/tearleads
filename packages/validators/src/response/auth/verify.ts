@@ -1,13 +1,8 @@
 import { isPlainObject } from "../../isPlainObject";
 import { hasBooleanProperty, hasOptionalStringProperty } from "../../util";
-import {
-  type AccountLifecycleResponse,
-  isAccountLifecycleResponse,
-} from "../account";
 
 export type VerifyResponse =
   | {
-      account: AccountLifecycleResponse;
       authenticated: true;
       organizationId: string;
       token: string;
@@ -37,10 +32,8 @@ export function isVerifyResponse(value: unknown): value is VerifyResponse {
         value.token.length > 0 &&
         typeof value.userId === "string" &&
         value.userId.length > 0 &&
-        isAccountLifecycleResponse(Reflect.get(value, "account")) &&
         value.error === undefined
     : value.organizationId === undefined &&
         value.token === undefined &&
-        value.userId === undefined &&
-        Reflect.get(value, "account") === undefined;
+        value.userId === undefined;
 }

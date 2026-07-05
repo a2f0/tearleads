@@ -7,12 +7,6 @@ export {
   isEffectiveAccessLevel,
 } from "./accessLevel";
 export {
-  type AccountLifecycleResponse,
-  type AccountStatus,
-  isAccountLifecycleResponse,
-  isAccountStatus,
-} from "./account";
-export {
   type ChallengeErrorResponse,
   type ChallengeResponse,
   type DeleteKeyPackageBackupResponse,

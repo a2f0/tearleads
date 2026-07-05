@@ -256,7 +256,6 @@ export const grantsWithMissingDisplayNames = {
 export const userDetail: OrganizationUserDetailResponse = {
   organizationId,
   user: {
-    accountStatus: "active",
     userId: "user-1",
     signingKeyFingerprint: "signing-fingerprint",
     signingPublicKey: "signing-key",
