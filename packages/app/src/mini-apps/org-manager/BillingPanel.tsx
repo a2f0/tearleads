@@ -1,7 +1,7 @@
 import { useCallback } from "react";
+import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import { BillingView } from "./BillingView";
 import { useBillingActions } from "./hooks/useBillingActions";
-import { useOrganizationBilling } from "./hooks/useOrganizationBilling";
 
 /**
  * Container for the org-manager billing view: wires the billing snapshot
@@ -18,7 +18,7 @@ export function BillingPanel({
   organizationId: string;
   userId: string | null;
 }) {
-  const billing = useOrganizationBilling(organizationId);
+  const billing = useOrganizationBilling();
   const { refresh } = billing;
   const actions = useBillingActions({
     isOrgAdmin,

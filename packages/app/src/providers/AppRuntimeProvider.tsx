@@ -3,6 +3,7 @@ import { DemoPeerBootstrap } from "../demo/DemoPeerBootstrap";
 import type { AppHostConfig } from "../host/AppHostConfig";
 import { IdentityAutopilot } from "../identity/IdentityAutopilot";
 import { DeviceFirstProvider } from "../stores/device-first/DeviceFirstProvider";
+import { BillingProvider } from "./billing/BillingProvider";
 import { CryptoSessionProvider } from "./crypto/CryptoSessionProvider";
 import { DatabaseProvider } from "./db/DatabaseProvider";
 import { AppHostConfigProvider } from "./host/AppHostConfigProvider";
@@ -45,7 +46,7 @@ export function AppRuntimeProvider({
                           {hostConfig.profile.features.seedPeerIdentities && (
                             <DemoPeerBootstrap enabled={autoProvisionEnabled} />
                           )}
-                          {children}
+                          <BillingProvider>{children}</BillingProvider>
                         </SystemBootstrapProvider>
                       </DeviceFirstProvider>
                     </CryptoSessionProvider>
