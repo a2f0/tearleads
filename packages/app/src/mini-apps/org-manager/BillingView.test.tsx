@@ -134,7 +134,7 @@ test("subscribe options invoke onSubscribe with the chosen package", () => {
   expect(chosen).toEqual(["monthly"]);
 });
 
-test("platforms without purchases show the mobile-app hint", () => {
+test("platforms without purchases show the unavailable-purchases hint", () => {
   const view = render(
     <BillingView
       {...props({

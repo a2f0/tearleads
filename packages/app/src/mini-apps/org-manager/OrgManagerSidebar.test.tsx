@@ -93,13 +93,19 @@ test("org manager sidebar panel clears itself when disabled", async () => {
 
 test("org manager sidebar switcher lists organizations and drives selection", async () => {
   const selected: string[] = [];
-  let created = 0;
+  let openedCreateDialog = 0;
   const switcher: OrgSwitcherState = {
     activeOrganizationId: "org-a",
+    closeCreateOrganizationDialog: () => {},
     createOrganization: async () => {
-      created += 1;
+      throw new Error("Unexpected direct create");
     },
+    createOrganizationError: null,
     creating: false,
+    isCreateOrganizationDialogOpen: false,
+    openCreateOrganizationDialog: () => {
+      openedCreateDialog += 1;
+    },
     organizations: [
       { name: "Acme", organizationId: "org-a", rootContainerId: "c-a" },
       { name: null, organizationId: "org-b", rootContainerId: "c-b" },
@@ -121,7 +127,7 @@ test("org manager sidebar switcher lists organizations and drives selection", as
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.newOrganizationAction));
 
   expect(selected).toEqual(["org-b"]);
-  expect(created).toBe(1);
+  expect(openedCreateDialog).toBe(1);
 });
 
 test("org manager sidebar omits the switcher when none is provided", async () => {

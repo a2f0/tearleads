@@ -9,6 +9,7 @@ import {
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
 import { BillingPanel } from "./BillingPanel";
+import { CreateOrganizationDialog } from "./CreateOrganizationDialog";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
 import { DataUsageView } from "./DataUsageView";
 import { DirectoryView } from "./DirectoryView";
@@ -277,6 +278,17 @@ export function OrgManager() {
         openImportUserDialog={model.openImportUserDialog}
         openRosterUser={model.openRosterUser}
         openRosterUserForEditing={model.openRosterUserForEditing}
+      />
+      <CreateOrganizationDialog
+        closeCreateOrganizationDialog={
+          model.orgSwitcher.closeCreateOrganizationDialog
+        }
+        createOrganization={(organizationName) => {
+          void model.orgSwitcher.createOrganization(organizationName);
+        }}
+        creating={model.orgSwitcher.creating}
+        error={model.orgSwitcher.createOrganizationError}
+        isOpen={model.orgSwitcher.isCreateOrganizationDialogOpen}
       />
     </MiniAppRoot>
   );

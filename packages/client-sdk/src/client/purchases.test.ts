@@ -10,6 +10,7 @@ import {
 
 interface RecordingBackend extends RevenueCatBackend {
   readonly calls: string[];
+  readonly configureAppUserIds: Array<string | undefined>;
   readonly attributes: Record<string, string | null>;
 }
 
@@ -19,6 +20,7 @@ function createFakeBackend(options?: {
   entitlementsNow?: string[];
 }): RecordingBackend {
   const calls: string[] = [];
+  const configureAppUserIds: Array<string | undefined> = [];
   const attributes: Record<string, string | null> = {};
   const purchaseInfo: RevenueCatCustomerInfo = {
     activeEntitlementIds: options?.entitlementsAfterPurchase ?? ["sync"],
@@ -28,9 +30,11 @@ function createFakeBackend(options?: {
   };
   return {
     calls,
+    configureAppUserIds,
     attributes,
-    async configure() {
+    async configure(input) {
       calls.push("configure");
+      configureAppUserIds.push(input.appUserId);
     },
     async logIn(input) {
       calls.push(`logIn:${input.appUserId}`);
@@ -102,6 +106,7 @@ test("identify logs in with the user id as the app user id", async () => {
   const backend = createFakeBackend();
   const purchases = createRevenueCatPurchases(backend, CONFIG);
   await purchases.identify({ userId: "user-42" });
+  expect(backend.configureAppUserIds).toEqual(["user-42"]);
   expect(backend.calls).toContain("logIn:user-42");
 });
 

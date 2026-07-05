@@ -77,6 +77,31 @@ function renderBillingActions(input: {
   );
 }
 
+test("identifies the buyer before loading subscription options", async () => {
+  const calls: string[] = [];
+  const purchases: PurchasesCapability = {
+    isAvailable: true,
+    identify: mock(() => {
+      calls.push("identify");
+      return Promise.resolve();
+    }),
+    reset: mock(() => Promise.resolve()),
+    listSyncOptions: mock(() => {
+      calls.push("listSyncOptions");
+      return Promise.resolve([OPTION]);
+    }),
+    purchaseSync: mock(() => Promise.resolve({ syncEntitlementActive: true })),
+    restore: mock(() => Promise.resolve()),
+    hasActiveSyncEntitlement: mock(() => Promise.resolve(false)),
+  };
+
+  const { result } = renderBillingActions({ purchases });
+
+  await waitFor(() => expect(result.current.options).toEqual([OPTION]));
+  expect(calls).toEqual(["identify", "listSyncOptions"]);
+  expect(purchases.identify).toHaveBeenCalledWith({ userId: "user-1" });
+});
+
 test("does not mark activation pending when purchase returns no sync entitlement", async () => {
   const purchases = createPurchases({ syncEntitlementActive: false });
   const refresh = mock(() => Promise.resolve());

@@ -9,6 +9,7 @@ import {
   prepareControllingServiceWorker,
   registerServiceWorkerAfterLoad,
 } from "./serviceWorkerRegistration";
+import { createWebPurchases } from "./webPurchases";
 
 const elem = document.getElementById("root");
 if (!elem) {
@@ -24,6 +25,7 @@ const wsUrl = resolveEventsWebSocketUrl(
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
+  createPurchases: createWebPurchases,
   wsUrl,
   profile: resolveAppHostProfile(process.env.BUN_PUBLIC_APP_VARIANT),
 });

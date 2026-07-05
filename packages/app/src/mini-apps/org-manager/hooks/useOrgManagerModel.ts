@@ -428,6 +428,7 @@ export function useOrgManagerModel() {
     openImportUserDialog,
     openRosterUser: rosterActions.openRosterUser,
     openRosterUserForEditing: rosterActions.openRosterUserForEditing,
+    orgSwitcher,
     organizationId: appData.auth.organizationId,
     organizationPolicyHistory,
     profileDisplayNamesByUserId,

@@ -1,13 +1,108 @@
-import type { LocalOrganizationSummary } from "@tearleads/client-sdk";
+import type {
+  LocalOrganizationSummary,
+  SessionCreateOrganizationResult,
+} from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
+import { ORG_MANAGER_LABELS } from "../labels";
 
 export interface OrgSwitcherState {
   activeOrganizationId: string | null;
-  createOrganization: () => Promise<void>;
+  closeCreateOrganizationDialog: () => void;
+  createOrganization: (organizationName: string) => Promise<void>;
+  createOrganizationError: string | null;
   creating: boolean;
+  isCreateOrganizationDialogOpen: boolean;
+  openCreateOrganizationDialog: () => void;
   organizations: readonly LocalOrganizationSummary[];
   selectOrganization: (organizationId: string) => void;
+}
+
+interface CreateOrganizationDialogState {
+  closeCreateOrganizationDialog: () => void;
+  createOrganization: (organizationName: string) => Promise<void>;
+  createOrganizationError: string | null;
+  creating: boolean;
+  isCreateOrganizationDialogOpen: boolean;
+  openCreateOrganizationDialog: () => void;
+}
+
+function useCreateOrganizationDialog({
+  provisionOrganization,
+  reload,
+  selectOrganization,
+}: {
+  provisionOrganization: (
+    organizationProfileName: string,
+  ) => Promise<SessionCreateOrganizationResult | null>;
+  reload: () => Promise<void>;
+  selectOrganization: (organizationId: string) => void;
+}): CreateOrganizationDialogState {
+  const [creating, setCreating] = useState(false);
+  const [isCreateOrganizationDialogOpen, setIsCreateOrganizationDialogOpen] =
+    useState(false);
+  const [createOrganizationError, setCreateOrganizationError] = useState<
+    string | null
+  >(null);
+
+  const openCreateOrganizationDialog = useCallback(() => {
+    setCreateOrganizationError(null);
+    setIsCreateOrganizationDialogOpen(true);
+  }, []);
+
+  const closeCreateOrganizationDialog = useCallback(() => {
+    if (creating) {
+      return;
+    }
+
+    setCreateOrganizationError(null);
+    setIsCreateOrganizationDialogOpen(false);
+  }, [creating]);
+
+  const createOrganization = useCallback(
+    async (organizationName: string) => {
+      const organizationProfileName = organizationName.trim();
+      if (organizationProfileName.length === 0) {
+        return;
+      }
+
+      setCreating(true);
+      setCreateOrganizationError(null);
+      try {
+        const result = await provisionOrganization(organizationProfileName);
+        await reload();
+        if (result) {
+          selectOrganization(result.organizationId);
+        }
+        setIsCreateOrganizationDialogOpen(false);
+      } catch (error) {
+        console.error("Failed to create organization:", error);
+        setCreateOrganizationError(ORG_MANAGER_LABELS.failedCreateOrganization);
+      } finally {
+        setCreating(false);
+      }
+    },
+    [provisionOrganization, reload, selectOrganization],
+  );
+
+  return useMemo(
+    () => ({
+      closeCreateOrganizationDialog,
+      createOrganization,
+      createOrganizationError,
+      creating,
+      isCreateOrganizationDialogOpen,
+      openCreateOrganizationDialog,
+    }),
+    [
+      closeCreateOrganizationDialog,
+      createOrganization,
+      createOrganizationError,
+      creating,
+      isCreateOrganizationDialogOpen,
+      openCreateOrganizationDialog,
+    ],
+  );
 }
 
 /**
@@ -28,7 +123,6 @@ export function useOrgSwitcher({
   const [organizations, setOrganizations] = useState<
     readonly LocalOrganizationSummary[]
   >([]);
-  const [creating, setCreating] = useState(false);
 
   const reload = useCallback(async () => {
     setOrganizations(await tearleads.organizations.listLocalOrganizations());
@@ -68,33 +162,27 @@ export function useOrgSwitcher({
     [tearleads, activeOrganizationId],
   );
 
-  const createOrganization = useCallback(async () => {
-    setCreating(true);
-    try {
-      const result = await tearleads.session.createOrganization();
-      await reload();
-      if (result) {
-        tearleads.session.setOrganizationId(result.organizationId);
-      }
-    } catch (error) {
-      console.error("Failed to create organization:", error);
-    } finally {
-      setCreating(false);
-    }
-  }, [reload, tearleads]);
+  const provisionOrganization = useCallback(
+    (organizationProfileName: string) =>
+      tearleads.session.createOrganization({ organizationProfileName }),
+    [tearleads],
+  );
+  const createOrganizationDialog = useCreateOrganizationDialog({
+    provisionOrganization,
+    reload,
+    selectOrganization,
+  });
 
   return useMemo(
     () => ({
       activeOrganizationId,
-      createOrganization,
-      creating,
+      ...createOrganizationDialog,
       organizations,
       selectOrganization,
     }),
     [
       activeOrganizationId,
-      createOrganization,
-      creating,
+      createOrganizationDialog,
       organizations,
       selectOrganization,
     ],
