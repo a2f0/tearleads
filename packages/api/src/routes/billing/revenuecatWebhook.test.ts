@@ -1,0 +1,269 @@
+import { beforeAll, expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  organizationBilling,
+  revenuecatWebhookEvents,
+  users,
+} from "@tearleads/api-shared/schema";
+import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { eq } from "drizzle-orm";
+import invariant from "invariant";
+import { authenticate } from "../../../test/helpers/authenticate";
+import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
+import { registerUser } from "../../../test/helpers/registerUser";
+import { routeApp } from "../../routeApp";
+
+const WEBHOOK_SECRET = "Bearer test-revenuecat-secret";
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const LAPSED_GRACE_MS = 30 * 24 * 60 * 60 * 1000;
+// Held in a variable so member access stays bracketed-by-variable, which both
+// tsc (no dot access on index signatures) and biome (no literal computed keys)
+// accept.
+const AUTH_ENV_KEY = "REVENUECAT_WEBHOOK_AUTH_HEADER";
+
+beforeAll(() => {
+  process.env[AUTH_ENV_KEY] = WEBHOOK_SECRET;
+});
+
+async function registerAndAuthenticate(user: TestUser): Promise<string> {
+  await registerUser(user);
+  await authenticate(user);
+
+  const [row] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, user.userId));
+
+  invariant(row, "expected registered user row");
+  return row.organizationId;
+}
+
+interface WebhookEventInput {
+  appUserId: string;
+  entitlementIds?: string[];
+  eventId?: string;
+  expirationAtMs?: number | null;
+  organizationId: string;
+  type: string;
+}
+
+function webhookBody(input: WebhookEventInput): string {
+  return JSON.stringify({
+    api_version: "1.0",
+    event: {
+      app_user_id: input.appUserId,
+      entitlement_ids: input.entitlementIds ?? ["sync"],
+      event_timestamp_ms: Date.now(),
+      expiration_at_ms:
+        input.expirationAtMs === undefined
+          ? Date.now() + THIRTY_DAYS_MS
+          : input.expirationAtMs,
+      id: input.eventId ?? crypto.randomUUID(),
+      subscriber_attributes: { orgId: { value: input.organizationId } },
+      type: input.type,
+    },
+  });
+}
+
+async function postWebhook(
+  body: string,
+  authorization: string | null = WEBHOOK_SECRET,
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(authorization !== null ? { Authorization: authorization } : {}),
+  };
+  return routeApp.request("/billing/revenuecat/webhook", {
+    body,
+    headers,
+    method: "POST",
+  });
+}
+
+async function readBilling(organizationId: string) {
+  const [row] = await db
+    .select({
+      currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+      disabledAt: organizationBilling.disabledAt,
+      entitlementId: organizationBilling.entitlementId,
+      provider: organizationBilling.provider,
+      providerCustomerId: organizationBilling.providerCustomerId,
+      purgeAfter: organizationBilling.purgeAfter,
+      status: organizationBilling.status,
+    })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  invariant(row, "expected billing row");
+  return row;
+}
+
+test("rejects a webhook with a missing or wrong authorization header", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  const missing = await postWebhook(
+    webhookBody({ appUserId: admin.userId, organizationId, type: "RENEWAL" }),
+    null,
+  );
+  expect(missing.status).toBe(401);
+
+  const wrong = await postWebhook(
+    webhookBody({ appUserId: admin.userId, organizationId, type: "RENEWAL" }),
+    "Bearer nope",
+  );
+  expect(wrong.status).toBe(401);
+});
+
+test("rejects a malformed webhook payload", async () => {
+  const invalidJson = await postWebhook("not json");
+  expect(invalidJson.status).toBe(400);
+
+  const missingEvent = await postWebhook(
+    JSON.stringify({ api_version: "1.0" }),
+  );
+  expect(missingEvent.status).toBe(400);
+});
+
+test("an admin purchase activates org sync and records the provider", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+  const expirationAtMs = Date.now() + THIRTY_DAYS_MS;
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      expirationAtMs,
+      organizationId,
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ received: true, outcome: "applied" });
+
+  const billing = await readBilling(organizationId);
+  expect(billing.status).toBe("active");
+  expect(billing.provider).toBe("revenuecat");
+  expect(billing.providerCustomerId).toBe(admin.userId);
+  expect(billing.entitlementId).toBe("sync");
+  expect(billing.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
+  expect(billing.disabledAt).toBeNull();
+  expect(billing.purgeAfter).toBeNull();
+});
+
+test("a duplicate event id is processed only once", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+  const eventId = crypto.randomUUID();
+  const body = webhookBody({
+    appUserId: admin.userId,
+    eventId,
+    organizationId,
+    type: "INITIAL_PURCHASE",
+  });
+
+  const first = await postWebhook(body);
+  expect(await first.json()).toEqual({ received: true, outcome: "applied" });
+
+  const second = await postWebhook(body);
+  expect(await second.json()).toEqual({
+    received: true,
+    outcome: "duplicate",
+  });
+
+  const rows = await db
+    .select({ id: revenuecatWebhookEvents.id })
+    .from(revenuecatWebhookEvents)
+    .where(eq(revenuecatWebhookEvents.eventId, eventId));
+  expect(rows).toHaveLength(1);
+});
+
+test("an expiration event disables sync and opens the purge grace window", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId,
+      type: "EXPIRATION",
+    }),
+  );
+  expect(await response.json()).toEqual({ received: true, outcome: "applied" });
+
+  const billing = await readBilling(organizationId);
+  expect(billing.status).toBe("disabled");
+  invariant(billing.disabledAt, "expected disabledAt");
+  invariant(billing.purgeAfter, "expected purgeAfter");
+  expect(billing.purgeAfter.getTime() - billing.disabledAt.getTime()).toBe(
+    LAPSED_GRACE_MS,
+  );
+});
+
+test("a non-admin buyer is ignored and does not activate sync", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+
+  const intruder = createTestUser();
+  await registerAndAuthenticate(intruder);
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: intruder.userId,
+      organizationId,
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ received: true, outcome: "ignored" });
+
+  const billing = await readBilling(organizationId);
+  expect(billing.status).toBe("local");
+  expect(billing.providerCustomerId).toBeNull();
+});
+
+test("a cancellation leaves an active subscription untouched", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+
+  await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId,
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId,
+      type: "CANCELLATION",
+    }),
+  );
+  expect(await response.json()).toEqual({ received: true, outcome: "ignored" });
+
+  const billing = await readBilling(organizationId);
+  expect(billing.status).toBe("active");
+});
+
+test("the webhook fails closed when the shared secret is not configured", async () => {
+  const previous = process.env[AUTH_ENV_KEY];
+  delete process.env[AUTH_ENV_KEY];
+  try {
+    const response = await postWebhook(
+      webhookBody({
+        appUserId: crypto.randomUUID(),
+        organizationId: crypto.randomUUID(),
+        type: "RENEWAL",
+      }),
+      "Bearer anything",
+    );
+    expect(response.status).toBe(503);
+  } finally {
+    process.env[AUTH_ENV_KEY] = previous;
+  }
+});
