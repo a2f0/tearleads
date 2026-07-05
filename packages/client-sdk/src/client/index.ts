@@ -153,6 +153,8 @@ export {
 export type {
   AddOrganizationGroupUserInput,
   LocalOrganizationSummary,
+  OrganizationBilling,
+  OrganizationBillingView,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,

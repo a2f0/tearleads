@@ -8,6 +8,7 @@ import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
+import { BillingPanel } from "./BillingPanel";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
 import { DataUsageView } from "./DataUsageView";
 import { DirectoryView } from "./DirectoryView";
@@ -142,6 +143,20 @@ function OrgManagerContent({
     );
   }
 
+  if (model.view === "billing") {
+    return (
+      <BillingPanel
+        isOrgAdmin={model.isOrgAdmin}
+        organizationId={organizationId}
+        userId={model.userId}
+      />
+    );
+  }
+
+  return <OrgManagerGroupsContent model={model} />;
+}
+
+function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
   return (
     <GroupsView
       addUser={model.addUser}

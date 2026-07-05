@@ -6,6 +6,7 @@ import {
   importOrganizationUserRecipient,
   type LocalOrganizationSummary,
   listLocalOrganizations,
+  loadOrganizationBilling,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
   loadOrganizationDirectoryAndGroups,
@@ -15,6 +16,7 @@ import {
   type OrganizationUserRecipient,
   removeOrganizationGroupUser,
   revokeOrganizationContainerGrant,
+  startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../workflows/organizations";
@@ -25,6 +27,8 @@ import type {
 
 export type {
   LocalOrganizationSummary,
+  OrganizationBilling,
+  OrganizationBillingView,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
@@ -87,6 +91,7 @@ export interface Organizations {
   importUserById: (
     userId: string,
   ) => ReturnType<typeof importOrganizationUserRecipient>;
+  loadBilling: () => ReturnType<typeof loadOrganizationBilling>;
   loadDataUsage: () => ReturnType<typeof loadOrganizationDataUsage>;
   loadDirectoryAndGroups: () => ReturnType<
     typeof loadOrganizationDirectoryAndGroups
@@ -113,6 +118,7 @@ export interface Organizations {
   revokeGrant: (
     grant: OrganizationGrantRef,
   ) => ReturnType<typeof revokeOrganizationContainerGrant>;
+  startTrial: () => ReturnType<typeof startOrganizationTrial>;
 }
 
 function requireSigningContext(
@@ -206,6 +212,19 @@ class OrganizationsService implements Organizations {
     return importOrganizationUserRecipient({
       apiClient: runtime.apiClient,
       userId,
+    });
+  }
+
+  loadBilling() {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    if (!organizationId) {
+      return Promise.resolve(null);
+    }
+
+    return loadOrganizationBilling({
+      apiClient: runtime.apiClient,
+      organizationId,
     });
   }
 
@@ -370,6 +389,19 @@ class OrganizationsService implements Organizations {
         subjectType: grant.subjectType,
       },
       ...signingContext,
+    });
+  }
+
+  startTrial() {
+    const runtime = this.runtimeService.workflowInput();
+    const organizationId = authenticatedOrganizationId(runtime);
+    if (!organizationId) {
+      return Promise.resolve(null);
+    }
+
+    return startOrganizationTrial({
+      apiClient: runtime.apiClient,
+      organizationId,
     });
   }
 }
