@@ -63,21 +63,26 @@ export async function listLocalOrganizations(input: {
   const containers = await sqlContainerContentsPersistence.loadContainers(
     input.execSql,
   );
-  const summaries: LocalOrganizationSummary[] = [];
   const seen = new Set<string>();
-  for (const { container } of containers) {
+  const rootContainers = containers.filter(({ container }) => {
     if (container.parentId !== null || seen.has(container.organizationId)) {
-      continue;
+      return false;
     }
     seen.add(container.organizationId);
-    summaries.push({
+    return true;
+  });
+
+  // Read each organization's profile name concurrently; readLocalOrganizationName
+  // already falls back to null per organization, so a single corrupt profile
+  // cannot reject the batch.
+  return Promise.all(
+    rootContainers.map(async ({ container }) => ({
       name: await readLocalOrganizationName(
         input.execSql,
         container.organizationId,
       ),
       organizationId: container.organizationId,
       rootContainerId: container.id,
-    });
-  }
-  return summaries;
+    })),
+  );
 }
