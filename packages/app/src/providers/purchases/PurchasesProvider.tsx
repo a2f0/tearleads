@@ -6,7 +6,7 @@ import {
   createContext,
   type PropsWithChildren,
   useContext,
-  useMemo,
+  useRef,
 } from "react";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 
@@ -19,15 +19,21 @@ const PurchasesContext = createContext<PurchasesCapability | null>(null);
  * `createLocalKeyring`); shells without an in-app-purchase provider fall back to
  * the unavailable stub, so `usePurchases()` is always safe to call and billing UI
  * gates on `isAvailable`.
+ *
+ * The capability is constructed exactly once per mount via a ref: it wraps a
+ * long-lived provider session (RevenueCat is configured lazily on first use), so
+ * it must not be rebuilt on re-render.
  */
 export function PurchasesProvider({ children }: PropsWithChildren) {
   const { createPurchases } = useAppHostConfig();
-  const purchases = useMemo(
-    () => (createPurchases ? createPurchases() : createUnavailablePurchases()),
-    [createPurchases],
-  );
+  const purchasesRef = useRef<PurchasesCapability | null>(null);
+  if (!purchasesRef.current) {
+    purchasesRef.current = createPurchases
+      ? createPurchases()
+      : createUnavailablePurchases();
+  }
   return (
-    <PurchasesContext.Provider value={purchases}>
+    <PurchasesContext.Provider value={purchasesRef.current}>
       {children}
     </PurchasesContext.Provider>
   );

@@ -126,8 +126,10 @@ export function createRevenueCatPurchases(
     configured ??= backend.configure({ apiKey: config.apiKey });
     return configured;
   };
+  // Defensive against a backend that returns a malformed customer info despite
+  // the typed contract (native bridges can hand back partial objects).
   const holdsSyncEntitlement = (info: RevenueCatCustomerInfo): boolean =>
-    info.activeEntitlementIds.includes(config.syncEntitlementId);
+    info?.activeEntitlementIds?.includes(config.syncEntitlementId) ?? false;
 
   return {
     isAvailable: true,

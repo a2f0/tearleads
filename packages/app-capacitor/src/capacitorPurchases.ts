@@ -15,17 +15,21 @@ import {
 
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
 
+// The native bridge is effectively untyped at runtime; guard against a
+// malformed/partial CustomerInfo or package so a bad payload can't crash the app.
 function toRevenueCatCustomerInfo(info: CustomerInfo): RevenueCatCustomerInfo {
-  return { activeEntitlementIds: Object.keys(info.entitlements.active) };
+  return {
+    activeEntitlementIds: Object.keys(info?.entitlements?.active ?? {}),
+  };
 }
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {
     identifier: entry.identifier,
-    productIdentifier: entry.product.identifier,
-    title: entry.product.title,
-    description: entry.product.description,
-    priceString: entry.product.priceString,
+    productIdentifier: entry.product?.identifier ?? "",
+    title: entry.product?.title ?? "",
+    description: entry.product?.description ?? "",
+    priceString: entry.product?.priceString ?? "",
   };
 }
 
