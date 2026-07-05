@@ -1,5 +1,8 @@
 import { type MouseEvent, useMemo } from "react";
-import { MiniAppSidebar } from "../../components/shared/MiniAppLayout";
+import {
+  MiniAppSectionHeading,
+  MiniAppSidebar,
+} from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRowButton,
   MiniAppRowText,
@@ -9,6 +12,7 @@ import {
   useWindowSidebar,
 } from "../../components/window/WindowSidebarContext";
 import type { OrgManagerSidebarContextMenuTarget } from "./context-menu/OrgManagerContextMenu";
+import type { OrgSwitcherState } from "./hooks/useOrgSwitcher";
 import { ORG_MANAGER_LABELS } from "./labels";
 import type { OrgManagerView } from "./routes";
 
@@ -21,17 +25,61 @@ type OrgManagerSidebarContextMenuHandler =
     ) => void)
   | undefined;
 
+function OrgManagerSwitcherSection({
+  switcher,
+}: {
+  switcher: OrgSwitcherState;
+}) {
+  return (
+    <>
+      <MiniAppSectionHeading>
+        {ORG_MANAGER_LABELS.organizations}
+      </MiniAppSectionHeading>
+      {switcher.organizations.map((organization) => (
+        <MiniAppRowButton
+          key={organization.organizationId}
+          onClick={() =>
+            switcher.selectOrganization(organization.organizationId)
+          }
+          selected={
+            organization.organizationId === switcher.activeOrganizationId
+          }
+        >
+          <MiniAppRowText>
+            {organization.name ?? ORG_MANAGER_LABELS.unnamedOrganization}
+          </MiniAppRowText>
+        </MiniAppRowButton>
+      ))}
+      <MiniAppRowButton
+        disabled={switcher.creating}
+        onClick={() => {
+          void switcher.createOrganization();
+        }}
+      >
+        <MiniAppRowText>
+          {switcher.creating
+            ? ORG_MANAGER_LABELS.creatingOrganization
+            : ORG_MANAGER_LABELS.newOrganizationAction}
+        </MiniAppRowText>
+      </MiniAppRowButton>
+    </>
+  );
+}
+
 function OrgManagerSidebar({
   handleContextMenu,
   setView,
+  switcher,
   view,
 }: {
   handleContextMenu?: OrgManagerSidebarContextMenuHandler;
   setView: (view: OrgManagerView) => void;
+  switcher?: OrgSwitcherState | undefined;
   view: OrgManagerView;
 }) {
   return (
     <MiniAppSidebar>
+      {switcher ? <OrgManagerSwitcherSection switcher={switcher} /> : null}
       <MiniAppRowButton
         onClick={() => setView("directory")}
         onContextMenu={(event) => handleContextMenu?.(event, "directory")}
@@ -72,11 +120,13 @@ export function useOrgManagerSidebarPanel({
   enabled = true,
   handleContextMenu,
   setView,
+  switcher,
   view,
 }: {
   enabled?: boolean;
   handleContextMenu?: OrgManagerSidebarContextMenuHandler;
   setView: (view: OrgManagerView) => void;
+  switcher?: OrgSwitcherState | undefined;
   view: OrgManagerView;
 }) {
   const { setSidebar } = useWindowSidebar();
@@ -85,10 +135,11 @@ export function useOrgManagerSidebarPanel({
       <OrgManagerSidebar
         handleContextMenu={handleContextMenu}
         setView={setView}
+        switcher={switcher}
         view={view}
       />
     ),
-    [handleContextMenu, setView, view],
+    [handleContextMenu, setView, switcher, view],
   );
 
   useRegisteredWindowSidebar({ enabled, setSidebar, sidebar });

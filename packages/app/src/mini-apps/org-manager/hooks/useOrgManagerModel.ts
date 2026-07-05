@@ -35,6 +35,7 @@ import { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 import { useOrgManagerRosterActions } from "./useOrgManagerRosterActions";
 import { useOrgManagerRoute } from "./useOrgManagerRoute";
 import { useOrgManagerRouteMessages } from "./useOrgManagerRouteMessages";
+import { useOrgSwitcher } from "./useOrgSwitcher";
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The hook keeps related async refresh and mutation ordering in one place.
 export function useOrgManagerModel() {
@@ -369,12 +370,17 @@ export function useOrgManagerModel() {
     setOrgManagerView,
     setUserDetail,
   });
+  const orgSwitcher = useOrgSwitcher({
+    activeOrganizationId: appData.auth.organizationId,
+    enabled: Boolean(appData.auth.isAuthenticated),
+  });
   useOrgManagerSidebarPanel({
     enabled: Boolean(
       appData.auth.organizationId && appData.auth.isAuthenticated,
     ),
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
     setView: setOrgManagerView,
+    switcher: orgSwitcher,
     view,
   });
 

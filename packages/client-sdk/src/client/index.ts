@@ -152,6 +152,7 @@ export {
 } from "./network";
 export type {
   AddOrganizationGroupUserInput,
+  LocalOrganizationSummary,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,

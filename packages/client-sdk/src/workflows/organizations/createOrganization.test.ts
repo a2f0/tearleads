@@ -5,9 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
-import type { CreateOrganizationResponse } from "@tearleads/validators/response";
-import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
-import { createResponseFromRequest } from "../../../test/helpers/documentFixtures";
+import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
@@ -34,56 +32,6 @@ function expectCapturedRequest(
   return request;
 }
 
-async function respondToCreateOrganization(
-  request: CreateOrganizationRequest,
-): Promise<CreateOrganizationResponse> {
-  if (
-    !request.initialRosterProfileContainer ||
-    !request.initialRosterProfileDocument ||
-    !request.initialOrganizationProfileDocument
-  ) {
-    throw new Error("Expected roster and organization profile requests");
-  }
-  const rootMetadataDocument = await createResponseFromRequest(
-    request.initialRootMetadataDocument,
-  );
-  const rosterProfileMetadataDocument = await createResponseFromRequest(
-    request.initialRosterProfileContainer.metadataDocument,
-  );
-  const rosterProfileContainerResponse =
-    await createMutationResponseFromRequest(
-      request.initialRosterProfileContainer.container,
-    );
-  rosterProfileContainerResponse.systemSlot =
-    request.initialRosterProfileContainer.systemSlot ?? null;
-  const rosterProfileDocument = await createResponseFromRequest(
-    request.initialRosterProfileDocument,
-  );
-  const organizationProfileDocument = await createResponseFromRequest(
-    request.initialOrganizationProfileDocument,
-  );
-
-  return {
-    userId: request.userId,
-    organizationId: request.organizationId,
-    rootContainerId: request.rootContainerId,
-    rootMetadataDocumentId: rootMetadataDocument.id,
-    rootMetadataAccessEpoch: 1,
-    rootMetadataAccessStateHash:
-      rootMetadataDocument.accessManifest.manifestHash,
-    rootMetadataDocument,
-    rosterProfileContainer: {
-      container: rosterProfileContainerResponse,
-      metadataDocument: rosterProfileMetadataDocument,
-    },
-    rosterProfileContainerId: rosterProfileContainerResponse.containerId,
-    rosterProfileDocument,
-    rosterProfileDocumentId: rosterProfileDocument.id,
-    organizationProfileDocument,
-    organizationProfileDocumentId: organizationProfileDocument.id,
-  };
-}
-
 test("createOrganization provisions a new org for the existing user and persists it", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
@@ -99,7 +47,7 @@ test("createOrganization provisions a new org for the existing user and persists
       apiClient: {
         createOrganization: async (request) => {
           captured = request;
-          return respondToCreateOrganization(request);
+          return respondToOrganizationProvisioning(request);
         },
       },
       dbClient: createClient(execSql),

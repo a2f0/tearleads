@@ -69,6 +69,7 @@ export type {
   LocalKeyringPinCode,
   LocalKeyringScope,
   LocalKeyringSession,
+  LocalOrganizationSummary,
   LocalProjectionReconciledDelta,
   LocalProjectionSnapshot,
   LocalProjectionView,
