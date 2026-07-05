@@ -182,12 +182,16 @@
       "bytes": 16140
     },
     "packages/client-sdk/src/Tearleads.test.ts": {
-      "lines": 979,
-      "bytes": 30751
+      "lines": 1001,
+      "bytes": 31624
     },
     "packages/client-sdk/src/client/localKeyring.test.ts": {
       "lines": 530,
       "bytes": 17807
+    },
+    "packages/client-sdk/src/client/session.ts": {
+      "lines": 515,
+      "bytes": 15222
     },
     "packages/client-sdk/src/client/localKeyring.ts": {
       "lines": 1575,

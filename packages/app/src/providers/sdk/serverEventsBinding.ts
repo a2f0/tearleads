@@ -245,9 +245,14 @@ export function useServerEventsBinding(
   wsUrl: string,
   authToken: string | null,
   log: (message: string) => void,
+  syncEnabled: boolean,
 ): void {
   useEffect(() => {
-    if (!authToken || !wsUrl) {
+    // In local-only mode the events WebSocket stays closed: no server
+    // invalidations, interest declarations, or resync signals. The reconciler
+    // and upload paths pause independently via the resolved runtime
+    // `state.online` (Session.syncEnabled), so both sync channels are off.
+    if (!authToken || !wsUrl || !syncEnabled) {
       return;
     }
 
@@ -324,5 +329,5 @@ export function useServerEventsBinding(
       socket?.close();
       tearleads.events.setConnected(false);
     };
-  }, [authToken, log, tearleads, wsUrl]);
+  }, [authToken, log, syncEnabled, tearleads, wsUrl]);
 }

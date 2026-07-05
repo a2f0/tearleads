@@ -23,6 +23,7 @@ import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
 import { TearleadsProvider } from "../sdk/TearleadsProvider";
+import { SyncModeProvider } from "../sync-mode/SyncModeProvider";
 import { DatabaseProvider, useDatabase } from "./DatabaseProvider";
 
 const TEST_SIGNING_FINGERPRINT =
@@ -95,16 +96,18 @@ function renderDatabaseProvider(props: {
     >
       <LocalKeyringLockProvider>
         <LogProvider>
-          <TearleadsProvider>
-            <DatabaseProvider>
-              <DatabaseProbe
-                onControls={(nextControls) => {
-                  controls = nextControls;
-                  controlsReady.resolve();
-                }}
-              />
-            </DatabaseProvider>
-          </TearleadsProvider>
+          <SyncModeProvider>
+            <TearleadsProvider>
+              <DatabaseProvider>
+                <DatabaseProbe
+                  onControls={(nextControls) => {
+                    controls = nextControls;
+                    controlsReady.resolve();
+                  }}
+                />
+              </DatabaseProvider>
+            </TearleadsProvider>
+          </SyncModeProvider>
         </LogProvider>
       </LocalKeyringLockProvider>
     </AppHostConfigProvider>,

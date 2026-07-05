@@ -20,6 +20,7 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 import { useLog } from "../logging/LogProvider";
+import { useSyncMode } from "../sync-mode/SyncModeProvider";
 import { useServerEventsBinding } from "./serverEventsBinding";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
@@ -162,6 +163,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
   const hostConfig = useAppHostConfig();
   const localKeyringLock = useLocalKeyringLock();
   const { log, logError } = useLog();
+  const { syncEnabled } = useSyncMode();
   const blobStoreFactory = useMemo((): BlobStoreFactory => {
     if (hostConfig.createBlobStore) {
       return hostConfig.createBlobStore;
@@ -175,19 +177,25 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
 
     return createDevelopmentBlobStoreFactory();
   }, [hostConfig.createBlobStore, localKeyringLock.createLocalKeyring]);
-  const [tearleads] = useState(
-    () =>
-      new Tearleads({
-        apiBaseUrl: hostConfig.apiBaseUrl,
-        blobStoreFactory,
-        documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-        logger: { log, logError },
-        // Per-pane namespace so each pane derives a distinct Loro peer id; two
-        // panes editing the same document must not share a peer (it corrupts
-        // the CRDT). Undefined for single-pane keeps the bare device peer.
-        peerScope: hostConfig.localIdentityNamespace,
-      }),
-  );
+  const [tearleads] = useState(() => {
+    const instance = new Tearleads({
+      apiBaseUrl: hostConfig.apiBaseUrl,
+      blobStoreFactory,
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      logger: { log, logError },
+      // Per-pane namespace so each pane derives a distinct Loro peer id; two
+      // panes editing the same document must not share a peer (it corrupts
+      // the CRDT). Undefined for single-pane keeps the bare device peer.
+      peerScope: hostConfig.localIdentityNamespace,
+    });
+    // Apply the persisted preference before the first runtime.input() (read
+    // below), so the initial render and every child provider mount consistent
+    // with it — a persisted "local-only" preference never triggers a first-
+    // render sync attempt or an extra render pass. Runtime toggles go through
+    // the effect below.
+    instance.session.setSyncEnabled(syncEnabled);
+    return instance;
+  });
   const runtimeVersion = useTearleadsExternalValue(
     tearleads.runtime.subscribe,
     () => tearleads.runtime.version,
@@ -219,6 +227,14 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     [runtimeInput, runtimeAuth, runtimeInfra],
   );
 
+  // Keep the SDK in sync with runtime preference toggles (the initial value is
+  // applied at construction above). Folded into the resolved runtime
+  // `state.online`, so the reconciler and upload paths pause in local-only mode;
+  // the events WebSocket is gated separately just below.
+  useEffect(() => {
+    tearleads.session.setSyncEnabled(syncEnabled);
+  }, [syncEnabled, tearleads]);
+
   useBrowserNetworkBinding(tearleads);
   useNetworkTransitionLog(tearleads);
   useTearleadsDisposeOnUnmount(tearleads);
@@ -227,6 +243,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     hostConfig.wsUrl,
     runtimeAuth.authToken,
     log,
+    syncEnabled,
   );
 
   return (

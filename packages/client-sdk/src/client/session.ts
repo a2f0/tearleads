@@ -89,6 +89,14 @@ export interface Session {
   readonly isAuthenticated: boolean;
   readonly organizationId: string | null;
   readonly snapshot: SessionSnapshot;
+  /**
+   * Whether this session should replicate with the server (sync mode) or stay
+   * device-local (local-only mode). Folded into the resolved runtime
+   * `state.online` so every server-sync path — reconciler, uploads, hydration,
+   * container operations — pauses in local-only mode, while `tearleads.network`
+   * stays a truthful signal of actual connectivity. Defaults to `true`.
+   */
+  readonly syncEnabled: boolean;
   readonly userId: string | null;
   bootstrapLocalRootContainer(): Promise<{
     containerId: string;
@@ -110,6 +118,7 @@ export interface Session {
   setContainerId(containerId: string | null): void;
   setContext(context: SessionContext): void;
   setOrganizationId(organizationId: string | null): void;
+  setSyncEnabled(enabled: boolean): void;
   setUserId(userId: string | null): void;
   subscribe(listener: SessionListener): () => void;
 }
@@ -120,6 +129,9 @@ export function createSession(dependencies: SessionDependencies): Session {
 
 class SessionService implements Session {
   private readonly listeners = new Set<SessionListener>();
+  // Sync mode is a runtime preference, not part of the auth snapshot, so it is
+  // held separately and not touched by setContext/login/logout.
+  private syncEnabledValue = true;
   private snapshotValue: SessionSnapshot = {
     authToken: null,
     containerId: null,
@@ -148,6 +160,10 @@ class SessionService implements Session {
 
   get snapshot(): SessionSnapshot {
     return this.snapshotValue;
+  }
+
+  get syncEnabled(): boolean {
+    return this.syncEnabledValue;
   }
 
   get userId(): string | null {
@@ -446,6 +462,14 @@ class SessionService implements Session {
 
   setOrganizationId(organizationId: string | null): void {
     this.setSnapshot({ ...this.snapshotValue, organizationId });
+  }
+
+  setSyncEnabled(enabled: boolean): void {
+    if (this.syncEnabledValue === enabled) {
+      return;
+    }
+    this.syncEnabledValue = enabled;
+    this.notifyListeners();
   }
 
   setUserId(userId: string | null): void {
