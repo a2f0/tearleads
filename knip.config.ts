@@ -55,6 +55,7 @@ const baseConfig = {
     "packages/app": {
       entry: ["src/**/*.test.{ts,tsx}"],
       project: ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"],
+      includeEntryExports: true,
     },
     "packages/app-web": {
       entry: ["src/index.tsx", "src/servers/e2eServer.ts", "e2e/**/*.spec.ts"],

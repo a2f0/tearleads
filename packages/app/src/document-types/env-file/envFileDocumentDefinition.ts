@@ -22,7 +22,15 @@ export interface EnvFileDocumentFields {
   variablesJson: string;
 }
 
-const ENV_FILE_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/u;
+export const ENV_FILE_VARIABLE_NAME_PATTERN = "[A-Za-z_][A-Za-z0-9_]*";
+const ENV_FILE_VARIABLE_NAME_REGEXP = new RegExp(
+  `^${ENV_FILE_VARIABLE_NAME_PATTERN}$`,
+  "u",
+);
+
+export function isValidEnvFileVariableName(value: string): boolean {
+  return ENV_FILE_VARIABLE_NAME_REGEXP.test(value);
+}
 
 function createImportedVariableId(index: number, key: string): string {
   const normalizedKey = key
@@ -114,7 +122,7 @@ function readEnvFileVariablesJson(
     );
     const id = rawId.trim() || createImportedVariableId(index, key);
 
-    if (key.length > 0 && !ENV_FILE_KEY_PATTERN.test(key)) {
+    if (key.length > 0 && !isValidEnvFileVariableName(key)) {
       issues.push({
         field: `${ENV_FILE_VARIABLES_FIELD}[${index}].key`,
         message: "Expected an environment variable key like API_TOKEN.",
@@ -155,7 +163,7 @@ export function parseEnvFileText(text: string): EnvFileVariable[] {
     }
 
     const key = assignment.slice(0, equalsIndex).trim();
-    if (key.length === 0) {
+    if (key.length === 0 || !isValidEnvFileVariableName(key)) {
       return [];
     }
 

@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
@@ -22,12 +23,12 @@ const wsUrl = resolveEventsWebSocketUrl(
   import.meta.env.VITE_WS_URL,
 );
 
-renderApp(createRoot(elem), {
-  hostConfig: createAppHostConfig({
-    apiBaseUrl,
-    createPurchases: createCapacitorPurchases,
-    createSQLiteRuntime: createCapacitorSQLiteRuntime,
-    navigationMode: "routed",
-    wsUrl,
-  }),
+const hostConfig = createAppHostConfig({
+  apiBaseUrl,
+  createPurchases: createCapacitorPurchases,
+  createSQLiteRuntime: createCapacitorSQLiteRuntime,
+  navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
+  wsUrl,
 });
+
+renderApp(createRoot(elem), { hostConfig });

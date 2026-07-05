@@ -137,9 +137,12 @@ export function createRevenueCatPurchases(
     return configured;
   };
   // Defensive against a backend that returns a malformed customer info despite
-  // the typed contract (native bridges can hand back partial objects).
+  // the typed contract (native bridges can hand back partial objects). Optional
+  // chaining alone is insufficient: a non-array truthy `activeEntitlementIds`
+  // would make `.includes` a TypeError, so gate on an actual array.
   const holdsSyncEntitlement = (info: RevenueCatCustomerInfo): boolean =>
-    info?.activeEntitlementIds?.includes(config.syncEntitlementId) ?? false;
+    Array.isArray(info?.activeEntitlementIds) &&
+    info.activeEntitlementIds.includes(config.syncEntitlementId);
 
   return {
     isAvailable: true,

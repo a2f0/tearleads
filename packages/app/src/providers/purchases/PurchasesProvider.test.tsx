@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import type { PurchasesCapability } from "@tearleads/client-sdk";
 import { render } from "@testing-library/react";
-import { createAppHostConfig } from "../../host/AppHostConfig";
+import {
+  type CreatePurchasesFn,
+  createAppHostConfig,
+} from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { PurchasesProvider, usePurchases } from "./PurchasesProvider";
 
@@ -20,7 +23,7 @@ function Harness() {
   return <div data-testid="available">{String(purchases.isAvailable)}</div>;
 }
 
-function renderWithHostConfig(createPurchases?: () => PurchasesCapability) {
+function renderWithHostConfig(createPurchases?: CreatePurchasesFn) {
   const hostConfig = createAppHostConfig({
     apiBaseUrl: "http://localhost",
     wsUrl: "ws://localhost",

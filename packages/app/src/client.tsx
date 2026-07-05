@@ -3,6 +3,7 @@ import type { Root } from "react-dom/client";
 import { App } from "./App";
 import type { AppHostConfig } from "./host/AppHostConfig";
 
+/** @public */
 export interface RenderAppOptions {
   hostConfig: AppHostConfig;
 }

@@ -10,6 +10,7 @@ import type {
 import type { AppNavigationMode } from "../navigation/AppNavigationMode";
 
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
+/** @public */
 export type CreateLocalKeyringFn = () => LocalKeyring;
 export type CreatePurchasesFn = () => PurchasesCapability;
 
@@ -105,6 +106,7 @@ export function resolveAppHostProfile(
   return APP_HOST_PROFILES[variant];
 }
 
+/** @public */
 export interface AppHostConfigOptions {
   readonly apiBaseUrl: string;
   readonly createBlobStore?: BlobStoreFactory | undefined;

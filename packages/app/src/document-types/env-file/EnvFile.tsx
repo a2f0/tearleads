@@ -9,8 +9,10 @@ import {
   StructuredDocumentFields,
 } from "../shared/StructuredDocument";
 import {
+  ENV_FILE_VARIABLE_NAME_PATTERN,
   type EnvFileDocumentFields,
   type EnvFileVariable,
+  isValidEnvFileVariableName,
   readEnvFileFields,
   serializeEnvFileVariables,
 } from "./envFileDocument";
@@ -100,65 +102,74 @@ export function EnvFileFields(params: {
         {fields.variables.length === 0 ? (
           <div className="env-file-empty-state">No variables</div>
         ) : (
-          fields.variables.map((variable, index) => (
-            <div className="env-file-variable-row" key={variable.id}>
-              <label className="env-file-variable-field">
-                Key
-                <input
-                  aria-label={`Env variable ${index + 1} key`}
-                  value={variable.key}
-                  onChange={(event) =>
+          fields.variables.map((variable, index) => {
+            const keyIsInvalid =
+              variable.key.length > 0 &&
+              !isValidEnvFileVariableName(variable.key);
+
+            return (
+              <div className="env-file-variable-row" key={variable.id}>
+                <label className="env-file-variable-field">
+                  Key
+                  <input
+                    aria-invalid={keyIsInvalid ? "true" : undefined}
+                    aria-label={`Env variable ${index + 1} key`}
+                    value={variable.key}
+                    onChange={(event) => {
+                      commitVariables(
+                        updateVariable(fields.variables, variable.id, {
+                          key: event.target.value,
+                        }),
+                      );
+                    }}
+                    pattern={ENV_FILE_VARIABLE_NAME_PATTERN}
+                    placeholder="API_TOKEN"
+                    title="Use a POSIX variable name like API_TOKEN."
+                    disabled={!ready}
+                    autoCapitalize="off"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </label>
+                <label className="env-file-variable-field">
+                  Value
+                  <input
+                    aria-label={`Env variable ${index + 1} value`}
+                    value={variable.value}
+                    onChange={(event) =>
+                      commitVariables(
+                        updateVariable(fields.variables, variable.id, {
+                          value: event.target.value,
+                        }),
+                      )
+                    }
+                    placeholder="secret"
+                    disabled={!ready}
+                    autoCapitalize="off"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </label>
+                <button
+                  aria-label={`Remove env variable ${index + 1}`}
+                  className="env-file-remove-button"
+                  disabled={!ready}
+                  onClick={() =>
                     commitVariables(
-                      updateVariable(fields.variables, variable.id, {
-                        key: event.target.value,
-                      }),
+                      fields.variables.filter(
+                        (candidate) => candidate.id !== variable.id,
+                      ),
                     )
                   }
-                  placeholder="API_TOKEN"
-                  disabled={!ready}
-                  autoCapitalize="off"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </label>
-              <label className="env-file-variable-field">
-                Value
-                <input
-                  aria-label={`Env variable ${index + 1} value`}
-                  value={variable.value}
-                  onChange={(event) =>
-                    commitVariables(
-                      updateVariable(fields.variables, variable.id, {
-                        value: event.target.value,
-                      }),
-                    )
-                  }
-                  placeholder="secret"
-                  disabled={!ready}
-                  autoCapitalize="off"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-              </label>
-              <button
-                aria-label={`Remove env variable ${index + 1}`}
-                className="env-file-remove-button"
-                disabled={!ready}
-                onClick={() =>
-                  commitVariables(
-                    fields.variables.filter(
-                      (candidate) => candidate.id !== variable.id,
-                    ),
-                  )
-                }
-                title={`Remove env variable ${index + 1}`}
-                type="button"
-              >
-                <TrashIcon aria-hidden size={14} />
-                Remove
-              </button>
-            </div>
-          ))
+                  title={`Remove env variable ${index + 1}`}
+                  type="button"
+                >
+                  <TrashIcon aria-hidden size={14} />
+                  Remove
+                </button>
+              </div>
+            );
+          })
         )}
       </section>
     </div>
