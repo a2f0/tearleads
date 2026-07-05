@@ -4,8 +4,11 @@ import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
   StructuredDocument,
+  StructuredDocumentEditActions,
   StructuredDocumentField,
   StructuredDocumentFields,
+  StructuredDocumentReadFields,
+  useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import { useBlobPickAttachment } from "../shared/useBlobPickAttachment";
@@ -16,7 +19,12 @@ import {
   readPassportFields,
 } from "./passportDocument";
 
-function PassportFields(params: {
+type PassportStructuredFieldSetter = ReturnType<
+  typeof useDocument
+>["setStructuredFields"];
+
+export function PassportFields(params: {
+  disabled?: boolean | undefined;
   fields: PassportDocumentFields;
   inputIds: {
     expirationDate: string;
@@ -24,10 +32,31 @@ function PassportFields(params: {
     issuingCountry: string;
     passportNumber: string;
   };
+  isEditing: boolean;
   onChange: (patch: Partial<PassportDocumentFields>) => void;
   ready: boolean;
 }) {
-  const { fields, inputIds, onChange, ready } = params;
+  const {
+    disabled = false,
+    fields,
+    inputIds,
+    isEditing,
+    onChange,
+    ready,
+  } = params;
+
+  if (!isEditing) {
+    return (
+      <StructuredDocumentReadFields
+        fields={[
+          { label: "Full Name", value: fields.fullName },
+          { label: "Passport Number", value: fields.passportNumber },
+          { label: "Issuing Country", value: fields.issuingCountry },
+          { label: "Expiration Date", value: fields.expirationDate },
+        ]}
+      />
+    );
+  }
 
   return (
     <StructuredDocumentFields>
@@ -38,7 +67,7 @@ function PassportFields(params: {
           value={fields.fullName}
           onChange={(event) => onChange({ fullName: event.target.value })}
           placeholder={ready ? "Ada Lovelace" : "Loading..."}
-          disabled={!ready}
+          disabled={disabled}
           autoComplete="name"
         />
       </StructuredDocumentField>
@@ -52,7 +81,7 @@ function PassportFields(params: {
           value={fields.passportNumber}
           onChange={(event) => onChange({ passportNumber: event.target.value })}
           placeholder={ready ? "P1234567" : "Loading..."}
-          disabled={!ready}
+          disabled={disabled}
           autoComplete="off"
         />
       </StructuredDocumentField>
@@ -66,7 +95,7 @@ function PassportFields(params: {
           value={fields.issuingCountry}
           onChange={(event) => onChange({ issuingCountry: event.target.value })}
           placeholder={ready ? "United States" : "Loading..."}
-          disabled={!ready}
+          disabled={disabled}
           autoComplete="country-name"
         />
       </StructuredDocumentField>
@@ -80,10 +109,47 @@ function PassportFields(params: {
           type="date"
           value={fields.expirationDate}
           onChange={(event) => onChange({ expirationDate: event.target.value })}
-          disabled={!ready}
+          disabled={disabled}
         />
       </StructuredDocumentField>
     </StructuredDocumentFields>
+  );
+}
+
+function PassportDocumentFieldsPane(params: {
+  canWrite: boolean;
+  fields: PassportDocumentFields;
+  inputIds: {
+    expirationDate: string;
+    fullName: string;
+    issuingCountry: string;
+    passportNumber: string;
+  };
+  isEditing: boolean;
+  ready: boolean;
+  setEditing: (editing: boolean) => void;
+  setStructuredFields: PassportStructuredFieldSetter;
+}) {
+  return (
+    <>
+      <StructuredDocumentEditActions
+        disabled={!params.ready || !params.canWrite}
+        isEditing={params.isEditing}
+        onToggleEditing={() => params.setEditing(!params.isEditing)}
+      />
+      <PassportFields
+        disabled={!params.ready || !params.canWrite}
+        fields={params.fields}
+        inputIds={params.inputIds}
+        isEditing={params.isEditing && params.canWrite}
+        onChange={(patch) => {
+          if (params.canWrite) {
+            params.setStructuredFields("passport", patch);
+          }
+        }}
+        ready={params.ready}
+      />
+    </>
   );
 }
 
@@ -110,6 +176,7 @@ export function Passport(params: {
     attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId,
     canAttach,
+    canWrite,
     ready,
     removeAttachment,
     setAttachment,
@@ -121,6 +188,7 @@ export function Passport(params: {
     () => readPassportFields(structuredFields),
     [structuredFields],
   );
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
   const inputIds = {
     expirationDate: useId(),
     fullName: useId(),
@@ -153,7 +221,7 @@ export function Passport(params: {
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
           blobPicker={blobPicker}
-          canAttach={canAttach}
+          canAttach={canAttach && isEditing && canWrite}
           imageUrlBySlotId={imageUrlBySlotId}
           onClearAttachment={removeAttachment}
           onSelectedAttachment={handleSelectedAttachment}
@@ -162,13 +230,14 @@ export function Passport(params: {
       }
       canAttach={canAttach}
       fields={
-        <PassportFields
+        <PassportDocumentFieldsPane
+          canWrite={canWrite}
           fields={fields}
           inputIds={inputIds}
-          onChange={(patch) => {
-            setStructuredFields("passport", patch);
-          }}
+          isEditing={isEditing}
           ready={ready}
+          setEditing={setIsEditing}
+          setStructuredFields={setStructuredFields}
         />
       }
       isAuthenticated={isAuthenticated}

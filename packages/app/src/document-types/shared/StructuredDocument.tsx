@@ -1,4 +1,18 @@
-import type { PropsWithChildren, ReactNode } from "react";
+import {
+  type PropsWithChildren,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
+import {
+  MiniAppActions,
+  MiniAppButton,
+} from "../../components/shared/MiniAppLayout";
+import {
+  MiniAppRow,
+  MiniAppRowStack,
+  MiniAppRowText,
+} from "../../components/shared/MiniAppRow";
 import "./StructuredDocument.css";
 
 interface StructuredDocumentAttachmentCopy {
@@ -6,6 +20,15 @@ interface StructuredDocumentAttachmentCopy {
   localOnly: string;
   unavailable: string;
 }
+
+interface StructuredDocumentReadFieldDescriptor {
+  readonly displayValue?: string | undefined;
+  readonly label: string;
+  readonly title?: string | undefined;
+  readonly value: string | null | undefined;
+}
+
+const STRUCTURED_DOCUMENT_EMPTY_VALUE = "None";
 
 function getAttachmentCopy(params: {
   attachmentCopy: StructuredDocumentAttachmentCopy;
@@ -21,6 +44,18 @@ function getAttachmentCopy(params: {
   return isAuthenticated && online
     ? attachmentCopy.authenticatedOnline
     : attachmentCopy.localOnly;
+}
+
+export function useStructuredDocumentEditing(canWrite: boolean) {
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!canWrite) {
+      setIsEditing(false);
+    }
+  }, [canWrite]);
+
+  return [isEditing, setIsEditing] as const;
 }
 
 export function StructuredDocument(params: {
@@ -68,6 +103,67 @@ export function StructuredDocument(params: {
       </div>
       {fields}
       {attachments ?? null}
+    </div>
+  );
+}
+
+export function StructuredDocumentEditActions(params: {
+  disabled: boolean;
+  isEditing: boolean;
+  onToggleEditing: () => void;
+}) {
+  return (
+    <MiniAppActions>
+      <MiniAppButton
+        disabled={params.disabled}
+        onClick={params.onToggleEditing}
+      >
+        {params.isEditing ? "Done" : "Edit"}
+      </MiniAppButton>
+    </MiniAppActions>
+  );
+}
+
+function StructuredDocumentReadField(
+  params: StructuredDocumentReadFieldDescriptor,
+) {
+  const value = params.value ?? "";
+  const trimmed = value.trim();
+  const displayValue =
+    params.displayValue ??
+    (trimmed.length > 0 ? value : STRUCTURED_DOCUMENT_EMPTY_VALUE);
+  const title =
+    params.title ?? (params.displayValue === undefined ? trimmed : undefined);
+
+  return (
+    <MiniAppRow density="roomy">
+      <MiniAppRowStack>
+        <strong>{params.label}</strong>
+        <MiniAppRowText
+          muted
+          title={title && title.length > 0 ? title : undefined}
+        >
+          {displayValue}
+        </MiniAppRowText>
+      </MiniAppRowStack>
+    </MiniAppRow>
+  );
+}
+
+export function StructuredDocumentReadFields(params: {
+  fields: ReadonlyArray<StructuredDocumentReadFieldDescriptor>;
+}) {
+  return (
+    <div className="structured-document-read-fields">
+      {params.fields.map((field) => (
+        <StructuredDocumentReadField
+          key={field.label}
+          displayValue={field.displayValue}
+          label={field.label}
+          title={field.title}
+          value={field.value}
+        />
+      ))}
     </div>
   );
 }

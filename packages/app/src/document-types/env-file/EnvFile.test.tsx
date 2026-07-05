@@ -43,6 +43,7 @@ function parseVariablePatch(
 
 function renderEnvFileFields(params?: {
   fields?: EnvFileDocumentFields;
+  isEditing?: boolean | undefined;
   onChange?: (patch: Record<string, string>) => void;
   ready?: boolean;
 }) {
@@ -50,6 +51,7 @@ function renderEnvFileFields(params?: {
     <EnvFileFields
       fields={params?.fields ?? createFields()}
       fileNameInputId="env-file-name"
+      isEditing={params?.isEditing}
       onChange={params?.onChange ?? (() => undefined)}
       ready={params?.ready ?? true}
     />,
@@ -69,6 +71,50 @@ test("renders env variables as editable key value rows", () => {
     (view.getByLabelText("Env variable 1 value") as HTMLInputElement).value,
   ).toBe("https://api.example.test");
   expect(view.container.querySelector(".env-file-variable-row")).toBeTruthy();
+});
+
+test("read mode renders text rows and masks password values", () => {
+  const view = renderEnvFileFields({
+    fields: createFields({
+      variables: [
+        variables[0] as EnvFileVariable,
+        {
+          id: "env-3-password",
+          key: "DATABASE_PASSWORD",
+          value: "super-secret",
+        },
+      ],
+    }),
+    isEditing: false,
+  });
+
+  expect(view.getByText(".env.local")).toBeTruthy();
+  expect(view.getByText("API_URL")).toBeTruthy();
+  expect(view.getByText("https://api.example.test")).toBeTruthy();
+  expect(view.getByText("DATABASE_PASSWORD")).toBeTruthy();
+  expect(view.getByText("********")).toBeTruthy();
+  expect(view.queryByText("super-secret")).toBeNull();
+  expect(view.queryByLabelText(".env file name")).toBeNull();
+  expect(view.queryByLabelText("Env variable 2 value")).toBeNull();
+});
+
+test("read mode tolerates missing file and variable values", () => {
+  const view = renderEnvFileFields({
+    fields: createFields({
+      fileName: undefined as unknown as string,
+      variables: [
+        {
+          id: "env-missing",
+          key: undefined as unknown as string,
+          value: null as unknown as string,
+        },
+      ],
+    }),
+    isEditing: false,
+  });
+
+  expect(view.getAllByText("None")).toHaveLength(3);
+  expect(view.queryByLabelText(".env file name")).toBeNull();
 });
 
 test("edits file name and variable values through structured field patches", () => {
