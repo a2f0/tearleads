@@ -172,6 +172,8 @@ export {
   type RevenueCatCustomerInfo,
   type RevenueCatPackage,
   type RevenueCatPurchasesConfig,
+  SyncBillingGate,
+  type SyncBillingGateListener,
   type SyncPurchaseResult,
   type SyncSubscriptionOption,
   serializeLocalKeyringManifest,

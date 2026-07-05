@@ -89,6 +89,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME",
   "PurchasesUnavailableError",
   "ROSTER_PROFILE_DOCUMENT_KIND",
+  "SyncBillingGate",
   "Tearleads",
   "WRAPPED_LOCAL_SECRET_FORMAT",
   "addDocumentAttachments",

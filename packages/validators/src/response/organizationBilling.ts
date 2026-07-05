@@ -65,3 +65,23 @@ export function isOrganizationBillingResponse(
     hasNullableStringProperty(value, "purgeAfter")
   );
 }
+
+/**
+ * The HTTP 402 body a sync write returns when its target organization cannot
+ * sync (billing is `local`/lapsed). Carries the `organizationId` so the client
+ * can route the user to that org's billing.
+ */
+export interface PaymentRequiredErrorResponse {
+  error: string;
+  organizationId: string;
+}
+
+export function isPaymentRequiredErrorResponse(
+  value: unknown,
+): value is PaymentRequiredErrorResponse {
+  return (
+    isPlainObject(value) &&
+    hasStringProperty(value, "error") &&
+    hasStringProperty(value, "organizationId")
+  );
+}

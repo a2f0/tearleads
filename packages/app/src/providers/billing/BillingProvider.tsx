@@ -135,6 +135,15 @@ export function BillingProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { organizationId } = useCryptoSession();
   const value = useOrganizationBillingState(tearleads, organizationId);
+  const { refresh } = value;
+
+  // When a sync write is rejected for payment (HTTP 402), refetch billing so the
+  // banner flips to the sync-paused state without waiting for a remount.
+  useEffect(
+    () => tearleads.syncBillingGate.subscribe(() => void refresh()),
+    [tearleads, refresh],
+  );
+
   return (
     <OrganizationBillingContext.Provider value={value}>
       {children}

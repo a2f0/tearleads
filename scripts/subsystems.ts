@@ -387,6 +387,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/database.ts`,
       `${sdk}/client/events.ts`,
       `${sdk}/client/network.ts`,
+      `${sdk}/client/syncBillingGate.ts`,
       `${sdk}/client/logger.ts`,
       `${sdk}/index.ts`,
       `${sdk}/workflows/runtimeInput.ts`,

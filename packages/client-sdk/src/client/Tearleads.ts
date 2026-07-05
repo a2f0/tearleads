@@ -29,6 +29,7 @@ import { type Logger, logErrorToConsole } from "./logger";
 import { Network } from "./network";
 import { createOrganizations, type Organizations } from "./organizations";
 import { createSession, type Session } from "./session";
+import { SyncBillingGate } from "./syncBillingGate";
 import { createUserKeys, type UserKeys } from "./userKeys";
 import { createRuntime, type Runtime } from "./workflowRuntime";
 
@@ -65,6 +66,7 @@ export class Tearleads {
   readonly organizations: Organizations;
   readonly runtime: Runtime;
   readonly session: Session;
+  readonly syncBillingGate: SyncBillingGate;
   readonly userKeys: UserKeys;
 
   private readonly apiClient: ApiClient;
@@ -93,6 +95,7 @@ export class Tearleads {
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;
     this.network = new Network(options.online);
+    this.syncBillingGate = new SyncBillingGate();
     let session: Session | null = null;
     this.identity = createIdentity(
       options.identity,
@@ -159,6 +162,9 @@ export class Tearleads {
     this.apiClient.setOnNetworkError(() => this.network.setOnline(false));
     this.apiClient.setOnNetworkSuccess(() => this.network.setOnline(true));
     this.apiClient.setOnSessionExpired(() => this.loginAfterSessionExpired());
+    this.apiClient.setOnPaymentRequired((organizationId) =>
+      this.syncBillingGate.notifyPaymentRequired(organizationId),
+    );
 
     if (options.identityProvisioning === "auto") {
       this.startAutomaticIdentityProvisioning();
