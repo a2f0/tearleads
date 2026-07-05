@@ -2,6 +2,7 @@
   flex: 1;
   padding: var(--space-md);
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .window-body:has(.window-sidebar-layout) {

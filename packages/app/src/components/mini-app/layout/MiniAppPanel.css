@@ -14,4 +14,5 @@
 .mini-app-panel--scroll {
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }

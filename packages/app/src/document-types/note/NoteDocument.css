@@ -19,6 +19,7 @@
      scroll position sideways while typing. */
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .note-document-dropzone {
