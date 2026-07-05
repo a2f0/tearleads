@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  getOrgManagerBillingStatusLabel,
   getOrgManagerEpochLabel,
   getOrgManagerMemberCountLabel,
   getOrgManagerPolicyAddedLabel,
@@ -11,6 +12,7 @@ import {
   getOrgManagerPolicyRoleTransitionLabel,
   getOrgManagerPolicySignatureLabel,
   getOrgManagerPolicyVersionLabel,
+  getOrgManagerTrialDaysLabel,
   ORG_MANAGER_LABELS,
 } from "./labels";
 
@@ -41,4 +43,14 @@ test("org manager labels format variable display text", () => {
     "May 20 - signed by abc123",
   );
   expect(getOrgManagerPolicyVersionLabel(4)).toBe("Version 4");
+});
+
+test("billing status and trial labels format correctly", () => {
+  expect(getOrgManagerBillingStatusLabel("local")).toBe("Local only");
+  expect(getOrgManagerBillingStatusLabel("trialing")).toBe("Free trial");
+  expect(getOrgManagerBillingStatusLabel("active")).toBe("Active subscription");
+  expect(getOrgManagerBillingStatusLabel("past_due")).toBe("Payment past due");
+  expect(getOrgManagerBillingStatusLabel("disabled")).toBe("Sync disabled");
+  expect(getOrgManagerTrialDaysLabel(1)).toBe("1 day left");
+  expect(getOrgManagerTrialDaysLabel(5)).toBe("5 days left");
 });

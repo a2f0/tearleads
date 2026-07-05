@@ -3,7 +3,8 @@ export type OrgManagerView =
   | "groups"
   | "grants"
   | "organization"
-  | "usage";
+  | "usage"
+  | "billing";
 
 export interface OrgManagerRoute {
   selectedGrantRef: OrgManagerGrantRouteRef | null;
@@ -35,7 +36,8 @@ function isOrgManagerView(view: string | undefined): view is OrgManagerView {
     view === "groups" ||
     view === "grants" ||
     view === "organization" ||
-    view === "usage"
+    view === "usage" ||
+    view === "billing"
   );
 }
 

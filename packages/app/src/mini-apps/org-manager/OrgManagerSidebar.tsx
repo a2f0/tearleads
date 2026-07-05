@@ -112,6 +112,12 @@ function OrgManagerSidebar({
       >
         <MiniAppRowText>{ORG_MANAGER_LABELS.usage}</MiniAppRowText>
       </MiniAppRowButton>
+      <MiniAppRowButton
+        onClick={() => setView("billing")}
+        selected={view === "billing"}
+      >
+        <MiniAppRowText>{ORG_MANAGER_LABELS.billing}</MiniAppRowText>
+      </MiniAppRowButton>
     </MiniAppSidebar>
   );
 }

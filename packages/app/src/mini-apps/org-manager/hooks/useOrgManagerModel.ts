@@ -416,6 +416,7 @@ export function useOrgManagerModel() {
     isCreateGroupDialogOpen,
     isImportUserDialogOpen,
     isAuthenticated: appData.auth.isAuthenticated,
+    isOrgAdmin: directory?.currentUser.isOrgAdmin ?? false,
     loading,
     loadingUserDetail,
     members,

@@ -9,6 +9,32 @@ export const ORG_MANAGER_LABELS = {
   action: "Action",
   active: "Active",
   back: "Back",
+  billing: "Billing",
+  billingActivationPending:
+    "Activation can take a moment after purchase — refresh to check.",
+  billingActive: "Active subscription",
+  billingAdminOnly: "Only an organization admin can manage billing.",
+  billingDeleting: "Deleting remote data",
+  billingDisabled: "Sync disabled",
+  billingLocal: "Local only",
+  billingNoOptions: "No subscription options are available right now.",
+  billingPastDue: "Payment past due",
+  billingPurchaseUnavailable:
+    "Purchases aren't available on this platform. Use the mobile app to subscribe.",
+  billingPurged: "Remote data purged",
+  billingRestore: "Restore purchases",
+  billingRestoring: "Restoring...",
+  billingStartTrial: "Start free trial",
+  billingStartingTrial: "Starting trial...",
+  billingSubscribe: "Subscribe",
+  billingSubscribing: "Processing purchase...",
+  billingSyncOff:
+    "This organization is local-only. Subscribe to sync it across devices.",
+  billingSyncOn: "Sync is on for this organization.",
+  billingTitle: "Sync billing",
+  billingTrialing: "Free trial",
+  billingTrialUnavailable: "The free trial is no longer available.",
+  billingUnavailable: "Billing unavailable.",
   builtIn: "Built-in",
   cancel: "Cancel",
   container: "Container",
@@ -31,8 +57,12 @@ export const ORG_MANAGER_LABELS = {
   done: "Done",
   edit: "Edit",
   editRosterEntryAction: "Edit Roster Entry",
+  failedLoadBilling: "Failed to load organization billing.",
   failedLoadDirectoryGroups: "Failed to load organization roster or groups.",
   failedLoadDataUsage: "Failed to load organization data usage.",
+  failedRestorePurchases: "Failed to restore purchases.",
+  failedStartTrial: "Failed to start the free trial.",
+  failedSubscribe: "Purchase failed.",
   failedLoadGrants: "Failed to load organization grants.",
   failedLoadGroupContainers: "Failed to load group container links.",
   failedLoadGroupMembers: "Failed to load group members.",
@@ -53,6 +83,7 @@ export const ORG_MANAGER_LABELS = {
   importRosterEntryIntoContactsAction: "Import Into Contacts",
   joined: "Joined",
   lastName: "Last name",
+  loadingBilling: "Loading billing...",
   loadingDirectory: "Loading roster...",
   loadingDataUsage: "Loading data usage...",
   loadingGrants: "Loading grants...",
@@ -139,6 +170,40 @@ export const ORG_MANAGER_LABELS = {
   userId: "User ID",
   userNotFound: "User not found.",
 } as const;
+
+export function getOrgManagerBillingStatusLabel(
+  status:
+    | "local"
+    | "trialing"
+    | "active"
+    | "past_due"
+    | "disabled"
+    | "deleting"
+    | "purged",
+): string {
+  switch (status) {
+    case "local":
+      return ORG_MANAGER_LABELS.billingLocal;
+    case "trialing":
+      return ORG_MANAGER_LABELS.billingTrialing;
+    case "active":
+      return ORG_MANAGER_LABELS.billingActive;
+    case "past_due":
+      return ORG_MANAGER_LABELS.billingPastDue;
+    case "disabled":
+      return ORG_MANAGER_LABELS.billingDisabled;
+    case "deleting":
+      return ORG_MANAGER_LABELS.billingDeleting;
+    case "purged":
+      return ORG_MANAGER_LABELS.billingPurged;
+    default:
+      return status;
+  }
+}
+
+export function getOrgManagerTrialDaysLabel(days: number): string {
+  return `${days} day${days === 1 ? "" : "s"} left`;
+}
 
 export function getOrgManagerEpochLabel(keyEpoch: number): string {
   return `Epoch ${keyEpoch}`;

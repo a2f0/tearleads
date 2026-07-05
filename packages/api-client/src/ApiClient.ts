@@ -64,6 +64,7 @@ import {
   isListOrganizationGroupsResponse,
   isListSessionsResponse,
   isMultipartBlobStageStatusResponse,
+  isOrganizationBillingResponse,
   isOrganizationContainerGrantsResponse,
   isOrganizationDataUsageResponse,
   isOrganizationDirectoryResponse,
@@ -850,6 +851,22 @@ export class ApiClient {
       `/organizations/${pathSegment(organizationId)}/data-usage`,
       isOrganizationDataUsageResponse,
       "GET",
+    );
+  }
+
+  getOrganizationBilling(organizationId: string) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing`,
+      isOrganizationBillingResponse,
+      "GET",
+    );
+  }
+
+  startOrganizationTrial(organizationId: string) {
+    return this.request(
+      `/organizations/${pathSegment(organizationId)}/billing/trial`,
+      isOrganizationBillingResponse,
+      "POST",
     );
   }
 
