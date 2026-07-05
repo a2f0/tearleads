@@ -64,22 +64,34 @@ async function resolveOrganizationBilling(
   const purgeAfter = new Date(
     disabledAt.getTime() + LAPSED_BILLING_PURGE_GRACE_MS,
   );
-  const [updated] = await executor
-    .update(organizationBilling)
-    .set({ status: "disabled", disabledAt, purgeAfter, updatedAt: now })
-    .where(
-      and(
-        eq(organizationBilling.organizationId, organizationId),
-        eq(organizationBilling.status, "trialing"),
-      ),
-    )
-    .returning(BILLING_ROW_COLUMNS);
 
-  if (!updated) {
-    return loadOrganizationBilling(executor, organizationId);
+  // The lazy flip is a persistence optimization, not a correctness requirement:
+  // `organizationCanSync` already treats an expired trial as non-syncable in
+  // memory. Reads can reach this on a read-only executor (e.g. a read replica),
+  // where the write would throw — so fall back to the virtual expired state
+  // instead of failing the read. The expiry is definitive (`trialEndsAt <= now`),
+  // so returning `disabled` is always the correct answer regardless of why the
+  // write did not land.
+  try {
+    const [updated] = await executor
+      .update(organizationBilling)
+      .set({ status: "disabled", disabledAt, purgeAfter, updatedAt: now })
+      .where(
+        and(
+          eq(organizationBilling.organizationId, organizationId),
+          eq(organizationBilling.status, "trialing"),
+        ),
+      )
+      .returning(BILLING_ROW_COLUMNS);
+
+    if (!updated) {
+      return loadOrganizationBilling(executor, organizationId);
+    }
+
+    return updated;
+  } catch {
+    return { ...billing, status: "disabled", disabledAt, purgeAfter };
   }
-
-  return updated;
 }
 
 /**
@@ -97,7 +109,7 @@ async function resolveOrganizationSyncEligibility(
     organizationId,
     now,
   );
-  return { billing, canSync: organizationCanSync(billing.status) };
+  return { billing, canSync: organizationCanSync(billing, now) };
 }
 
 /**

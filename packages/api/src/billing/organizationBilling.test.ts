@@ -23,9 +23,27 @@ describe("organization billing lifecycle", () => {
     expect(fields.trialEndsAt.getTime()).toBe(now.getTime() + FREE_TRIAL_MS);
   });
 
-  test("only trialing and active organizations may sync", () => {
-    expect(organizationCanSync("trialing")).toBe(true);
-    expect(organizationCanSync("active")).toBe(true);
+  test("only active and non-expired trialing organizations may sync", () => {
+    const now = new Date("2026-01-01T00:00:00.000Z");
+    const future = new Date("2026-01-02T00:00:00.000Z");
+    const past = new Date("2025-12-31T00:00:00.000Z");
+
+    expect(
+      organizationCanSync({ status: "active", trialEndsAt: null }, now),
+    ).toBe(true);
+    // A trialing org with no expiry, or one whose trial is still in the future.
+    expect(
+      organizationCanSync({ status: "trialing", trialEndsAt: null }, now),
+    ).toBe(true);
+    expect(
+      organizationCanSync({ status: "trialing", trialEndsAt: future }, now),
+    ).toBe(true);
+    // An expired trial that has not yet been flipped to `disabled` is not
+    // syncable, evaluated in-memory against `now`.
+    expect(
+      organizationCanSync({ status: "trialing", trialEndsAt: past }, now),
+    ).toBe(false);
+
     const cannotSync: OrganizationBillingStatus[] = [
       "local",
       "past_due",
@@ -34,7 +52,9 @@ describe("organization billing lifecycle", () => {
       "purged",
     ];
     for (const status of cannotSync) {
-      expect(organizationCanSync(status)).toBe(false);
+      expect(organizationCanSync({ status, trialEndsAt: null }, now)).toBe(
+        false,
+      );
     }
   });
 

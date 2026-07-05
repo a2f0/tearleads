@@ -67,7 +67,10 @@ import {
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
+import {
+  setTestOrganizationBillingExpiredTrial,
+  setTestOrganizationBillingLocal,
+} from "../../../test/helpers/organizationBilling";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import {
   createProjectionWithAdminSigner,
@@ -1521,6 +1524,37 @@ test("GET /containers excludes containers when the organization cannot sync", as
     .where(eq(users.id, owner.userId));
   invariant(ownerRow, "expected registered owner row");
   await setTestOrganizationBillingLocal(ownerRow.organizationId);
+
+  const afterResponse = await listContainersForUser({
+    parentId: owner.rootContainerId,
+    token: owner.token,
+  });
+  expect(afterResponse.status).toBe(200);
+  const after = await afterResponse.json();
+  expect(
+    after.items.map((container: { id: string }) => container.id),
+  ).not.toContain(child.containerId);
+});
+
+test("GET /containers excludes containers of an expired trial not yet disabled", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const child = await createChild({
+    parent: root.bundle,
+    parentKekState: root.kekState,
+    signer: owner,
+  });
+
+  const [ownerRow] = await db
+    .select({ organizationId: users.defaultOrganizationId })
+    .from(users)
+    .where(eq(users.id, owner.userId));
+  invariant(ownerRow, "expected registered owner row");
+  // Still `trialing` in the row, but past `trialEndsAt`: the batch list filter
+  // never runs the lazy flip, so it must exclude this org by evaluating expiry
+  // in memory.
+  await setTestOrganizationBillingExpiredTrial(ownerRow.organizationId);
 
   const afterResponse = await listContainersForUser({
     parentId: owner.rootContainerId,

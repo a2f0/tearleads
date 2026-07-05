@@ -295,12 +295,17 @@ async function filterSyncableContainerRows(
     .select({
       organizationId: organizationBilling.organizationId,
       status: organizationBilling.status,
+      trialEndsAt: organizationBilling.trialEndsAt,
     })
     .from(organizationBilling)
     .where(inArray(organizationBilling.organizationId, organizationIds));
+  // This batch read never runs the lazy trial-expiry flip, so expiry is
+  // evaluated in-memory against `now`; a still-`trialing` row past its
+  // `trialEndsAt` is correctly excluded.
+  const now = new Date();
   const syncableOrganizationIds = new Set(
     billingRows
-      .filter((billing) => organizationCanSync(billing.status))
+      .filter((billing) => organizationCanSync(billing, now))
       .map((billing) => billing.organizationId),
   );
 

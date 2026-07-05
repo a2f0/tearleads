@@ -44,14 +44,31 @@ export function createTrialBillingFields(now: Date = new Date()): {
 }
 
 /**
- * Whether an organization with this billing status may sync to the server. Sync
- * is the paid feature: only trialing and active organizations sync. `local`
- * (free), `past_due`, `disabled`, `deleting`, and `purged` stay on-device.
+ * Whether an organization may sync to the server. Sync is the paid feature:
+ * only active and (non-expired) trialing organizations sync; `local` (free),
+ * `past_due`, `disabled`, `deleting`, and `purged` stay on-device.
+ *
+ * Trial expiry is evaluated in-memory against `now` rather than trusting the
+ * persisted status. A `trialing` row whose `trialEndsAt` has passed but which
+ * has not yet been lazily flipped to `disabled` (see `resolveOrganizationBilling`)
+ * must NOT be treated as syncable — otherwise read paths that read the billing
+ * row directly without running the lazy flip (e.g. the batch filter in
+ * `listContainers`) would keep syncing an expired trial indefinitely.
  */
 export function organizationCanSync(
-  status: OrganizationBillingStatus,
+  billing: {
+    readonly status: OrganizationBillingStatus;
+    readonly trialEndsAt: Date | null;
+  },
+  now: Date = new Date(),
 ): boolean {
-  return status === "active" || status === "trialing";
+  if (billing.status === "active") {
+    return true;
+  }
+  if (billing.status === "trialing") {
+    return billing.trialEndsAt === null || billing.trialEndsAt > now;
+  }
+  return false;
 }
 
 export function serializeOrganizationBilling(
