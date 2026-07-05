@@ -1,12 +1,14 @@
 import { isPlainObject } from "../isPlainObject";
 import {
   hasNullableStringProperty,
-  hasNumberProperty,
   hasObjectProperty,
   hasOptionalStringProperty,
   hasStringProperty,
   isStringArray,
 } from "../util";
+
+const MAX_VALID_DATE_MS = 8_640_000_000_000_000;
+const EVENT_TIMESTAMP_MS_KEY = "event_timestamp_ms";
 
 /**
  * A single RevenueCat subscriber attribute as delivered on a webhook event. Only
@@ -28,7 +30,7 @@ export interface RevenueCatSubscriberAttribute {
  *   global user id.
  * - `event_timestamp_ms`: When RevenueCat emitted the event.
  * - `expiration_at_ms`: End of the current entitlement period, when applicable.
- * - `entitlement_ids` / `entitlement_id`: Entitlement(s) the event concerns.
+ * - `entitlement_ids`: Entitlement(s) the event concerns.
  * - `subscriber_attributes`: Custom attributes; the `orgId` attribute binds the
  *   purchase to the organization being paid for.
  */
@@ -39,7 +41,6 @@ export interface RevenueCatWebhookEvent {
   event_timestamp_ms: number;
   expiration_at_ms?: number | null;
   entitlement_ids?: string[];
-  entitlement_id?: string | null;
   subscriber_attributes?: Record<string, RevenueCatSubscriberAttribute>;
 }
 
@@ -68,7 +69,7 @@ function isSubscriberAttributeMap(
 // no-index-signature-dot-access rule and biome's prefer-dot-access rule happy
 // (neither fires on a variable key); these thin wrappers extend that to the
 // optional/nullable/array shapes RevenueCat sends.
-function isAbsentOrNullableNumber(
+function isAbsentOrNullableTimestampMs(
   value: Record<string, unknown>,
   key: string,
 ): boolean {
@@ -76,19 +77,16 @@ function isAbsentOrNullableNumber(
   return (
     candidate === undefined ||
     candidate === null ||
-    typeof candidate === "number"
+    isRevenueCatTimestampMs(candidate)
   );
 }
 
-function isAbsentOrNullableString(
-  value: Record<string, unknown>,
-  key: string,
-): boolean {
-  const candidate = value[key];
+function isRevenueCatTimestampMs(value: unknown): value is number {
   return (
-    candidate === undefined ||
-    candidate === null ||
-    typeof candidate === "string"
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value <= MAX_VALID_DATE_MS
   );
 }
 
@@ -116,10 +114,9 @@ function isRevenueCatWebhookEvent(
     hasStringProperty(value, "id") &&
     hasStringProperty(value, "type") &&
     hasStringProperty(value, "app_user_id") &&
-    hasNumberProperty(value, "event_timestamp_ms") &&
-    isAbsentOrNullableNumber(value, "expiration_at_ms") &&
+    isRevenueCatTimestampMs(value[EVENT_TIMESTAMP_MS_KEY]) &&
+    isAbsentOrNullableTimestampMs(value, "expiration_at_ms") &&
     isAbsentOrStringArray(value, "entitlement_ids") &&
-    isAbsentOrNullableString(value, "entitlement_id") &&
     isAbsentOrSubscriberAttributeMap(value, "subscriber_attributes")
   );
 }

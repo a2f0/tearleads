@@ -102,7 +102,7 @@ export function resolveOrganizationIdFromEvent(
 }
 
 function resolveEntitlementId(event: RevenueCatWebhookEvent): string | null {
-  return event.entitlement_ids?.[0] ?? event.entitlement_id ?? null;
+  return event.entitlement_ids?.[0] ?? null;
 }
 
 /**
@@ -116,6 +116,16 @@ export function classifyRevenueCatEvent(
   now: Date = new Date(),
 ): RevenueCatBillingTransition {
   if (GRANT_EVENT_TYPES.has(event.type)) {
+    if (
+      event.expiration_at_ms != null &&
+      event.expiration_at_ms <= now.getTime()
+    ) {
+      return {
+        kind: "ignore",
+        reason: "Grant event period has already expired",
+      };
+    }
+
     return {
       kind: "grant",
       fields: {

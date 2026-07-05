@@ -22,6 +22,7 @@ export function BillingPanel({
   const { refresh } = billing;
   const actions = useBillingActions({
     isOrgAdmin,
+    billingCanSync: billing.view?.canSync ?? false,
     organizationId,
     refresh,
     startTrial: billing.startTrial,
