@@ -123,7 +123,17 @@ export function createRevenueCatPurchases(
     config.organizationAttributeKey ?? DEFAULT_ORGANIZATION_ATTRIBUTE_KEY;
   let configured: Promise<void> | undefined;
   const ensureConfigured = (): Promise<void> => {
-    configured ??= backend.configure({ apiKey: config.apiKey });
+    // Cache the configure promise so we configure exactly once — but only a
+    // SUCCESSFUL one. On failure (e.g. a transient provider error) clear the
+    // cache so the next call retries rather than replaying the rejection forever.
+    if (!configured) {
+      configured = backend
+        .configure({ apiKey: config.apiKey })
+        .catch((error) => {
+          configured = undefined;
+          throw error;
+        });
+    }
     return configured;
   };
   // Defensive against a backend that returns a malformed customer info despite

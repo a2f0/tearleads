@@ -74,6 +74,30 @@ test("configures the backend lazily and only once", async () => {
   expect(backend.calls.filter((call) => call === "configure")).toHaveLength(1);
 });
 
+test("retries configuration after a failed attempt instead of caching the rejection", async () => {
+  const backend = createFakeBackend();
+  let shouldFail = true;
+  backend.configure = () => {
+    backend.calls.push("configure");
+    if (shouldFail) {
+      shouldFail = false;
+      return Promise.reject(new Error("Transient configuration error"));
+    }
+    return Promise.resolve();
+  };
+  const purchases = createRevenueCatPurchases(backend, CONFIG);
+
+  // Await the first rejection so `configured` is cleared before the retry.
+  await expect(purchases.identify({ userId: "user-1" })).rejects.toThrow(
+    "Transient configuration error",
+  );
+  // A second call retries configure (rather than replaying the cached failure)
+  // and then succeeds; a third call reuses the now-cached success.
+  await purchases.identify({ userId: "user-1" });
+  await purchases.identify({ userId: "user-1" });
+  expect(backend.calls.filter((call) => call === "configure")).toHaveLength(2);
+});
+
 test("identify logs in with the user id as the app user id", async () => {
   const backend = createFakeBackend();
   const purchases = createRevenueCatPurchases(backend, CONFIG);

@@ -16,8 +16,11 @@ import {
 const DEFAULT_SYNC_ENTITLEMENT_ID = "sync";
 
 // The native bridge is effectively untyped at runtime; guard against a
-// malformed/partial CustomerInfo or package so a bad payload can't crash the app.
-function toRevenueCatCustomerInfo(info: CustomerInfo): RevenueCatCustomerInfo {
+// malformed/partial CustomerInfo or package (including nullish results) so a bad
+// payload can't crash the app.
+function toRevenueCatCustomerInfo(
+  info: CustomerInfo | undefined,
+): RevenueCatCustomerInfo {
   return {
     activeEntitlementIds: Object.keys(info?.entitlements?.active ?? {}),
   };
@@ -25,11 +28,11 @@ function toRevenueCatCustomerInfo(info: CustomerInfo): RevenueCatCustomerInfo {
 
 function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
   return {
-    identifier: entry.identifier,
-    productIdentifier: entry.product?.identifier ?? "",
-    title: entry.product?.title ?? "",
-    description: entry.product?.description ?? "",
-    priceString: entry.product?.priceString ?? "",
+    identifier: entry?.identifier ?? "",
+    productIdentifier: entry?.product?.identifier ?? "",
+    title: entry?.product?.title ?? "",
+    description: entry?.product?.description ?? "",
+    priceString: entry?.product?.priceString ?? "",
   };
 }
 
@@ -61,21 +64,21 @@ const capacitorRevenueCatBackend: RevenueCatBackend = {
   },
   async purchasePackage({ packageId }) {
     const aPackage = (await currentPackages()).find(
-      (entry) => entry.identifier === packageId,
+      (entry) => entry?.identifier === packageId,
     );
     if (!aPackage) {
       throw new Error(`Unknown purchase package: ${packageId}`);
     }
     const result = await Purchases.purchasePackage({ aPackage });
-    return toRevenueCatCustomerInfo(result.customerInfo);
+    return toRevenueCatCustomerInfo(result?.customerInfo);
   },
   async getCustomerInfo() {
-    const { customerInfo } = await Purchases.getCustomerInfo();
-    return toRevenueCatCustomerInfo(customerInfo);
+    const result = await Purchases.getCustomerInfo();
+    return toRevenueCatCustomerInfo(result?.customerInfo);
   },
   async restorePurchases() {
-    const { customerInfo } = await Purchases.restorePurchases();
-    return toRevenueCatCustomerInfo(customerInfo);
+    const result = await Purchases.restorePurchases();
+    return toRevenueCatCustomerInfo(result?.customerInfo);
   },
 };
 
