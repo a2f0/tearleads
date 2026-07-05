@@ -42,6 +42,33 @@ test("coalesces repeated 402s for the same org into a single notify", () => {
   expect(seen).toEqual(["org-1"]);
 });
 
+test("re-notifies for the same org after clearBlock (re-activation)", () => {
+  const gate = new SyncBillingGate();
+  const seen: (string | null)[] = [];
+  gate.subscribe((organizationId) => seen.push(organizationId));
+
+  gate.notifyPaymentRequired("org-1");
+  // Billing recovers (re-activation) and the app resets the gate...
+  gate.clearBlock();
+  // ...so a later lapse for the same org signals again instead of coalescing.
+  gate.notifyPaymentRequired("org-1");
+
+  expect(seen).toEqual(["org-1", "org-1"]);
+  expect(gate.blockedOrganizationId).toBe("org-1");
+});
+
+test("clearBlock does not notify subscribers", () => {
+  const gate = new SyncBillingGate();
+  const seen: (string | null)[] = [];
+  gate.notifyPaymentRequired("org-1");
+  gate.subscribe((organizationId) => seen.push(organizationId));
+
+  gate.clearBlock();
+
+  expect(seen).toEqual([]);
+  expect(gate.blockedOrganizationId).toBe(null);
+});
+
 test("notifies again when the blocked org changes", () => {
   const gate = new SyncBillingGate();
   const seen: (string | null)[] = [];

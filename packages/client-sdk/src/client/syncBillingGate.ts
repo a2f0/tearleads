@@ -30,6 +30,16 @@ export class SyncBillingGate {
     this.notifyListeners();
   }
 
+  /**
+   * Reset the gate after billing recovers (the org can sync again), so a later
+   * block re-signals instead of being coalesced against the stale value. Does
+   * not notify subscribers: recovery is already reflected by the billing
+   * refetch that observed it, and notifying would trigger a redundant refetch.
+   */
+  clearBlock(): void {
+    this.blockedOrganizationIdValue = undefined;
+  }
+
   private notifyListeners(): void {
     const organizationId = this.blockedOrganizationIdValue ?? null;
     for (const listener of this.listeners) {

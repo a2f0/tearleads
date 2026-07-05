@@ -1,6 +1,7 @@
 import {
   type OrganizationBilling,
   type OrganizationBillingView,
+  requestAllDomainSyncLanes,
   resolveOrganizationBillingView,
 } from "@tearleads/client-sdk";
 import {
@@ -135,7 +136,7 @@ export function BillingProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { organizationId } = useCryptoSession();
   const value = useOrganizationBillingState(tearleads, organizationId);
-  const { refresh } = value;
+  const { billing, refresh } = value;
 
   // When a sync write is rejected for payment (HTTP 402), refetch billing so the
   // banner flips to the sync-paused state without waiting for a remount. Ignore
@@ -153,6 +154,24 @@ export function BillingProvider({ children }: PropsWithChildren) {
       }),
     [organizationId, refresh, tearleads],
   );
+
+  // On re-activation (billing recovered to a syncable state after a block): a
+  // rejected 402 write leaves its sync lane idle with no auto-resume, so
+  // re-drive every lane to flush the stranded writes, then reset the gate so a
+  // later lapse re-signals instead of being coalesced against the stale value.
+  const canSync = billing
+    ? resolveOrganizationBillingView(billing, Date.now()).canSync
+    : false;
+  useEffect(() => {
+    if (!canSync) {
+      return;
+    }
+    const gate = tearleads.syncBillingGate;
+    if (gate.blockedOrganizationId !== null) {
+      requestAllDomainSyncLanes(tearleads.domainScope);
+    }
+    gate.clearBlock();
+  }, [canSync, tearleads]);
 
   return (
     <OrganizationBillingContext.Provider value={value}>

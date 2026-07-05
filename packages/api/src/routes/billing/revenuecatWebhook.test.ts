@@ -202,6 +202,43 @@ test("an expiration event disables sync and opens the purge grace window", async
   );
 });
 
+test("a renewal after an expiration re-activates sync and clears the purge window", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+
+  // Lapse: an expiration disables sync and opens the purge grace window.
+  await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      organizationId,
+      type: "EXPIRATION",
+    }),
+  );
+  const disabled = await readBilling(organizationId);
+  expect(disabled.status).toBe("disabled");
+  invariant(disabled.disabledAt, "expected disabledAt after expiration");
+  invariant(disabled.purgeAfter, "expected purgeAfter after expiration");
+
+  // Re-activation: a renewal must flip back to active and clear the lapse
+  // fields so the org can sync again with no pending purge.
+  const expirationAtMs = Date.now() + THIRTY_DAYS_MS;
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      expirationAtMs,
+      organizationId,
+      type: "RENEWAL",
+    }),
+  );
+  expect(await response.json()).toEqual({ received: true, outcome: "applied" });
+
+  const reactivated = await readBilling(organizationId);
+  expect(reactivated.status).toBe("active");
+  expect(reactivated.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
+  expect(reactivated.disabledAt).toBeNull();
+  expect(reactivated.purgeAfter).toBeNull();
+});
+
 test("a non-admin buyer is ignored and does not activate sync", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
