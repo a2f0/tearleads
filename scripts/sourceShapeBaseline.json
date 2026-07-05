@@ -54,8 +54,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1504,
-      "bytes": 43141
+      "lines": 1515,
+      "bytes": 43403
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 562,
@@ -137,10 +137,6 @@
       "lines": 505,
       "bytes": 14749
     },
-    "packages/api/src/workflows/auth/registration.ts": {
-      "lines": 1244,
-      "bytes": 34058
-    },
     "packages/api/src/workflows/containers/mutations/shared/persistence.ts": {
       "lines": 644,
       "bytes": 18997
@@ -152,6 +148,10 @@
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 721,
       "bytes": 21637
+    },
+    "packages/api/src/workflows/organizations/provisionOrganization.ts": {
+      "lines": 1314,
+      "bytes": 37216
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
@@ -266,8 +266,8 @@
       "bytes": 31765
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
-      "lines": 681,
-      "bytes": 23772
+      "lines": 747,
+      "bytes": 26769
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 732,

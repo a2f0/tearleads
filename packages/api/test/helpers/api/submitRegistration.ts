@@ -105,11 +105,12 @@ export async function createRegistrationRequestBody(
   signingPrivateKey: Uint8Array,
   encapsulationPublicKey: Uint8Array,
   options: {
+    userId?: string | undefined;
     includeOrganizationProfileDocument?: boolean | undefined;
     includeRosterProfileDocument?: boolean | undefined;
   } = {},
 ): Promise<RegistrationRequest> {
-  const userId = crypto.randomUUID();
+  const userId = options.userId ?? crypto.randomUUID();
   const organizationId = crypto.randomUUID();
   const rootContainerId = crypto.randomUUID();
   const initialAdminGroup = await createInitialAdminGroupRequest({

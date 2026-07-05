@@ -56,6 +56,12 @@ export {
   type UpdateOrganizationRosterEntryRequest,
 } from "./organization";
 export {
+  type CreateOrganizationRequest,
+  isCreateOrganizationRequest,
+  isOrganizationProvisioningRequest,
+  type OrganizationProvisioningRequest,
+} from "./organizationProvisioning";
+export {
   isPutPrincipalMemberEnvelopesRequest,
   isPutPrincipalStateRequest,
   type PrincipalMemberEnvelopeRequest,

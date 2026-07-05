@@ -4,6 +4,8 @@ import {
   addOrganizationGroupUser,
   createOrganizationGroup,
   importOrganizationUserRecipient,
+  type LocalOrganizationSummary,
+  listLocalOrganizations,
   loadOrganizationContainerGrants,
   loadOrganizationDataUsage,
   loadOrganizationDirectoryAndGroups,
@@ -22,6 +24,7 @@ import type {
 } from "./workflowRuntime";
 
 export type {
+  LocalOrganizationSummary,
   OrganizationContainerGrant,
   OrganizationContainerGrants,
   OrganizationDataUsage,
@@ -92,6 +95,7 @@ export interface Organizations {
     groupId: string,
   ) => ReturnType<typeof loadOrganizationGroupDetails>;
   loadGrants: () => ReturnType<typeof loadOrganizationContainerGrants>;
+  listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
   loadPolicyHistory: () => ReturnType<typeof loadOrganizationPolicyHistory>;
   loadUserDetail: (
     userId: string,
@@ -264,6 +268,15 @@ class OrganizationsService implements Organizations {
         runtime.infra.dbStatus === "ready" ? runtime.infra.execSql : null,
       organizationId,
     });
+  }
+
+  listLocalOrganizations() {
+    const runtime = this.runtimeService.workflowInput();
+    if (runtime.infra.dbStatus !== "ready") {
+      return Promise.resolve([]);
+    }
+
+    return listLocalOrganizations({ execSql: runtime.infra.execSql });
   }
 
   loadPolicyHistory() {
