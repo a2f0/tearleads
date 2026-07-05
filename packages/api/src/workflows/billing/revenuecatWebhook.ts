@@ -14,6 +14,7 @@ import {
   type RevenueCatBillingTransition,
   resolveOrganizationIdFromEvent,
 } from "../../billing/revenuecatWebhook";
+import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
 
@@ -54,15 +55,25 @@ async function isOrganizationAdmin(
   }
 }
 
-async function loadBillingProviderCustomerId(
+/**
+ * Loads the org's billing row and, on Postgres, takes a `FOR UPDATE` row lock on
+ * it. The lock serializes concurrent webhook transactions for the SAME org:
+ * without it, two events racing could both pass {@link hasNewerAppliedEvent} and
+ * commit out of order (last write wins regardless of event time). SQLite writes
+ * are already serialized, so the lock is Postgres-only.
+ */
+async function lockBillingProviderCustomerId(
   executor: DatabaseSession,
   organizationId: string,
 ): Promise<{ providerCustomerId: string | null } | undefined> {
-  const [row] = await executor
+  const lockQuery = executor
     .select({ providerCustomerId: organizationBilling.providerCustomerId })
     .from(organizationBilling)
     .where(eq(organizationBilling.organizationId, organizationId))
     .limit(1);
+  const [row] = isSqliteApiDatabase()
+    ? await lockQuery
+    : await lockQuery.for("update");
   return row;
 }
 
@@ -106,7 +117,9 @@ async function resolveIgnoredReason(
     return "Event carried no organization id";
   }
 
-  const billing = await loadBillingProviderCustomerId(executor, organizationId);
+  // Lock the billing row first so concurrent same-org events serialize; the
+  // stale-event check below is only race-safe while the row is held.
+  const billing = await lockBillingProviderCustomerId(executor, organizationId);
   if (!billing) {
     return "Unknown organization";
   }
@@ -182,8 +195,12 @@ export async function runRevenueCatWebhookWorkflow(
     }
 
     // Applied path: resolveIgnoredReason returned null, so the event is a
-    // grant/revoke against a resolved organization.
-    if (transition.kind === "ignore" || organizationId === null) {
+    // grant/revoke against a resolved organization. These narrowing guards are
+    // unreachable here, but keep them accurate rather than misleading.
+    if (transition.kind === "ignore") {
+      return { status: "ignored", reason: transition.reason };
+    }
+    if (organizationId === null) {
       return { status: "ignored", reason: "Event carried no organization id" };
     }
 

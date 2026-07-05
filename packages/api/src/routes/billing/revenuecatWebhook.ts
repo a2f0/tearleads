@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { isRevenueCatWebhookRequest } from "@tearleads/validators/request";
 import { Hono } from "hono";
 import { readRevenueCatWebhookAuthToken } from "../../billing/revenuecatWebhook";
@@ -8,8 +8,10 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 
 /**
  * Constant-time comparison of the presented `Authorization` header against the
- * configured shared secret. Returns false (rather than throwing) on a length
- * mismatch so callers stay branch-uniform.
+ * configured shared secret. Both sides are SHA-256 hashed first so the compared
+ * buffers are always the same fixed length: this avoids `timingSafeEqual`
+ * throwing on a length mismatch and, more importantly, removes the timing
+ * side-channel that a raw length check would leak about the secret's length.
  */
 function authorizationMatches(
   presented: string | undefined,
@@ -18,12 +20,9 @@ function authorizationMatches(
   if (!presented) {
     return false;
   }
-  const presentedBytes = Buffer.from(presented);
-  const expectedBytes = Buffer.from(expected);
-  return (
-    presentedBytes.length === expectedBytes.length &&
-    timingSafeEqual(presentedBytes, expectedBytes)
-  );
+  const presentedHash = createHash("sha256").update(presented).digest();
+  const expectedHash = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(presentedHash, expectedHash);
 }
 
 /**
