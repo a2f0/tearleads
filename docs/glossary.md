@@ -343,9 +343,9 @@ a default organization, reserved `Admins` and `Members` groups, and a root
 container. The organization row stores `adminGroupId` and `memberGroupId`.
 Reachability through `Admins` is org-admin authority. Reachability through
 `Members` is organization membership. Org-manager directory lifecycle is stored
-in organization roster entries so disabled accounts can remain visible after
-access removal. Organization policy can still act as a managed principal for
-grants, but org-manager product role semantics come from the reserved groups.
+in organization roster entries so disabled users can remain visible after access
+removal. Organization policy can still act as a managed principal for grants,
+but org-manager product role semantics come from the reserved groups.
 
 Related docs:
 
