@@ -1,6 +1,7 @@
 .mini-app-table-frame {
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   border: var(--border);
   color: var(--color-dark);
 }

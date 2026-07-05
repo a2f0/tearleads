@@ -5,6 +5,7 @@
   flex-direction: column;
   width: max-content;
   overflow: auto;
+  scrollbar-gutter: stable;
   box-sizing: border-box;
   background: var(--color-light);
   border: var(--border-strong);

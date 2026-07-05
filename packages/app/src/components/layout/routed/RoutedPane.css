@@ -173,6 +173,7 @@
   width: var(--routed-rail-width);
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-right: var(--border-strong);
   background: var(--color-muted);
 }
@@ -202,6 +203,7 @@
   z-index: 2;
   width: var(--routed-drawer-width);
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-right: var(--border-strong);
   background: var(--color-muted);
   transform: translateX(-100%);
@@ -228,6 +230,7 @@
   grid-area: sidebar;
   min-width: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   background: var(--color-light);
 }
 
@@ -255,6 +258,7 @@
   grid-area: main;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .routed-pane-home {

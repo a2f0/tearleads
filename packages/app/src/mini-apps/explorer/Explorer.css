@@ -19,6 +19,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .explorer-detail-title-row {
@@ -63,6 +64,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   border-top: var(--border);
   padding-top: var(--space-sm);
 }
@@ -121,6 +123,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .explorer-sidebar-virtual-space {
@@ -181,6 +184,7 @@
   z-index: 20;
   max-height: min(16rem, 50vh);
   overflow: auto;
+  scrollbar-gutter: stable;
   box-sizing: border-box;
   border: var(--border-strong);
   background: var(--color-light);
@@ -456,6 +460,7 @@
 .explorer-blob-browser-detail {
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .explorer-blob-browser-detail {
@@ -477,6 +482,7 @@
   min-height: 12rem;
   max-height: 24rem;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: var(--space-sm);
   border: var(--border);
 }
