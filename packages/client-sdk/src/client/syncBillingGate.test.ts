@@ -48,24 +48,41 @@ test("re-notifies for the same org after clearBlock (re-activation)", () => {
   gate.subscribe((organizationId) => seen.push(organizationId));
 
   gate.notifyPaymentRequired("org-1");
+  expect(gate.isBlocked).toBe(true);
   // Billing recovers (re-activation) and the app resets the gate...
   gate.clearBlock();
+  expect(gate.isBlocked).toBe(false);
   // ...so a later lapse for the same org signals again instead of coalescing.
   gate.notifyPaymentRequired("org-1");
 
   expect(seen).toEqual(["org-1", "org-1"]);
   expect(gate.blockedOrganizationId).toBe("org-1");
+  expect(gate.isBlocked).toBe(true);
 });
 
 test("clearBlock does not notify subscribers", () => {
   const gate = new SyncBillingGate();
   const seen: (string | null)[] = [];
   gate.notifyPaymentRequired("org-1");
+  expect(gate.isBlocked).toBe(true);
   gate.subscribe((organizationId) => seen.push(organizationId));
 
   gate.clearBlock();
 
   expect(seen).toEqual([]);
+  expect(gate.blockedOrganizationId).toBe(null);
+  expect(gate.isBlocked).toBe(false);
+});
+
+test("isBlocked is true after a block with an unknown (null) org", () => {
+  const gate = new SyncBillingGate();
+  expect(gate.isBlocked).toBe(false);
+
+  // A 402 whose body omits the org id blocks with a null org — isBlocked must
+  // still report true so re-activation re-drives the stranded sync lanes.
+  gate.notifyPaymentRequired(null);
+
+  expect(gate.isBlocked).toBe(true);
   expect(gate.blockedOrganizationId).toBe(null);
 });
 

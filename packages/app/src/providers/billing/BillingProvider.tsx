@@ -167,7 +167,7 @@ export function BillingProvider({ children }: PropsWithChildren) {
       return;
     }
     const gate = tearleads.syncBillingGate;
-    if (gate.blockedOrganizationId !== null) {
+    if (gate.isBlocked) {
       requestAllDomainSyncLanes(tearleads.domainScope);
     }
     gate.clearBlock();

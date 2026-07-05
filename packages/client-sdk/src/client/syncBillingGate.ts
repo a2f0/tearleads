@@ -22,6 +22,15 @@ export class SyncBillingGate {
     return this.blockedOrganizationIdValue ?? null;
   }
 
+  /**
+   * Whether a block is currently in effect — true even when the block carries an
+   * unknown/omitted org (`null`), which `blockedOrganizationId` cannot distinguish
+   * from the never-signalled state.
+   */
+  get isBlocked(): boolean {
+    return this.blockedOrganizationIdValue !== undefined;
+  }
+
   notifyPaymentRequired(organizationId: string | null): void {
     if (this.blockedOrganizationIdValue === organizationId) {
       return;
