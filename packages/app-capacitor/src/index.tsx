@@ -1,7 +1,8 @@
+import { Capacitor } from "@capacitor/core";
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 import { renderApp } from "app/client";
 import {
-  AppHostConfig,
+  createAppHostConfig,
   resolveEventsWebSocketUrl,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
@@ -21,15 +22,11 @@ const wsUrl = resolveEventsWebSocketUrl(
   import.meta.env.VITE_WS_URL,
 );
 
-renderApp(createRoot(elem), {
-  hostConfig: new AppHostConfig(
-    apiBaseUrl,
-    wsUrl,
-    createCapacitorSQLiteRuntime,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    "routed",
-  ),
+const hostConfig = createAppHostConfig({
+  apiBaseUrl,
+  createSQLiteRuntime: createCapacitorSQLiteRuntime,
+  navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
+  wsUrl,
 });
+
+renderApp(createRoot(elem), { hostConfig });
