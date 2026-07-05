@@ -151,6 +151,12 @@ export {
   type OrganizationBillingStatus,
 } from "./organizationBilling";
 export {
+  type CreateOrganizationResponse,
+  isCreateOrganizationResponse,
+  isOrganizationProvisioningResponse,
+  type OrganizationProvisioningResponse,
+} from "./organizationProvisioning";
+export {
   type CurrentPrincipalMemberEnvelopesResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isPrincipalPolicyBundleResponse,

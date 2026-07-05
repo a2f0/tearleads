@@ -12,6 +12,7 @@ import {
   RegistrationError,
   runRegistrationWorkflow,
 } from "../../workflows/auth/registration";
+import { toOrganizationProvisioningResponse } from "../../workflows/organizations/provisionOrganization";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { isDuplicateRegistrationFingerprintError, RegistrationError };
@@ -65,32 +66,7 @@ export async function registerUser(
   });
 
   return {
-    userId: result.userId,
-    organizationId: result.organizationId,
-    rootContainerId: result.rootContainerId,
-    rootMetadataDocumentId: result.rootMetadataDocumentId,
-    rootMetadataAccessEpoch: result.rootMetadataAccessEpoch,
-    rootMetadataAccessStateHash: result.rootMetadataAccessStateHash,
-    rootMetadataDocument: result.rootMetadataDocument,
-    ...(result.rosterProfileContainer
-      ? {
-          rosterProfileContainer: result.rosterProfileContainer,
-          rosterProfileContainerId:
-            result.rosterProfileContainer.container.containerId,
-        }
-      : {}),
-    ...(result.rosterProfileDocument
-      ? {
-          rosterProfileDocument: result.rosterProfileDocument,
-          rosterProfileDocumentId: result.rosterProfileDocument.id,
-        }
-      : {}),
-    ...(result.organizationProfileDocument
-      ? {
-          organizationProfileDocument: result.organizationProfileDocument,
-          organizationProfileDocumentId: result.organizationProfileDocument.id,
-        }
-      : {}),
+    ...toOrganizationProvisioningResponse(result.userId, result),
     challenge: challengeHex,
   };
 }
