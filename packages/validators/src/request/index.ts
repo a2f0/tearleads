@@ -75,3 +75,9 @@ export {
   isRegistrationRequest,
   type RegistrationRequest,
 } from "./registration";
+export {
+  isRevenueCatWebhookRequest,
+  type RevenueCatSubscriberAttribute,
+  type RevenueCatWebhookEvent,
+  type RevenueCatWebhookRequest,
+} from "./revenuecatWebhook";
