@@ -1,9 +1,11 @@
 import { describe, expect, mock, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
+import { isListContainersResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import { registerServiceUser } from "../test/helpers/registerServiceUser";
+import { createServiceTestRuntime } from "../test/helpers/serviceRuntime";
 import type { SessionEnv } from "./middleware/session";
 import { createRouteApp, readApiCorsOrigins, routeApp } from "./routeApp";
 
@@ -101,7 +103,7 @@ describe("createRouteApp", () => {
     expect(await res.json()).toEqual({ error: "blocked by injected auth" });
   });
 
-  test("blocks paid routes when the authenticated account is disabled", async () => {
+  test("does not gate product routes on user account billing state", async () => {
     const { fingerprint, registration } = await registerServiceUser();
     await db
       .update(users)
@@ -126,18 +128,15 @@ describe("createRouteApp", () => {
       await next();
     };
 
-    const app = createRouteApp({ requireAuth });
+    const app = createRouteApp({
+      requireAuth,
+      runtime: createServiceTestRuntime(),
+    });
     const res = await app.request("/containers");
 
-    expect(res.status).toBe(402);
-    expect(await res.json()).toEqual({
-      error: "Account is disabled",
-      account: expect.objectContaining({
-        disabledAt: "2026-06-01T00:00:00.000Z",
-        purgeAfter: "2026-07-01T00:00:00.000Z",
-        status: "disabled",
-      }),
-    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(isListContainersResponse(body)).toBe(true);
   });
 
   test("uses the injected destroySession implementation for logout", async () => {

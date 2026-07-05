@@ -96,7 +96,6 @@ export function createRouteApp(
     destroyUserSession: resolvedDestroyUserSession,
     listUserSessions: resolvedListUserSessions,
     publish: resolvedPublish,
-    requirePaidAuth: resolvedRequirePaidAuth,
     requireAuth: resolvedRequireAuth,
     runtime: resolvedRuntime,
   } = resolveRouteAppDeps(overrides);
@@ -121,14 +120,14 @@ export function createRouteApp(
     "/",
     createContainersRouter({
       publish: resolvedPublish,
-      requireAuth: resolvedRequirePaidAuth,
+      requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),
   );
   routeApp.route(
     "/",
     createBlobsRouter({
-      requireAuth: resolvedRequirePaidAuth,
+      requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),
   );
@@ -136,7 +135,7 @@ export function createRouteApp(
     "/",
     createDocumentsRouter({
       publish: resolvedPublish,
-      requireAuth: resolvedRequirePaidAuth,
+      requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),
   );
@@ -151,7 +150,7 @@ export function createRouteApp(
   routeApp.route(
     "/",
     createOrganizationsRouter({
-      requireAuth: resolvedRequirePaidAuth,
+      requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),
   );
@@ -159,7 +158,7 @@ export function createRouteApp(
     "/",
     createPrincipalsRouter({
       publish: resolvedPublish,
-      requireAuth: resolvedRequirePaidAuth,
+      requireAuth: resolvedRequireAuth,
       runtime: resolvedRuntime,
     }),
   );

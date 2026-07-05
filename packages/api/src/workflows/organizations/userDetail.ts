@@ -3,6 +3,7 @@ import type {
   DatabaseSession,
 } from "@tearleads/api-shared/postgres";
 import type { OrganizationUserDetailResponse } from "@tearleads/validators/response";
+import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { listOrganizationContainerGrantResponsesInTransaction } from "./grants";
@@ -63,6 +64,7 @@ export async function runGetOrganizationUserDetailWorkflow(
       organizationId,
       userId: sessionUserId,
     });
+    await assertOrganizationCanSync(tx, organizationId);
 
     const groupSummaries = await listOrganizationGroupSummariesInTransaction({
       executor: tx,

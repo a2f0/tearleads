@@ -296,12 +296,13 @@ async function filterSyncableContainerRows(
       organizationId: organizationBilling.organizationId,
       status: organizationBilling.status,
       trialEndsAt: organizationBilling.trialEndsAt,
+      currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
     })
     .from(organizationBilling)
     .where(inArray(organizationBilling.organizationId, organizationIds));
-  // This batch read never runs the lazy trial-expiry flip, so expiry is
-  // evaluated in-memory against `now`; a still-`trialing` row past its
-  // `trialEndsAt` is correctly excluded.
+  // This batch read never runs a persisted billing-expiry flip, so expiry is
+  // evaluated in-memory against `now`; still-active/trialing rows past their
+  // billing deadline are correctly excluded.
   const now = new Date();
   const syncableOrganizationIds = new Set(
     billingRows

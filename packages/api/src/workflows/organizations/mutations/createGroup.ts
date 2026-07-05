@@ -4,6 +4,7 @@ import type { CreateOrganizationGroupRequest } from "@tearleads/validators/reque
 import type { OrganizationGroupSummaryResponse } from "@tearleads/validators/response";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../../access/write/principalMemberEnvelopes";
 import { storeVerifiedPrincipalStateInTransaction } from "../../../access/write/principalStateStore";
+import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../access";
 import { OrganizationManagerError } from "../errors";
 import { toGroupSummary } from "../groupSummary";
@@ -119,6 +120,7 @@ export async function runCreateOrganizationGroupWorkflow(
       requireAdmin: true,
       userId: sessionUserId,
     });
+    await assertOrganizationCanSync(tx, organizationId);
 
     const [insertedGroup] = await tx
       .insert(groupsTable)

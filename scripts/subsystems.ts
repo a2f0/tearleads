@@ -136,13 +136,12 @@ export const subsystems: readonly Subsystem[] = [
     name: "Accounts",
     package: "api",
     responsibility:
-      "Account lifecycle and paid-account tier gating used to authorize billed routes.",
-    seam: "services/accounts facade; requirePaidAccount middleware",
+      "Account lifecycle state and account remote-data retention/purge workflows.",
+    seam: "services/accounts facade",
     paths: [
       `${api}/services/accounts/`,
       `${api}/workflows/accounts/`,
       `${api}/accounts/`,
-      `${api}/middleware/account.ts`,
     ],
   },
   {

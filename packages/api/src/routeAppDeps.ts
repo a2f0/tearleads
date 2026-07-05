@@ -1,5 +1,4 @@
 import type { Context, MiddlewareHandler } from "hono";
-import { createRequirePaidAccount } from "./middleware/account";
 import {
   destroySession as defaultDestroySession,
   destroyUserSession as defaultDestroyUserSession,
@@ -19,16 +18,10 @@ export interface RouteAppOverrides {
   readonly listUserSessions?: typeof defaultListUserSessions;
   readonly publish?: (event: Record<string, unknown>) => Promise<void>;
   readonly requireAuth?: MiddlewareHandler<SessionEnv>;
-  readonly requirePaidAccount?: MiddlewareHandler<SessionEnv>;
   readonly runtime?: ApiServiceRuntime;
 }
 
-type ResolvedRouteAppDeps = Required<
-  Omit<RouteAppOverrides, "requirePaidAccount">
-> & {
-  readonly requirePaidAuth: MiddlewareHandler<SessionEnv>;
-  readonly requirePaidAccount: MiddlewareHandler<SessionEnv>;
-};
+type ResolvedRouteAppDeps = Required<RouteAppOverrides>;
 
 // `runtime` is intentionally omitted: resolveRouteAppDeps falls back to the
 // lazily-built default, so neither importing this module nor reading these
@@ -40,26 +33,12 @@ export const productionRouteAppOverrides: RouteAppOverrides = {
   requireAuth: defaultRequireAuth,
 };
 
-function composeRequirePaidAuth(
-  requireAuth: MiddlewareHandler<SessionEnv>,
-  requirePaidAccount: MiddlewareHandler<SessionEnv>,
-): MiddlewareHandler<SessionEnv> {
-  return async (c, next) => {
-    let downstreamResponse: Response | undefined;
-    const authResponse = await requireAuth(c, async () => {
-      downstreamResponse = (await requirePaidAccount(c, next)) ?? undefined;
-    });
-    return authResponse ?? downstreamResponse;
-  };
-}
-
 export function resolveRouteAppDeps({
   destroySession,
   destroyUserSession,
   listUserSessions,
   publish,
   requireAuth,
-  requirePaidAccount,
   runtime,
 }: RouteAppOverrides): ResolvedRouteAppDeps {
   const runtimeBase = runtime ?? getDefaultApiServiceRuntime();
@@ -75,8 +54,6 @@ export function resolveRouteAppDeps({
           },
         };
   const resolvedRequireAuth = requireAuth ?? defaultRequireAuth;
-  const resolvedRequirePaidAccount =
-    requirePaidAccount ?? createRequirePaidAccount(resolvedRuntime);
 
   return {
     destroySession: destroySession ?? defaultDestroySession,
@@ -84,11 +61,6 @@ export function resolveRouteAppDeps({
     listUserSessions: listUserSessions ?? defaultListUserSessions,
     publish: resolvedPublish,
     requireAuth: resolvedRequireAuth,
-    requirePaidAccount: resolvedRequirePaidAccount,
-    requirePaidAuth: composeRequirePaidAuth(
-      resolvedRequireAuth,
-      resolvedRequirePaidAccount,
-    ),
     runtime: resolvedRuntime,
   };
 }

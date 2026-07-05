@@ -11,6 +11,7 @@ import {
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import { sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
+import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 
 interface OrganizationDataUsageRow {
@@ -58,6 +59,7 @@ async function loadOrganizationDataUsageInTransaction(input: {
     organizationId: input.organizationId,
     userId: input.sessionUserId,
   });
+  await assertOrganizationCanSync(input.executor, input.organizationId);
 
   const result = await input.executor.execute(sql`
     with document_rows as (

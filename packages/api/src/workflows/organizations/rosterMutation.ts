@@ -3,6 +3,7 @@ import { organizationRosterEntries } from "@tearleads/api-shared/schema";
 import type { UpdateOrganizationRosterEntryRequest } from "@tearleads/validators/request";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
+import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import {
@@ -28,6 +29,7 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
     if (sessionUserId !== userId && !access.isOrgAdmin) {
       throw new OrganizationManagerError("Organization admin required", 403);
     }
+    await assertOrganizationCanSync(tx, organizationId);
 
     const currentEntry = await loadOrganizationRosterEntry({
       executor: tx,

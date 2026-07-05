@@ -29,19 +29,52 @@ describe("organization billing lifecycle", () => {
     const past = new Date("2025-12-31T00:00:00.000Z");
 
     expect(
-      organizationCanSync({ status: "active", trialEndsAt: null }, now),
+      organizationCanSync(
+        { currentPeriodEndsAt: null, status: "active", trialEndsAt: null },
+        now,
+      ),
     ).toBe(true);
-    // A trialing org with no expiry, or one whose trial is still in the future.
     expect(
-      organizationCanSync({ status: "trialing", trialEndsAt: null }, now),
+      organizationCanSync(
+        { currentPeriodEndsAt: future, status: "active", trialEndsAt: null },
+        now,
+      ),
     ).toBe(true);
     expect(
-      organizationCanSync({ status: "trialing", trialEndsAt: future }, now),
+      organizationCanSync(
+        { currentPeriodEndsAt: past, status: "active", trialEndsAt: null },
+        now,
+      ),
+    ).toBe(false);
+    // A trialing org must have an unexpired trial end; null is not an
+    // indefinite sync entitlement.
+    expect(
+      organizationCanSync(
+        {
+          currentPeriodEndsAt: null,
+          status: "trialing",
+          trialEndsAt: null,
+        },
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      organizationCanSync(
+        {
+          currentPeriodEndsAt: null,
+          status: "trialing",
+          trialEndsAt: future,
+        },
+        now,
+      ),
     ).toBe(true);
     // An expired trial that has not yet been flipped to `disabled` is not
     // syncable, evaluated in-memory against `now`.
     expect(
-      organizationCanSync({ status: "trialing", trialEndsAt: past }, now),
+      organizationCanSync(
+        { currentPeriodEndsAt: null, status: "trialing", trialEndsAt: past },
+        now,
+      ),
     ).toBe(false);
 
     const cannotSync: OrganizationBillingStatus[] = [
@@ -52,9 +85,12 @@ describe("organization billing lifecycle", () => {
       "purged",
     ];
     for (const status of cannotSync) {
-      expect(organizationCanSync({ status, trialEndsAt: null }, now)).toBe(
-        false,
-      );
+      expect(
+        organizationCanSync(
+          { currentPeriodEndsAt: null, status, trialEndsAt: null },
+          now,
+        ),
+      ).toBe(false);
     }
   });
 

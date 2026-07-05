@@ -42,9 +42,10 @@ async function loadOrganizationBilling(
 
 /**
  * Loads an organization's billing and returns an in-memory `disabled` view of a
- * lapsed trial. When a `trialing` organization's `trialEndsAt` has passed, the
- * returned billing reports `disabled` (with a computed `disabledAt` and
- * `purgeAfter` grace deadline) WITHOUT persisting the transition.
+ * lapsed billing period. When a `trialing` organization's `trialEndsAt` or an
+ * `active` organization's `currentPeriodEndsAt` has passed, the returned
+ * billing reports `disabled` (with a computed `disabledAt` and `purgeAfter`
+ * grace deadline) WITHOUT persisting the transition.
  *
  * This is deliberately a pure read. It runs inside read transactions — the
  * shared container-access projection (`resolveContainerAccessProjection`) and
@@ -62,15 +63,20 @@ async function resolveOrganizationBilling(
   now: Date = new Date(),
 ): Promise<OrganizationBilling> {
   const billing = await loadOrganizationBilling(executor, organizationId);
-  if (
-    billing.status !== "trialing" ||
-    billing.trialEndsAt === null ||
-    billing.trialEndsAt > now
-  ) {
+  const disabledAt =
+    billing.status === "trialing" &&
+    billing.trialEndsAt !== null &&
+    billing.trialEndsAt <= now
+      ? billing.trialEndsAt
+      : billing.status === "active" &&
+          billing.currentPeriodEndsAt !== null &&
+          billing.currentPeriodEndsAt <= now
+        ? billing.currentPeriodEndsAt
+        : null;
+  if (disabledAt === null) {
     return billing;
   }
 
-  const disabledAt = billing.trialEndsAt;
   const purgeAfter = new Date(
     disabledAt.getTime() + LAPSED_BILLING_PURGE_GRACE_MS,
   );

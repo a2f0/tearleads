@@ -3,6 +3,7 @@ import { organizations } from "@tearleads/api-shared/schema";
 import type { UpdateOrganizationProfileRequest } from "@tearleads/validators/request";
 import type { OrganizationProfileResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { isOrganizationProfileDocument } from "./roster";
@@ -20,6 +21,7 @@ export async function runUpdateOrganizationProfileWorkflow(
       requireAdmin: true,
       userId: sessionUserId,
     });
+    await assertOrganizationCanSync(tx, organizationId);
 
     if (
       input.profileDocumentId &&

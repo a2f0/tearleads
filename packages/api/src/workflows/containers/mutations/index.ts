@@ -68,13 +68,14 @@ export async function applyContainerRekeys(input: {
   };
 
   for (const request of input.requests) {
-    await rekeyContainer({
+    const response = await rekeyContainer({
       context,
       executor: input.executor,
       fingerprint: input.fingerprint,
       request,
       userId: input.userId,
     });
+    await assertOrganizationCanSync(input.executor, response.organizationId);
   }
 }
 
