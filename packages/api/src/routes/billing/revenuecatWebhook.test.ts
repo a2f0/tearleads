@@ -123,6 +123,16 @@ test("rejects a malformed webhook payload", async () => {
     JSON.stringify({ api_version: "1.0" }),
   );
   expect(missingEvent.status).toBe(400);
+
+  const invalidTimestamp = await postWebhook(
+    webhookBody({
+      appUserId: crypto.randomUUID(),
+      eventTimestampMs: 9_000_000_000_000_000,
+      organizationId: crypto.randomUUID(),
+      type: "RENEWAL",
+    }),
+  );
+  expect(invalidTimestamp.status).toBe(400);
 });
 
 test("an admin purchase activates org sync and records the provider", async () => {
@@ -320,6 +330,25 @@ test("a stale out-of-order event does not overwrite newer applied billing", asyn
   });
 
   expect((await readBilling(organizationId)).status).toBe("active");
+});
+
+test("an expired grant event records ignored and does not activate sync", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  await setTestOrganizationBillingLocal(organizationId);
+
+  const response = await postWebhook(
+    webhookBody({
+      appUserId: admin.userId,
+      eventTimestampMs: Date.now(),
+      expirationAtMs: Date.now() - 60_000,
+      organizationId,
+      type: "INITIAL_PURCHASE",
+    }),
+  );
+
+  expect(await response.json()).toEqual({ received: true, outcome: "ignored" });
+  expect((await readBilling(organizationId)).status).toBe("local");
 });
 
 test("a newer event still applies after an older one", async () => {

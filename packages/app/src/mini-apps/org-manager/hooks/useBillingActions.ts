@@ -22,12 +22,14 @@ interface BillingActions {
  * billing afterwards. Trial start is delegated to the billing snapshot hook.
  */
 export function useBillingActions({
+  billingCanSync,
   isOrgAdmin,
   organizationId,
   refresh,
   startTrial: startTrialRequest,
   userId,
 }: {
+  billingCanSync: boolean;
   isOrgAdmin: boolean;
   organizationId: string;
   refresh: () => Promise<void>;
@@ -43,6 +45,16 @@ export function useBillingActions({
   const [activationPending, setActivationPending] = useState(false);
 
   const canSubscribe = isOrgAdmin && purchases.isAvailable && userId !== null;
+
+  useEffect(() => {
+    setActivationPending(false);
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (billingCanSync) {
+      setActivationPending(false);
+    }
+  }, [billingCanSync]);
 
   useEffect(() => {
     if (!canSubscribe) {
@@ -75,7 +87,7 @@ export function useBillingActions({
 
   const subscribe = useCallback(
     (option: SyncSubscriptionOption) => {
-      if (userId === null) {
+      if (!canSubscribe || userId === null) {
         return;
       }
       setBusy(`subscribe:${option.packageId}`);
@@ -83,10 +95,14 @@ export function useBillingActions({
       void (async () => {
         try {
           await purchases.identify({ userId });
-          await purchases.purchaseSync({
+          const result = await purchases.purchaseSync({
             organizationId,
             packageId: option.packageId,
           });
+          if (!result.syncEntitlementActive) {
+            setActionError(ORG_MANAGER_LABELS.failedSubscribe);
+            return;
+          }
           setActivationPending(true);
           await refresh();
         } catch {
@@ -96,7 +112,7 @@ export function useBillingActions({
         }
       })();
     },
-    [organizationId, purchases, refresh, userId],
+    [canSubscribe, organizationId, purchases, refresh, userId],
   );
 
   const restore = useCallback(() => {

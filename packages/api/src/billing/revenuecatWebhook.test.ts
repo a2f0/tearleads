@@ -8,6 +8,7 @@ import {
 } from "./revenuecatWebhook";
 
 const ORG_ID = "11111111-1111-4111-8111-111111111111";
+const ACTIVE_GRANT_NOW = new Date(1_500);
 
 function makeEvent(
   overrides: Partial<RevenueCatWebhookEvent> = {},
@@ -25,7 +26,7 @@ function makeEvent(
 }
 
 test("a purchase event classifies as a grant that activates sync", () => {
-  const transition = classifyRevenueCatEvent(makeEvent());
+  const transition = classifyRevenueCatEvent(makeEvent(), ACTIVE_GRANT_NOW);
   expect(transition.kind).toBe("grant");
   if (transition.kind !== "grant") {
     throw new Error("expected a grant");
@@ -40,28 +41,25 @@ test("a purchase event classifies as a grant that activates sync", () => {
   expect(transition.fields.purgeAfter).toBeNull();
 });
 
-test("a grant falls back to the deprecated single entitlement id", () => {
-  const transition = classifyRevenueCatEvent({
-    app_user_id: "user-1",
-    entitlement_id: "legacy-sync",
-    event_timestamp_ms: 1_000,
-    expiration_at_ms: 2_000,
-    id: "event-1",
-    subscriber_attributes: { orgId: { value: ORG_ID } },
-    type: "INITIAL_PURCHASE",
-  });
-  expect(transition.kind === "grant" && transition.fields.entitlementId).toBe(
-    "legacy-sync",
-  );
-});
-
 test("a grant without an expiration has a null period end", () => {
   const transition = classifyRevenueCatEvent(
     makeEvent({ expiration_at_ms: null }),
+    ACTIVE_GRANT_NOW,
   );
   expect(
     transition.kind === "grant" && transition.fields.currentPeriodEndsAt,
   ).toBeNull();
+});
+
+test("an already-expired grant is ignored instead of writing active billing", () => {
+  const transition = classifyRevenueCatEvent(
+    makeEvent({ expiration_at_ms: 1_000 }),
+    new Date(2_000),
+  );
+  expect(transition).toEqual({
+    kind: "ignore",
+    reason: "Grant event period has already expired",
+  });
 });
 
 test("an expiration event classifies as a revoke that disables sync", () => {
