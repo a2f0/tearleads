@@ -385,10 +385,9 @@ test("org manager routes keep disabled roster entries visible outside access gro
     directoryBody.users.map((user) => [
       user.userId,
       user.status,
-      user.accountStatus,
       user.disabledByUserId,
     ]),
-  ).toContainEqual([disabledUser.userId, "disabled", "trialing", actor.userId]);
+  ).toContainEqual([disabledUser.userId, "disabled", actor.userId]);
 
   const detailResponse = await routeApp.request(
     `/organizations/${organizationId}/users/${disabledUser.userId}/detail`,

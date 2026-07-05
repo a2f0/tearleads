@@ -21,7 +21,6 @@ function directoryUser(
   overrides: Partial<OrganizationDirectoryUser>,
 ): OrganizationDirectoryUser {
   return {
-    accountStatus: "active",
     userId: "user-id",
     signingKeyFingerprint: "signing-fp",
     signingPublicKey: "signing-pub",

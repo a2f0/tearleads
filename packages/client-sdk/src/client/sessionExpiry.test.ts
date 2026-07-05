@@ -11,16 +11,6 @@ const quietLogger: Required<Logger> = {
   logError: () => undefined,
 };
 
-const account = {
-  disabledAt: null,
-  purgeAfter: null,
-  purgeStartedAt: null,
-  purgedAt: null,
-  remoteDataEpoch: 1,
-  status: "trialing" as const,
-  trialEndsAt: "2026-06-08T00:00:00.000Z",
-};
-
 async function setGeneratedIdentity(sdk: Tearleads) {
   return sdk.identity.setKeyPairs({
     encapsulationKeyPair: generateKemSeedAndKeyPair(),
@@ -68,7 +58,6 @@ describe("session expiry", () => {
 
       if (url.pathname === "/auth/verify") {
         return jsonResponse({
-          account,
           authenticated: true,
           organizationId: "org-2",
           token: "fresh-token",
@@ -102,7 +91,6 @@ describe("session expiry", () => {
       await expect(sdk.session.listSessions()).resolves.toEqual([]);
 
       expect(sdk.session.snapshot).toEqual({
-        account,
         authToken: "fresh-token",
         containerId: null,
         isAuthenticated: true,

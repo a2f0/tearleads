@@ -133,18 +133,6 @@ export const subsystems: readonly Subsystem[] = [
     ],
   },
   {
-    name: "Accounts",
-    package: "api",
-    responsibility:
-      "Account lifecycle state and account remote-data retention/purge workflows.",
-    seam: "services/accounts facade",
-    paths: [
-      `${api}/services/accounts/`,
-      `${api}/workflows/accounts/`,
-      `${api}/accounts/`,
-    ],
-  },
-  {
     name: "Access Plane & Keying",
     package: "api",
     responsibility:

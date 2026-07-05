@@ -32,7 +32,6 @@ import { storeVerifiedAccessManifestInTransaction } from "../../access/write/acc
 import { storeVerifiedContainerKekStateInTransaction } from "../../access/write/containerKekStore";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
-import { createTrialAccountFields } from "../../accounts/lifecycle";
 import { createLocalBillingFields } from "../../billing/organizationBilling";
 import {
   readProjectionAccessEvent,
@@ -160,7 +159,6 @@ async function createRegisteredUser(
       encapsulationKeyFingerprint: input.encapsulationFingerprint,
       defaultOrganizationId: input.organizationId,
       registrationSourceIpAddress: input.ip,
-      ...createTrialAccountFields(),
     })
     .onConflictDoNothing({ target: users.fingerprint })
     .returning({ id: users.id });

@@ -8,7 +8,6 @@ import type {
 import { loadRosterProfileDisplayName } from "./rosterProfileDisplayNames";
 
 const rosterUser: OrganizationDirectoryUser & { profileDocumentId: string } = {
-  accountStatus: "active",
   createdAt: "2026-05-20T12:00:00.000Z",
   disabledAt: null,
   disabledByUserId: null,

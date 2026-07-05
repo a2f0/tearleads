@@ -856,7 +856,6 @@ describe("Tearleads", () => {
     expect(sdk.runtime.input().state.containerId).toBe("container-1");
     expect(sessionSnapshots).toEqual([
       {
-        account: null,
         authToken: null,
         containerId: "container-1",
         isAuthenticated: false,
@@ -864,7 +863,6 @@ describe("Tearleads", () => {
         userId: "user-1",
       },
       {
-        account: null,
         authToken: "session-token",
         containerId: "container-1",
         isAuthenticated: true,

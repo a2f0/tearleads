@@ -24,7 +24,6 @@ afterEach(() => {
 });
 
 const rosterUser: OrganizationDirectoryUser = {
-  accountStatus: "trialing",
   createdAt: "2026-05-20T12:00:00.000Z",
   disabledAt: "2026-05-24T12:00:00.000Z",
   disabledByUserId: "550e8400-e29b-41d4-a716-446655440002",
@@ -170,8 +169,6 @@ test("org manager roster view exposes roster metadata and dismisses detail", () 
     view.queryByRole("table", { name: ORG_MANAGER_LABELS.directory }),
   ).toBeNull();
   expect(view.getByText(ORG_MANAGER_LABELS.disabled)).toBeTruthy();
-  expect(view.getByText(ORG_MANAGER_LABELS.account)).toBeTruthy();
-  expect(view.getByText(ORG_MANAGER_LABELS.trial)).toBeTruthy();
   expect(view.getByText(ORG_MANAGER_LABELS.disabledAt)).toBeTruthy();
   expect(view.getByText(ORG_MANAGER_LABELS.disabledBy)).toBeTruthy();
   expect(
