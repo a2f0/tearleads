@@ -127,7 +127,7 @@ test("rejects a malformed webhook payload", async () => {
   const invalidTimestamp = await postWebhook(
     webhookBody({
       appUserId: crypto.randomUUID(),
-      eventTimestampMs: Number.POSITIVE_INFINITY,
+      eventTimestampMs: 9_000_000_000_000_000,
       organizationId: crypto.randomUUID(),
       type: "RENEWAL",
     }),
