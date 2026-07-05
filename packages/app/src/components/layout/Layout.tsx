@@ -12,6 +12,7 @@ import {
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import { AppFeatureFlagsProvider } from "../../providers/feature-flags/AppFeatureFlagsProvider";
+import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
 import { Workspace } from "./workspace/Workspace";
 import {
@@ -66,6 +67,7 @@ function WorkspaceRuntimeHost({
 
   return (
     <AppRuntimeProvider hostConfig={sharedHostConfig}>
+      <BillingBanner />
       {children}
     </AppRuntimeProvider>
   );
