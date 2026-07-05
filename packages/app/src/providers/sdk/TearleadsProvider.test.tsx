@@ -13,10 +13,12 @@ import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
 import { SyncModeProvider } from "../sync-mode/SyncModeProvider";
+import { SYNC_MODE_STORAGE_KEY } from "../sync-mode/syncModePreference";
 import { TearleadsProvider, useTearleads } from "./TearleadsProvider";
 
 afterEach(() => {
   cleanup();
+  globalThis.localStorage.clear();
 });
 
 const TEXT_ENCODER = new TextEncoder();
@@ -153,6 +155,30 @@ function createTestLocalKeyringSession(
     },
   };
 }
+
+test("applies a persisted local-only preference before the first runtime input", () => {
+  globalThis.localStorage.setItem(SYNC_MODE_STORAGE_KEY, "local-only");
+  const state: { tearleads?: Tearleads } = {};
+  const view = render(
+    <Harness
+      wsUrl="ws://events.example.test/local-only"
+      onReady={(nextTearleads) => {
+        state.tearleads = nextTearleads;
+      }}
+    />,
+  );
+
+  const tearleads = state.tearleads;
+  if (!tearleads) {
+    throw new Error("Expected the Tearleads SDK to initialize.");
+  }
+  // Set at construction, so there is no first-render window where the SDK still
+  // reports online (which would let the reconciler/upload paths run).
+  expect(tearleads.session.syncEnabled).toBe(false);
+  expect(tearleads.runtime.input().state.online).toBe(false);
+
+  view.unmount();
+});
 
 test("marks SDK events disconnected when the WebSocket binding changes URL", async () => {
   const originalWebSocket = globalThis.WebSocket;
