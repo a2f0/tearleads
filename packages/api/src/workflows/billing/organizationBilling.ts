@@ -41,10 +41,20 @@ async function loadOrganizationBilling(
 }
 
 /**
- * Loads an organization's billing, lazily expiring a lapsed trial. When a
- * `trialing` organization's `trialEndsAt` has passed, it flips to `disabled`
- * (recording `disabledAt` and a `purgeAfter` grace deadline) so sync stops. The
- * flip is guarded on the still-`trialing` status so concurrent callers converge.
+ * Loads an organization's billing and returns an in-memory `disabled` view of a
+ * lapsed trial. When a `trialing` organization's `trialEndsAt` has passed, the
+ * returned billing reports `disabled` (with a computed `disabledAt` and
+ * `purgeAfter` grace deadline) WITHOUT persisting the transition.
+ *
+ * This is deliberately a pure read. It runs inside read transactions — the
+ * shared container-access projection (`resolveContainerAccessProjection`) and
+ * the GET billing endpoint — so it must not write: a write here would be a
+ * write-on-read and, on a PostgreSQL read replica, a failed `UPDATE` poisons the
+ * surrounding transaction (a JS `try/catch` cannot recover an aborted pg tx).
+ * The sync gate stays correct regardless because {@link organizationCanSync}
+ * also evaluates trial expiry in-memory; persisting the `disabled`/`purgeAfter`
+ * transition (and the eventual purge) is the job of the background billing
+ * sweep tracked separately.
  */
 async function resolveOrganizationBilling(
   executor: DatabaseSession,
@@ -64,34 +74,7 @@ async function resolveOrganizationBilling(
   const purgeAfter = new Date(
     disabledAt.getTime() + LAPSED_BILLING_PURGE_GRACE_MS,
   );
-
-  // The lazy flip is a persistence optimization, not a correctness requirement:
-  // `organizationCanSync` already treats an expired trial as non-syncable in
-  // memory. Reads can reach this on a read-only executor (e.g. a read replica),
-  // where the write would throw — so fall back to the virtual expired state
-  // instead of failing the read. The expiry is definitive (`trialEndsAt <= now`),
-  // so returning `disabled` is always the correct answer regardless of why the
-  // write did not land.
-  try {
-    const [updated] = await executor
-      .update(organizationBilling)
-      .set({ status: "disabled", disabledAt, purgeAfter, updatedAt: now })
-      .where(
-        and(
-          eq(organizationBilling.organizationId, organizationId),
-          eq(organizationBilling.status, "trialing"),
-        ),
-      )
-      .returning(BILLING_ROW_COLUMNS);
-
-    if (!updated) {
-      return loadOrganizationBilling(executor, organizationId);
-    }
-
-    return updated;
-  } catch {
-    return { ...billing, status: "disabled", disabledAt, purgeAfter };
-  }
+  return { ...billing, status: "disabled", disabledAt, purgeAfter };
 }
 
 /**

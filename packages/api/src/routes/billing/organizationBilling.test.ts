@@ -1,12 +1,15 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { organizationBilling, users } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { isOrganizationBillingResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
+import {
+  setTestOrganizationBillingExpiredTrial,
+  setTestOrganizationBillingLocal,
+} from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
 
@@ -72,6 +75,37 @@ test("an org admin reads local billing and starts a trial", async () => {
     "expected billing response",
   );
   expect(stillTrialing.status).toBe("trialing");
+});
+
+test("reading an expired trial reports disabled without writing on the read path", async () => {
+  const admin = createTestUser();
+  const organizationId = await registerAndAuthenticate(admin);
+  // A `trialing` row whose trial has already lapsed, not yet flipped in the db.
+  await setTestOrganizationBillingExpiredTrial(organizationId);
+
+  const readResponse = await routeApp.request(
+    `/organizations/${organizationId}/billing`,
+    { headers: authHeader(admin) },
+  );
+  expect(readResponse.status).toBe(200);
+  const billing = await readResponse.json();
+  invariant(
+    isOrganizationBillingResponse(billing),
+    "expected billing response",
+  );
+  // The read surfaces the effective, in-memory expired state...
+  expect(billing.status).toBe("disabled");
+
+  // ...but must NOT persist it: reads run inside read transactions and a
+  // write-on-read would poison a pg transaction on a read replica. The stored
+  // row is still `trialing`; persisting the transition is the background sweep's
+  // job.
+  const [stored] = await db
+    .select({ status: organizationBilling.status })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  invariant(stored, "expected stored billing row");
+  expect(stored.status).toBe("trialing");
 });
 
 test("a non-member cannot read or change another org's billing", async () => {
