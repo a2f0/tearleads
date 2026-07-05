@@ -55,6 +55,10 @@
     monospace;
 }
 
+.env-file-variable-field input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
 .env-file-add-button,
 .env-file-remove-button {
   display: inline-flex;

@@ -8,6 +8,7 @@ import {
 import { createDocument } from "@tearleads/loro";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 import {
+  parseEnvFileText,
   readEnvFileFieldsFromRecord,
   serializeEnvFileVariables,
 } from "./envFileDocumentDefinition";
@@ -92,12 +93,47 @@ test("env file fields are stored as first-class Loro state", async () => {
   });
 });
 
+test("env file text parser imports only POSIX variable names", () => {
+  expect(
+    parseEnvFileText(
+      [
+        "API_TOKEN=secret",
+        "BAD KEY=ignored",
+        "1BAD=ignored",
+        "export DEBUG=true",
+        "_INTERNAL=enabled",
+      ].join("\n"),
+    ),
+  ).toEqual([
+    {
+      id: "env-1-api_token",
+      key: "API_TOKEN",
+      value: "secret",
+    },
+    {
+      id: "env-4-debug",
+      key: "DEBUG",
+      value: "true",
+    },
+    {
+      id: "env-5-_internal",
+      key: "_INTERNAL",
+      value: "enabled",
+    },
+  ]);
+});
+
 test("env file validation reports malformed variable keys", async () => {
   const doc = await createDocument("invalid-env-file");
   const variablesJson = serializeEnvFileVariables([
     {
       id: "env-1-bad",
       key: "1BAD",
+      value: "bad",
+    },
+    {
+      id: "env-2-bad-space",
+      key: "BAD KEY",
       value: "bad",
     },
   ]);
@@ -113,6 +149,11 @@ test("env file validation reports malformed variable keys", async () => {
           key: "1BAD",
           value: "bad",
         },
+        {
+          id: "env-2-bad-space",
+          key: "BAD KEY",
+          value: "bad",
+        },
       ],
       variablesJson,
     },
@@ -121,6 +162,11 @@ test("env file validation reports malformed variable keys", async () => {
         field: "variablesJson[0].key",
         message: "Expected an environment variable key like API_TOKEN.",
         value: "1BAD",
+      },
+      {
+        field: "variablesJson[1].key",
+        message: "Expected an environment variable key like API_TOKEN.",
+        value: "BAD KEY",
       },
     ],
   });
