@@ -38,7 +38,7 @@ function toRevenueCatPackage(entry: PurchasesPackage): RevenueCatPackage {
 
 async function currentPackages(): Promise<PurchasesPackage[]> {
   const offerings = await Purchases.getOfferings();
-  return offerings.current?.availablePackages ?? [];
+  return offerings?.current?.availablePackages ?? [];
 }
 
 /**
@@ -89,10 +89,10 @@ function readEnvString(value: unknown): string | undefined {
 function readPlatformApiKey(): string | undefined {
   const platform = Capacitor.getPlatform();
   if (platform === "ios") {
-    return readEnvString(import.meta.env.VITE_REVENUECAT_IOS_API_KEY);
+    return readEnvString(import.meta.env?.VITE_REVENUECAT_IOS_API_KEY);
   }
   if (platform === "android") {
-    return readEnvString(import.meta.env.VITE_REVENUECAT_ANDROID_API_KEY);
+    return readEnvString(import.meta.env?.VITE_REVENUECAT_ANDROID_API_KEY);
   }
   // Web preview (e.g. `cap run` in a browser) has no native purchases.
   return undefined;
@@ -112,7 +112,7 @@ export function createCapacitorPurchases(): PurchasesCapability {
   return createRevenueCatPurchases(capacitorRevenueCatBackend, {
     apiKey,
     syncEntitlementId:
-      readEnvString(import.meta.env.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
+      readEnvString(import.meta.env?.VITE_REVENUECAT_SYNC_ENTITLEMENT) ??
       DEFAULT_SYNC_ENTITLEMENT_ID,
   });
 }
