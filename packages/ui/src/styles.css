@@ -79,12 +79,11 @@
      defaults to thin overlay-style ones. Left unstyled, a Firefox scrollbar
      eats layout width inside a scroll container and crowds right-aligned
      content (e.g. a document's "Edit" button) against the track. These tokens
-     drive a consistent thin scrollbar across engines; the thumb/track pair
-     feeds both Firefox's `scrollbar-color` and the WebKit pseudo-elements
-     below. Kept currentColor-based so it tracks the theme. */
-  --scrollbar-size: 0.5rem;
+     feed the standard `scrollbar-color` property, which drives a thin themed
+     scrollbar in classic-scrollbar environments (Firefox everywhere; Chromium
+     only where the platform already uses classic scrollbars). Kept
+     currentColor-based so it tracks the theme. */
   --scrollbar-thumb: color-mix(in srgb, currentColor 32%, transparent);
-  --scrollbar-thumb-hover: color-mix(in srgb, currentColor 48%, transparent);
   --scrollbar-track: transparent;
 
   /* === Motion === */
@@ -111,38 +110,18 @@
 }
 
 /*
- * Consistent scrollbars across engines.
- *
- * Firefox's `scrollbar-width` / `scrollbar-color` inherit, so setting them at
- * the root styles every Firefox scrollbar in one place. Chromium ignores those
- * and is styled via the `::-webkit-scrollbar` pseudo-elements instead. The two
- * paths share the same tokens so both engines land on the same thin scrollbar.
+ * Consistent scrollbars via the standard CSS Scrollbars properties only. Both
+ * inherit, so setting them on the root styles every scrollbar in one place.
+ * Deliberately no `::-webkit-scrollbar` rules: styling those pseudo-elements
+ * forces Chromium/Safari off their native overlay scrollbars onto classic
+ * (space-consuming) ones everywhere — which would also make the
+ * `scrollbar-gutter: stable` below reserve a permanent gutter on all platforms.
+ * `scrollbar-width` / `scrollbar-color` give Firefox (the browser with the
+ * overlap bug) a thin themed scrollbar while leaving overlay scrollbars intact.
  */
 :root {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}
-
-::-webkit-scrollbar {
-  width: var(--scrollbar-size);
-  height: var(--scrollbar-size);
-}
-
-::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--radius);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
-
-::-webkit-scrollbar-corner {
-  background: var(--scrollbar-track);
 }
 
 /*
