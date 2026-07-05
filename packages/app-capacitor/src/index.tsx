@@ -6,6 +6,7 @@ import {
   resolveEventsWebSocketUrl,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { createCapacitorPurchases } from "./capacitorPurchases";
 
 function createCapacitorSQLiteRuntime() {
   const workerUrl = "./worker.js";
@@ -24,6 +25,7 @@ const wsUrl = resolveEventsWebSocketUrl(
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
+  createPurchases: createCapacitorPurchases,
   createSQLiteRuntime: createCapacitorSQLiteRuntime,
   navigationMode: Capacitor.isNativePlatform() ? "routed" : undefined,
   wsUrl,

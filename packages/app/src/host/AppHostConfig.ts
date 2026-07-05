@@ -1,4 +1,8 @@
-import type { BlobStoreFactory, LocalKeyring } from "@tearleads/client-sdk";
+import type {
+  BlobStoreFactory,
+  LocalKeyring,
+  PurchasesCapability,
+} from "@tearleads/client-sdk";
 import type {
   SQLiteRuntime,
   StoragePersistencePolicy,
@@ -8,6 +12,7 @@ import type { AppNavigationMode } from "../navigation/AppNavigationMode";
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
 /** @public */
 export type CreateLocalKeyringFn = () => LocalKeyring;
+export type CreatePurchasesFn = () => PurchasesCapability;
 
 export type PaneRuntimePolicy = "shared" | "isolated";
 
@@ -106,6 +111,7 @@ export interface AppHostConfigOptions {
   readonly apiBaseUrl: string;
   readonly createBlobStore?: BlobStoreFactory | undefined;
   readonly createLocalKeyring?: CreateLocalKeyringFn | undefined;
+  readonly createPurchases?: CreatePurchasesFn | undefined;
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
   readonly localIdentityNamespace?: string | undefined;
@@ -133,6 +139,12 @@ export class AppHostConfig {
      */
     readonly storagePersistence?: StoragePersistencePolicy | undefined,
     readonly profile: AppHostProfile = DEFAULT_APP_HOST_PROFILE,
+    /**
+     * In-app purchases capability (RevenueCat) for org sync billing. Platform
+     * shells with a purchases provider inject a real implementation; when
+     * omitted the app falls back to the unavailable stub.
+     */
+    readonly createPurchases?: CreatePurchasesFn | undefined,
   ) {}
 
   /**
@@ -153,6 +165,7 @@ export class AppHostConfig {
       navigationMode: this.navigationMode,
       storagePersistence: this.storagePersistence,
       profile: this.profile,
+      createPurchases: this.createPurchases,
       ...overrides,
     });
   }
@@ -172,6 +185,7 @@ export function createAppHostConfig(
     options.navigationMode,
     options.storagePersistence,
     options.profile,
+    options.createPurchases,
   );
 }
 

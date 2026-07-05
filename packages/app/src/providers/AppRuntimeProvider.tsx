@@ -9,6 +9,7 @@ import { AppHostConfigProvider } from "./host/AppHostConfigProvider";
 import { IdentityProvider } from "./identity/IdentityProvider";
 import { LocalKeyringLockProvider } from "./local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "./logging/LogProvider";
+import { PurchasesProvider } from "./purchases/PurchasesProvider";
 import { TearleadsProvider } from "./sdk/TearleadsProvider";
 import { SystemBootstrapProvider } from "./system-bootstrap/SystemBootstrapProvider";
 
@@ -29,27 +30,29 @@ export function AppRuntimeProvider({
 }: AppRuntimeProviderProps) {
   return (
     <AppHostConfigProvider value={hostConfig}>
-      <LocalKeyringLockProvider>
-        <LogProvider>
-          <TearleadsProvider>
-            <DatabaseProvider>
-              <IdentityProvider>
-                <CryptoSessionProvider>
-                  <DeviceFirstProvider>
-                    <SystemBootstrapProvider enabled={autoProvisionEnabled}>
-                      <IdentityAutopilot enabled={autoProvisionEnabled} />
-                      {hostConfig.profile.features.seedPeerIdentities && (
-                        <DemoPeerBootstrap enabled={autoProvisionEnabled} />
-                      )}
-                      {children}
-                    </SystemBootstrapProvider>
-                  </DeviceFirstProvider>
-                </CryptoSessionProvider>
-              </IdentityProvider>
-            </DatabaseProvider>
-          </TearleadsProvider>
-        </LogProvider>
-      </LocalKeyringLockProvider>
+      <PurchasesProvider>
+        <LocalKeyringLockProvider>
+          <LogProvider>
+            <TearleadsProvider>
+              <DatabaseProvider>
+                <IdentityProvider>
+                  <CryptoSessionProvider>
+                    <DeviceFirstProvider>
+                      <SystemBootstrapProvider enabled={autoProvisionEnabled}>
+                        <IdentityAutopilot enabled={autoProvisionEnabled} />
+                        {hostConfig.profile.features.seedPeerIdentities && (
+                          <DemoPeerBootstrap enabled={autoProvisionEnabled} />
+                        )}
+                        {children}
+                      </SystemBootstrapProvider>
+                    </DeviceFirstProvider>
+                  </CryptoSessionProvider>
+                </IdentityProvider>
+              </DatabaseProvider>
+            </TearleadsProvider>
+          </LogProvider>
+        </LocalKeyringLockProvider>
+      </PurchasesProvider>
     </AppHostConfigProvider>
   );
 }

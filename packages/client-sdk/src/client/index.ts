@@ -174,6 +174,18 @@ export type {
   OrganizationUserRecipient,
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
+export {
+  createRevenueCatPurchases,
+  createUnavailablePurchases,
+  type PurchasesCapability,
+  PurchasesUnavailableError,
+  type RevenueCatBackend,
+  type RevenueCatCustomerInfo,
+  type RevenueCatPackage,
+  type RevenueCatPurchasesConfig,
+  type SyncPurchaseResult,
+  type SyncSubscriptionOption,
+} from "./purchases";
 export type {
   CreateOrganizationOptions,
   Session,

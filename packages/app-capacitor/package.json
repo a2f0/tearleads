@@ -33,6 +33,7 @@
     "@capacitor/share": "8.0.1",
     "@capawesome/capacitor-file-picker": "8.0.2",
     "@capgo/capacitor-native-biometric": "8.4.5",
+    "@revenuecat/purchases-capacitor": "13.2.1",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*",
