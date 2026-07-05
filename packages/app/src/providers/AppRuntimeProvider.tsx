@@ -11,6 +11,7 @@ import { LocalKeyringLockProvider } from "./local-keyring/LocalKeyringLockProvid
 import { LogProvider } from "./logging/LogProvider";
 import { PurchasesProvider } from "./purchases/PurchasesProvider";
 import { TearleadsProvider } from "./sdk/TearleadsProvider";
+import { SyncModeProvider } from "./sync-mode/SyncModeProvider";
 import { SystemBootstrapProvider } from "./system-bootstrap/SystemBootstrapProvider";
 
 interface AppRuntimeProviderProps extends PropsWithChildren {
@@ -33,23 +34,25 @@ export function AppRuntimeProvider({
       <PurchasesProvider>
         <LocalKeyringLockProvider>
           <LogProvider>
-            <TearleadsProvider>
-              <DatabaseProvider>
-                <IdentityProvider>
-                  <CryptoSessionProvider>
-                    <DeviceFirstProvider>
-                      <SystemBootstrapProvider enabled={autoProvisionEnabled}>
-                        <IdentityAutopilot enabled={autoProvisionEnabled} />
-                        {hostConfig.profile.features.seedPeerIdentities && (
-                          <DemoPeerBootstrap enabled={autoProvisionEnabled} />
-                        )}
-                        {children}
-                      </SystemBootstrapProvider>
-                    </DeviceFirstProvider>
-                  </CryptoSessionProvider>
-                </IdentityProvider>
-              </DatabaseProvider>
-            </TearleadsProvider>
+            <SyncModeProvider>
+              <TearleadsProvider>
+                <DatabaseProvider>
+                  <IdentityProvider>
+                    <CryptoSessionProvider>
+                      <DeviceFirstProvider>
+                        <SystemBootstrapProvider enabled={autoProvisionEnabled}>
+                          <IdentityAutopilot enabled={autoProvisionEnabled} />
+                          {hostConfig.profile.features.seedPeerIdentities && (
+                            <DemoPeerBootstrap enabled={autoProvisionEnabled} />
+                          )}
+                          {children}
+                        </SystemBootstrapProvider>
+                      </DeviceFirstProvider>
+                    </CryptoSessionProvider>
+                  </IdentityProvider>
+                </DatabaseProvider>
+              </TearleadsProvider>
+            </SyncModeProvider>
           </LogProvider>
         </LocalKeyringLockProvider>
       </PurchasesProvider>

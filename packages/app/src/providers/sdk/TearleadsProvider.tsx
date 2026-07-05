@@ -20,6 +20,7 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 import { useLog } from "../logging/LogProvider";
+import { useSyncMode } from "../sync-mode/SyncModeProvider";
 import { useServerEventsBinding } from "./serverEventsBinding";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
@@ -219,6 +220,14 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     [runtimeInput, runtimeAuth, runtimeInfra],
   );
 
+  // Mirror the local-only vs sync preference into the SDK. Folded into the
+  // resolved runtime `state.online`, so the reconciler and upload paths pause in
+  // local-only mode; the events WebSocket is gated separately just below.
+  const { syncEnabled } = useSyncMode();
+  useEffect(() => {
+    tearleads.session.setSyncEnabled(syncEnabled);
+  }, [syncEnabled, tearleads]);
+
   useBrowserNetworkBinding(tearleads);
   useNetworkTransitionLog(tearleads);
   useTearleadsDisposeOnUnmount(tearleads);
@@ -227,6 +236,7 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
     hostConfig.wsUrl,
     runtimeAuth.authToken,
     log,
+    syncEnabled,
   );
 
   return (

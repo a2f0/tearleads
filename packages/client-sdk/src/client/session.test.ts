@@ -347,4 +347,45 @@ describe("session", () => {
     expect(api.getAuthToken()).toBeNull();
     expect(session.isAuthenticated).toBe(false);
   });
+
+  test("sync mode is enabled by default", () => {
+    const { session } = createSessionHarness();
+    expect(session.syncEnabled).toBe(true);
+  });
+
+  test("setSyncEnabled toggles the flag and notifies subscribers on change", () => {
+    const { session } = createSessionHarness();
+    let notifications = 0;
+    session.subscribe(() => {
+      notifications += 1;
+    });
+
+    session.setSyncEnabled(false);
+    expect(session.syncEnabled).toBe(false);
+    expect(notifications).toBe(1);
+
+    session.setSyncEnabled(true);
+    expect(session.syncEnabled).toBe(true);
+    expect(notifications).toBe(2);
+  });
+
+  test("setSyncEnabled is a no-op when the value is unchanged", () => {
+    const { session } = createSessionHarness();
+    let notifications = 0;
+    session.subscribe(() => {
+      notifications += 1;
+    });
+
+    session.setSyncEnabled(true); // already the default
+    expect(session.syncEnabled).toBe(true);
+    expect(notifications).toBe(0);
+  });
+
+  test("sync mode is independent of auth context changes", () => {
+    const { session } = createSessionHarness();
+    session.setSyncEnabled(false);
+    session.setContext({ isAuthenticated: true, organizationId: "org-1" });
+    // Local-only intent survives login; setContext must not reset it.
+    expect(session.syncEnabled).toBe(false);
+  });
 });

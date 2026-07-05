@@ -12,6 +12,7 @@ import { AppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../host/AppHostConfigProvider";
 import { LocalKeyringLockProvider } from "../local-keyring/LocalKeyringLockProvider";
 import { LogProvider } from "../logging/LogProvider";
+import { SyncModeProvider } from "../sync-mode/SyncModeProvider";
 import { TearleadsProvider, useTearleads } from "./TearleadsProvider";
 
 afterEach(() => {
@@ -61,9 +62,11 @@ function Harness({
     >
       <LocalKeyringLockProvider>
         <LogProvider>
-          <TearleadsProvider>
-            <TearleadsProbe onReady={onReady} />
-          </TearleadsProvider>
+          <SyncModeProvider>
+            <TearleadsProvider>
+              <TearleadsProbe onReady={onReady} />
+            </TearleadsProvider>
+          </SyncModeProvider>
         </LogProvider>
       </LocalKeyringLockProvider>
     </AppHostConfigProvider>

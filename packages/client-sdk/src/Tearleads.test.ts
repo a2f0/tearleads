@@ -170,6 +170,30 @@ describe("Tearleads", () => {
     expect(afterStateChange.util).toBe(afterAuthChange.util);
   });
 
+  test("local-only mode folds into the resolved runtime state.online", () => {
+    const sdk = new Tearleads({ logger: quietLogger, online: true });
+    expect(sdk.runtime.input().state.online).toBe(true);
+
+    sdk.session.setSyncEnabled(false);
+    // Sync paths see offline...
+    expect(sdk.runtime.input().state.online).toBe(false);
+    // ...but connectivity stays truthful for host/UI.
+    expect(sdk.network.online).toBe(true);
+
+    sdk.session.setSyncEnabled(true);
+    expect(sdk.runtime.input().state.online).toBe(true);
+  });
+
+  test("local-only mode keeps state.online false while offline", () => {
+    const sdk = new Tearleads({ logger: quietLogger, online: false });
+    sdk.session.setSyncEnabled(false);
+    expect(sdk.runtime.input().state.online).toBe(false);
+
+    // Regaining connectivity must not resume sync while local-only.
+    sdk.network.setOnline(true);
+    expect(sdk.runtime.input().state.online).toBe(false);
+  });
+
   test("accepts document projector definitions in constructor options", () => {
     const definitions: ReadonlyArray<DocumentProjectorDefinition> = [
       {

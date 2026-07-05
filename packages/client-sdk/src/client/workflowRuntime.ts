@@ -162,7 +162,10 @@ function createRuntimeInputFactory(
       containerId: nextContainerId,
       domainScope: dependencies.getDomainScope(),
       events: dependencies.events.events,
-      online: dependencies.network.online,
+      // Resolved sync-online: workflows treat local-only mode exactly like being
+      // offline (no server I/O), while `tearleads.network` stays the truthful
+      // connectivity signal for host/UI. See Session.syncEnabled.
+      online: dependencies.network.online && dependencies.session.syncEnabled,
       peerScope: dependencies.peerScope ?? null,
     });
     if (
