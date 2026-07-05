@@ -19,6 +19,7 @@ import type {
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type {
+  OrganizationProvisioningResponse,
   PrincipalPolicyBundleResponse,
   RegistrationResponse,
 } from "@tearleads/validators/response";
@@ -75,11 +76,10 @@ export interface RegistrationApi {
   ): Promise<RegistrationResponse | null>;
 }
 
-interface RegistrationPrincipalPolicies {
+interface OrganizationProvisioningPrincipalPolicies {
   initialAdminGroup: CreateOrganizationGroupRequest;
   initialMemberGroup: CreateOrganizationGroupRequest;
   initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"];
-  newUserId: string;
   organizationId: string;
   signingFingerprint: string;
 }
@@ -141,7 +141,34 @@ export interface RegisterIdentityInput {
   signingKeyPair: SigningKeyPair;
 }
 
-interface PersistLocalRegistrationStateInput {
+/**
+ * The freshly built provisioning artifacts, shared by registration and
+ * additional-organization creation. `registerIdentity` generates a new
+ * `userId`; creating an additional organization reuses the caller's existing
+ * one. Everything here is derived purely from the caller's key material, so it
+ * is identical for both flows.
+ */
+export interface OrganizationProvisioningArtifacts {
+  bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
+  initialAdminGroup: CreateOrganizationGroupRequest;
+  initialMemberGroup: CreateOrganizationGroupRequest;
+  initialOrganizationPolicy: RegistrationRequest["initialOrganizationPolicy"];
+  initialRootContainer: RegistrationRequest["initialRootContainer"];
+  organizationId: string;
+  rootMetadataDocument: InitialRootMetadataDocument;
+  rosterProfileBootstrap: InitialRosterProfileBootstrap;
+}
+
+export interface OrganizationProvisioningArtifactsInput {
+  encapsulationKeyPair: EncapsulationKeyPair;
+  organizationProfileName?: string | undefined;
+  rootContainerId: string;
+  rosterProfileNickname?: string | undefined;
+  signingKeyPair: SigningKeyPair;
+  userId: string;
+}
+
+interface PersistOrganizationProvisioningStateInput {
   bootstrap: Awaited<ReturnType<typeof createInitialRootMetadataBootstrap>>;
   containerId: string;
   dbClient?: ExecSqlClientLike | null | undefined;
@@ -150,7 +177,7 @@ interface PersistLocalRegistrationStateInput {
   initialMemberGroup: CreateOrganizationGroupRequest;
   log?: ((message: string) => void) | undefined;
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
-  response: RegistrationResponse;
+  response: OrganizationProvisioningResponse;
   rootMetadataDocument: InitialRootMetadataDocument;
   rosterProfileBootstrap: InitialRosterProfileBootstrap;
 }
@@ -285,7 +312,7 @@ async function verifiedPrincipalPolicyFromInitialGroupRequest(
 }
 
 function buildOrganizationProfileRegistrationBootstrapInput(
-  input: PersistLocalRegistrationStateInput,
+  input: PersistOrganizationProvisioningStateInput,
 ):
   | Parameters<
       typeof persistRegistrationBootstrap
@@ -316,7 +343,7 @@ function buildOrganizationProfileRegistrationBootstrapInput(
 }
 
 function buildRosterProfileRegistrationBootstrapInput(
-  input: PersistLocalRegistrationStateInput,
+  input: PersistOrganizationProvisioningStateInput,
 ):
   | Parameters<typeof persistRegistrationBootstrap>[1]["rosterProfileDocument"]
   | undefined {
@@ -342,8 +369,14 @@ function buildRosterProfileRegistrationBootstrapInput(
   };
 }
 
-async function persistLocalRegistrationState(
-  input: PersistLocalRegistrationStateInput,
+/**
+ * Persists the local SQLite bootstrap (group policies, root container, roster
+ * and organization profile documents) for a freshly provisioned organization.
+ * Shared by registration and additional-organization creation — it reads only
+ * fields common to both responses ({@link OrganizationProvisioningResponse}).
+ */
+export async function persistOrganizationProvisioningState(
+  input: PersistOrganizationProvisioningStateInput,
 ): Promise<void> {
   if (!input.dbClient) {
     return;
@@ -409,7 +442,7 @@ async function persistLocalRegistrationState(
       ...(rosterProfileDocument ? { rosterProfileDocument } : {}),
       userId: input.response.userId,
     });
-    input.log?.("Local identity and root container persisted");
+    input.log?.("Local organization bootstrap persisted");
   } catch (error: unknown) {
     if (input.logError) {
       input.logError("Failed to persist registration data", error);
@@ -421,11 +454,11 @@ async function persistLocalRegistrationState(
   }
 }
 
-async function createRegistrationPrincipalPolicies(input: {
+async function createOrganizationPrincipalPolicies(input: {
   encapsulationKeyPair: EncapsulationKeyPair;
   signingKeyPair: SigningKeyPair;
-}): Promise<RegistrationPrincipalPolicies> {
-  const newUserId = crypto.randomUUID();
+  userId: string;
+}): Promise<OrganizationProvisioningPrincipalPolicies> {
   const organizationId = crypto.randomUUID();
   const signingFingerprint = await toFingerprint(
     input.signingKeyPair.signingPublicKey,
@@ -434,7 +467,7 @@ async function createRegistrationPrincipalPolicies(input: {
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
     name: "Admins",
-    signerUserId: newUserId,
+    signerUserId: input.userId,
     signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
@@ -442,7 +475,7 @@ async function createRegistrationPrincipalPolicies(input: {
     adminGroup: initialAdminGroup,
     creatorEncapsulationKeyPair: input.encapsulationKeyPair,
     groupId: crypto.randomUUID(),
-    signerUserId: newUserId,
+    signerUserId: input.userId,
     signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   });
@@ -451,7 +484,7 @@ async function createRegistrationPrincipalPolicies(input: {
       encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
       organizationId,
       signingKeyPair: input.signingKeyPair,
-      userId: newUserId,
+      userId: input.userId,
     },
   );
 
@@ -459,9 +492,82 @@ async function createRegistrationPrincipalPolicies(input: {
     initialAdminGroup,
     initialMemberGroup,
     initialOrganizationPolicy,
-    newUserId,
     organizationId,
     signingFingerprint,
+  };
+}
+
+/**
+ * Builds every client-signed artifact needed to provision an organization for
+ * `userId`: the admin/member group policies, the organization policy, the root
+ * container and its metadata document, and the roster/organization profile
+ * bootstrap. The organization id is freshly generated here. Shared verbatim by
+ * {@link registerIdentity} and the additional-organization workflow.
+ */
+export async function buildOrganizationProvisioningArtifacts(
+  input: OrganizationProvisioningArtifactsInput,
+): Promise<OrganizationProvisioningArtifacts> {
+  const bootstrap = await createInitialRootMetadataBootstrap(
+    input.rootContainerId,
+  );
+  const {
+    initialAdminGroup,
+    initialMemberGroup,
+    initialOrganizationPolicy,
+    organizationId,
+    signingFingerprint,
+  } = await createOrganizationPrincipalPolicies({
+    encapsulationKeyPair: input.encapsulationKeyPair,
+    signingKeyPair: input.signingKeyPair,
+    userId: input.userId,
+  });
+  const author = resolveDocumentCreateAuthor({
+    auth: { organizationId, userId: input.userId },
+    crypto: { signingFingerprint, signingKeyPair: input.signingKeyPair },
+  });
+  if (!author) {
+    throw new Error(
+      `Organization provisioning document author context is unavailable for user ${input.userId} in organization ${organizationId}.`,
+    );
+  }
+
+  const rootContainer = await buildRootContainerCreatePlan({
+    adminGroup: initialAdminGroup,
+    author,
+    containerId: input.rootContainerId,
+    metadataDocumentId: bootstrap.metadataDocumentId,
+    recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+  });
+  const rootContainerProjection = rootContainerWriterProjectionFromCreatePlan(
+    rootContainer.plan,
+  );
+  const rootMetadataDocument = await buildInitialRootMetadataDocument({
+    author,
+    bootstrap,
+    rootContainer,
+    rootContainerProjection,
+    targetSecretKey: input.encapsulationKeyPair.secretKey,
+  });
+  const rosterProfileBootstrap = await buildInitialRosterProfileBootstrap({
+    author,
+    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
+    initialAdminGroup,
+    organizationProfileName: input.organizationProfileName,
+    rosterProfileNickname: input.rosterProfileNickname,
+    rootContainer,
+    rootContainerProjection,
+    targetSecretKey: input.encapsulationKeyPair.secretKey,
+  });
+
+  return {
+    bootstrap,
+    initialAdminGroup,
+    initialMemberGroup,
+    initialOrganizationPolicy,
+    initialRootContainer: rootContainer.plan.request,
+    organizationId,
+    rootMetadataDocument,
+    rosterProfileBootstrap,
   };
 }
 
@@ -593,88 +699,48 @@ export async function registerIdentity(
 ): Promise<RegistrationResponse | null> {
   input.log?.("Registering identity...");
 
-  const bootstrap = await createInitialRootMetadataBootstrap(input.containerId);
-  const {
-    initialAdminGroup,
-    initialMemberGroup,
-    initialOrganizationPolicy,
-    newUserId,
-    organizationId,
-    signingFingerprint,
-  } = await createRegistrationPrincipalPolicies({
+  const newUserId = crypto.randomUUID();
+  const artifacts = await buildOrganizationProvisioningArtifacts({
     encapsulationKeyPair: input.encapsulationKeyPair,
-    signingKeyPair: input.signingKeyPair,
-  });
-  const author = resolveDocumentCreateAuthor({
-    auth: { organizationId, userId: newUserId },
-    crypto: { signingFingerprint, signingKeyPair: input.signingKeyPair },
-  });
-  if (!author) {
-    throw new Error(
-      `Registration document author context is unavailable for user ${newUserId} in organization ${organizationId}.`,
-    );
-  }
-
-  const rootContainer = await buildRootContainerCreatePlan({
-    adminGroup: initialAdminGroup,
-    author,
-    containerId: input.containerId,
-    metadataDocumentId: bootstrap.metadataDocumentId,
-    recipientEncapsulationPublicKey: input.encapsulationKeyPair.publicKey,
-  });
-  const rootContainerProjection = rootContainerWriterProjectionFromCreatePlan(
-    rootContainer.plan,
-  );
-  const rootMetadataDocument = await buildInitialRootMetadataDocument({
-    author,
-    bootstrap,
-    rootContainer,
-    rootContainerProjection,
-    targetSecretKey: input.encapsulationKeyPair.secretKey,
-  });
-  const rosterProfileBootstrap = await buildInitialRosterProfileBootstrap({
-    author,
-    encapsulationPublicKey: input.encapsulationKeyPair.publicKey,
-    initialAdminGroup,
     organizationProfileName: input.organizationProfileName,
+    rootContainerId: input.containerId,
     rosterProfileNickname: input.rosterProfileNickname,
-    rootContainer,
-    rootContainerProjection,
-    targetSecretKey: input.encapsulationKeyPair.secretKey,
+    signingKeyPair: input.signingKeyPair,
+    userId: newUserId,
   });
 
   const response = await input.apiClient.registerUser(
     newUserId,
-    organizationId,
+    artifacts.organizationId,
     input.containerId,
     input.signingKeyPair.signingPublicKey,
     input.encapsulationKeyPair.publicKey,
-    initialAdminGroup,
-    initialMemberGroup,
-    initialOrganizationPolicy,
-    rootContainer.plan.request,
-    rootMetadataDocument.plan.request,
-    rosterProfileBootstrap.containerRequest,
-    rosterProfileBootstrap.profileDocumentRequest,
-    rosterProfileBootstrap.organizationProfileDocument.plan.request,
+    artifacts.initialAdminGroup,
+    artifacts.initialMemberGroup,
+    artifacts.initialOrganizationPolicy,
+    artifacts.initialRootContainer,
+    artifacts.rootMetadataDocument.plan.request,
+    artifacts.rosterProfileBootstrap.containerRequest,
+    artifacts.rosterProfileBootstrap.profileDocumentRequest,
+    artifacts.rosterProfileBootstrap.organizationProfileDocument.plan.request,
   );
   if (!response) {
     return null;
   }
 
   input.log?.(`Key registered (${response.userId})`);
-  await persistLocalRegistrationState({
-    bootstrap,
+  await persistOrganizationProvisioningState({
+    bootstrap: artifacts.bootstrap,
     containerId: input.containerId,
     dbClient: input.dbClient,
     documentProjectors: input.documentProjectors,
-    initialAdminGroup,
-    initialMemberGroup,
+    initialAdminGroup: artifacts.initialAdminGroup,
+    initialMemberGroup: artifacts.initialMemberGroup,
     log: input.log,
     logError: input.logError,
     response,
-    rootMetadataDocument,
-    rosterProfileBootstrap,
+    rootMetadataDocument: artifacts.rootMetadataDocument,
+    rosterProfileBootstrap: artifacts.rosterProfileBootstrap,
   });
 
   return response;

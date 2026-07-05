@@ -7,6 +7,7 @@ import type {
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
+  CreateOrganizationRequest,
   DocumentCreateRequest,
   DocumentLinkSetMutationRequest,
   DocumentSyncRequest,
@@ -41,6 +42,7 @@ import {
   isContainerMutationResponse,
   isContainerWriterProjectionResponse,
   isCreateOrganizationGroupResponse,
+  isCreateOrganizationResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDeleteKeyPackageBackupResponse,
   isDeleteOrganizationGroupResponse,
@@ -649,6 +651,15 @@ export class ApiClient {
         initialRosterProfileDocument,
         initialOrganizationProfileDocument,
       }),
+    );
+  }
+
+  createOrganization(request: CreateOrganizationRequest) {
+    return this.request(
+      "/organizations",
+      isCreateOrganizationResponse,
+      "POST",
+      JSON.stringify(request),
     );
   }
 

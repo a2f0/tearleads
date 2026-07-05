@@ -1,5 +1,10 @@
 export { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 export {
+  type CreateOrganizationApi,
+  type CreateOrganizationInput,
+  createOrganization,
+} from "./createOrganization";
+export {
   buildOrganizationProfileDocumentPatch,
   createInitializedOrganizationProfileDocument,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,

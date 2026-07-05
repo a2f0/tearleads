@@ -1,5 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../data/documents/documentKinds";
+import { createOrganization as createOrganizationWorkflow } from "../workflows/organizations";
 import {
   bootstrapRootContainer,
   registerIdentity as registerIdentityWorkflow,
@@ -45,6 +46,18 @@ export interface SessionRegistrationResult {
   readonly userId: string;
 }
 
+export interface SessionCreateOrganizationResult {
+  readonly containerId: string;
+  readonly organizationId: string;
+}
+
+export interface CreateOrganizationOptions {
+  /** Overrides the seeded organization profile name; see registration. */
+  readonly organizationProfileName?: string | undefined;
+  /** Overrides the seeded self roster-profile nickname; see registration. */
+  readonly rosterProfileNickname?: string | undefined;
+}
+
 export interface RegisterIdentityOptions {
   /**
    * Overrides the seeded personal-organization profile name. Optional; when
@@ -82,6 +95,9 @@ export interface Session {
     created: boolean;
   }>;
   clearRemoteSyncState(): Promise<ClearRemoteSyncStateResult>;
+  createOrganization(
+    options?: CreateOrganizationOptions,
+  ): Promise<SessionCreateOrganizationResult | null>;
   destroySession(sessionId: string): Promise<boolean>;
   listSessions(): Promise<UserSession[]>;
   login(challengeHex?: string | undefined): Promise<boolean>;
@@ -323,6 +339,75 @@ class SessionService implements Session {
       containerId: response.rootContainerId,
       organizationId: response.organizationId,
       userId: response.userId,
+    };
+  }
+
+  async createOrganization(
+    options?: CreateOrganizationOptions,
+  ): Promise<SessionCreateOrganizationResult | null> {
+    const userId = this.userId;
+    if (!userId) {
+      this.dependencies.log(
+        "Create organization skipped: user id is unavailable",
+      );
+      return null;
+    }
+
+    const signingKeyPair = this.dependencies.identity.signingKeyPair;
+    if (!signingKeyPair) {
+      this.dependencies.log(
+        "Create organization skipped: signing key is unavailable",
+      );
+      return null;
+    }
+
+    const encapsulationKeyPair =
+      this.dependencies.identity.encapsulationKeyPair;
+    if (!encapsulationKeyPair) {
+      this.dependencies.log(
+        "Create organization skipped: encapsulation key is unavailable",
+      );
+      return null;
+    }
+
+    const dbClient = this.dependencies.database.client;
+    if (!dbClient) {
+      this.dependencies.log(
+        "Create organization skipped: database client is unavailable",
+      );
+      return null;
+    }
+
+    let response: Awaited<ReturnType<typeof createOrganizationWorkflow>>;
+    try {
+      response = await createOrganizationWorkflow({
+        apiClient: this.dependencies.api,
+        dbClient,
+        documentProjectors: this.dependencies.documentProjectors,
+        encapsulationKeyPair,
+        log: this.dependencies.log,
+        logError: this.dependencies.logError,
+        organizationProfileName: options?.organizationProfileName,
+        rosterProfileNickname: options?.rosterProfileNickname,
+        signingKeyPair,
+        userId,
+      });
+    } catch (error: unknown) {
+      this.dependencies.logError("Organization creation failed", error);
+      throw error;
+    }
+
+    if (!response) {
+      this.dependencies.log("Organization creation failed");
+      return null;
+    }
+
+    // Intentionally does not switch the active organization: the new
+    // organization is provisioned locally and on the server, and switching to
+    // it is a separate, explicit user action.
+    return {
+      containerId: response.rootContainerId,
+      organizationId: response.organizationId,
     };
   }
 

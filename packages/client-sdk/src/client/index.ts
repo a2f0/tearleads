@@ -174,8 +174,10 @@ export type {
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
 export type {
+  CreateOrganizationOptions,
   Session,
   SessionContext,
+  SessionCreateOrganizationResult,
   SessionListener,
   SessionRegistrationResult,
   SessionSnapshot,

@@ -54,8 +54,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1504,
-      "bytes": 43141
+      "lines": 1515,
+      "bytes": 43403
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 562,
@@ -266,8 +266,8 @@
       "bytes": 31765
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
-      "lines": 681,
-      "bytes": 23772
+      "lines": 747,
+      "bytes": 26769
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 732,

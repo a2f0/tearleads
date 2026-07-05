@@ -394,7 +394,7 @@ test("registerIdentity submits the registration request and persists the local b
     expect(logs).toEqual([
       "Registering identity...",
       `Key registered (${request.userId})`,
-      "Local identity and root container persisted",
+      "Local organization bootstrap persisted",
     ]);
     expect(errors).toEqual([]);
   } finally {
