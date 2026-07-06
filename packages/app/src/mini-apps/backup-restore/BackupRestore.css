@@ -3,6 +3,18 @@
   min-height: 24rem;
 }
 
+/*
+ * The fixed min-width gives the desktop window a sensible floor, but the routed
+ * (mobile/tablet) shell scrolls its main area — so that floor forces horizontal
+ * overflow and cramped, side-scrolling content on narrow viewports. Inside the
+ * routed shell let the app size to the pane instead; the actions grid below
+ * already reflows to a single column when space is tight.
+ */
+.routed-pane-main .backup-restore {
+  min-width: 0;
+  min-height: 0;
+}
+
 .backup-restore-main {
   display: flex;
   flex-direction: column;
@@ -33,6 +45,18 @@
 
 .backup-restore-inline-action {
   width: max-content;
+}
+
+/*
+ * Touch sizing: on coarse pointers bump the primary actions to the shell's
+ * ~44px touch target (mirroring RoutedPane's coarse-pointer rules) so the
+ * export/restore CTAs are comfortable to tap on a phone.
+ */
+@media (pointer: coarse) {
+  .routed-pane .backup-restore-action-button,
+  .routed-pane .backup-restore-inline-action {
+    min-height: var(--routed-touch-target);
+  }
 }
 
 .backup-restore-details {
