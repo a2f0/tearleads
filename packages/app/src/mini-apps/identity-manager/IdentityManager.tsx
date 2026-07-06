@@ -10,6 +10,7 @@ import {
 } from "../../components/shared/MiniAppLayout";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import "./IdentityManager.css";
+import { IdentityManagerActionsMenu } from "./IdentityManagerActionsMenu";
 import {
   IdentityActionToolbar,
   type IdentityActionToolbarProps,
@@ -85,7 +86,14 @@ function IdentitySection({
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>Identity</h2>
-        <MiniAppStatus as="span">{identityState}</MiniAppStatus>
+        <div className="identity-manager-identity-heading-meta">
+          <MiniAppStatus as="span">{identityState}</MiniAppStatus>
+          <IdentityManagerActionsMenu
+            disabled={actions.mutatingSessionId !== null}
+            isAuthenticated={actions.isAuthenticated}
+            onLogout={actions.handleLogoutCurrentSession}
+          />
+        </div>
       </MiniAppSectionHeading>
       {identityError && (
         <MiniAppStatus tone="error">{identityError}</MiniAppStatus>
