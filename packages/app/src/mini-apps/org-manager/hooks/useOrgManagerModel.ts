@@ -141,6 +141,15 @@ export function useOrgManagerModel() {
       appData.crypto.signingKeyPair &&
       appData.crypto.encapsulationKeyPair,
   );
+  const canDisableRosterUsers = Boolean(
+    canLoadAuthenticatedOrgData &&
+      directory?.currentUser.isOrgAdmin &&
+      memberGroupId &&
+      appData.auth.userId &&
+      appData.crypto.signingFingerprint &&
+      appData.crypto.signingKeyPair &&
+      appData.infra.dbStatus === "ready",
+  );
   const canMutateSelectedGroup = canCurrentUserMutateSelectedGroup({
     directory,
     members,
@@ -242,6 +251,7 @@ export function useOrgManagerModel() {
   const contextMenuState = useOrgManagerContextMenu();
   const rosterActions = useOrgManagerRosterActions({
     authUserId: appData.auth.userId,
+    canDisableRosterUsers,
     contextMenu: contextMenuState.contextMenu,
     directory,
     openMiniApp,
@@ -331,6 +341,7 @@ export function useOrgManagerModel() {
     addUser,
     createGroup,
     deleteGroup,
+    disableRosterUser,
     importRosterUser,
     removeMember,
     revokeGrant,
@@ -338,6 +349,7 @@ export function useOrgManagerModel() {
     addUserId,
     appData,
     canDeleteGroup,
+    canDisableRosterUsers,
     canImportRosterUser,
     directory,
     groupNameDraft,
@@ -390,6 +402,8 @@ export function useOrgManagerModel() {
     addableUsers,
     canCreateGroup,
     canDeleteGroup,
+    canDisableContextMenuRosterUser:
+      rosterActions.canDisableContextMenuRosterUser,
     canEditContextMenuRosterUser: rosterActions.canEditContextMenuRosterUser,
     canImportRosterUser,
     canLoadAuthenticatedOrgData,
@@ -402,6 +416,7 @@ export function useOrgManagerModel() {
     createGroup,
     dataUsage,
     deleteGroup,
+    disableRosterUser,
     directory,
     error,
     grants,
