@@ -41,3 +41,19 @@ test("reacts when the layout crosses into the routed shell", async () => {
     expect(result.current).toBe(TOUCH_ROW_HEIGHT);
   });
 });
+
+test("fans a single shared observer out to concurrent subscribers", async () => {
+  const first = renderHook(() => useTouchRowHeight(28));
+  const second = renderHook(() => useTouchRowHeight(36));
+  expect(first.result.current).toBe(28);
+  expect(second.result.current).toBe(36);
+
+  act(() => {
+    document.documentElement.setAttribute("data-navigation-mode", "routed");
+  });
+
+  await waitFor(() => {
+    expect(first.result.current).toBe(TOUCH_ROW_HEIGHT);
+    expect(second.result.current).toBe(TOUCH_ROW_HEIGHT);
+  });
+});

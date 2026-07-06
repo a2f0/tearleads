@@ -6,9 +6,16 @@ import { useTearleadsExternalValue } from "../providers/sdk/useTearleadsSubscrip
  */
 export const TOUCH_ROW_HEIGHT = 44;
 
+// A single shared MutationObserver fans out to every subscriber. This hook backs
+// every virtualized row and frame, so a per-subscription observer would spin up
+// dozens of identical observers watching the same attribute on the same element.
+const navigationModeListeners = new Set<() => void>();
+let navigationModeObserver: MutationObserver | null = null;
+
 /**
  * Subscribes to changes of the `data-navigation-mode` attribute that Layout
- * stamps on `<html>` (see {@link useNavigationModeDocumentAttribute}).
+ * stamps on `<html>` (see {@link useNavigationModeDocumentAttribute}), sharing
+ * one observer across all subscribers.
  */
 function subscribeToNavigationMode(onChange: () => void): () => void {
   if (
@@ -18,13 +25,25 @@ function subscribeToNavigationMode(onChange: () => void): () => void {
     return () => {};
   }
 
-  const observer = new MutationObserver(onChange);
-  observer.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-navigation-mode"],
-  });
+  navigationModeListeners.add(onChange);
+  if (!navigationModeObserver) {
+    navigationModeObserver = new MutationObserver(() => {
+      for (const listener of navigationModeListeners) {
+        listener();
+      }
+    });
+    navigationModeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-navigation-mode"],
+    });
+  }
+
   return () => {
-    observer.disconnect();
+    navigationModeListeners.delete(onChange);
+    if (navigationModeListeners.size === 0 && navigationModeObserver) {
+      navigationModeObserver.disconnect();
+      navigationModeObserver = null;
+    }
   };
 }
 
