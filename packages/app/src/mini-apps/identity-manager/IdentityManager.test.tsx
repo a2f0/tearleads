@@ -296,17 +296,27 @@ test("session rows open details and expose context menu actions", async () => {
     expect(view.queryByText("Current Session")).toBeNull();
     table = view.getByRole("table");
 
+    const currentRow = getSessionRow("203.0.113.9");
+    expect(
+      within(currentRow).getByRole("button", {
+        name: "Actions for Current session 203.0.113.9",
+      }),
+    ).toBeTruthy();
+    expect(
+      within(currentRow).queryByRole("button", { name: "Log Out" }),
+    ).toBeNull();
+
     const remoteRow = getSessionRow("192.0.2.44");
-    fireEvent.keyDown(
-      within(remoteRow).getByRole("button", { name: "Revoke" }),
-      {
-        key: "Enter",
-      },
+    expect(
+      within(remoteRow).queryByRole("button", { name: "Revoke" }),
+    ).toBeNull();
+    fireEvent.click(
+      within(remoteRow).getByRole("button", {
+        name: "Actions for Active session 192.0.2.44",
+      }),
     );
     expect(view.queryByText("Active Session")).toBeNull();
     expect(destroyedSessionIds).toEqual([]);
-
-    fireEvent.contextMenu(remoteRow, { clientX: 12, clientY: 34 });
     expect(view.queryByText("Active Session")).toBeNull();
     expect(remoteRow.getAttribute("aria-selected")).toBe("true");
     expect(view.baseElement.querySelectorAll(".menu-item-icon")).toHaveLength(
@@ -358,8 +368,6 @@ test("current-session logout is reachable from the identity actions menu", async
         name: "Identity actions",
       }),
     );
-    // Scope to the portalled menu: the current session's row action is also
-    // labelled "Log Out", so an unscoped query would match two buttons.
     const menu = view.baseElement.querySelector(".menu");
     if (!(menu instanceof HTMLElement)) {
       throw new Error("Expected the identity actions menu to open.");

@@ -62,7 +62,14 @@ const SESSION_TABLE_COLUMNS = [
   { header: "Created", id: "created", width: "10rem" },
   { header: "Signing Key", id: "signing-key" },
   { header: "Session ID", id: "session-id" },
-  { header: "", id: "action", width: "7.5rem" },
+  {
+    className: "identity-manager-session-actions-column",
+    header: (
+      <span className="identity-manager-session-actions-heading">Actions</span>
+    ),
+    id: "action",
+    width: "2.25rem",
+  },
 ] satisfies ReadonlyArray<MiniAppTableColumn & { id: SessionTableColumnId }>;
 
 export function useSessionTableColumns(): {

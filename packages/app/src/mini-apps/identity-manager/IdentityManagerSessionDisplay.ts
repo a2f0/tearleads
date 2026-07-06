@@ -13,10 +13,6 @@ export function compactIdentifier(value: string | null | undefined): string {
   return `${value.slice(0, 12)}...${value.slice(-8)}`;
 }
 
-export function getSessionMutationLabel(session: UserSession): string {
-  return session.isCurrent ? "Log Out" : "Revoke";
-}
-
 export function getSessionStatusLabel(session: UserSession): string {
   return session.isCurrent ? "Current" : "Active";
 }

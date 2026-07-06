@@ -313,8 +313,6 @@ test(
         name: "Identity actions",
       }),
     );
-    // Scope to the portalled menu: the current session's row action can also be
-    // labelled "Log Out", so an unscoped query would match more than one.
     const actionsMenu = view.baseElement.querySelector(".menu");
     if (!(actionsMenu instanceof HTMLElement)) {
       throw new Error("Expected the identity actions menu to open.");
