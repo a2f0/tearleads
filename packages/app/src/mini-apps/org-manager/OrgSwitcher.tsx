@@ -38,13 +38,13 @@ export function OrgSwitcher({ switcher }: { switcher: OrgSwitcherState }) {
       switcher.selectOrganization(organizationId);
       closeMenu();
     },
-    [closeMenu, switcher],
+    [closeMenu, switcher.selectOrganization],
   );
 
   const createOrganization = useCallback(() => {
     switcher.openCreateOrganizationDialog();
     closeMenu();
-  }, [closeMenu, switcher]);
+  }, [closeMenu, switcher.openCreateOrganizationDialog]);
 
   // Stop the mousedown from reaching the Menu's document-level outside-close
   // listener so clicking the trigger toggles instead of close-then-reopen.
