@@ -49,6 +49,7 @@ import {
   type ExplorerDocumentModalState,
   useExplorerDocumentModalState,
 } from "./useExplorerDocumentModalState";
+import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
 import { type ExplorerRouteState, useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 import {
@@ -185,6 +186,11 @@ export function useExplorerPanelState(params: {
     nodes: explorer.nodes,
     personalRootContainerId: appData.state.containerId,
   });
+  const organizationNamesById = useExplorerOrganizationNames({
+    nodes: explorer.nodes,
+    primaryOrganizationId,
+    ready: explorer.ready,
+  });
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentLinks,
     expandNode: selection.expandNode,
@@ -233,6 +239,7 @@ export function useExplorerPanelState(params: {
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
     onRetryDatabase,
+    organizationNamesById,
     primaryOrganizationId,
     ready: explorer.ready,
     selectedId: selection.selectedId,

@@ -25,6 +25,10 @@ type ExplorerSidebarSection =
   | {
       kind: "section-label";
       label: string;
+      // Stable heading identity: the foreign org's id for a per-org heading, or
+      // null for the shared fallback. Keeps virtual-row keys unique when two
+      // orgs happen to share a display name.
+      organizationId: string | null;
       rowCount: 1;
     }
   | {
@@ -79,40 +83,74 @@ export type ExplorerSidebarVirtualRow =
       kind: "document-status";
     };
 
-function getExplorerSidebarRootGroups(params: {
-  entries: ReadonlyArray<ExplorerSidebarTreeEntry>;
-  primaryOrganizationId: string | null;
-}): ReadonlyArray<{
+interface ExplorerSidebarRootGroup {
   entries: ReadonlyArray<ExplorerSidebarTreeEntry>;
   label: string | null;
-}> {
-  const { entries, primaryOrganizationId } = params;
+  organizationId: string | null;
+}
+
+// Groups the root entries for section headings: the user's own roots stay
+// unlabelled; each *foreign* org whose display name has decrypted gets its own
+// heading; foreign orgs whose name has not resolved yet collapse into the
+// single legacy "Shared with me" bucket.
+function getExplorerSidebarRootGroups(params: {
+  entries: ReadonlyArray<ExplorerSidebarTreeEntry>;
+  organizationNamesById: ReadonlyMap<string, string>;
+  primaryOrganizationId: string | null;
+}): ReadonlyArray<ExplorerSidebarRootGroup> {
+  const { entries, organizationNamesById, primaryOrganizationId } = params;
   if (!primaryOrganizationId) {
-    return [{ entries, label: null }];
+    return [{ entries, label: null, organizationId: null }];
   }
 
   const ownedEntries: ExplorerSidebarTreeEntry[] = [];
-  const sharedEntries: ExplorerSidebarTreeEntry[] = [];
+  const namedForeignGroups = new Map<
+    string,
+    { entries: ExplorerSidebarTreeEntry[]; label: string }
+  >();
+  const unnamedForeignEntries: ExplorerSidebarTreeEntry[] = [];
   for (const entry of entries) {
-    if (
-      entry.node.organizationId &&
-      entry.node.organizationId !== primaryOrganizationId
-    ) {
-      sharedEntries.push(entry);
-    } else {
+    const { organizationId } = entry.node;
+    if (!organizationId || organizationId === primaryOrganizationId) {
       ownedEntries.push(entry);
+      continue;
+    }
+    const name = organizationNamesById.get(organizationId);
+    if (name === undefined) {
+      unnamedForeignEntries.push(entry);
+      continue;
+    }
+    const existing = namedForeignGroups.get(organizationId);
+    if (existing) {
+      existing.entries.push(entry);
+    } else {
+      namedForeignGroups.set(organizationId, { entries: [entry], label: name });
     }
   }
 
+  const sortedNamedGroups = Array.from(namedForeignGroups.entries())
+    .map(([organizationId, group]) => ({
+      entries: group.entries,
+      label: group.label,
+      organizationId,
+    }))
+    .sort(
+      (left, right) =>
+        left.label.localeCompare(right.label) ||
+        left.organizationId.localeCompare(right.organizationId),
+    );
+
   return [
     ...(ownedEntries.length > 0
-      ? [{ entries: ownedEntries, label: null }]
+      ? [{ entries: ownedEntries, label: null, organizationId: null }]
       : []),
-    ...(sharedEntries.length > 0
+    ...sortedNamedGroups,
+    ...(unnamedForeignEntries.length > 0
       ? [
           {
-            entries: sharedEntries,
+            entries: unnamedForeignEntries,
             label: EXPLORER_LABELS.sharedWithMeSection,
+            organizationId: null,
           },
         ]
       : []),
@@ -126,12 +164,14 @@ export function buildExplorerSidebarSections(params: {
     ExplorerSidebarDocumentWindowState
   >;
   entries: ReadonlyArray<ExplorerSidebarTreeEntry>;
+  organizationNamesById: ReadonlyMap<string, string>;
   primaryOrganizationId: string | null;
 }): ReadonlyArray<ExplorerSidebarSection> {
   const {
     collapsedIds,
     documentWindowsByContainerId,
     entries,
+    organizationNamesById,
     primaryOrganizationId,
   } = params;
   const sections: ExplorerSidebarSection[] = [];
@@ -178,12 +218,14 @@ export function buildExplorerSidebarSections(params: {
 
   for (const group of getExplorerSidebarRootGroups({
     entries,
+    organizationNamesById,
     primaryOrganizationId,
   })) {
     if (group.label) {
       sections.push({
         kind: "section-label",
         label: group.label,
+        organizationId: group.organizationId,
         rowCount: 1,
       });
     }
@@ -231,7 +273,7 @@ export function getExplorerSidebarRowsInRange(params: {
 
     if (section.kind === "section-label") {
       rows.push({
-        key: `section-label:${section.label}`,
+        key: `section-label:${section.organizationId ?? section.label}`,
         kind: "section-label",
         label: section.label,
       });

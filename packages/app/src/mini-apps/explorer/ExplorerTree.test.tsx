@@ -105,6 +105,10 @@ function createRowsByContainerId(rows: SidebarRow[]) {
   return new Map([["root-container", rows]]);
 }
 
+// Stable identity: the sidebar memoizes on this prop, so an inline map would
+// recreate the sidebar every render and loop useRegisteredWindowSidebar.
+const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
+
 function ExplorerSidebarHarness(params: {
   collapsedIds?: ReadonlySet<string>;
   documentListRevision?: number;
@@ -162,6 +166,7 @@ function ExplorerSidebarHarness(params: {
     handleSidebarDocumentContextMenu,
     nodes,
     ready: true,
+    organizationNamesById: NO_ORGANIZATION_NAMES,
     primaryOrganizationId: "org-1",
     selectedId,
     selectDocumentProjection,

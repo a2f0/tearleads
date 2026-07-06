@@ -39,6 +39,10 @@ const documentQueries: ContainerDocumentQueries = {
   upsertDiscoveredDocuments: async () => [],
 };
 
+// Stable identity: the sidebar memoizes on this prop, so an inline map would
+// recreate the sidebar every render and loop useRegisteredWindowSidebar.
+const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
+
 function SidebarContextMenuHarness(params: {
   onContainerContextMenu: (containerId: string) => void;
 }) {
@@ -82,6 +86,7 @@ function SidebarContextMenuHarness(params: {
     handleSidebarDocumentContextMenu,
     nodes,
     ready: true,
+    organizationNamesById: NO_ORGANIZATION_NAMES,
     primaryOrganizationId: rootNode.organizationId,
     selectedId,
     selectDocumentProjection,
