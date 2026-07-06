@@ -306,8 +306,21 @@ test(
     if (!identitySection) {
       throw new Error("Expected Identity Manager identity section.");
     }
+    // Logout now lives in the Identity section's overflow (kebab) menu rather
+    // than as an inline toolbar button, so open the menu before invoking it.
     fireEvent.click(
-      within(identitySection).getByRole("button", { name: "Log Out" }),
+      within(identitySection).getByRole("button", {
+        name: "Identity actions",
+      }),
+    );
+    // Scope to the portalled menu: the current session's row action can also be
+    // labelled "Log Out", so an unscoped query would match more than one.
+    const actionsMenu = view.baseElement.querySelector(".menu");
+    if (!(actionsMenu instanceof HTMLElement)) {
+      throw new Error("Expected the identity actions menu to open.");
+    }
+    fireEvent.click(
+      within(actionsMenu).getByRole("button", { name: "Log Out" }),
     );
 
     const dialog = view.getByRole("dialog");

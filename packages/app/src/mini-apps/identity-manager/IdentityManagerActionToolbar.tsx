@@ -48,6 +48,9 @@ function isPasskeyAuthenticatorAttachmentMode(
   );
 }
 
+// The current-session logout lives in the Identity section's overflow menu
+// (see IdentityManagerActionsMenu), so it is intentionally not rendered here
+// even though the shared props type still carries its handler.
 export function IdentityActionToolbar({
   backupKeyPackage,
   canAuthenticate,
@@ -62,13 +65,10 @@ export function IdentityActionToolbar({
   handlePasskeyBackupKeyPackage,
   handlePasskeyRestoreKeyPackage,
   handleDestroyKeyPair,
-  handleLogoutCurrentSession,
   handleRegisterIdentity,
   handleRestoreKeyPackageClick,
   hasSigningKeyPair,
   identityBusy,
-  isAuthenticated,
-  mutatingSessionId,
   onPasskeyAuthenticatorAttachmentChange,
   passkeyAuthenticatorAttachment,
 }: IdentityActionToolbarProps) {
@@ -142,14 +142,6 @@ export function IdentityActionToolbar({
           onClick={() => void handleAuthenticate()}
         >
           Login
-        </MiniAppButton>
-      )}
-      {isAuthenticated && (
-        <MiniAppButton
-          disabled={mutatingSessionId !== null}
-          onClick={handleLogoutCurrentSession}
-        >
-          Log Out
         </MiniAppButton>
       )}
       {hasSigningKeyPair && (

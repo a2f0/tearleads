@@ -1,6 +1,49 @@
 .identity-manager {
-  min-width: 34rem;
   min-height: 26rem;
+}
+
+/*
+ * The 34rem floor keeps the desktop *window* from collapsing its columns, but
+ * it must not apply in the routed mobile/tablet shell — there the app has to
+ * reflow to the viewport instead of forcing the whole pane to scroll sideways.
+ * The windowed layout only exists at/above MOBILE_BREAKPOINT_PX (see
+ * navigation/breakpoints.ts), so scope the minimum to that viewport range.
+ */
+@media (min-width: 1024px) {
+  .identity-manager {
+    min-width: 34rem;
+  }
+}
+
+.identity-manager-identity-heading-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* Kebab overflow trigger, matched to the explorer item-row actions button. */
+.identity-manager-actions-button {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: var(--border-width) solid transparent;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.identity-manager-actions-button:hover,
+.identity-manager-actions-button:focus-visible {
+  background: var(--color-muted);
+}
+
+.identity-manager-actions-button:focus-visible {
+  outline: var(--border-width) solid currentColor;
+  outline-offset: var(--border-width);
 }
 
 .identity-manager-main {
