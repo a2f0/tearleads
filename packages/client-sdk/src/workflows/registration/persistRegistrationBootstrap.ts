@@ -21,6 +21,7 @@ import {
 import { persistDocumentState } from "../documents/persistence";
 import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizations/organizationProfile";
 import {
+  ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
   ROSTER_PROFILE_DOCUMENT_KIND,
 } from "../organizations/rosterProfileContainer";
@@ -42,6 +43,24 @@ interface RegistrationBootstrapInput {
     | "documentManifestBundle"
   >;
   rosterProfileContainer?: {
+    accessEpoch: number;
+    accessStateHash: string;
+    containerId: string;
+    createdAt: string;
+    metadataDocumentId: string;
+    metadataInitialUpdate: Uint8Array;
+    metadataSnapshot: string;
+    metadataState: Pick<
+      DocumentRecord,
+      | "documentId"
+      | "contentKeyBundle"
+      | "documentKekTargets"
+      | "documentManifestBundle"
+    >;
+    systemSlot: ContainerSystemSlot;
+    updatedAt: string;
+  };
+  organizationMetadataContainer?: {
     accessEpoch: number;
     accessStateHash: string;
     containerId: string;
@@ -195,6 +214,56 @@ async function persistRosterProfileContainerBootstrap(
   });
 }
 
+async function persistOrganizationMetadataContainerBootstrap(
+  execSql: ExecSql,
+  input: RegistrationBootstrapInput,
+): Promise<void> {
+  const organizationMetadataContainer = input.organizationMetadataContainer;
+  if (!organizationMetadataContainer) {
+    return;
+  }
+
+  const metadataState = organizationMetadataContainer.metadataState;
+  const metadataRecord: DocumentRecord = {
+    accessEpoch: organizationMetadataContainer.accessEpoch,
+    accessStateHash: organizationMetadataContainer.accessStateHash,
+    documentId: organizationMetadataContainer.metadataDocumentId,
+    id: organizationMetadataContainer.containerId,
+    lastCommitLsn: null,
+    loroSnapshot: organizationMetadataContainer.metadataSnapshot,
+    contentKeyBundle: metadataState.contentKeyBundle ?? null,
+    documentKekTargets: metadataState.documentKekTargets ?? null,
+    documentManifestBundle: metadataState.documentManifestBundle ?? null,
+  };
+  await sqlContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      id: organizationMetadataContainer.containerId,
+      // The founder persisting at provisioning reaches this container as an
+      // admin via root inheritance; a Members-only member syncing it later
+      // derives their own read-level access from the group grant.
+      effectiveAccessLevel: "admin",
+      organizationId: input.organizationId,
+      parentId: input.containerId,
+      metadataDocumentId: organizationMetadataContainer.metadataDocumentId,
+      systemSlot: organizationMetadataContainer.systemSlot,
+      name: ORGANIZATION_METADATA_CONTAINER_NAME,
+      icon: null,
+    },
+    metadataRecord,
+    {
+      serverTimestamps: {
+        createdAt: organizationMetadataContainer.createdAt,
+        updatedAt: organizationMetadataContainer.updatedAt,
+      },
+    },
+  );
+  await enqueueInitialContainerMetadataUpdate(execSql, {
+    containerId: organizationMetadataContainer.containerId,
+    initialUpdate: organizationMetadataContainer.metadataInitialUpdate,
+  });
+}
+
 async function persistOrganizationProfileDocumentBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
@@ -329,6 +398,7 @@ async function persistRegistrationBootstrapFromExecSql(
     await persistRootContainerBootstrap(lockedExecSql, input);
     await persistRosterProfileContainerBootstrap(lockedExecSql, input);
     await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
+    await persistOrganizationMetadataContainerBootstrap(lockedExecSql, input);
     await persistOrganizationProfileDocumentBootstrap(lockedExecSql, input);
   });
 }

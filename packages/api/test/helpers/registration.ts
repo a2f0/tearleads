@@ -49,6 +49,10 @@ const REGISTER_SIGNED_AT = "2026-04-07T00:00:00.000Z";
 interface RegistrationBootstrapInput {
   adminGroup?: CreateOrganizationGroupRequest | undefined;
   encapsulationPublicKey: Uint8Array;
+  // Supplying the member group makes the org metadata container born with a read
+  // grant to it — matching production and exercising the server's verification
+  // of a child container carrying a group directGrant + group KEK wrap.
+  memberGroup?: CreateOrganizationGroupRequest | undefined;
   organizationId: string;
   organizationProfileDocumentId?: string | undefined;
   rosterProfileDocumentId?: string | undefined;
@@ -63,6 +67,9 @@ interface RegistrationBootstrap {
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
   initialRosterProfileDocument?: DocumentCreateRequest | undefined;
+  initialOrganizationMetadataContainer?:
+    | ContainerCreateWithMetadataDocumentRequest
+    | undefined;
   initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
   initialRootContainer: ContainerMutationRequest;
   initialRootMetadataDocument: DocumentCreateRequest;
@@ -210,6 +217,23 @@ async function deriveRosterProfileContainerSystemSlot(input: {
     new TextEncoder().encode(
       JSON.stringify({
         namespace: "tearleads.organization-roster-profiles",
+        organizationId: input.organizationId,
+        version: 1,
+      }),
+    ),
+  );
+
+  return `sys_v1_${toBase64Url(new Uint8Array(digest))}`;
+}
+
+async function deriveOrganizationMetadataContainerSystemSlot(input: {
+  organizationId: string;
+}): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(
+      JSON.stringify({
+        namespace: "tearleads.organization-metadata",
         organizationId: input.organizationId,
         version: 1,
       }),
@@ -726,6 +750,9 @@ async function createRootContainerArtifacts(input: {
 
 async function createChildContainerArtifacts(input: {
   metadataDocumentId: string;
+  managedGrant?:
+    | { accessLevel: "read"; group: CreateOrganizationGroupRequest }
+    | undefined;
   parent: RootContainerCreateArtifacts;
   parentProjection: ContainerWriterProjectionResponse;
   signerDeviceId: string;
@@ -741,14 +768,29 @@ async function createChildContainerArtifacts(input: {
   const containerKey = crypto.getRandomValues(new Uint8Array(32));
   const containerKeyEpochId = crypto.randomUUID();
   const containerId = input.metadataDocumentId;
+  const managedGrant = input.managedGrant;
+  const managedHead = managedGrant
+    ? await principalHeadFromInitialGroupPolicy({
+        adminGroup: managedGrant.group,
+      })
+    : null;
   const body: ContainerCreateAccessEventBody = {
     eventType: "container.create",
     parentContainerId: input.parent.state.containerId,
     parentManifestHash: input.parent.manifestHash,
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId,
-    directGrants: [],
-    referencedPrincipalHeads: [],
+    directGrants:
+      managedGrant && managedHead
+        ? [
+            {
+              accessLevel: managedGrant.accessLevel,
+              subjectId: managedHead.principalId,
+              subjectType: managedHead.principalType,
+            },
+          ]
+        : [],
+    referencedPrincipalHeads: managedHead ? [managedHead] : [],
   };
   const { event, eventHash } = await signRegistrationEvent({
     body,
@@ -790,33 +832,57 @@ async function createChildContainerArtifacts(input: {
     createdByEventHash: eventHash,
     createdByManifestHash: manifestHash,
   };
-  const recipientTargets: ContainerKekRecipientTarget[] = [
-    {
-      recipientKind: "container",
-      recipientId: parentKek.containerId,
-      recipientKeyEpochId: parentKek.containerKeyEpochId,
-      recipientKeyFingerprint: parentKek.keyEpochHash,
-    },
-  ];
-  const keyTargetHash =
-    await computeContainerKekRecipientTargetHash(recipientTargets);
-  const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
+  const parentTarget: ContainerKekRecipientTarget = {
+    recipientKind: "container",
+    recipientId: parentKek.containerId,
+    recipientKeyEpochId: parentKek.containerKeyEpochId,
+    recipientKeyFingerprint: parentKek.keyEpochHash,
+  };
   const wrappedContainerKey = await encryptWithDek(
     containerKey,
     input.parent.containerKey,
   );
-  const wraps: ContainerKeyWrap[] = [
-    {
-      containerKeyEpochId,
-      recipientKind: "container",
-      recipientId: parentKek.containerId,
-      recipientKeyEpochId: parentKek.containerKeyEpochId,
-      recipientKeyFingerprint: parentKek.keyEpochHash,
-      kemCipherText: bytesToBase64(wrappedContainerKey.iv),
-      wrappedKey: bytesToBase64(wrappedContainerKey.ciphertext),
-      wrapManifestHash: manifestHash,
-    },
-  ];
+  const parentWrap: ContainerKeyWrap = {
+    containerKeyEpochId,
+    recipientKind: "container",
+    recipientId: parentKek.containerId,
+    recipientKeyEpochId: parentKek.containerKeyEpochId,
+    recipientKeyFingerprint: parentKek.keyEpochHash,
+    kemCipherText: bytesToBase64(wrappedContainerKey.iv),
+    wrappedKey: bytesToBase64(wrappedContainerKey.ciphertext),
+    wrapManifestHash: manifestHash,
+  };
+  const managedRecipient =
+    managedGrant && managedHead
+      ? await wrapRootContainerKeyForManagedPrincipal({
+          containerKey,
+          containerKeyEpochId,
+          manifestHash,
+          principalEncapsulationPublicKey:
+            managedGrant.group.initialGroupPolicy.state.encapsulationPublicKey,
+          principalHead: managedHead,
+        })
+      : null;
+  const recipientTargets: ContainerKekRecipientTarget[] = managedRecipient
+    ? [parentTarget, managedRecipient.recipientTarget]
+    : [parentTarget];
+  const wraps: ContainerKeyWrap[] = managedRecipient
+    ? [parentWrap, managedRecipient.wrap]
+    : [parentWrap];
+  const keyTargetHash =
+    await computeContainerKekRecipientTargetHash(recipientTargets);
+  const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
+  // The Members group policy justifies the group KEK recipient target; the
+  // parent's Admins policy justifies writing under the root parent.
+  const principalPolicies =
+    managedGrant && managedHead
+      ? [
+          ...input.parent.principalPolicies,
+          await principalPolicyRecordFromInitialGroupPolicy({
+            adminGroup: managedGrant.group,
+          }),
+        ]
+      : input.parent.principalPolicies;
 
   return {
     body,
@@ -838,7 +904,7 @@ async function createChildContainerArtifacts(input: {
       manifest: toWireRecord(manifest, "child container request manifest"),
       previousManifest: null,
       parentContainerPath: input.parentProjection.path,
-      principalPolicies: input.parent.principalPolicies,
+      principalPolicies,
       keyEpoch: toWireRecord(keyEpoch, "child container request key epoch"),
       wraps: toWireRecords(wraps, "child container request wraps"),
       parentKekState: toWireRecord(parentKek, "child container parent KEK"),
@@ -1017,18 +1083,17 @@ export async function createRegistrationBootstrap(
   });
   const rootContainerProjection =
     rootContainerProjectionFromArtifacts(rootContainer);
-  const rosterProfileContainer =
-    input.rosterProfileDocumentId || input.organizationProfileDocumentId
-      ? await createChildContainerArtifacts({
-          metadataDocumentId: crypto.randomUUID(),
-          parent: rootContainer,
-          parentProjection: rootContainerProjection,
-          signerDeviceId,
-          signerKeyFingerprint,
-          signingPrivateKey: input.signingPrivateKey,
-          userId: input.userId,
-        })
-      : undefined;
+  const rosterProfileContainer = input.rosterProfileDocumentId
+    ? await createChildContainerArtifacts({
+        metadataDocumentId: crypto.randomUUID(),
+        parent: rootContainer,
+        parentProjection: rootContainerProjection,
+        signerDeviceId,
+        signerKeyFingerprint,
+        signingPrivateKey: input.signingPrivateKey,
+        userId: input.userId,
+      })
+    : undefined;
   const rosterProfileContainerProjection = rosterProfileContainer
     ? childContainerProjectionFromArtifacts({
         child: rosterProfileContainer,
@@ -1069,13 +1134,58 @@ export async function createRegistrationBootstrap(
           userId: input.userId,
         })
       : undefined;
+  // The organization profile document (the display name) lives in its own
+  // container, distinct from the Admins-scoped roster profile container. When
+  // the member group is supplied it is born with a Members-group read grant,
+  // exercising the server's verification of a child container carrying a group
+  // directGrant + group KEK wrap (the production shape).
+  const organizationMetadataContainer = input.organizationProfileDocumentId
+    ? await createChildContainerArtifacts({
+        metadataDocumentId: crypto.randomUUID(),
+        ...(input.memberGroup
+          ? { managedGrant: { accessLevel: "read", group: input.memberGroup } }
+          : {}),
+        parent: rootContainer,
+        parentProjection: rootContainerProjection,
+        signerDeviceId,
+        signerKeyFingerprint,
+        signingPrivateKey: input.signingPrivateKey,
+        userId: input.userId,
+      })
+    : undefined;
+  const organizationMetadataContainerProjection = organizationMetadataContainer
+    ? childContainerProjectionFromArtifacts({
+        child: organizationMetadataContainer,
+        parentProjection: rootContainerProjection,
+      })
+    : undefined;
+  const initialOrganizationMetadataContainer =
+    organizationMetadataContainer && organizationMetadataContainerProjection
+      ? {
+          systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
+            organizationId: input.organizationId,
+          }),
+          container: organizationMetadataContainer.request,
+          metadataDocument: await createRootMetadataDocumentRequest({
+            containerKey: organizationMetadataContainer.containerKey,
+            containerProjection: organizationMetadataContainerProjection,
+            organizationId: input.organizationId,
+            rootMetadataDocumentId:
+              organizationMetadataContainer.metadataDocumentId,
+            signerDeviceId,
+            signerKeyFingerprint,
+            signingPrivateKey: input.signingPrivateKey,
+            userId: input.userId,
+          }),
+        }
+      : undefined;
   const initialOrganizationProfileDocument =
     input.organizationProfileDocumentId &&
-    rosterProfileContainer &&
-    rosterProfileContainerProjection
+    organizationMetadataContainer &&
+    organizationMetadataContainerProjection
       ? await createRootMetadataDocumentRequest({
-          containerKey: rosterProfileContainer.containerKey,
-          containerProjection: rosterProfileContainerProjection,
+          containerKey: organizationMetadataContainer.containerKey,
+          containerProjection: organizationMetadataContainerProjection,
           organizationId: input.organizationId,
           rootMetadataDocumentId: input.organizationProfileDocumentId,
           signerDeviceId,
@@ -1088,6 +1198,9 @@ export async function createRegistrationBootstrap(
   return {
     ...(initialRosterProfileContainer ? { initialRosterProfileContainer } : {}),
     ...(initialRosterProfileDocument ? { initialRosterProfileDocument } : {}),
+    ...(initialOrganizationMetadataContainer
+      ? { initialOrganizationMetadataContainer }
+      : {}),
     ...(initialOrganizationProfileDocument
       ? { initialOrganizationProfileDocument }
       : {}),

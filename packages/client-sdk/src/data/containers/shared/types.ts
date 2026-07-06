@@ -11,6 +11,7 @@ import type {
   ContainerMoveAccessEventBody,
   ContainerRevokeAccessEventBody,
   ContainerUserRecipientKey,
+  ReferencedPrincipalHead,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type {
@@ -42,6 +43,22 @@ export interface BuildContainerCreatePlanInput {
   containerKey: Uint8Array;
   containerKeyEpochId?: string | undefined;
   eventId?: string | undefined;
+  /**
+   * Optional managed-principal (group/organization) grant to bake into the
+   * create manifest, wrapping the new container key to that principal in
+   * addition to the normal parent-inheritance wrap. Used to birth a child
+   * container that is directly readable by a group — e.g. the org public
+   * metadata container granted to the reserved Members group. The principal's
+   * verified policy must also be supplied via `principalPolicies` so the server
+   * can derive the recipient target.
+   */
+  managedPrincipalGrant?:
+    | {
+        accessLevel: ContainerDirectGrant["accessLevel"];
+        principalEncapsulationPublicKey: string;
+        principalHead: ReferencedPrincipalHead;
+      }
+    | undefined;
   metadataDocumentId?: string | undefined;
   parentKekMaterial: Uint8Array;
   parentProjection: ContainerWriterProjectionResponse;

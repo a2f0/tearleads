@@ -48,25 +48,33 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Observed ~100 (down from 120; see issue #1281 for the full profile). The
-  // drop came from making the test WebSocket harness mirror production
-  // origin-based routing (the author no longer receives its own echoes),
-  // suppressing self-echo in the container-metadata lane and on server-side
-  // document-sync/attachment-bind broadcasts, and replacing global
-  // writer-projection cache wipes with targeted eviction on retry. The
-  // remaining ~100 is dominated by read/reconcile convergence (poll + sync +
-  // writer-projection): only ~12 requests actually mutate state. Driving this
-  // toward ~40 (#1281 phase A) requires scoping the resync_required full-tree
-  // crawl and the reconciler sweep force-pull, which are convergence-core and
-  // deferred (they risk revocation/staleness bugs). Small headroom absorbs race
-  // timing; a real re-sync loop would blow far past this.
-  total: 108,
+  // Observed ~111 (was ~100 before the org-public metadata container; earlier
+  // ~120, see issue #1281 for the full profile). The ~11-request rise is the
+  // per-org "Organization Metadata" container that every registration now mints
+  // and read-grants to the Members group so any active roster member can
+  // decrypt org-wide public fields: each pane's provisioning and the share
+  // settle re-list, sync, and writer-project this extra container through the
+  // same reconcile passes as the other system containers (roughly linear, one
+  // more container = a bounded handful of requests, not a re-sync loop). The
+  // earlier drop from ~120 came from making the test WebSocket harness mirror
+  // production origin-based routing (the author no longer receives its own
+  // echoes), suppressing self-echo in the container-metadata lane and on
+  // server-side document-sync/attachment-bind broadcasts, and replacing global
+  // writer-projection cache wipes with targeted eviction on retry. The bulk is
+  // still read/reconcile convergence (poll + sync + writer-projection): only
+  // ~12 requests actually mutate state. Driving this toward ~40 (#1281 phase A)
+  // requires scoping the resync_required full-tree crawl and the reconciler
+  // sweep force-pull, which are convergence-core and deferred (they risk
+  // revocation/staleness bugs). Small headroom absorbs race timing; a real
+  // re-sync loop would blow far past this.
+  total: 116,
   byRequest: {
-    // ~13-14 observed. Each container metadata document's writer projection is
+    // ~16-17 observed. Each container metadata document's writer projection is
     // primed from its create response (like plain document creates), so the
     // first read resolves locally instead of a cold GET; priming can only avoid
-    // a fetch, so this stays a tight ceiling.
-    "GET /documents/:documentId/writer-projection": 15,
+    // a fetch, so this stays a tight ceiling. The org metadata container adds
+    // one more metadata document whose projection is read on reconcile.
+    "GET /documents/:documentId/writer-projection": 18,
     // ~22 observed. A remote update arriving mid-pass is retained (per-document
     // signal sequencing) and re-synced rather than dropped, so each document
     // that sees a concurrent peer update during the share does its extra correct
@@ -84,10 +92,11 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /containers/:containerId/documents": 11,
     // The test WebSocket harness mirrors production routing: an access_changed
     // event evicts interested sockets, then each still-authorized pane rechecks
-    // the tree before re-declaring interest. ~26 observed for ~4 root
+    // the tree before re-declaring interest. ~30 observed for ~4 root
     // containers/pane — every reconcile and server event re-lists the whole root
-    // because events are hints, not deltas (#1281, phase A). Small headroom.
-    "GET /containers": 28,
+    // because events are hints, not deltas (#1281, phase A). The org metadata
+    // container adds one more event-scoped reconcile per pane. Small headroom.
+    "GET /containers": 32,
     // Device-first bootstrap can leave the explorer store on a pre-root runtime
     // briefly, so projection verification may resolve each pane's public user
     // key remotely once per workflow surface during the share handoff. Keep

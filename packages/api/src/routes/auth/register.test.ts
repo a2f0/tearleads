@@ -427,6 +427,11 @@ test("POST /auth/register binds an optional roster profile document", async () =
   const rosterProfileContainerId = rosterProfileContainer
     ? Reflect.get(rosterProfileContainer.container.event, "objectId")
     : undefined;
+  const organizationMetadataContainer =
+    body.initialOrganizationMetadataContainer;
+  const organizationMetadataContainerId = organizationMetadataContainer
+    ? Reflect.get(organizationMetadataContainer.container.event, "objectId")
+    : undefined;
   invariant(
     typeof rosterProfileDocumentId === "string",
     "expected roster profile document id",
@@ -440,8 +445,16 @@ test("POST /auth/register binds an optional roster profile document", async () =
     "expected organization profile document id",
   );
   invariant(
+    typeof organizationMetadataContainerId === "string",
+    "expected organization metadata container id",
+  );
+  invariant(
     rosterProfileContainer,
     "expected roster profile container request",
+  );
+  invariant(
+    organizationMetadataContainer,
+    "expected organization metadata container request",
   );
 
   const response = await routeApp.request("/auth/register", {
@@ -469,6 +482,30 @@ test("POST /auth/register binds an optional roster profile document", async () =
   expect(responseBody.organizationProfileDocument.id).toBe(
     organizationProfileDocumentId,
   );
+  // The org profile document lives in its own metadata container, distinct from
+  // the Admins-scoped roster profile container that holds private roster PII.
+  expect(responseBody.organizationMetadataContainerId).toBe(
+    organizationMetadataContainerId,
+  );
+  expect(responseBody.organizationMetadataContainer.container.containerId).toBe(
+    organizationMetadataContainerId,
+  );
+  expect(organizationMetadataContainerId).not.toBe(rosterProfileContainerId);
+  // The metadata container is born with a read grant to the Members group so
+  // every active roster member can decrypt the org name; the server accepted
+  // and verified this child-container group grant.
+  expect(
+    Reflect.get(
+      organizationMetadataContainer.container.body as Record<string, unknown>,
+      "directGrants",
+    ),
+  ).toEqual([
+    {
+      accessLevel: "read",
+      subjectId: body.initialMemberGroup.groupId,
+      subjectType: "group",
+    },
+  ]);
 
   const [[rosterEntry], [organization]] = await Promise.all([
     db
@@ -525,7 +562,7 @@ test("POST /auth/register rejects an initial organization profile document witho
     { includeOrganizationProfileDocument: true },
   );
   const requestBody = { ...body };
-  delete requestBody.initialRosterProfileContainer;
+  delete requestBody.initialOrganizationMetadataContainer;
 
   const response = await routeApp.request("/auth/register", {
     method: "POST",

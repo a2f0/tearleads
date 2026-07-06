@@ -669,6 +669,9 @@ export class ApiClient {
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
     initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+    initialOrganizationMetadataContainer?:
+      | ContainerCreateWithMetadataDocumentRequest
+      | undefined,
     initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
   ) {
     return this.request(
@@ -688,6 +691,7 @@ export class ApiClient {
         initialRootMetadataDocument,
         initialRosterProfileContainer,
         initialRosterProfileDocument,
+        initialOrganizationMetadataContainer,
         initialOrganizationProfileDocument,
       }),
     );

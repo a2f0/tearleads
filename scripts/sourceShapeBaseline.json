@@ -54,8 +54,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1573,
-      "bytes": 45974
+      "lines": 1577,
+      "bytes": 46132
     },
     "packages/api-client/src/ApiClient.core.test.ts": {
       "lines": 541,
@@ -102,8 +102,8 @@
       "bytes": 30916
     },
     "packages/api/src/routes/auth/register.test.ts": {
-      "lines": 541,
-      "bytes": 17544
+      "lines": 577,
+      "bytes": 18960
     },
     "packages/api/src/routes/containers/listContainers.test.ts": {
       "lines": 621,
@@ -154,8 +154,8 @@
       "bytes": 21637
     },
     "packages/api/src/workflows/organizations/provisionOrganization.ts": {
-      "lines": 1314,
-      "bytes": 37216
+      "lines": 1364,
+      "bytes": 38827
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
@@ -166,8 +166,8 @@
       "bytes": 21521
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1098,
-      "bytes": 36388
+      "lines": 1211,
+      "bytes": 40919
     },
     "packages/app/src/mini-apps/explorer/ExplorerTree.test.tsx": {
       "lines": 692,
@@ -278,8 +278,8 @@
       "bytes": 31765
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
-      "lines": 747,
-      "bytes": 26769
+      "lines": 917,
+      "bytes": 33081
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 732,
@@ -328,6 +328,14 @@
     "scripts/subsystems.ts": {
       "lines": 702,
       "bytes": 24910
+    },
+    "packages/client-sdk/src/workflows/containers/child/create.ts": {
+      "lines": 531,
+      "bytes": 18022
+    },
+    "packages/client-sdk/src/workflows/registration/registerIdentity.test.ts": {
+      "lines": 521,
+      "bytes": 18921
     }
   },
   "categories": {

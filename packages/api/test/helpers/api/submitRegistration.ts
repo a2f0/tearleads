@@ -129,6 +129,7 @@ export async function createRegistrationRequestBody(
   const rootBootstrap = await createRegistrationBootstrap({
     adminGroup: initialAdminGroup,
     encapsulationPublicKey,
+    memberGroup: initialMemberGroup,
     organizationId,
     ...(options.includeRosterProfileDocument
       ? { rosterProfileDocumentId: crypto.randomUUID() }
@@ -169,6 +170,12 @@ export async function createRegistrationRequestBody(
       ? {
           initialRosterProfileDocument:
             rootBootstrap.initialRosterProfileDocument,
+        }
+      : {}),
+    ...(rootBootstrap.initialOrganizationMetadataContainer
+      ? {
+          initialOrganizationMetadataContainer:
+            rootBootstrap.initialOrganizationMetadataContainer,
         }
       : {}),
     ...(rootBootstrap.initialOrganizationProfileDocument

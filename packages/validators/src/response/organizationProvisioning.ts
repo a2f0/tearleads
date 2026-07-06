@@ -32,6 +32,10 @@ export interface OrganizationProvisioningResponse {
   rosterProfileContainerId?: string | undefined;
   rosterProfileDocument?: DocumentCreateResponse | undefined;
   rosterProfileDocumentId?: string | undefined;
+  organizationMetadataContainer?:
+    | ContainerCreateWithMetadataDocumentResponse
+    | undefined;
+  organizationMetadataContainerId?: string | undefined;
   organizationProfileDocument?: DocumentCreateResponse | undefined;
   organizationProfileDocumentId?: string | undefined;
 }
@@ -59,6 +63,12 @@ export function isOrganizationProvisioningResponse(
       isDocumentCreateResponse(Reflect.get(value, "rosterProfileDocument"))) &&
     (Reflect.get(value, "rosterProfileDocumentId") === undefined ||
       hasStringProperty(value, "rosterProfileDocumentId")) &&
+    (Reflect.get(value, "organizationMetadataContainer") === undefined ||
+      isContainerCreateWithMetadataDocumentResponse(
+        Reflect.get(value, "organizationMetadataContainer"),
+      )) &&
+    (Reflect.get(value, "organizationMetadataContainerId") === undefined ||
+      hasStringProperty(value, "organizationMetadataContainerId")) &&
     (Reflect.get(value, "organizationProfileDocument") === undefined ||
       isDocumentCreateResponse(
         Reflect.get(value, "organizationProfileDocument"),

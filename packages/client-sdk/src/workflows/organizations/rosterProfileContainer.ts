@@ -13,6 +13,12 @@ const CONTAINER_SYSTEM_SLOT_PREFIX = "sys_v1_";
 export const ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME = "Roster Profiles";
 export const ROSTER_PROFILE_DOCUMENT_KIND = "contact";
 
+// Dedicated container for org-wide public metadata (the organization display
+// name today; logo/color later). Distinct from the Admins-scoped roster profile
+// container so it can be granted read to the reserved Members group without
+// exposing the founder's private roster PII.
+export const ORGANIZATION_METADATA_CONTAINER_NAME = "Organization Metadata";
+
 // The self roster-profile nickname seeded at registration when the caller does
 // not override it. The demo host passes each pane's peer-labeled self name
 // instead (e.g. "Peer 1 (You)").
@@ -25,14 +31,15 @@ function toBase64Url(bytes: Uint8Array): string {
     .replace(/=+$/g, "");
 }
 
-export async function deriveOrganizationRosterProfileContainerSystemSlot(input: {
+async function deriveOrganizationSystemSlot(input: {
+  readonly namespace: string;
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(
       JSON.stringify({
-        namespace: "tearleads.organization-roster-profiles",
+        namespace: input.namespace,
         organizationId: input.organizationId,
         version: 1,
       }),
@@ -42,6 +49,24 @@ export async function deriveOrganizationRosterProfileContainerSystemSlot(input: 
   return `${CONTAINER_SYSTEM_SLOT_PREFIX}${toBase64Url(
     new Uint8Array(digest),
   )}`;
+}
+
+export function deriveOrganizationRosterProfileContainerSystemSlot(input: {
+  readonly organizationId: string;
+}): Promise<ContainerSystemSlot> {
+  return deriveOrganizationSystemSlot({
+    namespace: "tearleads.organization-roster-profiles",
+    organizationId: input.organizationId,
+  });
+}
+
+export function deriveOrganizationMetadataContainerSystemSlot(input: {
+  readonly organizationId: string;
+}): Promise<ContainerSystemSlot> {
+  return deriveOrganizationSystemSlot({
+    namespace: "tearleads.organization-metadata",
+    organizationId: input.organizationId,
+  });
 }
 
 export function getRosterProfileDocumentLocalId(input: {

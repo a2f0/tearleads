@@ -61,6 +61,16 @@ export interface OrganizationProvisioningRequest {
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
   initialRosterProfileDocument?: DocumentCreateRequest | undefined;
+  /**
+   * Dedicated container for org-wide public metadata, born with a read grant to
+   * the reserved Members group so every active roster member can decrypt it.
+   * The organization profile document (holding the display name) is linked here
+   * rather than into the Admins-scoped roster profile container, which also
+   * carries the founder's private roster PII.
+   */
+  initialOrganizationMetadataContainer?:
+    | ContainerCreateWithMetadataDocumentRequest
+    | undefined;
   initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
 }
 
@@ -81,6 +91,9 @@ export function isOrganizationProvisioningRequest(
     : undefined;
   const initialRosterProfileContainer = isPlainObject(value)
     ? Reflect.get(value, "initialRosterProfileContainer")
+    : undefined;
+  const initialOrganizationMetadataContainer = isPlainObject(value)
+    ? Reflect.get(value, "initialOrganizationMetadataContainer")
     : undefined;
 
   return (
@@ -118,6 +131,10 @@ export function isOrganizationProvisioningRequest(
       )) &&
     (initialRosterProfileDocument === undefined ||
       isDocumentCreateRequest(initialRosterProfileDocument)) &&
+    (initialOrganizationMetadataContainer === undefined ||
+      isContainerCreateWithMetadataDocumentRequest(
+        initialOrganizationMetadataContainer,
+      )) &&
     (initialOrganizationProfileDocument === undefined ||
       isDocumentCreateRequest(initialOrganizationProfileDocument))
   );

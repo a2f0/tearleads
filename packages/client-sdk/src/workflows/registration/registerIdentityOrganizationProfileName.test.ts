@@ -51,11 +51,15 @@ const registrationApi = {
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
     initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+    initialOrganizationMetadataContainer?:
+      | ContainerCreateWithMetadataDocumentRequest
+      | undefined,
     initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
   ): Promise<RegistrationResponse> => {
     if (
       !initialRosterProfileContainer ||
       !initialRosterProfileDocument ||
+      !initialOrganizationMetadataContainer ||
       !initialOrganizationProfileDocument
     ) {
       throw new Error("Expected roster/organization profile requests");
@@ -75,6 +79,16 @@ const registrationApi = {
     const rosterProfileDocument = await createResponseFromRequest(
       initialRosterProfileDocument,
     );
+    const organizationMetadataMetadataDocument =
+      await createResponseFromRequest(
+        initialOrganizationMetadataContainer.metadataDocument,
+      );
+    const organizationMetadataContainerResponse =
+      await createMutationResponseFromRequest(
+        initialOrganizationMetadataContainer.container,
+      );
+    organizationMetadataContainerResponse.systemSlot =
+      initialOrganizationMetadataContainer.systemSlot ?? null;
     const organizationProfileDocument = await createResponseFromRequest(
       initialOrganizationProfileDocument,
     );
@@ -94,6 +108,12 @@ const registrationApi = {
       rosterProfileContainerId: rosterProfileContainerResponse.containerId,
       rosterProfileDocument,
       rosterProfileDocumentId: rosterProfileDocument.id,
+      organizationMetadataContainer: {
+        container: organizationMetadataContainerResponse,
+        metadataDocument: organizationMetadataMetadataDocument,
+      },
+      organizationMetadataContainerId:
+        organizationMetadataContainerResponse.containerId,
       organizationProfileDocument,
       organizationProfileDocumentId: organizationProfileDocument.id,
       challenge: "a".repeat(64),
