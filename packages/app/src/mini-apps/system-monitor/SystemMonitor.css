@@ -27,7 +27,7 @@
   min-height: 0;
   min-width: 0;
   overflow: auto;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: var(--scrollbar-gutter);
 }
 
 .system-monitor-feature-flags {

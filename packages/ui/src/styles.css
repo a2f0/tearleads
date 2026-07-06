@@ -85,6 +85,7 @@
      currentColor-based so it tracks the theme. */
   --scrollbar-thumb: color-mix(in srgb, currentColor 32%, transparent);
   --scrollbar-track: transparent;
+  --scrollbar-gutter: auto;
 
   /* === Motion === */
   --transition: 0.18s ease;
@@ -115,24 +116,31 @@
  * Deliberately no `::-webkit-scrollbar` rules: styling those pseudo-elements
  * forces Chromium/Safari off their native overlay scrollbars onto classic
  * (space-consuming) ones everywhere — which would also make the
- * `scrollbar-gutter: stable` below reserve a permanent gutter on all platforms.
+ * gutter variable reserve a permanent lane on all platforms.
  * `scrollbar-width` / `scrollbar-color` give Firefox (the browser with the
  * overlap bug) a thin themed scrollbar while leaving overlay scrollbars intact.
+ * The gutter defaults to auto so Chromium/Safari do not reserve an empty lane
+ * when they render overlay scrollbars.
  */
 :root {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
+@supports (-moz-appearance: none) {
+  :root {
+    --scrollbar-gutter: stable;
+  }
+}
+
 /*
- * NOTE: the other half of this fix — `scrollbar-gutter: stable` — cannot live
+ * NOTE: the other half of this fix — `scrollbar-gutter` — cannot live
  * here because it does not inherit and must sit on the scrolling element
  * itself. Every scroll container in the app pairs its `overflow: [-y:] auto`
- * declaration with `scrollbar-gutter: stable` at the source so a Firefox
- * classic scrollbar reserves its gutter instead of stealing inline space from
- * right-aligned content (the bug where a document's "Edit" button overflowed
- * under the scrollbar in Firefox but not Chromium). The gutter is a no-op for
- * overlay scrollbars, so Chromium is unaffected.
+ * declaration with `scrollbar-gutter: var(--scrollbar-gutter)` at the source.
+ * Firefox resolves the variable to `stable` so classic scrollbars reserve their
+ * lane instead of stealing inline space from right-aligned content; overlay
+ * scrollbar engines keep `auto` so Chrome does not show a permanent gutter.
  */
 
 body {

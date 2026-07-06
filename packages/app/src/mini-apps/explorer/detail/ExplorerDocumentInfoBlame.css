@@ -2,7 +2,7 @@
   margin: 0;
   max-height: 18rem;
   overflow-y: auto;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: var(--scrollbar-gutter);
   /* Preserve the note's own whitespace/newlines so the tinted runs line up with
      the prose as written. */
   white-space: pre-wrap;
