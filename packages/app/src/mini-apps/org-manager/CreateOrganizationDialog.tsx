@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -10,6 +11,7 @@ import {
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
 import { ORG_MANAGER_LABELS } from "./labels";
+import "./CreateOrganizationDialog.css";
 
 export function CreateOrganizationDialog({
   closeCreateOrganizationDialog,
@@ -25,7 +27,12 @@ export function CreateOrganizationDialog({
   isOpen: boolean;
 }) {
   const [organizationNameDraft, setOrganizationNameDraft] = useState("");
+  const [mounted, setMounted] = useState(false);
   const inputId = useId();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -47,8 +54,11 @@ export function CreateOrganizationDialog({
     createOrganization(organizationNameDraft);
   };
 
-  return (
-    <MiniAppModalBackdrop role="presentation">
+  const dialog = (
+    <MiniAppModalBackdrop
+      className="org-manager-create-organization-dialog-backdrop"
+      role="presentation"
+    >
       <MiniAppModalPanel
         role="dialog"
         aria-labelledby="org-manager-new-organization-title"
@@ -94,4 +104,10 @@ export function CreateOrganizationDialog({
       </MiniAppModalPanel>
     </MiniAppModalBackdrop>
   );
+
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(dialog, document.body);
 }

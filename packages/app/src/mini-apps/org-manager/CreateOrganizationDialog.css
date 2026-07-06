@@ -1,0 +1,4 @@
+.org-manager-create-organization-dialog-backdrop {
+  position: fixed;
+  z-index: 2000;
+}
