@@ -18,7 +18,7 @@
   background: var(--color-light);
   --routed-rail-width: clamp(13rem, 22vw, 17rem);
   --routed-drawer-width: min(20rem, 82vw);
-  --routed-touch-target: 2.75rem;
+  --routed-touch-target: 44px;
 }
 
 /* Mobile: app bar on top, menu bar on bottom; rail/sidebar are overlays. */
@@ -287,16 +287,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-xs);
-  min-width: 6rem;
-  min-height: var(--control-height);
-  padding: 0 var(--space-md);
+  width: var(--routed-touch-target);
+  height: var(--routed-touch-target);
+  padding: 0;
   border: var(--border);
   background: transparent;
   color: inherit;
   font: inherit;
   line-height: 1;
   cursor: pointer;
+  --tearleads-logo-primary: #555;
+  --tearleads-logo-secondary: #999;
 }
 
 .routed-pane-mobile-menu-button:hover,
@@ -304,11 +305,18 @@
 .routed-pane-mobile-menu-button[aria-expanded="true"] {
   background: var(--color-dark);
   color: var(--color-light);
+  --tearleads-logo-primary: color-mix(
+    in srgb,
+    var(--color-light) 62%,
+    var(--color-dark)
+  );
+  --tearleads-logo-secondary: var(--color-light);
 }
 
-.routed-pane-mobile-menu-icon {
-  font-size: var(--font-size-lg);
-  line-height: 1;
+.routed-pane-mobile-menu-logo {
+  display: block;
+  width: 28px;
+  height: 28px;
 }
 
 /*

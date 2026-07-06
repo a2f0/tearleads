@@ -1,3 +1,4 @@
+import { TearleadsLogo } from "@tearleads/ui";
 import {
   type ComponentType,
   type ReactNode,
@@ -198,14 +199,12 @@ function RoutedPaneMobileBar({
       <button
         aria-controls="routed-pane-drawer"
         aria-expanded={drawerOpen}
+        aria-label="Menu"
         className="routed-pane-mobile-menu-button"
         type="button"
         onClick={onToggleDrawer}
       >
-        <span aria-hidden="true" className="routed-pane-mobile-menu-icon">
-          ☰
-        </span>
-        <span>Menu</span>
+        <TearleadsLogo className="routed-pane-mobile-menu-logo" />
       </button>
     </footer>
   );
