@@ -63,7 +63,7 @@ function isRoutedLayoutSnapshot(): boolean {
  * mode from the viewport — guarantees JS row-pitch math and CSS row height
  * agree even when the host forces a mode or a dev toggle overrides it.
  */
-export function useRoutedLayoutActive(): boolean {
+function useRoutedLayoutActive(): boolean {
   // isRoutedLayoutSnapshot already returns false when there is no document, so
   // it doubles as the server snapshot the shared helper passes through.
   return useTearleadsExternalValue(

@@ -1,5 +1,4 @@
 import type { Icon } from "@phosphor-icons/react";
-import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
 import type {
   ContainerItemRow,
   ContainerItemSort,
@@ -9,6 +8,7 @@ import type {
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import {
+  MiniAppRowActionsButton,
   MiniAppTableCell,
   type MiniAppTableColumn,
   MiniAppTableText,
@@ -83,9 +83,9 @@ function buildExplorerItemColumn(
   switch (id) {
     case "actions":
       return {
-        className: "explorer-item-actions-column",
+        className: "mini-app-row-actions-column",
         header: (
-          <span className="explorer-item-actions-heading">
+          <span className="mini-app-row-actions-heading">
             {EXPLORER_LABELS.itemActionsColumn}
           </span>
         ),
@@ -253,20 +253,15 @@ function ExplorerItemActionsCell(ctx: ExplorerItemCellContext): ReactNode {
   const name = getExplorerContainerItemName(ctx);
 
   return (
-    <MiniAppTableCell className="explorer-item-actions-cell" key="actions">
-      <button
-        aria-haspopup="menu"
+    <MiniAppTableCell className="mini-app-row-actions-cell" key="actions">
+      <MiniAppRowActionsButton
         aria-label={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${name}`}
-        className="explorer-item-actions-button"
         onClick={(event) => {
           event.stopPropagation();
           ctx.onItemContextMenu(event, row);
         }}
         title={`${EXPLORER_LABELS.itemActionsButtonPrefix} ${name}`}
-        type="button"
-      >
-        <DotsThreeVerticalIcon aria-hidden="true" size={18} />
-      </button>
+      />
     </MiniAppTableCell>
   );
 }

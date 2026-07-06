@@ -1,7 +1,7 @@
-import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
 import type { UserSession } from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent } from "react";
 import {
+  MiniAppRowActionsButton,
   MiniAppTableCell,
   MiniAppTableEmptyRow,
   MiniAppTableRow,
@@ -99,24 +99,16 @@ function renderSessionTableCell(
     case "action": {
       const actionsLabel = getSessionActionsButtonLabel(session);
       return (
-        <MiniAppTableCell
-          className="identity-manager-session-actions-cell"
-          key="action"
-        >
-          <button
+        <MiniAppTableCell className="mini-app-row-actions-cell" key="action">
+          <MiniAppRowActionsButton
             aria-busy={rowIsMutating || undefined}
-            aria-haspopup="menu"
             aria-label={actionsLabel}
-            className="identity-manager-actions-button identity-manager-session-actions-button"
             onClick={(event) => {
               event.stopPropagation();
               openSessionContextMenu(event, session.id);
             }}
             title={actionsLabel}
-            type="button"
-          >
-            <DotsThreeVerticalIcon aria-hidden="true" size={18} />
-          </button>
+          />
         </MiniAppTableCell>
       );
     }

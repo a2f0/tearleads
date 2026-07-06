@@ -9,6 +9,7 @@ export {
   saveMiniAppHiddenColumns,
   useMiniAppColumnVisibility,
 } from "../mini-app/tables/MiniAppColumnVisibility";
+export { MiniAppRowActionsButton } from "../mini-app/tables/MiniAppRowActionsButton";
 export {
   addMiniAppTableHeaderAction,
   MiniAppInfoRow,

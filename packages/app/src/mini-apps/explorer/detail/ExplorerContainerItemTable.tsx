@@ -33,7 +33,6 @@ import {
   getExplorerItemTableColumns,
   renderExplorerItemCell,
 } from "./explorerItemTableColumns";
-import "./ExplorerContainerItemTable.css";
 
 function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
   return row.itemKind === "container"

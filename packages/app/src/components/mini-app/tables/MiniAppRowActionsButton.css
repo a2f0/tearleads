@@ -1,0 +1,92 @@
+/*
+ * Row overflow ("kebab") action button shared by mini-app table rows. See
+ * MiniAppRowActionsButton.tsx. The button lives in a narrow, right-aligned
+ * actions column whose header carries only an sr-only label (plus, optionally,
+ * the column-menu trigger).
+ */
+
+.mini-app-row-actions-column {
+  text-align: right;
+}
+
+.mini-app-row-actions-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* z-index keeps the button clickable above a full-row click overlay. */
+.mini-app-row-actions-cell {
+  position: relative;
+  z-index: 2;
+}
+
+/*
+ * Keep a small, even inset regardless of table density. The doubled cell class
+ * (and the compact-scoped variants) out-specify the compact frame's cell/header
+ * padding rules (`.mini-app-table-frame--compact .mini-app-table-cell` / `th`);
+ * without this the compact 8px inline padding overflows the narrow actions
+ * column and shoves the button flush against the table's right border.
+ */
+.mini-app-table-cell.mini-app-row-actions-cell,
+.mini-app-table-frame--compact .mini-app-table-cell.mini-app-row-actions-cell,
+.mini-app-table th.mini-app-row-actions-column,
+.mini-app-table-frame--compact .mini-app-table th.mini-app-row-actions-column {
+  padding-inline: var(--space-2xs);
+}
+
+.mini-app-row-actions-button {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: var(--border-width) solid transparent;
+  background: transparent;
+  color: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mini-app-row-actions-button:hover,
+.mini-app-row-actions-button:focus-visible {
+  background: var(--color-muted);
+}
+
+.mini-app-row-actions-button:focus-visible {
+  outline: var(--border-width) solid currentColor;
+  outline-offset: var(--border-width);
+}
+
+/* Right-align the button within a table actions cell (the standalone toolbar
+   trigger has no cell wrapper and flows naturally). */
+.mini-app-row-actions-cell .mini-app-row-actions-button {
+  margin-left: auto;
+}
+
+/* Touch: the button grows to the 44px target, with a matching larger inset. */
+:root[data-navigation-mode="routed"] .mini-app-row-actions-button {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"]
+  .mini-app-table-cell.mini-app-row-actions-cell,
+:root[data-navigation-mode="routed"]
+  .mini-app-table-frame--compact
+  .mini-app-table-cell.mini-app-row-actions-cell,
+:root[data-navigation-mode="routed"]
+  .mini-app-table
+  th.mini-app-row-actions-column,
+:root[data-navigation-mode="routed"]
+  .mini-app-table-frame--compact
+  .mini-app-table
+  th.mini-app-row-actions-column {
+  padding-inline: var(--space-xs);
+}

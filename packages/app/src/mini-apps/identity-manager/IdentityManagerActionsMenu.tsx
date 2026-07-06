@@ -1,8 +1,8 @@
-import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
 import { type MouseEvent, useState } from "react";
 import { Menu, type MenuPosition } from "../../components/shared/Menu";
 import { MenuItem } from "../../components/shared/MenuItem";
+import { MiniAppRowActionsButton } from "../../components/shared/MiniAppTable";
 
 /**
  * Overflow menu for the Identity section. Mirrors the kebab menu on the
@@ -43,11 +43,9 @@ export function IdentityManagerActionsMenu({
 
   return (
     <>
-      <button
+      <MiniAppRowActionsButton
         aria-expanded={menuPosition !== null}
-        aria-haspopup="menu"
         aria-label="Identity actions"
-        className="identity-manager-actions-button"
         onClick={toggleMenu}
         // Keep the trigger's mousedown from reaching the Menu's document-level
         // outside-click handler. Without this, re-clicking the trigger closes the
@@ -55,10 +53,7 @@ export function IdentityManagerActionsMenu({
         // could never toggle the menu shut.
         onMouseDown={(event) => event.stopPropagation()}
         title="Identity actions"
-        type="button"
-      >
-        <DotsThreeVerticalIcon aria-hidden="true" size={18} />
-      </button>
+      />
       {menuPosition ? (
         <Menu direction="down" onClose={closeMenu} position={menuPosition}>
           <MenuItem
