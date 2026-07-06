@@ -74,8 +74,11 @@ export async function createOrganization(
       artifacts.rosterProfileBootstrap.containerRequest,
     initialRosterProfileDocument:
       artifacts.rosterProfileBootstrap.profileDocumentRequest,
+    initialOrganizationMetadataContainer:
+      artifacts.organizationMetadataBootstrap.containerRequest,
     initialOrganizationProfileDocument:
-      artifacts.rosterProfileBootstrap.organizationProfileDocument.plan.request,
+      artifacts.organizationMetadataBootstrap.organizationProfileDocument.plan
+        .request,
   };
 
   const response = await input.apiClient.createOrganization(request);
@@ -93,6 +96,7 @@ export async function createOrganization(
     initialMemberGroup: artifacts.initialMemberGroup,
     log: input.log,
     logError: input.logError,
+    organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
     response,
     rootMetadataDocument: artifacts.rootMetadataDocument,
     rosterProfileBootstrap: artifacts.rosterProfileBootstrap,

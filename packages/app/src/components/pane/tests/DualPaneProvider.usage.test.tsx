@@ -253,25 +253,30 @@ test(
 
     // This is the org-manager-plus-system-bootstrap baseline. Usage counts
     // synced document update rows, not every document shell created by
-    // registration. Six documents / seven updates decompose as:
+    // registration. Seven documents / eight updates decompose as:
     //   1. root "/"                     (2 updates: one early bootstrap
     //                                     metadata update, then the root sync)
     //   2. "Roster Profiles" container metadata document          (1 update)
     //   3. current user's roster profile document (display names) (1 update)
-    //   4. Contacts system container metadata document            (1 update)
-    //   5. Trash system container metadata document               (1 update)
-    //   6. self-contact document inside Contacts                  (1 update)
-    // Documents 4-6 are contributed by the post-auth promotion pass: the
-    // built-in Contacts/Trash system containers are created device-first
-    // LOCAL-ONLY, and once the runtime is authenticated they are promoted to
-    // remote sync so a peer granted the root can see them. Promoting Contacts
-    // to remote also re-runs the self-contact bootstrap with the remote
-    // identity, so the self contact leaves local-only and syncs too. The
-    // organization profile document is still created or synced by its own
-    // view, so it is intentionally outside this baseline.
+    //   4. "Organization Metadata" container metadata document    (1 update)
+    //   5. Contacts system container metadata document            (1 update)
+    //   6. Trash system container metadata document               (1 update)
+    //   7. self-contact document inside Contacts                  (1 update)
+    // Document 4 is the org-public metadata container minted at
+    // registration and read-granted to the Members group so any active
+    // roster member can decrypt org-wide public fields; its own metadata
+    // document syncs during bootstrap. Documents 5-7 are contributed by the
+    // post-auth promotion pass: the built-in Contacts/Trash system containers
+    // are created device-first LOCAL-ONLY, and once the runtime is
+    // authenticated they are promoted to remote sync so a peer granted the
+    // root can see them. Promoting Contacts to remote also re-runs the
+    // self-contact bootstrap with the remote identity, so the self contact
+    // leaves local-only and syncs too. The organization profile document
+    // (linked into the org metadata container) is still created or synced by
+    // its own view, so it is intentionally outside this baseline.
     await waitForCondition(
       () => {
-        if (pane.textContent?.includes("6 documents, 7 updates")) {
+        if (pane.textContent?.includes("7 documents, 8 updates")) {
           return true;
         }
 

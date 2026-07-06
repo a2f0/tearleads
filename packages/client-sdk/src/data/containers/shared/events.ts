@@ -139,6 +139,12 @@ export async function signContainerMutationEvent(input: {
 export async function deriveContainerCreateManifest(input: {
   containerId: string;
   containerKeyEpochId: string;
+  // Grants baked into the create manifest. Defaults to none. A child container
+  // born with a managed-principal (group/organization) grant — e.g. the org
+  // public metadata container granted to the Members group — supplies both the
+  // grant and its referenced principal head here so the manifest hash reconciles
+  // with the signed event body and the server can derive the KEK recipient target.
+  directGrants?: ContainerCreateAccessEventBody["directGrants"] | undefined;
   eventHash: string;
   metadataDocumentId: string;
   // The parent container's org (see signContainerCreateEvent). Must match the
@@ -146,6 +152,9 @@ export async function deriveContainerCreateManifest(input: {
   organizationId: string;
   parentContainerId: string | null;
   parentManifestHash: string | null;
+  referencedPrincipalHeads?:
+    | ContainerCreateAccessEventBody["referencedPrincipalHeads"]
+    | undefined;
 }): Promise<Pick<ContainerCreatePlan, "manifest" | "manifestHash" | "state">> {
   const state: ContainerAccessManifestState = {
     version: 1,
@@ -158,8 +167,10 @@ export async function deriveContainerCreateManifest(input: {
     parentManifestHash: input.parentManifestHash,
     metadataDocumentId: input.metadataDocumentId,
     containerKeyEpochId: input.containerKeyEpochId,
-    directGrants: [],
-    referencedPrincipalHeads: [],
+    directGrants: input.directGrants ? [...input.directGrants] : [],
+    referencedPrincipalHeads: input.referencedPrincipalHeads
+      ? [...input.referencedPrincipalHeads]
+      : [],
   };
   const manifest = await deriveContainerAccessManifest(state);
 

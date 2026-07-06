@@ -2,6 +2,7 @@ import {
   type AccessEvent,
   type AccessManifest,
   type ContainerCreateAccessEventBody,
+  type ContainerKekRecipientTarget,
   type ContainerKeyEpoch,
   type ContainerKeyWrap,
   computeContainerKekRecipientTargetHash,
@@ -26,6 +27,7 @@ import { principalPolicyRequestRecord } from "../../../data/containers/shared/pr
 import {
   asContainerManifestBundle,
   getParentCreateContext,
+  wrapContainerKeyToManagedPrincipal,
   wrapContainerKeyToParent,
 } from "../../../data/containers/shared/projection";
 import type {
@@ -132,18 +134,78 @@ async function resolveContainerCreatePlanContext(
   };
 }
 
+function buildChildContainerCreateBody(
+  context: ContainerCreatePlanContext,
+  managedGrant: BuildContainerCreatePlanInput["managedPrincipalGrant"],
+): ContainerCreateAccessEventBody {
+  const baseBody = buildContainerCreateBody({
+    containerKeyEpochId: context.containerKeyEpochId,
+    metadataDocumentId: context.metadataDocumentId,
+    parentContainerId: context.parentProjection.containerId,
+    parentManifestHash: context.parent.manifest.manifestHash,
+  });
+  if (!managedGrant) {
+    return baseBody;
+  }
+  return {
+    ...baseBody,
+    directGrants: [
+      {
+        accessLevel: managedGrant.accessLevel,
+        subjectId: managedGrant.principalHead.principalId,
+        subjectType: managedGrant.principalHead.principalType,
+      },
+    ],
+    referencedPrincipalHeads: [managedGrant.principalHead],
+  };
+}
+
+// A managed-principal grant adds a second recipient: the group/organization key
+// wrap alongside the parent-inheritance wrap. The server derives both targets
+// (parent inheritance + directGrant) and requires exactly one wrap each; target
+// order is irrelevant since the key-target hash is normalized.
+async function buildChildContainerWrapsAndTargets(input: {
+  context: ContainerCreatePlanContext;
+  managedGrant: BuildContainerCreatePlanInput["managedPrincipalGrant"];
+  manifestHash: string;
+}): Promise<{
+  recipientTargets: ContainerKekRecipientTarget[];
+  wraps: ContainerKeyWrap[];
+}> {
+  const { context, managedGrant, manifestHash } = input;
+  const parentWrap = await wrapContainerKeyToParent({
+    containerKey: context.containerKey,
+    containerKeyEpochId: context.containerKeyEpochId,
+    manifestHash,
+    parentKek: context.parent.kek,
+    parentKekMaterial: context.parentKekMaterial,
+  });
+  const parentTargets = buildParentRecipientTargets(context.parent.kek);
+  if (!managedGrant) {
+    return { recipientTargets: parentTargets, wraps: [parentWrap] };
+  }
+  const managedRecipient = await wrapContainerKeyToManagedPrincipal({
+    containerKey: context.containerKey,
+    containerKeyEpochId: context.containerKeyEpochId,
+    manifestHash,
+    principalEncapsulationPublicKey:
+      managedGrant.principalEncapsulationPublicKey,
+    principalHead: managedGrant.principalHead,
+  });
+  return {
+    recipientTargets: [...parentTargets, managedRecipient.recipientTarget],
+    wraps: [parentWrap, managedRecipient.wrap],
+  };
+}
+
 export async function buildContainerCreatePlan(
   input: BuildContainerCreatePlanInput,
 ): Promise<ContainerCreatePlan> {
   const context = await resolveContainerCreatePlanContext(input);
   const parentContainerId = context.parentProjection.containerId;
   const parentManifestHash = context.parent.manifest.manifestHash;
-  const body = buildContainerCreateBody({
-    containerKeyEpochId: context.containerKeyEpochId,
-    metadataDocumentId: context.metadataDocumentId,
-    parentContainerId,
-    parentManifestHash,
-  });
+  const managedGrant = input.managedPrincipalGrant;
+  const body = buildChildContainerCreateBody(context, managedGrant);
   // The new container belongs to the parent's organization, not the author's.
   // A member writing under another org's shared root mints a container owned by
   // that org; the author only supplies the signer identity.
@@ -161,11 +223,13 @@ export async function buildContainerCreatePlan(
     {
       containerId: context.containerId,
       containerKeyEpochId: context.containerKeyEpochId,
+      directGrants: body.directGrants,
       eventHash,
       metadataDocumentId: context.metadataDocumentId,
       organizationId,
       parentContainerId,
       parentManifestHash,
+      referencedPrincipalHeads: body.referencedPrincipalHeads,
     },
   );
   const keyEpoch = buildContainerCreateKeyEpoch({
@@ -175,19 +239,14 @@ export async function buildContainerCreatePlan(
     manifestHash,
     parentContainerKeyEpochId: context.parent.kek.containerKeyEpochId,
   });
-  const recipientTargets = buildParentRecipientTargets(context.parent.kek);
+  const { recipientTargets, wraps } = await buildChildContainerWrapsAndTargets({
+    context,
+    managedGrant,
+    manifestHash,
+  });
   const keyTargetHash =
     await computeContainerKekRecipientTargetHash(recipientTargets);
   const keyEpochHash = await computeContainerKeyEpochHash(keyEpoch);
-  const wraps = [
-    await wrapContainerKeyToParent({
-      containerKey: context.containerKey,
-      containerKeyEpochId: context.containerKeyEpochId,
-      manifestHash,
-      parentKek: context.parent.kek,
-      parentKekMaterial: context.parentKekMaterial,
-    }),
-  ];
   return {
     body,
     containerId: context.containerId,

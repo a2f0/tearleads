@@ -41,6 +41,7 @@ interface CapturedRegistrationRequest {
   initialRootMetadataDocument: DocumentCreateRequest;
   initialRosterProfileContainer: ContainerCreateWithMetadataDocumentRequest;
   initialRosterProfileDocument: DocumentCreateRequest;
+  initialOrganizationMetadataContainer: ContainerCreateWithMetadataDocumentRequest;
   initialOrganizationProfileDocument: DocumentCreateRequest;
 }
 
@@ -131,6 +132,9 @@ test("registerIdentity submits the registration request and persists the local b
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
       initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+      initialOrganizationMetadataContainer?:
+        | ContainerCreateWithMetadataDocumentRequest
+        | undefined,
       initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
     ): Promise<RegistrationResponse> => {
       if (!initialRosterProfileContainer) {
@@ -138,6 +142,11 @@ test("registerIdentity submits the registration request and persists the local b
       }
       if (!initialRosterProfileDocument) {
         throw new Error("Expected initial roster profile document request");
+      }
+      if (!initialOrganizationMetadataContainer) {
+        throw new Error(
+          "Expected initial organization metadata container request",
+        );
       }
       if (!initialOrganizationProfileDocument) {
         throw new Error(
@@ -157,6 +166,7 @@ test("registerIdentity submits the registration request and persists the local b
         initialRootMetadataDocument,
         initialRosterProfileContainer,
         initialRosterProfileDocument,
+        initialOrganizationMetadataContainer,
         initialOrganizationProfileDocument,
       };
       const rootMetadataDocument = await createResponseFromRequest(
@@ -174,6 +184,16 @@ test("registerIdentity submits the registration request and persists the local b
       const rosterProfileDocument = await createResponseFromRequest(
         initialRosterProfileDocument,
       );
+      const organizationMetadataMetadataDocument =
+        await createResponseFromRequest(
+          initialOrganizationMetadataContainer.metadataDocument,
+        );
+      const organizationMetadataContainerResponse =
+        await createMutationResponseFromRequest(
+          initialOrganizationMetadataContainer.container,
+        );
+      organizationMetadataContainerResponse.systemSlot =
+        initialOrganizationMetadataContainer.systemSlot ?? null;
       const organizationProfileDocument = await createResponseFromRequest(
         initialOrganizationProfileDocument,
       );
@@ -194,6 +214,12 @@ test("registerIdentity submits the registration request and persists the local b
         rosterProfileContainerId: rosterProfileContainerResponse.containerId,
         rosterProfileDocument,
         rosterProfileDocumentId: rosterProfileDocument.id,
+        organizationMetadataContainer: {
+          container: organizationMetadataContainerResponse,
+          metadataDocument: organizationMetadataMetadataDocument,
+        },
+        organizationMetadataContainerId:
+          organizationMetadataContainerResponse.containerId,
         organizationProfileDocument,
         organizationProfileDocumentId: organizationProfileDocument.id,
         challenge: "a".repeat(64),
@@ -263,9 +289,17 @@ test("registerIdentity submits the registration request and persists the local b
       ),
     ).toBe(
       Reflect.get(
-        request.initialRosterProfileContainer.container.event,
+        request.initialOrganizationMetadataContainer.container.event,
         "objectId",
       ),
+    );
+    expect(request.initialOrganizationMetadataContainer.systemSlot).toMatch(
+      /^sys_v1_[A-Za-z0-9_-]{43}$/,
+    );
+    // The org metadata container is distinct from the roster profile container,
+    // so the founder's private roster PII is not co-located with the org name.
+    expect(request.initialOrganizationMetadataContainer.systemSlot).not.toBe(
+      request.initialRosterProfileContainer.systemSlot,
     );
     expect(
       Reflect.get(request.initialOrganizationProfileDocument.event, "objectId"),
@@ -302,12 +336,15 @@ test("registerIdentity submits the registration request and persists the local b
 
     const containers =
       await sqlContainerContentsPersistence.loadContainers(execSql);
-    expect(containers).toHaveLength(2);
+    expect(containers).toHaveLength(3);
     const rootContainerState = containers.find(
       ({ container }) => container.id === containerId,
     );
     const rosterProfileContainerState = containers.find(
-      ({ container }) => container.id !== containerId,
+      ({ container }) => container.name === "Roster Profiles",
+    );
+    const organizationMetadataContainerState = containers.find(
+      ({ container }) => container.name === "Organization Metadata",
     );
     expect(rootContainerState?.container).toEqual(
       expect.objectContaining({
@@ -335,6 +372,16 @@ test("registerIdentity submits the registration request and persists the local b
         systemSlot: request.initialRosterProfileContainer.systemSlot,
       }),
     );
+    expect(organizationMetadataContainerState?.container).toEqual(
+      expect.objectContaining({
+        metadataDocumentId:
+          response?.organizationMetadataContainer?.metadataDocument.id,
+        name: "Organization Metadata",
+        organizationId: request.organizationId,
+        parentId: containerId,
+        systemSlot: request.initialOrganizationMetadataContainer.systemSlot,
+      }),
+    );
     const organizationProfileDocument =
       await sqlDocumentsPersistence.loadDocument(
         execSql,
@@ -342,7 +389,7 @@ test("registerIdentity submits the registration request and persists the local b
       );
     expect(organizationProfileDocument).toEqual(
       expect.objectContaining({
-        containerId: rosterProfileContainerState?.container.id,
+        containerId: organizationMetadataContainerState?.container.id,
         documentId: response?.organizationProfileDocumentId,
         documentKind: "organization_profile",
       }),
@@ -425,6 +472,9 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
         | ContainerCreateWithMetadataDocumentRequest
         | undefined,
       _initialRosterProfileDocument?: DocumentCreateRequest | undefined,
+      _initialOrganizationMetadataContainer?:
+        | ContainerCreateWithMetadataDocumentRequest
+        | undefined,
       _initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
     ): Promise<RegistrationResponse> => {
       registrationSubmitted = true;

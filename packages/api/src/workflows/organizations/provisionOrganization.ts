@@ -18,6 +18,7 @@ import {
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
 import type {
+  ContainerCreateWithMetadataDocumentRequest,
   DocumentCreateRequest,
   OrganizationProvisioningRequest,
 } from "@tearleads/validators/request";
@@ -879,46 +880,36 @@ async function createInitialRootMetadataDocument(
   return created;
 }
 
-async function createInitialRosterProfileContainer(
+async function createProvisionedSystemContainer(
   tx: DatabaseTransaction,
-  input: OrganizationProvisioningRequest,
-  fingerprint: string,
-): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
-  if (!input.initialRosterProfileContainer) {
-    return null;
-  }
-  if (
-    !input.initialRosterProfileDocument &&
-    !input.initialOrganizationProfileDocument
-  ) {
-    throw new OrganizationProvisioningError(
-      "Initial roster profile container requires a profile document",
-      400,
-    );
-  }
-
+  input: {
+    fingerprint: string;
+    request: ContainerCreateWithMetadataDocumentRequest;
+    userId: string;
+  },
+): Promise<ContainerCreateWithMetadataDocumentResponse> {
   const container = await createContainer({
     executor: tx,
-    fingerprint,
-    request: input.initialRosterProfileContainer.container,
+    fingerprint: input.fingerprint,
+    request: input.request.container,
     userId: input.userId,
   });
   const metadataDocumentId = readContainerMetadataDocumentId(container);
 
   const metadataDocument = await createDocumentWithExecutor({
     executor: tx,
-    fingerprint,
-    request: input.initialRosterProfileContainer.metadataDocument,
+    fingerprint: input.fingerprint,
+    request: input.request.metadataDocument,
     userId: input.userId,
   });
   if (metadataDocument.id !== metadataDocumentId) {
     throw new OrganizationProvisioningError(
-      "Initial roster profile container metadata document mismatch",
+      "Provisioned system container metadata document mismatch",
       400,
     );
   }
 
-  const systemSlot = input.initialRosterProfileContainer.systemSlot ?? null;
+  const systemSlot = input.request.systemSlot ?? null;
   const nextContainer = systemSlot
     ? await applyContainerSystemSlot(tx, {
         container,
@@ -927,6 +918,50 @@ async function createInitialRosterProfileContainer(
     : container;
 
   return { container: nextContainer, metadataDocument };
+}
+
+async function createInitialRosterProfileContainer(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  fingerprint: string,
+): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
+  if (!input.initialRosterProfileContainer) {
+    return null;
+  }
+  if (!input.initialRosterProfileDocument) {
+    throw new OrganizationProvisioningError(
+      "Initial roster profile container requires a roster profile document",
+      400,
+    );
+  }
+
+  return createProvisionedSystemContainer(tx, {
+    fingerprint,
+    request: input.initialRosterProfileContainer,
+    userId: input.userId,
+  });
+}
+
+async function createInitialOrganizationMetadataContainer(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  fingerprint: string,
+): Promise<ContainerCreateWithMetadataDocumentResponse | null> {
+  if (!input.initialOrganizationMetadataContainer) {
+    return null;
+  }
+  if (!input.initialOrganizationProfileDocument) {
+    throw new OrganizationProvisioningError(
+      "Initial organization metadata container requires an organization profile document",
+      400,
+    );
+  }
+
+  return createProvisionedSystemContainer(tx, {
+    fingerprint,
+    request: input.initialOrganizationMetadataContainer,
+    userId: input.userId,
+  });
 }
 
 function readDocumentLinkedContainerIds(
@@ -1068,7 +1103,7 @@ async function createInitialOrganizationProfileDocument(
     linkedContainerIds[0] !== profileContainer.containerId
   ) {
     throw new OrganizationProvisioningError(
-      "Initial organization profile document does not match roster profile container",
+      "Initial organization profile document does not match organization metadata container",
       400,
     );
   }
@@ -1122,6 +1157,9 @@ export interface ProvisionedOrganization {
   >;
   rosterProfileDocument: Awaited<
     ReturnType<typeof createInitialRosterProfileDocument>
+  >;
+  organizationMetadataContainer: Awaited<
+    ReturnType<typeof createInitialOrganizationMetadataContainer>
   >;
   organizationProfileDocument: Awaited<
     ReturnType<typeof createInitialOrganizationProfileDocument>
@@ -1217,12 +1255,18 @@ export async function provisionOrganizationInTransaction(
     signer.fingerprint,
     rosterProfileContainer?.container ?? null,
   );
+  const organizationMetadataContainer =
+    await createInitialOrganizationMetadataContainer(
+      tx,
+      input,
+      signer.fingerprint,
+    );
   const organizationProfileDocument =
     await createInitialOrganizationProfileDocument(
       tx,
       input,
       signer.fingerprint,
-      rosterProfileContainer?.container ?? null,
+      organizationMetadataContainer?.container ?? null,
     );
 
   return {
@@ -1234,6 +1278,7 @@ export async function provisionOrganizationInTransaction(
     rootMetadataDocument,
     rosterProfileContainer,
     rosterProfileDocument,
+    organizationMetadataContainer,
     organizationProfileDocument,
   };
 }
@@ -1298,6 +1343,14 @@ export function toOrganizationProvisioningResponse(
       ? {
           rosterProfileDocument: provisioned.rosterProfileDocument,
           rosterProfileDocumentId: provisioned.rosterProfileDocument.id,
+        }
+      : {}),
+    ...(provisioned.organizationMetadataContainer
+      ? {
+          organizationMetadataContainer:
+            provisioned.organizationMetadataContainer,
+          organizationMetadataContainerId:
+            provisioned.organizationMetadataContainer.container.containerId,
         }
       : {}),
     ...(provisioned.organizationProfileDocument
