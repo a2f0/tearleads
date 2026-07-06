@@ -44,6 +44,54 @@ function readOptionalProjectionString(
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+async function resolveCurrentGroupKeyEpoch(input: {
+  groupId: string;
+  runtime: ContainerWorkflowRuntime;
+}): Promise<number | null> {
+  try {
+    const bundle = await input.runtime.apiClient.getCurrentPrincipalPolicy?.(
+      "group",
+      input.groupId,
+    );
+    return bundle?.currentState?.keyEpoch ?? null;
+  } catch (error) {
+    // Best-effort: if the current head cannot be resolved we fall back to the
+    // idempotent (skip) path rather than turning a redundant re-share into a
+    // hard failure. A genuinely stale grant is retried on the next share pass.
+    input.runtime.util.log(
+      `Container contents: could not resolve current key epoch for group ${input.groupId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
+// A container's KEK is wrapped to a group's encapsulation key at a specific key
+// epoch, pinned into the manifest as a referenced principal head. When the group
+// rotates (org-admin add or any removal bumps the epoch and mints a fresh KEM
+// keypair), that wrap goes stale: members holding only the new epoch secret can
+// no longer unwrap it. A re-share to the same group at the same access level is
+// therefore NOT redundant when the pinned epoch trails the group's current head,
+// so it must not be deduped away. A null currentKeyEpoch means we could not
+// resolve the head, so we preserve the idempotent (skip) behavior rather than
+// churn out a re-wrap we cannot justify.
+function groupGrantIsStale(input: {
+  currentKeyEpoch: number | null;
+  referencedPrincipalHeads: ReadonlyArray<ReferencedPrincipalStateResponse>;
+  subjectId: string;
+}): boolean {
+  if (input.currentKeyEpoch === null) {
+    return false;
+  }
+  const pinnedHead = (input.referencedPrincipalHeads ?? []).find(
+    (head) =>
+      head.principalType === "group" && head.principalId === input.subjectId,
+  );
+  if (!pinnedHead) {
+    return true;
+  }
+  return pinnedHead.keyEpoch !== input.currentKeyEpoch;
+}
+
 async function loadRemoteContainerShareContext(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
@@ -68,6 +116,23 @@ async function loadRemoteContainerShareContext(input: {
       grant.accessLevel === input.accessLevel,
   );
   if (!hasMatchingGrant) {
+    return { matchingGrant: null, projection };
+  }
+
+  if (
+    input.subjectType === "group" &&
+    groupGrantIsStale({
+      currentKeyEpoch: await resolveCurrentGroupKeyEpoch({
+        groupId: input.subjectId,
+        runtime: input.runtime,
+      }),
+      referencedPrincipalHeads: remoteState.referencedPrincipalHeads,
+      subjectId: input.subjectId,
+    })
+  ) {
+    input.runtime.util.log(
+      `Container contents: re-sharing container ${input.containerState.container.id} with group ${input.subjectId} because its key epoch advanced past the pinned grant`,
+    );
     return { matchingGrant: null, projection };
   }
 
