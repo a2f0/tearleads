@@ -8,19 +8,18 @@ import {
 } from "@tearleads/crypto";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
-import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAttachmentBindingInTransaction } from "../../../access/write/attachmentBindingStore";
 import {
   storeBlobContentKeyBundleInTransaction,
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
 import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
-import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { loadSignerPublicKey } from "../../documents/mutations";
 import { touchDocumentAndLinkedContainers } from "../../documents/mutations/shared/documentRows";
 import {
   type AttachmentAuthorizationProof,
   applyAttachmentContainerRekeys,
+  assertAttachmentOrganizationCanSync,
   readBindRequestSession,
   verifyAttachmentAuthorizationProof,
 } from "./authorization";
@@ -156,6 +155,7 @@ async function bindBlobAttachmentTransaction(
     executor: tx,
     request: input.request,
   });
+  await assertAttachmentOrganizationCanSync(tx, proof);
   await lockBindAuthorizingContainersForShare(proof, tx);
   const activeBinding = await requireSingleActiveAttachmentBindingForSlot({
     documentId: bindBody.documentId,
@@ -246,11 +246,6 @@ export async function runBindBlobAttachmentWorkflow(
         },
         tx,
       );
-      const { organizationId } = await resolveCurrentDocumentKekTargets(
-        result.documentId,
-        tx,
-      );
-      await assertOrganizationCanSync(tx, organizationId);
       return result;
     });
   } catch (error) {

@@ -26,6 +26,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { DocumentPurgeResponse } from "@tearleads/validators/response";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import {
   ContainerWriterProjectionError,
   resolveContainerAccessProjection,
@@ -109,14 +110,19 @@ async function authorizePurge(input: {
   readonly containerId: string;
   readonly executor: DatabaseTransaction;
   readonly userId: string;
-}): Promise<void> {
+}): Promise<string> {
   try {
-    await resolveContainerAccessProjection({
+    const access = await resolveContainerAccessProjection({
       containerId: input.containerId,
       executor: input.executor,
       minimumAccessLevel: "write",
       userId: input.userId,
     });
+    const targetManifest = access.verifiedPath.at(-1);
+    if (!targetManifest) {
+      throw new DocumentMutationError("Container not found", 404);
+    }
+    return targetManifest.state.organizationId;
   } catch (error) {
     if (error instanceof ContainerWriterProjectionError) {
       throw toDocumentMutationError(error);
@@ -411,11 +417,12 @@ async function purgeDocumentWithExecutor(input: {
     documentId: input.documentId,
     executor: input.executor,
   });
-  await authorizePurge({
+  const organizationId = await authorizePurge({
     containerId,
     executor: input.executor,
     userId: input.userId,
   });
+  await assertOrganizationCanSync(input.executor, organizationId);
 
   const orphanedBlobIds = await resolveOrphanedBlobIds({
     documentId: input.documentId,

@@ -5,7 +5,7 @@ import type {
 import { organizations } from "@tearleads/api-shared/schema";
 import type { OrganizationDirectoryResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { assertOrganizationCanSync } from "../billing/organizationBilling";
+import { resolveOrganizationSyncEligibility } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 import { OrganizationManagerError } from "./errors";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
@@ -59,20 +59,25 @@ export async function runListOrganizationDirectoryWorkflow(
       organizationId,
       userId: sessionUserId,
     });
-    await assertOrganizationCanSync(tx, organizationId);
     const organization = await loadMemberGroupId({
       executor: tx,
       organizationId,
     });
-    const memberUserIds = await listUsersReachableFromCurrentGroup({
-      executor: tx,
-      groupId: organization.memberGroupId,
-    });
-    await upsertActiveOrganizationRosterEntries({
-      executor: tx,
+    const { canSync } = await resolveOrganizationSyncEligibility(
+      tx,
       organizationId,
-      userIds: [...memberUserIds],
-    });
+    );
+    if (canSync) {
+      const memberUserIds = await listUsersReachableFromCurrentGroup({
+        executor: tx,
+        groupId: organization.memberGroupId,
+      });
+      await upsertActiveOrganizationRosterEntries({
+        executor: tx,
+        organizationId,
+        userIds: [...memberUserIds],
+      });
+    }
     const rosterEntries = await listOrganizationRosterEntries({
       executor: tx,
       organizationId,
