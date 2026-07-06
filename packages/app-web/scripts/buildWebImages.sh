@@ -36,11 +36,9 @@ fi
 # routed app bar sizing while leaving enough padding for touch interaction.
 MENU_ICON_SIZE=44
 MENU_LOGO_SIZE=28
-SVG_VIEWBOX=33
-MENU_LOGO_DENSITY=$((MENU_LOGO_SIZE * 72 / SVG_VIEWBOX))
 MENU_ICON_OUTPUT="$OUTPUT_DIR/tearleads-menu-icon-44.png"
 
-$MAGICK_CMD -background none -density "$MENU_LOGO_DENSITY" "$SVG_SOURCE" \
+$MAGICK_CMD -background none -density 288 "$SVG_SOURCE" \
   -resize "${MENU_LOGO_SIZE}x${MENU_LOGO_SIZE}" \
   -background none -gravity center -extent "${MENU_ICON_SIZE}x${MENU_ICON_SIZE}" \
   -depth 8 -colorspace sRGB -type TrueColorAlpha \

@@ -287,9 +287,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: var(--routed-touch-target);
-  min-inline-size: var(--routed-touch-target);
-  min-height: var(--routed-touch-target);
+  width: var(--routed-touch-target);
+  height: var(--routed-touch-target);
   padding: 0;
   border: var(--border);
   background: transparent;
@@ -316,8 +315,8 @@
 
 .routed-pane-mobile-menu-logo {
   display: block;
-  inline-size: 28px;
-  block-size: 28px;
+  width: 28px;
+  height: 28px;
 }
 
 /*
