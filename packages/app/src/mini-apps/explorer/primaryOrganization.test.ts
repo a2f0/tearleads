@@ -1,0 +1,50 @@
+import { expect, test } from "bun:test";
+import type { ContainerNode } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { resolveExplorerPrimaryOrganizationId } from "./primaryOrganization";
+
+function containerNode(input: {
+  id: string;
+  organizationId: string;
+  parentId: string | null;
+}): ContainerNode {
+  return {
+    id: input.id,
+    kind: "container",
+    name: input.id,
+    organizationId: input.organizationId,
+    parentId: input.parentId,
+    syncState: syncedContainerDocumentObjectSyncState,
+  };
+}
+
+test("explorer primary organization follows the personal root container", () => {
+  expect(
+    resolveExplorerPrimaryOrganizationId({
+      currentOrganizationId: "org-work",
+      nodes: [
+        containerNode({
+          id: "personal-root",
+          organizationId: "org-personal",
+          parentId: null,
+        }),
+        containerNode({
+          id: "work-root",
+          organizationId: "org-work",
+          parentId: null,
+        }),
+      ],
+      personalRootContainerId: "personal-root",
+    }),
+  ).toBe("org-personal");
+});
+
+test("explorer primary organization falls back to the active organization before personal root hydration", () => {
+  expect(
+    resolveExplorerPrimaryOrganizationId({
+      currentOrganizationId: "org-work",
+      nodes: [],
+      personalRootContainerId: "personal-root",
+    }),
+  ).toBe("org-work");
+});

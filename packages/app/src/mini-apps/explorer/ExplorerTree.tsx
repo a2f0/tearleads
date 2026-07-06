@@ -117,7 +117,6 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
 interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
-  currentOrganizationId: string | null;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   // Surfaces a failed SQLite boot (with Retry) in the sidebar tree's gate.
@@ -136,6 +135,7 @@ interface ExplorerSidebarPanelParams {
     containerId: string,
   ) => void;
   nodes: ReadonlyArray<ContainerNode>;
+  primaryOrganizationId: string | null;
   ready: boolean;
   selectedId: string | null;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
@@ -155,18 +155,18 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
     totalRows: totalSidebarRows,
   } = useExplorerSidebarVisibleRows({
     collapsedIds: props.collapsedIds,
-    currentOrganizationId: props.currentOrganizationId,
     documentWindowsByContainerId,
+    primaryOrganizationId: props.primaryOrganizationId,
     treeEntries: props.treeEntries,
   });
   const blankContextMenuContainerId = useMemo(() => {
     const ownedRoot = props.treeEntries.find(
       (entry) =>
-        props.currentOrganizationId === null ||
-        entry.node.organizationId === props.currentOrganizationId,
+        props.primaryOrganizationId === null ||
+        entry.node.organizationId === props.primaryOrganizationId,
     );
     return ownedRoot?.node.id ?? props.treeEntries[0]?.node.id ?? null;
-  }, [props.currentOrganizationId, props.treeEntries]);
+  }, [props.primaryOrganizationId, props.treeEntries]);
   const retryDocumentWindow = useExplorerSidebarDocumentWindowLoader({
     documentWindowsByContainerId,
     ready: props.ready,
@@ -207,7 +207,6 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
     [
       params.activeContainerId,
       params.collapsedIds,
-      params.currentOrganizationId,
       params.currentSigningFingerprint,
       params.currentUserId,
       params.databaseError,
@@ -218,6 +217,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.handleSidebarDocumentContextMenu,
       params.nodes,
       params.onRetryDatabase,
+      params.primaryOrganizationId,
       params.ready,
       params.selectedId,
       params.selectDocumentProjection,

@@ -151,7 +151,6 @@ function ExplorerSidebarHarness(params: {
   useExplorerSidebarPanel({
     activeContainerId: "root-container",
     collapsedIds,
-    currentOrganizationId: "org-1",
     currentSigningFingerprint: null,
     currentUserId: null,
     databaseError: false,
@@ -163,6 +162,7 @@ function ExplorerSidebarHarness(params: {
     handleSidebarDocumentContextMenu,
     nodes,
     ready: true,
+    primaryOrganizationId: "org-1",
     selectedId,
     selectDocumentProjection,
     setSelectedId,

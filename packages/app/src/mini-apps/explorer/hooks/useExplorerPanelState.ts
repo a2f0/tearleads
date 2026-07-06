@@ -39,6 +39,7 @@ import {
   getExplorerDroppedFileImportFailureLog,
   getExplorerDroppedFileTooLargeError,
 } from "../labels";
+import { resolveExplorerPrimaryOrganizationId } from "../primaryOrganization";
 import type { MoveTargetOption } from "../targetOptions";
 import type {
   ExplorerDocumentMutationAction,
@@ -179,6 +180,11 @@ export function useExplorerPanelState(params: {
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,
   });
+  const primaryOrganizationId = resolveExplorerPrimaryOrganizationId({
+    currentOrganizationId: appData.auth.organizationId,
+    nodes: explorer.nodes,
+    personalRootContainerId: appData.state.containerId,
+  });
   const selectedNoteStructuralState = useSelectedDocumentStructuralState({
     appData: explorerDocumentLinks,
     expandNode: selection.expandNode,
@@ -214,7 +220,6 @@ export function useExplorerPanelState(params: {
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
-    currentOrganizationId: appData.auth.organizationId,
     currentSigningFingerprint: appData.crypto.signingFingerprint,
     currentUserId: appData.auth.userId,
     // Derived from the same worker status as Explorer's detail gate so both show
@@ -228,6 +233,7 @@ export function useExplorerPanelState(params: {
     handleSidebarContextMenu: contextMenuState.handleSidebarContextMenu,
     nodes: explorer.nodes,
     onRetryDatabase,
+    primaryOrganizationId,
     ready: explorer.ready,
     selectedId: selection.selectedId,
     selectDocumentProjection,
