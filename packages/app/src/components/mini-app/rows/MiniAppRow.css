@@ -89,3 +89,12 @@
   font-size: var(--font-size-sm);
   opacity: var(--opacity-muted);
 }
+
+/*
+ * Touch (routed layout): interactive rows get a 44px hit target. Virtualized
+ * lists set their slot to the same touch height (useTouchRowHeight), so the row
+ * fills it rather than overflowing.
+ */
+:root[data-navigation-mode="routed"] .mini-app-row--button {
+  min-height: var(--control-height);
+}

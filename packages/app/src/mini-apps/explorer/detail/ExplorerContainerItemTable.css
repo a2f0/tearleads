@@ -43,3 +43,10 @@
   outline: var(--border-width) solid currentColor;
   outline-offset: var(--border-width);
 }
+
+/* Touch: the per-row overflow kebab grows to a 44px square within its
+   44px-tall (compact) row. */
+:root[data-navigation-mode="routed"] .explorer-item-actions-button {
+  width: var(--control-height);
+  height: var(--control-height);
+}
