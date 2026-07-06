@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type ReactNode,
   type RefObject,
   useCallback,
   useEffect,
@@ -8,18 +9,27 @@ import {
   useRef,
   useState,
 } from "react";
-import type { MoveTargetOption } from "../targetOptions";
 
-export interface ExplorerTargetSelectProps {
-  ariaLabel: string;
+export interface MiniAppSelectMenuOption {
+  icon?: ReactNode;
+  id: string;
+  label: string;
+}
+
+export interface MiniAppSelectMenuControllerParams {
   disabled: boolean;
+  /**
+   * Whether the menu has a footer action. When true, the trigger stays openable
+   * even with no options so the footer (e.g. a "New…" action) stays reachable.
+   */
+  hasFooter: boolean;
   onChange: (value: string) => void;
-  options: ReadonlyArray<MoveTargetOption>;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
   selectRef: RefObject<HTMLButtonElement | null>;
   value: string;
 }
 
-export interface ExplorerTargetSelectController {
+export interface MiniAppSelectMenuController {
   activeDescendant: string | undefined;
   close: () => void;
   highlightedId: string;
@@ -28,23 +38,23 @@ export interface ExplorerTargetSelectController {
   open: boolean;
   openList: () => void;
   rootRef: RefObject<HTMLDivElement | null>;
-  selectOption: (option: MoveTargetOption) => void;
-  selectedOption: MoveTargetOption | undefined;
+  selectOption: (option: MiniAppSelectMenuOption) => void;
+  selectedOption: MiniAppSelectMenuOption | undefined;
   setHighlightedId: (value: string) => void;
 }
 
-interface ExplorerTargetSelectKeyControls {
+interface MiniAppSelectMenuKeyControls {
   close: () => void;
   commitSelection: () => void;
   highlightEdge: (edge: "end" | "start") => void;
   moveHighlight: (direction: -1 | 1) => void;
   open: boolean;
   openList: () => void;
-  options: ReadonlyArray<MoveTargetOption>;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
 }
 
 function getOptionIndex(
-  options: ReadonlyArray<MoveTargetOption>,
+  options: ReadonlyArray<MiniAppSelectMenuOption>,
   optionId: string,
 ): number {
   return options.findIndex((option) => option.id === optionId);
@@ -53,7 +63,7 @@ function getOptionIndex(
 function getNextOptionIndex(params: {
   currentId: string;
   direction: -1 | 1;
-  options: ReadonlyArray<MoveTargetOption>;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
 }) {
   const { currentId, direction, options } = params;
   if (options.length === 0) {
@@ -80,9 +90,9 @@ function runKeyboardAction(
   action();
 }
 
-function handleTargetSelectKeyDown(
+function handleSelectMenuKeyDown(
   event: KeyboardEvent<HTMLButtonElement>,
-  controls: ExplorerTargetSelectKeyControls,
+  controls: MiniAppSelectMenuKeyControls,
 ) {
   if (event.key === "ArrowDown") {
     runKeyboardAction(event, () => controls.moveHighlight(1));
@@ -117,12 +127,11 @@ function handleTargetSelectKeyDown(
 
   if (event.key === "Escape" && controls.open) {
     runKeyboardAction(event, controls.close);
-    return;
   }
 
-  if (event.key === "Tab") {
-    controls.close();
-  }
+  // Tab is intentionally left to its default behaviour: it moves focus to the
+  // next control (e.g. a footer action inside the open menu). The menu closes
+  // via the root's focus-out handler once focus leaves the control entirely.
 }
 
 function useCloseOnOutsideMouseDown(params: {
@@ -148,9 +157,31 @@ function useCloseOnOutsideMouseDown(params: {
   }, [close, open, rootRef]);
 }
 
-function useExplorerTargetSelectKeyboard(
-  controls: ExplorerTargetSelectKeyControls,
-) {
+function useCloseOnFocusOut(params: {
+  close: () => void;
+  open: boolean;
+  rootRef: RefObject<HTMLDivElement | null>;
+}) {
+  const { close, open, rootRef } = params;
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!open || !root) {
+      return;
+    }
+
+    function handleFocusOut(event: FocusEvent) {
+      const next = event.relatedTarget;
+      if (!(next instanceof Node) || !root?.contains(next)) {
+        close();
+      }
+    }
+
+    root.addEventListener("focusout", handleFocusOut);
+    return () => root.removeEventListener("focusout", handleFocusOut);
+  }, [close, open, rootRef]);
+}
+
+function useSelectMenuKeyboard(controls: MiniAppSelectMenuKeyControls) {
   const {
     close,
     commitSelection,
@@ -163,7 +194,7 @@ function useExplorerTargetSelectKeyboard(
 
   return useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) =>
-      handleTargetSelectKeyDown(event, {
+      handleSelectMenuKeyDown(event, {
         close,
         commitSelection,
         highlightEdge,
@@ -184,7 +215,7 @@ function useExplorerTargetSelectKeyboard(
   );
 }
 
-function useSyncTargetSelectHighlight(params: {
+function useSyncSelectMenuHighlight(params: {
   open: boolean;
   setHighlightedId: (value: string) => void;
   value: string;
@@ -197,10 +228,10 @@ function useSyncTargetSelectHighlight(params: {
   }, [open, setHighlightedId, value]);
 }
 
-export function useExplorerTargetSelectController(
-  params: ExplorerTargetSelectProps,
-): ExplorerTargetSelectController {
-  const { disabled, onChange, options, selectRef, value } = params;
+export function useMiniAppSelectMenuController(
+  params: MiniAppSelectMenuControllerParams,
+): MiniAppSelectMenuController {
+  const { disabled, hasFooter, onChange, options, selectRef, value } = params;
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -217,16 +248,16 @@ export function useExplorerTargetSelectController(
 
   const close = useCallback(() => setOpen(false), []);
   const openList = useCallback(() => {
-    if (disabled || options.length === 0) {
+    if (disabled || (options.length === 0 && !hasFooter)) {
       return;
     }
 
     setHighlightedId(selectedOption?.id ?? options[0]?.id ?? "");
     setOpen(true);
-  }, [disabled, options, selectedOption?.id]);
+  }, [disabled, hasFooter, options, selectedOption?.id]);
 
   const selectOption = useCallback(
-    (option: MoveTargetOption) => {
+    (option: MiniAppSelectMenuOption) => {
       onChange(option.id);
       setHighlightedId(option.id);
       setOpen(false);
@@ -268,7 +299,7 @@ export function useExplorerTargetSelectController(
     }
   }, [highlightedId, options, selectOption, selectedOption]);
 
-  const onKeyDown = useExplorerTargetSelectKeyboard({
+  const onKeyDown = useSelectMenuKeyboard({
     close,
     commitSelection,
     highlightEdge,
@@ -279,7 +310,8 @@ export function useExplorerTargetSelectController(
   });
 
   useCloseOnOutsideMouseDown({ close, open, rootRef });
-  useSyncTargetSelectHighlight({ open, setHighlightedId, value });
+  useCloseOnFocusOut({ close, open, rootRef });
+  useSyncSelectMenuHighlight({ open, setHighlightedId, value });
 
   return {
     activeDescendant,

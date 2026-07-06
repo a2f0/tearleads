@@ -28,15 +28,22 @@ function createSwitcher(
   };
 }
 
+function getTrigger(view: ReturnType<typeof render>) {
+  return view.getByRole("combobox", {
+    name: ORG_MANAGER_LABELS.organizations,
+  });
+}
+
 test("org switcher trigger shows the active organization name", () => {
   const view = render(<OrgSwitcher switcher={createSwitcher()} />);
 
-  expect(view.getByRole("button", { name: /Acme/ })).toBeTruthy();
+  expect(getTrigger(view).textContent).toContain("Acme");
   // The list of organizations stays collapsed until the trigger is opened.
+  expect(view.queryByRole("listbox")).toBeNull();
   expect(view.queryByText(ORG_MANAGER_LABELS.unnamedOrganization)).toBeNull();
 });
 
-test("org switcher opens a menu and drives selection", () => {
+test("org switcher opens a listbox and drives selection", () => {
   const selected: string[] = [];
   const view = render(
     <OrgSwitcher
@@ -46,19 +53,61 @@ test("org switcher opens a menu and drives selection", () => {
     />,
   );
 
-  fireEvent.click(view.getByRole("button", { name: /Acme/ }));
+  fireEvent.click(getTrigger(view));
 
-  expect(view.getByText(ORG_MANAGER_LABELS.unnamedOrganization)).toBeTruthy();
+  expect(view.getByRole("listbox")).toBeTruthy();
   expect(view.getByText(ORG_MANAGER_LABELS.newOrganizationAction)).toBeTruthy();
 
-  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.unnamedOrganization));
+  fireEvent.click(
+    view.getByRole("option", {
+      name: ORG_MANAGER_LABELS.unnamedOrganization,
+    }),
+  );
 
   expect(selected).toEqual(["org-b"]);
-  // Selecting an organization closes the menu.
-  expect(view.queryByText(ORG_MANAGER_LABELS.unnamedOrganization)).toBeNull();
+  // Selecting an organization closes the listbox.
+  expect(view.queryByRole("listbox")).toBeNull();
 });
 
-test("org switcher opens the create-organization dialog", () => {
+test("org switcher stays openable with no organizations so the first can be created", () => {
+  let opened = 0;
+  const view = render(
+    <OrgSwitcher
+      switcher={createSwitcher({
+        activeOrganizationId: null,
+        openCreateOrganizationDialog: () => {
+          opened += 1;
+        },
+        organizations: [],
+      })}
+    />,
+  );
+
+  const trigger = getTrigger(view);
+  expect((trigger as HTMLButtonElement).disabled).toBe(false);
+
+  fireEvent.click(trigger);
+  // The listbox opens even with zero options because a footer action exists.
+  expect(view.getByRole("listbox")).toBeTruthy();
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.newOrganizationAction));
+
+  expect(opened).toBe(1);
+});
+
+test("org switcher closes when focus leaves the control", () => {
+  const view = render(<OrgSwitcher switcher={createSwitcher()} />);
+
+  const trigger = getTrigger(view);
+  fireEvent.click(trigger);
+  expect(view.getByRole("listbox")).toBeTruthy();
+
+  // Focus moving out of the control (e.g. tabbing past it) closes the menu;
+  // focus moving to the footer action inside it does not.
+  fireEvent.focusOut(trigger, { relatedTarget: document.body });
+  expect(view.queryByRole("listbox")).toBeNull();
+});
+
+test("org switcher opens the create-organization dialog from the footer", () => {
   let opened = 0;
   const view = render(
     <OrgSwitcher
@@ -70,7 +119,7 @@ test("org switcher opens the create-organization dialog", () => {
     />,
   );
 
-  fireEvent.click(view.getByRole("button", { name: /Acme/ }));
+  fireEvent.click(getTrigger(view));
   fireEvent.click(view.getByText(ORG_MANAGER_LABELS.newOrganizationAction));
 
   expect(opened).toBe(1);

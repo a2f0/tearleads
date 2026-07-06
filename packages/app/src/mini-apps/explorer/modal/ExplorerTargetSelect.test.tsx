@@ -33,7 +33,7 @@ test("explorer target select renders folder icons in the trigger and dropdown", 
   expect(selectRef.current).toBe(trigger);
   expect(
     trigger
-      .querySelector(".explorer-target-select-icon")
+      .querySelector(".mini-app-select-menu-icon")
       ?.getAttribute("data-icon"),
   ).toBe("folder");
 
@@ -43,12 +43,12 @@ test("explorer target select renders folder icons in the trigger and dropdown", 
   expect(trashOption.getAttribute("tabindex")).toBe("-1");
   expect(
     trashOption
-      .querySelector(".explorer-target-select-icon")
+      .querySelector(".mini-app-select-menu-icon")
       ?.getAttribute("data-container-icon"),
   ).toBe("trash");
   expect(
     trashOption
-      .querySelector(".explorer-target-select-icon")
+      .querySelector(".mini-app-select-menu-icon")
       ?.getAttribute("data-icon"),
   ).toBe("trash");
 
