@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import { fireEvent } from "@testing-library/react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
   initialRoutedSidebarExpanded,
@@ -11,6 +13,25 @@ function fakeButton(rect: { left: number; bottom: number }): HTMLElement {
   return {
     getBoundingClientRect: () => rect as DOMRect,
   } as HTMLElement;
+}
+
+function forceMobileRoutedTier(): () => void {
+  const originalMatchMedia = window.matchMedia;
+
+  window.matchMedia = ((query: string) => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: false,
+    media: query,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+
+  return () => {
+    window.matchMedia = originalMatchMedia;
+  };
 }
 
 test("menuPositionBelow derives a position from the anchor rect", () => {
@@ -72,4 +93,30 @@ test("invalid route app ids fall back without indexing missing mini-apps", () =>
     "explorer",
   );
   expect(resolveRoutedActiveMiniAppId("tablet", legacyRouteAppId)).toBeNull();
+});
+
+test("mobile routed shell opens the nav drawer from the bottom menu bar", () => {
+  const restoreMatchMedia = forceMobileRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+    const mobileBar = view.container.querySelector(".routed-pane-mobile-bar");
+    expect(mobileBar).toBeTruthy();
+    expect(view.container.querySelector(".routed-pane-hamburger")).toBeNull();
+
+    const drawer = view.container.querySelector(".routed-pane-drawer");
+    expect(drawer?.getAttribute("data-open")).toBe("false");
+
+    const menuButton = view.getByRole("button", { name: "Menu" });
+    expect(menuButton.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(menuButton);
+
+    expect(menuButton.getAttribute("aria-expanded")).toBe("true");
+    expect(drawer?.getAttribute("data-open")).toBe("true");
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
 });

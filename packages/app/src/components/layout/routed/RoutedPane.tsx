@@ -136,34 +136,19 @@ export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
 function RoutedPaneAppBar({
   activeAppId,
   hasSidebar,
-  onToggleDrawer,
   onToggleSidebar,
   sidebarExpanded,
-  tier,
 }: {
   activeAppId: MiniAppId | null;
   hasSidebar: boolean;
-  onToggleDrawer: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
-  tier: RoutedLayoutTier;
 }) {
   const { goBack, goForward } = useAppNavigationActions();
   const { history } = useAppNavigationState();
 
   return (
     <header className="routed-pane-appbar">
-      {tier === "mobile" && (
-        <button
-          aria-controls="routed-pane-drawer"
-          aria-label="Menu"
-          className="routed-pane-iconbutton routed-pane-hamburger"
-          type="button"
-          onClick={onToggleDrawer}
-        >
-          <span aria-hidden="true">☰</span>
-        </button>
-      )}
       <div className="routed-pane-title">
         {activeAppId ? MINI_APPS[activeAppId].title : "Home"}
       </div>
@@ -198,6 +183,31 @@ function RoutedPaneAppBar({
         </button>
       )}
     </header>
+  );
+}
+
+function RoutedPaneMobileBar({
+  drawerOpen,
+  onToggleDrawer,
+}: {
+  drawerOpen: boolean;
+  onToggleDrawer: () => void;
+}) {
+  return (
+    <footer className="routed-pane-mobile-bar">
+      <button
+        aria-controls="routed-pane-drawer"
+        aria-expanded={drawerOpen}
+        className="routed-pane-mobile-menu-button"
+        type="button"
+        onClick={onToggleDrawer}
+      >
+        <span aria-hidden="true" className="routed-pane-mobile-menu-icon">
+          ☰
+        </span>
+        <span>Menu</span>
+      </button>
+    </footer>
   );
 }
 
@@ -315,10 +325,8 @@ function RoutedPaneSurface({
       <RoutedPaneAppBar
         activeAppId={activeAppId}
         hasSidebar={hasSidebar}
-        onToggleDrawer={toggleDrawer}
         onToggleSidebar={toggleSidebar}
         sidebarExpanded={sidebarExpanded}
-        tier={tier}
       />
       <RoutedPaneNav
         activeAppId={activeAppId}
@@ -347,6 +355,12 @@ function RoutedPaneSurface({
           <RoutedPaneHome />
         )}
       </main>
+      {tier === "mobile" && (
+        <RoutedPaneMobileBar
+          drawerOpen={drawerOpen}
+          onToggleDrawer={toggleDrawer}
+        />
+      )}
       {destroyKeyPackageDialog.isOpen && (
         <DestroyKeyPackageConfirmationDialog
           isOpen={destroyKeyPackageDialog.isOpen}
