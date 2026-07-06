@@ -87,3 +87,18 @@
   background: var(--color-dark);
   color: var(--color-light);
 }
+
+/*
+ * Touch sizing (routed layout). Tabs and the feature-flag switch are not
+ * inside virtualized rows, so they can grow freely. The launcher and tabs are
+ * already sized off `--control-height` (44px on touch); here we widen the tab
+ * spacing and enlarge the toggle within its 44px-tall flag row.
+ */
+:root[data-navigation-mode="routed"] .system-monitor-tabs {
+  gap: var(--space-sm);
+}
+
+:root[data-navigation-mode="routed"] .system-monitor-feature-flag-switch {
+  width: 1.5rem;
+  height: 1.5rem;
+}

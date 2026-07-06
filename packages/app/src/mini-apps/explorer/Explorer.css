@@ -277,6 +277,12 @@
   min-width: 0;
 }
 
+/* Touch: widen the tab strip spacing (tabs themselves are sized off
+   `--control-height`, so they already reach 44px in the routed layout). */
+:root[data-navigation-mode="routed"] .explorer-info-tabs {
+  gap: var(--space-sm);
+}
+
 /* The name-cell button keeps real button semantics, while its ::after overlay
    stretches its hit area across the whole row so any click on the row navigates.
    The row is the positioning context for that overlay. */
@@ -355,6 +361,12 @@
   width: var(--explorer-glyph-size);
   opacity: var(--opacity-muted);
   text-align: center;
+}
+
+/* Touch: the column sort control lives in the sticky (non-virtualized) table
+   header, so it can grow to a 44px tap height. */
+:root[data-navigation-mode="routed"] .explorer-table-sort-button {
+  min-height: var(--control-height);
 }
 
 .explorer-info-inline-action {

@@ -51,3 +51,9 @@
   color: var(--color-danger);
   font-size: var(--font-size-sm);
 }
+
+/* Touch: the whole label toggles the checkbox, so grow the label row to a 44px
+   tap target rather than the 16px control glyph. */
+:root[data-navigation-mode="routed"] .logout-confirmation-keep-data {
+  min-height: var(--control-height);
+}

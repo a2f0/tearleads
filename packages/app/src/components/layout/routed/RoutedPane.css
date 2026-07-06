@@ -320,22 +320,23 @@
 }
 
 /*
- * Coarse-pointer (touch) sizing. Bump interactive targets toward ~44px so
- * taps land reliably on phones and tablets without a mouse. Scoped to the
- * routed shell so the windowed desktop chrome is untouched.
+ * Touch sizing now flows from the routed-layout hook rather than a
+ * `@media (pointer: coarse)` query: `--control-height` resolves to 44px
+ * whenever the routed shell is active (see `:root[data-navigation-mode="routed"]`
+ * in @tearleads/ui's styles.css). The app-bar buttons, nav links, and
+ * system-menu actions above are all sized off `--control-height`, so they
+ * already meet the 44px touch target — on phones AND on an iPad with a mouse
+ * attached (which reports `pointer: fine` and a coarse-pointer query would
+ * miss). The mobile menu button is a fixed 44px square. Only the inter-target
+ * spacing needs a touch bump so the enlarged controls are not crowded.
  */
-@media (pointer: coarse) {
-  .routed-pane-appbar button,
-  .routed-pane-mobile-menu-button,
-  .routed-pane-nav-link,
-  .routed-pane-nav-action,
-  .routed-pane-nav-section > button {
-    min-height: var(--routed-touch-target);
-  }
+:root[data-navigation-mode="routed"] .routed-pane-history-controls {
+  gap: var(--space-sm);
+}
 
-  .routed-pane .mini-app-row--button {
-    min-height: var(--routed-touch-target);
-  }
+:root[data-navigation-mode="routed"] .routed-pane-nav,
+:root[data-navigation-mode="routed"] .routed-pane-nav-section {
+  gap: var(--space-xs);
 }
 
 /*

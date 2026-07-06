@@ -44,3 +44,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Touch: this popover menu is portaled to <body>, but the routed hook lives on
+   <html>, so its items still resolve a 44px tap height in the routed layout. */
+:root[data-navigation-mode="routed"] .menu button {
+  min-height: var(--control-height);
+}

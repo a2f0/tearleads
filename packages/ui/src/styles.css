@@ -162,6 +162,35 @@ textarea {
   border-radius: 0;
 }
 
+/*
+ * === Touch / routed-layout sizing (Apple Human Interface Guidelines) ===
+ *
+ * The routed layout IS the touch layout — it is used on phones, tablets, and
+ * iPad (see navigation/AppNavigationMode). Layout stamps
+ * `data-navigation-mode="routed"` on <html> whenever it is active, so these
+ * overrides key off the layout itself rather than `@media (pointer: coarse)`.
+ * That distinction matters: an iPad with a mouse/trackpad renders the routed
+ * layout but reports `pointer: fine`, so a coarse-pointer query would silently
+ * leave every control at its dense desktop size on that device. Stamping the
+ * root element (not a subtree) also lets portaled menus and modals inherit it.
+ *
+ * Two HIG rules drive the values below:
+ *   1. Interactive controls get a >=44px hit target (`--control-height`, which
+ *      nearly every control primitive already keys its min-height/size off of).
+ *   2. Native text controls render at >=16px so iOS Safari does not auto-zoom
+ *      the viewport when they receive focus. `max(16px, 1em)` keeps any control
+ *      that was intentionally larger than 16px unchanged.
+ */
+:root[data-navigation-mode="routed"] {
+  --control-height: 2.75rem;
+}
+
+:root[data-navigation-mode="routed"] input,
+:root[data-navigation-mode="routed"] select,
+:root[data-navigation-mode="routed"] textarea {
+  font-size: max(16px, 1em);
+}
+
 .tearleads-frame {
   display: grid;
   grid-template:

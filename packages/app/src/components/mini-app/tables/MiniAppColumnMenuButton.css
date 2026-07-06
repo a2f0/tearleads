@@ -104,3 +104,18 @@
   font-size: var(--font-size-xs);
   opacity: var(--opacity-muted);
 }
+
+/*
+ * Touch: the column-menu trigger lives in a (non-virtualized) table header and
+ * its items in a popover, so both can grow to the 44px target without touching
+ * any virtual-row math. The checkbox stays a compact glyph — the whole 44px
+ * item row is the tap target that toggles it.
+ */
+:root[data-navigation-mode="routed"] .mini-app-column-menu-button {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .mini-app-column-menu-item {
+  min-height: var(--control-height);
+}
