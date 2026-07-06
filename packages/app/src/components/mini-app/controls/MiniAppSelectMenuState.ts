@@ -127,12 +127,11 @@ function handleSelectMenuKeyDown(
 
   if (event.key === "Escape" && controls.open) {
     runKeyboardAction(event, controls.close);
-    return;
   }
 
-  if (event.key === "Tab") {
-    controls.close();
-  }
+  // Tab is intentionally left to its default behaviour: it moves focus to the
+  // next control (e.g. a footer action inside the open menu). The menu closes
+  // via the root's focus-out handler once focus leaves the control entirely.
 }
 
 function useCloseOnOutsideMouseDown(params: {
@@ -155,6 +154,30 @@ function useCloseOnOutsideMouseDown(params: {
 
     document.addEventListener("mousedown", handleMouseDown);
     return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [close, open, rootRef]);
+}
+
+function useCloseOnFocusOut(params: {
+  close: () => void;
+  open: boolean;
+  rootRef: RefObject<HTMLDivElement | null>;
+}) {
+  const { close, open, rootRef } = params;
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!open || !root) {
+      return;
+    }
+
+    function handleFocusOut(event: FocusEvent) {
+      const next = event.relatedTarget;
+      if (!(next instanceof Node) || !root?.contains(next)) {
+        close();
+      }
+    }
+
+    root.addEventListener("focusout", handleFocusOut);
+    return () => root.removeEventListener("focusout", handleFocusOut);
   }, [close, open, rootRef]);
 }
 
@@ -287,6 +310,7 @@ export function useMiniAppSelectMenuController(
   });
 
   useCloseOnOutsideMouseDown({ close, open, rootRef });
+  useCloseOnFocusOut({ close, open, rootRef });
   useSyncSelectMenuHighlight({ open, setHighlightedId, value });
 
   return {

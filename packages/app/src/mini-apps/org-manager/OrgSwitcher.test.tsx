@@ -94,6 +94,19 @@ test("org switcher stays openable with no organizations so the first can be crea
   expect(opened).toBe(1);
 });
 
+test("org switcher closes when focus leaves the control", () => {
+  const view = render(<OrgSwitcher switcher={createSwitcher()} />);
+
+  const trigger = getTrigger(view);
+  fireEvent.click(trigger);
+  expect(view.getByRole("listbox")).toBeTruthy();
+
+  // Focus moving out of the control (e.g. tabbing past it) closes the menu;
+  // focus moving to the footer action inside it does not.
+  fireEvent.focusOut(trigger, { relatedTarget: document.body });
+  expect(view.queryByRole("listbox")).toBeNull();
+});
+
 test("org switcher opens the create-organization dialog from the footer", () => {
   let opened = 0;
   const view = render(
