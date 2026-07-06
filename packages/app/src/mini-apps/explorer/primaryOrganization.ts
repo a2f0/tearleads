@@ -13,5 +13,9 @@ export function resolveExplorerPrimaryOrganizationId(input: {
         ) ?? null)
       : null;
 
-  return personalRoot?.organizationId || input.currentOrganizationId || null;
+  if (personalRoot) {
+    return personalRoot.organizationId || null;
+  }
+
+  return input.currentOrganizationId || null;
 }

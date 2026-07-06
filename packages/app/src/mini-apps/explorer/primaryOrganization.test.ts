@@ -48,3 +48,19 @@ test("explorer primary organization falls back to the active organization before
     }),
   ).toBe("org-work");
 });
+
+test("explorer primary organization does not fall back after personal root hydration", () => {
+  expect(
+    resolveExplorerPrimaryOrganizationId({
+      currentOrganizationId: "org-work",
+      nodes: [
+        containerNode({
+          id: "personal-root",
+          organizationId: "",
+          parentId: null,
+        }),
+      ],
+      personalRootContainerId: "personal-root",
+    }),
+  ).toBeNull();
+});
