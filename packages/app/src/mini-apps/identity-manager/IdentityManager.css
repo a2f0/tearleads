@@ -22,30 +22,6 @@
   min-width: 0;
 }
 
-/* Kebab overflow trigger, matched to the explorer item-row actions button. */
-.identity-manager-actions-button {
-  display: grid;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: var(--border-width) solid transparent;
-  background: transparent;
-  color: inherit;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.identity-manager-actions-button:hover,
-.identity-manager-actions-button:focus-visible {
-  background: var(--color-muted);
-}
-
-.identity-manager-actions-button:focus-visible {
-  outline: var(--border-width) solid currentColor;
-  outline-offset: var(--border-width);
-}
-
 .identity-manager-main {
   display: flex;
   flex-direction: column;
@@ -109,40 +85,6 @@
   min-width: 34rem;
 }
 
-.identity-manager-session-actions-column {
-  text-align: right;
-}
-
-.mini-app-table th.identity-manager-session-actions-column {
-  padding-inline: var(--space-2xs);
-}
-
-.identity-manager-session-actions-heading {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  border: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-
-.identity-manager-session-actions-cell {
-  position: relative;
-  z-index: 2;
-  padding-inline: var(--space-2xs);
-}
-
-.identity-manager-session-actions-column .mini-app-table-header-content {
-  gap: var(--space-xs);
-}
-
-.identity-manager-session-actions-button {
-  margin-left: auto;
-}
-
 .identity-manager-session-detail {
   min-width: 0;
 }
@@ -173,23 +115,9 @@
 }
 
 /*
- * Touch sizing (routed layout). The session-row kebab sits in a 48px-tall
- * virtualized table row, so a 44px square target fits without disturbing the
- * row pitch. Detail rows widen the gap between a value and its inline clipboard
- * button so the two touch targets are not crowded.
+ * Touch sizing (routed layout): widen the gap between a detail value and its
+ * inline clipboard button so the two touch targets are not crowded.
  */
-:root[data-navigation-mode="routed"] .identity-manager-actions-button {
-  width: var(--control-height);
-  height: var(--control-height);
-}
-
-:root[data-navigation-mode="routed"]
-  .mini-app-table
-  th.identity-manager-session-actions-column,
-:root[data-navigation-mode="routed"] .identity-manager-session-actions-cell {
-  padding-inline: var(--space-xs);
-}
-
 :root[data-navigation-mode="routed"] .identity-manager-details dd,
 :root[data-navigation-mode="routed"] .identity-manager-session-detail-value {
   gap: var(--space-sm);
