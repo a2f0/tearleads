@@ -5,6 +5,32 @@
  * the column-menu trigger).
  */
 
+/*
+ * Width of the actions column, consumed by the shared table's <col> inline
+ * style (see MiniAppTable + each table's column definition). Sizing it off the
+ * button (`--control-height`) plus the actions cell's inline padding guarantees
+ * the right-aligned button clears the column edge with an even inset instead of
+ * overflowing it. Without this the fixed 2.25rem column is narrower than the
+ * routed 44px touch button, so `margin-left: auto` has no slack to give and the
+ * button spills flush against the row's right edge. A column stretched wider by
+ * the table's extra-space distribution only grows the inset, never the overflow.
+ */
+:root {
+  --mini-app-row-actions-column-width: calc(
+    var(--control-height) +
+    2 *
+    var(--space-2xs)
+  );
+}
+
+:root[data-navigation-mode="routed"] {
+  --mini-app-row-actions-column-width: calc(
+    var(--control-height) +
+    2 *
+    var(--space-xs)
+  );
+}
+
 .mini-app-row-actions-column {
   text-align: right;
 }

@@ -66,7 +66,7 @@ const SESSION_TABLE_COLUMNS = [
     className: "mini-app-row-actions-column",
     header: <span className="mini-app-row-actions-heading">Actions</span>,
     id: "action",
-    width: "2.25rem",
+    width: "var(--mini-app-row-actions-column-width, 2.25rem)",
   },
 ] satisfies ReadonlyArray<MiniAppTableColumn & { id: SessionTableColumnId }>;
 

@@ -90,7 +90,7 @@ function buildExplorerItemColumn(
           </span>
         ),
         id,
-        width: "2.25rem",
+        width: "var(--mini-app-row-actions-column-width, 2.25rem)",
       };
     case "name":
       return {
