@@ -7,59 +7,8 @@
 }
 
 .org-manager-switcher {
-  display: flex;
-  align-items: center;
   flex: 0 0 auto;
-  min-width: 0;
-}
-
-.org-manager-switcher-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  max-width: 100%;
-  padding: var(--space-2xs) var(--space-xs);
-  border: var(--border);
-  background: var(--color-light);
-  cursor: pointer;
-}
-
-.org-manager-switcher-trigger:hover:not(:disabled),
-.org-manager-switcher-trigger:focus-visible {
-  background: var(--color-muted);
-}
-
-.org-manager-switcher-glyph {
-  flex: 0 0 auto;
-  opacity: var(--opacity-icon);
-}
-
-.org-manager-switcher-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 700;
-}
-
-.org-manager-switcher-option {
-  min-width: 12rem;
-}
-
-.org-manager-switcher-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 1rem;
-  opacity: var(--opacity-icon);
-}
-
-.org-manager-switcher-separator {
-  align-self: stretch;
-  margin: var(--space-2xs) 0;
-  border: 0;
-  border-top: var(--border);
+  width: min(22rem, 100%);
 }
 
 .org-manager-error {

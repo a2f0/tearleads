@@ -1,5 +1,6 @@
 import {
   type KeyboardEvent,
+  type ReactNode,
   type RefObject,
   useCallback,
   useEffect,
@@ -8,18 +9,22 @@ import {
   useRef,
   useState,
 } from "react";
-import type { MoveTargetOption } from "../targetOptions";
 
-export interface ExplorerTargetSelectProps {
-  ariaLabel: string;
+export interface MiniAppSelectMenuOption {
+  icon?: ReactNode;
+  id: string;
+  label: string;
+}
+
+export interface MiniAppSelectMenuControllerParams {
   disabled: boolean;
   onChange: (value: string) => void;
-  options: ReadonlyArray<MoveTargetOption>;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
   selectRef: RefObject<HTMLButtonElement | null>;
   value: string;
 }
 
-export interface ExplorerTargetSelectController {
+export interface MiniAppSelectMenuController {
   activeDescendant: string | undefined;
   close: () => void;
   highlightedId: string;
@@ -28,23 +33,23 @@ export interface ExplorerTargetSelectController {
   open: boolean;
   openList: () => void;
   rootRef: RefObject<HTMLDivElement | null>;
-  selectOption: (option: MoveTargetOption) => void;
-  selectedOption: MoveTargetOption | undefined;
+  selectOption: (option: MiniAppSelectMenuOption) => void;
+  selectedOption: MiniAppSelectMenuOption | undefined;
   setHighlightedId: (value: string) => void;
 }
 
-interface ExplorerTargetSelectKeyControls {
+interface MiniAppSelectMenuKeyControls {
   close: () => void;
   commitSelection: () => void;
   highlightEdge: (edge: "end" | "start") => void;
   moveHighlight: (direction: -1 | 1) => void;
   open: boolean;
   openList: () => void;
-  options: ReadonlyArray<MoveTargetOption>;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
 }
 
 function getOptionIndex(
-  options: ReadonlyArray<MoveTargetOption>,
+  options: ReadonlyArray<MiniAppSelectMenuOption>,
   optionId: string,
 ): number {
   return options.findIndex((option) => option.id === optionId);
@@ -53,7 +58,7 @@ function getOptionIndex(
 function getNextOptionIndex(params: {
   currentId: string;
   direction: -1 | 1;
-  options: ReadonlyArray<MoveTargetOption>;
+  options: ReadonlyArray<MiniAppSelectMenuOption>;
 }) {
   const { currentId, direction, options } = params;
   if (options.length === 0) {
@@ -80,9 +85,9 @@ function runKeyboardAction(
   action();
 }
 
-function handleTargetSelectKeyDown(
+function handleSelectMenuKeyDown(
   event: KeyboardEvent<HTMLButtonElement>,
-  controls: ExplorerTargetSelectKeyControls,
+  controls: MiniAppSelectMenuKeyControls,
 ) {
   if (event.key === "ArrowDown") {
     runKeyboardAction(event, () => controls.moveHighlight(1));
@@ -148,9 +153,7 @@ function useCloseOnOutsideMouseDown(params: {
   }, [close, open, rootRef]);
 }
 
-function useExplorerTargetSelectKeyboard(
-  controls: ExplorerTargetSelectKeyControls,
-) {
+function useSelectMenuKeyboard(controls: MiniAppSelectMenuKeyControls) {
   const {
     close,
     commitSelection,
@@ -163,7 +166,7 @@ function useExplorerTargetSelectKeyboard(
 
   return useCallback(
     (event: KeyboardEvent<HTMLButtonElement>) =>
-      handleTargetSelectKeyDown(event, {
+      handleSelectMenuKeyDown(event, {
         close,
         commitSelection,
         highlightEdge,
@@ -184,7 +187,7 @@ function useExplorerTargetSelectKeyboard(
   );
 }
 
-function useSyncTargetSelectHighlight(params: {
+function useSyncSelectMenuHighlight(params: {
   open: boolean;
   setHighlightedId: (value: string) => void;
   value: string;
@@ -197,9 +200,9 @@ function useSyncTargetSelectHighlight(params: {
   }, [open, setHighlightedId, value]);
 }
 
-export function useExplorerTargetSelectController(
-  params: ExplorerTargetSelectProps,
-): ExplorerTargetSelectController {
+export function useMiniAppSelectMenuController(
+  params: MiniAppSelectMenuControllerParams,
+): MiniAppSelectMenuController {
   const { disabled, onChange, options, selectRef, value } = params;
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -226,7 +229,7 @@ export function useExplorerTargetSelectController(
   }, [disabled, options, selectedOption?.id]);
 
   const selectOption = useCallback(
-    (option: MoveTargetOption) => {
+    (option: MiniAppSelectMenuOption) => {
       onChange(option.id);
       setHighlightedId(option.id);
       setOpen(false);
@@ -268,7 +271,7 @@ export function useExplorerTargetSelectController(
     }
   }, [highlightedId, options, selectOption, selectedOption]);
 
-  const onKeyDown = useExplorerTargetSelectKeyboard({
+  const onKeyDown = useSelectMenuKeyboard({
     close,
     commitSelection,
     highlightEdge,
@@ -279,7 +282,7 @@ export function useExplorerTargetSelectController(
   });
 
   useCloseOnOutsideMouseDown({ close, open, rootRef });
-  useSyncTargetSelectHighlight({ open, setHighlightedId, value });
+  useSyncSelectMenuHighlight({ open, setHighlightedId, value });
 
   return {
     activeDescendant,
