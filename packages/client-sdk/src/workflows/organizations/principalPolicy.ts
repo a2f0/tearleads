@@ -102,7 +102,7 @@ export async function importOrganizationUserRecipient(input: {
 interface BuildInitialGroupPolicyInput {
   readonly creatorEncapsulationKeyPair: EncapsulationKeyPair;
   readonly groupId: string;
-  readonly includeSignerAsAdmin?: boolean | undefined;
+  readonly includeSignerAsAdmin?: boolean;
   readonly name: string;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
@@ -141,11 +141,7 @@ function userProjectionMember(
   userId: string,
   role: "member" | "admin",
 ): PrincipalProjectionMemberRequest {
-  return {
-    memberPrincipalType: "user",
-    memberPrincipalId: userId,
-    role,
-  };
+  return { memberPrincipalType: "user", memberPrincipalId: userId, role };
 }
 
 function projectionToStateMembers(
@@ -161,11 +157,7 @@ function payloadCiphertextForProjection(
   projection: ReadonlyArray<PrincipalProjectionMemberRequest>,
 ): string {
   return bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify({
-        members: projection,
-      }),
-    ),
+    new TextEncoder().encode(JSON.stringify({ members: projection })),
   );
 }
 
@@ -256,7 +248,7 @@ async function collectGroupPolicySignerPublicKeys(input: {
 }
 
 async function verifyGroupPolicy(input: {
-  readonly externalAdminSignerUserIds?: readonly string[] | undefined;
+  readonly externalAdminSignerUserIds?: readonly string[];
   readonly currentPolicy: PrincipalPolicyBundleResponse;
   readonly localPolicyCheckpoint: PrincipalPolicyCheckpoint | null;
   readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
@@ -359,7 +351,7 @@ function hasAdmin(projection: ReadonlyArray<PrincipalProjectionMemberRequest>) {
 }
 
 async function signedGroupStateRequest(input: {
-  readonly currentPolicy?: PrincipalPolicyBundleResponse | undefined;
+  readonly currentPolicy?: PrincipalPolicyBundleResponse;
   readonly encapsulationPublicKey: string;
   readonly keyEpoch: number;
   readonly keyFingerprint: string;
@@ -406,7 +398,7 @@ async function signedGroupStateRequest(input: {
 
 async function cacheGroupPolicy(input: {
   readonly apiClient: OrganizationPrincipalPolicyApi;
-  readonly canAdministerOrganization?: boolean | undefined;
+  readonly canAdministerOrganization?: boolean;
   readonly execSql: ExecSql;
   readonly groupId: string;
   readonly localPolicyCheckpoint?: PrincipalPolicyCheckpoint | null;
@@ -524,8 +516,8 @@ export async function buildInitialGroupPolicyRequest(
   input: BuildInitialGroupPolicyInput,
 ): Promise<CreateOrganizationGroupRequest> {
   const groupKem = generateKemSeedAndKeyPair();
-  const includeSignerAsAdmin = input.includeSignerAsAdmin ?? true;
-  const projection = includeSignerAsAdmin
+  const withSigner = input.includeSignerAsAdmin ?? true;
+  const projection = withSigner
     ? [userProjectionMember(input.signerUserId, "admin")]
     : [];
   const stateRequest = await signedGroupStateRequest({
@@ -541,7 +533,7 @@ export async function buildInitialGroupPolicyRequest(
   });
   const memberEnvelopes: PrincipalMemberEnvelopeRequest[] = [];
 
-  if (includeSignerAsAdmin) {
+  if (withSigner) {
     const creatorFingerprint = await toFingerprint(
       input.creatorEncapsulationKeyPair.publicKey,
     );
@@ -782,9 +774,7 @@ export async function buildAddGroupUserPolicyRequest(
 
 export async function buildRemoveGroupUserPolicyRequest(
   input: BuildGroupMembershipMutationInput & {
-    readonly remainingGroups?:
-      | ReadonlyArray<OrganizationGroupRecipient>
-      | undefined;
+    readonly remainingGroups?: ReadonlyArray<OrganizationGroupRecipient>;
     readonly remainingUsers: ReadonlyArray<OrganizationUserRecipient>;
     readonly removedUserId: string;
   },
@@ -960,6 +950,12 @@ export async function removeOrganizationGroupUser(input: {
   const projection = policyContext.currentPolicy.currentProjection.filter(
     (member) => projectionMemberKey(member) !== removedKey,
   );
+  if (
+    projection.length === policyContext.currentPolicy.currentProjection.length
+  ) {
+    throw new Error("User is not a group member");
+  }
+
   const gs = await loadOrganizationGroupRecipients({
     apiClient: input.apiClient,
     groupIds: remainingGroupMemberIds(projection),

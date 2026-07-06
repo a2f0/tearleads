@@ -365,10 +365,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       ) {
         return;
       }
-      if (!directory || !memberGroupId) {
-        return;
-      }
-
       setMutating(true);
       setError(null);
       try {

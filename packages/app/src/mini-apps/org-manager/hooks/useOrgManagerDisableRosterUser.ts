@@ -124,7 +124,7 @@ async function loadRosterDisableMembershipTargets(input: {
       : Promise.resolve(null),
   ]);
   if (
-    !memberGroupDetails.members ||
+    !memberGroupDetails?.members ||
     (input.adminGroupId && !adminGroupDetails?.members)
   ) {
     input.setError(ORG_MANAGER_LABELS.failedLoadGroupMembers);
