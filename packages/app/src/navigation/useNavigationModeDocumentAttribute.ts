@@ -23,5 +23,8 @@ export function useNavigationModeDocumentAttribute(
       return;
     }
     document.documentElement.setAttribute("data-navigation-mode", mode);
+    return () => {
+      document.documentElement.removeAttribute("data-navigation-mode");
+    };
   }, [mode]);
 }

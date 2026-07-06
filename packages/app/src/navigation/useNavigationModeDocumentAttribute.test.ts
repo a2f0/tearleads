@@ -24,6 +24,21 @@ test("stamps the windowed mode onto the document root", () => {
   );
 });
 
+test("clears the attribute on unmount so it does not leak globally", () => {
+  const { unmount } = renderHook(() =>
+    useNavigationModeDocumentAttribute("routed"),
+  );
+  expect(document.documentElement.getAttribute("data-navigation-mode")).toBe(
+    "routed",
+  );
+
+  unmount();
+
+  expect(document.documentElement.getAttribute("data-navigation-mode")).toBe(
+    null,
+  );
+});
+
 test("updates the attribute when the mode crosses the breakpoint", () => {
   const { rerender } = renderHook(
     ({ mode }: { mode: AppNavigationMode }) =>
