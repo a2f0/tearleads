@@ -1023,10 +1023,11 @@ export async function syncRemoteDocument(
       // A retryable stale-projection conflict (stale KEK targets / content-key
       // bundle / write-auth manifest) means our writer projection is behind the
       // server — typically right after a peer shared or rotated a linked
-      // container. Drop the cached projection so the next attempt re-derives
-      // fresh targets instead of resubmitting the same stale ones (which would
-      // 409 again and exhaust the retries without converging).
-      input.apiClient.clearWriterProjectionCaches?.();
+      // container. Drop this document's cached projection so the next attempt
+      // re-derives fresh targets instead of resubmitting the same stale ones
+      // (which would 409 again and exhaust the retries without converging).
+      // Scoped to this document: unrelated projections were not invalidated.
+      input.apiClient.evictDocumentWriterProjection?.(input.documentId);
       continue;
     }
     if (submitted !== "stop" && submitted.kind !== "completed") {

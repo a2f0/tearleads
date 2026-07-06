@@ -250,6 +250,112 @@ test("hasContainerMetadataDocumentUpdateEvent detects known metadata document up
   ).toBe(false);
 });
 
+test("listContainerMetadataDocumentUpdateIds suppresses the author's own metadata echo", () => {
+  const metadataState = {
+    record: createDocumentRecord({
+      documentId: "metadata-document-1",
+      id: "container-1",
+    }),
+  };
+
+  // A self-echo: every updateId was pre-registered by this client's own send.
+  // It is consumed (ids removed) and does not arm a forced read-sync.
+  const registry = new Set(["own-update-a", "own-update-b"]);
+  expect(
+    listContainerMetadataDocumentUpdateIds(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-1",
+          type: "document_update_created",
+          updateIds: ["own-update-a", "own-update-b"],
+        },
+      ],
+      [metadataState],
+      registry,
+    ),
+  ).toEqual([]);
+  expect(registry.size).toBe(0);
+
+  // A genuine peer update carries an unknown id: it still forces the sync, and
+  // any of our own ids riding alongside it are still consumed.
+  const mixedRegistry = new Set(["own-update-c"]);
+  expect(
+    listContainerMetadataDocumentUpdateIds(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-2",
+          type: "document_update_created",
+          updateIds: ["own-update-c", "peer-update"],
+        },
+      ],
+      [metadataState],
+      mixedRegistry,
+    ),
+  ).toEqual(["metadata-document-1"]);
+  expect(mixedRegistry.has("own-update-c")).toBe(false);
+
+  // An event with no updateIds stays a lossy hint and still forces the sync.
+  expect(
+    listContainerMetadataDocumentUpdateIds(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-3",
+          type: "document_update_created",
+        },
+      ],
+      [metadataState],
+      new Set(["unrelated"]),
+    ),
+  ).toEqual(["metadata-document-1"]);
+});
+
+test("hasContainerMetadataDocumentUpdateEvent does not consume the caller's registry", () => {
+  const metadataState = {
+    record: createDocumentRecord({
+      documentId: "metadata-document-1",
+      id: "container-1",
+    }),
+  };
+  const registry = new Set(["own-update-a"]);
+
+  // The predicate reports "no remote update" for a pure self-echo...
+  expect(
+    hasContainerMetadataDocumentUpdateEvent(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-1",
+          type: "document_update_created",
+          updateIds: ["own-update-a"],
+        },
+      ],
+      [metadataState],
+      registry,
+    ),
+  ).toBe(false);
+  // ...but must NOT consume the id, so the later real list pass still classifies
+  // the echo as self-authored instead of arming a redundant sync.
+  expect(registry.has("own-update-a")).toBe(true);
+  expect(
+    listContainerMetadataDocumentUpdateIds(
+      [
+        {
+          documentId: "metadata-document-1",
+          id: "event-1",
+          type: "document_update_created",
+          updateIds: ["own-update-a"],
+        },
+      ],
+      [metadataState],
+      registry,
+    ),
+  ).toEqual([]);
+  expect(registry.size).toBe(0);
+});
+
 test("syncContainerMetadataState skips clean metadata with current read state", async () => {
   let listPendingUpdateCalls = 0;
   let writerProjectionCalls = 0;

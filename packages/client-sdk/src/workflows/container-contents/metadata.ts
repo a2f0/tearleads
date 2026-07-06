@@ -60,15 +60,67 @@ interface ContainerMetadataSyncAttempt {
 export function hasContainerMetadataDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,
   metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
+  locallyAcceptedUpdateIds?: Set<string>,
 ): boolean {
+  // Pass a copy: listContainerMetadataDocumentUpdateIds consumes (deletes)
+  // matched ids from the set, and a boolean predicate must not mutate the
+  // caller's registry — otherwise a `has` check before the real list pass would
+  // prematurely consume the self-echo ids, so the later list would miss them
+  // and arm a redundant sync.
   return (
-    listContainerMetadataDocumentUpdateIds(events, metadataStates).length > 0
+    listContainerMetadataDocumentUpdateIds(
+      events,
+      metadataStates,
+      locallyAcceptedUpdateIds ? new Set(locallyAcceptedUpdateIds) : undefined,
+    ).length > 0
   );
+}
+
+/**
+ * Metadata document ids that a `document_update_created` event batch requires a
+ * forced read-sync for. Mirrors the document store's self-echo suppression
+ * (`hasRemoteDocumentUpdateEvent`): an event whose updateIds were all sent by
+ * this client's own metadata sync — pre-registered in
+ * `locallyAcceptedUpdateIds` before the network call — is the author's own echo
+ * and is consumed without re-queuing the doc. An event with unknown updateIds,
+ * or with no updateIds at all, still forces the sync: events stay lossy hints
+ * and only provably-own bytes are elided.
+ */
+/**
+ * Consume this client's own metadata update ids from a `document_update_created`
+ * event and report whether any UNKNOWN (peer-authored) update id remains.
+ * Mirrors the document store's self-echo suppression: a fully self-authored echo
+ * returns false so it does not arm a redundant forced read-sync; an event with
+ * an unknown id — or one carrying no updateIds at all — returns true and stays a
+ * lossy hint that forces the sync.
+ */
+function metadataEventHasRemoteUpdate(
+  event: { updateIds?: readonly string[] | undefined },
+  locallyAcceptedUpdateIds: Set<string> | undefined,
+): boolean {
+  if (
+    !locallyAcceptedUpdateIds ||
+    !event.updateIds ||
+    event.updateIds.length === 0
+  ) {
+    return true;
+  }
+
+  let remoteUpdateFound = false;
+  for (const updateId of event.updateIds) {
+    if (locallyAcceptedUpdateIds.has(updateId)) {
+      locallyAcceptedUpdateIds.delete(updateId);
+    } else {
+      remoteUpdateFound = true;
+    }
+  }
+  return remoteUpdateFound;
 }
 
 export function listContainerMetadataDocumentUpdateIds(
   events: ReadonlyArray<unknown>,
   metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
+  locallyAcceptedUpdateIds?: Set<string>,
 ): string[] {
   const metadataDocumentIds = new Set<string>();
   for (const metadataState of metadataStates) {
@@ -83,11 +135,17 @@ export function listContainerMetadataDocumentUpdateIds(
   const eventDocumentIds = new Set<string>();
   for (const event of events) {
     if (
-      isDocumentUpdateCreatedEvent(event) &&
-      metadataDocumentIds.has(event.documentId)
+      !isDocumentUpdateCreatedEvent(event) ||
+      !metadataDocumentIds.has(event.documentId)
     ) {
-      eventDocumentIds.add(event.documentId);
+      continue;
     }
+
+    if (!metadataEventHasRemoteUpdate(event, locallyAcceptedUpdateIds)) {
+      continue;
+    }
+
+    eventDocumentIds.add(event.documentId);
   }
 
   return Array.from(eventDocumentIds);
@@ -221,6 +279,14 @@ function resolveSyncedContainerMetadataWriterProjection(
 
 export async function syncContainerMetadataState(input: {
   forceReadSync?: boolean | undefined;
+  /**
+   * Self-echo registry shared with {@link listContainerMetadataDocumentUpdateIds}:
+   * update ids this pass is about to send are registered BEFORE the network
+   * await so the author's own `document_update_created` echo — which can land
+   * before the response is processed — is classified as self-authored and never
+   * arms a redundant forced read-sync.
+   */
+  locallyAcceptedUpdateIds?: Set<string> | undefined;
   metadataState: ContainerMetadataState;
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -252,6 +318,14 @@ export async function syncContainerMetadataState(input: {
     return null;
   }
 
+  // Pre-register the ids we are about to send so the author's own echo is
+  // classified as self-authored even when it beats the response processing.
+  // Mirrors the document store lane (stores/documents/documentStore/sync.ts).
+  const sentUpdateIds = pendingUpdates.map((pendingUpdate) => pendingUpdate.id);
+  for (const sentUpdateId of sentUpdateIds) {
+    input.locallyAcceptedUpdateIds?.add(sentUpdateId);
+  }
+
   const syncAttempt = await syncRemoteContainerMetadata({
     containerId: metadataState.container.id,
     documentId,
@@ -272,6 +346,18 @@ export async function syncContainerMetadataState(input: {
   }
 
   const { outgoingUpdateCount, synced } = syncAttempt;
+  // Reconcile the pre-registered ids against what the server actually accepted:
+  // an id we sent but the server did not accept will never be echoed, so drop
+  // it to keep the registry from leaking. Accepted ids stay registered until
+  // their echo consumes them.
+  if (input.locallyAcceptedUpdateIds) {
+    const acceptedOutgoing = new Set(synced.response.acceptedOutgoingUpdateIds);
+    for (const sentUpdateId of sentUpdateIds) {
+      if (!acceptedOutgoing.has(sentUpdateId)) {
+        input.locallyAcceptedUpdateIds.delete(sentUpdateId);
+      }
+    }
+  }
   metadataState.metadataWriterProjection =
     resolveSyncedContainerMetadataWriterProjection(metadataState, synced);
   if (synced.decryptedUpdates.length > 0) {

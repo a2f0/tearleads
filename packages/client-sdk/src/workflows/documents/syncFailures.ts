@@ -251,14 +251,16 @@ export async function retrySyncPlan(input: {
     ];
   } catch (error) {
     if (
-      !input.apiClient.clearWriterProjectionCaches ||
+      !input.apiClient.evictDocumentWriterProjection ||
       !shouldRetrySyncWithFreshWriterProjection(error)
     ) {
       throw error;
     }
   }
 
-  input.apiClient.clearWriterProjectionCaches();
+  // Only this document's projection was stale; evict just it so unrelated
+  // documents keep their warm cache instead of a global wipe.
+  input.apiClient.evictDocumentWriterProjection?.(input.documentId);
   const writerProjection = await resolveDocumentSyncWriterProjection({
     apiClient: input.apiClient,
     documentId: input.documentId,

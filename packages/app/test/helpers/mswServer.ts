@@ -23,7 +23,28 @@ import { createMswEventRouter, type MswSocketClient } from "./mswEventRouter";
 export const wsUrl = "ws://localhost:3002";
 
 const eventsSocket = ws.link(wsUrl);
-const eventRouter = createMswEventRouter(eventsSocket);
+// Socket identity mirrors the production upgrade: the client's ?ticket= is the
+// one-time ticket the proxied test API app minted, resolved through the same
+// module-level ticket store the API wrote it to. Session liveness is skipped —
+// the ticket was minted by an authenticated route moments earlier, and the app
+// test runtime keeps sessions in its own in-memory store.
+const eventRouter = createMswEventRouter({
+  resolveTicketIdentity: async (ticket) => {
+    const { createWebSocketTicketConsumer } = (await import(
+      appTestRuntimeModuleUrl
+    )) as {
+      createWebSocketTicketConsumer: (
+        validateSession: (identity: {
+          sessionId: string;
+          userId: string;
+        }) => Promise<boolean>,
+      ) => (
+        ticket: string,
+      ) => Promise<{ sessionId: string; userId: string } | null>;
+    };
+    return createWebSocketTicketConsumer(async () => true)(ticket);
+  },
+});
 const proxiedApiRequests: Array<{
   authorization: string | null;
   method: string;
@@ -702,7 +723,7 @@ async function ensureTestApiApp(): Promise<TestApiApp> {
     const keyValueStore = createInMemoryKeyValueStore();
     const eventPublisher = {
       publish: async (event: Record<string, unknown>) => {
-        eventRouter.publish(event);
+        await eventRouter.publish(event);
       },
     };
     const runtime = {

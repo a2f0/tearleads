@@ -54,8 +54,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1545,
-      "bytes": 44416
+      "lines": 1573,
+      "bytes": 45974
     },
     "packages/api-client/src/ApiClient.core.test.ts": {
       "lines": 541,
@@ -134,8 +134,8 @@
       "bytes": 16002
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1330,
-      "bytes": 40549
+      "lines": 1340,
+      "bytes": 40645
     },
     "packages/api/src/services/blobs/multipartStage.ts": {
       "lines": 505,
@@ -146,8 +146,8 @@
       "bytes": 18997
     },
     "packages/api/src/workflows/documents/mutations/syncDocument.ts": {
-      "lines": 883,
-      "bytes": 27804
+      "lines": 874,
+      "bytes": 28588
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 721,
@@ -178,8 +178,8 @@
       "bytes": 18029
     },
     "packages/app/test/helpers/mswServer.ts": {
-      "lines": 1020,
-      "bytes": 29885
+      "lines": 1023,
+      "bytes": 30269
     },
     "packages/app/test/helpers/paneTestUtils.tsx": {
       "lines": 530,
@@ -226,8 +226,8 @@
       "bytes": 29013
     },
     "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
-      "lines": 544,
-      "bytes": 17670
+      "lines": 547,
+      "bytes": 18105
     },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 536,

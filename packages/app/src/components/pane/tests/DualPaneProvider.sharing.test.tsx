@@ -48,48 +48,45 @@ import {
 } from "../../../../test/helpers/proxiedApiRequestBudget";
 
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Observed 120 (see issue #1281 for the full peer/object/operation profile).
-  // The growth over the prior 106 ceiling is convergent, not a regression:
-  // per-doc sync passes stay <=3 and per-container list calls <=5, with no
-  // re-sync loops — a true regression would blow far past this. ~80% of the
-  // traffic is read/reconcile (poll + sync + writer-projection); only ~12
-  // requests actually mutate state. #1281 tracks driving this back toward ~40
-  // by cutting the read amplification. Small headroom absorbs race timing.
-  total: 124,
+  // Observed ~100 (down from 120; see issue #1281 for the full profile). The
+  // drop came from making the test WebSocket harness mirror production
+  // origin-based routing (the author no longer receives its own echoes),
+  // suppressing self-echo in the container-metadata lane and on server-side
+  // document-sync/attachment-bind broadcasts, and replacing global
+  // writer-projection cache wipes with targeted eviction on retry. The
+  // remaining ~100 is dominated by read/reconcile convergence (poll + sync +
+  // writer-projection): only ~12 requests actually mutate state. Driving this
+  // toward ~40 (#1281 phase A) requires scoping the resync_required full-tree
+  // crawl and the reconciler sweep force-pull, which are convergence-core and
+  // deferred (they risk revocation/staleness bugs). Small headroom absorbs race
+  // timing; a real re-sync loop would blow far past this.
+  total: 108,
   byRequest: {
-    // Dropped from 19 to ~13-14 (observed) by priming the writer projection of
-    // each container metadata document from its create response, the same way
-    // plain document creates already seed it. The first read of a metadata
-    // document (its own sync, contents hydration) now resolves locally instead
-    // of a cold GET. Priming can only ever avoid a fetch, so this is a ceiling.
+    // ~13-14 observed. Each container metadata document's writer projection is
+    // primed from its create response (like plain document creates), so the
+    // first read resolves locally instead of a cold GET; priming can only avoid
+    // a fetch, so this stays a tight ceiling.
     "GET /documents/:documentId/writer-projection": 15,
-    // Document sync rose from 24 to 35 after fixing a convergence-stall race
-    // (commit "authz member-envelopes; sync clear race"): a remote update
-    // arriving while a document sync pass was awaiting the network used to be
-    // dropped because the pass cleared its pending signal unconditionally at
-    // the end. The lane now correctly retains the signal and re-syncs, so each
-    // document that sees a concurrent peer update during this dual-pane share
-    // does the additional (correct) passes that fetch updates which were
-    // previously lost. The per-document signal sequencing makes this count
-    // deterministic (observed 35); the ceiling has a small headroom. Per-doc
-    // counts stay small (<=5), confirming convergence rather than amplification
-    // — a true regression (e.g. a re-sync loop) would blow far past this.
-    "POST /documents/:documentId/sync": 37,
-    // Device-first reconciliation re-checks the active container on both open
-    // and explicit refresh, and forced server-event reconciliation now rechecks
-    // each event-scoped container once. Early bootstrap can also race a shared
-    // child before it is remotely visible, adding one quiet 404 + retry. The
-    // authenticated system-container promotion pass moves Contacts/Trash from
-    // local-only to remote, so reconciliation now also lists each promoted
-    // container's documents once (observed 13); keep a small headroom.
-    "GET /containers/:containerId/documents": 14,
-    // The test WebSocket harness now mirrors production routing: an
-    // access_changed event evicts interested sockets, then each still-authorized
-    // pane rechecks the tree before re-declaring interest. Early bootstrap can
-    // add two cheap parent-lane deltas while document discovery catches up.
-    // ~27 observed for ~4 root containers/pane — every reconcile and server
-    // event re-lists the whole root because events are hints, not deltas
-    // (#1281, phase A). Small headroom over the observed count.
+    // ~22 observed. A remote update arriving mid-pass is retained (per-document
+    // signal sequencing) and re-synced rather than dropped, so each document
+    // that sees a concurrent peer update during the share does its extra correct
+    // passes. Self-echo suppression (metadata lane + server-side broadcast gated
+    // on newly-inserted update ids) keeps a retry that re-acknowledges existing
+    // updates from re-pinging. Per-doc counts stay small (<=5), confirming
+    // convergence not amplification — a re-sync loop would blow far past this.
+    "POST /documents/:documentId/sync": 26,
+    // ~8-9 observed. Device-first reconciliation re-checks the active container
+    // on open and refresh, forced server-event reconciliation rechecks each
+    // event-scoped container once, and the system-container promotion pass lists
+    // each promoted (Contacts/Trash) container's documents once. One quiet 404 +
+    // retry can occur when bootstrap races a shared child before it is remotely
+    // visible. Small headroom over the observed count.
+    "GET /containers/:containerId/documents": 11,
+    // The test WebSocket harness mirrors production routing: an access_changed
+    // event evicts interested sockets, then each still-authorized pane rechecks
+    // the tree before re-declaring interest. ~26 observed for ~4 root
+    // containers/pane — every reconcile and server event re-lists the whole root
+    // because events are hints, not deltas (#1281, phase A). Small headroom.
     "GET /containers": 28,
     // Device-first bootstrap can leave the explorer store on a pre-root runtime
     // briefly, so projection verification may resolve each pane's public user

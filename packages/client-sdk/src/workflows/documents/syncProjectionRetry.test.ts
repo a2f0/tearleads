@@ -67,13 +67,13 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
   };
   const pendingUpdates = [createPendingUpdateRecord()];
   const submittedRequests: DocumentSyncRequest[] = [];
-  let clearCount = 0;
+  const evictedDocumentIds: string[] = [];
   let projectionRequestCount = 0;
 
   const synced = await syncRemoteDocument({
     apiClient: {
-      clearWriterProjectionCaches: () => {
-        clearCount += 1;
+      evictDocumentWriterProjection: (documentId) => {
+        evictedDocumentIds.push(documentId);
         useFreshProjectionKey = true;
       },
       getDocumentWriterProjection: async (documentId) => {
@@ -121,7 +121,7 @@ test("syncRemoteDocument refetches writer projection after a stale container KEK
   });
 
   expect(synced?.persistedState.documentId).toBe(writerProjection.documentId);
-  expect(clearCount).toBe(1);
+  expect(evictedDocumentIds).toEqual([writerProjection.documentId]);
   expect(projectionRequestCount).toBe(2);
   expect(submittedRequests).toHaveLength(1);
   expect(
@@ -138,13 +138,13 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
     ...writerProjection,
   };
   const pendingUpdates = [createPendingUpdateRecord()];
-  let clearCount = 0;
+  const evictedDocumentIds: string[] = [];
   let buildCount = 0;
 
   const planned = await retrySyncPlan({
     apiClient: {
-      clearWriterProjectionCaches: () => {
-        clearCount += 1;
+      evictDocumentWriterProjection: (documentId) => {
+        evictedDocumentIds.push(documentId);
       },
       getDocumentWriterProjection: async (documentId) =>
         documentId === writerProjection.documentId ? writerProjection : null,
@@ -176,7 +176,7 @@ test("retrySyncPlan refetches a fresh projection after a rollback verification e
 
   // The rollback drops the stale projection, refetches the current one, and
   // rebuilds with it — converging instead of surfacing a hard failure.
-  expect(clearCount).toBe(1);
+  expect(evictedDocumentIds).toEqual([writerProjection.documentId]);
   expect(buildCount).toBe(2);
   expect(planned?.[1]).toBe(writerProjection);
 });

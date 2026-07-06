@@ -197,6 +197,26 @@ export class ApiClient {
     this.documentWriterProjectionRequestsByDocumentId.clear();
   }
 
+  /**
+   * Evict a single document's cached writer projection. A stale-projection
+   * sync/upload retry only implicates the document it is syncing, so it evicts
+   * just that entry instead of wiping every cached projection (which would force
+   * a cold refetch of unrelated documents that were never stale).
+   */
+  evictDocumentWriterProjection(documentId: string): void {
+    this.documentWriterProjectionRequestsByDocumentId.delete(documentId);
+  }
+
+  /**
+   * Container counterpart of {@link evictDocumentWriterProjection}: evict a
+   * single container's cached writer projection. A stale-projection create
+   * retry only implicates the container it is creating under, so it evicts just
+   * that entry rather than clearing the whole projection cache.
+   */
+  evictContainerWriterProjection(containerId: string): void {
+    this.containerWriterProjectionRequestsByContainerId.delete(containerId);
+  }
+
   private buildHeaders(
     body: RequestBody | undefined,
     headers: Record<string, string> | undefined,
@@ -539,14 +559,19 @@ export class ApiClient {
 
         return update(attachments);
       })
-      .catch((error: unknown) => {
+      .catch(() => {
+        // The underlying list fetch failed. Drop this derived cache entry so the
+        // next read refetches, and resolve to null (the cache's miss semantics)
+        // rather than rethrowing: nothing awaits this derived promise directly,
+        // so a rethrow would surface as an unhandled rejection. Callers already
+        // awaiting the original request still observe its rejection.
         if (
           this.documentAttachmentListRequestsByDocumentId.get(documentId) ===
           next
         ) {
           this.documentAttachmentListRequestsByDocumentId.delete(documentId);
         }
-        throw error;
+        return null;
       });
     this.documentAttachmentListRequestsByDocumentId.set(documentId, next);
   }
@@ -926,8 +951,11 @@ export class ApiClient {
       "POST",
       JSON.stringify(input),
     ).finally(() => {
+      // Invalidate only the org's group list. Creating a group grants it no
+      // container access yet (that is a separate share/rekey), so no existing
+      // container or document writer projection can have changed — clearing the
+      // projection caches here just forced needless cold refetches.
       this.organizationGroupRequestsByOrganizationId.delete(organizationId);
-      this.clearWriterProjectionCaches();
     });
   }
 

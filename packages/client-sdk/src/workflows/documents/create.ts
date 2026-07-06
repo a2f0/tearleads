@@ -148,14 +148,16 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
     return await buildWithProjection(containerProjection);
   } catch (error) {
     if (
-      !input.apiClient.clearWriterProjectionCaches ||
+      !input.apiClient.evictContainerWriterProjection ||
       !shouldRetryWithFreshContainerProjection(error)
     ) {
       throw error;
     }
   }
 
-  input.apiClient.clearWriterProjectionCaches();
+  // Only this container's projection was stale; evict just it rather than
+  // wiping every cached projection.
+  input.apiClient.evictContainerWriterProjection?.(input.containerId);
   const refreshedProjection =
     await input.apiClient.getContainerWriterProjection(input.containerId);
   return refreshedProjection ? buildWithProjection(refreshedProjection) : null;
