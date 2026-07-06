@@ -81,6 +81,16 @@ function createContainerContentsStoreSyncHost(
   };
 }
 
+// Serializes a share write through the write chain and resolves to whether it
+// produced a node (shared) rather than null (skipped/failed).
+function chainBooleanShareWrite(
+  state: ContainerContentsStoreState,
+  work: () => ContainerContentsStoreState["writeChain"],
+): Promise<boolean> {
+  state.writeChain = state.writeChain.catch(() => null).then(work);
+  return state.writeChain.then((sharedNode) => sharedNode !== null);
+}
+
 function createContainerContentsStoreEntry(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence = defaultContainerContentsPersistence,
@@ -143,28 +153,21 @@ function createContainerContentsStoreEntry(
           .then(() => renameContainer(state, syncAgent, containerId, name));
         return state.writeChain;
       },
-      shareWithUser: (containerId: string, userId: string) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() =>
-            shareContainerWithUser(state, syncAgent, containerId, userId),
-          );
-        return state.writeChain.then((sharedNode) => sharedNode !== null);
-      },
-      shareWithGroup: (containerId, groupId, accessLevel) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() =>
-            shareContainerWithGroup(
-              state,
-              syncAgent,
-              containerId,
-              groupId,
-              accessLevel,
-            ),
-          );
-        return state.writeChain.then((sharedNode) => sharedNode !== null);
-      },
+      shareWithUser: (containerId: string, userId: string) =>
+        chainBooleanShareWrite(state, () =>
+          shareContainerWithUser(state, syncAgent, containerId, userId),
+        ),
+      shareWithGroup: (containerId, groupId, accessLevel, options) =>
+        chainBooleanShareWrite(state, () =>
+          shareContainerWithGroup(
+            state,
+            syncAgent,
+            containerId,
+            groupId,
+            accessLevel,
+            options,
+          ),
+        ),
       getCachedContainerWriterProjection: (containerId) =>
         getCachedContainerWriterProjectionForStore(state, containerId),
       getSnapshot: () => state.snapshot,

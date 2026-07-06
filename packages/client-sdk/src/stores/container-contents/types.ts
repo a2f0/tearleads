@@ -60,6 +60,7 @@ export interface ContainerContentsContextValue {
     containerId: string,
     groupId: string,
     accessLevel: ContainerContentsShareAccessLevel,
+    options?: { requireExistingGrant?: boolean } | undefined,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
@@ -98,6 +99,7 @@ export interface ContainerContentsStore {
     containerId: string,
     groupId: string,
     accessLevel: ContainerContentsShareAccessLevel,
+    options?: { requireExistingGrant?: boolean } | undefined,
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   getCachedContainerWriterProjection: (

@@ -242,8 +242,8 @@
       "bytes": 16293
     },
     "packages/client-sdk/src/workflows/container-contents/container-state/share.test.ts": {
-      "lines": 657,
-      "bytes": 21244
+      "lines": 713,
+      "bytes": 23629
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 1017,
@@ -331,7 +331,7 @@
     },
     "scripts/subsystems.ts": {
       "lines": 702,
-      "bytes": 24910
+      "bytes": 24964
     },
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,

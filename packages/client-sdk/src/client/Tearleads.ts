@@ -153,7 +153,7 @@ export class Tearleads {
     });
     this.containerContents = createContainerContents(runtime);
     this.deviceFirst = createDeviceFirst(runtime, this.containerContents);
-    this.organizations = createOrganizations(runtime);
+    this.organizations = createOrganizations(runtime, this.containerContents);
     this.userKeys = createUserKeys({
       apiClient: this.apiClient,
       log: this.log,
