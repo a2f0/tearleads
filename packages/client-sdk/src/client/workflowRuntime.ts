@@ -21,6 +21,7 @@ import type { Events } from "./events";
 import type { Identity } from "./identity";
 import type { Network } from "./network";
 import type { Session } from "./session";
+import type { SyncBillingGate } from "./syncBillingGate";
 
 export interface WorkflowRuntimeInput extends WorkflowRuntimeGroups {}
 
@@ -56,6 +57,7 @@ interface WorkflowRuntimeDependencies {
   network: Network;
   peerScope?: string | null;
   session: Session;
+  syncBillingGate?: SyncBillingGate | undefined;
 }
 
 export function createRuntime(
@@ -96,6 +98,7 @@ function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
   dependencies.identity.subscribe(notifyListeners);
   dependencies.network.subscribe(() => notifyListeners());
   dependencies.session.subscribe(notifyListeners);
+  dependencies.syncBillingGate?.subscribe(notifyListeners);
 
   return {
     get version() {
@@ -177,6 +180,8 @@ function createRuntimeInputFactory(
       util = {
         cacheReferencedPrincipalPolicies:
           createCacheReferencedPrincipalPolicies(dependencies, execSql),
+        isRemoteSyncBlocked: () =>
+          dependencies.syncBillingGate?.isBlocked ?? false,
         log: dependencies.log,
         logError: dependencies.logError,
       };

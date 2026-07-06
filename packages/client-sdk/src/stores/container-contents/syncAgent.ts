@@ -113,6 +113,10 @@ function requestContainerContentsStoreSync(
   state.syncLane?.requestSync();
 }
 
+function isRemoteSyncBlocked(state: ContainerContentsStoreSyncState): boolean {
+  return state.runtime.util.isRemoteSyncBlocked?.() ?? false;
+}
+
 function createContainerContentsStoreDocumentPrimeHost(
   state: ContainerContentsStoreSyncState,
 ): ContainerDocumentPrimeHost<ContainerContentsStorePrimeDocumentRuntime> {
@@ -239,7 +243,8 @@ function requestRemoteHydration(input: {
         (appliedRemoteContainerChange || input.scheduleSyncAfterHydration) &&
         state.snapshot.ready &&
         state.runtime.auth.isAuthenticated &&
-        state.runtime.state.online
+        state.runtime.state.online &&
+        !isRemoteSyncBlocked(state)
       ) {
         scheduleSync();
       }
@@ -284,6 +289,7 @@ async function initializeContainerContentsStore(input: {
 
   if (
     state.containersById.size > 0 &&
+    !isRemoteSyncBlocked(state) &&
     (await hasStartupContainerSyncWork(state))
   ) {
     scheduleSync();
@@ -383,6 +389,7 @@ async function runContainerContentsStoreSyncIteration(input: {
     state.runtime.infra.dbStatus !== "ready" ||
     !state.snapshot.ready ||
     !state.runtime.state.online ||
+    isRemoteSyncBlocked(state) ||
     !state.runtime.auth.isAuthenticated ||
     !encapsulationKeyPair
   ) {
