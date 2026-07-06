@@ -18,8 +18,14 @@
   background: var(--color-light);
   --routed-rail-width: clamp(13rem, 22vw, 17rem);
   --routed-rail-collapsed-width: 44px;
+  --routed-rail-toggle-visual-size: 32px;
   --routed-drawer-width: min(20rem, 82vw);
   --routed-touch-target: 44px;
+  --routed-appbar-block-size: calc(
+    var(--control-height) +
+    (2 * var(--space-xs)) +
+    var(--border-width)
+  );
 }
 
 /* Mobile: app bar on top, menu bar on bottom; rail/sidebar are overlays. */
@@ -182,6 +188,7 @@
 }
 
 .routed-pane-rail-toggle {
+  position: relative;
   display: inline-flex;
   flex: 0 0 var(--routed-touch-target);
   align-self: flex-end;
@@ -191,11 +198,14 @@
   min-width: var(--routed-touch-target);
   height: var(--routed-touch-target);
   min-height: var(--routed-touch-target);
-  margin: 0;
+  margin-block: calc(
+      (var(--routed-appbar-block-size) - var(--routed-touch-target)) *
+      0.5
+    )
+    0;
+  margin-inline: 0;
   padding: 0;
   border: 0;
-  border-bottom: var(--border);
-  border-left: var(--border);
   background: transparent;
   color: inherit;
   font: inherit;
@@ -204,17 +214,32 @@
 }
 
 .routed-pane-rail--collapsed .routed-pane-rail-toggle {
-  align-self: stretch;
-  border-left: 0;
+  align-self: center;
+}
+
+.routed-pane-rail-toggle::before {
+  position: absolute;
+  inset: calc(
+    (var(--routed-touch-target) - var(--routed-rail-toggle-visual-size)) *
+    0.5
+  );
+  border: var(--border);
+  content: "";
+  pointer-events: none;
 }
 
 .routed-pane-rail-toggle:hover,
 .routed-pane-rail-toggle:focus-visible {
-  background: var(--color-dark);
   color: var(--color-light);
 }
 
+.routed-pane-rail-toggle:hover::before,
+.routed-pane-rail-toggle:focus-visible::before {
+  background: var(--color-dark);
+}
+
 .routed-pane-rail-toggle svg {
+  position: relative;
   flex: 0 0 auto;
 }
 
@@ -339,7 +364,7 @@
   width: var(--routed-touch-target);
   height: var(--routed-touch-target);
   padding: 0;
-  border: var(--border);
+  border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
