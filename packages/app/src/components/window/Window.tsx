@@ -1,5 +1,6 @@
 import {
   type CSSProperties,
+  type HTMLAttributes,
   type PropsWithChildren,
   type MouseEvent as ReactMouseEvent,
   useCallback,
@@ -299,6 +300,16 @@ function WindowInnerContent({
   const handleWindowMouseDown = useCallback(() => {
     bringToFront(entry.id);
   }, [bringToFront, entry.id]);
+  const handleWindowContextMenu = useCallback((event: ReactMouseEvent) => {
+    // Keep background pane context menus from opening underneath window-local menus.
+    event.stopPropagation();
+  }, []);
+  const windowContextMenuTrapProps: Pick<
+    HTMLAttributes<HTMLDivElement>,
+    "onContextMenu"
+  > = {
+    onContextMenu: handleWindowContextMenu,
+  };
   const style = getWindowStyle(maximized, position, size, zIndex);
 
   if (minimized) {
@@ -309,6 +320,7 @@ function WindowInnerContent({
     <div
       ref={windowRef}
       className={maximized ? "window window--maximized" : "window"}
+      {...windowContextMenuTrapProps}
       onMouseDownCapture={handleWindowMouseDown}
       style={style}
     >
