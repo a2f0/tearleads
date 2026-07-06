@@ -275,6 +275,10 @@ function resolveSyncedDocumentWriterProjection(
     : null;
 }
 
+/** Clear the remote-update signal only when its consumed sequence is unchanged.
+ * A moved sequence means a newer remote event arrived mid-pass and must survive
+ * for the coalesced re-run to avoid the convergence-stall race.
+ */
 export function canClearRemoteUpdateSignalAfterSync(
   currentSignalSeq: number,
   consumedSignalSeq: number,
