@@ -17,6 +17,7 @@
   color: var(--color-dark);
   background: var(--color-light);
   --routed-rail-width: clamp(13rem, 22vw, 17rem);
+  --routed-rail-collapsed-width: 44px;
   --routed-drawer-width: min(20rem, 82vw);
   --routed-touch-target: 44px;
 }
@@ -167,12 +168,60 @@
 
 .routed-pane-rail {
   grid-area: rail;
+  display: flex;
+  flex-direction: column;
   width: var(--routed-rail-width);
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: var(--scrollbar-gutter);
+  overflow: hidden;
   border-right: var(--border-strong);
   background: var(--color-muted);
+}
+
+.routed-pane-rail--collapsed {
+  width: var(--routed-rail-collapsed-width);
+}
+
+.routed-pane-rail-toggle {
+  display: inline-flex;
+  flex: 0 0 var(--routed-touch-target);
+  align-self: flex-end;
+  align-items: center;
+  justify-content: center;
+  width: var(--routed-touch-target);
+  min-width: var(--routed-touch-target);
+  height: var(--routed-touch-target);
+  min-height: var(--routed-touch-target);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: var(--border);
+  border-left: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routed-pane-rail--collapsed .routed-pane-rail-toggle {
+  align-self: stretch;
+  border-left: 0;
+}
+
+.routed-pane-rail-toggle:hover,
+.routed-pane-rail-toggle:focus-visible {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.routed-pane-rail-toggle svg {
+  flex: 0 0 auto;
+}
+
+.routed-pane-rail .routed-pane-nav-panel {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  scrollbar-gutter: var(--scrollbar-gutter);
 }
 
 /* === Mobile drawer + scrim === */

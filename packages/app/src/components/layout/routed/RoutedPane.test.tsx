@@ -34,6 +34,25 @@ function forceMobileRoutedTier(): () => void {
   };
 }
 
+function forceTabletRoutedTier(): () => void {
+  const originalMatchMedia = window.matchMedia;
+
+  window.matchMedia = ((query: string) => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: query.includes("min-width"),
+    media: query,
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia;
+
+  return () => {
+    window.matchMedia = originalMatchMedia;
+  };
+}
+
 test("menuPositionBelow derives a position from the anchor rect", () => {
   expect(menuPositionBelow(fakeButton({ left: 12, bottom: 34 }))).toEqual({
     x: 12,
@@ -115,6 +134,52 @@ test("mobile routed shell opens the nav drawer from the bottom menu bar", () => 
 
     expect(menuButton.getAttribute("aria-expanded")).toBe("true");
     expect(drawer?.getAttribute("data-open")).toBe("true");
+  } finally {
+    view?.unmount();
+    restoreMatchMedia();
+  }
+});
+
+test("tablet routed shell collapses and expands the navigation rail", () => {
+  const restoreMatchMedia = forceTabletRoutedTier();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
+
+  try {
+    view = renderRoutedPane();
+
+    expect(
+      view.container
+        .querySelector(".routed-pane-rail")
+        ?.getAttribute("data-state"),
+    ).toBe("open");
+    expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
+
+    fireEvent.click(
+      view.getByRole("button", { name: "Collapse navigation rail" }),
+    );
+
+    expect(
+      view.container
+        .querySelector(".routed-pane-rail")
+        ?.getAttribute("data-state"),
+    ).toBe("closed");
+    expect(view.queryByRole("link", { name: "Home" })).toBeNull();
+    expect(
+      view
+        .getByRole("button", { name: "Expand navigation rail" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+
+    fireEvent.click(
+      view.getByRole("button", { name: "Expand navigation rail" }),
+    );
+
+    expect(
+      view.container
+        .querySelector(".routed-pane-rail")
+        ?.getAttribute("data-state"),
+    ).toBe("open");
+    expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
   } finally {
     view?.unmount();
     restoreMatchMedia();

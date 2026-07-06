@@ -1,3 +1,5 @@
+import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
+import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { type MouseEvent as ReactMouseEvent, useCallback } from "react";
 import {
   MINI_APPS,
@@ -6,8 +8,11 @@ import {
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import type { RoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
+import { classNames } from "../../shared/classNames";
 import { PaneSystemMenuItems } from "../../shared/PaneSystemMenuItems";
 import type { WindowMenuItem } from "../../window/WindowMenuBar";
+
+const ROUTED_PANE_NAV_PANEL_ID = "routed-pane-nav-panel";
 
 function RoutedPaneNavLink({
   appId,
@@ -83,6 +88,7 @@ function RoutedPaneHomeNavLink({
  */
 function RoutedPaneNavPanel({
   activeAppId,
+  id,
   menuItems,
   onNavigate,
   onOpenUnlock,
@@ -91,6 +97,7 @@ function RoutedPaneNavPanel({
   showDeveloperControls,
 }: {
   activeAppId: MiniAppId | null;
+  id?: string | undefined;
   menuItems: ReadonlyArray<WindowMenuItem>;
   onNavigate: () => void;
   onOpenUnlock: () => void;
@@ -99,7 +106,7 @@ function RoutedPaneNavPanel({
   showDeveloperControls: boolean;
 }) {
   return (
-    <div className="routed-pane-nav-panel">
+    <div className="routed-pane-nav-panel" id={id}>
       <nav aria-label="Apps" className="routed-pane-nav">
         <RoutedPaneHomeNavLink
           activeAppId={activeAppId}
@@ -145,6 +152,33 @@ function RoutedPaneNavPanel({
   );
 }
 
+function RoutedPaneRailToggle({
+  expanded,
+  onToggle,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = expanded ? CaretLeftIcon : CaretRightIcon;
+  const label = expanded
+    ? "Collapse navigation rail"
+    : "Expand navigation rail";
+
+  return (
+    <button
+      aria-controls={expanded ? ROUTED_PANE_NAV_PANEL_ID : undefined}
+      aria-expanded={expanded}
+      aria-label={label}
+      className="routed-pane-rail-toggle"
+      title={label}
+      type="button"
+      onClick={onToggle}
+    >
+      <Icon aria-hidden="true" size={18} />
+    </button>
+  );
+}
+
 /**
  * The navigation surface in its tier-appropriate container: a persistent
  * `<aside>` rail on tablet, or a slide-in drawer (plus dismiss scrim) on mobile.
@@ -157,6 +191,8 @@ export function RoutedPaneNav({
   onOpenUnlock,
   onRequestDestroyKeyPackage,
   onRequestLogout,
+  onToggleRail,
+  railExpanded,
   showDeveloperControls,
   tier,
 }: {
@@ -167,6 +203,8 @@ export function RoutedPaneNav({
   onOpenUnlock: () => void;
   onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
+  onToggleRail: () => void;
+  railExpanded: boolean;
   showDeveloperControls: boolean;
   tier: RoutedLayoutTier;
 }) {
@@ -183,7 +221,29 @@ export function RoutedPaneNav({
   );
 
   if (tier === "tablet") {
-    return <aside className="routed-pane-rail">{panel}</aside>;
+    return (
+      <aside
+        className={classNames(
+          "routed-pane-rail",
+          !railExpanded && "routed-pane-rail--collapsed",
+        )}
+        data-state={railExpanded ? "open" : "closed"}
+      >
+        <RoutedPaneRailToggle expanded={railExpanded} onToggle={onToggleRail} />
+        {railExpanded && (
+          <RoutedPaneNavPanel
+            activeAppId={activeAppId}
+            id={ROUTED_PANE_NAV_PANEL_ID}
+            menuItems={menuItems}
+            onNavigate={onCloseDrawer}
+            onOpenUnlock={onOpenUnlock}
+            onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
+            onRequestLogout={onRequestLogout}
+            showDeveloperControls={showDeveloperControls}
+          />
+        )}
+      </aside>
+    );
   }
 
   return (

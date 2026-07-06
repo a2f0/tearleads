@@ -270,19 +270,53 @@ function useCollapseOverlaysOnTierChange({
   }, [tier, closeSidebar]);
 }
 
+interface RoutedPaneSurfaceProps {
+  activeAppId: MiniAppId | null;
+  ActiveMiniApp: ComponentType | null;
+  showUnlockPanel: boolean;
+  navigationRailExpanded: boolean;
+  onOpenUnlock: () => void;
+  onToggleNavigationRail: () => void;
+  tier: RoutedLayoutTier;
+}
+
+function RoutedPaneConfirmationDialogs({
+  destroyKeyPackageDialog,
+  logoutDialog,
+}: {
+  destroyKeyPackageDialog: ReturnType<typeof useDestroyKeyPackageConfirmation>;
+  logoutDialog: ReturnType<typeof useConfirmedLogoutDialog>;
+}) {
+  return (
+    <>
+      {destroyKeyPackageDialog.isOpen && (
+        <DestroyKeyPackageConfirmationDialog
+          isOpen={destroyKeyPackageDialog.isOpen}
+          onCancel={destroyKeyPackageDialog.closeDestroyKeyPackageDialog}
+          onConfirm={destroyKeyPackageDialog.confirmDestroyKeyPackage}
+        />
+      )}
+      {logoutDialog.isOpen && (
+        <LogoutConfirmationDialog
+          busy={logoutDialog.busy}
+          isOpen={logoutDialog.isOpen}
+          onCancel={logoutDialog.closeLogoutDialog}
+          onConfirm={logoutDialog.confirmLogout}
+        />
+      )}
+    </>
+  );
+}
+
 function RoutedPaneSurface({
   activeAppId,
   ActiveMiniApp,
   showUnlockPanel,
+  navigationRailExpanded,
   onOpenUnlock,
+  onToggleNavigationRail,
   tier,
-}: {
-  activeAppId: MiniAppId | null;
-  ActiveMiniApp: ComponentType | null;
-  showUnlockPanel: boolean;
-  onOpenUnlock: () => void;
-  tier: RoutedLayoutTier;
-}) {
+}: RoutedPaneSurfaceProps) {
   const { sidebar } = useWindowSidebar();
   const logoutDialog = useConfirmedLogoutDialog();
   const { destroyKey } = useIdentity();
@@ -337,6 +371,8 @@ function RoutedPaneSurface({
           destroyKeyPackageDialog.requestDestroyKeyPackage
         }
         onRequestLogout={logoutDialog.requestLogout}
+        onToggleRail={onToggleNavigationRail}
+        railExpanded={navigationRailExpanded}
         showDeveloperControls={isDeveloperMode}
         tier={tier}
       />
@@ -360,21 +396,10 @@ function RoutedPaneSurface({
           onToggleDrawer={toggleDrawer}
         />
       )}
-      {destroyKeyPackageDialog.isOpen && (
-        <DestroyKeyPackageConfirmationDialog
-          isOpen={destroyKeyPackageDialog.isOpen}
-          onCancel={destroyKeyPackageDialog.closeDestroyKeyPackageDialog}
-          onConfirm={destroyKeyPackageDialog.confirmDestroyKeyPackage}
-        />
-      )}
-      {logoutDialog.isOpen && (
-        <LogoutConfirmationDialog
-          busy={logoutDialog.busy}
-          isOpen={logoutDialog.isOpen}
-          onCancel={logoutDialog.closeLogoutDialog}
-          onConfirm={logoutDialog.confirmLogout}
-        />
-      )}
+      <RoutedPaneConfirmationDialogs
+        destroyKeyPackageDialog={destroyKeyPackageDialog}
+        logoutDialog={logoutDialog}
+      />
     </section>
   );
 }
@@ -382,10 +407,14 @@ function RoutedPaneSurface({
 function RoutedPaneWithRegistries({
   activeAppId,
   ActiveMiniApp,
+  navigationRailExpanded,
+  onToggleNavigationRail,
   tier,
 }: {
   activeAppId: MiniAppId | null;
   ActiveMiniApp: ComponentType | null;
+  navigationRailExpanded: boolean;
+  onToggleNavigationRail: () => void;
   tier: RoutedLayoutTier;
 }) {
   const localKeyringLock = useLocalKeyringLock();
@@ -404,9 +433,11 @@ function RoutedPaneWithRegistries({
         <RoutedPaneSurface
           activeAppId={activeAppId}
           ActiveMiniApp={ActiveMiniApp}
+          navigationRailExpanded={navigationRailExpanded}
           showUnlockPanel={showUnlockPanel}
           tier={tier}
           onOpenUnlock={openUnlockPanel}
+          onToggleNavigationRail={onToggleNavigationRail}
         />
       </WindowSidebarProvider>
     </WindowMenuProvider>
@@ -416,6 +447,7 @@ function RoutedPaneWithRegistries({
 export function RoutedPane() {
   const { userId } = useCryptoSession();
   const tier = useRoutedLayoutTier();
+  const [navigationRailExpanded, setNavigationRailExpanded] = useState(true);
   const {
     route: { appId },
   } = useAppNavigationState();
@@ -425,13 +457,19 @@ export function RoutedPane() {
     () => (activeAppId ? MINI_APPS[activeAppId].createComponent() : null),
     [activeAppId],
   );
+  const toggleNavigationRail = useCallback(
+    () => setNavigationRailExpanded(invertBoolean),
+    [],
+  );
 
   return (
     <RoutedPaneWithRegistries
       key={activeAppId ?? "home"}
       activeAppId={activeAppId}
       ActiveMiniApp={ActiveMiniApp}
+      navigationRailExpanded={navigationRailExpanded}
       tier={tier}
+      onToggleNavigationRail={toggleNavigationRail}
     />
   );
 }
