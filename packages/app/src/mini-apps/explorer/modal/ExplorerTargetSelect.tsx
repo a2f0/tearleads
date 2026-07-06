@@ -3,7 +3,7 @@ import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniApp
 import { getExplorerContainerIcon } from "../explorerContainerIcons";
 import type { MoveTargetOption } from "../targetOptions";
 
-export interface ExplorerTargetSelectProps {
+interface ExplorerTargetSelectProps {
   ariaLabel: string;
   disabled: boolean;
   onChange: (value: string) => void;

@@ -16,7 +16,7 @@ export interface MiniAppSelectMenuOption {
   label: string;
 }
 
-export interface MiniAppSelectMenuControllerParams {
+interface MiniAppSelectMenuControllerParams {
   disabled: boolean;
   /**
    * Whether the menu has a footer action. When true, the trigger stays openable
