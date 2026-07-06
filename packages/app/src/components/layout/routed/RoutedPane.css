@@ -4,7 +4,8 @@
  * useRoutedLayoutTier, keyed to the same 760px line as the media query below)
  * picks the layout.
  *
- * - mobile: top app bar + hamburger that opens a slide-in drawer over content.
+ * - mobile: top app bar + centered bottom menu button that opens a slide-in
+ *   drawer over content.
  * - tablet: persistent left rail beside the main content (the iPad layout).
  */
 
@@ -20,12 +21,13 @@
   --routed-touch-target: 2.75rem;
 }
 
-/* Mobile: app bar on top, main fills the rest; rail/sidebar are overlays. */
+/* Mobile: app bar on top, menu bar on bottom; rail/sidebar are overlays. */
 .routed-pane--mobile {
   display: grid;
   grid-template:
     "appbar" auto
     "main" 1fr
+    "mobilebar" auto
     / minmax(0, 1fr);
 }
 
@@ -101,11 +103,6 @@
 
 .routed-pane-iconbutton {
   flex: 0 0 auto;
-}
-
-.routed-pane-hamburger {
-  font-size: var(--font-size-lg);
-  line-height: 1;
 }
 
 /* === Navigation panel (shared by rail + drawer) === */
@@ -274,6 +271,46 @@
   padding: var(--space-md);
 }
 
+/* === Mobile menu bar === */
+
+.routed-pane-mobile-bar {
+  grid-area: mobilebar;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-xs) var(--space-sm)
+    max(var(--space-xs), env(safe-area-inset-bottom));
+  border-top: var(--border-strong);
+  background: var(--color-muted);
+}
+
+.routed-pane-mobile-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-width: 6rem;
+  min-height: var(--control-height);
+  padding: 0 var(--space-md);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.routed-pane-mobile-menu-button:hover,
+.routed-pane-mobile-menu-button:focus-visible,
+.routed-pane-mobile-menu-button[aria-expanded="true"] {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.routed-pane-mobile-menu-icon {
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
 /*
  * Coarse-pointer (touch) sizing. Bump interactive targets toward ~44px so
  * taps land reliably on phones and tablets without a mouse. Scoped to the
@@ -281,6 +318,7 @@
  */
 @media (pointer: coarse) {
   .routed-pane-appbar button,
+  .routed-pane-mobile-menu-button,
   .routed-pane-nav-link,
   .routed-pane-nav-action,
   .routed-pane-nav-section > button {
@@ -303,6 +341,7 @@
     grid-template:
       "appbar" auto
       "main" 1fr
+      "mobilebar" auto
       / minmax(0, 1fr);
   }
 
