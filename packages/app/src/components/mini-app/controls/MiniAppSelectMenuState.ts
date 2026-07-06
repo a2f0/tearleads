@@ -18,6 +18,11 @@ export interface MiniAppSelectMenuOption {
 
 export interface MiniAppSelectMenuControllerParams {
   disabled: boolean;
+  /**
+   * Whether the menu has a footer action. When true, the trigger stays openable
+   * even with no options so the footer (e.g. a "New…" action) stays reachable.
+   */
+  hasFooter: boolean;
   onChange: (value: string) => void;
   options: ReadonlyArray<MiniAppSelectMenuOption>;
   selectRef: RefObject<HTMLButtonElement | null>;
@@ -203,7 +208,7 @@ function useSyncSelectMenuHighlight(params: {
 export function useMiniAppSelectMenuController(
   params: MiniAppSelectMenuControllerParams,
 ): MiniAppSelectMenuController {
-  const { disabled, onChange, options, selectRef, value } = params;
+  const { disabled, hasFooter, onChange, options, selectRef, value } = params;
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -220,13 +225,13 @@ export function useMiniAppSelectMenuController(
 
   const close = useCallback(() => setOpen(false), []);
   const openList = useCallback(() => {
-    if (disabled || options.length === 0) {
+    if (disabled || (options.length === 0 && !hasFooter)) {
       return;
     }
 
     setHighlightedId(selectedOption?.id ?? options[0]?.id ?? "");
     setOpen(true);
-  }, [disabled, options, selectedOption?.id]);
+  }, [disabled, hasFooter, options, selectedOption?.id]);
 
   const selectOption = useCallback(
     (option: MiniAppSelectMenuOption) => {

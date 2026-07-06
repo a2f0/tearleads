@@ -69,6 +69,31 @@ test("org switcher opens a listbox and drives selection", () => {
   expect(view.queryByRole("listbox")).toBeNull();
 });
 
+test("org switcher stays openable with no organizations so the first can be created", () => {
+  let opened = 0;
+  const view = render(
+    <OrgSwitcher
+      switcher={createSwitcher({
+        activeOrganizationId: null,
+        openCreateOrganizationDialog: () => {
+          opened += 1;
+        },
+        organizations: [],
+      })}
+    />,
+  );
+
+  const trigger = getTrigger(view);
+  expect((trigger as HTMLButtonElement).disabled).toBe(false);
+
+  fireEvent.click(trigger);
+  // The listbox opens even with zero options because a footer action exists.
+  expect(view.getByRole("listbox")).toBeTruthy();
+  fireEvent.click(view.getByText(ORG_MANAGER_LABELS.newOrganizationAction));
+
+  expect(opened).toBe(1);
+});
+
 test("org switcher opens the create-organization dialog from the footer", () => {
   let opened = 0;
   const view = render(

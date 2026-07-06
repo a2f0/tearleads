@@ -34,6 +34,7 @@ function MiniAppSelectMenuTrigger(props: {
   ariaLabel: string;
   controller: MiniAppSelectMenuController;
   disabled: boolean;
+  hasFooter: boolean;
   optionCount: number;
   placeholder: string | undefined;
   selectRef: RefObject<HTMLButtonElement | null>;
@@ -48,7 +49,7 @@ function MiniAppSelectMenuTrigger(props: {
       aria-haspopup="listbox"
       aria-label={props.ariaLabel}
       className="mini-app-select-menu-trigger"
-      disabled={props.disabled || props.optionCount === 0}
+      disabled={props.disabled || (props.optionCount === 0 && !props.hasFooter)}
       onClick={() => {
         if (controller.open) {
           controller.close();
@@ -163,8 +164,10 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
   const internalRef = useRef<HTMLButtonElement>(null);
   const selectRef = props.selectRef ?? internalRef;
   const disabled = props.disabled ?? false;
+  const hasFooter = Boolean(props.footer);
   const controller = useMiniAppSelectMenuController({
     disabled,
+    hasFooter,
     onChange: props.onChange,
     options: props.options,
     selectRef,
@@ -177,6 +180,7 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
         ariaLabel={props.ariaLabel}
         controller={controller}
         disabled={disabled}
+        hasFooter={hasFooter}
         optionCount={props.options.length}
         placeholder={props.placeholder}
         selectRef={selectRef}
