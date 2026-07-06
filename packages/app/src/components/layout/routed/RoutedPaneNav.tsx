@@ -161,12 +161,12 @@ function RoutedPaneRailToggle({
 }) {
   const Icon = expanded ? CaretLeftIcon : CaretRightIcon;
   const label = expanded
-    ? "Collapse navigation sidebar"
-    : "Expand navigation sidebar";
+    ? "Collapse navigation rail"
+    : "Expand navigation rail";
 
   return (
     <button
-      aria-controls={ROUTED_PANE_NAV_PANEL_ID}
+      aria-controls={expanded ? ROUTED_PANE_NAV_PANEL_ID : undefined}
       aria-expanded={expanded}
       aria-label={label}
       className="routed-pane-rail-toggle"

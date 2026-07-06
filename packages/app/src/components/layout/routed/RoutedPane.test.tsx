@@ -155,7 +155,7 @@ test("tablet routed shell collapses and expands the navigation rail", () => {
     expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
 
     fireEvent.click(
-      view.getByRole("button", { name: "Collapse navigation sidebar" }),
+      view.getByRole("button", { name: "Collapse navigation rail" }),
     );
 
     expect(
@@ -166,12 +166,12 @@ test("tablet routed shell collapses and expands the navigation rail", () => {
     expect(view.queryByRole("link", { name: "Home" })).toBeNull();
     expect(
       view
-        .getByRole("button", { name: "Expand navigation sidebar" })
+        .getByRole("button", { name: "Expand navigation rail" })
         .getAttribute("aria-expanded"),
     ).toBe("false");
 
     fireEvent.click(
-      view.getByRole("button", { name: "Expand navigation sidebar" }),
+      view.getByRole("button", { name: "Expand navigation rail" }),
     );
 
     expect(
