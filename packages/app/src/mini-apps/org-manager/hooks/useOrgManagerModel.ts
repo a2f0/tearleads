@@ -380,7 +380,6 @@ export function useOrgManagerModel() {
     ),
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
     setView: setOrgManagerView,
-    switcher: orgSwitcher,
     view,
   });
 
