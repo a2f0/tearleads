@@ -3,6 +3,7 @@ import type {
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
+import { assertOrganizationCanSync } from "../../../billing/organizationBilling";
 import type {
   ContainerMutationContext,
   MutateContainerWithExecutorInput,
@@ -51,6 +52,31 @@ async function readCurrentPrincipalPolicies(input: {
   );
 }
 
+async function assertMutationOrganizationCanSync(
+  context: ContainerMutationContext,
+  eventType: MutateContainerWithExecutorInput["expectedEventType"],
+  organizationId: string,
+): Promise<void> {
+  if (eventType === "container.create") {
+    return;
+  }
+
+  await assertOrganizationCanSync(context.executor, organizationId);
+}
+
+async function loadPreviousContainerManifest(
+  previousManifest: MutateContainerWithExecutorInput["request"]["previousManifest"],
+): Promise<VerifiedContainerAccessManifest | null> {
+  if (previousManifest === undefined || previousManifest === null) {
+    return null;
+  }
+
+  return assertContainerManifestBundleConsistent(
+    previousManifest,
+    "previousManifest",
+  );
+}
+
 export async function mutateContainerWithExecutor(
   input: MutateContainerWithExecutorInput,
 ): Promise<ContainerMutationResponse> {
@@ -78,14 +104,9 @@ export async function mutateContainerWithExecutor(
     await assertHistoricalContainerManifestsConsistent(
       input.request.containerManifestHistory,
     );
-  const previousManifest =
-    input.request.previousManifest === undefined ||
-    input.request.previousManifest === null
-      ? null
-      : await assertContainerManifestBundleConsistent(
-          input.request.previousManifest,
-          "previousManifest",
-        );
+  const previousManifest = await loadPreviousContainerManifest(
+    input.request.previousManifest,
+  );
 
   if (previousManifest) {
     await assertManifestHeadCurrent(
@@ -132,6 +153,11 @@ export async function mutateContainerWithExecutor(
       containerManifestHistory,
       principalPolicies,
     },
+  );
+  await assertMutationOrganizationCanSync(
+    context,
+    input.expectedEventType,
+    manifest.state.organizationId,
   );
 
   return persistVerifiedMutation(

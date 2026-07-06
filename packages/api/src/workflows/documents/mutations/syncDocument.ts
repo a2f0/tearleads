@@ -39,6 +39,7 @@ import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpan
 import { listMissingDocumentUpdates } from "../../../documents/documentUpdateStore";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
+import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   ContainerWriterProjectionError,
@@ -741,29 +742,27 @@ async function syncDocumentTransaction(input: {
     input.documentId,
     input.tx,
   );
-  // Serialize a content append against a concurrent container.rekey. Under the
-  // default READ COMMITTED isolation, a rekey that commits between the
-  // current-targets validation in resolveSyncContentKeyBundle below and the
-  // appendDocumentUpdates insert would let this write land under a superseded
-  // container key epoch — i.e. wrapped to the pre-rotation recipient set, which
-  // can include a just-revoked principal. Taking a FOR SHARE lock on the linked
-  // container access-manifest heads makes such a rekey block until this write
-  // commits (or, if it already committed, the stale-epoch check fails closed),
-  // while independent document syncs still run in parallel. Empty (read-only)
-  // syncs write no content and take no lock.
-  if (input.request.outgoingUpdates.length > 0) {
-    await lockAccessManifestHeadsForShare(
-      "container",
-      currentTargets.targets.map((target) => target.containerId),
-      input.tx,
-    );
-  }
   await ensureSyncDocumentAccess({
     currentTargets,
     executor: input.tx,
     request: input.request,
     userId: input.userId,
   });
+  const hasOutgoingUpdates = input.request.outgoingUpdates.length > 0;
+  const hasContainerRekeys = (input.request.containerRekeys?.length ?? 0) > 0;
+  if (hasOutgoingUpdates || hasContainerRekeys) {
+    await assertOrganizationCanSync(input.tx, currentTargets.organizationId);
+  }
+  if (hasOutgoingUpdates) {
+    // Serialize accepted content against concurrent container.rekey writes so a
+    // stale target set cannot land under a superseded container key epoch.
+    // Empty read-only syncs write no content and take no lock.
+    await lockAccessManifestHeadsForShare(
+      "container",
+      currentTargets.targets.map((target) => target.containerId),
+      input.tx,
+    );
+  }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,
     documentId: input.documentId,

@@ -78,7 +78,6 @@ export async function runListOrganizationGroupsWorkflow(
       organizationId,
       userId: sessionUserId,
     });
-    await assertOrganizationCanSync(tx, organizationId);
     const groupSummaries = await listOrganizationGroupSummariesInTransaction({
       executor: tx,
       organizationId,
@@ -196,7 +195,6 @@ async function listOrganizationGroupContainersInTransaction(input: {
     organizationId: input.organizationId,
     userId: input.sessionUserId,
   });
-  await assertOrganizationCanSync(input.executor, input.organizationId);
   await requireGroupInOrganization({
     executor: input.executor,
     groupId: input.groupId,
@@ -312,8 +310,6 @@ async function listOrganizationGroupMembersInTransaction(input: {
     organizationId: input.organizationId,
     userId: input.sessionUserId,
   });
-  await assertOrganizationCanSync(input.executor, input.organizationId);
-
   await requireGroupInOrganization(input);
 
   const currentState = await getCurrentPrincipalState(

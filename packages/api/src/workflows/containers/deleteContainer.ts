@@ -10,6 +10,7 @@ import {
 import type { ContainerDeleteResponse } from "@tearleads/validators/response";
 import { and, eq, sql } from "drizzle-orm";
 import { uuidValue } from "../../utils/sqlDialect";
+import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { userIdsByContainerPath } from "./containerPathUsers";
 import {
   ContainerWriterProjectionError,
@@ -197,6 +198,10 @@ async function deleteContainerWithExecutor(input: {
   if (!targetManifest) {
     throw new DeleteContainerError("Container not found", 404);
   }
+  await assertOrganizationCanSync(
+    input.executor,
+    targetManifest.state.organizationId,
+  );
   const rootDiscoveryUserIds = new Set(
     visibleUserIds.userIdsByContainerId.get(targetManifest.state.containerId) ??
       [],

@@ -9,6 +9,7 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
 } from "@tearleads/validators/request";
+import { assertOrganizationCanSync } from "../../billing/organizationBilling";
 import { applyContainerRekeys } from "../../containers/mutations";
 import {
   assertCurrentContainerPathRefGroups,
@@ -89,6 +90,16 @@ export async function verifyAttachmentAuthorizationProof(input: {
     documentManifest,
     principalPolicies,
   };
+}
+
+export async function assertAttachmentOrganizationCanSync(
+  executor: DatabaseTransaction,
+  proof: AttachmentAuthorizationProof,
+): Promise<void> {
+  await assertOrganizationCanSync(
+    executor,
+    proof.documentManifest.state.organizationId,
+  );
 }
 
 export async function applyAttachmentContainerRekeys(input: {

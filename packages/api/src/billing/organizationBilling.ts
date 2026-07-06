@@ -48,9 +48,9 @@ export function createTrialBillingFields(now: Date = new Date()): {
  *
  * Expiry is evaluated in-memory against `now` rather than trusting the
  * persisted status. A row whose billing period has passed but which has not yet
- * been flipped to `disabled` must NOT be treated as syncable — otherwise read
- * paths that read the billing row directly (e.g. the batch filter in
- * `listContainers`) would keep syncing expired billing indefinitely.
+ * been flipped to `disabled` must NOT be treated as syncable — otherwise write
+ * paths that read the billing row directly would keep accepting expired billing
+ * indefinitely.
  */
 export function organizationCanSync(
   billing: {

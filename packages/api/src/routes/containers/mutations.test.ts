@@ -1499,7 +1499,7 @@ test("POST /containers is rejected with 402 when the organization cannot sync", 
   expect(containerRows).toHaveLength(0);
 });
 
-test("GET /containers excludes containers when the organization cannot sync", async () => {
+test("GET /containers includes containers when the organization cannot sync", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1533,10 +1533,10 @@ test("GET /containers excludes containers when the organization cannot sync", as
   const after = await afterResponse.json();
   expect(
     after.items.map((container: { id: string }) => container.id),
-  ).not.toContain(child.containerId);
+  ).toContain(child.containerId);
 });
 
-test("GET /containers excludes containers of an expired trial not yet disabled", async () => {
+test("GET /containers includes containers of an expired trial not yet disabled", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
@@ -1551,9 +1551,8 @@ test("GET /containers excludes containers of an expired trial not yet disabled",
     .from(users)
     .where(eq(users.id, owner.userId));
   invariant(ownerRow, "expected registered owner row");
-  // Still `trialing` in the row, but past `trialEndsAt`: the batch list filter
-  // never runs the lazy flip, so it must exclude this org by evaluating expiry
-  // in memory.
+  // Still `trialing` in the row, but past `trialEndsAt`: reads stay available
+  // while writes/syncs use the billing gate.
   await setTestOrganizationBillingExpiredTrial(ownerRow.organizationId);
 
   const afterResponse = await listContainersForUser({
@@ -1564,7 +1563,7 @@ test("GET /containers excludes containers of an expired trial not yet disabled",
   const after = await afterResponse.json();
   expect(
     after.items.map((container: { id: string }) => container.id),
-  ).not.toContain(child.containerId);
+  ).toContain(child.containerId);
 });
 
 test("POST /containers/with-metadata-document creates container and metadata document atomically", async () => {

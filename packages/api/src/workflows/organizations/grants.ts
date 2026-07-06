@@ -12,7 +12,6 @@ import {
   type OrganizationContainerGrantsResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
-import { assertOrganizationCanSync } from "../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "./access";
 import {
   listOrganizationContainerGrantRows,
@@ -115,8 +114,6 @@ async function listOrganizationContainerGrantsInTransaction(input: {
     organizationId: input.organizationId,
     userId: input.sessionUserId,
   });
-  await assertOrganizationCanSync(input.executor, input.organizationId);
-
   const grants = await listOrganizationContainerGrantResponsesInTransaction({
     executor: input.executor,
     organizationId: input.organizationId,
