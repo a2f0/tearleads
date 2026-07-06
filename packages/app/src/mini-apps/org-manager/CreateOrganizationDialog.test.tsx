@@ -50,3 +50,19 @@ test("create organization dialog can be cancelled", () => {
 
   expect(close).toHaveBeenCalledTimes(1);
 });
+
+test("create organization dialog mounts as a body-level overlay", () => {
+  const host = document.createElement("section");
+  render(<DialogHarness close={() => {}} create={() => {}} />, {
+    container: host,
+  });
+
+  expect(
+    host.querySelector(".org-manager-create-organization-dialog-backdrop"),
+  ).toBeNull();
+  expect(
+    document.body.querySelector(
+      ".org-manager-create-organization-dialog-backdrop",
+    ),
+  ).toBeTruthy();
+});
