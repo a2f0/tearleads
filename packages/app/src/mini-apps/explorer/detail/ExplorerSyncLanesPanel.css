@@ -154,3 +154,9 @@
 .explorer-sync-lane-detail-grid .explorer-sync-lane-progress-stack {
   width: min(var(--explorer-detail-col), 100%);
 }
+
+/* Touch: the sync-lane table is not virtualized, so give its interactive rows
+   an explicit 44px minimum height (tr height acts as a floor). */
+:root[data-navigation-mode="routed"] .explorer-sync-lane-table-row {
+  height: var(--control-height);
+}

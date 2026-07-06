@@ -147,3 +147,26 @@
   background: var(--color-dark);
   color: var(--color-light);
 }
+
+/*
+ * Touch (routed layout): open dense data rows to the 44px touch target. The
+ * compact row height is bumped in lockstep with the virtualization pitch
+ * (useTouchRowHeight in MiniAppVirtual), so virtual and non-virtual compact
+ * tables stay aligned. The in-cell text action fills the row height
+ * (line-height centers its single line and keeps the ellipsis), and interactive
+ * info-table rows grow too.
+ */
+:root[data-navigation-mode="routed"]
+  .mini-app-table-frame--compact
+  .mini-app-table-row {
+  height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .mini-app-table-action {
+  min-height: var(--control-height);
+  line-height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .mini-app-info-table-row--interactive {
+  height: var(--control-height);
+}

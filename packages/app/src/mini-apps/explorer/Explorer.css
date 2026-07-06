@@ -423,3 +423,20 @@
   font-size: var(--font-size-sm);
   line-height: 1.45;
 }
+
+/*
+ * Touch (routed layout). The sidebar tree row grows to the 44px target — the
+ * pitch its virtualization window + spacer math read via useTouchRowHeight — by
+ * raising the row-height token the row and its virtual slot share. The
+ * disclosure toggle takes a taller, wider hit column; its spacer matches width
+ * so tree indentation stays aligned.
+ */
+:root[data-navigation-mode="routed"] {
+  --explorer-sidebar-row-height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .explorer-node-toggle,
+:root[data-navigation-mode="routed"] .explorer-node-spacer {
+  width: 1.75rem;
+  height: 100%;
+}

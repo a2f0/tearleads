@@ -7,6 +7,7 @@ import {
 } from "../../components/shared/MiniAppRow";
 import { MiniAppVirtualBlockSpacer } from "../../components/shared/MiniAppVirtual";
 import { getDocumentTypeIcon } from "../../document-types/registry";
+import { useTouchRowHeight } from "../../navigation/useTouchRowHeight";
 import { getViewerRelativeContactDocumentLabel } from "../../stores/contacts/contactLabels";
 import {
   type ExplorerSidebarDocumentWindowState,
@@ -282,10 +283,13 @@ export function ExplorerSidebarVirtualTree(
     totalRows: number;
   },
 ) {
-  const topPadding = props.offset * EXPLORER_SIDEBAR_ROW_HEIGHT;
+  // Match the touch-bumped pitch the sidebar window hook uses (via
+  // useMiniAppVirtualWindow) so the spacer padding lines the visible rows up
+  // with their scroll offset; the CSS row height tracks the same value.
+  const rowHeight = useTouchRowHeight(EXPLORER_SIDEBAR_ROW_HEIGHT);
+  const topPadding = props.offset * rowHeight;
   const bottomPadding =
-    Math.max(0, props.totalRows - props.offset - props.rows.length) *
-    EXPLORER_SIDEBAR_ROW_HEIGHT;
+    Math.max(0, props.totalRows - props.offset - props.rows.length) * rowHeight;
 
   return (
     <div className="explorer-sidebar-virtual-space">

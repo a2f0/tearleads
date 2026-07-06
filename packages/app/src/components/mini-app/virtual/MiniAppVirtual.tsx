@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useTouchRowHeight } from "../../../navigation/useTouchRowHeight";
 import { classNames } from "../../shared/classNames";
 import {
   MiniAppTableEmptyRow,
@@ -133,7 +134,11 @@ export function useMiniAppVirtualWindow<
   scrollTop: number;
   viewportHeight: number;
 } {
-  const { minWindowRows, overscanRows, resetKey, rowHeight } = params;
+  const { minWindowRows, overscanRows, resetKey } = params;
+  // In the routed (touch) layout every virtualized row grows to the 44px HIG
+  // target. Bumping the pitch here — the single place the window math reads it —
+  // keeps the rendered row height (driven off the same value) in lockstep.
+  const rowHeight = useTouchRowHeight(params.rowHeight);
   const { frame, frameRef, scrollTop, setScrollTop, viewportHeight } =
     useMiniAppVirtualViewport<TFrame>();
   const [activeResetKey, setActiveResetKey] = useState(resetKey);
@@ -185,7 +190,11 @@ export function useMiniAppVirtualRows<TItem>(params: {
   topPadding: number;
   totalCount: number;
 } {
-  const { rowHeight, rows } = params;
+  const { rows } = params;
+  // Touch pitch (see useMiniAppVirtualWindow). Bump here too so the top/bottom
+  // spacer padding below matches the window offsets computed from the same
+  // height; useTouchRowHeight is idempotent, so the nested window call agrees.
+  const rowHeight = useTouchRowHeight(params.rowHeight);
   const virtualWindow = useMiniAppVirtualWindow<HTMLDivElement>({
     minWindowRows: params.minWindowRows,
     overscanRows: params.overscanRows,
@@ -223,12 +232,15 @@ export const MiniAppVirtualListFrame = forwardRef<
   { className, rowHeight, style, ...props },
   ref,
 ) {
+  // Match the touch pitch the window hook uses so the CSS row height (driven by
+  // this frame's --mini-app-virtual-row-height var) stays consistent.
+  const touchRowHeight = useTouchRowHeight(rowHeight);
   return (
     <div
       {...props}
       className={classNames("mini-app-virtual-list-frame", className)}
       ref={ref}
-      style={getMiniAppVirtualFrameStyle(rowHeight, style)}
+      style={getMiniAppVirtualFrameStyle(touchRowHeight, style)}
     />
   );
 });
