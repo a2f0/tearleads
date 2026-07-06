@@ -10,6 +10,7 @@ import {
   NavigationModeToggle,
 } from "../../navigation/NavigationModeToggle";
 import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
+import { useNavigationModeDocumentAttribute } from "../../navigation/useNavigationModeDocumentAttribute";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import { AppFeatureFlagsProvider } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { BillingBanner } from "./BillingBanner";
@@ -90,6 +91,10 @@ function LayoutInner({ hostConfig }: LayoutProps) {
   const peerPanes = hostConfig.profile.features.panePeerUserIds;
   const routed = navigationMode === "routed";
   const demoPeerSplit = peerPanes && split && !routed;
+
+  // Expose the active layout on <html> so CSS can size interactive controls for
+  // touch whenever the routed (mobile/tablet/iPad) shell is active.
+  useNavigationModeDocumentAttribute(navigationMode);
 
   const headerActions = (
     <>

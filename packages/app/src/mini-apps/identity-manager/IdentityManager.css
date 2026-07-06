@@ -171,3 +171,26 @@
   flex-wrap: wrap;
   gap: var(--space-xs);
 }
+
+/*
+ * Touch sizing (routed layout). The session-row kebab sits in a 48px-tall
+ * virtualized table row, so a 44px square target fits without disturbing the
+ * row pitch. Detail rows widen the gap between a value and its inline clipboard
+ * button so the two touch targets are not crowded.
+ */
+:root[data-navigation-mode="routed"] .identity-manager-actions-button {
+  width: var(--control-height);
+  height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"]
+  .mini-app-table
+  th.identity-manager-session-actions-column,
+:root[data-navigation-mode="routed"] .identity-manager-session-actions-cell {
+  padding-inline: var(--space-xs);
+}
+
+:root[data-navigation-mode="routed"] .identity-manager-details dd,
+:root[data-navigation-mode="routed"] .identity-manager-session-detail-value {
+  gap: var(--space-sm);
+}
