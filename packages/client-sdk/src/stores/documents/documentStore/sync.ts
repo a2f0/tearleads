@@ -41,6 +41,7 @@ function canRunScheduledSync(state: DocumentStoreState): boolean {
     state.doc !== null &&
     state.snapshot.ready &&
     state.runtime.state.online &&
+    state.runtime.util.isRemoteSyncBlocked?.() !== true &&
     state.runtime.auth.isAuthenticated &&
     state.runtime.crypto.encapsulationKeyPair !== null &&
     resolveDocumentCreateAuthor(state.runtime) !== null
@@ -274,14 +275,9 @@ function resolveSyncedDocumentWriterProjection(
     : null;
 }
 
-/**
- * A sync pass may clear `remoteUpdatePending` only when the remote-update
- * signal sequence it consumed at pass entry is unchanged at pass end. A moved
- * sequence means a new remote update event arrived during the pass's async
- * window; that update may post-date this pass's server snapshot, so the signal
- * must survive for the coalesced re-run. Returns false (keep the signal) on any
- * mismatch. Exported for direct regression testing of the convergence-stall
- * race where this clear used to be unconditional.
+/** Clear the remote-update signal only when its consumed sequence is unchanged.
+ * A moved sequence means a newer remote event arrived mid-pass and must survive
+ * for the coalesced re-run to avoid the convergence-stall race.
  */
 export function canClearRemoteUpdateSignalAfterSync(
   currentSignalSeq: number,
@@ -444,6 +440,9 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     encapsulationKeyPair,
   );
   nextRecord = attachmentResult.nextRecord;
+  if (state.runtime.util.isRemoteSyncBlocked?.()) {
+    return;
+  }
   if (state.pendingAttachments.length > 0) {
     return;
   }
@@ -459,11 +458,12 @@ async function runDocumentSyncPass(state: DocumentStoreState) {
     encapsulationKeyPair,
   );
 
-  if (!state.doc || !state.record) {
-    return;
-  }
-
-  if ((await listPendingUpdates(state)).length > 0) {
+  if (
+    !state.doc ||
+    !state.record ||
+    state.runtime.util.isRemoteSyncBlocked?.() ||
+    (await listPendingUpdates(state)).length > 0
+  ) {
     return;
   }
 

@@ -48,6 +48,7 @@ export interface WorkflowRuntimeUtilInput {
   readonly cacheReferencedPrincipalPolicies: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse> | undefined,
   ) => Promise<void>;
+  readonly isRemoteSyncBlocked?: (() => boolean) | undefined;
   readonly log: (message: string) => void;
   readonly logError: (message: string | Error, cause?: unknown) => void;
 }

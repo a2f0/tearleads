@@ -144,6 +144,7 @@ export class Tearleads {
       network: this.network,
       peerScope: options.peerScope ?? null,
       session: this.session,
+      syncBillingGate: this.syncBillingGate,
     });
     this.runtime = runtime.publicRuntime;
     this.documents = createDocuments({
