@@ -177,6 +177,10 @@
       "lines": 623,
       "bytes": 18029
     },
+    "packages/app/src/mini-apps/identity-manager/IdentityManager.test.tsx": {
+      "lines": 602,
+      "bytes": 18143
+    },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 1023,
       "bytes": 30269

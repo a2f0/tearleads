@@ -80,7 +80,6 @@ export function SessionsSection({
             <MiniAppTable columns={columns}>
               <SessionTableBody
                 bottomPadding={virtualSessions.bottomPadding}
-                handleEndSession={handleEndSession}
                 loadingSessions={loadingSessions}
                 mutatingSessionId={mutatingSessionId}
                 onOpenSessionDetail={onOpenSessionDetail}

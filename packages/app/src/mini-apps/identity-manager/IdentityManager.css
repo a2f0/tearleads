@@ -109,6 +109,40 @@
   min-width: 34rem;
 }
 
+.identity-manager-session-actions-column {
+  text-align: right;
+}
+
+.mini-app-table th.identity-manager-session-actions-column {
+  padding-inline: var(--space-2xs);
+}
+
+.identity-manager-session-actions-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.identity-manager-session-actions-cell {
+  position: relative;
+  z-index: 2;
+  padding-inline: var(--space-2xs);
+}
+
+.identity-manager-session-actions-column .mini-app-table-header-content {
+  gap: var(--space-xs);
+}
+
+.identity-manager-session-actions-button {
+  margin-left: auto;
+}
+
 .identity-manager-session-detail {
   min-width: 0;
 }

@@ -1,7 +1,7 @@
+import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
 import type { UserSession } from "@tearleads/client-sdk";
 import type { KeyboardEvent, MouseEvent } from "react";
 import {
-  MiniAppTableActionButton,
   MiniAppTableCell,
   MiniAppTableEmptyRow,
   MiniAppTableRow,
@@ -13,22 +13,30 @@ import type { SessionTableColumnId } from "./IdentityManagerSessionColumns";
 import {
   compactIdentifier,
   formatSessionIpAddresses,
-  getSessionMutationLabel,
   getSessionStatusLabel,
   isKeyboardActivationKey,
   sessionIpAddressesTitle,
   sessionIsMutating,
 } from "./IdentityManagerSessionDisplay";
 
+function getSessionActionsButtonLabel(session: UserSession): string {
+  const sessionDescriptor =
+    session.lastActiveIp ?? compactIdentifier(session.id);
+  return `Actions for ${getSessionStatusLabel(session)} session ${sessionDescriptor}`;
+}
+
 function renderSessionTableCell(
   columnId: SessionTableColumnId,
   params: {
-    handleEndSession: (session: UserSession) => Promise<void>;
     mutatingSessionId: string | null;
+    openSessionContextMenu: (
+      event: MouseEvent<HTMLElement>,
+      sessionId: string,
+    ) => void;
     session: UserSession;
   },
 ) {
-  const { handleEndSession, mutatingSessionId, session } = params;
+  const { mutatingSessionId, openSessionContextMenu, session } = params;
   const rowIsMutating = sessionIsMutating(mutatingSessionId, session);
 
   switch (columnId) {
@@ -88,25 +96,34 @@ function renderSessionTableCell(
           </MiniAppTableText>
         </MiniAppTableCell>
       );
-    case "action":
+    case "action": {
+      const actionsLabel = getSessionActionsButtonLabel(session);
       return (
-        <MiniAppTableCell key="action">
-          <MiniAppTableActionButton
-            disabled={mutatingSessionId !== null}
+        <MiniAppTableCell
+          className="identity-manager-session-actions-cell"
+          key="action"
+        >
+          <button
+            aria-busy={rowIsMutating || undefined}
+            aria-haspopup="menu"
+            aria-label={actionsLabel}
+            className="identity-manager-actions-button identity-manager-session-actions-button"
             onClick={(event) => {
               event.stopPropagation();
-              void handleEndSession(session);
+              openSessionContextMenu(event, session.id);
             }}
+            title={actionsLabel}
+            type="button"
           >
-            {rowIsMutating ? "Working..." : getSessionMutationLabel(session)}
-          </MiniAppTableActionButton>
+            <DotsThreeVerticalIcon aria-hidden="true" size={18} />
+          </button>
         </MiniAppTableCell>
       );
+    }
   }
 }
 
 function SessionTableRow({
-  handleEndSession,
   mutatingSessionId,
   onOpenSessionDetail,
   openSessionContextMenu,
@@ -114,7 +131,6 @@ function SessionTableRow({
   session,
   visibleColumnIds,
 }: {
-  handleEndSession: (session: UserSession) => Promise<void>;
   mutatingSessionId: string | null;
   onOpenSessionDetail: (sessionId: string) => void;
   openSessionContextMenu: (
@@ -151,8 +167,8 @@ function SessionTableRow({
     >
       {visibleColumnIds.map((columnId) =>
         renderSessionTableCell(columnId, {
-          handleEndSession,
           mutatingSessionId,
+          openSessionContextMenu,
           session,
         }),
       )}
@@ -162,7 +178,6 @@ function SessionTableRow({
 
 export function SessionTableBody({
   bottomPadding,
-  handleEndSession,
   loadingSessions,
   mutatingSessionId,
   onOpenSessionDetail,
@@ -174,7 +189,6 @@ export function SessionTableBody({
   visibleColumnIds,
 }: {
   bottomPadding: number;
-  handleEndSession: (session: UserSession) => Promise<void>;
   loadingSessions: boolean;
   mutatingSessionId: string | null;
   onOpenSessionDetail: (sessionId: string) => void;
@@ -204,7 +218,6 @@ export function SessionTableBody({
       />
       {sessions.map((session) => (
         <SessionTableRow
-          handleEndSession={handleEndSession}
           key={session.id}
           mutatingSessionId={mutatingSessionId}
           onOpenSessionDetail={onOpenSessionDetail}
