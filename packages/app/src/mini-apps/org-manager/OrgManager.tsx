@@ -269,10 +269,12 @@ export function OrgManager() {
       </main>
       <OrgManagerContextMenuLayer
         canCreateGroup={model.canCreateGroup}
+        canDisableContextMenuRosterUser={model.canDisableContextMenuRosterUser}
         canEditContextMenuRosterUser={model.canEditContextMenuRosterUser}
         canImportRosterUser={model.canImportRosterUser}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}
+        disableRosterUser={model.disableRosterUser}
         importRosterUserIntoContacts={model.importRosterUserIntoContacts}
         loading={model.loading}
         mutating={model.mutating}

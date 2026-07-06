@@ -10,10 +10,12 @@ import {
 afterEach(() => cleanup());
 
 function ContextMenuLayerHarness(params: {
+  canDisableContextMenuRosterUser?: boolean | undefined;
   canEditContextMenuRosterUser?: boolean | undefined;
   canCreateGroup?: boolean | undefined;
   canImportRosterUser?: boolean | undefined;
   contextMenu: OrgManagerContextMenuState;
+  disableRosterUser?: ((userId: string) => void) | undefined;
   importRosterUserIntoContacts?: ((userId: string) => void) | undefined;
   openCreateGroupDialog?: (() => void) | undefined;
   openImportUserDialog?: (() => void) | undefined;
@@ -26,10 +28,14 @@ function ContextMenuLayerHarness(params: {
   return (
     <OrgManagerContextMenuLayer
       canCreateGroup={params.canCreateGroup ?? true}
+      canDisableContextMenuRosterUser={
+        params.canDisableContextMenuRosterUser ?? true
+      }
       canEditContextMenuRosterUser={params.canEditContextMenuRosterUser ?? true}
       canImportRosterUser={params.canImportRosterUser ?? true}
       closeContextMenu={() => setContextMenu(null)}
       contextMenu={contextMenu}
+      disableRosterUser={params.disableRosterUser ?? (() => undefined)}
       importRosterUserIntoContacts={
         params.importRosterUserIntoContacts ?? (() => undefined)
       }
@@ -93,9 +99,10 @@ test("org manager groups context menu opens new group dialog", () => {
   ).toBeNull();
 });
 
-test("org manager roster row context menu opens, edits, and imports users", () => {
+test("org manager roster row context menu opens, edits, disables, and imports users", () => {
   const openedUserIds: string[] = [];
   const editedUserIds: string[] = [];
+  const disabledUserIds: string[] = [];
   const importedUserIds: string[] = [];
   const contextMenu = {
     id: { kind: "directory-user", userId: "user-1" },
@@ -112,6 +119,9 @@ test("org manager roster row context menu opens, edits, and imports users", () =
       }}
       openRosterUserForEditing={(userId) => {
         editedUserIds.push(userId);
+      }}
+      disableRosterUser={(userId) => {
+        disabledUserIds.push(userId);
       }}
     />,
   );
@@ -147,6 +157,31 @@ test("org manager roster row context menu opens, edits, and imports users", () =
 
   view.rerender(
     <ContextMenuLayerHarness
+      key="disable"
+      contextMenu={contextMenu}
+      importRosterUserIntoContacts={(userId) => {
+        importedUserIds.push(userId);
+      }}
+      openRosterUser={(userId) => {
+        openedUserIds.push(userId);
+      }}
+      openRosterUserForEditing={(userId) => {
+        editedUserIds.push(userId);
+      }}
+      disableRosterUser={(userId) => {
+        disabledUserIds.push(userId);
+      }}
+    />,
+  );
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.disableRosterEntryAction,
+    }),
+  );
+  expect(disabledUserIds).toEqual(["user-1"]);
+
+  view.rerender(
+    <ContextMenuLayerHarness
       key="import"
       contextMenu={contextMenu}
       importRosterUserIntoContacts={(userId) => {
@@ -158,6 +193,9 @@ test("org manager roster row context menu opens, edits, and imports users", () =
       openRosterUserForEditing={(userId) => {
         editedUserIds.push(userId);
       }}
+      disableRosterUser={(userId) => {
+        disabledUserIds.push(userId);
+      }}
     />,
   );
   fireEvent.click(
@@ -167,4 +205,28 @@ test("org manager roster row context menu opens, edits, and imports users", () =
   );
 
   expect(importedUserIds).toEqual(["user-1"]);
+});
+
+test("org manager roster row context menu disables the disable action when unavailable", () => {
+  const disabledUserIds: string[] = [];
+  const view = render(
+    <ContextMenuLayerHarness
+      canDisableContextMenuRosterUser={false}
+      contextMenu={{
+        id: { kind: "directory-user", userId: "user-1" },
+        position: { x: 12, y: 34 },
+      }}
+      disableRosterUser={(userId) => {
+        disabledUserIds.push(userId);
+      }}
+    />,
+  );
+
+  const disableButton = view.getByRole("button", {
+    name: ORG_MANAGER_LABELS.disableRosterEntryAction,
+  }) as HTMLButtonElement;
+
+  expect(disableButton.disabled).toBe(true);
+  fireEvent.click(disableButton);
+  expect(disabledUserIds).toEqual([]);
 });

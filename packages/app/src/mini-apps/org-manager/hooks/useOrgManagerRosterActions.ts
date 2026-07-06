@@ -9,6 +9,7 @@ import type { OrgManagerView } from "../routes";
 
 interface OrgManagerRosterActionsInput {
   authUserId: string | null;
+  canDisableRosterUsers: boolean;
   contextMenu: OrgManagerContextMenuState | null;
   directory: OrganizationDirectory | null;
   openMiniApp: (request: OpenMiniAppRequest) => void;
@@ -26,11 +27,93 @@ function contextMenuRosterUserId(
     : null;
 }
 
+function useRosterProfileEditRequest() {
+  const [rosterProfileEditRequest, setRosterProfileEditRequest] = useState<{
+    key: number;
+    userId: string;
+  } | null>(null);
+  const rosterProfileEditRequestKeyRef = useRef(0);
+
+  const clearRosterProfileEditRequest = useCallback(() => {
+    setRosterProfileEditRequest(null);
+  }, []);
+
+  const requestRosterProfileEdit = useCallback((userId: string) => {
+    const nextKey = rosterProfileEditRequestKeyRef.current + 1;
+    rosterProfileEditRequestKeyRef.current = nextKey;
+    setRosterProfileEditRequest({ key: nextKey, userId });
+  }, []);
+
+  return {
+    clearRosterProfileEditRequest,
+    requestRosterProfileEdit,
+    rosterProfileEditRequest,
+  };
+}
+
+function useRosterActionPermissions(
+  input: Pick<
+    OrgManagerRosterActionsInput,
+    | "authUserId"
+    | "canDisableRosterUsers"
+    | "contextMenu"
+    | "directory"
+    | "selectedRosterUser"
+  >,
+) {
+  const {
+    authUserId,
+    canDisableRosterUsers,
+    contextMenu,
+    directory,
+    selectedRosterUser,
+  } = input;
+  const canUpdateRosterUser = useCallback(
+    (userId: string) =>
+      Boolean(directory?.currentUser.isOrgAdmin || userId === authUserId),
+    [authUserId, directory?.currentUser.isOrgAdmin],
+  );
+  const canDisableRosterUser = useCallback(
+    (userId: string) => {
+      const user =
+        directory?.users.find(
+          (directoryUser) => directoryUser.userId === userId,
+        ) ?? null;
+
+      return Boolean(
+        canDisableRosterUsers &&
+          user &&
+          user.status === "active" &&
+          !user.isSelf &&
+          user.userId !== authUserId,
+      );
+    },
+    [authUserId, canDisableRosterUsers, directory?.users],
+  );
+  const contextMenuUserId = contextMenuRosterUserId(contextMenu);
+
+  return {
+    canDisableContextMenuRosterUser: Boolean(
+      contextMenuUserId && canDisableRosterUser(contextMenuUserId),
+    ),
+    canEditContextMenuRosterUser: Boolean(
+      contextMenuUserId &&
+        directory?.users.some((user) => user.userId === contextMenuUserId) &&
+        canUpdateRosterUser(contextMenuUserId),
+    ),
+    canUpdateRosterUser,
+    canUpdateSelectedRosterEntry: Boolean(
+      selectedRosterUser && canUpdateRosterUser(selectedRosterUser.userId),
+    ),
+  };
+}
+
 export function useOrgManagerRosterActions(
   input: OrgManagerRosterActionsInput,
 ) {
   const {
     authUserId,
+    canDisableRosterUsers,
     contextMenu,
     directory,
     openMiniApp,
@@ -38,30 +121,23 @@ export function useOrgManagerRosterActions(
     selectedRosterUser,
     setOrgManagerView,
   } = input;
-  const [rosterProfileEditRequest, setRosterProfileEditRequest] = useState<{
-    key: number;
-    userId: string;
-  } | null>(null);
-  const rosterProfileEditRequestKeyRef = useRef(0);
-
-  const canUpdateRosterUser = useCallback(
-    (userId: string) =>
-      Boolean(directory?.currentUser.isOrgAdmin || userId === authUserId),
-    [authUserId, directory?.currentUser.isOrgAdmin],
-  );
-  const contextMenuUserId = contextMenuRosterUserId(contextMenu);
-  const canEditContextMenuRosterUser = Boolean(
-    contextMenuUserId &&
-      directory?.users.some((user) => user.userId === contextMenuUserId) &&
-      canUpdateRosterUser(contextMenuUserId),
-  );
-  const canUpdateSelectedRosterEntry = Boolean(
-    selectedRosterUser && canUpdateRosterUser(selectedRosterUser.userId),
-  );
-
-  const clearRosterProfileEditRequest = useCallback(() => {
-    setRosterProfileEditRequest(null);
-  }, []);
+  const {
+    clearRosterProfileEditRequest,
+    requestRosterProfileEdit,
+    rosterProfileEditRequest,
+  } = useRosterProfileEditRequest();
+  const {
+    canDisableContextMenuRosterUser,
+    canEditContextMenuRosterUser,
+    canUpdateRosterUser,
+    canUpdateSelectedRosterEntry,
+  } = useRosterActionPermissions({
+    authUserId,
+    canDisableRosterUsers,
+    contextMenu,
+    directory,
+    selectedRosterUser,
+  });
 
   const selectRosterUser = useCallback(
     (userId: string | null) => {
@@ -86,11 +162,9 @@ export function useOrgManagerRosterActions(
       }
 
       openRosterUser(userId);
-      const nextKey = rosterProfileEditRequestKeyRef.current + 1;
-      rosterProfileEditRequestKeyRef.current = nextKey;
-      setRosterProfileEditRequest({ key: nextKey, userId });
+      requestRosterProfileEdit(userId);
     },
-    [canUpdateRosterUser, openRosterUser],
+    [canUpdateRosterUser, openRosterUser, requestRosterProfileEdit],
   );
 
   const importRosterUserIntoContacts = useCallback(
@@ -109,6 +183,7 @@ export function useOrgManagerRosterActions(
   );
 
   return {
+    canDisableContextMenuRosterUser,
     canEditContextMenuRosterUser,
     canUpdateSelectedRosterEntry,
     canUpdateRosterUser,

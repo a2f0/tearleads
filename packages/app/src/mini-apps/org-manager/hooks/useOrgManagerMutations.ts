@@ -21,6 +21,7 @@ import { ORG_MANAGER_LABELS } from "../labels";
 import { currentGroupUserRecipients, userRecipient } from "../recipients";
 import { setUnknownError } from "../refresh";
 import type { OrgManagerView } from "../routes";
+import { useOrgManagerDisableRosterUser } from "./useOrgManagerDisableRosterUser";
 import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
@@ -29,6 +30,7 @@ interface OrgManagerMutationsParams {
   addUserId: string;
   appData: ReturnType<typeof useTearleadsRuntime>;
   canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
+  canDisableRosterUsers: boolean;
   canImportRosterUser: boolean;
   directory: OrganizationDirectory | null;
   groupNameDraft: string;
@@ -72,6 +74,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     addUserId,
     appData,
     canDeleteGroup,
+    canDisableRosterUsers,
     canImportRosterUser,
     directory,
     groupNameDraft,
@@ -362,6 +365,9 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
       ) {
         return;
       }
+      if (!directory || !memberGroupId) {
+        return;
+      }
 
       setMutating(true);
       setError(null);
@@ -404,6 +410,21 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     ],
   );
 
+  const disableRosterUser = useOrgManagerDisableRosterUser({
+    appData,
+    canDisableRosterUsers,
+    directory,
+    groups,
+    memberGroupId,
+    orgManagerActions,
+    refreshDirectoryAndGroups,
+    refreshSelectedGroupDetails,
+    refreshSelectedUserDetail,
+    selectedUserIdRef,
+    setError,
+    setMutating,
+  });
+
   const revokeGrant = useCallback(
     async (grant: OrganizationContainerGrant) => {
       if (grant.isBuiltin) {
@@ -443,6 +464,7 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     addUser,
     createGroup,
     deleteGroup,
+    disableRosterUser,
     importRosterUser,
     removeMember,
     revokeGrant,
