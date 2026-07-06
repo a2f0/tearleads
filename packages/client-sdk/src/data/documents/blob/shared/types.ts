@@ -56,6 +56,7 @@ export interface BlobAttachmentApi {
     input: BlobAttachmentBindRequest,
   ): Promise<BlobAttachmentBindResponse | null>;
   clearWriterProjectionCaches?(): void;
+  evictDocumentWriterProjection?(documentId: string): void;
   getRequestFailure?(input: {
     method: "DELETE" | "GET" | "POST" | "PUT";
     path: string;

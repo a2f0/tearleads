@@ -351,13 +351,15 @@ export async function uploadDocumentAttachment({
     material = await buildMaterial(writerProjection);
   } catch (error) {
     if (
-      !apiClient.clearWriterProjectionCaches ||
+      !apiClient.evictDocumentWriterProjection ||
       !shouldRetryBlobUploadWithFreshWriterProjection(error)
     ) {
       throw error;
     }
 
-    apiClient.clearWriterProjectionCaches();
+    // The attachment binds to this document; only its projection was stale, so
+    // evict just it rather than wiping the whole projection cache.
+    apiClient.evictDocumentWriterProjection(documentId);
     material = await buildMaterial(undefined);
   }
   if (!material) {

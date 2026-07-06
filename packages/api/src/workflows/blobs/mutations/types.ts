@@ -19,6 +19,12 @@ export interface BindBlobAttachmentInput {
   readonly blobId: string;
   readonly fingerprint: string;
   readonly request: BlobAttachmentBindRequest;
+  /**
+   * The authoring session, used only to tag the emitted bind event with an
+   * `origin` so the ws router skips echoing the bind back over this session's
+   * own socket. Not used by the persistence workflow itself.
+   */
+  readonly sessionId: string;
   readonly userId: string;
 }
 

@@ -10,7 +10,10 @@ export {
   loadCurrentDocumentManifest,
   loadSignerPublicKey,
 } from "./shared/verification";
-export { runDocumentSyncWorkflow } from "./syncDocument";
+export {
+  type DocumentSyncWorkflowResult,
+  runDocumentSyncWorkflow,
+} from "./syncDocument";
 export type {
   CreateDocumentInput,
   MutateDocumentLinkSetInput,

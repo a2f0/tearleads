@@ -66,6 +66,7 @@ export function createContainerContentsStoreState(
     initialized: false,
     lastEventCount: 0,
     listeners: new Set(),
+    locallyAcceptedMetadataUpdateIds: new Set(),
     logLabel,
     metadataDocumentIdsNeedingSync: new Set(),
     metadataSyncSignalSeqById: new Map(),

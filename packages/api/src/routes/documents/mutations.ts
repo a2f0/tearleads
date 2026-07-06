@@ -147,21 +147,27 @@ async function respondWithDocumentSync(
   const session = c.get("session");
 
   try {
-    const result = await syncDocument(input.runtime, {
+    const { insertedUpdateIds, response } = await syncDocument(input.runtime, {
       documentId,
       fingerprint: session.fingerprint,
       request: input.request,
       userId: session.userId,
     });
 
-    if (result.acceptedOutgoingUpdateIds.length > 0) {
+    // Broadcast only when this sync inserted new content. An idempotent retry
+    // re-acknowledges updates that already exist (they stay in the response's
+    // acceptedOutgoingUpdateIds for the caller's own reconciliation), but
+    // inserts nothing new, so re-pinging peers would be a redundant pull. The
+    // updates were already broadcast when first inserted; a peer that missed
+    // that hint recovers on its next reconcile, per the lossy-hint contract.
+    if (insertedUpdateIds.length > 0) {
       await input.publish({
         type: "document_update_created",
         containerIds: listDocumentKekTargetContainerIds(
-          result.documentKekTargets,
+          response.documentKekTargets,
         ),
         documentId,
-        updateIds: result.acceptedOutgoingUpdateIds,
+        updateIds: insertedUpdateIds,
         // Tag the event with the session that authored these updates so the ws
         // router can skip echoing them back over this session's own socket.
         // session.id is the same value the ws ticket is minted from, so it
@@ -171,7 +177,7 @@ async function respondWithDocumentSync(
       });
     }
 
-    return c.json<DocumentSyncResponse>(result);
+    return c.json<DocumentSyncResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
     return c.json({ error: result.error }, result.status);

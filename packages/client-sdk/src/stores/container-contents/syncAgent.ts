@@ -58,6 +58,15 @@ export interface ContainerContentsStoreSyncState {
   initializePromise: Promise<void> | null;
   initialized: boolean;
   lastEventCount: number;
+  /**
+   * Update ids this client sent for container metadata documents, registered
+   * before the network await of each metadata sync pass. The author's own
+   * `document_update_created` echo consumes its ids here instead of arming a
+   * redundant forced read-sync; a genuine peer update always carries unknown
+   * ids and still forces one. Shared across all metadata docs in the store —
+   * update ids are globally unique.
+   */
+  locallyAcceptedMetadataUpdateIds: Set<string>;
   logLabel?: string | undefined;
   metadataDocumentIdsNeedingSync: Set<string>;
   /**
@@ -350,6 +359,7 @@ async function syncSingleContainerMetadata(input: {
     forceReadSync:
       typeof metadataDocumentId === "string" &&
       state.metadataDocumentIdsNeedingSync.has(metadataDocumentId),
+    locallyAcceptedUpdateIds: state.locallyAcceptedMetadataUpdateIds,
     metadataState: containerState,
     persistence: state.persistence,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
@@ -499,6 +509,7 @@ export function createContainerContentsStoreSyncAgent(input: {
       const metadataDocumentIds = listContainerMetadataDocumentUpdateIds(
         nextEvents,
         state.containersById.values(),
+        state.locallyAcceptedMetadataUpdateIds,
       );
       for (const metadataDocumentId of metadataDocumentIds) {
         state.metadataDocumentIdsNeedingSync.add(metadataDocumentId);

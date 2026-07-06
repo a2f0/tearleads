@@ -812,14 +812,28 @@ async function syncDocumentTransaction(input: {
     contentKeyBundle,
     contentKeyBundles,
     currentTargets,
+    insertedUpdateIds: [...appendResult.insertedUpdateIds],
     missingUpdates,
   };
+}
+
+export interface DocumentSyncWorkflowResult {
+  /**
+   * Update ids newly inserted by this sync, excluding idempotent duplicates the
+   * client re-sent on retry. The `document_update_created` broadcast is gated on
+   * this being non-empty so a retry that only re-acknowledges already-stored
+   * updates does not re-ping peers with a redundant pull. The response's
+   * `acceptedOutgoingUpdateIds` still reflects every acknowledged outgoing id
+   * for the caller's own pending-queue reconciliation.
+   */
+  readonly insertedUpdateIds: readonly string[];
+  readonly response: DocumentSyncResponse;
 }
 
 export async function runDocumentSyncWorkflow(
   db: ApiDatabase,
   input: SyncDocumentInput,
-): Promise<DocumentSyncResponse> {
+): Promise<DocumentSyncWorkflowResult> {
   try {
     const signingPublicKey = await loadSignerPublicKey(db, input);
     const transactionResult = await db.transaction((tx) =>
@@ -833,19 +847,22 @@ export async function runDocumentSyncWorkflow(
       }),
     );
     return {
-      acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
-      commitLsn: await readCurrentCommitLsn(db),
-      contentKeyBundle: toContentKeyBundleResponse(
-        transactionResult.contentKeyBundle,
-      ),
-      contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>
-        toContentKeyBundleResponse(bundle),
-      ),
-      documentId: input.documentId,
-      documentKekTargets: toDocumentKekTargetsResponse(
-        transactionResult.currentTargets,
-      ),
-      updates: transactionResult.missingUpdates,
+      insertedUpdateIds: transactionResult.insertedUpdateIds,
+      response: {
+        acceptedOutgoingUpdateIds: transactionResult.acceptedOutgoingUpdateIds,
+        commitLsn: await readCurrentCommitLsn(db),
+        contentKeyBundle: toContentKeyBundleResponse(
+          transactionResult.contentKeyBundle,
+        ),
+        contentKeyBundles: transactionResult.contentKeyBundles.map((bundle) =>
+          toContentKeyBundleResponse(bundle),
+        ),
+        documentId: input.documentId,
+        documentKekTargets: toDocumentKekTargetsResponse(
+          transactionResult.currentTargets,
+        ),
+        updates: transactionResult.missingUpdates,
+      },
     };
   } catch (error) {
     const mutationError = toMutationError(error);

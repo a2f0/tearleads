@@ -696,6 +696,7 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     blobId: firstBlobId,
     fingerprint: owner.fingerprint,
     request: firstBind.request,
+    sessionId: "test-session",
     userId: owner.userId,
   });
   expect(firstResponse.bindingId).toBe(firstBind.verifiedBinding.bindingId);
@@ -732,6 +733,7 @@ test("bindBlobAttachment attaches, replaces, and detaches signed bindings", asyn
     blobId: replacementBlobId,
     fingerprint: owner.fingerprint,
     request: replacementBind.request,
+    sessionId: "test-session",
     userId: owner.userId,
   });
   expect(replacementResponse.bindingId).toBe(
@@ -879,6 +881,7 @@ test("bindBlobAttachment applies optional container rekeys before target validat
     blobId,
     fingerprint: owner.fingerprint,
     request: bind.request,
+    sessionId: "test-session",
     userId: owner.userId,
   });
 
@@ -921,6 +924,7 @@ async function expectStagePromotesToExternalPointer(input: {
     blobId,
     fingerprint: owner.fingerprint,
     request: bind.request,
+    sessionId: "test-session",
     userId: owner.userId,
   });
 
@@ -1051,6 +1055,7 @@ test("bindBlobAttachment prevalidates multipart object bytes before opening the 
     blobId,
     fingerprint: owner.fingerprint,
     request: bind.request,
+    sessionId: "test-session",
     userId: owner.userId,
   });
 
@@ -1096,6 +1101,7 @@ test("bindBlobAttachment rolls back optional rekeys when blob write validation f
       blobId,
       fingerprint: owner.fingerprint,
       request: bind.request,
+      sessionId: "test-session",
       userId: owner.userId,
     }),
   ).rejects.toMatchObject({
@@ -1141,6 +1147,7 @@ test("bindBlobAttachment rejects invalid optional container rekeys", async () =>
       blobId,
       fingerprint: owner.fingerprint,
       request: bind.request,
+      sessionId: "test-session",
       userId: owner.userId,
     }),
   ).rejects.toMatchObject({
@@ -1178,6 +1185,7 @@ test("bindBlobAttachment rejects malformed signed event records", async () => {
       blobId: malformedBind.verifiedBinding.blobId,
       fingerprint: owner.fingerprint,
       request: malformedBind.request,
+      sessionId: "test-session",
       userId: owner.userId,
     }),
   ).rejects.toMatchObject(
@@ -1216,6 +1224,7 @@ test("bindBlobAttachment rejects malformed staged blob write headers", async () 
       blobId: malformedBind.verifiedBinding.blobId,
       fingerprint: owner.fingerprint,
       request: malformedBind.request,
+      sessionId: "test-session",
       userId: owner.userId,
     }),
   ).rejects.toMatchObject(
@@ -1247,6 +1256,7 @@ test("bindBlobAttachment rejects stale slot bindings and omitted shared blob tar
     blobId,
     fingerprint: owner.fingerprint,
     request: firstBind.request,
+    sessionId: "test-session",
     userId: owner.userId,
   });
 
@@ -1267,6 +1277,7 @@ test("bindBlobAttachment rejects stale slot bindings and omitted shared blob tar
       blobId: staleReplacement.verifiedBinding.blobId,
       fingerprint: owner.fingerprint,
       request: staleReplacement.request,
+      sessionId: "test-session",
       userId: owner.userId,
     }),
   ).rejects.toMatchObject(
@@ -1292,6 +1303,7 @@ test("bindBlobAttachment rejects stale slot bindings and omitted shared blob tar
       blobId,
       fingerprint: owner.fingerprint,
       request: omittedTargetsBind.request,
+      sessionId: "test-session",
       userId: owner.userId,
     }),
   ).rejects.toMatchObject(
@@ -1315,6 +1327,7 @@ test("bindBlobAttachment rejects stale slot bindings and omitted shared blob tar
     blobId,
     fingerprint: owner.fingerprint,
     request: sharedBind.request,
+    sessionId: "test-session",
     userId: owner.userId,
   });
   expect(sharedResponse.blobKekTargets.activeBindingIds.sort()).toEqual(

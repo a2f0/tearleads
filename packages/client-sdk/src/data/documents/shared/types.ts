@@ -156,6 +156,7 @@ export interface DocumentCreateApi {
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
   clearWriterProjectionCaches?(): void;
+  evictContainerWriterProjection?(containerId: string): void;
   primeDocumentWriterProjection(
     documentId: string,
     projection: DocumentWriterProjectionResponse,
@@ -348,6 +349,7 @@ export interface DocumentSyncRequestResultOptions {
 
 export interface DocumentSyncApi {
   clearWriterProjectionCaches?(): void;
+  evictDocumentWriterProjection?(documentId: string): void;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;

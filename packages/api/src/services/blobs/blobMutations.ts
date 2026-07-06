@@ -37,20 +37,28 @@ function listBlobKekTargetContainerIds(
 
 export function createAttachmentBindDocumentEvent(
   response: Pick<BlobAttachmentBindResponse, "blobKekTargets" | "documentId">,
+  origin: { readonly sessionId: string; readonly userId: string },
 ): Record<string, unknown> {
   return {
     type: "document_update_created",
     containerIds: listBlobKekTargetContainerIds(response.blobKekTargets),
     documentId: response.documentId,
+    // Tag the authoring session so the ws router does not echo this bind back
+    // over the author's own socket, the same way document sync events are
+    // tagged (routes/documents/mutations.ts). The router strips `origin` before
+    // forwarding, so it never reaches any client. A peer still receives the
+    // event (no updateIds) and correctly treats it as a lossy hint to pull.
+    origin,
   };
 }
 
 async function publishAttachmentBindDocumentEvent(
   runtime: ApiServiceRuntime,
   response: BlobAttachmentBindResponse,
+  origin: { readonly sessionId: string; readonly userId: string },
 ): Promise<void> {
   await runtime.eventPublisher.publish(
-    createAttachmentBindDocumentEvent(response),
+    createAttachmentBindDocumentEvent(response, origin),
   );
 }
 
@@ -132,7 +140,10 @@ export async function bindBlobAttachment(
     ...input,
     prevalidatedMultipartStage,
   });
-  await publishAttachmentBindDocumentEvent(runtime, response);
+  await publishAttachmentBindDocumentEvent(runtime, response, {
+    sessionId: input.sessionId,
+    userId: input.userId,
+  });
   return response;
 }
 

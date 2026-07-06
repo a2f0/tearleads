@@ -65,7 +65,7 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   const blobId = "550e8400-e29b-41d4-a716-446655440565";
   const bindingId = "550e8400-e29b-41d4-a716-446655440566";
   const slotId = "preview";
-  let clearCount = 0;
+  const evictedDocumentIds: string[] = [];
   let projectionRequestCount = 0;
   let stageCount = 0;
 
@@ -122,8 +122,8 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
           ),
         };
       },
-      clearWriterProjectionCaches: () => {
-        clearCount += 1;
+      evictDocumentWriterProjection: (documentId) => {
+        evictedDocumentIds.push(documentId);
         useFreshProjectionKey = true;
       },
       getDocumentWriterProjection: async (documentId) => {
@@ -156,7 +156,7 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   });
 
   expect(uploaded?.writerProjection).toBe(writerProjection);
-  expect(clearCount).toBe(1);
+  expect(evictedDocumentIds).toEqual([writerProjection.documentId]);
   expect(projectionRequestCount).toBe(2);
   expect(stageCount).toBe(1);
   expect(uploaded?.bindingId).toBe(bindingId);
