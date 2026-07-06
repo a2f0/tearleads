@@ -20,6 +20,8 @@ import {
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../workflows/organizations";
+import type { ContainerContents } from "./containerContents";
+import { reshareOrganizationMetadataToMembers } from "./organizationMetadataReshare";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -159,19 +161,27 @@ function authenticatedOrganizationId(
     : null;
 }
 
-export function createOrganizations(runtime: InternalRuntime): Organizations {
-  return new OrganizationsService(runtime);
+export function createOrganizations(
+  runtime: InternalRuntime,
+  containerContents: ContainerContents,
+): Organizations {
+  return new OrganizationsService(runtime, containerContents);
 }
 
 class OrganizationsService implements Organizations {
-  constructor(private readonly runtimeService: InternalRuntime) {}
+  private readonly memberGroupIdByOrganization = new Map<string, string>();
 
-  addUserToGroup(input: AddOrganizationGroupUserInput) {
+  constructor(
+    private readonly runtimeService: InternalRuntime,
+    private readonly containerContents: ContainerContents,
+  ) {}
+
+  async addUserToGroup(input: AddOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
     const currentUserSecretKey = requireEncapsulationKeyPair(runtime).secretKey;
 
-    return addOrganizationGroupUser({
+    const bundle = await addOrganizationGroupUser({
       apiClient: runtime.apiClient,
       canAdministerOrganization: input.canAdministerOrganization,
       currentUserSecretKey,
@@ -181,6 +191,65 @@ class OrganizationsService implements Organizations {
       targetUser: input.targetUser,
       ...signingContext,
     });
+    // Fire-and-forget: the group mutation is already committed and the re-share
+    // is best-effort (it never rejects), so do not make the caller wait on the
+    // directory lookup / container hydration it may perform.
+    void this.reshareOrganizationMetadataAfterGroupChange(
+      signingContext.organizationId,
+      input.groupId,
+    );
+    return bundle;
+  }
+
+  // Re-share the org metadata container to the Members group after a
+  // Members-group membership change, so a rotated group's members keep read
+  // access to the org name. Best-effort: the group mutation has already
+  // committed, so nothing here may throw into the caller.
+  private async reshareOrganizationMetadataAfterGroupChange(
+    organizationId: string,
+    mutatedGroupId: string,
+  ): Promise<void> {
+    try {
+      const memberGroupId = await this.resolveMemberGroupId(organizationId);
+      if (!memberGroupId || mutatedGroupId !== memberGroupId) {
+        return;
+      }
+      await reshareOrganizationMetadataToMembers({
+        containerContents: this.containerContents,
+        log: this.runtimeService.workflowInput().util.log,
+        memberGroupId,
+        mutatedGroupId,
+        organizationId,
+      });
+    } catch (error) {
+      this.runtimeService
+        .workflowInput()
+        .util.log(
+          `Organizations: best-effort org metadata re-share skipped for org ${organizationId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+    }
+  }
+
+  // The Members group id is a random UUID minted at registration (not derivable
+  // from the org id) and is immutable, so a successful lookup is cached. A
+  // failed lookup is not cached, leaving a later attempt free to retry.
+  private async resolveMemberGroupId(
+    organizationId: string,
+  ): Promise<string | null> {
+    const cached = this.memberGroupIdByOrganization.get(organizationId);
+    if (cached) {
+      return cached;
+    }
+    const runtime = this.runtimeService.workflowInput();
+    const directory = await loadOrganizationDirectoryAndGroups({
+      apiClient: runtime.apiClient,
+      organizationId,
+    });
+    const memberGroupId = directory?.memberGroupId ?? null;
+    if (memberGroupId) {
+      this.memberGroupIdByOrganization.set(organizationId, memberGroupId);
+    }
+    return memberGroupId;
   }
 
   createGroup(name: string) {
@@ -356,11 +425,11 @@ class OrganizationsService implements Organizations {
     });
   }
 
-  removeUserFromGroup(input: RemoveOrganizationGroupUserInput) {
+  async removeUserFromGroup(input: RemoveOrganizationGroupUserInput) {
     const runtime = this.runtimeService.workflowInput();
     const signingContext = requireSigningContext(runtime);
 
-    return removeOrganizationGroupUser({
+    const bundle = await removeOrganizationGroupUser({
       apiClient: runtime.apiClient,
       canAdministerOrganization: input.canAdministerOrganization,
       execSql: runtime.infra.execSql,
@@ -369,6 +438,14 @@ class OrganizationsService implements Organizations {
       removedUserId: input.removedUserId,
       ...signingContext,
     });
+    // Fire-and-forget: the group mutation is already committed and the re-share
+    // is best-effort (it never rejects), so do not make the caller wait on the
+    // directory lookup / container hydration it may perform.
+    void this.reshareOrganizationMetadataAfterGroupChange(
+      signingContext.organizationId,
+      input.groupId,
+    );
+    return bundle;
   }
 
   revokeGrant(grant: OrganizationGrantRef) {

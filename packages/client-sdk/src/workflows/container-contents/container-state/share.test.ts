@@ -468,8 +468,10 @@ function createGroupShareContainerState(input: {
 async function runGroupShareScenario(input: {
   currentGroupKeyEpoch: number;
   currentPolicyError?: boolean;
+  grantedGroupId?: string;
   pinnedKeyEpoch: number;
   remoteAccessStateHash: string;
+  requireExistingGrant?: boolean;
   testLabel: string;
 }): Promise<{
   containerId: string;
@@ -500,7 +502,7 @@ async function runGroupShareScenario(input: {
     const remoteProjection = withDirectGroupGrant({
       accessLevel: "read",
       createdAt: "2026-05-22T12:00:00.000Z",
-      groupId,
+      groupId: input.grantedGroupId ?? groupId,
       pinnedKeyEpoch: input.pinnedKeyEpoch,
       projection,
       remoteAccessStateHash: input.remoteAccessStateHash,
@@ -552,6 +554,7 @@ async function runGroupShareScenario(input: {
       }),
       persistence: defaultContainerContentsPersistence,
       recipientGroupId: groupId,
+      requireExistingGrant: input.requireExistingGrant,
       resolveProjectionUserKey: async () => null,
       runtime,
     });
@@ -654,4 +657,57 @@ test("shareContainerStateWithGroup falls back to an idempotent no-op when the cu
   );
   expect(shareCallCount).toBe(0);
   expect(shared?.record.accessEpoch).toBe(2);
+});
+
+test("shareContainerStateWithGroup with requireExistingGrant refuses to mint a new grant", async () => {
+  // The container grants a DIFFERENT group; the recipient members group has no
+  // grant of its own. A server that redirected the re-share here (via a spoofed
+  // system slot) must not be able to mint a fresh members grant.
+  const {
+    containerId,
+    currentPolicyCalls,
+    groupId,
+    logs,
+    shareCallCount,
+    shared,
+  } = await runGroupShareScenario({
+    currentGroupKeyEpoch: 2,
+    grantedGroupId: "unrelated-group",
+    pinnedKeyEpoch: 2,
+    remoteAccessStateHash: "remote-access-state-hash-no-grant",
+    requireExistingGrant: true,
+    testLabel: "containerContents-share-group-require-existing",
+  });
+
+  expect(logs).toContain(
+    `Container contents: refused to create a new group grant for ${groupId} on container ${containerId} because the re-share requires an existing grant`,
+  );
+  expect(shareCallCount).toBe(0);
+  expect(shared).toBeNull();
+  // The grant check short-circuits before the current-head lookup.
+  expect(currentPolicyCalls).toEqual([]);
+});
+
+test("shareContainerStateWithGroup with requireExistingGrant still re-wraps a stale existing grant", async () => {
+  const { containerId, groupId, logs, shareCallCount } =
+    await runGroupShareScenario({
+      currentGroupKeyEpoch: 2,
+      pinnedKeyEpoch: 1,
+      remoteAccessStateHash: "remote-access-state-hash-stale-existing",
+      requireExistingGrant: true,
+      testLabel: "containerContents-share-group-require-existing-stale",
+    });
+
+  expect(logs).toContain(
+    `Container contents: re-sharing container ${containerId} with group ${groupId} because its key epoch advanced past the pinned grant`,
+  );
+  expect(logs).not.toContain(
+    `Container contents: refused to create a new group grant for ${groupId} on container ${containerId} because the re-share requires an existing grant`,
+  );
+  // Reached the group-share mutation (which no-ops in this harness because the
+  // crypto writer context is unavailable), proving the re-wrap was not blocked.
+  expect(logs).toContain(
+    "Container contents: skipped container group share because the writer context is unavailable.",
+  );
+  expect(shareCallCount).toBe(0);
 });

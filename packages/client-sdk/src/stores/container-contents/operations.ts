@@ -398,6 +398,7 @@ export async function shareContainerWithGroup(
   containerId: string,
   groupId: string,
   accessLevel: ContainerContentsShareAccessLevel,
+  options: { requireExistingGrant?: boolean } = {},
 ) {
   if (
     state.runtime.infra.dbStatus !== "ready" ||
@@ -423,6 +424,7 @@ export async function shareContainerWithGroup(
     containerState: existingState,
     persistence: state.persistence,
     recipientGroupId: groupId,
+    requireExistingGrant: options.requireExistingGrant,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     runtime: state.runtime,
   });

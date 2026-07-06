@@ -95,6 +95,7 @@ function groupGrantIsStale(input: {
 async function loadRemoteContainerShareContext(input: {
   accessLevel: ContainerShareAccessLevel;
   containerState: ContainerState;
+  requireExistingGrant?: boolean | undefined;
   runtime: ContainerWorkflowRuntime;
   subjectId: string;
   subjectType: ContainerShareSubjectType;
@@ -116,6 +117,15 @@ async function loadRemoteContainerShareContext(input: {
       grant.accessLevel === input.accessLevel,
   );
   if (!hasMatchingGrant) {
+    if (input.requireExistingGrant) {
+      // Re-wrap-only callers must never mint a brand-new grant: the container's
+      // system slot is server-supplied and could point at a container that does
+      // not already grant this subject, so minting here would leak its contents.
+      input.runtime.util.log(
+        `Container contents: refused to create a new ${input.subjectType} grant for ${input.subjectId} on container ${input.containerState.container.id} because the re-share requires an existing grant`,
+      );
+      return null;
+    }
     return { matchingGrant: null, projection };
   }
 
@@ -302,12 +312,17 @@ export async function shareContainerStateWithGroup(input: {
   containerState: ContainerState;
   persistence: ContainerContentsPersistence;
   recipientGroupId: string;
+  // When set, a re-share only re-wraps an already-granted group and never mints
+  // a new grant. Used by the org-metadata rotation-refresh so a server cannot
+  // redirect the re-share onto a container the group is not entitled to.
+  requireExistingGrant?: boolean | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
 }): Promise<SharedContainerState | null> {
   const shareContext = await loadRemoteContainerShareContext({
     accessLevel: input.accessLevel,
     containerState: input.containerState,
+    requireExistingGrant: input.requireExistingGrant,
     runtime: input.runtime,
     subjectId: input.recipientGroupId,
     subjectType: "group",
