@@ -157,7 +157,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
 
   // Only this container's projection was stale; evict just it rather than
   // wiping every cached projection.
-  input.apiClient.evictContainerWriterProjection(input.containerId);
+  input.apiClient.evictContainerWriterProjection?.(input.containerId);
   const refreshedProjection =
     await input.apiClient.getContainerWriterProjection(input.containerId);
   return refreshedProjection ? buildWithProjection(refreshedProjection) : null;

@@ -62,11 +62,16 @@ export function hasContainerMetadataDocumentUpdateEvent(
   metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
   locallyAcceptedUpdateIds?: Set<string>,
 ): boolean {
+  // Pass a copy: listContainerMetadataDocumentUpdateIds consumes (deletes)
+  // matched ids from the set, and a boolean predicate must not mutate the
+  // caller's registry — otherwise a `has` check before the real list pass would
+  // prematurely consume the self-echo ids, so the later list would miss them
+  // and arm a redundant sync.
   return (
     listContainerMetadataDocumentUpdateIds(
       events,
       metadataStates,
-      locallyAcceptedUpdateIds,
+      locallyAcceptedUpdateIds ? new Set(locallyAcceptedUpdateIds) : undefined,
     ).length > 0
   );
 }
