@@ -80,14 +80,14 @@ export type ExplorerSidebarVirtualRow =
     };
 
 function getExplorerSidebarRootGroups(params: {
-  currentOrganizationId: string | null;
   entries: ReadonlyArray<ExplorerSidebarTreeEntry>;
+  primaryOrganizationId: string | null;
 }): ReadonlyArray<{
   entries: ReadonlyArray<ExplorerSidebarTreeEntry>;
   label: string | null;
 }> {
-  const { currentOrganizationId, entries } = params;
-  if (!currentOrganizationId) {
+  const { entries, primaryOrganizationId } = params;
+  if (!primaryOrganizationId) {
     return [{ entries, label: null }];
   }
 
@@ -96,7 +96,7 @@ function getExplorerSidebarRootGroups(params: {
   for (const entry of entries) {
     if (
       entry.node.organizationId &&
-      entry.node.organizationId !== currentOrganizationId
+      entry.node.organizationId !== primaryOrganizationId
     ) {
       sharedEntries.push(entry);
     } else {
@@ -121,18 +121,18 @@ function getExplorerSidebarRootGroups(params: {
 
 export function buildExplorerSidebarSections(params: {
   collapsedIds: ReadonlySet<string>;
-  currentOrganizationId: string | null;
   documentWindowsByContainerId: ReadonlyMap<
     string,
     ExplorerSidebarDocumentWindowState
   >;
   entries: ReadonlyArray<ExplorerSidebarTreeEntry>;
+  primaryOrganizationId: string | null;
 }): ReadonlyArray<ExplorerSidebarSection> {
   const {
     collapsedIds,
-    currentOrganizationId,
     documentWindowsByContainerId,
     entries,
+    primaryOrganizationId,
   } = params;
   const sections: ExplorerSidebarSection[] = [];
 
@@ -177,8 +177,8 @@ export function buildExplorerSidebarSections(params: {
   }
 
   for (const group of getExplorerSidebarRootGroups({
-    currentOrganizationId,
     entries,
+    primaryOrganizationId,
   })) {
     if (group.label) {
       sections.push({

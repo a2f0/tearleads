@@ -10,12 +10,7 @@ import {
 } from "./MiniAppSelectMenuState";
 import "./MiniAppSelectMenu.css";
 
-export type {
-  MiniAppSelectMenuController,
-  MiniAppSelectMenuOption,
-} from "./MiniAppSelectMenuState";
-
-export interface MiniAppSelectMenuProps {
+interface MiniAppSelectMenuProps {
   ariaLabel: string;
   disabled?: boolean;
   /**

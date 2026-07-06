@@ -245,17 +245,17 @@ export function useExplorerSidebarDocumentWindows(params: {
 
 export function useExplorerSidebarVisibleRows(params: {
   collapsedIds: ReadonlySet<string>;
-  currentOrganizationId: string | null;
   documentWindowsByContainerId: ReadonlyMap<
     string,
     ExplorerSidebarDocumentWindowState
   >;
+  primaryOrganizationId: string | null;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }) {
   const {
     collapsedIds,
-    currentOrganizationId,
     documentWindowsByContainerId,
+    primaryOrganizationId,
     treeEntries,
   } = params;
   const collapsedIdsKey = useMemo(
@@ -273,14 +273,14 @@ export function useExplorerSidebarVisibleRows(params: {
     () =>
       buildExplorerSidebarSections({
         collapsedIds,
-        currentOrganizationId,
         documentWindowsByContainerId,
         entries: treeEntries,
+        primaryOrganizationId,
       }),
     [
       collapsedIdsKey,
-      currentOrganizationId,
       documentWindowsByContainerId,
+      primaryOrganizationId,
       treeEntries,
     ],
   );

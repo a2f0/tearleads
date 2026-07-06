@@ -48,11 +48,11 @@ test("explorer sidebar groups containers shared from another organization", () =
   ];
   const sections = buildExplorerSidebarSections({
     collapsedIds: new Set(),
-    currentOrganizationId: "org-1",
     documentWindowsByContainerId: new Map(
       nodes.map((node) => [node.id, loadedEmptyWindow()]),
     ),
     entries: buildExplorerTree(nodes),
+    primaryOrganizationId: "org-1",
   });
   const rows = getExplorerSidebarRowsInRange({
     collapsedIds: new Set(),
@@ -70,6 +70,49 @@ test("explorer sidebar groups containers shared from another organization", () =
   ).toEqual(["Zulu", EXPLORER_LABELS.sharedWithMeSection, "Alpha", "Beta"]);
 });
 
+test("explorer sidebar keeps the personal organization primary when another organization is active", () => {
+  const nodes: ContainerNode[] = [
+    {
+      id: "personal-root",
+      kind: "container",
+      name: "Personal",
+      organizationId: "org-personal",
+      parentId: null,
+      syncState: syncedContainerDocumentObjectSyncState,
+    },
+    {
+      id: "work-root",
+      kind: "container",
+      name: "Work",
+      organizationId: "org-work",
+      parentId: null,
+      syncState: syncedContainerDocumentObjectSyncState,
+    },
+  ];
+  const sections = buildExplorerSidebarSections({
+    collapsedIds: new Set(),
+    documentWindowsByContainerId: new Map(
+      nodes.map((node) => [node.id, loadedEmptyWindow()]),
+    ),
+    entries: buildExplorerTree(nodes),
+    primaryOrganizationId: "org-personal",
+  });
+  const rows = getExplorerSidebarRowsInRange({
+    collapsedIds: new Set(),
+    limit: 10,
+    offset: 0,
+    sections,
+  });
+
+  expect(
+    rows.map((row) =>
+      row.kind === "container"
+        ? row.entry.node.name
+        : EXPLORER_LABELS.sharedWithMeSection,
+    ),
+  ).toEqual(["Personal", EXPLORER_LABELS.sharedWithMeSection, "Work"]);
+});
+
 test("explorer sidebar does not show shared section for bootstrap nodes without organization ids", () => {
   const nodes: ContainerNode[] = [
     {
@@ -83,11 +126,11 @@ test("explorer sidebar does not show shared section for bootstrap nodes without 
   ];
   const sections = buildExplorerSidebarSections({
     collapsedIds: new Set(),
-    currentOrganizationId: "org-1",
     documentWindowsByContainerId: new Map(
       nodes.map((node) => [node.id, loadedEmptyWindow()]),
     ),
     entries: buildExplorerTree(nodes),
+    primaryOrganizationId: "org-1",
   });
   const rows = getExplorerSidebarRowsInRange({
     collapsedIds: new Set(),

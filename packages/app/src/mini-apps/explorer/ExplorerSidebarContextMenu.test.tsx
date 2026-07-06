@@ -71,7 +71,6 @@ function SidebarContextMenuHarness(params: {
   useExplorerSidebarPanel({
     activeContainerId: rootNode.id,
     collapsedIds,
-    currentOrganizationId: rootNode.organizationId,
     currentSigningFingerprint: null,
     currentUserId: null,
     databaseError: false,
@@ -83,6 +82,7 @@ function SidebarContextMenuHarness(params: {
     handleSidebarDocumentContextMenu,
     nodes,
     ready: true,
+    primaryOrganizationId: rootNode.organizationId,
     selectedId,
     selectDocumentProjection,
     setSelectedId,
