@@ -97,9 +97,10 @@ test("invalid route app ids fall back without indexing missing mini-apps", () =>
 
 test("mobile routed shell opens the nav drawer from the bottom menu bar", () => {
   const restoreMatchMedia = forceMobileRoutedTier();
-  const view = renderRoutedPane();
+  let view: ReturnType<typeof renderRoutedPane> | undefined;
 
   try {
+    view = renderRoutedPane();
     const mobileBar = view.container.querySelector(".routed-pane-mobile-bar");
     expect(mobileBar).toBeTruthy();
     expect(view.container.querySelector(".routed-pane-hamburger")).toBeNull();
@@ -115,7 +116,7 @@ test("mobile routed shell opens the nav drawer from the bottom menu bar", () => 
     expect(menuButton.getAttribute("aria-expanded")).toBe("true");
     expect(drawer?.getAttribute("data-open")).toBe("true");
   } finally {
-    view.unmount();
+    view?.unmount();
     restoreMatchMedia();
   }
 });
