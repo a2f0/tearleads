@@ -135,6 +135,7 @@ interface ExplorerSidebarPanelParams {
     containerId: string,
   ) => void;
   nodes: ReadonlyArray<ContainerNode>;
+  organizationNamesById: ReadonlyMap<string, string>;
   primaryOrganizationId: string | null;
   ready: boolean;
   selectedId: string | null;
@@ -156,6 +157,7 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
   } = useExplorerSidebarVisibleRows({
     collapsedIds: props.collapsedIds,
     documentWindowsByContainerId,
+    organizationNamesById: props.organizationNamesById,
     primaryOrganizationId: props.primaryOrganizationId,
     treeEntries: props.treeEntries,
   });
@@ -217,6 +219,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.handleSidebarDocumentContextMenu,
       params.nodes,
       params.onRetryDatabase,
+      params.organizationNamesById,
       params.primaryOrganizationId,
       params.ready,
       params.selectedId,

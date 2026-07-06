@@ -249,12 +249,14 @@ export function useExplorerSidebarVisibleRows(params: {
     string,
     ExplorerSidebarDocumentWindowState
   >;
+  organizationNamesById: ReadonlyMap<string, string>;
   primaryOrganizationId: string | null;
   treeEntries: ReadonlyArray<ExplorerTreeEntry>;
 }) {
   const {
     collapsedIds,
     documentWindowsByContainerId,
+    organizationNamesById,
     primaryOrganizationId,
     treeEntries,
   } = params;
@@ -275,11 +277,13 @@ export function useExplorerSidebarVisibleRows(params: {
         collapsedIds,
         documentWindowsByContainerId,
         entries: treeEntries,
+        organizationNamesById,
         primaryOrganizationId,
       }),
     [
       collapsedIdsKey,
       documentWindowsByContainerId,
+      organizationNamesById,
       primaryOrganizationId,
       treeEntries,
     ],
