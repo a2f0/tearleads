@@ -21,6 +21,7 @@ import {
 } from "./hooks/useOrgManagerModel";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { OrganizationView } from "./OrganizationView";
+import { OrgSwitcher } from "./OrgSwitcher";
 import { RosterProfileEditor } from "./RosterProfileEditor";
 import "./OrgManager.css";
 
@@ -257,6 +258,7 @@ export function OrgManager() {
 
   return (
     <MiniAppRoot>
+      <OrgSwitcher switcher={model.orgSwitcher} />
       <main className="org-manager-main" onContextMenu={handleMainContextMenu}>
         {model.error && (
           <MiniAppStatus className="org-manager-error" tone="error">
