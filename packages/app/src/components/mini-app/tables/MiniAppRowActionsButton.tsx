@@ -10,13 +10,19 @@ import "./MiniAppRowActionsButton.css";
  * a `.mini-app-row-actions-column`), and by the Identity actions toolbar menu
  * (standalone, without the cell/column wrappers).
  *
- * Pass the menu-opening `onClick`, an `aria-label`, and a `title`; all other
- * button attributes (e.g. `aria-expanded` for a toggle, `aria-busy`) pass
- * through.
+ * Pass the menu-opening `onClick` and a `title`; all other button attributes
+ * (e.g. `aria-expanded` for a toggle, `aria-busy`) pass through. `aria-label` is
+ * required — the only child is the aria-hidden icon, so the button has no other
+ * accessible name.
  */
+interface MiniAppRowActionsButtonProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> {
+  "aria-label": string;
+}
+
 export const MiniAppRowActionsButton = forwardRef<
   HTMLButtonElement,
-  ButtonHTMLAttributes<HTMLButtonElement>
+  MiniAppRowActionsButtonProps
 >(function MiniAppRowActionsButton(
   { className, type = "button", ...props },
   ref,
