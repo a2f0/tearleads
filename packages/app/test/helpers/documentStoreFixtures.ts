@@ -66,6 +66,7 @@ function createDocumentReadPersistence(
 ): Pick<
   DocumentsPersistence,
   | "ensureSchema"
+  | "findDocumentLocalIdsByContainerId"
   | "listDocumentSummaries"
   | "listDocuments"
   | "listDocumentsByContainerIdsOrDocumentIds"
@@ -73,6 +74,11 @@ function createDocumentReadPersistence(
 > {
   return {
     async ensureSchema() {},
+    async findDocumentLocalIdsByContainerId(_execSql, containerId) {
+      return state.document?.containerId === containerId
+        ? [state.document.id]
+        : [];
+    },
     async listDocuments() {
       return state.document ? [documentSummaryFromRecord(state.document)] : [];
     },

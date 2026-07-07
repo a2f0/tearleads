@@ -106,6 +106,10 @@ export interface DocumentsPersistence {
       documentIds: ReadonlyArray<string>;
     },
   ) => Promise<DocumentSummary[]>;
+  findDocumentLocalIdsByContainerId: (
+    execSql: ExecSql,
+    containerId: string,
+  ) => Promise<string[]>;
   loadDocument: (
     execSql: ExecSql,
     localId: string,

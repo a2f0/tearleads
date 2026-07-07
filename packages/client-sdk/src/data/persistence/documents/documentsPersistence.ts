@@ -451,6 +451,26 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
   },
   listDocumentSummaries,
   listDocumentsByContainerIdsOrDocumentIds,
+  async findDocumentLocalIdsByContainerId(execSql, containerId) {
+    // Unlike `listDocumentsByContainerIdsOrDocumentIds`, this deliberately does
+    // NOT drop `HIDDEN_DOCUMENT_SUMMARY_KINDS` — it exists to reach the hidden
+    // `organization_profile` document by the container it is linked to, which is
+    // how a *foreign* org's display name is found on a member who synced the doc
+    // under its server documentId rather than the provisioner-only local alias.
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    const rows = await db
+      .select({ localId: documentProjection.localId })
+      .from(documentProjection)
+      .innerJoin(documents, documentSummaryJoin)
+      .where(eq(documentProjection.containerId, containerId))
+      .orderBy(
+        desc(documentProjection.updatedAt),
+        desc(documentProjection.localId),
+      );
+    return rows
+      .map((row) => row.localId)
+      .filter((localId): localId is string => localId !== null);
+  },
   async loadDocument(execSql, localId) {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const [documentRecord, projectionRows] = await Promise.all([

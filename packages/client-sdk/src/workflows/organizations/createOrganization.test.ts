@@ -11,6 +11,7 @@ import { sqlDocumentsPersistence } from "../../data/persistence/documents/docume
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { createOrganization } from "./createOrganization";
+import { deriveOrganizationMetadataContainerSystemSlot } from "./rosterProfileContainer";
 
 function createClient(execSql: ExecSql): ExecSqlClientLike {
   return {
@@ -84,10 +85,11 @@ test("createOrganization provisions a new org for the existing user and persists
       request.initialAdminGroup.initialGroupPolicy.projection,
     );
 
-    // Root + roster containers persisted, both stamped with the new org id.
+    // Root + roster + organization-metadata containers persisted, all stamped
+    // with the new org id.
     const containers =
       await sqlContainerContentsPersistence.loadContainers(execSql);
-    expect(containers).toHaveLength(2);
+    expect(containers).toHaveLength(3);
     const rootContainerState = containers.find(
       ({ container }) => container.id === request.rootContainerId,
     );
@@ -97,6 +99,23 @@ test("createOrganization provisions a new org for the existing user and persists
         organizationId: request.organizationId,
         parentId: null,
         name: "/",
+      }),
+    );
+
+    // The Members-granted metadata container is persisted as a child of root and
+    // is discoverable by the deterministic system slot the org-name reader keys
+    // its cross-org fallback on.
+    const metadataSystemSlot =
+      await deriveOrganizationMetadataContainerSystemSlot({
+        organizationId: request.organizationId,
+      });
+    const metadataContainerState = containers.find(
+      ({ container }) => container.systemSlot === metadataSystemSlot,
+    );
+    expect(metadataContainerState?.container).toEqual(
+      expect.objectContaining({
+        organizationId: request.organizationId,
+        parentId: request.rootContainerId,
       }),
     );
 
