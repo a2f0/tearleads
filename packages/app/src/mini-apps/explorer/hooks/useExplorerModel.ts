@@ -31,8 +31,6 @@ import {
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 
 interface ExplorerModel {
-  activateLinkedContainer: ExplorerDocumentMutationAction;
-  canActivateSelectedDocument: boolean;
   canCreateChildInActiveContainer: boolean;
   canCreateContactInActiveContainer: boolean;
   canCreateStructuredDocumentInActiveContainer: boolean;
@@ -142,7 +140,6 @@ export function useExplorerModel(
       onDocumentLinksChanged: handleDocumentLinksChanged,
     });
   const {
-    activateLinkedContainer,
     canMutateDocumentLinks,
     consumeInitialDocumentEditing,
     contextMenuState,
@@ -262,7 +259,6 @@ export function useExplorerModel(
     canWriteContainerNode(activeContainerNode);
 
   return {
-    activateLinkedContainer,
     ...selectedDocumentMutationState,
     canCreateChildInActiveContainer,
     canCreateContactInActiveContainer,

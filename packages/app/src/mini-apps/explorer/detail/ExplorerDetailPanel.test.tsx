@@ -49,10 +49,8 @@ function createBaseExplorerDetailPanelProps(
   overrides: Partial<ExplorerDetailPanelProps> = {},
 ): ExplorerDetailPanelProps {
   return {
-    activateLinkedContainer: async () => null,
     blobPickTarget: null,
     blobStore: {} as BlobStore,
-    canActivateLinkedContainer: true,
     canLinkSelectedDocument: true,
     canMoveSelectedDocument: true,
     canMutateDocumentLinks: true,

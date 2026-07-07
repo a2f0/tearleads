@@ -103,11 +103,6 @@
   gap: var(--space-sm);
 }
 
-.explorer-linked-container-badge {
-  font-size: var(--font-size-sm);
-  opacity: var(--opacity-subtle);
-}
-
 .explorer-sidebar-row {
   height: var(--explorer-sidebar-row-height, 1.75rem);
   display: flex;

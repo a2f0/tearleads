@@ -111,12 +111,10 @@ function ExplorerDetailPanelWithBlobPick(params: {
 
   return (
     <ExplorerDetailPanel
-      activateLinkedContainer={model.activateLinkedContainer}
       blobPickTarget={pickTarget}
       blobStore={appData.infra.blobStore}
       databaseError={databaseError}
       onRetryDatabase={onRetryDatabase}
-      canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
       canLinkSelectedDocument={model.canLinkSelectedDocument}
       canMoveSelectedDocument={model.canMoveSelectedDocument}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
