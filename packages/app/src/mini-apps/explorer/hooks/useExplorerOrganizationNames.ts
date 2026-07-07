@@ -7,6 +7,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -120,34 +121,31 @@ function shouldResolveOrganizationNames(input: {
 // deps. Bounded per foreign-org set so an org that never publishes (or that this
 // member cannot decrypt) cannot poll forever.
 function useOrganizationNameResolutionTick(input: {
-  nodes: ReadonlyArray<ContainerNode>;
-  primaryOrganizationId: string | null;
+  foreignOrganizationIds: ReadonlySet<string>;
   namesById: ReadonlyMap<string, string>;
   ready: boolean;
 }): number {
-  const { namesById, nodes, primaryOrganizationId, ready } = input;
+  const { foreignOrganizationIds, namesById, ready } = input;
   const [tick, setTick] = useState(0);
   const attemptCountRef = useRef(0);
 
   // Whether any foreign org still lacks a name — the only condition under which
-  // we need to keep re-resolving. Derived every render, but it flips at most
-  // twice per foreign org (pending -> named), so gating the timer on it (rather
-  // than on `nodes`/`namesById`) keeps the interval from being torn down and
-  // rebuilt on every container-tree churn. That churn is exactly what starved
-  // the previous setTimeout: re-renders arriving faster than the delay cleared
-  // the pending timer before it ever fired, so a name that synced mid-churn
-  // never surfaced.
-  const foreignOrganizationIds = collectForeignOrganizationIds(
-    nodes,
-    primaryOrganizationId,
-  );
+  // we need to keep re-resolving. It flips at most twice per foreign org
+  // (pending -> named), so gating the timer on it (rather than on
+  // `nodes`/`namesById`) keeps the interval from being torn down and rebuilt on
+  // every container-tree churn. That churn is exactly what starved the previous
+  // setTimeout: re-renders arriving faster than the delay cleared the pending
+  // timer before it ever fired, so a name that synced mid-churn never surfaced.
   const hasPendingName =
     ready &&
     foreignOrganizationIds.size > 0 &&
     !everyOrganizationNamed(foreignOrganizationIds, namesById);
   // Stable across node-object churn: changes only when the *set* of foreign orgs
   // does, so a newly-appearing foreign org restarts the retry budget.
-  const foreignIdsKey = Array.from(foreignOrganizationIds).sort().join("\n");
+  const foreignIdsKey = useMemo(
+    () => Array.from(foreignOrganizationIds).sort().join("\n"),
+    [foreignOrganizationIds],
+  );
 
   useEffect(() => {
     if (!hasPendingName) {
@@ -177,8 +175,7 @@ function runOrganizationNameResolution(input: {
   listLocalOrganizations: () => Promise<
     ReadonlyArray<LocalOrganizationSummary>
   >;
-  nodes: ReadonlyArray<ContainerNode>;
-  primaryOrganizationId: string | null;
+  foreignOrganizationIds: ReadonlySet<string>;
   ready: boolean;
   namesRef: MutableRefObject<ReadonlyMap<string, string>>;
   lastResolvedForeignIdsRef: MutableRefObject<ReadonlySet<string>>;
@@ -191,10 +188,7 @@ function runOrganizationNameResolution(input: {
     input.inFlightForeignIdsRef.current = null;
     return;
   }
-  const foreignOrganizationIds = collectForeignOrganizationIds(
-    input.nodes,
-    input.primaryOrganizationId,
-  );
+  const { foreignOrganizationIds } = input;
   if (foreignOrganizationIds.size === 0) {
     input.lastResolvedForeignIdsRef.current = foreignOrganizationIds;
     input.inFlightForeignIdsRef.current = null;
@@ -299,10 +293,16 @@ export function useExplorerOrganizationNames(params: {
   // its result only while this ref still points at the exact set it queried.
   const inFlightForeignIdsRef = useRef<ReadonlySet<string> | null>(null);
   const mountedRef = useRef(true);
+  // Computed once per container-tree change, then shared by the retry timer and
+  // the resolution effect so neither re-traverses `nodes` on every render or
+  // 500ms tick.
+  const foreignOrganizationIds = useMemo(
+    () => collectForeignOrganizationIds(nodes, primaryOrganizationId),
+    [nodes, primaryOrganizationId],
+  );
   const resolveAttempt = useOrganizationNameResolutionTick({
+    foreignOrganizationIds,
     namesById: organizationNamesById,
-    nodes,
-    primaryOrganizationId,
     ready,
   });
   useEffect(
@@ -313,23 +313,16 @@ export function useExplorerOrganizationNames(params: {
   );
   useEffect(() => {
     runOrganizationNameResolution({
+      foreignOrganizationIds,
       inFlightForeignIdsRef,
       lastResolvedForeignIdsRef,
       listLocalOrganizations,
       mountedRef,
       namesRef: organizationNamesRef,
-      nodes,
-      primaryOrganizationId,
       ready,
       setNames: setOrganizationNamesById,
     });
-  }, [
-    listLocalOrganizations,
-    nodes,
-    primaryOrganizationId,
-    ready,
-    resolveAttempt,
-  ]);
+  }, [foreignOrganizationIds, listLocalOrganizations, ready, resolveAttempt]);
 
   return organizationNamesById;
 }
