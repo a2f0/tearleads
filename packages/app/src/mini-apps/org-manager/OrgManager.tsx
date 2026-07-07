@@ -225,9 +225,9 @@ function useRevokeGrantConfirmation(model: OrgManagerModel) {
       return;
     }
 
-    const grant = grantPendingRevoke;
-    setGrantPendingRevoke(null);
-    void model.revokeGrant(grant);
+    void model.revokeGrant(grantPendingRevoke).finally(() => {
+      setGrantPendingRevoke(null);
+    });
   }, [
     grantPendingRevoke,
     model.canRevokeGrants,
