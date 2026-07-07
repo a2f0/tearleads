@@ -292,7 +292,7 @@ function ExplorerStandardContainerContextMenu(
       <ExplorerOptionalMenuItem
         {...optionalActionProps}
         icon={UploadSimpleIcon}
-        label="Upload"
+        label={EXPLORER_LABELS.uploadAction}
         disabled={!canUploadToContextMenuNode}
         onSelect={() => triggerUpload(containerId)}
       />

@@ -258,7 +258,7 @@ function useExplorerUploadToolbarAction({
               !model.explorer.ready || !model.canUploadToActiveContainer,
             icon: <UploadSimpleIcon aria-hidden size={18} />,
             id: "explorer-upload",
-            label: "Upload",
+            label: EXPLORER_LABELS.uploadAction,
             onClick: () => {
               if (activeContainerId) {
                 triggerUpload(activeContainerId);
