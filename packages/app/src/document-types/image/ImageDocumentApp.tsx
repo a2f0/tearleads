@@ -9,6 +9,7 @@ import { IMAGE_DOCUMENT_KIND } from "./imageDocumentDefinition";
 export function ImageDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -19,6 +20,7 @@ export function ImageDocumentApp({
       initialDocumentKind={IMAGE_DOCUMENT_KIND}
     >
       <FileDocument
+        initialEditing={initialEditing}
         title="Image"
         extraFieldLabels={{
           height: "Height",

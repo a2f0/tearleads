@@ -24,7 +24,10 @@ import {
   downloadResolvedAttachment,
   resolveDownloadableAttachment,
 } from "./fileDownload";
-import { StructuredDocument } from "./StructuredDocument";
+import {
+  StructuredDocument,
+  useStructuredDocumentEditing,
+} from "./StructuredDocument";
 
 const FILE_DOCUMENT_EMPTY_VALUE = "—";
 
@@ -252,9 +255,10 @@ function useFileDocumentReadFields(params: {
 // edit/download enablement. Kept as a hook so the component stays a thin shell.
 function useFileDocument(params: {
   extraFieldLabels: Readonly<Record<string, string>>;
+  initialEditing?: boolean | undefined;
   title: string;
 }) {
-  const { extraFieldLabels, title } = params;
+  const { extraFieldLabels, initialEditing, title } = params;
   const { auth, infra, state } = useTearleadsRuntime();
   const {
     attachments,
@@ -267,16 +271,11 @@ function useFileDocument(params: {
     structuredFields,
     syncing,
   } = useDocument();
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+    ready && canWrite,
+    initialEditing,
+  );
   const [downloadError, setDownloadError] = useState<string | null>(null);
-
-  // A read-only file (a peer's document, or a transient not-ready state) must
-  // never sit in edit mode.
-  useEffect(() => {
-    if (!ready || !canWrite) {
-      setIsEditing(false);
-    }
-  }, [canWrite, ready]);
 
   const { fileName = "" } = structuredFields;
   const readFields = useFileDocumentReadFields({
@@ -358,10 +357,11 @@ function useFileDocument(params: {
 
 export function FileDocument(params: {
   extraFieldLabels?: Readonly<Record<string, string>> | undefined;
+  initialEditing?: boolean | undefined;
   title: string;
 }) {
-  const { extraFieldLabels = {}, title } = params;
-  const model = useFileDocument({ extraFieldLabels, title });
+  const { extraFieldLabels = {}, initialEditing, title } = params;
+  const model = useFileDocument({ extraFieldLabels, initialEditing, title });
 
   return (
     <StructuredDocument

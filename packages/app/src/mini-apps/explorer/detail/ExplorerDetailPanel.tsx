@@ -112,6 +112,7 @@ interface ExplorerDetailPanelProps {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
+  initialEditingSelectedDocument: boolean;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
@@ -133,6 +134,7 @@ interface ExplorerDetailPanelProps {
     row: ContainerItemRow,
   ) => void;
   onBackToSelectionRoute: () => void;
+  onInitialEditingSelectedDocumentConsumed: (localId: string) => void;
   onOpenSyncLaneDetailRoute: (laneKey: string) => void;
   onBackToSyncLanesRoute: () => void;
   onOpenGrant: (
@@ -315,6 +317,10 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         openLinkDocumentModal={params.openLinkDocumentModal}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         openMoveDocumentModal={params.openMoveDocumentModal}
+        initialEditing={params.initialEditingSelectedDocument}
+        onInitialEditingConsumed={
+          params.onInitialEditingSelectedDocumentConsumed
+        }
         refreshError={params.refreshError}
         selectedDocument={selectedDocument}
         setSelectedId={params.setSelectedId}

@@ -8,6 +8,7 @@ import { CreditCard } from "./CreditCard";
 export function CreditCardDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -17,7 +18,11 @@ export function CreditCardDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind="credit_card"
     >
-      <CreditCard containerId={containerId ?? null} localId={localId} />
+      <CreditCard
+        containerId={containerId ?? null}
+        initialEditing={initialEditing}
+        localId={localId}
+      />
     </DocumentsProvider>
   );
 }

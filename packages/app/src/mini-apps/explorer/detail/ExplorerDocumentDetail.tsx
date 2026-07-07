@@ -156,7 +156,9 @@ export function ExplorerDocumentDetail(params: {
   canMoveSelectedDocument: boolean;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  initialEditing: boolean;
   nodes: ReadonlyArray<ContainerNode>;
+  onInitialEditingConsumed: (localId: string) => void;
   online: boolean;
   openLinkDocumentModal: (documentId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
@@ -178,6 +180,15 @@ export function ExplorerDocumentDetail(params: {
   });
   const SelectedDocumentApp =
     getDocumentTypeDefinition(selectedDocumentKind).App;
+  useEffect(() => {
+    if (params.initialEditing) {
+      params.onInitialEditingConsumed(params.selectedDocument.id);
+    }
+  }, [
+    params.initialEditing,
+    params.onInitialEditingConsumed,
+    params.selectedDocument.id,
+  ]);
 
   return (
     <MiniAppPanel
@@ -221,6 +232,7 @@ export function ExplorerDocumentDetail(params: {
       ) : null}
       <div className="explorer-inline-note">
         <SelectedDocumentApp
+          initialEditing={params.initialEditing}
           localId={params.selectedDocument.id}
           {...(params.selectedDocument.containerId === null
             ? {}

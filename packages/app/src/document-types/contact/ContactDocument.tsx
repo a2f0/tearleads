@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
 } from "../../components/shared/MiniAppLayout";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
-import { StructuredDocument } from "../shared/StructuredDocument";
+import {
+  StructuredDocument,
+  useStructuredDocumentEditing,
+} from "../shared/StructuredDocument";
 import "./ContactDocument.css";
 import { ContactFields } from "./ContactFields";
 import { readContactFields } from "./contactDocumentModel";
@@ -66,18 +69,18 @@ function ContactDocumentFields({
   );
 }
 
-export function ContactDocument() {
+export function ContactDocument(params: {
+  initialEditing?: boolean | undefined;
+}) {
   const { auth, state } = useTearleadsRuntime();
   const { isAuthenticated } = auth;
   const { online } = state;
   const { canWrite, ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
-  const [isEditing, setIsEditing] = useState(false);
-  useEffect(() => {
-    if (!canWrite) {
-      setIsEditing(false);
-    }
-  }, [canWrite]);
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+    canWrite,
+    params.initialEditing,
+  );
   const values = useMemo(
     () => toContactFieldValues(readContactFields(structuredFields)),
     [structuredFields],
