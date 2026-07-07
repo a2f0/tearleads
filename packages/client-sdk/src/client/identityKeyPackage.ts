@@ -97,10 +97,15 @@ function readBase64Bytes(input: {
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  return (
-    left.length === right.length &&
-    left.every((byte, index) => byte === right[index])
-  );
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    result |= (left[index] ?? 0) ^ (right[index] ?? 0);
+  }
+  return result === 0;
 }
 
 function readMatchingSeedPhrase(input: {

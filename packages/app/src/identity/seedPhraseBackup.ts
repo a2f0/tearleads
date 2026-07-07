@@ -4,11 +4,13 @@ const TEXT_ENCODER = new TextEncoder();
 
 export function createSeedPhraseFileName(input: {
   readonly signingFingerprint: string | null;
+  readonly timestamp?: Date;
 }): string {
   const fingerprintPrefix = input.signingFingerprint
     ? `${input.signingFingerprint.slice(0, 12)}-`
     : "";
-  return `tearleads-seed-phrase-${fingerprintPrefix}${new Date()
+  const timestamp = input.timestamp ?? new Date();
+  return `tearleads-seed-phrase-${fingerprintPrefix}${timestamp
     .toISOString()
     .replaceAll(":", "-")}.txt`;
 }
