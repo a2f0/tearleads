@@ -22,6 +22,7 @@
     "android:sideload": "bundle exec fastlane android sideload",
     "android:sideload:debug": "bundle exec fastlane android install_debug",
     "android:sideload:release": "bundle exec fastlane android install_release",
+    "store:build-numbers": "bundle exec fastlane store_build_numbers",
     "lint:rubocop": "bundle exec rubocop"
   },
   "dependencies": {
