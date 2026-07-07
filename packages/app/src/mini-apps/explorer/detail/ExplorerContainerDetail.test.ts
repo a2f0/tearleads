@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import {
   type ContainerItemRow,
+  type ContainerItemSort,
   type ContainerNode,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
@@ -196,6 +197,26 @@ test("container item sort toggles the active column and initializes new columns"
     direction: "desc",
     key: "modified",
   });
+});
+
+test("container item table sorts from the name header", () => {
+  const sortKeys: Array<ContainerItemSort["key"]> = [];
+  const view = renderContainerItemTable({
+    onSort: (key) => {
+      sortKeys.push(key);
+    },
+    sort: { direction: "asc", key: "name" },
+  });
+  const nameSortButton = view.getByRole("button", {
+    name: EXPLORER_LABELS.itemNameColumn,
+  });
+
+  fireEvent.click(nameSortButton);
+
+  expect(sortKeys).toEqual(["name"]);
+  expect(nameSortButton.closest("th")?.getAttribute("aria-sort")).toBe(
+    "ascending",
+  );
 });
 
 test("container item table opens the selected container context menu from blank space", () => {
