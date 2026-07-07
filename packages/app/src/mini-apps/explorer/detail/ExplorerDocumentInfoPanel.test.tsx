@@ -135,7 +135,6 @@ function renderDocumentInfoPanel(input: {
         input.loadDocumentSummary ?? (async () => documentSummary),
       localId: "local-document-1",
       nodes,
-      onBackToDocument: () => undefined,
       openBlobBrowserRoute: () => undefined,
       setSelectedId: () => undefined,
       showLinkedDocumentActivationControls:

@@ -19,7 +19,6 @@ export interface WindowTitleBarAction {
 
 export function WindowTitleBar({
   title,
-  actions = [],
   onMouseDown,
   onMinimize,
   onMaximize,
@@ -28,7 +27,6 @@ export function WindowTitleBar({
   onMoveBackward,
 }: {
   title: string;
-  actions?: WindowTitleBarAction[];
   onMouseDown: (e: React.MouseEvent) => void;
   onMinimize: () => void;
   onMaximize: () => void;
@@ -59,25 +57,13 @@ export function WindowTitleBar({
   return (
     <div
       role="toolbar"
+      aria-label="Window controls"
       className="window-titlebar"
       onMouseDown={handleMouseDown}
       onContextMenu={handleContextMenu}
     >
       <span>{title}</span>
       <div className="window-titlebar-buttons">
-        {actions.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            aria-label={action.label}
-            className="window-titlebar-action"
-            disabled={action.disabled}
-            title={action.label}
-            onClick={action.onClick}
-          >
-            {action.icon}
-          </button>
-        ))}
         <WindowMinimizeButton onClick={onMinimize} />
         <WindowMaximizeButton onClick={onMaximize} />
         <WindowCloseButton onClick={onClose} />

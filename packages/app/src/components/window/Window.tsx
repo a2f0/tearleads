@@ -20,7 +20,6 @@ import { WindowBody } from "./WindowBody";
 import { WindowMenuBar, type WindowMenuItem } from "./WindowMenuBar";
 import {
   useWindowFileMenuItems,
-  useWindowTitleBarActions,
   useWindowViewMenuItems,
   WindowMenuProvider,
 } from "./WindowMenuContext";
@@ -38,6 +37,7 @@ import {
 } from "./WindowStateProvider";
 import { WindowStatusBar } from "./WindowStatusBar";
 import { WindowTitleBar } from "./WindowTitleBar";
+import { WindowToolBar } from "./WindowToolBar";
 
 interface WindowProps {
   windowId: string;
@@ -269,7 +269,6 @@ function WindowInnerContent({
   const windowRef = useRef<HTMLDivElement>(null);
   const fileMenuItems = useWindowFileMenuItems();
   const viewMenuItems = useWindowViewMenuItems();
-  const titleBarActions = useWindowTitleBarActions();
   const { sidebar } = useWindowSidebar();
   const hasSidebar =
     sidebar !== null && sidebar !== undefined && sidebar !== false;
@@ -326,7 +325,6 @@ function WindowInnerContent({
     >
       <WindowTitleBar
         title={title}
-        actions={titleBarActions}
         onMouseDown={handleMouseDown}
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}
@@ -335,6 +333,7 @@ function WindowInnerContent({
         onMoveBackward={handleMoveBackward}
       />
       <WindowMenuBar menus={menus} />
+      <WindowToolBar />
       <CurrentWindowProvider
         close={handleClose}
         id={entry.id}

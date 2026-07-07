@@ -1,11 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { MiniAppClipboardButton } from "../mini-app/MiniAppLayout";
 import { Window } from "./Window";
 import {
+  useWindowBackAction,
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
+  useWindowTitleBarAction,
 } from "./WindowMenuContext";
 import { useWindowSidebar } from "./WindowSidebarContext";
 import { useWindowState, WindowStateProvider } from "./WindowStateProvider";
@@ -88,6 +90,47 @@ function WindowFileMenuHarness({ onCreate }: { onCreate: () => void }) {
 
     create("File Menu", 0, 0, FileMenuWindow);
   }, [create, onCreate]);
+
+  return (
+    <div>
+      {windows.map((window) => (
+        <Window key={window.id} windowId={window.id} />
+      ))}
+    </div>
+  );
+}
+
+function WindowToolBarHarness({
+  onAction,
+  onBack,
+}: {
+  onAction: () => void;
+  onBack: () => void;
+}) {
+  const { windows, create } = useWindowState();
+
+  useEffect(() => {
+    function ToolBarWindow() {
+      const action = useMemo(
+        () => ({
+          icon: <span aria-hidden>i</span>,
+          id: "toolbar-action",
+          label: "Get Info",
+          onClick: onAction,
+        }),
+        [],
+      );
+      const back = useMemo(
+        () => ({ label: "Back to Container", onClick: onBack }),
+        [],
+      );
+      useWindowTitleBarAction(action);
+      useWindowBackAction(back);
+      return <div>Toolbar content</div>;
+    }
+
+    create("Toolbar", 0, 0, ToolBarWindow);
+  }, [create, onAction, onBack]);
 
   return (
     <div>
@@ -383,6 +426,41 @@ test("registered file action appears in the file menu", async () => {
   fireEvent.click(view.getByText("New Document"));
 
   expect(createCount).toBe(1);
+});
+
+test("registered title-bar and back actions render in the window toolbar row", async () => {
+  let actionClicks = 0;
+  let backClicks = 0;
+  const view = render(
+    <WindowStateProvider>
+      <WindowToolBarHarness
+        onAction={() => {
+          actionClicks += 1;
+        }}
+        onBack={() => {
+          backClicks += 1;
+        }}
+      />
+    </WindowStateProvider>,
+  );
+
+  await waitFor(() => {
+    expect(view.getByText("Toolbar content")).toBeTruthy();
+  });
+
+  const toolbar = view.container.querySelector(".window-toolbar");
+  expect(toolbar).not.toBeNull();
+
+  const infoButton = view.getByRole("button", { name: "Get Info" });
+  const backButton = view.getByRole("button", { name: "Back to Container" });
+  expect(infoButton.closest(".window-toolbar")).toBe(toolbar);
+  expect(backButton.closest(".window-toolbar")).toBe(toolbar);
+
+  fireEvent.click(infoButton);
+  fireEvent.click(backButton);
+
+  expect(actionClicks).toBe(1);
+  expect(backClicks).toBe(1);
 });
 
 test("equal-priority refresh actions prefer the first registered item", async () => {

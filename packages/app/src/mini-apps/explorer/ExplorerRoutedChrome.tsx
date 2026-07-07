@@ -63,12 +63,10 @@ export function useExplorerToolbarUpload(
 }
 
 export function useExplorerRoutedChromeActions({
-  isRoutedShell,
   model,
   openStructuredDocumentGrid,
   triggerUpload,
 }: {
-  isRoutedShell: boolean;
   model: ExplorerModel;
   openStructuredDocumentGrid: () => void;
   triggerUpload: (containerId: string) => void;
@@ -79,7 +77,6 @@ export function useExplorerRoutedChromeActions({
   const selectedDocumentId = selectedDocument?.id ?? null;
   const selectedDocumentContainerId = selectedDocument?.containerId ?? null;
   const showContainerToolbar =
-    isRoutedShell &&
     route.view === "selection" &&
     activeContainerId !== null &&
     selectedDocument === undefined;
@@ -88,12 +85,9 @@ export function useExplorerRoutedChromeActions({
   const showStandardContainerToolbar =
     showContainerToolbar && !model.isActiveContactsContainer;
   const showDocumentToolbar =
-    isRoutedShell &&
-    selectedDocument !== undefined &&
-    route.view !== "document-info";
+    selectedDocument !== undefined && route.view !== "document-info";
 
   useExplorerRoutedBackAction({
-    isRoutedShell,
     model,
     route,
     selectedDocumentContainerId,
@@ -176,21 +170,15 @@ function useExplorerNewContactToolbarAction({
 }
 
 function useExplorerRoutedBackAction({
-  isRoutedShell,
   model,
   route,
   selectedDocumentContainerId,
 }: {
-  isRoutedShell: boolean;
   model: ExplorerModel;
   route: ExplorerModel["routeState"]["route"];
   selectedDocumentContainerId: string | null;
 }) {
   const backAction = useMemo(() => {
-    if (!isRoutedShell) {
-      return null;
-    }
-
     if (route.view === "document-info") {
       return {
         label: EXPLORER_LABELS.documentInfoBackAction,
@@ -237,7 +225,6 @@ function useExplorerRoutedBackAction({
 
     return null;
   }, [
-    isRoutedShell,
     model.routeState.openSyncLanesRoute,
     model.routeState.selectExplorerItem,
     model.routeState.showSelectionRoute,

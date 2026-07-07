@@ -35,7 +35,7 @@ function ToolbarProbe() {
   );
 }
 
-test("routed contact document edits from the toolbar", async () => {
+test("contact document edits from the toolbar", async () => {
   const editingStates: boolean[] = [];
   const view = render(
     <WindowMenuProvider>
@@ -43,7 +43,6 @@ test("routed contact document edits from the toolbar", async () => {
       <ContactDocumentFields
         canWrite={true}
         isEditing={false}
-        isRoutedShell={true}
         ready={true}
         setEditing={(editing) => editingStates.push(editing)}
         setStructuredFields={async () => undefined}

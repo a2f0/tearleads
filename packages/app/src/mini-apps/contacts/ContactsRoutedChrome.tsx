@@ -7,20 +7,18 @@ import type { ContactsRoute } from "./routes";
 
 export function useContactsRoutedChromeActions({
   canWrite,
-  isRoutedShell,
   openImportContactRoute,
   openNewContactRoute,
   ready,
   route,
 }: {
   canWrite: boolean;
-  isRoutedShell: boolean;
   openImportContactRoute: () => void;
   openNewContactRoute: () => void;
   ready: boolean;
   route: ContactsRoute;
 }) {
-  const showSelectionActions = isRoutedShell && route === "selection";
+  const showSelectionActions = route === "selection";
   const newContactAction = useMemo(
     () =>
       showSelectionActions

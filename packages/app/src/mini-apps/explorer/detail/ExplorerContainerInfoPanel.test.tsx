@@ -108,7 +108,6 @@ function renderContainerInfoPanel(
       canShareWithPeer: true,
       loadContainerInfo:
         input.loadContainerInfo ?? (async () => createContainerInfo()),
-      onBackToContainer: () => undefined,
       onOpenGrant: () => undefined,
       peerUserId: "peer-user-1",
       shareWithGroup: async () => true,

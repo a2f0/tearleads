@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
+  useWindowBackActionValue,
   useWindowTitleBarActions,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
@@ -65,6 +66,23 @@ function createExplorerModel(
   } as unknown as ExplorerModel;
 }
 
+function BackProbe() {
+  const backAction = useWindowBackActionValue();
+
+  if (!backAction) {
+    return null;
+  }
+
+  return (
+    <button
+      aria-label={backAction.label}
+      disabled={backAction.disabled}
+      type="button"
+      onClick={backAction.onClick}
+    />
+  );
+}
+
 function ExplorerRoutedChromeHarness({
   model,
   openStructuredDocumentGrid = () => undefined,
@@ -75,13 +93,17 @@ function ExplorerRoutedChromeHarness({
   triggerUpload?: (containerId: string) => void;
 }) {
   useExplorerRoutedChromeActions({
-    isRoutedShell: true,
     model,
     openStructuredDocumentGrid,
     triggerUpload,
   });
 
-  return <ToolbarProbe />;
+  return (
+    <>
+      <ToolbarProbe />
+      <BackProbe />
+    </>
+  );
 }
 
 test("contacts container toolbar only offers new contact", async () => {
@@ -167,4 +189,47 @@ test("document toolbar hides link when there are no link targets", async () => {
       name: EXPLORER_LABELS.documentLinkAction,
     }),
   ).toBeNull();
+  expect(
+    view.getByRole("button", { name: EXPLORER_LABELS.documentMoveAction }),
+  ).toBeTruthy();
+});
+
+test("document-info back action returns to the document projection", async () => {
+  const selectedDocuments: Array<[string, string]> = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          routeState: {
+            ...baseModel.routeState,
+            route: {
+              containerId: "contacts-container",
+              localId: "you-contact",
+              view: "document-info",
+            },
+          },
+          selectDocumentProjection: (localId, containerId) => {
+            selectedDocuments.push([localId, containerId]);
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", {
+        name: EXPLORER_LABELS.documentInfoBackAction,
+      }),
+    ).toBeTruthy();
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentInfoBackAction,
+    }),
+  );
+
+  expect(selectedDocuments).toEqual([["you-contact", "contacts-container"]]);
 });

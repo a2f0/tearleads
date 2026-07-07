@@ -1,4 +1,4 @@
-import { fireEvent, type RenderResult } from "@testing-library/react";
+import { fireEvent, type RenderResult, within } from "@testing-library/react";
 import invariant from "invariant";
 import { getExplorerContainerItem } from "./paneTestUtils";
 
@@ -25,7 +25,11 @@ export function uploadExplorerFile(
     getExplorerContainerItem(explorerWindow, containerName),
     { clientX: 200, clientY: 200 },
   );
-  fireEvent.click(view.getByRole("button", { name: "Upload" }));
+  // Scope to the context menu: the Explorer toolbar carries a same-named
+  // "Upload" button whenever a container is active.
+  const uploadMenu = view.baseElement.querySelector<HTMLElement>(".menu");
+  invariant(uploadMenu, "explorer context menu not found");
+  fireEvent.click(within(uploadMenu).getByRole("button", { name: "Upload" }));
 
   const fileInput = explorerWindow.querySelector<HTMLInputElement>(
     "input.explorer-file-input",

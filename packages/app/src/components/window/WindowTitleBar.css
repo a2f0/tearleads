@@ -26,8 +26,7 @@
 
 .window-close,
 .window-maximize,
-.window-minimize,
-.window-titlebar-action {
+.window-minimize {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -42,23 +41,15 @@
 .window-close:hover,
 .window-maximize:hover,
 .window-minimize:hover,
-.window-titlebar-action:hover,
 .window-close:focus-visible,
 .window-maximize:focus-visible,
-.window-minimize:focus-visible,
-.window-titlebar-action:focus-visible {
+.window-minimize:focus-visible {
   opacity: var(--opacity-muted);
 }
 
 .window-close:focus-visible,
 .window-maximize:focus-visible,
-.window-minimize:focus-visible,
-.window-titlebar-action:focus-visible {
+.window-minimize:focus-visible {
   outline: var(--border-width) solid var(--color-light);
   outline-offset: calc(-1 * var(--border-width));
-}
-
-.window-titlebar-action:disabled {
-  cursor: not-allowed;
-  opacity: var(--opacity-muted);
 }

@@ -309,7 +309,15 @@ export async function createExplorerChildContainer(
     clientX: 180,
     clientY: 180,
   });
-  fireEvent.click(view.getByRole("button", { name: "Create Child Folder" }));
+  // Scope to the context menu: the Explorer toolbar now carries a same-named
+  // "Create Child Folder" button whenever a container is active.
+  const createChildMenu = view.baseElement.querySelector<HTMLElement>(".menu");
+  invariant(createChildMenu, "explorer context menu not found");
+  fireEvent.click(
+    within(createChildMenu).getByRole("button", {
+      name: "Create Child Folder",
+    }),
+  );
 
   const containerNameInput = view.getByLabelText("Container name");
   invariant(
@@ -337,7 +345,11 @@ export async function moveExplorerContainer(
     clientX: 210,
     clientY: 210,
   });
-  fireEvent.click(view.getByRole("button", { name: "Move" }));
+  // Scope to the context menu so a document toolbar "Move" cannot shadow the
+  // container context-menu item.
+  const moveMenu = view.baseElement.querySelector<HTMLElement>(".menu");
+  invariant(moveMenu, "explorer context menu not found");
+  fireEvent.click(within(moveMenu).getByRole("button", { name: "Move" }));
 
   const dialog = view.getByRole("dialog");
   const destinationSelect = within(dialog).getByRole("combobox", {
