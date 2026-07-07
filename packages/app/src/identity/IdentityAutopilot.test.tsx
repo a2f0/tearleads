@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import { AppTestRuntimeScopeProbe } from "../../test/helpers/appRuntimeIdle";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
+import { useTestApiAppHandlers } from "../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
   createSharedMemoryLocalKeyringFactory,
@@ -124,6 +125,16 @@ test(
 test(
   "autopilot bootstraps system containers before mini-app launch",
   async () => {
+    // Runs against the real API app (not the minimal in-memory stubs) because
+    // the two system folders now reach the tree by different routes that both
+    // need a faithful server: Contacts is created device-first and promoted to
+    // remote sync, while Trash is born with the organization — provisioned
+    // server-side in the same transaction as the org registration and pulled
+    // back in by SystemBootstrapProvider's root-lane poll. The stub register
+    // handler neither provisions nor lists the eager Trash, so only a real
+    // backend exercises the autopilot's bootstrap-gates-registration ordering
+    // end to end.
+    useTestApiAppHandlers();
     const view = renderPane({
       hostConfig: createTestHostConfig({ autoProvisionIdentity: true }),
     });
@@ -136,6 +147,9 @@ test(
     await waitForRegisteredSession(view);
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
 
+    // Contacts arrives via device-first create + promotion; Trash arrives via
+    // the eager server-side provision + root-lane poll. Both are present before
+    // any mini-app opens.
     const explorer = await openExplorer(view);
     await waitFor(
       () => {

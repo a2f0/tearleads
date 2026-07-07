@@ -7,6 +7,7 @@ import {
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
 import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
+import type { ProvisionedSystemContainerSpec } from "../workflows/registration";
 import { type BlobStoreFactory, Blobs } from "./blobs";
 import {
   type ContainerContents,
@@ -51,6 +52,15 @@ export interface ClientOptions {
    * peer ids (e.g. the pane's local identity namespace). Omit for single-pane.
    */
   peerScope?: string | undefined;
+  /**
+   * App-owned system containers born with every new organization (both
+   * registration and additional-org creation provision them atomically in the
+   * same server call), e.g. a trash bin. The app owns these because their slot
+   * namespaces are app concepts the SDK stays agnostic to.
+   */
+  provisionedSystemContainers?:
+    | ReadonlyArray<ProvisionedSystemContainerSpec>
+    | undefined;
 }
 
 export class Tearleads {
@@ -129,6 +139,7 @@ export class Tearleads {
       identity: this.identity,
       log: this.log,
       logError: this.logError,
+      provisionedSystemContainers: options.provisionedSystemContainers,
     });
     this.session = session;
     const runtime = createRuntime({

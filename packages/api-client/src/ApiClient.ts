@@ -673,6 +673,9 @@ export class ApiClient {
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
     initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
+    initialSystemContainers?:
+      | ContainerCreateWithMetadataDocumentRequest[]
+      | undefined,
   ) {
     return this.request(
       "/auth/register",
@@ -693,6 +696,7 @@ export class ApiClient {
         initialRosterProfileDocument,
         initialOrganizationMetadataContainer,
         initialOrganizationProfileDocument,
+        initialSystemContainers,
       }),
     );
   }

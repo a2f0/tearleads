@@ -33,6 +33,10 @@ import {
   type SystemBootstrapState,
   type SystemBootstrapStatus,
 } from "./systemBootstrapRun";
+import {
+  usePromoteLocalSystemContainers,
+  useProvisionedSystemContainerPull,
+} from "./systemContainerSyncEffects";
 
 interface SystemBootstrapContextValue {
   readonly ensureBootstrapped: () => Promise<SystemBootstrapResult>;
@@ -42,6 +46,7 @@ interface SystemBootstrapContextValue {
 }
 
 const SYSTEM_BOOTSTRAP_LOG_LABEL = "System bootstrap";
+
 const SystemBootstrapContext =
   createContext<SystemBootstrapContextValue | null>(null);
 
@@ -319,68 +324,23 @@ export function SystemBootstrapProvider({
     store.updateRuntime(runtime);
   }, [enabled, store, runtime]);
 
-  // Promote device-first (local-only) system containers into remote sync once
-  // the runtime is authenticated.
-  //
-  // Why this exists separately from the main bootstrap run: the provisioning
-  // controller creates each system slot local-only pre-auth and is deliberately
-  // keyed so it does NOT re-run on the bare auth transition (createSystemBootstrapTargetKey
-  // omits isAuthenticated to avoid re-seeding churn — folding auth into the key
-  // instead sends the controller into a setState loop). That leaves a gap: a
-  // system container created before login would otherwise stay local-only forever
-  // and never reach the server, so a peer granted the root never sees the owner's
-  // Contacts/Trash. This pass fills the gap. Promoting contacts to remote flips
-  // the contacts axis of the bootstrap target key, which re-runs the main pass to
-  // upgrade the self contact with its remote identity.
-  //
-  // Loop-safety: it only acts on slots still reporting local-only (so it stops
-  // once a slot converges and retries if a promotion no-ops during the auth
-  // handoff), guards against duplicate in-flight calls per slot, and never calls
-  // setState — a no-op ensureSystemContainer does not mutate the snapshot. It does
-  // NOT pass skipAdvancedManagedRoot: the create-intent replay keys the child for
-  // the managed principal exactly like a normal child create, so promotion under
-  // an org-managed (admins-group) root is correct, not skippable.
-  const promotingSystemSlotsRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!enabled || !appData.auth.isAuthenticated || !snapshot.ready) {
-      return;
-    }
-    for (const systemContainer of systemContainers) {
-      const slot = systemContainer.systemSlot;
-      const node = findExplorerSystemNode(snapshot.nodes, slot);
-      if (
-        !node ||
-        node.syncState.status !== "local-only" ||
-        promotingSystemSlotsRef.current.has(slot)
-      ) {
-        continue;
-      }
-
-      promotingSystemSlotsRef.current.add(slot);
-      void store
-        .ensureSystemContainer(slot, systemContainer.name, {})
-        .catch((error: unknown) => {
-          tearleads.logError(
-            "Failed to promote system container to remote sync",
-            error,
-          );
-        })
-        .finally(() => {
-          promotingSystemSlotsRef.current.delete(slot);
-        });
-    }
-    // Narrow to the two snapshot fields this effect actually reads (ready guard +
-    // nodes lookup) rather than the whole snapshot object, so it does not re-run on
-    // every unrelated store update.
-  }, [
+  usePromoteLocalSystemContainers({
     enabled,
-    appData.auth.isAuthenticated,
-    snapshot.ready,
-    snapshot.nodes,
-    systemContainers,
+    isAuthenticated: appData.auth.isAuthenticated,
+    logError: tearleads.logError,
+    snapshotNodes: snapshot.nodes,
+    snapshotReady: snapshot.ready,
     store,
-    tearleads.logError,
-  ]);
+    systemContainers,
+  });
+  useProvisionedSystemContainerPull({
+    enabled,
+    isAuthenticated: appData.auth.isAuthenticated,
+    logError: tearleads.logError,
+    snapshotReady: snapshot.ready,
+    store,
+    systemContainers,
+  });
 
   return (
     <SystemBootstrapContext.Provider value={contextValue}>

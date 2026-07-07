@@ -10,6 +10,7 @@ import { sqlContainerContentsPersistence } from "../../data/persistence/containe
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
+import { deriveContainerSystemSlot } from "../container-contents/systemSlot";
 import { createOrganization } from "./createOrganization";
 import { deriveOrganizationMetadataContainerSystemSlot } from "./rosterProfileContainer";
 
@@ -137,6 +138,75 @@ test("createOrganization provisions a new org for the existing user and persists
       `Organization created (${request.organizationId})`,
       "Local organization bootstrap persisted",
     ]);
+  } finally {
+    close();
+  }
+});
+
+test("createOrganization provisions configured system containers (Trash) atomically", async () => {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const encapsulationKeyPair = generateKemSeedAndKeyPair();
+  const userId = crypto.randomUUID();
+  const { close, execSql } = await createTestExecSql(
+    "organizations-create-organization-system-containers-test",
+  );
+  // The app declares the Explorer Trash bin; the SDK stays agnostic to what it
+  // is and derives the per-user slot from the founder's signing key.
+  const trashSpec = {
+    icon: "trash",
+    name: "Trash",
+    slotDefinition: {
+      namespace: "tearleads.explorer",
+      projectorId: "explorer",
+      slotId: "trash",
+      version: 1,
+    },
+  } as const;
+  let captured: CreateOrganizationRequest | null = null;
+
+  try {
+    const response = await createOrganization({
+      apiClient: {
+        createOrganization: async (request) => {
+          captured = request;
+          return respondToOrganizationProvisioning(request);
+        },
+      },
+      dbClient: createClient(execSql),
+      encapsulationKeyPair,
+      provisionedSystemContainers: [trashSpec],
+      signingKeyPair,
+      userId,
+    });
+
+    expect(response).not.toBeNull();
+    const request = expectCapturedRequest(captured);
+
+    // The Trash container rides along in the single provisioning request, tagged
+    // with the per-user system slot the app derives client-side.
+    const trashSlot = await deriveContainerSystemSlot({
+      definition: trashSpec.slotDefinition,
+      secretKey: signingKeyPair.signingPrivateKey,
+    });
+    expect(request.initialSystemContainers).toHaveLength(1);
+    expect(request.initialSystemContainers?.[0]?.systemSlot).toBe(trashSlot);
+
+    // It is persisted locally as a fourth container: an Admins-scoped child of
+    // root carrying the Trash name and its system slot, so the lazy
+    // ensureSystemContainer bootstrap finds it instead of minting a duplicate.
+    const containers =
+      await sqlContainerContentsPersistence.loadContainers(execSql);
+    expect(containers).toHaveLength(4);
+    const trashContainerState = containers.find(
+      ({ container }) => container.systemSlot === trashSlot,
+    );
+    expect(trashContainerState?.container).toEqual(
+      expect.objectContaining({
+        organizationId: request.organizationId,
+        parentId: request.rootContainerId,
+        name: "Trash",
+      }),
+    );
   } finally {
     close();
   }

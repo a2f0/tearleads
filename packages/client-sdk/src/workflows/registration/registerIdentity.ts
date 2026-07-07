@@ -29,6 +29,10 @@ import type { DocumentProjectorRegistryInput } from "../../data/documents/docume
 import { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import {
+  type ContainerSystemSlotDefinition,
+  deriveContainerSystemSlot,
+} from "../container-contents/systemSlot";
+import {
   buildContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../containers/child/create";
@@ -79,6 +83,9 @@ export interface RegistrationApi {
       | ContainerCreateWithMetadataDocumentRequest
       | undefined,
     initialOrganizationProfileDocument?: DocumentCreateRequest | undefined,
+    initialSystemContainers?:
+      | ContainerCreateWithMetadataDocumentRequest[]
+      | undefined,
   ): Promise<RegistrationResponse | null>;
 }
 
@@ -120,6 +127,35 @@ interface InitialRosterProfileBootstrap {
   systemSlot: ContainerSystemSlot;
 }
 
+/**
+ * An app-owned system container to provision atomically with a new organization
+ * (e.g. a trash bin). The client-sdk is agnostic to what these are:
+ * the caller (the app, which owns the mini-app slot namespaces) declares each
+ * one, and the provisioning path derives its per-user system slot, builds a
+ * signed Admins-scoped child of root, and links it into the same transaction as
+ * the rest of the organization bootstrap. The behavioral rules that govern a
+ * system container are resolved client-side by slot, so provisioning needs only
+ * the slot definition, display name, and icon — no rules travel to the server.
+ */
+export interface ProvisionedSystemContainerSpec {
+  readonly slotDefinition: ContainerSystemSlotDefinition;
+  readonly name: string;
+  readonly icon: string | null;
+}
+
+interface InitialSystemContainerBootstrap {
+  containerId: string;
+  containerMetadataDocument: Awaited<
+    ReturnType<typeof buildMaterializedDocumentCreatePlan>
+  >;
+  containerMetadataInitialUpdate: Uint8Array;
+  containerPlan: InitialSystemContainerCreatePlan;
+  containerRequest: ContainerCreateWithMetadataDocumentRequest;
+  icon: string | null;
+  name: string;
+  systemSlot: ContainerSystemSlot;
+}
+
 interface InitialOrganizationMetadataBootstrap {
   containerId: string;
   containerMetadataDocument: Awaited<
@@ -150,6 +186,13 @@ export interface RegisterIdentityInput {
    */
   organizationProfileName?: string | undefined;
   /**
+   * App-owned system containers to provision atomically with the personal
+   * organization (e.g. a trash bin). See {@link ProvisionedSystemContainerSpec}.
+   */
+  provisionedSystemContainers?:
+    | ReadonlyArray<ProvisionedSystemContainerSpec>
+    | undefined;
+  /**
    * Overrides the seeded self roster-profile nickname; defaults to {@link
    * DEFAULT_ROSTER_PROFILE_SELF_NICKNAME} ("You"). The demo host passes each
    * pane's peer-labeled self name ("Peer 1 (You)").
@@ -175,11 +218,20 @@ export interface OrganizationProvisioningArtifacts {
   organizationMetadataBootstrap: InitialOrganizationMetadataBootstrap;
   rootMetadataDocument: InitialRootMetadataDocument;
   rosterProfileBootstrap: InitialRosterProfileBootstrap;
+  systemContainerBootstraps: InitialSystemContainerBootstrap[];
 }
 
 export interface OrganizationProvisioningArtifactsInput {
   encapsulationKeyPair: EncapsulationKeyPair;
   organizationProfileName?: string | undefined;
+  /**
+   * App-owned system containers to provision atomically with the organization
+   * (e.g. a trash bin). Omitted/empty leaves the org with only the roster and
+   * organization-metadata system containers.
+   */
+  provisionedSystemContainers?:
+    | ReadonlyArray<ProvisionedSystemContainerSpec>
+    | undefined;
   rootContainerId: string;
   rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
@@ -199,6 +251,7 @@ interface PersistOrganizationProvisioningStateInput {
   response: OrganizationProvisioningResponse;
   rootMetadataDocument: InitialRootMetadataDocument;
   rosterProfileBootstrap: InitialRosterProfileBootstrap;
+  systemContainerBootstraps: InitialSystemContainerBootstrap[];
 }
 
 export async function buildInitialOrganizationPolicyRequest(input: {
@@ -446,6 +499,43 @@ function buildOrganizationMetadataContainerBootstrapInput(
   };
 }
 
+function buildSystemContainersBootstrapInput(
+  input: PersistOrganizationProvisioningStateInput,
+): PersistBootstrapInput["systemContainers"] {
+  const responses = input.response.systemContainers ?? [];
+  if (responses.length === 0) {
+    return;
+  }
+  const responseByContainerId = new Map(
+    responses.map((response) => [response.container.containerId, response]),
+  );
+  const entries: NonNullable<PersistBootstrapInput["systemContainers"]> = [];
+  for (const bootstrap of input.systemContainerBootstraps) {
+    const response = responseByContainerId.get(bootstrap.containerId);
+    if (!response) {
+      continue;
+    }
+    entries.push({
+      accessEpoch: response.container.manifestHead.epoch,
+      accessStateHash: response.container.manifestHead.manifestHash,
+      containerId: bootstrap.containerId,
+      createdAt: response.container.createdAt,
+      icon: bootstrap.icon,
+      metadataDocumentId: response.metadataDocument.id,
+      metadataInitialUpdate: bootstrap.containerMetadataInitialUpdate,
+      metadataSnapshot: bytesToBase64(bootstrap.containerMetadataInitialUpdate),
+      metadataState: persistedDocumentCreateStateFromResponse(
+        bootstrap.containerMetadataDocument.plan,
+        response.metadataDocument,
+      ),
+      name: bootstrap.name,
+      systemSlot: bootstrap.systemSlot,
+      updatedAt: response.container.updatedAt,
+    });
+  }
+  return entries.length > 0 ? entries : undefined;
+}
+
 /**
  * Persists the local SQLite bootstrap (group policies, root container, roster
  * and organization profile documents) for a freshly provisioned organization.
@@ -468,6 +558,7 @@ export async function persistOrganizationProvisioningState(
       buildRosterProfileContainerBootstrapInput(input);
     const organizationMetadataContainer =
       buildOrganizationMetadataContainerBootstrapInput(input);
+    const systemContainers = buildSystemContainersBootstrapInput(input);
 
     await persistRegistrationBootstrap(input.dbClient, {
       containerId: input.containerId,
@@ -496,6 +587,7 @@ export async function persistOrganizationProvisioningState(
         : {}),
       ...(organizationProfileDocument ? { organizationProfileDocument } : {}),
       ...(rosterProfileDocument ? { rosterProfileDocument } : {}),
+      ...(systemContainers ? { systemContainers } : {}),
       userId: input.response.userId,
     });
     input.log?.("Local organization bootstrap persisted");
@@ -623,6 +715,19 @@ export async function buildOrganizationProvisioningArtifacts(
       rootContainerProjection,
       targetSecretKey: input.encapsulationKeyPair.secretKey,
     });
+  const systemContainerBootstraps = await Promise.all(
+    (input.provisionedSystemContainers ?? []).map((spec) =>
+      buildInitialSystemContainerBootstrap({
+        author,
+        initialAdminGroup,
+        rootContainer,
+        rootContainerProjection,
+        signingPrivateKey: input.signingKeyPair.signingPrivateKey,
+        spec,
+        targetSecretKey: input.encapsulationKeyPair.secretKey,
+      }),
+    ),
+  );
 
   return {
     bootstrap,
@@ -634,6 +739,7 @@ export async function buildOrganizationProvisioningArtifacts(
     organizationMetadataBootstrap,
     rootMetadataDocument,
     rosterProfileBootstrap,
+    systemContainerBootstraps,
   };
 }
 
@@ -716,6 +822,84 @@ async function buildInitialRosterProfileBootstrap(input: {
     profileDocument: rosterProfileDocument,
     profileDocumentInitialUpdate: rosterProfile.initialUpdate,
     profileDocumentRequest: rosterProfileDocument.plan.request,
+    systemSlot,
+  };
+}
+
+/**
+ * Builds one additional app-owned system container (e.g. a trash bin) as a
+ * signed Admins-scoped child of root carrying only its metadata
+ * document — the same shape as the roster profile container minus the profile
+ * document. Its system slot is derived from the founder's signing key, so it
+ * matches the slot the app derives client-side, letting the lazy
+ * `ensureSystemContainer` bootstrap find this provisioned container instead of
+ * creating a duplicate.
+ */
+async function buildInitialSystemContainerBootstrap(input: {
+  author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>;
+  initialAdminGroup: CreateOrganizationGroupRequest;
+  rootContainer: InitialRootContainerCreatePlan;
+  rootContainerProjection: InitialRootContainerProjection;
+  signingPrivateKey: Uint8Array;
+  spec: ProvisionedSystemContainerSpec;
+  targetSecretKey: Uint8Array;
+}): Promise<InitialSystemContainerBootstrap> {
+  const containerId = crypto.randomUUID();
+  const systemSlot = await deriveContainerSystemSlot({
+    definition: input.spec.slotDefinition,
+    secretKey: input.signingPrivateKey,
+  });
+  const { initialUpdate } = await createInitializedContainerMetadataDocument(
+    containerId,
+    {
+      icon: input.spec.icon,
+      name: input.spec.name,
+    },
+  );
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const containerPlan: InitialSystemContainerCreatePlan = {
+    containerKey,
+    plan: await buildContainerCreatePlan({
+      author: input.author,
+      containerId,
+      containerKey,
+      metadataDocumentId: containerId,
+      parentKekMaterial: input.rootContainer.containerKey,
+      parentProjection: input.rootContainerProjection,
+      principalPolicies: [
+        await verifiedPrincipalPolicyFromInitialGroupRequest(
+          input.initialAdminGroup,
+        ),
+      ],
+    }),
+  };
+  const containerProjection = childContainerWriterProjectionFromCreatePlan({
+    materializedPlan: containerPlan,
+    parentProjection: input.rootContainerProjection,
+  });
+  const knownContainerKeks = new Map([
+    [containerPlan.plan.containerKeyEpochId, containerPlan.containerKey],
+  ]);
+  const containerMetadataDocument = await buildMaterializedDocumentCreatePlan({
+    author: input.author,
+    containerProjection,
+    documentId: containerPlan.plan.metadataDocumentId,
+    knownContainerKeks,
+    targetSecretKey: input.targetSecretKey,
+    trustedLocalProjection: true,
+  });
+  return {
+    containerId,
+    containerMetadataDocument,
+    containerMetadataInitialUpdate: initialUpdate,
+    containerPlan,
+    containerRequest: {
+      systemSlot,
+      container: containerPlan.plan.request,
+      metadataDocument: containerMetadataDocument.plan.request,
+    },
+    icon: input.spec.icon,
+    name: input.spec.name,
     systemSlot,
   };
 }
@@ -869,6 +1053,7 @@ export async function registerIdentity(
   const artifacts = await buildOrganizationProvisioningArtifacts({
     encapsulationKeyPair: input.encapsulationKeyPair,
     organizationProfileName: input.organizationProfileName,
+    provisionedSystemContainers: input.provisionedSystemContainers,
     rootContainerId: input.containerId,
     rosterProfileNickname: input.rosterProfileNickname,
     signingKeyPair: input.signingKeyPair,
@@ -891,6 +1076,9 @@ export async function registerIdentity(
     artifacts.organizationMetadataBootstrap.containerRequest,
     artifacts.organizationMetadataBootstrap.organizationProfileDocument.plan
       .request,
+    artifacts.systemContainerBootstraps.map(
+      (systemContainer) => systemContainer.containerRequest,
+    ),
   );
   if (!response) {
     return null;
@@ -910,6 +1098,7 @@ export async function registerIdentity(
     response,
     rootMetadataDocument: artifacts.rootMetadataDocument,
     rosterProfileBootstrap: artifacts.rosterProfileBootstrap,
+    systemContainerBootstraps: artifacts.systemContainerBootstraps,
   });
 
   return response;

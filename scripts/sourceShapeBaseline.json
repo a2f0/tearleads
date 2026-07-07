@@ -54,8 +54,8 @@
       "bytes": 22215
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1577,
-      "bytes": 46132
+      "lines": 1581,
+      "bytes": 46267
     },
     "packages/api-client/src/ApiClient.core.test.ts": {
       "lines": 541,
@@ -154,8 +154,8 @@
       "bytes": 21637
     },
     "packages/api/src/workflows/organizations/provisionOrganization.ts": {
-      "lines": 1364,
-      "bytes": 38827
+      "lines": 1402,
+      "bytes": 40071
     },
     "packages/api/src/workflows/principals/accessLossTombstones.ts": {
       "lines": 710,
@@ -198,8 +198,8 @@
       "bytes": 17807
     },
     "packages/client-sdk/src/client/session.ts": {
-      "lines": 515,
-      "bytes": 15222
+      "lines": 529,
+      "bytes": 15852
     },
     "packages/client-sdk/src/client/localKeyring.ts": {
       "lines": 1575,
@@ -282,8 +282,8 @@
       "bytes": 31765
     },
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts": {
-      "lines": 917,
-      "bytes": 33081
+      "lines": 1105,
+      "bytes": 40297
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 732,

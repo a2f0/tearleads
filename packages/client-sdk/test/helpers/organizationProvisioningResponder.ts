@@ -58,6 +58,22 @@ export async function respondToOrganizationProvisioning(
       organizationMetadataContainer.systemSlot ?? null;
   }
 
+  // Echo the additional app-owned system containers (e.g. the Explorer Trash
+  // bin) the client sent, so local provisioning persists each one and its
+  // system slot exactly as production does.
+  const systemContainers = await Promise.all(
+    (request.initialSystemContainers ?? []).map(async (systemContainer) => {
+      const container = await createMutationResponseFromRequest(
+        systemContainer.container,
+      );
+      container.systemSlot = systemContainer.systemSlot ?? null;
+      const metadataDocument = await createResponseFromRequest(
+        systemContainer.metadataDocument,
+      );
+      return { container, metadataDocument };
+    }),
+  );
+
   return {
     userId: request.userId,
     organizationId: request.organizationId,
@@ -87,5 +103,6 @@ export async function respondToOrganizationProvisioning(
             organizationMetadataContainerResponse.containerId,
         }
       : {}),
+    ...(systemContainers.length > 0 ? { systemContainers } : {}),
   };
 }

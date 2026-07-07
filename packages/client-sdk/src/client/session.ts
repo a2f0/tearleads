@@ -3,6 +3,7 @@ import type { DocumentProjectorRegistryInput } from "../data/documents/documentK
 import { createOrganization as createOrganizationWorkflow } from "../workflows/organizations";
 import {
   bootstrapRootContainer,
+  type ProvisionedSystemContainerSpec,
   registerIdentity as registerIdentityWorkflow,
 } from "../workflows/registration";
 import {
@@ -37,6 +38,15 @@ interface SessionDependencies {
   identity: Identity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
+  /**
+   * App-owned system containers born with every new organization (registration
+   * and additional-org creation both provision them atomically), e.g. a trash
+   * bin. Configured once at SDK construction so it is an invariant of every
+   * provisioning path rather than a per-call option.
+   */
+  provisionedSystemContainers?:
+    | ReadonlyArray<ProvisionedSystemContainerSpec>
+    | undefined;
 }
 
 export interface SessionRegistrationResult {
@@ -331,6 +341,8 @@ class SessionService implements Session {
         log: this.dependencies.log,
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
+        provisionedSystemContainers:
+          this.dependencies.provisionedSystemContainers,
         rosterProfileNickname: options?.rosterProfileNickname,
         signingKeyPair,
       });
@@ -404,6 +416,8 @@ class SessionService implements Session {
         log: this.dependencies.log,
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
+        provisionedSystemContainers:
+          this.dependencies.provisionedSystemContainers,
         rosterProfileNickname: options?.rosterProfileNickname,
         signingKeyPair,
         userId,

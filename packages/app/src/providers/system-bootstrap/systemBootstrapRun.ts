@@ -114,6 +114,14 @@ export async function runSystemBootstrap(
   const isAuthenticated = input.appData.auth.isAuthenticated;
 
   for (const systemContainer of input.systemContainers) {
+    if (systemContainer.provisionedAtOrganizationCreation) {
+      // Born with the organization (provisioned server-side in the org creation
+      // transaction), so it must NOT be created device-first: a second local
+      // copy would carry the same per-user system slot as the server copy and
+      // collide. It is hydrated post-auth by the dedicated root-lane pull in
+      // SystemBootstrapProvider instead.
+      continue;
+    }
     const ensuredContainer = await ensureSystemBootstrapContainer({
       isAuthenticated,
       store: input.containerContentsStore,

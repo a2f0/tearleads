@@ -376,6 +376,7 @@ export type { CacheReferencedPrincipalPoliciesOptions } from "./workflows/princi
 export { cacheReferencedPrincipalPolicies } from "./workflows/principals";
 export type {
   InitialRootMetadataBootstrap,
+  ProvisionedSystemContainerSpec,
   RegisterIdentityInput,
   RegistrationApi,
 } from "./workflows/registration";

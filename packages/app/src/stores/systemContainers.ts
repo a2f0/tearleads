@@ -1,5 +1,6 @@
 import type {
   ContainerSystemSlotDefinition,
+  ProvisionedSystemContainerSpec,
   StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
@@ -75,6 +76,13 @@ interface UserSystemContainerDefinition {
   readonly icon: string | null;
   readonly kind: UserSystemContainerKind;
   readonly name: string;
+  // Whether this container is born with the organization: the SDK provisions it
+  // server-side in the same transaction as the org (see
+  // PROVISIONED_SYSTEM_CONTAINER_SPECS), so the client must NOT also create it
+  // device-first. A second local copy would carry the same per-user system slot
+  // as the server copy and collide (the slot is unique per organization); the
+  // eagerly-provisioned container instead reaches the tree through normal sync.
+  readonly provisionedAtOrganizationCreation: boolean;
   readonly rules: UserSystemContainerRules;
   readonly slotDefinition: ContainerSystemSlotDefinition;
   // Whether this system folder stays visible when its parent root is shared
@@ -88,6 +96,10 @@ export interface UserSystemContainer {
   readonly icon: string | null;
   readonly kind: UserSystemContainerKind;
   readonly name: string;
+  // Mirrors {@link UserSystemContainerDefinition.provisionedAtOrganizationCreation};
+  // the bootstrap uses it to skip device-first creation of eagerly-provisioned
+  // containers.
+  readonly provisionedAtOrganizationCreation: boolean;
   readonly systemSlot: ContainerSystemSlot;
 }
 
@@ -97,6 +109,9 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
       icon: null,
       kind: "contacts",
       name: CONTACTS_CONTAINER_NAME,
+      // Contacts stays device-first: created locally at bootstrap and promoted
+      // to remote sync after authentication.
+      provisionedAtOrganizationCreation: false,
       rules: {
         protectFromMove: true,
         protectFromDelete: true,
@@ -119,6 +134,9 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
       icon: EXPLORER_TRASH_CONTAINER_ICON,
       kind: "trash",
       name: EXPLORER_TRASH_CONTAINER_NAME,
+      // Trash is born with the organization (provisioned server-side in the org
+      // creation transaction), so the client never creates it device-first.
+      provisionedAtOrganizationCreation: true,
       rules: {
         protectFromMove: true,
         protectFromDelete: true,
@@ -141,6 +159,22 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
       visibleWhenShared: true,
     },
   ];
+
+// System containers the SDK provisions atomically with every new organization
+// (both registration and org-manager creation), so the org is born with them in
+// a single server transaction instead of relying on the lazy client-side
+// bootstrap. Only the Trash bin is eagerly provisioned today; Contacts stays
+// lazy. The lazy `ensureSystemContainer` bootstrap still runs and finds the
+// provisioned container by slot, so the two never produce a duplicate. Passed
+// into `new Tearleads({ provisionedSystemContainers })`.
+export const PROVISIONED_SYSTEM_CONTAINER_SPECS: ReadonlyArray<ProvisionedSystemContainerSpec> =
+  USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
+    (definition) => definition.provisionedAtOrganizationCreation,
+  ).map((definition) => ({
+    icon: definition.icon,
+    name: definition.name,
+    slotDefinition: definition.slotDefinition,
+  }));
 
 // Names of system folders that remain visible when viewed under another user's
 // shared root. Used as the cross-user classifier since system slots are opaque
@@ -179,6 +213,8 @@ export async function deriveUserSystemContainers(
       icon: definition.icon,
       kind: definition.kind,
       name: definition.name,
+      provisionedAtOrganizationCreation:
+        definition.provisionedAtOrganizationCreation,
       systemSlot: await deriveContainerSystemSlot({
         definition: definition.slotDefinition,
         secretKey: signingPrivateKey,
