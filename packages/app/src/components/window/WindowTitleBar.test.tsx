@@ -1,20 +1,17 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { WindowTitleBar, type WindowTitleBarAction } from "./WindowTitleBar";
+import { WindowTitleBar } from "./WindowTitleBar";
 
 afterEach(() => cleanup());
 
 function renderTitleBar({
-  actions = [],
   onMouseDown = () => {},
 }: {
-  actions?: WindowTitleBarAction[];
   onMouseDown?: () => void;
 } = {}) {
   return render(
     <WindowTitleBar
       title="Notes"
-      actions={actions}
       onMouseDown={onMouseDown}
       onMinimize={() => {}}
       onMaximize={() => {}}
@@ -25,36 +22,12 @@ function renderTitleBar({
   );
 }
 
-test("renders only the standard window controls by default", () => {
+test("renders only the standard window controls", () => {
   const view = renderTitleBar();
 
   expect(
     view.container.querySelectorAll(".window-titlebar-buttons > button"),
   ).toHaveLength(3);
-});
-
-test("renders title-bar actions before the standard window controls", () => {
-  let pinCount = 0;
-  const view = renderTitleBar({
-    actions: [
-      {
-        icon: <span aria-hidden>pin</span>,
-        id: "pin",
-        label: "Pin to Desktop",
-        onClick: () => {
-          pinCount += 1;
-        },
-      },
-    ],
-  });
-
-  expect(
-    view.container.querySelectorAll(".window-titlebar-buttons > button"),
-  ).toHaveLength(4);
-
-  fireEvent.click(view.getByRole("button", { name: "Pin to Desktop" }));
-
-  expect(pinCount).toBe(1);
 });
 
 test("starts dragging only for left-clicks on the draggable title area", () => {

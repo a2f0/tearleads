@@ -5,7 +5,6 @@ import type {
 } from "@tearleads/client-sdk";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  MiniAppActions,
   MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -63,9 +62,7 @@ interface Props {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
   nodes: ReadonlyArray<ContainerNode>;
-  onBackToDocument: () => void;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
-  isRoutedShell?: boolean | undefined;
   setSelectedId: (id: string | null) => void;
   showLinkedDocumentActivationControls: boolean;
   unlinkDocument: (
@@ -424,13 +421,6 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           <strong>{EXPLORER_LABELS.documentInfoTitle}</strong>
           <span>{model.title}</span>
         </MiniAppHeaderCopy>
-        {params.isRoutedShell ? null : (
-          <MiniAppActions>
-            <MiniAppButton onClick={params.onBackToDocument}>
-              {EXPLORER_LABELS.documentInfoBackAction}
-            </MiniAppButton>
-          </MiniAppActions>
-        )}
       </MiniAppHeader>
       <div className="explorer-info">
         <ExplorerDocumentInfoTabs

@@ -301,11 +301,11 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
   expect(view.container.querySelector(".system-monitor-toolbar")).toBeNull();
   expect(
     view.container.querySelectorAll(".window-titlebar-buttons > button"),
-  ).toHaveLength(4);
+  ).toHaveLength(3);
   expect(
     view
       .getByRole("button", { name: "Pin to Desktop" })
-      .closest(".window-titlebar-buttons"),
+      .closest(".window-toolbar"),
   ).not.toBeNull();
 
   fireEvent.click(view.getByRole("menuitem", { name: "File" }));

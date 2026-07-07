@@ -1,0 +1,56 @@
+.window-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: var(--window-bar-height);
+  background: var(--color-muted);
+  border-top: var(--border);
+  user-select: none;
+}
+
+.window-toolbar-primary,
+.window-toolbar-actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.window-toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.window-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+  padding: var(--window-bar-padding);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: var(--window-bar-line-height);
+  cursor: pointer;
+}
+
+.window-toolbar-button:hover:not(:disabled),
+.window-toolbar-button:focus-visible:not(:disabled) {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.window-toolbar-button:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
+}
+
+.window-toolbar-button svg {
+  flex: 0 0 auto;
+}
+
+.window-toolbar-back-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

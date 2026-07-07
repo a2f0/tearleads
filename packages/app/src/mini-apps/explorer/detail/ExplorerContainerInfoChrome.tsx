@@ -10,30 +10,14 @@ import { compactId } from "./compactId";
 export function ExplorerContainerInfoHeader(params: {
   containerId: string;
   containerName: string | undefined;
-  isSubmitting: boolean;
-  onBackToContainer: () => void;
-  showBackAction?: boolean | undefined;
 }) {
-  const {
-    containerId,
-    containerName,
-    isSubmitting,
-    onBackToContainer,
-    showBackAction = true,
-  } = params;
+  const { containerId, containerName } = params;
   return (
     <MiniAppHeader>
       <MiniAppHeaderCopy>
         <strong>{EXPLORER_LABELS.containerInfoTitle}</strong>
         <span>{containerName ?? compactId(containerId)}</span>
       </MiniAppHeaderCopy>
-      {showBackAction ? (
-        <MiniAppActions>
-          <MiniAppButton disabled={isSubmitting} onClick={onBackToContainer}>
-            {EXPLORER_LABELS.backToContainerAction}
-          </MiniAppButton>
-        </MiniAppActions>
-      ) : null}
     </MiniAppHeader>
   );
 }

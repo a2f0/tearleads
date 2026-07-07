@@ -36,7 +36,6 @@ function ContactsRoutedChromeHarness({
 }) {
   useContactsRoutedChromeActions({
     canWrite: true,
-    isRoutedShell: true,
     openImportContactRoute: onImport,
     openNewContactRoute: onNewContact,
     ready: true,

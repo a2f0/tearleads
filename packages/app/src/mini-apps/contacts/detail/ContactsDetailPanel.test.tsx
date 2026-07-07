@@ -71,7 +71,10 @@ function renderContactsDetailPanel(
   } = {},
 ) {
   return render(
-    <ContactsDetailPanel {...createContactsDetailPanelProps(props)} />,
+    <WindowMenuProvider>
+      <RoutedChromeProbe />
+      <ContactsDetailPanel {...createContactsDetailPanelProps(props)} />
+    </WindowMenuProvider>,
   );
 }
 
@@ -101,24 +104,6 @@ function RoutedChromeProbe() {
         ))}
       </div>
     </>
-  );
-}
-
-function renderRoutedContactsDetailPanel(
-  props: Partial<Parameters<typeof ContactsDetailPanel>[0]> & {
-    route?: ContactsRoute | undefined;
-  } = {},
-) {
-  return render(
-    <WindowMenuProvider>
-      <RoutedChromeProbe />
-      <ContactsDetailPanel
-        {...createContactsDetailPanelProps({
-          ...props,
-          isRoutedShell: true,
-        })}
-      />
-    </WindowMenuProvider>,
   );
 }
 
@@ -174,12 +159,15 @@ test("contacts selected detail fields update when contact entries change", () =>
   );
 
   view.rerender(
-    <ContactsDetailPanel
-      {...createContactsDetailPanelProps({
-        entries: [{ ...contactEntry, nickname: "Ada" }],
-        selectedContactId: contactEntry.id,
-      })}
-    />,
+    <WindowMenuProvider>
+      <RoutedChromeProbe />
+      <ContactsDetailPanel
+        {...createContactsDetailPanelProps({
+          entries: [{ ...contactEntry, nickname: "Ada" }],
+          selectedContactId: contactEntry.id,
+        })}
+      />
+    </WindowMenuProvider>,
   );
 
   expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(
@@ -204,8 +192,8 @@ test("contacts selected detail opens read-only before entering edit mode", () =>
   expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
 });
 
-test("routed contacts selected detail edits from the toolbar", async () => {
-  const view = renderRoutedContactsDetailPanel({
+test("contacts selected detail edits from the toolbar", async () => {
+  const view = renderContactsDetailPanel({
     entries: [contactEntry],
     selectedContactId: contactEntry.id,
   });
@@ -229,10 +217,10 @@ test("routed contacts selected detail edits from the toolbar", async () => {
   ).toBeTruthy();
 });
 
-test("routed contacts new-contact route moves back and create to chrome", async () => {
+test("contacts new-contact route moves back and create to chrome", async () => {
   let backCount = 0;
   let createCount = 0;
-  const view = renderRoutedContactsDetailPanel({
+  const view = renderContactsDetailPanel({
     canCreate: true,
     createDraftContact: async () => {
       createCount += 1;

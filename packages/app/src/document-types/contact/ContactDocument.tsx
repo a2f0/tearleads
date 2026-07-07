@@ -1,12 +1,7 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { useMemo } from "react";
-import {
-  MiniAppActions,
-  MiniAppButton,
-} from "../../components/shared/MiniAppLayout";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
-import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
@@ -39,7 +34,6 @@ function toContactFieldValues(
 
 export function ContactDocumentFields({
   isEditing,
-  isRoutedShell,
   ready,
   canWrite,
   setEditing,
@@ -47,7 +41,6 @@ export function ContactDocumentFields({
   values,
 }: {
   isEditing: boolean;
-  isRoutedShell: boolean;
   ready: boolean;
   canWrite: boolean;
   setEditing: (editing: boolean) => void;
@@ -55,42 +48,27 @@ export function ContactDocumentFields({
   values: ContactFieldValues;
 }) {
   const editAction = useMemo(
-    () =>
-      isRoutedShell
-        ? {
-            disabled: !ready || !canWrite,
-            icon: isEditing ? (
-              <CheckIcon aria-hidden size={18} />
-            ) : (
-              <PencilSimpleIcon aria-hidden size={18} />
-            ),
-            id: "contact-document-toggle-edit",
-            label: isEditing
-              ? CONTACT_DOCUMENT_DONE_ACTION
-              : CONTACT_DOCUMENT_EDIT_ACTION,
-            onClick: () => setEditing(!isEditing),
-            priority: 100,
-          }
-        : null,
-    [canWrite, isEditing, isRoutedShell, ready, setEditing],
+    () => ({
+      disabled: !ready || !canWrite,
+      icon: isEditing ? (
+        <CheckIcon aria-hidden size={18} />
+      ) : (
+        <PencilSimpleIcon aria-hidden size={18} />
+      ),
+      id: "contact-document-toggle-edit",
+      label: isEditing
+        ? CONTACT_DOCUMENT_DONE_ACTION
+        : CONTACT_DOCUMENT_EDIT_ACTION,
+      onClick: () => setEditing(!isEditing),
+      priority: 100,
+    }),
+    [canWrite, isEditing, ready, setEditing],
   );
 
   useWindowTitleBarAction(editAction);
 
   return (
     <div className="contact-document-fields">
-      {!isRoutedShell && (
-        <MiniAppActions>
-          <MiniAppButton
-            disabled={!ready || !canWrite}
-            onClick={() => setEditing(!isEditing)}
-          >
-            {isEditing
-              ? CONTACT_DOCUMENT_DONE_ACTION
-              : CONTACT_DOCUMENT_EDIT_ACTION}
-          </MiniAppButton>
-        </MiniAppActions>
-      )}
       <ContactFields
         disabled={!ready || !canWrite}
         isEditing={isEditing && canWrite}
@@ -108,7 +86,6 @@ export function ContactDocumentFields({
 export function ContactDocument(params: {
   initialEditing?: boolean | undefined;
 }) {
-  const { mode: navigationMode } = useAppNavigationState();
   const { auth, state } = useTearleadsRuntime();
   const { isAuthenticated } = auth;
   const { online } = state;
@@ -118,7 +95,6 @@ export function ContactDocument(params: {
     canWrite,
     params.initialEditing,
   );
-  const isRoutedShell = navigationMode === "routed";
   const values = useMemo(
     () => toContactFieldValues(readContactFields(structuredFields)),
     [structuredFields],
@@ -136,7 +112,6 @@ export function ContactDocument(params: {
       fields={
         <ContactDocumentFields
           isEditing={isEditing}
-          isRoutedShell={isRoutedShell}
           ready={ready}
           canWrite={canWrite}
           setEditing={setIsEditing}

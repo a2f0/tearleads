@@ -48,25 +48,30 @@ async function expectExplorerSystemContainerContextMenuItems(
     },
   );
 
-  expect(
-    await view.findByRole("button", {
-      name: "Get Info",
-    }),
-  ).toBeTruthy();
-  expect(
-    view.queryByRole("button", { name: "Create Child Folder" }),
-  ).toBeNull();
-  expect(
-    view.queryByRole("button", {
-      name: "New Document",
-    }),
-  ).toBeNull();
-  expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Rename" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Move" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Move to Trash" })).toBeNull();
+  // Scope assertions to the context menu: the Explorer window's toolbar row
+  // now carries same-named buttons (e.g. "New Contact") whenever a container
+  // is active, so a global query would collide.
+  const menu = await waitFor(() => {
+    const element = view.baseElement.querySelector<HTMLElement>(".menu");
+    invariant(element, "explorer context menu not found");
+    return element;
+  });
 
-  const newContactItem = view.queryByRole("button", {
+  expect(within(menu).getByRole("button", { name: "Get Info" })).toBeTruthy();
+  expect(
+    within(menu).queryByRole("button", { name: "Create Child Folder" }),
+  ).toBeNull();
+  expect(
+    within(menu).queryByRole("button", { name: "New Document" }),
+  ).toBeNull();
+  expect(within(menu).queryByRole("button", { name: "Upload" })).toBeNull();
+  expect(within(menu).queryByRole("button", { name: "Rename" })).toBeNull();
+  expect(within(menu).queryByRole("button", { name: "Move" })).toBeNull();
+  expect(
+    within(menu).queryByRole("button", { name: "Move to Trash" }),
+  ).toBeNull();
+
+  const newContactItem = within(menu).queryByRole("button", {
     name: "New Contact",
   });
   expect(newContactItem !== null).toBe(containerName === "Contacts");
@@ -204,15 +209,23 @@ test("contacts windows in the same pane share live contact document state", asyn
   const updatedFirstContactsApp = view
     .getByDisplayValue("peer-user-1")
     .closest(".contacts");
+  invariant(
+    updatedFirstContactsApp instanceof HTMLDivElement,
+    "updated first contacts app not found",
+  );
+  // The import submit action now lives in the window toolbar row (window
+  // chrome), not inside the .contacts body, so query the whole window.
+  const updatedFirstContactsWindow = updatedFirstContactsApp.closest(".window");
+  invariant(
+    updatedFirstContactsWindow instanceof HTMLDivElement,
+    "updated first contacts window not found",
+  );
 
   await waitFor(() => {
-    invariant(
-      updatedFirstContactsApp instanceof HTMLDivElement,
-      "updated first contacts app not found",
+    const importButton = within(updatedFirstContactsWindow).getByRole(
+      "button",
+      { name: "Import" },
     );
-    const importButton = within(updatedFirstContactsApp).getByRole("button", {
-      name: "Import",
-    });
     invariant(
       importButton instanceof HTMLButtonElement,
       "contact import button not found",
@@ -220,12 +233,7 @@ test("contacts windows in the same pane share live contact document state", asyn
     expect(importButton.disabled).toBe(false);
   });
 
-  invariant(
-    updatedFirstContactsApp instanceof HTMLDivElement,
-    "updated first contacts app not found",
-  );
-
-  const firstImportButton = within(updatedFirstContactsApp).getByRole(
+  const firstImportButton = within(updatedFirstContactsWindow).getByRole(
     "button",
     {
       name: "Import",

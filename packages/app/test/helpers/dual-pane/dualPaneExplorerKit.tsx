@@ -68,7 +68,11 @@ export async function createChildContainer(pane: HTMLElement, name: string) {
       clientY: 180,
     });
   });
-  const createChildButton = screen.getByRole("button", {
+  // Scope to the context menu: the Explorer toolbar now carries a same-named
+  // "Create Child Folder" button whenever a container is active.
+  const createChildMenu = document.querySelector<HTMLElement>(".menu");
+  invariant(createChildMenu, "explorer context menu not found");
+  const createChildButton = within(createChildMenu).getByRole("button", {
     name: "Create Child Folder",
   });
   await interact(() => {
@@ -211,7 +215,9 @@ export async function openExplorerContainerInfo(
       clientY: 200,
     });
   });
-  const getInfoButton = screen.getByRole("button", {
+  const getInfoMenu = document.querySelector<HTMLElement>(".menu");
+  invariant(getInfoMenu, "explorer context menu not found");
+  const getInfoButton = within(getInfoMenu).getByRole("button", {
     name: "Get Info",
   });
   await interact(() => {
@@ -348,7 +354,9 @@ export async function moveContainer(
       clientY: 210,
     });
   });
-  const moveButton = screen.getByRole("button", {
+  const moveMenu = document.querySelector<HTMLElement>(".menu");
+  invariant(moveMenu, "explorer context menu not found");
+  const moveButton = within(moveMenu).getByRole("button", {
     name: "Move",
   });
   await interact(() => {
