@@ -11,7 +11,7 @@ android {
         applicationId "com.tearleads.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode configuredVersionCode()
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -44,6 +44,21 @@ def hasReleaseKeystore() {
     return keystoreFile.exists() &&
         System.getenv("ANDROID_KEYSTORE_STORE_PASS") != null &&
         System.getenv("ANDROID_KEYSTORE_KEY_PASS") != null
+}
+
+def configuredVersionCode() {
+    def rawVersionCode = findProperty("tearleadsVersionCode") ?: System.getenv("ANDROID_VERSION_CODE") ?: "1"
+    def cleanedVersionCode = rawVersionCode.toString().trim()
+    if (!cleanedVersionCode.isInteger()) {
+        throw new GradleException("tearleadsVersionCode '${rawVersionCode}' is not a valid integer")
+    }
+
+    def versionCode = cleanedVersionCode.toInteger()
+    if (versionCode <= 0) {
+        throw new GradleException("tearleadsVersionCode must be greater than zero")
+    }
+
+    return versionCode
 }
 
 repositories {
