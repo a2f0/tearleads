@@ -12,6 +12,7 @@ import { CREATABLE_DOCUMENT_TYPE_DEFINITIONS } from "../../../document-types/reg
 import { EXPLORER_LABELS } from "../labels";
 
 interface Props {
+  isRoutedShell?: boolean | undefined;
   onBackToContainer: () => void;
   onCreateDocument: (documentKind: StoredDocumentKind) => void;
   selectedNode: ContainerNode;
@@ -31,11 +32,13 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
           <strong>{EXPLORER_LABELS.newStructuredDocumentAction}</strong>
           <span>{selectedNode.name}</span>
         </MiniAppHeaderCopy>
-        <MiniAppActions>
-          <MiniAppButton onClick={onBackToContainer}>
-            {EXPLORER_LABELS.backToContainerAction}
-          </MiniAppButton>
-        </MiniAppActions>
+        {params.isRoutedShell ? null : (
+          <MiniAppActions>
+            <MiniAppButton onClick={onBackToContainer}>
+              {EXPLORER_LABELS.backToContainerAction}
+            </MiniAppButton>
+          </MiniAppActions>
+        )}
       </MiniAppHeader>
       <MiniAppSection
         aria-label={EXPLORER_LABELS.newStructuredDocumentRouteLabel}

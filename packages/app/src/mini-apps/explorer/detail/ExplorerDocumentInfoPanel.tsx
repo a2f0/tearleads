@@ -65,6 +65,7 @@ interface Props {
   nodes: ReadonlyArray<ContainerNode>;
   onBackToDocument: () => void;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
+  isRoutedShell?: boolean | undefined;
   setSelectedId: (id: string | null) => void;
   unlinkDocument: (
     documentId: string,
@@ -420,11 +421,13 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           <strong>{EXPLORER_LABELS.documentInfoTitle}</strong>
           <span>{model.title}</span>
         </MiniAppHeaderCopy>
-        <MiniAppActions>
-          <MiniAppButton onClick={params.onBackToDocument}>
-            {EXPLORER_LABELS.documentInfoBackAction}
-          </MiniAppButton>
-        </MiniAppActions>
+        {params.isRoutedShell ? null : (
+          <MiniAppActions>
+            <MiniAppButton onClick={params.onBackToDocument}>
+              {EXPLORER_LABELS.documentInfoBackAction}
+            </MiniAppButton>
+          </MiniAppActions>
+        )}
       </MiniAppHeader>
       <div className="explorer-info">
         <ExplorerDocumentInfoTabs

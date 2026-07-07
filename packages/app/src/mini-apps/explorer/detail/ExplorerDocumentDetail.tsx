@@ -157,6 +157,7 @@ export function ExplorerDocumentDetail(params: {
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   initialEditing: boolean;
+  isRoutedShell?: boolean | undefined;
   nodes: ReadonlyArray<ContainerNode>;
   onInitialEditingConsumed: (localId: string) => void;
   online: boolean;
@@ -215,15 +216,17 @@ export function ExplorerDocumentDetail(params: {
             })}
           </span>
         </MiniAppHeaderCopy>
-        <ExplorerDocumentDetailActions
-          canLinkSelectedDocument={params.canLinkSelectedDocument}
-          canMoveSelectedDocument={params.canMoveSelectedDocument}
-          openDocumentInfoRoute={params.openDocumentInfoRoute}
-          openLinkDocumentModal={params.openLinkDocumentModal}
-          openMoveDocumentModal={params.openMoveDocumentModal}
-          selectedDocument={params.selectedDocument}
-          setSelectedId={params.setSelectedId}
-        />
+        {params.isRoutedShell ? null : (
+          <ExplorerDocumentDetailActions
+            canLinkSelectedDocument={params.canLinkSelectedDocument}
+            canMoveSelectedDocument={params.canMoveSelectedDocument}
+            openDocumentInfoRoute={params.openDocumentInfoRoute}
+            openLinkDocumentModal={params.openLinkDocumentModal}
+            openMoveDocumentModal={params.openMoveDocumentModal}
+            selectedDocument={params.selectedDocument}
+            setSelectedId={params.setSelectedId}
+          />
+        )}
       </MiniAppHeader>
       {params.refreshError ? (
         <MiniAppStatus as="span" tone="error">

@@ -45,6 +45,7 @@ import {
   WindowSidebarProvider,
 } from "../../window/WindowSidebarContext";
 import "./RoutedPane.css";
+import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { RoutedPaneNav } from "./RoutedPaneNav";
 
 const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
@@ -127,64 +128,6 @@ function RoutedPaneHome() {
 export function menuPositionBelow(anchor: HTMLElement): MenuPosition {
   const rect = anchor.getBoundingClientRect();
   return { x: rect.left, y: rect.bottom };
-}
-
-/**
- * The navigation surface shared by both tiers: app links, the system ("Pane")
- * menu items, and any file/view actions. Rendered as the persistent left rail
- * on tablet and as the slide-in drawer body on mobile.
- */
-function RoutedPaneAppBar({
-  activeAppId,
-  hasSidebar,
-  onToggleSidebar,
-  sidebarExpanded,
-}: {
-  activeAppId: MiniAppId | null;
-  hasSidebar: boolean;
-  onToggleSidebar: () => void;
-  sidebarExpanded: boolean;
-}) {
-  const { goBack, goForward } = useAppNavigationActions();
-  const { history } = useAppNavigationState();
-
-  return (
-    <header className="routed-pane-appbar">
-      <div className="routed-pane-title">
-        {activeAppId ? MINI_APPS[activeAppId].title : "Home"}
-      </div>
-      <div className="routed-pane-appbar-spacer" />
-      <div className="routed-pane-history-controls">
-        <button
-          aria-label="Back"
-          disabled={!history.canGoBack}
-          type="button"
-          onClick={goBack}
-        >
-          Back
-        </button>
-        <button
-          aria-label="Forward"
-          disabled={!history.canGoForward}
-          type="button"
-          onClick={goForward}
-        >
-          Forward
-        </button>
-      </div>
-      {hasSidebar && (
-        <button
-          aria-controls="routed-pane-sidebar"
-          aria-expanded={sidebarExpanded}
-          className="routed-pane-iconbutton"
-          type="button"
-          onClick={onToggleSidebar}
-        >
-          {sidebarExpanded ? "Hide Sidebar" : "Show Sidebar"}
-        </button>
-      )}
-    </header>
-  );
 }
 
 function RoutedPaneMobileBar({

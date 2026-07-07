@@ -228,6 +228,7 @@ export const EXPLORER_LABELS = {
   itemNameColumn: "Name",
   itemSyncColumn: "Sync",
   itemTableEmpty: "No items.",
+  uploadAction: "Upload",
   itemTypeColumn: "Type",
   linkedContainerActivatingAction: "Activating...",
   linkedContainerActiveBadge: "Active",

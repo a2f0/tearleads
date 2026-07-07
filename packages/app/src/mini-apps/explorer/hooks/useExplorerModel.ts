@@ -8,7 +8,9 @@ import { getContactsContainerId } from "../../../stores/contacts/contactsSystemS
 import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
 import { EXPLORER_TRASH_CONTAINER_ICON } from "../../../stores/systemContainers";
 import {
+  canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
+  canUploadToContainerByRules,
   createExplorerContainerRulesContext,
 } from "../containerRules";
 import { buildExplorerTree } from "../explorerTreeModel";
@@ -30,7 +32,9 @@ import type { ExplorerSelectionState } from "./useExplorerSelection";
 interface ExplorerModel {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   canActivateSelectedDocument: boolean;
+  canCreateChildInActiveContainer: boolean;
   canCreateStructuredDocumentInActiveContainer: boolean;
+  canUploadToActiveContainer: boolean;
   canDeleteContextMenuDocument: boolean;
   canDeleteSelectedDocument: boolean;
   canDownloadContextMenuDocument: boolean;
@@ -239,11 +243,19 @@ export function useExplorerModel(
       rulesContext,
       activeContainerNode,
     );
+  const canCreateChildInActiveContainer =
+    selection.activeContainerId !== null &&
+    canCreateChildContainerByRules(rulesContext, activeContainerNode);
+  const canUploadToActiveContainer =
+    selection.activeContainerId !== null &&
+    canUploadToContainerByRules(rulesContext, activeContainerNode);
 
   return {
     activateLinkedContainer,
     ...selectedDocumentMutationState,
+    canCreateChildInActiveContainer,
     canCreateStructuredDocumentInActiveContainer,
+    canUploadToActiveContainer,
     canDeleteContextMenuDocument:
       contextMenuDocumentState.canDeleteContextMenuDocument,
     canDownloadContextMenuDocument:
