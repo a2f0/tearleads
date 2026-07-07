@@ -32,7 +32,6 @@ export function WindowToolBar() {
       <div className="window-toolbar-primary">
         {backAction && (
           <button
-            aria-label={backLabel}
             className="window-toolbar-button"
             disabled={backAction.disabled}
             title={backLabel}
