@@ -11,6 +11,7 @@ import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { NOTES_LABELS } from "./labels";
 import { Notes } from "./Notes";
 import { NotesEmptyState } from "./NotesEmptyState";
+import { NotesListHome } from "./NotesSidebar";
 import type { NotesAppProps } from "./types";
 
 export function createNotesWindowComponent({
@@ -67,6 +68,15 @@ function NotesAppContent(props: NotesAppProps) {
         >
           <Notes registerRefreshMenuItem />
         </DocumentsProvider>
+      ) : model.showCompactListHome ? (
+        <NotesListHome
+          handleAreaContextMenu={model.contextMenu.handleAreaContextMenu}
+          handleNoteContextMenu={model.contextMenu.handleNoteContextMenu}
+          notes={model.notes}
+          ready={model.ready}
+          selectNote={model.selectNote}
+          selectedNoteId={model.selectedNoteId}
+        />
       ) : (
         <NotesEmptyState />
       )}

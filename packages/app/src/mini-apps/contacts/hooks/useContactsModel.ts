@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
@@ -33,6 +34,8 @@ interface ContactsModel {
   canWrite: boolean;
   contextMenuState: ContactsContextMenuModel;
   createDraftContact: () => Promise<void>;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   draftFirstName: string;
   draftLastName: string;
   draftNickname: string;
@@ -44,11 +47,13 @@ interface ContactsModel {
   openNewContactRoute: () => void;
   ready: boolean;
   route: ContactsRoute;
+  selectContact: (contactId: string) => void;
   selectedContactId: string | null;
   setDraftFirstName: Dispatch<SetStateAction<string>>;
   setDraftLastName: Dispatch<SetStateAction<string>>;
   setDraftNickname: Dispatch<SetStateAction<string>>;
   setDraftUserId: Dispatch<SetStateAction<string>>;
+  showCompactListHome: boolean;
   showSelectionRoute: () => void;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
 }
@@ -148,18 +153,26 @@ function useContactsSelectionState(
 }
 
 function useSelectInitialSelfContact(input: {
+  enabled: boolean;
   entries: ContactEntries;
   ready: boolean;
   route: ContactsRoute;
   selectedContactId: string | null;
   setSelectedContactId: (contactId: string) => void;
 }) {
-  const { entries, ready, route, selectedContactId, setSelectedContactId } =
-    input;
+  const {
+    enabled,
+    entries,
+    ready,
+    route,
+    selectedContactId,
+    setSelectedContactId,
+  } = input;
   const selectedInitialSelfRef = useRef(false);
 
   useEffect(() => {
     if (
+      !enabled ||
       !ready ||
       route !== "selection" ||
       selectedInitialSelfRef.current ||
@@ -175,7 +188,7 @@ function useSelectInitialSelfContact(input: {
 
     selectedInitialSelfRef.current = true;
     setSelectedContactId(selfEntry.id);
-  }, [entries, ready, route, selectedContactId, setSelectedContactId]);
+  }, [enabled, entries, ready, route, selectedContactId, setSelectedContactId]);
 }
 
 function hasContactNameDraft(params: {
@@ -396,6 +409,7 @@ function useContactDrafts(input: {
 export function useContactsModel(
   setSidebar: (sidebar: ReactNode) => void,
 ): ContactsModel {
+  const compactRoutedMode = useCompactRoutedMode();
   const appData = useTearleadsRuntime();
   const {
     createContact,
@@ -429,6 +443,7 @@ export function useContactsModel(
   });
 
   useSelectInitialSelfContact({
+    enabled: !compactRoutedMode,
     entries,
     ready,
     route: routeState.route,
@@ -464,13 +479,20 @@ export function useContactsModel(
     contextMenuState,
     ...drafts,
     canWrite,
+    currentSigningFingerprint: appData.crypto.signingFingerprint,
+    currentUserId: appData.auth.userId,
     entries,
     isAuthenticated,
     openImportContactRoute: routeState.openImportContactRoute,
     openNewContactRoute: routeState.openNewContactRoute,
     ready,
     route: routeState.route,
+    selectContact: selectionState.selectContact,
     selectedContactId: selectionState.selectedContactId,
+    showCompactListHome:
+      compactRoutedMode &&
+      routeState.route === "selection" &&
+      selectionState.selectedContactId === null,
     showSelectionRoute: routeState.showSelectionRoute,
     updateContact,
   };

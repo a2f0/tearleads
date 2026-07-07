@@ -1,5 +1,7 @@
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import {
   type NotesContextMenuModel,
   useNotesContextMenu,
@@ -19,7 +21,11 @@ interface NotesAppModel {
   activeSelection: ActiveNoteSelection | null;
   contextMenu: NotesContextMenuModel;
   createNote: () => void;
+  notes: ReadonlyArray<DocumentSummary>;
   ready: boolean;
+  selectedNoteId: string | null;
+  selectNote: (noteId: string) => void;
+  showCompactListHome: boolean;
 }
 
 function useNotesRouteState(props: NotesAppProps) {
@@ -48,9 +54,14 @@ export function useNotesAppModel(
   props: NotesAppProps,
   setSidebar: NotesSetSidebar,
 ): NotesAppModel {
+  const compactRoutedMode = useCompactRoutedMode();
   const { explicitSelection, selectNoteRoute } = useNotesRouteState(props);
   const { createNote, deleteNote, notes, ready, selectedNoteId, selectNote } =
-    useNotesDirectory({ explicitSelection, selectNoteRoute });
+    useNotesDirectory({
+      autoSelectInitialNote: !compactRoutedMode || explicitSelection !== null,
+      explicitSelection,
+      selectNoteRoute,
+    });
   const activeSelection = useActiveNoteSelection({
     explicitSelection,
     notes,
@@ -68,5 +79,14 @@ export function useNotesAppModel(
     setSidebar,
   });
 
-  return { activeSelection, contextMenu, createNote, ready };
+  return {
+    activeSelection,
+    contextMenu,
+    createNote,
+    notes,
+    ready,
+    selectedNoteId,
+    selectNote,
+    showCompactListHome: compactRoutedMode && explicitSelection === null,
+  };
 }
