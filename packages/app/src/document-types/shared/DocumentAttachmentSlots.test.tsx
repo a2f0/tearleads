@@ -36,6 +36,7 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
 
 function renderAttachmentSlots(params?: {
   attachments?: ReadonlyArray<DocumentAttachment>;
+  blobPicker?: Parameters<typeof DocumentAttachmentSlots>[0]["blobPicker"];
   canAttach?: boolean;
   onClearAttachment?: (slotId: string) => void;
 }) {
@@ -43,6 +44,7 @@ function renderAttachmentSlots(params?: {
     <DocumentAttachmentSlots
       attachmentStatusBySlotId={{}}
       attachments={params?.attachments ?? attachments}
+      blobPicker={params?.blobPicker}
       canAttach={params?.canAttach ?? true}
       imageUrlBySlotId={{}}
       onClearAttachment={params?.onClearAttachment ?? (() => undefined)}
@@ -91,21 +93,25 @@ test("shows downloading feedback when an attachment exists before its image byte
   expect(backSlot?.textContent).not.toContain("Downloading image...");
 });
 
-test("clear image buttons are disabled when attachments cannot be changed", () => {
-  const view = renderAttachmentSlots({ canAttach: false });
+test("image attachment actions are hidden when attachments cannot be changed", () => {
+  const view = renderAttachmentSlots({
+    canAttach: false,
+    blobPicker: { onRequestBlobPick: () => undefined },
+  });
 
-  expect(
-    (
-      view.getByRole("button", {
-        name: "Clear Front Image",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
-  expect(
-    (
-      view.getByRole("button", {
-        name: "Clear Back Image",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
+  expect(view.queryAllByRole("button", { name: "Replace Image" })).toEqual([]);
+  expect(view.queryAllByRole("button", { name: "Choose Blob" })).toEqual([]);
+  expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Clear Back Image" })).toBeNull();
+});
+
+test("empty image upload actions are hidden when attachments cannot be changed", () => {
+  const view = renderAttachmentSlots({
+    attachments: [],
+    canAttach: false,
+    blobPicker: { onRequestBlobPick: () => undefined },
+  });
+
+  expect(view.queryAllByRole("button", { name: "Upload Image" })).toEqual([]);
+  expect(view.queryAllByRole("button", { name: "Choose Blob" })).toEqual([]);
 });
