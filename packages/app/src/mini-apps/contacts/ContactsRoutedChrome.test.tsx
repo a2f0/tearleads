@@ -1,11 +1,13 @@
-import { expect, test } from "bun:test";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { afterEach, expect, test } from "bun:test";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
 } from "../../components/window/WindowMenuContext";
 import { useContactsRoutedChromeActions } from "./ContactsRoutedChrome";
 import { CONTACTS_LABELS } from "./labels";
+
+afterEach(() => cleanup());
 
 function ToolbarProbe() {
   const actions = useWindowTitleBarActions();
