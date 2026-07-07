@@ -4,3 +4,14 @@
   flex-direction: column;
   min-height: 0;
 }
+
+/*
+ * Divider lines between list entries, matching the explorer item list so the
+ * mobile list views read consistently. The last entry gets none, so the list
+ * never caps with a bottom rule (which — flush above the footer — would read as
+ * a doubled line). The trailing virtualization spacer is a separate element, so
+ * `:last-child` lands on the final rendered row once scrolled to the end.
+ */
+.contacts-list-home .mini-app-virtual-list-row:not(:last-child) {
+  border-block-end: var(--border);
+}
