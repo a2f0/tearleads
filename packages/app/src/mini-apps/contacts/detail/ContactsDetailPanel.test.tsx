@@ -1,5 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  useWindowBackActionValue,
+  useWindowTitleBarActions,
+  WindowMenuProvider,
+} from "../../../components/window/WindowMenuContext";
 import type { ContactEntry } from "../../../document-types/contact/contactDocumentModel";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
@@ -67,6 +72,53 @@ function renderContactsDetailPanel(
 ) {
   return render(
     <ContactsDetailPanel {...createContactsDetailPanelProps(props)} />,
+  );
+}
+
+function RoutedChromeProbe() {
+  const backAction = useWindowBackActionValue();
+  const actions = useWindowTitleBarActions();
+
+  return (
+    <>
+      {backAction ? (
+        <button
+          aria-label={backAction.label}
+          disabled={backAction.disabled}
+          type="button"
+          onClick={backAction.onClick}
+        />
+      ) : null}
+      <div aria-label="Toolbar" role="toolbar">
+        {actions.map((action) => (
+          <button
+            aria-label={action.label}
+            disabled={action.disabled}
+            key={action.id}
+            type="button"
+            onClick={action.onClick}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function renderRoutedContactsDetailPanel(
+  props: Partial<Parameters<typeof ContactsDetailPanel>[0]> & {
+    route?: ContactsRoute | undefined;
+  } = {},
+) {
+  return render(
+    <WindowMenuProvider>
+      <RoutedChromeProbe />
+      <ContactsDetailPanel
+        {...createContactsDetailPanelProps({
+          ...props,
+          isRoutedShell: true,
+        })}
+      />
+    </WindowMenuProvider>,
   );
 }
 
@@ -150,6 +202,67 @@ test("contacts selected detail opens read-only before entering edit mode", () =>
     "Countess",
   );
   expect(view.getByRole("button", { name: "Done" })).toBeTruthy();
+});
+
+test("routed contacts selected detail edits from the toolbar", async () => {
+  const view = renderRoutedContactsDetailPanel({
+    entries: [contactEntry],
+    selectedContactId: contactEntry.id,
+  });
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", { name: CONTACTS_LABELS.editAction }),
+    ).toBeTruthy();
+  });
+  expect(view.container.querySelector(".mini-app-actions")).toBeNull();
+
+  fireEvent.click(
+    view.getByRole("button", { name: CONTACTS_LABELS.editAction }),
+  );
+
+  expect((view.getByLabelText("Nickname") as HTMLInputElement).value).toBe(
+    "Countess",
+  );
+  expect(
+    view.getByRole("button", { name: CONTACTS_LABELS.doneAction }),
+  ).toBeTruthy();
+});
+
+test("routed contacts new-contact route moves back and create to chrome", async () => {
+  let backCount = 0;
+  let createCount = 0;
+  const view = renderRoutedContactsDetailPanel({
+    canCreate: true,
+    createDraftContact: async () => {
+      createCount += 1;
+    },
+    draftNickname: "Ada",
+    onBackToSelectionRoute: () => {
+      backCount += 1;
+    },
+    route: "new-contact",
+  });
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", { name: CONTACTS_LABELS.backToContactsAction }),
+    ).toBeTruthy();
+    expect(
+      view.getByRole("button", { name: CONTACTS_LABELS.createContactAction }),
+    ).toBeTruthy();
+  });
+  expect(view.container.querySelector(".mini-app-actions")).toBeNull();
+
+  fireEvent.click(
+    view.getByRole("button", { name: CONTACTS_LABELS.backToContactsAction }),
+  );
+  fireEvent.click(
+    view.getByRole("button", { name: CONTACTS_LABELS.createContactAction }),
+  );
+
+  expect(backCount).toBe(1);
+  expect(createCount).toBe(1);
 });
 
 test("contacts selected detail copies the user id", () => {

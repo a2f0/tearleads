@@ -222,7 +222,12 @@ test("contacts list home shows contact metadata and drills into contacts", async
 
   expect(await view.findByText("Ada Lovelace")).toBeTruthy();
 
-  fireEvent.click(view.getByRole("button", { name: /Countess/ }));
+  const contactRowButton = view
+    .getAllByRole("button", { name: /Countess/ })
+    .find((button) => button.classList.contains("mini-app-row--button"));
+  expect(contactRowButton).toBeTruthy();
+
+  fireEvent.click(contactRowButton as HTMLElement);
 
   expect(selectedContactIds).toEqual(["ada"]);
 });

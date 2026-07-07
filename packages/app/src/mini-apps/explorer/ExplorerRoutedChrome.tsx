@@ -1,3 +1,4 @@
+import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutCardinal";
 import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
 import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
@@ -82,6 +83,10 @@ export function useExplorerRoutedChromeActions({
     route.view === "selection" &&
     activeContainerId !== null &&
     selectedDocument === undefined;
+  const showContactsContainerToolbar =
+    showContainerToolbar && model.isActiveContactsContainer;
+  const showStandardContainerToolbar =
+    showContainerToolbar && !model.isActiveContactsContainer;
   const showDocumentToolbar =
     isRoutedShell &&
     selectedDocument !== undefined &&
@@ -96,18 +101,23 @@ export function useExplorerRoutedChromeActions({
   useExplorerCreateFolderToolbarAction({
     activeContainerId,
     model,
-    show: showContainerToolbar,
+    show: showStandardContainerToolbar,
   });
   useExplorerUploadToolbarAction({
     activeContainerId,
     model,
-    show: showContainerToolbar,
+    show: showStandardContainerToolbar,
     triggerUpload,
   });
   useExplorerNewDocumentToolbarAction({
     model,
     openStructuredDocumentGrid,
-    show: showContainerToolbar,
+    show: showStandardContainerToolbar,
+  });
+  useExplorerNewContactToolbarAction({
+    activeContainerId,
+    model,
+    show: showContactsContainerToolbar,
   });
   useExplorerDocumentInfoToolbarAction({
     documentId: selectedDocumentId,
@@ -125,6 +135,44 @@ export function useExplorerRoutedChromeActions({
     model,
     show: showDocumentToolbar,
   });
+}
+
+function useExplorerNewContactToolbarAction({
+  activeContainerId,
+  model,
+  show,
+}: {
+  activeContainerId: string | null;
+  model: ExplorerModel;
+  show: boolean;
+}) {
+  const newContactAction = useMemo(
+    () =>
+      show
+        ? {
+            disabled:
+              !model.explorer.ready || !model.canCreateContactInActiveContainer,
+            icon: <AddressBookIcon aria-hidden size={18} />,
+            id: "explorer-new-contact",
+            label: EXPLORER_LABELS.newContactAction,
+            onClick: () => {
+              if (activeContainerId) {
+                model.openInlineDocument(activeContainerId, "contact");
+              }
+            },
+            priority: 100,
+          }
+        : null,
+    [
+      activeContainerId,
+      model.canCreateContactInActiveContainer,
+      model.explorer.ready,
+      model.openInlineDocument,
+      show,
+    ],
+  );
+
+  useWindowTitleBarAction(newContactAction);
 }
 
 function useExplorerRoutedBackAction({

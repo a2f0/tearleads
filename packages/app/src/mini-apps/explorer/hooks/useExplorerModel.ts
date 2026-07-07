@@ -11,6 +11,7 @@ import {
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
   canUploadToContainerByRules,
+  canWriteContainerNode,
   createExplorerContainerRulesContext,
 } from "../containerRules";
 import { buildExplorerTree } from "../explorerTreeModel";
@@ -33,6 +34,7 @@ interface ExplorerModel {
   activateLinkedContainer: ExplorerDocumentMutationAction;
   canActivateSelectedDocument: boolean;
   canCreateChildInActiveContainer: boolean;
+  canCreateContactInActiveContainer: boolean;
   canCreateStructuredDocumentInActiveContainer: boolean;
   canUploadToActiveContainer: boolean;
   canDeleteContextMenuDocument: boolean;
@@ -58,6 +60,7 @@ interface ExplorerModel {
   handleOpenCatchup: () => Promise<boolean>;
   handleRefresh: () => Promise<boolean>;
   importDroppedFiles: ExplorerPanelState["importDroppedFiles"];
+  isActiveContactsContainer: boolean;
   loadBlobInfo: ExplorerPanelState["loadBlobInfo"];
   isRefreshing: boolean;
   loadContainerInfo: ExplorerPanelState["loadContainerInfo"];
@@ -249,11 +252,18 @@ export function useExplorerModel(
   const canUploadToActiveContainer =
     selection.activeContainerId !== null &&
     canUploadToContainerByRules(rulesContext, activeContainerNode);
+  const isActiveContactsContainer =
+    selection.activeContainerId !== null &&
+    contactsContainerId !== null &&
+    selection.activeContainerId === contactsContainerId;
+  const canCreateContactInActiveContainer =
+    isActiveContactsContainer && canWriteContainerNode(activeContainerNode);
 
   return {
     activateLinkedContainer,
     ...selectedDocumentMutationState,
     canCreateChildInActiveContainer,
+    canCreateContactInActiveContainer,
     canCreateStructuredDocumentInActiveContainer,
     canUploadToActiveContainer,
     canDeleteContextMenuDocument:
@@ -279,6 +289,7 @@ export function useExplorerModel(
     handleOpenCatchup,
     handleRefresh,
     importDroppedFiles,
+    isActiveContactsContainer,
     loadBlobInfo,
     isRefreshing,
     loadContainerInfo,
