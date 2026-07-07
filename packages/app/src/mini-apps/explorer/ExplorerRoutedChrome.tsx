@@ -403,29 +403,28 @@ function useExplorerLinkDocumentToolbarAction({
   model: ExplorerModel;
   show: boolean;
 }) {
-  const linkDocumentAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled: !documentId || !model.canLinkSelectedDocument,
-            icon: <LinkSimpleIcon aria-hidden size={18} />,
-            id: "explorer-link-document",
-            label: EXPLORER_LABELS.documentLinkAction,
-            onClick: () => {
-              if (documentId) {
-                model.modalState.openLinkDocumentModal(documentId);
-              }
-            },
-            priority: 200,
-          }
-        : null,
-    [
-      documentId,
-      model.canLinkSelectedDocument,
-      model.modalState.openLinkDocumentModal,
-      show,
-    ],
-  );
+  const linkDocumentAction = useMemo(() => {
+    if (!show || !documentId || !model.hasSelectedDocumentLinkTargets) {
+      return null;
+    }
+
+    return {
+      disabled: !model.canLinkSelectedDocument,
+      icon: <LinkSimpleIcon aria-hidden size={18} />,
+      id: "explorer-link-document",
+      label: EXPLORER_LABELS.documentLinkAction,
+      onClick: () => {
+        model.modalState.openLinkDocumentModal(documentId);
+      },
+      priority: 200,
+    };
+  }, [
+    documentId,
+    model.canLinkSelectedDocument,
+    model.hasSelectedDocumentLinkTargets,
+    model.modalState.openLinkDocumentModal,
+    show,
+  ]);
 
   useWindowTitleBarAction(linkDocumentAction);
 }

@@ -11,7 +11,9 @@ import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type ComponentProps, createElement } from "react";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
+import { EXPLORER_LABELS } from "../labels";
 import { ExplorerDetailPanel } from "./ExplorerDetailPanel";
+import { ExplorerDocumentDetailActions } from "./ExplorerDocumentDetail";
 
 afterEach(() => cleanup());
 
@@ -74,6 +76,7 @@ function createBaseExplorerDetailPanelProps(
       totalCount: 0,
     })) satisfies ImportExplorerDroppedFiles,
     initialEditingSelectedDocument: false,
+    hasSelectedDocumentLinkTargets: true,
     linkedContainerIdsByDocumentId: new Map(),
     loadBlobInfo: async () => ({ rows: [], totalCount: 0 }),
     loadContainerInfo: async () => {
@@ -138,4 +141,30 @@ test("document info back button returns to the document projection", () => {
 
   expect(selectedDocuments).toEqual([["you-contact", "contacts-container"]]);
   expect(genericBackRoutes).toEqual([]);
+});
+
+test("document detail hides link when there are no link targets", () => {
+  const view = render(
+    createElement(ExplorerDocumentDetailActions, {
+      canLinkSelectedDocument: false,
+      canMoveSelectedDocument: true,
+      hasLinkTargets: false,
+      openDocumentInfoRoute: () => undefined,
+      openLinkDocumentModal: () => undefined,
+      openMoveDocumentModal: () => undefined,
+      selectedDocument: contactDocument,
+      setSelectedId: () => undefined,
+    }),
+  );
+
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentLinkAction,
+    }),
+  ).toBeNull();
+  expect(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentMoveAction,
+    }),
+  ).toBeTruthy();
 });

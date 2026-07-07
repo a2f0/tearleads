@@ -38,7 +38,10 @@ function createExplorerModel(
     canCreateContactInActiveContainer: true,
     canCreateStructuredDocumentInActiveContainer: true,
     canUploadToActiveContainer: true,
+    canLinkSelectedDocument: true,
+    canMoveSelectedDocument: true,
     explorer: { ready: true },
+    hasSelectedDocumentLinkTargets: true,
     isActiveContactsContainer: true,
     modalState: {
       openCreateChildModal: () => undefined,
@@ -120,4 +123,48 @@ test("contacts container toolbar only offers new contact", async () => {
   );
 
   expect(createdContacts).toEqual([["contacts-container", "contact"]]);
+});
+
+test("document toolbar hides link when there are no link targets", async () => {
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          canLinkSelectedDocument: false,
+          hasSelectedDocumentLinkTargets: false,
+          isActiveContactsContainer: false,
+          routeState: {
+            ...baseModel.routeState,
+            route: { view: "selection" },
+          },
+          selection: {
+            ...baseModel.selection,
+            activeContainerId: "folder-1",
+            selectedDocument: {
+              containerId: "folder-1",
+              documentId: "document-1",
+              id: "note-1",
+              title: "Note",
+              updatedAt: "2026-07-07T00:00:00.000Z",
+            },
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", {
+        name: EXPLORER_LABELS.documentInfoGetInfoAction,
+      }),
+    ).toBeTruthy();
+  });
+
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentLinkAction,
+    }),
+  ).toBeNull();
 });
