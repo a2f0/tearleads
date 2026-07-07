@@ -257,7 +257,9 @@ export function useExplorerModel(
     contactsContainerId !== null &&
     selection.activeContainerId === contactsContainerId;
   const canCreateContactInActiveContainer =
-    isActiveContactsContainer && canWriteContainerNode(activeContainerNode);
+    isActiveContactsContainer &&
+    activeContainerNode !== undefined &&
+    canWriteContainerNode(activeContainerNode);
 
   return {
     activateLinkedContainer,

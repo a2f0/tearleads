@@ -64,40 +64,41 @@ function ContactsSelectionState({
   updateContact: UpdateContact;
 }) {
   const selectedEntry = entries.find((entry) => entry.id === selectedContactId);
+  const selectedEntryId = selectedEntry?.id;
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const isEditing = editingContactId === selectedEntry?.id;
+  const isEditing = editingContactId === selectedEntryId;
   const canEditSelectedEntry = ready && selectedEntry?.canWrite !== false;
 
   useEffect(() => {
     setEditingContactId(null);
-  }, [selectedEntry?.id]);
+  }, [selectedEntryId]);
   useEffect(() => {
     if (!canEditSelectedEntry) {
       setEditingContactId(null);
     }
   }, [canEditSelectedEntry]);
-  const editAction = useMemo(
-    () =>
-      isRoutedShell && selectedEntry
-        ? {
-            disabled: !canEditSelectedEntry,
-            icon: isEditing ? (
-              <CheckIcon aria-hidden size={18} />
-            ) : (
-              <PencilSimpleIcon aria-hidden size={18} />
-            ),
-            id: "contacts-toggle-edit",
-            label: isEditing
-              ? CONTACTS_LABELS.doneAction
-              : CONTACTS_LABELS.editAction,
-            onClick: () => {
-              setEditingContactId(isEditing ? null : selectedEntry.id);
-            },
-            priority: 100,
-          }
-        : null,
-    [canEditSelectedEntry, isEditing, isRoutedShell, selectedEntry],
-  );
+  const editAction = useMemo(() => {
+    if (!isRoutedShell || selectedEntryId === undefined) {
+      return null;
+    }
+
+    return {
+      disabled: !canEditSelectedEntry,
+      icon: isEditing ? (
+        <CheckIcon aria-hidden size={18} />
+      ) : (
+        <PencilSimpleIcon aria-hidden size={18} />
+      ),
+      id: "contacts-toggle-edit",
+      label: isEditing
+        ? CONTACTS_LABELS.doneAction
+        : CONTACTS_LABELS.editAction,
+      onClick: () => {
+        setEditingContactId(isEditing ? null : selectedEntryId);
+      },
+      priority: 100,
+    };
+  }, [canEditSelectedEntry, isEditing, isRoutedShell, selectedEntryId]);
 
   useWindowTitleBarAction(editAction);
 
