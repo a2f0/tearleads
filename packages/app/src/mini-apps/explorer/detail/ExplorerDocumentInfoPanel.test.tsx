@@ -114,8 +114,6 @@ function renderDocumentInfoPanel(input: {
 }) {
   return render(
     createElement(ExplorerDocumentInfoPanel, {
-      activateLinkedContainer: async () => null,
-      canActivateLinkedContainer: true,
       canMutateDocumentLinks: true,
       containerId: "container-1",
       documentTitle: undefined,
@@ -151,7 +149,10 @@ test("document info links tab renders linked containers", async () => {
       }),
     ).toBeTruthy();
   });
-  expect(view.getByText("Active")).toBeTruthy();
+  expect(view.queryByText("Active")).toBeNull();
+  expect(
+    view.queryByRole("button", { name: /make linked container/i }),
+  ).toBeNull();
   expect(view.getByText("Authorizing Containers")).toBeTruthy();
 });
 

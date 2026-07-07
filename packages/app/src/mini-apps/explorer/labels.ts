@@ -270,12 +270,6 @@ export function getExplorerDocumentInfoAttachmentKindLabel(
   }
 }
 
-export function getExplorerActivateLinkedContainerError(
-  containerName: string,
-): string {
-  return `Failed to make ${containerName} active.`;
-}
-
 export function getExplorerDetachLinkedContainerError(
   containerName: string,
 ): string {
@@ -309,12 +303,6 @@ export function getExplorerContainerInfoInheritedGrantSource(
   containerName: string,
 ): string {
   return `Inherited from ${containerName}`;
-}
-
-export function getExplorerMakeLinkedContainerActiveLabel(
-  containerName: string,
-): string {
-  return `Make linked container ${containerName} active`;
 }
 
 export function getExplorerOpenLinkedContainerLabel(

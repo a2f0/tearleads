@@ -63,7 +63,6 @@ export function getSelectedDocumentMutationState(params: {
     selectedDocumentContainerWritable;
 
   return {
-    canActivateSelectedDocument,
     canDeleteSelectedDocument:
       canMoveOrDeleteSelectedDocument &&
       canResolveTrashContainer &&

@@ -96,12 +96,7 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
 }
 
 interface ExplorerDetailPanelProps {
-  activateLinkedContainer: (
-    documentId: string,
-    targetContainerId: string,
-  ) => Promise<DocumentSummary | null>;
   blobStore: BlobStore;
-  canActivateLinkedContainer: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canMutateDocumentLinks: boolean;
@@ -292,8 +287,6 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
 
     return (
       <ExplorerDocumentInfoPanel
-        activateLinkedContainer={params.activateLinkedContainer}
-        canActivateLinkedContainer={params.canActivateLinkedContainer}
         canMutateDocumentLinks={params.canMutateDocumentLinks}
         containerId={route.containerId}
         documentTitle={fallbackDocumentSummary?.title}
