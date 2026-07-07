@@ -119,6 +119,34 @@ test("listContainerItemWindow pages and sorts container rows from SQLite", async
     await expect(
       readModel.listContainerItemWindow({
         containerId: "root-container",
+        limit: 10,
+        offset: 0,
+        sort: { direction: "desc", key: "name" },
+      }),
+    ).resolves.toMatchObject({
+      totalCount: 3,
+      rows: [
+        {
+          id: "child-container",
+          itemKind: "container",
+          name: "Archive",
+        },
+        {
+          itemKind: "document",
+          localId: "song-1",
+          name: "Older song",
+        },
+        {
+          itemKind: "document",
+          localId: "song-2",
+          name: "Newest song",
+        },
+      ],
+    });
+
+    await expect(
+      readModel.listContainerItemWindow({
+        containerId: "root-container",
         limit: 2,
         offset: 0,
         sort: { direction: "asc", key: "type" },

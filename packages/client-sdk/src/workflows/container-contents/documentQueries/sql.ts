@@ -58,6 +58,10 @@ export function getContainerContentsContainerItemOrderBy(
     return `updated_at IS NULL ASC, updated_at ${direction}, name COLLATE NOCASE ASC, item_id ASC`;
   }
 
+  if (sort.key === "name") {
+    return `item_kind_sort ASC, name COLLATE NOCASE ${direction}, type_sort COLLATE NOCASE ASC, item_id ASC`;
+  }
+
   return "item_kind_sort ASC, name COLLATE NOCASE ASC, type_sort COLLATE NOCASE ASC, item_id ASC";
 }
 

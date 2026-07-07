@@ -94,8 +94,9 @@ function buildExplorerItemColumn(
       };
     case "name":
       return {
+        ariaSort: getSortAria(sort, "name"),
         id,
-        header: EXPLORER_LABELS.itemNameColumn,
+        header: sortableHeader("name", EXPLORER_LABELS.itemNameColumn),
         // On the phone tier the name leads and flexes to fill whatever space the
         // trimmed columns leave; on wider layouts it keeps a fixed share.
         width: compact ? undefined : "40%",
