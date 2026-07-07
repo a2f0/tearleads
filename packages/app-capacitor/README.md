@@ -30,6 +30,32 @@ bun run android:sideload:release
 
 Release builds use `.secrets/tearleads-release.keystore` with `ANDROID_KEYSTORE_STORE_PASS` and `ANDROID_KEYSTORE_KEY_PASS` when present. Without those values, Gradle signs the release APK with the debug signing config so it can still be sideloaded locally.
 
+## Android Google Play Release
+
+Build a signed Android App Bundle for Google Play:
+
+```sh
+bun run android:build:google-play
+```
+
+The lane loads `.secrets/root.env`, requires `.secrets/tearleads-release.keystore`
+and `ANDROID_KEYSTORE_STORE_PASS`/`ANDROID_KEYSTORE_KEY_PASS`, runs a release
+Capacitor sync, and builds `android/app/build/outputs/bundle/release/app-release.aab`.
+It also prints any generated upload companion assets, such as
+`android/app/build/outputs/mapping/release/mapping.txt` and
+`android/app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip`.
+
+By default, the `versionCode` is based on the latest PR merged today. The lane
+queries GitHub with `gh` first and falls back to local squash-merge commit
+subjects like `(#1365)`. If `.secrets/google-play-service-account.json` is
+available, it also checks the configured Google Play tracks and uses the larger
+of the merged PR number or the next Play version code. Override the date or PR
+with `ANDROID_RELEASE_MERGED_DATE=YYYY-MM-DD`,
+`ANDROID_RELEASE_PR_NUMBER=<number>`, or Fastlane options
+`merged_date:YYYY-MM-DD` and `merged_pr_number:<number>`. Override the final
+build number with `ANDROID_BUILD_NUMBER=<number>` or
+`ANDROID_VERSION_CODE=<number>`.
+
 ## Store Build Numbers
 
 Fetch the latest remote build numbers from Google Play and the Apple App Store:

@@ -1,13 +1,49 @@
 # frozen_string_literal: true
 
+require 'date'
+require 'dotenv'
 require 'json'
+require 'open3'
 require 'shellwords'
+require 'time'
 
 ANDROID_APP_ID = 'com.tearleads.app'
+ANDROID_REPO_ROOT = File.expand_path('../../..', __dir__)
 ANDROID_DIR = File.expand_path('../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
+ANDROID_SECRETS_DIR = File.join(ANDROID_REPO_ROOT, '.secrets')
+ANDROID_ROOT_ENV_PATH = File.join(ANDROID_SECRETS_DIR, 'root.env')
+ANDROID_RELEASE_KEYSTORE_PATH = File.join(ANDROID_SECRETS_DIR, 'tearleads-release.keystore')
+ANDROID_RELEASE_SIGNING_ENV_NAMES = %w[
+  ANDROID_KEYSTORE_STORE_PASS
+  ANDROID_KEYSTORE_KEY_PASS
+].freeze
 DEBUG_APK_PATH = File.join(ANDROID_DIR, 'app/build/outputs/apk/debug/app-debug.apk')
 RELEASE_APK_PATH = File.join(ANDROID_DIR, 'app/build/outputs/apk/release/app-release.apk')
+RELEASE_AAB_PATH = File.join(ANDROID_DIR, 'app/build/outputs/bundle/release/app-release.aab')
+RELEASE_MAPPING_PATH = File.join(ANDROID_DIR, 'app/build/outputs/mapping/release/mapping.txt')
+RELEASE_NATIVE_DEBUG_SYMBOLS_PATH = File.join(
+  ANDROID_DIR,
+  'app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip'
+)
+RELEASE_PLAY_ASSET_PATHS = [
+  RELEASE_AAB_PATH,
+  RELEASE_MAPPING_PATH,
+  RELEASE_NATIVE_DEBUG_SYMBOLS_PATH
+].freeze
+MERGED_GITHUB_PRS_COMMAND = [
+  'gh',
+  'pr',
+  'list',
+  '--state',
+  'merged',
+  '--json',
+  'number,mergedAt,title',
+  '--limit',
+  '100'
+].freeze
+ANDROID_RELEASE_VERSION_CODE_PROPERTY = 'tearleadsVersionCode'
+ANDROID_RELEASE_PR_PATTERN = /\(#(?<number>\d+)\)/
 
 def connected_android_device_serials
   adb_output = `adb devices`
@@ -50,8 +86,9 @@ def android_gradle_command
   UI.user_error!('Gradle is unavailable. Run `mise install` from the repo root.')
 end
 
-def run_android_gradle(task)
-  sh("#{android_gradle_command} #{Shellwords.escape(task)} -p #{Shellwords.escape(ANDROID_DIR)}")
+def run_android_gradle(*arguments)
+  gradle_arguments = arguments.flatten.map { |argument| Shellwords.escape(argument.to_s) }.join(' ')
+  sh("#{android_gradle_command} #{gradle_arguments} -p #{Shellwords.escape(ANDROID_DIR)}")
 end
 
 def resolve_android_device_serial
@@ -90,6 +127,268 @@ rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
   UI.user_error!("Could not load #{config_path}: #{e.message}")
 end
 
+def load_android_release_secrets_env
+  Dotenv.load(ANDROID_ROOT_ENV_PATH) if File.file?(ANDROID_ROOT_ENV_PATH)
+end
+
+def positive_android_integer(value, description)
+  number = Integer(value.to_s, 10)
+  UI.user_error!("#{description} must be positive.") unless number.positive?
+
+  number
+rescue ArgumentError, TypeError
+  UI.user_error!("#{description} must be a positive integer: #{value}")
+end
+
+def android_command_available?(command)
+  system('which', command, out: File::NULL, err: File::NULL)
+end
+
+def android_command_output(*command)
+  output, status = Open3.capture2e(*command)
+
+  [output, status.success?]
+rescue Errno::ENOENT => e
+  [e.message, false]
+end
+
+def android_pr_merged_at(pull_request)
+  Time.parse(pull_request.fetch('mergedAt'))
+end
+
+def android_pr_merged_on_date?(pull_request, date)
+  android_pr_merged_at(pull_request).localtime.to_date == date
+end
+
+def android_release_date(options)
+  raw_date = lane_option(options, :merged_date, 'ANDROID_RELEASE_MERGED_DATE', Date.today.iso8601)
+
+  Date.iso8601(raw_date.to_s)
+rescue Date::Error
+  UI.user_error!("ANDROID_RELEASE_MERGED_DATE must be YYYY-MM-DD: #{raw_date}")
+end
+
+def explicit_android_release_build_number(options)
+  value = lane_option(options, :build_number, 'ANDROID_BUILD_NUMBER')
+  value ||= lane_option(options, :version_code, 'ANDROID_VERSION_CODE')
+  return nil if value.nil?
+
+  positive_android_integer(value, 'Android release build number')
+end
+
+def configured_android_release_pr_number(options)
+  value = lane_option(options, :merged_pr_number, 'ANDROID_RELEASE_MERGED_PR_NUMBER')
+  value ||= lane_option(options, :pr_number, 'ANDROID_RELEASE_PR_NUMBER')
+  return nil if value.nil?
+
+  positive_android_integer(value, 'Android release merged PR number')
+end
+
+def merged_github_prs_output
+  output, ok = android_command_output(*MERGED_GITHUB_PRS_COMMAND)
+
+  unless ok
+    UI.important("Could not query merged GitHub PRs with gh: #{output.strip}")
+    return nil
+  end
+
+  output
+end
+
+def merged_github_prs
+  output = merged_github_prs_output
+  return nil if output.nil?
+
+  pull_requests = JSON.parse(output)
+  return pull_requests if pull_requests.is_a?(Array)
+
+  UI.important('Could not parse merged GitHub PRs from gh: expected an array.')
+  nil
+rescue JSON::ParserError => e
+  UI.important("Could not parse merged GitHub PRs from gh: #{e.message}")
+  nil
+end
+
+def github_prs_merged_on_date(pull_requests, date)
+  pull_requests.select { |pull_request| android_pr_merged_on_date?(pull_request, date) }
+end
+
+def latest_android_release_pr(pull_requests)
+  pull_requests.max_by { |pull_request| android_pr_merged_at(pull_request) }
+end
+
+def latest_android_release_pr_from_github(date)
+  return nil unless android_command_available?('gh')
+
+  pull_requests = merged_github_prs
+  return nil if pull_requests.nil?
+
+  latest_pr = latest_android_release_pr(github_prs_merged_on_date(pull_requests, date))
+  return nil if latest_pr.nil?
+
+  UI.message("Using PR ##{latest_pr.fetch('number')} merged at #{latest_pr.fetch('mergedAt')}.")
+  positive_android_integer(latest_pr.fetch('number'), 'GitHub merged PR number')
+rescue StandardError => e
+  UI.important("Could not parse merged GitHub PRs from gh: #{e.message}")
+  nil
+end
+
+def git_pr_log_command_for_date(date)
+  [
+    'git',
+    'log',
+    "--since=#{date.iso8601} 00:00",
+    "--until=#{(date + 1).iso8601} 00:00",
+    '--format=%ct%x00%s'
+  ]
+end
+
+def git_pr_log_lines_for_date(date)
+  output, ok = android_command_output(*git_pr_log_command_for_date(date))
+
+  unless ok
+    UI.important("Could not query local git history for merged PRs: #{output.strip}")
+    return nil
+  end
+
+  output.lines
+end
+
+def git_pr_log_entry(line)
+  timestamp, subject = line.chomp.split("\0", 2)
+  match = subject&.match(ANDROID_RELEASE_PR_PATTERN)
+  return nil if match.nil?
+
+  [timestamp.to_i, match[:number].to_i]
+end
+
+def latest_android_release_pr_from_git(date)
+  lines = git_pr_log_lines_for_date(date)
+  return nil if lines.nil?
+
+  latest_entry = lines.filter_map { |line| git_pr_log_entry(line) }.max_by(&:first)
+  latest_entry&.last
+end
+
+def discovered_android_release_pr_number(date)
+  latest_android_release_pr_from_github(date) || latest_android_release_pr_from_git(date)
+end
+
+def android_release_pr_number(options)
+  configured_pr_number = configured_android_release_pr_number(options)
+  return configured_pr_number unless configured_pr_number.nil?
+
+  date = android_release_date(options)
+  discovered_pr_number = discovered_android_release_pr_number(date)
+  return discovered_pr_number unless discovered_pr_number.nil?
+
+  UI.user_error!(
+    "Could not find a PR merged on #{date}. " \
+    'Set ANDROID_RELEASE_PR_NUMBER or pass merged_pr_number:<number>.'
+  )
+end
+
+def google_play_version_guard_skipped?(options)
+  lane_boolean_option(options, :skip_google_play_version_guard, 'SKIP_GOOGLE_PLAY_VERSION_GUARD', false)
+end
+
+def google_play_version_guard_configured?
+  if google_play_configured?
+    true
+  else
+    UI.important('Google Play credentials not found; using merged PR number without Play version-code guard.')
+    false
+  end
+end
+
+def log_google_play_build_number(build_number, google_tracks)
+  UI.message("Google Play latest build number: #{build_number || 'none'} (tracks #{google_tracks.join(', ')})")
+end
+
+def google_play_version_guard_available?(options)
+  if google_play_version_guard_skipped?(options)
+    UI.important('Skipping Google Play version-code guard as requested.')
+    return false
+  end
+
+  google_play_version_guard_configured?
+end
+
+def latest_google_play_build_number_for_android_release(options)
+  return nil unless google_play_version_guard_available?(options)
+
+  google_tracks = google_play_tracks(options)
+  _version_codes_by_track, build_number = latest_google_play_build_number(google_tracks)
+  log_google_play_build_number(build_number, google_tracks)
+
+  build_number
+rescue StandardError => e
+  UI.user_error!("Failed to verify Google Play build number: #{e.message}")
+end
+
+def android_release_build_hash(build_number, google_play_build_number, merged_pr_number)
+  {
+    build_number: build_number,
+    google_play_latest_build_number: google_play_build_number,
+    merged_pr_number: merged_pr_number
+  }
+end
+
+def automatic_android_release_build_hash(options)
+  merged_pr_number = android_release_pr_number(options)
+  google_play_build_number = latest_google_play_build_number_for_android_release(options)
+  google_play_next_build_number = google_play_build_number.nil? ? nil : google_play_build_number + 1
+  build_number = [merged_pr_number, google_play_next_build_number].compact.max
+
+  android_release_build_hash(build_number, google_play_build_number, merged_pr_number)
+end
+
+def next_android_release_build_number(options)
+  explicit_build_number = explicit_android_release_build_number(options)
+  return android_release_build_hash(explicit_build_number, nil, nil) unless explicit_build_number.nil?
+
+  automatic_android_release_build_hash(options)
+end
+
+def require_android_release_signing!
+  unless File.file?(ANDROID_RELEASE_KEYSTORE_PATH)
+    UI.user_error!("Android release keystore does not exist: #{ANDROID_RELEASE_KEYSTORE_PATH}")
+  end
+
+  missing_names = ANDROID_RELEASE_SIGNING_ENV_NAMES.select { |name| ENV.fetch(name, '').empty? }
+  return if missing_names.empty?
+
+  UI.user_error!(
+    "Android release signing is not configured. Missing #{missing_names.join(', ')} " \
+    "in the environment or #{ANDROID_ROOT_ENV_PATH}."
+  )
+end
+
+def android_play_release_asset_paths
+  RELEASE_PLAY_ASSET_PATHS.select { |path| File.file?(path) }
+end
+
+def require_android_play_release_assets!
+  assets = android_play_release_asset_paths
+  UI.user_error!("Android App Bundle was not created: #{RELEASE_AAB_PATH}") unless assets.include?(RELEASE_AAB_PATH)
+
+  assets
+end
+
+def print_android_play_release_assets(assets)
+  UI.success('Google Play release assets:')
+  assets.each { |asset| UI.message(asset) }
+end
+
+def android_play_release_result(release_build, assets)
+  {
+    assets: assets,
+    build_number: release_build.fetch(:build_number),
+    google_play_latest_build_number: release_build.fetch(:google_play_latest_build_number),
+    merged_pr_number: release_build.fetch(:merged_pr_number)
+  }
+end
+
 platform :android do
   desc 'Build debug APK'
   lane :build_debug do
@@ -104,6 +403,23 @@ platform :android do
     sh('bun run cap:sync:release android')
     ensure_release_capacitor_sync!
     run_android_gradle('assembleRelease')
+  end
+
+  desc 'Build signed Android App Bundle and upload companion assets for Google Play'
+  lane :build_google_play_release do |options|
+    load_android_release_secrets_env
+    release_build = next_android_release_build_number(options)
+    require_android_release_signing!
+    sh('bun run build')
+    sh('bun run cap:sync:release android')
+    ensure_release_capacitor_sync!
+    run_android_gradle(
+      'bundleRelease',
+      "-P#{ANDROID_RELEASE_VERSION_CODE_PROPERTY}=#{release_build.fetch(:build_number)}"
+    )
+    assets = require_android_play_release_assets!
+    print_android_play_release_assets(assets)
+    android_play_release_result(release_build, assets)
   end
 
   desc 'Install debug APK on a connected Android device'
