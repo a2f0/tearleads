@@ -71,6 +71,105 @@ test("listLocalOrganizations returns one entry per provisioned org with its name
   }
 });
 
+test("listLocalOrganizations resolves a foreign org name from its metadata container when the profile doc is keyed under the server documentId", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organizations-list-local-foreign-test",
+  );
+  const dbClient = createClient(execSql);
+
+  try {
+    // Provision an org the normal way; this seeds the Members-granted metadata
+    // container and links the organization_profile document under the
+    // deterministic local alias `org-profile:<organizationId>`.
+    const org = await createOrganization({
+      apiClient: { createOrganization: respondToOrganizationProvisioning },
+      dbClient,
+      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      organizationProfileName: "Acme",
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+      userId: crypto.randomUUID(),
+    });
+    if (!org) {
+      throw new Error("Expected the organization to be created");
+    }
+
+    // Rewrite local state to mimic a member of *another* org who received the
+    // exact same profile document purely by syncing the metadata container: the
+    // sync ingest keys it under the server documentId, and the provisioner-only
+    // alias was never written on this device. Re-save the record under its
+    // documentId, then drop the alias row so ONLY the cross-org fallback
+    // (metadata container by system slot -> linked profile doc) can resolve it.
+    const aliasLocalId = getOrganizationProfileDocumentLocalId({
+      organizationId: org.organizationId,
+    });
+    const aliasRecord = await sqlDocumentsPersistence.loadDocument(
+      execSql,
+      aliasLocalId,
+    );
+    if (!aliasRecord?.documentId) {
+      throw new Error("Expected a persisted organization profile document");
+    }
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      ...aliasRecord,
+      id: aliasRecord.documentId,
+    });
+    await sqlDocumentsPersistence.deleteDocument(execSql, aliasLocalId);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, aliasLocalId),
+    ).toBeNull();
+
+    const organizations = await listLocalOrganizations({ execSql });
+    const summary = organizations.find(
+      (candidate) => candidate.organizationId === org.organizationId,
+    );
+    expect(summary?.rootContainerId).toBe(org.rootContainerId);
+    expect(summary?.name).toBe("Acme");
+  } finally {
+    close();
+  }
+});
+
+test("listLocalOrganizations returns a null name for a foreign org whose profile doc has not synced yet", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organizations-list-local-foreign-pending-test",
+  );
+  const dbClient = createClient(execSql);
+
+  try {
+    const org = await createOrganization({
+      apiClient: { createOrganization: respondToOrganizationProvisioning },
+      dbClient,
+      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      organizationProfileName: "Acme",
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+      userId: crypto.randomUUID(),
+    });
+    if (!org) {
+      throw new Error("Expected the organization to be created");
+    }
+
+    // Model the window where a foreign org's containers have synced but its
+    // profile document has not yet arrived: delete the only profile document.
+    // The metadata-container fallback must find nothing to read and degrade to a
+    // null (unnamed) org rather than throwing.
+    await sqlDocumentsPersistence.deleteDocument(
+      execSql,
+      getOrganizationProfileDocumentLocalId({
+        organizationId: org.organizationId,
+      }),
+    );
+
+    const organizations = await listLocalOrganizations({ execSql });
+    const summary = organizations.find(
+      (candidate) => candidate.organizationId === org.organizationId,
+    );
+    expect(summary?.organizationId).toBe(org.organizationId);
+    expect(summary?.name).toBeNull();
+  } finally {
+    close();
+  }
+});
+
 test("listLocalOrganizations tolerates a corrupt organization profile", async () => {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();

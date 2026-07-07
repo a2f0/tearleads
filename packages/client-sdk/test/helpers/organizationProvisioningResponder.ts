@@ -37,6 +37,27 @@ export async function respondToOrganizationProvisioning(
     request.initialOrganizationProfileDocument,
   );
 
+  // Echo the Members-granted organization metadata container the client sent, so
+  // local provisioning persists it (and its system slot) exactly as production
+  // does. Without it, the org-name reader's cross-org fallback — which locates
+  // this container by its deterministic system slot — has nothing to find.
+  const organizationMetadataContainer =
+    request.initialOrganizationMetadataContainer;
+  const organizationMetadataContainerResponse = organizationMetadataContainer
+    ? await createMutationResponseFromRequest(
+        organizationMetadataContainer.container,
+      )
+    : undefined;
+  const organizationMetadataMetadataDocument = organizationMetadataContainer
+    ? await createResponseFromRequest(
+        organizationMetadataContainer.metadataDocument,
+      )
+    : undefined;
+  if (organizationMetadataContainerResponse && organizationMetadataContainer) {
+    organizationMetadataContainerResponse.systemSlot =
+      organizationMetadataContainer.systemSlot ?? null;
+  }
+
   return {
     userId: request.userId,
     organizationId: request.organizationId,
@@ -55,5 +76,16 @@ export async function respondToOrganizationProvisioning(
     rosterProfileDocumentId: rosterProfileDocument.id,
     organizationProfileDocument,
     organizationProfileDocumentId: organizationProfileDocument.id,
+    ...(organizationMetadataContainerResponse &&
+    organizationMetadataMetadataDocument
+      ? {
+          organizationMetadataContainer: {
+            container: organizationMetadataContainerResponse,
+            metadataDocument: organizationMetadataMetadataDocument,
+          },
+          organizationMetadataContainerId:
+            organizationMetadataContainerResponse.containerId,
+        }
+      : {}),
   };
 }
