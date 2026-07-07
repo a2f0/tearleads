@@ -50,12 +50,10 @@ function usePersistentAppFeatureFlag(flag: AppFeatureFlagId) {
     [storageKey],
   );
   const toggle = useCallback(() => {
-    setMode((currentMode) => {
-      const nextMode = currentMode === "enabled" ? "disabled" : "enabled";
-      saveAppFeatureFlag(storageKey, nextMode);
-      return nextMode;
-    });
-  }, [storageKey]);
+    const nextMode = mode === "enabled" ? "disabled" : "enabled";
+    setMode(nextMode);
+    saveAppFeatureFlag(storageKey, nextMode);
+  }, [mode, storageKey]);
 
   return {
     enabled: mode === "enabled",
