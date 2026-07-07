@@ -218,7 +218,7 @@
   .mini-app-table-frame--bleed
   .mini-app-table
   tbody
-  .mini-app-table-row:last-child
+  .mini-app-table-row:not(.mini-app-virtual-table-spacer-row):last-child
   .mini-app-table-cell {
   border-bottom: var(--border);
 }
