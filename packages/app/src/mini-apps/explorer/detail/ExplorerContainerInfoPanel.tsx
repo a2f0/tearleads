@@ -35,6 +35,7 @@ interface Props {
   containerNamesById: ReadonlyMap<string, string>;
   canShareContainer: boolean;
   canShareWithPeer: boolean;
+  isRoutedShell?: boolean | undefined;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
   onBackToContainer: () => void;
   onOpenGrant: (
@@ -327,6 +328,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
         containerName={params.containerName}
         isSubmitting={isSubmitting}
         onBackToContainer={params.onBackToContainer}
+        showBackAction={!params.isRoutedShell}
       />
       <div className="explorer-info">
         <ExplorerContainerInfoTabs

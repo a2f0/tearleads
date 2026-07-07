@@ -11,6 +11,7 @@ import {
 } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { downloadResolvedAttachment } from "../../document-types/shared/fileDownload";
+import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import {
@@ -26,6 +27,10 @@ import {
 } from "./blob-pick/ExplorerBlobPickProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
+import {
+  useExplorerRoutedChromeActions,
+  useExplorerToolbarUpload,
+} from "./ExplorerRoutedChrome";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
@@ -86,6 +91,7 @@ type ExplorerModel = ReturnType<typeof useExplorerModel>;
 function ExplorerDetailPanelWithBlobPick(params: {
   appData: RuntimeSnapshot;
   databaseError: boolean;
+  isRoutedShell: boolean;
   model: ExplorerModel;
   onOpenGrant: (
     grant: ExplorerGrantOrgManagerTarget,
@@ -93,8 +99,14 @@ function ExplorerDetailPanelWithBlobPick(params: {
   ) => void;
   onRetryDatabase: () => void;
 }) {
-  const { appData, databaseError, model, onOpenGrant, onRetryDatabase } =
-    params;
+  const {
+    appData,
+    databaseError,
+    isRoutedShell,
+    model,
+    onOpenGrant,
+    onRetryDatabase,
+  } = params;
   const { cancelBlobPick, pickTarget, resolveBlobPick } = useExplorerBlobPick();
 
   return (
@@ -119,6 +131,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       domainScope={appData.state.domainScope}
       importDroppedFiles={model.importDroppedFiles}
       initialEditingSelectedDocument={model.selectedDocumentStartsInEditMode}
+      isRoutedShell={isRoutedShell}
       linkedContainerIdsByDocumentId={model.linkedContainerIdsByDocumentId}
       loadBlobInfo={model.loadBlobInfo}
       loadContainerInfo={model.loadContainerInfo}
@@ -169,6 +182,8 @@ export function Explorer() {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Explorer composes the mini-app shell from model state.
 function ExplorerContent() {
   const appData = useTearleadsRuntime();
+  const { mode: navigationMode } = useAppNavigationState();
+  const isRoutedShell = navigationMode === "routed";
   const hostConfig = useAppHostConfig();
   const explorer = useExplorer();
   const { setSidebar } = useWindowSidebar();
@@ -241,6 +256,13 @@ function ExplorerContent() {
   const openSyncLanes = useCallback(() => {
     model.routeState.openSyncLanesRoute();
   }, [model.routeState.openSyncLanesRoute]);
+  const toolbarUpload = useExplorerToolbarUpload(model.importDroppedFiles);
+  useExplorerRoutedChromeActions({
+    isRoutedShell,
+    model,
+    openStructuredDocumentGrid,
+    triggerUpload: toolbarUpload.triggerUpload,
+  });
   const openNewContactDocument = useCallback(
     (containerId: string) => {
       model.openInlineDocument(containerId, "contact");
@@ -319,6 +341,7 @@ function ExplorerContent() {
           {model.modalState.backgroundActionError}
         </MiniAppStatus>
       )}
+      {toolbarUpload.input}
       <ExplorerBlobPickProvider
         openBlobBrowserRoute={openBlobBrowser}
         returnToDocumentRoute={model.routeState.selectExplorerDocument}
@@ -326,6 +349,7 @@ function ExplorerContent() {
         <ExplorerDetailPanelWithBlobPick
           appData={appData}
           databaseError={databaseError}
+          isRoutedShell={isRoutedShell}
           model={model}
           onOpenGrant={openGrantInOrgManager}
           onRetryDatabase={retryDatabaseBoot}

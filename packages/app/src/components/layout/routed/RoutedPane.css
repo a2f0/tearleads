@@ -67,6 +67,18 @@
   background: var(--color-muted);
 }
 
+.routed-pane-appbar-primary,
+.routed-pane-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.routed-pane-appbar-primary {
+  flex: 0 1 auto;
+}
+
 .routed-pane-appbar-spacer {
   flex: 1 1 auto;
 }
@@ -109,6 +121,20 @@
 }
 
 .routed-pane-iconbutton {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  min-width: var(--control-height);
+  padding: 0;
+}
+
+.routed-pane-iconbutton svg {
+  flex: 0 0 auto;
+}
+
+.routed-pane-toolbar {
   flex: 0 0 auto;
 }
 

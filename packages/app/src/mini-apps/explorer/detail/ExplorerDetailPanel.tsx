@@ -57,6 +57,7 @@ type ExplorerNewStructuredDocumentRouteState = Extract<
 >;
 
 function ExplorerNewStructuredDocumentRoutePanel(params: {
+  isRoutedShell?: boolean | undefined;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToSelectionRoute: () => void;
   openInlineDocument: (
@@ -67,8 +68,14 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
   ready: boolean;
   route: ExplorerNewStructuredDocumentRouteState;
 }) {
-  const { nodes, onBackToSelectionRoute, openInlineDocument, ready, route } =
-    params;
+  const {
+    isRoutedShell = false,
+    nodes,
+    onBackToSelectionRoute,
+    openInlineDocument,
+    ready,
+    route,
+  } = params;
   const creationNode = nodes.find((node) => node.id === route.containerId);
 
   if (!creationNode || !canWriteContainerNode(creationNode)) {
@@ -82,6 +89,7 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
         onBackToSelectionRoute();
         openInlineDocument(route.containerId, documentKind);
       }}
+      isRoutedShell={isRoutedShell}
       selectedNode={creationNode}
     />
   );
@@ -113,6 +121,7 @@ interface ExplorerDetailPanelProps {
   domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
   initialEditingSelectedDocument: boolean;
+  isRoutedShell?: boolean | undefined;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
@@ -186,6 +195,7 @@ function renderExplorerNewStructuredDocumentRoute(
 ) {
   return (
     <ExplorerNewStructuredDocumentRoutePanel
+      isRoutedShell={params.isRoutedShell}
       nodes={params.nodes}
       onBackToSelectionRoute={params.onBackToSelectionRoute}
       openInlineDocument={params.openInlineDocument}
@@ -205,6 +215,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   }
 
   const { route, selectedDocument, selectedNode } = params;
+  const isRoutedShell = params.isRoutedShell ?? false;
   if (route.view === "blob-browser") {
     return (
       <ExplorerBlobBrowserPanel
@@ -263,6 +274,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         canShareWithPeer={params.canShareWithPeer}
         loadContainerInfo={params.loadContainerInfo}
         onBackToContainer={params.onBackToSelectionRoute}
+        isRoutedShell={isRoutedShell}
         onOpenGrant={params.onOpenGrant}
         peerUserId={params.peerUserId}
         shareWithGroup={params.shareWithGroup}
@@ -295,6 +307,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
           params.selectDocumentProjection(route.localId, route.containerId);
         }}
         openBlobBrowserRoute={params.openBlobBrowserRoute}
+        isRoutedShell={isRoutedShell}
         setSelectedId={params.setSelectedId}
         unlinkDocument={params.unlinkDocument}
       />
@@ -318,6 +331,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         openMoveDocumentModal={params.openMoveDocumentModal}
         initialEditing={params.initialEditingSelectedDocument}
+        isRoutedShell={isRoutedShell}
         onInitialEditingConsumed={
           params.onInitialEditingSelectedDocumentConsumed
         }
