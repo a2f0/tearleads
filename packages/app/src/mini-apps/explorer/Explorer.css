@@ -88,7 +88,7 @@
   .routed-pane--mobile
   .explorer-item-table-wrap
   .mini-app-table-cell.mini-app-row-actions-cell {
-  padding-right: var(--space-sm);
+  padding-inline-end: var(--space-sm);
 }
 
 .explorer-inline-note {
