@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
+import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
+import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -10,6 +13,10 @@ import {
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
+import {
+  useWindowBackAction,
+  useWindowTitleBarAction,
+} from "../../../components/window/WindowMenuContext";
 import { ContactFields } from "../../../document-types/contact/ContactFields";
 import type {
   ContactFieldKey,
@@ -47,26 +54,53 @@ function ContactsSelectionState({
   entries,
   ready,
   selectedContactId,
+  isRoutedShell,
   updateContact,
 }: {
   entries: ContactEntries;
+  isRoutedShell: boolean;
   ready: boolean;
   selectedContactId: string | null;
   updateContact: UpdateContact;
 }) {
   const selectedEntry = entries.find((entry) => entry.id === selectedContactId);
+  const selectedEntryId = selectedEntry?.id;
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const isEditing = editingContactId === selectedEntry?.id;
+  const isEditing = editingContactId === selectedEntryId;
   const canEditSelectedEntry = ready && selectedEntry?.canWrite !== false;
 
   useEffect(() => {
     setEditingContactId(null);
-  }, [selectedEntry?.id]);
+  }, [selectedEntryId]);
   useEffect(() => {
     if (!canEditSelectedEntry) {
       setEditingContactId(null);
     }
   }, [canEditSelectedEntry]);
+  const editAction = useMemo(() => {
+    if (!isRoutedShell || selectedEntryId === undefined) {
+      return null;
+    }
+
+    return {
+      disabled: !canEditSelectedEntry,
+      icon: isEditing ? (
+        <CheckIcon aria-hidden size={18} />
+      ) : (
+        <PencilSimpleIcon aria-hidden size={18} />
+      ),
+      id: "contacts-toggle-edit",
+      label: isEditing
+        ? CONTACTS_LABELS.doneAction
+        : CONTACTS_LABELS.editAction,
+      onClick: () => {
+        setEditingContactId(isEditing ? null : selectedEntryId);
+      },
+      priority: 100,
+    };
+  }, [canEditSelectedEntry, isEditing, isRoutedShell, selectedEntryId]);
+
+  useWindowTitleBarAction(editAction);
 
   if (!selectedEntry) {
     return (
@@ -82,16 +116,20 @@ function ContactsSelectionState({
 
   return (
     <MiniAppPanel key={selectedEntry.id}>
-      <MiniAppActions>
-        <MiniAppButton
-          disabled={!canEditSelectedEntry}
-          onClick={() =>
-            setEditingContactId(isEditing ? null : selectedEntry.id)
-          }
-        >
-          {isEditing ? CONTACTS_LABELS.doneAction : CONTACTS_LABELS.editAction}
-        </MiniAppButton>
-      </MiniAppActions>
+      {!isRoutedShell && (
+        <MiniAppActions>
+          <MiniAppButton
+            disabled={!canEditSelectedEntry}
+            onClick={() =>
+              setEditingContactId(isEditing ? null : selectedEntry.id)
+            }
+          >
+            {isEditing
+              ? CONTACTS_LABELS.doneAction
+              : CONTACTS_LABELS.editAction}
+          </MiniAppButton>
+        </MiniAppActions>
+      )}
       <ContactFields
         disabled={!canEditSelectedEntry}
         isEditing={isEditing && canEditSelectedEntry}
@@ -112,6 +150,7 @@ function ContactsNewContactPanel(params: {
   draftFirstName: string;
   draftLastName: string;
   draftNickname: string;
+  isRoutedShell: boolean;
   onBackToSelectionRoute: () => void;
   setDraftFirstName: (firstName: string) => void;
   setDraftLastName: (lastName: string) => void;
@@ -123,11 +162,28 @@ function ContactsNewContactPanel(params: {
     draftFirstName,
     draftLastName,
     draftNickname,
+    isRoutedShell,
     onBackToSelectionRoute,
     setDraftFirstName,
     setDraftLastName,
     setDraftNickname,
   } = params;
+  const createAction = useMemo(
+    () =>
+      isRoutedShell
+        ? {
+            disabled: !canCreate,
+            icon: <CheckIcon aria-hidden size={18} />,
+            id: "contacts-create-contact",
+            label: CONTACTS_LABELS.createContactAction,
+            onClick: createDraftContact,
+            priority: 100,
+          }
+        : null,
+    [canCreate, createDraftContact, isRoutedShell],
+  );
+
+  useWindowTitleBarAction(createAction);
 
   return (
     <MiniAppFormPanel
@@ -140,11 +196,13 @@ function ContactsNewContactPanel(params: {
         <MiniAppHeaderCopy>
           <strong>{CONTACTS_LABELS.newContactAction}</strong>
         </MiniAppHeaderCopy>
-        <MiniAppActions>
-          <MiniAppButton type="button" onClick={onBackToSelectionRoute}>
-            {CONTACTS_LABELS.backToContactsAction}
-          </MiniAppButton>
-        </MiniAppActions>
+        {!isRoutedShell && (
+          <MiniAppActions>
+            <MiniAppButton type="button" onClick={onBackToSelectionRoute}>
+              {CONTACTS_LABELS.backToContactsAction}
+            </MiniAppButton>
+          </MiniAppActions>
+        )}
       </MiniAppHeader>
       <MiniAppField>
         <span>{CONTACTS_LABELS.nicknameField}</span>
@@ -170,11 +228,13 @@ function ContactsNewContactPanel(params: {
           onChange={(event) => setDraftLastName(event.target.value)}
         />
       </MiniAppField>
-      <MiniAppActions>
-        <MiniAppButton disabled={!canCreate} type="submit">
-          {CONTACTS_LABELS.createContactAction}
-        </MiniAppButton>
-      </MiniAppActions>
+      {!isRoutedShell && (
+        <MiniAppActions>
+          <MiniAppButton disabled={!canCreate} type="submit">
+            {CONTACTS_LABELS.createContactAction}
+          </MiniAppButton>
+        </MiniAppActions>
+      )}
     </MiniAppFormPanel>
   );
 }
@@ -184,6 +244,7 @@ function ContactsImportContactPanel(params: {
   draftUserId: string;
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
+  isRoutedShell: boolean;
   onBackToSelectionRoute: () => void;
   setDraftUserId: (userId: string) => void;
 }) {
@@ -192,9 +253,26 @@ function ContactsImportContactPanel(params: {
     draftUserId,
     importDraftContact,
     isAuthenticated,
+    isRoutedShell,
     onBackToSelectionRoute,
     setDraftUserId,
   } = params;
+  const importAction = useMemo(
+    () =>
+      isRoutedShell
+        ? {
+            disabled: !canImport,
+            icon: <UserPlusIcon aria-hidden size={18} />,
+            id: "contacts-import-contact-submit",
+            label: CONTACTS_LABELS.importContactSubmitAction,
+            onClick: importDraftContact,
+            priority: 100,
+          }
+        : null,
+    [canImport, importDraftContact, isRoutedShell],
+  );
+
+  useWindowTitleBarAction(importAction);
 
   return (
     <MiniAppFormPanel
@@ -207,11 +285,13 @@ function ContactsImportContactPanel(params: {
         <MiniAppHeaderCopy>
           <strong>{CONTACTS_LABELS.importContactAction}</strong>
         </MiniAppHeaderCopy>
-        <MiniAppActions>
-          <MiniAppButton type="button" onClick={onBackToSelectionRoute}>
-            {CONTACTS_LABELS.backToContactsAction}
-          </MiniAppButton>
-        </MiniAppActions>
+        {!isRoutedShell && (
+          <MiniAppActions>
+            <MiniAppButton type="button" onClick={onBackToSelectionRoute}>
+              {CONTACTS_LABELS.backToContactsAction}
+            </MiniAppButton>
+          </MiniAppActions>
+        )}
       </MiniAppHeader>
       <MiniAppField>
         <span>{CONTACTS_LABELS.contactUserIdField}</span>
@@ -227,11 +307,13 @@ function ContactsImportContactPanel(params: {
           {CONTACTS_LABELS.unauthenticatedImportState}
         </MiniAppStatus>
       )}
-      <MiniAppActions>
-        <MiniAppButton disabled={!canImport} type="submit">
-          {CONTACTS_LABELS.importContactSubmitAction}
-        </MiniAppButton>
-      </MiniAppActions>
+      {!isRoutedShell && (
+        <MiniAppActions>
+          <MiniAppButton disabled={!canImport} type="submit">
+            {CONTACTS_LABELS.importContactSubmitAction}
+          </MiniAppButton>
+        </MiniAppActions>
+      )}
     </MiniAppFormPanel>
   );
 }
@@ -247,6 +329,7 @@ export function ContactsDetailPanel(params: {
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
   isAuthenticated: boolean;
+  isRoutedShell?: boolean | undefined;
   onAreaContextMenu: ContactsAreaContextMenuHandler;
   onBackToSelectionRoute: () => void;
   ready: boolean;
@@ -269,6 +352,7 @@ export function ContactsDetailPanel(params: {
     entries,
     importDraftContact,
     isAuthenticated,
+    isRoutedShell = false,
     onAreaContextMenu,
     onBackToSelectionRoute,
     ready,
@@ -280,6 +364,19 @@ export function ContactsDetailPanel(params: {
     setDraftUserId,
     updateContact,
   } = params;
+  const backAction = useMemo(
+    () =>
+      isRoutedShell && route !== "selection"
+        ? {
+            label: CONTACTS_LABELS.backToContactsAction,
+            onClick: onBackToSelectionRoute,
+            priority: 100,
+          }
+        : null,
+    [isRoutedShell, onBackToSelectionRoute, route],
+  );
+
+  useWindowBackAction(backAction);
 
   if (route === "new-contact") {
     return (
@@ -289,6 +386,7 @@ export function ContactsDetailPanel(params: {
         draftFirstName={draftFirstName}
         draftLastName={draftLastName}
         draftNickname={draftNickname}
+        isRoutedShell={isRoutedShell}
         onBackToSelectionRoute={onBackToSelectionRoute}
         setDraftFirstName={setDraftFirstName}
         setDraftLastName={setDraftLastName}
@@ -304,6 +402,7 @@ export function ContactsDetailPanel(params: {
         draftUserId={draftUserId}
         importDraftContact={importDraftContact}
         isAuthenticated={isAuthenticated}
+        isRoutedShell={isRoutedShell}
         onBackToSelectionRoute={onBackToSelectionRoute}
         setDraftUserId={setDraftUserId}
       />
@@ -314,6 +413,7 @@ export function ContactsDetailPanel(params: {
     <ContactsDetailContextTarget onAreaContextMenu={onAreaContextMenu}>
       <ContactsSelectionState
         entries={entries}
+        isRoutedShell={isRoutedShell}
         ready={ready}
         selectedContactId={selectedContactId}
         updateContact={updateContact}

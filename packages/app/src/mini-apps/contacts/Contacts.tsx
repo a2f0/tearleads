@@ -1,9 +1,11 @@
 import { MiniAppRoot } from "../../components/shared/MiniAppLayout";
 import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext";
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
 import "./Contacts.css";
+import { useContactsRoutedChromeActions } from "./ContactsRoutedChrome";
 import { ContactsListHome } from "./ContactsSidebar";
 import { ContactsDetailPanel } from "./detail/ContactsDetailPanel";
 import { useContactsModel } from "./hooks/useContactsModel";
@@ -19,7 +21,17 @@ export function Contacts() {
 
 function ContactsContent() {
   const { setSidebar } = useWindowSidebar();
+  const { mode: navigationMode } = useAppNavigationState();
+  const isRoutedShell = navigationMode === "routed";
   const model = useContactsModel(setSidebar);
+  useContactsRoutedChromeActions({
+    canWrite: model.canWrite,
+    isRoutedShell,
+    openImportContactRoute: model.openImportContactRoute,
+    openNewContactRoute: model.openNewContactRoute,
+    ready: model.ready,
+    route: model.route,
+  });
   useWindowFileMenuItem({
     disabled: !model.ready || !model.canWrite,
     id: "contacts-new-contact",
@@ -60,6 +72,7 @@ function ContactsContent() {
           entries={model.entries}
           importDraftContact={model.importDraftContact}
           isAuthenticated={model.isAuthenticated}
+          isRoutedShell={isRoutedShell}
           onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
           onBackToSelectionRoute={model.showSelectionRoute}
           ready={model.ready}

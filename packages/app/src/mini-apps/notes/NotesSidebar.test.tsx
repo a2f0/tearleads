@@ -32,10 +32,13 @@ test("notes list home shows note metadata and drills into a note", () => {
     />,
   );
 
-  expect(view.getByRole("button", { name: /Trip plan/ })).toBeTruthy();
+  const noteRowButton = view
+    .getAllByRole("button", { name: /Trip plan/ })
+    .find((button) => button.classList.contains("mini-app-row--button"));
+  expect(noteRowButton).toBeTruthy();
   expect(view.getByText(/^Modified /)).toBeTruthy();
 
-  fireEvent.click(view.getByRole("button", { name: /Trip plan/ }));
+  fireEvent.click(noteRowButton as HTMLElement);
 
   expect(selectedNoteIds).toEqual(["note-1"]);
 });
