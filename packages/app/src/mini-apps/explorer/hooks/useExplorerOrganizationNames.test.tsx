@@ -175,6 +175,48 @@ test("stops querying once every foreign organization is named and the set is sta
   expect(loader.load).toHaveBeenCalledTimes(1);
 });
 
+test("does not start a second lookup while one for the same orgs is in flight", async () => {
+  // The first lookup hangs until we resolve it, modelling a slow local query
+  // that a sync burst re-renders over.
+  let resolveFirst:
+    | ((summaries: LocalOrganizationSummary[]) => void)
+    | undefined;
+  const load = mock(() => {
+    if (!resolveFirst) {
+      return new Promise<LocalOrganizationSummary[]>((resolve) => {
+        resolveFirst = resolve;
+      });
+    }
+    return Promise.resolve([summary("org-acme", "Acme Corp")]);
+  });
+
+  const { result, rerender } = renderHook(
+    ({ nodes }: { nodes: ContainerNode[] }) =>
+      useExplorerOrganizationNames({
+        listLocalOrganizations: load,
+        nodes,
+        primaryOrganizationId: "org-primary",
+        ready: true,
+      }),
+    {
+      initialProps: { nodes: [rootNode("org-primary"), rootNode("org-acme")] },
+    },
+  );
+
+  await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+
+  // Sync churn re-renders with the same foreign-org set while the first lookup
+  // is still pending; the in-flight one must be left to finish, not restarted.
+  rerender({ nodes: [rootNode("org-primary"), rootNode("org-acme")] });
+  rerender({ nodes: [rootNode("org-primary"), rootNode("org-acme")] });
+  expect(load).toHaveBeenCalledTimes(1);
+
+  // Resolving that same in-flight lookup still lands its result.
+  resolveFirst?.([summary("org-acme", "Acme Corp")]);
+  await waitFor(() => expect(result.current.get("org-acme")).toBe("Acme Corp"));
+  expect(load).toHaveBeenCalledTimes(1);
+});
+
 test("re-queries and prunes when a foreign organization is removed", async () => {
   const loader = createLoader([
     summary("org-acme", "Acme Corp"),
