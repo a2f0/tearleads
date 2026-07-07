@@ -136,6 +136,10 @@ export const ORG_MANAGER_LABELS = {
   refresh: "Refresh",
   remove: "Remove",
   revoke: "Revoke",
+  revokeGrantConfirmationMessage:
+    "This grant will be removed immediately. The principal will lose access to this container through this link.",
+  revokeGrantConfirmationTitle: "Revoke grant",
+  revokingGrant: "Revoking...",
   role: "Role",
   save: "Save",
   selectGroup: "Select a group.",
