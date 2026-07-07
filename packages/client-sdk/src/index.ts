@@ -238,6 +238,7 @@ export {
   createContainerContentsStoreState,
   createContainerContentsStoreSyncAgent,
   getOrCreateContainerContentsStore,
+  isSystemContainerNode,
   subscribeToContainerContentsStore,
   updateContainerContentsSnapshot,
   updateContainerContentsStoreRuntime,

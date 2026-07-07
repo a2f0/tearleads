@@ -1,3 +1,4 @@
+import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
 import type { ContainerContents } from "./containerContents";
 
@@ -72,6 +73,21 @@ export async function reshareOrganizationMetadataToMembers(input: {
         `Organizations: org metadata re-share to members did not apply for org ${input.organizationId}`,
       );
     }
+
+    // Re-sharing only re-wraps the container KEK — it does not upload the org
+    // profile document body. The founder authors that body locally at
+    // provisioning (keyed under an alias) and enqueues it as a pending update,
+    // but nothing pushes it: the document is never opened, and the reconciler
+    // only force-syncs a child container on a full manual refresh. Push it here,
+    // when members first appear, so the freshly-granted Members can actually pull
+    // and decrypt the org display name. Best-effort and idempotent — the sync is
+    // a no-op once the body is already on the server.
+    input.containerContents.pullDocumentContent({
+      containerId: node.id,
+      localId: getOrganizationProfileDocumentLocalId({
+        organizationId: input.organizationId,
+      }),
+    });
   } catch (error) {
     input.log(
       `Organizations: best-effort org metadata re-share failed for org ${input.organizationId}: ${error instanceof Error ? error.message : String(error)}`,

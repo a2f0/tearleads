@@ -3,7 +3,10 @@ import {
   disposeDomainSyncCoordinator,
   isDestroyedDatabaseClientError,
 } from "../data/sync/syncCoordinator";
-import type { ContainerContentsStoreOptions } from "../stores/container-contents";
+import {
+  type ContainerContentsStoreOptions,
+  isForeignSystemContainerNode,
+} from "../stores/container-contents";
 import { requestRegisteredDocumentRemoteSync } from "../stores/documents/registry";
 import {
   getOrCreateLocalProjectionStore,
@@ -143,6 +146,14 @@ class DeviceFirstService implements DeviceFirst {
   ): ReconciliationHost {
     const runtimeService = this.runtimeService;
     const containerContents = this.containerContents;
+    // Foreign org-profile document versions already pulled this session, keyed
+    // by `documentId:updatedAt`. Pulling a foreign profile opens a store that
+    // stays registered and re-syncs (a forced network round-trip) on every later
+    // forced sweep, so an unguarded pull is a re-sync loop that blows the sync
+    // request budget. A content edit bumps the document's updatedAt server-side,
+    // which re-lists it in discovery under a new version, so this pulls each
+    // version exactly once — the initial body and every later change, no more.
+    const pulledForeignProfileVersions = new Set<string>();
     return {
       domainScope,
       getRuntimeStatus: () => {
@@ -153,10 +164,24 @@ class DeviceFirstService implements DeviceFirst {
           online: input.state.online,
         };
       },
-      listKnownContainerIds: () =>
-        store
+      listKnownContainerIds: () => {
+        // User-facing containers, plus *foreign* system containers. A foreign
+        // org's metadata container holds the org profile document behind
+        // cross-org display names, which no mini-app opens and nothing else
+        // pushes or pulls, so it must reconcile here. Own system containers are
+        // excluded: their contents are authored locally and pushed by dedicated
+        // agents, and sweeping a just-created one races the server round-trip.
+        const homeOrganizationId =
+          runtimeService.workflowInput().auth.organizationId;
+        return store
           .getSnapshot()
-          .containers.flatMap((node) => (node.systemSlot ? [] : [node.id])),
+          .containers.flatMap((node) =>
+            isForeignSystemContainerNode(node, homeOrganizationId) ||
+            !node.systemSlot
+              ? [node.id]
+              : [],
+          );
+      },
       discoverContainerDocuments: (containerId) =>
         containerContents.discoverContainerDocuments(containerId),
       loadContainerDelta: async (
@@ -175,9 +200,45 @@ class DeviceFirstService implements DeviceFirst {
         };
       },
       applyReconciled: (delta) => store.applyReconciled(delta),
-      requestDocumentContentPull: (documents) => {
+      requestDocumentContentPull: (documents, force) => {
+        const homeOrganizationId =
+          runtimeService.workflowInput().auth.organizationId;
+        const containersById = new Map(
+          store.getSnapshot().containers.map((node) => [node.id, node]),
+        );
         for (const document of documents) {
           if (!document.documentId) {
+            continue;
+          }
+          const container = document.containerId
+            ? containersById.get(document.containerId)
+            : undefined;
+          if (
+            document.containerId &&
+            container &&
+            isForeignSystemContainerNode(container, homeOrganizationId)
+          ) {
+            // A foreign org's metadata-container profile document (its display
+            // name). No mini-app opens it and nothing else pulls it, so sync it
+            // directly here — but only once per server version, never through
+            // requestRegisteredDocumentRemoteSync: pulling opens a store that
+            // then re-syncs on every forced sweep, so re-pulling an unchanged
+            // profile would be a request-budget-blowing loop.
+            const versionKey = `${document.documentId}:${document.updatedAt}`;
+            if (!pulledForeignProfileVersions.has(versionKey)) {
+              pulledForeignProfileVersions.add(versionKey);
+              containerContents.pullDocumentContent({
+                containerId: document.containerId,
+                documentId: document.documentId,
+                localId: document.id,
+              });
+            }
+            continue;
+          }
+          // Non-foreign documents keep the original behavior: a forced refresh
+          // re-syncs every open document's body; an unforced background pass
+          // leaves open documents to their own lazy on-view sync.
+          if (!force) {
             continue;
           }
           requestRegisteredDocumentRemoteSync(

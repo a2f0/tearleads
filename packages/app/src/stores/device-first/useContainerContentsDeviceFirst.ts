@@ -169,8 +169,10 @@ export function useContainerContentsDeviceFirst(input: {
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
   // Stabilise the id list by content: the view emits a fresh `containers` array
   // on every tree change (including node syncState churn during sync), but the
-  // event-routing effect below only needs to re-run when the *set* of
-  // reconcilable (non-system) container ids actually changes.
+  // event-routing effect below only needs to re-run when the *set* of known
+  // container ids actually changes. System containers are excluded here; the
+  // background reconciler sweeps foreign ones (holding the org profile) on its
+  // own, so event routing does not need them.
   const knownContainerIdsKey = viewSnapshot.containers
     .flatMap((node) => (node.systemSlot ? [] : [node.id]))
     .join("\n");

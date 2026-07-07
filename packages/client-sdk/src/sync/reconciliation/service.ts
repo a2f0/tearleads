@@ -36,9 +36,15 @@ export interface ReconciliationHost {
   ) => Promise<LocalProjectionReconciledDelta>;
   /** Push a reconciled delta into the local projection store. */
   applyReconciled: (delta: LocalProjectionReconciledDelta) => void;
-  /** Force a document body pull for documents refreshed without an event. */
+  /**
+   * Sync document bodies for a reconciled container. `force` (an explicit
+   * refresh) re-pulls every document; otherwise only unopened system documents
+   * are synced, so a background pass still publishes/pulls the org profile
+   * without re-pulling every open document on every reconcile.
+   */
   requestDocumentContentPull?: (
     documents: ReadonlyArray<DocumentSummary>,
+    force: boolean,
   ) => void;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
@@ -109,9 +115,16 @@ async function reconcileOneContainer(
     await host.discoverContainerDocuments(containerId);
     const delta = await host.loadContainerDelta(containerId);
     host.applyReconciled(delta);
-    if (options.forceDocumentContentPull) {
-      host.requestDocumentContentPull?.(delta.documentSummaries);
-    }
+    // Always offer the delta for content sync. A forced pull (explicit refresh)
+    // re-pulls every document's body; an unforced pass only syncs unopened
+    // system documents — the org profile in particular, which no mini-app opens
+    // and nothing else pushes or pulls, so it must ride every reconcile (e.g. the
+    // event-driven pass that first surfaces a freshly-shared metadata container),
+    // not just a manual refresh.
+    host.requestDocumentContentPull?.(
+      delta.documentSummaries,
+      options.forceDocumentContentPull ?? false,
+    );
   } catch (error) {
     if (host.isIgnorableError(error)) {
       return;

@@ -2,9 +2,24 @@ import type {
   ContainerNode,
   LocalOrganizationSummary,
 } from "@tearleads/client-sdk";
-import { useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 const EMPTY_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
+
+// While a foreign org is still unnamed, re-attempt the lookup on this cadence.
+// Its name lands in a locally-synced org-profile document whose arrival does not
+// change `nodes`, so the container-driven effect would otherwise never re-run
+// once the tree settles. Bounded so an org that never publishes a profile (or
+// whose profile this member cannot decrypt) cannot poll forever.
+const ORGANIZATION_NAME_RETRY_DELAY_MS = 500;
+const ORGANIZATION_NAME_RETRY_LIMIT = 40;
 
 function collectForeignOrganizationIds(
   nodes: ReadonlyArray<ContainerNode>,
@@ -97,6 +112,149 @@ function shouldResolveOrganizationNames(input: {
   );
 }
 
+// Re-drives name resolution while any foreign org is still pending. The
+// resolution effect only re-runs on container/set changes, but a name arrives
+// asynchronously via its org-profile document (which does not touch `nodes`), so
+// without this the name would never surface once the tree settles. Returns a
+// counter bumped on a timer; the caller feeds it into the resolution effect's
+// deps. Bounded per foreign-org set so an org that never publishes (or that this
+// member cannot decrypt) cannot poll forever.
+function useOrganizationNameResolutionTick(input: {
+  nodes: ReadonlyArray<ContainerNode>;
+  primaryOrganizationId: string | null;
+  namesById: ReadonlyMap<string, string>;
+  ready: boolean;
+}): number {
+  const { namesById, nodes, primaryOrganizationId, ready } = input;
+  const [tick, setTick] = useState(0);
+  const attemptCountRef = useRef(0);
+
+  // Whether any foreign org still lacks a name — the only condition under which
+  // we need to keep re-resolving. Derived every render, but it flips at most
+  // twice per foreign org (pending -> named), so gating the timer on it (rather
+  // than on `nodes`/`namesById`) keeps the interval from being torn down and
+  // rebuilt on every container-tree churn. That churn is exactly what starved
+  // the previous setTimeout: re-renders arriving faster than the delay cleared
+  // the pending timer before it ever fired, so a name that synced mid-churn
+  // never surfaced.
+  const foreignOrganizationIds = collectForeignOrganizationIds(
+    nodes,
+    primaryOrganizationId,
+  );
+  const hasPendingName =
+    ready &&
+    foreignOrganizationIds.size > 0 &&
+    !everyOrganizationNamed(foreignOrganizationIds, namesById);
+  // Stable across node-object churn: changes only when the *set* of foreign orgs
+  // does, so a newly-appearing foreign org restarts the retry budget.
+  const foreignIdsKey = Array.from(foreignOrganizationIds).sort().join("\n");
+
+  useEffect(() => {
+    if (!hasPendingName) {
+      return;
+    }
+    // Fresh budget for this pending phase; bounded so an org that never
+    // publishes (or that this member cannot decrypt) cannot poll forever.
+    attemptCountRef.current = 0;
+    const timer = setInterval(() => {
+      if (attemptCountRef.current >= ORGANIZATION_NAME_RETRY_LIMIT) {
+        clearInterval(timer);
+        return;
+      }
+      attemptCountRef.current += 1;
+      setTick((previous) => previous + 1);
+    }, ORGANIZATION_NAME_RETRY_DELAY_MS);
+    return () => clearInterval(timer);
+  }, [hasPendingName, foreignIdsKey]);
+  return tick;
+}
+
+// The effect body of the resolution pass, lifted out of the hook so the hook
+// stays a thin composition. Skips the async lookup when there is nothing new to
+// resolve, and lets an in-flight lookup for the same foreign-org set finish
+// rather than cancel-and-restart it.
+function runOrganizationNameResolution(input: {
+  listLocalOrganizations: () => Promise<
+    ReadonlyArray<LocalOrganizationSummary>
+  >;
+  nodes: ReadonlyArray<ContainerNode>;
+  primaryOrganizationId: string | null;
+  ready: boolean;
+  namesRef: MutableRefObject<ReadonlyMap<string, string>>;
+  lastResolvedForeignIdsRef: MutableRefObject<ReadonlySet<string>>;
+  inFlightForeignIdsRef: MutableRefObject<ReadonlySet<string> | null>;
+  mountedRef: MutableRefObject<boolean>;
+  setNames: Dispatch<SetStateAction<ReadonlyMap<string, string>>>;
+}): void {
+  if (!input.ready) {
+    input.lastResolvedForeignIdsRef.current = new Set();
+    input.inFlightForeignIdsRef.current = null;
+    return;
+  }
+  const foreignOrganizationIds = collectForeignOrganizationIds(
+    input.nodes,
+    input.primaryOrganizationId,
+  );
+  if (foreignOrganizationIds.size === 0) {
+    input.lastResolvedForeignIdsRef.current = foreignOrganizationIds;
+    input.inFlightForeignIdsRef.current = null;
+    input.setNames((previous) =>
+      previous.size === 0 ? previous : EMPTY_ORGANIZATION_NAMES,
+    );
+    return;
+  }
+  if (
+    !shouldResolveOrganizationNames({
+      foreignOrganizationIds,
+      lastResolvedForeignIds: input.lastResolvedForeignIdsRef.current,
+      namesById: input.namesRef.current,
+    })
+  ) {
+    return;
+  }
+  // A lookup for this exact set is already running (a sync burst re-ran the
+  // effect); let it finish instead of cancelling and restarting it.
+  if (
+    input.inFlightForeignIdsRef.current &&
+    organizationIdSetsMatch(
+      input.inFlightForeignIdsRef.current,
+      foreignOrganizationIds,
+    )
+  ) {
+    return;
+  }
+  input.lastResolvedForeignIdsRef.current = foreignOrganizationIds;
+  input.inFlightForeignIdsRef.current = foreignOrganizationIds;
+
+  void input
+    .listLocalOrganizations()
+    .then((summaries) => {
+      // Superseded by a later lookup for a different foreign-org set.
+      if (input.inFlightForeignIdsRef.current !== foreignOrganizationIds) {
+        return;
+      }
+      input.inFlightForeignIdsRef.current = null;
+      if (!input.mountedRef.current) {
+        return;
+      }
+      const nextNames = buildForeignOrganizationNames(
+        summaries,
+        foreignOrganizationIds,
+      );
+      input.setNames((previous) =>
+        organizationNameMapsMatch(previous, nextNames) ? previous : nextNames,
+      );
+    })
+    .catch(() => {
+      // Best-effort: keep the last resolved names on failure. Clearing the
+      // in-flight marker leaves any still-unnamed org free to be retried on the
+      // next container change (via shouldResolveOrganizationNames).
+      if (input.inFlightForeignIdsRef.current === foreignOrganizationIds) {
+        input.inFlightForeignIdsRef.current = null;
+      }
+    });
+}
+
 /**
  * Resolves decrypted display names for the organizations whose containers are
  * shared into this user's Explorer from *other* organizations, so the sidebar
@@ -141,81 +299,37 @@ export function useExplorerOrganizationNames(params: {
   // its result only while this ref still points at the exact set it queried.
   const inFlightForeignIdsRef = useRef<ReadonlySet<string> | null>(null);
   const mountedRef = useRef(true);
+  const resolveAttempt = useOrganizationNameResolutionTick({
+    namesById: organizationNamesById,
+    nodes,
+    primaryOrganizationId,
+    ready,
+  });
   useEffect(
     () => () => {
       mountedRef.current = false;
     },
     [],
   );
-
   useEffect(() => {
-    if (!ready) {
-      lastResolvedForeignIdsRef.current = new Set();
-      inFlightForeignIdsRef.current = null;
-      return;
-    }
-    const foreignOrganizationIds = collectForeignOrganizationIds(
+    runOrganizationNameResolution({
+      inFlightForeignIdsRef,
+      lastResolvedForeignIdsRef,
+      listLocalOrganizations,
+      mountedRef,
+      namesRef: organizationNamesRef,
       nodes,
       primaryOrganizationId,
-    );
-    if (foreignOrganizationIds.size === 0) {
-      lastResolvedForeignIdsRef.current = foreignOrganizationIds;
-      inFlightForeignIdsRef.current = null;
-      setOrganizationNamesById((previous) =>
-        previous.size === 0 ? previous : EMPTY_ORGANIZATION_NAMES,
-      );
-      return;
-    }
-    if (
-      !shouldResolveOrganizationNames({
-        foreignOrganizationIds,
-        lastResolvedForeignIds: lastResolvedForeignIdsRef.current,
-        namesById: organizationNamesRef.current,
-      })
-    ) {
-      return;
-    }
-    // A lookup for this exact set is already running (a sync burst re-ran the
-    // effect); let it finish instead of cancelling and restarting it.
-    if (
-      inFlightForeignIdsRef.current &&
-      organizationIdSetsMatch(
-        inFlightForeignIdsRef.current,
-        foreignOrganizationIds,
-      )
-    ) {
-      return;
-    }
-    lastResolvedForeignIdsRef.current = foreignOrganizationIds;
-    inFlightForeignIdsRef.current = foreignOrganizationIds;
-
-    void listLocalOrganizations()
-      .then((summaries) => {
-        // Superseded by a later lookup for a different foreign-org set.
-        if (inFlightForeignIdsRef.current !== foreignOrganizationIds) {
-          return;
-        }
-        inFlightForeignIdsRef.current = null;
-        if (!mountedRef.current) {
-          return;
-        }
-        const nextNames = buildForeignOrganizationNames(
-          summaries,
-          foreignOrganizationIds,
-        );
-        setOrganizationNamesById((previous) =>
-          organizationNameMapsMatch(previous, nextNames) ? previous : nextNames,
-        );
-      })
-      .catch(() => {
-        // Best-effort: keep the last resolved names on failure. Clearing the
-        // in-flight marker leaves any still-unnamed org free to be retried on
-        // the next container change (via shouldResolveOrganizationNames).
-        if (inFlightForeignIdsRef.current === foreignOrganizationIds) {
-          inFlightForeignIdsRef.current = null;
-        }
-      });
-  }, [listLocalOrganizations, nodes, primaryOrganizationId, ready]);
+      ready,
+      setNames: setOrganizationNamesById,
+    });
+  }, [
+    listLocalOrganizations,
+    nodes,
+    primaryOrganizationId,
+    ready,
+    resolveAttempt,
+  ]);
 
   return organizationNamesById;
 }

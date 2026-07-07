@@ -5,7 +5,6 @@ import {
   containerMetadataDocuments,
   documents,
   organizationRosterEntries,
-  organizations,
 } from "@tearleads/api-shared/schema";
 import type { ContainerAccessLevel } from "@tearleads/crypto";
 import type {
@@ -175,48 +174,58 @@ async function loadCurrentContainerDocumentRows(input: {
   readonly runtime: ApiServiceRuntime;
   readonly watermark: SyncWatermark | null;
 }): Promise<ContainerDocumentRow[]> {
-  return input.runtime.db
-    .select({
-      createdAt: documents.createdAt,
-      documentId: accessManifestHeads.objectId,
-      manifestHash: accessManifestHeads.manifestHash,
-      manifestEpoch: accessManifestHeads.epoch,
-      updatedAt: documents.updatedAt,
-    })
-    .from(accessManifestHeads)
-    .innerJoin(
-      accessManifestDocumentLinkProjection,
-      and(
-        eq(
-          accessManifestDocumentLinkProjection.manifestHash,
-          accessManifestHeads.manifestHash,
+  return (
+    input.runtime.db
+      .select({
+        createdAt: documents.createdAt,
+        documentId: accessManifestHeads.objectId,
+        manifestHash: accessManifestHeads.manifestHash,
+        manifestEpoch: accessManifestHeads.epoch,
+        updatedAt: documents.updatedAt,
+      })
+      .from(accessManifestHeads)
+      .innerJoin(
+        accessManifestDocumentLinkProjection,
+        and(
+          eq(
+            accessManifestDocumentLinkProjection.manifestHash,
+            accessManifestHeads.manifestHash,
+          ),
+          eq(
+            accessManifestDocumentLinkProjection.containerId,
+            input.containerId,
+          ),
         ),
-        eq(accessManifestDocumentLinkProjection.containerId, input.containerId),
-      ),
-    )
-    .innerJoin(documents, eq(documents.id, accessManifestHeads.objectId))
-    .leftJoin(
-      containerMetadataDocuments,
-      eq(containerMetadataDocuments.documentId, documents.id),
-    )
-    .leftJoin(
-      organizationRosterEntries,
-      eq(organizationRosterEntries.profileDocumentId, documents.id),
-    )
-    .leftJoin(organizations, eq(organizations.profileDocumentId, documents.id))
-    .where(sql`
+      )
+      .innerJoin(documents, eq(documents.id, accessManifestHeads.objectId))
+      .leftJoin(
+        containerMetadataDocuments,
+        eq(containerMetadataDocuments.documentId, documents.id),
+      )
+      .leftJoin(
+        organizationRosterEntries,
+        eq(organizationRosterEntries.profileDocumentId, documents.id),
+      )
+      // Container metadata documents sync through the container tree itself, and
+      // roster profile documents carry member PII that must stay Admins-scoped —
+      // both are withheld from generic container-document discovery. The
+      // organization profile document is deliberately NOT excluded: it lives in a
+      // Members-granted metadata container, so serving it here (gated by the
+      // container read-access check above) is how active members discover and
+      // decrypt the org's display name.
+      .where(sql`
       ${accessManifestHeads.objectKind} = ${"document"}
       and ${containerMetadataDocuments.documentId} is null
       and ${organizationRosterEntries.profileDocumentId} is null
-      and ${organizations.profileDocumentId} is null
       ${watermarkPredicate(
         sql`${documents.updatedAt}`,
         textExpression(sql`${accessManifestHeads.objectId}`),
         input.watermark,
       )}
     `)
-    .orderBy(asc(documents.updatedAt), asc(accessManifestHeads.objectId))
-    .limit(input.limit + 1);
+      .orderBy(asc(documents.updatedAt), asc(accessManifestHeads.objectId))
+      .limit(input.limit + 1)
+  );
 }
 
 async function loadContainerDocumentTombstoneRows(input: {

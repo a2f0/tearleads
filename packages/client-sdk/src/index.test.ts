@@ -171,6 +171,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "initializeDocumentLinksSchema",
   "initializeStoredDocumentKind",
   "isPinCodeWrappedLocalSecretEnvelope",
+  "isSystemContainerNode",
   "listBlobInfo",
   "listDocumentLinkedContainerIds",
   "loadContainerInfo",
