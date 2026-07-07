@@ -1,0 +1,9 @@
+.org-manager-revoke-grant-dialog-backdrop {
+  z-index: 2000;
+}
+
+.org-manager-revoke-grant-warning {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}

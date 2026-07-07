@@ -1,5 +1,8 @@
-import type { OrganizationUserDetail } from "@tearleads/client-sdk";
-import { type MouseEvent, useMemo } from "react";
+import type {
+  OrganizationContainerGrant,
+  OrganizationUserDetail,
+} from "@tearleads/client-sdk";
+import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import {
   MiniAppRoot,
   MiniAppStatus,
@@ -22,6 +25,7 @@ import {
 import { ORG_MANAGER_LABELS } from "./labels";
 import { OrganizationView } from "./OrganizationView";
 import { OrgSwitcher } from "./OrgSwitcher";
+import { RevokeGrantConfirmationDialog } from "./RevokeGrantConfirmationDialog";
 import { RosterProfileEditor } from "./RosterProfileEditor";
 import "./OrgManager.css";
 
@@ -50,9 +54,11 @@ function renderRosterProfileEditor(organizationId: string) {
 function OrgManagerDirectoryContent({
   model,
   renderProfileEditor,
+  revokeGrant,
 }: {
   model: OrgManagerModel;
   renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   return (
     <DirectoryView
@@ -79,7 +85,7 @@ function OrgManagerDirectoryContent({
       openGroupRoute={model.openGroupRoute}
       profileDisplayNamesByUserId={model.profileDisplayNamesByUserId}
       renderRosterProfileEditor={renderProfileEditor}
-      revokeGrant={model.revokeGrant}
+      revokeGrant={revokeGrant}
       rosterProfileEditRequest={model.rosterProfileEditRequest}
       selectedUserId={model.selectedUserId}
       selectUser={model.selectUser}
@@ -92,9 +98,11 @@ function OrgManagerDirectoryContent({
 function OrgManagerContent({
   model,
   organizationId,
+  revokeGrant,
 }: {
   model: OrgManagerModel;
   organizationId: string;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
 }) {
   const renderProfileEditor = useMemo(
     () => renderRosterProfileEditor(organizationId),
@@ -106,6 +114,7 @@ function OrgManagerContent({
       <OrgManagerDirectoryContent
         model={model}
         renderProfileEditor={renderProfileEditor}
+        revokeGrant={revokeGrant}
       />
     );
   }
@@ -119,7 +128,7 @@ function OrgManagerContent({
         mutating={model.mutating}
         openGrantRoute={model.openGrantRoute}
         openGroupRoute={model.openGroupRoute}
-        revokeGrant={model.revokeGrant}
+        revokeGrant={revokeGrant}
         selectedGrant={model.selectedGrant}
         selectedGrantRef={model.selectedGrantRef}
         selectGrantRef={model.selectGrantRef}
@@ -195,24 +204,46 @@ function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
   );
 }
 
-export function OrgManager() {
-  const model = useOrgManagerModel();
-  const organizationId = model.organizationId;
-  const contextMenuTarget =
-    model.view === "groups" && !model.selectedGroup ? "groups" : null;
-  const handleMainContextMenu = contextMenuTarget
-    ? (event: MouseEvent<HTMLElement>) => {
-        if (event.defaultPrevented) {
-          return;
-        }
-
-        model.contextMenuState.handleSidebarContextMenu(
-          event,
-          contextMenuTarget,
-        );
+function useRevokeGrantConfirmation(model: OrgManagerModel) {
+  const [grantPendingRevoke, setGrantPendingRevoke] =
+    useState<OrganizationContainerGrant | null>(null);
+  const requestRevokeGrant = useCallback(
+    (grant: OrganizationContainerGrant) => {
+      if (!model.canRevokeGrants || model.mutating || grant.isBuiltin) {
+        return;
       }
-    : undefined;
 
+      setGrantPendingRevoke(grant);
+    },
+    [model.canRevokeGrants, model.mutating],
+  );
+  const closeRevokeGrantDialog = useCallback(() => {
+    setGrantPendingRevoke(null);
+  }, []);
+  const confirmRevokeGrant = useCallback(() => {
+    if (!grantPendingRevoke || !model.canRevokeGrants || model.mutating) {
+      return;
+    }
+
+    void model.revokeGrant(grantPendingRevoke).finally(() => {
+      setGrantPendingRevoke(null);
+    });
+  }, [
+    grantPendingRevoke,
+    model.canRevokeGrants,
+    model.mutating,
+    model.revokeGrant,
+  ]);
+
+  return {
+    closeRevokeGrantDialog,
+    confirmRevokeGrant,
+    grantPendingRevoke,
+    requestRevokeGrant,
+  };
+}
+
+function useOrgManagerWindowMenus(model: OrgManagerModel) {
   useWindowFileMenuItem(
     model.canLoadAuthenticatedOrgData
       ? {
@@ -245,6 +276,28 @@ export function OrgManager() {
         }
       : null,
   );
+}
+
+export function OrgManager() {
+  const model = useOrgManagerModel();
+  const revokeGrantDialog = useRevokeGrantConfirmation(model);
+  const organizationId = model.organizationId;
+  const contextMenuTarget =
+    model.view === "groups" && !model.selectedGroup ? "groups" : null;
+  const handleMainContextMenu = contextMenuTarget
+    ? (event: MouseEvent<HTMLElement>) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        model.contextMenuState.handleSidebarContextMenu(
+          event,
+          contextMenuTarget,
+        );
+      }
+    : undefined;
+
+  useOrgManagerWindowMenus(model);
 
   if (!organizationId || !model.isAuthenticated) {
     return (
@@ -265,7 +318,11 @@ export function OrgManager() {
             {model.error}
           </MiniAppStatus>
         )}
-        <OrgManagerContent model={model} organizationId={organizationId} />
+        <OrgManagerContent
+          model={model}
+          organizationId={organizationId}
+          revokeGrant={revokeGrantDialog.requestRevokeGrant}
+        />
       </main>
       <OrgManagerContextMenuLayer
         canCreateGroup={model.canCreateGroup}
@@ -293,6 +350,12 @@ export function OrgManager() {
         creating={model.orgSwitcher.creating}
         error={model.orgSwitcher.createOrganizationError}
         isOpen={model.orgSwitcher.isCreateOrganizationDialogOpen}
+      />
+      <RevokeGrantConfirmationDialog
+        busy={model.mutating}
+        grant={revokeGrantDialog.grantPendingRevoke}
+        onCancel={revokeGrantDialog.closeRevokeGrantDialog}
+        onConfirm={revokeGrantDialog.confirmRevokeGrant}
       />
     </MiniAppRoot>
   );
