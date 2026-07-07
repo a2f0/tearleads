@@ -3,7 +3,6 @@ import type {
   LocalOrganizationSummary,
 } from "@tearleads/client-sdk";
 import { useEffect, useRef, useState } from "react";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 
 const EMPTY_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
 
@@ -110,24 +109,49 @@ function shouldResolveOrganizationNames(input: {
  * re-runs the lookup and fills the name in shortly after it lands; once every
  * foreign org is named and the set is stable the lookup idles (see
  * `shouldResolveOrganizationNames`).
+ *
+ * `listLocalOrganizations` is injected (rather than read from `useTearleads`
+ * inside the hook) so the async resolution can be unit-tested with a fake
+ * loader — the sole caller passes a `useTearleads`-bound, memoized callback.
+ *
+ * A sync burst re-runs the effect repeatedly with the *same* foreign-org set
+ * while a name is still pending. Rather than cancel and restart the lookup each
+ * time (redundant local queries, and — if churn outpaces the query — starvation
+ * where no result ever lands), an in-flight lookup for the same set is left to
+ * finish; only a *change* to the set supersedes it.
  */
 export function useExplorerOrganizationNames(params: {
+  listLocalOrganizations: () => Promise<
+    ReadonlyArray<LocalOrganizationSummary>
+  >;
   nodes: ReadonlyArray<ContainerNode>;
   primaryOrganizationId: string | null;
   ready: boolean;
 }): ReadonlyMap<string, string> {
-  const { nodes, primaryOrganizationId, ready } = params;
-  const tearleads = useTearleads();
+  const { listLocalOrganizations, nodes, primaryOrganizationId, ready } =
+    params;
   const [organizationNamesById, setOrganizationNamesById] = useState<
     ReadonlyMap<string, string>
   >(EMPTY_ORGANIZATION_NAMES);
   const organizationNamesRef = useRef(organizationNamesById);
   organizationNamesRef.current = organizationNamesById;
   const lastResolvedForeignIdsRef = useRef<ReadonlySet<string>>(new Set());
+  // The foreign-org set of the lookup currently in flight, or null when idle.
+  // Its object identity is the supersession token: a resolving lookup applies
+  // its result only while this ref still points at the exact set it queried.
+  const inFlightForeignIdsRef = useRef<ReadonlySet<string> | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!ready) {
       lastResolvedForeignIdsRef.current = new Set();
+      inFlightForeignIdsRef.current = null;
       return;
     }
     const foreignOrganizationIds = collectForeignOrganizationIds(
@@ -136,6 +160,7 @@ export function useExplorerOrganizationNames(params: {
     );
     if (foreignOrganizationIds.size === 0) {
       lastResolvedForeignIdsRef.current = foreignOrganizationIds;
+      inFlightForeignIdsRef.current = null;
       setOrganizationNamesById((previous) =>
         previous.size === 0 ? previous : EMPTY_ORGANIZATION_NAMES,
       );
@@ -150,13 +175,28 @@ export function useExplorerOrganizationNames(params: {
     ) {
       return;
     }
+    // A lookup for this exact set is already running (a sync burst re-ran the
+    // effect); let it finish instead of cancelling and restarting it.
+    if (
+      inFlightForeignIdsRef.current &&
+      organizationIdSetsMatch(
+        inFlightForeignIdsRef.current,
+        foreignOrganizationIds,
+      )
+    ) {
+      return;
+    }
     lastResolvedForeignIdsRef.current = foreignOrganizationIds;
+    inFlightForeignIdsRef.current = foreignOrganizationIds;
 
-    let cancelled = false;
-    void tearleads.organizations
-      .listLocalOrganizations()
+    void listLocalOrganizations()
       .then((summaries) => {
-        if (cancelled) {
+        // Superseded by a later lookup for a different foreign-org set.
+        if (inFlightForeignIdsRef.current !== foreignOrganizationIds) {
+          return;
+        }
+        inFlightForeignIdsRef.current = null;
+        if (!mountedRef.current) {
           return;
         }
         const nextNames = buildForeignOrganizationNames(
@@ -168,15 +208,14 @@ export function useExplorerOrganizationNames(params: {
         );
       })
       .catch(() => {
-        // Best-effort: keep the last resolved names on failure. The set is left
-        // recorded as resolved, but any still-unnamed org keeps the lookup live
-        // via shouldResolveOrganizationNames on the next container change.
+        // Best-effort: keep the last resolved names on failure. Clearing the
+        // in-flight marker leaves any still-unnamed org free to be retried on
+        // the next container change (via shouldResolveOrganizationNames).
+        if (inFlightForeignIdsRef.current === foreignOrganizationIds) {
+          inFlightForeignIdsRef.current = null;
+        }
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [nodes, primaryOrganizationId, ready, tearleads]);
+  }, [listLocalOrganizations, nodes, primaryOrganizationId, ready]);
 
   return organizationNamesById;
 }
