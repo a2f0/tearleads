@@ -166,6 +166,10 @@ function ContactsList({
                     event.stopPropagation();
                     handleContextMenu(event, entry.id);
                   }}
+                  onContextMenu={(event) => {
+                    event.stopPropagation();
+                    handleContextMenu(event, entry.id);
+                  }}
                   title={`${CONTACTS_LABELS.rowActionsButtonPrefix} ${name}`}
                 />
               ) : null}

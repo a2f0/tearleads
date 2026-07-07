@@ -144,6 +144,10 @@ function NotesList({
                         event.stopPropagation();
                         handleNoteContextMenu(event, note.id);
                       }}
+                      onContextMenu={(event) => {
+                        event.stopPropagation();
+                        handleNoteContextMenu(event, note.id);
+                      }}
                       title={`${NOTES_LABELS.rowActionsButtonPrefix} ${title}`}
                     />
                   ) : null}
