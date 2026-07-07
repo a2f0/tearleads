@@ -9,7 +9,10 @@ import type {
 } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import {
+  type RuntimeSnapshot,
+  useTearleads,
+} from "../../../providers/sdk/TearleadsProvider";
 import { useExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import { useExplorerContainerInfoLoader } from "../../../stores/explorer/containerInfo";
 import { useExplorerDocumentInfoLoader } from "../../../stores/explorer/documentInfo";
@@ -186,7 +189,15 @@ export function useExplorerPanelState(params: {
     nodes: explorer.nodes,
     personalRootContainerId: appData.state.containerId,
   });
+  const tearleads = useTearleads();
+  // Bind + memoize the loader so the resolver hook can depend on a stable
+  // reference (a fresh inline closure each render would re-fire its effect).
+  const listLocalOrganizations = useCallback(
+    () => tearleads.organizations.listLocalOrganizations(),
+    [tearleads],
+  );
   const organizationNamesById = useExplorerOrganizationNames({
+    listLocalOrganizations,
     nodes: explorer.nodes,
     primaryOrganizationId,
     ready: explorer.ready,

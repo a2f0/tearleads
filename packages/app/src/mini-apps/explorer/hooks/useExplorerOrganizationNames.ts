@@ -3,7 +3,6 @@ import type {
   LocalOrganizationSummary,
 } from "@tearleads/client-sdk";
 import { useEffect, useRef, useState } from "react";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 
 const EMPTY_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
 
@@ -110,14 +109,21 @@ function shouldResolveOrganizationNames(input: {
  * re-runs the lookup and fills the name in shortly after it lands; once every
  * foreign org is named and the set is stable the lookup idles (see
  * `shouldResolveOrganizationNames`).
+ *
+ * `listLocalOrganizations` is injected (rather than read from `useTearleads`
+ * inside the hook) so the async resolution can be unit-tested with a fake
+ * loader — the sole caller passes a `useTearleads`-bound, memoized callback.
  */
 export function useExplorerOrganizationNames(params: {
+  listLocalOrganizations: () => Promise<
+    ReadonlyArray<LocalOrganizationSummary>
+  >;
   nodes: ReadonlyArray<ContainerNode>;
   primaryOrganizationId: string | null;
   ready: boolean;
 }): ReadonlyMap<string, string> {
-  const { nodes, primaryOrganizationId, ready } = params;
-  const tearleads = useTearleads();
+  const { listLocalOrganizations, nodes, primaryOrganizationId, ready } =
+    params;
   const [organizationNamesById, setOrganizationNamesById] = useState<
     ReadonlyMap<string, string>
   >(EMPTY_ORGANIZATION_NAMES);
@@ -153,8 +159,7 @@ export function useExplorerOrganizationNames(params: {
     lastResolvedForeignIdsRef.current = foreignOrganizationIds;
 
     let cancelled = false;
-    void tearleads.organizations
-      .listLocalOrganizations()
+    void listLocalOrganizations()
       .then((summaries) => {
         if (cancelled) {
           return;
@@ -176,7 +181,7 @@ export function useExplorerOrganizationNames(params: {
     return () => {
       cancelled = true;
     };
-  }, [nodes, primaryOrganizationId, ready, tearleads]);
+  }, [listLocalOrganizations, nodes, primaryOrganizationId, ready]);
 
   return organizationNamesById;
 }
