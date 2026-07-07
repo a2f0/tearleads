@@ -54,15 +54,24 @@ function isForeignSystemContainerNode(
   );
 }
 
-export function buildReconciliationContainerRouting(input: {
-  containers: ReadonlyArray<ContainerNode>;
-  homeOrganizationId: string | null;
-}): {
+type ReconciliationContainerRouting = {
   forceKnownDocumentContainerIds: ReadonlySet<string>;
   knownContainerIds: ReadonlyArray<string>;
-} {
-  const forceKnownDocumentContainerIds = new Set<string>();
-  const knownContainerIds: string[] = [];
+};
+
+type ReconciliationContainerRoutingEntry = readonly [
+  containerId: string,
+  forceKnownDocumentContainer: boolean,
+];
+
+const ROUTING_FORCE_PREFIX = "1:";
+const ROUTING_NORMAL_PREFIX = "0:";
+
+function collectReconciliationContainerRoutingEntries(input: {
+  containers: ReadonlyArray<ContainerNode>;
+  homeOrganizationId: string | null;
+}): ReconciliationContainerRoutingEntry[] {
+  const entries: ReconciliationContainerRoutingEntry[] = [];
 
   for (const node of input.containers) {
     const isForeignSystemContainer = isForeignSystemContainerNode(
@@ -73,13 +82,68 @@ export function buildReconciliationContainerRouting(input: {
       continue;
     }
 
-    knownContainerIds.push(node.id);
-    if (isForeignSystemContainer) {
-      forceKnownDocumentContainerIds.add(node.id);
+    entries.push([node.id, isForeignSystemContainer]);
+  }
+
+  return entries;
+}
+
+export function buildReconciliationContainerRoutingKey(input: {
+  containers: ReadonlyArray<ContainerNode>;
+  homeOrganizationId: string | null;
+}): string {
+  return collectReconciliationContainerRoutingEntries(input)
+    .map(
+      ([containerId, forceKnownDocumentContainer]) =>
+        `${forceKnownDocumentContainer ? ROUTING_FORCE_PREFIX : ROUTING_NORMAL_PREFIX}${containerId}`,
+    )
+    .join("\n");
+}
+
+function buildReconciliationContainerRoutingFromEntries(
+  entries: ReadonlyArray<ReconciliationContainerRoutingEntry>,
+): ReconciliationContainerRouting {
+  const forceKnownDocumentContainerIds = new Set<string>();
+  const knownContainerIds: string[] = [];
+
+  for (const [containerId, forceKnownDocumentContainer] of entries) {
+    knownContainerIds.push(containerId);
+    if (forceKnownDocumentContainer) {
+      forceKnownDocumentContainerIds.add(containerId);
     }
   }
 
   return { forceKnownDocumentContainerIds, knownContainerIds };
+}
+
+export function buildReconciliationContainerRouting(input: {
+  containers: ReadonlyArray<ContainerNode>;
+  homeOrganizationId: string | null;
+}): ReconciliationContainerRouting {
+  return buildReconciliationContainerRoutingFromEntries(
+    collectReconciliationContainerRoutingEntries(input),
+  );
+}
+
+function buildReconciliationContainerRoutingFromKey(
+  key: string,
+): ReconciliationContainerRouting {
+  if (key === "") {
+    return {
+      forceKnownDocumentContainerIds: new Set(),
+      knownContainerIds: [],
+    };
+  }
+
+  const entries: ReconciliationContainerRoutingEntry[] = key
+    .split("\n")
+    .map(
+      (entry): ReconciliationContainerRoutingEntry => [
+        entry.slice(ROUTING_FORCE_PREFIX.length),
+        entry.startsWith(ROUTING_FORCE_PREFIX),
+      ],
+    );
+  return buildReconciliationContainerRoutingFromEntries(entries);
 }
 
 /**
@@ -222,13 +286,16 @@ export function useContainerContentsDeviceFirst(input: {
     [domainScope, tearleads],
   );
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
+  // Stabilise routing by content: container snapshots can churn for sync-state
+  // changes, but event routing only needs to re-run when the routed ids or their
+  // forced-content flag change.
+  const reconciliationRoutingKey = buildReconciliationContainerRoutingKey({
+    containers: viewSnapshot.containers,
+    homeOrganizationId: runtime.auth.organizationId,
+  });
   const reconciliationRouting = useMemo(
-    () =>
-      buildReconciliationContainerRouting({
-        containers: viewSnapshot.containers,
-        homeOrganizationId: runtime.auth.organizationId,
-      }),
-    [runtime.auth.organizationId, viewSnapshot.containers],
+    () => buildReconciliationContainerRoutingFromKey(reconciliationRoutingKey),
+    [reconciliationRoutingKey],
   );
 
   // Drive runtime updates from an effect — never during render — so the view's

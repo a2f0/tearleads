@@ -3,6 +3,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   buildReconciliationContainerRouting,
+  buildReconciliationContainerRoutingKey,
   takePendingReconciliationEvents,
 } from "./useContainerContentsDeviceFirst";
 
@@ -22,6 +23,7 @@ function summary(input: {
 function containerNode(input: {
   access?: ContainerNode["effectiveAccessLevel"];
   id: string;
+  name?: string;
   organizationId: string;
   systemSlot?: string | null;
 }): ContainerNode {
@@ -29,7 +31,7 @@ function containerNode(input: {
     effectiveAccessLevel: input.access,
     id: input.id,
     kind: "container",
-    name: input.id,
+    name: input.name ?? input.id,
     organizationId: input.organizationId,
     parentId: null,
     syncState: syncedContainerDocumentObjectSyncState,
@@ -240,4 +242,33 @@ test("reconciliation routing includes user containers and foreign system contain
   expect([...routing.forceKnownDocumentContainerIds]).toEqual([
     "foreign-metadata",
   ]);
+});
+
+test("reconciliation routing key ignores non-routing container churn", () => {
+  const first = buildReconciliationContainerRoutingKey({
+    containers: [
+      containerNode({
+        access: "read",
+        id: "foreign-metadata",
+        name: "Before",
+        organizationId: "org-foreign",
+        systemSlot: "sys_v1_foreign_metadata",
+      }),
+    ],
+    homeOrganizationId: "org-home",
+  });
+  const second = buildReconciliationContainerRoutingKey({
+    containers: [
+      containerNode({
+        access: "read",
+        id: "foreign-metadata",
+        name: "After",
+        organizationId: "org-foreign",
+        systemSlot: "sys_v1_foreign_metadata",
+      }),
+    ],
+    homeOrganizationId: "org-home",
+  });
+
+  expect(second).toBe(first);
 });
