@@ -457,11 +457,13 @@ const sqlStoredDocumentsPersistence: DocumentsPersistence = {
     // `organization_profile` document by the container it is linked to, which is
     // how a *foreign* org's display name is found on a member who synced the doc
     // under its server documentId rather than the provisioner-only local alias.
+    // `documentProjection` is written and deleted in lockstep with the
+    // `documents` rows (all DOCUMENTS_APP_KIND), so filtering by containerId
+    // alone is sufficient — no join to `documents` is needed to select localId.
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
       .select({ localId: documentProjection.localId })
       .from(documentProjection)
-      .innerJoin(documents, documentSummaryJoin)
       .where(eq(documentProjection.containerId, containerId))
       .orderBy(
         desc(documentProjection.updatedAt),
