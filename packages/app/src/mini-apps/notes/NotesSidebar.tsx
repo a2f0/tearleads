@@ -4,6 +4,7 @@ import {
   getUntitledDocumentTitle,
 } from "@tearleads/client-sdk";
 import { type MouseEvent, useMemo } from "react";
+import { classNames } from "../../components/shared/classNames";
 import {
   MiniAppSidebar,
   MiniAppStatus,
@@ -13,6 +14,7 @@ import {
   MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
+import { MiniAppRowActionsButton } from "../../components/shared/MiniAppTable";
 import {
   MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
   MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
@@ -46,6 +48,9 @@ interface NotesListProps extends NotesSidebarProps {
   // sidebar leaves them off).
   divided?: boolean | undefined;
   rowHeight?: number | undefined;
+  // Render a trailing kebab that opens the row's context menu (the mobile list
+  // home; the sidebar relies on right-click / long-press).
+  showActions?: boolean | undefined;
   showMetadata?: boolean | undefined;
 }
 
@@ -76,6 +81,7 @@ function NotesList({
   rowHeight = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   selectNote,
   selectedNoteId,
+  showActions = false,
   showMetadata = false,
 }: NotesListProps) {
   const virtualNotes = useMiniAppVirtualRows({
@@ -104,28 +110,46 @@ function NotesList({
             className={divided ? "mini-app-virtual-list--divided" : undefined}
             topPadding={virtualNotes.topPadding}
           >
-            {virtualNotes.rows.map((note) => (
-              <MiniAppVirtualListRow key={note.id}>
-                <MiniAppRowButton
-                  onClick={() => selectNote(note.id)}
-                  onContextMenu={(event) =>
-                    handleNoteContextMenu(event, note.id)
-                  }
-                  selected={selectedNoteId === note.id}
-                >
-                  {showMetadata ? (
-                    <MiniAppRowStack>
-                      <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
-                      <MiniAppRowText muted>
-                        {getNoteModifiedLabel(note)}
-                      </MiniAppRowText>
-                    </MiniAppRowStack>
-                  ) : (
-                    <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
+            {virtualNotes.rows.map((note) => {
+              const title = getNoteTitle(note);
+              return (
+                <MiniAppVirtualListRow
+                  className={classNames(
+                    showActions && "mini-app-virtual-list-row--actions",
                   )}
-                </MiniAppRowButton>
-              </MiniAppVirtualListRow>
-            ))}
+                  key={note.id}
+                >
+                  <MiniAppRowButton
+                    onClick={() => selectNote(note.id)}
+                    onContextMenu={(event) =>
+                      handleNoteContextMenu(event, note.id)
+                    }
+                    selected={selectedNoteId === note.id}
+                  >
+                    {showMetadata ? (
+                      <MiniAppRowStack>
+                        <MiniAppRowText>{title}</MiniAppRowText>
+                        <MiniAppRowText muted>
+                          {getNoteModifiedLabel(note)}
+                        </MiniAppRowText>
+                      </MiniAppRowStack>
+                    ) : (
+                      <MiniAppRowText>{title}</MiniAppRowText>
+                    )}
+                  </MiniAppRowButton>
+                  {showActions ? (
+                    <MiniAppRowActionsButton
+                      aria-label={`${NOTES_LABELS.rowActionsButtonPrefix} ${title}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleNoteContextMenu(event, note.id);
+                      }}
+                      title={`${NOTES_LABELS.rowActionsButtonPrefix} ${title}`}
+                    />
+                  ) : null}
+                </MiniAppVirtualListRow>
+              );
+            })}
           </MiniAppVirtualList>
         </MiniAppVirtualListFrame>
       )}
@@ -154,6 +178,7 @@ export function NotesListHome(props: NotesSidebarProps) {
         bleed
         divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
+        showActions
         showMetadata
       />
     </section>

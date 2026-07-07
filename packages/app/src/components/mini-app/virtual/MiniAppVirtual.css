@@ -51,6 +51,27 @@
   margin-inline: calc(-1 * var(--space-md));
 }
 
+/*
+ * A list row that carries a trailing overflow ("kebab") action beside its
+ * primary button — the row-list equivalent of the explorer table's actions
+ * column. The primary button flexes to fill the row (its own inline padding
+ * keeps text off the leading edge); the kebab sits at the trailing edge with a
+ * `--space-sm` inset so, once the list bleeds, it clears the screen edge and
+ * scrollbar gutter. The row's divider border still spans the full width (it
+ * sits outside the padding).
+ */
+.mini-app-virtual-list-row--actions {
+  display: flex;
+  align-items: center;
+  padding-inline-end: var(--space-sm);
+}
+
+.mini-app-virtual-list-row--actions > .mini-app-row--button {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
 .mini-app-virtual-block-spacer {
   flex: 0 0 auto;
 }
