@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "@tearleads/client-sdk";
-import { takePendingReconciliationEvents } from "./useContainerContentsDeviceFirst";
+import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import {
+  buildReconciliationContainerRouting,
+  buildReconciliationContainerRoutingKey,
+  takePendingReconciliationEvents,
+} from "./useContainerContentsDeviceFirst";
 
 function summary(input: {
   containerId: string;
@@ -12,6 +17,25 @@ function summary(input: {
     id: `${input.containerId}:${input.documentId ?? "missing"}`,
     title: "Document",
     updatedAt: "2026-06-16T00:00:00.000Z",
+  };
+}
+
+function containerNode(input: {
+  access?: ContainerNode["effectiveAccessLevel"];
+  id: string;
+  name?: string;
+  organizationId: string;
+  systemSlot?: string | null;
+}): ContainerNode {
+  return {
+    effectiveAccessLevel: input.access,
+    id: input.id,
+    kind: "container",
+    name: input.name ?? input.id,
+    organizationId: input.organizationId,
+    parentId: null,
+    syncState: syncedContainerDocumentObjectSyncState,
+    systemSlot: input.systemSlot ?? null,
   };
 }
 
@@ -110,6 +134,28 @@ test("reconciliation events skip documents already linked to the container", () 
   expect(processedEventKeys.size).toBe(0);
 });
 
+test("reconciliation events keep already-linked updates for forced containers", () => {
+  const processedEventKeys = new Set<string>();
+  const event = {
+    containerIds: ["foreign-system", "regular"],
+    documentId: "profile-doc",
+    id: "event-1",
+    type: "document_update_created",
+  };
+
+  expect(
+    takePendingReconciliationEvents({
+      events: [event],
+      forceKnownDocumentContainerIds: new Set(["foreign-system"]),
+      knownContainerIds: ["foreign-system", "regular"],
+      linkedContainerIdsByDocumentId: new Map([
+        ["profile-doc", ["foreign-system", "regular"]],
+      ]),
+      processedEventKeys,
+    }),
+  ).toEqual([{ ...event, containerIds: ["foreign-system"] }]);
+});
+
 test("reconciliation events still process a known document linked into a new container", () => {
   // doc-1 is known and linked to c-1, but the event links it into c-2 — that is
   // genuine new data for c-2 and must not be suppressed by the link check.
@@ -161,4 +207,68 @@ test("reconciliation events only inspect summaries for touched containers", () =
     }),
   ).toEqual([event]);
   expect(requestedContainerIds).toEqual(["c-1"]);
+});
+
+test("reconciliation routing includes user containers and foreign system containers", () => {
+  const routing = buildReconciliationContainerRouting({
+    containers: [
+      containerNode({
+        id: "regular",
+        organizationId: "org-home",
+      }),
+      containerNode({
+        access: "read",
+        id: "foreign-metadata",
+        organizationId: "org-foreign",
+        systemSlot: "sys_v1_foreign_metadata",
+      }),
+      containerNode({
+        access: "read",
+        id: "own-metadata",
+        organizationId: "org-home",
+        systemSlot: "sys_v1_own_metadata",
+      }),
+      containerNode({
+        access: "write",
+        id: "write-shared-system",
+        organizationId: "org-foreign",
+        systemSlot: "sys_v1_write_shared",
+      }),
+    ],
+    homeOrganizationId: "org-home",
+  });
+
+  expect(routing.knownContainerIds).toEqual(["regular", "foreign-metadata"]);
+  expect([...routing.forceKnownDocumentContainerIds]).toEqual([
+    "foreign-metadata",
+  ]);
+});
+
+test("reconciliation routing key ignores non-routing container churn", () => {
+  const first = buildReconciliationContainerRoutingKey({
+    containers: [
+      containerNode({
+        access: "read",
+        id: "foreign-metadata",
+        name: "Before",
+        organizationId: "org-foreign",
+        systemSlot: "sys_v1_foreign_metadata",
+      }),
+    ],
+    homeOrganizationId: "org-home",
+  });
+  const second = buildReconciliationContainerRoutingKey({
+    containers: [
+      containerNode({
+        access: "read",
+        id: "foreign-metadata",
+        name: "After",
+        organizationId: "org-foreign",
+        systemSlot: "sys_v1_foreign_metadata",
+      }),
+    ],
+    homeOrganizationId: "org-home",
+  });
+
+  expect(second).toBe(first);
 });
