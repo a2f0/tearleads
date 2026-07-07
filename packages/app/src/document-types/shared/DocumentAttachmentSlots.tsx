@@ -19,6 +19,61 @@ export interface DocumentAttachmentBlobPickerConfig {
   onRequestBlobPick: (slot: DocumentAttachmentSlot) => void;
 }
 
+function DocumentAttachmentSlotActions(params: {
+  blobPicker: DocumentAttachmentBlobPickerConfig | undefined;
+  canAttach: boolean;
+  onClearAttachment: (slotId: string) => void;
+  onUploadAttachment: () => void;
+  slot: DocumentAttachmentSlot;
+  storedAttachment: DocumentAttachment | null;
+}) {
+  const {
+    blobPicker,
+    canAttach,
+    onClearAttachment,
+    onUploadAttachment,
+    slot,
+    storedAttachment,
+  } = params;
+
+  if (!canAttach) {
+    return null;
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="structured-document-slot-button"
+        onClick={onUploadAttachment}
+      >
+        {storedAttachment ? "Replace Image" : "Upload Image"}
+      </button>
+      {blobPicker ? (
+        <button
+          className="structured-document-slot-button"
+          onClick={() => blobPicker.onRequestBlobPick(slot)}
+          type="button"
+        >
+          Choose Blob
+        </button>
+      ) : null}
+      {storedAttachment ? (
+        <button
+          aria-label={`Clear ${slot.label}`}
+          className="structured-document-slot-button"
+          onClick={() => onClearAttachment(slot.slotId)}
+          title={`Clear ${slot.label}`}
+          type="button"
+        >
+          <TrashIcon aria-hidden size={14} />
+          Clear Image
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 function DocumentAttachmentSlotCard(params: {
   blobPicker: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
@@ -92,37 +147,14 @@ function DocumentAttachmentSlotCard(params: {
         </span>
       </div>
       <div className="structured-document-slot-actions">
-        <button
-          type="button"
-          className="structured-document-slot-button"
-          disabled={!canAttach}
-          onClick={() => inputRef.current?.click()}
-        >
-          {storedAttachment ? "Replace Image" : "Upload Image"}
-        </button>
-        {blobPicker ? (
-          <button
-            className="structured-document-slot-button"
-            disabled={!canAttach}
-            onClick={() => blobPicker.onRequestBlobPick(slot)}
-            type="button"
-          >
-            Choose Blob
-          </button>
-        ) : null}
-        {storedAttachment ? (
-          <button
-            aria-label={`Clear ${slot.label}`}
-            className="structured-document-slot-button"
-            disabled={!canAttach}
-            onClick={() => onClearAttachment(slot.slotId)}
-            title={`Clear ${slot.label}`}
-            type="button"
-          >
-            <TrashIcon aria-hidden size={14} />
-            Clear Image
-          </button>
-        ) : null}
+        <DocumentAttachmentSlotActions
+          blobPicker={blobPicker}
+          canAttach={canAttach}
+          onClearAttachment={onClearAttachment}
+          onUploadAttachment={() => inputRef.current?.click()}
+          slot={slot}
+          storedAttachment={storedAttachment}
+        />
         {statusLabel ? (
           <span className="structured-document-slot-status">{statusLabel}</span>
         ) : null}
