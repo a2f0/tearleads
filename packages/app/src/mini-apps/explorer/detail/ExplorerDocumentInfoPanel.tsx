@@ -49,6 +49,11 @@ const DOCUMENT_INFO_TABS: ReadonlyArray<{
 ];
 
 interface Props {
+  activateLinkedContainer: (
+    documentId: string,
+    targetContainerId: string,
+  ) => Promise<DocumentSummary | null>;
+  canActivateLinkedContainer: boolean;
   canMutateDocumentLinks: boolean;
   containerId: string;
   documentTitle: string | undefined;
@@ -62,6 +67,7 @@ interface Props {
   openBlobBrowserRoute: OpenBlobBrowserRoute;
   isRoutedShell?: boolean | undefined;
   setSelectedId: (id: string | null) => void;
+  showLinkedDocumentActivationControls: boolean;
   unlinkDocument: (
     documentId: string,
     removedContainerId: string,
@@ -231,6 +237,12 @@ function ExplorerDocumentInfoTabs(params: {
 
 function ExplorerDocumentInfoTabPanel(params: {
   activeTab: DocumentInfoTabId;
+  activeContainerId: string | null;
+  activateLinkedContainer: (
+    documentId: string,
+    targetContainerId: string,
+  ) => Promise<DocumentSummary | null>;
+  canActivateLinkedContainer: boolean;
   canUnlinkLinkedContainer: boolean;
   containerName: string | null;
   containerNamesById: ReadonlyMap<string, string>;
@@ -243,6 +255,7 @@ function ExplorerDocumentInfoTabPanel(params: {
   nodes: ReadonlyArray<ContainerNode>;
   openBlobBrowserRoute: OpenBlobBrowserRoute;
   setSelectedId: (id: string | null) => void;
+  showLinkedDocumentActivationControls: boolean;
   unlinkDocument: (
     documentId: string,
     removedContainerId: string,
@@ -290,11 +303,15 @@ function ExplorerDocumentInfoTabPanel(params: {
             </MiniAppStatus>
           ) : null}
           <ExplorerLinkedContainerSection
+            activeContainerId={params.activeContainerId}
+            activateLinkedContainer={params.activateLinkedContainer}
+            canActivateSelectedDocument={params.canActivateLinkedContainer}
             canUnlinkSelectedDocument={params.canUnlinkLinkedContainer}
             linkedContainerIds={params.linkedContainerIds}
             nodes={params.nodes}
             selectedDocumentId={params.localId}
             setSelectedId={params.setSelectedId}
+            showActivationControls={params.showLinkedDocumentActivationControls}
             unlinkDocument={params.unlinkDocument}
           />
           {params.documentInfo ? (
@@ -360,6 +377,10 @@ function useExplorerDocumentInfoPanelState(params: Props) {
   });
   const hasRemoteDocument =
     !!documentSummary?.documentId || !!documentInfo?.local.documentId;
+  const activeContainerId =
+    documentSummary?.containerId ?? documentInfo?.local.containerId ?? null;
+  const canActivateDocumentLink =
+    params.canActivateLinkedContainer && hasRemoteDocument;
   const canUnlinkDocumentLink =
     params.canMutateDocumentLinks &&
     canWriteDocumentSummary(documentSummary) &&
@@ -372,6 +393,8 @@ function useExplorerDocumentInfoPanelState(params: Props) {
 
   return {
     activeTab,
+    activeContainerId,
+    canActivateDocumentLink,
     canUnlinkDocumentLink,
     containerName,
     containerNamesById,
@@ -423,6 +446,9 @@ export function ExplorerDocumentInfoPanel(params: Props) {
         ) : null}
         <ExplorerDocumentInfoTabPanel
           activeTab={model.activeTab}
+          activeContainerId={model.activeContainerId}
+          activateLinkedContainer={params.activateLinkedContainer}
+          canActivateLinkedContainer={model.canActivateDocumentLink}
           canUnlinkLinkedContainer={model.canUnlinkDocumentLink}
           containerName={model.containerName}
           containerNamesById={model.containerNamesById}
@@ -435,6 +461,9 @@ export function ExplorerDocumentInfoPanel(params: Props) {
           nodes={params.nodes}
           openBlobBrowserRoute={params.openBlobBrowserRoute}
           setSelectedId={params.setSelectedId}
+          showLinkedDocumentActivationControls={
+            params.showLinkedDocumentActivationControls
+          }
           unlinkDocument={params.unlinkDocument}
         />
       </div>

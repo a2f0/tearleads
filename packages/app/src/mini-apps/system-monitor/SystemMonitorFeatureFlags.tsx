@@ -6,7 +6,13 @@ import {
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 
 export function SystemMonitorFeatureFlags() {
-  const { passkeysEnabled, setPasskeysEnabled } = useAppFeatureFlags();
+  const {
+    linkedDocumentActivationControlsEnabled,
+    passkeysEnabled,
+    setLinkedDocumentActivationControlsEnabled,
+    setPasskeysEnabled,
+  } = useAppFeatureFlags();
+  const linkedDocumentActivationControlsToggleId = useId();
   const passkeysToggleId = useId();
 
   return (
@@ -30,6 +36,33 @@ export function SystemMonitorFeatureFlags() {
             type="checkbox"
             onChange={(event) => {
               setPasskeysEnabled(event.currentTarget.checked);
+            }}
+          />
+        </span>
+      </label>
+      <label
+        className="system-monitor-feature-flag"
+        htmlFor={linkedDocumentActivationControlsToggleId}
+      >
+        <span className="system-monitor-feature-flag-name">
+          Linked document activation controls
+        </span>
+        <span className="system-monitor-feature-flag-control">
+          <span className="system-monitor-feature-flag-state">
+            {linkedDocumentActivationControlsEnabled ? "Enabled" : "Disabled"}
+          </span>
+          <input
+            aria-checked={linkedDocumentActivationControlsEnabled}
+            aria-label="Enable linked document activation controls"
+            checked={linkedDocumentActivationControlsEnabled}
+            className="system-monitor-feature-flag-switch"
+            id={linkedDocumentActivationControlsToggleId}
+            role="switch"
+            type="checkbox"
+            onChange={(event) => {
+              setLinkedDocumentActivationControlsEnabled(
+                event.currentTarget.checked,
+              );
             }}
           />
         </span>

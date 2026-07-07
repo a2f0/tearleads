@@ -13,6 +13,7 @@ import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { downloadResolvedAttachment } from "../../document-types/shared/fileDownload";
 import { useAppNavigationState } from "../../navigation/AppNavigationProvider";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
+import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import {
   type RuntimeSnapshot,
@@ -108,13 +109,16 @@ function ExplorerDetailPanelWithBlobPick(params: {
     onRetryDatabase,
   } = params;
   const { cancelBlobPick, pickTarget, resolveBlobPick } = useExplorerBlobPick();
+  const { linkedDocumentActivationControlsEnabled } = useAppFeatureFlags();
 
   return (
     <ExplorerDetailPanel
+      activateLinkedContainer={model.activateLinkedContainer}
       blobPickTarget={pickTarget}
       blobStore={appData.infra.blobStore}
       databaseError={databaseError}
       onRetryDatabase={onRetryDatabase}
+      canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
       canLinkSelectedDocument={model.canLinkSelectedDocument}
       canMoveSelectedDocument={model.canMoveSelectedDocument}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
@@ -161,6 +165,9 @@ function ExplorerDetailPanelWithBlobPick(params: {
       selectedNode={model.selection.selectedNode}
       selectedDocument={model.selection.selectedDocument}
       setSelectedId={model.routeState.selectExplorerItem}
+      showLinkedDocumentActivationControls={
+        linkedDocumentActivationControlsEnabled
+      }
       shareWithGroup={model.explorer.shareWithGroup}
       shareWithUser={model.explorer.shareWithUser}
       unlinkDocument={model.unlinkDocument}

@@ -1,4 +1,6 @@
-type AppFeatureFlagId = "passkeys";
+export type AppFeatureFlagId =
+  | "linked-document-activation-controls"
+  | "passkeys";
 export type AppFeatureFlagMode = "disabled" | "enabled";
 
 export const DEFAULT_APP_FEATURE_FLAG_MODE: AppFeatureFlagMode = "disabled";

@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  type AppFeatureFlagId,
   type AppFeatureFlagMode,
   appFeatureFlagStorageKey,
   loadAppFeatureFlag,
@@ -14,14 +15,20 @@ import {
 } from "./appFeatureFlags";
 
 interface AppFeatureFlagsValue {
+  linkedDocumentActivationControlsEnabled: boolean;
   passkeysEnabled: boolean;
+  setLinkedDocumentActivationControlsEnabled: (enabled: boolean) => void;
   setPasskeysEnabled: (enabled: boolean) => void;
+  toggleLinkedDocumentActivationControls: () => void;
   togglePasskeys: () => void;
 }
 
 const DEFAULT_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
+  linkedDocumentActivationControlsEnabled: false,
   passkeysEnabled: false,
+  setLinkedDocumentActivationControlsEnabled: () => {},
   setPasskeysEnabled: () => {},
+  toggleLinkedDocumentActivationControls: () => {},
   togglePasskeys: () => {},
 };
 
@@ -31,28 +38,56 @@ function featureFlagModeFromEnabled(enabled: boolean): AppFeatureFlagMode {
   return enabled ? "enabled" : "disabled";
 }
 
-function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
-  const [passkeysMode, setPasskeysMode] = useState(() =>
-    loadAppFeatureFlag(appFeatureFlagStorageKey("passkeys")),
+function usePersistentAppFeatureFlag(flag: AppFeatureFlagId) {
+  const storageKey = appFeatureFlagStorageKey(flag);
+  const [mode, setMode] = useState(() => loadAppFeatureFlag(storageKey));
+  const setEnabled = useCallback(
+    (enabled: boolean) => {
+      const nextMode = featureFlagModeFromEnabled(enabled);
+      setMode(nextMode);
+      saveAppFeatureFlag(storageKey, nextMode);
+    },
+    [storageKey],
   );
-  const setPasskeysEnabled = useCallback((enabled: boolean) => {
-    const nextMode = featureFlagModeFromEnabled(enabled);
-    setPasskeysMode(nextMode);
-    saveAppFeatureFlag(appFeatureFlagStorageKey("passkeys"), nextMode);
-  }, []);
-  const togglePasskeys = useCallback(() => {
-    const nextMode = passkeysMode === "enabled" ? "disabled" : "enabled";
-    setPasskeysMode(nextMode);
-    saveAppFeatureFlag(appFeatureFlagStorageKey("passkeys"), nextMode);
-  }, [passkeysMode]);
+  const toggle = useCallback(() => {
+    const nextMode = mode === "enabled" ? "disabled" : "enabled";
+    setMode(nextMode);
+    saveAppFeatureFlag(storageKey, nextMode);
+  }, [mode, storageKey]);
+
+  return {
+    enabled: mode === "enabled",
+    setEnabled,
+    toggle,
+  };
+}
+
+function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
+  const passkeys = usePersistentAppFeatureFlag("passkeys");
+  const linkedDocumentActivationControls = usePersistentAppFeatureFlag(
+    "linked-document-activation-controls",
+  );
 
   return useMemo(
     () => ({
-      passkeysEnabled: passkeysMode === "enabled",
-      setPasskeysEnabled,
-      togglePasskeys,
+      linkedDocumentActivationControlsEnabled:
+        linkedDocumentActivationControls.enabled,
+      passkeysEnabled: passkeys.enabled,
+      setLinkedDocumentActivationControlsEnabled:
+        linkedDocumentActivationControls.setEnabled,
+      setPasskeysEnabled: passkeys.setEnabled,
+      toggleLinkedDocumentActivationControls:
+        linkedDocumentActivationControls.toggle,
+      togglePasskeys: passkeys.toggle,
     }),
-    [passkeysMode, setPasskeysEnabled, togglePasskeys],
+    [
+      linkedDocumentActivationControls.enabled,
+      linkedDocumentActivationControls.setEnabled,
+      linkedDocumentActivationControls.toggle,
+      passkeys.enabled,
+      passkeys.setEnabled,
+      passkeys.toggle,
+    ],
   );
 }
 

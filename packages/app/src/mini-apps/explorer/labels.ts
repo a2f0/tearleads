@@ -276,10 +276,22 @@ export function getExplorerDetachLinkedContainerError(
   return `Failed to detach ${containerName}.`;
 }
 
+export function getExplorerActivateLinkedContainerError(
+  containerName: string,
+): string {
+  return `Failed to make ${containerName} active.`;
+}
+
 export function getExplorerDetachLinkedContainerLabel(
   containerName: string,
 ): string {
   return `Detach linked container ${containerName}`;
+}
+
+export function getExplorerMakeLinkedContainerActiveLabel(
+  containerName: string,
+): string {
+  return `Make linked container ${containerName} active`;
 }
 
 export function getExplorerDocumentSubtitle(input: {
