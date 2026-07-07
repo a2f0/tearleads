@@ -48,6 +48,10 @@ Remote key package backup storage is also a client facade
 opaque API storage contract; browser/WebAuthn PRF wrapping and product restore
 UX belong in host/app code.
 
+Seed phrase generation/import lives on the `tearleads.identity` client facade.
+The phrase derives identity key pairs only; product backup/restore UX and any
+session/container recovery metadata stay in host/app code.
+
 Name SDK facades after the platform state they expose. Product names can stay
 in app providers and components that adapt those platform facades into a UI.
 For example, the SDK exports `workflows/organizations`, while the app can keep

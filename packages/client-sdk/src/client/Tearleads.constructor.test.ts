@@ -33,6 +33,7 @@ describe("Tearleads constructor", () => {
     });
     expect(sdk.identity.snapshot).toEqual({
       encapsulationKeyPair: null,
+      seedPhrase: null,
       signingFingerprint: null,
       signingKeyPair: null,
     });

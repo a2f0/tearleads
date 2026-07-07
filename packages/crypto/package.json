@@ -11,9 +11,11 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@noble/hashes": "2.0.1",
+    "@noble/post-quantum": "0.5.4",
+    "@scure/bip39": "2.2.0",
     "@tearleads/encoding": "workspace:*",
-    "@tearleads/validators": "workspace:*",
-    "@noble/post-quantum": "0.5.4"
+    "@tearleads/validators": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

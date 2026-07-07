@@ -15,13 +15,16 @@ export type IdentityBusyState =
 
 export interface IdentityActionToolbarProps {
   readonly backupKeyPackage: () => Promise<void>;
+  readonly backupSeedPhrase: () => Promise<void>;
   readonly canAuthenticate: boolean;
+  readonly canBackupSeedPhrase: boolean;
   readonly canExportKeyPackage: boolean;
   readonly canGenerateKey: boolean;
   readonly canPasskeyBackupKeyPackage: boolean;
   readonly canPasskeyRestoreKeyPackage: boolean;
   readonly canRegisterCurrentIdentity: boolean;
   readonly canRestoreKeyPackage: boolean;
+  readonly canRestoreSeedPhrase: boolean;
   readonly generateKey: () => void;
   readonly handleAuthenticate: () => Promise<void>;
   readonly handlePasskeyBackupKeyPackage: () => Promise<void>;
@@ -30,6 +33,7 @@ export interface IdentityActionToolbarProps {
   readonly handleLogoutCurrentSession: () => void;
   readonly handleRegisterIdentity: () => Promise<void>;
   readonly handleRestoreKeyPackageClick: () => void;
+  readonly handleRestoreSeedPhraseClick: () => void;
   readonly hasSigningKeyPair: boolean;
   readonly identityBusy: IdentityBusyState;
   readonly isAuthenticated: boolean;
@@ -53,13 +57,16 @@ function isPasskeyAuthenticatorAttachmentMode(
 // even though the shared props type still carries its handler.
 export function IdentityActionToolbar({
   backupKeyPackage,
+  backupSeedPhrase,
   canAuthenticate,
+  canBackupSeedPhrase,
   canExportKeyPackage,
   canGenerateKey,
   canPasskeyBackupKeyPackage,
   canPasskeyRestoreKeyPackage,
   canRegisterCurrentIdentity,
   canRestoreKeyPackage,
+  canRestoreSeedPhrase,
   generateKey,
   handleAuthenticate,
   handlePasskeyBackupKeyPackage,
@@ -67,6 +74,7 @@ export function IdentityActionToolbar({
   handleDestroyKeyPair,
   handleRegisterIdentity,
   handleRestoreKeyPackageClick,
+  handleRestoreSeedPhraseClick,
   hasSigningKeyPair,
   identityBusy,
   onPasskeyAuthenticatorAttachmentChange,
@@ -83,6 +91,14 @@ export function IdentityActionToolbar({
           onClick={() => void backupKeyPackage()}
         >
           Backup Key Package
+        </MiniAppButton>
+      )}
+      {canBackupSeedPhrase && (
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={() => void backupSeedPhrase()}
+        >
+          Backup Seed Phrase
         </MiniAppButton>
       )}
       {canPasskeyBackupKeyPackage && (
@@ -118,6 +134,14 @@ export function IdentityActionToolbar({
           onClick={handleRestoreKeyPackageClick}
         >
           Restore Key Package
+        </MiniAppButton>
+      )}
+      {canRestoreSeedPhrase && (
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          onClick={handleRestoreSeedPhraseClick}
+        >
+          Restore Seed Phrase
         </MiniAppButton>
       )}
       {canPasskeyRestoreKeyPackage && (

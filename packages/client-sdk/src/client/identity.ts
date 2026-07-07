@@ -1,7 +1,7 @@
 import {
+  createIdentitySeedPhrase,
   type EncapsulationKeyPair,
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
+  generateIdentityKeyPairsFromSeedPhrase,
   type SigningKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
@@ -13,12 +13,14 @@ import {
 
 export interface IdentityOptions {
   encapsulationKeyPair?: EncapsulationKeyPair | null | undefined;
+  seedPhrase?: string | null | undefined;
   signingFingerprint?: string | null | undefined;
   signingKeyPair?: SigningKeyPair | null | undefined;
 }
 
 export interface IdentitySnapshot {
   encapsulationKeyPair: EncapsulationKeyPair | null;
+  seedPhrase: string | null;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
 }
@@ -33,6 +35,7 @@ export type IdentityListener = () => void;
 
 export interface Identity {
   readonly encapsulationKeyPair: EncapsulationKeyPair | null;
+  readonly seedPhrase: string | null;
   readonly signingFingerprint: string | null;
   readonly signingKeyPair: SigningKeyPair | null;
   readonly snapshot: IdentitySnapshot;
@@ -40,10 +43,12 @@ export interface Identity {
   exportKeyPackage(): Promise<IdentityKeyPackage>;
   generate(): Promise<IdentityGenerationResult>;
   importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot>;
+  importSeedPhrase(seedPhrase: string): Promise<IdentitySnapshot>;
   requireSigningKeyPair(operation?: string): SigningKeyPair;
   refreshSigningFingerprint(): Promise<string | null>;
   setKeyPairs(options: {
     encapsulationKeyPair: EncapsulationKeyPair | null;
+    seedPhrase?: string | null | undefined;
     signingFingerprint?: string | null | undefined;
     signingKeyPair: SigningKeyPair | null;
   }): Promise<IdentitySnapshot>;
@@ -75,6 +80,7 @@ export function createIdentity(
 class IdentityService implements Identity {
   private encapsulationKeyPairValue: EncapsulationKeyPair | null;
   private readonly listeners = new Set<IdentityListener>();
+  private seedPhraseValue: string | null;
   private signingFingerprintValue: string | null;
   private signingKeyPairValue: SigningKeyPair | null;
   private snapshotValue: IdentitySnapshot;
@@ -88,6 +94,7 @@ class IdentityService implements Identity {
     private readonly runtimeHooks: IdentityRuntimeHooks,
   ) {
     this.encapsulationKeyPairValue = options.encapsulationKeyPair ?? null;
+    this.seedPhraseValue = options.seedPhrase ?? null;
     this.signingFingerprintValue = options.signingFingerprint ?? null;
     this.signingKeyPairValue = options.signingKeyPair ?? null;
     this.snapshotValue = this.createSnapshot();
@@ -96,6 +103,10 @@ class IdentityService implements Identity {
 
   get encapsulationKeyPair(): EncapsulationKeyPair | null {
     return this.encapsulationKeyPairValue;
+  }
+
+  get seedPhrase(): string | null {
+    return this.seedPhraseValue;
   }
 
   get signingFingerprint(): string | null {
@@ -112,6 +123,7 @@ class IdentityService implements Identity {
 
   destroy(): void {
     this.encapsulationKeyPairValue = null;
+    this.seedPhraseValue = null;
     this.signingFingerprintValue = null;
     this.signingKeyPairValue = null;
     this.publishSnapshot();
@@ -123,8 +135,9 @@ class IdentityService implements Identity {
   }
 
   async generate(): Promise<IdentityGenerationResult> {
-    const signingKeyPair = generateSigningSeedAndKeyPair();
-    const encapsulationKeyPair = generateKemSeedAndKeyPair();
+    const seedPhrase = createIdentitySeedPhrase();
+    const { encapsulationKeyPair, signingKeyPair } =
+      generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
     const signingFingerprint = await toFingerprint(
       signingKeyPair.signingPublicKey,
     );
@@ -132,6 +145,7 @@ class IdentityService implements Identity {
 
     this.signingKeyPairValue = signingKeyPair;
     this.encapsulationKeyPairValue = encapsulationKeyPair;
+    this.seedPhraseValue = seedPhrase;
     this.signingFingerprintValue = signingFingerprint;
     this.publishSnapshot();
     this.log("Key pair generated");
@@ -144,10 +158,24 @@ class IdentityService implements Identity {
   async importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot> {
     const parsed = await parseIdentityKeyPackage(keyPackage);
     this.encapsulationKeyPairValue = parsed.encapsulationKeyPair;
+    this.seedPhraseValue = parsed.package.seedPhrase ?? null;
     this.signingKeyPairValue = parsed.signingKeyPair;
     this.signingFingerprintValue = parsed.package.signingFingerprint;
     this.publishSnapshot();
     this.log("Key package imported");
+    return this.snapshot;
+  }
+
+  async importSeedPhrase(seedPhrase: string): Promise<IdentitySnapshot> {
+    const derived = generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
+    this.encapsulationKeyPairValue = derived.encapsulationKeyPair;
+    this.seedPhraseValue = derived.seedPhrase;
+    this.signingKeyPairValue = derived.signingKeyPair;
+    this.signingFingerprintValue = await toFingerprint(
+      derived.signingKeyPair.signingPublicKey,
+    );
+    this.publishSnapshot();
+    this.log("Seed phrase imported");
     return this.snapshot;
   }
 
@@ -175,10 +203,12 @@ class IdentityService implements Identity {
 
   async setKeyPairs(options: {
     encapsulationKeyPair: EncapsulationKeyPair | null;
+    seedPhrase?: string | null | undefined;
     signingFingerprint?: string | null | undefined;
     signingKeyPair: SigningKeyPair | null;
   }): Promise<IdentitySnapshot> {
     this.encapsulationKeyPairValue = options.encapsulationKeyPair;
+    this.seedPhraseValue = options.seedPhrase ?? null;
     this.signingKeyPairValue = options.signingKeyPair;
     this.signingFingerprintValue = options.signingFingerprint ?? null;
 
@@ -201,6 +231,7 @@ class IdentityService implements Identity {
   private createSnapshot(): IdentitySnapshot {
     return {
       encapsulationKeyPair: this.encapsulationKeyPairValue,
+      seedPhrase: this.seedPhraseValue,
       signingFingerprint: this.signingFingerprintValue,
       signingKeyPair: this.signingKeyPairValue,
     };
@@ -246,6 +277,7 @@ class IdentityService implements Identity {
     if (
       previousSnapshot.encapsulationKeyPair ===
         nextSnapshot.encapsulationKeyPair &&
+      previousSnapshot.seedPhrase === nextSnapshot.seedPhrase &&
       previousSnapshot.signingFingerprint === nextSnapshot.signingFingerprint &&
       previousSnapshot.signingKeyPair === nextSnapshot.signingKeyPair
     ) {

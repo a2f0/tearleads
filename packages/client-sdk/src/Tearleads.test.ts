@@ -32,6 +32,13 @@ const quietLogger: Required<Logger> = {
   logError: () => undefined,
 };
 
+const EMPTY_IDENTITY_SNAPSHOT = {
+  encapsulationKeyPair: null,
+  seedPhrase: null,
+  signingFingerprint: null,
+  signingKeyPair: null,
+} as const;
+
 function createNoopSqlClient(): ExecSqlClientLike {
   return {
     async exec() {
@@ -352,11 +359,7 @@ describe("Tearleads", () => {
 
     await expect(sdk.identity.generate()).rejects.toThrow("ready SQLite");
 
-    expect(sdk.identity.snapshot).toEqual({
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    });
+    expect(sdk.identity.snapshot).toEqual(EMPTY_IDENTITY_SNAPSHOT);
     expect(sdk.session.containerId).toBeNull();
     expect(sdk.blobs.store).toBe(ephemeralStore);
   });
@@ -422,11 +425,7 @@ describe("Tearleads", () => {
 
     await expect(sdk.identity.generate()).rejects.toThrow("locked database");
 
-    expect(sdk.identity.snapshot).toEqual({
-      encapsulationKeyPair: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    });
+    expect(sdk.identity.snapshot).toEqual(EMPTY_IDENTITY_SNAPSHOT);
     expect(sdk.session.containerId).toBeNull();
     expect(messages.join()).toContain("locked database");
   });
