@@ -109,11 +109,20 @@ const documentSummary = {
 } satisfies DocumentSummary;
 
 function renderDocumentInfoPanel(input: {
+  activateLinkedContainer?: (
+    documentId: string,
+    targetContainerId: string,
+  ) => Promise<DocumentSummary | null>;
+  canActivateLinkedContainer?: boolean | undefined;
   fallbackDocumentSummary: DocumentSummary | null;
   loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
+  showLinkedDocumentActivationControls?: boolean | undefined;
 }) {
   return render(
     createElement(ExplorerDocumentInfoPanel, {
+      activateLinkedContainer:
+        input.activateLinkedContainer ?? (async () => null),
+      canActivateLinkedContainer: input.canActivateLinkedContainer ?? true,
       canMutateDocumentLinks: true,
       containerId: "container-1",
       documentTitle: undefined,
@@ -129,6 +138,8 @@ function renderDocumentInfoPanel(input: {
       onBackToDocument: () => undefined,
       openBlobBrowserRoute: () => undefined,
       setSelectedId: () => undefined,
+      showLinkedDocumentActivationControls:
+        input.showLinkedDocumentActivationControls ?? false,
       unlinkDocument: async () => null,
     }),
   );
@@ -154,6 +165,35 @@ test("document info links tab renders linked containers", async () => {
     view.queryByRole("button", { name: /make linked container/i }),
   ).toBeNull();
   expect(view.getByText("Authorizing Containers")).toBeTruthy();
+});
+
+test("document info links tab restores activation controls when enabled", async () => {
+  const activatedContainers: Array<[string, string]> = [];
+  const view = renderDocumentInfoPanel({
+    activateLinkedContainer: async (documentId, targetContainerId) => {
+      activatedContainers.push([documentId, targetContainerId]);
+      return { ...documentSummary, containerId: targetContainerId };
+    },
+    fallbackDocumentSummary: documentSummary,
+    showLinkedDocumentActivationControls: true,
+  });
+
+  fireEvent.click(view.getByRole("tab", { name: "Links" }));
+
+  await waitFor(() => {
+    expect(view.getByText("Active")).toBeTruthy();
+  });
+  fireEvent.click(
+    view.getByRole("button", {
+      name: "Make linked container Archive active",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(activatedContainers).toEqual([
+      ["local-document-1", "archive-container"],
+    ]);
+  });
 });
 
 test("document info loads a summary for the routed document", async () => {

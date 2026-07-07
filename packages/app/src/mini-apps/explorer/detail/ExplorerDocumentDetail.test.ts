@@ -24,25 +24,28 @@ const nodes = [
 
 test("linked container details preserve order, names, and fallback labels", () => {
   expect(
-    getLinkedContainerDetails(nodes, [
-      "archive-container",
-      "missing-container",
+    getLinkedContainerDetails(
+      nodes,
+      ["archive-container", "missing-container", "root-container"],
       "root-container",
-    ]),
+    ),
   ).toEqual([
     {
       canWrite: true,
       id: "archive-container",
+      isActive: false,
       label: "Archive",
     },
     {
       canWrite: false,
       id: "missing-container",
+      isActive: false,
       label: "missing-container",
     },
     {
       canWrite: true,
       id: "root-container",
+      isActive: true,
       label: "Root",
     },
   ]);
@@ -63,11 +66,13 @@ test("linked container details preserve first matching node names", () => {
         },
       ],
       ["root-container"],
+      "root-container",
     ),
   ).toEqual([
     {
       canWrite: true,
       id: "root-container",
+      isActive: true,
       label: "Root",
     },
   ]);

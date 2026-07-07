@@ -96,7 +96,12 @@ function ExplorerNewStructuredDocumentRoutePanel(params: {
 }
 
 interface ExplorerDetailPanelProps {
+  activateLinkedContainer: (
+    documentId: string,
+    targetContainerId: string,
+  ) => Promise<DocumentSummary | null>;
   blobStore: BlobStore;
+  canActivateLinkedContainer: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canMutateDocumentLinks: boolean;
@@ -171,6 +176,7 @@ interface ExplorerDetailPanelProps {
   selectedDocument: DocumentSummary | undefined;
   selectedNode: ContainerNode | undefined;
   setSelectedId: (id: string | null) => void;
+  showLinkedDocumentActivationControls: boolean;
   shareWithGroup: (
     containerId: string,
     groupId: string,
@@ -287,6 +293,8 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
 
     return (
       <ExplorerDocumentInfoPanel
+        activateLinkedContainer={params.activateLinkedContainer}
+        canActivateLinkedContainer={params.canActivateLinkedContainer}
         canMutateDocumentLinks={params.canMutateDocumentLinks}
         containerId={route.containerId}
         documentTitle={fallbackDocumentSummary?.title}
@@ -302,6 +310,9 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         openBlobBrowserRoute={params.openBlobBrowserRoute}
         isRoutedShell={isRoutedShell}
         setSelectedId={params.setSelectedId}
+        showLinkedDocumentActivationControls={
+          params.showLinkedDocumentActivationControls
+        }
         unlinkDocument={params.unlinkDocument}
       />
     );

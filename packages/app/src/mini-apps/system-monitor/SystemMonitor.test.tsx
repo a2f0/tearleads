@@ -28,6 +28,8 @@ afterEach(async () => {
 const MODE_KEY = systemMonitorModeStorageKey("left");
 const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
 const PASSKEYS_FEATURE_FLAG_KEY = appFeatureFlagStorageKey("passkeys");
+const LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY =
+  appFeatureFlagStorageKey("linked-document-activation-controls");
 const ROUTED_DEVELOPER_MENU_ITEM_LABELS = [
   "Force Online",
   "Force Offline",
@@ -355,13 +357,18 @@ test("developer mode toggles from the routed monitor menu and gates pane command
   view.unmount();
 });
 
-test("feature flags tab is developer-only and toggles passkeys", async () => {
+test("feature flags tab is developer-only and toggles app flags", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
   fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
   await view.findByRole("tab", { name: "Logs" });
   expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
   expect(globalThis.localStorage.getItem(PASSKEYS_FEATURE_FLAG_KEY)).toBeNull();
+  expect(
+    globalThis.localStorage.getItem(
+      LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
+    ),
+  ).toBeNull();
 
   await clickWindowViewMenuItem(view, "Enable Developer Mode");
 
@@ -373,8 +380,12 @@ test("feature flags tab is developer-only and toggles passkeys", async () => {
   const passkeysToggle = view.getByRole("switch", {
     name: "Enable passkeys",
   }) as HTMLInputElement;
+  const linkedDocumentActivationControlsToggle = view.getByRole("switch", {
+    name: "Enable linked document activation controls",
+  }) as HTMLInputElement;
   expect(passkeysToggle.checked).toBe(false);
-  expect(view.getByText("Disabled")).toBeTruthy();
+  expect(linkedDocumentActivationControlsToggle.checked).toBe(false);
+  expect(view.getAllByText("Disabled")).toHaveLength(2);
 
   fireEvent.click(passkeysToggle);
 
@@ -384,6 +395,18 @@ test("feature flags tab is developer-only and toggles passkeys", async () => {
       "enabled",
     );
     expect(view.getByText("Enabled")).toBeTruthy();
+  });
+
+  fireEvent.click(linkedDocumentActivationControlsToggle);
+
+  await waitFor(() => {
+    expect(linkedDocumentActivationControlsToggle.checked).toBe(true);
+    expect(
+      globalThis.localStorage.getItem(
+        LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
+      ),
+    ).toBe("enabled");
+    expect(view.getAllByText("Enabled")).toHaveLength(2);
   });
 
   await clickWindowViewMenuItem(view, "Disable Developer Mode");
