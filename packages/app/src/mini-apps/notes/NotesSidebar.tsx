@@ -39,6 +39,9 @@ interface NotesSidebarProps {
 }
 
 interface NotesListProps extends NotesSidebarProps {
+  // Draw divider lines between entries (the mobile list home; the narrow
+  // sidebar leaves them off).
+  divided?: boolean | undefined;
   rowHeight?: number | undefined;
   showMetadata?: boolean | undefined;
 }
@@ -62,6 +65,7 @@ function isNotesSidebarAreaContextMenuTarget(
 }
 
 function NotesList({
+  divided = false,
   handleNoteContextMenu,
   notes,
   ready,
@@ -92,6 +96,7 @@ function NotesList({
         >
           <MiniAppVirtualList
             bottomPadding={virtualNotes.bottomPadding}
+            className={divided ? "mini-app-virtual-list--divided" : undefined}
             topPadding={virtualNotes.topPadding}
           >
             {virtualNotes.rows.map((note) => (
@@ -141,6 +146,7 @@ export function NotesListHome(props: NotesSidebarProps) {
     >
       <NotesList
         {...props}
+        divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
         showMetadata
       />

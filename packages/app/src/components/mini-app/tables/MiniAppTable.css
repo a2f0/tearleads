@@ -180,6 +180,11 @@
  * stays clear of the edge. Opt in with `mini-app-table-frame--bleed` (explorer
  * item list, identity-manager sessions, …).
  *
+ * The bottom border is dropped too: a bleeding list runs flush to whatever sits
+ * below it (e.g. the routed mobile bar, itself top-bordered), so keeping the
+ * frame's bottom rule would read as a doubled line. Between-row separators
+ * (cell `border-bottom`, cleared on the last row) carry the divisions instead.
+ *
  * The kebab is the trailing edge's concern: once the frame reaches the screen,
  * the default routed actions column (`--control-height` + a hair of padding) is
  * only wide enough to seat the 44px button flush, which would leave it hard
@@ -191,6 +196,7 @@
 .routed-pane--mobile .mini-app-table-frame--bleed {
   margin-inline: calc(-1 * var(--space-md));
   border-inline: 0;
+  border-block-end: 0;
   --mini-app-row-actions-column-width: calc(
     var(--control-height) +
     var(--space-xs) +

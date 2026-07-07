@@ -25,6 +25,9 @@ import type { ContactEntries } from "./types";
 interface ContactsListProps {
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
+  // Draw divider lines between entries (the mobile list home; the narrow
+  // sidebar leaves them off).
+  divided?: boolean | undefined;
   entries: ContactEntries;
   handleContextMenu: (
     event: MouseEvent<HTMLElement>,
@@ -64,6 +67,7 @@ function getContactMetadataLabel(entry: ContactEntries[number]): string {
 function ContactsList({
   currentSigningFingerprint,
   currentUserId,
+  divided = false,
   entries,
   handleContextMenu,
   ready,
@@ -110,6 +114,7 @@ function ContactsList({
     >
       <MiniAppVirtualList
         bottomPadding={virtualEntries.bottomPadding}
+        className={divided ? "mini-app-virtual-list--divided" : undefined}
         topPadding={virtualEntries.topPadding}
       >
         {virtualEntries.rows.map((entry) => (
@@ -184,6 +189,7 @@ export function ContactsListHome(
     >
       <ContactsList
         {...props}
+        divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
         showMetadata
       />
