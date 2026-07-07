@@ -122,6 +122,7 @@ interface ExplorerDetailPanelProps {
   importDroppedFiles: ImportExplorerDroppedFiles;
   initialEditingSelectedDocument: boolean;
   isRoutedShell?: boolean | undefined;
+  hasSelectedDocumentLinkTargets: boolean;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;
@@ -329,6 +330,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         canMoveSelectedDocument={params.canMoveSelectedDocument}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
+        hasLinkTargets={params.hasSelectedDocumentLinkTargets}
         nodes={params.nodes}
         online={params.online}
         openLinkDocumentModal={params.openLinkDocumentModal}

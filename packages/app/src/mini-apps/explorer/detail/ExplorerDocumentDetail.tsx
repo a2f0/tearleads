@@ -32,9 +32,10 @@ function getDocumentSummaryKind(
   return documentSummary.documentKind ?? DEFAULT_DOCUMENT_KIND;
 }
 
-function ExplorerDocumentDetailActions(params: {
+export function ExplorerDocumentDetailActions(params: {
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
+  hasLinkTargets: boolean;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openLinkDocumentModal: (documentId: string) => void;
   openMoveDocumentModal: (documentId: string) => void;
@@ -44,6 +45,7 @@ function ExplorerDocumentDetailActions(params: {
   const {
     canLinkSelectedDocument,
     canMoveSelectedDocument,
+    hasLinkTargets,
     openDocumentInfoRoute,
     openLinkDocumentModal,
     openMoveDocumentModal,
@@ -75,14 +77,16 @@ function ExplorerDocumentDetailActions(params: {
       >
         {EXPLORER_LABELS.documentInfoGetInfoAction}
       </MiniAppButton>
-      <MiniAppButton
-        disabled={!canLinkSelectedDocument}
-        onClick={() => {
-          openLinkDocumentModal(selectedDocument.id);
-        }}
-      >
-        {EXPLORER_LABELS.documentLinkAction}
-      </MiniAppButton>
+      {hasLinkTargets ? (
+        <MiniAppButton
+          disabled={!canLinkSelectedDocument}
+          onClick={() => {
+            openLinkDocumentModal(selectedDocument.id);
+          }}
+        >
+          {EXPLORER_LABELS.documentLinkAction}
+        </MiniAppButton>
+      ) : null}
       <MiniAppButton
         disabled={!canMoveSelectedDocument}
         onClick={() => {
@@ -156,6 +160,7 @@ export function ExplorerDocumentDetail(params: {
   canMoveSelectedDocument: boolean;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
+  hasLinkTargets: boolean;
   initialEditing: boolean;
   isRoutedShell?: boolean | undefined;
   nodes: ReadonlyArray<ContainerNode>;
@@ -220,6 +225,7 @@ export function ExplorerDocumentDetail(params: {
           <ExplorerDocumentDetailActions
             canLinkSelectedDocument={params.canLinkSelectedDocument}
             canMoveSelectedDocument={params.canMoveSelectedDocument}
+            hasLinkTargets={params.hasLinkTargets}
             openDocumentInfoRoute={params.openDocumentInfoRoute}
             openLinkDocumentModal={params.openLinkDocumentModal}
             openMoveDocumentModal={params.openMoveDocumentModal}

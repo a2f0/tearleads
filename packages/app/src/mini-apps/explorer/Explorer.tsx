@@ -134,6 +134,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       importDroppedFiles={model.importDroppedFiles}
       initialEditingSelectedDocument={model.selectedDocumentStartsInEditMode}
       isRoutedShell={isRoutedShell}
+      hasSelectedDocumentLinkTargets={model.hasSelectedDocumentLinkTargets}
       linkedContainerIdsByDocumentId={model.linkedContainerIdsByDocumentId}
       loadBlobInfo={model.loadBlobInfo}
       loadContainerInfo={model.loadContainerInfo}
