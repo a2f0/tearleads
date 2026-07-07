@@ -39,6 +39,9 @@ interface NotesSidebarProps {
 }
 
 interface NotesListProps extends NotesSidebarProps {
+  // Bleed the list to the screen edges on the mobile list home (the narrow
+  // sidebar stays inset).
+  bleed?: boolean | undefined;
   // Draw divider lines between entries (the mobile list home; the narrow
   // sidebar leaves them off).
   divided?: boolean | undefined;
@@ -65,6 +68,7 @@ function isNotesSidebarAreaContextMenuTarget(
 }
 
 function NotesList({
+  bleed = false,
   divided = false,
   handleNoteContextMenu,
   notes,
@@ -91,6 +95,7 @@ function NotesList({
         </MiniAppStatus>
       ) : (
         <MiniAppVirtualListFrame
+          className={bleed ? "mini-app-virtual-list-frame--bleed" : undefined}
           ref={virtualNotes.frameRef}
           rowHeight={rowHeight}
         >
@@ -146,6 +151,7 @@ export function NotesListHome(props: NotesSidebarProps) {
     >
       <NotesList
         {...props}
+        bleed
         divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
         showMetadata

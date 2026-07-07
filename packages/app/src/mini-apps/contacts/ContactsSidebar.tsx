@@ -23,6 +23,9 @@ import { CONTACTS_LABELS } from "./labels";
 import type { ContactEntries } from "./types";
 
 interface ContactsListProps {
+  // Bleed the list to the screen edges on the mobile list home (the narrow
+  // sidebar stays inset).
+  bleed?: boolean | undefined;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   // Draw divider lines between entries (the mobile list home; the narrow
@@ -65,6 +68,7 @@ function getContactMetadataLabel(entry: ContactEntries[number]): string {
 }
 
 function ContactsList({
+  bleed = false,
   currentSigningFingerprint,
   currentUserId,
   divided = false,
@@ -109,6 +113,7 @@ function ContactsList({
 
   return (
     <MiniAppVirtualListFrame
+      className={bleed ? "mini-app-virtual-list-frame--bleed" : undefined}
       ref={virtualEntries.frameRef}
       rowHeight={rowHeight}
     >
@@ -189,6 +194,7 @@ export function ContactsListHome(
     >
       <ContactsList
         {...props}
+        bleed
         divided
         rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
         showMetadata

@@ -40,6 +40,17 @@
   border-block-end: var(--border);
 }
 
+/*
+ * Mobile full-bleed (opt-in): break the scrollable list frame out of the
+ * mini-app root's `--space-md` inline padding so the rows — and their divider
+ * lines — reach the screen edges, matching the explorer item list. Row content
+ * keeps its own inline padding, so text (and any trailing kebab) stays clear of
+ * the edge. Horizontal only: vertical inset is left to the list-home wrapper.
+ */
+.routed-pane--mobile .mini-app-virtual-list-frame--bleed {
+  margin-inline: calc(-1 * var(--space-md));
+}
+
 .mini-app-virtual-block-spacer {
   flex: 0 0 auto;
 }
