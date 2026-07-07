@@ -4,12 +4,7 @@ import {
   type LocalKeyringScope,
   type Tearleads,
 } from "@tearleads/client-sdk";
-import {
-  generateKemSeedAndKeyPair,
-  generateSigningSeedAndKeyPair,
-  type SigningKeyPair,
-  toFingerprint,
-} from "@tearleads/crypto";
+import type { SigningKeyPair } from "@tearleads/crypto";
 import {
   type MutableRefObject,
   useCallback,
@@ -334,86 +329,6 @@ async function deletePersistedLocalIdentity(
 
   localPersistence.storage.removeItem(localPersistence.storageKey);
   await localPersistence.keyring.deleteSession(localPersistence.scope);
-}
-
-export function useGenerateKey(input: {
-  readonly ensureIdentityDatabaseReady: (
-    signingFingerprint: string,
-  ) => Promise<void>;
-  readonly generationIdRef: MutableRefObject<number>;
-  readonly generationInFlight: MutableRefObject<boolean>;
-  readonly persistLocalIdentity: (
-    shouldPersist?: () => boolean,
-  ) => Promise<void>;
-  readonly tearleads: Tearleads;
-}): () => Promise<boolean> {
-  const {
-    ensureIdentityDatabaseReady,
-    generationIdRef,
-    generationInFlight,
-    persistLocalIdentity,
-    tearleads,
-  } = input;
-
-  return useCallback(async () => {
-    if (generationInFlight.current) {
-      return false;
-    }
-
-    const generationId = generationIdRef.current + 1;
-    generationIdRef.current = generationId;
-    generationInFlight.current = true;
-
-    try {
-      const signingKeyPair = generateSigningSeedAndKeyPair();
-      const encapsulationKeyPair = generateKemSeedAndKeyPair();
-      const signingFingerprint = await toFingerprint(
-        signingKeyPair.signingPublicKey,
-      );
-      await ensureIdentityDatabaseReady(signingFingerprint);
-      if (generationIdRef.current !== generationId) {
-        return false;
-      }
-
-      await tearleads.identity.setKeyPairs({
-        encapsulationKeyPair,
-        signingKeyPair,
-      });
-      await tearleads.session.bootstrapLocalRootContainer();
-      if (generationIdRef.current !== generationId) {
-        return false;
-      }
-
-      generationInFlight.current = false;
-      void persistLocalIdentity(
-        () => generationIdRef.current === generationId,
-      ).catch((error: unknown) => {
-        tearleads.logError(
-          "Failed to persist local identity key package",
-          error,
-        );
-      });
-
-      return true;
-    } catch (error) {
-      if (generationIdRef.current !== generationId) {
-        return false;
-      }
-
-      generationInFlight.current = false;
-      if (tearleads.identity.signingKeyPair) {
-        tearleads.identity.destroy();
-      }
-      tearleads.logError("Failed to generate identity keys", error);
-      return false;
-    }
-  }, [
-    ensureIdentityDatabaseReady,
-    generationIdRef,
-    generationInFlight,
-    persistLocalIdentity,
-    tearleads,
-  ]);
 }
 
 export function useDestroyKey(input: {

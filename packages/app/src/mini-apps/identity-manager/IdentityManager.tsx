@@ -126,9 +126,11 @@ function IdentitySection({
 function getIdentitySectionActions(
   {
     backupKeyPackage,
+    backupSeedPhrase,
     canAuthenticate,
     canExportKeyPackage,
     handleRestoreKeyPackageClick,
+    handleRestoreSeedPhraseClick,
     identity,
     identityMutations,
     localKeyringLocked,
@@ -141,7 +143,9 @@ function getIdentitySectionActions(
 ): IdentityActionToolbarProps {
   return {
     backupKeyPackage,
+    backupSeedPhrase,
     canAuthenticate,
+    canBackupSeedPhrase: identity.seedPhrase !== null,
     canExportKeyPackage,
     canGenerateKey: !localKeyringLocked,
     canPasskeyBackupKeyPackage:
@@ -155,6 +159,7 @@ function getIdentitySectionActions(
       !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
     canRestoreKeyPackage: !localKeyringLocked,
+    canRestoreSeedPhrase: !localKeyringLocked,
     generateKey: identity.generateKey,
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
@@ -165,6 +170,7 @@ function getIdentitySectionActions(
       identityMutations.handlePasskeyRestoreKeyPackage,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
     handleRestoreKeyPackageClick,
+    handleRestoreSeedPhraseClick,
     hasSigningKeyPair: identity.signingKeyPair !== null,
     identityBusy: identityMutations.identityBusy,
     isAuthenticated: session.isAuthenticated,
@@ -227,12 +233,14 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
   const {
     canManageSessions,
     handleRestoreFileChange,
+    handleRestoreSeedPhraseFileChange,
     identityMutations,
     isDestroyKeyPackageDialogOpen,
     logoutBusy,
     logoutDialog,
     onConfirmLogout,
     restoreFileInputRef,
+    restoreSeedPhraseFileInputRef,
     sessionList,
     sessionMutations,
   } = model;
@@ -263,6 +271,14 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
         accept="application/json,.json"
         hidden
         onChange={handleRestoreFileChange}
+      />
+      <input
+        ref={restoreSeedPhraseFileInputRef}
+        aria-label="Identity Manager Restore Seed Phrase File"
+        type="file"
+        accept="text/plain,.txt"
+        hidden
+        onChange={handleRestoreSeedPhraseFileChange}
       />
       <main className="identity-manager-main">
         {canManageSessions && selectedSession ? (

@@ -2,6 +2,7 @@ import type { IdentityKeyPackage } from "@tearleads/client-sdk";
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import {
   createContext,
+  type MutableRefObject,
   type PropsWithChildren,
   useCallback,
   useContext,
@@ -13,14 +14,15 @@ import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { useGenerateKey } from "./localIdentityGeneration";
 import {
   useDestroyKey,
-  useGenerateKey,
   useLocalIdentityPersistence,
   useLocalIdentityRestore,
   usePersistLocalIdentity,
   useRestoreKeyPackage,
 } from "./localIdentityPersistence";
+import { useRestoreSeedPhrase } from "./localIdentitySeedPhraseRestore";
 
 export interface IdentityContextValue {
   encapsulationKeyPair: EncapsulationKeyPair | null;
@@ -43,41 +45,32 @@ export interface IdentityContextValue {
   localIdentityRestoreSettled: boolean;
   localIdentityRestoredFingerprint: string | null;
   restoreKeyPackage: (keyPackage: unknown) => Promise<void>;
+  restoreSeedPhrase: (seedPhrase: string) => Promise<void>;
+  seedPhrase: string | null;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
 }
 
 const IdentityContext = createContext<IdentityContextValue | null>(null);
 
-export function IdentityProvider({ children }: PropsWithChildren) {
-  const hostConfig = useAppHostConfig();
+function useIdentityProviderActions(input: {
+  readonly clearDatabase: () => void;
+  readonly ensureIdentityDatabaseReady: (
+    signingFingerprint: string,
+  ) => Promise<void>;
+  readonly generationIdRef: MutableRefObject<number>;
+  readonly generationInFlight: MutableRefObject<boolean>;
+  readonly localPersistence: ReturnType<typeof useLocalIdentityPersistence>;
+  readonly tearleads: ReturnType<typeof useTearleads>;
+}) {
   const {
-    clearWorker: clearDatabase,
-    ensureIdentityReady: ensureIdentityDatabaseReady,
-  } = useDatabase();
-  const tearleads = useTearleads();
-  const localKeyringLock = useLocalKeyringLock();
-  const generationInFlight = useRef(false);
-  const generationIdRef = useRef(0);
-  const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
-  const localPersistence = useLocalIdentityPersistence({
-    createLocalKeyring: localKeyringLock.createLocalKeyring,
-    namespace: localKeyringLock.isLocked
-      ? null
-      : (hostConfig.localIdentityNamespace ?? null),
-  });
-
-  const {
-    restoredFingerprint: localIdentityRestoredFingerprint,
-    restoreSettled: localIdentityRestoreSettled,
-  } = useLocalIdentityRestore({
+    clearDatabase,
+    ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     localPersistence,
-    signingKeyPair: snapshot.signingKeyPair,
     tearleads,
-  });
-
+  } = input;
   const persistLocalIdentity = usePersistLocalIdentity(
     localPersistence,
     tearleads,
@@ -107,29 +100,86 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     persistLocalIdentity,
     tearleads,
   });
+  const restoreSeedPhrase = useRestoreSeedPhrase({
+    ensureIdentityDatabaseReady,
+    generationIdRef,
+    generationInFlight,
+    persistLocalIdentity,
+    tearleads,
+  });
+
+  return {
+    destroyKey,
+    exportKeyPackage,
+    generateKey,
+    identityDestroyed,
+    restoreKeyPackage,
+    restoreSeedPhrase,
+  };
+}
+
+export function IdentityProvider({ children }: PropsWithChildren) {
+  const hostConfig = useAppHostConfig();
+  const {
+    clearWorker: clearDatabase,
+    ensureIdentityReady: ensureIdentityDatabaseReady,
+  } = useDatabase();
+  const tearleads = useTearleads();
+  const localKeyringLock = useLocalKeyringLock();
+  const generationInFlight = useRef(false);
+  const generationIdRef = useRef(0);
+  const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
+  const localPersistence = useLocalIdentityPersistence({
+    createLocalKeyring: localKeyringLock.createLocalKeyring,
+    namespace: localKeyringLock.isLocked
+      ? null
+      : (hostConfig.localIdentityNamespace ?? null),
+  });
+  const {
+    restoredFingerprint: localIdentityRestoredFingerprint,
+    restoreSettled: localIdentityRestoreSettled,
+  } = useLocalIdentityRestore({
+    generationIdRef,
+    generationInFlight,
+    localPersistence,
+    signingKeyPair: snapshot.signingKeyPair,
+    tearleads,
+  });
+  const identityActions = useIdentityProviderActions({
+    clearDatabase,
+    ensureIdentityDatabaseReady,
+    generationIdRef,
+    generationInFlight,
+    localPersistence,
+    tearleads,
+  });
 
   const value = useMemo(
     () => ({
       encapsulationKeyPair: snapshot.encapsulationKeyPair,
-      destroyKey,
-      exportKeyPackage,
-      generateKey,
-      identityDestroyed,
+      destroyKey: identityActions.destroyKey,
+      exportKeyPackage: identityActions.exportKeyPackage,
+      generateKey: identityActions.generateKey,
+      identityDestroyed: identityActions.identityDestroyed,
       localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
-      restoreKeyPackage,
+      restoreKeyPackage: identityActions.restoreKeyPackage,
+      restoreSeedPhrase: identityActions.restoreSeedPhrase,
+      seedPhrase: snapshot.seedPhrase,
       signingFingerprint: snapshot.signingFingerprint,
       signingKeyPair: snapshot.signingKeyPair,
     }),
     [
-      destroyKey,
-      exportKeyPackage,
-      generateKey,
-      identityDestroyed,
+      identityActions.destroyKey,
+      identityActions.exportKeyPackage,
+      identityActions.generateKey,
+      identityActions.identityDestroyed,
+      identityActions.restoreKeyPackage,
+      identityActions.restoreSeedPhrase,
       localIdentityRestoreSettled,
       localIdentityRestoredFingerprint,
-      restoreKeyPackage,
       snapshot.encapsulationKeyPair,
+      snapshot.seedPhrase,
       snapshot.signingFingerprint,
       snapshot.signingKeyPair,
     ],

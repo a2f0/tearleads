@@ -2,6 +2,7 @@ import {
   decryptAsRecipient,
   type EncapsulationKeyPair,
   encryptForRecipients,
+  generateIdentityKeyPairsFromSeedPhrase,
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_DSA87_SECRET_KEY_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,
@@ -27,6 +28,7 @@ export interface IdentityKeyPackage {
     readonly secretKey: string;
   };
   readonly format: typeof IDENTITY_KEY_PACKAGE_FORMAT;
+  readonly seedPhrase?: string | undefined;
   readonly signingFingerprint: string;
   readonly signingKeyPair: {
     readonly signingPrivateKey: string;
@@ -54,6 +56,22 @@ function readStringProperty(
   return rawValue;
 }
 
+function readOptionalStringProperty(
+  value: object,
+  property: string,
+  label: string,
+): string | null {
+  const rawValue = Reflect.get(value, property);
+  if (rawValue === undefined || rawValue === null) {
+    return null;
+  }
+  if (typeof rawValue !== "string" || rawValue.length === 0) {
+    throw new Error(`Invalid identity key package: ${label} must be a string.`);
+  }
+
+  return rawValue;
+}
+
 function readBase64Bytes(input: {
   expectedLength: number;
   label: string;
@@ -76,6 +94,62 @@ function readBase64Bytes(input: {
   }
 
   return bytes;
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  let result = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    result |= (left[index] ?? 0) ^ (right[index] ?? 0);
+  }
+  return result === 0;
+}
+
+function readMatchingSeedPhrase(input: {
+  encapsulationKeyPair: EncapsulationKeyPair;
+  seedPhrase: string | null;
+  signingKeyPair: SigningKeyPair;
+}): string | undefined {
+  if (!input.seedPhrase) {
+    return undefined;
+  }
+
+  let derived: ReturnType<typeof generateIdentityKeyPairsFromSeedPhrase>;
+  try {
+    derived = generateIdentityKeyPairsFromSeedPhrase(input.seedPhrase);
+  } catch (error) {
+    throw new Error("Invalid identity key package: seed phrase is invalid.", {
+      cause: error,
+    });
+  }
+
+  if (
+    !bytesEqual(
+      derived.signingKeyPair.signingPrivateKey,
+      input.signingKeyPair.signingPrivateKey,
+    ) ||
+    !bytesEqual(
+      derived.signingKeyPair.signingPublicKey,
+      input.signingKeyPair.signingPublicKey,
+    ) ||
+    !bytesEqual(
+      derived.encapsulationKeyPair.secretKey,
+      input.encapsulationKeyPair.secretKey,
+    ) ||
+    !bytesEqual(
+      derived.encapsulationKeyPair.publicKey,
+      input.encapsulationKeyPair.publicKey,
+    )
+  ) {
+    throw new Error(
+      "Invalid identity key package: seed phrase does not match the key pairs.",
+    );
+  }
+
+  return derived.seedPhrase;
 }
 
 function readSigningKeyPair(value: unknown): SigningKeyPair {
@@ -183,6 +257,7 @@ async function assertEncapsulationKeyPairMatches(
 
 export async function createIdentityKeyPackage(input: {
   encapsulationKeyPair: EncapsulationKeyPair | null;
+  seedPhrase?: string | null | undefined;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
 }): Promise<IdentityKeyPackage> {
@@ -193,6 +268,11 @@ export async function createIdentityKeyPackage(input: {
   const signingFingerprint =
     input.signingFingerprint ??
     (await toFingerprint(input.signingKeyPair.signingPublicKey));
+  const seedPhrase = readMatchingSeedPhrase({
+    encapsulationKeyPair: input.encapsulationKeyPair,
+    seedPhrase: input.seedPhrase ?? null,
+    signingKeyPair: input.signingKeyPair,
+  });
 
   return {
     createdAt: new Date().toISOString(),
@@ -201,6 +281,7 @@ export async function createIdentityKeyPackage(input: {
       secretKey: bytesToBase64(input.encapsulationKeyPair.secretKey),
     },
     format: IDENTITY_KEY_PACKAGE_FORMAT,
+    ...(seedPhrase ? { seedPhrase } : {}),
     signingFingerprint,
     signingKeyPair: {
       signingPrivateKey: bytesToBase64(input.signingKeyPair.signingPrivateKey),
@@ -249,6 +330,11 @@ export async function parseIdentityKeyPackage(
     Reflect.get(value, "encapsulationKeyPair"),
   );
   await assertEncapsulationKeyPairMatches(encapsulationKeyPair);
+  const seedPhrase = readMatchingSeedPhrase({
+    encapsulationKeyPair,
+    seedPhrase: readOptionalStringProperty(value, "seedPhrase", "seed phrase"),
+    signingKeyPair,
+  });
 
   return {
     encapsulationKeyPair,
@@ -259,6 +345,7 @@ export async function parseIdentityKeyPackage(
         secretKey: bytesToBase64(encapsulationKeyPair.secretKey),
       },
       format,
+      ...(seedPhrase ? { seedPhrase } : {}),
       signingFingerprint,
       signingKeyPair: {
         signingPrivateKey: bytesToBase64(signingKeyPair.signingPrivateKey),

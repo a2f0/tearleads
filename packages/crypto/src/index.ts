@@ -30,6 +30,18 @@ export { unwrapDek } from "./encapsulation/unwrapDek";
 export { wrapDekForRecipients } from "./encapsulation/wrapDek";
 export { toFingerprint } from "./fingerprint";
 export { bytesToHex, hexToBytes } from "./hex";
+export {
+  createIdentitySeedPhrase,
+  createIdentitySeedPhraseFromEntropy,
+  generateIdentityKeyPairsFromSeedPhrase,
+  IDENTITY_SEED_PHRASE_DERIVATION_SUITE,
+  IDENTITY_SEED_PHRASE_ENTROPY_BYTES,
+  IDENTITY_SEED_PHRASE_STRENGTH_BITS,
+  IDENTITY_SEED_PHRASE_WORDS,
+  type IdentitySeedPhraseKeyPairs,
+  normalizeIdentitySeedPhrase,
+  validateIdentitySeedPhrase,
+} from "./identitySeedPhrase";
 export type {
   AccessEvent,
   AccessEventType,

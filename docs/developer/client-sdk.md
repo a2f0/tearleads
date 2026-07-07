@@ -88,7 +88,7 @@ Client capabilities:
 | Namespace | Owns |
 | --- | --- |
 | `tearleads.database` | SQLite client and `ExecSql` executor |
-| `tearleads.identity` | signing and encapsulation key pairs |
+| `tearleads.identity` | signing and encapsulation key pairs, seed phrase state |
 | `tearleads.blobs` | local blob byte storage |
 | `tearleads.session` | registration, auth token, and user/org/container context |
 | `tearleads.keyPackageBackups` | encrypted backups |
@@ -262,23 +262,12 @@ ready SQLite database, creates or reuses the local root container, and stores it
 on `tearleads.session.containerId` before resolving:
 
 ```ts
-const {
-  encapsulationKeyPair,
-  rootContainerCreated,
-  rootContainerId,
-  signingFingerprint,
-  signingKeyPair,
-  userId,
-} = await tearleads.identity.generate();
+const result = await tearleads.identity.generate();
 
-rootContainerId; // available after generate() resolves
-rootContainerCreated; // true when generate() created the local root
-userId; // null until registration or login establishes a user
-
-await tearleads.identity.setKeyPairs({
-  signingKeyPair,
-  encapsulationKeyPair,
-});
+result.rootContainerId;
+result.rootContainerCreated;
+result.seedPhrase;
+result.userId;
 ```
 
 If SQLite is not ready or local root bootstrap fails when `generate()` runs, the
@@ -288,6 +277,10 @@ synchronous, so constructor-provided identity key pairs are available through
 `tearleads.identity.snapshot`, but callers should use
 `refreshSigningFingerprint()` or `setKeyPairs(...)` when they need the derived
 fingerprint asynchronously.
+
+Generated identities are seed-backed: `generate()` creates a 24-word BIP39
+English phrase on the result/snapshot. `importSeedPhrase(...)` regenerates the
+key pairs; session/container recovery remains host-owned.
 
 Set `identityProvisioning: "auto"` to provision a single-identity SDK instance
 once SQLite is available. It schedules `identity.generate()` when the database

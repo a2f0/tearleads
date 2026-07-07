@@ -15,6 +15,10 @@ import {
   useRegisterCurrentIdentity,
 } from "../../identity/useRegisterCurrentIdentity";
 import {
+  useBackupSeedPhraseAction,
+  useRestoreSeedPhraseAction,
+} from "../../identity/useSeedPhraseActions";
+import {
   type CryptoSessionContextValue,
   useCryptoSession,
 } from "../../providers/crypto/CryptoSessionProvider";
@@ -365,6 +369,28 @@ function deriveIdentityManagerStatus(
   };
 }
 
+function useIdentityManagerBackupRestoreActions() {
+  const backupKeyPackage = useBackupKeyPackageAction();
+  const backupSeedPhrase = useBackupSeedPhraseAction();
+  const restoreKeyPackage = useRestoreKeyPackageAction();
+  const restoreSeedPhrase = useRestoreSeedPhraseAction();
+
+  return {
+    backupKeyPackage,
+    backupSeedPhrase,
+    handleRestoreFileChange: restoreKeyPackage.handleRestoreFileChange,
+    handleRestoreKeyPackageClick:
+      restoreKeyPackage.handleRestoreKeyPackageClick,
+    handleRestoreSeedPhraseClick:
+      restoreSeedPhrase.handleRestoreSeedPhraseClick,
+    handleRestoreSeedPhraseFileChange:
+      restoreSeedPhrase.handleRestoreSeedPhraseFileChange,
+    restoreFileInputRef: restoreKeyPackage.restoreFileInputRef,
+    restoreSeedPhraseFileInputRef:
+      restoreSeedPhrase.restoreSeedPhraseFileInputRef,
+  };
+}
+
 /**
  * Assemble every hook the Identity Manager view needs and return a flat props
  * object for the presentational layout. Kept out of the component file so the
@@ -378,8 +404,7 @@ export function useIdentityManager() {
   const { log, logError } = useLog();
   const registration: RegisterCurrentIdentityResult =
     useRegisterCurrentIdentity();
-  const backupKeyPackage = useBackupKeyPackageAction();
-  const restoreKeyPackage = useRestoreKeyPackageAction();
+  const backupRestoreActions = useIdentityManagerBackupRestoreActions();
   const passkeyBackup = usePasskeyKeyPackageBackupActions();
   const { purgeWorker } = useDatabase();
   const {
@@ -431,13 +456,10 @@ export function useIdentityManager() {
   });
 
   return {
-    backupKeyPackage,
+    ...backupRestoreActions,
     canAuthenticate,
     canExportKeyPackage,
     canManageSessions,
-    handleRestoreFileChange: restoreKeyPackage.handleRestoreFileChange,
-    handleRestoreKeyPackageClick:
-      restoreKeyPackage.handleRestoreKeyPackageClick,
     identity,
     identityMutations,
     identityState,
@@ -448,7 +470,6 @@ export function useIdentityManager() {
     logoutDialog,
     onConfirmLogout,
     registration,
-    restoreFileInputRef: restoreKeyPackage.restoreFileInputRef,
     session,
     sessionList,
     sessionMutations,
