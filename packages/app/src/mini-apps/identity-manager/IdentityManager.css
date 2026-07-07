@@ -81,8 +81,16 @@
   max-height: var(--mini-app-virtual-max-height);
 }
 
-.identity-manager-session-table .mini-app-table {
-  min-width: 34rem;
+/*
+ * The 34rem floor keeps the desktop *window* from crushing the session columns,
+ * but must not apply in the routed mobile/tablet shell — there the table reflows
+ * to the viewport (and bleeds to the edges) instead of forcing extra horizontal
+ * scroll. Scope it to the windowed layout, matching `.identity-manager` above.
+ */
+@media (min-width: 1024px) {
+  .identity-manager-session-table .mini-app-table {
+    min-width: 34rem;
+  }
 }
 
 .identity-manager-session-detail {

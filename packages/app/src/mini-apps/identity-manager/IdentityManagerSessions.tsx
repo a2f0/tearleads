@@ -11,7 +11,7 @@ import {
 } from "../../components/shared/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
-  MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+  MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
 import { useContextMenuState } from "../../components/shared/useContextMenuState";
@@ -40,7 +40,7 @@ export function SessionsSection({
 }) {
   const { columns, visibleColumnIds } = useSessionTableColumns();
   const virtualSessions = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+    rowHeight: MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
     rows: sessions,
   });
   const contextMenuState = useContextMenuState<string>();
@@ -71,10 +71,10 @@ export function SessionsSection({
           <MiniAppStatus>Login to manage sessions.</MiniAppStatus>
         ) : (
           <MiniAppTableFrame
-            className="identity-manager-session-table mini-app-table-frame--virtual"
+            className="identity-manager-session-table mini-app-table-frame--virtual mini-app-table-frame--compact mini-app-table-frame--bleed"
             ref={virtualSessions.frameRef}
             style={getMiniAppVirtualFrameStyle(
-              MINI_APP_VIRTUAL_TABLE_ROW_HEIGHT,
+              MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT,
             )}
           >
             <MiniAppTable columns={columns}>
