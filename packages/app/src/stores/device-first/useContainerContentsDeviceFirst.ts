@@ -1,5 +1,6 @@
 import type {
   ContainerContentsWorkflowRuntime,
+  ContainerNode,
   DocumentSummary,
   LocalProjectionView,
   ReconciliationService,
@@ -36,6 +37,51 @@ function reconciliationEventKey(event: unknown, index: number): string {
   return `event-index:${index}`;
 }
 
+function isForeignSystemContainerNode(
+  node: Pick<
+    ContainerNode,
+    "effectiveAccessLevel" | "organizationId" | "systemSlot"
+  >,
+  homeOrganizationId: string | null,
+): boolean {
+  return (
+    !!node.systemSlot &&
+    homeOrganizationId !== null &&
+    !!node.organizationId &&
+    node.organizationId !== homeOrganizationId &&
+    (node.effectiveAccessLevel === "read" ||
+      node.effectiveAccessLevel === "admin")
+  );
+}
+
+export function buildReconciliationContainerRouting(input: {
+  containers: ReadonlyArray<ContainerNode>;
+  homeOrganizationId: string | null;
+}): {
+  forceKnownDocumentContainerIds: ReadonlySet<string>;
+  knownContainerIds: ReadonlyArray<string>;
+} {
+  const forceKnownDocumentContainerIds = new Set<string>();
+  const knownContainerIds: string[] = [];
+
+  for (const node of input.containers) {
+    const isForeignSystemContainer = isForeignSystemContainerNode(
+      node,
+      input.homeOrganizationId,
+    );
+    if (node.systemSlot && !isForeignSystemContainer) {
+      continue;
+    }
+
+    knownContainerIds.push(node.id);
+    if (isForeignSystemContainer) {
+      forceKnownDocumentContainerIds.add(node.id);
+    }
+  }
+
+  return { forceKnownDocumentContainerIds, knownContainerIds };
+}
+
 /**
  * Dedupe a batch of server events down to the ones a mini-app has not yet
  * routed into the reconciler. Events are matched per known container, and
@@ -59,6 +105,7 @@ export function takePendingReconciliationEvents(input: {
     string,
     ReadonlyArray<DocumentSummary>
   >;
+  forceKnownDocumentContainerIds?: ReadonlySet<string> | undefined;
   knownContainerIds: ReadonlyArray<string>;
   linkedContainerIdsByDocumentId?: ReadonlyMap<string, ReadonlyArray<string>>;
   processedEventKeys: Set<string>;
@@ -108,20 +155,28 @@ export function takePendingReconciliationEvents(input: {
 
     const pendingContainerIds = Array.from(
       new Set(
-        event.containerIds.filter(
-          (containerId): containerId is string =>
-            typeof containerId === "string" &&
-            knownContainerIds.has(containerId) &&
-            !(
-              typeof event.documentId === "string" &&
-              // Already present in this container's summaries, or — covering the
-              // self-echo window where the summary's documentId still lags —
-              // already linked to this container in the reverse index.
-              (getDocumentIdSet(containerId).has(event.documentId) ||
-                isDocumentLinkedToContainer(event.documentId, containerId))
-            ) &&
-            !input.processedEventKeys.has(`${eventKey}:${containerId}`),
-        ),
+        event.containerIds.filter((containerId): containerId is string => {
+          if (
+            typeof containerId !== "string" ||
+            !knownContainerIds.has(containerId)
+          ) {
+            return false;
+          }
+          if (input.processedEventKeys.has(`${eventKey}:${containerId}`)) {
+            return false;
+          }
+          if (input.forceKnownDocumentContainerIds?.has(containerId) === true) {
+            return true;
+          }
+          return !(
+            typeof event.documentId === "string" &&
+            // Already present in this container's summaries, or — covering the
+            // self-echo window where the summary's documentId still lags —
+            // already linked to this container in the reverse index.
+            (getDocumentIdSet(containerId).has(event.documentId) ||
+              isDocumentLinkedToContainer(event.documentId, containerId))
+          );
+        }),
       ),
     );
     if (pendingContainerIds.length === 0) {
@@ -167,18 +222,13 @@ export function useContainerContentsDeviceFirst(input: {
     [domainScope, tearleads],
   );
   const viewSnapshot = useTearleadsExternalStoreSnapshot(view);
-  // Stabilise the id list by content: the view emits a fresh `containers` array
-  // on every tree change (including node syncState churn during sync), but the
-  // event-routing effect below only needs to re-run when the *set* of known
-  // container ids actually changes. System containers are excluded here; the
-  // background reconciler sweeps foreign ones (holding the org profile) on its
-  // own, so event routing does not need them.
-  const knownContainerIdsKey = viewSnapshot.containers
-    .flatMap((node) => (node.systemSlot ? [] : [node.id]))
-    .join("\n");
-  const knownContainerIds = useMemo(
-    () => (knownContainerIdsKey === "" ? [] : knownContainerIdsKey.split("\n")),
-    [knownContainerIdsKey],
+  const reconciliationRouting = useMemo(
+    () =>
+      buildReconciliationContainerRouting({
+        containers: viewSnapshot.containers,
+        homeOrganizationId: runtime.auth.organizationId,
+      }),
+    [runtime.auth.organizationId, viewSnapshot.containers],
   );
 
   // Drive runtime updates from an effect — never during render — so the view's
@@ -200,7 +250,9 @@ export function useContainerContentsDeviceFirst(input: {
       documentSummariesByContainerId:
         viewSnapshot.documentSummariesByContainerId,
       events,
-      knownContainerIds,
+      forceKnownDocumentContainerIds:
+        reconciliationRouting.forceKnownDocumentContainerIds,
+      knownContainerIds: reconciliationRouting.knownContainerIds,
       linkedContainerIdsByDocumentId:
         viewSnapshot.linkedContainerIdsByDocumentId,
       processedEventKeys: processedEventKeysRef.current,
@@ -211,10 +263,10 @@ export function useContainerContentsDeviceFirst(input: {
     enqueueReconciliationForEvents({
       domainScope,
       events: pendingEvents,
-      knownContainerIds,
+      knownContainerIds: reconciliationRouting.knownContainerIds,
       service: reconciler,
     });
-  }, [domainScope, events, knownContainerIds, reconciler, view]);
+  }, [domainScope, events, reconciler, reconciliationRouting, view]);
 
   return { reconciler, view };
 }
