@@ -8,6 +8,7 @@ import { Passport } from "./Passport";
 export function PassportDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -17,7 +18,11 @@ export function PassportDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind="passport"
     >
-      <Passport containerId={containerId ?? null} localId={localId} />
+      <Passport
+        containerId={containerId ?? null}
+        initialEditing={initialEditing}
+        localId={localId}
+      />
     </DocumentsProvider>
   );
 }

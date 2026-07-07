@@ -163,14 +163,14 @@ const PASSPORT_ATTACHMENT_SLOT_IDS = PASSPORT_ATTACHMENT_SLOTS.map(
   (slot) => slot.slotId,
 );
 
-export function Passport(params: {
+interface PassportProps {
   containerId: string | null;
+  initialEditing?: boolean | undefined;
   localId: string;
-}) {
+}
+
+export function Passport(params: PassportProps) {
   const { auth, infra, state } = useTearleadsRuntime();
-  const { isAuthenticated } = auth;
-  const { blobStore } = infra;
-  const { online } = state;
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -188,7 +188,10 @@ export function Passport(params: {
     () => readPassportFields(structuredFields),
     [structuredFields],
   );
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+    canWrite,
+    params.initialEditing,
+  );
   const inputIds = {
     expirationDate: useId(),
     fullName: useId(),
@@ -198,21 +201,20 @@ export function Passport(params: {
   const imageUrlBySlotId = useAttachmentImageUrls(
     attachments,
     attachmentStorageKeyBySlotId,
-    blobStore,
+    infra.blobStore,
   );
   const handleSelectedAttachment = useDocumentAttachmentSelection({
     errorMessage: "Failed to handle passport attachment selection",
     setAttachment,
   });
   const blobPicker = useBlobPickAttachment({
-    blobStore,
+    blobStore: infra.blobStore,
     containerId: params.containerId,
     errorMessage: "Failed to handle passport blob attachment selection",
     localId: params.localId,
     setAttachment,
     slotIds: PASSPORT_ATTACHMENT_SLOT_IDS,
   });
-
   return (
     <StructuredDocument
       attachmentCopy={PASSPORT_ATTACHMENT_COPY}
@@ -240,8 +242,8 @@ export function Passport(params: {
           setStructuredFields={setStructuredFields}
         />
       }
-      isAuthenticated={isAuthenticated}
-      online={online}
+      isAuthenticated={auth.isAuthenticated}
+      online={state.online}
       ready={ready}
       syncing={syncing}
       title="Passport"

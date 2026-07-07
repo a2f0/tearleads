@@ -335,7 +335,7 @@ export function EnvFileFields(params: {
   );
 }
 
-export function EnvFile() {
+export function EnvFile(params: { initialEditing?: boolean | undefined }) {
   const { auth, state } = useTearleadsRuntime();
   const { isAuthenticated } = auth;
   const { online } = state;
@@ -346,7 +346,10 @@ export function EnvFile() {
     [structuredFields],
   );
   const fileNameInputId = useId();
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+    canWrite,
+    params.initialEditing,
+  );
 
   return (
     <StructuredDocument

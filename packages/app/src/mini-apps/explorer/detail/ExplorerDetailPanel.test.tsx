@@ -73,6 +73,7 @@ function createBaseExplorerDetailPanelProps(
       importedDocuments: [],
       totalCount: 0,
     })) satisfies ImportExplorerDroppedFiles,
+    initialEditingSelectedDocument: false,
     linkedContainerIdsByDocumentId: new Map(),
     loadBlobInfo: async () => ({ rows: [], totalCount: 0 }),
     loadContainerInfo: async () => {
@@ -85,6 +86,7 @@ function createBaseExplorerDetailPanelProps(
     onBackToSyncLanesRoute: () => undefined,
     onCancelBlobPick: () => undefined,
     onContainerContextMenu: () => undefined,
+    onInitialEditingSelectedDocumentConsumed: () => undefined,
     onItemContextMenu: () => undefined,
     onOpenGrant: () => undefined,
     onOpenSyncLaneDetailRoute: () => undefined,

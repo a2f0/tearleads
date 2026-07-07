@@ -46,14 +46,41 @@ function getAttachmentCopy(params: {
     : attachmentCopy.localOnly;
 }
 
-export function useStructuredDocumentEditing(canWrite: boolean) {
-  const [isEditing, setIsEditing] = useState(false);
+export function useStructuredDocumentEditing(
+  canWrite: boolean,
+  initialEditing = false,
+) {
+  const [isEditing, setIsEditing] = useState(() => initialEditing && canWrite);
+  const [pendingInitialEditing, setPendingInitialEditing] = useState(
+    () => initialEditing && !canWrite,
+  );
+
+  useEffect(() => {
+    if (!initialEditing) {
+      return;
+    }
+
+    if (canWrite) {
+      setIsEditing(true);
+      setPendingInitialEditing(false);
+      return;
+    }
+
+    setIsEditing(false);
+    setPendingInitialEditing(true);
+  }, [canWrite, initialEditing]);
 
   useEffect(() => {
     if (!canWrite) {
       setIsEditing(false);
+      return;
     }
-  }, [canWrite]);
+
+    if (pendingInitialEditing) {
+      setIsEditing(true);
+      setPendingInitialEditing(false);
+    }
+  }, [canWrite, pendingInitialEditing]);
 
   return [isEditing, setIsEditing] as const;
 }

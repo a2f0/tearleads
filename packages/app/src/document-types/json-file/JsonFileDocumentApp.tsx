@@ -9,6 +9,7 @@ import { JSON_FILE_DOCUMENT_KIND } from "./jsonFileDocumentDefinition";
 export function JsonFileDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -18,7 +19,7 @@ export function JsonFileDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind={JSON_FILE_DOCUMENT_KIND}
     >
-      <JsonFileDocument />
+      <JsonFileDocument initialEditing={initialEditing} />
     </DocumentsProvider>
   );
 }

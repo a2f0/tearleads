@@ -8,6 +8,7 @@ import { ContactDocument } from "./ContactDocument";
 export function ContactDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -17,7 +18,7 @@ export function ContactDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind="contact"
     >
-      <ContactDocument />
+      <ContactDocument initialEditing={initialEditing} />
     </DocumentsProvider>
   );
 }

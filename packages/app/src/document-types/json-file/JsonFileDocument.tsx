@@ -230,7 +230,9 @@ export function JsonFileFields(params: {
   );
 }
 
-export function JsonFileDocument() {
+export function JsonFileDocument(params: {
+  initialEditing?: boolean | undefined;
+}) {
   const { auth, state } = useTearleadsRuntime();
   const { isAuthenticated } = auth;
   const { online } = state;
@@ -249,7 +251,10 @@ export function JsonFileDocument() {
   );
   const fileNameInputId = useId();
   const contentInputId = useId();
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+    canWrite,
+    params.initialEditing,
+  );
 
   return (
     <StructuredDocument

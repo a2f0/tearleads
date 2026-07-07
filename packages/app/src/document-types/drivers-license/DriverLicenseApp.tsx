@@ -8,6 +8,7 @@ import { DriverLicense } from "./DriverLicense";
 export function DriverLicenseDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -17,7 +18,11 @@ export function DriverLicenseDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind="drivers_license"
     >
-      <DriverLicense containerId={containerId ?? null} localId={localId} />
+      <DriverLicense
+        containerId={containerId ?? null}
+        initialEditing={initialEditing}
+        localId={localId}
+      />
     </DocumentsProvider>
   );
 }

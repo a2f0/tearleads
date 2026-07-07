@@ -9,6 +9,7 @@ import { PDF_DOCUMENT_KIND } from "./pdfDocumentDefinition";
 export function PdfDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -18,7 +19,11 @@ export function PdfDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind={PDF_DOCUMENT_KIND}
     >
-      <FileDocument title="PDF" extraFieldLabels={{ pageCount: "Pages" }} />
+      <FileDocument
+        initialEditing={initialEditing}
+        title="PDF"
+        extraFieldLabels={{ pageCount: "Pages" }}
+      />
     </DocumentsProvider>
   );
 }

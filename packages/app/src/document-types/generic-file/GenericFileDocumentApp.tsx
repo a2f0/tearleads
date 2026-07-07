@@ -9,6 +9,7 @@ import { GENERIC_FILE_DOCUMENT_KIND } from "./genericFileDocumentDefinition";
 export function GenericFileDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -18,7 +19,7 @@ export function GenericFileDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind={GENERIC_FILE_DOCUMENT_KIND}
     >
-      <FileDocument title="File" />
+      <FileDocument initialEditing={initialEditing} title="File" />
     </DocumentsProvider>
   );
 }

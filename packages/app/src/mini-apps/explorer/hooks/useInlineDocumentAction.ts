@@ -14,9 +14,14 @@ export type OpenInlineDocument = (
 export function useInlineDocumentAction(params: {
   expandNode: (nodeId: string) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
+  onCreateDocument?: (
+    localId: string,
+    documentKind: StoredDocumentKind,
+  ) => void;
   setSelectedId: (id: string | null) => void;
 }): OpenInlineDocument {
-  const { expandNode, mergeDocumentSummary, setSelectedId } = params;
+  const { expandNode, mergeDocumentSummary, onCreateDocument, setSelectedId } =
+    params;
 
   return useCallback(
     (
@@ -37,11 +42,12 @@ export function useInlineDocumentAction(params: {
           title: getUntitledDocumentTitle(documentKind),
           updatedAt: createdAt,
         });
+        onCreateDocument?.(nextLocalId, documentKind);
       }
 
       setSelectedId(nextLocalId);
       expandNode(containerId);
     },
-    [expandNode, mergeDocumentSummary, setSelectedId],
+    [expandNode, mergeDocumentSummary, onCreateDocument, setSelectedId],
   );
 }

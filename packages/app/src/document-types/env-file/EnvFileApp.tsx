@@ -9,6 +9,7 @@ import { ENV_FILE_DOCUMENT_KIND } from "./envFileDocumentDefinition";
 export function EnvFileDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -18,7 +19,7 @@ export function EnvFileDocumentApp({
       {...(documentId === undefined ? {} : { documentId })}
       initialDocumentKind={ENV_FILE_DOCUMENT_KIND}
     >
-      <EnvFile />
+      <EnvFile initialEditing={initialEditing} />
     </DocumentsProvider>
   );
 }

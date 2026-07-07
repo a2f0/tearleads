@@ -118,6 +118,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       documentSummaries={model.documentSummaries}
       domainScope={appData.state.domainScope}
       importDroppedFiles={model.importDroppedFiles}
+      initialEditingSelectedDocument={model.selectedDocumentStartsInEditMode}
       linkedContainerIdsByDocumentId={model.linkedContainerIdsByDocumentId}
       loadBlobInfo={model.loadBlobInfo}
       loadContainerInfo={model.loadContainerInfo}
@@ -134,6 +135,9 @@ function ExplorerDetailPanelWithBlobPick(params: {
       onOpenSyncLaneDetailRoute={model.routeState.openSyncLaneDetailRoute}
       onPickBlob={resolveBlobPick}
       openInlineDocument={model.openInlineDocument}
+      onInitialEditingSelectedDocumentConsumed={
+        model.consumeInitialDocumentEditing
+      }
       openBlobBrowserRoute={model.routeState.openBlobBrowserRoute}
       openDocumentInfoRoute={model.routeState.openDocumentInfoRoute}
       openLinkDocumentModal={model.modalState.openLinkDocumentModal}
