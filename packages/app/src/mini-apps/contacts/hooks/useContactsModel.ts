@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import { useMiniAppRouteSegments } from "../../../navigation/AppNavigationProvider";
+import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
@@ -21,6 +22,7 @@ import {
 import {
   type ContactsRoute,
   type ContactsRouteSnapshot,
+  createContactsSelectionRouteSnapshot,
   DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
   formatContactsRouteSegments,
   parseContactsRouteSegments,
@@ -33,6 +35,8 @@ interface ContactsModel {
   canWrite: boolean;
   contextMenuState: ContactsContextMenuModel;
   createDraftContact: () => Promise<void>;
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   draftFirstName: string;
   draftLastName: string;
   draftNickname: string;
@@ -44,16 +48,18 @@ interface ContactsModel {
   openNewContactRoute: () => void;
   ready: boolean;
   route: ContactsRoute;
+  selectContact: (contactId: string) => void;
   selectedContactId: string | null;
   setDraftFirstName: Dispatch<SetStateAction<string>>;
   setDraftLastName: Dispatch<SetStateAction<string>>;
   setDraftNickname: Dispatch<SetStateAction<string>>;
   setDraftUserId: Dispatch<SetStateAction<string>>;
+  showCompactListHome: boolean;
   showSelectionRoute: () => void;
   updateContact: ReturnType<typeof useContacts>["updateContact"];
 }
 
-function useContactsRouteState() {
+function useContactsRouteState(compactRoutedMode: boolean) {
   const { isRouted, pathSegments, setPathSegments } =
     useMiniAppRouteSegments("contacts");
   const [localRoute, setLocalRoute] = useState<ContactsRouteSnapshot>(
@@ -71,18 +77,19 @@ function useContactsRouteState() {
         setPathSegments(formatContactsRouteSegments(nextRoute), options);
         return;
       }
-
       setLocalRoute(nextRoute);
     },
     [isRouted, setPathSegments],
   );
   const showSelectionRoute = useCallback(
     () =>
-      setRouteSnapshot({
-        route: "selection",
-        selectedContactId: routeSnapshot.selectedContactId,
-      }),
-    [routeSnapshot.selectedContactId, setRouteSnapshot],
+      setRouteSnapshot(
+        createContactsSelectionRouteSnapshot(
+          compactRoutedMode,
+          routeSnapshot.selectedContactId,
+        ),
+      ),
+    [compactRoutedMode, routeSnapshot.selectedContactId, setRouteSnapshot],
   );
   const openNewContactRoute = useCallback(
     () => setRouteSnapshot({ route: "new-contact", selectedContactId: null }),
@@ -148,18 +155,26 @@ function useContactsSelectionState(
 }
 
 function useSelectInitialSelfContact(input: {
+  enabled: boolean;
   entries: ContactEntries;
   ready: boolean;
   route: ContactsRoute;
   selectedContactId: string | null;
   setSelectedContactId: (contactId: string) => void;
 }) {
-  const { entries, ready, route, selectedContactId, setSelectedContactId } =
-    input;
+  const {
+    enabled,
+    entries,
+    ready,
+    route,
+    selectedContactId,
+    setSelectedContactId,
+  } = input;
   const selectedInitialSelfRef = useRef(false);
 
   useEffect(() => {
     if (
+      !enabled ||
       !ready ||
       route !== "selection" ||
       selectedInitialSelfRef.current ||
@@ -172,10 +187,9 @@ function useSelectInitialSelfContact(input: {
     if (!selfEntry) {
       return;
     }
-
     selectedInitialSelfRef.current = true;
     setSelectedContactId(selfEntry.id);
-  }, [entries, ready, route, selectedContactId, setSelectedContactId]);
+  }, [enabled, entries, ready, route, selectedContactId, setSelectedContactId]);
 }
 
 function hasContactNameDraft(params: {
@@ -396,6 +410,7 @@ function useContactDrafts(input: {
 export function useContactsModel(
   setSidebar: (sidebar: ReactNode) => void,
 ): ContactsModel {
+  const compactRoutedMode = useCompactRoutedMode();
   const appData = useTearleadsRuntime();
   const {
     createContact,
@@ -408,7 +423,7 @@ export function useContactsModel(
   } = useContacts();
   const { isAuthenticated } = useCryptoSession();
   const { logError } = useLog();
-  const routeState = useContactsRouteState();
+  const routeState = useContactsRouteState(compactRoutedMode);
   const selectionState = useContactsSelectionState(routeState);
   const drafts = useContactDrafts({
     canWrite,
@@ -429,6 +444,7 @@ export function useContactsModel(
   });
 
   useSelectInitialSelfContact({
+    enabled: !compactRoutedMode,
     entries,
     ready,
     route: routeState.route,
@@ -464,13 +480,20 @@ export function useContactsModel(
     contextMenuState,
     ...drafts,
     canWrite,
+    currentSigningFingerprint: appData.crypto.signingFingerprint,
+    currentUserId: appData.auth.userId,
     entries,
     isAuthenticated,
     openImportContactRoute: routeState.openImportContactRoute,
     openNewContactRoute: routeState.openNewContactRoute,
     ready,
     route: routeState.route,
+    selectContact: selectionState.selectContact,
     selectedContactId: selectionState.selectedContactId,
+    showCompactListHome:
+      compactRoutedMode &&
+      routeState.route === "selection" &&
+      selectionState.selectedContactId === null,
     showSelectionRoute: routeState.showSelectionRoute,
     updateContact,
   };

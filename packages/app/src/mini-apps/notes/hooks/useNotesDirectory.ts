@@ -15,6 +15,7 @@ type SelectNoteRoute = (
 ) => void;
 
 interface NotesDirectoryInput {
+  autoSelectInitialNote: boolean;
   explicitSelection: ActiveNoteSelection | null;
   selectNoteRoute: SelectNoteRoute;
 }
@@ -51,13 +52,20 @@ function resolveSelectedNoteId(
 // Keeps the in-memory note selection valid as the database comes online and the
 // note list changes (e.g. a note is created or deleted out from under it).
 function useSyncSelectedNote(input: {
+  autoSelectInitialNote: boolean;
   explicitNoteId: string | null;
   notes: ReadonlyArray<DocumentSummary>;
   ready: boolean;
   selectNoteRoute: SelectNoteRoute;
 }) {
   const appData = useTearleadsRuntime();
-  const { explicitNoteId, notes, ready, selectNoteRoute } = input;
+  const {
+    autoSelectInitialNote,
+    explicitNoteId,
+    notes,
+    ready,
+    selectNoteRoute,
+  } = input;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
     explicitNoteId,
   );
@@ -65,10 +73,16 @@ function useSyncSelectedNote(input: {
   useEffect(() => {
     if (explicitNoteId) {
       setSelectedNoteId(explicitNoteId);
+    } else if (!autoSelectInitialNote) {
+      setSelectedNoteId(null);
     }
-  }, [explicitNoteId]);
+  }, [autoSelectInitialNote, explicitNoteId]);
 
   useEffect(() => {
+    if (!autoSelectInitialNote && !explicitNoteId) {
+      return;
+    }
+
     if (appData.infra.dbStatus !== "ready") {
       if (!explicitNoteId && selectedNoteId !== null) {
         setSelectedNoteId(null);
@@ -95,6 +109,7 @@ function useSyncSelectedNote(input: {
     }
   }, [
     appData.infra.dbStatus,
+    autoSelectInitialNote,
     explicitNoteId,
     notes,
     ready,
@@ -106,6 +121,7 @@ function useSyncSelectedNote(input: {
 }
 
 export function useNotesDirectory({
+  autoSelectInitialNote,
   explicitSelection,
   selectNoteRoute,
 }: NotesDirectoryInput) {
@@ -122,6 +138,7 @@ export function useNotesDirectory({
     sortSummaries: compareNoteSummaries,
   });
   const { selectedNoteId, setSelectedNoteId } = useSyncSelectedNote({
+    autoSelectInitialNote,
     explicitNoteId,
     notes,
     ready,

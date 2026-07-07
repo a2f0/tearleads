@@ -2,6 +2,16 @@
   padding: var(--space-sm);
 }
 
+.notes-list-home {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-md);
+}
+
 .notes-toolbar {
   padding: var(--space-sm) var(--space-md);
 }

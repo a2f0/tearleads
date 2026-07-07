@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
-import { useContactsSidebarPanel } from "./ContactsSidebar";
+import { ContactsListHome, useContactsSidebarPanel } from "./ContactsSidebar";
 
 afterEach(() => {
   cleanup();
@@ -203,6 +203,28 @@ test("contacts sidebar labels only the current self contact as You", async () =>
 
   expect(await view.findByRole("button", { name: "You" })).toBeTruthy();
   expect(await view.findByRole("button", { name: "owner" })).toBeTruthy();
+});
+
+test("contacts list home shows contact metadata and drills into contacts", async () => {
+  const selectedContactIds: string[] = [];
+  const view = render(
+    <ContactsListHome
+      currentSigningFingerprint={null}
+      currentUserId={null}
+      entries={entries}
+      handleAreaContextMenu={(event) => event.preventDefault()}
+      handleContextMenu={(event) => event.preventDefault()}
+      ready
+      selectedContactId={null}
+      setSelectedContactId={(contactId) => selectedContactIds.push(contactId)}
+    />,
+  );
+
+  expect(await view.findByText("Ada Lovelace")).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: /Countess/ }));
+
+  expect(selectedContactIds).toEqual(["ada"]);
 });
 
 test("contacts sidebar opens the area context menu from blank list space", async () => {

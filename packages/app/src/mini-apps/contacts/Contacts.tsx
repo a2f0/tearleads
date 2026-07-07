@@ -3,6 +3,8 @@ import { useWindowFileMenuItem } from "../../components/window/WindowMenuContext
 import { useWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
+import "./Contacts.css";
+import { ContactsListHome } from "./ContactsSidebar";
 import { ContactsDetailPanel } from "./detail/ContactsDetailPanel";
 import { useContactsModel } from "./hooks/useContactsModel";
 import { CONTACTS_LABELS } from "./labels";
@@ -35,30 +37,43 @@ function ContactsContent() {
 
   return (
     <MiniAppRoot className="contacts">
-      <ContactsDetailPanel
-        canCreate={model.canCreate}
-        canImport={model.canImport}
-        createDraftContact={model.createDraftContact}
-        draftFirstName={model.draftFirstName}
-        draftLastName={model.draftLastName}
-        draftNickname={model.draftNickname}
-        draftUserId={model.draftUserId}
-        entries={model.entries}
-        importDraftContact={model.importDraftContact}
-        isAuthenticated={model.isAuthenticated}
-        onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
-        onBackToSelectionRoute={model.showSelectionRoute}
-        ready={model.ready}
-        route={model.route}
-        selectedContactId={model.selectedContactId}
-        setDraftFirstName={model.setDraftFirstName}
-        setDraftLastName={model.setDraftLastName}
-        setDraftNickname={model.setDraftNickname}
-        setDraftUserId={model.setDraftUserId}
-        updateContact={(contactId, patch) => {
-          void model.updateContact(contactId, patch);
-        }}
-      />
+      {model.showCompactListHome ? (
+        <ContactsListHome
+          currentSigningFingerprint={model.currentSigningFingerprint}
+          currentUserId={model.currentUserId}
+          entries={model.entries}
+          handleAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
+          handleContextMenu={model.contextMenuState.handleSidebarContextMenu}
+          ready={model.ready}
+          selectedContactId={model.selectedContactId}
+          setSelectedContactId={model.selectContact}
+        />
+      ) : (
+        <ContactsDetailPanel
+          canCreate={model.canCreate}
+          canImport={model.canImport}
+          createDraftContact={model.createDraftContact}
+          draftFirstName={model.draftFirstName}
+          draftLastName={model.draftLastName}
+          draftNickname={model.draftNickname}
+          draftUserId={model.draftUserId}
+          entries={model.entries}
+          importDraftContact={model.importDraftContact}
+          isAuthenticated={model.isAuthenticated}
+          onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
+          onBackToSelectionRoute={model.showSelectionRoute}
+          ready={model.ready}
+          route={model.route}
+          selectedContactId={model.selectedContactId}
+          setDraftFirstName={model.setDraftFirstName}
+          setDraftLastName={model.setDraftLastName}
+          setDraftNickname={model.setDraftNickname}
+          setDraftUserId={model.setDraftUserId}
+          updateContact={(contactId, patch) => {
+            void model.updateContact(contactId, patch);
+          }}
+        />
+      )}
       <ContactsContextMenuLayer
         canRemoveContextMenuContact={
           model.contextMenuState.canRemoveContextMenuContact
