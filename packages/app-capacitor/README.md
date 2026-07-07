@@ -55,6 +55,8 @@ with `ANDROID_RELEASE_MERGED_DATE=YYYY-MM-DD`,
 `merged_date:YYYY-MM-DD` and `merged_pr_number:<number>`. Override the final
 build number with `ANDROID_BUILD_NUMBER=<number>` or
 `ANDROID_VERSION_CODE=<number>`.
+Build strictly one version code higher than Google Play with
+`ANDROID_RELEASE_NEXT_GOOGLE_PLAY=true` or `next_google_play:true`.
 
 ## Store Build Numbers
 

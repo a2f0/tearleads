@@ -176,6 +176,10 @@ def explicit_android_release_build_number(options)
   positive_android_integer(value, 'Android release build number')
 end
 
+def next_google_play_build_number_requested?(options)
+  lane_boolean_option(options, :next_google_play, 'ANDROID_RELEASE_NEXT_GOOGLE_PLAY', false)
+end
+
 def configured_android_release_pr_number(options)
   value = lane_option(options, :merged_pr_number, 'ANDROID_RELEASE_MERGED_PR_NUMBER')
   value ||= lane_option(options, :pr_number, 'ANDROID_RELEASE_PR_NUMBER')
@@ -343,9 +347,39 @@ def automatic_android_release_build_hash(options)
   android_release_build_hash(build_number, google_play_build_number, merged_pr_number)
 end
 
+def require_next_google_play_build_number_lookup!(options)
+  UI.user_error!('next_google_play requires Google Play version lookup.') if google_play_version_guard_skipped?(options)
+  UI.user_error!('next_google_play requires Google Play credentials.') unless google_play_configured?
+end
+
+def latest_google_play_build_number_for_next_release(options)
+  google_tracks = google_play_tracks(options)
+  _version_codes_by_track, google_play_build_number = latest_google_play_build_number(google_tracks)
+  log_google_play_build_number(google_play_build_number, google_tracks)
+
+  google_play_build_number
+end
+
+def next_google_play_android_release_build_hash(options)
+  require_next_google_play_build_number_lookup!(options)
+  google_play_build_number = latest_google_play_build_number_for_next_release(options)
+  build_number = (google_play_build_number || 0) + 1
+  UI.message("Using next Google Play build number: #{build_number}")
+  android_release_build_hash(build_number, google_play_build_number, nil)
+rescue StandardError => e
+  UI.user_error!("Failed to resolve next Google Play build number: #{e.message}")
+end
+
 def next_android_release_build_number(options)
   explicit_build_number = explicit_android_release_build_number(options)
+  next_google_play_requested = next_google_play_build_number_requested?(options)
+
+  if !explicit_build_number.nil? && next_google_play_requested
+    UI.user_error!('Use either build_number/version_code or next_google_play:true, not both.')
+  end
+
   return android_release_build_hash(explicit_build_number, nil, nil) unless explicit_build_number.nil?
+  return next_google_play_android_release_build_hash(options) if next_google_play_requested
 
   automatic_android_release_build_hash(options)
 end
