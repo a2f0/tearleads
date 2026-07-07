@@ -36,22 +36,52 @@ function countSystemContainerRemoteCreates(startIndex: number): number {
     ).length;
 }
 
+// How many system containers registration carried in its provisioning request
+// body — the count of eagerly-provisioned system containers (the Trash bin)
+// born with the organization in the same transaction.
+function countRegistrationSystemContainers(startIndex: number): number {
+  const registration = listProxiedApiRequests()
+    .slice(startIndex)
+    .find(
+      (request) =>
+        request.method === "POST" &&
+        request.status === 200 &&
+        request.url.includes("/auth/register"),
+    );
+  if (!registration?.requestBody) {
+    return 0;
+  }
+  try {
+    const parsed: unknown = JSON.parse(registration.requestBody);
+    const systemContainers =
+      parsed && typeof parsed === "object"
+        ? Reflect.get(parsed, "initialSystemContainers")
+        : null;
+    return Array.isArray(systemContainers) ? systemContainers.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
 afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
   await resetMockServer();
 });
 
-// Regression for bug A: the built-in system containers (Contacts, Trash) are
-// created device-first LOCAL-ONLY at bootstrap; before the post-auth promotion
-// pass they never reached the server, so a peer granted the root could not see
-// them (server container listing is hierarchical, so it returns every *remote*
-// child of an authorized root — the folders just were not remote). This asserts
-// the owner now promotes both system containers to remote sync once authenticated.
-// It is single-pane on purpose: it verifies the promotion + confirms the pass does
-// not destabilize normal operation, without the churn of two panes syncing at once.
+// Regression for bug A: the built-in system containers must reach the server so
+// a peer granted the root can see them (server container listing is hierarchical,
+// returning every *remote* child of an authorized root). The two folders reach
+// the server by different routes now: Trash is born with the organization —
+// provisioned server-side in the same transaction as the org, so it rides in the
+// registration request body — while Contacts stays device-first (created
+// LOCAL-ONLY at bootstrap) and is promoted to remote sync once authenticated.
+// This asserts both routes: registration carries the eager Trash, and Contacts
+// is promoted via /containers/with-metadata-document. It is single-pane on
+// purpose: it verifies the routes + confirms they do not destabilize normal
+// operation, without the churn of two panes syncing at once.
 test(
-  "authenticated bootstrap promotes system containers to remote sync",
+  "authenticated bootstrap provisions Trash with the org and promotes Contacts",
   async () => {
     useTestApiAppHandlers();
     const startIndex = listProxiedApiRequests().length;
@@ -72,17 +102,24 @@ test(
       "Owner did not provision the Trash system folder.",
     );
 
-    // Contacts + Trash each get created remotely via /containers/with-metadata-document
-    // once promotion runs post-auth. (Their metadata documents also sync, but the
-    // container create is the load-bearing signal that they left local-only.)
+    // Trash was provisioned eagerly: it rode in the registration request body,
+    // so it never took the device-first create-then-promote path.
+    expect(
+      countRegistrationSystemContainers(startIndex),
+    ).toBeGreaterThanOrEqual(1);
+
+    // Contacts is still device-first: it gets created remotely via
+    // /containers/with-metadata-document once promotion runs post-auth. (Its
+    // metadata document also syncs, but the container create is the load-bearing
+    // signal that it left local-only.)
     await waitForCondition(
-      () => countSystemContainerRemoteCreates(startIndex) >= 2,
-      "System containers were not promoted to remote sync.",
+      () => countSystemContainerRemoteCreates(startIndex) >= 1,
+      "Contacts was not promoted to remote sync.",
       20_000,
     );
     expect(
       countSystemContainerRemoteCreates(startIndex),
-    ).toBeGreaterThanOrEqual(2);
+    ).toBeGreaterThanOrEqual(1);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

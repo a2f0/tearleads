@@ -7,6 +7,7 @@ import {
   buildOrganizationProvisioningArtifacts,
   type OrganizationProvisioningArtifacts,
   type OrganizationProvisioningArtifactsInput,
+  type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
 } from "../registration/registerIdentity";
 
@@ -25,6 +26,13 @@ export interface CreateOrganizationInput {
   logError?: ((message: string | Error, cause?: unknown) => void) | undefined;
   /** Overrides the seeded organization profile name; see registration. */
   organizationProfileName?: string | undefined;
+  /**
+   * App-owned system containers to provision atomically with the new
+   * organization (e.g. a trash bin). See registration.
+   */
+  provisionedSystemContainers?:
+    | ReadonlyArray<ProvisionedSystemContainerSpec>
+    | undefined;
   /** Overrides the seeded self roster-profile nickname; see registration. */
   rosterProfileNickname?: string | undefined;
   signingKeyPair: SigningKeyPair;
@@ -53,6 +61,7 @@ export async function createOrganization(
   const artifactsInput: OrganizationProvisioningArtifactsInput = {
     encapsulationKeyPair: input.encapsulationKeyPair,
     organizationProfileName: input.organizationProfileName,
+    provisionedSystemContainers: input.provisionedSystemContainers,
     rootContainerId,
     rosterProfileNickname: input.rosterProfileNickname,
     signingKeyPair: input.signingKeyPair,
@@ -79,6 +88,9 @@ export async function createOrganization(
     initialOrganizationProfileDocument:
       artifacts.organizationMetadataBootstrap.organizationProfileDocument.plan
         .request,
+    initialSystemContainers: artifacts.systemContainerBootstraps.map(
+      (systemContainer) => systemContainer.containerRequest,
+    ),
   };
 
   const response = await input.apiClient.createOrganization(request);
@@ -100,6 +112,7 @@ export async function createOrganization(
     response,
     rootMetadataDocument: artifacts.rootMetadataDocument,
     rosterProfileBootstrap: artifacts.rosterProfileBootstrap,
+    systemContainerBootstraps: artifacts.systemContainerBootstraps,
   });
 
   return response;

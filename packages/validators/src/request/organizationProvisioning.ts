@@ -72,6 +72,16 @@ export interface OrganizationProvisioningRequest {
     | ContainerCreateWithMetadataDocumentRequest
     | undefined;
   initialOrganizationProfileDocument?: DocumentCreateRequest | undefined;
+  /**
+   * Additional app-owned system containers to provision atomically with the
+   * organization (e.g. a trash bin). Each is a child of the root
+   * born Admins-scoped and carries only its metadata document — no separate
+   * profile document. Their system slots are derived from the founder's signing
+   * key, so they are opaque to the server and unique per organization.
+   */
+  initialSystemContainers?:
+    | ContainerCreateWithMetadataDocumentRequest[]
+    | undefined;
 }
 
 export function isOrganizationProvisioningRequest(
@@ -94,6 +104,9 @@ export function isOrganizationProvisioningRequest(
     : undefined;
   const initialOrganizationMetadataContainer = isPlainObject(value)
     ? Reflect.get(value, "initialOrganizationMetadataContainer")
+    : undefined;
+  const initialSystemContainers = isPlainObject(value)
+    ? Reflect.get(value, "initialSystemContainers")
     : undefined;
 
   return (
@@ -136,7 +149,12 @@ export function isOrganizationProvisioningRequest(
         initialOrganizationMetadataContainer,
       )) &&
     (initialOrganizationProfileDocument === undefined ||
-      isDocumentCreateRequest(initialOrganizationProfileDocument))
+      isDocumentCreateRequest(initialOrganizationProfileDocument)) &&
+    (initialSystemContainers === undefined ||
+      (Array.isArray(initialSystemContainers) &&
+        initialSystemContainers.every(
+          isContainerCreateWithMetadataDocumentRequest,
+        )))
   );
 }
 

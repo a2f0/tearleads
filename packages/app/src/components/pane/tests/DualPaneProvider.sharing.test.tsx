@@ -69,12 +69,15 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // re-sync loop would blow far past this.
   total: 116,
   byRequest: {
-    // ~16-17 observed. Each container metadata document's writer projection is
+    // ~18-19 observed. Each container metadata document's writer projection is
     // primed from its create response (like plain document creates), so the
     // first read resolves locally instead of a cold GET; priming can only avoid
     // a fetch, so this stays a tight ceiling. The org metadata container adds
-    // one more metadata document whose projection is read on reconcile.
-    "GET /documents/:documentId/writer-projection": 18,
+    // one more metadata document whose projection is read on reconcile, and the
+    // Trash bin — now provisioned server-side with the organization rather than
+    // created device-first — is not locally primed, so its metadata projection
+    // is read cold once when it syncs in.
+    "GET /documents/:documentId/writer-projection": 20,
     // ~22 observed. A remote update arriving mid-pass is retained (per-document
     // signal sequencing) and re-synced rather than dropped, so each document
     // that sees a concurrent peer update during the share does its extra correct

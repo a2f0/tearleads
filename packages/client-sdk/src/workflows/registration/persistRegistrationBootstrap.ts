@@ -109,6 +109,30 @@ interface RegistrationBootstrapInput {
     initialUpdate: Uint8Array;
     localId: string;
   };
+  // Additional app-owned system containers provisioned with the organization
+  // (e.g. a trash bin). Each carries its own display name and icon (unlike the
+  // roster/organization-metadata containers, whose names are fixed), since the
+  // caller declares them.
+  systemContainers?: Array<{
+    accessEpoch: number;
+    accessStateHash: string;
+    containerId: string;
+    createdAt: string;
+    icon: string | null;
+    metadataDocumentId: string;
+    metadataInitialUpdate: Uint8Array;
+    metadataSnapshot: string;
+    metadataState: Pick<
+      DocumentRecord,
+      | "documentId"
+      | "contentKeyBundle"
+      | "documentKekTargets"
+      | "documentManifestBundle"
+    >;
+    name: string;
+    systemSlot: ContainerSystemSlot;
+    updatedAt: string;
+  }>;
   documentProjectors?: DocumentProjectorRegistryInput | undefined;
   organizationId: string;
   userId: string;
@@ -264,6 +288,55 @@ async function persistOrganizationMetadataContainerBootstrap(
   });
 }
 
+async function persistSystemContainersBootstrap(
+  execSql: ExecSql,
+  input: RegistrationBootstrapInput,
+): Promise<void> {
+  const systemContainers = input.systemContainers;
+  if (!systemContainers) {
+    return;
+  }
+
+  for (const systemContainer of systemContainers) {
+    const metadataState = systemContainer.metadataState;
+    const record: DocumentRecord = {
+      accessEpoch: systemContainer.accessEpoch,
+      accessStateHash: systemContainer.accessStateHash,
+      documentId: systemContainer.metadataDocumentId,
+      id: systemContainer.containerId,
+      lastCommitLsn: null,
+      loroSnapshot: systemContainer.metadataSnapshot,
+      contentKeyBundle: metadataState.contentKeyBundle ?? null,
+      documentKekTargets: metadataState.documentKekTargets ?? null,
+      documentManifestBundle: metadataState.documentManifestBundle ?? null,
+    };
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        id: systemContainer.containerId,
+        effectiveAccessLevel: "admin",
+        organizationId: input.organizationId,
+        parentId: input.containerId,
+        metadataDocumentId: systemContainer.metadataDocumentId,
+        systemSlot: systemContainer.systemSlot,
+        name: systemContainer.name,
+        icon: systemContainer.icon,
+      },
+      record,
+      {
+        serverTimestamps: {
+          createdAt: systemContainer.createdAt,
+          updatedAt: systemContainer.updatedAt,
+        },
+      },
+    );
+    await enqueueInitialContainerMetadataUpdate(execSql, {
+      containerId: systemContainer.containerId,
+      initialUpdate: systemContainer.metadataInitialUpdate,
+    });
+  }
+}
+
 async function persistOrganizationProfileDocumentBootstrap(
   execSql: ExecSql,
   input: RegistrationBootstrapInput,
@@ -400,6 +473,7 @@ async function persistRegistrationBootstrapFromExecSql(
     await persistRosterProfileDocumentBootstrap(lockedExecSql, input);
     await persistOrganizationMetadataContainerBootstrap(lockedExecSql, input);
     await persistOrganizationProfileDocumentBootstrap(lockedExecSql, input);
+    await persistSystemContainersBootstrap(lockedExecSql, input);
   });
 }
 

@@ -964,6 +964,32 @@ async function createInitialOrganizationMetadataContainer(
   });
 }
 
+/**
+ * Provisions the additional app-owned system containers (e.g. a trash bin)
+ * declared on the request, in order, inside the same transaction.
+ * Each is created exactly like the roster/organization-metadata containers via
+ * {@link createProvisionedSystemContainer}: a signed Admins-scoped child of root
+ * carrying only its metadata document.
+ */
+async function createProvisionedSystemContainers(
+  tx: DatabaseTransaction,
+  input: OrganizationProvisioningRequest,
+  fingerprint: string,
+): Promise<ContainerCreateWithMetadataDocumentResponse[]> {
+  const requests = input.initialSystemContainers ?? [];
+  const created: ContainerCreateWithMetadataDocumentResponse[] = [];
+  for (const request of requests) {
+    created.push(
+      await createProvisionedSystemContainer(tx, {
+        fingerprint,
+        request,
+        userId: input.userId,
+      }),
+    );
+  }
+  return created;
+}
+
 function readDocumentLinkedContainerIds(
   document: Awaited<ReturnType<typeof createDocumentWithExecutor>>,
 ): string[] {
@@ -1164,6 +1190,9 @@ export interface ProvisionedOrganization {
   organizationProfileDocument: Awaited<
     ReturnType<typeof createInitialOrganizationProfileDocument>
   >;
+  systemContainers: Awaited<
+    ReturnType<typeof createProvisionedSystemContainers>
+  >;
 }
 
 /**
@@ -1268,6 +1297,11 @@ export async function provisionOrganizationInTransaction(
       signer.fingerprint,
       organizationMetadataContainer?.container ?? null,
     );
+  const systemContainers = await createProvisionedSystemContainers(
+    tx,
+    input,
+    signer.fingerprint,
+  );
 
   return {
     organizationId: org.id,
@@ -1280,6 +1314,7 @@ export async function provisionOrganizationInTransaction(
     rosterProfileDocument,
     organizationMetadataContainer,
     organizationProfileDocument,
+    systemContainers,
   };
 }
 
@@ -1359,6 +1394,9 @@ export function toOrganizationProvisioningResponse(
           organizationProfileDocumentId:
             provisioned.organizationProfileDocument.id,
         }
+      : {}),
+    ...(provisioned.systemContainers.length > 0
+      ? { systemContainers: provisioned.systemContainers }
       : {}),
   };
 }

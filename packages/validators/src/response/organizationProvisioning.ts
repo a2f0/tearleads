@@ -38,6 +38,19 @@ export interface OrganizationProvisioningResponse {
   organizationMetadataContainerId?: string | undefined;
   organizationProfileDocument?: DocumentCreateResponse | undefined;
   organizationProfileDocumentId?: string | undefined;
+  /**
+   * Server-created responses for the additional system containers requested via
+   * `initialSystemContainers` (e.g. a trash bin), in request order.
+   */
+  systemContainers?: ContainerCreateWithMetadataDocumentResponse[] | undefined;
+}
+
+function isOptionalSystemContainersResponse(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (Array.isArray(value) &&
+      value.every(isContainerCreateWithMetadataDocumentResponse))
+  );
 }
 
 export function isOrganizationProvisioningResponse(
@@ -74,7 +87,8 @@ export function isOrganizationProvisioningResponse(
         Reflect.get(value, "organizationProfileDocument"),
       )) &&
     (Reflect.get(value, "organizationProfileDocumentId") === undefined ||
-      hasStringProperty(value, "organizationProfileDocumentId"))
+      hasStringProperty(value, "organizationProfileDocumentId")) &&
+    isOptionalSystemContainersResponse(Reflect.get(value, "systemContainers"))
   );
 }
 
