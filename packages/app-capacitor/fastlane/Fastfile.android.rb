@@ -362,12 +362,14 @@ end
 
 def next_google_play_android_release_build_hash(options)
   require_next_google_play_build_number_lookup!(options)
-  google_play_build_number = latest_google_play_build_number_for_next_release(options)
-  build_number = (google_play_build_number || 0) + 1
-  UI.message("Using next Google Play build number: #{build_number}")
-  android_release_build_hash(build_number, google_play_build_number, nil)
-rescue StandardError => e
-  UI.user_error!("Failed to resolve next Google Play build number: #{e.message}")
+  begin
+    google_play_build_number = latest_google_play_build_number_for_next_release(options)
+    build_number = (google_play_build_number || 0) + 1
+    UI.message("Using next Google Play build number: #{build_number}")
+    android_release_build_hash(build_number, google_play_build_number, nil)
+  rescue StandardError => e
+    UI.user_error!("Failed to resolve next Google Play build number: #{e.message}")
+  end
 end
 
 def next_android_release_build_number(options)
