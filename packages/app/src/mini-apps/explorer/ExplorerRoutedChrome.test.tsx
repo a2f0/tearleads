@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { afterEach, expect, test } from "bun:test";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   useWindowTitleBarActions,
   WindowMenuProvider,
@@ -7,6 +7,8 @@ import {
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
+
+afterEach(() => cleanup());
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 

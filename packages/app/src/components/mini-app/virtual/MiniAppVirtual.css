@@ -9,6 +9,11 @@
   min-height: 0;
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
+  --mini-app-list-frame-background: color-mix(
+    in srgb,
+    var(--color-dark) 5%,
+    var(--color-light)
+  );
 }
 
 .mini-app-virtual-list {
@@ -19,6 +24,7 @@
 
 .mini-app-virtual-list-row {
   flex: 0 0 var(--mini-app-virtual-row-height);
+  box-sizing: border-box;
   height: var(--mini-app-virtual-row-height);
   min-height: 0;
 }
@@ -29,14 +35,16 @@
 }
 
 /*
- * Opt-in divider lines between list entries (e.g. the contacts/notes mobile
+ * Opt-in row tile surface and divider lines (e.g. the contacts/notes mobile
  * list homes), matching the explorer item list so list views read consistently.
- * The last entry gets none, so the list never caps with a bottom rule — which,
- * flush above a footer, would read as a doubled line. The trailing
- * virtualization spacer returns null at height 0, so `:last-child` lands on the
- * final rendered row once the list is scrolled to its end.
+ * Every rendered row keeps its bottom divider, including the final row, so the
+ * bled list has a clear end boundary before the surrounding frame surface.
  */
-.mini-app-virtual-list--divided > .mini-app-virtual-list-row:not(:last-child) {
+.mini-app-virtual-list--divided {
+  background: var(--color-light);
+}
+
+.mini-app-virtual-list--divided > .mini-app-virtual-list-row {
   border-block-end: var(--border);
 }
 
@@ -49,6 +57,7 @@
  */
 .routed-pane--mobile .mini-app-virtual-list-frame--bleed {
   margin-inline: calc(-1 * var(--space-md));
+  background: var(--mini-app-list-frame-background);
 }
 
 /*

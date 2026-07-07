@@ -4,6 +4,11 @@
   scrollbar-gutter: var(--scrollbar-gutter);
   border: var(--border);
   color: var(--color-dark);
+  --mini-app-list-frame-background: color-mix(
+    in srgb,
+    var(--color-dark) 5%,
+    var(--color-light)
+  );
 }
 
 .mini-app-table {
@@ -180,10 +185,10 @@
  * stays clear of the edge. Opt in with `mini-app-table-frame--bleed` (explorer
  * item list, identity-manager sessions, …).
  *
- * The bottom border is dropped too: a bleeding list runs flush to whatever sits
- * below it (e.g. the routed mobile bar, itself top-bordered), so keeping the
- * frame's bottom rule would read as a doubled line. Between-row separators
- * (cell `border-bottom`, cleared on the last row) carry the divisions instead.
+ * The frame gets a subtly shaded surface while the table itself remains light:
+ * once the last tile has rendered, the remaining scrollable area reads as
+ * outside the list instead of more empty tile surface. The final row keeps its
+ * bottom divider to mark the end of the list.
  *
  * The kebab is the trailing edge's concern: once the frame reaches the screen,
  * the default routed actions column (`--control-height` + a hair of padding) is
@@ -197,11 +202,25 @@
   margin-inline: calc(-1 * var(--space-md));
   border-inline: 0;
   border-block-end: 0;
+  background: var(--mini-app-list-frame-background);
   --mini-app-row-actions-column-width: calc(
     var(--control-height) +
     var(--space-xs) +
     var(--space-sm)
   );
+}
+
+.routed-pane--mobile .mini-app-table-frame--bleed .mini-app-table {
+  background: var(--color-light);
+}
+
+.routed-pane--mobile
+  .mini-app-table-frame--bleed
+  .mini-app-table
+  tbody
+  .mini-app-table-row:last-child
+  .mini-app-table-cell {
+  border-bottom: var(--border);
 }
 
 :root[data-navigation-mode="routed"]
