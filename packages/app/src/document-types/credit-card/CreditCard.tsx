@@ -194,14 +194,14 @@ const CREDIT_CARD_ATTACHMENT_SLOT_IDS = CREDIT_CARD_ATTACHMENT_SLOTS.map(
   (slot) => slot.slotId,
 );
 
-export function CreditCard(params: {
+interface CreditCardProps {
   containerId: string | null;
+  initialEditing?: boolean | undefined;
   localId: string;
-}) {
+}
+
+export function CreditCard(params: CreditCardProps) {
   const { auth, infra, state } = useTearleadsRuntime();
-  const { isAuthenticated } = auth;
-  const { blobStore } = infra;
-  const { online } = state;
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -219,7 +219,10 @@ export function CreditCard(params: {
     () => readCreditCardFields(structuredFields),
     [structuredFields],
   );
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+    canWrite,
+    params.initialEditing,
+  );
   const inputIds = {
     cardNumber: useId(),
     cvvCode: useId(),
@@ -229,21 +232,20 @@ export function CreditCard(params: {
   const imageUrlBySlotId = useAttachmentImageUrls(
     attachments,
     attachmentStorageKeyBySlotId,
-    blobStore,
+    infra.blobStore,
   );
   const handleSelectedAttachment = useDocumentAttachmentSelection({
     errorMessage: "Failed to handle credit card attachment selection",
     setAttachment,
   });
   const blobPicker = useBlobPickAttachment({
-    blobStore,
+    blobStore: infra.blobStore,
     containerId: params.containerId,
     errorMessage: "Failed to handle credit card blob attachment selection",
     localId: params.localId,
     setAttachment,
     slotIds: CREDIT_CARD_ATTACHMENT_SLOT_IDS,
   });
-
   return (
     <StructuredDocument
       attachmentCopy={CREDIT_CARD_ATTACHMENT_COPY}
@@ -271,8 +273,8 @@ export function CreditCard(params: {
           setStructuredFields={setStructuredFields}
         />
       }
-      isAuthenticated={isAuthenticated}
-      online={online}
+      isAuthenticated={auth.isAuthenticated}
+      online={state.online}
       ready={ready}
       syncing={syncing}
       title="Credit Card"

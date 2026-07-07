@@ -5,9 +5,11 @@ import {
 } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRowButton,
+  MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import {
+  MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
   MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   MiniAppVirtualList,
   MiniAppVirtualListFrame,
@@ -15,18 +17,12 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
 import { getViewerRelativeContactLabel } from "../../stores/contacts/contactLabels";
+import { CONTACTS_LABELS } from "./labels";
 import type { ContactEntries } from "./types";
 
-function ContactsSidebarEntries({
-  currentSigningFingerprint,
-  currentUserId,
-  entries,
-  handleContextMenu,
-  ready,
-  selectedContactId,
-  setSelectedContactId,
-}: {
+interface ContactsListProps {
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   entries: ContactEntries;
@@ -35,11 +31,49 @@ function ContactsSidebarEntries({
     contactId: string,
   ) => void;
   ready: boolean;
+  rowHeight?: number | undefined;
   selectedContactId: string | null;
   setSelectedContactId: (contactId: string) => void;
-}) {
+  showMetadata?: boolean | undefined;
+}
+
+function normalizeContactNamePart(value: string | null | undefined): string {
+  return value?.trim() ?? "";
+}
+
+function getContactMetadataLabel(entry: ContactEntries[number]): string {
+  const displayName = getContactDisplayName(entry);
+  const firstName = normalizeContactNamePart(entry.firstName);
+  const lastName = normalizeContactNamePart(entry.lastName);
+  const fullName = `${firstName} ${lastName}`.trim();
+  if (fullName.length > 0 && fullName !== displayName) {
+    return fullName;
+  }
+
+  if (entry.userId) {
+    return `${CONTACTS_LABELS.metadataUserPrefix} ${entry.userId.slice(0, 8)}`;
+  }
+
+  if (entry.encapsulationPublicKey) {
+    return CONTACTS_LABELS.metadataImportedKey;
+  }
+
+  return CONTACTS_LABELS.metadataLocalContact;
+}
+
+function ContactsList({
+  currentSigningFingerprint,
+  currentUserId,
+  entries,
+  handleContextMenu,
+  ready,
+  rowHeight = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+  selectedContactId,
+  setSelectedContactId,
+  showMetadata = false,
+}: ContactsListProps) {
   const virtualEntries = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+    rowHeight,
     rows: entries,
   });
 
@@ -72,7 +106,7 @@ function ContactsSidebarEntries({
   return (
     <MiniAppVirtualListFrame
       ref={virtualEntries.frameRef}
-      rowHeight={MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT}
+      rowHeight={rowHeight}
     >
       <MiniAppVirtualList
         bottomPadding={virtualEntries.bottomPadding}
@@ -89,13 +123,28 @@ function ContactsSidebarEntries({
               onContextMenu={(event) => handleContextMenu(event, entry.id)}
               selected={selectedContactId === entry.id}
             >
-              <MiniAppRowText>
-                {getViewerRelativeContactLabel(
-                  entry,
-                  currentSigningFingerprint,
-                  currentUserId,
-                )}
-              </MiniAppRowText>
+              {showMetadata ? (
+                <MiniAppRowStack>
+                  <MiniAppRowText>
+                    {getViewerRelativeContactLabel(
+                      entry,
+                      currentSigningFingerprint,
+                      currentUserId,
+                    )}
+                  </MiniAppRowText>
+                  <MiniAppRowText muted>
+                    {getContactMetadataLabel(entry)}
+                  </MiniAppRowText>
+                </MiniAppRowStack>
+              ) : (
+                <MiniAppRowText>
+                  {getViewerRelativeContactLabel(
+                    entry,
+                    currentSigningFingerprint,
+                    currentUserId,
+                  )}
+                </MiniAppRowText>
+              )}
             </MiniAppRowButton>
           </MiniAppVirtualListRow>
         ))}
@@ -104,12 +153,41 @@ function ContactsSidebarEntries({
   );
 }
 
-function isContactsSidebarAreaContextMenuTarget(
+function isContactsListAreaContextMenuTarget(
   event: MouseEvent<HTMLElement>,
 ): boolean {
   return (
     !(event.target instanceof Element) ||
     !event.target.closest(".contacts-sidebar-row, .mini-app-row")
+  );
+}
+
+export function ContactsListHome(
+  props: ContactsListProps & {
+    handleAreaContextMenu: (event: MouseEvent<HTMLElement>) => void;
+  },
+) {
+  return (
+    <section
+      aria-label="Contacts list"
+      className="contacts-list-home"
+      onContextMenu={(event) => {
+        if (
+          event.defaultPrevented ||
+          !isContactsListAreaContextMenuTarget(event)
+        ) {
+          return;
+        }
+
+        props.handleAreaContextMenu(event);
+      }}
+    >
+      <ContactsList
+        {...props}
+        rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
+        showMetadata
+      />
+    </section>
   );
 }
 
@@ -146,7 +224,7 @@ export function useContactsSidebarPanel(params: {
         onContextMenu={(event) => {
           if (
             event.defaultPrevented ||
-            !isContactsSidebarAreaContextMenuTarget(event)
+            !isContactsListAreaContextMenuTarget(event)
           ) {
             return;
           }
@@ -154,7 +232,7 @@ export function useContactsSidebarPanel(params: {
           handleAreaContextMenu(event);
         }}
       >
-        <ContactsSidebarEntries
+        <ContactsList
           currentSigningFingerprint={currentSigningFingerprint}
           currentUserId={currentUserId}
           entries={entries}

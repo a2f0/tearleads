@@ -58,6 +58,39 @@
   box-shadow: inset 0 0 0 2px currentColor;
 }
 
+/*
+ * Mobile compact: bleed the file listing to the screen edges to reclaim the
+ * scarce horizontal room. The frame breaks out of the mini-app root's
+ * `--space-md` inline padding (hence the matching negative margin) and drops
+ * its side borders, so the row backgrounds and separators span the full width.
+ * Cells keep their inline padding, so the name text stays clear of the leading
+ * edge.
+ *
+ * The kebab is the trailing edge's concern: once the frame reaches the screen,
+ * the default routed actions column (`--control-height` + a hair of padding) is
+ * only wide enough to seat the 44px button flush, which would leave it hard
+ * against the edge and under the scrollbar. Widen the column to the button plus
+ * a leading `--space-xs` and a trailing `--space-sm`, and hold the cell's
+ * trailing padding at `--space-sm`, so the right-aligned button clears the edge
+ * (and the frame's scrollbar gutter) by a comfortable, tappable inset.
+ */
+.routed-pane--mobile .explorer-item-table-wrap {
+  margin-inline: calc(-1 * var(--space-md));
+  border-inline: 0;
+  --mini-app-row-actions-column-width: calc(
+    var(--control-height) +
+    var(--space-xs) +
+    var(--space-sm)
+  );
+}
+
+:root[data-navigation-mode="routed"]
+  .routed-pane--mobile
+  .explorer-item-table-wrap
+  .mini-app-table-cell.mini-app-row-actions-cell {
+  padding-inline-end: var(--space-sm);
+}
+
 .explorer-inline-note {
   flex: 1;
   min-height: 0;

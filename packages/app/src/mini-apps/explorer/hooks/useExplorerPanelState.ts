@@ -6,9 +6,11 @@ import type {
   ContainerItemRow,
   DocumentInfo,
   DocumentSummary,
+  StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import { DEFAULT_DOCUMENT_KIND } from "@tearleads/client-sdk";
 import type { MouseEvent, ReactNode } from "react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   type RuntimeSnapshot,
   useTearleads,
@@ -112,6 +114,7 @@ export interface ExplorerPanelState {
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
   modalState: ExplorerDocumentModalState;
   openInlineDocument: OpenInlineDocument;
+  consumeInitialDocumentEditing: (localId: string) => void;
   purgeDocument: (
     documentId: string,
     currentContainerId: string,
@@ -119,6 +122,7 @@ export interface ExplorerPanelState {
   routeState: ExplorerRouteState;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   selectedDocumentLinkedContainerIds: ReadonlyArray<string>;
+  selectedDocumentStartsInEditMode: boolean;
   selectedDocumentLinkTargetOptions: ReadonlyArray<MoveTargetOption>;
   selectedDocumentMoveTargetOptions: ReadonlyArray<MoveTargetOption>;
   unlinkDocument: ExplorerDocumentMutationAction;
@@ -273,9 +277,41 @@ export function useExplorerPanelState(params: {
     selectionExpandNode: selection.expandNode,
     shareWithUser: explorer.shareWithUser,
   });
+  const [initialEditingDocumentIds, setInitialEditingDocumentIds] = useState(
+    () => new Set<string>(),
+  );
+  const trackCreatedDocument = useCallback(
+    (localId: string, documentKind: StoredDocumentKind) => {
+      if (documentKind === DEFAULT_DOCUMENT_KIND) {
+        return;
+      }
+
+      setInitialEditingDocumentIds((current) => {
+        const next = new Set(current);
+        next.add(localId);
+        return next;
+      });
+    },
+    [],
+  );
+  const consumeInitialDocumentEditing = useCallback((localId: string) => {
+    setInitialEditingDocumentIds((current) => {
+      if (!current.has(localId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(localId);
+      return next;
+    });
+  }, []);
+  const selectedDocumentStartsInEditMode =
+    selection.selectedDocument !== undefined &&
+    initialEditingDocumentIds.has(selection.selectedDocument.id);
   const openInlineDocument = useInlineDocumentAction({
     expandNode: selection.expandNode,
     mergeDocumentSummary,
+    onCreateDocument: trackCreatedDocument,
     setSelectedId: routeState.selectExplorerItem,
   });
   const importDroppedFilesUnguarded = useExplorerDroppedFileImport({
@@ -437,11 +473,13 @@ export function useExplorerPanelState(params: {
     loadDocumentInfo,
     modalState,
     openInlineDocument,
+    consumeInitialDocumentEditing,
     purgeDocument,
     routeState,
     selectDocumentProjection,
     selectedDocumentLinkedContainerIds:
       selectedNoteStructuralState.selectedDocumentLinkedContainerIds,
+    selectedDocumentStartsInEditMode,
     selectedDocumentLinkTargetOptions:
       selectedNoteStructuralState.selectedDocumentLinkTargetOptions,
     selectedDocumentMoveTargetOptions:

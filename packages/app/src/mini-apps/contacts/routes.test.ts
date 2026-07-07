@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  createContactsSelectionRouteSnapshot,
   formatContactsRouteSegments,
   parseContactsRouteSegments,
 } from "./routes";
@@ -34,4 +35,16 @@ test("contacts route segments round-trip selected contacts and actions", () => {
       selectedContactId: null,
     }),
   ).toEqual(["new"]);
+});
+
+test("contacts selection route snapshot clears selection in compact routed mode", () => {
+  expect(createContactsSelectionRouteSnapshot(false, "ada")).toEqual({
+    route: "selection",
+    selectedContactId: "ada",
+  });
+
+  expect(createContactsSelectionRouteSnapshot(true, "ada")).toEqual({
+    route: "selection",
+    selectedContactId: null,
+  });
 });

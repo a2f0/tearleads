@@ -5,6 +5,7 @@ export const NOTES_LABELS = {
   newNoteAction: "New Note",
   sidebarEmpty: "No notes.",
   sidebarLoading: "Loading...",
+  modifiedPrefix: "Modified",
   toolbarDropInstructions: "Drop files into the note to attach them.",
   toolbarLocalSync: "Attachments save locally and sync when you're online.",
   toolbarMissingKeyPackage: "Attachments require a local key package.",

@@ -10,6 +10,16 @@ export const DEFAULT_CONTACTS_ROUTE_SNAPSHOT: ContactsRouteSnapshot = {
   selectedContactId: null,
 };
 
+export function createContactsSelectionRouteSnapshot(
+  compactRoutedMode: boolean,
+  selectedContactId: string | null,
+): ContactsRouteSnapshot {
+  return {
+    route: "selection",
+    selectedContactId: compactRoutedMode ? null : selectedContactId,
+  };
+}
+
 export function parseContactsRouteSegments(
   pathSegments: ReadonlyArray<string>,
 ): ContactsRouteSnapshot {

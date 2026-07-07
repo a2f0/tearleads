@@ -44,6 +44,7 @@ interface ExplorerModel {
   canShareWithPeer: boolean;
   canUnlinkSelectedDocument: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
+  consumeInitialDocumentEditing: ExplorerPanelState["consumeInitialDocumentEditing"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
   purgeDocument: ExplorerPanelState["purgeDocument"];
   documentListRevision: number;
@@ -66,6 +67,7 @@ interface ExplorerModel {
   routeState: ExplorerPanelState["routeState"];
   selectDocumentProjection: ExplorerPanelState["selectDocumentProjection"];
   selection: ExplorerSelectionState;
+  selectedDocumentStartsInEditMode: boolean;
   unlinkDocument: ExplorerDocumentMutationAction;
 }
 
@@ -135,6 +137,7 @@ export function useExplorerModel(
   const {
     activateLinkedContainer,
     canMutateDocumentLinks,
+    consumeInitialDocumentEditing,
     contextMenuState,
     deleteDocument,
     importDroppedFiles,
@@ -146,6 +149,7 @@ export function useExplorerModel(
     purgeDocument,
     routeState,
     selectDocumentProjection,
+    selectedDocumentStartsInEditMode,
     selectedDocumentLinkedContainerIds,
     selectedDocumentLinkTargetOptions,
     selectedDocumentMoveTargetOptions,
@@ -252,6 +256,7 @@ export function useExplorerModel(
     canPurgeContextMenuDocument:
       contextMenuDocumentState.canPurgeContextMenuDocument,
     canShareWithPeer,
+    consumeInitialDocumentEditing,
     contextMenuState,
     deleteDocument,
     purgeDocument,
@@ -275,6 +280,7 @@ export function useExplorerModel(
     routeState,
     selectDocumentProjection,
     selection,
+    selectedDocumentStartsInEditMode,
     unlinkDocument,
   };
 }

@@ -10,9 +10,11 @@ import {
 } from "../../components/shared/MiniAppLayout";
 import {
   MiniAppRowButton,
+  MiniAppRowStack,
   MiniAppRowText,
 } from "../../components/shared/MiniAppRow";
 import {
+  MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT,
   MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   MiniAppVirtualList,
   MiniAppVirtualListFrame,
@@ -20,6 +22,7 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/shared/MiniAppVirtual";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { formatMiniAppDateTime } from "../../utils/formatMiniAppDate";
 import { NOTES_LABELS } from "./labels";
 import type { NotesSetSidebar } from "./types";
 
@@ -35,8 +38,19 @@ interface NotesSidebarProps {
   selectedNoteId: string | null;
 }
 
+interface NotesListProps extends NotesSidebarProps {
+  rowHeight?: number | undefined;
+  showMetadata?: boolean | undefined;
+}
+
 function getNoteTitle(note: DocumentSummary): string {
   return note.title.trim() || getUntitledDocumentTitle(DEFAULT_DOCUMENT_KIND);
+}
+
+function getNoteModifiedLabel(note: DocumentSummary): string {
+  return `${NOTES_LABELS.modifiedPrefix} ${formatMiniAppDateTime(
+    note.updatedAt,
+  )}`;
 }
 
 function isNotesSidebarAreaContextMenuTarget(
@@ -47,33 +61,22 @@ function isNotesSidebarAreaContextMenuTarget(
   );
 }
 
-function NotesSidebar({
-  handleAreaContextMenu,
+function NotesList({
   handleNoteContextMenu,
   notes,
   ready,
+  rowHeight = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
   selectNote,
   selectedNoteId,
-}: NotesSidebarProps) {
+  showMetadata = false,
+}: NotesListProps) {
   const virtualNotes = useMiniAppVirtualRows({
-    rowHeight: MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT,
+    rowHeight,
     rows: notes,
   });
 
   return (
-    <MiniAppSidebar
-      className="mini-app-sidebar--virtual"
-      onContextMenu={(event) => {
-        if (
-          event.defaultPrevented ||
-          !isNotesSidebarAreaContextMenuTarget(event)
-        ) {
-          return;
-        }
-
-        handleAreaContextMenu(event);
-      }}
-    >
+    <>
       {!ready ? (
         <MiniAppStatus className="notes-sidebar-empty">
           {NOTES_LABELS.sidebarLoading}
@@ -85,7 +88,7 @@ function NotesSidebar({
       ) : (
         <MiniAppVirtualListFrame
           ref={virtualNotes.frameRef}
-          rowHeight={MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT}
+          rowHeight={rowHeight}
         >
           <MiniAppVirtualList
             bottomPadding={virtualNotes.bottomPadding}
@@ -100,13 +103,67 @@ function NotesSidebar({
                   }
                   selected={selectedNoteId === note.id}
                 >
-                  <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
+                  {showMetadata ? (
+                    <MiniAppRowStack>
+                      <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
+                      <MiniAppRowText muted>
+                        {getNoteModifiedLabel(note)}
+                      </MiniAppRowText>
+                    </MiniAppRowStack>
+                  ) : (
+                    <MiniAppRowText>{getNoteTitle(note)}</MiniAppRowText>
+                  )}
                 </MiniAppRowButton>
               </MiniAppVirtualListRow>
             ))}
           </MiniAppVirtualList>
         </MiniAppVirtualListFrame>
       )}
+    </>
+  );
+}
+
+export function NotesListHome(props: NotesSidebarProps) {
+  return (
+    <section
+      aria-label="Notes list"
+      className="notes-list-home"
+      onContextMenu={(event) => {
+        if (
+          event.defaultPrevented ||
+          !isNotesSidebarAreaContextMenuTarget(event)
+        ) {
+          return;
+        }
+
+        props.handleAreaContextMenu(event);
+      }}
+    >
+      <NotesList
+        {...props}
+        rowHeight={MINI_APP_VIRTUAL_ROOMY_ROW_HEIGHT}
+        showMetadata
+      />
+    </section>
+  );
+}
+
+function NotesSidebar(props: NotesSidebarProps) {
+  return (
+    <MiniAppSidebar
+      className="mini-app-sidebar--virtual"
+      onContextMenu={(event) => {
+        if (
+          event.defaultPrevented ||
+          !isNotesSidebarAreaContextMenuTarget(event)
+        ) {
+          return;
+        }
+
+        props.handleAreaContextMenu(event);
+      }}
+    >
+      <NotesList {...props} />
     </MiniAppSidebar>
   );
 }

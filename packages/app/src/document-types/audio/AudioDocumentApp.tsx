@@ -9,6 +9,7 @@ import { AUDIO_DOCUMENT_KIND } from "./audioDocumentDefinition";
 export function AudioDocumentApp({
   containerId,
   documentId,
+  initialEditing,
   localId = DEFAULT_DOCUMENT_ID,
 }: DocumentTypeAppProps) {
   return (
@@ -19,6 +20,7 @@ export function AudioDocumentApp({
       initialDocumentKind={AUDIO_DOCUMENT_KIND}
     >
       <FileDocument
+        initialEditing={initialEditing}
         title="Audio"
         extraFieldLabels={{ durationMs: "Duration" }}
       />

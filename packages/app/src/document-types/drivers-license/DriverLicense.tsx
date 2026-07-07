@@ -133,6 +133,7 @@ const DRIVER_LICENSE_ATTACHMENT_SLOT_IDS = DRIVER_LICENSE_ATTACHMENT_SLOTS.map(
 
 export function DriverLicense(params: {
   containerId: string | null;
+  initialEditing?: boolean | undefined;
   localId: string;
 }) {
   const { auth, infra, state } = useTearleadsRuntime();
@@ -156,7 +157,10 @@ export function DriverLicense(params: {
     () => readDriverLicenseFields(structuredFields),
     [structuredFields],
   );
-  const [isEditing, setIsEditing] = useStructuredDocumentEditing(canWrite);
+  const [isEditing, setIsEditing] = useStructuredDocumentEditing(
+    canWrite,
+    params.initialEditing,
+  );
   const inputIds = {
     expirationDate: useId(),
     licenseId: useId(),
