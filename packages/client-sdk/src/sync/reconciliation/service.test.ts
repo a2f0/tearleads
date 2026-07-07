@@ -427,3 +427,61 @@ test("stop clears the discovered set so a restarted lane refetches", async () =>
     "Expected a refetch after stop()/start() cleared the discovered set",
   );
 });
+
+test("background reconcile requests a non-forced document content sync", async () => {
+  const pulls: boolean[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    loadContainerDelta: async (containerId) => ({
+      containerId,
+      documentSummaries: [
+        {
+          id: "d-1",
+          containerId,
+          documentId: "d-1",
+          title: "doc",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    }),
+    requestDocumentContentPull: (_documents, force) => {
+      pulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  service.enqueueContainer("c-1", "active");
+
+  await waitFor(
+    () => pulls.length === 1,
+    "Expected the background reconcile to request a content sync",
+  );
+  expect(pulls).toEqual([false]);
+});
+
+test("explicit refresh requests a forced document content sync", async () => {
+  const pulls: boolean[] = [];
+  const host = createHost({
+    knownContainerIds: ["c-1"],
+    loadContainerDelta: async (containerId) => ({
+      containerId,
+      documentSummaries: [
+        {
+          id: "d-1",
+          containerId,
+          documentId: "d-1",
+          title: "doc",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    }),
+    requestDocumentContentPull: (_documents, force) => {
+      pulls.push(force);
+    },
+  });
+  const service = createReconciliationService(host);
+  service.start();
+  await service.reconcileNow();
+
+  expect(pulls).toEqual([true]);
+});

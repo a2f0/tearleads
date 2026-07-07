@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { getOrganizationProfileDocumentLocalId } from "../workflows/organizations/organizationProfile";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../workflows/organizations/rosterProfileContainer";
 import type { ContainerContents } from "./containerContents";
 import { reshareOrganizationMetadataToMembers } from "./organizationMetadataReshare";
@@ -13,6 +14,12 @@ interface ShareCall {
   options?: { requireExistingGrant?: boolean } | undefined;
 }
 
+interface PullCall {
+  containerId: string;
+  localId: string;
+  documentId?: string | null | undefined;
+}
+
 interface FakeNode {
   id: string;
   systemSlot?: string;
@@ -24,12 +31,14 @@ function createFakeContainerContents(input: {
   shareWithGroup?: (call: ShareCall) => Promise<boolean>;
 }): {
   containerContents: ContainerContents;
+  pullCalls: PullCall[];
   refreshCount: () => number;
   shareCalls: ShareCall[];
 } {
   let nodes = input.initialNodes;
   let refreshCount = 0;
   const shareCalls: ShareCall[] = [];
+  const pullCalls: PullCall[] = [];
   const tree = {
     getSnapshot: () => ({ nodes }),
     refresh: async () => {
@@ -52,15 +61,23 @@ function createFakeContainerContents(input: {
   };
   const containerContents = {
     openTree: () => tree,
+    pullDocumentContent: (call: PullCall) => {
+      pullCalls.push(call);
+    },
   } as unknown as ContainerContents;
-  return { containerContents, refreshCount: () => refreshCount, shareCalls };
+  return {
+    containerContents,
+    pullCalls,
+    refreshCount: () => refreshCount,
+    shareCalls,
+  };
 }
 
 test("re-shares the org metadata container to the members group when it is the mutated group", async () => {
   const slot = await deriveOrganizationMetadataContainerSystemSlot({
     organizationId: ORGANIZATION_ID,
   });
-  const { containerContents, refreshCount, shareCalls } =
+  const { containerContents, pullCalls, refreshCount, shareCalls } =
     createFakeContainerContents({
       initialNodes: [
         { id: "root" },
@@ -84,6 +101,15 @@ test("re-shares the org metadata container to the members group when it is the m
       options: { requireExistingGrant: true },
     },
   ]);
+  // Also pushes the org profile body so the freshly-granted members can pull it.
+  expect(pullCalls).toEqual([
+    {
+      containerId: "metadata-container",
+      localId: getOrganizationProfileDocumentLocalId({
+        organizationId: ORGANIZATION_ID,
+      }),
+    },
+  ]);
   // Found without needing a hydration refresh.
   expect(refreshCount()).toBe(0);
 });
@@ -92,7 +118,7 @@ test("does nothing when the mutated group is not the members group", async () =>
   const slot = await deriveOrganizationMetadataContainerSystemSlot({
     organizationId: ORGANIZATION_ID,
   });
-  const { containerContents, refreshCount, shareCalls } =
+  const { containerContents, pullCalls, refreshCount, shareCalls } =
     createFakeContainerContents({
       initialNodes: [{ id: "metadata-container", systemSlot: slot }],
     });
@@ -106,6 +132,7 @@ test("does nothing when the mutated group is not the members group", async () =>
   });
 
   expect(shareCalls).toEqual([]);
+  expect(pullCalls).toEqual([]);
   expect(refreshCount()).toBe(0);
 });
 

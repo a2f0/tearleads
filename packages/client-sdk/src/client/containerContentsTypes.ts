@@ -191,6 +191,28 @@ export interface ContainerContents {
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
 
   /**
+   * Sync the content of a single document that no mini-app has opened.
+   *
+   * Discovery only records a document's metadata + an empty content shell, and a
+   * document's locally authored content is only pushed once its store syncs; both
+   * normally happen lazily when a mini-app opens the document. Some documents are
+   * never opened yet still need to sync — notably the organization profile
+   * document, which lives in an org's Members-granted metadata container and
+   * holds the org display name. This opens a transient document store (registered
+   * under the container's keys, so it can decrypt) and schedules a remote sync
+   * pass. The pass both pushes the store's pending updates and merges + persists
+   * any remote body, so the same call lets an owning device publish its profile
+   * content and a member device pull it. `documentId` may be omitted; the store
+   * then resolves it from the persisted record (the owning device keys the
+   * document under a local alias, not its server id).
+   */
+  pullDocumentContent(input: {
+    containerId: string;
+    localId: string;
+    documentId?: string | null | undefined;
+  }): void;
+
+  /**
    * Load diagnostic information for one local document.
    *
    * Local details are available when SQLite is ready. Remote details are loaded

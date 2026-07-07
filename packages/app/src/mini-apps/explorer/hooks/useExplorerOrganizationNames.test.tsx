@@ -289,3 +289,34 @@ test("swallows loader failures and keeps the last resolved names", async () => {
   await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   expect(result.current.get("org-acme")).toBe("Acme Corp");
 });
+
+test("re-resolves a pending name after its profile syncs, without a container change", async () => {
+  // Model the real gap this retry closes: a foreign org's name arrives via its
+  // org-profile document *after* the container tree has settled, so `nodes` never
+  // changes again. The container-driven effect alone would leave it unnamed; the
+  // bounded retry timer re-queries until it resolves.
+  const { load, setSummaries } = createLoader([summary("org-acme", null)]);
+  const nodes = [rootNode("org-primary"), rootNode("org-acme")];
+
+  const { result } = renderHook(() =>
+    useExplorerOrganizationNames({
+      listLocalOrganizations: load,
+      nodes,
+      primaryOrganizationId: "org-primary",
+      ready: true,
+    }),
+  );
+
+  await waitFor(() => expect(load).toHaveBeenCalled());
+  expect(result.current.has("org-acme")).toBe(false);
+
+  // The profile document syncs in; the same `nodes` array is still in effect.
+  setSummaries([summary("org-acme", "Acme Corp")]);
+
+  await waitFor(
+    () => expect(result.current.get("org-acme")).toBe("Acme Corp"),
+    {
+      timeout: 5_000,
+    },
+  );
+});

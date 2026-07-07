@@ -53,9 +53,10 @@ async function readOrganizationNameFromDocument(
       await getScopedPeerSeed(DOCUMENTS_APP_KIND),
     );
     importUpdates(doc, [base64ToBytes(record.loroSnapshot)]);
-    return readOrganizationProfileName(
+    const name = readOrganizationProfileName(
       readStoredDocumentState(doc).structuredFields,
     );
+    return name;
   } catch {
     return null;
   }

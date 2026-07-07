@@ -285,6 +285,21 @@ class ContainerContentsService implements ContainerContents {
     });
   }
 
+  pullDocumentContent(input: {
+    containerId: string;
+    localId: string;
+    documentId?: string | null | undefined;
+  }): void {
+    const runtime = this.workflowRuntime();
+    const store = openDocumentStore(
+      runtime.state.domainScope,
+      input.localId,
+      createContainerContentsDocumentsRuntime(runtime, input.containerId),
+      input.documentId ?? null,
+    );
+    store.requestRemoteSync();
+  }
+
   loadContainerInfo(input: ContainerInfoInput): Promise<ContainerInfo> {
     const runtime = this.runtimeService.workflowInput();
     const cachedContainerProjection =

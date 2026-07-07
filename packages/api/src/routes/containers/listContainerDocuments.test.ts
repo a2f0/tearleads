@@ -5,6 +5,7 @@ import {
   containers,
   documents,
   organizationRosterEntries,
+  organizations,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
@@ -125,6 +126,46 @@ test("GET /containers/:containerId/documents hides roster profile documents", as
     nextWatermark: null,
     tombstones: [],
   });
+});
+
+test("GET /containers/:containerId/documents serves the organization profile document", async () => {
+  // The org profile document is intentionally NOT hidden (unlike roster profile
+  // and container metadata documents): it lives in a Members-granted metadata
+  // container and must reach active members so they can decrypt the org display
+  // name. Serving it through generic discovery — gated by the container's own
+  // read-access check — is how that happens.
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+
+  const profileDocument = await createCurrentDocumentProjection({
+    containerIds: [owner.rootContainerId],
+    createdByFingerprint: await toFingerprint(owner.signing.signingPublicKey),
+    epoch: 1,
+    manifestHash: `document-manifest:${crypto.randomUUID()}`,
+    organizationId: await getContainerOrganizationId(owner.rootContainerId),
+  });
+
+  await db
+    .update(organizations)
+    .set({ profileDocumentId: profileDocument.id })
+    .where(
+      eq(
+        organizations.id,
+        await getContainerOrganizationId(owner.rootContainerId),
+      ),
+    );
+
+  const response = await listContainerDocumentsForUser({
+    containerId: owner.rootContainerId,
+    token: owner.token,
+  });
+
+  expect(response.status).toBe(200);
+  const body = await response.json();
+  expect(body.items.map((item: { id: string }) => item.id)).toContain(
+    profileDocument.id,
+  );
 });
 
 test("GET /containers/:containerId/documents rejects users without manifest access", async () => {
