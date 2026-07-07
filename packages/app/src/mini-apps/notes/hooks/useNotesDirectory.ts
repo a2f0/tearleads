@@ -80,9 +80,6 @@ function useSyncSelectedNote(input: {
 
   useEffect(() => {
     if (!autoSelectInitialNote && !explicitNoteId) {
-      if (selectedNoteId !== null) {
-        setSelectedNoteId(null);
-      }
       return;
     }
 

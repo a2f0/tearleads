@@ -22,6 +22,7 @@ import {
 import {
   type ContactsRoute,
   type ContactsRouteSnapshot,
+  createContactsSelectionRouteSnapshot,
   DEFAULT_CONTACTS_ROUTE_SNAPSHOT,
   formatContactsRouteSegments,
   parseContactsRouteSegments,
@@ -58,7 +59,7 @@ interface ContactsModel {
   updateContact: ReturnType<typeof useContacts>["updateContact"];
 }
 
-function useContactsRouteState() {
+function useContactsRouteState(compactRoutedMode: boolean) {
   const { isRouted, pathSegments, setPathSegments } =
     useMiniAppRouteSegments("contacts");
   const [localRoute, setLocalRoute] = useState<ContactsRouteSnapshot>(
@@ -76,18 +77,19 @@ function useContactsRouteState() {
         setPathSegments(formatContactsRouteSegments(nextRoute), options);
         return;
       }
-
       setLocalRoute(nextRoute);
     },
     [isRouted, setPathSegments],
   );
   const showSelectionRoute = useCallback(
     () =>
-      setRouteSnapshot({
-        route: "selection",
-        selectedContactId: routeSnapshot.selectedContactId,
-      }),
-    [routeSnapshot.selectedContactId, setRouteSnapshot],
+      setRouteSnapshot(
+        createContactsSelectionRouteSnapshot(
+          compactRoutedMode,
+          routeSnapshot.selectedContactId,
+        ),
+      ),
+    [compactRoutedMode, routeSnapshot.selectedContactId, setRouteSnapshot],
   );
   const openNewContactRoute = useCallback(
     () => setRouteSnapshot({ route: "new-contact", selectedContactId: null }),
@@ -185,7 +187,6 @@ function useSelectInitialSelfContact(input: {
     if (!selfEntry) {
       return;
     }
-
     selectedInitialSelfRef.current = true;
     setSelectedContactId(selfEntry.id);
   }, [enabled, entries, ready, route, selectedContactId, setSelectedContactId]);
@@ -422,7 +423,7 @@ export function useContactsModel(
   } = useContacts();
   const { isAuthenticated } = useCryptoSession();
   const { logError } = useLog();
-  const routeState = useContactsRouteState();
+  const routeState = useContactsRouteState(compactRoutedMode);
   const selectionState = useContactsSelectionState(routeState);
   const drafts = useContactDrafts({
     canWrite,

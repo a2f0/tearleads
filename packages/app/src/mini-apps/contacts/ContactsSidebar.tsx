@@ -19,6 +19,7 @@ import {
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
 import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
 import { getViewerRelativeContactLabel } from "../../stores/contacts/contactLabels";
+import { CONTACTS_LABELS } from "./labels";
 import type { ContactEntries } from "./types";
 
 interface ContactsListProps {
@@ -36,22 +37,28 @@ interface ContactsListProps {
   showMetadata?: boolean | undefined;
 }
 
+function normalizeContactNamePart(value: string | null | undefined): string {
+  return value?.trim() ?? "";
+}
+
 function getContactMetadataLabel(entry: ContactEntries[number]): string {
   const displayName = getContactDisplayName(entry);
-  const fullName = `${entry.firstName} ${entry.lastName}`.trim();
+  const firstName = normalizeContactNamePart(entry.firstName);
+  const lastName = normalizeContactNamePart(entry.lastName);
+  const fullName = `${firstName} ${lastName}`.trim();
   if (fullName.length > 0 && fullName !== displayName) {
     return fullName;
   }
 
   if (entry.userId) {
-    return `User ${entry.userId.slice(0, 8)}`;
+    return `${CONTACTS_LABELS.metadataUserPrefix} ${entry.userId.slice(0, 8)}`;
   }
 
   if (entry.encapsulationPublicKey) {
-    return "Imported key";
+    return CONTACTS_LABELS.metadataImportedKey;
   }
 
-  return "Local contact";
+  return CONTACTS_LABELS.metadataLocalContact;
 }
 
 function ContactsList({

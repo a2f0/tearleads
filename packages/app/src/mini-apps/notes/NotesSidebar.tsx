@@ -48,7 +48,9 @@ function getNoteTitle(note: DocumentSummary): string {
 }
 
 function getNoteModifiedLabel(note: DocumentSummary): string {
-  return `Modified ${formatMiniAppDateTime(note.updatedAt)}`;
+  return `${NOTES_LABELS.sidebarModifiedPrefix} ${formatMiniAppDateTime(
+    note.updatedAt,
+  )}`;
 }
 
 function isNotesSidebarAreaContextMenuTarget(
