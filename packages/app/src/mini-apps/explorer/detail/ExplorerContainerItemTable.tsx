@@ -342,6 +342,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
         "explorer-item-table-wrap",
         "mini-app-table-frame--virtual",
         "mini-app-table-frame--compact",
+        "mini-app-table-frame--bleed",
         dragActive && "explorer-item-table-wrap--drop-active",
       )}
       onDragEnter={handleDragEnter}
