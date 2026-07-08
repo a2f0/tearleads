@@ -6,6 +6,10 @@ import type {
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import {
+  buildExplorerSidebarSections,
+  getExplorerSidebarRowsInRange,
+} from "./ExplorerSidebarRows";
 import { buildExplorerTree } from "./explorerTreeModel";
 import { useExplorerSidebarDocumentWindows } from "./useExplorerSidebarWindows";
 
@@ -55,7 +59,7 @@ function documentRow(
 
 afterEach(() => cleanup());
 
-test("sidebar document link refresh hides stale rows while reloading", async () => {
+test("sidebar document link refresh hides stale rows without loading status", async () => {
   const reload = createDeferred<{
     rows: ReadonlyArray<ContainerDocumentSidebarRow>;
     totalCount: number;
@@ -124,8 +128,24 @@ test("sidebar document link refresh hides stale rows while reloading", async () 
     );
     expect(window?.isLoading).toBe(true);
     expect(window?.rows).toEqual([]);
+    expect(window?.showLoadingStatus).toBe(false);
     expect(window?.totalCount).toBeNull();
   });
+  const sections = buildExplorerSidebarSections({
+    collapsedIds: new Set(),
+    documentWindowsByContainerId:
+      view.result.current.documentWindowsByContainerId,
+    entries: treeEntries,
+    organizationNamesById: new Map(),
+    primaryOrganizationId: null,
+  });
+  const sidebarRows = getExplorerSidebarRowsInRange({
+    collapsedIds: new Set(),
+    limit: 10,
+    offset: 0,
+    sections,
+  });
+  expect(sidebarRows.map((row) => row.kind)).toEqual(["container"]);
   expect(calls).toEqual([
     { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
     { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
