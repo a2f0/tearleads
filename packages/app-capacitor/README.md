@@ -72,6 +72,56 @@ status with `GOOGLE_PLAY_RELEASE_STATUS=<status>` or `release_status:<status>`.
 Validate without committing the Play edit with `GOOGLE_PLAY_VALIDATE_ONLY=true`
 or `validate_only:true`.
 
+## iOS TestFlight Release
+
+Build a signed iOS IPA for TestFlight:
+
+```sh
+bun run ios:build:testflight
+```
+
+The lane loads `.secrets/root.env`, runs a release Capacitor sync, verifies that
+Capacitor HTTP is disabled in the generated native config, and builds
+`ios/App/output/Tearleads.ipa`. Release signing requires a Developer Team ID via
+`IOS_TEAM_ID`, `APPLE_TEAM_ID`, `DEVELOPMENT_TEAM`, `FASTLANE_TEAM_ID`, or the
+Fastlane option `team_id:<id>`. With automatic signing, the lane passes
+`-allowProvisioningUpdates` by default; disable it with
+`IOS_ALLOW_PROVISIONING_UPDATES=false` or `allow_provisioning_updates:false`.
+
+By default, the iOS build number uses the same PR-number convention as Android:
+the latest PR merged today, discovered with `gh` first and local git history as
+a fallback. If App Store Connect credentials are available, it also checks the
+latest TestFlight build for the target app version and uses the larger of the
+merged PR number or the next TestFlight build number. Configure App Store
+Connect with `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
+`.secrets/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8`, or set
+`APP_STORE_CONNECT_API_KEY_KEY_FILEPATH` / `APP_STORE_CONNECT_KEY_FILEPATH`.
+Override the date or PR with `IOS_RELEASE_MERGED_DATE=YYYY-MM-DD`,
+`IOS_RELEASE_PR_NUMBER=<number>`, or Fastlane options
+`merged_date:YYYY-MM-DD` and `merged_pr_number:<number>`. Override the final
+build number with `IOS_BUILD_NUMBER=<number>` or `APPLE_BUILD_NUMBER=<number>`.
+Build strictly one number higher than TestFlight with
+`IOS_RELEASE_NEXT_TESTFLIGHT=true` or `next_testflight:true`.
+
+The app version comes from the Xcode target's `MARKETING_VERSION` by default.
+Override it with `IOS_VERSION=<version>`, `APP_STORE_VERSION=<version>`, or the
+Fastlane option `version:<version>`.
+
+Build and upload the signed IPA to TestFlight:
+
+```sh
+bun run ios:upload:testflight
+```
+
+The upload lane builds the signed IPA first, then uploads it with the App Store
+Connect API key. It uploads only by default: `TESTFLIGHT_SKIP_SUBMISSION=true`
+and `TESTFLIGHT_SKIP_WAITING_FOR_BUILD_PROCESSING=true`. Override either with
+the matching env var or Fastlane option. Set `TESTFLIGHT_CHANGELOG=<text>` or
+`changelog:<text>` to provide "What to Test". External distribution is off by
+default; enable it with `TESTFLIGHT_DISTRIBUTE_EXTERNAL=true` and provide
+comma-separated `TESTFLIGHT_GROUPS`. External distribution defaults to
+submission enabled unless `TESTFLIGHT_SKIP_SUBMISSION=true` is set explicitly.
+
 ## Store Build Numbers
 
 Fetch the latest remote build numbers from Google Play and the Apple App Store:
