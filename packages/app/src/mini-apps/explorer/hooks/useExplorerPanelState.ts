@@ -44,7 +44,6 @@ import {
   getExplorerDroppedFileImportFailureLog,
   getExplorerDroppedFileTooLargeError,
 } from "../labels";
-import { resolveExplorerPrimaryOrganizationId } from "../primaryOrganization";
 import type { MoveTargetOption } from "../targetOptions";
 import type {
   ExplorerDocumentMutationAction,
@@ -55,6 +54,7 @@ import {
   useExplorerDocumentModalState,
 } from "./useExplorerDocumentModalState";
 import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
+import { useExplorerPrimaryOrganizationId } from "./useExplorerPrimaryOrganizationId";
 import { type ExplorerRouteState, useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 import {
@@ -188,12 +188,13 @@ export function useExplorerPanelState(params: {
     selectDocument: selection.selectDocument,
     setSelectedId: selection.setSelectedId,
   });
-  const primaryOrganizationId = resolveExplorerPrimaryOrganizationId({
-    currentOrganizationId: appData.auth.organizationId,
-    nodes: explorer.nodes,
-    personalRootContainerId: appData.state.containerId,
-  });
   const tearleads = useTearleads();
+  const primaryOrganizationId = useExplorerPrimaryOrganizationId({
+    appData,
+    nodes: explorer.nodes,
+    ready: explorer.ready,
+    tearleads,
+  });
   // Bind + memoize the loader so the resolver hook can depend on a stable
   // reference (a fresh inline closure each render would re-fire its effect).
   const listLocalOrganizations = useCallback(

@@ -2,9 +2,21 @@ import type { ContainerNode } from "@tearleads/client-sdk";
 
 export function resolveExplorerPrimaryOrganizationId(input: {
   currentOrganizationId: string | null | undefined;
+  primaryLocalOrganizationId?: string | null | undefined;
   nodes: ReadonlyArray<ContainerNode>;
   personalRootContainerId: string | null | undefined;
 }): string | null {
+  if (
+    input.primaryLocalOrganizationId &&
+    input.nodes.some(
+      (node) =>
+        node.parentId === null &&
+        node.organizationId === input.primaryLocalOrganizationId,
+    )
+  ) {
+    return input.primaryLocalOrganizationId;
+  }
+
   const personalRoot =
     input.personalRootContainerId != null
       ? (input.nodes.find(

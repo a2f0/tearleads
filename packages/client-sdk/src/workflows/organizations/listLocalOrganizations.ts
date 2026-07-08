@@ -163,6 +163,16 @@ export async function listLocalOrganizations(input: {
     seen.add(container.organizationId);
     return true;
   });
+  rootContainers.sort(
+    (left, right) =>
+      (left.container.localCreatedAt ?? "").localeCompare(
+        right.container.localCreatedAt ?? "",
+      ) ||
+      left.container.organizationId.localeCompare(
+        right.container.organizationId,
+      ) ||
+      left.container.id.localeCompare(right.container.id),
+  );
 
   // Read each organization's profile name concurrently; readLocalOrganizationName
   // already falls back to null per organization, so a single corrupt profile

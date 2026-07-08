@@ -23,6 +23,10 @@ import {
   type UserSystemContainer,
 } from "../../stores/systemContainers";
 import { useTearleads, useTearleadsRuntime } from "../sdk/TearleadsProvider";
+import {
+  resolveContactsBootstrapPolicy,
+  usePrimaryLocalOrganization,
+} from "../sdk/usePrimaryLocalOrganization";
 import { useTearleadsExternalStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import {
   createSystemBootstrapTargetKey,
@@ -87,6 +91,7 @@ function useUserSystemContainers(input: {
 }
 
 function useSystemBootstrapInput(input: {
+  readonly bootstrapContacts: boolean | null;
   readonly enabled: boolean;
   readonly store: ContainerContentsStore;
   readonly storeReady: boolean;
@@ -120,11 +125,12 @@ function useSystemBootstrapInput(input: {
   return useMemo(() => {
     if (
       !input.enabled ||
+      input.bootstrapContacts === null ||
       !signingPrivateKey ||
       appData.infra.dbStatus !== "ready" ||
       !appData.state.containerId ||
       !input.storeReady ||
-      !hasContactsSystemContainer ||
+      (input.bootstrapContacts && !hasContactsSystemContainer) ||
       input.systemContainers.length === 0 ||
       !canProvisionSystemContainers
     ) {
@@ -133,10 +139,12 @@ function useSystemBootstrapInput(input: {
 
     return {
       appData,
+      bootstrapContacts: input.bootstrapContacts,
       containerContentsStore: input.store,
       systemContainers: input.systemContainers,
       targetKey: createSystemBootstrapTargetKey({
         appData,
+        bootstrapContacts: input.bootstrapContacts,
         contactsContainer,
         systemContainers: input.systemContainers,
       }),
@@ -147,6 +155,7 @@ function useSystemBootstrapInput(input: {
     canProvisionSystemContainers,
     contactsContainer,
     hasContactsSystemContainer,
+    input.bootstrapContacts,
     input.enabled,
     input.store,
     input.storeReady,
@@ -301,7 +310,25 @@ export function SystemBootstrapProvider({
     logError: tearleads.logError,
     signingPrivateKey: appData.crypto.signingKeyPair?.signingPrivateKey ?? null,
   });
+  const primaryLocalOrganization = usePrimaryLocalOrganization({
+    enabled:
+      enabled &&
+      appData.auth.isAuthenticated &&
+      appData.infra.dbStatus === "ready",
+    refreshKey: [
+      appData.auth.organizationId ?? "",
+      appData.state.containerId ?? "",
+      String(snapshot.nodes.length),
+    ].join(":"),
+    tearleads,
+  });
+  const bootstrapContacts = resolveContactsBootstrapPolicy({
+    currentOrganizationId: appData.auth.organizationId,
+    isAuthenticated: appData.auth.isAuthenticated,
+    primaryLocalOrganization,
+  });
   const bootstrapInput = useSystemBootstrapInput({
+    bootstrapContacts,
     enabled,
     store,
     storeNodes: snapshot.nodes,

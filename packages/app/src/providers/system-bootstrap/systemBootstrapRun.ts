@@ -46,6 +46,7 @@ export interface SystemBootstrapState {
 
 export interface SystemBootstrapRunInput {
   readonly appData: RuntimeSnapshot;
+  readonly bootstrapContacts: boolean;
   readonly containerContentsStore: ContainerContentsStore;
   readonly systemContainers: ReadonlyArray<UserSystemContainer>;
   readonly targetKey: string;
@@ -114,6 +115,9 @@ export async function runSystemBootstrap(
   const isAuthenticated = input.appData.auth.isAuthenticated;
 
   for (const systemContainer of input.systemContainers) {
+    if (systemContainer.kind === "contacts" && !input.bootstrapContacts) {
+      continue;
+    }
     if (systemContainer.provisionedAtOrganizationCreation) {
       // Born with the organization (provisioned server-side in the org creation
       // transaction), so it must NOT be created device-first: a second local
@@ -135,7 +139,7 @@ export async function runSystemBootstrap(
   }
 
   if (!contactsContainer) {
-    return false;
+    return !input.bootstrapContacts;
   }
 
   return ensureSelfContact({
@@ -147,6 +151,7 @@ export async function runSystemBootstrap(
 
 export function createSystemBootstrapTargetKey(input: {
   readonly appData: RuntimeSnapshot;
+  readonly bootstrapContacts: boolean;
   readonly contactsContainer: ContainerNode | null;
   readonly systemContainers: ReadonlyArray<UserSystemContainer>;
 }): string {
@@ -162,13 +167,15 @@ export function createSystemBootstrapTargetKey(input: {
     // leaves local-only. Keying on the raw syncState.status would re-key on every
     // badge transition (local-only -> syncing -> synced) and re-run an idempotent
     // bootstrap for no benefit.
-    input.contactsContainer
+    input.bootstrapContacts && input.contactsContainer
       ? `${input.contactsContainer.id}:${
           input.contactsContainer.syncState.status === "local-only"
             ? "local-only"
             : "remote"
         }`
-      : "missing-contacts",
+      : input.bootstrapContacts
+        ? "missing-contacts"
+        : "contacts-disabled",
     input.systemContainers
       .map(
         (systemContainer) =>

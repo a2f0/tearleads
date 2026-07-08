@@ -1,4 +1,4 @@
-import type { ContainerNode } from "@tearleads/client-sdk";
+import type { ContainerNode, Tearleads } from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -7,9 +7,14 @@ import {
   useMemo,
 } from "react";
 import {
+  type RuntimeSnapshot,
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import {
+  resolveContactsBootstrapPolicy,
+  usePrimaryLocalOrganization,
+} from "../../providers/sdk/usePrimaryLocalOrganization";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { CONTACTS_CONTAINER_NAME } from "../systemContainers";
 import type { ContactsStore } from "./contactStore";
@@ -59,6 +64,31 @@ function resolveContactsContainer(input: {
   };
 }
 
+function useCanBootstrapContactsContainer(input: {
+  appData: RuntimeSnapshot;
+  nodeCount: number;
+  tearleads: Tearleads;
+}): boolean {
+  const primaryLocalOrganization = usePrimaryLocalOrganization({
+    enabled:
+      input.appData.auth.isAuthenticated &&
+      input.appData.infra.dbStatus === "ready",
+    refreshKey: [
+      input.appData.auth.organizationId ?? "",
+      input.appData.state.containerId ?? "",
+      String(input.nodeCount),
+    ].join(":"),
+    tearleads: input.tearleads,
+  });
+  return (
+    resolveContactsBootstrapPolicy({
+      currentOrganizationId: input.appData.auth.organizationId,
+      isAuthenticated: input.appData.auth.isAuthenticated,
+      primaryLocalOrganization,
+    }) === true
+  );
+}
+
 export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
@@ -96,6 +126,11 @@ export function ContactsProvider({ children }: PropsWithChildren) {
       containerContentsSnapshot.nodes,
     ],
   );
+  const canBootstrapContactsContainer = useCanBootstrapContactsContainer({
+    appData,
+    nodeCount: containerContentsSnapshot.nodes.length,
+    tearleads,
+  });
   const store = useContactsStoreForContainer(contactsContainer.id);
   const contextValue = useMemo<ContactsProviderContextValue>(
     () => ({ canWrite: contactsContainer.canWrite, store }),
@@ -114,6 +149,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     if (
       !hasRootContainerId ||
       !containerContentsRuntime.auth.isAuthenticated ||
+      !canBootstrapContactsContainer ||
       !containerContentsSnapshot.ready ||
       !contactsSystemSlot
     ) {
@@ -129,6 +165,7 @@ export function ContactsProvider({ children }: PropsWithChildren) {
         tearleads.logError("Failed to queue contacts system container", error);
       });
   }, [
+    canBootstrapContactsContainer,
     contactsSystemSlot,
     containerContentsRuntime.auth.isAuthenticated,
     containerContentsSnapshot.ready,

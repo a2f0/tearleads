@@ -71,6 +71,52 @@ test("listLocalOrganizations returns one entry per provisioned org with its name
   }
 });
 
+test("listLocalOrganizations returns root containers in creation order", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organizations-list-local-order-test",
+  );
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        icon: null,
+        id: "custom-root",
+        localCreatedAt: "2026-02-01T00:00:00.000Z",
+        metadataDocumentId: null,
+        name: "/",
+        organizationId: "custom-org",
+        parentId: null,
+        systemSlot: null,
+      },
+      null,
+    );
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        icon: null,
+        id: "personal-root",
+        localCreatedAt: "2026-01-01T00:00:00.000Z",
+        metadataDocumentId: null,
+        name: "/",
+        organizationId: "personal-org",
+        parentId: null,
+        systemSlot: null,
+      },
+      null,
+    );
+
+    expect(
+      (await listLocalOrganizations({ execSql })).map(
+        (organization) => organization.organizationId,
+      ),
+    ).toEqual(["personal-org", "custom-org"]);
+  } finally {
+    close();
+  }
+});
+
 test("listLocalOrganizations resolves a foreign org name from its metadata container when the profile doc is keyed under the server documentId", async () => {
   const { close, execSql } = await createTestExecSql(
     "organizations-list-local-foreign-test",
