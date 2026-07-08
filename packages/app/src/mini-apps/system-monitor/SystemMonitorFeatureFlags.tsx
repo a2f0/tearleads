@@ -7,11 +7,14 @@ import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlag
 
 export function SystemMonitorFeatureFlags() {
   const {
+    builtInSystemContainersVisible,
     linkedDocumentActivationControlsEnabled,
     passkeysEnabled,
+    setBuiltInSystemContainersVisible,
     setLinkedDocumentActivationControlsEnabled,
     setPasskeysEnabled,
   } = useAppFeatureFlags();
+  const builtInSystemContainersToggleId = useId();
   const linkedDocumentActivationControlsToggleId = useId();
   const passkeysToggleId = useId();
 
@@ -20,6 +23,31 @@ export function SystemMonitorFeatureFlags() {
       <MiniAppSectionHeading>
         <h2>Feature Flags</h2>
       </MiniAppSectionHeading>
+      <label
+        className="system-monitor-feature-flag"
+        htmlFor={builtInSystemContainersToggleId}
+      >
+        <span className="system-monitor-feature-flag-name">
+          Built-in system containers
+        </span>
+        <span className="system-monitor-feature-flag-control">
+          <span className="system-monitor-feature-flag-state">
+            {builtInSystemContainersVisible ? "Enabled" : "Disabled"}
+          </span>
+          <input
+            aria-checked={builtInSystemContainersVisible}
+            aria-label="Show built-in system containers"
+            checked={builtInSystemContainersVisible}
+            className="system-monitor-feature-flag-switch"
+            id={builtInSystemContainersToggleId}
+            role="switch"
+            type="checkbox"
+            onChange={(event) => {
+              setBuiltInSystemContainersVisible(event.currentTarget.checked);
+            }}
+          />
+        </span>
+      </label>
       <label className="system-monitor-feature-flag" htmlFor={passkeysToggleId}>
         <span className="system-monitor-feature-flag-name">Passkeys</span>
         <span className="system-monitor-feature-flag-control">

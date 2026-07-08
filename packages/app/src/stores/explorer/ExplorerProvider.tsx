@@ -122,7 +122,10 @@ function useEnsureExplorerTrashContainer(
   ]);
 }
 
-export function ExplorerProvider({ children }: PropsWithChildren) {
+export function ExplorerProvider({
+  children,
+  showBuiltInSystemContainers = false,
+}: PropsWithChildren<{ showBuiltInSystemContainers?: boolean }>) {
   const tearleads = useTearleads();
   const { reconciler, runtime, view } = useDeviceFirstContainerContents();
   const store = useMemo(
@@ -131,8 +134,10 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
   );
   const { contactsSystemSlot, trashSystemSlot, visibleSystemSlots } =
     useExplorerSystemProvisioning({
+      organizationId: runtime.auth.organizationId,
       signingPrivateKey:
         runtime.crypto.signingKeyPair?.signingPrivateKey ?? null,
+      showBuiltInSystemContainers,
       logError: tearleads.logError,
     });
   const contextValue = useMemo(

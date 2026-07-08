@@ -1,4 +1,5 @@
 export type AppFeatureFlagId =
+  | "built-in-system-containers"
   | "linked-document-activation-controls"
   | "passkeys";
 export type AppFeatureFlagMode = "disabled" | "enabled";

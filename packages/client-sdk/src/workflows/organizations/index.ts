@@ -67,8 +67,10 @@ export {
 export {
   buildRosterProfileDocumentPatch,
   createInitializedRosterProfileDocument,
+  deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
   getRosterProfileDocumentLocalId,
+  ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
   ROSTER_PROFILE_DOCUMENT_KIND,
 } from "./rosterProfileContainer";
