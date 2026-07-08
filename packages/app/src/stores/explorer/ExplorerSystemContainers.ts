@@ -347,10 +347,16 @@ export function findTrashSystemContainerSlot(
 
 export function getExplorerVisibleSystemSlots(
   systemContainers: ReadonlyArray<UserSystemContainer>,
+  extraSystemSlots: ReadonlyArray<ContainerSystemSlot> = [],
 ): ReadonlySet<ContainerSystemSlot> {
-  return new Set(
-    systemContainers.map((systemContainer) => systemContainer.systemSlot),
-  );
+  if (systemContainers.length === 0) {
+    return new Set();
+  }
+
+  return new Set([
+    ...systemContainers.map((systemContainer) => systemContainer.systemSlot),
+    ...extraSystemSlots,
+  ]);
 }
 
 export function useExplorerSystemContainerSlots(input: {

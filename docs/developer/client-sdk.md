@@ -124,6 +124,8 @@ bundle themselves. This host-facing runtime input intentionally does not expose
 the raw API client; SDK namespaces and workflow facades own HTTP transport
 access.
 
+Root exports include built-in organization slot helpers.
+
 `tearleads.network` defaults to automatic mode: browser events and API request
 results set `online`. Hosts can force diagnostics with `setMode("offline")` or
 `setMode("online")`, then resume detection with `setMode("automatic")`.

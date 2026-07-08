@@ -27,6 +27,9 @@ afterEach(async () => {
 // renderPane() mounts the left pane, so the persisted mode lands under this key.
 const MODE_KEY = systemMonitorModeStorageKey("left");
 const DEVELOPER_MODE_KEY = systemMonitorDeveloperModeStorageKey();
+const BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY = appFeatureFlagStorageKey(
+  "built-in-system-containers",
+);
 const PASSKEYS_FEATURE_FLAG_KEY = appFeatureFlagStorageKey("passkeys");
 const LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY =
   appFeatureFlagStorageKey("linked-document-activation-controls");
@@ -363,6 +366,11 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
   fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
   await view.findByRole("tab", { name: "Logs" });
   expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
+  expect(
+    globalThis.localStorage.getItem(
+      BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY,
+    ),
+  ).toBeNull();
   expect(globalThis.localStorage.getItem(PASSKEYS_FEATURE_FLAG_KEY)).toBeNull();
   expect(
     globalThis.localStorage.getItem(
@@ -377,15 +385,31 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
   });
   fireEvent.click(featureFlagsTab);
 
+  const builtInSystemContainersToggle = view.getByRole("switch", {
+    name: "Show built-in system containers",
+  }) as HTMLInputElement;
   const passkeysToggle = view.getByRole("switch", {
     name: "Enable passkeys",
   }) as HTMLInputElement;
   const linkedDocumentActivationControlsToggle = view.getByRole("switch", {
     name: "Enable linked document activation controls",
   }) as HTMLInputElement;
+  expect(builtInSystemContainersToggle.checked).toBe(false);
   expect(passkeysToggle.checked).toBe(false);
   expect(linkedDocumentActivationControlsToggle.checked).toBe(false);
-  expect(view.getAllByText("Disabled")).toHaveLength(2);
+  expect(view.getAllByText("Disabled")).toHaveLength(3);
+
+  fireEvent.click(builtInSystemContainersToggle);
+
+  await waitFor(() => {
+    expect(builtInSystemContainersToggle.checked).toBe(true);
+    expect(
+      globalThis.localStorage.getItem(
+        BUILT_IN_SYSTEM_CONTAINERS_FEATURE_FLAG_KEY,
+      ),
+    ).toBe("enabled");
+    expect(view.getByText("Enabled")).toBeTruthy();
+  });
 
   fireEvent.click(passkeysToggle);
 
@@ -394,7 +418,7 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
     expect(globalThis.localStorage.getItem(PASSKEYS_FEATURE_FLAG_KEY)).toBe(
       "enabled",
     );
-    expect(view.getByText("Enabled")).toBeTruthy();
+    expect(view.getAllByText("Enabled")).toHaveLength(2);
   });
 
   fireEvent.click(linkedDocumentActivationControlsToggle);
@@ -406,7 +430,7 @@ test("feature flags tab is developer-only and toggles app flags", async () => {
         LINKED_DOCUMENT_ACTIVATION_CONTROLS_FEATURE_FLAG_KEY,
       ),
     ).toBe("enabled");
-    expect(view.getAllByText("Enabled")).toHaveLength(2);
+    expect(view.getAllByText("Enabled")).toHaveLength(3);
   });
 
   await clickWindowViewMenuItem(view, "Disable Developer Mode");

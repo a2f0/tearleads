@@ -15,19 +15,25 @@ import {
 } from "./appFeatureFlags";
 
 interface AppFeatureFlagsValue {
+  builtInSystemContainersVisible: boolean;
   linkedDocumentActivationControlsEnabled: boolean;
   passkeysEnabled: boolean;
+  setBuiltInSystemContainersVisible: (enabled: boolean) => void;
   setLinkedDocumentActivationControlsEnabled: (enabled: boolean) => void;
   setPasskeysEnabled: (enabled: boolean) => void;
+  toggleBuiltInSystemContainers: () => void;
   toggleLinkedDocumentActivationControls: () => void;
   togglePasskeys: () => void;
 }
 
 const DEFAULT_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
+  builtInSystemContainersVisible: false,
   linkedDocumentActivationControlsEnabled: false,
   passkeysEnabled: false,
+  setBuiltInSystemContainersVisible: () => {},
   setLinkedDocumentActivationControlsEnabled: () => {},
   setPasskeysEnabled: () => {},
+  toggleBuiltInSystemContainers: () => {},
   toggleLinkedDocumentActivationControls: () => {},
   togglePasskeys: () => {},
 };
@@ -63,6 +69,9 @@ function usePersistentAppFeatureFlag(flag: AppFeatureFlagId) {
 }
 
 function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
+  const builtInSystemContainers = usePersistentAppFeatureFlag(
+    "built-in-system-containers",
+  );
   const passkeys = usePersistentAppFeatureFlag("passkeys");
   const linkedDocumentActivationControls = usePersistentAppFeatureFlag(
     "linked-document-activation-controls",
@@ -70,17 +79,23 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
 
   return useMemo(
     () => ({
+      builtInSystemContainersVisible: builtInSystemContainers.enabled,
       linkedDocumentActivationControlsEnabled:
         linkedDocumentActivationControls.enabled,
       passkeysEnabled: passkeys.enabled,
+      setBuiltInSystemContainersVisible: builtInSystemContainers.setEnabled,
       setLinkedDocumentActivationControlsEnabled:
         linkedDocumentActivationControls.setEnabled,
       setPasskeysEnabled: passkeys.setEnabled,
+      toggleBuiltInSystemContainers: builtInSystemContainers.toggle,
       toggleLinkedDocumentActivationControls:
         linkedDocumentActivationControls.toggle,
       togglePasskeys: passkeys.toggle,
     }),
     [
+      builtInSystemContainers.enabled,
+      builtInSystemContainers.setEnabled,
+      builtInSystemContainers.toggle,
       linkedDocumentActivationControls.enabled,
       linkedDocumentActivationControls.setEnabled,
       linkedDocumentActivationControls.toggle,
