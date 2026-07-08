@@ -30,19 +30,23 @@ const SYSTEM_CONTAINER_ID_NAMESPACE_BYTES = new Uint8Array([
  * container APIs currently validate container ids with the same v4 UUID contract
  * they use for random user-created containers.
  */
-function deriveSystemContainerId(
-  systemSlot: ContainerSystemSlot,
-): Promise<string> {
+function deriveSystemContainerId(input: {
+  parentContainerId: string;
+  systemSlot: ContainerSystemSlot;
+}): Promise<string> {
   return deriveStableUuidV4Shaped(
     SYSTEM_CONTAINER_ID_NAMESPACE_BYTES,
-    systemSlot,
+    `${input.parentContainerId}\u0000${input.systemSlot}`,
   );
 }
 
 async function createChildContainerId(
+  parentContainerId: string,
   systemSlot: ContainerSystemSlot | null | undefined,
 ): Promise<string> {
-  return systemSlot ? deriveSystemContainerId(systemSlot) : crypto.randomUUID();
+  return systemSlot
+    ? deriveSystemContainerId({ parentContainerId, systemSlot })
+    : crypto.randomUUID();
 }
 
 async function buildRemoteContainerContentsChildContainerState(input: {
@@ -149,6 +153,23 @@ function buildLocalContainerContentsChildContainerState(input: {
   };
 }
 
+function createInitialChildContainerDocumentRecord(input: {
+  childId: string;
+  initialUpdate: Uint8Array;
+}): DocumentRecord {
+  return {
+    accessEpoch: 1,
+    accessStateHash: null,
+    contentKeyBundle: null,
+    documentId: null,
+    documentKekTargets: null,
+    documentManifestBundle: null,
+    id: input.childId,
+    lastCommitLsn: null,
+    loroSnapshot: bytesToBase64(input.initialUpdate),
+  };
+}
+
 export async function createChildContainerState(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   createRemote: boolean;
@@ -176,23 +197,19 @@ export async function createChildContainerState(input: {
   }
 
   const icon = input.icon?.trim() || null;
-  const childId = await createChildContainerId(systemSlot);
+  const childId = await createChildContainerId(
+    parentState.container.id,
+    systemSlot,
+  );
   const { doc, initialUpdate } =
     await createInitializedContainerMetadataDocument(childId, {
       icon,
       name: trimmedName,
     });
-  const initialRecord: DocumentRecord = {
-    accessEpoch: 1,
-    accessStateHash: null,
-    contentKeyBundle: null,
-    documentId: null,
-    documentKekTargets: null,
-    documentManifestBundle: null,
-    id: childId,
-    lastCommitLsn: null,
-    loroSnapshot: bytesToBase64(initialUpdate),
-  };
+  const initialRecord = createInitialChildContainerDocumentRecord({
+    childId,
+    initialUpdate,
+  });
 
   const remoteChildState = createRemote
     ? await buildRemoteContainerContentsChildContainerState({

@@ -123,6 +123,8 @@ export async function runSystemBootstrap(
       continue;
     }
     const ensuredContainer = await ensureSystemBootstrapContainer({
+      currentOrganizationId: input.appData.auth.organizationId,
+      currentRootContainerId: input.appData.state.containerId,
       isAuthenticated,
       store: input.containerContentsStore,
       systemContainer,

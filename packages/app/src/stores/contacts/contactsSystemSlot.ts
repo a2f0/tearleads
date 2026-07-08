@@ -6,17 +6,39 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import { useEffect, useState } from "react";
 import { CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION } from "../systemContainers";
 
+type ContactsContainerLookupNode = Pick<
+  ContainerNode,
+  "id" | "organizationId" | "parentId" | "systemSlot"
+>;
+
 export function getContactsContainerId(
-  nodes: ReadonlyArray<Pick<ContainerNode, "id" | "systemSlot">> | null,
+  nodes: ReadonlyArray<ContactsContainerLookupNode> | null,
   contactsSystemSlot: ContainerSystemSlot | null,
+  organizationId?: string | null | undefined,
+  rootContainerId?: string | null | undefined,
 ): string | null {
   if (!contactsSystemSlot) {
     return null;
   }
 
-  return (
-    nodes?.find((node) => node.systemSlot === contactsSystemSlot)?.id ?? null
-  );
+  let fallback: ContactsContainerLookupNode | null = null;
+  for (const node of nodes ?? []) {
+    if (node.systemSlot !== contactsSystemSlot) {
+      continue;
+    }
+    if (rootContainerId != null && node.parentId === rootContainerId) {
+      return node.id;
+    }
+    if (
+      rootContainerId != null
+        ? organizationId != null && node.organizationId === organizationId
+        : organizationId == null || node.organizationId === organizationId
+    ) {
+      fallback ??= node;
+    }
+  }
+
+  return fallback?.id ?? null;
 }
 
 export function useContactsSystemSlot(input: {

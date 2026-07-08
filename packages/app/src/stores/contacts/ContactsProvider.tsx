@@ -1,3 +1,4 @@
+import type { ContainerNode } from "@tearleads/client-sdk";
 import {
   createContext,
   type PropsWithChildren,
@@ -28,6 +29,36 @@ const ContactsContext = createContext<ContactsProviderContextValue | null>(
   null,
 );
 
+function resolveContactsContainer(input: {
+  nodes: ReadonlyArray<
+    Pick<
+      ContainerNode,
+      | "effectiveAccessLevel"
+      | "id"
+      | "organizationId"
+      | "parentId"
+      | "systemSlot"
+    >
+  >;
+  organizationId: string | null | undefined;
+  rootContainerId: string | null | undefined;
+  systemSlot: Parameters<typeof getContactsContainerId>[1];
+}): { canWrite: boolean; id: string | null } {
+  const id = getContactsContainerId(
+    input.nodes,
+    input.systemSlot,
+    input.organizationId,
+    input.rootContainerId,
+  );
+  const container = id
+    ? (input.nodes.find((node) => node.id === id) ?? null)
+    : null;
+  return {
+    canWrite: Boolean(container && container.effectiveAccessLevel !== "read"),
+    id,
+  };
+}
+
 export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
@@ -50,28 +81,25 @@ export function ContactsProvider({ children }: PropsWithChildren) {
     signingPrivateKey:
       containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ?? null,
   });
-  const contactsContainerId = useMemo(() => {
-    return getContactsContainerId(
-      containerContentsSnapshot.nodes,
-      contactsSystemSlot,
-    );
-  }, [contactsSystemSlot, containerContentsSnapshot.nodes]);
   const contactsContainer = useMemo(
     () =>
-      contactsContainerId
-        ? (containerContentsSnapshot.nodes.find(
-            (node) => node.id === contactsContainerId,
-          ) ?? null)
-        : null,
-    [contactsContainerId, containerContentsSnapshot.nodes],
+      resolveContactsContainer({
+        nodes: containerContentsSnapshot.nodes,
+        organizationId: appData.auth.organizationId,
+        rootContainerId: appData.state.containerId,
+        systemSlot: contactsSystemSlot,
+      }),
+    [
+      appData.auth.organizationId,
+      appData.state.containerId,
+      contactsSystemSlot,
+      containerContentsSnapshot.nodes,
+    ],
   );
-  const canWrite = Boolean(
-    contactsContainer && contactsContainer.effectiveAccessLevel !== "read",
-  );
-  const store = useContactsStoreForContainer(contactsContainerId);
+  const store = useContactsStoreForContainer(contactsContainer.id);
   const contextValue = useMemo<ContactsProviderContextValue>(
-    () => ({ canWrite, store }),
-    [canWrite, store],
+    () => ({ canWrite: contactsContainer.canWrite, store }),
+    [contactsContainer.canWrite, store],
   );
 
   useEffect(() => {

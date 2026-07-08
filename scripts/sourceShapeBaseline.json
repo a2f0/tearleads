@@ -229,10 +229,6 @@
       "lines": 743,
       "bytes": 29013
     },
-    "packages/client-sdk/src/stores/container-contents/syncAgent.ts": {
-      "lines": 547,
-      "bytes": 18105
-    },
     "packages/client-sdk/src/stores/documents/documentStore/sync.ts": {
       "lines": 536,
       "bytes": 16552

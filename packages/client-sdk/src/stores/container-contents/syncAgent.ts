@@ -20,7 +20,6 @@ import type { ContainerContentsProjectionUserKeyResolver } from "../../workflows
 import {
   type ContainerState,
   createRemoteContainerIngestor,
-  hydrateRemoteContainers,
   type RemoteContainer,
   type RemoteContainerHydrationHost,
 } from "../../workflows/container-contents/remoteHydration";
@@ -34,6 +33,7 @@ import {
   registerContainerContentsSyncLane,
 } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore, requestDomainDocumentSync } from "../documents";
+import { refreshLocalContainerStates } from "./localRefresh";
 import {
   bumpMetadataSyncSeq,
   clearMetadataSyncQueueIfUnchanged,
@@ -43,6 +43,7 @@ import {
   refreshAllRemoteHydration,
   refreshRootRemoteHydration,
 } from "./remoteHydrationRefresh";
+import { requestContainerContentsRemoteHydration } from "./remoteHydrationRequest";
 import {
   hasStartupContainerSyncWork,
   scheduleStaleStartupRemoteHydration,
@@ -57,6 +58,8 @@ export interface ContainerContentsStoreSyncState {
   documentStoresNeedPriming: boolean;
   initializePromise: Promise<void> | null;
   initialized: boolean;
+  localContainerRefreshPromise: Promise<void> | null;
+  localContainersNeedRefresh: boolean;
   lastEventCount: number;
   /**
    * Update ids this client sent for container metadata documents, registered
@@ -95,6 +98,7 @@ export interface ContainerContentsStoreSyncAgent {
   handleRemoteEvents: () => void;
   ingestRemoteContainer: (remoteContainer: RemoteContainer) => Promise<void>;
   primeDocumentsForSharedSubtree: (rootContainerId: string) => Promise<void>;
+  refreshLocalContainers: () => Promise<void>;
   refresh: () => Promise<boolean>;
   refreshRootLane: () => Promise<boolean>;
   requestRemoteHydration: (options?: {
@@ -191,77 +195,6 @@ async function primeDocumentsForSharedRoots(
   );
 }
 
-function requestRemoteHydration(input: {
-  followDiscoveredParentLanes?: boolean | undefined;
-  host: ContainerContentsStoreSyncHost;
-  parentIds?: ReadonlyArray<string | null> | undefined;
-  resetRootLaneWatermark?: boolean | undefined;
-  scheduleSyncAfterHydration?: boolean | undefined;
-  scheduleSync: () => void;
-  state: ContainerContentsStoreSyncState;
-}): Promise<void> {
-  const { host, scheduleSync, state } = input;
-  if (input.parentIds) {
-    for (const parentId of input.parentIds) {
-      state.containerParentIdsNeedingHydration.add(parentId);
-    }
-  }
-
-  if (state.remoteHydrationPromise) {
-    const requestQueuedHydration = () =>
-      state.containerParentIdsNeedingHydration.size > 0
-        ? requestRemoteHydration(input)
-        : undefined;
-    return state.remoteHydrationPromise.then(
-      requestQueuedHydration,
-      (error: unknown) => requestQueuedHydration() ?? Promise.reject(error),
-    );
-  }
-  const queuedParentIds = Array.from(state.containerParentIdsNeedingHydration);
-  const followDiscoveredParentLanes =
-    input.followDiscoveredParentLanes ?? queuedParentIds.length === 0;
-  const parentIds = followDiscoveredParentLanes
-    ? undefined
-    : queuedParentIds.length === 0
-      ? undefined
-      : queuedParentIds;
-  state.containerParentIdsNeedingHydration.clear();
-
-  let appliedRemoteContainerChange = false;
-  state.remoteHydrationPromise = hydrateRemoteContainers({
-    followDiscoveredParentLanes,
-    host,
-    parentIds,
-    resetRootLaneWatermark: input.resetRootLaneWatermark,
-    state,
-  })
-    .then((changedCount) => {
-      appliedRemoteContainerChange = changedCount > 0;
-    })
-    .catch((error: unknown) => {
-      if (isDestroyedDatabaseClientError(error)) {
-        return;
-      }
-
-      throw error;
-    })
-    .finally(() => {
-      state.remoteHydrationPromise = null;
-
-      if (
-        (appliedRemoteContainerChange || input.scheduleSyncAfterHydration) &&
-        state.snapshot.ready &&
-        state.runtime.auth.isAuthenticated &&
-        state.runtime.state.online &&
-        !isRemoteSyncBlocked(state)
-      ) {
-        scheduleSync();
-      }
-    });
-
-  return state.remoteHydrationPromise;
-}
-
 async function initializeContainerContentsStore(input: {
   host: ContainerContentsStoreSyncHost;
   scheduleSync: () => void;
@@ -286,7 +219,12 @@ async function initializeContainerContentsStore(input: {
 
   await scheduleStaleStartupRemoteHydration({
     requestHydration: () =>
-      requestRemoteHydration({ host, scheduleSync, state }),
+      requestContainerContentsRemoteHydration({
+        host,
+        isRemoteSyncBlocked: () => isRemoteSyncBlocked(state),
+        scheduleSync,
+        state,
+      }),
     state,
   });
 
@@ -464,6 +402,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     run: () => runContainerContentsStoreSyncIteration({ host, state }),
   });
   const scheduleSync = () => requestContainerContentsStoreSync(state);
+  const isCurrentRemoteSyncBlocked = () => isRemoteSyncBlocked(state);
   const ingestRemoteContainer = createRemoteContainerIngestor({
     host,
     state,
@@ -471,9 +410,10 @@ export function createContainerContentsStoreSyncAgent(input: {
 
   const requestHydration: ContainerContentsStoreSyncAgent["requestRemoteHydration"] =
     (options = {}) =>
-      requestRemoteHydration({
+      requestContainerContentsRemoteHydration({
         followDiscoveredParentLanes: options.followDiscoveredParentLanes,
         host,
+        isRemoteSyncBlocked: isCurrentRemoteSyncBlocked,
         parentIds: options.parentIds,
         scheduleSync,
         state,
@@ -483,7 +423,14 @@ export function createContainerContentsStoreSyncAgent(input: {
     parentIds?: ReadonlyArray<string | null> | undefined;
     resetRootLaneWatermark?: boolean | undefined;
     scheduleSyncAfterHydration?: boolean | undefined;
-  }) => requestRemoteHydration({ ...options, host, scheduleSync, state });
+  }) =>
+    requestContainerContentsRemoteHydration({
+      ...options,
+      host,
+      isRemoteSyncBlocked: isCurrentRemoteSyncBlocked,
+      scheduleSync,
+      state,
+    });
 
   return {
     ensureInitialized: () =>
@@ -528,6 +475,7 @@ export function createContainerContentsStoreSyncAgent(input: {
     ingestRemoteContainer,
     primeDocumentsForSharedSubtree: (rootContainerId: string) =>
       primeDocumentsForSharedSubtree(state, rootContainerId),
+    refreshLocalContainers: () => refreshLocalContainerStates({ host, state }),
     refresh: () =>
       refreshAllRemoteHydration({
         requestHydration: requestRefreshHydration,

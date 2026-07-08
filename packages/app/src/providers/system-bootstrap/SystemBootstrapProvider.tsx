@@ -106,6 +106,8 @@ function useSystemBootstrapInput(input: {
     ? findExplorerSystemNode(
         input.storeNodes,
         contactsSystemContainer.systemSlot,
+        appData.auth.organizationId,
+        appData.state.containerId,
       )
     : null;
   const canProvisionSystemContainers = canProvisionExplorerSystemContainers({
@@ -325,6 +327,8 @@ export function SystemBootstrapProvider({
   }, [enabled, store, runtime]);
 
   usePromoteLocalSystemContainers({
+    currentOrganizationId: appData.auth.organizationId,
+    currentRootContainerId: appData.state.containerId,
     enabled,
     isAuthenticated: appData.auth.isAuthenticated,
     logError: tearleads.logError,
@@ -334,6 +338,8 @@ export function SystemBootstrapProvider({
     systemContainers,
   });
   useProvisionedSystemContainerPull({
+    currentOrganizationId: appData.auth.organizationId,
+    currentRootContainerId: appData.state.containerId,
     enabled,
     isAuthenticated: appData.auth.isAuthenticated,
     logError: tearleads.logError,

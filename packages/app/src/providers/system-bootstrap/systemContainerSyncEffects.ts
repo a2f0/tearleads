@@ -42,6 +42,8 @@ const PROVISIONED_SYSTEM_CONTAINER_PULL_INTERVAL_MS = 250;
 // principal exactly like a normal child create, so promotion under an org-managed
 // (admins-group) root is correct, not skippable.
 export function usePromoteLocalSystemContainers(input: {
+  readonly currentOrganizationId: string | null | undefined;
+  readonly currentRootContainerId: string | null | undefined;
   readonly enabled: boolean;
   readonly isAuthenticated: boolean;
   readonly logError: (message: string | Error, cause?: unknown) => void;
@@ -52,6 +54,8 @@ export function usePromoteLocalSystemContainers(input: {
 }): void {
   const {
     enabled,
+    currentOrganizationId,
+    currentRootContainerId,
     isAuthenticated,
     logError,
     snapshotNodes,
@@ -66,7 +70,12 @@ export function usePromoteLocalSystemContainers(input: {
     }
     for (const systemContainer of systemContainers) {
       const slot = systemContainer.systemSlot;
-      const node = findExplorerSystemNode(snapshotNodes, slot);
+      const node = findExplorerSystemNode(
+        snapshotNodes,
+        slot,
+        currentOrganizationId,
+        currentRootContainerId,
+      );
       if (
         !node ||
         node.syncState.status !== "local-only" ||
@@ -90,6 +99,8 @@ export function usePromoteLocalSystemContainers(input: {
     // every unrelated store update.
   }, [
     enabled,
+    currentOrganizationId,
+    currentRootContainerId,
     isAuthenticated,
     snapshotReady,
     snapshotNodes,
@@ -116,6 +127,8 @@ export function usePromoteLocalSystemContainers(input: {
 // the slot from SQLite finds it present up front and never polls; the attempt
 // budget only bounds the pathological slot the server never returns.
 export function useProvisionedSystemContainerPull(input: {
+  readonly currentOrganizationId: string | null | undefined;
+  readonly currentRootContainerId: string | null | undefined;
   readonly enabled: boolean;
   readonly isAuthenticated: boolean;
   readonly logError: (message: string | Error, cause?: unknown) => void;
@@ -125,6 +138,8 @@ export function useProvisionedSystemContainerPull(input: {
 }): void {
   const {
     enabled,
+    currentOrganizationId,
+    currentRootContainerId,
     isAuthenticated,
     logError,
     snapshotReady,
@@ -151,7 +166,13 @@ export function useProvisionedSystemContainerPull(input: {
 
     const listMissingSlots = (): string[] =>
       provisionedSlots.filter(
-        (slot) => !findExplorerSystemNode(store.getSnapshot().nodes, slot),
+        (slot) =>
+          !findExplorerSystemNode(
+            store.getSnapshot().nodes,
+            slot,
+            currentOrganizationId,
+            currentRootContainerId,
+          ),
       );
 
     // Already whole (synced in, or loaded from SQLite on a returning session), or
@@ -212,6 +233,8 @@ export function useProvisionedSystemContainerPull(input: {
     return stopPolling;
   }, [
     enabled,
+    currentOrganizationId,
+    currentRootContainerId,
     isAuthenticated,
     snapshotReady,
     systemContainers,

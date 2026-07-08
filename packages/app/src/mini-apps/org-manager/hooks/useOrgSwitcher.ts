@@ -1,5 +1,6 @@
 import type {
   LocalOrganizationSummary,
+  SessionContext,
   SessionCreateOrganizationResult,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -27,16 +28,33 @@ interface CreateOrganizationDialogState {
   openCreateOrganizationDialog: () => void;
 }
 
+export function resolveOrgSwitcherSessionContext(
+  organizations: readonly LocalOrganizationSummary[],
+  organizationId: string,
+): SessionContext | null {
+  const organization = organizations.find(
+    (candidate) => candidate.organizationId === organizationId,
+  );
+  if (!organization) {
+    return null;
+  }
+
+  return {
+    containerId: organization.rootContainerId,
+    organizationId,
+  };
+}
+
 function useCreateOrganizationDialog({
   provisionOrganization,
   reload,
-  selectOrganization,
+  selectCreatedOrganization,
 }: {
   provisionOrganization: (
     organizationProfileName: string,
   ) => Promise<SessionCreateOrganizationResult | null>;
   reload: () => Promise<void>;
-  selectOrganization: (organizationId: string) => void;
+  selectCreatedOrganization: (result: SessionCreateOrganizationResult) => void;
 }): CreateOrganizationDialogState {
   const [creating, setCreating] = useState(false);
   const [isCreateOrganizationDialogOpen, setIsCreateOrganizationDialogOpen] =
@@ -72,7 +90,7 @@ function useCreateOrganizationDialog({
         const result = await provisionOrganization(organizationProfileName);
         await reload();
         if (result) {
-          selectOrganization(result.organizationId);
+          selectCreatedOrganization(result);
         }
         setIsCreateOrganizationDialogOpen(false);
       } catch (error) {
@@ -82,7 +100,7 @@ function useCreateOrganizationDialog({
         setCreating(false);
       }
     },
-    [provisionOrganization, reload, selectOrganization],
+    [provisionOrganization, reload, selectCreatedOrganization],
   );
 
   return useMemo(
@@ -156,10 +174,16 @@ export function useOrgSwitcher({
   const selectOrganization = useCallback(
     (organizationId: string) => {
       if (organizationId !== activeOrganizationId) {
-        tearleads.session.setOrganizationId(organizationId);
+        const context = resolveOrgSwitcherSessionContext(
+          organizations,
+          organizationId,
+        );
+        if (context) {
+          tearleads.session.setContext(context);
+        }
       }
     },
-    [tearleads, activeOrganizationId],
+    [tearleads, activeOrganizationId, organizations],
   );
 
   const provisionOrganization = useCallback(
@@ -167,10 +191,19 @@ export function useOrgSwitcher({
       tearleads.session.createOrganization({ organizationProfileName }),
     [tearleads],
   );
+  const selectCreatedOrganization = useCallback(
+    (result: SessionCreateOrganizationResult) => {
+      tearleads.session.setContext({
+        containerId: result.containerId,
+        organizationId: result.organizationId,
+      });
+    },
+    [tearleads],
+  );
   const createOrganizationDialog = useCreateOrganizationDialog({
     provisionOrganization,
     reload,
-    selectOrganization,
+    selectCreatedOrganization,
   });
 
   return useMemo(

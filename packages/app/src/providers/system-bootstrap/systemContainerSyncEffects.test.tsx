@@ -37,6 +37,8 @@ test("provisioned-container pull is not starved across polling sequences", () =>
   } as unknown as ContainerContentsStore;
 
   const props = {
+    currentOrganizationId: "org-1",
+    currentRootContainerId: "root-1",
     enabled: true,
     isAuthenticated: true,
     logError: () => {},
@@ -83,6 +85,8 @@ test("provisioned-container pull does not fire concurrently while one is in flig
       useProvisionedSystemContainerPull(hookProps),
     {
       initialProps: {
+        currentOrganizationId: "org-1",
+        currentRootContainerId: "root-1",
         enabled: true,
         isAuthenticated: true,
         logError: () => {},
