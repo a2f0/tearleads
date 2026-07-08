@@ -43,6 +43,7 @@ function createExplorerModel(
     canMoveSelectedDocument: true,
     explorer: { ready: true },
     hasSelectedDocumentLinkTargets: true,
+    hasSelectedDocumentMoveTargets: true,
     isActiveContactsContainer: true,
     modalState: {
       openCreateChildModal: () => undefined,
@@ -256,6 +257,53 @@ test("document toolbar hides link when there are no link targets", async () => {
   expect(
     view.getByRole("button", { name: EXPLORER_LABELS.documentMoveAction }),
   ).toBeTruthy();
+});
+
+test("document toolbar hides move when there are no move targets", async () => {
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          canMoveSelectedDocument: false,
+          hasSelectedDocumentMoveTargets: false,
+          isActiveContactsContainer: false,
+          routeState: {
+            ...baseModel.routeState,
+            route: { view: "selection" },
+          },
+          selection: {
+            ...baseModel.selection,
+            activeContainerId: "contacts-container",
+            selectedDocument: {
+              containerId: "contacts-container",
+              documentId: "contact-document-1",
+              id: "contact-1",
+              title: "Contact",
+              updatedAt: "2026-07-07T00:00:00.000Z",
+            },
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", {
+        name: EXPLORER_LABELS.documentInfoGetInfoAction,
+      }),
+    ).toBeTruthy();
+  });
+
+  expect(
+    view.getByRole("button", { name: EXPLORER_LABELS.documentLinkAction }),
+  ).toBeTruthy();
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.documentMoveAction,
+    }),
+  ).toBeNull();
 });
 
 test("document-info back action returns to the document projection", async () => {
