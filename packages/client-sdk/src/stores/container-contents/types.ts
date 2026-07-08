@@ -56,6 +56,10 @@ export interface ContainerContentsContextValue {
     containerId: string,
     name: string,
   ) => Promise<ContainerNode | null>;
+  setContainerIcon: (
+    containerId: string,
+    icon: string | null,
+  ) => Promise<ContainerNode | null>;
   shareWithGroup: (
     containerId: string,
     groupId: string,
@@ -94,6 +98,10 @@ export interface ContainerContentsStore {
   renameContainer: (
     containerId: string,
     name: string,
+  ) => Promise<ContainerNode | null>;
+  setContainerIcon: (
+    containerId: string,
+    icon: string | null,
   ) => Promise<ContainerNode | null>;
   shareWithGroup: (
     containerId: string,

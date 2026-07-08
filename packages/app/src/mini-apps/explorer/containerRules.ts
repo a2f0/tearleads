@@ -76,6 +76,16 @@ export function canWriteContainerNode(
   return container != null && container.effectiveAccessLevel !== "read";
 }
 
+// Whether the viewer administers the container (the strongest access level).
+// Unlike canWriteContainerNode (write-or-admin), this is strictly admin, matching
+// the crypto-layer gate on grant/revoke and used to gate admin-only settings such
+// as the container icon picker.
+export function canAdminContainerNode(
+  container: Pick<ContainerNode, "effectiveAccessLevel"> | null | undefined,
+): boolean {
+  return container != null && container.effectiveAccessLevel === "admin";
+}
+
 export function canWriteDocumentSummary(
   document: Pick<DocumentSummary, "effectiveAccessLevel"> | null | undefined,
 ): boolean {

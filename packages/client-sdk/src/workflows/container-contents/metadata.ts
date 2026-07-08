@@ -22,6 +22,7 @@ import {
 export {
   persistContainerMetadataStateFromRuntime,
   renameContainerMetadataStateFromRuntime,
+  setContainerIconMetadataStateFromRuntime,
 } from "./metadataPersistence";
 
 import type {

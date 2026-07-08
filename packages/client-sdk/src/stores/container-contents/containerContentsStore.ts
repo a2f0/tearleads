@@ -15,6 +15,7 @@ import {
   shareContainerWithUser,
 } from "./operations";
 import { purgeContainer } from "./purgeContainerOperation";
+import { setContainerIcon } from "./setContainerIconOperation";
 import {
   createContainerContentsStoreState,
   subscribeToContainerContentsStore,
@@ -151,6 +152,12 @@ function createContainerContentsStoreEntry(
         state.writeChain = state.writeChain
           .catch(() => null)
           .then(() => renameContainer(state, syncAgent, containerId, name));
+        return state.writeChain;
+      },
+      setContainerIcon: (containerId: string, icon: string | null) => {
+        state.writeChain = state.writeChain
+          .catch(() => null)
+          .then(() => setContainerIcon(state, syncAgent, containerId, icon));
         return state.writeChain;
       },
       shareWithUser: (containerId: string, userId: string) =>

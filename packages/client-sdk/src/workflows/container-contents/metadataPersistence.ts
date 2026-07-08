@@ -153,7 +153,10 @@ async function persistContainerMetadataState(input: {
     ),
     systemSlot: resolveContainerSystemSlot(patch, metadataState.container),
     name: patch.name ?? metadata.name,
-    icon: patch.icon ?? metadata.icon,
+    // Distinguish "clear the icon" (patch.icon === null) from "icon not
+    // patched" (undefined): `??` would collapse both to metadata.icon, so an
+    // explicit null in a patch could never clear a previously set icon.
+    icon: patch.icon !== undefined ? patch.icon : metadata.icon,
   };
   const nextRecord: DocumentRecord = {
     id: metadataState.container.id,
@@ -267,6 +270,56 @@ export async function renameContainerMetadataStateFromRuntime({
 }): ReturnType<typeof renameContainerMetadataState> {
   const execSql = runtime.infra.execSql;
   return renameContainerMetadataState({
+    ...input,
+    execSql,
+  });
+}
+
+async function setContainerIconMetadataState(input: {
+  execSql: ExecSql;
+  icon: string | null;
+  metadataState: ContainerMetadataState;
+  persistence: ContainerContentsPersistence;
+}): Promise<PersistedContainerMetadataState> {
+  const { execSql, icon, metadataState, persistence } = input;
+  // Normalize to the same shape the metadata document stores: a trimmed,
+  // non-empty slug or null (the default folder). writeContainerMetadataValue
+  // deletes the icon key when null so it matches an unset legacy container.
+  const normalizedIcon = icon?.trim() || null;
+
+  const metadata = readContainerMetadataValue(
+    metadataState.doc,
+    getDefaultContainerName(metadataState.container.parentId),
+  );
+  const previousVersion = encodeVersionVector(metadataState.doc);
+  writeContainerMetadataValue(metadataState.doc, {
+    ...metadata,
+    icon: normalizedIcon,
+  });
+  const update = exportUpdatesSince(metadataState.doc, previousVersion);
+
+  await enqueuePendingContainerUpdate(execSql, persistence, {
+    containerId: metadataState.container.id,
+    update,
+  });
+
+  return persistContainerMetadataState({
+    execSql,
+    metadataState,
+    patch: { icon: normalizedIcon },
+    persistence,
+  });
+}
+
+export async function setContainerIconMetadataStateFromRuntime({
+  runtime,
+  ...input
+}: Omit<Parameters<typeof setContainerIconMetadataState>[0], "execSql"> & {
+  persistence: ContainerContentsPersistence;
+  runtime: ContainerMetadataPersistenceRuntime;
+}): ReturnType<typeof setContainerIconMetadataState> {
+  const execSql = runtime.infra.execSql;
+  return setContainerIconMetadataState({
     ...input,
     execSql,
   });
