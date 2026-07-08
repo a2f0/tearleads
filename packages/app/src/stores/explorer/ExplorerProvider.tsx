@@ -210,6 +210,7 @@ export function useExplorer(): ExplorerContextValue {
       refreshRootLane: store.refreshRootLane,
       renameContainer: store.renameContainer,
       requestSync: store.requestSync,
+      setContainerIcon: store.setContainerIcon,
       shareWithGroup: store.shareWithGroup,
       shareWithUser: store.shareWithUser,
       nodes: getVisibleExplorerNodes(

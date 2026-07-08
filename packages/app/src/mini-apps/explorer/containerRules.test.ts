@@ -3,6 +3,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import {
   canAddDocumentToContainerByRules,
+  canAdminContainerNode,
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
   canDeleteContainerByRules,
@@ -83,6 +84,20 @@ function documentSummary(
     ...overrides,
   };
 }
+
+test("canAdminContainerNode is true only for the admin access level", () => {
+  const adminOf = (level?: ContainerNode["effectiveAccessLevel"]) =>
+    canAdminContainerNode(
+      containerNode({ id: "n", effectiveAccessLevel: level }),
+    );
+  expect(adminOf("admin")).toBe(true);
+  expect(adminOf("write")).toBe(false);
+  expect(adminOf("read")).toBe(false);
+  // An unresolved access level fails closed rather than granting admin controls.
+  expect(adminOf(undefined)).toBe(false);
+  expect(canAdminContainerNode(null)).toBe(false);
+  expect(canAdminContainerNode(undefined)).toBe(false);
+});
 
 test("the contacts and trash containers cannot be moved", () => {
   expect(canMoveContainerByRules(rulesContext, contactsContainer)).toBe(false);

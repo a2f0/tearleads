@@ -151,6 +151,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       selectDocumentProjection={model.selectDocumentProjection}
       selectedNode={model.selection.selectedNode}
       selectedDocument={model.selection.selectedDocument}
+      setContainerIcon={model.explorer.setContainerIcon}
       setSelectedId={model.routeState.selectExplorerItem}
       showLinkedDocumentActivationControls={
         linkedDocumentActivationControlsEnabled

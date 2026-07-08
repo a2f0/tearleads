@@ -1,5 +1,6 @@
 import type {
   ContainerInfo,
+  ContainerNode,
   ContainerShareAccessLevel,
 } from "@tearleads/client-sdk";
 import { useEffect, useId, useState } from "react";
@@ -29,6 +30,8 @@ import {
 import { ExplorerContainerInfoSyncCursorsSection } from "./ExplorerContainerInfoSyncCursorsSection";
 
 interface Props {
+  canManageIcon: boolean;
+  containerIcon: string | null;
   containerId: string;
   containerName: string | undefined;
   containerSyncStatus: string | null;
@@ -45,6 +48,10 @@ interface Props {
     position?: MiniAppWindowPosition,
   ) => void;
   peerUserId: string | null;
+  setContainerIcon: (
+    containerId: string,
+    icon: string | null,
+  ) => Promise<ContainerNode | null>;
   shareWithGroup: (
     containerId: string,
     groupId: string,
@@ -218,6 +225,8 @@ function ExplorerContainerInfoSharingSections(params: {
 
 function ExplorerContainerInfoTabPanel(params: {
   activeTab: ContainerInfoTabId;
+  canManageIcon: boolean;
+  containerIcon: string | null;
   containerId: string;
   containerInfo: ContainerInfo | null;
   containerInfoError: string | null;
@@ -239,6 +248,10 @@ function ExplorerContainerInfoTabPanel(params: {
   ) => void;
   onShareWithPeer: () => void;
   peerUserId: string | null;
+  setContainerIcon: (
+    containerId: string,
+    icon: string | null,
+  ) => Promise<ContainerNode | null>;
   setDraftShareAccessLevel: (value: ContainerShareAccessLevel) => void;
   setDraftShareGroupId: (value: string) => void;
   setPanelError: (error: string | null) => void;
@@ -254,8 +267,11 @@ function ExplorerContainerInfoTabPanel(params: {
     >
       {params.activeTab === "general" ? (
         <ExplorerContainerInfoLocalSection
+          canManageIcon={params.canManageIcon}
+          containerIcon={params.containerIcon}
           containerId={params.containerId}
           containerInfo={params.containerInfo}
+          setContainerIcon={params.setContainerIcon}
         />
       ) : null}
       {params.activeTab !== "general" && !remoteInfo ? (
@@ -338,6 +354,8 @@ export function ExplorerContainerInfoPanel(params: Props) {
         />
         <ExplorerContainerInfoTabPanel
           activeTab={activeTab}
+          canManageIcon={params.canManageIcon}
+          containerIcon={params.containerIcon}
           containerId={params.containerId}
           containerInfo={containerInfo}
           containerInfoError={containerInfoError}
@@ -352,6 +370,7 @@ export function ExplorerContainerInfoPanel(params: Props) {
           onOpenGrant={params.onOpenGrant}
           onShareWithPeer={handleShareWithPeer}
           peerUserId={params.peerUserId}
+          setContainerIcon={params.setContainerIcon}
           setDraftShareAccessLevel={setDraftShareAccessLevel}
           setDraftShareGroupId={setDraftShareGroupId}
           setPanelError={setPanelError}

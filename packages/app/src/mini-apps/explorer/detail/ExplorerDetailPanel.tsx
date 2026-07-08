@@ -17,7 +17,10 @@ import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
-import { canWriteContainerNode } from "../containerRules";
+import {
+  canAdminContainerNode,
+  canWriteContainerNode,
+} from "../containerRules";
 import type { ExplorerContextMenuTarget } from "../context-menu/ExplorerContextMenu";
 import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
@@ -161,6 +164,10 @@ interface ExplorerDetailPanelProps {
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   selectedDocument: DocumentSummary | undefined;
   selectedNode: ContainerNode | undefined;
+  setContainerIcon: (
+    containerId: string,
+    icon: string | null,
+  ) => Promise<ContainerNode | null>;
   setSelectedId: (id: string | null) => void;
   showLinkedDocumentActivationControls: boolean;
   shareWithGroup: (
@@ -251,6 +258,10 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
     );
     return (
       <ExplorerContainerInfoPanel
+        // Only a container admin may change the icon, and app-managed system
+        // folders (Trash, Contacts) keep their fixed icons, so gate those out.
+        canManageIcon={canAdminContainerNode(infoNode) && !infoNode?.systemSlot}
+        containerIcon={infoNode?.icon ?? null}
         containerId={route.containerId}
         containerName={infoNode?.name}
         containerSyncStatus={infoNode?.syncState.status ?? null}
@@ -260,6 +271,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
         loadContainerInfo={params.loadContainerInfo}
         onOpenGrant={params.onOpenGrant}
         peerUserId={params.peerUserId}
+        setContainerIcon={params.setContainerIcon}
         shareWithGroup={params.shareWithGroup}
         shareWithUser={params.shareWithUser}
       />
