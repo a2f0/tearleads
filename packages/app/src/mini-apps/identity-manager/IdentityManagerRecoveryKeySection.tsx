@@ -151,7 +151,10 @@ export function IdentityManagerRecoveryKeySection() {
   const restoreRecoveryKey = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const passphrase = parseSeedPhraseFileText(restorePassphrase);
+    const passphrase = parseSeedPhraseFileText(restorePassphrase).replace(
+      /\s+/g,
+      " ",
+    );
     if (!passphrase) {
       setError("Enter the recovery key passphrase.");
       setStatus(null);

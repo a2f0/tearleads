@@ -149,7 +149,9 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     const restoreInput = await view.findByLabelText("Restore passphrase");
 
     fireEvent.change(restoreInput, {
-      target: { value: seedPhrase.toUpperCase() },
+      target: {
+        value: `\n${seedPhrase.toUpperCase().replaceAll(" ", "  ")}\n`,
+      },
     });
     fireEvent.click(
       view.getByRole("button", { name: "Restore from Passphrase" }),
