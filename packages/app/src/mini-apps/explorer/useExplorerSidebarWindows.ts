@@ -94,7 +94,8 @@ export function useExplorerSidebarDocumentWindows(params: {
           isLoading: true,
           offset: currentWindow?.offset ?? offset,
           rows: preserveRows ? (currentWindow?.rows ?? []) : [],
-          showLoadingStatus: preserveRows,
+          showLoadingStatus:
+            preserveRows && currentWindow?.showLoadingStatus !== false,
           totalCount: preserveRows ? (currentWindow?.totalCount ?? null) : null,
         });
         return nextWindows;
