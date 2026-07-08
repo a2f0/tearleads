@@ -1,29 +1,29 @@
-import {
-  type ContainerNode,
-  deriveContainerSystemSlot,
-} from "@tearleads/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useEffect, useState } from "react";
-import { CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION } from "../systemContainers";
+import {
+  deriveUserSystemContainers,
+  findUserSystemContainer,
+} from "../systemContainers";
 
 type ContactsContainerLookupNode = Pick<
   ContainerNode,
   "id" | "organizationId" | "parentId" | "systemSlot"
 >;
 
-export function getContactsContainerId(
+function getSystemContainerId(
   nodes: ReadonlyArray<ContactsContainerLookupNode> | null,
-  contactsSystemSlot: ContainerSystemSlot | null,
+  systemSlot: ContainerSystemSlot | null,
   organizationId?: string | null | undefined,
   rootContainerId?: string | null | undefined,
 ): string | null {
-  if (!contactsSystemSlot) {
+  if (!systemSlot) {
     return null;
   }
 
   let fallback: ContactsContainerLookupNode | null = null;
   for (const node of nodes ?? []) {
-    if (node.systemSlot !== contactsSystemSlot) {
+    if (node.systemSlot !== systemSlot) {
       continue;
     }
     if (rootContainerId != null && node.parentId === rootContainerId) {
@@ -41,33 +41,73 @@ export function getContactsContainerId(
   return fallback?.id ?? null;
 }
 
-export function useContactsSystemSlot(input: {
+export function getContactsContainerId(
+  nodes: ReadonlyArray<ContactsContainerLookupNode> | null,
+  contactsSystemSlot: ContainerSystemSlot | null,
+  organizationId?: string | null | undefined,
+  rootContainerId?: string | null | undefined,
+): string | null {
+  return getSystemContainerId(
+    nodes,
+    contactsSystemSlot,
+    organizationId,
+    rootContainerId,
+  );
+}
+
+export function getContactsTrashContainerId(
+  nodes: ReadonlyArray<ContactsContainerLookupNode> | null,
+  trashSystemSlot: ContainerSystemSlot | null,
+  organizationId?: string | null | undefined,
+  rootContainerId?: string | null | undefined,
+): string | null {
+  return getSystemContainerId(
+    nodes,
+    trashSystemSlot,
+    organizationId,
+    rootContainerId,
+  );
+}
+
+export function useContactsSystemSlots(input: {
   logError: (message: string | Error, cause?: unknown) => void;
   signingPrivateKey: Uint8Array | null;
-}): ContainerSystemSlot | null {
-  const [contactsSystemSlot, setContactsSystemSlot] =
-    useState<ContainerSystemSlot | null>(null);
+}): {
+  contactsSystemSlot: ContainerSystemSlot | null;
+  trashSystemSlot: ContainerSystemSlot | null;
+} {
+  const [systemSlots, setSystemSlots] = useState<{
+    contactsSystemSlot: ContainerSystemSlot | null;
+    trashSystemSlot: ContainerSystemSlot | null;
+  }>({ contactsSystemSlot: null, trashSystemSlot: null });
 
   useEffect(() => {
     if (!input.signingPrivateKey) {
-      setContactsSystemSlot(null);
+      setSystemSlots({ contactsSystemSlot: null, trashSystemSlot: null });
       return;
     }
 
+    const signingPrivateKey = input.signingPrivateKey;
     let cancelled = false;
-    void deriveContainerSystemSlot({
-      definition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
-      secretKey: input.signingPrivateKey,
-    })
-      .then((systemSlot) => {
-        if (!cancelled) {
-          setContactsSystemSlot(systemSlot);
+    void deriveUserSystemContainers(signingPrivateKey)
+      .then((systemContainers) => {
+        if (cancelled) {
+          return;
         }
+
+        setSystemSlots({
+          contactsSystemSlot:
+            findUserSystemContainer(systemContainers, "contacts")?.systemSlot ??
+            null,
+          trashSystemSlot:
+            findUserSystemContainer(systemContainers, "trash")?.systemSlot ??
+            null,
+        });
       })
       .catch((error) => {
         if (!cancelled) {
-          setContactsSystemSlot(null);
-          input.logError("Failed to derive contacts system slot", error);
+          setSystemSlots({ contactsSystemSlot: null, trashSystemSlot: null });
+          input.logError("Failed to derive contacts system slots", error);
         }
       });
 
@@ -76,5 +116,5 @@ export function useContactsSystemSlot(input: {
     };
   }, [input.logError, input.signingPrivateKey]);
 
-  return contactsSystemSlot;
+  return systemSlots;
 }

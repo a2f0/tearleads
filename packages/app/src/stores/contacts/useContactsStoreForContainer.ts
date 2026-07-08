@@ -45,8 +45,9 @@ async function getLocalUserKey(input: {
 
 export function useContactsStoreForContainer(
   contactsContainerId: string | null,
+  trashContainerId: string | null,
 ): ContactsStore {
-  const runtime = useContactsRuntime(contactsContainerId);
+  const runtime = useContactsRuntime(contactsContainerId, trashContainerId);
   const store = useContactsStore(runtime);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export function useContactsStoreForContainer(
 
 function useContactsRuntime(
   contactsContainerId: string | null,
+  trashContainerId: string | null,
 ): ContactsRuntime {
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
@@ -65,9 +67,30 @@ function useContactsRuntime(
     () => tearleads.documents.workflowRuntime(contactsContainerId),
     [appData, contactsContainerId, tearleads],
   );
+  const documentLinks = useMemo(
+    () => tearleads.containerContents.documentLinks(),
+    [appData, tearleads],
+  );
   return useMemo(
-    () => createContactsRuntimeForContainer(tearleads, documentsRuntime),
-    [documentsRuntime, tearleads],
+    () =>
+      createContactsRuntimeForContainer(
+        tearleads,
+        documentsRuntime,
+        trashContainerId,
+        (note, targetContainerId) =>
+          documentLinks
+            .moveDocumentToContainer({
+              expandNode: () => undefined,
+              mergeDocumentSummary: () => undefined,
+              note,
+              replaceLinkedContainers: true,
+              setLinkedContainerIdsForDocument: () => undefined,
+              sourceContainerId: note.containerId,
+              targetContainerId,
+            })
+            .then((result) => result.note),
+      ),
+    [documentLinks, documentsRuntime, tearleads, trashContainerId],
   );
 }
 
@@ -103,14 +126,19 @@ function createContactsStore(
 export function createContactsRuntimeForContainer(
   tearleads: Tearleads,
   documentsRuntime: ContactsRuntime["documents"],
+  trashContainerId: string | null = null,
+  moveDocumentToTrash: ContactsRuntime["moveDocumentToTrash"] = () =>
+    Promise.resolve(null),
 ): ContactsRuntime {
   return {
     deleteDocument: (localId) => tearleads.documents.delete(localId),
     documents: documentsRuntime,
+    moveDocumentToTrash,
     openDocumentStore: (input) =>
       tearleads.documents.open(input, {
         workflowRuntime: documentsRuntime,
       }),
+    trashContainerId,
   };
 }
 
