@@ -461,29 +461,28 @@ function useExplorerMoveDocumentToolbarAction({
   model: ExplorerModel;
   show: boolean;
 }) {
-  const moveDocumentAction = useMemo(
-    () =>
-      show
-        ? {
-            disabled: !documentId || !model.canMoveSelectedDocument,
-            icon: <ArrowsOutCardinalIcon aria-hidden size={18} />,
-            id: "explorer-move-document",
-            label: EXPLORER_LABELS.documentMoveAction,
-            onClick: () => {
-              if (documentId) {
-                model.modalState.openMoveDocumentModal(documentId);
-              }
-            },
-            priority: 100,
-          }
-        : null,
-    [
-      documentId,
-      model.canMoveSelectedDocument,
-      model.modalState.openMoveDocumentModal,
-      show,
-    ],
-  );
+  const moveDocumentAction = useMemo(() => {
+    if (!show || !documentId || !model.hasSelectedDocumentMoveTargets) {
+      return null;
+    }
+
+    return {
+      disabled: !model.canMoveSelectedDocument,
+      icon: <ArrowsOutCardinalIcon aria-hidden size={18} />,
+      id: "explorer-move-document",
+      label: EXPLORER_LABELS.documentMoveAction,
+      onClick: () => {
+        model.modalState.openMoveDocumentModal(documentId);
+      },
+      priority: 100,
+    };
+  }, [
+    documentId,
+    model.canMoveSelectedDocument,
+    model.hasSelectedDocumentMoveTargets,
+    model.modalState.openMoveDocumentModal,
+    show,
+  ]);
 
   useWindowTitleBarAction(moveDocumentAction);
 }

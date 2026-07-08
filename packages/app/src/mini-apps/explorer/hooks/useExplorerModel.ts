@@ -49,6 +49,7 @@ interface ExplorerModel {
   canShareWithPeer: boolean;
   canUnlinkSelectedDocument: boolean;
   hasSelectedDocumentLinkTargets: boolean;
+  hasSelectedDocumentMoveTargets: boolean;
   contextMenuState: ExplorerPanelState["contextMenuState"];
   consumeInitialDocumentEditing: ExplorerPanelState["consumeInitialDocumentEditing"];
   deleteDocument: ExplorerPanelState["deleteDocument"];
@@ -293,6 +294,8 @@ export function useExplorerModel(
     canShareWithPeer,
     hasSelectedDocumentLinkTargets:
       selectedDocumentLinkTargetOptions.length > 0,
+    hasSelectedDocumentMoveTargets:
+      selectedDocumentMoveTargetOptions.length > 0,
     consumeInitialDocumentEditing,
     contextMenuState,
     deleteDocument,
