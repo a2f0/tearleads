@@ -1,5 +1,6 @@
 import type {
   DocumentStore,
+  DocumentSummary,
   DocumentsRuntime,
   OpenDocumentInput,
   UserKey,
@@ -18,9 +19,15 @@ export interface ContactsSnapshot {
 export interface ContactsRuntime {
   deleteDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  moveDocumentToTrash: (
+    note: DocumentSummary,
+    trashContainerId: string,
+  ) => Promise<DocumentSummary | null>;
   openDocumentStore: (
     input: OpenDocumentInput & { readonly localId: string },
   ) => DocumentStore;
+  trashContainerId: string | null;
 }
 
 export interface ContactsStore {

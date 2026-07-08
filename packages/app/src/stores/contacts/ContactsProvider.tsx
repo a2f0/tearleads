@@ -20,7 +20,8 @@ import { CONTACTS_CONTAINER_NAME } from "../systemContainers";
 import type { ContactsStore } from "./contactStore";
 import {
   getContactsContainerId,
-  useContactsSystemSlot,
+  getContactsTrashContainerId,
+  useContactsSystemSlots,
 } from "./contactsSystemSlot";
 import type { ContactsContextValue } from "./types";
 import { useContactsStoreForContainer } from "./useContactsStoreForContainer";
@@ -89,6 +90,51 @@ function useCanBootstrapContactsContainer(input: {
   );
 }
 
+function useContactsSystemContainerResolution(input: {
+  appData: RuntimeSnapshot;
+  logError: (message: string | Error, cause?: unknown) => void;
+  nodes: Parameters<typeof resolveContactsContainer>[0]["nodes"];
+  signingPrivateKey: Uint8Array | null;
+}) {
+  const { appData, logError, nodes, signingPrivateKey } = input;
+  const { contactsSystemSlot, trashSystemSlot } = useContactsSystemSlots({
+    logError,
+    signingPrivateKey,
+  });
+  const contactsContainer = useMemo(
+    () =>
+      resolveContactsContainer({
+        nodes,
+        organizationId: appData.auth.organizationId,
+        rootContainerId: appData.state.containerId,
+        systemSlot: contactsSystemSlot,
+      }),
+    [
+      appData.auth.organizationId,
+      appData.state.containerId,
+      contactsSystemSlot,
+      nodes,
+    ],
+  );
+  const trashContainerId = useMemo(
+    () =>
+      getContactsTrashContainerId(
+        nodes,
+        trashSystemSlot,
+        appData.auth.organizationId,
+        appData.state.containerId,
+      ),
+    [
+      appData.auth.organizationId,
+      appData.state.containerId,
+      nodes,
+      trashSystemSlot,
+    ],
+  );
+
+  return { contactsContainer, contactsSystemSlot, trashContainerId };
+}
+
 export function ContactsProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const appData = useTearleadsRuntime();
@@ -106,32 +152,24 @@ export function ContactsProvider({ children }: PropsWithChildren) {
   const containerContentsSnapshot = useTearleadsExternalStoreSnapshot(
     containerContentsStore,
   );
-  const contactsSystemSlot = useContactsSystemSlot({
-    logError: tearleads.logError,
-    signingPrivateKey:
-      containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ?? null,
-  });
-  const contactsContainer = useMemo(
-    () =>
-      resolveContactsContainer({
-        nodes: containerContentsSnapshot.nodes,
-        organizationId: appData.auth.organizationId,
-        rootContainerId: appData.state.containerId,
-        systemSlot: contactsSystemSlot,
-      }),
-    [
-      appData.auth.organizationId,
-      appData.state.containerId,
-      contactsSystemSlot,
-      containerContentsSnapshot.nodes,
-    ],
-  );
+  const { contactsContainer, contactsSystemSlot, trashContainerId } =
+    useContactsSystemContainerResolution({
+      appData,
+      logError: tearleads.logError,
+      nodes: containerContentsSnapshot.nodes,
+      signingPrivateKey:
+        containerContentsRuntime.crypto.signingKeyPair?.signingPrivateKey ??
+        null,
+    });
   const canBootstrapContactsContainer = useCanBootstrapContactsContainer({
     appData,
     nodeCount: containerContentsSnapshot.nodes.length,
     tearleads,
   });
-  const store = useContactsStoreForContainer(contactsContainer.id);
+  const store = useContactsStoreForContainer(
+    contactsContainer.id,
+    trashContainerId,
+  );
   const contextValue = useMemo<ContactsProviderContextValue>(
     () => ({ canWrite: contactsContainer.canWrite, store }),
     [contactsContainer.canWrite, store],

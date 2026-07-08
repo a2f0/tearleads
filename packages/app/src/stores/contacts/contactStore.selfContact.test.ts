@@ -17,6 +17,7 @@ import {
 } from "./contactStore";
 
 const CONTACTS_CONTAINER_ID = "builtin-contacts-container";
+const TRASH_CONTAINER_ID = "builtin-trash-container";
 
 async function createContactsRuntime(): Promise<
   ContactsRuntime & { close: () => void }
@@ -54,6 +55,8 @@ async function createContactsRuntime(): Promise<
       return true;
     },
     documents,
+    loadDocumentSummary: () => Promise.resolve(null),
+    moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>
       openDocumentStore(
         documents.state.domainScope,
@@ -63,6 +66,7 @@ async function createContactsRuntime(): Promise<
         input.initialText,
         input.initialDocumentKind,
       ),
+    trashContainerId: TRASH_CONTAINER_ID,
   };
 }
 

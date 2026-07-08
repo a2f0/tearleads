@@ -3,6 +3,7 @@ import {
   type ContactEntryPatch,
   contactEntryToStructuredFieldPatch,
 } from "../../document-types/contact/contactDocumentModel";
+import { loadContactDocumentSummary } from "./contactDocumentSummary";
 import { loadProjectedContacts } from "./contactProjection";
 import { sortContactEntries } from "./contactSnapshot";
 import {
@@ -373,6 +374,7 @@ async function removeContactFromRuntime(
   if (
     state.runtime.documents.infra.dbStatus !== "ready" ||
     !hasContactsContainerRuntime(state) ||
+    !state.runtime.trashContainerId ||
     !canWriteContactEntry(state, contactId)
   ) {
     return;
@@ -381,10 +383,31 @@ async function removeContactFromRuntime(
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => {
+      const contactDocument = await loadContactDocumentSummary(
+        state,
+        contactId,
+      );
+      if (!contactDocument) {
+        state.dependencies.logError(
+          `Contacts: failed to remove contact because document ${contactId} could not be loaded.`,
+        );
+        return;
+      }
+      if (!state.runtime.trashContainerId) {
+        return;
+      }
+
+      const movedContact = await state.runtime.moveDocumentToTrash(
+        contactDocument,
+        state.runtime.trashContainerId,
+      );
+      if (!movedContact) {
+        return;
+      }
+
       const trackedStore = state.contactDocumentStoresById.get(contactId);
       trackedStore?.unsubscribe();
       state.contactDocumentStoresById.delete(contactId);
-      await state.runtime.deleteDocument(contactId);
       removeContactEntry(state, contactId);
     })
     .catch((error: unknown) => {

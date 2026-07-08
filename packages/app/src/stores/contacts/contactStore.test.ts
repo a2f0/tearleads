@@ -63,6 +63,8 @@ async function createContactsRuntime(): Promise<
       return true;
     },
     documents,
+    loadDocumentSummary: () => Promise.resolve(null),
+    moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>
       openDocumentStore(
         documents.state.domainScope,
@@ -72,6 +74,7 @@ async function createContactsRuntime(): Promise<
         input.initialText,
         input.initialDocumentKind,
       ),
+    trashContainerId: null,
   };
 }
 

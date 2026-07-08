@@ -7,7 +7,7 @@ import { deriveContainerSystemSlot } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 
 export const CONTACTS_CONTAINER_NAME = "Contacts";
-export const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
+const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
   {
     namespace: "tearleads.contacts",
     projectorId: "contact",
