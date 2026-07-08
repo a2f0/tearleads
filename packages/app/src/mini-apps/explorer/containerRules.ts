@@ -260,15 +260,22 @@ function isTrashContainerByRules(
 // is the one legal destination for protected contents.
 export function canMoveDocumentToContainerByRules(
   context: ExplorerContainerRulesContext,
-  currentContainer: ContainerRulesNode | undefined,
+  currentContainer: ContainerRulesNode | null | undefined,
   destinationContainer: ContainerRulesNode | undefined,
   document: Pick<DocumentSummary, "documentKind" | "id"> | undefined,
 ): boolean {
   if (
     !canMoveDocumentByRules(context, document) ||
-    !canWriteContainerNode(currentContainer) ||
     !canAddDocumentToContainerByRules(context, destinationContainer, document)
   ) {
+    return false;
+  }
+
+  if (currentContainer === null) {
+    return true;
+  }
+
+  if (!canWriteContainerNode(currentContainer)) {
     return false;
   }
 

@@ -84,3 +84,27 @@ test("the contacts-to-trash exception does not apply to the self contact", () =>
     ),
   ).toBe(false);
 });
+
+test("documents without a source container can move into writable destinations", () => {
+  const document = contactDocument({ containerId: null, documentKind: "note" });
+  expect(
+    canMoveDocumentToContainerByRules(
+      rulesContext,
+      null,
+      userContainer,
+      document,
+    ),
+  ).toBe(true);
+});
+
+test("missing source containers still fail closed", () => {
+  const document = contactDocument({ documentKind: "note" });
+  expect(
+    canMoveDocumentToContainerByRules(
+      rulesContext,
+      undefined,
+      userContainer,
+      document,
+    ),
+  ).toBe(false);
+});

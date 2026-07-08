@@ -114,3 +114,31 @@ test("move action allows custom contacts from contacts to trash only", async () 
     }),
   ]);
 });
+
+test("move action allows documents without a source container", async () => {
+  const document: DocumentSummary = {
+    containerId: null,
+    documentId: "orphan-document",
+    documentKind: "note",
+    id: "orphan-local-document",
+    title: "Detached document",
+    updatedAt: "2026-06-01T00:00:00.000Z",
+  };
+  const moves: Array<MoveDocumentToContainerInput> = [];
+  const view = renderActions({
+    documentSummaries: [document],
+    moves,
+  });
+
+  await expect(
+    view.result.current.moveDocument(document.id, "user-container"),
+  ).resolves.toEqual(
+    expect.objectContaining({ containerId: "user-container" }),
+  );
+
+  expect(moves).toEqual([
+    expect.objectContaining({
+      targetContainerId: "user-container",
+    }),
+  ]);
+});

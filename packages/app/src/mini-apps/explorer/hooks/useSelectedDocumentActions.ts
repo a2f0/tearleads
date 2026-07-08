@@ -81,7 +81,7 @@ function useMoveDocumentAction(params: {
       }
       const currentContainer =
         existingDocument.containerId === null
-          ? undefined
+          ? null
           : nodes.find((node) => node.id === existingDocument.containerId);
       const canMoveDocument =
         existingDocument.documentId === null
