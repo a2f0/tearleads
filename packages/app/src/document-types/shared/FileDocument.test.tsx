@@ -188,19 +188,38 @@ test("does not preview unsupported image attachment types", () => {
   expect(preview).toBeNull();
 });
 
-test("renders a file image preview when a preview URL is available", () => {
-  const view = render(
-    <FileDocumentAttachments
-      attachments={[pngAttachment]}
-      imagePreview={{
-        attachment: pngAttachment,
-        imageUrl: "blob:png-preview",
-      }}
-    />,
-  );
+test("renders the image preview above the metadata when a URL is available", () => {
+  const view = renderFields({
+    imagePreview: {
+      attachment: pngAttachment,
+      imageUrl: "blob:png-preview",
+    },
+  });
 
   const image = view.getByRole("img", { name: "logo.png" });
   expect(image.getAttribute("src")).toBe("blob:png-preview");
+
+  // The preview must render before the metadata: an image viewer leads with the
+  // image, not the MIME type / size rows.
+  const previewPanel = view.getByLabelText("File preview");
+  const mimeType = view.getByText("image/png");
+  expect(
+    previewPanel.compareDocumentPosition(mimeType) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+test("omits the image preview for non-image files", () => {
+  const view = renderFields();
+
+  expect(view.queryByLabelText("File preview")).toBeNull();
+});
+
+test("lists the file attachment rows", () => {
+  const view = render(
+    <FileDocumentAttachments attachments={[pngAttachment]} />,
+  );
+
   expect(view.getByText("logo.png")).toBeTruthy();
   expect(view.getByText("1.0 KB")).toBeTruthy();
 });
