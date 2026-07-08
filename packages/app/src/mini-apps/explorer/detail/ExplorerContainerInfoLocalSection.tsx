@@ -42,6 +42,15 @@ function ExplorerContainerInfoIconField(params: {
     useState<SelectableContainerIconSlug | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Once the stored icon catches up to the optimistic pick, drop the pending
+  // state so a later change from another client/device flows through instead of
+  // staying masked by a stale pendingSlug. Adjusting state during render is the
+  // React-endorsed way to reconcile derived state with new props.
+  if (pendingSlug !== null && pendingSlug === currentSlug) {
+    setPendingSlug(null);
+  }
+
   const selectedSlug = pendingSlug ?? currentSlug;
 
   const handleChange = async (event: ChangeEvent<HTMLSelectElement>) => {

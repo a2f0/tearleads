@@ -153,7 +153,10 @@ async function persistContainerMetadataState(input: {
     ),
     systemSlot: resolveContainerSystemSlot(patch, metadataState.container),
     name: patch.name ?? metadata.name,
-    icon: patch.icon ?? metadata.icon,
+    // Distinguish "clear the icon" (patch.icon === null) from "icon not
+    // patched" (undefined): `??` would collapse both to metadata.icon, so an
+    // explicit null in a patch could never clear a previously set icon.
+    icon: patch.icon !== undefined ? patch.icon : metadata.icon,
   };
   const nextRecord: DocumentRecord = {
     id: metadataState.container.id,

@@ -103,36 +103,38 @@ function createContainerInfo(
   };
 }
 
-function renderContainerInfoPanel(
-  input: {
-    canManageIcon?: boolean;
-    containerIcon?: string | null;
-    loadContainerInfo?: (containerId: string) => Promise<ContainerInfo>;
-    setContainerIcon?: (
-      containerId: string,
-      icon: string | null,
-    ) => Promise<ContainerNode | null>;
-  } = {},
-) {
-  return render(
-    createElement(ExplorerContainerInfoPanel, {
-      canManageIcon: input.canManageIcon ?? false,
-      containerIcon: input.containerIcon ?? null,
-      containerId: "container-1",
-      containerName: "Documents",
-      containerNamesById: new Map([["container-1", "Documents"]]),
-      containerSyncStatus: "synced",
-      canShareContainer: true,
-      canShareWithPeer: true,
-      loadContainerInfo:
-        input.loadContainerInfo ?? (async () => createContainerInfo()),
-      onOpenGrant: () => undefined,
-      peerUserId: "peer-user-1",
-      setContainerIcon: input.setContainerIcon ?? (async () => null),
-      shareWithGroup: async () => true,
-      shareWithUser: async () => true,
-    }),
-  );
+type ContainerInfoPanelInput = {
+  canManageIcon?: boolean;
+  containerIcon?: string | null;
+  loadContainerInfo?: (containerId: string) => Promise<ContainerInfo>;
+  setContainerIcon?: (
+    containerId: string,
+    icon: string | null,
+  ) => Promise<ContainerNode | null>;
+};
+
+function containerInfoPanelElement(input: ContainerInfoPanelInput = {}) {
+  return createElement(ExplorerContainerInfoPanel, {
+    canManageIcon: input.canManageIcon ?? false,
+    containerIcon: input.containerIcon ?? null,
+    containerId: "container-1",
+    containerName: "Documents",
+    containerNamesById: new Map([["container-1", "Documents"]]),
+    containerSyncStatus: "synced",
+    canShareContainer: true,
+    canShareWithPeer: true,
+    loadContainerInfo:
+      input.loadContainerInfo ?? (async () => createContainerInfo()),
+    onOpenGrant: () => undefined,
+    peerUserId: "peer-user-1",
+    setContainerIcon: input.setContainerIcon ?? (async () => null),
+    shareWithGroup: async () => true,
+    shareWithUser: async () => true,
+  });
+}
+
+function renderContainerInfoPanel(input: ContainerInfoPanelInput = {}) {
+  return render(containerInfoPanelElement(input));
 }
 
 test("container info tabs split general, sharing, security, and sync details", async () => {
@@ -189,6 +191,39 @@ test("admins can change the folder icon from the general tab", async () => {
       { containerId: "container-1", icon: "playlist" },
       { containerId: "container-1", icon: null },
     ]);
+  });
+});
+
+test("the icon picker follows the stored icon after the optimistic pick settles", async () => {
+  const view = renderContainerInfoPanel({
+    canManageIcon: true,
+    containerIcon: null,
+    setContainerIcon: async () => ICON_RESULT_NODE,
+  });
+  await waitFor(() => {
+    expect(view.getByText("Local Details")).toBeTruthy();
+  });
+  const select = () => view.getByLabelText("Folder icon") as HTMLSelectElement;
+
+  // Optimistic local pick shows immediately, before the stored value updates.
+  fireEvent.change(select(), { target: { value: "playlist" } });
+  await waitFor(() => {
+    expect(select().value).toBe("playlist");
+  });
+
+  // The write lands: the stored icon prop catches up, clearing the optimistic
+  // state so a later change from another device is no longer masked by it.
+  view.rerender(
+    containerInfoPanelElement({
+      canManageIcon: true,
+      containerIcon: "playlist",
+    }),
+  );
+  view.rerender(
+    containerInfoPanelElement({ canManageIcon: true, containerIcon: "album" }),
+  );
+  await waitFor(() => {
+    expect(select().value).toBe("album");
   });
 });
 
