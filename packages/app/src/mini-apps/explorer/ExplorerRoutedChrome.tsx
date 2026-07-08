@@ -113,6 +113,11 @@ export function useExplorerRoutedChromeActions({
     model,
     show: showContactsContainerToolbar,
   });
+  useExplorerContainerInfoToolbarAction({
+    activeContainerId,
+    model,
+    show: showContainerToolbar,
+  });
   useExplorerDocumentInfoToolbarAction({
     documentId: selectedDocumentId,
     containerId: selectedDocumentContainerId,
@@ -346,6 +351,37 @@ function useExplorerNewDocumentToolbarAction({
   );
 
   useWindowTitleBarAction(newDocumentAction);
+}
+
+function useExplorerContainerInfoToolbarAction({
+  activeContainerId,
+  model,
+  show,
+}: {
+  activeContainerId: string | null;
+  model: ExplorerModel;
+  show: boolean;
+}) {
+  const containerInfoAction = useMemo(
+    () =>
+      show
+        ? {
+            disabled: !activeContainerId,
+            icon: <InfoIcon aria-hidden size={18} />,
+            id: "explorer-container-info",
+            label: EXPLORER_LABELS.documentInfoGetInfoAction,
+            onClick: () => {
+              if (activeContainerId) {
+                model.routeState.openContainerInfoRoute(activeContainerId);
+              }
+            },
+            priority: 400,
+          }
+        : null,
+    [activeContainerId, model.routeState.openContainerInfoRoute, show],
+  );
+
+  useWindowTitleBarAction(containerInfoAction);
 }
 
 function useExplorerDocumentInfoToolbarAction({
