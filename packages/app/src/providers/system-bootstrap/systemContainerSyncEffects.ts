@@ -30,9 +30,9 @@ const PROVISIONED_SYSTEM_CONTAINER_PULL_INTERVAL_MS = 250;
 // — folding auth into the key instead sends the controller into a setState loop).
 // That leaves a gap: a system container created before login would otherwise stay
 // local-only forever and never reach the server, so a peer granted the root never
-// sees the owner's Contacts. This pass fills the gap. Promoting contacts to remote
-// flips the contacts axis of the bootstrap target key, which re-runs the main pass
-// to upgrade the self contact with its remote identity.
+// sees the owner's Contacts. This pass fills the gap. Once promoted Contacts is
+// fully synced, the contacts axis of the bootstrap target key flips and re-runs
+// the main pass to upgrade the self contact with its remote identity.
 //
 // Loop-safety: it only acts on slots still reporting local-only (so it stops once
 // a slot converges and retries if a promotion no-ops during the auth handoff),

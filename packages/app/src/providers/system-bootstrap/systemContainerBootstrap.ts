@@ -22,7 +22,6 @@ function findExistingSystemContainer(
 export async function ensureSystemBootstrapContainer(input: {
   readonly currentOrganizationId: string | null | undefined;
   readonly currentRootContainerId: string | null | undefined;
-  readonly isAuthenticated: boolean;
   readonly store: ContainerContentsStore;
   readonly systemContainer: UserSystemContainer;
 }): Promise<ContainerNode | null> {
@@ -35,21 +34,17 @@ export async function ensureSystemBootstrapContainer(input: {
   if (existing) {
     const hasConfiguredIcon =
       (existing.icon ?? null) === input.systemContainer.icon;
-    // The slot already exists. If it was created device-first (local-only) and
-    // we are now authenticated, promote it into remote sync so every system
-    // container (Trash included, not just Contacts) reaches the server without
-    // requiring the user to open it. ensureSystemContainer without
-    // deferRemoteSync routes the existing slot through
-    // promoteExistingLocalSystemContainerSync; the call is idempotent once the
-    // container has a remote create intent, so a non-local-only slot is a no-op.
-    if (
-      !hasConfiguredIcon ||
-      (input.isAuthenticated && existing.syncState.status === "local-only")
-    ) {
+    // The main bootstrap pass is local-only: remote promotion is owned by
+    // usePromoteLocalSystemContainers so the initial run does not both seed local
+    // state and enqueue remote sync. If a local-only slot needs an icon correction,
+    // keep that correction local and let the later promotion carry it up.
+    if (!hasConfiguredIcon) {
       return input.store.ensureSystemContainer(
         input.systemContainer.systemSlot,
         input.systemContainer.name,
         {
+          deferRemoteSync:
+            existing.syncState.status === "local-only" ? true : undefined,
           icon: input.systemContainer.icon,
           skipAdvancedManagedRoot: true,
         },
