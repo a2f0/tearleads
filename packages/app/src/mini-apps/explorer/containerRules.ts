@@ -244,6 +244,47 @@ export function canMoveDocumentOutByRules(
   );
 }
 
+function isTrashContainerByRules(
+  context: ExplorerContainerRulesContext,
+  container: ContainerRulesNode | undefined,
+): boolean {
+  return (
+    resolveContainerRules(context, container) ===
+    getUserSystemContainerRulesByKind("trash")
+  );
+}
+
+// A document may move between two containers when the destination accepts the
+// document kind and the source allows ordinary moves. Contacts pins its contents
+// as a home container, but deletion is implemented as a move to Trash, so Trash
+// is the one legal destination for protected contents.
+export function canMoveDocumentToContainerByRules(
+  context: ExplorerContainerRulesContext,
+  currentContainer: ContainerRulesNode | null | undefined,
+  destinationContainer: ContainerRulesNode | undefined,
+  document: Pick<DocumentSummary, "documentKind" | "id"> | undefined,
+): boolean {
+  if (
+    !canMoveDocumentByRules(context, document) ||
+    !canAddDocumentToContainerByRules(context, destinationContainer, document)
+  ) {
+    return false;
+  }
+
+  if (currentContainer === null) {
+    return true;
+  }
+
+  if (!canWriteContainerNode(currentContainer)) {
+    return false;
+  }
+
+  return (
+    canMoveDocumentOutByRules(context, currentContainer) ||
+    isTrashContainerByRules(context, destinationContainer)
+  );
+}
+
 export function canLinkDocumentOutByRules(
   context: ExplorerContainerRulesContext,
   currentContainer: ContainerRulesNode | undefined,

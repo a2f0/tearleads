@@ -1,12 +1,11 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import {
-  canAddDocumentToContainerByRules,
   canCreateChildContainerByRules,
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
   canMoveContainerByRules,
   canMoveDocumentByRules,
-  canMoveDocumentOutByRules,
+  canMoveDocumentToContainerByRules,
   canWriteDocumentSummary,
   type ExplorerContainerRulesContext,
 } from "./containerRules";
@@ -185,21 +184,15 @@ export function getDocumentMoveTargetOptions(
     return [];
   }
 
-  if (
-    rulesContext &&
-    !canMoveDocumentOutByRules(rulesContext, currentContainer)
-  ) {
-    return [];
-  }
-
   return getSortedTargetOptions(
     nodes.filter(
       (candidateNode) =>
         candidateNode.id !== currentContainer.id &&
         candidateNode.organizationId === currentContainer.organizationId &&
         (rulesContext === undefined ||
-          canAddDocumentToContainerByRules(
+          canMoveDocumentToContainerByRules(
             rulesContext,
+            currentContainer,
             candidateNode,
             movingDocument,
           )),
