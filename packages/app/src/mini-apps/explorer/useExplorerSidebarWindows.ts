@@ -20,6 +20,10 @@ import {
   listExpandedExplorerTreeContainerIds,
 } from "./explorerTreeModel";
 
+interface RequestDocumentWindowOptions {
+  preserveRows?: boolean | undefined;
+}
+
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The sidebar window hook owns paging, reload, and pruning state for a single UI surface.
 export function useExplorerSidebarDocumentWindows(params: {
   collapsedIds: ReadonlySet<string>;
@@ -65,12 +69,18 @@ export function useExplorerSidebarDocumentWindows(params: {
   );
 
   const requestDocumentWindow = useCallback(
-    (containerId: string, offset: number, limit: number) => {
+    (
+      containerId: string,
+      offset: number,
+      limit: number,
+      options: RequestDocumentWindowOptions = {},
+    ) => {
       const generation = loadGenerationRef.current;
       const loadKey = `${generation}\u0000${containerId}\u0000${offset}\u0000${limit}`;
       if (pendingWindowLoadKeysRef.current.has(loadKey)) {
         return;
       }
+      const preserveRows = options.preserveRows ?? true;
 
       pendingWindowLoadKeysRef.current.add(loadKey);
       if (limit > 0) {
@@ -83,8 +93,8 @@ export function useExplorerSidebarDocumentWindows(params: {
           error: null,
           isLoading: true,
           offset: currentWindow?.offset ?? offset,
-          rows: currentWindow?.rows ?? [],
-          totalCount: currentWindow?.totalCount ?? null,
+          rows: preserveRows ? (currentWindow?.rows ?? []) : [],
+          totalCount: preserveRows ? (currentWindow?.totalCount ?? null) : null,
         });
         return nextWindows;
       });
@@ -166,11 +176,21 @@ export function useExplorerSidebarDocumentWindows(params: {
     );
   }, [documentQueries]);
 
+  const lastDocumentLinkProjectionVersionRef = useRef(
+    documentLinkProjectionVersion,
+  );
   useEffect(() => {
     if (!ready) {
+      lastDocumentLinkProjectionVersionRef.current =
+        documentLinkProjectionVersion;
       return;
     }
 
+    const documentLinkProjectionChanged =
+      lastDocumentLinkProjectionVersionRef.current !==
+      documentLinkProjectionVersion;
+    lastDocumentLinkProjectionVersionRef.current =
+      documentLinkProjectionVersion;
     loadGenerationRef.current += 1;
     latestWindowLoadKeyByContainerIdRef.current.clear();
     pendingWindowLoadKeysRef.current.clear();
@@ -181,6 +201,7 @@ export function useExplorerSidebarDocumentWindows(params: {
         containerId,
         currentWindow?.offset ?? 0,
         currentWindow?.rows.length ?? 0,
+        { preserveRows: !documentLinkProjectionChanged },
       );
     }
   }, [
