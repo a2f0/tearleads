@@ -216,7 +216,7 @@ export function useProvisionedSystemContainerPull(input: {
       provisionedPullInFlightRef.current = true;
       provisionedPullAttemptsRef.current += 1;
       void store
-        .refreshRootLane()
+        .refreshRootLane({ includeActiveRootChildLane: true })
         .catch((error: unknown) => {
           logError("Failed to pull provisioned system container", error);
         })

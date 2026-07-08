@@ -146,7 +146,7 @@ function createContainerContentsStoreEntry(
         return state.writeChain;
       },
       refresh: () => syncAgent.refresh(),
-      refreshRootLane: () => syncAgent.refreshRootLane(),
+      refreshRootLane: (options) => syncAgent.refreshRootLane(options),
       requestSync: () => syncAgent.scheduleSync(),
       renameContainer: (containerId: string, name: string) => {
         state.writeChain = state.writeChain
