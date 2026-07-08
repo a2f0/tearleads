@@ -18,6 +18,7 @@ export interface ExplorerSidebarDocumentWindowState {
   isLoading: boolean;
   offset: number;
   rows: ReadonlyArray<ContainerDocumentSidebarRow>;
+  showLoadingStatus?: boolean;
   totalCount: number | null;
 }
 
@@ -203,6 +204,14 @@ export function buildExplorerSidebarSections(params: {
           state,
         });
       }
+      return;
+    }
+
+    const shouldShowStatus =
+      state === undefined ||
+      state.error !== null ||
+      state.showLoadingStatus !== false;
+    if (!shouldShowStatus) {
       return;
     }
 

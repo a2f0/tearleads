@@ -94,6 +94,7 @@ export function useExplorerSidebarDocumentWindows(params: {
           isLoading: true,
           offset: currentWindow?.offset ?? offset,
           rows: preserveRows ? (currentWindow?.rows ?? []) : [],
+          showLoadingStatus: preserveRows,
           totalCount: preserveRows ? (currentWindow?.totalCount ?? null) : null,
         });
         return nextWindows;
@@ -127,6 +128,7 @@ export function useExplorerSidebarDocumentWindows(params: {
               offset: limit === 0 ? (currentWindow?.offset ?? 0) : offset,
               rows:
                 limit === 0 ? (currentWindow?.rows ?? []) : documentWindow.rows,
+              showLoadingStatus: true,
               totalCount: documentWindow.totalCount,
             });
             return nextWindows;
@@ -158,6 +160,7 @@ export function useExplorerSidebarDocumentWindows(params: {
               isLoading: false,
               offset: currentWindow?.offset ?? offset,
               rows: currentWindow?.rows ?? [],
+              showLoadingStatus: true,
               totalCount: currentWindow?.totalCount ?? null,
             });
             return nextWindows;
