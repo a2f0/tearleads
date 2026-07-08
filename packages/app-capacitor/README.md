@@ -58,6 +58,20 @@ build number with `ANDROID_BUILD_NUMBER=<number>` or
 Build strictly one version code higher than Google Play with
 `ANDROID_RELEASE_NEXT_GOOGLE_PLAY=true` or `next_google_play:true`.
 
+Upload the signed bundle to Google Play:
+
+```sh
+bun run android:upload:google-play
+```
+
+The upload lane builds the signed AAB first, then uploads the AAB and any
+generated mapping/native-symbol files. It skips Play metadata, changelogs,
+images, and screenshots. The default upload track is `internal`; override it
+with `GOOGLE_PLAY_TRACK=<track>` or `google_track:<track>`. Override the release
+status with `GOOGLE_PLAY_RELEASE_STATUS=<status>` or `release_status:<status>`.
+Validate without committing the Play edit with `GOOGLE_PLAY_VALIDATE_ONLY=true`
+or `validate_only:true`.
+
 ## Store Build Numbers
 
 Fetch the latest remote build numbers from Google Play and the Apple App Store:
