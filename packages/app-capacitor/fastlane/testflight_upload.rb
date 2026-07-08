@@ -29,12 +29,25 @@ def testflight_notify_external_testers(options)
   lane_boolean_option(options, :notify_external_testers, 'TESTFLIGHT_NOTIFY_EXTERNAL_TESTERS', false)
 end
 
+def normalized_testflight_group_values(values)
+  values.map(&:to_s).map(&:strip).reject(&:empty?)
+end
+
+def parsed_testflight_group_values(raw_groups)
+  return normalized_testflight_group_values(raw_groups) if raw_groups.is_a?(Array)
+
+  normalized_testflight_group_values(raw_groups.to_s.split(','))
+end
+
+def nil_if_empty_testflight_groups(groups)
+  groups.empty? ? nil : groups
+end
+
 def testflight_groups(options)
   raw_groups = lane_option(options, :groups, 'TESTFLIGHT_GROUPS')
   return nil if raw_groups.nil?
 
-  groups = raw_groups.split(',').map(&:strip).reject(&:empty?)
-  groups.empty? ? nil : groups
+  nil_if_empty_testflight_groups(parsed_testflight_group_values(raw_groups))
 end
 
 def require_testflight_distribution_options!(options)

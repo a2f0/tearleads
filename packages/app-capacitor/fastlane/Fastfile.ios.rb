@@ -9,6 +9,7 @@ require 'time'
 
 IOS_APP_ID = 'com.tearleads.app'
 IOS_REPO_ROOT = File.expand_path('../../..', __dir__)
+IOS_PACKAGE_DIR = File.expand_path('..', __dir__)
 IOS_DIR = File.expand_path('../ios', __dir__)
 IOS_APP_DIR = File.join(IOS_DIR, 'App')
 IOS_PROJECT_PATH = File.join(IOS_APP_DIR, 'App.xcodeproj')
@@ -342,7 +343,7 @@ def ios_app_store_connect_xcode_authentication_args
   return [] if key_id.to_s.empty? || issuer_id.to_s.empty?
 
   key_path = app_store_connect_key_filepath(key_id)
-  return [] unless File.file?(key_path)
+  return [] if key_path.to_s.empty? || !File.file?(key_path)
 
   [
     "-authenticationKeyPath #{Shellwords.escape(key_path)}",
@@ -426,8 +427,10 @@ platform :ios do
     load_ios_release_secrets_env
     release_build = next_ios_release_build_number(options)
     team_id = require_ios_team_id!(options)
-    sh('bun run build')
-    sh('bun run cap:sync:release ios')
+    Dir.chdir(IOS_PACKAGE_DIR) do
+      sh('bun run build')
+      sh('bun run cap:sync:release ios')
+    end
     ensure_release_ios_capacitor_sync!
     ipa_path = build_app(
       archive_path: IOS_ARCHIVE_PATH,
