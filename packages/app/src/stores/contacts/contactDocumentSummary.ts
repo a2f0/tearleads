@@ -1,7 +1,4 @@
-import {
-  type DocumentSummary,
-  defaultDocumentsPersistence,
-} from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import type { ContactsStoreState } from "./contactStoreTypes";
 
 export async function loadContactDocumentSummary(
@@ -13,16 +10,12 @@ export async function loadContactDocumentSummary(
     return null;
   }
 
-  const documents =
-    await defaultDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
-      state.runtime.documents.infra.execSql,
-      {
-        containerIds: [containerId],
-        documentIds: [],
-      },
-    );
-  const document = documents.find((row) => row.id === contactId) ?? null;
-  if (!document || document.documentKind !== "contact") {
+  const document = await state.runtime.loadDocumentSummary(contactId);
+  if (
+    !document ||
+    document.containerId !== containerId ||
+    document.documentKind !== "contact"
+  ) {
     return null;
   }
 

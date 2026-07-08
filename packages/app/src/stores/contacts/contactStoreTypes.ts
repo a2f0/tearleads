@@ -19,6 +19,7 @@ export interface ContactsSnapshot {
 export interface ContactsRuntime {
   deleteDocument: (localId: string) => Promise<boolean>;
   documents: DocumentsRuntime;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   moveDocumentToTrash: (
     note: DocumentSummary,
     trashContainerId: string,

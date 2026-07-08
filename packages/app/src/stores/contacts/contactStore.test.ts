@@ -63,6 +63,7 @@ async function createContactsRuntime(): Promise<
       return true;
     },
     documents,
+    loadDocumentSummary: () => Promise.resolve(null),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>
       openDocumentStore(

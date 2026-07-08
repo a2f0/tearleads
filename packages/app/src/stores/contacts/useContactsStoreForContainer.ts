@@ -71,6 +71,10 @@ function useContactsRuntime(
     () => tearleads.containerContents.documentLinks(),
     [appData, tearleads],
   );
+  const documentQueries = useMemo(
+    () => tearleads.containerContents.documentQueries(),
+    [appData, tearleads],
+  );
   return useMemo(
     () =>
       createContactsRuntimeForContainer(
@@ -89,8 +93,15 @@ function useContactsRuntime(
               targetContainerId,
             })
             .then((result) => result.note),
+        (localId) => documentQueries.loadDocumentSummary(localId),
       ),
-    [documentLinks, documentsRuntime, tearleads, trashContainerId],
+    [
+      documentLinks,
+      documentQueries,
+      documentsRuntime,
+      tearleads,
+      trashContainerId,
+    ],
   );
 }
 
@@ -129,10 +140,13 @@ export function createContactsRuntimeForContainer(
   trashContainerId: string | null = null,
   moveDocumentToTrash: ContactsRuntime["moveDocumentToTrash"] = () =>
     Promise.resolve(null),
+  loadDocumentSummary: ContactsRuntime["loadDocumentSummary"] = (localId) =>
+    tearleads.containerContents.documentQueries().loadDocumentSummary(localId),
 ): ContactsRuntime {
   return {
     deleteDocument: (localId) => tearleads.documents.delete(localId),
     documents: documentsRuntime,
+    loadDocumentSummary,
     moveDocumentToTrash,
     openDocumentStore: (input) =>
       tearleads.documents.open(input, {

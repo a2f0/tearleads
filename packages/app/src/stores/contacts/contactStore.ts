@@ -387,7 +387,13 @@ async function removeContactFromRuntime(
         state,
         contactId,
       );
-      if (!contactDocument || !state.runtime.trashContainerId) {
+      if (!contactDocument) {
+        state.dependencies.logError(
+          `Contacts: failed to remove contact because document ${contactId} could not be loaded.`,
+        );
+        return;
+      }
+      if (!state.runtime.trashContainerId) {
         return;
       }
 

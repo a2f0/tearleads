@@ -51,6 +51,8 @@ async function createContactsRuntime(): Promise<
       return true;
     },
     documents,
+    loadDocumentSummary: (localId) =>
+      loadContactDocumentSummaryForTest(documents, localId),
     moveDocumentToTrash: () => Promise.resolve(null),
     openDocumentStore: (input) =>
       openDocumentStore(
@@ -86,6 +88,30 @@ async function movePersistedDocumentToTrash(
       documentId: note.documentId,
       localId: note.id,
     },
+  );
+}
+
+async function loadContactDocumentSummaryForTest(
+  documents: ContactsRuntime["documents"],
+  localId: string,
+): Promise<DocumentSummary | null> {
+  const containerId = documents.state.containerId;
+  if (!containerId) {
+    return null;
+  }
+
+  const documentSummaries =
+    await defaultDocumentsPersistence.listDocumentsByContainerIdsOrDocumentIds(
+      documents.infra.execSql,
+      {
+        containerIds: [containerId],
+        documentIds: [],
+      },
+    );
+  return (
+    documentSummaries.find(
+      (documentSummary) => documentSummary.id === localId,
+    ) ?? null
   );
 }
 
