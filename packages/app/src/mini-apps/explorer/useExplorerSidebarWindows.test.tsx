@@ -82,16 +82,18 @@ test("sidebar document link refresh hides stale rows without loading status", as
   const treeEntries = buildExplorerTree(nodes);
   const view = renderHook(
     ({
+      documentListRevision,
       documentLinkProjectionVersion,
       ready,
     }: {
+      documentListRevision: number;
       documentLinkProjectionVersion: number;
       ready: boolean;
     }) =>
       useExplorerSidebarDocumentWindows({
         collapsedIds: new Set(),
         documentLinkProjectionVersion,
-        documentListRevision: 0,
+        documentListRevision,
         documentQueries: queries,
         nodes,
         ready,
@@ -99,6 +101,7 @@ test("sidebar document link refresh hides stale rows without loading status", as
       }),
     {
       initialProps: {
+        documentListRevision: 0,
         documentLinkProjectionVersion: 0,
         ready: false,
       },
@@ -118,6 +121,7 @@ test("sidebar document link refresh hides stale rows without loading status", as
   });
 
   view.rerender({
+    documentListRevision: 0,
     documentLinkProjectionVersion: 1,
     ready: true,
   });
@@ -150,6 +154,39 @@ test("sidebar document link refresh hides stale rows without loading status", as
     { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
     { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
   ]);
+
+  view.rerender({
+    documentListRevision: 1,
+    documentLinkProjectionVersion: 1,
+    ready: true,
+  });
+
+  await waitFor(() => {
+    expect(calls).toEqual([
+      { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
+      { containerId: CONTACTS_CONTAINER_ID, limit: 1, offset: 0 },
+      { containerId: CONTACTS_CONTAINER_ID, limit: 0, offset: 0 },
+    ]);
+  });
+  const refreshSections = buildExplorerSidebarSections({
+    collapsedIds: new Set(),
+    documentWindowsByContainerId:
+      view.result.current.documentWindowsByContainerId,
+    entries: treeEntries,
+    organizationNamesById: new Map(),
+    primaryOrganizationId: null,
+  });
+  const refreshSidebarRows = getExplorerSidebarRowsInRange({
+    collapsedIds: new Set(),
+    limit: 10,
+    offset: 0,
+    sections: refreshSections,
+  });
+  expect(
+    view.result.current.documentWindowsByContainerId.get(CONTACTS_CONTAINER_ID)
+      ?.showLoadingStatus,
+  ).toBe(false);
+  expect(refreshSidebarRows.map((row) => row.kind)).toEqual(["container"]);
 
   act(() => {
     reload.resolve({ rows: [], totalCount: 0 });
