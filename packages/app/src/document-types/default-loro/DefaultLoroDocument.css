@@ -1,0 +1,27 @@
+.default-loro-document-fields {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.default-loro-document-serialized {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.default-loro-document-serialized pre {
+  margin: 0;
+  max-width: 100%;
+  overflow: auto;
+  padding: var(--panel-padding);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font-family:
+    ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono",
+    monospace;
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

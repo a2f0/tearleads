@@ -1,11 +1,15 @@
 import type { Icon } from "@phosphor-icons/react";
 import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
-import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import {
+  getStoredDocumentTypeLabel,
+  type StoredDocumentKind,
+} from "@tearleads/client-sdk";
 import type { ComponentType } from "react";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
 import { CreditCardDocumentApp } from "./credit-card/CreditCardApp";
+import { DefaultLoroDocumentApp } from "./default-loro/DefaultLoroDocumentApp";
 import { DriverLicenseDocumentApp } from "./drivers-license/DriverLicenseApp";
 import { EnvFileDocumentApp } from "./env-file/EnvFileApp";
 import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
@@ -100,15 +104,34 @@ const documentTypeDefinitionByKind = new Map(
   DOCUMENT_TYPE_DEFINITIONS.map((definition) => [definition.kind, definition]),
 );
 
+function formatFallbackCreateLabel(kind: StoredDocumentKind): string {
+  const label = getStoredDocumentTypeLabel(
+    kind,
+    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  );
+  return `${label.slice(0, 1).toUpperCase()}${label.slice(1)}`;
+}
+
+function createFallbackDocumentTypeDefinition(
+  kind: StoredDocumentKind,
+): DocumentTypeDefinition {
+  return {
+    App: DefaultLoroDocumentApp,
+    createIcon: FileIcon,
+    createLabel: formatFallbackCreateLabel(kind),
+    kind,
+  };
+}
+
 export function getDocumentTypeDefinition(
   kind: StoredDocumentKind,
 ): DocumentTypeDefinition {
   const definition = documentTypeDefinitionByKind.get(kind);
-  if (!definition) {
-    throw new Error(`Unsupported document kind: ${kind}`);
+  if (definition) {
+    return definition;
   }
 
-  return definition;
+  return createFallbackDocumentTypeDefinition(kind);
 }
 
 // The icon representing a document kind, shared by the "New Document" picker
