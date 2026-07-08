@@ -283,6 +283,12 @@
   min-width: 0;
 }
 
+.explorer-container-icon-picker {
+  width: max-content;
+  min-width: 11rem;
+  max-width: 100%;
+}
+
 /* Touch: widen the tab strip spacing (tabs themselves are sized off
    `--control-height`, so they already reach 44px in the routed layout). */
 :root[data-navigation-mode="routed"] .explorer-info-tabs {
