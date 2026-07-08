@@ -142,7 +142,6 @@ function FileAttachmentRow(params: { attachment: DocumentAttachment }) {
 
 export function FileDocumentAttachments(params: {
   attachments: ReadonlyArray<DocumentAttachment>;
-  imagePreview: FileDocumentImagePreview | null;
 }) {
   if (params.attachments.length === 0) {
     return (
@@ -159,9 +158,6 @@ export function FileDocumentAttachments(params: {
 
   return (
     <div className="file-document-attachments">
-      {params.imagePreview ? (
-        <FileDocumentImagePreviewPanel preview={params.imagePreview} />
-      ) : null}
       <div className="structured-document-attachments">
         {params.attachments.map((attachment) => (
           <FileAttachmentRow
@@ -180,6 +176,7 @@ export function FileDocumentFields(params: {
   downloadError: string | null;
   editDisabled: boolean;
   fileName: string;
+  imagePreview?: FileDocumentImagePreview | null | undefined;
   isEditing: boolean;
   onCommitFileName: (value: string) => void;
   onDownload: () => void;
@@ -188,6 +185,11 @@ export function FileDocumentFields(params: {
 }) {
   return (
     <div className="file-document-fields">
+      {/* For an image, the preview is the point of the view: render it above
+          the actions and metadata so it lands on top without a scroll. */}
+      {params.imagePreview ? (
+        <FileDocumentImagePreviewPanel preview={params.imagePreview} />
+      ) : null}
       <MiniAppActions>
         <MiniAppButton
           disabled={params.editDisabled}
@@ -214,13 +216,18 @@ export function FileDocumentFields(params: {
         onCommit={params.onCommitFileName}
         value={params.fileName}
       />
-      {params.readFields.map((field) => (
-        <FileDocumentReadRow
-          key={field.label}
-          label={field.label}
-          value={field.value}
-        />
-      ))}
+      {/* Metadata rows are single-line label/value pairs; flow them into a
+          responsive multi-column grid so short fields sit side by side instead
+          of stacking into a tall column. */}
+      <div className="file-document-metadata">
+        {params.readFields.map((field) => (
+          <FileDocumentReadRow
+            key={field.label}
+            label={field.label}
+            value={field.value}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -370,12 +377,7 @@ export function FileDocument(params: {
         localOnly: "File attachment is stored locally and syncs when online.",
         unavailable: "File attachments require a local key package.",
       }}
-      attachments={
-        <FileDocumentAttachments
-          attachments={model.attachments}
-          imagePreview={model.imagePreview}
-        />
-      }
+      attachments={<FileDocumentAttachments attachments={model.attachments} />}
       canAttach={model.canAttach}
       fields={
         <FileDocumentFields
@@ -384,6 +386,7 @@ export function FileDocument(params: {
           downloadError={model.downloadError}
           editDisabled={!model.ready || !model.canWrite}
           fileName={model.fileName}
+          imagePreview={model.imagePreview}
           isEditing={model.isEditing}
           onCommitFileName={model.commitFileName}
           onDownload={model.handleDownload}
