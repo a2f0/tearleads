@@ -1,7 +1,6 @@
 import { TearleadsLogo } from "@tearleads/ui";
 import {
   type ComponentType,
-  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -47,6 +46,7 @@ import {
 import "./RoutedPane.css";
 import { RoutedPaneAppBar } from "./RoutedPaneAppBar";
 import { RoutedPaneNav } from "./RoutedPaneNav";
+import { RoutedPaneSidebar } from "./RoutedPaneSidebar";
 
 const BOOT_PANE_LOG_MESSAGE = "Generate a key pair to boot this pane.";
 const MOBILE_ROOT_MINI_APP_ID: MiniAppId = "explorer";
@@ -150,40 +150,6 @@ function RoutedPaneMobileBar({
         <TearleadsLogo className="routed-pane-mobile-menu-logo" />
       </button>
     </footer>
-  );
-}
-
-/**
- * The active mini-app's sidebar: a rail column beside main on tablet, or a
- * dismissable overlay (with scrim) on mobile.
- */
-function RoutedPaneSidebar({
-  children,
-  onClose,
-  tier,
-}: {
-  children: ReactNode;
-  onClose: () => void;
-  tier: RoutedLayoutTier;
-}) {
-  return (
-    <>
-      {tier === "mobile" && (
-        <button
-          aria-label="Close sidebar"
-          className="routed-pane-scrim"
-          type="button"
-          onClick={onClose}
-        />
-      )}
-      <div
-        className="routed-pane-sidebar"
-        id="routed-pane-sidebar"
-        role={tier === "mobile" ? "dialog" : undefined}
-      >
-        {children}
-      </div>
-    </>
   );
 }
 

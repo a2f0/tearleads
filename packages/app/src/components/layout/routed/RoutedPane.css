@@ -321,34 +321,6 @@
     visibility 0s;
 }
 
-/* === Mini-app sidebar === */
-
-.routed-pane-sidebar {
-  grid-area: sidebar;
-  min-width: 0;
-  overflow: auto;
-  scrollbar-gutter: var(--scrollbar-gutter);
-  background: var(--color-light);
-}
-
-.routed-pane--tablet .routed-pane-sidebar {
-  width: var(--routed-rail-width);
-  border-right: var(--border-strong);
-}
-
-.routed-pane--mobile .routed-pane-sidebar {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 0;
-  z-index: 2;
-  width: var(--routed-drawer-width);
-  border-left: var(--border-strong);
-}
-
-.routed-pane-sidebar .mini-app-sidebar {
-  min-height: 100%;
-}
-
 /* === Main === */
 
 .routed-pane-main {
