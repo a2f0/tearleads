@@ -20,6 +20,7 @@
     "android:build:debug": "bundle exec fastlane android build_debug",
     "android:build:release": "bundle exec fastlane android build_release",
     "android:build:google-play": "bundle exec fastlane android build_google_play_release",
+    "android:upload:google-play": "bundle exec fastlane android upload_google_play_release",
     "android:sideload": "bundle exec fastlane android sideload",
     "android:sideload:debug": "bundle exec fastlane android install_debug",
     "android:sideload:release": "bundle exec fastlane android install_release",
