@@ -1,9 +1,17 @@
 import { expect, test } from "bun:test";
-import type { ContainerContentsStore, Tearleads } from "@tearleads/client-sdk";
+import type {
+  ContainerContentsStore,
+  ContainerNode,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { UserSystemContainer } from "../../stores/systemContainers";
 import type { RuntimeSnapshot } from "../sdk/TearleadsProvider";
-import { runSystemBootstrap } from "./systemBootstrapRun";
+import {
+  createSystemBootstrapTargetKey,
+  runSystemBootstrap,
+} from "./systemBootstrapRun";
+import { ensureSystemBootstrapContainer } from "./systemContainerBootstrap";
 
 const CONTACTS_SLOT =
   "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" as const;
@@ -31,11 +39,38 @@ function appData(): RuntimeSnapshot {
     auth: {
       isAuthenticated: true,
       organizationId: "organization-id",
+      userId: "user-id",
+    },
+    crypto: {
+      signingFingerprint: "signing-fingerprint",
+    },
+    infra: {
+      dbId: "db-id",
     },
     state: {
       containerId: "root-container-id",
     },
   } as RuntimeSnapshot;
+}
+
+function contactContainerNode(
+  status: ContainerNode["syncState"]["status"],
+): ContainerNode {
+  return {
+    id: "contacts-container-id",
+    kind: "container",
+    name: "Contacts",
+    organizationId: "organization-id",
+    parentId: "root-container-id",
+    syncState: {
+      lastError: null,
+      pendingAttachmentBytes: 0,
+      pendingAttachmentCount: 0,
+      pendingUpdateCount: status === "pending" ? 1 : 0,
+      status,
+    },
+    systemSlot: CONTACTS_SLOT,
+  };
 }
 
 function storeWithEnsureCounter(input: {
@@ -83,4 +118,79 @@ test("system bootstrap still attempts Contacts when contact bootstrap is enabled
     }),
   ).resolves.toBe(false);
   expect(calls).toEqual([CONTACTS_SLOT]);
+});
+
+test("system bootstrap target does not re-key while Contacts create is pending", () => {
+  const localOnlyKey = createSystemBootstrapTargetKey({
+    appData: appData(),
+    bootstrapContacts: true,
+    contactsContainer: contactContainerNode("local-only"),
+    systemContainers: [contactsSystemContainer],
+  });
+  const pendingKey = createSystemBootstrapTargetKey({
+    appData: appData(),
+    bootstrapContacts: true,
+    contactsContainer: contactContainerNode("pending"),
+    systemContainers: [contactsSystemContainer],
+  });
+  const syncedKey = createSystemBootstrapTargetKey({
+    appData: appData(),
+    bootstrapContacts: true,
+    contactsContainer: contactContainerNode("synced"),
+    systemContainers: [contactsSystemContainer],
+  });
+
+  expect(pendingKey).toBe(localOnlyKey);
+  expect(syncedKey).not.toBe(localOnlyKey);
+});
+
+test("system bootstrap target waits for auth before remote self-contact bootstrap", () => {
+  const unauthenticatedAppData = {
+    ...appData(),
+    auth: {
+      isAuthenticated: false,
+      organizationId: null,
+      userId: null,
+    },
+  } as RuntimeSnapshot;
+
+  const localOnlyKey = createSystemBootstrapTargetKey({
+    appData: unauthenticatedAppData,
+    bootstrapContacts: true,
+    contactsContainer: contactContainerNode("local-only"),
+    systemContainers: [contactsSystemContainer],
+  });
+  const syncedKey = createSystemBootstrapTargetKey({
+    appData: unauthenticatedAppData,
+    bootstrapContacts: true,
+    contactsContainer: contactContainerNode("synced"),
+    systemContainers: [contactsSystemContainer],
+  });
+
+  expect(syncedKey).toBe(localOnlyKey);
+});
+
+test("system bootstrap does not promote an existing local-only system container", async () => {
+  const existing = contactContainerNode("local-only");
+  const calls: string[] = [];
+  const store = {
+    ensureSystemContainer: async (systemSlot: ContainerSystemSlot) => {
+      calls.push(systemSlot);
+      return existing;
+    },
+    getSnapshot: () => ({
+      nodes: [existing],
+      ready: true,
+    }),
+  } as unknown as ContainerContentsStore;
+
+  await expect(
+    ensureSystemBootstrapContainer({
+      currentOrganizationId: "organization-id",
+      currentRootContainerId: "root-container-id",
+      store,
+      systemContainer: contactsSystemContainer,
+    }),
+  ).resolves.toBe(existing);
+  expect(calls).toEqual([]);
 });

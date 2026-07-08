@@ -216,18 +216,6 @@ function useSystemBootstrapController(input: {
             if (completed) {
               completedTargetKeyRef.current = nextInput.targetKey;
               applyState({ hasCompleted: true, status: "ready" });
-              // The structural sync lane (create/promote intents) advancing a
-              // container to synced does not by itself re-hydrate the in-memory
-              // tree from the server, so an already-open Explorer keeps
-              // rendering the pre-sync local-only badges until it is remounted.
-              // Re-run the same root-lane hydration the reopen path uses, once
-              // per bootstrap, so the synced badges surface without a reopen.
-              // The store is shared per scope, so this re-emits to the live
-              // Explorer; it is gated on a ready+online runtime internally and
-              // no-ops (no extra render) when nothing changed.
-              void nextInput.containerContentsStore
-                .refreshRootLane()
-                .catch(() => undefined);
               return { completed: true };
             }
 

@@ -79,6 +79,17 @@ function getSelfContactInput(input: {
   };
 }
 
+function canBootstrapRemoteSelfContactIdentity(
+  appData: RuntimeSnapshot,
+  contactsContainer: ContainerNode,
+): boolean {
+  return (
+    appData.auth.isAuthenticated &&
+    typeof appData.auth.userId === "string" &&
+    contactsContainer.syncState.status === "synced"
+  );
+}
+
 async function ensureSelfContact(input: {
   readonly appData: RuntimeSnapshot;
   readonly contactsContainer: ContainerNode;
@@ -86,8 +97,10 @@ async function ensureSelfContact(input: {
 }): Promise<boolean> {
   const selfContact = getSelfContactInput({
     appData: input.appData,
-    includeRemoteIdentity:
-      input.contactsContainer.syncState.status !== "local-only",
+    includeRemoteIdentity: canBootstrapRemoteSelfContactIdentity(
+      input.appData,
+      input.contactsContainer,
+    ),
   });
   if (!selfContact) {
     return false;
@@ -112,7 +125,6 @@ export async function runSystemBootstrap(
   input: SystemBootstrapRunInput,
 ): Promise<boolean> {
   let contactsContainer: ContainerNode | null = null;
-  const isAuthenticated = input.appData.auth.isAuthenticated;
 
   for (const systemContainer of input.systemContainers) {
     if (systemContainer.kind === "contacts" && !input.bootstrapContacts) {
@@ -129,7 +141,6 @@ export async function runSystemBootstrap(
     const ensuredContainer = await ensureSystemBootstrapContainer({
       currentOrganizationId: input.appData.auth.organizationId,
       currentRootContainerId: input.appData.state.containerId,
-      isAuthenticated,
       store: input.containerContentsStore,
       systemContainer,
     });
@@ -161,17 +172,19 @@ export function createSystemBootstrapTargetKey(input: {
     input.appData.state.containerId ?? "root",
     input.appData.auth.organizationId ?? "local-org",
     input.appData.auth.userId ?? "local-user",
-    // Key on the contacts container identity plus only the local-only vs remote
-    // distinction that actually changes what bootstrap does: ensureSelfContact
-    // upgrades the self contact with its remote identity once the container
-    // leaves local-only. Keying on the raw syncState.status would re-key on every
-    // badge transition (local-only -> syncing -> synced) and re-run an idempotent
-    // bootstrap for no benefit.
+    // Key on the contacts container identity plus only the distinction that
+    // changes what bootstrap does: ensureSelfContact upgrades the self contact
+    // with its remote identity once Contacts is fully synced. Treat local-only
+    // and pending the same so a freshly promoted Contacts container does not
+    // re-run bootstrap while its create intent is still converging.
     input.bootstrapContacts && input.contactsContainer
       ? `${input.contactsContainer.id}:${
-          input.contactsContainer.syncState.status === "local-only"
-            ? "local-only"
-            : "remote"
+          canBootstrapRemoteSelfContactIdentity(
+            input.appData,
+            input.contactsContainer,
+          )
+            ? "remote"
+            : "local"
         }`
       : input.bootstrapContacts
         ? "missing-contacts"
