@@ -137,6 +137,21 @@ function renderContainerInfoPanel(input: ContainerInfoPanelInput = {}) {
   return render(containerInfoPanelElement(input));
 }
 
+function getFolderIconPicker(view: ReturnType<typeof render>) {
+  return view.getByRole("combobox", {
+    name: "Folder icon",
+  }) as HTMLButtonElement;
+}
+
+async function pickFolderIcon(view: ReturnType<typeof render>, label: string) {
+  fireEvent.click(getFolderIconPicker(view));
+  const option = (await view.findByText(label)).closest('[role="option"]');
+  if (!(option instanceof HTMLElement)) {
+    throw new Error(`Expected option for ${label}.`);
+  }
+  fireEvent.click(option);
+}
+
 test("container info tabs split general, sharing, security, and sync details", async () => {
   const view = renderContainerInfoPanel();
 
@@ -176,16 +191,38 @@ test("admins can change the folder icon from the general tab", async () => {
     expect(view.getByText("Local Details")).toBeTruthy();
   });
 
-  const select = view.getByLabelText("Folder icon") as HTMLSelectElement;
-  expect(select.value).toBe("folder");
+  const picker = getFolderIconPicker(view);
+  expect(picker.textContent).toContain("Folder");
+  expect(
+    picker
+      .closest(".mini-app-select-menu")
+      ?.classList.contains("explorer-container-icon-picker"),
+  ).toBe(true);
+  expect(
+    picker
+      .querySelector(".mini-app-select-menu-icon")
+      ?.getAttribute("data-icon"),
+  ).toBe("folder");
 
-  fireEvent.change(select, { target: { value: "playlist" } });
+  fireEvent.click(picker);
+  const playlistOption = (await view.findByText("Music Playlist")).closest(
+    '[role="option"]',
+  );
+  if (!(playlistOption instanceof HTMLElement)) {
+    throw new Error("Expected Music Playlist option.");
+  }
+  expect(
+    playlistOption
+      .querySelector(".mini-app-select-menu-icon")
+      ?.getAttribute("data-icon"),
+  ).toBe("playlist");
+  fireEvent.click(playlistOption);
   await waitFor(() => {
     expect(calls).toEqual([{ containerId: "container-1", icon: "playlist" }]);
   });
 
   // Selecting the default folder persists null (unset), not a "folder" slug.
-  fireEvent.change(select, { target: { value: "folder" } });
+  await pickFolderIcon(view, "Folder");
   await waitFor(() => {
     expect(calls).toEqual([
       { containerId: "container-1", icon: "playlist" },
@@ -203,12 +240,12 @@ test("the icon picker follows the stored icon after the optimistic pick settles"
   await waitFor(() => {
     expect(view.getByText("Local Details")).toBeTruthy();
   });
-  const select = () => view.getByLabelText("Folder icon") as HTMLSelectElement;
+  const picker = () => getFolderIconPicker(view);
 
   // Optimistic local pick shows immediately, before the stored value updates.
-  fireEvent.change(select(), { target: { value: "playlist" } });
+  await pickFolderIcon(view, "Music Playlist");
   await waitFor(() => {
-    expect(select().value).toBe("playlist");
+    expect(picker().textContent).toContain("Music Playlist");
   });
 
   // The write lands: the stored icon prop catches up, clearing the optimistic
@@ -223,7 +260,7 @@ test("the icon picker follows the stored icon after the optimistic pick settles"
     containerInfoPanelElement({ canManageIcon: true, containerIcon: "album" }),
   );
   await waitFor(() => {
-    expect(select().value).toBe("album");
+    expect(picker().textContent).toContain("Photo Album");
   });
 });
 

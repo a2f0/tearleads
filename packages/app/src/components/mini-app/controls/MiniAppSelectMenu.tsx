@@ -12,6 +12,7 @@ import "./MiniAppSelectMenu.css";
 
 interface MiniAppSelectMenuProps {
   ariaLabel: string;
+  className?: string | undefined;
   disabled?: boolean;
   /**
    * Rendered at the bottom of the open dropdown, below the options and outside
@@ -170,7 +171,10 @@ export function MiniAppSelectMenu(props: MiniAppSelectMenuProps) {
   });
 
   return (
-    <div className="mini-app-select-menu" ref={controller.rootRef}>
+    <div
+      className={classNames("mini-app-select-menu", props.className)}
+      ref={controller.rootRef}
+    >
       <MiniAppSelectMenuTrigger
         ariaLabel={props.ariaLabel}
         controller={controller}

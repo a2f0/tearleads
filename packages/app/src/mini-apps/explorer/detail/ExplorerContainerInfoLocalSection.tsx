@@ -1,14 +1,15 @@
 import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
-import { type ChangeEvent, useState } from "react";
+import { useState } from "react";
+import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
 import {
   MiniAppField,
   MiniAppInfoSection,
-  MiniAppSelect,
   MiniAppStatus,
 } from "../../../components/shared/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
+  getExplorerContainerIcon,
   SELECTABLE_CONTAINER_ICON_SLUGS,
   type SelectableContainerIconSlug,
   toSelectableContainerIconSlug,
@@ -24,6 +25,31 @@ const CONTAINER_ICON_OPTION_LABELS: Record<
   folder: EXPLORER_LABELS.containerIconFolderOption,
   playlist: EXPLORER_LABELS.containerIconPlaylistOption,
 };
+
+function getContainerIconOptions() {
+  return SELECTABLE_CONTAINER_ICON_SLUGS.map((slug) => {
+    const containerIcon = getExplorerContainerIcon({
+      icon: slug,
+      isOpen: false,
+    });
+    const Icon = containerIcon.Component;
+    return {
+      icon: (
+        <Icon
+          aria-hidden
+          className="mini-app-select-menu-icon"
+          data-container-icon={containerIcon.containerIcon}
+          data-icon={containerIcon.name}
+          focusable="false"
+          size={16}
+          weight="regular"
+        />
+      ),
+      id: slug,
+      label: CONTAINER_ICON_OPTION_LABELS[slug],
+    };
+  });
+}
 
 function ExplorerContainerInfoIconField(params: {
   containerId: string;
@@ -53,11 +79,11 @@ function ExplorerContainerInfoIconField(params: {
 
   const selectedSlug = pendingSlug ?? currentSlug;
 
-  const handleChange = async (event: ChangeEvent<HTMLSelectElement>) => {
-    // The select only offers the known slugs; normalize instead of asserting so
+  const handleChange = async (value: string) => {
+    // The picker only offers the known slugs; normalize instead of asserting so
     // any unexpected value falls back to the default folder rather than lying to
     // the type system.
-    const nextSlug = toSelectableContainerIconSlug(event.target.value);
+    const nextSlug = toSelectableContainerIconSlug(value);
     setPendingSlug(nextSlug);
     setIsSaving(true);
     setError(null);
@@ -82,18 +108,14 @@ function ExplorerContainerInfoIconField(params: {
     <MiniAppInfoSection heading={EXPLORER_LABELS.containerIconHeading}>
       <MiniAppField>
         <span>{EXPLORER_LABELS.containerIconField}</span>
-        <MiniAppSelect
-          aria-label={EXPLORER_LABELS.containerIconField}
+        <MiniAppSelectMenu
+          ariaLabel={EXPLORER_LABELS.containerIconField}
+          className="explorer-container-icon-picker"
           disabled={isSaving}
-          value={selectedSlug}
           onChange={handleChange}
-        >
-          {SELECTABLE_CONTAINER_ICON_SLUGS.map((slug) => (
-            <option key={slug} value={slug}>
-              {CONTAINER_ICON_OPTION_LABELS[slug]}
-            </option>
-          ))}
-        </MiniAppSelect>
+          options={getContainerIconOptions()}
+          value={selectedSlug}
+        />
       </MiniAppField>
       {error ? <MiniAppStatus tone="error">{error}</MiniAppStatus> : null}
     </MiniAppInfoSection>
