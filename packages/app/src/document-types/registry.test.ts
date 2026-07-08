@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
+import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "@tearleads/client-sdk";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "./projectors";
 import {
   CREATABLE_DOCUMENT_TYPE_DEFINITIONS,
@@ -61,4 +63,18 @@ test("creatable document types exclude upload-only file kinds", () => {
     "passport",
     "env_file",
   ]);
+});
+
+test("unregistered stored Loro document kinds use a read-only fallback app", () => {
+  const definition = getDocumentTypeDefinition(
+    ORGANIZATION_PROFILE_DOCUMENT_KIND,
+  );
+
+  expect(definition.kind).toBe(ORGANIZATION_PROFILE_DOCUMENT_KIND);
+  expect(definition.createIcon).toBe(FileIcon);
+  expect(definition.createLabel).toBe("Organization profile");
+  expect(definition.App).toBeDefined();
+  expect(
+    DOCUMENT_TYPE_DEFINITIONS.map((registered) => registered.kind),
+  ).not.toContain(ORGANIZATION_PROFILE_DOCUMENT_KIND);
 });
