@@ -7,6 +7,7 @@
 }
 
 .org-manager-switcher {
+  align-self: flex-end;
   flex: 0 0 auto;
   width: min(22rem, 100%);
 }
