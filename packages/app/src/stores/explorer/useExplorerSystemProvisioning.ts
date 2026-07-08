@@ -17,18 +17,19 @@ interface ExplorerSystemProvisioning {
   visibleSystemSlots: ReadonlySet<ContainerSystemSlot>;
 }
 
+const EMPTY_SYSTEM_SLOTS: ReadonlyArray<ContainerSystemSlot> = [];
+
 function useBuiltInSystemContainerSlots(input: {
   enabled: boolean;
   logError: (message: string | Error, cause?: unknown) => void;
   organizationId: string | null;
 }): ReadonlyArray<ContainerSystemSlot> {
-  const [systemSlots, setSystemSlots] = useState<
-    ReadonlyArray<ContainerSystemSlot>
-  >([]);
+  const [systemSlots, setSystemSlots] =
+    useState<ReadonlyArray<ContainerSystemSlot>>(EMPTY_SYSTEM_SLOTS);
 
   useEffect(() => {
     if (!input.enabled || !input.organizationId) {
-      setSystemSlots([]);
+      setSystemSlots(EMPTY_SYSTEM_SLOTS);
       return;
     }
 
@@ -45,7 +46,7 @@ function useBuiltInSystemContainerSlots(input: {
       })
       .catch((error) => {
         if (!cancelled) {
-          setSystemSlots([]);
+          setSystemSlots(EMPTY_SYSTEM_SLOTS);
           input.logError(
             "Failed to derive built-in explorer system slots",
             error,

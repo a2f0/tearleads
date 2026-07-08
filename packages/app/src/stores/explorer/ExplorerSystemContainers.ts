@@ -353,10 +353,14 @@ export function getExplorerVisibleSystemSlots(
     return new Set();
   }
 
-  return new Set([
-    ...systemContainers.map((systemContainer) => systemContainer.systemSlot),
-    ...extraSystemSlots,
-  ]);
+  const visibleSlots = new Set<ContainerSystemSlot>();
+  for (const systemContainer of systemContainers) {
+    visibleSlots.add(systemContainer.systemSlot);
+  }
+  for (const systemSlot of extraSystemSlots) {
+    visibleSlots.add(systemSlot);
+  }
+  return visibleSlots;
 }
 
 export function useExplorerSystemContainerSlots(input: {
