@@ -247,6 +247,10 @@ function isLocalOnlySystemContainerState(input: {
   return (
     remoteSystemSlot !== null &&
     localSystemSlot === remoteSystemSlot &&
+    input.containerState.container.organizationId ===
+      input.remoteSystemState.container.organizationId &&
+    input.containerState.container.parentId ===
+      input.remoteSystemState.container.parentId &&
     input.containerState.container.id !==
       input.remoteSystemState.container.id &&
     !hasRemoteContainerMetadataState(input.containerState)

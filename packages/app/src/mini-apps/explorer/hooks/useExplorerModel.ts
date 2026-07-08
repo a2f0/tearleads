@@ -113,8 +113,19 @@ export function useExplorerModel(
     [explorer.nodes],
   );
   const contactsContainerId = useMemo(
-    () => getContactsContainerId(explorer.nodes, explorer.contactsSystemSlot),
-    [explorer.contactsSystemSlot, explorer.nodes],
+    () =>
+      getContactsContainerId(
+        explorer.nodes,
+        explorer.contactsSystemSlot,
+        appData.auth.organizationId,
+        appData.state.containerId,
+      ),
+    [
+      appData.auth.organizationId,
+      appData.state.containerId,
+      explorer.contactsSystemSlot,
+      explorer.nodes,
+    ],
   );
   const rulesContext = useMemo(
     () =>

@@ -25,6 +25,13 @@ const SYSTEM_NODE_SYNC_STATUS_RANK = {
   "local-only": 0,
 } as const satisfies Record<ContainerNode["syncState"]["status"], number>;
 
+function explorerSystemNodeKey(
+  node: ContainerNode,
+  systemSlot: ContainerSystemSlot,
+): string {
+  return `${node.organizationId ?? node.parentId ?? ""}\u0000${systemSlot}`;
+}
+
 function shouldShowExplorerSystemSlot(
   node: ContainerNode,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
@@ -86,7 +93,7 @@ export function getVisibleExplorerNodes(
   currentOrganizationId?: string | null,
 ): ContainerContentsContextValue["nodes"] {
   const visibleNodes: ContainerNode[] = [];
-  const systemSlotIndexes = new Map<ContainerSystemSlot, number>();
+  const systemNodeIndexes = new Map<string, number>();
 
   for (const node of nodes ?? []) {
     const systemSlot = node.systemSlot ?? null;
@@ -105,9 +112,10 @@ export function getVisibleExplorerNodes(
       continue;
     }
 
-    const existingIndex = systemSlotIndexes.get(systemSlot);
+    const systemNodeKey = explorerSystemNodeKey(node, systemSlot);
+    const existingIndex = systemNodeIndexes.get(systemNodeKey);
     if (existingIndex === undefined) {
-      systemSlotIndexes.set(systemSlot, visibleNodes.length);
+      systemNodeIndexes.set(systemNodeKey, visibleNodes.length);
       visibleNodes.push(node);
       continue;
     }
@@ -124,33 +132,71 @@ export function getVisibleExplorerNodes(
 export function findExplorerSystemNode(
   nodes: ReadonlyArray<ContainerNode> | null | undefined,
   systemSlot: ContainerSystemSlot | null,
+  organizationId?: string | null | undefined,
+  rootContainerId?: string | null | undefined,
 ): ContainerNode | null {
   if (!systemSlot || !nodes) {
     return null;
   }
 
-  return nodes.find((node) => node.systemSlot === systemSlot) ?? null;
+  let fallback: ContainerNode | null = null;
+  for (const node of nodes) {
+    if (node.systemSlot !== systemSlot) {
+      continue;
+    }
+    if (rootContainerId != null && node.parentId === rootContainerId) {
+      return node;
+    }
+    if (
+      rootContainerId != null
+        ? organizationId != null && node.organizationId === organizationId
+        : organizationId == null || node.organizationId === organizationId
+    ) {
+      fallback ??= node;
+    }
+  }
+
+  return fallback;
 }
 
 export function getExplorerSystemContainerId(
   nodes: ReadonlyArray<ContainerNode> | null | undefined,
   systemSlot: ContainerSystemSlot | null,
+  organizationId?: string | null | undefined,
+  rootContainerId?: string | null | undefined,
 ): string | null {
-  return findExplorerSystemNode(nodes, systemSlot)?.id ?? null;
+  return (
+    findExplorerSystemNode(nodes, systemSlot, organizationId, rootContainerId)
+      ?.id ?? null
+  );
 }
 
 export function getExplorerTrashContainerId(
   nodes: ReadonlyArray<ContainerNode> | null | undefined,
   trashSystemSlot: ContainerSystemSlot | null,
+  organizationId?: string | null | undefined,
+  rootContainerId?: string | null | undefined,
 ): string | null {
-  return getExplorerSystemContainerId(nodes, trashSystemSlot);
+  return getExplorerSystemContainerId(
+    nodes,
+    trashSystemSlot,
+    organizationId,
+    rootContainerId,
+  );
 }
 
 export function getExplorerTrashDeleteTargetId(
   nodes: ReadonlyArray<ContainerNode> | null | undefined,
   trashSystemSlot: ContainerSystemSlot | null,
+  organizationId?: string | null | undefined,
+  rootContainerId?: string | null | undefined,
 ): string | null {
-  return getExplorerTrashContainerId(nodes, trashSystemSlot);
+  return getExplorerTrashContainerId(
+    nodes,
+    trashSystemSlot,
+    organizationId,
+    rootContainerId,
+  );
 }
 
 // Find the "Trash" system folder that belongs to another organization's shared
@@ -233,7 +279,12 @@ export function resolveExplorerDeleteTrashTarget(input: {
 
   return {
     canFallBackToOwnTrash: true,
-    trashContainerId: getExplorerTrashDeleteTargetId(nodes, trashSystemSlot),
+    trashContainerId: getExplorerTrashDeleteTargetId(
+      nodes,
+      trashSystemSlot,
+      currentOrganizationId,
+      containerNode?.parentId ?? null,
+    ),
   };
 }
 
@@ -355,10 +406,7 @@ export function canProvisionExplorerSystemContainers(input: {
 
   return (
     input.nodes?.some(
-      (node) =>
-        node.id === input.rootContainerId &&
-        node.parentId === null &&
-        node.organizationId === input.organizationId,
+      (node) => node.id === input.rootContainerId && node.parentId === null,
     ) ?? false
   );
 }

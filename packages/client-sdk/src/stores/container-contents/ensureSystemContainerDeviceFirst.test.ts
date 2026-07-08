@@ -12,7 +12,8 @@ import { createContainerContentsStore } from "./containerContentsStore";
 
 // A non-built-in system slot is enough to exercise the device-first create path;
 // the slot string only needs to be stable for `findSystemContainerState`.
-const TEST_SYSTEM_SLOT = "contacts" as ContainerSystemSlot;
+const TEST_SYSTEM_SLOT =
+  "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" as ContainerSystemSlot;
 const ROOT_CONTAINER_ID = "device-first-root";
 
 async function waitForCondition(
@@ -36,13 +37,16 @@ function createAuthenticatedRuntime(input: {
   domainScope: DomainScope;
   execSql: ExecSql;
   online: boolean;
+  organizationId?: string | undefined;
+  rootContainerId?: string | undefined;
   writerReady?: boolean | undefined;
 }) {
+  const rootContainerId = input.rootContainerId ?? ROOT_CONTAINER_ID;
   return createContainerContentsWorkflowRuntime({
     apiClient: input.apiClient,
     auth: {
       isAuthenticated: true,
-      organizationId: "org-1",
+      organizationId: input.organizationId ?? "org-1",
       userId: "user-1",
     },
     crypto: {
@@ -59,7 +63,7 @@ function createAuthenticatedRuntime(input: {
       execSql: input.execSql,
     },
     state: {
-      containerId: ROOT_CONTAINER_ID,
+      containerId: rootContainerId,
       domainScope: input.domainScope,
       events: [],
       online: input.online,
@@ -71,17 +75,24 @@ function createAuthenticatedRuntime(input: {
   });
 }
 
-async function seedLocalRootContainer(execSql: ExecSql): Promise<void> {
+async function seedLocalRootContainer(
+  execSql: ExecSql,
+  input: {
+    organizationId?: string | undefined;
+    rootContainerId?: string | undefined;
+  } = {},
+): Promise<void> {
+  const rootContainerId = input.rootContainerId ?? ROOT_CONTAINER_ID;
   await defaultContainerContentsPersistence.ensureSchema(execSql);
   await defaultContainerContentsPersistence.saveContainer(
     execSql,
     {
       icon: null,
-      id: ROOT_CONTAINER_ID,
+      id: rootContainerId,
       effectiveAccessLevel: "admin",
-      metadataDocumentId: "device-first-root-metadata-document",
+      metadataDocumentId: `${rootContainerId}-metadata-document`,
       name: "/",
-      organizationId: "org-1",
+      organizationId: input.organizationId ?? "org-1",
       parentId: null,
     },
     null,
@@ -389,4 +400,91 @@ test("ensureSystemContainer is idempotent once the slot exists locally", async (
       ).toHaveLength(1);
     },
   );
+});
+
+test("ensureSystemContainer creates distinct local system containers for the same slot under different roots", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "ensure-system-container-multi-root-slot-test",
+  );
+  const domainScope = {} as DomainScope;
+  const secondRootContainerId = "device-first-second-root";
+
+  try {
+    await seedLocalRootContainer(execSql, {
+      organizationId: "org-1",
+      rootContainerId: ROOT_CONTAINER_ID,
+    });
+    await seedLocalRootContainer(execSql, {
+      organizationId: "org-2",
+      rootContainerId: secondRootContainerId,
+    });
+
+    const apiClient = createMockApiClient({ listContainers: async () => null });
+    const store = createContainerContentsStore(
+      createAuthenticatedRuntime({
+        apiClient,
+        domainScope,
+        execSql,
+        online: false,
+        organizationId: "org-1",
+        rootContainerId: ROOT_CONTAINER_ID,
+      }),
+    );
+    store.updateRuntime(
+      createAuthenticatedRuntime({
+        apiClient,
+        domainScope,
+        execSql,
+        online: false,
+        organizationId: "org-1",
+        rootContainerId: ROOT_CONTAINER_ID,
+      }),
+    );
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    const first = await store.ensureSystemContainer(
+      TEST_SYSTEM_SLOT,
+      "Contacts",
+      { skipAdvancedManagedRoot: true },
+    );
+    expect(first?.parentId).toBe(ROOT_CONTAINER_ID);
+
+    store.updateRuntime(
+      createAuthenticatedRuntime({
+        apiClient,
+        domainScope,
+        execSql,
+        online: false,
+        organizationId: "org-2",
+        rootContainerId: secondRootContainerId,
+      }),
+    );
+    await waitForCondition(
+      () =>
+        store
+          .getSnapshot()
+          .nodes.some((node) => node.id === secondRootContainerId),
+      "Second root did not load into the container store.",
+    );
+
+    const second = await store.ensureSystemContainer(
+      TEST_SYSTEM_SLOT,
+      "Contacts",
+      { skipAdvancedManagedRoot: true },
+    );
+
+    expect(second?.parentId).toBe(secondRootContainerId);
+    expect(second?.id).not.toBe(first?.id);
+    expect(
+      store
+        .getSnapshot()
+        .nodes.filter((candidate) => candidate.systemSlot === TEST_SYSTEM_SLOT),
+    ).toHaveLength(2);
+  } finally {
+    close();
+  }
 });

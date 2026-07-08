@@ -39,6 +39,7 @@ export {
 interface ExplorerContextModel {
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
+  currentRootContainerId: string | null;
   logError: (message: string | Error, cause?: unknown) => void;
   reconciler: ReconciliationService;
   store: ContainerContentsStore;
@@ -75,6 +76,52 @@ function ensureExplorerTrashContainer(
   );
 }
 
+function useEnsureExplorerTrashContainer(
+  context: ExplorerContextModel,
+): () => Promise<ContainerNode | null> {
+  const {
+    currentOrganizationId,
+    currentRootContainerId,
+    logError,
+    store,
+    trashSystemSlot,
+  } = context;
+
+  return useCallback(async () => {
+    if (!trashSystemSlot) {
+      return null;
+    }
+
+    const currentSnapshot = store.getSnapshot();
+    if (!currentSnapshot.ready) {
+      return null;
+    }
+
+    const currentTrashNode = findExplorerSystemNode(
+      currentSnapshot.nodes,
+      trashSystemSlot,
+      currentOrganizationId,
+      currentRootContainerId,
+    );
+    if (currentTrashNode) {
+      return currentTrashNode;
+    }
+
+    try {
+      return await ensureExplorerTrashContainer(store, trashSystemSlot);
+    } catch (error) {
+      logError("Failed to ensure explorer trash container", error);
+      return null;
+    }
+  }, [
+    currentOrganizationId,
+    currentRootContainerId,
+    logError,
+    store,
+    trashSystemSlot,
+  ]);
+}
+
 export function ExplorerProvider({ children }: PropsWithChildren) {
   const tearleads = useTearleads();
   const { reconciler, runtime, view } = useDeviceFirstContainerContents();
@@ -92,6 +139,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
     () => ({
       contactsSystemSlot,
       currentOrganizationId: runtime.auth.organizationId,
+      currentRootContainerId: runtime.state.containerId,
       logError: tearleads.logError,
       reconciler,
       store,
@@ -103,6 +151,7 @@ export function ExplorerProvider({ children }: PropsWithChildren) {
       contactsSystemSlot,
       reconciler,
       runtime.auth.organizationId,
+      runtime.state.containerId,
       store,
       tearleads.logError,
       trashSystemSlot,
@@ -135,7 +184,7 @@ export function useExplorer(): ExplorerContextValue {
   const {
     contactsSystemSlot,
     currentOrganizationId,
-    logError,
+    currentRootContainerId,
     reconciler,
     store,
     trashSystemSlot,
@@ -143,34 +192,7 @@ export function useExplorer(): ExplorerContextValue {
     visibleSystemSlots,
   } = context;
   const snapshot = useTearleadsExternalStoreSnapshot(store);
-  const ensureTrashContainer = useCallback(async () => {
-    if (!trashSystemSlot) {
-      return null;
-    }
-
-    const currentSnapshot = store.getSnapshot();
-    if (!currentSnapshot.ready) {
-      return null;
-    }
-
-    const currentTrashNode = findExplorerSystemNode(
-      currentSnapshot.nodes,
-      trashSystemSlot,
-    );
-    if (currentTrashNode) {
-      return currentTrashNode;
-    }
-
-    try {
-      // Delete-to-trash is device-first. If Trash is missing, create the local
-      // system container immediately and let the structural sync lane reconcile
-      // it before queued document moves replay.
-      return await ensureExplorerTrashContainer(store, trashSystemSlot);
-    } catch (error) {
-      logError("Failed to ensure explorer trash container", error);
-      return null;
-    }
-  }, [logError, store, trashSystemSlot]);
+  const ensureTrashContainer = useEnsureExplorerTrashContainer(context);
 
   return useMemo(
     () => ({
@@ -199,6 +221,8 @@ export function useExplorer(): ExplorerContextValue {
       trashContainerId: getExplorerTrashDeleteTargetId(
         snapshot.nodes,
         trashSystemSlot,
+        currentOrganizationId,
+        currentRootContainerId,
       ),
       trashSystemSlot,
       view,
@@ -211,6 +235,7 @@ export function useExplorer(): ExplorerContextValue {
       store,
       contactsSystemSlot,
       currentOrganizationId,
+      currentRootContainerId,
       trashSystemSlot,
       view,
       visibleSystemSlots,

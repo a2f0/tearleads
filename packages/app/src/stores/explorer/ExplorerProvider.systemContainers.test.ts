@@ -250,6 +250,28 @@ test("explorer system container provisioning requires the authenticated root nod
   ).toBe(false);
 });
 
+test("explorer system container provisioning accepts the active root before org metadata converges", () => {
+  expect(
+    canProvisionExplorerSystemContainers({
+      isAuthenticated: true,
+      nodes: [
+        {
+          id: "root-container",
+          kind: "container",
+          name: "/",
+          organizationId: "local-org",
+          parentId: null,
+          syncState: createContainerDocumentObjectSyncState({
+            localOnly: true,
+          }),
+        },
+      ],
+      organizationId: "org-1",
+      rootContainerId: "root-container",
+    }),
+  ).toBe(true);
+});
+
 test("explorer resolves system containers by slot", () => {
   const contactsSystemSlot =
     "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -280,6 +302,41 @@ test("explorer resolves system containers by slot", () => {
       contactsSystemSlot,
     ),
   ).toBe("contacts-container");
+});
+
+test("explorer resolves system containers under the active root before org metadata converges", () => {
+  const contactsSystemSlot =
+    "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+  expect(
+    getExplorerSystemContainerId(
+      [
+        {
+          id: "personal-contacts",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "personal-org",
+          parentId: "personal-root",
+          syncState: syncedContainerDocumentObjectSyncState,
+          systemSlot: contactsSystemSlot,
+        },
+        {
+          id: "work-contacts",
+          kind: "container",
+          name: "Contacts",
+          organizationId: "local-org",
+          parentId: "work-root",
+          syncState: createContainerDocumentObjectSyncState({
+            localOnly: true,
+          }),
+          systemSlot: contactsSystemSlot,
+        },
+      ],
+      contactsSystemSlot,
+      "work-org",
+      "work-root",
+    ),
+  ).toBe("work-contacts");
 });
 
 test("explorer resolves the trash system container from system nodes", () => {

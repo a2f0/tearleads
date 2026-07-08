@@ -18,6 +18,7 @@ import type {
 } from "./syncAgent";
 import { probeExistingSystemContainer } from "./systemContainerHydration";
 import { applySystemContainerIcon } from "./systemContainerIcon";
+import { findSystemContainerStateForRoot } from "./systemContainerLookup";
 import {
   hasAdvancedManagedPrincipalReference,
   promoteExistingLocalSystemContainerSync,
@@ -107,19 +108,6 @@ export async function createChildContainer(
   return toContainerNode(created.containerState);
 }
 
-function findSystemContainerState(
-  state: ContainerContentsStoreState,
-  systemSlot: ContainerSystemSlot,
-): ContainerState | null {
-  for (const containerState of state.containersById.values()) {
-    if ((containerState.container.systemSlot ?? null) === systemSlot) {
-      return containerState;
-    }
-  }
-
-  return null;
-}
-
 function findRootContainerState(
   state: ContainerContentsStoreState,
 ): ContainerState | null {
@@ -183,7 +171,12 @@ export async function ensureSystemContainer(
     return null;
   }
 
-  const existing = findSystemContainerState(state, systemSlot);
+  let rootState = findRootContainerState(state);
+  const existing = findSystemContainerStateForRoot(
+    state,
+    systemSlot,
+    rootState,
+  );
   if (existing) {
     await updateExistingSystemContainer(state, syncAgent, existing, options);
     return toContainerNode(existing);
@@ -202,13 +195,18 @@ export async function ensureSystemContainer(
       syncAgent,
       systemSlot,
     });
-    const hydrated = findSystemContainerState(state, systemSlot);
+    rootState = findRootContainerState(state);
+    const hydrated = findSystemContainerStateForRoot(
+      state,
+      systemSlot,
+      rootState,
+    );
     if (hydrated) {
+      await updateExistingSystemContainer(state, syncAgent, hydrated, options);
       return toContainerNode(hydrated);
     }
   }
 
-  const rootState = findRootContainerState(state);
   if (!rootState) {
     return null;
   }

@@ -6,21 +6,29 @@ import { findExplorerSystemNode } from "../../stores/explorer/ExplorerSystemCont
 import type { UserSystemContainer } from "../../stores/systemContainers";
 
 function findExistingSystemContainer(
+  currentOrganizationId: string | null | undefined,
+  currentRootContainerId: string | null | undefined,
   store: ContainerContentsStore,
   systemContainer: UserSystemContainer,
 ): ContainerNode | null {
   return findExplorerSystemNode(
     store.getSnapshot().nodes,
     systemContainer.systemSlot,
+    currentOrganizationId,
+    currentRootContainerId,
   );
 }
 
 export async function ensureSystemBootstrapContainer(input: {
+  readonly currentOrganizationId: string | null | undefined;
+  readonly currentRootContainerId: string | null | undefined;
   readonly isAuthenticated: boolean;
   readonly store: ContainerContentsStore;
   readonly systemContainer: UserSystemContainer;
 }): Promise<ContainerNode | null> {
   const existing = findExistingSystemContainer(
+    input.currentOrganizationId,
+    input.currentRootContainerId,
     input.store,
     input.systemContainer,
   );

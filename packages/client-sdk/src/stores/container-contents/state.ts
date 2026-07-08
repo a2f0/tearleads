@@ -41,13 +41,16 @@ function areSnapshotNodesEqual(
     return (
       rightNode !== undefined &&
       leftNode.createdAt === rightNode.createdAt &&
+      leftNode.effectiveAccessLevel === rightNode.effectiveAccessLevel &&
       leftNode.id === rightNode.id &&
+      leftNode.icon === rightNode.icon &&
       leftNode.kind === rightNode.kind &&
       leftNode.metadataDocumentId === rightNode.metadataDocumentId &&
       leftNode.name === rightNode.name &&
       leftNode.organizationId === rightNode.organizationId &&
       leftNode.parentId === rightNode.parentId &&
       areSyncStatesEqual(leftNode.syncState, rightNode.syncState) &&
+      leftNode.systemSlot === rightNode.systemSlot &&
       leftNode.updatedAt === rightNode.updatedAt
     );
   });
@@ -64,6 +67,8 @@ export function createContainerContentsStoreState(
     documentStoresNeedPriming: true,
     initializePromise: null,
     initialized: false,
+    localContainerRefreshPromise: null,
+    localContainersNeedRefresh: false,
     lastEventCount: 0,
     listeners: new Set(),
     locallyAcceptedMetadataUpdateIds: new Set(),
@@ -120,6 +125,8 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.documentStoresNeedPriming = true;
   state.initialized = false;
   state.initializePromise = null;
+  state.localContainerRefreshPromise = null;
+  state.localContainersNeedRefresh = false;
   state.metadataDocumentIdsNeedingSync = new Set();
   state.remoteHydrationPromise = null;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
@@ -143,6 +150,9 @@ export function updateContainerContentsStoreRuntime(
   syncAgent: ContainerContentsStoreSyncAgent,
 ) {
   const previousRuntime = state.runtime;
+  const contextChanged =
+    previousRuntime.auth.organizationId !== nextRuntime.auth.organizationId ||
+    previousRuntime.state.containerId !== nextRuntime.state.containerId;
   if (
     didContainerContentsProjectionKeyRuntimeChange(previousRuntime, nextRuntime)
   ) {
@@ -167,9 +177,11 @@ export function updateContainerContentsStoreRuntime(
   // dbStatus-loss branch above.
   if (
     state.snapshot.ready &&
-    didRegainSyncPrerequisites(previousRuntime, nextRuntime)
+    (contextChanged || didRegainSyncPrerequisites(previousRuntime, nextRuntime))
   ) {
+    state.localContainersNeedRefresh = true;
     state.documentStoresNeedPriming = true;
+    void syncAgent.refreshLocalContainers();
   }
 
   syncAgent.ensureInitialized();

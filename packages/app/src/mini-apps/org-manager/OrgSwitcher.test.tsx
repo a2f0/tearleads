@@ -1,6 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import type { OrgSwitcherState } from "./hooks/useOrgSwitcher";
+import {
+  type OrgSwitcherState,
+  resolveOrgSwitcherSessionContext,
+} from "./hooks/useOrgSwitcher";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { OrgSwitcher } from "./OrgSwitcher";
 
@@ -67,6 +70,20 @@ test("org switcher opens a listbox and drives selection", () => {
   expect(selected).toEqual(["org-b"]);
   // Selecting an organization closes the listbox.
   expect(view.queryByRole("listbox")).toBeNull();
+});
+
+test("org switcher resolves the selected org root for the session context", () => {
+  expect(
+    resolveOrgSwitcherSessionContext(
+      [
+        { name: "Acme", organizationId: "org-a", rootContainerId: "c-a" },
+        { name: null, organizationId: "org-b", rootContainerId: "c-b" },
+      ],
+      "org-b",
+    ),
+  ).toEqual({ containerId: "c-b", organizationId: "org-b" });
+
+  expect(resolveOrgSwitcherSessionContext([], "org-missing")).toBeNull();
 });
 
 test("org switcher stays openable with no organizations so the first can be created", () => {
