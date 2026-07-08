@@ -70,6 +70,17 @@
   gap: var(--space-md);
 }
 
+.identity-manager-recovery-key-form {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.identity-manager-recovery-key-textarea {
+  width: 100%;
+  line-height: 1.45;
+}
+
 .identity-manager-pin-form {
   display: grid;
   gap: var(--space-sm);

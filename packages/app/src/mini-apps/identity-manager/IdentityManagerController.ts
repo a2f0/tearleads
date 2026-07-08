@@ -15,10 +15,6 @@ import {
   useRegisterCurrentIdentity,
 } from "../../identity/useRegisterCurrentIdentity";
 import {
-  useBackupSeedPhraseAction,
-  useRestoreSeedPhraseAction,
-} from "../../identity/useSeedPhraseActions";
-import {
   type CryptoSessionContextValue,
   useCryptoSession,
 } from "../../providers/crypto/CryptoSessionProvider";
@@ -371,23 +367,14 @@ function deriveIdentityManagerStatus(
 
 function useIdentityManagerBackupRestoreActions() {
   const backupKeyPackage = useBackupKeyPackageAction();
-  const backupSeedPhrase = useBackupSeedPhraseAction();
   const restoreKeyPackage = useRestoreKeyPackageAction();
-  const restoreSeedPhrase = useRestoreSeedPhraseAction();
 
   return {
     backupKeyPackage,
-    backupSeedPhrase,
     handleRestoreFileChange: restoreKeyPackage.handleRestoreFileChange,
     handleRestoreKeyPackageClick:
       restoreKeyPackage.handleRestoreKeyPackageClick,
-    handleRestoreSeedPhraseClick:
-      restoreSeedPhrase.handleRestoreSeedPhraseClick,
-    handleRestoreSeedPhraseFileChange:
-      restoreSeedPhrase.handleRestoreSeedPhraseFileChange,
     restoreFileInputRef: restoreKeyPackage.restoreFileInputRef,
-    restoreSeedPhraseFileInputRef:
-      restoreSeedPhrase.restoreSeedPhraseFileInputRef,
   };
 }
 
