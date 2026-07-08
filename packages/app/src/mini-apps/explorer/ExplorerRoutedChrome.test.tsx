@@ -51,6 +51,7 @@ function createExplorerModel(
     },
     openInlineDocument: () => undefined,
     routeState: {
+      openContainerInfoRoute: () => undefined,
       openDocumentInfoRoute: () => undefined,
       openSyncLanesRoute: () => undefined,
       route: { view: "selection" },
@@ -83,10 +84,13 @@ function BackProbe() {
   );
 }
 
+const noopOpenStructuredDocumentGrid = () => undefined;
+const noopTriggerUpload = () => undefined;
+
 function ExplorerRoutedChromeHarness({
   model,
-  openStructuredDocumentGrid = () => undefined,
-  triggerUpload = () => undefined,
+  openStructuredDocumentGrid = noopOpenStructuredDocumentGrid,
+  triggerUpload = noopTriggerUpload,
 }: {
   model: ExplorerModel;
   openStructuredDocumentGrid?: () => void;
@@ -106,14 +110,61 @@ function ExplorerRoutedChromeHarness({
   );
 }
 
-test("contacts container toolbar only offers new contact", async () => {
+test("folder toolbar opens container info", async () => {
+  const openedInfoContainers: string[] = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          isActiveContactsContainer: false,
+          routeState: {
+            ...baseModel.routeState,
+            openContainerInfoRoute: (containerId) =>
+              openedInfoContainers.push(containerId),
+          },
+          selection: {
+            ...baseModel.selection,
+            activeContainerId: "folder-1",
+            selectedDocument: undefined,
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", {
+        name: EXPLORER_LABELS.documentInfoGetInfoAction,
+      }),
+    ).toBeTruthy();
+  });
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentInfoGetInfoAction,
+    }),
+  );
+
+  expect(openedInfoContainers).toEqual(["folder-1"]);
+});
+
+test("contacts container toolbar offers get info and new contact", async () => {
   const createdContacts: Array<[string, string]> = [];
+  const openedInfoContainers: string[] = [];
+  const baseModel = createExplorerModel();
   const view = render(
     <WindowMenuProvider>
       <ExplorerRoutedChromeHarness
         model={createExplorerModel({
           openInlineDocument: (containerId, documentKind) => {
             createdContacts.push([containerId, documentKind]);
+          },
+          routeState: {
+            ...baseModel.routeState,
+            openContainerInfoRoute: (containerId) =>
+              openedInfoContainers.push(containerId),
           },
         })}
       />
@@ -126,6 +177,11 @@ test("contacts container toolbar only offers new contact", async () => {
     ).toBeTruthy();
   });
 
+  expect(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentInfoGetInfoAction,
+    }),
+  ).toBeTruthy();
   expect(
     view.queryByRole("button", {
       name: EXPLORER_LABELS.createChildFolderAction,
@@ -145,6 +201,14 @@ test("contacts container toolbar only offers new contact", async () => {
   );
 
   expect(createdContacts).toEqual([["contacts-container", "contact"]]);
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentInfoGetInfoAction,
+    }),
+  );
+
+  expect(openedInfoContainers).toEqual(["contacts-container"]);
 });
 
 test("document toolbar hides link when there are no link targets", async () => {

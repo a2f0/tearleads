@@ -28,6 +28,17 @@ import {
 
 const ORG_MANAGER_ADD_USER_TIMEOUT_MS = 10_000;
 
+async function openExplorerContextMenuInfo() {
+  const getInfoMenu = document.querySelector<HTMLElement>(".menu");
+  invariant(getInfoMenu, "explorer context menu not found");
+  const getInfoButton = within(getInfoMenu).getByRole("button", {
+    name: "Get Info",
+  });
+  await interact(() => {
+    fireEvent.click(getInfoButton);
+  });
+}
+
 export async function openOrgManager(pane: HTMLElement) {
   await interact(() => {
     fireEvent.contextMenu(pane, {
@@ -55,12 +66,7 @@ export async function shareContainerWithPeer(pane: HTMLElement, name: string) {
       clientY: 200,
     });
   });
-  const getInfoButton = screen.getByRole("button", {
-    name: "Get Info",
-  });
-  await interact(() => {
-    fireEvent.click(getInfoButton);
-  });
+  await openExplorerContextMenuInfo();
   await openContainerInfoSharingTab(pane);
   const shareWithPeerButton = await screen.findByRole(
     "button",
@@ -130,12 +136,7 @@ export async function shareContainerWithGroup(
       clientY: 200,
     });
   });
-  const getInfoButton = screen.getByRole("button", {
-    name: "Get Info",
-  });
-  await interact(() => {
-    fireEvent.click(getInfoButton);
-  });
+  await openExplorerContextMenuInfo();
   await openContainerInfoSharingTab(pane);
 
   const initialGroupSelect = await within(pane).findByLabelText("Group");

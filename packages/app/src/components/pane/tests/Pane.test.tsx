@@ -78,7 +78,7 @@ async function expectExplorerSystemContainerContextMenuItems(
 
   fireEvent.mouseDown(document.body);
   await waitFor(() => {
-    expect(view.queryByRole("button", { name: "Get Info" })).toBeNull();
+    expect(view.baseElement.querySelector(".menu")).toBeNull();
   });
 }
 
