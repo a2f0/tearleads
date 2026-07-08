@@ -105,11 +105,10 @@ const documentTypeDefinitionByKind = new Map(
 );
 
 function formatFallbackCreateLabel(kind: StoredDocumentKind): string {
-  const label = getStoredDocumentTypeLabel(
-    kind,
-    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-  );
-  return `${label.slice(0, 1).toUpperCase()}${label.slice(1)}`;
+  const label =
+    getStoredDocumentTypeLabel(kind, APP_DOCUMENT_PROJECTOR_DEFINITIONS) ||
+    kind;
+  return label ? `${label.slice(0, 1).toUpperCase()}${label.slice(1)}` : "";
 }
 
 function createFallbackDocumentTypeDefinition(

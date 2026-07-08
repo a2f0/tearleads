@@ -24,31 +24,36 @@ interface DefaultLoroDocumentSnapshot {
 }
 
 function formatDefaultLoroDocumentTitle(documentKind: string): string {
-  const label = getStoredDocumentTypeLabel(
-    documentKind,
-    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-  );
+  const label =
+    getStoredDocumentTypeLabel(
+      documentKind,
+      APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+    ) || documentKind;
 
-  return `${label.slice(0, 1).toUpperCase()}${label.slice(1)}`;
+  return label ? `${label.slice(0, 1).toUpperCase()}${label.slice(1)}` : "";
 }
 
 function sortedFields(
-  fields: Readonly<Record<string, string>>,
+  fields: Readonly<Record<string, string>> | null | undefined,
 ): Record<string, string> {
+  if (!fields) {
+    return {};
+  }
+
   return Object.fromEntries(
     Object.entries(fields).sort(([left], [right]) => left.localeCompare(right)),
   );
 }
 
 export function serializeDefaultLoroDocument(input: {
-  documentKind: string;
-  structuredFields: Readonly<Record<string, string>>;
-  text: string;
+  documentKind?: string | null;
+  structuredFields?: Readonly<Record<string, string>> | null;
+  text?: string | null;
 }): DefaultLoroDocumentSnapshot {
   return {
-    documentKind: input.documentKind,
+    documentKind: input.documentKind ?? "",
     fields: sortedFields(input.structuredFields),
-    text: input.text,
+    text: input.text ?? "",
   };
 }
 
