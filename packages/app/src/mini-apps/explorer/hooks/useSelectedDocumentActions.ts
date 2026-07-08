@@ -16,11 +16,9 @@ import {
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinks";
 import {
-  canAddDocumentToContainerByRules,
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
-  canMoveDocumentByRules,
-  canMoveDocumentOutByRules,
+  canMoveDocumentToContainerByRules,
   canPurgeDocumentByRules,
   canWriteContainerNode,
   canWriteDocumentSummary,
@@ -85,16 +83,6 @@ function useMoveDocumentAction(params: {
         existingDocument.containerId === null
           ? undefined
           : nodes.find((node) => node.id === existingDocument.containerId);
-      // Refuse to relocate the pinned self contact (a Move to Trash would delete
-      // it), then honor the source container's own move rules.
-      if (
-        !canMoveDocumentByRules(rulesContext, existingDocument) ||
-        (existingDocument.containerId !== null &&
-          (!canWriteContainerNode(currentContainer) ||
-            !canMoveDocumentOutByRules(rulesContext, currentContainer)))
-      ) {
-        return null;
-      }
       const canMoveDocument =
         existingDocument.documentId === null
           ? canMutateUnsyncedSelectedDocument(appData)
@@ -105,10 +93,14 @@ function useMoveDocumentAction(params: {
       const targetContainer = nodes.find(
         (node) => node.id === targetContainerId,
       );
+      // Refuse to relocate the pinned self contact (a Move to Trash would delete
+      // it), then honor the source/destination move rules. Contacts pins its
+      // contents for ordinary moves while still allowing the Trash destination.
       if (
         !targetContainer ||
-        !canAddDocumentToContainerByRules(
+        !canMoveDocumentToContainerByRules(
           rulesContext,
+          currentContainer,
           targetContainer,
           existingDocument,
         )

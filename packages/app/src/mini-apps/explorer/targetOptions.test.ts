@@ -178,10 +178,11 @@ test("a contact in trash can be moved back into the contacts container", () => {
   expect(options.map((option) => option.id)).toContain(CONTACTS_CONTAINER_ID);
 });
 
-test("a contact cannot be moved out of the contacts container", () => {
+test("a custom contact in contacts can only be moved to trash", () => {
   const contactDocument = documentSummary({
-    id: "self_contact_v1_abc",
+    id: "local-contact-2",
     containerId: CONTACTS_CONTAINER_ID,
+    documentKind: "contact",
   });
   const options = getDocumentMoveTargetOptions(
     nodes,
@@ -189,6 +190,36 @@ test("a contact cannot be moved out of the contacts container", () => {
     contactDocument.id,
     undefined,
     rulesContext,
+  );
+
+  expect(options).toEqual([
+    {
+      id: TRASH_CONTAINER_ID,
+      icon: undefined,
+      label: TRASH_CONTAINER_ID,
+    },
+  ]);
+});
+
+test("the self contact in contacts cannot be moved to trash", () => {
+  const selfContactRulesContext = createExplorerContainerRulesContext({
+    contactsContainerId: CONTACTS_CONTAINER_ID,
+    contactsSystemSlot: CONTACTS_SLOT,
+    currentOrganizationId: null,
+    currentSigningFingerprint: "abc",
+    trashSystemSlot: TRASH_SLOT,
+  });
+  const contactDocument = documentSummary({
+    id: "self_contact_v1_abc",
+    containerId: CONTACTS_CONTAINER_ID,
+    documentKind: "contact",
+  });
+  const options = getDocumentMoveTargetOptions(
+    nodes,
+    [contactDocument],
+    contactDocument.id,
+    undefined,
+    selfContactRulesContext,
   );
 
   expect(options).toEqual([]);
