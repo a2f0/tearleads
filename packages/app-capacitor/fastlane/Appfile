@@ -1,1 +1,2 @@
+app_identifier("com.tearleads.app")
 package_name("com.tearleads.app")

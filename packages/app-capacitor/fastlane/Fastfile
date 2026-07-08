@@ -2,6 +2,8 @@
 
 default_platform(:android)
 
-import 'Fastfile.android.rb'
 import 'Fastfile.store.rb'
+import 'Fastfile.android.rb'
+import 'Fastfile.ios.rb'
 import 'google_play_upload.rb'
+import 'testflight_upload.rb'
