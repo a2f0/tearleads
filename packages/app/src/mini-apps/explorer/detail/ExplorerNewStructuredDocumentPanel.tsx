@@ -47,8 +47,10 @@ export function ExplorerNewStructuredDocumentPanel(params: Props) {
                 key={definition.kind}
                 onClick={() => onCreateDocument(definition.kind)}
               >
-                <DocumentTypeIcon aria-hidden size={20} />
-                {definition.createLabel}
+                <DocumentTypeIcon aria-hidden size={32} />
+                <span className="explorer-document-type-label">
+                  {definition.createLabel}
+                </span>
               </MiniAppButton>
             );
           })}
