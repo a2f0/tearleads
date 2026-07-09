@@ -5,6 +5,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
+import { computeContainerMembershipSignature } from "../../../stores/explorer/documentSummaryUtils";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
 
@@ -70,15 +71,26 @@ export function useExplorerInteractionState(params: {
   const lastActiveSummariesRef = useRef<ReadonlyArray<DocumentSummary> | null>(
     null,
   );
-  // Reset the per-mount active-summaries tracking when the view (domain scope)
-  // rotates, so the new scope's summaries re-merge into the view model. Primed
-  // document stores are tracked per view (module scope) and need no reset here.
+  // Signature of container -> document-id membership at the last view apply. The
+  // link projection is the DESTRUCTIVE sidebar/table refresh (it clears rows to a
+  // loading state and resets totalCount), so it must be bumped only when
+  // membership actually changes — discovery, move, delete. The view fires on every
+  // reconciled delta during bootstrap (sync badges, title/content updates) with
+  // membership unchanged; bumping the link projection on those blanked and reloaded
+  // the "You" contact and system-folder rows ~once per tick (the reported flicker).
+  const lastLinkSignatureRef = useRef<string | null>(null);
+  // Primed document stores are tracked per view (module scope) and need no reset.
   const lastViewRef = useRef(view);
-  if (lastViewRef.current !== view) {
-    lastViewRef.current = view;
-    lastActiveSummariesRef.current = null;
-  }
   useEffect(() => {
+    // When the view (domain scope) rotates, reset the per-mount active-summaries +
+    // membership tracking so the new scope re-merges and re-signatures. Done here in
+    // the effect (commit phase) rather than during render — render-phase ref writes
+    // can double-run under StrictMode / concurrent rendering.
+    if (lastViewRef.current !== view) {
+      lastViewRef.current = view;
+      lastActiveSummariesRef.current = null;
+      lastLinkSignatureRef.current = null;
+    }
     const primedSummaryLists = primedSummaryListsForView(view);
     const applyFromView = () => {
       const summariesMap = view.getSnapshot().documentSummariesByContainerId;
@@ -101,9 +113,17 @@ export function useExplorerInteractionState(params: {
         lastActiveSummariesRef.current = activeSummaries;
         mergeDocumentSummaries(activeSummaries);
       }
-      // Always nudge the link projection so windowed queries refresh for the
-      // container currently rendered, including newly discovered documents.
-      onDocumentLinksChanged();
+      // Nudge the link projection so windowed queries refresh for newly discovered
+      // documents — but only when the container -> document membership actually
+      // changed. This is the DESTRUCTIVE refresh (it clears rows), so firing it on
+      // a view delta that merely updated summary content is what re-blanked the
+      // sidebar rows every sync tick during bootstrap. Content-only updates still
+      // refresh non-destructively via documentListRevision.
+      const linkSignature = computeContainerMembershipSignature(summariesMap);
+      if (lastLinkSignatureRef.current !== linkSignature) {
+        lastLinkSignatureRef.current = linkSignature;
+        onDocumentLinksChanged();
+      }
     };
 
     applyFromView();

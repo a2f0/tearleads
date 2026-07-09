@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk";
-import { applyTrackedDocumentSummaryUpdates } from "./documentSummaryUtils";
+import {
+  applyTrackedDocumentSummaryUpdates,
+  computeContainerMembershipSignature,
+} from "./documentSummaryUtils";
 
 function createSummary(
   id: string,
@@ -45,4 +48,77 @@ test("returns the same array reference when nothing changed", () => {
   ]);
 
   expect(next).toBe(current);
+});
+
+// The membership signature backs the bootstrap-flicker fix: it must be stable
+// across content-only updates (title/sync-badge deltas fire the explorer view on
+// every reconciled tick) and only change on genuine membership changes, so the
+// destructive link-projection refresh no longer blanks the sidebar rows each tick.
+test("membership signature is unchanged when only summary content changes", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["contacts", [createSummary("you", { title: "You" })]],
+  ]);
+  const afterTitleSync = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["contacts", [createSummary("you", { title: "You (synced)" })]],
+  ]);
+
+  expect(computeContainerMembershipSignature(afterTitleSync)).toBe(
+    computeContainerMembershipSignature(before),
+  );
+});
+
+test("membership signature is unchanged when documents are reordered", () => {
+  const ordered = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a"), createSummary("b")]],
+  ]);
+  const reordered = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("b"), createSummary("a")]],
+  ]);
+
+  expect(computeContainerMembershipSignature(reordered)).toBe(
+    computeContainerMembershipSignature(ordered),
+  );
+});
+
+test("membership signature changes when a document is discovered", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["contacts", [createSummary("you")]],
+  ]);
+  const afterDiscovery = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["contacts", [createSummary("you"), createSummary("teammate")]],
+  ]);
+
+  expect(computeContainerMembershipSignature(afterDiscovery)).not.toBe(
+    computeContainerMembershipSignature(before),
+  );
+});
+
+test("membership signature changes when a document moves between containers", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", []],
+  ]);
+  const afterMove = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", []],
+    ["c2", [createSummary("a")]],
+  ]);
+
+  expect(computeContainerMembershipSignature(afterMove)).not.toBe(
+    computeContainerMembershipSignature(before),
+  );
+});
+
+test("membership signature is stable regardless of container map ordering", () => {
+  const oneOrder = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", [createSummary("b")]],
+  ]);
+  const otherOrder = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c2", [createSummary("b")]],
+    ["c1", [createSummary("a")]],
+  ]);
+
+  expect(computeContainerMembershipSignature(otherOrder)).toBe(
+    computeContainerMembershipSignature(oneOrder),
+  );
 });
