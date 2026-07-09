@@ -4,6 +4,7 @@ import "./WindowToolBar.css";
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
+  useWindowToolbarReservationReleased,
   useWindowToolbarReserved,
 } from "./WindowMenuContext";
 
@@ -35,6 +36,7 @@ export function WindowToolBar() {
   const backAction = useWindowBackActionValue();
   const actions = useWindowTitleBarActions();
   const reserved = useWindowToolbarReserved();
+  const reservationReleased = useWindowToolbarReservationReleased();
   const hasChrome = backAction !== null || actions.length > 0;
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.
@@ -42,11 +44,16 @@ export function WindowToolBar() {
   // latch during render at all; the render-phase set below catches chrome that
   // first appears after mount, without an effect's extra committed render pass.
   const [hasShownChrome, setHasShownChrome] = useState(hasChrome);
-  if (hasChrome && !hasShownChrome) {
+  let latchedChrome = hasShownChrome;
+  if (hasChrome && !latchedChrome) {
     setHasShownChrome(true);
+    latchedChrome = true;
+  } else if (!hasChrome && reservationReleased && latchedChrome) {
+    setHasShownChrome(false);
+    latchedChrome = false;
   }
 
-  if (!hasChrome && !hasShownChrome && !reserved) {
+  if (!hasChrome && !latchedChrome && !reserved) {
     return null;
   }
 
