@@ -15,10 +15,72 @@ interface RemoteHydrationRefreshState {
   initialized: boolean;
   remoteHydrationPromise: Promise<void> | null;
   runtime: {
-    auth: { isAuthenticated: boolean };
+    auth: {
+      isAuthenticated: boolean;
+      organizationId?: string | null | undefined;
+    };
     infra: { dbStatus: string };
     state: { containerId?: string | null | undefined; online: boolean };
   };
+}
+
+interface RefreshRootContainerLike {
+  container: {
+    id: string;
+    metadataDocumentId?: string | null | undefined;
+    organizationId: string | null;
+    parentId: string | null;
+  };
+}
+
+function isRefreshRootContainerLike(
+  value: unknown,
+): value is RefreshRootContainerLike {
+  if (typeof value !== "object" || value === null || !("container" in value)) {
+    return false;
+  }
+
+  const container = (value as { container: unknown }).container;
+  return typeof container === "object" && container !== null;
+}
+
+// Resolve the parent whose child lane the provisioned-system-container poll
+// should list to pull organization-born children (Trash) into the tree.
+//
+// It must NOT trust runtime.state.containerId: after a cold-cache login of an
+// already-registered user, that value is still the pre-auth device-first LOCAL
+// root (organizationId "", no remote metadata) — login() never adopts the server
+// root id, and reconcileLocalOnlyRootContainers later deletes the local root out
+// from under it. Listing that dead local root's child lane returns nothing, so
+// the poll never pulls Trash, never satisfies its stop condition, and spins its
+// whole retry budget churning the tree (the sidebar flicker).
+//
+// Prefer instead the reconciled server root already in the tree: the top-level
+// (parentId === null) container in the viewer's own organization that carries
+// remote metadata. Fall back to runtime.state.containerId when no such root is
+// loaded yet — the null discovery lane then surfaces it and hydrateRemoteContainers
+// crawls a freshly-discovered container's child lane within the same pass.
+function resolveActiveRootChildLaneParentId(
+  state: RemoteHydrationRefreshState,
+): string | null | undefined {
+  const organizationId = state.runtime.auth.organizationId ?? null;
+  if (organizationId !== null) {
+    for (const value of state.containersById.values()) {
+      if (!isRefreshRootContainerLike(value)) {
+        continue;
+      }
+      const { container } = value;
+      if (
+        container.parentId === null &&
+        container.organizationId === organizationId &&
+        (container.metadataDocumentId ?? null) !== null
+      ) {
+        return container.id;
+      }
+    }
+  }
+
+  return state.runtime.state.containerId;
 }
 
 function queueAllRemoteHydrationParentIds(state: RemoteHydrationRefreshState) {
@@ -72,18 +134,38 @@ export function refreshRootRemoteHydration(input: {
     return Promise.resolve(false);
   }
 
-  // Startup catch-up only needs the top-level discovery lane. Provisioned system
-  // container bootstrap can opt into the active root's child lane because
-  // organization-born children such as Trash live under the root, not on the
-  // top-level null lane. Keep the all-parent traversal reserved for explicit
-  // user refresh.
-  const rootContainerId = state.runtime.state.containerId;
+  if (input.includeActiveRootChildLane) {
+    // Provisioned-system-container poll: it fires on a ~250ms interval until the
+    // org-born slot (Trash) surfaces. List the reconciled server root's child
+    // lane directly — resolved from the tree, NOT from runtime.state.containerId,
+    // which after a cold-cache login is still the pre-auth device-first local root
+    // that Trash does not live under — so Trash is pulled instead of the poll
+    // spinning on a dead lane. Crucially do NOT reset the root-lane watermark on
+    // this path: an unwatermarked re-list every tick makes hydrateRemoteContainers
+    // count every listed container as "changed", re-running
+    // updateSnapshot()+scheduleSync() on every tick and churning settling nodes'
+    // sync badges for the whole poll window — the sidebar "You"/Trash flicker. The
+    // stored watermark still surfaces Trash (a cold cache lists in full; a later
+    // arrival advances the child lane past it).
+    const activeRootChildLaneParentId =
+      resolveActiveRootChildLaneParentId(state);
+    return requestHydration({
+      followDiscoveredParentLanes: false,
+      parentIds: activeRootChildLaneParentId
+        ? [null, activeRootChildLaneParentId]
+        : [null],
+    }).then(() => true);
+  }
+
+  // Automatic catch-up and the shared_with_you discovery event only need the
+  // top-level lane, but they DO re-list it unwatermarked: a root newly shared with
+  // the viewer does not bump the viewer's persisted root-lane watermark, so a
+  // watermarked list would hide it forever. hydrateRemoteContainers then crawls a
+  // freshly discovered root's child lane within the same pass. (The all-parent
+  // traversal stays reserved for explicit user refresh in refreshAllRemoteHydration.)
   return requestHydration({
     followDiscoveredParentLanes: false,
-    parentIds:
-      input.includeActiveRootChildLane && rootContainerId
-        ? [null, rootContainerId]
-        : [null],
+    parentIds: [null],
     resetRootLaneWatermark: true,
   }).then(() => true);
 }
