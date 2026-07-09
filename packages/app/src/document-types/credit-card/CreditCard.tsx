@@ -183,13 +183,6 @@ function CreditCardDocumentFieldsPane(params: {
   );
 }
 
-const CREDIT_CARD_ATTACHMENT_COPY = {
-  authenticatedOnline:
-    "Card images stay bound to fixed slots on this document.",
-  localOnly: "Card images save locally and sync when you're online.",
-  unavailable: "Card image attachments require a local key package.",
-};
-
 const CREDIT_CARD_ATTACHMENT_SLOT_IDS = CREDIT_CARD_ATTACHMENT_SLOTS.map(
   (slot) => slot.slotId,
 );
@@ -201,7 +194,7 @@ interface CreditCardProps {
 }
 
 export function CreditCard(params: CreditCardProps) {
-  const { auth, infra, state } = useTearleadsRuntime();
+  const { infra } = useTearleadsRuntime();
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -248,7 +241,6 @@ export function CreditCard(params: CreditCardProps) {
   });
   return (
     <StructuredDocument
-      attachmentCopy={CREDIT_CARD_ATTACHMENT_COPY}
       attachments={
         <DocumentAttachmentSlots
           attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
@@ -262,7 +254,6 @@ export function CreditCard(params: CreditCardProps) {
           slots={CREDIT_CARD_ATTACHMENT_SLOTS}
         />
       }
-      canAttach={canAttach}
       fields={
         <CreditCardDocumentFieldsPane
           canWrite={canWrite}
@@ -274,8 +265,6 @@ export function CreditCard(params: CreditCardProps) {
           setStructuredFields={setStructuredFields}
         />
       }
-      isAuthenticated={auth.isAuthenticated}
-      online={state.online}
       ready={ready}
       syncing={syncing}
       title="Credit Card"
