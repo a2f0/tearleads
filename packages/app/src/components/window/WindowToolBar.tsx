@@ -1,5 +1,5 @@
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import "./WindowToolBar.css";
 import {
   useWindowBackActionValue,
@@ -31,13 +31,12 @@ export function WindowToolBar() {
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.
   // Seed from the mount-time value so a window that already has chrome does not
-  // take an extra state-update render; the effect latches later appearances.
+  // latch during render at all; the render-phase set below catches chrome that
+  // first appears after mount, without an effect's extra committed render pass.
   const [hasShownChrome, setHasShownChrome] = useState(hasChrome);
-  useEffect(() => {
-    if (hasChrome) {
-      setHasShownChrome(true);
-    }
-  }, [hasChrome]);
+  if (hasChrome && !hasShownChrome) {
+    setHasShownChrome(true);
+  }
 
   if (!hasChrome && !hasShownChrome) {
     return null;
