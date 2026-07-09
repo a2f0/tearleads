@@ -30,7 +30,9 @@ export function WindowToolBar() {
   const hasChrome = backAction !== null || actions.length > 0;
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.
-  const [hasShownChrome, setHasShownChrome] = useState(false);
+  // Seed from the mount-time value so a window that already has chrome does not
+  // take an extra state-update render; the effect latches later appearances.
+  const [hasShownChrome, setHasShownChrome] = useState(hasChrome);
   useEffect(() => {
     if (hasChrome) {
       setHasShownChrome(true);
