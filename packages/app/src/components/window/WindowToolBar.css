@@ -11,16 +11,16 @@
    * font size makes 1.25em smaller than the 18px action icons, a FILLED row is
    * driven taller by the icons and exceeds that min-height. The empty bar then
    * sits shorter, so returning to the filled view shifts the body up then down.
-   * max() reserves whichever is taller at the current font size, clamping both
-   * the empty and filled bar to the same height. Uses the literal 18px (not
-   * 1.125rem) because size={18} renders a fixed-pixel icon regardless of the root
-   * font size, so a rem here would drift out of sync under accessibility zoom or a
-   * custom root font and re-introduce the shift. Keep 18px == the icon size.
+   * Reserve the LARGER of the standard bar height and an icon-inclusive bar
+   * height (18px icon + the same block padding), so the empty and filled bar
+   * always clamp to the same height. Uses the literal 18px (not 1.125rem) because
+   * size={18} renders a fixed-pixel icon regardless of the root font size, so a
+   * rem here would drift out of sync under accessibility zoom or a custom root
+   * font and re-introduce the shift. Keep 18px == the icon size.
    */
-  min-height: calc(
-    max(var(--window-bar-line-height), 18px) +
-    var(--window-bar-block-padding) +
-    var(--window-bar-block-padding)
+  min-height: max(
+    var(--window-bar-height),
+    calc(18px + var(--window-bar-block-padding) * 2)
   );
   background: var(--color-muted);
   border-top: var(--border);
