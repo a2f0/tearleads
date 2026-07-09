@@ -22,7 +22,8 @@ import { waitForPaneRuntimeToSettle } from "../../../../test/helpers/paneTestUti
 // then hardened by PR #1403's hook-level test). The sidebar's DESTRUCTIVE reload
 // (preserveRows:false — blanks rows to a loading state) fires once per
 // documentLinkProjectionVersion bump, and each bump is a membership-gated
-// onDocumentLinksChanged() call in useExplorerViewProjectionSync. Pre-fix the view
+// onDocumentLinksChanged(changedContainerIds) call in useExplorerViewProjectionSync.
+// Pre-fix the view
 // fired that on EVERY reconciled delta, so the counter climbed ~15x over bootstrap
 // and the "You" contact + Trash rows re-blanked ~once per tick. Post-fix it only
 // bumps on genuine container->document membership changes.

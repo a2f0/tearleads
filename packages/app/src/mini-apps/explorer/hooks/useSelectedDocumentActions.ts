@@ -49,7 +49,7 @@ function useMoveDocumentAction(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -208,7 +208,7 @@ function useLinkDocumentAction(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -297,7 +297,7 @@ function useUnlinkDocumentAction(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
   const {
@@ -403,7 +403,7 @@ export function useSelectedDocumentActions(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {

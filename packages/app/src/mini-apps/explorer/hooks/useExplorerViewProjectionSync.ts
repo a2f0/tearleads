@@ -44,7 +44,7 @@ export function useExplorerViewProjectionSync(params: {
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
-  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   primeDiscoveredDocuments: (
     discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
   ) => void;

@@ -141,7 +141,7 @@ export function useExplorerPanelState(params: {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
-  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   // Re-attempts the SQLite worker boot; forwarded to the sidebar tree's gate.
   onRetryDatabase: () => void;
   canShareWithPeer: boolean;
