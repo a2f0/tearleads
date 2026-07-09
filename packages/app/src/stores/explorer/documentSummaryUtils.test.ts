@@ -146,6 +146,21 @@ test("a container that disappears is reported changed", () => {
   expect(changedContainers(before, afterDrop)).toEqual(["c2"]);
 });
 
+// The mirror of the additive-key skip: an EMPTY container dropping out has no rows
+// to blank, so it must not fire a destructive refresh. Only a container that held
+// documents needs its rows cleared when it vanishes.
+test("an empty container dropping out is not reported", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", []],
+  ]);
+  const afterDrop = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+  ]);
+
+  expect(changedContainers(before, afterDrop)).toEqual([]);
+});
+
 // previous === null marks the first apply (mount / view rotation): every present
 // container is reported so the initial population runs once.
 test("the first apply reports every present container", () => {

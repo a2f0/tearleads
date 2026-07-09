@@ -109,8 +109,10 @@ export function computeContainerMembershipSignatures(
 // The container ids that should get a DESTRUCTIVE sidebar refresh between two
 // membership snapshots. Reports a container that was ALREADY present and changed
 // its id-set (real discovery / move / delete on screen) or one that DROPPED OUT
-// (a real removal / cache reset). Empty when only summary content changed (or
-// nothing did), which keeps content-only reconciled deltas from blanking rows.
+// while HOLDING documents (a real removal / cache reset). Empty when only summary
+// content changed (or nothing did), which keeps content-only reconciled deltas
+// from blanking rows. An empty container (signature "") that drops out is NOT
+// reported — it had no rows, so refreshing it would only cost a wasted reload.
 //
 // `previous === null` marks the FIRST apply (mount or a view rotation): every
 // present container is reported so the initial population runs once.
@@ -141,8 +143,12 @@ export function diffChangedContainerIds(
       changed.push(containerId);
     }
   }
-  for (const containerId of previous.keys()) {
-    if (!next.has(containerId)) {
+  for (const [containerId, signature] of previous) {
+    // A container that DROPS OUT of the map is reported only if it actually held
+    // documents. An empty container (signature "") vanishing has no rows to blank,
+    // so refreshing it would be a wasteful destructive reload — skip it, mirroring
+    // the additive first-appearance skip above so only real membership changes fire.
+    if (!next.has(containerId) && signature !== "") {
       changed.push(containerId);
     }
   }
