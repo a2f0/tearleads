@@ -19,7 +19,7 @@
    */
   min-height: calc(
     max(var(--window-bar-line-height), 18px) +
-    2 *
+    var(--window-bar-block-padding) +
     var(--window-bar-block-padding)
   );
   background: var(--color-muted);
