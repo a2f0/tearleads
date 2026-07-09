@@ -16,12 +16,14 @@ export function PaneSystemMenuItems({
   onRequestDestroyKeyPackage,
   onRequestLogout,
   showDeveloperControls,
+  showLogout = true,
 }: {
   onClose: () => void;
   onOpenUnlock: () => void;
   onRequestDestroyKeyPackage: () => void;
   onRequestLogout: () => void;
   showDeveloperControls: boolean;
+  showLogout?: boolean;
 }) {
   return (
     <>
@@ -42,6 +44,7 @@ export function PaneSystemMenuItems({
       <PaneSessionMenuItems
         onClose={onClose}
         onRequestLogout={onRequestLogout}
+        showLogout={showLogout}
       />
     </>
   );
@@ -185,9 +188,11 @@ function PaneKeyMenuItems({
 function PaneSessionMenuItems({
   onClose,
   onRequestLogout,
+  showLogout,
 }: {
   onClose: () => void;
   onRequestLogout: () => void;
+  showLogout: boolean;
 }) {
   const { isAuthenticated, login, userId } = useCryptoSession();
   const { encapsulationKeyPair, signingKeyPair } = useIdentity();
@@ -196,7 +201,7 @@ function PaneSessionMenuItems({
 
   return (
     <>
-      {signingKeyPair && isAuthenticated && (
+      {showLogout && signingKeyPair && isAuthenticated && (
         <MenuItem
           label="Logout"
           onClick={() => {

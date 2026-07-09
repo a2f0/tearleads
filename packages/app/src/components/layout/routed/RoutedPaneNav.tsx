@@ -128,6 +128,7 @@ function RoutedPaneNavPanel({
           onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
           onRequestLogout={onRequestLogout}
           showDeveloperControls={showDeveloperControls}
+          showLogout={false}
         />
       </div>
       {menuItems.length > 0 && (
