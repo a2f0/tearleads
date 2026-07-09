@@ -208,10 +208,15 @@ function surfaceThenPollProvisionedContainers(input: {
   void store
     .refreshLocalContainers()
     .catch((error: unknown) => {
-      logError(
-        "Failed to surface provisioned system container from local state",
-        error,
-      );
+      // Skip a rejection from a torn-down sequence (unmount / org switch): the
+      // store/db may be gone, so logging it would be a false positive. Mirrors the
+      // pullRootLane guard.
+      if (!cancelled) {
+        logError(
+          "Failed to surface provisioned system container from local state",
+          error,
+        );
+      }
     })
     .finally(startRemotePollingIfStillMissing);
 
