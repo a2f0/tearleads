@@ -74,8 +74,17 @@ export function useExplorerRoutedChromeActions({
   const route = model.routeState.route;
   const activeContainerId = model.selection.activeContainerId;
   const selectedDocument = model.selection.selectedDocument;
-  const selectedDocumentId = selectedDocument?.id ?? null;
-  const selectedDocumentContainerId = selectedDocument?.containerId ?? null;
+  // Selecting a document row synchronously routes to "document-selection" but
+  // selectedDocument stays undefined until its summary async-loads into
+  // documentSummaries. During that gap the route already carries the ids, so
+  // source them from it — otherwise the document toolbar registers no actions
+  // (see showDocumentToolbar) and the bar goes empty mid-selection.
+  const selectedDocumentId =
+    selectedDocument?.id ??
+    (route.view === "document-selection" ? route.localId : null);
+  const selectedDocumentContainerId =
+    selectedDocument?.containerId ??
+    (route.view === "document-selection" ? route.containerId : null);
   const showContainerToolbar =
     route.view === "selection" &&
     activeContainerId !== null &&
@@ -84,8 +93,12 @@ export function useExplorerRoutedChromeActions({
     showContainerToolbar && model.isActiveContactsContainer;
   const showStandardContainerToolbar =
     showContainerToolbar && !model.isActiveContactsContainer;
+  // A selected document shows its toolbar (Get Info, plus link/move once their
+  // targets load) — including the pending window before its summary loads, so the
+  // bar never empties between a container selection and the document resolving.
   const showDocumentToolbar =
-    selectedDocument !== undefined && route.view !== "document-info";
+    (selectedDocument !== undefined || route.view === "document-selection") &&
+    route.view !== "document-info";
 
   useExplorerRoutedBackAction({
     model,
