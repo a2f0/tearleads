@@ -118,7 +118,11 @@ test("a move reports both the source and target containers", () => {
   expect(changedContainers(before, afterMove)).toEqual(["c1", "c2"]);
 });
 
-test("a container that appears or disappears is reported changed", () => {
+// The "You"-contact collapse: the SDK projection cache materializes a container
+// lazily the first time it becomes active. That additive key is NOT a membership
+// change (no document moved; the doc was already shown from the SQL window query),
+// so it must not be reported — otherwise its rows blank and the sidebar collapses.
+test("a container appearing for the first time is not reported", () => {
   const before = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["c1", [createSummary("a")]],
   ]);
@@ -127,8 +131,50 @@ test("a container that appears or disappears is reported changed", () => {
     ["c2", [createSummary("b")]],
   ]);
 
-  expect(changedContainers(before, afterAdd)).toEqual(["c2"]);
-  expect(changedContainers(afterAdd, before)).toEqual(["c2"]);
+  expect(changedContainers(before, afterAdd)).toEqual([]);
+});
+
+test("a container that disappears is reported changed", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", [createSummary("b")]],
+  ]);
+  const afterDrop = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+  ]);
+
+  expect(changedContainers(before, afterDrop)).toEqual(["c2"]);
+});
+
+// The mirror of the additive-key skip: an EMPTY container dropping out has no rows
+// to blank, so it must not fire a destructive refresh. Only a container that held
+// documents needs its rows cleared when it vanishes.
+test("an empty container dropping out is not reported", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", []],
+  ]);
+  const afterDrop = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+  ]);
+
+  expect(changedContainers(before, afterDrop)).toEqual([]);
+});
+
+// previous === null marks the first apply (mount / view rotation): every present
+// container is reported so the initial population runs once.
+test("the first apply reports every present container", () => {
+  const initial = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", [createSummary("b")]],
+  ]);
+
+  expect(
+    diffChangedContainerIds(
+      null,
+      computeContainerMembershipSignatures(initial),
+    ).sort(),
+  ).toEqual(["c1", "c2"]);
 });
 
 test("container map ordering does not affect the reported changes", () => {

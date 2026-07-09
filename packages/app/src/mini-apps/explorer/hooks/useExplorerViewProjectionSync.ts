@@ -80,8 +80,14 @@ export function useExplorerViewProjectionSync(params: {
   // unchanged; bumping on those blanked the "You"/system-folder rows once per tick
   // (the bootstrap flicker), and bumping every container blanked one org's rows
   // while another org synced (the cross-org flicker).
-  const lastContainerSignaturesRef = useRef<ReadonlyMap<string, string>>(
-    new Map(),
+  //
+  // Null until the first apply (and reset to null on view rotation) so diffChanged
+  // ContainerIds fires the initial population exactly once. After that a non-null
+  // previous lets it tell a real change apart from a container key merely appearing
+  // for the first time — the active-container switch that collapsed the sidebar on
+  // selecting the "You" contact (see diffChangedContainerIds).
+  const lastContainerSignaturesRef = useRef<ReadonlyMap<string, string> | null>(
+    null,
   );
   // Primed document stores are tracked per view (module scope) and need no reset.
   const lastViewRef = useRef(view);
@@ -93,7 +99,7 @@ export function useExplorerViewProjectionSync(params: {
     if (lastViewRef.current !== view) {
       lastViewRef.current = view;
       lastActiveSummariesRef.current = null;
-      lastContainerSignaturesRef.current = new Map();
+      lastContainerSignaturesRef.current = null;
     }
     const primedSummaryLists = primedSummaryListsForView(view);
     const applyFromView = () => {
@@ -121,9 +127,12 @@ export function useExplorerViewProjectionSync(params: {
       // documents — but only for the containers whose membership actually changed.
       // This is the DESTRUCTIVE refresh (it clears rows), so firing it for a
       // container that merely had summary content updated re-blanked its rows every
-      // sync tick during bootstrap, and firing it for EVERY container blanked one
-      // org's rows whenever another org synced. Content-only updates still refresh
-      // non-destructively via documentListRevision.
+      // sync tick during bootstrap, firing it for EVERY container blanked one org's
+      // rows whenever another org synced, and firing it for a container key that
+      // merely materialized (active-container switch) collapsed the sidebar on
+      // selecting the "You" contact. diffChangedContainerIds gates out all three;
+      // content-only / additive-key updates still refresh non-destructively via
+      // documentListRevision / the sidebar's own window loader.
       const nextSignatures = computeContainerMembershipSignatures(summariesMap);
       const changedContainerIds = diffChangedContainerIds(
         lastContainerSignaturesRef.current,

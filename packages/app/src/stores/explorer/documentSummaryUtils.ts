@@ -106,22 +106,51 @@ export function computeContainerMembershipSignatures(
   return signatures;
 }
 
-// The container ids whose membership signature changed between two snapshots,
-// including containers that appeared or disappeared. Empty when only summary
-// content changed (or nothing did), which is what keeps content-only reconciled
-// deltas from triggering a destructive sidebar refresh.
+// The container ids that should get a DESTRUCTIVE sidebar refresh between two
+// membership snapshots. Reports a container that was ALREADY present and changed
+// its id-set (real discovery / move / delete on screen) or one that DROPPED OUT
+// while HOLDING documents (a real removal / cache reset). Empty when only summary
+// content changed (or nothing did), which keeps content-only reconciled deltas
+// from blanking rows. An empty container (signature "") that drops out is NOT
+// reported — it had no rows, so refreshing it would only cost a wasted reload.
+//
+// `previous === null` marks the FIRST apply (mount or a view rotation): every
+// present container is reported so the initial population runs once.
+//
+// A container that appears for the FIRST time (present in next, absent from a
+// non-null previous) is deliberately NOT reported. The SDK local-projection cache
+// materializes a container's summaries lazily — the first time that container
+// becomes the active container — so a purely additive key means "we just loaded
+// this container's list into the view", NOT "a document changed containers". That
+// document was already visible in the sidebar (its rows come from the SQL window
+// query, independent of this projection). Reporting the additive key blanked the
+// container — collapsing the Contacts folder and bouncing the Trash row up then
+// down — when the user simply selected the "You" contact, whose Contacts container
+// had not been materialized yet. A newly materialized container still populates
+// non-destructively via the sidebar's own window loader, so nothing is stranded.
 export function diffChangedContainerIds(
-  previous: ReadonlyMap<string, string>,
+  previous: ReadonlyMap<string, string> | null,
   next: ReadonlyMap<string, string>,
 ): string[] {
+  if (previous === null) {
+    return Array.from(next.keys());
+  }
   const changed: string[] = [];
   for (const [containerId, signature] of next) {
-    if (previous.get(containerId) !== signature) {
+    // Only containers already present whose id-set actually changed. A single get
+    // suffices: values are always strings, so `undefined` means the key is absent
+    // from `previous` — an additive first appearance we intentionally skip.
+    const previousSignature = previous.get(containerId);
+    if (previousSignature !== undefined && previousSignature !== signature) {
       changed.push(containerId);
     }
   }
-  for (const containerId of previous.keys()) {
-    if (!next.has(containerId)) {
+  for (const [containerId, signature] of previous) {
+    // A container that DROPS OUT of the map is reported only if it actually held
+    // documents. An empty container (signature "") vanishing has no rows to blank,
+    // so refreshing it would be a wasteful destructive reload — skip it, mirroring
+    // the additive first-appearance skip above so only real membership changes fire.
+    if (!next.has(containerId) && signature !== "") {
       changed.push(containerId);
     }
   }
