@@ -1,4 +1,5 @@
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
+import { useEffect, useState } from "react";
 import "./WindowToolBar.css";
 import {
   useWindowBackActionValue,
@@ -13,15 +14,30 @@ import {
  * toolbar chrome it gets in the routed shell.
  *
  * Both surfaces read one shared registry (WindowMenuContext), so a mini-app
- * registers its actions once and they appear wherever it is hosted. The row
- * renders nothing when neither a back action nor any toolbar action is
- * registered, so windows without toolbar actions keep a flush menu bar/body.
+ * registers its actions once and they appear wherever it is hosted.
+ *
+ * A window whose app never registers toolbar chrome keeps a flush menu bar/body
+ * (the row renders nothing). But once an app HAS shown chrome, the row stays
+ * mounted and reserves its {@link WindowToolBar.css} min-height even when the
+ * action set momentarily clears — on an action-less sub-route or a loading tick
+ * where the app's `show` conditions are briefly false. Unmounting the row in
+ * those windows would drop a full bar-height out of the flex column and shift
+ * the body up, then back down when the actions re-register (visible flicker).
  */
 export function WindowToolBar() {
   const backAction = useWindowBackActionValue();
   const actions = useWindowTitleBarActions();
+  const hasChrome = backAction !== null || actions.length > 0;
+  // Latch: this window's app has shown toolbar chrome at least once, so keep the
+  // row reserved from here on rather than collapsing it on a transient empty.
+  const [hasShownChrome, setHasShownChrome] = useState(false);
+  useEffect(() => {
+    if (hasChrome) {
+      setHasShownChrome(true);
+    }
+  }, [hasChrome]);
 
-  if (!backAction && actions.length === 0) {
+  if (!hasChrome && !hasShownChrome) {
     return null;
   }
 

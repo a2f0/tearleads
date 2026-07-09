@@ -61,6 +61,33 @@ test("renders nothing when no actions or back action are registered", () => {
   expect(view.container.querySelector(".window-toolbar")).toBeNull();
 });
 
+test("keeps the row reserved after its actions clear", async () => {
+  // Once an app has shown toolbar chrome, a sub-route or loading tick that clears
+  // every action must not collapse the row — dropping a bar-height out of the flex
+  // column shifts the body up and back down (the layout shift we are preventing).
+  function Harness({ show }: { show: boolean }) {
+    return (
+      <WindowMenuProvider>
+        {show ? <TitleBarActionSource onClick={() => undefined} /> : null}
+        <WindowToolBar />
+      </WindowMenuProvider>
+    );
+  }
+
+  const view = render(<Harness show />);
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Get Info" })).toBeTruthy();
+  });
+
+  view.rerender(<Harness show={false} />);
+  await waitFor(() => {
+    expect(view.queryByRole("button", { name: "Get Info" })).toBeNull();
+  });
+
+  // The action is gone but the row stays mounted, holding its min-height.
+  expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
+});
+
 test("renders a registered title-bar action and invokes it on click", async () => {
   let clicks = 0;
   const view = renderToolBar(
