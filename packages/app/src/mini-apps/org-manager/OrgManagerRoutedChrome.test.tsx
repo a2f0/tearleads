@@ -191,3 +191,28 @@ test("withholds the toolbar entirely until org data can load", () => {
   ).toBeNull();
   expect(view.container.querySelector(".window-toolbar")).toBeNull();
 });
+
+test("drops the toolbar again when authenticated org data stops loading", async () => {
+  function Harness({ canLoad }: { canLoad: boolean }) {
+    return (
+      <WindowMenuProvider>
+        <OrgManagerRoutedChromeHarness
+          canLoadAuthenticatedOrgData={canLoad}
+          view="groups"
+        />
+      </WindowMenuProvider>
+    );
+  }
+
+  const view = render(<Harness canLoad />);
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", { name: ORG_MANAGER_LABELS.newGroupAction }),
+    ).toBeTruthy();
+  });
+
+  view.rerender(<Harness canLoad={false} />);
+  await waitFor(() => {
+    expect(view.container.querySelector(".window-toolbar")).toBeNull();
+  });
+});

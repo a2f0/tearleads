@@ -111,6 +111,34 @@ test("toggling the reservation flag adds then releases the blank row", async () 
   });
 });
 
+test("explicit reservation release collapses a previously latched row", async () => {
+  function Harness({
+    reserve,
+    showAction,
+  }: {
+    reserve: boolean;
+    showAction: boolean;
+  }) {
+    return (
+      <WindowMenuProvider>
+        <OptionalReservationSource reserve={reserve} />
+        {showAction ? <TitleBarActionSource onClick={() => undefined} /> : null}
+        <WindowToolBar />
+      </WindowMenuProvider>
+    );
+  }
+
+  const view = render(<Harness reserve showAction />);
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Get Info" })).toBeTruthy();
+  });
+
+  view.rerender(<Harness reserve={false} showAction={false} />);
+  await waitFor(() => {
+    expect(view.container.querySelector(".window-toolbar")).toBeNull();
+  });
+});
+
 test("keeps the row reserved after its actions clear", async () => {
   // Once an app has shown toolbar chrome, a sub-route or loading tick that clears
   // every action must not collapse the row — dropping a bar-height out of the flex
