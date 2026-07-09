@@ -2,15 +2,14 @@ import {
   type BlobContentKeyTarget,
   computeBlobContentKeyTargetHash,
   type KeyingCanonicalJson,
-  KeyingVerificationError,
 } from "@tearleads/crypto";
 import type { resolveCurrentBlobKekTargets } from "./blobKekTargets";
 import {
-  assertContentKeyWrappedMaterialPresent,
-  assertNoDuplicateContentKeyTargets,
+  assertContentKeyTargetHashMatches,
+  assertContentKeyTargetsMatchCurrent,
+  assertPositiveContentKeyEpoch,
   contentKeyTargetEnvelopeEqual,
   contentKeyTargetEnvelopeMaterialEqual,
-  expectedContentKeyTargetMap,
   sortContentKeyTargetEnvelopes,
 } from "./contentKeyTargetPolicy";
 
@@ -45,12 +44,7 @@ export class BlobContentKeyBundleError extends Error {
   }
 }
 
-export function targetKey(
-  target: Pick<
-    BlobContentKeyTarget,
-    "bindingId" | "containerId" | "documentId"
-  >,
-) {
+export function targetKey(target: BlobContentKeyTarget) {
   return `${target.bindingId}:${target.documentId}:${target.containerId}`;
 }
 
@@ -70,7 +64,10 @@ function toTargetFields(
 export function sortTargetEnvelopes(
   targets: readonly BlobContentKeyTargetEnvelope[],
 ): BlobContentKeyTargetEnvelope[] {
-  return sortContentKeyTargetEnvelopes(targets, targetKey);
+  return sortContentKeyTargetEnvelopes<BlobContentKeyTargetEnvelope>(
+    targets,
+    targetKey,
+  );
 }
 
 function targetFieldsEqual(
@@ -104,14 +101,18 @@ export function targetEnvelopeEqual(
   left: BlobContentKeyTargetEnvelope,
   right: BlobContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeEqual(left, right, targetFieldsEqual);
+  return contentKeyTargetEnvelopeEqual<BlobContentKeyTargetEnvelope>(
+    left,
+    right,
+    targetFieldsEqual,
+  );
 }
 
 export function targetEnvelopeMaterialEqual(
   left: BlobContentKeyTargetEnvelope,
   right: BlobContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeMaterialEqual(
+  return contentKeyTargetEnvelopeMaterialEqual<BlobContentKeyTargetEnvelope>(
     left,
     right,
     targetKeyMaterialEqual,
@@ -119,96 +120,60 @@ export function targetEnvelopeMaterialEqual(
 }
 
 export function ensurePositiveContentKeyEpoch(contentKeyEpoch: number): void {
-  if (!Number.isInteger(contentKeyEpoch) || contentKeyEpoch <= 0) {
-    throw new BlobContentKeyBundleError(
-      "Blob content key epoch must be a positive integer",
-      400,
-    );
-  }
-}
-
-function assertNoDuplicateTargets(
-  targets: readonly BlobContentKeyTargetEnvelope[],
-): void {
-  assertNoDuplicateContentKeyTargets(
-    targets,
-    targetKey,
+  assertPositiveContentKeyEpoch(
+    contentKeyEpoch,
     () =>
       new BlobContentKeyBundleError(
-        "Blob content-key targets contain duplicates",
-        409,
-      ),
-  );
-}
-
-function assertWrappedMaterialPresent(
-  targets: readonly BlobContentKeyTargetEnvelope[],
-): void {
-  assertContentKeyWrappedMaterialPresent(
-    targets,
-    () =>
-      new BlobContentKeyBundleError(
-        "Blob content-key target is missing wrapped key material",
+        "Blob content key epoch must be a positive integer",
         400,
       ),
   );
 }
 
-function expectedTargetMap(
-  targets: readonly BlobContentKeyTarget[],
-): Map<string, BlobContentKeyTarget> {
-  return expectedContentKeyTargetMap(targets, targetKey);
+function contentKeyTargetMismatchError(): BlobContentKeyBundleError {
+  return new BlobContentKeyBundleError(
+    "Blob content-key targets do not match current KEK targets",
+    409,
+  );
 }
 
 export function assertTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentBlobKekTargets;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }): void {
-  assertNoDuplicateTargets(input.targets);
-  assertWrappedMaterialPresent(input.targets);
-
-  const currentTargetByKey = expectedTargetMap(input.currentTargets.targets);
-
-  if (input.targets.length !== currentTargetByKey.size) {
-    throw new BlobContentKeyBundleError(
-      "Blob content-key targets do not match current KEK targets",
-      409,
-    );
-  }
-
-  for (const target of input.targets) {
-    const currentTarget = currentTargetByKey.get(targetKey(target));
-    if (!currentTarget || !targetFieldsEqual(target, currentTarget)) {
-      throw new BlobContentKeyBundleError(
-        "Blob content-key targets do not match current KEK targets",
+  assertContentKeyTargetsMatchCurrent({
+    currentTargets: input.currentTargets.targets,
+    targets: input.targets,
+    targetKey,
+    targetFieldsEqual,
+    createDuplicateError: () =>
+      new BlobContentKeyBundleError(
+        "Blob content-key targets contain duplicates",
         409,
-      );
-    }
-  }
+      ),
+    createMissingWrappedMaterialError: () =>
+      new BlobContentKeyBundleError(
+        "Blob content-key target is missing wrapped key material",
+        400,
+      ),
+    createMismatchError: contentKeyTargetMismatchError,
+  });
 }
 
 export async function assertTargetHashMatches(input: {
   readonly targetHash: string;
   readonly targets: readonly BlobContentKeyTargetEnvelope[];
 }): Promise<void> {
-  try {
-    const targetHash = await computeBlobContentKeyTargetHash(
-      input.targets.map(toTargetFields),
-    );
-
-    if (targetHash !== input.targetHash) {
-      throw new BlobContentKeyBundleError(
+  await assertContentKeyTargetHashMatches({
+    ...input,
+    toTargetFields,
+    computeTargetHash: computeBlobContentKeyTargetHash,
+    createHashMismatchError: () =>
+      new BlobContentKeyBundleError(
         "Blob content-key target hash mismatch",
         409,
-      );
-    }
-  } catch (error) {
-    if (error instanceof BlobContentKeyBundleError) {
-      throw error;
-    }
-    if (error instanceof KeyingVerificationError) {
-      throw new BlobContentKeyBundleError(error.message, 409);
-    }
-    throw error;
-  }
+      ),
+    createVerificationError: (message) =>
+      new BlobContentKeyBundleError(message, 409),
+  });
 }

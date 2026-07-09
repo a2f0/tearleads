@@ -2,14 +2,13 @@ import {
   computeDocumentContentKeyTargetHash,
   type DocumentContentKeyTarget,
   type KeyingCanonicalJson,
-  KeyingVerificationError,
 } from "@tearleads/crypto";
 import {
-  assertContentKeyWrappedMaterialPresent,
-  assertNoDuplicateContentKeyTargets,
+  assertContentKeyTargetHashMatches,
+  assertContentKeyTargetsMatchCurrent,
+  assertPositiveContentKeyEpoch,
   contentKeyTargetEnvelopeEqual,
   contentKeyTargetEnvelopeMaterialEqual,
-  expectedContentKeyTargetMap,
   sortContentKeyTargetEnvelopes,
 } from "./contentKeyTargetPolicy";
 import type { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
@@ -47,7 +46,7 @@ export class DocumentContentKeyBundleError extends Error {
   }
 }
 
-function targetKey(target: Pick<DocumentContentKeyTarget, "containerId">) {
+function targetKey(target: DocumentContentKeyTarget) {
   return target.containerId;
 }
 
@@ -65,7 +64,10 @@ function toTargetFields(
 export function sortTargetEnvelopes(
   targets: readonly DocumentContentKeyTargetEnvelope[],
 ): DocumentContentKeyTargetEnvelope[] {
-  return sortContentKeyTargetEnvelopes(targets, targetKey);
+  return sortContentKeyTargetEnvelopes<DocumentContentKeyTargetEnvelope>(
+    targets,
+    targetKey,
+  );
 }
 
 function targetFieldsEqual(
@@ -95,14 +97,18 @@ export function targetEnvelopeEqual(
   left: DocumentContentKeyTargetEnvelope,
   right: DocumentContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeEqual(left, right, targetFieldsEqual);
+  return contentKeyTargetEnvelopeEqual<DocumentContentKeyTargetEnvelope>(
+    left,
+    right,
+    targetFieldsEqual,
+  );
 }
 
 export function targetEnvelopeMaterialEqual(
   left: DocumentContentKeyTargetEnvelope,
   right: DocumentContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeMaterialEqual(
+  return contentKeyTargetEnvelopeMaterialEqual<DocumentContentKeyTargetEnvelope>(
     left,
     right,
     targetKeyMaterialEqual,
@@ -110,98 +116,60 @@ export function targetEnvelopeMaterialEqual(
 }
 
 export function ensurePositiveContentKeyEpoch(contentKeyEpoch: number): void {
-  if (!Number.isInteger(contentKeyEpoch) || contentKeyEpoch <= 0) {
-    throw new DocumentContentKeyBundleError(
-      "Document content key epoch must be a positive integer",
-      400,
-    );
-  }
-}
-
-function assertNoDuplicateTargetContainers(
-  targets: readonly DocumentContentKeyTargetEnvelope[],
-): void {
-  assertNoDuplicateContentKeyTargets(
-    targets,
-    targetKey,
+  assertPositiveContentKeyEpoch(
+    contentKeyEpoch,
     () =>
       new DocumentContentKeyBundleError(
-        "Document content-key targets contain duplicate containers",
-        409,
-      ),
-  );
-}
-
-function assertWrappedMaterialPresent(
-  targets: readonly DocumentContentKeyTargetEnvelope[],
-): void {
-  assertContentKeyWrappedMaterialPresent(
-    targets,
-    () =>
-      new DocumentContentKeyBundleError(
-        "Document content-key target is missing wrapped key material",
+        "Document content key epoch must be a positive integer",
         400,
       ),
   );
 }
 
-function expectedTargetMap(
-  targets: readonly DocumentContentKeyTarget[],
-): Map<string, DocumentContentKeyTarget> {
-  return expectedContentKeyTargetMap(targets, targetKey);
+function contentKeyTargetMismatchError(): DocumentContentKeyBundleError {
+  return new DocumentContentKeyBundleError(
+    "Document content-key targets do not match current KEK targets",
+    409,
+  );
 }
 
 export function assertTargetsMatchCurrent(input: {
   readonly currentTargets: CurrentDocumentKekTargets;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }): void {
-  assertNoDuplicateTargetContainers(input.targets);
-  assertWrappedMaterialPresent(input.targets);
-
-  const currentTargetByContainerId = expectedTargetMap(
-    input.currentTargets.targets,
-  );
-
-  if (input.targets.length !== currentTargetByContainerId.size) {
-    throw new DocumentContentKeyBundleError(
-      "Document content-key targets do not match current KEK targets",
-      409,
-    );
-  }
-
-  for (const target of input.targets) {
-    const currentTarget = currentTargetByContainerId.get(target.containerId);
-    if (!currentTarget || !targetFieldsEqual(target, currentTarget)) {
-      throw new DocumentContentKeyBundleError(
-        "Document content-key targets do not match current KEK targets",
+  assertContentKeyTargetsMatchCurrent({
+    currentTargets: input.currentTargets.targets,
+    targets: input.targets,
+    targetKey,
+    targetFieldsEqual,
+    createDuplicateError: () =>
+      new DocumentContentKeyBundleError(
+        "Document content-key targets contain duplicate containers",
         409,
-      );
-    }
-  }
+      ),
+    createMissingWrappedMaterialError: () =>
+      new DocumentContentKeyBundleError(
+        "Document content-key target is missing wrapped key material",
+        400,
+      ),
+    createMismatchError: contentKeyTargetMismatchError,
+  });
 }
 
 export async function assertTargetHashMatches(input: {
   readonly targetHash: string;
   readonly targets: readonly DocumentContentKeyTargetEnvelope[];
 }): Promise<void> {
-  try {
-    const targetHash = await computeDocumentContentKeyTargetHash(
-      input.targets.map(toTargetFields),
-    );
-
-    if (targetHash !== input.targetHash) {
-      throw new DocumentContentKeyBundleError(
+  await assertContentKeyTargetHashMatches({
+    ...input,
+    toTargetFields,
+    computeTargetHash: computeDocumentContentKeyTargetHash,
+    createHashMismatchError: () =>
+      new DocumentContentKeyBundleError(
         "Document content-key target hash mismatch",
         409,
-      );
-    }
-  } catch (error) {
-    if (error instanceof DocumentContentKeyBundleError) {
-      throw error;
-    }
-    if (error instanceof KeyingVerificationError) {
-      throw new DocumentContentKeyBundleError(error.message, 409);
-    }
-    throw error;
-  }
+      ),
+    createVerificationError: (message) =>
+      new DocumentContentKeyBundleError(message, 409),
+  });
 }
