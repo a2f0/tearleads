@@ -201,6 +201,10 @@ export function useExplorerSidebarDocumentWindows(params: {
     for (const containerId of expandedContainerIdsRef.current) {
       const currentWindow =
         documentWindowsByContainerIdRef.current.get(containerId);
+      // preserveRows:false is the DESTRUCTIVE reload (blanks rows to a loading
+      // state) and fires only on a documentLinkProjectionVersion bump. The
+      // sidebarReloadBudget canary bounds that version to catch a regression of
+      // the bootstrap flicker (per-tick re-blanking of the "You"/Trash rows).
       requestDocumentWindow(
         containerId,
         currentWindow?.offset ?? 0,
