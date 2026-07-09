@@ -228,3 +228,60 @@ test("provisioned-container pull does not fire concurrently while one is in flig
   // Only the synchronous opening pull ran — no tick added a concurrent request.
   expect(refreshRootLane.mock.calls.length).toBe(1);
 });
+
+// Regression: the in-flight ref persists across sequences (org switch / logout),
+// so a cancelled sequence's late-resolving pull must NOT clear a fresh sequence's
+// guard — otherwise the fresh sequence's next interval tick fires a concurrent pull
+// and burns its budget. The pull's .finally is guarded by the per-sequence
+// `cancelled` flag, so only the owning sequence clears its own guard.
+test("a cancelled sequence's late pull does not reset a new sequence's in-flight guard", async () => {
+  const resolvers: Array<(value: boolean) => void> = [];
+  const refreshRootLane = mock(
+    (_options?: RefreshRootLaneOptions) =>
+      new Promise<boolean>((resolve) => {
+        resolvers.push(resolve);
+      }),
+  );
+  // The slot never surfaces (locally or remotely), so each sequence opens a pull.
+  const store = {
+    getSnapshot: () => ({ nodes: [], ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
+    refreshRootLane,
+  } as unknown as ContainerContentsStore;
+
+  const props = {
+    currentOrganizationId: "org-1",
+    currentRootContainerId: "root-1",
+    enabled: true,
+    isAuthenticated: true,
+    logError: () => {},
+    snapshotReady: true,
+    store,
+    systemContainers: [trashSystemContainer()],
+  };
+
+  const { rerender, unmount } = renderHook(
+    (hookProps: typeof props) => useProvisionedSystemContainerPull(hookProps),
+    { initialProps: props },
+  );
+
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+  // Sequence A opens its pull (after the async local surface); it stays in flight.
+  await flush();
+  expect(refreshRootLane.mock.calls.length).toBe(1);
+
+  // Cancel A and start sequence B; B opens its own pull while A's is still pending.
+  rerender({ ...props, systemContainers: [trashSystemContainer()] });
+  await flush();
+  expect(refreshRootLane.mock.calls.length).toBe(2);
+
+  // A's cancelled pull resolves. Its .finally must not clear B's in-flight guard.
+  resolvers[0]?.(true);
+  // Give B's 250ms interval a tick: with the guard intact, B's pull is still in
+  // flight so the tick is skipped and no third pull fires. Without the guard, A's
+  // .finally would have reset the ref and this tick would open a concurrent pull.
+  await new Promise((resolve) => setTimeout(resolve, 320));
+  unmount();
+
+  expect(refreshRootLane.mock.calls.length).toBe(2);
+});

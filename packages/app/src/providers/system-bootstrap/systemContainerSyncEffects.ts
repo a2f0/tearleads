@@ -168,10 +168,20 @@ function surfaceThenPollProvisionedContainers(input: {
     void store
       .refreshRootLane({ includeActiveRootChildLane: true })
       .catch((error: unknown) => {
-        logError("Failed to pull provisioned system container", error);
+        // Skip a failure from a torn-down sequence (org switch / logout): the pull
+        // belongs to the old scope and its error is not actionable here.
+        if (!cancelled) {
+          logError("Failed to pull provisioned system container", error);
+        }
       })
       .finally(() => {
-        inFlightRef.current = false;
+        // Only the owning (uncancelled) sequence may clear the guard. inFlightRef
+        // persists across sequences, so a cancelled sequence's late-resolving pull
+        // must not reset a fresh sequence's guard — that would let the fresh
+        // sequence fire a concurrent pull and burn its attempt budget.
+        if (!cancelled) {
+          inFlightRef.current = false;
+        }
       });
   };
 
