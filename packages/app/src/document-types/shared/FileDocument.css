@@ -41,9 +41,14 @@
   overflow: hidden;
 }
 
-.file-document-image-preview {
+.file-document-media-preview {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.file-document-media-preview.media-preview--audio {
+  width: min(100%, 36rem);
+  height: auto;
 }

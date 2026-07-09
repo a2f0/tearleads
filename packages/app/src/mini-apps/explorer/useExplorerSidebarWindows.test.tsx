@@ -83,16 +83,16 @@ test("sidebar document link refresh hides stale rows without loading status", as
   const view = renderHook(
     ({
       documentListRevision,
-      documentLinkProjectionVersion,
+      documentLinkProjectionVersionByContainerId,
       ready,
     }: {
       documentListRevision: number;
-      documentLinkProjectionVersion: number;
+      documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
       ready: boolean;
     }) =>
       useExplorerSidebarDocumentWindows({
         collapsedIds: new Set(),
-        documentLinkProjectionVersion,
+        documentLinkProjectionVersionByContainerId,
         documentListRevision,
         documentQueries: queries,
         nodes,
@@ -102,7 +102,7 @@ test("sidebar document link refresh hides stale rows without loading status", as
     {
       initialProps: {
         documentListRevision: 0,
-        documentLinkProjectionVersion: 0,
+        documentLinkProjectionVersionByContainerId: new Map<string, number>(),
         ready: false,
       },
     },
@@ -122,7 +122,9 @@ test("sidebar document link refresh hides stale rows without loading status", as
 
   view.rerender({
     documentListRevision: 0,
-    documentLinkProjectionVersion: 1,
+    documentLinkProjectionVersionByContainerId: new Map([
+      [CONTACTS_CONTAINER_ID, 1],
+    ]),
     ready: true,
   });
 
@@ -157,7 +159,9 @@ test("sidebar document link refresh hides stale rows without loading status", as
 
   view.rerender({
     documentListRevision: 1,
-    documentLinkProjectionVersion: 1,
+    documentLinkProjectionVersionByContainerId: new Map([
+      [CONTACTS_CONTAINER_ID, 1],
+    ]),
     ready: true,
   });
 
@@ -199,5 +203,86 @@ test("sidebar document link refresh hides stale rows without loading status", as
     expect(window?.isLoading).toBe(false);
     expect(window?.rows).toEqual([]);
     expect(window?.totalCount).toBe(0);
+  });
+});
+
+// The cross-org flicker: two containers from different orgs are expanded at once.
+// A membership change in ONE org's container bumps only that container's version,
+// so the sidebar must blank only that container and leave the other org's rows
+// alone. Before the per-container gate, any bump blanked EVERY expanded container.
+test("a per-container version bump blanks only that container, not another org's", async () => {
+  const queries = {
+    listContainerDocumentSidebarWindow: async (input: {
+      containerId: string;
+      limit: number;
+      offset: number;
+    }) => ({
+      rows:
+        input.limit > 0
+          ? [
+              documentRow({
+                containerId: input.containerId,
+                localId: `${input.containerId}-doc`,
+              }),
+            ]
+          : [],
+      totalCount: 1,
+    }),
+  } as unknown as ContainerDocumentQueries;
+
+  const nodes = [
+    containerNode({ id: "personal", name: "Personal" }),
+    containerNode({ id: "custom", name: "Custom" }),
+  ];
+  const treeEntries = buildExplorerTree(nodes);
+
+  const view = renderHook(
+    ({ versions }: { versions: ReadonlyMap<string, number> }) =>
+      useExplorerSidebarDocumentWindows({
+        collapsedIds: new Set(),
+        documentLinkProjectionVersionByContainerId: versions,
+        documentListRevision: 0,
+        documentQueries: queries,
+        nodes,
+        ready: true,
+        treeEntries,
+      }),
+    { initialProps: { versions: new Map<string, number>() } },
+  );
+
+  act(() => {
+    view.result.current.requestDocumentWindow("personal", 0, 1);
+    view.result.current.requestDocumentWindow("custom", 0, 1);
+  });
+  await waitFor(() => {
+    expect(
+      view.result.current.documentWindowsByContainerId.get("personal")?.rows,
+    ).toHaveLength(1);
+    expect(
+      view.result.current.documentWindowsByContainerId.get("custom")?.rows,
+    ).toHaveLength(1);
+  });
+
+  // A membership change in the custom org bumps ONLY its container's version.
+  act(() => {
+    view.rerender({ versions: new Map([["custom", 1]]) });
+  });
+
+  // Synchronously after the reload effect: the custom container blanked (its
+  // membership changed) but the personal container kept its rows — no cross-org
+  // flicker. (Both then re-query and refill, so assert before awaiting.)
+  expect(
+    view.result.current.documentWindowsByContainerId.get("custom")?.rows,
+  ).toEqual([]);
+  expect(
+    view.result.current.documentWindowsByContainerId.get("personal")?.rows,
+  ).toHaveLength(1);
+
+  // Let the custom container's re-query settle so its state update lands inside
+  // act(): it refills to one row, confirming the blank was a transient reload.
+  await waitFor(() => {
+    expect(
+      view.result.current.documentWindowsByContainerId.get("custom")?.rows,
+    ).toHaveLength(1);
   });
 });

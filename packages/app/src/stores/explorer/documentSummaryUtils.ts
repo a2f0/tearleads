@@ -78,16 +78,15 @@ export function getRequestedDocumentIds(
   ).sort();
 }
 
-// A per-container membership signature: containerId -> a stable string of its
-// document ids. Used to bump the DESTRUCTIVE link projection (which clears
-// sidebar/table rows to a loading state) only on genuine membership changes —
-// discovery, move, delete — and never on a content-only summary update (title,
-// sync badge), which leaves every id in place. Ids are sorted so ordering churn
-// does not register, and keyed by the always-present summary id (per-container
-// stable) rather than the nullable documentId. Kept per container (not one global
-// string) so callers can tell a real change to an existing container apart from a
-// container key merely appearing for the first time — see
-// hasTrackedContainerMembershipChange.
+// A per-container membership signature: the document ids in each container. Used
+// to bump the DESTRUCTIVE link projection (which clears sidebar rows to a loading
+// state) only on genuine membership changes — discovery, move, delete — and never
+// on a content-only summary update (title, sync badge), which leaves every id in
+// place. Ids are sorted so ordering churn does not register, and keyed by the
+// always-present summary id (per-container stable) rather than the nullable
+// documentId. Per-container (not one global string) so a change in one org's
+// container can be told apart from another's — the sidebar must blank only the
+// container that actually changed, not every expanded container.
 export function computeContainerMembershipSignatures(
   documentSummariesByContainerId: ReadonlyMap<
     string,
@@ -107,42 +106,47 @@ export function computeContainerMembershipSignatures(
   return signatures;
 }
 
-// Whether the DESTRUCTIVE sidebar/table refresh should fire between two membership
-// snapshots. It fires when:
-//   - this is the first snapshot (previous === null): the initial population runs;
-//   - a container present in BOTH snapshots changed its id-set (real discovery /
-//     move / delete inside a container already on screen); or
-//   - a container present before is now ABSENT (a real drop / cache reset).
+// The container ids that should get a DESTRUCTIVE sidebar refresh between two
+// membership snapshots. Reports a container that was ALREADY present and changed
+// its id-set (real discovery / move / delete on screen) or one that DROPPED OUT
+// (a real removal / cache reset). Empty when only summary content changed (or
+// nothing did), which keeps content-only reconciled deltas from blanking rows.
 //
-// It deliberately does NOT fire for a container key that appears for the FIRST
-// time (present in next, absent in previous). The SDK's local projection cache
+// `previous === null` marks the FIRST apply (mount or a view rotation): every
+// present container is reported so the initial population runs once.
+//
+// A container that appears for the FIRST time (present in next, absent from a
+// non-null previous) is deliberately NOT reported. The SDK local-projection cache
 // materializes a container's summaries lazily — the first time that container
 // becomes the active container — so a purely additive key means "we just loaded
-// this container's list into the view", NOT "a document changed containers". The
+// this container's list into the view", NOT "a document changed containers". That
 // document was already visible in the sidebar (its rows come from the SQL window
-// query, independent of this projection). Firing the destructive reload on that
-// additive key blanked every expanded container — collapsing the Contacts folder
-// and bouncing the Trash row up then down — when the user simply selected the
-// "You" contact, whose Contacts container had not been materialized yet. A newly
-// materialized container still populates non-destructively via the sidebar's own
-// window loader, so nothing is stranded by skipping it here.
-export function hasTrackedContainerMembershipChange(
+// query, independent of this projection). Reporting the additive key blanked the
+// container — collapsing the Contacts folder and bouncing the Trash row up then
+// down — when the user simply selected the "You" contact, whose Contacts container
+// had not been materialized yet. A newly materialized container still populates
+// non-destructively via the sidebar's own window loader, so nothing is stranded.
+export function diffChangedContainerIds(
   previous: ReadonlyMap<string, string> | null,
   next: ReadonlyMap<string, string>,
-): boolean {
+): string[] {
   if (previous === null) {
-    return true;
+    return Array.from(next.keys());
   }
-  // Iterate the PREVIOUS keys only: a container that was present before either
-  // changed its id-set (next has a different signature) or dropped out entirely
-  // (next has none). Keys that exist only in `next` are the additive first
-  // appearances we intentionally ignore.
-  for (const [containerId, signature] of previous) {
-    if (next.get(containerId) !== signature) {
-      return true;
+  const changed: string[] = [];
+  for (const [containerId, signature] of next) {
+    // Only containers already present whose id-set actually changed; a key absent
+    // from `previous` is an additive first appearance we intentionally skip.
+    if (previous.has(containerId) && previous.get(containerId) !== signature) {
+      changed.push(containerId);
     }
   }
-  return false;
+  for (const containerId of previous.keys()) {
+    if (!next.has(containerId)) {
+      changed.push(containerId);
+    }
+  }
+  return changed;
 }
 
 export function areLinkedContainerIdMapsEqual(

@@ -20,6 +20,12 @@ interface AudioDocumentFields extends FileDocumentFields {
   durationMs: string;
 }
 
+interface VideoDocumentFields extends FileDocumentFields {
+  durationMs: string;
+  height: string;
+  width: string;
+}
+
 interface PdfDocumentFields extends FileDocumentFields {
   pageCount: string;
 }
@@ -79,6 +85,21 @@ export function readAudioDocumentFieldsFromRecord(
     fields: {
       ...readFileDocumentBaseFields(source, issues),
       durationMs: readStringDocumentField(source, "durationMs", issues),
+    },
+    issues,
+  };
+}
+
+export function readVideoDocumentFieldsFromRecord(
+  source: Readonly<Record<string, unknown>>,
+): ValidatedDocumentFields<VideoDocumentFields> {
+  const issues: DocumentFieldValidationIssue[] = [];
+  return {
+    fields: {
+      ...readFileDocumentBaseFields(source, issues),
+      durationMs: readStringDocumentField(source, "durationMs", issues),
+      height: readStringDocumentField(source, "height", issues),
+      width: readStringDocumentField(source, "width", issues),
     },
     issues,
   };

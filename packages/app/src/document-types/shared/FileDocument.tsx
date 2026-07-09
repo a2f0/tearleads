@@ -16,9 +16,9 @@ import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import "./FileDocument.css";
 import {
-  type FileDocumentImagePreview,
-  FileDocumentImagePreviewPanel,
-  useFileDocumentImagePreview,
+  type FileDocumentMediaPreview,
+  FileDocumentMediaPreviewPanel,
+  useFileDocumentMediaPreview,
 } from "./FileDocumentPreview";
 import {
   downloadResolvedAttachment,
@@ -176,8 +176,8 @@ export function FileDocumentFields(params: {
   downloadError: string | null;
   editDisabled: boolean;
   fileName: string;
-  imagePreview?: FileDocumentImagePreview | null | undefined;
   isEditing: boolean;
+  mediaPreview?: FileDocumentMediaPreview | null | undefined;
   onCommitFileName: (value: string) => void;
   onDownload: () => void;
   onToggleEditing: () => void;
@@ -185,10 +185,10 @@ export function FileDocumentFields(params: {
 }) {
   return (
     <div className="file-document-fields">
-      {/* For an image, the preview is the point of the view: render it above
+      {/* For media, the preview is the point of the view: render it above
           the actions and metadata so it lands on top without a scroll. */}
-      {params.imagePreview ? (
-        <FileDocumentImagePreviewPanel preview={params.imagePreview} />
+      {params.mediaPreview ? (
+        <FileDocumentMediaPreviewPanel preview={params.mediaPreview} />
       ) : null}
       <MiniAppActions>
         <MiniAppButton
@@ -295,7 +295,7 @@ function useFileDocument(params: {
       resolveDownloadableAttachment(attachments, attachmentStorageKeyBySlotId),
     [attachments, attachmentStorageKeyBySlotId],
   );
-  const imagePreview = useFileDocumentImagePreview({
+  const mediaPreview = useFileDocumentMediaPreview({
     attachments,
     attachmentStorageKeyBySlotId,
     blobStore: infra.blobStore,
@@ -351,9 +351,9 @@ function useFileDocument(params: {
     downloadable,
     fileName,
     handleDownload,
-    imagePreview,
     isAuthenticated: auth.isAuthenticated,
     isEditing,
+    mediaPreview,
     online: state.online,
     readFields,
     ready,
@@ -386,8 +386,8 @@ export function FileDocument(params: {
           downloadError={model.downloadError}
           editDisabled={!model.ready || !model.canWrite}
           fileName={model.fileName}
-          imagePreview={model.imagePreview}
           isEditing={model.isEditing}
+          mediaPreview={model.mediaPreview}
           onCommitFileName={model.commitFileName}
           onDownload={model.handleDownload}
           onToggleEditing={model.toggleEditing}

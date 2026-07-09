@@ -13,6 +13,7 @@ import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
 import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";
 import { APP_DEFAULT_DOCUMENT_KIND } from "./note/noteDocumentDefinition";
 import { PDF_DOCUMENT_KIND } from "./pdf/pdfDocumentDefinition";
+import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
 
 export const TEXT_FILE_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 export const BINARY_FILE_IMPORT_MAX_BYTES = 200 * 1024 * 1024;
@@ -37,20 +38,26 @@ const MIME_BY_EXTENSION = new Map<string, string>([
   ["jpg", "image/jpeg"],
   ["json", "application/json"],
   ["m4a", "audio/mp4"],
+  ["m4v", "video/mp4"],
+  ["mov", "video/quicktime"],
   ["md", "text/markdown"],
   ["mp3", "audio/mpeg"],
+  ["mp4", "video/mp4"],
   ["ogg", "audio/ogg"],
+  ["ogv", "video/ogg"],
   ["pdf", "application/pdf"],
   ["png", "image/png"],
   ["svg", "image/svg+xml"],
   ["txt", "text/plain"],
   ["wav", "audio/wav"],
+  ["webm", "video/webm"],
   ["webp", "image/webp"],
 ]);
 
 const TEXT_EXTENSIONS = new Set(["csv", "md", "txt"]);
 const IMAGE_EXTENSIONS = new Set(["gif", "jpeg", "jpg", "png", "svg", "webp"]);
 const AUDIO_EXTENSIONS = new Set(["m4a", "mp3", "ogg", "wav"]);
+const VIDEO_EXTENSIONS = new Set(["m4v", "mov", "mp4", "ogv", "webm"]);
 
 function getFileExtension(fileName: string): string {
   const extensionStart = fileName.lastIndexOf(".");
@@ -243,6 +250,22 @@ const audioFileImporter: DocumentFileImporter = {
   maxByteLength: BINARY_FILE_IMPORT_MAX_BYTES,
 };
 
+const videoFileImporter: DocumentFileImporter = {
+  documentKind: VIDEO_DOCUMENT_KIND,
+  importFile: async (file) => ({
+    attachment: await readAttachmentUpload(file),
+    documentKind: VIDEO_DOCUMENT_KIND,
+    initialText: "",
+    structuredFields: {
+      ...createCommonMetadata(file),
+      durationMs: "",
+      height: "",
+      width: "",
+    },
+  }),
+  maxByteLength: BINARY_FILE_IMPORT_MAX_BYTES,
+};
+
 const pdfFileImporter: DocumentFileImporter = {
   documentKind: PDF_DOCUMENT_KIND,
   importFile: async (file) => ({
@@ -281,6 +304,9 @@ function getImporterForMimeType(mimeType: string): DocumentFileImporter | null {
   if (mimeType.startsWith("audio/")) {
     return audioFileImporter;
   }
+  if (mimeType.startsWith("video/")) {
+    return videoFileImporter;
+  }
   if (mimeType === "application/pdf") {
     return pdfFileImporter;
   }
@@ -302,6 +328,9 @@ function getImporterForExtension(
   }
   if (AUDIO_EXTENSIONS.has(extension)) {
     return audioFileImporter;
+  }
+  if (VIDEO_EXTENSIONS.has(extension)) {
+    return videoFileImporter;
   }
   if (extension === "pdf") {
     return pdfFileImporter;

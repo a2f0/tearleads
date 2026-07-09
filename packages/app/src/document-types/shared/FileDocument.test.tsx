@@ -3,8 +3,8 @@ import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { FileDocumentAttachments, FileDocumentFields } from "./FileDocument";
 import {
-  isRenderableFileDocumentImageMimeType,
-  resolveFileDocumentImagePreview,
+  isRenderableFileDocumentMediaMimeType,
+  resolveFileDocumentMediaPreview,
 } from "./FileDocumentPreview";
 
 afterEach(cleanup);
@@ -20,17 +20,23 @@ const pngAttachment: DocumentAttachment = {
   name: "logo.png",
   slotId: "png-slot",
 };
-const svgAttachment: DocumentAttachment = {
-  byteLength: 2048,
-  mimeType: "image/svg+xml",
-  name: "mark.svg",
-  slotId: "svg-slot",
+const audioAttachment: DocumentAttachment = {
+  byteLength: 8192,
+  mimeType: "audio/mpeg",
+  name: "voice.mp3",
+  slotId: "audio-slot",
 };
-const jpegAttachment: DocumentAttachment = {
-  byteLength: 4096,
-  mimeType: "image/jpeg",
-  name: "photo.jpeg",
-  slotId: "jpeg-slot",
+const videoAttachment: DocumentAttachment = {
+  byteLength: 16_384,
+  mimeType: "video/mp4",
+  name: "clip.mp4",
+  slotId: "video-slot",
+};
+const pdfAttachment: DocumentAttachment = {
+  byteLength: 32_768,
+  mimeType: "application/pdf",
+  name: "paper.pdf",
+  slotId: "pdf-slot",
 };
 
 function renderFields(
@@ -149,58 +155,68 @@ test("surfaces a download error message", () => {
   ).toBeTruthy();
 });
 
-test("detects the image MIME types the file document can preview", () => {
-  expect(isRenderableFileDocumentImageMimeType("image/png")).toBe(true);
-  expect(isRenderableFileDocumentImageMimeType("image/svg+xml")).toBe(true);
+test("detects the media MIME types the file document can preview", () => {
+  expect(isRenderableFileDocumentMediaMimeType("image/png")).toBe(true);
+  expect(isRenderableFileDocumentMediaMimeType("image/svg+xml")).toBe(true);
   expect(
-    isRenderableFileDocumentImageMimeType("image/svg+xml; charset=utf-8"),
+    isRenderableFileDocumentMediaMimeType("image/svg+xml; charset=utf-8"),
   ).toBe(true);
-  expect(isRenderableFileDocumentImageMimeType("image/jpeg")).toBe(false);
-  expect(isRenderableFileDocumentImageMimeType(null)).toBe(false);
+  expect(isRenderableFileDocumentMediaMimeType("image/jpeg")).toBe(true);
+  expect(isRenderableFileDocumentMediaMimeType("audio/mpeg")).toBe(true);
+  expect(isRenderableFileDocumentMediaMimeType("video/mp4")).toBe(true);
+  expect(isRenderableFileDocumentMediaMimeType("application/pdf")).toBe(false);
+  expect(isRenderableFileDocumentMediaMimeType(null)).toBe(false);
 });
 
-test("resolves the latest local PNG or SVG attachment for preview", () => {
-  const preview = resolveFileDocumentImagePreview({
-    attachments: [pngAttachment, svgAttachment],
+test("resolves the latest local previewable media attachment", () => {
+  const preview = resolveFileDocumentMediaPreview({
+    attachments: [pngAttachment, audioAttachment, videoAttachment],
     attachmentStorageKeyBySlotId: {
+      "audio-slot": "local-audio",
       "png-slot": "local-png",
-      "svg-slot": "local-svg",
+      "video-slot": "local-video",
     },
-    imageUrlBySlotId: { "svg-slot": "blob:svg-preview" },
+    mediaUrlBySlotId: { "video-slot": "blob:video-preview" },
   });
 
   expect(preview).toEqual({
-    attachment: svgAttachment,
-    imageUrl: "blob:svg-preview",
+    attachment: videoAttachment,
+    mediaKind: "video",
+    mediaUrl: "blob:video-preview",
   });
 });
 
-test("does not preview unsupported image attachment types", () => {
-  const preview = resolveFileDocumentImagePreview({
-    attachments: [pngAttachment, jpegAttachment],
+test("skips unsupported local attachments when resolving a media preview", () => {
+  const preview = resolveFileDocumentMediaPreview({
+    attachments: [pngAttachment, pdfAttachment],
     attachmentStorageKeyBySlotId: {
-      "jpeg-slot": "local-jpeg",
+      "pdf-slot": "local-pdf",
       "png-slot": "local-png",
     },
-    imageUrlBySlotId: { "png-slot": "blob:png-preview" },
+    mediaUrlBySlotId: { "png-slot": "blob:png-preview" },
   });
 
-  expect(preview).toBeNull();
+  expect(preview).toEqual({
+    attachment: pngAttachment,
+    mediaKind: "image",
+    mediaUrl: "blob:png-preview",
+  });
 });
 
-test("renders the image preview above the metadata when a URL is available", () => {
+test("renders the media preview above the metadata when a URL is available", () => {
   const view = renderFields({
-    imagePreview: {
+    mediaPreview: {
       attachment: pngAttachment,
-      imageUrl: "blob:png-preview",
+      mediaKind: "image",
+      mediaUrl: "blob:png-preview",
     },
   });
 
   const image = view.getByRole("img", { name: "logo.png" });
   expect(image.getAttribute("src")).toBe("blob:png-preview");
 
-  // The preview must render before the metadata: an image viewer leads with the
-  // image, not the MIME type / size rows.
+  // The preview must render before the metadata: a media viewer leads with the
+  // media, not the MIME type / size rows.
   const previewPanel = view.getByLabelText("File preview");
   const mimeType = view.getByText("image/png");
   expect(
@@ -209,7 +225,36 @@ test("renders the image preview above the metadata when a URL is available", () 
   ).toBeTruthy();
 });
 
-test("omits the image preview for non-image files", () => {
+test("renders shared playback controls for audio and video previews", () => {
+  const audioView = renderFields({
+    mediaPreview: {
+      attachment: audioAttachment,
+      mediaKind: "audio",
+      mediaUrl: "blob:audio-preview",
+    },
+  });
+
+  const audio = audioView.getByLabelText("voice.mp3") as HTMLAudioElement;
+  expect(audio.tagName).toBe("AUDIO");
+  expect(audio.controls).toBe(true);
+  expect(audio.getAttribute("src")).toBe("blob:audio-preview");
+
+  cleanup();
+  const videoView = renderFields({
+    mediaPreview: {
+      attachment: videoAttachment,
+      mediaKind: "video",
+      mediaUrl: "blob:video-preview",
+    },
+  });
+
+  const video = videoView.getByLabelText("clip.mp4") as HTMLVideoElement;
+  expect(video.tagName).toBe("VIDEO");
+  expect(video.controls).toBe(true);
+  expect(video.getAttribute("src")).toBe("blob:video-preview");
+});
+
+test("omits the media preview for non-media files", () => {
   const view = renderFields();
 
   expect(view.queryByLabelText("File preview")).toBeNull();

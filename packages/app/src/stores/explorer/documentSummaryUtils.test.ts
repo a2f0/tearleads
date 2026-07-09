@@ -3,20 +3,19 @@ import type { DocumentSummary } from "@tearleads/client-sdk";
 import {
   applyTrackedDocumentSummaryUpdates,
   computeContainerMembershipSignatures,
-  hasTrackedContainerMembershipChange,
+  diffChangedContainerIds,
 } from "./documentSummaryUtils";
 
-// Whether the DESTRUCTIVE refresh should fire between two container->summaries
-// snapshots — the exact gate useExplorerViewProjectionSync applies. `before: null`
-// models the first apply after mount / a view rotation.
-function refreshWouldFire(
-  before: ReadonlyMap<string, ReadonlyArray<DocumentSummary>> | null,
+// The changed container ids between two summary maps — the exact input the link
+// projection uses to decide which sidebar containers to destructively refresh.
+function changedContainers(
+  before: ReadonlyMap<string, ReadonlyArray<DocumentSummary>>,
   after: ReadonlyMap<string, ReadonlyArray<DocumentSummary>>,
-): boolean {
-  return hasTrackedContainerMembershipChange(
-    before === null ? null : computeContainerMembershipSignatures(before),
+): string[] {
+  return diffChangedContainerIds(
+    computeContainerMembershipSignatures(before),
     computeContainerMembershipSignatures(after),
-  );
+  ).sort();
 }
 
 function createSummary(
@@ -64,12 +63,12 @@ test("returns the same array reference when nothing changed", () => {
   expect(next).toBe(current);
 });
 
-// The membership gate backs the sidebar-flicker fixes: the DESTRUCTIVE refresh
-// must NOT fire on content-only updates (title/sync-badge deltas fire the explorer
-// view on every reconciled tick) NOR when a container key merely appears for the
-// first time (the active-container switch that collapsed the sidebar on selecting
-// the "You" contact) — only on a genuine change to a container already on screen.
-test("no refresh when only summary content changes", () => {
+// The membership signatures back the flicker fixes: a container's signature must
+// be stable across content-only updates (title/sync-badge deltas fire the explorer
+// view on every reconciled tick) and change only on genuine membership changes, so
+// the destructive link-projection refresh no longer blanks the sidebar rows each
+// tick — and reports WHICH container changed so it never blanks another org's rows.
+test("no container is reported changed when only summary content changes", () => {
   const before = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["contacts", [createSummary("you", { title: "You" })]],
   ]);
@@ -77,10 +76,10 @@ test("no refresh when only summary content changes", () => {
     ["contacts", [createSummary("you", { title: "You (synced)" })]],
   ]);
 
-  expect(refreshWouldFire(before, afterTitleSync)).toBe(false);
+  expect(changedContainers(before, afterTitleSync)).toEqual([]);
 });
 
-test("no refresh when documents are reordered", () => {
+test("no container is reported changed when documents are reordered", () => {
   const ordered = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["c1", [createSummary("a"), createSummary("b")]],
   ]);
@@ -88,21 +87,25 @@ test("no refresh when documents are reordered", () => {
     ["c1", [createSummary("b"), createSummary("a")]],
   ]);
 
-  expect(refreshWouldFire(ordered, reordered)).toBe(false);
+  expect(changedContainers(ordered, reordered)).toEqual([]);
 });
 
-test("refresh fires when a document is discovered in an existing container", () => {
+test("only the discovering container is reported changed", () => {
   const before = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["contacts", [createSummary("you")]],
+    ["other", [createSummary("elsewhere")]],
   ]);
   const afterDiscovery = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["contacts", [createSummary("you"), createSummary("teammate")]],
+    ["other", [createSummary("elsewhere")]],
   ]);
 
-  expect(refreshWouldFire(before, afterDiscovery)).toBe(true);
+  // "other" (a different org's container) must NOT be reported — that is what
+  // keeps its sidebar rows from blanking when "contacts" gains a document.
+  expect(changedContainers(before, afterDiscovery)).toEqual(["contacts"]);
 });
 
-test("refresh fires when a document moves between existing containers", () => {
+test("a move reports both the source and target containers", () => {
   const before = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["c1", [createSummary("a")]],
     ["c2", []],
@@ -112,10 +115,54 @@ test("refresh fires when a document moves between existing containers", () => {
     ["c2", [createSummary("a")]],
   ]);
 
-  expect(refreshWouldFire(before, afterMove)).toBe(true);
+  expect(changedContainers(before, afterMove)).toEqual(["c1", "c2"]);
 });
 
-test("no refresh from container map ordering alone", () => {
+// The "You"-contact collapse: the SDK projection cache materializes a container
+// lazily the first time it becomes active. That additive key is NOT a membership
+// change (no document moved; the doc was already shown from the SQL window query),
+// so it must not be reported — otherwise its rows blank and the sidebar collapses.
+test("a container appearing for the first time is not reported", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+  ]);
+  const afterAdd = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", [createSummary("b")]],
+  ]);
+
+  expect(changedContainers(before, afterAdd)).toEqual([]);
+});
+
+test("a container that disappears is reported changed", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", [createSummary("b")]],
+  ]);
+  const afterDrop = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+  ]);
+
+  expect(changedContainers(before, afterDrop)).toEqual(["c2"]);
+});
+
+// previous === null marks the first apply (mount / view rotation): every present
+// container is reported so the initial population runs once.
+test("the first apply reports every present container", () => {
+  const initial = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["c1", [createSummary("a")]],
+    ["c2", [createSummary("b")]],
+  ]);
+
+  expect(
+    diffChangedContainerIds(
+      null,
+      computeContainerMembershipSignatures(initial),
+    ).sort(),
+  ).toEqual(["c1", "c2"]);
+});
+
+test("container map ordering does not affect the reported changes", () => {
   const oneOrder = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["c1", [createSummary("a")]],
     ["c2", [createSummary("b")]],
@@ -125,43 +172,5 @@ test("no refresh from container map ordering alone", () => {
     ["c1", [createSummary("a")]],
   ]);
 
-  expect(refreshWouldFire(oneOrder, otherOrder)).toBe(false);
-});
-
-// The "You"-contact collapse: a container key materializes for the first time when
-// its container becomes active. No document moved, so the destructive refresh must
-// NOT fire — otherwise the sidebar blanks and the Trash row bounces.
-test("no refresh when a container key appears for the first time", () => {
-  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
-    ["personal", [createSummary("note")]],
-  ]);
-  const afterContactsMaterializes = new Map<
-    string,
-    ReadonlyArray<DocumentSummary>
-  >([
-    ["personal", [createSummary("note")]],
-    ["contacts", [createSummary("you")]],
-  ]);
-
-  expect(refreshWouldFire(before, afterContactsMaterializes)).toBe(false);
-});
-
-test("refresh fires when a container drops out", () => {
-  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
-    ["personal", [createSummary("note")]],
-    ["contacts", [createSummary("you")]],
-  ]);
-  const afterDrop = new Map<string, ReadonlyArray<DocumentSummary>>([
-    ["personal", [createSummary("note")]],
-  ]);
-
-  expect(refreshWouldFire(before, afterDrop)).toBe(true);
-});
-
-test("first apply after mount / view rotation fires once", () => {
-  const initial = new Map<string, ReadonlyArray<DocumentSummary>>([
-    ["contacts", [createSummary("you")]],
-  ]);
-
-  expect(refreshWouldFire(null, initial)).toBe(true);
+  expect(changedContainers(oneOrder, otherOrder)).toEqual([]);
 });

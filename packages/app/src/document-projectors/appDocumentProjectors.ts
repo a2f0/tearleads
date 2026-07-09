@@ -10,6 +10,7 @@ import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocu
 import { passportDocumentProjectorDefinition } from "../document-types/passport/passportDocumentDefinition";
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
 import type { AppDocumentProjectorDefinition } from "../document-types/types";
+import { videoDocumentProjectorDefinition } from "../document-types/video/videoDocumentDefinition";
 import { contactClientProjection } from "./contactClientProjection";
 import { creditCardClientProjection } from "./creditCardClientProjection";
 import { driverLicenseClientProjection } from "./driverLicenseClientProjection";
@@ -38,6 +39,7 @@ export const APP_DOCUMENT_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentProjec
     jsonFileDocumentProjectorDefinition,
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,
+    videoDocumentProjectorDefinition,
     pdfDocumentProjectorDefinition,
     genericFileDocumentProjectorDefinition,
   ];

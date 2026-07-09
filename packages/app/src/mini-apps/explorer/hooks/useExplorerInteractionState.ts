@@ -21,7 +21,7 @@ export function useExplorerInteractionState(params: {
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
 }) {
   const {
     activeContainerId,

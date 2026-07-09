@@ -132,6 +132,7 @@ interface ExplorerSidebarPanelParams {
   databaseError: boolean;
   onRetryDatabase: () => void;
   documentLinkProjectionVersion: number;
+  documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   handleSidebarContextMenu: (
@@ -223,6 +224,7 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
       params.currentUserId,
       params.databaseError,
       params.documentLinkProjectionVersion,
+      params.documentLinkProjectionVersionByContainerId,
       params.documentListRevision,
       params.documentQueries,
       params.handleSidebarContextMenu,

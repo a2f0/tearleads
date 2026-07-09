@@ -90,8 +90,11 @@ export function useExplorerModel(
   // boot failure surfaces a Retry there too (the detail panel gets it directly).
   onRetryDatabase: () => void,
 ): ExplorerModel {
-  const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
-    useDocumentLinkProjectionVersion();
+  const {
+    documentLinkProjectionVersion,
+    documentLinkProjectionVersionByContainerId,
+    handleDocumentLinksChanged,
+  } = useDocumentLinkProjectionVersion();
   const documentQueries = useExplorerDocumentQueries(appData);
   const {
     bumpDocumentListRevision,
@@ -176,6 +179,7 @@ export function useExplorerModel(
   } = useExplorerPanelState({
     appData,
     documentLinkProjectionVersion,
+    documentLinkProjectionVersionByContainerId,
     documentQueries,
     explorer,
     bumpDocumentListRevision,
