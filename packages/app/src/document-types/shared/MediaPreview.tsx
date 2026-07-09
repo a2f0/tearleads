@@ -1,4 +1,3 @@
-import { createElement } from "react";
 import "./MediaPreview.css";
 
 export type MediaPreviewKind = "audio" | "image" | "video";
@@ -51,21 +50,15 @@ export function MediaPreview(params: {
     return <img alt={params.label} className={className} src={params.url} />;
   }
 
-  if (params.kind === "audio") {
-    return createElement("audio", {
-      "aria-label": params.label,
-      className,
-      controls: true,
-      preload: "metadata",
-      src: params.url,
-    });
-  }
+  const Tag = params.kind;
 
-  return createElement("video", {
-    "aria-label": params.label,
-    className,
-    controls: true,
-    preload: "metadata",
-    src: params.url,
-  });
+  return (
+    <Tag
+      aria-label={params.label}
+      className={className}
+      controls
+      preload="metadata"
+      src={params.url}
+    />
+  );
 }

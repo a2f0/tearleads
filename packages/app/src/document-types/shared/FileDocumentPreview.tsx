@@ -62,15 +62,15 @@ export function resolveFileDocumentMediaPreview(input: {
 }
 
 function useAttachmentMediaUrl(params: {
-  attachment: DocumentAttachment | null;
   blobStore: BlobStore;
+  mimeType: string | null | undefined;
   storageKey: string | null;
 }): string | null {
-  const { attachment, blobStore, storageKey } = params;
+  const { blobStore, mimeType, storageKey } = params;
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!attachment || !storageKey) {
+    if (!storageKey) {
       setMediaUrl(null);
       return;
     }
@@ -88,7 +88,7 @@ function useAttachmentMediaUrl(params: {
 
         objectUrl = URL.createObjectURL(
           new Blob([bytes], {
-            type: attachment.mimeType ?? "application/octet-stream",
+            type: mimeType ?? "application/octet-stream",
           }),
         );
         setMediaUrl(objectUrl);
@@ -106,7 +106,7 @@ function useAttachmentMediaUrl(params: {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [attachment, blobStore, storageKey]);
+  }, [blobStore, mimeType, storageKey]);
 
   return mediaUrl;
 }
@@ -131,8 +131,8 @@ export function useFileDocumentMediaPreview(params: {
       null)
     : null;
   const mediaUrl = useAttachmentMediaUrl({
-    attachment: mediaPreviewCandidate?.attachment ?? null,
     blobStore,
+    mimeType: mediaPreviewCandidate?.attachment.mimeType,
     storageKey,
   });
 
