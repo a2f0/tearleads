@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   StructuredDocument,
@@ -233,9 +232,6 @@ export function JsonFileFields(params: {
 export function JsonFileDocument(params: {
   initialEditing?: boolean | undefined;
 }) {
-  const { auth, state } = useTearleadsRuntime();
-  const { isAuthenticated } = auth;
-  const { online } = state;
   const {
     canWrite,
     ready,
@@ -286,8 +282,6 @@ export function JsonFileDocument(params: {
           />
         </>
       }
-      isAuthenticated={isAuthenticated}
-      online={online}
       ready={ready}
       syncing={syncing}
       title="JSON File"

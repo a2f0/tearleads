@@ -28,6 +28,30 @@ interface StructuredDocumentReadFieldDescriptor {
   readonly value: string | null | undefined;
 }
 
+interface StructuredDocumentBaseProps {
+  attachments?: ReactNode;
+  fields: ReactNode;
+  ready: boolean;
+  syncing: boolean;
+  title: string;
+}
+
+type StructuredDocumentProps = StructuredDocumentBaseProps &
+  (
+    | {
+        attachmentCopy: StructuredDocumentAttachmentCopy;
+        canAttach?: boolean | undefined;
+        isAuthenticated: boolean;
+        online: boolean;
+      }
+    | {
+        attachmentCopy?: undefined;
+        canAttach?: undefined;
+        isAuthenticated?: undefined;
+        online?: undefined;
+      }
+  );
+
 const STRUCTURED_DOCUMENT_EMPTY_VALUE = "None";
 
 function getAttachmentCopy(params: {
@@ -85,28 +109,8 @@ export function useStructuredDocumentEditing(
   return [isEditing, setIsEditing] as const;
 }
 
-export function StructuredDocument(params: {
-  attachmentCopy?: StructuredDocumentAttachmentCopy | undefined;
-  attachments?: ReactNode;
-  canAttach?: boolean | undefined;
-  fields: ReactNode;
-  isAuthenticated: boolean;
-  online: boolean;
-  ready: boolean;
-  syncing: boolean;
-  title: string;
-}) {
-  const {
-    attachmentCopy,
-    attachments,
-    canAttach = false,
-    fields,
-    isAuthenticated,
-    online,
-    ready,
-    syncing,
-    title,
-  } = params;
+export function StructuredDocument(params: StructuredDocumentProps) {
+  const { attachmentCopy, attachments, fields, ready, syncing, title } = params;
 
   return (
     <div className="structured-document">
@@ -121,9 +125,9 @@ export function StructuredDocument(params: {
           <span className="structured-document-status">
             {getAttachmentCopy({
               attachmentCopy,
-              canAttach,
-              isAuthenticated,
-              online,
+              canAttach: params.canAttach ?? false,
+              isAuthenticated: params.isAuthenticated,
+              online: params.online,
             })}
           </span>
         ) : null}

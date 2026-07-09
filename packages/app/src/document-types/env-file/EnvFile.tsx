@@ -1,7 +1,6 @@
 import { PlusIcon } from "@phosphor-icons/react/dist/csr/Plus";
 import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
 import { useId, useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   StructuredDocument,
@@ -336,9 +335,6 @@ export function EnvFileFields(params: {
 }
 
 export function EnvFile(params: { initialEditing?: boolean | undefined }) {
-  const { auth, state } = useTearleadsRuntime();
-  const { isAuthenticated } = auth;
-  const { online } = state;
   const { canWrite, ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
   const fields = useMemo(
@@ -374,8 +370,6 @@ export function EnvFile(params: { initialEditing?: boolean | undefined }) {
           />
         </>
       }
-      isAuthenticated={isAuthenticated}
-      online={online}
       ready={ready}
       syncing={syncing}
       title=".env File"

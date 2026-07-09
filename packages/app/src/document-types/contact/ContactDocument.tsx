@@ -2,7 +2,6 @@ import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { useMemo } from "react";
 import { useWindowTitleBarAction } from "../../components/window/WindowMenuContext";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import {
   StructuredDocument,
@@ -86,9 +85,6 @@ export function ContactDocumentFields({
 export function ContactDocument(params: {
   initialEditing?: boolean | undefined;
 }) {
-  const { auth, state } = useTearleadsRuntime();
-  const { isAuthenticated } = auth;
-  const { online } = state;
   const { canWrite, ready, setStructuredFields, structuredFields, syncing } =
     useDocument();
   const [isEditing, setIsEditing] = useStructuredDocumentEditing(
@@ -102,13 +98,6 @@ export function ContactDocument(params: {
 
   return (
     <StructuredDocument
-      attachmentCopy={{
-        authenticatedOnline: "Contact documents do not use attachments.",
-        localOnly: "Contact documents do not use attachments.",
-        unavailable: "Contact documents do not use attachments.",
-      }}
-      attachments={null}
-      canAttach={false}
       fields={
         <ContactDocumentFields
           isEditing={isEditing}
@@ -119,8 +108,6 @@ export function ContactDocument(params: {
           values={values}
         />
       }
-      isAuthenticated={isAuthenticated}
-      online={online}
       ready={ready}
       syncing={syncing}
       title="Contact"

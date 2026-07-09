@@ -1,6 +1,5 @@
 import { getStoredDocumentTypeLabel } from "@tearleads/client-sdk";
 import { useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   DEFAULT_DOCUMENT_ID,
   DocumentsProvider,
@@ -58,7 +57,6 @@ export function serializeDefaultLoroDocument(input: {
 }
 
 function DefaultLoroDocument() {
-  const { auth, state } = useTearleadsRuntime();
   const { documentKind, ready, structuredFields, syncing, text } =
     useDocument();
   const snapshot = useMemo(
@@ -96,8 +94,6 @@ function DefaultLoroDocument() {
           </section>
         </div>
       }
-      isAuthenticated={auth.isAuthenticated}
-      online={state.online}
       ready={ready}
       syncing={syncing}
       title={formatDefaultLoroDocumentTitle(
