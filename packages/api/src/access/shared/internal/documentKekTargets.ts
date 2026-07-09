@@ -7,10 +7,8 @@ import {
   getCurrentAccessManifestHead,
   listAccessManifestDocumentLinkProjection,
 } from "./accessManifestStore";
-import {
-  ContainerKekTargetError,
-  resolveCurrentContainerKekTargets,
-} from "./containerKekTargets";
+import { resolveCurrentContainerKekTargetsMapped } from "./containerKekTargets";
+import { assertExpectedTargetHashCurrent } from "./contentKeyTargetPolicy";
 
 export class DocumentKekTargetError extends Error {
   constructor(
@@ -59,23 +57,6 @@ async function loadDocumentLinkSetHead(
   return head;
 }
 
-async function resolveLinkedContainerKekTargets(
-  linkedContainerIds: readonly string[],
-  executor: DatabaseSession,
-): Promise<ReadonlyMap<string, DocumentContentKeyTarget>> {
-  try {
-    return await resolveCurrentContainerKekTargets(
-      linkedContainerIds,
-      executor,
-    );
-  } catch (error) {
-    if (error instanceof ContainerKekTargetError) {
-      throw new DocumentKekTargetError(error.message, error.status);
-    }
-    throw error;
-  }
-}
-
 export async function resolveCurrentDocumentKekTargets(
   documentId: string,
   executor: DatabaseSession,
@@ -94,9 +75,10 @@ export async function resolveCurrentDocumentKekTargets(
     );
   }
 
-  const containerTargetById = await resolveLinkedContainerKekTargets(
+  const containerTargetById = await resolveCurrentContainerKekTargetsMapped(
     linkedContainerIds,
     executor,
+    (message, status) => new DocumentKekTargetError(message, status),
   );
   const targets: DocumentContentKeyTarget[] = [];
 
@@ -140,22 +122,19 @@ export async function assertDocumentKekTargetsCurrent(
     input.documentId,
     executor,
   );
-  const expectedTargetHash =
-    input.expectedTargetHash ??
-    (input.expectedTargets
-      ? await computeDocumentContentKeyTargetHash(input.expectedTargets)
-      : null);
-
-  if (!expectedTargetHash) {
-    throw new DocumentKekTargetError(
-      "Expected document KEK targets are required",
-      409,
-    );
-  }
-
-  if (expectedTargetHash !== currentTargets.documentKeyTargetHash) {
-    throw new DocumentKekTargetError("Document KEK targets are stale", 409);
-  }
+  await assertExpectedTargetHashCurrent({
+    currentTargetHash: currentTargets.documentKeyTargetHash,
+    expectedTargetHash: input.expectedTargetHash,
+    expectedTargets: input.expectedTargets,
+    computeTargetHash: computeDocumentContentKeyTargetHash,
+    createRequiredError: () =>
+      new DocumentKekTargetError(
+        "Expected document KEK targets are required",
+        409,
+      ),
+    createStaleError: () =>
+      new DocumentKekTargetError("Document KEK targets are stale", 409),
+  });
 
   return currentTargets;
 }

@@ -12,9 +12,10 @@ import {
   listAccessManifestDocumentLinkProjections,
 } from "./accessManifestStore";
 import {
-  ContainerKekTargetError,
-  resolveCurrentContainerKekTargets,
+  type resolveCurrentContainerKekTargets,
+  resolveCurrentContainerKekTargetsMapped,
 } from "./containerKekTargets";
+import { assertExpectedTargetHashCurrent } from "./contentKeyTargetPolicy";
 
 export class BlobKekTargetError extends Error {
   constructor(
@@ -208,18 +209,11 @@ async function loadBatchedBlobKekTargetState(input: {
     input.executor,
   );
   const linkedContainerIds = linkRows.map((row) => row.containerId);
-  let containerTargetById: ContainerKekTargetMap;
-  try {
-    containerTargetById = await resolveCurrentContainerKekTargets(
-      linkedContainerIds,
-      input.executor,
-    );
-  } catch (error) {
-    if (error instanceof ContainerKekTargetError) {
-      throw new BlobKekTargetError(error.message, error.status);
-    }
-    throw error;
-  }
+  const containerTargetById = await resolveCurrentContainerKekTargetsMapped(
+    linkedContainerIds,
+    input.executor,
+    (message, status) => new BlobKekTargetError(message, status),
+  );
 
   return {
     containerTargetById,
@@ -347,19 +341,16 @@ export async function assertBlobKekTargetsCurrent(
     input.blobId,
     executor,
   );
-  const expectedTargetHash =
-    input.expectedTargetHash ??
-    (input.expectedTargets
-      ? await computeBlobContentKeyTargetHash(input.expectedTargets)
-      : null);
-
-  if (!expectedTargetHash) {
-    throw new BlobKekTargetError("Expected blob KEK targets are required", 409);
-  }
-
-  if (expectedTargetHash !== currentTargets.blobKeyTargetHash) {
-    throw new BlobKekTargetError("Blob KEK targets are stale", 409);
-  }
+  await assertExpectedTargetHashCurrent({
+    currentTargetHash: currentTargets.blobKeyTargetHash,
+    expectedTargetHash: input.expectedTargetHash,
+    expectedTargets: input.expectedTargets,
+    computeTargetHash: computeBlobContentKeyTargetHash,
+    createRequiredError: () =>
+      new BlobKekTargetError("Expected blob KEK targets are required", 409),
+    createStaleError: () =>
+      new BlobKekTargetError("Blob KEK targets are stale", 409),
+  });
 
   return currentTargets;
 }

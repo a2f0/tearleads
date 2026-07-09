@@ -19,29 +19,11 @@ export function sortContentKeyTargetEnvelopes<T>(
   );
 }
 
-export function contentKeyTargetEnvelopeEqual<
+export function contentKeyTargetEnvelopeEqualBy<
   T extends WrappedContentKeyTargetEnvelope,
->(
-  left: T,
-  right: T,
-  targetFieldsEqual: (left: T, right: T) => boolean,
-): boolean {
+>(left: T, right: T, targetsEqual: (left: T, right: T) => boolean): boolean {
   return (
-    targetFieldsEqual(left, right) &&
-    left.wrappedKey === right.wrappedKey &&
-    canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
-  );
-}
-
-export function contentKeyTargetEnvelopeMaterialEqual<
-  T extends WrappedContentKeyTargetEnvelope,
->(
-  left: T,
-  right: T,
-  targetKeyMaterialEqual: (left: T, right: T) => boolean,
-): boolean {
-  return (
-    targetKeyMaterialEqual(left, right) &&
+    targetsEqual(left, right) &&
     left.wrappedKey === right.wrappedKey &&
     canonicalJsonEquals(left.wrappingMetadata, right.wrappingMetadata)
   );
@@ -148,5 +130,28 @@ export async function assertContentKeyTargetHashMatches<
 
   if (targetHash !== input.targetHash) {
     throw input.createHashMismatchError();
+  }
+}
+
+export async function assertExpectedTargetHashCurrent<T>(input: {
+  readonly currentTargetHash: string;
+  readonly expectedTargetHash?: string | undefined;
+  readonly expectedTargets?: readonly T[] | undefined;
+  readonly computeTargetHash: (targets: readonly T[]) => Promise<string>;
+  readonly createRequiredError: () => Error;
+  readonly createStaleError: () => Error;
+}): Promise<void> {
+  const expectedTargetHash =
+    input.expectedTargetHash ??
+    (input.expectedTargets
+      ? await input.computeTargetHash(input.expectedTargets)
+      : null);
+
+  if (!expectedTargetHash) {
+    throw input.createRequiredError();
+  }
+
+  if (expectedTargetHash !== input.currentTargetHash) {
+    throw input.createStaleError();
   }
 }

@@ -12,7 +12,9 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { isRecord } from "../../../utils/record";
 import {
+  isSqlBooleanValue,
   jsonTextProperty,
   uuidExpression,
   visitedPathAppend,
@@ -144,10 +146,6 @@ async function getLatestDocumentContentKeyBundle(
   return row ? toStoredBundle(row, executor) : null;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 interface ContainerManifestMoveLineageStep {
   readonly containerId: string;
   readonly containerKeyEpochId: string;
@@ -189,9 +187,7 @@ function isContainerManifestMoveLineageRow(
   return (
     typeof row.containerId === "string" &&
     typeof row.containerKeyEpochId === "string" &&
-    (typeof row.cycleDetected === "boolean" ||
-      row.cycleDetected === 0 ||
-      row.cycleDetected === 1) &&
+    isSqlBooleanValue(row.cycleDetected) &&
     typeof row.eventType === "string" &&
     typeof row.manifestHash === "string" &&
     (typeof previousManifestHash === "string" || previousManifestHash === null)

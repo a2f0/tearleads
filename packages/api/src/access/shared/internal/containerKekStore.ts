@@ -17,6 +17,7 @@ import type {
 } from "@tearleads/crypto";
 import { verifyContainerKekState } from "@tearleads/crypto";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { selectOneOrThrow } from "./selectOneOrThrow";
 
 interface StoredContainerKeyEpoch extends ContainerKeyEpoch {
   readonly createdAt: Date;
@@ -154,15 +155,14 @@ async function ensureStoredContainerKeyWrapMatches(
   wrap: ContainerKeyWrap,
   executor: DatabaseSession,
 ): Promise<void> {
-  const [storedWrap] = await executor
-    .select()
-    .from(containerKeyWraps)
-    .where(containerKeyWrapConflictWhere(wrap))
-    .limit(1);
-
-  if (!storedWrap) {
-    throw new Error("Failed to load stored container key wrap");
-  }
+  const storedWrap = await selectOneOrThrow(
+    executor
+      .select()
+      .from(containerKeyWraps)
+      .where(containerKeyWrapConflictWhere(wrap))
+      .limit(1),
+    "Failed to load stored container key wrap",
+  );
 
   if (
     storedWrap.recipientKeyFingerprint !== wrap.recipientKeyFingerprint ||

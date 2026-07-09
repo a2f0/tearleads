@@ -8,8 +8,7 @@ import {
   assertContentKeyTargetHashMatches,
   assertContentKeyTargetsMatchCurrent,
   assertPositiveContentKeyEpoch,
-  contentKeyTargetEnvelopeEqual,
-  contentKeyTargetEnvelopeMaterialEqual,
+  contentKeyTargetEnvelopeEqualBy,
   sortContentKeyTargetEnvelopes,
 } from "./contentKeyTargetPolicy";
 
@@ -75,12 +74,8 @@ function targetFieldsEqual(
   right: BlobContentKeyTarget,
 ): boolean {
   return (
-    left.bindingId === right.bindingId &&
-    left.documentId === right.documentId &&
-    left.containerId === right.containerId &&
-    left.containerManifestHash === right.containerManifestHash &&
-    left.containerKeyEpochId === right.containerKeyEpochId &&
-    left.containerKeyEpoch === right.containerKeyEpoch
+    targetKeyMaterialEqual(left, right) &&
+    left.containerManifestHash === right.containerManifestHash
   );
 }
 
@@ -101,7 +96,7 @@ export function targetEnvelopeEqual(
   left: BlobContentKeyTargetEnvelope,
   right: BlobContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeEqual<BlobContentKeyTargetEnvelope>(
+  return contentKeyTargetEnvelopeEqualBy<BlobContentKeyTargetEnvelope>(
     left,
     right,
     targetFieldsEqual,
@@ -112,7 +107,7 @@ export function targetEnvelopeMaterialEqual(
   left: BlobContentKeyTargetEnvelope,
   right: BlobContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeMaterialEqual<BlobContentKeyTargetEnvelope>(
+  return contentKeyTargetEnvelopeEqualBy<BlobContentKeyTargetEnvelope>(
     left,
     right,
     targetKeyMaterialEqual,

@@ -207,6 +207,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${api}/utils/array.ts`,
       `${api}/utils/canonicalJson.ts`,
+      `${api}/utils/record.ts`,
       `${api}/utils/sha256.ts`,
       `${api}/utils/sqlDialect.ts`,
       `${api}/utils/uuid.ts`,

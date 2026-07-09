@@ -144,22 +144,17 @@ export async function storeVerifiedAttachmentDetachInTransaction(
     )
     .returning();
 
-  if (!detachedRow) {
-    const updatedRow = await loadAttachmentBindingRow(
-      detach.bindingId,
-      executor,
-    );
-    if (updatedRow) {
-      return updatedRow;
-    }
+  if (detachedRow) {
+    return detachedRow;
   }
 
-  if (!detachedRow) {
-    throw new AttachmentBindingProjectionError(
-      "Failed to detach attachment binding projection",
-      409,
-    );
+  const updatedRow = await loadAttachmentBindingRow(detach.bindingId, executor);
+  if (updatedRow) {
+    return updatedRow;
   }
 
-  return detachedRow;
+  throw new AttachmentBindingProjectionError(
+    "Failed to detach attachment binding projection",
+    409,
+  );
 }

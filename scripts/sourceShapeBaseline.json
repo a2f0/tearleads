@@ -74,8 +74,8 @@
       "bytes": 21242
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
-      "lines": 599,
-      "bytes": 18921
+      "lines": 606,
+      "bytes": 19027
     },
     "packages/api/src/access/shared/internal/documentContentKeyStore.ts": {
       "lines": 1074,
@@ -326,8 +326,8 @@
       "bytes": 33792
     },
     "scripts/subsystems.ts": {
-      "lines": 702,
-      "bytes": 25029
+      "lines": 701,
+      "bytes": 25061
     },
     "packages/client-sdk/src/workflows/containers/child/create.ts": {
       "lines": 531,
