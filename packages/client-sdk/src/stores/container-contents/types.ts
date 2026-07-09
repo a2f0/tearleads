@@ -6,6 +6,7 @@ import type { ContainerDocumentObjectSyncState } from "../../workflows/container
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncState,
+  RefreshRootLaneOptions,
 } from "./syncAgent";
 
 // Reuse the canonical access-level union from the crypto layer (the same source
@@ -50,7 +51,7 @@ export interface ContainerContentsContextValue {
   ) => Promise<ContainerNode | null>;
   purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
-  refreshRootLane: () => Promise<boolean>;
+  refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestSync: () => void;
   renameContainer: (
     containerId: string,
@@ -93,7 +94,7 @@ export interface ContainerContentsStore {
   ) => Promise<ContainerNode | null>;
   purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
-  refreshRootLane: () => Promise<boolean>;
+  refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestSync: () => void;
   renameContainer: (
     containerId: string,

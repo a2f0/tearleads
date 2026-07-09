@@ -100,13 +100,17 @@ export interface ContainerContentsStoreSyncAgent {
   primeDocumentsForSharedSubtree: (rootContainerId: string) => Promise<void>;
   refreshLocalContainers: () => Promise<void>;
   refresh: () => Promise<boolean>;
-  refreshRootLane: () => Promise<boolean>;
+  refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
   requestRemoteHydration: (options?: {
     followDiscoveredParentLanes?: boolean | undefined;
     parentIds?: ReadonlyArray<string | null> | undefined;
   }) => Promise<void>;
   scheduleRemoteHydration: () => void;
   scheduleSync: () => void;
+}
+
+export interface RefreshRootLaneOptions {
+  readonly includeActiveRootChildLane?: boolean | undefined;
 }
 
 type ContainerContentsStoreSyncHost = RemoteContainerHydrationHost;
@@ -481,8 +485,9 @@ export function createContainerContentsStoreSyncAgent(input: {
         requestHydration: requestRefreshHydration,
         state,
       }),
-    refreshRootLane: () =>
+    refreshRootLane: (options) =>
       refreshRootRemoteHydration({
+        includeActiveRootChildLane: options?.includeActiveRootChildLane,
         requestHydration: requestRefreshHydration,
         state,
       }),

@@ -17,7 +17,7 @@ interface RemoteHydrationRefreshState {
   runtime: {
     auth: { isAuthenticated: boolean };
     infra: { dbStatus: string };
-    state: { online: boolean };
+    state: { containerId?: string | null | undefined; online: boolean };
   };
 }
 
@@ -63,6 +63,7 @@ export function refreshAllRemoteHydration(input: {
 }
 
 export function refreshRootRemoteHydration(input: {
+  includeActiveRootChildLane?: boolean | undefined;
   requestHydration: RemoteHydrationRequester;
   state: RemoteHydrationRefreshState;
 }): Promise<boolean> {
@@ -71,12 +72,18 @@ export function refreshRootRemoteHydration(input: {
     return Promise.resolve(false);
   }
 
-  // Startup catch-up only needs the top-level discovery lane. Keep the
-  // all-parent traversal reserved for explicit user refresh.
+  // Startup catch-up only needs the top-level discovery lane. Provisioned system
+  // container bootstrap can opt into the active root's child lane because
+  // organization-born children such as Trash live under the root, not on the
+  // top-level null lane. Keep the all-parent traversal reserved for explicit
+  // user refresh.
+  const rootContainerId = state.runtime.state.containerId;
   return requestHydration({
     followDiscoveredParentLanes: false,
-    parentIds: [null],
+    parentIds:
+      input.includeActiveRootChildLane && rootContainerId
+        ? [null, rootContainerId]
+        : [null],
     resetRootLaneWatermark: true,
-    scheduleSyncAfterHydration: true,
   }).then(() => true);
 }
