@@ -153,12 +153,6 @@ function PassportDocumentFieldsPane(params: {
   );
 }
 
-const PASSPORT_ATTACHMENT_COPY = {
-  authenticatedOnline: "Passport image stays bound to this document.",
-  localOnly: "Passport image saves locally and syncs when you're online.",
-  unavailable: "Passport image attachment requires a local key package.",
-};
-
 const PASSPORT_ATTACHMENT_SLOT_IDS = PASSPORT_ATTACHMENT_SLOTS.map(
   (slot) => slot.slotId,
 );
@@ -170,7 +164,7 @@ interface PassportProps {
 }
 
 export function Passport(params: PassportProps) {
-  const { auth, infra, state } = useTearleadsRuntime();
+  const { infra } = useTearleadsRuntime();
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -217,7 +211,6 @@ export function Passport(params: PassportProps) {
   });
   return (
     <StructuredDocument
-      attachmentCopy={PASSPORT_ATTACHMENT_COPY}
       attachments={
         <DocumentAttachmentSlots
           attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
@@ -231,7 +224,6 @@ export function Passport(params: PassportProps) {
           slots={PASSPORT_ATTACHMENT_SLOTS}
         />
       }
-      canAttach={canAttach}
       fields={
         <PassportDocumentFieldsPane
           canWrite={canWrite}
@@ -243,8 +235,6 @@ export function Passport(params: PassportProps) {
           setStructuredFields={setStructuredFields}
         />
       }
-      isAuthenticated={auth.isAuthenticated}
-      online={state.online}
       ready={ready}
       syncing={syncing}
       title="Passport"

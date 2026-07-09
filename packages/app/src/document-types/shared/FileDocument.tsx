@@ -266,11 +266,10 @@ function useFileDocument(params: {
   title: string;
 }) {
   const { extraFieldLabels, initialEditing, title } = params;
-  const { auth, infra, state } = useTearleadsRuntime();
+  const { infra } = useTearleadsRuntime();
   const {
     attachments,
     attachmentStorageKeyBySlotId,
-    canAttach,
     canWrite,
     documentKind,
     ready,
@@ -344,17 +343,14 @@ function useFileDocument(params: {
 
   return {
     attachments,
-    canAttach,
     canWrite,
     commitFileName,
     downloadError,
     downloadable,
     fileName,
     handleDownload,
-    isAuthenticated: auth.isAuthenticated,
     isEditing,
     mediaPreview,
-    online: state.online,
     readFields,
     ready,
     syncing,
@@ -372,13 +368,7 @@ export function FileDocument(params: {
 
   return (
     <StructuredDocument
-      attachmentCopy={{
-        authenticatedOnline: "File attachment syncs when online.",
-        localOnly: "File attachment is stored locally and syncs when online.",
-        unavailable: "File attachments require a local key package.",
-      }}
       attachments={<FileDocumentAttachments attachments={model.attachments} />}
-      canAttach={model.canAttach}
       fields={
         <FileDocumentFields
           canWrite={model.canWrite}
@@ -394,8 +384,6 @@ export function FileDocument(params: {
           readFields={model.readFields}
         />
       }
-      isAuthenticated={model.isAuthenticated}
-      online={model.online}
       ready={model.ready}
       syncing={model.syncing}
       title={title}

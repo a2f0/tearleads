@@ -121,12 +121,6 @@ function DriverLicenseDocumentFieldsPane(params: {
   );
 }
 
-const DRIVER_LICENSE_ATTACHMENT_COPY = {
-  authenticatedOnline: "Images stay bound to fixed slots on this document.",
-  localOnly: "Images save locally and sync when you're online.",
-  unavailable: "Image attachments require a local key package.",
-};
-
 const DRIVER_LICENSE_ATTACHMENT_SLOT_IDS = DRIVER_LICENSE_ATTACHMENT_SLOTS.map(
   (slot) => slot.slotId,
 );
@@ -136,10 +130,8 @@ export function DriverLicense(params: {
   initialEditing?: boolean | undefined;
   localId: string;
 }) {
-  const { auth, infra, state } = useTearleadsRuntime();
-  const { isAuthenticated } = auth;
+  const { infra } = useTearleadsRuntime();
   const { blobStore } = infra;
-  const { online } = state;
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -185,7 +177,6 @@ export function DriverLicense(params: {
 
   return (
     <StructuredDocument
-      attachmentCopy={DRIVER_LICENSE_ATTACHMENT_COPY}
       attachments={
         <DocumentAttachmentSlots
           attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
@@ -199,7 +190,6 @@ export function DriverLicense(params: {
           slots={DRIVER_LICENSE_ATTACHMENT_SLOTS}
         />
       }
-      canAttach={canAttach}
       fields={
         <DriverLicenseDocumentFieldsPane
           canWrite={canWrite}
@@ -211,8 +201,6 @@ export function DriverLicense(params: {
           setStructuredFields={setStructuredFields}
         />
       }
-      isAuthenticated={isAuthenticated}
-      online={online}
       ready={ready}
       syncing={syncing}
       title="Driver's License"

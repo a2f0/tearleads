@@ -15,12 +15,6 @@ import {
 } from "../../components/shared/MiniAppRow";
 import "./StructuredDocument.css";
 
-interface StructuredDocumentAttachmentCopy {
-  authenticatedOnline: string;
-  localOnly: string;
-  unavailable: string;
-}
-
 interface StructuredDocumentReadFieldDescriptor {
   readonly displayValue?: string | undefined;
   readonly label: string;
@@ -28,7 +22,7 @@ interface StructuredDocumentReadFieldDescriptor {
   readonly value: string | null | undefined;
 }
 
-interface StructuredDocumentBaseProps {
+interface StructuredDocumentProps {
   attachments?: ReactNode;
   fields: ReactNode;
   ready: boolean;
@@ -36,39 +30,7 @@ interface StructuredDocumentBaseProps {
   title: string;
 }
 
-type StructuredDocumentProps = StructuredDocumentBaseProps &
-  (
-    | {
-        attachmentCopy: StructuredDocumentAttachmentCopy;
-        canAttach?: boolean | undefined;
-        isAuthenticated: boolean;
-        online: boolean;
-      }
-    | {
-        attachmentCopy?: undefined;
-        canAttach?: undefined;
-        isAuthenticated?: undefined;
-        online?: undefined;
-      }
-  );
-
 const STRUCTURED_DOCUMENT_EMPTY_VALUE = "None";
-
-function getAttachmentCopy(params: {
-  attachmentCopy: StructuredDocumentAttachmentCopy;
-  canAttach: boolean;
-  isAuthenticated: boolean;
-  online: boolean;
-}) {
-  const { attachmentCopy, canAttach, isAuthenticated, online } = params;
-  if (!canAttach) {
-    return attachmentCopy.unavailable;
-  }
-
-  return isAuthenticated && online
-    ? attachmentCopy.authenticatedOnline
-    : attachmentCopy.localOnly;
-}
 
 export function useStructuredDocumentEditing(
   canWrite: boolean,
@@ -110,7 +72,7 @@ export function useStructuredDocumentEditing(
 }
 
 export function StructuredDocument(params: StructuredDocumentProps) {
-  const { attachmentCopy, attachments, fields, ready, syncing, title } = params;
+  const { attachments, fields, ready, syncing, title } = params;
 
   return (
     <div className="structured-document">
@@ -121,16 +83,6 @@ export function StructuredDocument(params: StructuredDocumentProps) {
             {!ready ? "Loading..." : syncing ? "Syncing..." : "Ready"}
           </span>
         </div>
-        {attachmentCopy ? (
-          <span className="structured-document-status">
-            {getAttachmentCopy({
-              attachmentCopy,
-              canAttach: params.canAttach ?? false,
-              isAuthenticated: params.isAuthenticated,
-              online: params.online,
-            })}
-          </span>
-        ) : null}
       </div>
       {fields}
       {attachments ?? null}
