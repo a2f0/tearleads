@@ -1,35 +1,10 @@
-import type {
-  DocumentSummary,
-  LocalProjectionView,
-} from "@tearleads/client-sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { DocumentSummary } from "@tearleads/client-sdk";
+import { useCallback, useRef, useState } from "react";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isIgnorableDatabaseWorkerError } from "../../../stores/explorer/documentRuntime";
-import { computeContainerMembershipSignature } from "../../../stores/explorer/documentSummaryUtils";
 import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
-
-// Priming a discovered document opens its store in the SDK's module-level cache,
-// which lives above the routed-pane remount boundary. Tracking which summary-list
-// instances have already been primed in a per-mount ref re-primed every document
-// each time the compact/mobile breakpoint remounted Explorer. Key the tracking by
-// the persistent projection view instead, so it survives those remounts and
-// rotates automatically when the domain scope (and its view) changes.
-const primedSummaryListsByView = new WeakMap<
-  LocalProjectionView,
-  WeakSet<ReadonlyArray<unknown>>
->();
-
-function primedSummaryListsForView(
-  view: LocalProjectionView,
-): WeakSet<ReadonlyArray<unknown>> {
-  let primed = primedSummaryListsByView.get(view);
-  if (!primed) {
-    primed = new WeakSet();
-    primedSummaryListsByView.set(view, primed);
-  }
-  return primed;
-}
+import { useExplorerViewProjectionSync } from "./useExplorerViewProjectionSync";
 
 /**
  * Device-first interaction state for the explorer.
@@ -58,83 +33,13 @@ export function useExplorerInteractionState(params: {
   const { reconciler, view } = explorer;
   const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({ appData });
 
-  // Tell the device-first view which container is active so the reconciler
-  // syncs it first; summaries for it load synchronously from the local cache.
-  useEffect(() => {
-    view.setActiveContainer(activeContainerId);
-  }, [activeContainerId, view]);
-
-  // Subscribe to the view: whenever the local cache or a reconciled delta
-  // changes, surface the active container's summaries into the explorer view
-  // model and bump the document link projection so the sidebar/table re-read
-  // their windows from SQLite. This replaces the old render-driven discovery.
-  const lastActiveSummariesRef = useRef<ReadonlyArray<DocumentSummary> | null>(
-    null,
-  );
-  // Signature of container -> document-id membership at the last view apply. The
-  // link projection is the DESTRUCTIVE sidebar/table refresh (it clears rows to a
-  // loading state and resets totalCount), so it must be bumped only when
-  // membership actually changes — discovery, move, delete. The view fires on every
-  // reconciled delta during bootstrap (sync badges, title/content updates) with
-  // membership unchanged; bumping the link projection on those blanked and reloaded
-  // the "You" contact and system-folder rows ~once per tick (the reported flicker).
-  const lastLinkSignatureRef = useRef<string | null>(null);
-  // Primed document stores are tracked per view (module scope) and need no reset.
-  const lastViewRef = useRef(view);
-  useEffect(() => {
-    // When the view (domain scope) rotates, reset the per-mount active-summaries +
-    // membership tracking so the new scope re-merges and re-signatures. Done here in
-    // the effect (commit phase) rather than during render — render-phase ref writes
-    // can double-run under StrictMode / concurrent rendering.
-    if (lastViewRef.current !== view) {
-      lastViewRef.current = view;
-      lastActiveSummariesRef.current = null;
-      lastLinkSignatureRef.current = null;
-    }
-    const primedSummaryLists = primedSummaryListsForView(view);
-    const applyFromView = () => {
-      const summariesMap = view.getSnapshot().documentSummariesByContainerId;
-
-      // Prime document stores for every container whose summaries are new, so
-      // discovered documents sync their content (and titles) even when they
-      // land outside the active container. Each summary-list instance is primed
-      // once per view; the local projection only swaps the list when it changes.
-      for (const summaries of summariesMap.values()) {
-        if (summaries.length > 0 && !primedSummaryLists.has(summaries)) {
-          primedSummaryLists.add(summaries);
-          primeDiscoveredDocuments(summaries);
-        }
-      }
-
-      const activeSummaries = activeContainerId
-        ? (summariesMap.get(activeContainerId) ?? [])
-        : [];
-      if (lastActiveSummariesRef.current !== activeSummaries) {
-        lastActiveSummariesRef.current = activeSummaries;
-        mergeDocumentSummaries(activeSummaries);
-      }
-      // Nudge the link projection so windowed queries refresh for newly discovered
-      // documents — but only when the container -> document membership actually
-      // changed. This is the DESTRUCTIVE refresh (it clears rows), so firing it on
-      // a view delta that merely updated summary content is what re-blanked the
-      // sidebar rows every sync tick during bootstrap. Content-only updates still
-      // refresh non-destructively via documentListRevision.
-      const linkSignature = computeContainerMembershipSignature(summariesMap);
-      if (lastLinkSignatureRef.current !== linkSignature) {
-        lastLinkSignatureRef.current = linkSignature;
-        onDocumentLinksChanged();
-      }
-    };
-
-    applyFromView();
-    return view.subscribe(applyFromView);
-  }, [
+  useExplorerViewProjectionSync({
     activeContainerId,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
     primeDiscoveredDocuments,
     view,
-  ]);
+  });
 
   return useExplorerRefreshActions(reconciler);
 }
