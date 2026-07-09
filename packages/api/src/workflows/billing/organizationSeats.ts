@@ -102,7 +102,9 @@ async function loadBillingSeatState(input: {
     .where(eq(organizationBilling.organizationId, input.organizationId))
     .limit(1);
 
-  const [row] = isSqliteApiDatabase() ? await query : await query.for("update");
+  const [row] = isSqliteApiDatabase()
+    ? await query
+    : await query.for("update", { of: organizationBilling });
   return row ?? null;
 }
 
