@@ -376,9 +376,9 @@ test("explorer exposes structured document creation from the file menu", async (
 
   await openExplorerNewStructuredDocumentRoute(explorer);
 
-  fireEvent.click(
-    within(explorer).getByRole("button", { name: "Back to Container" }),
-  );
+  // Exit the new-document route by selecting the root container in the sidebar
+  // (the "Back to Container" toolbar button was removed).
+  fireEvent.click(getExplorerContainerItem(explorer, "/"));
 
   await waitFor(() => {
     expect(

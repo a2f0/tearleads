@@ -1,5 +1,4 @@
 export const EXPLORER_LABELS = {
-  backToContainerAction: "Back to Container",
   blobBrowserAction: "Blob Browser",
   blobBrowserBackAction: "Back to Explorer",
   blobBrowserBackToListAction: "Back to List",
@@ -124,7 +123,6 @@ export const EXPLORER_LABELS = {
   databaseLoadError: "Couldn't open the local database.",
   dateCreatedColumn: "Date created",
   dateModifiedColumn: "Date modified",
-  documentBackToContainerAction: "Back to Container",
   documentDeleteAction: "Move to Trash",
   documentDownloadAction: "Download",
   documentInfoAccessEpochRow: "Access Epoch",
