@@ -40,7 +40,7 @@ function isRefreshRootContainerLike(
     return false;
   }
 
-  const container = (value as { container: unknown }).container;
+  const container = Reflect.get(value, "container");
   return typeof container === "object" && container !== null;
 }
 

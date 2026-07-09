@@ -20,6 +20,10 @@ import {
   MiniAppToolbar,
 } from "../../../components/shared/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../components/shared/MiniAppTable";
+import {
+  getMediaPreviewKind,
+  MediaPreview,
+} from "../../../document-types/shared/MediaPreview";
 import { formatByteLength } from "../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../utils/formatMiniAppDate";
 import {
@@ -33,7 +37,6 @@ import {
   type BlobInfoListState,
   type BlobPreviewState,
   getBlobChangedAt,
-  isImageMimeType,
   useBlobPreview,
 } from "./ExplorerBlobBrowserState";
 import { BlobInfoTable } from "./ExplorerBlobInfoTable";
@@ -121,12 +124,14 @@ function BlobPreviewContent(params: {
     );
   }
 
-  if (preview.url && isImageMimeType(blob.mimeType)) {
+  const mediaKind = getMediaPreviewKind(blob.mimeType);
+  if (preview.url && mediaKind) {
     return (
-      <img
-        alt={blob.name ?? blob.blobId ?? blob.storageKey}
-        className="explorer-blob-preview-image"
-        src={preview.url}
+      <MediaPreview
+        className="explorer-blob-preview-media"
+        kind={mediaKind}
+        label={blob.name ?? blob.blobId ?? blob.storageKey}
+        url={preview.url}
       />
     );
   }

@@ -32,6 +32,11 @@ test("file importers classify by MIME type before extension", () => {
   ).toBe("audio");
   expect(
     getDocumentFileImporter(
+      createFile("looks-like-a.mp3", "video", { type: "video/mp4" }),
+    ).documentKind,
+  ).toBe("video");
+  expect(
+    getDocumentFileImporter(
       createFile("looks-like-a.mp3", "pdf", { type: "application/pdf" }),
     ).documentKind,
   ).toBe("pdf");
@@ -61,6 +66,9 @@ test("file importers classify by extension when MIME type is unavailable", () =>
   expect(
     getDocumentFileImporter(createFile("voice.mp3", "x")).documentKind,
   ).toBe("audio");
+  expect(
+    getDocumentFileImporter(createFile("clip.webm", "x")).documentKind,
+  ).toBe("video");
   expect(
     getDocumentFileImporter(createFile("contacts.csv", "x")).documentKind,
   ).toBe("note");
@@ -179,6 +187,30 @@ test("binary file importers attach original bytes and stable metadata", async ()
   });
   expect(result.attachment?.name).toBe("dl_front.jpeg");
   expect(result.attachment?.mimeType).toBe("image/jpeg");
+  expect(Array.from(result.attachment?.bytes ?? [])).toEqual(Array.from(bytes));
+});
+
+test("video file importer attaches original bytes and stable metadata", async () => {
+  const bytes = TEXT_ENCODER.encode("video-bytes");
+  const file = createFile("demo.mp4", bytes, { type: "video/mp4" });
+  const importer = getDocumentFileImporter(file);
+
+  const result = await importer.importFile(file);
+
+  expect(importer.maxByteLength).toBe(BINARY_FILE_IMPORT_MAX_BYTES);
+  expect(result.documentKind).toBe("video");
+  expect(result.initialText).toBe("");
+  expect(result.structuredFields).toMatchObject({
+    byteLength: String(bytes.byteLength),
+    durationMs: "",
+    fileName: "demo.mp4",
+    height: "",
+    mimeType: "video/mp4",
+    sourceLastModified: "2026-05-29T12:00:00.000Z",
+    width: "",
+  });
+  expect(result.attachment?.name).toBe("demo.mp4");
+  expect(result.attachment?.mimeType).toBe("video/mp4");
   expect(Array.from(result.attachment?.bytes ?? [])).toEqual(Array.from(bytes));
 });
 

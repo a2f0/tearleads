@@ -208,6 +208,7 @@ test("unnamed self contact title falls back to the user id", async () => {
 test("file document fields derive titles from imported file metadata", async () => {
   const image = await createDocument("image-file-document");
   const audio = await createDocument("audio-file-document");
+  const video = await createDocument("video-file-document");
   const pdf = await createDocument("pdf-file-document");
   const genericFile = await createDocument("generic-file-document");
 
@@ -223,10 +224,12 @@ test("file document fields derive titles from imported file metadata", async () 
   initializeStoredDocumentKind(audio, "audio");
   writeStoredDocumentFields(audio, "audio", {
     byteLength: "4096",
-    durationMs: "",
     fileName: "sample.mp3",
     mimeType: "audio/mpeg",
-    sourceLastModified: "",
+  });
+  initializeStoredDocumentKind(video, "video");
+  writeStoredDocumentFields(video, "video", {
+    fileName: "demo.mp4",
   });
   initializeStoredDocumentKind(pdf, "pdf");
   writeStoredDocumentFields(pdf, "pdf", {
@@ -259,6 +262,10 @@ test("file document fields derive titles from imported file metadata", async () 
   expect(readStoredDocumentState(audio)).toMatchObject({
     documentKind: "audio",
     title: "sample.mp3",
+  });
+  expect(readStoredDocumentState(video)).toMatchObject({
+    documentKind: "video",
+    title: "demo.mp4",
   });
   expect(readStoredDocumentState(pdf)).toMatchObject({
     documentKind: "pdf",
