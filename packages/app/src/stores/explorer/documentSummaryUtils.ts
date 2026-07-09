@@ -92,14 +92,14 @@ export function computeContainerMembershipSignature(
     ReadonlyArray<DocumentSummary>
   >,
 ): string {
-  return Array.from(documentSummariesByContainerId.entries())
-    .map(
-      ([containerId, summaries]) =>
-        `${containerId}:${summaries
-          .map((summary) => summary.id)
-          .sort()
-          .join(",")}`,
-    )
+  return Array.from(
+    documentSummariesByContainerId,
+    ([containerId, summaries]) =>
+      `${containerId}:${summaries
+        .map((summary) => summary.id)
+        .sort()
+        .join(",")}`,
+  )
     .sort()
     .join("\u0000");
 }

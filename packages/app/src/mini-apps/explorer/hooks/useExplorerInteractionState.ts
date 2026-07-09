@@ -79,16 +79,18 @@ export function useExplorerInteractionState(params: {
   // membership unchanged; bumping the link projection on those blanked and reloaded
   // the "You" contact and system-folder rows ~once per tick (the reported flicker).
   const lastLinkSignatureRef = useRef<string | null>(null);
-  // Reset the per-mount active-summaries tracking when the view (domain scope)
-  // rotates, so the new scope's summaries re-merge into the view model. Primed
-  // document stores are tracked per view (module scope) and need no reset here.
+  // Primed document stores are tracked per view (module scope) and need no reset.
   const lastViewRef = useRef(view);
-  if (lastViewRef.current !== view) {
-    lastViewRef.current = view;
-    lastActiveSummariesRef.current = null;
-    lastLinkSignatureRef.current = null;
-  }
   useEffect(() => {
+    // When the view (domain scope) rotates, reset the per-mount active-summaries +
+    // membership tracking so the new scope re-merges and re-signatures. Done here in
+    // the effect (commit phase) rather than during render — render-phase ref writes
+    // can double-run under StrictMode / concurrent rendering.
+    if (lastViewRef.current !== view) {
+      lastViewRef.current = view;
+      lastActiveSummariesRef.current = null;
+      lastLinkSignatureRef.current = null;
+    }
     const primedSummaryLists = primedSummaryListsForView(view);
     const applyFromView = () => {
       const summariesMap = view.getSnapshot().documentSummariesByContainerId;
