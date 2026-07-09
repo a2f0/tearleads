@@ -426,14 +426,12 @@ export function useWindowToolbarReservation(reserve = true): void {
   useEffect(() => {
     const id = idRef.current;
 
-    if (!reserve) {
-      unregisterToolbarReservation(id);
-      return;
+    // Register only while reserving; React runs the returned cleanup to
+    // unregister when `reserve` flips back to false or the caller unmounts.
+    if (reserve) {
+      registerToolbarReservation(id);
+      return () => unregisterToolbarReservation(id);
     }
-
-    registerToolbarReservation(id);
-
-    return () => unregisterToolbarReservation(id);
   }, [reserve, registerToolbarReservation, unregisterToolbarReservation]);
 }
 
