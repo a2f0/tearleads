@@ -251,6 +251,7 @@ export function CreditCard(params: CreditCardProps) {
       attachmentCopy={CREDIT_CARD_ATTACHMENT_COPY}
       attachments={
         <DocumentAttachmentSlots
+          attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
           blobPicker={blobPicker}

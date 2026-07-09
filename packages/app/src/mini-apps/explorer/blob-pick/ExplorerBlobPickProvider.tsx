@@ -9,6 +9,10 @@ import {
   useState,
 } from "react";
 import {
+  DocumentBlobOpenProvider,
+  type DocumentBlobOpenRequest,
+} from "../../../document-types/shared/DocumentBlobOpenContext";
+import {
   DocumentBlobPickProvider,
   type DocumentBlobPickRequest,
 } from "../../../document-types/shared/DocumentBlobPickContext";
@@ -47,7 +51,7 @@ export function ExplorerBlobPickProvider(
   params: PropsWithChildren<{
     // Navigates the Explorer detail panel to the blob-browser route. Called
     // when a pick starts; clearing the target on resolve/cancel routes back.
-    openBlobBrowserRoute: () => void;
+    openBlobBrowserRoute: (input?: DocumentBlobOpenRequest | undefined) => void;
     returnToDocumentRoute: (localId: string, containerId: string) => void;
   }>,
 ) {
@@ -69,6 +73,12 @@ export function ExplorerBlobPickProvider(
         slotLabel: request.slot.label,
       });
       openBlobBrowserRoute();
+    },
+    [openBlobBrowserRoute],
+  );
+  const openBlob = useCallback(
+    (request: DocumentBlobOpenRequest) => {
+      openBlobBrowserRoute(request);
     },
     [openBlobBrowserRoute],
   );
@@ -119,12 +129,15 @@ export function ExplorerBlobPickProvider(
     () => ({ consumeBlobPick, requestBlobPick }),
     [consumeBlobPick, requestBlobPick],
   );
+  const documentOpenValue = useMemo(() => ({ openBlob }), [openBlob]);
 
   return (
     <ExplorerBlobPickContext.Provider value={explorerValue}>
-      <DocumentBlobPickProvider value={documentValue}>
-        {children}
-      </DocumentBlobPickProvider>
+      <DocumentBlobOpenProvider value={documentOpenValue}>
+        <DocumentBlobPickProvider value={documentValue}>
+          {children}
+        </DocumentBlobPickProvider>
+      </DocumentBlobOpenProvider>
     </ExplorerBlobPickContext.Provider>
   );
 }

@@ -188,6 +188,7 @@ export function DriverLicense(params: {
       attachmentCopy={DRIVER_LICENSE_ATTACHMENT_COPY}
       attachments={
         <DocumentAttachmentSlots
+          attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
           blobPicker={blobPicker}
