@@ -18,12 +18,23 @@ import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoPendingChangesLabel,
 } from "../labels";
+import {
+  type ExplorerAttributionUserLabelResolver,
+  getExplorerAttributionWriterLabel,
+  getExplorerAttributionWriterTitle,
+} from "./attributionDisplay";
 import { compactId } from "./compactId";
 import "./ExplorerDocumentInfoBlame.css";
 
 type DocumentInfoAttributionSegment = NonNullable<
   DocumentInfo["remoteInfo"]
 >["attributionSegments"][number];
+
+interface ExplorerAttributionLabelParams {
+  attributionUserLabelResolver?:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
+}
 
 function getDocumentTypeLabel(documentKind: StoredDocumentKind | null): string {
   return documentKind
@@ -107,12 +118,12 @@ function formatContributorEdits(contributor: {
     : `${edits} ${EXPLORER_LABELS.documentInfoContributorReasserted}`;
 }
 
-export function ExplorerDocumentInfoContributorsSection(params: {
-  documentInfo: DocumentInfo | null;
-}) {
+export function ExplorerDocumentInfoContributorsSection(
+  params: ExplorerAttributionLabelParams & {
+    documentInfo: DocumentInfo | null;
+  },
+) {
   const remoteInfo = params.documentInfo?.remoteInfo;
-  // Hide the section entirely for local-only/unsynced docs: we never fetched
-  // attribution, so showing an empty "no attribution" state would be misleading.
   if (!remoteInfo) {
     return null;
   }
@@ -131,8 +142,14 @@ export function ExplorerDocumentInfoContributorsSection(params: {
             {contributors.map((contributor) => (
               <MiniAppInfoRow
                 key={contributor.writerKeyFingerprint}
-                label={compactId(contributor.writerKeyFingerprint)}
-                title={`${contributor.writerUserId} · ${contributor.writerKeyFingerprint}`}
+                label={getExplorerAttributionWriterLabel(
+                  contributor,
+                  params.attributionUserLabelResolver,
+                )}
+                title={getExplorerAttributionWriterTitle(
+                  contributor,
+                  params.attributionUserLabelResolver,
+                )}
               >
                 {formatContributorEdits(contributor)}
               </MiniAppInfoRow>
@@ -164,9 +181,11 @@ function formatBlameCharacters(writer: {
     : `${characters} ${EXPLORER_LABELS.documentInfoContributorReasserted}`;
 }
 
-export function ExplorerDocumentInfoCharacterBlameSection(params: {
-  documentInfo: DocumentInfo | null;
-}) {
+export function ExplorerDocumentInfoCharacterBlameSection(
+  params: ExplorerAttributionLabelParams & {
+    documentInfo: DocumentInfo | null;
+  },
+) {
   const blame = params.documentInfo?.remoteInfo?.characterBlame;
   // Per-writer authorship of the CURRENT text — the live-character counterpart to
   // the Contributors op-count rollup. Hidden when blame could not be computed (no
@@ -188,8 +207,14 @@ export function ExplorerDocumentInfoCharacterBlameSection(params: {
           {blame.writers.map((writer) => (
             <MiniAppInfoRow
               key={writer.writerKeyFingerprint}
-              label={compactId(writer.writerKeyFingerprint)}
-              title={`${writer.writerUserId} · ${writer.writerKeyFingerprint}`}
+              label={getExplorerAttributionWriterLabel(
+                writer,
+                params.attributionUserLabelResolver,
+              )}
+              title={getExplorerAttributionWriterTitle(
+                writer,
+                params.attributionUserLabelResolver,
+              )}
             >
               {formatBlameCharacters(writer)}
             </MiniAppInfoRow>
@@ -241,11 +266,14 @@ function blameSwatchStyle(hue: number): CSSProperties {
 
 function blameRunTitle(
   range: NonNullable<DocumentInfoBlameRange>[number],
+  resolveUserLabel?: ExplorerAttributionUserLabelResolver | undefined,
 ): string {
   if (!range.writerUserId || !range.writerKeyFingerprint) {
     return EXPLORER_LABELS.documentInfoBlameUnattributedTitle;
   }
-  const identity = `${range.writerUserId} · ${range.writerKeyFingerprint}`;
+  const identity =
+    getExplorerAttributionWriterTitle(range, resolveUserLabel) ??
+    `${range.writerUserId} · ${range.writerKeyFingerprint}`;
   // A run credited only via a rotate_baseline re-assertion is the first signed
   // uploader of that span, not a proven author — carry the same caveat the
   // Contributors/Character Blame rows show.
@@ -254,9 +282,11 @@ function blameRunTitle(
     : identity;
 }
 
-export function ExplorerDocumentInfoBlameSection(params: {
-  documentInfo: DocumentInfo | null;
-}) {
+export function ExplorerDocumentInfoBlameSection(
+  params: ExplorerAttributionLabelParams & {
+    documentInfo: DocumentInfo | null;
+  },
+) {
   const ranges = params.documentInfo?.remoteInfo?.blameRanges;
   // The current prose tinted by who wrote each run — the per-range counterpart to
   // the per-writer Character Blame rollup. Hidden when ranges could not be
@@ -310,7 +340,7 @@ export function ExplorerDocumentInfoBlameSection(params: {
                 ? blameRunStyle(hues.get(range.writerKeyFingerprint) ?? 0)
                 : undefined
             }
-            title={blameRunTitle(range)}
+            title={blameRunTitle(range, params.attributionUserLabelResolver)}
           >
             {range.text}
           </span>
@@ -321,7 +351,10 @@ export function ExplorerDocumentInfoBlameSection(params: {
           <li
             className="explorer-blame-legend-item"
             key={writer.writerKeyFingerprint}
-            title={`${writer.writerUserId} · ${writer.writerKeyFingerprint}`}
+            title={getExplorerAttributionWriterTitle(
+              writer,
+              params.attributionUserLabelResolver,
+            )}
           >
             <span
               className="explorer-blame-swatch"
@@ -329,7 +362,10 @@ export function ExplorerDocumentInfoBlameSection(params: {
                 hues.get(writer.writerKeyFingerprint) ?? 0,
               )}
             />
-            {compactId(writer.writerKeyFingerprint)}
+            {getExplorerAttributionWriterLabel(
+              writer,
+              params.attributionUserLabelResolver,
+            )}
           </li>
         ))}
         {hasUnattributed ? (
@@ -360,12 +396,13 @@ function humanizeFieldKey(fieldKey: string): string {
     : fieldKey;
 }
 
-export function ExplorerDocumentInfoFieldBlameSection(params: {
-  documentInfo: DocumentInfo | null;
-}) {
+export function ExplorerDocumentInfoFieldBlameSection(
+  params: ExplorerAttributionLabelParams & {
+    documentInfo: DocumentInfo | null;
+  },
+) {
   const fieldBlame = params.documentInfo?.remoteInfo?.fieldBlame;
-  // Who last set each field of a structured document (contact, card, license) —
-  // the per-field counterpart to prose blame. Hidden when it could not be
+  // Hidden when field blame could not be
   // computed or the document has no fields (e.g. a note, whose prose is covered
   // by the Blame section instead).
   if (!fieldBlame || fieldBlame.length === 0) {
@@ -379,14 +416,16 @@ export function ExplorerDocumentInfoFieldBlameSection(params: {
             <MiniAppInfoRow
               key={field.fieldKey}
               label={humanizeFieldKey(field.fieldKey)}
-              title={
-                field.writerUserId && field.writerKeyFingerprint
-                  ? `${field.writerUserId} · ${field.writerKeyFingerprint}`
-                  : undefined
-              }
+              title={getExplorerAttributionWriterTitle(
+                field,
+                params.attributionUserLabelResolver,
+              )}
             >
               {field.writerKeyFingerprint
-                ? compactId(field.writerKeyFingerprint)
+                ? getExplorerAttributionWriterLabel(
+                    field,
+                    params.attributionUserLabelResolver,
+                  )
                 : EXPLORER_LABELS.documentInfoCharacterBlameUnattributed}
             </MiniAppInfoRow>
           ))}
@@ -404,9 +443,11 @@ function getEditRangeAuthorityLabel(
     : EXPLORER_LABELS.documentInfoEditRangeAuthorityReasserted;
 }
 
-export function ExplorerDocumentInfoEditRangesSection(params: {
-  documentInfo: DocumentInfo | null;
-}) {
+export function ExplorerDocumentInfoEditRangesSection(
+  params: ExplorerAttributionLabelParams & {
+    documentInfo: DocumentInfo | null;
+  },
+) {
   const remoteInfo = params.documentInfo?.remoteInfo;
   const segments = remoteInfo?.attributionSegments ?? [];
   // Granular drill-down behind the Contributors rollup. Hidden whenever there is
@@ -434,9 +475,15 @@ export function ExplorerDocumentInfoEditRangesSection(params: {
               key={`${segment.peerId}:${segment.startCounter}:${segment.endCounter}`}
             >
               <td
-                title={`${segment.writerUserId} · ${segment.writerKeyFingerprint}`}
+                title={getExplorerAttributionWriterTitle(
+                  segment,
+                  params.attributionUserLabelResolver,
+                )}
               >
-                {compactId(segment.writerKeyFingerprint)}
+                {getExplorerAttributionWriterLabel(
+                  segment,
+                  params.attributionUserLabelResolver,
+                )}
               </td>
               <td title={segment.peerId}>{compactId(segment.peerId)}</td>
               <td>{`${segment.startCounter}–${segment.endCounter}`}</td>

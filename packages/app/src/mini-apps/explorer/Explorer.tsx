@@ -27,11 +27,13 @@ import {
   useExplorerBlobPick,
 } from "./blob-pick/ExplorerBlobPickProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
+import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import {
   useExplorerRoutedChromeActions,
   useExplorerToolbarUpload,
 } from "./ExplorerRoutedChrome";
+import { useExplorerAttributionUserLabels } from "./hooks/useExplorerAttributionUserLabels";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
@@ -87,20 +89,28 @@ function ExplorerDetailPanelWithBlobPick(params: {
   appData: RuntimeSnapshot;
   databaseError: boolean;
   model: ExplorerModel;
+  resolveAttributionUserLabel: ExplorerAttributionUserLabelResolver;
   onOpenGrant: (
     grant: ExplorerGrantOrgManagerTarget,
     position?: MiniAppWindowPosition,
   ) => void;
   onRetryDatabase: () => void;
 }) {
-  const { appData, databaseError, model, onOpenGrant, onRetryDatabase } =
-    params;
+  const {
+    appData,
+    databaseError,
+    model,
+    onOpenGrant,
+    onRetryDatabase,
+    resolveAttributionUserLabel,
+  } = params;
   const { cancelBlobPick, pickTarget, resolveBlobPick } = useExplorerBlobPick();
   const { linkedDocumentActivationControlsEnabled } = useAppFeatureFlags();
 
   return (
     <ExplorerDetailPanel
       activateLinkedContainer={model.activateLinkedContainer}
+      attributionUserLabelResolver={resolveAttributionUserLabel}
       blobPickTarget={pickTarget}
       blobStore={appData.infra.blobStore}
       databaseError={databaseError}
@@ -195,6 +205,11 @@ function ExplorerContent() {
     peerUserId,
     retryDatabaseBoot,
   );
+  const resolveAttributionUserLabel = useExplorerAttributionUserLabels({
+    appData,
+    enabled: model.routeState.route.view === "document-info",
+    explorer: model.explorer,
+  });
   const catchupScope = appData.state.domainScope;
   useEffect(() => {
     if (
@@ -335,6 +350,7 @@ function ExplorerContent() {
           appData={appData}
           databaseError={databaseError}
           model={model}
+          resolveAttributionUserLabel={resolveAttributionUserLabel}
           onOpenGrant={openGrantInOrgManager}
           onRetryDatabase={retryDatabaseBoot}
         />

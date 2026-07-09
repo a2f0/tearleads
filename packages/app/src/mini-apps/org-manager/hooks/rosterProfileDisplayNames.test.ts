@@ -5,7 +5,7 @@ import type {
   DocumentsRuntime,
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
-import { loadRosterProfileDisplayName } from "./rosterProfileDisplayNames";
+import { loadRosterProfileDisplayName } from "../../../stores/org-manager/rosterProfileDisplayNames";
 
 const rosterUser: OrganizationDirectoryUser & { profileDocumentId: string } = {
   createdAt: "2026-05-20T12:00:00.000Z",

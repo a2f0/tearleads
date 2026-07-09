@@ -8,7 +8,7 @@ import { getRosterProfileDocumentLocalId } from "@tearleads/client-sdk";
 import {
   getRosterProfileDocumentRelinkInput,
   readRosterProfileDisplayName,
-} from "../../../stores/org-manager/profileDocuments";
+} from "./profileDocuments";
 
 type RosterProfileDocumentUser = OrganizationDirectoryUser & {
   profileDocumentId: string;
