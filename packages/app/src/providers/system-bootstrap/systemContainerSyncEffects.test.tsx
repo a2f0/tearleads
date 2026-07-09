@@ -52,14 +52,15 @@ function trashNode(): ContainerNode {
 // sequence's spent attempts accumulate and, once the lifetime total crosses the
 // per-sequence limit, permanently starve every later sequence's pull — the eager
 // Trash would then never surface for a subsequent session.
-test("provisioned-container pull is not starved across polling sequences", () => {
+test("provisioned-container pull is not starved across polling sequences", async () => {
   const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
     Promise.resolve(true),
   );
-  // The provisioned slot never surfaces, so every sequence keeps pulling and the
-  // per-sequence budget is what bounds it.
+  // The provisioned slot never surfaces (locally or remotely), so every sequence
+  // keeps pulling and the per-sequence budget is what bounds it.
   const store = {
     getSnapshot: () => ({ nodes: [], ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
     refreshRootLane,
   } as unknown as ContainerContentsStore;
 
@@ -79,12 +80,17 @@ test("provisioned-container pull is not starved across polling sequences", () =>
     { initialProps: props },
   );
 
-  // Each rerender hands the effect a fresh systemContainers reference, ending the
-  // prior polling sequence (cleanup clears its interval) and starting a new one.
-  // The pull that opens each sequence fires synchronously, so the interval never
-  // has to tick for this to run past the limit.
+  // The opening pull of each sequence now fires only after the async local surface
+  // resolves and finds the slot still missing, so flush the microtask chain between
+  // sequences to let each sequence's fallback pull run before the next rerender's
+  // cleanup cancels it. Each rerender hands the effect a fresh systemContainers
+  // reference, ending the prior sequence (cleanup clears its interval) and starting
+  // a new one; the 250ms interval never has to tick.
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+  await flush();
   for (let sequence = 1; sequence < SEQUENCES; sequence += 1) {
     rerender({ ...props, systemContainers: [trashSystemContainer()] });
+    await flush();
   }
   unmount();
 
@@ -100,8 +106,10 @@ test("provisioned-container pull stops once the active root child lane hydrates 
     nodes = [trashNode()];
     return true;
   });
+  // The local surface does not yield the slot here, so the remote fallback poll runs.
   const store = {
     getSnapshot: () => ({ nodes, ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
     refreshRootLane,
   } as unknown as ContainerContentsStore;
 
@@ -131,6 +139,54 @@ test("provisioned-container pull stops once the active root child lane hydrates 
   ]);
 });
 
+// Option 1 (instant Trash surfacing): when the provisioned container is already in
+// local SQLite (persistRegistrationBootstrap wrote it in the same flow), the local
+// re-read surfaces it and the remote root-lane pull must never run — that is what
+// makes the Trash appear instantly, with zero server round-trip, on both the
+// personal (registration) and custom (createOrganization) org paths.
+test("provisioned-container pull skips the remote poll when the local surface yields the slot", async () => {
+  let nodes: ContainerNode[] = [];
+  const refreshRootLane = mock((_options?: RefreshRootLaneOptions) =>
+    Promise.resolve(true),
+  );
+  // The local surface fills the provisioned slot from SQLite.
+  const refreshLocalContainers = mock(() => {
+    nodes = [trashNode()];
+    return Promise.resolve();
+  });
+  const store = {
+    getSnapshot: () => ({ nodes, ready: true }),
+    refreshLocalContainers,
+    refreshRootLane,
+  } as unknown as ContainerContentsStore;
+
+  const { unmount } = renderHook(
+    (hookProps: Parameters<typeof useProvisionedSystemContainerPull>[0]) =>
+      useProvisionedSystemContainerPull(hookProps),
+    {
+      initialProps: {
+        currentOrganizationId: "org-1",
+        currentRootContainerId: "root-1",
+        enabled: true,
+        isAuthenticated: true,
+        logError: () => {},
+        snapshotReady: true,
+        store,
+        systemContainers: [trashSystemContainer()],
+      },
+    },
+  );
+
+  // Let the async local surface resolve and the fallback decision run; give the
+  // 250ms interval room to have ticked, had one ever been started.
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  unmount();
+
+  expect(refreshLocalContainers.mock.calls.length).toBeGreaterThanOrEqual(1);
+  // The slot surfaced locally, so no server round-trip is ever issued.
+  expect(refreshRootLane.mock.calls.length).toBe(0);
+});
+
 // Regression: a slow network must not let interval ticks pile up concurrent
 // root-lane pulls and burn the attempt budget before the first request answers.
 // With a pull that never settles the in-flight guard must keep every later tick
@@ -143,6 +199,7 @@ test("provisioned-container pull does not fire concurrently while one is in flig
   );
   const store = {
     getSnapshot: () => ({ nodes: [], ready: true }),
+    refreshLocalContainers: () => Promise.resolve(),
     refreshRootLane,
   } as unknown as ContainerContentsStore;
 

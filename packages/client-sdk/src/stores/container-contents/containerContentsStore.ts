@@ -92,6 +92,7 @@ function chainBooleanShareWrite(
   return state.writeChain.then((sharedNode) => sharedNode !== null);
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The store entry is a flat list of thin write-chain/sync-agent delegations; splitting it would scatter one cohesive public surface.
 function createContainerContentsStoreEntry(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence = defaultContainerContentsPersistence,
@@ -147,6 +148,13 @@ function createContainerContentsStoreEntry(
       },
       refresh: () => syncAgent.refresh(),
       refreshRootLane: (options) => syncAgent.refreshRootLane(options),
+      // Force an on-demand local SQLite re-read (see the interface doc): arm the
+      // gate refreshLocalContainerStates otherwise requires, which the runtime
+      // auto-arms only on a context transition an on-demand caller cannot rely on.
+      refreshLocalContainers: () => {
+        state.localContainersNeedRefresh = true;
+        return syncAgent.refreshLocalContainers();
+      },
       requestSync: () => syncAgent.scheduleSync(),
       renameContainer: (containerId: string, name: string) => {
         state.writeChain = state.writeChain
