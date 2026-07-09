@@ -98,6 +98,34 @@
   object-fit: contain;
 }
 
+.structured-document-slot-preview-button {
+  appearance: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  text-align: center;
+}
+
+.structured-document-slot-preview-button:hover,
+.structured-document-slot-preview-button:focus-visible {
+  border-style: solid;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.structured-document-slot-preview-button:focus-visible {
+  outline: var(--border-width) solid currentColor;
+  outline-offset: var(--space-2xs);
+}
+
+.structured-document-slot-preview-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .structured-document-slot-placeholder {
   display: grid;
   place-items: center;

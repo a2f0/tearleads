@@ -2,6 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { DocumentAttachmentSlots } from "./DocumentAttachmentSlots";
+import {
+  DocumentBlobOpenProvider,
+  type DocumentBlobOpenRequest,
+} from "./DocumentBlobOpenContext";
 import type { DocumentAttachmentSlot } from "./documentAttachmentUtils";
 
 afterEach(cleanup);
@@ -36,21 +40,35 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
 
 function renderAttachmentSlots(params?: {
   attachments?: ReadonlyArray<DocumentAttachment>;
+  attachmentStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
   blobPicker?: Parameters<typeof DocumentAttachmentSlots>[0]["blobPicker"];
   canAttach?: boolean;
+  imageUrlBySlotId?: Readonly<Record<string, string | undefined>>;
   onClearAttachment?: (slotId: string) => void;
+  onOpenBlob?: (request: DocumentBlobOpenRequest) => void;
 }) {
-  return render(
+  const slotsElement = (
     <DocumentAttachmentSlots
+      attachmentStorageKeyBySlotId={params?.attachmentStorageKeyBySlotId ?? {}}
       attachmentStatusBySlotId={{}}
       attachments={params?.attachments ?? attachments}
       blobPicker={params?.blobPicker}
       canAttach={params?.canAttach ?? true}
-      imageUrlBySlotId={{}}
+      imageUrlBySlotId={params?.imageUrlBySlotId ?? {}}
       onClearAttachment={params?.onClearAttachment ?? (() => undefined)}
       onSelectedAttachment={() => undefined}
       slots={slots}
-    />,
+    />
+  );
+
+  return render(
+    params?.onOpenBlob ? (
+      <DocumentBlobOpenProvider value={{ openBlob: params.onOpenBlob }}>
+        {slotsElement}
+      </DocumentBlobOpenProvider>
+    ) : (
+      slotsElement
+    ),
   );
 }
 
@@ -91,6 +109,23 @@ test("shows downloading feedback when an attachment exists before its image byte
     .closest(".structured-document-slot");
   expect(backSlot?.textContent).toContain("No image selected");
   expect(backSlot?.textContent).not.toContain("Downloading image...");
+});
+
+test("opens the bound blob when a slot image is clicked", () => {
+  const openRequests: DocumentBlobOpenRequest[] = [];
+  const view = renderAttachmentSlots({
+    attachmentStorageKeyBySlotId: {
+      front: "front-storage-key",
+    },
+    imageUrlBySlotId: {
+      front: "blob:front-preview",
+    },
+    onOpenBlob: (request) => openRequests.push(request),
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Open Front Image" }));
+
+  expect(openRequests).toEqual([{ storageKey: "front-storage-key" }]);
 });
 
 test("image attachment actions are hidden when attachments cannot be changed", () => {

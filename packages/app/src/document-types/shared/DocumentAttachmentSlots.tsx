@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { type ChangeEvent, useId, useRef } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
+import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
 import {
   type DocumentAttachmentSlot,
   getDocumentAttachmentStatusLabel,
@@ -74,7 +75,73 @@ function DocumentAttachmentSlotActions(params: {
   );
 }
 
+function DocumentAttachmentSlotPreview(params: {
+  imageIsLoading: boolean;
+  imageUrl: string | undefined;
+  onOpenAttachment: (() => void) | null;
+  slot: DocumentAttachmentSlot;
+  storedAttachment: DocumentAttachment | null;
+}) {
+  const { imageIsLoading, imageUrl, onOpenAttachment, slot, storedAttachment } =
+    params;
+  const altText = storedAttachment?.name ?? slot.label;
+
+  if (imageUrl) {
+    return onOpenAttachment && storedAttachment ? (
+      <button
+        aria-label={`Open ${slot.label}`}
+        className="structured-document-slot-preview structured-document-slot-preview-button"
+        onClick={onOpenAttachment}
+        title={`Open ${storedAttachment.name}`}
+        type="button"
+      >
+        <img
+          className="structured-document-slot-preview-image"
+          src={imageUrl}
+          alt=""
+        />
+      </button>
+    ) : (
+      <img
+        className="structured-document-slot-preview"
+        src={imageUrl}
+        alt={altText}
+      />
+    );
+  }
+
+  const placeholderContent = imageIsLoading ? (
+    <>
+      <span className="structured-document-slot-spinner" aria-hidden="true" />
+      <span>Downloading image...</span>
+    </>
+  ) : (
+    "No image selected"
+  );
+
+  return onOpenAttachment && storedAttachment ? (
+    <button
+      aria-busy={imageIsLoading || undefined}
+      aria-label={`Open ${slot.label}`}
+      className="structured-document-slot-preview structured-document-slot-placeholder structured-document-slot-preview-button"
+      onClick={onOpenAttachment}
+      title={`Open ${storedAttachment.name}`}
+      type="button"
+    >
+      {placeholderContent}
+    </button>
+  ) : (
+    <div
+      aria-busy={imageIsLoading || undefined}
+      className="structured-document-slot-preview structured-document-slot-placeholder"
+    >
+      {placeholderContent}
+    </div>
+  );
+}
+
 function DocumentAttachmentSlotCard(params: {
+  attachmentStorageKey: string | undefined;
   blobPicker: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
   imageUrl: string | undefined;
@@ -85,6 +152,7 @@ function DocumentAttachmentSlotCard(params: {
   storedAttachment: DocumentAttachment | null;
 }) {
   const {
+    attachmentStorageKey,
     blobPicker,
     canAttach,
     imageUrl,
@@ -98,6 +166,11 @@ function DocumentAttachmentSlotCard(params: {
   const inputRef = useRef<HTMLInputElement>(null);
   const statusLabel = getDocumentAttachmentStatusLabel(status);
   const imageIsLoading = Boolean(storedAttachment && !imageUrl);
+  const blobOpen = useDocumentBlobOpen();
+  const openAttachment =
+    storedAttachment && attachmentStorageKey && blobOpen
+      ? () => blobOpen.openBlob({ storageKey: attachmentStorageKey })
+      : null;
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     onSelectedFile(event.currentTarget.files);
@@ -112,30 +185,13 @@ function DocumentAttachmentSlotCard(params: {
           {slot.description}
         </span>
       </div>
-      {imageUrl ? (
-        <img
-          className="structured-document-slot-preview"
-          src={imageUrl}
-          alt={storedAttachment?.name ?? slot.label}
-        />
-      ) : (
-        <div
-          aria-busy={imageIsLoading || undefined}
-          className="structured-document-slot-preview structured-document-slot-placeholder"
-        >
-          {imageIsLoading ? (
-            <>
-              <span
-                className="structured-document-slot-spinner"
-                aria-hidden="true"
-              />
-              <span>Downloading image...</span>
-            </>
-          ) : (
-            "No image selected"
-          )}
-        </div>
-      )}
+      <DocumentAttachmentSlotPreview
+        imageIsLoading={imageIsLoading}
+        imageUrl={imageUrl}
+        onOpenAttachment={openAttachment}
+        slot={slot}
+        storedAttachment={storedAttachment}
+      />
       <div className="structured-document-slot-meta">
         <span className="structured-document-slot-name">
           {storedAttachment?.name ?? "No file selected"}
@@ -173,6 +229,7 @@ function DocumentAttachmentSlotCard(params: {
 }
 
 export function DocumentAttachmentSlots(params: {
+  attachmentStorageKeyBySlotId: Readonly<Record<string, string | undefined>>;
   attachmentStatusBySlotId: Readonly<
     Record<string, DocumentAttachmentStatus | undefined>
   >;
@@ -185,6 +242,7 @@ export function DocumentAttachmentSlots(params: {
   slots: ReadonlyArray<DocumentAttachmentSlot>;
 }) {
   const {
+    attachmentStorageKeyBySlotId,
     attachmentStatusBySlotId,
     attachments,
     blobPicker,
@@ -200,6 +258,7 @@ export function DocumentAttachmentSlots(params: {
       {slots.map((slot) => (
         <DocumentAttachmentSlotCard
           key={slot.slotId}
+          attachmentStorageKey={attachmentStorageKeyBySlotId[slot.slotId]}
           blobPicker={blobPicker}
           canAttach={canAttach}
           imageUrl={imageUrlBySlotId[slot.slotId]}

@@ -220,6 +220,7 @@ export function Passport(params: PassportProps) {
       attachmentCopy={PASSPORT_ATTACHMENT_COPY}
       attachments={
         <DocumentAttachmentSlots
+          attachmentStorageKeyBySlotId={attachmentStorageKeyBySlotId}
           attachmentStatusBySlotId={attachmentStatusBySlotId}
           attachments={attachments}
           blobPicker={blobPicker}
