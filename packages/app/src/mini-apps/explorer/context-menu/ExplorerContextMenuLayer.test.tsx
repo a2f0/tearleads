@@ -100,7 +100,6 @@ function ExplorerContextMenuLayerHarness(params: {
       openPurgeModal={params.openPurgeModal ?? (() => {})}
       openRenameModal={() => {}}
       purgeDocument={params.purgeDocument ?? (async () => null)}
-      selectContainer={() => {}}
     />
   );
 }
@@ -418,10 +417,7 @@ test("document context menu hides unavailable actions", () => {
 
   expect(
     view.getAllByRole("button").map((button) => button.textContent),
-  ).toEqual([
-    EXPLORER_LABELS.documentInfoGetInfoAction,
-    EXPLORER_LABELS.documentBackToContainerAction,
-  ]);
+  ).toEqual([EXPLORER_LABELS.documentInfoGetInfoAction]);
   expect(
     view.queryByRole("button", {
       name: EXPLORER_LABELS.documentLinkAction,

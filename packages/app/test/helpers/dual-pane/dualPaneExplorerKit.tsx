@@ -156,11 +156,10 @@ export async function createNoteWithAttachment(pane: HTMLElement) {
   });
   await waitForRemoteAttachmentBlob();
 
-  const backButton = within(pane).getByRole("button", {
-    name: "Back to Container",
-  });
+  // Return to the container view by re-selecting it in the sidebar (the in-document
+  // "Back to Container" toolbar button was removed).
   await interact(() => {
-    fireEvent.click(backButton);
+    fireEvent.click(getExplorerSidebarItem(pane, "/"));
   });
   await waitFor(() => {
     expect(queryExplorerItemTable(pane)).toBeTruthy();

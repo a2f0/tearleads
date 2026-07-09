@@ -73,12 +73,6 @@ test("explorer windows in the same pane share newly created notes without refres
   await openExplorerNewStructuredDocumentRoute(firstExplorer);
   fireEvent.click(within(firstExplorer).getByRole("button", { name: "Note" }));
 
-  await waitFor(() => {
-    expect(
-      within(firstExplorer).getByRole("button", { name: "Back to Container" }),
-    ).toBeTruthy();
-  });
-
   const editor = await within(firstExplorer).findByRole("textbox", {
     name: /Notes editor/,
   });

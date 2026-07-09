@@ -214,18 +214,10 @@ export async function shareContainerWithGroup(
     15_000,
   );
 
-  const backButton = within(pane).getByRole("button", {
-    name: "Back to Container",
-  });
-  invariant(
-    backButton instanceof HTMLButtonElement,
-    "Expected back to container button.",
-  );
-  await waitFor(() => {
-    expect(backButton.disabled).toBe(false);
-  });
+  // Return to the container view by re-selecting it in the sidebar (the
+  // "Back to Container" toolbar button was removed).
   await interact(() => {
-    fireEvent.click(backButton);
+    fireEvent.click(getExplorerSidebarItem(pane, name));
   });
   await waitForCondition(
     () => Boolean(queryExplorerItemTable(pane)),

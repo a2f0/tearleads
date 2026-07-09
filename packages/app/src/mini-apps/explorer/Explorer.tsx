@@ -392,7 +392,6 @@ function ExplorerContent() {
         openPurgeModal={model.modalState.openPurgeModal}
         openRenameModal={model.modalState.openRenameModal}
         purgeDocument={model.purgeDocument}
-        selectContainer={model.routeState.selectExplorerItem}
       />
       <ExplorerModalLayer
         closeModal={model.modalState.closeModal}

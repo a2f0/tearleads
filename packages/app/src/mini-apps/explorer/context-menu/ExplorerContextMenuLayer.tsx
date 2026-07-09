@@ -3,7 +3,6 @@ import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ArrowsOutCardinalIcon } from "@phosphor-icons/react/dist/csr/ArrowsOutCardinal";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
-import { FolderOpenIcon } from "@phosphor-icons/react/dist/csr/FolderOpen";
 import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { LinkSimpleIcon } from "@phosphor-icons/react/dist/csr/LinkSimple";
@@ -57,7 +56,6 @@ interface ExplorerDocumentContextMenuProps {
   openLinkDocumentModal: (localId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
   purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
-  selectContainer: (containerId: string) => void;
 }
 
 function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
@@ -75,7 +73,6 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
     openLinkDocumentModal,
     openMoveDocumentModal,
     purgeDocument,
-    selectContainer,
   } = params;
 
   return (
@@ -136,14 +133,6 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         onSelect={() =>
           void purgeDocument(contextMenu.id.localId, contextMenu.id.containerId)
         }
-      />
-      <MenuItem
-        icon={FolderOpenIcon}
-        label={EXPLORER_LABELS.documentBackToContainerAction}
-        onClick={() => {
-          closeContextMenu();
-          selectContainer(contextMenu.id.containerId);
-        }}
       />
     </Menu>
   );
@@ -386,7 +375,6 @@ export function ExplorerContextMenuLayer(params: {
   openPurgeModal: (containerId: string) => void;
   openRenameModal: (containerId: string) => void;
   purgeDocument: (localId: string, containerId: string) => Promise<unknown>;
-  selectContainer: (containerId: string) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadContainerIdRef = useRef<string | null>(null);

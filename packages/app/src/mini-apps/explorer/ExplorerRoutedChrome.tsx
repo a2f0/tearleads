@@ -90,7 +90,6 @@ export function useExplorerRoutedChromeActions({
   useExplorerRoutedBackAction({
     model,
     route,
-    selectedDocumentContainerId,
   });
   useExplorerCreateFolderToolbarAction({
     activeContainerId,
@@ -177,11 +176,9 @@ function useExplorerNewContactToolbarAction({
 function useExplorerRoutedBackAction({
   model,
   route,
-  selectedDocumentContainerId,
 }: {
   model: ExplorerModel;
   route: ExplorerModel["routeState"]["route"];
-  selectedDocumentContainerId: string | null;
 }) {
   const backAction = useMemo(() => {
     if (route.view === "document-info") {
@@ -202,40 +199,23 @@ function useExplorerRoutedBackAction({
       };
     }
 
-    if (
-      route.view === "blob-browser" ||
-      route.view === "container-info" ||
-      route.view === "new-structured-document" ||
-      route.view === "sync-lanes"
-    ) {
+    if (route.view === "sync-lanes") {
       return {
-        label:
-          route.view === "sync-lanes"
-            ? EXPLORER_LABELS.syncLanesBackAction
-            : EXPLORER_LABELS.backToContainerAction,
+        label: EXPLORER_LABELS.syncLanesBackAction,
         onClick: model.routeState.showSelectionRoute,
         priority: 100,
       };
     }
 
-    if (selectedDocumentContainerId) {
-      return {
-        label: EXPLORER_LABELS.documentBackToContainerAction,
-        onClick: () => {
-          model.routeState.selectExplorerItem(selectedDocumentContainerId);
-        },
-        priority: 100,
-      };
-    }
-
+    // Sub-routes (blob-browser, container-info, new-structured-document) and open
+    // documents no longer surface a "Back to Container" action; selecting a
+    // container in the sidebar returns to it.
     return null;
   }, [
     model.routeState.openSyncLanesRoute,
-    model.routeState.selectExplorerItem,
     model.routeState.showSelectionRoute,
     model.selectDocumentProjection,
     route,
-    selectedDocumentContainerId,
   ]);
 
   useWindowBackAction(backAction);
