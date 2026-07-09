@@ -273,6 +273,102 @@ test("provisioned root-lane refresh surfaces Trash under the reconciled server r
   }
 });
 
+// Option 1 (instant Trash surfacing): a server-provisioned system container is
+// written to local SQLite by persistRegistrationBootstrap in the SAME flow as
+// registration / org-creation. `refreshLocalContainers` must surface it into the
+// snapshot from that local row with NO server round-trip, so it appears as
+// instantly as the device-first Contacts instead of waiting for the remote
+// root-lane poll — and stay idempotent with any later remote pull (merge keyed by
+// container id, never a duplicate). Here the remote list only ever returns empty,
+// so a surfaced Trash can only have come from the local re-read.
+test("refreshLocalContainers surfaces a newly persisted container from local SQLite", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-local-refresh-surface-test",
+  );
+  const domainScope = {} as DomainScope;
+  let listContainerCalls = 0;
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        icon: null,
+        id: "active-root",
+        effectiveAccessLevel: "admin",
+        metadataDocumentId: "active-root-metadata-document",
+        name: "/",
+        organizationId: "org-1",
+        parentId: null,
+      },
+      null,
+    );
+
+    const runtime = createSqlTestRuntime({
+      apiClient: createMockApiClient({
+        listContainers: async () => {
+          listContainerCalls += 1;
+          return emptyListContainersResponse();
+        },
+      }),
+      domainScope,
+      execSql,
+      rootContainerId: "active-root",
+    });
+    const store = createContainerContentsStore(runtime);
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    // The provisioned Trash is not in the tree yet.
+    expect(store.getSnapshot().nodes.map((node) => node.id)).not.toContain(
+      "provisioned-trash",
+    );
+
+    // Simulate registration persisting the server-provisioned Trash to local
+    // SQLite AFTER the store already initialized (the fresh-registration case).
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      {
+        icon: "trash",
+        id: "provisioned-trash",
+        effectiveAccessLevel: "admin",
+        metadataDocumentId: "provisioned-trash-metadata-document",
+        name: "Trash",
+        organizationId: "org-1",
+        parentId: "active-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      },
+      null,
+    );
+
+    const listCallsBeforeSurface = listContainerCalls;
+    await store.refreshLocalContainers();
+
+    // Surfaced from local SQLite (the remote list only returns empty, so it could
+    // not have come from the network), with no remote list issued by the surface.
+    expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
+      "provisioned-trash",
+    );
+    expect(listContainerCalls).toBe(listCallsBeforeSurface);
+
+    // Idempotent with a repeat surface (and any later remote pull): keyed by
+    // container id, so it reconciles in place rather than inserting a duplicate.
+    await store.refreshLocalContainers();
+    expect(
+      store
+        .getSnapshot()
+        .nodes.filter((node) => node.id === "provisioned-trash"),
+    ).toHaveLength(1);
+  } finally {
+    close();
+  }
+});
+
 // Regression (bootstrap churn engine): each provisioned poll must NOT re-list the
 // root (null) lane unwatermarked. An unwatermarked re-list every tick makes
 // hydrateRemoteContainers count every listed container as "changed", re-firing

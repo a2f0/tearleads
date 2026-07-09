@@ -2,7 +2,7 @@ import type {
   ContainerContentsStore,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import { useEffect, useRef } from "react";
+import { type MutableRefObject, useEffect, useRef } from "react";
 import { findExplorerSystemNode } from "../../stores/explorer/ExplorerSystemContainers";
 import type { UserSystemContainer } from "../../stores/systemContainers";
 
@@ -110,6 +110,122 @@ export function usePromoteLocalSystemContainers(input: {
   ]);
 }
 
+// Surface the provisioned system containers from local SQLite, then poll the root
+// lane as a fallback only if the local read did not yield every slot. Extracted from
+// the hook effect so each stays within the source-shape line budget. Returns the
+// effect cleanup, which cancels a pending surface→poll handoff and clears the timer.
+function surfaceThenPollProvisionedContainers(input: {
+  attemptsRef: MutableRefObject<number>;
+  inFlightRef: MutableRefObject<boolean>;
+  listMissingSlots: () => string[];
+  logError: (message: string | Error, cause?: unknown) => void;
+  store: ContainerContentsStore;
+  timerRef: MutableRefObject<ReturnType<typeof setInterval> | null>;
+}): () => void {
+  const {
+    attemptsRef,
+    inFlightRef,
+    listMissingSlots,
+    logError,
+    store,
+    timerRef,
+  } = input;
+
+  // Fresh sequence: reset the attempt budget and the in-flight guard. The provider
+  // is not remounted across org switches or a logout/login, so these refs outlive
+  // any single session; without the reset a prior sequence's spent attempts would
+  // accumulate and eventually starve every later session's pull once the lifetime
+  // total crossed the limit.
+  attemptsRef.current = 0;
+  inFlightRef.current = false;
+  let cancelled = false;
+
+  const stopPolling = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const pullRootLane = () => {
+    if (
+      listMissingSlots().length === 0 ||
+      attemptsRef.current >= PROVISIONED_SYSTEM_CONTAINER_PULL_LIMIT
+    ) {
+      stopPolling();
+      return;
+    }
+    // Keep pulls sequential: skip this tick if the previous root-lane pull has not
+    // settled yet. Firing every interval regardless would pile up concurrent
+    // requests under a slow network and burn the whole attempt budget before the
+    // server answered even the first — spending against the limit only on completed
+    // round-trips is what makes it a retry budget.
+    if (inFlightRef.current) {
+      return;
+    }
+    inFlightRef.current = true;
+    attemptsRef.current += 1;
+    void store
+      .refreshRootLane({ includeActiveRootChildLane: true })
+      .catch((error: unknown) => {
+        // Skip a failure from a torn-down sequence (org switch / logout): the pull
+        // belongs to the old scope and its error is not actionable here.
+        if (!cancelled) {
+          logError("Failed to pull provisioned system container", error);
+        }
+      })
+      .finally(() => {
+        // Only the owning (uncancelled) sequence may clear the guard. inFlightRef
+        // persists across sequences, so a cancelled sequence's late-resolving pull
+        // must not reset a fresh sequence's guard — that would let the fresh
+        // sequence fire a concurrent pull and burn its attempt budget.
+        if (!cancelled) {
+          inFlightRef.current = false;
+        }
+      });
+  };
+
+  const startRemotePollingIfStillMissing = () => {
+    // The local surface may have already converged, or this effect run may have
+    // been torn down (org switch / logout) while the local read was in flight. In
+    // either case do not open a network poll — checking cancelled here (set by the
+    // returned cleanup) is what prevents a leaked stale interval.
+    if (cancelled || timerRef.current || listMissingSlots().length === 0) {
+      return;
+    }
+    pullRootLane();
+    timerRef.current = setInterval(
+      pullRootLane,
+      PROVISIONED_SYSTEM_CONTAINER_PULL_INTERVAL_MS,
+    );
+  };
+
+  // Surface from LOCAL SQLite first: registration / createOrganization already
+  // persisted the provisioned containers in the same flow (persistRegistrationBootstrap),
+  // so a local re-read shows them instantly with no server round-trip — parity with
+  // the device-first Contacts. Fall back to the remote poll only for a slot the
+  // local read did not yield.
+  void store
+    .refreshLocalContainers()
+    .catch((error: unknown) => {
+      // Skip a rejection from a torn-down sequence (unmount / org switch): the
+      // store/db may be gone, so logging it would be a false positive. Mirrors the
+      // pullRootLane guard.
+      if (!cancelled) {
+        logError(
+          "Failed to surface provisioned system container from local state",
+          error,
+        );
+      }
+    })
+    .finally(startRemotePollingIfStillMissing);
+
+  return () => {
+    cancelled = true;
+    stopPolling();
+  };
+}
+
 // Hydrate system containers provisioned server-side with the organization (e.g.
 // the Trash bin). Unlike the local-only containers usePromoteLocalSystemContainers
 // handles, these are never created device-first — a second local copy would
@@ -118,14 +234,21 @@ export function usePromoteLocalSystemContainers(input: {
 // canProvisionSystemContainers, which can stay false while the local root still
 // carries its pre-registration organization id).
 //
-// Why poll rather than pull once: a single root-lane pull can race the store
-// coming online right after registration and return nothing, and — unlike the
+// Surface locally first, poll remotely only as a fallback: registration and
+// createOrganization persist the provisioned container to local SQLite in the same
+// flow, so a local re-read (store.refreshLocalContainers) shows it instantly with
+// no server round-trip — matching the device-first Contacts' immediacy. The remote
+// poll remains as a safety net for the cases the local read cannot satisfy (store
+// not yet initialized, or the freshly created org is not the active context yet).
+//
+// Why poll rather than pull once (fallback): a single root-lane pull can race the
+// store coming online right after registration and return nothing, and — unlike the
 // Explorer's manual refresh button, which re-pulls on every click — the
 // autopilot/registration path has no user nudge to try again. So pull on an
 // interval until every provisioned slot surfaces (checking the live store
 // snapshot, not the render's), then stop. A returning session that already loaded
-// the slot from SQLite finds it present up front and never polls; the attempt
-// budget only bounds the pathological slot the server never returns.
+// the slot from SQLite finds it present up front and never surfaces or polls; the
+// attempt budget only bounds the pathological slot the server never returns.
 export function useProvisionedSystemContainerPull(input: {
   readonly currentOrganizationId: string | null | undefined;
   readonly currentRootContainerId: string | null | undefined;
@@ -181,56 +304,14 @@ export function useProvisionedSystemContainerPull(input: {
       return;
     }
 
-    // Fresh sequence: reset the attempt budget and the in-flight guard. The
-    // provider is not remounted across org switches or a logout/login, so these
-    // refs outlive any single session; without the reset a prior sequence's spent
-    // attempts would accumulate and eventually starve every later session's pull
-    // the moment the lifetime total crossed the limit.
-    provisionedPullAttemptsRef.current = 0;
-    provisionedPullInFlightRef.current = false;
-
-    const stopPolling = () => {
-      if (provisionedPullTimerRef.current) {
-        clearInterval(provisionedPullTimerRef.current);
-        provisionedPullTimerRef.current = null;
-      }
-    };
-
-    const pullRootLane = () => {
-      if (
-        listMissingSlots().length === 0 ||
-        provisionedPullAttemptsRef.current >=
-          PROVISIONED_SYSTEM_CONTAINER_PULL_LIMIT
-      ) {
-        stopPolling();
-        return;
-      }
-      // Keep pulls sequential: skip this tick if the previous root-lane pull has
-      // not settled yet. Firing every interval regardless would pile up
-      // concurrent requests under a slow network and burn the whole attempt
-      // budget before the server answered even the first one — spending against
-      // the limit only on completed round-trips is what makes it a retry budget.
-      if (provisionedPullInFlightRef.current) {
-        return;
-      }
-      provisionedPullInFlightRef.current = true;
-      provisionedPullAttemptsRef.current += 1;
-      void store
-        .refreshRootLane({ includeActiveRootChildLane: true })
-        .catch((error: unknown) => {
-          logError("Failed to pull provisioned system container", error);
-        })
-        .finally(() => {
-          provisionedPullInFlightRef.current = false;
-        });
-    };
-
-    pullRootLane();
-    provisionedPullTimerRef.current = setInterval(
-      pullRootLane,
-      PROVISIONED_SYSTEM_CONTAINER_PULL_INTERVAL_MS,
-    );
-    return stopPolling;
+    return surfaceThenPollProvisionedContainers({
+      attemptsRef: provisionedPullAttemptsRef,
+      inFlightRef: provisionedPullInFlightRef,
+      listMissingSlots,
+      logError,
+      store,
+      timerRef: provisionedPullTimerRef,
+    });
   }, [
     enabled,
     currentOrganizationId,

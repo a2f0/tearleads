@@ -95,6 +95,13 @@ export interface ContainerContentsStore {
   purgeContainer: (containerId: string) => Promise<boolean>;
   refresh: () => Promise<boolean>;
   refreshRootLane: (options?: RefreshRootLaneOptions) => Promise<boolean>;
+  // Re-read root-lane containers from local SQLite into the snapshot with NO
+  // server round-trip. Surfaces a just-persisted container — e.g. the Trash bin
+  // that registration/org-creation provisioned server-side and wrote to SQLite
+  // via persistRegistrationBootstrap — instantly, instead of waiting for the
+  // remote root-lane pull. Idempotent with a later remote pull: the merge is
+  // keyed by container id, so the pull reconciles in place rather than duplicating.
+  refreshLocalContainers: () => Promise<void>;
   requestSync: () => void;
   renameContainer: (
     containerId: string,
