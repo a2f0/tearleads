@@ -52,7 +52,6 @@
   justify-content: center;
   gap: var(--space-sm);
   aspect-ratio: 1;
-  min-height: 0;
   text-align: center;
 }
 
