@@ -71,6 +71,13 @@
       "when": 1783256271779,
       "tag": "0009_many_ghost_rider",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783617350669,
+      "tag": "0010_sticky_alex_wilder",
+      "breakpoints": true
     }
   ]
 }

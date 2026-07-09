@@ -44,7 +44,11 @@ interface WebhookEventInput {
   eventId?: string;
   eventTimestampMs?: number;
   expirationAtMs?: number | null;
+  originalTransactionId?: string | null;
   organizationId: string;
+  productId?: string | null;
+  purchasedAtMs?: number | null;
+  transactionId?: string | null;
   type: string;
 }
 
@@ -60,7 +64,11 @@ function webhookBody(input: WebhookEventInput): string {
           ? Date.now() + THIRTY_DAYS_MS
           : input.expirationAtMs,
       id: input.eventId ?? crypto.randomUUID(),
+      original_transaction_id: input.originalTransactionId,
+      product_id: input.productId,
+      purchased_at_ms: input.purchasedAtMs,
       subscriber_attributes: { orgId: { value: input.organizationId } },
+      transaction_id: input.transactionId,
       type: input.type,
     },
   });
@@ -85,11 +93,16 @@ async function readBilling(organizationId: string) {
   const [row] = await db
     .select({
       currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+      currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
       disabledAt: organizationBilling.disabledAt,
       entitlementId: organizationBilling.entitlementId,
       provider: organizationBilling.provider,
       providerCustomerId: organizationBilling.providerCustomerId,
+      providerProductId: organizationBilling.providerProductId,
+      providerSubscriptionId: organizationBilling.providerSubscriptionId,
+      providerTransactionId: organizationBilling.providerTransactionId,
       purgeAfter: organizationBilling.purgeAfter,
+      seatCount: organizationBilling.seatCount,
       status: organizationBilling.status,
     })
     .from(organizationBilling)
@@ -139,13 +152,18 @@ test("an admin purchase activates org sync and records the provider", async () =
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   await setTestOrganizationBillingLocal(organizationId);
+  const purchasedAtMs = Date.now();
   const expirationAtMs = Date.now() + THIRTY_DAYS_MS;
 
   const response = await postWebhook(
     webhookBody({
       appUserId: admin.userId,
       expirationAtMs,
+      originalTransactionId: "original-transaction-1",
       organizationId,
+      productId: "sync_monthly",
+      purchasedAtMs,
+      transactionId: "transaction-1",
       type: "INITIAL_PURCHASE",
     }),
   );
@@ -156,8 +174,13 @@ test("an admin purchase activates org sync and records the provider", async () =
   expect(billing.status).toBe("active");
   expect(billing.provider).toBe("revenuecat");
   expect(billing.providerCustomerId).toBe(admin.userId);
+  expect(billing.providerSubscriptionId).toBe("original-transaction-1");
+  expect(billing.providerProductId).toBe("sync_monthly");
+  expect(billing.providerTransactionId).toBe("transaction-1");
   expect(billing.entitlementId).toBe("sync");
+  expect(billing.currentPeriodStartsAt?.getTime()).toBe(purchasedAtMs);
   expect(billing.currentPeriodEndsAt?.getTime()).toBe(expirationAtMs);
+  expect(billing.seatCount).toBe(1);
   expect(billing.disabledAt).toBeNull();
   expect(billing.purgeAfter).toBeNull();
 });

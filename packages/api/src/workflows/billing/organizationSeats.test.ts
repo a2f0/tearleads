@@ -1,0 +1,172 @@
+import { expect, test } from "bun:test";
+import { db } from "@tearleads/api-shared/postgres";
+import {
+  organizationBilling,
+  organizationBillingSeatAssignments,
+  organizationBillingSeatEvents,
+  organizations,
+  principalMembershipProjection,
+  principalStates,
+} from "@tearleads/api-shared/schema";
+import { and, eq, isNull } from "drizzle-orm";
+import invariant from "invariant";
+import { reconcileOrganizationBillingSeats } from "./organizationSeats";
+
+const PERIOD_START = new Date("2026-07-01T00:00:00.000Z");
+const PERIOD_END = new Date("2026-08-01T00:00:00.000Z");
+const NOW = new Date("2026-07-15T00:00:00.000Z");
+
+async function createBillableOrganization(): Promise<{
+  readonly memberGroupId: string;
+  readonly organizationId: string;
+}> {
+  const organizationId = crypto.randomUUID();
+  const memberGroupId = crypto.randomUUID();
+  await db.insert(organizations).values({
+    id: organizationId,
+    adminGroupId: crypto.randomUUID(),
+    memberGroupId,
+    name: "Seat Accounting Org",
+  });
+  await db.insert(organizationBilling).values({
+    organizationId,
+    status: "active",
+    currentPeriodStartsAt: PERIOD_START,
+    currentPeriodEndsAt: PERIOD_END,
+  });
+  return { memberGroupId, organizationId };
+}
+
+async function insertMemberGroupState(input: {
+  readonly groupId: string;
+  readonly signerUserId: string;
+  readonly stateHash: string;
+  readonly userIds: readonly string[];
+  readonly version: number;
+}): Promise<void> {
+  await db.insert(principalStates).values({
+    principalType: "group",
+    principalId: input.groupId,
+    version: input.version,
+    prevStateHash: input.version === 1 ? null : `state-${input.version - 1}`,
+    keyEpoch: 1,
+    encapsulationPublicKey: "encapsulation-public-key",
+    keyFingerprint: "key-fingerprint",
+    membershipMode: "projection",
+    membershipRoot: `membership-root-${input.version}`,
+    projectionRoot: `projection-root-${input.version}`,
+    payloadCiphertextHash: `payload-ciphertext-hash-${input.version}`,
+    memberCount: input.userIds.length,
+    stateHash: input.stateHash,
+    signedAt: NOW,
+    signerUserId: input.signerUserId,
+    signerUserKeyFingerprint: "signer-key-fingerprint",
+    signature: `signature-${input.version}`,
+  });
+
+  if (input.userIds.length === 0) {
+    return;
+  }
+  await db.insert(principalMembershipProjection).values(
+    input.userIds.map((userId) => ({
+      principalType: "group" as const,
+      principalId: input.groupId,
+      stateHash: input.stateHash,
+      memberPrincipalType: "user" as const,
+      memberPrincipalId: userId,
+      role: "member" as const,
+    })),
+  );
+}
+
+async function readSeatCount(organizationId: string): Promise<number> {
+  const [billing] = await db
+    .select({ seatCount: organizationBilling.seatCount })
+    .from(organizationBilling)
+    .where(eq(organizationBilling.organizationId, organizationId));
+  invariant(billing, "expected billing row");
+  return billing.seatCount;
+}
+
+async function readOpenAssignmentUserIds(
+  organizationId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ userId: organizationBillingSeatAssignments.userId })
+    .from(organizationBillingSeatAssignments)
+    .where(
+      and(
+        eq(organizationBillingSeatAssignments.organizationId, organizationId),
+        isNull(organizationBillingSeatAssignments.releasedAt),
+      ),
+    );
+  return rows.map((row) => row.userId).sort();
+}
+
+async function readSeatEventTypes(organizationId: string): Promise<string[]> {
+  const rows = await db
+    .select({ eventType: organizationBillingSeatEvents.eventType })
+    .from(organizationBillingSeatEvents)
+    .where(eq(organizationBillingSeatEvents.organizationId, organizationId));
+  return rows.map((row) => row.eventType);
+}
+
+test("seat accounting reuses released seats and only increases concurrent capacity", async () => {
+  const { memberGroupId, organizationId } = await createBillableOrganization();
+  const userA = crypto.randomUUID();
+  const userB = crypto.randomUUID();
+  const userC = crypto.randomUUID();
+
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userA,
+    stateHash: "state-1",
+    userIds: [userA],
+    version: 1,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "state-1", sourceType: "principal_state" },
+  });
+  expect(await readSeatCount(organizationId)).toBe(1);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual([userA]);
+
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userA,
+    stateHash: "state-2",
+    userIds: [userB],
+    version: 2,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "state-2", sourceType: "principal_state" },
+  });
+  expect(await readSeatCount(organizationId)).toBe(1);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual([userB]);
+
+  await insertMemberGroupState({
+    groupId: memberGroupId,
+    signerUserId: userB,
+    stateHash: "state-3",
+    userIds: [userB, userC],
+    version: 3,
+  });
+  await reconcileOrganizationBillingSeats({
+    executor: db,
+    now: NOW,
+    organizationId,
+    source: { sourceId: "state-3", sourceType: "principal_state" },
+  });
+  expect(await readSeatCount(organizationId)).toBe(2);
+  expect(await readOpenAssignmentUserIds(organizationId)).toEqual(
+    [userB, userC].sort(),
+  );
+  expect(await readSeatEventTypes(organizationId)).toContain(
+    "licensed_seat_count_increased",
+  );
+});

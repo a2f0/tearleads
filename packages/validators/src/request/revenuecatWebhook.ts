@@ -29,7 +29,12 @@ export interface RevenueCatSubscriberAttribute {
  * - `app_user_id`: RevenueCat App User ID; our client sets it to the buyer's
  *   global user id.
  * - `event_timestamp_ms`: When RevenueCat emitted the event.
+ * - `purchased_at_ms`: Start of the current subscription period, when
+ *   applicable.
  * - `expiration_at_ms`: End of the current entitlement period, when applicable.
+ * - `product_id`: Product/package id the provider reported.
+ * - `transaction_id` / `original_transaction_id`: Provider transaction ids used
+ *   for audit and correlation.
  * - `entitlement_ids`: Entitlement(s) the event concerns.
  * - `subscriber_attributes`: Custom attributes; the `orgId` attribute binds the
  *   purchase to the organization being paid for.
@@ -39,7 +44,11 @@ export interface RevenueCatWebhookEvent {
   type: string;
   app_user_id: string;
   event_timestamp_ms: number;
+  purchased_at_ms?: number | null;
   expiration_at_ms?: number | null;
+  product_id?: string | null;
+  transaction_id?: string | null;
+  original_transaction_id?: string | null;
   entitlement_ids?: string[];
   subscriber_attributes?: Record<string, RevenueCatSubscriberAttribute>;
 }
@@ -98,6 +107,18 @@ function isAbsentOrStringArray(
   return candidate === undefined || isStringArray(candidate);
 }
 
+function isAbsentOrNullableString(
+  value: Record<string, unknown>,
+  key: string,
+): boolean {
+  const candidate = value[key];
+  return (
+    candidate === undefined ||
+    candidate === null ||
+    typeof candidate === "string"
+  );
+}
+
 function isAbsentOrSubscriberAttributeMap(
   value: Record<string, unknown>,
   key: string,
@@ -115,7 +136,11 @@ function isRevenueCatWebhookEvent(
     hasStringProperty(value, "type") &&
     hasStringProperty(value, "app_user_id") &&
     isRevenueCatTimestampMs(value[EVENT_TIMESTAMP_MS_KEY]) &&
+    isAbsentOrNullableTimestampMs(value, "purchased_at_ms") &&
     isAbsentOrNullableTimestampMs(value, "expiration_at_ms") &&
+    isAbsentOrNullableString(value, "product_id") &&
+    isAbsentOrNullableString(value, "transaction_id") &&
+    isAbsentOrNullableString(value, "original_transaction_id") &&
     isAbsentOrStringArray(value, "entitlement_ids") &&
     isAbsentOrSubscriberAttributeMap(value, "subscriber_attributes")
   );

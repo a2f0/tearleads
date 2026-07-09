@@ -9,6 +9,8 @@ import {
 } from "./columns";
 import type {
   OrganizationBillingProvider,
+  OrganizationBillingSeatEventSourceType,
+  OrganizationBillingSeatEventType,
   OrganizationBillingStatus,
   OrganizationRosterStatus,
 } from "./shared";
@@ -125,10 +127,16 @@ export const organizationRosterEntries = pgTable(
  *   Null while `local`/`trialing`.
  * - `providerCustomerId`: Provider-side customer id (RevenueCat App User ID) that
  *   purchased the subscription.
+ * - `providerSubscriptionId`: Provider-side stable subscription/original
+ *   transaction id, when the provider reports one.
+ * - `providerProductId` / `providerTransactionId`: Latest provider product and
+ *   transaction ids applied to this billing row.
  * - `entitlementId`: Provider entitlement granting sync for this organization.
+ * - `currentPeriodStartsAt`: Start of the paid period reported by the provider.
  * - `currentPeriodEndsAt`: End of the paid period reported by the provider; sync
  *   lapses if it passes without renewal.
- * - `seatCount`: Reserved for per-seat pricing. Unused while pricing is flat.
+ * - `seatCount`: Licensed seats for the current paid billing period. Seat
+ *   switches are reconciled by `organization_billing_seat_assignments`.
  * - `disabledAt` / `purgeAfter`: Set when sync lapses. The purge job may delete
  *   the organization's remote sync data after `purgeAfter`.
  * - `purgeStartedAt` / `purgedAt`: Purge job progress markers.
@@ -146,9 +154,13 @@ export const organizationBilling = pgTable(
     trialEndsAt: timestamp("trial_ends_at"),
     provider: text("provider").$type<OrganizationBillingProvider>(),
     providerCustomerId: text("provider_customer_id"),
+    providerSubscriptionId: text("provider_subscription_id"),
+    providerProductId: text("provider_product_id"),
+    providerTransactionId: text("provider_transaction_id"),
     entitlementId: text("entitlement_id"),
+    currentPeriodStartsAt: timestamp("current_period_starts_at"),
     currentPeriodEndsAt: timestamp("current_period_ends_at"),
-    seatCount: integer("seat_count"),
+    seatCount: integer("seat_count").default(0).notNull(),
     disabledAt: timestamp("disabled_at"),
     purgeAfter: timestamp("purge_after"),
     purgeStartedAt: timestamp("purge_started_at"),
@@ -168,6 +180,101 @@ export const organizationBilling = pgTable(
       table.purgeAfter,
       table.purgeStartedAt,
       table.organizationId,
+    ),
+  ],
+);
+
+/**
+ * Current and historical billable-seat assignments for an organization.
+ *
+ * A row represents one user occupying one licensed seat during one billing
+ * period. Releasing a user frees that seat for reuse during the same period;
+ * adding more simultaneously-active users than the licensed seat count creates
+ * an accounting event that can be pushed to the billing provider.
+ */
+export const organizationBillingSeatAssignments = pgTable(
+  "organization_billing_seat_assignments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    billingPeriodStartsAt: timestamp("billing_period_starts_at"),
+    billingPeriodEndsAt: timestamp("billing_period_ends_at"),
+    assignedAt: timestamp("assigned_at").notNull(),
+    releasedAt: timestamp("released_at"),
+    assignmentSourceType: text("assignment_source_type")
+      .$type<OrganizationBillingSeatEventSourceType>()
+      .notNull(),
+    assignmentSourceId: text("assignment_source_id").notNull(),
+    releaseSourceType: text(
+      "release_source_type",
+    ).$type<OrganizationBillingSeatEventSourceType>(),
+    releaseSourceId: text("release_source_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("organization_billing_seat_assignments_org_open_idx").on(
+      table.organizationId,
+      table.releasedAt,
+    ),
+    index("organization_billing_seat_assignments_org_user_idx").on(
+      table.organizationId,
+      table.userId,
+      table.releasedAt,
+    ),
+    index("organization_billing_seat_assignments_org_period_idx").on(
+      table.organizationId,
+      table.billingPeriodStartsAt,
+      table.billingPeriodEndsAt,
+    ),
+  ],
+);
+
+/**
+ * Audit ledger for billable-seat reconciliation.
+ *
+ * Events are intentionally provider-neutral. They capture the seat movement and
+ * current licensed count that a Stripe or RevenueCat integration can use to
+ * update subscription quantity or create a prorated charge for the remaining
+ * billing period.
+ */
+export const organizationBillingSeatEvents = pgTable(
+  "organization_billing_seat_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull(),
+    eventType: text("event_type")
+      .$type<OrganizationBillingSeatEventType>()
+      .notNull(),
+    userId: uuid("user_id"),
+    quantityDelta: integer("quantity_delta").notNull(),
+    licensedSeatCount: integer("licensed_seat_count").notNull(),
+    activeSeatCount: integer("active_seat_count").notNull(),
+    billingPeriodStartsAt: timestamp("billing_period_starts_at"),
+    billingPeriodEndsAt: timestamp("billing_period_ends_at"),
+    sourceType: text("source_type")
+      .$type<OrganizationBillingSeatEventSourceType>()
+      .notNull(),
+    sourceId: text("source_id").notNull(),
+    sourcePrincipalType: text("source_principal_type"),
+    sourcePrincipalId: uuid("source_principal_id"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("organization_billing_seat_events_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index("organization_billing_seat_events_org_source_idx").on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+    ),
+    index("organization_billing_seat_events_org_period_idx").on(
+      table.organizationId,
+      table.billingPeriodStartsAt,
+      table.billingPeriodEndsAt,
     ),
   ],
 );

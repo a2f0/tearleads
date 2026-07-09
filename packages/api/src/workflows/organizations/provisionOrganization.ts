@@ -4,7 +4,6 @@ import {
   containerMetadataDocuments,
   containers,
   groups,
-  organizationBilling,
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
@@ -55,10 +54,13 @@ import {
 } from "../documents/mutations";
 import { toPrincipalPolicyError } from "../principals/shared";
 import {
-  createInitialOrganizationBillingFields,
+  createInitialOrganizationBillingRow,
   type InitialOrganizationBilling,
 } from "./initialBilling";
-import { syncOrganizationRosterFromMemberReachability } from "./roster";
+import {
+  storeInitialMemberGroupPolicy,
+  syncInitialRosterAndBillingSeats,
+} from "./initialMemberGroupBilling";
 
 const ADMIN_GROUP_NAME = "Admins";
 const MEMBER_GROUP_NAME = "Members";
@@ -471,31 +473,6 @@ async function storeInitialAdminGroupPolicy(
     {
       principalType: "group",
       principalId: input.initialAdminGroup.groupId,
-      stateHash: storedState.stateHash,
-      envelopes: initialGroupPolicy.memberEnvelopes,
-    },
-    tx,
-  );
-}
-
-async function storeInitialMemberGroupPolicy(
-  tx: DatabaseTransaction,
-  input: OrganizationProvisioningRequest,
-) {
-  const { initialGroupPolicy } = input.initialMemberGroup;
-  const storedState = await storeVerifiedPrincipalStateInTransaction(
-    {
-      state: initialGroupPolicy.state,
-      encryptedPayload: initialGroupPolicy.encryptedPayload,
-      projection: initialGroupPolicy.projection,
-    },
-    tx,
-  );
-
-  await replaceCurrentPrincipalMemberEnvelopesInTransaction(
-    {
-      principalType: "group",
-      principalId: input.initialMemberGroup.groupId,
       stateHash: storedState.stateHash,
       envelopes: initialGroupPolicy.memberEnvelopes,
     },
@@ -1244,10 +1221,7 @@ export async function provisionOrganizationInTransaction(
     organizationId: input.organizationId,
     name: options.organizationName,
   });
-  await tx.insert(organizationBilling).values({
-    organizationId: org.id,
-    ...createInitialOrganizationBillingFields(options.initialBilling),
-  });
+  await createInitialOrganizationBillingRow(tx, org.id, options.initialBilling);
   const container = await createRootContainer(
     tx,
     input.rootContainerId,
@@ -1257,13 +1231,16 @@ export async function provisionOrganizationInTransaction(
   await createInitialAdminGroup(tx, input, org.id);
   await createInitialMemberGroup(tx, input, org.id);
   await storeInitialAdminGroupPolicy(tx, input);
-  await storeInitialMemberGroupPolicy(tx, input);
+  const initialMemberGroupStateHash = await storeInitialMemberGroupPolicy(
+    tx,
+    input,
+  );
   await storeInitialOrganizationPolicy(tx, input);
-  await syncOrganizationRosterFromMemberReachability({
-    disabledByUserId: null,
-    executor: tx,
-    memberGroupId: input.initialMemberGroup.groupId,
+  await syncInitialRosterAndBillingSeats({
+    initialMemberGroupStateHash,
     organizationId: org.id,
+    provisioning: input,
+    tx,
   });
   const rootMetadata = await storeInitialRootContainer(tx, input, signer);
   await createInitialBuiltinGrants(tx, input, org.id);
@@ -1302,7 +1279,6 @@ export async function provisionOrganizationInTransaction(
     input,
     signer.fingerprint,
   );
-
   return {
     organizationId: org.id,
     rootContainerId: container.id,

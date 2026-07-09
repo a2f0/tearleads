@@ -46,7 +46,9 @@ export interface OrganizationBillingView {
   /** Whole days left in the trial (ceil, floored at 0); null unless trialing. */
   readonly trialDaysRemaining: number | null;
   readonly trialEndsAtMs: number | null;
+  readonly currentPeriodStartsAtMs: number | null;
   readonly currentPeriodEndsAtMs: number | null;
+  readonly seatCount: number;
   /** Sync is expected but currently off (lapsed/disabled/past_due) — prompt to fix. */
   readonly needsAttention: boolean;
 }
@@ -70,6 +72,7 @@ export function resolveOrganizationBillingView(
   nowMs: number,
 ): OrganizationBillingView {
   const trialEndsAtMs = parseIsoMs(billing.trialEndsAt);
+  const currentPeriodStartsAtMs = parseIsoMs(billing.currentPeriodStartsAt);
   const currentPeriodEndsAtMs = parseIsoMs(billing.currentPeriodEndsAt);
 
   const isActive =
@@ -95,7 +98,9 @@ export function resolveOrganizationBillingView(
     isActive,
     trialDaysRemaining,
     trialEndsAtMs,
+    currentPeriodStartsAtMs,
     currentPeriodEndsAtMs,
+    seatCount: billing.seatCount,
     needsAttention: !isLocal && !canSync,
   };
 }

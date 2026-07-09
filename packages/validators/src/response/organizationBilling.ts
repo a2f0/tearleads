@@ -1,5 +1,9 @@
 import { isPlainObject } from "../isPlainObject";
-import { hasNullableStringProperty, hasStringProperty } from "../util";
+import {
+  hasNullableStringProperty,
+  hasNumberProperty,
+  hasStringProperty,
+} from "../util";
 
 export type OrganizationBillingStatus =
   | "local"
@@ -16,14 +20,18 @@ export type OrganizationBillingProvider = "revenuecat";
  * Per-organization sync-billing snapshot returned to the client. Sync is the one
  * paid feature; `status` decides whether the organization may sync at all. A
  * `local` organization is free and on-device only. `trialEndsAt` is set while
- * trialing, `currentPeriodEndsAt` while a paid subscription is active.
+ * trialing, `currentPeriodStartsAt`/`currentPeriodEndsAt` while a paid
+ * subscription is active, and `seatCount` tracks licensed seats in that paid
+ * period.
  */
 export interface OrganizationBillingResponse {
   organizationId: string;
   status: OrganizationBillingStatus;
   trialEndsAt: string | null;
   provider: OrganizationBillingProvider | null;
+  currentPeriodStartsAt: string | null;
   currentPeriodEndsAt: string | null;
+  seatCount: number;
   disabledAt: string | null;
   purgeAfter: string | null;
 }
@@ -48,6 +56,10 @@ export function isOrganizationBillingProvider(
   return value === "revenuecat";
 }
 
+function isSeatCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
 export function isOrganizationBillingResponse(
   value: unknown,
 ): value is OrganizationBillingResponse {
@@ -60,7 +72,10 @@ export function isOrganizationBillingResponse(
     hasNullableStringProperty(value, "provider") &&
     (value.provider === null ||
       isOrganizationBillingProvider(value.provider)) &&
+    hasNullableStringProperty(value, "currentPeriodStartsAt") &&
     hasNullableStringProperty(value, "currentPeriodEndsAt") &&
+    hasNumberProperty(value, "seatCount") &&
+    isSeatCount(value.seatCount) &&
     hasNullableStringProperty(value, "disabledAt") &&
     hasNullableStringProperty(value, "purgeAfter")
   );

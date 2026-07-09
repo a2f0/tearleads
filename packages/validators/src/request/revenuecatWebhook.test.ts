@@ -7,8 +7,12 @@ function webhook(overrides: Record<string, unknown> = {}) {
     event: {
       app_user_id: "user-1",
       event_timestamp_ms: 1_000,
+      purchased_at_ms: 500,
       expiration_at_ms: 2_000,
       id: "event-1",
+      original_transaction_id: "original-transaction-1",
+      product_id: "sync_monthly",
+      transaction_id: "transaction-1",
       type: "INITIAL_PURCHASE",
       ...overrides,
     },
@@ -18,6 +22,9 @@ function webhook(overrides: Record<string, unknown> = {}) {
 test("accepts finite non-negative integer RevenueCat timestamps", () => {
   expect(isRevenueCatWebhookRequest(webhook())).toBe(true);
   expect(isRevenueCatWebhookRequest(webhook({ expiration_at_ms: null }))).toBe(
+    true,
+  );
+  expect(isRevenueCatWebhookRequest(webhook({ purchased_at_ms: null }))).toBe(
     true,
   );
 });
@@ -38,4 +45,8 @@ test("rejects invalid RevenueCat timestamps before they reach Date writes", () =
   expect(
     isRevenueCatWebhookRequest(webhook({ expiration_at_ms: Infinity })),
   ).toBe(false);
+  expect(
+    isRevenueCatWebhookRequest(webhook({ purchased_at_ms: Infinity })),
+  ).toBe(false);
+  expect(isRevenueCatWebhookRequest(webhook({ product_id: 123 }))).toBe(false);
 });
