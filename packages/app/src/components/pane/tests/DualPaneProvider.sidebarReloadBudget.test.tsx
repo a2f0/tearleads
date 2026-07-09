@@ -69,7 +69,21 @@ function readSidebarReloadCount(pane: HTMLElement): number {
     SIDEBAR_RELOAD_VIEWPORT_SELECTOR,
   );
   invariant(viewport, "Expected the explorer sidebar viewport to be rendered.");
-  return Number(viewport.getAttribute("data-document-link-projection-version"));
+  // Fail loudly if the seam is missing rather than letting Number(null)=>NaN or a
+  // stray value produce a confusing downstream assertion (e.g. NaN <= 6).
+  const versionAttr = viewport.getAttribute(
+    "data-document-link-projection-version",
+  );
+  invariant(
+    versionAttr !== null,
+    "Expected data-document-link-projection-version attribute on the viewport.",
+  );
+  const version = Number(versionAttr);
+  invariant(
+    !Number.isNaN(version),
+    `Expected a numeric reload counter, got "${versionAttr}".`,
+  );
+  return version;
 }
 
 test(
@@ -105,13 +119,12 @@ test(
     // timeout well under the test budget keeps slow-CI a hard fail, not a slow pass.
     await waitForPaneRuntimeToSettle(SETTLE_TIMEOUT_MS);
 
+    // readSidebarReloadCount invariants that the seam is present and numeric, so a
+    // missing/garbled attribute fails there with a clear message (not as NaN <= 6).
     const destructiveReloads = readSidebarReloadCount(pane);
 
-    // Seam check: the attribute is present and integer-valued (sidebar rendered
-    // and the counter was stamped). version>0 only proves the projection effect
-    // ran at least once (the first apply always bumps) — the real liveness is the
-    // "You" row assertion below.
-    expect(Number.isNaN(destructiveReloads)).toBe(false);
+    // version>0 only proves the projection effect ran at least once (the first
+    // apply always bumps) — the real liveness is the "You" row assertion below.
     expect(destructiveReloads).toBeGreaterThan(0);
 
     // The clamp: content-only sync churn must NOT drive destructive reloads.
