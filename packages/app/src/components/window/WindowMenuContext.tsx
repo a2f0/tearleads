@@ -432,6 +432,7 @@ export function useWindowToolbarReservation(reserve = true): void {
       registerToolbarReservation(id);
       return () => unregisterToolbarReservation(id);
     }
+    return undefined;
   }, [reserve, registerToolbarReservation, unregisterToolbarReservation]);
 }
 
