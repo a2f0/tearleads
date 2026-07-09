@@ -1,41 +1,37 @@
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
-import { useMemo } from "react";
-import { useAttachmentImageUrls } from "./useAttachmentImageUrls";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getMediaPreviewKind,
+  isPreviewableMediaMimeType,
+  MediaPreview,
+  type MediaPreviewKind,
+} from "./MediaPreview";
 
-const FILE_DOCUMENT_PREVIEW_IMAGE_MIME_TYPES = new Set([
-  "image/png",
-  "image/svg+xml",
-]);
-
-export interface FileDocumentImagePreview {
+export interface FileDocumentMediaPreview {
   attachment: DocumentAttachment;
-  imageUrl: string | null;
+  mediaKind: MediaPreviewKind;
+  mediaUrl: string | null;
 }
 
 type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
-type AttachmentImageUrlBySlotId = Readonly<Record<string, string | undefined>>;
 
-function normalizeFileDocumentMimeType(
-  value: string | null | undefined,
-): string {
-  return value?.split(";")[0]?.trim().toLowerCase() ?? "";
-}
-
-export function isRenderableFileDocumentImageMimeType(
+export function isRenderableFileDocumentMediaMimeType(
   mimeType: string | null | undefined,
 ): boolean {
-  return FILE_DOCUMENT_PREVIEW_IMAGE_MIME_TYPES.has(
-    normalizeFileDocumentMimeType(mimeType),
-  );
+  return isPreviewableMediaMimeType(mimeType);
 }
 
-function resolveLocalFileDocumentAttachment(
+function resolveLocalFileDocumentMediaAttachment(
   attachments: ReadonlyArray<DocumentAttachment>,
   attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId,
 ): DocumentAttachment | null {
   for (let index = attachments.length - 1; index >= 0; index -= 1) {
     const attachment = attachments[index];
-    if (attachment && attachmentStorageKeyBySlotId[attachment.slotId]) {
+    if (
+      attachment &&
+      attachmentStorageKeyBySlotId[attachment.slotId] &&
+      isRenderableFileDocumentMediaMimeType(attachment.mimeType)
+    ) {
       return attachment;
     }
   }
@@ -43,86 +39,136 @@ function resolveLocalFileDocumentAttachment(
   return null;
 }
 
-export function resolveFileDocumentImagePreview(input: {
+export function resolveFileDocumentMediaPreview(input: {
   attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId;
   attachments: ReadonlyArray<DocumentAttachment>;
-  imageUrlBySlotId: AttachmentImageUrlBySlotId;
-}): FileDocumentImagePreview | null {
-  const attachment = resolveLocalFileDocumentAttachment(
+  mediaUrlBySlotId: Readonly<Record<string, string | undefined>>;
+}): FileDocumentMediaPreview | null {
+  const attachment = resolveLocalFileDocumentMediaAttachment(
     input.attachments,
     input.attachmentStorageKeyBySlotId,
   );
+  const mediaKind = getMediaPreviewKind(attachment?.mimeType);
 
-  if (
-    !attachment ||
-    !isRenderableFileDocumentImageMimeType(attachment.mimeType)
-  ) {
+  if (!attachment || !mediaKind) {
     return null;
   }
 
   return {
     attachment,
-    imageUrl: input.imageUrlBySlotId[attachment.slotId] ?? null,
+    mediaKind,
+    mediaUrl: input.mediaUrlBySlotId[attachment.slotId] ?? null,
   };
 }
 
-export function useFileDocumentImagePreview(params: {
+function useAttachmentMediaUrl(params: {
+  attachment: DocumentAttachment | null;
+  blobStore: BlobStore;
+  storageKey: string | null;
+}): string | null {
+  const { attachment, blobStore, storageKey } = params;
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!attachment || !storageKey) {
+      setMediaUrl(null);
+      return;
+    }
+
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    setMediaUrl(null);
+    void blobStore
+      .readBytes(storageKey)
+      .then((bytes) => {
+        if (!bytes || cancelled) {
+          return;
+        }
+
+        objectUrl = URL.createObjectURL(
+          new Blob([bytes], {
+            type: attachment.mimeType ?? "application/octet-stream",
+          }),
+        );
+        setMediaUrl(objectUrl);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          console.error("Failed to load file preview:", error);
+          setMediaUrl(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [attachment, blobStore, storageKey]);
+
+  return mediaUrl;
+}
+
+export function useFileDocumentMediaPreview(params: {
   attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId;
   attachments: ReadonlyArray<DocumentAttachment>;
   blobStore: BlobStore;
-}): FileDocumentImagePreview | null {
+}): FileDocumentMediaPreview | null {
   const { attachmentStorageKeyBySlotId, attachments, blobStore } = params;
-  const imagePreviewCandidate = useMemo(
+  const mediaPreviewCandidate = useMemo(
     () =>
-      resolveFileDocumentImagePreview({
+      resolveFileDocumentMediaPreview({
         attachments,
         attachmentStorageKeyBySlotId,
-        imageUrlBySlotId: {},
+        mediaUrlBySlotId: {},
       }),
     [attachments, attachmentStorageKeyBySlotId],
   );
-  const previewAttachments = useMemo(
-    () => (imagePreviewCandidate ? [imagePreviewCandidate.attachment] : []),
-    [imagePreviewCandidate],
-  );
-  const imageUrlBySlotId = useAttachmentImageUrls(
-    previewAttachments,
-    attachmentStorageKeyBySlotId,
+  const storageKey = mediaPreviewCandidate
+    ? (attachmentStorageKeyBySlotId[mediaPreviewCandidate.attachment.slotId] ??
+      null)
+    : null;
+  const mediaUrl = useAttachmentMediaUrl({
+    attachment: mediaPreviewCandidate?.attachment ?? null,
     blobStore,
-  );
+    storageKey,
+  });
 
   return useMemo(
     () =>
-      imagePreviewCandidate
+      mediaPreviewCandidate
         ? {
-            attachment: imagePreviewCandidate.attachment,
-            imageUrl:
-              imageUrlBySlotId[imagePreviewCandidate.attachment.slotId] ?? null,
+            attachment: mediaPreviewCandidate.attachment,
+            mediaKind: mediaPreviewCandidate.mediaKind,
+            mediaUrl,
           }
         : null,
-    [imagePreviewCandidate, imageUrlBySlotId],
+    [mediaPreviewCandidate, mediaUrl],
   );
 }
 
-export function FileDocumentImagePreviewPanel(params: {
-  preview: FileDocumentImagePreview;
+export function FileDocumentMediaPreviewPanel(params: {
+  preview: FileDocumentMediaPreview;
 }) {
-  const { attachment, imageUrl } = params.preview;
+  const { attachment, mediaKind, mediaUrl } = params.preview;
   return (
     <section className="file-document-preview" aria-label="File preview">
       <div
-        aria-busy={!imageUrl || undefined}
+        aria-busy={!mediaUrl || undefined}
         className="file-document-preview-frame"
       >
-        {imageUrl ? (
-          <img
-            className="file-document-image-preview"
-            src={imageUrl}
-            alt={attachment.name}
+        {mediaUrl ? (
+          <MediaPreview
+            className="file-document-media-preview"
+            kind={mediaKind}
+            label={attachment.name}
+            url={mediaUrl}
           />
         ) : (
           <span className="structured-document-slot-description">
-            Loading image...
+            Loading preview...
           </span>
         )}
       </div>

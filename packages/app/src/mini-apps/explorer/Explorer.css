@@ -420,9 +420,17 @@
   border: var(--border);
 }
 
-.explorer-blob-preview-image {
+.explorer-blob-preview-media {
   max-width: 100%;
   max-height: 22rem;
+}
+
+.explorer-blob-preview-media.media-preview--audio {
+  width: min(100%, 36rem);
+}
+
+.explorer-blob-preview-media.media-preview--video {
+  height: 22rem;
 }
 
 .explorer-blob-preview-text {

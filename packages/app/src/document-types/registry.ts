@@ -27,6 +27,8 @@ import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
 } from "./projectors";
 import type { DocumentTypeAppProps } from "./types";
+import { VideoDocumentApp } from "./video/VideoDocumentApp";
+import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
 
 interface DocumentTypeDefinition {
   App: ComponentType<DocumentTypeAppProps>;
@@ -48,6 +50,7 @@ const documentTypeAppsByKind = new Map<
   ["json_file", JsonFileDocumentApp],
   ["image", ImageDocumentApp],
   ["audio", AudioDocumentApp],
+  ["video", VideoDocumentApp],
   ["pdf", PdfDocumentApp],
   ["generic_file", GenericFileDocumentApp],
 ]);
@@ -75,6 +78,7 @@ const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
   JSON_FILE_DOCUMENT_KIND,
   IMAGE_DOCUMENT_KIND,
   AUDIO_DOCUMENT_KIND,
+  VIDEO_DOCUMENT_KIND,
   PDF_DOCUMENT_KIND,
   GENERIC_FILE_DOCUMENT_KIND,
 ]);
@@ -85,6 +89,7 @@ const UPLOAD_ONLY_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
 const FILE_BACKED_DOCUMENT_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
   IMAGE_DOCUMENT_KIND,
   AUDIO_DOCUMENT_KIND,
+  VIDEO_DOCUMENT_KIND,
   PDF_DOCUMENT_KIND,
   GENERIC_FILE_DOCUMENT_KIND,
 ]);

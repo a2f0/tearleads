@@ -13,23 +13,39 @@ import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 
 afterEach(cleanup);
 
+function createBlobRow(input: {
+  blobId: string;
+  byteLength?: number | undefined;
+  mimeType: string;
+  name?: string | null | undefined;
+  storageKey: string;
+  updatedAt?: string | null | undefined;
+}): BlobInfo {
+  return {
+    blobId: input.blobId,
+    byteLength: input.byteLength ?? 1,
+    createdAt: null,
+    documentCount: 1,
+    key: `blob:${input.blobId}`,
+    mimeType: input.mimeType,
+    name: input.name ?? null,
+    referenceCount: 0,
+    references: [],
+    storageKey: input.storageKey,
+    updatedAt: input.updatedAt ?? null,
+  };
+}
+
 function createBlobRows(): BlobInfo[] {
-  return Array.from({ length: 2 }, (_, index) => {
-    const rowNumber = index + 1;
-    return {
-      blobId: `blob-${rowNumber}`,
-      byteLength: rowNumber,
-      createdAt: null,
-      documentCount: 1,
-      key: `blob:blob-${rowNumber}`,
-      mimeType: rowNumber % 2 === 0 ? "image/png" : "text/plain",
-      name: null,
-      referenceCount: 0,
-      references: [],
-      storageKey: `storage-${rowNumber}`,
+  return Array.from({ length: 2 }, (_, index) =>
+    createBlobRow({
+      blobId: `blob-${index + 1}`,
+      byteLength: index + 1,
+      mimeType: (index + 1) % 2 === 0 ? "image/png" : "text/plain",
+      storageKey: `storage-${index + 1}`,
       updatedAt: `2026-05-17T00:0${index}:00.000Z`,
-    };
-  });
+    }),
+  );
 }
 
 function createBlobStore(overrides: Partial<BlobStore> = {}): BlobStore {
@@ -43,16 +59,35 @@ function createBlobStore(overrides: Partial<BlobStore> = {}): BlobStore {
 
 function renderBrowsePanel(blobStore: BlobStore) {
   const rows = createBlobRows();
+  return renderBlobBrowserPanel({
+    blobStore,
+    rows,
+    route: { blobId: null, storageKey: null, view: "blob-browser" },
+  });
+}
+
+function renderBlobBrowserPanel(input: {
+  blobStore: BlobStore;
+  rows: ReadonlyArray<BlobInfo>;
+  route: {
+    blobId: string | null;
+    storageKey: string | null;
+    view: "blob-browser";
+  };
+}) {
   return render(
     <ExplorerBlobBrowserPanel
-      blobStore={blobStore}
+      blobStore={input.blobStore}
       domainScope={createDomainScope()}
-      loadBlobInfo={async () => ({ rows, totalCount: rows.length })}
+      loadBlobInfo={async () => ({
+        rows: input.rows,
+        totalCount: input.rows.length,
+      })}
       nodes={[]}
       online={true}
       onBackToSelectionRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
-      route={{ blobId: null, storageKey: null, view: "blob-browser" }}
+      route={input.route}
       selectDocumentProjection={() => undefined}
     />,
   );
@@ -196,6 +231,60 @@ test("right-click opens the menu without bubbling to the pane menu", async () =>
 
   expect(await view.findByText("Download")).toBeTruthy();
   expect(ancestorContextMenus).toBe(0);
+});
+
+test("blob detail previews audio and video with shared playback controls", async () => {
+  const rows = [
+    createBlobRow({
+      blobId: "blob-audio",
+      mimeType: "audio/mpeg",
+      name: "voice.mp3",
+      storageKey: "storage-audio",
+    }),
+    createBlobRow({
+      blobId: "blob-video",
+      mimeType: "video/mp4",
+      name: "clip.mp4",
+      storageKey: "storage-video",
+    }),
+  ];
+  const blobStore = createBlobStore({
+    readBytes: async () => new Uint8Array([1, 2, 3]) as BlobBytes,
+  });
+  const audioView = renderBlobBrowserPanel({
+    blobStore,
+    rows,
+    route: {
+      blobId: "blob-audio",
+      storageKey: null,
+      view: "blob-browser",
+    },
+  });
+
+  const audio = (await audioView.findByLabelText(
+    "voice.mp3",
+  )) as HTMLAudioElement;
+  expect(audio.tagName).toBe("AUDIO");
+  expect(audio.controls).toBe(true);
+  expect(audio.classList.contains("media-preview--audio")).toBe(true);
+  audioView.unmount();
+
+  const videoView = renderBlobBrowserPanel({
+    blobStore,
+    rows,
+    route: {
+      blobId: "blob-video",
+      storageKey: null,
+      view: "blob-browser",
+    },
+  });
+  const video = (await videoView.findByLabelText(
+    "clip.mp4",
+  )) as HTMLVideoElement;
+
+  expect(video.tagName).toBe("VIDEO");
+  expect(video.controls).toBe(true);
+  expect(video.classList.contains("media-preview--video")).toBe(true);
 });
 
 const PICK_TARGET: ExplorerBlobPickTarget = {

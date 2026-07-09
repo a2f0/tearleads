@@ -21,6 +21,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "json_file",
     "image",
     "audio",
+    "video",
     "pdf",
     "generic_file",
   ]);
@@ -42,6 +43,7 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("json_file").createLabel).toBe("JSON File");
   expect(getDocumentTypeDefinition("image").createLabel).toBe("Image");
   expect(getDocumentTypeDefinition("audio").createLabel).toBe("Audio");
+  expect(getDocumentTypeDefinition("video").createLabel).toBe("Video");
   expect(getDocumentTypeDefinition("pdf").createLabel).toBe("PDF");
   expect(getDocumentTypeDefinition("generic_file").createLabel).toBe("File");
 });

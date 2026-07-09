@@ -155,10 +155,6 @@ function isTextMimeType(mimeType: string | null): boolean {
   );
 }
 
-export function isImageMimeType(mimeType: string | null): boolean {
-  return mimeType?.startsWith("image/") === true;
-}
-
 function canCreateObjectUrl(): boolean {
   return typeof URL === "function" && typeof URL.createObjectURL === "function";
 }
