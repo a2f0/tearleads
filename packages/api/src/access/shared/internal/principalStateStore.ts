@@ -18,7 +18,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import { uniqueSortedStrings } from "../../../utils/array";
+import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
 import {
   normalizePrincipalStateWriteInput,
   type PrincipalStateBundleInput,
@@ -391,12 +391,15 @@ async function validatePrincipalStateSignerAuthorization(input: {
   return previousProjection;
 }
 
-async function insertPrincipalStateRow(input: {
+interface PrincipalStateWriteContext {
   normalizedInput: PrincipalStateBundleInput;
   stateHash: string;
-  signedAt: Date;
   executor: DatabaseSession;
-}): Promise<void> {
+}
+
+async function insertPrincipalStateRow(
+  input: PrincipalStateWriteContext,
+): Promise<void> {
   await input.executor
     .insert(principalStates)
     .values({
@@ -414,7 +417,7 @@ async function insertPrincipalStateRow(input: {
       payloadCiphertextHash: input.normalizedInput.state.payloadCiphertextHash,
       memberCount: input.normalizedInput.state.memberCount,
       stateHash: input.stateHash,
-      signedAt: input.signedAt,
+      signedAt: new Date(input.normalizedInput.state.signedAt),
       signerUserId: input.normalizedInput.state.signerUserId,
       signerUserKeyFingerprint:
         input.normalizedInput.state.signerUserKeyFingerprint,
@@ -429,11 +432,9 @@ async function insertPrincipalStateRow(input: {
     });
 }
 
-async function ensureStoredPrincipalStateMatches(input: {
-  normalizedInput: PrincipalStateBundleInput;
-  stateHash: string;
-  executor: DatabaseSession;
-}): Promise<StoredPrincipalState> {
+async function ensureStoredPrincipalStateMatches(
+  input: PrincipalStateWriteContext,
+): Promise<StoredPrincipalState> {
   const storedState = await getPrincipalStateByVersion(
     input.normalizedInput.state.principalType,
     input.normalizedInput.state.principalId,
@@ -452,11 +453,9 @@ async function ensureStoredPrincipalStateMatches(input: {
   return storedState;
 }
 
-async function insertPrincipalStatePayloadRow(input: {
-  normalizedInput: PrincipalStateBundleInput;
-  stateHash: string;
-  executor: DatabaseSession;
-}): Promise<void> {
+async function insertPrincipalStatePayloadRow(
+  input: PrincipalStateWriteContext,
+): Promise<void> {
   await input.executor
     .insert(principalStatePayloads)
     .values({
@@ -476,11 +475,9 @@ async function insertPrincipalStatePayloadRow(input: {
     });
 }
 
-async function ensureStoredPrincipalPayloadMatches(input: {
-  normalizedInput: PrincipalStateBundleInput;
-  stateHash: string;
-  executor: DatabaseSession;
-}): Promise<void> {
+async function ensureStoredPrincipalPayloadMatches(
+  input: PrincipalStateWriteContext,
+): Promise<void> {
   const storedPayload = await getPrincipalStatePayloadForState(
     input.normalizedInput.state.principalType,
     input.normalizedInput.state.principalId,
@@ -502,11 +499,9 @@ async function ensureStoredPrincipalPayloadMatches(input: {
   }
 }
 
-async function insertPrincipalProjectionRows(input: {
-  normalizedInput: PrincipalStateBundleInput;
-  stateHash: string;
-  executor: DatabaseSession;
-}): Promise<void> {
+async function insertPrincipalProjectionRows(
+  input: PrincipalStateWriteContext,
+): Promise<void> {
   if (input.normalizedInput.projection.length === 0) {
     return;
   }
@@ -534,11 +529,9 @@ async function insertPrincipalProjectionRows(input: {
     });
 }
 
-async function ensureStoredPrincipalProjectionMatches(input: {
-  normalizedInput: PrincipalStateBundleInput;
-  stateHash: string;
-  executor: DatabaseSession;
-}): Promise<void> {
+async function ensureStoredPrincipalProjectionMatches(
+  input: PrincipalStateWriteContext,
+): Promise<void> {
   const storedProjection = await listProjectionMembersForState(
     input.normalizedInput.state.principalType,
     input.normalizedInput.state.principalId,
@@ -560,11 +553,9 @@ async function ensureStoredPrincipalProjectionMatches(input: {
   }
 }
 
-async function insertPrincipalEpochKeyRow(input: {
-  normalizedInput: PrincipalStateBundleInput;
-  stateHash: string;
-  executor: DatabaseSession;
-}): Promise<void> {
+async function insertPrincipalEpochKeyRow(
+  input: PrincipalStateWriteContext,
+): Promise<void> {
   await input.executor
     .insert(principalEpochKeys)
     .values({
@@ -585,11 +576,9 @@ async function insertPrincipalEpochKeyRow(input: {
     });
 }
 
-async function ensureStoredPrincipalEpochKeyMatches(input: {
-  normalizedInput: PrincipalStateBundleInput;
-  stateHash: string;
-  executor: DatabaseSession;
-}): Promise<void> {
+async function ensureStoredPrincipalEpochKeyMatches(
+  input: PrincipalStateWriteContext,
+): Promise<void> {
   const storedEpochKey = await getPrincipalEpochKeyByEpoch(
     input.normalizedInput.state.principalType,
     input.normalizedInput.state.principalId,
@@ -663,49 +652,20 @@ export async function storeVerifiedPrincipalStateInTransaction(
       previousState: currentState,
     });
   }
-  const signedAt = new Date(normalizedInput.state.signedAt);
+  const writeContext: PrincipalStateWriteContext = {
+    normalizedInput,
+    stateHash,
+    executor,
+  };
 
-  await insertPrincipalStateRow({
-    normalizedInput,
-    stateHash,
-    signedAt,
-    executor,
-  });
-  const storedState = await ensureStoredPrincipalStateMatches({
-    normalizedInput,
-    stateHash,
-    executor,
-  });
-  await insertPrincipalStatePayloadRow({
-    normalizedInput,
-    stateHash,
-    executor,
-  });
-  await ensureStoredPrincipalPayloadMatches({
-    normalizedInput,
-    stateHash,
-    executor,
-  });
-  await insertPrincipalProjectionRows({
-    normalizedInput,
-    stateHash,
-    executor,
-  });
-  await ensureStoredPrincipalProjectionMatches({
-    normalizedInput,
-    stateHash,
-    executor,
-  });
-  await insertPrincipalEpochKeyRow({
-    normalizedInput,
-    stateHash,
-    executor,
-  });
-  await ensureStoredPrincipalEpochKeyMatches({
-    normalizedInput,
-    stateHash,
-    executor,
-  });
+  await insertPrincipalStateRow(writeContext);
+  const storedState = await ensureStoredPrincipalStateMatches(writeContext);
+  await insertPrincipalStatePayloadRow(writeContext);
+  await ensureStoredPrincipalPayloadMatches(writeContext);
+  await insertPrincipalProjectionRows(writeContext);
+  await ensureStoredPrincipalProjectionMatches(writeContext);
+  await insertPrincipalEpochKeyRow(writeContext);
+  await ensureStoredPrincipalEpochKeyMatches(writeContext);
 
   return storedState;
 }
@@ -756,20 +716,7 @@ export async function getCurrentPrincipalStates(
     )
     .orderBy(asc(principalStates.principalId), desc(principalStates.version));
 
-  const currentStatesByPrincipalId = new Map<string, StoredPrincipalState>();
-
-  for (const row of rows) {
-    if (currentStatesByPrincipalId.has(row.principalId)) {
-      continue;
-    }
-
-    currentStatesByPrincipalId.set(
-      row.principalId,
-      toStoredPrincipalState(row),
-    );
-  }
-
-  return currentStatesByPrincipalId;
+  return firstPerKey(rows, (row) => row.principalId, toStoredPrincipalState);
 }
 
 export async function listPrincipalStateHistory(
@@ -874,18 +821,9 @@ export async function getCurrentPrincipalEpochKeys(
       desc(principalEpochKeys.epoch),
     );
 
-  const currentEpochKeysByPrincipalId = new Map<
-    string,
-    StoredPrincipalEpochKey
-  >();
-
-  for (const row of rows) {
-    if (currentEpochKeysByPrincipalId.has(row.principalId)) {
-      continue;
-    }
-
-    currentEpochKeysByPrincipalId.set(row.principalId, row);
-  }
-
-  return currentEpochKeysByPrincipalId;
+  return firstPerKey(
+    rows,
+    (row) => row.principalId,
+    (row) => row,
+  );
 }

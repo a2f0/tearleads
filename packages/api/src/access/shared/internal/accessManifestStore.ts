@@ -41,6 +41,7 @@ import {
   readJsonArray,
   referencedPrincipalHeadsCanonicalJson,
 } from "./accessManifestJson";
+import { selectOneOrThrow } from "./selectOneOrThrow";
 
 /**
  * access projection tables are derived cache only.
@@ -149,15 +150,14 @@ async function ensureStoredAccessEventMatches(
   verifiedEvent: VerifiedAccessEvent,
   executor: DatabaseSession,
 ): Promise<void> {
-  const [storedEvent] = await executor
-    .select()
-    .from(accessEvents)
-    .where(eq(accessEvents.eventHash, verifiedEvent.eventHash))
-    .limit(1);
-
-  if (!storedEvent) {
-    throw new Error("Failed to load stored access event");
-  }
+  const storedEvent = await selectOneOrThrow(
+    executor
+      .select()
+      .from(accessEvents)
+      .where(eq(accessEvents.eventHash, verifiedEvent.eventHash))
+      .limit(1),
+    "Failed to load stored access event",
+  );
 
   const event = verifiedEvent.event;
   if (
@@ -222,15 +222,14 @@ async function ensureStoredAccessManifestMatches(
   verifiedManifest: AnyVerifiedAccessManifest,
   executor: DatabaseSession,
 ): Promise<void> {
-  const [storedManifest] = await executor
-    .select()
-    .from(accessManifests)
-    .where(eq(accessManifests.manifestHash, verifiedManifest.manifestHash))
-    .limit(1);
-
-  if (!storedManifest) {
-    throw new Error("Failed to load stored access manifest");
-  }
+  const storedManifest = await selectOneOrThrow(
+    executor
+      .select()
+      .from(accessManifests)
+      .where(eq(accessManifests.manifestHash, verifiedManifest.manifestHash))
+      .limit(1),
+    "Failed to load stored access manifest",
+  );
 
   const manifest = verifiedManifest.manifest;
   if (
@@ -316,34 +315,28 @@ async function loadAccessManifestRow(
   manifestHash: string,
   executor: DatabaseSession,
 ): Promise<typeof accessManifests.$inferSelect> {
-  const [manifest] = await executor
-    .select()
-    .from(accessManifests)
-    .where(eq(accessManifests.manifestHash, manifestHash))
-    .limit(1);
-
-  if (!manifest) {
-    throw new Error("Access manifest not found");
-  }
-
-  return manifest;
+  return selectOneOrThrow(
+    executor
+      .select()
+      .from(accessManifests)
+      .where(eq(accessManifests.manifestHash, manifestHash))
+      .limit(1),
+    "Access manifest not found",
+  );
 }
 
 async function loadAccessEventRow(
   eventHash: string,
   executor: DatabaseSession,
 ): Promise<typeof accessEvents.$inferSelect> {
-  const [event] = await executor
-    .select()
-    .from(accessEvents)
-    .where(eq(accessEvents.eventHash, eventHash))
-    .limit(1);
-
-  if (!event) {
-    throw new Error("Access event not found");
-  }
-
-  return event;
+  return selectOneOrThrow(
+    executor
+      .select()
+      .from(accessEvents)
+      .where(eq(accessEvents.eventHash, eventHash))
+      .limit(1),
+    "Access event not found",
+  );
 }
 
 export async function getAccessManifestBundle(

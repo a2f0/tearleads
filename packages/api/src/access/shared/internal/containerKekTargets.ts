@@ -5,7 +5,9 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { ContainerKekTarget } from "@tearleads/crypto";
 import { sql } from "drizzle-orm";
+import { isRecord } from "../../../utils/record";
 import {
+  isSqlBooleanValue,
   jsonTextProperty,
   readSqlBoolean,
   textExpression,
@@ -18,7 +20,7 @@ import { getContainerKeyEpochsById } from "./containerKekStore";
 
 type ContainerKekTargetStatus = 404 | 409;
 
-export class ContainerKekTargetError extends Error {
+class ContainerKekTargetError extends Error {
   constructor(
     message: string,
     readonly status: ContainerKekTargetStatus,
@@ -28,8 +30,35 @@ export class ContainerKekTargetError extends Error {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+type ContainerKeyEpochById = Awaited<
+  ReturnType<typeof getContainerKeyEpochsById>
+>;
+
+const staleContainerKekEpochError = (containerId: string) =>
+  new ContainerKekTargetError(
+    `Container KEK epoch is stale for container ${containerId}`,
+    409,
+  );
+
+const staleContainerKekParentEdgeError = (containerId: string) =>
+  new ContainerKekTargetError(
+    `Container KEK parent edge is stale for container ${containerId}`,
+    409,
+  );
+
+export async function resolveCurrentContainerKekTargetsMapped<E extends Error>(
+  containerIds: readonly string[],
+  executor: DatabaseSession,
+  mapError: (message: string, status: ContainerKekTargetStatus) => E,
+): Promise<Map<string, ContainerKekTarget>> {
+  try {
+    return await resolveCurrentContainerKekTargets(containerIds, executor);
+  } catch (error) {
+    if (error instanceof ContainerKekTargetError) {
+      throw mapError(error.message, error.status);
+    }
+    throw error;
+  }
 }
 
 function readRecord(value: unknown): Record<string, unknown> | null {
@@ -115,9 +144,7 @@ function isContainerAncestorClosureRow(
   return (
     typeof value === "object" &&
     value !== null &&
-    (typeof Reflect.get(value, "cycleDetected") === "boolean" ||
-      Reflect.get(value, "cycleDetected") === 0 ||
-      Reflect.get(value, "cycleDetected") === 1) &&
+    isSqlBooleanValue(Reflect.get(value, "cycleDetected")) &&
     typeof Reflect.get(value, "id") === "string" &&
     typeof Reflect.get(value, "manifestHash") === "string" &&
     typeof Reflect.get(value, "objectId") === "string" &&
@@ -145,9 +172,7 @@ function isContainerManifestBindingHistoryRow(
     value !== null &&
     typeof Reflect.get(value, "containerId") === "string" &&
     typeof Reflect.get(value, "containerKeyEpochId") === "string" &&
-    (typeof Reflect.get(value, "cycleDetected") === "boolean" ||
-      Reflect.get(value, "cycleDetected") === 0 ||
-      Reflect.get(value, "cycleDetected") === 1) &&
+    isSqlBooleanValue(Reflect.get(value, "cycleDetected")) &&
     typeof Reflect.get(value, "eventHash") === "string" &&
     typeof Reflect.get(value, "manifestHash") === "string" &&
     typeof Reflect.get(value, "objectId") === "string" &&
@@ -305,10 +330,7 @@ function assertBindingHistoryRowCurrent(input: {
     state: input.row.state,
   });
   if (targetState.containerKeyEpochId !== input.row.containerKeyEpochId) {
-    throw new ContainerKekTargetError(
-      `Container KEK epoch is stale for container ${input.row.containerId}`,
-      409,
-    );
+    throw staleContainerKekEpochError(input.row.containerId);
   }
 
   const state = readRecord(input.row.state);
@@ -443,10 +465,7 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
   for (const target of targets) {
     const history = historyByContainerId.get(target.containerId);
     if (!history?.manifestHashes.has(target.containerManifestHash)) {
-      throw new ContainerKekTargetError(
-        `Container KEK epoch is stale for container ${target.containerId}`,
-        409,
-      );
+      throw staleContainerKekEpochError(target.containerId);
     }
   }
 
@@ -455,7 +474,7 @@ async function loadSameEpochContainerManifestBindingHistories(input: {
 
 function getContainerKeyEpoch(
   target: ContainerManifestTarget,
-  keyEpochById: Awaited<ReturnType<typeof getContainerKeyEpochsById>>,
+  keyEpochById: ContainerKeyEpochById,
 ) {
   const keyEpoch = keyEpochById.get(target.containerKeyEpochId);
   if (!keyEpoch) {
@@ -465,17 +484,14 @@ function getContainerKeyEpoch(
     );
   }
   if (keyEpoch.containerId !== target.containerId) {
-    throw new ContainerKekTargetError(
-      `Container KEK epoch is stale for container ${target.containerId}`,
-      409,
-    );
+    throw staleContainerKekEpochError(target.containerId);
   }
 
   return keyEpoch;
 }
 
 function assertContainerKekParentEdgesCurrent(input: {
-  readonly keyEpochById: Awaited<ReturnType<typeof getContainerKeyEpochsById>>;
+  readonly keyEpochById: ContainerKeyEpochById;
   readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
 }): void {
   for (const target of input.targetByContainerId.values()) {
@@ -483,10 +499,7 @@ function assertContainerKekParentEdgesCurrent(input: {
 
     if (target.parentContainerId === null) {
       if (keyEpoch.parentContainerKeyEpochId !== null) {
-        throw new ContainerKekTargetError(
-          `Container KEK parent edge is stale for container ${target.containerId}`,
-          409,
-        );
+        throw staleContainerKekParentEdgeError(target.containerId);
       }
       continue;
     }
@@ -508,10 +521,7 @@ function assertContainerKekParentEdgesCurrent(input: {
     if (
       keyEpoch.parentContainerKeyEpochId !== parentTarget.containerKeyEpochId
     ) {
-      throw new ContainerKekTargetError(
-        `Container KEK parent edge is stale for container ${target.containerId}`,
-        409,
-      );
+      throw staleContainerKekParentEdgeError(target.containerId);
     }
   }
 }
@@ -521,7 +531,7 @@ function assertContainerKekManifestBindingsCurrent(input: {
     string,
     ContainerManifestBindingHistory
   >;
-  readonly keyEpochById: Awaited<ReturnType<typeof getContainerKeyEpochsById>>;
+  readonly keyEpochById: ContainerKeyEpochById;
   readonly targetByContainerId: ReadonlyMap<string, ContainerManifestTarget>;
 }): void {
   for (const target of input.targetByContainerId.values()) {
@@ -534,10 +544,7 @@ function assertContainerKekManifestBindingsCurrent(input: {
       history.eventHashByManifestHash.get(keyEpoch.createdByManifestHash) !==
         keyEpoch.createdByEventHash
     ) {
-      throw new ContainerKekTargetError(
-        `Container KEK epoch is stale for container ${target.containerId}`,
-        409,
-      );
+      throw staleContainerKekEpochError(target.containerId);
     }
   }
 }

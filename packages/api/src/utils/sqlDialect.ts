@@ -76,6 +76,10 @@ export function readDateValue(value: unknown, label: string): Date {
   return date;
 }
 
+export function isSqlBooleanValue(value: unknown): value is boolean | 0 | 1 {
+  return typeof value === "boolean" || value === 0 || value === 1;
+}
+
 export function readSqlBoolean(value: unknown, label: string): boolean {
   if (typeof value === "boolean") {
     return value;

@@ -7,8 +7,7 @@ import {
   assertContentKeyTargetHashMatches,
   assertContentKeyTargetsMatchCurrent,
   assertPositiveContentKeyEpoch,
-  contentKeyTargetEnvelopeEqual,
-  contentKeyTargetEnvelopeMaterialEqual,
+  contentKeyTargetEnvelopeEqualBy,
   sortContentKeyTargetEnvelopes,
 } from "./contentKeyTargetPolicy";
 import type { resolveCurrentDocumentKekTargets } from "./documentKekTargets";
@@ -75,10 +74,8 @@ function targetFieldsEqual(
   right: DocumentContentKeyTarget,
 ): boolean {
   return (
-    left.containerId === right.containerId &&
-    left.containerManifestHash === right.containerManifestHash &&
-    left.containerKeyEpochId === right.containerKeyEpochId &&
-    left.containerKeyEpoch === right.containerKeyEpoch
+    targetKeyMaterialEqual(left, right) &&
+    left.containerManifestHash === right.containerManifestHash
   );
 }
 
@@ -97,7 +94,7 @@ export function targetEnvelopeEqual(
   left: DocumentContentKeyTargetEnvelope,
   right: DocumentContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeEqual<DocumentContentKeyTargetEnvelope>(
+  return contentKeyTargetEnvelopeEqualBy<DocumentContentKeyTargetEnvelope>(
     left,
     right,
     targetFieldsEqual,
@@ -108,7 +105,7 @@ export function targetEnvelopeMaterialEqual(
   left: DocumentContentKeyTargetEnvelope,
   right: DocumentContentKeyTargetEnvelope,
 ): boolean {
-  return contentKeyTargetEnvelopeMaterialEqual<DocumentContentKeyTargetEnvelope>(
+  return contentKeyTargetEnvelopeEqualBy<DocumentContentKeyTargetEnvelope>(
     left,
     right,
     targetKeyMaterialEqual,
