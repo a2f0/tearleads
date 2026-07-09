@@ -137,9 +137,11 @@ export function diffChangedContainerIds(
   }
   const changed: string[] = [];
   for (const [containerId, signature] of next) {
-    // Only containers already present whose id-set actually changed; a key absent
-    // from `previous` is an additive first appearance we intentionally skip.
-    if (previous.has(containerId) && previous.get(containerId) !== signature) {
+    // Only containers already present whose id-set actually changed. A single get
+    // suffices: values are always strings, so `undefined` means the key is absent
+    // from `previous` — an additive first appearance we intentionally skip.
+    const previousSignature = previous.get(containerId);
+    if (previousSignature !== undefined && previousSignature !== signature) {
       changed.push(containerId);
     }
   }
