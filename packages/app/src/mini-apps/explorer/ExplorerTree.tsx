@@ -31,6 +31,12 @@ interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
   blankContextMenuContainerId: string | null;
   // True when the SQLite boot failed; surfaces the error instead of "Loading...".
   databaseError: boolean;
+  // Monotonic link-projection version. Each increment triggers at most one
+  // DESTRUCTIVE (preserveRows:false) sidebar reload pass across the expanded
+  // containers (see useExplorerSidebarWindows). Stamped on the viewport purely so
+  // an integration canary can bound it after bootstrap settles — the cold-bootstrap
+  // flicker was this counter climbing ~once per sync tick. Not read by runtime code.
+  documentLinkProjectionVersion: number;
   frameRef: (nextFrame: HTMLDivElement | null) => void;
   nodesLength: number;
   offset: number;
@@ -69,6 +75,9 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
       <section
         className="explorer-sidebar-viewport"
         aria-label="Explorer containers"
+        data-document-link-projection-version={
+          props.documentLinkProjectionVersion
+        }
         onContextMenu={(event) => {
           if (
             isExplorerSidebarBlankContextTarget(event.target) &&
@@ -184,6 +193,7 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
       currentUserId={props.currentUserId}
       databaseError={props.databaseError}
       depth={0}
+      documentLinkProjectionVersion={props.documentLinkProjectionVersion}
       documentWindowsByContainerId={documentWindowsByContainerId}
       frameRef={frameRef}
       nodesLength={props.nodes.length}
