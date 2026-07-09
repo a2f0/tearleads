@@ -5,7 +5,7 @@ import type {
   LocalProjectionView,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook } from "@testing-library/react";
-import { useExplorerViewProjectionSync } from "./useExplorerInteractionState";
+import { useExplorerViewProjectionSync } from "./useExplorerViewProjectionSync";
 
 afterEach(() => cleanup());
 
