@@ -44,6 +44,71 @@ function activeRootChildSummary(): ListContainersResponse {
   };
 }
 
+function serverRootNullLanePage(): ListContainersResponse {
+  return {
+    hasMore: false,
+    items: [
+      {
+        createdAt: "2026-06-18T00:00:00.000Z",
+        depth: 0,
+        effectiveAccessLevel: "admin",
+        id: "server-root",
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "server-root-access-hash",
+        metadataDocumentId: "server-root-metadata-document",
+        organizationId: "org-1",
+        parentId: null,
+        systemSlot: null,
+        updatedAt: "2026-06-18T00:00:00.000Z",
+      },
+    ],
+    nextWatermark: { id: "server-root", updatedAt: "2026-06-18T00:00:00.000Z" },
+    tombstones: [],
+  };
+}
+
+function serverTrashChildSummary(): ListContainersResponse {
+  return {
+    hasMore: false,
+    items: [
+      {
+        createdAt: "2026-06-19T00:00:00.000Z",
+        depth: 1,
+        effectiveAccessLevel: "admin",
+        id: "server-trash",
+        metadataAccessEpoch: 1,
+        metadataAccessStateHash: "server-trash-access-hash",
+        metadataDocumentId: "server-trash-metadata-document",
+        organizationId: "org-1",
+        parentId: "server-root",
+        systemSlot: "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        updatedAt: "2026-06-19T00:00:00.000Z",
+      },
+    ],
+    nextWatermark: {
+      id: "server-trash",
+      updatedAt: "2026-06-19T00:00:00.000Z",
+    },
+    tombstones: [],
+  };
+}
+
+async function saveServerRootContainer(execSql: ExecSql): Promise<void> {
+  await defaultContainerContentsPersistence.saveContainer(
+    execSql,
+    {
+      icon: null,
+      id: "server-root",
+      effectiveAccessLevel: "admin",
+      metadataDocumentId: "server-root-metadata-document",
+      name: "/",
+      organizationId: "org-1",
+      parentId: null,
+    },
+    null,
+  );
+}
+
 async function waitForCondition(
   predicate: () => boolean | Promise<boolean>,
   message: string,
@@ -149,6 +214,118 @@ test("root-lane refresh hydrates the active root's system children", async () =>
     expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
       "active-root-trash",
     );
+  } finally {
+    close();
+  }
+});
+
+// Regression (bootstrap "You"/Trash flicker): the provisioned-container poll drives
+// this refresh every ~250ms until the slot surfaces. After a cold-cache login the
+// active root id is still the pre-auth device-first LOCAL root, but the org-born
+// Trash lives under the reconciled SERVER root. The poll must target the server
+// root's child lane (resolved from the tree), not the stale active root id — else
+// it lists a dead lane, never pulls Trash, and spins its whole budget churning the
+// sidebar. Without the fix this refresh lists [null, "stale-local-root"], never
+// touches "server-root", and Trash never appears.
+test("provisioned root-lane refresh surfaces Trash under the reconciled server root despite a stale active root id", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-stale-root-provisioned-pull-test",
+  );
+  const domainScope = {} as DomainScope;
+  const listedParentIds: Array<string | null | undefined> = [];
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    // Post-reconcile state: only the SERVER root is in the tree, but the session's
+    // active root id was never re-pointed off the deleted local root.
+    await saveServerRootContainer(execSql);
+
+    const runtime = createSqlTestRuntime({
+      apiClient: createMockApiClient({
+        listContainers: async ({ parentId } = {}) => {
+          listedParentIds.push(parentId);
+          return parentId === "server-root"
+            ? serverTrashChildSummary()
+            : emptyListContainersResponse();
+        },
+      }),
+      domainScope,
+      execSql,
+      rootContainerId: "stale-local-root",
+    });
+    const store = createContainerContentsStore(runtime);
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    await store.refreshRootLane({ includeActiveRootChildLane: true });
+
+    expect(listedParentIds).toContain("server-root");
+    expect(store.getSnapshot().nodes.map((node) => node.id)).toContain(
+      "server-trash",
+    );
+  } finally {
+    close();
+  }
+});
+
+// Regression (bootstrap churn engine): each provisioned poll must NOT re-list the
+// root (null) lane unwatermarked. An unwatermarked re-list every tick makes
+// hydrateRemoteContainers count every listed container as "changed", re-firing
+// updateSnapshot()+scheduleSync() on every one of the ~40 polls and repainting the
+// sidebar for the whole window. Once a lane reports its next watermark, later polls
+// must resume from it. Without the fix (resetRootLaneWatermark:true), every null-
+// lane request carries a null watermark.
+test("repeated provisioned root-lane refreshes do not re-list the root lane unwatermarked", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-contents-store-provisioned-pull-watermark-test",
+  );
+  const domainScope = {} as DomainScope;
+  const nullLaneWatermarks: Array<unknown> = [];
+
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    await saveServerRootContainer(execSql);
+
+    const runtime = createSqlTestRuntime({
+      apiClient: createMockApiClient({
+        listContainers: async ({ parentId, watermark } = {}) => {
+          if (parentId === null) {
+            nullLaneWatermarks.push(watermark ?? null);
+            return serverRootNullLanePage();
+          }
+          return parentId === "server-root"
+            ? serverTrashChildSummary()
+            : emptyListContainersResponse();
+        },
+      }),
+      domainScope,
+      execSql,
+      rootContainerId: "server-root",
+    });
+    const store = createContainerContentsStore(runtime);
+
+    store.updateRuntime(runtime);
+
+    await waitForCondition(
+      () => store.getSnapshot().ready,
+      "Container contents store did not become ready.",
+    );
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await store.refreshRootLane({ includeActiveRootChildLane: true });
+    }
+
+    // The first pull has no persisted watermark; every subsequent pull must resume
+    // from the watermark the null lane reported, never re-list it unwatermarked.
+    expect(nullLaneWatermarks.length).toBeGreaterThanOrEqual(2);
+    expect(
+      nullLaneWatermarks.slice(1).every((watermark) => watermark != null),
+    ).toBe(true);
   } finally {
     close();
   }
