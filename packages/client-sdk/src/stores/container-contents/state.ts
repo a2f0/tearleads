@@ -106,8 +106,63 @@ function setContainerContentsSnapshot(
     return;
   }
 
+  // 🔴FLK TEMP DEBUG (bootstrap flicker) — remove before merge.
+  logFlickerSnapshotEmit(state, next);
+
   state.snapshot = next;
   emitContainerContentsStore(state);
+}
+
+// 🔴FLK TEMP DEBUG (bootstrap flicker) — remove before merge. Logs, per emit, what
+// actually changed in the container snapshot so we can see whether a row toggles
+// in/out of `nodes` and which field (syncState, parentId, ...) is churning.
+function shortFlickerNodeLabel(node: ContainerNode): string {
+  return `${node.name}#${node.id.slice(0, 6)}`;
+}
+
+function logFlickerSnapshotEmit(
+  state: ContainerContentsStoreState,
+  next: ContainerContentsSnapshot,
+) {
+  try {
+    const prev = state.snapshot;
+    const prevById = new Map(prev.nodes.map((node) => [node.id, node]));
+    const nextById = new Map(next.nodes.map((node) => [node.id, node]));
+    const added = next.nodes
+      .filter((node) => !prevById.has(node.id))
+      .map(shortFlickerNodeLabel);
+    const removed = prev.nodes
+      .filter((node) => !nextById.has(node.id))
+      .map(shortFlickerNodeLabel);
+    const changed: string[] = [];
+    for (const node of next.nodes) {
+      const before = prevById.get(node.id);
+      if (!before) {
+        continue;
+      }
+      const fields: string[] = [];
+      if (before.name !== node.name) fields.push("name");
+      if (before.parentId !== node.parentId) {
+        fields.push(`parent:${before.parentId}>${node.parentId}`);
+      }
+      if (before.syncState.status !== node.syncState.status) {
+        fields.push(`status:${before.syncState.status}>${node.syncState.status}`);
+      }
+      if (before.syncState.pendingUpdateCount !== node.syncState.pendingUpdateCount) {
+        fields.push("pending");
+      }
+      if (before.icon !== node.icon) fields.push("icon");
+      if (before.updatedAt !== node.updatedAt) fields.push("updatedAt");
+      if (fields.length > 0) {
+        changed.push(`${shortFlickerNodeLabel(node)}[${fields.join(",")}]`);
+      }
+    }
+    console.info(
+      `🔴FLK[${state.logLabel ?? "?"}] emit ready:${prev.ready}>${next.ready} +[${added.join(" ")}] -[${removed.join(" ")}] ~[${changed.join(" ")}] n=${next.nodes.length}`,
+    );
+  } catch {
+    // debug-only; never disrupt the store
+  }
 }
 
 export function updateContainerContentsSnapshot(

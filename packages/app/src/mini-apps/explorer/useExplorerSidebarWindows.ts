@@ -89,6 +89,10 @@ export function useExplorerSidebarDocumentWindows(params: {
       setDocumentWindowsByContainerId((currentWindows) => {
         const currentWindow = currentWindows.get(containerId);
         const nextWindows = new Map(currentWindows);
+        // 🔴FLK TEMP DEBUG (bootstrap flicker) — remove before merge.
+        console.info(
+          `🔴FLK[docwin] request ${containerId.slice(0, 6)} limit=${limit} preserveRows=${preserveRows} had=${currentWindow ? `rows:${currentWindow.rows.length}/total:${currentWindow.totalCount}` : "none"} -> total:${preserveRows ? (currentWindow?.totalCount ?? null) : null}`,
+        );
         nextWindows.set(containerId, {
           error: null,
           isLoading: true,
@@ -123,6 +127,10 @@ export function useExplorerSidebarDocumentWindows(params: {
           setDocumentWindowsByContainerId((currentWindows) => {
             const currentWindow = currentWindows.get(containerId);
             const nextWindows = new Map(currentWindows);
+            // 🔴FLK TEMP DEBUG (bootstrap flicker) — remove before merge.
+            console.info(
+              `🔴FLK[docwin] resolved ${containerId.slice(0, 6)} limit=${limit} -> rows:${limit === 0 ? (currentWindow?.rows.length ?? 0) : documentWindow.rows.length}/total:${documentWindow.totalCount}`,
+            );
             nextWindows.set(containerId, {
               error: null,
               isLoading: false,
@@ -237,6 +245,10 @@ export function useExplorerSidebarDocumentWindows(params: {
           nextWindows.set(containerId, state);
         } else {
           changed = true;
+          // 🔴FLK TEMP DEBUG (bootstrap flicker) — remove before merge.
+          console.info(
+            `🔴FLK[docwin] PRUNE ${containerId.slice(0, 6)} (left nodes) had rows:${state.rows.length}/total:${state.totalCount}`,
+          );
         }
       }
 

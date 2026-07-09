@@ -197,11 +197,19 @@ export function useProvisionedSystemContainerPull(input: {
     };
 
     const pullRootLane = () => {
+      // 🔴FLK TEMP DEBUG (bootstrap flicker) — remove before merge.
+      console.info(
+        `🔴FLK[poll] tick attempt=${provisionedPullAttemptsRef.current} missing=[${listMissingSlots().length}] inFlight=${provisionedPullInFlightRef.current} rootId=${currentRootContainerId?.slice(0, 6)}`,
+      );
       if (
         listMissingSlots().length === 0 ||
         provisionedPullAttemptsRef.current >=
           PROVISIONED_SYSTEM_CONTAINER_PULL_LIMIT
       ) {
+        // 🔴FLK TEMP DEBUG (bootstrap flicker) — remove before merge.
+        console.info(
+          `🔴FLK[poll] STOP after ${provisionedPullAttemptsRef.current} attempts (missing=${listMissingSlots().length})`,
+        );
         stopPolling();
         return;
       }
