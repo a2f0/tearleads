@@ -98,7 +98,7 @@ function DocumentAttachmentSlotPreview(params: {
         <img
           className="structured-document-slot-preview-image"
           src={imageUrl}
-          alt={storedAttachment.name}
+          alt=""
         />
       </button>
     ) : (
