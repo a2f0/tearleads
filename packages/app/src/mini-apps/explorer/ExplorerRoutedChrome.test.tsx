@@ -306,6 +306,64 @@ test("document toolbar hides move when there are no move targets", async () => {
   ).toBeNull();
 });
 
+// The pending-selection window: clicking a document row routes to
+// "document-selection" synchronously, but selectedDocument stays undefined until
+// its summary async-loads. The toolbar must still show the document's Get Info
+// (sourced from the route) so the bar never empties mid-selection — the "toolbar
+// collapses when selecting a contact" report.
+test("document toolbar shows get info before the summary loads", async () => {
+  const openedDocumentInfo: Array<[string, string]> = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          // No targets are known yet during the pending window.
+          hasSelectedDocumentLinkTargets: false,
+          hasSelectedDocumentMoveTargets: false,
+          isActiveContactsContainer: false,
+          routeState: {
+            ...baseModel.routeState,
+            route: {
+              containerId: "folder-1",
+              localId: "contact-1",
+              view: "document-selection",
+            },
+            openDocumentInfoRoute: (localId, containerId) => {
+              openedDocumentInfo.push([localId, containerId]);
+            },
+          },
+          selection: {
+            ...baseModel.selection,
+            activeContainerId: "folder-1",
+            // Summary not yet merged into documentSummaries.
+            selectedDocument: undefined,
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  const getInfo = await view.findByRole("button", {
+    name: EXPLORER_LABELS.documentInfoGetInfoAction,
+  });
+  // Enabled because the ids come from the route, not the unloaded summary.
+  expect((getInfo as HTMLButtonElement).disabled).toBe(false);
+  // Container actions are suppressed once we have routed into a document.
+  expect(
+    view.queryByRole("button", {
+      name: EXPLORER_LABELS.createChildFolderAction,
+    }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.newContactAction }),
+  ).toBeNull();
+
+  fireEvent.click(getInfo);
+
+  expect(openedDocumentInfo).toEqual([["contact-1", "folder-1"]]);
+});
+
 test("document-info back action returns to the document projection", async () => {
   const selectedDocuments: Array<[string, string]> = [];
   const baseModel = createExplorerModel();
