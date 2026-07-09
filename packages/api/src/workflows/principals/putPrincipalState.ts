@@ -13,6 +13,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import type { PrincipalStateExternalSignerAuthorizationInput } from "../../access/write/principalStateStore";
 import { storeVerifiedPrincipalStateInTransaction } from "../../access/write/principalStateStore";
+import { reconcileOrganizationBillingSeats } from "../billing/organizationSeats";
 import { isUserReachableThroughCurrentGroup } from "../organizations/access";
 import { listUsersReachableFromCurrentPrincipal } from "../organizations/principalReachability";
 import { syncOrganizationRosterFromMemberReachability } from "../organizations/roster";
@@ -136,13 +137,13 @@ async function assertManagedPrincipalUsersAreNotDisabledRosterEntries(input: {
 async function syncRosterForStoredPrincipalState(input: {
   readonly request: PutPrincipalStateInput;
   readonly tx: DatabaseTransaction;
-}): Promise<void> {
+}): Promise<{ organizationId: string; memberGroupId: string } | null> {
   const rosterSyncTarget = await loadRosterSyncTargetForPrincipal({
     input: input.request,
     tx: input.tx,
   });
   if (!rosterSyncTarget) {
-    return;
+    return null;
   }
 
   await syncOrganizationRosterFromMemberReachability({
@@ -162,6 +163,7 @@ async function syncRosterForStoredPrincipalState(input: {
       tx: input.tx,
     });
   }
+  return rosterSyncTarget;
 }
 
 export async function runPutPrincipalStateWorkflow(
@@ -239,7 +241,22 @@ export async function runPutPrincipalStateWorkflow(
         previousState,
         updatedAt: new Date(),
       });
-      await syncRosterForStoredPrincipalState({ request: input, tx });
+      const rosterSyncTarget = await syncRosterForStoredPrincipalState({
+        request: input,
+        tx,
+      });
+      if (rosterSyncTarget) {
+        await reconcileOrganizationBillingSeats({
+          executor: tx,
+          organizationId: rosterSyncTarget.organizationId,
+          source: {
+            sourceId: nextState.stateHash,
+            sourcePrincipalId: input.expectedPrincipalId,
+            sourcePrincipalType: input.expectedPrincipalType,
+            sourceType: "principal_state",
+          },
+        });
+      }
 
       return nextState;
     });

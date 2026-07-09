@@ -22,7 +22,9 @@ function billing(
     status: "local",
     trialEndsAt: null,
     provider: null,
+    currentPeriodStartsAt: null,
     currentPeriodEndsAt: null,
+    seatCount: 0,
     disabledAt: null,
     purgeAfter: null,
     ...overrides,
@@ -38,6 +40,7 @@ test("local orgs cannot sync and need no attention", () => {
   expect(view.isLocal).toBe(true);
   expect(view.needsAttention).toBe(false);
   expect(view.trialDaysRemaining).toBeNull();
+  expect(view.seatCount).toBe(0);
 });
 
 test("an active, unexpired trial can sync and reports days remaining", () => {
@@ -74,11 +77,18 @@ test("trialing without an end date cannot sync (mirrors the server)", () => {
 
 test("an active subscription within its period can sync", () => {
   const view = resolveOrganizationBillingView(
-    billing({ status: "active", currentPeriodEndsAt: iso(10 * DAY_MS) }),
+    billing({
+      status: "active",
+      currentPeriodStartsAt: iso(-20 * DAY_MS),
+      currentPeriodEndsAt: iso(10 * DAY_MS),
+      seatCount: 3,
+    }),
     NOW_MS,
   );
   expect(view.canSync).toBe(true);
   expect(view.isActive).toBe(true);
+  expect(view.currentPeriodStartsAtMs).toBe(Date.parse(iso(-20 * DAY_MS)));
+  expect(view.seatCount).toBe(3);
   expect(view.needsAttention).toBe(false);
 });
 

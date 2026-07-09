@@ -52,7 +52,11 @@ interface RevenueCatGrantFields {
   status: OrganizationBillingStatus;
   provider: OrganizationBillingProvider;
   providerCustomerId: string;
+  providerSubscriptionId: string | null;
+  providerProductId: string | null;
+  providerTransactionId: string | null;
   entitlementId: string | null;
+  currentPeriodStartsAt: Date | null;
   currentPeriodEndsAt: Date | null;
   trialEndsAt: null;
   disabledAt: null;
@@ -105,6 +109,10 @@ function resolveEntitlementId(event: RevenueCatWebhookEvent): string | null {
   return event.entitlement_ids?.[0] ?? null;
 }
 
+function timestampMsToDate(value: number | null | undefined): Date | null {
+  return value != null ? new Date(value) : null;
+}
+
 /**
  * Maps a RevenueCat event to its effect on an organization's sync billing,
  * independent of any database state. Grants activate sync and record the
@@ -132,11 +140,12 @@ export function classifyRevenueCatEvent(
         status: "active",
         provider: REVENUECAT_PROVIDER,
         providerCustomerId: event.app_user_id,
+        providerSubscriptionId: event.original_transaction_id ?? null,
+        providerProductId: event.product_id ?? null,
+        providerTransactionId: event.transaction_id ?? null,
         entitlementId: resolveEntitlementId(event),
-        currentPeriodEndsAt:
-          event.expiration_at_ms != null
-            ? new Date(event.expiration_at_ms)
-            : null,
+        currentPeriodStartsAt: timestampMsToDate(event.purchased_at_ms),
+        currentPeriodEndsAt: timestampMsToDate(event.expiration_at_ms),
         trialEndsAt: null,
         disabledAt: null,
         purgeAfter: null,

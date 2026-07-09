@@ -16,6 +16,7 @@ export async function setTestOrganizationBillingExpiredTrial(
     .set({
       status: "trialing",
       trialEndsAt: new Date(Date.now() - 60_000),
+      seatCount: 0,
       disabledAt: null,
       purgeAfter: null,
       updatedAt: new Date(),
@@ -31,6 +32,7 @@ export async function setTestOrganizationBillingLocal(
     .set({
       status: "local",
       trialEndsAt: null,
+      seatCount: 0,
       disabledAt: null,
       purgeAfter: null,
       updatedAt: new Date(),

@@ -6,6 +6,16 @@ export type DocumentAttachmentAuditAction =
   | "detach"
   | "rewrap";
 export type OrganizationBillingProvider = "revenuecat";
+export type OrganizationBillingSeatEventSourceType =
+  | "billing_transition"
+  | "principal_state"
+  | "provider_event";
+export type OrganizationBillingSeatEventType =
+  | "seat_assigned"
+  | "seat_released"
+  | "licensed_seat_count_initialized"
+  | "licensed_seat_count_increased"
+  | "licensed_seat_count_reset";
 export type OrganizationBillingStatus =
   | "local"
   | "trialing"

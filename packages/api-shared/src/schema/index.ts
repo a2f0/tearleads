@@ -40,6 +40,8 @@ export { keyPackageBackups } from "./keyPackageBackups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
 export {
   organizationBilling,
+  organizationBillingSeatAssignments,
+  organizationBillingSeatEvents,
   organizationRosterEntries,
   organizations,
 } from "./organizations";
@@ -56,6 +58,8 @@ export type {
   ContainerSyncTombstoneReason,
   DocumentAttachmentAuditAction,
   OrganizationBillingProvider,
+  OrganizationBillingSeatEventSourceType,
+  OrganizationBillingSeatEventType,
   OrganizationBillingStatus,
   OrganizationRosterStatus,
 } from "./shared";

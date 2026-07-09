@@ -12,13 +12,16 @@ import {
 } from "../../billing/organizationBilling";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 
 const BILLING_ROW_COLUMNS = {
   organizationId: organizationBilling.organizationId,
   status: organizationBilling.status,
   trialEndsAt: organizationBilling.trialEndsAt,
   provider: organizationBilling.provider,
+  currentPeriodStartsAt: organizationBilling.currentPeriodStartsAt,
   currentPeriodEndsAt: organizationBilling.currentPeriodEndsAt,
+  seatCount: organizationBilling.seatCount,
   disabledAt: organizationBilling.disabledAt,
   purgeAfter: organizationBilling.purgeAfter,
 };
@@ -186,7 +189,17 @@ async function startOrganizationTrialInTransaction(input: {
     return loadOrganizationBilling(input.executor, input.organizationId);
   }
 
-  return updated;
+  await reconcileOrganizationBillingSeats({
+    executor: input.executor,
+    now: input.now,
+    organizationId: input.organizationId,
+    source: {
+      sourceId: `trial:${input.organizationId}:${trialEndsAt.toISOString()}`,
+      sourceType: "billing_transition",
+    },
+  });
+
+  return loadOrganizationBilling(input.executor, input.organizationId);
 }
 
 export async function runGetOrganizationBillingWorkflow(

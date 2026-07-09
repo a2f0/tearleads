@@ -17,6 +17,7 @@ import {
 import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 import { requireDirectOrganizationAccess } from "../organizations/access";
 import { OrganizationManagerError } from "../organizations/errors";
+import { reconcileOrganizationBillingSeats } from "./organizationSeats";
 
 /**
  * Disposition of a processed RevenueCat webhook event:
@@ -180,9 +181,20 @@ export async function runRevenueCatWebhookWorkflow(
         eventId: event.id,
         eventType: event.type,
         appUserId: event.app_user_id,
+        productId: event.product_id ?? null,
+        transactionId: event.transaction_id ?? null,
+        originalTransactionId: event.original_transaction_id ?? null,
         organizationId,
         outcome: ignoredReason ? "ignored" : "applied",
         eventTimestamp: new Date(event.event_timestamp_ms),
+        purchasedAt:
+          event.purchased_at_ms != null
+            ? new Date(event.purchased_at_ms)
+            : null,
+        expirationAt:
+          event.expiration_at_ms != null
+            ? new Date(event.expiration_at_ms)
+            : null,
       })
       .onConflictDoNothing({ target: revenuecatWebhookEvents.eventId })
       .returning({ id: revenuecatWebhookEvents.id });
@@ -208,6 +220,17 @@ export async function runRevenueCatWebhookWorkflow(
       .update(organizationBilling)
       .set({ ...transition.fields, updatedAt: now })
       .where(eq(organizationBilling.organizationId, organizationId));
+    if (transition.kind === "grant") {
+      await reconcileOrganizationBillingSeats({
+        executor: tx,
+        now,
+        organizationId,
+        source: {
+          sourceId: event.id,
+          sourceType: "provider_event",
+        },
+      });
+    }
 
     return {
       status: "applied",

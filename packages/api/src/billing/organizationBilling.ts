@@ -12,7 +12,9 @@ export interface OrganizationBilling {
   readonly status: OrganizationBillingStatus;
   readonly trialEndsAt: Date | null;
   readonly provider: OrganizationBillingProvider | null;
+  readonly currentPeriodStartsAt: Date | null;
   readonly currentPeriodEndsAt: Date | null;
+  readonly seatCount: number;
   readonly disabledAt: Date | null;
   readonly purgeAfter: Date | null;
 }
@@ -79,7 +81,9 @@ export function serializeOrganizationBilling(
     status: billing.status,
     trialEndsAt: billing.trialEndsAt?.toISOString() ?? null,
     provider: billing.provider,
+    currentPeriodStartsAt: billing.currentPeriodStartsAt?.toISOString() ?? null,
     currentPeriodEndsAt: billing.currentPeriodEndsAt?.toISOString() ?? null,
+    seatCount: billing.seatCount,
     disabledAt: billing.disabledAt?.toISOString() ?? null,
     purgeAfter: billing.purgeAfter?.toISOString() ?? null,
   };

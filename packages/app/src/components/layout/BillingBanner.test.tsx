@@ -16,7 +16,9 @@ function view(
     isActive: false,
     trialDaysRemaining: null,
     trialEndsAtMs: null,
+    currentPeriodStartsAtMs: null,
     currentPeriodEndsAtMs: null,
+    seatCount: 0,
     needsAttention: false,
     ...overrides,
   };

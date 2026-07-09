@@ -18,7 +18,11 @@ function makeEvent(
     type: "INITIAL_PURCHASE",
     app_user_id: "user-1",
     event_timestamp_ms: 1_000,
+    purchased_at_ms: 500,
     expiration_at_ms: 2_000,
+    product_id: "sync_monthly",
+    transaction_id: "transaction-1",
+    original_transaction_id: "original-transaction-1",
     entitlement_ids: ["sync"],
     subscriber_attributes: { orgId: { value: ORG_ID } },
     ...overrides,
@@ -34,7 +38,13 @@ test("a purchase event classifies as a grant that activates sync", () => {
   expect(transition.fields.status).toBe("active");
   expect(transition.fields.provider).toBe("revenuecat");
   expect(transition.fields.providerCustomerId).toBe("user-1");
+  expect(transition.fields.providerSubscriptionId).toBe(
+    "original-transaction-1",
+  );
+  expect(transition.fields.providerProductId).toBe("sync_monthly");
+  expect(transition.fields.providerTransactionId).toBe("transaction-1");
   expect(transition.fields.entitlementId).toBe("sync");
+  expect(transition.fields.currentPeriodStartsAt).toEqual(new Date(500));
   expect(transition.fields.currentPeriodEndsAt).toEqual(new Date(2_000));
   expect(transition.fields.trialEndsAt).toBeNull();
   expect(transition.fields.disabledAt).toBeNull();
