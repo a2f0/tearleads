@@ -42,6 +42,8 @@ const documentQueries: ContainerDocumentQueries = {
 // Stable identity: the sidebar memoizes on this prop, so an inline map would
 // recreate the sidebar every render and loop useRegisteredWindowSidebar.
 const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
+// Same stability requirement for the per-container link-projection versions.
+const NO_CONTAINER_VERSIONS: ReadonlyMap<string, number> = new Map();
 
 function SidebarContextMenuHarness(params: {
   onContainerContextMenu: (containerId: string) => void;
@@ -80,6 +82,7 @@ function SidebarContextMenuHarness(params: {
     databaseError: false,
     onRetryDatabase,
     documentLinkProjectionVersion: 0,
+    documentLinkProjectionVersionByContainerId: NO_CONTAINER_VERSIONS,
     documentListRevision: 0,
     documentQueries,
     handleSidebarContextMenu,

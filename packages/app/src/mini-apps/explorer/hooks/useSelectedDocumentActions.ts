@@ -49,7 +49,7 @@ function useMoveDocumentAction(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -119,7 +119,15 @@ function useMoveDocumentAction(params: {
         targetContainerId,
       });
       if (moveResult.linksChanged) {
-        onDocumentLinksChanged();
+        // Blank only the containers the move touched: the source(s) it left and
+        // the target it joined. Other orgs' expanded containers stay put.
+        onDocumentLinksChanged(
+          [
+            targetContainerId,
+            existingDocument.containerId,
+            options?.sourceContainerId,
+          ].filter((id): id is string => typeof id === "string"),
+        );
       }
 
       return moveResult.note;
@@ -200,7 +208,7 @@ function useLinkDocumentAction(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
@@ -265,7 +273,7 @@ function useLinkDocumentAction(params: {
         targetContainerId,
       });
       if (linkedNote) {
-        onDocumentLinksChanged();
+        onDocumentLinksChanged([targetContainerId]);
       }
 
       return linkedNote;
@@ -289,7 +297,7 @@ function useUnlinkDocumentAction(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {
   const {
@@ -332,7 +340,7 @@ function useUnlinkDocumentAction(params: {
         setLinkedContainerIdsForDocument,
       });
       if (unlinkedNote) {
-        onDocumentLinksChanged();
+        onDocumentLinksChanged([removedContainerId]);
       }
 
       return unlinkedNote;
@@ -395,7 +403,7 @@ export function useSelectedDocumentActions(params: {
   loadDocumentSummary: LoadExplorerDocumentSummary;
   mergeDocumentSummary: MergeDocumentSummary;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   setLinkedContainerIdsForDocument: SetLinkedContainerIdsForDocument;
 }) {

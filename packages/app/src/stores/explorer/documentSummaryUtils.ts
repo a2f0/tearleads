@@ -78,30 +78,54 @@ export function getRequestedDocumentIds(
   ).sort();
 }
 
-// A stable signature of which documents belong to which container. Used to bump
-// the DESTRUCTIVE link projection (which clears sidebar/table rows to a loading
+// A per-container membership signature: the document ids in each container. Used
+// to bump the DESTRUCTIVE link projection (which clears sidebar rows to a loading
 // state) only on genuine membership changes — discovery, move, delete — and never
 // on a content-only summary update (title, sync badge), which leaves every id in
-// place. Ids and containers are sorted so ordering churn does not register, and
-// keyed by the always-present summary id (per-container stable) rather than the
-// nullable documentId. Bumping this on every reconciled delta is what re-blanked
-// the "You"/system-folder rows each sync tick during bootstrap.
-export function computeContainerMembershipSignature(
+// place. Ids are sorted so ordering churn does not register, and keyed by the
+// always-present summary id (per-container stable) rather than the nullable
+// documentId. Per-container (not one global string) so a change in one org's
+// container can be told apart from another's — the sidebar must blank only the
+// container that actually changed, not every expanded container.
+export function computeContainerMembershipSignatures(
   documentSummariesByContainerId: ReadonlyMap<
     string,
     ReadonlyArray<DocumentSummary>
   >,
-): string {
-  return Array.from(
-    documentSummariesByContainerId,
-    ([containerId, summaries]) =>
-      `${containerId}:${summaries
+): Map<string, string> {
+  const signatures = new Map<string, string>();
+  for (const [containerId, summaries] of documentSummariesByContainerId) {
+    signatures.set(
+      containerId,
+      summaries
         .map((summary) => summary.id)
         .sort()
-        .join(",")}`,
-  )
-    .sort()
-    .join("\u0000");
+        .join(","),
+    );
+  }
+  return signatures;
+}
+
+// The container ids whose membership signature changed between two snapshots,
+// including containers that appeared or disappeared. Empty when only summary
+// content changed (or nothing did), which is what keeps content-only reconciled
+// deltas from triggering a destructive sidebar refresh.
+export function diffChangedContainerIds(
+  previous: ReadonlyMap<string, string>,
+  next: ReadonlyMap<string, string>,
+): string[] {
+  const changed: string[] = [];
+  for (const [containerId, signature] of next) {
+    if (previous.get(containerId) !== signature) {
+      changed.push(containerId);
+    }
+  }
+  for (const containerId of previous.keys()) {
+    if (!next.has(containerId)) {
+      changed.push(containerId);
+    }
+  }
+  return changed;
 }
 
 export function areLinkedContainerIdMapsEqual(

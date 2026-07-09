@@ -27,7 +27,7 @@ interface RequestDocumentWindowOptions {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The sidebar window hook owns paging, reload, and pruning state for a single UI surface.
 export function useExplorerSidebarDocumentWindows(params: {
   collapsedIds: ReadonlySet<string>;
-  documentLinkProjectionVersion: number;
+  documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   nodes: ReadonlyArray<ContainerNode>;
@@ -36,7 +36,7 @@ export function useExplorerSidebarDocumentWindows(params: {
 }) {
   const {
     collapsedIds,
-    documentLinkProjectionVersion,
+    documentLinkProjectionVersionByContainerId,
     documentListRevision,
     documentQueries,
     nodes,
@@ -180,21 +180,19 @@ export function useExplorerSidebarDocumentWindows(params: {
     );
   }, [documentQueries]);
 
-  const lastDocumentLinkProjectionVersionRef = useRef(
-    documentLinkProjectionVersion,
+  const lastVersionByContainerIdRef = useRef<ReadonlyMap<string, number>>(
+    documentLinkProjectionVersionByContainerId,
   );
   useEffect(() => {
     if (!ready) {
-      lastDocumentLinkProjectionVersionRef.current =
-        documentLinkProjectionVersion;
+      lastVersionByContainerIdRef.current =
+        documentLinkProjectionVersionByContainerId;
       return;
     }
 
-    const documentLinkProjectionChanged =
-      lastDocumentLinkProjectionVersionRef.current !==
-      documentLinkProjectionVersion;
-    lastDocumentLinkProjectionVersionRef.current =
-      documentLinkProjectionVersion;
+    const previousVersions = lastVersionByContainerIdRef.current;
+    lastVersionByContainerIdRef.current =
+      documentLinkProjectionVersionByContainerId;
     loadGenerationRef.current += 1;
     latestWindowLoadKeyByContainerIdRef.current.clear();
     pendingWindowLoadKeysRef.current.clear();
@@ -202,18 +200,23 @@ export function useExplorerSidebarDocumentWindows(params: {
       const currentWindow =
         documentWindowsByContainerIdRef.current.get(containerId);
       // preserveRows:false is the DESTRUCTIVE reload (blanks rows to a loading
-      // state) and fires only on a documentLinkProjectionVersion bump. The
-      // sidebarReloadBudget canary bounds that version to catch a regression of
-      // the bootstrap flicker (per-tick re-blanking of the "You"/Trash rows).
+      // state). Fire it only for containers whose OWN membership version changed:
+      // a bump for one org's container must not blank another org's expanded rows
+      // (the cross-org flicker), and a content-only refresh (documentListRevision,
+      // which leaves every version untouched) must not blank at all. The
+      // sidebarReloadBudget canary bounds these destructive reloads.
+      const containerMembershipChanged =
+        (documentLinkProjectionVersionByContainerId.get(containerId) ?? 0) !==
+        (previousVersions.get(containerId) ?? 0);
       requestDocumentWindow(
         containerId,
         currentWindow?.offset ?? 0,
         currentWindow?.rows.length ?? 0,
-        { preserveRows: !documentLinkProjectionChanged },
+        { preserveRows: !containerMembershipChanged },
       );
     }
   }, [
-    documentLinkProjectionVersion,
+    documentLinkProjectionVersionByContainerId,
     documentListRevision,
     requestDocumentWindow,
     ready,

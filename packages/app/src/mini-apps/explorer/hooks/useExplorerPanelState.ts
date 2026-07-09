@@ -132,6 +132,7 @@ export interface ExplorerPanelState {
 export function useExplorerPanelState(params: {
   appData: RuntimeSnapshot;
   documentLinkProjectionVersion: number;
+  documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   explorer: ExplorerModelExplorer;
@@ -140,7 +141,7 @@ export function useExplorerPanelState(params: {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds?: Iterable<string>) => void;
   // Re-attempts the SQLite worker boot; forwarded to the sidebar tree's gate.
   onRetryDatabase: () => void;
   canShareWithPeer: boolean;
@@ -157,6 +158,7 @@ export function useExplorerPanelState(params: {
   const {
     appData,
     documentLinkProjectionVersion,
+    documentLinkProjectionVersionByContainerId,
     documentListRevision,
     documentQueries,
     explorer,
@@ -248,6 +250,7 @@ export function useExplorerPanelState(params: {
     // the boot error together; the retry callback is threaded from Explorer.
     databaseError: appData.infra.dbStatus === "error",
     documentLinkProjectionVersion,
+    documentLinkProjectionVersionByContainerId,
     documentListRevision,
     documentQueries,
     handleSidebarDocumentContextMenu:
@@ -441,7 +444,7 @@ export function useExplorerPanelState(params: {
           // destroyed row drops out, and signal a link change so the sidebar
           // tree and linked-container map refresh too.
           bumpDocumentListRevision();
-          onDocumentLinksChanged();
+          onDocumentLinksChanged([currentContainerId]);
           routeState.selectExplorerItem(currentContainerId);
         }
 
