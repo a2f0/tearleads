@@ -4,6 +4,7 @@ import "./WindowToolBar.css";
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
+  useWindowToolbarReserved,
 } from "./WindowMenuContext";
 
 /**
@@ -23,10 +24,17 @@ import {
  * where the app's `show` conditions are briefly false. Unmounting the row in
  * those windows would drop a full bar-height out of the flex column and shift
  * the body up, then back down when the actions re-register (visible flicker).
+ *
+ * An app that wants the row on every route — a blank bar where a route carries
+ * no actions, rather than one that only appears after some route first shows
+ * chrome — reserves it via {@link useWindowToolbarReservation} (the reserved row
+ * still mounts a commit late, once that hook's effect registers, as all window
+ * chrome does).
  */
 export function WindowToolBar() {
   const backAction = useWindowBackActionValue();
   const actions = useWindowTitleBarActions();
+  const reserved = useWindowToolbarReserved();
   const hasChrome = backAction !== null || actions.length > 0;
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.
@@ -38,7 +46,7 @@ export function WindowToolBar() {
     setHasShownChrome(true);
   }
 
-  if (!hasChrome && !hasShownChrome) {
+  if (!hasChrome && !hasShownChrome && !reserved) {
     return null;
   }
 

@@ -24,6 +24,7 @@ import {
 } from "./hooks/useOrgManagerModel";
 import { ORG_MANAGER_LABELS } from "./labels";
 import { OrganizationView } from "./OrganizationView";
+import { useOrgManagerRoutedChromeActions } from "./OrgManagerRoutedChrome";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { RevokeGrantConfirmationDialog } from "./RevokeGrantConfirmationDialog";
 import { RosterProfileEditor } from "./RosterProfileEditor";
@@ -298,6 +299,16 @@ export function OrgManager() {
     : undefined;
 
   useOrgManagerWindowMenus(model);
+  useOrgManagerRoutedChromeActions({
+    canCreateGroup: model.canCreateGroup,
+    canImportRosterUser: model.canImportRosterUser,
+    canLoadAuthenticatedOrgData: model.canLoadAuthenticatedOrgData,
+    loading: model.loading,
+    mutating: model.mutating,
+    openCreateGroupDialog: model.openCreateGroupDialog,
+    openImportUserDialog: model.openImportUserDialog,
+    view: model.view,
+  });
 
   if (!organizationId || !model.isAuthenticated) {
     return (
