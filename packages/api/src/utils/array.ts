@@ -8,12 +8,12 @@ export function uniqueSortedStrings(values: string[]): string[] {
   );
 }
 
-export function firstPerKey<Row, Out>(
+export function firstPerKey<Row, Key, Out>(
   rows: readonly Row[],
-  keyFn: (row: Row) => string,
+  keyFn: (row: Row) => Key,
   mapFn: (row: Row) => Out,
-): Map<string, Out> {
-  const result = new Map<string, Out>();
+): Map<Key, Out> {
+  const result = new Map<Key, Out>();
   for (const row of rows) {
     const key = keyFn(row);
     if (result.has(key)) {
