@@ -20,6 +20,7 @@ import {
 } from "../../providers/sdk/TearleadsProvider";
 import { useExplorer } from "../../stores/explorer/ExplorerProvider";
 import { useMiniAppBusActions } from "../bus";
+import { formatOrgManagerGrantDetailRouteSegments } from "../org-manager/routes";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import {
   ExplorerBlobPickProvider,
@@ -69,13 +70,7 @@ function useOpenGrantInOrgManager() {
           subjectType: grant.subjectType,
           type: "open-grant",
         },
-        pathSegments: [
-          "grants",
-          "detail",
-          grant.subjectType,
-          grant.subjectId,
-          grant.containerId,
-        ],
+        pathSegments: formatOrgManagerGrantDetailRouteSegments(grant),
         ...(position ? { position } : {}),
       });
     },
