@@ -58,6 +58,45 @@ export function useExplorerInteractionState(params: {
   const { reconciler, view } = explorer;
   const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments({ appData });
 
+  useExplorerViewProjectionSync({
+    activeContainerId,
+    mergeDocumentSummaries,
+    onDocumentLinksChanged,
+    primeDiscoveredDocuments,
+    view,
+  });
+
+  return useExplorerRefreshActions(reconciler);
+}
+
+/**
+ * Sync the local projection view into the explorer view model.
+ *
+ * Split out of {@link useExplorerInteractionState} so the flicker-prone gating
+ * can be exercised without the SDK provider that priming needs: `view` is a
+ * fake, and `primeDiscoveredDocuments` / the merge + link-change callbacks are
+ * plain functions here rather than the provider-backed hooks the parent wires.
+ * Behaviour is identical to the inlined effects it replaced.
+ */
+export function useExplorerViewProjectionSync(params: {
+  activeContainerId: string | null;
+  mergeDocumentSummaries: (
+    nextDocuments: ReadonlyArray<DocumentSummary>,
+  ) => void;
+  onDocumentLinksChanged: () => void;
+  primeDiscoveredDocuments: (
+    discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
+  ) => void;
+  view: LocalProjectionView;
+}) {
+  const {
+    activeContainerId,
+    mergeDocumentSummaries,
+    onDocumentLinksChanged,
+    primeDiscoveredDocuments,
+    view,
+  } = params;
+
   // Tell the device-first view which container is active so the reconciler
   // syncs it first; summaries for it load synchronously from the local cache.
   useEffect(() => {
@@ -135,8 +174,6 @@ export function useExplorerInteractionState(params: {
     primeDiscoveredDocuments,
     view,
   ]);
-
-  return useExplorerRefreshActions(reconciler);
 }
 
 /**
