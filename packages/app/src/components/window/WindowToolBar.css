@@ -12,12 +12,14 @@
    * driven taller by the icons and exceeds that min-height. The empty bar then
    * sits shorter, so returning to the filled view shifts the body up then down.
    * max() reserves whichever is taller at the current font size, clamping both
-   * the empty and filled bar to the same height. Keep 1.125rem (18px) in sync
-   * with the size={18} toolbar action icons.
+   * the empty and filled bar to the same height. Uses the literal 18px (not
+   * 1.125rem) because size={18} renders a fixed-pixel icon regardless of the root
+   * font size, so a rem here would drift out of sync under accessibility zoom or a
+   * custom root font and re-introduce the shift. Keep 18px == the icon size.
    */
   min-height: calc(
-    max(var(--window-bar-line-height), 1.125rem) +
-    var(--window-bar-block-padding) +
+    max(var(--window-bar-line-height), 18px) +
+    2 *
     var(--window-bar-block-padding)
   );
   background: var(--color-muted);
