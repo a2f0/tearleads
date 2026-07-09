@@ -78,6 +78,32 @@ export function getRequestedDocumentIds(
   ).sort();
 }
 
+// A stable signature of which documents belong to which container. Used to bump
+// the DESTRUCTIVE link projection (which clears sidebar/table rows to a loading
+// state) only on genuine membership changes — discovery, move, delete — and never
+// on a content-only summary update (title, sync badge), which leaves every id in
+// place. Ids and containers are sorted so ordering churn does not register, and
+// keyed by the always-present summary id (per-container stable) rather than the
+// nullable documentId. Bumping this on every reconciled delta is what re-blanked
+// the "You"/system-folder rows each sync tick during bootstrap.
+export function computeContainerMembershipSignature(
+  documentSummariesByContainerId: ReadonlyMap<
+    string,
+    ReadonlyArray<DocumentSummary>
+  >,
+): string {
+  return Array.from(documentSummariesByContainerId.entries())
+    .map(
+      ([containerId, summaries]) =>
+        `${containerId}:${summaries
+          .map((summary) => summary.id)
+          .sort()
+          .join(",")}`,
+    )
+    .sort()
+    .join("\u0000");
+}
+
 export function areLinkedContainerIdMapsEqual(
   left: ReadonlyMap<string, ReadonlyArray<string>>,
   right: ReadonlyMap<string, ReadonlyArray<string>>,
