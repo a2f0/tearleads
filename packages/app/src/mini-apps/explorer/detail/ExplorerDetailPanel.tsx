@@ -26,6 +26,7 @@ import { getDocumentByLocalId } from "../documentSummaries";
 import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
+import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
@@ -94,6 +95,9 @@ interface ExplorerDetailPanelProps {
     documentId: string,
     targetContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  attributionUserLabelResolver?:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
   blobStore: BlobStore;
   canActivateLinkedContainer: boolean;
   canMutateDocumentLinks: boolean;
@@ -288,6 +292,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
     return (
       <ExplorerDocumentInfoPanel
         activateLinkedContainer={params.activateLinkedContainer}
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
         canActivateLinkedContainer={params.canActivateLinkedContainer}
         canMutateDocumentLinks={params.canMutateDocumentLinks}
         containerId={route.containerId}

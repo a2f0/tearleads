@@ -8,7 +8,7 @@ import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManage
 import {
   hasRosterProfileDocument,
   loadRosterProfileDisplayName,
-} from "./rosterProfileDisplayNames";
+} from "../../../stores/org-manager/rosterProfileDisplayNames";
 
 interface OrgManagerProfileDisplayNamesParams {
   appData: ReturnType<typeof useTearleadsRuntime>;

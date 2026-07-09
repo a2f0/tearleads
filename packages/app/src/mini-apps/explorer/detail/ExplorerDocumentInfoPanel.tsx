@@ -15,6 +15,7 @@ import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 import { canWriteDocumentSummary } from "../containerRules";
 import { EXPLORER_LABELS } from "../labels";
 import { getDocumentLinkedContainerIds } from "../targetOptions";
+import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
 import { compactId } from "./compactId";
 import {
   ExplorerDocumentInfoAttachmentsSection,
@@ -56,6 +57,9 @@ interface Props {
   canMutateDocumentLinks: boolean;
   containerId: string;
   documentTitle: string | undefined;
+  attributionUserLabelResolver?:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
   fallbackDocumentSummary: DocumentSummary | null;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   loadDocumentInfo: (localId: string) => Promise<DocumentInfo>;
@@ -235,6 +239,9 @@ function ExplorerDocumentInfoTabs(params: {
 function ExplorerDocumentInfoTabPanel(params: {
   activeTab: DocumentInfoTabId;
   activeContainerId: string | null;
+  attributionUserLabelResolver?:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
   activateLinkedContainer: (
     documentId: string,
     targetContainerId: string,
@@ -273,18 +280,23 @@ function ExplorerDocumentInfoTabPanel(params: {
             localId={params.localId}
           />
           <ExplorerDocumentInfoContributorsSection
+            attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
           />
           <ExplorerDocumentInfoEditRangesSection
+            attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
           />
           <ExplorerDocumentInfoCharacterBlameSection
+            attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
           />
           <ExplorerDocumentInfoBlameSection
+            attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
           />
           <ExplorerDocumentInfoFieldBlameSection
+            attributionUserLabelResolver={params.attributionUserLabelResolver}
             documentInfo={params.documentInfo}
           />
         </>
@@ -437,6 +449,7 @@ export function ExplorerDocumentInfoPanel(params: Props) {
         <ExplorerDocumentInfoTabPanel
           activeTab={model.activeTab}
           activeContainerId={model.activeContainerId}
+          attributionUserLabelResolver={params.attributionUserLabelResolver}
           activateLinkedContainer={params.activateLinkedContainer}
           canActivateLinkedContainer={model.canActivateDocumentLink}
           canUnlinkLinkedContainer={model.canUnlinkDocumentLink}
