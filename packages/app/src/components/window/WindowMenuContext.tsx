@@ -66,6 +66,7 @@ interface WindowMenuContextValue {
   viewMenuItems: WindowMenuItem[];
   titleBarActions: WindowTitleBarAction[];
   backAction: WindowBackAction | null;
+  toolbarReserved: boolean;
   registerFileMenuItem: (id: object, item: RegisteredWindowMenuItem) => void;
   unregisterFileMenuItem: (id: object) => void;
   registerViewMenuItem: (id: object, item: RegisteredWindowMenuItem) => void;
@@ -82,6 +83,8 @@ interface WindowMenuContextValue {
     item: RegisteredWindowRefreshMenuItem,
   ) => void;
   unregisterRefreshMenuItem: (id: object) => void;
+  registerToolbarReservation: (id: object) => void;
+  unregisterToolbarReservation: (id: object) => void;
 }
 
 const WindowMenuContext = createContext<WindowMenuContextValue>({
@@ -89,6 +92,7 @@ const WindowMenuContext = createContext<WindowMenuContextValue>({
   viewMenuItems: [],
   titleBarActions: [],
   backAction: null,
+  toolbarReserved: false,
   registerFileMenuItem: () => {},
   unregisterFileMenuItem: () => {},
   registerViewMenuItem: () => {},
@@ -99,6 +103,8 @@ const WindowMenuContext = createContext<WindowMenuContextValue>({
   unregisterBackAction: () => {},
   registerRefreshMenuItem: () => {},
   unregisterRefreshMenuItem: () => {},
+  registerToolbarReservation: () => {},
+  unregisterToolbarReservation: () => {},
 });
 
 function sameMenuItem(
@@ -127,6 +133,10 @@ function sameRefreshMenuItem(
     left.priority === right.priority &&
     left.refreshing === right.refreshing
   );
+}
+
+function sameToolbarReservation(left: true | undefined, right: true): boolean {
+  return left === right;
 }
 
 function selectRefreshMenuItem(
@@ -175,6 +185,20 @@ function createRefreshMenuItem(
   };
 }
 
+function useToolbarReservationRegistry() {
+  const reservation = useWindowItemRegistry<true>(sameToolbarReservation);
+  const register = useCallback(
+    (id: object) => reservation.registerItem(id, true),
+    [reservation.registerItem],
+  );
+  const reserved = reservation.items.size > 0;
+
+  return useMemo(
+    () => ({ register, reserved, unregister: reservation.unregisterItem }),
+    [register, reserved, reservation.unregisterItem],
+  );
+}
+
 function useWindowMenuContextValue(): WindowMenuContextValue {
   const fileMenu =
     useWindowItemRegistry<RegisteredWindowMenuItem>(sameMenuItem);
@@ -186,6 +210,7 @@ function useWindowMenuContextValue(): WindowMenuContextValue {
     useWindowItemRegistry<RegisteredWindowBackAction>(sameBackAction);
   const refresh =
     useWindowItemRegistry<RegisteredWindowRefreshMenuItem>(sameRefreshMenuItem);
+  const toolbarReservation = useToolbarReservationRegistry();
 
   const fileMenuItemList = useMemo(
     () => createMenuItems(fileMenu.items),
@@ -217,6 +242,7 @@ function useWindowMenuContextValue(): WindowMenuContextValue {
       viewMenuItems: viewMenuItemList,
       titleBarActions: titleBarActionList,
       backAction,
+      toolbarReserved: toolbarReservation.reserved,
       registerFileMenuItem: fileMenu.registerItem,
       unregisterFileMenuItem: fileMenu.unregisterItem,
       registerViewMenuItem: viewMenu.registerItem,
@@ -227,12 +253,15 @@ function useWindowMenuContextValue(): WindowMenuContextValue {
       unregisterBackAction: back.unregisterItem,
       registerRefreshMenuItem: refresh.registerItem,
       unregisterRefreshMenuItem: refresh.unregisterItem,
+      registerToolbarReservation: toolbarReservation.register,
+      unregisterToolbarReservation: toolbarReservation.unregister,
     }),
     [
       fileMenuItemList,
       viewMenuItemList,
       titleBarActionList,
       backAction,
+      toolbarReservation,
       fileMenu.registerItem,
       fileMenu.unregisterItem,
       viewMenu.registerItem,
@@ -277,6 +306,11 @@ export function useWindowTitleBarActions(): WindowTitleBarAction[] {
 export function useWindowBackActionValue(): WindowBackAction | null {
   const { backAction } = useContext(WindowMenuContext);
   return backAction;
+}
+
+export function useWindowToolbarReserved(): boolean {
+  const { toolbarReserved } = useContext(WindowMenuContext);
+  return toolbarReserved;
 }
 
 function useRegisteredWindowMenuItem(
@@ -375,6 +409,32 @@ export function useWindowBackAction(item: WindowBackActionInput | null): void {
   const { registerBackAction, unregisterBackAction } =
     useContext(WindowMenuContext);
   useRegisteredWindowBackAction(item, registerBackAction, unregisterBackAction);
+}
+
+/**
+ * Keeps this window's toolbar row reserved (rendered) while the caller is
+ * mounted, even when it registers no title-bar or back actions. A mini-app that
+ * wants explorer-style chrome on every route — a blank bar on the routes that
+ * have no actions rather than a collapsing/reappearing row — calls this once.
+ * Pass `reserve = false` to release the reservation without unmounting.
+ */
+export function useWindowToolbarReservation(reserve = true): void {
+  const { registerToolbarReservation, unregisterToolbarReservation } =
+    useContext(WindowMenuContext);
+  const idRef = useRef<object>({});
+
+  useEffect(() => {
+    const id = idRef.current;
+
+    if (!reserve) {
+      unregisterToolbarReservation(id);
+      return;
+    }
+
+    registerToolbarReservation(id);
+
+    return () => unregisterToolbarReservation(id);
+  }, [reserve, registerToolbarReservation, unregisterToolbarReservation]);
 }
 
 export function useWindowRefreshMenuItem(

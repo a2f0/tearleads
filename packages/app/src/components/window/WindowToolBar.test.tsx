@@ -4,6 +4,7 @@ import { type ReactNode, useMemo } from "react";
 import {
   useWindowBackAction,
   useWindowTitleBarAction,
+  useWindowToolbarReservation,
   WindowMenuProvider,
 } from "./WindowMenuContext";
 import { WindowToolBar } from "./WindowToolBar";
@@ -59,6 +60,55 @@ test("renders nothing when no actions or back action are registered", () => {
   const view = renderToolBar(null);
 
   expect(view.container.querySelector(".window-toolbar")).toBeNull();
+});
+
+function ReservationSource() {
+  useWindowToolbarReservation();
+  return null;
+}
+
+test("reserves a blank toolbar row when reservation is registered without actions", async () => {
+  const view = renderToolBar(<ReservationSource />);
+
+  // The row appears once the reservation registers, even with no actions...
+  await waitFor(() => {
+    expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
+  });
+
+  // ...and stays blank: no back control and no action buttons.
+  expect(view.container.querySelector(".window-toolbar-button")).toBeNull();
+});
+
+function OptionalReservationSource({ reserve }: { reserve: boolean }) {
+  useWindowToolbarReservation(reserve);
+  return null;
+}
+
+test("toggling the reservation flag adds then releases the blank row", async () => {
+  function Harness({ reserve }: { reserve: boolean }) {
+    return (
+      <WindowMenuProvider>
+        <OptionalReservationSource reserve={reserve} />
+        <WindowToolBar />
+      </WindowMenuProvider>
+    );
+  }
+
+  // reserve=false with no chrome: the row is absent.
+  const view = render(<Harness reserve={false} />);
+  expect(view.container.querySelector(".window-toolbar")).toBeNull();
+
+  // Reserving mounts the blank row...
+  view.rerender(<Harness reserve />);
+  await waitFor(() => {
+    expect(view.container.querySelector(".window-toolbar")).not.toBeNull();
+  });
+
+  // ...and releasing it (no chrome ever shown, so nothing latches) collapses it.
+  view.rerender(<Harness reserve={false} />);
+  await waitFor(() => {
+    expect(view.container.querySelector(".window-toolbar")).toBeNull();
+  });
 });
 
 test("keeps the row reserved after its actions clear", async () => {
