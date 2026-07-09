@@ -80,7 +80,7 @@ export function useSelectedDocumentStructuralState(params: {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   nodes: ReadonlyArray<ContainerNode>;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   rulesContext: ExplorerContainerRulesContext;
   selectedDocument: DocumentSummary | undefined;
   setLinkedContainerIdsForDocument: (

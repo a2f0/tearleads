@@ -3,7 +3,10 @@ import type {
   LocalProjectionView,
 } from "@tearleads/client-sdk";
 import { useEffect, useRef } from "react";
-import { computeContainerMembershipSignature } from "../../../stores/explorer/documentSummaryUtils";
+import {
+  computeContainerMembershipSignatures,
+  diffChangedContainerIds,
+} from "../../../stores/explorer/documentSummaryUtils";
 
 // Priming a discovered document opens its store in the SDK's module-level cache,
 // which lives above the routed-pane remount boundary. Tracking which summary-list
@@ -41,7 +44,7 @@ export function useExplorerViewProjectionSync(params: {
   mergeDocumentSummaries: (
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
-  onDocumentLinksChanged: () => void;
+  onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
   primeDiscoveredDocuments: (
     discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
   ) => void;
@@ -68,14 +71,18 @@ export function useExplorerViewProjectionSync(params: {
   const lastActiveSummariesRef = useRef<ReadonlyArray<DocumentSummary> | null>(
     null,
   );
-  // Signature of container -> document-id membership at the last view apply. The
-  // link projection is the DESTRUCTIVE sidebar/table refresh (it clears rows to a
-  // loading state and resets totalCount), so it must be bumped only when
-  // membership actually changes — discovery, move, delete. The view fires on every
-  // reconciled delta during bootstrap (sync badges, title/content updates) with
-  // membership unchanged; bumping the link projection on those blanked and reloaded
-  // the "You" contact and system-folder rows ~once per tick (the reported flicker).
-  const lastLinkSignatureRef = useRef<string | null>(null);
+  // Per-container membership signatures at the last view apply. The link
+  // projection is the DESTRUCTIVE sidebar refresh (it clears rows to a loading
+  // state and resets totalCount), so it must be bumped only when membership
+  // actually changes — discovery, move, delete — and reports WHICH containers
+  // changed so the sidebar blanks only those. The view fires on every reconciled
+  // delta during bootstrap (sync badges, title/content updates) with membership
+  // unchanged; bumping on those blanked the "You"/system-folder rows once per tick
+  // (the bootstrap flicker), and bumping every container blanked one org's rows
+  // while another org synced (the cross-org flicker).
+  const lastContainerSignaturesRef = useRef<ReadonlyMap<string, string>>(
+    new Map(),
+  );
   // Primed document stores are tracked per view (module scope) and need no reset.
   const lastViewRef = useRef(view);
   useEffect(() => {
@@ -86,7 +93,7 @@ export function useExplorerViewProjectionSync(params: {
     if (lastViewRef.current !== view) {
       lastViewRef.current = view;
       lastActiveSummariesRef.current = null;
-      lastLinkSignatureRef.current = null;
+      lastContainerSignaturesRef.current = new Map();
     }
     const primedSummaryLists = primedSummaryListsForView(view);
     const applyFromView = () => {
@@ -111,15 +118,20 @@ export function useExplorerViewProjectionSync(params: {
         mergeDocumentSummaries(activeSummaries);
       }
       // Nudge the link projection so windowed queries refresh for newly discovered
-      // documents — but only when the container -> document membership actually
-      // changed. This is the DESTRUCTIVE refresh (it clears rows), so firing it on
-      // a view delta that merely updated summary content is what re-blanked the
-      // sidebar rows every sync tick during bootstrap. Content-only updates still
-      // refresh non-destructively via documentListRevision.
-      const linkSignature = computeContainerMembershipSignature(summariesMap);
-      if (lastLinkSignatureRef.current !== linkSignature) {
-        lastLinkSignatureRef.current = linkSignature;
-        onDocumentLinksChanged();
+      // documents — but only for the containers whose membership actually changed.
+      // This is the DESTRUCTIVE refresh (it clears rows), so firing it for a
+      // container that merely had summary content updated re-blanked its rows every
+      // sync tick during bootstrap, and firing it for EVERY container blanked one
+      // org's rows whenever another org synced. Content-only updates still refresh
+      // non-destructively via documentListRevision.
+      const nextSignatures = computeContainerMembershipSignatures(summariesMap);
+      const changedContainerIds = diffChangedContainerIds(
+        lastContainerSignaturesRef.current,
+        nextSignatures,
+      );
+      lastContainerSignaturesRef.current = nextSignatures;
+      if (changedContainerIds.length > 0) {
+        onDocumentLinksChanged(changedContainerIds);
       }
     };
 
