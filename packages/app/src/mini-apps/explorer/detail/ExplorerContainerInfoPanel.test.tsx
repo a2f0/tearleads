@@ -3,6 +3,7 @@ import type { ContainerInfo, ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
+import type { MiniAppWindowPosition } from "../types";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 
 const ICON_RESULT_NODE: ContainerNode = {
@@ -107,6 +108,14 @@ type ContainerInfoPanelInput = {
   canManageIcon?: boolean;
   containerIcon?: string | null;
   loadContainerInfo?: (containerId: string) => Promise<ContainerInfo>;
+  onOpenGrant?: (
+    grant: {
+      containerId: string;
+      subjectId: string;
+      subjectType: "group" | "organization" | "user";
+    },
+    position?: MiniAppWindowPosition,
+  ) => void;
   setContainerIcon?: (
     containerId: string,
     icon: string | null,
@@ -125,7 +134,7 @@ function containerInfoPanelElement(input: ContainerInfoPanelInput = {}) {
     canShareWithPeer: true,
     loadContainerInfo:
       input.loadContainerInfo ?? (async () => createContainerInfo()),
-    onOpenGrant: () => undefined,
+    onOpenGrant: input.onOpenGrant ?? (() => undefined),
     peerUserId: "peer-user-1",
     setContainerIcon: input.setContainerIcon ?? (async () => null),
     shareWithGroup: async () => true,
@@ -174,6 +183,45 @@ test("container info tabs split general, sharing, security, and sync details", a
   fireEvent.click(view.getByRole("tab", { name: "Sync" }));
   expect(view.getByText("Sync Cursors")).toBeTruthy();
   expect(view.getByText("Container contents")).toBeTruthy();
+});
+
+test("container info sharing grant rows open grant detail targets", async () => {
+  const openedGrants: Array<{
+    grant: {
+      containerId: string;
+      subjectId: string;
+      subjectType: "group" | "organization" | "user";
+    };
+    position: MiniAppWindowPosition | undefined;
+  }> = [];
+  const view = renderContainerInfoPanel({
+    onOpenGrant: (grant, position) => {
+      openedGrants.push({ grant, position });
+    },
+  });
+
+  await waitFor(() => {
+    expect(view.getByText("Local Details")).toBeTruthy();
+  });
+  fireEvent.click(view.getByRole("tab", { name: "Sharing" }));
+
+  const grantRow = view.getByText("Admins").closest('[role="button"]');
+  if (!(grantRow instanceof HTMLElement)) {
+    throw new Error("Expected the grant row to be interactive.");
+  }
+
+  fireEvent.click(grantRow, { clientX: 40, clientY: 50 });
+
+  expect(openedGrants).toEqual([
+    {
+      grant: {
+        containerId: "container-1",
+        subjectId: "group-1",
+        subjectType: "group",
+      },
+      position: { x: 56, y: 66 },
+    },
+  ]);
 });
 
 test("admins can change the folder icon from the general tab", async () => {

@@ -26,6 +26,16 @@ export interface OrgManagerGrantRouteRef {
   subjectType: OrgManagerGrantSubjectType;
 }
 
+export function formatOrgManagerGrantDetailRouteSegments(
+  grantRef: OrgManagerGrantRouteRef,
+): ReadonlyArray<string> {
+  return formatOrgManagerRouteSegments({
+    selectedGrantRef: grantRef,
+    selectedGroupId: null,
+    view: "grants",
+  });
+}
+
 type OrgManagerGroupRouteTarget = {
   readonly groupId: string;
 };
