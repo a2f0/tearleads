@@ -3,7 +3,10 @@ import type {
   LocalProjectionView,
 } from "@tearleads/client-sdk";
 import { useEffect, useRef } from "react";
-import { computeContainerMembershipSignature } from "../../../stores/explorer/documentSummaryUtils";
+import {
+  computeContainerMembershipSignatures,
+  hasTrackedContainerMembershipChange,
+} from "../../../stores/explorer/documentSummaryUtils";
 
 // Priming a discovered document opens its store in the SDK's module-level cache,
 // which lives above the routed-pane remount boundary. Tracking which summary-list
@@ -68,14 +71,24 @@ export function useExplorerViewProjectionSync(params: {
   const lastActiveSummariesRef = useRef<ReadonlyArray<DocumentSummary> | null>(
     null,
   );
-  // Signature of container -> document-id membership at the last view apply. The
-  // link projection is the DESTRUCTIVE sidebar/table refresh (it clears rows to a
-  // loading state and resets totalCount), so it must be bumped only when
-  // membership actually changes — discovery, move, delete. The view fires on every
-  // reconciled delta during bootstrap (sync badges, title/content updates) with
-  // membership unchanged; bumping the link projection on those blanked and reloaded
-  // the "You" contact and system-folder rows ~once per tick (the reported flicker).
-  const lastLinkSignatureRef = useRef<string | null>(null);
+  // Per-container document-id membership at the last view apply. The link
+  // projection is the DESTRUCTIVE sidebar/table refresh (it clears rows to a
+  // loading state and resets totalCount), so it must be bumped only when a
+  // container ALREADY on screen actually changes membership — discovery, move,
+  // delete. Two false positives are gated out here:
+  //   1. Content-only ticks: the view fires on every reconciled delta during
+  //      bootstrap (sync badges, title updates) with the same ids; bumping on those
+  //      re-blanked the "You"/system-folder rows ~once per tick (bootstrap flicker).
+  //   2. Additive container keys: the projection cache materializes a container
+  //      lazily when it first becomes active, so selecting the "You" contact made
+  //      the Contacts key appear for the first time even though nothing moved;
+  //      bumping on that collapsed the sidebar (Contacts blanked, Trash jumped).
+  // Kept per container (not one global signature string) so an additive key can be
+  // told apart from a real change — see hasTrackedContainerMembershipChange. Null
+  // until the first apply so that initial population still fires exactly once.
+  const lastContainerSignaturesRef = useRef<ReadonlyMap<string, string> | null>(
+    null,
+  );
   // Primed document stores are tracked per view (module scope) and need no reset.
   const lastViewRef = useRef(view);
   useEffect(() => {
@@ -86,7 +99,7 @@ export function useExplorerViewProjectionSync(params: {
     if (lastViewRef.current !== view) {
       lastViewRef.current = view;
       lastActiveSummariesRef.current = null;
-      lastLinkSignatureRef.current = null;
+      lastContainerSignaturesRef.current = null;
     }
     const primedSummaryLists = primedSummaryListsForView(view);
     const applyFromView = () => {
@@ -111,16 +124,26 @@ export function useExplorerViewProjectionSync(params: {
         mergeDocumentSummaries(activeSummaries);
       }
       // Nudge the link projection so windowed queries refresh for newly discovered
-      // documents — but only when the container -> document membership actually
-      // changed. This is the DESTRUCTIVE refresh (it clears rows), so firing it on
-      // a view delta that merely updated summary content is what re-blanked the
-      // sidebar rows every sync tick during bootstrap. Content-only updates still
-      // refresh non-destructively via documentListRevision.
-      const linkSignature = computeContainerMembershipSignature(summariesMap);
-      if (lastLinkSignatureRef.current !== linkSignature) {
-        lastLinkSignatureRef.current = linkSignature;
+      // documents — but only when a container ALREADY on screen actually changed
+      // its membership. This is the DESTRUCTIVE refresh (it clears rows), so firing
+      // it on a content-only view delta re-blanked the sidebar every sync tick, and
+      // firing it when a container key merely materialized (active-container switch)
+      // collapsed the sidebar on selecting the "You" contact. Both are gated out by
+      // hasTrackedContainerMembershipChange; the ref advances every apply regardless
+      // so a later real change is still measured against the current snapshot.
+      // Content-only and additive-key updates still refresh non-destructively via
+      // documentListRevision / the sidebar's own window loader.
+      const nextContainerSignatures =
+        computeContainerMembershipSignatures(summariesMap);
+      if (
+        hasTrackedContainerMembershipChange(
+          lastContainerSignaturesRef.current,
+          nextContainerSignatures,
+        )
+      ) {
         onDocumentLinksChanged();
       }
+      lastContainerSignaturesRef.current = nextContainerSignatures;
     };
 
     applyFromView();

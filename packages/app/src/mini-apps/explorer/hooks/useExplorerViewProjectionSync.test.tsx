@@ -171,6 +171,42 @@ test("membership changes each bump the link projection exactly once", () => {
   expect(onDocumentLinksChanged).toHaveBeenCalledTimes(3);
 });
 
+// The regression this locks: the SDK view's summaries cache materializes a
+// container lazily when it first becomes active. Selecting the "You" contact made
+// the Contacts container active, so its key appeared in the projection for the
+// first time — but no document changed containers. Bumping the DESTRUCTIVE link
+// projection on that additive key blanked every expanded container (Contacts
+// collapsed, Trash bounced up/down). An additive container key must NOT bump; a
+// real change to an already-present container still must.
+test("a container key appearing for the first time does not bump", () => {
+  const { view, emit } = createFakeView(contactsMap([createSummary("you")]));
+  const { onDocumentLinksChanged } = renderSync(view);
+  expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1); // mount
+
+  // A second container materializes for the first time (active-container switch) —
+  // additive key only, no existing container changed.
+  act(() => {
+    emit(
+      new Map([
+        ["contacts", [createSummary("you")]],
+        ["trash", [createSummary("old", { containerId: "trash" })]],
+      ]),
+    );
+  });
+  expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
+
+  // A real change to the already-present Contacts container still bumps.
+  act(() => {
+    emit(
+      new Map([
+        ["contacts", [createSummary("you"), createSummary("teammate")]],
+        ["trash", [createSummary("old", { containerId: "trash" })]],
+      ]),
+    );
+  });
+  expect(onDocumentLinksChanged).toHaveBeenCalledTimes(2);
+});
+
 test("reordering the same members does not bump the link projection", () => {
   const { view, emit } = createFakeView(
     contactsMap([createSummary("you"), createSummary("teammate")]),

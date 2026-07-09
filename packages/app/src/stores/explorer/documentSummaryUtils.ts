@@ -78,30 +78,71 @@ export function getRequestedDocumentIds(
   ).sort();
 }
 
-// A stable signature of which documents belong to which container. Used to bump
-// the DESTRUCTIVE link projection (which clears sidebar/table rows to a loading
-// state) only on genuine membership changes — discovery, move, delete — and never
-// on a content-only summary update (title, sync badge), which leaves every id in
-// place. Ids and containers are sorted so ordering churn does not register, and
-// keyed by the always-present summary id (per-container stable) rather than the
-// nullable documentId. Bumping this on every reconciled delta is what re-blanked
-// the "You"/system-folder rows each sync tick during bootstrap.
-export function computeContainerMembershipSignature(
+// A per-container membership signature: containerId -> a stable string of its
+// document ids. Used to bump the DESTRUCTIVE link projection (which clears
+// sidebar/table rows to a loading state) only on genuine membership changes —
+// discovery, move, delete — and never on a content-only summary update (title,
+// sync badge), which leaves every id in place. Ids are sorted so ordering churn
+// does not register, and keyed by the always-present summary id (per-container
+// stable) rather than the nullable documentId. Kept per container (not one global
+// string) so callers can tell a real change to an existing container apart from a
+// container key merely appearing for the first time — see
+// hasTrackedContainerMembershipChange.
+export function computeContainerMembershipSignatures(
   documentSummariesByContainerId: ReadonlyMap<
     string,
     ReadonlyArray<DocumentSummary>
   >,
-): string {
-  return Array.from(
-    documentSummariesByContainerId,
-    ([containerId, summaries]) =>
-      `${containerId}:${summaries
+): Map<string, string> {
+  const signatures = new Map<string, string>();
+  for (const [containerId, summaries] of documentSummariesByContainerId) {
+    signatures.set(
+      containerId,
+      summaries
         .map((summary) => summary.id)
         .sort()
-        .join(",")}`,
-  )
-    .sort()
-    .join("\u0000");
+        .join(","),
+    );
+  }
+  return signatures;
+}
+
+// Whether the DESTRUCTIVE sidebar/table refresh should fire between two membership
+// snapshots. It fires when:
+//   - this is the first snapshot (previous === null): the initial population runs;
+//   - a container present in BOTH snapshots changed its id-set (real discovery /
+//     move / delete inside a container already on screen); or
+//   - a container present before is now ABSENT (a real drop / cache reset).
+//
+// It deliberately does NOT fire for a container key that appears for the FIRST
+// time (present in next, absent in previous). The SDK's local projection cache
+// materializes a container's summaries lazily — the first time that container
+// becomes the active container — so a purely additive key means "we just loaded
+// this container's list into the view", NOT "a document changed containers". The
+// document was already visible in the sidebar (its rows come from the SQL window
+// query, independent of this projection). Firing the destructive reload on that
+// additive key blanked every expanded container — collapsing the Contacts folder
+// and bouncing the Trash row up then down — when the user simply selected the
+// "You" contact, whose Contacts container had not been materialized yet. A newly
+// materialized container still populates non-destructively via the sidebar's own
+// window loader, so nothing is stranded by skipping it here.
+export function hasTrackedContainerMembershipChange(
+  previous: ReadonlyMap<string, string> | null,
+  next: ReadonlyMap<string, string>,
+): boolean {
+  if (previous === null) {
+    return true;
+  }
+  // Iterate the PREVIOUS keys only: a container that was present before either
+  // changed its id-set (next has a different signature) or dropped out entirely
+  // (next has none). Keys that exist only in `next` are the additive first
+  // appearances we intentionally ignore.
+  for (const [containerId, signature] of previous) {
+    if (next.get(containerId) !== signature) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function areLinkedContainerIdMapsEqual(

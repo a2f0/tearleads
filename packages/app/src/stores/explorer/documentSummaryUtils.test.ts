@@ -2,8 +2,22 @@ import { expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import {
   applyTrackedDocumentSummaryUpdates,
-  computeContainerMembershipSignature,
+  computeContainerMembershipSignatures,
+  hasTrackedContainerMembershipChange,
 } from "./documentSummaryUtils";
+
+// Whether the DESTRUCTIVE refresh should fire between two container->summaries
+// snapshots — the exact gate useExplorerViewProjectionSync applies. `before: null`
+// models the first apply after mount / a view rotation.
+function refreshWouldFire(
+  before: ReadonlyMap<string, ReadonlyArray<DocumentSummary>> | null,
+  after: ReadonlyMap<string, ReadonlyArray<DocumentSummary>>,
+): boolean {
+  return hasTrackedContainerMembershipChange(
+    before === null ? null : computeContainerMembershipSignatures(before),
+    computeContainerMembershipSignatures(after),
+  );
+}
 
 function createSummary(
   id: string,
@@ -50,11 +64,12 @@ test("returns the same array reference when nothing changed", () => {
   expect(next).toBe(current);
 });
 
-// The membership signature backs the bootstrap-flicker fix: it must be stable
-// across content-only updates (title/sync-badge deltas fire the explorer view on
-// every reconciled tick) and only change on genuine membership changes, so the
-// destructive link-projection refresh no longer blanks the sidebar rows each tick.
-test("membership signature is unchanged when only summary content changes", () => {
+// The membership gate backs the sidebar-flicker fixes: the DESTRUCTIVE refresh
+// must NOT fire on content-only updates (title/sync-badge deltas fire the explorer
+// view on every reconciled tick) NOR when a container key merely appears for the
+// first time (the active-container switch that collapsed the sidebar on selecting
+// the "You" contact) — only on a genuine change to a container already on screen.
+test("no refresh when only summary content changes", () => {
   const before = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["contacts", [createSummary("you", { title: "You" })]],
   ]);
@@ -62,12 +77,10 @@ test("membership signature is unchanged when only summary content changes", () =
     ["contacts", [createSummary("you", { title: "You (synced)" })]],
   ]);
 
-  expect(computeContainerMembershipSignature(afterTitleSync)).toBe(
-    computeContainerMembershipSignature(before),
-  );
+  expect(refreshWouldFire(before, afterTitleSync)).toBe(false);
 });
 
-test("membership signature is unchanged when documents are reordered", () => {
+test("no refresh when documents are reordered", () => {
   const ordered = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["c1", [createSummary("a"), createSummary("b")]],
   ]);
@@ -75,12 +88,10 @@ test("membership signature is unchanged when documents are reordered", () => {
     ["c1", [createSummary("b"), createSummary("a")]],
   ]);
 
-  expect(computeContainerMembershipSignature(reordered)).toBe(
-    computeContainerMembershipSignature(ordered),
-  );
+  expect(refreshWouldFire(ordered, reordered)).toBe(false);
 });
 
-test("membership signature changes when a document is discovered", () => {
+test("refresh fires when a document is discovered in an existing container", () => {
   const before = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["contacts", [createSummary("you")]],
   ]);
@@ -88,12 +99,10 @@ test("membership signature changes when a document is discovered", () => {
     ["contacts", [createSummary("you"), createSummary("teammate")]],
   ]);
 
-  expect(computeContainerMembershipSignature(afterDiscovery)).not.toBe(
-    computeContainerMembershipSignature(before),
-  );
+  expect(refreshWouldFire(before, afterDiscovery)).toBe(true);
 });
 
-test("membership signature changes when a document moves between containers", () => {
+test("refresh fires when a document moves between existing containers", () => {
   const before = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["c1", [createSummary("a")]],
     ["c2", []],
@@ -103,12 +112,10 @@ test("membership signature changes when a document moves between containers", ()
     ["c2", [createSummary("a")]],
   ]);
 
-  expect(computeContainerMembershipSignature(afterMove)).not.toBe(
-    computeContainerMembershipSignature(before),
-  );
+  expect(refreshWouldFire(before, afterMove)).toBe(true);
 });
 
-test("membership signature is stable regardless of container map ordering", () => {
+test("no refresh from container map ordering alone", () => {
   const oneOrder = new Map<string, ReadonlyArray<DocumentSummary>>([
     ["c1", [createSummary("a")]],
     ["c2", [createSummary("b")]],
@@ -118,7 +125,43 @@ test("membership signature is stable regardless of container map ordering", () =
     ["c1", [createSummary("a")]],
   ]);
 
-  expect(computeContainerMembershipSignature(otherOrder)).toBe(
-    computeContainerMembershipSignature(oneOrder),
-  );
+  expect(refreshWouldFire(oneOrder, otherOrder)).toBe(false);
+});
+
+// The "You"-contact collapse: a container key materializes for the first time when
+// its container becomes active. No document moved, so the destructive refresh must
+// NOT fire — otherwise the sidebar blanks and the Trash row bounces.
+test("no refresh when a container key appears for the first time", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["personal", [createSummary("note")]],
+  ]);
+  const afterContactsMaterializes = new Map<
+    string,
+    ReadonlyArray<DocumentSummary>
+  >([
+    ["personal", [createSummary("note")]],
+    ["contacts", [createSummary("you")]],
+  ]);
+
+  expect(refreshWouldFire(before, afterContactsMaterializes)).toBe(false);
+});
+
+test("refresh fires when a container drops out", () => {
+  const before = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["personal", [createSummary("note")]],
+    ["contacts", [createSummary("you")]],
+  ]);
+  const afterDrop = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["personal", [createSummary("note")]],
+  ]);
+
+  expect(refreshWouldFire(before, afterDrop)).toBe(true);
+});
+
+test("first apply after mount / view rotation fires once", () => {
+  const initial = new Map<string, ReadonlyArray<DocumentSummary>>([
+    ["contacts", [createSummary("you")]],
+  ]);
+
+  expect(refreshWouldFire(null, initial)).toBe(true);
 });
