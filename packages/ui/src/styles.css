@@ -1,4 +1,26 @@
+/*
+ * === THEME TOKENS ===
+ * Color is fully tokenized: everything in the app resolves its colors through
+ * the tokens in this block, so a theme is just a re-declaration of this same
+ * set. The base `:root` holds the default (Light) theme; every additional theme
+ * overrides the same tokens under a `:root[data-theme="<id>"]` rule (see the
+ * Dark theme immediately after this block). ThemeProvider stamps
+ * `<html data-theme>`; a document with no attribute falls back to Light here.
+ *
+ * The structural tokens further down (typography, spacing, sizing, borders,
+ * motion, window chrome) are theme-independent and are intentionally NOT part
+ * of the per-theme set — a theme never needs to repeat them.
+ *
+ * `--color-*` are role primitives: `light` is the raised surface, `dark` the
+ * foreground (text / borders / strong outlines), `muted` a recessed surface.
+ * The names read literally in Light and invert in Dark — that is by design, the
+ * roles are what components depend on.
+ *
+ * Registry of theme ids/labels: packages/app/src/theme/themes.ts.
+ */
 :root {
+  color-scheme: light;
+
   /* === Brand colors === */
   --color-muted: #eee;
   --color-dark: #333;
@@ -104,6 +126,36 @@
   font-family: var(--tearleads-font-family);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+/*
+ * === Dark theme ===
+ * Overrides only the THEME TOKENS above; structural tokens are inherited from
+ * the base `:root`. The `--color-*` role primitives invert (light surface,
+ * dark foreground), and the `--tearleads-*` chrome tokens are set explicitly so
+ * the header/footer stay dark rather than deriving from the inverted primitives.
+ * The attribute selector outranks the base `:root`, so these win when
+ * `<html data-theme="dark">` is set.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-muted: #262c2f;
+  --color-dark: #e7ece9;
+  --color-light: #1c2124;
+  --color-danger: #ff6b6b;
+  --color-hairline: rgb(231 236 233 / 16%);
+
+  --tearleads-background: #14181a;
+  --tearleads-border: #2c3733;
+  --tearleads-accent: #6fae8c;
+  --tearleads-text: #e6ece9;
+  --tearleads-header-background: #0e1113;
+  --tearleads-header-text: #e6ece9;
+  --tearleads-footer-background: #0e1113;
+  --tearleads-footer-text: #e6ece9;
+
+  --overlay-background: rgb(0 0 0 / 55%);
 }
 
 * {

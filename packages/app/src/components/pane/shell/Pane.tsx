@@ -10,6 +10,7 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
+import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
 import { RoutedPane } from "../../layout/routed/RoutedPane";
 import type { MenuPosition } from "../../shared/Menu";
 import { Window } from "../../window/Window";
@@ -68,7 +69,14 @@ function PaneInner({
             <Window key={w.id} windowId={w.id} />
           ))}
         </div>
-        <PaneFooter tray={<SystemMonitorLauncherButton />} />
+        <PaneFooter
+          tray={
+            <>
+              <ThemeToggleButton />
+              <SystemMonitorLauncherButton />
+            </>
+          }
+        />
       </SystemMonitorProvider>
       {contextMenu && (
         <PaneContextMenu
