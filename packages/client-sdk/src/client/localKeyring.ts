@@ -164,21 +164,17 @@ const BROWSER_KEYRING_DATABASE_NAME = "tearleads-local-keyring";
 const BROWSER_WRAPPING_KEYS_STORE_NAME = "wrappingKeys";
 const LOCAL_STORAGE_MANIFEST_PREFIX = "tearleads.local-keyring.manifest:";
 
-function asArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+export function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);
   return copy;
-}
-
-function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  return asArrayBufferBytes(bytes.slice());
 }
 
 function randomBytes(byteLength: number): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(byteLength));
 }
 
-function assertNonEmptyString(value: string, label: string): void {
+export function assertNonEmptyString(value: string, label: string): void {
   if (value.length === 0) {
     throw new Error(`${label} must be non-empty.`);
   }
@@ -222,7 +218,7 @@ export function localKeyringScopeKey(scope: LocalKeyringScope): string {
   ]);
 }
 
-function localSecretContext(
+export function localSecretContext(
   scope: NormalizedLocalKeyringScope,
   purpose: LocalKeyPurpose,
 ): LocalSecretContext {
@@ -230,7 +226,9 @@ function localSecretContext(
   return { purpose, scope };
 }
 
-function canonicalLocalSecretContext(context: LocalSecretContext): string {
+export function canonicalLocalSecretContext(
+  context: LocalSecretContext,
+): string {
   return JSON.stringify({
     purpose: context.purpose,
     scope: normalizeLocalKeyringScope(context.scope),
@@ -240,15 +238,13 @@ function canonicalLocalSecretContext(context: LocalSecretContext): string {
 function localSecretAdditionalData(
   context: LocalSecretContext,
 ): Uint8Array<ArrayBuffer> {
-  return asArrayBufferBytes(
-    TEXT_ENCODER.encode(canonicalLocalSecretContext(context)),
-  );
+  return copyBytes(TEXT_ENCODER.encode(canonicalLocalSecretContext(context)));
 }
 
 function localKeyringSalt(
   scope: NormalizedLocalKeyringScope,
 ): Uint8Array<ArrayBuffer> {
-  return asArrayBufferBytes(
+  return copyBytes(
     TEXT_ENCODER.encode(
       `tearleads.local-keyring.v1.${localKeyringScopeKey(scope)}`,
     ),
@@ -257,7 +253,7 @@ function localKeyringSalt(
 
 async function hashHex(bytes: Uint8Array): Promise<string> {
   const digest = new Uint8Array(
-    await crypto.subtle.digest("SHA-256", asArrayBufferBytes(bytes)),
+    await crypto.subtle.digest("SHA-256", copyBytes(bytes)),
   );
   return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
     "",
@@ -311,7 +307,7 @@ async function deriveLocalSecretKey(input: {
   return new Uint8Array(bits);
 }
 
-function assertEnvelopeContextMatches(input: {
+export function assertEnvelopeContextMatches(input: {
   readonly actual: LocalSecretContext;
   readonly expected: LocalSecretContext;
 }): void {
@@ -323,7 +319,7 @@ function assertEnvelopeContextMatches(input: {
   }
 }
 
-function assertWrappedLocalSecretEnvelope(
+export function assertWrappedLocalSecretEnvelope(
   envelope: WrappedLocalSecretEnvelope,
 ): void {
   if (envelope.format !== WRAPPED_LOCAL_SECRET_FORMAT) {
@@ -984,11 +980,11 @@ class IndexedDbWrappingKeyKeystore implements WrappingKeyKeystore {
         await crypto.subtle.decrypt(
           {
             additionalData: localSecretAdditionalData(context),
-            iv: asArrayBufferBytes(base64ToBytes(envelope.iv)),
+            iv: copyBytes(base64ToBytes(envelope.iv)),
             name: "AES-GCM",
           },
           key,
-          asArrayBufferBytes(base64ToBytes(envelope.ciphertext)),
+          copyBytes(base64ToBytes(envelope.ciphertext)),
         ),
       );
     } catch (error) {
@@ -1211,11 +1207,11 @@ class MemoryWrappingKeyKeystore implements WrappingKeyKeystore {
         await crypto.subtle.decrypt(
           {
             additionalData: localSecretAdditionalData(context),
-            iv: asArrayBufferBytes(base64ToBytes(envelope.iv)),
+            iv: copyBytes(base64ToBytes(envelope.iv)),
             name: "AES-GCM",
           },
           key,
-          asArrayBufferBytes(base64ToBytes(envelope.ciphertext)),
+          copyBytes(base64ToBytes(envelope.ciphertext)),
         ),
       );
     } catch (error) {
@@ -1567,7 +1563,7 @@ export function createMemoryWrappingKeyKeystore(): WrappingKeyKeystore {
 export function decodeLocalKeyringSqliteKey(
   sqliteKey: string,
 ): Uint8Array<ArrayBuffer> {
-  return asArrayBufferBytes(base64ToBytes(sqliteKey));
+  return copyBytes(base64ToBytes(sqliteKey));
 }
 
 export function encodeLocalKeyringSqliteKey(sqliteKey: Uint8Array): string {

@@ -1,8 +1,11 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
-  type LocalKeyPurpose,
+  assertWrappedLocalSecretEnvelope,
+  canonicalLocalSecretContext,
+  copyBytes,
   type LocalSecretContext,
+  localSecretContext,
   type NormalizedLocalKeyringScope,
   normalizeLocalKeyringScope,
   WRAPPED_LOCAL_SECRET_FORMAT,
@@ -34,24 +37,12 @@ const PIN_CODE_WRAPPING_KEY_FORMAT =
   "tearleads.local-keyring.pin-code-wrapping-key";
 const PIN_CODE_WRAPPING_KEY_ID_PREFIX = "pin-code:";
 
-export function asArrayBufferBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  return copy;
-}
-
 export function randomAesGcmIv(): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(AES_GCM_IV_BYTES));
 }
 
 function randomSalt(): Uint8Array<ArrayBuffer> {
   return crypto.getRandomValues(new Uint8Array(PIN_CODE_SALT_BYTES));
-}
-
-export function assertNonEmptyString(value: string, label: string): void {
-  if (value.length === 0) {
-    throw new Error(`${label} must be non-empty.`);
-  }
 }
 
 function readRecord(value: unknown, label: string): Record<string, unknown> {
@@ -149,7 +140,7 @@ function readBase64Bytes(
 ): Uint8Array<ArrayBuffer> {
   const encoded = readString(value, key, label);
   try {
-    return asArrayBufferBytes(base64ToBytes(encoded));
+    return copyBytes(base64ToBytes(encoded));
   } catch {
     throw new Error(`${label}.${key} must be base64.`);
   }
@@ -180,14 +171,6 @@ function readLocalKeyringScope(
   });
 }
 
-function localSecretContext(
-  scope: NormalizedLocalKeyringScope,
-  purpose: LocalKeyPurpose,
-): LocalSecretContext {
-  assertNonEmptyString(purpose, "Local key purpose");
-  return { purpose, scope };
-}
-
 function readLocalSecretContext(value: unknown): LocalSecretContext {
   const context = readRecord(value, "Wrapped local secret context");
   return localSecretContext(
@@ -196,46 +179,6 @@ function readLocalSecretContext(value: unknown): LocalSecretContext {
       "Wrapped local secret context.scope",
     ),
     readString(context, "purpose", "Wrapped local secret context"),
-  );
-}
-
-function canonicalLocalSecretContext(context: LocalSecretContext): string {
-  return JSON.stringify({
-    purpose: context.purpose,
-    scope: normalizeLocalKeyringScope(context.scope),
-  });
-}
-
-export function assertEnvelopeContextMatches(input: {
-  readonly actual: LocalSecretContext;
-  readonly expected: LocalSecretContext;
-}): void {
-  if (
-    canonicalLocalSecretContext(input.actual) !==
-    canonicalLocalSecretContext(input.expected)
-  ) {
-    throw new Error("Wrapped local secret context does not match.");
-  }
-}
-
-export function assertWrappedLocalSecretEnvelope(
-  envelope: WrappedLocalSecretEnvelope,
-): void {
-  if (envelope.format !== WRAPPED_LOCAL_SECRET_FORMAT) {
-    throw new Error("Wrapped local secret envelope format is unsupported.");
-  }
-  if (envelope.version !== 1) {
-    throw new Error("Wrapped local secret envelope version is unsupported.");
-  }
-  assertNonEmptyString(envelope.algorithm, "Wrapped local secret algorithm");
-  assertNonEmptyString(envelope.ciphertext, "Wrapped local secret ciphertext");
-  assertNonEmptyString(envelope.keyId, "Wrapped local secret key id");
-  assertNonEmptyString(envelope.provider, "Wrapped local secret provider");
-  assertNonEmptyString(envelope.wrappedAt, "Wrapped local secret wrappedAt");
-  normalizeLocalKeyringScope(envelope.context.scope);
-  assertNonEmptyString(
-    envelope.context.purpose,
-    "Wrapped local secret purpose",
   );
 }
 
@@ -275,7 +218,7 @@ export function serializeWrappedLocalSecretEnvelope(
   envelope: WrappedLocalSecretEnvelope,
 ): Uint8Array<ArrayBuffer> {
   assertWrappedLocalSecretEnvelope(envelope);
-  return asArrayBufferBytes(TEXT_ENCODER.encode(JSON.stringify(envelope)));
+  return copyBytes(TEXT_ENCODER.encode(JSON.stringify(envelope)));
 }
 
 function readPinCodeWrappingKeyMetadata(
@@ -372,7 +315,7 @@ export function pinCodeAdditionalData(input: {
   readonly keyId: string;
   readonly provider: string;
 }): Uint8Array<ArrayBuffer> {
-  return asArrayBufferBytes(
+  return copyBytes(
     TEXT_ENCODER.encode(
       JSON.stringify({
         algorithm: PIN_CODE_WRAPPING_ALGORITHM,

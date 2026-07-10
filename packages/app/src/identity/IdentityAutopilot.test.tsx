@@ -21,7 +21,7 @@ import {
 import {
   DualPaneProvider,
   PaneSideProvider,
-} from "../components/pane/DualPaneProvider";
+} from "../components/pane/dual-pane";
 import { Pane } from "../components/pane/Pane";
 import { PaneProvider } from "../components/pane/PaneProvider";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../components/shared/DestroyKeyPackageConfirmationDialog";

@@ -1,6 +1,10 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
+  assertEnvelopeContextMatches,
+  assertNonEmptyString,
+  assertWrappedLocalSecretEnvelope,
   type BrowserLocalKeyringOptions,
+  copyBytes,
   createBrowserLocalKeyringManifestStore,
   createIndexedDbWrappingKeyKeystore,
   createLocalKeyring,
@@ -16,10 +20,6 @@ import {
   type WrappingKeyKeystore,
 } from "./localKeyring";
 import {
-  asArrayBufferBytes,
-  assertEnvelopeContextMatches,
-  assertNonEmptyString,
-  assertWrappedLocalSecretEnvelope,
   createPinCodeWrappingKeyId,
   createPinCodeWrappingKeyMetadata,
   derivePinCodeWrappingKey,
@@ -124,11 +124,11 @@ class PinCodeWrappingKeyKeystore implements WrappingKeyKeystore {
               keyId: envelope.keyId,
               provider: this.provider,
             }),
-            iv: asArrayBufferBytes(base64ToBytes(envelope.iv)),
+            iv: copyBytes(base64ToBytes(envelope.iv)),
             name: "AES-GCM",
           },
           key,
-          asArrayBufferBytes(base64ToBytes(envelope.ciphertext)),
+          copyBytes(base64ToBytes(envelope.ciphertext)),
         ),
       );
     } catch (error) {

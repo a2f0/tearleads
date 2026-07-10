@@ -1,12 +1,8 @@
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { assertOrganizationCanSync } from "../../billing/organizationBilling";
-import { createContainer } from "./createContainer";
 import { ContainerMutationError, toMutationError } from "./errors";
-import { grantContainerAccess } from "./grantContainerAccess";
-import { moveContainer } from "./moveContainer";
 import { rekeyContainer } from "./rekeyContainer";
-import { revokeContainerAccess } from "./revokeContainerAccess";
 import { mutateContainerWithExecutor } from "./shared/mutationRunner";
 import type {
   ApiDatabase,
@@ -17,36 +13,6 @@ import type {
 
 export type { MutateContainerInput };
 export { ContainerMutationError };
-
-async function mutateContainerByEventType(
-  input: MutateContainerWithExecutorInput,
-): Promise<ContainerMutationResponse> {
-  const handlerInput = {
-    executor: input.executor,
-    fingerprint: input.fingerprint,
-    request: input.request,
-    userId: input.userId,
-    ...(input.context !== undefined ? { context: input.context } : {}),
-    ...(input.expectedContainerId !== undefined
-      ? { expectedContainerId: input.expectedContainerId }
-      : {}),
-  };
-
-  switch (input.expectedEventType) {
-    case "container.create":
-      return createContainer(handlerInput);
-    case "container.grant":
-      return grantContainerAccess(handlerInput);
-    case "container.move":
-      return moveContainer(handlerInput);
-    case "container.rekey":
-      return rekeyContainer(handlerInput);
-    case "container.revoke":
-      return revokeContainerAccess(handlerInput);
-    default:
-      return mutateContainerWithExecutor(input);
-  }
-}
 
 export async function applyContainerRekeys(input: {
   readonly executor: MutateContainerWithExecutorInput["executor"];
@@ -85,7 +51,7 @@ export async function runContainerMutationWorkflow(
 ): Promise<ContainerMutationResponse> {
   try {
     return await db.transaction(async (tx) => {
-      const response = await mutateContainerByEventType({
+      const response = await mutateContainerWithExecutor({
         ...input,
         executor: tx,
       });

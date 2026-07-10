@@ -33,7 +33,7 @@ import {
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { DualPaneProvider, PaneSideProvider } from "../DualPaneProvider";
+import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { Pane } from "../Pane";
 import { PaneProvider } from "../PaneProvider";
 

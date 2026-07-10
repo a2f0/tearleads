@@ -18,7 +18,7 @@ import {
   useWindowStateData,
   WindowStateProvider,
 } from "../../window/WindowStateProvider";
-import { useRegisterUserId } from "../DualPaneProvider";
+import { useRegisterUserId } from "../dual-pane";
 import { PaneFooter } from "../PaneFooter";
 import "./Pane.css";
 import { PaneContextMenu } from "./PaneContextMenu";

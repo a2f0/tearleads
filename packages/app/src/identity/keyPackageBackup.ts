@@ -4,6 +4,7 @@ import type {
   SessionContext,
 } from "@tearleads/client-sdk";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { downloadTextAsFile } from "../utils/downloadFile";
 
 export interface AppKeyPackageSession {
   readonly containerId: string;
@@ -95,23 +96,11 @@ export function downloadKeyPackageFile(input: {
   readonly fileName: string;
   readonly keyPackage: AppKeyPackage;
 }): void {
-  const blob = new Blob([`${JSON.stringify(input.keyPackage, null, 2)}\n`], {
-    type: "application/json",
+  downloadTextAsFile({
+    fileName: input.fileName,
+    mimeType: "application/json",
+    text: `${JSON.stringify(input.keyPackage, null, 2)}\n`,
   });
-  const url = URL.createObjectURL(blob);
-  const revokeObjectUrl = URL.revokeObjectURL.bind(URL);
-  const anchor = document.createElement("a");
-  anchor.download = input.fileName;
-  anchor.href = url;
-  anchor.rel = "noopener";
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  try {
-    anchor.click();
-  } finally {
-    anchor.remove();
-    setTimeout(() => revokeObjectUrl(url), 1000);
-  }
 }
 
 export function parseKeyPackageFileText(text: string): unknown {

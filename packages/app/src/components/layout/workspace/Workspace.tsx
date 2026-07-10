@@ -5,7 +5,7 @@ import {
   DualPaneProvider,
   PaneSideProvider,
   selfPaneLabel,
-} from "../../pane/DualPaneProvider";
+} from "../../pane/dual-pane";
 import { Pane } from "../../pane/Pane";
 import { PaneProvider } from "../../pane/PaneProvider";
 import {

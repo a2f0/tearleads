@@ -261,7 +261,6 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/data/blobs/`,
       `${sdk}/client/blobs.ts`,
       `${sdk}/data/blobContracts.ts`,
-      `${sdk}/data/blobEnvelope.ts`,
     ],
   },
   {

@@ -13,7 +13,7 @@ import {
   usePaneSide,
   usePeerUserId,
   useRegisterUserId,
-} from "../DualPaneProvider";
+} from "../dual-pane";
 import { useDualPane } from "../dual-pane/useDualPane";
 
 afterEach(cleanup);

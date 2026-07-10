@@ -9,7 +9,7 @@ import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvide
 import { useDatabase } from "../../../providers/db/DatabaseProvider";
 import { useEvents } from "../../../providers/events/useEvents";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
-import { usePeerUserId, usePeerUserIdsEnabled } from "../DualPaneProvider";
+import { usePeerUserId, usePeerUserIdsEnabled } from "../dual-pane";
 
 // Human-readable labels for the raw status keys, so the UI shows
 // "Web Socket" instead of "ws", "Public Key" instead of "publicKey", etc.

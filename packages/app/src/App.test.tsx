@@ -19,7 +19,7 @@ import { App } from "./App";
 import {
   DualPaneProvider,
   PaneSideProvider,
-} from "./components/pane/DualPaneProvider";
+} from "./components/pane/dual-pane";
 import { Pane } from "./components/pane/Pane";
 import { PaneProvider } from "./components/pane/PaneProvider";
 import type { AppNavigationMode } from "./navigation/AppNavigationMode";
