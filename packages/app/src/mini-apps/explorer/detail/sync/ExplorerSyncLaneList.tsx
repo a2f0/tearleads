@@ -112,9 +112,8 @@ function buildSyncLaneColumn(
         // the remaining width. In the wide layout give it a concrete floor
         // (rather than a percentage that collapses when the pane is too narrow
         // for all six columns) so the lane label and key never crush down to
-        // one-character-per-line vertical text; the table's `min-width` lets the
-        // frame scroll horizontally instead. Keep this in sync with
-        // `--explorer-sync-lane-table-min-width`.
+        // one-character-per-line vertical text; the table's `min-width:
+        // max-content` lets the frame scroll horizontally instead.
         width: compact ? undefined : "14rem",
       };
     case "phase":
