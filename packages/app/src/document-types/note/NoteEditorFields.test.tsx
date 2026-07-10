@@ -230,9 +230,10 @@ test("closing the preview restores focus to the opening tile", () => {
   openButton.focus();
   fireEvent.click(openButton);
   // Focus moves into the overlay while it is open.
-  expect(document.activeElement).not.toBe(openButton);
+  const closeButton = view.getByRole("button", { name: "Close preview" });
+  expect(document.activeElement).toBe(closeButton);
 
-  fireEvent.click(view.getByRole("button", { name: "Close preview" }));
+  fireEvent.click(closeButton);
   // ...and returns to the tile that opened it once it closes.
   expect(document.activeElement).toBe(openButton);
 });
