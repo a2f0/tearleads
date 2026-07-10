@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "tsconfig.tools.tsbuildinfo"
+  },
+  "include": ["*.config.ts", "*.config.mts", "scripts/**/*.ts"]
+}

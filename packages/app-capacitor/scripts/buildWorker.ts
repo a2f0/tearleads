@@ -15,13 +15,14 @@ const workerBuild = await Bun.build({
   target: "browser",
 });
 
-if (!workerBuild.success || workerBuild.outputs.length === 0) {
+const [workerArtifact] = workerBuild.outputs;
+if (!workerBuild.success || !workerArtifact) {
   throw new Error("Failed to build database worker", {
     cause: workerBuild.logs,
   });
 }
 
-await Bun.write(new URL("worker.js", publicDir), workerBuild.outputs[0]);
+await Bun.write(new URL("worker.js", publicDir), workerArtifact);
 
 const wasmSrc = fileURLToPath(getSqliteWasmAssetUrl());
 await copyFile(wasmSrc, fileURLToPath(new URL("sqlite3.wasm", publicDir)));

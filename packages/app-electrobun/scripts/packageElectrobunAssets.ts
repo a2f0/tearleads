@@ -36,14 +36,15 @@ async function packageElectrobunAssets(artifactPath: string): Promise<void> {
     target: "browser",
   });
 
-  if (!workerBuild.success || workerBuild.outputs.length === 0) {
+  const [workerArtifact] = workerBuild.outputs;
+  if (!workerBuild.success || !workerArtifact) {
     throw new Error("Failed to build packaged database worker", {
       cause: workerBuild.logs,
     });
   }
 
   await mkdir(mainViewDir, { recursive: true });
-  await Bun.write(join(mainViewDir, "worker.js"), workerBuild.outputs[0]);
+  await Bun.write(join(mainViewDir, "worker.js"), workerArtifact);
   await copyFile(
     fileURLToPath(getSqliteWasmAssetUrl()),
     join(mainViewDir, "sqlite3.wasm"),

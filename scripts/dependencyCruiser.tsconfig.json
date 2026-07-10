@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@tearleads/client-sdk": ["packages/client-sdk/src/index.ts"],
+      "@tearleads/client-sdk/sqlite": ["packages/client-sdk/src/sqlite.ts"]
+    }
+  }
+}

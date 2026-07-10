@@ -646,7 +646,7 @@ const subsystemsDocsTableMarker = {
   end: "<!-- subsystems:end -->",
   start: "<!-- subsystems:start -->",
 } as const;
-const subsystemDocsRowPattern = /^\|\s*\*\*(?<name>[^*]+)\*\*\s*\|/;
+const subsystemDocsRowPattern = /^\|\s*\*\*([^*]+)\*\*\s*\|/;
 
 export interface SubsystemDocsViolation {
   detail: string;
@@ -677,7 +677,7 @@ export async function findSubsystemDocsViolations(): Promise<
   const documentedNames = new Set(
     tableSection
       .split("\n")
-      .map((line) => subsystemDocsRowPattern.exec(line)?.groups?.name?.trim())
+      .map((line) => subsystemDocsRowPattern.exec(line)?.[1]?.trim())
       .filter((name): name is string => name !== undefined),
   );
   const manifestNames = new Set(subsystems.map((subsystem) => subsystem.name));

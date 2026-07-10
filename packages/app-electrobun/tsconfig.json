@@ -9,6 +9,6 @@
     // Electrobun currently has vendor code paths without explicit returns.
     "noImplicitReturns": false
   },
-  "include": ["src"],
+  "include": ["src", "scripts", "electrobun.config.ts"],
   "exclude": ["node_modules", "../../node_modules"]
 }

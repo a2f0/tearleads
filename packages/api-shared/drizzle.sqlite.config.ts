@@ -1,6 +1,6 @@
 import { defineConfig } from "drizzle-kit";
 
-process.env.API_DATABASE = "sqlite";
+Object.assign(process.env, { API_DATABASE: "sqlite" });
 
 export default defineConfig({
   dialect: "sqlite",

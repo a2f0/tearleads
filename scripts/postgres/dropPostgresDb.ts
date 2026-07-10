@@ -16,6 +16,14 @@ interface CliOptions {
   readonly yes: boolean;
 }
 
+interface PsqlEnvironment extends Record<string, string> {
+  PGDATABASE: string;
+  PGHOST?: string;
+  PGPASSWORD?: string;
+  PGPORT?: string;
+  PGUSER?: string;
+}
+
 const allowedDatabase = "tearleads_development";
 const deniedDatabase = "tearleads_production";
 
@@ -121,14 +129,14 @@ function buildConnectionParts(
     database:
       getEnvValue(["POSTGRES_DATABASE", "PGDATABASE"]) ?? defaults.database,
     host: getEnvValue(["POSTGRES_HOST", "PGHOST"]) ?? defaults.host,
-    password: getEnvValue(["POSTGRES_PASSWORD", "PGPASSWORD"]),
+    password: getEnvValue(["POSTGRES_PASSWORD", "PGPASSWORD"]) ?? null,
     port: parsePort(getEnvValue(["POSTGRES_PORT", "PGPORT"])) ?? defaults.port,
     user: getEnvValue(["POSTGRES_USER", "PGUSER"]) ?? defaults.user,
   };
 }
 
 function buildPsqlEnv(parts: ConnectionParts): Record<string, string> {
-  const env: Record<string, string> = { PGDATABASE: "postgres" };
+  const env: PsqlEnvironment = { PGDATABASE: "postgres" };
   if (parts.host !== null) env.PGHOST = parts.host;
   if (parts.password !== null) env.PGPASSWORD = parts.password;
   if (parts.port !== null) env.PGPORT = String(parts.port);

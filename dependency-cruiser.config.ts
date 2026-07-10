@@ -1,8 +1,8 @@
 import type { IConfiguration } from "dependency-cruiser";
 
+import { dependencyCruiserDeploymentRules } from "./scripts/dependencyCruiserDeploymentRules";
 import {
   allPackageSourceRoots,
-  dependencyCruiserIncludeOnly,
   deploymentTargetSourceRoots,
   packageSourceRoot as sourceRoot,
   testFilePattern,
@@ -90,18 +90,26 @@ const standardRules = [
     name: "not-to-unresolvable",
     severity: "error",
     comment:
-      "Cruised local source imports should resolve. Workspace package/export contracts are checked by scripts/lintArchitecture.ts.",
+      "Cruised local and workspace-package source imports should resolve.",
     from: {},
     to: {
       couldNotResolve: true,
+      // TypeScript validates pre-compilation-only imports. Keeping them out of
+      // this resolver rule also permits generated declaration references (for
+      // example Astro's `.astro/types.d.ts`) before their build has run.
+      preCompilationOnly: false,
     },
   },
   {
     name: "no-non-package-json",
     severity: "error",
     comment:
-      "Runtime npm imports must be declared in the importing workspace package manifest.",
-    from: {},
+      "Production npm imports must be declared in the importing workspace package manifest.",
+    from: {
+      // Test-only dependencies may be supplied by the root test harness. Keep
+      // the workspace declaration rule focused on shipped source.
+      pathNot: [testFilesPattern, "^packages/[^/]+/test/"],
+    },
     to: {
       dependencyTypes: ["npm-no-pkg", "npm-unknown"],
     },
@@ -532,60 +540,6 @@ const corePackageRules = [
       ),
     },
   },
-  {
-    name: "deployment-targets-are-not-reusable-libraries",
-    severity: "error",
-    comment:
-      "Deployment target packages should consume shared packages and app facades, not become dependencies of reusable source packages.",
-    from: {
-      path: allPackageSourceRoots.filter(
-        (root) => !deploymentTargetSourceRoots.includes(root),
-      ),
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: deploymentTargetSourceRoots,
-    },
-  },
-  {
-    name: "app-web-does-not-import-other-deployment-targets",
-    severity: "error",
-    comment:
-      "Deployment targets should stay independently launchable and must not import one another.",
-    from: {
-      path: sourceRoot.appWeb,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: [sourceRoot.appElectrobun, sourceRoot.website],
-    },
-  },
-  {
-    name: "app-electrobun-does-not-import-other-deployment-targets",
-    severity: "error",
-    comment:
-      "Deployment targets should stay independently launchable and must not import one another.",
-    from: {
-      path: sourceRoot.appElectrobun,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: [sourceRoot.appWeb, sourceRoot.website],
-    },
-  },
-  {
-    name: "website-does-not-import-other-deployment-targets",
-    severity: "error",
-    comment:
-      "Deployment targets should stay independently launchable and must not import one another.",
-    from: {
-      path: sourceRoot.website,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: [sourceRoot.appElectrobun, sourceRoot.appWeb],
-    },
-  },
 ] satisfies ForbiddenRules;
 
 const uiRules = [
@@ -644,13 +598,25 @@ const dependencyCruiserConfig = {
     ...clientSdkRules,
     ...appRules,
     ...corePackageRules,
+    ...dependencyCruiserDeploymentRules,
     ...uiRules,
     ...websiteRules,
   ],
   options: {
-    // Bun workspace subpath exports are checked separately in lintArchitecture.
-    // Keep dependency-cruiser focused on source files whose paths it can resolve.
-    includeOnly: dependencyCruiserIncludeOnly,
+    // Keep external dependencies as terminal graph nodes so npm declaration
+    // rules can inspect them without traversing third-party implementation.
+    doNotFollow: {
+      path: "node_modules",
+    },
+    enhancedResolveOptions: {
+      conditionNames: ["types", "import", "default"],
+      exportsFields: ["exports"],
+    },
+    // client-sdk's public exports intentionally point at gitignored build
+    // output. Source aliases keep architecture checks build-order independent.
+    tsConfig: {
+      fileName: "scripts/dependencyCruiser.tsconfig.json",
+    },
     tsPreCompilationDeps: "specify",
   },
 } satisfies IConfiguration;

@@ -20,7 +20,7 @@ Use `bun run lint:source-shape -- --staged` before committing and `bun run lint:
 - `packages/api-client`: typed API client and request/response boundary helpers.
 - `packages/client-sdk`: React-free client runtime, local persistence, sync, workflow facades, and public SDK exports.
 - `packages/app`: React application shell, providers, stores, mini-apps, document projections, and product UI.
-- `packages/app-web` and `packages/app-electrobun`: deployment targets. Do not turn these into reusable libraries.
+- `packages/app-web`, `packages/app-capacitor`, and `packages/app-electrobun`: deployment targets. Do not turn these into reusable libraries.
 - `packages/crypto`, `packages/encoding`, `packages/loro`, `packages/sqlite-instance`, `packages/sqlite-worker`, `packages/validators`: lower-level support packages. Keep imports directed upward from apps into these packages, not back into apps.
 - `packages/test-utils` and `packages/bob-and-alice`: test support only. Production source must not depend on them.
 - `packages/ui`: product-neutral shared UI used by the website and app.
@@ -35,8 +35,8 @@ Use `bun run lint:source-shape -- --staged` before committing and `bun run lint:
 - `@tearleads/sqlite-worker` may depend on `@tearleads/sqlite-instance`, but not app, API, SDK, UI, or other support implementation code.
 - `@tearleads/api-client` may share crypto and validator contracts, but must not import server, app, SDK, UI, or deployment implementation code.
 - Production source must not import `@tearleads/test-utils` or `@tearleads/bob-and-alice`; keep shared test helpers in tests or documented test helper directories.
-- Deployment target packages (`app-web`, `app-electrobun`, and `website`) should consume shared packages and app facades, not import each other or become dependencies of reusable packages.
-- Support packages must not import `packages/api`, `packages/app`, `packages/app-web`, `packages/app-electrobun`, `packages/client-sdk`, or `packages/website` implementation code unless an architecture rule explicitly allows it.
+- Deployment target packages (`app-web`, `app-capacitor`, `app-electrobun`, and `website`) should consume shared packages and app facades, not import each other or become dependencies of reusable packages.
+- Support packages must not import `packages/api`, `packages/app`, `packages/app-web`, `packages/app-capacitor`, `packages/app-electrobun`, `packages/client-sdk`, or `packages/website` implementation code unless an architecture rule explicitly allows it.
 - Package-private source paths stay private unless they are exported in `package.json` and documented as public API.
 
 ## Subsystems

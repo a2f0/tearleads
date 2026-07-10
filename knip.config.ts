@@ -244,5 +244,14 @@ const productionConfig = {
   },
 } satisfies KnipConfig;
 
-export default ((options: { production?: boolean }) =>
+export const knipWorkspacePaths = {
+  base: Object.keys(baseConfig.workspaces).filter(
+    (workspacePath) => workspacePath !== ".",
+  ),
+  production: Object.keys(productionConfig.workspaces).filter(
+    (workspacePath) => workspacePath !== ".",
+  ),
+} as const;
+
+export default ((options) =>
   options.production ? productionConfig : baseConfig) satisfies KnipConfig;
