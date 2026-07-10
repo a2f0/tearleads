@@ -12,6 +12,9 @@ import {
   useMemo,
   useState,
 } from "react";
+import { WindowStateProvider } from "../../components/window/WindowStateProvider";
+import { AppNavigationProvider } from "../../navigation/AppNavigationProvider";
+import type { MiniAppDefinition, MiniAppId } from "../types";
 import { useExplorerSidebarPanel } from "./ExplorerTree";
 import { buildExplorerTree } from "./explorerTreeModel";
 
@@ -44,6 +47,7 @@ const documentQueries: ContainerDocumentQueries = {
 const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
 // Same stability requirement for the per-container link-projection versions.
 const NO_CONTAINER_VERSIONS: ReadonlyMap<string, number> = new Map();
+const TEST_MINI_APPS = {} as Readonly<Record<MiniAppId, MiniAppDefinition>>;
 
 function SidebarContextMenuHarness(params: {
   onContainerContextMenu: (containerId: string) => void;
@@ -105,11 +109,15 @@ function SidebarContextMenuHarness(params: {
 test("explorer sidebar opens the root context menu from blank space", async () => {
   const containerIds: string[] = [];
   const view = render(
-    <SidebarContextMenuHarness
-      onContainerContextMenu={(containerId) => {
-        containerIds.push(containerId);
-      }}
-    />,
+    <WindowStateProvider>
+      <AppNavigationProvider mode="windowed" miniApps={TEST_MINI_APPS}>
+        <SidebarContextMenuHarness
+          onContainerContextMenu={(containerId) => {
+            containerIds.push(containerId);
+          }}
+        />
+      </AppNavigationProvider>
+    </WindowStateProvider>,
   );
 
   await waitFor(() => {

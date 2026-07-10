@@ -215,10 +215,15 @@ export function BlobDetail(params: {
 }
 
 export function BlobBrowserHeader(params: {
+  embedded?: boolean;
   onBack: () => void;
   selectedBlob: BlobInfo | null;
 }) {
-  const { onBack, selectedBlob } = params;
+  const { embedded = false, onBack, selectedBlob } = params;
+  // In the compact tabbed hub the tab bar handles leaving the browser, so the
+  // list-mode "Back to Explorer" button is dropped; blob-detail keeps its
+  // in-panel "Back to List".
+  const showBack = selectedBlob !== null || !embedded;
 
   return (
     <MiniAppHeader>
@@ -230,13 +235,15 @@ export function BlobBrowserHeader(params: {
             : EXPLORER_LABELS.blobBrowserNoSelection}
         </span>
       </MiniAppHeaderCopy>
-      <MiniAppActions>
-        <MiniAppButton onClick={onBack}>
-          {selectedBlob
-            ? EXPLORER_LABELS.blobBrowserBackToListAction
-            : EXPLORER_LABELS.blobBrowserBackAction}
-        </MiniAppButton>
-      </MiniAppActions>
+      {showBack ? (
+        <MiniAppActions>
+          <MiniAppButton onClick={onBack}>
+            {selectedBlob
+              ? EXPLORER_LABELS.blobBrowserBackToListAction
+              : EXPLORER_LABELS.blobBrowserBackAction}
+          </MiniAppButton>
+        </MiniAppActions>
+      ) : null}
     </MiniAppHeader>
   );
 }

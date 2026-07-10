@@ -14,6 +14,7 @@ import {
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
+import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
 import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
 import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
 import {
@@ -243,5 +244,14 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
     ],
   );
 
-  useRegisteredWindowSidebar({ setSidebar: params.setSidebar, sidebar });
+  // Mobile has no folder sidebar — Explorer's main pane is the compact tabbed
+  // hub (see ExplorerCompactTabs), so skip registering the folder tree there.
+  // A null sidebar also hides the app bar's sidebar toggle (RoutedPaneAppBar).
+  const compact = useCompactRoutedMode();
+
+  useRegisteredWindowSidebar({
+    enabled: !compact,
+    setSidebar: params.setSidebar,
+    sidebar,
+  });
 }

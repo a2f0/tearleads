@@ -305,6 +305,27 @@
   gap: var(--space-sm);
 }
 
+/* Compact (mobile) main-pane hub: a tab strip over the Sync Lanes / Blob Browser
+   panels, shown in place of the folder-driven detail when there is no sidebar.
+   The hub takes the detail area's height so the active panel can scroll. */
+.explorer-compact-tabs-hub {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.explorer-compact-tabs {
+  flex: 0 0 auto;
+}
+
+.explorer-compact-tab-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* The name-cell button keeps real button semantics, while its ::after overlay
    stretches its hit area across the whole row so any click on the row navigates.
    The row is the positioning context for that overlay. */
