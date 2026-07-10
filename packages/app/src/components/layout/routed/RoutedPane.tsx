@@ -140,7 +140,7 @@ function RoutedPaneMobileBar({
   return (
     <footer className="routed-pane-mobile-bar">
       <button
-        aria-controls="routed-pane-drawer"
+        aria-controls="routed-pane-sheet"
         aria-expanded={drawerOpen}
         aria-label="Menu"
         className="routed-pane-mobile-menu-button"

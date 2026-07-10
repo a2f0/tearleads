@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { renderRoutedPane } from "../../../../test/helpers/routedPaneTestUtils";
+import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/registry";
 import type { MiniAppId } from "../../../mini-apps/types";
 import {
   initialRoutedSidebarExpanded,
@@ -114,7 +115,7 @@ test("invalid route app ids fall back without indexing missing mini-apps", () =>
   expect(resolveRoutedActiveMiniAppId("tablet", legacyRouteAppId)).toBeNull();
 });
 
-test("mobile routed shell opens the nav drawer from the bottom menu bar", () => {
+test("mobile routed shell opens the nav sheet from the bottom menu bar", () => {
   const restoreMatchMedia = forceMobileRoutedTier();
   let view: ReturnType<typeof renderRoutedPane> | undefined;
 
@@ -124,8 +125,16 @@ test("mobile routed shell opens the nav drawer from the bottom menu bar", () => 
     expect(mobileBar).toBeTruthy();
     expect(view.container.querySelector(".routed-pane-hamburger")).toBeNull();
 
-    const drawer = view.container.querySelector(".routed-pane-drawer");
-    expect(drawer?.getAttribute("data-open")).toBe("false");
+    const sheet = view.container.querySelector(".routed-pane-sheet");
+    expect(sheet?.getAttribute("data-open")).toBe("false");
+
+    // The sheet is a pure launcher of app tiles — no menu-list panel, so none
+    // of the per-app contextual actions (Sync Lanes, Blob Browser) or the
+    // system section ride along.
+    expect(sheet?.querySelector(".routed-pane-nav-panel")).toBeNull();
+    expect(sheet?.querySelectorAll(".routed-pane-sheet-tile").length ?? 0).toBe(
+      ROUTED_MINI_APP_NAV_ITEMS.length + 1,
+    );
 
     const menuButton = view.getByRole("button", { name: "Menu" });
     expect(menuButton.getAttribute("aria-expanded")).toBe("false");
@@ -133,7 +142,11 @@ test("mobile routed shell opens the nav drawer from the bottom menu bar", () => 
     fireEvent.click(menuButton);
 
     expect(menuButton.getAttribute("aria-expanded")).toBe("true");
-    expect(drawer?.getAttribute("data-open")).toBe("true");
+    expect(sheet?.getAttribute("data-open")).toBe("true");
+
+    // Once revealed, Home and every routed mini-app are reachable as tiles.
+    expect(view.getByRole("link", { name: "Home" })).toBeTruthy();
+    expect(view.getByRole("link", { name: "Contacts" })).toBeTruthy();
   } finally {
     view?.unmount();
     restoreMatchMedia();
