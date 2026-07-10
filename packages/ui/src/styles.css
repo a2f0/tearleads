@@ -41,8 +41,8 @@
 
   /* Header/footer action-button hover fill. A themeable inversion: Light keeps
      the crisp white-on-dark chip (foreground/background of the dark chrome
-     band), while Dark swaps to the calm graphite emphasis chip (see the Dark
-     block) so the button doesn't flash a near-white slab — matching the already
+     band), while Dark swaps to the calm neutral-grey emphasis chip (see the
+     Dark block) so the button doesn't flash a near-white slab — matching the already
      tokenized .theme-toggle-button and pane-footer hovers. */
   --tearleads-action-hover-surface: var(--tearleads-header-text);
   --tearleads-action-hover-text: var(--tearleads-header-background);
@@ -66,7 +66,7 @@
      --color-light pair: in Light both read as a charcoal-on-white chip, but a
      straight role inversion in Dark would paint every selection a glaring
      near-white slab. Keeping emphasis its own themeable role lets Dark render a
-     calm graphite chip (see the Dark block) while Light is unchanged. */
+     calm neutral-grey chip (see the Dark block) while Light is unchanged. */
   --emphasis-surface: var(--color-dark);
   --emphasis-text: var(--color-light);
 
@@ -175,46 +175,51 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Neutral cool-graphite. Every grey sits on one hue family (a whisper of cool
-     blue, G between R and B) so the theme reads as brushed graphite rather than
-     the green cast the earlier values carried. The surfaces climb a tight
-     elevation ramp — desktop #191b1e -> body #212429 -> muted bars #2a2e33 ->
-     title bar #2c3035 -> emphasis chip #363b41 — with small, even steps so the
-     UI feels balanced instead of high-contrast. */
-  --color-muted: #2a2e33;
-  --color-dark: #e2e5e8;
-  --color-light: #212429;
+  /* Pure monochrome. Every surface is a true neutral grey (R = G = B, zero
+     chroma) so the theme reads as clean greyscale with no colour cast — none of
+     the cool blue the earlier "graphite" values carried, and no green either.
+     Each value is the achromatic grey at the same perceptual lightness (OKLCh
+     L) as the tuned ramp it replaced, so the tight elevation ladder is
+     unchanged — desktop #1b1b1b -> body #242424 -> muted bars #2e2e2e -> title
+     bar #303030 -> emphasis chip #3a3a3a — with small, even steps so the UI
+     feels balanced instead of high-contrast. */
+  --color-muted: #2e2e2e;
+  --color-dark: #e5e5e5;
+  --color-light: #242424;
+  /* The lone chromatic token: a warm error red kept deliberately, so danger
+     still reads as danger against the neutral greys. Flip it to a grey if a
+     fully achromatic theme is ever wanted. */
   --color-danger: #ec7a74;
   --color-hairline: color-mix(in srgb, var(--color-dark) 12%, transparent);
 
-  --tearleads-background: #191b1e;
-  --tearleads-border: #2e3339;
-  --tearleads-accent: #7e8a90;
-  --tearleads-text: #e2e5e8;
+  --tearleads-background: #1b1b1b;
+  --tearleads-border: #323232;
+  --tearleads-accent: #888888;
+  --tearleads-text: #e5e5e5;
   /* Chrome bands are grounded a step below the desktop, but lifted well clear
      of the near-black they used to be so the header/footer no longer punch a
      hole out of the app. */
-  --tearleads-header-background: #141619;
-  --tearleads-header-text: #e2e5e8;
-  --tearleads-footer-background: #141619;
-  --tearleads-footer-text: #e2e5e8;
+  --tearleads-header-background: #161616;
+  --tearleads-header-text: #e5e5e5;
+  --tearleads-footer-background: #161616;
+  --tearleads-footer-text: #e5e5e5;
 
   /* Window chrome. The title bar is a raised surface one step up the dark
-     elevation ramp (background #191b1e -> body #212429 -> muted bars #2a2e33 ->
+     elevation ramp (background #1b1b1b -> body #242424 -> muted bars #2e2e2e ->
      title bar) with off-white text, so it reads as chrome instead of an
      inverted near-white slab. The strong-border color is a soft edge that
      still delineates a window against the desktop without glaring. */
-  --tearleads-window-titlebar-background: #2c3035;
-  --tearleads-window-titlebar-text: #e2e5e8;
-  --border-strong-color: #373c42;
+  --tearleads-window-titlebar-background: #303030;
+  --tearleads-window-titlebar-text: #e5e5e5;
+  --border-strong-color: #3b3b3b;
 
-  /* Emphasis (selected / active / primary / checked). A calm graphite chip that
-     sits a step above the muted bars with crisp — but not blinding — text,
+  /* Emphasis (selected / active / primary / checked). A calm neutral-grey chip
+     that sits a step above the muted bars with crisp — but not blinding — text,
      instead of the near-white slab a raw --color-dark inversion would paint. */
-  --emphasis-surface: #363b41;
-  --emphasis-text: #f0f2f4;
+  --emphasis-surface: #3a3a3a;
+  --emphasis-text: #f2f2f2;
 
-  /* Header/footer action buttons hover to the same graphite chip rather than the
+  /* Header/footer action buttons hover to the same grey chip rather than the
      near-white inversion Light uses. */
   --tearleads-action-hover-surface: var(--emphasis-surface);
   --tearleads-action-hover-text: var(--emphasis-text);
