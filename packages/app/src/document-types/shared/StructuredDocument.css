@@ -188,8 +188,8 @@
 
 .structured-document-slot-button:hover:not(:disabled),
 .structured-document-slot-button:focus-visible:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .structured-document-slot-button:disabled {

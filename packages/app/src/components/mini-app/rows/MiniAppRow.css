@@ -50,9 +50,9 @@
 .mini-app-row--button:hover:not(:disabled),
 .mini-app-row--button:focus-visible:not(:disabled),
 .mini-app-row--selected {
-  border-color: var(--color-dark);
-  background: var(--color-dark);
-  color: var(--color-light);
+  border-color: var(--emphasis-surface);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
   opacity: 1;
 }
 

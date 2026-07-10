@@ -54,8 +54,8 @@
 
 .window-toolbar-button:hover:not(:disabled),
 .window-toolbar-button:focus-visible:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .window-toolbar-button:disabled {

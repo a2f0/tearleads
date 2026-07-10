@@ -20,6 +20,6 @@
 
 .theme-toggle-button:hover,
 .theme-toggle-button:focus-visible {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }

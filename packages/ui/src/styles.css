@@ -26,7 +26,9 @@
   --color-dark: #333;
   --color-light: #fff;
   --color-danger: #b00020;
-  --color-hairline: rgb(51 51 51 / 18%);
+  /* Derived from the foreground so it tracks --color-dark automatically;
+     equivalent to rgb(51 51 51 / 18%) here. */
+  --color-hairline: color-mix(in srgb, var(--color-dark) 18%, transparent);
 
   --tearleads-background: #f7f8f5;
   --tearleads-border: #d6ddd2;
@@ -36,6 +38,14 @@
   --tearleads-header-text: var(--color-light);
   --tearleads-footer-background: var(--color-dark);
   --tearleads-footer-text: var(--color-light);
+
+  /* Header/footer action-button hover fill. A themeable inversion: Light keeps
+     the crisp white-on-dark chip (foreground/background of the dark chrome
+     band), while Dark swaps to the calm graphite emphasis chip (see the Dark
+     block) so the button doesn't flash a near-white slab — matching the already
+     tokenized .theme-toggle-button and pane-footer hovers. */
+  --tearleads-action-hover-surface: var(--tearleads-header-text);
+  --tearleads-action-hover-text: var(--tearleads-header-background);
 
   /* Window title bar. Dedicated (not the inverting --color-* primitives) so
      Dark can render a calm raised-chrome band instead of flipping the
@@ -49,6 +59,16 @@
      Dark block) so window borders don't glare. The theme-independent
      --border-strong shorthand that consumes it lives in the Borders section. */
   --border-strong-color: var(--color-dark);
+
+  /* Emphasis surface — the fill/text for selected, active, hovered, primary,
+     and checked affordances (selected rows, the active menu, primary buttons,
+     the column-menu checkbox, …). It is deliberately NOT the raw --color-dark /
+     --color-light pair: in Light both read as a charcoal-on-white chip, but a
+     straight role inversion in Dark would paint every selection a glaring
+     near-white slab. Keeping emphasis its own themeable role lets Dark render a
+     calm graphite chip (see the Dark block) while Light is unchanged. */
+  --emphasis-surface: var(--color-dark);
+  --emphasis-text: var(--color-light);
 
   /* === Typography === */
   --tearleads-font-family: monospace;
@@ -155,29 +175,49 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-muted: #262c2f;
-  --color-dark: #e7ece9;
-  --color-light: #1c2124;
-  --color-danger: #ff6b6b;
-  --color-hairline: rgb(231 236 233 / 16%);
+  /* Neutral cool-graphite. Every grey sits on one hue family (a whisper of cool
+     blue, G between R and B) so the theme reads as brushed graphite rather than
+     the green cast the earlier values carried. The surfaces climb a tight
+     elevation ramp — desktop #191b1e -> body #212429 -> muted bars #2a2e33 ->
+     title bar #2c3035 -> emphasis chip #363b41 — with small, even steps so the
+     UI feels balanced instead of high-contrast. */
+  --color-muted: #2a2e33;
+  --color-dark: #e2e5e8;
+  --color-light: #212429;
+  --color-danger: #ec7a74;
+  --color-hairline: color-mix(in srgb, var(--color-dark) 12%, transparent);
 
-  --tearleads-background: #14181a;
-  --tearleads-border: #2c3733;
-  --tearleads-accent: #6fae8c;
-  --tearleads-text: #e6ece9;
-  --tearleads-header-background: #0e1113;
-  --tearleads-header-text: #e6ece9;
-  --tearleads-footer-background: #0e1113;
-  --tearleads-footer-text: #e6ece9;
+  --tearleads-background: #191b1e;
+  --tearleads-border: #2e3339;
+  --tearleads-accent: #7e8a90;
+  --tearleads-text: #e2e5e8;
+  /* Chrome bands are grounded a step below the desktop, but lifted well clear
+     of the near-black they used to be so the header/footer no longer punch a
+     hole out of the app. */
+  --tearleads-header-background: #141619;
+  --tearleads-header-text: #e2e5e8;
+  --tearleads-footer-background: #141619;
+  --tearleads-footer-text: #e2e5e8;
 
   /* Window chrome. The title bar is a raised surface one step up the dark
-     elevation ramp (background #14181a -> body #1c2124 -> muted bars #262c2f ->
+     elevation ramp (background #191b1e -> body #212429 -> muted bars #2a2e33 ->
      title bar) with off-white text, so it reads as chrome instead of an
      inverted near-white slab. The strong-border color is a soft edge that
      still delineates a window against the desktop without glaring. */
-  --tearleads-window-titlebar-background: #2f373b;
-  --tearleads-window-titlebar-text: #e6ece9;
-  --border-strong-color: #3a443f;
+  --tearleads-window-titlebar-background: #2c3035;
+  --tearleads-window-titlebar-text: #e2e5e8;
+  --border-strong-color: #373c42;
+
+  /* Emphasis (selected / active / primary / checked). A calm graphite chip that
+     sits a step above the muted bars with crisp — but not blinding — text,
+     instead of the near-white slab a raw --color-dark inversion would paint. */
+  --emphasis-surface: #363b41;
+  --emphasis-text: #f0f2f4;
+
+  /* Header/footer action buttons hover to the same graphite chip rather than the
+     near-white inversion Light uses. */
+  --tearleads-action-hover-surface: var(--emphasis-surface);
+  --tearleads-action-hover-text: var(--emphasis-text);
 
   --overlay-background: rgb(0 0 0 / 55%);
 }
@@ -379,6 +419,6 @@ textarea {
 
 .tearleads-action-button:hover,
 .tearleads-action-button:focus-visible {
-  background: var(--tearleads-header-text);
-  color: var(--tearleads-header-background);
+  background: var(--tearleads-action-hover-surface);
+  color: var(--tearleads-action-hover-text);
 }

@@ -4,7 +4,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  border-bottom: var(--border);
+  /* Match the selected tab's edge (--border-strong-color), like the Explorer
+     info tabs, so the baseline stays a soft graphite hairline in dark. */
+  border-bottom: var(--border-strong);
 }
 
 .system-monitor-tab {
@@ -15,7 +17,7 @@
 }
 
 .system-monitor-tab[aria-selected="true"] {
-  border-color: var(--color-dark);
+  border-color: var(--border-strong-color);
   border-bottom-color: var(--color-light);
   background: var(--color-light);
 }
@@ -84,8 +86,8 @@
 
 .system-monitor-launcher:hover,
 .system-monitor-launcher:focus-visible {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 /*

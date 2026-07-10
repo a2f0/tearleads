@@ -18,8 +18,8 @@
 .window-menubar-trigger:hover,
 .window-menubar-trigger:focus-visible,
 .window-menubar-trigger--active {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .window-menubar-dropdown {

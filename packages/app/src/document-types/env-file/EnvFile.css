@@ -116,8 +116,8 @@
 .env-file-add-button:focus-visible:not(:disabled),
 .env-file-remove-button:hover:not(:disabled),
 .env-file-remove-button:focus-visible:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .env-file-add-button:disabled,
