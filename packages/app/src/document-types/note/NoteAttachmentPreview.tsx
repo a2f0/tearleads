@@ -57,12 +57,16 @@ export function NoteAttachmentPreview({
   }, [onClose]);
 
   // Move focus into the overlay on open and restore it to the triggering tile
-  // on close, so keyboard focus is never dropped to the document body.
+  // on close, so keyboard focus is never dropped to the document body. The
+  // active element is narrowed with instanceof (not a cast) so `.focus()` is
+  // only called on something that actually has it.
   useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previouslyFocused = document.activeElement;
     closeButtonRef.current?.focus();
     return () => {
-      previouslyFocused?.focus?.();
+      if (previouslyFocused instanceof HTMLElement) {
+        previouslyFocused.focus();
+      }
     };
   }, []);
 
