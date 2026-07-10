@@ -1,7 +1,6 @@
 import type { Icon } from "@phosphor-icons/react";
-import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
-import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
+import { SidebarSimpleIcon } from "@phosphor-icons/react/dist/csr/SidebarSimple";
 import { type MouseEvent as ReactMouseEvent, useCallback } from "react";
 import {
   MINI_APPS,
@@ -162,7 +161,6 @@ function RoutedPaneRailToggle({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const Icon = expanded ? CaretLeftIcon : CaretRightIcon;
   const label = expanded
     ? "Collapse navigation rail"
     : "Expand navigation rail";
@@ -177,7 +175,7 @@ function RoutedPaneRailToggle({
       type="button"
       onClick={onToggle}
     >
-      <Icon aria-hidden="true" size={18} />
+      <SidebarSimpleIcon aria-hidden="true" size={18} />
     </button>
   );
 }
