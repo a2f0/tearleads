@@ -204,11 +204,23 @@ function RoutedPaneMobileNavTile({
       )}
       href={href}
       onClick={(event) => {
+        // Let the browser handle modified clicks (Cmd/Ctrl/Shift/Alt + click,
+        // middle-click) so the href still opens in a new tab/window; only
+        // intercept a plain left-click for in-app navigation.
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
         event.preventDefault();
         onSelect();
       }}
     >
-      <TileIcon aria-hidden size={32} />
+      <TileIcon aria-hidden="true" size={32} />
       <span className="routed-pane-sheet-tile-label">{label}</span>
     </a>
   );
