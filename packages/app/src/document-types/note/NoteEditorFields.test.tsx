@@ -20,6 +20,7 @@ function buildNoteEditorFields(overrides: Partial<NoteEditorFieldsProps> = {}) {
     dragActive: false,
     fileInputId: "note-file-input",
     fileInputRef: createRef<HTMLInputElement>(),
+    handleDownloadAttachment: noop,
     handleDragEnter: noop,
     handleDragLeave: noop,
     handleDragOver: noop,
@@ -116,6 +117,7 @@ test("auto-sizes the editor to its content height", () => {
       dragActive={false}
       fileInputId="note-file-input"
       fileInputRef={createRef<HTMLInputElement>()}
+      handleDownloadAttachment={noop}
       handleDragEnter={noop}
       handleDragLeave={noop}
       handleDragOver={noop}
@@ -156,7 +158,85 @@ test("surfaces a syncing attachment status", () => {
     attachmentStatusBySlotId: { "slot-1": "syncing" },
   });
 
-  expect(view.getByText("Syncing attachment.")).toBeTruthy();
+  expect(view.getByText("Syncing")).toBeTruthy();
+});
+
+test("shows the attachment count in the section header", () => {
+  const second: DocumentAttachment = {
+    byteLength: 2048,
+    mimeType: "application/pdf",
+    name: "spec.pdf",
+    slotId: "slot-2",
+  };
+  const view = renderNoteEditorFields({ attachments: [attachment, second] });
+
+  expect(view.getByText("Attachments · 2")).toBeTruthy();
+});
+
+test("labels each attachment with its kind and size", () => {
+  const pdf: DocumentAttachment = {
+    byteLength: 2048,
+    mimeType: "application/pdf",
+    name: "spec.pdf",
+    slotId: "slot-2",
+  };
+  const view = renderNoteEditorFields({ attachments: [pdf] });
+
+  expect(view.getByText("PDF · 2.0 KB")).toBeTruthy();
+});
+
+test("opening a tile forwards a download request", () => {
+  const downloaded: string[] = [];
+  const view = renderNoteEditorFields({
+    attachments: [attachment],
+    handleDownloadAttachment: (slotId) => downloaded.push(slotId),
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Download diagram.png" }));
+
+  expect(downloaded).toEqual(["slot-1"]);
+});
+
+test("opening a tile reveals the enlarged preview overlay", () => {
+  const view = renderNoteEditorFields({
+    attachments: [attachment],
+    imageUrlBySlotId: { "slot-1": "blob:preview" },
+  });
+
+  fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
+
+  const dialog = view.getByRole("dialog");
+  expect(dialog).toBeTruthy();
+  const previewImage = dialog.querySelector(
+    ".note-attachment-preview-image",
+  ) as HTMLImageElement | null;
+  expect(previewImage?.src).toContain("blob:preview");
+});
+
+test("closing the preview overlay dismisses it", () => {
+  const view = renderNoteEditorFields({ attachments: [attachment] });
+
+  fireEvent.click(view.getByRole("button", { name: "Open diagram.png" }));
+  expect(view.queryByRole("dialog")).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Close preview" }));
+  expect(view.queryByRole("dialog")).toBeNull();
+});
+
+test("read-only notes hide the add and remove affordances", () => {
+  const view = renderNoteEditorFields({
+    attachments: [attachment],
+    readOnly: true,
+  });
+
+  expect(view.queryByText("Add")).toBeNull();
+  expect(
+    view.queryByRole("button", { name: "Remove attachment diagram.png" }),
+  ).toBeNull();
+  // Download stays available even when the note cannot be edited.
+  expect(
+    view.getByRole("button", { name: "Download diagram.png" }),
+  ).toBeTruthy();
 });
 
 test("selecting files forwards them to handleSelectedFiles", () => {

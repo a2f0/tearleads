@@ -35,6 +35,7 @@ export function Notes({
         dragActive={model.dragActive}
         fileInputId={model.fileInputId}
         fileInputRef={model.fileInputRef}
+        handleDownloadAttachment={model.handleDownloadAttachment}
         handleDragEnter={model.handleDragEnter}
         handleDragLeave={model.handleDragLeave}
         handleDragOver={model.handleDragOver}

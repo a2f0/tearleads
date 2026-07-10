@@ -1,4 +1,5 @@
 import type {
+  BlobStore,
   DocumentAttachment,
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
@@ -15,6 +16,7 @@ import {
 import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
+import { downloadBytesAsFile } from "../../utils/downloadFile";
 import { readDocumentAttachmentUpload } from "../shared/documentAttachmentUtils";
 import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 
@@ -22,15 +24,18 @@ type NoteAttachmentStatusBySlotId = Readonly<
   Record<string, DocumentAttachmentStatus>
 >;
 type NoteAttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
+type NoteAttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
 type NoteDropzoneElement = HTMLFieldSetElement | HTMLLabelElement;
 
 interface NoteEditorFieldsModel {
   attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: NoteAttachmentStatusBySlotId;
+  attachmentStorageKeyBySlotId: NoteAttachmentStorageKeyBySlotId;
   canAttach: boolean;
   dragActive: boolean;
   fileInputId: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
+  handleDownloadAttachment: (slotId: string) => void;
   handleDragEnter: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDragLeave: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDragOver: (event: DragEvent<NoteDropzoneElement>) => void;
@@ -95,10 +100,16 @@ function useNoteDropzone(
 
 function useNoteAttachmentActions({
   attachFiles,
+  attachments,
+  attachmentStorageKeyBySlotId,
+  blobStore,
   logError,
   removeAttachment,
 }: {
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
+  attachments: ReadonlyArray<DocumentAttachment>;
+  attachmentStorageKeyBySlotId: NoteAttachmentStorageKeyBySlotId;
+  blobStore: BlobStore;
   logError: (message: string, error: unknown) => void;
   removeAttachment: (slotId: string) => void;
 }) {
@@ -122,8 +133,49 @@ function useNoteAttachmentActions({
     },
     [removeAttachment],
   );
+  // Save an attachment's bytes to disk. Reads from the local blob store by the
+  // slot's storage key, so it works the same in the standalone notes app and
+  // the explorer's inline note without depending on the explorer's blob
+  // browser. A slot with no local bytes yet (never happens once attached, but
+  // guards the pending window) is silently a no-op besides a logged error.
+  const handleDownloadAttachment = useCallback(
+    (slotId: string) => {
+      const attachment = attachments.findLast(
+        (candidate) => candidate.slotId === slotId,
+      );
+      const storageKey = attachmentStorageKeyBySlotId[slotId];
+      if (!attachment || !storageKey) {
+        return;
+      }
 
-  return { handleRemoveAttachment, handleSelectedFiles };
+      void blobStore
+        .readBytes(storageKey)
+        .then((bytes) => {
+          if (!bytes) {
+            logError(
+              "Failed to download note attachment",
+              new Error(`No local bytes for attachment ${attachment.name}.`),
+            );
+            return;
+          }
+          downloadBytesAsFile({
+            bytes,
+            fileName: attachment.name,
+            mimeType: attachment.mimeType,
+          });
+        })
+        .catch((error) => {
+          logError("Failed to download note attachment", error);
+        });
+    },
+    [attachments, attachmentStorageKeyBySlotId, blobStore, logError],
+  );
+
+  return {
+    handleDownloadAttachment,
+    handleRemoveAttachment,
+    handleSelectedFiles,
+  };
 }
 
 // Shared note editor data wiring: reads the documents store and exposes the
@@ -155,29 +207,102 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     attachmentStorageKeyBySlotId,
     blobStore,
   );
-  const { handleRemoveAttachment, handleSelectedFiles } =
-    useNoteAttachmentActions({
-      attachFiles,
-      logError,
-      removeAttachment,
-    });
+  const {
+    handleDownloadAttachment,
+    handleRemoveAttachment,
+    handleSelectedFiles,
+  } = useNoteAttachmentActions({
+    attachFiles,
+    attachments,
+    attachmentStorageKeyBySlotId,
+    blobStore,
+    logError,
+    removeAttachment,
+  });
 
+  const dropzone = useNoteDropzone(canAttach, handleSelectedFiles);
+
+  return useNoteEditorFieldsModel({
+    attachments,
+    attachmentStatusBySlotId,
+    attachmentStorageKeyBySlotId,
+    canAttach,
+    canWrite,
+    dropzone,
+    fileInputId,
+    fileInputRef,
+    handleDownloadAttachment,
+    handleRemoveAttachment,
+    handleSelectedFiles,
+    imageUrlBySlotId,
+    ready,
+    setText,
+    syncing,
+    text,
+  });
+}
+
+// Assemble the memoized model the presentational NoteEditorFields consumes.
+// Split out from useNoteEditorFields so the wiring above stays focused on
+// reading the store and composing the action/dropzone hooks. The dropzone
+// handlers are stable useCallback identities, so depending on the `dropzone`
+// object (a fresh literal each render) would defeat the memo; we spread its
+// fields and depend on each handler individually to keep the model identity
+// stable across renders.
+function useNoteEditorFieldsModel(input: {
+  attachments: ReadonlyArray<DocumentAttachment>;
+  attachmentStatusBySlotId: NoteAttachmentStatusBySlotId;
+  attachmentStorageKeyBySlotId: NoteAttachmentStorageKeyBySlotId;
+  canAttach: boolean;
+  canWrite: boolean;
+  dropzone: ReturnType<typeof useNoteDropzone>;
+  fileInputId: string;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  handleDownloadAttachment: (slotId: string) => void;
+  handleRemoveAttachment: (slotId: string) => void;
+  handleSelectedFiles: (fileList: FileList | null) => void;
+  imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
+  ready: boolean;
+  setText: (text: string) => void;
+  syncing: boolean;
+  text: string;
+}): NoteEditorFieldsModel {
+  const {
+    attachments,
+    attachmentStatusBySlotId,
+    attachmentStorageKeyBySlotId,
+    canAttach,
+    canWrite,
+    dropzone,
+    fileInputId,
+    fileInputRef,
+    handleDownloadAttachment,
+    handleRemoveAttachment,
+    handleSelectedFiles,
+    imageUrlBySlotId,
+    ready,
+    setText,
+    syncing,
+    text,
+  } = input;
   const {
     dragActive,
     handleDragEnter,
     handleDragLeave,
     handleDragOver,
     handleDrop,
-  } = useNoteDropzone(canAttach, handleSelectedFiles);
+  } = dropzone;
 
   return useMemo(
     () => ({
       attachments,
       attachmentStatusBySlotId,
+      attachmentStorageKeyBySlotId,
       canAttach,
       dragActive,
       fileInputId,
       fileInputRef,
+      handleDownloadAttachment,
       handleDragEnter,
       handleDragLeave,
       handleDragOver,
@@ -194,9 +319,12 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     [
       attachments,
       attachmentStatusBySlotId,
+      attachmentStorageKeyBySlotId,
       canAttach,
       dragActive,
       fileInputId,
+      fileInputRef,
+      handleDownloadAttachment,
       handleDragEnter,
       handleDragLeave,
       handleDragOver,
