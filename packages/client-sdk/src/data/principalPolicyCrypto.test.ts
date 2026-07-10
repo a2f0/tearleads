@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
-  encryptForRecipients,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   signPrincipalState,
@@ -12,7 +11,6 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { decryptBlobEnvelope, serializeBlobEnvelope } from "./blobEnvelope";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
@@ -119,9 +117,10 @@ async function createPrincipalPolicyBundle(input: {
   };
 }
 
-test("principal policy crypto unwraps a blob envelope addressed to a cached group principal", async () => {
+test("principal policy crypto unwraps an object key addressed to a cached group principal", async () => {
   const aliceKem = generateKemSeedAndKeyPair();
   const groupKem = generateKemSeedAndKeyPair();
+  const objectKey = crypto.getRandomValues(new Uint8Array(32));
   const { close, execSql } = await createTestExecSql(
     "principal-policy-crypto-test",
   );
@@ -148,15 +147,26 @@ test("principal policy crypto unwraps a blob envelope addressed to a cached grou
       "2026-04-08T00:01:00.000Z",
     );
 
-    const envelope = await encryptForRecipients(
-      new TextEncoder().encode("hello-principal-blob"),
-      [groupKem.publicKey],
-    );
-    const encryptedBytes = serializeBlobEnvelope(envelope);
+    const [wrappedObjectEntry] = await wrapDekForRecipients(objectKey, [
+      groupKem.publicKey,
+    ]);
+    if (!wrappedObjectEntry) {
+      throw new Error("Missing wrapped object key entry");
+    }
 
     await expect(
-      decryptBlobEnvelope(encryptedBytes, aliceKem.secretKey, execSql),
-    ).resolves.toEqual(new TextEncoder().encode("hello-principal-blob"));
+      unwrapKeyEnvelopesWithPrincipalPolicies({
+        envelopes: [
+          {
+            keyFingerprint: wrappedObjectEntry.keyFingerprint,
+            kemCipherText: bytesToBase64(wrappedObjectEntry.kemCipherText),
+            wrappedKey: bytesToBase64(wrappedObjectEntry.wrappedKey),
+          },
+        ],
+        execSql,
+        secretKey: aliceKem.secretKey,
+      }),
+    ).resolves.toEqual(objectKey);
   } finally {
     close();
   }

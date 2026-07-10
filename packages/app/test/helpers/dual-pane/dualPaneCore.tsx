@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
 import {
   DualPaneProvider,
   PaneSideProvider,
-} from "../../../src/components/pane/DualPaneProvider";
+} from "../../../src/components/pane/dual-pane";
 import { Pane } from "../../../src/components/pane/Pane";
 import { PaneProvider } from "../../../src/components/pane/PaneProvider";
 import { DESTROY_KEY_PACKAGE_CONFIRMATION_PHRASE } from "../../../src/components/shared/DestroyKeyPackageConfirmationDialog";

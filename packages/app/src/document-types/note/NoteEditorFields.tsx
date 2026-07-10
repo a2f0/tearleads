@@ -1,8 +1,4 @@
-import { TrashIcon } from "@phosphor-icons/react/dist/csr/Trash";
-import type {
-  DocumentAttachment,
-  DocumentAttachmentStatus,
-} from "@tearleads/client-sdk";
+import type { DocumentAttachment } from "@tearleads/client-sdk";
 import {
   type ChangeEvent,
   type DragEvent,
@@ -13,85 +9,20 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import { classNames } from "../../components/shared/classNames";
-import { formatByteLength } from "../../utils/formatByteLength";
+import { NoteAttachmentPreview } from "./NoteAttachmentPreview";
+import {
+  type NoteAttachmentImageUrlBySlotId,
+  type NoteAttachmentStatusBySlotId,
+  NoteAttachmentsPanel,
+  type NoteDropzoneElement,
+} from "./NoteAttachmentsPanel";
 import "./NoteDocument.css";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
-type NoteDropzoneElement = HTMLFieldSetElement | HTMLLabelElement;
-type NoteAttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
-type NoteAttachmentStatusBySlotId = Readonly<
-  Record<string, DocumentAttachmentStatus>
->;
 type NoteHandleSelectedFiles = (fileList: FileList | null) => void;
-
-function getAttachmentStatusLabel(
-  status: DocumentAttachmentStatus | undefined,
-): string | null {
-  return status === "syncing" ? NOTE_DOCUMENT_LABELS.attachmentSyncing : null;
-}
-
-function NoteAttachmentItem({
-  attachment,
-  canRemove,
-  imageUrl,
-  onRemoveAttachment,
-  status,
-}: {
-  attachment: DocumentAttachment;
-  canRemove: boolean;
-  imageUrl: string | undefined;
-  onRemoveAttachment: (slotId: string) => void;
-  status: DocumentAttachmentStatus | undefined;
-}) {
-  const statusLabel = getAttachmentStatusLabel(status);
-  const removeLabel = NOTE_DOCUMENT_LABELS.removeAttachment(attachment.name);
-
-  return (
-    <li className="note-document-attachment">
-      <div className="note-document-attachment-main">
-        <div className="note-document-attachment-meta">
-          <span className="note-document-attachment-name">
-            {attachment.name}
-          </span>
-          <span className="note-document-attachment-size">
-            {formatByteLength(attachment.byteLength)}
-          </span>
-          <button
-            type="button"
-            className="note-document-attachment-remove"
-            aria-label={removeLabel}
-            title={removeLabel}
-            disabled={!canRemove}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onRemoveAttachment(attachment.slotId);
-            }}
-            onMouseDown={(event) => {
-              event.preventDefault();
-            }}
-          >
-            <TrashIcon aria-hidden size={14} />
-          </button>
-        </div>
-        {statusLabel ? (
-          <div className="note-document-attachment-status">
-            <span>{statusLabel}</span>
-          </div>
-        ) : null}
-        {imageUrl ? (
-          <img
-            className="note-document-attachment-image"
-            src={imageUrl}
-            alt={attachment.name}
-          />
-        ) : null}
-      </div>
-    </li>
-  );
-}
 
 interface CaretSelection {
   start: number;
@@ -272,13 +203,66 @@ function useAutoFocusEditorOnReady(
   }, [ready, readOnly, ref]);
 }
 
+// The note body itself: an autosizing, caret-preserving textarea. Owns its
+// editor hook so the parent only threads the text/state props through, keeping
+// NoteEditorFields focused on composing the body with the attachments panel.
+function NoteEditorTextarea({
+  ready,
+  readOnly,
+  setText,
+  syncing,
+  text,
+}: {
+  ready: boolean;
+  readOnly: boolean;
+  setText: (text: string) => void;
+  syncing: boolean;
+  text: string;
+}) {
+  const {
+    ref,
+    handleChange,
+    handleSelect,
+    handleCompositionStart,
+    handleCompositionEnd,
+  } = useNoteEditorTextarea(text, setText, ready, readOnly);
+
+  return (
+    <textarea
+      ref={ref}
+      className="note-document-editor"
+      value={text}
+      onChange={readOnly ? undefined : handleChange}
+      onSelect={handleSelect}
+      onCompositionStart={handleCompositionStart}
+      onCompositionEnd={handleCompositionEnd}
+      placeholder={
+        ready
+          ? NOTE_DOCUMENT_LABELS.editorReadyPlaceholder
+          : NOTE_DOCUMENT_LABELS.editorLoadingPlaceholder
+      }
+      disabled={!ready}
+      readOnly={readOnly}
+      aria-label={
+        readOnly
+          ? NOTE_DOCUMENT_LABELS.editorReadOnly
+          : syncing
+            ? NOTE_DOCUMENT_LABELS.editorSyncing
+            : NOTE_DOCUMENT_LABELS.editor
+      }
+    />
+  );
+}
+
 // Shared note editor + attachments presentation used by both the notes
 // mini-app and the explorer's note document renderer. It is intentionally
 // unaware of how a note is stored: callers pass the editor text plus an
 // attachment value map and the drag/drop + file-input handlers, mapping their
 // own model into this shape. The hidden file input lives here so the dropzone
 // label can trigger it; an optional `toolbar` slot lets a caller render an
-// explicit attach control wired to the same `fileInputId`.
+// explicit attach control wired to the same `fileInputId`. The note body is the
+// primary surface (top); attachments are gathered into a panel beneath it, and
+// a tile opens an enlarged preview overlay.
 export function NoteEditorFields({
   attachments,
   attachmentStatusBySlotId,
@@ -286,6 +270,7 @@ export function NoteEditorFields({
   dragActive,
   fileInputId,
   fileInputRef,
+  handleDownloadAttachment,
   handleDragEnter,
   handleDragLeave,
   handleDragOver,
@@ -306,6 +291,7 @@ export function NoteEditorFields({
   dragActive: boolean;
   fileInputId: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
+  handleDownloadAttachment: (slotId: string) => void;
   handleDragEnter: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDragLeave: (event: DragEvent<NoteDropzoneElement>) => void;
   handleDragOver: (event: DragEvent<NoteDropzoneElement>) => void;
@@ -320,18 +306,28 @@ export function NoteEditorFields({
   text: string;
   toolbar?: ReactNode | undefined;
 }) {
-  const {
-    ref: editorRef,
-    handleChange: handleEditorChange,
-    handleSelect: handleEditorSelect,
-    handleCompositionStart: handleEditorCompositionStart,
-    handleCompositionEnd: handleEditorCompositionEnd,
-  } = useNoteEditorTextarea(text, setText, ready, readOnly);
+  const [previewSlotId, setPreviewSlotId] = useState<string | null>(null);
+  const interactive = canAttach && !readOnly;
   const dropzoneClassName = classNames(
     "note-document-dropzone",
     dragActive && "note-document-dropzone--active",
-    (!canAttach || readOnly) && "note-document-dropzone--disabled",
+    !interactive && "note-document-dropzone--disabled",
   );
+
+  const previewAttachment =
+    previewSlotId === null
+      ? null
+      : (attachments.find(
+          (attachment) => attachment.slotId === previewSlotId,
+        ) ?? null);
+
+  // Close the preview if its attachment disappears (removed here or via a
+  // remote merge) so the overlay never lingers over a missing file.
+  useEffect(() => {
+    if (previewSlotId !== null && previewAttachment === null) {
+      setPreviewSlotId(null);
+    }
+  }, [previewSlotId, previewAttachment]);
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     if (readOnly) {
@@ -347,64 +343,28 @@ export function NoteEditorFields({
     <>
       {toolbar}
       <div className="note-document-scroll">
-        {attachments.length === 0 ? (
-          <label
-            htmlFor={canAttach && !readOnly ? fileInputId : undefined}
-            className={dropzoneClassName}
-            onDragEnter={handleDragEnter}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <div className="note-document-dropzone-empty">
-              {NOTE_DOCUMENT_LABELS.attachmentsEmpty}
-            </div>
-          </label>
-        ) : (
-          <fieldset
-            aria-label={NOTE_DOCUMENT_LABELS.attachments}
-            className={dropzoneClassName}
-            onDragEnter={handleDragEnter}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <ul className="note-document-attachments">
-              {attachments.map((attachment) => (
-                <NoteAttachmentItem
-                  key={attachment.slotId}
-                  attachment={attachment}
-                  canRemove={canAttach && !readOnly}
-                  imageUrl={imageUrlBySlotId[attachment.slotId]}
-                  onRemoveAttachment={handleRemoveAttachment}
-                  status={attachmentStatusBySlotId[attachment.slotId]}
-                />
-              ))}
-            </ul>
-          </fieldset>
-        )}
-        <textarea
-          ref={editorRef}
-          className="note-document-editor"
-          value={text}
-          onChange={readOnly ? undefined : handleEditorChange}
-          onSelect={handleEditorSelect}
-          onCompositionStart={handleEditorCompositionStart}
-          onCompositionEnd={handleEditorCompositionEnd}
-          placeholder={
-            ready
-              ? NOTE_DOCUMENT_LABELS.editorReadyPlaceholder
-              : NOTE_DOCUMENT_LABELS.editorLoadingPlaceholder
-          }
-          disabled={!ready}
+        <NoteEditorTextarea
+          ready={ready}
           readOnly={readOnly}
-          aria-label={
-            readOnly
-              ? NOTE_DOCUMENT_LABELS.editorReadOnly
-              : syncing
-                ? NOTE_DOCUMENT_LABELS.editorSyncing
-                : NOTE_DOCUMENT_LABELS.editor
-          }
+          setText={setText}
+          syncing={syncing}
+          text={text}
+        />
+        <NoteAttachmentsPanel
+          attachments={attachments}
+          attachmentStatusBySlotId={attachmentStatusBySlotId}
+          canAttach={canAttach}
+          dropzoneClassName={dropzoneClassName}
+          fileInputId={fileInputId}
+          handleDragEnter={handleDragEnter}
+          handleDragLeave={handleDragLeave}
+          handleDragOver={handleDragOver}
+          handleDrop={handleDrop}
+          handleDownloadAttachment={handleDownloadAttachment}
+          handleRemoveAttachment={handleRemoveAttachment}
+          imageUrlBySlotId={imageUrlBySlotId}
+          interactive={interactive}
+          onOpenAttachment={setPreviewSlotId}
         />
       </div>
       <input
@@ -416,6 +376,16 @@ export function NoteEditorFields({
         disabled={!ready || !canAttach || readOnly}
         onChange={handleInputChange}
       />
+      {previewAttachment ? (
+        <NoteAttachmentPreview
+          attachment={previewAttachment}
+          canRemove={interactive}
+          imageUrl={imageUrlBySlotId[previewAttachment.slotId]}
+          onClose={() => setPreviewSlotId(null)}
+          onDownload={handleDownloadAttachment}
+          onRemove={handleRemoveAttachment}
+        />
+      ) : null}
     </>
   );
 }

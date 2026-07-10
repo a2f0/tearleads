@@ -1,6 +1,6 @@
 import type { DomainScope } from "@tearleads/client-sdk";
 import { type ReactNode, useCallback, useEffect } from "react";
-import { usePeerUserId } from "../../components/pane/DualPaneProvider";
+import { usePeerUserId } from "../../components/pane/dual-pane";
 import {
   MiniAppRoot,
   MiniAppStatus,

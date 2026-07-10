@@ -20,7 +20,7 @@ import invariant from "invariant";
 import {
   DualPaneProvider,
   PaneSideProvider,
-} from "../../src/components/pane/DualPaneProvider";
+} from "../../src/components/pane/dual-pane";
 import { Pane } from "../../src/components/pane/Pane";
 import { PaneProvider } from "../../src/components/pane/PaneProvider";
 import { AppHostConfig } from "../../src/host/AppHostConfig";

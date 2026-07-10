@@ -3,7 +3,7 @@ import {
   peerPaneLabel,
   usePaneSide,
   usePeerUserId,
-} from "../components/pane/DualPaneProvider";
+} from "../components/pane/dual-pane";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";

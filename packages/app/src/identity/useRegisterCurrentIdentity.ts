@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import {
   selfPaneLabel,
   usePaneSideOptional,
-} from "../components/pane/DualPaneProvider";
+} from "../components/pane/dual-pane";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";

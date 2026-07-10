@@ -19,22 +19,11 @@ import { useIdentityManager } from "./IdentityManagerController";
 import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
 import { IdentityManagerRecoveryKeySection } from "./IdentityManagerRecoveryKeySection";
 import { SessionDetailSection } from "./IdentityManagerSessionDetail";
+import { compactIdentifier } from "./IdentityManagerSessionDisplay";
 import { SessionsSection } from "./IdentityManagerSessions";
 import { IdentitySwitcher } from "./IdentitySwitcher";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
-
-function compactIdentifier(value: string | null | undefined): string {
-  if (!value) {
-    return "None";
-  }
-
-  if (value.length <= 24) {
-    return value;
-  }
-
-  return `${value.slice(0, 12)}...${value.slice(-8)}`;
-}
 
 function IdentityDetail({
   action,

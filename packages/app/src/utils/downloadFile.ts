@@ -1,17 +1,17 @@
 import type { BlobBytes } from "@tearleads/client-sdk";
 
-// Trigger a browser "save file" for in-memory bytes using the anchor-download
-// idiom shared by downloadKeyPackageFile / downloadBackupFile. Kept generic so
-// any mini-app can hand it bytes + a name without re-deriving the plumbing.
-export function downloadBytesAsFile(input: {
-  bytes: BlobBytes;
+interface DownloadFileInput {
   fileName: string;
   mimeType?: string | null | undefined;
-}): void {
-  const blob = new Blob([input.bytes], {
+  parts: BlobPart[];
+}
+
+function downloadFile(input: DownloadFileInput): void {
+  const blob = new Blob(input.parts, {
     type: input.mimeType ?? "application/octet-stream",
   });
   const url = URL.createObjectURL(blob);
+  const revokeObjectUrl = URL.revokeObjectURL.bind(URL);
   const anchor = document.createElement("a");
   anchor.download = input.fileName;
   anchor.href = url;
@@ -23,6 +23,30 @@ export function downloadBytesAsFile(input: {
   } finally {
     anchor.remove();
     // Revoke on a delay so the click's download navigation keeps the URL alive.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => revokeObjectUrl(url), 1000);
   }
+}
+
+export function downloadBytesAsFile(input: {
+  bytes: BlobBytes;
+  fileName: string;
+  mimeType?: string | null | undefined;
+}): void {
+  downloadFile({
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    parts: [input.bytes],
+  });
+}
+
+export function downloadTextAsFile(input: {
+  fileName: string;
+  mimeType: string;
+  text: string;
+}): void {
+  downloadFile({
+    fileName: input.fileName,
+    mimeType: input.mimeType,
+    parts: [input.text],
+  });
 }

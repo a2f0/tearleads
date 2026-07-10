@@ -2,7 +2,7 @@ import type { PropsWithChildren } from "react";
 import { useMemo } from "react";
 import type { AppHostConfig } from "../../../host/AppHostConfig";
 import { AppRuntimeProvider } from "../../../providers/AppRuntimeProvider";
-import { usePaneSide } from "../DualPaneProvider";
+import { usePaneSide } from "../dual-pane";
 
 interface PaneProviderProps extends PropsWithChildren {
   hostConfig: AppHostConfig;

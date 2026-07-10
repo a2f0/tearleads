@@ -82,17 +82,90 @@ function createContainerContentsStoreSyncHost(
   };
 }
 
-// Serializes a share write through the write chain and resolves to whether it
-// produced a node (shared) rather than null (skipped/failed).
-function chainBooleanShareWrite(
+function chainContainerWrite(
+  state: ContainerContentsStoreState,
+  work: () => ContainerContentsStoreState["writeChain"],
+): ContainerContentsStoreState["writeChain"] {
+  state.writeChain = state.writeChain.catch(() => null).then(work);
+  return state.writeChain;
+}
+
+function chainNodePresenceWrite(
   state: ContainerContentsStoreState,
   work: () => ContainerContentsStoreState["writeChain"],
 ): Promise<boolean> {
-  state.writeChain = state.writeChain.catch(() => null).then(work);
-  return state.writeChain.then((sharedNode) => sharedNode !== null);
+  return chainContainerWrite(state, work).then((node) => node !== null);
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: The store entry is a flat list of thin write-chain/sync-agent delegations; splitting it would scatter one cohesive public surface.
+function chainPurgeWrite(
+  state: ContainerContentsStoreState,
+  work: () => Promise<boolean>,
+): Promise<boolean> {
+  const purged = state.writeChain.catch(() => null).then(work);
+  state.writeChain = purged.then(() => null);
+  return purged;
+}
+
+type ContainerWriteMethods = Pick<
+  ContainerContentsStore,
+  | "createChild"
+  | "deleteContainer"
+  | "ensureSystemContainer"
+  | "moveContainer"
+  | "purgeContainer"
+  | "renameContainer"
+  | "setContainerIcon"
+  | "shareWithGroup"
+  | "shareWithUser"
+>;
+
+function createContainerWriteMethods(
+  state: ContainerContentsStoreState,
+  syncAgent: ReturnType<typeof createContainerContentsStoreSyncAgent>,
+): ContainerWriteMethods {
+  return {
+    createChild: (parentId, name) =>
+      chainContainerWrite(state, () =>
+        createChildContainer(state, syncAgent, parentId, name),
+      ),
+    deleteContainer: (containerId) =>
+      chainNodePresenceWrite(state, () => deleteContainer(state, containerId)),
+    purgeContainer: (containerId) =>
+      chainPurgeWrite(state, () => purgeContainer(state, containerId)),
+    ensureSystemContainer: (systemSlot, name, options) =>
+      chainContainerWrite(state, () =>
+        ensureSystemContainer(state, syncAgent, systemSlot, name, options),
+      ),
+    moveContainer: (containerId, parentId) =>
+      chainContainerWrite(state, () =>
+        moveContainer(state, syncAgent, containerId, parentId),
+      ),
+    renameContainer: (containerId, name) =>
+      chainContainerWrite(state, () =>
+        renameContainer(state, syncAgent, containerId, name),
+      ),
+    setContainerIcon: (containerId, icon) =>
+      chainContainerWrite(state, () =>
+        setContainerIcon(state, syncAgent, containerId, icon),
+      ),
+    shareWithUser: (containerId, userId) =>
+      chainNodePresenceWrite(state, () =>
+        shareContainerWithUser(state, syncAgent, containerId, userId),
+      ),
+    shareWithGroup: (containerId, groupId, accessLevel, options) =>
+      chainNodePresenceWrite(state, () =>
+        shareContainerWithGroup(
+          state,
+          syncAgent,
+          containerId,
+          groupId,
+          accessLevel,
+          options,
+        ),
+      ),
+  };
+}
+
 function createContainerContentsStoreEntry(
   initialRuntime: ContainerContentsStoreRuntime,
   persistence: ContainerContentsPersistence = defaultContainerContentsPersistence,
@@ -107,45 +180,15 @@ function createContainerContentsStoreEntry(
     host: createContainerContentsStoreSyncHost(state),
     state,
   });
+  const writeMethods = createContainerWriteMethods(state, syncAgent);
 
   return {
     store: {
-      createChild: (parentId: string, name: string) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() => createChildContainer(state, syncAgent, parentId, name));
-        return state.writeChain;
-      },
-      deleteContainer: (containerId: string) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() => deleteContainer(state, containerId));
-        return state.writeChain.then((deletedNode) => deletedNode !== null);
-      },
-      purgeContainer: (containerId: string) => {
-        // purgeContainer resolves to a boolean rather than a node, so capture
-        // its result on a side promise while still serializing it through the
-        // write chain (which only carries ContainerNode | null).
-        const purged = state.writeChain
-          .catch(() => null)
-          .then(() => purgeContainer(state, containerId));
-        state.writeChain = purged.then(() => null);
-        return purged;
-      },
-      ensureSystemContainer: (systemSlot, name, options) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() =>
-            ensureSystemContainer(state, syncAgent, systemSlot, name, options),
-          );
-        return state.writeChain;
-      },
-      moveContainer: (containerId: string, parentId: string) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() => moveContainer(state, syncAgent, containerId, parentId));
-        return state.writeChain;
-      },
+      createChild: writeMethods.createChild,
+      deleteContainer: writeMethods.deleteContainer,
+      purgeContainer: writeMethods.purgeContainer,
+      ensureSystemContainer: writeMethods.ensureSystemContainer,
+      moveContainer: writeMethods.moveContainer,
       refresh: () => syncAgent.refresh(),
       refreshRootLane: (options) => syncAgent.refreshRootLane(options),
       // Force an on-demand local SQLite re-read (see the interface doc): arm the
@@ -156,33 +199,10 @@ function createContainerContentsStoreEntry(
         return syncAgent.refreshLocalContainers();
       },
       requestSync: () => syncAgent.scheduleSync(),
-      renameContainer: (containerId: string, name: string) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() => renameContainer(state, syncAgent, containerId, name));
-        return state.writeChain;
-      },
-      setContainerIcon: (containerId: string, icon: string | null) => {
-        state.writeChain = state.writeChain
-          .catch(() => null)
-          .then(() => setContainerIcon(state, syncAgent, containerId, icon));
-        return state.writeChain;
-      },
-      shareWithUser: (containerId: string, userId: string) =>
-        chainBooleanShareWrite(state, () =>
-          shareContainerWithUser(state, syncAgent, containerId, userId),
-        ),
-      shareWithGroup: (containerId, groupId, accessLevel, options) =>
-        chainBooleanShareWrite(state, () =>
-          shareContainerWithGroup(
-            state,
-            syncAgent,
-            containerId,
-            groupId,
-            accessLevel,
-            options,
-          ),
-        ),
+      renameContainer: writeMethods.renameContainer,
+      setContainerIcon: writeMethods.setContainerIcon,
+      shareWithUser: writeMethods.shareWithUser,
+      shareWithGroup: writeMethods.shareWithGroup,
       getCachedContainerWriterProjection: (containerId) =>
         getCachedContainerWriterProjectionForStore(state, containerId),
       getSnapshot: () => state.snapshot,

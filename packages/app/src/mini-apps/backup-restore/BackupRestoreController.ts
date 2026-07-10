@@ -13,6 +13,7 @@ import {
   useLocalBackupOperations,
 } from "../../providers/db/useLocalBackupOperations";
 import { useLog } from "../../providers/logging/LogProvider";
+import { downloadTextAsFile } from "../../utils/downloadFile";
 
 type BackupRestoreBusyState = "export" | "restore" | null;
 type ExportLocalBackup = ReturnType<
@@ -41,27 +42,6 @@ interface BackupRestoreOperationState {
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Operation failed.";
-}
-
-function downloadBackupFile(input: {
-  readonly fileName: string;
-  readonly text: string;
-}): void {
-  const blob = new Blob([input.text], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.download = input.fileName;
-  anchor.href = url;
-  anchor.rel = "noopener";
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-
-  try {
-    anchor.click();
-  } finally {
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
 }
 
 function formatSummary(summary: BackupSummary): string {
@@ -116,8 +96,9 @@ function useExportBackupAction({
         onProgress: setProgress,
         password: backupPassword,
       });
-      downloadBackupFile({
+      downloadTextAsFile({
         fileName: result.fileName,
+        mimeType: "application/json",
         text: result.text,
       });
       setBackupPassword("");
