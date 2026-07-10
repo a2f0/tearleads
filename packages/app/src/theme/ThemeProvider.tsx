@@ -3,6 +3,7 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -37,17 +38,21 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
   useThemeDocumentAttribute(activeTheme);
 
+  // Persist as a side effect keyed on the committed theme so the state updaters
+  // below stay pure — React may run an updater more than once or discard its
+  // result (StrictMode, concurrent rendering), and persistence must track only
+  // what actually commits. This is the single persistence site; saveTheme is
+  // idempotent, so the initial write of the loaded value is a harmless no-op.
+  useEffect(() => {
+    saveTheme(activeTheme);
+  }, [activeTheme]);
+
   const setTheme = useCallback((theme: ThemeId) => {
     setActiveTheme(theme);
-    saveTheme(theme);
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setActiveTheme((current) => {
-      const next = nextThemeId(current);
-      saveTheme(next);
-      return next;
-    });
+    setActiveTheme(nextThemeId);
   }, []);
 
   const value = useMemo<ThemeContextValue>(

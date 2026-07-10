@@ -1,8 +1,11 @@
 /* Square icon button living in the pane footer's system tray
    (.pane-footer-tray), mirroring the system-monitor launcher so the two sit
-   flush together at the standard control height. Its icon paints with
-   currentColor, so both the resting glyph and the inverted hover state track
-   the active theme's tokens automatically. */
+   flush together at the standard control height. The icon paints with
+   currentColor and the resting glyph inherits the footer's foreground
+   (--tearleads-text, dark on the muted footer surface), exactly like the
+   system-monitor launcher; the hover state inverts to var(--color-dark). Both
+   ends of that swap resolve through the active theme's tokens, so the button
+   tracks light/dark automatically. */
 .theme-toggle-button {
   display: inline-flex;
   align-items: center;
@@ -12,7 +15,6 @@
   padding: 0;
   border: var(--border-strong);
   background: var(--color-light);
-  color: inherit;
   cursor: pointer;
 }
 
