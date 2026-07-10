@@ -439,24 +439,24 @@ test("move out of trash is disabled when the trash node is absent from the tree"
   ).toBe(false);
 });
 
-// Link and Move must present matching enabled/disabled state on a brand-new,
-// never-synced note. Link is fundamentally remote — addDocumentLink no-ops
-// without a documentId — so it is disabled until first sync. Move is aligned to
-// the same synced-document requirement so a new note never shows an active Move
-// beside a greyed-out Link.
+// Gate values for a brand-new, never-synced note. These drive toolbar/context
+// visibility: the surfaces hide an action when its gate is false rather than
+// showing it greyed. Link is fundamentally remote (addDocumentLink no-ops
+// without a documentId), so it stays unavailable until first sync; Move only
+// relocates the local containerId, so it stays available offline / pre-sync.
 const linkAndMoveTargets = [{ id: "root", icon: null, label: "/" }];
 
-test("a new unsynced note disables both Link and Move together", () => {
+test("a new unsynced note: Link unavailable, Move available", () => {
   const state = getMutationState({
     selectedDocument: { ...selectedDocument, documentId: null },
     selectedDocumentLinkTargetOptions: linkAndMoveTargets,
     selectedDocumentMoveTargetOptions: linkAndMoveTargets,
   });
   expect(state.canLinkSelectedDocument).toBe(false);
-  expect(state.canMoveSelectedDocument).toBe(false);
+  expect(state.canMoveSelectedDocument).toBe(true);
 });
 
-test("a synced note enables both Link and Move together", () => {
+test("a synced note: both Link and Move available", () => {
   const state = getMutationState({
     selectedDocumentLinkTargetOptions: linkAndMoveTargets,
     selectedDocumentMoveTargetOptions: linkAndMoveTargets,
@@ -465,14 +465,11 @@ test("a synced note enables both Link and Move together", () => {
   expect(state.canMoveSelectedDocument).toBe(true);
 });
 
-test("delete stays available on a never-synced note even though move does not", () => {
-  // Guard the asymmetry the parity fix preserves: Move now requires a synced
-  // documentId, but Delete/Purge deliberately remain available on local-only
-  // notes (they gate on canMoveOrDeleteSelectedDocument, which omits documentId).
+test("delete and move stay available on a never-synced note", () => {
   const state = getMutationState({
     selectedDocument: { ...selectedDocument, documentId: null },
     selectedDocumentMoveTargetOptions: linkAndMoveTargets,
   });
-  expect(state.canMoveSelectedDocument).toBe(false);
+  expect(state.canMoveSelectedDocument).toBe(true);
   expect(state.canDeleteSelectedDocument).toBe(true);
 });

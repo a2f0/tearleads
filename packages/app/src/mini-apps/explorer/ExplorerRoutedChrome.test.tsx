@@ -42,8 +42,6 @@ function createExplorerModel(
     canLinkSelectedDocument: true,
     canMoveSelectedDocument: true,
     explorer: { ready: true },
-    hasSelectedDocumentLinkTargets: true,
-    hasSelectedDocumentMoveTargets: true,
     isActiveContactsContainer: true,
     modalState: {
       openCreateChildModal: () => undefined,
@@ -212,14 +210,16 @@ test("contacts container toolbar offers get info and new contact", async () => {
   expect(openedInfoContainers).toEqual(["contacts-container"]);
 });
 
-test("document toolbar hides link when there are no link targets", async () => {
+test("document toolbar hides link (not greyed) when it cannot be linked", async () => {
+  // The new-note case: an unsynced note (or any not-yet-linkable document)
+  // omits Link entirely rather than showing it disabled, while Move — which
+  // works on local-only notes — stays visible. No greyed-out button appears.
   const baseModel = createExplorerModel();
   const view = render(
     <WindowMenuProvider>
       <ExplorerRoutedChromeHarness
         model={createExplorerModel({
           canLinkSelectedDocument: false,
-          hasSelectedDocumentLinkTargets: false,
           isActiveContactsContainer: false,
           routeState: {
             ...baseModel.routeState,
@@ -259,14 +259,13 @@ test("document toolbar hides link when there are no link targets", async () => {
   ).toBeTruthy();
 });
 
-test("document toolbar hides move when there are no move targets", async () => {
+test("document toolbar hides move (not greyed) when it cannot be moved", async () => {
   const baseModel = createExplorerModel();
   const view = render(
     <WindowMenuProvider>
       <ExplorerRoutedChromeHarness
         model={createExplorerModel({
           canMoveSelectedDocument: false,
-          hasSelectedDocumentMoveTargets: false,
           isActiveContactsContainer: false,
           routeState: {
             ...baseModel.routeState,
@@ -318,9 +317,10 @@ test("document toolbar shows get info before the summary loads", async () => {
     <WindowMenuProvider>
       <ExplorerRoutedChromeHarness
         model={createExplorerModel({
-          // No targets are known yet during the pending window.
-          hasSelectedDocumentLinkTargets: false,
-          hasSelectedDocumentMoveTargets: false,
+          // Link/Move are unavailable during the pending window: the summary has
+          // not loaded, so no targets are known yet.
+          canLinkSelectedDocument: false,
+          canMoveSelectedDocument: false,
           isActiveContactsContainer: false,
           routeState: {
             ...baseModel.routeState,
