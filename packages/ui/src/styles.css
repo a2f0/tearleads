@@ -44,6 +44,12 @@
   --tearleads-window-titlebar-background: var(--color-dark);
   --tearleads-window-titlebar-text: var(--color-light);
 
+  /* Color of the strong dividers/outlines (window & panel edges). Themeable:
+     Light uses the foreground primitive; Dark tones it to a soft edge (see the
+     Dark block) so window borders don't glare. The theme-independent
+     --border-strong shorthand that consumes it lives in the Borders section. */
+  --border-strong-color: var(--color-dark);
+
   /* === Typography === */
   --tearleads-font-family: monospace;
   --font-size-2xs: 0.72rem;
@@ -96,10 +102,8 @@
   /* === Borders === */
   --border-width: 1px;
   --border: var(--border-width) solid currentColor;
-  /* Strong dividers/outlines (window & panel edges). The color is a themeable
-     hook: Light uses the foreground primitive; Dark tones it to a soft edge
-     rather than the near-white foreground, so window borders don't glare. */
-  --border-strong-color: var(--color-dark);
+  /* Theme-independent shorthand; its color comes from the themeable
+     --border-strong-color in the THEME TOKENS section above. */
   --border-strong: var(--border-width) solid var(--border-strong-color);
   --radius: 0;
 
