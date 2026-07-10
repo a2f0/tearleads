@@ -11,6 +11,7 @@ import { useNotesAppModel } from "./hooks/useNotesAppModel";
 import { NOTES_LABELS } from "./labels";
 import { Notes } from "./Notes";
 import { NotesEmptyState } from "./NotesEmptyState";
+import { useNotesRoutedChromeActions } from "./NotesRoutedChrome";
 import { NotesListHome } from "./NotesSidebar";
 import type { NotesAppProps } from "./types";
 
@@ -52,6 +53,10 @@ function NotesAppContent(props: NotesAppProps) {
     label: NOTES_LABELS.newNoteAction,
     onClick: model.createNote,
     priority: 100,
+  });
+  useNotesRoutedChromeActions({
+    createNote: model.createNote,
+    ready: model.ready,
   });
 
   return (
