@@ -4,8 +4,8 @@
  * useRoutedLayoutTier, keyed to the same 760px line as the media query below)
  * picks the layout.
  *
- * - mobile: top app bar + centered bottom menu button that opens a slide-in
- *   drawer over content.
+ * - mobile: top app bar + centered bottom menu button that opens a bottom
+ *   sheet of app-launcher tiles over content.
  * - tablet: persistent left rail beside the main content (the iPad layout).
  */
 
@@ -275,7 +275,7 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
-/* === Mobile drawer + scrim === */
+/* === Mobile bottom sheet + scrim === */
 
 .routed-pane-scrim {
   position: absolute;
@@ -293,18 +293,19 @@
   outline-offset: calc(-2 * var(--border-width));
 }
 
-.routed-pane-drawer {
+.routed-pane-sheet {
   position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
+  inset-inline: 0;
+  inset-block-end: 0;
   z-index: 2;
-  width: var(--routed-drawer-width);
+  max-height: min(70vh, 32rem);
   overflow-y: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
-  border-right: var(--border-strong);
+  padding-bottom: max(var(--space-sm), env(safe-area-inset-bottom));
+  border-top: var(--border-strong);
   background: var(--color-muted);
-  transform: translateX(-100%);
-  /* `visibility: hidden` takes the off-screen drawer out of the tab order and
+  transform: translateY(100%);
+  /* `visibility: hidden` takes the off-screen sheet out of the tab order and
      the accessibility tree while closed; the delayed transition keeps it
      visible through the slide-out so the animation still plays. */
   visibility: hidden;
@@ -313,12 +314,56 @@
     visibility 0s linear 0.18s;
 }
 
-.routed-pane-drawer[data-open="true"] {
-  transform: translateX(0);
+.routed-pane-sheet[data-open="true"] {
+  transform: translateY(0);
   visibility: visible;
   transition:
     transform var(--transition),
     visibility 0s;
+}
+
+/*
+ * Launcher tiles — square icon-and-label cells (mirrors Explorer's New Document
+ * grid) so the sheet reads as an app launcher rather than a menu list.
+ */
+.routed-pane-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+}
+
+.routed-pane-sheet-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  aspect-ratio: 1;
+  padding: var(--space-sm);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.routed-pane-sheet-tile:hover,
+.routed-pane-sheet-tile:focus-visible,
+.routed-pane-sheet-tile--active {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
+
+.routed-pane-sheet-tile svg {
+  flex: 0 0 auto;
+}
+
+.routed-pane-sheet-tile-label {
+  overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 
 /* === Main === */

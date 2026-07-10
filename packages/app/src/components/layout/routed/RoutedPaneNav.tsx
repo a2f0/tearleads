@@ -1,5 +1,7 @@
+import type { Icon } from "@phosphor-icons/react";
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
+import { HouseIcon } from "@phosphor-icons/react/dist/csr/House";
 import { type MouseEvent as ReactMouseEvent, useCallback } from "react";
 import {
   MINI_APPS,
@@ -180,9 +182,99 @@ function RoutedPaneRailToggle({
   );
 }
 
+function RoutedPaneMobileNavTile({
+  active,
+  href,
+  icon: TileIcon,
+  label,
+  onSelect,
+}: {
+  active: boolean;
+  href: string;
+  icon: Icon;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <a
+      aria-current={active ? "page" : undefined}
+      className={classNames(
+        "routed-pane-sheet-tile",
+        active && "routed-pane-sheet-tile--active",
+      )}
+      href={href}
+      onClick={(event) => {
+        // Let the browser handle modified clicks (Cmd/Ctrl/Shift/Alt + click,
+        // middle-click) so the href still opens in a new tab/window; only
+        // intercept a plain left-click for in-app navigation.
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+        event.preventDefault();
+        onSelect();
+      }}
+    >
+      <TileIcon aria-hidden="true" size={32} />
+      <span className="routed-pane-sheet-tile-label">{label}</span>
+    </a>
+  );
+}
+
+/**
+ * The mobile bottom-sheet navigation: Home plus every routed mini-app as a grid
+ * of square icon-and-label tiles (styled after Explorer's New Document screen).
+ * Unlike the tablet rail it carries no system or per-app contextual actions —
+ * the sheet is a pure launcher. Selecting a tile navigates and dismisses.
+ */
+function RoutedPaneMobileNav({
+  activeAppId,
+  onNavigate,
+}: {
+  activeAppId: MiniAppId | null;
+  onNavigate: () => void;
+}) {
+  const { getHomeHref, getMiniAppHref, navigateHome, openMiniApp } =
+    useAppNavigationActions();
+
+  return (
+    <nav aria-label="Apps" className="routed-pane-sheet-grid">
+      <RoutedPaneMobileNavTile
+        active={activeAppId === null}
+        href={getHomeHref()}
+        icon={HouseIcon}
+        label="Home"
+        onSelect={() => {
+          navigateHome();
+          onNavigate();
+        }}
+      />
+      {ROUTED_MINI_APP_NAV_ITEMS.map(({ appId, icon, label }) => (
+        <RoutedPaneMobileNavTile
+          key={appId}
+          active={activeAppId === appId}
+          href={getMiniAppHref(appId)}
+          icon={icon}
+          label={label}
+          onSelect={() => {
+            openMiniApp({ appId });
+            onNavigate();
+          }}
+        />
+      ))}
+    </nav>
+  );
+}
+
 /**
  * The navigation surface in its tier-appropriate container: a persistent
- * `<aside>` rail on tablet, or a slide-in drawer (plus dismiss scrim) on mobile.
+ * `<aside>` rail on tablet, or a bottom sheet of launcher tiles (plus dismiss
+ * scrim) on mobile.
  */
 export function RoutedPaneNav({
   activeAppId,
@@ -209,18 +301,6 @@ export function RoutedPaneNav({
   showDeveloperControls: boolean;
   tier: RoutedLayoutTier;
 }) {
-  const panel = (
-    <RoutedPaneNavPanel
-      activeAppId={activeAppId}
-      menuItems={menuItems}
-      onNavigate={onCloseDrawer}
-      onOpenUnlock={onOpenUnlock}
-      onRequestDestroyKeyPackage={onRequestDestroyKeyPackage}
-      onRequestLogout={onRequestLogout}
-      showDeveloperControls={showDeveloperControls}
-    />
-  );
-
   if (tier === "tablet") {
     return (
       <aside
@@ -259,11 +339,14 @@ export function RoutedPaneNav({
       )}
       <aside
         aria-hidden={!drawerOpen}
-        className="routed-pane-drawer"
+        className="routed-pane-sheet"
         data-open={drawerOpen ? "true" : "false"}
-        id="routed-pane-drawer"
+        id="routed-pane-sheet"
       >
-        {panel}
+        <RoutedPaneMobileNav
+          activeAppId={activeAppId}
+          onNavigate={onCloseDrawer}
+        />
       </aside>
     </>
   );
