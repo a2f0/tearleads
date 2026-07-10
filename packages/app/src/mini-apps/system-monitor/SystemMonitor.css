@@ -4,7 +4,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  border-bottom: var(--border);
+  /* Match the selected tab's edge (--border-strong-color), like the Explorer
+     info tabs, so the baseline stays a soft graphite hairline in dark. */
+  border-bottom: var(--border-strong);
 }
 
 .system-monitor-tab {

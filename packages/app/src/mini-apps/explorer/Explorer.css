@@ -270,7 +270,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  border-bottom: var(--border);
+  border-bottom: var(--border-strong);
 }
 
 .explorer-info-tab {
