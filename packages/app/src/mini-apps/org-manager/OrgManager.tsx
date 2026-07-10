@@ -12,23 +12,23 @@ import {
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
 import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
-import { BillingPanel } from "./BillingPanel";
-import { CreateOrganizationDialog } from "./CreateOrganizationDialog";
+import { BillingPanel } from "./billing/BillingPanel";
+import { DataUsageView } from "./billing/DataUsageView";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
-import { DataUsageView } from "./DataUsageView";
-import { DirectoryView } from "./DirectoryView";
-import { GrantsView } from "./GrantsView";
-import { GroupsView } from "./GroupsView";
+import { DirectoryView } from "./directory/DirectoryView";
+import { RosterProfileEditor } from "./directory/RosterProfileEditor";
+import { GrantsView } from "./grants/GrantsView";
+import { RevokeGrantConfirmationDialog } from "./grants/RevokeGrantConfirmationDialog";
+import { GroupsView } from "./groups/GroupsView";
 import {
   type OrgManagerModel,
   useOrgManagerModel,
 } from "./hooks/useOrgManagerModel";
 import { ORG_MANAGER_LABELS } from "./labels";
-import { OrganizationView } from "./OrganizationView";
 import { useOrgManagerRoutedChromeActions } from "./OrgManagerRoutedChrome";
-import { OrgSwitcher } from "./OrgSwitcher";
-import { RevokeGrantConfirmationDialog } from "./RevokeGrantConfirmationDialog";
-import { RosterProfileEditor } from "./RosterProfileEditor";
+import { CreateOrganizationDialog } from "./organization/CreateOrganizationDialog";
+import { OrganizationView } from "./organization/OrganizationView";
+import { OrgSwitcher } from "./organization/OrgSwitcher";
 import "./OrgManager.css";
 
 function renderRosterProfileEditor(organizationId: string) {

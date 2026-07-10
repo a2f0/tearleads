@@ -16,9 +16,12 @@ import {
   removeRevokedGrantFromGrantState,
   removeRevokedGrantFromGroupContainers,
   removeRevokedGrantFromUserDetail,
-} from "../grantState";
+} from "../grants/grantState";
+import {
+  currentGroupUserRecipients,
+  userRecipient,
+} from "../grants/recipients";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { currentGroupUserRecipients, userRecipient } from "../recipients";
 import { setUnknownError } from "../refresh";
 import type { OrgManagerView } from "../routes";
 import { useOrgManagerDisableRosterUser } from "./useOrgManagerDisableRosterUser";

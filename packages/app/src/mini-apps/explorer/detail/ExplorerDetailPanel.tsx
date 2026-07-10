@@ -27,13 +27,13 @@ import { ExplorerDatabaseErrorStatus } from "../ExplorerDatabaseErrorStatus";
 import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
-import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
-import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
-import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
-import { ExplorerDocumentDetail } from "./ExplorerDocumentDetail";
-import { ExplorerDocumentInfoPanel } from "./ExplorerDocumentInfoPanel";
-import { ExplorerNewStructuredDocumentPanel } from "./ExplorerNewStructuredDocumentPanel";
-import { ExplorerSyncLanesPanel } from "./ExplorerSyncLanesPanel";
+import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
+import { ExplorerContainerDetail } from "./container/ExplorerContainerDetail";
+import { ExplorerContainerInfoPanel } from "./container/ExplorerContainerInfoPanel";
+import { ExplorerDocumentDetail } from "./document/ExplorerDocumentDetail";
+import { ExplorerDocumentInfoPanel } from "./document/ExplorerDocumentInfoPanel";
+import { ExplorerNewStructuredDocumentPanel } from "./document/ExplorerNewStructuredDocumentPanel";
+import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
 
 function ExplorerEmptyDetail(params: {
   nodes: ReadonlyArray<ContainerNode>;

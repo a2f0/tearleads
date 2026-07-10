@@ -173,7 +173,7 @@
       "lines": 685,
       "bytes": 19360
     },
-    "packages/app/src/mini-apps/explorer/detail/ExplorerDocumentInfoSections.test.tsx": {
+    "packages/app/src/mini-apps/explorer/detail/document/ExplorerDocumentInfoSections.test.tsx": {
       "lines": 623,
       "bytes": 18029
     },
