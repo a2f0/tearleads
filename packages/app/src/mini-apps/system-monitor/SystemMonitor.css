@@ -15,7 +15,7 @@
 }
 
 .system-monitor-tab[aria-selected="true"] {
-  border-color: var(--color-dark);
+  border-color: var(--border-strong-color);
   border-bottom-color: var(--color-light);
   background: var(--color-light);
 }
@@ -84,8 +84,8 @@
 
 .system-monitor-launcher:hover,
 .system-monitor-launcher:focus-visible {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 /*

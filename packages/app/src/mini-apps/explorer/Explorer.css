@@ -281,7 +281,7 @@
 }
 
 .explorer-info-tab[aria-selected="true"] {
-  border-color: var(--color-dark);
+  border-color: var(--border-strong-color);
   border-bottom-color: var(--color-light);
   background: var(--color-light);
 }

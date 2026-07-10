@@ -11,8 +11,8 @@
 
 .mini-app-button:hover:not(:disabled),
 .mini-app-button:focus-visible:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .mini-app-button:disabled {
@@ -30,7 +30,7 @@
 }
 
 .mini-app-button--ghost:hover:not(:disabled) {
-  border-color: var(--color-dark);
+  border-color: var(--emphasis-surface);
 }
 
 .mini-app-icon-button {

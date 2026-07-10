@@ -93,8 +93,8 @@
 
 .note-document-attachments-add:hover,
 .note-document-attachments-add:focus-within {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 /* === Empty state === */
@@ -261,8 +261,8 @@
 
 .note-document-attachment-tool:hover,
 .note-document-attachment-tool:focus-visible {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .note-document-attachment-tool--remove:hover,
@@ -328,8 +328,8 @@
 
 .note-attachment-preview-button:hover,
 .note-attachment-preview-button:focus-visible {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .note-attachment-preview-stage {

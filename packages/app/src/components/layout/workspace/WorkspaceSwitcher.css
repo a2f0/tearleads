@@ -10,6 +10,6 @@
 }
 
 .workspace-button.workspace-button--active {
-  background: var(--color-light);
-  color: var(--color-dark);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }

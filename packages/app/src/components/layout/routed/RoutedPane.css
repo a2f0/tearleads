@@ -111,8 +111,8 @@
 
 .routed-pane-appbar button:hover:not(:disabled),
 .routed-pane-appbar button:focus-visible:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .routed-pane-appbar button:disabled {
@@ -186,8 +186,8 @@
 .routed-pane-nav-action:focus-visible:not(:disabled),
 .routed-pane-nav-section > button:hover:not(:disabled),
 .routed-pane-nav-section > button:focus-visible:not(:disabled) {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .routed-pane-nav-action:disabled,
@@ -256,12 +256,12 @@
 
 .routed-pane-rail-toggle:hover,
 .routed-pane-rail-toggle:focus-visible {
-  color: var(--color-light);
+  color: var(--emphasis-text);
 }
 
 .routed-pane-rail-toggle:hover::before,
 .routed-pane-rail-toggle:focus-visible::before {
-  background: var(--color-dark);
+  background: var(--emphasis-surface);
 }
 
 .routed-pane-rail-toggle svg {
@@ -353,8 +353,8 @@
 .routed-pane-sheet-tile:hover,
 .routed-pane-sheet-tile:focus-visible,
 .routed-pane-sheet-tile--active {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
 }
 
 .routed-pane-sheet-tile svg {
@@ -413,21 +413,30 @@
   font: inherit;
   line-height: 1;
   cursor: pointer;
-  --tearleads-logo-primary: #555;
-  --tearleads-logo-secondary: #999;
+  /* Resting logo tones, theme-adaptive. The old #555/#999 literals were tuned
+     for a light bar and vanished on the dark mobile bar (--color-muted). Key
+     both off the foreground role — mirroring the .tearleads-header remap — so
+     the mark stays legible on either surface: the "T" (secondary) is the full
+     foreground glyph, the "L:" (primary) a dimmer tone mixed toward the bar. */
+  --tearleads-logo-secondary: var(--color-dark);
+  --tearleads-logo-primary: color-mix(
+    in srgb,
+    var(--color-dark) 62%,
+    var(--color-muted)
+  );
 }
 
 .routed-pane-mobile-menu-button:hover,
 .routed-pane-mobile-menu-button:focus-visible,
 .routed-pane-mobile-menu-button[aria-expanded="true"] {
-  background: var(--color-dark);
-  color: var(--color-light);
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
   --tearleads-logo-primary: color-mix(
     in srgb,
-    var(--color-light) 62%,
-    var(--color-dark)
+    var(--emphasis-text) 62%,
+    var(--emphasis-surface)
   );
-  --tearleads-logo-secondary: var(--color-light);
+  --tearleads-logo-secondary: var(--emphasis-text);
 }
 
 .routed-pane-mobile-menu-logo {
