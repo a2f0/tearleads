@@ -318,7 +318,6 @@ export function useDestroyKey(input: {
     }
     const signingFingerprint = tearleads.identity.signingFingerprint;
     generationIdRef.current += 1;
-    generationInFlight.current = false;
     setIdentityDestroyed(true);
     prepareForIdentityTransition(tearleads);
     tearleads.identity.destroy();

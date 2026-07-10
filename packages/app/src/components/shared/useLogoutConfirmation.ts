@@ -126,10 +126,7 @@ export async function runConfirmedLogout(
       input.onAfterLocalLogout?.();
       // Destroy local persistence only after the session is torn down, so no
       // store re-reads the SQLite database mid-wipe.
-      if (
-        !input.keepLocalData &&
-        input.getSigningFingerprint() === input.signingFingerprint
-      ) {
+      if (!input.keepLocalData) {
         await destroyLocalSessionData({
           logError: input.logError,
           purgeWorker: input.purgeWorker,

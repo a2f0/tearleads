@@ -27,9 +27,9 @@ const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 
 function hasPaneLocalCryptoSession(namespace: string): boolean {
   const prefix = `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}.left:`;
-  return Array.from({ length: globalThis.localStorage.length }, (_, index) =>
-    globalThis.localStorage.key(index),
-  ).some((key) => key?.startsWith(prefix));
+  return Object.keys(globalThis.localStorage).some((key) =>
+    key.startsWith(prefix),
+  );
 }
 
 async function waitForPersistedPaneCryptoSession(
