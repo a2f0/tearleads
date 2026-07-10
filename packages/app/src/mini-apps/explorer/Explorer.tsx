@@ -1,5 +1,5 @@
 import type { DomainScope } from "@tearleads/client-sdk";
-import { useCallback, useEffect } from "react";
+import { type ReactNode, useCallback, useEffect } from "react";
 import { usePeerUserId } from "../../components/pane/DualPaneProvider";
 import {
   MiniAppRoot,
@@ -28,6 +28,7 @@ import {
 } from "./blob-pick/ExplorerBlobPickProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
+import { useExplorerCompactSidebarPanel } from "./detail/ExplorerCompactSidebarPanel";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
 import {
   useExplorerRoutedChromeActions,
@@ -81,11 +82,47 @@ function useOpenGrantInOrgManager() {
 }
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
+type ExplorerBlobPickState = ReturnType<typeof useExplorerBlobPick>;
 
-// Reads the blob-pick context (so it lives below ExplorerBlobPickProvider) and
-// renders the detail panel with the pick target + resolve/cancel handlers. The
-// document rendered inside the panel reads the same context to request a pick.
-function ExplorerDetailPanelWithBlobPick(params: {
+function useExplorerCompactSidebarRegistration(params: {
+  appData: RuntimeSnapshot;
+  blobPick: ExplorerBlobPickState;
+  databaseError: boolean;
+  model: ExplorerModel;
+  onRetryDatabase: () => void;
+  setSidebar: (sidebar: ReactNode) => void;
+}) {
+  const {
+    appData,
+    blobPick,
+    databaseError,
+    model,
+    onRetryDatabase,
+    setSidebar,
+  } = params;
+
+  useExplorerCompactSidebarPanel({
+    blobPickTarget: blobPick.pickTarget,
+    blobStore: appData.infra.blobStore,
+    databaseError,
+    domainScope: appData.state.domainScope,
+    loadBlobInfo: model.loadBlobInfo,
+    nodes: model.explorer.nodes,
+    onCancelBlobPick: blobPick.cancelBlobPick,
+    onOpenSyncLaneDetailRoute: model.routeState.openSyncLaneDetailRoute,
+    onPickBlob: blobPick.resolveBlobPick,
+    onRetryDatabase,
+    online: appData.state.online,
+    openBlobBrowserRoute: model.routeState.openBlobBrowserRoute,
+    openDocumentInfoRoute: model.routeState.openDocumentInfoRoute,
+    openSyncLanesRoute: model.routeState.openSyncLanesRoute,
+    route: model.routeState.route,
+    selectDocumentProjection: model.selectDocumentProjection,
+    setSidebar,
+  });
+}
+
+interface BlobPickPanelProps {
   appData: RuntimeSnapshot;
   databaseError: boolean;
   model: ExplorerModel;
@@ -95,17 +132,28 @@ function ExplorerDetailPanelWithBlobPick(params: {
     position?: MiniAppWindowPosition,
   ) => void;
   onRetryDatabase: () => void;
-}) {
+  setSidebar: (sidebar: ReactNode) => void;
+}
+
+interface BlobPickPanelRenderParams extends BlobPickPanelProps {
+  blobPick: ExplorerBlobPickState;
+  showLinkedDocumentActivationControls: boolean;
+}
+
+function renderExplorerDetailPanelWithBlobPick(
+  params: BlobPickPanelRenderParams,
+) {
   const {
     appData,
+    blobPick,
     databaseError,
     model,
     onOpenGrant,
     onRetryDatabase,
     resolveAttributionUserLabel,
+    showLinkedDocumentActivationControls,
   } = params;
-  const { cancelBlobPick, pickTarget, resolveBlobPick } = useExplorerBlobPick();
-  const { linkedDocumentActivationControlsEnabled } = useAppFeatureFlags();
+  const { cancelBlobPick, pickTarget, resolveBlobPick } = blobPick;
 
   return (
     <ExplorerDetailPanel
@@ -159,7 +207,7 @@ function ExplorerDetailPanelWithBlobPick(params: {
       setContainerIcon={model.explorer.setContainerIcon}
       setSelectedId={model.routeState.selectExplorerItem}
       showLinkedDocumentActivationControls={
-        linkedDocumentActivationControlsEnabled
+        showLinkedDocumentActivationControls
       }
       shareWithGroup={model.explorer.shareWithGroup}
       shareWithUser={model.explorer.shareWithUser}
@@ -167,6 +215,30 @@ function ExplorerDetailPanelWithBlobPick(params: {
       visibleSystemSlots={model.explorer.visibleSystemSlots}
     />
   );
+}
+
+// Reads the blob-pick context (so it lives below ExplorerBlobPickProvider) and
+// renders the detail panel with the pick target + resolve/cancel handlers. The
+// document rendered inside the panel reads the same context to request a pick.
+function ExplorerDetailPanelWithBlobPick(params: BlobPickPanelProps) {
+  const blobPick = useExplorerBlobPick();
+  const { linkedDocumentActivationControlsEnabled } = useAppFeatureFlags();
+
+  useExplorerCompactSidebarRegistration({
+    appData: params.appData,
+    blobPick,
+    databaseError: params.databaseError,
+    onRetryDatabase: params.onRetryDatabase,
+    model: params.model,
+    setSidebar: params.setSidebar,
+  });
+
+  return renderExplorerDetailPanelWithBlobPick({
+    ...params,
+    blobPick,
+    showLinkedDocumentActivationControls:
+      linkedDocumentActivationControlsEnabled,
+  });
 }
 
 export function Explorer() {
@@ -351,6 +423,7 @@ function ExplorerContent() {
           databaseError={databaseError}
           model={model}
           resolveAttributionUserLabel={resolveAttributionUserLabel}
+          setSidebar={setSidebar}
           onOpenGrant={openGrantInOrgManager}
           onRetryDatabase={retryDatabaseBoot}
         />

@@ -244,9 +244,8 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
     ],
   );
 
-  // Mobile has no folder sidebar — Explorer's main pane is the compact tabbed
-  // hub (see ExplorerCompactTabs), so skip registering the folder tree there.
-  // A null sidebar also hides the app bar's sidebar toggle (RoutedPaneAppBar).
+  // Routed mobile uses a compact Sync Lanes / Blob Browser sidebar registered
+  // from the detail layer, so skip the folder tree there.
   const compact = useCompactRoutedMode();
 
   useRegisteredWindowSidebar({

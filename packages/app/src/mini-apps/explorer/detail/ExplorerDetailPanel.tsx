@@ -15,7 +15,6 @@ import type {
 } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
-import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
 import {
@@ -29,10 +28,6 @@ import type { ExplorerRoute } from "../routes";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
 import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
-import {
-  ExplorerCompactTabs,
-  isExplorerCompactHubRoute,
-} from "./ExplorerCompactTabs";
 import { ExplorerContainerDetail } from "./ExplorerContainerDetail";
 import { ExplorerContainerInfoPanel } from "./ExplorerContainerInfoPanel";
 import { ExplorerDocumentDetail } from "./ExplorerDocumentDetail";
@@ -208,38 +203,11 @@ function renderExplorerNewStructuredDocumentRoute(
 }
 
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
-  // On mobile there is no folder sidebar, so Explorer's main pane is a tabbed
-  // Sync Lanes / Blob Browser hub instead of the folder-driven detail. Other
-  // detail routes (document/container info, new document) still fall through to
-  // their own panels so deep links and in-tab actions keep working.
-  const compact = useCompactRoutedMode();
-
   // A failed SQLite boot makes every detail route non-functional (they all read
   // from the local database), so gate the whole panel on the error — matching
   // the sidebar — rather than letting individual routes render broken UIs.
   if (params.databaseError) {
     return <ExplorerDatabaseErrorStatus onRetry={params.onRetryDatabase} />;
-  }
-
-  if (compact && isExplorerCompactHubRoute(params.route.view)) {
-    return (
-      <ExplorerCompactTabs
-        blobPickTarget={params.blobPickTarget}
-        blobStore={params.blobStore}
-        domainScope={params.domainScope}
-        loadBlobInfo={params.loadBlobInfo}
-        nodes={params.nodes}
-        onCancelBlobPick={params.onCancelBlobPick}
-        onOpenSyncLaneDetailRoute={params.onOpenSyncLaneDetailRoute}
-        onPickBlob={params.onPickBlob}
-        online={params.online}
-        openBlobBrowserRoute={params.openBlobBrowserRoute}
-        openDocumentInfoRoute={params.openDocumentInfoRoute}
-        openSyncLanesRoute={params.onBackToSyncLanesRoute}
-        route={params.route}
-        selectDocumentProjection={params.selectDocumentProjection}
-      />
-    );
   }
 
   return renderExplorerRouteDetail(params);

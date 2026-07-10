@@ -28,23 +28,6 @@ const EXPLORER_COMPACT_TABS: ReadonlyArray<{
   { id: "blobs", label: EXPLORER_LABELS.blobBrowserAction },
 ];
 
-/**
- * The routes whose compact (mobile) presentation is the tabbed Sync Lanes /
- * Blob Browser hub. Other detail routes (document/container info, new document)
- * still render their own full-screen panel, so deep links and in-tab actions
- * that open them keep working.
- */
-export function isExplorerCompactHubRoute(
-  view: ExplorerRoute["view"],
-): boolean {
-  return (
-    view === "selection" ||
-    view === "sync-lanes" ||
-    view === "sync-lane-detail" ||
-    view === "blob-browser"
-  );
-}
-
 // Roving tabindex per the WAI-ARIA tab pattern (mirrors SystemMonitorTabs): only
 // the active tab is in the tab order; arrow/Home/End move focus and selection.
 function ExplorerCompactTabBar({
@@ -141,11 +124,10 @@ interface ExplorerCompactTabsProps {
 }
 
 /**
- * The compact (mobile) main-pane view for Explorer: a two-tab hub over the
- * existing Sync Lanes and Blob Browser panels. Mobile has no folder sidebar, so
- * this replaces the folder-driven layout. The active tab is derived from the
- * route (`blob-browser` → Blob Browser, otherwise Sync Lanes), and tapping a tab
- * navigates the route — so deep links and the back button keep working.
+ * The compact (mobile) sidebar view for Explorer: a two-tab hub over the
+ * existing Sync Lanes and Blob Browser panels. The active tab is derived from
+ * the route (`blob-browser` -> Blob Browser, otherwise Sync Lanes), and tapping
+ * a tab navigates the route so deep links and the back button keep working.
  */
 export function ExplorerCompactTabs(params: ExplorerCompactTabsProps) {
   const idPrefix = useId();
