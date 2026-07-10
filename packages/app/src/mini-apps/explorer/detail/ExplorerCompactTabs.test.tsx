@@ -4,10 +4,7 @@ import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
-import {
-  ExplorerCompactTabs,
-  isExplorerCompactHubRoute,
-} from "./ExplorerCompactTabs";
+import { ExplorerCompactTabs } from "./ExplorerCompactTabs";
 
 afterEach(cleanup);
 
@@ -48,17 +45,6 @@ function renderCompactTabs(
     />,
   );
 }
-
-test("isExplorerCompactHubRoute covers only the tab-hub routes", () => {
-  expect(isExplorerCompactHubRoute("selection")).toBe(true);
-  expect(isExplorerCompactHubRoute("sync-lanes")).toBe(true);
-  expect(isExplorerCompactHubRoute("sync-lane-detail")).toBe(true);
-  expect(isExplorerCompactHubRoute("blob-browser")).toBe(true);
-  expect(isExplorerCompactHubRoute("document-info")).toBe(false);
-  expect(isExplorerCompactHubRoute("container-info")).toBe(false);
-  expect(isExplorerCompactHubRoute("document-selection")).toBe(false);
-  expect(isExplorerCompactHubRoute("new-structured-document")).toBe(false);
-});
 
 test("the default (selection) route shows both tabs with Sync Lanes active", () => {
   const view = renderCompactTabs({ view: "selection" });

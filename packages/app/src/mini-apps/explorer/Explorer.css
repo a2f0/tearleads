@@ -305,9 +305,14 @@
   gap: var(--space-sm);
 }
 
-/* Compact (mobile) main-pane hub: a tab strip over the Sync Lanes / Blob Browser
-   panels, shown in place of the folder-driven detail when there is no sidebar.
-   The hub takes the detail area's height so the active panel can scroll. */
+/* Compact (mobile) sidebar hub: a tab strip over the Sync Lanes / Blob Browser
+   panels. The hub takes the sidebar height so the active panel can scroll. */
+.explorer-compact-sidebar {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .explorer-compact-tabs-hub {
   display: flex;
   flex: 1;
