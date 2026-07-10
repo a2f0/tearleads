@@ -29,6 +29,31 @@
   min-height: 12rem;
 }
 
+/*
+ * The wide six-column layout needs ~63rem to seat every column at its designed
+ * width (lane 14rem + phase 7rem + progress 11rem + last-action 12rem + counts
+ * 12rem + status 7rem). The tablet detail pane sits beside a persistent rail and
+ * is often narrower than that; without a floor, `table-layout: fixed` would
+ * shrink every column proportionally and crush the lane down to
+ * one-character-per-line vertical text. Give the table that floor so the frame's
+ * `overflow: auto` scrolls horizontally instead. Keep this in sync with the
+ * per-column widths in ExplorerSyncLaneList (the lane column's `14rem`).
+ */
+.explorer-sync-lane-table-wrap .mini-app-table {
+  --explorer-sync-lane-table-min-width: 63rem;
+
+  min-width: var(--explorer-sync-lane-table-min-width);
+}
+
+/*
+ * The phone tier renders only the lane and status columns (see
+ * SYNC_LANE_COMPACT_COLUMN_IDS), which are meant to fit the narrow viewport with
+ * no horizontal scroll, so drop the wide-layout floor there.
+ */
+.routed-pane--mobile .explorer-sync-lane-table-wrap .mini-app-table {
+  min-width: 0;
+}
+
 .explorer-sync-lane-table-row {
   position: relative;
 }
