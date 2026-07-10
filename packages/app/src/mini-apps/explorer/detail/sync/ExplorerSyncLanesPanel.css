@@ -29,6 +29,31 @@
   min-height: 12rem;
 }
 
+/*
+ * The wide layout gives every column a fixed width, but the tablet detail pane
+ * sits beside a persistent rail and is often narrower than their sum. Without a
+ * floor, `table-layout: fixed` would shrink every column proportionally and
+ * crush the lane down to one-character-per-line vertical text. `max-content`
+ * floors the table at the sum of its currently visible columns' widths, so the
+ * frame's `overflow: auto` scrolls horizontally instead — and the floor drops
+ * automatically when the column-visibility menu hides a column, rather than
+ * tracking a hardcoded total here.
+ */
+.explorer-sync-lane-table-wrap .mini-app-table {
+  min-width: max-content;
+}
+
+/*
+ * The phone tier renders only the lane and status columns (see
+ * SYNC_LANE_COMPACT_COLUMN_IDS), and the lane column has no fixed width there,
+ * so `max-content` would stretch the table to fit the widest lane key on one
+ * line and force a horizontal scroll. Drop the floor so the two columns fit the
+ * narrow viewport and the lane key wraps instead.
+ */
+.routed-pane--mobile .explorer-sync-lane-table-wrap .mini-app-table {
+  min-width: 0;
+}
+
 .explorer-sync-lane-table-row {
   position: relative;
 }

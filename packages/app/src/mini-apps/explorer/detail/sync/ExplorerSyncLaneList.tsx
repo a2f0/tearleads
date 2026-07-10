@@ -109,8 +109,12 @@ function buildSyncLaneColumn(
         header: getSyncLaneListColumnLabel(id),
         id,
         // On the phone tier the lane is one of only two columns, so let it take
-        // the remaining width instead of the wide-layout 32% share.
-        width: compact ? undefined : "32%",
+        // the remaining width. In the wide layout give it a concrete floor
+        // (rather than a percentage that collapses when the pane is too narrow
+        // for all six columns) so the lane label and key never crush down to
+        // one-character-per-line vertical text; the table's `min-width:
+        // max-content` lets the frame scroll horizontally instead.
+        width: compact ? undefined : "14rem",
       };
     case "phase":
       return {
