@@ -30,8 +30,8 @@
      intrinsic `cols` width, which would overflow the editor horizontally. */
   min-inline-size: 0;
   /* Trailing gap before the attachments panel. Lives on the editor (not the
-     panel's top margin) so it survives when the panel's `margin-block-start`
-     collapses to 0 on overflow — see `.note-document-dropzone`. */
+     panel's top margin) so it survives when the panel's auto block-start
+     margin collapses to 0 on overflow — see `.note-document-dropzone`. */
   margin-block-end: var(--space-sm);
   overflow: hidden;
   padding: var(--space-md);
@@ -53,9 +53,8 @@
      any free space above it so a short note keeps its attachments at the foot
      of the view. When the note overflows, the free space is gone and the auto
      margin resolves to 0, so the panel simply trails the text as normal. */
-  margin-block-start: auto;
+  margin-block: auto var(--space-md);
   margin-inline: var(--space-md);
-  margin-block-end: var(--space-md);
   padding: var(--space-sm);
   /* A soft "tray" that sits under the note body without competing with it. The
      hairline keeps it recessive; a drag-over promotes it to a solid outline. */
