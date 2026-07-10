@@ -13,6 +13,7 @@ import { useAppNavigationMode } from "../../navigation/useAppNavigationMode";
 import { useNavigationModeDocumentAttribute } from "../../navigation/useNavigationModeDocumentAttribute";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import { AppFeatureFlagsProvider } from "../../providers/feature-flags/AppFeatureFlagsProvider";
+import { ThemeProvider } from "../../theme/ThemeProvider";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
 import { Workspace } from "./workspace/Workspace";
@@ -157,12 +158,14 @@ export function Layout({ hostConfig }: LayoutProps) {
     : WORKSPACE_IDS;
 
   return (
-    <SystemMonitorDeveloperModeProvider>
-      <AppFeatureFlagsProvider>
-        <WorkspaceProvider workspaceIds={workspaceIds}>
-          <LayoutInner hostConfig={hostConfig} />
-        </WorkspaceProvider>
-      </AppFeatureFlagsProvider>
-    </SystemMonitorDeveloperModeProvider>
+    <ThemeProvider>
+      <SystemMonitorDeveloperModeProvider>
+        <AppFeatureFlagsProvider>
+          <WorkspaceProvider workspaceIds={workspaceIds}>
+            <LayoutInner hostConfig={hostConfig} />
+          </WorkspaceProvider>
+        </AppFeatureFlagsProvider>
+      </SystemMonitorDeveloperModeProvider>
+    </ThemeProvider>
   );
 }

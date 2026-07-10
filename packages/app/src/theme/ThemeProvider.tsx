@@ -1,0 +1,73 @@
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import { loadTheme, saveTheme } from "./themeStorage";
+import {
+  getTheme,
+  nextThemeId,
+  type ThemeDefinition,
+  type ThemeId,
+} from "./themes";
+import { useThemeDocumentAttribute } from "./useThemeDocumentAttribute";
+
+interface ThemeContextValue {
+  activeTheme: ThemeId;
+  // The theme `toggleTheme` would switch to next — lets the toggle label itself
+  // ("Switch to Dark theme") without re-deriving from the registry.
+  nextTheme: ThemeDefinition;
+  // Jump straight to a specific theme; the extension point a future multi-theme
+  // picker uses. `toggleTheme` advances through the registry in order.
+  setTheme: (theme: ThemeId) => void;
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+// A single instance mounts above every pane (in Layout) so the one
+// `<html data-theme>` attribute has a single owner. Two panes (split / demo
+// peer) render their own footer toggles, but all of them drive this shared
+// state.
+export function ThemeProvider({ children }: PropsWithChildren) {
+  const [activeTheme, setActiveTheme] = useState<ThemeId>(() => loadTheme());
+
+  useThemeDocumentAttribute(activeTheme);
+
+  const setTheme = useCallback((theme: ThemeId) => {
+    setActiveTheme(theme);
+    saveTheme(theme);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setActiveTheme((current) => {
+      const next = nextThemeId(current);
+      saveTheme(next);
+      return next;
+    });
+  }, []);
+
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      activeTheme,
+      nextTheme: getTheme(nextThemeId(activeTheme)),
+      setTheme,
+      toggleTheme,
+    }),
+    [activeTheme, setTheme, toggleTheme],
+  );
+
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
+}
+
+// Non-throwing accessor: surfaces that may render outside the provider (e.g. a
+// pane mounted standalone in tests) get null instead of a crash, mirroring
+// useOptionalWorkspace.
+export function useOptionalTheme(): ThemeContextValue | null {
+  return useContext(ThemeContext);
+}

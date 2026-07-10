@@ -1,0 +1,23 @@
+/* Square icon button living in the pane footer's system tray
+   (.pane-footer-tray), mirroring the system-monitor launcher so the two sit
+   flush together at the standard control height. Its icon paints with
+   currentColor, so both the resting glyph and the inverted hover state track
+   the active theme's tokens automatically. */
+.theme-toggle-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: var(--border-strong);
+  background: var(--color-light);
+  color: inherit;
+  cursor: pointer;
+}
+
+.theme-toggle-button:hover,
+.theme-toggle-button:focus-visible {
+  background: var(--color-dark);
+  color: var(--color-light);
+}
