@@ -2,6 +2,7 @@ import { UserPlusIcon } from "@phosphor-icons/react/dist/csr/UserPlus";
 import { UsersThreeIcon } from "@phosphor-icons/react/dist/csr/UsersThree";
 import { useMemo } from "react";
 import {
+  useWindowBackAction,
   useWindowTitleBarAction,
   useWindowToolbarReservation,
 } from "../../components/window/WindowMenuContext";
@@ -24,8 +25,10 @@ export function useOrgManagerRoutedChromeActions({
   canLoadAuthenticatedOrgData,
   loading,
   mutating,
+  onBackFromRosterDetail,
   openCreateGroupDialog,
   openImportUserDialog,
+  showRosterDetailBackAction,
   view,
 }: {
   canCreateGroup: boolean;
@@ -33,8 +36,10 @@ export function useOrgManagerRoutedChromeActions({
   canLoadAuthenticatedOrgData: boolean;
   loading: boolean;
   mutating: boolean;
+  onBackFromRosterDetail: () => void;
   openCreateGroupDialog: () => void;
   openImportUserDialog: () => void;
+  showRosterDetailBackAction: boolean;
   view: OrgManagerView;
 }) {
   // Reserve the toolbar row on every authenticated route, blank where the route
@@ -80,7 +85,19 @@ export function useOrgManagerRoutedChromeActions({
       showImportUser,
     ],
   );
+  const rosterDetailBackAction = useMemo(
+    () =>
+      showRosterDetailBackAction
+        ? {
+            label: ORG_MANAGER_LABELS.back,
+            onClick: onBackFromRosterDetail,
+            priority: 100,
+          }
+        : null,
+    [onBackFromRosterDetail, showRosterDetailBackAction],
+  );
 
+  useWindowBackAction(rosterDetailBackAction);
   useWindowTitleBarAction(newGroupAction);
   useWindowTitleBarAction(importUserAction);
 }
