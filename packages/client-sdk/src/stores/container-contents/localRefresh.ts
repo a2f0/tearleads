@@ -69,11 +69,12 @@ export function refreshLocalContainerStates(input: {
   }
 
   state.localContainersNeedRefresh = false;
-  const remoteContainerIdsAtLoadStart = new Set(
-    Array.from(state.containersById.values()).flatMap((containerState) =>
-      containerState.record.documentId ? [containerState.container.id] : [],
-    ),
-  );
+  const remoteContainerIdsAtLoadStart = new Set<string>();
+  for (const containerState of state.containersById.values()) {
+    if (containerState.record.documentId) {
+      remoteContainerIdsAtLoadStart.add(containerState.container.id);
+    }
+  }
   state.localContainerRefreshPromise = loadLocalContainerStates({
     persistence: state.persistence,
     runtime: state.runtime,
