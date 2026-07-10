@@ -29,6 +29,10 @@ type BlobBrowserData = ReturnType<typeof useBlobBrowserData>;
 interface ExplorerBlobBrowserPanelProps {
   blobStore: BlobStore;
   domainScope: DomainScope;
+  // When embedded in the compact tabbed hub the tab bar owns top-level
+  // navigation, so the list-mode "Back to Explorer" header button is hidden
+  // (the blob-detail "Back to List" stays — it navigates within this panel).
+  embedded?: boolean;
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   nodes: ReadonlyArray<ContainerNode>;
   onBackToSelectionRoute: () => void;
@@ -84,6 +88,7 @@ function BlobBrowserBrowseScreen(params: {
   blobStore: BlobStore;
   containerNamesById: ReadonlyMap<string, string>;
   data: BlobBrowserData;
+  embedded: boolean;
   onBackToSelectionRoute: () => void;
   online: boolean;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
@@ -106,6 +111,7 @@ function BlobBrowserBrowseScreen(params: {
   return (
     <>
       <BlobBrowserHeader
+        embedded={params.embedded}
         onBack={
           isDetailScreen ? data.handleBackToList : params.onBackToSelectionRoute
         }
@@ -180,6 +186,7 @@ export function ExplorerBlobBrowserPanel(
           blobStore={params.blobStore}
           containerNamesById={containerNamesById}
           data={data}
+          embedded={params.embedded ?? false}
           onBackToSelectionRoute={params.onBackToSelectionRoute}
           online={params.online}
           openDocumentInfoRoute={params.openDocumentInfoRoute}

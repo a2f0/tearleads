@@ -110,6 +110,7 @@ export const EXPLORER_LABELS = {
   containerInfoSubjectTypeGroup: "group",
   containerInfoSubjectTypeOrganization: "organization",
   containerInfoSubjectTypeUser: "user",
+  compactSectionsTabsLabel: "Explorer sections",
   containerInfoSyncCursorsHeading: "Sync Cursors",
   containerInfoSyncTab: "Sync",
   containerInfoTabsLabel: "Container info sections",
