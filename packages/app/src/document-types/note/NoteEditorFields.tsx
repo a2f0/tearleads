@@ -317,7 +317,7 @@ export function NoteEditorFields({
   const previewAttachment =
     previewSlotId === null
       ? null
-      : (attachments.findLast(
+      : (attachments.find(
           (attachment) => attachment.slotId === previewSlotId,
         ) ?? null);
 

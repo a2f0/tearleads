@@ -223,6 +223,20 @@ test("closing the preview overlay dismisses it", () => {
   expect(view.queryByRole("dialog")).toBeNull();
 });
 
+test("closing the preview restores focus to the opening tile", () => {
+  const view = renderNoteEditorFields({ attachments: [attachment] });
+  const openButton = view.getByRole("button", { name: "Open diagram.png" });
+
+  openButton.focus();
+  fireEvent.click(openButton);
+  // Focus moves into the overlay while it is open.
+  expect(document.activeElement).not.toBe(openButton);
+
+  fireEvent.click(view.getByRole("button", { name: "Close preview" }));
+  // ...and returns to the tile that opened it once it closes.
+  expect(document.activeElement).toBe(openButton);
+});
+
 test("read-only notes hide the add and remove affordances", () => {
   const view = renderNoteEditorFields({
     attachments: [attachment],

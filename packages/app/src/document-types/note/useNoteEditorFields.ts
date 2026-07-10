@@ -140,7 +140,7 @@ function useNoteAttachmentActions({
   // guards the pending window) is silently a no-op besides a logged error.
   const handleDownloadAttachment = useCallback(
     (slotId: string) => {
-      const attachment = attachments.findLast(
+      const attachment = attachments.find(
         (candidate) => candidate.slotId === slotId,
       );
       const storageKey = attachmentStorageKeyBySlotId[slotId];
@@ -220,7 +220,11 @@ export function useNoteEditorFields(): NoteEditorFieldsModel {
     removeAttachment,
   });
 
-  const dropzone = useNoteDropzone(canAttach, handleSelectedFiles);
+  // `canAttach` already implies write access (the store derives it from
+  // canWriteDocument), but gate the drop surface on `canWrite` explicitly too so
+  // a read-only note never accepts a drag-and-drop upload even if that invariant
+  // is ever relaxed upstream.
+  const dropzone = useNoteDropzone(canAttach && canWrite, handleSelectedFiles);
 
   return useNoteEditorFieldsModel({
     attachments,

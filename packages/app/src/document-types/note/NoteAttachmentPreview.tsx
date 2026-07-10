@@ -56,8 +56,14 @@ export function NoteAttachmentPreview({
     };
   }, [onClose]);
 
+  // Move focus into the overlay on open and restore it to the triggering tile
+  // on close, so keyboard focus is never dropped to the document body.
   useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
+    return () => {
+      previouslyFocused?.focus?.();
+    };
   }, []);
 
   return createPortal(
