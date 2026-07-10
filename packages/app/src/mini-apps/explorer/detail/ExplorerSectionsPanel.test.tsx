@@ -4,7 +4,7 @@ import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
-import { ExplorerCompactTabs } from "./ExplorerCompactTabs";
+import { ExplorerSectionsPanel } from "./ExplorerSectionsPanel";
 
 afterEach(cleanup);
 
@@ -16,7 +16,7 @@ function createBlobStore(): BlobStore {
   };
 }
 
-function renderCompactTabs(
+function renderSectionsPanel(
   route: ExplorerRoute,
   overrides: {
     onOpenSyncLaneDetailRoute?: (laneKey: string) => void;
@@ -25,7 +25,7 @@ function renderCompactTabs(
   } = {},
 ) {
   return render(
-    <ExplorerCompactTabs
+    <ExplorerSectionsPanel
       blobPickTarget={null}
       blobStore={createBlobStore()}
       domainScope={createDomainScope()}
@@ -47,7 +47,7 @@ function renderCompactTabs(
 }
 
 test("the default (selection) route shows both tabs with Sync Lanes active", () => {
-  const view = renderCompactTabs({ view: "selection" });
+  const view = renderSectionsPanel({ view: "selection" });
 
   expect(
     view
@@ -62,7 +62,7 @@ test("the default (selection) route shows both tabs with Sync Lanes active", () 
 });
 
 test("the blob-browser route marks the Blob Browser tab active", async () => {
-  const view = renderCompactTabs({
+  const view = renderSectionsPanel({
     blobId: null,
     storageKey: null,
     view: "blob-browser",
@@ -84,7 +84,7 @@ test("the blob-browser route marks the Blob Browser tab active", async () => {
 
 test("tapping a tab navigates via the matching route opener", () => {
   const opened: string[] = [];
-  const view = renderCompactTabs(
+  const view = renderSectionsPanel(
     { view: "sync-lanes" },
     {
       openBlobBrowserRoute: () => opened.push("blobs"),
@@ -100,7 +100,7 @@ test("tapping a tab navigates via the matching route opener", () => {
 
 test("arrow keys move the active tab and navigate", () => {
   const opened: string[] = [];
-  const view = renderCompactTabs(
+  const view = renderSectionsPanel(
     { view: "sync-lanes" },
     { openBlobBrowserRoute: () => opened.push("blobs") },
   );
@@ -113,7 +113,7 @@ test("arrow keys move the active tab and navigate", () => {
 });
 
 test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
-  const view = renderCompactTabs({ view: "sync-lanes" });
+  const view = renderSectionsPanel({ view: "sync-lanes" });
 
   // The tab bar owns top-level navigation, so the list-mode back button is gone.
   expect(
@@ -122,7 +122,7 @@ test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
 });
 
 test("the embedded Blob Browser panel drops the back-to-Explorer action", async () => {
-  const view = renderCompactTabs({
+  const view = renderSectionsPanel({
     blobId: null,
     storageKey: null,
     view: "blob-browser",

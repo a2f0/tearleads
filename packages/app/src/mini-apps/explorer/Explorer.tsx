@@ -1,5 +1,5 @@
 import type { DomainScope } from "@tearleads/client-sdk";
-import { type ReactNode, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { usePeerUserId } from "../../components/pane/dual-pane";
 import {
   MiniAppRoot,
@@ -28,17 +28,14 @@ import {
 } from "./blob-pick/ExplorerBlobPickProvider";
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
-import { useExplorerCompactSidebarPanel } from "./detail/ExplorerCompactSidebarPanel";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
-import {
-  useExplorerRoutedChromeActions,
-  useExplorerToolbarUpload,
-} from "./ExplorerRoutedChrome";
+import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import { useExplorerAttributionUserLabels } from "./hooks/useExplorerAttributionUserLabels";
 import { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 import { ExplorerModalLayer } from "./modal/view";
 import type { MiniAppWindowPosition } from "./types";
+import { useExplorerToolbarUpload } from "./useExplorerToolbarUpload";
 import "./Explorer.css";
 
 // Auto catch-up performs a watermark-resetting root-tree re-list; it only needs
@@ -84,44 +81,6 @@ function useOpenGrantInOrgManager() {
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 type ExplorerBlobPickState = ReturnType<typeof useExplorerBlobPick>;
 
-function useExplorerCompactSidebarRegistration(params: {
-  appData: RuntimeSnapshot;
-  blobPick: ExplorerBlobPickState;
-  databaseError: boolean;
-  model: ExplorerModel;
-  onRetryDatabase: () => void;
-  setSidebar: (sidebar: ReactNode) => void;
-}) {
-  const {
-    appData,
-    blobPick,
-    databaseError,
-    model,
-    onRetryDatabase,
-    setSidebar,
-  } = params;
-
-  useExplorerCompactSidebarPanel({
-    blobPickTarget: blobPick.pickTarget,
-    blobStore: appData.infra.blobStore,
-    databaseError,
-    domainScope: appData.state.domainScope,
-    loadBlobInfo: model.loadBlobInfo,
-    nodes: model.explorer.nodes,
-    onCancelBlobPick: blobPick.cancelBlobPick,
-    onOpenSyncLaneDetailRoute: model.routeState.openSyncLaneDetailRoute,
-    onPickBlob: blobPick.resolveBlobPick,
-    onRetryDatabase,
-    online: appData.state.online,
-    openBlobBrowserRoute: model.routeState.openBlobBrowserRoute,
-    openDocumentInfoRoute: model.routeState.openDocumentInfoRoute,
-    openSyncLanesRoute: model.routeState.openSyncLanesRoute,
-    route: model.routeState.route,
-    selectDocumentProjection: model.selectDocumentProjection,
-    setSidebar,
-  });
-}
-
 interface BlobPickPanelProps {
   appData: RuntimeSnapshot;
   databaseError: boolean;
@@ -132,7 +91,6 @@ interface BlobPickPanelProps {
     position?: MiniAppWindowPosition,
   ) => void;
   onRetryDatabase: () => void;
-  setSidebar: (sidebar: ReactNode) => void;
 }
 
 interface BlobPickPanelRenderParams extends BlobPickPanelProps {
@@ -223,15 +181,6 @@ function renderExplorerDetailPanelWithBlobPick(
 function ExplorerDetailPanelWithBlobPick(params: BlobPickPanelProps) {
   const blobPick = useExplorerBlobPick();
   const { linkedDocumentActivationControlsEnabled } = useAppFeatureFlags();
-
-  useExplorerCompactSidebarRegistration({
-    appData: params.appData,
-    blobPick,
-    databaseError: params.databaseError,
-    onRetryDatabase: params.onRetryDatabase,
-    model: params.model,
-    setSidebar: params.setSidebar,
-  });
 
   return renderExplorerDetailPanelWithBlobPick({
     ...params,
@@ -423,7 +372,6 @@ function ExplorerContent() {
           databaseError={databaseError}
           model={model}
           resolveAttributionUserLabel={resolveAttributionUserLabel}
-          setSidebar={setSidebar}
           onOpenGrant={openGrantInOrgManager}
           onRetryDatabase={retryDatabaseBoot}
         />

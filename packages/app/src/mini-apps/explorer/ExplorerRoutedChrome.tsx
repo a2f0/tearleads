@@ -4,8 +4,9 @@ import { FilePlusIcon } from "@phosphor-icons/react/dist/csr/FilePlus";
 import { FolderPlusIcon } from "@phosphor-icons/react/dist/csr/FolderPlus";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import { LinkSimpleIcon } from "@phosphor-icons/react/dist/csr/LinkSimple";
+import { StackIcon } from "@phosphor-icons/react/dist/csr/Stack";
 import { UploadSimpleIcon } from "@phosphor-icons/react/dist/csr/UploadSimple";
-import { type ChangeEvent, useCallback, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import {
   useWindowBackAction,
   useWindowTitleBarAction,
@@ -14,53 +15,6 @@ import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
-
-export function useExplorerToolbarUpload(
-  importDroppedFiles: ExplorerModel["importDroppedFiles"],
-) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadContainerIdRef = useRef<string | null>(null);
-
-  const triggerUpload = useCallback((containerId: string) => {
-    uploadContainerIdRef.current = containerId;
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleUploadChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files ?? []);
-      const uploadContainerId = uploadContainerIdRef.current;
-      try {
-        if (files.length > 0 && uploadContainerId) {
-          void importDroppedFiles(uploadContainerId, files).catch(() => {
-            // The importer logs per-file failures; keep toolbar uploads from
-            // surfacing exceptional rejections as unhandled.
-          });
-        }
-      } finally {
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-        uploadContainerIdRef.current = null;
-      }
-    },
-    [importDroppedFiles],
-  );
-
-  return {
-    input: (
-      <input
-        ref={fileInputRef}
-        className="explorer-toolbar-file-input"
-        style={{ display: "none" }}
-        type="file"
-        multiple
-        onChange={handleUploadChange}
-      />
-    ),
-    triggerUpload,
-  };
-}
 
 export function useExplorerRoutedChromeActions({
   model,
@@ -104,6 +58,7 @@ export function useExplorerRoutedChromeActions({
     model,
     route,
   });
+  useExplorerSyncSectionsToolbarAction({ model });
   useExplorerCreateFolderToolbarAction({
     activeContainerId,
     model,
@@ -146,6 +101,29 @@ export function useExplorerRoutedChromeActions({
     model,
     show: showDocumentToolbar,
   });
+}
+
+function useExplorerSyncSectionsToolbarAction({
+  model,
+}: {
+  model: ExplorerModel;
+}) {
+  const openSyncLanesRoute = model.routeState.openSyncLanesRoute;
+  const syncSectionsAction = useMemo(
+    () => ({
+      // Opens the full-screen Sync Lanes / Blob Browser hub (defaulting to the
+      // Sync Lanes tab). A persistent entry point on every route, kept rightmost
+      // in the toolbar via the lowest priority among Explorer's actions.
+      icon: <StackIcon aria-hidden size={18} />,
+      id: "explorer-sync-sections",
+      label: EXPLORER_LABELS.syncSectionsAction,
+      onClick: openSyncLanesRoute,
+      priority: 50,
+    }),
+    [openSyncLanesRoute],
+  );
+
+  useWindowTitleBarAction(syncSectionsAction);
 }
 
 function useExplorerNewContactToolbarAction({
