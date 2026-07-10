@@ -9,7 +9,11 @@
   padding: 0;
 }
 
+/* Reuse the header/footer action-button hover inversion so Light keeps its
+   original white-on-charcoal active chip unchanged, while Dark gets the calm
+   graphite emphasis chip — a step above the muted pane footer, so the active
+   workspace still reads as raised rather than receding into the bar. */
 .workspace-button.workspace-button--active {
-  background: var(--emphasis-surface);
-  color: var(--emphasis-text);
+  background: var(--tearleads-action-hover-surface);
+  color: var(--tearleads-action-hover-text);
 }
