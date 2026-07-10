@@ -438,3 +438,38 @@ test("move out of trash is disabled when the trash node is absent from the tree"
     }).canMoveSelectedDocument,
   ).toBe(false);
 });
+
+// Gate values for a brand-new, never-synced note. These drive toolbar/context
+// visibility: the surfaces hide an action when its gate is false rather than
+// showing it greyed. Link is fundamentally remote (addDocumentLink no-ops
+// without a documentId), so it stays unavailable until first sync; Move only
+// relocates the local containerId, so it stays available offline / pre-sync.
+const linkAndMoveTargets = [{ id: "root", icon: null, label: "/" }];
+
+test("a new unsynced note: Link unavailable, Move available", () => {
+  const state = getMutationState({
+    selectedDocument: { ...selectedDocument, documentId: null },
+    selectedDocumentLinkTargetOptions: linkAndMoveTargets,
+    selectedDocumentMoveTargetOptions: linkAndMoveTargets,
+  });
+  expect(state.canLinkSelectedDocument).toBe(false);
+  expect(state.canMoveSelectedDocument).toBe(true);
+});
+
+test("a synced note: both Link and Move available", () => {
+  const state = getMutationState({
+    selectedDocumentLinkTargetOptions: linkAndMoveTargets,
+    selectedDocumentMoveTargetOptions: linkAndMoveTargets,
+  });
+  expect(state.canLinkSelectedDocument).toBe(true);
+  expect(state.canMoveSelectedDocument).toBe(true);
+});
+
+test("delete and move stay available on a never-synced note", () => {
+  const state = getMutationState({
+    selectedDocument: { ...selectedDocument, documentId: null },
+    selectedDocumentMoveTargetOptions: linkAndMoveTargets,
+  });
+  expect(state.canMoveSelectedDocument).toBe(true);
+  expect(state.canDeleteSelectedDocument).toBe(true);
+});

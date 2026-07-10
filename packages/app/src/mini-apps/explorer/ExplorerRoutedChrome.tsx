@@ -420,12 +420,15 @@ function useExplorerLinkDocumentToolbarAction({
   show: boolean;
 }) {
   const linkDocumentAction = useMemo(() => {
-    if (!show || !documentId || !model.hasSelectedDocumentLinkTargets) {
+    // Hide the action when it is not performable rather than showing it greyed:
+    // "if you can't do it, you can't see it." canLinkSelectedDocument already
+    // requires at least one link target, and is false until the note syncs (Link
+    // is remote-only), so a brand-new note simply omits Link.
+    if (!show || !documentId || !model.canLinkSelectedDocument) {
       return null;
     }
 
     return {
-      disabled: !model.canLinkSelectedDocument,
       icon: <LinkSimpleIcon aria-hidden size={18} />,
       id: "explorer-link-document",
       label: EXPLORER_LABELS.documentLinkAction,
@@ -437,7 +440,6 @@ function useExplorerLinkDocumentToolbarAction({
   }, [
     documentId,
     model.canLinkSelectedDocument,
-    model.hasSelectedDocumentLinkTargets,
     model.modalState.openLinkDocumentModal,
     show,
   ]);
@@ -455,12 +457,15 @@ function useExplorerMoveDocumentToolbarAction({
   show: boolean;
 }) {
   const moveDocumentAction = useMemo(() => {
-    if (!show || !documentId || !model.hasSelectedDocumentMoveTargets) {
+    // Hide the action when it is not performable rather than showing it greyed:
+    // "if you can't do it, you can't see it." canMoveSelectedDocument already
+    // requires at least one move target. Move only relocates the local
+    // containerId, so it stays available (visible) for offline / unsynced notes.
+    if (!show || !documentId || !model.canMoveSelectedDocument) {
       return null;
     }
 
     return {
-      disabled: !model.canMoveSelectedDocument,
       icon: <ArrowsOutCardinalIcon aria-hidden size={18} />,
       id: "explorer-move-document",
       label: EXPLORER_LABELS.documentMoveAction,
@@ -472,7 +477,6 @@ function useExplorerMoveDocumentToolbarAction({
   }, [
     documentId,
     model.canMoveSelectedDocument,
-    model.hasSelectedDocumentMoveTargets,
     model.modalState.openMoveDocumentModal,
     show,
   ]);
