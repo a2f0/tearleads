@@ -128,7 +128,7 @@ export function ExplorerSyncLanesPanel(params: {
 
   return (
     <ExplorerSyncLanesPanelView
-      embedded={params.embedded}
+      embedded={params.embedded ?? false}
       onBackToSelectionRoute={params.onBackToSelectionRoute}
       onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
       onOpenLaneDetail={params.onOpenLaneDetail}

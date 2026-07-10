@@ -19,6 +19,9 @@ import {
   useMemo,
   useState,
 } from "react";
+import { WindowStateProvider } from "../../components/window/WindowStateProvider";
+import { AppNavigationProvider } from "../../navigation/AppNavigationProvider";
+import type { MiniAppDefinition, MiniAppId } from "../types";
 import { useExplorerSidebarPanel } from "./ExplorerTree";
 import {
   buildExplorerTree,
@@ -105,11 +108,9 @@ function createRowsByContainerId(rows: SidebarRow[]) {
   return new Map([["root-container", rows]]);
 }
 
-// Stable identity: the sidebar memoizes on this prop, so an inline map would
-// recreate the sidebar every render and loop useRegisteredWindowSidebar.
 const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
-// Same stability requirement for the per-container link-projection versions.
 const NO_CONTAINER_VERSIONS: ReadonlyMap<string, number> = new Map();
+const TEST_MINI_APPS = {} as Readonly<Record<MiniAppId, MiniAppDefinition>>;
 
 function ExplorerSidebarHarness(params: {
   collapsedIds?: ReadonlySet<string>;
@@ -150,7 +151,6 @@ function ExplorerSidebarHarness(params: {
     setSelectedId(localId);
   }, []);
   const toggleCollapsed = useCallback(() => undefined, []);
-  // Stable identity prevents render loops in useRegisteredWindowSidebar.
   const onRetryDatabase = useCallback(() => undefined, []);
   const treeEntries = useMemo(() => buildExplorerTree(nodes), [nodes]);
 
@@ -182,15 +182,41 @@ function ExplorerSidebarHarness(params: {
   return <div>{sidebar}</div>;
 }
 
+type ExplorerSidebarHarnessParams = Parameters<
+  typeof ExplorerSidebarHarness
+>[0];
+
+function explorerSidebarElement(params: ExplorerSidebarHarnessParams) {
+  return (
+    <WindowStateProvider>
+      <AppNavigationProvider mode="windowed" miniApps={TEST_MINI_APPS}>
+        <ExplorerSidebarHarness {...params} />
+      </AppNavigationProvider>
+    </WindowStateProvider>
+  );
+}
+
+function renderExplorerSidebar(params: ExplorerSidebarHarnessParams) {
+  return render(explorerSidebarElement(params));
+}
+
+function getSidebarViewport(view: { container: HTMLElement }) {
+  const sidebarViewport = view.container.querySelector<HTMLDivElement>(
+    ".explorer-sidebar-viewport",
+  );
+  if (!sidebarViewport) {
+    throw new Error("Explorer sidebar viewport was not rendered.");
+  }
+  return sidebarViewport;
+}
+
 test("explorer sidebar requests new document windows as the sidebar scrolls", async () => {
   const calls: WindowCall[] = [];
   const documentQueries = createDocumentQueries(
     createRowsByContainerId(createSidebarRows(80)),
     calls,
   );
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
+  const view = renderExplorerSidebar({ documentQueries });
 
   await waitFor(() => {
     expect(calls).toContainEqual({
@@ -202,13 +228,7 @@ test("explorer sidebar requests new document windows as the sidebar scrolls", as
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
   expect(view.queryByRole("button", { name: "Document 25" })).toBeNull();
 
-  const sidebarViewport = view.container.querySelector<HTMLDivElement>(
-    ".explorer-sidebar-viewport",
-  );
-  expect(sidebarViewport).toBeTruthy();
-  if (!sidebarViewport) {
-    throw new Error("Explorer sidebar viewport was not rendered.");
-  }
+  const sidebarViewport = getSidebarViewport(view);
 
   sidebarViewport.scrollTop = 840;
   fireEvent.scroll(sidebarViewport);
@@ -252,12 +272,7 @@ test("explorer sidebar scroll requests windows for each folder independently", a
     ]),
     calls,
   );
-  const view = render(
-    <ExplorerSidebarHarness
-      documentQueries={documentQueries}
-      nodes={childNodes}
-    />,
-  );
+  const view = renderExplorerSidebar({ documentQueries, nodes: childNodes });
 
   await waitFor(() => {
     expect(calls).toContainEqual({
@@ -267,13 +282,7 @@ test("explorer sidebar scroll requests windows for each folder independently", a
     });
   });
 
-  const sidebarViewport = view.container.querySelector<HTMLDivElement>(
-    ".explorer-sidebar-viewport",
-  );
-  expect(sidebarViewport).toBeTruthy();
-  if (!sidebarViewport) {
-    throw new Error("Explorer sidebar viewport was not rendered.");
-  }
+  const sidebarViewport = getSidebarViewport(view);
 
   sidebarViewport.scrollTop = 840;
   fireEvent.scroll(sidebarViewport);
@@ -322,12 +331,7 @@ test("explorer sidebar renders configured Phosphor icons for containers", async 
     ]),
     [],
   );
-  const view = render(
-    <ExplorerSidebarHarness
-      documentQueries={documentQueries}
-      nodes={childNodes}
-    />,
-  );
+  const view = renderExplorerSidebar({ documentQueries, nodes: childNodes });
 
   const rootButton = await view.findByRole("button", { name: "Root" });
   const rootIcon = rootButton.querySelector(".explorer-folder-icon");
@@ -345,13 +349,11 @@ test("explorer sidebar renders configured Phosphor icons for containers", async 
 
   view.unmount();
 
-  const collapsedView = render(
-    <ExplorerSidebarHarness
-      collapsedIds={new Set(["root-container"])}
-      documentQueries={documentQueries}
-      nodes={childNodes}
-    />,
-  );
+  const collapsedView = renderExplorerSidebar({
+    collapsedIds: new Set(["root-container"]),
+    documentQueries,
+    nodes: childNodes,
+  });
   const collapsedRootButton = await collapsedView.findByRole("button", {
     name: "Root",
   });
@@ -366,9 +368,7 @@ test("explorer sidebar renders document type icons for documents", async () => {
     createRowsByContainerId(createSidebarRows(1)),
     [],
   );
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
+  const view = renderExplorerSidebar({ documentQueries });
 
   const documentButton = await view.findByRole("button", {
     name: "Document 1",
@@ -423,18 +423,10 @@ test("explorer sidebar ignores stale document windows during fast scrolling", as
       };
     },
   } satisfies ContainerDocumentQueries;
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
+  const view = renderExplorerSidebar({ documentQueries });
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
-  const sidebarViewport = view.container.querySelector<HTMLDivElement>(
-    ".explorer-sidebar-viewport",
-  );
-  expect(sidebarViewport).toBeTruthy();
-  if (!sidebarViewport) {
-    throw new Error("Explorer sidebar viewport was not rendered.");
-  }
+  const sidebarViewport = getSidebarViewport(view);
 
   sidebarViewport.scrollTop = 840;
   fireEvent.scroll(sidebarViewport);
@@ -498,9 +490,7 @@ test("explorer sidebar shows loading feedback during the first document window r
       });
     },
   } satisfies ContainerDocumentQueries;
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
+  const view = renderExplorerSidebar({ documentQueries });
 
   const loadingButton = await view.findByRole("button", { name: "Loading..." });
   expect((loadingButton as HTMLButtonElement).disabled).toBe(true);
@@ -526,14 +516,12 @@ test("explorer sidebar forwards document context-menu events with document and c
     createRowsByContainerId(createSidebarRows(1)),
     [],
   );
-  const view = render(
-    <ExplorerSidebarHarness
-      documentQueries={documentQueries}
-      onDocumentContextMenu={(localId, containerId) => {
-        calls.push({ containerId, localId });
-      }}
-    />,
-  );
+  const view = renderExplorerSidebar({
+    documentQueries,
+    onDocumentContextMenu: (localId, containerId) => {
+      calls.push({ containerId, localId });
+    },
+  });
 
   fireEvent.contextMenu(
     await view.findByRole("button", { name: "Document 1" }),
@@ -565,9 +553,7 @@ test("explorer sidebar can retry a failed initial document window", async () => 
       };
     },
   } satisfies ContainerDocumentQueries;
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
+  const view = renderExplorerSidebar({ documentQueries });
 
   fireEvent.click(await view.findByRole("button", { name: "Retry" }));
 
@@ -617,20 +603,18 @@ test("explorer sidebar keeps existing documents visible during document list ref
       });
     },
   } satisfies ContainerDocumentQueries;
-  const view = render(
-    <ExplorerSidebarHarness
-      documentListRevision={0}
-      documentQueries={documentQueries}
-    />,
-  );
+  const view = renderExplorerSidebar({
+    documentListRevision: 0,
+    documentQueries,
+  });
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
 
   view.rerender(
-    <ExplorerSidebarHarness
-      documentListRevision={1}
-      documentQueries={documentQueries}
-    />,
+    explorerSidebarElement({
+      documentListRevision: 1,
+      documentQueries,
+    }),
   );
 
   await waitFor(() => {
@@ -655,9 +639,7 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
     createRowsByContainerId(createSidebarRows(1)),
     calls,
   );
-  const view = render(
-    <ExplorerSidebarHarness documentQueries={documentQueries} />,
-  );
+  const view = renderExplorerSidebar({ documentQueries });
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();
   expect(calls).toEqual([
@@ -666,18 +648,18 @@ test("explorer sidebar does not refresh loaded documents on collapsed state chan
   ]);
 
   view.rerender(
-    <ExplorerSidebarHarness
-      collapsedIds={new Set(["root-container"])}
-      documentQueries={documentQueries}
-    />,
+    explorerSidebarElement({
+      collapsedIds: new Set(["root-container"]),
+      documentQueries,
+    }),
   );
   expect(view.queryByRole("button", { name: "Document 1" })).toBeNull();
 
   view.rerender(
-    <ExplorerSidebarHarness
-      collapsedIds={new Set()}
-      documentQueries={documentQueries}
-    />,
+    explorerSidebarElement({
+      collapsedIds: new Set(),
+      documentQueries,
+    }),
   );
 
   expect(await view.findByRole("button", { name: "Document 1" })).toBeTruthy();

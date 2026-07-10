@@ -15,7 +15,7 @@ import type {
 } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import { MiniAppStatus } from "../../../components/shared/MiniAppLayout";
-import { useRoutedLayoutTier } from "../../../navigation/useRoutedLayoutTier";
+import { useCompactRoutedMode } from "../../../navigation/useCompactRoutedMode";
 import type { ImportExplorerDroppedFiles } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
 import {
@@ -212,7 +212,7 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
   // Sync Lanes / Blob Browser hub instead of the folder-driven detail. Other
   // detail routes (document/container info, new document) still fall through to
   // their own panels so deep links and in-tab actions keep working.
-  const compact = useRoutedLayoutTier() === "mobile";
+  const compact = useCompactRoutedMode();
 
   // A failed SQLite boot makes every detail route non-functional (they all read
   // from the local database), so gate the whole panel on the error — matching
