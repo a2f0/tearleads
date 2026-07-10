@@ -19,6 +19,7 @@ import {
 } from "../../../components/shared/MiniAppLayout";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../document-types/registry";
+import { getViewerRelativeContactDocumentLabel } from "../../../stores/contacts/contactLabels";
 import { ExplorerSyncStateBadge } from "../ExplorerSyncStateBadge";
 import { getExplorerDocumentSubtitle } from "../labels";
 
@@ -87,6 +88,8 @@ function useSelectedDocumentSyncState(params: {
 }
 
 export function ExplorerDocumentDetail(params: {
+  currentSigningFingerprint: string | null | undefined;
+  currentUserId: string | null | undefined;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   initialEditing: boolean;
@@ -97,6 +100,15 @@ export function ExplorerDocumentDetail(params: {
   selectedDocument: DocumentSummary;
 }) {
   const selectedDocumentKind = getDocumentSummaryKind(params.selectedDocument);
+  // Resolve the unnamed self-contact to "You", matching the sidebar and the
+  // container item table; without this the detail header shows the raw UUID.
+  const selectedDocumentTitle = getViewerRelativeContactDocumentLabel({
+    currentSigningFingerprint: params.currentSigningFingerprint,
+    currentUserId: params.currentUserId,
+    documentKind: selectedDocumentKind,
+    fallbackLabel: params.selectedDocument.title,
+    localId: params.selectedDocument.id,
+  });
   const selectedDocumentContainer = params.selectedDocument.containerId
     ? params.nodes.find(
         (node) => node.id === params.selectedDocument.containerId,
@@ -127,7 +139,7 @@ export function ExplorerDocumentDetail(params: {
       <MiniAppHeader>
         <MiniAppHeaderCopy>
           <div className="explorer-detail-title-row">
-            <strong>{params.selectedDocument.title}</strong>
+            <strong>{selectedDocumentTitle}</strong>
             <ExplorerSyncStateBadge
               online={params.online}
               showSynced
