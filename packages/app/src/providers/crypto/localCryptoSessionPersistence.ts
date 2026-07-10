@@ -14,6 +14,13 @@ import { localIdentityScope } from "../local-keyring/localKeyringScopes";
 const LOCAL_CRYPTO_SESSION_FORMAT = "tearleads.app.crypto-session";
 const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 
+interface CryptoSessionWriteState {
+  generation: number;
+  tail: Promise<void>;
+}
+
+const cryptoSessionWrites = new Map<string, CryptoSessionWriteState>();
+
 type LocalCryptoSessionStorage = Pick<
   Storage,
   "getItem" | "removeItem" | "setItem"
@@ -65,8 +72,11 @@ function createHostLocalKeyring(input: {
   return createBrowserLocalKeyring();
 }
 
-function localCryptoSessionStorageKey(namespace: string): string {
-  return `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}`;
+export function localCryptoSessionStorageKey(
+  namespace: string,
+  signingFingerprint: string,
+): string {
+  return `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}:${signingFingerprint}`;
 }
 
 function readNullableString(
@@ -128,24 +138,38 @@ function parsePersistedCryptoSession(
 export function useLocalCryptoSessionPersistence(input: {
   readonly createLocalKeyring: (() => LocalKeyring) | undefined;
   readonly namespace: string | null;
+  readonly signingFingerprint: string | null;
 }): LocalCryptoSessionPersistence | null {
   const localStorage = useMemo(
-    () => (input.namespace ? getDefaultLocalCryptoSessionStorage() : null),
-    [input.namespace],
+    () =>
+      input.namespace && input.signingFingerprint
+        ? getDefaultLocalCryptoSessionStorage()
+        : null,
+    [input.namespace, input.signingFingerprint],
   );
   const keyring = useMemo(
     () =>
-      input.namespace
+      input.namespace && input.signingFingerprint
         ? createHostLocalKeyring({
             createLocalKeyring: input.createLocalKeyring,
             localStorage,
           })
         : null,
-    [input.createLocalKeyring, input.namespace, localStorage],
+    [
+      input.createLocalKeyring,
+      input.namespace,
+      input.signingFingerprint,
+      localStorage,
+    ],
   );
 
   return useMemo(() => {
-    if (!input.namespace || !keyring || !localStorage) {
+    if (
+      !input.namespace ||
+      !input.signingFingerprint ||
+      !keyring ||
+      !localStorage
+    ) {
       return null;
     }
 
@@ -153,9 +177,12 @@ export function useLocalCryptoSessionPersistence(input: {
       keyring,
       scope: localIdentityScope(input.namespace),
       storage: localStorage,
-      storageKey: localCryptoSessionStorageKey(input.namespace),
+      storageKey: localCryptoSessionStorageKey(
+        input.namespace,
+        input.signingFingerprint,
+      ),
     };
-  }, [input.namespace, keyring, localStorage]);
+  }, [input.namespace, input.signingFingerprint, keyring, localStorage]);
 }
 
 export async function restorePersistedCryptoSession(input: {
@@ -246,8 +273,58 @@ export async function persistCryptoSession(input: {
   }
 }
 
-export function clearPersistedCryptoSession(
-  localPersistence: LocalCryptoSessionPersistence,
+function cryptoSessionWriteState(storageKey: string): CryptoSessionWriteState {
+  const existing = cryptoSessionWrites.get(storageKey);
+  if (existing) {
+    return existing;
+  }
+  const created = { generation: 0, tail: Promise.resolve() };
+  cryptoSessionWrites.set(storageKey, created);
+  return created;
+}
+
+/** Serialize writes so an identity transition can durably flush its session. */
+export function queueCryptoSessionPersistence(
+  input: Parameters<typeof persistCryptoSession>[0],
+): Promise<void> {
+  const state = cryptoSessionWriteState(input.localPersistence.storageKey);
+  const generation = state.generation;
+  const operation = state.tail.then(async () => {
+    if (state.generation !== generation) {
+      return;
+    }
+    await persistCryptoSession(input);
+    if (state.generation !== generation) {
+      input.localPersistence.storage.removeItem(
+        input.localPersistence.storageKey,
+      );
+    }
+  });
+  state.tail = operation.catch(() => undefined);
+  return operation;
+}
+
+function clearPersistedCryptoSession(
+  storage: LocalCryptoSessionStorage,
+  storageKey: string,
 ): void {
-  localPersistence.storage.removeItem(localPersistence.storageKey);
+  cryptoSessionWriteState(storageKey).generation += 1;
+  storage.removeItem(storageKey);
+}
+
+export function clearPersistedCryptoSessionForIdentity(input: {
+  readonly namespace: string | null;
+  readonly signingFingerprint: string;
+}): void {
+  if (!input.namespace) {
+    return;
+  }
+  const storage = getDefaultLocalCryptoSessionStorage();
+  if (!storage) {
+    return;
+  }
+  clearPersistedCryptoSession(
+    storage,
+    localCryptoSessionStorageKey(input.namespace, input.signingFingerprint),
+  );
 }

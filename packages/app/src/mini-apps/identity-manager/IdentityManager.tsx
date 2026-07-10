@@ -20,6 +20,7 @@ import { IdentityManagerPinCodeSection } from "./IdentityManagerPinCodeSection";
 import { IdentityManagerRecoveryKeySection } from "./IdentityManagerRecoveryKeySection";
 import { SessionDetailSection } from "./IdentityManagerSessionDetail";
 import { SessionsSection } from "./IdentityManagerSessions";
+import { IdentitySwitcher } from "./IdentitySwitcher";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
 
@@ -90,7 +91,10 @@ function IdentitySection({
         <div className="identity-manager-identity-heading-meta">
           <MiniAppStatus as="span">{identityState}</MiniAppStatus>
           <IdentityManagerActionsMenu
-            disabled={actions.mutatingSessionId !== null}
+            disabled={
+              actions.identityBusy !== null ||
+              actions.mutatingSessionId !== null
+            }
             isAuthenticated={actions.isAuthenticated}
             onLogout={actions.handleLogoutCurrentSession}
           />
@@ -167,7 +171,9 @@ function getIdentitySectionActions(
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
     handleRestoreKeyPackageClick,
     hasSigningKeyPair: identity.signingKeyPair !== null,
-    identityBusy: identityMutations.identityBusy,
+    identityBusy: identity.identityTransitionInFlight
+      ? "transition"
+      : identityMutations.identityBusy,
     isAuthenticated: session.isAuthenticated,
     mutatingSessionId: sessionMutations.mutatingSessionId,
     onPasskeyAuthenticatorAttachmentChange:
@@ -230,6 +236,7 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
     canManageSessions,
     handleRestoreFileChange,
     identityMutations,
+    identitySwitcher,
     isDestroyKeyPackageDialogOpen,
     logoutBusy,
     logoutDialog,
@@ -266,6 +273,7 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
         hidden
         onChange={handleRestoreFileChange}
       />
+      <IdentitySwitcher switcher={identitySwitcher} />
       <main className="identity-manager-main">
         {canManageSessions && selectedSession ? (
           <SessionDetailSection

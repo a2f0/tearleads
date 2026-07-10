@@ -431,25 +431,8 @@ export async function waitForPaneRuntimeToSettle(
 }
 
 const publicKeyStatusPattern = /publicKey:\s*([0-9a-f]+)/u;
-const LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX =
-  "tearleads.local-identity-key-package:";
 
-function paneLocalIdentityStorageKey(namespace: string): string {
-  return `${LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX}${namespace}.left`;
-}
-
-export async function waitForPersistedPaneLocalIdentity(
-  namespace: string,
-): Promise<void> {
-  await waitFor(
-    () => {
-      expect(
-        globalThis.localStorage.getItem(paneLocalIdentityStorageKey(namespace)),
-      ).not.toBeNull();
-    },
-    { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
-  );
-}
+export { waitForPersistedPaneLocalIdentity } from "./localIdentityPersistenceTestUtils";
 
 const STATUS_LABEL_KEYS: Record<string, string> = {
   Events: "events",

@@ -1,34 +1,26 @@
 import {
   createBrowserLocalKeyring,
   type LocalKeyring,
-  type LocalKeyringScope,
   type Tearleads,
 } from "@tearleads/client-sdk";
-import type { SigningKeyPair } from "@tearleads/crypto";
 import {
   type MutableRefObject,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { localIdentityScope } from "../local-keyring/localKeyringScopes";
+import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 import {
-  decryptLocalIdentityKeyPackage,
-  encryptLocalIdentityKeyPackage,
-} from "./localIdentityPackageCrypto";
+  LocalIdentityRepository,
+  type LocalIdentityStorage,
+  type LocalIdentitySummary,
+} from "./localIdentityRegistry";
 
-const LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX =
-  "tearleads.local-identity-key-package:";
-
-type LocalIdentityStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
-
-interface LocalIdentityPersistence {
-  readonly keyring: LocalKeyring;
-  readonly scope: LocalKeyringScope;
-  readonly storage: LocalIdentityStorage;
-  readonly storageKey: string;
-}
+const LOCAL_IDENTITY_REGISTRY_STORAGE_PREFIX =
+  "tearleads.local-identity-registry:";
 
 function getDefaultLocalIdentityStorage(): LocalIdentityStorage | null {
   try {
@@ -57,14 +49,14 @@ function createHostLocalKeyring(input: {
   return createBrowserLocalKeyring();
 }
 
-function localIdentityStorageKey(namespace: string): string {
-  return `${LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX}${namespace}`;
+function localIdentityRegistryStorageKey(namespace: string): string {
+  return `${LOCAL_IDENTITY_REGISTRY_STORAGE_PREFIX}${namespace}`;
 }
 
 export function useLocalIdentityPersistence(input: {
   readonly createLocalKeyring: (() => LocalKeyring) | undefined;
   readonly namespace: string | null;
-}): LocalIdentityPersistence | null {
+}): LocalIdentityRepository | null {
   const localIdentityStorage = useMemo(
     () => (input.namespace ? getDefaultLocalIdentityStorage() : null),
     [input.namespace],
@@ -85,12 +77,12 @@ export function useLocalIdentityPersistence(input: {
       return null;
     }
 
-    return {
+    return new LocalIdentityRepository({
       keyring: localIdentityKeyring,
       scope: localIdentityScope(input.namespace),
       storage: localIdentityStorage,
-      storageKey: localIdentityStorageKey(input.namespace),
-    };
+      storageKey: localIdentityRegistryStorageKey(input.namespace),
+    });
   }, [input.namespace, localIdentityKeyring, localIdentityStorage]);
 }
 
@@ -98,253 +90,215 @@ async function restorePersistedLocalIdentity(input: {
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly isCancelled: () => boolean;
-  readonly localPersistence: LocalIdentityPersistence;
+  readonly localPersistence: LocalIdentityRepository;
+  readonly onIdentitiesChanged: (
+    identities: readonly LocalIdentitySummary[],
+  ) => void;
   readonly onRestored: (signingFingerprint: string | null) => void;
   readonly tearleads: Tearleads;
 }): Promise<void> {
   const observedGenerationId = input.generationIdRef.current;
-  const serializedEnvelope = input.localPersistence.storage.getItem(
-    input.localPersistence.storageKey,
-  );
-  if (!serializedEnvelope || input.isCancelled()) {
+  const stored = await input.localPersistence.load();
+  if (input.isCancelled()) {
+    return;
+  }
+  input.onIdentitiesChanged(stored.identities);
+  if (!stored.activeKeyPackage || input.tearleads.identity.signingKeyPair) {
+    return;
+  }
+  if (input.generationIdRef.current !== observedGenerationId) {
     return;
   }
 
-  const session = await input.localPersistence.keyring.loadSession(
-    input.localPersistence.scope,
-  );
-  if (!session) {
-    return;
-  }
-
+  const generationId = observedGenerationId + 1;
+  input.generationIdRef.current = generationId;
+  input.generationInFlight.current = true;
   try {
-    if (
-      input.isCancelled() ||
-      input.generationIdRef.current !== observedGenerationId
-    ) {
+    prepareForIdentityTransition(input.tearleads);
+    const snapshot = await input.tearleads.identity.importKeyPackage(
+      stored.activeKeyPackage,
+    );
+    if (input.isCancelled() || input.generationIdRef.current !== generationId) {
       return;
     }
-
-    const generationId = observedGenerationId + 1;
-    input.generationIdRef.current = generationId;
-    input.generationInFlight.current = true;
-    try {
-      const keyPackage = await decryptLocalIdentityKeyPackage({
-        identityPersistenceKey: session.identityPersistenceKey,
-        serializedEnvelope,
-      });
-      if (
-        input.isCancelled() ||
-        input.generationIdRef.current !== generationId ||
-        input.tearleads.identity.signingKeyPair
-      ) {
-        return;
-      }
-
-      const snapshot =
-        await input.tearleads.identity.importKeyPackage(keyPackage);
-      input.onRestored(snapshot.signingFingerprint);
-      input.tearleads.log("Local identity key package restored");
-    } finally {
-      if (input.generationIdRef.current === generationId) {
-        input.generationInFlight.current = false;
-      }
+    if (snapshot.signingFingerprint !== stored.activeSigningFingerprint) {
+      throw new Error(
+        "Saved active identity fingerprint does not match its key package.",
+      );
     }
+    input.onRestored(snapshot.signingFingerprint);
+    input.tearleads.log("Local identity key package restored");
   } finally {
-    session.dispose();
+    if (input.generationIdRef.current === generationId) {
+      input.generationInFlight.current = false;
+    }
   }
 }
 
 function useRestoreLocalIdentity(input: {
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
-  readonly localPersistence: LocalIdentityPersistence | null;
+  readonly localPersistence: LocalIdentityRepository | null;
+  readonly onIdentitiesChanged: (
+    identities: readonly LocalIdentitySummary[],
+  ) => void;
   readonly onRestored: (signingFingerprint: string | null) => void;
-  /**
-   * Reports the persistence source the restore attempt has settled for, once it
-   * finishes (with or without a persisted identity) — or immediately when there
-   * is nothing to restore. Reporting the *source* (rather than a bare boolean)
-   * lets the caller tell "settled for the current source" from "settled for a
-   * stale source", so a source change (e.g. the keychain unlocking and a
-   * persisted identity appearing) is not mistaken for already-settled. The
-   * autopilot waits for the current source to settle before auto-generating, so
-   * a persisted identity is restored rather than overwritten.
-   */
-  readonly onSettled?:
-    | ((settledSource: LocalIdentityPersistence | null) => void)
-    | undefined;
-  readonly signingKeyPair: SigningKeyPair | null;
+  readonly onSettled: (settledSource: LocalIdentityRepository | null) => void;
   readonly tearleads: Tearleads;
 }): void {
   const {
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onIdentitiesChanged,
     onRestored,
     onSettled,
-    signingKeyPair,
     tearleads,
   } = input;
-
+  const attemptedSourceRef = useRef<LocalIdentityRepository | null | undefined>(
+    undefined,
+  );
   useEffect(() => {
-    if (signingKeyPair || !localPersistence) {
-      // Either an identity is already loaded, or there is no persisted source to
-      // restore from — nothing to wait on.
-      onSettled?.(localPersistence);
+    if (attemptedSourceRef.current === localPersistence) {
+      return;
+    }
+    attemptedSourceRef.current = localPersistence;
+
+    if (!localPersistence) {
+      onIdentitiesChanged([]);
+      onSettled(localPersistence);
       return;
     }
 
     let cancelled = false;
+    let settled = false;
     void restorePersistedLocalIdentity({
       generationIdRef,
       generationInFlight,
       isCancelled: () => cancelled,
       localPersistence,
+      onIdentitiesChanged,
       onRestored,
       tearleads,
     })
       .catch((error: unknown) => {
-        tearleads.logError(
-          "Failed to restore local identity key package",
-          error,
-        );
+        tearleads.logError("Failed to restore local identity registry", error);
       })
       .finally(() => {
         if (!cancelled) {
-          onSettled?.(localPersistence);
+          settled = true;
+          onSettled(localPersistence);
         }
       });
 
     return () => {
       cancelled = true;
+      if (!settled && attemptedSourceRef.current === localPersistence) {
+        attemptedSourceRef.current = undefined;
+      }
     };
   }, [
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onIdentitiesChanged,
     onRestored,
     onSettled,
-    signingKeyPair,
     tearleads,
   ]);
 }
 
-/**
- * Owns the restore-tracking state and runs {@link useRestoreLocalIdentity},
- * exposing both the restored fingerprint and whether the restore attempt has
- * settled. Keeps that bookkeeping out of {@link IdentityProvider}.
- */
+/** Restore the active identity once per repository source and expose its list. */
 export function useLocalIdentityRestore(input: {
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
-  readonly localPersistence: LocalIdentityPersistence | null;
-  readonly signingKeyPair: SigningKeyPair | null;
+  readonly localPersistence: LocalIdentityRepository | null;
   readonly tearleads: Tearleads;
 }): {
+  readonly identities: readonly LocalIdentitySummary[];
   readonly restoredFingerprint: string | null;
   readonly restoreSettled: boolean;
+  readonly setIdentities: (identities: readonly LocalIdentitySummary[]) => void;
 } {
+  const [identities, setIdentities] = useState<readonly LocalIdentitySummary[]>(
+    [],
+  );
   const [restoredFingerprint, setRestoredFingerprint] = useState<string | null>(
     null,
   );
-  // The source the restore has settled for. Starts as a sentinel (`undefined`)
-  // distinct from every real source — including `null` (no source) — so the
-  // derived `restoreSettled` is false until the first restore actually runs.
   const [settledSource, setSettledSource] = useState<
-    LocalIdentityPersistence | null | undefined
+    LocalIdentityRepository | null | undefined
   >(undefined);
-
   useRestoreLocalIdentity({
     ...input,
+    onIdentitiesChanged: setIdentities,
     onRestored: setRestoredFingerprint,
     onSettled: setSettledSource,
   });
 
   return {
+    identities,
     restoredFingerprint,
-    // Settled only once the restore has run for the *current* source. When the
-    // source changes (e.g. the keychain unlocks and a persisted identity
-    // appears) this is false until that source's restore settles, so the
-    // autopilot cannot generate a fresh identity over one about to be restored.
     restoreSettled: settledSource === input.localPersistence,
+    setIdentities,
   };
 }
 
 async function persistLocalIdentityKeyPackage(input: {
-  readonly localPersistence: LocalIdentityPersistence | null;
+  readonly localPersistence: LocalIdentityRepository | null;
+  readonly onIdentitiesChanged: (
+    identities: readonly LocalIdentitySummary[],
+  ) => void;
   readonly shouldPersist?: (() => boolean) | undefined;
   readonly tearleads: Tearleads;
 }): Promise<void> {
-  if (!input.localPersistence) {
-    return;
-  }
-  if (input.shouldPersist && !input.shouldPersist()) {
+  if (!input.localPersistence || input.shouldPersist?.() === false) {
     return;
   }
 
-  const session = await input.localPersistence.keyring.getOrCreateSession(
-    input.localPersistence.scope,
-  );
-  try {
-    const keyPackage = await input.tearleads.identity.exportKeyPackage();
-    const serializedEnvelope = await encryptLocalIdentityKeyPackage({
-      identityPersistenceKey: session.identityPersistenceKey,
-      keyPackage,
-    });
-    if (input.shouldPersist && !input.shouldPersist()) {
-      return;
-    }
-
-    input.localPersistence.storage.setItem(
-      input.localPersistence.storageKey,
-      serializedEnvelope,
-    );
-    input.tearleads.log("Local identity key package persisted");
-  } finally {
-    session.dispose();
+  const keyPackage = await input.tearleads.identity.exportKeyPackage();
+  if (input.shouldPersist?.() === false) {
+    return;
   }
+  const identities = await input.localPersistence.upsert(keyPackage);
+  if (input.shouldPersist?.() === false) {
+    return;
+  }
+  input.onIdentitiesChanged(identities);
+  input.tearleads.log("Local identity key package persisted");
 }
 
 export function usePersistLocalIdentity(
-  localPersistence: LocalIdentityPersistence | null,
+  localPersistence: LocalIdentityRepository | null,
+  onIdentitiesChanged: (identities: readonly LocalIdentitySummary[]) => void,
   tearleads: Tearleads,
 ): (shouldPersist?: () => boolean) => Promise<void> {
   return useCallback(
     (shouldPersist?: () => boolean) =>
       persistLocalIdentityKeyPackage({
         localPersistence,
+        onIdentitiesChanged,
         shouldPersist,
         tearleads,
       }),
-    [localPersistence, tearleads],
+    [localPersistence, onIdentitiesChanged, tearleads],
   );
-}
-
-async function deletePersistedLocalIdentity(
-  localPersistence: LocalIdentityPersistence | null,
-): Promise<void> {
-  if (!localPersistence) {
-    return;
-  }
-
-  localPersistence.storage.removeItem(localPersistence.storageKey);
-  await localPersistence.keyring.deleteSession(localPersistence.scope);
 }
 
 export function useDestroyKey(input: {
   readonly clearDatabase: () => void;
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
-  readonly localPersistence: LocalIdentityPersistence | null;
+  readonly localPersistence: LocalIdentityRepository | null;
+  readonly onIdentitiesChanged: (
+    identities: readonly LocalIdentitySummary[],
+  ) => void;
+  readonly onIdentityRemoved?:
+    | ((signingFingerprint: string) => void)
+    | undefined;
   readonly tearleads: Tearleads;
 }): {
   readonly destroyKey: () => void;
-  /**
-   * Whether the user has explicitly destroyed the identity this session — set
-   * synchronously by {@link destroyKey}. The autopilot reads it to leave the
-   * app keyless after a destroy instead of immediately re-provisioning; it
-   * resets on reload because the provider remounts.
-   */
   readonly identityDestroyed: boolean;
 } {
   const {
@@ -352,29 +306,43 @@ export function useDestroyKey(input: {
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onIdentitiesChanged,
+    onIdentityRemoved,
     tearleads,
   } = input;
   const [identityDestroyed, setIdentityDestroyed] = useState(false);
 
   const destroyKey = useCallback(() => {
+    if (generationInFlight.current) {
+      return;
+    }
+    const signingFingerprint = tearleads.identity.signingFingerprint;
     generationIdRef.current += 1;
-    generationInFlight.current = false;
     setIdentityDestroyed(true);
+    prepareForIdentityTransition(tearleads);
     tearleads.identity.destroy();
     clearDatabase();
-    void deletePersistedLocalIdentity(localPersistence).catch(
-      (error: unknown) => {
+
+    if (!signingFingerprint) {
+      return;
+    }
+    onIdentityRemoved?.(signingFingerprint);
+    void localPersistence
+      ?.remove(signingFingerprint)
+      .then(onIdentitiesChanged)
+      .catch((error: unknown) => {
         tearleads.logError(
           "Failed to delete local identity key package",
           error,
         );
-      },
-    );
+      });
   }, [
     clearDatabase,
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onIdentitiesChanged,
+    onIdentityRemoved,
     tearleads,
   ]);
 
@@ -382,34 +350,14 @@ export function useDestroyKey(input: {
 }
 
 export function useRestoreKeyPackage(input: {
-  readonly generationIdRef: MutableRefObject<number>;
-  readonly generationInFlight: MutableRefObject<boolean>;
-  readonly persistLocalIdentity: (
-    shouldPersist?: () => boolean,
-  ) => Promise<void>;
-  readonly tearleads: Tearleads;
+  readonly importIdentityPackage: (keyPackage: unknown) => Promise<boolean>;
 }): (keyPackage: unknown) => Promise<void> {
-  const {
-    generationIdRef,
-    generationInFlight,
-    persistLocalIdentity,
-    tearleads,
-  } = input;
-
   return useCallback(
     async (keyPackage: unknown) => {
-      generationIdRef.current += 1;
-      generationInFlight.current = false;
-      await tearleads.identity.importKeyPackage(keyPackage);
-      try {
-        await persistLocalIdentity();
-      } catch (error: unknown) {
-        tearleads.logError(
-          "Failed to persist local identity key package after restore",
-          error,
-        );
+      if (!(await input.importIdentityPackage(keyPackage))) {
+        throw new Error("Could not import the local identity key package.");
       }
     },
-    [generationIdRef, generationInFlight, persistLocalIdentity, tearleads],
+    [input.importIdentityPackage],
   );
 }

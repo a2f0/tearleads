@@ -25,8 +25,11 @@ afterEach(cleanupPaneTestEnvironment);
 
 const LOCAL_CRYPTO_SESSION_STORAGE_PREFIX = "tearleads.local-session:";
 
-function paneLocalCryptoSessionStorageKey(namespace: string): string {
-  return `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}.left`;
+function hasPaneLocalCryptoSession(namespace: string): boolean {
+  const prefix = `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}.left:`;
+  return Object.keys(globalThis.localStorage).some((key) =>
+    key.startsWith(prefix),
+  );
 }
 
 async function waitForPersistedPaneCryptoSession(
@@ -34,11 +37,7 @@ async function waitForPersistedPaneCryptoSession(
 ): Promise<void> {
   await waitFor(
     () => {
-      expect(
-        globalThis.localStorage.getItem(
-          paneLocalCryptoSessionStorageKey(namespace),
-        ),
-      ).not.toBeNull();
+      expect(hasPaneLocalCryptoSession(namespace)).toBe(true);
     },
     { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
   );

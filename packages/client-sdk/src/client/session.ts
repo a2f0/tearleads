@@ -38,12 +38,7 @@ interface SessionDependencies {
   identity: Identity;
   log: (message: string) => void;
   logError: (message: string | Error, cause?: unknown) => void;
-  /**
-   * App-owned system containers born with every new organization (registration
-   * and additional-org creation both provision them atomically), e.g. a trash
-   * bin. Configured once at SDK construction so it is an invariant of every
-   * provisioning path rather than a per-call option.
-   */
+  /** App-owned system containers provisioned with each new organization. */
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>
     | undefined;
@@ -99,13 +94,7 @@ export interface Session {
   readonly isAuthenticated: boolean;
   readonly organizationId: string | null;
   readonly snapshot: SessionSnapshot;
-  /**
-   * Whether this session should replicate with the server (sync mode) or stay
-   * device-local (local-only mode). Folded into the resolved runtime
-   * `state.online` so every server-sync path — reconciler, uploads, hydration,
-   * container operations — pauses in local-only mode, while `tearleads.network`
-   * stays a truthful signal of actual connectivity. Defaults to `true`.
-   */
+  /** Controls server replication without changing network connectivity. */
   readonly syncEnabled: boolean;
   readonly userId: string | null;
   bootstrapLocalRootContainer(): Promise<{
@@ -139,8 +128,6 @@ export function createSession(dependencies: SessionDependencies): Session {
 
 class SessionService implements Session {
   private readonly listeners = new Set<SessionListener>();
-  // Sync mode is a runtime preference, not part of the auth snapshot, so it is
-  // held separately and not touched by setContext/login/logout.
   private syncEnabledValue = true;
   private snapshotValue: SessionSnapshot = {
     authToken: null,
@@ -245,6 +232,10 @@ class SessionService implements Session {
     if (!fingerprint) {
       return false;
     }
+    const identitySnapshot = this.dependencies.identity.snapshot;
+    if (identitySnapshot.signingKeyPair !== signingKeyPair) {
+      return false;
+    }
 
     this.dependencies.log(
       challengeHex ? "Authenticating with challenge..." : "Authenticating...",
@@ -259,6 +250,10 @@ class SessionService implements Session {
           fingerprint,
           signingKeyPair.signingPrivateKey,
         );
+
+    if (this.dependencies.identity.snapshot !== identitySnapshot) {
+      return false;
+    }
 
     if (!authentication) {
       this.setContext({
@@ -284,6 +279,7 @@ class SessionService implements Session {
   }
 
   async logoutRemote(): Promise<boolean> {
+    const identitySnapshot = this.dependencies.identity.snapshot;
     try {
       if (!this.authToken) {
         return true;
@@ -292,7 +288,9 @@ class SessionService implements Session {
       const response = await this.dependencies.api.logout();
       return response?.message === "ok";
     } finally {
-      this.logout();
+      if (this.dependencies.identity.snapshot === identitySnapshot) {
+        this.logout();
+      }
     }
   }
 
@@ -307,14 +305,14 @@ class SessionService implements Session {
       return null;
     }
 
-    const signingKeyPair = this.dependencies.identity.signingKeyPair;
+    const identitySnapshot = this.dependencies.identity.snapshot;
+    const signingKeyPair = identitySnapshot.signingKeyPair;
     if (!signingKeyPair) {
       this.dependencies.log("Registration skipped: signing key is unavailable");
       return null;
     }
 
-    const encapsulationKeyPair =
-      this.dependencies.identity.encapsulationKeyPair;
+    const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
     if (!encapsulationKeyPair) {
       this.dependencies.log(
         "Registration skipped: encapsulation key is unavailable",
@@ -349,6 +347,10 @@ class SessionService implements Session {
     } catch (error: unknown) {
       this.dependencies.logError("Identity registration failed", error);
       throw error;
+    }
+
+    if (this.dependencies.identity.snapshot !== identitySnapshot) {
+      return null;
     }
 
     if (!response) {
@@ -432,9 +434,7 @@ class SessionService implements Session {
       return null;
     }
 
-    // Intentionally does not switch the active organization: the new
-    // organization is provisioned locally and on the server, and switching to
-    // it is a separate, explicit user action.
+    // Creating an organization does not switch the active organization.
     return {
       containerId: response.rootContainerId,
       organizationId: response.organizationId,

@@ -30,9 +30,11 @@ import type { IdentityBusyState } from "./IdentityManagerActionToolbar";
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { getIdentityState } from "./IdentityManagerIdentityState";
 import { useIdentityManagerRefreshMenu } from "./IdentityManagerRefreshMenu";
+import { useIdentitySwitcher } from "./useIdentitySwitcher";
 
 type DatabaseContextValue = ReturnType<typeof useDatabase>;
 type LogContextValue = ReturnType<typeof useLog>;
+type RegistrationResult = RegisterCurrentIdentityResult;
 type SdkClient = ReturnType<typeof useTearleads>;
 
 function useIdentityManagerSessionList({
@@ -126,6 +128,7 @@ function useIdentityManagerSessionMutations({
       setSessionError(null);
       try {
         await runConfirmedLogout({
+          getSigningFingerprint: () => tearleads.identity.signingFingerprint,
           keepLocalData,
           log,
           logError,
@@ -389,8 +392,7 @@ export function useIdentityManager() {
   const identity = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
   const { log, logError } = useLog();
-  const registration: RegisterCurrentIdentityResult =
-    useRegisterCurrentIdentity();
+  const registration: RegistrationResult = useRegisterCurrentIdentity();
   const backupRestoreActions = useIdentityManagerBackupRestoreActions();
   const passkeyBackup = usePasskeyKeyPackageBackupActions();
   const { purgeWorker } = useDatabase();
@@ -435,6 +437,11 @@ export function useIdentityManager() {
     passkeyBackup,
     registerCurrentIdentity: registration.registerCurrentIdentity,
   });
+  const switcherBusy =
+    logoutDialog.isOpen ||
+    logoutBusy ||
+    identityMutations.identityBusy !== null;
+  const identitySwitcher = useIdentitySwitcher(identity, switcherBusy);
   useIdentityManagerRefreshMenu({
     canManageSessions,
     loadingSessions: sessionList.loadingSessions,
@@ -450,6 +457,7 @@ export function useIdentityManager() {
     identity,
     identityMutations,
     identityState,
+    identitySwitcher,
     isDestroyKeyPackageDialogOpen:
       identityMutations.isDestroyKeyPackageDialogOpen,
     localKeyringLocked: localKeyringLock.isLocked,

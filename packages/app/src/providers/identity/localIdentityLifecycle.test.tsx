@@ -1,0 +1,174 @@
+import { afterEach, expect, test } from "bun:test";
+import { Tearleads } from "@tearleads/client-sdk";
+import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { createSharedMemoryLocalKeyringFactory } from "../../../test/helpers/sharedMemoryLocalKeyring";
+import { localIdentityScope } from "../local-keyring/localKeyringScopes";
+import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
+import { useGenerateKey } from "./localIdentityGeneration";
+import { useLocalIdentityRestore } from "./localIdentityPersistence";
+import {
+  LocalIdentityRepository,
+  type LocalIdentityStorage,
+} from "./localIdentityRegistry";
+
+afterEach(cleanup);
+
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((promiseResolve) => {
+    resolve = promiseResolve;
+  });
+  return { promise, resolve };
+}
+
+function createMemoryStorage(): LocalIdentityStorage {
+  const values = new Map<string, string>();
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    removeItem: (key) => {
+      values.delete(key);
+    },
+    setItem: (key, value) => {
+      values.set(key, value);
+    },
+  };
+}
+
+test("identity generation stays in flight until registry persistence finishes", async () => {
+  const persistenceStarted = createDeferred();
+  const releasePersistence = createDeferred();
+  const generationIdRef = { current: 0 };
+  const generationInFlight = { current: false };
+  const tearleads = new Tearleads();
+  Reflect.set(tearleads.session, "bootstrapLocalRootContainer", async () => ({
+    containerId: "root",
+    created: true,
+  }));
+
+  const view = renderHook(() =>
+    useGenerateKey({
+      ensureIdentityDatabaseReady: async () => undefined,
+      generationIdRef,
+      generationInFlight,
+      persistLocalIdentity: async () => {
+        persistenceStarted.resolve();
+        await releasePersistence.promise;
+      },
+      tearleads,
+    }),
+  );
+
+  const generation = view.result.current();
+  await persistenceStarted.promise;
+  let generationSettled = false;
+  void generation.then(() => {
+    generationSettled = true;
+  });
+
+  expect(generationInFlight.current).toBe(true);
+  expect(generationSettled).toBe(false);
+  expect(await view.result.current()).toBe(false);
+
+  releasePersistence.resolve();
+  expect(await generation).toBe(true);
+  expect(generationInFlight.current).toBe(false);
+  tearleads.dispose();
+});
+
+test("persisted identity restore completes after its key import rerenders", async () => {
+  const repository = new LocalIdentityRepository({
+    keyring: createSharedMemoryLocalKeyringFactory()(),
+    scope: localIdentityScope("restore-rerender-test"),
+    storage: createMemoryStorage(),
+    storageKey: "identities",
+  });
+  const source = new Tearleads();
+  await source.identity.importSeedPhrase(
+    createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0xab)),
+  );
+  const keyPackage = await source.identity.exportKeyPackage();
+  await repository.upsert(keyPackage);
+
+  const target = new Tearleads();
+  const generationIdRef = { current: 0 };
+  const generationInFlight = { current: false };
+  const view = renderHook(() => {
+    useTearleadsStoreSnapshot(target.identity);
+    return useLocalIdentityRestore({
+      generationIdRef,
+      generationInFlight,
+      localPersistence: repository,
+      tearleads: target,
+    });
+  });
+
+  await waitFor(() => {
+    expect(view.result.current.restoreSettled).toBe(true);
+    expect(view.result.current.restoredFingerprint).toBe(
+      keyPackage.signingFingerprint,
+    );
+  });
+  expect(target.identity.signingFingerprint).toBe(
+    keyPackage.signingFingerprint,
+  );
+  expect(generationInFlight.current).toBe(false);
+
+  source.dispose();
+  target.dispose();
+});
+
+test("unlock reloads identity choices without replacing the live identity", async () => {
+  const repository = new LocalIdentityRepository({
+    keyring: createSharedMemoryLocalKeyringFactory()(),
+    scope: localIdentityScope("unlock-registry-test"),
+    storage: createMemoryStorage(),
+    storageKey: "identities",
+  });
+  const identityA = new Tearleads();
+  const identityB = new Tearleads();
+  await identityA.identity.importSeedPhrase(
+    createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0xab)),
+  );
+  await identityB.identity.importSeedPhrase(
+    createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0xcd)),
+  );
+  const keyPackageA = await identityA.identity.exportKeyPackage();
+  const keyPackageB = await identityB.identity.exportKeyPackage();
+  await repository.upsert(keyPackageA);
+  await repository.upsert(keyPackageB);
+
+  const generationIdRef = { current: 0 };
+  const generationInFlight = { current: false };
+  const view = renderHook(
+    ({ localPersistence }) =>
+      useLocalIdentityRestore({
+        generationIdRef,
+        generationInFlight,
+        localPersistence,
+        tearleads: identityA,
+      }),
+    {
+      initialProps: {
+        localPersistence: null as LocalIdentityRepository | null,
+      },
+    },
+  );
+
+  await waitFor(() => expect(view.result.current.restoreSettled).toBe(true));
+  view.rerender({ localPersistence: repository });
+  await waitFor(() => {
+    expect(view.result.current.restoreSettled).toBe(true);
+    expect(
+      view.result.current.identities.map(
+        (identity) => identity.signingFingerprint,
+      ),
+    ).toEqual([keyPackageA.signingFingerprint, keyPackageB.signingFingerprint]);
+  });
+  expect(identityA.identity.signingFingerprint).toBe(
+    keyPackageA.signingFingerprint,
+  );
+
+  identityA.dispose();
+  identityB.dispose();
+});

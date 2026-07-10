@@ -2,6 +2,14 @@
   min-height: 26rem;
 }
 
+.identity-manager-switcher {
+  display: grid;
+  align-self: flex-end;
+  flex: 0 0 auto;
+  gap: var(--space-xs);
+  width: min(22rem, 100%);
+}
+
 /*
  * The 34rem floor keeps the desktop *window* from collapsing its columns, but
  * it must not apply in the routed mobile/tablet shell — there the app has to

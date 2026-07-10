@@ -11,6 +11,7 @@ export interface LogoutOptions {
 }
 
 interface ConfirmedLogoutInput extends LogoutOptions {
+  readonly getSigningFingerprint: () => string | null;
   readonly log: (message: string) => void;
   readonly logError: (message: string, error: unknown) => void;
   readonly logout: () => void;
@@ -52,6 +53,7 @@ export function useConfirmedLogoutDialog() {
       setBusy(true);
       void runConfirmedLogout({
         ...options,
+        getSigningFingerprint: () => tearleads.identity.signingFingerprint,
         log,
         logError,
         logout: session.logout,
@@ -119,16 +121,18 @@ export async function runConfirmedLogout(
     input.onRemoteLogoutFailure?.();
     return false;
   } finally {
-    input.logout();
-    input.onAfterLocalLogout?.();
-    // Destroy local persistence only after the session is torn down, so no
-    // store re-reads the SQLite database mid-wipe.
-    if (!input.keepLocalData) {
-      await destroyLocalSessionData({
-        logError: input.logError,
-        purgeWorker: input.purgeWorker,
-        signingFingerprint: input.signingFingerprint,
-      });
+    if (input.getSigningFingerprint() === input.signingFingerprint) {
+      input.logout();
+      input.onAfterLocalLogout?.();
+      // Destroy local persistence only after the session is torn down, so no
+      // store re-reads the SQLite database mid-wipe.
+      if (!input.keepLocalData) {
+        await destroyLocalSessionData({
+          logError: input.logError,
+          purgeWorker: input.purgeWorker,
+          signingFingerprint: input.signingFingerprint,
+        });
+      }
     }
   }
 }
