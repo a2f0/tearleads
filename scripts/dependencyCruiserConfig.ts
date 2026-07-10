@@ -9,7 +9,7 @@ import dependencyCruiserConfig from "../dependency-cruiser.config";
 export { dependencyCruiserEntryPoints } from "./dependencySourceRoots";
 
 export function createDependencyCruiserOptions(
-  outputType: OutputType,
+  outputType?: OutputType,
 ): ICruiseOptions {
   const { options = {}, ...ruleSet } =
     dependencyCruiserConfig satisfies IConfiguration;
@@ -24,7 +24,7 @@ export function createDependencyCruiserOptions(
       folder: "node_modules/.cache/dependency-cruiser",
       strategy: "metadata",
     },
-    outputType,
+    ...(outputType ? { outputType } : {}),
     ruleSet,
     validate: Object.keys(ruleSet).length > 0,
   };

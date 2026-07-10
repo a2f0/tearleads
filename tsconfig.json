@@ -7,6 +7,7 @@
     { "path": "packages/api-shared" },
     { "path": "packages/app" },
     { "path": "packages/app-web" },
+    { "path": "packages/app-capacitor" },
     { "path": "packages/app-electrobun" },
     { "path": "packages/bob-and-alice" },
     { "path": "packages/client-sdk" },
@@ -16,8 +17,10 @@
     { "path": "packages/loro" },
     { "path": "packages/sqlite-worker" },
     { "path": "packages/sqlite-instance" },
+    { "path": "packages/test-utils" },
     { "path": "packages/ui" },
     { "path": "packages/validators" },
-    { "path": "packages/website" }
+    { "path": "packages/website" },
+    { "path": "tsconfig.tools.json" }
   ]
 }

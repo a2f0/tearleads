@@ -1,5 +1,3 @@
-import { cruise } from "dependency-cruiser";
-
 import {
   type ArchitectureCheck,
   type ArchitectureCheckResult,
@@ -20,10 +18,8 @@ import {
   findClientSdkWorkflowTaxonomyDocsViolations,
   findClientSdkWorkspaceDependencyViolations,
 } from "./architecture/clientSdkPackageContract";
-import {
-  createDependencyCruiserOptions,
-  dependencyCruiserEntryPoints,
-} from "./dependencyCruiserConfig";
+import { runDependencyCruiserCheck } from "./architecture/dependencyCruiserCheck";
+import { findWorkspaceRegistryViolations } from "./architecture/workspaceRegistryContract";
 import { packageSourcePath } from "./dependencySourceRoots";
 import {
   findSubsystemCoverageViolations,
@@ -151,19 +147,6 @@ function isPaneRuntimeProviderBypassImport(specifier: string): boolean {
     specifier.startsWith("../../providers/") &&
     !specifier.startsWith("../../providers/AppRuntimeProvider")
   );
-}
-
-async function runDependencyCruiserCheck(): Promise<ArchitectureCheckResult> {
-  const result = await cruise(
-    dependencyCruiserEntryPoints,
-    createDependencyCruiserOptions("err"),
-  );
-  const output =
-    typeof result.output === "string" && result.output.trim().length > 0
-      ? result.output.trim()
-      : "";
-
-  return { failed: result.exitCode !== 0, output };
 }
 
 const architectureChecks: ArchitectureCheck[] = [
@@ -387,6 +370,13 @@ const architectureChecks: ArchitectureCheck[] = [
     pattern: clientSdkProductUiVocabularyPattern,
   }),
   createListCheck({
+    findItems: findWorkspaceRegistryViolations,
+    formatItem: (violation) => `${violation.surface}: ${violation.detail}`,
+    message:
+      "The workspace registry must match package manifests, TypeScript, Knip, and dependency-cruiser coverage.",
+    name: "workspace-registry-matches-tooling",
+  }),
+  createListCheck({
     findItems: findSubsystemCoverageViolations,
     formatItem: (violation) =>
       violation.matchedSubsystems.length === 0
@@ -405,24 +395,30 @@ const architectureChecks: ArchitectureCheck[] = [
   }),
 ];
 
-const dependencyCruiserResult = await runDependencyCruiserCheck();
-const customResults = await Promise.all(
-  architectureChecks.map((check) => check.run()),
-);
-const checkResults = [
-  dependencyCruiserResult,
-  ...customResults.filter(
-    (result): result is ArchitectureCheckResult => result !== undefined,
-  ),
-];
+export async function runArchitectureLint(): Promise<number> {
+  const dependencyCruiserResult = await runDependencyCruiserCheck();
+  const customResults = await Promise.all(
+    architectureChecks.map((check) => check.run()),
+  );
+  const checkResults = [
+    dependencyCruiserResult,
+    ...customResults.filter(
+      (result): result is ArchitectureCheckResult => result !== undefined,
+    ),
+  ];
 
-for (const result of checkResults) {
-  if (result.output.length === 0) {
-    continue;
+  for (const result of checkResults) {
+    if (result.output.length === 0) {
+      continue;
+    }
+
+    const write = result.failed ? console.error : console.log;
+    write(result.output);
   }
 
-  const write = result.failed ? console.error : console.log;
-  write(result.output);
+  return checkResults.some((result) => result.failed) ? 1 : 0;
 }
 
-process.exit(checkResults.some((result) => result.failed) ? 1 : 0);
+if (import.meta.main) {
+  process.exitCode = await runArchitectureLint();
+}

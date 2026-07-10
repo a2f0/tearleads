@@ -118,7 +118,7 @@ async function listedSourceFiles(
 
 async function findSourceTextMatches(params: {
   entryPoints: ReadonlyArray<string>;
-  listFiles?: SourceFileLister;
+  listFiles?: SourceFileLister | undefined;
   pattern: RegExp;
 }): Promise<SourceMatch[]> {
   const sourceFiles = await listedSourceFiles(
@@ -247,7 +247,7 @@ function moduleSpecifierFromNode(
 
 async function findModuleSpecifierMatches(params: {
   entryPoints: ReadonlyArray<string>;
-  listFiles?: SourceFileLister;
+  listFiles?: SourceFileLister | undefined;
   matches: (specifier: string) => boolean;
 }): Promise<SourceMatch[]> {
   const sourceFiles = await listedSourceFiles(

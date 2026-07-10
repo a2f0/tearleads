@@ -2,6 +2,9 @@
   "$schema": "https://turborepo.com/schema.json",
   "concurrency": "1",
   "tasks": {
+    "//#test:architecture": {
+      "outputs": []
+    },
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "pkg/**"]
@@ -10,7 +13,7 @@
       "outputs": []
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "//#test:architecture"],
       "outputs": [],
       "inputs": [
         "$TURBO_DEFAULT$",

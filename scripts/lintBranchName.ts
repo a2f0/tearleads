@@ -18,18 +18,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isCommitlintConfig(value: unknown): value is CommitlintConfig {
-  return isRecord(value) && isRecord(value.rules);
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const { rules } = value;
+  return isRecord(rules);
 }
 
 function isCommitlintConfigModule(
   value: unknown,
 ): value is CommitlintConfigModule {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const { commitHeaderMaxLength, default: defaultConfig } = value;
   return (
-    isRecord(value) &&
-    typeof value.commitHeaderMaxLength === "number" &&
-    Number.isInteger(value.commitHeaderMaxLength) &&
-    value.commitHeaderMaxLength > 0 &&
-    isCommitlintConfig(value.default)
+    typeof commitHeaderMaxLength === "number" &&
+    Number.isInteger(commitHeaderMaxLength) &&
+    commitHeaderMaxLength > 0 &&
+    isCommitlintConfig(defaultConfig)
   );
 }
 
@@ -117,7 +126,8 @@ function lintBranchName(
     return formatBranchName(branchName, conventionalTypeNames);
   }
 
-  if (!conventionalTypes.has(match.groups.type)) {
+  const { type } = match.groups;
+  if (!type || !conventionalTypes.has(type)) {
     return formatBranchName(branchName, conventionalTypeNames);
   }
 

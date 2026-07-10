@@ -122,7 +122,7 @@ function resolveBaseRef(): string {
     // Fall through to CI/base-branch resolution below.
   }
 
-  const githubBaseRef = process.env.GITHUB_BASE_REF;
+  const { GITHUB_BASE_REF: githubBaseRef } = process.env;
 
   if (githubBaseRef) {
     const baseRef = `origin/${githubBaseRef}`;
@@ -172,6 +172,8 @@ function parseRange(args: readonly string[]): string | undefined {
       return arg.slice("--range=".length);
     }
   }
+
+  return undefined;
 }
 
 function filesChangedIn(args: readonly string[]): string[] {

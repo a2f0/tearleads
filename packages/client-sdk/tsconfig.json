@@ -4,6 +4,6 @@
     "composite": true,
     "lib": ["ESNext", "DOM"]
   },
-  "include": ["src", "test"],
+  "include": ["src", "test", "scripts"],
   "exclude": ["dist"]
 }

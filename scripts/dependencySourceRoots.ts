@@ -1,28 +1,4 @@
-const dependencyCruiserPackageNames = [
-  "api",
-  "api-client",
-  "api-cli",
-  "api-shared",
-  "app",
-  "app-electrobun",
-  "app-web",
-  "bob-and-alice",
-  "client-sdk",
-  "code-assist",
-  "crypto",
-  "encoding",
-  "loro",
-  "sqlite-instance",
-  "sqlite-worker",
-  "test-utils",
-  "ui",
-  "validators",
-  "website",
-] as const;
-
-function packageSourceEntryPoint(packageName: string): string {
-  return `packages/${packageName}/src`;
-}
+import { workspaceRegistry, workspaceSourcePaths } from "./workspaceRegistry";
 
 function packageSourceRootPattern(sourcePath: string): string {
   return `^${sourcePath}/`;
@@ -35,27 +11,7 @@ function packageSourceRootPattern(sourcePath: string): string {
 export const productionSourceFilePattern = /\.[cm]?[tj]sx?$/;
 export const testFilePattern = /\.test\.[tj]sx?$/;
 
-export const packageSourcePath = {
-  api: packageSourceEntryPoint("api"),
-  apiClient: packageSourceEntryPoint("api-client"),
-  apiCli: packageSourceEntryPoint("api-cli"),
-  apiShared: packageSourceEntryPoint("api-shared"),
-  app: packageSourceEntryPoint("app"),
-  appElectrobun: packageSourceEntryPoint("app-electrobun"),
-  appWeb: packageSourceEntryPoint("app-web"),
-  bobAndAlice: packageSourceEntryPoint("bob-and-alice"),
-  clientSdk: packageSourceEntryPoint("client-sdk"),
-  codeAssist: packageSourceEntryPoint("code-assist"),
-  crypto: packageSourceEntryPoint("crypto"),
-  encoding: packageSourceEntryPoint("encoding"),
-  loro: packageSourceEntryPoint("loro"),
-  sqliteInstance: packageSourceEntryPoint("sqlite-instance"),
-  sqliteWorker: packageSourceEntryPoint("sqlite-worker"),
-  testUtils: packageSourceEntryPoint("test-utils"),
-  ui: packageSourceEntryPoint("ui"),
-  validators: packageSourceEntryPoint("validators"),
-  website: packageSourceEntryPoint("website"),
-} as const;
+export const packageSourcePath = workspaceSourcePaths;
 
 export const packageSourceRoot = Object.fromEntries(
   Object.entries(packageSourcePath).map(([key, sourcePath]) => [
@@ -67,14 +23,10 @@ export const packageSourceRoot = Object.fromEntries(
 export const allPackageSourceRoots: readonly string[] =
   Object.values(packageSourceRoot);
 
-export const deploymentTargetSourceRoots: readonly string[] = [
-  packageSourceRoot.appElectrobun,
-  packageSourceRoot.appWeb,
-  packageSourceRoot.website,
-] as const;
+export const deploymentTargetSourceRoots = workspaceRegistry
+  .filter((workspace) => workspace.role === "deployment-target")
+  .map((workspace) => packageSourceRoot[workspace.key]);
 
-export const dependencyCruiserEntryPoints = dependencyCruiserPackageNames.map(
-  packageSourceEntryPoint,
+export const dependencyCruiserEntryPoints = workspaceRegistry.map(
+  (workspace) => workspaceSourcePaths[workspace.key],
 );
-
-export const dependencyCruiserIncludeOnly = `^packages/(${dependencyCruiserPackageNames.join("|")})/src/`;

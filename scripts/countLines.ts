@@ -96,17 +96,22 @@ const readStat = (stats: unknown, key: string): number => {
 };
 
 const readFileStats = (language: string, report: unknown): FileStats | null => {
-  if (!isRecord(report) || typeof report.name !== "string") {
+  if (!isRecord(report)) {
+    return null;
+  }
+
+  const { name, stats } = report;
+  if (typeof name !== "string") {
     return null;
   }
 
   return {
     language,
-    name: report.name,
+    name,
     files: 1,
-    blank: readStat(report.stats, "blanks"),
-    comment: readStat(report.stats, "comments"),
-    code: readStat(report.stats, "code"),
+    blank: readStat(stats, "blanks"),
+    comment: readStat(stats, "comments"),
+    code: readStat(stats, "code"),
   };
 };
 
@@ -118,7 +123,8 @@ const collectLanguageFileStats = (
     return [];
   }
 
-  const reports = Array.isArray(stats.reports) ? stats.reports : [];
+  const { reports: reportEntries } = stats;
+  const reports = Array.isArray(reportEntries) ? reportEntries : [];
   return reports.flatMap((report) => {
     const fileStats = readFileStats(language, report);
     return fileStats ? [fileStats] : [];

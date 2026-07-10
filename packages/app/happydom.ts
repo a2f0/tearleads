@@ -9,7 +9,10 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 // packages/api/test/preload.ts and route those calls through the in-memory Redis
 // adapter (kv + sets + pub/sub) so the suite needs no Redis server — CI provisions
 // none. `??=` leaves an explicit `API_REDIS=…` override in place.
-process.env.API_REDIS ??= "memory";
+const appTestEnvironment = process.env as typeof process.env & {
+  API_REDIS?: string;
+};
+appTestEnvironment.API_REDIS ??= "memory";
 
 // Workspace deps the app suite imports through their *built* `dist` (their
 // package exports resolve to dist, never source). Relative to this preload.
@@ -19,7 +22,10 @@ const BUILT_WORKSPACE_DEPS = [
 
 function newestMtimeMs(dir: string): number {
   let newest = 0;
-  for (const entry of readdirSync(dir, { recursive: true })) {
+  for (const entry of readdirSync(dir, {
+    encoding: "utf8",
+    recursive: true,
+  })) {
     const stats = statSync(join(dir, entry));
     // Only files: a directory's mtime bumps on unrelated metadata churn.
     if (stats.isFile() && stats.mtimeMs > newest) {
@@ -87,17 +93,14 @@ const appTestProcessState = globalThis as typeof globalThis & {
   __tearleadsAppTestProcessState?: AppTestProcessState;
 };
 
-if (!appTestProcessState.__tearleadsAppTestProcessState) {
-  appTestProcessState.__tearleadsAppTestProcessState = {
-    hasLoadedApiRuntimeModule: false,
-  };
-}
+appTestProcessState.__tearleadsAppTestProcessState ??= {
+  hasLoadedApiRuntimeModule: false,
+};
+const currentAppTestProcessState =
+  appTestProcessState.__tearleadsAppTestProcessState;
 
 afterAll(async () => {
-  if (
-    !appTestProcessState.__tearleadsAppTestProcessState
-      .hasLoadedApiRuntimeModule
-  ) {
+  if (!currentAppTestProcessState.hasLoadedApiRuntimeModule) {
     return;
   }
 
