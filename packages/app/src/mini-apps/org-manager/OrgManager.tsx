@@ -11,6 +11,7 @@ import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
 } from "../../components/window/WindowMenuContext";
+import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
 import { BillingPanel } from "./BillingPanel";
 import { CreateOrganizationDialog } from "./CreateOrganizationDialog";
 import { OrgManagerContextMenuLayer } from "./context-menu/OrgManagerContextMenu";
@@ -56,10 +57,12 @@ function OrgManagerDirectoryContent({
   model,
   renderProfileEditor,
   revokeGrant,
+  showDetailDismissButton,
 }: {
   model: OrgManagerModel;
   renderProfileEditor: ReturnType<typeof renderRosterProfileEditor>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
+  showDetailDismissButton: boolean;
 }) {
   return (
     <DirectoryView
@@ -92,6 +95,7 @@ function OrgManagerDirectoryContent({
       selectUser={model.selectUser}
       setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
       setImportUserIdDraft={model.setImportUserIdDraft}
+      showDetailDismissButton={showDetailDismissButton}
     />
   );
 }
@@ -100,10 +104,12 @@ function OrgManagerContent({
   model,
   organizationId,
   revokeGrant,
+  showDirectoryDetailDismissButton,
 }: {
   model: OrgManagerModel;
   organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
+  showDirectoryDetailDismissButton: boolean;
 }) {
   const renderProfileEditor = useMemo(
     () => renderRosterProfileEditor(organizationId),
@@ -116,6 +122,7 @@ function OrgManagerContent({
         model={model}
         renderProfileEditor={renderProfileEditor}
         revokeGrant={revokeGrant}
+        showDetailDismissButton={showDirectoryDetailDismissButton}
       />
     );
   }
@@ -279,8 +286,22 @@ function useOrgManagerWindowMenus(model: OrgManagerModel) {
   );
 }
 
+function useOrgManagerRosterDetailBackAction(model: OrgManagerModel) {
+  const { selectUser, selectedUserId, view } = model;
+  const compactRoutedMode = useCompactRoutedMode();
+  const showRosterDetailBackAction =
+    compactRoutedMode && view === "directory" && selectedUserId !== null;
+  const backFromRosterDetail = useCallback(() => {
+    selectUser(null);
+  }, [selectUser]);
+
+  return { backFromRosterDetail, showRosterDetailBackAction };
+}
+
 export function OrgManager() {
   const model = useOrgManagerModel();
+  const { backFromRosterDetail, showRosterDetailBackAction } =
+    useOrgManagerRosterDetailBackAction(model);
   const revokeGrantDialog = useRevokeGrantConfirmation(model);
   const organizationId = model.organizationId;
   const contextMenuTarget =
@@ -305,8 +326,10 @@ export function OrgManager() {
     canLoadAuthenticatedOrgData: model.canLoadAuthenticatedOrgData,
     loading: model.loading,
     mutating: model.mutating,
+    onBackFromRosterDetail: backFromRosterDetail,
     openCreateGroupDialog: model.openCreateGroupDialog,
     openImportUserDialog: model.openImportUserDialog,
+    showRosterDetailBackAction,
     view: model.view,
   });
 
@@ -333,6 +356,7 @@ export function OrgManager() {
           model={model}
           organizationId={organizationId}
           revokeGrant={revokeGrantDialog.requestRevokeGrant}
+          showDirectoryDetailDismissButton={!showRosterDetailBackAction}
         />
       </main>
       <OrgManagerContextMenuLayer

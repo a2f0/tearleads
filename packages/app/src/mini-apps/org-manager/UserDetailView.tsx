@@ -98,6 +98,7 @@ export function UserDetailView({
   onDismiss,
   onRosterProfileDisplayNameChange,
   rosterProfileEditRequestKey,
+  showDismissButton = true,
   openGrantRoute,
   openGroupRoute,
   profileDisplayName,
@@ -113,6 +114,7 @@ export function UserDetailView({
   onDismiss: () => void;
   onRosterProfileDisplayNameChange: (displayName: string | null) => void;
   rosterProfileEditRequestKey?: number | null | undefined;
+  showDismissButton?: boolean | undefined;
   mutating: boolean;
   openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
   openGroupRoute: (groupId: string) => void;
@@ -158,9 +160,11 @@ export function UserDetailView({
                 : ORG_MANAGER_LABELS.userDetailUnavailable}
             </strong>
           </MiniAppHeaderCopy>
-          <MiniAppButton onClick={onDismiss} variant="ghost">
-            {ORG_MANAGER_LABELS.back}
-          </MiniAppButton>
+          {showDismissButton && (
+            <MiniAppButton onClick={onDismiss} variant="ghost">
+              {ORG_MANAGER_LABELS.back}
+            </MiniAppButton>
+          )}
         </MiniAppHeader>
         <MiniAppStatus className="org-manager-hint">
           {loading
@@ -207,9 +211,11 @@ export function UserDetailView({
                 : ORG_MANAGER_LABELS.edit}
             </MiniAppButton>
           )}
-          <MiniAppButton onClick={onDismiss} variant="ghost">
-            {ORG_MANAGER_LABELS.back}
-          </MiniAppButton>
+          {showDismissButton && (
+            <MiniAppButton onClick={onDismiss} variant="ghost">
+              {ORG_MANAGER_LABELS.back}
+            </MiniAppButton>
+          )}
         </MiniAppActions>
       </MiniAppHeader>
       <MiniAppSection className="org-manager-roster-detail">

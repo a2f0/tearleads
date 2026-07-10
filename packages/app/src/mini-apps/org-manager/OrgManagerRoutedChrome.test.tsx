@@ -20,8 +20,10 @@ function OrgManagerRoutedChromeHarness({
   canLoadAuthenticatedOrgData = true,
   loading = false,
   mutating = false,
+  onBackFromRosterDetail = noop,
   onImportUser = noop,
   onNewGroup = noop,
+  showRosterDetailBackAction = false,
   view,
 }: {
   canCreateGroup?: boolean;
@@ -29,8 +31,10 @@ function OrgManagerRoutedChromeHarness({
   canLoadAuthenticatedOrgData?: boolean;
   loading?: boolean;
   mutating?: boolean;
+  onBackFromRosterDetail?: () => void;
   onImportUser?: () => void;
   onNewGroup?: () => void;
+  showRosterDetailBackAction?: boolean;
   view: OrgManagerView;
 }) {
   useOrgManagerRoutedChromeActions({
@@ -39,8 +43,10 @@ function OrgManagerRoutedChromeHarness({
     canLoadAuthenticatedOrgData,
     loading,
     mutating,
+    onBackFromRosterDetail,
     openCreateGroupDialog: onNewGroup,
     openImportUserDialog: onImportUser,
+    showRosterDetailBackAction,
     view,
   });
 
@@ -99,6 +105,26 @@ test("directory route exposes the Import User toolbar action only", async () => 
     view.getByRole("button", { name: ORG_MANAGER_LABELS.importUserAction }),
   );
   expect(invoked).toEqual(["import"]);
+});
+
+test("compact roster detail exposes a Back chrome action", async () => {
+  const invoked: string[] = [];
+  const view = renderChrome(
+    <OrgManagerRoutedChromeHarness
+      onBackFromRosterDetail={() => invoked.push("back")}
+      showRosterDetailBackAction
+      view="directory"
+    />,
+  );
+
+  await waitFor(() => {
+    expect(
+      view.getByRole("button", { name: ORG_MANAGER_LABELS.back }),
+    ).toBeTruthy();
+  });
+
+  fireEvent.click(view.getByRole("button", { name: ORG_MANAGER_LABELS.back }));
+  expect(invoked).toEqual(["back"]);
 });
 
 test("action-less routes reserve a blank toolbar row", async () => {
