@@ -1,7 +1,7 @@
 import type { SyncSubscriptionOption } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useState } from "react";
 import { usePurchases } from "../../../providers/purchases/PurchasesProvider";
-import type { BillingBusyAction } from "../BillingView";
+import type { BillingBusyAction } from "../billing/BillingView";
 import { ORG_MANAGER_LABELS } from "../labels";
 
 interface BillingActions {

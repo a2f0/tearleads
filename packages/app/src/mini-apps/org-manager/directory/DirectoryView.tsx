@@ -1,0 +1,145 @@
+import type {
+  OrganizationContainerGrant,
+  OrganizationDirectory,
+  OrganizationUserDetail,
+} from "@tearleads/client-sdk";
+import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
+import type { OrgManagerGrantRouteRef } from "../routes";
+import {
+  type DirectoryContextMenuHandler,
+  DirectoryListSection,
+  DirectoryTable,
+  type RosterUserContextMenuHandler,
+} from "./DirectoryTable";
+import { ImportRosterUserDialog } from "./ImportRosterUserDialog";
+import {
+  type RenderRosterProfileEditor,
+  UserDetailView,
+} from "./UserDetailView";
+
+export function DirectoryView({
+  canImportRosterUser = false,
+  closeImportUserDialog = () => undefined,
+  canUpdateSelectedRosterEntry = false,
+  canRevokeGrants,
+  detail,
+  directory,
+  error = null,
+  importRosterUser = () => undefined,
+  importUserIdDraft = "",
+  isImportUserDialogOpen = false,
+  loading,
+  loadingUserDetail,
+  mutating,
+  openDirectoryContextMenu,
+  openRosterUserContextMenu,
+  openGrantRoute,
+  openGroupRoute,
+  profileDisplayNamesByUserId = EMPTY_PROFILE_DISPLAY_NAMES,
+  renderRosterProfileEditor,
+  revokeGrant,
+  rosterProfileEditRequest,
+  selectedUserId,
+  selectUser,
+  setSelectedProfileDisplayName = () => undefined,
+  setImportUserIdDraft = () => undefined,
+  showDetailDismissButton = true,
+}: {
+  canImportRosterUser?: boolean | undefined;
+  canUpdateSelectedRosterEntry?: boolean | undefined;
+  canRevokeGrants: boolean;
+  closeImportUserDialog?: (() => void) | undefined;
+  detail: OrganizationUserDetail | null;
+  directory: OrganizationDirectory | null;
+  error?: string | null | undefined;
+  importRosterUser?: (() => void) | undefined;
+  importUserIdDraft?: string | undefined;
+  isImportUserDialogOpen?: boolean | undefined;
+  loading: boolean;
+  loadingUserDetail: boolean;
+  mutating: boolean;
+  openDirectoryContextMenu?: DirectoryContextMenuHandler | undefined;
+  openRosterUserContextMenu?: RosterUserContextMenuHandler | undefined;
+  openGrantRoute: (grantRef: OrgManagerGrantRouteRef) => void;
+  openGroupRoute: (groupId: string) => void;
+  profileDisplayNamesByUserId?: ReadonlyMap<string, string> | undefined;
+  renderRosterProfileEditor?: RenderRosterProfileEditor | undefined;
+  revokeGrant: (grant: OrganizationContainerGrant) => void;
+  rosterProfileEditRequest?: { key: number; userId: string } | null | undefined;
+  selectedUserId: string | null;
+  selectUser: (userId: string | null) => void;
+  setSelectedProfileDisplayName?:
+    | ((displayName: string | null) => void)
+    | undefined;
+  setImportUserIdDraft?: ((userId: string) => void) | undefined;
+  showDetailDismissButton?: boolean | undefined;
+}) {
+  const importUserDialog = (
+    <ImportRosterUserDialog
+      canImportRosterUser={canImportRosterUser}
+      closeImportUserDialog={closeImportUserDialog}
+      error={error ?? null}
+      importRosterUser={importRosterUser}
+      importUserIdDraft={importUserIdDraft}
+      isOpen={isImportUserDialogOpen}
+      mutating={mutating}
+      setImportUserIdDraft={setImportUserIdDraft}
+    />
+  );
+
+  if (!directory) {
+    return (
+      <>
+        <DirectoryTable directory={directory} loading={loading} />
+        {importUserDialog}
+      </>
+    );
+  }
+
+  if (!selectedUserId) {
+    return (
+      <>
+        <DirectoryListSection
+          directory={directory}
+          loading={loading}
+          openDirectoryContextMenu={openDirectoryContextMenu}
+          openRosterUserContextMenu={openRosterUserContextMenu}
+          profileDisplayNamesByUserId={profileDisplayNamesByUserId}
+          selectedUserId={selectedUserId}
+          selectUser={selectUser}
+        />
+        {importUserDialog}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <section className="org-manager-panel">
+        <UserDetailView
+          canEditRosterProfile={canUpdateSelectedRosterEntry}
+          canRevokeGrants={canRevokeGrants}
+          detail={detail}
+          key={selectedUserId}
+          loading={loadingUserDetail}
+          mutating={mutating}
+          onDismiss={() => selectUser(null)}
+          onRosterProfileDisplayNameChange={setSelectedProfileDisplayName}
+          openGrantRoute={openGrantRoute}
+          openGroupRoute={openGroupRoute}
+          profileDisplayName={profileDisplayNamesByUserId.get(selectedUserId)}
+          renderRosterProfileEditor={renderRosterProfileEditor}
+          revokeGrant={revokeGrant}
+          rosterProfileEditRequestKey={
+            rosterProfileEditRequest?.userId === selectedUserId
+              ? rosterProfileEditRequest.key
+              : null
+          }
+          selectedUserId={selectedUserId}
+          showDismissButton={showDetailDismissButton}
+        />
+      </section>
+      {importUserDialog}
+    </>
+  );
+}

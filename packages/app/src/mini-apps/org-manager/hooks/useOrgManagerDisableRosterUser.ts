@@ -7,8 +7,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { currentGroupUserRecipients } from "../grants/recipients";
 import { ORG_MANAGER_LABELS } from "../labels";
-import { currentGroupUserRecipients } from "../recipients";
 import { setUnknownError } from "../refresh";
 import type { useOrgManagerRefreshers } from "./useOrgManagerRefreshers";
 

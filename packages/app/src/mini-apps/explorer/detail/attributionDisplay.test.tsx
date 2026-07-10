@@ -9,7 +9,7 @@ import {
 import {
   ExplorerDocumentInfoBlameSection,
   ExplorerDocumentInfoFieldBlameSection,
-} from "./ExplorerDocumentInfoGeneralSections";
+} from "./document/ExplorerDocumentInfoGeneralSections";
 
 afterEach(() => cleanup());
 

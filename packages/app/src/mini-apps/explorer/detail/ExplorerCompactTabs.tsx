@@ -15,8 +15,8 @@ import { MiniAppButton } from "../../../components/shared/MiniAppLayout";
 import type { ExplorerBlobPickTarget } from "../blob-pick/ExplorerBlobPickProvider";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
-import { ExplorerBlobBrowserPanel } from "./ExplorerBlobBrowserPanel";
-import { ExplorerSyncLanesPanel } from "./ExplorerSyncLanesPanel";
+import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
+import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
 
 type ExplorerCompactTabId = "sync" | "blobs";
 

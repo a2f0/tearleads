@@ -33,9 +33,9 @@ Success paths skip cleanup that error paths perform. Worth fixing together:
 ## Tier 3 — App async-error discipline (one root pattern)
 
 Fire-and-forget IIFEs / bare `catch {}` that swallow errors or skip fallback state, diverging from the try/catch-with-logging used elsewhere in the same zones. All small:
-- `mini-apps/explorer/detail/ExplorerDocumentDetail.tsx:131-134` — `.catch` only applies `fallbackSyncState` when the document changed; the same-document retry path swallows failures with no log/state. **(medium)**
+- `mini-apps/explorer/detail/document/ExplorerDocumentDetail.tsx:131-134` — `.catch` only applies `fallbackSyncState` when the document changed; the same-document retry path swallows failures with no log/state. **(medium)**
 - `mini-apps/explorer/hooks/useSelectedDocumentStructuralState.ts:167-183` — async IIFE with no try/catch (sibling hook wraps it).
-- `mini-apps/explorer/detail/ExplorerLinkedContainers.tsx:76-79, 115-118` — two bare `catch {}` set a generic error without logging.
+- `mini-apps/explorer/detail/document/ExplorerLinkedContainers.tsx:76-79, 115-118` — two bare `catch {}` set a generic error without logging.
 - `mini-apps/backup-restore/BackupRestoreController.ts:248-265` — `useRestoreFileSelection` reads `file.text()` with no cancellation; a fast second selection can restore content from a *different* file than the one displayed. Guard with an AbortController/selection token. **(medium)**
 - `providers/sdk/TearleadsProvider.tsx:330-332` — ws-ticket request IIFE lacks error handling (no leak; just silent failure). **(low)**
 - `mini-apps/contacts/hooks/useContactsModel.ts:269-288` — import failures logged but never surfaced to the UI (other mini-apps show `MiniAppStatus tone=error`).
