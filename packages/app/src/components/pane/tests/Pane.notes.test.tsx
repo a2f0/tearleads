@@ -157,10 +157,6 @@ test("notes app exposes note creation from the file menu", async () => {
 
   const notesWindow = await openNotes(view);
 
-  expect(
-    within(notesWindow).queryByRole("button", { name: "New Note" }),
-  ).toBeNull();
-
   fireEvent.click(within(notesWindow).getByText("File"));
   const newNoteItem = await within(notesWindow).findByRole("menuitem", {
     name: "New Note",
@@ -181,6 +177,39 @@ test("notes app exposes note creation from the file menu", async () => {
     expect(
       within(notesWindow).getByRole("button", {
         name: "file menu note",
+      }),
+    ).toBeTruthy();
+  });
+
+  view.unmount();
+});
+
+test("notes app exposes note creation from the window toolbar", async () => {
+  const view = renderPane();
+
+  await generateIdentityAndWaitForDb(view);
+
+  const notesWindow = await openNotes(view);
+
+  const newNoteButton = await within(notesWindow).findByRole("button", {
+    name: "New Note",
+  });
+  fireEvent.click(newNoteButton);
+
+  const editor = await within(notesWindow).findByRole("textbox", {
+    name: /Notes editor/,
+  });
+  invariant(editor instanceof HTMLTextAreaElement, "notes editor not found");
+
+  fireEvent.change(editor, {
+    target: { value: "toolbar note" },
+  });
+
+  await waitFor(() => {
+    expect(editor.value).toBe("toolbar note");
+    expect(
+      within(notesWindow).getByRole("button", {
+        name: "toolbar note",
       }),
     ).toBeTruthy();
   });
