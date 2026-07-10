@@ -72,6 +72,14 @@ export function getSelectedDocumentMutationState(params: {
       canMutateSelectedDocument && selectedDocumentLinkTargetOptions.length > 0,
     canMoveSelectedDocument:
       canMoveOrDeleteSelectedDocument &&
+      // Parity with Link: a structural relocation into containers needs a
+      // synced document. Delete/Purge deliberately stay available on
+      // never-synced local notes (they only need canMoveOrDeleteSelectedDocument),
+      // but Link requires a remote documentId — addDocumentLink no-ops without
+      // one — so a brand-new, unsynced note must present Link and Move with
+      // matching (both-disabled) state until its first sync assigns a
+      // documentId, rather than an active Move beside a greyed-out Link.
+      canActivateSelectedDocument &&
       selectedDocumentMoveTargetOptions.length > 0,
     canPurgeSelectedDocument:
       (canMutateSelectedDocument || canMutateUnsyncedSelectedDocument) &&
