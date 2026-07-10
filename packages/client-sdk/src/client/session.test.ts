@@ -174,6 +174,71 @@ describe("session", () => {
     }
   });
 
+  test("does not apply registration context after the identity changes", async () => {
+    const { close, execSql } = await createTestExecSql(
+      "session-register-identity-transition-test",
+    );
+    let switchIdentity = async () => undefined;
+    const api = createApi({
+      registerUser: async (
+        userId,
+        organizationId,
+        rootContainerId,
+        _signingPublicKey,
+        _encapsulationPublicKey,
+        _initialAdminGroup,
+        _initialMemberGroup,
+        _initialOrganizationPolicy,
+        _initialRootContainer,
+        initialRootMetadataDocument,
+      ) => {
+        const rootMetadataDocument = await createResponseFromRequest(
+          initialRootMetadataDocument,
+        );
+        await switchIdentity();
+        return {
+          challenge: "a".repeat(64),
+          organizationId,
+          rootContainerId,
+          rootMetadataAccessEpoch: 1,
+          rootMetadataAccessStateHash:
+            rootMetadataDocument.accessManifest.manifestHash,
+          rootMetadataDocument,
+          rootMetadataDocumentId: rootMetadataDocument.id,
+          userId,
+        };
+      },
+    });
+    const { identity, session } = createSessionHarness({
+      api,
+      database: new Database({
+        client: createSqlClient(execSql),
+        id: "registration-transition-test-db",
+      }),
+    });
+    const identityBContext = {
+      authToken: "identity-b-token",
+      containerId: "identity-b-container",
+      isAuthenticated: true,
+      organizationId: "identity-b-organization",
+      userId: "identity-b-user",
+    };
+
+    try {
+      await setGeneratedIdentity(identity);
+      session.setContainerId(crypto.randomUUID());
+      switchIdentity = async () => {
+        await setGeneratedIdentity(identity);
+        session.setContext(identityBContext);
+      };
+
+      await expect(session.registerIdentity()).resolves.toBeNull();
+      expect(session.snapshot).toEqual(identityBContext);
+    } finally {
+      close();
+    }
+  });
+
   test("registration logs workflow failures before propagating them", async () => {
     const { close, execSql } = await createTestExecSql(
       "session-register-identity-failure-test",
@@ -240,6 +305,38 @@ describe("session", () => {
     expect(session.isAuthenticated).toBe(true);
     expect(session.organizationId).toBe("org-1");
     expect(session.userId).toBe("user-1");
+  });
+
+  test("does not apply authentication context after the identity changes", async () => {
+    let switchIdentity = async () => undefined;
+    const api = createApi({
+      authenticate: async () => {
+        await switchIdentity();
+        return {
+          authenticated: true,
+          organizationId: "identity-a-organization",
+          token: "identity-a-token",
+          userId: "identity-a-user",
+        };
+      },
+    });
+    const { identity, session } = createSessionHarness({ api });
+    const identityBContext = {
+      authToken: "identity-b-token",
+      containerId: "identity-b-container",
+      isAuthenticated: true,
+      organizationId: "identity-b-organization",
+      userId: "identity-b-user",
+    };
+    await setGeneratedIdentity(identity);
+    switchIdentity = async () => {
+      await setGeneratedIdentity(identity);
+      session.setContext(identityBContext);
+    };
+
+    await expect(session.login()).resolves.toBe(false);
+    expect(session.snapshot).toEqual(identityBContext);
+    expect(api.getAuthToken()).toBe("identity-b-token");
   });
 
   test("login fails when authentication returns no token", async () => {

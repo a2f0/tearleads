@@ -5,6 +5,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { type MutableRefObject, useCallback } from "react";
+import { prepareForIdentityTransition } from "./identityRuntimeTransition";
 
 export function useGenerateKey(input: {
   readonly ensureIdentityDatabaseReady: (
@@ -46,6 +47,7 @@ export function useGenerateKey(input: {
         return false;
       }
 
+      prepareForIdentityTransition(tearleads);
       await tearleads.identity.setKeyPairs({
         encapsulationKeyPair,
         seedPhrase,
@@ -56,15 +58,12 @@ export function useGenerateKey(input: {
         return false;
       }
 
-      generationInFlight.current = false;
-      void persistLocalIdentity(
+      await persistLocalIdentity(
         () => generationIdRef.current === generationId,
-      ).catch((error: unknown) => {
-        tearleads.logError(
-          "Failed to persist local identity key package",
-          error,
-        );
-      });
+      );
+      if (generationIdRef.current !== generationId) {
+        return false;
+      }
 
       return true;
     } catch (error) {
@@ -72,12 +71,15 @@ export function useGenerateKey(input: {
         return false;
       }
 
-      generationInFlight.current = false;
       if (tearleads.identity.signingKeyPair) {
         tearleads.identity.destroy();
       }
       tearleads.logError("Failed to generate identity keys", error);
       return false;
+    } finally {
+      if (generationIdRef.current === generationId) {
+        generationInFlight.current = false;
+      }
     }
   }, [
     ensureIdentityDatabaseReady,

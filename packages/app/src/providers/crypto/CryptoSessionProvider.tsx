@@ -16,9 +16,8 @@ import { useLog } from "../logging/LogProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
 import { useTearleadsStoreSnapshot } from "../sdk/useTearleadsSubscription";
 import {
-  clearPersistedCryptoSession,
   type LocalCryptoSessionPersistence,
-  persistCryptoSession,
+  queueCryptoSessionPersistence,
   restorePersistedCryptoSession,
   useLocalCryptoSessionPersistence,
 } from "./localCryptoSessionPersistence";
@@ -269,12 +268,14 @@ function usePersistCryptoSession(input: {
       return;
     }
 
+    // A full empty context is used while locking or switching identities. Keep
+    // the prior per-identity record intact so returning to that identity can
+    // restore its session rather than treating the transition as a logout.
     if (!authToken && !containerId && !organizationId && !userId) {
-      clearPersistedCryptoSession(localPersistence);
       return;
     }
 
-    void persistCryptoSession({
+    void queueCryptoSessionPersistence({
       context: {
         authToken,
         containerId,
@@ -363,6 +364,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
     namespace: localKeyringLock.isLocked
       ? null
       : (hostConfig.localIdentityNamespace ?? null),
+    signingFingerprint,
   });
 
   useResetCryptoSession(

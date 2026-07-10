@@ -83,13 +83,14 @@ async function waitForRegisteredSession(
 async function waitForPersistedPaneCryptoSession(
   namespace: string,
 ): Promise<void> {
+  const prefix = `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}.left:`;
   await waitFor(
     () => {
       expect(
-        globalThis.localStorage.getItem(
-          `${LOCAL_CRYPTO_SESSION_STORAGE_PREFIX}${namespace}.left`,
-        ),
-      ).not.toBeNull();
+        Array.from({ length: globalThis.localStorage.length }, (_, index) =>
+          globalThis.localStorage.key(index),
+        ).some((key) => key?.startsWith(prefix)),
+      ).toBe(true);
     },
     { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
   );

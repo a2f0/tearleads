@@ -142,11 +142,11 @@ test("the shared runtime persists the local identity under a stable namespace", 
   // without needing the browser.
   const originalWebSocket = globalThis.WebSocket;
 
-  // LOCAL_IDENTITY_PACKAGE_STORAGE_PREFIX + the shared namespace (see
+  // LOCAL_IDENTITY_REGISTRY_STORAGE_PREFIX + the shared namespace (see
   // localIdentityPersistence.ts and Layout's
   // SHARED_RUNTIME_LOCAL_IDENTITY_NAMESPACE).
   const sharedIdentityStorageKey =
-    "tearleads.local-identity-key-package:tearleads.app";
+    "tearleads.local-identity-registry:tearleads.app";
 
   try {
     Reflect.set(globalThis, "WebSocket", SilentWebSocket);

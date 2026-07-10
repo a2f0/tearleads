@@ -11,6 +11,7 @@ export type IdentityBusyState =
   | "passkey-backup"
   | "passkey-restore"
   | "register"
+  | "transition"
   | null;
 
 export interface IdentityActionToolbarProps {
@@ -75,7 +76,9 @@ export function IdentityActionToolbar({
   return (
     <MiniAppToolbar wrap>
       {canGenerateKey && !hasSigningKeyPair && (
-        <MiniAppButton onClick={generateKey}>Generate Key Pair</MiniAppButton>
+        <MiniAppButton disabled={identityBusy !== null} onClick={generateKey}>
+          Generate Key Pair
+        </MiniAppButton>
       )}
       {canExportKeyPackage && (
         <MiniAppButton
@@ -145,7 +148,11 @@ export function IdentityActionToolbar({
         </MiniAppButton>
       )}
       {hasSigningKeyPair && (
-        <MiniAppButton variant="ghost" onClick={handleDestroyKeyPair}>
+        <MiniAppButton
+          disabled={identityBusy !== null}
+          variant="ghost"
+          onClick={handleDestroyKeyPair}
+        >
           Destroy Key Pair
         </MiniAppButton>
       )}

@@ -1,4 +1,3 @@
-import type { IdentityKeyPackage } from "@tearleads/client-sdk";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 
@@ -125,21 +124,4 @@ export async function decryptLocalIdentityPayload(input: {
   );
 
   return JSON.parse(TEXT_DECODER.decode(plaintext));
-}
-
-export function encryptLocalIdentityKeyPackage(input: {
-  readonly identityPersistenceKey: Uint8Array;
-  readonly keyPackage: IdentityKeyPackage;
-}): Promise<string> {
-  return encryptLocalIdentityPayload({
-    identityPersistenceKey: input.identityPersistenceKey,
-    payload: input.keyPackage,
-  });
-}
-
-export function decryptLocalIdentityKeyPackage(input: {
-  readonly identityPersistenceKey: Uint8Array;
-  readonly serializedEnvelope: string;
-}): Promise<unknown> {
-  return decryptLocalIdentityPayload(input);
 }

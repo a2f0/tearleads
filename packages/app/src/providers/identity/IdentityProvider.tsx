@@ -1,4 +1,7 @@
-import type { IdentityKeyPackage } from "@tearleads/client-sdk";
+import type {
+  IdentityKeyPackage,
+  IdentitySnapshot,
+} from "@tearleads/client-sdk";
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import {
   createContext,
@@ -8,7 +11,13 @@ import {
   useContext,
   useMemo,
   useRef,
+  useState,
 } from "react";
+import {
+  clearPersistedCryptoSessionForIdentity,
+  queueCryptoSessionPersistence,
+  useLocalCryptoSessionPersistence,
+} from "../crypto/localCryptoSessionPersistence";
 import { useDatabase } from "../db/DatabaseProvider";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
@@ -22,9 +31,16 @@ import {
   usePersistLocalIdentity,
   useRestoreKeyPackage,
 } from "./localIdentityPersistence";
+import type { LocalIdentitySummary } from "./localIdentityRegistry";
 import { useRestoreSeedPhrase } from "./localIdentitySeedPhraseRestore";
+import {
+  useCreateLocalIdentity,
+  useImportLocalIdentity,
+  useSwitchLocalIdentity,
+} from "./localIdentitySwitching";
 
 export interface IdentityContextValue {
+  createIdentity: () => Promise<boolean>;
   encapsulationKeyPair: EncapsulationKeyPair | null;
   destroyKey: () => void;
   exportKeyPackage: () => Promise<IdentityKeyPackage>;
@@ -36,6 +52,9 @@ export interface IdentityContextValue {
    * it resets on reload (a fresh boot auto-provisions again).
    */
   identityDestroyed: boolean;
+  identityTransitionInFlight: boolean;
+  localIdentities: readonly LocalIdentitySummary[];
+  localIdentitySwitchingAvailable: boolean;
   /**
    * Whether the initial attempt to restore a persisted local identity has
    * settled. `false` until the first restore finishes (or there is nothing to
@@ -49,11 +68,12 @@ export interface IdentityContextValue {
   seedPhrase: string | null;
   signingFingerprint: string | null;
   signingKeyPair: SigningKeyPair | null;
+  switchIdentity: (signingFingerprint: string) => Promise<boolean>;
 }
 
 const IdentityContext = createContext<IdentityContextValue | null>(null);
 
-function useIdentityProviderActions(input: {
+interface IdentityProviderActionsInput {
   readonly clearDatabase: () => void;
   readonly ensureIdentityDatabaseReady: (
     signingFingerprint: string,
@@ -61,18 +81,75 @@ function useIdentityProviderActions(input: {
   readonly generationIdRef: MutableRefObject<number>;
   readonly generationInFlight: MutableRefObject<boolean>;
   readonly localPersistence: ReturnType<typeof useLocalIdentityPersistence>;
+  readonly localIdentityNamespace: string | null;
+  readonly onIdentitiesChanged: (
+    identities: readonly LocalIdentitySummary[],
+  ) => void;
+  readonly persistSessionBeforeIdentityTransition: () => Promise<void>;
+  readonly setTransitionInFlight: (inFlight: boolean) => void;
   readonly tearleads: ReturnType<typeof useTearleads>;
-}) {
+  readonly transitionInFlightRef: MutableRefObject<boolean>;
+}
+
+function useLocalIdentitySwitcherActions(
+  input: IdentityProviderActionsInput & {
+    readonly generateKey: () => Promise<boolean>;
+  },
+) {
+  const switchIdentity = useSwitchLocalIdentity({
+    clearDatabase: input.clearDatabase,
+    ensureIdentityDatabaseReady: input.ensureIdentityDatabaseReady,
+    generationIdRef: input.generationIdRef,
+    generationInFlight: input.generationInFlight,
+    localPersistence: input.localPersistence,
+    onIdentitiesChanged: input.onIdentitiesChanged,
+    persistSessionBeforeIdentityTransition:
+      input.persistSessionBeforeIdentityTransition,
+    setTransitionInFlight: input.setTransitionInFlight,
+    tearleads: input.tearleads,
+    transitionInFlightRef: input.transitionInFlightRef,
+  });
+  const importIdentityPackage = useImportLocalIdentity({
+    clearDatabase: input.clearDatabase,
+    ensureIdentityDatabaseReady: input.ensureIdentityDatabaseReady,
+    generationIdRef: input.generationIdRef,
+    generationInFlight: input.generationInFlight,
+    localPersistence: input.localPersistence,
+    onIdentitiesChanged: input.onIdentitiesChanged,
+    persistSessionBeforeIdentityTransition:
+      input.persistSessionBeforeIdentityTransition,
+    setTransitionInFlight: input.setTransitionInFlight,
+    tearleads: input.tearleads,
+    transitionInFlightRef: input.transitionInFlightRef,
+  });
+  const createIdentity = useCreateLocalIdentity({
+    clearDatabase: input.clearDatabase,
+    generateKey: input.generateKey,
+    generationInFlight: input.generationInFlight,
+    persistSessionBeforeIdentityTransition:
+      input.persistSessionBeforeIdentityTransition,
+    setTransitionInFlight: input.setTransitionInFlight,
+    switchIdentity,
+    tearleads: input.tearleads,
+    transitionInFlightRef: input.transitionInFlightRef,
+  });
+  return { createIdentity, importIdentityPackage, switchIdentity };
+}
+
+function useIdentityProviderActions(input: IdentityProviderActionsInput) {
   const {
     clearDatabase,
     ensureIdentityDatabaseReady,
     generationIdRef,
     generationInFlight,
     localPersistence,
+    localIdentityNamespace,
+    onIdentitiesChanged,
     tearleads,
   } = input;
   const persistLocalIdentity = usePersistLocalIdentity(
     localPersistence,
+    onIdentitiesChanged,
     tearleads,
   );
   const generateKey = useGenerateKey({
@@ -87,6 +164,12 @@ function useIdentityProviderActions(input: {
     generationIdRef,
     generationInFlight,
     localPersistence,
+    onIdentitiesChanged,
+    onIdentityRemoved: (signingFingerprint) =>
+      clearPersistedCryptoSessionForIdentity({
+        namespace: localIdentityNamespace,
+        signingFingerprint,
+      }),
     tearleads,
   });
 
@@ -94,28 +177,71 @@ function useIdentityProviderActions(input: {
     () => tearleads.identity.exportKeyPackage(),
     [tearleads],
   );
-  const restoreKeyPackage = useRestoreKeyPackage({
-    generationIdRef,
-    generationInFlight,
-    persistLocalIdentity,
-    tearleads,
-  });
-  const restoreSeedPhrase = useRestoreSeedPhrase({
-    ensureIdentityDatabaseReady,
-    generationIdRef,
-    generationInFlight,
-    persistLocalIdentity,
-    tearleads,
-  });
+  const { createIdentity, importIdentityPackage, switchIdentity } =
+    useLocalIdentitySwitcherActions({ ...input, generateKey });
+  const restoreKeyPackage = useRestoreKeyPackage({ importIdentityPackage });
+  const restoreSeedPhrase = useRestoreSeedPhrase({ restoreKeyPackage });
 
   return {
+    createIdentity,
     destroyKey,
     exportKeyPackage,
     generateKey,
     identityDestroyed,
     restoreKeyPackage,
     restoreSeedPhrase,
+    switchIdentity,
   };
+}
+
+function useIdentityContextValue(input: {
+  readonly identityActions: ReturnType<typeof useIdentityProviderActions>;
+  readonly identityTransitionInFlight: boolean;
+  readonly localIdentities: readonly LocalIdentitySummary[];
+  readonly localIdentityRestoreSettled: boolean;
+  readonly localIdentityRestoredFingerprint: string | null;
+  readonly localPersistence: ReturnType<typeof useLocalIdentityPersistence>;
+  readonly snapshot: IdentitySnapshot;
+}): IdentityContextValue {
+  const {
+    identityActions,
+    identityTransitionInFlight,
+    localIdentities,
+    localIdentityRestoreSettled,
+    localIdentityRestoredFingerprint,
+    localPersistence,
+    snapshot,
+  } = input;
+  return useMemo(
+    () => ({
+      createIdentity: identityActions.createIdentity,
+      encapsulationKeyPair: snapshot.encapsulationKeyPair,
+      destroyKey: identityActions.destroyKey,
+      exportKeyPackage: identityActions.exportKeyPackage,
+      generateKey: identityActions.generateKey,
+      identityDestroyed: identityActions.identityDestroyed,
+      identityTransitionInFlight,
+      localIdentities,
+      localIdentityRestoreSettled,
+      localIdentityRestoredFingerprint,
+      localIdentitySwitchingAvailable: localPersistence !== null,
+      restoreKeyPackage: identityActions.restoreKeyPackage,
+      restoreSeedPhrase: identityActions.restoreSeedPhrase,
+      seedPhrase: snapshot.seedPhrase,
+      signingFingerprint: snapshot.signingFingerprint,
+      signingKeyPair: snapshot.signingKeyPair,
+      switchIdentity: identityActions.switchIdentity,
+    }),
+    [
+      identityActions,
+      identityTransitionInFlight,
+      localIdentities,
+      localIdentityRestoreSettled,
+      localIdentityRestoredFingerprint,
+      localPersistence,
+      snapshot,
+    ],
+  );
 }
 
 export function IdentityProvider({ children }: PropsWithChildren) {
@@ -128,6 +254,9 @@ export function IdentityProvider({ children }: PropsWithChildren) {
   const localKeyringLock = useLocalKeyringLock();
   const generationInFlight = useRef(false);
   const generationIdRef = useRef(0);
+  const transitionInFlightRef = useRef(false);
+  const [identityTransitionInFlight, setIdentityTransitionInFlight] =
+    useState(false);
   const snapshot = useTearleadsStoreSnapshot(tearleads.identity);
   const localPersistence = useLocalIdentityPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,
@@ -135,14 +264,43 @@ export function IdentityProvider({ children }: PropsWithChildren) {
       ? null
       : (hostConfig.localIdentityNamespace ?? null),
   });
+  const localSessionPersistence = useLocalCryptoSessionPersistence({
+    createLocalKeyring: localKeyringLock.createLocalKeyring,
+    namespace: localKeyringLock.isLocked
+      ? null
+      : (hostConfig.localIdentityNamespace ?? null),
+    signingFingerprint: snapshot.signingFingerprint,
+  });
+  const persistSessionBeforeIdentityTransition = useCallback(async () => {
+    const signingFingerprint = tearleads.identity.signingFingerprint;
+    if (
+      !signingFingerprint ||
+      signingFingerprint !== snapshot.signingFingerprint ||
+      !localSessionPersistence
+    ) {
+      return;
+    }
+    while (tearleads.identity.signingFingerprint === signingFingerprint) {
+      const sessionSnapshot = tearleads.session.snapshot;
+      await queueCryptoSessionPersistence({
+        context: { ...sessionSnapshot },
+        localPersistence: localSessionPersistence,
+        signingFingerprint,
+      });
+      if (tearleads.session.snapshot === sessionSnapshot) {
+        return;
+      }
+    }
+  }, [localSessionPersistence, snapshot.signingFingerprint, tearleads]);
   const {
+    identities: localIdentities,
     restoredFingerprint: localIdentityRestoredFingerprint,
     restoreSettled: localIdentityRestoreSettled,
+    setIdentities,
   } = useLocalIdentityRestore({
     generationIdRef,
     generationInFlight,
     localPersistence,
-    signingKeyPair: snapshot.signingKeyPair,
     tearleads,
   });
   const identityActions = useIdentityProviderActions({
@@ -151,39 +309,23 @@ export function IdentityProvider({ children }: PropsWithChildren) {
     generationIdRef,
     generationInFlight,
     localPersistence,
+    localIdentityNamespace: hostConfig.localIdentityNamespace ?? null,
+    onIdentitiesChanged: setIdentities,
+    persistSessionBeforeIdentityTransition,
+    setTransitionInFlight: setIdentityTransitionInFlight,
     tearleads,
+    transitionInFlightRef,
   });
 
-  const value = useMemo(
-    () => ({
-      encapsulationKeyPair: snapshot.encapsulationKeyPair,
-      destroyKey: identityActions.destroyKey,
-      exportKeyPackage: identityActions.exportKeyPackage,
-      generateKey: identityActions.generateKey,
-      identityDestroyed: identityActions.identityDestroyed,
-      localIdentityRestoreSettled,
-      localIdentityRestoredFingerprint,
-      restoreKeyPackage: identityActions.restoreKeyPackage,
-      restoreSeedPhrase: identityActions.restoreSeedPhrase,
-      seedPhrase: snapshot.seedPhrase,
-      signingFingerprint: snapshot.signingFingerprint,
-      signingKeyPair: snapshot.signingKeyPair,
-    }),
-    [
-      identityActions.destroyKey,
-      identityActions.exportKeyPackage,
-      identityActions.generateKey,
-      identityActions.identityDestroyed,
-      identityActions.restoreKeyPackage,
-      identityActions.restoreSeedPhrase,
-      localIdentityRestoreSettled,
-      localIdentityRestoredFingerprint,
-      snapshot.encapsulationKeyPair,
-      snapshot.seedPhrase,
-      snapshot.signingFingerprint,
-      snapshot.signingKeyPair,
-    ],
-  );
+  const value = useIdentityContextValue({
+    identityActions,
+    identityTransitionInFlight,
+    localIdentities,
+    localIdentityRestoreSettled,
+    localIdentityRestoredFingerprint,
+    localPersistence,
+    snapshot,
+  });
 
   return (
     <IdentityContext.Provider value={value}>
