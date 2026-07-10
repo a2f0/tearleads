@@ -33,7 +33,7 @@ import { ExplorerContainerInfoPanel } from "./container/ExplorerContainerInfoPan
 import { ExplorerDocumentDetail } from "./document/ExplorerDocumentDetail";
 import { ExplorerDocumentInfoPanel } from "./document/ExplorerDocumentInfoPanel";
 import { ExplorerNewStructuredDocumentPanel } from "./document/ExplorerNewStructuredDocumentPanel";
-import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
+import { ExplorerSectionsPanel } from "./ExplorerSectionsPanel";
 
 function ExplorerEmptyDetail(params: {
   nodes: ReadonlyArray<ContainerNode>;
@@ -217,7 +217,9 @@ export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
 function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
   const { route, selectedDocument, selectedNode } = params;
 
-  if (route.view === "blob-browser") {
+  // A blob pick in flight (a document's "Choose Blob" flow routed here) keeps the
+  // focused bare Blob Browser — no hub tabs to wander off into mid-pick.
+  if (route.view === "blob-browser" && params.blobPickTarget !== null) {
     return (
       <ExplorerBlobBrowserPanel
         blobStore={params.blobStore}
@@ -236,26 +238,30 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     );
   }
 
-  if (route.view === "sync-lanes") {
+  // The Sync toolbar action and its blob/sync deep links render the full-screen
+  // Sync Lanes / Blob Browser hub in the main pane (the folder tree stays in the
+  // sidebar so a container is always one click away).
+  if (
+    route.view === "sync-lanes" ||
+    route.view === "sync-lane-detail" ||
+    route.view === "blob-browser"
+  ) {
     return (
-      <ExplorerSyncLanesPanel
+      <ExplorerSectionsPanel
+        blobPickTarget={params.blobPickTarget}
+        blobStore={params.blobStore}
         domainScope={params.domainScope}
-        onBackToSelectionRoute={params.onBackToSelectionRoute}
-        onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
-        onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
-        selectedLaneKey={null}
-      />
-    );
-  }
-
-  if (route.view === "sync-lane-detail") {
-    return (
-      <ExplorerSyncLanesPanel
-        domainScope={params.domainScope}
-        onBackToSelectionRoute={params.onBackToSelectionRoute}
-        onBackToSyncLanesRoute={params.onBackToSyncLanesRoute}
-        onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
-        selectedLaneKey={route.laneKey}
+        loadBlobInfo={params.loadBlobInfo}
+        nodes={params.nodes}
+        onCancelBlobPick={params.onCancelBlobPick}
+        onOpenSyncLaneDetailRoute={params.onOpenSyncLaneDetailRoute}
+        onPickBlob={params.onPickBlob}
+        online={params.online}
+        openBlobBrowserRoute={params.openBlobBrowserRoute}
+        openDocumentInfoRoute={params.openDocumentInfoRoute}
+        openSyncLanesRoute={params.onBackToSyncLanesRoute}
+        route={route}
+        selectDocumentProjection={params.selectDocumentProjection}
       />
     );
   }

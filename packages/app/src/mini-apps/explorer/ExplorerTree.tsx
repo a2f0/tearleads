@@ -14,7 +14,6 @@ import {
   MiniAppStatus,
 } from "../../components/shared/MiniAppLayout";
 import { useRegisteredWindowSidebar } from "../../components/window/WindowSidebarContext";
-import { useCompactRoutedMode } from "../../navigation/useCompactRoutedMode";
 import { ExplorerDatabaseErrorStatus } from "./ExplorerDatabaseErrorStatus";
 import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
 import {
@@ -244,12 +243,11 @@ export function useExplorerSidebarPanel(params: ExplorerSidebarPanelParams) {
     ],
   );
 
-  // Routed mobile uses a compact Sync Lanes / Blob Browser sidebar registered
-  // from the detail layer, so skip the folder tree there.
-  const compact = useCompactRoutedMode();
-
+  // Explorer's sidebar is always the folder tree, in every layout. The Sync
+  // Lanes / Blob Browser hub lives full-screen in the main pane (opened from the
+  // Sync toolbar action), not in the sidebar.
   useRegisteredWindowSidebar({
-    enabled: !compact,
+    enabled: true,
     setSidebar: params.setSidebar,
     sidebar,
   });

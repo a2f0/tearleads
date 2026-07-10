@@ -305,26 +305,20 @@
   gap: var(--space-sm);
 }
 
-/* Compact (mobile) sidebar hub: a tab strip over the Sync Lanes / Blob Browser
-   panels. The hub takes the sidebar height so the active panel can scroll. */
-.explorer-compact-sidebar {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.explorer-compact-tabs-hub {
+/* Full-screen Sync Lanes / Blob Browser hub: a tab strip over the two panels.
+   The hub fills the main pane height so the active panel can scroll. */
+.explorer-sections-hub {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
 }
 
-.explorer-compact-tabs {
+.explorer-sections-tabs {
   flex: 0 0 auto;
 }
 
-.explorer-compact-tab-panel {
+.explorer-sections-tab-panel {
   display: flex;
   flex: 1;
   flex-direction: column;

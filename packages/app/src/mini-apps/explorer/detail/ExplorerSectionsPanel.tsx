@@ -18,10 +18,10 @@ import type { ExplorerRoute } from "../routes";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
 import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
 
-type ExplorerCompactTabId = "sync" | "blobs";
+type ExplorerSectionTabId = "sync" | "blobs";
 
-const EXPLORER_COMPACT_TABS: ReadonlyArray<{
-  id: ExplorerCompactTabId;
+const EXPLORER_SECTION_TABS: ReadonlyArray<{
+  id: ExplorerSectionTabId;
   label: string;
 }> = [
   { id: "sync", label: EXPLORER_LABELS.syncLanesAction },
@@ -30,19 +30,19 @@ const EXPLORER_COMPACT_TABS: ReadonlyArray<{
 
 // Roving tabindex per the WAI-ARIA tab pattern (mirrors SystemMonitorTabs): only
 // the active tab is in the tab order; arrow/Home/End move focus and selection.
-function ExplorerCompactTabBar({
+function ExplorerSectionTabBar({
   activeTab,
   idPrefix,
   onSelect,
 }: {
-  activeTab: ExplorerCompactTabId;
+  activeTab: ExplorerSectionTabId;
   idPrefix: string;
-  onSelect: (tab: ExplorerCompactTabId) => void;
+  onSelect: (tab: ExplorerSectionTabId) => void;
 }) {
   const handleTabKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-      const lastIndex = EXPLORER_COMPACT_TABS.length - 1;
-      const currentIndex = EXPLORER_COMPACT_TABS.findIndex(
+      const lastIndex = EXPLORER_SECTION_TABS.length - 1;
+      const currentIndex = EXPLORER_SECTION_TABS.findIndex(
         (tab) => tab.id === activeTab,
       );
       let nextIndex: number;
@@ -64,7 +64,7 @@ function ExplorerCompactTabBar({
         default:
           return;
       }
-      const nextTab = EXPLORER_COMPACT_TABS[nextIndex];
+      const nextTab = EXPLORER_SECTION_TABS[nextIndex];
       if (!nextTab) {
         return;
       }
@@ -78,10 +78,10 @@ function ExplorerCompactTabBar({
   return (
     <div
       aria-label={EXPLORER_LABELS.compactSectionsTabsLabel}
-      className="explorer-info-tabs explorer-compact-tabs"
+      className="explorer-info-tabs explorer-sections-tabs"
       role="tablist"
     >
-      {EXPLORER_COMPACT_TABS.map((tab) => (
+      {EXPLORER_SECTION_TABS.map((tab) => (
         <MiniAppButton
           aria-controls={`${idPrefix}-${tab.id}-panel`}
           aria-selected={activeTab === tab.id}
@@ -103,7 +103,7 @@ function ExplorerCompactTabBar({
   );
 }
 
-interface ExplorerCompactTabsProps {
+interface ExplorerSectionsPanelProps {
   route: ExplorerRoute;
   domainScope: DomainScope;
   onOpenSyncLaneDetailRoute: (laneKey: string) => void;
@@ -124,19 +124,21 @@ interface ExplorerCompactTabsProps {
 }
 
 /**
- * The compact (mobile) sidebar view for Explorer: a two-tab hub over the
- * existing Sync Lanes and Blob Browser panels. The active tab is derived from
- * the route (`blob-browser` -> Blob Browser, otherwise Sync Lanes), and tapping
- * a tab navigates the route so deep links and the back button keep working.
+ * The full-screen Sync Lanes / Blob Browser hub: a two-tab view over the
+ * existing Sync Lanes and Blob Browser panels, rendered in Explorer's main pane
+ * when the Sync toolbar action opens the sync/blob route family. The active tab
+ * is derived from the route (`blob-browser` -> Blob Browser, otherwise Sync
+ * Lanes), and tapping a tab navigates the route so deep links and the back
+ * button keep working.
  */
-export function ExplorerCompactTabs(params: ExplorerCompactTabsProps) {
+export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
   const idPrefix = useId();
   const { openBlobBrowserRoute, openSyncLanesRoute, route } = params;
-  const activeTab: ExplorerCompactTabId =
+  const activeTab: ExplorerSectionTabId =
     route.view === "blob-browser" ? "blobs" : "sync";
 
   const selectTab = useCallback(
-    (tab: ExplorerCompactTabId) => {
+    (tab: ExplorerSectionTabId) => {
       if (tab === "blobs") {
         openBlobBrowserRoute();
         return;
@@ -147,15 +149,15 @@ export function ExplorerCompactTabs(params: ExplorerCompactTabsProps) {
   );
 
   return (
-    <div className="explorer-compact-tabs-hub">
-      <ExplorerCompactTabBar
+    <div className="explorer-sections-hub">
+      <ExplorerSectionTabBar
         activeTab={activeTab}
         idPrefix={idPrefix}
         onSelect={selectTab}
       />
       <div
         aria-labelledby={`${idPrefix}-${activeTab}-tab`}
-        className="explorer-compact-tab-panel"
+        className="explorer-sections-tab-panel"
         id={`${idPrefix}-${activeTab}-panel`}
         role="tabpanel"
       >

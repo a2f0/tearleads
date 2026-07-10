@@ -314,6 +314,7 @@ export const EXPLORER_LABELS = {
   syncLanesTitle: "Sync Lanes",
   syncLanesUploadPartOne: "part",
   syncLanesUploadPartOther: "parts",
+  syncSectionsAction: "Sync",
   syncStateBlobCountOne: "blob",
   syncStateBlobCountOther: "blobs",
   syncStateError: "Error",

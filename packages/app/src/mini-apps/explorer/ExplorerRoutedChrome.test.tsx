@@ -403,3 +403,30 @@ test("document-info back action returns to the document projection", async () =>
 
   expect(selectedDocuments).toEqual([["you-contact", "contacts-container"]]);
 });
+
+test("the Sync toolbar action opens the Sync Lanes / Blob Browser hub", async () => {
+  const openedSyncLanes: number[] = [];
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          routeState: {
+            ...baseModel.routeState,
+            openSyncLanesRoute: () => openedSyncLanes.push(1),
+          },
+        })}
+      />
+    </WindowMenuProvider>,
+  );
+
+  // The Sync action is a persistent entry point: it registers on every route,
+  // independent of any container/document selection.
+  const syncButton = await view.findByRole("button", {
+    name: EXPLORER_LABELS.syncSectionsAction,
+  });
+
+  fireEvent.click(syncButton);
+
+  expect(openedSyncLanes).toEqual([1]);
+});
