@@ -60,6 +60,14 @@
      --border-strong shorthand that consumes it lives in the Borders section. */
   --border-strong-color: var(--color-dark);
 
+  /* Color of the default `--border` (grid lines, table/cell rules, toolbar
+     dividers, control outlines). Themeable, same pattern as
+     --border-strong-color above: Light draws the classic crisp hairline that
+     matches the text (currentColor), while Dark tones it down to a muted grey
+     (see the Dark block) so the near-white foreground doesn't turn every
+     gridline and divider into a glaring white line. */
+  --border-color: currentColor;
+
   /* Emphasis surface — the fill/text for selected, active, hovered, primary,
      and checked affordances (selected rows, the active menu, primary buttons,
      the column-menu checkbox, …). It is deliberately NOT the raw --color-dark /
@@ -121,7 +129,10 @@
 
   /* === Borders === */
   --border-width: 1px;
-  --border: var(--border-width) solid currentColor;
+  /* Theme-independent shorthand; its color comes from the themeable
+     --border-color in the THEME TOKENS section above (currentColor in Light,
+     a muted grey in Dark). */
+  --border: var(--border-width) solid var(--border-color);
   /* Theme-independent shorthand; its color comes from the themeable
      --border-strong-color in the THEME TOKENS section above. */
   --border-strong: var(--border-width) solid var(--border-strong-color);
@@ -212,6 +223,15 @@
   --tearleads-window-titlebar-background: #303030;
   --tearleads-window-titlebar-text: #e5e5e5;
   --border-strong-color: #3b3b3b;
+
+  /* Default borders (table/grid lines, toolbar & menu dividers, control
+     outlines) tone down to a muted grey. In Light these are `currentColor` — a
+     crisp hairline matching the near-black text — but with the near-white dark
+     foreground that same currentColor rule paints a glaring white line under
+     the menu bar and a bright grid across tables. Keep it a muted mix of the
+     foreground so gridlines and dividers still read as structure without
+     shouting. */
+  --border-color: color-mix(in srgb, var(--color-dark) 22%, transparent);
 
   /* Emphasis (selected / active / primary / checked). A calm neutral-grey chip
      that sits a step above the muted bars with crisp — but not blinding — text,
