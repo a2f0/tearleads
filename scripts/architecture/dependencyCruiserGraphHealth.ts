@@ -26,22 +26,23 @@ interface DependencyCruiserGraph {
 }
 
 export function findDependencyCruiserGraphHealthViolations(
-  graph: DependencyCruiserGraph,
+  graph: DependencyCruiserGraph | null | undefined,
   expectedSourcePaths: readonly string[],
 ): string[] {
+  if (!graph || !Array.isArray(graph.modules)) {
+    return ["dependency-cruiser returned an invalid or empty graph"];
+  }
+
+  const modules: readonly GraphModule[] = graph.modules;
   const violations: string[] = [];
 
   for (const sourcePath of expectedSourcePaths) {
-    if (
-      !graph.modules.some((module) =>
-        module.source.startsWith(`${sourcePath}/`),
-      )
-    ) {
+    if (!modules.some((module) => module.source.startsWith(`${sourcePath}/`))) {
       violations.push(`${sourcePath}: no modules were cruised`);
     }
   }
 
-  const npmSentinelFound = graph.modules.some(
+  const npmSentinelFound = modules.some(
     (module) =>
       module.source === knownNpmEdge.source &&
       module.dependencies.some(
@@ -57,7 +58,7 @@ export function findDependencyCruiserGraphHealthViolations(
     );
   }
 
-  const workspaceSentinelFound = graph.modules.some(
+  const workspaceSentinelFound = modules.some(
     (module) =>
       module.source === knownWorkspaceEdge.source &&
       module.dependencies.some(
@@ -72,7 +73,7 @@ export function findDependencyCruiserGraphHealthViolations(
     );
   }
 
-  const clientSdkBuildModule = graph.modules.find((module) =>
+  const clientSdkBuildModule = modules.find((module) =>
     module.source.startsWith("packages/client-sdk/dist/"),
   );
   if (clientSdkBuildModule) {

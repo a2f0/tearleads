@@ -33,6 +33,14 @@ const healthyGraph = {
 };
 
 describe("findDependencyCruiserGraphHealthViolations", () => {
+  test("rejects an invalid graph result", () => {
+    expect(
+      findDependencyCruiserGraphHealthViolations(undefined, [
+        "packages/crypto/src",
+      ]),
+    ).toEqual(["dependency-cruiser returned an invalid or empty graph"]);
+  });
+
   test("accepts complete source, npm, and workspace coverage", () => {
     expect(
       findDependencyCruiserGraphHealthViolations(healthyGraph, [

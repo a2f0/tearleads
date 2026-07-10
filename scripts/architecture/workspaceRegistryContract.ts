@@ -18,7 +18,9 @@ interface PackageJsonShape {
 }
 
 interface TsConfigShape {
-  readonly references?: ReadonlyArray<{ readonly path?: unknown }>;
+  readonly references?: ReadonlyArray<
+    { readonly path?: unknown } | null | undefined
+  >;
 }
 
 export interface WorkspaceRegistryViolation {
@@ -33,8 +35,17 @@ const intentionallyUnownedTypeScriptFiles = new Map([
   ],
 ]);
 
-function parseJson<T>(source: string): T {
-  return JSON.parse(source) as T;
+function parseJson<T>(source: string): T | undefined {
+  try {
+    const parsed: unknown = JSON.parse(source);
+    return typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+      ? (parsed as T)
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function sortedUnique(values: readonly string[]): string[] {
@@ -101,6 +112,7 @@ async function packageWorkspacePaths(): Promise<{
   );
 
   if (
+    !packageJson ||
     !Array.isArray(packageJson.workspaces) ||
     !packageJson.workspaces.every((value) => typeof value === "string")
   ) {
@@ -137,8 +149,8 @@ async function tsconfigWorkspacePaths(): Promise<{
   const tsconfig = parseJson<TsConfigShape>(
     await readFile("tsconfig.json", "utf8"),
   );
-  const referencePaths = tsconfig.references?.map(
-    (reference) => reference.path,
+  const referencePaths = tsconfig?.references?.map(
+    (reference) => reference?.path,
   );
 
   if (
@@ -192,11 +204,11 @@ async function packageManifestViolations(): Promise<
       const manifest = parseJson<PackageJsonShape>(
         await readFile(manifestPath, "utf8"),
       );
-      return manifest.name === workspace.packageName
+      return manifest?.name === workspace.packageName
         ? []
         : [
             {
-              detail: `name must be ${JSON.stringify(workspace.packageName)}, received ${JSON.stringify(manifest.name)}`,
+              detail: `name must be ${JSON.stringify(workspace.packageName)}, received ${JSON.stringify(manifest?.name)}`,
               surface: manifestPath,
             },
           ];
@@ -216,9 +228,10 @@ function referencedTsconfigPaths(): string[] {
     return [];
   }
 
-  const references = (configFile.config as TsConfigShape).references ?? [];
+  const references =
+    (configFile.config as TsConfigShape | null | undefined)?.references ?? [];
   return references.flatMap((reference) => {
-    if (typeof reference.path !== "string") {
+    if (typeof reference?.path !== "string") {
       return [];
     }
 
