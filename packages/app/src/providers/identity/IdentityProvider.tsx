@@ -133,7 +133,10 @@ function useLocalIdentitySwitcherActions(
     tearleads: input.tearleads,
     transitionInFlightRef: input.transitionInFlightRef,
   });
-  return { createIdentity, importIdentityPackage, switchIdentity };
+  return useMemo(
+    () => ({ createIdentity, importIdentityPackage, switchIdentity }),
+    [createIdentity, importIdentityPackage, switchIdentity],
+  );
 }
 
 function useIdentityProviderActions(input: IdentityProviderActionsInput) {
@@ -182,16 +185,28 @@ function useIdentityProviderActions(input: IdentityProviderActionsInput) {
   const restoreKeyPackage = useRestoreKeyPackage({ importIdentityPackage });
   const restoreSeedPhrase = useRestoreSeedPhrase({ restoreKeyPackage });
 
-  return {
-    createIdentity,
-    destroyKey,
-    exportKeyPackage,
-    generateKey,
-    identityDestroyed,
-    restoreKeyPackage,
-    restoreSeedPhrase,
-    switchIdentity,
-  };
+  return useMemo(
+    () => ({
+      createIdentity,
+      destroyKey,
+      exportKeyPackage,
+      generateKey,
+      identityDestroyed,
+      restoreKeyPackage,
+      restoreSeedPhrase,
+      switchIdentity,
+    }),
+    [
+      createIdentity,
+      destroyKey,
+      exportKeyPackage,
+      generateKey,
+      identityDestroyed,
+      restoreKeyPackage,
+      restoreSeedPhrase,
+      switchIdentity,
+    ],
+  );
 }
 
 function useIdentityContextValue(input: {

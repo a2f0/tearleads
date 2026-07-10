@@ -74,7 +74,9 @@ export function IdentitySwitcher({
         value={switcher.activeIdentityId ?? ""}
       />
       {switcher.error && (
-        <MiniAppStatus tone="error">{switcher.error}</MiniAppStatus>
+        <MiniAppStatus role="alert" tone="error">
+          {switcher.error}
+        </MiniAppStatus>
       )}
     </div>
   );
